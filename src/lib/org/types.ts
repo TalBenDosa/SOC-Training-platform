@@ -55,6 +55,8 @@ export interface OrgSummary extends Organization {
   seats_used: number;
   /** Convenience flag: is the license currently valid? */
   active: boolean;
+  /** A white-label logo is stored (served by /api/brand/logo; the list omits the image itself). */
+  has_logo?: boolean;
 }
 
 export interface OrgMember {

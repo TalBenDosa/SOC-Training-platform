@@ -184,8 +184,11 @@ export default function SuperAdminPage() {
                     <Card className="w-full">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-2.5">
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-bg">
-                            <Building2 className="h-4.5 w-4.5 text-cyber-300" />
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-bg">
+                            {o.has_logo
+                              // eslint-disable-next-line @next/next/no-img-element -- same-origin logo route
+                              ? <img src={`/api/brand/logo?org=${o.id}`} alt="" className="h-full w-full object-contain p-0.5" />
+                              : <Building2 className="h-4.5 w-4.5 text-cyber-300" />}
                           </span>
                           <div className="min-w-0">
                             <p className="truncate text-sm font-bold text-white"><bdi>{o.name}</bdi></p>

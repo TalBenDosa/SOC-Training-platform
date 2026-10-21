@@ -8,7 +8,7 @@ export function Logo({ className, size = "md" }: { className?: string; size?: "s
 
   // White label (src/lib/brand): the organization's own logo and name, never the platform's.
   if (brand.whiteLabel) {
-    const img = size === "lg" ? "h-10" : size === "sm" ? "h-6" : "h-8";
+    const img = size === "lg" ? "h-14" : size === "sm" ? "h-8" : "h-11";
     return (
       <div className={cn("flex min-w-0 items-center gap-2.5 font-bold", className)}>
         {brand.logoSrc && (

@@ -58,11 +58,17 @@ export async function GET() {
     return NextResponse.json({ error: "Couldn't count seats — please try again." }, { status: 500 });
   }
 
-  const summaries: OrgSummary[] = (orgs ?? []).map(o => ({
-    ...o,
-    seats_used: seatByOrg.get(o.id) ?? 0,
-    active: isActive(o.status, o.expires_at),
-  }));
+  const summaries: OrgSummary[] = (orgs ?? []).map(o => {
+    // The uploaded white-label logo is served by /api/brand/logo; the list only says it exists.
+    const { logo_data, ...branding } = (o.branding ?? {}) as Record<string, unknown>;
+    return {
+      ...o,
+      branding,
+      has_logo: branding.white_label === true && typeof logo_data === "string" && logo_data.length > 0,
+      seats_used: seatByOrg.get(o.id) ?? 0,
+      active: isActive(o.status, o.expires_at),
+    };
+  });
   // Platform-wide LLM spend (migration 0024). Surfaced here because this is the
   // only console that sees across tenants — before this, real dollar spend was
   // invisible until the provider's bill arrived.

@@ -414,24 +414,25 @@ export default function OrgDetailPage() {
                       <label className={label} htmlFor="wl-name">Product name</label>
                       <input id="wl-name" className={field} value={wlName} maxLength={60} onChange={e => setWlName(e.target.value)} placeholder={org?.name ?? "College SOC Academy"} />
                     </div>
-                    <div className="sm:col-span-2 rounded-md border border-cyber-500/30 bg-cyber-500/[0.05] px-3 py-2 text-xs text-slate-300">
-                      {subdomainOrigin(org?.slug) ? (
-                        <>Address, works as soon as you save: <span className="font-mono text-cyber-200">{subdomainOrigin(org?.slug)}</span></>
-                      ) : (
-                        <>No automatic address yet: set NEXT_PUBLIC_WL_BASE_DOMAIN once (docs/WHITE-LABEL.md). Until then use an own domain below.</>
-                      )}
-                    </div>
+                    {/* The address learners open: the org's own domain, else its automatic one (if set up). */}
+                    {(wlDomain.trim() ? `https://${wlDomain.trim()}` : subdomainOrigin(org?.slug)) && (
+                      <div className="sm:col-span-2 rounded-md border border-cyber-500/30 bg-cyber-500/[0.05] px-3 py-2 text-xs text-slate-300">
+                        Learners open: <span className="font-mono text-cyber-200">{wlDomain.trim() ? `https://${wlDomain.trim()}` : subdomainOrigin(org?.slug)}</span>
+                      </div>
+                    )}
                     <div>
-                      <label className={label} htmlFor="wl-domain">Own domain <span className="font-normal">(optional)</span></label>
+                      <label className={label} htmlFor="wl-domain">Domain</label>
                       <input id="wl-domain" className={field} value={wlDomain} onChange={e => setWlDomain(e.target.value)} placeholder="soc.college.ac.il" />
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-500">A new domain also needs to be added in Vercel, and the customer adds the DNS record Vercel shows.</p>
                     </div>
                     <div>
                       <label className={label} htmlFor="wl-support">Support email <span className="font-normal">(shown to learners)</span></label>
                       <input id="wl-support" type="email" className={field} value={wlSupport} onChange={e => setWlSupport(e.target.value)} placeholder="soc-support@college.ac.il" />
                     </div>
                     <div>
-                      <label className={label} htmlFor="wl-from">Email sender <span className="font-normal">(domain must be verified in Resend)</span></label>
+                      <label className={label} htmlFor="wl-from">Email sender <span className="font-normal">(optional)</span></label>
                       <input id="wl-from" className={field} value={wlFrom} onChange={e => setWlFrom(e.target.value)} placeholder="College SOC <noreply@college.ac.il>" />
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-500">Leave empty: emails go out under the product name. Fill only once the customer&apos;s domain is set up for sending.</p>
                     </div>
                     <div className="sm:col-span-2">
                       <label className={label} htmlFor="wl-logo">Logo <span className="font-normal">(any image, resized automatically; shown on a dark background)</span></label>
@@ -458,10 +459,6 @@ export default function OrgDetailPage() {
                         The logo already includes the name (don&apos;t print the name beside it)
                       </label>
                     </div>
-                    <p className="sm:col-span-2 text-[11px] leading-relaxed text-slate-400">
-                      Own domain only: add it in Vercel (Settings → Domains) and have the customer add the CNAME Vercel shows.
-                      Nothing else is needed. See docs/WHITE-LABEL.md.
-                    </p>
                   </div>
                 )}
               </div>
