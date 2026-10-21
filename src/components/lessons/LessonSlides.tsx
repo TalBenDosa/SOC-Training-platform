@@ -26,9 +26,9 @@ export function LessonSlides({ slides, title }: { slides: LessonSlidesData; titl
         type="button"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
-        className="group flex w-full items-center gap-4 rounded-xl border border-[#1e2d4a] bg-gradient-to-br from-[#0d1322] to-[#0b1120] px-4 py-3.5 text-left transition-colors hover:border-cyan-500/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-400"
+        className="group flex w-full items-center gap-4 rounded-xl border border-border bg-gradient-to-br from-bg-panel to-bg-panel px-4 py-3.5 text-left transition-colors hover:border-cyber-500/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400"
       >
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 shadow-[0_0_24px_-6px_rgba(34,211,238,0.5)] transition group-hover:bg-cyan-500/20">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-cyber-500/30 bg-cyber-500/10 text-cyber-300 shadow-[0_0_24px_-6px_rgb(var(--cyber-400)/0.5)] transition group-hover:bg-cyber-500/20">
           <Presentation className="h-5 w-5" />
         </span>
         <span className="min-w-0 flex-1">
@@ -37,7 +37,7 @@ export function LessonSlides({ slides, title }: { slides: LessonSlidesData; titl
             View this lesson as a presentation · {slides.pages} slides
           </span>
         </span>
-        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 text-[12px] font-semibold text-cyan-200 transition group-hover:bg-cyan-500/20">
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-cyber-500/40 bg-cyber-500/10 px-3 py-1.5 text-[12px] font-semibold text-cyber-200 transition group-hover:bg-cyber-500/20">
           View slides <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
         </span>
       </button>

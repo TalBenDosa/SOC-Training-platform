@@ -186,10 +186,10 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
                         : submitted
                           ? isCorrect ? "border-neon-green/50 bg-neon-green/5"
                             : isWrong ? "border-severity-critical/50 bg-severity-critical/5"
-                            : "border-border/40 bg-[#060b12]"
+                            : "border-border/40 bg-bg"
                         : selected
-                          ? "border-neon-purple/40 bg-[#060b12] hover:border-neon-purple cursor-pointer"
-                          : "border-border/40 bg-[#060b12] hover:border-border"
+                          ? "border-neon-purple/40 bg-bg hover:border-neon-purple cursor-pointer"
+                          : "border-border/40 bg-bg hover:border-border"
                     )}
                     onDragOver={e => { e.preventDefault(); if (!submitted) setHoverPhase(phase); }}
                     onDragLeave={() => setHoverPhase(null)}
@@ -282,7 +282,7 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
                       "text-left rounded border px-2.5 py-1.5 text-[10px] cursor-grab select-none transition max-w-[220px] focus:outline-none focus-visible:ring-1 focus-visible:ring-cyber-500/60",
                       isSelected || dragging?.id === event.id
                         ? "border-neon-purple/60 bg-neon-purple/15 opacity-70 scale-95"
-                        : "border-border/60 bg-[#060b12] hover:border-border text-slate-300",
+                        : "border-border/60 bg-bg hover:border-border text-slate-300",
                       submitted && "opacity-40 cursor-default"
                     )}
                     title={event.displayDescription ?? event.description}
@@ -327,7 +327,7 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
         </div>
 
         {/* Footer */}
-        <div className="border-t border-border/50 px-6 py-3 flex items-center justify-between bg-[#060b12]">
+        <div className="border-t border-border/50 px-6 py-3 flex items-center justify-between bg-bg">
           <button onClick={onClose} className="text-xs text-slate-400 hover:text-slate-300 transition">
             {submitted ? "Close" : "Skip for now"}
           </button>

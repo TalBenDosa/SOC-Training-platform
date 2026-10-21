@@ -30,7 +30,7 @@ export function lessonMarkdownToHtml(text: string): string {
     const esc = body.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n+$/, "");
     const label = labelForLang(lang);
     const card =
-      `<div class="my-4 overflow-hidden rounded-xl border border-slate-700/50 bg-[#0a0f1c] shadow-sm">` +
+      `<div class="my-4 overflow-hidden rounded-xl border border-slate-700/50 bg-bg-elevated shadow-sm">` +
         `<div class="flex items-center justify-between border-b border-slate-700/40 bg-slate-800/25 px-4 py-2">` +
           `<span class="flex gap-1.5">` +
             `<span class="inline-block h-2.5 w-2.5 rounded-full bg-red-400/40"></span>` +
@@ -54,8 +54,8 @@ export function lessonMarkdownToHtml(text: string): string {
       const lines = block.trim().split("\n");
       if (lines.length < 2 || !/^\|[ \t:|\-]+\|[ \t]*$/.test(lines[1])) return block;
       const cells = (r: string) => r.trim().replace(/^\|/, "").replace(/\|[ \t]*$/, "").split("|").map(c => c.trim());
-      const th = cells(lines[0]).map(c => `<th class="border border-[#1e2d4a] bg-[#0f1830] px-3 py-1.5 text-left font-semibold text-cyan-200">${c}</th>`).join("");
-      const rows = lines.slice(2).map(r => `<tr>${cells(r).map(c => `<td class="border border-[#1e2d4a] px-3 py-1.5 align-top text-slate-300">${c}</td>`).join("")}</tr>`).join("");
+      const th = cells(lines[0]).map(c => `<th class="border border-border bg-bg-hover px-3 py-1.5 text-left font-semibold text-cyber-200">${c}</th>`).join("");
+      const rows = lines.slice(2).map(r => `<tr>${cells(r).map(c => `<td class="border border-border px-3 py-1.5 align-top text-slate-300">${c}</td>`).join("")}</tr>`).join("");
       return `<table class="my-4 w-full border-collapse text-sm"><thead><tr>${th}</tr></thead><tbody>${rows}</tbody></table>`;
     })
     .replace(/^### (.+)$/gm, '<h3 class="mt-5 mb-2 text-base font-bold text-white">$1</h3>')

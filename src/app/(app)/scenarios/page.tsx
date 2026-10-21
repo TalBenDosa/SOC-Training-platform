@@ -5,6 +5,7 @@ import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import { LibraryCard } from "@/components/ui/LibraryCard";
 import { socCover } from "@/lib/ui/socCover";
+import { useCoverAccent } from "@/lib/brand/BrandContext";
 // Client-safe list only. "@/lib/sim/scenarios" bundles every scenario pack —
 // questions, answers, IOCs — so importing it here published the answer keys.
 import { SCENARIOS_META as SCENARIOS } from "@/lib/sim/scenariosMeta";
@@ -73,6 +74,7 @@ function diffPill(d: string): string {
 
 export default function ScenariosPage() {
   const router = useRouter();
+  const coverAccent = useCoverAccent();
   const [hidden, setHidden]       = useState<string[]>([]);
   const [published, setPublished] = useState<PublishedScenario[]>([]);
   const [doneRooms, setDoneRooms] = useState<Set<string>>(new Set());
@@ -226,7 +228,7 @@ export default function ScenariosPage() {
                 href={`/scenarios/${s.slug}`}
                 seed={s.slug}
                 index={i}
-                art={socCover(s.slug, "", s.title, s.summary)}
+                art={socCover(s.slug, "", s.title, s.summary, coverAccent)}
                 icon={Icon}
                 typeLabel="Simulation"
                 title={s.title}
@@ -268,7 +270,7 @@ export default function ScenariosPage() {
               href={`/scenarios/${encodeURIComponent(s.scenario_id!)}`}
               seed={s.scenario_id!}
               index={i}
-              art={socCover(s.scenario_id!, "", s.title, s.briefing ?? "")}
+              art={socCover(s.scenario_id!, "", s.title, s.briefing ?? "", coverAccent)}
               icon={Target}
               typeLabel="Custom Simulation"
               title={s.title}
@@ -297,7 +299,7 @@ export default function ScenariosPage() {
                 onClick={() => launchGenerated(s)}
                 seed={s.id}
                 index={i}
-                art={socCover(s.id, "", s.title, s.narrative ?? "")}
+                art={socCover(s.id, "", s.title, s.narrative ?? "", coverAccent)}
                 icon={Icon}
                 typeLabel="AI Scenario"
                 title={s.title}

@@ -61,10 +61,10 @@ export function SlideDeckViewer({ deck, onClose }: { deck: SlideDeckRef; onClose
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-cyber-500/30 bg-[#030a18] shadow-2xl"
+        className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-cyber-500/30 bg-bg shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center gap-3 border-b border-[#1e2d4a] bg-[#0d1322] px-4 py-3">
+        <div className="flex shrink-0 items-center gap-3 border-b border-border bg-bg-panel px-4 py-3">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cyber-500/40 bg-cyber-500/10 text-cyber-300">
             <Presentation className="h-4 w-4" />
           </span>
@@ -75,20 +75,20 @@ export function SlideDeckViewer({ deck, onClose }: { deck: SlideDeckRef; onClose
           <button
             type="button"
             onClick={fullScreen}
-            className="flex items-center gap-1.5 rounded-lg border border-[#2a3555] px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-cyber-500/50 hover:text-cyber-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400"
+            className="flex items-center gap-1.5 rounded-lg border border-border-strong px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-cyber-500/50 hover:text-cyber-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400"
           >
             <Expand className="h-3.5 w-3.5" /> Full screen
           </button>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#2a3555] bg-[#0d1322] text-slate-400 transition hover:border-severity-high/50 hover:text-severity-high focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-strong bg-bg-panel text-slate-400 transition hover:border-severity-high/50 hover:text-severity-high focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="relative flex-1 bg-[#030a18]">
+        <div className="relative flex-1 bg-bg">
           {!loaded && (
             <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-slate-400" role="status">
               <Loader2 className="h-4 w-4 animate-spin" /> Loading slides…

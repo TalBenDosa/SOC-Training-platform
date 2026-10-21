@@ -135,7 +135,7 @@ export function PersonalPrioritiesCard({ studentId, studentName }: { studentId: 
                     className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-[11px] text-slate-300"
                     title={`${studentName} always gets an in-app notification when the list changes. Tick to also send one short email.`}
                   >
-                    <input type="checkbox" checked={notifyEmail} onChange={e => setNotifyEmail(e.target.checked)} className="accent-cyan-500" />
+                    <input type="checkbox" checked={notifyEmail} onChange={e => setNotifyEmail(e.target.checked)} className="accent-cyber-500" />
                     Also email {studentName.split(" ")[0] || "learner"}
                   </label>
                 )}

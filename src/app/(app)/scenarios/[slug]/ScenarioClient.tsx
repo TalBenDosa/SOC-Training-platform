@@ -190,7 +190,7 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
   ];
 
   return (
-    <td colSpan={6} className="bg-[#080d14] p-0">
+    <td colSpan={6} className="bg-bg-elevated p-0">
       <div className="border-t border-border/40 px-5 py-4 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -218,7 +218,7 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
         </div>
 
         {showJson ? (
-          <pre className="max-h-72 overflow-auto rounded border border-border bg-[#0a0f18] p-3 font-mono text-[10px] leading-relaxed text-slate-300">
+          <pre className="max-h-72 overflow-auto rounded border border-border bg-bg-elevated p-3 font-mono text-[10px] leading-relaxed text-slate-300">
             {/* Native record (wire line for text-native sources). Without a native module
                 this is the viewer's display projection, as before. */}
             {nativeView ? (nativeView.log.rawLine ?? JSON.stringify(nativeView.log.record, null, 2)) : JSON.stringify(ev, null, 2)}
@@ -231,7 +231,7 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
                 <p className="text-xs leading-relaxed text-slate-200">{ev.description}</p>
               </div>
             )}
-            <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
+            <div className="rounded border border-border/60 bg-bg-panel px-4 py-3">
               <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Basic Information</p>
               <div className="space-y-2">
                 {basicInfo.map(([label, value]) => (
@@ -242,7 +242,7 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
                 ))}
               </div>
             </div>
-            <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
+            <div className="rounded border border-border/60 bg-bg-panel px-4 py-3">
               <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Detailed Log Data</p>
               <div className="space-y-1.5">
                 {detailedFields.map(([k, v], i) => {
@@ -1019,7 +1019,7 @@ function InvestigationPanel({
 
   const disabled = phase !== "investigating";
   const inputCls = cn(
-    "w-full rounded border border-border/60 bg-[#060b12] px-3 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:border-[#2dd4bf]/40 focus:outline-none",
+    "w-full rounded border border-border/60 bg-bg px-3 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:border-cyber-400/40 focus:outline-none",
     disabled && "opacity-40 cursor-not-allowed"
   );
 
@@ -1035,13 +1035,13 @@ function InvestigationPanel({
   const canFinalize    = completedCount >= 2 && quizComplete;
 
   return (
-    <div className="rounded-lg border border-border/60 bg-[#0d1520] overflow-hidden">
+    <div className="rounded-lg border border-border/60 bg-bg-panel overflow-hidden">
 
       {/* ── Header ────────────────────────────────────────────────────── */}
       <div className="border-b border-border/60 px-5 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-[#2dd4bf]/30 bg-[#2dd4bf]/10">
-            <FileText className="h-3.5 w-3.5 text-[#2dd4bf]" />
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-cyber-400/30 bg-cyber-400/10">
+            <FileText className="h-3.5 w-3.5 text-cyber-400" />
           </div>
           <h3 className="text-sm font-bold text-white">Investigation Report</h3>
         </div>
@@ -1080,14 +1080,14 @@ function InvestigationPanel({
               className={cn(
                 "relative py-2.5 text-[11px] font-medium transition-colors",
                 active
-                  ? "bg-[#2dd4bf] text-[#0d1520] font-semibold"
+                  ? "bg-cyber-400 text-on-accent font-semibold"
                   : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
               )}
             >
               {tab.label}
               {done && <span className="sr-only"> (completed)</span>}
               {done && !active && (
-                <span aria-hidden="true" className="absolute right-2 top-1.5 h-1.5 w-1.5 rounded-full bg-[#2dd4bf]" />
+                <span aria-hidden="true" className="absolute right-2 top-1.5 h-1.5 w-1.5 rounded-full bg-cyber-400" />
               )}
             </button>
           );
@@ -1127,7 +1127,7 @@ function InvestigationPanel({
             <p className="mb-4 text-[11px] text-slate-400">
               Tag indicators you discovered while analysing the logs
               {iocs.length > 0 && (
-                <span className="ml-2 rounded bg-[#2dd4bf]/10 px-1.5 py-0.5 font-mono text-[9px] text-[#2dd4bf]">
+                <span className="ml-2 rounded bg-cyber-400/10 px-1.5 py-0.5 font-mono text-[9px] text-cyber-400">
                   {iocs.length} added
                 </span>
               )}
@@ -1140,7 +1140,7 @@ function InvestigationPanel({
                 disabled={disabled}
                 value={newType}
                 onChange={e => setNewType(e.target.value as IocType)}
-                className="rounded border border-border/60 bg-[#060b12] px-2 py-1.5 text-[11px] text-slate-300 focus:border-[#2dd4bf]/40 focus:outline-none disabled:opacity-40"
+                className="rounded border border-border/60 bg-bg px-2 py-1.5 text-[11px] text-slate-300 focus:border-cyber-400/40 focus:outline-none disabled:opacity-40"
               >
                 {IOC_TYPES.map(t => (
                   <option key={t} value={t}>{t.toUpperCase()}</option>
@@ -1154,13 +1154,13 @@ function InvestigationPanel({
                 onChange={e => setNewValue(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addIoc(); } }}
                 placeholder="Indicator value (IP, domain, hash…)"
-                className="flex-1 rounded border border-border/60 bg-[#060b12] px-3 py-1.5 text-[11px] text-slate-200 placeholder-slate-500 focus:border-[#2dd4bf]/40 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 rounded border border-border/60 bg-bg px-3 py-1.5 text-[11px] text-slate-200 placeholder-slate-500 focus:border-cyber-400/40 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
               />
               <button
                 type="button"
                 disabled={disabled || !newValue.trim()}
                 onClick={addIoc}
-                className="flex items-center gap-1 rounded border border-[#2dd4bf]/30 bg-[#2dd4bf]/10 px-3 py-1.5 text-[11px] font-semibold text-[#2dd4bf] hover:bg-[#2dd4bf]/20 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center gap-1 rounded border border-cyber-400/30 bg-cyber-400/10 px-3 py-1.5 text-[11px] font-semibold text-cyber-400 hover:bg-cyber-400/20 transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Plus className="h-3.5 w-3.5" /> Add
               </button>
@@ -1169,7 +1169,7 @@ function InvestigationPanel({
             {iocs.length > 0 ? (
               <ul className="space-y-1.5">
                 {iocs.map(ioc => (
-                  <li key={ioc.id} className="flex items-center gap-2 rounded border border-border/60 bg-[#060b12] px-3 py-2">
+                  <li key={ioc.id} className="flex items-center gap-2 rounded border border-border/60 bg-bg px-3 py-2">
                     <span className={cn("rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase shrink-0", IOC_COLORS[ioc.type])}>
                       {ioc.type}
                     </span>
@@ -1209,7 +1209,7 @@ function InvestigationPanel({
                   "flex flex-col items-center gap-2 rounded border px-4 py-4 transition",
                   verdict === "tp"
                     ? "border-severity-critical/50 bg-severity-critical/10"
-                    : "border-border/60 bg-[#060b12] hover:border-severity-critical/30 hover:bg-severity-critical/5",
+                    : "border-border/60 bg-bg hover:border-severity-critical/30 hover:bg-severity-critical/5",
                   disabled && "opacity-40 cursor-not-allowed"
                 )}
               >
@@ -1234,7 +1234,7 @@ function InvestigationPanel({
                   "flex flex-col items-center gap-2 rounded border px-4 py-4 transition",
                   verdict === "fp"
                     ? "border-neon-green/50 bg-neon-green/10"
-                    : "border-border/60 bg-[#060b12] hover:border-neon-green/30 hover:bg-neon-green/5",
+                    : "border-border/60 bg-bg hover:border-neon-green/30 hover:bg-neon-green/5",
                   disabled && "opacity-40 cursor-not-allowed"
                 )}
               >
@@ -1273,14 +1273,14 @@ function InvestigationPanel({
       </div>
 
       {/* ── Footer ────────────────────────────────────────────────────── */}
-      <div className="border-t border-border/60 bg-[#080e18] px-5 py-4">
+      <div className="border-t border-border/60 bg-bg-elevated px-5 py-4">
         <button
           disabled={!canFinalize || phase !== "investigating"}
           onClick={onSubmit}
           className={cn(
             "w-full flex items-center justify-center gap-2 rounded py-2.5 text-sm font-semibold transition-colors",
             canFinalize && phase === "investigating"
-              ? "bg-[#2dd4bf]/10 border border-[#2dd4bf]/40 text-[#2dd4bf] hover:bg-[#2dd4bf]/20"
+              ? "bg-cyber-400/10 border border-cyber-400/40 text-cyber-400 hover:bg-cyber-400/20"
               : "bg-white/5 border border-border/40 text-slate-400 cursor-not-allowed"
           )}
         >
@@ -1400,7 +1400,7 @@ function ScenarioDebrief({ result, questions, events, title, iocTruth, timeTaken
           { label: xp.label, value: `+${xp.added}`, hint: xp.added !== result.xpEarned ? `this run ${result.xpEarned} XP` : "best attempt counts" },
           { label: "Time",   value: formatTime(timeTaken), hint: "not graded" },
         ].map(s => (
-          <div key={s.label} className="rounded border border-border bg-[#080d14] px-3 py-2.5 text-center">
+          <div key={s.label} className="rounded border border-border bg-bg-elevated px-3 py-2.5 text-center">
             <p className="font-mono text-lg font-bold text-white">{s.value}</p>
             <p className="mt-0.5 text-[10px] uppercase tracking-widest text-slate-400">{s.label}</p>
             {s.hint && <p className="mt-0.5 text-[9px] text-slate-500">{s.hint}</p>}
@@ -1409,7 +1409,7 @@ function ScenarioDebrief({ result, questions, events, title, iocTruth, timeTaken
       </div>
 
       {r && (
-        <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
+        <div className="rounded border border-border/60 bg-bg-panel px-4 py-3">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Report</p>
           <p className="text-xs text-slate-300">
             Your verdict: <span className="font-mono font-bold">{verdict ? verdict.toUpperCase() : "none"}</span>
@@ -1797,7 +1797,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
       />
 
       {/* Timer / Status bar */}
-      <div className="border-b border-border bg-[#080d14] px-6 py-3">
+      <div className="border-b border-border bg-bg-elevated px-6 py-3">
         <div className="container mx-auto max-w-[1600px] flex items-center gap-4">
           {phase === "idle" && (
             <button
@@ -1880,7 +1880,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
             order — in the LockBit scenario four of five questions could be
             answered from that paragraph alone, without opening a log. It is
             now the debrief, shown once the report is in. */}
-        <div className="rounded border border-border/60 bg-[#0d1520] px-5 py-4">
+        <div className="rounded border border-border/60 bg-bg-panel px-5 py-4">
           <div className="flex items-center gap-2 mb-3">
             <Badge>{phase === "complete" ? "Debrief" : "Open Ticket"}</Badge>
             {/* Same classification as the table's ALERT badges (eventClass.ts),

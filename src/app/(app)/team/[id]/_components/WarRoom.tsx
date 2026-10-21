@@ -83,14 +83,14 @@ export function WarRoom({ sessionId, events, me, nameOf, act, onOpenLog }: { ses
   }
 
   return (
-    <Card className={`border-cyber-500/40 bg-[#14273b] transition-shadow ${unread > 0 ? "shadow-[0_0_0_1px_rgba(34,211,238,0.35),0_0_24px_-6px_rgba(34,211,238,0.45)]" : ""}`}>
+    <Card className={`border-cyber-500/40 bg-cyber-900/30 transition-shadow ${unread > 0 ? "shadow-[0_0_0_1px_rgb(var(--cyber-400)/0.35),0_0_24px_-6px_rgb(var(--cyber-400)/0.45)]" : ""}`}>
       <div onClick={() => open && setSeen(fromOthers)} {...(canWrite && open ? att.dropProps : {})}>
         <button type="button" onClick={e => { e.stopPropagation(); toggle(); }} aria-expanded={open} aria-controls="team-chat-body"
           className={`flex w-full items-center gap-2 rounded-md text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400 ${open ? "mb-2" : ""}`}>
           <MessagesSquare className="h-4 w-4 shrink-0 text-cyber-300" aria-hidden="true" />
           <h3 id="team-chat-heading" className="shrink-0 text-sm font-bold text-white">Team chat</h3>
           {unread > 0 && (
-            <span className="shrink-0 rounded-full bg-cyber-500 px-1.5 py-px text-[10px] font-bold text-bg">{unread} new</span>
+            <span className="shrink-0 rounded-full bg-cyber-500 px-1.5 py-px text-[10px] font-bold text-on-accent">{unread} new</span>
           )}
           {open
             ? <span className="ml-auto truncate text-[10px] text-slate-500">Everyone on the team sees this · {msgs.length} {msgs.length === 1 ? "message" : "messages"}</span>

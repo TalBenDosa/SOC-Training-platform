@@ -22,6 +22,7 @@ import { LESSON_DECKS, type LessonDeck } from "@/data/lessonDecks";
 import { CONSOLE_GUIDES, type ConsoleGuide } from "@/data/consoleGuides";
 import { SlideDeckViewer } from "@/components/lessons/SlideDeckViewer";
 import { socCover } from "@/lib/ui/socCover";
+import { useCoverAccent } from "@/lib/brand/BrandContext";
 
 const KIND_META: Record<OrgResource["kind"], { label: string; icon: typeof FileText; cls: string }> = {
   pdf:   { label: "PDF",          icon: FileText,     cls: "text-severity-high border-severity-high/40 bg-severity-high/10" },
@@ -182,6 +183,7 @@ export default function ResourcesPage() {
 
 /** Console guides: walkthroughs of real SOC platforms, outside the Learning Path, view-only. */
 function ConsoleGuides({ onOpen }: { onOpen: (g: ConsoleGuide) => void }) {
+  const coverAccent = useCoverAccent();
   if (CONSOLE_GUIDES.length === 0) return null;
   return (
     <section aria-labelledby="console-guides-h">
@@ -198,7 +200,7 @@ function ConsoleGuides({ onOpen }: { onOpen: (g: ConsoleGuide) => void }) {
             onClick={() => onOpen(g)}
             seed={g.slug}
             index={i}
-            art={socCover(g.slug, g.coverTopic)}
+            art={socCover(g.slug, g.coverTopic, "", "", coverAccent)}
             icon={Monitor}
             typeLabel="Console guide"
             title={g.title}
@@ -217,6 +219,7 @@ function LessonPresentations({ query, onQuery, onOpen }: {
   onQuery: (q: string) => void;
   onOpen: (d: LessonDeck) => void;
 }) {
+  const coverAccent = useCoverAccent();
   const q = query.trim().toLowerCase();
   const decks = q
     ? LESSON_DECKS.filter(d => d.title.toLowerCase().includes(q) || d.topic.toLowerCase().includes(q))
@@ -239,7 +242,7 @@ function LessonPresentations({ query, onQuery, onOpen }: {
             value={query}
             onChange={e => onQuery(e.target.value)}
             placeholder="Search presentations by title or topic"
-            className="w-full rounded-xl border border-[#2a3555] bg-[#0d1322] py-2.5 pl-10 pr-4 text-sm text-slate-200 placeholder-slate-500 focus:border-cyber-500/60 focus:outline-none"
+            className="w-full rounded-xl border border-border-strong bg-bg-panel py-2.5 pl-10 pr-4 text-sm text-slate-200 placeholder-slate-500 focus:border-cyber-500/60 focus:outline-none"
           />
         </label>
       </div>
@@ -254,7 +257,7 @@ function LessonPresentations({ query, onQuery, onOpen }: {
               onClick={() => onOpen(d)}
               seed={d.slug}
               index={i}
-              art={socCover(d.slug, d.topic, d.title)}
+              art={socCover(d.slug, d.topic, d.title, "", coverAccent)}
               icon={Presentation}
               typeLabel={`Lesson ${String(d.n).padStart(2, "0")}`}
               title={d.title}
@@ -323,7 +326,7 @@ function ResourceViewer({ state, onClose }: { state: ViewerState; onClose: () =>
         </div>
 
         {/* Body */}
-        <div className="relative flex-1 bg-[#0b0f1e]">
+        <div className="relative flex-1 bg-bg-elevated">
           {r.kind === "pdf" && (
             loading ? (
               <div className="flex h-full items-center justify-center gap-2 text-sm text-slate-400">

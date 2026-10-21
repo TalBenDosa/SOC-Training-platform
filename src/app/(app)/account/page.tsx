@@ -29,6 +29,7 @@ import {
   validateFullName, validateHandle, validatePasswordChange,
   FULL_NAME_MAX, PASSWORD_MIN, type Validation,
 } from "./accountValidation";
+import { useBrand } from "@/lib/brand/BrandContext";
 
 interface AccountInfo {
   handle: string | null;
@@ -149,6 +150,7 @@ function pwFieldFor(msg: string): PwField {
 export default function AccountPage() {
   usePageTitle("Account");
   const { user, signOut } = useAuth();
+  const { links } = useBrand();
   const router = useRouter();
 
   const [info, setInfo] = useState<AccountInfo | null>(null);
@@ -354,7 +356,7 @@ export default function AccountPage() {
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyber-300" />
           <span>
             This is everything we hold about you, besides your learning progress.{" "}
-            <Link href="/privacy" className="text-cyber-300 hover:underline">Privacy &amp; data</Link>
+            <Link href={links.privacy} className="text-cyber-300 hover:underline">Privacy &amp; data</Link>
           </span>
         </p>
       </Card>

@@ -106,10 +106,10 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
                 className={cn(
                   "group relative flex flex-col rounded-xl border p-5 text-left transition-all duration-150",
                   isLocked
-                    ? "border-border/30 bg-[#0a0f18] opacity-50 cursor-not-allowed"
+                    ? "border-border/30 bg-bg-elevated opacity-50 cursor-not-allowed"
                     : isActive
                       ? "border-cyber-500/60 bg-cyber-500/10 ring-1 ring-cyber-500/30"
-                      : "border-border/60 bg-[#0d1520] hover:border-border-strong hover:bg-bg-hover"
+                      : "border-border/60 bg-bg-panel hover:border-border-strong hover:bg-bg-hover"
                 )}
               >
                 {/* Status badge */}

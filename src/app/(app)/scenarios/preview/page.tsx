@@ -252,7 +252,7 @@ function EventRow({
 
       {expanded && (
         <tr>
-          <td colSpan={8} className="bg-[#060b12] p-0">
+          <td colSpan={8} className="bg-bg p-0">
             <div className="border-t border-border/40 px-5 py-4 space-y-3">
               {/* FP badge */}
               {(isFp || markedFp) && (
@@ -279,7 +279,7 @@ function EventRow({
                 <HashReputationPanel sha256={ev.file.sha256} />
               )}
 
-              <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
+              <div className="rounded border border-border/60 bg-bg-panel px-4 py-3">
                 <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Log Fields (ECS)</p>
                 <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
                   {ecsFields.map(([k, v]) => (
@@ -313,13 +313,13 @@ function HashReputationPanel({ sha256 }: { sha256: string }) {
   }
 
   return (
-    <div className="rounded border border-cyber-500/20 bg-[#0a0f1a] px-4 py-3 space-y-2">
+    <div className="rounded border border-cyber-500/20 bg-bg-elevated px-4 py-3 space-y-2">
       <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-cyber-300/70 flex items-center gap-1.5">
         <Search className="h-3 w-3" /> Hash Reputation Check
       </p>
 
       {/* SHA256 display */}
-      <div className="font-mono text-[10px] text-slate-400 break-all bg-[#060b12] rounded px-3 py-2">
+      <div className="font-mono text-[10px] text-slate-400 break-all bg-bg rounded px-3 py-2">
         {sha256}
       </div>
 
@@ -399,9 +399,9 @@ function CompletionOverlay({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-6">
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="preview-complete-title" tabIndex={-1}
-        className="w-full max-w-xl rounded-xl border border-border bg-[#080d14] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+        className="w-full max-w-xl rounded-xl border border-border bg-bg-elevated shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="border-b border-border bg-[#0d1520] px-6 py-4 flex items-center justify-between shrink-0">
+        <div className="border-b border-border bg-bg-panel px-6 py-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full border border-neon-green/30 bg-neon-green/10">
               <CheckCircle className="h-5 w-5 text-neon-green" />
@@ -418,7 +418,7 @@ function CompletionOverlay({
 
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
           {/* Score + grade */}
-          <div className="flex items-center justify-between rounded border border-border bg-[#0d1520] px-5 py-4">
+          <div className="flex items-center justify-between rounded border border-border bg-bg-panel px-5 py-4">
             <div className="text-center">
               <p className="text-[10px] uppercase tracking-widest text-slate-400">Score</p>
               <p className="font-mono text-3xl font-bold text-white mt-1">{score.total}<span className="text-slate-400 text-lg">/100</span></p>
@@ -438,7 +438,7 @@ function CompletionOverlay({
           </div>
 
           {/* Score breakdown */}
-          <div className="rounded border border-border bg-[#0d1520] px-4 py-3">
+          <div className="rounded border border-border bg-bg-panel px-4 py-3">
             <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Score Breakdown</p>
             <div className="space-y-2">
               {score.breakdown.map(item => (
@@ -461,7 +461,7 @@ function CompletionOverlay({
           </div>
 
           {/* FP detection result */}
-          <div className="rounded border border-border bg-[#0d1520] px-4 py-3">
+          <div className="rounded border border-border bg-bg-panel px-4 py-3">
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">False Positive Detection</p>
             <div className="flex gap-4 text-[11px]">
               <div>
@@ -650,7 +650,7 @@ export default function ScenarioPreviewPage() {
           <div className="flex flex-col gap-4 min-h-0 overflow-hidden">
 
             {/* Narrative */}
-            <div className="rounded border border-border bg-[#0d1520] px-5 py-4 shrink-0">
+            <div className="rounded border border-border bg-bg-panel px-5 py-4 shrink-0">
               <p className="mb-3 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
                 <Info className="h-3 w-3" /> Incident Briefing
               </p>
@@ -662,7 +662,7 @@ export default function ScenarioPreviewPage() {
             </div>
 
             {/* Log events table */}
-            <div className="flex flex-col flex-1 min-h-0 rounded border border-border bg-[#080d14] overflow-hidden">
+            <div className="flex flex-col flex-1 min-h-0 rounded border border-border bg-bg-elevated overflow-hidden">
               <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5 shrink-0">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
                   Log Timeline — {filteredEvents.length} events
@@ -682,7 +682,7 @@ export default function ScenarioPreviewPage() {
 
               <div className="flex-1 overflow-y-auto">
                 <table className="w-full">
-                  <thead className="sticky top-0 bg-[#080d14]/95 backdrop-blur z-10">
+                  <thead className="sticky top-0 bg-bg-elevated/95 backdrop-blur z-10">
                     <tr className="border-b border-border/40">
                       <th className="w-6 pl-3"><span className="sr-only">Expand</span></th>
                       <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-400 uppercase tracking-widest">Time</th>
@@ -711,7 +711,7 @@ export default function ScenarioPreviewPage() {
           <div className="flex flex-col gap-3 min-h-0 overflow-y-auto">
 
             {/* IOC Tracker */}
-            <div className="rounded border border-border bg-[#080d14] shrink-0">
+            <div className="rounded border border-border bg-bg-elevated shrink-0">
               <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-1.5">
                   <Target className="h-3 w-3" /> IOC Tracker
@@ -770,7 +770,7 @@ export default function ScenarioPreviewPage() {
             </div>
 
             {/* Notes */}
-            <div className="rounded border border-border bg-[#080d14]">
+            <div className="rounded border border-border bg-bg-elevated">
               <div className="border-b border-border/60 px-4 py-2.5">
                 <p id="preview-notes-label" className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-1.5">
                   <FileText aria-hidden="true" className="h-3 w-3" /> Investigation Notes
@@ -780,13 +780,13 @@ export default function ScenarioPreviewPage() {
                 <textarea aria-labelledby="preview-notes-label" value={notes} onChange={e => { setNotes(e.target.value); startTimer(); }}
                   placeholder="Document your findings, timeline reconstruction, attacker TTPs, and evidence…"
                   rows={7}
-                  className="w-full resize-none rounded border border-border/40 bg-[#060b12] px-3 py-2.5 font-mono text-[11px] text-slate-200 placeholder:text-slate-400 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
+                  className="w-full resize-none rounded border border-border/40 bg-bg px-3 py-2.5 font-mono text-[11px] text-slate-200 placeholder:text-slate-400 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
                 />
               </div>
             </div>
 
             {/* Verdict */}
-            <div className="rounded border border-border bg-[#080d14]">
+            <div className="rounded border border-border bg-bg-elevated">
               <div className="border-b border-border/60 px-4 py-2.5">
                 <p id="preview-verdict-label" className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-1.5">
                   <Zap aria-hidden="true" className="h-3 w-3" /> Analyst Verdict
@@ -796,7 +796,7 @@ export default function ScenarioPreviewPage() {
                 <textarea aria-labelledby="preview-verdict-label" value={verdict} onChange={e => { setVerdict(e.target.value); startTimer(); }}
                   placeholder="Initial access vector, lateral movement, data impacted, recommended containment steps…"
                   rows={5}
-                  className="w-full resize-none rounded border border-border/40 bg-[#060b12] px-3 py-2.5 font-mono text-[11px] text-slate-200 placeholder:text-slate-400 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
+                  className="w-full resize-none rounded border border-border/40 bg-bg px-3 py-2.5 font-mono text-[11px] text-slate-200 placeholder:text-slate-400 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
                 />
                 <Button variant="primary" className="w-full justify-center" onClick={submitInvestigation}>
                   <Shield className="h-4 w-4" /> Submit Investigation

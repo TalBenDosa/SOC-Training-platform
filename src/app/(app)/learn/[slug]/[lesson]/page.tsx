@@ -52,7 +52,7 @@ interface LessonQuizResult {
 // Same markup/classes as the modal reader's CodeCard so the two stay identical.
 function CodeCard({ label, code }: { label: string; code: string }) {
   return (
-    <div className="my-4 overflow-hidden rounded-xl border border-slate-700/50 bg-[#0a0f1c] shadow-sm">
+    <div className="my-4 overflow-hidden rounded-xl border border-slate-700/50 bg-bg-elevated shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-700/40 bg-slate-800/25 px-4 py-2">
         <span className="flex gap-1.5" aria-hidden="true">
           <span className="h-2.5 w-2.5 rounded-full bg-red-400/40" />

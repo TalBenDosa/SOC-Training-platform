@@ -12,6 +12,7 @@ import { Button, buttonClasses } from "@/components/ui/Button";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { cn } from "@/lib/utils";
+import { useBrand } from "@/lib/brand/BrandContext";
 
 // Handle format: 3–20 chars, lowercase alnum + underscore. Module-scope so it is
 // a STABLE reference — a regex re-created inside the component would otherwise
@@ -21,6 +22,7 @@ const HANDLE_RE = /^[a-z0-9_]{3,20}$/;
 export default function SignupPage() {
   usePageTitle("Create account");
   const router = useRouter();
+  const { links } = useBrand();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -686,7 +688,7 @@ export default function SignupPage() {
         <p className="mt-4 text-center text-[11px] leading-relaxed text-slate-500">
           By creating an account you agree we may store your email, display name and
           learning progress to run the course.{" "}
-          <Link href="/privacy" className="text-slate-400 underline underline-offset-2 hover:text-cyber-300">
+          <Link href={links.privacy} className="text-slate-400 underline underline-offset-2 hover:text-cyber-300">
             What we store and why
           </Link>
         </p>

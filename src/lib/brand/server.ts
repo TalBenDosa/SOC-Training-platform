@@ -14,6 +14,8 @@ import { headers } from "next/headers";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { PLATFORM_BRAND, brandFromOrg, hostOf, isPlatformHost, senderFor, slugFromHost, type Brand } from "./brand";
 import type { EmailBrand } from "@/lib/email/templates";
+import { ALL_FEATURES, parseFeatures, type Features } from "./features";
+import { tokenHex } from "./theme";
 
 const TTL_MS = 60_000;
 const byHost = new Map<string, { at: number; brand: Brand }>();
@@ -87,7 +89,9 @@ export async function emailContextForOrg(orgId: string | null | undefined, fallb
     productName: brand.productName,
     whiteLabel: brand.whiteLabel,
     logoUrl: brand.whiteLabel && brand.logoSrc ? `${origin}${brand.logoSrc}` : null,
-    color: brand.color,
+    // The theme's accent (its darker 600 step reads on the email's white body), else the legacy colour.
+    color: brand.theme?.accent ? tokenHex(brand.theme, "--cyber-600") : brand.color,
+    background: brand.theme?.background ? tokenHex(brand.theme, "--bg-elevated") : null,
   };
   return { brand, origin, emailBrand, from: senderFor(brand, platformSenderAddress()) };
 }
@@ -99,8 +103,33 @@ function platformSenderAddress(): string {
   return (m ? m[1] : f).trim();
 }
 
+const featuresByOrg = new Map<string, { at: number; features: Features }>();
+
+/**
+ * An organization's plan (tenant config features), any organization, white label or not.
+ * Fails open to the full plan on a read error: a transient DB problem must not lock a class
+ * out of what it paid for (the nav and the paid-work APIs still read the stored plan).
+ */
+export async function featuresForOrg(orgId: string): Promise<Features> {
+  const hit = featuresByOrg.get(orgId);
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.features;
+  const admin = getSupabaseAdminClient();
+  if (!admin) return ALL_FEATURES;
+  try {
+    const { data, error } = await admin.from("organizations").select("branding").eq("id", orgId).maybeSingle();
+    if (error) { console.error("[features] lookup failed:", error.message); return hit?.features ?? ALL_FEATURES; }
+    const features = parseFeatures((data?.branding as Record<string, unknown> | null)?.features);
+    featuresByOrg.set(orgId, { at: Date.now(), features });
+    return features;
+  } catch (e) {
+    console.error("[features] lookup threw:", e instanceof Error ? e.message : String(e));
+    return hit?.features ?? ALL_FEATURES;
+  }
+}
+
 /** Drop cached brands after a super-admin edit (this instance; others expire within TTL_MS). */
 export function forgetBrand(orgId: string): void {
   byOrg.delete(orgId);
+  featuresByOrg.delete(orgId);
   for (const [host, v] of byHost) if (v.brand.orgId === orgId || v.brand === PLATFORM_BRAND) byHost.delete(host);
 }

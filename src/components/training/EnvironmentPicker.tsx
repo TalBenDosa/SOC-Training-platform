@@ -56,7 +56,7 @@ export function EnvironmentPicker({ value, onChange, storyCount, defaultOpen = f
                   <label key={c.id} htmlFor={id}
                     className={cn("flex cursor-pointer items-start gap-2 rounded-md border px-2.5 py-2 transition focus-within:ring-1 focus-within:ring-cyber-500/60",
                       has(c.id) ? "border-cyber-500/40 bg-cyber-500/[0.07]" : "border-border bg-bg-elevated hover:border-slate-600")}>
-                    <input id={id} type="checkbox" checked={has(c.id)} onChange={() => toggle(c.id)} className="mt-0.5 accent-cyan-400" />
+                    <input id={id} type="checkbox" checked={has(c.id)} onChange={() => toggle(c.id)} className="mt-0.5 accent-cyber-400" />
                     <span className="min-w-0">
                       <span className="block text-xs font-medium text-slate-200">{c.label}</span>
                       <span className="block text-[10px] leading-snug text-slate-500">{c.hint}</span>

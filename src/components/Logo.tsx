@@ -13,7 +13,7 @@ export function Logo({ className, size = "md", stacked = false }: { className?: 
       <div className={cn("flex flex-col items-center gap-3 text-center", className)}>
         {brand.logoSrc && (
           // eslint-disable-next-line @next/next/no-img-element -- same-origin logo route, any aspect ratio
-          <img src={brand.logoSrc} alt={brand.logoHasName ? brand.productName : ""} className="h-52 w-auto max-w-[460px] object-contain drop-shadow-[0_0_36px_rgba(34,211,238,0.22)] sm:h-64" />
+          <img src={brand.logoSrc} alt={brand.logoHasName ? brand.productName : ""} className="h-52 w-auto max-w-[460px] object-contain drop-shadow-[0_0_36px_rgb(var(--cyber-400)/0.22)] sm:h-64" />
         )}
         {!brand.logoHasName && <span className="text-3xl font-bold leading-tight text-white sm:text-4xl">{brand.productName}</span>}
       </div>

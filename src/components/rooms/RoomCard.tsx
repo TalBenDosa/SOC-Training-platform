@@ -7,6 +7,7 @@ import { ROOMS_META } from "@/data/roomsMeta";
 import { AssignedChip } from "@/components/plans/AssignedChip";
 import type { AssignedInfo } from "@/lib/plans/assigned";
 import { socCover } from "@/lib/ui/socCover";
+import { useCoverAccent } from "@/lib/brand/BrandContext";
 
 /** Room category → the cover topic whose scene fits it (title keywords still win inside socCover). */
 const COVER_TOPIC: Record<string, string> = {
@@ -58,6 +59,7 @@ function iconBg(d: RoomMeta["difficulty"]): string {
 }
 
 export function RoomCard({ room, progress, locked, onClick, assigned }: RoomCardProps) {
+  const coverAccent = useCoverAccent();
   const totalTasks      = room.tasks.length;
   const completedCount  = progress ? progress.completedTaskIds.length : 0;
   const isCompleted     = !!progress?.completedAt;
@@ -106,7 +108,7 @@ export function RoomCard({ room, progress, locked, onClick, assigned }: RoomCard
       <div
         aria-hidden
         className="-mx-5 -mt-5 mb-4 aspect-[16/6] bg-cover bg-center"
-        style={{ backgroundImage: socCover(`room:${room.id}`, COVER_TOPIC[room.category] ?? "", room.title, room.description) }}
+        style={{ backgroundImage: socCover(`room:${room.id}`, COVER_TOPIC[room.category] ?? "", room.title, room.description, coverAccent) }}
       />
 
       {/* Header row */}

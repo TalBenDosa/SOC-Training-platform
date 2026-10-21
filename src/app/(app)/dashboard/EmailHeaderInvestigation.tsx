@@ -118,7 +118,7 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="email-investigation-title" tabIndex={-1}
-        className="relative flex w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border bg-[#0b1320] shadow-2xl" style={{ maxHeight: "92vh" }}>
+        className="relative flex w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border bg-bg-panel shadow-2xl" style={{ maxHeight: "92vh" }}>
 
         {/* ── Top accent bar ───────────────────────────────────────────────── */}
         <div className="h-0.5 w-full bg-gradient-to-r from-cyber-500 via-neon-amber to-severity-high" />
@@ -167,7 +167,7 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
           </div>
 
           {/* ── Parsed fields ──────────────────────────────────────────────── */}
-          <div className="rounded-lg border border-border/50 bg-[#0d1520] px-4 py-3 space-y-4">
+          <div className="rounded-lg border border-border/50 bg-bg-panel px-4 py-3 space-y-4">
             <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Envelope &amp; Headers</p>
 
             <div className="space-y-1.5">
@@ -206,7 +206,7 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
                   ⚠ One or more authentication checks failed — investigate the sending domain.
                 </div>
               )}
-              <div className="mt-2 rounded bg-[#080d14] px-2.5 py-2">
+              <div className="mt-2 rounded bg-bg-elevated px-2.5 py-2">
                 <p className="mb-1 text-[9px] font-semibold text-slate-400">Authentication-Results raw</p>
                 <p className="break-all font-mono text-[9px] leading-relaxed text-slate-400">{scenario.authResultsRaw}</p>
               </div>
@@ -239,7 +239,7 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
           </div>
 
           {/* ── Raw header toggle ─────────────────────────────────────────── */}
-          <div className="rounded-lg border border-border/50 bg-[#0d1520]">
+          <div className="rounded-lg border border-border/50 bg-bg-panel">
             <button
               type="button"
               aria-expanded={showRaw}

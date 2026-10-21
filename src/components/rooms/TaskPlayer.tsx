@@ -161,7 +161,7 @@ const SOURCE_COLORS: Record<string, { border: string; bg: string; text: string; 
   edr:              { border: "border-neon-amber/40",  bg: "bg-neon-amber/10",  text: "text-neon-amber",  label: "EDR"              },
   sysmon:           { border: "border-teal-500/40",    bg: "bg-teal-500/10",    text: "text-teal-400",    label: "Sysmon"           },
   av:               { border: "border-rose-500/40",    bg: "bg-rose-500/10",    text: "text-rose-400",    label: "Antivirus"        },
-  windows_security: { border: "border-cyan-500/40",    bg: "bg-cyan-500/10",    text: "text-cyan-400",    label: "Windows Security" },
+  windows_security: { border: "border-cyber-500/40",    bg: "bg-cyber-500/10",    text: "text-cyber-400",    label: "Windows Security" },
   linux_audit:      { border: "border-yellow-500/40",  bg: "bg-yellow-500/10",  text: "text-yellow-400",  label: "Linux Audit"      },
   // Network
   firewall:         { border: "border-red-500/40",     bg: "bg-red-500/10",     text: "text-red-400",     label: "Firewall"         },
@@ -193,7 +193,7 @@ const SOURCE_COLORS: Record<string, { border: string; bg: string; text: string; 
   ueba:             { border: "border-violet-500/40",  bg: "bg-violet-500/10",  text: "text-violet-400",  label: "UEBA"             },
   threat_intel:     { border: "border-red-500/40",     bg: "bg-red-500/10",     text: "text-red-400",     label: "Threat Intel"     },
   db_monitor:       { border: "border-amber-500/40",   bg: "bg-amber-500/10",   text: "text-amber-400",   label: "Database"         },
-  siem:             { border: "border-cyan-500/40",    bg: "bg-cyan-500/10",    text: "text-cyan-400",    label: "SIEM"             },
+  siem:             { border: "border-cyber-500/40",    bg: "bg-cyber-500/10",    text: "text-cyber-400",    label: "SIEM"             },
   soar:             { border: "border-purple-500/40",  bg: "bg-purple-500/10",  text: "text-purple-400",  label: "SOAR"             },
   // Business systems / infrastructure
   hr:               { border: "border-slate-500/40",   bg: "bg-slate-500/10",   text: "text-slate-300",   label: "HR"               },
@@ -223,7 +223,7 @@ function IocTagPopover({
   return (
     <div
       ref={ref}
-      className="fixed z-50 bg-[#0d1520] border border-cyber-500/40 rounded-lg shadow-xl shadow-black/60 p-3 w-72"
+      className="fixed z-50 bg-bg-panel border border-cyber-500/40 rounded-lg shadow-xl shadow-black/60 p-3 w-72"
       style={{ top: state.rect.bottom + 6, left: Math.min(state.rect.left, window.innerWidth - 300) }}
     >
       <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-2 px-0.5">Tag as IOC type</p>
@@ -259,7 +259,7 @@ function IocNotebook({ iocs, onRemove }: { iocs: IocEntry[]; onRemove: (i: numbe
     );
   }
   return (
-    <div className="rounded-lg border border-cyber-500/20 bg-[#080d14] overflow-hidden">
+    <div className="rounded-lg border border-cyber-500/20 bg-bg-elevated overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-cyber-500/20 bg-cyber-500/5">
         <Shield className="h-3.5 w-3.5 text-cyber-400" />
         <span className="text-[11px] font-bold uppercase tracking-wider text-cyber-400">IOC Notebook</span>
@@ -354,7 +354,7 @@ function InteractiveLogEventCard({
 
   return (
     <>
-      <div className={cn("rounded-lg border bg-[#080d14] overflow-hidden", colors.border)}>
+      <div className={cn("rounded-lg border bg-bg-elevated overflow-hidden", colors.border)}>
         {/* Header */}
         <div className={cn("flex items-center gap-2 px-4 py-2.5 border-b", colors.border, colors.bg)}>
           <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider border", colors.border, colors.bg, colors.text)}>
@@ -520,7 +520,7 @@ export function ReadingBody({ task, roomId }: { task: ReadingTask; roomId?: stri
       {task.diagram && <MermaidDiagram chart={task.diagram} caption={task.diagramCaption} />}
       {task.image && <LessonFigure image={task.image} />}
       {task.codeExample && (
-        <div className="rounded-lg border border-border bg-[#080d14] overflow-hidden">
+        <div className="rounded-lg border border-border bg-bg-elevated overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-bg-elevated/40">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Example</span>
           </div>
@@ -643,10 +643,10 @@ function ReadingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { ro
                   }}
                   className={cn(
                     "w-full text-left rounded border px-3 py-2 text-sm transition",
-                    !show && "border-border/60 bg-[#080d14] text-slate-300 hover:border-cyber-500/50",
+                    !show && "border-border/60 bg-bg-elevated text-slate-300 hover:border-cyber-500/50",
                     show && isRight && "border-neon-green/50 bg-neon-green/10 text-neon-green",
                     show && chosen && !isRight && "border-severity-critical/50 bg-severity-critical/10 text-severity-critical",
-                    show && !chosen && !isRight && "border-border/40 bg-[#080d14] text-slate-500",
+                    show && !chosen && !isRight && "border-border/40 bg-bg-elevated text-slate-500",
                   )}
                 >
                   {opt}
@@ -1089,7 +1089,7 @@ function FlagPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent, onRec
             aria-describedby={status === "wrong" ? `${promptId} ${wrongId}` : promptId}
             aria-invalid={status === "wrong" || undefined}
             className={cn(
-              "h-10 flex-1 rounded-md border bg-[#080d14] px-3 font-mono text-sm text-white placeholder-slate-500",
+              "h-10 flex-1 rounded-md border bg-bg-elevated px-3 font-mono text-sm text-white placeholder-slate-500",
               "focus:outline-none focus:ring-2",
               status === "wrong"
                 ? "border-severity-high/50 focus:ring-severity-high/30"
@@ -1124,7 +1124,7 @@ export function ReadOnlyEventCard({ event }: { event: TelemetryEvent }) {
   const [expanded, setExpanded] = useState(true);
   const colors = SOURCE_COLORS[event.source] ?? SOURCE_COLORS.log;
   return (
-    <div className={cn("rounded-lg border bg-[#080d14] overflow-hidden", colors.border)}>
+    <div className={cn("rounded-lg border bg-bg-elevated overflow-hidden", colors.border)}>
       <div className={cn("flex items-center gap-2 px-4 py-2.5 border-b", colors.border, colors.bg)}>
         <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider border", colors.border, colors.bg, colors.text)}>
           {colors.label}
@@ -1860,7 +1860,7 @@ function QueryFillPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { 
       </div>
       <p className="text-sm text-slate-400 leading-relaxed">{task.context}</p>
 
-      <div className="rounded-lg border border-border bg-[#080d14] p-4 font-mono text-sm leading-relaxed text-slate-300 whitespace-pre-wrap">
+      <div className="rounded-lg border border-border bg-bg-elevated p-4 font-mono text-sm leading-relaxed text-slate-300 whitespace-pre-wrap">
         {segments.map((seg, i) => {
           // Odd indices are the captured {{id}} groups from the split regex.
           if (i % 2 === 1) {
@@ -1880,7 +1880,7 @@ function QueryFillPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { 
                 placeholder={blank?.placeholder ?? "…"}
                 size={Math.max(6, (blank?.placeholder?.length ?? 6) + 2)}
                 className={cn(
-                  "mx-0.5 inline-block rounded border bg-[#0d1520] px-1.5 py-0.5 font-mono text-sm align-baseline",
+                  "mx-0.5 inline-block rounded border bg-bg-panel px-1.5 py-0.5 font-mono text-sm align-baseline",
                   "focus:outline-none focus:ring-2 focus:ring-cyber-500/30",
                   correct ? "border-neon-green/60 text-neon-green"
                     : wrong ? "border-severity-high/60 text-severity-high"
@@ -2009,7 +2009,7 @@ function WrittenReportPlayer({ roomId, task, onComplete, isCompleted, onRecord }
             placeholder="Write your report here…"
             aria-labelledby={`${reportIds}-prompt`}
             aria-describedby={`${reportIds}-count`}
-            className="w-full rounded-lg border border-border bg-[#080d14] p-4 font-mono text-sm leading-relaxed text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyber-500/30 resize-y"
+            className="w-full rounded-lg border border-border bg-bg-elevated p-4 font-mono text-sm leading-relaxed text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyber-500/30 resize-y"
           />
           <p id={`${reportIds}-count`} className="text-xs text-slate-500">{wordCount} word{wordCount === 1 ? "" : "s"} (aim for {task.minWords}+)</p>
         </div>

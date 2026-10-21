@@ -149,7 +149,7 @@ export function EmailHeaderViewer({ event, onXp }: { event: LiveEvent; onXp?: (x
       "rounded border px-4 py-3",
       hasWarn
         ? "border-neon-amber/40 bg-neon-amber/5"
-        : "border-border/60 bg-[#0d1520]"
+        : "border-border/60 bg-bg-panel"
     )}>
       {/* Header row */}
       <div className="flex w-full items-center justify-between gap-2">
@@ -232,7 +232,7 @@ export function EmailHeaderViewer({ event, onXp }: { event: LiveEvent; onXp?: (x
                 </div>
               )}
               {authResultsFull && (
-                <div className="mt-1.5 rounded bg-[#080d14] px-2.5 py-2">
+                <div className="mt-1.5 rounded bg-bg-elevated px-2.5 py-2">
                   <p className="mb-1 text-[9px] font-semibold text-slate-400">Authentication-Results raw header</p>
                   <p className="break-all font-mono text-[9px] leading-relaxed text-slate-400">{authResultsFull}</p>
                 </div>

@@ -313,7 +313,7 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
                       <div className="max-h-28 space-y-0.5 overflow-y-auto">
                         {groups.map(g => (
                           <label key={g.id} className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-[12px] text-slate-300 hover:bg-white/5">
-                            <input type="checkbox" checked={draft.groupIds.includes(g.id)} onChange={() => setDraft(d => d && { ...d, groupIds: toggleId(d.groupIds, g.id) })} className="accent-cyan-500" />
+                            <input type="checkbox" checked={draft.groupIds.includes(g.id)} onChange={() => setDraft(d => d && { ...d, groupIds: toggleId(d.groupIds, g.id) })} className="accent-cyber-500" />
                             <bdi className="min-w-0 flex-1 truncate">{g.name}</bdi>
                             <span className="font-mono text-[10px] text-slate-500">{g.member_count}</span>
                           </label>
@@ -333,7 +333,7 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
                       {people.length === 0 && <p className="px-1 text-[11px] text-slate-500">No matching learners.</p>}
                       {people.map(m => (
                         <label key={m.user_id} className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-[12px] text-slate-300 hover:bg-white/5">
-                          <input type="checkbox" checked={draft.userIds.includes(m.user_id)} onChange={() => setDraft(d => d && { ...d, userIds: toggleId(d.userIds, m.user_id) })} className="accent-cyan-500" />
+                          <input type="checkbox" checked={draft.userIds.includes(m.user_id)} onChange={() => setDraft(d => d && { ...d, userIds: toggleId(d.userIds, m.user_id) })} className="accent-cyber-500" />
                           <bdi className="min-w-0 flex-1 truncate">{memberName(m)}</bdi>
                           {m.role !== "student" && <span className="text-[9px] uppercase tracking-wider text-slate-500">{m.role.replace("_", " ")}</span>}
                         </label>
@@ -352,7 +352,7 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
                 className="mt-auto flex cursor-pointer items-start gap-2 rounded-md border border-border bg-bg px-2.5 py-2 text-[11px] text-slate-300"
                 title="Learners always get an in-app notification. Tick to also send each of them one short email."
               >
-                <input type="checkbox" checked={draft.notifyEmail} onChange={e => setDraft(d => d && { ...d, notifyEmail: e.target.checked })} className="mt-0.5 accent-cyan-500" />
+                <input type="checkbox" checked={draft.notifyEmail} onChange={e => setDraft(d => d && { ...d, notifyEmail: e.target.checked })} className="mt-0.5 accent-cyber-500" />
                 <span>
                   Also email recipients
                   <span className="block text-[10px] text-slate-500">

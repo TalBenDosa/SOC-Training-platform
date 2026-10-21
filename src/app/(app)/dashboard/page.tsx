@@ -163,7 +163,7 @@ function SOCWelcomeModal({ onStart, onTakeTour }: { onStart: () => void; onTakeT
             </button>
             <button
               onClick={onStart}
-              className="flex items-center justify-center gap-2 rounded-lg bg-cyber-500 px-6 py-2.5 text-[13px] font-bold text-bg shadow transition hover:bg-cyber-400"
+              className="flex items-center justify-center gap-2 rounded-lg bg-cyber-500 px-6 py-2.5 text-[13px] font-bold text-on-accent shadow transition hover:bg-cyber-400"
             >
               <Zap className="h-4 w-4" />
               Start my shift
@@ -1656,7 +1656,7 @@ export default function DashboardPage() {
 
           {/* Filter bar — row 2: user / host / IP / MITRE (progressive disclosure) */}
           {showAdvancedFilters && (
-          <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-[#080d14] px-5 py-2.5">
+          <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-bg-elevated px-5 py-2.5">
 
             {/* User — blue */}
             <div className={cn(

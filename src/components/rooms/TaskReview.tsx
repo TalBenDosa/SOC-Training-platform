@@ -333,7 +333,7 @@ export function TaskReview({ task, record, earnedXp, maxXp, prevLogEvent }: Task
             {header}
           </div>
           <p className="text-sm text-slate-400 leading-relaxed">{task.context}</p>
-          <div className="rounded-lg border border-border bg-[#080d14] p-4 font-mono text-sm leading-relaxed text-slate-300 whitespace-pre-wrap">
+          <div className="rounded-lg border border-border bg-bg-elevated p-4 font-mono text-sm leading-relaxed text-slate-300 whitespace-pre-wrap">
             {parts.map((seg, i) => {
               if (i % 2 === 0) return <span key={i}>{seg}</span>;
               const b = rev?.blanks[seg];
@@ -376,7 +376,7 @@ export function TaskReview({ task, record, earnedXp, maxXp, prevLogEvent }: Task
           </div>
           {rev ? (
             <>
-              <div className="rounded-lg border border-border bg-[#080d14] p-4">
+              <div className="rounded-lg border border-border bg-bg-elevated p-4">
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Your report</p>
                 <p className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-slate-200">{rev.text}</p>
               </div>

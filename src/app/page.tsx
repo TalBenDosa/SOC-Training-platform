@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getRequestBrand } from "@/lib/brand/server";
+import { PLATFORM_NAME } from "@/lib/brand/brand";
 import { Logo } from "@/components/Logo";
 import { buttonClasses } from "@/components/ui/Button";
 import { RecoveryRedirect } from "@/components/auth/RecoveryRedirect";
@@ -496,7 +497,7 @@ export default async function Landing() {
       <footer className="border-t border-border py-8">
         <div className="container mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 text-xs text-slate-400 md:flex-row">
           <Logo size="sm" />
-          <p>© 2026 HACK THE SOC · Synthetic data only · Not a replacement for production SOC tooling.</p>
+          <p>© 2026 {PLATFORM_NAME} · Synthetic data only · Not a replacement for production SOC tooling.</p>
           <div className="flex items-center gap-4">
             <Link href="/privacy" className="text-slate-400 underline underline-offset-2 hover:text-cyber-300">
               Privacy &amp; data

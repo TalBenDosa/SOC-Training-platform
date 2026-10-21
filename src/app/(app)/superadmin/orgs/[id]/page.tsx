@@ -22,6 +22,9 @@ import type { Organization, OrgMember, OrgUsage, OrgStatus, OrgRole } from "@/li
 import type { GlobalStudentRow } from "@/app/api/superadmin/students/route";
 import { subdomainOrigin } from "@/lib/brand/brand";
 import { prepareLogo } from "@/lib/brand/prepareLogo";
+import { parseTheme, type Theme } from "@/lib/brand/theme";
+import { FEATURES, FEATURE_KEYS, parseFeatures, type Features } from "@/lib/brand/features";
+import { ThemeEditor } from "./ThemeEditor";
 
 function toDateInput(iso: string | null): string {
   return iso ? new Date(iso).toISOString().slice(0, 10) : "";
@@ -115,6 +118,10 @@ export default function OrgDetailPage() {
   const [wlLogoError, setWlLogoError] = useState<string | null>(null);
   // Bumped on every load so the preview never shows a cached older logo.
   const [logoVersion, setLogoVersion] = useState(0);
+  // The rest of the tenant config: theme (src/lib/brand/theme.ts), links, plan features.
+  const [wlTheme, setWlTheme] = useState<Theme>({});
+  const [wlLinks, setWlLinks] = useState({ privacy: "", terms: "", help: "" });
+  const [features, setFeatures] = useState<Features>(parseFeatures(null));
 
   // contract (commercial record — see migration 0020)
   const [cPlan, setCPlan] = useState("");
@@ -138,12 +145,16 @@ export default function OrgDetailPage() {
     const br = (data.org.branding ?? {}) as {
       color?: string; logo_url?: string; white_label?: boolean; product_name?: string; logo_data?: string;
       logo_has_name?: boolean; support_email?: string; email_from?: string;
+      theme?: unknown; links?: { privacy?: string; terms?: string; help?: string }; features?: unknown;
     };
     setBrandColor(br.color ?? "#22d3ee"); setBrandLogo(br.logo_url ?? "");
     setWl(br.white_label === true); setWlName(br.product_name ?? ""); setWlDomain(data.org.custom_domain ?? "");
     setWlSupport(br.support_email ?? ""); setWlFrom(br.email_from ?? ""); setWlLogoHasName(br.logo_has_name === true);
     setWlHasStoredLogo(typeof br.logo_data === "string" && br.logo_data.length > 0); setWlLogo("keep"); setWlLogoError(null);
     setLogoVersion(Date.now());
+    setWlTheme(parseTheme(br.theme) ?? {});
+    setWlLinks({ privacy: br.links?.privacy ?? "", terms: br.links?.terms ?? "", help: br.links?.help ?? "" });
+    setFeatures(parseFeatures(br.features));
     const ct = (data.org.contract ?? {}) as {
       plan?: string; seats_purchased?: number; price?: number; currency?: string;
       po_number?: string; signed_at?: string; notes?: string;
@@ -356,6 +367,24 @@ export default function OrgDetailPage() {
               </div>
             </Card>
 
+            {/* Plan features (tenant config): what this organization gets. Off = gone from the
+                navigation and its pages redirect away (src/lib/brand/requireFeature.ts). */}
+            <Card>
+              <h2 className="mb-1 text-sm font-bold text-white">Features</h2>
+              <p className="mb-3 text-[11px] text-slate-400">What this organization&apos;s plan includes. Members never see a feature that is switched off.</p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                {FEATURE_KEYS.map(k => (
+                  <label key={k} className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs text-slate-200">
+                    <input type="checkbox" checked={features[k]} onChange={e => setFeatures(f => ({ ...f, [k]: e.target.checked }))} />
+                    {FEATURES[k].label}
+                  </label>
+                ))}
+              </div>
+              <div className="mt-4">
+                <Button variant="outline" size="sm" disabled={saving} onClick={() => patch({ features }, "Features updated.")}>Save features</Button>
+              </div>
+            </Card>
+
             {/* Enrollment — the org's affiliation code, and ONLY that. The
                 domain auto-join editor and the anonymous class link that used
                 to live here described doors 0028/0029 removed: showing them
@@ -465,6 +494,31 @@ export default function OrgDetailPage() {
                         The logo already includes the name (don&apos;t print the name beside it)
                       </label>
                     </div>
+                    {/* Theme: every screen, email, certificate and deck reads these. */}
+                    <div className="sm:col-span-2 border-t border-border pt-4">
+                      <h3 className="mb-3 text-sm font-bold text-white">Theme</h3>
+                      <ThemeEditor
+                        theme={wlTheme}
+                        onChange={setWlTheme}
+                        logoSrc={wlLogo !== "keep" ? (wlLogo || null) : wlHasStoredLogo ? `/api/brand/logo?org=${id}&v=${logoVersion}` : null}
+                        productName={wlName || org?.name || "Product"}
+                        logoHasName={wlLogoHasName}
+                      />
+                    </div>
+                    {/* Links: where the sign-in page, account page and sidebar send learners. */}
+                    <div className="sm:col-span-2 border-t border-border pt-4">
+                      <h3 className="mb-1 text-sm font-bold text-white">Links</h3>
+                      <p className="mb-3 text-[11px] text-slate-400">Full https:// addresses. Empty: privacy uses the platform&apos;s page; terms and help aren&apos;t shown.</p>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        {(["privacy", "terms", "help"] as const).map(k => (
+                          <div key={k}>
+                            <label className={label} htmlFor={`wl-link-${k}`}>{k === "privacy" ? "Privacy notice" : k === "terms" ? "Terms of use" : "Help centre"}</label>
+                            <input id={`wl-link-${k}`} type="url" className={field} value={wlLinks[k]} placeholder="https://college.ac.il/..."
+                              onChange={e => setWlLinks(l => ({ ...l, [k]: e.target.value }))} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -477,6 +531,8 @@ export default function OrgDetailPage() {
                       white_label: wl, product_name: wlName || undefined, logo_has_name: wlLogoHasName,
                       support_email: wlSupport || undefined, email_from: wlFrom || undefined,
                       logo_data: wlLogo === "keep" ? undefined : wlLogo,
+                      theme: wlTheme,
+                      links: { privacy: wlLinks.privacy.trim(), terms: wlLinks.terms.trim(), help: wlLinks.help.trim() },
                     },
                     custom_domain: wl ? (wlDomain.trim() || null) : null,
                   }, "Branding updated.")}>

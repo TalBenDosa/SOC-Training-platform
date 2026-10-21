@@ -4,7 +4,10 @@
  * { subject, html, text } for sendEmail().
  */
 
+import { PLATFORM_NAME } from "@/lib/brand/brand";
+
 const BRAND = "#0891b2"; // cyber-600, readable on white
+const HEADER_BG = "#0b1220"; // bg-elevated
 
 /**
  * Who the email comes from (white label, src/lib/brand): the platform, or a white-label
@@ -18,9 +21,11 @@ export interface EmailBrand {
   logoUrl: string | null;
   /** Accent colour for buttons, #rrggbb (null = the platform's). */
   color?: string | null;
+  /** Header band colour, #rrggbb (the tenant theme's surface; null = the platform's). */
+  background?: string | null;
 }
 
-export const PLATFORM_EMAIL_BRAND: EmailBrand = { productName: "HACK THE SOC", whiteLabel: false, logoUrl: null };
+export const PLATFORM_EMAIL_BRAND: EmailBrand = { productName: PLATFORM_NAME, whiteLabel: false, logoUrl: null };
 
 /**
  * Escape text for an HTML email body. EVERY interpolated value goes through it
@@ -45,7 +50,7 @@ function header(brand: EmailBrand): string {
 function shell(title: string, bodyHtml: string, brand: EmailBrand = PLATFORM_EMAIL_BRAND): string {
   return `<!doctype html><html><body style="margin:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
   <div style="max-width:560px;margin:0 auto;padding:24px;">
-    <div style="background:#0b1220;border-radius:12px 12px 0 0;padding:20px 28px;">
+    <div style="background:${brand.background && /^#[0-9a-fA-F]{6}$/.test(brand.background) ? brand.background : HEADER_BG};border-radius:12px 12px 0 0;padding:20px 28px;">
       ${header(brand)}
     </div>
     <div style="background:#ffffff;border:1px solid #e2e8f0;border-top:0;border-radius:0 0 12px 12px;padding:28px;">
@@ -108,7 +113,7 @@ Generate a fresh one anytime from "Manage Class".
     : `How students join: from "Manage Class", generate your class's affiliation code (valid 24 hours) and share it.
 
 `}Students register with their email + the code — there is no other way in.`;
-  return { subject: brand.whiteLabel ? `Your ${orgName} environment is ready` : `Your ${orgName} environment on HACK THE SOC is ready`, html, text };
+  return { subject: brand.whiteLabel ? `Your ${orgName} environment is ready` : `Your ${orgName} environment on ${PLATFORM_NAME} is ready`, html, text };
 }
 
 /**
@@ -151,7 +156,7 @@ export function accountAccessEmail(args: { orgName: string; link: string; brand?
 } {
   const { orgName, link } = args;
   const brand = args.brand ?? PLATFORM_EMAIL_BRAND;
-  const title = brand.whiteLabel ? `Sign in to ${orgName}` : `Sign in to ${orgName} on HACK THE SOC`;
+  const title = brand.whiteLabel ? `Sign in to ${orgName}` : `Sign in to ${orgName} on ${PLATFORM_NAME}`;
   const html = shell(
     title,
     `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;">Your admin account for <strong>${esc(orgName)}</strong> is ready and waiting. Click below to set your password and sign in — from there you can manage your class and generate today&#39;s class code for students.</p>
@@ -176,7 +181,7 @@ export function studentInviteEmail(args: { orgName: string; joinLink: string; br
   const brand = args.brand ?? PLATFORM_EMAIL_BRAND;
   const lead = brand.whiteLabel
     ? `Your course uses ${esc(brand.productName)} to train you as a SOC analyst.`
-    : "Your course is using HACK THE SOC to train as a SOC analyst.";
+    : `Your course is using ${PLATFORM_NAME} to train as a SOC analyst.`;
   const html = shell(
     `You've been invited to ${orgName}`,
     `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;">${lead} Click below to create your account and get started:</p>
@@ -184,7 +189,7 @@ export function studentInviteEmail(args: { orgName: string; joinLink: string; br
      ${linkBox(joinLink)}`,
     brand,
   );
-  const where = brand.whiteLabel ? "" : " on HACK THE SOC";
+  const where = brand.whiteLabel ? "" : ` on ${PLATFORM_NAME}`;
   const text = `You've been invited to ${orgName}${where}.\n\nAccept your invitation and create your account:\n${joinLink}`;
   return { subject: `You're invited to ${orgName}${where}`, html, text };
 }

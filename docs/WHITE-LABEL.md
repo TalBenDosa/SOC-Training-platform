@@ -55,28 +55,56 @@ This needs a paid Resend plan (the free plan allows one domain):
 
 Until then, mail comes from the product name at `noreply@hackthesoc.app`.
 
-## Themes (per-customer colours)
+## The tenant config (one place for everything)
 
-The app's colours are CSS variables, defined in `src/lib/brand/theme.ts` and `globals.css :root`:
-- `--cyber-50` to `--cyber-900`: the accent
-- `--bg*`: the surfaces
-- `--border*`: the lines
+Each organization has ONE tenant config, and every screen reads from it. No component writes a product name, logo, colour, font or link of its own.
 
-Tailwind's `cyber-*`, `bg-bg*` and `border-border*` classes read these variables. A white-label org can store a theme in `organizations.branding.theme`, for example `{"accent":"#3b9ae1","background":"#0c1626"}`:
+| Part | Stored in | Read with |
+| --- | --- | --- |
+| Product name, logo, support email, sender | `organizations.branding` | `useBrand()` (client), `getRequestBrand()` / `brandForOrg()` (server) |
+| Domain | `organizations.custom_domain` | `brand.origin` |
+| Theme: colours, font, corners, button style | `branding.theme` | CSS variables (below) |
+| Links: privacy, terms, help | `branding.links` | `brand.links` |
+| Plan features | `branding.features` | `useFeatures()`, `requireFeature()` |
 
-| Key | What it changes |
-| --- | --- |
-| `accent` | Generates the whole accent scale. Step 400 is exactly that colour. |
-| `background` | Derives the panels, hover states and borders. |
+Code: `src/lib/brand/brand.ts` (the type), `theme.ts`, `features.ts`, `sanitize.ts` (what the super-admin may save). All of it is edited on the organization's page in Super Admin: the Branding card (white label, theme with presets and a live preview, links) and the Features card.
+
+### Theme tokens
+
+Every visual decision is a CSS variable, declared in `globals.css :root` and `theme.ts DEFAULT_TOKENS`. A test keeps the two lists identical.
+
+| Token | Tailwind | Theme key |
+| --- | --- | --- |
+| `--cyber-50` … `--cyber-900` | `cyber-*`, `shadow-glow`, focus outline | `accent` (step 400 = that colour) |
+| `--bg`, `--bg-elevated`, `--bg-panel`, `--bg-hover`, `--border`, `--border-strong` | `bg-bg*`, `border-border*` | `background` (must be dark) |
+| `--on-accent` | `text-on-accent` | computed from the accent for contrast |
+| `--font-sans` | `font-sans` | `font`: inter, heebo, rubik, assistant |
+| `--radius-sm` … `--radius-2xl` | `rounded-sm` … `rounded-2xl` | `radius`: sharp, default, round |
+| `--glow-alpha` | `shadow-glow` strength | `buttons`: glow, flat |
+
+Rules for new code: use these classes only. No `cyan-*`, no `bg-[#0d1520]`-style surface colours, no `#22d3ee`. Canvas, PDF and email code read colours with `tokenHex` / `tokenRgb` / `tokenRgba(theme, token)`.
+
+What stays fixed on purpose: the semantic colours (`neon-*`, `severity-*`), because red means malicious and green means benign for every customer; third-party brand colours (the LinkedIn share button); the per-company colours of the simulated companies; the multicolour illustration palette of generic cover art.
+
+The theme also reaches:
+- **Slide decks:** `rebrandDocument` sets the deck's own palette variables (`--cyan`, `--bg`, …) and replaces every lockup, including the small mark in each slide's corner.
+- **Certificates** (rank PNG and scenario PDF): frame, glow and corner ticks.
+- **Emails:** button colour (the accent's darker 600 step, readable on white) and the header band.
+- **Lesson cover art:** covers drawn in the platform cyan take the accent.
 
 Where the theme applies:
-- **On the org's own domain:** rendered on the server, so there is no flash of the default palette.
-- **Inside its environment on the platform host:** applied in the app only, and removed when the user leaves the app.
-- **Everywhere else:** never. The platform keeps its palette.
+- **On the org's own domain:** rendered on the server, so there is no flash of the default look.
+- **Inside its environment on the platform host:** applied in the app only, removed when the user leaves the app.
+- **Everywhere else:** never. The platform keeps its look.
 
-There is no Super Admin field for it yet. Until then, set it in the database: the server validates `#rrggbb`. A test guarantees the default tokens in the code and in the CSS stay identical.
+### Plan features
 
-Not themed yet: about 14 hard-coded `#22d3ee` uses (charts, a few glows) and the semantic colours (`neon-*`, `severity-*`), which carry meaning (red = malicious).
+`features.ts` lists the parts of the platform a plan can include (Learning Rooms, Live SOC + EDR, Learning Path, Scenarios, Quizzes, Achievements, College Materials, Team Training). Missing = on, so existing organizations keep everything. A feature that is off:
+- disappears from the sidebar;
+- its pages redirect to `/progress?reason=feature` on the server (each route's `layout.tsx` calls `requireFeature`), with a notice;
+- Team Training also refuses to create or start an exercise in the API.
+
+Features apply to every organization, white label or not. The super-admin is never blocked, so they can look around any environment.
 
 ## Local testing
 
@@ -86,5 +114,5 @@ Not themed yet: about 14 hard-coded `#22d3ee` uses (charts, a few glows) and the
 
 - **Lesson video files** still contain the outro. The player stops before it, but a downloaded file still ends with the platform logo.
 - **PDF certificate text** uses Helvetica, so a Hebrew product name won't print. Keep product names in Latin script, or add a Hebrew font to the PDF.
-- **Accent colour** applies to the logo, emails and buttons in emails. The app's cyan theme stays the same.
+- **Light mode:** not supported yet. The theme background must be dark; the save refuses a light one.
 - **Brand changes** reach every server instance within one minute (per-instance cache).

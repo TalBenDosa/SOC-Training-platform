@@ -14,8 +14,9 @@
  */
 import { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { PLATFORM_BRAND, type Brand } from "./brand";
+import { PLATFORM_BRAND, PLATFORM_NAME, type Brand } from "./brand";
 import { themeVars } from "./theme";
+import { ALL_FEATURES, parseFeatures, type FeatureKey, type Features } from "./features";
 
 export interface OrgBranding {
   name: string | null;
@@ -27,16 +28,18 @@ export interface OrgBranding {
 
 const EMPTY_ORG: OrgBranding = { name: null, color: null, logoUrl: null, allRoomsUnlocked: false };
 
-interface BrandCtx { brand: Brand; org: OrgBranding; envBrand: Brand | null; hostBrand: Brand }
-const Ctx = createContext<BrandCtx>({ brand: PLATFORM_BRAND, org: EMPTY_ORG, envBrand: null, hostBrand: PLATFORM_BRAND });
+interface BrandCtx { brand: Brand; org: OrgBranding; envBrand: Brand | null; hostBrand: Brand; features: Features }
+const Ctx = createContext<BrandCtx>({ brand: PLATFORM_BRAND, org: EMPTY_ORG, envBrand: null, hostBrand: PLATFORM_BRAND, features: ALL_FEATURES });
 
 export function BrandProvider({ initial, children }: { initial: Brand; children: React.ReactNode }) {
   const { user } = useAuth();
   const [org, setOrg] = useState<OrgBranding>(EMPTY_ORG);
   const [envBrand, setEnvBrand] = useState<Brand | null>(null);
+  const [features, setFeatures] = useState<Features>(ALL_FEATURES);
 
   useEffect(() => {
     setEnvBrand(null);
+    setFeatures(ALL_FEATURES);
     if (!user) { setOrg(EMPTY_ORG); return; }
     let cancelled = false;
     let retry: ReturnType<typeof setTimeout> | null = null;
@@ -52,6 +55,7 @@ export function BrandProvider({ initial, children }: { initial: Brand; children:
         const color = typeof d.branding?.color === "string" ? d.branding.color : null;
         setOrg({ name: d.name ?? null, color, logoUrl: d.branding?.logo_url ?? null, allRoomsUnlocked: d.all_rooms_unlocked === true });
         setEnvBrand(d.brand && d.brand.whiteLabel === true ? (d.brand as Brand) : null);
+        setFeatures(parseFeatures(d.features));
       })
       .catch(() => { if (again && !cancelled) retry = setTimeout(() => { void load(false); }, 3000); });
     void load(true);
@@ -65,7 +69,7 @@ export function BrandProvider({ initial, children }: { initial: Brand; children:
     if (accent) document.documentElement.style.setProperty("--org-accent", accent);
   }, [accent]);
 
-  return <Ctx.Provider value={{ brand, org, envBrand, hostBrand: initial }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ brand, org, envBrand, hostBrand: initial, features }}>{children}</Ctx.Provider>;
 }
 
 /**
@@ -82,7 +86,8 @@ export function AppBrandScope({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!brand.whiteLabel || c.hostBrand.whiteLabel) return;
     const fix = () => {
-      if (document.title.includes(" // HACK THE SOC")) document.title = document.title.replace(" // HACK THE SOC", ` // ${brand.productName}`);
+      const suffix = ` // ${PLATFORM_NAME}`;
+      if (document.title.includes(suffix)) document.title = document.title.replace(suffix, ` // ${brand.productName}`);
     };
     fix();
     const titleEl = document.querySelector("title");
@@ -109,6 +114,21 @@ export function AppBrandScope({ children }: { children: React.ReactNode }) {
 /** Who the platform presents itself as right now. */
 export function useBrand(): Brand {
   return useContext(Ctx).brand;
+}
+
+/** The tenant theme's accent for generated cover art (undefined = the platform's colours). */
+export function useCoverAccent(): string | undefined {
+  return useContext(Ctx).brand.theme?.accent;
+}
+
+/** Which parts of the platform the current environment's plan includes (all for guests). */
+export function useFeatures(): Features {
+  return useContext(Ctx).features;
+}
+
+/** True when the current environment's plan includes this feature. */
+export function useFeature(key: FeatureKey): boolean {
+  return useContext(Ctx).features[key];
 }
 
 /** The signed-in learner's college branding (empty for guests). */

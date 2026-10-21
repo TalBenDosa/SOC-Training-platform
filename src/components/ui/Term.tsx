@@ -57,7 +57,7 @@ export function Term({ k, children }: { k: string; children: React.ReactNode }) 
         {children}
       </button>
       {visible && (
-        <span id={tipId} role="tooltip" className="absolute left-0 top-full mt-1.5 z-[60] block w-72 rounded-lg border border-border/80 bg-[#080d14] px-3 py-2.5 shadow-2xl">
+        <span id={tipId} role="tooltip" className="absolute left-0 top-full mt-1.5 z-[60] block w-72 rounded-lg border border-border/80 bg-bg-elevated px-3 py-2.5 shadow-2xl">
           <span className="flex items-center gap-1.5 mb-1">
             <BookOpen className="h-3 w-3 text-cyber-400" aria-hidden="true" />
             <span className="text-[10px] font-bold uppercase tracking-wider text-cyber-300">{entry.term}</span>

@@ -16,7 +16,7 @@ const sizes: Record<Size,string> = {
   lg: "h-12 px-5 text-base",
 };
 const variants: Record<Variant,string> = {
-  primary:   "bg-cyber-500 text-bg hover:bg-cyber-400 shadow-glow",
+  primary:   "bg-cyber-500 text-on-accent hover:bg-cyber-400 shadow-glow",
   secondary: "bg-bg-elevated text-slate-100 border border-border hover:bg-bg-hover",
   ghost:     "text-slate-300 hover:bg-bg-hover",
   // red-600: white text 4.8:1 (severity-critical #ff2d55 was 3.65:1 - WCAG 1.4.3)

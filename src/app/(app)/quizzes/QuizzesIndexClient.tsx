@@ -58,7 +58,7 @@ function QuizCard({ meta, href, assigned, done }: { meta: QuizCardMeta; href: st
     <Link
       href={href}
       className={cn(
-        "group flex flex-col rounded border bg-[#0d1520] p-5 transition hover:bg-[#0e1e2e]",
+        "group flex flex-col rounded border bg-bg-panel p-5 transition hover:bg-bg-hover",
         meta.generated ? "border-neon-green/20 hover:border-neon-green/40" : "border-border/60 hover:border-cyber-500/40"
       )}
     >
@@ -171,7 +171,7 @@ export function QuizzesIndexClient({ builtins }: { builtins: QuizCardMeta[] }) {
             { label: "Total Questions",   value: totalQuestions },
             { label: "Max XP Earnable",   value: `+${totalXp}` },
           ].map(s => (
-            <div key={s.label} className="rounded border border-border/60 bg-[#0d1520] px-5 py-4">
+            <div key={s.label} className="rounded border border-border/60 bg-bg-panel px-5 py-4">
               <p className="font-mono text-2xl font-bold text-cyber-300">{s.value}</p>
               <p className="mt-1 text-xs text-slate-400">{s.label}</p>
             </div>

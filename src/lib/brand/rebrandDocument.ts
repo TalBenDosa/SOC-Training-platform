@@ -1,19 +1,39 @@
 /**
  * White label for same-origin HTML the app embeds (the lesson slide decks in /public): swap the
- * platform lockup for the organization's logo / name and the platform name in text for the
- * product name. Runs in the parent page on the iframe's document once it has loaded.
+ * platform lockups (the cover's stacked logo AND the small mark in every slide's corner) for the
+ * organization's logo / name, the platform name in text for the product name, and the deck's
+ * colour variables for the tenant theme's. Runs in the parent page on the iframe's document
+ * once it has loaded.
  */
 import type { Brand } from "./brand";
+import { tokenHex } from "./theme";
 
 const PLATFORM_TEXT = /hack\s+the\s+soc/gi;
 
+/** Every element that draws the platform logo: the labelled lockups and each slide's corner mark. */
+const LOCKUPS = '[aria-label="Hack The SOC"], [aria-label="HACK THE SOC"], .lockup-stacked, .lockup-mini';
+
+/** The decks' own palette variables → the theme tokens they mirror. */
+const DECK_ACCENT: Record<string, string> = { "--cyan": "--cyber-400", "--cyan-2": "--cyber-200", "--cyan-ink": "--on-accent" };
+const DECK_SURFACES: Record<string, string> = {
+  "--bg": "--bg", "--bg-2": "--bg-elevated", "--panel": "--bg-panel", "--panel-2": "--bg-hover", "--line": "--border", "--line-2": "--border-strong",
+};
+
+/** The height the platform mark had, even on a slide that isn't showing (no layout box). */
+function markHeight(el: HTMLElement, doc: Document): number {
+  const mark = el.querySelector("svg");
+  const drawn = mark?.getBoundingClientRect().height ?? 0;
+  if (drawn > 0) return Math.round(drawn);
+  const css = mark ? parseFloat(doc.defaultView?.getComputedStyle(mark).height ?? "") : NaN;
+  return Number.isFinite(css) && css > 0 ? Math.round(css) : 38;
+}
+
 export function rebrandDocument(doc: Document, brand: Brand): void {
   if (!brand.whiteLabel) return;
-  doc.querySelectorAll<HTMLElement>('[aria-label="Hack The SOC"], [aria-label="HACK THE SOC"]').forEach(el => {
-    // Keep the lockup's size: the logo takes the height the platform mark had.
-    const mark = el.querySelector("svg");
-    const h = Math.max(16, Math.round(mark?.getBoundingClientRect().height || 28));
-    el.setAttribute("aria-label", brand.productName);
+  doc.querySelectorAll<HTMLElement>(LOCKUPS).forEach(el => {
+    if (!el.isConnected) return; // inside a lockup already replaced
+    const h = Math.max(16, markHeight(el, doc));
+    if (el.hasAttribute("aria-label")) el.setAttribute("aria-label", brand.productName);
     el.replaceChildren();
     el.style.display = "inline-flex";
     el.style.alignItems = "center";
@@ -49,4 +69,9 @@ export function rebrandDocument(doc: Document, brand: Brand): void {
     PLATFORM_TEXT.lastIndex = 0;
   });
   doc.title = doc.title.replace(PLATFORM_TEXT, brand.productName);
+  // The tenant's colours: the deck reads its palette from variables, so set them on its root.
+  const theme = brand.theme;
+  const root = doc.documentElement;
+  if (theme?.accent) for (const [v, t] of Object.entries(DECK_ACCENT)) root.style.setProperty(v, tokenHex(theme, t));
+  if (theme?.background) for (const [v, t] of Object.entries(DECK_SURFACES)) root.style.setProperty(v, tokenHex(theme, t));
 }

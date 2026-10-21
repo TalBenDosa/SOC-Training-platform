@@ -9,6 +9,7 @@ import { useOrgContext } from "@/lib/auth/useOrgContext";
 import { certificateIssuer, certificateHost } from "@/lib/certificate/issuer";
 import { useBrand } from "@/lib/brand/BrandContext";
 import { pdfText } from "@/lib/certificate/pdfText";
+import { tokenRgb } from "@/lib/brand/theme";
 import { describeScenarioXp } from "@/lib/storage/scenarioXp";
 
 export interface GradeResult {
@@ -129,26 +130,32 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
 
       // A4 landscape, mm units
       const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      // The tenant's theme colours (src/lib/brand/theme.ts; the platform's when not white label).
+      const theme = brand.whiteLabel ? brand.theme : null;
+      const acc = tokenRgb(theme, "--cyber-400");
+      const bgc = tokenRgb(theme, "--bg-elevated");
+      const mix = (a: number[], b: number[], t: number): [number, number, number] =>
+        [0, 1, 2].map(i => Math.round(a[i] * t + b[i] * (1 - t))) as [number, number, number];
       const W = 297;
       const H = 210;
 
       // ── Background ───────────────────────────────────────────────────────────
-      pdf.setFillColor(13, 21, 32);           // #0d1520
+      pdf.setFillColor(...bgc);               // the theme's surface
       pdf.rect(0, 0, W, H, "F");
 
       // ── Outer border ─────────────────────────────────────────────────────────
-      pdf.setDrawColor(34, 211, 238);         // cyan
+      pdf.setDrawColor(...acc);         // cyan
       pdf.setLineWidth(1.0);
       pdf.roundedRect(10, 10, W - 20, H - 20, 6, 6, "S");
 
       // ── Inner accent border ───────────────────────────────────────────────────
-      pdf.setDrawColor(34, 211, 238, 0.3);
+      pdf.setDrawColor(...mix(acc, bgc, 0.3));
       pdf.setLineWidth(0.3);
       pdf.roundedRect(14, 14, W - 28, H - 28, 4, 4, "S");
 
       // ── Decorative corner marks ───────────────────────────────────────────────
       const markLen = 8;
-      pdf.setDrawColor(34, 211, 238);
+      pdf.setDrawColor(...acc);
       pdf.setLineWidth(0.6);
       const corners: [number, number, number, number][] = [
         [20, 20, 20 + markLen, 20],
@@ -172,13 +179,13 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
           pdf.addImage(dataUrl, W / 2 - w / 2, 18, w, h);
         } catch { /* the name alone still identifies the issuer */ }
       }
-      pdf.setTextColor(34, 211, 238);
+      pdf.setTextColor(...acc);
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(26);
       pdf.text(brand.productName, W / 2, 42, { align: "center" });
 
       // Underline header
-      pdf.setDrawColor(34, 211, 238);
+      pdf.setDrawColor(...acc);
       pdf.setLineWidth(0.4);
       pdf.line(W / 2 - 44, 45, W / 2 + 44, 45);
 
@@ -209,7 +216,7 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
 
       // ── Scenario title ────────────────────────────────────────────────────────
       const title = scenarioTitle.length > 48 ? scenarioTitle.slice(0, 45) + "…" : scenarioTitle;
-      pdfText(pdf, title, W / 2, 116, { size: 20, bold: true, rgb: [34, 211, 238], align: "center" });
+      pdfText(pdf, title, W / 2, 116, { size: 20, bold: true, rgb: acc, align: "center" });
 
       // ── Stats row ─────────────────────────────────────────────────────────────
       const statsY = 140;
@@ -226,8 +233,8 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
         const cx = startX + i * colW;
 
         // Stat box
-        pdf.setFillColor(14, 26, 45);        // slightly lighter than bg
-        pdf.setDrawColor(30, 42, 56);        // border
+        pdf.setFillColor(...tokenRgb(theme, "--bg-panel")); // slightly lighter than bg
+        pdf.setDrawColor(...tokenRgb(theme, "--border"));  // border
         pdf.setLineWidth(0.3);
         pdf.roundedRect(cx - colW / 2 + 2, statsY - 10, colW - 4, 22, 3, 3, "FD");
 
@@ -268,7 +275,7 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="completion-modal-title" aria-describedby="completion-modal-desc" tabIndex={-1}
-        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-[#0d1520] shadow-2xl">
+        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-bg-panel shadow-2xl">
         {/* Header */}
         <div className={cn(
           "rounded-t-xl px-6 py-5 text-center",
@@ -289,17 +296,17 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
         <div className="px-6 py-5 space-y-5">
           {/* Score strip */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="rounded border border-border bg-[#080d14] px-3 py-3 text-center">
+            <div className="rounded border border-border bg-bg-elevated px-3 py-3 text-center">
               <p className="font-mono text-2xl font-bold text-white">{result.score}%</p>
               <p className="mt-1 text-[10px] uppercase tracking-widest text-slate-400">Score</p>
             </div>
-            <div className="rounded border border-border bg-[#080d14] px-3 py-3 text-center">
+            <div className="rounded border border-border bg-bg-elevated px-3 py-3 text-center">
               <p className={cn("font-mono text-2xl font-bold", xp.added > 0 || xp.headlineOnly ? "text-cyber-300" : "text-slate-400")}>
                 +{xp.added}
               </p>
               <p className="mt-1 text-[10px] uppercase tracking-widest text-slate-400">{xp.label}</p>
             </div>
-            <div className="rounded border border-border bg-[#080d14] px-3 py-3 text-center">
+            <div className="rounded border border-border bg-bg-elevated px-3 py-3 text-center">
               <p className="font-mono text-2xl font-bold text-slate-200">{formatTime(timeTaken)}</p>
               <p className="mt-1 text-[10px] uppercase tracking-widest text-slate-400">Time</p>
             </div>
@@ -365,7 +372,7 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
                 Report Breakdown · {result.report.score}/100
               </p>
-              <div className="rounded border border-border bg-[#080d14] px-3 py-3 space-y-2.5">
+              <div className="rounded border border-border bg-bg-elevated px-3 py-3 space-y-2.5">
                 {breakdown.items.map(item => (
                   <div key={item.key}>
                     <div className="flex items-center justify-between text-[11px]">

@@ -103,7 +103,7 @@ export function MermaidDiagram({ chart, caption }: { chart: string; caption?: st
   // the student still sees the (readable) structure and we can spot the error.
   if (failed) {
     return (
-      <figure className="rounded-lg border border-border bg-[#080d14] overflow-hidden">
+      <figure className="rounded-lg border border-border bg-bg-elevated overflow-hidden">
         <figcaption className="px-4 py-2 border-b border-border bg-bg-elevated/40 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
           Diagram source
         </figcaption>
@@ -113,7 +113,7 @@ export function MermaidDiagram({ chart, caption }: { chart: string; caption?: st
   }
 
   return (
-    <figure className="rounded-lg border border-border bg-[#080d14] overflow-hidden">
+    <figure className="rounded-lg border border-border bg-bg-elevated overflow-hidden">
       <figcaption className="px-4 py-2 border-b border-border bg-bg-elevated/40 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
         {caption ?? "Diagram"}
       </figcaption>

@@ -1,15 +1,21 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Heebo, Rubik, Assistant } from "next/font/google";
 import { AuthProvider } from "@/lib/auth/AuthContext";
 import { ProgressProvider } from "@/lib/storage/ProgressProvider";
 import { BrandProvider } from "@/lib/brand/BrandContext";
 import { getRequestBrand } from "@/lib/brand/server";
 import { themeCss } from "@/lib/brand/theme";
+import { PLATFORM_NAME } from "@/lib/brand/brand";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", display: "swap" });
+// The other UI fonts a white-label theme can choose (src/lib/brand/theme.ts FONTS). Not
+// preloaded: a browser only downloads one when the page's theme actually uses it.
+const heebo = Heebo({ subsets: ["latin", "hebrew"], variable: "--font-heebo", display: "swap", preload: false });
+const rubik = Rubik({ subsets: ["latin", "hebrew"], variable: "--font-rubik", display: "swap", preload: false });
+const assistant = Assistant({ subsets: ["latin", "hebrew"], variable: "--font-assistant", display: "swap", preload: false });
 
 export const viewport: Viewport = {
   themeColor: "#070b14",
@@ -36,12 +42,12 @@ export async function generateMetadata(): Promise<Metadata> {
   }
   return {
     title: {
-      default: "HACK THE SOC // Enterprise SOC Training",
-      template: "%s // HACK THE SOC",
+      default: `${PLATFORM_NAME} // Enterprise SOC Training`,
+      template: `%s // ${PLATFORM_NAME}`,
     },
     description:
       "Train as a SOC analyst on realistic enterprise telemetry: SIEM alerts, EDR process trees, MITRE ATT&CK, threat hunting, detection engineering, and AI-assisted investigations.",
-    applicationName: "HACK THE SOC",
+    applicationName: PLATFORM_NAME,
     keywords: KEYWORDS,
   };
 }
@@ -53,7 +59,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   await headers();
   const brand = await getRequestBrand();
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrains.variable} dark`}>
+    <html lang="en" className={`${inter.variable} ${jetbrains.variable} ${heebo.variable} ${rubik.variable} ${assistant.variable} dark`}>
       <body className="antialiased">
         {/* A white-label domain's own colours, server-rendered so there's no flash of the platform palette. */}
         {brand.whiteLabel && brand.theme && <style>{themeCss(brand.theme)}</style>}
@@ -62,7 +68,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             page's <main id="main-content">. */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-cyber-500 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-black focus:shadow-lg"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-cyber-500 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-on-accent focus:shadow-lg"
         >
           Skip to content
         </a>

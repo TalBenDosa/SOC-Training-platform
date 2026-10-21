@@ -117,7 +117,7 @@ export default function AchievementsPage() {
                   <div className="relative">
                     <CertThumb rank={rank} name={name} orgName={orgName} />
                     <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition group-hover:bg-black/40 group-hover:opacity-100">
-                      <span className="flex items-center gap-2 rounded-lg bg-cyber-500/90 px-3.5 py-2 text-xs font-bold text-[#05070d]">
+                      <span className="flex items-center gap-2 rounded-lg bg-cyber-500/90 px-3.5 py-2 text-xs font-bold text-on-accent">
                         <Download className="h-4 w-4" /> View &amp; download
                       </span>
                     </div>
@@ -139,11 +139,11 @@ export default function AchievementsPage() {
             return (
               <div
                 key={rank.id}
-                className="rounded-xl border border-border/40 bg-[#0a0f18] overflow-hidden opacity-90"
+                className="rounded-xl border border-border/40 bg-bg-elevated overflow-hidden opacity-90"
                 role="group"
                 aria-label={`${meta.title} ${meta.tier} certificate — locked`}
               >
-                <div className="relative flex aspect-[1200/630] items-center justify-center bg-gradient-to-br from-[#0b1220] to-[#050810]">
+                <div className="relative flex aspect-[1200/630] items-center justify-center bg-gradient-to-br from-bg-panel to-bg">
                   <div className="flex flex-col items-center gap-2 text-center px-4">
                     <span
                       className="flex h-16 w-16 items-center justify-center rounded-full border-2"

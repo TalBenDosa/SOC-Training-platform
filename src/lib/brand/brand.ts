@@ -7,8 +7,24 @@
  *  - <org slug>.<NEXT_PUBLIC_WL_BASE_DOMAIN>: a neutral wildcard domain set up once, so a new
  *    white-label customer needs no DNS or Vercel step at all, or
  *  - its own host name (organizations.custom_domain, migration 0100): one CNAME per customer.
+ *
+ * This is the ONE tenant config every screen reads: name, logo, colours / font / radius /
+ * button style (theme.ts), domain, support address, links, and (features.ts) which parts of
+ * the platform the organization gets. No component writes a product name, logo or colour of
+ * its own; they all come from here (useBrand() on the client, getRequestBrand() / brandForOrg()
+ * on the server).
  * Isomorphic: no server or React imports.
  */
+
+/** Links a tenant can point elsewhere (https URLs; privacy falls back to the platform page). */
+export interface BrandLinks {
+  /** Privacy notice: the organization's own, or the platform's /privacy page. */
+  privacy: string;
+  /** Terms of use (null = none shown). */
+  terms: string | null;
+  /** Help / support centre (null = none shown). */
+  help: string | null;
+}
 
 export interface Brand {
   /** True for a white-label organization: the platform's own name and logo must not show. */
@@ -30,15 +46,36 @@ export interface Brand {
   /** Sender for this org's emails, "Name <noreply@their-domain>" (needs that domain verified
    *  with the email provider); null = the platform's sender under the brand's name. */
   emailFrom: string | null;
-  /** The organization's colours (src/lib/brand/theme.ts); null = the platform's palette. */
+  /** The organization's look (src/lib/brand/theme.ts); null = the platform's. */
   theme: Theme | null;
+  links: BrandLinks;
 }
 
 export const PLATFORM_NAME = "HACK THE SOC";
 
+export const PLATFORM_LINKS: BrandLinks = { privacy: "/privacy", terms: null, help: null };
+
 export const PLATFORM_BRAND: Brand = {
   whiteLabel: false, productName: PLATFORM_NAME, orgId: null, logoSrc: null, logoHasName: false, color: null, supportEmail: null, origin: null, emailFrom: null, theme: null,
+  links: PLATFORM_LINKS,
 };
+
+export const LINK_KEYS = ["privacy", "terms", "help"] as const;
+const HTTPS_URL = /^https:\/\/[^\s<>"']{4,490}$/;
+
+/** A stored / typed link → a safe https URL, or null. */
+export function cleanLink(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const t = v.trim();
+  if (!HTTPS_URL.test(t)) return null;
+  try { return new URL(t).protocol === "https:" ? t : null; } catch { return null; }
+}
+
+/** Stored branding.links → the tenant's links (platform defaults for anything unset). */
+export function parseLinks(raw: unknown): BrandLinks {
+  const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  return { privacy: cleanLink(r.privacy) ?? PLATFORM_LINKS.privacy, terms: cleanLink(r.terms), help: cleanLink(r.help) };
+}
 
 /** The logo route: serves the request host's (or the signed-in org's) uploaded logo. */
 export const BRAND_LOGO_PATH = "/api/brand/logo";
@@ -156,6 +193,7 @@ export function brandFromOrg(org: OrgBrandRow | null | undefined): Brand {
     origin: org.custom_domain ? `https://${org.custom_domain}` : subdomainOrigin(org.slug),
     emailFrom: typeof b.email_from === "string" && SENDER.test(b.email_from.trim()) ? b.email_from.trim() : null,
     theme: parseTheme(b.theme),
+    links: parseLinks(b.links),
   };
 }
 

@@ -7,6 +7,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { OrgMember, OrgStatus, OrgUsage } from "@/lib/org/types";
 import { LOGO_DATA_URL, normalizeDomain } from "@/lib/brand/brand";
 import { sanitizeBranding } from "@/lib/brand/sanitize";
+import { sanitizeFeatures } from "@/lib/brand/features";
 import { forgetBrand } from "@/lib/brand/server";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -110,13 +111,25 @@ export async function PATCH(req: Request, { params }: Ctx) {
   if (body.branding !== undefined && body.branding && typeof body.branding === "object") {
     const r = sanitizeBranding(body.branding as Record<string, unknown>);
     if ("error" in r) return NextResponse.json({ error: r.error }, { status: 400 });
-    // logo_data omitted = keep the stored logo (the editor doesn't resend 150 KB on every save).
-    if (r.keepLogo) {
+    // logo_data omitted = keep the stored logo (the editor doesn't resend 150 KB on every save);
+    // features omitted = keep the stored plan (the white-label editor saves without them).
+    if (r.keepLogo || r.keepFeatures) {
       const { data: cur } = await admin.from("organizations").select("branding").eq("id", id).maybeSingle();
-      const stored = (cur?.branding as Record<string, unknown> | null)?.logo_data;
-      if (typeof stored === "string" && LOGO_DATA_URL.test(stored)) r.branding.logo_data = stored;
+      const stored = (cur?.branding as Record<string, unknown> | null) ?? {};
+      if (r.keepLogo && typeof stored.logo_data === "string" && LOGO_DATA_URL.test(stored.logo_data)) r.branding.logo_data = stored.logo_data;
+      const storedFeatures = r.keepFeatures ? sanitizeFeatures(stored.features) : null;
+      if (storedFeatures) (r.branding as Record<string, unknown>).features = storedFeatures;
     }
     patch.branding = r.branding;
+  }
+  // The plan's features on their own (the Features card): merged into the stored branding.
+  if (body.features !== undefined && patch.branding === undefined) {
+    const { data: cur, error: curErr } = await admin.from("organizations").select("branding").eq("id", id).maybeSingle();
+    if (curErr) return dbFail(curErr, "api/superadmin/orgs/[id] features", 500);
+    const { features: _old, ...rest } = ((cur?.branding ?? {}) as Record<string, unknown>);
+    void _old;
+    const features = sanitizeFeatures(body.features);
+    patch.branding = features ? { ...rest, features } : rest;
   }
   // White label: the organization's own domain (migration 0100). "" / null clears it.
   if (body.custom_domain !== undefined) {

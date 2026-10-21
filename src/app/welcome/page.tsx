@@ -37,7 +37,7 @@ export default function WelcomePage() {
           Hello <span className="font-semibold text-white">{name}</span>
         </p>
         <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">
-          Welcome to <span className="text-cyber-300">{brand.whiteLabel ? brand.productName : "Hack The SOC"}</span>
+          Welcome to <span className="text-cyber-300">{brand.productName}</span>
         </h1>
 
         {/* ── Score + badge ──────────────────────────────────────────── */}

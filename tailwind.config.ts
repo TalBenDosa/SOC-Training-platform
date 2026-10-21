@@ -18,7 +18,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
+        // Theme token: a white-label org can pick another UI font (src/lib/brand/theme.ts FONTS).
+        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
         mono: ["var(--font-jetbrains)", "ui-monospace", "monospace"],
       },
       colors: {
@@ -50,6 +51,8 @@ const config: Config = {
           800: "rgb(var(--cyber-800) / <alpha-value>)",
           900: "rgb(var(--cyber-900) / <alpha-value>)",
         },
+        // Text on an accent-filled control: dark or white, picked for contrast with the accent.
+        "on-accent": "rgb(var(--on-accent) / <alpha-value>)",
         neon: {
           green: "#00ff9d",
           red: "#ff3860",
@@ -69,15 +72,25 @@ const config: Config = {
       },
       backgroundImage: {
         "grid-fade":
-          "linear-gradient(to bottom, transparent, #070b14), linear-gradient(to right, #1e293b 1px, transparent 1px), linear-gradient(to bottom, #1e293b 1px, transparent 1px)",
+          "linear-gradient(to bottom, transparent, rgb(var(--bg))), linear-gradient(to right, rgb(var(--border)) 1px, transparent 1px), linear-gradient(to bottom, rgb(var(--border)) 1px, transparent 1px)",
         "cyber-glow":
           "radial-gradient(ellipse 80% 50% at 50% -20%, rgb(var(--cyber-400) / 0.15), transparent)",
+      },
+      // Corner radius scale as theme tokens (sharp / standard / rounded); rounded-full is untouched.
+      borderRadius: {
+        sm: "var(--radius-sm)",
+        DEFAULT: "var(--radius)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+        xl: "var(--radius-xl)",
+        "2xl": "var(--radius-2xl)",
       },
       backgroundSize: {
         grid: "100% 100%, 32px 32px, 32px 32px",
       },
       boxShadow: {
-        glow: "0 0 24px -4px rgb(var(--cyber-400) / 0.45)",
+        // Accent glow; its strength is a theme token (0 = the "flat" button style).
+        glow: "0 0 24px -4px rgb(var(--cyber-400) / var(--glow-alpha))",
         "glow-red": "0 0 24px -4px rgba(255,45,85,0.55)",
         "glow-green": "0 0 24px -4px rgba(0,255,157,0.45)",
       },

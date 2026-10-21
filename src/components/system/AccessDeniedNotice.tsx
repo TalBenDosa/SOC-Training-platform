@@ -16,8 +16,11 @@ function Inner() {
   const pathname = usePathname();
   const [show, setShow] = useState(false);
 
-  useEffect(() => { setShow(sp.get("reason") === "forbidden"); }, [sp]);
+  // "forbidden" = a staff-only area; "feature" = a part of the platform the plan doesn't include.
+  const [reason, setReason] = useState<string | null>(null);
+  useEffect(() => { const r = sp.get("reason"); setReason(r); setShow(r === "forbidden" || r === "feature"); }, [sp]);
   if (!show) return null;
+  const plan = reason === "feature";
 
   const dismiss = () => {
     setShow(false);
@@ -34,10 +37,11 @@ function Inner() {
     >
       <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-neon-amber" />
       <div className="min-w-0 flex-1 text-sm">
-        <p className="font-semibold text-white">You don&apos;t have permission to open that area</p>
+        <p className="font-semibold text-white">{plan ? "That area isn't part of your plan" : "You don’t have permission to open that area"}</p>
         <p className="mt-0.5 text-slate-300">
-          It&apos;s limited to administrators. You&apos;re still signed in — if you think this is a
-          mistake, contact your course administrator or support.
+          {plan
+            ? "Your organization's plan doesn't include it. You're still signed in. Ask your course administrator if you need it."
+            : "It's limited to administrators. You're still signed in. If you think this is a mistake, contact your course administrator or support."}
         </p>
       </div>
       <button

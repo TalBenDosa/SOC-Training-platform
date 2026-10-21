@@ -121,7 +121,7 @@ export function EarnMoment() {
           role="status"
           aria-live="polite"
         >
-          <div className="flex items-center gap-3 rounded-2xl border border-neon-amber/50 bg-[#0d1520] px-5 py-3 shadow-[0_0_40px_0_rgba(255,193,7,0.25)]">
+          <div className="flex items-center gap-3 rounded-2xl border border-neon-amber/50 bg-bg-panel px-5 py-3 shadow-[0_0_40px_0_rgba(255,193,7,0.25)]">
             <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-neon-amber/60 bg-neon-amber/15">
               <Trophy className="h-5 w-5 text-neon-amber" />
             </div>

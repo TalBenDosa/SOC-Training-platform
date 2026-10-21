@@ -158,7 +158,7 @@ export function GroupsPanel({ members, onChanged }: { members: RosterMember[]; o
                       {shown.map(m => (
                         <label key={m.user_id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-[12px] text-slate-300 hover:bg-white/5">
                           <input
-                            type="checkbox" className="accent-cyan-500"
+                            type="checkbox" className="accent-cyber-500"
                             checked={editMembers.includes(m.user_id)}
                             onChange={() => setEditMembers(list => (list.includes(m.user_id) ? list.filter(x => x !== m.user_id) : [...list, m.user_id]))}
                           />

@@ -9,6 +9,8 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { useOrgContext } from "@/lib/auth/useOrgContext";
 import { EnvironmentSwitcher } from "./EnvironmentSwitcher";
 import { MyEnvironmentSwitcher } from "./MyEnvironmentSwitcher";
+import { useBrand, useFeatures } from "@/lib/brand/BrandContext";
+import { featureForPath } from "@/lib/brand/features";
 import {
   LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Award, ShieldCheck, Building2, Flag, Library, Users, ChevronsLeft, PanelLeft,
 } from "lucide-react";
@@ -80,6 +82,10 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { user, authEnabled, signOut } = useAuth();
   const { isPlatformAdmin, orgRole } = useOrgContext();
+  // The environment's plan (tenant config): a feature it doesn't include isn't listed.
+  const features = useFeatures();
+  const { links } = useBrand();
+  const navItems = NAV_ITEMS.filter(({ href }) => { const f = featureForPath(href); return !f || features[f]; });
   return (
     <>
       {/* Only the page list scrolls: the account block, admin links and the environment
@@ -89,7 +95,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
           Navigation
         </p>
         <ul className="space-y-0.5">
-          {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+          {navItems.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname?.startsWith(href + "/");
             return (
               <li key={href}>
@@ -100,7 +106,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
                   className={cn(
                     "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
                     active
-                      ? "bg-[#0e2a2e] text-cyber-300"
+                      ? "bg-cyber-400/10 text-cyber-300"
                       : "text-slate-300 hover:bg-white/5 hover:text-white"
                   )}
                 >
@@ -188,7 +194,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
         <ContentFeedbackLink onNavigate={onNavigate} />
         {/* Team-SOC training — shared multiplayer exercises. Any org member sees
             it (they enter sessions they're invited to; staff also build them). */}
-        {(!!orgRole || isPlatformAdmin) && (
+        {(!!orgRole || isPlatformAdmin) && features.team_training && (
           <Link
             href="/team"
             onClick={onNavigate}
@@ -236,6 +242,17 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
         >
           Accessibility
         </Link>
+        {/* The tenant's own help centre and terms, when it has them (tenant config links). */}
+        {links.help && (
+          <a href={links.help} target="_blank" rel="noopener noreferrer" className="block px-3 py-1 text-xs text-slate-400 underline underline-offset-2 hover:text-slate-200 transition-colors">
+            Help
+          </a>
+        )}
+        {links.terms && (
+          <a href={links.terms} target="_blank" rel="noopener noreferrer" className="block px-3 py-1 text-xs text-slate-400 underline underline-offset-2 hover:text-slate-200 transition-colors">
+            Terms of use
+          </a>
+        )}
       </div>
     </>
   );
@@ -277,7 +294,7 @@ export function Sidebar() {
   return (
     <>
       {/* ── Desktop rail (collapsible) ───────────────────────────────── */}
-      <aside className={cn("hidden md:flex md:w-60 flex-col border-r border-border bg-[#0d1520] sticky top-0 h-screen", railCollapsed && "md:hidden")}>
+      <aside className={cn("hidden md:flex md:w-60 flex-col border-r border-border bg-bg-panel sticky top-0 h-screen", railCollapsed && "md:hidden")}>
         <div className="flex shrink-0 items-center justify-between px-5 py-4">
           <Link href={homeHref} className="block">
             <Logo />
@@ -301,7 +318,7 @@ export function Sidebar() {
           onClick={() => toggleCollapsed(false)}
           aria-label="Expand sidebar"
           title="Expand sidebar"
-          className={cn("hidden md:flex fixed z-40 items-center justify-center border border-border bg-[#0d1520]/95 text-slate-200 shadow-lg backdrop-blur hover:text-white",
+          className={cn("hidden md:flex fixed z-40 items-center justify-center border border-border bg-bg-panel/95 text-slate-200 shadow-lg backdrop-blur hover:text-white",
             // In the exercise room: a slim tab on the left edge that sits in the page gutter, over nothing.
             focusRoute ? "left-0 top-1/2 h-16 w-5 -translate-y-1/2 rounded-r-md border-l-0 hover:w-7" : "top-3 left-3 h-10 w-10 rounded-lg")}
         >
@@ -315,7 +332,7 @@ export function Sidebar() {
         aria-label="Open navigation menu"
         aria-expanded={drawerOpen}
         aria-controls="mobile-nav-drawer"
-        className="md:hidden fixed top-3 left-3 z-40 flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-[#0d1520]/95 text-slate-200 shadow-lg backdrop-blur"
+        className="md:hidden fixed top-3 left-3 z-40 flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-bg-panel/95 text-slate-200 shadow-lg backdrop-blur"
       >
         <Menu className="h-5 w-5" />
       </button>
@@ -336,7 +353,7 @@ export function Sidebar() {
             aria-modal="true"
             aria-labelledby="mobile-nav-drawer-title"
             tabIndex={-1}
-            className="relative flex w-64 max-w-[80vw] flex-col border-r border-border bg-[#0d1520] h-full outline-none"
+            className="relative flex w-64 max-w-[80vw] flex-col border-r border-border bg-bg-panel h-full outline-none"
           >
             <h2 id="mobile-nav-drawer-title" className="sr-only">Navigation menu</h2>
             <div className="flex items-center justify-between px-5 py-5">

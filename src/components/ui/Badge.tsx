@@ -11,7 +11,7 @@ export function Badge({
   const variants: Record<string, string> = {
     default: "bg-bg-elevated border border-border text-slate-200",
     outline: "border border-border-strong text-slate-300",
-    solid:   "bg-cyber-500 text-bg",
+    solid:   "bg-cyber-500 text-on-accent",
   };
   return <span className={cn(base, variants[variant], className)}>{children}</span>;
 }

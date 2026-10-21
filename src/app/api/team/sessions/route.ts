@@ -13,7 +13,7 @@ import { sanitizeAttackPlan, pinnedIds } from "@/lib/team/attackPlan";
 import { SINGLE_SEAT, rosterConflict } from "@/lib/team/roster";
 import { liveAffiliationFilter } from "@/lib/team/membership";
 import { contactLine } from "@/lib/brand/brand";
-import { brandForOrg } from "@/lib/brand/server";
+import { brandForOrg, featuresForOrg } from "@/lib/brand/server";
 
 /**
  * Team-SOC sessions (Phase 0.3). Create = org_admin/instructor only, and always
@@ -81,6 +81,10 @@ export async function POST(req: Request) {
 
   // Team Training is limited per organization (0099): no new lobby once the quota is used.
   if (!user.isPlatformAdmin) {
+    // The plan must include Team Training at all (tenant config features).
+    if (!(await featuresForOrg(orgId)).team_training) {
+      return NextResponse.json({ error: `Team training isn't part of your organization's plan. ${contactLine(await brandForOrg(orgId))} to add it.` }, { status: 403 });
+    }
     let q;
     try { q = await teamQuotaFor(admin, orgId); }
     catch (e) { console.error("[team create] quota:", e instanceof Error ? e.message : String(e)); return NextResponse.json({ error: "Couldn't check your organization's team exercises. Try again." }, { status: 503 }); }

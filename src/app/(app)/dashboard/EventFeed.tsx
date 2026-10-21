@@ -127,7 +127,7 @@ function LogSourceCard({ source, vendor }: { source: string; vendor?: string }) 
       </button>
       {visible && (
         <div
-          className="absolute left-0 top-full mt-1.5 z-50 w-72 rounded-lg border border-border/80 bg-[#080d14] p-3 shadow-2xl"
+          className="absolute left-0 top-full mt-1.5 z-50 w-72 rounded-lg border border-border/80 bg-bg-elevated p-3 shadow-2xl"
           onMouseEnter={() => setVisible(true)}
           onMouseLeave={() => setVisible(false)}
         >
@@ -180,7 +180,7 @@ function HeaderTip({ label, tip }: { label: string; tip: string }) {
         {label}
       </button>
       {visible && (
-        <div className="absolute left-0 top-full mt-1.5 z-50 w-64 rounded-lg border border-border/80 bg-[#080d14] px-3 py-2 shadow-2xl">
+        <div className="absolute left-0 top-full mt-1.5 z-50 w-64 rounded-lg border border-border/80 bg-bg-elevated px-3 py-2 shadow-2xl">
           <p className="text-[10px] leading-relaxed text-slate-300">{tip}</p>
         </div>
       )}
@@ -341,7 +341,7 @@ function RawLogView({ event, native }: { event: LiveEvent; native?: NativeView |
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-[#0d1520] px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+        <span className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-bg-panel px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
           <BookOpen className="h-3 w-3 text-slate-400" />
           {rawLog.format}
         </span>
@@ -359,7 +359,7 @@ function RawLogView({ event, native }: { event: LiveEvent; native?: NativeView |
             : <><Copy className="h-3 w-3" /> Copy</>}
         </button>
       </div>
-      <pre className="max-h-72 overflow-auto rounded border border-border bg-[#0a0f18] p-3 font-mono text-[11px] leading-relaxed text-slate-300 whitespace-pre">
+      <pre className="max-h-72 overflow-auto rounded border border-border bg-bg-elevated p-3 font-mono text-[11px] leading-relaxed text-slate-300 whitespace-pre">
         {highlightRawLog(rawLog.text, rawLog.lang)}
       </pre>
       <p className="text-[10px] leading-relaxed text-slate-400">
@@ -563,7 +563,7 @@ export function DetailPanelBody({
   const NATIVE_DOMAIN_KEY = /(domain|hostname|host|query_?name|qname|url|fqdn|server_?name|appdomain)$/i;
 
   return (
-    <div className="bg-[#080d14]">
+    <div className="bg-bg-elevated">
       {/* Log reading tour — fires once on first-ever event expansion */}
       <LogReadingTour />
       <div className="border-t border-border/50 px-5 py-4 space-y-3">
@@ -619,7 +619,7 @@ export function DetailPanelBody({
             <span className="text-sm font-semibold text-white">Log Analysis</span>
           </div>
           {/* Analysis ↔ Raw log segmented control — Raw shows the authentic vendor wire format */}
-          <div className="inline-flex items-center rounded-md border border-border/70 bg-[#0a0f18] p-0.5 text-[11px] font-semibold" role="group" aria-label="Log view">
+          <div className="inline-flex items-center rounded-md border border-border/70 bg-bg-elevated p-0.5 text-[11px] font-semibold" role="group" aria-label="Log view">
             <button
               type="button"
               aria-pressed={!showRawJson}
@@ -641,7 +641,7 @@ export function DetailPanelBody({
 
         {/* IT Verification Widget — shown for admin/privileged action events */}
         {!showRawJson && hasItVerify && (
-          <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3 space-y-2.5">
+          <div className="rounded border border-border/60 bg-bg-panel px-4 py-3 space-y-2.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">IT Verification</p>
             {itVerifyState === "idle" && (
               <>
@@ -701,7 +701,7 @@ export function DetailPanelBody({
         ) : (
           <>
             {/* Basic Info */}
-            <div id="ef-detail-basic-info" className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
+            <div id="ef-detail-basic-info" className="rounded border border-border/60 bg-bg-panel px-4 py-3">
               <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Basic Information</p>
               <div className="space-y-2">
                 {fullDescription && (
@@ -781,7 +781,7 @@ export function DetailPanelBody({
                 analysts no longer investigate raw mail headers here. */}
 
             {/* Detailed Log Data */}
-            <div id="ef-detail-log-data" className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
+            <div id="ef-detail-log-data" className="rounded border border-border/60 bg-bg-panel px-4 py-3">
               <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
                 Detailed Log Data{nativeView ? <span className="ml-2 normal-case tracking-normal text-slate-500">— {nativeView.product}, native fields</span> : null}
               </p>
@@ -865,7 +865,7 @@ export function DetailPanelBody({
 
 /** Table-cell wrapper — the feed renders the expanded row as a <tr><td colSpan>. */
 export function DetailPanel(props: DetailPanelProps) {
-  return <td colSpan={7} className="bg-[#080d14] p-0"><DetailPanelBody {...props} /></td>;
+  return <td colSpan={7} className="bg-bg-elevated p-0"><DetailPanelBody {...props} /></td>;
 }
 
 
@@ -902,9 +902,9 @@ function MitreSlideout({ techniqueId, onClose }: { techniqueId: string; onClose:
         role="dialog" aria-modal="true" aria-labelledby="mitre-slideout-title" tabIndex={-1}
         initial={{ x: 440 }} animate={{ x: 0 }} exit={{ x: 440 }}
         transition={{ type: "spring", damping: 28, stiffness: 260 }}
-        className="fixed right-0 top-0 z-[71] h-screen w-full overflow-y-auto overscroll-contain border-l border-border/80 bg-[#080d14] shadow-2xl sm:w-[440px]"
+        className="fixed right-0 top-0 z-[71] h-screen w-full overflow-y-auto overscroll-contain border-l border-border/80 bg-bg-elevated shadow-2xl sm:w-[440px]"
       >
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border/60 bg-[#080d14]/95 px-5 py-4 backdrop-blur">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border/60 bg-bg-elevated/95 px-5 py-4 backdrop-blur">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="rounded border border-neon-purple/50 bg-neon-purple/10 px-1.5 py-0.5 font-mono text-[11px] font-bold text-neon-purple">{techniqueId}</span>
@@ -1014,7 +1014,7 @@ function SocMethodologyBanner() {
   ];
 
   return (
-    <div className="border-b border-border/40 bg-[#06101a]">
+    <div className="border-b border-border/40 bg-bg-elevated">
       <button
         type="button"
         aria-expanded={expanded}
@@ -1037,7 +1037,7 @@ function SocMethodologyBanner() {
       {expanded && (
         <div className="px-4 pb-3 grid grid-cols-5 gap-2">
           {steps.map(s => (
-            <div key={s.num} className="rounded border border-border/40 bg-[#0d1520] p-2.5">
+            <div key={s.num} className="rounded border border-border/40 bg-bg-panel p-2.5">
               <div className="flex items-center gap-1.5 mb-1.5">
                 <span className="flex h-4 w-4 items-center justify-center rounded-full bg-cyber-500/15 text-[9px] font-bold text-cyber-400">{s.num}</span>
                 <span className="text-[10px] font-bold text-white">{s.label}</span>

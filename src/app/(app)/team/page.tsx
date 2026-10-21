@@ -314,7 +314,7 @@ export default function TeamIndexPage() {
                 })}
               </div>
               <label htmlFor="team-bonus-attack" className="mt-2 flex cursor-pointer items-start gap-2 rounded-md border border-border bg-bg-elevated px-2.5 py-2 text-xs text-slate-300">
-                <input id="team-bonus-attack" type="checkbox" checked={bonusAttack} onChange={e => setBonusAttack(e.target.checked)} className="mt-0.5 accent-cyan-400" />
+                <input id="team-bonus-attack" type="checkbox" checked={bonusAttack} onChange={e => setBonusAttack(e.target.checked)} className="mt-0.5 accent-cyber-400" />
                 <span>
                   <span className="font-medium text-slate-200">Bonus attack</span> — one more random attack, released only after the team has caught every attack above.
                   <span className="block text-[10px] text-slate-500">Attacks start at staggered times after a warm-up of ordinary traffic; the order and timing vary every session.</span>

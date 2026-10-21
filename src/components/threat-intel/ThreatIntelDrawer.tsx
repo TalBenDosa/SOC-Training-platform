@@ -114,7 +114,7 @@ function HashPanel({ data, onClose }: { data: HashIntelData; onClose: () => void
 
         {/* Malware details */}
         {isMal && (
-          <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3 space-y-2">
+          <div className="rounded border border-border/60 bg-bg-panel px-4 py-3 space-y-2">
             <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Malware Classification</p>
             {data.malwareName && (
               <div className="flex gap-3 items-baseline">
@@ -250,7 +250,7 @@ function IpPanel({ data, onClose }: { data: IpIntelData; onClose: () => void }) 
         </div>
 
         {/* IP info */}
-        <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3 space-y-2">
+        <div className="rounded border border-border/60 bg-bg-panel px-4 py-3 space-y-2">
           <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-2">IP Information</p>
           {data.country && (
             <div className="flex gap-3 items-baseline">
@@ -360,7 +360,7 @@ function DomainPanel({ data, onClose }: { data: DomainIntelData; onClose: () => 
         </div>
 
         {/* WHOIS-style info */}
-        <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3 space-y-2">
+        <div className="rounded border border-border/60 bg-bg-panel px-4 py-3 space-y-2">
           <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Registration Info</p>
           {data.registrar && (
             <div className="flex gap-3 items-baseline">
@@ -458,7 +458,7 @@ export function ThreatIntelDrawer({ query, onClose, truth }: {
         aria-label={`Threat intelligence — ${query.type === "hash" ? "file hash" : query.type === "ip" ? "IP address" : "domain"} ${query.value}`}
         initial={{ x: 460 }} animate={{ x: 0 }} exit={{ x: 460 }}
         transition={{ type: "spring", damping: 28, stiffness: 260 }}
-        className="fixed right-0 top-0 h-screen w-full sm:w-[440px] bg-[#080d14] border-l border-border/80 z-[70] shadow-2xl"
+        className="fixed right-0 top-0 h-screen w-full sm:w-[440px] bg-bg-elevated border-l border-border/80 z-[70] shadow-2xl"
       >
         {hashData   && <HashPanel   data={hashData}   onClose={onClose} />}
         {ipData     && <IpPanel     data={ipData}     onClose={onClose} />}

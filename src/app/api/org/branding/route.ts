@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { brandFromOrg } from "@/lib/brand/brand";
+import { parseFeatures } from "@/lib/brand/features";
 
 /**
  * The caller's own org name + branding (accent colour, logo URL), for theming
@@ -37,5 +38,7 @@ export async function GET() {
     // gating applies; true only for orgs a super-admin has opted in.
     all_rooms_unlocked: data?.all_rooms_unlocked === true,
     brand: data && sameEnvironment ? { ...brandFromOrg(data), orgId: data.id } : null,
+    // The environment's plan (src/lib/brand/features.ts), white label or not.
+    features: parseFeatures((data?.branding as Record<string, unknown> | null)?.features),
   });
 }

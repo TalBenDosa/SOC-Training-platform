@@ -329,7 +329,7 @@ export function IncidentReportModal({
                         value={f.value}
                         onChange={e => f.set(e.target.value)}
                         autoFocus={i === 0}
-                        className="w-full resize-none rounded border border-border/60 bg-[#060b12] px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
+                        className="w-full resize-none rounded border border-border/60 bg-bg px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
                         placeholder={f.ph}
                       />
                     </div>
@@ -351,7 +351,7 @@ export function IncidentReportModal({
                     value={summary}
                     onChange={e => setSummary(e.target.value)}
                     autoFocus
-                    className="w-full resize-none rounded border border-border/60 bg-[#060b12] px-3 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
+                    className="w-full resize-none rounded border border-border/60 bg-bg px-3 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
                     placeholder="Example: I detected a password spray attack targeting multiple accounts from IP 91.108.4.154. The attacker tried over 40 failed logins before succeeding with r.patel's credentials. I collected the source IP and compromised username as IOCs. Recommended action: block the IP at the firewall, reset r.patel's password, and review all successful logins from that IP."
                   />
                 </div>
@@ -431,7 +431,7 @@ export function IncidentReportModal({
               </div>
 
               {/* Feedback */}
-              <div className="rounded border border-border/40 bg-[#060b12] px-4 py-3 space-y-3">
+              <div className="rounded border border-border/40 bg-bg px-4 py-3 space-y-3">
                 <p className="text-xs text-slate-200 leading-relaxed">{result.feedback}</p>
 
                 {result.strengths.length > 0 && (
@@ -514,7 +514,7 @@ export function IncidentReportModal({
                   </p>
                   <div className="space-y-1.5 pt-0.5">
                     {decoys.map((d, i) => (
-                      <div key={i} className="rounded border border-border/30 bg-[#060b12] px-2.5 py-2">
+                      <div key={i} className="rounded border border-border/30 bg-bg px-2.5 py-2">
                         <div className="flex items-center gap-1.5 mb-1">
                           <span className="inline-flex items-center rounded border border-slate-500/30 bg-slate-500/10 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-slate-300">
                             {d.source.replace(/_/g, " ")}

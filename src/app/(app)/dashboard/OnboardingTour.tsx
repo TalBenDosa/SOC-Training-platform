@@ -232,7 +232,7 @@ function TourCard({
         role="dialog" aria-modal="false" aria-labelledby="tour-step-title"
         className="fixed flex flex-col"
       >
-        <div className="flex flex-col rounded-2xl border border-cyber-500/30 bg-[#07111f] shadow-2xl shadow-black/70 overflow-hidden max-h-full">
+        <div className="flex flex-col rounded-2xl border border-cyber-500/30 bg-bg-elevated shadow-2xl shadow-black/70 overflow-hidden max-h-full">
 
           {/* Header bar */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40 bg-cyber-500/[0.07] shrink-0">
@@ -282,7 +282,7 @@ function TourCard({
             </div>
 
             {current.example && (
-              <pre className="rounded border border-border/50 bg-[#0a0f1a] px-3 py-2 font-mono text-[10px] leading-relaxed text-cyber-300 overflow-x-auto whitespace-pre">
+              <pre className="rounded border border-border/50 bg-bg-elevated px-3 py-2 font-mono text-[10px] leading-relaxed text-cyber-300 overflow-x-auto whitespace-pre">
                 {current.example}
               </pre>
             )}

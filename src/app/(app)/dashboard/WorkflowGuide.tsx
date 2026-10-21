@@ -61,7 +61,7 @@ export function WorkflowGuide({ reportPassed }: Props) {
       </div>
 
       {open && (
-        <div className="mt-2 rounded border border-border/50 bg-[#060b12] px-3 py-2">
+        <div className="mt-2 rounded border border-border/50 bg-bg px-3 py-2">
           <p className="text-[11px] leading-relaxed text-slate-300">
             Press <span className="font-bold text-neon-purple">Report Incident</span> in the top bar and
             describe: what attack happened, which <Term k="ioc">IOCs</Term> (IPs, users, hosts you read in

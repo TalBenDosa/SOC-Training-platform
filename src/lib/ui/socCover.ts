@@ -360,11 +360,19 @@ function sceneFor(topic: string, title: string, context = ""): [Scene, string] {
 }
 
 const cache = new Map<string, string>();
-/** `url("data:image/svg+xml,...")` cover for a lesson deck. */
-export function socCover(slug: string, topic: string, title = "", context = ""): string {
-  const key = `${slug}|${topic}`;
+/** The platform accent among the topic colours: a white-label theme's accent replaces it. */
+const PLATFORM_ACCENT = "#22d3ee";
+
+/**
+ * `url("data:image/svg+xml,...")` cover for a lesson deck. `brandAccent` (the tenant theme's
+ * accent, useCoverAccent()) recolours the covers drawn in the platform's own cyan; the other
+ * topic colours are an illustration palette and stay.
+ */
+export function socCover(slug: string, topic: string, title = "", context = "", brandAccent?: string): string {
+  const key = `${slug}|${topic}|${brandAccent ?? ""}`;
   const hit = cache.get(key); if (hit) return hit;
-  const [scene, accent] = sceneFor(topic, title, context);
+  const [scene, topicAccent] = sceneFor(topic, title, context);
+  const accent = brandAccent && topicAccent === PLATFORM_ACCENT ? brandAccent : topicAccent;
   const uri = `url("data:image/svg+xml,${encodeURIComponent(frame(accent, scene(slug, accent), slug))}")`;
   cache.set(key, uri);
   return uri;

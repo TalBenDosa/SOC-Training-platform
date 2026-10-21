@@ -297,7 +297,7 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
             <ArrowLeft className="h-3.5 w-3.5" /> Back to Quizzes
           </Link>
 
-          <div className="rounded border border-border/60 bg-[#0d1520] overflow-hidden">
+          <div className="rounded border border-border/60 bg-bg-panel overflow-hidden">
             {/* Hero */}
             <div className="px-8 pt-8 pb-6 text-center border-b border-border/60">
               <div className="mb-4 text-5xl">{quiz.icon}</div>
@@ -374,7 +374,7 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
         <div className="container mx-auto max-w-[720px] px-6 py-12">
 
           {/* Result card */}
-          <div className="rounded border border-border/60 bg-[#0d1520] overflow-hidden mb-6">
+          <div className="rounded border border-border/60 bg-bg-panel overflow-hidden mb-6">
             <div className="px-8 py-8 text-center border-b border-border/60">
               <div className="mb-4 flex justify-center">
                 <ScoreRing score={scorePercent} />
@@ -553,7 +553,7 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
         </div>
 
         {/* Question card */}
-        <div className="rounded border border-border/60 bg-[#0d1520] overflow-hidden">
+        <div className="rounded border border-border/60 bg-bg-panel overflow-hidden">
           {/* Question header */}
           <div className="px-6 pt-6 pb-4">
             <div className="flex items-center justify-between mb-4">

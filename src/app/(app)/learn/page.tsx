@@ -105,7 +105,7 @@ function renderInline(text: string, keyBase: string | number) {
     if (part.startsWith("**") && part.endsWith("**"))
       return <strong key={`${keyBase}-${j}`} className="text-white font-semibold">{part.slice(2, -2)}</strong>;
     if (part.length > 1 && part.startsWith("`") && part.endsWith("`"))
-      return <code key={`${keyBase}-${j}`} className="rounded bg-[#111a2e] px-1.5 py-0.5 font-mono text-[12.5px] text-cyan-300">{part.slice(1, -1)}</code>;
+      return <code key={`${keyBase}-${j}`} className="rounded bg-bg-hover px-1.5 py-0.5 font-mono text-[12.5px] text-cyber-300">{part.slice(1, -1)}</code>;
     if (part.length > 2 && part.startsWith("*") && part.endsWith("*"))
       return <em key={`${keyBase}-${j}`} className="italic text-slate-200">{part.slice(1, -1)}</em>;
     return <span key={`${keyBase}-${j}`}>{part}</span>;
@@ -130,7 +130,7 @@ function labelForLang(lang: string) {
 
 function CodeCard({ label, code }: { label: string; code: string }) {
   return (
-    <div className="my-4 overflow-hidden rounded-xl border border-slate-700/50 bg-[#0a0f1c] shadow-sm">
+    <div className="my-4 overflow-hidden rounded-xl border border-slate-700/50 bg-bg-elevated shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-700/40 bg-slate-800/25 px-4 py-2">
         <span className="flex gap-1.5" aria-hidden="true">
           <span className="h-2.5 w-2.5 rounded-full bg-red-400/40" />
@@ -180,18 +180,18 @@ function renderTextBlocks(text: string, keyPrefix: string) {
         const table = parseMarkdownTable(trimmed);
         if (table) {
           return (
-            <div key={i} className="overflow-x-auto rounded-lg border border-[#1e2d4a]">
+            <div key={i} className="overflow-x-auto rounded-lg border border-border">
               <table className="w-full text-left text-[13px]">
                 <thead>
-                  <tr className="border-b border-[#1e2d4a] bg-[#0f1830]">
+                  <tr className="border-b border-border bg-bg-hover">
                     {table.headers.map((h, hi) => (
-                      <th key={hi} className="px-3 py-2 font-semibold text-cyan-200 whitespace-nowrap">{renderInline(h, `h${hi}`)}</th>
+                      <th key={hi} className="px-3 py-2 font-semibold text-cyber-200 whitespace-nowrap">{renderInline(h, `h${hi}`)}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {table.rows.map((row, ri) => (
-                    <tr key={ri} className="border-b border-[#1e2d4a]/50 last:border-0">
+                    <tr key={ri} className="border-b border-border/50 last:border-0">
                       {row.map((c, ci) => (
                         <td key={ci} className="px-3 py-2 text-slate-300 align-top">{renderInline(c, `r${ri}c${ci}`)}</td>
                       ))}
@@ -241,7 +241,7 @@ function renderTextBlocks(text: string, keyPrefix: string) {
                   {renderInline(l, `l${i}-${li}`)}
                 </p>
               ))}
-              <ListTag className={`space-y-1.5 pl-5 ${ordered ? "list-decimal" : "list-disc"} marker:text-cyan-400/70`}>
+              <ListTag className={`space-y-1.5 pl-5 ${ordered ? "list-decimal" : "list-disc"} marker:text-cyber-400/70`}>
                 {items.map((item, ii) => (
                   <li key={ii} className="text-[14px] text-slate-300 leading-[1.8] pl-1">
                     {renderInline(item.replace(/^(?:[-*]\s+|\d+[.)]\s+)/, ""), `i${i}-${ii}`)}
@@ -278,11 +278,11 @@ function LessonCard({ lesson, onClick, onIntent, assigned }: { lesson: CardItem;
       // usually already loaded by the time they click.
       onMouseEnter={onIntent}
       onFocus={onIntent}
-      className="group text-left w-full rounded-2xl border border-[#1e2d4a] bg-[#0d1322] p-5 hover:border-cyan-500/40 hover:bg-[#0f1830] transition-all duration-200 flex flex-col gap-3"
+      className="group text-left w-full rounded-2xl border border-border bg-bg-panel p-5 hover:border-cyber-500/40 hover:bg-bg-hover transition-all duration-200 flex flex-col gap-3"
     >
       {/* title + badge */}
       <div className="flex items-start justify-between gap-3">
-        <h3 className="text-base font-bold leading-snug line-clamp-3 transition-colors text-white group-hover:text-cyan-100">
+        <h3 className="text-base font-bold leading-snug line-clamp-3 transition-colors text-white group-hover:text-cyber-100">
           {lesson.title}
         </h3>
         <div className="flex flex-col items-end gap-1 shrink-0 mt-0.5">
@@ -309,14 +309,14 @@ function LessonCard({ lesson, onClick, onIntent, assigned }: { lesson: CardItem;
       {/* tags */}
       <div className="flex flex-wrap gap-1.5">
         {tags.map(tag => (
-          <span key={tag} className="rounded-full border border-[#2a3555] bg-[#111828] px-2.5 py-0.5 text-[11px] text-slate-400">
+          <span key={tag} className="rounded-full border border-border-strong bg-bg-hover px-2.5 py-0.5 text-[11px] text-slate-400">
             {tag}
           </span>
         ))}
       </div>
 
       {/* stats */}
-      <div className="flex items-center gap-4 text-[12px] text-slate-400 border-t border-[#1e2d4a] pt-3">
+      <div className="flex items-center gap-4 text-[12px] text-slate-400 border-t border-border pt-3">
         <span className="flex items-center gap-1.5">
           <FileText className="h-3.5 w-3.5" />
           {pages} pages
@@ -338,8 +338,8 @@ function SectionPageContent({
     <div className="space-y-6">
 
       {/* ── Section heading ────────────────────────────────────── */}
-      <div className="pb-5 border-b border-[#1e2d4a]">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-500/70 block mb-2">
+      <div className="pb-5 border-b border-border">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-cyber-500/70 block mb-2">
           Section
         </span>
         <h1 className="text-[22px] font-bold text-white leading-snug">{section.heading}</h1>
@@ -440,7 +440,7 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
   return (
     // Full-screen reader: the lesson owns the whole viewport (no centred card with
     // a fixed max width), a section outline on wide screens, and one scroll area.
-    <div className="fixed inset-0 z-50 bg-[#070b14]">
+    <div className="fixed inset-0 z-50 bg-bg">
       <div
         ref={dialogRef}
         role="dialog"
@@ -451,10 +451,10 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
       >
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="relative shrink-0 border-b border-[#1e2d4a] bg-[#0b0f1e]">
+        <div className="relative shrink-0 border-b border-border bg-bg-elevated">
           <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-400">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyber-500/30 bg-cyber-500/10 text-cyber-400">
                 <FileText className="h-4 w-4" />
               </div>
               <div className="min-w-0">
@@ -474,14 +474,14 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
             </div>
           </div>
           {/* Progress along the top edge */}
-          <div className="h-[3px] w-full bg-[#1a2035]" aria-hidden="true">
-            <div className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 transition-all duration-500" style={{ width: `${progress}%` }} />
+          <div className="h-[3px] w-full bg-bg-hover" aria-hidden="true">
+            <div className="h-full bg-gradient-to-r from-cyber-600 to-cyber-400 transition-all duration-500" style={{ width: `${progress}%` }} />
           </div>
         </div>
 
         {/* ── Body: outline + content ────────────────────────────────────── */}
         <div className="flex min-h-0 flex-1">
-          <nav aria-label="Lesson sections" className="hidden w-72 shrink-0 overflow-y-auto border-r border-[#1e2d4a] bg-[#0b0f1e]/60 p-3 lg:block">
+          <nav aria-label="Lesson sections" className="hidden w-72 shrink-0 overflow-y-auto border-r border-border bg-bg-elevated/60 p-3 lg:block">
             <ol className="space-y-0.5">
               {outline.map((label, i) => {
                 const current = i === page;
@@ -492,11 +492,11 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
                       onClick={() => goTo(i)}
                       aria-current={current ? "step" : undefined}
                       className={`flex w-full items-start gap-2.5 rounded-md px-2.5 py-2 text-left text-[13px] leading-snug transition-colors ${
-                        current ? "bg-cyan-500/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                        current ? "bg-cyber-500/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
                       }`}
                     >
                       <span className={`mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-bold ${
-                        current ? "bg-cyan-500 text-[#070b14]" : done ? "bg-emerald-500/15 text-emerald-300" : "bg-slate-800 text-slate-400"
+                        current ? "bg-cyber-500 text-on-accent" : done ? "bg-emerald-500/15 text-emerald-300" : "bg-slate-800 text-slate-400"
                       }`}>
                         {done ? <CheckCircle2 className="h-3 w-3" aria-hidden="true" /> : i + 1}
                       </span>
@@ -515,8 +515,8 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
               {isIntro && (
                 <div className="space-y-6">
                   {/* H1 — Main topic title */}
-                  <div className="pb-5 border-b border-[#1e2d4a]">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-500/70 block mb-2">
+                  <div className="pb-5 border-b border-border">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-cyber-500/70 block mb-2">
                       Introduction
                     </span>
                     <h1 className="text-[22px] font-bold text-white leading-snug">
@@ -535,8 +535,8 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
                       the page with genuinely useful content — the student sees the
                       path ahead and can jump straight to any section. */}
                   {lesson.sections.length > 0 && (
-                    <div className="rounded-xl border border-[#1e2d4a] bg-[#0d1322] p-5">
-                      <h3 className="mb-4 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-cyan-500/70">
+                    <div className="rounded-xl border border-border bg-bg-panel p-5">
+                      <h3 className="mb-4 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-cyber-500/70">
                         <ListChecks className="h-3.5 w-3.5" /> In this lesson
                       </h3>
                       <ol className="space-y-2.5">
@@ -546,10 +546,10 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
                               onClick={() => goTo(i + 1)}
                               className="group flex w-full items-start gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-white/5"
                             >
-                              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-cyan-500/30 bg-cyan-500/10 text-[11px] font-bold text-cyan-300">
+                              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-cyber-500/30 bg-cyber-500/10 text-[11px] font-bold text-cyber-300">
                                 {i + 1}
                               </span>
-                              <span className="text-[14px] leading-snug text-slate-300 group-hover:text-cyan-200">
+                              <span className="text-[14px] leading-snug text-slate-300 group-hover:text-cyber-200">
                                 {s.heading}
                               </span>
                             </button>
@@ -569,8 +569,8 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
               {/* Summary page: key takeaways. Reference URLs are kept in the data as provenance, not shown to students. */}
               {isSummary && (
                 <div className="space-y-6">
-                  <div className="pb-5 border-b border-[#1e2d4a]">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-500/70 block mb-2">
+                  <div className="pb-5 border-b border-border">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-cyber-500/70 block mb-2">
                       Wrap-up
                     </span>
                     <h1 className="text-[22px] font-bold text-white leading-snug">Key Takeaways</h1>
@@ -594,7 +594,7 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
         </div>
 
         {/* ── Footer nav ─────────────────────────────────────────────────── */}
-        <div className="shrink-0 border-t border-[#1e2d4a] bg-[#0b0f1e]">
+        <div className="shrink-0 border-t border-border bg-bg-elevated">
           <div className="flex">
           {/* spacer under the outline so the buttons line up with the reading column */}
           <div className="hidden w-72 shrink-0 lg:block" aria-hidden="true" />
@@ -602,7 +602,7 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
             <button
               onClick={onPrev}
               disabled={page === 0}
-              className="flex items-center gap-1.5 rounded-xl border border-[#2a3555] bg-[#0d1322] px-4 py-2 text-[13px] font-semibold text-slate-300 transition-all hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+              className="flex items-center gap-1.5 rounded-xl border border-border-strong bg-bg-panel px-4 py-2 text-[13px] font-semibold text-slate-300 transition-all hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
             >
               <ChevronLeft className="h-4 w-4" /> Previous
             </button>
@@ -611,7 +611,7 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
 
             <button
               onClick={page === totalPages - 1 ? onClose : onNext}
-              className="flex items-center gap-1.5 rounded-xl bg-cyan-600 px-5 py-2 text-[13px] font-semibold text-white transition-all hover:bg-cyan-500"
+              className="flex items-center gap-1.5 rounded-xl bg-cyber-600 px-5 py-2 text-[13px] font-semibold text-white transition-all hover:bg-cyber-500"
             >
               {page === totalPages - 1 ? "Finish" : "Next"}
               {page !== totalPages - 1 && <ChevronRight className="h-4 w-4" />}
@@ -634,9 +634,9 @@ function LessonLoading({ title, failed, onRetry, onCancel }: { title: string; fa
     return () => window.removeEventListener("keydown", onKey);
   }, [onCancel]);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#070b14]/80 px-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 px-4">
       <div role={failed ? "alertdialog" : "status"} aria-live="polite" aria-label={failed ? "Lesson failed to load" : "Loading lesson"}
-        className="w-full max-w-sm rounded-2xl border border-[#1e2d4a] bg-[#0d1322] p-6 text-center">
+        className="w-full max-w-sm rounded-2xl border border-border bg-bg-panel p-6 text-center">
         {failed ? (
           <>
             <p className="text-sm font-semibold text-white">Couldn&apos;t open this lesson</p>
@@ -644,12 +644,12 @@ function LessonLoading({ title, failed, onRetry, onCancel }: { title: string; fa
             <p className="mt-3 text-[12px] text-slate-400">Check your connection and try again.</p>
             <div className="mt-5 flex justify-center gap-2">
               <button onClick={onCancel} className="rounded-xl border border-slate-700 px-4 py-2 text-[13px] text-slate-300 hover:text-white">Close</button>
-              <button onClick={onRetry} className="rounded-xl bg-cyan-600 px-4 py-2 text-[13px] font-semibold text-white hover:bg-cyan-500">Try again</button>
+              <button onClick={onRetry} className="rounded-xl bg-cyber-600 px-4 py-2 text-[13px] font-semibold text-white hover:bg-cyber-500">Try again</button>
             </div>
           </>
         ) : (
           <>
-            <Loader2 className="mx-auto h-6 w-6 animate-spin text-cyan-400" aria-hidden="true" />
+            <Loader2 className="mx-auto h-6 w-6 animate-spin text-cyber-400" aria-hidden="true" />
             <p className="mt-3 text-sm font-semibold text-white">Opening lesson</p>
             <p className="mt-1 text-[13px] text-slate-400 line-clamp-2">{title}</p>
             <button onClick={onCancel} className="mt-4 text-[12px] text-slate-400 underline hover:text-slate-200">Cancel</button>
@@ -762,7 +762,7 @@ export default function LearnPage() {
   }, [lessons, search, level]);
 
   return (
-    <div className="min-h-screen bg-[#0b0f1e]">
+    <div className="min-h-screen bg-bg-elevated">
       <Topbar title="Learning Path" subtitle="Explore cybersecurity knowledge through interactive lessons" />
 
       <div className="container mx-auto max-w-[1400px] px-6 py-8">
@@ -780,26 +780,26 @@ export default function LearnPage() {
             lands here first doesn't mistake the reading library for the course. */}
         <Link
           href="/rooms"
-          className="group mb-8 flex items-center gap-3 rounded-xl border border-cyan-500/30 bg-cyan-500/5 px-4 py-3 transition-colors hover:border-cyan-500/50 hover:bg-cyan-500/10"
+          className="group mb-8 flex items-center gap-3 rounded-xl border border-cyber-500/30 bg-cyber-500/5 px-4 py-3 transition-colors hover:border-cyber-500/50 hover:bg-cyber-500/10"
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-300">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cyber-500/30 bg-cyber-500/10 text-cyber-300">
             <Layers className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-semibold text-cyan-100">
+            <p className="text-[13px] font-semibold text-cyber-100">
               This is a reference &amp; exploration library — read freely, in any order.
             </p>
             <p className="text-[12px] text-slate-400 leading-relaxed">
               The graded curriculum that scores you, unlocks by prerequisite, and tracks your progress to analyst is{" "}
-              <span className="font-semibold text-cyan-200">Learning Rooms</span>. Start there for the real path.
+              <span className="font-semibold text-cyber-200">Learning Rooms</span>. Start there for the real path.
             </p>
           </div>
-          <ArrowRight className="h-4 w-4 shrink-0 text-cyan-400 transition-transform group-hover:translate-x-0.5" />
+          <ArrowRight className="h-4 w-4 shrink-0 text-cyber-400 transition-transform group-hover:translate-x-0.5" />
         </Link>
 
         {/* ── Lesson library (flat reference collection) ── */}
         <div className="mb-4 flex items-center gap-2">
-          <BookOpen className="h-4 w-4 text-cyan-400" />
+          <BookOpen className="h-4 w-4 text-cyber-400" />
           <h2 className="text-sm font-bold uppercase tracking-widest text-slate-300">Lesson Library</h2>
           <span className="text-[11px] text-slate-500">— browse any topic on its own; not ordered</span>
         </div>
@@ -814,7 +814,7 @@ export default function LearnPage() {
               aria-label="Search lessons"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full rounded-xl border border-[#2a3555] bg-[#0d1322] py-2.5 pl-10 pr-4 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/60"
+              className="w-full rounded-xl border border-border-strong bg-bg-panel py-2.5 pl-10 pr-4 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyber-500/60"
             />
           </div>
           <div className="relative">
@@ -822,7 +822,7 @@ export default function LearnPage() {
               value={level}
               onChange={e => setLevel(e.target.value)}
               aria-label="Filter by difficulty level"
-              className="appearance-none rounded-xl border border-[#2a3555] bg-[#0d1322] pl-4 pr-10 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-cyan-500/60 cursor-pointer min-w-[160px]"
+              className="appearance-none rounded-xl border border-border-strong bg-bg-panel pl-4 pr-10 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-cyber-500/60 cursor-pointer min-w-[160px]"
             >
               <option value="all">All Levels</option>
               <option value="beginner">Beginner</option>
@@ -843,7 +843,7 @@ export default function LearnPage() {
             <p className="mt-1 text-sm text-slate-400">
               {lessons.length === 0
                 ? "Go to Admin → Lesson Management to generate lessons"
-                : <button onClick={() => { setSearch(""); setLevel("all"); }} className="text-cyan-400 hover:text-cyan-300 underline">Clear filters</button>
+                : <button onClick={() => { setSearch(""); setLevel("all"); }} className="text-cyber-400 hover:text-cyber-300 underline">Clear filters</button>
               }
             </p>
           </div>

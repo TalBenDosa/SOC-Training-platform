@@ -17,6 +17,7 @@
 import type { Rank } from "@/lib/progression/ranks";
 import { certificateIssuer, PRODUCTION_HOST } from "./issuer";
 import type { Brand } from "@/lib/brand/brand";
+import { tokenHex, tokenRgb, tokenRgba } from "@/lib/brand/theme";
 
 const W = 1200;
 const H = 630;
@@ -183,6 +184,9 @@ export async function drawCertificate(canvas: HTMLCanvasElement, data: CertData,
   const { meta, name, xp, date, orgName, orgId, brand } = data;
   const brandLogo = brand?.whiteLabel && brand.logoSrc ? await loadImage(brand.logoSrc) : null;
   const accent = meta.accent;
+  // The tenant's theme (src/lib/brand/theme.ts): the frame, glow and ticks use its colours.
+  const theme = brand?.whiteLabel ? brand.theme : null;
+  const tk = (name: string, a: number) => tokenRgba(theme, name, a);
 
   // ── helpers ──────────────────────────────────────────────────────────────
   const drawCentered = (text: string, cx: number, y: number, font: string, color: string) => {
@@ -221,15 +225,15 @@ export async function drawCertificate(canvas: HTMLCanvasElement, data: CertData,
 
   // ── background ───────────────────────────────────────────────────────────
   const base = ctx.createLinearGradient(0, 0, W * 0.35, H);
-  base.addColorStop(0, "#0b1220");
-  base.addColorStop(0.6, "#070b14");
-  base.addColorStop(1, "#050810");
+  base.addColorStop(0, tokenHex(theme, "--bg-elevated"));
+  base.addColorStop(0.6, tokenHex(theme, "--bg"));
+  base.addColorStop(1, `rgb(${tokenRgb(theme, "--bg").map(c => Math.round(c * 0.7)).join(",")})`);
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, W, H);
 
   const topGlow = ctx.createRadialGradient(CX, -70, 0, CX, -70, 720);
-  topGlow.addColorStop(0, "rgba(6,182,212,0.16)");
-  topGlow.addColorStop(1, "rgba(6,182,212,0)");
+  topGlow.addColorStop(0, tk("--cyber-500", 0.16));
+  topGlow.addColorStop(1, tk("--cyber-500", 0));
   ctx.fillStyle = topGlow;
   ctx.fillRect(0, 0, W, H);
 
@@ -244,9 +248,9 @@ export async function drawCertificate(canvas: HTMLCanvasElement, data: CertData,
   const fade = (y: number) => Math.max(0, 1 - y / (H * 0.75));
   ctx.lineWidth = 1;
   const vGrad = ctx.createLinearGradient(0, 0, 0, H);
-  vGrad.addColorStop(0, "rgba(30,41,59,0.35)");
-  vGrad.addColorStop(0.75, "rgba(30,41,59,0)");
-  vGrad.addColorStop(1, "rgba(30,41,59,0)");
+  vGrad.addColorStop(0, tk("--border", 0.35));
+  vGrad.addColorStop(0.75, tk("--border", 0));
+  vGrad.addColorStop(1, tk("--border", 0));
   ctx.strokeStyle = vGrad;
   for (let x = GRID; x < W; x += GRID) {
     ctx.beginPath();
@@ -255,17 +259,17 @@ export async function drawCertificate(canvas: HTMLCanvasElement, data: CertData,
     ctx.stroke();
   }
   for (let y = GRID; y < H * 0.75; y += GRID) {
-    ctx.strokeStyle = `rgba(30,41,59,${(0.35 * fade(y)).toFixed(3)})`;
+    ctx.strokeStyle = tk("--border", Number((0.35 * fade(y)).toFixed(3)));
     ctx.beginPath();
     ctx.moveTo(0, y + 0.5);
     ctx.lineTo(W, y + 0.5);
     ctx.stroke();
   }
 
-  // ── corner ticks (fixed cyan, like the reference art) ─────────────────────
+  // ── corner ticks (the accent, like the reference art) ─────────────────────
   const tick = (x: number, y: number, dx: number, dy: number) => {
     const len = 26;
-    ctx.strokeStyle = "rgba(34,211,238,0.6)";
+    ctx.strokeStyle = tk("--cyber-400", 0.6);
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(x + dx * len, y);
@@ -334,7 +338,7 @@ export async function drawCertificate(canvas: HTMLCanvasElement, data: CertData,
   ctx.shadowBlur = 46;
   ctx.beginPath();
   ctx.arc(CX, medalY, R, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(6,182,212,0.08)";
+  ctx.fillStyle = tk("--cyber-500", 0.08);
   ctx.fill();
   ctx.restore();
   ctx.beginPath();

@@ -10,7 +10,7 @@ import { teamTransition } from "@/lib/team/transition";
 import { teamQuotaFor, quotaExhausted, quotaMessage } from "@/lib/team/quota";
 import { sanitizeStack } from "@/lib/logs/native/stack";
 import { contactLine } from "@/lib/brand/brand";
-import { brandForOrg } from "@/lib/brand/server";
+import { brandForOrg, featuresForOrg } from "@/lib/brand/server";
 
 /**
  * Start a team session — staff only, own org, LOBBY only (a paused session is
@@ -57,6 +57,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   // Team Training is limited per organization (0099): starting is what uses one exercise.
   if (!user.isPlatformAdmin) {
+    // The plan must include Team Training at all (tenant config features).
+    if (!(await featuresForOrg(sess.org_id)).team_training) {
+      return NextResponse.json({ error: `Team training isn't part of your organization's plan. ${contactLine(await brandForOrg(sess.org_id))} to add it.` }, { status: 403 });
+    }
     let q;
     try { q = await teamQuotaFor(admin, sess.org_id); }
     catch (e) { console.error("[team start] quota:", e instanceof Error ? e.message : String(e)); return NextResponse.json({ error: "Couldn't check your organization's team exercises. Try again." }, { status: 503 }); }

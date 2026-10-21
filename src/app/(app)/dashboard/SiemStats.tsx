@@ -53,7 +53,7 @@ export function SiemStats({ events, avgCatchMs = null }: SiemStatsProps) {
   const alertRate = alertPct.toFixed(0);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-t border-border/60 bg-[#0a0f18] px-5 py-2.5">
+    <div className="flex flex-wrap items-center gap-2 border-t border-border/60 bg-bg-elevated px-5 py-2.5">
 
       {/* Events/min */}
       <div className="inline-flex items-center gap-2 rounded-md border border-cyber-500/30 bg-cyber-500/10 px-3 py-1.5">

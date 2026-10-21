@@ -39,7 +39,7 @@ export function RankCertificateModal({ rank, name, onClose }: Props) {
   const milestoneXp = rank.minXp;
   const brand = useBrand();
   const brandSlug = brand.productName.replace(/[^A-Za-z0-9]+/g, "") || "SOC";
-  const filename = `${brand.whiteLabel ? brandSlug : "HackTheSOC"}-${meta.title.replace(/\s+/g, "")}-${rank.id}.png`;
+  const filename = `${brandSlug}-${meta.title.replace(/\s+/g, "")}-${rank.id}.png`;
   // Always the canonical production domain — window.location.origin baked a
   // localhost / vercel.app preview URL into shared posts (#32). White label: the
   // organization's own domain (none when it has no domain of its own).
@@ -174,7 +174,7 @@ export function RankCertificateModal({ rank, name, onClose }: Props) {
           <div className="relative overflow-hidden rounded-xl border border-border/60 shadow-[0_0_40px_-12px_rgba(6,182,212,0.35)]">
             <canvas ref={canvasRef} className="block h-auto w-full" aria-label={`${meta.title} certificate for ${name}`} />
             {!ready && (
-              <div className="absolute inset-0 flex items-center justify-center bg-[#070b14] text-xs text-slate-500" aria-hidden>
+              <div className="absolute inset-0 flex items-center justify-center bg-bg text-xs text-slate-500" aria-hidden>
                 Rendering certificate…
               </div>
             )}

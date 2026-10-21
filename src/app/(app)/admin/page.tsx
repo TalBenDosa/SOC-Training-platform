@@ -108,10 +108,10 @@ function StatusDropdown({ status, onChange, role }: { status: ItemStatus; onChan
         <ChevronDown className="h-3 w-3 opacity-60" aria-hidden="true" />
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-32 rounded border border-[#2a3555] bg-[#0f1423] shadow-xl py-1">
+        <div className="absolute left-0 top-full z-50 mt-1 w-32 rounded border border-border-strong bg-bg-panel shadow-xl py-1">
           {(["published","draft"] as ItemStatus[]).map(s => (
             <button key={s} onClick={() => { onChange(s); setOpen(false); }} aria-pressed={s === status}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] text-slate-200 hover:bg-[#1a2035] transition">
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] text-slate-200 hover:bg-bg-hover transition">
               <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_CFG[s].dot)} aria-hidden="true" />
               {s.charAt(0).toUpperCase() + s.slice(1)}
               {s === status && <Check className="ml-auto h-3 w-3 text-emerald-400" aria-hidden="true" />}
@@ -125,7 +125,7 @@ function StatusDropdown({ status, onChange, role }: { status: ItemStatus; onChan
 
 function CategoryBadge({ label, role }: { label: string; role?: string }) {
   return (
-    <span role={role} className="inline-flex items-center rounded border border-[#2a3555] bg-[#161c2b] px-2.5 py-1 text-[11px] text-slate-300">
+    <span role={role} className="inline-flex items-center rounded border border-border-strong bg-bg-hover px-2.5 py-1 text-[11px] text-slate-300">
       {label}
     </span>
   );
@@ -145,12 +145,12 @@ function Drawer({ open, onClose, title, children }: {
       {/* Closed: `invisible` (applied after the slide-out, via the visibility transition)
           keeps the off-screen panel out of the tab order and the accessibility tree. */}
       <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className={cn(
-        "fixed right-0 top-0 z-50 h-full w-[820px] border-l border-[#2a3555] bg-[#0c1120] shadow-2xl transition-[transform,visibility] duration-300 flex flex-col",
+        "fixed right-0 top-0 z-50 h-full w-[820px] border-l border-border-strong bg-bg-panel shadow-2xl transition-[transform,visibility] duration-300 flex flex-col",
         open ? "translate-x-0" : "translate-x-full invisible"
       )}>
-        <div className="flex items-center justify-between border-b border-[#2a3555] px-6 py-4 shrink-0">
+        <div className="flex items-center justify-between border-b border-border-strong px-6 py-4 shrink-0">
           <h2 id={titleId} className="text-base font-semibold text-white">{title}</h2>
-          <button onClick={onClose} aria-label="Close" className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-white transition">
+          <button onClick={onClose} aria-label="Close" className="rounded p-1.5 text-slate-400 hover:bg-bg-hover hover:text-white transition">
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
@@ -162,7 +162,7 @@ function Drawer({ open, onClose, title, children }: {
 
 // --------- Shared field components ------------------------------------------------------------------------------------------------------------------------------------------------------
 
-const fieldCls = "w-full rounded border border-[#2a3555] bg-[#0f1423] px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-400 focus:border-violet-500/50 focus:outline-none transition";
+const fieldCls = "w-full rounded border border-border-strong bg-bg-panel px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-400 focus:border-violet-500/50 focus:outline-none transition";
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   const autoId = useId();
@@ -196,7 +196,7 @@ function FilterBar({ search, onSearch, filters, onFilter }: {
           value={search}
           onChange={e => onSearch(e.target.value)}
           placeholder="Search…"
-          className="w-full rounded border border-[#2a3555] bg-[#0f1423] py-2 pl-9 pr-3 text-sm text-slate-200 placeholder:text-slate-400 focus:border-violet-500/50 focus:outline-none"
+          className="w-full rounded border border-border-strong bg-bg-panel py-2 pl-9 pr-3 text-sm text-slate-200 placeholder:text-slate-400 focus:border-violet-500/50 focus:outline-none"
         />
       </div>
       {[
@@ -205,7 +205,7 @@ function FilterBar({ search, onSearch, filters, onFilter }: {
         { key: "status" as const, label: "All Status", opts: ["Published", "Draft"] },
       ].map(f => (
         <select key={f.key} onChange={e => onFilter(f.key, e.target.value)} aria-label={`Filter by ${f.key}`}
-          className="rounded border border-[#2a3555] bg-[#0f1423] px-3 py-2 text-sm text-slate-300 focus:outline-none">
+          className="rounded border border-border-strong bg-bg-panel px-3 py-2 text-sm text-slate-300 focus:outline-none">
           <option value="">{f.label}</option>
           {f.opts.map(o => <option key={o} value={o.toLowerCase()}>{o}</option>)}
         </select>
@@ -225,13 +225,13 @@ function OverviewTab() {
     { label: "Total Users",      value: "6",    sub: "2 admins",         icon: UsersIcon,    color: "text-violet-400" },
     { label: "Active Scenarios", value: String(SCENARIOS.length), sub: "5 published", icon: Shield,     color: "text-emerald-400" },
     { label: "Active Quizzes",   value: String(QUIZZES.length),   sub: "6 published", icon: HelpCircle, color: "text-amber-400"   },
-    { label: "Scenarios Played", value: "1,284", sub: "+47 this week",   icon: Activity,     color: "text-cyan-400"    },
+    { label: "Scenarios Played", value: "1,284", sub: "+47 this week",   icon: Activity,     color: "text-cyber-400"    },
   ];
   return (
     <div className="p-6 space-y-6">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {stats.map(s => (
-          <div key={s.label} className="rounded-lg border border-[#2a3555] bg-[#0f1423] p-5">
+          <div key={s.label} className="rounded-lg border border-border-strong bg-bg-panel p-5">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-[11px] uppercase tracking-wider text-slate-400">{s.label}</p>
@@ -243,11 +243,11 @@ function OverviewTab() {
           </div>
         ))}
       </div>
-      <div className="rounded-lg border border-[#2a3555] bg-[#0f1423] p-5">
+      <div className="rounded-lg border border-border-strong bg-bg-panel p-5">
         <p className="text-sm font-semibold text-white mb-3">Scenario Overview</p>
         <div className="space-y-2">
           {SCENARIOS.map(s => (
-            <div key={s.slug} className="flex items-center gap-3 rounded border border-[#1e2841] bg-[#0a0e1a] px-4 py-2.5">
+            <div key={s.slug} className="flex items-center gap-3 rounded border border-border bg-bg-elevated px-4 py-2.5">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-200 truncate">{s.title}</p>
                 <p className="text-[11px] text-slate-400 truncate">{s.summary.slice(0,80)}…</p>
@@ -309,7 +309,7 @@ function UsersTab() {
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2841] shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
         <div>
           <h2 className="text-base font-semibold text-white flex items-center gap-2"><UsersIcon className="h-4 w-4 text-violet-400"/>User Management</h2>
           <p className="text-[11px] text-slate-400 mt-0.5">{users.filter(u=>u.status==="active").length} active · {users.filter(u=>u.status==="invited").length} invited · {users.filter(u=>u.status==="suspended").length} suspended</p>
@@ -329,7 +329,7 @@ function UsersTab() {
           <input type="date" aria-label="Access until" value={newRow.endDate}   onChange={e=>setNewRow(f=>({...f,endDate:e.target.value}))}   className={fieldCls} />
           <div className="flex gap-1 justify-end">
             <button onClick={addUser} aria-label="Add user" className="rounded p-1.5 text-emerald-400 hover:bg-emerald-500/10 transition"><Check className="h-4 w-4" aria-hidden="true"/></button>
-            <button onClick={()=>setAdding(false)} aria-label="Cancel adding user" className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] transition"><X className="h-4 w-4" aria-hidden="true"/></button>
+            <button onClick={()=>setAdding(false)} aria-label="Cancel adding user" className="rounded p-1.5 text-slate-400 hover:bg-bg-hover transition"><X className="h-4 w-4" aria-hidden="true"/></button>
           </div>
         </div>
       )}
@@ -337,7 +337,7 @@ function UsersTab() {
       {/* Table (div grid exposed with ARIA table roles) */}
       <div role="table" aria-label="Users" className="flex flex-1 min-h-0 flex-col">
       {/* Table header */}
-      <div role="row" className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_72px] gap-2 border-b border-[#1e2841] bg-[#0a0e1a] px-6 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">
+      <div role="row" className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_72px] gap-2 border-b border-border bg-bg-elevated px-6 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">
         <span role="columnheader">Email</span><span role="columnheader">Role</span><span role="columnheader">Status</span><span role="columnheader">Access From</span><span role="columnheader">Access Until</span><span role="columnheader" className="text-right">Actions</span>
       </div>
 
@@ -348,14 +348,14 @@ function UsersTab() {
           const d = editing ? draft : u;
           const expired = u.endDate && u.endDate < today;
           return (
-            <div key={u.id} role="row" className={cn("grid grid-cols-[2fr_1fr_1fr_1fr_1fr_72px] gap-2 border-b border-[#1e2841] px-6 py-3 items-center transition hover:bg-[#0f1728]", editing && "bg-violet-500/5 border-l-2 border-l-violet-500/40")}>
+            <div key={u.id} role="row" className={cn("grid grid-cols-[2fr_1fr_1fr_1fr_1fr_72px] gap-2 border-b border-border px-6 py-3 items-center transition hover:bg-bg-panel", editing && "bg-violet-500/5 border-l-2 border-l-violet-500/40")}>
               {/* Cells use `grid` so their single child still stretches to the column like before. */}
               <div role="cell" className="grid">{editing
                 ? <input aria-label="Email" value={d.email??""} onChange={e=>setDraft(f=>({...f,email:e.target.value}))} className={cn(fieldCls,"py-1.5 font-mono text-xs")} />
                 : <div><p className="font-mono text-sm text-slate-200">{u.email}</p></div>}</div>
               <div role="cell" className="grid">{editing
                 ? <select aria-label="Role" value={d.role??"analyst"} onChange={e=>setDraft(f=>({...f,role:e.target.value}))} className={cn(fieldCls,"py-1.5")}>{ROLES.map(r=><option key={r}>{r}</option>)}</select>
-                : <span className="inline-block rounded border border-[#2a3555] bg-[#0f1423] px-2 py-0.5 text-[11px] text-slate-300">{u.role}</span>}</div>
+                : <span className="inline-block rounded border border-border-strong bg-bg-panel px-2 py-0.5 text-[11px] text-slate-300">{u.role}</span>}</div>
               <div role="cell" className="grid">{editing
                 ? <select aria-label="Status" value={d.status??"active"} onChange={e=>setDraft(f=>({...f,status:e.target.value as AdminUser["status"]}))} className={cn(fieldCls,"py-1.5")}><option>active</option><option>invited</option><option>suspended</option></select>
                 : <span className={cn("inline-block rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider", USER_STATUS_CFG[u.status])}>{u.status}</span>}</div>
@@ -368,8 +368,8 @@ function UsersTab() {
               <div role="cell" className="flex items-center justify-end gap-1">
                 {editing
                   ? <><button onClick={commitEdit} aria-label={`Save changes to ${u.email}`} className="rounded p-1.5 text-emerald-400 hover:bg-emerald-500/10 transition"><Check className="h-3.5 w-3.5" aria-hidden="true"/></button>
-                        <button onClick={cancelEdit} aria-label="Cancel editing" className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] transition"><X className="h-3.5 w-3.5" aria-hidden="true"/></button></>
-                  : <><button onClick={()=>beginEdit(u)} aria-label={`Edit ${u.email}`} className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3.5 w-3.5" aria-hidden="true"/></button>
+                        <button onClick={cancelEdit} aria-label="Cancel editing" className="rounded p-1.5 text-slate-400 hover:bg-bg-hover transition"><X className="h-3.5 w-3.5" aria-hidden="true"/></button></>
+                  : <><button onClick={()=>beginEdit(u)} aria-label={`Edit ${u.email}`} className="rounded p-1.5 text-slate-400 hover:bg-bg-hover hover:text-violet-400 transition"><Edit2 className="h-3.5 w-3.5" aria-hidden="true"/></button>
                         <button onClick={()=>del(u.id)} aria-label={`Delete ${u.email}`} className="rounded p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3.5 w-3.5" aria-hidden="true"/></button></>
                 }
               </div>
@@ -531,7 +531,7 @@ function ScenariosTab() {
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2841] shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
         <div>
           <h2 className="text-base font-semibold text-white flex items-center gap-2">
             <Shield className="h-4 w-4 text-emerald-400"/>Scenario Management
@@ -539,7 +539,7 @@ function ScenariosTab() {
           <p className="text-[11px] text-slate-400 mt-0.5">{filtered.length} scenarios · {filtered.filter(s=>s.status==="published").length} published</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 rounded border border-[#2a3555] bg-transparent px-4 py-2 text-sm text-slate-300 hover:border-slate-400 transition">
+          <button className="flex items-center gap-2 rounded border border-border-strong bg-transparent px-4 py-2 text-sm text-slate-300 hover:border-slate-400 transition">
             <Download className="h-3.5 w-3.5"/> Export ({filtered.length})
           </button>
           <button onClick={()=>setShowGen(v=>!v)} className="flex items-center gap-2 rounded bg-violet-600 hover:bg-violet-500 px-4 py-2 text-sm font-semibold text-white transition">
@@ -553,7 +553,7 @@ function ScenariosTab() {
 
       {/* Generator panel */}
       {showGen && (
-        <div className="shrink-0 border-b border-[#1e2841] bg-[#0a0e1a] px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+        <div className="shrink-0 border-b border-border bg-bg-elevated px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
           {/* Controls row */}
           <div className="flex items-end gap-3">
             <div className="flex-1">
@@ -603,7 +603,7 @@ function ScenariosTab() {
             <button onClick={generateScenario} disabled={loading} className="flex items-center gap-2 rounded bg-violet-600 hover:bg-violet-500 disabled:opacity-50 px-5 py-2.5 text-sm font-semibold text-white transition whitespace-nowrap">
               {loading?<><Loader2 className="h-3.5 w-3.5 animate-spin"/>Generating…</>:<><Sparkles className="h-3.5 w-3.5"/>Generate Scenario</>}
             </button>
-            <button onClick={()=>{setShowGen(false);setGenPreview(null);setGenEvents([]);}} aria-label="Close scenario generator" className="rounded p-2.5 text-slate-400 hover:bg-[#1a2035] transition"><X className="h-4 w-4" aria-hidden="true"/></button>
+            <button onClick={()=>{setShowGen(false);setGenPreview(null);setGenEvents([]);}} aria-label="Close scenario generator" className="rounded p-2.5 text-slate-400 hover:bg-bg-hover transition"><X className="h-4 w-4" aria-hidden="true"/></button>
           </div>
 
           {genError && <p className="flex items-center gap-1.5 text-xs text-rose-400"><AlertTriangle className="h-3.5 w-3.5"/>{genError}</p>}
@@ -628,7 +628,7 @@ function ScenariosTab() {
 
               {/* Narrative */}
               {genPreview.narrative && (
-                <div className="rounded border border-[#2a3555] bg-[#080c15] px-3 py-2.5">
+                <div className="rounded border border-border-strong bg-bg-elevated px-3 py-2.5">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Scenario Narrative</p>
                   <p className="text-[11px] leading-relaxed text-slate-300 whitespace-pre-line">{genPreview.narrative}</p>
                 </div>
@@ -641,7 +641,7 @@ function ScenariosTab() {
                     Generated Log Events ({genEvents.length})
                     <span className="ml-2 normal-case font-normal text-slate-400">Review before publishing · click any row for full fields</span>
                   </p>
-                  <div className="rounded border border-[#2a3555] bg-[#080c15] p-1.5 space-y-0.5">
+                  <div className="rounded border border-border-strong bg-bg-elevated p-1.5 space-y-0.5">
                     {genEvents.map((ev, i) => (
                       <AdminEventRow key={ev.id ?? i} ev={ev} idx={i} />
                     ))}
@@ -654,21 +654,21 @@ function ScenariosTab() {
       )}
 
       {/* Search/filter */}
-      <div className="px-6 py-3 border-b border-[#1e2841] shrink-0">
+      <div className="px-6 py-3 border-b border-border shrink-0">
         <FilterBar search={search} onSearch={setSearch} filters={{ levels, categories }}
           onFilter={(k,v)=>{ if(k==="level") setLevelF(v); else if(k==="category") setCatF(v); else setStatusF(v); }} />
       </div>
 
       <div role="table" aria-label="Scenarios" className="flex flex-1 min-h-0 flex-col">
       {/* Table header */}
-      <div role="row" className="grid grid-cols-[2.5fr_1.5fr_1fr_60px_140px_80px_80px] gap-2 border-b border-[#1e2841] bg-[#0a0e1a] px-6 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">
+      <div role="row" className="grid grid-cols-[2.5fr_1.5fr_1fr_60px_140px_80px_80px] gap-2 border-b border-border bg-bg-elevated px-6 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">
         <span role="columnheader">Title</span><span role="columnheader">Category</span><span role="columnheader">Difficulty</span><span role="columnheader">Logs</span><span role="columnheader">Status</span><span role="columnheader">Source</span><span role="columnheader" className="text-right">Actions</span>
       </div>
 
       {/* Rows */}
       <div role="rowgroup" className="flex-1 overflow-y-auto">
         {filtered.map(s => (
-          <div key={s.slug} role="row" className="grid grid-cols-[2.5fr_1.5fr_1fr_60px_140px_80px_80px] gap-2 border-b border-[#1e2841] px-6 py-3.5 items-center hover:bg-[#0f1728] transition">
+          <div key={s.slug} role="row" className="grid grid-cols-[2.5fr_1.5fr_1fr_60px_140px_80px_80px] gap-2 border-b border-border px-6 py-3.5 items-center hover:bg-bg-panel transition">
             <div role="cell" className="min-w-0">
             <div role="button" tabIndex={0} className="min-w-0 cursor-pointer rounded focus:outline-none focus:ring-2 focus:ring-violet-500/40"
                  onClick={()=>setDrawer(s)}
@@ -685,7 +685,7 @@ function ScenariosTab() {
               {s.isGenerated?"Generated":"Built-in"}
             </span>
             <div role="cell" className="flex items-center justify-end gap-1">
-              <button onClick={()=>setDrawer(s)} aria-label={`Edit ${s.title}`} className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3.5 w-3.5" aria-hidden="true"/></button>
+              <button onClick={()=>setDrawer(s)} aria-label={`Edit ${s.title}`} className="rounded p-1.5 text-slate-400 hover:bg-bg-hover hover:text-violet-400 transition"><Edit2 className="h-3.5 w-3.5" aria-hidden="true"/></button>
               <button onClick={()=>s.isGenerated?deleteGenerated(s.slug):hideScenario(s.slug)} aria-label={s.isGenerated ? `Delete ${s.title}` : `Hide ${s.title}`} className="rounded p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3.5 w-3.5" aria-hidden="true"/></button>
             </div>
           </div>
@@ -705,8 +705,8 @@ function ScenariosTab() {
 // --------- Expandable log-event row (admin view) ------------------------------------------------------------------------------------------------------------
 
 const SRC_CLS: Record<string, string> = {
-  edr:        "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
-  sysmon:     "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+  edr:        "bg-cyber-500/10 text-cyber-400 border-cyber-500/20",
+  sysmon:     "bg-cyber-500/10 text-cyber-400 border-cyber-500/20",
   o365:       "bg-violet-500/10 text-violet-400 border-violet-500/20",
   ad:         "bg-violet-500/10 text-violet-400 border-violet-500/20",
   cloudtrail: "bg-amber-500/10 text-amber-400 border-amber-500/20",
@@ -764,7 +764,7 @@ function AdminEventRow({ ev, idx }: { ev: TelemetryEvent; idx: number }) {
   const srcCls = SRC_CLS[ev.source] ?? "bg-slate-500/10 text-slate-400 border-slate-500/20";
 
   return (
-    <div className={cn("rounded border transition", open ? "border-[#2a3555] bg-[#080c15]" : "border-transparent hover:border-[#1e2841]")}>
+    <div className={cn("rounded border transition", open ? "border-border-strong bg-bg-elevated" : "border-transparent hover:border-border")}>
       {/* Summary row */}
       <button
         onClick={() => setOpen(v => !v)}
@@ -791,7 +791,7 @@ function AdminEventRow({ ev, idx }: { ev: TelemetryEvent; idx: number }) {
 
       {/* Expanded field list */}
       {open && (
-        <div className="border-t border-[#1e2841] px-3 pb-3 pt-2.5 space-y-2.5">
+        <div className="border-t border-border px-3 pb-3 pt-2.5 space-y-2.5">
           {/* JSON toggle */}
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Log Fields</span>
@@ -802,7 +802,7 @@ function AdminEventRow({ ev, idx }: { ev: TelemetryEvent; idx: number }) {
                 "flex items-center gap-1.5 rounded border px-2 py-0.5 text-[10px] font-semibold transition",
                 showJson
                   ? "border-violet-500/40 bg-violet-500/10 text-violet-400"
-                  : "border-[#2a3555] text-slate-400 hover:text-slate-300"
+                  : "border-border-strong text-slate-400 hover:text-slate-300"
               )}
             >
               <Code2 className="h-3 w-3" /> Raw JSON
@@ -810,7 +810,7 @@ function AdminEventRow({ ev, idx }: { ev: TelemetryEvent; idx: number }) {
           </div>
 
           {showJson ? (
-            <pre className="max-h-56 overflow-auto rounded border border-[#2a3555] bg-[#060a10] p-2.5 font-mono text-[10px] leading-relaxed text-slate-300 whitespace-pre-wrap">
+            <pre className="max-h-56 overflow-auto rounded border border-border-strong bg-bg p-2.5 font-mono text-[10px] leading-relaxed text-slate-300 whitespace-pre-wrap">
               {JSON.stringify(ev, null, 2)}
             </pre>
           ) : (
@@ -876,15 +876,15 @@ function ScenarioDrawerContent({ scenario, onClose }: { scenario: ScenarioRow; o
         </Field>
       </div>
       <div className="grid grid-cols-3 gap-3">
-        <div className="rounded border border-[#2a3555] bg-[#0a0e1a] px-3 py-2.5 text-center">
+        <div className="rounded border border-border-strong bg-bg-elevated px-3 py-2.5 text-center">
           <p className="font-mono text-xl font-bold text-white">{displayEvents.length}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">Log Events</p>
         </div>
-        <div className="rounded border border-[#2a3555] bg-[#0a0e1a] px-3 py-2.5 text-center">
+        <div className="rounded border border-border-strong bg-bg-elevated px-3 py-2.5 text-center">
           <p className="font-mono text-xl font-bold text-white">{bundle?.questionCount ?? "--"}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">Questions</p>
         </div>
-        <div className="rounded border border-[#2a3555] bg-[#0a0e1a] px-3 py-2.5 text-center">
+        <div className="rounded border border-border-strong bg-bg-elevated px-3 py-2.5 text-center">
           <p className="font-mono text-xl font-bold text-white">{bundle?.iocs.length ?? "--"}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">IOCs</p>
         </div>
@@ -909,7 +909,7 @@ function ScenarioDrawerContent({ scenario, onClose }: { scenario: ScenarioRow; o
               </a>
             )}
           </div>
-          <div className="rounded border border-[#2a3555] bg-[#080c15] p-1.5 space-y-0.5">
+          <div className="rounded border border-border-strong bg-bg-elevated p-1.5 space-y-0.5">
             {displayEvents.map((ev, i) => (
               <AdminEventRow key={ev.id ?? i} ev={ev} idx={i} />
             ))}
@@ -917,7 +917,7 @@ function ScenarioDrawerContent({ scenario, onClose }: { scenario: ScenarioRow; o
         </div>
       )}
       {displayEvents.length === 0 && scenario.isGenerated && (
-        <div className="rounded border border-dashed border-[#2a3555] py-6 text-center text-[11px] text-slate-400">
+        <div className="rounded border border-dashed border-border-strong py-6 text-center text-[11px] text-slate-400">
           Log events not available — this scenario was published before event storage was added.
         </div>
       )}
@@ -928,14 +928,14 @@ function ScenarioDrawerContent({ scenario, onClose }: { scenario: ScenarioRow; o
           <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
             IOCs ({bundle.iocs.length})
           </label>
-          <div className="rounded border border-[#2a3555] bg-[#080c15] p-2 space-y-1.5">
+          <div className="rounded border border-border-strong bg-bg-elevated p-2 space-y-1.5">
             {bundle.iocs.map((ioc, ii) => (
-              <div key={`${ioc.value}-${ii}`} className="flex items-center gap-2.5 rounded border border-[#1e2841] px-2.5 py-1.5">
+              <div key={`${ioc.value}-${ii}`} className="flex items-center gap-2.5 rounded border border-border px-2.5 py-1.5">
                 <span className={cn("shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase",
                   ioc.type==="ip"?"bg-blue-500/10 text-blue-400 border-blue-500/20":
                   ioc.type==="domain"?"bg-violet-500/10 text-violet-400 border-violet-500/20":
                   ioc.type==="sha256"?"bg-orange-500/10 text-orange-400 border-orange-500/20":
-                  ioc.type==="email"?"bg-cyan-500/10 text-cyan-400 border-cyan-500/20":
+                  ioc.type==="email"?"bg-cyber-500/10 text-cyber-400 border-cyber-500/20":
                   "bg-slate-500/10 text-slate-400 border-slate-500/20"
                 )}>{ioc.type}</span>
                 <span className="flex-1 truncate font-mono text-[11px] text-slate-200">{ioc.value}</span>
@@ -952,11 +952,11 @@ function ScenarioDrawerContent({ scenario, onClose }: { scenario: ScenarioRow; o
         </div>
       )}
 
-      <div className="flex gap-3 pt-2 border-t border-[#2a3555]">
+      <div className="flex gap-3 pt-2 border-t border-border-strong">
         <button onClick={save} className="flex-1 flex items-center justify-center gap-2 rounded bg-teal-600 hover:bg-teal-500 py-2.5 text-sm font-semibold text-white transition">
           {saved?<><Check className="h-4 w-4"/>Saved!</>:<><Save className="h-4 w-4"/>Save Changes</>}
         </button>
-        <button onClick={onClose} className="flex items-center justify-center gap-2 rounded border border-[#2a3555] px-5 py-2.5 text-sm text-slate-300 hover:border-slate-500 transition">Cancel</button>
+        <button onClick={onClose} className="flex items-center justify-center gap-2 rounded border border-border-strong px-5 py-2.5 text-sm text-slate-300 hover:border-slate-500 transition">Cancel</button>
       </div>
     </>
   );
@@ -1077,7 +1077,7 @@ function QuizzesTab() {
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2841] shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
         <div>
           <h2 className="text-base font-semibold text-white flex items-center gap-2">
             <HelpCircle className="h-4 w-4 text-amber-400"/>Quiz Management
@@ -1085,7 +1085,7 @@ function QuizzesTab() {
           <p className="text-[11px] text-slate-400 mt-0.5">{filtered.length} quizzes · {filtered.filter(q=>( statusMap[(q as GeneratedQuiz).id??(q as Quiz).slug]??"published")==="published").length} published</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 rounded border border-[#2a3555] bg-transparent px-4 py-2 text-sm text-slate-300 hover:border-slate-400 transition">
+          <button className="flex items-center gap-2 rounded border border-border-strong bg-transparent px-4 py-2 text-sm text-slate-300 hover:border-slate-400 transition">
             <Download className="h-3.5 w-3.5"/> Export ({filtered.length})
           </button>
           <button onClick={()=>setShowGen(v=>!v)} className="flex items-center gap-2 rounded bg-violet-600 hover:bg-violet-500 px-4 py-2 text-sm font-semibold text-white transition">
@@ -1099,7 +1099,7 @@ function QuizzesTab() {
 
       {/* Generator */}
       {showGen && (
-        <div className="shrink-0 border-b border-[#1e2841] bg-[#0a0e1a] px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+        <div className="shrink-0 border-b border-border bg-bg-elevated px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
           {/* Form */}
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 flex gap-2">
@@ -1141,7 +1141,7 @@ function QuizzesTab() {
             <button onClick={generate} disabled={loading} className="flex items-center gap-2 rounded bg-violet-600 hover:bg-violet-500 disabled:opacity-50 px-5 py-2.5 text-sm font-semibold text-white transition">
               {loading?<><Loader2 className="h-3.5 w-3.5 animate-spin"/>Generating…</>:<><Sparkles className="h-3.5 w-3.5"/>Generate Quiz</>}
             </button>
-            <button onClick={()=>{setShowGen(false);setPreview(null);}} aria-label="Close quiz generator" className="rounded p-2.5 text-slate-400 hover:bg-[#1a2035] transition"><X className="h-4 w-4" aria-hidden="true"/></button>
+            <button onClick={()=>{setShowGen(false);setPreview(null);}} aria-label="Close quiz generator" className="rounded p-2.5 text-slate-400 hover:bg-bg-hover transition"><X className="h-4 w-4" aria-hidden="true"/></button>
           </div>
 
           {genError && <p className="text-xs text-rose-400 flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5"/>{genError}</p>}
@@ -1170,7 +1170,7 @@ function QuizzesTab() {
                 </p>
                 <div className="space-y-2">
                   {preview.questions.map((q, i) => (
-                    <div key={q.id} className="rounded border border-[#2a3555] bg-[#080c15] px-3 py-2.5">
+                    <div key={q.id} className="rounded border border-border-strong bg-bg-elevated px-3 py-2.5">
                       <div className="flex items-start gap-2">
                         <span className="font-mono text-[10px] text-slate-400 shrink-0 mt-0.5">{i+1}.</span>
                         <div className="min-w-0 flex-1">
@@ -1194,14 +1194,14 @@ function QuizzesTab() {
       )}
 
       {/* Filter bar */}
-      <div className="px-6 py-3 border-b border-[#1e2841] shrink-0">
+      <div className="px-6 py-3 border-b border-border shrink-0">
         <FilterBar search={search} onSearch={setSearch} filters={{ levels, categories }}
           onFilter={(k,v)=>{if(k==="level")setLevelF(v);else if(k==="category")setCatF(v);else setStatusF(v);}} />
       </div>
 
       <div role="table" aria-label="Quizzes" className="flex flex-1 min-h-0 flex-col">
       {/* Table header */}
-      <div role="row" className="grid grid-cols-[2.5fr_1.5fr_1fr_80px_140px_80px] gap-2 border-b border-[#1e2841] bg-[#0a0e1a] px-6 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">
+      <div role="row" className="grid grid-cols-[2.5fr_1.5fr_1fr_80px_140px_80px] gap-2 border-b border-border bg-bg-elevated px-6 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">
         <span role="columnheader">Title</span><span role="columnheader">Category</span><span role="columnheader">Difficulty</span><span role="columnheader">Questions</span><span role="columnheader">Status</span><span role="columnheader" className="text-right">Actions</span>
       </div>
 
@@ -1212,7 +1212,7 @@ function QuizzesTab() {
           const isGen = !!((quiz as GeneratedQuiz).id);
           const qStatus = statusMap[qId] ?? "published";
           return (
-            <div key={qId} role="row" className="grid grid-cols-[2.5fr_1.5fr_1fr_80px_140px_80px] gap-2 border-b border-[#1e2841] px-6 py-3.5 items-center hover:bg-[#0f1728] transition">
+            <div key={qId} role="row" className="grid grid-cols-[2.5fr_1.5fr_1fr_80px_140px_80px] gap-2 border-b border-border px-6 py-3.5 items-center hover:bg-bg-panel transition">
               <div role="cell" className="min-w-0">
               <div role="button" tabIndex={0} className="min-w-0 cursor-pointer rounded focus:outline-none focus:ring-2 focus:ring-violet-500/40"
                    onClick={()=>setDrawer(quiz)}
@@ -1232,8 +1232,8 @@ function QuizzesTab() {
               <span role="cell" className="font-mono text-sm text-slate-300">{quiz.questions.length}</span>
               <StatusDropdown role="cell" status={qStatus as ItemStatus} onChange={v=>setStatus(qId,v)} />
               <div role="cell" className="flex items-center justify-end gap-1">
-                <button onClick={()=>setDrawer(quiz)} aria-label={`View ${quiz.title}`} className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-violet-400 transition"><Eye className="h-3.5 w-3.5" aria-hidden="true"/></button>
-                <button onClick={()=>setDrawer(quiz)} aria-label={`Edit ${quiz.title}`} className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3.5 w-3.5" aria-hidden="true"/></button>
+                <button onClick={()=>setDrawer(quiz)} aria-label={`View ${quiz.title}`} className="rounded p-1.5 text-slate-400 hover:bg-bg-hover hover:text-violet-400 transition"><Eye className="h-3.5 w-3.5" aria-hidden="true"/></button>
+                <button onClick={()=>setDrawer(quiz)} aria-label={`Edit ${quiz.title}`} className="rounded p-1.5 text-slate-400 hover:bg-bg-hover hover:text-violet-400 transition"><Edit2 className="h-3.5 w-3.5" aria-hidden="true"/></button>
                 <button onClick={()=>isGen?deleteGenerated((quiz as GeneratedQuiz).id):hideQuiz((quiz as Quiz).slug)} aria-label={isGen ? `Delete ${quiz.title}` : `Hide ${quiz.title}`} className="rounded p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3.5 w-3.5" aria-hidden="true"/></button>
               </div>
             </div>
@@ -1302,7 +1302,7 @@ function QuizDrawerContent({ quiz, genQuizzes, setGenQuizzes, onClose }: {
       <Field label={`Questions (${questions.length})`}>
         <div className="space-y-2">
           {questions.map((q, qi) => (
-            <div key={q.id} className="rounded border border-[#2a3555] bg-[#0a0e1a] overflow-hidden">
+            <div key={q.id} className="rounded border border-border-strong bg-bg-elevated overflow-hidden">
               {editingQid===q.id && qDraft ? (
                 <div className="p-4 space-y-3">
                   <div>
@@ -1337,7 +1337,7 @@ function QuizDrawerContent({ quiz, genQuizzes, setGenQuizzes, onClose }: {
                   </div>
                   <div className="flex gap-2">
                     <button onClick={saveQ} className="flex items-center gap-1.5 rounded bg-teal-600 hover:bg-teal-500 px-3 py-1.5 text-xs text-white transition"><Save className="h-3.5 w-3.5"/>Save</button>
-                    <button onClick={()=>{setEditingQid(null);setQDraft(null);}} className="flex items-center gap-1.5 rounded border border-[#2a3555] px-3 py-1.5 text-xs text-slate-400 hover:text-white transition"><X className="h-3.5 w-3.5"/>Cancel</button>
+                    <button onClick={()=>{setEditingQid(null);setQDraft(null);}} className="flex items-center gap-1.5 rounded border border-border-strong px-3 py-1.5 text-xs text-slate-400 hover:text-white transition"><X className="h-3.5 w-3.5"/>Cancel</button>
                   </div>
                 </div>
               ) : (
@@ -1348,7 +1348,7 @@ function QuizDrawerContent({ quiz, genQuizzes, setGenQuizzes, onClose }: {
                     <p className="text-[11px] text-emerald-400/80 mt-0.5"><span aria-hidden="true">✓</span><span className="sr-only">Correct answer:</span> {q.options[q.answer]}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0 mt-0.5">
-                    <button onClick={()=>{setEditingQid(q.id);setQDraft({...q,options:[...q.options]});}} aria-label={`Edit question ${qi+1}`} className="rounded p-1 text-slate-400 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3 w-3" aria-hidden="true"/></button>
+                    <button onClick={()=>{setEditingQid(q.id);setQDraft({...q,options:[...q.options]});}} aria-label={`Edit question ${qi+1}`} className="rounded p-1 text-slate-400 hover:bg-bg-hover hover:text-violet-400 transition"><Edit2 className="h-3 w-3" aria-hidden="true"/></button>
                     <button onClick={()=>setQuestions(prev=>prev.filter(pq=>pq.id!==q.id))} aria-label={`Delete question ${qi+1}`} className="rounded p-1 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3 w-3" aria-hidden="true"/></button>
                   </div>
                 </div>
@@ -1358,11 +1358,11 @@ function QuizDrawerContent({ quiz, genQuizzes, setGenQuizzes, onClose }: {
         </div>
       </Field>
 
-      <div className="flex gap-3 pt-2 border-t border-[#2a3555]">
+      <div className="flex gap-3 pt-2 border-t border-border-strong">
         <button onClick={saveAll} className="flex-1 flex items-center justify-center gap-2 rounded bg-teal-600 hover:bg-teal-500 py-2.5 text-sm font-semibold text-white transition">
           {saved?<><Check className="h-4 w-4"/>Saved!</>:<><Save className="h-4 w-4"/>Save All Changes</>}
         </button>
-        <button onClick={onClose} className="flex items-center justify-center gap-2 rounded border border-[#2a3555] px-5 py-2.5 text-sm text-slate-300 hover:border-slate-500 transition">Cancel</button>
+        <button onClick={onClose} className="flex items-center justify-center gap-2 rounded border border-border-strong px-5 py-2.5 text-sm text-slate-300 hover:border-slate-500 transition">Cancel</button>
       </div>
     </>
   );
@@ -1871,9 +1871,9 @@ function LessonsTab() {
     <div className="flex flex-col h-full min-h-0 overflow-hidden relative">
 
       {/* ------ Header ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2841] shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
         <div className="flex items-center gap-1">
-          <span className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-cyan-300">
+          <span className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-cyber-300">
             <BookOpen className="h-3.5 w-3.5" />Lessons
             <span className="text-[10px] opacity-70">({lessons.length})</span>
           </span>
@@ -1887,7 +1887,7 @@ function LessonsTab() {
           {/* Generate with AI */}
           <button onClick={() => { setShowGen(v => !v); setGenError(null); }}
             className={cn("flex items-center gap-2 rounded px-4 py-2 text-sm font-semibold transition",
-              showGen ? "bg-cyan-600/20 border border-cyan-500/30 text-cyan-300" : "bg-cyan-600 hover:bg-cyan-500 text-white"
+              showGen ? "bg-cyber-600/20 border border-cyber-500/30 text-cyber-300" : "bg-cyber-600 hover:bg-cyber-500 text-white"
             )}>
             <Sparkles className="h-4 w-4" />Generate with AI
           </button>
@@ -1895,20 +1895,20 @@ function LessonsTab() {
       </div>
 
       {/* ------ Search + Filter bar ------------------------------------------------------------------- */}
-      <div className="px-6 py-3 border-b border-[#1e2841] shrink-0 flex flex-wrap items-center gap-3">
+      <div className="px-6 py-3 border-b border-border shrink-0 flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
             <input value={search} onChange={e => setSearch(e.target.value)} aria-label="Search lessons by title or topic"
               placeholder="Search by title or topic..."
-              className="w-full rounded border border-[#2a3555] bg-[#0f1423] py-2 pl-9 pr-3 text-sm text-slate-200 placeholder:text-slate-400 focus:border-cyan-500/50 focus:outline-none" />
+              className="w-full rounded border border-border-strong bg-bg-panel py-2 pl-9 pr-3 text-sm text-slate-200 placeholder:text-slate-400 focus:border-cyber-500/50 focus:outline-none" />
           </div>
           <div className="flex items-center gap-1" role="group" aria-label="Filter by difficulty">
             {(["all", ...DIFF_OPTIONS] as const).map(d => (
               <button key={d} onClick={() => setDiffFilter(d)} aria-pressed={diffFilter === d}
                 className={cn("rounded px-3 py-1.5 text-[11px] font-semibold capitalize transition",
                   diffFilter === d
-                    ? "bg-cyan-600 text-white"
-                    : "border border-[#2a3555] text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                    ? "bg-cyber-600 text-white"
+                    : "border border-border-strong text-slate-400 hover:border-slate-500 hover:text-slate-200"
                 )}>
                 {d === "all" ? "All" : d.charAt(0).toUpperCase() + d.slice(1)}
               </button>
@@ -1923,13 +1923,13 @@ function LessonsTab() {
             <div className="flex flex-col items-center justify-center py-24 text-center">
               {lessons.length === 0 ? (
                 <>
-                  <div className="h-16 w-16 rounded-full bg-cyan-500/10 flex items-center justify-center mb-4">
-                    <Sparkles className="h-7 w-7 text-cyan-400" />
+                  <div className="h-16 w-16 rounded-full bg-cyber-500/10 flex items-center justify-center mb-4">
+                    <Sparkles className="h-7 w-7 text-cyber-400" />
                   </div>
                   <p className="text-sm font-semibold text-white mb-1">No lessons yet</p>
                   <p className="text-[11px] text-slate-400 mb-5">Click &quot;Generate with AI&quot; to create your first research-backed lesson</p>
                   <button onClick={() => setShowGen(true)}
-                    className="flex items-center gap-2 rounded bg-cyan-600 hover:bg-cyan-500 px-4 py-2 text-sm font-semibold text-white transition">
+                    className="flex items-center gap-2 rounded bg-cyber-600 hover:bg-cyber-500 px-4 py-2 text-sm font-semibold text-white transition">
                     <Sparkles className="h-3.5 w-3.5" />Generate First Lesson
                   </button>
                 </>
@@ -1938,7 +1938,7 @@ function LessonsTab() {
                   <Search className="h-8 w-8 text-slate-500 mb-3" />
                   <p className="text-sm text-slate-400">No lessons match your filters.</p>
                   <button onClick={() => { setSearch(""); setDiffFilter("all"); }}
-                    className="mt-3 text-[11px] text-cyan-400 hover:text-cyan-300 underline">Clear filters</button>
+                    className="mt-3 text-[11px] text-cyber-400 hover:text-cyber-300 underline">Clear filters</button>
                 </>
               )}
             </div>
@@ -1960,9 +1960,9 @@ function LessonsTab() {
       {showBulk && (
         <>
           <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm" onClick={() => !bulkRunning && setShowBulk(false)} />
-          <div ref={bulkRef} role="dialog" aria-modal="true" aria-labelledby="admin-bulk-title" tabIndex={-1} className="fixed inset-4 md:inset-x-[15%] md:inset-y-[5%] z-50 flex flex-col rounded-xl border border-[#2a3555] bg-[#0b0f1e] shadow-2xl overflow-hidden">
+          <div ref={bulkRef} role="dialog" aria-modal="true" aria-labelledby="admin-bulk-title" tabIndex={-1} className="fixed inset-4 md:inset-x-[15%] md:inset-y-[5%] z-50 flex flex-col rounded-xl border border-border-strong bg-bg-elevated shadow-2xl overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-[#2a3555] px-6 py-4 shrink-0">
+            <div className="flex items-center justify-between border-b border-border-strong px-6 py-4 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-violet-500/15 border border-violet-500/25 flex items-center justify-center">
                   <BookOpen className="h-4 w-4 text-violet-400" />
@@ -1973,7 +1973,7 @@ function LessonsTab() {
                 </div>
               </div>
               <button onClick={() => !bulkRunning && setShowBulk(false)} aria-label="Close"
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-white transition">
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-bg-hover hover:text-white transition">
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
@@ -1997,7 +1997,7 @@ function LessonsTab() {
                       rows={10}
                       disabled={bulkRunning}
                       placeholder={"Introduction to SOC Operations\nNetwork Protocol Analysis | intermediate\nDNS Tunneling Detection | advanced\nPhishing Email Investigation | beginner\nWindows Event Log Analysis\nSIEM and SPL Queries | intermediate"}
-                      className="w-full rounded-xl border border-[#2a3555] bg-[#0d1322] px-4 py-3 text-sm text-slate-200 placeholder:text-slate-400 font-mono leading-relaxed focus:border-violet-500/60 focus:outline-none resize-none transition"
+                      className="w-full rounded-xl border border-border-strong bg-bg-panel px-4 py-3 text-sm text-slate-200 placeholder:text-slate-400 font-mono leading-relaxed focus:border-violet-500/60 focus:outline-none resize-none transition"
                     />
                     <p className="mt-1.5 text-[10px] text-slate-400">
                       Tip: add <code className="text-slate-400">| difficulty</code> after any topic to override the default. Max 20 lessons.
@@ -2013,7 +2013,7 @@ function LessonsTab() {
                             "rounded-lg py-2 text-[11px] font-semibold capitalize transition",
                             bulkDiff === d
                               ? "bg-violet-600 text-white shadow-lg shadow-violet-900/40"
-                              : "border border-[#2a3555] bg-[#0d1322] text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                              : "border border-border-strong bg-bg-panel text-slate-400 hover:border-slate-500 hover:text-slate-200"
                           )}>
                           {d}
                         </button>
@@ -2042,12 +2042,12 @@ function LessonsTab() {
               {bulkQueue.length > 0 && (
                 <div className="space-y-3">
                   {/* Summary bar */}
-                  <div className="flex items-center justify-between text-[12px] text-slate-400 pb-2 border-b border-[#1e2841]">
+                  <div className="flex items-center justify-between text-[12px] text-slate-400 pb-2 border-b border-border">
                     <span>
                       <span className="text-white font-semibold">{bulkQueue.length}</span> lessons
                       {" · "}
                       <span className="text-emerald-400">{bulkQueue.filter(i => i.status === "done").length} done</span>
-                      {bulkRunning && <span className="text-cyan-400"> · generating...</span>}
+                      {bulkRunning && <span className="text-cyber-400"> · generating...</span>}
                       {bulkDone && <span className="text-violet-400"> · complete</span>}
                     </span>
                     {bulkDone && (
@@ -2073,16 +2073,16 @@ function LessonsTab() {
                           item.status === "done" && rec === "review"      ? "border-amber-500/25   bg-amber-500/5"    :
                           item.status === "done" && rec === "regenerate"  ? "border-rose-500/25    bg-rose-500/5"     :
                           item.status === "error"                         ? "border-rose-500/25    bg-rose-500/5"     :
-                          item.status === "generating"                    ? "border-cyan-500/25    bg-cyan-500/5"     :
+                          item.status === "generating"                    ? "border-cyber-500/25    bg-cyber-500/5"     :
                           item.status === "validating"                    ? "border-violet-500/25  bg-violet-500/5"   :
-                          "border-[#2a3555] bg-[#0a0e1a]"
+                          "border-border-strong bg-bg-elevated"
                         )}>
                           {/* Row */}
                           <div className="flex items-center gap-3 px-4 py-3">
                             {/* Status icon */}
                             <div className="shrink-0 w-5 flex items-center justify-center">
                               {item.status === "pending"    && <span className="h-2 w-2 rounded-full bg-slate-600" />}
-                              {item.status === "generating" && <Loader2 className="h-4 w-4 text-cyan-400 animate-spin" />}
+                              {item.status === "generating" && <Loader2 className="h-4 w-4 text-cyber-400 animate-spin" />}
                               {item.status === "validating" && <Loader2 className="h-4 w-4 text-violet-400 animate-spin" />}
                               {item.status === "done" && rec === "publish"    && <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
                               {item.status === "done" && rec === "review"     && <AlertTriangle className="h-4 w-4 text-amber-400" />}
@@ -2120,7 +2120,7 @@ function LessonsTab() {
                             <div className="shrink-0 flex items-center gap-1">
                               {(item.status === "error" || (item.status === "done" && rec === "regenerate")) && !bulkRunning && (
                                 <button onClick={() => rerunBulkItem(idx)}
-                                  className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-cyan-400 transition"
+                                  className="rounded p-1.5 text-slate-400 hover:bg-bg-hover hover:text-cyber-400 transition"
                                   title="Regenerate this lesson" aria-label={`Regenerate ${item.outlineTitle ?? item.topic}`}>
                                   <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                                 </button>
@@ -2128,7 +2128,7 @@ function LessonsTab() {
                               {item.status === "done" && (
                                 <button onClick={() => setBulkExpanded(isExpanded ? null : idx)}
                                   aria-expanded={isExpanded} aria-label={`Validation details for ${item.outlineTitle ?? item.topic}`}
-                                  className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-slate-200 transition">
+                                  className="rounded p-1.5 text-slate-400 hover:bg-bg-hover hover:text-slate-200 transition">
                                   {isExpanded ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />}
                                 </button>
                               )}
@@ -2138,9 +2138,9 @@ function LessonsTab() {
                           {/* Progress bar during generation */}
                           {item.status === "generating" && (
                             <div className="px-4 pb-3">
-                              <div className="h-1.5 w-full rounded-full bg-[#1a2035] overflow-hidden">
+                              <div className="h-1.5 w-full rounded-full bg-bg-hover overflow-hidden">
                                 <div
-                                  className="h-full rounded-full bg-gradient-to-r from-cyan-600 to-cyan-400 transition-all duration-700"
+                                  className="h-full rounded-full bg-gradient-to-r from-cyber-600 to-cyber-400 transition-all duration-700"
                                   style={{ width: `${Math.min(100, ((item.sections ?? 0) / TOTAL_SECTIONS) * 100)}%` }}
                                 />
                               </div>
@@ -2149,7 +2149,7 @@ function LessonsTab() {
 
                           {/* Expanded validation card */}
                           {isExpanded && item.validation && (
-                            <div className="border-t border-[#1e2841] px-4 pb-4 pt-3 space-y-3">
+                            <div className="border-t border-border px-4 pb-4 pt-3 space-y-3">
                               {item.validation.issues.length > 0 && (
                                 <div>
                                   <p className="text-[10px] font-semibold uppercase tracking-wider text-rose-400 mb-1.5">Issues</p>
@@ -2177,13 +2177,13 @@ function LessonsTab() {
                               <div className="flex gap-2 pt-1">
                                 {item.lesson && (
                                   <button onClick={() => setPreview(item.lesson!)}
-                                    className="flex items-center gap-1.5 rounded border border-[#2a3555] px-3 py-1.5 text-[11px] text-slate-300 hover:border-cyan-500/30 hover:text-cyan-400 transition">
+                                    className="flex items-center gap-1.5 rounded border border-border-strong px-3 py-1.5 text-[11px] text-slate-300 hover:border-cyber-500/30 hover:text-cyber-400 transition">
                                     <Eye className="h-3 w-3" />Preview
                                   </button>
                                 )}
                                 {!bulkRunning && (
                                   <button onClick={() => rerunBulkItem(idx)}
-                                    className="flex items-center gap-1.5 rounded border border-[#2a3555] px-3 py-1.5 text-[11px] text-slate-300 hover:border-violet-500/30 hover:text-violet-400 transition">
+                                    className="flex items-center gap-1.5 rounded border border-border-strong px-3 py-1.5 text-[11px] text-slate-300 hover:border-violet-500/30 hover:text-violet-400 transition">
                                     <RefreshCw className="h-3 w-3" />Regenerate
                                   </button>
                                 )}
@@ -2199,7 +2199,7 @@ function LessonsTab() {
             </div>
 
             {/* Footer */}
-            <div className="border-t border-[#1e2841] px-6 py-4 shrink-0">
+            <div className="border-t border-border px-6 py-4 shrink-0">
               {bulkQueue.length === 0 ? (
                 <button
                   onClick={() => {
@@ -2216,7 +2216,7 @@ function LessonsTab() {
               ) : (
                 <div className="flex items-center justify-between">
                   {bulkRunning ? (
-                    <div className="flex items-center gap-2 text-[12px] text-cyan-300">
+                    <div className="flex items-center gap-2 text-[12px] text-cyber-300">
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       Generating lessons — do not close this window
                     </div>
@@ -2226,7 +2226,7 @@ function LessonsTab() {
                     </div>
                   )}
                   <button onClick={() => !bulkRunning && setShowBulk(false)}
-                    className="flex items-center gap-2 rounded border border-[#2a3555] px-4 py-2 text-sm text-slate-300 hover:border-slate-500 transition">
+                    className="flex items-center gap-2 rounded border border-border-strong px-4 py-2 text-sm text-slate-300 hover:border-slate-500 transition">
                     {bulkRunning ? "Running..." : "Close"}
                   </button>
                 </div>
@@ -2240,14 +2240,14 @@ function LessonsTab() {
       {showGen && <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => !genLoading && setShowGen(false)} />}
       {/* Closed: `invisible` (after the slide-out) keeps the off-screen panel out of the tab order. */}
       <div ref={genPanelRef} role="dialog" aria-modal="true" aria-labelledby="admin-gen-title" tabIndex={-1} className={cn(
-        "fixed right-0 top-0 z-50 h-full w-[460px] border-l border-[#2a3555] bg-[#090d1a] shadow-2xl flex flex-col transition-[transform,visibility] duration-300",
+        "fixed right-0 top-0 z-50 h-full w-[460px] border-l border-border-strong bg-bg-elevated shadow-2xl flex flex-col transition-[transform,visibility] duration-300",
         showGen ? "translate-x-0" : "translate-x-full invisible"
       )}>
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#1e2841] px-6 py-4 shrink-0">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center">
-              <Sparkles className="h-4 w-4 text-cyan-400" />
+            <div className="h-8 w-8 rounded-lg bg-cyber-500/15 border border-cyber-500/25 flex items-center justify-center">
+              <Sparkles className="h-4 w-4 text-cyber-400" />
             </div>
             <div>
               <h3 id="admin-gen-title" className="text-sm font-bold text-white">Generate SOC Lesson</h3>
@@ -2255,7 +2255,7 @@ function LessonsTab() {
             </div>
           </div>
           <button onClick={() => !genLoading && setShowGen(false)} aria-label="Close"
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-white transition">
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-bg-hover hover:text-white transition">
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
@@ -2277,7 +2277,7 @@ function LessonsTab() {
               onKeyDown={e => e.key === "Enter" && !genLoading && genTopic.trim() && handleGenerate()}
               placeholder="e.g. Kerberoasting, Pass-the-Hash, Log4Shell..."
               disabled={genLoading}
-              className="w-full rounded-xl border border-[#2a3555] bg-[#0d1322] px-4 py-3 text-sm text-slate-200 placeholder:text-slate-400 focus:border-cyan-500/60 focus:outline-none focus:ring-1 focus:ring-cyan-500/20 disabled:opacity-40 transition"
+              className="w-full rounded-xl border border-border-strong bg-bg-panel px-4 py-3 text-sm text-slate-200 placeholder:text-slate-400 focus:border-cyber-500/60 focus:outline-none focus:ring-1 focus:ring-cyber-500/20 disabled:opacity-40 transition"
             />
             <p className="mt-1 text-[10px] text-slate-400">Press Enter to generate instantly</p>
           </div>
@@ -2291,8 +2291,8 @@ function LessonsTab() {
                   className={cn(
                     "rounded-lg py-2 text-[11px] font-semibold capitalize transition",
                     genDiff === d
-                      ? "bg-cyan-600 text-white shadow-lg shadow-cyan-900/40"
-                      : "border border-[#2a3555] bg-[#0d1322] text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                      ? "bg-cyber-600 text-white shadow-lg shadow-cyber-900/40"
+                      : "border border-border-strong bg-bg-panel text-slate-400 hover:border-slate-500 hover:text-slate-200"
                   )}>
                   {d}
                 </button>
@@ -2302,7 +2302,7 @@ function LessonsTab() {
 
           {/* ── What the agent does ── */}
           {!genLoading && !genPartialSections.length && (
-            <div className="rounded-xl border border-[#1e2841] bg-[#0d1322] p-4 space-y-2.5">
+            <div className="rounded-xl border border-border bg-bg-panel p-4 space-y-2.5">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">What happens when you generate</p>
               {[
                 { icon: "🔍", text: "Agent searches 5+ web sources on the topic" },
@@ -2322,16 +2322,16 @@ function LessonsTab() {
           {genLoading && (
             <div className="space-y-3">
               {/* Status */}
-              <div role="status" className="flex items-center gap-2.5 text-[12px] text-cyan-300">
+              <div role="status" className="flex items-center gap-2.5 text-[12px] text-cyber-300">
                 <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" aria-hidden="true" />
                 <span className="truncate">{genStatus || "Starting..."}</span>
               </div>
 
               {/* Progress bar */}
               <div>
-                <div className="h-2 w-full rounded-full bg-[#1a2035] overflow-hidden">
+                <div className="h-2 w-full rounded-full bg-bg-hover overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-cyan-600 to-cyan-400 transition-all duration-700"
+                    className="h-full rounded-full bg-gradient-to-r from-cyber-600 to-cyber-400 transition-all duration-700"
                     style={{ width: `${Math.min(100, (genPartialSections.length / TOTAL_SECTIONS) * 100)}%` }}
                   />
                 </div>
@@ -2375,11 +2375,11 @@ function LessonsTab() {
         </div>
 
         {/* Footer */}
-        <div className="border-t border-[#1e2841] px-6 py-4 shrink-0">
+        <div className="border-t border-border px-6 py-4 shrink-0">
           <button
             onClick={handleGenerate}
             disabled={genLoading || !genTopic.trim()}
-            className="w-full flex items-center justify-center gap-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 disabled:opacity-40 disabled:cursor-not-allowed py-3.5 text-sm font-bold text-white transition shadow-lg shadow-cyan-900/30"
+            className="w-full flex items-center justify-center gap-2.5 rounded-xl bg-cyber-600 hover:bg-cyber-500 active:bg-cyber-700 disabled:opacity-40 disabled:cursor-not-allowed py-3.5 text-sm font-bold text-white transition shadow-lg shadow-cyber-900/30"
           >
             {genLoading
               ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating lesson... (~2 min)</>
@@ -2430,7 +2430,7 @@ function LessonCard({ lesson, loading, onPreview, onEdit, onDelete }: {
   const dc = DIFF_CONFIG[lesson.difficulty] ?? { label: lesson.difficulty, cls: "bg-slate-500/10 text-slate-400 border border-slate-500/25" };
 
   return (
-    <div className="rounded-lg border border-[#2a3555] bg-[#0a0e1a] hover:border-cyan-500/30 hover:bg-[#0e1828] transition group flex flex-col">
+    <div className="rounded-lg border border-border-strong bg-bg-elevated hover:border-cyber-500/30 hover:bg-bg-panel transition group flex flex-col">
       <div className="p-4 flex-1">
         <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
           <span className={cn("rounded px-2 py-0.5 text-[10px] font-semibold", dc.cls)}>{dc.label}</span>
@@ -2438,23 +2438,23 @@ function LessonCard({ lesson, loading, onPreview, onEdit, onDelete }: {
             <span className="rounded border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-400"><span aria-hidden="true">✦</span> Researched</span>
           )}
         </div>
-        <p className="text-sm font-bold text-white group-hover:text-cyan-300 transition line-clamp-2 leading-snug mb-2">{lesson.title}</p>
+        <p className="text-sm font-bold text-white group-hover:text-cyber-300 transition line-clamp-2 leading-snug mb-2">{lesson.title}</p>
         <p className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed">{lesson.topic}</p>
       </div>
-      <div className="px-4 py-3 border-t border-[#1e2841] flex items-center justify-between">
+      <div className="px-4 py-3 border-t border-border flex items-center justify-between">
         <div className="flex items-center gap-3 text-[10px] text-slate-400">
           <span>~{lesson.estimatedMinutes}m</span>
           <span className="text-amber-400 font-mono">+{lesson.xp} XP</span>
           <span>{lesson.stub ? lesson.sectionCount ?? 0 : lesson.sections.length} sec</span>
-          {loading && <span className="text-cyan-400">Loading…</span>}
+          {loading && <span className="text-cyber-400">Loading…</span>}
         </div>
         <div className="flex items-center gap-1">
           <button onClick={onEdit}
-            className="flex items-center gap-1 rounded border border-[#2a3555] px-2.5 py-1 text-[10px] font-semibold text-slate-400 hover:border-violet-500/40 hover:text-violet-400 transition">
+            className="flex items-center gap-1 rounded border border-border-strong px-2.5 py-1 text-[10px] font-semibold text-slate-400 hover:border-violet-500/40 hover:text-violet-400 transition">
             <Edit2 className="h-3 w-3" />Edit
           </button>
           <button onClick={onPreview}
-            className="flex items-center gap-1 rounded border border-[#2a3555] px-2.5 py-1 text-[10px] font-semibold text-slate-400 hover:border-cyan-500/30 hover:text-cyan-400 transition">
+            className="flex items-center gap-1 rounded border border-border-strong px-2.5 py-1 text-[10px] font-semibold text-slate-400 hover:border-cyber-500/30 hover:text-cyber-400 transition">
             <Eye className="h-3 w-3" />Preview
           </button>
           <button onClick={onDelete} aria-label={`Delete ${lesson.title}`} className="rounded p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition">
@@ -2482,8 +2482,8 @@ function LessonPreviewModal({ lesson, onClose, onDelete }: {
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="fixed inset-4 md:inset-x-[10%] md:inset-y-[5%] z-50 flex flex-col rounded-xl border border-[#2a3555] bg-[#0b0f1e] shadow-2xl overflow-hidden">
-        <div className="flex items-start justify-between border-b border-[#2a3555] px-6 py-5 shrink-0">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="fixed inset-4 md:inset-x-[10%] md:inset-y-[5%] z-50 flex flex-col rounded-xl border border-border-strong bg-bg-elevated shadow-2xl overflow-hidden">
+        <div className="flex items-start justify-between border-b border-border-strong px-6 py-5 shrink-0">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <DiffBadge d={lesson.difficulty} />
@@ -2500,33 +2500,33 @@ function LessonPreviewModal({ lesson, onClose, onDelete }: {
               className="flex items-center gap-1.5 rounded border border-rose-500/25 px-3 py-1.5 text-[11px] text-rose-400 hover:bg-rose-500/10 transition">
               <Trash2 className="h-3.5 w-3.5" />Delete
             </button>
-            <button onClick={onClose} aria-label="Close" className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-white transition">
+            <button onClick={onClose} aria-label="Close" className="rounded p-1.5 text-slate-400 hover:bg-bg-hover hover:text-white transition">
               <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <div className="px-6 py-5 border-b border-[#1e2841]">
+          <div className="px-6 py-5 border-b border-border">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-3">Introduction</p>
             <p className="text-[13px] text-slate-300 leading-relaxed whitespace-pre-wrap">{lesson.intro}</p>
           </div>
 
-          <div className="border-b border-[#1e2841]">
-            <div className="px-6 py-3 border-b border-[#1e2841]">
+          <div className="border-b border-border">
+            <div className="px-6 py-3 border-b border-border">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Sections ({lesson.sections.length})</p>
             </div>
             {lesson.sections.map((sec, i) => (
-              <div key={i} className={cn("border-b border-[#1e2841] last:border-0 transition", openSection === i && "bg-[#080c15]")}>
+              <div key={i} className={cn("border-b border-border last:border-0 transition", openSection === i && "bg-bg-elevated")}>
                 <button onClick={() => setOpenSection(openSection === i ? null : i)} aria-expanded={openSection === i}
-                  className="flex w-full items-center gap-3 px-6 py-3.5 text-left hover:bg-[#0f1728] transition">
+                  className="flex w-full items-center gap-3 px-6 py-3.5 text-left hover:bg-bg-panel transition">
                   <ChevronRight aria-hidden="true" className={cn("h-3.5 w-3.5 text-slate-400 transition-transform shrink-0", openSection === i && "rotate-90")} />
                   <span className="font-mono text-[10px] text-slate-400 w-4 shrink-0">{i + 1}</span>
                   <span className="text-[13px] font-semibold text-slate-200 flex-1">{sec.heading}</span>
                   <span className="text-[10px] text-slate-400">{sec.content.split(" ").length}w</span>
                 </button>
                 {openSection === i && (
-                  <div className="border-t border-[#1e2841] px-6 pb-5 pt-4 space-y-3">
+                  <div className="border-t border-border px-6 pb-5 pt-4 space-y-3">
                     <p className="text-[12px] text-slate-300 leading-relaxed whitespace-pre-wrap">{sec.content}</p>
                   </div>
                 )}
@@ -2624,7 +2624,7 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
   function removeQuizQ(i: number) { setDraft(d => ({ ...d, quiz: (d.quiz ?? []).filter((_, idx) => idx !== i) })); }
   /* eslint-enable @typescript-eslint/no-unused-vars */
 
-  const inputCls = "w-full rounded-lg border border-[#2a3555] bg-[#070b14] px-3 py-2 text-[13px] text-white placeholder-slate-500 focus:border-cyan-500/60 focus:outline-none resize-none";
+  const inputCls = "w-full rounded-lg border border-border-strong bg-bg px-3 py-2 text-[13px] text-white placeholder-slate-500 focus:border-cyber-500/60 focus:outline-none resize-none";
   const TABS: { id: "overview"|"sections"; label: string }[] = [
     { id: "overview",   label: "Overview" },
     { id: "sections",   label: `Sections (${draft.sections.length})` },
@@ -2637,10 +2637,10 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm" onClick={onClose} />
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={`${uid}-title`} tabIndex={-1} className="fixed inset-4 md:inset-x-[6%] md:inset-y-[3%] z-50 flex flex-col rounded-xl border border-[#2a3555] bg-[#0b0f1e] shadow-2xl overflow-hidden">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={`${uid}-title`} tabIndex={-1} className="fixed inset-4 md:inset-x-[6%] md:inset-y-[3%] z-50 flex flex-col rounded-xl border border-border-strong bg-bg-elevated shadow-2xl overflow-hidden">
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#2a3555] px-6 py-4 shrink-0">
+        <div className="flex items-center justify-between border-b border-border-strong px-6 py-4 shrink-0">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/15 text-violet-400">
               <Edit2 className="h-4 w-4" aria-hidden="true" />
@@ -2652,22 +2652,22 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={onClose}
-              className="rounded-lg border border-[#2a3555] px-4 py-1.5 text-[12px] text-slate-400 hover:text-white transition">
+              className="rounded-lg border border-border-strong px-4 py-1.5 text-[12px] text-slate-400 hover:text-white transition">
               Cancel
             </button>
             <button onClick={() => onSave(draft)}
-              className="flex items-center gap-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 px-4 py-1.5 text-[12px] font-bold text-white transition">
+              className="flex items-center gap-1.5 rounded-lg bg-cyber-600 hover:bg-cyber-500 px-4 py-1.5 text-[12px] font-bold text-white transition">
               <Save className="h-3.5 w-3.5" />Save Changes
             </button>
           </div>
         </div>
 
         {/* Tabs */}
-        <div role="tablist" aria-label="Lesson editor sections" className="flex border-b border-[#2a3555] shrink-0 px-6">
+        <div role="tablist" aria-label="Lesson editor sections" className="flex border-b border-border-strong shrink-0 px-6">
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} role="tab" aria-selected={tab === t.id}
               className={cn("px-4 py-3 text-[12px] font-semibold border-b-2 -mb-px transition",
-                tab === t.id ? "border-cyan-500 text-cyan-400" : "border-transparent text-slate-400 hover:text-slate-300")}>
+                tab === t.id ? "border-cyber-500 text-cyber-400" : "border-transparent text-slate-400 hover:text-slate-300")}>
               {t.label}
             </button>
           ))}
@@ -2694,7 +2694,7 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
                     {(["beginner","intermediate","advanced","expert"] as const).map(d => (
                       <button key={d} onClick={() => setField("difficulty", d)} aria-pressed={draft.difficulty === d}
                         className={cn("rounded-lg border px-3 py-1.5 text-[11px] font-semibold capitalize transition",
-                          draft.difficulty === d ? "border-cyan-500 bg-cyan-500/15 text-cyan-300" : "border-[#2a3555] text-slate-400 hover:border-slate-500")}>
+                          draft.difficulty === d ? "border-cyber-500 bg-cyber-500/15 text-cyber-300" : "border-border-strong text-slate-400 hover:border-slate-500")}>
                         {d}
                       </button>
                     ))}
@@ -2727,10 +2727,10 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
           {tab === "sections" && (
             <div className="space-y-3">
               {draft.sections.map((sec, i) => (
-                <div key={i} className="rounded-xl border border-[#2a3555] bg-[#070b14] overflow-hidden">
+                <div key={i} className="rounded-xl border border-border-strong bg-bg overflow-hidden">
                   {/* Section header */}
                   {/* Expand toggle and delete are siblings (a button inside a button is invalid). */}
-                  <div className="flex w-full items-center gap-3 px-4 py-3 hover:bg-[#0d1525] transition">
+                  <div className="flex w-full items-center gap-3 px-4 py-3 hover:bg-bg-panel transition">
                     <button onClick={() => setOpenSec(openSec === i ? -1 : i)} aria-expanded={openSec === i}
                       className="flex min-w-0 flex-1 items-center gap-3">
                       <ChevronRight aria-hidden="true" className={cn("h-3.5 w-3.5 text-slate-400 transition-transform shrink-0", openSec === i && "rotate-90")} />
@@ -2745,7 +2745,7 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
                   </div>
                   {/* Section body */}
                   {openSec === i && (
-                    <div className="border-t border-[#2a3555] px-4 pb-4 pt-4 space-y-3">
+                    <div className="border-t border-border-strong px-4 pb-4 pt-4 space-y-3">
                       <div>
                         <label htmlFor={`${uid}-sec${i}-heading`} className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Heading</label>
                         <input id={`${uid}-sec${i}-heading`} className={inputCls} value={sec.heading}
@@ -2768,7 +2768,7 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
                 </div>
               ))}
               <button onClick={addSection}
-                className="flex items-center gap-2 rounded-xl border border-dashed border-[#2a3555] px-4 py-3 text-[12px] text-slate-400 hover:border-cyan-500/40 hover:text-cyan-400 w-full transition">
+                className="flex items-center gap-2 rounded-xl border border-dashed border-border-strong px-4 py-3 text-[12px] text-slate-400 hover:border-cyber-500/40 hover:text-cyber-400 w-full transition">
                 <Plus className="h-4 w-4" />Add Section
               </button>
             </div>
@@ -2804,7 +2804,7 @@ function SevBadge({ sev }: { sev: IssueSeverity }) {
 
 function CodeBadge({ code }: { code: string }) {
   return (
-    <span className="font-mono text-[9px] rounded border border-[#2a3555] bg-[#0a0f1e] px-1.5 py-0.5 text-slate-400">
+    <span className="font-mono text-[9px] rounded border border-border-strong bg-bg-elevated px-1.5 py-0.5 text-slate-400">
       {code}
     </span>
   );
@@ -2814,7 +2814,7 @@ function IssueRow({ issue }: { issue: ValidationIssue }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <div
-      className="border-b border-[#1e2841] last:border-0 hover:bg-[#0d1326] transition-colors cursor-pointer"
+      className="border-b border-border last:border-0 hover:bg-bg-panel transition-colors cursor-pointer"
       onClick={() => setExpanded(v => !v)}
     >
       <div role="row" className="grid grid-cols-[90px_140px_100px_80px_1fr_28px] gap-2 items-center px-4 py-2.5 text-[11px]">
@@ -2827,12 +2827,12 @@ function IssueRow({ issue }: { issue: ValidationIssue }) {
         </div>
         <span role="cell" className="font-mono text-[10px] text-slate-300 truncate">{issue.event_id}</span>
         <span role="cell" className="text-slate-400 truncate">{issue.vendor.slice(0, 22)}</span>
-        <span role="cell" className="rounded border border-[#2a3555] bg-[#0c1120] px-1.5 py-px text-[9px] text-slate-400 font-mono truncate">{issue.source}</span>
+        <span role="cell" className="rounded border border-border-strong bg-bg-panel px-1.5 py-px text-[9px] text-slate-400 font-mono truncate">{issue.source}</span>
         <span role="cell" className="text-slate-300">{issue.message}</span>
         <span role="cell" className="flex"><ChevronRight aria-hidden="true" className={cn("h-3.5 w-3.5 text-slate-400 shrink-0 transition-transform", expanded && "rotate-90")} /></span>
       </div>
       {expanded && (
-        <div role="row"><div role="cell" aria-colspan={6} className="px-4 pb-3 pt-1 bg-[#0a0e1c]">
+        <div role="row"><div role="cell" aria-colspan={6} className="px-4 pb-3 pt-1 bg-bg-elevated">
           <div className="flex flex-wrap gap-2 mb-2">
             <CodeBadge code={issue.code} />
             {issue.field && (
@@ -2896,7 +2896,7 @@ function LogValidatorTab() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2841] shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
         <div className="flex items-center gap-3">
           <ShieldCheck className="h-5 w-5 text-violet-400" />
           <div>
@@ -2945,8 +2945,8 @@ function LogValidatorTab() {
       {report && (
         <>
           {/* Summary cards */}
-          <div className="grid grid-cols-4 gap-3 px-6 py-4 shrink-0 border-b border-[#1e2841]">
-            <div className="rounded-lg border border-[#1e2841] bg-[#0a0e1c] p-3">
+          <div className="grid grid-cols-4 gap-3 px-6 py-4 shrink-0 border-b border-border">
+            <div className="rounded-lg border border-border bg-bg-elevated p-3">
               <div className="text-[10px] text-slate-400 mb-1">Total Events</div>
               <div className="text-2xl font-bold text-white">{report.total_events}</div>
               <div className="text-[10px] text-emerald-400 mt-0.5">{report.clean_events} clean</div>
@@ -2978,7 +2978,7 @@ function LogValidatorTab() {
           </div>
 
           {/* Vendor breakdown */}
-          <div className="px-6 py-3 border-b border-[#1e2841] shrink-0">
+          <div className="px-6 py-3 border-b border-border shrink-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">By Vendor:</span>
               {Object.entries(report.by_vendor)
@@ -2986,7 +2986,7 @@ function LogValidatorTab() {
                 .sort((a, b) => b[1].error_count - a[1].error_count)
                 .slice(0, 8)
                 .map(([vendor, v]) => (
-                  <span key={vendor} className="inline-flex items-center gap-1.5 rounded border border-[#2a3555] bg-[#0a0e1c] px-2 py-1 text-[10px]">
+                  <span key={vendor} className="inline-flex items-center gap-1.5 rounded border border-border-strong bg-bg-elevated px-2 py-1 text-[10px]">
                     <span className="text-slate-300">{vendor.slice(0, 28)}</span>
                     {v.error_count > 0 && (
                       <span className="rounded bg-rose-500/20 px-1 py-px text-[9px] text-rose-400 font-semibold">{v.error_count}E</span>
@@ -2999,7 +2999,7 @@ function LogValidatorTab() {
           </div>
 
           {/* Filters */}
-          <div className="flex items-center gap-3 px-6 py-2.5 border-b border-[#1e2841] shrink-0">
+          <div className="flex items-center gap-3 px-6 py-2.5 border-b border-border shrink-0">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
               <input
@@ -3007,7 +3007,7 @@ function LogValidatorTab() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search event, vendor, code…"
-                className="h-8 w-64 rounded border border-[#2a3555] bg-[#0a0e1c] pl-8 pr-3 text-[11px] text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-violet-500/50"
+                className="h-8 w-64 rounded border border-border-strong bg-bg-elevated pl-8 pr-3 text-[11px] text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-violet-500/50"
               />
             </div>
             <div className="flex items-center gap-1" role="group" aria-label="Filter by severity">
@@ -3019,7 +3019,7 @@ function LogValidatorTab() {
                   className={cn(
                     "rounded px-3 py-1 text-[11px] font-medium transition",
                     sevFilter === s
-                      ? "bg-[#161c2b] text-white"
+                      ? "bg-bg-hover text-white"
                       : "text-slate-400 hover:text-slate-200"
                   )}
                 >
@@ -3031,7 +3031,7 @@ function LogValidatorTab() {
               <span className="text-[11px] text-slate-400">{filteredIssues.length} issue{filteredIssues.length !== 1 ? "s" : ""}</span>
               <button
                 onClick={runValidation}
-                className="flex items-center gap-1 rounded border border-[#2a3555] bg-[#0a0e1c] px-2.5 py-1 text-[10px] text-slate-400 hover:text-slate-200 transition"
+                className="flex items-center gap-1 rounded border border-border-strong bg-bg-elevated px-2.5 py-1 text-[10px] text-slate-400 hover:text-slate-200 transition"
               >
                 <RefreshCw className="h-3 w-3" />
                 Re-run
@@ -3045,7 +3045,7 @@ function LogValidatorTab() {
           {/* Issue list */}
           <div role="table" aria-label="Validation issues" className="flex-1 min-h-0 overflow-y-auto">
             {/* Table header */}
-            <div role="row" className="grid grid-cols-[90px_140px_100px_80px_1fr_28px] gap-2 px-4 py-2 border-b border-[#1e2841] bg-[#080c14] sticky top-0 z-10">
+            <div role="row" className="grid grid-cols-[90px_140px_100px_80px_1fr_28px] gap-2 px-4 py-2 border-b border-border bg-bg-elevated sticky top-0 z-10">
               {["Severity", "Event ID", "Vendor", "Source", "Message", ""].map(h => (
                 <span key={h} role="columnheader" className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{h || <span className="sr-only">Details</span>}</span>
               ))}
@@ -3085,13 +3085,13 @@ export default function AdminPage() {
   const [tab, setTab] = useState<AdminTab>("scenarios");
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-[#080c14]">
+    <div className="flex flex-col h-screen overflow-hidden bg-bg-elevated">
       <Topbar title="Admin Panel" subtitle="Manage your organization: Cryotech" />
 
       <div className="flex flex-col flex-1 min-h-0 px-6 py-4 gap-4 max-w-[1600px] mx-auto w-full">
 
         {/* Tab bar */}
-        <div role="tablist" aria-label="Admin sections" className="flex items-center gap-1 rounded-lg border border-[#1e2841] bg-[#0c1120] p-1 shrink-0 self-start">
+        <div role="tablist" aria-label="Admin sections" className="flex items-center gap-1 rounded-lg border border-border bg-bg-panel p-1 shrink-0 self-start">
           {TABS.map(t => (
             <button
               key={t.id}
@@ -3103,8 +3103,8 @@ export default function AdminPage() {
               className={cn(
                 "flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all",
                 tab===t.id
-                  ? "bg-[#161c2b] text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-[#0f1423]"
+                  ? "bg-bg-hover text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-bg-panel"
               )}
             >
               <t.icon aria-hidden="true" className={cn("h-4 w-4", tab===t.id?"text-violet-400":"text-slate-400")} />
@@ -3114,7 +3114,7 @@ export default function AdminPage() {
         </div>
 
         {/* Tab content */}
-        <div id="admin-tabpanel" role="tabpanel" aria-labelledby={`admin-tab-${tab}`} className="flex-1 min-h-0 overflow-hidden rounded-lg border border-[#1e2841] bg-[#0c1120]">
+        <div id="admin-tabpanel" role="tabpanel" aria-labelledby={`admin-tab-${tab}`} className="flex-1 min-h-0 overflow-hidden rounded-lg border border-border bg-bg-panel">
           {tab==="overview"      && <OverviewTab />}
           {tab==="users"         && <UsersTab />}
           {tab==="scenarios"     && <ScenariosTab />}

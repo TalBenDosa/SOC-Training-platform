@@ -37,7 +37,7 @@ function renderInline(text: string, keyBase: string | number): React.ReactNode[]
     if (part.startsWith("**") && part.endsWith("**"))
       return <strong key={`${keyBase}-${j}`} className="text-white font-semibold">{part.slice(2, -2)}</strong>;
     if (part.length > 1 && part.startsWith("`") && part.endsWith("`"))
-      return <code key={`${keyBase}-${j}`} className="rounded bg-[#111a2e] px-1.5 py-0.5 font-mono text-[12.5px] text-cyan-300">{part.slice(1, -1)}</code>;
+      return <code key={`${keyBase}-${j}`} className="rounded bg-bg-hover px-1.5 py-0.5 font-mono text-[12.5px] text-cyber-300">{part.slice(1, -1)}</code>;
     if (part.length > 2 && part.startsWith("*") && part.endsWith("*"))
       return <em key={`${keyBase}-${j}`} className="italic text-slate-200">{part.slice(1, -1)}</em>;
     return <span key={`${keyBase}-${j}`}>{part}</span>;
@@ -58,7 +58,7 @@ function labelForLang(lang: string): string {
 
 function CodeCard({ label, code }: { label: string; code: string }) {
   return (
-    <div className="my-4 overflow-hidden rounded-xl border border-slate-700/50 bg-[#0a0f1c] shadow-sm">
+    <div className="my-4 overflow-hidden rounded-xl border border-slate-700/50 bg-bg-elevated shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-700/40 bg-slate-800/25 px-4 py-2">
         <span className="flex gap-1.5" aria-hidden="true">
           <span className="h-2.5 w-2.5 rounded-full bg-red-400/40" />
@@ -92,18 +92,18 @@ function renderTextBlocks(text: string, keyPrefix: string): React.ReactNode {
         const table = parseMarkdownTable(trimmed);
         if (table) {
           return (
-            <div key={i} className="overflow-x-auto rounded-lg border border-[#1e2d4a]">
+            <div key={i} className="overflow-x-auto rounded-lg border border-border">
               <table className="w-full text-left text-[13px]">
                 <thead>
-                  <tr className="border-b border-[#1e2d4a] bg-[#0f1830]">
+                  <tr className="border-b border-border bg-bg-hover">
                     {table.headers.map((h, hi) => (
-                      <th key={hi} className="px-3 py-2 font-semibold text-cyan-200 whitespace-nowrap">{renderInline(h, `h${hi}`)}</th>
+                      <th key={hi} className="px-3 py-2 font-semibold text-cyber-200 whitespace-nowrap">{renderInline(h, `h${hi}`)}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {table.rows.map((row, ri) => (
-                    <tr key={ri} className="border-b border-[#1e2d4a]/50 last:border-0">
+                    <tr key={ri} className="border-b border-border/50 last:border-0">
                       {row.map((c, ci) => (
                         <td key={ci} className="px-3 py-2 text-slate-300 align-top">{renderInline(c, `r${ri}c${ci}`)}</td>
                       ))}
@@ -145,7 +145,7 @@ function renderTextBlocks(text: string, keyPrefix: string): React.ReactNode {
         const atx = /^(#{1})\s+(.+)$/.exec(trimmed);
         if (atx && !trimmed.includes("\n")) {
           return (
-            <h2 key={i} className="text-xl font-bold text-cyan-100 mt-6 first:mt-0">
+            <h2 key={i} className="text-xl font-bold text-cyber-100 mt-6 first:mt-0">
               {renderInline(atx[2], `${i}-h`)}
             </h2>
           );
@@ -154,7 +154,7 @@ function renderTextBlocks(text: string, keyPrefix: string): React.ReactNode {
         // A **bold line** on its own → a heading (legacy authoring convention).
         if (/^\*\*[^*]+\*\*$/.test(trimmed)) {
           return (
-            <h3 key={i} className="text-[15px] font-bold text-cyan-200 mt-6 first:mt-0">
+            <h3 key={i} className="text-[15px] font-bold text-cyber-200 mt-6 first:mt-0">
               {trimmed.slice(2, -2)}
             </h3>
           );
@@ -175,7 +175,7 @@ function renderTextBlocks(text: string, keyPrefix: string): React.ReactNode {
                   {renderInline(l, `l${i}-${li}`)}
                 </p>
               ))}
-              <ListTag className={`space-y-1.5 pl-5 ${ordered ? "list-decimal" : "list-disc"} marker:text-cyan-400/70`}>
+              <ListTag className={`space-y-1.5 pl-5 ${ordered ? "list-decimal" : "list-disc"} marker:text-cyber-400/70`}>
                 {items.map((item, ii) => (
                   <li key={ii} className="text-[14px] text-slate-300 leading-[1.8] pl-1">
                     {renderInline(item.replace(/^(?:[-*•]\s+|\d+[.)]\s+)/, ""), `i${i}-${ii}`)}
