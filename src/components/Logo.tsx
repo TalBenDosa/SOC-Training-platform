@@ -24,17 +24,19 @@ export function Logo({ className, size = "md", stacked = false }: { className?: 
     // Big enough to read the organization's mark at a glance (sidebar, sign-in, drawer).
     // A logo that already carries the name (a wordmark / lockup) fills the whole header slot;
     // a mark alone sits next to the name.
+    // Sized to the navigation rail, like the platform lockup (mark + name on one line): a mark
+    // sits at 40 px beside the name; a logo that already carries the name stays at 48 px.
     const img = brand.logoHasName
-      ? (size === "lg" ? "h-24" : size === "sm" ? "h-10" : "h-16")
-      : (size === "lg" ? "h-20" : size === "sm" ? "h-10" : "h-16");
+      ? (size === "lg" ? "h-20" : size === "sm" ? "h-9" : "h-12")
+      : (size === "lg" ? "h-16" : size === "sm" ? "h-9" : "h-12");
     return (
-      <div className={cn("flex min-w-0 items-center gap-2.5 font-bold", className)}>
+      <div className={cn("flex min-w-0 items-center gap-3 font-bold", className)}>
         {brand.logoSrc && (
           // eslint-disable-next-line @next/next/no-img-element -- same-origin logo route, any aspect ratio
-          <img src={brand.logoSrc} alt={brand.logoHasName ? brand.productName : ""} className={cn(img, "w-auto shrink-0 object-contain", brand.logoHasName ? "max-w-[150px]" : "max-w-[200px]")} />
+          <img src={brand.logoSrc} alt={brand.logoHasName ? brand.productName : ""} className={cn(img, "w-auto shrink-0 object-contain", brand.logoHasName ? "max-w-[140px]" : "max-w-[120px]")} />
         )}
         {/* Long product names wrap to two lines instead of being cut off in the sidebar. */}
-        {!brand.logoHasName && <span className={cn("line-clamp-2 min-w-0 leading-tight text-white", size === "lg" ? "text-2xl" : size === "sm" ? "text-sm" : "text-lg")}>{brand.productName}</span>}
+        {!brand.logoHasName && <span className={cn("line-clamp-2 min-w-0 leading-tight text-white", size === "lg" ? "text-3xl" : size === "sm" ? "text-base" : "text-[22px] tracking-wide")}>{brand.productName}</span>}
       </div>
     );
   }
