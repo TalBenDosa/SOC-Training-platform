@@ -23,8 +23,8 @@ import { runRtrCommand } from "@/lib/edr/rtr";
 import { isLinuxHost } from "@/lib/edr/hostBaseline";
 import { isContained, setContained } from "@/lib/edr/containment";
 import type { TeamIsolation } from "@/lib/team/useTeamIsolation";
-import { EdrAlertPopup, EdrAlertToasts, type EdrAlert } from "./EdrAlertPopup";
-import { readAckedAlerts, unacknowledged, writeAckedAlerts } from "@/lib/edr/alerts";
+import { alertKey, readAckedAlerts, unacknowledged, writeAckedAlerts } from "@/lib/edr/alerts";
+import type { EdrDetection } from "@/lib/edr/investigations";
 
 const SEV_STYLE: Record<string, string> = {
   critical: "border-severity-critical/40 bg-severity-critical/10 text-severity-critical",
@@ -46,24 +46,24 @@ export function EdrConsole({ investigations, initialCaseId, embedded = false, te
   embedded?: boolean;
   /** Team-SOC session: isolation is the TEAM's state, recorded in the session log and scored. */
   teamIsolation?: TeamIsolation | null;
-  /** Live shift: every new detection pops a red alert with its full EDR data. */
+  /** Live shift: new detections are marked NEW (and counted on the dashboard's EDR button)
+   *  until the analyst opens them from the Detections list. */
   liveAlerts?: boolean;
 }) {
   const [caseId, setCaseId] = useState<string | null>(
     initialCaseId ?? (investigations.length === 1 ? investigations[0].id : null),
   );
-  // The process the analyst asked to investigate from an alert (selected in the tree).
-  const [focus, setFocus] = useState<{ pid: number; n: number } | null>(null);
   const [acked, setAcked] = useState<Set<string>>(() => new Set());
-  // Detections the analyst already acknowledged (per browser): a reload doesn't re-pop them,
-  // and the dashboard's "Investigate in EDR" count drops as they are acknowledged here.
+  // Detections the analyst already opened (per browser): they lose their NEW mark, and the
+  // dashboard's "Investigate in EDR" count drops (it follows EDR_ACK_KEY).
   useEffect(() => { if (liveAlerts) setAcked(readAckedAlerts()); }, [liveAlerts]);
-  const pending: EdrAlert[] = useMemo(
+  const pending = useMemo(
     () => (liveAlerts ? unacknowledged(investigations, acked) : []),
     [investigations, acked, liveAlerts],
   );
-  const acknowledge = (a: EdrAlert) => setAcked(prev => {
-    const next = new Set(prev); next.add(a.key);
+  const markSeen = (key: string) => setAcked(prev => {
+    if (prev.has(key)) return prev;
+    const next = new Set(prev); next.add(key);
     writeAckedAlerts(next);
     return next;
   });
@@ -73,31 +73,16 @@ export function EdrConsole({ investigations, initialCaseId, embedded = false, te
     const base = document.title.replace(/^\(\d+\) EDR alert · /, "");
     document.title = pending.length ? `(${pending.length}) EDR alert · ${base}` : base;
   }, [pending.length, liveAlerts]);
-  // Compact red cards in the corner (the console stays usable); Details opens the full panel.
-  const [detailsKey, setDetailsKey] = useState<string | null>(null);
-  const investigate = (a: EdrAlert) => { acknowledge(a); setDetailsKey(null); setCaseId(a.inv.id); setFocus(f => ({ pid: a.d.pid, n: (f?.n ?? 0) + 1 })); };
-  const details = detailsKey ? pending.find(a => a.key === detailsKey) ?? null : null;
-  const popup = (
-    <>
-      <EdrAlertToasts alerts={pending} onDetails={a => setDetailsKey(a.key)} onInvestigate={investigate} onAcknowledge={acknowledge} />
-      {details && (
-        <EdrAlertPopup alert={details} index={pending.indexOf(details)} total={pending.length}
-          onAcknowledge={() => { acknowledge(details); setDetailsKey(null); }}
-          onInvestigate={() => investigate(details)} />
-      )}
-    </>
-  );
   // More than one incident and none opened yet (or none at all yet, or the opened one is
   // gone) → the Incidents management page.
   if (caseId === null || investigations.length === 0 || !investigations.some(i => i.id === caseId)) {
-    return <>{popup}<IncidentsList investigations={investigations} onOpen={setCaseId} embedded={embedded} /></>;
+    return <IncidentsList investigations={investigations} onOpen={setCaseId} embedded={embedded} />;
   }
   const inv = investigations.find(i => i.id === caseId) ?? investigations[0];
   return (
-    <>
-    {popup}
     <CaseConsole
-      focus={focus}
+      newKeys={liveAlerts ? new Set(pending.map(a => a.key)) : null}
+      onSeen={markSeen}
       // A live case keeps its id ("live") while its telemetry grows; a NEW incident (another
       // story) gets a fresh console instead of the previous one's selection.
       key={`${inv.id}:${inv.title}`}
@@ -106,7 +91,6 @@ export function EdrConsole({ investigations, initialCaseId, embedded = false, te
       teamIsolation={teamIsolation}
       onBack={investigations.length > 1 ? () => setCaseId(null) : undefined}
     />
-    </>
   );
 }
 
@@ -173,7 +157,12 @@ function IncidentsList({ investigations, onOpen, embedded }: {
   );
 }
 
-function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, focus = null }: { inv: EdrInvestigation; onBack?: () => void; embedded?: boolean; teamIsolation?: TeamIsolation | null; focus?: { pid: number; n: number } | null }) {
+function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newKeys = null, onSeen }: {
+  inv: EdrInvestigation; onBack?: () => void; embedded?: boolean; teamIsolation?: TeamIsolation | null;
+  /** Live shift: alert keys not opened yet (NEW in the Detections list). */
+  newKeys?: Set<string> | null;
+  onSeen?: (key: string) => void;
+}) {
   const { roots, childrenOf } = useMemo(() => buildProcessTree(inv.processes), [inv]);
   const detByPid = useMemo(() => {
     const m = new Map<number, typeof inv.detections>();
@@ -183,14 +172,24 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, focu
 
   const [selPid, setSelPid] = useState<number | null>(inv.detections[0]?.pid ?? roots[0]?.pid ?? null);
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set(inv.processes.map(p => p.pid))); // all open
-  // "Investigate" on an alert: select its process (and keep every node open so it shows).
-  useEffect(() => {
-    if (!focus || !inv.processes.some(p => p.pid === focus.pid)) return;
-    setSelPid(focus.pid);
+  // Detections list: sorted by threat severity (worst first) or by time (newest first).
+  const [detSort, setDetSort] = useState<"time" | "severity">("severity");
+  const detRows = useMemo(() => {
+    const SEV = ["critical", "high", "medium", "low"];
+    const rows = inv.detections.map(d => ({
+      d, key: alertKey(inv, d),
+      at: inv.timeline.find(t => t.kind === "detection" && t.pid === d.pid)?.at
+        ?? inv.processes.find(p => p.pid === d.pid)?.startedAt ?? "—",
+      proc: inv.processes.find(p => p.pid === d.pid),
+    }));
+    const byTime = (a: typeof rows[number], b: typeof rows[number]) => b.at.localeCompare(a.at);
+    return rows.sort(detSort === "time" ? byTime : (a, b) => SEV.indexOf(a.d.severity) - SEV.indexOf(b.d.severity) || byTime(a, b));
+  }, [inv, detSort]);
+  const openDetection = (d: EdrDetection, key: string) => {
+    setSelPid(d.pid);
     setExpanded(new Set(inv.processes.map(p => p.pid)));
-    setTab("overview");
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run per Investigate click (focus.n), not per data refresh
-  }, [focus?.n]);
+    onSeen?.(key);
+  };
   // Isolation is shared with the SOC Dashboard: containing here marks the host
   // "Contained" there too. Seed from the store so a host isolated on either
   // surface stays isolated on both.
@@ -378,6 +377,63 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, focu
             </div>
           </div>
         </Card>
+
+        {/* Detections: every alert the sensor raised on this host, sortable by threat severity
+            or by time; opening one selects its process in the tree (and clears NEW). */}
+        {detRows.length > 0 && (
+          <Card className="p-0">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+              <h2 id="edr-detections-heading" className="flex items-center gap-2 text-sm font-bold text-white">
+                <ShieldAlert className="h-4 w-4 text-severity-critical" /> Detections
+                <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[10px] font-medium text-slate-400">{detRows.length}</span>
+                {newKeys && detRows.some(r => newKeys.has(r.key)) && (
+                  <span className="rounded-full bg-severity-critical px-2 py-0.5 text-[10px] font-bold text-white">{detRows.filter(r => newKeys.has(r.key)).length} new</span>
+                )}
+              </h2>
+              <div role="group" aria-label="Sort detections" className="flex overflow-hidden rounded-md border border-border text-[11px] font-semibold">
+                {(["severity", "time"] as const).map(k => (
+                  <button key={k} type="button" aria-pressed={detSort === k} onClick={() => setDetSort(k)}
+                    className={`px-2.5 py-1 ${detSort === k ? "bg-cyber-500/15 text-cyber-200" : "text-slate-400 hover:text-white"}`}>
+                    {k === "severity" ? "By severity" : "By time"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table aria-labelledby="edr-detections-heading" className="w-full text-left text-xs">
+                <thead className="text-[10px] uppercase tracking-wider text-slate-500">
+                  <tr>
+                    <th className="px-4 py-2 font-semibold">Time</th>
+                    <th className="px-2 py-2 font-semibold">Severity</th>
+                    <th className="px-2 py-2 font-semibold">Detection</th>
+                    <th className="px-2 py-2 font-semibold">Technique</th>
+                    <th className="px-4 py-2 font-semibold">Process</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detRows.map(({ d, key, at, proc }) => {
+                    const isNew = !!newKeys?.has(key);
+                    return (
+                      <tr key={key} onClick={() => openDetection(d, key)}
+                        className={`cursor-pointer border-t border-border/50 transition hover:bg-bg-hover ${isNew ? "bg-severity-critical/5" : selPid === d.pid ? "bg-cyber-500/5" : ""}`}>
+                        <td className="whitespace-nowrap px-4 py-2 font-mono text-slate-300">{at}</td>
+                        <td className="px-2 py-2"><span className={`rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase ${SEV_STYLE[d.severity] ?? SEV_STYLE.high}`}>{d.severity}</span></td>
+                        <td className="px-2 py-2">
+                          <button type="button" onClick={e => { e.stopPropagation(); openDetection(d, key); }} className="text-left font-semibold text-white hover:underline">
+                            {d.name}
+                          </button>
+                          {isNew && <span className="ml-2 rounded bg-severity-critical px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">New</span>}
+                        </td>
+                        <td className="px-2 py-2 font-mono text-[11px] text-neon-purple">{/^T\d{4}/.test(d.technique) ? d.technique : "—"}</td>
+                        <td className="whitespace-nowrap px-4 py-2 font-mono text-[11px] text-slate-300">{proc ? `${proc.name} (${proc.pid})` : d.pid}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.15fr_1fr]">
           {/* process tree */}
