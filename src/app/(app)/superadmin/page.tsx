@@ -185,11 +185,11 @@ export default function SuperAdminPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-2.5">
                           <span className={o.has_logo
-                            ? "flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-bg"
+                            ? "flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-bg"
                             : "flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-bg"}>
                             {o.has_logo
                               // eslint-disable-next-line @next/next/no-img-element -- same-origin logo route
-                              ? <img src={o.logo_src ?? `/api/brand/logo?org=${o.id}`} alt="" className="h-full w-full object-contain p-1" />
+                              ? <img src={o.logo_src ?? `/api/brand/logo?org=${o.id}`} alt="" className="h-full w-full object-contain p-1.5" />
                               : <Building2 className="h-4.5 w-4.5 text-cyber-300" />}
                           </span>
                           <div className="min-w-0">

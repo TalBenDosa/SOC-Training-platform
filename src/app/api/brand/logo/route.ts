@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import sharp from "sharp";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { LOGO_DATA_URL, hostOf, isPlatformHost, slugFromHost } from "@/lib/brand/brand";
 
@@ -32,8 +33,15 @@ export async function GET(req: Request) {
   const m = LOGO_DATA_URL.exec(logo);
   if (!m) return new NextResponse(null, { status: 404 });
 
-  const bytes = Buffer.from(logo.slice(logo.indexOf(",") + 1), "base64");
-  return new NextResponse(bytes, {
+  const raw = Buffer.from(logo.slice(logo.indexOf(",") + 1), "base64");
+  // Served without its empty margins (transparent or a flat border colour), so a logo uploaded
+  // on a big empty canvas still fills its slot, including logos saved before the upload trim.
+  let bytes: Buffer = raw;
+  try {
+    const trimmed = await sharp(raw).trim({ threshold: 12 }).toBuffer();
+    if (trimmed.length > 0) bytes = trimmed;
+  } catch { /* nothing to trim (or not decodable): serve as stored */ }
+  return new NextResponse(new Uint8Array(bytes), {
     headers: {
       "Content-Type": `image/${m[1]}`,
       "Cache-Control": "public, max-age=600, stale-while-revalidate=3600",
