@@ -10,6 +10,7 @@ import { orgWelcomeEmail } from "@/lib/email/templates";
 import { generateCode } from "@/lib/org/classCode";
 import { fetchAll } from "@/lib/plans/server";
 import type { OrgSummary, OrgStatus } from "@/lib/org/types";
+import { logoUrlFor } from "@/lib/brand/brand";
 
 /**
  * Super-admin org collection. All access gated by requireSuperAdmin (the
@@ -65,6 +66,7 @@ export async function GET() {
       ...o,
       branding,
       has_logo: branding.white_label === true && typeof logo_data === "string" && logo_data.length > 0,
+      logo_src: branding.white_label === true && typeof logo_data === "string" && logo_data.length > 0 ? logoUrlFor(o.id, logo_data) : null,
       seats_used: seatByOrg.get(o.id) ?? 0,
       active: isActive(o.status, o.expires_at),
     };

@@ -5,11 +5,12 @@
  * session here instead of once per component that asked.
  *
  * A white-label domain always shows its own organization (resolved on the server from the
- * host, so from the first paint). On the platform's hosts the brand follows the environment
- * the user is standing in: a white-label org's members (and the super-admin while inside that
- * org) see its brand; every other environment sees the platform. Iron rule: one environment's
- * identity never appears in another, so the brand is cleared on every load and only applied
- * when the server confirms it belongs to the session's current environment.
+ * host, so from the first paint). On the platform's hosts every page shows the platform
+ * (the public landing page, sign-in, privacy... are HACK THE SOC, always); only INSIDE the app
+ * (AppBrandScope, mounted by the (app) layout) does the brand follow the environment the user
+ * is standing in. Iron rule: one environment's identity never appears in another, so the
+ * environment brand is cleared on every load and only applied when the server confirms it
+ * belongs to the session's current environment.
  */
 import { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -25,7 +26,8 @@ export interface OrgBranding {
 
 const EMPTY_ORG: OrgBranding = { name: null, color: null, logoUrl: null, allRoomsUnlocked: false };
 
-const Ctx = createContext<{ brand: Brand; org: OrgBranding }>({ brand: PLATFORM_BRAND, org: EMPTY_ORG });
+interface BrandCtx { brand: Brand; org: OrgBranding; envBrand: Brand | null; hostBrand: Brand }
+const Ctx = createContext<BrandCtx>({ brand: PLATFORM_BRAND, org: EMPTY_ORG, envBrand: null, hostBrand: PLATFORM_BRAND });
 
 export function BrandProvider({ initial, children }: { initial: Brand; children: React.ReactNode }) {
   const { user } = useAuth();
@@ -55,12 +57,29 @@ export function BrandProvider({ initial, children }: { initial: Brand; children:
     return () => { cancelled = true; if (retry) clearTimeout(retry); };
   }, [user]);
 
-  const brand = initial.whiteLabel ? initial : (envBrand ?? initial);
+  // Outside the app the brand is the host's, full stop (see AppBrandScope for inside).
+  const brand = initial;
+  const accent = brand.color ?? org.color;
+  useEffect(() => {
+    if (accent) document.documentElement.style.setProperty("--org-accent", accent);
+  }, [accent]);
+
+  return <Ctx.Provider value={{ brand, org, envBrand, hostBrand: initial }}>{children}</Ctx.Provider>;
+}
+
+/**
+ * Inside the signed-in app only: the brand follows the environment the user is standing in
+ * (a white-label org's logo and name in its own environment, the platform in every other).
+ * A white-label domain keeps its host brand. Mounted by src/app/(app)/layout.tsx.
+ */
+export function AppBrandScope({ children }: { children: React.ReactNode }) {
+  const c = useContext(Ctx);
+  const brand = c.hostBrand.whiteLabel ? c.hostBrand : (c.envBrand ?? c.hostBrand);
 
   // Server-rendered tab titles on a platform host carry the platform name; inside a
   // white-label environment swap the suffix for the environment's own name.
   useEffect(() => {
-    if (!brand.whiteLabel || initial.whiteLabel) return;
+    if (!brand.whiteLabel || c.hostBrand.whiteLabel) return;
     const fix = () => {
       if (document.title.includes(" // HACK THE SOC")) document.title = document.title.replace(" // HACK THE SOC", ` // ${brand.productName}`);
     };
@@ -70,13 +89,9 @@ export function BrandProvider({ initial, children }: { initial: Brand; children:
     const obs = new MutationObserver(fix);
     obs.observe(titleEl, { childList: true, characterData: true, subtree: true });
     return () => obs.disconnect();
-  }, [brand, initial.whiteLabel]);
-  const accent = brand.color ?? org.color;
-  useEffect(() => {
-    if (accent) document.documentElement.style.setProperty("--org-accent", accent);
-  }, [accent]);
+  }, [brand, c.hostBrand.whiteLabel]);
 
-  return <Ctx.Provider value={{ brand, org }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ ...c, brand }}>{children}</Ctx.Provider>;
 }
 
 /** Who the platform presents itself as right now. */

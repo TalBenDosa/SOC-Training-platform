@@ -72,6 +72,18 @@ export function subdomainOrigin(slug: string | null | undefined): string | null 
   return base && slug && SLUG_LABEL.test(slug) ? `https://${slug}.${base}` : null;
 }
 
+/** Short content version for a cache-busting query (FNV-1a over the string, hex). */
+export function shortHash(s: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(16);
+}
+
+/** The logo route for an org, versioned by the logo itself so a new upload shows at once. */
+export function logoUrlFor(orgId: string, logoData: string): string {
+  return `${BRAND_LOGO_PATH}?org=${encodeURIComponent(orgId)}&v=${shortHash(logoData)}`;
+}
+
 /** A request Host header → bare lower-case host name (no port); "" when unusable. */
 export function hostOf(header: string | null | undefined): string {
   const h = (header ?? "").split(",")[0].trim().toLowerCase();
@@ -132,7 +144,7 @@ export function brandFromOrg(org: OrgBrandRow | null | undefined): Brand {
     whiteLabel: true,
     productName,
     orgId: org.id,
-    logoSrc: hasLogo ? `${BRAND_LOGO_PATH}?org=${encodeURIComponent(org.id)}` : null,
+    logoSrc: hasLogo ? logoUrlFor(org.id, b.logo_data as string) : null,
     logoHasName: hasLogo && b.logo_has_name === true,
     color: typeof b.color === "string" && /^#[0-9a-fA-F]{6}$/.test(b.color) ? b.color : null,
     supportEmail: EMAIL.test(support) ? support : null,

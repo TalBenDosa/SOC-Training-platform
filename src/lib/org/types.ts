@@ -57,6 +57,8 @@ export interface OrgSummary extends Organization {
   active: boolean;
   /** A white-label logo is stored (served by /api/brand/logo; the list omits the image itself). */
   has_logo?: boolean;
+  /** Versioned URL of that logo (changes when the logo changes, so caches never show an old one). */
+  logo_src?: string | null;
 }
 
 export interface OrgMember {

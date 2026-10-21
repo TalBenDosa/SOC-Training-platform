@@ -113,6 +113,8 @@ export default function OrgDetailPage() {
   // "keep" = leave the stored logo, a data URL = replace it, "" = remove it.
   const [wlLogo, setWlLogo] = useState<string>("keep");
   const [wlLogoError, setWlLogoError] = useState<string | null>(null);
+  // Bumped on every load so the preview never shows a cached older logo.
+  const [logoVersion, setLogoVersion] = useState(0);
 
   // contract (commercial record — see migration 0020)
   const [cPlan, setCPlan] = useState("");
@@ -141,6 +143,7 @@ export default function OrgDetailPage() {
     setWl(br.white_label === true); setWlName(br.product_name ?? ""); setWlDomain(data.org.custom_domain ?? "");
     setWlSupport(br.support_email ?? ""); setWlFrom(br.email_from ?? ""); setWlLogoHasName(br.logo_has_name === true);
     setWlHasStoredLogo(typeof br.logo_data === "string" && br.logo_data.length > 0); setWlLogo("keep"); setWlLogoError(null);
+    setLogoVersion(Date.now());
     const ct = (data.org.contract ?? {}) as {
       plan?: string; seats_purchased?: number; price?: number; currency?: string;
       po_number?: string; signed_at?: string; notes?: string;
@@ -437,9 +440,9 @@ export default function OrgDetailPage() {
                     <div className="sm:col-span-2">
                       <label className={label} htmlFor="wl-logo">Logo <span className="font-normal">(any image, resized automatically; shown on a dark background)</span></label>
                       <div className="flex flex-wrap items-center gap-3">
-                        {(wlLogo !== "keep" ? wlLogo : wlHasStoredLogo ? `/api/brand/logo?org=${id}` : "") && (
+                        {(wlLogo !== "keep" ? wlLogo : wlHasStoredLogo ? `/api/brand/logo?org=${id}&v=${logoVersion}` : "") && (
                           // eslint-disable-next-line @next/next/no-img-element -- data URL / same-origin preview
-                          <img src={wlLogo !== "keep" ? wlLogo : `/api/brand/logo?org=${id}`} alt="Logo preview" className="h-10 max-w-[180px] rounded bg-bg-elevated object-contain p-1" />
+                          <img src={wlLogo !== "keep" ? wlLogo : `/api/brand/logo?org=${id}&v=${logoVersion}`} alt="Logo preview" className="h-10 max-w-[180px] rounded bg-bg-elevated object-contain p-1" />
                         )}
                         <input id="wl-logo" type="file" accept="image/*" className="text-xs text-slate-300"
                           onChange={e => {

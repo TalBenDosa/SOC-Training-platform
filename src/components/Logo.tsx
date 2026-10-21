@@ -22,12 +22,16 @@ export function Logo({ className, size = "md", stacked = false }: { className?: 
 
   if (brand.whiteLabel) {
     // Big enough to read the organization's mark at a glance (sidebar, sign-in, drawer).
-    const img = size === "lg" ? "h-20" : size === "sm" ? "h-10" : "h-16";
+    // A logo that already carries the name (a wordmark / lockup) fills the whole header slot;
+    // a mark alone sits next to the name.
+    const img = brand.logoHasName
+      ? (size === "lg" ? "h-28" : size === "sm" ? "h-12" : "h-24")
+      : (size === "lg" ? "h-20" : size === "sm" ? "h-10" : "h-16");
     return (
       <div className={cn("flex min-w-0 items-center gap-2.5 font-bold", className)}>
         {brand.logoSrc && (
           // eslint-disable-next-line @next/next/no-img-element -- same-origin logo route, any aspect ratio
-          <img src={brand.logoSrc} alt={brand.logoHasName ? brand.productName : ""} className={cn(img, "w-auto max-w-[200px] shrink-0 object-contain")} />
+          <img src={brand.logoSrc} alt={brand.logoHasName ? brand.productName : ""} className={cn(img, "w-auto shrink-0 object-contain", brand.logoHasName ? "max-w-[176px]" : "max-w-[200px]")} />
         )}
         {/* Long product names wrap to two lines instead of being cut off in the sidebar. */}
         {!brand.logoHasName && <span className={cn("line-clamp-2 min-w-0 leading-tight text-white", size === "lg" ? "text-2xl" : size === "sm" ? "text-sm" : "text-lg")}>{brand.productName}</span>}

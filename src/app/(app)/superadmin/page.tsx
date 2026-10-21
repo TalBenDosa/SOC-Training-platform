@@ -189,7 +189,7 @@ export default function SuperAdminPage() {
                             : "flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-bg"}>
                             {o.has_logo
                               // eslint-disable-next-line @next/next/no-img-element -- same-origin logo route
-                              ? <img src={`/api/brand/logo?org=${o.id}`} alt="" className="h-full w-full object-contain p-1" />
+                              ? <img src={o.logo_src ?? `/api/brand/logo?org=${o.id}`} alt="" className="h-full w-full object-contain p-1" />
                               : <Building2 className="h-4.5 w-4.5 text-cyber-300" />}
                           </span>
                           <div className="min-w-0">

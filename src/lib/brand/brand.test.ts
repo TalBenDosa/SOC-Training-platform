@@ -78,7 +78,11 @@ describe("brandFromOrg", () => {
     const b = brandFromOrg(WL_ORG);
     expect(b.whiteLabel).toBe(true);
     expect(b.productName).toBe("College SOC");
-    expect(b.logoSrc).toBe(`/api/brand/logo?org=${WL_ORG.id}`);
+    expect(b.logoSrc?.startsWith(`/api/brand/logo?org=${WL_ORG.id}&v=`)).toBe(true);
+    expect(b.logoSrc).toMatch(/&v=[0-9a-f]+$/);
+    // A new upload changes the address, so no cache shows the old logo.
+    const other = brandFromOrg({ ...WL_ORG, branding: { ...WL_ORG.branding, logo_data: PNG.replace("AAAADUlEQVR42", "AAAADUlEQVR43") } });
+    expect(other.logoSrc).not.toBe(b.logoSrc);
     expect(b.origin).toBe("https://soc.college.example");
     expect(b.supportEmail).toBe("help@college.example");
     expect(b.color).toBe("#ff8800");

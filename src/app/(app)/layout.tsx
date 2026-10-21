@@ -8,6 +8,7 @@ import { AccessDeniedNotice } from "@/components/system/AccessDeniedNotice";
 import { ReportProblem } from "@/components/feedback/ReportProblem";
 import { PlanAnnouncementModal } from "@/components/plans/PlanAnnouncementModal";
 import { affiliationExpired } from "@/lib/org/affiliationGate";
+import { AppBrandScope } from "@/lib/brand/BrandContext";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // The 100-day rule (0028): an org student whose affiliation lapsed is
@@ -18,6 +19,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/renew");
   }
   return (
+    // Inside the app the brand follows the current environment; public pages never do.
+    <AppBrandScope>
     <MotionProvider>
       <div className="flex min-h-screen">
         <Sidebar />
@@ -37,5 +40,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           for guests, users without an org, or when nothing is unread. */}
       <PlanAnnouncementModal />
     </MotionProvider>
+    </AppBrandScope>
   );
 }
