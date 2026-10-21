@@ -4,9 +4,9 @@
  * learner's college branding (name / colour / logo / all-rooms-unlocked), fetched ONCE per
  * session here instead of once per component that asked.
  *
- * `initial` is resolved on the server from the request host, so a white-label domain renders
- * its own name and logo from the first paint. On a platform host, a member of a white-label
- * organization switches to that organization's brand once their branding has loaded.
+ * `brand` is resolved on the server from the request host and never changes on the client:
+ * a white-label organization's brand shows ONLY on its own domain. On the platform's hosts
+ * everyone (the super-admin moving between environments included) sees the platform.
  */
 import { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -27,10 +27,9 @@ const Ctx = createContext<{ brand: Brand; org: OrgBranding }>({ brand: PLATFORM_
 export function BrandProvider({ initial, children }: { initial: Brand; children: React.ReactNode }) {
   const { user } = useAuth();
   const [org, setOrg] = useState<OrgBranding>(EMPTY_ORG);
-  const [orgBrand, setOrgBrand] = useState<Brand | null>(null);
 
   useEffect(() => {
-    if (!user) { setOrg(EMPTY_ORG); setOrgBrand(null); return; }
+    if (!user) { setOrg(EMPTY_ORG); return; }
     let cancelled = false;
     let retry: ReturnType<typeof setTimeout> | null = null;
     // E-23 (QA phase 7): one failed read left the college's "all rooms unlocked" setting off
@@ -44,14 +43,13 @@ export function BrandProvider({ initial, children }: { initial: Brand; children:
         if (cancelled || !d) return;
         const color = typeof d.branding?.color === "string" ? d.branding.color : null;
         setOrg({ name: d.name ?? null, color, logoUrl: d.branding?.logo_url ?? null, allRoomsUnlocked: d.all_rooms_unlocked === true });
-        setOrgBrand(d.brand && d.brand.whiteLabel === true ? (d.brand as Brand) : null);
       })
       .catch(() => { if (again && !cancelled) retry = setTimeout(() => { void load(false); }, 3000); });
     void load(true);
     return () => { cancelled = true; if (retry) clearTimeout(retry); };
   }, [user]);
 
-  const brand = initial.whiteLabel ? initial : (orgBrand ?? initial);
+  const brand = initial;
   const accent = brand.color ?? org.color;
   useEffect(() => {
     if (accent) document.documentElement.style.setProperty("--org-accent", accent);

@@ -2,21 +2,35 @@
 import { cn } from "@/lib/utils";
 import { useBrand } from "@/lib/brand/BrandContext";
 
-export function Logo({ className, size = "md" }: { className?: string; size?: "sm" | "md" | "lg" }) {
+export function Logo({ className, size = "md", stacked = false }: { className?: string; size?: "sm" | "md" | "lg"; stacked?: boolean }) {
   const brand = useBrand();
   const text = size === "lg" ? "text-2xl" : size === "sm" ? "text-sm" : "text-lg";
 
   // White label (src/lib/brand): the organization's own logo and name, never the platform's.
+  if (brand.whiteLabel && stacked) {
+    // Centered above a form (sign-in pages): a large mark with the name under it.
+    return (
+      <div className={cn("flex flex-col items-center gap-3 text-center", className)}>
+        {brand.logoSrc && (
+          // eslint-disable-next-line @next/next/no-img-element -- same-origin logo route, any aspect ratio
+          <img src={brand.logoSrc} alt={brand.logoHasName ? brand.productName : ""} className="h-24 w-auto max-w-[280px] object-contain sm:h-28" />
+        )}
+        {!brand.logoHasName && <span className="text-2xl font-bold leading-tight text-white">{brand.productName}</span>}
+      </div>
+    );
+  }
+
   if (brand.whiteLabel) {
-    const img = size === "lg" ? "h-14" : size === "sm" ? "h-8" : "h-11";
+    // Big enough to read the organization's mark at a glance (sidebar, sign-in, drawer).
+    const img = size === "lg" ? "h-20" : size === "sm" ? "h-10" : "h-16";
     return (
       <div className={cn("flex min-w-0 items-center gap-2.5 font-bold", className)}>
         {brand.logoSrc && (
           // eslint-disable-next-line @next/next/no-img-element -- same-origin logo route, any aspect ratio
-          <img src={brand.logoSrc} alt={brand.logoHasName ? brand.productName : ""} className={cn(img, "w-auto max-w-[180px] object-contain")} />
+          <img src={brand.logoSrc} alt={brand.logoHasName ? brand.productName : ""} className={cn(img, "w-auto max-w-[200px] shrink-0 object-contain")} />
         )}
         {/* Long product names wrap to two lines instead of being cut off in the sidebar. */}
-        {!brand.logoHasName && <span className={cn("line-clamp-2 min-w-0 leading-tight text-white", size === "lg" ? "text-2xl" : size === "sm" ? "text-sm" : "text-[15px]")}>{brand.productName}</span>}
+        {!brand.logoHasName && <span className={cn("line-clamp-2 min-w-0 leading-tight text-white", size === "lg" ? "text-2xl" : size === "sm" ? "text-sm" : "text-lg")}>{brand.productName}</span>}
       </div>
     );
   }
