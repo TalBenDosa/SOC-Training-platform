@@ -2,6 +2,7 @@
 import React, { useRef, useState } from "react";
 import { RotateCcw } from "lucide-react";
 import { useBrand } from "@/lib/brand/BrandContext";
+import { hasPlatformOutro } from "@/data/videoOutros";
 
 /**
  * Explainer videos end with a 4-second HACK THE SOC logo outro burned into the file
@@ -40,8 +41,9 @@ export function LessonVideo({ video }: { video: LessonVideoData }) {
   const [endCard, setEndCard] = useState(false);
   if (!video?.src) return null;
   // White label: hold playback (and any seek) before the platform outro, and end on the
-  // organization's own card instead.
-  const stopBeforeOutro = brand.whiteLabel
+  // organization's own card instead. A video rendered without the outro plays to its real end.
+  const withOutro = hasPlatformOutro(video.src);
+  const stopBeforeOutro = brand.whiteLabel && withOutro
     ? () => {
         const v = ref.current;
         if (!v || !Number.isFinite(v.duration) || v.duration <= OUTRO_SECONDS + 1) return;
@@ -62,6 +64,7 @@ export function LessonVideo({ video }: { video: LessonVideoData }) {
         onTimeUpdate={stopBeforeOutro}
         onSeeked={stopBeforeOutro}
         onPlay={() => setEndCard(false)}
+        onEnded={brand.whiteLabel ? () => setEndCard(true) : undefined}
         controls
         preload="metadata"
         playsInline
