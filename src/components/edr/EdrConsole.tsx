@@ -23,13 +23,8 @@ import { runRtrCommand } from "@/lib/edr/rtr";
 import { isLinuxHost } from "@/lib/edr/hostBaseline";
 import { isContained, setContained } from "@/lib/edr/containment";
 import type { TeamIsolation } from "@/lib/team/useTeamIsolation";
-import { EdrAlertPopup, EdrAlertToasts, alertKey, type EdrAlert } from "./EdrAlertPopup";
-
-/** Detections the analyst already acknowledged (per browser): a reload doesn't re-pop them. */
-const ACK_KEY = "edr_ack_alerts";
-function readAcked(): Set<string> {
-  try { return new Set(JSON.parse(localStorage.getItem(ACK_KEY) ?? "[]") as string[]); } catch { return new Set(); }
-}
+import { EdrAlertPopup, EdrAlertToasts, type EdrAlert } from "./EdrAlertPopup";
+import { readAckedAlerts, unacknowledged, writeAckedAlerts } from "@/lib/edr/alerts";
 
 const SEV_STYLE: Record<string, string> = {
   critical: "border-severity-critical/40 bg-severity-critical/10 text-severity-critical",
@@ -60,15 +55,16 @@ export function EdrConsole({ investigations, initialCaseId, embedded = false, te
   // The process the analyst asked to investigate from an alert (selected in the tree).
   const [focus, setFocus] = useState<{ pid: number; n: number } | null>(null);
   const [acked, setAcked] = useState<Set<string>>(() => new Set());
-  useEffect(() => { if (liveAlerts) setAcked(readAcked()); }, [liveAlerts]);
-  const pending: EdrAlert[] = useMemo(() => {
-    if (!liveAlerts) return [];
-    return investigations.flatMap(inv => inv.detections.map(d => ({ key: alertKey(inv, d), inv, d })))
-      .filter(a => !acked.has(a.key));
-  }, [investigations, acked, liveAlerts]);
+  // Detections the analyst already acknowledged (per browser): a reload doesn't re-pop them,
+  // and the dashboard's "Investigate in EDR" count drops as they are acknowledged here.
+  useEffect(() => { if (liveAlerts) setAcked(readAckedAlerts()); }, [liveAlerts]);
+  const pending: EdrAlert[] = useMemo(
+    () => (liveAlerts ? unacknowledged(investigations, acked) : []),
+    [investigations, acked, liveAlerts],
+  );
   const acknowledge = (a: EdrAlert) => setAcked(prev => {
     const next = new Set(prev); next.add(a.key);
-    try { localStorage.setItem(ACK_KEY, JSON.stringify([...next].slice(-200))); } catch { /* storage blocked: acknowledged for this view */ }
+    writeAckedAlerts(next);
     return next;
   });
   // A tab in the background still says there is something to look at.

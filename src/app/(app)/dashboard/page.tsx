@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { lsGet, lsSet, lsRemove, ssGet, ssSet, ssRemove } from "@/lib/storage/safeStorage";
+import { EDR_ACK_KEY, readAckedAlerts, unacknowledged } from "@/lib/edr/alerts";
 import type { AttackStory } from "./attackStories";
 import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
@@ -712,6 +713,21 @@ export default function DashboardPage() {
     } catch { /* storage blocked: the EDR tab stays on what it has */ }
   }, [liveEdrInvestigation, sessionStartedAt]);
 
+  // Notification count on "Investigate in EDR" (Tal, 2026-10-21): detections of the active
+  // incident that have reached the feed and the analyst hasn't acknowledged in the EDR tab.
+  // Acknowledging there (red cards) writes EDR_ACK_KEY, and the storage event lowers it here.
+  const [edrAcked, setEdrAcked] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    setEdrAcked(readAckedAlerts());
+    const onStorage = (ev: StorageEvent) => { if (ev.key === EDR_ACK_KEY) setEdrAcked(readAckedAlerts()); };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+  const edrAlertCount = useMemo(
+    () => (liveEdrInvestigation ? unacknowledged([liveEdrInvestigation], edrAcked).length : 0),
+    [liveEdrInvestigation, edrAcked],
+  );
+
   // E-09: the "contained in EDR" banner must reflect only THIS shift's hosts. A host
   // contained in a past standalone /edr practice case (FIN-WS-07, RES-SRV-02, …) is
   // stored in shared containment state and otherwise lingered on the Dashboard before
@@ -1221,11 +1237,11 @@ export default function DashboardPage() {
               Switch Company
             </button>
             {/* Pivot from the SIEM feed into the EDR console (opens in a new tab,
-                SIEM + EDR side by side). QA-DASH-6: it looks and behaves the same
-                for the whole shift: no badge, no colour change, no alert count.
-                Lighting it up when an endpoint attack started announced the attack.
-                When the active incident has endpoint telemetry already in the feed,
-                the console opens on that host's case; otherwise on its incident list. */}
+                SIEM + EDR side by side). It carries a red notification count of new,
+                unacknowledged EDR detections, like a real console's alert bell (Tal,
+                2026-10-21, replacing QA-DASH-6's "no badge"): a detection only counts
+                once its log is in the feed, never before. When the active incident has
+                endpoint telemetry, the console opens on that host's case. */}
             {sessionStartedAt !== null && (
               <a
                 href="/edr?case=live"
@@ -1245,11 +1261,25 @@ export default function DashboardPage() {
                     try { lsRemove("edr_live_investigation"); } catch { /* ignore */ }
                   }
                 }}
-                className="flex items-center gap-1.5 rounded border border-cyber-500/50 bg-cyber-500/10 px-2.5 py-1.5 text-xs font-semibold text-cyber-200 transition hover:bg-cyber-500/20"
-                title="Open the EDR console in a new tab"
+                className={cn(
+                  "relative flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-xs font-semibold transition",
+                  edrAlertCount > 0
+                    ? "border-severity-critical/60 bg-severity-critical/10 text-white hover:bg-severity-critical/20"
+                    : "border-cyber-500/50 bg-cyber-500/10 text-cyber-200 hover:bg-cyber-500/20",
+                )}
+                title={edrAlertCount > 0 ? `${edrAlertCount} new EDR detection${edrAlertCount > 1 ? "s" : ""}: open the EDR console` : "Open the EDR console in a new tab"}
+                aria-label={edrAlertCount > 0 ? `Investigate in EDR, ${edrAlertCount} new detection${edrAlertCount > 1 ? "s" : ""}` : undefined}
               >
                 <Cpu className="h-3.5 w-3.5" />
                 Investigate in EDR
+                {edrAlertCount > 0 && (
+                  <span aria-hidden="true" className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-severity-critical opacity-60 motion-reduce:animate-none" />
+                    <span className="relative inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-severity-critical px-1 text-[10px] font-bold leading-none text-white ring-2 ring-bg">
+                      {edrAlertCount > 9 ? "9+" : edrAlertCount}
+                    </span>
+                  </span>
+                )}
               </a>
             )}
             {/* Report Incident — the key action, and the only place the analyst

@@ -14,10 +14,6 @@ import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 
 export interface EdrAlert { key: string; inv: EdrInvestigation; d: EdrDetection }
 
-/** One alert per detection, per incident (a new incident's detections are new alerts). */
-export const alertKey = (inv: EdrInvestigation, d: EdrDetection) =>
-  `${inv.host.name}|${inv.title}|${d.pid}|${d.technique}|${d.name}`;
-
 /** The process and its parents up to the root (oldest first). */
 function ancestry(inv: EdrInvestigation, pid: number): EdrProcess[] {
   const chain: EdrProcess[] = [];
