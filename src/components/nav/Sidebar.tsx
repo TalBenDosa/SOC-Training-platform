@@ -82,7 +82,9 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const { isPlatformAdmin, orgRole } = useOrgContext();
   return (
     <>
-      <nav className="flex-1 px-3 py-2">
+      {/* Only the page list scrolls: the account block, admin links and the environment
+          switcher below always stay on screen, whatever the logo height. */}
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
         <p className="px-2 mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
           Navigation
         </p>
@@ -276,7 +278,7 @@ export function Sidebar() {
     <>
       {/* ── Desktop rail (collapsible) ───────────────────────────────── */}
       <aside className={cn("hidden md:flex md:w-60 flex-col border-r border-border bg-[#0d1520] sticky top-0 h-screen", railCollapsed && "md:hidden")}>
-        <div className="flex items-center justify-between px-5 py-5">
+        <div className="flex shrink-0 items-center justify-between px-5 py-4">
           <Link href={homeHref} className="block">
             <Logo />
           </Link>
