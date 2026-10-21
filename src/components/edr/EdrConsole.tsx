@@ -23,6 +23,13 @@ import { runRtrCommand } from "@/lib/edr/rtr";
 import { isLinuxHost } from "@/lib/edr/hostBaseline";
 import { isContained, setContained } from "@/lib/edr/containment";
 import type { TeamIsolation } from "@/lib/team/useTeamIsolation";
+import { EdrAlertPopup, alertKey, type EdrAlert } from "./EdrAlertPopup";
+
+/** Detections the analyst already acknowledged (per browser): a reload doesn't re-pop them. */
+const ACK_KEY = "edr_ack_alerts";
+function readAcked(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(ACK_KEY) ?? "[]") as string[]); } catch { return new Set(); }
+}
 
 const SEV_STYLE: Record<string, string> = {
   critical: "border-severity-critical/40 bg-severity-critical/10 text-severity-critical",
@@ -38,24 +45,54 @@ const SEV_STYLE: Record<string, string> = {
  * (the scenario "Investigate in EDR" pivot). `embedded` drops the page chrome
  * (Topbar + page container) so it sits inside a panel/drawer.
  */
-export function EdrConsole({ investigations, initialCaseId, embedded = false, teamIsolation = null }: {
+export function EdrConsole({ investigations, initialCaseId, embedded = false, teamIsolation = null, liveAlerts = false }: {
   investigations: EdrInvestigation[];
   initialCaseId?: string;
   embedded?: boolean;
   /** Team-SOC session: isolation is the TEAM's state, recorded in the session log and scored. */
   teamIsolation?: TeamIsolation | null;
+  /** Live shift: every new detection pops a red alert with its full EDR data. */
+  liveAlerts?: boolean;
 }) {
   const [caseId, setCaseId] = useState<string | null>(
     initialCaseId ?? (investigations.length === 1 ? investigations[0].id : null),
   );
+  // The process the analyst asked to investigate from an alert (selected in the tree).
+  const [focus, setFocus] = useState<{ pid: number; n: number } | null>(null);
+  const [acked, setAcked] = useState<Set<string>>(() => new Set());
+  useEffect(() => { if (liveAlerts) setAcked(readAcked()); }, [liveAlerts]);
+  const pending: EdrAlert[] = useMemo(() => {
+    if (!liveAlerts) return [];
+    return investigations.flatMap(inv => inv.detections.map(d => ({ key: alertKey(inv, d), inv, d })))
+      .filter(a => !acked.has(a.key));
+  }, [investigations, acked, liveAlerts]);
+  const acknowledge = (a: EdrAlert) => setAcked(prev => {
+    const next = new Set(prev); next.add(a.key);
+    try { localStorage.setItem(ACK_KEY, JSON.stringify([...next].slice(-200))); } catch { /* storage blocked: acknowledged for this view */ }
+    return next;
+  });
+  // A tab in the background still says there is something to look at.
+  useEffect(() => {
+    if (!liveAlerts) return;
+    const base = document.title.replace(/^\(\d+\) EDR alert · /, "");
+    document.title = pending.length ? `(${pending.length}) EDR alert · ${base}` : base;
+  }, [pending.length, liveAlerts]);
+  const popup = pending[0] ? (
+    <EdrAlertPopup alert={pending[0]} index={0} total={pending.length}
+      onAcknowledge={() => acknowledge(pending[0])}
+      onInvestigate={() => { const a = pending[0]; acknowledge(a); setCaseId(a.inv.id); setFocus(f => ({ pid: a.d.pid, n: (f?.n ?? 0) + 1 })); }} />
+  ) : null;
   // More than one incident and none opened yet (or none at all yet, or the opened one is
   // gone) → the Incidents management page.
   if (caseId === null || investigations.length === 0 || !investigations.some(i => i.id === caseId)) {
-    return <IncidentsList investigations={investigations} onOpen={setCaseId} embedded={embedded} />;
+    return <>{popup}<IncidentsList investigations={investigations} onOpen={setCaseId} embedded={embedded} /></>;
   }
   const inv = investigations.find(i => i.id === caseId) ?? investigations[0];
   return (
+    <>
+    {popup}
     <CaseConsole
+      focus={focus}
       // A live case keeps its id ("live") while its telemetry grows; a NEW incident (another
       // story) gets a fresh console instead of the previous one's selection.
       key={`${inv.id}:${inv.title}`}
@@ -64,6 +101,7 @@ export function EdrConsole({ investigations, initialCaseId, embedded = false, te
       teamIsolation={teamIsolation}
       onBack={investigations.length > 1 ? () => setCaseId(null) : undefined}
     />
+    </>
   );
 }
 
@@ -130,7 +168,7 @@ function IncidentsList({ investigations, onOpen, embedded }: {
   );
 }
 
-function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null }: { inv: EdrInvestigation; onBack?: () => void; embedded?: boolean; teamIsolation?: TeamIsolation | null }) {
+function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, focus = null }: { inv: EdrInvestigation; onBack?: () => void; embedded?: boolean; teamIsolation?: TeamIsolation | null; focus?: { pid: number; n: number } | null }) {
   const { roots, childrenOf } = useMemo(() => buildProcessTree(inv.processes), [inv]);
   const detByPid = useMemo(() => {
     const m = new Map<number, typeof inv.detections>();
@@ -140,6 +178,14 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null }: { 
 
   const [selPid, setSelPid] = useState<number | null>(inv.detections[0]?.pid ?? roots[0]?.pid ?? null);
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set(inv.processes.map(p => p.pid))); // all open
+  // "Investigate" on an alert: select its process (and keep every node open so it shows).
+  useEffect(() => {
+    if (!focus || !inv.processes.some(p => p.pid === focus.pid)) return;
+    setSelPid(focus.pid);
+    setExpanded(new Set(inv.processes.map(p => p.pid)));
+    setTab("overview");
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run per Investigate click (focus.n), not per data refresh
+  }, [focus?.n]);
   // Isolation is shared with the SOC Dashboard: containing here marks the host
   // "Contained" there too. Seed from the store so a host isolated on either
   // surface stays isolated on both.

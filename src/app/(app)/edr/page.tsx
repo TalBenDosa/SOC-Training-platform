@@ -97,5 +97,6 @@ export default function EdrConsolePage() {
   if (!allowed) return null; // checking access / redirecting to the Dashboard
   // A live shift stashed one investigation → open it directly; otherwise (no
   // ?case) fall to the Incidents management page over the built-in practice set.
-  return <EdrConsole investigations={investigations} initialCaseId={invId ?? undefined} teamIsolation={teamIsolation} />;
+  // A live shift (or team room) pops a red alert for every new detection; the practice cases don't.
+  return <EdrConsole investigations={investigations} initialCaseId={invId ?? undefined} teamIsolation={teamIsolation} liveAlerts={liveInvs !== null} />;
 }
