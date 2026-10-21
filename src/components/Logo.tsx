@@ -13,9 +13,9 @@ export function Logo({ className, size = "md", stacked = false }: { className?: 
       <div className={cn("flex flex-col items-center gap-3 text-center", className)}>
         {brand.logoSrc && (
           // eslint-disable-next-line @next/next/no-img-element -- same-origin logo route, any aspect ratio
-          <img src={brand.logoSrc} alt={brand.logoHasName ? brand.productName : ""} className="h-24 w-auto max-w-[280px] object-contain sm:h-28" />
+          <img src={brand.logoSrc} alt={brand.logoHasName ? brand.productName : ""} className="h-36 w-auto max-w-[360px] object-contain drop-shadow-[0_0_28px_rgba(34,211,238,0.18)] sm:h-44" />
         )}
-        {!brand.logoHasName && <span className="text-2xl font-bold leading-tight text-white">{brand.productName}</span>}
+        {!brand.logoHasName && <span className="text-3xl font-bold leading-tight text-white sm:text-4xl">{brand.productName}</span>}
       </div>
     );
   }

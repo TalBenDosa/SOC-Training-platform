@@ -17,11 +17,16 @@ export async function GET() {
   const admin = getSupabaseAdminClient();
   if (!admin) return NextResponse.json({ name: user.orgName ?? null, branding: {}, all_rooms_unlocked: false, brand: null });
 
-  const { data } = await admin
-    .from("organizations")
-    .select("id, name, slug, custom_domain, branding, all_rooms_unlocked")
-    .eq("id", user.orgId)
-    .maybeSingle();
+  const [{ data }, { data: profile }] = await Promise.all([
+    admin.from("organizations")
+      .select("id, name, slug, custom_domain, branding, all_rooms_unlocked")
+      .eq("id", user.orgId)
+      .maybeSingle(),
+    admin.from("profiles").select("org_id").eq("id", user.id).maybeSingle(),
+  ]);
+  // Never brand one environment with another's identity: the white-label brand is returned
+  // only when the session's org IS the environment the user is standing in right now.
+  const sameEnvironment = !profile || profile.org_id === user.orgId;
   // The uploaded logo (up to 150 KB) is served by /api/brand/logo, not inlined here.
   const { logo_data: _logo, ...branding } = ((data?.branding ?? {}) as Record<string, unknown>);
   void _logo;
@@ -31,6 +36,6 @@ export async function GET() {
     // Per-org gate bypass (migration 0036). Default false so normal prerequisite
     // gating applies; true only for orgs a super-admin has opted in.
     all_rooms_unlocked: data?.all_rooms_unlocked === true,
-    brand: data ? brandFromOrg(data) : null,
+    brand: data && sameEnvironment ? { ...brandFromOrg(data), orgId: data.id } : null,
   });
 }

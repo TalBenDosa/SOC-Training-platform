@@ -4,9 +4,12 @@
  * learner's college branding (name / colour / logo / all-rooms-unlocked), fetched ONCE per
  * session here instead of once per component that asked.
  *
- * `brand` is resolved on the server from the request host and never changes on the client:
- * a white-label organization's brand shows ONLY on its own domain. On the platform's hosts
- * everyone (the super-admin moving between environments included) sees the platform.
+ * A white-label domain always shows its own organization (resolved on the server from the
+ * host, so from the first paint). On the platform's hosts the brand follows the environment
+ * the user is standing in: a white-label org's members (and the super-admin while inside that
+ * org) see its brand; every other environment sees the platform. Iron rule: one environment's
+ * identity never appears in another, so the brand is cleared on every load and only applied
+ * when the server confirms it belongs to the session's current environment.
  */
 import { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -27,8 +30,10 @@ const Ctx = createContext<{ brand: Brand; org: OrgBranding }>({ brand: PLATFORM_
 export function BrandProvider({ initial, children }: { initial: Brand; children: React.ReactNode }) {
   const { user } = useAuth();
   const [org, setOrg] = useState<OrgBranding>(EMPTY_ORG);
+  const [envBrand, setEnvBrand] = useState<Brand | null>(null);
 
   useEffect(() => {
+    setEnvBrand(null);
     if (!user) { setOrg(EMPTY_ORG); return; }
     let cancelled = false;
     let retry: ReturnType<typeof setTimeout> | null = null;
@@ -43,13 +48,29 @@ export function BrandProvider({ initial, children }: { initial: Brand; children:
         if (cancelled || !d) return;
         const color = typeof d.branding?.color === "string" ? d.branding.color : null;
         setOrg({ name: d.name ?? null, color, logoUrl: d.branding?.logo_url ?? null, allRoomsUnlocked: d.all_rooms_unlocked === true });
+        setEnvBrand(d.brand && d.brand.whiteLabel === true ? (d.brand as Brand) : null);
       })
       .catch(() => { if (again && !cancelled) retry = setTimeout(() => { void load(false); }, 3000); });
     void load(true);
     return () => { cancelled = true; if (retry) clearTimeout(retry); };
   }, [user]);
 
-  const brand = initial;
+  const brand = initial.whiteLabel ? initial : (envBrand ?? initial);
+
+  // Server-rendered tab titles on a platform host carry the platform name; inside a
+  // white-label environment swap the suffix for the environment's own name.
+  useEffect(() => {
+    if (!brand.whiteLabel || initial.whiteLabel) return;
+    const fix = () => {
+      if (document.title.includes(" // HACK THE SOC")) document.title = document.title.replace(" // HACK THE SOC", ` // ${brand.productName}`);
+    };
+    fix();
+    const titleEl = document.querySelector("title");
+    if (!titleEl) return;
+    const obs = new MutationObserver(fix);
+    obs.observe(titleEl, { childList: true, characterData: true, subtree: true });
+    return () => obs.disconnect();
+  }, [brand, initial.whiteLabel]);
   const accent = brand.color ?? org.color;
   useEffect(() => {
     if (accent) document.documentElement.style.setProperty("--org-accent", accent);
