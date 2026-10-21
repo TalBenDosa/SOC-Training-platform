@@ -48,15 +48,17 @@ export function EdrConsole({ investigations, initialCaseId, embedded = false, te
   const [caseId, setCaseId] = useState<string | null>(
     initialCaseId ?? (investigations.length === 1 ? investigations[0].id : null),
   );
-  if (investigations.length === 0) return null;
-  // More than one incident and none opened yet → the Incidents management page.
-  if (caseId === null) {
+  // More than one incident and none opened yet (or none at all yet, or the opened one is
+  // gone) → the Incidents management page.
+  if (caseId === null || investigations.length === 0 || !investigations.some(i => i.id === caseId)) {
     return <IncidentsList investigations={investigations} onOpen={setCaseId} embedded={embedded} />;
   }
   const inv = investigations.find(i => i.id === caseId) ?? investigations[0];
   return (
     <CaseConsole
-      key={inv.id}
+      // A live case keeps its id ("live") while its telemetry grows; a NEW incident (another
+      // story) gets a fresh console instead of the previous one's selection.
+      key={`${inv.id}:${inv.title}`}
       inv={inv}
       embedded={embedded}
       teamIsolation={teamIsolation}
@@ -85,6 +87,14 @@ function IncidentsList({ investigations, onOpen, embedded }: {
           <h2 className="text-sm font-bold text-white">Incidents</h2>
           <span className="rounded-full border border-border bg-bg-elevated px-2 py-0.5 text-[10px] text-slate-400">{investigations.length} open</span>
         </div>
+        {investigations.length === 0 && (
+          // A live shift whose attack has not touched an endpoint yet: like a real console,
+          // nothing to show until a host's activity is detected (and reaches the SIEM).
+          <div className="rounded-xl border border-dashed border-border bg-bg-elevated/50 px-4 py-8 text-center">
+            <p className="text-sm font-semibold text-slate-200">No endpoint detections yet</p>
+            <p className="mt-1 text-xs text-slate-400">A host appears here once its activity is detected. Keep watching the SIEM feed; this page updates on its own.</p>
+          </div>
+        )}
         {investigations.map(inv => {
           const { score, band, techniques } = incidentScore(inv.detections);
           const bandStyle = band === "Critical" ? "text-severity-critical" : band === "High" ? "text-severity-high" : band === "Medium" ? "text-neon-amber" : "text-neon-green";

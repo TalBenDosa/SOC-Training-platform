@@ -700,6 +700,18 @@ export default function DashboardPage() {
     [sim, incidentStory, incidentInjected],
   );
 
+  // SIEM + EDR are one product: while a shift runs, the EDR tab follows the feed. Each time a
+  // new log of the active incident reaches the SIEM, the endpoint view is re-stashed (an open
+  // /edr?case=live tab picks it up through the storage event), and it is cleared between
+  // incidents, so the EDR never shows a host before its activity is in the feed.
+  useEffect(() => {
+    if (sessionStartedAt === null) return;
+    try {
+      if (liveEdrInvestigation) lsSet("edr_live_investigation", JSON.stringify(liveEdrInvestigation));
+      else lsRemove("edr_live_investigation");
+    } catch { /* storage blocked: the EDR tab stays on what it has */ }
+  }, [liveEdrInvestigation, sessionStartedAt]);
+
   // E-09: the "contained in EDR" banner must reflect only THIS shift's hosts. A host
   // contained in a past standalone /edr practice case (FIN-WS-07, RES-SRV-02, …) is
   // stored in shared containment state and otherwise lingered on the Dashboard before

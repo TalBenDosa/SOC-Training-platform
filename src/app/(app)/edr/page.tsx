@@ -55,18 +55,32 @@ export default function EdrConsolePage() {
     // "Investigate in EDR" pivot. case=live loads the EdrInvestigation the
     // Dashboard (or a team room) generated from the attack running in the feed.
     const requested = params.get("case");
-    if (requested === "live") {
-      try {
-        // localStorage (shared across tabs) — the opener stashed it here so this EDR
-        // tab can read the live attack it generated. A team room passes ?u=<user id>
-        // and stashes under a PER-USER key so two analysts don't clobber each other
-        // (B8); the dashboard's single-player key is the fallback.
-        const u = params.get("u");
-        const raw = (u && localStorage.getItem(`edr_live_investigation_${u}`)) || localStorage.getItem("edr_live_investigation") || "null";
-        const stashed = JSON.parse(raw);
-        const list = (Array.isArray(stashed) ? stashed : [stashed]).filter((x: EdrInvestigation | null) => x?.id);
-        if (list.length) { setLiveInvs(list); setInvId(list.length === 1 ? list[0].id : null); return; }
-      } catch { /* fall through to a static case */ }
+    // A bare /edr during a shift is the live console too (the static practice cases open
+    // only by their explicit ?case=<id>).
+    if (requested === "live" || !requested) {
+      // localStorage (shared across tabs) — the opener stashed it here so this EDR
+      // tab can read the live attack it generated. A team room passes ?u=<user id>
+      // and stashes under a PER-USER key so two analysts don't clobber each other
+      // (B8); the dashboard's single-player key is the fallback.
+      const u = params.get("u");
+      const keys = [...(u ? [`edr_live_investigation_${u}`] : []), "edr_live_investigation"];
+      const read = (): EdrInvestigation[] => {
+        try {
+          const raw = keys.map(k => localStorage.getItem(k)).find(Boolean) ?? "null";
+          const stashed = JSON.parse(raw);
+          return (Array.isArray(stashed) ? stashed : [stashed]).filter((x: EdrInvestigation | null) => x?.id);
+        } catch { return []; }
+      };
+      // A live shift shows ONLY the shift's own hosts, built from logs already in the SIEM
+      // feed. Before the attack reaches an endpoint that is an empty list, never the
+      // built-in practice cases (their hosts belong to no company and no SIEM log backs them).
+      const first = read();
+      setLiveInvs(first);
+      setInvId(first.length === 1 ? first[0].id : null);
+      // The Dashboard re-stashes as each new endpoint log reaches the feed: follow it live.
+      const onStorage = (ev: StorageEvent) => { if (ev.key && keys.includes(ev.key)) setLiveInvs(read()); };
+      window.addEventListener("storage", onStorage);
+      return () => window.removeEventListener("storage", onStorage);
     }
     if (requested && EDR_INVESTIGATIONS.some(i => i.id === requested)) setInvId(requested);
   }, [router]);
