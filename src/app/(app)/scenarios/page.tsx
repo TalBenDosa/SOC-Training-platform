@@ -167,7 +167,7 @@ export default function ScenariosPage() {
             <div>
               <h3 className="text-lg font-bold text-white">How scenarios work</h3>
               <p className="mt-1 max-w-3xl text-sm text-slate-300">
-                Each scenario spins up a deterministic, vendor-accurate attack chain — emails, EDR process trees,
+                Each scenario spins up a deterministic, vendor-accurate attack chain: emails, EDR process trees,
                 firewall sessions, AD authentications, cloud audit events. Triage the alerts, build a timeline,
                 identify TTPs, and answer analyst questions to score XP and unlock badges.
               </p>
@@ -245,13 +245,14 @@ export default function ScenariosPage() {
                 meta={<>+250 XP · ~45 min</>}
                 cta={<span className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-cyber-500/50 bg-cyber-500/15 px-3 py-1.5 text-xs font-semibold text-cyber-300 transition group-hover:bg-cyber-500/25">Launch <ArrowRight className="h-3.5 w-3.5" /></span>}
               >
-                {/* Soft readiness hint — recommends, never blocks. Plain labels
-                    (not links): the whole card is a link, so nested anchors are
-                    invalid — the recommendation stays visible as text. */}
-                {prepGaps(s.slug).length > 0 && (
+                {/* Lessons for this scenario, shown only once it is completed: their titles name
+                    the attack ("Ransomware: Full Attack Lifecycle" on the file-server card), so
+                    before the attempt they give the answer away. Plain labels, not links: the
+                    whole card is a link and nested anchors are invalid. */}
+                {bestScore[s.slug] !== undefined && prepGaps(s.slug).length > 0 && (
                   <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/25 bg-amber-500/5 px-2.5 py-2 text-[11px] text-amber-200/90">
                     <GraduationCap className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
-                    <span>Recommended first: {prepGaps(s.slug).map((id, i) => (
+                    <span>Lessons on this topic: {prepGaps(s.slug).map((id, i) => (
                       <span key={id} className="text-amber-100">{i > 0 ? ", " : ""}{ROOM_TITLE[id] ?? id}</span>
                     ))}</span>
                   </div>
