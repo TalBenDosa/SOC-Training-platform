@@ -98,8 +98,8 @@ const SOURCE_COLORS: Record<string, string> = {
 // The severity column used to print SEV_LEVEL (critical 10 / high 8 / medium 5 /
 // low 3 / info 1) — a number that read like a Wazuh 0–15 rule level and was
 // not one, stamped on raw telemetry ("ProcessRollup2 · LVL 10"). It now shows
-// an honest word label from effectiveSeverity(): the vendor's severity on an
-// alert, INFO on telemetry (findings #5 / #20).
+// a word label from effectiveSeverity(): the threat level the source gave the
+// event (the vendor's own field when present), on alerts and telemetry alike.
 const SEV_BADGE: Record<string, string> = {
   critical:      "bg-severity-critical/15 text-severity-critical border-severity-critical/40",
   high:          "bg-severity-high/15 text-severity-high border-severity-high/40",
@@ -826,7 +826,7 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
               <th className="py-2 pr-3">Agent</th>
               <th className="py-2 pr-3">Source</th>
               <th className="py-2 pr-3">Description</th>
-              <th className="py-2 pr-4" title="Vendor severity on alerts; INFO on raw telemetry">Severity</th>
+              <th className="py-2 pr-4" title="Threat level from the source (EDR / security product / SIEM rule)">Severity</th>
             </tr>
           </thead>
           <tbody>

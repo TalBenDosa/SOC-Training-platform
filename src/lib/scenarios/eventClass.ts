@@ -14,11 +14,10 @@
  * NetworkConnectIP4, a 4624, a firewall TRAFFIC log) is what the analyst pivots
  * through; it is informational, even when it records the malicious act itself.
  *
- * Severity follows the same honesty rule. A raw process-start event has no
- * vendor severity, so a ProcessRollup2 is shown as INFO, not "LVL 10". An
- * alert's label comes from the vendor's own severity field when the raw block
- * has one, else from the event. We do NOT print a number: the old 1/3/5/8/10
- * lookup looked like a Wazuh 0–15 rule level and was not one.
+ * Severity: every event shows its threat level, the way an EDR / SIEM rates
+ * each event it ingests (Tal, 2026-10-22, replacing the earlier "telemetry is
+ * always INFO" rule). The source's own severity field wins when the raw block
+ * has one, else the event's. Shown as a word, never a made-up rule-level number.
  *
  * Pure and dependency-free (types only) so it is unit-tested and shared by the
  * header count, the row badges and the severity filter — one source of truth.
@@ -113,20 +112,19 @@ function normaliseVendorSeverity(v: unknown): Severity | null {
 }
 
 /**
- * The severity the table shows and filters on. Alerts: the vendor's own
- * severity when the raw block records one, else the event's. Telemetry:
- * always informational — raw telemetry carries no severity of its own.
+ * The severity the table shows and filters on: the source's own severity field
+ * when the raw block records one, else the event's. Alerts and telemetry alike;
+ * `isAlert` only decides the fallback for an event with no severity at all.
  */
 export function effectiveSeverity(
   ev: Pick<TelemetryEvent, "raw" | "severity">,
   isAlert: boolean,
 ): Severity {
-  if (!isAlert) return "informational";
   for (const k of VENDOR_SEVERITY_KEYS) {
     const s = normaliseVendorSeverity(ev.raw?.[k]);
     if (s) return s;
   }
-  return ev.severity ?? "medium";
+  return ev.severity ?? (isAlert ? "medium" : "informational");
 }
 
 const SEV_SHORT: Record<Severity, string> = {

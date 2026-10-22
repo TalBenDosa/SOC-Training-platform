@@ -33,9 +33,9 @@ describe("buildAlertIndex", () => {
     expect(detections.length).toBeGreaterThan(0);
     expect([...idx].sort()).toEqual(detections.map(e => e.id).sort());
     expect(countAlerts(b.events)).toBe(detections.length);
-    // No ProcessRollup2 / NetworkConnect / 4624 / firewall row is shown with a severity.
+    // Telemetry rows carry their own threat level, like the EDR / SIEM rated them.
     for (const e of b.events) {
-      if (!idx.has(e.id)) expect(effectiveSeverity(e, false)).toBe("informational");
+      if (!idx.has(e.id) && e.severity) expect(effectiveSeverity(e, false)).toBe(e.severity);
     }
   });
   it("falls back to is_detection rows only for an incident with no product detection", () => {
@@ -50,11 +50,12 @@ describe("buildAlertIndex", () => {
 });
 
 describe("effectiveSeverity / labels", () => {
-  it("uses the vendor severity for alerts and INFO for telemetry", () => {
+  it("uses the source's severity, else the event's, for alerts and telemetry alike", () => {
     const alert = ev({ severity: "high", raw: { "crowdstrike.SeverityName": "Critical" } });
     expect(effectiveSeverity(alert, true)).toBe("critical");
     expect(effectiveSeverity(ev({ severity: "high" }), true)).toBe("high");
-    expect(effectiveSeverity(ev({ severity: "critical" }), false)).toBe("informational");
+    expect(effectiveSeverity(ev({ severity: "critical" }), false)).toBe("critical");
+    expect(effectiveSeverity(ev({ severity: undefined }), false)).toBe("informational");
   });
   it("labels are words, never a Wazuh-looking number", () => {
     expect(severityLabel("critical")).toBe("CRIT");
