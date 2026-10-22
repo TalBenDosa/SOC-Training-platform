@@ -361,7 +361,7 @@ export function exfilFirstExtortionScenarioEvents() {
       hostname: host.hostname,
       user_email: victim.email,
       src_ip: host.ip,
-      severity: "critical",
+      severity: "high",
       description:
         "Sentinel correlated three independent signals into a single incident: local staging, archive creation, and sustained cloud egress from LAPTOP-NX-R.DOYLE overnight. No encryption, mass file-rename, or ransom-note events exist anywhere in the correlation window.",
       raw: {

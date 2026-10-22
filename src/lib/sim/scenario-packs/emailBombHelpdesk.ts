@@ -567,7 +567,7 @@ export function buildEmailBombHelpdeskScenario(
       hostname: victim.hostname,
       user_email: victim.email,
       src_ip: victim.ip,
-      severity: "critical",
+      severity: "high",
       mitre_technique: "T1219",
       mitre_tactic: "Command and Control",
       is_detection: true,

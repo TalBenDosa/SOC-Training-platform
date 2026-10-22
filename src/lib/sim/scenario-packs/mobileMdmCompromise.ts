@@ -107,7 +107,7 @@ export function buildMobileMdmCompromiseScenario(
       vendor: "Microsoft Intune",
       event_type: "risk_score_change",
       user_email: benign.upn,
-      severity: "informational",
+      severity: "low",
       expected_verdict: "fp",
       fp_explanation:
         "Benign. s.mendel's managed Galaxy went non-compliant only because a required OS security patch was pending; there is no Mobile-Threat-Defense signal on it, no sideloaded app, and the device returned to compliant after the update installed on its next sync. Same 'device went non-compliant' record as the incident phone — the difference is the reason and the presence of a threat signal, not the compliance flip itself.",

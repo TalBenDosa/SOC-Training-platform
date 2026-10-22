@@ -148,12 +148,12 @@ export function buildBackupFalsePositiveScenario(
       ...mdeAlert({
         companyId: cx, id: "evt_bkpfp_09_edr_alert", ts: T(W + 7 * MIN), host: fileServer.hostname, srcIp: fileServer.ip, user: svcAccount.email,
         alertTitle: "Ransomware behavior detected", category: "Impact", mitre: "T1486", techniqueName: "Data Encrypted for Impact",
-        remediation: "None", detectionSource: "EDR", sha256: agentHash, alertSeverity: "High", severity: "critical",
+        remediation: "None", detectionSource: "EDR", sha256: agentHash, alertSeverity: "High", severity: "high",
         extra: {
           "mde.DetectorId": "BehaviorMonitoring/RansomwareFileActivity", "mde.EntityType": "Process", "mde.AlertStatus": "New",
           "mde.ServiceSource": "Microsoft Defender for Endpoint", "FileName": "VeeamAgent.exe", "ReportId": "4418311",
         },
-        description: "Defender for Endpoint raised a CRITICAL \"Ransomware behavior detected\" alert on FS-PROD-04 naming VeeamAgent.exe. RemediationAction is None.",
+        description: "Defender for Endpoint raised a High-severity \"Ransomware behavior detected\" alert on FS-PROD-04 naming VeeamAgent.exe. RemediationAction is None.",
       }),
       edr_scope: "edr",
     },

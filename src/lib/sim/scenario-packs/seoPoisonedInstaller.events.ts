@@ -146,7 +146,7 @@ export function seoPoisonedInstallerScenarioEvents() {
     // ---------------------------------------------------------------------
     {
       ...mdeAlert({
-        ...mde, id: "evt_spi_10_alert", ts: T(7 * MIN + 20_000), severity: "critical",
+        ...mde, id: "evt_spi_10_alert", ts: T(7 * MIN + 20_000), severity: "high",
         alertTitle: "Infostealer detected — browser credential store copied and exfiltrated",
         category: "CredentialAccess", detectionSource: "AntivirusBehavior", evidenceRole: "Impacted",
         mdeIncidentId: "38821", sha256: stealerHash,

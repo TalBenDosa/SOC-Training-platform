@@ -134,7 +134,7 @@ export function phishingToExfilEvents() {
       id: "evt_04_powershell", ts: T(5 * MIN + 31_000),
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_create",
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
-      severity: "critical", mitre_technique: "T1059.001",
+      severity: "high", mitre_technique: "T1059.001",
       description: "WINWORD.EXE on WS-FIN-2847 spawned a hidden PowerShell process with execution policy bypass, running a script from jsmith's Temp folder.",
       process: {
         name: "powershell.exe", pid: 5512, parent_name: "WINWORD.EXE", parent_pid: 4128,

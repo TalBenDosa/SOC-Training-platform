@@ -582,7 +582,7 @@ export function buildInsiderDlpUsbCloudScenario(
       hostname: host.hostname,
       user_email: insider.email,
       src_ip: host.ip,
-      severity: "critical",
+      severity: "high",
       description:
         "Sentinel correlated four signals for d.okafor into one incident: a scheduled departure, client-share access far above his 30-day norm, a bulk copy to removable media, and a personal-cloud upload of the same data — every DLP control on the path in Audit mode.",
       raw: {
