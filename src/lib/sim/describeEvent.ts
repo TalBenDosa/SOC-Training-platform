@@ -68,8 +68,11 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
     return event.description;
   }
   // An alert row names the alert — what the console really shows — never the analysis.
-  const alertName = rawStr(event.raw, "AlertName", "alert.name", "crowdstrike.DetectName", "threat.name", "ThreatName", "data.ms-graph.title");
-  if (opts.fieldsOnly && alertName && (event.is_detection || ["siem", "ueba", "dlp", "av"].includes(event.source) || /alert|detection|quarantine|finding/.test(event.event_type))) {
+  // The scenario page too (preferFields): GuardDuty / SCC / Suricata / Sentinel rows used to
+  // show a generic "System called ..." line instead of the product's finding name.
+  const alertName = rawStr(event.raw, "AlertName", "alert.name", "crowdstrike.DetectName", "threat.name", "ThreatName", "data.ms-graph.title",
+    "aws.guardduty.type", "gcp.scc.finding.category", "finding.category", "suricata.eve.alert.signature", "alert.signature", "signature");
+  if ((opts.fieldsOnly || opts.preferFields) && alertName && (event.is_detection || ["siem", "ueba", "dlp", "av", "ids", "guardduty", "cloud_gcp", "cloudtrail"].includes(event.source) || /alert|detection|quarantine|finding|signature|anomaly/.test(event.event_type))) {
     return `Alert: ${alertName}${event.hostname ? ` — ${event.hostname}` : ""}`;
   }
 
@@ -105,9 +108,15 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
   const n    = event.network;
   const host = event.hostname ? ` on ${event.hostname}` : "";
   const email = event.user_email ?? event.user?.email;
+  // The cloud / identity actor the log itself names (IAM user, service account, caller),
+  // else the source address: never a bare "System" when the log says who it was.
+  const cloudActor = rawStr(event.raw, "aws.cloudtrail.userIdentity.userName", "aws.cloudtrail.user_identity.user_name",
+    "userIdentity.userName", "gcp.audit.authentication_info.principal_email", "protoPayload.authenticationInfo.principalEmail",
+    "azure.activitylogs.identity.claims_initiated_by_user.name", "azure.caller", "okta.actor.alternateId", "github.actor");
   const who  = email ? email.split("@")[0]
                : event.process?.user ? event.process.user.split("\\").pop()!
-               : event.hostname ?? "System";
+               : cloudActor ? cloudActor.split("/").pop()!.split("@")[0]
+               : event.hostname ?? event.src_ip ?? "System";
   const fileName = event.file?.name || baseName(event.file?.path)
     || baseName(rawStr(event.raw, "file.name", "crowdstrike.FileName", "data.office365.SourceFileName"));
   const op = operationOf(event);

@@ -51,7 +51,13 @@ export interface IocTruthEntry {
   o?: string;   // PE OriginalFileName of a hash, when any log carried it (the rename tell)
   n?: string;   // on-disk file name of a hash, from the first log that named it
 }
-export interface IocTruth { version: 1; entries: Record<string, IocTruthEntry> }
+export interface IocTruth {
+  version: 1;
+  entries: Record<string, IocTruthEntry>;
+  /** Scenario incidents that are false positives (from the full bundle, server-side): their
+   *  EDR case has no payload and "Resolve as benign" is correct. */
+  benignIncidents?: string[];
+}
 
 const RANK: Record<IocVerdict, number> = { internal: 0, clean: 1, suspicious: 2, malicious: 3 };
 

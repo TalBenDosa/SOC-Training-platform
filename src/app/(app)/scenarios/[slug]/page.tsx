@@ -5,7 +5,11 @@ import { buildIocTruth } from "@/lib/edr/iocIntel";
 import { optionToken, eventIdMap, maskEventIds } from "@/lib/scenarios/optionToken";
 import { isConclusionRawKey } from "@/lib/scenarios/withheld";
 import { ScenarioClient } from "./ScenarioClient";
-import { incidentIdFor } from "@/lib/scenarios/incidentGroups";
+import { incidentIdFor, benignIncidentIds } from "@/lib/scenarios/incidentGroups";
+import { buildAlertIndex } from "@/lib/scenarios/eventClass";
+import type { TelemetryEvent } from "@/lib/sim/types";
+
+const isAlertEvent = (events: TelemetryEvent[]) => { const idx = buildAlertIndex(events); return (e: { id?: string }) => !!e.id && idx.has(e.id); };
 
 export default async function ScenarioPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -82,6 +86,8 @@ export default async function ScenarioPage({ params }: { params: Promise<{ slug:
         expected_verdict: undefined,
         it_verify_result: undefined,
         it_verify_message: undefined,
+        // "baseline" marks the context rows that are NOT the attack: the verdict itself.
+        is_baseline: undefined,
         raw,
       };
     }),
@@ -99,7 +105,11 @@ export default async function ScenarioPage({ params }: { params: Promise<{ slug:
   // stripped. It ships as digest-keyed verdicts only — not a readable list of
   // the malicious IOCs — and makes every TI lookup and EDR hash lookup on the
   // page agree with the scenario's own detections.
-  const iocTruth = buildIocTruth({ events: bundle.events ?? [], iocs: bundle.iocs ?? [] });
+  const iocTruth = {
+    ...buildIocTruth({ events: bundle.events ?? [], iocs: bundle.iocs ?? [] }),
+    // False-positive incidents: their EDR case has no payload ("Resolve as benign" is right).
+    benignIncidents: benignIncidentIds(bundle.events ?? [], slug, bundle.attack_kind, isAlertEvent(bundle.events ?? [])),
+  };
   // Authored event ids name the answer ("…_beacon", "…_exfil…") and show in each
   // row's Raw JSON — ship opaque ids instead (question text is rewritten to match).
   const idMap = eventIdMap(slug, (bundle.events ?? []).map(e => e.id));

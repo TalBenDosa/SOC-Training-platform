@@ -167,7 +167,7 @@ function imagePathOf(p: NonNullable<TelemetryEvent["process"]>, opts?: { malicio
 // detection) — a careful reader clears them; they are never the answer.
 const DISTRACTOR_POOL: { name: string; path: string; cmdline: string }[] = [
   { name: "OneDrive.exe",        path: "C:\\Program Files\\Microsoft OneDrive\\OneDrive.exe",                                  cmdline: "\"C:\\Program Files\\Microsoft OneDrive\\OneDrive.exe\" /background" },
-  { name: "Teams.exe",           path: "C:\\Users\\Public\\AppData\\Local\\Microsoft\\Teams\\current\\Teams.exe",             cmdline: "\"Teams.exe\" --type=renderer --enable-features=..." },
+  { name: "ms-teams.exe",        path: "C:\\Program Files\\WindowsApps\\MSTeams_24295.605.3225.8804_x64__8wekyb3d8bbwe\\ms-teams.exe", cmdline: "\"ms-teams.exe\" msteams:system-initiated" },
   { name: "GoogleUpdate.exe",    path: "C:\\Program Files (x86)\\Google\\Update\\GoogleUpdate.exe",                            cmdline: "\"GoogleUpdate.exe\" /ua /installsource scheduler" },
   { name: "MsMpEng.exe",         path: "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.24010.7-0\\MsMpEng.exe", cmdline: "\"MsMpEng.exe\"" },
   { name: "SearchIndexer.exe",   path: "C:\\Windows\\System32\\SearchIndexer.exe",                                            cmdline: "C:\\Windows\\System32\\SearchIndexer.exe /Embedding" },
@@ -475,7 +475,12 @@ function persistenceFrom(events: TelemetryEvent[], procs: EdrProcess[]) {
 }
 
 export function buildInvestigationFromStory(
-  story: { id: string; title: string; events: TelemetryEvent[]; iocTruth?: IocTruth | null },
+  story: {
+    id: string; title: string; events: TelemetryEvent[]; iocTruth?: IocTruth | null;
+    /** A false-positive incident (resolved server-side from the full bundle): nothing on the
+     *  host is the payload, and "Resolve as benign" is the right decision. */
+    benign?: boolean;
+  },
 ): EdrInvestigation | null {
   // A copy — the synthesis step below appends events, and the caller's array (a
   // scenario bundle or the Dashboard's story) must never be mutated.
@@ -516,6 +521,12 @@ export function buildInvestigationFromStory(
   const isLinux = events.some(e => e.source === "linux_audit" || e.source === "k8s_audit")
     || nixProcCount > winProcCount
     || procEvents.some(e => (e.process?.path ?? "").startsWith("/"));
+  // A Mac is a unix tree too, but it is not "Linux": its paths and platform field say so,
+  // and its orphans hang off launchd, not a fabricated bash.
+  const isMac = isLinux && (
+    procEvents.some(e => /^\/(Applications|Users|Library|System|private|Volumes)\//.test(e.process?.path ?? "") || /\.app\//.test(e.process?.path ?? ""))
+    || events.some(e => /^(mac|macos|os ?x|darwin)$/i.test(String(e.raw?.["platform"] ?? e.raw?.["event_platform"] ?? e.raw?.["host.os.platform"] ?? e.raw?.["crowdstrike.event_platform"] ?? "")))
+  );
 
   // R-13: one user format across the whole tree (DOMAIN\user on Windows, bare on unix).
   const caseDomain = mostCommon(events.map(e => e.user_email?.includes("@") ? e.user_email.split("@")[1] : undefined));
@@ -675,7 +686,7 @@ export function buildInvestigationFromStory(
         else if (realExplorer && realExplorer.pid !== p.pid) parentName = "explorer.exe";
       }
       // R-13: a Linux/container orphan hangs off its shell, never a Windows explorer.
-      if (!parentName && isLinux) parentName = "bash";
+      if (!parentName && isLinux) parentName = isMac ? "launchd" : "bash";
       if (!parentName || parentName.toLowerCase() === n) continue;
       const parent = ensureAncestor(parentName);
       if (parent.pid === p.pid || isAncestorOf(parent, p)) continue;  // no cycles
@@ -838,16 +849,25 @@ export function buildInvestigationFromStory(
   // ── Payload = the process to flag. Prefer a known-bad hash; else the highest-
   //    severity endpoint detection; else the last-started suspicious process. ──
   const byHash = processes.filter(p => p.sha256 && lookupHash(p.sha256!)?.malicious);
-  const payload =
+  const SEV_RANK: Record<string, number> = { low: 1, medium: 2, high: 3, critical: 4 };
+  const detSev = new Map<number, number>();
+  for (const d of detections) detSev.set(d.pid, Math.max(detSev.get(d.pid) ?? 0, SEV_RANK[d.severity] ?? 0));
+  const SYSTEM_TOOLS = new Set(["security", "sqlcmd", "wevtutil", "vssadmin", "bcdedit", "wmic.exe", "ssh", "scp", "curl", "wget",
+    "osascript", "launchctl", "installer", "sh", "bash", "zsh", "dash", "python", "python3", "perl", "sudo", "crontab", "chmod"]);
+  const isSystemTool = (p: EdrProcess) => isLolBin(p.name) || SYSTEM_TOOLS.has(p.name.toLowerCase()) || SYSTEM_TOOLS.has(p.name.toLowerCase().replace(/\.exe$/, ""));
+  const payloadScore = (p: EdrProcess) =>
+    (!p.signed ? 40 : 0) + (USER_WRITABLE.test(p.path) ? 25 : 0) + (isSystemTool(p) ? -35 : 20) + (detSev.get(p.pid) ?? 0) * 10;
+  const suspects = processes.filter(p => p.verdict !== "benign" && p.startedAt !== "—");
+  const payload = story.benign ? null :
     byHash.sort((a, b) => tsSort(a.startedAt, b.startedAt)).at(-1)
-    ?? processes.filter(p => p.verdict !== "benign").sort((a, b) => tsSort(a.startedAt, b.startedAt)).at(-1)
+    // highest score; on a tie the EARLIER process, the root cause rather than its children
+    ?? suspects.sort((a, b) => payloadScore(b) - payloadScore(a) || tsSort(a.startedAt, b.startedAt))[0]
     ?? null;
-  // R-04: a signed system binary / LOLBin with no known-bad hash is ABUSED, not malware.
+  // R-04: a system binary / LOLBin with no known-bad hash is ABUSED, not malware. A signed
+  // binary that is not a system tool (an attacker's own helper) is still the payload.
   if (payload) {
     const badHash = !!(payload.sha256 && lookupHash(payload.sha256)?.malicious);
-    payload.verdict = badHash ? "malicious"
-      : (payload.signed || isLolBin(payload.name)) ? "abused"
-      : "malicious";
+    payload.verdict = badHash ? "malicious" : isSystemTool(payload) ? "abused" : "malicious";
   }
 
   // R-07: seed benign look-twice siblings into a thin tree so flagging is a decision.
@@ -882,7 +902,16 @@ export function buildInvestigationFromStory(
   // sensor may already own — dropped as a duplicate when it is, otherwise attributed
   // only to the payload (or, on a no-payload case, the app that browsed) IF it was
   // alive at that moment.
-  const hostIp = mostCommon(procEvents.map(e => e.src_ip)) ?? mostCommon(events.map(e => e.src_ip));
+  const HOST_IP_KEYS = ["host.ip", "LocalIP", "LocalAddressIP4", "aip", "crowdstrike.aip", "crowdstrike.LocalAddressIP4",
+    "DeviceIp", "agent.ip", "local_ip", "observer.ip", "mde.LocalIP"];
+  const ownIp = (e: TelemetryEvent) => pickRaw(e.raw, HOST_IP_KEYS);
+  const isLogon = (e: TelemetryEvent) => /auth|logon|login|sign_?in/i.test(e.event_type ?? "");
+  const hostOwnIp: string | undefined =
+    mostCommon(events.filter(e => e.hostname === hostName).map(ownIp))
+    ?? mostCommon(procEvents.filter(e => !isLogon(e) && /^process/.test(e.event_type ?? "")).map(e => e.src_ip))
+    ?? mostCommon(procEvents.filter(e => !isLogon(e)).map(e => e.src_ip))
+    ?? mostCommon(events.filter(e => e.hostname === hostName && !isLogon(e)).map(e => e.src_ip));
+  const hostIp = hostOwnIp;
   const aliveAt = (pid: number, ms: number) => { const s = startMs.get(pid); return s == null || !ms || s <= ms; };
   const connKey = (ip?: string, port?: number, domain?: string) => `${ip ?? ""}|${port ?? ""}|${domain ?? ""}`;
   const ownedConns = new Set<string>();
@@ -896,7 +925,9 @@ export function buildInvestigationFromStory(
     // R-05: a connection whose DESTINATION is our own host is INBOUND.
     const inbound = !!(e.dst_ip && hostIp && e.dst_ip === hostIp);
     // A DNS request's remote end is the host's resolver (not an IP the log names).
-    const remote_ip = inbound ? (e.src_ip ?? "—") : (e.dst_ip ?? (isDns ? "resolver" : "—"));
+    const rawRemote = pickRaw(e.raw, ["destination.ip", "RemoteAddressIP4", "RemoteIP", "dst", "dstip", "DestinationIp",
+      "crowdstrike.RemoteAddressIP4", "network.destination.ip", "mde.RemoteIP", "data.dstip"]);
+    const remote_ip = inbound ? (e.src_ip ?? "—") : (e.dst_ip ?? rawRemote ?? (isDns ? "resolver" : "—"));
     // R-08: transport in `proto`, layer-7 in `application`.
     const rawProto = String(e.protocol ?? "").toLowerCase();
     const isTransport = /^(tcp|udp|icmp)$/.test(rawProto);
@@ -934,7 +965,8 @@ export function buildInvestigationFromStory(
       if (conn.domain) ownedTargets.add(conn.domain);
       if (conn.remote_ip !== "—") ownedTargets.add(conn.remote_ip);
     }
-    if (e.file?.path && owner.files!.length < 8) {
+    const fileEvent = /^file|registry_set$/.test(e.event_type ?? "") || /^(file|fs)_/.test(e.event_type ?? "") || !isDetectionEvent(e);
+    if (e.file?.path && owner.files!.length < 8 && fileEvent) {
       const action: EdrFileOp["action"] =
         e.event_type === "file_delete" ? "delete" : e.event_type === "file_rename" ? "rename"
         : e.event_type === "file_access" ? "read" : "write";
@@ -991,8 +1023,8 @@ export function buildInvestigationFromStory(
   // ── Host header ── (isLinux computed once, above, so the OS label matches the tree)
   const host = {
     name: hostName,
-    os: isLinux ? "Linux" : server ? "Windows Server 2022" : "Windows 11 23H2",
-    ip: mostCommon(procEvents.map(e => e.src_ip)) ?? mostCommon(events.map(e => e.src_ip)) ?? "—",
+    os: isMac ? "macOS 14 Sonoma" : isLinux ? "Linux" : server ? "Windows Server 2022" : "Windows 11 23H2",
+    ip: hostOwnIp ?? "—",
     // The signed-in HUMAN — a service-launched shell running as SYSTEM is not who is logged on.
     user: mostCommon(procEvents.map(e => e.process?.user ?? e.user_email).filter(u => u && !SYSTEM_PRINCIPAL.test(u)))
       ?? mostCommon(procEvents.map(e => e.process?.user ?? e.user_email)) ?? "—",
@@ -1002,7 +1034,9 @@ export function buildInvestigationFromStory(
     ? payload.verdict === "abused"
       ? `${payload.name} (pid ${payload.pid}) is the process to flag — but note it is a legitimate, signed binary being ABUSED, not malware itself. The malice is in what it was made to do: "${payload.cmdline}". Contain it and its parent chain, but in your report name the technique (living-off-the-land), not the binary, as the threat — ${payload.name} is trusted and will run again.`
       : `${payload.name} (pid ${payload.pid}) is the payload of this attack: ${payload.signed ? "" : "an unsigned binary "}running "${payload.cmdline}"${payload.sha256 && lookupHash(payload.sha256)?.malicious ? ", with a hash that matches a known-bad sample" : ""}${payload.originalFileName && payload.originalFileName.toLowerCase() !== payload.name.toLowerCase() ? ` — its PE original file name is ${payload.originalFileName}, so the on-disk name is a disguise` : ""}. It is the process in the chain that carried the malicious behaviour — the parents above it are the delivery chain that launched it.`
-    : "No single payload process stood out — treat the highest-severity detection in the tree as the process to contain, and correlate it with the timeline.";
+    : story.benign
+      ? "Nothing on this host is a payload. The detection fired on legitimate activity: correlate it with the change records, the account's normal behaviour and the other sources, and resolve the case as benign rather than containing the host."
+      : "No single payload process stood out — treat the highest-severity detection in the tree as the process to contain, and correlate it with the timeline.";
 
   return {
     id: "live",
@@ -1031,8 +1065,15 @@ export function buildInvestigationFromStory(
  * `iocTruth` (the scenario's server-built IOC truth table) rides along on every case
  * so the console's hash lookup agrees with the threat-intel drawer.
  */
+/** The EDR case id of a scenario event: its incident, split per host when the incident spans
+ *  several endpoints (buildInvestigationsFromScenario). */
+export function scenarioCaseId(incidentId: string, host: string): string {
+  return `${incidentId}@${host}`;
+}
+
 export function buildInvestigationsFromScenario(
   bundle: { title?: string; events: TelemetryEvent[]; iocTruth?: IocTruth | null },
+  opts: { benignIncidents?: ReadonlySet<string> } = {},
 ): EdrInvestigation[] {
   const byIncident = new Map<string, TelemetryEvent[]>();
   for (const e of bundle.events) {
@@ -1047,11 +1088,20 @@ export function buildInvestigationsFromScenario(
     const authored = events.find(e => e.edr_scope)?.edr_scope;
     const scope = authored ?? classifyScope(events);
     if (scope === "non_edr") continue;
-    const inv = buildInvestigationFromStory({ id: incidentId, title: bundle.title ?? incidentId, events, iocTruth: bundle.iocTruth });
-    if (!inv) continue; // no process tree to walk
-    inv.id = incidentId;
-    inv.title = `${bundle.title ?? "Incident"} — endpoint view`;
-    out.push(inv);
+    // One case per endpoint host: two hosts in one incident (a benign control on another
+    // workstation, a lateral hop) must never share a process tree.
+    const hosts = [...new Set(events.filter(e => ENDPOINT_SOURCES.has(e.source) && e.hostname).map(e => e.hostname as string))];
+    const groups = hosts.length > 1
+      ? hosts.map(h => ({ id: scenarioCaseId(incidentId, h), events: events.filter(e => e.hostname === h || !e.hostname) }))
+      : [{ id: incidentId, events }];
+    for (const g of groups) {
+      const inv = buildInvestigationFromStory({ id: g.id, title: bundle.title ?? incidentId, events: g.events, iocTruth: bundle.iocTruth,
+        benign: opts.benignIncidents?.has(incidentId) });
+      if (!inv) continue; // no process tree to walk
+      inv.id = g.id;
+      inv.title = `${bundle.title ?? "Incident"} — endpoint view`;
+      out.push(inv);
+    }
   }
   return out;
 }

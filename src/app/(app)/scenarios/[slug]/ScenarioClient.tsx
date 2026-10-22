@@ -21,7 +21,7 @@ import {
 import { describeEventForRow } from "@/lib/sim/describeEvent";
 import { EdrConsole } from "@/components/edr/EdrConsole";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
-import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
+import { buildInvestigationsFromScenario, scenarioCaseId } from "@/lib/edr/fromLiveStory";
 import type { EdrInvestigation } from "@/lib/edr/investigations";
 import { buildAlertIndex, effectiveSeverity, severityLabel, severityAtLeast } from "@/lib/scenarios/eventClass";
 import { parseSearchQuery, matchesQuery } from "@/lib/scenarios/logSearch";
@@ -57,7 +57,7 @@ function formatTime(s: number) {
  * "Look up hash" agree with the threat-intel drawer on this case.
  */
 function scenarioInvestigations(events: TelemetryEvent[], title: string, iocTruth: IocTruth | null): EdrInvestigation[] {
-  return buildInvestigationsFromScenario({ title, events, iocTruth }).map(inv => ({
+  return buildInvestigationsFromScenario({ title, events, iocTruth }, { benignIncidents: new Set(iocTruth?.benignIncidents ?? []) }).map(inv => ({
     ...inv,
     summary: `Endpoint view of this scenario's incident on ${inv.host.name}, built from the scenario's own telemetry. Walk the process tree, confirm the payload, and decide containment.`,
   }));
@@ -313,7 +313,7 @@ type Pivot =
 
 const LogRow = memo(function LogRow({
   ev, isAlert, effSev, onThreatQuery, focused, dimmed, pivots, incidentSize, onPivot,
-  canInvestigate, onInvestigate, focusReq,
+  canInvestigate, onInvestigate, focusReq, caseId,
 }: {
   ev: TelemetryEvent;
   /** Product detection (see eventClass.ts) — carries the ALERT badge. */
@@ -333,7 +333,9 @@ const LogRow = memo(function LogRow({
   /** true when this detection's incident is endpoint-investigable (edr/hybrid). */
   canInvestigate?: boolean;
   /** open this incident in the embedded EDR console. */
-  onInvestigate: (incidentId: string) => void;
+  onInvestigate: (caseId: string) => void;
+  /** The EDR case this row opens (its incident, per host when the incident spans hosts). */
+  caseId?: string | null;
   /** Bumped by the timeline when it asks this row to expand + scroll into view. */
   focusReq?: number;
 }) {
@@ -441,10 +443,10 @@ const LogRow = memo(function LogRow({
                 <span aria-hidden="true">🔗 </span>{focused ? "correlated" : "correlate"}
               </button>
             )}
-            {canInvestigate && ev.incident_id && (
+            {canInvestigate && caseId && (
               <button
                 type="button"
-                onClick={e => { e.stopPropagation(); onInvestigate(ev.incident_id!); }}
+                onClick={e => { e.stopPropagation(); onInvestigate(caseId); }}
                 title="Open this incident on the endpoint — walk the process tree in the EDR console"
                 className="inline-flex items-center gap-0.5 rounded border border-cyber-500/40 bg-cyber-500/15 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-cyber-200 transition hover:bg-cyber-500/25"
               >
@@ -553,6 +555,12 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
   // a separate case in the console switcher. `edrCaseId` = the open case (null = closed).
   const edrInvestigations = useMemo(() => scenarioInvestigations(events, title, iocTruth), [events, title, iocTruth]);
   const edrIncidentIds = useMemo(() => new Set(edrInvestigations.map(i => i.id)), [edrInvestigations]);
+  // A row opens its incident's case, or that incident's case for the row's host when split.
+  const caseFor = useCallback((ev: TelemetryEvent): string | null => {
+    if (!ev.incident_id) return null;
+    if (ev.hostname && edrIncidentIds.has(scenarioCaseId(ev.incident_id, ev.hostname))) return scenarioCaseId(ev.incident_id, ev.hostname);
+    return edrIncidentIds.has(ev.incident_id) ? ev.incident_id : null;
+  }, [edrIncidentIds]);
   const [edrCaseId, setEdrCaseId] = useState<string | null>(null);
 
   // One classification feeds the badge, the severity column, the filters and
@@ -860,7 +868,8 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
                   dimmed={!!pivotIds && !pivotIds.has(ev.id)}
                   // Any alert, detection or endpoint log of an incident that has an EDR case
                   // pivots to it, like a SIEM row's "open in console" link.
-                  canInvestigate={(v.isAlert || !!ev.is_detection || ENDPOINT_SOURCES.has(ev.source)) && !!ev.incident_id && edrIncidentIds.has(ev.incident_id)}
+                  canInvestigate={(v.isAlert || !!ev.is_detection || ENDPOINT_SOURCES.has(ev.source)) && !!caseFor(ev)}
+                  caseId={caseFor(ev)}
                   onInvestigate={onInvestigate}
                   focusReq={focusReq?.id === ev.id ? focusReq.n : undefined}
                 />

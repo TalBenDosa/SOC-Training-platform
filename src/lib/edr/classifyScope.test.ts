@@ -139,7 +139,9 @@ describe("EDR integrity — lineage and network attribution hold registry-wide",
         for (const inv of buildInvestigationsFromScenario({ title: bundle.title, events })) {
           cases++;
           const pids = new Set(inv.processes.map(p => p.pid));
-          const hostEvents = bundle.events.filter(e => e.incident_id === inv.id);
+          // A case is an incident, or one host of it when the incident spans hosts ("inc@host").
+          const [incident, splitHost] = inv.id.split("@");
+          const hostEvents = bundle.events.filter(e => e.incident_id === incident && (!splitHost || e.hostname === splitHost || !e.hostname));
           const loggedExplorer = hostEvents.some(e => /^explorer\.exe$/i.test(e.process?.name ?? "") || /^explorer\.exe$/i.test(e.process?.parent_name ?? ""));
           for (const p of inv.processes) {
             if (p.pid >= 90000) problems.push(`${s.slug}/${inv.id}: synthetic pid ${p.pid} (${p.name})`);
