@@ -18,6 +18,7 @@
  * can be AI-generated, so this stays strict as defense in depth.
  */
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { withReadableLabels } from "./mermaidContrast";
 
 let mermaidReady: Promise<typeof import("mermaid").default> | null = null;
 
@@ -92,7 +93,7 @@ export function MermaidDiagram({ chart, caption }: { chart: string; caption?: st
     setFailed(false);
 
     getMermaid()
-      .then(mermaid => mermaid.render(idRef.current, chart.trim()))
+      .then(mermaid => mermaid.render(idRef.current, withReadableLabels(chart.trim())))
       .then(({ svg }) => { if (!cancelled) setSvg(svg); })
       .catch(() => { if (!cancelled) setFailed(true); });
 
