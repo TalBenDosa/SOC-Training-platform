@@ -44,7 +44,9 @@ export async function GET(req: Request) {
   return new NextResponse(new Uint8Array(bytes), {
     headers: {
       "Content-Type": `image/${m[1]}`,
-      "Cache-Control": "public, max-age=600, stale-while-revalidate=3600",
+      // A versioned URL (?v=<hash of the logo>, logoUrlFor) never changes content: cache it for
+      // good, so a returning learner's logo paints from cache. The bare URL stays short-lived.
+      "Cache-Control": url.searchParams.get("v") ? "public, max-age=31536000, immutable" : "public, max-age=600, stale-while-revalidate=3600",
       "X-Content-Type-Options": "nosniff",
     },
   });

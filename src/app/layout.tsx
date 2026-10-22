@@ -63,6 +63,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="antialiased">
         {/* A white-label domain's own colours, server-rendered so there's no flash of the platform palette. */}
         {brand.whiteLabel && brand.theme && <style>{themeCss(brand.theme)}</style>}
+        {/* A white-label domain's logo is fetched first, so it is there with the first paint. */}
+        {brand.whiteLabel && brand.logoSrc && <link rel="preload" as="image" href={brand.logoSrc} fetchPriority="high" />}
         {/* Skip link (WCAG 2.4.1): first focusable element, hidden until focused,
             lets keyboard/screen-reader users jump past the repeated nav to the
             page's <main id="main-content">. */}

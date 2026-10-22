@@ -28,18 +28,25 @@ export interface OrgBranding {
 
 const EMPTY_ORG: OrgBranding = { name: null, color: null, logoUrl: null, allRoomsUnlocked: false };
 
-interface BrandCtx { brand: Brand; org: OrgBranding; envBrand: Brand | null; hostBrand: Brand; features: Features }
-const Ctx = createContext<BrandCtx>({ brand: PLATFORM_BRAND, org: EMPTY_ORG, envBrand: null, hostBrand: PLATFORM_BRAND, features: ALL_FEATURES });
+interface BrandCtx {
+  brand: Brand; org: OrgBranding; envBrand: Brand | null; hostBrand: Brand; features: Features;
+  /** The client fetch for THIS session's environment has answered (until then, the server's
+   *  answer from the (app) layout stands, so nothing flashes on load or after a switch). */
+  envReady: boolean;
+}
+const Ctx = createContext<BrandCtx>({ brand: PLATFORM_BRAND, org: EMPTY_ORG, envBrand: null, hostBrand: PLATFORM_BRAND, features: ALL_FEATURES, envReady: false });
 
 export function BrandProvider({ initial, children }: { initial: Brand; children: React.ReactNode }) {
   const { user } = useAuth();
   const [org, setOrg] = useState<OrgBranding>(EMPTY_ORG);
   const [envBrand, setEnvBrand] = useState<Brand | null>(null);
   const [features, setFeatures] = useState<Features>(ALL_FEATURES);
+  const [envReady, setEnvReady] = useState(false);
 
   useEffect(() => {
     setEnvBrand(null);
     setFeatures(ALL_FEATURES);
+    setEnvReady(false);
     if (!user) { setOrg(EMPTY_ORG); return; }
     let cancelled = false;
     let retry: ReturnType<typeof setTimeout> | null = null;
@@ -56,6 +63,7 @@ export function BrandProvider({ initial, children }: { initial: Brand; children:
         setOrg({ name: d.name ?? null, color, logoUrl: d.branding?.logo_url ?? null, allRoomsUnlocked: d.all_rooms_unlocked === true });
         setEnvBrand(d.brand && d.brand.whiteLabel === true ? (d.brand as Brand) : null);
         setFeatures(parseFeatures(d.features));
+        setEnvReady(true);
       })
       .catch(() => { if (again && !cancelled) retry = setTimeout(() => { void load(false); }, 3000); });
     void load(true);
@@ -69,7 +77,7 @@ export function BrandProvider({ initial, children }: { initial: Brand; children:
     if (accent) document.documentElement.style.setProperty("--org-accent", accent);
   }, [accent]);
 
-  return <Ctx.Provider value={{ brand, org, envBrand, hostBrand: initial, features }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ brand, org, envBrand, hostBrand: initial, features, envReady }}>{children}</Ctx.Provider>;
 }
 
 /**
@@ -77,9 +85,19 @@ export function BrandProvider({ initial, children }: { initial: Brand; children:
  * (a white-label org's logo and name in its own environment, the platform in every other).
  * A white-label domain keeps its host brand. Mounted by src/app/(app)/layout.tsx.
  */
-export function AppBrandScope({ children }: { children: React.ReactNode }) {
+export function AppBrandScope({ children, initialEnvBrand = null, initialFeatures = null }: {
+  children: React.ReactNode;
+  /** The environment's brand as the server resolved it for this request (src/lib/brand/appBrand.ts). */
+  initialEnvBrand?: Brand | null;
+  /** The environment's plan as the server resolved it, so the nav never shows then hides items. */
+  initialFeatures?: Features | null;
+}) {
   const c = useContext(Ctx);
-  const brand = c.hostBrand.whiteLabel ? c.hostBrand : (c.envBrand ?? c.hostBrand);
+  // The server's answer until the client fetch for this session has answered: the first paint
+  // (and the one right after an environment switch, which reloads) is already the right brand.
+  const env = c.envReady ? c.envBrand : initialEnvBrand;
+  const brand = c.hostBrand.whiteLabel ? c.hostBrand : (env ?? c.hostBrand);
+  const features = c.envReady ? c.features : (initialFeatures ?? c.features);
 
   // Server-rendered tab titles on a platform host carry the platform name; inside a
   // white-label environment swap the suffix for the environment's own name.
@@ -108,7 +126,7 @@ export function AppBrandScope({ children }: { children: React.ReactNode }) {
     return () => { for (const k of Object.keys(vars)) root.style.removeProperty(k); };
   }, [brand, c.hostBrand.whiteLabel]);
 
-  return <Ctx.Provider value={{ ...c, brand }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ ...c, brand, features }}>{children}</Ctx.Provider>;
 }
 
 /** Who the platform presents itself as right now. */
