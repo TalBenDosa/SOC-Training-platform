@@ -109,7 +109,7 @@ export function lateralMovementPthScenarioEvents() {
       processName: "svchost.exe", processPath: DUMPER, cmdline: `${DUMPER} "privilege::debug" "sekurlsa::logonpasswords" "exit"`,
       parentName: "powershell.exe", parentPath: PS, parentCmdline: "powershell.exe", pid: 6624, parentPid: 6100, sha256: dumperHash, signed: false,
       integrity: "System", originalFileName: "-", runAsUser: SYSTEM, severity: "high", incidentId: INCIDENT_WS, mitre: "T1036.005", tactic: "Stealth",
-      description: "Sysmon Event 1 on FIN-WS-11: powershell.exe started an unsigned svchost.exe from C:\\Windows\\Temp as SYSTEM — a real svchost.exe lives in System32 and is started by services.exe.",
+      description: "Sysmon Event 1 on FIN-WS-11: powershell.exe started an unsigned svchost.exe from C:\\Windows\\Temp as SYSTEM, a real svchost.exe lives in System32 and is started by services.exe.",
     })),
 
     // 1. THE SOURCE OF THE HASH — LSASS access on the foothold (Sysmon 10).
@@ -146,7 +146,7 @@ export function lateralMovementPthScenarioEvents() {
       privilegeList: ADMIN_PRIVS,
       mitre: "T1078", tactic: "Privilege Escalation", severity: "medium", incidentId: INCIDENT,
       description:
-        "A 4672 on SRV-FILE-03 assigned SeDebugPrivilege, SeBackupPrivilege and SeImpersonatePrivilege to the s.kessler logon session — this NTLM network logon is running with local-administrator rights.",
+        "A 4672 on SRV-FILE-03 assigned SeDebugPrivilege, SeBackupPrivilege and SeImpersonatePrivilege to the s.kessler logon session, this NTLM network logon is running with local-administrator rights.",
     }), source: "windows_security" as const },
 
     // 4. 5140 — ADMIN$ opened (the PsExec SMB channel).
@@ -206,7 +206,7 @@ export function lateralMovementPthScenarioEvents() {
         runAsUser: SYSTEM, integrity: "system", tokenElevation: "%%1936", recordId: "5551402",
         mitre: "T1059.001", tactic: "Execution", severity: "high", incidentId: INCIDENT,
         description:
-          "A 4688 on SRV-FILE-03 shows svcupd64.exe spawning an encoded, hidden-window PowerShell as SYSTEM — the remotely-installed service acting as a loader.",
+          "A 4688 on SRV-FILE-03 shows svcupd64.exe spawning an encoded, hidden-window PowerShell as SYSTEM, the remotely-installed service acting as a loader.",
       });
       e.source = "windows_security";
       e.process = { ...e.process!, parent_pid: 8104 };
@@ -281,7 +281,7 @@ export function lateralMovementPthScenarioEvents() {
       targetUser: admin.sam, targetSid: adminSid, srcIp: fileSrv.ip, shareName: "\\\\*\\IPC$", shareLocalPath: "",
       relativeTargetName: "svcctl", accessMask: "0x3", accessList: "%%4416 %%4417", subjectLogonId: "0x8B03D19", recordId: "9920560",
       mitre: "T1021.002", tactic: "Lateral Movement", severity: "high", incidentId: INCIDENT,
-      description: "A 5145 on DC-NEXA-01: the s.kessler session from SRV-FILE-03 opened the svcctl pipe under IPC$ — the Service Control Manager RPC endpoint used to create a service remotely.",
+      description: "A 5145 on DC-NEXA-01: the s.kessler session from SRV-FILE-03 opened the svcctl pipe under IPC$, the Service Control Manager RPC endpoint used to create a service remotely.",
     }),
 
     // 11. Sentinel correlation, fed by a Defender for Identity alert — the multi-hop chain.

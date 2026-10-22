@@ -454,7 +454,7 @@ export function aitmTokenTheftScenarioEvents() {
       geo: { country: "Germany", city: "Frankfurt", latitude: 50.1109, longitude: 8.6821 },
       edr_scope: "hybrid", // identity detection that opens the ticket; the victim laptop shows the endpoint stayed clean
       description:
-        "A second, non-interactive Entra sign-in for m.delgado from 91.132.139.204 in Frankfurt (AS51167) on Chrome 144 — multifactor satisfied by a claim in the token.",
+        "A second, non-interactive Entra sign-in for m.delgado from 91.132.139.204 in Frankfurt (AS51167) on Chrome 144, multifactor satisfied by a claim in the token.",
       raw: {
         "azure.signinlogs.category": "NonInteractiveUserSignInLogs",
         "azure.signinlogs.operationName": "Sign-in activity",

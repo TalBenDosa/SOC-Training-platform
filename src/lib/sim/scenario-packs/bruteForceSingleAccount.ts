@@ -100,7 +100,7 @@ export function buildBruteForceSingleAccountScenario(
       answer: "success",
       xp: 60,
       explanation:
-        "Compromise happens the instant an attempt succeeds. Up to 09:19:20 the attacker has nothing but rejected guesses; at 09:20:00 a 4624 is written for the same account from the same address and they hold a working session. This is the event beginners walk past, because a 4624 is the most common line in a Windows Security log — thousands a day are completely normal. The failures are loud and harmless; the success is quiet and is the entire incident. The firewall event is only reachability, and the Sentinel alert is the SOC finding out six minutes after the success.",
+        "Compromise happens the instant an attempt succeeds. Up to 09:19:20 the attacker has nothing but rejected guesses; at 09:20:00 a 4624 is written for the same account from the same address and they hold a working session. This is the event beginners walk past, because a 4624 is the most common line in a Windows Security log, thousands a day are completely normal. The failures are loud and harmless; the success is quiet and is the entire incident. The firewall event is only reachability, and the Sentinel alert is the SOC finding out six minutes after the success.",
     },
     {
       id: "q3",
@@ -110,7 +110,7 @@ export function buildBruteForceSingleAccountScenario(
       kind: "single",
       options: [
         { value: "use_plus_context", label: "The net use mapping plus the Sentinel directory context — the share mapped, and the shares used before" },
-        { value: "use_plus_fslogon", label: "The net use mapping plus the SRV-FS-02 4624 network logon — the mapping, and the file-server session it produced" },
+        { value: "use_plus_fslogon", label: "The net use mapping plus the SRV-FS-02 4624 network logon, the mapping, and the file-server session it produced" },
         { value: "success_plus_read", label: "The 09:20:00 logon success plus the payroll workbook read — the session opened, and the file it took" },
         { value: "fw_plus_rdp", label: "The inbound RDP session plus the LogonType 10 logon — the external connection, and the desktop it opened" },
       ],
@@ -133,7 +133,7 @@ export function buildBruteForceSingleAccountScenario(
       answer: "success_and_read",
       xp: 60,
       explanation:
-        "The chain is fully evidenced: 4624 at 09:20:00 from 194.26.192.77, a LogonType 10 desktop eight seconds later, net.exe mapping HR-Confidential at 09:22, a 4624 network logon on SRV-FS-02 at 09:22:20 (TargetLogonId 0x74C2E19), a 5140 for the HR-Confidential share, a 5145 and a 4663 read of salary_bands_2026.xlsx at 09:23 under that same logon session, and a cmd.exe copy of the workbook into the profile Temp folder on the RDS server. Option (b) is the error this scenario exists to prevent — reporting the failure burst and never checking whether anything succeeded. Option (c) contradicts evt_bf_01_fw_inbound, where pan.action is allow. Option (d) contradicts evt_bf_10_siem_context, which records that the lockout policy did not apply to this account, and the failures did in fact run uninterrupted for eighteen minutes.",
+        "The chain is fully evidenced: 4624 at 09:20:00 from 194.26.192.77, a LogonType 10 desktop eight seconds later, net.exe mapping HR-Confidential at 09:22, a 4624 network logon on SRV-FS-02 at 09:22:20 (TargetLogonId 0x74C2E19), a 5140 for the HR-Confidential share, a 5145 and a 4663 read of salary_bands_2026.xlsx at 09:23 under that same logon session, and a cmd.exe copy of the workbook into the profile Temp folder on the RDS server. Option (b) is the error this scenario exists to prevent, reporting the failure burst and never checking whether anything succeeded. Option (c) contradicts evt_bf_01_fw_inbound, where pan.action is allow. Option (d) contradicts evt_bf_10_siem_context, which records that the lockout policy did not apply to this account, and the failures did in fact run uninterrupted for eighteen minutes.",
     },
   ];
 
@@ -144,11 +144,11 @@ export function buildBruteForceSingleAccountScenario(
     attack_kind: "brute_force_single_account",
     briefing:
       "Microsoft Sentinel raised a High alert at 09:26 for the user s.wolfe: 214 Windows logon failures from one external address against the internet-published Remote Desktop server SRV-RDS-02, followed by one success. Establish what happened to that user and whether anything followed.",
-    narrative: `Between 09:02 and 09:20 a single address in Russia, 194.26.192.77, worked one account's password against SRV-RDS-02, the Remote Desktop server NexaCorp publishes to the internet. The first attempt used the name swolfe, which does not exist in the directory — SubStatus 0xC0000064. A minute later the attacker had the naming convention right and switched to s.wolfe, and from then on every rejection carried SubStatus 0xC000006A: valid account, wrong password. In all, 214 rejections were written in eighteen minutes: the one for swolfe and 213 for s.wolfe. The account was never locked out, because the lockout policy does not apply to the group it belongs to, so the attempts simply continued until one of them worked.
+    narrative: `Between 09:02 and 09:20 a single address in Russia, 194.26.192.77, worked one account's password against SRV-RDS-02, the Remote Desktop server NexaCorp publishes to the internet. The first attempt used the name swolfe, which does not exist in the directory, SubStatus 0xC0000064. A minute later the attacker had the naming convention right and switched to s.wolfe, and from then on every rejection carried SubStatus 0xC000006A: valid account, wrong password. In all, 214 rejections were written in eighteen minutes: the one for swolfe and 213 for s.wolfe. The account was never locked out, because the lockout policy does not apply to the group it belongs to, so the attempts simply continued until one of them worked.
 
 At 09:20:00 one did. The 4624 that records it is unremarkable to look at — same account, same server, same source address as the 214 rejections before it — and it is the whole incident. Eight seconds later a second 4624 with LogonType 10 shows a full Remote Desktop session open on SRV-RDS-02.
 
-What the session then did looks routine and is not. At 09:22 cmd.exe spawned net.exe to map a drive to \\\\SRV-FS-02\\HR-Confidential. SRV-FS-02 logged the session from its own side at 09:22:20 — a 4624 network logon from the RDS server, TargetLogonId 0x74C2E19 — and at 09:23 a payroll workbook, salary_bands_2026.xlsx, was opened for read under that logon session. A minute earlier, at 09:22:58, cmd.exe on the RDS server had been told to copy that workbook from the mapped drive into C:\\Users\\s.wolfe\\AppData\\Local\\Temp\\sb.xlsx. s.wolfe is an Accounts Payable clerk; the shares this account had touched in the previous ninety days were AP-Invoices, Scans and Finance-Reports. HR-Confidential is not one of them, and nothing about her role explains it.
+What the session then did looks routine and is not. At 09:22 cmd.exe spawned net.exe to map a drive to \\\\SRV-FS-02\\HR-Confidential. SRV-FS-02 logged the session from its own side at 09:22:20, a 4624 network logon from the RDS server, TargetLogonId 0x74C2E19, and at 09:23 a payroll workbook, salary_bands_2026.xlsx, was opened for read under that logon session. A minute earlier, at 09:22:58, cmd.exe on the RDS server had been told to copy that workbook from the mapped drive into C:\\Users\\s.wolfe\\AppData\\Local\\Temp\\sb.xlsx. s.wolfe is an Accounts Payable clerk; the shares this account had touched in the previous ninety days were AP-Invoices, Scans and Finance-Reports. HR-Confidential is not one of them, and nothing about her role explains it.
 
 Sentinel only correlated the failure burst at 09:26, six minutes after the attacker was already inside. The failure burst was the noise. The success was the incident. No logoff for the Remote Desktop session appears in the telemetry up to the alert, so as far as the logs show the session was still open when the ticket was raised.`,
     learning_objectives: [
@@ -163,7 +163,7 @@ Sentinel only correlated the failure burst at 09:26, six minutes after the attac
     events,
     iocs,
     killchain: [
-      { ts: T(0), phase: "Initial Access", action: `Inbound TCP/3389 from ${attackerIp} to SRV-RDS-02 — allowed by the published RDP rule` },
+      { ts: T(0), phase: "Initial Access", action: `Inbound TCP/3389 from ${attackerIp} to SRV-RDS-02, allowed by the published RDP rule` },
       { ts: T(2 * MIN), phase: "Credential Access", action: "First 4625 — username 'swolfe' does not exist (SubStatus 0xC0000064)" },
       { ts: T(3 * MIN), phase: "Credential Access", action: "Failures switch to s.wolfe: 213 wrong-password rejections over 17 minutes (214 failures in all with the first)" },
       { ts: T(20 * MIN), phase: "Initial Access", action: "4624 SUCCESS for s.wolfe from the same address — the account is now compromised" },

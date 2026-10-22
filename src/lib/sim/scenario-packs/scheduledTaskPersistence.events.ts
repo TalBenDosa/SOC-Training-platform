@@ -167,7 +167,7 @@ export function scheduledTaskPersistenceScenarioEvents() {
         sha256: schtasksHash, integrity: "Medium", processGuid: schtasksGuid, parentGuid: powershellGuid,
         eventType: "scheduled_task", isDetection: true, mitre: "T1053.005", tactic: "Persistence", severity: "high",
         description:
-          "Five seconds later powershell.exe spawned schtasks.exe, registering a per-user task named NetFixOptimizer to run the AppData binary every day at 07:50 (no elevation — the user is not a local admin).",
+          "Five seconds later powershell.exe spawned schtasks.exe, registering a per-user task named NetFixOptimizer to run the AppData binary every day at 07:50 (no elevation, the user is not a local admin).",
       }),
       edr_scope: "edr",
     },
@@ -231,7 +231,7 @@ export function scheduledTaskPersistenceScenarioEvents() {
       pid: 2016, parentPid: 1148, sha256: payloadHash, integrity: "Medium", processGuid: netfixGuid2, parentGuid: svchostGuid,
       mitre: "T1053.005", tactic: "Persistence", severity: "high",
       description:
-        "At 07:50:02 the next morning, netfix_agent.exe launched again — this time as a child of svchost.exe (Task Scheduler), not powershell.exe, at the 07:50 time the NetFixOptimizer trigger names.",
+        "At 07:50:02 the next morning, netfix_agent.exe launched again, this time as a child of svchost.exe (Task Scheduler), not powershell.exe, at the 07:50 time the NetFixOptimizer trigger names.",
     }),
 
     // 7a. What it does when it runs: the same check-in (Sysmon 22, 3 and the firewall session).

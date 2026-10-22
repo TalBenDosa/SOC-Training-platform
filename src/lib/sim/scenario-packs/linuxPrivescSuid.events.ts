@@ -148,7 +148,7 @@ export function linuxPrivescSuidScenarioEvents() {
       mitre_technique: "T1505.003",
       mitre_tactic: "Persistence",
       description:
-        "The PHP-FPM worker on web-app-07 (php-fpm8.1, running as www-data) executed an interactive /bin/sh at 13:42:50 — the shell every later command in this ticket hangs off.",
+        "The PHP-FPM worker on web-app-07 (php-fpm8.1, running as www-data) executed an interactive /bin/sh at 13:42:50, the shell every later command in this ticket hangs off.",
       process: {
         name: "sh",
         pid: SHELL_PID,
@@ -435,7 +435,7 @@ export function linuxPrivescSuidScenarioEvents() {
       mitre_technique: "T1136.001",
       mitre_tactic: "Persistence",
       description:
-        "The root shell ran useradd to create the account sysupdate with uid 0 and gid 0 — a second root-equivalent identity, with a home directory. The SYSCALL shows uid=33 euid=0 executing /usr/sbin/useradd.",
+        "The root shell ran useradd to create the account sysupdate with uid 0 and gid 0, a second root-equivalent identity, with a home directory. The SYSCALL shows uid=33 euid=0 executing /usr/sbin/useradd.",
       raw: syscallRaw({ syscall: "59", pid: 40455, ppid: ROOT_SHELL_PID, comm: "useradd", exe: "/usr/sbin/useradd", key: "identity-change", root: true }),
     },
     {
@@ -489,7 +489,7 @@ export function linuxPrivescSuidScenarioEvents() {
       severity: "high",
       mitre_technique: "T1098.004",
       mitre_tactic: "Persistence",
-      description: "The root shell (pid 40378) opened /home/sysupdate/.ssh/authorized_keys for writing at 13:54:00 — the shell itself performs the redirection, so there is no separate process.",
+      description: "The root shell (pid 40378) opened /home/sysupdate/.ssh/authorized_keys for writing at 13:54:00, the shell itself performs the redirection, so there is no separate process.",
       raw: syscallRaw({ syscall: "257", pid: ROOT_SHELL_PID, ppid: 40377, comm: "sh", exe: "/usr/bin/dash", key: "ssh-keys", exit: "3", root: true }),
     },
     {

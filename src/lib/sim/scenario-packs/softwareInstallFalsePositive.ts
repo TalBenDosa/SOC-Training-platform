@@ -333,7 +333,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
         parentPath: `C:\\Program Files (x86)\\Microsoft Intune Management Extension\\${IME_NAME}`,
         extra: { "crowdstrike.PatternId": "41277", "crowdstrike.PatternDispositionValue": "10" },
         description:
-          "Falcon raised a HIGH behavioural detection on WS-ENG-4471 — unsigned write to Program Files, LocalSystem service, network session within seventy seconds. Disposition: Detection, No Action.",
+          "Falcon raised a HIGH behavioural detection on WS-ENG-4471, unsigned write to Program Files, LocalSystem service, network session within seventy seconds. Disposition: Detection, No Action.",
       }),
       edr_scope: "edr",   // endpoint-only incident → investigated entirely in the EDR console
     },
@@ -610,7 +610,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
     attack_kind: "false_positive",
     briefing:
       "CrowdStrike Falcon raised a HIGH behavioural detection on engineering workstation WS-ENG-4471 at 21:01: an unsigned executable written into Program Files, a new service running as LocalSystem, and an outbound network session, all within seventy seconds. Nothing was blocked. Determine what ran on the host and whether the workstation needs to be contained.",
-    narrative: `At 21:01 CrowdStrike Falcon fires a HIGH detection on WS-ENG-4471, an engineering workstation. In the seventy seconds before it, an unsigned executable was written into C:\\Program Files\\MeshLink\\bin, a service called MeshLinkCollector was registered to auto-start as LocalSystem, and the host opened a TLS session — with no user process anywhere in the chain. Read on its own, that chain is a competent dropper, and the reflex is to isolate the machine.
+    narrative: `At 21:01 CrowdStrike Falcon fires a HIGH detection on WS-ENG-4471, an engineering workstation. In the seventy seconds before it, an unsigned executable was written into C:\\Program Files\\MeshLink\\bin, a service called MeshLinkCollector was registered to auto-start as LocalSystem, and the host opened a TLS session, with no user process anywhere in the chain. Read on its own, that chain is a competent dropper, and the reflex is to isolate the machine.
 
 The correct verdict here is that there is no incident, and reaching it takes more work than escalating would have. Four records that were never written to explain each other have to be lined up.
 
@@ -618,7 +618,7 @@ The first is a change record, CHG0043912, cut that morning by e.shani in Endpoin
 
 The third is the process record itself. mlnk-collector-setup.exe did not appear from a browser download or a share. Its parent is Microsoft.Management.Services.IntuneWindowsAgent.exe, and it ran from C:\\Windows\\IMECache — the management extension's private download cache, which nothing but the agent populates. It ran at 21:00, the deadline on the assignment. The fourth is the install-status report four minutes later: WS-ENG-4471, deployment DPL-40218, member of ENG-Workstations-Ring2, installState installed, errorCode 0.
 
-Two further checks close the remaining gaps. The connection that helped fire the rule was opened by the new service process itself, mlnk-collector.exe (pid 7560, local port 50912, the same port the firewall logged), and went to 10.30.9.40 on port 8443, an address the host resolved for mesh-collect.corp.nexacorp.com out of the internal authoritative zone — a private address, on an internal firewall rule, in a session that crossed from USERS to SERVERS and never touched the internet. And the estate-wide prevalence review found mlnk-collector.exe on 197 hosts, every one of them inside ENG-Workstations-Ring2 and none outside it, first seen in the tenant during that window, with no anti-malware detection from any vendor, no threat-intelligence match, no Run keys, no scheduled tasks, no credential access and no remote logons.
+Two further checks close the remaining gaps. The connection that helped fire the rule was opened by the new service process itself, mlnk-collector.exe (pid 7560, local port 50912, the same port the firewall logged), and went to 10.30.9.40 on port 8443, an address the host resolved for mesh-collect.corp.nexacorp.com out of the internal authoritative zone, a private address, on an internal firewall rule, in a session that crossed from USERS to SERVERS and never touched the internet. And the estate-wide prevalence review found mlnk-collector.exe on 197 hosts, every one of them inside ENG-Workstations-Ring2 and none outside it, first seen in the tenant during that window, with no anti-malware detection from any vendor, no threat-intelligence match, no Run keys, no scheduled tasks, no credential access and no remote logons.
 
 The unsigned binary is a real finding and belongs in the closure note as a recommendation: an internally built agent that installs as LocalSystem should be code-signed, so that the next ring does not cost the SOC another investigation. But the alert itself is a true description of behaviour and a false description of intent. Close it, cite CHG0043912, the deployment DPL-40218, the IntuneWindowsAgent.exe parent and the prevalence result, and record that a hash outside the assigned group or an external destination would have changed the verdict.`,
     learning_objectives: [

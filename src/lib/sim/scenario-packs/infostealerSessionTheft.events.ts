@@ -206,7 +206,7 @@ export function infostealerSessionTheftScenarioEvents() {
         ],
         "azure.signinlogs.properties.appliedConditionalAccessPolicies": caPolicy,
       },
-      description: "A second Entra sign-in for r.avidan completed from 91.243.24.19 in Moscow on an unmanaged Windows 10 / Chrome 149 device — five minutes after Falcon saw her Cookies database copied on LAP-6688. Both the first factor and multifactor were satisfied by claims already present in the token.",
+      description: "A second Entra sign-in for r.avidan completed from 91.243.24.19 in Moscow on an unmanaged Windows 10 / Chrome 149 device, five minutes after Falcon saw her Cookies database copied on LAP-6688. Both the first factor and multifactor were satisfied by claims already present in the token.",
     }) },
 
     // 9. The endpoint verdict, arriving after the transfer and the replay.
@@ -232,7 +232,7 @@ export function infostealerSessionTheftScenarioEvents() {
       userAgent: UA_REPLAY,
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
       extra: { "RecordType": "6", "UserType": "0", "ResultStatus": "Succeeded", "SourceRelativeUrl": "Shared Documents", "EventSource": "SharePoint", "CorrelationId": correlationIdReplay, "ItemType": "File" },
-      description: "The replayed session opened Q3_Pipeline_Forecast.xlsx under /sites/Sales/Shared Documents from 91.243.24.19 — the same account, the same unmanaged Chrome 149 session that signed in a minute earlier.",
+      description: "The replayed session opened Q3_Pipeline_Forecast.xlsx under /sites/Sales/Shared Documents from 91.243.24.19, the same account, the same unmanaged Chrome 149 session that signed in a minute earlier.",
     }), file: undefined },
   ];
 

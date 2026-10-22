@@ -125,7 +125,7 @@ export function helpdeskMfaResetScenarioEvents() {
       riskLevel: "none", riskDetail: "none", conditionalAccess: "success",
       geo: { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 }, severity: "informational",
       extra: { "azure.signinlogs.properties.location.state": "England", "azure.signinlogs.properties.authenticationDetails": pwPush(45 * MIN) },
-      description: "l.ferreira signed in to SharePoint Online at 09:45 from the same London address and the same laptop, MFA completed by an Authenticator push — while the ticket taken on her behalf was still open.",
+      description: "l.ferreira signed in to SharePoint Online at 09:45 from the same London address and the same laptop, MFA completed by an Authenticator push, while the ticket taken on her behalf was still open.",
     }), is_baseline: true },
 
     // 4a. The password reset lands in the directory (Entra audit, Core Directory).
@@ -181,7 +181,7 @@ export function helpdeskMfaResetScenarioEvents() {
       tokenIssuerType: "AzureAD", incomingTokenType: "none", riskLevel: "none", riskDetail: "none", riskEventTypes: [], conditionalAccess: "notApplicable",
       geo: { country: "Netherlands", city: "Amsterdam", latitude: 52.3702, longitude: 4.8952 }, severity: "medium",
       extra: { "azure.signinlogs.properties.location.state": "North Holland" },
-      description: "A sign-in to My Signins for l.ferreira from 5.181.234.19 in Amsterdam was interrupted with error 50072 (user needs to enroll for second factor) — the first request seen from this address, twenty seconds before the Authenticator registration.",
+      description: "A sign-in to My Signins for l.ferreira from 5.181.234.19 in Amsterdam was interrupted with error 50072 (user needs to enroll for second factor), the first request seen from this address, twenty seconds before the Authenticator registration.",
     }),
 
     // 6. A NEW authenticator is registered — but from the attacker's address (T1098.005).
@@ -196,7 +196,7 @@ export function helpdeskMfaResetScenarioEvents() {
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].oldValue": "[]",
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].newValue": "[{\"MethodType\":\"PhoneAppNotification\",\"Default\":true}]",
       },
-      description: "A new Microsoft Authenticator app was registered as l.ferreira's security info about seven minutes after the reset — the initiating identity is l.ferreira, but the IP address is 5.181.234.19 in Amsterdam, not the address recorded on either of her sign-ins this morning.",
+      description: "A new Microsoft Authenticator app was registered as l.ferreira's security info about seven minutes after the reset, the initiating identity is l.ferreira, but the IP address is 5.181.234.19 in Amsterdam, not the address recorded on either of her sign-ins this morning.",
     }),
 
     // 6a. The real Lucia, still working in London in her 09:45 session (SharePoint, UAL).
@@ -288,7 +288,7 @@ export function helpdeskMfaResetScenarioEvents() {
       companyId: cx, id: "evt_hmr_08_vdi_session", ts: T(66 * MIN), host: vdiHost.hostname, srcIp: vdiHost.ip, user: victim.email,
       processName: "explorer.exe", processPath: "C:\\Windows\\explorer.exe", cmdline: "C:\\Windows\\explorer.exe",
       parentName: "userinit.exe", parentPid: 3312, pid: 4488, integrity: "medium", severity: "high",
-      description: "Ten seconds after the remote-desktop logon, a new interactive session started on VDI-POOL-014 under l.ferreira's account — userinit.exe launched explorer.exe, the standard start of a fresh logon session.",
+      description: "Ten seconds after the remote-desktop logon, a new interactive session started on VDI-POOL-014 under l.ferreira's account, userinit.exe launched explorer.exe, the standard start of a fresh logon session.",
     }),
   ];
 

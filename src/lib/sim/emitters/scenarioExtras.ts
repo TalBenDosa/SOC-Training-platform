@@ -51,7 +51,7 @@ export function winTaskCreated(o: WinTaskCreatedOpts): TelemetryEvent {
     id: o.id, ts: o.ts, source: "windows_security", vendor: WINSEC, event_type: "scheduled_task",
     severity: o.severity ?? "medium", hostname: o.host, user_email: o.userEmail,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
-    description: o.description ?? `4698 — scheduled task ${o.taskName} created by ${o.user} on ${o.host}`,
+    description: o.description ?? `4698, scheduled task ${o.taskName} created by ${o.user} on ${o.host}`,
     raw: {
       "winlog.event_id": "4698",
       "winlog.channel": "Security",

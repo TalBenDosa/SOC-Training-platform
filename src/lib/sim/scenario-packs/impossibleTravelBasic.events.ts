@@ -358,7 +358,7 @@ export function impossibleTravelBasicScenarioEvents() {
       geo: { country: "Netherlands", city: "Amsterdam", latitude: 52.3676, longitude: 4.9041 },
       authentication: { method: "Password", mfa_type: "Mobile app notification", result: "success" },
       description:
-        "A sign-in to Exchange Online for d.harel completed successfully at 07:31 from 91.229.23.86 (Amsterdam, AS60781), password then Authenticator push, on AutonomousSystemNumber 60781 — the same host the browser POSTed credentials to 40 seconds earlier.",
+        "A sign-in to Exchange Online for d.harel completed successfully at 07:31 from 91.229.23.86 (Amsterdam, AS60781), password then Authenticator push, on AutonomousSystemNumber 60781, the same host the browser POSTed credentials to 40 seconds earlier.",
       raw: {
         "azure.signinlogs.operationName": "Sign-in activity",
         "azure.signinlogs.category": "SignInLogs",

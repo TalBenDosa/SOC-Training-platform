@@ -217,7 +217,7 @@ export function buildInsiderDlpUsbCloudScenario(
       userEmail: insider.email, srcIp: host.ip, shareName: "\\\\*\\ClientShare", shareLocalPath: "\\??\\D:\\Shares\\ClientShare", subjectLogonId: SHARE_LOGON,
       severity: "medium", incidentId: INCIDENT, mitre: "T1039", tactic: "Collection",
       description:
-        "Beginning 13:20 d.okafor connected to the ClientShare share on SRV-NX-FIN02 from LAPTOP-NX-FIN14 and, from 13:21, opened 192 files from it in about eight minutes — far above his usual read volume.",
+        "Beginning 13:20 d.okafor connected to the ClientShare share on SRV-NX-FIN02 from LAPTOP-NX-FIN14 and, from 13:21, opened 192 files from it in about eight minutes, far above his usual read volume.",
     }), source: "windows_security" as const },
     ...sampleReads.map(([name, off, rel], i) => ({
       ...winDetailedShareAccess({
@@ -337,7 +337,7 @@ export function buildInsiderDlpUsbCloudScenario(
         severity: i === 0 ? "high" : "medium",
         ...(i === 0 ? { isDetection: true, mitre: "T1052.001", tactic: "Exfiltration" } : {}),
         description: i === 0
-          ? `At 13:47 explorer.exe wrote ${file1} to the mounted USB volume ${usbVolume} (D:) on LAPTOP-NX-FIN14 — the first of 34 client files copied to the stick over the next two minutes.`
+          ? `At 13:47 explorer.exe wrote ${file1} to the mounted USB volume ${usbVolume} (D:) on LAPTOP-NX-FIN14, the first of 34 client files copied to the stick over the next two minutes.`
           : `explorer.exe wrote ${name} to the USB volume D: on LAPTOP-NX-FIN14.`,
       });
       return withProc(i === 0 ? { ...e, edr_scope: "hybrid" as const } : e, explorerProc);
@@ -509,7 +509,7 @@ export function buildInsiderDlpUsbCloudScenario(
         "DLP Enforcement Mode": "Audit (no block on any control)",
       },
       description:
-        "Sentinel correlated four signals for d.okafor into one incident: a scheduled departure, client-share access far above his 30-day norm, a bulk copy to removable media, and a personal-cloud upload of the same data — every DLP control on the path in Audit mode.",
+        "Sentinel correlated four signals for d.okafor into one incident: a scheduled departure, client-share access far above his 30-day norm, a bulk copy to removable media, and a personal-cloud upload of the same data, every DLP control on the path in Audit mode.",
     }),
   ];
 
@@ -587,12 +587,12 @@ export function buildInsiderDlpUsbCloudScenario(
       answer: "usb_and_cloud",
       xp: 40,
       explanation:
-        "T1052.001 is exfiltration onto removable media — evidenced by evt_idt_06_usb_write and its sibling records, where explorer.exe writes the client files to drive D: (the Kingston volume). T1567.002 is exfiltration to a web service — evidenced by the Zscaler records (evt_idt_09_proxy and the two chunks before it), three allowed HTTPS POSTs to www.dropbox.com carrying about 613 MB in total, plus the msedge.exe session to 162.125.248.18. Those are the two channels. evt_idt_04_staging is T1074.001 (local staging): robocopy only consolidates the files into a folder on the same laptop, so nothing has left yet — it is a precursor, not a channel. evt_idt_03/evt_idt_08 are the DLP policy matches that describe the activity, and evt_idt_05/evt_idt_10 are the mount and the correlation; useful evidence, but not themselves the two egress events.",
+        "T1052.001 is exfiltration onto removable media, evidenced by evt_idt_06_usb_write and its sibling records, where explorer.exe writes the client files to drive D: (the Kingston volume). T1567.002 is exfiltration to a web service, evidenced by the Zscaler records (evt_idt_09_proxy and the two chunks before it), three allowed HTTPS POSTs to www.dropbox.com carrying about 613 MB in total, plus the msedge.exe session to 162.125.248.18. Those are the two channels. evt_idt_04_staging is T1074.001 (local staging): robocopy only consolidates the files into a folder on the same laptop, so nothing has left yet, it is a precursor, not a channel. evt_idt_03/evt_idt_08 are the DLP policy matches that describe the activity, and evt_idt_05/evt_idt_10 are the mount and the correlation; useful evidence, but not themselves the two egress events.",
     },
     {
       id: "q2",
       prompt:
-        "Every DLP match in this incident — bulk access, USB copy, and cloud upload — shows RuleMode: Enforce and Actions: [Audit, NotifyUser], and yet the transfers all completed: the files are on the USB volume and the proxy records the POSTs as allowed. What does that tell you about NexaCorp's DLP posture, and how should it change your reading of the incident?",
+        "Every DLP match in this incident, bulk access, USB copy, and cloud upload, shows RuleMode: Enforce and Actions: [Audit, NotifyUser], and yet the transfers all completed: the files are on the USB volume and the proxy records the POSTs as allowed. What does that tell you about NexaCorp's DLP posture, and how should it change your reading of the incident?",
       kind: "single",
       options: [
         { value: "audit_only_still_theft", label: "The policies matched correctly but are set to log and notify, not block — 'allowed' means 'not prevented', not 'approved', and the data still left" },
@@ -603,24 +603,24 @@ export function buildInsiderDlpUsbCloudScenario(
       answer: "audit_only_still_theft",
       xp: 50,
       explanation:
-        "RuleMode is Enforce and the configured Actions are Audit and NotifyUser on every match — the policies are switched on and matched real labeled data (2,214 / 1,663 / 1,980 IBAN instances at 85% confidence), which rules out 'disabled' (c) and 'false positive' (d). But there is no BlockAccess or RestrictAccess anywhere in the Actions — so the enforced behaviour IS logging, not blocking. That is why the copy to D: and the Dropbox POSTs completed: the control observed the activity and permitted it by design. The trap is (b) — reading 'allowed' as 'authorized'. In audit-mode DLP, 'allowed' is the default outcome for everything, benign and malicious alike; it carries no verdict at all. The correct reading is that these three matches are high-quality evidence of data leaving, and the absence of a block is a gap in the control, not exoneration of the user.",
+        "RuleMode is Enforce and the configured Actions are Audit and NotifyUser on every match, the policies are switched on and matched real labeled data (2,214 / 1,663 / 1,980 IBAN instances at 85% confidence), which rules out 'disabled' (c) and 'false positive' (d). But there is no BlockAccess or RestrictAccess anywhere in the Actions, so the enforced behaviour IS logging, not blocking. That is why the copy to D: and the Dropbox POSTs completed: the control observed the activity and permitted it by design. The trap is (b), reading 'allowed' as 'authorized'. In audit-mode DLP, 'allowed' is the default outcome for everything, benign and malicious alike; it carries no verdict at all. The correct reading is that these three matches are high-quality evidence of data leaving, and the absence of a block is a gap in the control, not exoneration of the user.",
     },
     {
       id: "q3",
       prompt:
-        "evt_idt_11_benign_control shows h.reyes moving 1.4 GB — a LARGER transfer than the insider's ~613 MB — the same afternoon, yet it is benign. Reading it against Daniel Okafor's activity, what actually separates exfiltration from legitimate bulk work here?",
+        "evt_idt_11_benign_control shows h.reyes moving 1.4 GB, a LARGER transfer than the insider's ~613 MB, the same afternoon, yet it is benign. Reading it against Daniel Okafor's activity, what actually separates exfiltration from legitimate bulk work here?",
       hint: "If raw volume decided it, the bigger transfer would be the worse one. It isn't. Compare destination, authorization, role, and the HR signal.",
       kind: "single",
       options: [
         { value: "destination_auth_context", label: "Destination and context: Reyes sends to a sanctioned corporate tenant under a change ticket, in a bulk-data role; Okafor sends client data to a personal cloud and USB, above baseline, while departing" },
-        { value: "volume_decides", label: "Volume decides it — Reyes moved 1.4 GB against Okafor's ~613 MB, so by raw transfer size her upload is the objectively higher-risk one and should be escalated ahead of his" },
+        { value: "volume_decides", label: "Volume decides it, Reyes moved 1.4 GB against Okafor's ~613 MB, so by raw transfer size her upload is the objectively higher-risk one and should be escalated ahead of his" },
         { value: "dlp_fired_or_not", label: "Whether DLP fired — Okafor triggered Purview policy matches and Reyes's transfer did not, so the presence or absence of a DLP alert alone cleanly separates the two cases with no further context needed" },
         { value: "same_verdict", label: "Nothing meaningfully separates them — both are large transfers off the corporate network on the same afternoon by authenticated employees, so both should be logged and closed as ordinary benign business activity" },
       ],
       answer: "destination_auth_context",
       xp: 60,
       explanation:
-        "This is the core skill the scenario trains: exfiltration is judged by destination, authorization and baseline — not by byte count. Reyes moves MORE data, but to nexacorp-my.sharepoint.com (a sanctioned corporate destination), under an actual change ticket (CHG-2026-0814, approved that morning), in a Data Engineer role whose remit is bulk migration, with no HR flag. Okafor moves Highly-Confidential CLIENT data to a personal Dropbox and a personal USB, at about 14 times his own 30-day file-access baseline (192 files against 14 a day), three days into a resignation with access-revocation already scheduled. Option (b) inverts the logic — 'bigger = worse' would clear the thief and flag the engineer. Option (c) over-trusts the DLP: audit-mode matches flag sensitive-data movement but don't by themselves prove intent; the exoneration of Reyes comes from her context, and the incrimination of Okafor comes from his — the destination, the authorization, the baseline and the departure, read together.",
+        "This is the core skill the scenario trains: exfiltration is judged by destination, authorization and baseline, not by byte count. Reyes moves MORE data, but to nexacorp-my.sharepoint.com (a sanctioned corporate destination), under an actual change ticket (CHG-2026-0814, approved that morning), in a Data Engineer role whose remit is bulk migration, with no HR flag. Okafor moves Highly-Confidential CLIENT data to a personal Dropbox and a personal USB, at about 14 times his own 30-day file-access baseline (192 files against 14 a day), three days into a resignation with access-revocation already scheduled. Option (b) inverts the logic, 'bigger = worse' would clear the thief and flag the engineer. Option (c) over-trusts the DLP: audit-mode matches flag sensitive-data movement but don't by themselves prove intent; the exoneration of Reyes comes from her context, and the incrimination of Okafor comes from his, the destination, the authorization, the baseline and the departure, read together.",
     },
     {
       id: "q4",
@@ -636,7 +636,7 @@ export function buildInsiderDlpUsbCloudScenario(
       answer: "malicious_insider_escalate",
       xp: 60,
       explanation:
-        "Insider threats look exactly like this: authorized access, a valid account, no malware, nothing blocked. The evidence is nonetheless complete and dated inside one afternoon — bulk access at about 14 times baseline (T1039), a 34-file copy to a personal USB (T1052.001), and an upload of the same files to a personal Dropbox (T1567.002) — by a man whose resignation and access-revocation are already logged in Workday. Option (b) is the exact failure the scenario exists to prevent: equating 'allowed' with 'benign' in an audit-only DLP estate, where allowed is the outcome of everything. Option (c) buries a live data-theft in an engineering queue. Option (d) waits for a malware signal that will never come in a valid-account insider case. The correct handling is to classify it as malicious insider exfiltration, preserve the host and the USB serial (KINGSTON-DT-6F2A9C41) as evidence, loop in HR and Legal, and make sure the scheduled revocation actually happens — and to raise moving the DLP policies from Audit to Block so the next one is stopped, not just recorded.",
+        "Insider threats look exactly like this: authorized access, a valid account, no malware, nothing blocked. The evidence is nonetheless complete and dated inside one afternoon, bulk access at about 14 times baseline (T1039), a 34-file copy to a personal USB (T1052.001), and an upload of the same files to a personal Dropbox (T1567.002), by a man whose resignation and access-revocation are already logged in Workday. Option (b) is the exact failure the scenario exists to prevent: equating 'allowed' with 'benign' in an audit-only DLP estate, where allowed is the outcome of everything. Option (c) buries a live data-theft in an engineering queue. Option (d) waits for a malware signal that will never come in a valid-account insider case. The correct handling is to classify it as malicious insider exfiltration, preserve the host and the USB serial (KINGSTON-DT-6F2A9C41) as evidence, loop in HR and Legal, and make sure the scheduled revocation actually happens, and to raise moving the DLP policies from Audit to Block so the next one is stopped, not just recorded.",
     },
   ];
 
@@ -649,16 +649,16 @@ export function buildInsiderDlpUsbCloudScenario(
       "Microsoft Sentinel raised an insider-risk incident at 14:25 for d.okafor, a Senior Financial Analyst whose resignation is already in Workday. Establish what left the environment, by which routes, and whether this is theft or legitimate work.",
     narrative: `Daniel Okafor is a Senior Financial Analyst on NexaCorp's Client Accounts team. Three days before this window, he submitted his resignation; Workday shows a voluntary termination dated 2026-08-28, his last working Friday, with access-revocation already scheduled for that evening. He is inside his notice period, and everything he does over this Monday afternoon is authenticated as his own valid account — nothing is stolen or spoofed.
 
-At 13:15 he logs on to LAPTOP-NX-FIN14 normally. By 13:20 he has connected to the Client Accounts file share and from 13:21 he is opening files far faster than usual — 192 in about eight minutes, against a 30-day baseline of roughly fourteen a day; the file server's own Security log shows the share connection and per-file reads. At 13:29 Microsoft Purview matches 2,214 instances of labeled client financial data being read; the rule is enforced, but its configured actions are Audit and NotifyUser, so it logs and notifies and blocks nothing. At 13:36 he opens a command prompt and at 13:37 robocopy mirrors the ClientRecords folder into a local staging folder under his profile.
+At 13:15 he logs on to LAPTOP-NX-FIN14 normally. By 13:20 he has connected to the Client Accounts file share and from 13:21 he is opening files far faster than usual, 192 in about eight minutes, against a 30-day baseline of roughly fourteen a day; the file server's own Security log shows the share connection and per-file reads. At 13:29 Microsoft Purview matches 2,214 instances of labeled client financial data being read; the rule is enforced, but its configured actions are Audit and NotifyUser, so it logs and notifies and blocks nothing. At 13:36 he opens a command prompt and at 13:37 robocopy mirrors the ClientRecords folder into a local staging folder under his profile.
 
-At 13:46 a Kingston DataTraveler USB stick — serial KINGSTON-DT-6F2A9C41, volume labeled DOKAFOR-BACKUP — mounts as drive D:. Within two minutes, explorer.exe writes 34 client files to it, including Client_Master_Book_2026.xlsx and FY26_Client_Pricing_Model.xlsx; Defender for Endpoint records the writes, and Purview's removable-media policy matches them — again in Audit mode, again allowed. At 14:02 he starts Microsoft Edge on www.dropbox.com; at 14:03 Purview's cloud-egress policy matches the same files being uploaded through it to a consumer account on no sanctioned list (Audit, allowed), and Zscaler logs the HTTPS POST sessions that carry about 613 MB out over roughly fourteen minutes.
+At 13:46 a Kingston DataTraveler USB stick, serial KINGSTON-DT-6F2A9C41, volume labeled DOKAFOR-BACKUP, mounts as drive D:. Within two minutes, explorer.exe writes 34 client files to it, including Client_Master_Book_2026.xlsx and FY26_Client_Pricing_Model.xlsx; Defender for Endpoint records the writes, and Purview's removable-media policy matches them, again in Audit mode, again allowed. At 14:02 he starts Microsoft Edge on www.dropbox.com; at 14:03 Purview's cloud-egress policy matches the same files being uploaded through it to a consumer account on no sanctioned list (Audit, allowed), and Zscaler logs the HTTPS POST sessions that carry about 613 MB out over roughly fourteen minutes.
 
 Not one control on this path said no. Sentinel finally correlates the departure, the above-baseline access, the USB copy and the personal-cloud upload into a single incident at 14:25. For contrast, the same afternoon a Data Engineer, Hannah Reyes, moved an even larger 1.4 GB — but to a sanctioned corporate tenant, under change ticket CHG-2026-0814, in role, with no departure flag. Same shape, opposite verdict. The lesson is that in an audit-only DLP estate 'allowed' is the outcome of everything, and the analyst has to reach 'theft' from the data's destination and the actor's context, not from any control that blocked it.`,
     learning_objectives: [
       "Recognise insider data theft where every action is allowed, performed under a valid account (T1078), with no malware and no blocked control, by correlating Workday, Purview DLP, Defender for Endpoint, Zscaler and Sentinel on one user and host",
       "Distinguish the two exfiltration channels — over USB (T1052.001) and to cloud storage (T1567.002) — from local staging (T1074.001), which never leaves the host",
       "Read Purview RuleMode and Actions fields to see that an enforced-but-audit-only policy logs rather than blocks, so a completed transfer carries no verdict",
-      "Judge exfiltration by destination, authorization, baseline and HR/Workday context (a scheduled departure) rather than raw transfer volume — using the benign heavy-transfer control to calibrate",
+      "Judge exfiltration by destination, authorization, baseline and HR/Workday context (a scheduled departure) rather than raw transfer volume, using the benign heavy-transfer control to calibrate",
     ],
     alerts: [],
     events,
@@ -672,8 +672,8 @@ Not one control on this path said no. Sentinel finally correlates the departure,
       { ts: T(31 * MIN), phase: "Exfiltration", action: `Kingston USB ${usbSerial} (volume ${usbVolume}) mounts as D: — device control in Audit mode` },
       { ts: T(32 * MIN), phase: "Exfiltration", action: "Defender for Endpoint records 34 client files written to the USB volume by explorer.exe (T1052.001)" },
       { ts: T(47 * MIN + 30 * SEC), phase: "Exfiltration", action: `Edge starts on ${personalCloud} and opens a session to ${dropboxIp}` },
-      { ts: T(48 * MIN), phase: "Exfiltration", action: `Same 34 files uploaded via browser to ${personalCloud} — Purview match, Audit mode (T1567.002)` },
-      { ts: T(63 * MIN + 2 * SEC), phase: "Exfiltration", action: `Zscaler has logged three allowed HTTPS POSTs to ${personalCloud} — 613 MB out over ~14 minutes` },
+      { ts: T(48 * MIN), phase: "Exfiltration", action: `Same 34 files uploaded via browser to ${personalCloud}, Purview match, Audit mode (T1567.002)` },
+      { ts: T(63 * MIN + 2 * SEC), phase: "Exfiltration", action: `Zscaler has logged three allowed HTTPS POSTs to ${personalCloud}, 613 MB out over ~14 minutes` },
       { ts: T(70 * MIN), phase: "Detection", action: "Sentinel correlates departure + access + USB + cloud into one insider incident" },
     ],
     questions,

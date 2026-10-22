@@ -324,7 +324,7 @@ export function webShellRceScenarioEvents() {
       severity: "low",
       expected_verdict: "fp",
       fp_explanation:
-        "64.39.106.131 is inside the Qualys cloud scanner range that NexaCorp whitelisted for its quarterly PCI ASV external scan (change record CHG0042611, window 09:00 to 11:00 UTC on 17 Mar). The scanner fires the whole SQLi payload catalogue at every parameter it finds and the WAF blocks all of it — high volume, uniform payloads, a single source IP that never rotates, and a self-identifying User-Agent. It is scanning noise, not exploitation.",
+        "64.39.106.131 is inside the Qualys cloud scanner range that NexaCorp whitelisted for its quarterly PCI ASV external scan (change record CHG0042611, window 09:00 to 11:00 UTC on 17 Mar). The scanner fires the whole SQLi payload catalogue at every parameter it finds and the WAF blocks all of it, high volume, uniform payloads, a single source IP that never rotates, and a self-identifying User-Agent. It is scanning noise, not exploitation.",
       network: { url: `https://${web.site}/products/search.aspx`, domain: web.site, method: "GET", status: 403, user_agent: uaQualys },
       description:
         "AWS WAF blocked a SQL injection payload from 64.39.106.131. Representative of a sustained burst from this single address across many parameters and paths.",
@@ -1055,7 +1055,7 @@ export function webShellRceScenarioEvents() {
       mitre_tactic: "Exfiltration",
       network: { url: `https://${c2Dom}/u`, domain: c2Dom, bytes_out: 5918204, bytes_in: 214 },
       description:
-        "curl.exe running as SYSTEM POSTed C:\\Windows\\Temp\\ib.dat to https://cdn-shopassets.link/u (194.26.29.114) — 5,918,204 bytes out, 214 in.",
+        "curl.exe running as SYSTEM POSTed C:\\Windows\\Temp\\ib.dat to https://cdn-shopassets.link/u (194.26.29.114), 5,918,204 bytes out, 214 in.",
       raw: {
         Timestamp: "2026-03-17T10:04:00.552Z",
         DeviceName: "web-shop-01.nexacorp.com",

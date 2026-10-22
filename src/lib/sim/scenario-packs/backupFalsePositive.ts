@@ -310,7 +310,7 @@ export function buildBackupFalsePositiveScenario(
       answer: "change_start",
       xp: 40,
       explanation:
-        "Neither event proves it alone. The ticket only shows what was *meant* to happen; the process event only shows what *did* happen. Together they line up (and the same agent binary ran the old 23:00 incremental the evening before): a CAB-approved 02:00 full-backup window, and at 02:00 a process whose parent is services.exe — the Service Control Manager — with a job GUID on the command line. The logon and privilege pair (b) tells you what the account can do, not who scheduled it. Pair (c) is exactly the behaviour the heuristic already flagged, so it cannot resolve the question. Pair (d) is the alarm and its restatement, which is where the investigation started.",
+        "Neither event proves it alone. The ticket only shows what was *meant* to happen; the process event only shows what *did* happen. Together they line up (and the same agent binary ran the old 23:00 incremental the evening before): a CAB-approved 02:00 full-backup window, and at 02:00 a process whose parent is services.exe, the Service Control Manager, with a job GUID on the command line. The logon and privilege pair (b) tells you what the account can do, not who scheduled it. Pair (c) is exactly the behaviour the heuristic already flagged, so it cannot resolve the question. Pair (d) is the alarm and its restatement, which is where the investigation started.",
     },
     {
       id: "q2",
@@ -326,7 +326,7 @@ export function buildBackupFalsePositiveScenario(
       answer: "sig_path",
       xp: 50,
       explanation:
-        "A valid Authenticode signature from Veeam Software Group GmbH, chaining to a trusted CA, plus the binary living under C:\\Program Files\\Veeam\\... is the combination that is expensive for an attacker to fake — malware that impersonates a product almost always runs from ProgramData, Temp or a user profile. Integrity level (b) proves nothing on its own: ransomware run by a service also gets a System token. How old a hash is (c) is not an attribute of that event, and it proves nothing: malware that has persisted for weeks has an old hash too. A matching file name (d) is the single easiest thing in the whole chain to forge, which is precisely why analysts check the signer and the path instead.",
+        "A valid Authenticode signature from Veeam Software Group GmbH, chaining to a trusted CA, plus the binary living under C:\\Program Files\\Veeam\\... is the combination that is expensive for an attacker to fake, malware that impersonates a product almost always runs from ProgramData, Temp or a user profile. Integrity level (b) proves nothing on its own: ransomware run by a service also gets a System token. How old a hash is (c) is not an attribute of that event, and it proves nothing: malware that has persisted for weeks has an old hash too. A matching file name (d) is the single easiest thing in the whole chain to forge, which is precisely why analysts check the signer and the path instead.",
     },
     {
       id: "q3",
@@ -358,7 +358,7 @@ export function buildBackupFalsePositiveScenario(
       answer: "read_only",
       xp: 60,
       explanation:
-        "Ransomware must WRITE to the originals — the 4663 records would carry WriteData or DELETE in the AccessList, and you would see thousands of rename events as extensions change. Sentinel counted 41,208 ReadData accesses, zero WriteData, zero deletes and zero renames, and the repository server's own 5145 shows the account writing only to its repo01 share, so every byte written landed on \\\\BKP-REPO-01\\repo01 while D:\\Finance kept its original paths and .xlsx extensions. Option (b) is just the job's scope. Option (c) is wrong on both counts: a weekly full reads every file where the earlier 23:00 incremental runs read only changed files, so this window is expected to be larger, and volume in either direction would not decide the verdict. Option (d) is neutral at best — compromised service accounts are a standard ransomware deployment path.",
+        "Ransomware must WRITE to the originals, the 4663 records would carry WriteData or DELETE in the AccessList, and you would see thousands of rename events as extensions change. Sentinel counted 41,208 ReadData accesses, zero WriteData, zero deletes and zero renames, and the repository server's own 5145 shows the account writing only to its repo01 share, so every byte written landed on \\\\BKP-REPO-01\\repo01 while D:\\Finance kept its original paths and .xlsx extensions. Option (b) is just the job's scope. Option (c) is wrong on both counts: a weekly full reads every file where the earlier 23:00 incremental runs read only changed files, so this window is expected to be larger, and volume in either direction would not decide the verdict. Option (d) is neutral at best, compromised service accounts are a standard ransomware deployment path.",
     },
     {
       id: "q5",
@@ -407,7 +407,7 @@ Isolating this server at 02:07 would kill the company's only full backup of the 
       { ts: T(W + MIN), phase: "Bulk Read", action: "41,208 files opened with ReadData across the D:\\Finance shares" },
       { ts: T(W + 4 * MIN), phase: "Backup Write", action: "26 GB .vbk container written to \\\\BKP-REPO-01\\repo01 — originals untouched" },
       { ts: T(W + 6 * MIN), phase: "Vendor Check-in", action: "VeeamAgent.exe resolves update.veeam.com and opens a short TLS session to 104.18.27.94:443" },
-      { ts: T(W + 7 * MIN), phase: "Detection", action: "EDR behavioural heuristic fires HIGH — no block, no process termination" },
+      { ts: T(W + 7 * MIN), phase: "Detection", action: "EDR behavioural heuristic fires HIGH, no block, no process termination" },
       { ts: T(W + 8 * MIN), phase: "Triage", action: "SIEM correlation shows zero writes, zero renames, zero new persistence" },
     ],
     questions,

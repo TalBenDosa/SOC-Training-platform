@@ -14,7 +14,7 @@ const resign: TelemetryEvent = {
 } as TelemetryEvent;
 const terminate: TelemetryEvent = { ...resign, id: "wd2", raw: { ...resign.raw, "workday.event_type": "Worker_Termination_Initiated", "workday.initiated_by": "hr.operations@nexacorp.com" } } as TelemetryEvent;
 
-describe("workday — activity log", () => {
+describe("workday, activity log", () => {
   it("renders a valid activity record carrying the worker, the task and the effective date", () => {
     const log = source.fromTelemetry(resign, makeCtx("nexacorp"))!;
     expect(validateNative(log, source.schema)).toEqual([]);

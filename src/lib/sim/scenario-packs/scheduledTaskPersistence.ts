@@ -102,7 +102,7 @@ export function buildScheduledTaskPersistenceScenario(
       answer: "scheduled_task",
       xp: 50,
       explanation:
-        "A file sitting on disk (b) is not persistence by itself — nothing makes it run again once the current session ends, and if the process that started it is killed, it is simply gone. Running the script once (c) is execution, not persistence — the same is true of every one-off command a user has ever typed, and the Set-ExecutionPolicy -Scope Process change dies with that PowerShell process. The connection out (d) is a symptom of the payload running, not the mechanism that gets it running again. evt_stp_04 is the actual mechanism: /sc daily /st 07:50 means Windows itself will start the target binary every morning, with no further action from the attacker required. That is what 'persistent' means.",
+        "A file sitting on disk (b) is not persistence by itself, nothing makes it run again once the current session ends, and if the process that started it is killed, it is simply gone. Running the script once (c) is execution, not persistence, the same is true of every one-off command a user has ever typed, and the Set-ExecutionPolicy -Scope Process change dies with that PowerShell process. The connection out (d) is a symptom of the payload running, not the mechanism that gets it running again. evt_stp_04 is the actual mechanism: /sc daily /st 07:50 means Windows itself will start the target binary every morning, with no further action from the attacker required. That is what 'persistent' means.",
     },
     {
       id: "q2",
@@ -118,7 +118,7 @@ export function buildScheduledTaskPersistenceScenario(
       answer: "confirms_task_fired",
       xp: 60,
       explanation:
-        "ParentCommandLine in evt_stp_07 reads 'svchost.exe -k netsvcs -p -s Schedule' — that is literally the Windows Task Scheduler service process. Seeing the same binary (the Hashes field matches the file written at 08:08:24 yesterday) launch again with that specific parent, at 07:50:02, the minute the task's daily trigger names, is direct proof that the persistence mechanism registered in evt_stp_04 is not just configured but working. Without this event, an analyst would only have the registration command and would have to assume it succeeded. Nothing here indicates injection (c) — svchost.exe is the parent of the new process, not its host, and there is no second unrelated payload (b); it is the same file, launched by the mechanism set up a day earlier.",
+        "ParentCommandLine in evt_stp_07 reads 'svchost.exe -k netsvcs -p -s Schedule', that is literally the Windows Task Scheduler service process. Seeing the same binary (the Hashes field matches the file written at 08:08:24 yesterday) launch again with that specific parent, at 07:50:02, the minute the task's daily trigger names, is direct proof that the persistence mechanism registered in evt_stp_04 is not just configured but working. Without this event, an analyst would only have the registration command and would have to assume it succeeded. Nothing here indicates injection (c), svchost.exe is the parent of the new process, not its host, and there is no second unrelated payload (b); it is the same file, launched by the mechanism set up a day earlier.",
     },
     {
       id: "q3",
@@ -150,7 +150,7 @@ export function buildScheduledTaskPersistenceScenario(
       answer: "remove_task_and_binary",
       xp: 60,
       explanation:
-        "Blocking the domain (b) or killing the running process (c) both address the current symptom while leaving the actual mechanism — the NetFixOptimizer task — fully intact. The task will simply start the binary again at the next 07:50 trigger, and if the operators simply update their DNS or the payload's embedded domain, the block becomes stale. The only response that matches the evidence is removing both the task registration and the file it points to, then explicitly checking Task Scheduler to confirm nothing remains — exactly the check evt_stp_07 shows was missing the first time, since the task fired again 24 hours after it was created and nobody had removed it yet.",
+        "Blocking the domain (b) or killing the running process (c) both address the current symptom while leaving the actual mechanism, the NetFixOptimizer task, fully intact. The task will simply start the binary again at the next 07:50 trigger, and if the operators simply update their DNS or the payload's embedded domain, the block becomes stale. The only response that matches the evidence is removing both the task registration and the file it points to, then explicitly checking Task Scheduler to confirm nothing remains, exactly the check evt_stp_07 shows was missing the first time, since the task fired again 24 hours after it was created and nobody had removed it yet.",
     },
     {
       id: "q5",
@@ -159,14 +159,14 @@ export function buildScheduledTaskPersistenceScenario(
       kind: "single",
       options: [
         { value: "chain_of_custody", label: "The full chain: a forum-downloaded script spawned the process that registered the task, targeting a binary the same script had just written to AppData" },
-        { value: "daily_trigger", label: "Its daily trigger — IT-managed tasks only run on event triggers such as logon or startup, so a time-based task is the signature of malicious persistence" },
+        { value: "daily_trigger", label: "Its daily trigger, IT-managed tasks only run on event triggers such as logon or startup, so a time-based task is the signature of malicious persistence" },
         { value: "task_path", label: "Its target — a binary in the user's own AppData\\Local, where IT deployment tools never install, rather than Program Files or a managed agent path" },
         { value: "task_name", label: "The task name NetFixOptimizer, which appears as a known-malicious persistence string in threat-intel feeds and is enough by itself to classify the task" },
       ],
       answer: "chain_of_custody",
       xp: 50,
       explanation:
-        "IT-managed scheduled tasks are created by known deployment tools, run from Program Files or a management agent's install path, and register cleanly through documented change processes — none of that context exists here. What makes this task suspicious is not any single argument on its command line (daily triggers and AppData targets both appear in some legitimate per-user software too) but the full provenance: a script fetched from a site with no relationship to the organisation, run interactively by an end user, spawning the exact process that registered the task, pointed at a binary written to the user's own AppData folder seconds earlier. The task name itself is meaningless — attackers can and do name tasks anything that sounds boring; and this is a plain per-user task (no elevation), which is exactly what a non-admin end user can register with a time trigger.",
+        "IT-managed scheduled tasks are created by known deployment tools, run from Program Files or a management agent's install path, and register cleanly through documented change processes, none of that context exists here. What makes this task suspicious is not any single argument on its command line (daily triggers and AppData targets both appear in some legitimate per-user software too) but the full provenance: a script fetched from a site with no relationship to the organisation, run interactively by an end user, spawning the exact process that registered the task, pointed at a binary written to the user's own AppData folder seconds earlier. The task name itself is meaningless, attackers can and do name tasks anything that sounds boring; and this is a plain per-user task (no elevation), which is exactly what a non-admin end user can register with a time trigger.",
     },
   ];
 
@@ -179,7 +179,7 @@ export function buildScheduledTaskPersistenceScenario(
       "The SIEM rule ScheduledTaskPersistence_ScriptSpawnedPowerShell fired on WS-7742, the laptop of Shani Attia (HR coordinator), at 07:56 this morning. The alert points at an unsigned binary under her AppData folder that was started at 07:50. Work out how it got onto the machine, what started it, and what it does when it runs.",
     narrative: `At 08:05 Shani Attia downloaded SpeedBoost_NetFix.ps1 from netfix-tools-download.com, a script linked from a forum thread promising to fix a slow home-office VPN connection. Chrome resolved the site two seconds earlier and saved the file into Downloads. She ran it just over three minutes later through Explorer's Run with PowerShell verb, which starts powershell.exe with a process-scope execution-policy bypass.
 
-Two seconds in, the script connected to the same site and fetched netfix_agent.exe, and six seconds in it wrote it to C:\\Users\\s.attia\\AppData\\Local\\NetFixSvc\\netfix_agent.exe. Five seconds after that, it spawned schtasks.exe with a single, decisive command: register a per-user task called NetFixOptimizer to run that binary every day at 07:50. Security 4698 recorded the same registration, trigger and action included. No elevation was needed: a standard user can register a time-triggered task that runs only in her own context. Four seconds later the script launched netfix_agent.exe once by hand, and eight seconds after that the binary resolved svc-heartbeat-relay.net and opened a TCP/443 session to it — the first check-in.
+Two seconds in, the script connected to the same site and fetched netfix_agent.exe, and six seconds in it wrote it to C:\\Users\\s.attia\\AppData\\Local\\NetFixSvc\\netfix_agent.exe. Five seconds after that, it spawned schtasks.exe with a single, decisive command: register a per-user task called NetFixOptimizer to run that binary every day at 07:50. Security 4698 recorded the same registration, trigger and action included. No elevation was needed: a standard user can register a time-triggered task that runs only in her own context. Four seconds later the script launched netfix_agent.exe once by hand, and eight seconds after that the binary resolved svc-heartbeat-relay.net and opened a TCP/443 session to it, the first check-in.
 
 Nothing about that first run looked catastrophic. It was one script, one dropped file, one outbound connection that the firewall allowed under a category nobody blocks by default.
 
@@ -203,7 +203,7 @@ The evidence that this mattered arrived the next morning. Shani signed in at 07:
       { ts: T(3 * MIN + 33_000), phase: "Execution", action: "powershell.exe launches netfix_agent.exe directly for an immediate first run" },
       { ts: T(3 * MIN + 41_000), phase: "Command and Control", action: `netfix_agent.exe resolves ${c2}` },
       { ts: T(3 * MIN + 44_000), phase: "Command and Control", action: "First outbound check-in, allowed as newly-registered-domain (T1071.001)" },
-      { ts: T(D2 + 2_000), phase: "Persistence", action: "Next morning (new logon session): netfix_agent.exe relaunches at 07:50 as a child of svchost.exe — the task firing (T1053.005)" },
+      { ts: T(D2 + 2_000), phase: "Persistence", action: "Next morning (new logon session): netfix_agent.exe relaunches at 07:50 as a child of svchost.exe, the task firing (T1053.005)" },
       { ts: T(D2 + 13_000), phase: "Command and Control", action: "The relaunched binary repeats the DNS lookup and the same-sized TCP/443 check-in" },
       { ts: T(D2 + 6 * MIN), phase: "Detection", action: "SIEM correlation rule fires on the Sysmon telemetry" },
     ],

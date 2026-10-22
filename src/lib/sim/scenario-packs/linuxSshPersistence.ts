@@ -80,7 +80,7 @@ export function buildLinuxSshPersistenceScenario(
       ],
       answer: "method",
       explanation:
-        "d.okonkwo's line says 'Accepted publickey' and svc-backup's says 'Accepted password'. A key cannot be brute-forced, which is why no failure from 82.166.44.9 precedes the admin session while failed PAM authentications precede the other. Note also what the Accepted line does NOT match: 46.161.27.119 appears in no failure record at all — in a distributed campaign the guessing nodes and the node that logs in are different machines, so do not expect the winning address to be the one you counted failures from. Hour separates nothing (21:40 is also after hours). Both source ports are ordinary ephemeral client ports, and both original lines carry the same ssh2 protocol token, so the protocol separates nothing.",
+        "d.okonkwo's line says 'Accepted publickey' and svc-backup's says 'Accepted password'. A key cannot be brute-forced, which is why no failure from 82.166.44.9 precedes the admin session while failed PAM authentications precede the other. Note also what the Accepted line does NOT match: 46.161.27.119 appears in no failure record at all, in a distributed campaign the guessing nodes and the node that logs in are different machines, so do not expect the winning address to be the one you counted failures from. Hour separates nothing (21:40 is also after hours). Both source ports are ordinary ephemeral client ports, and both original lines carry the same ssh2 protocol token, so the protocol separates nothing.",
     },
     {
       id: "lsp_q2",

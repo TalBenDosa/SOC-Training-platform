@@ -114,7 +114,7 @@ export function exfilFirstExtortionScenarioEvents() {
       cmdline: `robocopy.exe "\\\\${fileServer.name}\\Shares" "${CACHE}\\Shares" /E /Z /R:1 /W:1 /MT:16 /NFL /NDL /NP /XF *.tmp *.log`,
       parentName: "cmd.exe", parentPid: 5800, pid: 6210, sha256: robocopyHash, integrity: "Medium", signed: true,
       mitre: "T1074.001", tactic: "Collection", severity: "medium",
-      description: `At 01:05 robocopy.exe mirrored the entire root of \\\\${fileServer.name}\\Shares — every finance and client-records folder on the file server — into a local cache folder on LT-NX-RDOYLE, under r.doyle's own session.`,
+      description: `At 01:05 robocopy.exe mirrored the entire root of \\\\${fileServer.name}\\Shares, every finance and client-records folder on the file server, into a local cache folder on LT-NX-RDOYLE, under r.doyle's own session.`,
     }),
     // 1a. The file server's own view: r.doyle's network logon and the Shares connection, from the laptop.
     winLogon({
@@ -147,7 +147,7 @@ export function exfilFirstExtortionScenarioEvents() {
       cmdline: `7z.exe a -v2000m -mx1 -mhe=on -pR3c0veryK3y! "${CACHE}\\backup\\backup_2026_07.7z" "${CACHE}\\Shares\\*" -r`,
       parentName: "cmd.exe", parentPid: 5800, pid: 6244, sha256: archiveHash, integrity: "Medium", signed: false,
       mitre: "T1560.001", tactic: "Collection", severity: "medium",
-      description: "At 01:14 a portable 7z.exe sitting in the same cache folder — not a path any NexaCorp software-distribution record installed — built a password-protected, header-encrypted archive from everything robocopy had just staged, split into 2 GB volumes.",
+      description: "At 01:14 a portable 7z.exe sitting in the same cache folder, not a path any NexaCorp software-distribution record installed, built a password-protected, header-encrypted archive from everything robocopy had just staged, split into 2 GB volumes.",
     }),
     // 2a. Archive volumes as 7z.exe writes them: 18 full 2,000 MB volumes and a final partial one.
     mdeFile({
@@ -171,7 +171,7 @@ export function exfilFirstExtortionScenarioEvents() {
       mitre_technique: "T1074.001",
       mitre_tactic: "Collection",
       description:
-        "Microsoft Purview Endpoint DLP matched 1,847 instances of sensitivity-labeled client financial data being read by an unallowed application (7z.exe) on LT-NX-RDOYLE. The matching rule is enforced, but its configured actions are Audit and NotifyUser — the activity was logged and the user notified, and nothing was blocked.",
+        "Microsoft Purview Endpoint DLP matched 1,847 instances of sensitivity-labeled client financial data being read by an unallowed application (7z.exe) on LT-NX-RDOYLE. The matching rule is enforced, but its configured actions are Audit and NotifyUser, the activity was logged and the user notified, and nothing was blocked.",
       file: {
         name: "Q3_Client_Holdings_Export.xlsx",
         path: `${CACHE}\\Shares\\ClientRecords\\Q3_Client_Holdings_Export.xlsx`,
@@ -226,7 +226,7 @@ export function exfilFirstExtortionScenarioEvents() {
       tactic: "Exfiltration",
       isDetection: true, // alert-grade: the highest-severity EDR behavioural detection — a renamed rclone binary staged to exfiltrate the archive to cloud storage (the crux)
       severity: "high",
-      description: "At 01:29 a binary named AdobeARMHelper.exe — sitting in the same cache folder, not the real Adobe update path — started with an rclone-style command line copying the local archive to a remote named 'mega', using a config file dropped alongside it.",
+      description: "At 01:29 a binary named AdobeARMHelper.exe, sitting in the same cache folder, not the real Adobe update path, started with an rclone-style command line copying the local archive to a remote named 'mega', using a config file dropped alongside it.",
     }),
     // 4a. rclone resolves the Mega API and the storage nodes it will upload to.
     ...([
@@ -281,7 +281,7 @@ export function exfilFirstExtortionScenarioEvents() {
       ...base, id: "evt_efe_06_session_end", ts: T(59 * MIN + 15 * SEC), domain: megaNode, dstIp: megaNodeIp, remotePort: 443,
       app: "mega", transport: "tcp", action: "allow", end: true, category: "online-storage-and-backup",
       bytesOut: 14_200_000_000, bytesIn: 778_240, elapsedSec: 2100, mitre: "T1567.002", tactic: "Exfiltration", severity: "critical",
-      description: "The first Mega session closed at 02:04:15 after exactly 35 minutes, having sent 14.2 GB — the largest of three parallel uploads that together sent 39.6 GB and received under 2 MB.",
+      description: "The first Mega session closed at 02:04:15 after exactly 35 minutes, having sent 14.2 GB, the largest of three parallel uploads that together sent 39.6 GB and received under 2 MB.",
     }),
 
     // ---------------------------------------------------------------------
@@ -335,7 +335,7 @@ export function exfilFirstExtortionScenarioEvents() {
         "The Sentinel incident tied to LT-NX-RDOYLE was escalated from High to Critical after NexaCorp's security mailbox received a data-extortion message at 03:38 referencing a volume of client records consistent with the archive staged and transferred overnight. No encryption, ransom note, or file-rename activity has been found on the host, the file shares, or anywhere else in the environment.",
       raw: {
         "sentinel.incident.IncidentNumber": "41207",
-        "sentinel.incident.Title": "Sustained cloud egress following local data staging — LT-NX-RDOYLE",
+        "sentinel.incident.Title": "Sustained cloud egress following local data staging, LT-NX-RDOYLE",
         "sentinel.incident.Severity": "Critical",
         "sentinel.incident.PreviousSeverity": "High",
         "sentinel.incident.Status": "Active",

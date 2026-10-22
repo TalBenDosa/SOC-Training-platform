@@ -82,13 +82,13 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       kind: "single",
       options: [
         { value: "a", label: "The URL Defense click and the proxy POST — the same look-alike URL shows up in both the click and the form submit" },
-        { value: "b", label: "The Amsterdam sign-in and the Frankfurt Chrome 144 sign-in — one sessionId, two IPs, two ASNs, two browsers" },
-        { value: "c", label: "The Chrome 144 sign-in and the OWA MailItemsAccessed bind — mailbox access follows it within two minutes" },
+        { value: "b", label: "The Amsterdam sign-in and the Frankfurt Chrome 144 sign-in, one sessionId, two IPs, two ASNs, two browsers" },
+        { value: "c", label: "The Chrome 144 sign-in and the OWA MailItemsAccessed bind, mailbox access follows it within two minutes" },
         { value: "d", label: "The Amsterdam sign-in and the LT-SLS-0117 Frankfurt sign-in — a London baseline seen in Europe twice at once" },
       ],
       answer: "b",
       explanation:
-        "Option a only proves the user visited the phishing site; it says nothing about what happened to the session afterwards. Option c is real follow-on activity but is equally consistent with the attacker having simply logged in with a stolen password. Option d compares two different people — aitm_08 is a.rosen, not m.delgado. Only aitm_06 and aitm_09 carry the identical sessionId 0f2c1e64-3b7a-4c19-9d84-5a6e2f8b17d3 while disagreeing on ipAddress (45.87.81.126 vs 91.132.139.204), autonomousSystemNumber (60068 vs 51167) and deviceDetail.browser (Edge 145 vs Chrome 144). One session identifier cannot legitimately be held by two browsers on two machines 365 km apart six minutes apart. The second record also has isInteractive: false and authenticationStepResultDetail 'MFA requirement satisfied by claim in the token' — nobody authenticated.",
+        "Option a only proves the user visited the phishing site; it says nothing about what happened to the session afterwards. Option c is real follow-on activity but is equally consistent with the attacker having simply logged in with a stolen password. Option d compares two different people, aitm_08 is a.rosen, not m.delgado. Only aitm_06 and aitm_09 carry the identical sessionId 0f2c1e64-3b7a-4c19-9d84-5a6e2f8b17d3 while disagreeing on ipAddress (45.87.81.126 vs 91.132.139.204), autonomousSystemNumber (60068 vs 51167) and deviceDetail.browser (Edge 145 vs Chrome 144). One session identifier cannot legitimately be held by two browsers on two machines 365 km apart six minutes apart. The second record also has isInteractive: false and authenticationStepResultDetail 'MFA requirement satisfied by claim in the token', nobody authenticated.",
     },
     {
       id: "q4", xp: 20,

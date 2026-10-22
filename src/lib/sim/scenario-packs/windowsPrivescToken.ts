@@ -113,7 +113,7 @@ export function buildWindowsPrivescTokenScenario(
       answer: "token_theft",
       xp: 60,
       explanation:
-        "This is the mechanism of the whole potato/PrintSpoofer family (T1134.001). The tool never reaches into a SYSTEM process; it makes a SYSTEM service come to it. spf.exe creates a named pipe whose name embeds the computer name (evt_wpe_05a, Sysmon 17, \\WEB-APP-04\\pipe\\spoolss), then triggers the Print Spooler to authenticate to that pipe (evt_wpe_05, Sysmon 18: spoolsv.exe, running as SYSTEM, connects to it). Because svc-web holds SeImpersonatePrivilege, spf.exe can impersonate the client that connected, which gives it a SYSTEM token to start a process with. No handle to spoolsv.exe is needed, and a non-admin app-pool account without SeDebugPrivilege could not open it anyway. It is not an LSASS dump — there is no lsass.exe access in these events and nothing reads process memory for credentials here. Kerberoasting and DLL injection are unrelated techniques with entirely different telemetry.",
+        "This is the mechanism of the whole potato/PrintSpoofer family (T1134.001). The tool never reaches into a SYSTEM process; it makes a SYSTEM service come to it. spf.exe creates a named pipe whose name embeds the computer name (evt_wpe_05a, Sysmon 17, \\WEB-APP-04\\pipe\\spoolss), then triggers the Print Spooler to authenticate to that pipe (evt_wpe_05, Sysmon 18: spoolsv.exe, running as SYSTEM, connects to it). Because svc-web holds SeImpersonatePrivilege, spf.exe can impersonate the client that connected, which gives it a SYSTEM token to start a process with. No handle to spoolsv.exe is needed, and a non-admin app-pool account without SeDebugPrivilege could not open it anyway. It is not an LSASS dump, there is no lsass.exe access in these events and nothing reads process memory for credentials here. Kerberoasting and DLL injection are unrelated techniques with entirely different telemetry.",
     },
     {
       id: "q3",
@@ -130,7 +130,7 @@ export function buildWindowsPrivescTokenScenario(
       answer: "system_shell",
       xp: 60,
       explanation:
-        "evt_wpe_07 (4673) and evt_wpe_05 (Sysmon 18) show the privilege being used and the SYSTEM service being coaxed onto the attacker's pipe — the attempt in progress, still running under the svc-web session. The success is evt_wpe_08: a 4688 whose creator (Subject) is svc-web — SID ...-5107, logon session 0x8F41C2, creating process spf.exe — while the account the new cmd.exe runs under (Target) is S-1-5-18, the computer's SYSTEM identity, logon session 0x3E7. A creator and a new-process owner that differ is the transition itself: this is the first event where the executing context is SYSTEM rather than svc-web, and the escalation has landed. The Sentinel alert (d) is the SOC finding out after the fact, six minutes later; it is detection, not the compromise event.",
+        "evt_wpe_07 (4673) and evt_wpe_05 (Sysmon 18) show the privilege being used and the SYSTEM service being coaxed onto the attacker's pipe, the attempt in progress, still running under the svc-web session. The success is evt_wpe_08: a 4688 whose creator (Subject) is svc-web, SID ...-5107, logon session 0x8F41C2, creating process spf.exe, while the account the new cmd.exe runs under (Target) is S-1-5-18, the computer's SYSTEM identity, logon session 0x3E7. A creator and a new-process owner that differ is the transition itself: this is the first event where the executing context is SYSTEM rather than svc-web, and the escalation has landed. The Sentinel alert (d) is the SOC finding out after the fact, six minutes later; it is detection, not the compromise event.",
     },
     {
       id: "q4",
@@ -147,7 +147,7 @@ export function buildWindowsPrivescTokenScenario(
       answer: ["held_priv", "coerced_spooler", "ran_as_system", "sam_export"],
       xp: 70,
       explanation:
-        "Four statements are evidenced end to end. 'Held the privilege' is the 4672 (evt_wpe_02). 'Coerced the spooler' is the pair evt_wpe_05a (spf.exe creating the \\WEB-APP-04\\pipe\\spoolss pipe) and evt_wpe_05 (spoolsv.exe connecting to it), with the 4673 showing SeImpersonatePrivilege exercised right after. 'Ran as SYSTEM' is the 4688 (evt_wpe_08, cmd.exe running under S-1-5-18). 'Exported the SAM hive' is the MDE detection (evt_wpe_09, reg save hklm\\sam to C:\\Windows\\Temp\\sam.save, initiated by the SYSTEM cmd.exe, followed by the SYSTEM hive). The false statement is lateral movement to a domain controller: there is no authentication, network, or process event on any DC in this telemetry — the entire chain is local to WEB-APP-04. Reporting a DC compromise you cannot see is exactly the kind of unsupported claim that derails a response; svc-web is a local service account with no admin rights on the host (the Sentinel context records Local Admin Priv On Host = false), and the SAM dump gives the attacker LOCAL hashes, not domain ones.",
+        "Four statements are evidenced end to end. 'Held the privilege' is the 4672 (evt_wpe_02). 'Coerced the spooler' is the pair evt_wpe_05a (spf.exe creating the \\WEB-APP-04\\pipe\\spoolss pipe) and evt_wpe_05 (spoolsv.exe connecting to it), with the 4673 showing SeImpersonatePrivilege exercised right after. 'Ran as SYSTEM' is the 4688 (evt_wpe_08, cmd.exe running under S-1-5-18). 'Exported the SAM hive' is the MDE detection (evt_wpe_09, reg save hklm\\sam to C:\\Windows\\Temp\\sam.save, initiated by the SYSTEM cmd.exe, followed by the SYSTEM hive). The false statement is lateral movement to a domain controller: there is no authentication, network, or process event on any DC in this telemetry, the entire chain is local to WEB-APP-04. Reporting a DC compromise you cannot see is exactly the kind of unsupported claim that derails a response; svc-web is a local service account with no admin rights on the host (the Sentinel context records Local Admin Priv On Host = false), and the SAM dump gives the attacker LOCAL hashes, not domain ones.",
     },
   ];
 
@@ -160,11 +160,11 @@ export function buildWindowsPrivescTokenScenario(
       "Microsoft Sentinel raised a High incident at 02:20 for the service account NEXACORP\\svc-web on the IIS host WEB-APP-04: a rare privilege elevation and an unusual process execution within a six-minute window. The web-app foothold is already being handled by another team. Your job: determine whether svc-web escalated its privileges on this host, how far it got, and what it reached.",
     narrative: `svc-web is the identity NexaCorp's public web application pool runs under on WEB-APP-04. It is deliberately a low-privilege account — not a local administrator, no domain rights beyond a plain user. What it does have, because every IIS application-pool identity has it, is SeImpersonatePrivilege: the right to impersonate a security token the process can obtain a handle to. On a healthy host that privilege never matters. On a host where the web application has already been compromised, it is the entire attack surface.
 
-At 02:14 the app pool started and logged on under its identity — a 4624 LogonType 5, followed by the 4672 that quietly enumerates SeImpersonatePrivilege on the new session. Three minutes later the foothold surfaced: the IIS worker w3wp.exe spawned cmd.exe, wrote C:\\Windows\\Temp\\spf.exe, an unsigned PrintSpoofer/potato-style tool, thirty seconds later, and cmd.exe ran it.
+At 02:14 the app pool started and logged on under its identity, a 4624 LogonType 5, followed by the 4672 that quietly enumerates SeImpersonatePrivilege on the new session. Three minutes later the foothold surfaced: the IIS worker w3wp.exe spawned cmd.exe, wrote C:\\Windows\\Temp\\spf.exe, an unsigned PrintSpoofer/potato-style tool, thirty seconds later, and cmd.exe ran it.
 
-What followed took about twelve seconds. spf.exe created a named pipe (\\WEB-APP-04\\pipe\\spoolss) and coerced the Print Spooler service — spoolsv.exe, running as SYSTEM — into connecting to it. It never opened the spooler; it impersonated the client that connected. Windows logged the impersonation as a 4673 sensitive-privilege use citing SeImpersonatePrivilege and spf.exe. Then spf.exe launched cmd.exe with that SYSTEM token: a 4688 whose creator is svc-web and whose new process runs under S-1-5-18, NT AUTHORITY\\SYSTEM. svc-web had become SYSTEM without ever being an administrator.
+What followed took about twelve seconds. spf.exe created a named pipe (\\WEB-APP-04\\pipe\\spoolss) and coerced the Print Spooler service, spoolsv.exe, running as SYSTEM, into connecting to it. It never opened the spooler; it impersonated the client that connected. Windows logged the impersonation as a 4673 sensitive-privilege use citing SeImpersonatePrivilege and spf.exe. Then spf.exe launched cmd.exe with that SYSTEM token: a 4688 whose creator is svc-web and whose new process runs under S-1-5-18, NT AUTHORITY\\SYSTEM. svc-web had become SYSTEM without ever being an administrator.
 
-From SYSTEM the operator went straight for credentials: reg.exe, launched by the SYSTEM cmd.exe, exported the local SAM hive to C:\\Windows\\Temp\\sam.save and, eight seconds later, the SYSTEM hive — the built-in Administrator's password hash, now the attacker's. Microsoft Defender for Endpoint raised the detection on that export. Sentinel correlated the rare privilege elevation to the SYSTEM process two minutes later and opened this ticket.
+From SYSTEM the operator went straight for credentials: reg.exe, launched by the SYSTEM cmd.exe, exported the local SAM hive to C:\\Windows\\Temp\\sam.save and, eight seconds later, the SYSTEM hive, the built-in Administrator's password hash, now the attacker's. Microsoft Defender for Endpoint raised the detection on that export. Sentinel correlated the rare privilege elevation to the SYSTEM process two minutes later and opened this ticket.
 
 Everything is local to WEB-APP-04. No domain controller, no other host, no network hop appears anywhere in the telemetry. The escalation is real and complete; the blast radius is this one machine and the local secrets on it — which is exactly what the report has to say, no more and no less.`,
     learning_objectives: [
@@ -179,16 +179,16 @@ Everything is local to WEB-APP-04. No domain controller, no other host, no netwo
     events,
     iocs,
     killchain: [
-      { ts: T(0), phase: "Execution context", action: `4624 LogonType 5 — the IIS app pool starts under ${svc.domain}\\${svc.sam} on ${host.hostname}` },
+      { ts: T(0), phase: "Execution context", action: `4624 LogonType 5, the IIS app pool starts under ${svc.domain}\\${svc.sam} on ${host.hostname}` },
       { ts: T(1 * SEC), phase: "Privilege Escalation", action: "4672 — the svc-web session is assigned SeImpersonatePrivilege (the precondition)" },
       { ts: T(3 * MIN), phase: "Execution", action: "Sysmon 1 — w3wp.exe spawns cmd.exe under svc-web (webshell surfacing)" },
-      { ts: T(3 * MIN + 30 * SEC), phase: "Command and Control", action: "Sysmon 11 — w3wp.exe writes C:\\Windows\\Temp\\spf.exe (PrintSpoofer/potato tool)" },
-      { ts: T(3 * MIN + 40 * SEC), phase: "Privilege Escalation", action: "Sysmon 1 — unsigned C:\\Windows\\Temp\\spf.exe launched" },
-      { ts: T(3 * MIN + 43 * SEC), phase: "Privilege Escalation", action: "Sysmon 17 — spf.exe creates the named pipe \\WEB-APP-04\\pipe\\spoolss" },
-      { ts: T(3 * MIN + 44 * SEC), phase: "Privilege Escalation", action: "Sysmon 18 — spoolsv.exe (SYSTEM) coerced into connecting to that pipe" },
+      { ts: T(3 * MIN + 30 * SEC), phase: "Command and Control", action: "Sysmon 11, w3wp.exe writes C:\\Windows\\Temp\\spf.exe (PrintSpoofer/potato tool)" },
+      { ts: T(3 * MIN + 40 * SEC), phase: "Privilege Escalation", action: "Sysmon 1, unsigned C:\\Windows\\Temp\\spf.exe launched" },
+      { ts: T(3 * MIN + 43 * SEC), phase: "Privilege Escalation", action: "Sysmon 17, spf.exe creates the named pipe \\WEB-APP-04\\pipe\\spoolss" },
+      { ts: T(3 * MIN + 44 * SEC), phase: "Privilege Escalation", action: "Sysmon 18, spoolsv.exe (SYSTEM) coerced into connecting to that pipe" },
       { ts: T(3 * MIN + 45 * SEC + 400), phase: "Privilege Escalation", action: "4673 — SeImpersonatePrivilege exercised by spf.exe" },
-      { ts: T(3 * MIN + 46 * SEC), phase: "Privilege Escalation", action: "4688 — spf.exe, running as svc-web, creates cmd.exe under the SYSTEM token (S-1-5-18) — escalation succeeds" },
-      { ts: T(4 * MIN + 30 * SEC), phase: "Credential Access", action: "MDE detection — reg save hklm\\sam (and then the SYSTEM hive) to C:\\Windows\\Temp from the SYSTEM shell" },
+      { ts: T(3 * MIN + 46 * SEC), phase: "Privilege Escalation", action: "4688, spf.exe, running as svc-web, creates cmd.exe under the SYSTEM token (S-1-5-18), escalation succeeds" },
+      { ts: T(4 * MIN + 30 * SEC), phase: "Credential Access", action: "MDE detection, reg save hklm\\sam (and then the SYSTEM hive) to C:\\Windows\\Temp from the SYSTEM shell" },
       { ts: T(6 * MIN), phase: "Detection", action: "Sentinel correlates the rare privilege elevation and opens the incident" },
     ],
     questions,

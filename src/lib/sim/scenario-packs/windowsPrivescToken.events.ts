@@ -128,7 +128,7 @@ export function windowsPrivescTokenScenarioEvents() {
         companyId: cxN, id: "evt_wpe_05_pipe_connect", ts: T(3 * MIN + 44 * SEC), host: host.hostname, user: null,
         image: SPOOLSV, pid: PID.spoolsv, pipeName, runAsUser: "NT AUTHORITY\\SYSTEM",
         incidentId: INCIDENT, mitre: "T1134.001", tactic: "Privilege Escalation", severity: "high",
-        description: "Sysmon Event 18 (Pipe Connected) on WEB-APP-04: spoolsv.exe connected to the named pipe \\WEB-APP-04\\pipe\\spoolss — the Print Spooler being coerced onto a pipe the attacker created.",
+        description: "Sysmon Event 18 (Pipe Connected) on WEB-APP-04: spoolsv.exe connected to the named pipe \\WEB-APP-04\\pipe\\spoolss, the Print Spooler being coerced onto a pipe the attacker created.",
       }),
       event_type: "file_access" as const,
       process: { name: "spoolsv.exe", pid: PID.spoolsv, path: SPOOLSV, user: "NT AUTHORITY\\SYSTEM", integrity: "system" as const },
@@ -217,7 +217,7 @@ export function windowsPrivescTokenScenarioEvents() {
     sentinelAlert({
       companyId: cxN, id: "evt_wpe_10_sentinel_corr", ts: T(6 * MIN), host: host.hostname, srcIp: host.ip, user: svc.email,
       alertName: "PrivilegeEscalation_TokenImpersonation_ServiceToSYSTEM", ruleId: "SEN-PRIVESC-0042",
-      severity: "high", eventType: "ueba_anomaly", fullName: "IIS Application Pool — NexaWebAppPool", department: "IT — Web Platform",
+      severity: "high", eventType: "ueba_anomaly", fullName: "IIS Application Pool, NexaWebAppPool", department: "IT, Web Platform",
       title: "Service Account (IIS App Pool Identity)",
       incidentId: INCIDENT, mitre: "T1134.001", tactic: "Privilege Escalation",
       extendedProperties: {
