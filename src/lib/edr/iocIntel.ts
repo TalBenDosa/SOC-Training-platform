@@ -667,7 +667,7 @@ export function ipIntel(value: string, opts: { event?: TelemetryEvent; truth?: I
   const a = assessIoc("ip", ip, opts);
   if (a.verdict === "internal") {
     return { ip, verdict: "internal", abusive: false, confidence: 0, country: "—", isp: "Internal network (RFC 1918)",
-      usageType: "Private address space — corporate LAN", totalReports: 0, categories: [], source: a.source };
+      usageType: "Private address space: corporate LAN", totalReports: 0, categories: [], source: a.source };
   }
   const ev = opts.event;
   const geoCountry = a.country
@@ -760,8 +760,8 @@ export function domainIntel(value: string, opts: { event?: TelemetryEvent; truth
 export function hashVerdictLabel(h: HashIntel): string {
   if (h.verdict === "malicious") {
     const falcon = h.engines.find(e => e.name === "CrowdStrike Falcon" && e.detected)?.result;
-    return `Malicious — ${h.detected} / ${h.total} engines${h.malwareFamily ? ` · ${h.malwareFamily}` : ""}${falcon ? ` · Falcon: ${falcon}` : ""}`;
+    return `Malicious: ${h.detected} / ${h.total} engines${h.malwareFamily ? ` · ${h.malwareFamily}` : ""}${falcon ? ` · Falcon: ${falcon}` : ""}`;
   }
-  if (h.verdict === "suspicious") return `Suspicious — ${h.detected} / ${h.total} engines (grayware / dual-use)`;
-  return `Clean — 0 / ${h.total} engines`;
+  if (h.verdict === "suspicious") return `Suspicious: ${h.detected} / ${h.total} engines (grayware / dual-use)`;
+  return `Clean: 0 / ${h.total} engines`;
 }

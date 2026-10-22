@@ -214,6 +214,6 @@ export function baselineWmi(): WmiEntry[] {
     filter: "SCM Event Log Filter",
     query: "select * from MSFT_SCMEventLogEvent",
     consumer: "SCM Event Log Consumer (NTEventLogEventConsumer)",
-    command: "(writes to the System event log — built-in, benign)",
+    command: "(writes to the System event log: built-in, benign)",
   }];
 }

@@ -25,12 +25,12 @@ export function buildTeamEdrCases(
     if (!k || seen.has(k)) continue;
     seen.add(k);
     const own = events.filter(e => e.hostname && hostKey(e.hostname) === k);
-    const inv = buildInvestigationFromStory({ id: `team-${opts.sessionId}-${k}`, title: `Escalated case — ${h}`, events: own, iocTruth: opts.iocTruth ?? null });
+    const inv = buildInvestigationFromStory({ id: `team-${opts.sessionId}-${k}`, title: `Escalated case: ${h}`, events: own, iocTruth: opts.iocTruth ?? null });
     // The builder names every case "live"; several hosts in one console need distinct ids.
     if (inv) out.push({ ...inv, id: `team-${opts.sessionId}-${k}` });
   }
   if (opts.hosts.length === 0) {
-    const inv = buildInvestigationFromStory({ id: `team-${opts.sessionId}`, title: "Team incident — live", events, iocTruth: opts.iocTruth ?? null });
+    const inv = buildInvestigationFromStory({ id: `team-${opts.sessionId}`, title: "Team incident: live", events, iocTruth: opts.iocTruth ?? null });
     if (inv) out.push({ ...inv, id: `team-${opts.sessionId}` });
   }
   // The description of the case the analyst clicked heads the console.

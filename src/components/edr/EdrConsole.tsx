@@ -107,7 +107,7 @@ function IncidentsList({ investigations, onOpen, embedded }: {
 }) {
   return (
     <div>
-      {!embedded && <Topbar title="EDR Console" subtitle="Incidents — pick one to investigate" />}
+      {!embedded && <Topbar title="EDR Console" subtitle="Incidents: pick one to investigate" />}
       <div className={embedded ? "space-y-3" : "container mx-auto max-w-[1000px] px-6 py-6 space-y-3"}>
         <div className="flex items-center gap-2">
           <ShieldAlert className="h-4 w-4 text-cyber-300" />
@@ -301,7 +301,7 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
 
   return (
     <div>
-      {!embedded && <Topbar title="EDR Console" subtitle="Investigate the endpoint — walk the tree, decide" />}
+      {!embedded && <Topbar title="EDR Console" subtitle="Investigate the endpoint: walk the tree, decide" />}
       <div className={embedded ? "space-y-4" : "container mx-auto max-w-[1200px] px-6 py-6 space-y-4"}>
         {/* back-to-incidents (when more than one) + host header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -319,9 +319,9 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
           <div className="flex flex-col items-end gap-1">
             <Button variant={isolated ? "outline" : "primary"} size="sm" disabled={isoBusy || !canContain} onClick={() => isolate(!isolated)}
               title={canContain ? undefined : "Tier-1 investigates; Tier-2 / Tier-3 decide on isolation"}>
-              <MonitorX className="mr-1.5 h-4 w-4" /> {isoBusy ? "Saving…" : isolated ? "Host isolated ✓ — release" : "Isolate host"}
+              <MonitorX className="mr-1.5 h-4 w-4" /> {isoBusy ? "Saving…" : isolated ? "Host isolated ✓ (release)" : "Isolate host"}
             </Button>
-            {teamIsolation && !isoErr && <span className="text-[10px] text-slate-500">{canContain ? "Recorded for the team — reviewed in the after-action report." : "Tier-1: investigate here, then escalate. Tier-2 / Tier-3 decide on isolation."}</span>}
+            {teamIsolation && !isoErr && <span className="text-[10px] text-slate-500">{canContain ? "Recorded for the team: reviewed in the after-action report." : "Tier-1: investigate here, then escalate. Tier-2 / Tier-3 decide on isolation."}</span>}
             {isoErr && <span role="alert" className="max-w-xs text-right text-[11px] text-neon-amber">{isoErr}</span>}
           </div>
         </div>
@@ -339,7 +339,7 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
               </div>
             </div>
             <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${isolated ? "border-neon-amber/40 bg-neon-amber/10 text-neon-amber" : "border-neon-green/30 bg-neon-green/10 text-neon-green"}`}>
-              {isolated ? "Contained — network isolated" : "Online"}
+              {isolated ? "Contained: network isolated" : "Online"}
             </span>
           </div>
           <p className="mt-3 text-[13px] text-slate-300">{inv.summary}</p>
@@ -490,7 +490,7 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
                     )}
                     <Field label="User"><span className="font-mono text-slate-300">{sel.user}</span></Field>
                     <Field label="Started"><span className="font-mono text-slate-300">{sel.startedAt}</span></Field>
-                    <Field label="Signed"><span className={sel.signed ? "text-neon-green" : "text-severity-high"}>{sel.signed ? "Yes" : "No — not signed"}</span></Field>
+                    <Field label="Signed"><span className={sel.signed ? "text-neon-green" : "text-severity-high"}>{sel.signed ? "Yes" : "No, not signed"}</span></Field>
                     {sel.sha256 && (
                       <div className="pt-1">
                         <div className="flex items-center gap-2">
@@ -595,16 +595,16 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
         {/* RTR-lite — simulated Real Time Response shell */}
         <Card className="p-0">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-            <h2 className="flex items-center gap-2 text-sm font-bold text-white"><Terminal className="h-4 w-4 text-neon-green" /> Real Time Response — {inv.host.name}</h2>
+            <h2 className="flex items-center gap-2 text-sm font-bold text-white"><Terminal className="h-4 w-4 text-neon-green" /> Real Time Response: {inv.host.name}</h2>
             <div className="flex flex-wrap gap-1">
               {["ps", "netstat", isLinuxHost(inv.host) ? "netstat -tulpn" : "netstat -ano", "reg query Run", "schtasks /query", "sc query", "wmi", "help"].map(c => (
                 <button key={c} onClick={() => runRtr(c)} className="rounded border border-border bg-bg px-2 py-0.5 font-mono text-[10px] text-slate-400 transition hover:text-white">{c}</button>
               ))}
             </div>
           </div>
-          <div role="log" aria-live="polite" aria-label={`Real Time Response output — ${inv.host.name}`} tabIndex={0}
+          <div role="log" aria-live="polite" aria-label={`Real Time Response output: ${inv.host.name}`} tabIndex={0}
             className="max-h-[240px] overflow-auto bg-black/40 px-4 py-3 font-mono text-[11.5px] leading-relaxed">
-            {rtr.length === 0 && <p className="text-slate-500">Connected to {inv.host.name}. Type <span className="text-slate-300">help</span>, or use the quick commands above. RTR runs on the endpoint — <span className="text-neon-amber">kill</span>, <span className="text-neon-amber">get</span> and <span className="text-neon-amber">contain</span> take real action.</p>}
+            {rtr.length === 0 && <p className="text-slate-500">Connected to {inv.host.name}. Type <span className="text-slate-300">help</span>, or use the quick commands above. RTR runs on the endpoint: <span className="text-neon-amber">kill</span>, <span className="text-neon-amber">get</span> and <span className="text-neon-amber">contain</span> take real action.</p>}
             {rtr.map((l, i) => (
               <div key={i} className="mb-2">
                 <p className="text-neon-green">{inv.host.name}&gt; <span className="text-slate-200">{l.cmd}</span></p>
@@ -625,7 +625,7 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
           {!decided ? (
             <>
               <h2 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldAlert className="h-4 w-4 text-cyber-300" /> Your call</h2>
-              <p className="mt-1 text-[13px] text-slate-400">Select the process that is the malicious <strong>payload</strong> and flag it — or, if this is benign activity, resolve it as a false positive.</p>
+              <p className="mt-1 text-[13px] text-slate-400">Select the process that is the malicious <strong>payload</strong> and flag it, or, if this is benign activity, resolve it as a false positive.</p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Button variant="primary" size="sm" disabled={selPid === null} onClick={() => decide(selPid!)}>
                   <Ban className="mr-1.5 h-4 w-4" /> Flag {sel ? `${sel.name} (pid ${sel.pid})` : "selected"} as payload
@@ -646,20 +646,20 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
               <p className="mt-2 text-[11px] text-slate-500">The process tree is now colour-coded by verdict, and each node&apos;s reasoning is shown in its detail panel.</p>
               {/* The investigation isn't done until it's written up. This runs in
                   its own tab, so send them BACK to the Dashboard tab to file the
-                  report — the one place they're actually graded. */}
+                  report: the one place they're actually graded. */}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => { try { window.close(); } catch { /* ignore */ } setTimeout(() => setCloseBlocked(true), 250); }}
                   className="inline-flex items-center gap-1.5 rounded-md bg-neon-purple px-3.5 py-2 text-xs font-bold text-white shadow transition hover:brightness-110"
                 >
-                  <FileWarning className="h-4 w-4" /> Done — return to the Dashboard and file your report
+                  <FileWarning className="h-4 w-4" /> Done: return to the Dashboard and file your report
                 </button>
                 <Button variant="outline" size="sm" onClick={() => { setDecided(null); }}>Investigate again</Button>
               </div>
               <p className={`mt-2 text-[11px] ${closeBlocked ? "font-semibold text-neon-amber" : "text-neon-amber"}`}>
                 {closeBlocked
-                  ? "This tab couldn't close automatically — switch back to your SOC Dashboard tab (or press Ctrl/Cmd+W) to write the incident report. Your findings only count once it's submitted."
-                  : "Switch back to your SOC Dashboard tab to write the incident report — your findings only count once it's submitted."}
+                  ? "This tab couldn't close automatically: switch back to your SOC Dashboard tab (or press Ctrl/Cmd+W) to write the incident report. Your findings only count once it's submitted."
+                  : "Switch back to your SOC Dashboard tab to write the incident report: your findings only count once it's submitted."}
               </p>
             </>
           )}

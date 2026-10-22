@@ -187,7 +187,7 @@ describe("fallbacks without a truth table", () => {
       process: { pid: 7720, name: "svc.exe", hash: { sha256: sha } }, raw: { "process.code_signature.exists": false, "process.code_signature.trusted": false } } as TelemetryEvent;
     expect(hashIntel(sha, { event: ev }).verdict).toBe("malicious");
     expect(hashIntel(sha, { process: { signed: false, flagged: true } }).verdict).toBe("malicious");
-    expect(hashVerdictLabel(hashIntel(sha, { process: { signed: false, flagged: true } }))).toMatch(/^Malicious — \d+ \/ 12 engines/);
+    expect(hashVerdictLabel(hashIntel(sha, { process: { signed: false, flagged: true } }))).toMatch(/^Malicious: \d+ \/ 12 engines/);
   });
 
   it("Check-Hash button recognises the vendor hash fields (incl. Falcon SHA256String)", () => {

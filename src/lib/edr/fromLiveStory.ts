@@ -214,7 +214,7 @@ function whyItStandsOut(
   const path = o.imagePath ?? p.path ?? "?";
   const bits: string[] = [];
   if (o.malicious) bits.push("its SHA-256 matches a known-bad sample on record");
-  if (!o.signed && o.userWritable) bits.push(`it runs UNSIGNED from a user-writable path (${path}) — a real system binary never does`);
+  if (!o.signed && o.userWritable) bits.push(`it runs UNSIGNED from a user-writable path (${path}): a real system binary never does`);
   else if (!o.signed) bits.push("it is not digitally signed");
   else if (o.userWritable) bits.push(`it runs from a user-writable path (${path})`);
   const parent = p.parent_name?.toLowerCase();
@@ -359,7 +359,7 @@ function describeEvent(e: TelemetryEvent): string {
   const t = e.event_type;
   if (t === "edr_alert" || t === "av_detection" || (!p && det && e.is_detection)) {
     const disp = pickRaw(raw, ["crowdstrike.PatternDispositionDescription", "remediation.action"]);
-    return `Detection: ${det || "EDR alert"}${e.severity ? ` (${e.severity})` : ""}${chain.length ? ` — ${chain.join(" › ")}` : ""}${disp ? ` · ${disp}` : ""}`;
+    return `Detection: ${det || "EDR alert"}${e.severity ? ` (${e.severity})` : ""}${chain.length ? `: ${chain.join(" › ")}` : ""}${disp ? ` · ${disp}` : ""}`;
   }
   if (t === "process_access" && p) {
     const target = pickRaw(raw, ["crowdstrike.TargetProcessImageFileName", "TargetImage", "target.process.name"]);
@@ -391,7 +391,7 @@ function describeEvent(e: TelemetryEvent): string {
   if (t === "auth_success" || t === "auth_failure") {
     const lt = pickRaw(raw, ["winlog.event_data.LogonType"]) ?? (e.authentication?.logon_type != null ? String(e.authentication.logon_type) : "");
     const who = pickRaw(raw, ["winlog.event_data.TargetUserName", "user.name"]) ?? e.user_email ?? "?";
-    return `Logon ${t === "auth_success" ? "success" : "failure"} — ${who}${lt ? ` (type ${lt})` : ""}${e.src_ip ? ` from ${e.src_ip}` : ""}`;
+    return `Logon ${t === "auth_success" ? "success" : "failure"}: ${who}${lt ? ` (type ${lt})` : ""}${e.src_ip ? ` from ${e.src_ip}` : ""}`;
   }
   return t.replace(/_/g, " ");
 }
@@ -1057,7 +1057,7 @@ export function buildInvestigationFromStory(
 
   return {
     id: "live",
-    title: `${story.title} — live from the Dashboard`,
+    title: `${story.title}: live from the Dashboard`,
     summary: `This is the endpoint view of the attack running in your SOC Dashboard feed (${story.title}). Walk the process tree, confirm the payload, and contain the host.`,
     host,
     processes,
@@ -1116,7 +1116,7 @@ export function buildInvestigationsFromScenario(
         benign: opts.benignIncidents?.has(incidentId) });
       if (!inv) continue; // no process tree to walk
       inv.id = g.id;
-      inv.title = `${bundle.title ?? "Incident"} — endpoint view`;
+      inv.title = `${bundle.title ?? "Incident"}: endpoint view`;
       out.push(inv);
     }
   }

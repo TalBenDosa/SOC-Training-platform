@@ -101,7 +101,7 @@ export function runRtrCommand(raw: string, st: RtrState): RtrResult | null {
   const [verbRaw, ...args] = cmd.split(/\s+/);
   const verb = verbRaw.toLowerCase();
   const linux = isLinuxHost(inv.host);
-  const windowsOnly = () => ({ out: `rtr: '${verbRaw}' is a Windows command — ${inv.host.name} is a Linux host. Try ps, netstat, or cat /etc/crontab.` });
+  const windowsOnly = () => ({ out: `rtr: '${verbRaw}' is a Windows command: ${inv.host.name} is a Linux host. Try ps, netstat, or cat /etc/crontab.` });
 
   switch (verb) {
     case "help":
@@ -134,8 +134,8 @@ export function runRtrCommand(raw: string, st: RtrState): RtrResult | null {
       const pid = Number(args[0]);
       const p = hostProcesses(inv, new Set()).find(x => x.pid === pid);
       if (!p) return { out: `No process with pid ${args[0] ?? "?"}.` };
-      if (killed.has(pid)) return { out: `Process ${pid} (${p.name}) is already terminated — nothing to kill.` };
-      if (CRITICAL.has(p.name.toLowerCase())) return { out: `Access is denied — ${p.name} (${pid}) is a critical system process; terminating it would bugcheck the host.` };
+      if (killed.has(pid)) return { out: `Process ${pid} (${p.name}) is already terminated: nothing to kill.` };
+      if (CRITICAL.has(p.name.toLowerCase())) return { out: `Access is denied: ${p.name} (${pid}) is a critical system process; terminating it would bugcheck the host.` };
       return { out: `Process ${pid} (${p.name}) terminated. It no longer appears in ps/netstat.`, kill: pid };
     }
 
@@ -146,12 +146,12 @@ export function runRtrCommand(raw: string, st: RtrState): RtrResult | null {
       const hit = inv.processes.some(p =>
         (p.path ?? "").toLowerCase() === path.toLowerCase() ||
         (p.files ?? []).some(f => f.path.toLowerCase() === path.toLowerCase()));
-      return { out: `Queued "${path}" for upload to the cloud (password: infected).${hit ? " File captured." : " (path not seen on host — check spelling)"}` };
+      return { out: `Queued "${path}" for upload to the cloud (password: infected).${hit ? " File captured." : " (path not seen on host: check spelling)"}` };
     }
 
     case "cat": {
       const path = args.join(" ");
-      return { out: path ? `(binary content) ${path} — use 'get' to pull it to the cloud for analysis.` : "usage: cat <path>" };
+      return { out: path ? `(binary content) ${path}: use 'get' to pull it to the cloud for analysis.` : "usage: cat <path>" };
     }
 
     case "reg": {
@@ -205,7 +205,7 @@ export function runRtrCommand(raw: string, st: RtrState): RtrResult | null {
     case "get-ciminstance": {
       if (linux) return windowsOnly();
       const list = wmi(inv);
-      return { out: [`Namespace root\\subscription — ${list.length} event filter(s) / consumer binding(s)`, "",
+      return { out: [`Namespace root\\subscription: ${list.length} event filter(s) / consumer binding(s)`, "",
         ...list.map(w => [`__EventFilter.Name   : ${w.filter}`, `  Query              : ${w.query}`, `  Consumer           : ${w.consumer}`, `  Action             : ${w.command}`].join("\n"))].join("\n") };
     }
 
