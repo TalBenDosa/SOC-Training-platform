@@ -15,6 +15,7 @@
  * console instead of showing an empty tree.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { describeEvent as describeRow } from "@/lib/sim/describeEvent";
 import { lookupHash } from "@/lib/sim/hashDatabase";
 import { classifyScope } from "./classifyScope";
 import { baselinePid, edrAgentFor, isServerHost } from "./hostBaseline";
@@ -393,7 +394,9 @@ function describeEvent(e: TelemetryEvent): string {
     const who = pickRaw(raw, ["winlog.event_data.TargetUserName", "user.name"]) ?? e.user_email ?? "?";
     return `Logon ${t === "auth_success" ? "success" : "failure"}: ${who}${lt ? ` (type ${lt})` : ""}${e.src_ip ? ` from ${e.src_ip}` : ""}`;
   }
-  return t.replace(/_/g, " ");
+  // Anything else: the record's own words (the Event Viewer text, the alert or operation name),
+  // never the event-type label, which can state a conclusion ("privilege escalation" for a 4672).
+  return describeRow(e, { fieldsOnly: true, preferFields: true }) || t.replace(/_/g, " ");
 }
 
 function timelineKind(e: TelemetryEvent): EdrTimelineEvent["kind"] {

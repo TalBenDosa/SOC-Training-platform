@@ -185,7 +185,7 @@ export default function ScenariosPage() {
         {hidden.length > 0 && (
           <div className="flex items-center gap-2 rounded border border-border/40 bg-bg-elevated px-4 py-2 text-[11px] text-slate-400">
             <EyeOff className="h-3.5 w-3.5 shrink-0" />
-            {hidden.length} scenario{hidden.length > 1 ? "s" : ""} hidden by admin — manage in Admin → Content Library
+            {hidden.length} scenario{hidden.length > 1 ? "s" : ""} hidden by admin: manage in Admin → Content Library
           </div>
         )}
 
@@ -323,7 +323,7 @@ export default function ScenariosPage() {
             <ShieldQuestion className="h-10 w-10 text-slate-400 mb-3" />
             <p className="text-sm text-slate-400">
               {doneFilter === "done"
-                ? "No completed scenarios yet — finish one and it will show up here."
+                ? "No completed scenarios yet: finish one and it will show up here."
                 : "You've completed every scenario. Nice work!"}
             </p>
             <button type="button" onClick={() => setDoneFilter("all")} className="mt-3 text-xs font-semibold text-cyber-300 hover:text-cyber-200">

@@ -262,7 +262,7 @@ function EventRow({
                 )}>
                   <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                   {isFp
-                    ? "⚠ This event is a FALSE POSITIVE — it looks suspicious but has a legitimate explanation. Good catch!"
+                    ? "⚠ This event is a FALSE POSITIVE: it looks suspicious but has a legitimate explanation. Good catch!"
                     : "You marked this as a False Positive. Verify against other evidence before excluding."}
                 </div>
               )}
@@ -347,7 +347,7 @@ function HashReputationPanel({ sha256 }: { sha256: string }) {
       )}
 
       {!known && checked && (
-        <p className="text-[11px] text-slate-400">Hash not in local database — check VirusTotal for full results.</p>
+        <p className="text-[11px] text-slate-400">Hash not in local database: check VirusTotal for full results.</p>
       )}
 
       {/* VirusTotal button */}

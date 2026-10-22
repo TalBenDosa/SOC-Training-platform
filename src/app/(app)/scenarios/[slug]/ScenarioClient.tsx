@@ -138,7 +138,7 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
   );
   const basicInfo: [string, string][] = [
     ["Event Action",     vendorAction || ev.event_type.replace(/_/g, " ")],
-    ["Event Class",      isAlert ? "Alert — raised by a detection analytic" : "Telemetry — raw event (no vendor severity)"],
+    ["Event Class",      isAlert ? "Alert, raised by a detection analytic" : "Telemetry, raw event (no vendor severity)"],
     ["Source Type",      SOURCE_LABEL[ev.source] ?? ev.source.toUpperCase()],
     ["Timestamp",        `${new Date(ev.ts).toLocaleString("en-GB", { timeZone: "UTC" })} UTC`],
     ["Severity",         effSev.toUpperCase()],
@@ -404,7 +404,7 @@ const LogRow = memo(function LogRow({
             </span>
             {isAlert && (
               <span
-                title="Alert — raised by a detection analytic (the event that opens the ticket). Unbadged rows are raw telemetry."
+                title="Alert: raised by a detection analytic (the event that opens the ticket). Unbadged rows are raw telemetry."
                 className="inline-flex items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/15 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wider text-cyber-300"
               >
                 <span className="h-1 w-1 rounded-full bg-cyber-300" /> Alert
@@ -434,7 +434,7 @@ const LogRow = memo(function LogRow({
                   e.stopPropagation();
                   if (focused) { onPivot(null); setMenuOpen(false); } else setMenuOpen(v => !v);
                 }}
-                title={focused ? "Clear correlation" : "Correlate — pivot on a user, host, IP or hash across every host"}
+                title={focused ? "Clear correlation" : "Correlate: pivot on a user, host, IP or hash across every host"}
                 className={cn(
                   "inline-flex items-center gap-0.5 rounded px-1 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-wider transition",
                   focused || menuOpen ? "bg-cyber-500/25 text-cyber-200" : "text-slate-500 hover:text-cyber-300",
@@ -447,7 +447,7 @@ const LogRow = memo(function LogRow({
               <button
                 type="button"
                 onClick={e => { e.stopPropagation(); onInvestigate(caseId); }}
-                title="Open this incident on the endpoint — walk the process tree in the EDR console"
+                title="Open this incident on the endpoint: walk the process tree in the EDR console"
                 className="inline-flex items-center gap-0.5 rounded border border-cyber-500/40 bg-cyber-500/15 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-cyber-200 transition hover:bg-cyber-500/25"
               >
                 <span aria-hidden="true">🔎 </span>Investigate in EDR
@@ -707,7 +707,7 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
               type="button"
               aria-pressed={detectionsOnly}
               onClick={() => setDetectionsOnly(v => !v)}
-              title="Hide EDR telemetry — show only detections and SIEM logs. Walk the hidden process/file telemetry inside the EDR console (Investigate in EDR)."
+              title="Hide EDR telemetry: show only detections and SIEM logs. Walk the hidden process/file telemetry inside the EDR console (Investigate in EDR)."
               className={cn(
                 "rounded px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition",
                 detectionsOnly
@@ -723,7 +723,7 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
             <input
               type="search"
               aria-label="Search all fields"
-              placeholder="Search all fields — e.g. user:svc_backup"
+              placeholder="Search all fields: e.g. user:svc_backup"
               title={'Searches every field name and value of the raw log. Terms are ANDed. field:value (user:, host:, ip:, src_ip:, dst_ip:, hash:, process:, cmd:, domain:, port: or any raw field name), "quoted phrase", -exclude.'}
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -809,7 +809,7 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
                       <button
                         type="button"
                         onClick={ev => { ev.stopPropagation(); focusEvent(e.id); }}
-                        aria-label={`${utcTime(e.ts)} UTC, ${host} — open in the event table`}
+                        aria-label={`${utcTime(e.ts)} UTC, ${host}: open in the event table`}
                         className="rounded text-left"
                       >
                         {utcTime(e.ts)}
@@ -828,7 +828,7 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
                     <td className="py-2 pr-4 text-[11px] text-slate-300">
                       <span className="line-clamp-1">
                         {e.process?.name
-                          ? `${e.process.name}${e.process.cmdline ? ` — ${e.process.cmdline}` : ""}`
+                          ? `${e.process.name}${e.process.cmdline ? `: ${e.process.cmdline}` : ""}`
                           : e.network?.domain ?? e.network?.url ?? e.file?.path ?? e.event_type.replace(/_/g, " ")}
                       </span>
                     </td>
@@ -931,7 +931,7 @@ function ScenarioEdrPanel({ investigations, caseId, onClose }: {
           <span id="scenario-edr-title" className="text-sm font-bold text-white">EDR Console</span>
           {investigations.length > 1 && (
             <span
-              title="Each incident is a separate, isolated case — switch between them without mixing their process trees"
+              title="Each incident is a separate, isolated case: switch between them without mixing their process trees"
               className="rounded border border-border bg-bg-elevated px-2 py-0.5 text-[10px] text-slate-400"
             >
               {investigations.length} separate incidents
@@ -1229,7 +1229,7 @@ function InvestigationPanel({
               </ul>
             ) : (
               <div className="rounded border border-dashed border-border/60 py-6 text-center text-[11px] text-slate-400">
-                No indicators added yet — analyse the logs above and add what you find.
+                No indicators added yet. Analyse the logs above and add what you find.
               </div>
             )}
           </div>
@@ -1401,7 +1401,7 @@ function ScenarioDebrief({ result, questions, events, title, iocTruth, timeTaken
           ? <Trophy className="h-5 w-5 text-neon-green" />
           : <ShieldX className="h-5 w-5 text-severity-high" />}
         <h3 className="text-sm font-bold text-white">
-          {result.passed ? "Case closed — passed" : "Case closed — not passed"}
+          {result.passed ? "Case closed, passed" : "Case closed, not passed"}
         </h3>
         <Badge variant="outline">{result.score}% overall</Badge>
         <div className="ml-auto flex flex-wrap gap-2">
@@ -1455,7 +1455,7 @@ function ScenarioDebrief({ result, questions, events, title, iocTruth, timeTaken
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Report</p>
           <p className="text-xs text-slate-300">
             Your verdict: <span className="font-mono font-bold">{verdict ? verdict.toUpperCase() : "none"}</span>
-            {" — "}
+            {": "}
             {r.verdictCorrect
               ? <span className="text-neon-green">matches the evidence</span>
               : <span className="text-severity-high">does not match the evidence</span>}
@@ -1591,7 +1591,7 @@ function ScenarioDebrief({ result, questions, events, title, iocTruth, timeTaken
         </div>
       ) : result.debriefWithheld ? (
         <p className="rounded border border-dashed border-border/60 px-4 py-3 text-[11px] text-slate-400">
-          The full debrief (story and attack timeline) unlocks on a complete attempt — answer every question and write a report.
+          The full debrief (story and attack timeline) unlocks on a complete attempt: answer every question and write a report.
         </p>
       ) : null}
 
@@ -1817,7 +1817,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
         }, result);
       } catch { /* ignore storage errors */ }
     } catch (e) {
-      setGradingError(`Could not submit — ${userMessageFor(e)} Your answers are still here.`);   // E-09
+      setGradingError(`Could not submit: ${userMessageFor(e)} Your answers are still here.`);   // E-09
       setPhase("investigating");
     } finally {
       setIsGrading(false);
@@ -1836,7 +1836,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
           meaningful if it ever arrives populated. */}
       <Topbar
         title={bundle.title}
-        subtitle={bundle.threat_actor ? `Threat actor: ${bundle.threat_actor}` : "Active investigation — attribution to be determined"}
+        subtitle={bundle.threat_actor ? `Threat actor: ${bundle.threat_actor}` : "Active investigation: attribution to be determined"}
         actions={undefined}
       />
 
@@ -1899,7 +1899,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
           {phase === "complete" && gradeResult && (
             <div className="flex w-full flex-wrap items-center gap-3 text-sm">
               <span className={cn("font-semibold", gradeResult.passed ? "text-neon-green" : "text-severity-high")}>
-                {gradeResult.passed ? "Completed — passed" : "Completed — not passed"} · {gradeResult.score}%
+                {gradeResult.passed ? "Completed, passed" : "Completed, not passed"} · {gradeResult.score}%
               </span>
               <span className="flex items-center gap-1 text-xs text-slate-400">
                 <Clock className="h-3.5 w-3.5" /> {formatTime(timeTaken)}
@@ -1942,7 +1942,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
           </p>
           {phase !== "complete" && (
             <p className="mt-3 border-t border-border/40 pt-3 text-xs text-slate-400">
-              Everything else — what happened, in what order, and how far it got — is yours
+              Everything else (what happened, in what order, and how far it got) is yours
               to reconstruct from the evidence.
             </p>
           )}
@@ -2013,7 +2013,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
           <h3 className="text-sm font-semibold text-white">Analyst Quiz</h3>
           <p className="mt-1 text-xs text-slate-400">
             {phase === "idle"
-              ? "Click \"Start Investigation\" above to begin. The timer is just for your reference — take the time you need; it doesn't affect your score or XP."
+              ? "Click \"Start Investigation\" above to begin. The timer is just for your reference: take the time you need; it doesn't affect your score or XP."
               : "Answer all questions then submit your investigation."}
           </p>
           {/* Finding #4: the questions are not shown before the investigation
@@ -2049,7 +2049,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
                   </div>
                   {q.options && (
                     <ul className="mt-3 space-y-1.5" role={isMulti ? "group" : "radiogroup"} aria-labelledby={`q-prompt-${q.id}`}>
-                      {/* Shuffled for display — see shuffleSeeded's header. Measured
+                      {/* Shuffled for display: see shuffleSeeded's header. Measured
                           across the 89 scenario questions, the correct answer was the
                           FIRST option 56 times (63%), so a student who never read a
                           question and always clicked the top choice scored 63%.
@@ -2098,7 +2098,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
         )}
       </div>
 
-      {/* Score card. "Continue" now just closes it — the page stays in its
+      {/* Score card. "Continue" now just closes it: the page stays in its
           completed state instead of resetting to Start (finding #31). */}
       {phase === "complete" && displayResult && showScoreCard && (
         <CompletionModal
