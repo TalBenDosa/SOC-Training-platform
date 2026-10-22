@@ -63,6 +63,9 @@ function scenarioInvestigations(events: TelemetryEvent[], title: string, iocTrut
   }));
 }
 
+/** Sources whose rows are the endpoint's own telemetry (they open in the EDR console). */
+const ENDPOINT_SOURCES = new Set(["edr", "sysmon", "windows_security", "linux_audit"]);
+
 const utcTime = (ts: string) => new Date(ts).toLocaleTimeString("en-GB", { hour12: false, timeZone: "UTC" });
 
 // ─── Source / severity maps ───────────────────────────────────────────────────
@@ -681,6 +684,17 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
                 {f === "all" ? "All" : f === "medium" ? "≥ Medium" : "High/Critical"}
               </button>
             ))}
+            {/* The EDR console is always one click away when the scenario has an endpoint case. */}
+            {edrInvestigations.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setEdrCaseId(edrInvestigations[0].id)}
+                title="Open the EDR console: process tree, hash lookup, RTR and containment for this scenario's endpoint"
+                className="inline-flex items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-cyber-200 transition hover:bg-cyber-500/25"
+              >
+                <span aria-hidden="true">🔎</span> EDR console{edrInvestigations.length > 1 ? ` (${edrInvestigations.length})` : ""}
+              </button>
+            )}
             <button
               type="button"
               aria-pressed={detectionsOnly}
@@ -844,7 +858,9 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
                   onPivot={setPivot}
                   focused={!!pivotIds && pivotIds.has(ev.id)}
                   dimmed={!!pivotIds && !pivotIds.has(ev.id)}
-                  canInvestigate={(v.isAlert || !!ev.is_detection) && !!ev.incident_id && edrIncidentIds.has(ev.incident_id)}
+                  // Any alert, detection or endpoint log of an incident that has an EDR case
+                  // pivots to it, like a SIEM row's "open in console" link.
+                  canInvestigate={(v.isAlert || !!ev.is_detection || ENDPOINT_SOURCES.has(ev.source)) && !!ev.incident_id && edrIncidentIds.has(ev.incident_id)}
                   onInvestigate={onInvestigate}
                   focusReq={focusReq?.id === ev.id ? focusReq.n : undefined}
                 />

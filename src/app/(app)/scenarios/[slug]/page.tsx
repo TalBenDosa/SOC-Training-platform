@@ -5,6 +5,7 @@ import { buildIocTruth } from "@/lib/edr/iocIntel";
 import { optionToken, eventIdMap, maskEventIds } from "@/lib/scenarios/optionToken";
 import { isConclusionRawKey } from "@/lib/scenarios/withheld";
 import { ScenarioClient } from "./ScenarioClient";
+import { incidentIdFor } from "@/lib/scenarios/incidentGroups";
 
 export default async function ScenarioPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -25,6 +26,7 @@ export default async function ScenarioPage({ params }: { params: Promise<{ slug:
   // ScenarioClient reads none of the stripped fields (verified), so removing
   // them changes nothing on screen while closing the leak for EVERY scenario,
   // static and org-authored alike. Server-side grading is the real gate.
+  const anyIncident = (bundle.events ?? []).some(e => !!e.incident_id);
   const withheld = {
     ...bundle,
     narrative: "",
@@ -64,12 +66,15 @@ export default async function ScenarioPage({ params }: { params: Promise<{ slug:
     // per-row "Raw JSON" toggle (`JSON.stringify(ev, null, 2)` in ScenarioClient),
     // i.e. the exact leak F-02 was written to close, just on different field names.
     events: (bundle.events ?? []).map(e => {
+      // One EDR case per host for scenarios written before incident grouping (incidentGroups.ts).
+      const incident_id = incidentIdFor(e, slug, anyIncident);
       const raw: Record<string, unknown> = { ...(e.raw ?? {}) };
       for (const k of Object.keys(raw)) {
         if (isConclusionRawKey(k)) delete raw[k];
       }
       return {
         ...e,
+        incident_id,
         description: undefined,
         mitre_technique: undefined,
         mitre_tactic: undefined,
