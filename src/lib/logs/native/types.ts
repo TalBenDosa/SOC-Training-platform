@@ -27,13 +27,15 @@ export type SourceId =
   | "aws_cloudtrail" | "aws_guardduty" | "aws_vpcflow" | "azure_activity" | "gcp_audit" | "k8s_audit"
   // Remote access / proxy / DNS / host / ITSM
   | "globalprotect" | "anyconnect" | "fortigate_sslvpn" | "zscaler_zpa" | "cloudflare_access"
-  | "zscaler_zia" | "windows_dns" | "infoblox" | "sysmon" | "linux_auditd" | "servicenow";
+  | "zscaler_zia" | "windows_dns" | "infoblox" | "sysmon" | "linux_auditd" | "servicenow"
+  // HR system of record
+  | "workday";
 
 /** The platform category a source belongs to (one vendor per category per session). */
 export type SourceCategory =
   | "edr" | "firewall" | "idp" | "onprem_ad" | "pam" | "collab" | "email_security"
   | "cloud" | "cloud_detection" | "network_flow" | "k8s" | "vpn" | "ztna" | "proxy" | "dns"
-  | "host_telemetry" | "itsm";
+  | "host_telemetry" | "itsm" | "hr";
 
 /** Wire format of the source: JSON-native, or text-native rendered as a flat JSON object. */
 export type NativeFormat = "json" | "kv" | "csv" | "syslog" | "xml" | "cef" | "ndjson";
@@ -114,6 +116,18 @@ export interface NativeCtx {
   uuid: (seed: string) => string;
   /** Deterministic integer in [min, max]. */
   int: (seed: string, min: number, max: number) => number;
+  /**
+   * Story-level facts for a standalone scenario (index.ts nativeStoryRenderer), absent on the live feed:
+   *  - authoredPids: print the authored OS pid / parent pid of a process (the number the EDR console
+   *    shows) instead of the pid derived from the process instance;
+   *  - hostIps: the address the story gives each host anywhere (lower-case short host name -> IPv4),
+   *    so a host that one row names with an IP shows that IP in every record;
+   *  - userSids: the SID the story authors for an account (lower-case sAMAccountName -> SID), so every
+   *    product prints one SID per user.
+   */
+  authoredPids?: boolean;
+  hostIps?: ReadonlyMap<string, string>;
+  userSids?: ReadonlyMap<string, string>;
 }
 
 export interface NativeSource {

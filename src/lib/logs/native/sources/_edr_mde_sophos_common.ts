@@ -11,6 +11,7 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeCtx } from "../types";
 import type { EdrFacts } from "./edr-normalize";
+import { accountSid } from "./_proc-identity";
 
 export const TACTICS: Record<string, { id: string; token: string }> = {
   "Initial Access": { id: "TA0001", token: "InitialAccess" },
@@ -198,8 +199,8 @@ export function userSid(ctx: NativeCtx, user?: string): string | null {
   if (u === "system") return "S-1-5-18";
   if (u === "local service") return "S-1-5-19";
   if (u === "network service") return "S-1-5-20";
-  const dom = [0, 1, 2].map(i => ctx.int(`${ctx.companyId}:domsid:${i}`, 1_000_000_000, 3_999_999_999)).join("-");
-  return `S-1-5-21-${dom}-${ctx.int(`${ctx.companyId}:rid:${u}`, 1100, 9999)}`;
+  // One SID per user in every product (./_proc-identity accountSid).
+  return accountSid(ctx, u);
 }
 
 /** ISO timestamp with N fractional digits (ms from the event, extra digits deterministic). */

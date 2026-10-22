@@ -31,6 +31,7 @@ import { storyIocTruth } from "@/lib/sim/storyTruth";
 import { normalizeHostIps } from "@/lib/sim/hostIdentity";
 import { parseTenant, tenantIdentity, TENANT_TEMPLATE, type Tenant } from "@/lib/team/tenant";
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { isPeerAddressedRecord } from "@/lib/sim/peerRecords";
 import type { Ev, RosterMember } from "@/lib/team/types";
 
 // ── dataset ─────────────────────────────────────────────────────────────────────
@@ -128,6 +129,7 @@ function ipProblems(events: TelemetryEvent[], where: string, problems: Set<strin
     if (!e.hostname || !e.src_ip || !PRIVATE.test(e.src_ip)) continue;
     const inbound = (e.network as { direction?: string } | undefined)?.direction === "inbound" || /inbound/i.test(String(e.raw?.["network.direction"] ?? ""));
     if (inbound) continue;
+    if (isPeerAddressedRecord(e)) continue;   // a remote logon / share access names the peer, not this host
     if (!HOST_SOURCES.has(e.source) && !OUTBOUND_SOURCES.has(e.source)) continue;
     if (e.event_type === "net_connection" && HOST_SOURCES.has(e.source) && (e.network as { direction?: string } | undefined)?.direction !== "outbound") continue;
     const h = e.hostname.toUpperCase();
@@ -311,7 +313,7 @@ describe("technical integrity gate", { timeout: 600_000 }, () => {
       // A DNS server's debug log names the client, not itself; Okta / Entra see a corporate user's
       // public egress, never the internal address.
       // auditd writes the remote addr, never the server's own address.
-      const skipIp = (ip: string) => (e.source === "dns" && ip === e.dst_ip) || (sid === "linux_auditd" && ip === e.dst_ip) || (["okta", "entra"].includes(sid ?? "") && PRIVATE.test(ip)) || appActor;
+      const skipIp = (ip: string) => (sid === "windows_security" && /"ipaddress":"-"/.test(text) && ip === e.src_ip) || (e.source === "dns" && ip === e.dst_ip) || (sid === "linux_auditd" && ip === e.dst_ip) || (["okta", "entra"].includes(sid ?? "") && PRIVATE.test(ip)) || appActor;
       for (const ip of [e.src_ip, e.dst_ip]) if (ip && !skipIp(ip) && netLike && ip && /^\d+\.\d+\.\d+\.\d+$/.test(ip) && !text.includes(ip) && v) p.add(`${where} ${authoredOf(e).id}: row IP ${ip} missing from the ${v.log.sourceId} record`);
     };
     for (const r of stories()) for (const e of r.events) {

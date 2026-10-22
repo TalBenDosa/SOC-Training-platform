@@ -80,7 +80,8 @@ describe("emitter-authored scenario packs", () => {
 
   it("trojanizedInstallerKeylogger still builds a coherent incident from emitters only (CrowdStrike + PAN + Sentinel)", () => {
     const s = buildTrojanizedInstallerKeyloggerScenario();
-    expect(s.events.length).toBe(10);
+    // 10 original + download DNS + installer-landed + app launch + helper start + C2 DNS/connect + 3 more POSTs
+    expect(s.events.length).toBe(19);
     // three vendors, all emitter-authored
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
       "CrowdStrike Falcon", "Palo Alto Networks PAN-OS", "Microsoft Sentinel",
@@ -99,9 +100,10 @@ describe("emitter-authored scenario packs", () => {
 
   it("seoPoisonedInstaller still builds a coherent incident from emitters only (MDE + PAN)", () => {
     const s = buildSeoPoisonedInstallerScenario();
-    expect(s.events.length).toBe(10);
+    // 10 original + DNS/connection records, the profile-file copies, AV quarantine and the intel lookup
+    expect(s.events.length).toBe(20);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
-      "Microsoft Defender for Endpoint", "Palo Alto Networks PAN-OS",
+      "Microsoft Defender for Endpoint", "Palo Alto Networks PAN-OS", "Recorded Future",
     ]));
     const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
     expect(inv.host.name).toBe("LAP-3312");
@@ -111,11 +113,16 @@ describe("emitter-authored scenario packs", () => {
     const cred = s.events.find(e => e.id === "evt_spi_08_cred_copy");
     expect(cred?.file?.sha256).toBeUndefined();
     expect(cred?.mitre_technique).toBe("T1555.003");
-    // the Defender incident alert carries its rich fields and no process node
+    // the Defender incident alert carries its rich fields and names the payload process (pid 7801)
     const alert = s.events.find(e => e.id === "evt_spi_10_alert");
     expect(alert?.raw?.["malware.name"]).toBe("Trojan:Win32/Rhadesta.SP!MTB");
     expect(alert?.raw?.["remediation.action"]).toBe("Quarantine");
-    expect(alert?.process).toBeUndefined();
+    expect(alert?.process?.pid).toBe(7801);
+    expect(alert?.process?.name).toBe("upd_helper.exe");
+    // the endpoint's own connection record ties the stage-2 fetch to the installer (pid 7744)
+    const conn = s.events.find(e => e.id === "evt_spi_05b_stage2_conn");
+    expect(conn?.process?.pid).toBe(7744);
+    expect(conn?.raw?.["InitiatingProcessFileName"]).toBe("PuTTY-0.83-installer.exe");
     // the PAN exfil is an outbound POST to the C2
     const exfil = s.events.find(e => e.id === "evt_spi_09_exfil");
     expect(exfil?.raw?.["pan.http_method"]).toBe("POST");
@@ -147,9 +154,9 @@ describe("emitter-authored scenario packs", () => {
 
   it("bruteForceSingleAccount builds a coherent AD incident from emitters only (Windows Security + CrowdStrike + PAN + Sentinel)", () => {
     const s = buildBruteForceSingleAccountScenario();
-    expect(s.events.length).toBe(10);
+    expect(s.events.length).toBe(28);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
-      "Palo Alto Networks PAN-OS", "Windows Security", "CrowdStrike Falcon", "Microsoft Sentinel",
+      "Palo Alto Networks PAN-OS", "Windows Security", "Windows TerminalServices", "CrowdStrike Falcon", "Microsoft Sentinel",
     ]));
     // the two SubStatus codes that carry the whole lesson (no-user vs bad-password)
     const wrongUser = s.events.find(e => e.id === "evt_bf_02_fail_wrong_user");
@@ -177,20 +184,28 @@ describe("emitter-authored scenario packs", () => {
 
   it("oktaPasswordBurst builds a coherent identity incident from emitters only (Okta + Sentinel)", () => {
     const s = buildOktaPasswordBurstScenario();
-    expect(s.events.length).toBe(10);
+    // 10 original + 12 sampled password failures + 2 further push sends and 1 further deny (3 sends, 3 denies)
+    expect(s.events.length).toBe(25);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set(["Okta", "Microsoft Sentinel"]));
-    // THE lesson: authenticationStep flips 0 → 1 and reason flips to MFA_REQUIRED
-    // on the event where the PASSWORD was finally accepted.
+    // THE lesson: the failures are user.session.start INVALID_CREDENTIALS, and the event where the
+    // PASSWORD was finally accepted is the sign-on policy answering CHALLENGE (policy.evaluate_sign_on).
     const burst = s.events.find(e => e.id === "evt_okb_03_fail_burst");
+    expect(burst?.raw?.["okta.eventType"]).toBe("user.session.start");
     expect(burst?.raw?.["okta.outcome.reason"]).toBe("INVALID_CREDENTIALS");
     expect(burst?.raw?.["okta.authenticationContext.authenticationStep"]).toBe("0");
     const accepted = s.events.find(e => e.id === "evt_okb_05_password_accepted");
-    expect(accepted?.raw?.["okta.outcome.reason"]).toBe("MFA_REQUIRED");
-    expect(accepted?.raw?.["okta.authenticationContext.authenticationStep"]).toBe("1");
-    // the push was rejected (fatigue defence held)
+    expect(accepted?.raw?.["okta.eventType"]).toBe("policy.evaluate_sign_on");
+    expect(accepted?.raw?.["okta.outcome.result"]).toBe("CHALLENGE");
+    expect(accepted?.raw?.["okta.outcome.reason"]).toBe("Sign-on policy evaluation resulted in CHALLENGE");
+    // three pushes were sent and each was denied (auth_via_mfa FAILURE with OV_RESPONSE_DENY)
+    const sends = s.events.filter(e => e.raw?.["okta.eventType"] === "system.push.send_factor_verify_push");
+    expect(sends.length).toBe(3);
+    const denies = s.events.filter(e => e.event_type === "mfa_denied");
+    expect(denies.length).toBe(3);
     const denied = s.events.find(e => e.id === "evt_okb_07_factor_denied");
-    expect(denied?.event_type).toBe("mfa_denied");
-    expect(denied?.raw?.["okta.outcome.reason"]).toBe("USER_REJECTED_PUSH");
+    expect(denied?.raw?.["okta.eventType"]).toBe("user.authentication.auth_via_mfa");
+    expect(denied?.raw?.["okta.outcome.result"]).toBe("FAILURE");
+    expect(denied?.raw?.["okta.debugContext.debugData.pushOnlyResponseType"]).toBe("OV_RESPONSE_DENY");
     // the asOrg tell separates attacker (FlokiNET) from the user's real ISP
     expect(burst?.raw?.["okta.securityContext.asOrg"]).toBe("FlokiNET ehf");
     const baseline = s.events.find(e => e.id === "evt_okb_09_user_normal_login");
@@ -203,13 +218,15 @@ describe("emitter-authored scenario packs", () => {
 
   it("uebaCompromisedAccount builds a coherent anomaly-led hunt from emitters only (Sentinel UEBA + Entra + M365)", () => {
     const s = buildUebaCompromisedAccountScenario();
-    expect(s.events.length).toBe(8);
+    expect(s.events.length).toBe(24);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
-      "Microsoft Sentinel", "Microsoft Entra ID", "Microsoft 365 Unified Audit Log",
+      "Microsoft Sentinel", "Microsoft Entra ID", "Microsoft 365 Unified Audit Log", "Microsoft Defender for Endpoint",
     ]));
     // baseline vs atypical: the token-replay tell separates them
     const atypical = s.events.find(e => e.id === "evt_uca_02_atypical_signin");
-    expect(atypical?.raw?.["azure.signinlogs.properties.incomingTokenType"]).toBe("primaryRefreshToken");
+    expect(atypical?.raw?.["azure.signinlogs.properties.incomingTokenType"]).toBe("refreshToken");
+    expect(atypical?.raw?.["azure.signinlogs.category"]).toBe("NonInteractiveUserSignInLogs");
+    expect(atypical?.raw?.["azure.signinlogs.properties.authenticationDetails.authenticationStepResultDetail"]).toBe("MFA requirement satisfied by claim in the token");
     expect(atypical?.raw?.["azure.signinlogs.properties.authenticationRequirement"]).toBe("singleFactorAuthentication");
     expect(atypical?.raw?.["azure.signinlogs.properties.deviceDetail.isManaged"]).toBe("false");
     // the benign control resolves fp (a high score is not a verdict)
@@ -220,23 +237,29 @@ describe("emitter-authored scenario packs", () => {
     // the mass download + forwarding rule are the acted-on collection
     const dl = s.events.find(e => e.id === "evt_uca_05_mass_download");
     expect(dl?.event_type).toBe("cloud_storage_access");
-    expect(dl?.raw?.["data.office365.Operation"]).toBe("FileSyncDownloadedFull");
+    expect(dl?.raw?.["data.office365.Operation"]).toBe("FileDownloaded");
+    // a burst, not one record: ten FileDownloaded rows of distinct files under one session id
+    const burst = s.events.filter(e => e.raw?.["data.office365.Operation"] === "FileDownloaded");
+    expect(burst.length).toBe(10);
+    expect(new Set(burst.map(e => e.raw?.["data.office365.SourceFileName"])).size).toBe(10);
+    // the cookie theft that supplied the session is on the victim's laptop
+    expect(s.events.find(e => e.id === "evt_uca_00s1_stealer_exec")?.hostname).toBe("FIN-LT-Almeida");
     const rule = s.events.find(e => e.id === "evt_uca_06_inbox_rule");
     expect(rule?.raw?.["data.office365.Operation"]).toBe("New-InboxRule");
     expect(rule?.raw?.["data.office365.Parameters.ForwardAsAttachmentTo"]).toBe("acct.archive.9y@gmail.com");
     // the case-opening entity risk score rolls the four indicators together
     const score = s.events.find(e => e.id === "evt_uca_07_entity_risk_score");
     expect(score?.is_detection).toBe(true);
-    expect(score?.edr_scope).toBe("non_edr");
+    expect(score?.edr_scope).toBe("hybrid");
     expect(score?.raw?.["RiskyUser"]).toBe("true");
     expect(score?.raw?.["behavior.name"]).toBe("account_takeover_pattern");
   });
 
-  it("scheduledTaskPersistence builds a coherent persistence incident from emitters only (Sysmon + PAN + Sentinel)", () => {
+  it("scheduledTaskPersistence builds a coherent persistence incident from emitters only (Sysmon + PAN + Windows Security + Sentinel)", () => {
     const s = buildScheduledTaskPersistenceScenario();
-    expect(s.events.length).toBe(10);
+    expect(s.events.length).toBe(20);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
-      "Microsoft Sysmon", "Palo Alto Networks PAN-OS", "Microsoft Sentinel",
+      "Microsoft Sysmon", "Palo Alto Networks PAN-OS", "Windows Security", "Microsoft Sentinel",
     ]));
     // the schtasks registration is the alert-grade persistence crux
     const task = s.events.find(e => e.id === "evt_stp_04_scheduled_task");
@@ -244,17 +267,19 @@ describe("emitter-authored scenario packs", () => {
     expect(task?.is_detection).toBe(true);
     expect(task?.edr_scope).toBe("edr");
     expect(task?.raw?.["winlog.event_data.ProcessGuid"]).toBeTruthy();
-    // the relaunch at logon proves the task fired — parent is the Schedule svchost
-    const relaunch = s.events.find(e => e.id === "evt_stp_07_relaunch_at_logon");
+    // the relaunch at the trigger time proves the task fired — parent is the Schedule svchost
+    const relaunch = s.events.find(e => e.id === "evt_stp_07_relaunch_at_trigger");
     expect(String(relaunch?.raw?.["winlog.event_data.ParentCommandLine"])).toContain("-s Schedule");
     expect(relaunch?.process?.hash?.sha256).toBe(task && s.events.find(e => e.id === "evt_stp_03_payload_written")?.file?.sha256);
     // the ProcessGuid join key is present on the SIEM correlation
     const det = s.events.find(e => e.id === "evt_stp_08_detection");
     expect(det?.raw?.["ExtendedProperties.Query"]).toContain("ParentProcessGuid");
-    // one host, correlated: the EDR console opens on WS-7742 with the schtasks tree
-    const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
+    // one host, correlated: the EDR console opens on WS-7742 with the schtasks tree; the day-2 launch is its own case
+    const invs = buildInvestigationsFromScenario({ title: s.title, events: s.events });
+    const inv = invs[0];
     expect(inv.host.name).toBe("WS-7742");
     expect(inv.processes.some(p => p.name === "schtasks.exe")).toBe(true);
+    expect(invs[1]?.processes.some(p => p.name === "netfix_agent.exe" && p.ppid !== inv.processes.find(q => q.name === "powershell.exe")?.pid)).toBe(true);
   });
 
   it("bundledCryptominer builds a coherent coinminer incident from emitters only (CS + PAN + Sentinel)", () => {
@@ -288,9 +313,9 @@ describe("emitter-authored scenario packs", () => {
 
   it("lateralMovementPth builds a coherent PtH intrusion from emitters only (WinSec + Sysmon + CS + Sentinel)", () => {
     const s = buildLateralMovementPthScenario();
-    expect(s.events.length).toBe(13); // 12 + the payload download row (evt_lm_07b) the live feed's investigability gate requires
+    expect(s.events.length).toBe(24);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
-      "Windows Security", "Microsoft Sysmon", "CrowdStrike Falcon", "Microsoft Sentinel",
+      "Windows Security", "Microsoft Sysmon", "CrowdStrike Falcon", "Microsoft Sentinel", "Palo Alto Networks PAN-OS",
     ]));
     // benign control: Kerberos + fp explanation; attack landing: NTLM
     const benign = s.events.find(e => e.id === "evt_lm_00_benign_logon");
@@ -312,14 +337,22 @@ describe("emitter-authored scenario packs", () => {
     const dcLogon = s.events.find(e => e.id === "evt_lm_10_dc_logon");
     expect(dcLogon?.hostname).toBe("DC-NEXA-01");
     expect(dcLogon?.raw?.["winlog.event_data.AuthenticationPackageName"]).toBe("NTLM");
-    // one incident, correlated: EDR console opens on the file server
-    const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
-    expect(inv.host.name).toBe("SRV-FILE-03");
+    // the DC validated the NTLM authentication (4776) and no 4672 carries SeTcbPrivilege
+    expect(s.events.find(e => e.id === "evt_lm_02a_dc_ntlm_validation")?.raw?.["winlog.event_id"]).toBe("4776");
+    expect(s.events.some(e => String(e.raw?.["winlog.event_data.PrivilegeList"] ?? "").includes("SeTcbPrivilege"))).toBe(false);
+    // two hosts, two cases: the credential theft on FIN-WS-11 never shares a process tree with the file server
+    const invs = buildInvestigationsFromScenario({ title: s.title, events: s.events });
+    const fileCase = invs.find(i => i.host.name === "SRV-FILE-03");
+    const wsCase = invs.find(i => i.host.name === "FIN-WS-11");
+    expect(fileCase).toBeTruthy();
+    expect(wsCase).toBeTruthy();
+    expect(fileCase!.processes.some(p => p.path.includes("\\Temp\\svchost.exe"))).toBe(false);
+    expect(wsCase!.processes.some(p => p.path === "C:\\Windows\\Temp\\svchost.exe")).toBe(true);
   });
 
   it("windowsPrivescToken builds a coherent SeImpersonate privesc from emitters only (WinSec + Sysmon + MDE + Sentinel)", () => {
     const s = buildWindowsPrivescTokenScenario();
-    expect(s.events.length).toBe(10);
+    expect(s.events.length).toBe(12);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
       "Windows Security", "Microsoft Sysmon", "Microsoft Defender for Endpoint", "Microsoft Sentinel",
     ]));
@@ -327,19 +360,23 @@ describe("emitter-authored scenario packs", () => {
     const privs = s.events.find(e => e.id === "evt_wpe_02_special_privs");
     expect(privs?.raw?.["winlog.event_id"]).toBe("4672");
     expect(String(privs?.raw?.["winlog.event_data.PrivilegeList"])).toContain("SeImpersonatePrivilege");
-    // the coercion + token theft: spoolsv on the pipe (18), spf opens spoolsv 0x1410 (10)
+    // the coercion + impersonation: spf.exe creates the pipe (17), the SYSTEM spooler connects to it (18);
+    // the tool never opens the spooler, so there is no Sysmon 10
+    const created = s.events.find(e => e.id === "evt_wpe_05a_pipe_create");
+    expect(created?.raw?.["winlog.event_id"]).toBe("17");
     const pipe = s.events.find(e => e.id === "evt_wpe_05_pipe_connect");
-    expect(pipe?.raw?.["winlog.event_data.PipeName"]).toBe("\\spoolss");
-    const pa = s.events.find(e => e.id === "evt_wpe_06_process_access");
-    expect(pa?.event_type).toBe("process_access");
-    expect(pa?.raw?.["winlog.event_data.GrantedAccess"]).toBe("0x1410");
+    expect(pipe?.raw?.["winlog.event_data.PipeName"]).toBe("\\WEB-APP-04\\pipe\\spoolss");
+    expect(created?.raw?.["winlog.event_data.PipeName"]).toBe(pipe?.raw?.["winlog.event_data.PipeName"]);
+    expect(s.events.some(e => e.raw?.["winlog.event_id"] === "10")).toBe(false);
     // 4673 sensitive-privilege use by the tool
     const spu = s.events.find(e => e.id === "evt_wpe_07_sensitive_priv_use");
     expect(spu?.raw?.["winlog.event_id"]).toBe("4673");
-    // escalation succeeds: 4688 SYSTEM cmd with a full token
+    // escalation succeeds: 4688 created by svc-web (spf.exe), the new cmd.exe running under SYSTEM
     const sys = s.events.find(e => e.id === "evt_wpe_08_system_shell");
     expect(sys?.raw?.["winlog.event_id"]).toBe("4688");
-    expect(sys?.raw?.["winlog.event_data.TokenElevationType"]).toBe("%%1937");
+    expect(sys?.raw?.["winlog.event_data.SubjectUserName"]).toBe("svc-web");
+    expect(sys?.raw?.["winlog.event_data.TargetUserSid"]).toBe("S-1-5-18");
+    expect(sys?.raw?.["winlog.event_data.TokenElevationType"]).toBe("%%1936");
     // the payoff: reg.exe SAM export is the MDE detection
     const sam = s.events.find(e => e.id === "evt_wpe_09_sam_dump");
     expect(sam?.is_detection).toBe(true);
@@ -352,10 +389,11 @@ describe("emitter-authored scenario packs", () => {
 
   it("multiHostIntrusion builds a coherent 3-host campaign from emitters only (PAN + CrowdStrike + WinSec)", () => {
     const s = buildMultiHostIntrusionScenario();
-    // 1 credential-source baseline + 7 (WS) + 4 (FS) + 8 (BK) = 20 events
-    expect(s.events.length).toBe(20);
+    // the original 20 plus the lure mail, endpoint file/process records, beacon cadence, PsExec traces
+    // (ADMIN$ / svcctl / 7045) on both servers, the Sysmon LSASS access, and the Finance share reads
+    expect(s.events.length).toBe(51);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
-      "Palo Alto Networks PAN-OS", "CrowdStrike Falcon", "Windows Security",
+      "Palo Alto Networks PAN-OS", "CrowdStrike Falcon", "Windows Security", "Proofpoint", "Microsoft Sysmon",
     ]));
     // chronological order holds even with jitter (except the baseline, flagged is_baseline)
     const nonBaseline = s.events.filter(e => !e.is_baseline);
@@ -432,7 +470,7 @@ describe("emitter-authored scenario packs", () => {
     expect(exfil?.process?.pid).not.toBe(stage?.process?.pid);
     // Falcon connection events carry no ECS destination.* / byte counts
     expect(exfil?.raw?.["destination.domain"]).toBeUndefined();
-    expect(exfil?.raw?.["crowdstrike.RemoteAddressIP4"]).toBe("185.199.53.14");
+    expect(exfil?.raw?.["crowdstrike.RemoteAddressIP4"]).toBe("92.118.39.84");
     // the exfil VOLUME lives on the firewall's session-end record, not the Falcon event
     const fw = s.events.find(e => e.id === "evt_mhi_bk6_fw");
     expect(fw?.raw?.["pan.subtype"]).toBe("end");
@@ -460,8 +498,9 @@ describe("emitter-authored scenario packs", () => {
 
   it("isoContainerSmuggling builds a coherent container-delivered LNK/LOLBin chain from emitters only (FortiGate + CrowdStrike)", () => {
     const s = buildIsoContainerSmugglingScenario();
-    expect(s.events.length).toBe(9);
-    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set(["FortiGate", "CrowdStrike Falcon"]));
+    // 9 original + lure mail/click/DNS, the Zone.Identifier streams, the .lnk/.dat opens and PowerShell's DNS/connection
+    expect(s.events.length).toBe(19);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set(["FortiGate", "CrowdStrike Falcon", "Proofpoint", "Microsoft Sysmon"]));
     // the download is a FortiGate file-filter log-only record (not a block), carrying the .iso
     const dl = s.events.find(e => e.id === "evt_ics_01_download");
     expect(dl?.event_type).toBe("http_request");
@@ -482,10 +521,15 @@ describe("emitter-authored scenario packs", () => {
     const ps = s.events.find(e => e.id === "evt_ics_05_powershell");
     expect(ps?.is_detection).toBe(true);
     expect(ps?.process?.parent_pid).toBe(6620);
-    // the payload fetch is a FortiGate web-filter passthrough of an uncategorised URL
+    // the payload fetch is a FortiGate web-filter passthrough of an unrated URL (cat 0)
     const fetch = s.events.find(e => e.id === "evt_ics_06_payload_fetch");
     expect(fetch?.raw?.["data.subtype"]).toBe("webfilter");
-    expect(fetch?.raw?.["data.catdesc"]).toBe("Uncategorized");
+    expect(fetch?.raw?.["data.catdesc"]).toBe("Unrated");
+    expect(fetch?.raw?.["data.cat"]).toBe("0");
+    // the Mark-of-the-Web is visible: Sysmon Event 15 on the ISO and on the files inside the mounted volume
+    const zone = s.events.filter(e => e.raw?.["winlog.event_id"] === "15");
+    expect(zone.length).toBe(3);
+    expect(zone.every(e => String(e.raw?.["winlog.event_data.Contents"]).includes("ZoneId=3"))).toBe(true);
     // the payload landed before the kill (state after detection)
     const write = s.events.find(e => e.id === "evt_ics_07_payload_write");
     expect(write?.raw?.["file.code_signature.exists"]).toBe(false);
@@ -500,9 +544,9 @@ describe("emitter-authored scenario packs", () => {
 
   it("destructiveWiper builds a coherent wiper chain from emitters only (CrowdStrike + Sysmon + MDE)", () => {
     const s = buildDestructiveWiperScenario();
-    expect(s.events.length).toBe(12);
+    expect(s.events.length).toBe(30);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
-      "CrowdStrike Falcon", "Microsoft Sysmon", "Microsoft Defender for Endpoint", "Windows Security",
+      "CrowdStrike Falcon", "Microsoft Sysmon", "Microsoft Defender for Endpoint", "Windows Security", "ServiceNow ITSM", "FortiGate SSL-VPN",
     ]));
     // delivery: a.novak's network logon and the remote service (7045) that launches cl64.exe,
     // so the compromised deployment account is readable in raw fields, not only in prose
@@ -513,9 +557,17 @@ describe("emitter-authored scenario packs", () => {
     expect(svc?.raw?.["winlog.event_id"]).toBe("7045");
     expect(String(svc?.raw?.["winlog.event_data.ImagePath"])).toContain("cl64.exe");
     expect(svc?.raw?.["winlog.user.identifier"]).toBe(logon?.raw?.["winlog.event_data.TargetUserSid"]);
-    // every event on the bricked host carries ONE user_email (no fabric rotation)
+    // the human account appears only on the logon / share / 7045 rows of the bricked host; the
+    // SYSTEM-owned rows carry no user_email (no fabric rotation, no wrong attribution)
     const onHost = s.events.filter(e => e.hostname === "VNT-WKS-27");
-    expect(new Set(onHost.map(e => e.user_email))).toEqual(new Set(["a.novak@vantageindustrial.com"]));
+    expect(new Set(onHost.map(e => e.user_email))).toEqual(new Set(["a.novak@vantageindustrial.com", undefined]));
+    expect(onHost.filter(e => e.user_email).map(e => e.id).sort()).toEqual(["dw_00a_admin_network_logon", "dw_00b_remote_service_install", "dw_00z_c_share_write"]);
+    // the compromise and the push: VPN login, RDP to the deployment server, sc.exe create
+    expect(s.events.find(e => e.id === "dw_00v_vpn_login")?.src_ip).toBe("196.251.33.74");
+    expect(s.events.find(e => e.id === "dw_00w_deploy_rdp_logon")?.hostname).toBe("VNT-DEPLOY-01");
+    expect(String(s.events.find(e => e.id === "dw_00z2_sc_create")?.process?.cmdline)).toContain("create cl64svc");
+    // the same service is created on two more machines
+    expect(s.events.filter(e => e.raw?.["winlog.event_id"] === "7045" && e.raw?.["winlog.event_data.ServiceName"] === "cl64svc").length).toBe(3);
     // benign control: signed sdelete, high integrity, resolves fp
     const benign = s.events.find(e => e.id === "dw_00_benign_secure_wipe");
     expect(benign?.expected_verdict).toBe("fp");
@@ -537,25 +589,26 @@ describe("emitter-authored scenario packs", () => {
     const mde = s.events.find(e => e.id === "dw_08_mde_corroboration");
     expect(mde?.raw?.["ActionType"]).toBe("ProcessCreated");
     expect(mde?.raw?.["InitiatingProcessSHA256"]).toBe(exec?.process?.hash?.sha256);
-    // the disk-structure wipe is a RawDiskAccess to PhysicalDrive0
+    // the disk-structure wipe is a Falcon IOA summary (RawDiskAccess is not a Falcon event name) naming PhysicalDrive0
     const raw = s.events.find(e => e.id === "dw_06_raw_disk_write");
-    expect(raw?.raw?.["crowdstrike.event_simpleName"]).toBe("RawDiskAccess");
+    expect(raw?.raw?.["crowdstrike.event_simpleName"]).toBe("DetectionSummaryEvent");
+    expect(raw?.event_type).toBe("edr_alert");
     expect(String(raw?.raw?.["crowdstrike.TargetFileName"])).toContain("\\Device\\Harddisk0\\DR0");
     // the detection names the SYSTEM token the wiper ran under; the deploying account
-    // is the event's user_email and is readable on the logon / 7045 records above
+    // is readable on the logon / share / 7045 records above
     const alert = s.events.find(e => e.id === "dw_09_edr_detection");
     expect(alert?.is_detection).toBe(true);
     expect(alert?.edr_scope).toBe("edr");
     expect(alert?.raw?.["crowdstrike.UserName"]).toBe("NT AUTHORITY\\SYSTEM");
-    expect(alert?.user_email).toBe("a.novak@vantageindustrial.com");
+    expect(alert?.user_email).toBeUndefined();
     // one host, correlated
-    const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
-    expect(inv.host.name).toBe("VNT-WKS-27");
+    const invs = buildInvestigationsFromScenario({ title: s.title, events: s.events });
+    expect(invs.map(i => i.host.name).sort()).toEqual(["VNT-DEPLOY-01", "VNT-WKS-27", "VNT-WKS-31", "VNT-WKS-33"]);
   });
 
   it("edgeVpnCveExploit builds a coherent appliance→internal chain from emitters only (FortiGate + SSL-VPN + Windows Security + CrowdStrike + Sentinel)", () => {
     const s = buildEdgeVpnCveExploitScenario();
-    expect(s.events.length).toBe(10);
+    expect(s.events.length).toBe(25);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
       "FortiGate", "FortiGate SSL-VPN", "Windows Security", "CrowdStrike Falcon", "Microsoft Sentinel",
     ]));
@@ -578,6 +631,8 @@ describe("emitter-authored scenario packs", () => {
     expect(vpn?.event_type).toBe("vpn_login");
     expect(vpn?.raw?.["data.user"]).toBe("j.alvarez");
     expect(vpn?.raw?.["data.tunnelip"]).toBe("10.60.200.14");
+    // a tunnel-mode session: the native record only carries tunnelip for ssl-tunnel
+    expect(vpn?.raw?.["data.tunneltype"]).toBe("ssl-tunnel");
     // the link: the tunnel IP appears as the IpAddress on the jump host's 4624 network logon
     const jumpLogon = s.events.find(e => e.id === "evt_05_jump_logon");
     expect(jumpLogon?.raw?.["winlog.event_id"]).toBe("4624");
@@ -588,14 +643,15 @@ describe("emitter-authored scenario packs", () => {
     expect(disc?.process?.parent_name).toBe("WmiPrvSE.exe");
     // the crux: SAM-hive dump is the ticket-opening EDR detection
     const sam = s.events.find(e => e.id === "evt_07_credential_access_sam");
-    expect(sam?.is_detection).toBe(true);
     expect(sam?.edr_scope).toBe("edr");
+    expect(s.events.find(e => e.id === "evt_07a_falcon_sam_detection")?.is_detection).toBe(true);
     expect(String(sam?.process?.cmdline)).toContain("save hklm\\sam");
     // lateral: SMB to the file server, process-attributed, with its own 4624 on the file server
     const smb = s.events.find(e => e.id === "evt_08_lateral_smb");
     expect(smb?.event_type).toBe("net_connection");
     expect(smb?.dst_port).toBe(445);
-    expect(smb?.process?.name).toBe("net.exe");
+    expect(smb?.process?.name).toBe("System"); // the SMB connect is made by the kernel, not by net.exe
+    expect(s.events.find(e => e.id === "evt_08b_net_use")?.process?.name).toBe("net.exe");
     const fsLogon = s.events.find(e => e.id === "evt_09_fileserver_logon");
     expect(fsLogon?.raw?.["winlog.event_id"]).toBe("4624");
     // the correlation joins the planes by the external IP, the account and the tunnel IP
@@ -607,43 +663,68 @@ describe("emitter-authored scenario packs", () => {
     expect(inv.host.name).toBe("SRV-JUMP-03");
   });
 
-  it("goldenSaml builds a coherent federation-abuse case from emitters only (Windows Security + Entra + Sentinel)", () => {
+  it("goldenSaml builds a coherent federation-abuse case from native sources (Windows Security + Falcon + Entra + M365 + Sentinel)", () => {
     const s = buildGoldenSamlScenario();
-    expect(s.events.length).toBe(8);
+    expect(s.events.length).toBe(18);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
-      "Windows Security", "Microsoft Entra ID", "Microsoft Sentinel",
+      "Windows Security", "Microsoft Entra ID", "Microsoft Sentinel", "CrowdStrike Falcon", "Microsoft 365 Unified Audit Log",
     ]));
-    // benign control: a real AD FS 1200 issuance, fp
-    const issue = s.events.find(e => e.id === "evt_gs_00_benign_adfs_issue");
+    const ev = (id: string) => s.events.find(e => e.id === id);
+    // benign control: a real AD FS 1200 issuance (Security log, AD FS Auditing provider), fp
+    const issue = ev("evt_gs_00_benign_adfs_issue");
     expect(issue?.raw?.["winlog.event_id"]).toBe("1200");
-    expect(issue?.raw?.["winlog.channel"]).toBe("AD FS/Admin");
+    expect(issue?.raw?.["winlog.channel"]).toBe("Security");
+    expect(issue?.raw?.["winlog.provider_name"]).toBe("AD FS Auditing");
     expect(issue?.expected_verdict).toBe("fp");
-    // the DKM read (4662) and the signing-key export (5058) — the pair that steals the key
-    expect(s.events.find(e => e.id === "evt_gs_02_dkm_object_access")?.raw?.["winlog.event_id"]).toBe("4662");
-    const exp = s.events.find(e => e.id === "evt_gs_03_signing_key_export");
+    // the session that runs the tooling: a 4624 on the AD FS server, then a different logon id on the DC
+    const adfsLogon = ev("evt_gs_01b_adfs_logon");
+    const dcLogon = ev("evt_gs_01f_dc_logon");
+    expect(adfsLogon?.raw?.["winlog.event_data.TargetLogonId"]).not.toBe(dcLogon?.raw?.["winlog.event_data.TargetLogonId"]);
+    // the DKM read (4662, Read Property on the thumbnailPhoto attribute) uses the DC session
+    const dkm = ev("evt_gs_02_dkm_object_access");
+    expect(dkm?.raw?.["winlog.event_id"]).toBe("4662");
+    expect(dkm?.raw?.["winlog.event_data.AccessList"]).toBe("%%7685");
+    expect(String(dkm?.raw?.["winlog.event_data.Properties"])).toContain("8d3bca50-1d7e-11d0-a081-00aa006c33ed");
+    expect(dkm?.raw?.["winlog.event_data.SubjectLogonId"]).toBe(dcLogon?.raw?.["winlog.event_data.TargetLogonId"]);
+    // the signing-key read (5058) and export (5059) use the AD FS session; the key file is a Falcon FileWritten
+    const exp = ev("evt_gs_03_signing_key_export");
     expect(exp?.raw?.["winlog.event_id"]).toBe("5058");
-    expect(exp?.raw?.["winlog.event_data.ExportedKeyFileSha256"]).toBeTruthy();
+    expect(exp?.raw?.["winlog.event_data.SubjectLogonId"]).toBe(adfsLogon?.raw?.["winlog.event_data.TargetLogonId"]);
+    expect(exp?.raw?.["winlog.event_data.ExportedKeyFileSha256"]).toBeUndefined();
+    expect(ev("evt_gs_03b_signing_key_migration")?.raw?.["winlog.event_id"]).toBe("5059");
+    const pfx = ev("evt_gs_03c_pfx_written");
+    expect(pfx?.raw?.["file.hash.sha256"]).toBeTruthy();
+    expect(pfx?.process?.name).toBe("adfsdump.exe");
     // THE tell: the benign federated sign-in pairs with an on-prem AD FS issuance
     // (same InstanceId/federatedTokenId); the malicious ones pair with none.
     const issuedIds = new Set(s.events.filter(e => e.raw?.["winlog.event_id"] === "1200").map(e => e.raw?.["winlog.event_data.InstanceId"]));
-    const benignSignin = s.events.find(e => e.id === "evt_gs_01_benign_federated_signin");
-    const gaSignin = s.events.find(e => e.id === "evt_gs_04_signin_ga_whitfield");
-    expect(benignSignin?.raw?.["azure.signinlogs.properties.tokenIssuerType"]).toBe("ADFSFederated");
+    const benignSignin = ev("evt_gs_01_benign_federated_signin");
+    const gaSignin = ev("evt_gs_04_signin_ga_whitfield");
+    expect(benignSignin?.raw?.["azure.signinlogs.properties.tokenIssuerType"]).toBe("ADFederationServices");
     expect(issuedIds.has(benignSignin?.raw?.["azure.signinlogs.properties.federatedTokenId"])).toBe(true);
-    expect(gaSignin?.raw?.["azure.signinlogs.properties.tokenIssuerType"]).toBe("ADFSFederated");
+    expect(gaSignin?.raw?.["azure.signinlogs.properties.tokenIssuerType"]).toBe("ADFederationServices");
+    expect(gaSignin?.raw?.["azure.signinlogs.properties.conditionalAccessStatus"]).toBe("notApplied");
     expect(issuedIds.has(gaSignin?.raw?.["azure.signinlogs.properties.federatedTokenId"])).toBe(false);
-    // the token is then exchanged into the directory (incoming SAML)
-    expect(s.events.find(e => e.id === "evt_gs_06_token_use_directory")?.raw?.["azure.signinlogs.properties.incomingTokenType"]).toBe("saml");
-    // the correlation is identity-plane (no endpoint tree) and flags the missing issuance
-    const corr = s.events.find(e => e.id === "evt_gs_07_sentinel_correlation");
+    // the token is then exchanged into the directory (incoming SAML), and the tenant is changed
+    expect(ev("evt_gs_06_token_use_directory")?.raw?.["azure.signinlogs.properties.incomingTokenType"]).toBe("saml");
+    expect(ev("evt_gs_08_add_sp_credentials")?.raw?.["azure.auditlogs.operationName"]).toBe("Add service principal credentials");
+    expect(ev("evt_gs_09_add_role_member")?.raw?.["azure.auditlogs.operationName"]).toBe("Add member to role");
+    // the correlation flags the missing issuance, carries the real Entra user id and the AD FS server's own address
+    const corr = ev("evt_gs_07_sentinel_correlation");
     expect(corr?.is_detection).toBe(true);
-    expect(corr?.edr_scope).toBe("non_edr");
+    expect(corr?.edr_scope).toBe("hybrid");
     expect(corr?.raw?.["ExtendedProperties.Matching AD FS Issuance"]).toBe("none");
+    expect(corr?.raw?.["host.ip"]).toBe("10.20.5.15");
+    expect(JSON.stringify(corr?.raw?.["Entities"])).toContain(String(gaSignin?.raw?.["azure.signinlogs.properties.userId"]));
+    // the AD FS server has an endpoint tree for the EDR console
+    const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events });
+    const adfsCase = inv.find(i => i.host.name === "ADFS-NEXA-01");
+    expect(adfsCase?.processes.some(p => p.name === "adfsdump.exe")).toBe(true);
   });
 
   it("infostealerSessionTheft builds a coherent cookie-theft→replay case from emitters only (Entra + PAN + CrowdStrike + M365)", () => {
     const s = buildInfostealerSessionTheftScenario();
-    expect(s.events.length).toBe(10);
+    expect(s.events.length).toBe(16);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
       "Microsoft Entra ID", "Palo Alto Networks PAN-OS", "CrowdStrike Falcon", "Microsoft 365 Unified Audit Log",
     ]));
@@ -657,14 +738,18 @@ describe("emitter-authored scenario packs", () => {
     expect(cookies?.is_detection).toBe(true);
     expect(cookies?.file?.name).toBe("Cookies");
     expect(cookies?.file?.path).toContain("Network\\Cookies");
-    // the replay: non-interactive, unmanaged device, MFA satisfied by a prior token
+    // the replay: a browser sign-in on an unmanaged device, first factor and MFA both satisfied by claims in the cookie's token
     const replay = s.events.find(e => e.id === "evt_ist_08_session_replay");
-    expect(replay?.raw?.["azure.signinlogs.properties.isInteractive"]).toBe("false");
+    expect(replay?.raw?.["azure.signinlogs.properties.isInteractive"]).toBe("true");
     expect(replay?.raw?.["azure.signinlogs.properties.deviceDetail.isManaged"]).toBe("false");
-    expect(replay?.raw?.["azure.signinlogs.properties.incomingTokenType"]).toBe("primaryRefreshToken");
+    expect(replay?.raw?.["azure.signinlogs.properties.incomingTokenType"]).toBe("none");
     const steps = replay?.raw?.["azure.signinlogs.properties.authenticationDetails"] as Array<{ authenticationStepResultDetail: string }>;
-    expect(steps.length).toBe(1);
-    expect(steps[0].authenticationStepResultDetail).toContain("satisfied by claim");
+    expect(steps.length).toBe(2);
+    expect(steps.every(st => st.authenticationStepResultDetail.includes("satisfied by claim"))).toBe(true);
+    // the stolen cookie belongs to the browser that signed in: the baseline is Chrome too, not Edge
+    expect(String(base?.raw?.["azure.signinlogs.properties.userAgent"])).not.toContain("Edg/");
+    // the identity-plane rows never carry a file object an endpoint process could be blamed for
+    expect(s.events.find(e => e.id === "evt_ist_10_sharepoint_access")?.file).toBeUndefined();
     // the EDR alert spans host + identity
     const alert = s.events.find(e => e.id === "evt_ist_09_edr_alert");
     expect(alert?.is_detection).toBe(true);
@@ -678,49 +763,70 @@ describe("emitter-authored scenario packs", () => {
     expect(inv.host.name).toBe("LAP-6688");
   });
 
-  it("macosTccPkg builds a coherent macOS TCC-bypass chain from emitters only (CrowdStrike + MDE)", () => {
+  it("macosTccPkg builds a coherent macOS TCC-bypass chain from native sources (CrowdStrike + MDE + Zscaler + Unified Log)", () => {
     const s = buildMacosTccPkgScenario();
-    expect(s.events.length).toBe(8);
+    expect(s.events.length).toBe(29);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
-      "CrowdStrike Falcon", "Microsoft Defender for Endpoint",
+      "CrowdStrike Falcon", "Microsoft Defender for Endpoint", "Zscaler Internet Access", "macOS Unified Log",
     ]));
-    // benign control: valid Developer ID, runs as the user, resolves fp
-    const benign = s.events.find(e => e.id === "mtp_00_benign_notarized_pkg");
+    const ev = (id: string) => s.events.find(e => e.id === id);
+    // benign control: Installer.app, notarized signature accepted by syspolicyd, resolves fp
+    const benign = ev("mtp_00_benign_notarized_pkg");
     expect(benign?.expected_verdict).toBe("fp");
-    expect(benign?.raw?.["file.code_signature.trusted"]).toBe(true);
-    expect(benign?.process?.user).toBe("j.okafor");
-    // the malicious install: revoked Developer ID, runs as root
-    const install = s.events.find(e => e.id === "mtp_01_pkg_install");
-    expect(install?.raw?.["file.code_signature.status"]).toBe("errSecCertificateRevoked");
+    expect(benign?.process?.name).toBe("Installer");
+    expect(String(ev("mtp_00c_benign_gatekeeper_accept")?.raw?.eventMessage)).toContain("Notarized Developer ID");
+    // the malicious install: command-line installer, root, -allowUntrusted over a revoked certificate
+    const install = ev("mtp_01_pkg_install");
     expect(install?.process?.user).toBe("root");
-    // root postinstall shell, child of installer (MDE corroborates by SHA256)
-    expect(s.events.find(e => e.id === "mtp_02_postinstall_root_shell")?.process?.parent_name).toBe("installer");
-    const mde = s.events.find(e => e.id === "mtp_03_mde_postinstall_corroboration");
-    expect(mde?.raw?.["InitiatingProcessSHA256"]).toBe(install?.process?.hash?.sha256);
-    // TCC manipulation: sqlite3 writes the privacy DB with a kTCCService allow-row
-    const tcc = s.events.find(e => e.id === "mtp_04_tcc_db_write");
+    expect(install?.process?.cmdline).toContain("-allowUntrusted");
+    expect(install?.process?.parent_name).toBe("sudo");
+    expect(String(ev("mtp_01f_installer_signature_check")?.raw?.eventMessage)).toContain("revoked");
+    // every Falcon record on the Mac says Mac
+    for (const e of s.events.filter(x => x.vendor === "CrowdStrike Falcon" && x.raw?.["crowdstrike.event_platform"] !== undefined)) {
+      expect(e.raw?.["crowdstrike.event_platform"], e.id).toBe("Mac");
+    }
+    // postinstall shell is a child of package_script_service, not of the installer client
+    expect(ev("mtp_02_postinstall_root_shell")?.process?.parent_name).toBe("package_script_service");
+    expect(ev("mtp_02a_package_script_service")?.process?.parent_name).toBe("installd");
+    // MDE corroborates the same shell and names a real initiating process hash (an Apple binary, not the payload)
+    const mde = ev("mtp_03_mde_postinstall_corroboration");
+    const payloadHash = ev("mtp_05b_helper_start")?.process?.hash?.sha256;
+    const pkgHash = ev("mtp_01a_pkg_download_file")?.file?.sha256;
+    expect(mde?.user_email).toBe("j.okafor@northwind-collab.com");
+    expect(mde?.raw?.["FolderPath"]).toBe("/bin");
+    expect(mde?.raw?.["InitiatingProcessSHA256"]).not.toBe(payloadHash);
+    // one sha256 = one file: the package and the helper differ
+    expect(pkgHash && payloadHash && pkgHash !== payloadHash).toBe(true);
+    // TCC manipulation: sqlite3 process carries both INSERTs, then writes the privacy DB
+    expect(String(ev("mtp_04a_sqlite3_exec")?.process?.cmdline)).toContain("kTCCServiceSystemPolicyAllFiles");
+    expect(String(ev("mtp_04a_sqlite3_exec")?.process?.cmdline)).toContain("kTCCServiceScreenCapture");
+    const tcc = ev("mtp_04_tcc_db_write");
     expect(tcc?.event_type).toBe("file_modify");
     expect(tcc?.file?.name).toBe("TCC.db");
-    expect(String(tcc?.raw?.["crowdstrike.CommandLine"])).toContain("kTCCServiceSystemPolicyAllFiles");
-    // persistence: a root LaunchDaemon plist
-    expect(s.events.find(e => e.id === "mtp_05_launchdaemon_persist")?.raw?.["file.path"]).toContain("/Library/LaunchDaemons/");
+    // persistence: a root LaunchDaemon plist, then the helper under launchd
+    expect(ev("mtp_05a_launchdaemon_plist_written")?.file?.path).toContain("/Library/LaunchDaemons/");
+    expect(ev("mtp_05_launchdaemon_persist")?.raw?.["crowdstrike.CommandLine"]).toContain("launchctl load");
+    expect(ev("mtp_05b_helper_start")?.process?.parent_name).toBe("launchd");
     // protected-data read via the granted Full Disk Access
-    const read = s.events.find(e => e.id === "mtp_06_protected_data_read");
+    const read = ev("mtp_06_protected_data_read");
     expect(read?.event_type).toBe("file_access");
     expect(read?.process?.name).toBe("meetsyncd");
-    // the detection is host-scoped and attributed to root
-    const alert = s.events.find(e => e.id === "mtp_07_edr_detection");
+    // the detection is host-scoped, attributed to root and to the helper's pid
+    const alert = ev("mtp_07_edr_detection");
     expect(alert?.is_detection).toBe(true);
     expect(alert?.edr_scope).toBe("edr");
     expect(alert?.raw?.["crowdstrike.UserName"]).toBe("root");
-    // one host, correlated
+    // one host, correlated: the case roots at launchd, the payload is flagged malicious (unsigned, not "abused")
     const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
     expect(inv.host.name).toBe("MB-PM-07");
+    const helper = inv.processes.find(p => p.name === "meetsyncd");
+    expect(helper?.ppid).toBe(1);
+    expect(inv.answer.pid).toBe(helper?.pid);
   });
 
   it("macosStealerDmg builds a coherent macOS infostealer chain from emitters only (CrowdStrike + Zscaler + MDE)", () => {
     const s = buildMacosStealerDmgScenario();
-    expect(s.events.length).toBe(10);
+    expect(s.events.length).toBe(22);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
       "CrowdStrike Falcon", "Zscaler Internet Access", "Microsoft Defender for Endpoint",
     ]));
@@ -728,11 +834,17 @@ describe("emitter-authored scenario packs", () => {
     const benign = s.events.find(e => e.id === "msd_00_benign_notarized_install");
     expect(benign?.expected_verdict).toBe("fp");
     expect(benign?.raw?.["file.code_signature.trusted"]).toBe(true);
-    // delivery: proxy sees the malware-categorised download as a threat
+    // delivery: the proxy ALLOWS the download from a newly registered domain (no threat verdict),
+    // and Safari writes the image to ~/Downloads with its own hash
     const dl = s.events.find(e => e.id === "msd_01_dmg_download");
-    expect(dl?.is_detection).toBe(true);
-    expect(dl?.raw?.["zscaler.urlcategory"]).toBe("Malware");
-    expect(dl?.raw?.["threat.name"]).toBe("OSX/InfoStealer");
+    expect(dl?.is_detection).toBe(false);
+    expect(dl?.raw?.["zscaler.action"]).toBe("Allowed");
+    expect(dl?.raw?.["zscaler.urlcategory"]).toBe("Newly Registered and Observed Domains");
+    expect(dl?.raw?.["threat.name"]).toBeUndefined();
+    expect(dl?.dst_ip).toBe("185.234.72.19");
+    const dmgWrite = s.events.find(e => e.id === "msd_01b_dmg_written");
+    expect(dmgWrite?.file?.path).toBe("/Users/a.fontaine/Downloads/PixelForge_Pro_v7.dmg");
+    expect(dmgWrite?.process?.name).toBe("Safari");
     // execution: ad-hoc signed app from the mounted volume, matching the download hash
     const run = s.events.find(e => e.id === "msd_02_dmg_mount_run");
     expect(run?.raw?.["process.code_signature.exists"]).toBe(true);
@@ -743,9 +855,12 @@ describe("emitter-authored scenario packs", () => {
     // credential theft: keychain read + browser cookie read
     expect(s.events.find(e => e.id === "msd_05_keychain_access")?.file?.name).toBe("login.keychain-db");
     expect(s.events.find(e => e.id === "msd_06_browser_cookie_theft")?.file?.name).toBe("Cookies");
-    // exfil: proxy POST to the collection host (not itself a threat block)
+    // exfil: a curl child of the payload zips-and-uploads; the proxy POST names the destination IP
+    expect(s.events.find(e => e.id === "msd_05a_security_exec")?.process?.parent_pid).toBe(4102);
+    expect(s.events.find(e => e.id === "msd_08c_curl_upload")?.process?.parent_pid).toBe(4102);
     const exfil = s.events.find(e => e.id === "msd_08_exfil_upload");
     expect(exfil?.event_type).toBe("http_request");
+    expect(exfil?.dst_ip).toBe("45.147.230.88");
     expect(exfil?.raw?.["zscaler.reqmethod"] ?? exfil?.raw?.["http.request.method"]).toBe("POST");
     // the detection spans host + proxy
     const alert = s.events.find(e => e.id === "msd_09_edr_detection");
@@ -758,8 +873,8 @@ describe("emitter-authored scenario packs", () => {
 
   it("s3ExfilExposure builds a coherent cloud bucket-exposure case from emitters only (CloudTrail + GuardDuty)", () => {
     const s = buildS3ExfilExposureScenario();
-    expect(s.events.length).toBe(10);
-    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set(["AWS CloudTrail", "AWS GuardDuty"]));
+    expect(s.events.length).toBe(21);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set(["AWS CloudTrail", "AWS GuardDuty", "GitHub Audit Log", "AWS CloudWatch"]));
     // benign backup: assumed-role over a VPC endpoint from inside AWS — fp
     const benign = s.events.find(e => e.id === "s3exfil_00_benign_backup");
     expect(benign?.expected_verdict).toBe("fp");
@@ -777,24 +892,34 @@ describe("emitter-authored scenario packs", () => {
     expect(gdAnon?.is_detection).toBe(true);
     expect(gdAnon?.edr_scope).toBe("non_edr");
     expect(gdAnon?.raw?.["aws.guardduty.resource.s3BucketDetails.publicAccess.effectivePermission"]).toBe("PUBLIC");
-    // the drain: 41 GB of GetObject, and the GuardDuty exfil finding
-    expect(s.events.find(e => e.id === "s3exfil_07_getobject_burst")?.raw?.["aws.cloudtrail.additional_event_data.bytes_transferred_out"]).toBe("44023414784");
+    // the drain: one CloudTrail record is one object (a realistic size); the 41 GB total is the CloudWatch metric
+    const drain = s.events.find(e => e.id === "s3exfil_07_getobject_burst");
+    expect(drain?.raw?.["aws.cloudtrail.additional_event_data.bytes_transferred_out"]).toBe("2201170");
+    expect(drain?.raw?.["aws.cloudtrail.additional_event_data.objects_returned"]).toBeUndefined();
+    expect(drain?.raw?.["aws.cloudtrail.additional_event_data.object_sha256"]).toBeUndefined();
+    expect(s.events.find(e => e.id === "s3exfil_06_list_objects")?.raw?.["aws.cloudtrail.additional_event_data.keys_returned"]).toBeUndefined();
+    expect(s.events.find(e => e.id === "s3exfil_08b_cloudwatch_bytes")?.raw?.["cloudwatch.alarm.actual_value"]).toBe("44023414784");
     const gdRead = s.events.find(e => e.id === "s3exfil_08_gd_object_read");
     expect(gdRead?.raw?.["aws.guardduty.type"]).toBe("Exfiltration:S3/ObjectRead.Unusual");
     expect(gdRead?.is_detection).toBe(true);
-    // the supporting anomaly finding is not the ticket-opener
-    expect(s.events.find(e => e.id === "s3exfil_09_gd_anomalous")?.is_detection).toBe(false);
-    // the tell: every attacker action is sourced from the external IP; the backup is private
-    const attackerIps = new Set(s.events.filter(e => e.id !== "s3exfil_00_benign_backup").map(e => e.src_ip));
-    expect(attackerIps).toEqual(new Set(["91.242.217.35"]));
+    // the anomaly finding is a finding too
+    expect(s.events.find(e => e.id === "s3exfil_09_gd_anomalous")?.is_detection).toBe(true);
+    // the leak origin, and the opened bucket used without a credential
+    expect(s.events.find(e => e.id === "s3exfil_00d_secret_scanning")?.raw?.["github.secret_type"]).toBe("aws_access_key_id");
+    const anon = s.events.find(e => e.id === "s3exfil_04b_anonymous_get");
+    expect(anon?.raw?.["aws.cloudtrail.userIdentity.accountId"]).toBe("anonymous");
+    expect(anon?.raw?.["aws.cloudtrail.userIdentity.accessKeyId"]).toBeUndefined();
+    // the tell: every key-driven action is sourced from the external IP; the backup is private
+    const keyEvents = s.events.filter(e => e.raw?.["aws.cloudtrail.userIdentity.accessKeyId"] === "AKIA4MC2X7QF9EXAMPLE");
+    expect(new Set(keyEvents.map(e => e.src_ip))).toEqual(new Set(["91.242.217.35"]));
     expect(benign?.src_ip).toBe("10.0.42.17");
   });
 
   it("cicdSupplyChain builds a coherent CI/CD supply-chain case from emitters only (GitHub + CloudTrail + GuardDuty)", () => {
     const s = buildCicdSupplyChainScenario();
-    expect(s.events.length).toBe(11);
+    expect(s.events.length).toBe(19);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
-      "GitHub Audit Log", "AWS CloudTrail", "AWS GuardDuty",
+      "GitHub Audit Log", "AWS CloudTrail", "AWS GuardDuty", "Okta",
     ]));
     // benign control: the reviewed-PR path, fp
     const benign = s.events.find(e => e.id === "cicd_00_benign_pr");
@@ -808,17 +933,26 @@ describe("emitter-authored scenario packs", () => {
     // the OIDC exchange on the attacker runner (WebIdentityUser)
     const oidc = s.events.find(e => e.id === "cicd_06_assume_role_oidc");
     expect(oidc?.raw?.["aws.cloudtrail.userIdentity.type"]).toBe("WebIdentityUser");
-    expect(oidc?.raw?.["aws.cloudtrail.userIdentity.identityProvider"]).toBe("token.actions.githubusercontent.com");
+    expect(oidc?.raw?.["aws.cloudtrail.userIdentity.identityProvider"]).toBe("arn:aws:iam::739218004471:oidc-provider/token.actions.githubusercontent.com");
+    // an STS write call, with the temporary key the later calls reuse
+    expect(oidc?.raw?.["aws.cloudtrail.eventSource"]).toBe("sts.amazonaws.com");
+    expect(oidc?.raw?.["aws.cloudtrail.readOnly"]).toBe("false");
+    expect(oidc?.raw?.["aws.cloudtrail.responseElements.credentials.accessKeyId"]).toBe("ASIAY7RCX2NLPEXAMPLE");
+    expect(s.events.find(e => e.id === "cicd_09_get_secret_value")?.raw?.["aws.cloudtrail.userIdentity.accessKeyId"]).toBe("ASIAY7RCX2NLPEXAMPLE");
     // the payoff: a prod secret read
     expect(s.events.find(e => e.id === "cicd_09_get_secret_value")?.raw?.["aws.cloudtrail.eventName"]).toBe("GetSecretValue");
-    // the detection: GuardDuty flags the role's creds used outside AWS
+    // the detection: GuardDuty flags a credential-access call from the role session (a web-identity
+    // role session is not an EC2 instance credential, so not the InstanceCredentialExfiltration type)
     const gd = s.events.find(e => e.id === "cicd_10_guardduty_finding");
-    expect(gd?.raw?.["aws.guardduty.type"]).toBe("UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS");
+    expect(gd?.raw?.["aws.guardduty.type"]).toBe("CredentialAccess:IAMUser/AnomalousBehavior");
     expect(gd?.is_detection).toBe(true);
     expect(gd?.edr_scope).toBe("non_edr");
     // the tell: every attacker action from the one external IP; benign from the dev IP
-    const atkIps = new Set(s.events.filter(e => e.id !== "cicd_00_benign_pr" && e.src_ip).map(e => e.src_ip));
+    const atkIps = new Set(s.events.filter(e => e.id !== "cicd_00_benign_pr" && !e.is_baseline && e.src_ip).map(e => e.src_ip));
     expect(atkIps).toEqual(new Set(["45.156.128.19"]));
+    // the takeover is evidenced on the identity plane before the PAT: an approved push from the attacker address
+    expect(s.events.find(e => e.id === "cicd_00c_okta_push_approved")?.src_ip).toBe("45.156.128.19");
+    expect(s.events.find(e => e.id === "cicd_00e_github_login")?.raw?.["github.action"]).toBe("user.login");
     expect(benign?.src_ip).toBe("94.188.12.44");
   });
 
@@ -858,10 +992,14 @@ describe("emitter-authored scenario packs", () => {
 
   it("helpdeskMfaReset builds a coherent helpdesk-social-engineering case from emitters only (Entra + ServiceNow + CrowdStrike)", () => {
     const s = buildHelpdeskMfaResetScenario();
-    expect(s.events.length).toBe(9);
+    expect(s.events.length).toBe(16);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
-      "Microsoft Entra ID", "ServiceNow ITSM", "CrowdStrike Falcon", "Microsoft Sentinel",
+      "Microsoft Entra ID", "ServiceNow ITSM", "CrowdStrike Falcon", "Microsoft Sentinel", "Microsoft 365 Unified Audit Log", "Windows Security",
     ]));
+    // the identity-plane alert is about the account, not a machine
+    const alert = s.events.find(e => e.id === "evt_hmr_07b_sentinel_alert");
+    expect(alert?.hostname).toBeUndefined();
+    expect(alert?.raw?.["CompromisedEntity"]).toBe("l.ferreira@nexacorp.com");
     // the ServiceNow ticket (source soar) with the verification note
     const ticket = s.events.find(e => e.id === "evt_hmr_02_ticket_created");
     expect(ticket?.source).toBe("soar");
@@ -889,12 +1027,12 @@ describe("emitter-authored scenario packs", () => {
 
   it("rogueAdminAccount builds a coherent rogue-admin case from emitters only (ServiceNow + Windows Security + Sentinel)", () => {
     const s = buildRogueAdminAccountScenario();
-    expect(s.events.length).toBe(10);
+    expect(s.events.length).toBe(32);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
-      "ServiceNow ITSM", "Windows Security", "Microsoft Sentinel",
+      "ServiceNow ITSM", "Windows Security", "Microsoft Defender for Endpoint", "Microsoft Sentinel",
     ]));
     // control: the daylight 4720 tied to an approved onboarding request
-    const baseline = s.events.find(e => e.id === "evt_ra_02_baseline_create");
+    const baseline = s.events.find(e => e.id === "evt_ra_02_create_n_peretz");
     expect(baseline?.raw?.["winlog.event_id"]).toBe("4720");
     expect(baseline?.it_verify_result).toBe("confirmed");
     // the rogue 4720 — same creator, no ticket
@@ -906,7 +1044,7 @@ describe("emitter-authored scenario packs", () => {
     const grp = s.events.find(e => e.id === "evt_ra_06_group_add_domain");
     expect(grp?.raw?.["winlog.event_id"]).toBe("4728");
     expect(grp?.raw?.["winlog.event_data.TargetUserName"]).toBe("Domain Admins");
-    expect(grp?.edr_scope).toBe("non_edr");
+    expect(grp?.edr_scope).toBe("hybrid");
     // local Administrators add (4732) on the member server
     expect(s.events.find(e => e.id === "evt_ra_07_group_add_local")?.raw?.["winlog.event_id"]).toBe("4732");
     // the Sentinel correlation carries the "no linked request" directory context
@@ -921,9 +1059,9 @@ describe("emitter-authored scenario packs", () => {
 
   it("backupFalsePositive builds a coherent benign-backup case from emitters only (ServiceNow + WinSec + MDE + PAN + Sentinel)", () => {
     const s = buildBackupFalsePositiveScenario();
-    expect(s.events.length).toBe(10);
+    expect(s.events.length).toBe(15);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
-      "ServiceNow ITSM", "Windows Security", "Microsoft Defender for Endpoint", "Palo Alto Networks PAN-OS", "Microsoft Sentinel",
+      "ServiceNow ITSM", "Windows Security", "Microsoft Defender for Endpoint", "Palo Alto Networks PAN-OS", "Infoblox DNS", "Microsoft Sentinel",
     ]));
     // the change ticket that authorised the new schedule
     const chg = s.events.find(e => e.id === "evt_bkpfp_01_change");
@@ -949,6 +1087,10 @@ describe("emitter-authored scenario packs", () => {
     // the correlation shows zero writes/deletes — the record that clears it
     const corr = s.events.find(e => e.id === "evt_bkpfp_10_correlation");
     expect(corr?.raw?.["ExtendedProperties.Event 4663 WriteData Count"]).toBe(0);
-    expect(corr?.raw?.["ExtendedProperties.Linked Change Request"]).toBe("CHG0041887");
+    // the egress that looked unexplained is the agent itself reaching its vendor: DNS, endpoint and firewall agree
+    const conn = s.events.find(e => e.id === "evt_bkpfp_08b_agent_conn");
+    expect(conn?.raw?.["InitiatingProcessFileName"]).toBe("VeeamAgent.exe");
+    expect(conn?.raw?.["RemoteIP"]).toBe("104.18.27.94");
+    expect(s.events.find(e => e.id === "evt_bkpfp_08_egress")?.raw?.["pan.sport"]).toBe(conn?.raw?.["LocalPort"]);
   });
 });

@@ -10,8 +10,10 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeLog, NativeSource, SourceId, UseCase } from "./types";
 import { makeCtx } from "./ctx";
-import { edrFacts } from "./sources/edr-normalize";
-import { procPid } from "./sources/_proc-identity";
+import { edrFacts, threadOf, withThread } from "./sources/edr-normalize";
+import { procPid, threadEndpointStory, hostKey } from "./sources/_proc-identity";
+import { threadIdentityContext } from "./sources/_identity-common";
+import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import { COMPANY_STACKS, sourceFor, categoryOf, rewriteProductText, PRODUCT_LABEL, coherentStack, PRODUCT_LOCKS, M365_CLIENT_TEXT, M365_CLIENT_RECORD, MS_LOGIN_RECORD, STACK_CHOICES, type Stack, type StackCategory } from "./stack";
 
 import { source as anyconnect } from "./sources/anyconnect";
@@ -48,13 +50,14 @@ import { source as windows_dns } from "./sources/windows_dns";
 import { source as windows_security } from "./sources/windows_security";
 import { source as zscaler_zia } from "./sources/zscaler_zia";
 import { source as zscaler_zpa } from "./sources/zscaler_zpa";
+import { source as workday } from "./sources/workday";
 
 export const NATIVE_SOURCES: Partial<Record<SourceId, NativeSource>> = {
   anyconnect, aws_cloudtrail, aws_guardduty, aws_vpcflow, azure_activity, checkpoint, cisco_asa, cisco_ftd,
   cloudflare_access, crowdstrike, defender_o365, entra, fortigate, fortigate_sslvpn, gcp_audit, globalprotect,
   google_workspace, infoblox, k8s_audit, linux_auditd, m365, mde, okta, paloalto, proofpoint, sentinelone,
   servicenow, sophos, sysmon, windows_dns, zscaler_zia, zscaler_zpa,
-  cyberark, windows_security,
+  cyberark, windows_security, workday,
 };
 
 export function stackFor(companyId: string, override?: Stack): Stack {
@@ -267,6 +270,141 @@ export function nativeViewAuthored(ev: TelemetryEvent): { log: NativeLog; produc
     const log = mod.fromTelemetry(ev, makeCtx("nexacorp"));
     return log ? { log, product: mod.schema.product } : null;
   } catch { return null; }
+}
+
+// ── Standalone scenario: one story, one set of identities ───────────────────
+
+const PRIVATE_V4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)\d{1,3}\.\d{1,3}(\.\d{1,3})?$/;
+const HOSTED = new Set(["edr", "av", "sysmon", "linux_audit"]);
+const sv = (v: unknown) => (v === undefined || v === null || v === "" || v === "-" ? undefined : String(v));
+
+/** The organization a scenario's events belong to: a known company by its mail domain, else that domain itself. */
+function storyOrg(events: TelemetryEvent[]): { companyId: string; identity?: NativeIdentity } {
+  const votes = new Map<string, number>();
+  for (const e of events) {
+    const d = (e.user_email ?? e.user?.email ?? "").split("@")[1]?.toLowerCase();
+    if (d) votes.set(d, (votes.get(d) ?? 0) + 1);
+  }
+  const top = [...votes.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  if (!top) return { companyId: "nexacorp" };
+  const known = Object.entries(COMPANY_ASSETS).find(([, a]) => a.domain.toLowerCase() === top);
+  if (known) return { companyId: known[0] };
+  // A scenario org with no company profile (Northwind Logistics): its own domain and realm, never NexaCorp's.
+  return { companyId: "nexacorp", identity: { domain: top, netbios: top.split(".")[0].replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 15) } };
+}
+
+/** Every address the story gives a host for itself (an EDR row's own IP, a firewall / proxy / DNS row's source). */
+function storyHostIps(events: TelemetryEvent[]): Map<string, string> {
+  const out = new Map<string, string>();
+  const note = (host: unknown, ip: unknown) => {
+    const h = sv(host), a = sv(ip);
+    if (h && a && PRIVATE_V4.test(a) && !out.has(hostKey(h))) out.set(hostKey(h), a);
+  };
+  // 1. The host's own address as its sensor states it.
+  for (const e of events) {
+    const r = (e.raw ?? {}) as Record<string, unknown>;
+    if (HOSTED.has(e.source)) note(e.hostname ?? r["host.name"], r["host.ip"] ?? r["crowdstrike.LocalAddressIP4"] ?? r["LocalIP"] ?? r["s1.agent.localIp"]);
+  }
+  // 2. The source of the host's own outbound network rows.
+  for (const e of events) if (["firewall", "proxy", "dns"].includes(e.source)) note(e.hostname, e.src_ip);
+  // 3. Host telemetry that carries the host's address as its source (not a logon's remote end).
+  for (const e of events) if (HOSTED.has(e.source) && e.event_type !== "net_connection") note(e.hostname, e.src_ip);
+  for (const e of events) { const r = (e.raw ?? {}) as Record<string, unknown>; note(e.hostname ?? r["host.name"], r["host.ip"]); }
+  return out;
+}
+
+/** (sAMAccountName -> SID) as the story authors it, in every vocabulary the scenarios use. */
+const SID_KEYS: [string, string][] = [
+  ["winlog.event_data.TargetUserName", "winlog.event_data.TargetUserSid"], ["winlog.event_data.SubjectUserName", "winlog.event_data.SubjectUserSid"],
+  ["winlog.event_data.MemberName", "winlog.event_data.MemberSid"], ["winlog.event_data.TargetUserName", "winlog.event_data.TargetSid"],
+  ["TargetUserName", "TargetUserSid"], ["SubjectUserName", "SubjectUserSid"], ["AccountName", "AccountSid"],
+  ["InitiatingProcessAccountName", "InitiatingProcessAccountSid"], ["crowdstrike.UserName", "crowdstrike.UserSid"], ["user.name", "user.id"],
+];
+function storySids(events: TelemetryEvent[]): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const e of events) for (const [uk, sk] of SID_KEYS) {
+    const name = sv(e.raw?.[uk]);
+    const sid = sv(e.raw?.[sk]);
+    if (!name || !sid || !/^S-1-5-21-\d+-\d+-\d+-\d+$/.test(sid)) continue;
+    const sam = name.replace(/^CN=([^,]+),.*$/i, "$1").split("\\").pop()!.split("@")[0].toLowerCase();
+    if (!sam || sam.endsWith("$") || out.has(sam)) continue;
+    out.set(sam, sid);
+  }
+  return out;
+}
+
+/**
+ * An assumed-role session starts at the AssumeRole call that created it: the CloudTrail records the
+ * session then makes carry that time as sessionContext.attributes.creationDate (never an hour earlier).
+ */
+const CREATION = "aws.cloudtrail.userIdentity.sessionContext.attributes.creationDate";
+function threadRoleSessions(events: TelemetryEvent[]): TelemetryEvent[] {
+  const starts: { t: number; role: string; session: string }[] = [];
+  for (const e of events) {
+    const r = (e.raw ?? {}) as Record<string, unknown>;
+    if ((sv(r["aws.cloudtrail.eventName"]) ?? e.cloud?.api_call) !== "AssumeRole" || sv(r["aws.cloudtrail.errorCode"])) continue;
+    let p: Record<string, unknown> = {};
+    try { p = JSON.parse(String(r["aws.cloudtrail.request_parameters"] ?? r["aws.cloudtrail.requestParameters"] ?? "{}")); } catch { /* flattened keys below */ }
+    const roleArn = sv(p.roleArn ?? r["aws.cloudtrail.requestParameters.roleArn"]);
+    const session = sv(p.roleSessionName ?? r["aws.cloudtrail.requestParameters.roleSessionName"]);
+    if (roleArn && session) starts.push({ t: Date.parse(e.ts), role: roleArn.split("/").pop()!.toLowerCase(), session: session.toLowerCase() });
+  }
+  if (!starts.length) return events;
+  return events.map(e => {
+    const r = (e.raw ?? {}) as Record<string, unknown>;
+    const m = /:assumed-role\/([^/]+)\/(.+)$/.exec(sv(r["aws.cloudtrail.userIdentity.arn"]) ?? "");
+    if (!m) return e;
+    const t = Date.parse(e.ts);
+    const start = starts.filter(s => s.role === m[1].toLowerCase() && s.session === m[2].toLowerCase() && s.t <= t && t - s.t <= 12 * 3_600_000).pop();
+    if (!start) return e;
+    const authored = sv(r[CREATION]);
+    if (authored && Date.parse(authored) >= start.t && Date.parse(authored) <= t) return e;
+    return { ...e, raw: { ...r, [CREATION]: new Date(start.t).toISOString().replace(/\.\d{3}Z$/, "Z") } };
+  });
+}
+
+/**
+ * The renderer for one standalone scenario. A scenario page shows each row through this (instead of
+ * nativeViewAuthored row by row) so the story's records agree with each other and with its EDR console:
+ *   - the authored OS pid / parent pid of a process is what every EDR / Sysmon record prints;
+ *   - a host has ONE IP in every product: the address any row of the story gives it, else one derived per host;
+ *   - an account has ONE SID in every product: the SID the story authors for it, else one per company + user;
+ *   - the endpoint story pass (canonical image paths / hashes, a parent's command line, the writer of an
+ *     unattributed file, the logon session of each day, a process's start time) runs over the whole story;
+ *   - the records name the scenario's own organization (its domain and realm), never another company's.
+ * Each event renders in the format of the vendor it was authored for, as nativeViewAuthored does.
+ */
+export function nativeStoryRenderer(events: TelemetryEvent[], companyId?: string): (ev: TelemetryEvent) => { log: NativeLog; product: string } | null {
+  const org = companyId ? { companyId } : storyOrg(events);
+  const ctx = { ...makeCtx(org.companyId, org.identity ?? {}), authoredPids: true, hostIps: storyHostIps(events), userSids: storySids(events) };
+  // The identity pass (one place per client IP, one session per login flow, a UAL token issued at the
+  // sign-in that opened it) and the endpoint pass, exactly as the live feed runs them on a story.
+  const original = new Map(events.map(e => [e.id, e]));
+  const prepared = threadEndpointStory(threadIdentityContext(threadRoleSessions(events)));
+  const byId = new Map<string, { raw: Record<string, unknown>; geo?: TelemetryEvent["geo"]; thread?: ReturnType<typeof threadOf> }>();
+  for (const p of prepared) {
+    const o = original.get(p.id);
+    if (!o) continue;
+    // Only what the passes changed travels to the row (the caller's own row stays the base).
+    const raw: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(p.raw ?? {})) if ((o.raw ?? {})[k] !== v) raw[k] = v;
+    byId.set(p.id, { raw, geo: p.geo !== o.geo ? p.geo : undefined, thread: threadOf(p) });
+  }
+  return (ev: TelemetryEvent) => {
+    const id = sourceFor(ev, {});
+    const mod = id ? NATIVE_SOURCES[id] : undefined;
+    if (!mod) return null;
+    const story = byId.get(ev.id);
+    let input = ev;
+    if (story) {
+      if (Object.keys(story.raw).length || story.geo) input = { ...input, raw: { ...(input.raw ?? {}), ...story.raw }, ...(story.geo ? { geo: story.geo } : {}) };
+      if (story.thread && !threadOf(ev)) input = withThread(input, story.thread);
+    }
+    try {
+      const log = mod.fromTelemetry(input, ctx);
+      return log ? { log, product: mod.schema.product } : null;
+    } catch { return null; }
+  };
 }
 
 /**

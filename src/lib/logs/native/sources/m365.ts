@@ -15,7 +15,8 @@
  *  - Mail-flow events (MessageDelivered, SpamFiltered, Defender TIMailData RT 28)
  *    are not Unified Audit Log mailbox/admin records — they are email-security
  *    telemetry (defender_o365 / proofpoint) → null.
- *  - Purview DLP (DlpRuleMatch / DLP.All), Copilot (RT 261), Graph-only calls
+ *  - Purview DLP rule matches (DLP.All, Operation DlpRuleMatch, RT 11 / 13 / 63) render per the
+ *    Management Activity API DLP schema (./_m365-dlp). Copilot (RT 261), Graph-only calls
  *    (MailFolders.List, CalendarEvents.List), endpoint print jobs: the card does
  *    not document these record schemas → null.
  */
@@ -26,6 +27,7 @@ import {
   localOf, puid, rs, rv, spTenant, userEmail, userSid, type Raw,
 } from "./collab-email-shared";
 import { aadSessionId } from "./_identity-common";
+import { DLP_KIND, dlpRecord, isDlpRuleMatch } from "./_m365-dlp";
 import { egressIp } from "./firewall-shared";
 
 // ── Schema ───────────────────────────────────────────────────────────────────
@@ -83,12 +85,15 @@ const schema: SourceSchema = {
     AzureActiveDirectoryStsLogon: k([...AAD, "ApplicationId", "DeviceProperties", "DeviceProperties[].Name", "DeviceProperties[].Value", "ErrorCode", "LogonError"]),
     // Common schema only — the card documents Workload "MicrosoftTeams" but not the Teams-specific columns.
     MicrosoftTeams: k([]),
+    // Purview DLP rule match (ComplianceDLPSharePoint 11 / ComplianceDLPExchange 13 / DLPEndpoint 63).
+    DlpRuleMatch: DLP_KIND,
   },
 };
 
 const RT_KIND: Record<number, string> = {
   1: "ExchangeAdmin", 2: "ExchangeItem", 6: "SharePointFileOperation", 8: "AzureActiveDirectory", 14: "SharePointSharingOperation",
   15: "AzureActiveDirectoryStsLogon", 25: "MicrosoftTeams", 50: "ExchangeItemAggregated",
+  11: "DlpRuleMatch", 13: "DlpRuleMatch", 63: "DlpRuleMatch",
 };
 
 /** Classify a native UAL record (by RecordType). */
@@ -257,6 +262,8 @@ function orderParams(ps: NV[], allowed: string[]): NV[] {
 
 function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const raw: Raw = ev.raw ?? {};
+  // A Purview DLP rule match is its own record shape (the DLP schema), written by the DlpAgent.
+  if (isDlpRuleMatch(ev)) return dlpRecord(ev, ctx, userEmail(ev));
   const hasUal = Object.keys(raw).some(k2 => k2.startsWith("data.office365.")) || raw.Operation !== undefined;
   if (ENTRA_VENDOR.test(ev.vendor ?? "") && !hasUal) return null;
   const op = resolveOperation(ev);

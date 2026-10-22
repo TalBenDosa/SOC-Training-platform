@@ -8,6 +8,8 @@
  * answer-bearing out of this file: every visitor can read it.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { makeSha256 } from "@/lib/sim/iocs";
+import { mdeNetwork, mdeProcess } from "@/lib/sim/emitters/mde";
 
 /** Telemetry half of `buildImpossibleTravelBasicScenario`: the events and the story title, no answer key. */
 export function impossibleTravelBasicScenarioEvents() {
@@ -44,12 +46,29 @@ export function impossibleTravelBasicScenarioEvents() {
   const hostileUserAgent =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:126.0) Gecko/20100101 Firefox/126.0";
 
-  // EDR↔scenario integration (Phase 4): control-plane-only incident — a phished
-  // token replayed as an impossible-travel Entra sign-in, with no host EDR events
-  // and no process to walk. edr_scope "non_edr": nothing to investigate in the EDR
-  // console. No is_detection (no EDR detections); edr_scope goes on the identity
-  // detection that opens the ticket — the SIEM impossible-travel correlation.
+  // EDR↔scenario integration: an identity-plane incident (a phished session replayed as an
+  // impossible-travel Entra sign-in) with the managed laptop's own network telemetry beside it.
+  // edr_scope "hybrid": the ticket opens on the identity detection (the SIEM impossible-travel
+  // correlation); the EDR console shows the laptop, whose browser is the only process involved.
   const INCIDENT = "inc:itb:1";
+
+  // The managed laptop's own view of the same two connections (Defender for Endpoint network
+  // events). The browser is the only process involved and it starts no child.
+  const edgeHash = makeSha256("microsoft_edge_msedge_exe_signed_microsoft");
+  const edgePath = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
+  const laptopConnection = (id: string, ts: string, localPort: number, description: string): TelemetryEvent => {
+    const e = mdeNetwork({
+      companyId: "nexacorp", id, ts, host: victim.hostname, srcIp: "192.168.1.37", user: victim.email,
+      remoteIp: phishIp, remotePort: 443, application: "tls", url: `https://${phishDomain}/auth/session-check`, domain: phishDomain,
+      initiatingProcess: "msedge.exe", severity: "low", description,
+    });
+    e.process = { pid: 11284, name: "msedge.exe", path: edgePath, parent_name: "explorer.exe", parent_pid: 5120, user: "NEXACORP\\d.harel", hash: { sha256: edgeHash } };
+    Object.assign(e.raw, {
+      "Timestamp": ts, "LocalPort": String(localPort), "InitiatingProcessId": "11284", "InitiatingProcessFolderPath": edgePath,
+      "InitiatingProcessAccountName": "d.harel", "ReportId": String(31844000 + localPort),
+    });
+    return e;
+  };
 
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
@@ -133,7 +152,6 @@ export function impossibleTravelBasicScenarioEvents() {
       vendor: "Cisco AnyConnect",
       event_type: "vpn_login",
       user_email: victim.email,
-      hostname: victim.hostname,
       src_ip: victim.homeIp,
       severity: "informational",
       description:
@@ -143,7 +161,7 @@ export function impossibleTravelBasicScenarioEvents() {
         "cisco.asa.message_id": "722022",
         "cisco.asa.username": "d.harel",
         "cisco.asa.tunnel_group": "NEXACORP-RA-VPN",
-        "cisco.asa.group_policy": "GP-NEXACORP-STAFF",
+        "cisco.asa.group_policy": "GP-NEXACORP-STAFF-SPLITTUNNEL",
         "cisco.asa.session_type": "SSL",
         "cisco.asa.public_ip": victim.homeIp,
         "cisco.asa.assigned_ip": vpnAssignedIp,
@@ -191,10 +209,78 @@ export function impossibleTravelBasicScenarioEvents() {
         "source.ip": "45.87.154.209",
         "o365.DeliveryAction": "Delivered",
         "o365.DeliveryLocation": "Inbox",
-        "o365.ThreatTypes": "Phish",
-        "o365.DetectionMethods": "None",
+        "o365.ThreatTypes": "",
+        "o365.DetectionMethods": "",
+        "o365.AuthenticationDetails": "{\"SPF\":\"fail\",\"DKIM\":\"none\",\"DMARC\":\"fail\",\"CompAuth\":\"fail\"}",
       },
     },
+
+    // The link opens the browser: Edge is started with the page address.
+    (() => {
+      const e = mdeProcess({
+        companyId: "nexacorp", id: "evt_itb_03a_edge_start", ts: T(78 * MIN + 50_000), host: victim.hostname, srcIp: "192.168.1.37", user: victim.email,
+        processName: "msedge.exe", processPath: edgePath, cmdline: `"${edgePath}" --single-argument https://${phishDomain}/auth/session-check`,
+        parentName: "explorer.exe", parentPid: 5120, pid: 11284, sha256: edgeHash, integrity: "Medium", signed: true,
+        runAsUser: "NEXACORP\\d.harel", accountName: "d.harel", accountDomain: "nexacorp", severity: "low",
+        extra: { "Timestamp": T(78 * MIN + 50_000), "FolderPath": edgePath, "InitiatingProcessAccountName": "d.harel", "ProcessTokenElevation": "TokenElevationTypeLimited" },
+        description: "msedge.exe (pid 11284) started on LT-FIN-3390 with the address of nexacorp-signin-verify.com on its command line, parent explorer.exe.",
+      });
+      return e;
+    })(),
+
+    // ---------------------------------------------------------------------
+    // 3b. She follows the link. The proxy sees the page load, and the laptop's own
+    //     browser shows the connection; no child process is started from it.
+    // ---------------------------------------------------------------------
+    {
+      id: "evt_itb_03b_phish_page_load",
+      ts: T(78 * MIN + 55_000),
+      source: "proxy",
+      vendor: "Zscaler Internet Access",
+      event_type: "http_request",
+      user_email: victim.email,
+      hostname: victim.hostname,
+      src_ip: victim.homeIp,
+      dst_ip: phishIp,
+      dst_port: 443,
+      protocol: "tcp",
+      severity: "medium",
+      network: {
+        url: `https://${phishDomain}/auth/session-check`,
+        domain: phishDomain,
+        method: "GET",
+        status: 200,
+        bytes_out: 612,
+        bytes_in: 18432,
+        user_agent: corpUserAgent,
+      },
+      description:
+        "LT-FIN-3390 requested nexacorp-signin-verify.com/auth/session-check from the user's home address and received the page with a 200.",
+      raw: {
+        "zscaler.action": "Allowed",
+        "zscaler.reason": "Allowed",
+        "zscaler.urlcategory": "Newly Registered and Observed Domains",
+        "zscaler.urlsupercategory": "Miscellaneous or Unknown",
+        "zscaler.appname": "General Browsing",
+        "zscaler.appclass": "General Browsing",
+        "zscaler.threatname": "None",
+        "zscaler.malwarecategory": "None",
+        "zscaler.department": "Finance",
+        "zscaler.location": "Remote-User",
+        "zscaler.login": victim.email,
+        "zscaler.url": `https://${phishDomain}/auth/session-check`,
+        "zscaler.hostname": phishDomain,
+        "zscaler.cip": victim.homeIp,
+        "zscaler.sip": phishIp,
+        "zscaler.reqmethod": "GET",
+        "zscaler.respcode": 200,
+        "zscaler.reqsize": 612,
+        "zscaler.respsize": 18432,
+        "zscaler.useragent": corpUserAgent,
+        "zscaler.serverip": phishIp,
+      },
+    },
+    laptopConnection("evt_itb_03c_laptop_page_conn", T(78 * MIN + 55_000), 49822, "LT-FIN-3390's msedge.exe (pid 11284, parent explorer.exe) connected to nexacorp-signin-verify.com (91.229.23.86) on port 443."),
 
     // ---------------------------------------------------------------------
     // 4. She visits the page and submits. This is where the session is lost.
@@ -250,6 +336,8 @@ export function impossibleTravelBasicScenarioEvents() {
       },
     },
 
+    laptopConnection("evt_itb_04a_laptop_post_conn", T(79 * MIN), 49823, "LT-FIN-3390's msedge.exe (pid 11284) opened a second connection to nexacorp-signin-verify.com (91.229.23.86) on port 443."),
+
     // ---------------------------------------------------------------------
     // 4b. The AiTM proxy relays the captured credentials + MFA to Entra and
     //     completes the sign-in — minting the session the attacker later replays.
@@ -270,7 +358,7 @@ export function impossibleTravelBasicScenarioEvents() {
       geo: { country: "Netherlands", city: "Amsterdam", latitude: 52.3676, longitude: 4.9041 },
       authentication: { method: "Password", mfa_type: "Mobile app notification", result: "success" },
       description:
-        "A sign-in to Exchange Online for d.harel completed successfully at 07:31 from 91.229.23.86 (Amsterdam, AS60781), password then Authenticator push, on AutonomousSystemNumber 60781 — the same host the browser POSTed credentials to minutes earlier.",
+        "A sign-in to Exchange Online for d.harel completed successfully at 07:31 from 91.229.23.86 (Amsterdam, AS60781), password then Authenticator push, on AutonomousSystemNumber 60781 — the same host the browser POSTed credentials to 40 seconds earlier.",
       raw: {
         "azure.signinlogs.operationName": "Sign-in activity",
         "azure.signinlogs.category": "SignInLogs",
@@ -333,7 +421,6 @@ export function impossibleTravelBasicScenarioEvents() {
       vendor: "Cisco AnyConnect",
       event_type: "vpn_logout",
       user_email: victim.email,
-      hostname: victim.hostname,
       src_ip: victim.homeIp,
       severity: "informational",
       description:
@@ -437,9 +524,9 @@ export function impossibleTravelBasicScenarioEvents() {
       severity: "high",
       mitre_technique: "T1078.004",
       mitre_tactic: "Initial Access",
-      edr_scope: "non_edr", // primary identity detection that opens the ticket; control-plane only, no EDR to pivot to
+      edr_scope: "hybrid", // identity detection that opens the ticket; the managed laptop shows the endpoint stayed clean
       description:
-        "Sentinel joined the 06:12 and 08:27 sign-ins for d.harel and raised an impossible-travel anomaly: 5,570 km in 135 minutes, implied speed 2,476 km/h — no commercial flight plus airport time covers London to New York in that window.",
+        "Sentinel joined the 06:12 and 08:27 sign-ins for d.harel and raised an impossible-travel anomaly: 5,570 km in 135 minutes, implied speed 2,476 km/h, no commercial flight plus airport time covers London to New York in that window.",
       raw: {
         "AlertName": "Impossible travel to an atypical location",
         "alert.rule.id": "SEN-IDN-0114",
@@ -454,7 +541,7 @@ export function impossibleTravelBasicScenarioEvents() {
         "ExtendedProperties.Distance (km)": 5570,
         "ExtendedProperties.Elapsed Minutes": 135,
         "ExtendedProperties.Implied Speed (km/h)": 2476,
-        "ExtendedProperties.Linked Sign-in IDs": ["evt_itb_01_morning_signin", "evt_itb_06_foreign_signin"],
+        "ExtendedProperties.Linked Sign-in IDs": ["7c1e9a34-5d80-4b62-9f17-3a06c8e42d59", "94a7c1e2-3f68-4b09-8d5a-6c40e18f27b3"],
         "event.action": "correlation-alert",
         "event.outcome": "alerted",
       },
@@ -546,7 +633,7 @@ export function impossibleTravelBasicScenarioEvents() {
       src_ip: attackerIp,
       severity: "critical",
       description:
-        "A message with the subject \"Updated remittance details — June invoices\" and a PDF attached was sent from the d.harel mailbox to accounts@ridgeline-supply.com from 146.190.62.117.",
+        "A message with the subject \"Updated remittance details - June invoices\" and a PDF attached was sent from the d.harel mailbox to accounts@ridgeline-supply.com from 146.190.62.117.",
       raw: {
         "data.office365.Operation": "Send",
         "data.office365.Workload": "Exchange",
@@ -557,8 +644,9 @@ export function impossibleTravelBasicScenarioEvents() {
         "data.office365.ClientIPAddress": attackerIp,
         "data.office365.ClientInfoString": "Client=OWA;Action=ViaProxy",
         "data.office365.SessionId": hostileSession,
-        "data.office365.Item.Subject": "Updated remittance details — June invoices",
+        "data.office365.Item.Subject": "Updated remittance details - June invoices",
         "data.office365.Item.ParentFolder.Path": "\\Drafts",
+        "data.office365.Item.Attachments": "Remittance_Update_June.pdf (84213b)",
         "email.from.address": victim.email,
         "email.to.address": vendorAddress,
         "email.direction": "outbound",
@@ -573,5 +661,5 @@ export function impossibleTravelBasicScenarioEvents() {
   // (correlation key; also lets the EDR console associate the identity-plane case).
   for (const e of events) e.incident_id = INCIDENT;
 
-  return { title: "Impossible Travel — Accounts Payable Mailbox", events, T, MIN, victim, attackerIp, phishDomain, phishIp, dropAddress };
+  return { title: "Two-city sign-ins for an accounts payable clerk", events, T, MIN, victim, attackerIp, phishDomain, phishIp, dropAddress };
 }

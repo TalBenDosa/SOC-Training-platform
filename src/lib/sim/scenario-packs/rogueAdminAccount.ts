@@ -1,5 +1,5 @@
 /**
- * Scenario pack: "Out-of-Hours Account Creation — Service Desk Credentials"
+ * Scenario pack: "Late-evening privileged group change on the DC"
  *
  * BEGINNER tier. A helpdesk administrator's account creates a new domain user
  * late at night and puts it into Domain Admins three minutes later. Every one
@@ -24,7 +24,7 @@ import { rogueAdminAccountScenarioEvents } from "./rogueAdminAccount.events";
 export function buildRogueAdminAccountScenario(
   scenarioId = "rogue-admin-account-2026",
 ): ScenarioBundle {
-  const { title, events, T, MIN, N, dc, adminServer, originHost, admin, onboardingTicket, rogue } = rogueAdminAccountScenarioEvents();
+  const { title, events, T, MIN, SEC, N, dc, adminServer, originHost, admin, onboardingTicket, rogue } = rogueAdminAccountScenarioEvents();
 
   const iocs: IOC[] = [
     {
@@ -46,7 +46,7 @@ export function buildRogueAdminAccountScenario(
     {
       type: "host",
       value: originHost.hostname,
-      first_seen: T(N),
+      first_seen: T(499 * MIN + 40_000),
       last_seen: T(N + 15 * MIN),
       reputation: "suspicious",
       tags: ["engineering-workstation", "session-origin"],
@@ -74,7 +74,7 @@ export function buildRogueAdminAccountScenario(
       id: "q1",
       prompt:
         "Creating a domain user is a routine Service Desk task. What single fact turns evt_ra_05_acct_create from routine administration into an incident?",
-      hint: "Compare it with evt_ra_01_ticket and evt_ra_02_baseline_create.",
+      hint: "Compare it with evt_ra_01_ticket and evt_ra_02_create_n_peretz.",
       kind: "single",
       options: [
         { value: "no_ticket", label: "No onboarding or change request exists for s.katz, unlike the creation of n.peretz" },
@@ -118,7 +118,7 @@ export function buildRogueAdminAccountScenario(
       answer: "permitted_not_authorised",
       xp: 60,
       explanation:
-        "This is the distinction the scenario is built around. Windows enforces permission, not intention: it checks whether the token holds the right and then does the work. A Service Desk administrator legitimately holds account-management rights, so a stolen Service Desk credential produces a clean, error-free, entirely 'allowed' sequence of events. Authorisation is a business fact recorded outside the operating system — a ticket, an approval, a named requester — and it is missing here. Option (c) is contradicted by the log: no escalation event appears, the rights were already present at 22:49.",
+        "This is the distinction the scenario is built around. Windows enforces permission, not intention: it checks whether the token holds the right and then does the work. A Service Desk administrator legitimately holds account-management rights, so a stolen Service Desk credential produces a clean, error-free, entirely 'allowed' sequence of events. Authorisation is a business fact recorded outside the operating system — a ticket, an approval, a named requester — and it is missing here. Option (c) is contradicted by the log: no escalation event appears, the rights were issued with the logon at 22:47.",
     },
     {
       id: "q4",
@@ -144,12 +144,12 @@ export function buildRogueAdminAccountScenario(
     threat_actor: "Intruder operating a legitimate Service Desk administrator account",
     attack_kind: "rogue_admin_account",
     briefing:
-      "Microsoft Sentinel raised a High alert at 23:08 on DC01. The domain user s.katz did not exist at 22:00 and was a member of a privileged group by 22:56. The Service Desk has no record of a request for it. Establish whether this was authorised and report what has happened since.",
+      "Microsoft Sentinel raised a High alert at 23:08 on DC01. The domain user s.katz did not exist at 22:00 and was a member of a privileged group by 22:56. Establish whether this was authorised and report what has happened since.",
     narrative: `At 14:10 an approved onboarding request, RITM0092416, reached the Service Desk queue, and six minutes later t.aharoni created the domain user n.peretz on DC01. That is the shape of a legitimate account creation at NexaCorp: a request, an approver, a named person, and a daytime timestamp. Keep it in mind, because the record written eight hours later looks exactly the same.
 
-At 22:47 the t.aharoni account opened a Remote Desktop session on the administrative server SRV-ADM-07 — from 10.10.44.61, the address of WS-ENG-2208. WS-ENG-2208 is an Engineering workstation whose primary user is y.dagan; t.aharoni sits in the Service Desk, is assigned WS-ITS-1140, and had logged on from nothing else in the previous thirty days. Two minutes later the session was issued its usual administrative privilege set, which is why nothing that follows is ever refused.
+At 22:47 the t.aharoni account opened a Remote Desktop session on the administrative server SRV-ADM-07 — from 10.10.44.61, the address of WS-ENG-2208. WS-ENG-2208 is an Engineering workstation whose primary user is y.dagan; t.aharoni sits in the Service Desk, is assigned WS-ITS-1140, and had logged on from nothing else in the previous thirty days. WS-ENG-2208 shows how the credential got there: at 16:55 the Service Desk had used the workstation for a remote-support session, and at 22:30 a command prompt in y.dagan's own session ran rundll32.exe comsvcs.dll MiniDump against process 780 (lsass.exe) and wrote C:\\Windows\\Temp\\dmp.bin, a 56 MB memory file that holds whatever credentials the workstation had cached. In the same second the session was issued its usual administrative privilege set, which is why nothing that follows is ever refused. The workstation shows how it started: mstsc.exe /v:SRV-ADM-07 ran in y.dagan's own session at 22:46:20, a 4648 recorded explicit credentials for t.aharoni being supplied to SRV-ADM-07, and DC01 issued t.aharoni a TGT and a service ticket to that address at 22:46:50 and 22:46:55.
 
-At 22:51 that session created the domain user s.katz on DC01. At 22:54 s.katz was added to Domain Admins, and at 22:56 to the local Administrators group on SRV-ADM-07. At 23:02, eleven minutes old, s.katz logged on interactively to SRV-ADM-07 — from WS-ENG-2208 and 10.10.44.61 again, the same keyboard that had just built it — and the 4672 written a minute later shows the account collecting SeDebugPrivilege and SeBackupPrivilege, so the group memberships were live.
+At 22:50:40 the session's cmd.exe started powershell.exe with New-ADUser for s.katz, and at 22:51 that session created the domain user s.katz on DC01 (the account was given a password and enabled at 22:51:30 and 22:51:40). At 22:54 s.katz was added to Domain Admins, and at 22:56 to the local Administrators group on SRV-ADM-07 (on a default domain the second step changes nothing in practice, because Domain Admins is already a member of the local Administrators group on every domain-joined server, but it is written and it is a deliberate extra step). At 23:02, eleven minutes old, s.katz logged on interactively to SRV-ADM-07 — from WS-ENG-2208 and 10.10.44.61 again, the same keyboard that had just built it — and the 4672 written a second later shows the account collecting SeDebugPrivilege and SeBackupPrivilege, so the group memberships were live. In its first minutes the new account ran net group "Domain Admins" /domain and nltest /dclist:nexacorp.com from a command prompt, listing who else holds the keys and which domain controllers exist.
 
 Every one of those operations was permitted. A Service Desk administrator is entitled to create users and manage groups, and Windows raised not a single error. What makes it an incident is what is missing and what surrounds it: Sentinel's lookups return no change request and no onboarding request for s.katz, the work happened outside the standard change window, the new account went straight into the domain's most privileged group three minutes after birth, and both sessions came from a workstation that belongs to neither of the accounts involved.
 
@@ -168,12 +168,16 @@ The working conclusion is that t.aharoni's credentials are being used by someone
     killchain: [
       { ts: T(0), phase: "Baseline", action: `${onboardingTicket} approved — an authorised onboarding request reaches the Service Desk` },
       { ts: T(6 * MIN), phase: "Baseline", action: "t.aharoni creates n.peretz on DC01 under that request — the control case" },
+      { ts: T(500 * MIN + 5_000), phase: "Credential Access", action: "On WS-ENG-2208, in y.dagan's session, rundll32.exe comsvcs.dll MiniDump reads lsass.exe into C:\\Windows\\Temp\\dmp.bin, the workstation the Service Desk had used for remote support that afternoon" },
+      { ts: T(N - 40 * SEC), phase: "Valid Accounts", action: "WS-ENG-2208 starts mstsc.exe /v:SRV-ADM-07 in y.dagan's session, supplies explicit credentials for t.aharoni (4648) and DC01 issues t.aharoni tickets to 10.10.44.61" },
       { ts: T(N), phase: "Valid Accounts", action: "t.aharoni opens a Remote Desktop session on SRV-ADM-07 from WS-ENG-2208" },
+      { ts: T(N + 3 * MIN + 40 * SEC), phase: "Persistence", action: "powershell.exe New-ADUser for s.katz runs in the admin session on SRV-ADM-07" },
       { ts: T(N + 4 * MIN), phase: "Persistence", action: "4720 — the domain user s.katz is created on DC01 with no linked request" },
       { ts: T(N + 7 * MIN), phase: "Persistence", action: "4728 — s.katz added to Domain Admins three minutes after creation" },
       { ts: T(N + 9 * MIN), phase: "Persistence", action: "4732 — s.katz added to the local Administrators group on SRV-ADM-07" },
       { ts: T(N + 15 * MIN), phase: "Valid Accounts", action: "s.katz logs on to SRV-ADM-07 from WS-ENG-2208 — the same origin as the admin session" },
-      { ts: T(N + 16 * MIN), phase: "Valid Accounts", action: "4672 — the new account is issued SeDebugPrivilege and SeBackupPrivilege" },
+      { ts: T(N + 15 * MIN + SEC), phase: "Valid Accounts", action: "4672: the new account is issued SeDebugPrivilege and SeBackupPrivilege" },
+      { ts: T(N + 18 * MIN + 30 * SEC), phase: "Discovery", action: "s.katz runs net group \"Domain Admins\" /domain, then nltest /dclist:nexacorp.com" },
       { ts: T(N + 21 * MIN), phase: "Detection", action: "Sentinel correlates the creation and the group addition and raises the alert" },
     ],
     questions,

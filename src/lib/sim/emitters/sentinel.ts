@@ -33,6 +33,45 @@ function guidFrom(seed: string): string {
 const alertTypeSlug = (name: string) => name.replace(/[^A-Za-z0-9]+/g, "") || "CustomAlert";
 
 /**
+ * SecurityAlert.Tactics uses Sentinel's own tactic enum (PascalCase, no spaces). ATT&CK v19's Stealth
+ * and Defense Impairment are still "DefenseEvasion" in the product's vocabulary. A technique with no
+ * authored tactic takes its primary tactic (ATT&CK Enterprise, earliest in matrix order); compact table
+ * of parent technique ids (without the "T") per tactic, so the emitter ships no ATT&CK library.
+ */
+const TACTIC_OF_TECHNIQUE: Record<string, string> = {
+  Reconnaissance: "1589 1595 1598",
+  ResourceDevelopment: "1583 1584 1585 1608",
+  InitialAccess: "1078 1091 1133 1189 1190 1195 1199 1200 1566",
+  Execution: "1053 1059 1197 1204 1569 1609 1610 1651",
+  Persistence: "1098 1136 1137 1176 1505 1543 1547 1556",
+  PrivilegeEscalation: "1055 1068 1134 1548 1611",
+  DefenseEvasion: "1027 1036 1070 1218 1564 1684 1553 1578 1685 1686",
+  CredentialAccess: "1003 1056 1110 1528 1539 1552 1555 1557 1558 1606 1621",
+  Discovery: "1016 1018 1033 1046 1057 1069 1082 1083 1087 1135 1482 1526 1580 1613 1619",
+  LateralMovement: "1021 1534 1550 1563",
+  Collection: "1005 1039 1074 1114 1115 1213 1530 1560",
+  CommandAndControl: "1071 1090 1105 1219 1568 1571 1572 1573",
+  Exfiltration: "1030 1041 1048 1052 1537 1567",
+  Impact: "1485 1486 1489 1490 1496 1499 1531 1561 1565 1657",
+};
+const TECH_TACTIC = new Map<string, string>(Object.entries(TACTIC_OF_TECHNIQUE).flatMap(([t, ids]) => ids.split(" ").map(id => [`T${id}`, t] as [string, string])));
+const TACTIC_NAME: Record<string, string> = {
+  reconnaissance: "Reconnaissance", "resource development": "ResourceDevelopment", "initial access": "InitialAccess", execution: "Execution",
+  persistence: "Persistence", "privilege escalation": "PrivilegeEscalation", "defense evasion": "DefenseEvasion", stealth: "DefenseEvasion",
+  "defense impairment": "DefenseEvasion", "credential access": "CredentialAccess", discovery: "Discovery", "lateral movement": "LateralMovement",
+  collection: "Collection", "command and control": "CommandAndControl", exfiltration: "Exfiltration", impact: "Impact",
+};
+/** Sentinel tactic tokens for an alert: the authored tactics (any spelling), else the techniques' primary tactic. */
+export function sentinelTactics(tactics: string[] | undefined, tactic: string | undefined, mitre: string | undefined): string[] {
+  const named = (tactics ?? (tactic ? [tactic] : [])).map(t => TACTIC_NAME[t.trim().toLowerCase()] ?? t.replace(/[^A-Za-z]/g, "")).filter(Boolean);
+  if (named.length) return [...new Set(named)];
+  const fromTech = (mitre ?? "").split(/[,\s]+/).map(id => TECH_TACTIC.get(id.split(".")[0].toUpperCase())).filter((t): t is string => !!t);
+  return [...new Set(fromTech)];
+}
+/** Deterministic minutes from a seed (the analytic's query window). */
+const minutesFrom = (seed: string, lo: number, hi: number) => { let h = 0x811c9dc5; for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return lo + (h % (hi - lo + 1)); };
+
+/**
  * Sentinel's alert/incident severity enum is High | Medium | Low | Informational —
  * there is no "Critical". A caller asking for critical gets the product's ceiling
  * (High) both in the raw block and on the event, so the feed never shows a
@@ -81,7 +120,11 @@ export interface SentinelAlertOpts extends Ctx {
   };
 }
 export function sentinelAlert(o: SentinelAlertOpts): TelemetryEvent {
-  const r = resolve(o);
+  // A correlation alert about an identity or a cloud resource names no host: never draw one from the
+  // fabric (a made-up laptop in Entities / CompromisedEntity points the analyst at a machine that exists
+  // nowhere else). The host entity and host fields appear only when the caller names the host.
+  const r0 = resolve(o);
+  const r = { ...r0, host: o.host ?? "", srcIp: o.srcIp ?? (o.host ? r0.srcIp : "") };
   const sev = sentinelSev(o.severity);
   const ext: Record<string, string | string[] | number> = {};
   for (const [k, v] of Object.entries(o.extendedProperties ?? {})) ext[`ExtendedProperties.${k}`] = v;
@@ -100,9 +143,9 @@ export function sentinelAlert(o: SentinelAlertOpts): TelemetryEvent {
 
   return {
     id: o.id, ts: o.ts, source: "siem", vendor: VENDOR, event_type: o.eventType ?? "ueba_anomaly",
-    severity: sev, hostname: r.host, src_ip: r.srcIp, user_email: r.email,
+    severity: sev, ...(r.host ? { hostname: r.host } : {}), ...(r.srcIp ? { src_ip: r.srcIp } : {}), user_email: r.email,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
-    description: o.description ?? `${VENDOR} raised ${o.alertName} on ${r.host}`,
+    description: o.description ?? `${VENDOR} raised ${o.alertName}${r.host ? ` on ${r.host}` : r.email ? ` for ${r.email}` : ""}`,
     raw: {
       // ── Microsoft Sentinel SecurityAlert schema ──
       "TimeGenerated": o.ts,
@@ -118,13 +161,16 @@ export function sentinelAlert(o: SentinelAlertOpts): TelemetryEvent {
       "AlertType": o.alertType ?? alertTypeSlug(o.alertName),
       "VendorOriginalId": guidFrom(`${o.id}:vendor`),
       "SystemAlertId": guidFrom(`${o.id}:system`),
-      "StartTime": o.startTime ?? o.ts,
-      "EndTime": o.endTime ?? o.ts,
+      // A scheduled analytic reports the span of the events it matched: StartTime = the first,
+      // EndTime = the last, both before the alert itself (TimeGenerated / ProcessingEndTime).
+      "StartTime": o.startTime ?? new Date(Date.parse(o.ts) - minutesFrom(`${o.id}:start`, 5, 55) * 60_000).toISOString(),
+      "EndTime": o.endTime ?? new Date(Date.parse(o.ts) - minutesFrom(`${o.id}:end`, 1, 4) * 60_000).toISOString(),
       "ProcessingEndTime": o.ts,
       "Status": o.status ?? "New",
-      "Tactics": o.tactics ?? (o.tactic ? [o.tactic] : []),
-      ...(o.mitre ? { "Techniques": [o.mitre] } : {}),
-      "CompromisedEntity": r.host,
+      "Tactics": sentinelTactics(o.tactics, o.tactic, o.mitre),
+      ...(o.mitre ? { "Techniques": o.mitre.split(/[,\s]+/).filter(Boolean) } : {}),
+      // The entity the alert is about: the host when it names one, else the account.
+      "CompromisedEntity": r.host || r.email || (sam ?? ""),
       "Entities": entities,
       "SourceSystem": "Detection",
       ...(o.alertLink ? { "AlertLink": o.alertLink } : {}),
@@ -141,8 +187,8 @@ export function sentinelAlert(o: SentinelAlertOpts): TelemetryEvent {
       ...(o.ruleId ? { "alert.rule.id": o.ruleId } : {}),
       ...ext,
       // ── ECS mirrors kept for cross-vendor enrichment / describeEvent ──
-      "host.name": r.host,
-      "host.ip": r.srcIp,
+      ...(r.host ? { "host.name": r.host } : {}),
+      ...(r.srcIp ? { "host.ip": r.srcIp } : {}),
       "target.user.name": r.domainUser,
       ...(o.fullName ? { "user.full_name": o.fullName } : {}),
       ...(o.department ? { "user.department": o.department } : {}),

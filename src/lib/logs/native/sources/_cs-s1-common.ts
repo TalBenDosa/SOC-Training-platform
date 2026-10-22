@@ -21,7 +21,7 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeCtx } from "../types";
 import type { EdrFacts, EdrProc } from "./edr-normalize";
-import { procKey, procPid, accountSid, osImagePath, type ProcScope } from "./_proc-identity";
+import { procKey, procPid, accountSid, osImagePath, hostIpFor, type ProcScope } from "./_proc-identity";
 
 export type { ProcScope } from "./_proc-identity";
 export { inferredFileWriter } from "./_proc-identity";
@@ -64,8 +64,8 @@ export function hostIpOf(ctx: NativeCtx, f: EdrFacts, host: string): string {
   if (f.hostIp && isIPv4(f.hostIp) && isPrivate(f.hostIp)) return f.hostIp;
   if (f.kind === "network" && isPrivate(f.net.localIp)) return f.net.localIp!;
   if (f.net.localIp && isPrivate(f.net.localIp) && f.kind !== "network") return f.net.localIp;
-  const s = `${ctx.companyId}:${host}:ip`;
-  return `10.${ctx.int(`${s}:b`, 10, 80)}.${ctx.int(`${s}:c`, 1, 250)}.${ctx.int(`${s}:d`, 10, 250)}`;
+  // The address the story gives this host elsewhere, else one stable address per host in every product.
+  return hostIpFor(ctx, host);
 }
 /** The company's egress (NAT) address as the vendor cloud sees it — one per company. */
 /** The company's public egress — the SAME address the firewalls NAT to, so the EDR's

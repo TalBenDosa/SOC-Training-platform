@@ -466,7 +466,7 @@ function threat(b: Base, ev: TelemetryEvent): Record<string, unknown> {
       // name or a scenario placeholder.
       description: !foreignDetectionName(d.name) && d.name !== trigName ? d.name
         : behavioral ? `${techniqueName(tech, d.technique) ?? "Suspicious behavior"} detected by the Behavioral AI engine`
-        : "Detected by the Static AI engine — file classified as malicious",
+        : "Detected by the Static AI engine: file classified as malicious",
       ids: [ctx.int(`s1:indicator:${d.name ?? tech ?? "generic"}`, 10, 999)],
       tactics: tech ? [{ name: tactic ?? "Execution", source: "MITRE", techniques: [{ link: `https://attack.mitre.org/techniques/${tech.replace(".", "/")}/`, name: tech }] }] : [],
     }],

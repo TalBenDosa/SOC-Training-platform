@@ -7157,6 +7157,12 @@
         "Windows Defender"
       ],
       "exactFields": [
+        "usb.action",
+        "usb.device.name",
+        "usb.device.serial",
+        "usb.mount_point",
+        "usb.product",
+        "usb.vendor",
         "AccountDomain",
         "AccountName",
         "AccountSid",

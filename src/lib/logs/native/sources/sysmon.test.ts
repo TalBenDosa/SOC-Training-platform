@@ -43,7 +43,8 @@ describe("sysmon — corpus conversion", () => {
       if (!c.log) continue;
       expect(violationsOf(c.log, source), `${c.c.ev.id} → ${c.log.kind}`).toEqual([]);
       expect(c.log.timeMs).toBe(Date.parse(c.c.ev.ts));
-      expect(c.log.rawLine).toMatch(/^<Event xmlns=.*<EventData>.*<\/EventData><\/Event>$/);
+      // dotAll: a Zone.Identifier stream's Contents (Sysmon 15) is multi-line.
+      expect(c.log.rawLine).toMatch(/^<Event xmlns=.*<EventData>.*<\/EventData><\/Event>$/s);
       expect(String(c.log.record.UtcTime)).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}$/);
     }
   });

@@ -204,13 +204,13 @@ describe("decisive endpoint evidence keeps its native shape", () => {
   it("an lsass handle open is an access record (target + rights), not the opener's process start", () => {
     const mde = render("mde", "ntlm_09_lsass_dump");
     const p = (mde.record as Rec).properties;
-    expect([mde.kind, p.ActionType, p.FileName, p.InitiatingProcessFileName]).toEqual(["DeviceEvents", "OpenProcessApiCall", "lsass.exe", "cmd.exe"]);
+    expect([mde.kind, p.ActionType, p.FileName, p.InitiatingProcessFileName]).toEqual(["DeviceEvents", "OpenProcessApiCall", "lsass.exe", "rundll32.exe"]);
     expect(JSON.parse(p.AdditionalFields).DesiredAccess).toBe(0x1fffff);
     expect(p.InitiatingProcessAccountSid).toBe("S-1-5-18"); // the opener ran as SYSTEM (authored)
     const s1 = render("sentinelone", "ntlm_09_lsass_dump");
-    expect([s1.kind, (s1.record as Rec)["tgt.process.name"], (s1.record as Rec)["src.process.name"]]).toEqual(["Open Remote Process Handle", "lsass.exe", "cmd.exe"]);
+    expect([s1.kind, (s1.record as Rec)["tgt.process.name"], (s1.record as Rec)["src.process.name"]]).toEqual(["Open Remote Process Handle", "lsass.exe", "rundll32.exe"]);
     const cs = render("crowdstrike", "ntlm_09_lsass_dump");
-    expect([cs.kind, (cs.record as Rec).technique_id, (cs.record as Rec).filename]).toEqual(["alert", "T1003.001", "cmd.exe"]);
+    expect([cs.kind, (cs.record as Rec).technique_id, (cs.record as Rec).filename]).toEqual(["alert", "T1003.001", "rundll32.exe"]);
     const sm = render("sysmon", "ntlm_09_lsass_dump");
     expect([sm.kind, (sm.record as Rec).TargetImage, (sm.record as Rec).GrantedAccess]).toEqual(["10", "C:\\Windows\\System32\\lsass.exe", "0x1FFFFF"]);
     // Every product gives lsass.exe the same pid (one process instance per host).

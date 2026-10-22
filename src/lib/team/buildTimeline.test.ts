@@ -118,7 +118,7 @@ describe("buildTeamTimeline — answer key (contract 1)", () => {
     const stories = [...storiesForCompany("nexacorp", "medium"), ...storiesForCompany("nexacorp", "easy")];
     const ev = (id: string) => stories.flatMap(s => s.events).find(e => e.id === id) as TelemetryEvent;
     expect(classifyStoryEvent(ev("evt_ra_01_ticket"))).toBe("benign");
-    expect(classifyStoryEvent(ev("evt_ra_02_baseline_create"))).toBe("benign");
+    expect(classifyStoryEvent(ev("evt_ra_02_create_n_peretz"))).toBe("benign");
     expect(classifyStoryEvent(ev("evt_fbu_01_site_visit"))).toBe("benign");
     expect(classifyStoryEvent(ev("evt_ra_05_acct_create"))).toBe("tp");
     expect(classifyStoryEvent(ev("evt_ra_06_group_add_domain"))).toBe("tp");

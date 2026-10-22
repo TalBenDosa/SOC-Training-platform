@@ -699,6 +699,30 @@ export function threadIdentityContext(events: TelemetryEvent[]): TelemetryEvent[
     }
   }
 
+  // 2b) a UAL record outside any sign-in flow (another client IP than the sign-in): its token was still
+  //     issued by the user's latest successful sign-in before it (within a token lifetime), never before.
+  {
+    const IAT = "data.office365.AppAccessContext.IssuedAtTime";
+    const TOKEN_LIFE = 90 * 60_000;
+    const signIns = order.filter(({ i }) => {
+      const e = out[i]; const f = !rawStr(e, "okta.eventType") ? identityFacts(e) : null;
+      return !!f && f.success && (f.action === "signin" || f.action === "mfa") && !!emailOf(e);
+    }).map(({ i, t }) => ({ t, user: emailOf(out[i])! }));
+    for (const { i, t } of order) {
+      const e = out[i];
+      const raw = (e.raw ?? {}) as Record<string, unknown>;
+      const keys = Object.keys(raw);
+      if (keys.some(k => k.startsWith("azure.signinlogs.")) || !keys.some(k => k.startsWith("data.office365."))) continue;
+      const user = emailOf(e);
+      if (!user || identityFacts(e)?.action === "signin") continue;
+      const last = signIns.filter(s => s.user === user && s.t <= t && t - s.t <= TOKEN_LIFE).pop();
+      if (!last) continue;
+      const iat = rawStr(e, IAT);
+      const iatMs = iat ? Date.parse(`${iat.replace(/Z$/, "")}Z`) : NaN;
+      if (!iat || !(iatMs >= last.t) || iatMs > t) out[i] = { ...e, raw: { ...raw, [IAT]: new Date(last.t).toISOString().slice(0, 19) } };
+    }
+  }
+
   // 3) mail: a sender who already mailed this recipient earlier in the story is no first contact.
   const mailed = new Set<string>();
   for (const { i } of order) {

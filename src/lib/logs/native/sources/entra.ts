@@ -271,7 +271,9 @@ function renderSignIn(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, upn: strin
     ipAddress: ip,
     ...(asn.asn !== null ? { autonomousSystemNumber: asn.asn } : {}),
     clientAppUsed,
-    userAgent: ua.raw,
+    // One client per record: when the authored deviceDetail names an OS / browser the UA contradicts,
+    // the UA is the one that client sends (deviceDetail is Entra's parse of that very header).
+    userAgent: uaMatching(ua, deviceDetail.operatingSystem, deviceDetail.browser),
     correlationId: f.correlationId ?? ctx.uuid(`${ev.id}:corr`),
     originalRequestId: id,
     conditionalAccessStatus: caStatus,
@@ -729,3 +731,25 @@ const useCases: UseCase[] = [
 ];
 
 export const source: NativeSource = { schema, fromTelemetry, useCases };
+
+/** The UA string of the client deviceDetail describes, when the authored UA names another OS / browser. */
+function uaMatching(ua: { raw: string; entraOs: string; entraBrowser: string; scripted: boolean }, os: string, browser: string): string {
+  if (ua.scripted || !os || !browser) return ua.raw;
+  const fam = (v: string) => v.toLowerCase().replace(/[^a-z]/g, "").replace(/^windows\d*.*/, "windows").replace(/^macos.*|^macosx.*/, "macos");
+  const bName = (v: string) => (/^(\w+)/.exec(v)?.[1] ?? "").toLowerCase();
+  const bVer = (v: string) => /(\d+(?:\.\d+)*)/.exec(v)?.[1];
+  const sameOs = fam(os) === fam(ua.entraOs);
+  const sameBrowser = bName(browser) === bName(ua.entraBrowser) && (bVer(browser)?.split(".")[0] ?? "") === (bVer(ua.entraBrowser)?.split(".")[0] ?? "");
+  if (sameOs && sameBrowser) return ua.raw;
+  const platform = /ios/i.test(os) ? "iPhone; CPU iPhone OS 17_5 like Mac OS X" : /android/i.test(os) ? "Linux; Android 14; K" : /mac/i.test(os) ? "Macintosh; Intel Mac OS X 10_15_7"
+    : /linux/i.test(os) ? "X11; Linux x86_64" : "Windows NT 10.0; Win64; x64";
+  const v = bVer(browser) ?? "124.0.0";
+  const full = v.split(".").length >= 4 ? v : [...v.split("."), "0", "0", "0"].slice(0, 4).join(".");
+  switch (bName(browser)) {
+    case "edge": return `Mozilla/5.0 (${platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${full.split(".")[0]}.0.0.0 Safari/537.36 Edg/${full}`;
+    case "firefox": return `Mozilla/5.0 (${platform}; rv:${v.split(".")[0]}.0) Gecko/20100101 Firefox/${v.split(".").slice(0, 2).join(".")}`;
+    case "safari": return `Mozilla/5.0 (${platform}) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${v.split(".").slice(0, 2).join(".")} Safari/605.1.15`;
+    case "chrome": return `Mozilla/5.0 (${platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${full} Safari/537.36`;
+    default: return ua.raw;
+  }
+}

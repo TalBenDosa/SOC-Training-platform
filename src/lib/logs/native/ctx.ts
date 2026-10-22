@@ -85,7 +85,9 @@ const tenantSeed = (companyId: string, seed: string) => (GLOBAL_SEED.test(seed) 
 
 /** Build the per-company context; identifiers are stable for a company across every session. */
 export function makeCtx(companyId: string, overrides: Partial<Pick<NativeCtx, "domain" | "netbios">> = {}): NativeCtx {
-  const d = DOMAINS[companyId] ?? { domain: `${companyId}.com`, netbios: companyId.toUpperCase().slice(0, 15), timeZone: "UTC" };
+  // A scenario-only organization (vantageindustrial …) has its domain and realm in the asset registry too.
+  const reg = COMPANY_ASSETS[companyId];
+  const d = DOMAINS[companyId] ?? (reg ? { domain: reg.domain, netbios: reg.netbios, timeZone: "UTC" } : { domain: `${companyId}.com`, netbios: companyId.toUpperCase().slice(0, 15), timeZone: "UTC" });
   const domain = overrides.domain ?? d.domain;
   return {
     companyId,

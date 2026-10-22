@@ -1,5 +1,5 @@
 /**
- * Scenario pack: "Impossible Travel — Accounts Payable Mailbox"
+ * Scenario pack: "Two-city sign-ins for an accounts payable clerk"
  *
  * A REAL account takeover, told at beginner reading level.
  *
@@ -124,7 +124,7 @@ export function buildImpossibleTravelBasicScenario(
       answer: "vpnend_foreign",
       xp: 50,
       explanation:
-        "\"Probably a VPN\" is a claim you can check, and checking it is the job. The gateway log shows the d.harel tunnel torn down at 07:40 with no later session, so at 08:27 there was nothing to be on. And traffic that does leave through that gateway appears on the internet as 194.90.7.20, whereas the 08:27 sign-in came from 146.190.62.117 on AutonomousSystemNumber 14061 — a hosting provider, not the corporate gateway and not her ISP's 5378. Pair (b) is the ordinary baseline. Pair (c) matters for how the account was taken, not for the VPN question. Pair (d) is the alarm plus a consequence of the compromise.",
+        "\"Probably a VPN\" is a claim you can check, and checking it is the job. The gateway log shows the d.harel tunnel torn down at 07:40 with no later session, so at 08:27 there was nothing to be on. And traffic that does leave through that gateway appears on the internet as 194.90.7.20, whereas the 08:27 sign-in came from 146.190.62.117 on AutonomousSystemNumber 14061 — a hosting provider, not the corporate gateway and not her ISP's 5378. (The tunnel's group policy is a split tunnel, which is also why the proxy saw her laptop's POST at 07:31 from her home address although the VPN was up.) Pair (b) is the ordinary baseline. Pair (c) matters for how the account was taken, not for the VPN question. Pair (d) is the alarm plus a consequence of the compromise.",
     },
     {
       id: "q2",
@@ -156,7 +156,7 @@ export function buildImpossibleTravelBasicScenario(
       answer: "token_claim",
       xp: 60,
       explanation:
-        "The AuthenticationDetails block is where the difference lives. In the morning there are two steps: a correct password, then \"Mobile app notification — MFA completed in Azure AD\". Dana physically approved something. At 08:27 there is one step: \"Previously satisfied — MFA requirement satisfied by claim in the token\", with IncomingTokenType primaryRefreshToken. Nobody was challenged, because whoever signed in already held a token that says MFA happened. Options (b), (c) and (d) all describe fields you can read directly in the two records, and in each case the two records agree — ConditionalAccessStatus is success on both, both target Office 365 Exchange Online, and both returned ResultType 0.",
+        "The AuthenticationDetails block is where the difference lives. In the morning there are two steps: a correct password, then \"Mobile app notification — MFA completed in Azure AD\". Dana physically approved something. At 08:27 there is one step: \"Previously satisfied — MFA requirement satisfied by claim in the token\", with IncomingTokenType none, the value a replayed session cookie leaves (a device-bound Primary Refresh Token would be recorded as such, and this record has no device). Nobody was challenged, because whoever signed in already held a token that says MFA happened. Options (b), (c) and (d) all describe fields you can read directly in the two records, and in each case the two records agree — ConditionalAccessStatus is success on both, both target Office 365 Exchange Online, and both returned ResultType 0.",
     },
     {
       id: "q3",
@@ -172,7 +172,7 @@ export function buildImpossibleTravelBasicScenario(
         {
           value: "geo_city",
           label:
-            "LocationDetails places the sign-in in New York, over 5,500 km from the London office where Finance say she is sitting",
+            "LocationDetails places the sign-in in New York, over 5,500 km from London, where Finance say she is working today",
         },
         {
           value: "risk_level",
@@ -210,7 +210,7 @@ export function buildImpossibleTravelBasicScenario(
         {
           value: "phish_delivered",
           label:
-            "A phishing message reached the inbox because the gateway recorded DetectionMethods as None",
+            "A phishing message reached the inbox because the gateway recorded no threat type and no detection method",
         },
         {
           value: "asn_hosting",
@@ -221,7 +221,7 @@ export function buildImpossibleTravelBasicScenario(
       answer: "session_actions",
       xp: 70,
       explanation:
-        "SessionId a4f8c1d2-7b93-4e15-8c60-3d29f7a1b504 appears on the 08:27 sign-in and then on all three follow-on actions: a rule that forwards payment mail to ap-archive.2026@securemaildrop.net and buries the originals in RSS Subscriptions, a Sync read of 812 items from the Vendor Banking folder, and an outbound message to ridgeline-supply.com changing remittance details. Nobody explains that away with a travel booking. Option (b) is the hypothesis, not the proof. Option (c) explains how it started. Option (d) is strong supporting evidence but hosting ASNs also carry consumer VPN exits — on its own it moves your confidence, it does not close the case. State the SessionId in your report: it is the thread that ties the intrusion together.",
+        "SessionId a4f8c1d2-7b93-4e15-8c60-3d29f7a1b504 appears on the 08:27 sign-in and then on all three follow-on actions: a rule that forwards payment mail to ap-archive.2026@securemaildrop.net and buries the originals in RSS Subscriptions, a Sync read of 812 items from the Vendor Banking folder, and an outbound message to ridgeline-supply.com changing remittance details. Nobody explains that away with a travel booking. Option (b) is the hypothesis, not the proof. Option (c) explains how it started (the delivery record carries an empty ThreatTypes and DetectionMethods because no verdict was reached). Option (d) is strong supporting evidence but hosting ASNs also carry consumer VPN exits — on its own it moves your confidence, it does not close the case. State the SessionId in your report: it is the thread that ties the intrusion together.",
     },
   ];
 
@@ -231,10 +231,10 @@ export function buildImpossibleTravelBasicScenario(
     threat_actor: "Business Email Compromise operator (financially motivated)",
     attack_kind: "impossible_travel_basic",
     briefing:
-      "Microsoft Sentinel opened a ticket at 08:29 on an impossible-travel anomaly for d.harel@nexacorp.com: a successful Exchange Online sign-in from London at 06:12 and another successful sign-in from New York at 08:27. Finance say Dana is at her desk in the London office today. Determine whether the account is compromised and what was done with it.",
-    narrative: `At 06:12 Dana Harel, an accounts payable clerk, signed in to Exchange Online the way she signs in every morning: from her home address 86.150.23.44 on her corporate laptop LT-FIN-3390, an Entra-joined and Intune-managed Windows 11 machine, with an Authenticator push answered on her phone. Six minutes later she brought up the corporate VPN through VPN-GW-01.
+      "Microsoft Sentinel opened a ticket at 08:29 on an impossible-travel anomaly for d.harel@nexacorp.com: a successful Exchange Online sign-in from London at 06:12 and another successful sign-in from New York at 08:27. Finance say Dana is working from London today. Determine whether the account is compromised and what was done with it.",
+    narrative: `At 06:12 Dana Harel, an accounts payable clerk, signed in to Exchange Online the way she signs in every morning: from her home address 86.150.23.44 on her corporate laptop LT-FIN-3390, an Entra-joined and Intune-managed Windows 11 machine, with an Authenticator push answered on her phone. Six minutes later she brought up the corporate VPN through VPN-GW-01, on a split-tunnel group policy.
 
-At 07:26 a message reached her inbox claiming her sign-in session needed re-verifying, with a link to nexacorp-signin-verify.com — a lookalike domain that failed SPF and DMARC and was delivered anyway (T1566.002). Five minutes later the proxy recorded her laptop POSTing form data to that page from her home address, which the proxy filed under "Newly Registered and Observed Domains" and allowed. The page was an Adversary-in-the-Middle proxy (T1557): forty seconds after the POST, a sign-in for d.harel completed successfully against Entra from 91.229.23.86 in Amsterdam — the same host the browser had just POSTed to — with the password and the real Authenticator push relayed straight through. That sign-in minted the session the attacker now holds (T1539). At 07:40 the VPN session closed after one hour and twenty-two minutes.
+At 07:26 a message reached her inbox claiming her sign-in session needed re-verifying, with a link to nexacorp-signin-verify.com — a lookalike domain that failed SPF and DMARC and was delivered anyway (T1566.002). Five minutes later, at 07:30:55, the proxy and the laptop's own Edge browser both show the page being loaded (no process was started from the browser), and five seconds after that the proxy recorded her laptop POSTing form data to that page from her home address, which the proxy filed under "Newly Registered and Observed Domains" and allowed. The page was an Adversary-in-the-Middle proxy (T1557): forty seconds after the POST, a sign-in for d.harel completed successfully against Entra from 91.229.23.86 in Amsterdam — the same host the browser had just POSTed to — with the password and the real Authenticator push relayed straight through. That sign-in minted the session the attacker now holds (T1539). At 07:40 the VPN session closed after one hour and twenty-two minutes.
 
 At 08:27 the same account signed in successfully to Exchange Online from 146.190.62.117 in New York, on AutonomousSystemNumber 14061 — a hosting provider, not her ISP and not the 194.90.7.20 address the corporate gateway uses. This sign-in carries the same SessionId as the Amsterdam relay: the attacker is replaying the stolen session cookie, which is why IncomingTokenType is "none" and no fresh token was issued — not a Primary Refresh Token, which is device-bound and cannot be phished this way. The device fields are empty: no deviceId, isManaged false, isCompliant false, MacOs and Firefox instead of Windows 11 and Edge. MFA is recorded as satisfied, but by a claim carried inside the replayed cookie rather than by any challenge anyone answered. Those three facts together are what convert the impossible-travel hypothesis into a verdict; the map alone never could, and "she must be on a VPN" is a claim the gateway log had already disproved.
 
@@ -256,6 +256,7 @@ Containment is an identity action, not a host action: revoke the account's refre
     killchain: [
       { ts: T(0), phase: "Baseline", action: "d.harel signs in from London on LT-FIN-3390 with an Authenticator push" },
       { ts: T(74 * MIN), phase: "Initial Access", action: "Lookalike re-verification email delivered to the inbox" },
+      { ts: T(78 * MIN + 55_000), phase: "Credential Access", action: "Laptop's Edge loads the lookalike page (proxy GET 200); no child process follows" },
       { ts: T(79 * MIN), phase: "Credential Access", action: "Laptop POSTs to nexacorp-signin-verify.com from home — AiTM proxy captures the session (T1539)" },
       { ts: T(79 * MIN + 40_000), phase: "Credential Access", action: "AiTM proxy relays password + MFA to Entra; sign-in completes from Amsterdam (T1557)" },
       { ts: T(88 * MIN), phase: "Context", action: "Corporate VPN session ends — nothing after this came through the gateway" },

@@ -129,6 +129,10 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   else if (filePath && (ev.event_type.startsWith("file_") || ev.event_type === "linux_cron" || ev.event_type === "account_modify") && filePath.startsWith("/")) kind = "PATH";
   else if (hint === "SOCKADDR" || ev.event_type === "net_connection") kind = "SYSCALL";
   else if (hint === "PROCTITLE") kind = "PROCTITLE";
+  // An authored SYSCALL record that states the process's identity (uid / euid / auid) is that record:
+  // the identity IS the evidence (a SUID binary running as euid=0 for uid=33). Its EXECVE / PATH
+  // records ride in the same audit group (rawLine), never replace it.
+  else if (hint === "SYSCALL" && (ag("euid") ?? ag("auid") ?? ag("uid")) !== undefined) kind = "SYSCALL";
   else if ((cmdline || rawArgs.length || pargs !== undefined) && (!hint || hint === "EXECVE" || (hint === "SYSCALL" && /^(59|execve)$/.test(ag("syscall") ?? "")) )) kind = "EXECVE";
   else if (hint === "SYSCALL" || hint === "EXECVE") kind = "SYSCALL";
   else if (["sudo_command", "linux_priv_change"].includes(ev.event_type)) kind = "USER_CMD";
@@ -264,9 +268,24 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     egid: ag("egid") ?? gid, sgid: ag("sgid") ?? gid, fsgid: ag("fsgid") ?? gid,
     tty, ses, comm, exe, subj: "unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023", key,
   };
+  // The rest of the audit group (same msg=audit(…) stamp): the EXECVE argv of an exec, the PATH of the
+  // file the syscall touched (its mode shows a SUID bit, its owner the file's owner).
+  const group: string[] = [];
+  if (syscall === "59" && argv.length) {
+    const parts = argv.slice(0, 20).map((a, i) => `a${i}=${needsHex(a) ? toHex(a) : q(a)}`);
+    group.push(line("EXECVE", `argc=${argv.length} ${parts.join(" ")}`));
+  }
+  const pathName = filePath && filePath.startsWith("/") ? filePath : syscall === "59" ? exe : undefined;
+  if (pathName && (filePath || ag("file.mode"))) {
+    const fm = ag("file.mode") ?? r("file.mode");
+    const mode = fm ? (fm.length <= 4 ? `0100${fm.replace(/^0/, "").padStart(3, "0")}` : fm) : "0100755";
+    const ouid = ag("file.ouid") ?? "0", ogid = ag("file.ogid") ?? "0";
+    const inode = String(ctx.int(`${ctx.companyId}:${host}:inode:${pathName}`, 100_000, 9_999_999));
+    group.push(line("PATH", `item=0 name=${needsHex(pathName) ? toHex(pathName) : q(pathName)} inode=${inode} dev=fd:00 mode=${mode} ouid=${ouid} ogid=${ogid} rdev=00:00 objtype=NORMAL`));
+  }
   const ex = needsHex(exe) ? toHex(exe) : q(exe);
   const body = ["arch", "syscall", "success", "exit", "a0", "a1", "a2", "a3", "items", "ppid", "pid", "auid", "uid", "gid", "euid", "suid", "fsuid", "egid", "sgid", "fsgid", "tty", "ses"].map(k => `${k}=${record[k]}`).join(" ");
-  return out(record, line("SYSCALL", `${body} comm=${q(comm)} exe=${ex} subj=${record.subj} key=${key === "(null)" ? key : q(key)}`));
+  return out(record, [line("SYSCALL", `${body} comm=${q(comm)} exe=${ex} subj=${record.subj} key=${key === "(null)" ? key : q(key)}`), ...group].join("\n"));
 }
 function hx(ctx: NativeCtx, seed: string, len: number): string {
   let s = "";

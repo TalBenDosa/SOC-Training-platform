@@ -105,6 +105,28 @@ export interface FgThreatOpts extends Ctx {
   severity?: Severity;
   description?: string;
 }
+/**
+ * FortiGuard web-filter categories as FortiOS logs them (`cat` number, `catdesc` name), per
+ * docs/log-schemas/fw-fortigate.md: a category is always one of these pairs, never "26 Uncategorized".
+ */
+const FORTIGUARD: [number, string][] = [
+  [0, "Unrated"], [26, "Malicious Websites"], [59, "Proxy Avoidance"], [61, "Phishing"], [86, "Spam URLs"],
+  [88, "Dynamic DNS"], [90, "Newly Observed Domain"], [91, "Newly Registered Domain"],
+];
+const FG_ALIAS: Record<string, number> = {
+  uncategorized: 0, unrated: 0, "not rated": 0, unknown: 0, malware: 26, "malicious websites": 26, "malicious website": 26,
+  "proxy avoidance": 59, phishing: 61, "spam urls": 86, "dynamic dns": 88,
+  "newly observed domain": 90, "newly observed domains": 90, "newly registered domain": 91, "newly registered domains": 91,
+};
+/** The (cat, catdesc) pair: from the name when it is a FortiGuard category, else from the number. */
+function fortiCategory(name?: string, id?: string): { cat?: string; catdesc?: string } {
+  const byName = name !== undefined ? FG_ALIAS[name.trim().toLowerCase()] : undefined;
+  if (byName !== undefined) return { cat: String(byName), catdesc: FORTIGUARD.find(([n]) => n === byName)![1] };
+  const byId = id !== undefined && /^\d+$/.test(id) ? FORTIGUARD.find(([n]) => String(n) === id) : undefined;
+  if (byId) return { cat: String(byId[0]), catdesc: byId[1] };
+  return { ...(id ? { cat: id } : {}), ...(name ? { catdesc: name } : {}) };
+}
+
 export function fgThreat(o: FgThreatOpts): TelemetryEvent {
   const r = resolve(o);
   const subtype = o.subtype ?? "ips";
@@ -127,7 +149,7 @@ export function fgThreat(o: FgThreatOpts): TelemetryEvent {
       "data.msg": o.threatName,
       ...(o.url ? { "data.url": o.url } : {}),
       ...(o.domain ? { "data.hostname": o.domain } : {}),
-      ...(o.category ? { "data.cat": o.category } : {}),
+      ...(o.category && subtype === "webfilter" ? (() => { const c = fortiCategory(o.category); return { ...(c.cat ? { "data.cat": c.cat } : {}), ...(c.catdesc ? { "data.catdesc": c.catdesc } : {}) }; })() : {}),
       "data.utmaction": blocked ? "block" : "detect",
       "data.level": "warning",
       ...(geoCountry(o.remoteIp) ? { "data.dstcountry": geoCountry(o.remoteIp)! } : {}),
@@ -167,8 +189,8 @@ export interface FgWebOpts extends Ctx {
   msg?: string;
   logid?: string;
   level?: string;                  // data.level — "notice" | "warning" …
-  category?: string;               // data.catdesc (human) — e.g. "Uncategorized"
-  categoryId?: string;             // data.cat (numeric) — e.g. "26"
+  category?: string;               // data.catdesc (FortiGuard name), e.g. "Newly Registered Domain"; the number follows it
+  categoryId?: string;             // data.cat (numeric), e.g. "91"; used when the name is not given
   method?: "GET" | "POST";
   status?: number;
   bytesIn?: number;
@@ -198,7 +220,7 @@ export function fgWeb(o: FgWebOpts): TelemetryEvent {
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
     network: { url: o.url, domain: o.domain, method, status: o.status ?? 200, bytes_in: o.bytesIn, bytes_out: o.bytesOut },
     ...(o.file ? { file: { name: o.file.name, path: `/${o.file.name}`, ...(o.file.sha256 ? { sha256: o.file.sha256 } : {}), ...(o.file.size ? { size: o.file.size } : {}), extension: o.file.name.split(".").pop() } } : {}),
-    description: o.description ?? `FortiGate ${subtype} ${action} — ${r.host} ${method === "POST" ? "POSTed to" : "requested"} ${o.domain}`,
+    description: o.description ?? `FortiGate ${subtype} ${action}: ${r.host} ${method === "POST" ? "POSTed to" : "requested"} ${o.domain}`,
     raw: {
       "data.type": "utm",
       "data.subtype": subtype,
@@ -209,8 +231,7 @@ export function fgWeb(o: FgWebOpts): TelemetryEvent {
       ...(o.msg ? { "data.msg": o.msg } : {}),
       ...(subtype === "filefilter" ? { "data.logdesc": "File filter" } : {}),
       ...(o.file ? { "data.filename": o.file.name, "data.filetype": o.file.type ?? o.file.name.split(".").pop() ?? "unknown" } : {}),
-      ...(o.categoryId ? { "data.cat": o.categoryId } : {}),
-      ...(o.category ? { "data.catdesc": o.category } : {}),
+      ...(() => { const c = fortiCategory(o.category, o.categoryId); return { ...(c.cat ? { "data.cat": c.cat } : {}), ...(c.catdesc ? { "data.catdesc": c.catdesc } : {}) }; })(),
       "data.url": o.url.replace(/^https?:\/\//, ""),
       "data.hostname": o.domain,
       "data.srcip": r.srcIp,
@@ -219,8 +240,6 @@ export function fgWeb(o: FgWebOpts): TelemetryEvent {
       "data.proto": "6",
       "data.service": port === 443 ? "HTTPS" : "HTTP",
       ...(o.policyId !== undefined ? { "data.policyid": String(o.policyId) } : {}),
-      "data.devname": "FGT-CORE-01",
-      "data.devid": "FGT60F1234567890",
       "data.vd": "root",
       "data.srccountry": "Reserved",
       ...(country ? { "data.dstcountry": country } : {}),

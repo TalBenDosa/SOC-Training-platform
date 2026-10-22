@@ -15,8 +15,18 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { WIN_EVENT_VIEWER_DESCRIPTIONS } from "@/lib/sim/ruleDescriptions";
 
 /** First non-empty string among raw fields (vendor-native names only). */
+/** Words that state an investigation's conclusion (kept in step with the technical-integrity gate). */
+const ROW_CONCLUSION = /\b(attacker|adversary|malicious|compromis\w*|exfiltrat\w*|lateral movement|persistence|command[- ]and[- ]control|beacon\w*|backdoor|ransomware|stolen|impersonat\w*|infostealer|credential theft|C2)\b/i;
+
 function rawStr(raw: Record<string, unknown> | undefined, ...keys: string[]): string {
-  for (const k of keys) { const v = raw?.[k]; if (typeof v === "string" && v.trim()) return v.trim(); }
+  for (const k of keys) {
+    // A flat SIEM key ("alert.signature") or the vendor's own nested JSON (Suricata EVE's alert.signature).
+    let v: unknown = raw?.[k];
+    if (v == null && raw && k.includes(".")) {
+      v = k.split(".").reduce<unknown>((o, part) => (o && typeof o === "object" ? (o as Record<string, unknown>)[part] : undefined), raw);
+    }
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
   return "";
 }
 
@@ -71,9 +81,13 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
   // The scenario page too (preferFields): GuardDuty / SCC / Suricata / Sentinel rows used to
   // show a generic "System called ..." line instead of the product's finding name.
   const alertName = rawStr(event.raw, "AlertName", "alert.name", "crowdstrike.DetectName", "threat.name", "ThreatName", "data.ms-graph.title",
-    "aws.guardduty.type", "gcp.scc.finding.category", "finding.category", "suricata.eve.alert.signature", "alert.signature", "signature");
-  if ((opts.fieldsOnly || opts.preferFields) && alertName && (event.is_detection || ["siem", "ueba", "dlp", "av", "ids", "guardduty", "cloud_gcp", "cloudtrail"].includes(event.source) || /alert|detection|quarantine|finding|signature|anomaly/.test(event.event_type))) {
-    return `Alert: ${alertName}${event.hostname ? ` — ${event.hostname}` : ""}`;
+    "aws.guardduty.type", "gcp.scc.finding.category", "finding.category", "suricata.eve.alert.signature", "alert.signature", "signature",
+    "cloudwatch.alarm.name");
+  // A row line never states the conclusion: a finding named for its tactic ("Exfiltration:S3/...",
+  // "Ransomware.MedLock") keeps that name in the record and the row falls back to the neutral line.
+  const namesConclusion = !opts.fieldsOnly && ROW_CONCLUSION.test(alertName);
+  if ((opts.fieldsOnly || opts.preferFields) && alertName && !namesConclusion && (event.is_detection || ["siem", "ueba", "dlp", "av", "ids", "guardduty", "cloud_gcp", "cloudtrail"].includes(event.source) || /alert|detection|quarantine|finding|signature|anomaly/.test(event.event_type))) {
+    return `Alert: ${alertName}${event.hostname ? ` on ${event.hostname}` : ""}`;
   }
 
   // Otherwise fall back to the exact Event Viewer description text for the code
@@ -101,7 +115,7 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
     const text = WIN_EVENT_VIEWER_DESCRIPTIONS[eventCode!];
     // On the scenario page say WHERE it happened — the live feed shows the host in its own column.
     return opts.preferFields && event.hostname && !text.includes(event.hostname)
-      ? `${text.replace(/\.$/, "")} — ${event.hostname}` : text;
+      ? `${text.replace(/\.$/, "")} on ${event.hostname}` : text;
   }
 
   const p    = event.process;

@@ -178,6 +178,8 @@ export const CATEGORIES: Record<string, CatMap> = {
 const CAT_ALIASES: Record<string, string> = {
   "unknown/uncategorized": "unknown", uncategorized: "unknown", unrated: "unknown", "newly observed domain": "newly-observed-domain",
   "newly registered domain": "newly-registered-domain", "newly seen domains": "newly-registered-domain", "malicious websites": "malware",
+  // Common misspellings of the FortiGuard names (plural): the real catdesc is singular.
+  "newly registered domains": "newly-registered-domain", "newly observed domains": "newly-observed-domain", "not rated": "unknown",
   "malware sites": "malware", "spyware / malicious sites": "malware", "shareware-download": "shareware-and-freeware",
   "file storage and sharing": "online-storage-and-backup", "file sharing and storage": "online-storage-and-backup", botnets: "command-and-control",
 };
@@ -508,4 +510,9 @@ export const isSnat = (f: FwFacts) => f.dir === "outbound";
 /** Stable threat id for a named signature when the authored event has none. */
 export function threatNumber(name: string, ctx: NativeCtx, min: number, max: number): number {
   return ctx.int(`threat:${name.toLowerCase()}`, min, max);
+}
+
+/** A FortiGate's serial number (devid), one per company + appliance name (short, case-insensitive). */
+export function fortiDevId(ctx: NativeCtx, devname: string): string {
+  return `FG200FTK${ctx.int(`${ctx.companyId}:fgt:devid:${devname.toLowerCase().split(".")[0]}`, 10000000, 99999999)}`;
 }

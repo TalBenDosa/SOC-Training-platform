@@ -474,6 +474,11 @@ function persistenceFrom(events: TelemetryEvent[], procs: EdrProcess[]) {
   return { autoruns, persistence: { tasks, services, wmi } };
 }
 
+/** A command line as prose: wrapped in quotes unless it already opens with its own quoted path. */
+function quoteCmd(cmd: string): string {
+  return cmd.trimStart().startsWith('"') ? cmd : `"${cmd}"`;
+}
+
 export function buildInvestigationFromStory(
   story: {
     id: string; title: string; events: TelemetryEvent[]; iocTruth?: IocTruth | null;
@@ -543,7 +548,10 @@ export function buildInvestigationFromStory(
 
   // ── Host identity (needed early: the baseline PIDs are seeded from it) ──
   const hostName = mostCommon(procEvents.map(e => e.hostname)) ?? mostCommon(events.map(e => e.hostname)) ?? "endpoint";
-  const server = !isLinux && isServerHost({ name: hostName });
+  const rawOs = mostCommon(events.filter(e => e.hostname === hostName).map(e =>
+    pickRaw(e.raw, ["host.os.name", "host.os.full", "os.name", "OSVersion", "OsVersion", "OSPlatform", "crowdstrike.ProductType"])));
+  const server = !isLinux && (/server/i.test(rawOs ?? "") || isServerHost({ name: hostName })
+    || /(^|-)(ADFS|PSM|VAULT|PKI|CA|MSSQL|RDS|JUMP|DEPLOY|SCCM|WSUS|PRINT|FILE)(-|\d|$)/i.test(hostName));
   const edrAgent = isLinux ? undefined : (edrAgentFor(events.filter(e => ENDPOINT_SOURCES.has(e.source)).map(e => e.vendor ?? "")) ?? undefined);
 
   // PIDs the telemetry names for background processes — the lsass.exe an LSASS dump
@@ -852,7 +860,7 @@ export function buildInvestigationFromStory(
   const SEV_RANK: Record<string, number> = { low: 1, medium: 2, high: 3, critical: 4 };
   const detSev = new Map<number, number>();
   for (const d of detections) detSev.set(d.pid, Math.max(detSev.get(d.pid) ?? 0, SEV_RANK[d.severity] ?? 0));
-  const SYSTEM_TOOLS = new Set(["security", "sqlcmd", "wevtutil", "vssadmin", "bcdedit", "wmic.exe", "ssh", "scp", "curl", "wget",
+  const SYSTEM_TOOLS = new Set(["security", "sqlcmd", "wevtutil", "vssadmin", "bcdedit", "wmic.exe", "ntdsutil.exe", "ntdsutil", "ssh", "scp", "curl", "wget",
     "osascript", "launchctl", "installer", "sh", "bash", "zsh", "dash", "python", "python3", "perl", "sudo", "crontab", "chmod"]);
   const isSystemTool = (p: EdrProcess) => isLolBin(p.name) || SYSTEM_TOOLS.has(p.name.toLowerCase()) || SYSTEM_TOOLS.has(p.name.toLowerCase().replace(/\.exe$/, ""));
   const payloadScore = (p: EdrProcess) =>
@@ -865,9 +873,10 @@ export function buildInvestigationFromStory(
     ?? null;
   // R-04: a system binary / LOLBin with no known-bad hash is ABUSED, not malware. A signed
   // binary that is not a system tool (an attacker's own helper) is still the payload.
+  const LEGIT_TOOLS = /^(quickassist|msra|mstsc|anydesk|teamviewer|screenconnect\.clientservice|bcp|sqlcmd|sqlservr|rclone|psexec|psexec64|winscp|putty|plink)(\.exe)?$/i;
   if (payload) {
     const badHash = !!(payload.sha256 && lookupHash(payload.sha256)?.malicious);
-    payload.verdict = badHash ? "malicious" : isSystemTool(payload) ? "abused" : "malicious";
+    payload.verdict = badHash ? "malicious" : (isSystemTool(payload) || (payload.signed && LEGIT_TOOLS.test(payload.name))) ? "abused" : "malicious";
   }
 
   // R-07: seed benign look-twice siblings into a thin tree so flagging is a decision.
@@ -907,7 +916,7 @@ export function buildInvestigationFromStory(
   const ownIp = (e: TelemetryEvent) => pickRaw(e.raw, HOST_IP_KEYS);
   const isLogon = (e: TelemetryEvent) => /auth|logon|login|sign_?in/i.test(e.event_type ?? "");
   const hostOwnIp: string | undefined =
-    mostCommon(events.filter(e => e.hostname === hostName).map(ownIp))
+    mostCommon(events.filter(e => e.hostname === hostName && ENDPOINT_SOURCES.has(e.source)).map(ownIp))
     ?? mostCommon(procEvents.filter(e => !isLogon(e) && /^process/.test(e.event_type ?? "")).map(e => e.src_ip))
     ?? mostCommon(procEvents.filter(e => !isLogon(e)).map(e => e.src_ip))
     ?? mostCommon(events.filter(e => e.hostname === hostName && !isLogon(e)).map(e => e.src_ip));
@@ -962,10 +971,11 @@ export function buildInvestigationFromStory(
       owner.network!.push(conn);
       ownedConns.add(connKey(conn.remote_ip, conn.remote_port, conn.domain));
       ownedConns.add(connKey(conn.remote_ip, conn.remote_port, undefined));
-      if (conn.domain) ownedTargets.add(conn.domain);
-      if (conn.remote_ip !== "—") ownedTargets.add(conn.remote_ip);
+      if (conn.domain && conn.application !== "DNS") ownedTargets.add(conn.domain);
+      if (conn.remote_ip !== "—" && conn.remote_ip !== "resolver") ownedTargets.add(conn.remote_ip);
     }
-    const fileEvent = /^file|registry_set$/.test(e.event_type ?? "") || /^(file|fs)_/.test(e.event_type ?? "") || !isDetectionEvent(e);
+    const fileEvent = /^file|registry_set$/.test(e.event_type ?? "") || /^(file|fs)_/.test(e.event_type ?? "")
+      || (!isDetectionEvent(e) && !/load/i.test(e.event_type ?? ""));
     if (e.file?.path && owner.files!.length < 8 && fileEvent) {
       const action: EdrFileOp["action"] =
         e.event_type === "file_delete" ? "delete" : e.event_type === "file_rename" ? "rename"
@@ -996,7 +1006,7 @@ export function buildInvestigationFromStory(
         if (conn.remote_ip !== "—") ownedTargets.add(conn.remote_ip);
       }
     }
-    if (e.file?.path && owner.files!.length < 8 && !PERIMETER_SOURCES.has(e.source)) {
+    if (e.file?.path && owner.files!.length < 8 && ENDPOINT_SOURCES.has(e.source) && !/load/i.test(e.event_type ?? "")) {
       const action: EdrFileOp["action"] =
         e.event_type === "file_delete" ? "delete" : e.event_type === "file_rename" ? "rename"
         : e.event_type === "file_access" ? "read" : "write";
@@ -1010,9 +1020,16 @@ export function buildInvestigationFromStory(
   // ── Timeline (chronological, capped) — endpoint view only ──
   // The perimeter's lines stay in the SIEM; the EDR timeline is what the host saw.
   // (A network-only case with no endpoint lines keeps them, so it is never empty.)
-  const endpointView = sorted.filter(e => !PERIMETER_SOURCES.has(e.source));
-  const timeline: EdrTimelineEvent[] = (endpointView.length ? endpointView : sorted)
-    .slice(0, 20)
+  const onHost = (e: TelemetryEvent) => !e.hostname || e.hostname === hostName;
+  const endpointView = sorted.filter(e => !PERIMETER_SOURCES.has(e.source) && onHost(e));
+  const viewed = endpointView.length ? endpointView : sorted;
+  const TIMELINE_CAP = 30;
+  const timelineRows = viewed.length <= TIMELINE_CAP ? viewed : (() => {
+    const keep = new Set(viewed.filter(isDetectionEvent).slice(0, TIMELINE_CAP));
+    for (const e of viewed) { if (keep.size >= TIMELINE_CAP) break; keep.add(e); }
+    return viewed.filter(e => keep.has(e));
+  })();
+  const timeline: EdrTimelineEvent[] = timelineRows
     .map(e => ({
       at: hhmmss(e.ts),
       kind: timelineKind(e),
@@ -1026,17 +1043,17 @@ export function buildInvestigationFromStory(
     os: isMac ? "macOS 14 Sonoma" : isLinux ? "Linux" : server ? "Windows Server 2022" : "Windows 11 23H2",
     ip: hostOwnIp ?? "—",
     // The signed-in HUMAN — a service-launched shell running as SYSTEM is not who is logged on.
-    user: mostCommon(procEvents.map(e => e.process?.user ?? e.user_email).filter(u => u && !SYSTEM_PRINCIPAL.test(u)))
+    user: mostCommon(procEvents.map(e => e.process?.user ?? e.user_email).filter(u => u && !SYSTEM_PRINCIPAL.test(u) && !/^(root|_\w+|daemon|nobody)$/i.test(u)))
       ?? mostCommon(procEvents.map(e => e.process?.user ?? e.user_email)) ?? "—",
   };
 
   const explanation = payload
     ? payload.verdict === "abused"
-      ? `${payload.name} (pid ${payload.pid}) is the process to flag — but note it is a legitimate, signed binary being ABUSED, not malware itself. The malice is in what it was made to do: "${payload.cmdline}". Contain it and its parent chain, but in your report name the technique (living-off-the-land), not the binary, as the threat — ${payload.name} is trusted and will run again.`
-      : `${payload.name} (pid ${payload.pid}) is the payload of this attack: ${payload.signed ? "" : "an unsigned binary "}running "${payload.cmdline}"${payload.sha256 && lookupHash(payload.sha256)?.malicious ? ", with a hash that matches a known-bad sample" : ""}${payload.originalFileName && payload.originalFileName.toLowerCase() !== payload.name.toLowerCase() ? ` — its PE original file name is ${payload.originalFileName}, so the on-disk name is a disguise` : ""}. It is the process in the chain that carried the malicious behaviour — the parents above it are the delivery chain that launched it.`
+      ? `${payload.name} (pid ${payload.pid}) is the process to flag, but it is a legitimate, signed tool being ABUSED, not malware itself. The malice is in what it was made to do, the command line ${quoteCmd(payload.cmdline)}. Contain it and its parent chain, and in your report name the technique (living off the land), not the binary, as the threat: ${payload.name} is trusted and will run again.`
+      : `${payload.name} (pid ${payload.pid}) is the payload of this attack: ${payload.signed ? "" : "an unsigned binary "}running ${quoteCmd(payload.cmdline)}${payload.sha256 && lookupHash(payload.sha256)?.malicious ? ", with a hash that matches a known-bad sample" : ""}${payload.originalFileName && payload.originalFileName.toLowerCase() !== payload.name.toLowerCase() ? `. Its PE original file name is ${payload.originalFileName}, so the on-disk name is a disguise` : ""}. It is the process in the chain that carried the malicious behaviour; the parents above it are the delivery chain that launched it.`
     : story.benign
       ? "Nothing on this host is a payload. The detection fired on legitimate activity: correlate it with the change records, the account's normal behaviour and the other sources, and resolve the case as benign rather than containing the host."
-      : "No single payload process stood out — treat the highest-severity detection in the tree as the process to contain, and correlate it with the timeline.";
+      : "No single payload process stood out: treat the highest-severity detection in the tree as the process to contain, and correlate it with the timeline.";
 
   return {
     id: "live",

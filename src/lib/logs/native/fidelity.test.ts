@@ -83,16 +83,18 @@ describe("#8/#16 Falcon dispositions follow what the sensor did", () => {
     process: { name: "AnyDesk.exe", pid: 5210, parent_name: "explorer.exe", cmdline: "\"C:\\Users\\y.golan\\Downloads\\AnyDesk.exe\"" }, raw, ...extra,
   });
   const disp = (l: NativeLog) => ({ code: l.record.pattern_disposition, flags: Object.entries(l.record.pattern_disposition_details as Record<string, boolean>).filter(([, v]) => v).map(([k]) => k) });
-  it("a running process that is stopped is KILLED (2048), never 'blocked from execution'", () => {
+  // Falcon's bit flags (raw Falcon events, Elastic CrowdStrike integration): kill_process 16, quarantine_file 128,
+  // process_blocked 2048 ("Prevention, process was blocked from execution."), 2176 = blocked + quarantine.
+  it("a running process that is stopped is KILLED (16), never 'blocked from execution'", () => {
     for (const r of [{ action_result: "process_killed" }, { action_result: "blocked" }, { "s1.mitigation_status": "mitigated" }]) {
       const a = render("crowdstrike", anydesk(r));
-      expect(disp(a), JSON.stringify(r)).toEqual({ code: 2048, flags: ["kill_process"] });
+      expect(disp(a), JSON.stringify(r)).toEqual({ code: 16, flags: ["kill_process"] });
     }
   });
-  it("kill AND quarantine → 2304 with both flags; execution prevented → 16 process_blocked", () => {
-    expect(disp(render("crowdstrike", anydesk({ action_result: "quarantined", "process.killed": "true" })))).toEqual({ code: 2304, flags: ["kill_process", "quarantine_file"] });
+  it("kill AND quarantine → 144 with both flags; execution prevented → 2048 process_blocked", () => {
+    expect(disp(render("crowdstrike", anydesk({ action_result: "quarantined", "process.killed": "true" })))).toEqual({ code: 144, flags: ["kill_process", "quarantine_file"] });
     const blocked = render("crowdstrike", anydesk({ action_result: "blocked" }, { description: "Falcon blocked AnyDesk.exe from executing." }));
-    expect(disp(blocked)).toEqual({ code: 16, flags: ["process_blocked"] });
+    expect(disp(blocked)).toEqual({ code: 2048, flags: ["process_blocked"] });
   });
   it("the description is Falcon's detection wording, never an action claim that could contradict the flags", () => {
     const a = render("crowdstrike", anydesk({ action_result: "process_killed", "crowdstrike.DetectDescription": "The file and its parent process were quarantined and killed." }));

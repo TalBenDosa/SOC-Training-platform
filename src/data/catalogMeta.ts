@@ -271,322 +271,322 @@ export const QUIZZES_META: QuizMeta[] = [
 export const SCENARIOS_META: ScenarioMeta[] = [
   {
     "slug": "phishing-malware-basic",
-    "title": "Phishing Attachment → Malware Execution → Workstation Compromise",
+    "title": "EDR alert on an HR workstation",
     "difficulty": "beginner"
   },
   {
     "slug": "usb-malware-basic",
-    "title": "Malicious USB Drive → Trojan Persistence → Workstation Compromise",
+    "title": "EDR quarantine on an operations workstation",
     "difficulty": "beginner"
   },
   {
     "slug": "phishing-to-cloud-exfil",
-    "title": "Phishing Macro → AWS Key Theft → S3 Download",
+    "title": "Unassigned EDR detection on a finance workstation",
     "difficulty": "intermediate"
   },
   {
     "slug": "bec-mailbox-rule",
-    "title": "Password Spray → BEC Mailbox Rule",
+    "title": "Failed AD FS logons and a CFO call",
     "difficulty": "beginner"
   },
   {
     "slug": "ransomware-lockbit",
-    "title": "Ransomware Outbreak — LockBit 3.0",
+    "title": "Critical file server alert and an unreachable Finance share",
     "difficulty": "advanced"
   },
   {
     "slug": "oauth-app-persistence",
-    "title": "OAuth App Persistence — Cloud APT",
+    "title": "Graph activity alert after a password reset",
     "difficulty": "advanced"
   },
   {
     "slug": "insider-threat-finance",
-    "title": "Bulk Finance Downloads and Removable Media — WS-FIN-4421",
+    "title": "DLP download alert on a finance workstation",
     "difficulty": "intermediate"
   },
   {
     "slug": "kerberoasting",
-    "title": "Kerberoasting → Service Account Compromise",
+    "title": "Kerberos ticket volume alert for a developer account",
     "difficulty": "advanced"
   },
   {
     "slug": "dns-tunneling",
-    "title": "DNS Tunneling — C2 via DNS",
+    "title": "DNS volume anomaly on an engineering workstation",
     "difficulty": "advanced"
   },
   {
     "slug": "lolbins",
-    "title": "Living-off-the-Land (LOLBins)",
+    "title": "Rare command-line alert on an HR workstation",
     "difficulty": "advanced"
   },
   {
     "slug": "aws-key-leak-s3-exfil",
-    "title": "Leaked AWS Key → IAM Backdoor → S3 Data Theft",
+    "title": "Secret scanning alert on a public deploy repo",
     "difficulty": "advanced"
   },
   {
     "slug": "dcsync-golden-ticket",
-    "title": "DCSync → Golden Ticket (Domain Dominance)",
+    "title": "Late-night admin RDP logon to a domain controller",
     "difficulty": "advanced"
   },
   {
     "slug": "supply-chain-vendor-update",
-    "title": "Supply Chain Attack — Malicious Vendor Update",
+    "title": "EDR detection on a production server after an update",
     "difficulty": "advanced"
   },
   {
     "slug": "mfa-fatigue-ato",
-    "title": "MFA Fatigue → Okta Account Takeover",
+    "title": "Overnight high-severity alert on an IT administrator",
     "difficulty": "beginner"
   },
   {
     "slug": "asrep-roasting",
-    "title": "AS-REP Roasting → Offline Hash Crack",
+    "title": "Identity alert naming three service accounts",
     "difficulty": "intermediate"
   },
   {
     "slug": "ntlm-relay-responder",
-    "title": "NTLM Relay — Internal Credential Hijacking",
+    "title": "Tooling detection on a developer workstation",
     "difficulty": "advanced"
   },
   {
     "slug": "k8s-pod-escape-imds",
-    "title": "Kubernetes Pod Escape → Cloud Metadata Theft",
+    "title": "GuardDuty finding on the production EKS cluster",
     "difficulty": "advanced"
   },
   {
     "slug": "oauth-consent-grant-phishing",
-    "title": "OAuth Consent Grant Phishing — Silent BEC",
+    "title": "DLP alert on a Finance SharePoint contract",
     "difficulty": "expert"
   },
   {
     "slug": "backup-agent-false-positive",
-    "title": "Mass File Encryption Alert — Enterprise Backup Agent",
+    "title": "Overnight behaviour alert on a production file server",
     "difficulty": "beginner"
   },
   {
     "slug": "brute-force-single-account",
-    "title": "Logon Failure Burst — Published Remote Desktop Server",
+    "title": "Logon failures on the published Remote Desktop server",
     "difficulty": "beginner"
   },
   {
     "slug": "rogue-admin-account",
-    "title": "Out-of-Hours Account Creation — Service Desk Credentials",
+    "title": "Late-evening privileged group change on the DC",
     "difficulty": "beginner"
   },
   {
     "slug": "impossible-travel-basic",
-    "title": "Sign-In From Two Countries — Accounts Payable Clerk",
+    "title": "Two-city sign-ins for an accounts payable clerk",
     "difficulty": "beginner"
   },
   {
     "slug": "software-install-false-positive",
-    "title": "Unsigned Binary Writes to Program Files — Engineering Workstation",
+    "title": "Behavioural EDR alert on an engineering workstation",
     "difficulty": "beginner"
   },
   {
     "slug": "web-shell-sqli",
-    "title": "SQL Injection → Web Shell → Server Compromise",
+    "title": "WAF blocks and an EDR alert on the shop",
     "difficulty": "advanced"
   },
   {
     "slug": "linux-ssh-persistence",
-    "title": "Exposed SSH → Cron-Persisted Backdoor",
+    "title": "Falcon detection on a Linux backup server",
     "difficulty": "intermediate"
   },
   {
     "slug": "aitm-token-theft",
-    "title": "Adversary-in-the-Middle Phishing — Session Token Theft",
+    "title": "Sign-ins six minutes apart for a finance user",
     "difficulty": "advanced"
   },
   {
     "slug": "esxi-ransomware",
-    "title": "Hypervisor Ransomware — ESXi Datastore Encryption",
+    "title": "Every guest on PROD-CLUSTER-A unreachable on Saturday night",
     "difficulty": "expert"
   },
   {
     "slug": "okta-password-burst",
-    "title": "Sign-In Failure Burst — Okta Tenant, One Account",
+    "title": "Overnight Okta sign-in failures for one account",
     "difficulty": "beginner"
   },
   {
     "slug": "fake-browser-update",
-    "title": "Fake Browser Update — Drive-by on a Trusted Site",
+    "title": "Critical EDR detection on a laptop while browsing",
     "difficulty": "beginner"
   },
   {
     "slug": "trojanized-installer-keylogger",
-    "title": "Free PDF Tool — Trojanized Installer with a Keylogger",
+    "title": "Critical alert after a free PDF tool install",
     "difficulty": "beginner"
   },
   {
     "slug": "multi-host-intrusion",
-    "title": "Multi-Host Intrusion — Foothold, Lateral Move, Staging",
+    "title": "Three EDR incidents on three hosts tonight",
     "difficulty": "advanced"
   },
   {
     "slug": "ai-llmjacking-bedrock",
-    "title": "LLMjacking — Stolen CI Key Used for Bedrock Inference",
+    "title": "Bedrock cost alert on QuantumBank's AWS account",
     "difficulty": "advanced"
   },
   {
     "slug": "gws-phishing-attachment",
-    "title": "Shared Invoice — Malicious Attachment via Google Workspace",
+    "title": "Critical Mac detection after a supplier invoice",
     "difficulty": "beginner"
   },
   {
     "slug": "seo-poisoned-installer",
-    "title": "Sponsored Result — SEO-Poisoned PuTTY Download",
+    "title": "High-severity Defender incident on an admin laptop",
     "difficulty": "beginner"
   },
   {
     "slug": "iso-container-smuggling",
-    "title": "Invoice.iso — Container-Delivered LNK and LOLBin Chain",
+    "title": "Critical EDR detection after an overdue invoice email",
     "difficulty": "beginner"
   },
   {
     "slug": "clickfix-fake-captcha",
-    "title": "Fake CAPTCHA — 'Paste This to Verify You're Human'",
+    "title": "Blocked outbound connection on a browsing workstation",
     "difficulty": "beginner"
   },
   {
     "slug": "scheduled-task-persistence",
-    "title": "Speed-Boost Script — Persistence via a Scheduled Task",
+    "title": "SIEM alert on an HR coordinator's laptop",
     "difficulty": "beginner"
   },
   {
     "slug": "infostealer-session-theft",
-    "title": "Free Converter, Stolen Session — Infostealer Cookie Theft & Replay",
+    "title": "Killed process and a new sign-in for one user",
     "difficulty": "intermediate"
   },
   {
     "slug": "helpdesk-mfa-reset",
-    "title": "Help Desk MFA Reset — Social Engineering Account Takeover",
+    "title": "Routine MFA reset ticket and two sign-ins",
     "difficulty": "intermediate"
   },
   {
     "slug": "edge-vpn-cve-exploit",
-    "title": "Edge Appliance Exploitation — FortiOS SSL-VPN Auth Bypass to Internal Foothold",
+    "title": "VPN user correlation alert on a jump host",
     "difficulty": "advanced"
   },
   {
     "slug": "exfil-first-extortion",
-    "title": "Exfiltration-First Extortion — Ransomware Without an Encryptor",
+    "title": "Threatening email to NexaCorp's security mailbox",
     "difficulty": "advanced"
   },
   {
     "slug": "windows-privesc-token",
-    "title": "SYSTEM in Twelve Seconds — Token Impersonation on an IIS Host",
+    "title": "Rare privilege alert for an IIS service account",
     "difficulty": "intermediate"
   },
   {
     "slug": "linux-privesc-suid",
-    "title": "www-data to Root — SUID find on an Ubuntu App Server",
+    "title": "Critical Falcon detection on an Ubuntu app server",
     "difficulty": "intermediate"
   },
   {
     "slug": "lateral-movement-pth",
-    "title": "Pass-the-Hash to the File Server, Second Hop to the DC",
+    "title": "Night-time privileged logons for an infrastructure admin",
     "difficulty": "intermediate"
   },
   {
     "slug": "insider-dlp-usb-cloud",
-    "title": "Last Week on the Job — Insider Exfil via USB and Personal Cloud",
+    "title": "Sentinel incident for a finance analyst who resigned",
     "difficulty": "intermediate"
   },
   {
     "slug": "nac-rogue-device",
-    "title": "The Printer That Wasn't — Rogue Device Caught by NAC",
+    "title": "NAC alert for an unknown endpoint on SW-ACC-07",
     "difficulty": "beginner"
   },
   {
     "slug": "macos-stealer-dmg",
-    "title": "macOS Stealer — a 'Cracked' App DMG Harvests Keychain, Cookies and Wallets",
+    "title": "Falcon alert on a designer's MacBook (MB-CR-14)",
     "difficulty": "intermediate"
   },
   {
     "slug": "sqli-db-exfil",
-    "title": "SQL Injection to Database Exfiltration — Following the Attack Past the WAF",
+    "title": "Imperva alerts on shop.nexacorp.com and unusual ShopDB reads",
     "difficulty": "advanced"
   },
   {
     "slug": "azure-managed-identity-abuse",
-    "title": "Azure App-Registration Credential Abuse — the Quiet Secret-Add Behind a Cloud Data-Access Alert",
+    "title": "Microsoft Graph Security incident for svc-billing-connector",
     "difficulty": "advanced"
   },
   {
     "slug": "cicd-supply-chain",
-    "title": "Poisoned Pipeline — CI/CD Supply-Chain Compromise into the Cloud",
+    "title": "GuardDuty finding on the payments-api deployment role",
     "difficulty": "advanced"
   },
   {
     "slug": "ueba-compromised-account",
-    "title": "Behavioral Risk First — a UEBA-led Account-Compromise Hunt",
+    "title": "Sentinel risk score raised for a Finance manager",
     "difficulty": "intermediate"
   },
   {
     "slug": "vishing-rmm",
-    "title": "Callback Vishing — RMM Install to Hands-on-Keyboard Discovery",
+    "title": "Falcon detection on a payments clerk's workstation (WKS-QB-047)",
     "difficulty": "intermediate"
   },
   {
     "slug": "pam-vault-abuse",
-    "title": "PAM Vault Abuse — an Off-Hours Domain-Admin Checkout Used Outside PSM",
+    "title": "Night-time domain-admin checkout from CyberArk",
     "difficulty": "advanced"
   },
   {
     "slug": "destructive-wiper",
-    "title": "Destructive Wiper — an Endpoint Bricked, and No Way to Pay for It Back",
+    "title": "Critical detection and unbootable machines at Vantage Industrial",
     "difficulty": "advanced"
   },
   {
     "slug": "s3-exfil-exposure",
-    "title": "Exposed Bucket — S3 Made Public, Then Emptied",
+    "title": "GuardDuty finding on MedCore's patient exports bucket",
     "difficulty": "intermediate"
   },
   {
     "slug": "golden-saml",
-    "title": "Golden SAML — a Federation Token With No Matching AD FS Issuance",
+    "title": "Overnight federated sign-in for a Global Administrator",
     "difficulty": "expert"
   },
   {
     "slug": "gws-oauth-marketplace",
-    "title": "Consent, Not Credentials — a Malicious OAuth App in Google Workspace",
+    "title": "Sensitive-scope app grant alert at RocketStack",
     "difficulty": "intermediate"
   },
   {
     "slug": "threat-intel-hunt",
-    "title": "Threat-Intel Hunt — From a Recorded Future IOC Set to a Live Beacon",
+    "title": "New intel list to check across the estate",
     "difficulty": "intermediate"
   },
   {
     "slug": "mobile-mdm-compromise",
-    "title": "Mobile in the Blind Spot — an Intune-Managed Phone Goes Rogue",
+    "title": "Intune non-compliance for a corporate Android phone",
     "difficulty": "intermediate"
   },
   {
     "slug": "gcp-sa-key-theft",
-    "title": "Minted Key — Service-Account Key Theft on GCP",
+    "title": "Two SCC findings on a data-pipeline service account",
     "difficulty": "advanced"
   },
   {
     "slug": "macos-tcc-pkg",
-    "title": "macOS TCC Bypass — a Fake .pkg Rewrites the Privacy Database and Persists as a LaunchDaemon",
+    "title": "Critical Falcon detection on a product manager's MacBook",
     "difficulty": "intermediate"
   },
   {
     "slug": "email-bomb-helpdesk",
-    "title": "Email Bomb to Fake Help Desk — Quick Assist Takeover",
+    "title": "Remote-support session on an accounts payable workstation",
     "difficulty": "intermediate"
   },
   {
     "slug": "ot-network-anomaly",
-    "title": "OT/ICS Intrusion — A Corporate Host Writes to a PLC (Network-Only Visibility)",
+    "title": "Suricata ICS alert for a production line PLC",
     "difficulty": "advanced"
   },
   {
     "slug": "bec-wire-fraud",
-    "title": "The CFO Who Never Called — a BEC Wire-Fraud Impersonation",
+    "title": "Urgent wire request to Accounts Payable",
     "difficulty": "intermediate"
   }
 ];

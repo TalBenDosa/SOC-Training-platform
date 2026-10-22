@@ -8,6 +8,8 @@
  * answer-bearing out of this file: every visitor can read it.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { makeSha256 } from "@/lib/sim/iocs";
+import { mdeNetwork, mdeProcess } from "@/lib/sim/emitters/mde";
 
 /** Telemetry half of `buildAitmTokenTheftScenario`: the events and the story title, no answer key. */
 export function aitmTokenTheftScenarioEvents() {
@@ -31,13 +33,30 @@ export function aitmTokenTheftScenarioEvents() {
   // One browser session, issued once, used twice. This is the whole scenario.
   const sessionId = "0f2c1e64-3b7a-4c19-9d84-5a6e2f8b17d3";
 
-  // EDR↔scenario integration (Phase 4): this is a control-plane-only incident —
-  // AiTM reverse-proxy phishing and a replayed session cookie against Entra/M365,
-  // with no host EDR events and no process to walk. edr_scope "non_edr": there is
-  // nothing to investigate in the EDR console. No is_detection (no EDR detections);
-  // edr_scope goes on the identity detection that opens the ticket — the
-  // non-interactive cookie-replay sign-in.
+  // EDR↔scenario integration: an identity-plane incident (AiTM reverse-proxy phishing and a
+  // replayed session cookie against Entra/M365) with the victim laptop's own network telemetry
+  // beside it. edr_scope "hybrid": the ticket opens on the identity detection (the
+  // non-interactive cookie-replay sign-in); the EDR console shows the laptop, whose browser is
+  // the only process involved.
   const INCIDENT = "inc:aitm:1";
+
+  // The managed laptop's own view (Defender for Endpoint network events): Edge talking to the proxy,
+  // started from the shell, with no child process.
+  const edgePath = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
+  const edgeHash = makeSha256("microsoft_edge_msedge_exe_signed_microsoft");
+  const laptopConn = (id: string, ts: string, localPort: number, description: string): TelemetryEvent => {
+    const e = mdeNetwork({
+      companyId: "nexacorp", id, ts, host: "LT-FIN-0442", srcIp: "10.42.18.77", user: victim,
+      remoteIp: proxyIp, remotePort: 443, application: "tls", url: `https://${phishHost}`, domain: phishHost,
+      initiatingProcess: "msedge.exe", severity: "low", description,
+    });
+    e.process = { pid: 9308, name: "msedge.exe", path: edgePath, parent_name: "OUTLOOK.EXE", parent_pid: 6624, user: "NEXACORP\\m.delgado", hash: { sha256: edgeHash } };
+    Object.assign(e.raw, {
+      "Timestamp": ts, "LocalPort": String(localPort), "InitiatingProcessId": "9308", "InitiatingProcessFolderPath": edgePath,
+      "InitiatingProcessAccountName": "m.delgado", "ReportId": String(52070000 + localPort),
+    });
+    return e;
+  };
 
   const events: TelemetryEvent[] = [
     // ── 1. The lure ──────────────────────────────────────────────────────────
@@ -80,7 +99,7 @@ export function aitmTokenTheftScenarioEvents() {
       user_email: victim, user_title: "Financial Controller",
       src_ip: corpEgress,
       geo: { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 },
-      network: { url: phishUrl, domain: phishHost, user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.2365.92" },
+      network: { url: phishUrl, domain: phishHost, user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 Edg/145.0.3800.58" },
       description:
         "URL Defense recorded m.delgado following the rewritten link four minutes after delivery, from the London corporate egress on Edge. Click status: permitted.",
       raw: {
@@ -90,11 +109,21 @@ export function aitmTokenTheftScenarioEvents() {
         "pps.recipient": victim,
         "pps.url": phishUrl,
         "pps.clickIP": corpEgress,
-        "pps.userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.2365.92",
-        "pps.clickStatus": "permitted",
+        "pps.userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 Edg/145.0.3800.58",
+        "pps.classification": "phish",
         "pps.sender": "billing@docu-sign-secure.com",
       },
     },
+
+    // The rewritten link opens the browser: Edge is started by Outlook with the page address.
+    mdeProcess({
+      companyId: "nexacorp", id: "aitm_02b_edge_start", ts: T(4 * MIN + 2 * SEC), host: "LT-FIN-0442", srcIp: "10.42.18.77", user: victim,
+      processName: "msedge.exe", processPath: edgePath, cmdline: `"${edgePath}" --single-argument ${phishUrl}`,
+      parentName: "OUTLOOK.EXE", parentPid: 6624, pid: 9308, sha256: edgeHash, integrity: "Medium", signed: true,
+      runAsUser: "NEXACORP\\m.delgado", accountName: "m.delgado", accountDomain: "nexacorp", severity: "low",
+      extra: { "Timestamp": T(4 * MIN + 2 * SEC), "FolderPath": edgePath, "InitiatingProcessAccountName": "m.delgado", "ProcessTokenElevation": "TokenElevationTypeLimited" },
+      description: "msedge.exe (pid 9308) started on LT-FIN-0442 with the address of login.nexacorp-sso.com on its command line, parent OUTLOOK.EXE.",
+    }),
 
     // ── 3. Name resolution for the look-alike ────────────────────────────────
     {
@@ -131,22 +160,23 @@ export function aitmTokenTheftScenarioEvents() {
       geo: { country: "United Kingdom", city: "London" },
       network: { url: phishUrl, domain: phishHost, method: "GET", status: 200, bytes_in: 48213, bytes_out: 1024 },
       description:
-        "m.delgado's browser loaded a sign-in page from login.nexacorp-sso.com, 200 returned. Zscaler categorised the host as Newly Registered Domains and allowed it.",
+        "m.delgado's browser loaded a sign-in page from login.nexacorp-sso.com, 200 returned. Zscaler categorised the host as Newly Registered and Observed Domains and allowed it.",
       raw: {
         "zscaler.login": victim,
         "zscaler.department": "Finance",
         "zscaler.location": "London HQ",
-        "zscaler.cip": "10.42.18.77",
+        "zscaler.cip": corpEgress,
+        "zscaler.cintip": "10.42.18.77",
         "zscaler.sip": proxyIp,
         "zscaler.hostname": phishHost,
         "zscaler.url": phishUrl,
-        "zscaler.urlcategory": "Newly Registered Domains",
+        "zscaler.urlcategory": "Newly Registered and Observed Domains",
         "zscaler.urlclass": "Business Use",
         "zscaler.reqmethod": "GET",
         "zscaler.respcode": 200,
         "zscaler.reqsize": 1024,
         "zscaler.respsize": 48213,
-        "zscaler.useragent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.2365.92",
+        "zscaler.useragent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 Edg/145.0.3800.58",
         "zscaler.action": "Allowed",
         "zscaler.threatname": "None",
         "zscaler.appname": "General Browsing",
@@ -154,6 +184,8 @@ export function aitmTokenTheftScenarioEvents() {
         "zscaler.clienttranstime": 214,
       },
     },
+
+    laptopConn("aitm_04b_laptop_conn", T(4 * MIN + 9 * SEC), 50412, "LT-FIN-0442's msedge.exe (pid 9308, parent OUTLOOK.EXE) connected to login.nexacorp-sso.com (45.87.81.126) on port 443."),
 
     // ── 5. Credentials + live MFA response posted to the proxy ───────────────
     {
@@ -171,22 +203,25 @@ export function aitmTokenTheftScenarioEvents() {
         "zscaler.login": victim,
         "zscaler.department": "Finance",
         "zscaler.location": "London HQ",
-        "zscaler.cip": "10.42.18.77",
+        "zscaler.cip": corpEgress,
+        "zscaler.cintip": "10.42.18.77",
         "zscaler.sip": proxyIp,
         "zscaler.hostname": phishHost,
         "zscaler.url": `https://${phishHost}/common/login`,
-        "zscaler.urlcategory": "Newly Registered Domains",
+        "zscaler.urlcategory": "Newly Registered and Observed Domains",
         "zscaler.reqmethod": "POST",
         "zscaler.respcode": 302,
         "zscaler.reqsize": 3874,
         "zscaler.respsize": 2211,
-        "zscaler.useragent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.2365.92",
+        "zscaler.useragent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 Edg/145.0.3800.58",
         "zscaler.action": "Allowed",
         "zscaler.threatname": "None",
         "zscaler.serverip": proxyIp,
         "zscaler.clienttranstime": 1873,
       },
     },
+
+    laptopConn("aitm_05b_laptop_conn", T(5 * MIN + 41 * SEC), 50431, "LT-FIN-0442's msedge.exe (pid 9308) opened a second connection to login.nexacorp-sso.com (45.87.81.126) on port 443."),
 
     // ── 6. The real sign-in — MFA genuinely satisfied ────────────────────────
     {
@@ -227,11 +262,11 @@ export function aitmTokenTheftScenarioEvents() {
         "azure.signinlogs.properties.deviceDetail.deviceId": "",
         "azure.signinlogs.properties.deviceDetail.displayName": "",
         "azure.signinlogs.properties.deviceDetail.operatingSystem": "Windows 11",
-        "azure.signinlogs.properties.deviceDetail.browser": "Edge 122.0.2365",
+        "azure.signinlogs.properties.deviceDetail.browser": "Edge 145.0.3800",
         "azure.signinlogs.properties.deviceDetail.isCompliant": false,
         "azure.signinlogs.properties.deviceDetail.isManaged": false,
         "azure.signinlogs.properties.deviceDetail.trustType": "",
-        "azure.signinlogs.properties.userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.2365.92",
+        "azure.signinlogs.properties.userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 Edg/145.0.3800.58",
         "azure.signinlogs.properties.authenticationRequirement": "multiFactorAuthentication",
         "azure.signinlogs.properties.authenticationDetails": [
           {
@@ -286,7 +321,8 @@ export function aitmTokenTheftScenarioEvents() {
       raw: {
         "zscaler.login": victim,
         "zscaler.location": "London HQ",
-        "zscaler.cip": "10.42.18.77",
+        "zscaler.cip": corpEgress,
+        "zscaler.cintip": "10.42.18.77",
         "zscaler.sip": "13.107.6.156",
         "zscaler.hostname": "www.office.com",
         "zscaler.url": "https://www.office.com/",
@@ -304,7 +340,7 @@ export function aitmTokenTheftScenarioEvents() {
 
     // ── 8. BENIGN look-alike: a real trip on the corporate VPN ───────────────
     {
-      id: "aitm_08_benign_travel",
+      id: "aitm_08_signin_rosen",
       ts: T(9 * MIN),
       source: "o365", vendor: "Microsoft Entra ID",
       event_type: "auth_success", severity: "low",
@@ -343,11 +379,11 @@ export function aitmTokenTheftScenarioEvents() {
         "azure.signinlogs.properties.deviceDetail.deviceId": "a1c6f803-95b2-4e77-8d14-6f2093ac5b71",
         "azure.signinlogs.properties.deviceDetail.displayName": "LT-SLS-0117",
         "azure.signinlogs.properties.deviceDetail.operatingSystem": "Windows 11",
-        "azure.signinlogs.properties.deviceDetail.browser": "Edge 122.0.2365",
+        "azure.signinlogs.properties.deviceDetail.browser": "Edge 145.0.3800",
         "azure.signinlogs.properties.deviceDetail.isCompliant": true,
         "azure.signinlogs.properties.deviceDetail.isManaged": true,
         "azure.signinlogs.properties.deviceDetail.trustType": "Azure AD joined",
-        "azure.signinlogs.properties.userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.2365.92",
+        "azure.signinlogs.properties.userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 Edg/145.0.3800.58",
         "azure.signinlogs.properties.authenticationRequirement": "multiFactorAuthentication",
         "azure.signinlogs.properties.authenticationDetails": [
           {
@@ -381,20 +417,46 @@ export function aitmTokenTheftScenarioEvents() {
       },
     },
 
+    // ── 8b. The geo-change alert the briefing attaches for comparison ────────
+    {
+      id: "aitm_08b_idp_alert",
+      ts: T(9 * MIN + 10 * SEC),
+      source: "siem", vendor: "Microsoft Sentinel", event_type: "risk_score_change",
+      severity: "medium", is_detection: true, expected_verdict: "fp",
+      user_email: traveller, src_ip: vpnEgress,
+      description: `Sentinel received the Identity Protection alert "Atypical travel" (Medium) for a.rosen, source IP ${vpnEgress}.`,
+      raw: {
+        "AlertName": "Atypical travel",
+        "ProductName": "Azure Active Directory Identity Protection",
+        "ProviderName": "IPC",
+        "AlertSeverity": "Medium",
+        "AlertType": "UnfamiliarLocation",
+        "Status": "New",
+        "CompromisedEntity": traveller,
+        "Entities.Account.Name": "a.rosen",
+        "Entities.Account.UPNSuffix": "nexacorp.com",
+        "Entities.IP.Address": vpnEgress,
+        "ExtendedProperties.Client IP Address": vpnEgress,
+        "ExtendedProperties.Detection Timing Type": "offline",
+        "ExtendedProperties.Token Issuer Type": "AzureAD",
+        "event.action": "alert",
+      },
+    },
+
     // ── 9. THE CRUX — same session, different everything else ────────────────
     {
-      id: "aitm_09_cookie_replay",
+      id: "aitm_09_signin_delgado_replay",
       ts: T(12 * MIN + 3 * SEC),
       source: "o365", vendor: "Microsoft Entra ID",
       event_type: "auth_success", severity: "critical", mitre_technique: "T1550.004",
       user_email: victim, user_title: "Financial Controller",
       src_ip: replayIp,
       geo: { country: "Germany", city: "Frankfurt", latitude: 50.1109, longitude: 8.6821 },
-      edr_scope: "non_edr", // primary identity detection that opens the ticket; control-plane only, no EDR to pivot to
+      edr_scope: "hybrid", // identity detection that opens the ticket; the victim laptop shows the endpoint stayed clean
       description:
-        "A second, non-interactive Entra sign-in for m.delgado from 91.132.139.204 in Frankfurt (AS51167) on Chrome 121 — multifactor satisfied by a claim in the token.",
+        "A second, non-interactive Entra sign-in for m.delgado from 91.132.139.204 in Frankfurt (AS51167) on Chrome 144 — multifactor satisfied by a claim in the token.",
       raw: {
-        "azure.signinlogs.category": "SignInLogs",
+        "azure.signinlogs.category": "NonInteractiveUserSignInLogs",
         "azure.signinlogs.operationName": "Sign-in activity",
         "azure.signinlogs.properties.id": "d61a4f08-2e93-4c57-b8d0-45a1c9f36e72",
         "azure.signinlogs.properties.createdDateTime": T(12 * MIN + 3 * SEC),
@@ -418,11 +480,11 @@ export function aitmTokenTheftScenarioEvents() {
         "azure.signinlogs.properties.deviceDetail.deviceId": "",
         "azure.signinlogs.properties.deviceDetail.displayName": "",
         "azure.signinlogs.properties.deviceDetail.operatingSystem": "Windows 10",
-        "azure.signinlogs.properties.deviceDetail.browser": "Chrome 121.0.6167",
+        "azure.signinlogs.properties.deviceDetail.browser": "Chrome 144.0.7559",
         "azure.signinlogs.properties.deviceDetail.isCompliant": false,
         "azure.signinlogs.properties.deviceDetail.isManaged": false,
         "azure.signinlogs.properties.deviceDetail.trustType": "",
-        "azure.signinlogs.properties.userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        "azure.signinlogs.properties.userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
         "azure.signinlogs.properties.authenticationRequirement": "multiFactorAuthentication",
         "azure.signinlogs.properties.authenticationDetails": [
           {
@@ -513,7 +575,7 @@ export function aitmTokenTheftScenarioEvents() {
         "azure.signinlogs.properties.location.countryOrRegion": "DE",
         "azure.signinlogs.properties.deviceDetail.deviceId": "",
         "azure.signinlogs.properties.deviceDetail.operatingSystem": "Windows 10",
-        "azure.signinlogs.properties.deviceDetail.browser": "Chrome 121.0.6167",
+        "azure.signinlogs.properties.deviceDetail.browser": "Chrome 144.0.7559",
         "azure.signinlogs.properties.deviceDetail.isCompliant": false,
         "azure.signinlogs.properties.authenticationRequirement": "multiFactorAuthentication",
         "azure.signinlogs.properties.authenticationDetails": [
@@ -613,5 +675,5 @@ export function aitmTokenTheftScenarioEvents() {
   // also lets the EDR console associate the identity-plane case).
   for (const e of events) e.incident_id = INCIDENT;
 
-  return { title: "Adversary-in-the-Middle Phishing — Session Token Theft", events, T, MIN, SEC, victim, proxyIp, replayIp, vpnEgress, phishHost, phishUrl };
+  return { title: "Sign-ins six minutes apart for a finance user", events, T, MIN, SEC, victim, proxyIp, replayIp, vpnEgress, phishHost, phishUrl };
 }

@@ -30,7 +30,7 @@ import { linuxSshPersistenceScenarioEvents } from "./linuxSshPersistence.events"
 export function buildLinuxSshPersistenceScenario(
   scenarioId = "linux-ssh-persistence-2026",
 ): ScenarioBundle {
-  const { title, events, T, MIN, host, attacker, implantHash, payloadUrl } = linuxSshPersistenceScenarioEvents();
+  const { title, events, T, MIN, SEC, host, attacker, implantHash, payloadUrl } = linuxSshPersistenceScenarioEvents();
 
   const iocs: IOC[] = [
     { type: "ip", value: attacker.guessA, first_seen: T(31 * MIN), reputation: "malicious", tags: ["ssh-auth-failure", "external", "hosting-provider", "unknown-account"] },
@@ -41,22 +41,26 @@ export function buildLinuxSshPersistenceScenario(
     { type: "url", value: payloadUrl, first_seen: T(64 * MIN), reputation: "malicious", tags: ["payload-url", "cleartext-http"] },
     { type: "sha256", value: implantHash, first_seen: T(64 * MIN), reputation: "malicious", tags: ["elf", "dropped-file", "masqueraded-name", "hidden-directory"] },
     { type: "user", value: "svc-backup", first_seen: T(58 * MIN), reputation: "suspicious", tags: ["compromised-account", "uid-1004", "password-auth"] },
-    { type: "host", value: host.fqdn, first_seen: T(31 * MIN), reputation: "suspicious", tags: ["internet-exposed-ssh", "tcp-2202"] },
+    { type: "host", value: host.name, first_seen: T(31 * MIN), reputation: "suspicious", tags: ["internet-exposed-ssh", "tcp-2202"] },
   ];
 
   const killchain = [
     { ts: T(0), phase: "Baseline", action: "Legitimate admin publickey session from the corporate VPN egress — the control case for the auth log" },
     { ts: T(31 * MIN), phase: "Credential Access", action: "Password guessing against sshd from 176.111.174.26 — acct=\"?\", a username that does not exist on the host (T1110.001)" },
     { ts: T(52 * MIN), phase: "Credential Access", action: "Guessing moves to the real account svc-backup from a second node, 92.118.39.73 (T1110.001)" },
+    { ts: T(58 * MIN - 2 * SEC), phase: "Initial Access", action: "The firewall accepts an inbound session from 46.161.27.119:41772 on the published port 2202, the source port sshd logs two seconds later" },
     { ts: T(58 * MIN), phase: "Initial Access", action: "Accepted password for svc-backup from 46.161.27.119 — an address with no prior failures; auditd opens session 41, auid 1004 (T1078)" },
     { ts: T(60 * MIN), phase: "Discovery", action: "/usr/bin/id run in session 41 as uid 1004 (T1033)" },
     { ts: T(61 * MIN), phase: "Discovery", action: "sudo -l returns res=failed — no root path for svc-backup (T1033)" },
     { ts: T(64 * MIN), phase: "Command and Control", action: "curl pulls an ELF over plain HTTP from 147.45.112.38 into a hidden directory in the account's own home (T1105)" },
+    { ts: T(64 * MIN + 9 * SEC), phase: "Command and Control", action: "The firewall closes the 8-second outbound HTTP session to 147.45.112.38:80: 2,872,104 bytes received, the size of the ELF" },
     { ts: T(66 * MIN), phase: "Stealth", action: "chmod 755 on ~/.cache/.fontconfig/kworker, a file owned by uid 1004 in a dot-directory (T1564.001)" },
     { ts: T(68 * MIN), phase: "Persistence", action: "User crontab created via the setgid crontab binary — /var/spool/cron/crontabs/svc-backup, ouid 1004 ogid 102 (T1053.003)" },
+    { ts: T(69 * MIN + 50 * SEC), phase: "Execution", action: "kworker (pid 1974) starts from the hidden directory as svc-backup, parent bash (T1036.004)" },
     { ts: T(70 * MIN), phase: "Detection", action: "Falcon detection: 'kworker' — a kernel-thread name — running from the hidden directory as svc-backup, parent bash (T1036.004)" },
     { ts: T(70 * MIN), phase: "Command and Control", action: "kworker connects to 38.180.62.144:443; the firewall shows the same 3-second, ~1.9 KB session again five minutes later (T1071.001)" },
     { ts: T(80 * MIN), phase: "Persistence", action: "cron runs /bin/sh -c '~/.cache/.fontconfig/kworker >/dev/null 2>&1' as svc-backup — the crontab entry firing (T1053.003)" },
+    { ts: T(80 * MIN), phase: "Persistence", action: "The 23:00 CRON syslog line records the job CRON[2229] running the crontab entry as svc-backup (T1053.003)" },
     { ts: T(95 * MIN), phase: "Baseline", action: "Nightly restic backup starts from root-owned /etc/cron.d as user backup and uploads to its Backblaze B2 repository — the benign outbound session" },
   ];
 
@@ -76,7 +80,7 @@ export function buildLinuxSshPersistenceScenario(
       ],
       answer: "method",
       explanation:
-        "d.okonkwo's line says 'Accepted publickey' and svc-backup's says 'Accepted password'. A key cannot be brute-forced, which is why no failure from 82.166.44.9 precedes the admin session while failed PAM authentications precede the other. Note also what the Accepted line does NOT match: 46.161.27.119 appears in no failure record at all — in a distributed campaign the guessing nodes and the node that logs in are different machines, so do not expect the winning address to be the one you counted failures from. Hour separates nothing (21:40 is also after hours). Both source ports are ordinary ephemeral client ports, and both lines end in ssh2.",
+        "d.okonkwo's line says 'Accepted publickey' and svc-backup's says 'Accepted password'. A key cannot be brute-forced, which is why no failure from 82.166.44.9 precedes the admin session while failed PAM authentications precede the other. Note also what the Accepted line does NOT match: 46.161.27.119 appears in no failure record at all — in a distributed campaign the guessing nodes and the node that logs in are different machines, so do not expect the winning address to be the one you counted failures from. Hour separates nothing (21:40 is also after hours). Both source ports are ordinary ephemeral client ports, and both original lines carry the same ssh2 protocol token, so the protocol separates nothing.",
     },
     {
       id: "lsp_q2",

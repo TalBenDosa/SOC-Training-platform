@@ -128,6 +128,9 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   if (ev.event_type === "email_clicked") {
     const url = f.urls[0] ?? ev.network?.url;
     if (!url) return null;
+    // URL Defense reports clicks on URLs TAP classifies as threats only: a click on a known-good link
+    // (a benign control row) has no TAP SIEM record, never one labelled phish.
+    if ((ev.expected_verdict === "fp" || ev.is_baseline) && !rs(raw, "classification")) return null;
     const blocked = /block/i.test(rs(raw, "clickStatus") ?? "");
     const tid = threatIdFor(ctx, url);
     const rec: Record<string, unknown> = {
@@ -135,7 +138,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       GUID: guidFor(ctx, imid),
       messageID: imid,
       url,
-      classification: f.threats.includes("Malware") ? "malware" : "phish",
+      classification: rs(raw, "classification")?.toLowerCase() ?? (f.threats.includes("Malware") ? "malware" : "phish"),
       clickTime: isoMs(ev.ts),
       clickIP: ev.src_ip ?? rs(raw, "clickIP"),
       userAgent: ev.network?.user_agent ?? rs(raw, "userAgent"),

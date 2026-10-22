@@ -8,7 +8,7 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { KindSchema, NativeCtx, NativeLog, NativeSource, SourceSchema, UseCase } from "../types";
 import {
-  APPS, CATEGORIES, HIGH_RISK_COUNTRIES, egressIp, extractFacts, hms, isPrivate, isSnat, natPort, rawGet,
+  APPS, CATEGORIES, fortiDevId, HIGH_RISK_COUNTRIES, egressIp, extractFacts, hms, isPrivate, isSnat, natPort, rawGet,
   serviceName, sessionNumber, threatNumber, ymdDash, type FwFacts, type Sev,
 } from "./firewall-shared";
 
@@ -64,7 +64,8 @@ function header(f: FwFacts, ctx: NativeCtx, logid: string, type: string, subtype
   const r: Rec = {
     date: ymdDash(f.timeMs), time: hms(f.timeMs),
     devname: rawGet(raw, "data.devname") ?? (f.host?.role === "device" ? f.host.name : "FGT-HQ-01"),
-    devid: rawGet(raw, "data.devid") ?? `FG200FTK${ctx.int(`${ctx.companyId}:fgt:devid`, 10000000, 99999999)}`,
+    // One appliance, one serial: the same devid on its traffic, UTM and SSL-VPN records.
+    devid: rawGet(raw, "data.devid") ?? fortiDevId(ctx, rawGet(raw, "data.devname") ?? (f.host?.role === "device" ? f.host.name : "FGT-HQ-01")),
     // epoch in ns (19 digits); sub-ms digits are zero so the JSON number stays exact.
     eventtime: f.timeMs * 1_000_000, tz: "+0000", logid, type, subtype,
   };

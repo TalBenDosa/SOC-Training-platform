@@ -375,7 +375,7 @@ function orgRunsSource(e: TelemetryEvent, env: TeamEnv, stack: Stack, companyId:
     case "vcs": return env.platforms.includes("github");
     case "virtualization": return env.platforms.includes("vmware");
     // Specialised tools with no selector yet (WAF, DAM, UEBA, NAC, DLP): not shown unless the org opted in — keep them out of a named org's noise.
-    case "waf": case "db_monitor": case "ueba": case "nac": case "dlp": case "infra_monitor": return false;
+    case "waf": case "db_monitor": case "ueba": case "nac": case "dlp": case "infra_monitor": case "threat_intel": return false;
     default: return true;
   }
 }
@@ -643,16 +643,53 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   const lateRows = itsmRows + (difficulty !== "easy" ? MSEL_SUPPORT_ROWS : 0);
   const leadMin = Math.min(total - 1, Math.ceil(WARMUP_MIN * (total + lateRows)));
   const posToAttack = new Map<number, Placed>();
-  const place = (evs: Placed[], startFrac: number, endFrac: number) => {
+  // Every attack row first gets the position its band wants; the positions are then handed out
+  // together in target order, so overlapping bands INTERLEAVE. (Resolving each band on its own
+  // pushed a long story's collisions forward, queueing the next attack behind it: a 62-row
+  // ransomware chain held a planned attack back to two thirds of the shift.)
+  // A planned attack's opening (its first malicious row) keeps its slot even when the bands around
+  // it are dense: it is reserved first, everything else flows around the reservations.
+  const anchors = new Set<number>();
+  const wanted: { pos: number; seq: number; band: number; ev: Placed }[] = [];
+  let bandCount = 0;
+  const place = (evs: Placed[], startFrac: number, endFrac: number, anchored = false) => {
     if (evs.length === 0) return;
-    const start = Math.max(leadMin, Math.floor(total * startFrac));
-    const end = Math.max(start, Math.min(total - 1, Math.floor(total * endFrac)));
+    const start0 = Math.max(leadMin, Math.floor(total * startFrac));
+    const end0 = Math.max(start0, Math.min(total - 1, Math.floor(total * endFrac)));
     const denom = Math.max(1, evs.length - 1);
+    // The band's slot is where its first MALICIOUS row surfaces: baseline rows it opens with sit before it.
+    const lead = Math.max(0, evs.findIndex(p => isMalicious(p.verdict)));
+    const shift = Math.round((lead * (end0 - start0)) / denom);
+    const start = Math.max(leadMin, start0 - shift);
+    const end = Math.max(start, end0 - shift);
     for (let i = 0; i < evs.length; i++) {
-      let pos = Math.min(end, start + Math.round((i * (end - start)) / denom));
-      while (posToAttack.has(pos) && pos < total - 1) pos++;
-      while (posToAttack.has(pos) && pos > leadMin) pos--;
-      posToAttack.set(pos, evs[i]);
+      if (anchored && i <= lead) anchors.add(wanted.length);   // the opening: its baseline rows and the first malicious one
+      wanted.push({ pos: Math.min(end, start + Math.round((i * (end - start)) / denom)), seq: wanted.length, band: bandCount, ev: evs[i] });
+    }
+    bandCount++;
+  };
+  const assignPositions = () => {
+    const taken = new Set<number>();
+    const posOf = new Map<number, number>();
+    for (const w of wanted) if (anchors.has(w.seq)) {
+      let p = w.pos;
+      while (taken.has(p) && p < total - 1) p++;
+      taken.add(p); posOf.set(w.seq, p);
+    }
+    const order = wanted.filter(w => !anchors.has(w.seq)).sort((a, b) => a.pos - b.pos || a.seq - b.seq);
+    let next = leadMin;
+    for (const w of order) {
+      let p = Math.max(w.pos, next);
+      while (taken.has(p) && p < total - 1) p++;
+      if (taken.has(p)) { p = total - 1; while (taken.has(p) && p > 0) p--; }
+      taken.add(p); posOf.set(w.seq, p); next = p + 1;
+    }
+    // Each band keeps its own order: its rows take the band's positions in sequence.
+    const byBand = new Map<number, { seq: number; ev: Placed }[]>();
+    for (const w of wanted) (byBand.get(w.band) ?? byBand.set(w.band, []).get(w.band)!).push({ seq: w.seq, ev: w.ev });
+    for (const rows of byBand.values()) {
+      const ps = rows.map(r => posOf.get(r.seq)!).sort((a, b) => a - b);
+      rows.forEach((r, i) => posToAttack.set(ps[i], r.ev));
     }
   };
   const warmup = WARMUP_MIN + rnd() * 0.05;
@@ -660,13 +697,15 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   const rest = [attack2, attack3].filter(a => a.length > 0);
   if (rest.length === 2 && rnd() < 0.5) rest.reverse();
   const bands = [attack1, ...rest].filter(a => a.length > 0);
-  const lastStart = 0.48;
+  // The last band opens early enough that its first malicious row (after any baseline rows it
+  // leads with, and the ITSM / MSEL rows spliced in later) still lands before mid-shift.
+  const lastStart = 0.42;
   bands.forEach((evs, k) => {
     const base = bands.length > 1 ? warmup + ((lastStart - warmup) * k) / (bands.length - 1) : warmup;
     // Attack 1 starts right after the warm-up; the later ones jitter a little around their slot.
     const startFrac = k === 0 ? warmup : Math.max(warmup + 0.04, base + (rnd() - 0.5) * 0.06);
     const len = 0.26 + rnd() * 0.12;
-    place(evs, startFrac, Math.min(0.94, startFrac + len));
+    place(evs, startFrac, Math.min(0.94, startFrac + len), true);
   });
   // Standalone pool incidents land at seeded points after the warm-up (a multi-event
   // one spans a few positions), all before the last fifth of the shift.
@@ -674,6 +713,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     const startFrac = warmup + 0.03 + rnd() * (0.8 - warmup);
     place(g, startFrac, Math.min(0.9, startFrac + 0.02 * g.length));
   }
+  assignPositions();
 
   const ordered: Placed[] = [];
   let bi = 0;

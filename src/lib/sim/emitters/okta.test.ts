@@ -47,9 +47,40 @@ describe("Okta emitters", () => {
     expect(ok.event_type).toBe("auth_success");
     expect(ok.raw?.["okta.outcome.result"]).toBe("SUCCESS");
     expect(ok.raw?.["authentication.mfa"]).toBe("true");
+    // A denied Okta Verify push in an Identity Engine org (card idp-okta): auth_via_mfa FAILURE,
+    // reason INVALID_CREDENTIALS, pushOnlyResponseType OV_RESPONSE_DENY.
     expect(deny.event_type).toBe("mfa_denied");
-    expect(deny.raw?.["okta.eventType"]).toBe("user.mfa.okta_verify.push_response");
-    expect(deny.raw?.["okta.outcome.reason"]).toBe("USER_REJECTED_PUSH");
+    expect(deny.raw?.["okta.eventType"]).toBe("user.authentication.auth_via_mfa");
+    expect(deny.raw?.["okta.outcome.result"]).toBe("FAILURE");
+    expect(deny.raw?.["okta.outcome.reason"]).toBe("INVALID_CREDENTIALS");
+    expect(deny.raw?.["okta.debugContext.debugData.pushOnlyResponseType"]).toBe("OV_RESPONSE_DENY");
+    expect(deny.raw?.["okta.debugContext.debugData.factor"]).toBe("OKTA_VERIFY_PUSH");
+  });
+
+  it("uses only real Okta event types and outcomes (card idp-okta)", () => {
+    const base = { ts: T(30), companyId: "rocketstack", user: "m.ben-david@rocketstack.io", srcIp: "91.108.23.5" };
+    const sent = oktaMfa({ ...base, id: "p1", result: "sent" });
+    expect(sent.raw?.["okta.eventType"]).toBe("system.push.send_factor_verify_push");
+    expect(sent.raw?.["okta.outcome.result"]).toBe("SUCCESS");
+    const ok = oktaMfa({ ...base, id: "p2", result: "approved" });
+    expect(ok.raw?.["okta.eventType"]).toBe("user.authentication.auth_via_mfa");
+    expect(ok.raw?.["okta.outcome.result"]).toBe("SUCCESS");
+    expect(ok.raw?.["okta.debugContext.debugData.pushOnlyResponseType"]).toBe("OV_RESPONSE_APPROVE");
+    // "Password accepted, second factor required" is the sign-on policy answering CHALLENGE, not a failure.
+    for (const e of [oktaMfa({ ...base, id: "p3", result: "challenge" }), oktaAuthFailure({ ...base, id: "p4", reason: "MFA_REQUIRED", authStep: 1 })]) {
+      expect(e.raw?.["okta.eventType"]).toBe("policy.evaluate_sign_on");
+      expect(e.raw?.["okta.outcome.result"]).toBe("CHALLENGE");
+      expect(e.raw?.["okta.outcome.reason"]).toBe("Sign-on policy evaluation resulted in CHALLENGE");
+      expect(e.event_type).toBe("mfa_challenge");
+    }
+    const REAL = new Set(["user.session.start", "user.authentication.auth_via_mfa", "system.push.send_factor_verify_push", "policy.evaluate_sign_on"]);
+    const RESULTS = new Set(["SUCCESS", "FAILURE", "CHALLENGE", "ALLOW", "DENY"]);
+    for (const e of [...events, sent, ok]) {
+      expect(REAL.has(String(e.raw?.["okta.eventType"])), String(e.raw?.["okta.eventType"])).toBe(true);
+      expect(RESULTS.has(String(e.raw?.["okta.outcome.result"]))).toBe(true);
+      // authenticationStep is always 0 (deprecated in the System Log).
+      expect(e.raw?.["okta.authenticationContext.authenticationStep"]).toBe("0");
+    }
   });
 
   it("is deterministic — same inputs render byte-identical output", () => {

@@ -20,7 +20,9 @@ const converted = convertAll(source, events);
 const UNDOCUMENTED = new Set(["CRON_JOB", "SERVICE_START", "CONFIG_CHANGE"]);
 const documentedNull = (raw: Record<string, unknown>) =>
   UNDOCUMENTED.has(String(raw["auditd.log.type"] ?? raw["auditd.log.record_type"] ?? "")) ||
-  ["cron", "systemd", "fail2ban"].includes(String(raw["log.source"] ?? "")) && raw["auditd.log.record_type"] === undefined;
+  ["cron", "systemd", "fail2ban"].includes(String(raw["log.source"] ?? "")) && raw["auditd.log.record_type"] === undefined ||
+  // A cron / systemd syslog line authored in syslog.* keys (program CRON) is not an audit record either.
+  /^(cron|crond|systemd|fail2ban)$/i.test(String(raw["syslog.program"] ?? "")) && raw["data.audit.type"] === undefined;
 
 /** Shell-style tokens of a command line (quotes stripped). */
 function tokens(cmd: string): string[] {

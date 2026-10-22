@@ -24,11 +24,36 @@ function serverIpFor(domain: string): string {
   return `${firsts[h % firsts.length]}.${(h >> 3) % 254 + 1}.${(h >> 8) % 254 + 1}.${(h >> 16) % 254 + 1}`;
 }
 
-// Zones every emitted session crosses — a real TRAFFIC/THREAT record always names both.
-const FROM_ZONE = "trust";
-const TO_ZONE = "untrust";
+// Zones every emitted session crosses: a real TRAFFIC/THREAT record always names both, and they
+// follow the flow. Outbound user traffic leaves trust for untrust; a connection opened FROM the
+// internet arrives untrust -> dmz (a published server) or untrust -> trust.
+const PRIVATE = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/;
+const SERVERISH = /^(SRV|SVR|WEB|APP|DB|SQL|RDS|EXCH|MAIL|VPN|FS|DMZ|PROD)|-(SRV|WEB|APP|DB|RDS|EXCH|FS)(-|\d|$)|-WEB-|-APP-/i;
+interface Flow { inbound: boolean; fromZone: string; toZone: string }
+function flowOf(o: { direction?: "outbound" | "inbound"; fromZone?: string; toZone?: string; srcIp?: string; dstIp?: string }, host: string): Flow {
+  const inbound = o.direction ? o.direction === "inbound" : !!o.srcIp && !PRIVATE.test(o.srcIp) && !!o.dstIp && PRIVATE.test(o.dstIp);
+  return {
+    inbound,
+    fromZone: o.fromZone ?? (inbound ? "untrust" : "trust"),
+    toZone: o.toZone ?? (inbound ? (SERVERISH.test(host) ? "dmz" : "trust") : "untrust"),
+  };
+}
+/** The security rule that matched: named after the flow (an inbound session never hits the outbound web rule). */
+function ruleOf(rule: string | undefined, flow: Flow, blocked: boolean, category?: string): string {
+  if (rule) return rule;
+  if (flow.inbound) return blocked ? "DENY-INBOUND-DEFAULT" : "INBOUND-PUBLISHED-SERVICES";
+  if (blocked) return /newly-registered/.test(category ?? "") ? "BLOCK-NEWLY-REGISTERED" : "BLOCK-MALICIOUS-CATEGORIES";
+  return "CORP-WEB-OUTBOUND";
+}
 
-export interface PanWebOpts extends Ctx {
+/** Flow options shared by the PAN emitters. */
+interface PanFlowOpts {
+  direction?: "outbound" | "inbound"; // default: inbound when the source is public and the destination private
+  fromZone?: string;           // pan.from_zone override (e.g. "printers", "db-tier")
+  toZone?: string;             // pan.to_zone override
+  rule?: string;               // pan.rule: the security rule name that matched
+}
+export interface PanWebOpts extends Ctx, PanFlowOpts {
   url: string;                 // full https URL
   domain: string;
   category: string;            // PAN URL category, e.g. "newly-registered-domain"
@@ -64,6 +89,7 @@ export function panWeb(o: PanWebOpts): TelemetryEvent {
   const blocked = action === "deny" || action === "block";
   // A URL-filtering block is logged as "block-url"; a policy deny as "deny".
   const actionStr = action === "block" ? "block-url" : action;
+  const flow = flowOf({ ...o, srcIp: r.srcIp, dstIp }, r.host);
   return {
     id: o.id, ts: o.ts, source: "firewall", vendor: VENDOR,
     event_type: blocked ? "http_blocked" : "http_request",
@@ -78,11 +104,12 @@ export function panWeb(o: PanWebOpts): TelemetryEvent {
       "pan.type": panType,
       "pan.subtype": subtype,
       "pan.action": actionStr,
-      "pan.rule": blocked ? "BLOCK-NEWLY-REGISTERED" : "CORP-WEB-OUTBOUND",
-      "pan.from_zone": FROM_ZONE,
-      "pan.to_zone": TO_ZONE,
+      "pan.rule": ruleOf(o.rule, flow, blocked, o.category),
+      "pan.from_zone": flow.fromZone,
+      "pan.to_zone": flow.toZone,
       "pan.src": r.srcIp,
-      "pan.srcuser": srcUser,
+      // User-ID maps internal addresses only: a session from the internet has no source user.
+      ...(flow.inbound || r.domainUser === "-" ? {} : { "pan.srcuser": srcUser }),
       "pan.dst": dstIp,
       "pan.dport": "443",
       "pan.app": "web-browsing",
@@ -90,7 +117,8 @@ export function panWeb(o: PanWebOpts): TelemetryEvent {
       "pan.url": panUrl,
       ...(o.referer ? { "pan.referer": o.referer } : {}),
       "pan.http_method": method,
-      ...(o.file ? { "pan.filename": o.file.name, "pan.filetype": o.fileType ?? "pe", ...(o.file.sha256 ? { "pan.file_hash": o.file.sha256 } : {}), "pan.direction": "download" } : {}),
+      // PAN-OS names the file's SHA-256 "filedigest" on a THREAT/file record.
+      ...(o.file ? { "pan.filename": o.file.name, "pan.filetype": o.fileType ?? "pe", ...(o.file.sha256 ? { "pan.filedigest": o.file.sha256 } : {}), "pan.direction": flow.inbound ? "client-to-server" : "server-to-client" } : {}),
       ...(o.bytesOut !== undefined ? { "pan.bytes_sent": String(o.bytesOut) } : {}),
       ...(o.bytesIn !== undefined ? { "pan.bytes_received": String(o.bytesIn) } : {}),
       ...(o.repeatCount !== undefined ? { "pan.repeat_count": String(o.repeatCount) } : {}),
@@ -107,7 +135,7 @@ export function panWeb(o: PanWebOpts): TelemetryEvent {
 // A firewall connection or session-end record — a WebSocket tunnel, a raw socket, a
 // session summary with byte counts and duration. Distinct from panWeb (an HTTP request):
 // the app is not "web-browsing" and there may be no URL.
-export interface PanConnectionOpts extends Ctx {
+export interface PanConnectionOpts extends Ctx, PanFlowOpts {
   domain?: string;
   dstIp?: string;
   remotePort?: number;
@@ -131,7 +159,7 @@ export interface PanConnectionOpts extends Ctx {
 export function panConnection(o: PanConnectionOpts): TelemetryEvent {
   const r = resolve(o);
   const action = o.action ?? (o.end ? "allow" : "alert");
-  const dstIp = o.dstIp ?? (o.domain ? serverIpFor(o.domain) : "—");
+  const dstIp = o.dstIp ?? serverIpFor(o.domain ?? o.id);
   const transport = o.transport ?? "tcp";
   const port = o.remotePort ?? 443;
   const actionStr = action === "block" ? "block-url" : action;
@@ -151,6 +179,7 @@ export function panConnection(o: PanConnectionOpts): TelemetryEvent {
     : undefined;
   const showUrl = isThreat && loggedUrl;          // only URL/THREAT records carry a url field
   const showBytes = isEnd;                        // byte counters are final only at session end
+  const flow = flowOf({ ...o, srcIp: r.srcIp, dstIp }, r.host);
   return {
     id: o.id, ts: o.ts, source: "firewall", vendor: VENDOR,
     event_type: action === "deny" || action === "block" ? "net_blocked" : "net_connection",
@@ -163,11 +192,11 @@ export function panConnection(o: PanConnectionOpts): TelemetryEvent {
       "pan.type": panType,
       "pan.subtype": subtype,
       "pan.action": actionStr,
-      "pan.rule": "CORP-WEB-OUTBOUND",
-      "pan.from_zone": FROM_ZONE,
-      "pan.to_zone": TO_ZONE,
+      "pan.rule": ruleOf(o.rule, flow, action === "deny" || action === "block", o.category),
+      "pan.from_zone": flow.fromZone,
+      "pan.to_zone": flow.toZone,
       "pan.src": r.srcIp,
-      ...(r.domainUser !== "-" ? { "pan.srcuser": r.domainUser.toLowerCase() } : {}),
+      ...(r.domainUser !== "-" && !flow.inbound ? { "pan.srcuser": r.domainUser.toLowerCase() } : {}),
       "pan.dst": dstIp,
       "pan.dport": String(port),
       "pan.app": app,

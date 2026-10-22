@@ -89,7 +89,7 @@ export function cloudTrailEvent(o: CloudTrailOpts): TelemetryEvent {
     id: o.id, ts: o.ts, source: "cloudtrail", vendor: VENDOR, event_type: eventTypeFor(o.eventName, outcome),
     severity: o.severity ?? "medium", src_ip: o.srcIp, user_email: undefined, user_title: o.userTitle,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId, geo,
-    description: o.description ?? `${actorName} called ${o.eventName} (${eventSource}) — ${outcome}`,
+    description: o.description ?? `${actorName} called ${o.eventName} (${eventSource}): ${outcome}`,
     raw: {
       "aws.cloudtrail.eventName": o.eventName,
       "aws.cloudtrail.eventSource": eventSource,

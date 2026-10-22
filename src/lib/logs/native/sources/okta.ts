@@ -170,7 +170,8 @@ function render(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, r: Render): Nati
       id: null,
       ipAddress: ip,
       userAgent: { browser: ua.oktaBrowser, os: ua.oktaOs, rawUserAgent: ua.raw },
-      zone: corporate ? "Corporate HQ" : "null",
+      // The network zone the story names for this address, else the corporate zone on the egress.
+      zone: rawStr(ev, "okta.client.zone") ?? (corporate ? "Corporate HQ" : "null"),
     },
     debugContext: { debugData: Object.fromEntries(Object.entries(debugData).sort(([a], [b]) => a.localeCompare(b))) },
     device: r.device ?? null,

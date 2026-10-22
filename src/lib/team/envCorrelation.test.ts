@@ -32,7 +32,13 @@ describe("named organization: the feed only carries what the admin chose", { tim
   it("no Azure with the default Microsoft products: Entra ID and M365 yes, Sentinel and other unchosen tools no", () => {
     const vendors = vendorsOf({ platforms: ["linux"], industry: "general" }, {});
     expect(vendors).toContain("Microsoft Entra ID");
-    expect(vendors.filter(v => /sentinel|azure|purview|guardium|defender for identity|zscaler internet|claude|waf/i.test(v))).toEqual([]);
+    // Defender for Identity comes WITH the default EDR here (Defender for Endpoint, storyEventChosen).
+    expect(vendors.filter(v => /sentinel|azure|purview|guardium|zscaler internet|claude|waf/i.test(v))).toEqual([]);
+  });
+
+  it("Defender for Identity never appears when the chosen EDR is not Defender for Endpoint", () => {
+    const vendors = vendorsOf({ platforms: ["linux"], industry: "general" }, { edr: "crowdstrike" });
+    expect(vendors.filter(v => /defender for identity/i.test(v))).toEqual([]);
   });
 
   it("with Azure the Sentinel false-positive analytics come back", () => {

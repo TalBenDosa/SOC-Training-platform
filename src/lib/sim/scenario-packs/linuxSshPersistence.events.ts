@@ -9,6 +9,7 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
+import { csProcess, csNetwork, csAlert } from "@/lib/sim/emitters/crowdstrike";
 
 /** Telemetry half of `buildLinuxSshPersistenceScenario`: the events and the story title, no answer key. */
 export function linuxSshPersistenceScenarioEvents() {
@@ -56,13 +57,85 @@ export function linuxSshPersistenceScenarioEvents() {
   // alert-grade row the shift is paged on.
   const INCIDENT = "inc:lsp:1";
 
+  // FortiGate traffic row. Inbound rows are the published SSH port (VIP, DNAT to the host);
+  // outbound rows go through the catch-all policy. Sessions that have ended are "close" rows
+  // with volume and duration; a session still open is an "accept" row.
+  const SSH_VIP = "212.150.74.18";
+  const fgRow = (id: string, ts: string, o: {
+    src: string; srcport: string; dst?: string; dstport?: string; outbound?: boolean; action: "accept" | "close";
+    service?: string; srccountry?: string; dstcountry?: string; sent?: number; rcvd?: number; duration?: number; description: string;
+  }): TelemetryEvent => {
+    const out = !!o.outbound;
+    const dst = o.dst ?? SSH_VIP;
+    const dstport = o.dstport ?? String(host.sshPort);
+    return {
+      id, ts, source: "firewall", vendor: "FortiGate", event_type: "net_connection", hostname: host.name,
+      src_ip: o.src, src_port: Number(o.srcport), dst_ip: dst, dst_port: Number(dstport), protocol: "tcp",
+      severity: "informational", description: o.description,
+      ...(o.sent !== undefined ? { network: { bytes_out: o.sent, bytes_in: o.rcvd } } : {}),
+      raw: {
+        "data.type": "traffic",
+        "data.subtype": "forward",
+        ...(o.action === "close" ? { "data.logid": "0000000013" } : {}),
+        "data.level": "notice",
+        "data.action": o.action,
+        "data.srcip": o.src,
+        "data.srcport": o.srcport,
+        "data.srcintf": out ? "port3" : "wan1",
+        "data.dstip": dst,
+        "data.dstport": dstport,
+        "data.dstintf": out ? "wan1" : "port3",
+        "data.proto": "6",
+        "data.policyid": out ? "42" : "17",
+        "data.policyname": out ? "Allow-Outbound-Internet" : "Allow-SSH-2202-Inbound",
+        "data.service": o.service ?? "SSH",
+        ...(o.srccountry ? { "data.srccountry": o.srccountry } : {}),
+        ...(o.dstcountry ? { "data.dstcountry": o.dstcountry } : {}),
+        "data.trandisp": out ? "snat" : "dnat",
+        ...(out ? {} : { "data.tranip": host.privateIp, "data.tranport": String(host.sshPort) }),
+        ...(o.sent !== undefined ? { "data.sentbyte": o.sent, "data.rcvdbyte": o.rcvd ?? 0 } : {}),
+        ...(o.duration !== undefined ? { "data.duration": o.duration } : {}),
+        "data.vd": "root",
+      },
+    };
+  };
+
   const events: TelemetryEvent[] = [
+    // ── 0. BENIGN CONTROL — the admin's VPN connection, which gives the corporate egress address ─
+    {
+      id: "lsp_00_admin_vpn",
+      ts: T(-4 * MIN),
+      source: "vpn",
+      vendor: "Cisco AnyConnect",
+      event_type: "vpn_login",
+      user_email: "d.okonkwo@northwind-logistics.io",
+      src_ip: "5.29.121.77",
+      severity: "informational",
+      description:
+        "d.okonkwo connected to the Northwind remote-access VPN from 5.29.121.77 and was assigned 10.99.3.21. The gateway VPN-GW-01 egresses from the public address 82.166.44.9.",
+      raw: {
+        "event.action": "vpn-session-established",
+        "cisco.asa.message_id": "722022",
+        "cisco.asa.username": "d.okonkwo",
+        "cisco.asa.tunnel_group": "NW-RA-VPN",
+        "cisco.asa.group_policy": "GP-NW-ADMINS",
+        "cisco.asa.session_type": "SSL",
+        "cisco.asa.public_ip": "5.29.121.77",
+        "cisco.asa.assigned_ip": "10.99.3.21",
+        "cisco.asa.client_version": "Cisco Secure Client 5.1.2.42",
+        "cisco.asa.session_id": "551907",
+        "observer.name": "VPN-GW-01",
+        "observer.ip": "82.166.44.9",
+        "event.outcome": "success",
+      },
+    },
+
     // ── 1. BENIGN DISCRIMINATOR — the admin's own SSH session ──────────────────
     {
       id: "lsp_01_admin_ssh",
       ts: T(0),
       source: "linux_audit",
-      vendor: "Linux auditd",
+      vendor: "Linux auditd (OpenSSH)",
       event_type: "ssh_login",
       hostname: host.name,
       user_email: "d.okonkwo@northwind-logistics.io",
@@ -89,6 +162,11 @@ export function linuxSshPersistenceScenarioEvents() {
         "data.dstuser": "d.okonkwo",
         "system.auth.ssh.method": "publickey",
         "system.auth.ssh.event": "Accepted",
+        "syslog.program": "sshd",
+        "syslog.pid": "1788",
+        "syslog.hostname": host.name,
+        "syslog.facility": "authpriv",
+        "event.original": `Apr 14 21:40:00 ${host.name} sshd[1788]: Accepted publickey for d.okonkwo from 82.166.44.9 port 58114 ssh2: ED25519 SHA256:q1WvR7k0mUe3xYc9hJbT2nZpLd4fA8sGoQ6iEtN5uXw`,
       },
     },
 
@@ -119,6 +197,7 @@ export function linuxSshPersistenceScenarioEvents() {
         "data.dstport": "2202",
         "data.audit.type": "USER_AUTH",
         "data.audit.acct": "?",
+        "data.audit.addr": attacker.guessA,
         "data.audit.uid": "0",
         "data.audit.auid": "4294967295",
         "data.audit.ses": "4294967295",
@@ -129,6 +208,11 @@ export function linuxSshPersistenceScenarioEvents() {
         "data.audit.res": "failed",
       },
     },
+
+    fgRow("lsp_02a_fw_inbound_ssh", T(31 * MIN + 3 * SEC), {
+      src: attacker.guessA, srcport: "44118", action: "close", srccountry: "Russian Federation", sent: 3_944, rcvd: 3_212, duration: 3,
+      description: "Firewall closed a 3-second inbound session from 176.111.174.26:44118 to the SSH VIP on port 2202 under the Allow-SSH-2202-Inbound rule, translated to 10.40.2.15.",
+    }),
 
     // ── 3. Password guessing — the real service account ────────────────────────
     {
@@ -155,6 +239,7 @@ export function linuxSshPersistenceScenarioEvents() {
         "data.dstport": "2202",
         "data.audit.type": "USER_AUTH",
         "data.audit.acct": "svc-backup",
+        "data.audit.addr": attacker.guessB,
         "data.audit.uid": "0",
         "data.audit.auid": "4294967295",
         "data.audit.ses": "4294967295",
@@ -166,12 +251,21 @@ export function linuxSshPersistenceScenarioEvents() {
       },
     },
 
+    fgRow("lsp_03a_fw_inbound_ssh", T(52 * MIN + 3 * SEC), {
+      src: attacker.guessB, srcport: "39562", action: "close", srccountry: "Netherlands", sent: 3_980, rcvd: 3_208, duration: 3,
+      description: "Firewall closed a 3-second inbound session from 92.118.39.73:39562 to the SSH VIP on port 2202 under the Allow-SSH-2202-Inbound rule, translated to 10.40.2.15.",
+    }),
+    fgRow("lsp_03b_fw_inbound_ssh", T(58 * MIN - 2 * SEC), {
+      src: attacker.success, srcport: "41772", action: "accept", srccountry: "Russian Federation",
+      description: "Firewall accepted an inbound session from 46.161.27.119:41772 to the SSH VIP on port 2202 under the Allow-SSH-2202-Inbound rule, translated to 10.40.2.15.",
+    }),
+
     // ── 4. The login that worked — sshd's line names the method ────────────────
     {
       id: "lsp_04_accepted_password",
       ts: T(58 * MIN),
       source: "linux_audit",
-      vendor: "Linux auditd",
+      vendor: "Linux auditd (OpenSSH)",
       event_type: "ssh_login",
       hostname: host.name,
       src_ip: attacker.success,
@@ -192,6 +286,11 @@ export function linuxSshPersistenceScenarioEvents() {
         "data.dstuser": "svc-backup",
         "system.auth.ssh.method": "password",
         "system.auth.ssh.event": "Accepted",
+        "syslog.program": "sshd",
+        "syslog.pid": "1859",
+        "syslog.hostname": host.name,
+        "syslog.facility": "authpriv",
+        "event.original": `Apr 14 22:38:00 ${host.name} sshd[1859]: Accepted password for svc-backup from 46.161.27.119 port 41772 ssh2`,
       },
     },
 
@@ -233,6 +332,14 @@ export function linuxSshPersistenceScenarioEvents() {
         "data.audit.res": "success",
       },
     },
+
+    csProcess({
+      id: "lsp_05b_bash", ts: T(58 * MIN + 2 * SEC), host: host.name, user: "svc-backup", srcIp: host.privateIp,
+      processName: "bash", processPath: "/usr/bin/bash", cmdline: "-bash", parentName: "sshd", parentPid: 1862, pid: 1877,
+      sha256: makeSha256("usr_bin_bash_ubuntu2204"), runAsUser: "svc-backup",
+      extra: { "crowdstrike.UID": "1004", "crowdstrike.GID": "1004" },
+      description: "A login shell, -bash (pid 1877), started for svc-backup on nix-bkp-01, parent the session sshd (pid 1862, sshd: svc-backup@pts/0).",
+    }),
 
     // ── 6. First command in the session ────────────────────────────────────────
     {
@@ -373,6 +480,12 @@ export function linuxSshPersistenceScenarioEvents() {
       },
     },
 
+    fgRow("lsp_08a_fw_payload_http", T(64 * MIN + 9 * SEC), {
+      src: host.privateIp, srcport: "49830", dst: attacker.payloadHost, dstport: "80", outbound: true, action: "close", service: "HTTP", dstcountry: "Russian Federation",
+      sent: 318, rcvd: 2_872_104, duration: 8,
+      description: "Firewall closed an 8-second outbound HTTP session from nix-bkp-01 (10.40.2.15:49830) to 147.45.112.38:80 under the Allow-Outbound-Internet rule, 318 bytes sent and 2,872,104 received.",
+    }),
+
     // ── 9. Making it executable ────────────────────────────────────────────────
     {
       id: "lsp_09_chmod",
@@ -476,56 +589,29 @@ export function linuxSshPersistenceScenarioEvents() {
       },
     },
 
+    // ── 10b. The implant is started from the shell ─────────────────────────────
+    csProcess({
+      id: "lsp_10b_kworker_run", ts: T(69 * MIN + 50 * SEC), host: host.name, user: "svc-backup", srcIp: host.privateIp,
+      processName: "kworker", processPath: implantPath, cmdline: implantPath, parentName: "bash", parentPid: 1877, pid: 1974,
+      sha256: implantHash, runAsUser: "svc-backup", mitre: "T1036.004", tactic: "Stealth", severity: "medium",
+      extra: { "crowdstrike.UID": "1004", "crowdstrike.GID": "1004" },
+      description:
+        "kworker started from /home/svc-backup/.cache/.fontconfig/ on nix-bkp-01 as svc-backup, parent bash (pid 1877), no arguments.",
+    }),
+
     // ── 11. FIRST ALERT — Falcon flags the masqueraded process ─────────────────
     {
-      id: "lsp_11_masquerade_detection",
-      ts: T(70 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: host.name,
-      src_ip: host.privateIp,
-      severity: "high",
-      mitre_technique: "T1036.004",
-      mitre_tactic: "Stealth",
-      is_detection: true, // alert-grade: the first page of the shift — a kernel-thread name running from a hidden home directory
+      ...csAlert({
+        id: "lsp_11_kworker_detection", ts: T(70 * MIN), host: host.name, user: "svc-backup", srcIp: host.privateIp,
+        threatName: "KernelThreadNameFromUserHome",
+        detail: "A process named after a kernel thread was started from a hidden directory under a user home.",
+        tactic: "Stealth", technique: "Masquerade Task or Service", mitre: "T1036.004", action: "detected", severity: "high",
+        runAsUser: "svc-backup", processName: "kworker", processPath: implantPath, cmdline: implantPath, sha256: implantHash, pid: 1974,
+        parentPath: "/usr/bin/bash",
+        description:
+          "Falcon detection (High, Stealth) on nix-bkp-01: process kworker started from /home/svc-backup/.cache/.fontconfig/ as svc-backup, parent bash, no arguments; disposition detect-only.",
+      }),
       edr_scope: "edr",   // host-primary Linux intrusion → investigated in the EDR console
-      description:
-        "Falcon detection (High, Stealth) on nix-bkp-01: process kworker started from /home/svc-backup/.cache/.fontconfig/ as svc-backup, parent bash, no arguments; disposition detect-only.",
-      process: {
-        name: "kworker",
-        pid: 1974,
-        path: implantPath,
-        parent_name: "bash",
-        parent_pid: 1877,
-        cmdline: implantPath,
-        user: "svc-backup",
-        hash: { sha256: implantHash },
-      },
-      file: { name: "kworker", path: implantPath, sha256: implantHash, size: 2_871_296 },
-      raw: {
-        "crowdstrike.event_simpleName": "ProcessRollup2",
-        "crowdstrike.FileName": "kworker",
-        "crowdstrike.FilePath": `${implantDir}/`,
-        "crowdstrike.ImageFileName": implantPath,
-        "crowdstrike.CommandLine": implantPath,
-        "crowdstrike.RawProcessId": "1974",
-        "crowdstrike.ParentBaseFileName": "bash",
-        "crowdstrike.UserName": "svc-backup",
-        "crowdstrike.UID": "1004",
-        "crowdstrike.GID": "1004",
-        "crowdstrike.SHA256HashData": implantHash,
-        "crowdstrike.Tactic": "Stealth",
-        "threat.tactic.id": "TA0005",
-        "crowdstrike.Technique": "Masquerade Task or Service",
-        "threat.technique.id": "T1036",
-        "threat.technique.subtechnique.id": "T1036.004",
-        "crowdstrike.SeverityName": "High",
-        "crowdstrike.PatternDispositionValue": "0",
-        "crowdstrike.PatternDispositionDescription": "Detection, standard detection.",
-        "crowdstrike.event_platform": "Lin",
-        "crowdstrike.ComputerName": host.name,
-      },
     },
 
     // ── 12. The flagged process opens an outbound connection ───────────────────
@@ -656,6 +742,27 @@ export function linuxSshPersistenceScenarioEvents() {
       },
     },
 
+    {
+      id: "lsp_14b_cron_syslog",
+      ts: T(80 * MIN),
+      source: "linux_audit",
+      vendor: "Linux auditd",
+      event_type: "linux_cron",
+      hostname: host.name,
+      severity: "informational",
+      description:
+        `cron on nix-bkp-01 logged CRON[2229]: (svc-backup) CMD (${cronLine}).`,
+      raw: {
+        "syslog.program": "CRON",
+        "syslog.pid": "2229",
+        "syslog.hostname": host.name,
+        "syslog.facility": "cron",
+        "event.original": `Apr 14 23:00:00 ${host.name} CRON[2229]: (svc-backup) CMD (${cronLine})`,
+        "cron.user": "svc-backup",
+        "cron.command": cronLine,
+      },
+    },
+
     // ── 15. The crontab fires — its command line is the persisted entry ────────
     {
       id: "lsp_15_cron_relaunch",
@@ -739,6 +846,15 @@ export function linuxSshPersistenceScenarioEvents() {
       },
     },
 
+    csNetwork({
+      id: "lsp_16a_restic_connect", ts: T(95 * MIN + 20 * SEC), host: host.name, user: "backup", srcIp: host.privateIp,
+      remoteIp: backupRepo.ip, remotePort: 443, localPort: 40112, application: "tls",
+      processName: "restic", processPath: "/usr/bin/restic", pid: 2103, parentName: "cron", parentPid: 2101,
+      cmdline: `/usr/bin/restic -r s3:https://${backupRepo.domain}/${backupRepo.bucket} backup /srv/data --exclude-caches --quiet`,
+      sha256: makeSha256("restic_0_16_4_linux_amd64"), severity: "informational",
+      description: "restic (pid 2103) on nix-bkp-01 connected to 149.137.140.21 on port 443 from local port 40112.",
+    }),
+
     // ── 17. BENIGN DISCRIMINATOR — the backup's own outbound session ───────────
     {
       id: "lsp_17_backup_upload",
@@ -788,7 +904,7 @@ export function linuxSshPersistenceScenarioEvents() {
   for (const e of events) e.incident_id = INCIDENT;
 
   return {
-    title: "Exposed SSH → Cron-Persisted Backdoor",
-    events, T, MIN, host, attacker, backupRepo, implantHash, implantPath, payloadUrl, cronLine,
+    title: "Falcon detection on a Linux backup server",
+    events, T, MIN, SEC, host, attacker, backupRepo, implantHash, implantPath, payloadUrl, cronLine,
   };
 }

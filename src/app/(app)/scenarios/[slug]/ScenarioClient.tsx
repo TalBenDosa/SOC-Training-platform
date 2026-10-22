@@ -1626,7 +1626,9 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
     import("@/lib/logs/native").then(m => { if (alive) setNativeMod(m); }).catch(() => { /* legacy view stays */ });
     return () => { alive = false; };
   }, []);
-  const nativeRender = useMemo<NativeRenderer | null>(() => (nativeMod ? ev => nativeMod.nativeViewAuthored(ev) : null), [nativeMod]);
+  // The whole story renders together: one IP per host, the authored pids and SIDs, and the
+  // scenario's own organization in every record, agreeing with the EDR console.
+  const nativeRender = useMemo<NativeRenderer | null>(() => (nativeMod ? nativeMod.nativeStoryRenderer(bundle.events) : null), [nativeMod, bundle.events]);
   // Hydration gate (finding #28): the Start button is inert until the client has
   // mounted, so the first click is never swallowed by a not-yet-hydrated button.
   const [mounted, setMounted]           = useState(false);

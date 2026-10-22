@@ -9,6 +9,7 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeCtx } from "../types";
+import { accountSid } from "./_proc-identity";
 
 export type Raw = Record<string, unknown>;
 
@@ -92,8 +93,8 @@ export function aadObjectId(ctx: NativeCtx, email: string): string {
 }
 /** On-prem-synced SID, stable per company + user. */
 export function userSid(ctx: NativeCtx, email: string): string {
-  const c = (n: number) => ctx.int(`${ctx.companyId}:domsid:${n}`, 1_000_000_000, 3_999_999_999);
-  return `S-1-5-21-${c(1)}-${c(2)}-${c(3)}-${ctx.int(entitySeed(ctx, "rid", email), 1105, 98000)}`;
+  // The same SID the user's Windows / EDR records carry (one per company + account).
+  return accountSid(ctx, email.split("@")[0], email);
 }
 
 /** Tenant-short name for SharePoint hosts ("nexacorp" → nexacorp.sharepoint.com). */

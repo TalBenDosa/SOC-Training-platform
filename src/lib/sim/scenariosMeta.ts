@@ -14,386 +14,386 @@ export interface ScenarioMeta {
 export const SCENARIOS_META: ScenarioMeta[] = [
   {
     "slug": "phishing-malware-basic",
-    "title": "Phishing Attachment → Malware Execution → Workstation Compromise",
+    "title": "EDR alert on an HR workstation",
     "difficulty": "beginner",
-    "summary": "An everyday phishing email leads to a disguised .pdf.exe running on one workstation — the simplest attack in the platform, single host, no lateral movement."
+    "summary": "The EDR stopped a process on an HR workstation, and the firewall logged an outbound session from the same host. Investigate what ran, how it arrived and whether anything left the machine, then write the report."
   },
   {
     "slug": "usb-malware-basic",
-    "title": "Malicious USB Drive → Trojan Persistence → Workstation Compromise",
+    "title": "EDR quarantine on an operations workstation",
     "difficulty": "beginner",
-    "summary": "An untagged USB drive delivers a trojan that sets up Registry Run key persistence on one workstation before EDR catches it."
+    "summary": "The EDR quarantined a file on an operations workstation, and the SIEM matched a DNS lookup from the same host to threat intelligence. Work out what happened on the host and what needs to be contained."
   },
   {
     "slug": "phishing-to-cloud-exfil",
-    "title": "Phishing Macro → AWS Key Theft → S3 Download",
+    "title": "Unassigned EDR detection on a finance workstation",
     "difficulty": "intermediate",
-    "summary": "A finance analyst opens a macro-laced invoice. Trace the chain from Word → PowerShell → the AWS key on the workstation → a 184 MB S3 download, and contain both the host and the key."
+    "summary": "A high-severity EDR detection on a finance analyst's workstation has sat unassigned for an hour. Trace what happened across the endpoint and the cloud account, and decide what to contain."
   },
   {
     "slug": "bec-mailbox-rule",
-    "title": "Password Spray → BEC Mailbox Rule",
+    "title": "Failed AD FS logons and a CFO call",
     "difficulty": "beginner",
-    "summary": "Spot the spray, the off-hours MFA acceptance, and the hidden inbox rule before a $247K wire fraud lands."
+    "summary": "Sentinel flagged a burst of failed AD FS logons across many accounts, and the CFO later called the help desk about unexpected prompts on her phone. Investigate which accounts were affected and what happened in them."
   },
   {
     "slug": "ransomware-lockbit",
-    "title": "Ransomware Outbreak — LockBit 3.0",
+    "title": "Critical file server alert and an unreachable Finance share",
     "difficulty": "advanced",
-    "summary": "Trace LockBit from a late-night phishing email through LSASS dump, PsExec lateral movement, shadow copy deletion, and 18GB of file encryption."
+    "summary": "A critical detection fired on the corporate file server while the Finance share reports inaccessible files, and an earlier alert sits on a finance workstation. Investigate both, establish the scope and write the report."
   },
   {
     "slug": "oauth-app-persistence",
-    "title": "OAuth App Persistence — Cloud APT",
+    "title": "Graph activity alert after a password reset",
     "difficulty": "advanced",
-    "summary": "A rogue OAuth app survives a password reset — silently exfiltrating 340MB of product roadmaps via Microsoft Graph API."
+    "summary": "Sentinel flagged unusual Microsoft Graph activity on an account whose password the help desk had reset that morning. Scope what the account has been doing and decide what containment it needs."
   },
   {
     "slug": "insider-threat-finance",
-    "title": "Bulk Finance Downloads and Removable Media — WS-FIN-4421",
+    "title": "DLP download alert on a finance workstation",
     "difficulty": "intermediate",
-    "summary": "DLP flagged a burst of downloads from a finance share, and removable media was mounted on the same workstation minutes later. Establish what happened and whether it was authorised."
+    "summary": "Purview DLP and Sentinel UEBA both flagged activity on a finance user's account and workstation, and no containment has been applied. Establish what happened and whether it was authorised."
   },
   {
     "slug": "kerberoasting",
-    "title": "Kerberoasting → Service Account Compromise",
+    "title": "Kerberos ticket volume alert for a developer account",
     "difficulty": "advanced",
-    "summary": "A developer's account enumerates SPNs via LDAP, requests 12 TGS tickets using weak RC4 encryption, cracks svc-mssql offline, and executes code via xp_cmdshell."
+    "summary": "Sentinel and Defender for Identity flagged unusual Kerberos activity for a developer's account and workstation, and a related alert on a database server is attached. Investigate what the account did and how far it reached."
   },
   {
     "slug": "dns-tunneling",
-    "title": "DNS Tunneling — C2 via DNS",
+    "title": "DNS volume anomaly on an engineering workstation",
     "difficulty": "advanced",
-    "summary": "An attacker uses dnscat2 to exfiltrate data via DNS — 847 queries/minute with base32-encoded subdomains carrying stolen credentials to an attacker-controlled domain."
+    "summary": "Sentinel flagged an engineering workstation sending far more DNS queries than its baseline, and the firewall logged port 53 traffic leaving the network. Find what is generating the traffic and what it carries."
   },
   {
     "slug": "lolbins",
-    "title": "Living-off-the-Land (LOLBins)",
+    "title": "Rare command-line alert on an HR workstation",
     "difficulty": "advanced",
-    "summary": "A 7-step LOLBin chain: certutil download → regsvr32 Squiblydoo → mshta VBScript → wmic recon → bitsadmin persistence → rundll32 DLL → schtasks SYSTEM task."
+    "summary": "Sentinel flagged a rare command line on an HR workstation, and the firewall logged outbound HTTP from the same host in that window. Reconstruct what ran on the host and what it left behind."
   },
   {
     "slug": "aws-key-leak-s3-exfil",
-    "title": "Leaked AWS Key → IAM Backdoor → S3 Data Theft",
+    "title": "Secret scanning alert on a public deploy repo",
     "difficulty": "advanced",
-    "summary": "A CI access key pushed to a public GitHub repo is used from a VPS within minutes: recon, a new IAM user with its own key and AdministratorAccess, then a GetObject run on the customer-data bucket. Follow the key ids from the leak to the bucket and contain both credentials."
+    "summary": "GitHub secret scanning flagged an AWS access key in a public RocketStack repository, and GuardDuty has since raised findings on the same account. Scope the account and decide what to contain."
   },
   {
     "slug": "dcsync-golden-ticket",
-    "title": "DCSync → Golden Ticket (Domain Dominance)",
+    "title": "Late-night admin RDP logon to a domain controller",
     "difficulty": "advanced",
-    "summary": "APT uses stolen IT admin credentials to DCSync the domain controller, extract the krbtgt hash, forge a 10-year Golden Ticket, create a shadow admin, and wipe Security logs — full domain compromise in 25 minutes."
+    "summary": "An IT admin account logged on interactively to a NexaCorp domain controller from an external address late at night, and Defender raised a tool detection soon after. Investigate what happened on the DC and what it means for the domain."
   },
   {
     "slug": "supply-chain-vendor-update",
-    "title": "Supply Chain Attack — Malicious Vendor Update",
+    "title": "EDR detection on a production server after an update",
     "difficulty": "advanced",
-    "summary": "A trojanized vendor update installs a malicious shared object disguised as telemetry, establishes C2, steals AWS credentials, and exfiltrates 2.3GB of production data — all via a legitimately-signed package."
+    "summary": "CrowdStrike flagged a production server that completed an approved vendor agent update earlier that afternoon, and the firewall shows repeated outbound HTTPS since. Determine whether the two are related and what is affected."
   },
   {
     "slug": "mfa-fatigue-ato",
-    "title": "MFA Fatigue → Okta Account Takeover",
+    "title": "Overnight high-severity alert on an IT administrator",
     "difficulty": "beginner",
-    "summary": "UNC3944 bombards Jennifer Chen with 60 MFA push notifications until she approves at 1:32 AM. Within minutes the attacker enrolls a new device, bulk-downloads 847 SharePoint files, creates a persistent API token, and modifies Conditional Access policies — all from a Moscow IP."
+    "summary": "Sentinel raised a high-severity alert overnight on an IT administrator who holds Okta and Entra admin roles, and the user has not been reached. Reconstruct the account's activity and decide what to contain."
   },
   {
     "slug": "asrep-roasting",
-    "title": "AS-REP Roasting → Offline Hash Crack",
+    "title": "Identity alert naming three service accounts",
     "difficulty": "intermediate",
-    "summary": "APT28 foothold on WS-DEV-09 discovers 3 service accounts with Kerberos pre-auth disabled. Impacket GetNPUsers.py captures RC4-encrypted TGT hashes offline. Six hours later the cracked svc-backup password enables lateral movement to NTDS.dit."
+    "summary": "Defender for Identity raised an alert with a developer workstation as the source and three service accounts as targets, and the ticket was picked up hours later. Use the DC, firewall and EDR logs to establish what followed."
   },
   {
     "slug": "ntlm-relay-responder",
-    "title": "NTLM Relay — Internal Credential Hijacking",
+    "title": "Tooling detection on a developer workstation",
     "difficulty": "advanced",
-    "summary": "An LLMNR poisoner on WS-DEV-09 intercepts l.nguyen's NTLM authentication and relays it to SRV-FILE01. Remote SYSTEM execution via PsExec, LSASS dump with 0x1FFFFF access, and SMB pivot to 3 internal servers — no external C2."
+    "summary": "CrowdStrike flagged tooling on a developer workstation, and a file server later recorded a service installation and a logon for a finance analyst. Work out how these events connect and how far the activity spread."
   },
   {
     "slug": "k8s-pod-escape-imds",
-    "title": "Kubernetes Pod Escape → Cloud Metadata Theft",
+    "title": "GuardDuty finding on the production EKS cluster",
     "difficulty": "advanced",
-    "summary": "Compromised CI/CD token gives APT40 kubectl exec into production. nsenter escapes to EC2 host, curl to 169.254.169.254 steals IAM credentials. Attacker enumerates S3 buckets from Tor IP, downloads db-passwords.json, and backdoors both the cluster and IAM."
+    "summary": "GuardDuty flagged unusual use of the EKS node role, and the Kubernetes audit log shows exec activity into a production container by a CI service account. Trace the activity across the cluster, its nodes and the AWS account."
   },
   {
     "slug": "oauth-consent-grant-phishing",
-    "title": "OAuth Consent Grant Phishing — Silent BEC",
+    "title": "DLP alert on a Finance SharePoint contract",
     "difficulty": "expert",
-    "summary": "j.chen clicks a phishing link and grants 'Productivity Suite Pro' (48h-old unverified app on typosquat domain) Mail.ReadWrite + Files.ReadWrite.All. The app silently reads 1,247 emails, copies 312 SharePoint files, creates an inbox forwarding rule, and maps the org via Calendar — no malware, no suspicious IPs, 100% Microsoft Graph API."
+    "summary": "Purview DLP fired on a contract in the Finance SharePoint site, and Defender for Cloud Apps flagged a third-party app the same user authorized that evening. Investigate what the app did and decide what contains it."
   },
   {
     "slug": "backup-agent-false-positive",
-    "title": "Mass File Encryption Alert — Enterprise Backup Agent",
+    "title": "Overnight behaviour alert on a production file server",
     "difficulty": "beginner",
-    "summary": "A CRITICAL ransomware-behaviour alert on a production file server. Every scenario before this one was a real attack — this one is not, and the job is to prove it."
+    "summary": "Defender for Endpoint raised a high-severity behaviour alert on a production file server overnight, and the night shift is holding for an isolate decision. Investigate the process behind it and make the call with evidence."
   },
   {
     "slug": "brute-force-single-account",
-    "title": "Logon Failure Burst — Published Remote Desktop Server",
+    "title": "Logon failures on the published Remote Desktop server",
     "difficulty": "beginner",
-    "summary": "Hundreds of failed logons against one account, and then one that succeeds. The failures are the noise; finding the success — and what the session did next — is the job."
+    "summary": "Sentinel raised a high alert for a long run of failed logons against one user on the internet-published Remote Desktop server, followed by a success. Establish what happened to that user and whether anything followed."
   },
   {
     "slug": "rogue-admin-account",
-    "title": "Out-of-Hours Account Creation — Service Desk Credentials",
+    "title": "Late-evening privileged group change on the DC",
     "difficulty": "beginner",
-    "summary": "A privileged account is created at 22:47 by an admin who is allowed to create accounts. Nothing here is technically forbidden — the question is whether it was authorised."
+    "summary": "Sentinel flagged a new domain user who joined a privileged group within an hour of being created. Establish whether this was authorised and report what has happened since."
   },
   {
     "slug": "impossible-travel-basic",
-    "title": "Sign-In From Two Countries — Accounts Payable Clerk",
+    "title": "Two-city sign-ins for an accounts payable clerk",
     "difficulty": "beginner",
-    "summary": "The same account signs in from Tel Aviv and then Amsterdam hours apart. Impossible travel is a hypothesis, not a verdict — the telemetry decides whether it is a VPN artefact or a real takeover."
+    "summary": "Sentinel flagged two successful sign-ins for an accounts payable clerk from different cities hours apart, while Finance say she is working from London. Determine what happened to the account and what was done with it."
   },
   {
     "slug": "software-install-false-positive",
-    "title": "Unsigned Binary Writes to Program Files — Engineering Workstation",
+    "title": "Behavioural EDR alert on an engineering workstation",
     "difficulty": "beginner",
-    "summary": "An EDR rule fires HIGH on behaviour that genuinely overlaps with a dropper. Closing an alert correctly needs evidence just as rigorous as opening one."
+    "summary": "CrowdStrike raised a high behavioural detection on an engineering workstation after a new executable and service appeared and an outbound session opened. Determine what ran and whether the host needs to be contained."
   },
   {
     "slug": "web-shell-sqli",
-    "title": "SQL Injection → Web Shell → Server Compromise",
+    "title": "WAF blocks and an EDR alert on the shop",
     "difficulty": "advanced",
-    "summary": "The WAF blocked the obvious payloads and missed the one that worked. Pivot between WAF, IIS, SQL audit and EDR to find how a web shell reached the server."
+    "summary": "Blocked WAF requests against shop.nexacorp.com and a Defender detection on its IIS web server are both queued, on the day of a scheduled PCI scan. Pivot across WAF, IIS, SQL and EDR logs to work out what reached the server."
   },
   {
     "slug": "linux-ssh-persistence",
-    "title": "Exposed SSH → Cron-Persisted Backdoor",
+    "title": "Falcon detection on a Linux backup server",
     "difficulty": "intermediate",
-    "summary": "A Linux server intrusion read through sshd, auditd, Falcon and the firewall rather than Windows telemetry — the login that worked comes from an address that never failed, and the flagged process checks in every five minutes."
+    "summary": "Falcon flagged a process running from a hidden directory under a service account's home on a Linux backup server. Use sshd, auditd, Falcon and firewall logs to work out how it got there, what it talks to and whether it will return."
   },
   {
     "slug": "aitm-token-theft",
-    "title": "Adversary-in-the-Middle Phishing — Session Token Theft",
+    "title": "Sign-ins six minutes apart for a finance user",
     "difficulty": "advanced",
-    "summary": "MFA was satisfied correctly and the account still fell. One session id, two browsers, 365 km apart, six minutes apart."
+    "summary": "Entra ID flagged two sign-ins for a finance user six minutes apart from different countries, while the user reports nothing wrong. A travel alert on another user is attached for comparison: investigate both and decide what each needs."
   },
   {
     "slug": "esxi-ransomware",
-    "title": "Hypervisor Ransomware — ESXi Datastore Encryption",
+    "title": "Every guest on PROD-CLUSTER-A unreachable on Saturday night",
     "difficulty": "expert",
-    "summary": "Ninety-six VMs go dark at once and the endpoint EDR sees nothing, because there is no agent on the hypervisor. Reason from the telemetry that stopped arriving."
+    "summary": "The NOC escalated that every guest on a production virtualisation cluster is unreachable and dozens of sensors are offline, with no change window open. Work out what happened from the telemetry you still have."
   },
   {
     "slug": "okta-password-burst",
-    "title": "Sign-In Failure Burst — Okta Tenant, One Account",
+    "title": "Overnight Okta sign-in failures for one account",
     "difficulty": "beginner",
-    "summary": "The attacker never got in — and the password is still compromised. One field on one sign-in event separates 'blocked, no impact' from a credential you have to reset."
+    "summary": "The SIEM raised a medium alert for a burst of overnight Okta sign-in failures from one external IP against a RocketStack user, with no sessions created. Work out what actually changed for the user and what the ticket should ask for."
   },
   {
     "slug": "fake-browser-update",
-    "title": "Fake Browser Update — Drive-by on a Trusted Site",
+    "title": "Critical EDR detection on a laptop while browsing",
     "difficulty": "beginner",
-    "summary": "The site that started this is real, categorised business-and-economy, and read by half the department. Nothing in the first four minutes looks like an attack if you are hunting bad domains."
+    "summary": "Falcon raised a critical detection on a laptop for a script interpreter launching PowerShell while the user was browsing. Work out how the file got onto the machine and how far the activity got."
   },
   {
     "slug": "trojanized-installer-keylogger",
-    "title": "Free PDF Tool — Trojanized Installer with a Keylogger",
+    "title": "Critical alert after a free PDF tool install",
     "difficulty": "beginner",
-    "summary": "The installer is signed and the PDF tool genuinely works. It also drops a second binary that reads what she types into her browser."
+    "summary": "Falcon raised a critical detection on a laptop for an unsigned binary in the user's AppData profile, the morning she installed a free PDF tool. Establish what was installed, what it is doing and what has left the machine."
   },
   {
     "slug": "multi-host-intrusion",
-    "title": "Multi-Host Intrusion — Foothold, Lateral Move, Staging",
+    "title": "Three EDR incidents on three hosts tonight",
     "difficulty": "advanced",
-    "summary": "One operator, three hosts, three separate EDR incidents in forty minutes — foothold, an LSASS dump on the file server, and gigabytes staged and pushed out. Investigate each host as its own case, then tie them into one campaign."
+    "summary": "Three Falcon detections opened as separate incidents on a finance workstation, a file server and a backup server within forty minutes. Investigate each host, decide whether they are connected, and scope before you contain."
   },
   {
     "slug": "ai-llmjacking-bedrock",
-    "title": "LLMjacking — Stolen CI Key Used for Bedrock Inference",
+    "title": "Bedrock cost alert on QuantumBank's AWS account",
     "difficulty": "advanced",
-    "summary": "A cost alert and a GuardDuty finding land on QuantumBank's AWS account overnight. Work out from CloudTrail and the Bedrock logs what the CI service identity was used for, by whom, and what the logs no longer show."
+    "summary": "A GuardDuty finding on the release pipeline's IAM user and a Bedrock cost alert land on QuantumBank's AWS account overnight, in a week the platform team is also working on Bedrock. Use CloudTrail and the Bedrock logs to work out what the identity was used for, by whom, and what the logs no longer show."
   },
   {
     "slug": "gws-phishing-attachment",
-    "title": "Shared Invoice — Malicious Attachment via Google Workspace",
+    "title": "Critical Mac detection after a supplier invoice",
     "difficulty": "beginner",
-    "summary": "SPF, DKIM and DMARC all passed, because the supplier's domain really did send it. The mailbox belongs to someone else now."
+    "summary": "Falcon flagged a Mac laptop moments after the user opened an invoice from a supplier received through Google Workspace. Establish how the file arrived, whether anything left the machine and what else in the tenant is affected."
   },
   {
     "slug": "seo-poisoned-installer",
-    "title": "Sponsored Result — SEO-Poisoned PuTTY Download",
+    "title": "High-severity Defender incident on an admin laptop",
     "difficulty": "beginner",
-    "summary": "An admin searched for a tool she installs all the time and clicked the top result. The domain was registered last week — and by the time Defender flagged it, the browser-saved credentials were already gone."
+    "summary": "Defender for Endpoint raised a high-severity incident on an admin's laptop while she was installing an SSH client for routine work. Work out how the installer reached the machine, what it actually did and what has left the building."
   },
   {
     "slug": "iso-container-smuggling",
-    "title": "Invoice.iso — Container-Delivered LNK and LOLBin Chain",
+    "title": "Critical EDR detection after an overdue invoice email",
     "difficulty": "beginner",
-    "summary": "The firewall only logged the .iso because it is not on the block list. Windows tags the files inside it (the Nov-2022 fix) and warns — but the user clicks Run anyway, and the shortcut runs rundll32 against a bundled data file, so SmartScreen never re-gates it."
+    "summary": "Falcon flagged a laptop shortly after the user opened what she thought was an overdue invoice from an email. Work out how the file got there and why the Windows security warning on it did not stop what followed."
   },
   {
     "slug": "clickfix-fake-captcha",
-    "title": "Fake CAPTCHA — 'Paste This to Verify You're Human'",
+    "title": "Blocked outbound connection on a browsing workstation",
     "difficulty": "beginner",
-    "summary": "The 'verification' step told her to press Win+R and paste — and she did. The command she never saw was already on her clipboard, put there by the page."
+    "summary": "Falcon raised a critical detection on a workstation for a process chain that ended in a blocked outbound connection while the user was browsing. Work out how the first process started and how far the chain got."
   },
   {
     "slug": "scheduled-task-persistence",
-    "title": "Speed-Boost Script — Persistence via a Scheduled Task",
+    "title": "SIEM alert on an HR coordinator's laptop",
     "difficulty": "beginner",
-    "summary": "One PowerShell script promising a faster VPN. Its real job was a single schtasks command — so that even after a reboot and an AV sweep, it runs again every logon."
+    "summary": "The SIEM fired on an HR coordinator's laptop for an unsigned binary under her AppData folder that started early this morning. Work out how it got onto the machine, what started it and what it does when it runs."
   },
   {
     "slug": "infostealer-session-theft",
-    "title": "Free Converter, Stolen Session — Infostealer Cookie Theft & Replay",
+    "title": "Killed process and a new sign-in for one user",
     "difficulty": "intermediate",
-    "summary": "A free PDF converter that never installs anything, but copies Chrome's saved-password and cookie databases and ships them out. Five minutes later her session is replayed from Moscow — no password, no MFA prompt, because the stolen cookie already satisfied it."
+    "summary": "Falcon killed a process on a laptop and, around the same time, Entra ID logged a sign-in for the same user from an address never seen for her before. Establish what the process did, what the sign-in is and what is still reachable."
   },
   {
     "slug": "helpdesk-mfa-reset",
-    "title": "Help Desk MFA Reset — Social Engineering Account Takeover",
+    "title": "Routine MFA reset ticket and two sign-ins",
     "difficulty": "intermediate",
-    "summary": "A phone call to the service desk, a reset MFA, and a new authenticator enrolled from an IP the employee has never used — while her real session is still active elsewhere. The ticket that 'fixed' an access problem is the breach."
+    "summary": "A ServiceNow MFA reset for a NexaCorp employee was resolved this morning, and Entra shows two MFA-satisfied sign-ins for the account within the hour, followed by a new VDI session. Decide whether this is ordinary support and what happens next."
   },
   {
     "slug": "edge-vpn-cve-exploit",
-    "title": "Edge Appliance Exploitation — FortiOS SSL-VPN Auth Bypass to Internal Foothold",
+    "title": "VPN user correlation alert on a jump host",
     "difficulty": "advanced",
-    "summary": "The FortiGate SSL-VPN appliance's own IPS fires CVE-2022-40684 and its event log records admin access as Local_Process_Access, then a new rogue admin. An hour later a 'valid' VPN login's tunnel IP turns up as a 4624 on an internal jump host, then a SAM dump and SMB reach. The initial access is the appliance itself."
+    "summary": "Sentinel raised a high correlation alert overnight tying a VPN user's external IP and tunnel address to an internal jump host. Work out where the activity actually started and how far it reached."
   },
   {
     "slug": "exfil-first-extortion",
-    "title": "Exfiltration-First Extortion — Ransomware Without an Encryptor",
+    "title": "Threatening email to NexaCorp's security mailbox",
     "difficulty": "advanced",
-    "summary": "Mass file reads, a 7-Zip archive, and a sustained upload to a cloud-storage host — then a demand. Nothing is encrypted and no ransom note lands on disk, which is exactly why grading this by 'what did they break' misses that it is a ransomware-class incident."
+    "summary": "Sentinel escalated an incident to critical overnight after NexaCorp's security mailbox received an email referencing client records. Work out whether anything left the environment, how, and why nothing stopped it."
   },
   {
     "slug": "windows-privesc-token",
-    "title": "SYSTEM in Twelve Seconds — Token Impersonation on an IIS Host",
+    "title": "Rare privilege alert for an IIS service account",
     "difficulty": "intermediate",
-    "summary": "A non-admin IIS service account holds SeImpersonatePrivilege — and turns it into a SYSTEM shell via a named-pipe potato attack, then dumps the local SAM. The loud SAM export is downstream; the quiet 4672 is where it began."
+    "summary": "Sentinel flagged a rare privilege event and an unusual process for a web service account on an IIS host within six minutes, while another team handles the web app. Determine what the account did on the host and what it reached."
   },
   {
     "slug": "linux-privesc-suid",
-    "title": "www-data to Root — SUID find on an Ubuntu App Server",
+    "title": "Critical Falcon detection on an Ubuntu app server",
     "difficulty": "intermediate",
-    "summary": "A www-data foothold escalates to root by abusing a setuid /usr/bin/find (GTFOBins), reads /etc/shadow, and plants a uid-0 backdoor account — proven from auditd uid/euid/auid and a Falcon privilege-escalation detection."
+    "summary": "Falcon flagged a shell on an internet-facing Ubuntu application server whose effective and real user IDs do not match. Establish how this happened, prove whether it succeeded and find what followed."
   },
   {
     "slug": "lateral-movement-pth",
-    "title": "Pass-the-Hash to the File Server, Second Hop to the DC",
+    "title": "Night-time privileged logons for an infrastructure admin",
     "difficulty": "intermediate",
-    "summary": "An operator replays a stolen NTLM hash to log into a file server without a password, installs a remote service PsExec-style, and hops to a Domain Controller — learn to tell a pass-the-hash 4624 from a legitimate network logon."
+    "summary": "Sentinel flagged privileged authentications for an infrastructure admin across several hosts within minutes, in the middle of the night. Work out how the account was used, where the credential came from and how far it reached."
   },
   {
     "slug": "insider-dlp-usb-cloud",
-    "title": "Last Week on the Job — Insider Exfil via USB and Personal Cloud",
+    "title": "Sentinel incident for a finance analyst who resigned",
     "difficulty": "intermediate",
-    "summary": "A departing Senior Financial Analyst copies labeled client data to a personal USB stick and uploads it to consumer Dropbox — every action allowed under his own account because Purview DLP is in Audit mode. Reach the verdict from audit-only DLP + HR context, not from any control that blocked."
+    "summary": "Sentinel raised an incident for a senior financial analyst whose resignation is already in Workday. Establish what left the environment, by which routes, and whether it was legitimate work."
   },
   {
     "slug": "nac-rogue-device",
-    "title": "The Printer That Wasn't — Rogue Device Caught by NAC",
+    "title": "NAC alert for an unknown endpoint on SW-ACC-07",
     "difficulty": "beginner",
-    "summary": "A rogue Windows laptop spoofs an HP printer's MAC to bypass MAB onto the corporate LAN; Cisco ISE profiling catches the OUI/fingerprint mismatch, posture fails, and NAC quarantines the port."
+    "summary": "Cisco ISE quarantined an access-switch port after a high alert on the endpoint connected to it. Establish what the device is, how it got on the network and whether anything followed."
   },
   {
     "slug": "macos-stealer-dmg",
-    "title": "macOS Stealer — a 'Cracked' App DMG Harvests Keychain, Cookies and Wallets",
+    "title": "Falcon alert on a designer's MacBook (MB-CR-14)",
     "difficulty": "intermediate",
-    "summary": "A pirated-app DMG carries an Atomic/AMOS-family stealer: it mounts, phishes the user's macOS password through a fake osascript dialog, then reads the login Keychain, browser cookies and a crypto wallet before zipping it all to an external host. A signed, notarized install of the same shape is the benign control — the malice is the source, not the file type."
+    "summary": "Falcon raised a critical alert on a designer's MacBook after the user ran a free copy of a paid design tool from a disk image. Work out what ran, what it touched and what left the machine."
   },
   {
     "slug": "sqli-db-exfil",
-    "title": "SQL Injection to Database Exfiltration — Following the Attack Past the WAF",
+    "title": "Imperva alerts on shop.nexacorp.com and unusual ShopDB reads",
     "difficulty": "advanced",
-    "summary": "The WAF blocks the obvious ' OR 1=1 probe but the UNION and error-based payloads sail through a detection-mode rule — and the database audit shows what the WAF alert alone cannot: schema enumeration, a 248k-row PII dump, and xp_cmdshell OS execution. Learn to follow the injection past the perimeter into the DB where the data actually left."
+    "summary": "Imperva alerts against the shop's search endpoint and unusual reads reported by the DB team arrived the same night. Work out whether anything got past the WAF, what the database and its host did and how much data is at risk."
   },
   {
     "slug": "azure-managed-identity-abuse",
-    "title": "Azure App-Registration Credential Abuse — the Quiet Secret-Add Behind a Cloud Data-Access Alert",
+    "title": "Microsoft Graph Security incident for svc-billing-connector",
     "difficulty": "advanced",
-    "summary": "An attacker appends a new client secret to an over-permissioned Entra app registration, then authenticates non-interactively to Graph and ARM to enumerate the subscription, grant itself a role, and read Key Vault secrets and Storage keys. The loud data-access alert traces back to one quiet 'Add service principal credentials' audit line — a legitimate Terraform rotation is the benign look-alike."
+    "summary": "An automation identity that normally runs only from the billing release pipeline began signing in from an unfamiliar address and reached Key Vault and Storage. Work out how that started, what it read and how far it went."
   },
   {
     "slug": "cicd-supply-chain",
-    "title": "Poisoned Pipeline — CI/CD Supply-Chain Compromise into the Cloud",
+    "title": "GuardDuty finding on the payments-api deployment role",
     "difficulty": "advanced",
-    "summary": "A compromised maintainer mints a PAT, registers an attacker-controlled self-hosted runner, and pushes a workflow change through a branch-protection override — then the run trades its GitHub OIDC token for an AWS deploy role and reads S3 and Secrets Manager from outside AWS, which is what GuardDuty finally catches. An approved PR editing the same workflow is the benign control."
+    "summary": "GuardDuty raised a high finding on the role the payments-api pipeline uses to deploy. Determine how the pipeline's cloud credentials were obtained, what changed in the repository and which cloud resources they reached."
   },
   {
     "slug": "ueba-compromised-account",
-    "title": "Behavioral Risk First — a UEBA-led Account-Compromise Hunt",
+    "title": "Sentinel risk score raised for a Finance manager",
     "difficulty": "intermediate",
-    "summary": "The investigation starts not from a signature alert but from a Sentinel UEBA risk score: impossible travel, a mass SharePoint download, and a new inbox-forwarding rule on one entity. Pivot from the anomaly into the Entra sign-in and O365 audit to confirm a real token-replay compromise — and contrast it with a benign impossible-travel anomaly (corporate VPN, approved travel) that scores high but is not an attack."
+    "summary": "Sentinel UEBA raised a Finance manager's risk score to high overnight, with no detection verdict and nothing blocked. Pivot from the score into the sign-in and audit telemetry and decide what the anomalies mean."
   },
   {
     "slug": "vishing-rmm",
-    "title": "Callback Vishing — RMM Install to Hands-on-Keyboard Discovery",
+    "title": "Falcon detection on a payments clerk's workstation (WKS-QB-047)",
     "difficulty": "intermediate",
-    "summary": "A caller posing as IT security talks a payments clerk into installing signed, legitimate AnyDesk, then runs AD discovery hands-on-keyboard. The binary is trusted and the signature is valid — the signal is the context: an unsolicited install right after an inbound call, an RMM the bank does not deploy. A sanctioned ScreenConnect support session is the benign control of the identical shape."
+    "summary": "CrowdStrike flagged a payments clerk's workstation minutes after the service desk logged a ticket for the same user. Determine whether the activity is sanctioned support, how it started and what to contain."
   },
   {
     "slug": "pam-vault-abuse",
-    "title": "PAM Vault Abuse — an Off-Hours Domain-Admin Checkout Used Outside PSM",
+    "title": "Night-time domain-admin checkout from CyberArk",
     "difficulty": "advanced",
-    "summary": "A CyberArk-vaulted domain-admin credential is retrieved off-hours with no dual-control and no change record, then replayed straight into servers — bypassing the monitored PSM proxy that policy requires. A privileged logon alone looks normal; the tell is the checkout record plus the credential used outside PSM. An approved break-glass checkout of the same account is the benign control."
+    "summary": "Sentinel flagged a domain-admin credential that an on-call engineer pulled from CyberArk in the middle of the night. Decide whether the checkout was legitimate, what the credential did next and how far it reached."
   },
   {
     "slug": "destructive-wiper",
-    "title": "Destructive Wiper — an Endpoint Bricked, and No Way to Pay for It Back",
+    "title": "Critical detection and unbootable machines at Vantage Industrial",
     "difficulty": "advanced",
-    "summary": "It looks ransomware-adjacent — mass file overwrites, shadow copies deleted, recovery disabled, event logs cleared — but there is no ransom note, no key, and no decryptor C2, because the goal is destruction, not extortion. Learn to tell a wiper from ransomware by the absence of any recovery path, and why the response is rebuild-from-backup rather than negotiate. A change-ticketed IT secure-wipe is the benign control."
+    "summary": "Falcon raised a critical detection on a Vantage Industrial workstation, and the service desk reports machines rebooting to no operating system. Establish what executed, how it got there, how far it spread and what recovery looks like."
   },
   {
     "slug": "s3-exfil-exposure",
-    "title": "Exposed Bucket — S3 Made Public, Then Emptied",
+    "title": "GuardDuty finding on MedCore's patient exports bucket",
     "difficulty": "intermediate",
-    "summary": "A leaked IAM key disables Block Public Access and rewrites the bucket policy to public, then bulk-downloads tens of thousands of objects — and GuardDuty raises anonymous-access and exfiltration findings. The config-change management events are the origin; the GetObject burst from an internet address is the blast radius. A backup service role reading the same bucket from inside AWS is the benign control."
+    "summary": "GuardDuty raised a high finding on a production bucket of regulated MedCore records that should never be public. Work out what changed, which credential was involved and how much left."
   },
   {
     "slug": "golden-saml",
-    "title": "Golden SAML — a Federation Token With No Matching AD FS Issuance",
+    "title": "Overnight federated sign-in for a Global Administrator",
     "difficulty": "expert",
-    "summary": "An attacker who owns the AD FS server steals the token-signing key and mints SAML assertions for privileged users straight to the cloud — no real logon at the identity provider. The defining tell is an absence: a federated sign-in accepted by Entra with no matching AD FS token-issuance event on-prem, and MFA satisfied by a claim already inside the token. A legitimate federated sign-in that does have its issuance record is the benign control."
+    "summary": "Sentinel flagged a federated sign-in from an external address overnight for a NexaCorp Global Administrator. Work out how the sign-in was authenticated, which identities are exposed and how far it reached."
   },
   {
     "slug": "gws-oauth-marketplace",
-    "title": "Consent, Not Credentials — a Malicious OAuth App in Google Workspace",
+    "title": "Sensitive-scope app grant alert at RocketStack",
     "difficulty": "intermediate",
-    "summary": "A user is phished into authorizing a broad-scope OAuth app; the consent issues an offline refresh token that reads their mailbox and exfiltrates Drive over the API — no password, MFA irrelevant, and it survives the password reset the help desk tries. The consent grant is the persistence; the API access is the impact. A narrow-scope, admin-allowlisted app the user consents to normally is the benign control."
+    "summary": "Google Workspace Alert Center flagged a third-party app granted sensitive access for a RocketStack user. Work out what the app accessed, whether the grant is legitimate and what contains it."
   },
   {
     "slug": "threat-intel-hunt",
-    "title": "Threat-Intel Hunt — From a Recorded Future IOC Set to a Live Beacon",
+    "title": "New intel list to check across the estate",
     "difficulty": "intermediate",
-    "summary": "This case opens with intelligence, not an alert: a Recorded Future risk-list update names a C2 domain, an IP and a malware hash tied to an active campaign. Sweep the estate and one workstation lights up — DNS to the C2, periodic proxy beacons, and the exact hash running on the host. Learn intel→sweep→confirm, and why a second host that matched a now-sinkholed indicator is a false hit, not a compromise."
+    "summary": "An intel provider pushed new network destinations and a file fingerprint linked to an active operation, and nothing has alarmed yet. Sweep the environment and decide which matching machines, if any, need action."
   },
   {
     "slug": "mobile-mdm-compromise",
-    "title": "Mobile in the Blind Spot — an Intune-Managed Phone Goes Rogue",
+    "title": "Intune non-compliance for a corporate Android phone",
     "difficulty": "intermediate",
-    "summary": "A smishing link leads to a sideloaded app and a rooted device; Intune's mobile-threat signal fires and the device flips non-compliant, yet corporate mail and files are still reached because the Entra sign-in shows a Conditional-Access gap — a non-compliant device getting success. The analyst reaches the verdict from Intune compliance + Entra sign-ins, not a host process tree. A phone that briefly went non-compliant for a pending OS update is the benign control."
+    "summary": "Intune marked a user's corporate Android phone non-compliant after a Mobile Threat Defense signal. Determine what happened to the device and whether access from it should be trusted."
   },
   {
     "slug": "gcp-sa-key-theft",
-    "title": "Minted Key — Service-Account Key Theft on GCP",
+    "title": "Two SCC findings on a data-pipeline service account",
     "difficulty": "advanced",
-    "summary": "A compromised developer identity mints a long-lived user-managed key on an over-permissioned service account, then the acting principal switches to that SA to read the datalake and Secret Manager — all from an external IP. The quiet CreateServiceAccountKey admin-activity line is the pivot; the data reads are the blast radius. A Terraform CI service account creating a key from inside the pipeline is the benign control."
+    "summary": "Security Command Center raised two low findings on a data-pipeline service account in RocketStack's production data project. Work out what happened to the account, what it touched and how far it reached."
   },
   {
     "slug": "macos-tcc-pkg",
-    "title": "macOS TCC Bypass — a Fake .pkg Rewrites the Privacy Database and Persists as a LaunchDaemon",
+    "title": "Critical Falcon detection on a product manager's MacBook",
     "difficulty": "intermediate",
-    "summary": "A fake meeting-app installer package runs a root postinstall script that rewrites the TCC privacy database to grant itself Full Disk Access and Screen Recording, then installs a LaunchDaemon for boot persistence and reads protected user data. The tells are the root install-script, the TCC.db manipulation and the daemon that survives reboot. A notarized, validly-signed .pkg with a normal per-user LaunchAgent is the benign control."
+    "summary": "Falcon flagged a product manager's MacBook a minute after a newly downloaded installer package was run. Work out what the installer did, which protected data it reached and whether anything remains."
   },
   {
     "slug": "email-bomb-helpdesk",
-    "title": "Email Bomb to Fake Help Desk — Quick Assist Takeover",
+    "title": "Remote-support session on an accounts payable workstation",
     "difficulty": "intermediate",
-    "summary": "Hundreds of individually-clean newsletter confirmations flood a mailbox in minutes; then a caller posing as IT offers to 'help stop the spam' and talks the overwhelmed user into launching Microsoft's own signed Quick Assist, and hands-on-keyboard discovery follows. The flood is the opening move, not the attack — a signed remote tool is not the signal, the unsolicited context is. A sanctioned Quick Assist session on a real ticket is the benign control. (Black Basta TTP.)"
+    "summary": "CrowdStrike flagged an accounts payable workstation where a built-in remote-support tool started and the session ran commands. Decide whether this was real IT support, how it started and what to contain."
   },
   {
     "slug": "ot-network-anomaly",
-    "title": "OT/ICS Intrusion — A Corporate Host Writes to a PLC (Network-Only Visibility)",
+    "title": "Suricata ICS alert for a production line PLC",
     "difficulty": "advanced",
-    "summary": "Seen only through passive network sensors (Zeek + Suricata) at the IT/OT boundary: a corporate-VLAN host starts speaking Modbus to production PLCs it never contacts, sweeps the controller range, and issues write function codes to a line controller. The discriminator is source identity + a Modbus WRITE from an unauthorized host versus the engineering station's normal read polling — the benign control on the same protocol, port and PLCs."
+    "summary": "A Suricata ICS alert fired at night for traffic to a production line controller, seen only through passive network sensors. Work out who sent it, what it did and how to scope a response with no plant-side endpoint agent."
   },
   {
     "slug": "bec-wire-fraud",
-    "title": "The CFO Who Never Called — a BEC Wire-Fraud Impersonation",
+    "title": "Urgent wire request to Accounts Payable",
     "difficulty": "intermediate",
-    "summary": "An urgent wire request appears to come from the CFO — a lookalike-domain email with a display-name spoof that fails SPF/DKIM/DMARC, reinforced by a deepfake voice-clone phone call. The teaching point is that this is impersonation, not a mailbox takeover: the real CFO account is untouched. The verdict comes from email authentication + the lookalike domain, not from any compromised internal account. A genuine CFO payment email that passes auth is the benign control."
+    "summary": "Defender for Office 365 flagged an urgent wire-transfer email to Accounts Payable that presents as the CFO, and Finance reported a phone call chasing the same payment. Decide whether the request is genuine before any money moves."
   }
 ];

@@ -12,6 +12,8 @@
 import type { TelemetryEvent, Severity, EventType, ExpectedVerdict } from "../types";
 import { assetsFor } from "../fabric";
 import { hashString } from "../rng";
+import { makeCtx } from "@/lib/logs/native/ctx";
+import { accountSid } from "@/lib/logs/native/sources/_sid";
 
 const VENDOR = "Windows Security";
 const NO_SID = "S-1-0-0";
@@ -50,11 +52,9 @@ function fqdnOf(c: WinCtx): string {
  *  company, one RID (>= 1100, above the built-ins) per account. A successful logon
  *  never carries the NULL SID S-1-0-0 as its target. */
 export function domainSidFor(companyId: string | undefined, sam: string): string {
-  const a = 1_000_000_000 + (hashString(`domsid1:${companyId ?? "local"}`) % 1_000_000_000);
-  const b = 1_000_000_000 + (hashString(`domsid2:${companyId ?? "local"}`) % 1_000_000_000);
-  const c = 1_000_000_000 + (hashString(`domsid3:${companyId ?? "local"}`) % 1_000_000_000);
-  const rid = 1100 + (hashString(`rid:${sam.toLowerCase()}`) % 8000);
-  return `S-1-5-21-${a}-${b}-${c}-${rid}`;
+  // The SID the native renderers give this account (logs/native/sources/_sid): an emitter-written
+  // SID and every product's derived SID for the same user are one value.
+  return accountSid(makeCtx(companyId ?? "nexacorp"), sam);
 }
 /** A logon session id as Windows prints it (hex LUID). */
 export function logonIdFor(seed: string): string {
@@ -63,6 +63,14 @@ export function logonIdFor(seed: string): string {
 /** A client ephemeral source port (Windows dynamic range 49152-65535). */
 function ephemeralPort(seed: string): string {
   return String(49152 + (hashString(`port:${seed}`) % 16383));
+}
+/**
+ * WorkstationName when the caller does not name the client machine: a local interactive / unlock /
+ * cached logon (2, 7, 11) names the computer itself; a network or RDP logon from an unnamed client
+ * logs "-" (Windows prints the client's NetBIOS name only when the client sent it).
+ */
+function workstationOf(host: string, logonType: number): string {
+  return logonType === 2 || logonType === 7 || logonType === 11 ? host.split(".")[0].toUpperCase() : "-";
 }
 function emailOf(c: WinCtx): string | undefined {
   if (c.userEmail !== undefined) return c.userEmail ?? undefined;
@@ -88,7 +96,7 @@ export function winFailedLogon(o: WinFailedLogonOpts): TelemetryEvent {
     severity: o.severity ?? "medium", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
     mitre_technique: o.mitre, mitre_tactic: o.tactic, geo: o.geo, incident_id: o.incidentId,
     authentication: { method: pkg, result: "failure", logon_type: logonType },
-    description: o.description ?? `4625 — logon failure for ${o.targetUser} on ${o.host} from ${o.srcIp}`,
+    description: o.description ?? `4625: logon failure for ${o.targetUser} on ${o.host} from ${o.srcIp}`,
     raw: {
       "winlog.event_id": "4625",
       "winlog.channel": "Security",
@@ -107,7 +115,7 @@ export function winFailedLogon(o: WinFailedLogonOpts): TelemetryEvent {
       "winlog.event_data.FailureReason": "%%2313",
       "winlog.event_data.LogonProcessName": "NtLmSsp ",
       "winlog.event_data.AuthenticationPackageName": pkg,
-      "winlog.event_data.WorkstationName": o.workstation ?? "WORKSTATION",
+      "winlog.event_data.WorkstationName": o.workstation ?? workstationOf(o.host, logonType),
       "winlog.event_data.IpAddress": o.srcIp ?? "-",
       "winlog.event_data.IpPort": o.srcPort ?? "0",
       "winlog.event_data.ProcessName": "-",
@@ -146,7 +154,7 @@ export function winLogon(o: WinLogonOpts): TelemetryEvent {
     severity: o.severity ?? "high", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
     mitre_technique: o.mitre, mitre_tactic: o.tactic, geo: o.geo, incident_id: o.incidentId,
     authentication: { method: pkg, result: "success", logon_type: logonType },
-    description: o.description ?? `4624 — successful logon for ${o.targetUser} on ${o.host} from ${o.srcIp}`,
+    description: o.description ?? `4624: successful logon for ${o.targetUser} on ${o.host} from ${o.srcIp}`,
     raw: {
       "winlog.event_id": "4624",
       "winlog.channel": "Security",
@@ -168,7 +176,7 @@ export function winLogon(o: WinLogonOpts): TelemetryEvent {
       "winlog.event_data.LmPackageName": o.lmPackage ?? (isNtlm ? "NTLM V2" : "-"),
       "winlog.event_data.KeyLength": o.keyLength ?? (isNtlm ? "128" : "0"),
       "winlog.event_data.ImpersonationLevel": "%%1833",
-      "winlog.event_data.WorkstationName": o.workstation ?? "WORKSTATION",
+      "winlog.event_data.WorkstationName": o.workstation ?? workstationOf(o.host, logonType),
       "winlog.event_data.IpAddress": o.srcIp ?? "-",
       // A remote logon always carries the client's ephemeral port; only a local
       // logon (no IpAddress) logs 0.
@@ -197,7 +205,7 @@ export function winShareAccess(o: WinShareAccessOpts): TelemetryEvent {
     id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: "file_access",
     severity: o.severity ?? "medium", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
-    description: o.description ?? `5140 — ${o.targetUser} connected to ${o.shareName} on ${o.host}`,
+    description: o.description ?? `5140: ${o.targetUser} connected to ${o.shareName} on ${o.host}`,
     raw: {
       "winlog.event_id": "5140",
       "winlog.channel": "Security",
@@ -241,7 +249,7 @@ export function winObjectAccess(o: WinObjectAccessOpts): TelemetryEvent {
     severity: o.severity ?? "medium", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
     file: { name, path: o.objectName },
-    description: o.description ?? `4663 — ${o.targetUser} read ${name} on ${o.host}`,
+    description: o.description ?? `4663: ${o.targetUser} read ${name} on ${o.host}`,
     raw: {
       "winlog.event_id": "4663",
       "winlog.channel": "Security",
@@ -283,7 +291,7 @@ export function winSpecialPrivileges(o: WinSpecialPrivsOpts): TelemetryEvent {
     id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: o.eventType ?? "privilege_escalation",
     severity: o.severity ?? "medium", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
     mitre_technique: o.mitre, mitre_tactic: o.tactic, geo: o.geo, incident_id: o.incidentId,
-    description: o.description ?? `4672 — special privileges assigned to ${o.targetUser} on ${o.host}`,
+    description: o.description ?? `4672: special privileges assigned to ${o.targetUser} on ${o.host}`,
     raw: {
       "winlog.event_id": "4672",
       "winlog.channel": "Security",
@@ -319,7 +327,7 @@ export function winSensitivePrivUse(o: WinSensitivePrivUseOpts): TelemetryEvent 
     id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: "privileged_operation",
     severity: o.severity ?? "high", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
-    description: o.description ?? `4673 — ${o.privilegeUsed ?? "SeImpersonatePrivilege"} used by ${o.processName} on ${o.host}`,
+    description: o.description ?? `4673: ${o.privilegeUsed ?? "SeImpersonatePrivilege"} used by ${o.processName} on ${o.host}`,
     raw: {
       "winlog.event_id": "4673",
       "winlog.channel": "Security",
@@ -359,7 +367,7 @@ export function winServiceInstall(o: WinServiceInstallOpts): TelemetryEvent {
     id: o.id, ts: o.ts, source: o.logSource ?? "ad", vendor: VENDOR, event_type: "service_install",
     severity: o.severity ?? "high", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
-    description: o.description ?? `7045 — service ${o.serviceName} installed on ${o.host} (${o.imagePath})`,
+    description: o.description ?? `7045: service ${o.serviceName} installed on ${o.host} (${o.imagePath})`,
     raw: {
       "winlog.event_id": "7045",
       "winlog.channel": "System",
@@ -395,7 +403,7 @@ export function winCredentialValidation(o: WinCredValidationOpts): TelemetryEven
     severity: o.severity ?? "low", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
     authentication: { method: "NTLM", result: ok ? "success" : "failure" },
-    description: o.description ?? `4776 — ${o.host} validated NTLM credentials for ${o.targetUser} from ${o.workstation}`,
+    description: o.description ?? `4776: ${o.host} validated NTLM credentials for ${o.targetUser} from ${o.workstation}`,
     raw: {
       "winlog.event_id": "4776",
       "winlog.channel": "Security",
@@ -434,7 +442,7 @@ export function winDetailedShareAccess(o: WinDetailedShareOpts): TelemetryEvent 
     id: o.id, ts: o.ts, source: o.logSource ?? "ad", vendor: VENDOR, event_type: "file_access",
     severity: o.severity ?? "medium", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
-    description: o.description ?? `5145 — ${o.targetUser} accessed ${o.relativeTargetName} on ${o.shareName} (${o.host})`,
+    description: o.description ?? `5145: ${o.targetUser} accessed ${o.relativeTargetName} on ${o.shareName} (${o.host})`,
     raw: {
       "winlog.event_id": "5145",
       "winlog.channel": "Security",
@@ -490,7 +498,7 @@ export function winProcessCreate(o: WinProcessCreateOpts): TelemetryEvent {
     severity: o.severity ?? "high", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
     process: { pid, name: o.processName, path: o.processPath, cmdline: o.cmdline, parent_name: o.parentPath.split(/[\\/]/).pop(), user: runAs },
-    description: o.description ?? `4688 — ${o.processName} created on ${o.host}`,
+    description: o.description ?? `4688: ${o.processName} created on ${o.host}`,
     raw: {
       "winlog.event_id": "4688",
       "winlog.channel": "Security",
@@ -538,7 +546,7 @@ export function winDirectoryAccess(o: WinDirectoryAccessOpts): TelemetryEvent {
     id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: "file_access",
     severity: o.severity ?? "high", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
     mitre_technique: o.mitre, mitre_tactic: o.tactic, geo: o.geo, incident_id: o.incidentId,
-    description: o.description ?? `4662 — directory-service object accessed on ${o.host} by ${o.targetUser}`,
+    description: o.description ?? `4662: directory-service object accessed on ${o.host} by ${o.targetUser}`,
     raw: {
       "winlog.event_id": "4662",
       "winlog.channel": "Security",
@@ -587,7 +595,7 @@ export function winKeyFileOp(o: WinKeyFileOpOpts): TelemetryEvent {
     severity: o.severity ?? "critical", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
     mitre_technique: o.mitre, mitre_tactic: o.tactic, geo: o.geo, incident_id: o.incidentId,
     ...(o.keyFilePath ? { file: { name: o.keyFilePath.split("\\").pop() ?? o.keyFilePath, path: o.keyFilePath, ...(o.exportedSha256 ? { sha256: o.exportedSha256 } : {}) } } : {}),
-    description: o.description ?? `5058 — key file operation on ${o.host} by ${o.targetUser}`,
+    description: o.description ?? `5058: key file operation on ${o.host} by ${o.targetUser}`,
     raw: {
       "winlog.event_id": "5058",
       "winlog.channel": "Security",
@@ -639,7 +647,7 @@ export function adfsTokenIssue(o: AdfsTokenIssueOpts): TelemetryEvent {
     mitre_technique: o.mitre, mitre_tactic: o.tactic, geo: o.geo, incident_id: o.incidentId,
     expected_verdict: o.expectedVerdict, ...(o.fpExplanation ? { fp_explanation: o.fpExplanation } : {}),
     authentication: { method: "Federation", result: "success" },
-    description: o.description ?? `AD FS 1200 — token issued for ${o.targetUser} to ${o.relyingParty} on ${o.host}`,
+    description: o.description ?? `AD FS 1200: token issued for ${o.targetUser} to ${o.relyingParty} on ${o.host}`,
     raw: {
       "winlog.event_id": "1200",
       "winlog.channel": "AD FS/Admin",
@@ -682,7 +690,7 @@ export function winAccountCreate(o: WinAccountCreateOpts): TelemetryEvent {
     id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: "account_create",
     severity: o.severity ?? "medium", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
     mitre_technique: o.mitre, mitre_tactic: o.tactic, geo: o.geo, incident_id: o.incidentId,
-    description: o.description ?? `4720 — ${o.subjectUser} created the account ${o.targetUser} on ${o.host}`,
+    description: o.description ?? `4720: ${o.subjectUser} created the account ${o.targetUser} on ${o.host}`,
     raw: {
       "winlog.event_id": "4720",
       "winlog.channel": "Security",
@@ -730,7 +738,7 @@ export function winGroupMemberAdd(o: WinGroupMemberAddOpts): TelemetryEvent {
     id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: "group_modify",
     severity: o.severity ?? "high", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
     mitre_technique: o.mitre, mitre_tactic: o.tactic, geo: o.geo, incident_id: o.incidentId,
-    description: o.description ?? `${eid} — ${o.subjectUser} added ${o.memberName} to ${o.groupName} on ${o.host}`,
+    description: o.description ?? `${eid}: ${o.subjectUser} added ${o.memberName} to ${o.groupName} on ${o.host}`,
     raw: {
       "winlog.event_id": eid,
       "winlog.channel": "Security",

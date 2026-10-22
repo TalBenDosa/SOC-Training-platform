@@ -1,5 +1,5 @@
 /**
- * Scenario pack: "Callback Vishing — RMM Install to Hands-on-Keyboard Discovery"
+ * Scenario pack: "Falcon detection on a payments clerk's workstation (WKS-QB-047)"
  *
  * INTERMEDIATE tier. A voice-phishing (vishing) initial-access intrusion of the
  * kind that has driven the largest 2023-2025 help-desk breaches. There is no
@@ -11,7 +11,7 @@
  *
  * The deliberately uncomfortable teaching point: AnyDesk.exe is signed by
  * AnyDesk GmbH and its signature verifies. Nothing about the binary is
- * malicious. What makes THIS an incident is entirely the context around it —
+ * malicious. What makes THIS an incident is entirely the context around it -
  * the install happened minutes after an unsolicited inbound call, AnyDesk is an
  * RMM the bank does not deploy (its sanctioned tool is ConnectWise
  * ScreenConnect, run only by internal technicians against user-opened tickets),
@@ -21,15 +21,17 @@
  *
  * The benign control (evt_vrmm_00) is the sanctioned mirror image: the bank's
  * own IT running its approved ScreenConnect RMM against a ticket the user opened
- * herself, operated by a known internal technician. Same structural shape — an
- * RMM ran and a remote session was established — opposite verdict. The signal is
+ * herself, operated by a known internal technician. Same structural shape, an
+ * RMM ran and a remote session was established, opposite verdict. The signal is
  * the context, not the tool.
  *
- * SOURCES: crowdstrike-falcon (the AnyDesk process, the discovery children, and
- * the alert-grade detection), zscaler-internet-access (the AnyDesk download, the
- * AnyDesk cloud-relay session, and the staged-tooling pull), servicenow-itsm
- * (the vishing help-desk ticket that gives the context), microsoft-defender-endpoint
- * (one corroborating network event on the AnyDesk relay connection).
+ * SOURCES: crowdstrike-falcon (the AnyDesk process, the discovery children, the
+ * staged MSI and the alert-grade detection), zscaler-internet-access (the AnyDesk
+ * download, the AnyDesk cloud-relay session, and the staged-tooling pull),
+ * servicenow-itsm (the vishing help-desk ticket that gives the context, and the
+ * sanctioned ScreenConnect ticket), microsoft-defender-endpoint (one corroborating
+ * network event on the AnyDesk relay connection), windows-security (the domain
+ * controller's view of the discovery commands).
  *
  * Covers T1566.004 (Spearphishing Voice), T1219 (Remote Access Software),
  * T1033 / T1087.002 / T1482 (discovery) and T1059.001 (PowerShell). It fills the
@@ -37,12 +39,13 @@
  *
  * NOTE: register in scenarios.ts with difficulty "intermediate" (the
  * ScenarioBundle itself carries no difficulty field). Company allowlist:
- * quantumbank — the profile running CrowdStrike Falcon + Zscaler + a Windows AD
+ * quantumbank, the profile running CrowdStrike Falcon + Zscaler + a Windows AD
  * estate.
  */
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
+import { winLogon, winDetailedShareAccess } from "@/lib/sim/emitters/windowsSecurity";
 
 export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): ScenarioBundle {
   const B = new Date("2026-06-16T13:20:00Z").getTime();
@@ -50,7 +53,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
   const MIN = 60_000;
   const SEC = 1_000;
 
-  // One incident — the whole vishing-to-discovery chain is a single case.
+  // One incident, the whole vishing-to-discovery chain is a single case.
   const INCIDENT = "inc:vrmm:1";
 
   // The bank, its AD estate, and the socially-engineered employee.
@@ -63,7 +66,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
     ip: "10.100.1.47",
   };
 
-  // The external operator's AnyDesk peer ID — surfaced as evidence in the ticket
+  // The external operator's AnyDesk peer ID, surfaced as evidence in the ticket
   // and the detection, not as an IOC (an AnyDesk ID is not a typed indicator).
   const operatorId = "793 041 268";
 
@@ -76,6 +79,11 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
   const relayIp = "51.83.131.52";
   const stagingIp = "45.86.230.14";
   const stagingUrl = `http://${stagingIp}/support/qb-agent.msi`;
+  const msiHash = makeSha256("vishing_rmm_qb_agent_msi_staged_2026");
+  const msiPath = `C:\\Users\\${victim.sam}\\AppData\\Local\\Temp\\qb-agent.msi`;
+  // The Invoke-WebRequest user agent on Windows 11 23H2 (build 22621 servicing line): one value everywhere.
+  const psUa = "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.22621.4391";
+  const dc = { host: "SRV-QB-ADMIN01", logonId: "0x3A4F1C2" };
 
   const falconSensor = "a17c9e2f4b8d40516c3a7e91d2b0f843";
   const reportId = "88213047";
@@ -91,13 +99,47 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
   const benignTech = "m.brandt";
   const benignTicket = "INC0092233";
   const scEnclave = "C:\\Program Files (x86)\\ScreenConnect Client (7a3f9c21b8d4e650)\\ScreenConnect.ClientService.exe";
+  const scClient = "C:\\Program Files (x86)\\ScreenConnect Client (7a3f9c21b8d4e650)\\ScreenConnect.WindowsClient.exe";
+  const scRelay = "instance-qb-relay.screenconnect.com";
 
   // The vishing help-desk ticket.
   const vishTicket = "INC0092571";
 
   const events: TelemetryEvent[] = [
     // ─────────────────────────────────────────────────────────────────────
-    // 0. BENIGN CONTROL — a SANCTIONED remote-support session.
+    // 0a. BENIGN CONTROL, the ticket: e.fischer opened INC0092233 herself through the
+    //     self-service portal; internal technician m.brandt is assigned.
+    // ─────────────────────────────────────────────────────────────────────
+    {
+      id: "evt_vrmm_00a_benign_ticket",
+      ts: "2026-06-15T14:03:00.000Z",
+      source: "soar",
+      vendor: "ServiceNow ITSM",
+      event_type: "policy_modification",
+      severity: "informational",
+      user_email: benign.email,
+      description: `Ticket ${benignTicket} opened through the self-service portal by ${benign.sam}, assigned to ${benignTech}.`,
+      raw: {
+        "servicenow.table": "incident",
+        "servicenow.number": benignTicket,
+        "servicenow.short_description": "Outlook keeps asking for credentials, remote assistance requested",
+        "servicenow.category": "Software",
+        "servicenow.contact_type": "Self-service",
+        "servicenow.priority": "4 - Low",
+        "servicenow.state": "In Progress",
+        "servicenow.caller_id": benign.email,
+        "servicenow.opened_by": benign.email,
+        "servicenow.assigned_to": benignTech,
+        "servicenow.assignment_group": "IT Service Desk",
+        "servicenow.cmdb_ci": benign.hostname,
+        "servicenow.work_notes": `Remote session on ${benign.hostname} to be run by ${benignTech} with the approved ScreenConnect client.`,
+        "servicenow.opened_at": "2026-06-15 14:03:00",
+        "servicenow.sys_created_on": "2026-06-15 14:03:00",
+      },
+    },
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 0. BENIGN CONTROL, a SANCTIONED remote-support session.
     //    The bank's approved RMM (ConnectWise ScreenConnect), run by a known
     //    internal technician against a ticket the user opened herself. Same
     //    "RMM ran + remote session" shape as the attack, opposite verdict.
@@ -114,16 +156,16 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       severity: "informational",
       expected_verdict: "fp",
       fp_explanation:
-        `The control case for the whole scenario. This is ALSO a signed remote-access tool running and establishing a remote session — structurally identical to the attack — yet entirely legitimate. Three things make it sanctioned: it is ConnectWise ScreenConnect, the RMM the bank actually deploys (its client is pre-installed under Program Files, not run from a user's Downloads folder); it is tied to ${benignTicket}, a ticket ${benign.sam} opened herself through the portal; and it is operated by a known internal technician (${benignTech}). Compare every one of those against the AnyDesk activity on ${victim.hostname}. A student who clears a remote-access tool because "it's signed and legitimate" will wrongly clear the attack too — the tool is the same class of thing; only the context differs.`,
+        `The control case for the whole scenario. This is ALSO a signed remote-access tool running and establishing a remote session, structurally identical to the attack, yet entirely legitimate. Three things make it sanctioned: it is ConnectWise ScreenConnect, the RMM the bank actually deploys (its client is pre-installed under Program Files, not run from a user's Downloads folder); it is tied to ${benignTicket}, a ticket ${benign.sam} opened herself through the portal; and it is operated by a known internal technician (${benignTech}). Compare every one of those against the AnyDesk activity on ${victim.hostname}. A student who clears a remote-access tool because "it's signed and legitimate" will wrongly clear the attack too, the tool is the same class of thing; only the context differs.`,
       description:
-        `The sanctioned ConnectWise ScreenConnect client on ${benign.hostname} started a remote-support session at 14:05 the previous afternoon and connected to relay.screenconnect.com. It maps to help-desk ticket ${benignTicket}, opened by the machine's own user, and the session was driven by internal technician ${benignTech}.`,
+        `The sanctioned ConnectWise ScreenConnect client service on ${benign.hostname} (installed under Program Files) started at 14:05 and connected to ${scRelay}.`,
       process: {
         name: "ScreenConnect.ClientService.exe",
         pid: 3120,
         path: scEnclave,
         parent_name: "services.exe",
         parent_pid: 728,
-        cmdline: `"${scEnclave}" "?e=Access&y=Guest&h=instance-qb.screenconnect.com&p=443"`,
+        cmdline: `"${scEnclave}" "?e=Access&y=Guest&h=${scRelay}&p=443"`,
         user: "NT AUTHORITY\\SYSTEM",
         integrity: "system",
         hash: { sha256: makeSha256("vishing_rmm_screenconnect_sanctioned_client_2026") },
@@ -136,14 +178,14 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
         "process.name": "ScreenConnect.ClientService.exe",
         "process.pid": "3120",
         "process.executable": scEnclave,
-        "process.command_line": `"${scEnclave}" "?e=Access&y=Guest&h=instance-qb.screenconnect.com&p=443"`,
+        "process.command_line": `"${scEnclave}" "?e=Access&y=Guest&h=${scRelay}&p=443"`,
         "process.parent.name": "services.exe",
         "process.parent.pid": "728",
         "process.code_signature.exists": true,
         "process.code_signature.trusted": true,
         "process.code_signature.subject_name": "ConnectWise, LLC",
         "process.integrity_level": "System",
-        "destination.domain": "relay.screenconnect.com",
+        "destination.domain": scRelay,
         "destination.port": "443",
         "user.name": `${domain}\\${benign.sam}`,
         "host.name": benign.hostname,
@@ -151,8 +193,80 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       },
     },
 
+    {
+      id: "evt_vrmm_00b_benign_client_session",
+      ts: "2026-06-15T14:05:25.000Z",
+      source: "edr",
+      vendor: "CrowdStrike Falcon",
+      event_type: "process_create",
+      hostname: benign.hostname,
+      user_email: benign.email,
+      src_ip: benign.ip,
+      severity: "informational",
+      description: `ScreenConnect.WindowsClient.exe started in ${benign.sam}'s session as a child of the ScreenConnect client service on ${benign.hostname}.`,
+      process: {
+        name: "ScreenConnect.WindowsClient.exe",
+        pid: 4296,
+        path: scClient,
+        parent_name: "ScreenConnect.ClientService.exe",
+        parent_pid: 3120,
+        cmdline: `"${scClient}" "RunRole" "7a3f9c21-b8d4-4e65-9a01-3c5d7e9f1b24" "User"`,
+        user: `${domain}\\${benign.sam}`,
+        integrity: "medium",
+        hash: { sha256: makeSha256("vishing_rmm_screenconnect_windowsclient_2026") },
+      },
+      raw: {
+        "crowdstrike.event_simpleName": "ProcessRollup2",
+        "crowdstrike.SensorId": falconSensor,
+        "crowdstrike.ComputerName": benign.hostname,
+        "crowdstrike.ParentBaseFileName": "ScreenConnect.ClientService.exe",
+        "event.action": "process_created",
+        "process.name": "ScreenConnect.WindowsClient.exe",
+        "process.pid": "4296",
+        "process.executable": scClient,
+        "process.command_line": `"${scClient}" "RunRole" "7a3f9c21-b8d4-4e65-9a01-3c5d7e9f1b24" "User"`,
+        "process.parent.name": "ScreenConnect.ClientService.exe",
+        "process.parent.pid": "3120",
+        "process.code_signature.exists": true,
+        "process.code_signature.trusted": true,
+        "process.code_signature.subject_name": "ConnectWise, LLC",
+        "process.integrity_level": "Medium",
+        "user.name": `${domain}\\${benign.sam}`,
+        "host.name": benign.hostname,
+        "host.ip": benign.ip,
+      },
+    },
+    {
+      id: "evt_vrmm_00c_benign_relay",
+      ts: "2026-06-15T14:05:35.000Z",
+      source: "proxy",
+      vendor: "Zscaler Internet Access",
+      event_type: "net_connection",
+      hostname: benign.hostname,
+      user_email: benign.email,
+      src_ip: benign.ip,
+      dst_ip: "20.82.41.113",
+      dst_port: 443,
+      protocol: "tcp",
+      severity: "informational",
+      description: `${benign.hostname} connected to the ScreenConnect cloud instance ${scRelay} over TCP/443.`,
+      raw: {
+        "zscaler.action": "Allowed",
+        "zscaler.client_app": "ScreenConnect",
+        "zscaler.login": benign.sam,
+        "zscaler.hostname": scRelay,
+        "zscaler.urlcategory": "Remote Access Tools",
+        "zscaler.appname": "ConnectWise ScreenConnect",
+        "zscaler.cip": benign.ip,
+        "zscaler.sip": "20.82.41.113",
+        "zscaler.serverip": "20.82.41.113",
+        "user.name": benign.sam,
+        "user.email": benign.email,
+      },
+    },
+
     // ─────────────────────────────────────────────────────────────────────
-    // 1. THE VISHING TICKET — the help-desk record that gives the context.
+    // 1. THE VISHING TICKET, the help-desk record that gives the context.
     //    An inbound phone contact for p.roth requesting installation of a
     //    remote-support tool, referencing an external session ID (T1566.004).
     // ─────────────────────────────────────────────────────────────────────
@@ -167,7 +281,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       mitre_tactic: "Initial Access",
       user_email: victim.email,
       description:
-        `Ticket ${vishTicket} was logged as a phone contact for ${victim.sam}: the caller was told by someone identifying as IT security to install a remote-support tool so the "account could be secured", and asked the service desk to whitelist it. The package named is AnyDesk — not on the bank's approved software list — and the record notes an external session ID.`,
+        `Ticket ${vishTicket} was logged as a phone contact for ${victim.sam}: the caller was told by someone identifying as IT security to install a remote-support tool so the "account could be secured", and asked the service desk to whitelist it. The package named is AnyDesk, not on the bank's approved software list, and the record notes an external session ID.`,
       raw: {
         "servicenow.table": "incident",
         "servicenow.number": vishTicket,
@@ -184,6 +298,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
         "servicenow.caller_id": victim.email,
         "servicenow.opened_by": "servicedesk@quantumbank.ch",
         "servicenow.assignment_group": "IT Service Desk",
+        "servicenow.work_notes": `Caller read out remote session ID ${operatorId} when asked which connection to allow. AnyDesk is not on the approved software list.`,
         "servicenow.u_package_name": "AnyDesk",
         "servicenow.u_package_version": "8.0.11",
         "servicenow.u_identity_verification": "Caller name matched directory; no callback to a listed number performed",
@@ -194,7 +309,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
     },
 
     // ─────────────────────────────────────────────────────────────────────
-    // 2. THE DOWNLOAD — AnyDesk pulled from the vendor's own CDN through the
+    // 2. THE DOWNLOAD, AnyDesk pulled from the vendor's own CDN through the
     //    proxy. A legitimate, allowed download; the tell is what asks for it
     //    and when, not the file itself.
     // ─────────────────────────────────────────────────────────────────────
@@ -230,7 +345,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
     },
 
     // ─────────────────────────────────────────────────────────────────────
-    // 3. THE INSTALL / RUN — AnyDesk.exe executes from Downloads. Falcon
+    // 3. THE INSTALL / RUN, AnyDesk.exe executes from Downloads. Falcon
     //    records it as a fully signed, trusted binary (AnyDesk GmbH). This is
     //    the crux: legitimate tool, run in an illegitimate context (T1219).
     // ─────────────────────────────────────────────────────────────────────
@@ -247,7 +362,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       mitre_technique: "T1219",
       mitre_tactic: "Command and Control",
       description:
-        `${victim.sam} launched AnyDesk.exe from the Downloads folder on ${victim.hostname}. Falcon reports the binary as signed and trusted (AnyDesk GmbH). The bank's estate does not otherwise carry AnyDesk — its approved remote tool is ScreenConnect.`,
+        `${victim.sam} launched AnyDesk.exe from the Downloads folder on ${victim.hostname}. Falcon reports the binary as signed and trusted (AnyDesk GmbH). The bank's estate does not otherwise carry AnyDesk, its approved remote tool is ScreenConnect.`,
       process: {
         name: "AnyDesk.exe",
         pid: 6412,
@@ -282,12 +397,95 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
     },
 
     // ─────────────────────────────────────────────────────────────────────
-    // 4. THE RELAY SESSION — AnyDesk connects out to its cloud relay, opening
+    // 4. MDE RELAY CONNECTION (endpoint side, first), Defender for Endpoint independently records the
+    //    same AnyDesk relay connection from the endpoint side.
+    // ─────────────────────────────────────────────────────────────────────
+    {
+      id: "evt_vrmm_04_mde_relay",
+      ts: T(5 * MIN),
+      source: "edr",
+      vendor: "Microsoft Defender for Endpoint",
+      event_type: "net_connection",
+      hostname: victim.hostname,
+      user_email: victim.email,
+      src_ip: victim.ip,
+      dst_ip: relayIp,
+      dst_port: 443,
+      protocol: "tcp",
+      severity: "medium",
+      description:
+        `Defender for Endpoint logged a successful outbound connection from AnyDesk.exe on ${victim.hostname} to ${relayHost} (${relayIp}) on port 443.`,
+      process: {
+        name: "AnyDesk.exe",
+        pid: 6412,
+        path: anydeskPath,
+        user: `${domain}\\${victim.sam}`,
+        integrity: "medium",
+        hash: { sha256: anydeskHash },
+      },
+      raw: {
+        "Timestamp": T(5 * MIN),
+        "DeviceName": `${victim.hostname.toLowerCase()}.quantumbank.ch`,
+        "ActionType": "ConnectionSuccess",
+        "RemoteUrl": relayHost,
+        "RemoteIP": relayIp,
+        "RemotePort": 443,
+        "Protocol": "Tcp",
+        "InitiatingProcessFileName": "AnyDesk.exe",
+        "InitiatingProcessCommandLine": `"${anydeskPath}"`,
+        "InitiatingProcessFolderPath": anydeskPath,
+        "InitiatingProcessAccountName": victim.sam,
+        "InitiatingProcessAccountDomain": domain,
+        "InitiatingProcessSHA256": anydeskHash,
+        "ReportId": reportId,
+        "mde.DetectionSource": "EDR",
+        "mde.Category": "SuspiciousActivity",
+      },
+    },
+
+    // 4b. AnyDesk's own trace file is written under ProgramData as the incoming session starts.
+    {
+      id: "evt_vrmm_04b_anydesk_trace",
+      ts: T(5 * MIN + 10 * SEC),
+      source: "edr",
+      vendor: "CrowdStrike Falcon",
+      event_type: "file_create",
+      hostname: victim.hostname,
+      user_email: victim.email,
+      src_ip: victim.ip,
+      severity: "medium",
+      description: `AnyDesk.exe wrote C:\\ProgramData\\AnyDesk\\connection_trace.txt on ${victim.hostname}.`,
+      process: {
+        name: "AnyDesk.exe",
+        pid: 6412,
+        path: anydeskPath,
+        parent_name: "explorer.exe",
+        parent_pid: 4180,
+        user: `${domain}\\${victim.sam}`,
+        integrity: "medium",
+        hash: { sha256: anydeskHash },
+      },
+      file: { name: "connection_trace.txt", path: "C:\\ProgramData\\AnyDesk\\connection_trace.txt" },
+      raw: {
+        "crowdstrike.event_simpleName": "FileWritten",
+        "crowdstrike.SensorId": falconSensor,
+        "crowdstrike.ComputerName": victim.hostname,
+        "crowdstrike.ContextBaseFileName": "AnyDesk.exe",
+        "crowdstrike.RawProcessId": "6412",
+        "file.path": "C:\\ProgramData\\AnyDesk\\connection_trace.txt",
+        "file.name": "connection_trace.txt",
+        "user.name": `${domain}\\${victim.sam}`,
+        "host.name": victim.hostname,
+      },
+    },
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 5. THE SAME RELAY SESSION (proxy side, logged on completion), AnyDesk connects out to its cloud relay, opening
     //    the hands-on channel for the external operator.
     // ─────────────────────────────────────────────────────────────────────
     {
-      id: "evt_vrmm_04_anydesk_relay",
-      ts: T(5 * MIN),
+      id: "evt_vrmm_05_anydesk_relay",
+      ts: T(5 * MIN + 30 * SEC),
       source: "proxy",
       vendor: "Zscaler Internet Access",
       event_type: "net_connection",
@@ -299,7 +497,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       protocol: "tcp",
       severity: "medium",
       description:
-        `AnyDesk on ${victim.hostname} established an outbound session to the AnyDesk cloud relay ${relayHost} (${relayIp}) over TCP/443 — the tunnel through which the remote operator drives the keyboard.`,
+        `The Zscaler proxy logged an allowed session from ${victim.hostname} to the AnyDesk cloud relay ${relayHost} (${relayIp}) over TCP/443.`,
       raw: {
         "zscaler.action": "Allowed",
         "zscaler.client_app": "AnyDesk",
@@ -317,55 +515,49 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       },
     },
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 5. MDE CORROBORATION — Defender for Endpoint independently records the
-    //    same AnyDesk relay connection from the endpoint side.
-    // ─────────────────────────────────────────────────────────────────────
+    // 5b. The operator's shell: cmd.exe started by AnyDesk.exe (parent of the discovery commands below).
     {
-      id: "evt_vrmm_05_mde_relay_corroboration",
-      ts: T(5 * MIN + 30 * SEC),
+      id: "evt_vrmm_05b_cmd_spawn",
+      ts: T(6 * MIN + 50 * SEC),
       source: "edr",
-      vendor: "Microsoft Defender for Endpoint",
-      event_type: "net_connection",
+      vendor: "CrowdStrike Falcon",
+      event_type: "process_create",
       hostname: victim.hostname,
       user_email: victim.email,
       src_ip: victim.ip,
-      dst_ip: relayIp,
-      dst_port: 443,
-      protocol: "tcp",
       severity: "medium",
-      description:
-        `Defender for Endpoint logged a successful outbound connection from AnyDesk.exe on ${victim.hostname} to ${relayHost} (${relayIp}) on port 443 — the same relay session, seen from the host telemetry.`,
+      description: `AnyDesk.exe started cmd.exe on ${victim.hostname}.`,
       process: {
-        name: "AnyDesk.exe",
-        pid: 6412,
-        path: anydeskPath,
+        name: "cmd.exe",
+        pid: 6720,
+        path: "C:\\Windows\\System32\\cmd.exe",
+        parent_name: "AnyDesk.exe",
+        parent_pid: 6412,
+        cmdline: "cmd.exe",
         user: `${domain}\\${victim.sam}`,
         integrity: "medium",
-        hash: { sha256: anydeskHash },
       },
       raw: {
-        "Timestamp": T(5 * MIN + 30 * SEC),
-        "DeviceName": `${victim.hostname.toLowerCase()}.quantumbank.ch`,
-        "ActionType": "ConnectionSuccess",
-        "RemoteUrl": relayHost,
-        "RemoteIP": relayIp,
-        "RemotePort": 443,
-        "Protocol": "Tcp",
-        "InitiatingProcessFileName": "AnyDesk.exe",
-        "InitiatingProcessCommandLine": `"AnyDesk.exe"`,
-        "InitiatingProcessFolderPath": anydeskPath,
-        "InitiatingProcessAccountName": victim.sam,
-        "InitiatingProcessAccountDomain": domain,
-        "InitiatingProcessSHA256": anydeskHash,
-        "ReportId": reportId,
-        "mde.DetectionSource": "EDR",
-        "mde.Category": "SuspiciousActivity",
+        "crowdstrike.event_simpleName": "ProcessRollup2",
+        "crowdstrike.SensorId": falconSensor,
+        "crowdstrike.ComputerName": victim.hostname,
+        "crowdstrike.ParentBaseFileName": "AnyDesk.exe",
+        "event.action": "process_created",
+        "process.name": "cmd.exe",
+        "process.pid": "6720",
+        "process.executable": "C:\\Windows\\System32\\cmd.exe",
+        "process.command_line": "cmd.exe",
+        "process.parent.name": "AnyDesk.exe",
+        "process.parent.pid": "6412",
+        "process.integrity_level": "Medium",
+        "user.name": `${domain}\\${victim.sam}`,
+        "host.name": victim.hostname,
+        "host.ip": victim.ip,
       },
     },
 
     // ─────────────────────────────────────────────────────────────────────
-    // 6. DISCOVERY #1 — whoami /all. The operator's first move once on the
+    // 6. DISCOVERY #1, whoami /all. The operator's first move once on the
     //    keyboard: who am I and what do I hold (T1033).
     // ─────────────────────────────────────────────────────────────────────
     {
@@ -381,7 +573,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       mitre_technique: "T1033",
       mitre_tactic: "Discovery",
       description:
-        `On ${victim.hostname}, AnyDesk.exe spawned cmd.exe which ran "whoami /all" — an interactive enumeration of the current account's identity, groups and privileges, spawned by the remote-access tool rather than by the user's shell.`,
+        `On ${victim.hostname}, AnyDesk.exe spawned cmd.exe which ran "whoami /all", an interactive enumeration of the current account's identity, groups and privileges, spawned by the remote-access tool rather than by the user's shell.`,
       process: {
         name: "whoami.exe",
         pid: 6890,
@@ -412,7 +604,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
     },
 
     // ─────────────────────────────────────────────────────────────────────
-    // 7. DISCOVERY #2 — net group "Domain Admins" /domain. Enumerating the
+    // 7. DISCOVERY #2, net group "Domain Admins" /domain. Enumerating the
     //    privileged accounts in the directory (T1087.002).
     // ─────────────────────────────────────────────────────────────────────
     {
@@ -428,7 +620,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       mitre_technique: "T1087.002",
       mitre_tactic: "Discovery",
       description:
-        `cmd.exe on ${victim.hostname} ran 'net group "Domain Admins" /domain', listing the members of the domain's most privileged group — reconnaissance a payments clerk's workstation has no routine reason to perform.`,
+        `cmd.exe on ${victim.hostname} ran 'net group "Domain Admins" /domain', listing the members of the domain's most privileged group, reconnaissance a payments clerk's workstation has no routine reason to perform.`,
       process: {
         name: "net.exe",
         pid: 7024,
@@ -458,8 +650,22 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       },
     },
 
+    // 8b. THE DOMAIN CONTROLLER'S VIEW of the discovery: p.roth's network logon from WKS-QB-047
+    //     and the SAMR / Netlogon named-pipe access that net.exe and nltest.exe produce.
+    winLogon({
+      companyId: "quantumbank", id: "evt_vrmm_08b_dc_logon", ts: T(8 * MIN + 5 * SEC), host: dc.host, targetUser: victim.sam,
+      domain, srcIp: victim.ip, workstation: victim.hostname, logonType: 3, authPackage: "Kerberos", logonId: dc.logonId,
+      severity: "informational", incidentId: INCIDENT,
+      description: `4624 on ${dc.host}: network logon (type 3, Kerberos) for ${victim.sam} from ${victim.hostname} (${victim.ip}).`,
+    }),
+    winDetailedShareAccess({
+      companyId: "quantumbank", id: "evt_vrmm_08c_dc_samr", ts: T(8 * MIN + 8 * SEC), host: dc.host, targetUser: victim.sam,
+      domain, srcIp: victim.ip, shareName: "\\\\*\\IPC$", relativeTargetName: "samr", accessMask: "0x12019f", accessList: "%%1541 %%4416 %%4417",
+      subjectLogonId: dc.logonId, severity: "medium", incidentId: INCIDENT,
+      description: `5145 on ${dc.host}: ${victim.sam} from ${victim.ip} opened the samr named pipe on IPC$.`,
+    }),
     // ─────────────────────────────────────────────────────────────────────
-    // 8. DISCOVERY #3 — nltest /domain_trusts. Mapping the domain trust
+    // 8. DISCOVERY #3, nltest /domain_trusts. Mapping the domain trust
     //    relationships to plan onward movement (T1482).
     // ─────────────────────────────────────────────────────────────────────
     {
@@ -475,7 +681,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       mitre_technique: "T1482",
       mitre_tactic: "Discovery",
       description:
-        `cmd.exe on ${victim.hostname} ran "nltest /domain_trusts /all_trusts", enumerating the domain's trust relationships — an operator mapping the environment beyond the single host.`,
+        `cmd.exe on ${victim.hostname} ran "nltest /domain_trusts /all_trusts", enumerating the domain's trust relationships, an operator mapping the environment beyond the single host.`,
       process: {
         name: "nltest.exe",
         pid: 7188,
@@ -505,8 +711,15 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       },
     },
 
+    winDetailedShareAccess({
+      companyId: "quantumbank", id: "evt_vrmm_08d_dc_netlogon", ts: T(9 * MIN + 5 * SEC), host: dc.host, targetUser: victim.sam,
+      domain, srcIp: victim.ip, shareName: "\\\\*\\IPC$", relativeTargetName: "netlogon", accessMask: "0x12019f", accessList: "%%1541 %%4416 %%4417",
+      subjectLogonId: dc.logonId, severity: "medium", incidentId: INCIDENT,
+      description: `5145 on ${dc.host}: ${victim.sam} from ${victim.ip} opened the netlogon named pipe on IPC$.`,
+    }),
+
     // ─────────────────────────────────────────────────────────────────────
-    // 9. STAGING — an encoded PowerShell fetches follow-on tooling from an
+    // 9. STAGING, an encoded PowerShell fetches follow-on tooling from an
     //    external IP, spawned by the AnyDesk session (T1059.001).
     // ─────────────────────────────────────────────────────────────────────
     {
@@ -522,7 +735,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       mitre_technique: "T1059.001",
       mitre_tactic: "Execution",
       description:
-        `AnyDesk.exe spawned a hidden-window PowerShell on ${victim.hostname} that used Invoke-WebRequest to pull qb-agent.msi from ${stagingIp} into the user's Temp folder — the operator staging follow-on tooling.`,
+        `AnyDesk.exe spawned a hidden-window PowerShell on ${victim.hostname} that used Invoke-WebRequest to pull qb-agent.msi from ${stagingIp} into the user's Temp folder, the operator staging follow-on tooling.`,
       process: {
         name: "powershell.exe",
         pid: 7460,
@@ -552,8 +765,45 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       },
     },
 
+    // 9b. The MSI lands in the user's Temp folder, written by the PowerShell process.
+    {
+      id: "evt_vrmm_09b_msi_written",
+      ts: T(12 * MIN + 18 * SEC),
+      source: "edr",
+      vendor: "CrowdStrike Falcon",
+      event_type: "file_create",
+      hostname: victim.hostname,
+      user_email: victim.email,
+      src_ip: victim.ip,
+      severity: "high",
+      description: `powershell.exe wrote qb-agent.msi (2,734,080 bytes) to the Temp folder of ${victim.sam} on ${victim.hostname}.`,
+      process: {
+        name: "powershell.exe",
+        pid: 7460,
+        path: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        parent_name: "AnyDesk.exe",
+        parent_pid: 6412,
+        user: `${domain}\\${victim.sam}`,
+        integrity: "medium",
+      },
+      file: { name: "qb-agent.msi", path: msiPath, sha256: msiHash, size: 2734080 },
+      raw: {
+        "crowdstrike.event_simpleName": "FileWritten",
+        "crowdstrike.SensorId": falconSensor,
+        "crowdstrike.ComputerName": victim.hostname,
+        "crowdstrike.ContextBaseFileName": "powershell.exe",
+        "crowdstrike.RawProcessId": "7460",
+        "file.path": msiPath,
+        "file.name": "qb-agent.msi",
+        "file.size": "2734080",
+        "file.hash.sha256": msiHash,
+        "user.name": `${domain}\\${victim.sam}`,
+        "host.name": victim.hostname,
+      },
+    },
+
     // ─────────────────────────────────────────────────────────────────────
-    // 10. STAGING TRAFFIC — the proxy records the qb-agent.msi pull from the
+    // 10. STAGING TRAFFIC, the proxy records the qb-agent.msi pull from the
     //     external staging host over HTTP.
     // ─────────────────────────────────────────────────────────────────────
     {
@@ -569,8 +819,8 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       dst_port: 80,
       severity: "high",
       description:
-        `Zscaler recorded a PowerShell user-agent pulling qb-agent.msi from ${stagingIp} over HTTP at 13:32 — a raw-IP host with no category, fetched by the same workstation moments after the PowerShell launched.`,
-      network: { url: stagingUrl, domain: stagingIp, method: "GET", status: 200, bytes_in: 2734080, user_agent: "WindowsPowerShell/5.1.19041.4046" },
+        `Zscaler recorded a PowerShell user-agent pulling qb-agent.msi from ${stagingIp} over HTTP at 13:32, a raw-IP host with no category.`,
+      network: { url: stagingUrl, domain: stagingIp, method: "GET", status: 200, bytes_in: 2734080, user_agent: psUa },
       raw: {
         "zscaler.action": "Allowed",
         "zscaler.login": victim.sam,
@@ -579,7 +829,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
         "zscaler.urlcategory": "Miscellaneous or Unknown",
         "zscaler.reqmethod": "GET",
         "zscaler.respcode": 200,
-        "zscaler.useragent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) WindowsPowerShell/5.1.19041.4046",
+        "zscaler.useragent": psUa,
         "zscaler.cip": victim.ip,
         "zscaler.sip": stagingIp,
         "zscaler.serverip": stagingIp,
@@ -589,7 +839,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
     },
 
     // ─────────────────────────────────────────────────────────────────────
-    // 11. THE DETECTION — Falcon raises the alert-grade detection that opened
+    // 11. THE DETECTION, Falcon raises the alert-grade detection that opened
     //     the ticket, tying the unmanaged RMM to the hands-on discovery.
     //     is_detection + edr_scope "hybrid" (host process tree AND the ITSM /
     //     download context).
@@ -609,7 +859,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       is_detection: true,
       edr_scope: "hybrid",
       description:
-        `Falcon raised a High detection on ${victim.hostname}: an unmanaged remote-access tool (AnyDesk), run from a user Downloads folder and driven by external session ${operatorId}, spawning cmd.exe, net.exe, nltest.exe and PowerShell in quick succession — a remote operator enumerating the domain and staging tooling.`,
+        `Falcon raised a High detection on ${victim.hostname}: an unmanaged remote-access tool (AnyDesk), run from a user Downloads folder and driven by external session ${operatorId}, spawning cmd.exe, net.exe, nltest.exe and PowerShell in quick succession, a remote operator enumerating the domain and staging tooling.`,
       process: {
         name: "AnyDesk.exe",
         pid: 6412,
@@ -643,21 +893,22 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
     },
   ];
 
-  // Every event belongs to the one vishing-RMM incident.
+  // Every event belongs to the one vishing-RMM incident; the EDR console splits it into one case per
+  // endpoint, so the sanctioned ScreenConnect control on WKS-QB-061 opens as its own tree.
   for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {
       type: "sha256",
-      value: anydeskHash, // the AnyDesk binary — a legitimate signed tool, IOC of THIS activity
+      value: anydeskHash, // the AnyDesk binary, a legitimate signed tool, IOC of THIS activity
       first_seen: T(4 * MIN),
       last_seen: T(14 * MIN),
       reputation: "unknown",
-      tags: ["remote-access-tool", "unmanaged", "signed-binary"],
+      tags: ["remote-access-tool", "signed-binary"],
     },
     {
       type: "domain",
-      value: downloadHost, // download.anydesk.com — where the tool was fetched
+      value: downloadHost, // download.anydesk.com, where the tool was fetched
       first_seen: T(3 * MIN),
       last_seen: T(3 * MIN),
       reputation: "unknown",
@@ -677,19 +928,27 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       first_seen: T(12 * MIN),
       last_seen: T(12 * MIN + 20 * SEC),
       reputation: "malicious",
-      tags: ["external", "tool-staging", "raw-ip-host"],
+      tags: ["external", "raw-ip-host"],
+    },
+    {
+      type: "sha256",
+      value: msiHash, // qb-agent.msi staged in the user's Temp folder
+      first_seen: T(12 * MIN + 18 * SEC),
+      last_seen: T(12 * MIN + 18 * SEC),
+      reputation: "malicious",
+      tags: ["staged-tooling", "msi"],
     },
     {
       type: "user",
-      value: victim.sam, // p.roth — the socially-engineered account
+      value: victim.sam, // p.roth, the socially-engineered account
       first_seen: T(0),
       last_seen: T(14 * MIN),
       reputation: "suspicious",
-      tags: ["social-engineering-target", "hands-on-keyboard"],
+      tags: ["affected-user"],
     },
     {
       type: "host",
-      value: victim.hostname, // WKS-QB-047 — the affected workstation
+      value: victim.hostname, // WKS-QB-047, the affected workstation
       first_seen: T(0),
       last_seen: T(14 * MIN),
       reputation: "unknown",
@@ -705,7 +964,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       hint: "Look at the contact_type on the ticket, who initiated the call, and the three-minute gap before the download.",
       kind: "single",
       options: [
-        { value: "vishing_call", label: "An inbound call impersonating IT security talked p.roth into downloading and running AnyDesk and sharing the session — the caller drove the install" },
+        { value: "vishing_call", label: "An inbound call impersonating IT security talked p.roth into downloading and running AnyDesk and sharing the session, the caller drove the install" },
         { value: "phishing_link", label: "p.roth clicked a link in a phishing email styled as an IT security notice, which silently pulled AnyDesk down and installed it in the background" },
         { value: "exploit", label: "The operator exploited an unpatched remote-service vulnerability on the workstation to drop AnyDesk remotely over SMB, with no user involvement at all" },
         { value: "insider", label: "p.roth is a malicious insider who installed AnyDesk deliberately and logged a cover-story ticket to give an outside party covert access" },
@@ -713,29 +972,29 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       answer: "vishing_call",
       xp: 55,
       explanation:
-        "The ticket is the context that makes sense of everything after it: contact_type is Phone, the caller is p.roth reporting that 'an IT security representative phoned', and she was 'directed to download AnyDesk and share the connection'. Three minutes later the download appears, then the install. That is callback/voice-phishing (vishing) initial access (T1566.004) — the operator never touched the machine directly; they talked the employee into opening the door. (b) is wrong: the download is an explicit user-driven GET of AnyDesk.exe, and nothing silent or email-borne appears. (c) is wrong: there is no exploit or remote drop — the tool is downloaded and launched interactively by the user. (d) misreads a socially-engineered victim as an insider; the ticket shows she was deceived by an inbound caller, not acting against the bank.",
+        "The ticket is the context that makes sense of everything after it: contact_type is Phone, the caller is p.roth reporting that 'an IT security representative phoned', and she was 'directed to download AnyDesk and share the connection'. Three minutes later the download appears, then the install. That is callback/voice-phishing (vishing) initial access (T1566.004), the operator never touched the machine directly; they talked the employee into opening the door. (b) is wrong: the download is an explicit user-driven GET of AnyDesk.exe, and nothing silent or email-borne appears. (c) is wrong: there is no exploit or remote drop, the tool is downloaded and launched interactively by the user. (d) misreads a socially-engineered victim as an insider; the ticket shows she was deceived by an inbound caller, not acting against the bank.",
     },
     {
       id: "q2",
       prompt:
-        "Falcon reports AnyDesk.exe as signed and trusted — process.code_signature.trusted: true, subject 'AnyDesk Software GmbH'. The binary is a genuine, legitimate remote-access product. So why is it correct to treat this as malicious?",
+        "Falcon reports AnyDesk.exe as signed and trusted, process.code_signature.trusted: true, subject 'AnyDesk Software GmbH'. The binary is a genuine, legitimate remote-access product. So why is it correct to treat this as malicious?",
       hint: "A tool is not the same as its use. Ask what is different here versus the ScreenConnect session in evt_vrmm_00.",
       kind: "single",
       options: [
         { value: "context", label: "The malice is the context: an RMM the bank does not deploy, run from Downloads right after an unsolicited call, driven by an external session ID, then followed by domain enumeration" },
         { value: "hash_bad", label: "The SHA256 matches a known-malicious hash in the threat-intel feed, so despite the valid AnyDesk signature the binary on disk is confirmed to be a repackaged, trojanized installer build" },
-        { value: "forged_sig", label: "The code signature is counterfeit — the attackers cloned AnyDesk Software GmbH's certificate details, and Falcon marking it 'trusted' is a signature-validation failure on the sensor" },
+        { value: "forged_sig", label: "The code signature is counterfeit, the attackers cloned AnyDesk Software GmbH's certificate details, and Falcon marking it 'trusted' is a signature-validation failure on the sensor" },
         { value: "any_rmm", label: "Any remote-access tool running on an endpoint is malicious by definition, so the verdict rests on the RMM being present and does not depend on the surrounding events" },
       ],
       answer: "context",
       xp: 70,
       explanation:
-        "This is the whole lesson. A signed, legitimate binary tells you the file is what it claims to be — it says nothing about whether its use is authorised. Every signal that matters here is contextual: AnyDesk is not the bank's deployed RMM (ScreenConnect is), it was run from a user's Downloads folder rather than a managed install path, it started minutes after an inbound 'IT security' call, it is driven by an external operator ID, and within minutes it spawns whoami, net group \"Domain Admins\" and nltest. (b) invents intel that is not present — the binary is the real, clean AnyDesk. (c) is refuted by the record: the signature is genuinely trusted, not counterfeit. (d) over-corrects into a rule that would also condemn the sanctioned ScreenConnect session in evt_vrmm_00 — the benign control exists precisely to show that an RMM alone is not a verdict.",
+        "This is the whole lesson. A signed, legitimate binary tells you the file is what it claims to be, it says nothing about whether its use is authorised. Every signal that matters here is contextual: AnyDesk is not the bank's deployed RMM (ScreenConnect is), it was run from a user's Downloads folder rather than a managed install path, it started minutes after an inbound 'IT security' call, it is driven by an external operator ID, and within minutes it spawns whoami, net group \"Domain Admins\" and nltest. (b) invents intel that is not present, the binary is the real, clean AnyDesk. (c) is refuted by the record: the signature is genuinely trusted, not counterfeit. (d) over-corrects into a rule that would also condemn the sanctioned ScreenConnect session in evt_vrmm_00, the benign control exists precisely to show that an RMM alone is not a verdict.",
     },
     {
       id: "q3",
       prompt:
-        "The previous afternoon a ScreenConnect remote-support session ran on WKS-QB-061 (evt_vrmm_00) — also a signed RMM opening a remote session. It is benign. Which combination of facts separates it from the AnyDesk activity on WKS-QB-047?",
+        "The previous afternoon a ScreenConnect remote-support session ran on WKS-QB-061 (evt_vrmm_00), also a signed RMM opening a remote session. It is benign. Which combination of facts separates it from the AnyDesk activity on WKS-QB-047?",
       hint: "Compare the tool, the install location, the ticket's origin, and who was operating each session.",
       kind: "single",
       options: [
@@ -747,7 +1006,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       answer: "managed_ticket_tech",
       xp: 65,
       explanation:
-        "The two sessions are the same class of activity, so the verdict turns on provenance. ScreenConnect is the bank's sanctioned RMM (its client sits under Program Files, not a Downloads folder), it maps to INC0092233 which the machine's own user opened through the portal, and it was operated by internal technician m.brandt — every link in that chain is accountable. The AnyDesk case inverts all three: an RMM the estate does not carry, run from Downloads, tied to a phone-contact ticket the operator effectively induced, and driven by an external session ID. (b) is a red herring — both relay over TLS/443, and encryption is not what makes a session legitimate. (c) reverses cause and effect: the severity labels are a consequence of the analysis, not evidence for it. (d) invents a timing contrast that the records do not show and that would not be decisive anyway.",
+        "The two sessions are the same class of activity, so the verdict turns on provenance. ScreenConnect is the bank's sanctioned RMM (its client sits under Program Files, not a Downloads folder), it maps to INC0092233 which the machine's own user opened through the portal, and it was operated by internal technician m.brandt, every link in that chain is accountable. The AnyDesk case inverts all three: an RMM the estate does not carry, run from Downloads, tied to a phone-contact ticket the operator effectively induced, and driven by an external session ID. (b) is a red herring, both relay over TLS/443, and encryption is not what makes a session legitimate. (c) reverses cause and effect: the severity labels are a consequence of the analysis, not evidence for it. (d) invents a timing contrast that the records do not show and that would not be decisive anyway.",
     },
     {
       id: "q4",
@@ -764,7 +1023,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       answer: "recon_stage",
       xp: 60,
       explanation:
-        "The four child processes spell out one intent. whoami /all (T1033) establishes what the current account holds; net group \"Domain Admins\" /domain (T1087.002) enumerates the directory's most privileged group; nltest /domain_trusts (T1482) maps the domain's trust relationships; then a hidden PowerShell (T1059.001) pulls qb-agent.msi from an external IP. That is discovery followed by tooling staging — the opening moves of a hands-on intrusion, not the payoff. (b), (c) and (d) each describe activity that would leave very different artefacts — vssadmin/encryption writes, an LSASS access, or a bulk outbound upload — and none of those appear anywhere in the timeline. Reading only what the events show keeps you from inventing a later stage that has not happened yet.",
+        "The four child processes spell out one intent. whoami /all (T1033) establishes what the current account holds; net group \"Domain Admins\" /domain (T1087.002) enumerates the directory's most privileged group; nltest /domain_trusts (T1482) maps the domain's trust relationships; then a hidden PowerShell (T1059.001) pulls qb-agent.msi from an external IP. That is discovery followed by tooling staging, the opening moves of a hands-on intrusion, not the payoff. (b), (c) and (d) each describe activity that would leave very different artefacts, vssadmin/encryption writes, an LSASS access, or a bulk outbound upload, and none of those appear anywhere in the timeline. Reading only what the events show keeps you from inventing a later stage that has not happened yet.",
     },
     {
       id: "q5",
@@ -774,36 +1033,36 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
       kind: "single",
       options: [
         { value: "isolate_kill_hunt", label: "Isolate WKS-QB-047 to cut the live session, reset p.roth and revoke her sessions, remove the unmanaged AnyDesk, hunt down the staged qb-agent.msi, and verify the caller out-of-band while tightening tool installs" },
-        { value: "block_domain", label: "Block download.anydesk.com at the web proxy and alert on further requests to it — with the download source cut off, the operator's access is gone and the case can be closed" },
+        { value: "block_domain", label: "Block download.anydesk.com at the web proxy and alert on further requests to it, with the download source cut off, the operator's access is gone and the case can be closed" },
         { value: "whitelist_tool", label: "Since AnyDesk is a signed, legitimate product from AnyDesk Software GmbH, approve it in the software catalogue, document the call, and close the ticket as a false positive" },
         { value: "retrain_only", label: "The workstation is fine because the binary is a genuine signed build; this calls only for enrolling p.roth in vishing and phishing awareness retraining and noting it on the ticket" },
       ],
       answer: "isolate_kill_hunt",
       xp: 70,
       explanation:
-        "Containment has to address the live channel, the account, the staged file and the abused process — not just the tool. Isolating WKS-QB-047 severs the operator's hands-on session immediately; resetting p.roth and revoking her sessions closes the identity the operator was acting through; removing the unmanaged AnyDesk and locating the qb-agent.msi that was staged prevents the next step; and because access came through the help desk, the caller must be verified out-of-band and the tool-install workflow tightened. (b) blocks only the download CDN, which does nothing about the session already running or the staged MSI. (c) is exactly the trap the scenario teaches against — the tool being legitimate does not make this session authorised. (d) treats the signed binary as proof of safety and ignores the enumeration and staging that already happened on the host.",
+        "Containment has to address the live channel, the account, the staged file and the abused process, not just the tool. Isolating WKS-QB-047 severs the operator's hands-on session immediately; resetting p.roth and revoking her sessions closes the identity the operator was acting through; removing the unmanaged AnyDesk and locating the qb-agent.msi that was staged prevents the next step; and because access came through the help desk, the caller must be verified out-of-band and the tool-install workflow tightened. (b) blocks only the download CDN, which does nothing about the session already running or the staged MSI. (c) is exactly the trap the scenario teaches against, the tool being legitimate does not make this session authorised. (d) treats the signed binary as proof of safety and ignores the enumeration and staging that already happened on the host.",
     },
   ];
 
   return {
     scenario_id: scenarioId,
-    title: "Callback Vishing — RMM Install to Hands-on-Keyboard Discovery",
+    title: "Falcon detection on a payments clerk's workstation (WKS-QB-047)",
     threat_actor: "Voice-phishing initial-access operator (help-desk impersonation, RMM-enabled)",
     attack_kind: "social_engineering",
     briefing:
-      "CrowdStrike raised a High detection on WKS-QB-047: AnyDesk — a remote-access tool the bank does not deploy — was installed and began spawning enumeration commands, minutes after the IT Service Desk logged an inbound call for p.roth. Determine whether this is sanctioned remote support or an intrusion, how the tool got onto the host, and what to contain.",
-    narrative: `The day before, an ordinary remote-support session ran on WKS-QB-061: the bank's approved ConnectWise ScreenConnect client, installed under Program Files, connected to relay.screenconnect.com against ticket INC0092233 — a ticket the machine's own user had opened through the portal — and driven by a known internal technician, m.brandt. That is what sanctioned remote support looks like, and it is the yardstick for everything that follows.
+      "CrowdStrike raised a High detection on WKS-QB-047, a payments clerk's workstation (p.roth), at 13:34. The IT Service Desk logged a ticket for the same user minutes earlier. Determine whether the activity is sanctioned remote support or an intrusion, how it started, and what to contain.",
+    narrative: `The day before, an ordinary remote-support session ran on WKS-QB-061: the bank's approved ConnectWise ScreenConnect client, installed under Program Files, connected to instance-qb-relay.screenconnect.com against ticket INC0092233, a ticket the machine's own user had opened through the self-service portal and assigned to a known internal technician, m.brandt. That is what sanctioned remote support looks like, and it is the yardstick for everything that follows.
 
-At 13:20 the IT Service Desk logged ticket INC0092571 for p.roth, a payments operations clerk. According to the record, someone identifying themselves as IT security had phoned her to say her account was flagged and that she needed to install a remote-support tool so they could "secure the workstation". She was directed to download AnyDesk and share the connection, and the record even captured the external session ID she was told to read out, 793 041 268. This is callback vishing (T1566.004): the operator never touched the machine — they talked the employee into opening the door.
+At 13:20 the IT Service Desk logged ticket INC0092571 for p.roth, a payments operations clerk. According to the record, someone identifying themselves as IT security had phoned her to say her account was flagged and that she needed to install a remote-support tool so they could "secure the workstation". She was directed to download AnyDesk and share the connection, and the work notes captured the external session ID she read out, 793 041 268. This is callback vishing (T1566.004): the operator never touched the machine, they talked the employee into opening the door.
 
-Three minutes later, at 13:23, the Zscaler proxy allowed a download of AnyDesk.exe from download.anydesk.com. At 13:24 p.roth launched it from her Downloads folder. Falcon recorded the binary as fully signed and trusted (AnyDesk Software GmbH) — because it is genuinely the real AnyDesk, not malware. Nothing about the file is wrong; everything about the context is. AnyDesk is not deployed anywhere in the bank's estate, its approved remote tool is ScreenConnect, and this copy was run interactively from a user folder immediately after an unsolicited call. The tool then connected out to the AnyDesk cloud relay relay-fra-3.net.anydesk.com over 443 (T1219), and Defender for Endpoint independently logged the same relay connection from the host side.
+Three minutes later, at 13:23, the Zscaler proxy allowed a download of AnyDesk.exe from download.anydesk.com. At 13:24 p.roth launched it from her Downloads folder; it ran from there as a portable copy rather than a managed install. Falcon recorded the binary as fully signed and trusted (AnyDesk Software GmbH), because it is genuinely the real AnyDesk, not malware. Nothing about the file is wrong; everything about the context is. AnyDesk is not deployed anywhere in the bank's estate, its approved remote tool is ScreenConnect, and this copy was run interactively from a user folder immediately after an unsolicited call. The tool then connected out to the AnyDesk cloud relay relay-fra-3.net.anydesk.com over 443 (T1219), and Defender for Endpoint logged the connection from the host side seconds before the proxy logged it on completion.
 
-With the operator now on the keyboard, the session went to work. cmd.exe spawned by AnyDesk ran whoami /all (T1033), then net group "Domain Admins" /domain (T1087.002), then nltest /domain_trusts /all_trusts (T1482) — identity, privileged-group and trust reconnaissance a payments clerk's workstation has no reason to perform. At 13:32 AnyDesk spawned a hidden PowerShell that used Invoke-WebRequest to pull qb-agent.msi from a raw-IP host, 45.86.230.14, into the user's Temp folder (T1059.001) — staging follow-on tooling. Two minutes later Falcon correlated the unmanaged RMM, the external session, and the discovery burst into a single High detection.
+With the operator now on the keyboard, the session went to work. At 13:26 AnyDesk started cmd.exe, which ran whoami /all (T1033), then net group "Domain Admins" /domain (T1087.002), then nltest /domain_trusts /all_trusts (T1482), identity, privileged-group and trust reconnaissance a payments clerk's workstation has no reason to perform; the domain controller recorded p.roth's network logon from the workstation and the samr and netlogon pipe accesses that those commands produce. At 13:32 AnyDesk spawned a hidden PowerShell that used Invoke-WebRequest to pull qb-agent.msi from a raw-IP host, 45.86.230.14, and wrote it to the user's Temp folder (T1059.001), staging follow-on tooling. Two minutes later Falcon correlated the unmanaged RMM and the discovery burst into a single High detection.
 
-The case is deliberately uncomfortable for an analyst who trusts signatures: the binary at the centre of it verifies perfectly. The verdict comes only from reading the tool against its context — an RMM the org does not use, installed on the word of an inbound caller, driving an external operator's discovery of the domain — and against the sanctioned ScreenConnect session that proves the same shape can be entirely legitimate when the provenance is accountable.`,
+The case is deliberately uncomfortable for an analyst who trusts signatures: the binary at the centre of it verifies perfectly. The verdict comes only from reading the tool against its context, an RMM the org does not use, installed on the word of an inbound caller, driving an external operator's discovery of the domain, and against the sanctioned ScreenConnect session that proves the same shape can be entirely legitimate when the provenance is accountable.`,
     learning_objectives: [
       "Recognise callback/voice-phishing (vishing) as a top real-world initial-access vector: an unsolicited inbound 'IT' call that talks an employee into installing a remote-access tool and sharing the session",
-      "Judge a signed, legitimate RMM binary by its context rather than its signature — an unmanaged tool the org does not deploy, run from a user folder right after an inbound call and driven by an external operator ID, is malicious regardless of a trusted code signature",
+      "Judge a signed, legitimate RMM binary by its context rather than its signature, an unmanaged tool the org does not deploy, run from a user folder right after an inbound call and driven by an external operator ID, is malicious regardless of a trusted code signature",
       "Read a hands-on-keyboard discovery burst (whoami, net group \"Domain Admins\", nltest domain trusts) spawned by a remote-access tool as an operator enumerating identity, privilege and domain trust",
       "Distinguish a sanctioned remote-support session (managed RMM, user-opened ticket, known internal technician) from an abusive one that shares the identical 'RMM ran + remote session' shape",
       "Scope containment for an RMM-enabled intrusion: isolate the host and sever the session, reset the targeted user, remove the unmanaged tool, hunt the staged follow-on tooling, and verify the caller out-of-band",
@@ -812,14 +1071,16 @@ The case is deliberately uncomfortable for an analyst who trusts signatures: the
     events,
     iocs,
     killchain: [
-      { ts: "2026-06-15T14:05:00.000Z", phase: "Baseline", action: `Sanctioned ScreenConnect remote-support session on ${benign.hostname} — approved RMM, user-opened ticket ${benignTicket}, internal technician ${benignTech}` },
+      { ts: "2026-06-15T14:05:00.000Z", phase: "Baseline", action: `Sanctioned ScreenConnect remote-support session on ${benign.hostname}, approved RMM, user-opened ticket ${benignTicket}, internal technician ${benignTech}` },
       { ts: T(0), phase: "Initial Access", action: `Inbound 'IT security' call induces ${vishTicket} for ${victim.sam}: install a remote-support tool and share the session (T1566.004)` },
       { ts: T(3 * MIN), phase: "Initial Access", action: `AnyDesk.exe downloaded from ${downloadHost} through the proxy` },
-      { ts: T(4 * MIN), phase: "Command and Control", action: `${victim.sam} runs AnyDesk.exe from Downloads — signed, trusted, but an RMM the bank does not deploy (T1219)` },
-      { ts: T(5 * MIN), phase: "Command and Control", action: `AnyDesk tunnels out to the cloud relay ${relayHost} — the external operator's hands-on channel (T1219)` },
-      { ts: T(7 * MIN), phase: "Discovery", action: "whoami /all — the operator enumerates the current account (T1033)" },
-      { ts: T(8 * MIN), phase: "Discovery", action: 'net group "Domain Admins" /domain — privileged-group enumeration (T1087.002)' },
-      { ts: T(9 * MIN), phase: "Discovery", action: "nltest /domain_trusts /all_trusts — domain trust mapping (T1482)" },
+      { ts: T(4 * MIN), phase: "Command and Control", action: `${victim.sam} runs AnyDesk.exe from Downloads, signed, trusted, but an RMM the bank does not deploy (T1219)` },
+      { ts: T(5 * MIN), phase: "Command and Control", action: `AnyDesk tunnels out to the cloud relay ${relayHost}, the external operator's hands-on channel (T1219)` },
+      { ts: T(6 * MIN + 50 * SEC), phase: "Execution", action: "AnyDesk.exe starts cmd.exe, the operator's shell" },
+      { ts: T(7 * MIN), phase: "Discovery", action: "whoami /all, the operator enumerates the current account (T1033)" },
+      { ts: T(8 * MIN), phase: "Discovery", action: 'net group "Domain Admins" /domain, privileged-group enumeration (T1087.002)' },
+      { ts: T(8 * MIN + 5 * SEC), phase: "Discovery", action: `${dc.host} logs p.roth's network logon and the samr and netlogon pipe accesses from ${victim.hostname}` },
+      { ts: T(9 * MIN), phase: "Discovery", action: "nltest /domain_trusts /all_trusts, domain trust mapping (T1482)" },
       { ts: T(12 * MIN), phase: "Execution", action: `AnyDesk spawns hidden PowerShell to stage qb-agent.msi from ${stagingIp} (T1059.001)` },
       { ts: T(14 * MIN), phase: "Detection", action: "Falcon correlates the unmanaged RMM, external session and discovery burst into a High detection" },
     ],

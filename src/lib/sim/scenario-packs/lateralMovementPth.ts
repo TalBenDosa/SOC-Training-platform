@@ -1,7 +1,7 @@
 import type { ScenarioBundle, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { lateralMovementPthScenarioEvents } from "./lateralMovementPth.events";
 /**
- * Scenario pack: "Lateral Movement — Pass-the-Hash to the File Server, Second Hop to the DC"
+ * Scenario pack: "Night-time privileged logons for an infrastructure admin"
  *
  * INTERMEDIATE tier. An operator who already holds an NTLM hash on a foothold
  * workstation (FIN-WS-11, out of scope here) uses it to authenticate to a file
@@ -34,7 +34,7 @@ import { lateralMovementPthScenarioEvents } from "./lateralMovementPth.events";
 export function buildLateralMovementPthScenario(
   scenarioId = "lateral-movement-pth-2026",
 ): ScenarioBundle {
-  const { title, events, T, MIN, SEC, foothold, fileSrv, dc, admin, benign, svcBinaryHash } = lateralMovementPthScenarioEvents();
+  const { title, events, T, MIN, SEC, foothold, fileSrv, dc, admin, benign, svcBinaryHash, dumperHash } = lateralMovementPthScenarioEvents();
 
   const iocs: IOC[] = [
     {
@@ -85,6 +85,30 @@ export function buildLateralMovementPthScenario(
       reputation: "malicious",
       tags: ["remote-service", "loader", "psexec-pattern"],
     },
+    {
+      type: "sha256",
+      value: dumperHash, // the unsigned svchost.exe in C:\Windows\Temp that read LSASS
+      first_seen: T(-20 * SEC),
+      last_seen: T(0),
+      reputation: "malicious",
+      tags: ["credential-dumper", "masquerading", "temp-dir"],
+    },
+    {
+      type: "domain",
+      value: "cdn-winupdate.net", // where the SYSTEM PowerShell on the file server fetched its script
+      first_seen: T(5 * MIN + 13 * SEC),
+      last_seen: T(5 * MIN + 17 * SEC),
+      reputation: "malicious",
+      tags: ["payload-host", "lookalike-update-domain"],
+    },
+    {
+      type: "ip",
+      value: "185.174.137.26",
+      first_seen: T(5 * MIN + 13 * SEC),
+      last_seen: T(5 * MIN + 17 * SEC),
+      reputation: "malicious",
+      tags: ["payload-host", "external"],
+    },
   ];
 
   const questions: ScenarioQuestion[] = [
@@ -98,12 +122,12 @@ export function buildLateralMovementPthScenario(
         { value: "ntlm_ws_hour", label: "NTLM instead of Kerberos, from FIN-WS-11 — a finance workstation, not an admin host — landing at 02:04, off-hours" },
         { value: "logontype", label: "The attack logon is LogonType 3 while the benign one is LogonType 10, which is what marks the attack as remote" },
         { value: "targetuser", label: "The TargetUserName is a service account — pass-the-hash replays machine or service hashes rather than named user accounts" },
-        { value: "keylength", label: "KeyLength is 0 on the attack logon — the marker Windows writes when a session key comes from a replayed hash" },
+        { value: "impersonation", label: "ImpersonationLevel differs: the attack logon requested delegation, while the benign logon only allowed impersonation of the caller" },
       ],
       answer: "ntlm_ws_hour",
       xp: 60,
       explanation:
-        "A 4624 / LogonType 3 is the single most common line in a file server's Security log — the event code proves nothing on its own. The tells are in the other fields, read against a baseline. NTLM (AuthenticationPackageName=NTLM, LogonProcessName=NtLmSsp) in a domain that authenticates with Kerberos by default is the classic pass-the-hash signature, because a replayed hash drives NTLM, not Kerberos. The source WorkstationName/IpAddress is FIN-WS-11 — a finance clerk's workstation with no reason to administer a server — and the time is 02:04. The benign control is the same 4624/Type-3 but Kerberos, from the user's own workstation, at 13:12. (b) is wrong: both are LogonType 3. (c) is false — the abused account here is a named admin, s.kessler. (d) over-reads one field: KeyLength 0 is normal for many NTLM logons and is not a verdict by itself.",
+        "A 4624 / LogonType 3 is the single most common line in a file server's Security log — the event code proves nothing on its own. The tells are in the other fields, read against a baseline. NTLM (AuthenticationPackageName=NTLM, LogonProcessName=NtLmSsp) in a domain that authenticates with Kerberos by default is the classic pass-the-hash signature, because a replayed hash drives NTLM, not Kerberos. The source WorkstationName/IpAddress is FIN-WS-11 — a finance clerk's workstation with no reason to administer a server — and the time is 02:04. The benign control is the same 4624/Type-3 but Kerberos, from the user's own workstation, at 13:12. (b) is wrong: both are LogonType 3. (c) is false — the abused account here is a named admin, s.kessler. (d) is refuted by the records: ImpersonationLevel is %%1833 (Impersonation) on both logons.",
     },
     {
       id: "q2",
@@ -161,12 +185,12 @@ export function buildLateralMovementPthScenario(
     threat_actor: "Hands-on-keyboard intrusion operator (post-foothold, credential-replay)",
     attack_kind: "lateral_movement",
     briefing:
-      "Microsoft Sentinel raised a High alert at 02:09 for the infrastructure admin s.kessler: NTLM authentications hopping FIN-WS-11 → SRV-FILE-03 → DC-NEXA-01 inside nine minutes, off-hours. Work out how the operator moved between the hosts, where the credential came from, and how far it reached before you contain it.",
-    narrative: `The operator already had a foothold on FIN-WS-11, a finance clerk's workstation. At 02:00 a process masquerading as svchost.exe from C:\\Windows\\Temp opened lsass.exe with GrantedAccess 0x1410 and lifted the NTLM hash of s.kessler — an infrastructure administrator whose credentials were still cached there because she had remoted in to fix the machine.
+      "Microsoft Sentinel raised a High alert at 02:09 for the infrastructure admin s.kessler: privileged authentications for her account across several hosts inside nine minutes, in the middle of the night. Work out how the account was used, where the credential came from, and how far it reached before you contain it.",
+    narrative: `The operator already had a foothold on FIN-WS-11, a finance clerk's workstation. The afternoon before, s.kessler — an infrastructure administrator — had remoted into it over Remote Desktop to fix it (a 4624 LogonType 10 from her admin workstation), which left her credentials cached in memory. At 01:59 PowerShell wrote an unsigned svchost.exe into C:\\Windows\\Temp and started it as SYSTEM; at 02:00 that process opened lsass.exe with GrantedAccess 0x1410 and lifted the NTLM hash.
 
-At 02:04 that hash was replayed. A 4624 network logon for s.kessler landed on the file server SRV-FILE-03 — LogonType 3, but over NTLM, from FIN-WS-11's address, at night. No password was ever typed; the hash alone authenticated. It looks like any of the hundred ordinary share connections the server logs each day, and that is exactly why pass-the-hash slips past a tired analyst. A 4672 confirmed the logon carried local-administrator privileges, and a 5140 showed the operator opening the ADMIN$ administrative share.
+At 02:04 that hash was replayed. A 4624 network logon for s.kessler landed on the file server SRV-FILE-03 — LogonType 3, but over NTLM, from FIN-WS-11's address, at night; the domain controller logged the matching 4776 credential validation for a logon coming from FIN-WS-11. No password was ever typed; the hash alone authenticated. It looks like any of the hundred ordinary share connections the server logs each day, and that is exactly why pass-the-hash slips past a tired analyst. A 4672 confirmed the logon carried local-administrator privileges, and a 5140 and a 5145 showed the operator opening the ADMIN$ administrative share and writing svcupd64.exe into it.
 
-Over that SMB session the operator created a service remotely: a 7045 recorded WinSvcUpdate, an auto-start service whose binary C:\\Windows\\svcupd64.exe runs as LocalSystem. services.exe launched it, and it spawned an encoded PowerShell — the PsExec remote-execution pattern, giving SYSTEM on the file server. At 02:06 that PowerShell reached out over TCP/445 to the Domain Controller DC-NEXA-01, and at 02:08 the same replayed hash produced another NTLM 4624 on the DC itself.
+Over that SMB session the operator created a service remotely: a 7045 recorded WinSvcUpdate, an auto-start service whose binary C:\\Windows\\svcupd64.exe runs as LocalSystem. services.exe launched it, and it spawned an encoded PowerShell that resolved cdn-winupdate.net and fetched a script from it — the PsExec remote-execution pattern, giving SYSTEM on the file server. At 02:06 that PowerShell reached out over TCP/445 to the Domain Controller DC-NEXA-01, and at 02:08 the same replayed hash produced another 4776 and NTLM 4624 on the DC itself, with a 4672 and a 5145 on the svcctl pipe: the first step of creating a service there.
 
 The one legitimate comparison in the data is m.rossi's logon to the same file server the previous afternoon: the identical 4624 / LogonType 3, but Kerberos, from her own workstation, at 13:12. Same event, entirely different meaning. Falcon detected the file-server activity as a Critical pass-the-hash detection at 02:06, and Sentinel — enriched by Defender for Identity — correlated the whole multi-hop chain at 02:09.`,
     learning_objectives: [
@@ -180,6 +204,8 @@ The one legitimate comparison in the data is m.rossi's logon to the same file se
     events,
     iocs,
     killchain: [
+      { ts: "2026-08-26T16:20:11.000Z", phase: "Credential Access", action: `${admin.sam} remotes into ${foothold.hostname} over RDP (4624 type 10), leaving her credentials cached` },
+      { ts: T(-20 * SEC), phase: "Resource Development", action: "An unsigned svchost.exe is written to C:\\Windows\\Temp and started as SYSTEM on the foothold workstation" },
       { ts: T(0), phase: "Credential Access", action: `LSASS opened on ${foothold.hostname} (GrantedAccess 0x1410) — ${admin.sam}'s NTLM hash dumped (T1003.001)` },
       { ts: T(4 * MIN), phase: "Lateral Movement", action: `Pass-the-hash 4624 on ${fileSrv.hostname} — NTLM Type-3 from ${foothold.hostname} (T1550.002)` },
       { ts: T(4 * MIN + 6 * SEC), phase: "Privilege Escalation", action: "4672 — the NTLM logon carries local-admin privileges (T1078)" },

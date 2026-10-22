@@ -31,7 +31,10 @@ describe("timeline fits the shift and leads with the primary incident", { timeou
       for (const e of live) {
         const a = e.answer as { incident_id?: string; expected_verdict?: string; origin?: string } | undefined;
         if (!a?.incident_id || a.origin !== "story" || !["tp", "escalate"].includes(String(a.expected_verdict))) continue;
-        firstOf.set(a.incident_id, Math.min(firstOf.get(a.incident_id) ?? Infinity, e.due_offset_ms));
+        // A planned attack can hold several incidents (day 1 and day 2 of the same intrusion): it
+        // starts when its FIRST incident surfaces.
+        const attack = slots.find(s => s && a.incident_id!.includes(String(s))) ?? a.incident_id;
+        firstOf.set(attack, Math.min(firstOf.get(attack) ?? Infinity, e.due_offset_ms));
       }
       const starts = [...firstOf.values()];
       expect(starts.length).toBeGreaterThanOrEqual(2);

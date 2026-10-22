@@ -12,7 +12,7 @@ import { sampleLogs, violationsOf, convertAll, contains, flatSamples, isNoise, t
  *
  * Documented nulls (converter returns null, event keeps the legacy view — never a faked record):
  *  - An onprem_ad event with no resolvable EventID (an MDI alert filed under source "ad").
- *  - An event id this card does not document a shape for: share access 5140 / 5145 / 4663,
+ *  - An event id with no documented shape (card or Microsoft's per-event reference):
  *    TerminalServices 1149 / 21 / 23, TaskScheduler 201, PowerShell 4104, 4798, 4778/4779,
  *    group-attribute changes 4737 / 4755 / 4735.
  */
@@ -31,7 +31,9 @@ describe("windows_security — card samples", () => {
   });
   it("kindOf classifies by EventID and rejects undocumented ids", () => {
     expect(kindOf({ EventID: 4624 })).toBe("4624");
-    expect(kindOf({ EventID: 5140 })).toBeNull();
+    // Share / file access, privilege use, task registration and PnP follow Microsoft's per-event reference.
+    for (const id of [5140, 5145, 4663, 4673, 4698, 6416]) expect(kindOf({ EventID: id })).toBe(String(id));
+    expect(kindOf({ EventID: 4104 })).toBeNull();
     expect(kindOf({})).toBeNull();
   });
 });

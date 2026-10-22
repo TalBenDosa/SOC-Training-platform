@@ -18,7 +18,7 @@ export type EdrKind = "process" | "network" | "dns" | "file" | "registry" | "log
  * account the process runs as when the story says so and it differs from the event's user (a
  * parent's own row ran as SYSTEM, the child as the user).
  */
-export interface EdrProc { name?: string; path?: string; pid?: number; cmdline?: string; sha256?: string; md5?: string; integrity?: string; signed?: boolean; inst?: string; user?: string }
+export interface EdrProc { name?: string; path?: string; pid?: number; cmdline?: string; sha256?: string; md5?: string; integrity?: string; signed?: boolean; inst?: string; user?: string; startMs?: number }
 
 /**
  * Facts one event cannot know on its own but the STORY does (filled by the story pass in
@@ -28,7 +28,7 @@ export interface EdrProc { name?: string; path?: string; pid?: number; cmdline?:
  * names none, the user's authored SID and logon id, and a download's origin URL. Rendering stays
  * per event; these keep every record of one story pivotable on the same values.
  */
-export interface ThreadProc { name?: string; path?: string; sha256?: string; md5?: string; inst?: string; integrity?: string; user?: string; cmdline?: string; pid?: number }
+export interface ThreadProc { name?: string; path?: string; sha256?: string; md5?: string; inst?: string; integrity?: string; user?: string; cmdline?: string; pid?: number; /** When the process started: the time of its own process row in the story. */ startMs?: number }
 export interface EndpointThread {
   proc?: ThreadProc;
   parent?: ThreadProc;
@@ -47,6 +47,8 @@ export interface EndpointThread {
   threatName?: string;
   /** The account active on this host at that time in the story, for a row that names no user ("DOMAIN\user" or "user"). */
   user?: string;
+  /** The host's own private IPv4 as the story gives it elsewhere (a row that carries none). */
+  hostIp?: string;
 }
 type Threaded = TelemetryEvent & { _endpoint?: EndpointThread };
 export const threadOf = (ev: TelemetryEvent): EndpointThread | undefined => (ev as Threaded)._endpoint;
@@ -191,7 +193,8 @@ function actionOf(r: Record<string, unknown>): "killed" | "quarantined" | "block
     r["sophos.action"], r["windefend.action"], r["remediation.status"] && /complet|success/i.test(String(r["remediation.status"])) ? r["remediation.action"] : undefined]
     .map(v => (str(v) ?? "").toLowerCase());
   // Negatives win: "not_quarantined", "allowed", "not_mitigated", "detect only".
-  const neg = (t: string) => /not[_ ]?(quarantin|mitigat|block|kill)|^allowed$|detect.?only|no action|none/.test(t);
+  // "would have been killed / blocked if the prevention policy was enabled" is a detect-only disposition.
+  const neg = (t: string) => /not[_ ]?(quarantin|mitigat|block|kill)|^allowed$|detect.?only|no action|none|would have been|standard detection/.test(t);
   const pos = parts.filter(t => t && !neg(t)).join(" ");
   // No \b before "kill": "process_killed" (the corpus's own spelling) has no word boundary there.
   if (str(r["process.killed"]) === "true" || /kill|terminat/.test(pos)) return "killed";
@@ -205,8 +208,13 @@ export function edrFacts(ev: TelemetryEvent): EdrFacts {
   const { kind, reason } = kindOf(ev, r);
   const platform = (first(r["crowdstrike.event_platform"], r["host.os.type"], r["host.os.name"]) ?? "").toLowerCase();
   const anyPath = String(ev.process?.path ?? r["process.executable"] ?? r["crowdstrike.ImageFileName"] ?? ev.file?.path ?? "");
-  const os: EdrFacts["os"] = /lin|ubuntu|rhel|debian|centos|eks|bottlerocket/.test(platform) || ev.event_type === "linux_execve" ? "Lin"
-    : /mac|darwin/.test(platform) || /^\/(Applications|System|Library|Users)\//.test(anyPath) || /\.app\//.test(anyPath) ? "Mac"
+  // A macOS host is macOS whatever one platform key says: an authored "Lin" platform next to
+  // host.os.name "macOS", or a process under /Applications / /Volumes / an .app bundle, is a Mac.
+  const hints = [r["crowdstrike.event_platform"], r["host.os.type"], r["host.os.name"], r["host.os.family"], r["host.os.platform"], r["s1.agent.osType"]]
+    .map(v => (str(v) ?? "").toLowerCase());
+  const macPath = /^\/(Applications|System|Library|Users|Volumes|private)\//.test(anyPath) || /\.app\//.test(anyPath);
+  const os: EdrFacts["os"] = hints.some(h => /mac|darwin|osx/.test(h)) || (macPath && !hints.some(h => /ubuntu|rhel|debian|centos|eks|bottlerocket|amazon linux/.test(h))) ? "Mac"
+    : /lin|ubuntu|rhel|debian|centos|eks|bottlerocket/.test(platform) || ev.event_type === "linux_execve" ? "Lin"
     : !platform && anyPath.startsWith("/") ? "Lin" : "Win";
 
   const u = splitUser(first(ev.process?.user, r["crowdstrike.UserName"], r["user.name"], r["AccountName"] && r["AccountDomain"] ? `${r["AccountDomain"]}\\${r["AccountName"]}` : r["AccountName"], r["InitiatingProcessAccountName"], r["s1.srcProcUser"], r["s1.process.user"]));
@@ -225,8 +233,10 @@ export function edrFacts(ev: TelemetryEvent): EdrFacts {
     name: procName, path: procPath,
     pid: numOrU(ev.process?.pid ?? r["process.pid"] ?? r["crowdstrike.RawProcessId"] ?? (kind === "process" ? r["ProcessId"] : r["InitiatingProcessId"]) ?? r["s1.srcProcPid"] ?? r["winlog.event_data.ProcessId"] ?? r["winlog.event_data.SourceProcessId"]),
     cmdline: first(ev.process?.cmdline, r["process.command_line"], r["crowdstrike.CommandLine"], kind === "process" ? r["ProcessCommandLine"] : r["InitiatingProcessCommandLine"], r["s1.srcProcCmdLine"], r["s1.process.cmdline"], r["winlog.event_data.CommandLine"]),
-    sha256: first(ev.process?.hash?.sha256, r["process.hash.sha256"], kind === "process" ? r["crowdstrike.SHA256HashData"] : undefined, kind === "process" ? r["SHA256"] : r["InitiatingProcessSHA256"]),
-    md5: first(ev.process?.hash?.md5, r["process.hash.md5"], kind === "process" ? r["crowdstrike.MD5HashData"] : r["InitiatingProcessMD5"]),
+    sha256: first(ev.process?.hash?.sha256, r["process.hash.sha256"], kind === "process" ? r["crowdstrike.SHA256HashData"] : undefined, kind === "process" ? r["SHA256"] : r["InitiatingProcessSHA256"],
+      // A Falcon DetectionSummaryEvent names the triggering process's hash as SHA256String / MD5String.
+      kind === "detection" ? r["crowdstrike.SHA256String"] : undefined),
+    md5: first(ev.process?.hash?.md5, r["process.hash.md5"], kind === "process" ? r["crowdstrike.MD5HashData"] : r["InitiatingProcessMD5"], kind === "detection" ? r["crowdstrike.MD5String"] : undefined),
     integrity: first(ev.process?.integrity, r["process.integrity_level"], r["ProcessIntegrityLevel"], r["crowdstrike.IntegrityLevel"]),
     signed: signedOf(r),
   };
@@ -314,7 +324,7 @@ function applyThread(f: EdrFacts, t: EndpointThread | undefined): EdrFacts {
   const merge = (p: EdrProc, s?: ThreadProc): EdrProc => (!s ? p : {
     ...p,
     path: s.path ?? p.path, sha256: s.sha256 ?? p.sha256, md5: s.md5 ?? p.md5, inst: s.inst ?? p.inst,
-    cmdline: p.cmdline ?? s.cmdline, integrity: p.integrity ?? s.integrity, user: p.user ?? s.user,
+    cmdline: p.cmdline ?? s.cmdline, integrity: p.integrity ?? s.integrity, user: p.user ?? s.user, startMs: p.startMs ?? s.startMs,
   });
   const tu = !f.user && !f.userEmail && t.user ? splitUser(t.user) : undefined;
   return {
@@ -323,6 +333,7 @@ function applyThread(f: EdrFacts, t: EndpointThread | undefined): EdrFacts {
     proc: merge(proc, proc === f.proc ? t.proc : undefined),
     parent: merge(f.parent, t.parent),
     sid: t.sid ?? f.sid,
+    hostIp: f.hostIp ?? t.hostIp,
     logonId: t.logonId ?? f.logonId,
     logonSeq: t.logonSeq,
     originUrl: f.originUrl ?? t.originUrl,
@@ -344,7 +355,8 @@ export function actionFlags(ev: TelemetryEvent): ActionFlags {
     r["s1.mitigation_status"], r["s1.threat.mitigationStatus"],
     r["sophos.action"], r["windefend.action"], r["remediation.status"] && /complet|success/i.test(String(r["remediation.status"])) ? r["remediation.action"] : undefined]
     .map(v => (str(v) ?? "").toLowerCase());
-  const neg = (t: string) => /not[_ ]?(quarantin|mitigat|block|kill)|^allowed$|detect.?only|no action|none/.test(t);
+  // "would have been killed / blocked if the prevention policy was enabled" is a detect-only disposition.
+  const neg = (t: string) => /not[_ ]?(quarantin|mitigat|block|kill)|^allowed$|detect.?only|no action|none|would have been|standard detection/.test(t);
   const pos = parts.filter(t => t && !neg(t)).join(" ");
   const said = `${pos} ${(ev.description ?? "").toLowerCase()}`;
   return {

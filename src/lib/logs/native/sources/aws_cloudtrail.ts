@@ -76,6 +76,7 @@ export function kindOf(record: Record<string, unknown>): string | null {
 /** Services whose events are recorded in the partition's home region (STS is regional: it records the caller's region). */
 const GLOBAL_SOURCES = new Set(["iam.amazonaws.com", "organizations.amazonaws.com", "cloudfront.amazonaws.com", "route53.amazonaws.com", "signin.amazonaws.com"]);
 const READONLY_RE = /^(Get|List|Describe|Head|BatchGet|Lookup|Select|Search|View)/;
+const BEDROCK_DATA = new Set(["InvokeModel", "InvokeModelWithResponseStream", "Converse", "ConverseStream", "InvokeAgent", "Retrieve", "RetrieveAndGenerate"]);
 const DATA_EVENTS = new Set(["GetObject", "PutObject", "DeleteObject", "DeleteObjects", "HeadObject", "CopyObject", "SelectObjectContent", "GetObjectAcl", "GetObjectTagging", "ListObjects", "ListObjectsV2", "RestoreObject", "UploadPart"]);
 /** STS calls that mint credentials — their responseElements carry the new key even though the name starts with Get. */
 const CRED_ISSUING = new Set(["GetSessionToken", "GetFederationToken"]);
@@ -361,7 +362,9 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const ua = isService ? String(ui.invokedBy) : rs(raw, "aws.cloudtrail.userAgent", "user_agent.original") ?? "aws-cli/2.17.60 md/awscrt#0.21.2 ua/2.0 os/linux#5.15.0 lang/python#3.11.4";
 
   const eventType = isSignIn ? "AwsConsoleSignIn" : (rs(raw, "aws.cloudtrail.eventType") ?? "AwsApiCall");
-  const isData = DATA_EVENTS.has(en);
+  // Bedrock runtime calls (model invocation) are CloudTrail DATA events, like S3 object calls.
+  const bedrockData = /bedrock/.test(es) && BEDROCK_DATA.has(en);
+  const isData = DATA_EVENTS.has(en) || bedrockData;
   const errorCode = rs(raw, "aws.cloudtrail.errorCode");
   const errorMessage = rs(raw, "aws.cloudtrail.errorMessage");
   // A failed console sign-in carries only errorMessage ("Failed authentication"), no errorCode.
@@ -438,6 +441,10 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     if (key) resources.push({ type: "AWS::S3::Object", ARN: `arn:${part}:s3:::${bucket}/${key}` });
     resources.push({ accountId: acct, type: "AWS::S3::Bucket", ARN: `arn:${part}:s3:::${bucket}` });
     record.resources = resources;
+  }
+  if (bedrockData && typeof req.modelId === "string") {
+    const model = String(req.modelId);
+    record.resources = [{ accountId: acct, type: "AWS::Bedrock::Model", ARN: model.startsWith("arn:") ? model : `arn:${part}:bedrock:${region}::foundation-model/${model}` }];
   }
   const roleArn = typeof req.roleArn === "string" ? req.roleArn : undefined;
   if (roleArn && /AssumeRole/.test(en)) record.resources = [{ ARN: roleArn, accountId: isRealAccount(arnAccount(roleArn)) ? arnAccount(roleArn) : acct, type: "AWS::IAM::Role" }];

@@ -15,7 +15,7 @@ import { webShellRceScenarioEvents } from "./webShellRce.events";
  * Privilege chain (see SPEC rule 1):
  *   evt_01  4672 proves the ShopPortal app-pool identity holds SeImpersonatePrivilege.
  *   evt_11  the .aspx web shell is written by w3wp.exe, i.e. by the app pool itself.
- *   evt_12  the first shell command runs as IIS APPPOOL\ShopPortal at MEDIUM integrity.
+ *   evt_12  the first shell command runs as IIS APPPOOL\ShopPortal, a constrained service identity.
  *   evt_13  only after PrintSpoofer abuses the privilege from evt_01 does anything
  *           run as NT AUTHORITY\SYSTEM. The shell is never SYSTEM on its own.
  */
@@ -43,10 +43,12 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
     { ts: T(38 * MIN), phase: "Collection", action: "UNION against dbo.Customers returns 42,318 rows as shopportal_app" },
     { ts: T(44 * MIN), phase: "Credential Access", action: "dbo.AppSettings read out through the same injection — deploy key disclosed" },
     { ts: T(47 * MIN), phase: "Persistence", action: "Web shell bootstrap.bundle.aspx written to the webroot by w3wp.exe (IIS APPPOOL\\ShopPortal)" },
-    { ts: T(52 * MIN), phase: "Execution", action: "cmd.exe spawned by w3wp.exe at Medium integrity as the app pool account" },
+    { ts: T(52 * MIN), phase: "Execution", action: "cmd.exe spawned by w3wp.exe as the app pool account; Defender raises its web shell alert at 09:52:20" },
+    { ts: T(57 * MIN + 20_000), phase: "Execution", action: "The web shell is called again and cmd.exe runs the uploaded srv.exe as the app pool account" },
     { ts: T(55 * MIN), phase: "Command and Control", action: "PrintSpoofer-style privesc tool srv.exe uploaded through the same upload.ashx handler and written to the vendor asset folder" },
     { ts: T(58 * MIN), phase: "Privilege Escalation", action: "srv.exe abuses SeImpersonatePrivilege to spawn cmd.exe as NT AUTHORITY\\SYSTEM" },
-    { ts: T(64 * MIN), phase: "Exfiltration", action: "curl.exe uploads 3,312,486 bytes to cdn-shopassets.link over HTTPS" },
+    { ts: T(61 * MIN + 40_000), phase: "Collection", action: "tar.exe, a child of the SYSTEM cmd.exe, packs web.config and App_Data into C:\\Windows\\Temp\\ib.dat (5,918,204 bytes)" },
+    { ts: T(64 * MIN), phase: "Exfiltration", action: "curl.exe uploads ib.dat (5,918,204 bytes) to cdn-shopassets.link over HTTPS; the firewall logs the 8-second session" },
   ];
 
   const questions: ScenarioQuestion[] = [
@@ -65,7 +67,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       answer: "qualys",
       xp: 80,
       explanation:
-        "The Qualys address is inside the whitelisted ASV scanner range, never rotates, announces itself in the User-Agent, and is followed by no SQL Server Audit record and no endpoint activity. 45.146.130.72 is not noise: its 404 sweep is the reconnaissance that precedes the probes, and it is the first of three addresses in a rotation. 91.242.229.35 is the opposite of noise — it is the address whose request succeeded. Treating all three the same is what buries the real one: signature parity is not intent parity, and the discriminator is what happened downstream.",
+        "The Qualys address is the scanner source named in change CHG0042611 (09:00 to 11:00 UTC on the day), inside the allow-listed ASV range, never rotates, announces itself in the User-Agent, and is followed by no SQL Server Audit record and no endpoint activity. 45.146.130.72 is not noise: its 404 sweep is the reconnaissance that precedes the probes, and it is the first of three addresses in a rotation. 91.242.229.35 is the opposite of noise — it is the address whose request succeeded. Treating all three the same is what buries the real one: signature parity is not intent parity, and the discriminator is what happened downstream.",
     },
     {
       id: "q2",
@@ -103,10 +105,10 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
     {
       id: "q4",
       prompt: "Immediately after the web shell's first command at 09:52, what privileges did the attacker actually hold on WEB-SHOP-01?",
-      hint: "Read the account and integrity level on the cmd.exe process, then look at what changed six minutes later.",
+      hint: "Read the account on the cmd.exe process, then look at what changed six minutes later.",
       kind: "single",
       options: [
-        { value: "apppool", label: "Only those of IIS APPPOOL\\ShopPortal at Medium integrity — SYSTEM was reached six minutes later by abusing SeImpersonatePrivilege, not by the shell itself" },
+        { value: "apppool", label: "Only those of the IIS APPPOOL\\ShopPortal service identity; SYSTEM was reached six minutes later by abusing SeImpersonatePrivilege, not by the shell itself" },
         { value: "system_now", label: "SYSTEM already, because IIS worker processes run under the local system account and every child they spawn inherits that same elevated token" },
         { value: "admin", label: "Local administrator, since writing a new file into C:\\inetpub\\wwwroot requires administrative rights on the web server's filesystem" },
         { value: "sqlsa", label: "Those of shopportal_app on the database server, because the shell was delivered through the SQL injection and inherits that login's server-level context" },
@@ -114,7 +116,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       answer: "apppool",
       xp: 100,
       explanation:
-        "The 09:52 process shows AccountName ShopPortal, AccountDomain IIS APPPOOL, ProcessIntegrityLevel Medium — a constrained service identity. SYSTEM only appears at 09:58, after srv.exe uses the SeImpersonatePrivilege that the 4672 record at the top of the timeline shows the app pool was granted; that is the Potato-family pattern and it is a separate, visible step. w3wp.exe does not run as SYSTEM under any default configuration. The webroot is writable by the app pool identity by design, so the file write proves nothing about admin rights. And a SQL login grants database permissions, not a Windows token on the web server.",
+        "The 09:52 process shows AccountName ShopPortal and AccountDomain IIS APPPOOL, a virtual service identity, not an administrator. Its integrity level reads High, because service tokens normally do; High integrity is not the same as administrative rights, and this identity holds only the service privilege set from the 4672 record (no SeDebugPrivilege, no SeTcbPrivilege). SYSTEM only appears at 09:58, after srv.exe uses the SeImpersonatePrivilege that the 4672 record at the top of the timeline shows the app pool was granted; that is the Potato-family pattern and it is a separate, visible step. w3wp.exe does not run as SYSTEM under any default configuration. The webroot is writable by the app pool identity by design, so the file write proves nothing about admin rights. And a SQL login grants database permissions, not a Windows token on the web server.",
     },
     {
       id: "q5",
@@ -142,7 +144,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
     briefing: "Two alerts for shop.nexacorp.com are queued: a burst of blocked SQL injection attempts against the site this morning, and a Defender for Endpoint detection on WEB-SHOP-01 at 09:52 involving the IIS worker process. The quarterly PCI ASV scan is also running today.",
     narrative: `NexaCorp's storefront, shop.nexacorp.com, runs on IIS on WEB-SHOP-01 behind an ALB with an AWS WAF web ACL and the AWS managed rule sets enabled. On Tuesday 17 March the SOC's WAF dashboard looks healthy: dozens of SQL injection attempts, all blocked, 403 across the board. Some of them are the authorized quarterly PCI ASV scan; some of them are not.
 
-At 09:38 a single POST to an inventory lookup API — 12,438 bytes of JSON, an ordinary browser User-Agent, a source address that had not appeared before — is allowed through. IIS answers it with 200 and 3.3 MB. Nine minutes later a file called bootstrap.bundle.aspx appears in the site's JavaScript vendor folder, written there by the IIS worker process itself. By 10:04 something running as SYSTEM is uploading data to an external host.
+At 09:38 a single POST to an inventory lookup API — 12,438 bytes of JSON, an ordinary browser User-Agent, a source address that had not appeared before — is allowed through. IIS answers it with 200 and 3.3 MB. Nine minutes later a file called bootstrap.bundle.aspx appears in the site's JavaScript vendor folder, written there by the IIS worker process itself. The web shell is then called four more times, 09:52, 09:57, 10:01 and 10:03, each one an allowed POST that the WAF never examined and IIS logged against the load balancer's address. By 10:04 something running as SYSTEM is uploading an archive it built from the site's configuration and data folder to an external host.
 
 Your job: work out which of the blocked events mattered and which were noise, explain in the WAF's own log fields why the one request that counted was never inspected, correlate the edge record with the web server record when the access log only knows about the load balancer, and state precisely what privileges the attacker held at each stage — including the moment they stopped being a web application and became the server.`,
     learning_objectives: [

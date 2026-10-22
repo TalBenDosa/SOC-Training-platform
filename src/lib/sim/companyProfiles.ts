@@ -3131,6 +3131,9 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     severity: "medium", vendor: "SentinelOne", hostname: "WS-MED-045", user_email: "n.smits@medcorehealth.org", src_ip: "192.168.10.45",
     description: "n.smits copied 94 patient PDF files to USB F:\\ on WS-MED-045",
     mitre_technique: "T1052.001",
+    // The copy is Explorer writing to the removable drive: S1 records the writing process.
+    process: { name: "explorer.exe", pid: 5124, path: "C:\\Windows\\explorer.exe", cmdline: "C:\\Windows\\Explorer.EXE", user: "n.smits", parent_name: "userinit.exe" },
+    file: { path: "F:\\PatientRecords\\Clinical_0094.pdf", name: "Clinical_0094.pdf" },
     raw: { "s1.eventType": "File Creation", "file.destination": "F:\\", "usb.vendor": "SanDisk", "usb.serial": "7A2F-CC01", "action_result": "allowed" }
   },
   {

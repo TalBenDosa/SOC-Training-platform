@@ -117,7 +117,7 @@ export function runRtrCommand(raw: string, st: RtrState): RtrResult | null {
     case "netstat": {
       // With switches (netstat -ano, -tulpn …): the OS's own table. Bare: the summary view.
       if (args.length) return { out: netstatWithSwitches(inv, hostProcesses(inv, killed), killed, isolated, linux, args) };
-      if (isolated) return { out: "Host network-contained — only sensor traffic allowed. No analyst-visible connections." };
+      if (isolated) return { out: "Host network-contained: only sensor traffic allowed. No analyst-visible connections." };
       const procs = hostProcesses(inv, killed);
       const live = inv.processes.filter(p => !killed.has(p.pid));
       const rows = live.flatMap(p => (p.network ?? []).map(c => {
@@ -125,7 +125,9 @@ export function runRtrCommand(raw: string, st: RtrState): RtrResult | null {
         const app = c.application ? `/${c.application}` : "";
         return `${(c.proto ?? "tcp").toUpperCase()}${app}  ${p.name}(${p.pid}) ${arrow} ${c.remote_ip}:${c.remote_port}${c.domain ? ` (${c.domain})` : ""}  ${c.direction.toUpperCase()}  [${c.ts}]`;
       }));
-      return { out: [...(linux ? [] : listening(inv, procs)), ...(rows.length ? rows : ["(no established connections)"])].join("\n") };
+      // The same connection reported twice (the sensor and a correlated network row) prints once.
+      const unique = [...new Set(rows)];
+      return { out: [...(linux ? [] : listening(inv, procs)), ...(unique.length ? unique : ["(no established connections)"])].join("\n") };
     }
 
     case "kill": {

@@ -90,6 +90,13 @@ const DEVICE_KEYS = ["agent_load_flags", "agent_local_time", "agent_version", "c
 
 const kinds: Record<string, KindSchema> = {
   ProcessRollup2: PR2,
+  // Script text the AMSI-instrumented interpreter was asked to run (card §3 table: field list of the newest
+  // Windows line; ScriptingLanguageId / HostProcessType enums are UNVERIFIED, so they are never emitted).
+  ScriptControlScanTelemetry: {
+    required: [...COMMON_REQ, ...CTX, "ScriptContent", "ContentSHA256HashData", "OriginalContentLength", "ImageFileName", "CommandLine"],
+    optional: [...COMMON_OPT, "ContextThreadId", "ScriptContentName", "ScriptingLanguageId", "HostProcessType", "ParentImageFileName", "ParentCommandLine",
+      "GrandparentImageFileName", "GrandparentCommandLine"],
+  },
   DnsRequest: {
     required: [...COMMON_REQ, ...CTX, "DomainName", "RequestType", "QueryStatus"],
     optional: [...COMMON_OPT, "ContextThreadId", "ContextBaseFileName", "IP4Records", "FirstIP4Record", "CNAMERecords", "RespondingDnsServer",
@@ -439,13 +446,20 @@ const OBJECTIVE: Record<string, string> = {
   stealth: "Keep Access", "defense impairment": "Keep Access", "credential access": "Gain Access", discovery: "Explore", "lateral movement": "Explore",
   collection: "Follow Through", exfiltration: "Follow Through", "command and control": "Contact Controlled Systems", impact: "Follow Through",
 };
-/** What the sensor did. Code 0 / "Detection, standard detection." is card-confirmed; the non-zero codes and texts are
- *  UNVERIFIED (the card documents the boolean `pattern_disposition_details` flags, which carry the meaning). */
+/**
+ * What the sensor did: the pattern_disposition bit flags and Falcon's own wording. Verified on raw Falcon
+ * events (Elastic CrowdStrike integration test data): 0 "Detection, standard detection.", 2048 (process_blocked)
+ * "Prevention, process was blocked from execution.", 2176 (process_blocked + quarantine_file)
+ * "Prevention/Quarantine, process was blocked from execution and quarantine was attempted.", and the
+ * policy-disabled forms 272 / 2304 that fix kill_process = 16 and policy_disabled = 256. The kill texts
+ * follow the same wording (kill_process alone, and with quarantine_file = 144).
+ */
 const DISPOSITION: Record<string, { code: number; text: string; flags: string[] }> = {
   detected: { code: 0, text: "Detection, standard detection.", flags: [] },
-  killed: { code: 2048, text: "Prevention, process killed.", flags: ["kill_process"] },
-  quarantined: { code: 2304, text: "Prevention, process killed and file quarantined.", flags: ["kill_process", "quarantine_file"] },
-  blocked: { code: 16, text: "Prevention, process blocked from execution.", flags: ["process_blocked"] },
+  killed: { code: 16, text: "Prevention, process killed.", flags: ["kill_process"] },
+  quarantined: { code: 144, text: "Prevention/Quarantine, process was killed and quarantine was attempted.", flags: ["kill_process", "quarantine_file"] },
+  blockedQuarantined: { code: 2176, text: "Prevention/Quarantine, process was blocked from execution and quarantine was attempted.", flags: ["process_blocked", "quarantine_file"] },
+  blocked: { code: 2048, text: "Prevention, process was blocked from execution.", flags: ["process_blocked"] },
 };
 /**
  * The disposition the sensor applied, from every action fact on the event (kill AND quarantine can
@@ -456,7 +470,8 @@ const DISPOSITION: Record<string, { code: number; text: string; flags: string[] 
 function dispositionOf(ev: TelemetryEvent, action: string, fileNeverRan: boolean): { code: number; text: string; flags: string[] } {
   const a = actionFlags(ev);
   if (action === "detected" && !a.kill && !a.quarantine) return DISPOSITION.detected;
-  if (a.blockedExec || (action === "blocked" && fileNeverRan && !a.kill)) return DISPOSITION.blocked;
+  const neverRan = a.blockedExec || ((action === "blocked" || action === "quarantined") && fileNeverRan && !a.kill);
+  if (neverRan) return action === "quarantined" || a.quarantine ? DISPOSITION.blockedQuarantined : DISPOSITION.blocked;
   if (action === "quarantined" || a.quarantine) return DISPOSITION.quarantined;
   return DISPOSITION.killed;
 }
@@ -538,7 +553,9 @@ function alert(b: Base, ev: TelemetryEvent): Record<string, unknown> {
     pattern_disposition: disp.code, pattern_disposition_description: disp.text,
     pattern_disposition_details: Object.fromEntries(DISPOSITION_KEYS.map(k => [k, disp.flags.includes(k)])),
     pattern_id: patternId, platform: win ? "Windows" : os === "Mac" ? "Mac" : "Linux",
-    process_end_time: "", process_id: processId, process_start_time: String(Math.floor(f.timeMs / 1000)),
+    // The triggering process's own start (its process row in the story), never the detection time:
+    // a process is running before the sensor convicts it.
+    process_end_time: "", process_id: processId, process_start_time: String(Math.floor(startOf(b, trig, seed) / 1000)),
     product: "epp", scenario, severity: sevNum, severity_name: sevName,
     sha1: win && trig.sha256 ? "0".repeat(40) : undefined, sha256: trig.sha256,
     show_in_ui: true, source_products: ["Falcon Insight"], source_vendors: ["CrowdStrike"], status: "new",
@@ -548,6 +565,17 @@ function alert(b: Base, ev: TelemetryEvent): Record<string, unknown> {
     triggering_process_graph_id: `pid:${aid}:${processId}`, type: "ldt",
     updated_timestamp: isoNano(ctx, created, `${ev.id}:cs:uns`), user_id: u.sid, user_name: u.user,
   };
+}
+
+/**
+ * When the triggering process started: its own process row in the story (EdrFacts startMs, threaded by
+ * the story pass), else a stable moment 20 s to 4 min before the detection (the process ran first).
+ */
+function startOf(b: Base, p: EdrProc, seed: string): number {
+  const same = (procName(p) ?? "").toLowerCase() === (procName(b.f.proc) ?? "").toLowerCase();
+  const t = p.startMs ?? (same ? b.f.proc.startMs : undefined);
+  if (t !== undefined && t <= b.f.timeMs) return t;
+  return b.f.timeMs - b.ctx.int(`${seed}:start`, 20, 240) * 1000;
 }
 
 /** Drop undefined members (recursively for the alert's nested objects). */
@@ -566,8 +594,33 @@ function baseFor(ev: TelemetryEvent, ctx: NativeCtx, f: EdrFacts, host: string):
   return { ctx, ev, f, host, os, hostIp: hostIpOf(ctx, f, host), aid: aidOf(ctx, host), u, scope: { host, os, timeMs: f.timeMs, user: u.user, incident: ev.incident_id } };
 }
 
+/** ScriptControlScanTelemetry: the script content the interpreter ran, as the sensor scanned it. */
+function scriptScan(b: Base, ev: TelemetryEvent): Record<string, unknown> | null {
+  const r = (ev.raw ?? {}) as Record<string, unknown>;
+  const s = (k: string) => (r[`crowdstrike.${k}`] === undefined || r[`crowdstrike.${k}`] === "" ? undefined : String(r[`crowdstrike.${k}`]));
+  const content = s("ScriptContent");
+  const img = s("ImageFileName") ?? (b.f.proc.path ? ntDevicePath(b.f.proc.path) : undefined);
+  if (!content || !img) return null;
+  const drivePath = img.replace(/^\\Device\\HarddiskVolume\d+\\/i, "C:\\");
+  const proc: EdrProc = { ...b.f.proc, name: b.f.proc.name ?? baseName(drivePath), path: b.f.proc.path ?? drivePath };
+  const seed = procSeed(b.ctx, b.scope, proc);
+  return {
+    ...common(b, "ScriptControlScanTelemetry"),
+    ContextProcessId: upid(b.ctx, seed), ContextThreadId: threadId(b.ctx, `${seed}:${b.f.eventId}`), ContextTimeStamp: secMs(b.f.timeMs),
+    ScriptContent: content, ScriptContentName: s("ScriptContentName") ?? "-",
+    ContentSHA256HashData: s("ContentSHA256HashData") ?? rhex(b.ctx, `sha1:script:${content}`, 64),
+    OriginalContentLength: s("OriginalContentLength") ?? String(content.length),
+    ImageFileName: img, CommandLine: s("CommandLine") ?? b.f.proc.cmdline ?? img,
+    ParentImageFileName: s("ParentImageFileName"), ParentCommandLine: s("ParentCommandLine"),
+  };
+}
+
 function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const f = edrFacts(ev);
+  if (ev.raw?.["crowdstrike.event_simpleName"] === "ScriptControlScanTelemetry" && f.host) {
+    const rec = scriptScan(baseFor(ev, ctx, f, f.host), ev);
+    return rec ? { sourceId: "crowdstrike", kind: "ScriptControlScanTelemetry", format: "json", record: sortKeys(rec), timeMs: Date.parse(ev.ts) } : null;
+  }
   if (f.kind === "unsupported" || !f.host) return null;
   const b = baseFor(ev, ctx, f, f.host);
   const timeMs = Date.parse(ev.ts);

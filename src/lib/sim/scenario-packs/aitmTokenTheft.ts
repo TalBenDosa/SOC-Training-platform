@@ -32,10 +32,12 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
   const killchain = [
     { ts: T(0),                     phase: "Initial Access",      action: "Lure delivered to m.delgado from docu-sign-secure.com with a link to login.nexacorp-sso.com" },
     { ts: T(4 * MIN),               phase: "Initial Access",      action: "User follows the rewritten link; gateway permits the click" },
-    { ts: T(4 * MIN + 9 * SEC),     phase: "Collection",          action: "Browser loads the reverse-proxy sign-in page (Zscaler category: Newly Registered Domains)" },
+    { ts: T(4 * MIN + 9 * SEC),     phase: "Collection",          action: "Browser loads the reverse-proxy sign-in page (Zscaler category: Newly Registered and Observed Domains)" },
+    { ts: T(4 * MIN + 9 * SEC),     phase: "Collection",          action: "The laptop's own Edge process (pid 9308, parent explorer.exe) is the process connected to the proxy; no child process is started" },
     { ts: T(5 * MIN + 41 * SEC),    phase: "Credential Access",   action: "Credentials and the live MFA response are relayed through the proxy to the real Microsoft endpoint" },
     { ts: T(6 * MIN + 3 * SEC),     phase: "Initial Access",      action: "Entra records a genuine interactive sign-in, MFA satisfied, sourced from the proxy in Amsterdam" },
     { ts: T(6 * MIN + 12 * SEC),    phase: "Stealth",             action: "Victim redirected to the real office.com — the sign-in appears to have simply worked" },
+    { ts: T(9 * MIN + 10 * SEC),    phase: "Context",             action: "Identity Protection raises an atypical-travel alert on a.rosen (Frankfurt, corporate VPN): the benign comparison" },
     { ts: T(12 * MIN + 3 * SEC),    phase: "Lateral Movement",    action: "Stolen session cookie replayed from Frankfurt on the same sessionId; MFA satisfied by token claim" },
     { ts: T(12 * MIN + 20 * SEC),   phase: "Lateral Movement",    action: "Replayed session brokers a non-interactive token for Office 365 Exchange Online" },
     { ts: T(13 * MIN + 47 * SEC),   phase: "Collection",          action: "Mailbox bind against the Inbox recorded in the Unified Audit Log with the same SessionId" },
@@ -80,13 +82,13 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       kind: "single",
       options: [
         { value: "a", label: "The URL Defense click and the proxy POST — the same look-alike URL shows up in both the click and the form submit" },
-        { value: "b", label: "The Amsterdam sign-in and the Frankfurt Chrome 121 sign-in — one sessionId, two IPs, two ASNs, two browsers" },
-        { value: "c", label: "The Chrome 121 sign-in and the OWA MailItemsAccessed bind — mailbox access follows it within two minutes" },
+        { value: "b", label: "The Amsterdam sign-in and the Frankfurt Chrome 144 sign-in — one sessionId, two IPs, two ASNs, two browsers" },
+        { value: "c", label: "The Chrome 144 sign-in and the OWA MailItemsAccessed bind — mailbox access follows it within two minutes" },
         { value: "d", label: "The Amsterdam sign-in and the LT-SLS-0117 Frankfurt sign-in — a London baseline seen in Europe twice at once" },
       ],
       answer: "b",
       explanation:
-        "Option a only proves the user visited the phishing site; it says nothing about what happened to the session afterwards. Option c is real follow-on activity but is equally consistent with the attacker having simply logged in with a stolen password. Option d compares two different people — aitm_08 is a.rosen, not m.delgado. Only aitm_06 and aitm_09 carry the identical sessionId 0f2c1e64-3b7a-4c19-9d84-5a6e2f8b17d3 while disagreeing on ipAddress (45.87.81.126 vs 91.132.139.204), autonomousSystemNumber (60068 vs 51167) and deviceDetail.browser (Edge 122 vs Chrome 121). One session identifier cannot legitimately be held by two browsers on two machines 365 km apart six minutes apart. The second record also has isInteractive: false and authenticationStepResultDetail 'MFA requirement satisfied by claim in the token' — nobody authenticated.",
+        "Option a only proves the user visited the phishing site; it says nothing about what happened to the session afterwards. Option c is real follow-on activity but is equally consistent with the attacker having simply logged in with a stolen password. Option d compares two different people — aitm_08 is a.rosen, not m.delgado. Only aitm_06 and aitm_09 carry the identical sessionId 0f2c1e64-3b7a-4c19-9d84-5a6e2f8b17d3 while disagreeing on ipAddress (45.87.81.126 vs 91.132.139.204), autonomousSystemNumber (60068 vs 51167) and deviceDetail.browser (Edge 145 vs Chrome 144). One session identifier cannot legitimately be held by two browsers on two machines 365 km apart six minutes apart. The second record also has isInteractive: false and authenticationStepResultDetail 'MFA requirement satisfied by claim in the token' — nobody authenticated.",
     },
     {
       id: "q4", xp: 20,
@@ -125,7 +127,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
     title,
     threat_actor: "Storm-1167 (AitM phishing-as-a-service operator)",
     attack_kind: "aitm_session_hijack",
-    briefing: "Entra ID flagged two sign-ins for m.delgado (LT-FIN-0442) six minutes apart from different countries, at 07:18 and 07:24. The user reports nothing wrong and is working normally. A separate geo-change alert on a.rosen is attached for comparison.",
+    briefing: "Entra ID flagged two sign-ins for m.delgado (LT-FIN-0442) six minutes apart from different countries, at 07:18 and 07:24. The user reports nothing wrong and is working normally. A separate Identity Protection atypical-travel alert on a.rosen is attached for comparison.",
     narrative:
       "A finance controller receives a signature-request lure and follows it to login.nexacorp-sso.com, a look-alike host fronting a reverse proxy. She types her password and approves a genuine Microsoft Authenticator push — the sign-in really does complete, MFA really is satisfied, and Conditional Access really does pass. The proxy relays every step to the real Microsoft endpoint and keeps the session cookie Entra issues at the end. Six minutes later that same session identifier reappears from a hosting provider in Frankfurt, on a different browser, in a different autonomous system, with no authentication step performed: the multifactor requirement is satisfied by a claim already inside the token. The attacker brokers a mailbox token, reads the Inbox, and registers a second Authenticator method on the account — a normal self-service action for a standard user, and one that survives the password reset the SOC is about to order. A colleague signing in from Frankfurt on the corporate VPN the same morning trips the same geo-change logic and is entirely benign.",
     learning_objectives: [

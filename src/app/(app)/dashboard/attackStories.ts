@@ -107,6 +107,8 @@ import { azureManagedIdentityAbuseScenarioEvents } from "@/lib/sim/scenario-pack
 import { gcpSaKeyTheftScenarioEvents }             from "@/lib/sim/scenario-packs/gcpSaKeyTheft.events";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { ecsTechnique } from "@/lib/logs/ecsFields";
+import { isPeerAddressedRecord } from "@/lib/sim/peerRecords";
+import { attackName } from "./attackNames";
 
 /**
  * Real difficulty for STORY SELECTION — how simple the attack itself is for a
@@ -201,7 +203,8 @@ const story = (
   companies?: string[],
 ): AttackStory => ({
   id,
-  title: bundle.title,
+  // The instructor picks and debriefs attacks by name; the scenario's own title is a neutral ticket line.
+  title: attackName(bundle.title),
   // Stamp each event with the story's tier so enrichEvent can scale log fidelity
   // (clean for foundation, production-grade noise for advanced).
   events: bundle.events.map(e => ({ ...e, tier: e.tier ?? complexity })),
@@ -1726,13 +1729,15 @@ function threadHostIps(events: TelemetryEvent[]): TelemetryEvent[] {
   };
   // Outbound network rows first (their src is unambiguously the host), then host telemetry.
   for (const e of events) if (["firewall", "proxy", "dns"].includes(e.source)) note(e.hostname, e.src_ip);
-  for (const e of events) if (HOST_SOURCES.has(e.source) && e.event_type !== "net_connection") note(e.hostname, e.src_ip);
+  for (const e of events) if (HOST_SOURCES.has(e.source) && e.event_type !== "net_connection" && !isPeerAddressedRecord(e)) note(e.hostname, e.src_ip);
   if (!ipOf.size) return events;
   return events.map(e => {
     const ip = e.hostname ? ipOf.get(e.hostname) : undefined;
     if (!ip || !HOST_SOURCES.has(e.source) || e.src_ip === ip) return e;
     // A host's network event keeps an authored source (inbound: that is the remote peer).
     if (e.event_type === "net_connection" && e.src_ip) return e;
+    // So does a remote logon / share access / NTLM validation: its IpAddress is the peer.
+    if (isPeerAddressedRecord(e)) return e;
     if (e.src_ip && !PRIVATE_V4.test(e.src_ip)) return e;
     return { ...e, src_ip: ip };
   });

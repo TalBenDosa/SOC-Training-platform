@@ -34,7 +34,11 @@ export interface ProcScope { host: string; os: Os; timeMs: number; user?: string
  * Whatever an event says about a process. `inst` tells apart two instances of one image that the
  * story shows as parent and child (powershell.exe spawning powershell.exe) — see {@link threadEndpointStory}.
  */
-export interface ProcRef { name?: string; path?: string; cmdline?: string; inst?: string }
+export interface ProcRef { name?: string; path?: string; cmdline?: string; inst?: string; pid?: number }
+
+/** An authored OS pid worth printing (a positive integer). */
+const authoredPid = (ctx: NativeCtx, p: ProcRef): number | undefined =>
+  ctx.authoredPids && typeof p.pid === "number" && Number.isInteger(p.pid) && p.pid > 0 ? p.pid : undefined;
 
 const lc = (s?: string) => (s ?? "").toLowerCase();
 const baseOf = (p?: string) => (p ? p.split(/[\\/]/).pop() : undefined);
@@ -71,7 +75,10 @@ export function procKey(ctx: NativeCtx, s: ProcScope, p: ProcRef): string | unde
   const host = lc(s.host);
   if (SINGLETON.has(name)) return `${ctx.companyId}:${host}:proc:boot:${name}`;
   if (SESSION.has(name)) return `${ctx.companyId}:${host}:proc:session:${lc(s.user) || "-"}:${dayOf(s.timeMs)}:${name}`;
-  return `${ctx.companyId}:${host}:proc:${s.incident ? `inc:${s.incident}` : dayOf(s.timeMs)}:${name}${p.inst ? `:${p.inst}` : ""}`;
+  // A standalone scenario numbers its processes itself: two authored pids of one image are two
+  // instances (the next-day relaunch of a persisted payload is a new process, a new GUID).
+  const ap = authoredPid(ctx, p);
+  return `${ctx.companyId}:${host}:proc:${s.incident ? `inc:${s.incident}` : dayOf(s.timeMs)}:${name}${p.inst ? `:${p.inst}` : ""}${ap !== undefined ? `:pid${ap}` : ""}`;
 }
 
 /** Round to the Windows allocation granularity (multiples of 4, never 0). */
@@ -81,6 +88,9 @@ export const win4 = (n: number) => Math.max(4, n - (n % 4));
 export function procPid(ctx: NativeCtx, s: ProcScope, p: ProcRef): number | undefined {
   const key = procKey(ctx, s, p);
   if (!key) return undefined;
+  // A standalone scenario: the pid its author gave the process (the number its EDR console prints).
+  const ap = authoredPid(ctx, p);
+  if (ap !== undefined) return ap;
   const name = lc(identityName(p));
   // The numbering follows the image itself (an .exe is a Windows process), never the event's OS
   // guess — which varies between events of one host when some carry no platform hint.
@@ -185,25 +195,19 @@ export const sha1Of = (ctx: NativeCtx, sha256OrPath: string) => ctx.hex(`sha1:${
 
 // ── Accounts ────────────────────────────────────────────────────────────────
 
-const WELL_KNOWN_SID: Record<string, string> = {
-  system: "S-1-5-18", "nt authority\\system": "S-1-5-18", "local system": "S-1-5-18",
-  "local service": "S-1-5-19", "nt authority\\local service": "S-1-5-19",
-  "network service": "S-1-5-20", "nt authority\\network service": "S-1-5-20",
-};
+export { accountSid, domainSidOf } from "./_sid";
+
+/** "WS-FIN-01.nexacorp.local" → "ws-fin-01": the key one host is known by in every record. */
+export const hostKey = (host: string) => host.trim().toLowerCase().split(".")[0];
 /**
- * The account's SID: well-known for the service accounts, else the user's domain SID — derived exactly as
- * the Windows Security module derives TargetUserSid / SubjectUserSid (./windows_security), so the user an
- * EDR row names carries the SID of that user's 4624 / 4688 on the same domain. An authored SID
- * (EdrFacts.sid, threaded from any record of the story) is used instead whenever the story has one.
- * (The M365 records' LogonUserSid — collab-email-shared userSid — is seeded differently; kept for reference.)
+ * The host's own private IPv4: the address the story gives it anywhere (ctx.hostIps), else a stable
+ * address derived from the company + host name alone, so every product prints one IP per host.
  */
-export function accountSid(ctx: NativeCtx, user: string, _email?: string): string {
-  const u = user.toLowerCase();
-  const known = WELL_KNOWN_SID[u] ?? WELL_KNOWN_SID[u.split("\\").pop()!];
+export function hostIpFor(ctx: NativeCtx, host: string): string {
+  const known = ctx.hostIps?.get(hostKey(host));
   if (known) return known;
-  const sam = u.split("\\").pop()!.replace(/\$$/, "");
-  const dom = [0, 1, 2].map(i => ctx.int(`${ctx.companyId}:winsec:domsid:${i}`, 1_000_000_000, 3_999_999_999)).join("-");
-  return `S-1-5-21-${dom}-${ctx.int(`${ctx.companyId}:winsec:rid:${sam}`, 1104, 9800)}`;
+  const s = `${ctx.companyId}:${hostKey(host)}:ip`;
+  return `10.${ctx.int(`${s}:b`, 10, 80)}.${ctx.int(`${s}:c`, 1, 250)}.${ctx.int(`${s}:d`, 10, 250)}`;
 }
 /**
  * The logon session id (LUID) of a user on a host: the authored one (4624 TargetLogonId / Sysmon LogonId,
@@ -340,10 +344,11 @@ export function threadEndpointStory(events: TelemetryEvent[]): TelemetryEvent[] 
 
   // 4. A process's own row: integrity, account, command line (for the rows that name it as a parent).
   const ownBy = new Map<string, PView>();
+  const startBy = new Map<string, number>();
   for (const v of vs) {
     if (v.f.kind !== "process" || !v.proc.name) continue;
     const key = `${k2(v.host, v.proc.name)}|${instOf(v.host, v.proc) ?? ""}`;
-    if (!ownBy.has(key)) ownBy.set(key, v.proc);
+    if (!ownBy.has(key)) { ownBy.set(key, v.proc); startBy.set(key, v.t); }
   }
 
   const threadProc = (v: View, p: PView, asParent: boolean): ThreadProc | undefined => {
@@ -361,6 +366,7 @@ export function threadEndpointStory(events: TelemetryEvent[]): TelemetryEvent[] 
       cmdline: own && own !== p ? own.cmdline : undefined,
       integrity: own && own !== p ? own.integrity : asParent && svc ? "system" : undefined,
       user: asParent ? (own?.user ?? svc) : undefined,
+      startMs: p.name ? startBy.get(`${k2(v.host, p.name)}|${inst ?? ""}`) : undefined,
     };
     return Object.values(t).some(x => x !== undefined) ? t : undefined;
   };

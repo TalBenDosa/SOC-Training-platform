@@ -60,6 +60,20 @@ export function md5For(sha256: string): string {
 // Falcon IntegrityLevel is the mandatory-label RID in decimal.
 const INTEG_RID = { low: "4096", medium: "8192", high: "12288", system: "16384" } as const;
 
+/**
+ * Falcon's PatternDispositionDescription, as the sensor writes it (DetectionSummaryEvent / Alerts API
+ * pattern_disposition_description). "Detection, standard detection." (0) and "Prevention, process was
+ * blocked from execution." (2048) appear in the Elastic CrowdStrike integration's raw test events;
+ * "Prevention, process killed." is the kill_process (16) disposition; a kill with a quarantine is
+ * worded like the verified blocked-and-quarantined text (2176).
+ */
+export const PATTERN_DISPOSITION: Record<"detected" | "killed" | "quarantined" | "prevented", string> = {
+  detected: "Detection, standard detection.",
+  killed: "Prevention, process killed.",
+  quarantined: "Prevention/Quarantine, process was killed and quarantine was attempted.",
+  prevented: "Prevention, process was blocked from execution.",
+};
+
 // ── Incident alert (DetectionSummaryEvent, no process node) ──────────────────────────
 // A behavioural Falcon detection that summarises a chain (or a browser/renderer finding)
 // and carries NO process of its own — the alert row that opens the ticket, shown in the
@@ -95,10 +109,7 @@ export interface CsAlertOpts extends Ctx {
 export function csAlert(o: CsAlertOpts): TelemetryEvent {
   const r = resolve(o);
   const sev = o.severity ?? "critical";
-  const dispoDesc = o.action === "killed" ? "Detection, Process Killed"
-    : o.action === "quarantined" ? "Detection, Process Killed, Quarantine File"
-    : o.action === "prevented" ? "Prevention, process blocked"
-    : "Detection, No Action";
+  const dispoDesc = PATTERN_DISPOSITION[o.action ?? "detected"];
   const result = o.action === "killed" || o.action === "quarantined" ? "process_killed"
     : o.action === "prevented" ? "prevented" : "detected";
   // A detection names at most three generations of its chain — the triggering process
@@ -167,10 +178,10 @@ export interface CsDetectionOpts extends Ctx {
   description?: string;
 }
 const DISPO: Record<NonNullable<CsDetectionOpts["action"]>, { desc: string; result: string; quarantine: string }> = {
-  prevented:   { desc: "Prevention, process blocked",                 result: "prevented",      quarantine: "n/a" },
-  killed:      { desc: "Prevention, process killed",                  result: "process_killed", quarantine: "n/a" },
-  quarantined: { desc: "Prevention, process killed, quarantine file", result: "process_killed", quarantine: "quarantined" },
-  detected:    { desc: "Detection only, no action taken",             result: "detected",       quarantine: "n/a" },
+  prevented:   { desc: PATTERN_DISPOSITION.prevented,   result: "prevented",      quarantine: "n/a" },
+  killed:      { desc: PATTERN_DISPOSITION.killed,      result: "process_killed", quarantine: "n/a" },
+  quarantined: { desc: PATTERN_DISPOSITION.quarantined, result: "process_killed", quarantine: "quarantined" },
+  detected:    { desc: PATTERN_DISPOSITION.detected,    result: "detected",       quarantine: "n/a" },
 };
 export function csDetection(o: CsDetectionOpts): TelemetryEvent {
   const r = resolve(o);

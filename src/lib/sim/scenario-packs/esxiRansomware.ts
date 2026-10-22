@@ -41,36 +41,48 @@ export function buildEsxiRansomwareScenario(
     {
       type: "sha256",
       value: elfHash,
+      first_seen: T(48 * MIN + 10_000),
+      last_seen: T(52 * MIN),
       reputation: "malicious",
       tags: ["elf", "encryptor"],
     },
     {
       type: "user",
       value: "r.okonkwo@nexacorp.com",
+      first_seen: T(0),
+      last_seen: T(0),
       reputation: "suspicious",
       tags: ["contractor", "vpn"],
     },
     {
       type: "user",
       value: "administrator@vsphere.local",
+      first_seen: T(21 * MIN),
+      last_seen: T(24 * MIN),
       reputation: "suspicious",
       tags: ["sso", "built-in-account"],
     },
     {
       type: "user",
       value: "svc-monitor@vsphere.local",
+      first_seen: T(24 * MIN),
+      last_seen: T(34 * MIN),
       reputation: "malicious",
       tags: ["sso", "role-granted-during-window"],
     },
     {
       type: "host",
       value: vcenter.host,
+      first_seen: T(14 * MIN),
+      last_seen: T(43 * MIN + 20_000),
       reputation: "unknown",
       tags: ["management-plane"],
     },
     {
       type: "host",
       value: esxi.host,
+      first_seen: T(29 * MIN),
+      last_seen: T(56 * MIN),
       reputation: "unknown",
       tags: ["hypervisor", "shell-access"],
     },
@@ -93,7 +105,7 @@ export function buildEsxiRansomwareScenario(
       ts: T(14 * MIN),
       phase: "Credential Access",
       action:
-        "Low-and-slow password spray against 14 vCenter SSO principals — no lockouts triggered",
+        "Password spray against 14 vCenter SSO principals: 61 rejections in nine minutes, no lockouts triggered",
     },
     {
       ts: T(21 * MIN),
@@ -106,6 +118,12 @@ export function buildEsxiRansomwareScenario(
       phase: "Persistence",
       action:
         "Administrator role granted to svc-monitor on the Datacenters folder, propagating",
+    },
+    {
+      ts: T(25 * MIN),
+      phase: "Persistence",
+      action:
+        "svc-monitor signs in to vCenter from the tunnel address with the role it was just granted",
     },
     {
       ts: T(29 * MIN),
@@ -123,13 +141,19 @@ export function buildEsxiRansomwareScenario(
       ts: T(37 * MIN),
       phase: "Lateral Movement",
       action:
-        "Interactive root SSH session opened on esx-prod-03 from the VPN tunnel address",
+        "Interactive root SSH session opened on esx-prod-03 from the VPN tunnel address; the firewall logs the session first, and root sessions follow on esx-prod-04 and esx-prod-05",
     },
     {
       ts: T(41 * MIN),
       phase: "Impact — Service Stop",
       action:
-        "vim-cmd vmsvc/power.off loop stops all 96 VMs, releasing the locks on their -flat.vmdk files",
+        "vim-cmd vmsvc/power.off loop, run in the root shell of each host, stops all 96 VMs (32 + 31 + 33), releasing the locks on their -flat.vmdk files",
+    },
+    {
+      ts: T(48 * MIN + 10_000),
+      phase: "Command and Control",
+      action:
+        "A second SSH session runs scp -t /tmp/.x/ on esx-prod-03: the encryptor and the note are uploaded from the tunnel address",
     },
     {
       ts: T(52 * MIN),
@@ -241,39 +265,39 @@ export function buildEsxiRansomwareScenario(
       answer: "ssh_enabled",
       xp: 100,
       explanation:
-        "Fidelity and earliness are different things, and the best rule maximises both. The VPN login is the earliest event but a contractor logging in from abroad at the weekend is ordinary — on its own it is close to noise. The SSO rejections are stronger and worth alerting on, but expired service accounts and stale scripts generate the same pattern in every vSphere estate, so it is a triage lead rather than a decision. esx.audit.ssh.enabled is different in kind: ESXi ships with SSH off, it is enabled only deliberately, the event names the host and the vSphere principal, and it can be joined against the change calendar automatically — an enable with no change record is very close to a certainty. It also sits 32 minutes ahead of the first power-off, which is enough time to act. The heartbeat loss is the highest-confidence signal of all, but it arrives after the VMs are already down; it reports the incident rather than preventing it.",
+        "Fidelity and earliness are different things, and the best rule maximises both. The VPN login is the earliest event but a contractor logging in from abroad at the weekend is ordinary — on its own it is close to noise. The SSO rejections are stronger and worth alerting on, but expired service accounts and stale scripts generate the same pattern in every vSphere estate, so it is a triage lead rather than a decision. esx.audit.ssh.enabled is different in kind: ESXi ships with SSH off, it is enabled only deliberately, the event names the host and the vSphere principal, and it can be joined against the change calendar automatically — an enable with no change record is very close to a certainty. It also sits twelve minutes ahead of the first power-off (22:09 against 22:21), which is enough time to act. The 22:01 Administrator login from a VPN-pool address and the 22:04 role grant are strong signals too, but each needs an expected-administrator source list to judge, whereas the SSH enable can be tested against the change calendar alone. The heartbeat loss is the highest-confidence signal of all, but it arrives after the VMs are already down; it reports the incident rather than preventing it.",
     },
     {
       id: "q4",
       prompt:
-        "Enabling SSH on an ESXi host and powering off its VMs are both privileged vSphere operations. What in this timeline gave the attacker the right to perform them?",
+        "Enabling SSH and resetting root's password were done through vCenter as svc-monitor; the VM power-offs ran in a root shell on each host. What in this timeline permitted each of them?",
       kind: "single",
       options: [
         {
-          value: "admin_role",
+          value: "role_then_root",
           label:
-            "The Administrator role granted on the Datacenters folder, carrying Host.Config.Settings and VM.Interact.PowerOff",
+            "The Administrator role granted at 22:04 permitted the vCenter-side changes; the power-offs needed only the root shell opened after the root password was reset",
         },
         {
-          value: "root_ssh",
+          value: "role_all",
           label:
-            "The interactive root SSH session on esx-prod-03, which gives unrestricted control of the host and its guests",
+            "The Administrator role granted at 22:04 permitted all of them, because vim-cmd run in a root shell is checked against the vCenter role of the SSH source",
         },
         {
           value: "firewall_rule",
           label:
-            "The sshServer firewall change, which removed the source restriction protecting the management interfaces",
+            "The sshServer firewall change permitted all of them, because opening the SSH ruleset to every address also grants the right to act on the hosts",
         },
         {
           value: "vpn_group",
           label:
-            "Membership of the VPN-Contractors group, whose tunnel policy permits routed access straight into the management VLAN",
+            "Membership of the VPN-Contractors group permitted all of them, because the FortiGate policy for that group also carries vSphere privileges",
         },
       ],
-      answer: "admin_role",
+      answer: "role_then_root",
       xp: 100,
       explanation:
-        "vSphere authorises by role, and the PermissionAddedEvent at 22:04 is where the required privileges appear: Administrator on the root folder with propagation enabled, which inherits down to every host and VM. Host.Config.Settings is what permits starting TSM-SSH; VirtualMachine.Interact.PowerOff is what permits stopping a guest. The root SSH session is a consequence of that role, not its cause — it happens at 22:17, eight minutes after SSH was already enabled, so it cannot explain the enable. The firewall change is reachability, not authorisation: it decides whether packets arrive, not whether the caller is permitted to act. VPN group membership only gets the attacker onto the network; the FortiGate has no view of vSphere privileges at all.",
+        "vSphere authorises vCenter operations by role, and the PermissionAddedEvent at 22:04 is where svc-monitor acquires Administrator on the root folder with propagation, which is what authorises the SSH enable (22:09), the firewall change (22:11) and the root password reset (22:14), all recorded with the VSPHERE.LOCAL\\svc-monitor user name. The power-offs are a different matter: they run as vim-cmd inside a root shell on each host (shell.log, user root), and the vCenter VmPoweredOffEvent records carry an empty userName, so no vSphere role was consulted. What permitted them is the local root account, which the attacker could use only because vCenter had already enabled SSH, opened the firewall and reset root's password. The firewall change decides whether packets arrive, not who may act. And the FortiGate has no view of vSphere privileges at all; the VPN group only gets the attacker onto the network.",
     },
     {
       id: "q5",
@@ -321,7 +345,7 @@ export function buildEsxiRansomwareScenario(
       "Trace a hypervisor ransomware chain from VPN initial access through vCenter to an ESXi root shell using only vCenter events and syslog",
       "Explain why endpoint EDR produces no ransomware detection when the encryptor executes on the hypervisor, and reason from missing telemetry",
       "Identify the earliest high-fidelity detection opportunity in a vSphere intrusion and justify it against earlier but noisier signals",
-      "Prove the vSphere privilege chain — which role privileges are required to enable SSH on a host and to power off its VMs",
+      "Separate what a vSphere role authorised (the SSH enable, the firewall change and the root password reset, all recorded with a vSphere user) from what the local root account on each host did without a vSphere user (the power-offs and the encryption)",
       "Recognise mass VM power-off as T1489 Service Stop and distinguish it from T1490 and T1486",
     ],
     alerts: [], // alerts are attached by the catalogue wiring

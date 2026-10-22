@@ -17,6 +17,7 @@ export const RULE_DESCRIPTIONS: Record<string, string> = {
   "4675": "SIDs were filtered",
   "4778": "Session reconnected to Window Station",
   "4779": "Session disconnected from Window Station",
+  "6416": "New external device recognized",
 
   // Kerberos
   "4768": "Kerberos authentication ticket (TGT) requested",
@@ -329,6 +330,7 @@ export const WIN_EVENT_VIEWER_DESCRIPTIONS: Record<string, string> = {
   "4675": "SIDs were filtered.",
   "4778": "A session was reconnected to a Window Station.",
   "4779": "A session was disconnected from a Window Station.",
+  "6416": "A new external device was recognized by the system.",
 
   // Kerberos
   "4768": "A Kerberos authentication ticket (TGT) was requested.",

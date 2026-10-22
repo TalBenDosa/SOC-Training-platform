@@ -48,7 +48,9 @@ describe("FortiGate emitters", () => {
     expect(vpn.geo?.country).toBe("Russia");
     expect(events[2].event_type).toBe("http_request");
     expect(events[2].raw?.["data.subtype"]).toBe("filefilter");
-    expect(events[3].raw?.["data.catdesc"]).toBe("Uncategorized");
+    // FortiGuard has no "26 Uncategorized": an unrated site is cat 0 "Unrated" (26 is Malicious Websites).
+    expect(events[3].raw?.["data.catdesc"]).toBe("Unrated");
+    expect(events[3].raw?.["data.cat"]).toBe("0");
     expect(events[4].raw?.["data.user"]).toBe("");
     expect(events[4].raw?.["http.response.status_code"]).toBe("200");
   });

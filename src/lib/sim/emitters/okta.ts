@@ -60,14 +60,15 @@ function geoOf(o: OktaCtx): OktaGeo | undefined {
 interface BuildArgs {
   eventType: string;               // okta.eventType
   event_type: EventType;
-  outcomeResult: "SUCCESS" | "FAILURE" | "CHALLENGE" | "DENIED";
+  outcomeResult: "SUCCESS" | "FAILURE" | "CHALLENGE" | "ALLOW" | "DENY";
   ecsOutcome: "success" | "failure" | "unknown";
   reason?: string;
   displayMessage: string;
   authMethod: string;
   mfa?: boolean;
   factor?: string;
-  authStep?: number;               // authenticationContext.authenticationStep
+  requestUri?: string;             // debugContext.debugData.requestUri (Identity Engine path)
+  pushResponse?: "OV_RESPONSE_APPROVE" | "OV_RESPONSE_DENY"; // debugData.pushOnlyResponseType
   credentialType?: string;         // PASSWORD | OTP
   targetAuthenticator?: string;    // e.g. "Okta Verify"
   oktaSeverity?: "INFO" | "WARN" | "ERROR";
@@ -112,14 +113,16 @@ function build(o: OktaCtx, a: BuildArgs): TelemetryEvent {
       ...((o.isp ?? o.asOrg) ? { "okta.securityContext.isp": (o.isp ?? o.asOrg)! } : {}),
       ...(o.domain ? { "okta.securityContext.domain": o.domain } : {}),
       "okta.securityContext.isProxy": String(o.isProxy ?? false),
-      ...(a.authStep !== undefined ? { "okta.authenticationContext.authenticationStep": String(a.authStep) } : {}),
+      // authenticationStep is always 0 in the System Log (deprecated field, card idp-okta section 3.1).
+      ...(a.system ? {} : { "okta.authenticationContext.authenticationStep": "0" }),
       ...(a.credentialType ? { "okta.authenticationContext.credentialType": a.credentialType } : {}),
-      ...(a.event_type.startsWith("mfa") || a.authStep ? { "okta.authenticationContext.externalSessionId": sessionId } : {}),
+      ...(a.system ? {} : { "okta.authenticationContext.externalSessionId": sessionId }),
       ...(a.targetAuthenticator ? { "okta.target.0.type": "AuthenticatorEnrollment", "okta.target.0.displayName": a.targetAuthenticator } : {}),
       "okta.transaction.id": txId,
-      "okta.debugContext.debugData.requestUri": "/api/v1/authn",
+      "okta.debugContext.debugData.requestUri": a.requestUri ?? "/idp/idx/identify",
       ...(o.threatSuspected !== undefined ? { "okta.debugContext.debugData.threatSuspected": String(o.threatSuspected) } : {}),
       ...(a.factor ? { "okta.debugContext.debugData.factor": a.factor } : {}),
+      ...(a.pushResponse ? { "okta.debugContext.debugData.pushOnlyResponseType": a.pushResponse } : {}),
       ...(a.extraRaw ?? {}),
       "event.action": a.eventType,
       "event.outcome": a.ecsOutcome,
@@ -139,6 +142,7 @@ function build(o: OktaCtx, a: BuildArgs): TelemetryEvent {
 export interface OktaSignInOpts extends OktaCtx {
   mfaUsed?: boolean;
   factor?: string;
+  /** Deprecated: the System Log always writes authenticationStep 0. Accepted, ignored. */
   authStep?: number;
 }
 export function oktaSignIn(o: OktaSignInOpts): TelemetryEvent {
@@ -146,25 +150,40 @@ export function oktaSignIn(o: OktaSignInOpts): TelemetryEvent {
     eventType: "user.session.start", event_type: "auth_success", outcomeResult: "SUCCESS", ecsOutcome: "success",
     displayMessage: "User login to Okta", authMethod: o.mfaUsed ? "MFA" : "PASSWORD",
     mfa: o.mfaUsed, factor: o.mfaUsed ? (o.factor ?? "OKTA_VERIFY_PUSH") : undefined,
-    authStep: o.authStep ?? (o.mfaUsed ? 1 : undefined), credentialType: o.mfaUsed ? "OTP" : undefined,
+    credentialType: o.mfaUsed ? "OTP" : undefined,
     defaultSeverity: "medium",
     description: o.description ?? `Okta sign-in success for ${o.user ?? "the user"} from ${o.srcIp}`,
   });
 }
 
-// ── Failed sign-in (spray / stuffing) — set reason:"MFA_REQUIRED" + authStep:1 for the
-//    tell that the PASSWORD was finally accepted and the transaction reached the factor.
+// ── Failed sign-in (spray / stuffing). user.session.start FAILURE reasons are INVALID_CREDENTIALS,
+//    VERIFICATION_ERROR or LOCKED_OUT (card idp-okta section 3.3). "The password was accepted and the
+//    transaction moved on to the second factor" is NOT a failure in Okta: it is the sign-on policy
+//    answering CHALLENGE (policy.evaluate_sign_on). reason "MFA_REQUIRED" (the legacy spelling of that
+//    tell) renders that record.
 export interface OktaAuthFailureOpts extends OktaCtx {
-  reason?: string;                 // default INVALID_CREDENTIALS
-  authStep?: number;               // 0 = password rejected; 1 = password accepted, MFA required
+  reason?: string;                 // default INVALID_CREDENTIALS; "MFA_REQUIRED" renders policy.evaluate_sign_on CHALLENGE
+  /** Deprecated: the System Log always writes authenticationStep 0. Accepted, ignored. */
+  authStep?: number;
 }
 export function oktaAuthFailure(o: OktaAuthFailureOpts): TelemetryEvent {
+  if (o.reason === "MFA_REQUIRED") return oktaPolicyChallenge(o);
   const reason = o.reason ?? "INVALID_CREDENTIALS";
   return build(o, {
     eventType: "user.session.start", event_type: "auth_failure", outcomeResult: "FAILURE", ecsOutcome: "failure",
     reason, displayMessage: "User login to Okta", authMethod: "PASSWORD",
-    authStep: o.authStep ?? 0, credentialType: "PASSWORD", defaultSeverity: "low",
+    credentialType: "PASSWORD", defaultSeverity: "low", oktaSeverity: "WARN",
     description: o.description ?? `Okta sign-in FAILURE (${reason}) for ${o.user ?? "the user"} from ${o.srcIp}`,
+  });
+}
+
+// ── Sign-on policy evaluation: the password was right and the policy demands the second factor ──
+export function oktaPolicyChallenge(o: OktaCtx): TelemetryEvent {
+  return build(o, {
+    eventType: "policy.evaluate_sign_on", event_type: "mfa_challenge", outcomeResult: "CHALLENGE", ecsOutcome: "unknown",
+    reason: "Sign-on policy evaluation resulted in CHALLENGE", displayMessage: "Evaluation of sign-on policy", authMethod: "PASSWORD",
+    defaultSeverity: "medium", requestUri: "/idp/idx/identify",
+    description: o.description ?? `Okta sign-on policy CHALLENGE for ${o.user ?? "the user"} from ${o.srcIp}`,
   });
 }
 
@@ -175,16 +194,21 @@ export interface OktaMfaOpts extends OktaCtx {
 }
 export function oktaMfa(o: OktaMfaOpts): TelemetryEvent {
   const factor = o.factor ?? "OKTA_VERIFY_PUSH";
+  // Real Identity Engine event types (card idp-okta sections 1 and 3.3): a push sent is
+  // system.push.send_factor_verify_push SUCCESS; the user's answer is user.authentication.auth_via_mfa,
+  // SUCCESS with OV_RESPONSE_APPROVE or FAILURE / INVALID_CREDENTIALS with OV_RESPONSE_DENY; the
+  // "second factor required" step is the sign-on policy answering CHALLENGE.
+  if (o.result === "challenge") return oktaPolicyChallenge(o);
+  const push = factor === "OKTA_VERIFY_PUSH";
   const m = {
-    sent:      { et: "system.push.send_factor_verify_push", ev: "mfa_push_sent" as EventType, out: "SUCCESS" as const, ecs: "success" as const, msg: "Send factor verify push", reason: undefined, sev: "medium" as Severity, oktaSev: "INFO" as const },
-    challenge: { et: "user.authentication.auth_via_mfa",    ev: "mfa_challenge" as EventType, out: "CHALLENGE" as const, ecs: "unknown" as const, msg: "Authentication of user via MFA", reason: undefined, sev: "medium" as Severity, oktaSev: "INFO" as const },
-    approved:  { et: "user.authentication.auth_via_mfa",    ev: "mfa_challenge" as EventType, out: "SUCCESS" as const, ecs: "success" as const, msg: "Authentication of user via MFA", reason: undefined, sev: "medium" as Severity, oktaSev: "INFO" as const },
-    denied:    { et: "user.mfa.okta_verify.push_response",  ev: "mfa_denied" as EventType,    out: "DENIED" as const, ecs: "failure" as const, msg: "MFA push notification denied", reason: "USER_REJECTED_PUSH", sev: "high" as Severity, oktaSev: "WARN" as const },
+    sent:     { et: "system.push.send_factor_verify_push", ev: "mfa_push_sent" as EventType, out: "SUCCESS" as const, ecs: "success" as const, msg: "Send factor verify push", reason: undefined, sev: "medium" as Severity, oktaSev: "INFO" as const, resp: undefined, uri: "/idp/idx/challenge" },
+    approved: { et: "user.authentication.auth_via_mfa",    ev: "mfa_challenge" as EventType, out: "SUCCESS" as const, ecs: "success" as const, msg: "Authentication of user via MFA", reason: undefined, sev: "medium" as Severity, oktaSev: "INFO" as const, resp: push ? "OV_RESPONSE_APPROVE" as const : undefined, uri: "/idp/idx/authenticators/poll" },
+    denied:   { et: "user.authentication.auth_via_mfa",    ev: "mfa_denied" as EventType,    out: "FAILURE" as const, ecs: "failure" as const, msg: "Authentication of user via MFA", reason: "INVALID_CREDENTIALS", sev: "high" as Severity, oktaSev: "WARN" as const, resp: push ? "OV_RESPONSE_DENY" as const : undefined, uri: "/idp/idx/authenticators/poll" },
   }[o.result];
   return build(o, {
     eventType: m.et, event_type: m.ev, outcomeResult: m.out, ecsOutcome: m.ecs, reason: m.reason,
-    displayMessage: m.msg, authMethod: "MFA", mfa: true, factor, authStep: 1, credentialType: "OTP",
-    targetAuthenticator: "Okta Verify", oktaSeverity: m.oktaSev, defaultSeverity: m.sev,
+    displayMessage: m.msg, authMethod: "MFA", mfa: true, factor, credentialType: o.result === "sent" ? undefined : "OTP",
+    targetAuthenticator: "Okta Verify", oktaSeverity: m.oktaSev, defaultSeverity: m.sev, pushResponse: m.resp, requestUri: m.uri,
     description: o.description ?? `Okta MFA ${o.result} (${factor}) for ${o.user ?? "the user"} from ${o.srcIp}`,
   });
 }

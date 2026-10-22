@@ -8,16 +8,18 @@
  *
  * Kind = logid. Rendering of the platform's VPN events:
  *   auth failure / MFA denied → 0101039426 ssl-login-fail (tunneltype ssl-web, tunnelid 0)
- *   login                     → 0101039947 tunnel-up ssl-tunnel (tunnelip) when a tunnel IP is
- *                               known, else 0101039424 tunnel-up ssl-web "login successfully"
- *                               (an author's explicit ssl-web / 39424 is kept)
+ *   login                     → 0101039947 tunnel-up ssl-tunnel (tunnelip) whenever a tunnel IP is
+ *                               known (only tunnel mode assigns one: an authored "ssl-web" next to a
+ *                               tunnel IP is a contradiction the tunnel IP wins), else 0101039424
+ *                               tunnel-up ssl-web "login successfully"
  *   logout                    → 0101039948 tunnel-down (duration, sentbyte, rcvdbyte)
  *   MFA challenge             → null: FortiOS logs only the final login result.
  * Era: FortiOS 7.0–7.4 (SSL-VPN tunnel mode removed in 7.6.x, card §2).
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { KindSchema, NativeCtx, NativeLog, NativeSource, SourceSchema, UseCase } from "../types";
-import { vpnFacts, homeCountry, isPrivateIp, isoDate, hms, digits, typedUser, HIGH_RISK_FORTINET, type VpnFacts } from "./remote-access-shared";
+import { vpnFacts, homeCountry, isPrivateIp, isoDate, hms, typedUser, HIGH_RISK_FORTINET, type VpnFacts } from "./remote-access-shared";
+import { fortiDevId } from "./firewall-shared";
 
 const BASE = ["date", "time", "devname", "devid", "eventtime", "tz", "logid", "type", "subtype", "level", "vd", "logdesc", "action", "tunneltype", "tunnelid", "remip", "user", "group", "dst_host", "reason", "msg"];
 const k = (required: string[], optional: string[]): KindSchema => ({ required: [...BASE, ...required], optional: [...optional, "raw" /* card representation carries the raw line too */] });
@@ -60,7 +62,7 @@ function build(ev: TelemetryEvent, f: VpnFacts, ctx: NativeCtx): Record<string, 
   const remip = f.publicIp ?? "0.0.0.0";
   const country = f.publicIp && isPrivateIp(f.publicIp) ? "Reserved" : (f.country ?? homeCountry(ctx)).fortinet;
   const head = (logid: string, level: string, logdesc: string) => ({
-    date: isoDate(ms), time: hms(ms), devname: f.gatewayHost ?? "FGT-HQ-01", devid: `FG200FT9219${digits(ctx, `${ctx.companyId}:fgt-devid`, 5)}`,
+    date: isoDate(ms), time: hms(ms), devname: f.gatewayHost ?? "FGT-HQ-01", devid: fortiDevId(ctx, f.gatewayHost ?? "FGT-HQ-01"),
     eventtime: `${ms}${String(ctx.int(`${ev.id}:fgt-ns`, 0, 999999)).padStart(6, "0")}`, tz: "+0000",
     logid, type: "event", subtype: "vpn", level, vd: "root", logdesc,
   });
@@ -81,7 +83,8 @@ function build(ev: TelemetryEvent, f: VpnFacts, ctx: NativeCtx): Record<string, 
     }
     case "login": {
       if (!user) return null;
-      const web = f.fgtLogid === "0101039424" || f.fgtTunnelType === "ssl-web" || !f.tunnelIp;
+      // Web mode has no tunnel address; a session that was given one is a tunnel-mode session.
+      const web = !f.tunnelIp;
       if (web) {
         return {
           ...head("0101039424", f.fgtLevel ?? "information", "SSL VPN tunnel up"), action: "tunnel-up", tunneltype: "ssl-web", tunnelid: tunnelId, remip,

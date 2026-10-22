@@ -28,7 +28,9 @@ const ALERT_TYPES = /alert|detection|quarantine|finding|_blocked|ueba_anomaly|ri
 const COUNT_RE = /\b(\d{1,3}(?:,\d{3})+|\d{2,})\s+(files?|records?|rows?|objects?|items?|messages?|emails?|failures?|failed|attempts?|requests?|queries|hosts?|accounts?|users?|folders?|documents?|downloads?|uploads?|connections?|sessions?|events?|lockouts?|pushes|prompts?)\b/gi;
 const PRIVATE = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|169\.254\.|0\.)/;
 /** Services every story may legitimately show (public resolvers, Microsoft / Google / AWS front doors). */
-const SHARED_SERVICES = /^(8\.8\.8\.8|8\.8\.4\.4|1\.1\.1\.1|9\.9\.9\.9|13\.107\.|20\.190\.|40\.126\.|52\.(9[6-9]|1[01]\d)\.|142\.250\.|172\.217\.)/;
+// 217.177.80.10 is the scenario company's own NAT egress (what SaaS, the proxy and Okta see for the
+// office): a user clicking a lure from the office carries it, but it is not attacker infrastructure.
+const SHARED_SERVICES = /^(217\.177\.80\.10$|8\.8\.8\.8|8\.8\.4\.4|1\.1\.1\.1|9\.9\.9\.9|13\.107\.|20\.190\.|40\.126\.|52\.(9[6-9]|1[01]\d)\.|142\.250\.|172\.217\.)/;
 
 export interface StoryRender { story: AttackStory; events: TelemetryEvent[]; records: unknown[] }
 

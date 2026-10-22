@@ -20,7 +20,7 @@
  */
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
-import { procPid, procKey, win4, OS_IMAGE_PATH, imageHashes, accountSid, logonLuid } from "./_proc-identity";
+import { procPid, procKey, win4, OS_IMAGE_PATH, imageHashes, accountSid, logonLuid, hostIpFor } from "./_proc-identity";
 import { accessMask, threadOf } from "./edr-normalize";
 
 /** Windows pids / tids are multiples of 4: an authored value is rounded down to one (equal values stay equal). */
@@ -58,6 +58,8 @@ const kinds: Record<string, KindSchema> = {
   "15": { required: req("ProcessGuid", "ProcessId", "Image", "TargetFilename", "CreationUtcTime", "Hash"), optional: ["Contents", "User"] },
   // PipeEvent (created) — card names 17/18 without a field list; Sysmon schema names (UNVERIFIED vs card).
   "17": { required: req("EventType", "ProcessGuid", "ProcessId", "PipeName", "Image"), optional: ["User"] },
+  // PipeEvent (connected): same schema, EventType ConnectPipe (Sysmon schema names, UNVERIFIED vs card).
+  "18": { required: req("EventType", "ProcessGuid", "ProcessId", "PipeName", "Image"), optional: ["User"] },
   // DNSEvent
   "22": { required: req("ProcessGuid", "ProcessId", "QueryName", "QueryStatus", "QueryResults", "Image"), optional: ["User"] },
   // FileDelete (archived)
@@ -77,7 +79,7 @@ const str = (v: unknown): string | undefined =>
   v === undefined || v === null || v === "" ? undefined : Array.isArray(v) ? (v.length ? v.map(String).join(" ") : undefined) : String(v);
 const base = (p: string) => p.split(/[\\/]/).pop() ?? p;
 const isWinPath = (p?: string) => !!p && /^([A-Za-z]:\\|\\\\)/.test(p);
-const VERSION: Record<string, number> = { "1": 5, "3": 5, "6": 4, "7": 3, "8": 2, "10": 3, "11": 2, "12": 2, "13": 2, "15": 2, "17": 1, "22": 5, "23": 5, "26": 5 };
+const VERSION: Record<string, number> = { "1": 5, "3": 5, "6": 4, "7": 3, "8": 2, "10": 3, "11": 2, "12": 2, "13": 2, "15": 2, "17": 1, "18": 1, "22": 5, "23": 5, "26": 5 };
 
 const S32 = "C:\\Windows\\System32\\";
 const OFFICE = "C:\\Program Files\\Microsoft Office\\root\\Office16\\";
@@ -220,15 +222,18 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   // lifetime scope, plus the story's instance tag) — never from an authored ProcessId / ProcessGuid, which
   // the corpus does not number consistently — so a parent's ids on its child equal its own row's.
   const scope = { host, os: "Win" as const, timeMs, incident: ev.incident_id, user: user === "-" ? undefined : userName };
-  const seededPid = (name?: string, inst?: string) => String(procPid(ctx, scope, { name: name ?? "?", inst }) ?? 4);
-  const pid = a.name ? seededPid(a.name, a.inst) : pid4(a.pid) ?? seededPid(undefined);
+  const num = (v?: string) => (v !== undefined && /^\d+$/.test(v) ? Number(v) : undefined);
+  // A standalone scenario prints the authored pid (ctx.authoredPids); the live feed the instance's derived one.
+  const seededPid = (name?: string, inst?: string, authored?: number) => String(procPid(ctx, scope, { name: name ?? "?", inst, pid: authored }) ?? 4);
+  const actorPid = wr ? (wr.pid ?? undefined) : num(a.pid);
+  const pid = a.name ? seededPid(a.name, a.inst, actorPid) : pid4(a.pid) ?? seededPid(undefined);
   const image = a.path ?? "<unknown process>";
-  const guidFor = (n: string | undefined, inst?: string, pidFallback?: string) => {
-    const key = n ? procKey(ctx, scope, { name: n, inst }) : undefined;
+  const guidFor = (n: string | undefined, inst?: string, pidFallback?: string, authored?: number) => {
+    const key = n ? procKey(ctx, scope, { name: n, inst, pid: authored }) : undefined;
     const h = hx(ctx, key ? `${key}:guid` : `${ctx.companyId}:${host.toLowerCase()}:${pidFallback}:?`, 24);
     return `{${machine}-${h.slice(0, 4)}-${h.slice(4, 8)}-${h.slice(8, 12)}-${h.slice(12, 24)}}`;
   };
-  const procGuid = guidFor(a.name ?? (a.path ? base(a.path) : undefined), a.inst, pid);
+  const procGuid = guidFor(a.name ?? (a.path ? base(a.path) : undefined), a.inst, pid, actorPid);
   // The session: the story's authored logon id, else one per host + user + day (./_proc-identity logonLuid).
   const luidHex = `0x${logonLuid(ctx, host, userName, timeMs, th?.logonId, th?.logonSeq).toString(16).toUpperCase()}`;
 
@@ -261,7 +266,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         ?? (isWinPath(r("process.parent.executable")) ? r("process.parent.executable") : undefined)
         ?? (parentName ? KNOWN[parentName.toLowerCase()] ?? pathFromCmd(parentCmd, parentName) : undefined);
       const pName = parentName ?? (parentPath ? base(parentPath) : undefined);
-      const ppid = pName ? seededPid(pName, th?.parent?.inst) : "0";
+      const authoredPpid = (ev.process?.parent_pid !== undefined ? ev.process.parent_pid : undefined) ?? num(ed("ParentProcessId") ?? r("process.parent.pid") ?? (mdeProcEvent ? r("InitiatingProcessId") : undefined));
+      const ppid = pName ? seededPid(pName, th?.parent?.inst, authoredPpid) : "0";
       const pImage = parentPath ?? (parentName ? `-` : "-");
       const parentKnown = parentPath !== undefined;
       const parentUser = th?.parent?.user ? normUser(th.parent.user)! : parentName && SYSTEM_PARENTS.has(parentName.toLowerCase()) ? "NT AUTHORITY\\SYSTEM" : user;
@@ -298,7 +304,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         IntegrityLevel: a.integrity ?? (ms ? "System" : "Medium"),
         // The authored Hashes line verbatim when it names this binary's hash; else built from the story's hash.
         Hashes: ed("Hashes") && ed("Hashes")!.toLowerCase().includes(sha.toLowerCase()) ? ed("Hashes")! : `SHA256=${sha}${md5 ? `,MD5=${md5}` : ""},IMPHASH=${imphash}`,
-        ParentProcessGuid: pName ? guidFor(pName, th?.parent?.inst) : "{00000000-0000-0000-0000-000000000000}",
+        ParentProcessGuid: pName ? guidFor(pName, th?.parent?.inst, undefined, authoredPpid) : "{00000000-0000-0000-0000-000000000000}",
         ParentProcessId: ppid,
         ParentImage: pImage,
         ParentCommandLine: parentCmd ?? (parentKnown ? (pImage.includes(" ") ? `"${pImage}"` : pImage) : "-"),
@@ -314,8 +320,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       const dport = (ev.dst_port !== undefined ? String(ev.dst_port) : undefined) ?? ed("DestinationPort") ?? r("destination.port") ?? r("RemotePort") ?? r("crowdstrike.RemotePort");
       if (!dst || !needImage()) return null;
       const inbound = r("crowdstrike.ConnectionDirection") === "1";
-      const src = ed("SourceIp") ?? ev.src_ip ?? r("LocalIP") ?? r("crowdstrike.LocalAddressIP4")
-        ?? `10.${ctx.int(`${ctx.companyId}:${host}:ip2`, 10, 60)}.${ctx.int(`${ctx.companyId}:${host}:ip3`, 1, 250)}.${ctx.int(`${ctx.companyId}:${host}:ip4`, 10, 250)}`;
+      // The host's own address: authored, else the one the story / every EDR record gives this host.
+      const src = ed("SourceIp") ?? ev.src_ip ?? r("LocalIP") ?? r("crowdstrike.LocalAddressIP4") ?? hostIpFor(ctx, host);
       const sport = ed("SourcePort") ?? r("LocalPort") ?? r("crowdstrike.LocalPort") ?? (ev.src_port !== undefined ? String(ev.src_port) : undefined) ?? String(ctx.int(`${ev.id}:sport`, 49152, 65535));
       const protoRaw = (ed("Protocol") ?? ev.protocol ?? r("network.transport") ?? r("Protocol") ?? r("crowdstrike.Protocol") ?? "tcp").toLowerCase();
       const proto = protoRaw === "17" || protoRaw === "udp" ? "udp" : "tcp";
@@ -350,12 +356,13 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       const access = accessMask(r("crowdstrike.DesiredAccess")) ?? r("s1.granted_access") ?? ed("GrantedAccess") ?? r("GrantedAccess") ?? th?.access?.granted;
       if (!tgt || !access || !needImage()) return null;
       const tPath = isWinPath(tgt) ? tgt : KNOWN[tgt.toLowerCase()] ?? `${S32}${tgt}`;
-      const tPid = seededPid(base(tPath)); // the target's own identity (the same pid its rows and every EDR record show)
+      const tAuthored = ev.process?.target?.pid ?? th?.access?.pid ?? num(ed("TargetProcessId") ?? r("TargetProcessId"));
+      const tPid = seededPid(base(tPath), undefined, tAuthored); // the target's own identity (the same pid its rows and every EDR record show)
       const off = (k: string) => hx(ctx, `${ev.id}:${k}`, 5);
       data = {
         ...head,
         SourceProcessGUID: procGuid, SourceProcessId: pid, SourceThreadId: String(win4(Number(pid) + ctx.int(`${ev.id}:thr`, 1, 40) * 4)), SourceImage: image,
-        TargetProcessGUID: guidFor(base(tPath)), TargetProcessId: tPid, TargetImage: tPath,
+        TargetProcessGUID: guidFor(base(tPath), undefined, undefined, tAuthored), TargetProcessId: tPid, TargetImage: tPath,
         GrantedAccess: access,
         CallTrace: ed("CallTrace") ?? `C:\\Windows\\SYSTEM32\\ntdll.dll+${off("a")}|C:\\Windows\\System32\\KERNELBASE.dll+${off("b")}|${image}+${off("c")}`,
         SourceUser: user, TargetUser: "NT AUTHORITY\\SYSTEM",
@@ -404,14 +411,27 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       data = { ...head, ImageLoaded: loaded, Hashes: ed("Hashes") ?? `SHA256=${imageHashes(ctx, loaded).sha256.toUpperCase()}`, Signed: ed("Signed") ?? "true", Signature: ed("Signature") ?? "Microsoft Windows", SignatureStatus: ed("SignatureStatus") ?? "Valid" };
       break;
     }
-    case "17": {
-      const pipe = ed("PipeName");
-      if (!pipe) return null;
-      data = { ...head, EventType: ed("EventType") ?? "CreatePipe", ProcessGuid: procGuid, ProcessId: pid, PipeName: pipe, Image: image, User: user };
+    case "17": case "18": {
+      const pipe = ed("PipeName") ?? r("PipeName");
+      if (!pipe || !needImage()) return null;
+      data = { ...head, EventType: ed("EventType") ?? (id === "18" ? "ConnectPipe" : "CreatePipe"), ProcessGuid: procGuid, ProcessId: pid, PipeName: pipe, Image: image, User: user };
+      break;
+    }
+    case "15": {
+      // FileCreateStreamHash: an alternate data stream written next to a file. Zone.Identifier is the
+      // Mark-of-the-Web a browser / mail client stamps on a download (Contents carries ZoneId / HostUrl).
+      const target = ed("TargetFilename") ?? ev.file?.path ?? r("file.path");
+      if (!target || !isWinPath(target) || !needImage()) return null;
+      const stream = /:[^\\:]+$/.test(target.slice(2)) ? target : `${target}:Zone.Identifier`;
+      const zone = ed("Contents") ?? (/:Zone\.Identifier$/i.test(stream)
+        ? `[ZoneTransfer]  ZoneId=3  ${r("file.origin_referrer_url") ?? r("FileOriginReferrerUrl") ? `ReferrerUrl=${r("file.origin_referrer_url") ?? r("FileOriginReferrerUrl")}  ` : ""}${th?.originUrl ?? r("file.origin_url") ?? r("FileOriginUrl") ? `HostUrl=${th?.originUrl ?? r("file.origin_url") ?? r("FileOriginUrl")}` : ""}`.trim()
+        : "-");
+      const fsha = ev.file?.sha256 ?? r("file.hash.sha256") ?? imageHashes(ctx, stream).sha256.toUpperCase();
+      data = { ...head, ProcessGuid: procGuid, ProcessId: pid, Image: image, TargetFilename: stream, CreationUtcTime: utcTime(timeMs), Hash: ed("Hash") ?? `SHA256=${fsha}`, Contents: zone, User: user };
       break;
     }
     default:
-      // 7 / 8 / 15 are rendered only from authored EventData (no platform event type maps to them).
+      // 7 / 8 are rendered only from authored EventData (no platform event type maps to them).
       return null;
   }
 

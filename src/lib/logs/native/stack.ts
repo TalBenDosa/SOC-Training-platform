@@ -78,6 +78,11 @@ export function categoryOf(ev: TelemetryEvent): StackCategory | null {
  * event stays AWS even on an Azure-first stack (GuardDuty findings → aws_guardduty).
  */
 export function sourceFor(ev: TelemetryEvent, stack: Stack): SourceId | null {
+  // Microsoft Purview DLP exists only in Microsoft 365: its rule matches are Unified Audit Log records
+  // (DLP.All) whatever the session's other products. Other DLP events keep the legacy view.
+  if (ev.source === "dlp") return purviewRuleMatch(ev) ? "m365" : null;
+  // Workday is the HR system of record: its activity log renders as Workday in every stack.
+  if (ev.source === "hr") return /workday/i.test(ev.vendor ?? "") ? "workday" : null;
   const cat = categoryOf(ev);
   if (!cat) return null;
   if (cat === "cloud") {
@@ -88,6 +93,16 @@ export function sourceFor(ev: TelemetryEvent, stack: Stack): SourceId | null {
   }
   if (cat === "onprem_ad") return "windows_security";
   return stack[cat] ?? nativeDefault(ev, cat);
+}
+
+/** A Purview DLP event that names the matched policy (see sources/_m365-dlp isDlpRuleMatch). */
+function purviewRuleMatch(ev: TelemetryEvent): boolean {
+  if (!/purview|microsoft 365|office 365/i.test(ev.vendor ?? "")) return false;
+  const r = (ev.raw ?? {}) as Record<string, unknown>;
+  const op = r["data.office365.Operation"] ?? r["Operation"];
+  if (op !== undefined && op !== "DlpRuleMatch") return false;
+  return ["data.office365.PolicyDetails.PolicyName", "data.office365.PolicyDetails[0].PolicyName", "PolicyDetails.PolicyName", "purview.PolicyName", "policy.name"]
+    .some(k => r[k] !== undefined && r[k] !== null && r[k] !== "");
 }
 
 /** Fall back to the vendor the event was authored for. */

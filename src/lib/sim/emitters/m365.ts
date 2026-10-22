@@ -70,7 +70,7 @@ export function m365Operation(o: M365OperationOpts): TelemetryEvent {
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
     geo: knownGeoForIp(o.srcIp) ? { country: knownGeoForIp(o.srcIp)!.country, city: knownGeoForIp(o.srcIp)!.city } : undefined,
     ...(name ? { file: { name, path: o.objectId ?? name, ...(o.fileSha256 ? { sha256: o.fileSha256 } : {}), ...(o.fileSize ? { size: o.fileSize } : {}), ...(o.fileExtension ? { extension: o.fileExtension } : {}) } } : {}),
-    description: o.description ?? `M365 ${o.operation} (${workload}) by ${email} — ${ok ? "Succeeded" : "Failed"}`,
+    description: o.description ?? `M365 ${o.operation} (${workload}) by ${email}: ${ok ? "Succeeded" : "Failed"}`,
     raw: {
       "data.office365.Operation": o.operation,
       "data.office365.Workload": workload,
@@ -127,7 +127,7 @@ export function m365Dlp(o: M365DlpOpts): TelemetryEvent {
     severity: o.severity ?? "high", src_ip: o.srcIp, user_email: email,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
     ...(o.fileName ? { file: { name: o.fileName, path: o.fileName } } : {}),
-    description: o.description ?? `M365 DLP "${o.ruleName}" ${action} — ${o.sensitiveType} by ${email}`,
+    description: o.description ?? `M365 DLP "${o.ruleName}" ${action}: ${o.sensitiveType} by ${email}`,
     raw: {
       "data.office365.Operation": "DlpRuleMatch",
       "data.office365.Workload": workload,

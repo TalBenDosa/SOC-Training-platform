@@ -1,5 +1,5 @@
 /**
- * Scenario pack: "Dropper Behaviour Alert — Engineering Workstation"
+ * Scenario pack: "Behavioural EDR alert on an engineering workstation"
  *
  * A FALSE POSITIVE, and the correct verdict is "no incident".
  *
@@ -32,6 +32,8 @@
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
+import { csProcess, csFile, csDns, csNetwork, csAlert } from "@/lib/sim/emitters/crowdstrike";
+import { infobloxDns } from "./nativeRecords.events";
 
 export function buildSoftwareInstallFalsePositiveScenario(
   scenarioId = "software-install-false-positive-2026",
@@ -58,6 +60,14 @@ export function buildSoftwareInstallFalsePositiveScenario(
   // One hash per file. Neither is signed — this is an internally built tool.
   const setupHash = makeSha256("meshlink_collector_setup_2_4_1_internal_build");
   const binHash = makeSha256("meshlink_collector_service_binary_2_4_1_internal_build");
+  const imeHash = makeSha256("microsoft_intune_management_extension_agent_signed_microsoft");
+
+  // The Intune Management Extension agent and the folder it downloads installers into
+  // (C:\Windows\IMECache\<appId>_<n>\, no braces).
+  const IME_NAME = "Microsoft.Management.Services.IntuneWindowsAgent.exe";
+  const IME_PATH = `C:\\Program Files (x86)\\Microsoft Intune Management Extension\\${IME_NAME}`;
+  const imeCachePath = `C:\\Windows\\IMECache\\${appId}_1\\mlnk-collector-setup.exe`;
+  const cx = { companyId: "nexacorp" as const };
 
   const collectorFqdn = "mesh-collect.corp.nexacorp.com";
   const collectorIp = "10.30.9.40";
@@ -73,6 +83,15 @@ export function buildSoftwareInstallFalsePositiveScenario(
   const INCIDENT = "inc:sifp:1";
 
   const events: TelemetryEvent[] = [
+    // 0. The Intune Management Extension agent: a long-running service, started with the machine.
+    csProcess({
+      ...cx, id: "evt_sifp_00_ime_agent", ts: T(-3 * HOUR), host: host.hostname, user: "SYSTEM", srcIp: host.ip,
+      processName: IME_NAME, processPath: IME_PATH, cmdline: `"${IME_PATH}"`,
+      parentName: "services.exe", parentPid: 628, pid: 3096, sha256: imeHash, signed: true, signatureSubject: "Microsoft Corporation",
+      runAsUser: "NT AUTHORITY\\SYSTEM", integrity: "system", severity: "informational",
+      description: "Microsoft.Management.Services.IntuneWindowsAgent.exe, the Intune Management Extension service, was running on WS-ENG-4471 as NT AUTHORITY\\SYSTEM, parent services.exe.",
+    }),
+
     // ---------------------------------------------------------------------
     // 1. A change record exists. It names a package, a ring and a window.
     //    It says nothing about any alert — it was written hours earlier.
@@ -92,7 +111,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
         "servicenow.short_description":
           "Deploy MeshLink Collector 2.4.1 to engineering workstation ring 2",
         "servicenow.description":
-          "Second-ring rollout of the in-house MeshLink Collector build. Package is distributed by Intune as a required app with an install deadline at the start of the window.",
+          "Second-ring rollout of the in-house MeshLink Collector. Ring 1 piloted build 2.4.0; 2.4.1 is a new build with a new file hash. Package is distributed by Intune as a required app with an install deadline at the start of the window.",
         "servicenow.type": "Standard",
         "servicenow.std_change_producer_version": "Endpoint software rollout — v3",
         "servicenow.state": "Scheduled",
@@ -163,100 +182,31 @@ export function buildSoftwareInstallFalsePositiveScenario(
     // 3. Execution. The parent process and the installer's folder are the
     //    two most important strings in this entire scenario.
     // ---------------------------------------------------------------------
-    {
-      id: "evt_sifp_03_installer_run",
-      ts: T(W),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: host.hostname,
-      user_email: primaryUser,
-      src_ip: host.ip,
-      severity: "medium",
+    csProcess({
+      ...cx, id: "evt_sifp_03_installer_run", ts: T(W), host: host.hostname, user: "SYSTEM", srcIp: host.ip,
+      processName: "mlnk-collector-setup.exe", processPath: imeCachePath,
+      cmdline: "mlnk-collector-setup.exe /quiet /norestart",
+      parentName: IME_NAME, parentPid: 3096, pid: 7412, sha256: setupHash, signed: false,
+      runAsUser: "NT AUTHORITY\\SYSTEM", integrity: "system", severity: "medium",
       description:
-        "An unsigned installer, mlnk-collector-setup.exe, executed as NT AUTHORITY\\SYSTEM on WS-ENG-4471 at 21:00 with no interactive user session on the host.",
-      process: {
-        name: "mlnk-collector-setup.exe",
-        pid: 7412,
-        path: `C:\\Windows\\IMECache\\{${appId}}\\mlnk-collector-setup.exe`,
-        parent_name: "Microsoft.Management.Services.IntuneWindowsAgent.exe",
-        parent_pid: 3096,
-        cmdline: "mlnk-collector-setup.exe /quiet /norestart",
-        user: "NT AUTHORITY\\SYSTEM",
-        integrity: "system",
-        hash: { sha256: setupHash },
-      },
-      raw: {
-        "crowdstrike.event_simpleName": "ProcessRollup2",
-        "crowdstrike.aid": "7a1c53e9b0d24f68a35c1e70bd94f2a6",
-        "crowdstrike.cid": "2b8f4d61c07e49a3b52f81d6a9c30e74",
-        "event.action": "process_created",
-        "process.name": "mlnk-collector-setup.exe",
-        "process.pid": "7412",
-        "process.executable": `C:\\Windows\\IMECache\\{${appId}}\\mlnk-collector-setup.exe`,
-        "process.command_line": "mlnk-collector-setup.exe /quiet /norestart",
-        "process.hash.sha256": setupHash,
-        "process.parent.name": "Microsoft.Management.Services.IntuneWindowsAgent.exe",
-        "process.parent.pid": "3096",
-        "process.parent.executable":
-          "C:\\Program Files (x86)\\Microsoft Intune Management Extension\\Microsoft.Management.Services.IntuneWindowsAgent.exe",
-        "process.parent.user.name": "NT AUTHORITY\\SYSTEM",
-        "user.name": "NT AUTHORITY\\SYSTEM",
-        "host.name": host.hostname,
-        "host.ip": host.ip,
-        "process.code_signature.exists": false, "process.code_signature.trusted": false,
-        "file.code_signature.exists": false,
-        "file.code_signature.trusted": false,
-        "file.code_signature.subject_name": "",
-        "process.integrity_level": "System",
-        action_result: "allowed",
-      },
-    },
+        "An unsigned installer, mlnk-collector-setup.exe, executed as NT AUTHORITY\\SYSTEM on WS-ENG-4471 at 21:00, parent Microsoft.Management.Services.IntuneWindowsAgent.exe.",
+    }),
 
     // ---------------------------------------------------------------------
     // 4. AMBIGUOUS #1 — unsigned executable written into Program Files.
     // ---------------------------------------------------------------------
-    {
-      id: "evt_sifp_04_binary_written",
-      ts: T(W + 38 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "file_create",
-      hostname: host.hostname,
-      user_email: primaryUser,
-      severity: "high",
+    csFile({
+      ...cx, id: "evt_sifp_04_binary_written", ts: T(W + 38 * SEC), host: host.hostname, user: "SYSTEM", srcIp: host.ip,
+      path: "C:\\Program Files\\MeshLink\\bin\\mlnk-collector.exe", sha256: binHash, size: 18_874_368, action: "file_create", signed: false,
+      actorProcess: "mlnk-collector-setup.exe", actorPid: 7412, actorPath: imeCachePath, actorParentName: IME_NAME, actorParentPid: 3096,
+      actorSha256: setupHash, actorSigned: "unsigned", actorIntegrity: "system", runAsUser: "NT AUTHORITY\\SYSTEM", severity: "medium",
+      extra: {
+        "file.directory": "C:\\Program Files\\MeshLink\\bin",
+        "file.pe.company": "NexaCorp Engineering Platforms", "file.pe.description": "MeshLink Collector",
+      },
       description:
         "An 18 MB executable with no Authenticode signature, mlnk-collector.exe, was written into C:\\Program Files\\MeshLink\\bin on WS-ENG-4471 by the installer process.",
-      file: {
-        path: "C:\\Program Files\\MeshLink\\bin\\mlnk-collector.exe",
-        name: "mlnk-collector.exe",
-        extension: "exe",
-        sha256: binHash,
-        size: 18_874_368,
-      },
-      raw: {
-        "crowdstrike.event_simpleName": "NewExecutableWritten",
-        "crowdstrike.aid": "7a1c53e9b0d24f68a35c1e70bd94f2a6",
-        "event.action": "file_created",
-        "file.name": "mlnk-collector.exe",
-        "file.path": "C:\\Program Files\\MeshLink\\bin\\mlnk-collector.exe",
-        "file.directory": "C:\\Program Files\\MeshLink\\bin",
-        "file.size": "18874368",
-        "file.hash.sha256": binHash,
-        "file.code_signature.exists": false,
-        "file.code_signature.trusted": false,
-        "file.code_signature.subject_name": "",
-        "file.pe.company": "NexaCorp Engineering Platforms",
-        "file.pe.product": "MeshLink Collector",
-        "file.pe.file_version": "2.4.1.0",
-        "process.name": "mlnk-collector-setup.exe",
-        "process.pid": "7412",
-        "process.executable": `C:\\Windows\\IMECache\\{${appId}}\\mlnk-collector-setup.exe`,
-        "user.name": "NT AUTHORITY\\SYSTEM",
-        "host.name": host.hostname,
-        action_result: "allowed",
-      },
-    },
+    }),
 
     // ---------------------------------------------------------------------
     // 5. AMBIGUOUS #2 — a new auto-start service running as LocalSystem.
@@ -268,7 +218,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
       vendor: "Windows Security",
       event_type: "service_install",
       hostname: host.hostname,
-      severity: "high",
+      severity: "medium",
       description:
         "The Service Control Manager on WS-ENG-4471 registered the service MeshLinkCollector, start type auto start, running as LocalSystem (Event 7045).",
       raw: {
@@ -290,51 +240,48 @@ export function buildSoftwareInstallFalsePositiveScenario(
       },
     },
 
+    // 5b. The service starts: the process that makes the connection below.
+    csProcess({
+      ...cx, id: "evt_sifp_05b_service_start", ts: T(W + 53 * SEC), host: host.hostname, user: "SYSTEM", srcIp: host.ip,
+      processName: "mlnk-collector.exe", processPath: "C:\\Program Files\\MeshLink\\bin\\mlnk-collector.exe",
+      cmdline: "\"C:\\Program Files\\MeshLink\\bin\\mlnk-collector.exe\" --service",
+      parentName: "services.exe", parentPid: 628, pid: 7560, sha256: binHash, signed: false,
+      runAsUser: "NT AUTHORITY\\SYSTEM", integrity: "system", severity: "low",
+      description:
+        "The service MeshLinkCollector started on WS-ENG-4471: mlnk-collector.exe --service, parent services.exe, running as NT AUTHORITY\\SYSTEM.",
+    }),
+
     // ---------------------------------------------------------------------
     // 6. Name resolution for whatever the new service is about to talk to.
     // ---------------------------------------------------------------------
-    {
-      id: "evt_sifp_06_dns",
-      ts: T(W + 61 * SEC),
-      source: "dns",
-      vendor: "Infoblox DNS",
-      event_type: "dns_query",
-      hostname: host.hostname,
-      src_ip: host.ip,
-      severity: "informational",
-      dns: {
-        query: collectorFqdn,
-        query_type: "A",
-        response: collectorIp,
-        rcode: "NOERROR",
-      },
+    csDns({
+      ...cx, id: "evt_sifp_06a_service_dns", ts: T(W + 60 * SEC), host: host.hostname, user: "SYSTEM", srcIp: host.ip,
+      domain: collectorFqdn, resolvedIp: collectorIp, processName: "mlnk-collector.exe", pid: 7560,
+      processPath: "C:\\Program Files\\MeshLink\\bin\\mlnk-collector.exe", parentName: "services.exe", parentPid: 628, sha256: binHash,
+      severity: "low",
+      description: "mlnk-collector.exe on WS-ENG-4471 requested mesh-collect.corp.nexacorp.com.",
+    }),
+    infobloxDns({
+      id: "evt_sifp_06_dns", ts: T(W + 61 * SEC), host: host.hostname, srcIp: host.ip,
+      query: collectorFqdn, answer: collectorIp, member: "DNS-CORE-02", zone: "corp.nexacorp.com",
       description:
         "WS-ENG-4471 resolved mesh-collect.corp.nexacorp.com to 10.30.9.40, answered NOERROR by the internal Infoblox view on DNS-CORE-02.",
-      raw: {
-        "dns.question.name": collectorFqdn,
-        "dns.question.type": "A",
-        "dns.question.class": "IN",
-        "dns.answers.data": collectorIp,
-        "dns.answers.ttl": "300",
-        "dns.response_code": "NOERROR",
-        "dns.resolved_ip": collectorIp,
-        "infoblox.view": "internal",
-        "infoblox.zone": "corp.nexacorp.com",
-        "infoblox.zone_type": "authoritative",
-        "infoblox.member": "DNS-CORE-02",
-        "infoblox.rpz_policy": "",
-        "source.ip": host.ip,
-        "event.action": "dns-query",
-        "event.outcome": "success",
-      },
-    },
+    }),
 
     // ---------------------------------------------------------------------
     // 7. AMBIGUOUS #3 — the outbound connection the rule keyed on.
     // ---------------------------------------------------------------------
+    csNetwork({
+      ...cx, id: "evt_sifp_07a_service_conn", ts: T(W + 63 * SEC), host: host.hostname, user: "SYSTEM", srcIp: host.ip,
+      remoteIp: collectorIp, remotePort: 8443, localPort: 50912, application: "tls",
+      processName: "mlnk-collector.exe", pid: 7560, processPath: "C:\\Program Files\\MeshLink\\bin\\mlnk-collector.exe",
+      cmdline: "\"C:\\Program Files\\MeshLink\\bin\\mlnk-collector.exe\" --service", parentName: "services.exe", parentPid: 628, sha256: binHash,
+      severity: "low",
+      description: "mlnk-collector.exe (pid 7560) on WS-ENG-4471 connected to 10.30.9.40 on port 8443 from local port 50912.",
+    }),
     {
       id: "evt_sifp_07_connection",
-      ts: T(W + 63 * SEC),
+      ts: T(W + 65 * SEC),
       source: "firewall",
       vendor: "Palo Alto Networks PAN-OS",
       event_type: "net_connection",
@@ -343,7 +290,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
       dst_ip: collectorIp,
       dst_port: 8443,
       protocol: "tcp",
-      severity: "medium",
+      severity: "low",
       network: { bytes_out: 3140, bytes_in: 986 },
       description:
         "A 2-second TLS session left WS-ENG-4471 for 10.30.9.40:8443, crossing from the USERS zone to SERVERS — 3,140 bytes sent, 986 received.",
@@ -376,44 +323,19 @@ export function buildSoftwareInstallFalsePositiveScenario(
     // 8. THE ALARM. High. Accurate about what it saw, silent about why.
     // ---------------------------------------------------------------------
     {
-      id: "evt_sifp_08_edr_alert",
-      ts: T(W + 70 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "edr_alert",
-      hostname: host.hostname,
-      user_email: primaryUser,
-      severity: "high",
-      is_detection: true, // the Falcon behavioural detection — the alert that opens the ticket (resolves to a false positive)
+      ...csAlert({
+        ...cx, id: "evt_sifp_08_edr_alert", ts: T(W + 70 * SEC), host: host.hostname, user: "SYSTEM", srcIp: host.ip,
+        threatName: "SuspiciousInstallChain",
+        detail: "An unsigned executable was written to a protected program directory, registered an auto-start service running as LocalSystem, and initiated an outbound network session within seventy seconds of first execution.",
+        action: "detected", severity: "high", isDetection: true, runAsUser: "NT AUTHORITY\\SYSTEM",
+        processName: "mlnk-collector-setup.exe", processPath: imeCachePath, cmdline: "mlnk-collector-setup.exe /quiet /norestart",
+        sha256: setupHash, pid: 7412,
+        parentPath: `C:\\Program Files (x86)\\Microsoft Intune Management Extension\\${IME_NAME}`,
+        extra: { "crowdstrike.PatternId": "41277", "crowdstrike.PatternDispositionValue": "10" },
+        description:
+          "Falcon raised a HIGH behavioural detection on WS-ENG-4471 — unsigned write to Program Files, LocalSystem service, network session within seventy seconds. Disposition: Detection, No Action.",
+      }),
       edr_scope: "edr",   // endpoint-only incident → investigated entirely in the EDR console
-      description:
-        "Falcon raised a HIGH behavioural detection on WS-ENG-4471 — unsigned write to Program Files, LocalSystem service, network session within seventy seconds. Disposition: Detection, No Action.",
-      raw: {
-        "crowdstrike.event_simpleName": "DetectionSummaryEvent",
-        "crowdstrike.DetectId": "ldt:7a1c53e9b0d24f68a35c1e70bd94f2a6:5510884213",
-        "crowdstrike.DetectDescription": "An unsigned executable was written to a protected program directory, registered an auto-start service running as LocalSystem, and initiated an outbound network session within seventy seconds of first execution.",
-        "crowdstrike.DetectName": "SuspiciousInstallChain",
-        "crowdstrike.SeverityName": "High",
-        "crowdstrike.PatternId": "41277",
-        "crowdstrike.PatternDispositionValue": "10",
-        "crowdstrike.PatternDispositionDescription": "Detection, No Action",
-        "crowdstrike.SensorId": "7a1c53e9b0d24f68a35c1e70bd94f2a6",
-        "crowdstrike.NetworkContainmentState": "Not Contained",
-        "process.name": "mlnk-collector-setup.exe",
-        "process.hash.sha256": setupHash,
-        "file.hash.sha256": binHash,
-        // Clean file reputation across AV/threat-intel — this is a BEHAVIOURAL
-        // Falcon detection on an in-house tool, not a known-bad sample (see the
-        // estate-wide prevalence event: 197 hosts, zero AV detections). Without
-        // this, a hash-reputation lookup wrongly returned MALICIOUS, contradicting
-        // the pack's own ground truth and teaching the student to distrust their
-        // correct false-positive conclusion. Behavioural alert + clean reputation
-        // is the textbook FP signature.
-        "av.verdict": "clean",
-        "host.name": host.hostname,
-        "host.ip": host.ip,
-        action_result: "detected",
-      },
     },
 
     // ---------------------------------------------------------------------
@@ -510,7 +432,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
       value: setupHash,
       first_seen: T(W),
       last_seen: T(W + 70 * SEC),
-      reputation: "unknown",
+      reputation: "clean",
       tags: ["unsigned", "installer", "management-agent-cache"],
     },
     {
@@ -518,14 +440,14 @@ export function buildSoftwareInstallFalsePositiveScenario(
       value: binHash,
       first_seen: T(W + 38 * SEC),
       last_seen: T(W + 9 * MIN),
-      reputation: "unknown",
+      reputation: "clean",
       tags: ["unsigned", "program-files", "service-image"],
     },
     {
       type: "ip",
       value: collectorIp,
       first_seen: T(W + 61 * SEC),
-      last_seen: T(W + 63 * SEC),
+      last_seen: T(W + 65 * SEC),
       reputation: "clean",
       tags: ["internal", "rfc1918", "tls-8443"],
     },
@@ -535,7 +457,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
       first_seen: T(W + 61 * SEC),
       last_seen: T(W + 61 * SEC),
       reputation: "clean",
-      tags: ["internal-zone", "authoritative"],
+      tags: ["internal-zone"],
     },
     {
       type: "user",
@@ -543,7 +465,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
       first_seen: T(W),
       last_seen: T(W + 4 * MIN),
       reputation: "clean",
-      tags: ["device-primary-user", "not-logged-on"],
+      tags: ["device-primary-user"],
     },
   ];
 
@@ -661,7 +583,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
         {
           value: "unsigned_system",
           label:
-            "An unsigned executable installing an auto-start LocalSystem service while no user was logged on to the workstation",
+            "An unsigned executable installing an auto-start LocalSystem service with the whole chain running as SYSTEM",
         },
         {
           value: "late_hour",
@@ -683,12 +605,12 @@ export function buildSoftwareInstallFalsePositiveScenario(
 
   return {
     scenario_id: scenarioId,
-    title: "Dropper Behaviour Alert — Engineering Workstation",
+    title: "Behavioural EDR alert on an engineering workstation",
     threat_actor: "None — benign software deployment activity",
     attack_kind: "false_positive",
     briefing:
       "CrowdStrike Falcon raised a HIGH behavioural detection on engineering workstation WS-ENG-4471 at 21:01: an unsigned executable written into Program Files, a new service running as LocalSystem, and an outbound network session, all within seventy seconds. Nothing was blocked. Determine what ran on the host and whether the workstation needs to be contained.",
-    narrative: `At 21:01 CrowdStrike Falcon fires a HIGH detection on WS-ENG-4471, an engineering workstation. In the seventy seconds before it, an unsigned executable was written into C:\\Program Files\\MeshLink\\bin, a service called MeshLinkCollector was registered to auto-start as LocalSystem, and the host opened a TLS session — with nobody logged on interactively. Read on its own, that chain is a competent dropper, and the reflex is to isolate the machine.
+    narrative: `At 21:01 CrowdStrike Falcon fires a HIGH detection on WS-ENG-4471, an engineering workstation. In the seventy seconds before it, an unsigned executable was written into C:\\Program Files\\MeshLink\\bin, a service called MeshLinkCollector was registered to auto-start as LocalSystem, and the host opened a TLS session — with no user process anywhere in the chain. Read on its own, that chain is a competent dropper, and the reflex is to isolate the machine.
 
 The correct verdict here is that there is no incident, and reaching it takes more work than escalating would have. Four records that were never written to explain each other have to be lined up.
 
@@ -696,7 +618,7 @@ The first is a change record, CHG0043912, cut that morning by e.shani in Endpoin
 
 The third is the process record itself. mlnk-collector-setup.exe did not appear from a browser download or a share. Its parent is Microsoft.Management.Services.IntuneWindowsAgent.exe, and it ran from C:\\Windows\\IMECache — the management extension's private download cache, which nothing but the agent populates. It ran at 21:00, the deadline on the assignment. The fourth is the install-status report four minutes later: WS-ENG-4471, deployment DPL-40218, member of ENG-Workstations-Ring2, installState installed, errorCode 0.
 
-Two further checks close the remaining gaps. The connection that helped fire the rule went to 10.30.9.40 on port 8443, an address the host resolved for mesh-collect.corp.nexacorp.com out of the internal authoritative zone — a private address, on an internal firewall rule, in a session that crossed from USERS to SERVERS and never touched the internet. And the estate-wide prevalence review found mlnk-collector.exe on 197 hosts, every one of them inside ENG-Workstations-Ring2 and none outside it, first seen in the tenant during that window, with no anti-malware detection from any vendor, no threat-intelligence match, no Run keys, no scheduled tasks, no credential access and no remote logons.
+Two further checks close the remaining gaps. The connection that helped fire the rule was opened by the new service process itself, mlnk-collector.exe (pid 7560, local port 50912, the same port the firewall logged), and went to 10.30.9.40 on port 8443, an address the host resolved for mesh-collect.corp.nexacorp.com out of the internal authoritative zone — a private address, on an internal firewall rule, in a session that crossed from USERS to SERVERS and never touched the internet. And the estate-wide prevalence review found mlnk-collector.exe on 197 hosts, every one of them inside ENG-Workstations-Ring2 and none outside it, first seen in the tenant during that window, with no anti-malware detection from any vendor, no threat-intelligence match, no Run keys, no scheduled tasks, no credential access and no remote logons.
 
 The unsigned binary is a real finding and belongs in the closure note as a recommendation: an internally built agent that installs as LocalSystem should be code-signed, so that the next ring does not cost the SOC another investigation. But the alert itself is a true description of behaviour and a false description of intent. Close it, cite CHG0043912, the deployment DPL-40218, the IntuneWindowsAgent.exe parent and the prevalence result, and record that a hash outside the assigned group or an external destination would have changed the verdict.`,
     learning_objectives: [
@@ -716,7 +638,8 @@ The unsigned binary is a real finding and belongs in the closure note as a recom
       { ts: T(W), phase: "Execution", action: "IntuneWindowsAgent.exe launches mlnk-collector-setup.exe from C:\\Windows\\IMECache as SYSTEM" },
       { ts: T(W + 38 * SEC), phase: "File Write", action: "Unsigned mlnk-collector.exe written to C:\\Program Files\\MeshLink\\bin" },
       { ts: T(W + 52 * SEC), phase: "Service Created", action: "MeshLinkCollector registered auto-start as LocalSystem (Event 7045)" },
-      { ts: T(W + 63 * SEC), phase: "Check-in", action: "TLS session to 10.30.9.40:8443, internal zone, USERS to SERVERS" },
+      { ts: T(W + 53 * SEC), phase: "Service Start", action: "mlnk-collector.exe --service starts under services.exe as SYSTEM" },
+      { ts: T(W + 63 * SEC), phase: "Check-in", action: "mlnk-collector.exe opens a TLS session to 10.30.9.40:8443, internal zone, USERS to SERVERS" },
       { ts: T(W + 70 * SEC), phase: "Detection", action: "Falcon fires HIGH behavioural detection — Detection, No Action" },
       { ts: T(W + 4 * MIN), phase: "Verification", action: `${deploymentId} reports WS-ENG-4471 installed, errorCode 0, in ${targetGroup}` },
       { ts: T(W + 9 * MIN), phase: "Prevalence", action: "197 hosts with the same hash, all inside the group, zero detections anywhere" },

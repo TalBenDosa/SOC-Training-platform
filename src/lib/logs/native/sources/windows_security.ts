@@ -21,12 +21,14 @@
  * natively and the story correlates across rows.
  *
  * Category-wide: besides Windows-Security-authored events, any onprem_ad event (source
- * "ad" / "windows_security") renders here — it is always Windows. An event whose id is
- * not a documented Security/System event (5140/5145/4663 share access, TerminalServices
- * 1149/21/23, TaskScheduler 201, PowerShell 4104, 4798 …) or that carries no resolvable
- * EventID (an MDI alert filed under "ad") returns null → it keeps the legacy view.
+ * "ad" / "windows_security") renders here: it is always Windows. Share / file access
+ * (5140, 5145, 4663), sensitive privilege use (4673), task registration (4698) and PnP device
+ * (6416) follow Microsoft's per-event documentation (not in the card). An event whose id is
+ * none of these (TerminalServices 1149/21/23, TaskScheduler 201, PowerShell 4104, 4798 …) or
+ * that carries no resolvable EventID (an MDI alert filed under "ad") returns null and keeps
+ * the legacy view.
  */
-import { accountSid, logonLuid } from "./_proc-identity";
+import { accountSid, logonLuid, domainSidOf, procPid } from "./_proc-identity";
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
 
@@ -71,6 +73,14 @@ const kinds: Record<string, KindSchema> = {
   "1102": k("SubjectUserSid", "SubjectUserName", "SubjectDomainName", "SubjectLogonId"),
   // Service installed (System log, Service Control Manager)
   "7045": k("ServiceName", "ImagePath", "ServiceType", "StartType", "AccountName"),
+  // Object access / privilege use / PnP. Not in the card: the EventData names and order are Microsoft's
+  // event documentation for each id (learn.microsoft.com/previous-versions/windows/it-pro/windows-10/security/threat-protection/auditing/event-<id>).
+  "4673": k("SubjectUserSid", "SubjectUserName", "SubjectDomainName", "SubjectLogonId", "ObjectServer", "Service", "PrivilegeList", "ProcessId", "ProcessName"),
+  "5140": k("SubjectUserSid", "SubjectUserName", "SubjectDomainName", "SubjectLogonId", "ObjectType", "IpAddress", "IpPort", "ShareName", "ShareLocalPath", "AccessMask", "AccessList"),
+  "5145": k("SubjectUserSid", "SubjectUserName", "SubjectDomainName", "SubjectLogonId", "ObjectType", "IpAddress", "IpPort", "ShareName", "ShareLocalPath", "RelativeTargetName", "AccessMask", "AccessList", "AccessReason"),
+  "4663": kOpt(["SubjectUserSid", "SubjectUserName", "SubjectDomainName", "SubjectLogonId", "ObjectServer", "ObjectType", "ObjectName", "HandleId", "AccessList", "AccessMask", "ProcessId", "ProcessName"], ["ResourceAttributes"]),
+  "4698": kOpt(["SubjectUserSid", "SubjectUserName", "SubjectDomainName", "SubjectLogonId", "TaskName", "TaskContent"], ["ClientProcessStartKey", "ClientProcessId", "ParentProcessId", "RpcCallClientLocality", "FQDN"]),
+  "6416": k("SubjectUserSid", "SubjectUserName", "SubjectDomainName", "SubjectLogonId", "DeviceId", "DeviceDescription", "ClassId", "ClassName", "VendorIds", "CompatibleIds", "LocationInformation"),
 };
 
 export function kindOf(record: Record<string, unknown>): string | null {
@@ -88,7 +98,7 @@ const isPrivate = (ip: string) => /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|:
 
 /** One stable S-1-5-21 domain identifier per company. */
 function domainId(ctx: NativeCtx): string {
-  return [0, 1, 2].map(i => ctx.int(`${ctx.companyId}:winsec:domsid:${i}`, 1_000_000_000, 3_999_999_999)).join("-");
+  return domainSidOf(ctx);
 }
 const SYSTEM_SIDS: Record<string, string> = { system: "S-1-5-18", "local service": "S-1-5-19", "network service": "S-1-5-20", "local system": "S-1-5-18" };
 /** Stable domain SID for an account (well-known for SYSTEM / service identities). */
@@ -199,8 +209,10 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         TransmittedServices: ed("TransmittedServices") ?? "-",
         LmPackageName: ed("LmPackageName") ?? (authPkg === "NTLM" ? "NTLM V2" : "-"),
         KeyLength: ed("KeyLength") ?? (authPkg === "NTLM" ? "128" : "0"),
-        ProcessId: ed("ProcessId") ?? (interactive ? "0x1f0" : "0x0"),
-        ProcessName: ed("ProcessName") ?? (interactive ? "C:\\Windows\\System32\\svchost.exe" : "-"),
+        // A service logon (type 5) is made by the Service Control Manager: services.exe, the same pid the
+        // host's EDR / Sysmon records give it.
+        ProcessId: ed("ProcessId") ?? (interactive ? "0x1f0" : lt === "5" ? `0x${(procPid(ctx, { host: hostShort, os: "Win", timeMs }, { name: "services.exe" }) ?? 720).toString(16)}` : "0x0"),
+        ProcessName: ed("ProcessName") ?? (interactive ? "C:\\Windows\\System32\\svchost.exe" : lt === "5" ? "C:\\Windows\\System32\\services.exe" : "-"),
         IpAddress: ed("IpAddress") ?? srcIp ?? "-",
         IpPort: ed("IpPort") ?? (srcIp ? ephemeral(ctx, `${ev.id}:ip`) : "0"),
         ImpersonationLevel: ed("ImpersonationLevel") ?? "%%1833",
@@ -538,6 +550,96 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       };
       break;
     }
+    case "4673": {
+      const subj = samOf(ed("SubjectUserName")) ?? targetSam ?? "-";
+      keywords = keyw((r("event.outcome") ?? "success") !== "failure");
+      const pid = ed("ProcessId") ?? (ev.process?.pid !== undefined ? `0x${ev.process.pid.toString(16)}` : "0x0");
+      data = {
+        SubjectUserSid: ed("SubjectUserSid") ?? userSid(ctx, subj),
+        SubjectUserName: ed("SubjectUserName") ?? subj,
+        SubjectDomainName: ed("SubjectDomainName") ?? netbios,
+        SubjectLogonId: ed("SubjectLogonId") ?? logonId(ctx, hostShort, subj),
+        ObjectServer: ed("ObjectServer") ?? "NT Local Security Authority / Authentication Service",
+        Service: ed("Service") ?? "LsaRegisterLogonProcess()",
+        PrivilegeList: ed("PrivilegeList") ?? str(raw["privilege.names"]) ?? "SeTcbPrivilege",
+        ProcessId: pid,
+        ProcessName: ed("ProcessName") ?? ev.process?.path ?? "-",
+      };
+      break;
+    }
+    case "5140": case "5145": {
+      const subj = samOf(ed("SubjectUserName")) ?? targetSam ?? "-";
+      const ip = ed("IpAddress") ?? srcIp ?? "-";
+      const share = ed("ShareName") ?? "\\\\*\\IPC$";
+      data = {
+        SubjectUserSid: ed("SubjectUserSid") ?? userSid(ctx, subj),
+        SubjectUserName: ed("SubjectUserName") ?? subj,
+        SubjectDomainName: ed("SubjectDomainName") ?? netbios,
+        SubjectLogonId: ed("SubjectLogonId") ?? logonId(ctx, hostShort, subj),
+        ObjectType: ed("ObjectType") ?? "File",
+        IpAddress: ip,
+        IpPort: ed("IpPort") ?? (ip !== "-" ? ephemeral(ctx, `${ev.id}:ip`) : "0"),
+        ShareName: share,
+        ShareLocalPath: ed("ShareLocalPath") ?? (/IPC\$$/i.test(share) ? "" : /ADMIN\$$/i.test(share) ? "\\??\\C:\\Windows" : /C\$$/i.test(share) ? "\\??\\C:\\" : "-"),
+        ...(id === "5145" ? { RelativeTargetName: ed("RelativeTargetName") ?? (ev.file?.path ? ev.file.path.replace(/^[A-Za-z]:\\/, "") : "-") } : {}),
+        AccessMask: ed("AccessMask") ?? "0x1",
+        AccessList: ed("AccessList") ?? "%%4416\r\n\t\t\t\t",
+        ...(id === "5145" ? { AccessReason: ed("AccessReason") ?? "-" } : {}),
+      };
+      break;
+    }
+    case "4663": {
+      const subj = samOf(ed("SubjectUserName")) ?? targetSam ?? "-";
+      data = {
+        SubjectUserSid: ed("SubjectUserSid") ?? userSid(ctx, subj),
+        SubjectUserName: ed("SubjectUserName") ?? subj,
+        SubjectDomainName: ed("SubjectDomainName") ?? netbios,
+        SubjectLogonId: ed("SubjectLogonId") ?? logonId(ctx, hostShort, subj),
+        ObjectServer: ed("ObjectServer") ?? "Security",
+        ObjectType: ed("ObjectType") ?? "File",
+        ObjectName: ed("ObjectName") ?? ev.file?.path ?? "-",
+        HandleId: ed("HandleId") ?? `0x${ctx.hex(`${ev.id}:handle`, 3)}`,
+        AccessList: ed("AccessList") ?? "%%4416\r\n\t\t\t\t",
+        AccessMask: ed("AccessMask") ?? "0x1",
+        ProcessId: ed("ProcessId") ?? (ev.process?.pid !== undefined ? `0x${ev.process.pid.toString(16)}` : "0x4"),
+        ProcessName: ed("ProcessName") ?? ev.process?.path ?? "-",
+        ResourceAttributes: ed("ResourceAttributes") ?? "S:AI",
+      };
+      break;
+    }
+    case "4698": {
+      const subj = samOf(ed("SubjectUserName")) ?? targetSam ?? "-";
+      data = {
+        SubjectUserSid: ed("SubjectUserSid") ?? userSid(ctx, subj),
+        SubjectUserName: ed("SubjectUserName") ?? subj,
+        SubjectDomainName: ed("SubjectDomainName") ?? netbios,
+        SubjectLogonId: ed("SubjectLogonId") ?? logonId(ctx, hostShort, subj),
+        TaskName: ed("TaskName") ?? r("task.name") ?? "-",
+        TaskContent: ed("TaskContent") ?? "-",
+        ...(ed("ClientProcessId") ? { ClientProcessId: ed("ClientProcessId")! } : {}),
+        ...(ed("ParentProcessId") ? { ParentProcessId: ed("ParentProcessId")! } : {}),
+        ...(ed("ClientProcessStartKey") ? { ClientProcessStartKey: ed("ClientProcessStartKey")! } : {}),
+        ...(ed("RpcCallClientLocality") ? { RpcCallClientLocality: ed("RpcCallClientLocality")! } : {}),
+        ...(ed("FQDN") ? { FQDN: ed("FQDN")! } : {}),
+      };
+      break;
+    }
+    case "6416": {
+      data = {
+        SubjectUserSid: ed("SubjectUserSid") ?? "S-1-5-18",
+        SubjectUserName: ed("SubjectUserName") ?? `${hostShort}$`,
+        SubjectDomainName: ed("SubjectDomainName") ?? netbios,
+        SubjectLogonId: ed("SubjectLogonId") ?? "0x3e7",
+        DeviceId: ed("DeviceId") ?? "-",
+        DeviceDescription: ed("DeviceDescription") ?? "-",
+        ClassId: ed("ClassId") ?? "-",
+        ClassName: ed("ClassName") ?? "-",
+        VendorIds: ed("VendorIds") ?? "-",
+        CompatibleIds: ed("CompatibleIds") ?? "-",
+        LocationInformation: ed("LocationInformation") ?? "-",
+      };
+      break;
+    }
     default:
       return null;
   }
@@ -590,6 +692,9 @@ const REQUIRED_FIELDS: Record<string, string[]> = {
   "4728": ["TargetUserName"], "4729": ["TargetUserName"],
   "4732": ["TargetUserName"], "4733": ["TargetUserName"],
   "4756": ["TargetUserName"], "4757": ["TargetUserName"],
+  "4673": ["SubjectUserName", "PrivilegeList"],
+  "5140": ["SubjectUserName", "ShareName"], "5145": ["SubjectUserName", "ShareName", "RelativeTargetName"],
+  "4663": ["SubjectUserName", "ObjectName"], "4698": ["TaskName"], "6416": ["DeviceId"],
 };
 
 // ── use cases (detections over the native Windows fields — no crypto) ─────────

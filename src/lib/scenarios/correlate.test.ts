@@ -63,6 +63,7 @@ describe("crossHostTimeline", () => {
       expect(new Date(tl[i].event.ts).getTime()).toBeGreaterThanOrEqual(new Date(tl[i - 1].event.ts).getTime());
     }
     expect(tl[0].offsetSec).toBe(0);
-    expect(new Set(tl.map(t => t.host)).size).toBe(3);
+    // the three endpoints; non-host sources (the mail gateway's lure rows) fall under the "—" host
+    expect(new Set(tl.map(t => t.host).filter(h => h !== "—")).size).toBe(3);
   });
 });

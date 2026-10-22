@@ -71,7 +71,9 @@ describe("m365 — corpus conversion", () => {
       if (user && !isGuid(rawUser)) expect(present(hay, user), `${ev.id} user ${user}`).toBe(true);
       // M365 is SaaS: an office-LAN client reaches it through the NAT egress, never with its private address.
       if (ev.src_ip && !/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ev.src_ip)) expect(present(hay, ev.src_ip), `${ev.id} ip`).toBe(true);
-      if (ev.file?.sha256) expect(present(hay, ev.file.sha256), `${ev.id} sha`).toBe(true);
+      // A Purview DLP rule match (DLP schema) names the file but carries no file hash.
+      if (ev.file?.sha256 && log.kind !== "DlpRuleMatch") expect(present(hay, ev.file.sha256), `${ev.id} sha`).toBe(true);
+      if (log.kind === "DlpRuleMatch" && ev.file?.path) expect(present(hay, ev.file.path), `${ev.id} dlp file`).toBe(true);
       if (ev.cloud?.api_call) expect(present(hay, ev.cloud.api_call), `${ev.id} api`).toBe(true);
       if (ev.file?.name && log.kind.startsWith("SharePoint")) expect(present(hay, ev.file.name), `${ev.id} file`).toBe(true);
       // UAL has no endpoint-host field on admin / logon records; SharePoint carries it as DeviceDisplayName.

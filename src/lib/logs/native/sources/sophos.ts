@@ -26,7 +26,7 @@
  */
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
-import { procPid, sha1Of, accountSid } from "./_proc-identity";
+import { procPid, sha1Of, accountSid, hostKey } from "./_proc-identity";
 import { edrFacts, type EdrFacts } from "./edr-normalize";
 import {
   TACTICS, techniqueName, tacticOf, fixPath, baseOf, effectiveAction, imageName,
@@ -146,8 +146,11 @@ function sophosUser(f: EdrFacts, ctx: NativeCtx): string | undefined {
 function pidOf(ctx: NativeCtx, ev: TelemetryEvent, f: EdrFacts, host: string, name: string | undefined, role: "proc" | "parent" = "proc"): number {
   const user = f.user ?? (f.userEmail ? f.userEmail.split("@")[0] : undefined);
   // The story's instance tag (an image shown as its own parent: the child is another instance).
-  const inst = role === "parent" ? f.parent.inst : f.proc.inst;
-  return procPid(ctx, { host, os: f.os, timeMs: f.timeMs, user, incident: ev.incident_id }, { name, inst }) ?? 4;
+  const own = role === "parent" ? f.parent : f.proc;
+  const inst = own.inst;
+  // The authored pid of that process (printed on a standalone scenario, ctx.authoredPids).
+  const pid = name && (own.name ?? "").toLowerCase() === name.toLowerCase() ? own.pid : undefined;
+  return procPid(ctx, { host, os: f.os, timeMs: f.timeMs, user, incident: ev.incident_id }, { name, inst, pid }) ?? 4;
 }
 /** Stable Sophos endpoint id per host (seeded from the entity, never the event). */
 const endpointIdOf = (ctx: NativeCtx, host: string) => ctx.uuid(`${ctx.companyId}:${host.toLowerCase()}:sophos-endpoint`);
@@ -156,7 +159,7 @@ const macOf = (ctx: NativeCtx, host: string) => (ctx.hex(`${ctx.companyId}:${hos
 function deviceMeta(f: EdrFacts, ctx: NativeCtx, host: string, endpointId: string) {
   const server = isServer(host);
   const bootSec = Math.floor(f.timeMs / 1000) - ctx.int(`${ctx.companyId}:${host.toLowerCase()}:boot`, 3_600, 432_000);
-  const ip = isPrivate(f.hostIp) ? f.hostIp : undefined;
+  const ip = isPrivate(f.hostIp) ? f.hostIp : ctx.hostIps?.get(hostKey(host));
   return {
     server, bootSec, ip,
     cols: {

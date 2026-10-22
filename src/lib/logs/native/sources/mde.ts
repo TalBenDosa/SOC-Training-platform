@@ -35,7 +35,7 @@ import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "..
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { edrFacts, taskFacts, schtasksTask, type EdrFacts, type EdrProc, type TaskFacts } from "./edr-normalize";
 import {
-  procKey, procPid, inferredFileWriter, OS_COMMAND_LINE, OS_PARENT, SERVICE_ACCOUNT, imageHashes, sha1Of, accountSid, logonLuid,
+  procKey, procPid, inferredFileWriter, OS_COMMAND_LINE, OS_PARENT, SERVICE_ACCOUNT, imageHashes, sha1Of, accountSid, logonLuid, hostKey,
   type ProcScope,
 } from "./_proc-identity";
 import { imagePath } from "./_cs-s1-common";
@@ -563,7 +563,7 @@ function alertEvidence(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: st
     title = `'${family}' malware was ${verb}`;
   } else if (entity === "File") {
     title = `Malware was ${verb}`;
-  } else if (techName) {
+  } else if (techName && nativeTechniques(ev) !== "[]") {
     title = `Suspicious ${techName} activity`;
   } else {
     title = tactic ? `Suspicious ${tactic.toLowerCase()} activity` : "Suspicious activity";
@@ -576,7 +576,10 @@ function alertEvidence(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: st
     AlertId: alertId,
     Title: title,
     Categories: JSON.stringify([category]),
-    AttackTechniques: JSON.stringify(d.techniqueId ? [`${techName ?? d.techniqueId} (${d.techniqueId})`] : []),
+    // Only the product's own AttackTechniques (authored for Defender) is printed: a technique the row
+    // carries as ATT&CK mapping metadata (threat.technique.*, the story's mitre_technique) is the
+    // answer the analyst is asked for, not something this row would show them.
+    AttackTechniques: nativeTechniques(ev),
     ServiceSource: "Microsoft Defender for Endpoint",
     // Antivirus = a signature / file verdict (a named family, a file, a quarantine); a behavioural
     // detection of a running process is the EDR sensor's, whatever the feed row's source.
@@ -619,7 +622,7 @@ function alertEvidence(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: st
   } else if (entity === "Ip") {
     Object.assign(row, { RemoteIP: f.net.remoteIp, RemoteUrl: f.net.url ?? f.net.domain ?? null });
   } else {
-    row.LocalIP = isPrivate(f.hostIp) ? f.hostIp : null;
+    row.LocalIP = isPrivate(f.hostIp) ? f.hostIp : ctx.hostIps?.get(hostKey(f.host ?? "")) ?? null;
   }
   return row;
 }
@@ -628,6 +631,16 @@ function alertEvidence(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: st
  * The AlertInfo row (one per alert) that accompanies an AlertEvidence row produced by
  * fromTelemetry — same AlertId / Title / Severity / techniques, joinable on AlertId.
  */
+/** The AttackTechniques column as authored for Defender (raw AttackTechniques / mde.AttackTechniques), else "[]". */
+function nativeTechniques(ev: TelemetryEvent): string {
+  const r = (ev.raw ?? {}) as Record<string, unknown>;
+  const v = r["AttackTechniques"] ?? r["mde.AttackTechniques"];
+  if (v === undefined || v === null || v === "") return "[]";
+  if (Array.isArray(v)) return JSON.stringify(v.map(String));
+  const s = String(v);
+  return s.trim().startsWith("[") ? s : JSON.stringify(s.split(/\s*,\s*/));
+}
+
 export function alertInfoFor(evidence: NativeLog): NativeLog | null {
   if (evidence.sourceId !== "mde" || evidence.kind !== "AlertEvidence") return null;
   const r = evidence.record as { time: string; tenantId: string; operationName: string; properties: Record<string, unknown> };

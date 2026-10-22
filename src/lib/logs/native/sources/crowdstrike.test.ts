@@ -44,7 +44,8 @@ function documentedNull(c: Converted): string | null {
   return null;
 }
 
-const NO_USER = new Set(["DnsRequest", "NetworkConnectIP4", "NetworkReceiveAcceptIP4", "AsepValueUpdate", "RegGenericValueUpdate"]);
+// ScriptControlScanTelemetry names the interpreter process, not the account (card §3 field list).
+const NO_USER = new Set(["DnsRequest", "NetworkConnectIP4", "NetworkReceiveAcceptIP4", "AsepValueUpdate", "RegGenericValueUpdate", "ScriptControlScanTelemetry"]);
 const NO_CMD = new Set(["DnsRequest", "NetworkConnectIP4", "NetworkReceiveAcceptIP4", "AsepValueUpdate", "RegGenericValueUpdate", "PeFileWritten", "NewScriptWritten", "OoxmlFileWritten", "ZipFileWritten", "GenericFileWritten"]);
 const NET_KINDS = new Set(["NetworkConnectIP4", "NetworkReceiveAcceptIP4"]);
 const FILE_KINDS = new Set(["PeFileWritten", "NewScriptWritten", "OoxmlFileWritten", "ZipFileWritten", "GenericFileWritten"]);
