@@ -988,8 +988,11 @@ function InvestigationPanel({
   onVerdictReasonChange,
   onSubmit,
   quizComplete,
+  onStart,
 }: {
   phase: Phase;
+  /** Starts the investigation from the report itself (the timer bar's button is far above). */
+  onStart?: () => void;
   /** Bumped on retry so the draft boxes remount empty. */
   draftKey: number;
   notesRef: MutableRefObject<string>;
@@ -1049,6 +1052,20 @@ function InvestigationPanel({
           {completedCount}<span className="text-slate-500">/3</span>
         </span>
       </div>
+
+      {/* Before the investigation starts the report is locked: say so here, with the button,
+          instead of leaving a greyed-out box the learner can't type into. */}
+      {phase === "idle" && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-cyber-400/5 px-5 py-3">
+          <p className="text-[12px] text-slate-300">The report opens once you start the investigation.</p>
+          {onStart && (
+            <button type="button" onClick={onStart}
+              className="flex items-center gap-1.5 rounded border border-cyber-400/40 bg-cyber-400/10 px-3 py-1.5 text-[12px] font-semibold text-cyber-300 transition hover:bg-cyber-400/20">
+              <Play className="h-3.5 w-3.5" /> Start Investigation
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Tab bar ───────────────────────────────────────────────────── */}
       <div className="grid grid-cols-3 border-b border-border/60" role="tablist" aria-label="Investigation report sections"
@@ -1960,6 +1977,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
           onVerdictReasonChange={handleReasonChange}
           onSubmit={handleSubmit}
           quizComplete={allAnswered}
+          onStart={mounted ? handleStart : undefined}
         />
 
         {/* Analyst Quiz — the per-question results replace it once complete. */}
