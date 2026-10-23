@@ -214,7 +214,22 @@ export function checkReply(text: string, key: Pick<QuestionKey, "checks" | "fact
     need_decision: () => /\b(yes|no|we need|need (more|help|the retainer)|don'?t need|do not need|not needed|call (them|it|the retainer) in|enough (people|analysts|hands))\b/i.test(t),
     staff_message: () => /\b(staff|employees|everyone|users|tell (them|staff|people)|message|announce|don'?t (click|open|reboot)|report (any|suspicious))\b/i.test(t),
   };
-  const checks = key.checks.map(id => ({ id, label: CHECK_LABEL[id], ok: test[id]() }));
+  // A check that only asks the reply NOT to say something passes on an empty answer: it counts
+  // only when the reply also says something real (trainee report 2026-10-23: "give me 5 minutes"
+  // and "Tier-2 is on it" collected points for what they did not claim).
+  const contentChecks = key.checks.filter(id => id !== "substance" && !PASSIVE.has(id));
+  const contentPassed = !contentChecks.length || contentChecks.some(id => test[id]());
+  const checks = key.checks.map(id => ({ id, label: CHECK_LABEL[id], ok: PASSIVE.has(id) ? contentPassed && test[id]() : test[id]() }));
   const passed = checks.filter(c => c.ok).length;
-  return { checks, score: checks.length ? Math.round((12 * passed) / checks.length) : 0 };
+  let score = checks.length ? Math.round((12 * passed) / checks.length) : 0;
+  // The question's own point (status for "where are we", the data status for Legal, a time for
+  // "how long"): the first check after substance. A reply that does not answer it stays low.
+  const primary = contentChecks[0];
+  if (primary && !checks.find(c => c.id === primary)?.ok) score = Math.min(score, PRIMARY_MISSED_CAP);
+  return { checks, score };
 }
+
+/** Checks that pass by what a reply leaves out. */
+const PASSIVE = new Set<CheckId>(["no_overclaim", "no_false_data", "severity_consistent"]);
+/** The most a reply can score when it does not answer what was asked. */
+export const PRIMARY_MISSED_CAP = 4;

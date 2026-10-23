@@ -271,12 +271,15 @@ export default function TeamRoomPage() {
     const last = fresh[fresh.length - 1];
     if (!last) return;
     const from = (last.payload as { from?: { name?: string; role?: string } }).from;
-    const notice = last.type === "stakeholder.asked" ? { text: `${from?.name ?? "A stakeholder"} (${from?.role ?? "stakeholder"}) is asking you a question.`, go: "stakeholders" as const }
+    const one = last.type === "stakeholder.asked" ? { text: `${from?.name ?? "A stakeholder"} (${from?.role ?? "stakeholder"}) is asking you a question.`, go: "stakeholders" as const }
       : last.type === "containment.requested" ? { text: `${nameOf(last.actor_id)} asks you to approve a containment.`, go: "escalations" as const }
       : last.type === "forensic.report" ? { text: `${nameOf(last.actor_id)} (Tier-3) sent you a forensic report.`, go: "board" as const }
         : { text: `New decision for you: ${from?.name ?? "your team"}.`, go: "desk" as const };
+    // Two items arriving together (a decision card and a stakeholder question in the same tick)
+    // used to show only the last one, and the other went unnoticed (trainee report 2026-10-23).
+    const notice = fresh.length > 1 ? { text: `${fresh.length} new items need you: ${one.text.replace(/\.$/, "")}, and ${fresh.length - 1} more. See the waiting counts on the tabs.`, go: one.go } : one;
     setMgrNotice(notice);
-    const t = setTimeout(() => setMgrNotice(n => (n === notice ? null : n)), 9000);
+    const t = setTimeout(() => setMgrNotice(n => (n === notice ? null : n)), 20_000);
     return () => clearTimeout(t);
   }, [events, isCoordSeat, phase]); // eslint-disable-line react-hooks/exhaustive-deps
 

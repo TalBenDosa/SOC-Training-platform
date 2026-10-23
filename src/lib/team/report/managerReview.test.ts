@@ -51,10 +51,10 @@ describe("Command Review", () => {
     add("containment.requested", "t2", 130, { event_id: "a1", target: "WS-FIN-2847" }, "t2");
     add("containment.approved", "mgr", 170, { event_id: "a1", target: "WS-FIN-2847" }, "mgr");
     card(add, answers, "11111111-1111-4111-8111-111111111111", "ciso_status", 200, "external");
-    add("decision.answered", "mgr", 260, { inject_id: "11111111-1111-4111-8111-111111111111", option: "o1", confidence: "high", rationale: "scope first then report" }, "mgr");
+    add("decision.answered", "mgr", 260, { inject_id: "11111111-1111-4111-8111-111111111111", option: "o1", confidence: "high", rationale: "scope first, because reporting before the scope is confirmed risks a wrong answer" }, "mgr");
     for (const s of [240, 700, 1200]) add("sitrep.sent", "mgr", s, { situation: "Attack on WS-FIN-2847 with suspected data exfiltration under investigation", actions: "host isolated and scoped", status: "partially contained, investigating", next: "confirm scope then update" }, "mgr");
     card(add, answers, "22222222-2222-4222-8222-222222222222", "isolate_or_wait", 500, "internal");
-    add("decision.answered", "mgr", 560, { inject_id: "22222222-2222-4222-8222-222222222222", option: "o1", confidence: "medium", rationale: "watch until scope is confirmed" }, "mgr");
+    add("decision.answered", "mgr", 560, { inject_id: "22222222-2222-4222-8222-222222222222", option: "o1", confidence: "medium", rationale: "watch the host until the scope is confirmed, otherwise we isolate blind" }, "mgr");
     add("session.ended", "instr", 1500);
     const r = review(events, answers);
     expect(r.truthSeverity).toBe(1);                                        // exfiltration in the feed
@@ -122,7 +122,7 @@ describe("Command Review", () => {
     const answers: { id: string; channel: string; expected_action: unknown }[] = [];
     const add = (type: string, actor_id: string | null, sec: number, payload: Record<string, unknown> = {}, role: string | null = null) => { events.push({ seq: events.length + 1, type, actor_id, role, payload, occurred_at: at(sec) }); };
     card(add, answers, "66666666-6666-4666-8666-666666666666", "owner_veto", 100, "external");
-    add("decision.answered", "mgr", 130, { inject_id: "66666666-6666-4666-8666-666666666666", option: "o1", confidence: "high", rationale: "agreed limited containment" }, "mgr");
+    add("decision.answered", "mgr", 130, { inject_id: "66666666-6666-4666-8666-666666666666", option: "o1", confidence: "high", rationale: "agreed a limited containment with the owner, because the payment run must keep going" }, "mgr");
     add("session.ended", "instr", 600);
     const r = review(events, answers);
     expect(r.decisions[0].score).toBe(12);

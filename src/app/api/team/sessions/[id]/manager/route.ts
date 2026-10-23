@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { activeSeat } from "@/lib/team/membership";
-import { indicatorsAfter, cardScore } from "@/lib/team/manager/director";
+import { indicatorsAfter, decisionScore } from "@/lib/team/manager/director";
 import { loadSession, loadTeamEvents, loadDecisionInjects, loadQuestionInjects } from "@/lib/team/manager/server";
 import { checkReply } from "@/lib/team/manager/questions";
 import { requestPhase, answeredLate } from "@/lib/team/manager/timing";
@@ -54,7 +54,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       return {
         inject_id: inj.id, card: key.card, state: a ? ("answered" as const) : ("expired" as const),
         option, confidence, rank: option ? key.ranks[option] ?? null : null, best: key.best,
-        score: cardScore(option ? key.ranks[option] : undefined, confidence ?? undefined),
+        ...(() => {
+          const label = (inj.body as { options?: { id: string; label: string }[] }).options?.find(o => o.id === option)?.label ?? "";
+          const s = decisionScore(option ? key.ranks[option] : undefined, confidence ?? undefined, a ? String((a.payload as { rationale?: unknown }).rationale ?? "") : null, label);
+          return { score: s.score, thin_reason: s.thinReason };
+        })(),
         notes: key.notes, delta: option ? key.deltas[option] ?? {} : key.timeout_delta, objective: key.objective,
       };
     });

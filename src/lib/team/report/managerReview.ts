@@ -14,7 +14,7 @@
  */
 import type { Ev, RosterMember } from "@/lib/team/types";
 import { asStr } from "@/lib/team/format";
-import { cardScore, indicatorsAfter, type CardAnswerKey } from "@/lib/team/manager/director";
+import { decisionScore, indicatorsAfter, type CardAnswerKey } from "@/lib/team/manager/director";
 import { CRITICAL_NAME } from "@/lib/team/manager/state";
 import type { Delta, Indicators, Rank } from "@/lib/team/manager/cards";
 import { checkReply, NO_DATA_CLAIM as REPLY_NO_DATA, type QuestionKey } from "@/lib/team/manager/questions";
@@ -35,6 +35,8 @@ export interface DecisionRow {
   state: "answered" | "late" | "expired";
   option: string | null; optionLabel: string | null; rank: Rank | null; confidence: Confidence | null;
   rationale: string | null; score: number; best: string; bestLabel: string;
+  /** The why did not explain the call (deferral or a few words): THIN_REASON_PENALTY off the score. */
+  thinReason: boolean;
   options: DecisionOption[]; delta: Delta; critical: string | null; indicatorsAfter: Indicators;
 }
 export interface QuestionRow {
@@ -203,13 +205,14 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
     const decidedAtS = a ? relS(aTs) : firedTs != null ? relS(firedTs + deadlineS * 1000) : null;
     indicatorTrail.push({ t: decidedAtS, card: key.card, ind });
     const labelOf = (id: string) => p.options?.find(o => o.id === id)?.label ?? id;
+    const scored = decisionScore(rank ?? undefined, confidence ?? undefined, a ? asStr(ap.rationale) : null, option ? labelOf(option) : "");
     decisions.push({
       injectId: p.inject_id, card: key.card, audience: asStr(p.audience), pillar: asStr(p.pillar),
       from: { name: asStr(p.from?.name), role: asStr(p.from?.role) }, channel: asStr(p.channel), text: asStr(p.text), objective: asStr(key.objective),
       firedS: relS(firedTs), deadlineS, decidedInS, state,
       option, optionLabel: option ? labelOf(option) : null, rank, confidence,
       rationale: a ? asStr(ap.rationale) || null : null,
-      score: cardScore(rank ?? undefined, confidence ?? undefined),
+      score: scored.score, thinReason: scored.thinReason,
       best: key.best, bestLabel: labelOf(key.best),
       options: (p.options ?? []).map(o => ({ id: o.id, label: o.label, rank: key.ranks[o.id] ?? null, note: key.notes[o.id] ?? "", delta: key.deltas[o.id] ?? {} })),
       delta: option ? key.deltas[option] ?? {} : key.timeout_delta,

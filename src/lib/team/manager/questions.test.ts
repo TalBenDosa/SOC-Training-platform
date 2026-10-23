@@ -109,6 +109,14 @@ describe("checking a reply", () => {
     expect(checkReply("Suspected, under investigation: we see an upload to cloud storage and are checking what it held.", k).score).toBe(12);
   });
 
+  it("a deferral that does not answer the question scores low (trainee report 2026-10-23)", () => {
+    const status = QUESTIONS.find(q => q.id === "q_status")!.build({}, {} as never);
+    const k = { checks: status.checks, facts: facts({}) };
+    expect(checkReply("The incident is being handled by Tier-2, give me 5 minutes to check.", k).score).toBeLessThanOrEqual(4);
+    expect(checkReply("give me 5 minutes", k).score).toBe(0);
+    expect(checkReply("Not contained yet: one host is isolated, we are still scoping the others. Next update in 15 minutes.", k).score).toBe(12);
+  });
+
   it("a severity named in the answer must match the declaration", () => {
     const k = { checks: ["severity_consistent"] as "severity_consistent"[], facts: facts({ severity: 1 }) };
     expect(checkReply("We moved it to Sev-1 because data left the network.", k).score).toBe(12);

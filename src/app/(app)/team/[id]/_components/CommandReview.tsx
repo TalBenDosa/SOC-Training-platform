@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Gavel, AlertOctagon, ChevronDown } from "lucide-react";
 import type { ManagerReview, CommandPillar, DecisionRow, TimelineMark, QuestionRow, ReportRow } from "@/lib/team/report/managerReview";
+import { THIN_REASON_PENALTY } from "@/lib/team/manager/reasonPenalty";
 
 /**
  * Command Review: the SOC Manager's end-of-shift report (PLAN §10א). The manager and staff
@@ -170,7 +171,10 @@ function Decisions({ rows, redacted }: { rows: DecisionRow[]; redacted: boolean 
               <p className="text-slate-300"><bdi>{d.text}</bdi></p>
               {d.optionLabel ? <p className="text-slate-300">Chosen{!redacted && d.confidence ? ` (${d.confidence} confidence)` : ""}{d.decidedInS != null ? ` in ${fmt(d.decidedInS)}` : ""}: <b className="text-slate-100">{d.optionLabel}</b></p>
                 : <p className="text-severity-critical">Nobody decided before the deadline.</p>}
-              {d.rationale && <p className="text-[11px] text-slate-400">Why: {d.rationale}</p>}
+              {d.rationale && <p className="text-[11px] text-slate-400">Why: <bdi>{d.rationale}</bdi></p>}
+              {!redacted && d.thinReason && (
+                <p className="text-[11px] text-neon-amber">The reason did not explain the call (−{THIN_REASON_PENALTY}). Name the grounds: the risk, the policy or rule, or what is still unverified.</p>
+              )}
               <ul className="space-y-0.5">
                 {d.options.map(o => (
                   <li key={o.id} className={`rounded px-1.5 py-1 text-[11px] ${o.id === d.option ? "bg-bg-elevated" : ""}`}>

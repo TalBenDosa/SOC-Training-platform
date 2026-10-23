@@ -211,3 +211,20 @@ describe("cards: content and answer key", () => {
     expect(ind.trust).toBe(3);
   });
 });
+
+describe("a decision's reason (trainee report 2026-10-23)", () => {
+  it("a deferral or a few words does not explain the call and costs points", async () => {
+    const { decisionScore, reasonExplains } = await import("./director");
+    const label = "Promise a short SITREP in 5 minutes: what is confirmed, what is not, and what you need.";
+    expect(reasonExplains("give me 5 minutes to check", label)).toBe(false);
+    expect(reasonExplains("the incident is handled by tier 2", label)).toBe(false);
+    expect(decisionScore("great", "high", "give me 5 minutes to check", label)).toEqual({ score: 10, thinReason: true });
+  });
+  it("a reason that names its grounds keeps the full score, in English or Hebrew", async () => {
+    const { decisionScore, reasonExplains } = await import("./director");
+    const label = "Promise a short SITREP in 5 minutes: what is confirmed, what is not, and what you need.";
+    expect(reasonExplains("A fixed time lets her plan the CEO briefing, because guessing now risks a wrong answer", label)).toBe(true);
+    expect(reasonExplains("נותן לה זמן קבוע לעדכון כי עדיין לא ידוע מה ההיקף", label)).toBe(true);
+    expect(decisionScore("great", "high", "A fixed time lets her plan the CEO briefing, because guessing now risks a wrong answer", label)).toEqual({ score: 12, thinReason: false });
+  });
+});

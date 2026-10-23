@@ -10,6 +10,8 @@
 import { activeMs } from "../pauses";
 import { shuffleWithSeed } from "@/lib/rooms/shuffle";
 import type { MgrState } from "./state";
+import { THIN_REASON_PENALTY } from "./reasonPenalty";
+export { THIN_REASON_PENALTY };
 import { CARDS, CARD_BY_ID, difficultyAllows, type CardDef, type Ctx, type Delta, type Indicators, type Rank } from "./cards";
 
 export const CARD_BUDGET = { easy: 2, medium: 4, hard: 6 } as const;
@@ -109,6 +111,33 @@ export const CARD_SCORE: Record<Rank, Record<"low" | "medium" | "high", number>>
   okay: { low: 5, medium: 4, high: 3 },
   weak: { low: 2, medium: 1, high: 0 },
 };
+const STOP = new Set(["the", "and", "that", "this", "with", "from", "they", "them", "their", "your", "you", "will", "have", "what", "when", "into", "about", "then", "than", "just", "only", "also", "been", "being", "were", "would", "could", "should"]);
+const REASON_LINK = /\b(because|since|so that|so (she|he|they|we|the)|otherwise|to avoid|to keep|to prevent|in order to|which means|policy|regulat\w*|insur\w*|risk|evidence|confirmed|unverified|not (yet )?(known|confirmed|verified)|scope)\b|(כי|מכיוון|בגלל|כדי|אחרת|לכן|מאחר)/i;
+const words = (s: string) => s.toLowerCase().match(/[\p{L}\d]+/gu) ?? [];
+
+/**
+ * Does the decision's "why" explain the call? A reason is a sentence that links the choice to
+ * its grounds: at least six words, and either a reasoning link (because, otherwise, the risk,
+ * the policy...) or two meaningful words of the chosen option. "Give me 5 minutes to check" or
+ * "Tier-2 is on it" (trainee report 2026-10-23) is a deferral, not a reason.
+ */
+export function reasonExplains(rationale: string | null | undefined, chosenLabel = ""): boolean {
+  const r = (rationale ?? "").trim();
+  const w = words(r);
+  if (w.length < 6) return false;
+  if (REASON_LINK.test(r)) return true;
+  const optionWords = new Set(words(chosenLabel).filter(x => x.length >= 4 && !STOP.has(x)));
+  return new Set(w.filter(x => optionWords.has(x))).size >= 2;
+}
+
+/** A decided card's score: the option and confidence, less THIN_REASON_PENALTY when the why does not explain it. */
+export function decisionScore(rank: Rank | undefined, confidence: string | undefined, rationale?: string | null, chosenLabel?: string): { score: number; thinReason: boolean } {
+  const base = cardScore(rank, confidence);
+  if (!rank) return { score: base, thinReason: false };
+  const thinReason = !reasonExplains(rationale, chosenLabel);
+  return { score: Math.max(0, base - (thinReason ? THIN_REASON_PENALTY : 0)), thinReason };
+}
+
 export function cardScore(rank: Rank | undefined, confidence: string | undefined): number {
   if (!rank) return 0;                                                 // not decided in time
   const c = confidence === "low" || confidence === "high" ? confidence : "medium";
