@@ -11,7 +11,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { EDR_INVESTIGATIONS, type EdrInvestigation } from "@/lib/edr/investigations";
-import { isTrainingActive } from "@/lib/sim/trainingSession";
+import { isTrainingActive, TRAINING_EVENT, TRAINING_KEY } from "@/lib/sim/trainingSession";
+import { teamEndedKey, teamSessionClosed, teamSessionMarkedEnded } from "@/lib/team/edrLock";
 import { EdrConsole } from "@/components/edr/EdrConsole";
 import { useTeamHeartbeat } from "@/lib/team/useTeamHeartbeat";
 import { useTeamIsolation } from "@/lib/team/useTeamIsolation";
@@ -33,8 +34,45 @@ export default function EdrConsolePage() {
   // minutes in this tab, and the room's own tab is then hidden/throttled.
   const [teamSession, setTeamSession] = useState<string | null>(null);
   const [teamRole, setTeamRole] = useState<string | null>(null);
-  useTeamHeartbeat(teamSession);
+  // Set once the shift or team exercise this console belongs to is over.
+  const [closed, setClosed] = useState<"shift" | "team" | null>(null);
+  useTeamHeartbeat(closed ? null : teamSession);
   const teamIsolation = useTeamIsolation(teamSession, teamRole);
+
+  // SOC Dashboard shift: the Dashboard drops the "training active" flag on every way a shift
+  // ends (auto-advance, company switch, leaving the Dashboard); this tab follows it live, and
+  // opens again if the Dashboard resumes the shift (a refresh mid-shift).
+  useEffect(() => {
+    if (!allowed || teamSession) return;
+    const sync = () => setClosed(isTrainingActive() ? null : "shift");
+    const onStorage = (ev: StorageEvent) => { if (ev.key === null || ev.key === TRAINING_KEY) sync(); };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener(TRAINING_EVENT, sync);
+    return () => { window.removeEventListener("storage", onStorage); window.removeEventListener(TRAINING_EVENT, sync); };
+  }, [allowed, teamSession]);
+
+  // Team exercise: closed when the room marks the session over (instant, via storage) or when
+  // the server says it ended / the analyst was removed (polled, and on returning to the tab).
+  useEffect(() => {
+    if (!teamSession) return;
+    let stop = false;
+    const check = async () => {
+      if (stop) return;
+      if (teamSessionMarkedEnded(teamSession)) { setClosed("team"); return; }
+      try {
+        const res = await fetch(`/api/team/sessions/${teamSession}`, { cache: "no-store" });
+        const body = res.ok ? await res.json().catch(() => null) : null;
+        if (!stop && teamSessionClosed(res.status, body?.session?.status)) setClosed("team");
+      } catch { /* offline: try again on the next tick */ }
+    };
+    void check();
+    const iv = setInterval(check, 20_000);
+    const onStorage = (ev: StorageEvent) => { if (ev.key === teamEndedKey(teamSession)) setClosed("team"); };
+    const onVisible = () => { if (document.visibilityState === "visible") void check(); };
+    window.addEventListener("storage", onStorage);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { stop = true; clearInterval(iv); window.removeEventListener("storage", onStorage); document.removeEventListener("visibilitychange", onVisible); };
+  }, [teamSession]);
 
   useEffect(() => {
     // The EDR console is ONLY reachable from an active shift — the student must
@@ -95,8 +133,30 @@ export default function EdrConsolePage() {
     [liveInvs],
   );
   if (!allowed) return null; // checking access / redirecting to the Dashboard
+  // The shift (or team exercise) this console belongs to is over: nothing more to investigate.
+  if (closed) return <EdrClosed reason={closed} teamSession={teamSession} />;
   // A live shift stashed one investigation → open it directly; otherwise (no
   // ?case) fall to the Incidents management page over the built-in practice set.
   // A live shift (or team room) pops a red alert for every new detection; the practice cases don't.
   return <EdrConsole investigations={investigations} initialCaseId={invId ?? undefined} teamIsolation={teamIsolation} liveAlerts={liveInvs !== null} />;
+}
+
+function EdrClosed({ reason, teamSession }: { reason: "shift" | "team"; teamSession: string | null }) {
+  const team = reason === "team";
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center p-6">
+      <div role="status" className="max-w-md rounded-xl border border-border bg-bg-panel p-6 text-center">
+        <h1 className="text-lg font-bold text-white">{team ? "The team exercise has ended" : "The shift has ended"}</h1>
+        <p className="mt-2 text-sm text-slate-400">
+          {team
+            ? "The EDR console is closed for this session. Go back to the team room for the shift review."
+            : "The EDR console is only open during a live shift. Start a new shift on the SOC Dashboard to investigate again."}
+        </p>
+        <a href={team && teamSession ? `/team/${teamSession}` : "/dashboard"}
+          className="mt-4 inline-block rounded-lg bg-cyber-500 px-4 py-2 text-sm font-semibold text-[var(--on-accent)] hover:bg-cyber-400">
+          {team ? "Back to the team room" : "Back to the SOC Dashboard"}
+        </a>
+      </div>
+    </div>
+  );
 }

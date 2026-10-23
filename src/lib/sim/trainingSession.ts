@@ -11,7 +11,8 @@
  * (clean slate) and on End Session, so a stale flag can never leave the EDR
  * reachable without a live shift.
  */
-const KEY = "soc_training_active";
+export const TRAINING_KEY = "soc_training_active";
+const KEY = TRAINING_KEY;
 export const TRAINING_EVENT = "soc:training-changed";
 
 export function isTrainingActive(): boolean {

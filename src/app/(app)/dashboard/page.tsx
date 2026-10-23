@@ -838,6 +838,15 @@ export default function DashboardPage() {
     startDashboardTour();
   };
 
+  /** A shift that ends closes what was open for it: the attack-chain board, the resume prompt,
+   *  and the EDR tab's handoff (that tab locks on the training flag). */
+  const closeShiftWindows = () => {
+    setShowChainBoard(false);
+    setShowResumePrompt(false);
+    setInvestigatingInEdr(false);
+    try { lsRemove("edr_live_investigation"); } catch { /* ignore */ }
+  };
+
   const handleSelectCompany = (id: string) => {
     // Switching company ends the running shift: save it first (QA-DASH-8; once per
     // shift, so the save already made by an auto-advance is not repeated).
@@ -859,6 +868,7 @@ export default function DashboardPage() {
     setSessionStartedAt(null);
     setSessionDifficulty(null);
     setTrainingActive(false);
+    closeShiftWindows();
     live.pause();
   };
 
@@ -944,6 +954,7 @@ export default function DashboardPage() {
     setSessionStartedAt(null);
     setSessionDifficulty(null);
     setTrainingActive(false);   // lock the EDR console again
+    closeShiftWindows();
     caughtTimesRef.current = [];
     countedIncidentIdsRef.current.clear();
     setCaughtInWindow(0);
@@ -1035,7 +1046,9 @@ export default function DashboardPage() {
   // QA-DASH-8: a shift with activity is saved when the tab is hidden for good or
   // the dashboard unmounts (navigating away). endSession saves each shift once.
   useEffect(() => {
-    const save = () => { liveRef.current?.endSession(); };
+    // Leaving the Dashboard ends the shift, so the EDR tab it opened closes too (a refresh
+    // mid-shift turns the flag back on when the session resumes, L-09 below).
+    const save = () => { liveRef.current?.endSession(); setTrainingActive(false); };
     window.addEventListener("pagehide", save);
     return () => { window.removeEventListener("pagehide", save); save(); };
   }, []);

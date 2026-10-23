@@ -35,6 +35,7 @@ import { asStr, detectIocType, friendlyActionError, hashString, actionErrorCode,
 import { deriveReadyMap } from "@/lib/team/lobbyReady";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { useTeamHeartbeat } from "@/lib/team/useTeamHeartbeat";
+import { markTeamSessionEnded } from "@/lib/team/edrLock";
 import { calibrateFromDateHeader, noteServerTimestamp, useServerNow } from "@/lib/team/clock";
 import { buildAlertQueue, nextAlertFor } from "@/lib/team/alertQueue";
 import { teamLoad, withShiftMinutes, type Difficulty } from "@/lib/team/load";
@@ -1004,6 +1005,18 @@ export default function TeamRoomPage() {
   }), [feed, edrHosts]);
   const edrSeen = useRef<number | null>(null);
   const [edrToast, setEdrToast] = useState<{ seq: number; host: string; title: string } | null>(null);
+
+  // When the exercise ends every window opened during it closes (trainee report 2026-10-23: the
+  // stakeholder report and a "Legal counsel is asking you a question" notice stayed open over the
+  // shift review, and the EDR tab stayed usable). The role consoles unmount with the phase; these
+  // page-level dialogs and notices do not, so they close here, and the EDR tabs are told to lock.
+  useEffect(() => {
+    if (phase !== "ended") return;
+    setReportSeed(null); setT1ReportOpen(false); setT3ReportOpen(false); setCaseLog(null);
+    setShowGuide(false); setTourOn(false); setMgrNotice(null); setEdrToast(null); setEdrNote(null); setLeftNotices([]);
+    markTeamSessionEnded(id);
+    try { localStorage.removeItem(`edr_live_investigation_${me?.id ?? "anon"}`); } catch { /* storage blocked */ }
+  }, [phase, id, me?.id]);
   useEffect(() => {
     const newest = edrAlerts[edrAlerts.length - 1];
     if (edrSeen.current === null) { edrSeen.current = newest?.seq ?? 0; return; }   // joining mid-shift: no backlog pop-ups
