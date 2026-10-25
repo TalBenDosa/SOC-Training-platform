@@ -20,6 +20,13 @@ describe("escalation rationale", () => {
     expect(rationaleProblem("successful logon from an address on our blocklist", log, [{ value: "176.97.210.93" }])).toMatch(/Cite/);
     expect(rationaleProblem("successful logon from 176.97.210.93, on our blocklist", log, [{ value: "176.97.210.93" }])).toBeNull();
   });
+  it("accepts naming an attached IOC by its kind, and suggests a value when it fails (trainee report 2026-10-25)", () => {
+    const mail = { user_email: "i.schmidt@sdema.com", src_ip: "5.181.80.66" };
+    const iocs = [{ type: "ip", value: "5.181.80.66" }, { type: "domain", value: "client-invoices-portal.info" }];
+    expect(rationaleProblem("Can be a phishing email, because of the malicious IP. Need a deeper investigation.", mail, iocs)).toBeNull();
+    expect(rationaleProblem("Looks off to me and needs a second opinion from tier two", mail, iocs)).toMatch(/for example 5\.181\.80\.66/);
+    expect(rationaleProblem("Can be a phishing email because of the malicious IP address", mail, [])).toMatch(/Cite the evidence/);
+  });
   it("collects nested and command-line values", () => {
     expect(citableValues(log)).toEqual(expect.arrayContaining(["srv-kok-dc01", "ntdsutil.exe", "176.97.210.93"]));
   });

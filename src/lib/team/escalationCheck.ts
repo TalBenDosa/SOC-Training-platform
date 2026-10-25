@@ -29,10 +29,26 @@ export function citableValues(payload: Record<string, unknown> | undefined): str
   return [...out];
 }
 
-export function rationaleProblem(text: string, payload: Record<string, unknown> | undefined, iocs: { value: string }[]): string | null {
+/** Words that name an IOC by its kind ("the malicious IP", "the sender"), per attached IOC type. */
+const KIND_WORDS: Record<string, RegExp> = {
+  ip: /\b(ip|ips|address|addresses|ipv4|source|destination)\b/i,
+  domain: /\b(domain|domains|url|link|site|website|hostname)\b/i,
+  url: /\b(url|link|site|website|domain)\b/i,
+  email: /\b(e-?mail|sender|from address|mailbox|recipient)\b/i,
+  hash: /\b(hash|sha-?256|sha-?1|md5|file|binary|attachment)\b/i,
+  user: /\b(user|account|username|identity)\b/i,
+  host: /\b(host|machine|workstation|endpoint|server|device)\b/i,
+  process: /\b(process|binary|executable|command)\b/i,
+};
+
+export function rationaleProblem(text: string, payload: Record<string, unknown> | undefined, iocs: { value: string; type?: string }[]): string | null {
   const t = text.trim().toLowerCase();
   if (t.length < RATIONALE_MIN_CHARS) return `Say why in at least ${RATIONALE_MIN_CHARS} characters: what in the log is suspicious.`;
   const cites = [...iocs.map(i => i.value.trim().toLowerCase()).filter(v => v.length >= 4), ...citableValues(payload)];
-  if (!cites.some(v => t.includes(v))) return "Cite the evidence: name the host, user, IP, process, hash or field value from the log that makes it suspicious.";
-  return null;
+  if (cites.some(v => t.includes(v))) return null;
+  // "Because of the malicious IP" with that IP attached as an IOC is evidence: the ticket carries the
+  // value and Tier-2 sees exactly which address is meant (trainee report 2026-10-25).
+  if (iocs.some(i => KIND_WORDS[String(i.type ?? "").toLowerCase()]?.test(t))) return null;
+  const example = iocs[0]?.value ?? citableValues(payload).find(v => /\d|\.|@/.test(v));
+  return `Cite the evidence: name the host, user, IP, process, hash or field value from the log that makes it suspicious${example ? ` (for example ${example}), or attach it as an IOC and say what it is` : ""}.`;
 }
