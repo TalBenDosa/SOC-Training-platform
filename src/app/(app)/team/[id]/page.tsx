@@ -1258,7 +1258,7 @@ export default function TeamRoomPage() {
               <Card>
                 <h2 className="flex items-center gap-2 text-sm font-bold text-white"><Radio className="h-4 w-4 text-cyber-300" /> Shift pace</h2>
                 <p className="mt-1 text-xs text-slate-400">
-                  About <b className="text-slate-200">{lobbyLoad.logsPerMin} logs per minute</b> for {lobbyLoad.triageAnalysts === 1 ? "one Tier-1 analyst" : `${lobbyLoad.triageAnalysts} Tier-1 analysts`} over ~{lobbyLoad.shiftMin} minutes — the feed is sized so the Tier-1 team can read every log. Adding a Tier-1 analyst raises the pace; the whole team&apos;s size sets how much is going on.
+                  About <b className="text-slate-200">{lobbyLoad.logsPerMin} logs per minute</b> for {lobbyLoad.triageAnalysts === 1 ? "one Tier-1 analyst" : `${lobbyLoad.triageAnalysts} Tier-1 analysts`} over ~{lobbyLoad.shiftMin} minutes. The pace leaves time to read each log, triage the alerts and write a good escalation (planned Tier-1 workload {Math.round(lobbyLoad.workload * 100)}%). Adding a Tier-1 analyst raises the pace; the whole team&apos;s size sets how much is going on.
                 </p>
                 {me?.is_staff && (
                   <p className="mt-2 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-[11px] text-slate-400">
