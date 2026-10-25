@@ -169,8 +169,8 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
     setIocErr("");
     setIocDraft(d => d.some(x => x.value.toLowerCase() === v.toLowerCase()) ? d : [...d, { type: detectIocType(v), value: v, source }]);
   }
-  // T1-6 quality gate — every condition must hold before Escalate is allowed.
-  // The why must cite evidence from the log (2026-10-18 review: escalations said "TI").
+  // T1-6 checklist: what a good escalation carries. Advisory, never a gate (Tal, 2026-10-25:
+  // "escalation must be free"); the end-of-shift report grades the quality.
   const selPayload = sel ? (feed.find(e => String((e.payload as { id?: string }).id ?? e.seq) === sel)?.payload as Record<string, unknown> | undefined) : undefined;
   const rationaleIssue = rationaleProblem(form.observations, selPayload, iocDraft);
   const gate = {
@@ -182,7 +182,8 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
     // A4: escalate only an attack-ish call — you can't escalate a log you marked benign/FP.
     disposition: selDisp === "true_positive" || selDisp === "suspicious",
   };
-  const canEscalate = !!sel && !busy && gate.summary && gate.rationale && gate.ioc && gate.severity && gate.disposition;
+  const allSet = gate.summary && gate.rationale && gate.ioc && gate.severity && gate.disposition;
+  const canEscalate = !!sel && !busy;
 
   // When the report opens (from the 🚩 on a log OR the dropdown button), take the
   // soft-claim automatically so two Tier-1s don't work the same log — unless a
@@ -237,7 +238,9 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
     const fe = full as { hostname?: string; user_email?: string; user?: { email?: string } } | undefined;
     const entity = asStr(fe?.hostname) || asStr(fe?.user_email) || asStr(fe?.user?.email) || "the affected asset";
     const res = await actR("escalation.requested", {
-      event_id: sel, summary: form.summary, observations: form.observations, assessment: form.assessment,
+      // A summary is the one field the server needs; an empty one falls back to the log itself.
+      event_id: sel, summary: form.summary.trim() || `Escalated for a second look: ${asStr((full as { description?: unknown } | undefined)?.description) || asStr((full as { event_type?: unknown } | undefined)?.event_type) || "this log"} (${entity})`,
+      observations: form.observations, assessment: form.assessment,
       iocs: iocDraft, requested_action: form.requested_action, severity: form.severity,
       confidence: isLowConf ? 0.3 : 0.7, low_confidence: isLowConf || undefined,
       hostname: asStr(fe?.hostname) || undefined, entity, snapshot,
@@ -436,12 +439,12 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
               <select aria-label="Severity" value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))} className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">{SEVERITIES.map(s => <option key={s} value={s}>severity: {s}</option>)}</select>
               <select aria-label="Requested action" value={form.requested_action} onChange={e => setForm(f => ({ ...f, requested_action: e.target.value }))} className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">{REQUESTED_ACTIONS.map(a => <option key={a} value={a}>action: {a}</option>)}</select>
             </div>
-            {/* T1-6: live checklist for the hard gate — ✓/○ per item + positive "all set" */}
+            {/* T1-6: advisory checklist, ✓/○ per item; escalation is never blocked by it */}
             <div className="text-[10px] leading-relaxed text-slate-500">
-              {canEscalate ? (
-                <span className="font-semibold text-neon-green">✓ all set — ready to escalate</span>
+              {allSet ? (
+                <span className="font-semibold text-neon-green">✓ all set: a complete escalation</span>
               ) : (
-                <>Before escalating:{" "}
+                <>A strong escalation has (optional):{" "}
                   {([[gate.disposition, "disposition"], [gate.summary, "summary"], [gate.rationale, "observations with evidence"], [gate.ioc, "≥1 IOC"], [gate.severity, "severity"]] as [boolean, string][]).map(([ok, label]) => (
                     <span key={label} className={ok ? "text-neon-green" : ""}>{ok ? "✓" : "○"} {label}&nbsp;&nbsp;</span>
                   ))}
