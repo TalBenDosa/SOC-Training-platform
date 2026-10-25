@@ -7,12 +7,12 @@ const r = (...roles: string[]) => roles.map(role => ({ role, status: "ready" }))
 
 describe("teamLoad — log pace follows the Tier-1 count", () => {
   it("a lone Tier-1 gets the per-analyst rate, not a floor's worth", () => {
-    expect(teamLoad("medium", r("t1", "t2", "mgr")).logsPerMin).toBe(2.5);
-    expect(teamLoad("easy", r("t1")).logsPerMin).toBe(2);
-    expect(teamLoad("hard", r("t1", "t2")).logsPerMin).toBe(3);
+    expect(teamLoad("medium", r("t1", "t2", "mgr")).logsPerMin).toBe(LOAD_RULES.perAnalystLogsPerMin.medium);
+    expect(teamLoad("easy", r("t1")).logsPerMin).toBe(LOAD_RULES.perAnalystLogsPerMin.easy);
+    expect(teamLoad("hard", r("t1", "t2")).logsPerMin).toBe(LOAD_RULES.perAnalystLogsPerMin.hard);
   });
   it("grows with each Tier-1, up to the room cap", () => {
-    expect(teamLoad("medium", r("t1", "t1", "t2")).logsPerMin).toBe(5);
+    expect(teamLoad("medium", r("t1", "t1", "t2")).logsPerMin).toBe(2 * LOAD_RULES.perAnalystLogsPerMin.medium);
     expect(teamLoad("medium", r("t1", "t1", "t1", "t1", "t1")).logsPerMin).toBe(LOAD_RULES.maxLogsPerMin.medium);
   });
   it("non-triage roles and non-players don't raise the pace", () => {
@@ -20,14 +20,14 @@ describe("teamLoad — log pace follows the Tier-1 count", () => {
     expect(teamLoad("medium", r("t1", "t2", "t3", "mgr", "ti", "instructor", "observer")).logsPerMin).toBe(base);
   });
   it("members who left don't count", () => {
-    expect(teamLoad("medium", [{ role: "t1", status: "ready" }, { role: "t1", status: "left" }]).logsPerMin).toBe(2.5);
+    expect(teamLoad("medium", [{ role: "t1", status: "ready" }, { role: "t1", status: "left" }]).logsPerMin).toBe(LOAD_RULES.perAnalystLogsPerMin.medium);
   });
   it("a team with no Tier-1 still gets one analyst's pace (someone triages)", () => {
     expect(teamLoad("medium", r("t2", "mgr")).triageAnalysts).toBe(1);
   });
   it("mean gap matches the rate (base + half the jitter)", () => {
     const l = teamLoad("medium", r("t1"));
-    expect(l.baseGapMs + l.jitterMs / 2).toBeCloseTo(24_000, -2);
+    expect(l.baseGapMs + l.jitterMs / 2).toBeCloseTo(60_000 / LOAD_RULES.perAnalystLogsPerMin.medium, -2);
   });
 });
 

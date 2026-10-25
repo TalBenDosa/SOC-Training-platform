@@ -70,7 +70,7 @@ describe("the arsenal follows the environment", () => {
 });
 
 describe("the feed carries the platforms the organization runs — and only those", () => {
-  const feedOf = (env: TeamEnv) => buildTeamTimeline(TENANT_TEMPLATE, "medium", "env-noise", null, teamLoad("medium", [{ role: "t1" }, { role: "t2" }]), {}, null, env)
+  const feedOf = (env: TeamEnv) => buildTeamTimeline(TENANT_TEMPLATE, "medium", "env-noise", null, teamLoad("medium", [{ role: "t1" }, { role: "t1" }, { role: "t1" }, { role: "t2" }]), {}, null, env)   // a room with enough noise to sample every platform
     .filter(t => t.channel === "feed" && (t.answer as { origin?: string })?.origin === "noise").map(t => t.body as unknown as TelemetryEvent);
   it("ordinary AWS traffic when AWS is run, none when it is not", () => {
     const withAws = feedOf({ platforms: ["azure", "aws"], industry: "general" });
