@@ -5,6 +5,7 @@ import { planFromConfig, pinnedIds, loadWithPlan } from "@/lib/team/attackPlan";
 import { requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildTeamTimeline, resolveTeamStory, teamStoryFilter } from "@/lib/team/buildTimeline";
+import { buildFittedTimeline } from "@/lib/team/fitTimeline";
 import { teamLoad, withShiftMinutes, sanitizeShiftMinutes } from "@/lib/team/load";
 import { teamTransition } from "@/lib/team/transition";
 import { teamQuotaFor, quotaExhausted, quotaMessage } from "@/lib/team/quota";
@@ -83,10 +84,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const plan = planFromConfig(sess.config, sess.scenario_id);
     // …over the shift length the instructor picked (config.shift_min; older sessions: the difficulty default).
     const shiftMin = sanitizeShiftMinutes((sess.config as { shift_min?: unknown } | null)?.shift_min);
-    const load = loadWithPlan(withShiftMinutes(teamLoad(sess.difficulty, members ?? []), shiftMin), plan);
-    const { error: paceErr } = await admin.from("team_sessions")
-      .update({ feed_gap_ms: load.baseGapMs, feed_jitter_ms: load.jitterMs }).eq("id", id).eq("status", "lobby");
-    if (paceErr) { console.error("[team start] set pace:", paceErr.message); return NextResponse.json({ error: "Couldn't start the session." }, { status: 500 }); }
+    const plannedLoad = loadWithPlan(withShiftMinutes(teamLoad(sess.difficulty, members ?? []), shiftMin), plan);
     // scenario_id = the storyline staff picked in the builder (null → random pick).
     const stack = sanitizeStack((sess.config as { stack?: unknown } | null)?.stack);
     const env = envFromConfig(sess.config);
@@ -102,13 +100,20 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       }
     }
     // QA L7: a build failure is a clear, retryable error — the session stays in the lobby.
+    // Built, measured and fitted to the team's real work (fitTimeline.ts): the noise is trimmed and
+    // the feed spaced out until Tier-1 has time to read, triage and escalate well.
     let timeline: ReturnType<typeof buildTeamTimeline>;
-    try { timeline = buildTeamTimeline(sess.company_id, sess.difficulty, sess.seed, plan.slots, load, stack, tenantFromConfig(sess.config), env, { bonus: plan.bonus }); }
+    let load = plannedLoad;
+    try { ({ timeline, load } = buildFittedTimeline({ companyId: sess.company_id, difficulty: sess.difficulty, seed: sess.seed, slots: plan.slots, load: plannedLoad, stack, tenant: tenantFromConfig(sess.config), env, opts: { bonus: plan.bonus }, roster: members ?? [] })); }
     catch (e) {
       console.error("[team start] timeline build:", e instanceof Error ? e.message : String(e));
       return NextResponse.json({ error: "Couldn't build the exercise feed for this company and difficulty — nothing was started. Try again, or create the session with another storyline." }, { status: 500 });
     }
     if (!timeline.length) return NextResponse.json({ error: "Couldn't build the exercise feed — nothing was started. Try again." }, { status: 500 });
+    // The fitted pace is stored on the session so the DB refill (replenish_feed, 0081) keeps it.
+    const { error: paceErr } = await admin.from("team_sessions")
+      .update({ feed_gap_ms: load.baseGapMs, feed_jitter_ms: load.jitterMs }).eq("id", id).eq("status", "lobby");
+    if (paceErr) { console.error("[team start] set pace:", paceErr.message); return NextResponse.json({ error: "Couldn't start the session." }, { status: 500 }); }
     if (timeline.length) {
       const rows = timeline.map(t => ({ due_offset_ms: t.due_offset_ms, channel: t.channel, body: t.body, expected_action: t.answer ?? null }));
       const { data: n, error: seedErr } = await admin.rpc("team_seed_timeline", { p_session: id, p_rows: rows });

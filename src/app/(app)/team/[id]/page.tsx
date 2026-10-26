@@ -36,6 +36,8 @@ import { deriveReadyMap } from "@/lib/team/lobbyReady";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { useTeamHeartbeat } from "@/lib/team/useTeamHeartbeat";
 import { markTeamSessionEnded } from "@/lib/team/edrLock";
+import { WorkloadCheck, type WorkloadAlternative } from "./_components/WorkloadCheck";
+import type { WorkloadPreview } from "@/lib/team/workloadPreview";
 import { calibrateFromDateHeader, noteServerTimestamp, useServerNow } from "@/lib/team/clock";
 import { buildAlertQueue, nextAlertFor, feedEventId } from "@/lib/team/alertQueue";
 import { teamLoad, withShiftMinutes, type Difficulty } from "@/lib/team/load";
@@ -1049,6 +1051,26 @@ export default function TeamRoomPage() {
   const lobbyLoad = session && ["easy", "medium", "hard"].includes(session.difficulty)
     ? (session.attack_plan ? loadWithPlan(withShiftMinutes(teamLoad(session.difficulty as Difficulty, roster), session.shift_min ?? null), { ...session.attack_plan, bonus: session.attack_plan.bonus !== false }) : withShiftMinutes(teamLoad(session.difficulty as Difficulty, roster), session.shift_min ?? null)) : null;
   const chosenAttacks = session?.attack_plan?.slots.filter(Boolean).length ?? 0;
+  // Staff: the exercise built ahead of time and its real work measured per tier (load-preview).
+  // Re-measured when the roster changes; above 100% Start needs an explicit confirmation.
+  const [wl, setWl] = useState<{ preview: WorkloadPreview; alternatives: WorkloadAlternative[] } | null>(null);
+  const [wlLoading, setWlLoading] = useState(false);
+  const [wlConfirmed, setWlConfirmed] = useState(false);
+  const rosterKey = roster.map(m => `${m.user_id}:${m.role}:${m.status}`).sort().join("|");
+  useEffect(() => {
+    if (phase !== "lobby" || !me?.is_staff) return;
+    let stop = false;
+    setWlLoading(true);
+    const t = setTimeout(() => {
+      fetch(`/api/team/sessions/${id}/load-preview`, { cache: "no-store" })
+        .then(r => (r.ok ? r.json() : null))
+        .then(d => { if (!stop && d?.preview) { setWl({ preview: d.preview, alternatives: d.alternatives ?? [] }); setWlConfirmed(false); } })
+        .catch(() => {})
+        .finally(() => { if (!stop) setWlLoading(false); });
+    }, 600);
+    return () => { stop = true; clearTimeout(t); };
+  }, [phase, me?.is_staff, id, rosterKey, session?.shift_min]);
+  const wlBlocksStart = wl?.preview.level === "over" && !wlConfirmed;
 
   // Native-format logs (docs/log-schemas), rendered for the session's company stack.
   // The 32 source modules load lazily once the shift is running.
@@ -1267,6 +1289,7 @@ export default function TeamRoomPage() {
                 <p className="mt-1 text-xs text-slate-400">
                   About <b className="text-slate-200">{lobbyLoad.logsPerMin} logs per minute</b> for {lobbyLoad.triageAnalysts === 1 ? "one Tier-1 analyst" : `${lobbyLoad.triageAnalysts} Tier-1 analysts`} over ~{lobbyLoad.shiftMin} minutes. The pace leaves time to read each log, triage the alerts and write a good escalation (planned Tier-1 workload {Math.round(lobbyLoad.workload * 100)}%). Adding a Tier-1 analyst raises the pace; the whole team&apos;s size sets how much is going on.
                 </p>
+                {me?.is_staff && <WorkloadCheck preview={wl?.preview ?? null} alternatives={wl?.alternatives ?? []} loading={wlLoading} confirmed={wlConfirmed} onConfirm={setWlConfirmed} />}
                 {me?.is_staff && (
                   <p className="mt-2 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-[11px] text-slate-400">
                     <span className="font-semibold text-slate-300">Staff only:</span> {lobbyLoad.players} player{lobbyLoad.players === 1 ? "" : "s"} → {lobbyLoad.stories} concurrent attack stor{lobbyLoad.stories === 1 ? "y" : "ies"}{session?.attack_plan?.count ? " (your choice)" : ""}{chosenAttacks ? ` — ${chosenAttacks} chosen, ${Math.max(0, lobbyLoad.stories - chosenAttacks)} random` : ""}{session?.attack_plan?.bonus !== false ? " (+1 bonus attack once all are caught)" : ""} + {lobbyLoad.poolAttacks} standalone attack{lobbyLoad.poolAttacks === 1 ? "" : "s"} on {session?.difficulty}. Final numbers are fixed when you start.
@@ -1300,7 +1323,7 @@ export default function TeamRoomPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                  <Button variant="primary" size="sm" disabled={busy || !allReady} onClick={start}>{busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Play className="mr-1.5 h-4 w-4" />} Confirm &amp; start</Button>
+                  <Button variant="primary" size="sm" disabled={busy || !allReady || wlBlocksStart} title={wlBlocksStart ? "The workload check says this is more than the team can do: confirm it in Shift pace, or change the plan" : undefined} onClick={start}>{busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Play className="mr-1.5 h-4 w-4" />} Confirm &amp; start</Button>
                   <Button variant="outline" size="sm" disabled={busy} onClick={end}>Close session</Button>
                 </div>
                 </div>
