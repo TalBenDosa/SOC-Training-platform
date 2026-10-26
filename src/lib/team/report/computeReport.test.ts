@@ -787,6 +787,17 @@ describe("computeReport — v4: EDR host isolation judged against the answer key
     expect(cell(r.perUser.find(u => u.user_id === "t3")!.rubric, "Host isolation").score).toBe(12);
   });
 
+  it("an incident handled only by a correct isolation is detected, not missed (Sdema review 2026-10-25)", () => {
+    const { events, add } = shift();
+    add("edr.host_isolated", "t2", 130, { host: "WS-FIN-2847" }, "t2");
+    const r = computeReport(events, roster);
+    const inc1 = r.team.incidents.find(i => i.id === "inc-1")!;
+    expect(inc1.detected).toBe(true);
+    expect(inc1.grade).not.toBe("missed");
+    expect(inc1.handlingScore).toBeGreaterThan(0);
+    expect(r.team.incidents.find(i => i.id === "inc-2")!.grade).toBe("missed");   // its host was never touched
+  });
+
   it("no isolation → the criterion is not measured and does not move the score", () => {
     const { events } = shift();
     const r = computeReport(events, roster);

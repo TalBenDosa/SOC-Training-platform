@@ -3,13 +3,13 @@ import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import type { LiveEvent } from "@/app/(app)/dashboard/useLiveEvents";
-import { ShieldCheck, ArrowUpRight, ShieldAlert, Siren } from "lucide-react";
+import { ShieldCheck, ArrowUpRight, ShieldAlert, Siren, ShieldOff } from "lucide-react";
 import type { RosterMember, Ev } from "@/lib/team/types";
 import { sevColor, asStr } from "@/lib/team/format";
 import { OVERLOAD_CASES } from "@/lib/team/report/computeReport";
 import { ROLE_LABEL, Metric } from "./shared";
 import { useServerNow } from "@/lib/team/clock";
-import { openLoadByUser, escalationStates, isOpenEscalation } from "@/lib/team/projections";
+import { openLoadByUser, escalationStates, isOpenEscalation, isolationState } from "@/lib/team/projections";
 
 const MAX_SPAN = 7;
 export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online, act, onOpenEscalations }: { liveFeed: LiveEvent[]; events: Ev[]; feed: Ev[]; nameOf: (u: string | null) => string; roster: RosterMember[]; online: Set<string>; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; onOpenEscalations?: () => void }) {
@@ -60,6 +60,9 @@ export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online,
   const [nudgeBusy, setNudgeBusy] = useState<string | null>(null);
   async function nudge(uid: string, load: number) { setNudgeBusy(uid); await act("coordination.nudge", { target: uid, reason: "overloaded", load }); setNudgeBusy(null); }
   const spanWarn = team.onlineCount > MAX_SPAN; // NIMS/ICS span-of-control guard
+  // Containment the analysts did from the EDR console (Sdema review 2026-10-25: three correct
+  // isolations never reached the Manager, who approved a reimage without knowing a host was cut off).
+  const contained = useMemo(() => [...isolationState(events).values()].sort((a, b) => b.seq - a.seq), [events]);
   return (
     <div className="space-y-3">
       <Card>
@@ -118,6 +121,24 @@ export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online,
           </div>
         </Card>
       )}
+      <Card>
+        <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldOff className="h-4 w-4 text-neon-green" /> Contained hosts
+          <span className="ml-auto font-mono text-[10px] font-normal text-slate-400">{contained.filter(c => c.isolated).length} isolated now</span></h3>
+        {contained.length === 0 ? <p className="mt-2 text-xs text-slate-400">No host has been isolated from the EDR console yet.</p> : (
+          <div className="mt-2 space-y-1.5">
+            {contained.map(c => {
+              const mins = c.at ? Math.max(0, Math.floor((now - Date.parse(c.at)) / 60000)) : null;
+              return (
+                <div key={c.host} className="flex items-center gap-2 rounded border border-border/60 bg-bg px-2 py-1.5 text-xs">
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${c.isolated ? "bg-neon-green" : "bg-slate-500"}`} aria-hidden />
+                  <bdi className="min-w-0 flex-1 truncate font-mono text-slate-200">{c.host}</bdi>
+                  <span className="shrink-0 text-[10px] text-slate-400">{c.isolated ? "isolated" : "released"} by <bdi>{nameOf(c.by)}</bdi>{mins != null ? `, ${mins}m ago` : ""}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
       <Card>
         <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ArrowUpRight className="h-4 w-4 text-neon-amber" /> Escalations
           <span className="ml-auto font-mono text-[10px] font-normal text-slate-400">{team.openCount} waiting · {escs.filter(e => { const st = escStates.get(String((e.payload as { event_id?: string }).event_id)); return st?.acked && !st.resolved && !st.bounced; }).length} in progress{team.bounced ? ` · ${team.bounced} bounced` : ""}</span></h3>

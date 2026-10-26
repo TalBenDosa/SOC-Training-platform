@@ -37,10 +37,10 @@ import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { useTeamHeartbeat } from "@/lib/team/useTeamHeartbeat";
 import { markTeamSessionEnded } from "@/lib/team/edrLock";
 import { calibrateFromDateHeader, noteServerTimestamp, useServerNow } from "@/lib/team/clock";
-import { buildAlertQueue, nextAlertFor } from "@/lib/team/alertQueue";
+import { buildAlertQueue, nextAlertFor, feedEventId } from "@/lib/team/alertQueue";
 import { teamLoad, withShiftMinutes, type Difficulty } from "@/lib/team/load";
 import { loadWithPlan } from "@/lib/team/attackPlan";
-import { activeClaims, escalationStates, containmentRequests, scopeByIncident, latestScope, incidentLabels, incidentByEvent, openLoadByUser } from "@/lib/team/projections";
+import { activeClaims, escalationStates, containmentRequests, scopeByIncident, latestScope, incidentLabels, incidentByEvent, openLoadByUser, isolationState } from "@/lib/team/projections";
 import { pausedSpans } from "@/lib/team/pauses";
 import { PRODUCT_LABEL, STACK_CHOICES } from "@/lib/logs/native/stack";
 import { INDUSTRY_CHOICES, PLATFORM_CHOICES } from "@/lib/team/environment";
@@ -263,7 +263,7 @@ export default function TeamRoomPage() {
   const isCoordSeat = me?.role === "mgr" || me?.role === "lead";
   useEffect(() => {
     if (!isCoordSeat || phase !== "running") return;
-    const arrivals = events.filter(e => (e.type === "staff.inject" && (e.payload as { kind?: unknown }).kind === "decision") || e.type === "stakeholder.asked" || e.type === "containment.requested" || e.type === "forensic.report");
+    const arrivals = events.filter(e => (e.type === "staff.inject" && (e.payload as { kind?: unknown }).kind === "decision") || e.type === "stakeholder.asked" || e.type === "containment.requested" || e.type === "forensic.report" || e.type === "edr.host_isolated");
     const maxSeq = arrivals.reduce((m, e) => Math.max(m, e.seq), 0);
     if (lastNoticeSeq.current == null) { lastNoticeSeq.current = maxSeq; return; }   // history is not news
     const fresh = arrivals.filter(e => e.seq > (lastNoticeSeq.current ?? 0));
@@ -274,6 +274,7 @@ export default function TeamRoomPage() {
     const one = last.type === "stakeholder.asked" ? { text: `${from?.name ?? "A stakeholder"} (${from?.role ?? "stakeholder"}) is asking you a question.`, go: "stakeholders" as const }
       : last.type === "containment.requested" ? { text: `${nameOf(last.actor_id)} asks you to approve a containment.`, go: "escalations" as const }
       : last.type === "forensic.report" ? { text: `${nameOf(last.actor_id)} (Tier-3) sent you a forensic report.`, go: "board" as const }
+      : last.type === "edr.host_isolated" ? { text: `${nameOf(last.actor_id)} isolated ${String((last.payload as { host?: unknown }).host ?? "a host")} from the EDR console.`, go: "board" as const }
         : { text: `New decision for you: ${from?.name ?? "your team"}.`, go: "desk" as const };
     // Two items arriving together (a decision card and a stakeholder question in the same tick)
     // used to show only the last one, and the other went unnoticed (trainee report 2026-10-23).
@@ -801,6 +802,10 @@ export default function TeamRoomPage() {
   const alertQueue = useMemo(() => buildAlertQueue({ feed, dispositions: queueDispositions, escalated: queueEscalated, claims: claimByEid, nowMs: nowTick, withMedium: queueWithMedium, pauses: pauseSpans }),
     [feed, queueDispositions, queueEscalated, claimByEid, nowTick, queueWithMedium, pauseSpans]);
   const queueByEid = useMemo(() => new Map(alertQueue.map(q => [q.eid, q])), [alertQueue]);
+  // Hosts already isolated from the EDR console: a Tier-1 row on one says so (Sdema review
+  // 2026-10-25: Tier-1 spent ten minutes escalating a host Tier-2 had already isolated).
+  const isoByHost = useMemo(() => isolationState(events), [events]);
+  const hostByEid = useMemo(() => new Map(feed.map(e => [feedEventId(e), String((e.payload as { hostname?: unknown }).hostname ?? "").trim().toLowerCase()])), [feed]);
   const rowStatus = useCallback((rid?: string) => {
     if (!rid) return null;
     const key = rid.startsWith("ev_") ? rid.slice(3) : rid; // LiveEvent.id → sel-id scheme
@@ -811,9 +816,11 @@ export default function TeamRoomPage() {
     const escalated = escalatedIds.has(key);
     const q = queueByEid.get(key);
     const triage = q ? { mins: q.mins, breached: q.breached, orphan: q.orphan } : undefined;
-    if (!disposed && !claim && !escalated && !triage) return null;
-    return { disposed, claim, claimBy, escalated, triage };
-  }, [dispositions, claimByEid, escalatedIds, queueByEid, me?.id, nameOf]);
+    const iso = isoByHost.get(hostByEid.get(key) ?? "");
+    const contained = iso?.isolated ? { by: nameOf(iso.by) } : undefined;
+    if (!disposed && !claim && !escalated && !triage && !contained) return null;
+    return { disposed, claim, claimBy, escalated, triage, contained };
+  }, [dispositions, claimByEid, escalatedIds, queueByEid, me?.id, nameOf, isoByHost, hostByEid]);
 
   // The SOC queue at a glance (QueueBoard): waiting / investigating / past SLA / escalated / closed.
   const queueStats = useMemo<QueueStats>(() => {

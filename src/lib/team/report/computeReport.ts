@@ -600,14 +600,28 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
   const isoFirstByHost = new Map<string, IsolationItem>();
   for (const it of isoItems) if (!isoFirstByHost.has(hostKey(it.host))) isoFirstByHost.set(hostKey(it.host), it);
   const isolatedIncidents = new Set([...isoFirstByHost.keys()].flatMap(k => [...(attackHosts.get(k)?.incidents ?? [])]));
+  // When an incident's host was first isolated (a correct EDR isolation is a detection and a
+  // handling action in its own right: Sdema review 2026-10-25, two correctly isolated incidents
+  // were graded "missed" because nobody had also escalated a log).
+  const isolatedAtByIncident = new Map<string, number>();
+  for (const e of isoEvents) {
+    if (e.type !== "edr.host_isolated") continue;
+    const atk = attackHosts.get(hostKey(isoHost(e))); const at = tsOf(e);
+    if (!atk || at == null) continue;
+    for (const inc of atk.incidents) { const cur = isolatedAtByIncident.get(inc); if (cur == null || at < cur) isolatedAtByIncident.set(inc, at); }
+  }
   const incidentList: IncidentReport[] = [...incidents.values()].map(inc => {
     const minOf = (m: Map<string, number>) => { let best: number | null = null; for (const id of inc.attackEids) { const v = m.get(id); if (v != null && (best == null || v < best)) best = v; } return best; };
     const escTs = minOf(escalatedAttack); const markTs = minOf(markedAttack);
-    const escalated = escTs != null; const detected = escalated || markTs != null;
+    const isoTs = isolatedAtByIncident.get(inc.id) ?? null;
+    const escalated = escTs != null;
+    // Isolating a compromised host means Tier-2/3 had the incident in hand: it counts as reached.
+    const reached = escalated || isoTs != null;
+    const detected = reached || markTs != null;
     // Detection time = the EARLIEST detecting action, whether a TP/suspicious mark or an
     // escalation. The T1 flow requires a verdict BEFORE escalating, so using the escalation
     // time alone would charge the analyst's report-writing time against the SLA (Phase 9 P9-02).
-    const detTs = [escTs, markTs].filter((t): t is number => t != null && Number.isFinite(t))
+    const detTs = [escTs, markTs, isoTs].filter((t): t is number => t != null && Number.isFinite(t))
       .reduce<number | null>((a, b) => (a == null || b < a ? b : a), null);
     const contained = [...executedEids].some(eid => incidentOfEid(eid) === inc.id) || isolatedIncidents.has(inc.id);
     const detS = detTs != null ? relS(detTs) : null;
@@ -641,15 +655,15 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     const slaDwellS = detTs != null && slaAnchor != null ? Math.max(0, Math.round(runMs(slaAnchor, detTs) / 1000)) : null;
     const slaMet = slaDwellS == null ? null : slaDwellS <= slaSec;
     const verdictQ = inc.attackEids.some(e => attackVerdictKind.get(e) === "tp") ? 1
-      : inc.attackEids.some(e => attackVerdictKind.get(e) === "susp") ? 0.5
+      : inc.attackEids.some(e => attackVerdictKind.get(e) === "susp") || isoTs != null ? 0.5
         : escalated ? 0.25 : 0;
     const timeliness = slaDwellS == null ? 0 : slaDwellS <= slaSec ? 1 : slaDwellS <= 2 * slaSec ? 0.6 : 0.3;
     // QA-TEAM-2: in a tiered SOC an incident nobody escalated never reached Tier-2, so
     // no scoping and no containment could follow. A verdict alone caps the grade.
     const handlingScore = !detected ? 0
-      : Math.min(escalated ? 100 : 55, Math.round(40 + 20 * timeliness + 25 * (coverage / 100) + 15 * verdictQ));
+      : Math.min(reached ? 100 : 55, Math.round(40 + 20 * timeliness + 25 * (coverage / 100) + 15 * verdictQ));
     const grade: IncidentGrade = !detected ? "missed"
-      : (escalated && slaMet === true && coverage >= SCOPE_GOOD && verdictQ >= 1) ? "caught_well"
+      : (reached && slaMet === true && coverage >= SCOPE_GOOD && verdictQ >= 1) ? "caught_well"
         : (coverage >= SCOPE_PARTIAL || slaMet === true || verdictQ >= 0.5) ? "partial"
           : "noticed";
 

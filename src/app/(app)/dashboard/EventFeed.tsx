@@ -1193,6 +1193,7 @@ const EventRow = memo(function EventRow({
                     {(st.disposed === "false_positive" || st.disposed === "benign") && <span className="rounded border border-slate-600/60 bg-slate-800/70 px-1 py-px text-[9px] font-semibold text-slate-300">✓ Closed · {st.disposed === "benign" ? "benign" : "false positive"}</span>}
                     {(st.disposed === "true_positive" || st.disposed === "suspicious") && !st.escalated && <span className="rounded border border-neon-amber/40 bg-neon-amber/10 px-1 py-px text-[9px] font-semibold text-neon-amber">{st.disposed === "suspicious" ? "Suspicious" : "True positive"} · not escalated yet</span>}
                     {st.escalated && <span className="rounded border border-neon-green/40 bg-neon-green/10 px-1 py-px text-[9px] font-semibold text-neon-green">↗ Escalated to Tier-2</span>}
+                    {st.contained && <span title="This host is already isolated from the network by the EDR. The case is in hand: add what you see to it rather than opening a new one." className="rounded border border-neon-green/40 bg-neon-green/10 px-1 py-px text-[9px] font-semibold text-neon-green">🛡 Host isolated · <bdi>{st.contained.by}</bdi></span>}
                     {st.triage && (
                       <span title={st.triage.orphan ? "Past its triage SLA and nobody has taken it" : st.triage.breached ? "Past its triage SLA" : st.claim ? "Open for this long: taken, no verdict yet" : "In the triage queue: waiting for a Tier-1 analyst to take it"}
                         className={cn("rounded border px-1 py-px font-mono text-[9px] font-semibold",
@@ -1260,6 +1261,8 @@ export interface RowStatus {
   claimBy?: string;
   escalated?: boolean;
   triage?: { mins: number; breached: boolean; orphan: boolean };
+  /** The row's host is isolated from the EDR console right now (and who did it). */
+  contained?: { by: string };
 }
 
 export interface EventFeedProps {
