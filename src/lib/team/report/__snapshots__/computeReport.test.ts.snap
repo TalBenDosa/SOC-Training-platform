@@ -204,7 +204,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
         "tone": "neutral",
       },
     ],
-    "truthSeverity": 1,
+    "truthSeverity": null,
     "uncappedScore": null,
   },
   "perUser": [
@@ -303,7 +303,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
       "isoPct": null,
       "isolations": [],
       "loadSharePct": 2,
-      "measuredCells": 6,
+      "measuredCells": 5,
       "name": "Member C",
       "opened": 0,
       "reported": [
@@ -344,8 +344,8 @@ exports[`computeReport — characterization (real ended session) > produces the 
         },
         {
           "label": "Handoff coordination",
-          "note": "share of your escalations Tier-2 closed the loop on (acknowledged or bounced)",
-          "score": 12,
+          "note": "100% of your escalations were picked up by Tier-2 (not scored for you: Tier-2 owns the pickup)",
+          "score": null,
         },
         {
           "label": "Time-to-triage",
@@ -377,7 +377,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
           "score": null,
         },
       ],
-      "rubricPct": 33,
+      "rubricPct": 20,
       "slaMet": 0,
       "slaPct": 0,
       "slaTotal": 1,
@@ -419,6 +419,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
       "rubric": [
         {
           "label": "Ack latency",
+          "note": "median time from a Tier-1 escalation to a Tier-2/3 picking it up; one nobody picked up counts until the end of the shift",
           "score": 12,
         },
         {

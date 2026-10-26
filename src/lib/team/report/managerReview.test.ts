@@ -167,3 +167,40 @@ describe("Command Review", () => {
     expect(computeReport(events, roster.filter(m => m.role !== "mgr")).managerReview).toBeNull();
   });
 });
+
+describe("Command Review fairness at the end of the shift (Sdema review 2026-10-25)", () => {
+  it("a first real escalation 40 s before the end: not declaring is not judged and is no critical error", () => {
+    const events: Ev[] = [];
+    const add = (type: string, actor_id: string | null, sec: number, payload: Record<string, unknown> = {}, role: string | null = null) =>
+      events.push({ seq: events.length + 1, type, actor_id, role, payload, occurred_at: at(sec) });
+    add("session.started", "instr", 0);
+    add("feed.event", null, 10, { id: "a1", expected_verdict: "tp", incident_id: "inc-1", severity: "critical", hostname: "WS-FIN-2847", description: "rclone upload", mitre_tactic: "Exfiltration" });
+    add("escalation.requested", "t1", 900, { event_id: "a1", summary: "rclone upload" }, "t1");
+    add("session.ended", "instr", 940);
+    const r = computeReport(events, roster).managerReview!;
+    const decl = r.pillars.flatMap(p => p.cells).find(c => c.label === "Incident declared on time")!;
+    expect(decl.score).toBeNull();
+    expect(r.criticalErrors.map(e => e.label)).not.toContain("A Sev-1 incident was never declared");
+  });
+
+  it("the true severity comes from incidents that reached the team, not from one nobody escalated", () => {
+    const { events, add } = shift();
+    add("feed.event", null, 30, { id: "b1", expected_verdict: "tp", incident_id: "inc-2", severity: "critical", hostname: "SRV-DB-01", description: "wiper", mitre_tactic: "Impact" });
+    const r = computeReport(events, roster).managerReview!;
+    // inc-1 (escalated) has its own exfiltration log in the base shift, so it is Sev-1 by itself;
+    // inc-2's wiper alone, never escalated, must not be the reason.
+    expect(r.truthSeverity).toBe(1);
+    const { events: e2, add: add2 } = shift();
+    const quiet = e2.filter(e => !(e.type === "feed.event" && (e.payload as { id?: string }).id === "a2"));
+    void add2;
+    quiet.push({ seq: 99, type: "feed.event", actor_id: null, role: null, payload: { id: "b1", expected_verdict: "tp", incident_id: "inc-2", severity: "critical", hostname: "SRV-DB-01", description: "wiper", mitre_tactic: "Impact" }, occurred_at: at(30) });
+    expect(computeReport(quiet, roster).managerReview!.truthSeverity).toBe(2);   // inc-1 alone is a high, not a Sev-1
+  });
+
+  it("praise lines are earned only by a full score", () => {
+    const { events, add } = shift();
+    add("incident.declared", "mgr", 400, { severity: 2 }, "mgr");   // 5.7 min after the first real escalation: 8 of 12
+    const r = computeReport(events, roster).managerReview!;
+    expect(r.keep.join(" ")).not.toMatch(/declared the incident quickly/i);
+  });
+});

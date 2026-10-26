@@ -96,6 +96,8 @@ const slaForSev = (s: string) => SLA_SEC[s.toLowerCase().trim()] ?? 1800;
 /** A catch is "caught well" only at or above these; "partial" needs one of them. */
 const SCOPE_GOOD = 60, SCOPE_PARTIAL = 40;
 export type IncidentGrade = "missed" | "noticed" | "partial" | "caught_well";
+/** Something that happened this close to the end of the shift is not judged as a miss (Sdema review 2026-10-25). */
+export const END_GRACE_MS = 5 * 60_000;
 /** Triage SLA per severity — the same table the live alert queue uses (minutes). */
 const SLA_MIN: Record<string, number> = { critical: 1, high: 3, medium: 10 };
 const slaSecFor = (sev: string) => (SLA_MIN[sev] ?? 30) * 60;
@@ -388,7 +390,9 @@ function roleRubric(c: RubricCtx): RubricCell[] {
           ? { label: "Escalation precision", score: 0, note: `you marked ${c.attackNotHandedOff} real attack log${c.attackNotHandedOff === 1 ? "" : "s"} as malicious and never escalated ${c.attackNotHandedOff === 1 ? "it" : "them"}: Tier-2 never saw the incident` }
           : { label: "Escalation precision", score: c.escPrecision == null ? null : smoothBand(c.escPrecision, 10, 80), note: "per incident: of what you escalated, how much was a real incident (duplicates of one incident count once)" },
         { label: "Card completeness", score: c.escQuality == null ? null : bandHigh(c.escQuality, 90, 70, 40) },
-        { label: "Handoff coordination", score: c.escAckRate == null ? null : bandHigh(c.escAckRate, 80, 60, 40), note: "share of your escalations Tier-2 closed the loop on (acknowledged or bounced)" },
+        // Not scored for Tier-1: the pickup is Tier-2's job (Sdema review 2026-10-25: a Tier-1 scored 0 because
+        // Tier-2 never acknowledged). Tier-2's "Ack latency" now carries the escalations left waiting.
+        { label: "Handoff coordination", score: null, note: c.escAckRate == null ? undefined : `${c.escAckRate}% of your escalations were picked up by Tier-2 (not scored for you: Tier-2 owns the pickup)` },
         { label: "Time-to-triage", score: triage == null ? null : c.dwellTooShort ? Math.min(triage, 4) : triage, ...(c.dwellTooShort ? { note: `capped: average read time under ${MIN_EVIDENCE_DWELL_S}s — speed without reading isn't triage` } : {}) },
         { label: "Backup & load-balancing", score: c.backupCount ? bandHigh(c.backupCount, 2, 1, 1) : null, note: "took over an alert from an overloaded teammate, or rescued a stale (abandoned) claim — a plain collision earns nothing" },
         { label: "Self-correction", score: c.correctionsCount ? bandHigh(c.correctionsCount, 2, 1, 1) : null, note: "caught and fixed your own verdict — no-fault, scores for you" },
@@ -398,7 +402,7 @@ function roleRubric(c: RubricCtx): RubricCell[] {
       ];
     }
     case "t2": return [
-      { label: "Ack latency", score: c.ackLatencyMin == null ? null : bandLow(c.ackLatencyMin, 2, 5, 10) },
+      { label: "Ack latency", score: c.ackLatencyMin == null ? null : bandLow(c.ackLatencyMin, 2, 5, 10), note: "median time from a Tier-1 escalation to a Tier-2/3 picking it up; one nobody picked up counts until the end of the shift" },
       { ...TODO, label: "Timeline accuracy" },
       { label: "Scoping completeness", score: c.scopeSetDims >= 3 ? 12 : c.scopeSetDims >= 2 ? 8 : c.scopeSetDims >= 1 ? 4 : null },
       { label: "Containment recommendation", score: c.contReason == null ? null : bandHigh(c.contReason, 90, 60, 30) },
@@ -874,7 +878,9 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
   const triageWorthy = [...feedSev.keys()].filter(eid => ["medium", "high", "critical"].includes((feedSev.get(eid) || "").toLowerCase()) || attackIds.has(eid) || firstTriage.has(eid)).length;
   // Update injects with their real kind (mergeAnswers restores false_lead / twist).
   const updateInjects = events.filter(e => e.type === "staff.inject" && ["false_lead", "twist"].includes(asStr((e.payload as { kind?: unknown }).kind)))
-    .map(e => ({ seq: e.seq, kind: asStr((e.payload as { kind?: unknown }).kind) }));
+    .map(e => ({ seq: e.seq, kind: asStr((e.payload as { kind?: unknown }).kind), ts: tsOf(e) }));
+  /** Time left after something fired before the shift ended: under END_GRACE_MS it is too late to judge (Sdema review 2026-10-25). */
+  const tooLate = (t: number | null) => t != null && runMs(t, endTs) < END_GRACE_MS;
   // Tier-3 forensic work, graded against the truth (views rebuilt from what the players saw).
   const forensic = computeForensicReview({ events, publicEvents: opts.publicEvents ?? null, sessionId: opts.sessionId ?? "", attackIds, roster: players, endMs: endTs, relS });
   const perUser: UserReport[] = players.map(m => {
@@ -965,9 +971,14 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     const readFirstPct = telemetry && latestVerdict.size ? Math.round(((latestVerdict.size - blindCalls) / latestVerdict.size) * 100) : null;
     // Update injects this analyst judged right (inject.responded), of those fired while seated.
     const inboxEra = startedMs >= ACTION_INBOX_SINCE_MS;
-    const myUpdates = inboxEra && ["t1", "t2", "t3", "de", "ti"].includes(m.role) ? updateInjects : [];
+    const responseTo = (u: { seq: number }) => events.find(x => x.type === "inject.responded" && x.actor_id === m.user_id && Number((x.payload as { inject_seq?: unknown }).inject_seq) === u.seq);
+    // Judged: what the analyst answered, and a twist they left unanswered with time to act. A decoy
+    // left alone is not a mistake (not escalating it is the right behaviour), and an update fired in
+    // the last minutes of the shift is not judged unless they answered it.
+    const myUpdates = (inboxEra && ["t1", "t2", "t3", "de", "ti"].includes(m.role) ? updateInjects : [])
+      .filter(u => !!responseTo(u) || (u.kind !== "false_lead" && !tooLate(u.ts)));
     const updatesAnswered = myUpdates.filter(u => {
-      const r = events.find(x => x.type === "inject.responded" && x.actor_id === m.user_id && Number((x.payload as { inject_seq?: unknown }).inject_seq) === u.seq);
+      const r = responseTo(u);
       const d = r ? asStr((r.payload as { decision?: unknown }).decision) : "";
       return u.kind === "false_lead" ? d === "benign" : d === "rescope" || d === "investigate";
     }).length;
@@ -998,10 +1009,17 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       const ft = feedTs.get(eid); const dt = tsOf(d);
       return ft != null && dt != null ? runMs(ft, dt) / 60000 : null;
     }).filter((x): x is number => x != null && x >= 0));
-    const ackLatencyMin = median(mine.filter(e => e.type === "escalation.acknowledged" && !selfOpened.has(eidOf(e))).map(e => {
+    const ackedWaits = mine.filter(e => e.type === "escalation.acknowledged" && !selfOpened.has(eidOf(e))).map(e => {
       const at = tsOf(e); if (at == null) return null; const rt = reqBefore(escTimes, eidOf(e), at);
       return rt != null ? runMs(rt, at) / 60000 : null;
-    }).filter((x): x is number => x != null && x >= 0));
+    }).filter((x): x is number => x != null && x >= 0);
+    // An escalation no Tier-2/3 ever picked up waited until the end: that wait is the case team's
+    // (it used to count against nobody), unless it arrived in the last minutes of the shift.
+    const unpickedWaits = m.role === "t2" || m.role === "t3"
+      ? [...escTimes.entries()].filter(([eid]) => !selfOpened.has(eid) && !escAckedIds.has(eid) && !escBouncedIds.has(eid) && !escResolvedIds.has(eid))
+        .map(([, ts]) => ts[0]).filter(t => !tooLate(t)).map(t => runMs(t, endTs) / 60000)
+      : [];
+    const ackLatencyMin = median([...ackedWaits, ...unpickedWaits]);
     const approvalLatencyMin = median(mine.filter(e => e.type === "containment.approved").map(e => {
       const at = tsOf(e); if (at == null) return null; const rt = reqBefore(contTimes, eidOf(e), at);
       return rt != null ? runMs(rt, at) / 60000 : null;
@@ -1391,7 +1409,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
   const managerReview = computeManagerReview({
     events, roster, startedMs, endMs: endTs, runMs, relS,
     truthOf: eid => truth.get(eid),
-    incidents: incidentList.map(i => ({ id: i.id, maxSeverity: i.maxSeverity })),
+    incidents: incidentList.map(i => ({ id: i.id, maxSeverity: i.maxSeverity, known: i.escalated || i.contained })),
     avgHandlingScore, handoffLatS, isolatedAt, hostKey, loadBalanceRate,
   });
   return { team, perUser, managerReview };

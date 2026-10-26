@@ -1105,3 +1105,18 @@ describe("computeReport — measurement fixes (2026-10-18)", () => {
     expect(cell(a.rubric, "Updates judged").score).toBeNull();
   });
 });
+
+describe("computeReport fairness at the end of the shift (Sdema review 2026-10-25)", () => {
+  const roster = [member("t1", "t1"), member("t2", "t2")];
+  it("Tier-1 is not scored on Tier-2's pickup; an escalation nobody picked up counts against Tier-2", () => {
+    const l = log();
+    l.add("feed.event", null, 10, { id: "a1", expected_verdict: "tp", incident_id: "inc-1", severity: "high", hostname: "WS-1" });
+    l.add("escalation.requested", "t1", 60, { event_id: "a1", summary: "x" }, "t1");
+    l.add("session.ended", "instr", 60 + 11 * 60);
+    const r = computeReport(l.events, roster);
+    const t1 = r.perUser.find(u => u.user_id === "t1")!;
+    const t2 = r.perUser.find(u => u.user_id === "t2")!;
+    expect(cell(t1.rubric, "Handoff coordination").score).toBeNull();
+    expect(cell(t2.rubric, "Ack latency").score).toBe(0);   // waited 11 min with nobody on it
+  });
+});

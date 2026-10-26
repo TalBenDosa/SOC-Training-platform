@@ -25,8 +25,10 @@ export const CONTAINMENT_TYPES: [string, string][] = [["isolate_host", "Isolate 
 export const containmentVerb = (t?: string) => (t === "disable_account" ? "Disable" : t === "block_indicator" ? "Block" : "Isolate");
 const EMPTY_REP = { summary: "", findings: "", verdict: "true_positive", recommendation: "", incident: "" };
 
-export function T2Console({ canEdr, sessionId, role, meId, escalations, escState, reportedIds, reportByEid, elevatedIds, containments, scope, scopes, incidents, incidentOf, nameOf, act, actR, onEdr, onPivot, pauses = [], personOf }: {
+export function T2Console({ hasTier3 = true, canEdr, sessionId, role, meId, escalations, escState, reportedIds, reportByEid, elevatedIds, containments, scope, scopes, incidents, incidentOf, nameOf, act, actR, onEdr, onPivot, pauses = [], personOf }: {
   sessionId: string; role: string; meId: string;
+  /** A Tier-3 analyst is in the room (no Tier-3: no "Escalate to Tier-3", the request would reach nobody). */
+  hasTier3?: boolean;
   /** The CURRENT round of every escalated log (one row per log). */
   escalations: Ev[]; escState: Map<string, EscalationState>;
   reportedIds: Set<string>; reportByEid: Map<string, { verdict?: string; findings?: string; recommendation?: string; summary?: string }>; elevatedIds: Set<string>;
@@ -279,7 +281,9 @@ export function T2Console({ canEdr, sessionId, role, meId, escalations, escState
                       {isAck && reportedIds.has(eid) && <span className="inline-flex items-center gap-1 text-[11px] text-neon-green"><CheckCircle2 className="h-3.5 w-3.5" /> report filed</span>}
                       {mine && canRequest && containingId !== eid && <Button variant="primary" size="sm" disabled={b || !scopeSet || !reportedIds.has(eid)} onClick={() => { setContainingId(eid); setContForm({ target: lastReq?.status === "denied" ? "" : defTarget, type: "isolate_host", incident: inc ?? "", criticality: "standard", blast: "", owner: "" }); }}><ShieldAlert className="mr-1 h-3.5 w-3.5" /> {lastReq?.status === "denied" ? "Request again (new target / justification)" : lastReq?.status === "executed" ? "Contain another target" : "Request containment"}</Button>}
                       {/* Escalate a hard case to Tier-3 for a deep hunt (routed handover, not shared) */}
-                      {role === "t2" && mine && (elevatedIds.has(eid)
+                      {/* Sdema review 2026-10-25: a detailed hunt request went to a Tier-3 seat nobody held. */}
+                      {role === "t2" && mine && !hasTier3 && !elevatedIds.has(eid) && <span className="text-[11px] text-slate-500" title="Escalating to Tier-3 is available when a Tier-3 analyst is in the exercise">No Tier-3 in this exercise: report to the Manager instead</span>}
+                      {role === "t2" && mine && (hasTier3 || elevatedIds.has(eid)) && (elevatedIds.has(eid)
                         ? <span className="inline-flex items-center gap-1 text-[11px] text-neon-purple"><ArrowUpRight className="h-3.5 w-3.5" /> escalated to Tier-3</span>
                         : elevatingId !== eid && <Button variant="outline" size="sm" disabled={b} onClick={() => { setElevatingId(eid); setHuntAsk(""); }}><ArrowUpRight className="mr-1 h-3.5 w-3.5" /> Escalate to Tier-3</Button>)}
                       {role === "t2" && !isAck && bouncingId !== eid && <Button variant="outline" size="sm" disabled={b} onClick={() => { setBouncingId(eid); setBounceReason(BOUNCE_REASONS[0]); setBounceMsg(""); }}>Bounce</Button>}

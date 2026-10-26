@@ -73,8 +73,8 @@ export interface ReviewCtx {
   events: Ev[]; roster: RosterMember[]; startedMs: number; endMs: number;
   runMs: (a: number, b: number) => number; relS: (t: number | null) => number | null;
   truthOf: (eid: string) => ReviewTruth | undefined;
-  /** Real incidents (≥1 malicious log): id → max severity. */
-  incidents: { id: string; maxSeverity: string }[];
+  /** Real incidents (≥1 malicious log): id → max severity; known = it reached Tier-2 (escalated or a host isolated). */
+  incidents: { id: string; maxSeverity: string; known?: boolean }[];
   avgHandlingScore: number | null; handoffLatS: number | null;
   /** hostKey → first isolation time (ms) by anyone. */
   isolatedAt: Map<string, number>;
@@ -86,6 +86,8 @@ export interface ReviewCtx {
 const tsOf = (e: Ev): number | null => (e.occurred_at ? Date.parse(e.occurred_at) : null);
 const eidOf = (e: Ev) => { const v = (e.payload as { event_id?: unknown }).event_id; return v == null ? "" : String(v); };
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
+/** A first real escalation in the last minutes of the shift leaves no fair chance to declare (Sdema review 2026-10-25). */
+export const DECLARE_GRACE_MS = 5 * 60_000;
 const bandHigh = (v: number, a: number, b: number, c: number) => (v >= a ? 12 : v >= b ? 8 : v >= c ? 4 : 0);
 const bandLow = (v: number, a: number, b: number, c: number) => (v <= a ? 12 : v <= b ? 8 : v <= c ? 4 : 0);
 const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : null);
@@ -158,14 +160,22 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
 
   // ── Ground truth: severity of what really happened ─────────────────────────
   const feed = events.filter(e => e.type === "feed.event");
+  // The manager can only declare what reached the team: the severity truth comes from the incidents
+  // that were escalated or contained (Sdema review 2026-10-25: Sev-1 was set by an incident nobody
+  // escalated, contradicting the facts the manager's own questions were built on).
+  const known = ctx.incidents.filter(i => i.known !== false);
+  const knownIds = new Set(known.map(i => i.id));
+  // Every attack log (the attacker lane of the timeline, and what a claim to management is checked against).
   const attackLogs = feed.map(e => ({ e, t: ctx.truthOf(String((e.payload as { id?: unknown }).id ?? e.seq)) })).filter(x => x.t?.isAttack) as { e: Ev; t: ReviewTruth }[];
+  const knownLogs = attackLogs.filter(x => !x.t.incident || knownIds.has(x.t.incident));
   const blob = (t: ReviewTruth) => `${t.label} ${t.technique} ${t.tactic}`;
   const exfilTs = attackLogs.filter(x => EXFIL.test(blob(x.t))).map(x => x.t.ts).filter((x): x is number => x != null).sort((a, b) => a - b)[0] ?? null;
   const impactTs = attackLogs.filter(x => IMPACT.test(blob(x.t))).map(x => x.t.ts).filter((x): x is number => x != null).sort((a, b) => a - b)[0] ?? null;
   const criticalHit = attackLogs.some(x => x.t.host && CRITICAL_NAME.test(x.t.host));
-  const sevs = ctx.incidents.map(i => i.maxSeverity.toLowerCase());
-  const truthSeverity: 1 | 2 | 3 | null = !ctx.incidents.length ? null
-    : (exfilTs != null || impactTs != null || criticalHit || sevs.includes("critical")) ? 1
+  const knownImpact = knownLogs.some(x => EXFIL.test(blob(x.t)) || IMPACT.test(blob(x.t)) || (!!x.t.host && CRITICAL_NAME.test(x.t.host)));
+  const sevs = known.map(i => i.maxSeverity.toLowerCase());
+  const truthSeverity: 1 | 2 | 3 | null = !known.length ? null
+    : (knownImpact || sevs.includes("critical")) ? 1
       : sevs.includes("high") ? 2 : 3;
 
   // ── Declarations ────────────────────────────────────────────────────────────
@@ -177,6 +187,9 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
   const isRealEid = (eid: string) => { const t = ctx.truthOf(eid); return !!t && (t.isAttack || !!t.incident); };
   const firstAttackEscTs = events.filter(e => e.type === "escalation.requested" && isRealEid(eidOf(e)))
     .map(tsOf).filter((x): x is number => x != null).sort((a, b) => a - b)[0] ?? null;
+  // Running time left after the first real escalation: under DECLARE_GRACE_MS there was no fair chance to declare.
+  const declareRunway = firstAttackEscTs == null ? null : ctx.runMs(firstAttackEscTs, ctx.endMs);
+  const tooLateToDeclare = declareRunway != null && declareRunway < DECLARE_GRACE_MS;
 
   // ── Decision cards ──────────────────────────────────────────────────────────
   const answers = new Map(events.filter(e => e.type === "decision.answered" && isMgr(e))
@@ -262,6 +275,7 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
   const declCell: CommandCell = declaredOnFalseAlarm
     ? { label: "Incident declared on time", score: 2, note: "declared before any real attack had been escalated: the escalation behind it was a false alarm. Wait for Tier-2 to confirm before declaring" }
     : firstAttackEscTs == null ? { label: "Incident declared on time", score: null, note: "no real attack was escalated, nothing to declare" }
+    : declTs == null && tooLateToDeclare ? { label: "Incident declared on time", score: null, note: `the first real escalation came ${Math.round((declareRunway ?? 0) / 6000) / 10} min before the end: too late to judge` }
     : declTs == null ? { label: "Incident declared on time", score: 0, note: "the incident was never declared" }
       : (() => { const m = Math.max(0, runMs(firstAttackEscTs, declTs) / 60000); return { label: "Incident declared on time", score: bandLow(m, 3, 6, 10), note: `${Math.round(m * 10) / 10} min after the first real escalation (12 = within 3 min)` }; })();
   const sevCell: CommandCell = (() => {
@@ -430,7 +444,7 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
 
   // ── Critical errors (cap at 69) ─────────────────────────────────────────────
   for (const d of decisions) if (d.critical) criticalErrors.push({ label: d.critical, detail: `${d.from.name}: you chose "${d.optionLabel}". Better: "${d.bestLabel}"`, atS: d.firedS != null && d.decidedInS != null ? d.firedS + d.decidedInS : d.firedS });
-  if (truthSeverity === 1 && firstAttackEscTs != null && declTs == null) {
+  if (truthSeverity === 1 && firstAttackEscTs != null && declTs == null && !tooLateToDeclare) {
     criticalErrors.push({ label: "A Sev-1 incident was never declared", detail: "The attack reached data, a critical asset or destructive impact, and the shift ended without an incident declaration.", atS: null });
   }
   const score = uncappedScore == null ? null : criticalErrors.length ? Math.min(uncappedScore, MANAGER_SCORE_CAP) : uncappedScore;
@@ -482,8 +496,10 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
 
   // ── Keep 3 / improve 3 ──────────────────────────────────────────────────────
   const measured = [...pillarTeam, ...pillarStake, ...pillarReport].filter(c => c.score != null);
-  const keep = [...measured].filter(c => (c.score ?? 0) >= 8).sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, 3).map(c => KEEP_LINE[c.label] ?? c.label);
-  const improve = [...measured].filter(c => (c.score ?? 0) <= 8 && !keep.includes(KEEP_LINE[c.label] ?? c.label)).sort((a, b) => (a.score ?? 0) - (b.score ?? 0)).slice(0, 3).map(c => IMPROVE_LINE[c.label] ?? c.label);
+  // The keep lines are absolute ("every request before its deadline"): only a full score earns one
+  // (Sdema review 2026-10-25: 0 of 2 questions in time printed "You answered every request before its deadline").
+  const keep = [...measured].filter(c => (c.score ?? 0) >= 12).sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, 3).map(c => KEEP_LINE[c.label] ?? c.label);
+  const improve = [...measured].filter(c => (c.score ?? 0) < 12 && !keep.includes(KEEP_LINE[c.label] ?? c.label)).sort((a, b) => (a.score ?? 0) - (b.score ?? 0)).slice(0, 3).map(c => IMPROVE_LINE[c.label] ?? c.label);
 
   // ── Debrief questions, chosen by what happened ──────────────────────────────
   const fired = new Set(decisions.map(d => d.card));
