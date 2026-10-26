@@ -50,11 +50,11 @@ describe("pausedSpans / activeMs (QA M3 — pauses never count against the team)
 describe("live projections honour pauses", () => {
   it("an alert's SLA age stops while the session is paused", () => {
     const feed = [ev(1, "feed.event", null, { id: "a", severity: "high" }, 0)];
-    const now = T0 + 10 * MIN;
+    const now = T0 + 20 * MIN;
     const base = { feed, dispositions: new Map<string, string>(), escalated: new Set<string>(), claims: new Map<string, { by: string }>(), nowMs: now, withMedium: false };
-    expect(buildAlertQueue(base)[0]).toMatchObject({ mins: 10, breached: true });
+    expect(buildAlertQueue(base)[0]).toMatchObject({ mins: 20, breached: true });     // past the 15-minute SLA
     const pauses = [{ start: T0 + 1 * MIN, end: T0 + 9 * MIN }];
-    expect(buildAlertQueue({ ...base, pauses })[0]).toMatchObject({ mins: 2, breached: false });
+    expect(buildAlertQueue({ ...base, pauses })[0]).toMatchObject({ mins: 12, breached: false });
   });
 
   it("a claim's 5-minute TTL counts running time only", () => {

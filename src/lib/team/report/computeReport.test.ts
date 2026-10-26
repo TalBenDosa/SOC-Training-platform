@@ -913,9 +913,10 @@ describe("computeReport — detection time & SLA anchor (Phase 9)", () => {
     api.add("feed.event", null, 1, { id: "r1", expected_verdict: "tp", incident_id: "inc-s", severity: "low", hostname: "H1", mitre_technique: "T1595" });
     api.add("feed.event", null, 600, { id: "c1", expected_verdict: "tp", incident_id: "inc-s", severity: "critical", hostname: "H1", mitre_technique: "T1486" });
     api.add("disposition.set", "a", 700, { event_id: "c1", verdict: "true_positive" }, "t1");
+    api.add("escalation.requested", "a", 760, { event_id: "c1", summary: "ransomware" }, "t1");
     const i = computeReport(api.events, [member("a", "t1")]).team.incidents.find(x => x.id === "inc-s")!;
     expect(i.dwellS).toBe(699);   // MTTD still from the first (recon) log
-    expect(i.slaMet).toBe(true);  // but SLA from the critical log at 600 → 100s ≤ 300s
+    expect(i.slaMet).toBe(true);  // the escalation SLA (15 min) from the critical log at 600: escalated 160 s later
   });
 
   it("a JSON-null payload on one event does not crash the report", () => {
@@ -1118,5 +1119,39 @@ describe("computeReport fairness at the end of the shift (Sdema review 2026-10-2
     const t2 = r.perUser.find(u => u.user_id === "t2")!;
     expect(cell(t1.rubric, "Handoff coordination").score).toBeNull();
     expect(cell(t2.rubric, "Ack latency").score).toBe(0);   // waited 11 min with nobody on it
+  });
+});
+
+
+describe("computeReport — the incident clock: attack name, 15-minute escalation SLA, MTTD and MTTR (Tal, 2026-10-26)", () => {
+  const roster = [member("t1", "t1"), member("t2", "t2")];
+  it("names the incident by its attack and measures MTTD, MTTR and the escalation SLA", () => {
+    const l = log();
+    l.add("feed.event", null, 10, { id: "a1", expected_verdict: "tp", incident_id: "inc-1", severity: "high", hostname: "WS-1", attack_name: "Phishing Macro → AWS Key Theft" });
+    l.add("feed.event", null, 20, { id: "a2", expected_verdict: "tp", incident_id: "inc-1", severity: "critical", hostname: "WS-1", attack_name: "Phishing Macro → AWS Key Theft" });
+    l.add("disposition.set", "t1", 140, { event_id: "a2", verdict: "true_positive" }, "t1");
+    l.add("escalation.requested", "t1", 200, { event_id: "a2", summary: "x" }, "t1");
+    l.add("edr.host_isolated", "t2", 500, { host: "WS-1" }, "t2");
+    l.add("session.ended", "instr", 3000);
+    const r = computeReport(l.events, roster);
+    const inc = r.team.incidents.find(i => i.id === "inc-1")!;
+    expect(inc.name).toBe("Phishing Macro → AWS Key Theft");
+    expect(inc.dwellS).toBe(130);        // MTTD: first log 10 → first detection 140
+    expect(inc.respondS).toBe(490);      // MTTR: first log 10 → isolated 500
+    expect(inc.slaSec).toBe(900);
+    expect(inc.slaMet).toBe(true);       // escalated 180 s after the critical alert
+    expect(r.team.incMttdS).toBe(130);
+    expect(r.team.incMttrS).toBe(490);
+    expect([r.team.incSlaMet, r.team.incSlaJudged]).toEqual([1, 1]);
+  });
+  it("an incident marked but never escalated misses the SLA; one that surfaced in the last 15 minutes is not judged", () => {
+    const l = log();
+    l.add("feed.event", null, 10, { id: "a1", expected_verdict: "tp", incident_id: "inc-1", severity: "high", hostname: "WS-1" });
+    l.add("disposition.set", "t1", 60, { event_id: "a1", verdict: "true_positive" }, "t1");
+    l.add("feed.event", null, 2500, { id: "b1", expected_verdict: "tp", incident_id: "inc-2", severity: "high", hostname: "WS-2" });
+    l.add("session.ended", "instr", 3000);
+    const inc = computeReport(l.events, roster).team.incidents;
+    expect(inc.find(i => i.id === "inc-1")!.slaMet).toBe(false);
+    expect(inc.find(i => i.id === "inc-2")!.slaMet).toBeNull();
   });
 });

@@ -317,7 +317,7 @@ function itsmRecordFor(ev: TelemetryEvent, companyId: string): TelemetryEvent | 
 
 // ── The builder ──────────────────────────────────────────────────────────────
 
-interface Placed { ev: TelemetryEvent; origin: FeedOrigin; verdict: TeamVerdict; incident?: string; supports?: string; held?: boolean; autoContained?: boolean }
+interface Placed { ev: TelemetryEvent; origin: FeedOrigin; verdict: TeamVerdict; incident?: string; supports?: string; held?: boolean; autoContained?: boolean; /** The attack's name, for the report (staff-side answer key only). */ attack?: string }
 
 /** Build the ordered, time-stamped feed for a session. */
 /**
@@ -492,7 +492,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   const assets = COMPANY_ASSETS[companyId];
 
   // ── Attack stories: one on easy, two concurrent incidents otherwise ──────────
-  interface Story { id: string; incident: string; events: TelemetryEvent[] }
+  interface Story { id: string; incident: string; events: TelemetryEvent[]; name: string }
   // The instructor's attack plan: one slot per concurrent attack — a chosen storyline, or
   // null for a random pick (an older session's single scenario_id is slot 1).
   const slotIds = Array.isArray(storyId) ? storyId : [storyId ?? null];
@@ -538,7 +538,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
         const events = events0.map(e => applyStack(e, companyId, stack));
         const incident0 = events.find(e => e.incident_id)?.incident_id ?? `story:${story.id}`;
         const incident = env ? incident0.replace(DEMO_COMPANY, "org") : incident0;
-        return { id: story.id, incident, events };
+        return { id: story.id, incident, events, name: story.title };
       } catch { return null; }
     }
     return null;
@@ -549,7 +549,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // a prioritisation call for the Manager. One story keeps a small team single-threaded.
   const story2 = load.stories >= 2 ? buildStory([...pinnedIdsAll, story1?.id], forcedAt(1)) : null;
   const story3 = load.stories >= 3 ? buildStory([...pinnedIdsAll, story1?.id, story2?.id], forcedAt(2)) : null;
-  const storyPlaced = (s: Story | null): Placed[] => (s?.events ?? []).map(ev => ({ ev, origin: "story" as const, verdict: classifyStoryEvent(ev), incident: s!.incident }));
+  const storyPlaced = (s: Story | null): Placed[] => (s?.events ?? []).map(ev => ({ ev, origin: "story" as const, verdict: classifyStoryEvent(ev), incident: s!.incident, attack: s!.name }));
   const distinct = (s: Story | null, n: number, others: (Story | null)[]): Story | null =>
     s && others.some(o => o?.incident === s.incident) ? { ...s, incident: `${s.incident}#${n}` } : s;
   const attack1 = storyPlaced(story1);
@@ -593,7 +593,9 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // it keeps its own incident (the team confirms it) but is tagged auto_contained so the report does
   // not count it as a missed incident when nobody escalates it (expert review P0-6).
   const poolAttacks: Placed[][] = chosenGroups.map(key => { const g = groups.get(key) ?? []; const lone = g.length === 1 && isBlockedAttempt(g[0]);
-    return g.map(ev => ({ ev, origin: "pool_attack" as const, verdict: classifyPoolEvent(ev), incident: key, autoContained: lone })); });
+    // A standalone attack is named by its first malicious log (it has no storyline title).
+    const name = (g.find(e => isMalicious(classifyPoolEvent(e)))?.description ?? "Standalone attack").replace(/\s+/g, " ").slice(0, 90);
+    return g.map(ev => ({ ev, origin: "pool_attack" as const, verdict: classifyPoolEvent(ev), incident: key, autoContained: lone, attack: name })); });
   for (const g of poolAttacks) for (const p of g) if (p.ev.user_email) compromised.add(p.ev.user_email);
 
   // Attack infrastructure of this session: benign noise must never share it (expert review P0-3).
@@ -946,6 +948,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
         incident_id: p.incident,
         supports_inject: p.supports,
         feed_origin: p.origin,
+        ...(p.attack ? { attack_name: p.attack } : {}),
         ...(p.autoContained ? { auto_contained: true } : {}),
         ...(p.held ? { bonus_attack: true } : {}),
       },
@@ -1040,7 +1043,7 @@ function toPublicEntry(entry: TimelineEntry, i: number, seed: string, tier: stri
   }
   const {
     expected_verdict, fp_explanation, incident_id, edr_scope, is_baseline, it_verify_result, it_verify_message, it_context,
-    supports_inject, feed_origin, tier: originalTier, id, bonus_attack, auto_contained, ...rest
+    supports_inject, feed_origin, tier: originalTier, id, bonus_attack, auto_contained, attack_name, ...rest
   } = body;
   // A held bonus row is stamped as if it followed the planned shift; the client re-bases every
   // log onto its release time (occurred_at) anyway.
@@ -1080,7 +1083,7 @@ function toPublicEntry(entry: TimelineEntry, i: number, seed: string, tier: stri
       // contract 1: an explicit verdict on every feed log — never missing
       expected_verdict: expected_verdict ?? "benign",
       fp_explanation, incident_id, supports_inject, origin: feed_origin, edr_scope, is_baseline,
-      it_verify_result, it_verify_message, it_context, original_id: id, original_tier: originalTier, bonus: bonus_attack,
+      it_verify_result, it_verify_message, it_context, original_id: id, original_tier: originalTier, bonus: bonus_attack, attack_name,
       authored_description: retimed.description, authored_severity: retimed.severity, auto_contained,
       ...(tagged ? {} : { mitre_technique, mitre_tactic }),
     }),

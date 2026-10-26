@@ -28,7 +28,7 @@ describe("buildAlertQueue", () => {
   });
 
   it("puts orphans (past SLA, unclaimed) first, then severity × age", () => {
-    const feed = [log("fresh-crit", "critical", 0), log("old-high", "high", 10), log("claimed-old", "high", 20)];
+    const feed = [log("fresh-crit", "critical", 0), log("old-high", "high", 16), log("claimed-old", "high", 20)];   // 15-min SLA
     const q = buildAlertQueue({ ...base, feed, claims: new Map([["claimed-old", { by: "u2" }]]) });
     expect(q[0].eid).toBe("old-high");
     expect(q[0].orphan).toBe(true);
@@ -37,7 +37,8 @@ describe("buildAlertQueue", () => {
   });
 
   it("uses the severity SLA for the breach flag", () => {
-    expect(slaMinFor("critical")).toBe(1);
+    expect(slaMinFor("critical")).toBe(15);   // an alert that may need escalation: 15 minutes (Tal, 2026-10-26)
+    expect(slaMinFor("low")).toBe(30);
     const q = buildAlertQueue({ ...base, feed: [log("h", "high", 2)] });
     expect(q[0].breached).toBe(false);
     expect(q[0].mins).toBe(2);

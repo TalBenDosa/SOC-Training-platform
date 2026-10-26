@@ -321,12 +321,13 @@ function csvCell(v: unknown): string {
 }
 
 const LEGEND: Record<string, string> = {
+  "MTTD": "Mean time to detect: from an incident's first log to the first time anyone flagged it (a verdict, an escalation or an isolation). Median across incidents.",
+  "MTTR": "Mean time to respond: from an incident's first log to it being contained (host isolated, containment executed, or its case resolved). Median across incidents.",
+  "Escalation SLA": "An incident that needs escalation must reach Tier-2 (escalated, or its host isolated) within 15 minutes of its first alert. A verdict alone does not meet it; an incident that surfaced in the last 15 minutes of the shift is not judged.",
   "Incidents detected": "Real incidents the team caught — any of an incident's attack logs escalated, or marked true positive / suspicious. Scored per incident, not per log.",
-  "MTTD": "Mean time to detect — shift start → the first CORRECT escalation of a real attack log.",
   "Handoff latency": "How long an escalation waited before a Tier-2 acknowledged it (median).",
   "Handoff loop closure": "Share of escalated logs a Tier-2 closed the loop on — acknowledged, bounced back or resolved.",
   "MTTC": "Mean time to contain — containment request → isolation executed.",
-  "MTTR": "Mean time to resolve — FIRST escalation → case resolved.",
   "Shared picture": "Contested = two analysts gave opposite verdicts on the same event.",
   "Insufficient evidence": "Fewer than 2 criteria could be measured for this seat — no score is shown rather than a misleading 100%.",
   "Attack SLA": "Share of real attack logs the team first triaged (disposition or escalation) within the SLA for their severity: critical 1 min · high 3 min · medium 10 min · other 30 min.",
@@ -425,7 +426,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
   const groups: { title: string; items: [string, string, ("good" | "warn" | undefined)?][] }[] = [
     { title: "Detection", items: [
       ["Incidents detected", incValue, incTone],
-      ["MTTD", team.timeToDetectS != null ? `${team.timeToDetectS}s` : "—"],
+      ["MTTD", dur(team.incMttdS ?? null)],
       ["Logs", String(team.logs)],
       ["Disposition accuracy", team.dispAcc != null ? `${team.dispAcc}%` : "—"],
     ] },
@@ -452,7 +453,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
       ["Busiest analyst", team.busiestShare != null ? `${team.busiestShare}%${team.busiestName ? ` · ${team.busiestName}` : ""}` : "—", team.busiestShare != null && (team.triagers ?? 0) > 1 && team.busiestShare > 70 ? "warn" : undefined],
     ] },
     { title: "Resolution", items: [
-      ["MTTR", team.mttrS != null ? `${team.mttrS}s` : "—"],
+      ["MTTR", dur(team.incMttrS ?? null)],
       ["Case status", team.caseStatus, team.caseStatus === "closed" || team.caseStatus === "contained" ? "good" : undefined],
       ["Evidence pinned", String(team.evidencePinned)],
     ] },
@@ -471,7 +472,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
         {/* U2: the four headline numbers the briefing promised (accuracy · timeliness · coordination) */}
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <span title={LEGEND["Incidents detected"]}><Metric label={incTotal ? "Incidents detected" : "Attack detected"} value={incValue} tone={incTone} /></span>
-          <span title={LEGEND["MTTD"]}><Metric label="MTTD (time to detect)" value={team.timeToDetectS != null ? `${team.timeToDetectS}s` : "—"} /></span>
+          <span title={LEGEND["MTTD"]}><Metric label="MTTD (median)" value={dur(team.incMttdS ?? null)} /></span>
           <Metric label="Disposition accuracy" value={team.dispAcc != null ? `${team.dispAcc}%` : "—"} />
           <span title={LEGEND["Handoff loop closure"]}><Metric label="Handoff loop closure" value={team.loopClosure != null ? `${team.loopClosure}%` : "—"} tone={lcTone} /></span>
         </div>
@@ -517,6 +518,14 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
             <span className="font-mono text-[10px] text-slate-400">{incDetected}/{incTotal} detected</span>
           </div>
           <p className="mt-1 text-[11px] text-slate-400">An incident is built from several logs, so a catch is <b className="text-slate-300">graded</b>, not yes/no: detection, timeliness vs SLA, how much of the incident you surfaced (scope), and verdict quality.</p>
+          {/* The incident clock (Tal, 2026-10-26): MTTD, MTTR and the 15-minute escalation SLA */}
+          {team.incSlaJudged != null && (
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              <span title={LEGEND["MTTD"]}><Metric label="MTTD (median)" value={dur(team.incMttdS)} /></span>
+              <span title={LEGEND["MTTR"]}><Metric label="MTTR (median)" value={dur(team.incMttrS)} /></span>
+              <span title={LEGEND["Escalation SLA"]}><Metric label={`Escalated within ${team.escalationSlaMin ?? 15} min`} value={team.incSlaJudged ? `${team.incSlaMet}/${team.incSlaJudged}` : "—"} tone={!team.incSlaJudged ? undefined : team.incSlaMet === team.incSlaJudged ? "good" : "warn"} /></span>
+            </div>
+          )}
           {typeof team.incidentsCaughtWell === "number" && (
             <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[9px] font-bold uppercase">
               <span className="rounded border border-neon-green/40 bg-neon-green/10 px-1.5 py-0.5 text-neon-green">{team.incidentsCaughtWell} caught well</span>
@@ -537,8 +546,18 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
               return (
               <div key={inc.id} className="rounded-lg border border-border/50 bg-bg px-2.5 py-2">
                 <div className="flex items-start gap-2">
-                  <span className="min-w-0 flex-1 text-[11px] text-slate-300">{inc.label}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-semibold text-white"><bdi>{inc.name || inc.label}</bdi></span>
+                    {inc.name && <span className="block text-[10px] text-slate-500">first log: <bdi>{inc.label}</bdi></span>}
+                  </span>
                   <span className={`shrink-0 rounded border px-1 py-0.5 text-[9px] font-bold uppercase ${meta.cls}`}>{meta.label}</span>
+                </div>
+                <div className="mt-1 flex flex-wrap gap-1.5 text-[10px]">
+                  <span className="rounded border border-border px-1.5 py-0.5 text-slate-300" title={LEGEND["MTTD"]}>MTTD {inc.detected ? dur(inc.dwellS) : "not detected"}</span>
+                  <span className="rounded border border-border px-1.5 py-0.5 text-slate-300" title={LEGEND["MTTR"]}>MTTR {inc.respondS != null ? dur(inc.respondS) : "not contained"}</span>
+                  <span title={LEGEND["Escalation SLA"]} className={`rounded border px-1.5 py-0.5 ${inc.slaMet === true ? "border-neon-green/40 text-neon-green" : inc.slaMet === false ? "border-severity-high/50 text-severity-high" : "border-border text-slate-400"}`}>
+                    SLA {Math.round((inc.slaSec ?? 900) / 60)} min: {inc.slaMet === true ? "met" : inc.slaMet === false ? "missed" : "not judged"}
+                  </span>
                 </div>
                 <p className="mt-1 text-[10px] text-slate-500">
                   {inc.attackEvents} attack log{inc.attackEvents === 1 ? "" : "s"}
@@ -547,8 +566,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
                   {inc.techCoverage != null ? ` · tech ${inc.techCoverage}%` : ""}
                   {inc.firstSeenS != null ? ` · first seen ${inc.firstSeenS}s` : ""}
                   {inc.detected && inc.detectS != null ? ` · caught at ${inc.detectS}s` : ""}
-                  {inc.detected && inc.dwellS != null ? ` (${inc.dwellS}s after it surfaced` : ""}
-                  {inc.detected && inc.dwellS != null && inc.slaMet != null ? `, ${inc.slaMet ? "within" : "past"} SLA)` : inc.detected && inc.dwellS != null ? ")" : ""}
+                  {inc.detected && inc.dwellS != null ? ` (${inc.dwellS}s after it surfaced)` : ""}
                   {inc.contained ? " · contained" : ""}
                 </p>
               </div>

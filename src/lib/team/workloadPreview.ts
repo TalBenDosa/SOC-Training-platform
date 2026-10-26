@@ -44,7 +44,7 @@ export function measureWorkload(timeline: TimelineRow[], load: Pick<TeamLoad, "s
   const feed = timeline.filter(r => r.channel === "feed");
   const body = (r: TimelineRow) => (r.body ?? {}) as { severity?: unknown };
   const ans = (r: TimelineRow) => (r.answer ?? {}) as { origin?: unknown; incident_id?: unknown };
-  const attack = feed.filter(r => ans(r).origin === "story" || ans(r).origin === "pool");
+  const attack = feed.filter(r => ans(r).origin === "story" || ans(r).origin === "pool_attack" || ans(r).origin === "pool");
   const isAlert = (r: TimelineRow) => ["high", "critical"].includes(String(body(r).severity ?? "").toLowerCase());
   const alerts = feed.filter(isAlert);
   const alertRows = alerts.length;

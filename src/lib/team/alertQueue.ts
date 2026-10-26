@@ -22,8 +22,10 @@ import type { Ev } from "./types";
 import { activeMs, type PauseSpan } from "./pauses";
 import { linkedToHot, entityLabel } from "./correlate";
 
-/** Minutes until an un-triaged alert breaches its triage SLA, by severity. */
-export const slaMinFor = (sev: string) => (sev === "critical" ? 1 : sev === "high" ? 3 : sev === "medium" ? 10 : 30);
+/** Minutes until an alert in the triage queue breaches its SLA: an alert that may need escalation
+ *  has 15 minutes to be handled (Tal, 2026-10-26; it was 1 / 3 / 10 minutes by severity). */
+export const ESCALATION_SLA_MIN = 15;
+export const slaMinFor = (sev: string) => (sev === "low" ? 30 : ESCALATION_SLA_MIN);
 
 export interface QueueItem {
   e: Ev;

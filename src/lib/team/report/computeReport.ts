@@ -91,6 +91,8 @@ export const BLIND_CALL_MS = 3000;
 const SEV_RANK: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1, informational: 0, info: 0 };
 /** Time-to-detect SLA per max-severity of the incident, in seconds. */
 const SLA_SEC: Record<string, number> = { critical: 300, high: 900, medium: 1800, low: 3600 };
+/** An alert that needs escalation must reach Tier-2 within 15 minutes (Tal, 2026-10-26). */
+export const ESCALATION_SLA_SEC = 900;
 const sevRank = (s: string) => SEV_RANK[s.toLowerCase().trim()] ?? 0;
 const slaForSev = (s: string) => SLA_SEC[s.toLowerCase().trim()] ?? 1800;
 /** A catch is "caught well" only at or above these; "partial" needs one of them. */
@@ -179,11 +181,15 @@ export interface UserReport {
 }
 export interface IncidentReport {
   id: string; label: string; attackEvents: number;
+  /** The attack's name (storyline title, or the first log of a standalone attack). */
+  name?: string;
+  /** MTTR for this incident: first log to contained (isolation / executed containment / case resolved). */
+  respondS?: number | null;
   detected: boolean; escalated: boolean; contained: boolean;
   firstSeenS: number | null; detectS: number | null; dwellS: number | null;
   /** How much of the incident the team surfaced (built from several logs). */
   scopeCoverage: number | null; hostCoverage: number | null; techCoverage: number | null;
-  /** Timeliness inputs + overall catch grade. */
+  /** Timeliness inputs + overall catch grade. slaMet: reached Tier-2 (escalated / host isolated) within slaSec. */
   maxSeverity: string; slaSec: number; slaMet: boolean | null;
   handlingScore: number; grade: IncidentGrade;
 }
@@ -477,7 +483,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
 
   // ── Ground truth (contract 1). A missing verdict ⇒ benign; a malicious event without
   // an incident_id ⇒ its own incident ("solo:<id>", legacy = one incident per attack event).
-  interface Truth { isAttack: boolean; incident: string | null; supports: string | null; ts: number | null; label: string; tokens: Set<string>; technique: string; tactic: string; severity: string; host: string }
+  interface Truth { isAttack: boolean; incident: string | null; supports: string | null; ts: number | null; label: string; tokens: Set<string>; technique: string; tactic: string; severity: string; host: string; attack: string }
   const truth = new Map<string, Truth>();
   for (const fe of feed) {
     const p = fe.payload as Record<string, unknown>;
@@ -487,15 +493,16 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       isAttack, incident: asStr(p.incident_id) || (isAttack ? `solo:${id}` : null), supports: asStr(p.supports_inject) || null,
       ts: tsOf(fe), label: asStr(p.description) || asStr(p.event_type) || "event", tokens: entityTokens(p),
       technique: String(p.mitre_technique ?? ""), tactic: String(p.mitre_tactic ?? ""),
-      severity: asStr(p.severity), host: asStr(p.hostname),
+      severity: asStr(p.severity), host: asStr(p.hostname), attack: asStr(p.attack_name),
     });
   }
   const attackIds = new Set([...truth].filter(([, t]) => t.isAttack).map(([k]) => k));
-  const incidents = new Map<string, { id: string; label: string; attackEids: string[]; firstSeen: number | null }>();
+  const incidents = new Map<string, { id: string; label: string; attackEids: string[]; firstSeen: number | null; name: string }>();
   for (const [eid, t] of truth) {
     if (!t.isAttack || !t.incident) continue;
     let inc = incidents.get(t.incident);
-    if (!inc) { inc = { id: t.incident, label: t.label, attackEids: [], firstSeen: t.ts }; incidents.set(t.incident, inc); }
+    if (!inc) { inc = { id: t.incident, label: t.label, attackEids: [], firstSeen: t.ts, name: t.attack }; incidents.set(t.incident, inc); }
+    if (!inc.name && t.attack) inc.name = t.attack;
     inc.attackEids.push(eid);
     if (t.ts != null && (inc.firstSeen == null || t.ts < inc.firstSeen)) { inc.firstSeen = t.ts; inc.label = t.label; }
   }
@@ -614,6 +621,8 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     if (!atk || at == null) continue;
     for (const inc of atk.incidents) { const cur = isolatedAtByIncident.get(inc); if (cur == null || at < cur) isolatedAtByIncident.set(inc, at); }
   }
+  // The shift's last moment (latest event or the end), needed before endTs is derived below.
+  const shiftEndMs = events.reduce((m, e) => Math.max(m, e.occurred_at ? Date.parse(e.occurred_at) : 0), startedMs);
   const incidentList: IncidentReport[] = [...incidents.values()].map(inc => {
     const minOf = (m: Map<string, number>) => { let best: number | null = null; for (const id of inc.attackEids) { const v = m.get(id); if (v != null && (best == null || v < best)) best = v; } return best; };
     const escTs = minOf(escalatedAttack); const markTs = minOf(markedAttack);
@@ -648,7 +657,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     const covAxes = [scopeCoverage, hostCoverage, techCoverage].filter((x): x is number => x != null);
     const coverage = covAxes.length ? Math.round(covAxes.reduce((a, b) => a + b, 0) / covAxes.length) : (scopeCoverage ?? 0);
     const maxSeverity = inc.attackEids.reduce((best, e) => { const s = truth.get(e)?.severity ?? ""; return sevRank(s) > sevRank(best) ? s : best; }, "");
-    const slaSec = slaForSev(maxSeverity);
+    const slaSec = ESCALATION_SLA_SEC;
     // Judge the SLA from when the incident's MAX-severity activity first appeared, not from an
     // earlier low-severity recon log — otherwise a kill chain whose first log looks benign is
     // always "past SLA" (Phase 9 P9-05). dwellS (MTTD) is still measured from the first log.
@@ -656,8 +665,18 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       const t = truth.get(e); if (!t || t.ts == null || !Number.isFinite(t.ts) || sevRank(t.severity) !== sevRank(maxSeverity)) return a;
       return a == null || t.ts < a ? t.ts : a;
     }, null) ?? inc.firstSeen;
-    const slaDwellS = detTs != null && slaAnchor != null ? Math.max(0, Math.round(runMs(slaAnchor, detTs) / 1000)) : null;
-    const slaMet = slaDwellS == null ? null : slaDwellS <= slaSec;
+    // SLA (Tal, 2026-10-26): an incident that needs escalation reaches Tier-2 (escalated, or its host
+    // isolated) within ESCALATION_SLA_SEC of its first alert. A mark alone does not meet it; an incident
+    // that surfaced in the last SLA window and was not reached yet is not judged.
+    const reachTs = [escTs, isoTs].filter((t): t is number => t != null).reduce<number | null>((a, b) => (a == null || b < a ? b : a), null);
+    const slaDwellS = reachTs != null && slaAnchor != null ? Math.max(0, Math.round(runMs(slaAnchor, reachTs) / 1000)) : null;
+    const slaOpen = slaAnchor != null && runMs(slaAnchor, shiftEndMs) < slaSec * 1000;
+    const slaMet = slaDwellS != null ? slaDwellS <= slaSec : slaOpen ? null : false;
+    // MTTR: from the first log to the incident contained (isolation, executed containment, or its case resolved).
+    const containTs = [isoTs,
+      ...events.filter(e => (e.type === "containment.executed" || e.type === "escalation.resolved") && incidentOfEid(eidOf(e)) === inc.id).map(tsOf)]
+      .filter((t): t is number => t != null).reduce<number | null>((a, b) => (a == null || b < a ? b : a), null);
+    const respondS = containTs != null && inc.firstSeen != null ? Math.max(0, Math.round(runMs(inc.firstSeen, containTs) / 1000)) : null;
     const verdictQ = inc.attackEids.some(e => attackVerdictKind.get(e) === "tp") ? 1
       : inc.attackEids.some(e => attackVerdictKind.get(e) === "susp") || isoTs != null ? 0.5
         : escalated ? 0.25 : 0;
@@ -672,8 +691,8 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
           : "noticed";
 
     return {
-      id: inc.id, label: inc.label.slice(0, 140), attackEvents: inc.attackEids.length, detected, escalated, contained,
-      firstSeenS: relS(inc.firstSeen), detectS: detS, dwellS,
+      id: inc.id, label: inc.label.slice(0, 140), name: inc.name || undefined, attackEvents: inc.attackEids.length, detected, escalated, contained,
+      firstSeenS: relS(inc.firstSeen), detectS: detS, dwellS, respondS,
       scopeCoverage, hostCoverage, techCoverage, maxSeverity, slaSec, slaMet, handlingScore, grade,
     };
   }).sort((a, b) => (a.firstSeenS ?? 0) - (b.firstSeenS ?? 0));
@@ -686,6 +705,11 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
   const incidentsMissed = incidentList.filter(i => i.grade === "missed").length;
   const avgScopeCoverage = incidentList.length ? Math.round(incidentList.reduce((s, i) => s + (i.scopeCoverage ?? 0), 0) / incidentList.length) : null;
   const avgHandlingScore = incidentList.length ? Math.round(incidentList.reduce((s, i) => s + i.handlingScore, 0) / incidentList.length) : null;
+  // The incident clock for the team headline: MTTD (first log to detection), MTTR (first log to contained), SLA met.
+  const incMttdS = median(incidentList.map(i => i.dwellS).filter((x): x is number => x != null));
+  const incMttrS = median(incidentList.map(i => i.respondS).filter((x): x is number => x != null));
+  const slaJudgedInc = incidentList.filter(i => i.slaMet != null);
+  const incSlaMet = slaJudgedInc.filter(i => i.slaMet).length;
 
   /** Escalation precision judged per INCIDENT: every distinct target is one row — a real
    *  incident (1, however many of its logs you escalated), the control log of a real
@@ -1395,6 +1419,10 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     // ── Tier-3 forensics: hosts examined, every finding judged, reports to the manager ──
     forensic: forensic ? { hosts: forensic.hosts.slice(0, 16), findings: forensic.findings.slice(0, 40), reports: forensic.reports.slice(0, 20) } : null,
     mttiS: mttiS != null ? Math.round(mttiS) : null,
+    // ── The incident clock (Tal, 2026-10-26): MTTD / MTTR per incident (median) and the 15-min escalation SLA ──
+    incMttdS: incMttdS != null ? Math.round(incMttdS) : null,
+    incMttrS: incMttrS != null ? Math.round(incMttrS) : null,
+    incSlaMet, incSlaJudged: slaJudgedInc.length, escalationSlaMin: ESCALATION_SLA_SEC / 60,
     hostsLeftOnline: [...attackHosts].filter(([k]) => !isoFirstByHost.has(k))
       .sort((a, b) => (a[1].first ?? 0) - (b[1].first ?? 0))
       .map(([, h]): MissedHost => ({ host: h.host, attackLogs: h.logs, firstAttackS: relS(h.first) })).slice(0, 10),
