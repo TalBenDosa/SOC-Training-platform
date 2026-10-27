@@ -145,6 +145,7 @@ export function EscalationsPanel({ events, nameOf, onAddToReport, sessionId }: {
                         <Field label="Assessment"><bdi>{asStr(p.assessment)}</bdi></Field>
                         <Field label="Severity given">{asStr(p.severity)}</Field>
                         <Field label="Requested action">{asStr(p.requested_action).replace(/[-_]/g, " ")}</Field>
+                        {p.recommend_isolation === true && asStr(p.hostname) && <Field label="Isolation"><b className="text-severity-high">Tier-1 recommends isolating <bdi className="font-mono">{asStr(p.hostname)}</bdi></b> (the senior analyst decides)</Field>}
                         <Field label="Confidence">{p.low_confidence ? "low: a lead sent for a second look" : conf != null ? `${conf}%` : ""}</Field>
                         <Field label="Affected">{[asStr(p.hostname), asStr(p.entity) !== asStr(p.hostname) ? asStr(p.entity) : ""].filter(Boolean).join(" · ")}</Field>
                         {iocs.length > 0 && <Field label={`IOCs (${iocs.length})`}><span className="inline-flex flex-wrap gap-1">{iocs.map((i, k) => <span key={k} className="rounded border border-border px-1 font-mono text-[10px] text-slate-200"><bdi>{asStr(i.type) ? `${asStr(i.type)}: ` : ""}{asStr(i.value)}</bdi></span>)}</span></Field>}

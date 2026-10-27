@@ -1193,3 +1193,17 @@ describe("computeReport: misses are per attack, by its main log (Tal, 2026-10-27
     expect(team.missedAttacks[1]).toMatchObject({ label: "USB mass copy", relatedLogs: 0, calledBenign: true });
   });
 });
+
+describe("computeReport: Tier-1 recommends isolation, the senior analyst decides (Tal, 2026-10-27)", () => {
+  it("judges each recommended host against the answer key", () => {
+    const { events, add } = log();
+    add("feed.event", null, 10, { id: "a1", expected_verdict: "tp", incident_id: "inc-1", severity: "high", hostname: "WS-1" });
+    add("feed.event", null, 20, { id: "n1", severity: "high", hostname: "WS-9" });
+    add("escalation.requested", "a", 60, { event_id: "a1", summary: "beacon", hostname: "WS-1", recommend_isolation: true }, "t1");
+    add("escalation.requested", "a", 90, { event_id: "n1", summary: "odd", hostname: "WS-9", recommend_isolation: true }, "t1");
+    const a = computeReport(events, [member("a", "t1")]).perUser[0];
+    const c = cell(a.rubric, "Isolation recommendations right") as { score: number | null; value?: string };
+    expect(c.value).toBe("1 of 2");
+    expect(c.score).toBe(4);   // 50% is the lowest non-zero band
+  });
+});

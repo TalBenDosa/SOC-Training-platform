@@ -203,7 +203,7 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
   const canContain = !teamIsolation || teamIsolation.canContain;
   const isolate = (next: boolean) => {
     if (teamIsolation) {
-      if (!canContain) { setIsoErr("Isolation is Tier-2 / Tier-3's call. Escalate this host from the feed with what you found here."); return; }
+      if (!canContain) { setIsoErr("Isolation is the senior analyst's call (Tier-2 / Tier-3). Escalate this host from the feed and tick \"Recommend isolating\" in the escalation."); return; }
       if (isoBusy) return;
       setIsoBusy(true); setIsoErr(null);
       void teamIsolation.set(inv.host.name, next, inv.title).then(err => { setIsoBusy(false); setIsoErr(err); });
@@ -321,7 +321,7 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
               title={canContain ? undefined : "Tier-1 investigates; Tier-2 / Tier-3 decide on isolation"}>
               <MonitorX className="mr-1.5 h-4 w-4" /> {isoBusy ? "Saving…" : isolated ? "Host isolated ✓ (release)" : "Isolate host"}
             </Button>
-            {teamIsolation && !isoErr && <span className="text-[10px] text-slate-500">{canContain ? "Recorded for the team: reviewed in the after-action report." : "Tier-1: investigate here, then escalate. Tier-2 / Tier-3 decide on isolation."}</span>}
+            {teamIsolation && !isoErr && <span className="text-[10px] text-slate-500">{canContain ? "Recorded for the team: reviewed in the after-action report." : "Tier-1: investigate here, then escalate and recommend isolation. The senior analyst (Tier-2 / Tier-3) decides."}</span>}
             {isoErr && <span role="alert" className="max-w-xs text-right text-[11px] text-neon-amber">{isoErr}</span>}
           </div>
         </div>

@@ -17,7 +17,7 @@ import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 const REQUESTED_ACTIONS = ["investigate", "contain", "monitor", "escalate-to-mgr"];
 const SEVERITIES = ["low", "medium", "high", "critical"];
 
-const EMPTY_FORM = { summary: "", observations: "", assessment: "", requested_action: "investigate", severity: "medium" };
+const EMPTY_FORM = { summary: "", observations: "", assessment: "", requested_action: "investigate", severity: "medium", recommend_isolation: false };
 
 export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraft, setIocDraft, nameOf, act, actR, sel, setSel, reportOpen, setReportOpen }: {
   sessionId: string;
@@ -245,6 +245,8 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
       iocs: iocDraft, requested_action: form.requested_action, severity: form.severity,
       confidence: isLowConf ? 0.3 : 0.7, low_confidence: isLowConf || undefined,
       hostname: asStr(fe?.hostname) || undefined, entity, snapshot,
+      // Isolation is the senior analyst's call (Tal, 2026-10-27): Tier-1 can only recommend it.
+      ...(form.recommend_isolation && asStr(fe?.hostname) ? { recommend_isolation: true } : {}),
       ...(images.length ? { images } : {}),
       what: form.summary, why: form.observations, // back-compat aliases
     }, { handled: ["claim_held"] });
@@ -465,6 +467,14 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
               <select aria-label="Severity" value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))} className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">{SEVERITIES.map(s => <option key={s} value={s}>severity: {s}</option>)}</select>
               <select aria-label="Requested action" value={form.requested_action} onChange={e => setForm(f => ({ ...f, requested_action: e.target.value }))} className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">{REQUESTED_ACTIONS.map(a => <option key={a} value={a}>action: {a}</option>)}</select>
             </div>
+            {asStr(selP?.hostname) && (
+              <label className="flex items-start gap-2 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200">
+                <input type="checkbox" id="t1-recommend-isolation" checked={!!form.recommend_isolation} onChange={e => setForm(f => ({ ...f, recommend_isolation: e.target.checked }))} className="mt-0.5" />
+                <span>Recommend isolating <bdi className="font-mono">{asStr(selP?.hostname)}</bdi>
+                  <span className="block text-[10px] text-slate-500">Isolation is the senior analyst&apos;s decision (Tier-2 / Tier-3). Your recommendation goes with the escalation.</span>
+                </span>
+              </label>
+            )}
             {/* T1-6: advisory checklist, ✓/○ per item; escalation is never blocked by it */}
             <div className="text-[10px] leading-relaxed text-slate-500">
               {allSet ? (

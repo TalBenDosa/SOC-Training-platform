@@ -145,7 +145,7 @@ export function T2Console({ hasTier3 = true, canEdr, sessionId, role, meId, esca
           : escalations.length === 0 ? <p className="mt-2 text-xs text-slate-400">Nothing escalated yet. Tier-1 sends cases here.</p> : (
           <div className="mt-2 space-y-2">
             {prioritized.map(e => {
-              const p = e.payload as { event_id?: string; what?: string; summary?: string; why?: string; observations?: string; assessment?: string; impact?: string; severity?: string; confidence?: number; requested_action?: string; entity?: string; hostname?: string; low_confidence?: boolean; iocs?: Ioc[]; snapshot?: Record<string, unknown>; images?: unknown };
+              const p = e.payload as { event_id?: string; what?: string; summary?: string; why?: string; observations?: string; assessment?: string; impact?: string; severity?: string; confidence?: number; requested_action?: string; entity?: string; hostname?: string; low_confidence?: boolean; recommend_isolation?: boolean; iocs?: Ioc[]; snapshot?: Record<string, unknown>; images?: unknown };
               const eid = String(p.event_id); const st = stOf(eid);
               const isAck = !!st?.acked; const isBounced = !!st?.bounced; const isResolved = !!st?.resolved; const mine = isMine(eid);
               const b = busy === e.seq + "" || busy === "ack" + eid;
@@ -207,6 +207,11 @@ export function T2Console({ hasTier3 = true, canEdr, sessionId, role, meId, esca
                       return <span className={`rounded border px-1 py-px font-bold ${breached ? "border-severity-high/60 bg-severity-high/15 text-severity-high" : "border-border text-slate-400"}`}>⏱ waiting {mins}m{breached ? " · SLA" : ""}</span>;
                     })()}
                   </p>
+                  {p.recommend_isolation && p.hostname && (
+                    <p className="mt-1 inline-flex items-center gap-1 rounded border border-severity-high/50 bg-severity-high/10 px-1.5 py-0.5 text-[10px] font-semibold text-severity-high">
+                      Tier-1 recommends isolating <bdi className="font-mono">{p.hostname}</bdi>: your decision, in EDR
+                    </p>
+                  )}
                   {isBounced && st?.bounceReason && <p className="mt-1 text-[10px] text-neon-amber">↩ bounced to Tier-1: {st.bounceReason}</p>}
                   {/* Open the FULL original log T1 flagged — investigate the real event, not just the words */}
                   {snap && (

@@ -48,7 +48,7 @@ describe("EdrConsole — team isolation", () => {
     const set = vi.fn(async () => null);
     mount({ state: new Map(), set, canContain: false });
     expect((isolateBtn() as HTMLButtonElement).disabled).toBe(true);
-    expect(el!.textContent).toContain("Tier-2 / Tier-3 decide on isolation");
+    expect(el!.textContent).toContain("The senior analyst (Tier-2 / Tier-3) decides.");
     await act(async () => { isolateBtn().click(); });
     expect(set).not.toHaveBeenCalled();
   });

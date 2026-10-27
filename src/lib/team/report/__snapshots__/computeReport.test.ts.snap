@@ -372,6 +372,13 @@ exports[`computeReport — characterization (real ended session) > produces the 
           "value": "0% of 1 escalation real",
         },
         {
+          "label": "Isolation recommendations right",
+          "note": "hosts you recommended isolating in an escalation: right when the host carried real attack activity (isolation itself is the senior analyst's call)",
+          "score": null,
+          "target": "100%",
+          "value": undefined,
+        },
+        {
           "label": "Escalation card completeness",
           "note": "the escalation card's fields and evidence filled in",
           "score": 4,

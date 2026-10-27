@@ -400,6 +400,8 @@ interface RubricCtx {
   /** Tier-2: your acknowledgment → your incident report on that case. */
   reportMin: number | null; reportN: number;
   attackHandling: number | null; benignAcc: number | null; escCount: number; reportCount: number; isoCount: number; contReqCount: number;
+  /** Tier-1 isolation recommendations (Tal, 2026-10-27): the host carried real attack activity. */
+  isoRecN: number; isoRecRight: number;
 }
 /** Tier-3 forensic cells: added only when the analyst did forensic work (a hunt-only Tier-3 is not penalised). */
 function forensicCells(f: UserForensics | null): RubricCell[] {
@@ -444,6 +446,8 @@ function roleRubric(c: RubricCtx): RubricCell[] {
         c.attackNotHandedOff > 0 && c.escPrecision == null
           ? { label: "Escalation precision", score: 0, value: `${c.attackNotHandedOff} attack log${c.attackNotHandedOff === 1 ? "" : "s"} never escalated`, target: "≥ 80%", note: `you marked ${c.attackNotHandedOff} real attack log${c.attackNotHandedOff === 1 ? "" : "s"} as malicious and never escalated ${c.attackNotHandedOff === 1 ? "it" : "them"}: Tier-2 never saw the incident` }
           : { label: "Escalation precision", score: c.escPrecision == null ? null : smoothBand(c.escPrecision, 10, 80), value: c.escPrecision == null ? undefined : `${c.escPrecision}% of ${c.escCount} escalation${c.escCount === 1 ? "" : "s"} real`, target: "≥ 80%", note: "per incident: of what you escalated, how much was a real incident (duplicates of one incident count once)" },
+        { label: "Isolation recommendations right", score: c.isoRecN ? bandHigh(Math.round((c.isoRecRight / c.isoRecN) * 100), 100, 75, 50) : null, value: c.isoRecN ? `${c.isoRecRight} of ${c.isoRecN}` : undefined, target: "100%",
+          note: "hosts you recommended isolating in an escalation: right when the host carried real attack activity (isolation itself is the senior analyst's call)" },
         { label: "Escalation card completeness", score: c.escQuality == null ? null : bandHigh(c.escQuality, 90, 70, 40), value: pctVal(c.escQuality), target: "≥ 90%", note: "the escalation card's fields and evidence filled in" },
         { label: "Share of the load", score: c.loadSharePct == null ? null : smoothBand(c.loadSharePct, LOAD_SHARE_ZERO, LOAD_SHARE_FULL), target: `≥ ${LOAD_SHARE_FULL}% of a fair share`,
           value: c.loadSharePct == null ? undefined : `${c.loadHandled} of ~${Math.round(c.loadFair)} logs (${c.loadSharePct}%)`, note: "logs you triaged vs a fair share of the logs that needed triage; logs a teammate handled never count against you" },
@@ -1256,6 +1260,9 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     }).filter((x): x is number => x != null) : [];
     const reportTimes = m.role === "t2" ? [...myAck].map(([inc, at]) => { const rt = myReportAt.get(inc); return rt != null && rt >= at ? runMs(at, rt) / 60000 : null; }).filter((x): x is number => x != null) : [];
 
+    // Tier-1 isolation recommendations, one per host (Tal, 2026-10-27).
+    const isoRecs = [...new Set(esc.filter(e => (e.payload as { recommend_isolation?: unknown }).recommend_isolation === true).map(e => asStr((e.payload as { hostname?: unknown }).hostname).trim()).filter(Boolean))];
+
     // ── v4: hosts this analyst isolated (first isolation per host), judged.
     const myIso: IsolationItem[] = [];
     for (const it of isoItems) if (it.by === m.user_id && !myIso.some(x => hostKey(x.host) === hostKey(it.host))) myIso.push(it);
@@ -1277,6 +1284,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       detectMin: isT1 ? median(detectTimes) : null, detectN: detectTimes.length,
       escalateMin: isT1 ? median(escalateTimes) : null, escalateN: escalateTimes.length,
       containMin: median(containTimes), containN: containTimes.length, reportMin: median(reportTimes), reportN: reportTimes.length,
+      isoRecN: isoRecs.length, isoRecRight: isoRecs.filter(h => attackHosts.has(hostKey(h))).length,
       attackHandling, benignAcc, escCount: esc.length, reportCount: reports.length, isoCount: myIso.length, contReqCount: myContReq.length,
     });
     const measuredCells = rubric.filter(c => c.score != null).length;
