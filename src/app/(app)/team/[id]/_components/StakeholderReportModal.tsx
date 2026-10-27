@@ -63,21 +63,30 @@ export function StakeholderReportModal({ events, severity, seed, onClose, act, d
       const h = asStr(p.hostname) || asStr(p.snapshot?.hostname);
       if (st.rounds && h) hosts.add(h);
     }
-    const actions: string[] = [];
+    const actions: { host: string; text: string }[] = [];
     for (const c of containmentRequests(events)) {
       const p = c.request.payload as { target?: unknown; containment_type?: unknown };
-      if (c.status === "approved" || c.status === "executed") actions.push(plainAction(asStr(p.containment_type), asStr(p.target), c.status));
+      if (c.status === "approved" || c.status === "executed") actions.push({ host: asStr(p.target), text: plainAction(asStr(p.containment_type), asStr(p.target), c.status) });
       if (asStr(p.target)) hosts.add(asStr(p.target));
     }
-    for (const h of isolationState(events).values()) if (h.isolated) { actions.push(`${h.host} cut off from the network`); hosts.add(h.host); }
-    return { hosts: [...hosts].slice(0, 12), actions: [...new Set(actions)].join("; ") };
+    for (const h of isolationState(events).values()) if (h.isolated) { actions.push({ host: h.host, text: `${h.host} cut off from the network` }); hosts.add(h.host); }
+    // A report started from one escalation is about its host; a report opened from the desk covers them all.
+    const own = seed.hosts.filter(Boolean).map(h => h.toLowerCase());
+    const mine = own.length ? actions.filter(a => own.includes(a.host.toLowerCase())) : actions;
+    return { hosts: own.length ? seed.hosts.filter(Boolean) : [...hosts].slice(0, 12), actions: [...new Set(mine.map(a => a.text))].join("; ") };
   }, [events, seed.hosts]);
 
-  const initial: ReportDraft = draft ?? {
+  const fresh: ReportDraft = {
     audience: "ciso", status: "investigating", title: "", what_happened: seed.lines.join(". "), business_impact: "",
     affected: pre.hosts.join(", "), data_impact: "none_known", data_types: "", actions_taken: pre.actions,
     known: "", unknown: "", asks: "", next_update_min: "",
   };
+  const initial: ReportDraft = draft ?? fresh;
+  // An unsent draft is continued, and an escalation added from the Escalations list joins it.
+  // That used to happen silently, so the form looked like a copy of the last report (Tal,
+  // 2026-10-27): say so, and offer a clean report from this escalation instead.
+  const [merge, setMerge] = useState<{ added: string[] } | null>(() =>
+    draft ? { added: seed.lines.filter(l => l && !draft.what_happened.includes(l)) } : null);
   const [f, setF] = useState<ReportDraft>(() => {
     // A case added from Escalations joins the saved draft instead of replacing it.
     if (!draft) return initial;
@@ -153,7 +162,20 @@ export function StakeholderReportModal({ events, severity, seed, onClose, act, d
           <h2 id="sh-report-title" className="flex items-center gap-2 text-base font-semibold text-white"><FileText className="h-4 w-4 text-neon-purple" aria-hidden /> Incident report to stakeholders</h2>
           <button type="button" onClick={close} aria-label="Close (your draft is kept)" title="Close (your draft is kept)" className="rounded p-1 text-slate-400 hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400"><X className="h-4 w-4" /></button>
         </div>
-        <p className="text-[11px] text-slate-400">Business language, no jargon. Say what is confirmed and what is not, never more than you know. {severity ? <>Severity: <b className="text-slate-200">Sev-{severity}</b> (from your declaration).</> : <span className="text-neon-amber">Declare the incident first: the report carries its severity.</span>} Fields marked {req} are required.{dirty && " Closing keeps your draft."}</p>
+        <p className="text-[11px] text-slate-400">Business language, no jargon. Say what is confirmed and what is not, never more than you know. {severity ? <>Severity: <b className="text-slate-200">Sev-{severity}</b> (from your declaration).</> : <span className="text-neon-amber">The incident is not declared yet: pick its severity above the Send button.</span>} Fields marked {req} are required.{dirty && " Closing keeps your draft."}</p>
+        {merge && (
+          <div role="status" className="space-y-1 rounded-lg border border-neon-amber/40 bg-neon-amber/[0.06] px-3 py-2 text-[11px]">
+            <p className="font-semibold text-neon-amber">This is your earlier report, not sent yet.</p>
+            {merge.added.length > 0
+              ? <p className="text-slate-300">The escalation you picked was added to it: <bdi className="text-slate-100">{merge.added.join(" · ")}</bdi>. One report can cover the whole incident.</p>
+              : seed.lines.length > 0 ? <p className="text-slate-300">The escalation you picked is already in it.</p>
+              : <p className="text-slate-300">You can carry on from where you stopped.</p>}
+            <button type="button" onClick={() => { setF(fresh); setMerge(null); }}
+              className="rounded border border-neon-amber/50 px-2 py-0.5 font-semibold text-neon-amber transition hover:bg-neon-amber/10">
+              {seed.lines.length > 0 ? "Start a new report from this escalation" : "Start a new report"}
+            </button>
+          </div>
+        )}
 
         <section className="space-y-2" aria-labelledby="sh-sec-who">
           <h3 id="sh-sec-who" className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Who and when</h3>

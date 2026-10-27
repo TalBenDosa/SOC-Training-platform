@@ -19,11 +19,11 @@ const full: ReportDraft = {
 describe("StakeholderReportModal", () => {
   let root: Root | null = null; let el: HTMLDivElement | null = null;
   afterEach(() => { act(() => root?.unmount()); el?.remove(); });
-  function mount(draft: ReportDraft | null, calls: [string, Record<string, unknown>][]) {
+  function mount(draft: ReportDraft | null, calls: [string, Record<string, unknown>][], seed = { hosts: [] as string[], lines: [] as string[] }) {
     el = document.createElement("div"); document.body.appendChild(el);
     root = createRoot(el);
     act(() => root!.render(React.createElement(StakeholderReportModal, {
-      events: [], severity: null, seed: { hosts: [], lines: [] }, onClose: () => {}, draft,
+      events: [], severity: null, seed, onClose: () => {}, draft,
       act: async (t: string, p: Record<string, unknown>) => { calls.push([t, p]); return true; },
     })));
     return el;
@@ -52,5 +52,20 @@ describe("StakeholderReportModal", () => {
     expect(calls.map(x => x[0])).toEqual(["incident.declared", "stakeholder.report_sent"]);
     expect(calls[0][1]).toEqual({ severity: 3 });
     expect(calls[1][1]).toMatchObject({ severity: 3, next_update_min: 30, affected: ["WS-SALES-1876"] });
+  });
+
+  it("adding another escalation to an unsent draft says so, and can start a clean report instead", async () => {
+    const calls: [string, Record<string, unknown>][] = [];
+    const line = "Phishing on WS-HR-1182 (Tier-1: true positive)";
+    const c = mount(full, calls, { hosts: ["WS-HR-1182"], lines: [line] });
+    expect(c.textContent).toContain("This is your earlier report, not sent yet.");
+    expect(c.textContent).toContain(`was added to it: ${line}`);
+    const what = c.querySelector<HTMLTextAreaElement>("#sh-what")!;
+    expect(what.value).toContain(full.what_happened);
+    await act(async () => { button(c, "Start a new report from this escalation").click(); });
+    expect(what.value).toBe(line);
+    expect(c.querySelector<HTMLInputElement>("#sh-affected")!.value).toBe("WS-HR-1182");
+    expect(c.querySelector<HTMLInputElement>("#sh-title")!.value).toBe("");
+    expect(c.textContent).not.toContain("This is your earlier report");
   });
 });
