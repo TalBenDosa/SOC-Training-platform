@@ -35,7 +35,7 @@ interface CardBody {
 }
 
 const DIRECTOR_POLL_MS = 20_000;
-const SEVERITY: { v: number; label: string; hint: string }[] = [
+export const SEVERITY: { v: number; label: string; hint: string }[] = [
   { v: 1, label: "Sev-1", hint: "critical: data loss, critical asset, ransomware, spreading" },
   { v: 2, label: "Sev-2", hint: "high: confirmed compromise, contained to a few hosts" },
   { v: 3, label: "Sev-3", hint: "medium: suspicious activity, not yet confirmed" },

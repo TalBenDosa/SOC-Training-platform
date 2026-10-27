@@ -8,6 +8,7 @@ import { asStr } from "@/lib/team/format";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { useServerNow } from "@/lib/team/clock";
 import { containmentRequests, escalationStates, isolationState } from "@/lib/team/projections";
+import { SEVERITY } from "./CommandDesk";
 
 /**
  * The incident report to stakeholders: the SOC Manager's structured update to the CISO, the
@@ -86,6 +87,10 @@ export function StakeholderReportModal({ events, severity, seed, onClose, act, d
   });
   const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
+  // The server takes a report only once the incident is declared. The Send button used to be
+  // greyed out with no word why (Tal, 2026-10-27): declare it here, in the same click.
+  const [declareSev, setDeclareSev] = useState<number | null>(null);
+  const [sendErr, setSendErr] = useState<string | null>(null);
   const dirty = JSON.stringify(f) !== JSON.stringify(initial) || !!draft;
   useEffect(() => { onDraft?.(f); }, [f]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -103,16 +108,31 @@ export function StakeholderReportModal({ events, severity, seed, onClose, act, d
     ...(!/^\d{1,3}$/.test(f.next_update_min) ? { next_update_min: "Choose when the next update comes: it is a promise you will be held to." } : {}),
   };
   const ok = Object.keys(errors).length === 0;
+  const FIELD_NAME: Record<string, string> = { title: "Title", what_happened: "What happened", business_impact: "Business impact", actions_taken: "Actions taken", unknown: "What we do not know yet", next_update_min: "Next update" };
 
   async function send() {
-    setTried(true);
-    if (!ok || busy || !severity) return;
+    setTried(true); setSendErr(null);
+    if (!ok) {
+      // Take the manager to the first missing field (Title and Next update sit at the top, out of view).
+      const FIRST_ID: Record<string, string> = { title: "sh-title", what_happened: "sh-what", business_impact: "sh-impact", actions_taken: "sh-actions", unknown: "sh-unknown" };
+      const k = (["next_update_min", "title", "what_happened", "business_impact", "actions_taken", "unknown"] as const).find(x => errors[x]);
+      const el = k === "next_update_min" ? ref.current?.querySelector<HTMLInputElement>('input[name="sh-next"]') : k ? document.getElementById(FIRST_ID[k]) : null;
+      el?.scrollIntoView?.({ behavior: "smooth", block: "center" }); el?.focus({ preventScroll: true });
+      return;
+    }
+    if (busy) return;
+    if (!severity && declareSev == null) { setSendErr("Pick the incident severity above the Send button: the report goes out once the incident is declared."); return; }
     setBusy(true);
+    if (!severity) {
+      const declared = await act("incident.declared", { severity: declareSev });
+      if (!declared) { setBusy(false); setSendErr("Couldn't declare the incident. Try again."); return; }
+    }
     const sent = await act("stakeholder.report_sent", {
-      ...f, severity, next_update_min: Number(f.next_update_min),
+      ...f, severity: severity ?? declareSev, next_update_min: Number(f.next_update_min),
       affected: f.affected.split(/[,\n]/).map(x => x.trim()).filter(Boolean).slice(0, 30),
     });
     setBusy(false);
+    if (!sent) setSendErr("The report was not sent. Check the fields and try again.");
     if (sent) {
       const due = new Date(now + Number(f.next_update_min) * 60000);
       onSent?.(`Report sent to ${AUD_LABEL[f.audience] ?? f.audience}. You promised the next update by ${due.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`);
@@ -189,10 +209,26 @@ export function StakeholderReportModal({ events, severity, seed, onClose, act, d
             <input id="sh-asks" value={f.asks} maxLength={400} onChange={set("asks")} placeholder="Decisions or approvals (e.g. approve downtime of the payment server)" className={field} /></label>
         </section>
 
+        {!severity && (
+          <fieldset className="space-y-1.5 rounded-lg border border-neon-purple/40 bg-neon-purple/[0.06] px-3 py-2">
+            <legend className="px-1 text-[11px] font-semibold text-neon-purple">The incident is not declared yet</legend>
+            <p className="text-[11px] text-slate-300">A report to stakeholders goes out for a declared incident. Pick its severity and Send declares it and sends the report together. You can change the severity later.</p>
+            <div className="flex flex-wrap gap-1.5">
+              {SEVERITY.map(s => (
+                <label key={s.v} className="cursor-pointer" title={s.hint}>
+                  <input type="radio" name="sh-declare" value={s.v} checked={declareSev === s.v} onChange={() => { setDeclareSev(s.v); setSendErr(null); }} className="peer sr-only" />
+                  <span className="block rounded border border-border px-2 py-1 font-mono text-xs text-slate-300 peer-checked:border-neon-purple/60 peer-checked:bg-neon-purple/15 peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-cyber-400">{s.label}</span>
+                </label>
+              ))}
+            </div>
+            {declareSev != null && <p className="text-[11px] text-slate-400">{SEVERITY.find(s => s.v === declareSev)?.hint}</p>}
+          </fieldset>
+        )}
         <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
-          <Button variant="primary" size="sm" disabled={busy || !severity} onClick={send}>Send report</Button>
+          <Button variant="primary" size="sm" disabled={busy} onClick={send}>{severity ? "Send report" : declareSev != null ? `Declare Sev-${declareSev} and send` : "Send report"}</Button>
           <Button variant="ghost" size="sm" onClick={close}>Close, keep draft</Button>
-          {tried && !ok && <span className="text-[11px] text-neon-amber" role="alert">{Object.keys(errors).length} field{Object.keys(errors).length > 1 ? "s" : ""} still needed (marked above).</span>}
+          {tried && !ok && <span className="text-[11px] text-neon-amber" role="alert">Still needed: {Object.keys(errors).map(k => FIELD_NAME[k] ?? k).join(", ")}.</span>}
+          {sendErr && <span className="basis-full text-[11px] text-neon-amber" role="alert">{sendErr}</span>}
         </div>
       </div>
     </div>
