@@ -1155,3 +1155,19 @@ describe("computeReport — the incident clock: attack name, 15-minute escalatio
     expect(inc.find(i => i.id === "inc-2")!.slaMet).toBeNull();
   });
 });
+
+describe("computeReport: Tier-1 adds a log to an open case (Sdema review 2026-10-25)", () => {
+  it("counts as triaged and handed off, with attack credit and no new escalation", () => {
+    const { events, add } = log();
+    add("feed.event", null, 1, { id: "atk-1", expected_verdict: "tp", severity: "high", hostname: "WS-1" });
+    add("feed.event", null, 2, { id: "atk-2", expected_verdict: "tp", severity: "high", hostname: "WS-1" });
+    add("escalation.requested", "t2", 30, { event_id: "atk-1", summary: "case", hostname: "WS-1" }, "t2");
+    add("escalation.acknowledged", "t2", 31, { event_id: "atk-1" }, "t2");
+    // No verdict on atk-2: adding it to the case is the whole action.
+    add("evidence.pinned", "a", 60, { event_id: "atk-2", case_event_id: "atk-1", label: "second log" }, "t1");
+    const { perUser } = computeReport(events, [member("a", "t1"), member("t2", "t2")]);
+    const a = perUser.find(u => u.user_id === "a")!;
+    expect(a.attackHandling).toBe(100);
+    expect((cell(a.rubric, "Share of the load") as { note?: string }).note).toContain("you triaged 1 log;");
+  });
+});

@@ -25,7 +25,7 @@ export const CONTAINMENT_TYPES: [string, string][] = [["isolate_host", "Isolate 
 export const containmentVerb = (t?: string) => (t === "disable_account" ? "Disable" : t === "block_indicator" ? "Block" : "Isolate");
 const EMPTY_REP = { summary: "", findings: "", verdict: "true_positive", recommendation: "", incident: "" };
 
-export function T2Console({ hasTier3 = true, canEdr, sessionId, role, meId, escalations, escState, reportedIds, reportByEid, elevatedIds, containments, scope, scopes, incidents, incidentOf, nameOf, act, actR, onEdr, onPivot, pauses = [], personOf }: {
+export function T2Console({ hasTier3 = true, canEdr, sessionId, role, meId, escalations, escState, reportedIds, reportByEid, elevatedIds, containments, scope, scopes, incidents, incidentOf, nameOf, act, actR, onEdr, onPivot, pauses = [], personOf, addedByCase }: {
   sessionId: string; role: string; meId: string;
   /** A Tier-3 analyst is in the room (no Tier-3: no "Escalate to Tier-3", the request would reach nobody). */
   hasTier3?: boolean;
@@ -37,6 +37,8 @@ export function T2Console({ hasTier3 = true, canEdr, sessionId, role, meId, esca
   nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; actR: ActR; onEdr?: (description?: string, host?: string) => void;
   /** Whether the EDR console has endpoint telemetry for this host (no host: for the escalated cases). */
   canEdr?: (host?: string) => boolean;
+  /** Logs Tier-1 added to each case from the queue, keyed by the case's event_id. */
+  addedByCase?: Map<string, { eid: string; by: string | null; label: string; at: string | null }[]>;
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
   /** Paused spans of the session (pausedSpans) — waits and SLA badges skip them. */
   pauses?: PauseSpan[];
@@ -189,6 +191,12 @@ export function T2Console({ hasTier3 = true, canEdr, sessionId, role, meId, esca
                     <div className="mt-1">
                       <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Indicators ({iocs.length})</p>
                       <div className="mt-0.5 flex flex-wrap gap-1">{iocs.slice(0, 8).map(i => <span key={i.value} className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[9px] text-slate-300"><span className="text-slate-500">{i.type}:</span>{i.value}</span>)}</div>
+                    </div>
+                  )}
+                  {(addedByCase?.get(eid)?.length ?? 0) > 0 && (
+                    <div className="mt-1 rounded border border-cyber-500/30 bg-cyber-500/[0.04] px-2 py-1">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-cyber-300">Added to this case by Tier-1 ({addedByCase!.get(eid)!.length})</p>
+                      <ul className="mt-0.5 space-y-0.5">{addedByCase!.get(eid)!.map(a => <li key={a.eid} className="text-[11px] text-slate-300"><bdi>{a.label}</bdi> <span className="font-mono text-[10px] text-slate-500">· {nameOf(a.by)}{a.at ? ` ${a.at.slice(11, 16)}` : ""}</span></li>)}</ul>
                     </div>
                   )}
                   <p className="mt-1 flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-500">

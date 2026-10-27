@@ -8,6 +8,7 @@ import type { Ev, Ioc } from "@/lib/team/types";
 import { asStr, detectIocType, isValidIoc, IOC_HELP, type ActR } from "@/lib/team/format";
 import { useServerNow } from "@/lib/team/clock";
 import { activeClaims } from "@/lib/team/projections";
+import { attachedLogs, hostKeyOf, openCasesByHost } from "@/lib/team/hostCases";
 import { relatedLogs, entityLabel } from "@/lib/team/correlate";
 import { rationaleProblem } from "@/lib/team/escalationCheck";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
@@ -262,6 +263,20 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
   const selUser = asStr(selP?.user_email) || asStr(selP?.user?.email);
   const selSev = asStr(selP?.severity);
   const selSource = asStr(selP?.source);
+  // The host already has an open case (Sdema review 2026-10-25: three escalations for one host):
+  // offer to add this log to it instead of opening another.
+  const hostCase = useMemo(() => { const c = openCasesByHost(events).get(hostKeyOf(selHost)); return c && c.caseEid !== sel ? c : null; }, [events, selHost, sel]);
+  const selAttached = useMemo(() => (sel ? attachedLogs(events).has(sel) : false), [events, sel]);
+  const [caseBusy, setCaseBusy] = useState(false);
+  const [caseErr, setCaseErr] = useState<string | null>(null);
+  async function addToCase() {
+    if (!sel || !hostCase) return;
+    setCaseBusy(true); setCaseErr(null);
+    const r = await actR("evidence.pinned", { event_id: sel, case_event_id: hostCase.caseEid, host: hostCase.host, label: selDesc.slice(0, 140), summary: selDesc.slice(0, 140), attached: true });
+    if (r.ok) { await act("alert.released", { event_id: sel }); setReportOpen(false); }
+    else setCaseErr(r.message ?? "Couldn't add it to the case. Try again.");
+    setCaseBusy(false);
+  }
   const reportRef = useRef<HTMLDivElement>(null);
   useFocusTrap(reportOpen && !!sel, reportRef, { onEscape: () => setReportOpen(false) });
   return (
@@ -385,6 +400,17 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
 
           {/* Claim status — surfaced INSIDE the modal so the 🚩 path can't hide a teammate's lock */}
           {claimBanner(true)}
+
+          {hostCase && (
+            <div className="mt-2 rounded-lg border border-cyber-500/50 bg-cyber-500/10 px-3 py-2">
+              <p className="text-xs font-semibold text-cyber-100"><bdi className="font-mono">{hostCase.host}</bdi> already has an open case{hostCase.owner ? <> with <bdi>{hostCase.owner === meId ? "you" : nameOf(hostCase.owner)}</bdi></> : " waiting for Tier-2"}</p>
+              <p className="mt-0.5 text-[11px] text-cyber-300/80">Case: <bdi>{hostCase.label}</bdi>. If this log is part of the same attack, add it to that case. Escalate only if it is a different incident.</p>
+              {selAttached ? <p className="mt-1 text-[11px] text-neon-green">Already added to the case.</p> : (
+                <Button variant="outline" size="sm" className="mt-1.5" disabled={caseBusy} onClick={addToCase}>Add to the case instead</Button>
+              )}
+              {caseErr && <p role="alert" className="mt-1 text-[11px] text-neon-amber">{caseErr}</p>}
+            </div>
+          )}
 
           {/* Disposition — triage before escalate. Set it right here if it isn't yet. */}
           <div className="mt-2">

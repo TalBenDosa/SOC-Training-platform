@@ -389,9 +389,40 @@ type DetailPanelProps = {
   /** Team Tier-1: close the alert from the open log (false positive / benign + an optional
    *  note). Resolves to an error message, or null when it was closed. */
   onCloseAlert?: (event: LiveEvent, verdict: "false_positive" | "benign", note: string) => Promise<string | null>;
+  /** Team Tier-1: add this log to the open case on its host. Resolves to an error message, or null. */
+  onAddToCase?: (event: LiveEvent) => Promise<string | null>;
   /** Team feed: this row's triage state, shown at the top of the open log. */
   rowStatus?: (id?: string) => RowStatus | null;
 };
+
+/** Tier-1, on a host that already has an open case: add the log to it instead of a new escalation. */
+function AddToCaseBar({ event, onAddToCase, status }: { event: LiveEvent; onAddToCase: NonNullable<DetailPanelProps["onAddToCase"]>; status: RowStatus | null }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const hc = status?.hostCase;
+  if (!hc || status?.escalated) return null;
+  if (status?.attached) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-cyber-500/30 bg-cyber-500/5 px-4 py-2.5 text-sm text-cyber-200">
+        <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden /> Added to {hc.owner ? `${hc.owner}'s` : "the"} case on <bdi className="font-mono">{hc.host}</bdi>{status.attached.by !== "you" ? ` by ${status.attached.by}` : ""}. It left the triage queue.
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-lg border border-cyber-500/50 bg-cyber-500/10 px-4 py-3" onClick={e => e.stopPropagation()}>
+      <p className="text-sm font-semibold text-cyber-100">
+        <bdi className="font-mono">{hc.host}</bdi> already has an open case{hc.owner ? <> with <bdi>{hc.owner}</bdi></> : " waiting for Tier-2"}
+      </p>
+      <p className="mt-0.5 text-[11px] text-cyber-300/80">Case: <bdi>{hc.label}</bdi>. If this log is part of the same attack, add it to that case as evidence. No new escalation is needed.</p>
+      <button type="button" disabled={busy}
+        onClick={async () => { setBusy(true); setErr(null); const e = await onAddToCase(event); setBusy(false); if (e) setErr(e); }}
+        className="mt-2 rounded-md border border-cyber-400/60 bg-cyber-500/20 px-3 py-1.5 text-xs font-semibold text-cyber-100 transition hover:bg-cyber-500/30 disabled:opacity-50">
+        Add to the case
+      </button>
+      {err && <p role="alert" className="mt-1.5 text-[11px] text-neon-amber">{err}</p>}
+    </div>
+  );
+}
 
 /** The "close this alert" block of a Tier-1 open log: two plain choices and an optional note. */
 function CloseAlertBar({ event, onCloseAlert, status }: { event: LiveEvent; onCloseAlert: NonNullable<DetailPanelProps["onCloseAlert"]>; status: RowStatus | null }) {
@@ -447,6 +478,7 @@ export function DetailPanelBody({
   onAddIoc,
   onEscalate,
   onCloseAlert,
+  onAddToCase,
   rowStatus,
 }: DetailPanelProps) {
   // Tells the global "Report a problem" button which log the learner has open.
@@ -586,12 +618,14 @@ export function DetailPanelBody({
           const st = rowStatus?.(event.id);
           if (!st) return null;
           const line = st.escalated ? "Escalated to Tier-2"
+            : st.attached ? `Added to the open case on this host${st.attached.by !== "you" ? ` by ${st.attached.by}` : ""}`
             : st.disposed === "false_positive" ? "Closed: false positive" : st.disposed === "benign" ? "Closed: benign"
             : st.disposed ? `Verdict: ${st.disposed.replace("_", " ")} (not escalated yet)`
             : st.claim === "me" ? "Investigating: you" : st.claim === "other" ? `Investigating: ${st.claimBy ?? "a teammate"}`
             : st.triage ? `New: waiting ${st.triage.mins} min${st.triage.breached ? " (past its SLA)" : ""}, nobody has taken it` : null;
           return line ? <p className="rounded-md border border-border bg-bg px-3 py-1.5 text-xs text-slate-300"><span className="font-semibold text-slate-400">Status · </span>{line}</p> : null;
         })()}
+        {onAddToCase && <AddToCaseBar event={event} onAddToCase={onAddToCase} status={rowStatus?.(event.id) ?? null} />}
         {/* Escalate-this-log CTA — Tier-1 only (parent passes onEscalate). Opens the
             structured escalation report pre-loaded with THIS log + its indicators. */}
         {onEscalate && (
@@ -1054,7 +1088,7 @@ function SocMethodologyBanner() {
 // ─── Event row ────────────────────────────────────────────────────────────────
 
 const EventRow = memo(function EventRow({
-  event, isNew, onThreatQuery, onXp, onRowOpened, onPivot, onAddIoc, onEscalate, onCloseAlert, rowStatus,
+  event, isNew, onThreatQuery, onXp, onRowOpened, onPivot, onAddIoc, onEscalate, onCloseAlert, onAddToCase, rowStatus,
 }: {
   event: LiveEvent;
   isNew: boolean;
@@ -1065,6 +1099,7 @@ const EventRow = memo(function EventRow({
   onAddIoc?: (value: string, type: string) => void;
   onEscalate?: (event: LiveEvent) => void;
   onCloseAlert?: DetailPanelProps["onCloseAlert"];
+  onAddToCase?: DetailPanelProps["onAddToCase"];
   rowStatus?: (id?: string) => RowStatus | null;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -1193,6 +1228,8 @@ const EventRow = memo(function EventRow({
                     {(st.disposed === "false_positive" || st.disposed === "benign") && <span className="rounded border border-slate-600/60 bg-slate-800/70 px-1 py-px text-[9px] font-semibold text-slate-300">✓ Closed · {st.disposed === "benign" ? "benign" : "false positive"}</span>}
                     {(st.disposed === "true_positive" || st.disposed === "suspicious") && !st.escalated && <span className="rounded border border-neon-amber/40 bg-neon-amber/10 px-1 py-px text-[9px] font-semibold text-neon-amber">{st.disposed === "suspicious" ? "Suspicious" : "True positive"} · not escalated yet</span>}
                     {st.escalated && <span className="rounded border border-neon-green/40 bg-neon-green/10 px-1 py-px text-[9px] font-semibold text-neon-green">↗ Escalated to Tier-2</span>}
+                    {st.attached && <span title="Added to the open case on this host as evidence" className="rounded border border-cyber-500/40 bg-cyber-500/10 px-1 py-px text-[9px] font-semibold text-cyber-200">📁 In the case</span>}
+                    {st.hostCase && !st.attached && !st.escalated && <span title={`Open case on this host: ${st.hostCase.label}. Add this log to it rather than escalating again.`} className="rounded border border-cyber-500/40 bg-cyber-500/10 px-1 py-px text-[9px] font-semibold text-cyber-200">📁 Case open{st.hostCase.owner ? <> · <bdi>{st.hostCase.owner}</bdi></> : ""}</span>}
                     {st.contained && <span title="This host is already isolated from the network by the EDR. The case is in hand: add what you see to it rather than opening a new one." className="rounded border border-neon-green/40 bg-neon-green/10 px-1 py-px text-[9px] font-semibold text-neon-green">🛡 Host isolated · <bdi>{st.contained.by}</bdi></span>}
                     {st.triage && (
                       <span title={st.triage.orphan ? "Past its triage SLA and nobody has taken it" : st.triage.breached ? "Past its triage SLA" : st.claim ? "Open for this long: taken, no verdict yet" : "In the triage queue: waiting for a Tier-1 analyst to take it"}
@@ -1235,7 +1272,7 @@ const EventRow = memo(function EventRow({
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
           >
-            <DetailPanel event={event} onThreatQuery={onThreatQuery} onXp={onXp} onPivot={onPivot} onAddIoc={onAddIoc} onEscalate={onEscalate} onCloseAlert={onCloseAlert} rowStatus={rowStatus} />
+            <DetailPanel event={event} onThreatQuery={onThreatQuery} onXp={onXp} onPivot={onPivot} onAddIoc={onAddIoc} onEscalate={onEscalate} onCloseAlert={onCloseAlert} onAddToCase={onAddToCase} rowStatus={rowStatus} />
           </motion.tr>
         )}
       </AnimatePresence>
@@ -1263,6 +1300,10 @@ export interface RowStatus {
   triage?: { mins: number; breached: boolean; orphan: boolean };
   /** The row's host is isolated from the EDR console right now (and who did it). */
   contained?: { by: string };
+  /** The row's host has an open case (another log's escalation): who owns it, what it is. */
+  hostCase?: { owner: string | null; label: string; host: string };
+  /** This log was added to that case as evidence (by whom: "you" or a name). */
+  attached?: { by: string };
 }
 
 export interface EventFeedProps {
@@ -1299,6 +1340,7 @@ export interface EventFeedProps {
   rowStatus?: (id?: string) => RowStatus | null;
   /** Team Tier-1: close an alert from its open log (see DetailPanelProps.onCloseAlert). */
   onCloseAlert?: DetailPanelProps["onCloseAlert"];
+  onAddToCase?: DetailPanelProps["onAddToCase"];
   /** Shown instead of the default when `events` is empty (e.g. an empty team triage view). */
   emptyMessage?: string;
   /** false = keep the caller's order and hide the Newest / Oldest toggle (a priority-ordered queue). */
@@ -1321,7 +1363,7 @@ export function EventFeed({
   events, newIds = new Set(),
   severityFilter, sourceFilter, search,
   userFilter = "all", hostFilter = "all", ipFilter = "all", mitreFilter = "all",
-  onXp, onRowOpened, onPivot, onAddIoc, onEscalate, onCloseAlert, rowStatus, emptyMessage, sortable = true,
+  onXp, onRowOpened, onPivot, onAddIoc, onEscalate, onCloseAlert, onAddToCase, rowStatus, emptyMessage, sortable = true,
 }: EventFeedProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   // Log order (Tal, 2026-10-18: newest logs on top, or switch to oldest first).
@@ -1434,6 +1476,7 @@ export function EventFeed({
                   onAddIoc={onAddIoc}
                   onEscalate={onEscalate}
                   onCloseAlert={onCloseAlert}
+                  onAddToCase={onAddToCase}
                   rowStatus={rowStatus}
                 />
               ))}

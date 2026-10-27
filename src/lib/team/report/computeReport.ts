@@ -536,6 +536,11 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
   // raised after a resolve can't make the delta negative, and a bounce→re-escalate
   // is timed from the request that was actually acknowledged).
   const escReq = events.filter(e => e.type === "escalation.requested");
+  // A log Tier-1 added to an open case from the queue (Sdema review 2026-10-25) is handed to Tier-2
+  // as evidence of that case: it counts as triaged and handed off, never as a new escalation.
+  const isAttach = (e: Ev) => e.type === "evidence.pinned" && !!asStr((e.payload as { case_event_id?: unknown }).case_event_id);
+  const attachReq = events.filter(isAttach);
+  const attachedEids = new Set(attachReq.map(eidOf));
   const validEid = (eid: string) => !!eid && eid !== "undefined" && eid !== "null";
   const timesByEid = (type: string) => {
     const m = new Map<string, number[]>();
@@ -559,7 +564,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
   // ── Per-incident detection (P0-1). An incident is DETECTED when any of its malicious
   // logs was escalated, or marked true_positive / suspicious (standing verdict).
   const escalatedAttack = new Map<string, number>();
-  for (const e of escReq) { const eid = eidOf(e); if (!attackIds.has(eid)) continue; const t = tsOf(e) ?? Infinity; if (!escalatedAttack.has(eid) || t < escalatedAttack.get(eid)!) escalatedAttack.set(eid, t); }
+  for (const e of [...escReq, ...attachReq]) { const eid = eidOf(e); if (!attackIds.has(eid)) continue; const t = tsOf(e) ?? Infinity; if (!escalatedAttack.has(eid) || t < escalatedAttack.get(eid)!) escalatedAttack.set(eid, t); }
   const standing = new Map<string, { eid: string; v: string; t: number | null }>();
   for (const d of dispEvents) standing.set(`${d.actor_id ?? ""}\u0000${eidOf(d)}`, { eid: eidOf(d), v: verdictOf(d), t: tsOf(d) });
   const markedAttack = new Map<string, number>();
@@ -881,7 +886,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
   // "Triaged" = the first disposition OR escalation anyone made on the log.
   const firstTriage = new Map<string, number>();
   for (const e of events) {
-    if (e.type !== "disposition.set" && e.type !== "escalation.requested") continue;
+    if (e.type !== "disposition.set" && e.type !== "escalation.requested" && !isAttach(e)) continue;
     if (e.type === "disposition.set" && !isValidDisp(e)) continue;
     const eid = eidOf(e); const t = tsOf(e); if (!truth.has(eid) || t == null) continue;
     if (!firstTriage.has(eid) || t < firstTriage.get(eid)!) firstTriage.set(eid, t);
@@ -892,7 +897,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
   const missItem = (eid: string, detail?: string): MissItem => { const tech = techIds(truth.get(eid)?.technique ?? "")[0]; return { label: labelOf(eid), severity: sevOf(eid), arrivedS: relS(feedTs.get(eid) ?? null), ...(detail ? { detail } : {}), ...(tech ? { technique: tech } : {}) }; };
   const escalatedBy = new Map<string, Set<string>>();   // eid → who escalated it
   for (const e of escReq) { const eid = eidOf(e); if (!escalatedBy.has(eid)) escalatedBy.set(eid, new Set()); escalatedBy.get(eid)!.add(e.actor_id ?? ""); }
-  const caughtByAnyone = (eid: string) => escalatedBy.has(eid) || markedAttack.has(eid);
+  const caughtByAnyone = (eid: string) => escalatedBy.has(eid) || attachedEids.has(eid) || markedAttack.has(eid);
   const escOutcome = (eid: string): ReportedItem["outcome"] =>
     escResolvedIds.has(eid) ? "resolved" : escBouncedIds.has(eid) ? "bounced" : escAckedIds.has(eid) ? "acknowledged" : "open";
 
@@ -944,7 +949,8 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
 
     // Balanced accuracy (see SEV_WEIGHT). Escalating an attack log is an attack call (full
     // credit) even without a separate verdict; a benign/control log keeps its verdict credit.
-    const myAttackEsc = new Set(mine.filter(e => e.type === "escalation.requested").map(eidOf).filter(eid => attackIds.has(eid)));
+    const myHandOffs = mine.filter(e => e.type === "escalation.requested" || isAttach(e));
+    const myAttackEsc = new Set(myHandOffs.map(eidOf).filter(eid => attackIds.has(eid)));
     const openFactor = (eid: string) => (!telemetry || dwellByEid.has(eid) ? 1 : UNOPENED_DISPOSITION_WEIGHT);
     let atkNum = 0, atkDen = 0, benNum = 0, benDen = 0;
     const atkHandled = new Set<string>([...myAttackEsc, ...[...latestVerdict.keys()].filter(eid => attackIds.has(eid))]);
@@ -969,7 +975,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     for (const w of walkedInc.values()) atkDen += w;
     // QA-TEAM-3: escalating a benign log is a wrong call whatever its verdict (it used
     // to cost only the 1-of-9 precision cell, so flooding Tier-2 scored ~78%).
-    const myBenignEsc = new Set(mine.filter(e => e.type === "escalation.requested").map(eidOf).filter(eid => truth.has(eid) && !attackIds.has(eid)));
+    const myBenignEsc = new Set(myHandOffs.map(eidOf).filter(eid => truth.has(eid) && !attackIds.has(eid)));
     for (const [eid, v] of latestVerdict) {
       if (attackIds.has(eid)) continue;
       benNum += (myBenignEsc.has(eid) ? 0 : verdictCredit(eid, v)) * openFactor(eid); benDen += 1;
@@ -988,7 +994,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       : attackHandling ?? benignAcc;
     const dispNoAttack = attackHandling == null && benignAcc != null;
     // Share of the load (Tier-1): distinct logs you triaged vs a fair share of the logs that needed triage.
-    const loadHandled = new Set<string>([...latestVerdict.keys(), ...mine.filter(e => e.type === "escalation.requested").map(eidOf).filter(eid => truth.has(eid))]).size;
+    const loadHandled = new Set<string>([...latestVerdict.keys(), ...myHandOffs.map(eidOf).filter(eid => truth.has(eid))]).size;
     const loadFair = isT1 && t1Count > 0 ? triageWorthy / t1Count : 0;
     // Blind calls: dispositions made within BLIND_CALL_MS of opening the log (or never opened).
     const blindCalls = telemetry ? [...latestVerdict.keys()].filter(eid => (dwellByEid.get(eid) ?? 0) < BLIND_CALL_MS).length : 0;
@@ -1359,7 +1365,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     .map(eid => { const inc = truth.get(eid)?.incident; const caught = inc ? incidentDetected.get(inc) : false; return missItem(eid, caught ? "its incident was caught through another log" : "its incident was not caught"); });
   // Team false negatives: attack logs whose standing call (latest verdict by anyone) is
   // benign / false positive and that nobody escalated.
-  const teamFalseNegatives = [...teamLatestVerdict].filter(([eid, v]) => attackIds.has(eid) && (v === "benign" || v === "false_positive") && !escalatedBy.has(eid))
+  const teamFalseNegatives = [...teamLatestVerdict].filter(([eid, v]) => attackIds.has(eid) && (v === "benign" || v === "false_positive") && !escalatedBy.has(eid) && !attachedEids.has(eid))
     .map(([eid, v]) => missItem(eid, `standing call: ${v.replace("_", " ")}`));
   const falseAlarmEscalations = [...escalatedBy.keys()].filter(eid => truth.has(eid) && truthClass(eid) === "benign").map(eid => missItem(eid, "escalated, but benign"));
   // Workload split: share of all triage actions (dispositions + escalations) done by the busiest analyst.

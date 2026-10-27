@@ -40,6 +40,8 @@ import { WorkloadCheck, type WorkloadAlternative } from "./_components/WorkloadC
 import type { WorkloadPreview } from "@/lib/team/workloadPreview";
 import { calibrateFromDateHeader, noteServerTimestamp, useServerNow } from "@/lib/team/clock";
 import { buildAlertQueue, nextAlertFor, feedEventId } from "@/lib/team/alertQueue";
+import { attachedByCase, attachedLogs, flattenGroups, groupQueueByHost, hostKeyOf, openCasesByHost, touchedHostsOf } from "@/lib/team/hostCases";
+import { TriageHosts } from "./_components/TriageHosts";
 import { teamLoad, withShiftMinutes, type Difficulty } from "@/lib/team/load";
 import { loadWithPlan } from "@/lib/team/attackPlan";
 import { activeClaims, escalationStates, containmentRequests, scopeByIncident, latestScope, incidentLabels, incidentByEvent, openLoadByUser, isolationState } from "@/lib/team/projections";
@@ -801,13 +803,24 @@ export default function TeamRoomPage() {
   const pauseSpans = useMemo(() => pausedSpans(events, nowTick), [events, nowTick]);
   // The Tier-1 alert queue — computed over the WHOLE feed (the SIEM table only renders
   // the latest 120 logs, so an old un-triaged alert used to show only in the queue).
-  const alertQueue = useMemo(() => buildAlertQueue({ feed, dispositions: queueDispositions, escalated: queueEscalated, claims: claimByEid, nowMs: nowTick, withMedium: queueWithMedium, pauses: pauseSpans }),
-    [feed, queueDispositions, queueEscalated, claimByEid, nowTick, queueWithMedium, pauseSpans]);
+  // A log Tier-1 added to an open case is handled: it leaves the queue like an escalated one.
+  const attached = useMemo(() => attachedLogs(events), [events]);
+  const addedByCase = useMemo(() => attachedByCase(events), [events]);
+  const queueHandled = useMemo(() => { const s = new Set(queueEscalated); for (const k of attached.keys()) s.add(k); return s; }, [queueEscalated, attached]);
+  const alertQueue = useMemo(() => buildAlertQueue({ feed, dispositions: queueDispositions, escalated: queueHandled, claims: claimByEid, nowMs: nowTick, withMedium: queueWithMedium, pauses: pauseSpans }),
+    [feed, queueDispositions, queueHandled, claimByEid, nowTick, queueWithMedium, pauseSpans]);
   const queueByEid = useMemo(() => new Map(alertQueue.map(q => [q.eid, q])), [alertQueue]);
   // Hosts already isolated from the EDR console: a Tier-1 row on one says so (Sdema review
   // 2026-10-25: Tier-1 spent ten minutes escalating a host Tier-2 had already isolated).
   const isoByHost = useMemo(() => isolationState(events), [events]);
   const hostByEid = useMemo(() => new Map(feed.map(e => [feedEventId(e), String((e.payload as { hostname?: unknown }).hostname ?? "").trim().toLowerCase()])), [feed]);
+  // The queue by host and case (Sdema review 2026-10-25): a host nobody has touched goes on top,
+  // a host already in a case or isolated goes last and its alerts are added to that case.
+  const hostCases = useMemo(() => openCasesByHost(events), [events]);
+  const touchedHosts = useMemo(() => touchedHostsOf(events, hostByEid), [events, hostByEid]);
+  const hostGroups = useMemo(() => groupQueueByHost(alertQueue, { hostOf: e => String((e.payload as { hostname?: unknown }).hostname ?? ""), cases: hostCases, isolation: isoByHost, touchedHosts }),
+    [alertQueue, hostCases, isoByHost, touchedHosts]);
+  const orderedQueue = useMemo(() => flattenGroups(hostGroups), [hostGroups]);
   const rowStatus = useCallback((rid?: string) => {
     if (!rid) return null;
     const key = rid.startsWith("ev_") ? rid.slice(3) : rid; // LiveEvent.id → sel-id scheme
@@ -820,9 +833,13 @@ export default function TeamRoomPage() {
     const triage = q ? { mins: q.mins, breached: q.breached, orphan: q.orphan } : undefined;
     const iso = isoByHost.get(hostByEid.get(key) ?? "");
     const contained = iso?.isolated ? { by: nameOf(iso.by) } : undefined;
-    if (!disposed && !claim && !escalated && !triage && !contained) return null;
-    return { disposed, claim, claimBy, escalated, triage, contained };
-  }, [dispositions, claimByEid, escalatedIds, queueByEid, me?.id, nameOf, isoByHost, hostByEid]);
+    const hc = hostCases.get(hostByEid.get(key) ?? "");
+    const hostCase = hc && hc.caseEid !== key ? { owner: hc.owner ? nameOf(hc.owner) : null, label: hc.label, host: hc.host } : undefined;
+    const att = attached.get(key);
+    const attachedTo = att ? { by: att.by === me?.id ? "you" : nameOf(att.by) } : undefined;
+    if (!disposed && !claim && !escalated && !triage && !contained && !hostCase && !attachedTo) return null;
+    return { disposed, claim, claimBy, escalated, triage, contained, hostCase, attached: attachedTo };
+  }, [dispositions, claimByEid, escalatedIds, queueByEid, me?.id, nameOf, isoByHost, hostByEid, hostCases, attached]);
 
   // The SOC queue at a glance (QueueBoard): waiting / investigating / past SLA / escalated / closed.
   const queueStats = useMemo<QueueStats>(() => {
@@ -843,10 +860,10 @@ export default function TeamRoomPage() {
       escalatedOpen: [...escalatedIds].filter(eid => !resolved.has(eid) && !bouncedPending.has(eid)).length,
       escalatedTotal: escalatedIds.size,
       closed: [...dispositions.values()].filter(v => v === "false_positive" || v === "benign").length,
-      verdictNotEscalated: [...dispositions.entries()].filter(([eid, v]) => (v === "true_positive" || v === "suspicious") && !escalatedIds.has(eid)).length,
+      verdictNotEscalated: [...dispositions.entries()].filter(([eid, v]) => (v === "true_positive" || v === "suspicious") && !escalatedIds.has(eid) && !attached.has(eid)).length,
       withMedium: queueWithMedium,
     };
-  }, [alertQueue, claimByEid, events, escalatedIds, bouncedPending, dispositions, queueWithMedium, nameOf, me?.id]);
+  }, [alertQueue, claimByEid, events, escalatedIds, bouncedPending, dispositions, queueWithMedium, nameOf, me?.id, attached]);
   const activity = useMemo(() => events.filter(e => ["escalation.requested", "escalation.acknowledged", "escalation.bounced", "escalation.resolved", "elevation.requested", "containment.requested", "containment.approved", "containment.denied", "containment.executed", "edr.host_isolated", "edr.host_released", "disposition.set", "hunt.logged", "rule.published", "intel.published", "handover.noted", "decision.logged", "sitrep.sent", "report.submitted", "evidence.pinned", "case.status_set", "case.assigned", "scope.set", "scope.confirmed", "staff.inject", "ticket.answered"].includes(e.type)), [events]);
   // The team feed rendered with the REAL dashboard EventFeed — enrich each shared
   // event into a LiveEvent so it looks and behaves exactly like the single-player
@@ -885,7 +902,7 @@ export default function TeamRoomPage() {
   }, [toLive]);
   const liveFeed = useMemo<LiveEvent[]>(() => feed.slice(-120).map(toLiveCached), [feed, toLiveCached]);
   // "Needs triage" view: the queue's logs, most urgent first, rendered as ordinary SIEM rows.
-  const triageFeed = useMemo<LiveEvent[]>(() => alertQueue.map(q => toLiveCached(q.e)), [alertQueue, toLiveCached]);
+  const triageFeed = useMemo<LiveEvent[]>(() => orderedQueue.map(q => toLiveCached(q.e)), [orderedQueue, toLiveCached]);
 
   // Stable row handlers (P5-23): inline lambdas were new on every render.
   const feedRef = useRef(feed);
@@ -932,6 +949,25 @@ export default function TeamRoomPage() {
     await act("alert.released", { event_id: eid });
     return null;
   }, [actR, act]);
+  // Tier-1 adds logs to the open case on their host (Sdema review 2026-10-25): evidence for the
+  // case owner, no new escalation and no verdict per log. Releases the analyst's own claim.
+  const addToCase = useCallback(async (eids: string[]): Promise<string | null> => {
+    let failed = 0;
+    for (const eid of eids) {
+      const raw = feedRef.current.find(f => feedEventId(f) === eid);
+      const c = raw ? hostCases.get(hostKeyOf((raw.payload as { hostname?: unknown }).hostname)) : undefined;
+      if (!raw || !c) { failed++; continue; }
+      const label = (asStr((raw.payload as { description?: unknown }).description) || asStr((raw.payload as { event_type?: unknown }).event_type) || `log #${raw.seq}`).slice(0, 140);
+      const r = await actR("evidence.pinned", { event_id: eid, case_event_id: c.caseEid, host: c.host, label, summary: label, attached: true });
+      if (!r.ok) { failed++; continue; }
+      if (claimByEid.get(eid)?.by === me?.id) await act("alert.released", { event_id: eid });
+    }
+    return failed ? `${failed} log${failed === 1 ? "" : "s"} could not be added. Try again.` : null;
+  }, [hostCases, actR, act, claimByEid, me?.id]);
+  const onFeedAddToCase = useCallback((ev: LiveEvent) => {
+    const raw = feedRef.current.find(f => { const p = f.payload as { id?: string }; return (typeof p.id === "string" ? p.id : `ev_${f.seq}`) === ev.id; });
+    return raw ? addToCase([feedEventId(raw)]) : Promise.resolve("Couldn't find this alert in the feed.");
+  }, [addToCase]);
   // Tier-2 / Tier-3 open a case on a log they found themselves (0092).
   const [caseLog, setCaseLog] = useState<Ev | null>(null);
   const onFeedOpenCase = useCallback((ev: LiveEvent) => {
@@ -948,11 +984,12 @@ export default function TeamRoomPage() {
     document.querySelector("[data-tour=feed]")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [me?.role]);
   const takeNextAlert = useCallback(() => {
-    const next = me ? nextAlertFor(alertQueue, claimByEid, me.id) : null;
+    // Host order: a host nobody has touched first, a host already in a case last.
+    const next = me ? nextAlertFor(orderedQueue, claimByEid, me.id) : null;
     if (!next) { setPulledNote("Nothing unclaimed right now — every open alert is being worked."); return; }
     setT1Sel(next.eid); setT1ReportOpen(true);
     setPulledNote(`Pulled #${next.e.seq} for you — it's claimed while you work it.`);
-  }, [alertQueue, claimByEid, me]);
+  }, [orderedQueue, claimByEid, me]);
   // Distinct sources present in the feed → populate the G-04 source filter.
   const feedSources = useMemo(() => [...new Set(liveFeed.map(e => e.source).filter(Boolean))].sort(), [liveFeed]);
 
@@ -1552,6 +1589,11 @@ export default function TeamRoomPage() {
                         <Button variant="outline" size="sm" className="ml-auto" disabled={alertQueue.length === 0} onClick={takeNextAlert}>Take next alert</Button>
                       </div>
                     )}
+                    {me.role === "t1" && feedView === "triage" && hostGroups.length > 0 && (
+                      <TriageHosts groups={hostGroups} nameOf={nameOf} meId={me.id} claims={claimByEid} activeHost={fHost}
+                        onShowHost={h => setFHost(fHost === h ? "all" : h)} onAddToCase={addToCase}
+                        onTakeHost={g => { const n = nextAlertFor(g.items, claimByEid, me.id); if (n) { setT1Sel(n.eid); setT1ReportOpen(true); setPulledNote(`Pulled #${n.e.seq} on ${g.host} for you.`); } }} />
+                    )}
                     {/* Endpoint alerts → EDR, for the analysts (muted until an EDR alert arrives). */}
                     {(me.role === "t1" || me.role === "t2" || me.role === "t3") && (() => {
                       const last = edrAlerts[edrAlerts.length - 1];
@@ -1590,6 +1632,7 @@ export default function TeamRoomPage() {
                       onAddIoc={me.role === "t1" ? onFeedAddIoc : undefined}
                       rowStatus={rowStatus}
                       onCloseAlert={me.role === "t1" ? onFeedCloseAlert : undefined}
+                      onAddToCase={me.role === "t1" ? onFeedAddToCase : undefined}
                       onEscalate={me.role === "t1" ? onFeedEscalate : me.role === "t2" || me.role === "t3" ? onFeedOpenCase : undefined}
                     /></div>
                     </>)}
@@ -1603,7 +1646,7 @@ export default function TeamRoomPage() {
                 {me.role === "t1" && <div data-tour="t1-console"><T1Console sessionId={id} feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} actR={actR} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} /></div>}
                 {/* B12: Tier-3's dominant surface is HUNTING — render it above the (secondary) inbox. */}
                 {me.role === "t3" && <div data-tour="hunt-console"><HuntConsole platforms={session?.env?.platforms ?? []} canEdr={canEdr} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} /></div>}
-                {(me.role === "t2" || me.role === "t3") && <div data-tour="t2-console"><T2Console hasTier3={roster.some(m => m.role === "t3" && m.status !== "left")} personOf={personOf} canEdr={canEdr} sessionId={id} role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} /></div>}
+                {(me.role === "t2" || me.role === "t3") && <div data-tour="t2-console"><T2Console hasTier3={roster.some(m => m.role === "t3" && m.status !== "left")} personOf={personOf} canEdr={canEdr} sessionId={id} role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} addedByCase={addedByCase} /></div>}
                 {/* SOC Manager now holds the coordinator authority (approve containment,
                     decision log, SITREP) as well as shift management. 'lead'/'de' branches
                     stay for backward-compatibility with older sessions; 'ti' is a live seat. */}

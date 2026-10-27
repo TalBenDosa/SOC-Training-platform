@@ -7,6 +7,7 @@ import { asStr } from "@/lib/team/format";
 import { escalationStates, containmentRequests } from "@/lib/team/projections";
 import { useServerNow } from "@/lib/team/clock";
 import { TeamImageThumb, imagesOf } from "./teamImages";
+import { attachedByCase } from "@/lib/team/hostCases";
 
 /**
  * Every escalation in the shift, for the SOC Manager: Tier-1 → Tier-2 escalations, Tier-2 →
@@ -68,6 +69,7 @@ export function EscalationsPanel({ events, nameOf, onAddToReport, sessionId }: {
   // Tier-1's own determination on the log (the latest verdict) and any bounce back from Tier-2.
   const verdictByEid = useMemo(() => { const m = new Map<string, Ev>(); for (const e of events) if (e.type === "disposition.set") m.set(asStr((e.payload as { event_id?: unknown }).event_id), e); return m; }, [events]);
   const bounces = useMemo(() => events.filter(e => e.type === "escalation.bounced"), [events]);
+  const added = useMemo(() => attachedByCase(events), [events]);
 
   const items: (EscalationItem & { ev: Ev })[] = [];
   for (const st of states.values()) {
@@ -148,6 +150,7 @@ export function EscalationsPanel({ events, nameOf, onAddToReport, sessionId }: {
                         {iocs.length > 0 && <Field label={`IOCs (${iocs.length})`}><span className="inline-flex flex-wrap gap-1">{iocs.map((i, k) => <span key={k} className="rounded border border-border px-1 font-mono text-[10px] text-slate-200"><bdi>{asStr(i.type) ? `${asStr(i.type)}: ` : ""}{asStr(i.value)}</bdi></span>)}</span></Field>}
                         {shots.length > 0 && sessionId && <div className="flex flex-wrap gap-1.5">{shots.map((img, k) => <TeamImageThumb key={img.path} sessionId={sessionId} image={img} alt={`Screenshot ${k + 1} with this escalation`} className="max-h-24" />)}</div>}
                         {snap && <OriginalLog snap={snap} />}
+                        {(added.get(eid)?.length ?? 0) > 0 && <Field label={`Logs Tier-1 added to this case (${added.get(eid)!.length})`}>{added.get(eid)!.map(a => a.label).join(" · ")}</Field>}
                         {bounces.filter(b => asStr((b.payload as { event_id?: unknown }).event_id) === eid).map(b => <Field key={b.seq} label={`Bounced back by ${nameOf(b.actor_id)}`}><bdi>{asStr((b.payload as { reason?: unknown }).reason)}</bdi></Field>)}
                       </>
                     );
