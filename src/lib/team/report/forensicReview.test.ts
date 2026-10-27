@@ -136,9 +136,9 @@ describe("forensic review", () => {
     const evs = [act(MGR, "mgr", "session.started", {}, T0 - 1000), ...revealedFeed, ...actions].sort((a, b) => Date.parse(a.occurred_at!) - Date.parse(b.occurred_at!));
     const rep = computeReport(evs, roster, { sessionId: SID, publicEvents: [...publicFeed, ...actions] });
     const t3 = rep.perUser.find(u => u.user_id === T3)!;
-    expect(t3.rubric.map(c => c.label)).toEqual(expect.arrayContaining(["Forensic findings", "Findings backed by evidence", "Evidence preserved", "Confidence calibration", "Reporting to the SOC Manager"]));
+    expect(t3.rubric.map(c => c.label)).toEqual(expect.arrayContaining(["Forensic findings right", "Findings backed by evidence", "Evidence preserved before a kill", "Confidence calibration", "Reporting to the SOC Manager"]));
     expect(t3.forensic?.confirmed).toBe(1);
     expect(rep.team.forensic?.findings.length).toBe(5);
-    expect(rep.perUser.find(u => u.user_id === MGR)!.rubric.some(c => c.label === "Forensic findings")).toBe(false);
+    expect(rep.perUser.find(u => u.user_id === MGR)!.rubric.some(c => c.label === "Forensic findings right")).toBe(false);
   });
 });

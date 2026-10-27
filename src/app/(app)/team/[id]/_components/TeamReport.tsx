@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { ArrowUpRight, ShieldAlert, Siren, Clock, Timer, EyeOff, MonitorX } from "lucide-react";
 import type { RosterMember, Me, Ev } from "@/lib/team/types";
 import { asStr } from "@/lib/team/format";
-import type { computeReport, ReportedItem, MissItem, MissedAttack, IsolationItem, MissedHost } from "@/lib/team/report/computeReport";
+import type { computeReport, ReportedItem, MissItem, MissedAttack, IsolationItem, MissedHost, RubricCell } from "@/lib/team/report/computeReport";
 import { mergeAnswers, type AnswerMap } from "@/lib/team/report/serverReport";
 import { ROLE_LABEL, Metric } from "./shared";
 import { CommandReview } from "./CommandReview";
@@ -265,6 +265,63 @@ function MissList({ title, items, tone, empty }: { title: string; items: MissIte
         ))}
       </ul>
     </div>
+  );
+}
+
+/** The measurable criteria (Tal, 2026-10-27): each row shows what was measured, the target and the
+ *  score out of 100 it earned. Criteria with nothing to measure this shift fold into one line. */
+function RubricCells({ cells }: { cells: RubricCell[] }) {
+  const measured = cells.filter(c => c.score != null);
+  const idle = cells.filter(c => c.score == null);
+  return (
+    <div className="mt-2">
+      <ul className="space-y-1.5">
+        {measured.map(cell => {
+          const pts = Math.round(((cell.score ?? 0) / 12) * 100);
+          return (
+            <li key={cell.label} className="flex items-start gap-2 text-[11px]" title={cell.note}>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-slate-300">{cell.label}</span>
+                {(cell.value || cell.target) && (
+                  <span className="block text-[10px] text-slate-500">
+                    {cell.value && <span className="font-mono text-slate-300">{cell.value}</span>}
+                    {cell.value && cell.target ? " · " : ""}
+                    {cell.target && <>target {cell.target}</>}
+                  </span>
+                )}
+              </span>
+              <span className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums ${pts >= 100 ? "bg-neon-green/15 text-neon-green" : pts >= 67 ? "bg-cyber-500/15 text-cyber-300" : pts >= 33 ? "bg-neon-amber/15 text-neon-amber" : "bg-severity-high/15 text-severity-high"}`}>{pts}</span>
+            </li>
+          );
+        })}
+      </ul>
+      {/* A null cell never shows its (positive-sounding) description as if it were a result. */}
+      {idle.length > 0 && <p className="mt-1.5 text-[10px] text-slate-500">Nothing to measure this shift: {idle.map(c => c.label).join(", ")}.</p>}
+    </div>
+  );
+}
+
+/** The SOC Manager's card in the per-person grid: the Command Review score and its measured criteria. */
+function ManagerCard({ review, xp }: { review: ManagerReview; xp?: number }) {
+  const cells: RubricCell[] = review.pillars.flatMap(p => p.cells.map(c => ({ label: c.label, score: c.score, value: c.score != null ? c.note : undefined })));
+  return (
+    <Card>
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-bold text-white"><bdi>{review.managerName}</bdi></p>
+        <span className="flex items-center gap-1.5">
+          {typeof xp === "number" && <span className="rounded border border-neon-green/40 bg-neon-green/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-neon-green" title="XP added to the account for this shift">+{xp} XP</span>}
+          <span className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-slate-400">{ROLE_LABEL.mgr ?? "SOC Manager"}</span>
+        </span>
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-bg"><span className="block h-full bg-cyber-500" style={{ width: `${review.score ?? 0}%` }} /></div>
+        <span className="shrink-0 font-mono text-xs font-bold text-cyber-300">{review.score ?? "—"}<span className="text-slate-500">/100</span></span>
+      </div>
+      <p className="mt-1 text-[10px] text-slate-500">
+        Command Review score{review.levelLabel ? ` · ${review.levelLabel}` : ""}{review.criticalErrors.length ? ` · capped by ${review.criticalErrors.length} critical error${review.criticalErrors.length === 1 ? "" : "s"}` : ""} · full review above
+      </p>
+      <RubricCells cells={cells} />
+    </Card>
   );
 }
 
@@ -732,6 +789,9 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">
+        {/* The SOC Manager sits with the analysts too (Tal, 2026-10-27: the admin saw no score for the
+            manager beside the team), scored by the Command Review's measured criteria. */}
+        {managerReview && !managerReview.redacted && <ManagerCard review={managerReview} xp={xp[managerReview.managerId]} />}
         {visible.map(u => (
           <Card key={u.user_id}>
             <div className="flex items-center justify-between">
@@ -761,19 +821,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
                 ? `only ${u.measuredCells ?? 0} of ${u.rubric.length} criteria could be measured this shift — no score`
                 : `role rubric score${u.measuredCells != null ? ` · ${u.measuredCells}/${u.rubric.length} criteria measured` : ""}`} · contribution {u.contribution}/100
             </p>
-            {u.rubric.length > 0 && (
-              <div className="mt-2 space-y-1">
-                {u.rubric.map(cell => (
-                  <div key={cell.label} className="flex items-center gap-2 text-[11px]" title={cell.note}>
-                    <span className="min-w-0 flex-1 truncate text-slate-400">{cell.label}</span>
-                    {cell.score == null
-                      // A null cell never shows its (positive-sounding) description as if it were a result.
-                      ? <span className="shrink-0 rounded border border-border/60 px-1 py-0.5 text-[9px] uppercase text-slate-500">{cell.note === "not yet measured" ? "not measured" : "n/a"}</span>
-                      : <span className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold ${cell.score >= 12 ? "bg-neon-green/15 text-neon-green" : cell.score >= 8 ? "bg-cyber-500/15 text-cyber-300" : cell.score >= 4 ? "bg-neon-amber/15 text-neon-amber" : "bg-severity-high/15 text-severity-high"}`}>{cell.score}</span>}
-                  </div>
-                ))}
-              </div>
-            )}
+            {u.rubric.length > 0 && <RubricCells cells={u.rubric} />}
             <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border/40 pt-2 text-xs">
               <Line label="Logs opened" value={String(u.opened)} />
               <Line label="Avg dwell" value={u.avgDwellS != null ? `${u.avgDwellS}s` : "—"} />
@@ -811,7 +859,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
           </Card>
         ))}
       </div>
-      <p className="text-xs text-slate-400">Per-user rubric (0/4/8/12 per criterion) + team report, computed on the server from the full action log. A criterion marked n/a or not measured had nothing to measure in this shift — it is left out of the score, and a card with fewer than 2 measured criteria shows <b className="text-neon-amber">insufficient evidence</b> instead of a %. &quot;Suspicious&quot; earns partial credit; a verdict on a log you never opened counts at reduced weight. Hover a criterion for how it is measured.</p>
+      <p className="text-xs text-slate-400">Per-user score + team report, computed on the server from the full action log. Every criterion is a measured value (a time, a percentage or a count) against a target: at the target it scores 100, then 67, 33 or 0. A criterion with nothing to measure this shift is left out of the score, and a card with fewer than 2 measured criteria shows <b className="text-neon-amber">insufficient evidence</b> instead of a %. &quot;Suspicious&quot; earns partial credit; a verdict on a log you never opened counts at reduced weight. Hover a criterion for how it is measured.</p>
     </div>
   );
 }

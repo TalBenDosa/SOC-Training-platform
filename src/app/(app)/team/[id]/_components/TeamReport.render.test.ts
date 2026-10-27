@@ -107,6 +107,25 @@ describe("TeamReport (shift review) — v3 sections", () => {
     expect(text).toContain("Hosts you isolated");          // Omer's card
   });
 
+  it("the admin sees every card with measured values, the SOC Manager's included (Tal, 2026-10-27)", async () => {
+    const events = shift();
+    const mgrRoster: RosterMember[] = [...roster, { user_id: "m", role: "mgr", status: "ready", name: "Noa", handle: null }];
+    const report = computeReport(events, mgrRoster);
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ team: report.team, perUser: report.perUser, managerReview: report.managerReview, answers: {}, seesAll: true }) })));
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => {
+      root!.render(React.createElement(TeamReport, { sessionId: "s1", events, roster: mgrRoster, me: { id: "x", is_staff: true, role: "instructor" } }));
+    });
+    await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+    const text = container.textContent ?? "";
+    expect(text).toContain("Command Review score");      // Noa's card in the grid
+    expect(text).toContain("Time to escalate");           // Dana: a measured timing
+    expect(text).toContain("target ≤ 2 min");             // Omer: time to acknowledge
+    expect(text).toContain("Nothing to measure this shift:");
+  });
+
   it("QA M5: while another request builds the report (503 building) it retries quietly, then renders", async () => {
     vi.useFakeTimers();
     try {

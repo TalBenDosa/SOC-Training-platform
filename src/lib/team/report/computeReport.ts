@@ -107,7 +107,13 @@ const REPORTED_CAP = 20;
 const MISS_CAP = 8;
 const VALID_VERDICTS = new Set(["true_positive", "false_positive", "benign", "suspicious"]);
 
-export interface RubricCell { label: string; score: number | null; note?: string }
+/** One measurable criterion (Tal, 2026-10-27): the score is derived from a measured value (a time, a %,
+ *  a count) against a stated target, and the card shows both so every number can be checked. */
+export interface RubricCell { label: string; score: number | null; note?: string;
+  /** What was measured this shift, e.g. "3m 20s (median of 2 attacks)" or "86%". */
+  value?: string;
+  /** The target that earns full marks, e.g. "≤ 5 min" or "≥ 90%". */
+  target?: string }
 /** One log an analyst acted on — escalated, or triaged when high/critical — against its SLA. */
 export interface ReportedItem {
   label: string; severity: string; kind: "escalation" | "triage";
@@ -223,6 +229,10 @@ const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 const bandHigh = (v: number, a: number, b: number, c: number) => (v >= a ? 12 : v >= b ? 8 : v >= c ? 4 : 0);
 const bandLow = (v: number, a: number, b: number, c: number) => (v <= a ? 12 : v <= b ? 8 : v <= c ? 4 : 0);
 /** Continuous 0–12 (integer) between `zero` and `full` — no cliff where one extra miss drops a band to 0. */
+/** Minutes → "3m 20s" / "45s" for the measured value of a timing criterion. */
+const fmtMin = (min: number) => { const sec = Math.max(0, Math.round(min * 60)); return sec < 60 ? `${sec}s` : `${Math.floor(sec / 60)}m ${String(sec % 60).padStart(2, "0")}s`; };
+const timeVal = (min: number | null, n: number, what: string) => (min == null ? undefined : `${fmtMin(min)}${n > 1 ? ` (median of ${n} ${what})` : ""}`);
+const pctVal = (v: number | null | undefined, of?: string) => (v == null ? undefined : `${v}%${of ? ` ${of}` : ""}`);
 const smoothBand = (v: number, zero: number, full: number) => Math.round(12 * clamp01((v - zero) / (full - zero)));
 function median(xs: number[]): number | null { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
 const pct = (num: number, den: number) => (den ? Math.round((num / den) * 100) : null);
@@ -350,10 +360,9 @@ function expectedTicketDecision(p: Record<string, unknown>): "handled" | "reject
 const normDecision = (d: unknown): "handled" | "rejected" => (/reject|refus|deny|denied|escalat/i.test(asStr(d)) ? "rejected" : "handled");
 
 // ── per-role success rubric (0/4/8/12) ──────────────────────────────────────────
-// Criteria still awaiting instrumentation score `null` ("not yet measured") and are
+// A criterion with nothing to measure this shift scores `null` and is
 // EXCLUDED from the % — and a card with fewer than MIN_MEASURED_CELLS measured cells
 // shows "insufficient evidence" rather than a % built on one or zero criteria.
-const TODO: RubricCell = { label: "", score: null, note: "not yet measured" };
 function rubricPercent(cells: RubricCell[]): number | null {
   const scored = cells.filter(c => c.score != null);
   if (scored.length < MIN_MEASURED_CELLS) return null;
@@ -381,98 +390,118 @@ interface RubricCtx {
   updatesPct: number | null; updatesAnswered: number; updatesTotal: number;
   /** Tier-2 / Tier-3 with no SOC Manager on the team: management requests answered with a status in 15 min. */
   mgmtNoMgrPct: number | null;
+  // ── Measurable timings (Tal, 2026-10-27), each a median in minutes over n attacks / cases ──
+  /** Tier-1: an attack's first log in the feed → your first catch of it (verdict TP / suspicious, escalation), attacks you caught first. */
+  detectMin: number | null; detectN: number;
+  /** Tier-1: an attack's highest-severity log in the feed → your escalation, attacks you escalated first. */
+  escalateMin: number | null; escalateN: number;
+  /** Tier-2: your acknowledgment → your containment (host isolated / containment requested); an open case counts until the end. */
+  containMin: number | null; containN: number;
+  /** Tier-2: your acknowledgment → your incident report on that case. */
+  reportMin: number | null; reportN: number;
+  attackHandling: number | null; benignAcc: number | null; escCount: number; reportCount: number; isoCount: number; contReqCount: number;
 }
 /** Tier-3 forensic cells: added only when the analyst did forensic work (a hunt-only Tier-3 is not penalised). */
 function forensicCells(f: UserForensics | null): RubricCell[] {
   if (!f) return [];
   return [
-    { label: "Forensic findings", score: f.graded ? bandHigh(f.accPct ?? 0, 85, 60, 35) : null, note: "each finding checked against what really happened: right + a cited row that shows it counts fully, a right call without evidence counts half" },
-    { label: "Findings backed by evidence", score: f.confirmed + f.guess ? bandHigh(f.supportedPct ?? 0, 90, 60, 30) : null, note: "right findings whose cited rows (from evidence taken before the finding) actually show it" },
-    { label: "Evidence preserved", score: f.destructiveKills ? bandHigh(f.preservationPct ?? 0, 100, 50, 1) : null, note: "attacker processes you killed through RTR: was memory captured first?" },
-    { label: "Confidence calibration", score: f.highTotal ? bandHigh(f.calibrationPct ?? 0, 100, 75, 50) : null, note: "your high-confidence findings that were right" },
-    { label: "Reporting to the SOC Manager", score: f.reportPoints, note: "a report sent; READY only once every attacked host in play had a confirmed status; the promised next update delivered" },
+    { label: "Forensic findings right", score: f.graded ? bandHigh(f.accPct ?? 0, 85, 60, 35) : null, value: f.graded ? `${f.accPct ?? 0}% of ${f.graded}` : undefined, target: "≥ 85%", note: "each finding checked against what really happened: right + a cited row that shows it counts fully, a right call without evidence counts half" },
+    { label: "Findings backed by evidence", score: f.confirmed + f.guess ? bandHigh(f.supportedPct ?? 0, 90, 60, 30) : null, value: pctVal(f.supportedPct), target: "≥ 90%", note: "right findings whose cited rows (from evidence taken before the finding) actually show it" },
+    { label: "Evidence preserved before a kill", score: f.destructiveKills ? bandHigh(f.preservationPct ?? 0, 100, 50, 1) : null, value: f.destructiveKills ? `${f.preservedKills} of ${f.destructiveKills} kills` : undefined, target: "100%", note: "attacker processes you killed through RTR: was memory captured first?" },
+    { label: "Confidence calibration", score: f.highTotal ? bandHigh(f.calibrationPct ?? 0, 100, 75, 50) : null, value: f.highTotal ? `${f.highRight} of ${f.highTotal} high-confidence right` : undefined, target: "100%", note: "your high-confidence findings that were right" },
+    { label: "Reporting to the SOC Manager", score: f.reportPoints, value: f.reportPoints != null ? `${Math.round((f.reportPoints / 12) * 100)}%` : undefined, note: "a report sent; READY only once every attacked host in play had a confirmed status; the promised next update delivered" },
   ];
 }
 /** Every analyst judges each update inject (Action-required box): a decoy is "not an incident", a twist changes the case. */
 function updatesCell(c: RubricCtx): RubricCell {
-  return { label: "Updates judged", score: c.updatesPct == null ? null : bandHigh(c.updatesPct, 100, 66, 33),
-    note: c.updatesPct == null ? undefined : `${c.updatesAnswered} of ${c.updatesTotal} update${c.updatesTotal === 1 ? "" : "s"} judged right (a decoy is not an incident, a twist changes the case)` };
+  return { label: "Updates judged right", score: c.updatesPct == null ? null : bandHigh(c.updatesPct, 100, 66, 33), target: "100%",
+    value: c.updatesPct == null ? undefined : `${c.updatesAnswered} of ${c.updatesTotal}`,
+    note: "a decoy is not an incident, a twist changes the case" };
 }
+function isolationCell(c: RubricCtx): RubricCell {
+  return { label: "Host isolation accuracy", score: c.isoPct == null ? null : bandHigh(c.isoPct, 100, 75, 50), value: c.isoPct == null ? undefined : `${c.isoPct}% of ${c.isoCount} host${c.isoCount === 1 ? "" : "s"}`, target: "100%",
+    note: "each host you isolated in EDR, judged: a host with real attack activity was right to isolate; a clean host is a needless business outage" };
+}
+// Every criterion is a measured quantity with a target (Tal, 2026-10-27): times are medians in
+// minutes, rates are percentages of the work the analyst did. Bands: full marks at the target,
+// then two steps down (12 / 8 / 4 / 0).
 function roleRubric(c: RubricCtx): RubricCell[] {
+  const bonus = (label: string, n: number, what: string, note: string): RubricCell =>
+    ({ label, score: n ? bandHigh(n, 2, 1, 1) : null, value: n ? `${n} ${what}` : undefined, target: "≥ 2", note });
   switch (c.role) {
     case "t1": {
       const triage = c.triageMin == null ? null : bandLow(c.triageMin, 5, 10, 15);
       return [
-        { label: "Disposition accuracy (balanced)", score: c.dispAcc == null ? null : c.dispNoAttack ? Math.min(8, bandHigh(c.dispAcc, 90, 75, 50)) : bandHigh(c.dispAcc, 90, 75, 50), note: c.dispNoAttack ? "capped at 8: no attack log in your work — full marks need a correct call on an attack log" : "average of attack handling (severity-weighted; an attack log you opened and left counts as a miss) and benign accuracy; suspicious = partial credit; unopened logs count at reduced weight" },
-        { label: "Share of the load", score: c.loadSharePct == null ? null : smoothBand(c.loadSharePct, LOAD_SHARE_ZERO, LOAD_SHARE_FULL), note: c.loadSharePct == null ? undefined : `you triaged ${c.loadHandled} log${c.loadHandled === 1 ? "" : "s"}; a fair share of this feed was ~${Math.round(c.loadFair)} (${c.loadSharePct}%) — logs a teammate handled never count against you` },
+        { label: "Time to detect", score: c.detectMin == null ? null : bandLow(c.detectMin, 5, 10, 15), value: timeVal(c.detectMin, c.detectN, "attacks"), target: "≤ 5 min",
+          note: "from an attack's first log in the feed to your first catch of it (true positive / suspicious verdict or escalation); attacks a teammate caught before you are not counted" },
+        { label: "Time to escalate", score: c.escalateMin == null ? null : bandLow(c.escalateMin, 5, 10, 15), value: timeVal(c.escalateMin, c.escalateN, "attacks"), target: `≤ 5 min (SLA ${ESCALATION_SLA_SEC / 60} min)`,
+          note: "from an attack's highest-severity log in the feed to your escalation of it; attacks a teammate escalated before you are not counted" },
+        { label: "Time to triage", score: triage == null ? null : c.dwellTooShort ? Math.min(triage, 4) : triage, value: c.triageMin == null ? undefined : `${fmtMin(c.triageMin)} (median)`, target: "≤ 5 min",
+          note: c.dwellTooShort ? `capped: average read time under ${MIN_EVIDENCE_DWELL_S}s, speed without reading isn't triage` : "a high / critical log landing in the feed → your verdict on it" },
+        { label: "Verdict accuracy", score: c.dispAcc == null ? null : c.dispNoAttack ? Math.min(8, bandHigh(c.dispAcc, 90, 75, 50)) : bandHigh(c.dispAcc, 90, 75, 50), target: "≥ 90%",
+          value: c.dispAcc == null ? undefined : `${c.dispAcc}% (attacks ${c.attackHandling != null ? `${c.attackHandling}%` : "none"} · benign ${c.benignAcc != null ? `${c.benignAcc}%` : "none"})`,
+          note: c.dispNoAttack ? "capped at 8: no attack log in your work, full marks need a correct call on an attack log" : "average of attack handling (severity-weighted; an attack log you opened and left counts as a miss) and benign accuracy; suspicious = partial credit; unopened logs count at reduced weight" },
         c.attackNotHandedOff > 0 && c.escPrecision == null
-          ? { label: "Escalation precision", score: 0, note: `you marked ${c.attackNotHandedOff} real attack log${c.attackNotHandedOff === 1 ? "" : "s"} as malicious and never escalated ${c.attackNotHandedOff === 1 ? "it" : "them"}: Tier-2 never saw the incident` }
-          : { label: "Escalation precision", score: c.escPrecision == null ? null : smoothBand(c.escPrecision, 10, 80), note: "per incident: of what you escalated, how much was a real incident (duplicates of one incident count once)" },
-        { label: "Card completeness", score: c.escQuality == null ? null : bandHigh(c.escQuality, 90, 70, 40) },
-        // Not scored for Tier-1: the pickup is Tier-2's job (Sdema review 2026-10-25: a Tier-1 scored 0 because
-        // Tier-2 never acknowledged). Tier-2's "Ack latency" now carries the escalations left waiting.
-        { label: "Handoff coordination", score: null, note: c.escAckRate == null ? undefined : `${c.escAckRate}% of your escalations were picked up by Tier-2 (not scored for you: Tier-2 owns the pickup)` },
-        { label: "Time-to-triage", score: triage == null ? null : c.dwellTooShort ? Math.min(triage, 4) : triage, ...(c.dwellTooShort ? { note: `capped: average read time under ${MIN_EVIDENCE_DWELL_S}s — speed without reading isn't triage` } : {}) },
-        { label: "Backup & load-balancing", score: c.backupCount ? bandHigh(c.backupCount, 2, 1, 1) : null, note: "took over an alert from an overloaded teammate, or rescued a stale (abandoned) claim — a plain collision earns nothing" },
-        { label: "Self-correction", score: c.correctionsCount ? bandHigh(c.correctionsCount, 2, 1, 1) : null, note: "caught and fixed your own verdict — no-fault, scores for you" },
-        { label: "Help-desk tickets", score: c.helpdeskPct == null ? null : bandHigh(c.helpdeskPct, 100, 66, 33), note: c.helpdeskDupOnly ? "a second answer to an already-answered ticket earns nothing" : "the right call (verify / refuse) on the tickets injected — not how many you clicked" },
-        { label: "Read before deciding", score: c.readFirstPct == null ? null : bandHigh(c.readFirstPct, 90, 70, 40), note: c.readFirstPct == null ? undefined : `${c.blindCalls} of your calls came within ${BLIND_CALL_MS / 1000}s of opening the log` },
+          ? { label: "Escalation precision", score: 0, value: `${c.attackNotHandedOff} attack log${c.attackNotHandedOff === 1 ? "" : "s"} never escalated`, target: "≥ 80%", note: `you marked ${c.attackNotHandedOff} real attack log${c.attackNotHandedOff === 1 ? "" : "s"} as malicious and never escalated ${c.attackNotHandedOff === 1 ? "it" : "them"}: Tier-2 never saw the incident` }
+          : { label: "Escalation precision", score: c.escPrecision == null ? null : smoothBand(c.escPrecision, 10, 80), value: c.escPrecision == null ? undefined : `${c.escPrecision}% of ${c.escCount} escalation${c.escCount === 1 ? "" : "s"} real`, target: "≥ 80%", note: "per incident: of what you escalated, how much was a real incident (duplicates of one incident count once)" },
+        { label: "Escalation card completeness", score: c.escQuality == null ? null : bandHigh(c.escQuality, 90, 70, 40), value: pctVal(c.escQuality), target: "≥ 90%", note: "the escalation card's fields and evidence filled in" },
+        { label: "Share of the load", score: c.loadSharePct == null ? null : smoothBand(c.loadSharePct, LOAD_SHARE_ZERO, LOAD_SHARE_FULL), target: `≥ ${LOAD_SHARE_FULL}% of a fair share`,
+          value: c.loadSharePct == null ? undefined : `${c.loadHandled} of ~${Math.round(c.loadFair)} logs (${c.loadSharePct}%)`, note: "logs you triaged vs a fair share of the logs that needed triage; logs a teammate handled never count against you" },
+        { label: "Read before deciding", score: c.readFirstPct == null ? null : bandHigh(c.readFirstPct, 90, 70, 40), value: pctVal(c.readFirstPct, "of your verdicts"), target: "≥ 90%",
+          note: c.readFirstPct == null ? "verdicts given after reading the log for at least 3 seconds" : `${c.blindCalls} of your verdicts came within ${BLIND_CALL_MS / 1000}s of opening the log` },
+        { label: "Help-desk tickets right", score: c.helpdeskPct == null ? null : bandHigh(c.helpdeskPct, 100, 66, 33), value: pctVal(c.helpdeskPct), target: "100%", note: c.helpdeskDupOnly ? "a second answer to an already-answered ticket earns nothing" : "the right call (verify / refuse) on the tickets injected, not how many you clicked" },
         updatesCell(c),
+        bonus("Backup for a teammate", c.backupCount, "take-over" + (c.backupCount === 1 ? "" : "s"), "took over an alert from an overloaded teammate, or rescued a stale claim; a plain collision earns nothing"),
+        bonus("Self-correction", c.correctionsCount, "verdict" + (c.correctionsCount === 1 ? "" : "s") + " fixed", "caught and fixed your own verdict: no-fault, scores for you"),
       ];
     }
     case "t2": return [
-      { label: "Ack latency", score: c.ackLatencyMin == null ? null : bandLow(c.ackLatencyMin, 2, 5, 10), note: "median time from a Tier-1 escalation to a Tier-2/3 picking it up; one nobody picked up counts until the end of the shift" },
-      { ...TODO, label: "Timeline accuracy" },
-      { label: "Scoping completeness", score: c.scopeSetDims >= 3 ? 12 : c.scopeSetDims >= 2 ? 8 : c.scopeSetDims >= 1 ? 4 : null },
-      { label: "Containment recommendation", score: c.contReason == null ? null : bandHigh(c.contReason, 90, 60, 30) },
-      { label: "Containment quality", score: c.contQuality == null ? null : bandHigh(c.contQuality, 85, 60, 35), note: "a denied or later re-targeted request lowers it; executed after approval raises it" },
-      { label: "Host isolation", score: c.isoPct == null ? null : bandHigh(c.isoPct, 100, 75, 50), note: "each host you isolated in EDR, judged: a host with real attack activity was right to isolate; a clean host is a needless business outage" },
-      { label: "Backup & load-balancing", score: c.backupCount ? bandHigh(c.backupCount, 2, 1, 1) : null, note: "picked up a case while a teammate was overloaded" },
-      { label: "Incident report", score: c.reportQuality == null ? null : bandHigh(c.reportQuality, 85, 60, 35) },
-      { label: "Report accuracy", score: c.reportAcc == null ? null : bandHigh(c.reportAcc, 90, 65, 40), note: "your report's verdict vs the incident's ground truth" },
+      { label: "Time to acknowledge", score: c.ackLatencyMin == null ? null : bandLow(c.ackLatencyMin, 2, 5, 10), value: c.ackLatencyMin == null ? undefined : `${fmtMin(c.ackLatencyMin)} (median)`, target: "≤ 2 min",
+        note: "a Tier-1 escalation → a Tier-2/3 picking it up; one nobody picked up counts until the end of the shift" },
+      { label: "Time to contain", score: c.containMin == null ? null : bandLow(c.containMin, 5, 10, 20), value: timeVal(c.containMin, c.containN, "cases"), target: "≤ 5 min",
+        note: "your acknowledgment of an attack case → your containment (host isolated in EDR or containment requested); a case on an attacked host nobody contained counts until the end of the shift" },
+      { label: "Time to report", score: c.reportMin == null ? null : bandLow(c.reportMin, 10, 20, 30), value: timeVal(c.reportMin, c.reportN, "cases"), target: "≤ 10 min",
+        note: "your acknowledgment of a case → your incident report on it" },
+      isolationCell(c),
+      { label: "Scope coverage", score: c.scopeSetDims >= 3 ? 12 : c.scopeSetDims >= 2 ? 8 : c.scopeSetDims >= 1 ? 4 : null, value: c.scopeSetDims ? `${c.scopeSetDims} of 3` : undefined, target: "3 of 3", note: "hosts, users and techniques set in your scope" },
+      { label: "Containment with a reason", score: c.contReason == null ? null : bandHigh(c.contReason, 90, 60, 30), value: c.contReason == null ? undefined : `${c.contReason}% of ${c.contReqCount}`, target: "≥ 90%", note: "containment requests that say why" },
+      { label: "Containment quality", score: c.contQuality == null ? null : bandHigh(c.contQuality, 85, 60, 35), value: pctVal(c.contQuality), target: "≥ 85%", note: "a denied or later re-targeted request lowers it; executed after approval raises it" },
+      { label: "Report completeness", score: c.reportQuality == null ? null : bandHigh(c.reportQuality, 85, 60, 35), value: c.reportQuality == null ? undefined : `${c.reportQuality}%${c.reportCount > 1 ? ` (avg of ${c.reportCount})` : ""}`, target: "≥ 85%", note: "summary, findings depth, verdict, recommendation and a cited indicator" },
+      { label: "Report verdict accuracy", score: c.reportAcc == null ? null : bandHigh(c.reportAcc, 90, 65, 40), value: pctVal(c.reportAcc), target: "≥ 90%", note: "your report's verdict vs the incident's ground truth" },
       updatesCell(c),
-      ...(c.mgmtNoMgrPct != null ? [{ label: "Management requests (no Manager)", score: bandHigh(c.mgmtNoMgrPct, 100, 50, 1), note: "with no SOC Manager on the team, Tier-2 answers management with a status" }] : []),
+      ...(c.mgmtNoMgrPct != null ? [{ label: "Management requests answered", score: bandHigh(c.mgmtNoMgrPct, 100, 50, 1), value: `${c.mgmtNoMgrPct}%`, target: "100% within 15 min", note: "with no SOC Manager on the team, Tier-2 answers management with a status" }] : []),
+      bonus("Backup for a teammate", c.backupCount, "case" + (c.backupCount === 1 ? "" : "s"), "picked up a case while a teammate was overloaded"),
     ];
     case "t3": return [
-      { label: "Final scope (confirmed)", score: c.scopeConfirmed ? (c.scopeConfirmDims >= 3 ? 12 : c.scopeConfirmDims >= 2 ? 8 : c.scopeConfirmDims >= 1 ? 4 : 0) : null, note: c.scopeConfirmed ? "hosts · users · techniques confirmed" : "not confirmed" },
-      { label: "Hunt quality", score: c.huntQuality == null ? null : bandHigh(c.huntQuality, 75, 55, 30), note: "substance + cited evidence + matching technique (sub-technique/parent ok) + backed conclusion" },
-      { label: "Hypothesis→conclusion time", score: c.huntToConfirmMin == null ? null : bandLow(c.huntToConfirmMin, 5, 12, 20), note: "the hunt that led to each scope confirmation → the confirmation (early proactive hunts don't count against you)" },
-      { label: "Technique attribution", score: c.huntCount ? bandHigh(Math.round((c.huntTech / c.huntCount) * 100), 90, 60, 30) : null, note: "hunts tagged with a valid MITRE technique id" },
-      { label: "Elevations answered", score: c.elevAnsweredPct == null ? null : bandHigh(c.elevAnsweredPct, 100, 66, 33), note: "a hunt linked to the elevation (event_id) answers it" },
-      { label: "Guidance to T2", score: c.noteCount ? bandHigh(c.noteCount, 3, 2, 1) : null },
-      { label: "Host isolation", score: c.isoPct == null ? null : bandHigh(c.isoPct, 100, 75, 50), note: "each host you isolated in EDR, judged: a host with real attack activity was right to isolate; a clean host is a needless business outage" },
+      { label: "Hypothesis to conclusion", score: c.huntToConfirmMin == null ? null : bandLow(c.huntToConfirmMin, 5, 12, 20), value: c.huntToConfirmMin == null ? undefined : `${fmtMin(c.huntToConfirmMin)} (median)`, target: "≤ 5 min", note: "the hunt that led to each scope confirmation → the confirmation (early proactive hunts don't count against you)" },
+      { label: "Confirmed scope", score: c.scopeConfirmed ? (c.scopeConfirmDims >= 3 ? 12 : c.scopeConfirmDims >= 2 ? 8 : c.scopeConfirmDims >= 1 ? 4 : 0) : null, value: c.scopeConfirmed ? `${c.scopeConfirmDims} of 3` : undefined, target: "3 of 3", note: "hosts, users and techniques confirmed" },
+      { label: "Hunt quality", score: c.huntQuality == null ? null : bandHigh(c.huntQuality, 75, 55, 30), value: c.huntQuality == null ? undefined : `${c.huntQuality}%${c.huntCount > 1 ? ` (avg of ${c.huntCount})` : ""}`, target: "≥ 75%", note: "substance + cited evidence + matching technique (sub-technique/parent ok) + backed conclusion" },
+      { label: "Technique attribution", score: c.huntCount ? bandHigh(Math.round((c.huntTech / c.huntCount) * 100), 90, 60, 30) : null, value: c.huntCount ? `${c.huntTech} of ${c.huntCount} hunts` : undefined, target: "≥ 90%", note: "hunts tagged with a valid MITRE technique id" },
+      { label: "Elevations answered", score: c.elevAnsweredPct == null ? null : bandHigh(c.elevAnsweredPct, 100, 66, 33), value: pctVal(c.elevAnsweredPct), target: "100%", note: "a hunt linked to the elevation (event_id) answers it" },
+      { label: "Guidance to Tier-2", score: c.noteCount ? bandHigh(c.noteCount, 3, 2, 1) : null, value: c.noteCount ? `${c.noteCount} note${c.noteCount === 1 ? "" : "s"}` : undefined, target: "≥ 3" },
+      isolationCell(c),
       updatesCell(c),
       ...forensicCells(c.forensic),
     ];
-    case "lead": return [
-      { label: "Team organised", score: c.caseOwnedMin == null ? null : bandLow(c.caseOwnedMin, 3, 8, 15) },
-      { label: "Time-to-approval", score: c.approvalLatencyMin == null ? null : bandLow(c.approvalLatencyMin, 3, 7, 12) },
-      { label: "Decision log", score: c.decisionCount === 0 ? null : c.decisionRationaleRate == null ? 4 : bandHigh(c.decisionRationaleRate, 90, 60, 30) },
-      { label: "Cadence + SITREP", score: c.sitrepCount === 0 ? null : bandHigh(c.sitrepCount, 3, 2, 1) },
-      { label: "Management pressure", score: c.mgmtRespondedRate == null ? null : bandHigh(c.mgmtRespondedRate, 100, 50, 1) },
-    ];
-    case "de": return [
-      { label: "Verifiable rule", score: c.rulePublished ? bandHigh(c.ruleMatched, 3, 2, 1) : 0 },
-      { ...TODO, label: "FP-rate" },
-      { ...TODO, label: "Time-to-publish" },
-      { label: "ATT&CK coverage-delta", score: c.rulePublished ? bandHigh(c.ruleTechniques, 3, 2, 1) : null },
-      { label: "Documentation", score: c.ruleDocRate == null ? null : bandHigh(c.ruleDocRate, 90, 60, 30) },
-    ];
-    case "ti": return [
-      { ...TODO, label: "Actionable-rate" },
-      { ...TODO, label: "Time-to-action" },
-      { label: "Attribution accuracy", score: c.intelAttrib == null ? null : bandHigh(c.intelAttrib, 90, 60, 30), note: "a real actor/campaign AND a technique or IOC that matches what the attack actually did — not just non-empty fields" },
-      { label: "Next-step prediction", score: c.intelNext == null ? null : bandHigh(c.intelNext, 90, 60, 30), note: "your prediction matched a technique / tactic / entity that showed up AFTER you published" },
-      { label: "IOC precision", score: c.iocPrecision == null ? null : bandHigh(c.iocPrecision, 90, 60, 30), note: "published IOCs that appear in the attack telemetry (an unverified decoy costs)" },
-    ];
+    case "lead":
     // In the 4-role model the SOC Manager IS the incident coordinator.
     case "mgr": return [
-      { label: "Team organised", score: c.caseOwnedMin == null ? null : bandLow(c.caseOwnedMin, 3, 8, 15) },
-      { label: "Time-to-approval", score: c.approvalLatencyMin == null ? null : bandLow(c.approvalLatencyMin, 3, 7, 12) },
-      { label: "Decision log", score: c.decisionCount === 0 ? null : c.decisionRationaleRate == null ? 4 : bandHigh(c.decisionRationaleRate, 90, 60, 30) },
-      { label: "Cadence + SITREP", score: c.sitrepCount === 0 ? null : bandHigh(c.sitrepCount, 3, 2, 1) },
-      { label: "Load balancing", score: c.loadBalanceRate == null ? null : bandHigh(c.loadBalanceRate, 100, 50, 1), note: `nudged analysts who stayed overloaded for ≥${OVERLOAD_MIN_MS / 1000}s so the team rebalanced` },
-      { label: "Management pressure", score: c.mgmtRespondedRate == null ? null : bandHigh(c.mgmtRespondedRate, 100, 50, 1) },
+      { label: "Time to organise the team", score: c.caseOwnedMin == null ? null : bandLow(c.caseOwnedMin, 3, 8, 15), value: c.caseOwnedMin == null ? undefined : fmtMin(c.caseOwnedMin), target: "≤ 3 min", note: "shift start → the first case assigned to an owner" },
+      { label: "Time to approve containment", score: c.approvalLatencyMin == null ? null : bandLow(c.approvalLatencyMin, 3, 7, 12), value: c.approvalLatencyMin == null ? undefined : `${fmtMin(c.approvalLatencyMin)} (median)`, target: "≤ 3 min", note: "a containment request → your approval" },
+      { label: "Decisions with a rationale", score: c.decisionCount === 0 ? null : c.decisionRationaleRate == null ? 4 : bandHigh(c.decisionRationaleRate, 90, 60, 30), value: c.decisionCount ? `${c.decisionRationaleRate ?? 0}% of ${c.decisionCount}` : undefined, target: "≥ 90%" },
+      { label: "SITREPs sent", score: c.sitrepCount === 0 ? null : bandHigh(c.sitrepCount, 3, 2, 1), value: c.sitrepCount ? String(c.sitrepCount) : undefined, target: "≥ 3" },
+      ...(c.role === "mgr" ? [{ label: "Overload rebalanced", score: c.loadBalanceRate == null ? null : bandHigh(c.loadBalanceRate, 100, 50, 1), value: pctVal(c.loadBalanceRate), target: "100%", note: `analysts who stayed overloaded for ≥${OVERLOAD_MIN_MS / 1000}s that you nudged so the team rebalanced` }] : []),
+      { label: "Management requests answered", score: c.mgmtRespondedRate == null ? null : bandHigh(c.mgmtRespondedRate, 100, 50, 1), value: pctVal(c.mgmtRespondedRate), target: "100% within 15 min", note: "each management request answered by a SITREP within 15 minutes" },
+    ];
+    case "de": return [
+      { label: "Rule matches on the attack", score: c.rulePublished ? bandHigh(c.ruleMatched, 3, 2, 1) : 0, value: `${c.ruleMatched} match${c.ruleMatched === 1 ? "" : "es"}`, target: "≥ 3" },
+      { label: "ATT&CK techniques covered", score: c.rulePublished ? bandHigh(c.ruleTechniques, 3, 2, 1) : null, value: c.rulePublished ? String(c.ruleTechniques) : undefined, target: "≥ 3" },
+      { label: "Rules documented", score: c.ruleDocRate == null ? null : bandHigh(c.ruleDocRate, 90, 60, 30), value: pctVal(c.ruleDocRate), target: "≥ 90%" },
+    ];
+    case "ti": return [
+      { label: "Attribution accuracy", score: c.intelAttrib == null ? null : bandHigh(c.intelAttrib, 90, 60, 30), value: pctVal(c.intelAttrib), target: "≥ 90%", note: "a real actor/campaign AND a technique or IOC that matches what the attack actually did, not just non-empty fields" },
+      { label: "Next-step prediction", score: c.intelNext == null ? null : bandHigh(c.intelNext, 90, 60, 30), value: pctVal(c.intelNext), target: "≥ 90%", note: "your prediction matched a technique / tactic / entity that showed up AFTER you published" },
+      { label: "IOC precision", score: c.iocPrecision == null ? null : bandHigh(c.iocPrecision, 90, 60, 30), value: pctVal(c.iocPrecision), target: "≥ 90%", note: "published IOCs that appear in the attack telemetry (an unverified decoy costs)" },
     ];
     default: return [];
   }
@@ -925,6 +954,18 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
   const tooLate = (t: number | null) => t != null && runMs(t, endTs) < END_GRACE_MS;
   // Tier-3 forensic work, graded against the truth (views rebuilt from what the players saw).
   const forensic = computeForensicReview({ events, publicEvents: opts.publicEvents ?? null, sessionId: opts.sessionId ?? "", attackIds, roster: players, endMs: endTs, relS });
+  // Per attack: the team's first catch, first escalation, its highest-severity log time (the SLA
+  // anchor), whether it touched a host and whether it was contained (the per-analyst timings).
+  const incDetectAt = new Map<string, number>(); const incEscalateAt = new Map<string, number>(); const incAnchor = new Map<string, number>();
+  for (const [eid, t] of [...escalatedAttack, ...markedAttack]) { const inc = incidentOfEid(eid); if (inc && Number.isFinite(t) && t < (incDetectAt.get(inc) ?? Infinity)) incDetectAt.set(inc, t); }
+  for (const e of escReq) { const inc = attackIds.has(eidOf(e)) ? incidentOfEid(eidOf(e)) : null; const t = tsOf(e); if (inc && t != null && t < (incEscalateAt.get(inc) ?? Infinity)) incEscalateAt.set(inc, t); }
+  for (const inc of incidents.values()) {
+    const top = Math.max(...inc.attackEids.map(e => sevRank(truth.get(e)?.severity ?? "")));
+    const ts = inc.attackEids.filter(e => sevRank(truth.get(e)?.severity ?? "") === top).map(e => truth.get(e)?.ts).filter((t): t is number => t != null && Number.isFinite(t));
+    const a = ts.length ? Math.min(...ts) : inc.firstSeen; if (a != null) incAnchor.set(inc.id, a);
+  }
+  const incHasHost = new Set([...attackHosts.values()].flatMap(h => [...h.incidents]));
+  const incContained = new Set(incidentList.filter(i => i.contained).map(i => i.id));
   const perUser: UserReport[] = players.map(m => {
     const mine = events.filter(e => e.actor_id === m.user_id);
     // event.opened carries { event_id, dwell_ms }; count DISTINCT ids opened, max dwell per id.
@@ -1189,6 +1230,32 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     ]);
     const falseAlarms = [...alarmEids].map(eid => missItem(eid, firstEsc.has(eid) ? "escalated a benign log" : "called a benign log a true positive"));
 
+    // ── Measurable timings (Tal, 2026-10-27) ──
+    // Tier-1 detect / escalate: per attack, counted only when this analyst was first (or tied) to do it.
+    const myDetect = new Map<string, number>(); const myEscalate = new Map<string, number>();
+    const firstAt = (mp: Map<string, number>, inc: string | null, t: number | null) => { if (!inc || t == null) return; if (!mp.has(inc) || t < mp.get(inc)!) mp.set(inc, t); };
+    for (const [k, sv] of standing) if (k.startsWith(`${m.user_id}\u0000`) && attackIds.has(sv.eid) && (sv.v === "true_positive" || sv.v === "suspicious")) firstAt(myDetect, incidentOfEid(sv.eid), sv.t);
+    for (const e of esc) if (attackIds.has(eidOf(e))) { firstAt(myDetect, incidentOfEid(eidOf(e)), tsOf(e)); firstAt(myEscalate, incidentOfEid(eidOf(e)), tsOf(e)); }
+    const detectTimes = [...myDetect].filter(([inc, t]) => t <= (incDetectAt.get(inc) ?? Infinity)).map(([inc, t]) => { const f = incidents.get(inc)?.firstSeen; return f != null ? Math.max(0, runMs(f, t)) / 60000 : null; }).filter((x): x is number => x != null);
+    const escalateTimes = [...myEscalate].filter(([inc, t]) => t <= (incEscalateAt.get(inc) ?? Infinity)).map(([inc, t]) => { const a = incAnchor.get(inc); return a != null ? Math.max(0, runMs(a, t)) / 60000 : null; }).filter((x): x is number => x != null);
+    // Tier-2 contain / report: per attack case this analyst acknowledged.
+    const myAck = new Map<string, number>();
+    for (const e of mine) if (e.type === "escalation.acknowledged") firstAt(myAck, incidentOfEid(eidOf(e)), tsOf(e));
+    const myContainAt = new Map<string, number>();
+    for (const e of mine) {
+      if (e.type === "containment.requested") firstAt(myContainAt, incidentOfEid(eidOf(e)), tsOf(e));
+      else if (e.type === "edr.host_isolated") for (const inc of attackHosts.get(hostKey(isoHost(e)))?.incidents ?? []) firstAt(myContainAt, inc, tsOf(e));
+    }
+    const myReportAt = new Map<string, number>();
+    for (const e of mine) if (e.type === "report.submitted") firstAt(myReportAt, incidentOfEid(eidOf(e)), tsOf(e));
+    const containTimes = m.role === "t2" ? [...myAck].map(([inc, at]) => {
+      const ct = myContainAt.get(inc);
+      if (ct != null) return Math.max(0, runMs(at, ct)) / 60000;
+      // Nobody contained an attack case on a real host: the wait runs to the end of the shift.
+      return incHasHost.has(inc) && !incContained.has(inc) && !tooLate(at) ? runMs(at, endTs) / 60000 : null;
+    }).filter((x): x is number => x != null) : [];
+    const reportTimes = m.role === "t2" ? [...myAck].map(([inc, at]) => { const rt = myReportAt.get(inc); return rt != null && rt >= at ? runMs(at, rt) / 60000 : null; }).filter((x): x is number => x != null) : [];
+
     // ── v4: hosts this analyst isolated (first isolation per host), judged.
     const myIso: IsolationItem[] = [];
     for (const it of isoItems) if (it.by === m.user_id && !myIso.some(x => hostKey(x.host) === hostKey(it.host))) myIso.push(it);
@@ -1207,6 +1274,10 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       backupCount: backupByUser.get(m.user_id) ?? 0, loadBalanceRate, correctionsCount,
       forensic: forensic?.perUser[m.user_id] ?? null,
       readFirstPct, blindCalls, updatesPct, updatesAnswered, updatesTotal: myUpdates.length, mgmtNoMgrPct,
+      detectMin: isT1 ? median(detectTimes) : null, detectN: detectTimes.length,
+      escalateMin: isT1 ? median(escalateTimes) : null, escalateN: escalateTimes.length,
+      containMin: median(containTimes), containN: containTimes.length, reportMin: median(reportTimes), reportN: reportTimes.length,
+      attackHandling, benignAcc, escCount: esc.length, reportCount: reports.length, isoCount: myIso.length, contReqCount: myContReq.length,
     });
     const measuredCells = rubric.filter(c => c.score != null).length;
     return {

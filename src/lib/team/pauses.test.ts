@@ -94,8 +94,8 @@ describe("computeReport timing is pause-aware", () => {
     const t1 = b.perUser.find(u => u.user_id === "t1")!;
     expect(t1.reported[0]).toMatchObject({ responseS: 60, withinSla: true });
     expect(t1.firstActionS).toBe(120);
-    expect(b.perUser.find(u => u.user_id === "t2")!.rubric.find(c => c.label === "Ack latency")?.score)
-      .toBe(a.perUser.find(u => u.user_id === "t2")!.rubric.find(c => c.label === "Ack latency")?.score);
+    expect(b.perUser.find(u => u.user_id === "t2")!.rubric.find(c => c.label === "Time to acknowledge")?.score)
+      .toBe(a.perUser.find(u => u.user_id === "t2")!.rubric.find(c => c.label === "Time to acknowledge")?.score);
   });
 
   it("without the pause rule the same log would have breached the SLA (regression guard)", () => {

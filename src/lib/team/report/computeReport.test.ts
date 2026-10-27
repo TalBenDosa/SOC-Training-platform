@@ -172,7 +172,7 @@ describe("computeReport — backup take-over", () => {
     add("escalation.acknowledged", "b", 21, { event_id: "c2" }, "t2"); // plain second ack: no ownership change, no credit
     const { perUser } = computeReport(events, [member("t1", "t1"), member("a", "t2"), member("b", "t2")]);
     const b = perUser.find(u => u.user_id === "b")!;
-    expect(cell(b.rubric, "Backup & load-balancing").score).not.toBeNull();
+    expect(cell(b.rubric, "Backup for a teammate").score).not.toBeNull();
   });
 
   // Playtest P1 (t1b.md): a 5-second claim COLLISION used to score as "backup".
@@ -182,8 +182,8 @@ describe("computeReport — backup take-over", () => {
     add("alert.claimed", "a", 10, { event_id: "evt-1" }, "t1");
     add("alert.claimed", "b", 15, { event_id: "evt-1" }, "t1");
     const { perUser } = computeReport(events, [member("a", "t1"), member("b", "t1")]);
-    expect(cell(perUser.find(u => u.user_id === "b")!.rubric, "Backup & load-balancing").score).toBeNull();
-    expect(cell(perUser.find(u => u.user_id === "a")!.rubric, "Backup & load-balancing").score).toBeNull();
+    expect(cell(perUser.find(u => u.user_id === "b")!.rubric, "Backup for a teammate").score).toBeNull();
+    expect(cell(perUser.find(u => u.user_id === "a")!.rubric, "Backup for a teammate").score).toBeNull();
   });
 
   it("B taking an alert off an OVERLOADED A (≥ OVERLOAD_CASES open) scores B's backup cell", () => {
@@ -191,7 +191,7 @@ describe("computeReport — backup take-over", () => {
     for (const id of ["e1", "e2", "e3"]) add("alert.claimed", "a", 10, { event_id: id }, "t1");
     add("alert.claimed", "b", 30, { event_id: "e2", takeover: true }, "t1");
     const { perUser } = computeReport(events, [member("a", "t1"), member("b", "t1")]);
-    expect(cell(perUser.find(u => u.user_id === "b")!.rubric, "Backup & load-balancing").score).toBe(8); // bandHigh(1, 2, 1, 1)
+    expect(cell(perUser.find(u => u.user_id === "b")!.rubric, "Backup for a teammate").score).toBe(8); // bandHigh(1, 2, 1, 1)
   });
 
   it("claiming an alert nobody holds is not a take-over", () => {
@@ -200,7 +200,7 @@ describe("computeReport — backup take-over", () => {
     add("alert.released", "a", 15, { event_id: "evt-1" }, "t1");
     add("alert.claimed", "b", 20, { event_id: "evt-1" }, "t1");
     const b = computeReport(events, [member("a", "t1"), member("b", "t1")]).perUser.find(u => u.user_id === "b")!;
-    expect(cell(b.rubric, "Backup & load-balancing").score).toBeNull();
+    expect(cell(b.rubric, "Backup for a teammate").score).toBeNull();
   });
 
   // Fix round 2026-09-27: rescuing an ABANDONED alert (claim older than CLAIM_TTL_MS and
@@ -210,7 +210,7 @@ describe("computeReport — backup take-over", () => {
     add("alert.claimed", "a", 10, { event_id: "evt-1" }, "t1");
     add("alert.claimed", "b", 10 + 6 * 60, { event_id: "evt-1" }, "t1");
     const b = computeReport(events, [member("a", "t1"), member("b", "t1")]).perUser.find(u => u.user_id === "b")!;
-    expect(cell(b.rubric, "Backup & load-balancing").score).toBe(8);
+    expect(cell(b.rubric, "Backup for a teammate").score).toBe(8);
   });
 
   it("A3: stale claims stop counting toward overload, matching the live Situation Board", () => {
@@ -220,14 +220,14 @@ describe("computeReport — backup take-over", () => {
     add("coordination.nudge", "mgr", 20, { target: "a" }, "mgr");
     add("session.ended", "instr", 200); // the overload lasted ≥ OVERLOAD_MIN_MS (60s)
     const fresh = computeReport(events, [member("a", "t1"), member("mgr", "mgr")]).perUser.find(u => u.user_id === "mgr")!;
-    expect(cell(fresh.rubric, "Load balancing").score).not.toBeNull();
+    expect(cell(fresh.rubric, "Overload rebalanced").score).not.toBeNull();
 
     const { events: ev2, add: add2 } = log();
     add2("alert.claimed", "a", 10, { event_id: "e1" }, "t1");
     add2("alert.claimed", "a", 10 + 6 * 60, { event_id: "e2" }, "t1");
     add2("alert.claimed", "a", 10 + 12 * 60, { event_id: "e3" }, "t1");
     const stale = computeReport(ev2, [member("a", "t1"), member("mgr", "mgr")]).perUser.find(u => u.user_id === "mgr")!;
-    expect(cell(stale.rubric, "Load balancing").score).toBeNull(); // A never held 3 at once
+    expect(cell(stale.rubric, "Overload rebalanced").score).toBeNull(); // A never held 3 at once
   });
 });
 
@@ -380,8 +380,8 @@ describe("computeReport — help-desk scored on the decision (fix 4)", () => {
     add("ticket.answered", "a", 100, { ticket_seq: 2, decision: "rejected", response: "refused" }, "t1");
     add("ticket.answered", "b", 110, { ticket_seq: 2, decision: "rejected", response: "refused" }, "t1");
     const { perUser, team } = computeReport(events, [member("a", "t1"), member("b", "t1")]);
-    expect(cell(perUser.find(u => u.user_id === "a")!.rubric, "Help-desk tickets").score).toBe(12);
-    const bCell = cell(perUser.find(u => u.user_id === "b")!.rubric, "Help-desk tickets");
+    expect(cell(perUser.find(u => u.user_id === "a")!.rubric, "Help-desk tickets right").score).toBe(12);
+    const bCell = cell(perUser.find(u => u.user_id === "b")!.rubric, "Help-desk tickets right");
     expect(bCell.score).toBeNull();
     expect((bCell as { note?: string }).note).toMatch(/second answer/);
     expect(team.injects[0]).toMatchObject({ kind: "ticket", scored: true, handled: true });
@@ -392,7 +392,7 @@ describe("computeReport — help-desk scored on the decision (fix 4)", () => {
     add("staff.inject", "instr", 60, vish);
     add("ticket.answered", "a", 100, { ticket_seq: 2, decision: "handled", response: "verified caller, no code shared" }, "t1");
     const { perUser, team } = computeReport(events, [member("a", "t1")]);
-    expect(cell(perUser[0].rubric, "Help-desk tickets").score).toBe(0);
+    expect(cell(perUser[0].rubric, "Help-desk tickets right").score).toBe(0);
     expect(team.injects[0]).toMatchObject({ scored: true, handled: false });
   });
 
@@ -400,7 +400,7 @@ describe("computeReport — help-desk scored on the decision (fix 4)", () => {
     const { events, add } = log();
     add("staff.inject", "instr", 60, vish);
     const { perUser, team } = computeReport(events, [member("a", "t1")]);
-    expect(cell(perUser[0].rubric, "Help-desk tickets").score).toBe(0);
+    expect(cell(perUser[0].rubric, "Help-desk tickets right").score).toBe(0);
     expect(team.injects[0].handled).toBe(false);
   });
 });
@@ -412,7 +412,7 @@ describe("computeReport — overload episodes need a minimum duration (fix 6)", 
     add("coordination.nudge", "mgr", 20, { target: "a" }, "mgr");
     add("alert.released", "a", releaseAt, { event_id: "e1" }, "t1");
     add("session.ended", "instr", 400);
-    return cell(computeReport(events, [member("a", "t1"), member("mgr", "mgr")]).perUser.find(u => u.user_id === "mgr")!.rubric, "Load balancing").score;
+    return cell(computeReport(events, [member("a", "t1"), member("mgr", "mgr")]).perUser.find(u => u.user_id === "mgr")!.rubric, "Overload rebalanced").score;
   };
   it("a 30-second spike is not overload", () => { expect(run(40)).toBeNull(); });
   it("≥60s at ≥ OVERLOAD_CASES, nudged by the Manager, scores Load balancing", () => { expect(run(100)).toBe(12); });
@@ -444,7 +444,7 @@ describe("computeReport — evidence-based triage (fix 7)", () => {
     add("feed.event", null, 10, { id: "h1", expected_verdict: "benign", severity: "high" });
     add("event.opened", "a", 15, { event_id: "h1", dwell_ms: 1000 }, "t1");
     add("disposition.set", "a", 20, { event_id: "h1", verdict: "benign" }, "t1");
-    expect(cell(computeReport(events, [member("a", "t1")]).perUser[0].rubric, "Time-to-triage").score).toBe(4);
+    expect(cell(computeReport(events, [member("a", "t1")]).perUser[0].rubric, "Time to triage").score).toBe(4);
   });
 });
 
@@ -455,7 +455,7 @@ describe("computeReport — Tier-3 (fix 8)", () => {
   it("a confirmed scope with hosts + users + techniques reaches 12 (was capped at 8)", () => {
     const { events, add } = log();
     add("scope.confirmed", "t3", 60, { hosts: ["WS-1"], users: ["u1"], techniques: ["T1078"] }, "t3");
-    expect(cell(computeReport(events, [member("t3", "t3")]).perUser[0].rubric, "Final scope (confirmed)").score).toBe(12);
+    expect(cell(computeReport(events, [member("t3", "t3")]).perUser[0].rubric, "Confirmed scope").score).toBe(12);
   });
 
   it("hunt quality accepts a sub-technique of an observed technique and entity matches by local-part / short host", () => {
@@ -495,7 +495,7 @@ describe("computeReport — Tier-3 (fix 8)", () => {
     add("hunt.logged", "t3", 60, { hypothesis: "early proactive hunt" }, "t3");
     add("hunt.logged", "t3", 900, { hypothesis: "the hunt that confirmed it" }, "t3");
     add("scope.confirmed", "t3", 960, { hosts: ["WS-1"] }, "t3");
-    expect(cell(computeReport(events, [member("t3", "t3")]).perUser[0].rubric, "Hypothesis→conclusion time").score).toBe(12); // 1 min
+    expect(cell(computeReport(events, [member("t3", "t3")]).perUser[0].rubric, "Hypothesis to conclusion").score).toBe(12); // 1 min
   });
 });
 
@@ -537,7 +537,7 @@ describe("computeReport — Tier-2 containment quality + report accuracy (fix 10
     add("containment.executed", "t2", 140, { event_id: "a1", target: "WS-1" }, "t2");
     const t2 = computeReport(events, [member("t2", "t2"), member("mgr", "mgr")]).perUser.find(u => u.user_id === "t2")!;
     expect(cell(t2.rubric, "Containment quality").score).toBe(12);
-    expect(cell(t2.rubric, "Report accuracy").score).toBe(12);
+    expect(cell(t2.rubric, "Report verdict accuracy").score).toBe(12);
   });
 
   it("a denied request and a re-targeted request lower containment quality; a wrong report verdict lowers accuracy", () => {
@@ -553,7 +553,7 @@ describe("computeReport — Tier-2 containment quality + report accuracy (fix 10
     add("containment.executed", "t2", 240, { event_id: "a1", target: "SRV-DC01" }, "t2");
     const t2 = computeReport(events, [member("t2", "t2"), member("mgr", "mgr")]).perUser.find(u => u.user_id === "t2")!;
     expect(cell(t2.rubric, "Containment quality").score).toBe(4); // (0 + 1) / 2 = 50%
-    expect(cell(t2.rubric, "Report accuracy").score).toBe(4);     // 1 of 2
+    expect(cell(t2.rubric, "Report verdict accuracy").score).toBe(4);     // 1 of 2
 
     const { events: ev2, add: add2 } = log();
     add2("containment.requested", "t2", 100, { event_id: "a1", target: "WS-A" }, "t2");
@@ -575,7 +575,7 @@ describe("computeReport — timing (fix 11)", () => {
     const { team, perUser } = computeReport(events, [member("a", "t1"), member("b", "t1"), member("t2", "t2")]);
     expect(team.mttrS).toBe(120);
     expect(team.handoffLatS).toBe(30);
-    expect(cell(perUser.find(u => u.user_id === "t2")!.rubric, "Ack latency").score).toBe(12);
+    expect(cell(perUser.find(u => u.user_id === "t2")!.rubric, "Time to acknowledge").score).toBe(12);
   });
 
   it("a bounced escalation is a closed loop", () => {
@@ -645,7 +645,7 @@ describe("computeReport — review fixes (2026-09-27)", () => {
     add("staff.inject", "instr", 60, { kind: "ticket", text: "User says they don't have VPN access after the password reset" });
     add("ticket.answered", "a", 90, { ticket_seq: 2, decision: "handled", response: "restored access" }, "t1");
     const a = computeReport(events, [member("a", "t1")]).perUser.find(u => u.user_id === "a")!;
-    expect(cell(a.rubric, "Help-desk tickets").score).toBe(12);
+    expect(cell(a.rubric, "Help-desk tickets right").score).toBe(12);
   });
 
   it("an instructor-typed twist does not borrow the scripted twist's telemetry", () => {
@@ -666,7 +666,7 @@ describe("computeReport — review fixes (2026-09-27)", () => {
     add("coordination.nudge", "mgr", 200, { target: "a", reason: "overloaded", load: 3 }, "mgr");
     add("session.ended", null, 400);
     const mgr = computeReport(events, [member("a", "t1"), member("mgr", "mgr")]).perUser.find(u => u.user_id === "mgr")!;
-    expect(cell(mgr.rubric, "Load balancing").score).toBeNull(); // A never carried 3 live claims for ≥60s
+    expect(cell(mgr.rubric, "Overload rebalanced").score).toBeNull(); // A never carried 3 live claims for ≥60s
   });
 });
 
@@ -763,7 +763,7 @@ describe("computeReport — v4: EDR host isolation judged against the answer key
     expect(t2.isolations[0].timeToIsolateS).toBe(120);
     expect(t2.isolations[1].releasedS).toBe(260);
     expect(t2.isoPct).toBe(50);
-    expect(cell(t2.rubric, "Host isolation").score).toBe(4);      // 1 of 2 right → the lowest non-zero band
+    expect(cell(t2.rubric, "Host isolation accuracy").score).toBe(4);      // 1 of 2 right → the lowest non-zero band
   });
 
   it("team view: first isolation per host, incident marked contained, compromised hosts left online, MTTI", () => {
@@ -784,7 +784,7 @@ describe("computeReport — v4: EDR host isolation judged against the answer key
     // Each analyst is judged on the hosts THEY isolated.
     expect(r.perUser.find(u => u.user_id === "t2")!.isolations.map(i => i.host)).toEqual(["WS-FIN-2847"]);
     expect(r.perUser.find(u => u.user_id === "t3")!.isoPct).toBe(100);
-    expect(cell(r.perUser.find(u => u.user_id === "t3")!.rubric, "Host isolation").score).toBe(12);
+    expect(cell(r.perUser.find(u => u.user_id === "t3")!.rubric, "Host isolation accuracy").score).toBe(12);
   });
 
   it("an incident handled only by a correct isolation is detected, not missed (Sdema review 2026-10-25)", () => {
@@ -804,7 +804,7 @@ describe("computeReport — v4: EDR host isolation judged against the answer key
     const t2 = r.perUser.find(u => u.user_id === "t2")!;
     expect(t2.isolations).toEqual([]);
     expect(t2.isoPct).toBeNull();
-    expect(cell(t2.rubric, "Host isolation").score).toBeNull();
+    expect(cell(t2.rubric, "Host isolation accuracy").score).toBeNull();
     expect(r.team.isoTotal).toBe(0);
     expect(r.team.hostsLeftOnline.map(h => h.host)).toEqual(["WS-FIN-2847", "SRV-DB-01"]);
   });
@@ -943,7 +943,7 @@ describe("computeReport — balanced, severity-weighted disposition accuracy (P0
     expect(u.benignAcc).toBe(100);
     expect(u.attackHandling).toBe(0);
     expect(u.dispAcc).toBe(50);                                   // was 100% under the plain average
-    expect(cell(u.rubric, "Disposition accuracy (balanced)").score).toBe(4);
+    expect(cell(u.rubric, "Verdict accuracy").score).toBe(4);
   });
 
   it("catching the attack as well earns full marks", () => {
@@ -955,7 +955,7 @@ describe("computeReport — balanced, severity-weighted disposition accuracy (P0
     const u = computeReport(events, [member("a", "t1")]).perUser[0];
     expect(u.attackHandling).toBe(100);
     expect(u.dispAcc).toBe(100);
-    expect(cell(u.rubric, "Disposition accuracy (balanced)").score).toBe(12);
+    expect(cell(u.rubric, "Verdict accuracy").score).toBe(12);
   });
 
   it("a missed Critical costs more than a missed Low", () => {
@@ -979,7 +979,7 @@ describe("computeReport — balanced, severity-weighted disposition accuracy (P0
     const u = computeReport(events, [member("a", "t1")]).perUser[0];
     expect(u.attackHandling).toBeNull();
     expect(u.dispAcc).toBe(100);
-    expect(cell(u.rubric, "Disposition accuracy (balanced)").score).toBe(8);
+    expect(cell(u.rubric, "Verdict accuracy").score).toBe(8);
   });
 });
 
@@ -1087,8 +1087,8 @@ describe("computeReport — measurement fixes (2026-10-18)", () => {
     add("inject.responded", "a", 40, { inject_seq: 3, decision: "rescope", note: "host already in our case" }, "t1");
     add("inject.responded", "b", 50, { inject_seq: 2, decision: "investigate", note: "looks like exfil to me" }, "t2");
     const { perUser } = computeReport(events, [member("a", "t1"), member("b", "t2")]);
-    expect(cell(perUser.find(u => u.user_id === "a")!.rubric, "Updates judged").score).toBe(12);
-    expect(cell(perUser.find(u => u.user_id === "b")!.rubric, "Updates judged").score).toBe(0);
+    expect(cell(perUser.find(u => u.user_id === "a")!.rubric, "Updates judged right").score).toBe(12);
+    expect(cell(perUser.find(u => u.user_id === "b")!.rubric, "Updates judged right").score).toBe(0);
   });
 
   it("with no SOC Manager, Tier-2 is scored on answering management requests", () => {
@@ -1096,14 +1096,14 @@ describe("computeReport — measurement fixes (2026-10-18)", () => {
     add("staff.inject", null, 10, { kind: "mgmt_pressure", text: "CISO wants a status", inject_id: "i1" });
     add("inject.responded", "b", 200, { inject_seq: 2, decision: "status", note: "one host compromised, contained, scoping" }, "t2");
     const b = computeReport(events, [member("a", "t1"), member("b", "t2")]).perUser.find(u => u.user_id === "b")!;
-    expect(cell(b.rubric, "Management requests (no Manager)").score).toBe(12);
+    expect(cell(b.rubric, "Management requests answered").score).toBe(12);
   });
 
   it("sessions that started before the Action-required box shipped are not judged on inject answers", () => {
     const { events, add } = log();
     add("staff.inject", null, 10, { kind: "false_lead", text: "SaaS tool looks like exfil", inject_id: "i1" });
     const a = computeReport(events, [member("a", "t1")]).perUser[0];
-    expect(cell(a.rubric, "Updates judged").score).toBeNull();
+    expect(cell(a.rubric, "Updates judged right").score).toBeNull();
   });
 });
 
@@ -1117,8 +1117,8 @@ describe("computeReport fairness at the end of the shift (Sdema review 2026-10-2
     const r = computeReport(l.events, roster);
     const t1 = r.perUser.find(u => u.user_id === "t1")!;
     const t2 = r.perUser.find(u => u.user_id === "t2")!;
-    expect(cell(t1.rubric, "Handoff coordination").score).toBeNull();
-    expect(cell(t2.rubric, "Ack latency").score).toBe(0);   // waited 11 min with nobody on it
+    expect(t1.rubric.some(c => c.label === "Handoff coordination")).toBe(false);
+    expect(cell(t2.rubric, "Time to acknowledge").score).toBe(0);   // waited 11 min with nobody on it
   });
 });
 
@@ -1168,7 +1168,7 @@ describe("computeReport: Tier-1 adds a log to an open case (Sdema review 2026-10
     const { perUser } = computeReport(events, [member("a", "t1"), member("t2", "t2")]);
     const a = perUser.find(u => u.user_id === "a")!;
     expect(a.attackHandling).toBe(100);
-    expect((cell(a.rubric, "Share of the load") as { note?: string }).note).toContain("you triaged 1 log;");
+    expect((cell(a.rubric, "Share of the load") as { value?: string }).value).toMatch(/^1 of ~/);
   });
 });
 
