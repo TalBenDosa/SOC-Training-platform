@@ -1460,7 +1460,7 @@ export default function TeamRoomPage() {
                 ) : (me.role === "lead" || me.role === "mgr") && mgrView === "escalations" ? (
                   <>
                     <LeadConsole events={events} nameOf={nameOf} act={act} parts={["approvals"]} />
-                    <EscalationsPanel events={events} nameOf={nameOf} onAddToReport={(host, line) => setReportSeed({ hosts: host ? [host] : [], lines: [line] })} />
+                    <EscalationsPanel sessionId={id} events={events} nameOf={nameOf} onAddToReport={(host, line) => setReportSeed({ hosts: host ? [host] : [], lines: [line] })} />
                   </>
                 ) : (me.role === "lead" || me.role === "mgr") && mgrView === "stakeholders" ? (
                   <StakeholderWindow sessionId={id} events={events} act={act} declared={events.some(e => e.type === "incident.declared")} />

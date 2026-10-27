@@ -1,11 +1,12 @@
 "use client";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Siren, ShieldAlert, ArrowUpRight, FilePlus2 } from "lucide-react";
 import type { Ev } from "@/lib/team/types";
 import { asStr } from "@/lib/team/format";
 import { escalationStates, containmentRequests } from "@/lib/team/projections";
 import { useServerNow } from "@/lib/team/clock";
+import { TeamImageThumb, imagesOf } from "./teamImages";
 
 /**
  * Every escalation in the shift, for the SOC Manager: Tier-1 → Tier-2 escalations, Tier-2 →
@@ -22,7 +23,41 @@ export interface EscalationItem {
   by: string | null; byRole: string | null; host: string; summary: string; status: string; owner: string | null;
 }
 
-export function EscalationsPanel({ events, nameOf, onAddToReport }: { events: Ev[]; nameOf: (u: string | null) => string; onAddToReport: (host: string, line: string) => void }) {
+const VERDICT: Record<string, string> = { true_positive: "true positive", suspicious: "suspicious", benign: "benign", false_positive: "false positive", escalate: "escalate" };
+const verdictText = (v: unknown) => VERDICT[asStr(v)] ?? asStr(v).replace(/_/g, " ");
+
+/** One labelled line of the investigation; nothing is rendered for an empty value. */
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  if (children == null || children === "" || children === false) return null;
+  return <p className="text-slate-300"><span className="text-slate-500">{label}: </span>{children}</p>;
+}
+
+/** The fields of the log the analyst escalated, as they saw it. */
+function OriginalLog({ snap }: { snap: Record<string, unknown> }) {
+  const proc = (snap.process ?? {}) as { name?: unknown; cmdline?: unknown };
+  const file = (snap.file ?? {}) as { path?: unknown; sha256?: unknown };
+  const rows: [string, string][] = ([
+    ["Source", [asStr(snap.vendor), asStr(snap.source)].filter(Boolean).join(" · ")],
+    ["Time", asStr(snap.ts).replace("T", " ").slice(0, 19)], ["Event", asStr(snap.event_type)], ["Severity", asStr(snap.severity)], ["Host", asStr(snap.hostname)],
+    ["User", asStr(snap.user_email) || asStr((snap.user as { email?: unknown } | undefined)?.email)],
+    ["Source IP", asStr(snap.src_ip)], ["Destination IP", asStr(snap.dst_ip)],
+    ["Process", asStr(proc.name)], ["Command line", asStr(proc.cmdline)], ["File", asStr(file.path)], ["SHA256", asStr(file.sha256)],
+    ["Description", asStr(snap.description)],
+  ] as [string, string][]).filter(([, v]) => v);
+  return (
+    <details className="rounded border border-border/60 px-2 py-1">
+      <summary className="cursor-pointer text-slate-400">The original log</summary>
+      <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5">
+        {rows.map(([k, v]) => <Fragment key={k}><dt className="text-slate-500">{k}</dt><dd className="break-all font-mono text-slate-200"><bdi>{v}</bdi></dd></Fragment>)}
+      </dl>
+      {snap.raw != null && (
+        <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-bg-elevated p-1.5 font-mono text-[10px] text-slate-400">{typeof snap.raw === "string" ? snap.raw : JSON.stringify(snap.raw, null, 2)}</pre>
+      )}
+    </details>
+  );
+}
+
+export function EscalationsPanel({ events, nameOf, onAddToReport, sessionId }: { events: Ev[]; nameOf: (u: string | null) => string; onAddToReport: (host: string, line: string) => void; sessionId?: string }) {
   const now = useServerNow(15_000);
   const [open, setOpen] = useState<string | null>(null);
   const feedById = useMemo(() => new Map(events.filter(e => e.type === "feed.event").map(e => [asStr((e.payload as { id?: unknown }).id), e.payload as Record<string, unknown>])), [events]);
@@ -30,6 +65,9 @@ export function EscalationsPanel({ events, nameOf, onAddToReport }: { events: Ev
   const conts = useMemo(() => containmentRequests(events), [events]);
   const reports = useMemo(() => events.filter(e => e.type === "report.submitted"), [events]);
   const advice = useMemo(() => events.filter(e => e.type === "containment.advised"), [events]);
+  // Tier-1's own determination on the log (the latest verdict) and any bounce back from Tier-2.
+  const verdictByEid = useMemo(() => { const m = new Map<string, Ev>(); for (const e of events) if (e.type === "disposition.set") m.set(asStr((e.payload as { event_id?: unknown }).event_id), e); return m; }, [events]);
+  const bounces = useMemo(() => events.filter(e => e.type === "escalation.bounced"), [events]);
 
   const items: (EscalationItem & { ev: Ev })[] = [];
   for (const st of states.values()) {
@@ -89,13 +127,72 @@ export function EscalationsPanel({ events, nameOf, onAddToReport }: { events: Ev
               </button>
               {isOpen && (
                 <div className="space-y-1.5 border-t border-border/60 px-2.5 py-2 text-[11px]">
-                  {(asStr(p.observations) || asStr(p.why)) && <p className="text-slate-300"><span className="text-slate-500">What the analyst saw: </span>{asStr(p.observations) || asStr(p.why)}</p>}
-                  {asStr(p.assessment) && <p className="text-slate-300"><span className="text-slate-500">Assessment: </span>{asStr(p.assessment)}</p>}
-                  {asStr(p.severity) && <p className="text-slate-400">Severity given: {asStr(p.severity)}</p>}
-                  {rep && <p className="text-slate-300"><span className="text-slate-500">Tier-2 report ({nameOf(rep.actor_id)}): </span>{asStr((rep.payload as { verdict?: unknown }).verdict).replace("_", " ")}{asStr((rep.payload as { summary?: unknown }).summary) && <> · {asStr((rep.payload as { summary?: unknown }).summary)}</>}</p>}
+                  {/* Every investigation parameter the analyst sent (Tal, 2026-10-27: the manager saw only a short line). */}
+                  {it.kind === "escalation" && (() => {
+                    const disp = verdictByEid.get(eid);
+                    const dp = (disp?.payload ?? {}) as { verdict?: unknown; note?: unknown };
+                    const iocs = Array.isArray(p.iocs) ? (p.iocs as { type?: unknown; value?: unknown }[]) : [];
+                    const shots = imagesOf(p.images);
+                    const snap = (p.snapshot && typeof p.snapshot === "object" ? p.snapshot : null) as Record<string, unknown> | null;
+                    const conf = typeof p.confidence === "number" ? Math.round((p.confidence as number) * 100) : null;
+                    return (
+                      <>
+                        <Field label="Summary"><bdi>{asStr(p.summary) || asStr(p.what)}</bdi></Field>
+                        {disp && <Field label={`Tier-1 determination (${nameOf(disp.actor_id)})`}><b className="text-slate-100">{verdictText(dp.verdict)}</b>{asStr(dp.note) && <>: <bdi>{asStr(dp.note)}</bdi></>}</Field>}
+                        <Field label="What the analyst saw"><bdi>{asStr(p.observations) || asStr(p.why)}</bdi></Field>
+                        <Field label="Assessment"><bdi>{asStr(p.assessment)}</bdi></Field>
+                        <Field label="Severity given">{asStr(p.severity)}</Field>
+                        <Field label="Requested action">{asStr(p.requested_action).replace(/[-_]/g, " ")}</Field>
+                        <Field label="Confidence">{p.low_confidence ? "low: a lead sent for a second look" : conf != null ? `${conf}%` : ""}</Field>
+                        <Field label="Affected">{[asStr(p.hostname), asStr(p.entity) !== asStr(p.hostname) ? asStr(p.entity) : ""].filter(Boolean).join(" · ")}</Field>
+                        {iocs.length > 0 && <Field label={`IOCs (${iocs.length})`}><span className="inline-flex flex-wrap gap-1">{iocs.map((i, k) => <span key={k} className="rounded border border-border px-1 font-mono text-[10px] text-slate-200"><bdi>{asStr(i.type) ? `${asStr(i.type)}: ` : ""}{asStr(i.value)}</bdi></span>)}</span></Field>}
+                        {shots.length > 0 && sessionId && <div className="flex flex-wrap gap-1.5">{shots.map((img, k) => <TeamImageThumb key={img.path} sessionId={sessionId} image={img} alt={`Screenshot ${k + 1} with this escalation`} className="max-h-24" />)}</div>}
+                        {snap && <OriginalLog snap={snap} />}
+                        {bounces.filter(b => asStr((b.payload as { event_id?: unknown }).event_id) === eid).map(b => <Field key={b.seq} label={`Bounced back by ${nameOf(b.actor_id)}`}><bdi>{asStr((b.payload as { reason?: unknown }).reason)}</bdi></Field>)}
+                      </>
+                    );
+                  })()}
+                  {it.kind === "elevation" && (
+                    <>
+                      <Field label="Summary"><bdi>{asStr(p.summary)}</bdi></Field>
+                      <Field label="What Tier-3 is asked to hunt"><bdi>{asStr(p.hunt_ask)}</bdi></Field>
+                      <Field label="Tier-2 verdict">{p.t2_verdict ? verdictText(p.t2_verdict) : ""}</Field>
+                      <Field label="Tier-2 findings"><bdi>{asStr(p.t2_findings)}</bdi></Field>
+                      <Field label="Tier-2 recommendation"><bdi>{asStr(p.t2_recommendation)}</bdi></Field>
+                      <Field label="Severity">{asStr(p.severity)}</Field>
+                      {Array.isArray(p.iocs) && (p.iocs as unknown[]).length > 0 && <Field label="IOCs"><span className="font-mono text-[10px]">{(p.iocs as { type?: unknown; value?: unknown }[]).map(i => asStr(i.value)).join(", ")}</span></Field>}
+                    </>
+                  )}
+                  {it.kind === "containment" && (
+                    <>
+                      <Field label="Action">{`${asStr(p.containment_type).replace(/_/g, " ") || "isolate host"} on ${asStr(p.target)}`}</Field>
+                      <Field label="Why"><bdi>{asStr(p.reason)}</bdi></Field>
+                      <Field label="Asset criticality">{asStr(p.asset_criticality)}</Field>
+                      <Field label="Blast radius (who is affected)"><bdi>{asStr(p.blast_radius)}</bdi></Field>
+                      <Field label="Business owner"><bdi>{asStr(p.business_owner)}</bdi></Field>
+                      <Field label="Incident"><bdi>{asStr(p.incident)}</bdi></Field>
+                    </>
+                  )}
+                  {rep && (() => {
+                    const rp = rep.payload as { verdict?: unknown; summary?: unknown; findings?: unknown; recommendation?: unknown; incident?: unknown };
+                    return (
+                      <div className="rounded border border-cyber-500/30 bg-cyber-500/[0.04] px-2 py-1.5">
+                        <p className="font-semibold text-cyber-200">Tier-2 report ({nameOf(rep.actor_id)})</p>
+                        <Field label="Verdict"><b className="text-slate-100">{verdictText(rp.verdict)}</b></Field>
+                        <Field label="Summary"><bdi>{asStr(rp.summary)}</bdi></Field>
+                        <Field label="Findings"><bdi>{asStr(rp.findings)}</bdi></Field>
+                        <Field label="Recommendation"><bdi>{asStr(rp.recommendation)}</bdi></Field>
+                        <Field label="Incident"><bdi>{asStr(rp.incident)}</bdi></Field>
+                      </div>
+                    );
+                  })()}
                   {adv.map(a => <p key={a.seq} className={(a.payload as { stance?: unknown }).stance === "object" ? "text-neon-amber" : "text-neon-green"}><bdi>{nameOf(a.actor_id)}</bdi> ({ROLE[a.role ?? ""] ?? "analyst"}) {(a.payload as { stance?: unknown }).stance === "object" ? "objects" : "supports"}{asStr((a.payload as { reason?: unknown }).reason) && <>: &quot;{asStr((a.payload as { reason?: unknown }).reason)}&quot;</>}</p>)}
                   {it.kind === "containment" && it.status.startsWith("waiting") && <p className="text-neon-amber">Approve or deny it in Containment approvals, at the top of this view.</p>}
-                  <button type="button" onClick={() => onAddToReport(it.host, it.summary)} className="flex items-center gap-1 text-cyber-300 hover:underline"><FilePlus2 className="h-3.5 w-3.5" aria-hidden /> Add to the stakeholder report</button>
+                  <button type="button" onClick={() => {
+                    const t1 = verdictByEid.get(eid); const t2 = rep ? (rep.payload as { verdict?: unknown }).verdict : null;
+                    const calls = [t1 ? `Tier-1: ${verdictText((t1.payload as { verdict?: unknown }).verdict)}` : "", t2 ? `Tier-2: ${verdictText(t2)}` : ""].filter(Boolean).join("; ");
+                    onAddToReport(it.host, calls ? `${it.summary} (${calls})` : it.summary);
+                  }} className="flex items-center gap-1 text-cyber-300 hover:underline"><FilePlus2 className="h-3.5 w-3.5" aria-hidden /> Add to the stakeholder report</button>
                 </div>
               )}
             </li>
