@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { ArrowUpRight, ShieldAlert, Siren, Clock, Timer, EyeOff, MonitorX } from "lucide-react";
 import type { RosterMember, Me, Ev } from "@/lib/team/types";
 import { asStr } from "@/lib/team/format";
-import type { computeReport, ReportedItem, MissItem, IsolationItem, MissedHost } from "@/lib/team/report/computeReport";
+import type { computeReport, ReportedItem, MissItem, MissedAttack, IsolationItem, MissedHost } from "@/lib/team/report/computeReport";
 import { mergeAnswers, type AnswerMap } from "@/lib/team/report/serverReport";
 import { ROLE_LABEL, Metric } from "./shared";
 import { CommandReview } from "./CommandReview";
@@ -253,12 +253,47 @@ function MissList({ title, items, tone, empty }: { title: string; items: MissIte
       <p className={`text-[10px] font-semibold ${tone === "high" ? "text-severity-high" : "text-neon-amber"}`}>{title} ({items.length})</p>
       <ul className="mt-0.5 space-y-0.5">
         {items.map((m, i) => (
-          <li key={i} className="flex items-center gap-1.5 text-[10px] text-slate-300">
-            <SevChip sev={m.severity} />
-            <span className="min-w-0 flex-1 truncate" title={m.label}>{m.label}</span>
-            {m.arrivedS != null && <span className="shrink-0 font-mono text-slate-500">{dur(m.arrivedS)}</span>}
+          <li key={i} className="text-[10px] text-slate-300">
+            <span className="flex items-center gap-1.5">
+              <SevChip sev={m.severity} />
+              <span className="min-w-0 flex-1 truncate" title={m.label}>{m.label}</span>
+              {m.arrivedS != null && <span className="shrink-0 font-mono text-slate-500">{dur(m.arrivedS)}</span>}
+            </span>
             {/* Where to learn it (2026-10-18 review): the practice room for the log's technique. */}
-            {m.practice && <Link href={`/rooms/${m.practice.id}`} className="shrink-0 text-cyber-300 underline-offset-2 hover:underline" title={`Practice: ${m.practice.title}`}>practice: {m.practice.title}</Link>}
+            {m.practice && <Link href={`/rooms/${m.practice.id}`} className="mt-0.5 block truncate text-cyber-300 underline-offset-2 hover:underline" title={`Practice: ${m.practice.title}`}>practice: {m.practice.title}</Link>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Attacks nobody caught (Tal, 2026-10-27): one line per attack with its main log, not every log of it. */
+function MissedAttackList({ items }: { items: MissedAttack[] }) {
+  return (
+    <div>
+      <p className="text-[10px] font-semibold text-severity-high">Attacks nobody caught ({items.length})</p>
+      <ul className="mt-1 space-y-1.5">
+        {items.map((a, i) => (
+          <li key={i} className="rounded-lg border border-severity-high/30 bg-severity-high/[0.04] px-2.5 py-2 text-[11px] text-slate-300">
+            <span className="block text-xs font-semibold text-white"><bdi>{a.name}</bdi></span>
+            <span className="mt-1 flex items-center gap-1.5">
+              <span className="shrink-0 text-[10px] text-slate-500">Main log</span>
+              <SevChip sev={a.severity} />
+              <span className="min-w-0 flex-1 truncate" title={a.label}><bdi>{a.label}</bdi></span>
+            </span>
+            <span className="mt-0.5 block text-[10px] text-slate-500">
+              {a.host && <>on <bdi className="font-mono text-slate-300">{a.host}</bdi> · </>}
+              {a.arrivedS != null ? `landed at ${dur(a.arrivedS)}` : "time unknown"}
+              {a.hosts.length > 1 ? ` · the attack touched ${a.hosts.length} hosts` : ""}
+            </span>
+            {a.calledBenign && <span className="mt-0.5 block text-[10px] text-neon-amber">Someone looked at it and called it benign.</span>}
+            {a.relatedLogs > 0 && (
+              <span className="mt-0.5 block text-[10px] text-slate-400">
+                {a.relatedLogs} related log{a.relatedLogs === 1 ? "" : "s"} of the same attack. Escalating any one of them would have caught it.
+              </span>
+            )}
+            {a.practice && <Link href={`/rooms/${a.practice.id}`} className="mt-1 block truncate text-[10px] text-cyber-300 underline-offset-2 hover:underline" title={`Practice: ${a.practice.title}`}>practice: {a.practice.title}</Link>}
           </li>
         ))}
       </ul>
@@ -334,6 +369,7 @@ const LEGEND: Record<string, string> = {
   "High/critical triaged": "Share of high and critical alerts that got any triage action (disposition or escalation) from anyone.",
   "Time to triage": "Median time from a high/critical alert landing in the feed to the first triage action on it.",
   "Attack logs missed": "Real attack logs nobody dispositioned or escalated. Some still belong to an incident the team caught through another log.",
+  "Attacks missed": "Attacks nobody caught: none of the attack's logs was escalated or judged true positive / suspicious, and none of its hosts was isolated. One handled log is enough to count the attack as caught.",
   "False negatives": "Attack logs whose standing call was benign / false positive and that nobody escalated.",
   "False alarms": "Benign logs (not part of any incident) that were escalated.",
   "Busiest analyst": "Share of all triage actions (dispositions + escalations) done by the busiest analyst — a high share means the work wasn't spread.",
@@ -423,6 +459,11 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
   const incDetected = team.incidentsDetected ?? 0;
   const incValue = incTotal ? `${incDetected}/${incTotal}` : (team.detected ? "Yes" : "No");
   const incTone = incTotal ? (incDetected === incTotal ? "good" as const : "warn" as const) : (team.detected ? "good" as const : "warn" as const);
+  // Misses per attack, not per log (Tal, 2026-10-27). A report cached before it keeps the per-log count.
+  const perAttack = Array.isArray(team.missedAttacks);
+  const missedAttacks = team.missedAttacks ?? [];
+  const missLabel = perAttack ? "Attacks missed" : "Attack logs missed";
+  const missValue = perAttack ? missedAttacks.length : (team.missedAttackCount ?? 0);
   const groups: { title: string; items: [string, string, ("good" | "warn" | undefined)?][] }[] = [
     { title: "Detection", items: [
       ["Incidents detected", incValue, incTone],
@@ -447,7 +488,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
       ["Attack SLA", team.attackSlaPct != null ? `${team.attackSlaPct}%` : "—", team.attackSlaPct == null ? undefined : team.attackSlaPct >= 80 ? "good" : "warn"],
       ["High/critical triaged", team.highCritCoverage != null ? `${team.highCritTriaged}/${team.highCritTotal}` : "—", team.highCritCoverage == null ? undefined : team.highCritCoverage === 100 ? "good" : "warn"],
       ["Time to triage", dur(team.mtttS)],
-      ["Attack logs missed", String(team.missedAttackCount ?? 0), (team.missedAttackCount ?? 0) === 0 ? "good" : "warn"],
+      [missLabel, String(missValue), missValue === 0 ? "good" : "warn"],
       ["False negatives", String(team.falseNegativeCount ?? 0), (team.falseNegativeCount ?? 0) === 0 ? "good" : "warn"],
       ["False alarms", String(team.falseAlarmCount ?? 0), (team.falseAlarmCount ?? 0) === 0 ? "good" : "warn"],
       ["Busiest analyst", team.busiestShare != null ? `${team.busiestShare}%${team.busiestName ? ` · ${team.busiestName}` : ""}` : "—", team.busiestShare != null && (team.triagers ?? 0) > 1 && team.busiestShare > 70 ? "warn" : undefined],
@@ -482,7 +523,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
             <span title={LEGEND["Attack SLA"]}><Metric label="Attack logs within SLA" value={team.attackSlaPct != null ? `${team.attackSlaMet}/${team.attackSlaTotal}` : "—"} tone={team.attackSlaPct == null ? undefined : team.attackSlaPct >= 80 ? "good" : "warn"} /></span>
             <span title={LEGEND["High/critical triaged"]}><Metric label="High/critical triaged" value={team.highCritCoverage != null ? `${team.highCritCoverage}%` : "—"} tone={team.highCritCoverage == null ? undefined : team.highCritCoverage === 100 ? "good" : "warn"} /></span>
             <span title={LEGEND["Time to triage"]}><Metric label="Time to triage (median)" value={dur(team.mtttS)} /></span>
-            <span title={LEGEND["Attack logs missed"]}><Metric label="Attack logs missed" value={String(team.missedAttackCount ?? 0)} tone={(team.missedAttackCount ?? 0) === 0 ? "good" : "warn"} /></span>
+            <span title={LEGEND[missLabel]}><Metric label={missLabel} value={String(missValue)} tone={missValue === 0 ? "good" : "warn"} /></span>
           </div>
         )}
         <button onClick={() => setShowAll(s => !s)} aria-expanded={showAll}
@@ -577,17 +618,33 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
       )}
 
       {/* v3: blind spots — attack logs nobody handled, wrong "benign" calls, false alarms */}
-      {((team.missedAttackLogs?.length ?? 0) + (team.falseNegatives?.length ?? 0) + (team.falseAlarms?.length ?? 0)) > 0 && (
+      {((perAttack ? missedAttacks.length : (team.missedAttackLogs?.length ?? 0)) + (team.falseNegatives?.length ?? 0) + (team.falseAlarms?.length ?? 0)) > 0 && (
         <Card className="border-severity-high/30">
           <h3 className="flex items-center gap-2 text-sm font-bold text-white"><EyeOff className="h-4 w-4 text-severity-high" /> What the team missed</h3>
-          <p className="mt-1 text-[11px] text-slate-400">The logs to walk through together — no blame, just the gaps. Time is when the log landed in the feed.</p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <MissList title="Attack logs nobody handled" items={team.missedAttackLogs ?? []} tone="high" />
-            <MissList title="Attacks called benign" items={team.falseNegatives ?? []} tone="high" />
-            <MissList title="False alarms escalated" items={team.falseAlarms ?? []} tone="amber" />
-          </div>
-          {(team.missedAttackLogs ?? []).some(m => m.detail?.startsWith("its incident was caught")) && (
-            <p className="mt-2 text-[10px] text-slate-500">Some unhandled logs belong to an incident the team still caught through another of its logs.</p>
+          {perAttack ? (
+            <>
+              <p className="mt-1 text-[11px] text-slate-400">Measured per attack, not per log: an attack counts as caught once anyone escalated, judged or isolated one of its logs. No blame, just the gaps to walk through together. Time is when the log landed in the feed.</p>
+              {missedAttacks.length > 0 && <div className="mt-3"><MissedAttackList items={missedAttacks} /></div>}
+              {((team.falseNegatives?.length ?? 0) + (team.falseAlarms?.length ?? 0)) > 0 && (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <MissList title="Attacks called benign" items={team.falseNegatives ?? []} tone="high" />
+                  <MissList title="False alarms escalated" items={team.falseAlarms ?? []} tone="amber" />
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Reports cached before the per-attack view: the old per-log list. */}
+              <p className="mt-1 text-[11px] text-slate-400">The logs to walk through together. No blame, just the gaps. Time is when the log landed in the feed.</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <MissList title="Attack logs nobody handled" items={team.missedAttackLogs ?? []} tone="high" />
+                <MissList title="Attacks called benign" items={team.falseNegatives ?? []} tone="high" />
+                <MissList title="False alarms escalated" items={team.falseAlarms ?? []} tone="amber" />
+              </div>
+              {(team.missedAttackLogs ?? []).some(m => m.detail?.startsWith("its incident was caught")) && (
+                <p className="mt-2 text-[10px] text-slate-500">Some unhandled logs belong to an incident the team still caught through another of its logs.</p>
+              )}
+            </>
           )}
         </Card>
       )}

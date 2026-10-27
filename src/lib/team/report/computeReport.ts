@@ -126,6 +126,19 @@ export interface MissItem { label: string; severity: string; arrivedS: number | 
   technique?: string;
   /** Server-added (practiceLinks.ts): the room that practises this technique. */
   practice?: { id: string; title: string } }
+/** An attack (incident) nobody caught, shown by its main log (Tal, 2026-10-27): the team is measured
+ *  per attack, not per log, and escalating any one of its logs would have caught it. */
+export interface MissedAttack {
+  name: string;
+  /** The main log: the attack's highest-severity log (the earliest of those). */
+  label: string; severity: string; host: string; arrivedS: number | null;
+  technique?: string;
+  /** The attack's other logs: related, any one of them was a fair place to start the escalation. */
+  relatedLogs: number; hosts: string[];
+  /** Someone looked at one of its logs and the standing call is benign / false positive. */
+  calledBenign: boolean;
+  practice?: { id: string; title: string };
+}
 /** One EDR network isolation (0082), judged against the answer key. */
 export interface IsolationItem {
   host: string; by: string | null; atS: number | null;
@@ -1363,6 +1376,21 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
   const missedAttackLogs = attackList.filter(eid => !firstTriage.has(eid))
     .sort((a, b) => (feedTs.get(a) ?? 0) - (feedTs.get(b) ?? 0))
     .map(eid => { const inc = truth.get(eid)?.incident; const caught = inc ? incidentDetected.get(inc) : false; return missItem(eid, caught ? "its incident was caught through another log" : "its incident was not caught"); });
+  // The same blind spots per attack (Tal, 2026-10-27): only attacks nobody caught, each by its main log.
+  const missedAttacks: MissedAttack[] = [...incidents.values()].filter(inc => incidentDetected.get(inc.id) === false).map(inc => {
+    const main = inc.attackEids.reduce((best, e) => {
+      const d = sevRank(sevOf(e)) - sevRank(sevOf(best));
+      return d > 0 || (d === 0 && (feedTs.get(e) ?? Infinity) < (feedTs.get(best) ?? Infinity)) ? e : best;
+    });
+    const t = truth.get(main)!; const tech = techIds(t.technique)[0];
+    return {
+      name: (inc.name || inc.label).slice(0, 140), label: labelOf(main), severity: sevOf(main), host: t.host, arrivedS: relS(feedTs.get(main) ?? null),
+      ...(tech ? { technique: tech } : {}),
+      relatedLogs: inc.attackEids.length - 1,
+      calledBenign: inc.attackEids.some(e => { const v = teamLatestVerdict.get(e); return v === "benign" || v === "false_positive"; }),
+      hosts: [...new Set(inc.attackEids.map(e => truth.get(e)?.host ?? "").filter(Boolean))],
+    };
+  }).sort((a, b) => (a.arrivedS ?? 0) - (b.arrivedS ?? 0));
   // Team false negatives: attack logs whose standing call (latest verdict by anyone) is
   // benign / false positive and that nobody escalated.
   const teamFalseNegatives = [...teamLatestVerdict].filter(([eid, v]) => attackIds.has(eid) && (v === "benign" || v === "false_positive") && !escalatedBy.has(eid) && !attachedEids.has(eid))
@@ -1410,7 +1438,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     attackSlaPct: pct(attackInSla, attackSlaJudged.length), attackSlaMet: attackInSla, attackSlaTotal: attackSlaJudged.length,
     highCritTotal: highCrit.length, highCritTriaged: highTriaged.length, highCritCoverage: pct(highTriaged.length, highCrit.length),
     mtttS: mtttS != null ? Math.round(mtttS) : null,
-    missedAttackCount: missedAttackLogs.length, missedAttackLogs: missedAttackLogs.slice(0, 10),
+    missedAttackCount: missedAttackLogs.length, missedAttackLogs: missedAttackLogs.slice(0, 10), missedAttacks,
     falseNegativeCount: teamFalseNegatives.length, falseNegatives: teamFalseNegatives.slice(0, MISS_CAP),
     falseAlarmCount: falseAlarmEscalations.length, falseAlarms: falseAlarmEscalations.slice(0, MISS_CAP),
     triageActions: triageTotal, triagers,

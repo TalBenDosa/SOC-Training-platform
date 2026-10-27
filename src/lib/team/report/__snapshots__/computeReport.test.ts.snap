@@ -618,6 +618,21 @@ exports[`computeReport — characterization (real ended session) > produces the 
         "technique": "T1059.001",
       },
     ],
+    "missedAttacks": [
+      {
+        "arrivedS": 248,
+        "calledBenign": false,
+        "host": "WS-ACC-4477",
+        "hosts": [
+          "WS-ACC-4477",
+        ],
+        "label": "One second later cmd.exe spawned powershell.exe with a hidden window and a base64-encoded command.",
+        "name": "WS-ACC-4477 downloaded Invoice_84421.iso, 6.8 MB, from invoice-doc-share.net at 10:05, logged by the file-filter profile as log-only.",
+        "relatedLogs": 7,
+        "severity": "critical",
+        "technique": "T1059.001",
+      },
+    ],
     "mttcS": null,
     "mttiS": null,
     "mttrS": null,

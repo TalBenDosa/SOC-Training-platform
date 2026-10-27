@@ -1171,3 +1171,25 @@ describe("computeReport: Tier-1 adds a log to an open case (Sdema review 2026-10
     expect((cell(a.rubric, "Share of the load") as { note?: string }).note).toContain("you triaged 1 log;");
   });
 });
+
+describe("computeReport: misses are per attack, by its main log (Tal, 2026-10-27)", () => {
+  it("lists each uncaught attack once with its highest-severity log, and leaves out attacks caught through another log", () => {
+    const { events, add } = log();
+    // Attack A: three logs, nobody touched any of them.
+    add("feed.event", null, 10, { id: "a1", expected_verdict: "tp", incident_id: "inc-A", attack_name: "Fake installer", severity: "low", hostname: "WS-HR-1182", description: "browsed to pdf-tools-free.io" });
+    add("feed.event", null, 20, { id: "a2", expected_verdict: "tp", incident_id: "inc-A", attack_name: "Fake installer", severity: "critical", hostname: "WS-HR-1182", description: "SwiftPDF.exe beacons to C2" });
+    add("feed.event", null, 30, { id: "a3", expected_verdict: "tp", incident_id: "inc-A", attack_name: "Fake installer", severity: "high", hostname: "WS-HR-1183", description: "SwiftPDF.exe on a second host" });
+    // Attack B: two logs, one escalated, so the other unhandled log is not a missed attack.
+    add("feed.event", null, 40, { id: "b1", expected_verdict: "tp", incident_id: "inc-B", attack_name: "Mailbox rule", severity: "high", hostname: "WS-2", description: "forwarding rule" });
+    add("feed.event", null, 50, { id: "b2", expected_verdict: "tp", incident_id: "inc-B", attack_name: "Mailbox rule", severity: "medium", hostname: "WS-2", description: "mail sent out" });
+    add("escalation.requested", "a", 90, { event_id: "b1", summary: "rule" }, "t1");
+    // Attack C: its only log called benign.
+    add("feed.event", null, 60, { id: "c1", expected_verdict: "tp", incident_id: "inc-C", attack_name: "USB copy", severity: "medium", hostname: "WS-3", description: "USB mass copy" });
+    add("disposition.set", "a", 95, { event_id: "c1", verdict: "benign" }, "t1");
+    const { team } = computeReport(events, [member("a", "t1")]);
+    expect(team.missedAttacks.map(m => m.name)).toEqual(["Fake installer", "USB copy"]);
+    expect(team.missedAttacks[0]).toMatchObject({ label: "SwiftPDF.exe beacons to C2", severity: "critical", host: "WS-HR-1182", arrivedS: 20, relatedLogs: 2, calledBenign: false });
+    expect(team.missedAttacks[0].hosts).toEqual(["WS-HR-1182", "WS-HR-1183"]);
+    expect(team.missedAttacks[1]).toMatchObject({ label: "USB mass copy", relatedLogs: 0, calledBenign: true });
+  });
+});

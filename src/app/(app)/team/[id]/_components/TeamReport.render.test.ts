@@ -58,10 +58,13 @@ describe("TeamReport (shift review) — v3 sections", () => {
     expect(text).toContain("Attack logs within SLA");
     expect(text).toContain("High/critical triaged");
     expect(text).toContain("Time to triage (median)");
-    expect(text).toContain("Attack logs missed");
+    expect(text).toContain("Attacks missed");
     // blind-spots card
     expect(text).toContain("What the team missed");
     expect(text).toContain("USB mass copy on HR laptop");          // nobody handled it
+    // per attack, by its main log (Tal, 2026-10-27)
+    expect(text).toContain("Attacks nobody caught (2)");
+    expect(text).toContain("Someone looked at it and called it benign.");
     expect(text).toContain("Forwarding rule to external mailbox"); // called benign
     // per-analyst SLA table (Dana: 2 of 3 within SLA)
     expect(text).toContain("SLA per reported event");
