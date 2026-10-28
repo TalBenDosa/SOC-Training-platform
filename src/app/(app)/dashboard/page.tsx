@@ -1866,6 +1866,7 @@ export default function DashboardPage() {
           <IncidentReportModal
             companyName={selectedCompany.name}
             companyId={selectedCompanyId}
+            incidentId={live.activeIncident?.id ?? "none"}
             realIndicators={realIndicators}
             evidenceText={evidenceText}
             attackTitle={storyTitle}

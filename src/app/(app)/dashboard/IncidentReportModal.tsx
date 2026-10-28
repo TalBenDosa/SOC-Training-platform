@@ -50,6 +50,8 @@ function ScoreRing({ score }: { score: number }) {
 interface Props {
   companyName: string;
   companyId: string;
+  /** The open incident ("none" before the attack starts): the draft belongs to it alone. */
+  incidentId: string;
   /** Real indicator values from the actual attack — grader ground truth */
   realIndicators: string[];
   /**
@@ -86,6 +88,7 @@ interface Props {
 export function IncidentReportModal({
   companyName,
   companyId,
+  incidentId,
   realIndicators,
   evidenceText,
   attackTitle,
@@ -102,7 +105,17 @@ export function IncidentReportModal({
   // student writes is now saved to localStorage per company and restored the
   // next time they open the report, so closing to go re-check the feed never
   // loses their work. Cleared only once a report actually passes.
-  const draftKey = `soc_report_draft_${companyId}`;
+  // Every report starts clean (Tal, 2026-10-28): the draft is kept per incident, so
+  // closing the drawer to re-check the feed keeps it, while a new incident, a new shift
+  // or a page load opens an empty form. Drafts of other incidents are removed.
+  const draftKey = `soc_report_draft_${companyId}_${incidentId}`;
+  useEffect(() => {
+    try {
+      for (const k of Object.keys(localStorage)) {
+        if ((k.startsWith("soc_report_draft_") || k.startsWith("soc_report_timeline_")) && k !== draftKey) localStorage.removeItem(k);
+      }
+    } catch { /* storage blocked: nothing was saved there either */ }
+  }, [draftKey]);
   const loadDraft = (): { guided: boolean; gWhat: string; gIocs: string; gAction: string; gImpact: string; summary: string } | null => {
     if (typeof window === "undefined") return null;
     try {
