@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { lsGet, lsSet, lsRemove, ssGet, ssSet, ssRemove } from "@/lib/storage/safeStorage";
 import { EDR_ACK_KEY, readAckedAlerts, unacknowledged } from "@/lib/edr/alerts";
 import type { AttackStory } from "./attackStories";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { loadSimData, type SimData, type Difficulty } from "./simData";
 import { useLiveEvents } from "./useLiveEvents";
-import { EventFeed } from "./EventFeed";
+import { EventFeed, ReportTimelineContext, type ReportTimelineApi } from "./EventFeed";
 import { getClearedCompanies, addClearedCompany, setLastSession, getRoomProgress } from "@/lib/storage/progress";
 import Link from "next/link";
 import { WorkflowGuide } from "./WorkflowGuide";
@@ -30,7 +30,8 @@ import { fetchOrgCompanies, type OrgCompanyContent } from "@/lib/content/publicC
 import { containedHosts, EDR_CONTAINMENT_EVENT } from "@/lib/edr/containment";
 import { setTrainingActive } from "@/lib/sim/trainingSession";
 import { MyLearningPlan } from "@/components/plans/MyLearningPlan";
-import { incidentGroundTruth } from "./groundTruth";
+import { incidentGroundTruth, extractIndicators, rowFromEvent, truthEventsFrom } from "./groundTruth";
+import { EMPTY_TIMELINE_REPORT, sanitizeTimelineReport, type TimelineReport } from "@/lib/dashboard/timelineReport";
 import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
 import { IocTruthContext } from "@/components/threat-intel/iocTruthContext";
 import { storyIocTruth } from "@/lib/sim/storyTruth";
@@ -430,6 +431,10 @@ export default function DashboardPage() {
   const [sessionDifficulty,   setSessionDifficulty]   = useState<Difficulty | null>(null);
   const [sessionElapsed,      setSessionElapsed]      = useState(0);
   const [showReportModal,     setShowReportModal]     = useState(false);
+  // The timeline report (Tal, 2026-10-28). It lives here, not in the drawer, so "Add to
+  // timeline" on an open log reaches it while the drawer is open or closed. Saved per
+  // company in this browser; cleared once a report passes or a new incident opens.
+  const [reportDraft, setReportDraftState] = useState<TimelineReport>(EMPTY_TIMELINE_REPORT);
   const [showChainBoard,      setShowChainBoard]      = useState(false);
   // Writing the incident report auto-pauses the live feed (a real analyst stops
   // watching to write up the ticket). pausedForReport marks that WE paused it,
@@ -681,6 +686,34 @@ export default function DashboardPage() {
     autoStart:  false,    // nothing streams until the student presses Start Training
   });
   liveRef.current = live;
+
+  const reportKey = `soc_report_timeline_${selectedCompanyId}`;
+  useEffect(() => {
+    try { const raw = lsGet(reportKey); setReportDraftState(raw ? sanitizeTimelineReport(JSON.parse(raw)) : EMPTY_TIMELINE_REPORT); }
+    catch { setReportDraftState(EMPTY_TIMELINE_REPORT); }
+  }, [reportKey]);
+  const setReportDraft = useCallback((next: TimelineReport | ((prev: TimelineReport) => TimelineReport)) => {
+    setReportDraftState(prev => {
+      const value = typeof next === "function" ? next(prev) : next;
+      try { lsSet(reportKey, JSON.stringify(value)); } catch { /* storage blocked: the draft stays in memory */ }
+      return value;
+    });
+  }, [reportKey]);
+  // A new incident starts a new report: rows of the last one would not match its logs.
+  const lastIncidentIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const id = live.activeIncident?.id ?? null;
+    if (id && lastIncidentIdRef.current && id !== lastIncidentIdRef.current) setReportDraft(EMPTY_TIMELINE_REPORT);
+    if (id) lastIncidentIdRef.current = id;
+  }, [live.activeIncident?.id, setReportDraft]);
+  const timelineApi = useMemo<ReportTimelineApi>(() => {
+    const ids = new Set(reportDraft.rows.map(r => r.eventId).filter(Boolean));
+    return {
+      add: ev => setReportDraft(d => (d.rows.some(r => r.eventId === ev.id) ? d : { ...d, rows: [...d.rows, rowFromEvent(ev)] })),
+      has: id => ids.has(id),
+      count: reportDraft.rows.length,
+    };
+  }, [reportDraft.rows, setReportDraft]);
 
   // The story of the ACTIVE incident and its events already in the feed. The EDR
   // case and the hints key off these, never off `sessionStory`: after a passing
@@ -1168,7 +1201,8 @@ export default function DashboardPage() {
       }
       return out.slice(0, 6);
     })();
-    return { realIndicators, evidenceText, storyTitle, storyMitre, decoysSeen };
+    const truthEvents = truthEventsFrom(live.events, inc?.eventIds ?? []);
+    return { realIndicators, evidenceText, storyTitle, storyMitre, decoysSeen, truthEvents };
   }, [showReportModal, live.events, live.activeIncident]);
 
   const sessionClock = `${String(Math.floor(sessionElapsed / 60)).padStart(2, "0")}:${String(sessionElapsed % 60).padStart(2, "0")}`;
@@ -1829,6 +1863,7 @@ export default function DashboardPage() {
               actually graded. */}
           <IocTruthContext.Provider value={iocTruth}>
           <NativeLogProvider value={nativeRender}>
+          <ReportTimelineContext.Provider value={timelineApi}>
           <EventFeed
             events={live.events}
             newIds={live.newIds}
@@ -1850,6 +1885,7 @@ export default function DashboardPage() {
                 ? "Shift started. The first events will appear in a few seconds."
                 : "The feed is paused. Press Resume to continue your shift."}
           />
+          </ReportTimelineContext.Provider>
           </NativeLogProvider>
           </IocTruthContext.Provider>
         </Card>
@@ -1861,12 +1897,16 @@ export default function DashboardPage() {
 
       {/* ── Incident Report Modal ───────────────────────────────────── */}
       {showReportModal && reportEvidence && (() => {
-        const { realIndicators, evidenceText, storyTitle, storyMitre, decoysSeen } = reportEvidence;
+        const { realIndicators, evidenceText, storyTitle, storyMitre, decoysSeen, truthEvents } = reportEvidence;
         return (
           <IncidentReportModal
             companyName={selectedCompany.name}
-            companyId={selectedCompanyId}
             realIndicators={realIndicators}
+            truthEvents={truthEvents}
+            difficulty={sessionDifficulty ?? "easy"}
+            report={reportDraft}
+            onReportChange={setReportDraft}
+            indicatorsOf={ids => { const set = new Set(ids); return extractIndicators(live.events.filter(e => set.has(e.id))); }}
             evidenceText={evidenceText}
             attackTitle={storyTitle}
             attackMitreTechniques={storyMitre}
@@ -1881,6 +1921,7 @@ export default function DashboardPage() {
             creditsIncident={!!live.activeIncident && !countedIncidentIdsRef.current.has(live.activeIncident.id)}
             onClose={closeReport}
             onPassed={async (score: number) => {
+              setReportDraft(EMPTY_TIMELINE_REPORT);
               // Report filed — clear the EDR "don't forget" reminder.
               try { lsRemove("soc_edr_investigated"); } catch { /* ignore */ }
               setEdrInvestigated(false);
