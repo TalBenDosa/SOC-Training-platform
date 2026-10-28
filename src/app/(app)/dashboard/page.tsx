@@ -31,7 +31,7 @@ import { containedHosts, EDR_CONTAINMENT_EVENT } from "@/lib/edr/containment";
 import { setTrainingActive } from "@/lib/sim/trainingSession";
 import { MyLearningPlan } from "@/components/plans/MyLearningPlan";
 import { incidentGroundTruth, extractIndicators, rowFromEvent, truthEventsFrom } from "./groundTruth";
-import { EMPTY_TIMELINE_REPORT, sanitizeTimelineReport, type TimelineReport } from "@/lib/dashboard/timelineReport";
+import { EMPTY_TIMELINE_REPORT, type TimelineReport } from "@/lib/dashboard/timelineReport";
 import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
 import { IocTruthContext } from "@/components/threat-intel/iocTruthContext";
 import { storyIocTruth } from "@/lib/sim/storyTruth";
@@ -432,8 +432,9 @@ export default function DashboardPage() {
   const [sessionElapsed,      setSessionElapsed]      = useState(0);
   const [showReportModal,     setShowReportModal]     = useState(false);
   // The timeline report (Tal, 2026-10-28). It lives here, not in the drawer, so "Add to
-  // timeline" on an open log reaches it while the drawer is open or closed. Saved per
-  // company in this browser; cleared once a report passes or a new incident opens.
+  // timeline" on an open log reaches it while the drawer is open or closed. Every report
+  // starts clean (Tal, 2026-10-28): it is kept in memory for the current incident only and
+  // never saved across incidents, shifts, companies or page loads.
   const [reportDraft, setReportDraftState] = useState<TimelineReport>(EMPTY_TIMELINE_REPORT);
   const [showChainBoard,      setShowChainBoard]      = useState(false);
   // Writing the incident report auto-pauses the live feed (a real analyst stops
@@ -687,25 +688,27 @@ export default function DashboardPage() {
   });
   liveRef.current = live;
 
-  const reportKey = `soc_report_timeline_${selectedCompanyId}`;
-  useEffect(() => {
-    try { const raw = lsGet(reportKey); setReportDraftState(raw ? sanitizeTimelineReport(JSON.parse(raw)) : EMPTY_TIMELINE_REPORT); }
-    catch { setReportDraftState(EMPTY_TIMELINE_REPORT); }
-  }, [reportKey]);
   const setReportDraft = useCallback((next: TimelineReport | ((prev: TimelineReport) => TimelineReport)) => {
-    setReportDraftState(prev => {
-      const value = typeof next === "function" ? next(prev) : next;
-      try { lsSet(reportKey, JSON.stringify(value)); } catch { /* storage blocked: the draft stays in memory */ }
-      return value;
-    });
-  }, [reportKey]);
-  // A new incident starts a new report: rows of the last one would not match its logs.
+    setReportDraftState(prev => (typeof next === "function" ? next(prev) : next));
+  }, []);
+  // A new company or a new shift starts an empty report.
+  useEffect(() => { setReportDraftState(EMPTY_TIMELINE_REPORT); }, [selectedCompanyId, sessionStartedAt]);
+  // So does every new incident: nothing written about one attack carries into the next.
   const lastIncidentIdRef = useRef<string | null>(null);
   useEffect(() => {
     const id = live.activeIncident?.id ?? null;
-    if (id && lastIncidentIdRef.current && id !== lastIncidentIdRef.current) setReportDraft(EMPTY_TIMELINE_REPORT);
+    if (id && id !== lastIncidentIdRef.current) setReportDraftState(EMPTY_TIMELINE_REPORT);
     if (id) lastIncidentIdRef.current = id;
-  }, [live.activeIncident?.id, setReportDraft]);
+  }, [live.activeIncident?.id]);
+  // Drafts that earlier versions saved in this browser (per company, kept until a pass)
+  // are removed, so an old report never shows up again.
+  useEffect(() => {
+    try {
+      for (const k of Object.keys(localStorage)) {
+        if (k.startsWith("soc_report_draft_") || k.startsWith("soc_report_timeline_")) localStorage.removeItem(k);
+      }
+    } catch { /* storage blocked: nothing was saved there either */ }
+  }, []);
   const timelineApi = useMemo<ReportTimelineApi>(() => {
     const ids = new Set(reportDraft.rows.map(r => r.eventId).filter(Boolean));
     return {

@@ -333,7 +333,7 @@ export function IncidentReportModal({
                 ))}
               </section>
 
-              <p className="text-[10px] text-slate-500">Saved as you type: safe to close and come back.</p>
+              <p className="text-[10px] text-slate-500">Kept while this incident is open: safe to close and come back. A new incident starts a clean report.</p>
               <div className="flex items-center justify-between pt-1">
                 <button type="button" onClick={onClose} className="text-xs text-slate-400 hover:text-slate-300 transition">
                   Close
