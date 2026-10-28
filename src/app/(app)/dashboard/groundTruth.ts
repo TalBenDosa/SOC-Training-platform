@@ -10,7 +10,6 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { isSha256Field, isIpCheckField, isDomainCheckField } from "@/components/threat-intel/ThreatIntelDrawer";
-import type { TimelineRow, TruthEvent } from "@/lib/dashboard/timelineReport";
 
 /**
  * Is this story event part of the attack itself? Baseline / "what normal looked
@@ -109,47 +108,4 @@ export function incidentGroundTruth(incident: IncidentTruthInput | null): Incide
     storyTitle: incident.title || null,
     storyMitre: seen.length > 0 ? seen : Array.from(new Set(incident.storyMitre ?? [])),
   };
-}
-
-// ── Timeline report (Tal, 2026-10-28) ────────────────────────────────────────
-
-const lc = (v: string | undefined | null) => (v ?? "").trim();
-const userOf = (e: TelemetryEvent) => lc(e.process?.user) || lc(e.user_email) || lc(e.user?.email);
-const fmtClock = (ts: string) => { const d = new Date(ts); return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString("en-GB", { hour12: false }); };
-
-/** A timeline row pre-filled from a feed log: when, where and who come from the log;
- *  "what ran" is the command line when the log has one, else the analyst writes it. */
-export function rowFromEvent(e: TelemetryEvent): TimelineRow {
-  const p = e.process;
-  return {
-    id: `row_${e.id}`,
-    eventId: e.id,
-    time: fmtClock(e.ts),
-    host: lc(e.hostname),
-    actor: userOf(e) || lc(p?.parent_name),
-    action: p?.cmdline ? lc(p.cmdline) : "",
-  };
-}
-
-/** The attack's logs as the analyst saw them in the feed (the incident's ids), for the
- *  timeline grader. Only values a reader can find on the log itself go in. */
-export function truthEventsFrom(feed: TelemetryEvent[], incidentIds: string[]): TruthEvent[] {
-  const ids = new Set(incidentIds);
-  return feed.filter(e => ids.has(e.id)).map(e => {
-    const p = e.process;
-    const net = e.network as { domain?: string; url?: string } | undefined;
-    const files = [e.file?.sha256, e.file?.md5, e.file?.name, p?.hash?.sha256, p?.hash?.md5, p && !isBenignProcessName(p.name) ? p.name : undefined];
-    const urlHost = net?.url ? net.url.replace(/^[a-z]+:\/\//i, "").split(/[/:?]/)[0] : undefined;
-    return {
-      id: e.id, ts: e.ts, source: String(e.source),
-      stage: e.mitre_technique || String(e.event_type),
-      host: lc(e.hostname) || undefined,
-      users: [userOf(e), lc(e.user_email), lc(e.user?.email)].filter(Boolean),
-      actors: [p?.name, p?.parent_name, p?.target?.name].filter((x): x is string => !!x),
-      ips: [e.src_ip, e.dst_ip].filter((x): x is string => !!x),
-      domains: [net?.domain, urlHost].filter((x): x is string => !!x),
-      files: files.filter((x): x is string => !!x),
-      cmd: p?.cmdline || undefined,
-    };
-  });
 }

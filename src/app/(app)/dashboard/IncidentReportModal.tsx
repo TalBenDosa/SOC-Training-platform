@@ -1,11 +1,11 @@
 "use client";
 import { ApiError, messageFromResponse, userMessageFor } from "@/lib/http/apiError";
+import { lsGet, lsSet, lsRemove } from "@/lib/storage/safeStorage";
 import { useState, useEffect, useRef } from "react";
-import { X, FileText, Shield, AlertTriangle, CheckCircle2, Loader2, ChevronUp, ChevronDown, Trash2, Plus, XCircle } from "lucide-react";
+import { X, FileText, Shield, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Term } from "@/components/ui/Term";
 import type { IncidentReportResponse } from "@/app/api/dashboard/incident-report/route";
-import { IOC_ROLES, PASS_RULES, type Difficulty, type IocRow, type TimelineReport, type TimelineRow, type TruthEvent } from "@/lib/dashboard/timelineReport";
 
 type Phase = "form" | "grading" | "result";
 
@@ -49,27 +49,20 @@ function ScoreRing({ score }: { score: number }) {
 
 interface Props {
   companyName: string;
+  companyId: string;
   /** Real indicator values from the actual attack — grader ground truth */
   realIndicators: string[];
   /**
-   * Serialized feed (raw included). The grader treats any value the student lists that
-   * appears in this text as REAL — so a value visible in a log's raw block is never
-   * mis-flagged as "fabricated" just because it wasn't in the discrete list.
+   * Serialized ground-truth attack events (raw included). The grader treats any
+   * IP/email/hash the student cites that appears in this text as REAL — so a
+   * value visible in a log's raw block (an MD5, a private host IP, a vendor-keyed
+   * field) is never mis-flagged as "fabricated" just because it wasn't in the
+   * discrete realIndicators list. Mirrors the scenario grader's eventsBlob.
    */
   evidenceText?: string;
   attackTitle: string | null;
   /** MITRE technique IDs the real attack used — sent to grader as ground truth */
   attackMitreTechniques?: string[];
-  /** The attack's logs as shown in the feed: each timeline row is matched against them. */
-  truthEvents: TruthEvent[];
-  /** The session's difficulty: sets what the report needs to pass. */
-  difficulty: Difficulty;
-  /** The report itself. It lives in the page, so "Add to timeline" on an open log
-   *  reaches it while the drawer is open, and closing the drawer never loses it. */
-  report: TimelineReport;
-  onReportChange: (next: TimelineReport) => void;
-  /** Indicator values on the given feed logs (the student's own timeline rows). */
-  indicatorsOf: (eventIds: string[]) => string[];
   /**
    * Benign "decoy" events the student saw this session, each with the written
    * explanation of why it is a false positive. Revealed only in the passed
@@ -90,21 +83,13 @@ interface Props {
   onPassed: (score: number) => void;
 }
 
-const field = "w-full rounded border border-border/60 bg-bg px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:border-cyber-500/40 focus:outline-none";
-const label = "text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400";
-const newId = () => Math.random().toString(36).slice(2, 10);
-
 export function IncidentReportModal({
   companyName,
+  companyId,
   realIndicators,
   evidenceText,
   attackTitle,
   attackMitreTechniques,
-  truthEvents,
-  difficulty,
-  report,
-  onReportChange,
-  indicatorsOf,
   decoys = [],
   responseMs = null,
   responseTargetSeconds = 900,
@@ -112,30 +97,57 @@ export function IncidentReportModal({
   onClose,
   onPassed,
 }: Props) {
+  // Draft persistence — this modal unmounts entirely when closed (X / Cancel /
+  // Escape), which used to wipe whatever the student had typed. Everything the
+  // student writes is now saved to localStorage per company and restored the
+  // next time they open the report, so closing to go re-check the feed never
+  // loses their work. Cleared only once a report actually passes.
+  const draftKey = `soc_report_draft_${companyId}`;
+  const loadDraft = (): { guided: boolean; gWhat: string; gIocs: string; gAction: string; gImpact: string; summary: string } | null => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = lsGet(draftKey);
+      const d: unknown = raw ? JSON.parse(raw) : null;
+      // E-22: a hand-edited / older draft must not put non-strings into the form.
+      if (!d || typeof d !== "object") return null;
+      const o = d as Record<string, unknown>;
+      const s = (k: string) => (typeof o[k] === "string" ? (o[k] as string) : "");
+      return { guided: o.guided !== false, gWhat: s("gWhat"), gIocs: s("gIocs"), gAction: s("gAction"), gImpact: s("gImpact"), summary: s("summary") };
+    } catch { return null; }
+  };
+  const draft = loadDraft();
+
   const [phase,   setPhase]   = useState<Phase>("form");
   const [error,   setError]   = useState<string | null>(null);
+  const [summary, setSummary] = useState(draft?.summary ?? "");
   const [result,  setResult]  = useState<IncidentReportResponse | null>(null);
   const [passed,  setPassed]  = useState(false);
   // Whether THIS submission credited an incident: captured at submit time, since
   // the parent's prop flips to false the moment the pass is counted.
   const [credited, setCredited] = useState(false);
 
-  const set = (patch: Partial<TimelineReport>) => onReportChange({ ...report, ...patch });
-  const setRow = (id: string, patch: Partial<TimelineRow>) => set({ rows: report.rows.map(r => (r.id === id ? { ...r, ...patch } : r)) });
-  const moveRow = (i: number, d: -1 | 1) => {
-    const j = i + d;
-    if (j < 0 || j >= report.rows.length) return;
-    const rows = [...report.rows];
-    [rows[i], rows[j]] = [rows[j], rows[i]];
-    set({ rows });
+  // Guided mode: 4 labelled fields matching the grading rubric, concatenated
+  // into the summary on submit — beginners get structure, the API is unchanged.
+  const [guided, setGuided] = useState(() => {
+    if (draft) return draft.guided;
+    if (typeof window !== "undefined" && lsGet("soc_report_mode_v1") === "free") return false;
+    return true;
+  });
+  const [gWhat,   setGWhat]   = useState(draft?.gWhat ?? "");
+  const [gIocs,   setGIocs]   = useState(draft?.gIocs ?? "");
+  const [gAction, setGAction] = useState(draft?.gAction ?? "");
+  const [gImpact, setGImpact] = useState(draft?.gImpact ?? "");
+
+  const setMode = (g: boolean) => {
+    setGuided(g);
+    if (typeof window !== "undefined") lsSet("soc_report_mode_v1", g ? "guided" : "free");
   };
-  const setIoc = (id: string, patch: Partial<IocRow>) => set({ iocs: report.iocs.map(r => (r.id === id ? { ...r, ...patch } : r)) });
-  const collectIocs = () => {
-    const have = new Set(report.iocs.map(i => i.value.trim().toLowerCase()));
-    const found = indicatorsOf(report.rows.map(r => r.eventId).filter((x): x is string => !!x))
-      .filter(v => !have.has(v.toLowerCase()));
-    if (found.length) set({ iocs: [...report.iocs, ...found.map(v => ({ id: newId(), value: v, role: "" as const }))] });
-  };
+
+  // Persist the draft on every change so closing the modal never loses text.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    lsSet(draftKey, JSON.stringify({ guided, gWhat, gIocs, gAction, gImpact, summary }));
+  }, [draftKey, guided, gWhat, gIocs, gAction, gImpact, summary]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -145,7 +157,8 @@ export function IncidentReportModal({
 
   // a11y: this is a deliberately NON-modal drawer (the feed beside it must stay
   // clickable while the analyst writes), so focus is not trapped — but focus
-  // moves into it on open and returns to whatever opened it when it closes.
+  // moves into it on open (the first field autoFocuses) and returns to whatever
+  // opened it (normally "Report Incident") when it closes.
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     return () => { if (previous && document.contains(previous)) previous.focus(); };
@@ -155,14 +168,28 @@ export function IncidentReportModal({
   const resultRef = useRef<HTMLDivElement>(null);
   useEffect(() => { if (phase === "result") resultRef.current?.focus(); }, [phase]);
 
-  const canSubmit = report.rows.length > 0 && report.summary.trim().length >= 20;
-  const rule = PASS_RULES[difficulty];
-  const diffLabel = difficulty[0].toUpperCase() + difficulty.slice(1);
+  const buildGuidedSummary = () => [
+    gWhat.trim()   && `What happened: ${gWhat.trim()}`,
+    gIocs.trim()   && `Evidence (IOCs): ${gIocs.trim()}`,
+    gAction.trim() && `Recommended action: ${gAction.trim()}`,
+    gImpact.trim() && `Business impact: ${gImpact.trim()}`,
+  ].filter(Boolean).join("\n");
+
+  const effectiveSummary = guided ? buildGuidedSummary() : summary;
+  // All four guided fields are required — they mirror the four rubric components
+  // (identification, evidence, action, impact), and the grader docks points for a
+  // missing action or impact, so the form must not let them be skipped. This keeps
+  // the form and the score saying the same thing (L-10).
+  const canSubmit = guided
+    ? gWhat.trim().length >= 10 && gIocs.trim().length >= 3 &&
+      gAction.trim().length >= 5 && gImpact.trim().length >= 5
+    : summary.trim().length >= 30;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setError(null);
     setPhase("grading");
+    const submittedSummary = effectiveSummary;
     const willCredit = creditsIncident;
 
     try {
@@ -171,13 +198,11 @@ export function IncidentReportModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           company: companyName,
+          summary: submittedSummary,
           attackTitle: attackTitle ?? undefined,
           attackMitreTechniques: attackMitreTechniques ?? [],
           realIndicators,
           evidenceText,
-          timelineReport: report,
-          truthEvents,
-          difficulty,
         }),
       });
 
@@ -186,12 +211,15 @@ export function IncidentReportModal({
       setResult(data);
       setPassed(data.passed);
       setCredited(data.passed && willCredit);
-      if (data.passed) onPassed(data.score);
+      if (data.passed) { onPassed(data.score); lsRemove(draftKey); }
       setPhase("result");
     } catch (e) {
-      // NEVER fail-open. A network/grader failure must not award a pass. Send the
-      // analyst back to the form with a retry prompt; the report is kept.
-      setError(`Couldn't grade the report: ${userMessageFor(e)} Your report is saved below.`);   // E-09
+      // NEVER fail-open. A network/grader failure must not award a pass — that
+      // would let a junk report of sufficient length "secure the company". The
+      // server always returns a deterministic heuristic grade even when the LLM
+      // is down, so reaching here means the request itself failed. Send the
+      // analyst back to the form with a retry prompt; their draft is preserved.
+      setError(`Couldn't grade the report — ${userMessageFor(e)} Your report is saved below.`);   // E-09
       setPhase("form");
     }
   };
@@ -216,8 +244,8 @@ export function IncidentReportModal({
             <div className="flex items-center gap-3">
               <FileText className="h-5 w-5 text-cyber-300 shrink-0" />
               <div>
-                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Tier-1 incident report</p>
-                <h2 id="incident-report-title" className="text-sm font-bold text-white">Incident report: {companyName}</h2>
+                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Tier-1 Analyst Report</p>
+                <h2 id="incident-report-title" className="text-sm font-bold text-white">Incident Report — {companyName}</h2>
               </div>
             </div>
             <button type="button" onClick={onClose} aria-label="Close incident report" className="rounded p-1 text-slate-400 hover:text-white transition">
@@ -233,115 +261,109 @@ export function IncidentReportModal({
                   {error}
                 </div>
               )}
+              {/* Instructions */}
               <div className="rounded border border-neon-amber/20 bg-neon-amber/5 px-3 py-2.5">
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-neon-amber">Escalation to Tier-2 · {diffLabel}</p>
-                <p className="text-[11px] leading-relaxed text-slate-300">
-                  Rebuild the attack end to end: what ran, who ran it, where, and the log that proves each step. Then list the <Term k="ioc">IOCs</Term>, sum up the impact and hand the case over.
+                <p className="text-[10px] text-neon-amber font-semibold uppercase tracking-wider mb-1">What to include</p>
+                <p className="text-[10px] text-slate-400 leading-relaxed">
+                  Describe: <span className="text-slate-300">what attack occurred</span> · <span className="text-slate-300">which <Term k="ioc">IOCs</Term> from the logs prove it (real IPs, users, hosts — quote them exactly)</span> · <span className="text-slate-300">what action to take</span> · <span className="text-slate-300">business impact</span>
                 </p>
-                <p className="mt-1.5 text-[10px] text-slate-400">
-                  To pass at {diffLabel}: {rule.score}/100, at least {Math.round(rule.coverage * 100)}% of the attack stages in your timeline, {rule.iocs} real indicator{rule.iocs > 1 ? "s" : ""}
-                  {rule.handoff === "filled" ? ", a full handoff" : rule.handoff === "fit" ? ", a full handoff with a next step that stops the attack" : ""}
-                  {rule.order > 0 ? ", steps in the right order" : ""}.
+                {/* Only true on lg+ where the drawer is 480px and the feed sits
+                    beside it. On mobile the drawer is full-width and covers the
+                    feed, so this promise would be false — hide it there. */}
+                <p className="mt-2 hidden text-[10px] text-slate-400 lg:block">
+                  The feed stays live beside you — click any row to re-read its raw fields while you write.
                 </p>
               </div>
 
-              {/* 1. Timeline */}
-              <section aria-labelledby="ir-tl-label" className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p id="ir-tl-label" className={label}>1 · Attack timeline</p>
-                  <span className="text-[10px] text-slate-500">{report.rows.length} step{report.rows.length === 1 ? "" : "s"}</span>
-                </div>
-                {report.rows.length === 0 && (
-                  <p className="rounded border border-dashed border-border/60 px-3 py-3 text-[11px] leading-relaxed text-slate-400">
-                    Open a log in the feed and press <span className="font-semibold text-cyber-200">Add to timeline</span>. Time, host and who ran it fill in from the log; you say what happened.
-                  </p>
-                )}
-                <ol className="space-y-2">
-                  {report.rows.map((r, i) => (
-                    <li key={r.id} className="rounded border border-border/60 bg-bg/60 p-2">
-                      <div className="mb-1.5 flex items-center gap-2">
-                        <span className="font-mono text-[10px] font-bold text-cyber-300">#{i + 1}</span>
-                        <input aria-label={`Step ${i + 1} time`} value={r.time} onChange={e => setRow(r.id, { time: e.target.value })} placeholder="09:16:02" className={cn(field, "w-24 py-1 font-mono")} />
-                        {r.eventId
-                          ? <span className="rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-cyber-200">from a log</span>
-                          : <span className="rounded border border-border px-1.5 py-0.5 text-[9px] text-slate-400">typed</span>}
-                        <span className="ml-auto flex items-center gap-0.5">
-                          <button type="button" aria-label={`Move step ${i + 1} up`} disabled={i === 0} onClick={() => moveRow(i, -1)} className="rounded p-0.5 text-slate-400 hover:text-white disabled:opacity-30"><ChevronUp className="h-3.5 w-3.5" aria-hidden /></button>
-                          <button type="button" aria-label={`Move step ${i + 1} down`} disabled={i === report.rows.length - 1} onClick={() => moveRow(i, 1)} className="rounded p-0.5 text-slate-400 hover:text-white disabled:opacity-30"><ChevronDown className="h-3.5 w-3.5" aria-hidden /></button>
-                          <button type="button" aria-label={`Remove step ${i + 1}`} onClick={() => set({ rows: report.rows.filter(x => x.id !== r.id) })} className="rounded p-0.5 text-slate-400 hover:text-severity-high"><Trash2 className="h-3.5 w-3.5" aria-hidden /></button>
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <input aria-label={`Step ${i + 1} host`} value={r.host} onChange={e => setRow(r.id, { host: e.target.value })} placeholder="Host" className={cn(field, "font-mono")} />
-                        <input aria-label={`Step ${i + 1} who ran it`} value={r.actor} onChange={e => setRow(r.id, { actor: e.target.value })} placeholder="Who ran it (account / process)" className={cn(field, "font-mono")} />
-                      </div>
-                      <textarea aria-label={`Step ${i + 1} what ran or happened`} rows={2} value={r.action} onChange={e => setRow(r.id, { action: e.target.value })}
-                        placeholder="What ran / what happened, in your words" className={cn(field, "mt-1.5 resize-none leading-relaxed")} />
-                    </li>
-                  ))}
-                </ol>
-                <button type="button" onClick={() => set({ rows: [...report.rows, { id: newId(), time: "", host: "", actor: "", action: "" }] })}
-                  className="flex items-center gap-1 text-[11px] text-slate-400 transition hover:text-cyber-200">
-                  <Plus className="h-3.5 w-3.5" aria-hidden /> Add a step by hand
-                </button>
-              </section>
-
-              {/* 2. Indicators */}
-              <section aria-labelledby="ir-ioc-label" className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p id="ir-ioc-label" className={label}>2 · Indicators</p>
-                  {report.rows.some(r => r.eventId) && (
-                    <button type="button" onClick={collectIocs} className="text-[10px] font-semibold text-cyber-300 hover:text-cyber-100">Collect from my timeline</button>
+              {/* Mode toggle */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <p id="ir-summary-label" className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Incident Summary</p>
+                  {(gWhat || gIocs || gAction || gImpact || summary) && (
+                    <span className="text-[9px] text-slate-400">· draft saved, safe to close and come back</span>
                   )}
                 </div>
-                {report.iocs.map((x, i) => (
-                  <div key={x.id} className="flex items-center gap-1.5">
-                    <input aria-label={`Indicator ${i + 1} value`} value={x.value} onChange={e => setIoc(x.id, { value: e.target.value })} placeholder="IP, domain, hash, account, host" className={cn(field, "min-w-0 flex-1 font-mono")} />
-                    <select aria-label={`Indicator ${i + 1} role`} value={x.role} onChange={e => setIoc(x.id, { role: e.target.value as IocRow["role"] })} className={cn(field, "w-44 shrink-0", !x.role && "text-slate-500")}>
-                      <option value="">Choose role</option>
-                      {IOC_ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                    </select>
-                    <button type="button" aria-label={`Remove indicator ${i + 1}`} onClick={() => set({ iocs: report.iocs.filter(y => y.id !== x.id) })} className="shrink-0 rounded p-0.5 text-slate-400 hover:text-severity-high"><Trash2 className="h-3.5 w-3.5" aria-hidden /></button>
+                <div className="flex rounded border border-border/60 overflow-hidden" role="group" aria-label="Report mode">
+                  <button
+                    type="button"
+                    aria-pressed={guided}
+                    onClick={() => setMode(true)}
+                    className={cn("px-2.5 py-1 text-[10px] font-semibold transition",
+                      guided ? "bg-cyber-500/20 text-cyber-300" : "text-slate-400 hover:text-slate-300")}
+                  >
+                    Guided
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={!guided}
+                    onClick={() => setMode(false)}
+                    className={cn("px-2.5 py-1 text-[10px] font-semibold transition",
+                      !guided ? "bg-cyber-500/20 text-cyber-300" : "text-slate-400 hover:text-slate-300")}
+                  >
+                    Free text
+                  </button>
+                </div>
+              </div>
+
+              {/* Guided mode — 4 fields mirroring the grading rubric */}
+              {guided ? (
+                <div className="space-y-2.5">
+                  {[
+                    { label: "What happened?", req: true, value: gWhat, set: setGWhat, rows: 2,
+                      ph: "Name the specific attack — e.g. \"A password spray attack against multiple accounts, followed by an account takeover of r.patel.\"" },
+                    { label: "Evidence — which IOCs prove it?", req: true, value: gIocs, set: setGIocs, rows: 2,
+                      ph: "Quote the values you collected — e.g. \"Source IP 91.108.4.154 (40+ failed logins), compromised user r.patel@nexacorp.com.\"" },
+                    { label: "Recommended action", req: true, value: gAction, set: setGAction, rows: 2,
+                      ph: "e.g. \"Block the IP at the firewall, reset r.patel's password, review all logins from that IP.\"" },
+                    { label: "Business impact", req: true, value: gImpact, set: setGImpact, rows: 2,
+                      ph: "e.g. \"The attacker had access to customer financial data — potential data-breach and regulatory exposure.\"" },
+                  ].map((f, i) => (
+                    <div key={f.label}>
+                      <p id={`ir-guided-label-${i}`} className="mb-1 text-[10px] font-semibold text-slate-400">
+                        {f.label} {f.req && <span className="text-neon-amber" aria-hidden="true">*</span>}{f.req && <span className="sr-only">(required)</span>}
+                      </p>
+                      <textarea
+                        aria-labelledby={`ir-guided-label-${i}`}
+                        aria-required={f.req}
+                        rows={f.rows}
+                        value={f.value}
+                        onChange={e => f.set(e.target.value)}
+                        autoFocus={i === 0}
+                        className="w-full resize-none rounded border border-border/60 bg-bg px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
+                        placeholder={f.ph}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                /* Free-text mode — the classic single textarea */
+                <div>
+                  <div className="flex items-center justify-end mb-1.5">
+                    <span id="ir-summary-count" className={cn("text-[9px] font-mono", summary.length < 30 ? "text-slate-400" : "text-neon-green")}>
+                      {summary.length} chars {summary.length < 30 ? `(min 30)` : ""}
+                    </span>
                   </div>
-                ))}
-                <button type="button" onClick={() => set({ iocs: [...report.iocs, { id: newId(), value: "", role: "" }] })}
-                  className="flex items-center gap-1 text-[11px] text-slate-400 transition hover:text-cyber-200">
-                  <Plus className="h-3.5 w-3.5" aria-hidden /> Add an indicator
-                </button>
-              </section>
+                  <textarea
+                    aria-labelledby="ir-summary-label"
+                    aria-describedby="ir-summary-count"
+                    aria-required
+                    rows={6}
+                    value={summary}
+                    onChange={e => setSummary(e.target.value)}
+                    autoFocus
+                    className="w-full resize-none rounded border border-border/60 bg-bg px-3 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
+                    placeholder="Example: I detected a password spray attack targeting multiple accounts from IP 91.108.4.154. The attacker tried over 40 failed logins before succeeding with r.patel's credentials. I collected the source IP and compromised username as IOCs. Recommended action: block the IP at the firewall, reset r.patel's password, and review all successful logins from that IP."
+                  />
+                </div>
+              )}
 
-              {/* 3. Summary */}
-              <section className="space-y-1.5">
-                <p id="ir-sum-label" className={label}>3 · Summary and impact</p>
-                <textarea aria-labelledby="ir-sum-label" aria-required rows={3} value={report.summary} onChange={e => set({ summary: e.target.value })}
-                  placeholder="What the attack is (name the technique), how far it got, and what it puts at risk."
-                  className={cn(field, "resize-none leading-relaxed")} />
-              </section>
-
-              {/* 4. Handoff */}
-              <section className="space-y-1.5">
-                <p className={label}>4 · Handoff to Tier-2</p>
-                {([
-                  ["done", "What I already did", "Blocked the domain on the proxy, confirmed the user didn't report it"],
-                  ["open", "What's still open", "Did it spread to other hosts? Activity after the last step?"],
-                  ["next", "Recommended next step", "Isolate the host, reset the account, hunt the hash"],
-                ] as const).map(([k, l, ph]) => (
-                  <div key={k}>
-                    <p id={`ir-${k}-label`} className="mb-0.5 text-[10px] text-slate-400">{l}</p>
-                    <textarea aria-labelledby={`ir-${k}-label`} rows={2} value={report[k]} onChange={e => set({ [k]: e.target.value })} placeholder={ph} className={cn(field, "resize-none leading-relaxed")} />
-                  </div>
-                ))}
-              </section>
-
-              <p className="text-[10px] text-slate-500">Saved as you type: safe to close and come back.</p>
               <div className="flex items-center justify-between pt-1">
                 <button type="button" onClick={onClose} className="text-xs text-slate-400 hover:text-slate-300 transition">
-                  Close
+                  Cancel
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={!canSubmit}
-                  title={canSubmit ? undefined : "Add at least one timeline step and write the summary"}
                   className={cn(
                     "flex items-center gap-2 rounded border px-4 py-2 text-xs font-bold transition",
                     canSubmit
@@ -349,7 +371,7 @@ export function IncidentReportModal({
                       : "border-border/40 text-slate-400 cursor-not-allowed opacity-50"
                   )}
                 >
-                  <FileText className="h-3.5 w-3.5" /> Escalate to Tier-2
+                  <FileText className="h-3.5 w-3.5" /> Submit Report
                 </button>
               </div>
             </>
@@ -361,7 +383,7 @@ export function IncidentReportModal({
               <Loader2 aria-hidden="true" className="h-8 w-8 text-cyber-300 animate-spin" />
               <div className="text-center space-y-1">
                 <p className="text-sm font-semibold text-white">Grading your report…</p>
-                <p className="text-[11px] text-slate-400">Matching every timeline step to the attack&apos;s logs</p>
+                <p className="text-[11px] text-slate-400">Checking attack identification, IOC coverage, and recommended actions</p>
               </div>
             </div>
           )}
@@ -372,7 +394,7 @@ export function IncidentReportModal({
               {/* R-04 / QA-DASH-15: the deterministic grader is what runs when no AI
                   key is configured (production today), so say plainly what it checks.
                   No "full review pending": there is no later review that changes it. */}
-              {result.graded_by === "deterministic" && result.mode !== "timeline" && (
+              {result.graded_by === "deterministic" && (
                 <div className="rounded-lg border border-neon-amber/30 bg-neon-amber/5 px-4 py-2.5 flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-neon-amber mt-0.5 shrink-0" />
                   <p className="text-[11px] text-slate-300 leading-relaxed">
@@ -399,13 +421,11 @@ export function IncidentReportModal({
                       : <AlertTriangle className="h-4 w-4 text-severity-critical shrink-0" />
                     }
                     <span className={cn("text-sm font-bold", passed ? "text-neon-green" : "text-severity-critical")}>
-                      {passed ? "Escalation accepted" : "Not ready for Tier-2"}
+                      {passed ? "Report Passed" : "Report Did Not Pass"}
                     </span>
                   </div>
                   <p className="text-[10px] text-slate-400">
-                    {diffLabel} · pass mark {result.threshold ?? rule.score}/100 plus the {diffLabel} requirements</p>
-                  <p className="text-[10px] text-slate-400">
-                    {passed ? "You met all of them." : "Fix what's listed below and escalate again."}
+                    {passed ? "Threshold: 60/100 — you met it." : "Threshold: 60/100 — keep monitoring and try again."}
                   </p>
                 </div>
               </div>
@@ -414,28 +434,6 @@ export function IncidentReportModal({
               <div className="rounded border border-border/40 bg-bg px-4 py-3 space-y-3">
                 <p className="text-xs text-slate-200 leading-relaxed">{result.feedback}</p>
 
-                {result.mode === "timeline" && result.requirements && result.requirements.length > 0 && (
-                  <div className="rounded border border-severity-high/30 bg-severity-high/5 px-3 py-2">
-                    <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-severity-high">To pass at {diffLabel}</p>
-                    <ul className="space-y-0.5">
-                      {result.requirements.map((r, i) => <li key={i} className="text-[11px] text-slate-200">· {r}</li>)}
-                    </ul>
-                  </div>
-                )}
-                {result.mode === "timeline" && result.checks ? (
-                  <ul className="divide-y divide-border/40">
-                    {result.checks.map((c, i) => (
-                      <li key={i} className="flex items-start gap-2 py-2">
-                        {c.status === "ok" ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-neon-green" aria-label="Done" />
-                          : c.status === "warn" ? <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-neon-amber" aria-label="Improve" />
-                          : <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-severity-high" aria-label="Missing" />}
-                        <span className="text-[11px] leading-relaxed text-slate-300">
-                          <span className="font-semibold text-slate-100">{c.title}</span>{c.detail ? <> {c.detail}</> : null}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : <>
                 {result.strengths.length > 0 && (
                   <div>
                     <p className="text-[9px] font-bold uppercase tracking-wider text-neon-green mb-1">Strengths</p>
@@ -457,7 +455,6 @@ export function IncidentReportModal({
                     ))}
                   </div>
                 )}
-                </>}
               </div>
 
               {/* Response-time coaching — a gentle pace note, NEVER part of the
@@ -555,7 +552,7 @@ export function IncidentReportModal({
                     onClick={() => { setPhase("form"); setResult(null); }}
                     className="w-full rounded border border-neon-amber/40 bg-neon-amber/8 py-2 text-xs font-bold text-neon-amber hover:bg-neon-amber/15 transition"
                   >
-                    Revise the report
+                    Revise Report & Resubmit
                   </button>
                 )}
 

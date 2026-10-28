@@ -21,8 +21,6 @@ import { asObject } from "@/lib/http/body";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
 import { analyseIndicators } from "@/lib/dashboard/indicatorAnalysis";
-import { scoreAttackIdentification } from "@/lib/dashboard/attackIdentification";
-import { gradeTimelineReport, sanitizeTimelineReport, sanitizeTruth, type Difficulty, type ReportCheck } from "@/lib/dashboard/timelineReport";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -42,11 +40,6 @@ export interface IncidentReportRequest {
    * field) count as evidence instead of "fabricated". Mirrors the scenario grader.
    */
   evidenceText?: string;
-  /** Timeline report (the solo dashboard): graded by gradeTimelineReport instead of the free text. */
-  timelineReport?: unknown;
-  /** The attack's logs as shown in the feed: what each timeline row is matched against. */
-  truthEvents?: unknown;
-  difficulty?: Difficulty;
 }
 
 export interface IncidentReportResponse {
@@ -59,11 +52,6 @@ export interface IncidentReportResponse {
    *  the keyword/indicator fallback ran because the AI grader was unavailable. The
    *  UI presents "deterministic" as a PRELIMINARY check, not a final verdict. */
   graded_by: "ai" | "deterministic";
-  /** Timeline reports: one line per part of the report, and what is missing to pass. */
-  mode?: "timeline";
-  checks?: ReportCheck[];
-  requirements?: string[];
-  threshold?: number;
 }
 
 // Fabrication / citation analysis lives in a pure, unit-tested module
@@ -80,7 +68,31 @@ function heuristicGrade(req: IncidentReportRequest, note?: string, deterministic
   const t = summary.trim().toLowerCase();
 
   // ── Component 1 — Attack Identification (0-40) ───────────────────────────
-  const { attackScore, wrongType } = scoreAttackIdentification(summary, attackTitle, attackMitreTechniques);
+  const genericWords  = /incident|attack|threat|breach|suspicious|intrusion|compromise|unauthorized|anomal/i;
+  const categoryWords = /phishing|malware|ransomware|spray|credential|lateral|exfil|c2|beacon|brute.?force|mfa|injection|privilege|escalat|dump|harvest|backdoor|persist|trojan|rootkit|botnet/i;
+  const specificWords = /password.?spray|mfa.?fatigue|credential.?dump|lsass|kerberos|as.?rep.?roast|mimikatz|impacket|responder|ntlm.?relay|golden.?ticket|dcsync|pass.?the.?hash|process.?inject|dll.?inject|drive.?by|business.?email.?compromise|supply.?chain|pod.?escape|oauth.?consent|\bapt\s?\d{1,3}\b/i;   // "APT29", never the "apt" inside "laptop" / "capture" (QA-DASH-1)
+
+  const titleKeywords = attackTitle
+    ? attackTitle.toLowerCase().replace(/[→\-–]/g, " ").split(/\s+/).filter(w => w.length > 4)
+    : [];
+  const matchesTitle = titleKeywords.length > 0 && titleKeywords.some(kw => t.includes(kw));
+
+  // QA-DASH-1: MITRE credit only for a technique ID the attack really used (or its
+  // parent / sub-technique). The bare word "MITRE" used to add points AND cancel the
+  // wrong-attack penalty below.
+  const realTech = attackMitreTechniques.map(x => x.toUpperCase());
+  const citedTech = [...summary.toUpperCase().matchAll(/\bT1\d{3}(?:\.\d{3})?\b/g)].map(m => m[0]);
+  const hasMitre = citedTech.some(c => realTech.some(r => r === c || r.split(".")[0] === c.split(".")[0]));
+
+  let attackScore = 0;
+  if (specificWords.test(summary))       attackScore = 30;
+  else if (categoryWords.test(summary))  attackScore = 20;
+  else if (genericWords.test(summary))   attackScore = 10;
+  if (matchesTitle) attackScore = Math.min(40, attackScore + 5);
+  if (hasMitre)     attackScore = Math.min(40, attackScore + 5);
+  // Named a specific attack but it does NOT match the real story → likely wrong type
+  const wrongType = attackScore >= 20 && titleKeywords.length > 0 && !matchesTitle && !hasMitre;
+  if (wrongType) attackScore = Math.min(attackScore, 20);
 
   // ── Component 2 — Evidence (0-30), verified against ground truth ──────────
   const { cited, fabricated } = analyseIndicators(summary, realIndicators, evidenceText);
@@ -252,26 +264,6 @@ export async function POST(req: Request) {
     realIndicators: strList(body?.realIndicators, 100, 300),
     evidenceText: String(body?.evidenceText ?? "").slice(0, 500_000),
   };
-
-  // Timeline report: graded only against the attack's own logs, never by a model.
-  if (body.timelineReport !== undefined) {
-    const difficulty: Difficulty = body.difficulty === "medium" || body.difficulty === "hard" ? body.difficulty : "easy";
-    const g = gradeTimelineReport({
-      report: sanitizeTimelineReport(body.timelineReport),
-      truth: sanitizeTruth(body.truthEvents),
-      realIndicators: body.realIndicators ?? [],
-      evidenceText: body.evidenceText ?? "",
-      attackTitle: body.attackTitle,
-      mitre: body.attackMitreTechniques ?? [],
-      difficulty,
-    });
-    return NextResponse.json({
-      score: g.score, passed: g.passed, feedback: g.feedback,
-      strengths: g.checks.filter(c => c.status === "ok").map(c => c.title),
-      gaps: g.checks.filter(c => c.status !== "ok").map(c => c.title),
-      graded_by: "deterministic", mode: "timeline", checks: g.checks, requirements: g.requirements, threshold: g.threshold,
-    } satisfies IncidentReportResponse);
-  }
 
   if (!body.summary?.trim()) {
     return NextResponse.json({
