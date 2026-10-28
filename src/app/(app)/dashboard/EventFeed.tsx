@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, memo, useRef, useContext, useEffect } from "react";
+import { useState, useMemo, memo, useRef, useContext, useEffect, useCallback, createContext } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronRight, Info, AlertTriangle, Clock, ExternalLink, Shield, X, PhoneCall, CheckCircle2, Copy, BookOpen, Cpu } from "lucide-react";
@@ -12,7 +12,7 @@ import { LOG_SOURCE_GUIDE } from "./logSourceGuide";
 import { eventMatchesSearch } from "./eventSearch";
 import { toRawLog } from "./rawLogFormat";
 import { isPublicIp } from "@/lib/edr/iocIntel";
-import { useNativeLog, nativeRows, type NativeView } from "@/lib/logs/native/NativeLogContext";
+import { useNativeLog, useNativeRenderer, nativeRows, type NativeView, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
 import { hashString } from "@/lib/sim/rng";
 import { techniqueById, tacticById } from "@/lib/mitre/attack";
 import { mitreVisible } from "@/lib/sim/mitreVisible";
@@ -468,6 +468,95 @@ function CloseAlertBar({ event, onCloseAlert, status }: { event: LiveEvent; onCl
   );
 }
 
+/** The SIEM-style field rows of an event with no native view (ECS helper rows + the raw fields). */
+function legacyFieldRows(event: LiveEvent): [string, string][] {
+  const ecsCore: [string, string][] = [
+    ["event.id",       opaqueEventId(event.id)],
+    ["event.provider", event.vendor ?? event.source.toUpperCase()],
+    ["event.type",     event.event_type.replace(/_/g, " ")],
+    ...(Object.entries(ecsTechnique(event.mitre_technique)) as [string, string][]),
+    ...(event.user_email ? [["user.email",  event.user_email]           as [string, string]] : []),
+    ...(event.hostname   ? [["host.name",   event.hostname]             as [string, string]] : []),
+    ...(event.src_ip   ? [["source.ip",         event.src_ip]           as [string, string]] : []),
+    ...(event.src_port ? [["source.port",        String(event.src_port)] as [string, string]] : []),
+    ...(event.dst_ip   ? [["destination.ip",     event.dst_ip]           as [string, string]] : []),
+    ...(event.dst_port ? [["destination.port",   String(event.dst_port)] as [string, string]] : []),
+    ...(event.protocol ? [["network.protocol",   event.protocol]         as [string, string]] : []),
+    ...(event.network?.url    ? [["url.full",          event.network.url]         as [string, string]] : []),
+    ...(event.network?.domain ? [["dns.question.name", event.network.domain]      as [string, string]] : []),
+    ...(event.network?.method ? [["http.request.method", event.network.method]    as [string, string]] : []),
+    ...(event.network?.bytes_out ? [["network.bytes_out", `${event.network.bytes_out} B`] as [string, string]] : []),
+    ...(event.network?.bytes_in  ? [["network.bytes_in",  `${event.network.bytes_in} B`]  as [string, string]] : []),
+    ...(event.process?.name        ? [["process.name",        event.process.name]              as [string, string]] : []),
+    ...(event.process?.pid         ? [["process.pid",         String(event.process.pid)]        as [string, string]] : []),
+    ...(event.process?.cmdline     ? [["process.command_line", event.process.cmdline]           as [string, string]] : []),
+    ...(event.process?.parent_name ? [["process.parent.name", event.process.parent_name]        as [string, string]] : []),
+    ...(event.process?.parent_pid  ? [["process.parent.pid",  String(event.process.parent_pid)] as [string, string]] : []),
+    ...(event.process?.user        ? [["user.name",           event.process.user]               as [string, string]] : []),
+    ...(event.process?.integrity   ? [["process.integrity",   event.process.integrity]          as [string, string]] : []),
+    ...(event.file?.path   ? [["file.path",        event.file.path]        as [string, string]] : []),
+    ...(event.file?.sha256 ? [["file.hash.sha256", event.file.sha256]      as [string, string]] : []),
+    ...(event.file?.size   ? [["file.size",        `${event.file.size} B`] as [string, string]] : []),
+  ];
+
+  const ecsCoreKeys = new Set(ecsCore.map(([k]) => k));
+
+  const rawFields: [string, string][] = Object.entries(event.raw ?? {})
+    .filter(([k, v]) => !ecsCoreKeys.has(k) && v !== null && v !== undefined && v !== "" && typeof v !== "object" && typeof v !== "boolean")
+    .map(([k, v]) => [k, String(v)]);
+
+  const rawBool: [string, string][] = Object.entries(event.raw ?? {})
+    .filter(([k, v]) => !ecsCoreKeys.has(k) && typeof v === "boolean")
+    .map(([k, v]) => [k, v ? "true" : "false"]);
+  return [...ecsCore, ...rawFields, ...rawBool];
+}
+
+// ─── Field filters (Tal, 2026-10-28) ───────────────────────────────────────────
+// Every field of an open log can become a feed filter: ＋ keeps only the logs with that
+// value in the same field, − hides them. The fields are the ones the log table shows
+// (native fields when the source has a native view, else the SIEM rows), so a filter
+// added from one log matches the same field on every other log of the feed.
+
+export interface FieldFilter { field: string; value: string; exclude?: boolean }
+const FIELD_LABEL: Record<string, string> = { "@user_email": "Username", "@hostname": "Hostname", "@src_ip": "IP Address" };
+/** Identity rows of "Basic Information" filter on the event itself, whatever its source. */
+const BASIC_PROPS: Record<string, keyof LiveEvent> = { Username: "user_email", Hostname: "hostname", "IP Address": "src_ip" };
+const FieldFilterContext = createContext<((f: FieldFilter) => void) | null>(null);
+/** "process[0].name" and "process[1].name" are the same field for filtering. */
+const fieldKey = (k: string) => k.replace(/\[\d+\]/g, "[]");
+
+export function fieldRowsOf(event: LiveEvent, render: NativeRenderer | null): [string, string][] {
+  let native: NativeView | null = null;
+  if (render) { try { native = render(event); } catch { native = null; } }
+  return native ? nativeRows(native.log.record) : legacyFieldRows(event);
+}
+
+export function matchesFieldFilter(event: LiveEvent, f: FieldFilter, rows: () => [string, string][]): boolean {
+  let hit: boolean;
+  if (f.field.startsWith("@")) {
+    hit = String(event[f.field.slice(1) as keyof LiveEvent] ?? "") === f.value;
+  } else {
+    const key = fieldKey(f.field);
+    hit = rows().some(([k, v]) => v === f.value && fieldKey(k) === key);
+  }
+  return f.exclude ? !hit : hit;
+}
+
+/** The ＋ / − pair next to a field value (only inside a feed that filters). */
+function FilterButtons({ field, value, label }: { field: string; value: string; label: string }) {
+  const add = useContext(FieldFilterContext);
+  if (!add || !value || value === "—") return null;
+  const cls = "min-w-[18px] rounded border border-slate-500/60 bg-bg px-1 font-mono text-[11px] font-bold leading-4 text-slate-200 transition hover:border-cyber-400 hover:bg-cyber-500/15 hover:text-cyber-100";
+  return (
+    <span className="inline-flex shrink-0 gap-0.5">
+      <button type="button" className={cls} title={`Show only logs where ${label} is ${value}`} aria-label={`Filter for ${label} ${value}`}
+        onClick={e => { e.stopPropagation(); add({ field, value }); }}>+</button>
+      <button type="button" className={cls} title={`Hide logs where ${label} is ${value}`} aria-label={`Filter out ${label} ${value}`}
+        onClick={e => { e.stopPropagation(); add({ field, value, exclude: true }); }}>&minus;</button>
+    </span>
+  );
+}
+
 /** Panel body WITHOUT a table-cell wrapper — place this inside a <div> for any
  *  standalone use (e.g. Tier-2/Tier-3 "open the flagged log"). Inside the feed
  *  table, use <DetailPanel> (the <td> wrapper below) instead. */
@@ -550,48 +639,9 @@ export function DetailPanelBody({
     ["IP Address", event.src_ip     ?? "—"],
   ];
 
-  const ecsCore: [string, string][] = [
-    ["event.id",       opaqueEventId(event.id)],
-    ["event.provider", event.vendor ?? event.source.toUpperCase()],
-    ["event.type",     event.event_type.replace(/_/g, " ")],
-    ...(Object.entries(ecsTechnique(event.mitre_technique)) as [string, string][]),
-    ...(event.user_email ? [["user.email",  event.user_email]           as [string, string]] : []),
-    ...(event.hostname   ? [["host.name",   event.hostname]             as [string, string]] : []),
-    ...(event.src_ip   ? [["source.ip",         event.src_ip]           as [string, string]] : []),
-    ...(event.src_port ? [["source.port",        String(event.src_port)] as [string, string]] : []),
-    ...(event.dst_ip   ? [["destination.ip",     event.dst_ip]           as [string, string]] : []),
-    ...(event.dst_port ? [["destination.port",   String(event.dst_port)] as [string, string]] : []),
-    ...(event.protocol ? [["network.protocol",   event.protocol]         as [string, string]] : []),
-    ...(event.network?.url    ? [["url.full",          event.network.url]         as [string, string]] : []),
-    ...(event.network?.domain ? [["dns.question.name", event.network.domain]      as [string, string]] : []),
-    ...(event.network?.method ? [["http.request.method", event.network.method]    as [string, string]] : []),
-    ...(event.network?.bytes_out ? [["network.bytes_out", `${event.network.bytes_out} B`] as [string, string]] : []),
-    ...(event.network?.bytes_in  ? [["network.bytes_in",  `${event.network.bytes_in} B`]  as [string, string]] : []),
-    ...(event.process?.name        ? [["process.name",        event.process.name]              as [string, string]] : []),
-    ...(event.process?.pid         ? [["process.pid",         String(event.process.pid)]        as [string, string]] : []),
-    ...(event.process?.cmdline     ? [["process.command_line", event.process.cmdline]           as [string, string]] : []),
-    ...(event.process?.parent_name ? [["process.parent.name", event.process.parent_name]        as [string, string]] : []),
-    ...(event.process?.parent_pid  ? [["process.parent.pid",  String(event.process.parent_pid)] as [string, string]] : []),
-    ...(event.process?.user        ? [["user.name",           event.process.user]               as [string, string]] : []),
-    ...(event.process?.integrity   ? [["process.integrity",   event.process.integrity]          as [string, string]] : []),
-    ...(event.file?.path   ? [["file.path",        event.file.path]        as [string, string]] : []),
-    ...(event.file?.sha256 ? [["file.hash.sha256", event.file.sha256]      as [string, string]] : []),
-    ...(event.file?.size   ? [["file.size",        `${event.file.size} B`] as [string, string]] : []),
-  ];
-
-  const ecsCoreKeys = new Set(ecsCore.map(([k]) => k));
-
-  const rawFields: [string, string][] = Object.entries(event.raw ?? {})
-    .filter(([k, v]) => !ecsCoreKeys.has(k) && v !== null && v !== undefined && v !== "" && typeof v !== "object" && typeof v !== "boolean")
-    .map(([k, v]) => [k, String(v)]);
-
-  const rawBool: [string, string][] = Object.entries(event.raw ?? {})
-    .filter(([k, v]) => !ecsCoreKeys.has(k) && typeof v === "boolean")
-    .map(([k, v]) => [k, v ? "true" : "false"]);
-
   // No schema mixing: with a native view the table shows ONLY the product's own
   // fields (no ECS helper rows), exactly as its record carries them.
-  const detailedFields: [string, string][] = nativeView ? nativeRows(nativeView.log.record) : [...ecsCore, ...rawFields, ...rawBool];
+  const detailedFields: [string, string][] = nativeView ? nativeRows(nativeView.log.record) : legacyFieldRows(event);
   const NATIVE_DOMAIN_KEY = /(domain|hostname|host|query_?name|qname|url|fqdn|server_?name|appdomain)$/i;
 
   return (
@@ -777,7 +827,8 @@ export function DetailPanelBody({
                     <div key={label} className="flex flex-wrap gap-x-3 gap-y-0.5 items-center">
                       <span className="w-36 shrink-0 text-[11px] text-slate-400">{label}</span>
                       <span className={cn("min-w-[12rem] flex-1 font-mono text-[11px] text-slate-200 [overflow-wrap:anywhere]", colorClass)}>{value}</span>
-                      <span className="ml-auto shrink-0 flex gap-1.5">
+                      <span className="ml-auto shrink-0 flex items-center gap-1.5">
+                        {BASIC_PROPS[label] && <FilterButtons field={`@${BASIC_PROPS[label]}`} value={value} label={label} />}
                         {canIoc && (
                           <button
                             onClick={e => { e.stopPropagation(); onAddIoc!(value, iocType!); }}
@@ -834,10 +885,13 @@ export function DetailPanelBody({
                     <div key={k} className={cn("flex flex-wrap gap-x-3 gap-y-0.5", hasBtn ? "items-start py-0.5" : "items-baseline")}>
                       <span className="w-64 max-w-full shrink-0 font-mono text-[10px] text-slate-400 [overflow-wrap:anywhere]">{k}</span>
                       <div className="flex min-w-[12rem] flex-1 flex-col gap-1.5">
-                        <span className={cn(
-                          "font-mono text-[10px] [overflow-wrap:anywhere]",
-                          showHash ? "text-neon-amber" : showIp ? "text-neon-blue" : "text-slate-300"
-                        )}>{v}</span>
+                        <span className="flex items-start gap-2">
+                          <span className={cn(
+                            "min-w-0 flex-1 font-mono text-[10px] [overflow-wrap:anywhere]",
+                            showHash ? "text-neon-amber" : showIp ? "text-neon-blue" : "text-slate-300"
+                          )}>{v}</span>
+                          <FilterButtons field={k} value={v} label={k} />
+                        </span>
 
                         {/* SHA256 → internal threat panel */}
                         {showHash && (
@@ -1371,6 +1425,9 @@ export function EventFeed({
   useEffect(() => { try { const v = localStorage.getItem(ORDER_KEY); if (v === "newest" || v === "oldest") setOrder(v); } catch { /* storage blocked */ } }, []);
   const pickOrder = (o: FeedOrder) => { setOrder(o); try { localStorage.setItem(ORDER_KEY, o); } catch { /* storage blocked */ } };
   const [threatQuery, setThreatQuery] = useState<ThreatQuery | null>(null);
+  const [fieldFilters, setFieldFilters] = useState<FieldFilter[]>([]);
+  const addFieldFilter = useCallback((f: FieldFilter) => setFieldFilters(cur => [...cur.filter(x => !(x.field === f.field && x.value === f.value)), f]), []);
+  const renderNative = useNativeRenderer();
 
   // Memoize the filter pass: it scans up to 100 events with 6 predicates and,
   // combined with each EventRow's framer-motion `layout` animation, previously
@@ -1395,9 +1452,14 @@ export function EventFeed({
       // Free-text search: substring across a flattened event (incl. stringified
       // `raw`) plus optional `field:value` tokens — see eventSearch.ts.
       if (search && !eventMatchesSearch(ev, search)) return false;
+      if (fieldFilters.length) {
+        let rows: [string, string][] | null = null;
+        const rowsOf = () => (rows ??= fieldRowsOf(ev, renderNative));
+        if (!fieldFilters.every(f => matchesFieldFilter(ev, f, rowsOf))) return false;
+      }
       return true;
     });
-  }, [events, timeFilter, severityFilter, sourceFilter, userFilter, hostFilter, ipFilter, mitreFilter, search]);
+  }, [events, timeFilter, severityFilter, sourceFilter, userFilter, hostFilter, ipFilter, mitreFilter, search, fieldFilters, renderNative]);
   const shown = useMemo(() => (sortable ? sortFeed(filtered, order) : filtered), [filtered, order, sortable]);
 
   return (
@@ -1434,6 +1496,22 @@ export function EventFeed({
         <span className={cn("font-mono text-[10px] text-slate-400", !sortable && "ml-auto")}>{filtered.length} events</span>
       </div>
 
+      {fieldFilters.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-border/40 bg-bg-elevated/40 px-4 py-1.5" aria-label="Field filters">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Filters</span>
+          {fieldFilters.map(f => (
+            <span key={`${f.field}=${f.value}`} className={cn("inline-flex max-w-full items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px]",
+              f.exclude ? "border-severity-high/40 bg-severity-high/10 text-severity-high" : "border-cyber-500/40 bg-cyber-500/10 text-cyber-200")}>
+              <span className="min-w-0 truncate" title={`${f.exclude ? "NOT " : ""}${f.field.replace(/^@/, "")}: ${f.value}`}>
+                {f.exclude ? "NOT " : ""}{FIELD_LABEL[f.field] ?? f.field}: <bdi>{f.value}</bdi>
+              </span>
+              <button type="button" aria-label={`Remove filter ${f.field} ${f.value}`} onClick={() => setFieldFilters(cur => cur.filter(x => x !== f))} className="shrink-0 hover:text-white"><X className="h-3 w-3" aria-hidden /></button>
+            </span>
+          ))}
+          <button type="button" onClick={() => setFieldFilters([])} className="ml-1 text-[10px] text-slate-400 underline-offset-2 hover:text-slate-200 hover:underline">Clear all</button>
+        </div>
+      )}
+
       <SocMethodologyBanner />
 
       <div id="ef-event-table" className="max-h-[530px] overflow-y-auto overflow-x-auto">
@@ -1462,6 +1540,7 @@ export function EventFeed({
               <th id="ef-th-ruleid"  className="py-2 pr-4"><HeaderTip label="Rule ID"    tip="The detection rule that fired on this event. When a known attack technique is detected, the rule maps to MITRE ATT&CK. Expand the row to see its MITRE ATT&CK mapping." /></th>
             </tr>
           </thead>
+          <FieldFilterContext.Provider value={addFieldFilter}>
           <tbody>
             <AnimatePresence initial={false}>
               {shown.map(ev => (
@@ -1491,6 +1570,7 @@ export function EventFeed({
               </tr>
             )}
           </tbody>
+          </FieldFilterContext.Provider>
         </table>
       </div>
 

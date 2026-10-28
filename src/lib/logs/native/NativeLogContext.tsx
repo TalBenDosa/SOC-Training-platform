@@ -19,6 +19,11 @@ export type NativeRenderer = (ev: TelemetryEvent) => NativeView | null;
 const Ctx = createContext<NativeRenderer | null>(null);
 export const NativeLogProvider = Ctx.Provider;
 
+/** The page's native renderer itself (null outside a provider): lets the feed filter on native fields. */
+export function useNativeRenderer(): NativeRenderer | null {
+  return useContext(Ctx);
+}
+
 /** The native view of an event, or null (no provider yet, or no native module for it). */
 export function useNativeLog(ev: TelemetryEvent | null | undefined): NativeView | null {
   const render = useContext(Ctx);
