@@ -29,7 +29,6 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { fetchOrgCompanies, type OrgCompanyContent } from "@/lib/content/publicContent";
 import { containedHosts, EDR_CONTAINMENT_EVENT } from "@/lib/edr/containment";
 import { setTrainingActive } from "@/lib/sim/trainingSession";
-import { MyLearningPlan } from "@/components/plans/MyLearningPlan";
 import { incidentGroundTruth } from "./groundTruth";
 import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
 import { IocTruthContext } from "@/components/threat-intel/iocTruthContext";
@@ -422,7 +421,6 @@ export default function DashboardPage() {
   // answers from the whole story (the dropper reads malicious on its execution row too),
   // and an IOC looked up after the next story started still reads as it did.
   const iocTruth = useMemo(() => storyIocTruth(injectedStories.flatMap(s => s.events)), [injectedStories]);
-  const [scenarioObjective,   setScenarioObjective]   = useState<string | null>(null);
   // Session clock — set when a training session starts, cleared when it ends.
   // Drives the "session active" indicator so the analyst always knows whether
   // a graded session is running and how long they've been on shift.
@@ -1000,8 +998,6 @@ export default function DashboardPage() {
     const story = stackedStory(s, orgMap, company, difficulty, stack, nm);
     setSessionStory(story);
     setInjectedStories([story]);
-    const label = difficulty[0].toUpperCase() + difficulty.slice(1);
-    setScenarioObjective(`${label} session — watch the feed and report the attacks hidden in it. Catch ${ADVANCE_CATCHES} within a rolling 30-minute window to secure the company and advance — there's no time pressure, the window simply resets if it lapses. You won't be told what they are.`);
     setSessionStartedAt(Date.now());
     setSessionDifficulty(difficulty);
     setSessionElapsed(0);
@@ -1343,9 +1339,8 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* The learner's plan from their organisation, compact: the next few
-            open items with a toggle for the full plan. Nothing for solo learners. */}
-        <MyLearningPlan compact />
+        {/* No learning-plan tasks here (Tal, 2026-10-28): the dashboard is for practice,
+            and the plan lives on its own pages. */}
 
         {/* Session status bar — one compact row instead of the old KPI grid + XP banner */}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border bg-bg-elevated px-5 py-3">
@@ -1433,17 +1428,6 @@ export default function DashboardPage() {
               className="ml-auto rounded-md bg-neon-purple px-3 py-1.5 text-xs font-bold text-white transition hover:brightness-110"
             >
               Retry
-            </button>
-          </div>
-        )}
-
-        {/* Scenario objective banner */}
-        {scenarioObjective && (
-          <div className="flex items-center gap-3 rounded-lg border border-neon-purple/30 bg-neon-purple/5 px-5 py-3">
-            <Target className="h-4 w-4 shrink-0 text-neon-purple" />
-            <p className="text-sm text-slate-200">{scenarioObjective}</p>
-            <button type="button" onClick={() => setScenarioObjective(null)} aria-label="Dismiss objective" className="ml-auto text-slate-400 hover:text-slate-300">
-              <X aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
         )}
