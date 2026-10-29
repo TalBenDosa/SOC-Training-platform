@@ -21,6 +21,7 @@ import { buildProcessTree, incidentScore, type EdrInvestigation, type EdrProcess
 import { hashIntel, hashVerdictLabel } from "@/lib/edr/iocIntel";
 import { runRtrCommand } from "@/lib/edr/rtr";
 import { processModules } from "@/lib/edr/modules";
+import { sampleFromPath, peInfo, stringsOutput, flossOutput, capaOutput, candidateIocs, type SampleEvidence } from "@/lib/edr/staticLab";
 import { isLinuxHost } from "@/lib/edr/hostBaseline";
 import { isContained, setContained } from "@/lib/edr/containment";
 import type { TeamIsolation } from "@/lib/team/useTeamIsolation";
@@ -221,6 +222,11 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
   const [tab, setTab] = useState<"overview" | "network" | "files" | "registry" | "modules">("overview");
   const [rtr, setRtr] = useState<{ cmd: string; out: string }[]>([]);
   const [rtrIn, setRtrIn] = useState("");
+  // Static Analysis Lab: files pulled off the host with `get` land here (the "Sample Locker"),
+  // and the analyst triages each on an isolated VM with simulated PE/strings/FLOSS/capa output.
+  const [samples, setSamples] = useState<SampleEvidence[]>([]);
+  const [activeSample, setActiveSample] = useState<string | null>(null);
+  const [labTab, setLabTab] = useState<"file" | "strings" | "floss" | "capa">("file");
   // E-06: RTR takes real (simulated) action against host state. A process the EDR
   // already killed/quarantined in this case is gone from the host from the start;
   // `kill` removes a live one; `contain` cuts the network. `ps`/`netstat` are derived
@@ -233,8 +239,8 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
     return s;
   };
   const [killed, setKilled] = useState<Set<number>>(() => seedKilled(inv));
-  // Reset the shell + killed state when the analyst switches to another case.
-  useEffect(() => { setRtr([]); setKilled(seedKilled(inv)); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [inv.id]);
+  // Reset the shell + killed state + collected samples when switching to another case.
+  useEffect(() => { setRtr([]); setKilled(seedKilled(inv)); setSamples([]); setActiveSample(null); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [inv.id]);
   // Browsers often refuse window.close() on a tab they didn't script-open (this
   // one is opened via a normal <a target="_blank">), and the refusal is SILENT.
   // Track it so we can escalate the "switch back manually" instruction instead of
@@ -268,15 +274,29 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
     const res = runRtrCommand(raw, { inv, killed, isolated });
     if (!res) return;
     if (res.clear) { setRtr([]); return; }
+    let out = res.out;
     if (res.kill != null) {
       setKilled(s => { const n = new Set(s); n.add(res.kill!); return n; });
       const proc = inv.processes.find(p => p.pid === res.kill);
       void teamIsolation?.recordRtr?.({ host: inv.host.name, action: "kill", pid: res.kill, name: proc?.name });
     } else if (/^\s*get\s+\S/i.test(raw)) {
-      void teamIsolation?.recordRtr?.({ host: inv.host.name, action: "get", path: raw.trim().replace(/^get\s+/i, "").slice(0, 260) });
+      const path = raw.trim().replace(/^get\s+/i, "");
+      void teamIsolation?.recordRtr?.({ host: inv.host.name, action: "get", path: path.slice(0, 260) });
+      // A PE pulled off the host opens in the Static Analysis Lab below (the "Sample Locker").
+      const sref = sampleFromPath(inv, path);
+      if (sref?.isPe) {
+        setSamples(prev => {
+          if (prev.some(e => e.sample.path.toLowerCase() === sref.path.toLowerCase())) { setActiveSample(prev.find(e => e.sample.path.toLowerCase() === sref.path.toLowerCase())!.id); return prev; }
+          const id = `SMP-${String(prev.length + 1).padStart(3, "0")}`;
+          setActiveSample(id);
+          setLabTab("file");
+          return [...prev, { id, collectedAt: new Date().toLocaleTimeString("en-GB", { hour12: false }), host: inv.host.name, sample: sref }];
+        });
+        out = `${res.out}\n  -> Collected to the Sample Locker. Triage it in the Static Analysis Lab below.`;
+      }
     }
     if (res.contain) isolate(true);
-    setRtr(r => [...r, { cmd: raw.trim(), out: res.out }]);
+    setRtr(r => [...r, { cmd: raw.trim(), out }]);
   }
 
   function decide(choice: number /* pid, or -1 for benign */) {
@@ -669,6 +689,57 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
             <Button type="submit" variant="outline" size="sm">Run</Button>
           </form>
         </Card>
+
+        {/* Static Analysis Lab — simulated PE/strings/FLOSS/capa triage of a pulled sample */}
+        {samples.length > 0 && (() => {
+          const ev = samples.find(e => e.id === activeSample) ?? samples[samples.length - 1];
+          const s = ev.sample;
+          const body = labTab === "file" ? peInfo(s) : labTab === "strings" ? stringsOutput(s) : labTab === "floss" ? flossOutput(s) : capaOutput(s);
+          const iocs = candidateIocs(s);
+          const labTabs = [["file", "File info"], ["strings", "strings"], ["floss", "FLOSS"], ["capa", "capa"]] as const;
+          return (
+            <Card className="p-0">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+                <h2 className="flex items-center gap-2 text-sm font-bold text-white"><FileSearch className="h-4 w-4 text-cyber-300" /> Static Analysis Lab <span className="text-[11px] font-normal text-slate-500">isolated VM, no network</span></h2>
+                {samples.length > 1 && (
+                  <select value={ev.id} onChange={e => setActiveSample(e.target.value)} aria-label="Collected sample"
+                    className="rounded border border-border bg-bg px-2 py-1 font-mono text-[11px] text-slate-300">
+                    {samples.map(x => <option key={x.id} value={x.id}>{x.id} · {x.sample.name}</option>)}
+                  </select>
+                )}
+              </div>
+              {/* chain of custody */}
+              <div className="border-b border-border/60 bg-bg/40 px-4 py-2 font-mono text-[10.5px] text-slate-400">
+                <span className="text-slate-300">{ev.id}</span> · {s.name} · collected {ev.collectedAt} from {ev.host} · 7z, password: <span className="text-slate-300">infected</span>
+                <div className="break-all">SHA-256 {s.sha256} · {s.signed ? <span className="text-neon-green">signed</span> : <span className="font-bold text-severity-high">UNSIGNED</span>}</div>
+              </div>
+              <div role="tablist" aria-label="Static analysis tool" className="flex gap-1 border-b border-border px-3 pt-2 text-[11px]">
+                {labTabs.map(([k, label]) => (
+                  <button key={k} type="button" role="tab" aria-selected={labTab === k} onClick={() => setLabTab(k)}
+                    className={`rounded-t px-2.5 py-1.5 font-medium transition ${labTab === k ? "bg-bg text-cyber-300" : "text-slate-400 hover:text-white"}`}>{label}</button>
+                ))}
+              </div>
+              <div className="overflow-x-auto bg-black/40 px-4 py-3">
+                <pre className="whitespace-pre font-mono text-[11.5px] leading-relaxed text-slate-300">{body}</pre>
+              </div>
+              {/* IOC pivot: extraction only, the verdict is the analyst's after a SIEM pivot */}
+              <div className="border-t border-border px-4 py-3">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Network indicators to pivot on</p>
+                {iocs.length ? (
+                  <ul className="mt-1.5 space-y-1">
+                    {iocs.map((c, i) => (
+                      <li key={i} className="flex items-center gap-2 font-mono text-[12px]">
+                        <span className="rounded bg-slate-700 px-1 text-[9px] uppercase text-slate-300">{c.type}</span>
+                        <code className="text-slate-200">{c.value}</code>
+                      </li>
+                    ))}
+                  </ul>
+                ) : <p className="mt-1 text-[12px] text-slate-500">No network indicators in this sample.</p>}
+                <p className="mt-2 text-[11px] text-neon-amber">Not every string is an IOC: CRL/OCSP URLs and OIDs are normal PKI noise. Pivot each indicator in the SIEM to confirm it was contacted before you block or escalate.</p>
+              </div>
+            </Card>
+          );
+        })()}
 
         {/* decision */}
         <Card className={decided ? (decided.correct ? "border-neon-green/40" : "border-severity-high/40") : "border-cyber-500/30"}>
