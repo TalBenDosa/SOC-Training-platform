@@ -28,14 +28,10 @@ export interface SampleRef {
   exports: string[];
   originalFileName?: string;
   /** Network indicators this file was observed using (the real C2 among the strings). */
-  net: { domain?: string; ip?: string; port?: number; application?: string }[];
+  net: { ts?: string; domain?: string; ip?: string; port?: number; application?: string }[];
   /** Files it touched — a browser credential store read is a strong capability tell. */
   touched: string[];
   wroteRunKey: boolean;
-  /** The Run-key value name that re-launches it (e.g. "Updater"), when the case shows one. */
-  runValueName?: string;
-  /** Seconds between its repeated C2 connections (the beacon interval), when observed. */
-  beaconSec?: number;
 }
 
 export interface SampleEvidence {
@@ -87,11 +83,15 @@ export function sampleFromPath(inv: EdrInvestigation, rawPath: string): SampleRe
   // else the writer process's hash of the dropped file isn't on the node, so synthesise one.
   const imageProc = inv.processes.find(p => (p.path ?? "").toLowerCase() === lc) ?? proc;
   const sha256 = imageProc.sha256 ?? hex("sha|" + lc, 64);
-  const net = (imageProc.network ?? proc.network ?? []).map(c => ({ domain: c.domain, ip: c.remote_ip, port: c.remote_port, application: c.application ?? c.proto }));
+  const net = (imageProc.network ?? proc.network ?? []).map(c => ({ ts: c.ts, domain: c.domain, ip: c.remote_ip, port: c.remote_port, application: c.application ?? c.proto }));
   const touched = (imageProc.files ?? []).map(f => f.path);
   const wroteRunKey = (imageProc.registry ?? proc.registry ?? []).some(r => /\\Run\\/i.test(r.path))
     || (inv.autoruns ?? []).some(a => a.value.toLowerCase().includes(lc));
-  const sizeBytes = 24_576 + (fnv("sz|" + sha256) % 900) * 1024;   // 24 KB .. ~900 KB, stable
+  // Size must agree with the logs: the download the writer process made just before it wrote
+  // this file (e.g. 207,872 bytes over HTTP) is the file's size. Otherwise a stable value.
+  const writer = inv.processes.find(p => (p.files ?? []).some(f => f.path.toLowerCase() === lc && f.action === "write"));
+  const dl = Math.max(0, ...(writer?.network ?? []).map(c => c.bytes ?? 0));
+  const sizeBytes = dl > 4096 ? dl : 24_576 + (fnv("sz|" + sha256) % 900) * 1024;
 
   return {
     name, path, sha256, signed: imageProc.signed, signer: imageProc.signed ? "Microsoft Windows" : undefined,
@@ -110,10 +110,22 @@ export function peInfo(s: SampleRef): string {
   const compiled = `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")} ${String(fnv("h" + s.sha256) % 24).padStart(2, "0")}:${String(fnv("mi" + s.sha256) % 60).padStart(2, "0")} UTC`;
   // Entropy: normal here (not packed). A packed sample in a harder case would read >7.2.
   const ent = (seed: string, lo: number, hi: number) => (lo + (fnv(seed + s.sha256) % Math.round((hi - lo) * 100)) / 100).toFixed(2);
-  const sections = [
-    ["\.text", ".text", ent("t", 6.1, 6.7)], ["\.rdata", ".rdata", ent("r", 4.8, 5.6)],
-    ["\.data", ".data", ent("d", 3.2, 4.4)], ["\.reloc", ".reloc", ent("x", 4.0, 5.0)],
+  // Section layout that adds up: raw sizes are multiples of FileAlignment (0x200) and fill the
+  // file after the 0x400-byte headers; virtual addresses start at 0x1000 and each next one is
+  // the previous rounded up to SectionAlignment (0x1000), as the PE loader lays them out.
+  const body = Math.max(0x800, s.sizeBytes - 0x400);
+  const share: [string, number, string][] = [
+    [".text", 0.62, ent("t", 6.1, 6.7)], [".rdata", 0.24, ent("r", 4.8, 5.6)],
+    [".data", 0.06, ent("d", 3.2, 4.4)], [".reloc", 0.08, ent("x", 4.0, 5.0)],
   ];
+  const align = (v: number, a: number) => Math.ceil(v / a) * a;
+  let used = 0, va = 0x1000;
+  const sections = share.map(([nm, f, e], i) => {
+    const raw = i === share.length - 1 ? Math.max(0x200, align(body - used, 0x200)) : align(Math.floor(body * f), 0x200);
+    const row = { nm, va, raw, e };
+    used += raw; va += align(raw, 0x1000);
+    return row;
+  });
   // Imports an analyst would read as the file's "reach": network, crypto, process, files.
   const imports = ["KERNEL32.dll", "ADVAPI32.dll"];
   if (s.net.length) imports.push("WININET.dll", "WS2_32.dll");
@@ -131,7 +143,7 @@ export function peInfo(s: SampleRef): string {
     s.originalFileName ? `OriginalName: ${s.originalFileName}${s.originalFileName.toLowerCase() !== s.name.toLowerCase() ? "  <- differs from on-disk name (rename tell)" : ""}` : "",
     "",
     "Sections      VirtAddr    RawSize     Entropy",
-    ...sections.map(([, nm, e]) => `  ${nm.padEnd(10)}0x${hex("va" + nm + s.sha256, 6)}  ${n(16384 + fnv(nm + s.sha256) % 180000).padStart(9)}   ${e}`),
+    ...sections.map(({ nm, va, raw, e }) => `  ${nm.padEnd(10)}0x${va.toString(16).padStart(8, "0")}  ${n(raw).padStart(9)}   ${e}`),
     "",
     `Imports:      ${[...new Set(imports)].join(", ")}`,
     `Exports:      ${s.isDll ? (s.exports.join(", ") || "(none)") : "(not a DLL)"}`,
@@ -159,11 +171,11 @@ function stringLines(s: SampleRef): string[] {
   for (const f of s.touched) if (/login data|cookies/i.test(f)) real.push(baseName(f));
   if (s.exports.length && s.isDll) real.push(...s.exports);
   if (s.wroteRunKey) real.push("Software\\Microsoft\\Windows\\CurrentVersion\\Run");
-  // Interleave deterministically so the real ones are not simply at the end.
-  const out: string[] = [];
+  // Interleave deterministically so the real ones are not simply at the end; each string once.
   const mix = [...decoys];
-  real.forEach((r, i) => mix.splice(Math.min(mix.length, 2 + i * 3), 0, r));
-  return mix;
+  [...new Set(real)].forEach((r, i) => mix.splice(Math.min(mix.length, 2 + i * 3), 0, r));
+  // The view is `strings -n 6`: anything shorter than six characters is not printed.
+  return [...new Set(mix)].filter(l => l.length >= 6);
 }
 
 /** 2. Sysinternals-style `strings -n 6` (ASCII + UTF-16LE). */
@@ -173,12 +185,17 @@ export function stringsOutput(s: SampleRef): string {
 
 /** 3. Mandiant FLOSS — static strings plus what `strings` cannot see (stack / decoded). */
 export function flossOutput(s: SampleRef): string {
-  const statics = stringLines(s).filter(l => !/^\.|Rich|DOS mode/.test(l)).slice(0, 10);
-  // Stack strings: short operational fragments a loader builds byte-by-byte on the stack.
-  const stack = ["cmd.exe /c", "\\\\.\\pipe\\", "Global\\"].map(x => x + hex("st" + x + s.sha256, 4));
-  // Decoded strings: produced by a decode routine in the binary. In this (easy) sample the
-  // C2 is already in plain strings, so the decoded set is small operational config.
-  const decoded = s.net.flatMap(c => c.domain ? [`beacon:${c.domain}:${c.port ?? 443}`] : c.ip ? [`beacon:${c.ip}`] : []).slice(0, 2);
+  const statics = stringLines(s).filter(l => !/DOS mode/.test(l));
+  // Stack strings: only what the case's own telemetry shows the file touching (a path it read
+  // or a file it wrote), never invented fragments.
+  const stack = [...new Set(s.touched.map(f => f.replace(/^[A-Z]:\\Users\\[^\\]+\\AppData\\(Local|Roaming)\\/i, "")))];
+  // Decoded strings: the C2 endpoint(s) once each, plus the beacon interval the logs imply
+  // (the gap between repeated connections to the same destination).
+  const ends = [...new Set(s.net.map(c => `${c.domain ?? c.ip}:${c.port ?? 443}`))];
+  const secs = (t?: string) => { const m = t?.match(/^(\d{2}):(\d{2}):(\d{2})$/); return m ? +m[1] * 3600 + +m[2] * 60 + +m[3] : null; };
+  const times = s.net.map(c => secs(c.ts)).filter((x): x is number => x != null).sort((a, b) => a - b);
+  const gap = times.length > 1 ? times[1] - times[0] : 0;
+  const decoded = [...ends, ...(gap > 0 ? [`sleep ${gap * 1000}`] : [])];
   return [
     `FLARE FLOSS RESULTS (simulated)`,
     ` file path: ${s.name}`,
