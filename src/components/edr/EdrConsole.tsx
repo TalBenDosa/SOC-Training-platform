@@ -20,6 +20,7 @@ import {
 import { buildProcessTree, incidentScore, type EdrInvestigation, type EdrProcess } from "@/lib/edr/investigations";
 import { hashIntel, hashVerdictLabel } from "@/lib/edr/iocIntel";
 import { runRtrCommand } from "@/lib/edr/rtr";
+import { processModules } from "@/lib/edr/modules";
 import { isLinuxHost } from "@/lib/edr/hostBaseline";
 import { isContained, setContained } from "@/lib/edr/containment";
 import type { TeamIsolation } from "@/lib/team/useTeamIsolation";
@@ -217,7 +218,7 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
   // the result heading (otherwise focus drops to <body> and nothing is announced).
   const resultRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => { if (decided) resultRef.current?.focus(); }, [decided]);
-  const [tab, setTab] = useState<"overview" | "network" | "files">("overview");
+  const [tab, setTab] = useState<"overview" | "network" | "files" | "registry" | "modules">("overview");
   const [rtr, setRtr] = useState<{ cmd: string; out: string }[]>([]);
   const [rtrIn, setRtrIn] = useState("");
   // E-06: RTR takes real (simulated) action against host state. A process the EDR
@@ -242,6 +243,15 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
 
   const sel = inv.processes.find(p => p.pid === selPid) ?? null;
   const toggle = (pid: number) => setExpanded(s => { const n = new Set(s); n.has(pid) ? n.delete(pid) : n.add(pid); return n; });
+  // Which detail tabs the selected process shows. Overview/Network/Files/Modules are always
+  // there (every process has modules); Registry only when the process wrote to the registry.
+  type DetailTab = "overview" | "network" | "files" | "registry" | "modules";
+  const detailTabs: DetailTab[] = sel
+    ? ["overview", "network", "files", ...(sel.registry?.length ? ["registry" as const] : []), "modules"]
+    : ["overview"];
+  // Switching to another process resets to Overview, so a tab the new process lacks
+  // (e.g. Registry) is never left selected with nothing to show.
+  useEffect(() => { setTab("overview"); }, [selPid]);
 
   // Incident Workbench roll-up — the "full picture" a Falcon incident gives:
   // one score, the ATT&CK techniques seen on this host, and the affected
@@ -459,7 +469,7 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
                 <div role="tablist" aria-label="Process details" className="flex gap-1 border-b border-border px-3 pt-2 text-[11px]"
                   onKeyDown={e => {
                     // WAI-ARIA tabs: Left/Right (and Home/End) move between tabs.
-                    const order = ["overview", "network", "files"] as const;
+                    const order = detailTabs;
                     const i = order.indexOf(tab);
                     let next: number | null = null;
                     if (e.key === "ArrowRight") next = (i + 1) % order.length;
@@ -471,11 +481,11 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
                     setTab(order[next]);
                     document.getElementById(`edr-tab-${order[next]}`)?.focus();
                   }}>
-                  {(["overview", "network", "files"] as const).map(t => (
+                  {detailTabs.map(t => (
                     <button key={t} type="button" role="tab" id={`edr-tab-${t}`} aria-selected={tab === t} aria-controls="edr-tabpanel"
                       tabIndex={tab === t ? 0 : -1} onClick={() => setTab(t)}
                       className={`rounded-t px-2.5 py-1.5 font-medium capitalize transition ${tab === t ? "bg-bg text-cyber-300" : "text-slate-400 hover:text-white"}`}>
-                      {t}{t === "network" && sel.network?.length ? ` (${sel.network.length})` : ""}{t === "files" && sel.files?.length ? ` (${sel.files.length})` : ""}
+                      {t}{t === "network" && sel.network?.length ? ` (${sel.network.length})` : ""}{t === "files" && sel.files?.length ? ` (${sel.files.length})` : ""}{t === "registry" && sel.registry?.length ? ` (${sel.registry.length})` : ""}
                     </button>
                   ))}
                 </div>
@@ -571,6 +581,46 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
                         ))}
                       </div>
                     ) : <p className="text-slate-500">No file activity recorded for this process.</p>}
+                  </div>
+                )}
+
+                {tab === "registry" && (
+                  <div className="px-4 py-3 text-[12px]">
+                    {sel.registry?.length ? (
+                      <div className="space-y-2">
+                        {sel.registry.map((r, i) => (
+                          <div key={i} className="rounded border border-border/60 bg-bg/40 px-2.5 py-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-slate-500">{r.ts}</span>
+                              <span className="rounded bg-neon-amber/15 px-1 text-[10px] font-bold uppercase text-neon-amber">{r.action}</span>
+                            </div>
+                            <code className="mt-1 block break-all text-slate-200">{r.path}</code>
+                            {r.details != null && <div className="mt-0.5 text-slate-400">= <code className="break-all text-slate-300">{r.details}</code></div>}
+                            {r.previous != null && <div className="text-[11px] text-slate-500">was: <code className="break-all">{r.previous}</code></div>}
+                          </div>
+                        ))}
+                        <p className="text-[11px] text-slate-500">Registry writes this process made (Sysmon Event 13). This is the record that answers who changed a key and when &mdash; <code>reg query</code> only shows the current state.</p>
+                      </div>
+                    ) : <p className="text-slate-500">No registry activity recorded for this process.</p>}
+                  </div>
+                )}
+
+                {tab === "modules" && (
+                  <div className="px-4 py-3 text-[12px]">
+                    <div className="space-y-0.5 font-mono text-[11px]">
+                      {processModules(sel).map((m, i) => {
+                        const suspicious = !m.signed && /\\AppData\\|\\Temp\\|\\ProgramData\\/i.test(m.path);
+                        return (
+                          <div key={i} className={`flex items-start gap-2 rounded px-1 py-0.5 ${suspicious ? "bg-severity-high/10" : ""}`}>
+                            <span className={`w-[70px] shrink-0 font-bold ${m.signed ? "text-neon-green" : "text-severity-high"}`}>{m.signed ? "Signed" : "UNSIGNED"}</span>
+                            <span className="min-w-0 flex-1 break-all text-slate-300">{m.path}
+                              <span className="ml-1.5 text-slate-500">{m.signed ? (m.signer ?? "") : "(no signature)"}</span>
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-2 text-[11px] text-slate-500">Loaded modules (Sysmon Event 7 / ListDLLs). The tell is an unsigned DLL from a user-writable path (AppData / Temp), or a system-named DLL loaded from the app&apos;s own folder instead of System32.</p>
                   </div>
                 )}
                 </div>

@@ -39,6 +39,27 @@ export interface EdrFileOp {
   path: string;
 }
 
+/** A registry write this process made (Sysmon 13 / DeviceRegistryEvents style). It answers
+ *  "who changed this key, when, and to what" — the question `reg query` cannot. */
+export interface EdrRegOp {
+  ts: string;
+  action: "SetValue" | "CreateKey" | "DeleteValue";
+  path: string;            // full TargetObject: key\value
+  details?: string;        // the value written (for SetValue)
+  /** The value that was there before, when this MODIFIED an existing one (e.g. Userinit). */
+  previous?: string;
+}
+
+/** A DLL loaded into this process (Sysmon 7 ImageLoaded / ListDLLs style). The tell is an
+ *  unsigned module from a user-writable path, or a system DLL name loaded from the app's
+ *  own folder instead of System32 (side-loading). */
+export interface EdrModule {
+  path: string;
+  signed: boolean;
+  signer?: string;         // "Microsoft Windows", the app vendor, or undefined when unsigned
+  loadedAt?: string;       // HH:MM:SS, "—" before the window
+}
+
 export interface EdrProcess {
   pid: number;
   ppid: number;
@@ -58,6 +79,11 @@ export interface EdrProcess {
   /** Per-process telemetry surfaced in the detail tabs (Falcon-style). */
   network?: EdrNetConn[];
   files?: EdrFileOp[];
+  registry?: EdrRegOp[];
+  /** DLLs this process loaded beyond the normal system set (the modules.ts baseline fills
+   *  the rest). An unsigned one from AppData, or a system-named one loaded from the app's
+   *  own folder, is the tell. */
+  modules?: EdrModule[];
 }
 
 export interface EdrDetection {
@@ -148,7 +174,10 @@ export const EDR_INVESTIGATIONS: EdrInvestigation[] = [
       { pid: 6104, ppid: 5610, name: "cmd.exe", cmdline: "cmd.exe /c powershell -w hidden -enc SQBFAFgAKABOAGUAdwAt...", user: "CORP\\r.bakker", path: "C:\\Windows\\System32\\cmd.exe", signed: true, startedAt: "09:41:55", verdict: "suspicious", note: "Office spawning cmd.exe is the classic macro-execution tell. Signed LOLBin, but the parent (WINWORD) makes it anomalous." },
       { pid: 6240, ppid: 6104, name: "powershell.exe", cmdline: "powershell.exe -w hidden -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQ...", user: "CORP\\r.bakker", path: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", signed: true, startedAt: "09:41:56", verdict: "suspicious", note: "Encoded, hidden-window PowerShell: the downloader. Signed LOLBin abused; it fetched and ran the payload below.",
         network: [{ ts: "09:41:59", direction: "outbound", remote_ip: "45.137.22.19", remote_port: 80, domain: "cdn-msupdate.info", proto: "HTTP", bytes: 207872 }],
-        files: [{ ts: "09:42:00", action: "write", path: "C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\update.dll" }] },
+        files: [{ ts: "09:42:00", action: "write", path: "C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\update.dll" }],
+        // The downloader also wrote the Run key that re-launches the DLL every logon:
+        // this is the record that answers "who changed it, when" that reg query cannot.
+        registry: [{ ts: "09:42:01", action: "SetValue", path: "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater", details: "rundll32.exe C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\update.dll,Start" }] },
       { pid: 6388, ppid: 6240, name: "rundll32.exe", cmdline: "rundll32.exe C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\update.dll,Start", user: "CORP\\r.bakker", path: "C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\update.dll", signed: false, sha256: "415dde31bb66f5a6fa3b7ec84d5c1c33c4c6c7038e897dee5b562d8ce70246a9", startedAt: "09:42:01", verdict: "malicious", note: "THE PAYLOAD. rundll32 running an UNSIGNED DLL from AppData\\Roaming: real rundll32 loads system DLLs, never user-writable ones. The hash is a known Agent Tesla sample; it beaconed to the C2 below.",
         network: [
           { ts: "09:42:04", direction: "outbound", remote_ip: "45.137.22.19", remote_port: 443, domain: "cdn-msupdate.info", proto: "TLS", bytes: 4096 },
@@ -157,7 +186,10 @@ export const EDR_INVESTIGATIONS: EdrInvestigation[] = [
         files: [
           { ts: "09:42:02", action: "write", path: "C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\config.bin" },
           { ts: "09:42:03", action: "read", path: "C:\\Users\\r.bakker\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Login Data" },
-        ] },
+        ],
+        // The module the Modules tab flags: an UNSIGNED DLL loaded from AppData\Roaming.
+        // rundll32 normally loads only signed system DLLs — this is the payload itself.
+        modules: [{ path: "C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\update.dll", signed: false, loadedAt: "09:42:01" }] },
       { pid: 2140, ppid: 1064, name: "svchost.exe", cmdline: "C:\\Windows\\System32\\svchost.exe -k netsvcs -p", user: "NT AUTHORITY\\SYSTEM", path: "C:\\Windows\\System32\\svchost.exe", signed: true, startedAt: "08:01:40", verdict: "benign", note: "Benign noise: a real service host under SYSTEM, correct path and signer." },
       { pid: 7702, ppid: 1200, name: "chrome.exe", cmdline: "\"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\"", user: "CORP\\r.bakker", path: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", signed: true, startedAt: "09:05:22", verdict: "benign", note: "Benign: normal browser under the user, signed, correct path." },
     ],
