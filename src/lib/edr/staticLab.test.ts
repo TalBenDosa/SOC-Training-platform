@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { EDR_INVESTIGATIONS } from "./investigations";
-import { sampleFromPath, peInfo, stringsOutput, flossOutput, capaOutput, candidateIocs } from "./staticLab";
+import { sampleFromPath, peInfo, stringsOutput, flossOutput, capaOutput, candidateIocs, classifyIndicator, labLookup, sampleMd5 } from "./staticLab";
+import { hashIntel } from "./iocIntel";
 
 const inv = EDR_INVESTIGATIONS.find(i => i.id === "phishing-beacon")!;
 const DLL = "C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\update.dll";
@@ -59,5 +60,37 @@ describe("Static Analysis Lab: consistency with the case", () => {
 
   it("a path the host never saw does not resolve", () => {
     expect(sampleFromPath(inv, "C:\\nope\\missing.dll")).toBeNull();
+  });
+});
+
+describe("Static Analysis Lab: verifying what was found", () => {
+  it("the DLL hash gets the same verdict as the process panel's Look up hash", () => {
+    const p = inv.processes.find(x => x.pid === 6388)!;
+    const panel = hashIntel(p.sha256!, { truth: inv.iocTruth, process: { signed: p.signed, flagged: true } });
+    const lab = labLookup(inv, s, "hash", s.sha256);
+    expect(lab.type).toBe("hash");
+    if (lab.type !== "hash") return;
+    expect(lab.data.verdict).toBe(panel.verdict);
+    expect(lab.data.detected).toBe(panel.detected);
+    expect(lab.data.malwareFamily).toBe(panel.malwareFamily);
+    expect(lab.data.fileType).toBe("Win32 DLL");             // agrees with File info
+  });
+
+  it("the C2 the flagged process beaconed to reads malicious; PKI noise reads clean", () => {
+    const dom = labLookup(inv, s, "domain", "cdn-msupdate.info");
+    const ip = labLookup(inv, s, "ip", "45.137.22.19");
+    const crl = labLookup(inv, s, "domain", "crl.microsoft.com");
+    expect(dom.data.verdict).toBe("malicious");
+    expect(ip.data.verdict).toBe("malicious");
+    expect(crl.data.verdict).toBe("clean");
+  });
+
+  it("classifies pasted values: hash, the shown MD5, IP, URL to host, and rejects API names", () => {
+    expect(classifyIndicator(s.sha256)).toEqual({ type: "hash", value: s.sha256 });
+    expect(classifyIndicator(sampleMd5(s), s)).toEqual({ type: "hash", value: s.sha256 });
+    expect(classifyIndicator("45.137.22.19")).toEqual({ type: "ip", value: "45.137.22.19" });
+    expect(classifyIndicator("https://cdn-msupdate.info/5e544f")).toEqual({ type: "domain", value: "cdn-msupdate.info" });
+    expect(classifyIndicator("GetProcAddress")).toBeNull();
+    expect(classifyIndicator("   ")).toBeNull();
   });
 });

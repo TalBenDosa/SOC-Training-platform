@@ -14,6 +14,8 @@
  *  - Every network IOC pulled from a sample must be pivoted in the SIEM before it is acted on.
  */
 import type { EdrInvestigation, EdrProcess } from "./investigations";
+import type { TelemetryEvent } from "@/lib/sim/types";
+import { hashIntel, ipIntel, domainIntel, hostnameOf, type HashIntel, type IpIntel, type DomainIntel } from "./iocIntel";
 
 export interface SampleRef {
   name: string;            // update.dll
@@ -135,7 +137,7 @@ export function peInfo(s: SampleRef): string {
     `File:         ${s.name}`,
     `Size:         ${n(s.sizeBytes)} bytes`,
     `Type:         ${arch} ${s.isDll ? "DLL" : "executable"}`,
-    `MD5:          ${hex("md5" + s.sha256, 32)}`,
+    `MD5:          ${sampleMd5(s)}`,
     `SHA-256:      ${s.sha256}`,
     `Imphash:      ${hex("imp" + imports.join(","), 32)}`,
     `Compiled:     ${compiled}`,
@@ -255,4 +257,78 @@ export function candidateIocs(s: SampleRef): { value: string; type: "domain" | "
     if (c.ip && !seen.has(c.ip)) { seen.add(c.ip); out.push({ value: c.ip, type: "ip" }); }
   }
   return out;
+}
+
+/** The sample's MD5 as the File info view prints it (simulated, stable per SHA-256). */
+export function sampleMd5(s: SampleRef): string {
+  return hex("md5" + s.sha256, 32);
+}
+
+// ── Threat-intel lookup from the lab ─────────────────────────────────────────────
+// Every value the analyst finds (a hash, an IP, a domain or URL from strings/FLOSS) can be
+// checked. The verdict comes from the SAME resolvers as every other surface (iocIntel.ts):
+// the real-sample hash database, the scenario truth table, then the case's own telemetry.
+// So the DLL's hash reads exactly as "Look up hash" on its process does, and an indicator
+// the flagged process beaconed to reads the way the SIEM drawer reads it. A PKI host or
+// an OID pulled from strings comes back clean: that is the precision lesson.
+
+export type LabIntel =
+  | { type: "hash"; value: string; data: HashIntel }
+  | { type: "ip"; value: string; data: IpIntel }
+  | { type: "domain"; value: string; data: DomainIntel };
+
+/** What kind of indicator a pasted value is, or null when it is not one we can look up. */
+export function classifyIndicator(raw: string, s?: SampleRef): { type: "hash" | "ip" | "domain"; value: string } | null {
+  const v = raw.trim().replace(/^"|"$/g, "");
+  if (!v) return null;
+  if (/^[a-f0-9]{64}$/i.test(v)) return { type: "hash", value: v.toLowerCase() };
+  // The MD5 the File info view shows names the same file: look up its SHA-256.
+  if (s && /^[a-f0-9]{32}$/i.test(v) && v.toLowerCase() === sampleMd5(s)) return { type: "hash", value: s.sha256 };
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(v)) return { type: "ip", value: v };
+  const host = hostnameOf(v);
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(host) && /[a-z]/i.test(host)) return { type: "domain", value: host.toLowerCase() };
+  return null;
+}
+
+function flaggedProc(inv: EdrInvestigation, p: EdrProcess): boolean {
+  return p.verdict === "malicious" || p.verdict === "suspicious" || inv.detections.some(d => d.pid === p.pid);
+}
+
+/** The EDR's own record of a connection to `value` (the context a lookup reads), if any. */
+function connectionEvent(inv: EdrInvestigation, type: "ip" | "domain", value: string): TelemetryEvent | undefined {
+  for (const p of inv.processes) {
+    const c = (p.network ?? []).find(x => type === "ip" ? x.remote_ip === value : (x.domain ?? "").toLowerCase() === value);
+    if (!c) continue;
+    const flagged = flaggedProc(inv, p);
+    const sev = inv.detections.filter(d => d.pid === p.pid).map(d => d.severity);
+    const web = /^(tls|https?|ssl)$/i.test(c.application ?? c.proto ?? "");
+    return {
+      id: `edr-net-${p.pid}-${c.remote_ip}`, ts: `2026-09-01T${/^\d{2}:\d{2}:\d{2}$/.test(c.ts) ? c.ts : "00:00:00"}Z`,
+      source: "edr", event_type: "net_connection", hostname: inv.host.name,
+      severity: sev.includes("critical") ? "critical" : sev.includes("high") ? "high" : flagged ? "medium" : "low",
+      is_detection: flagged, expected_verdict: flagged ? "tp" : undefined,
+      mitre_technique: flagged && web ? "T1071.001" : undefined,
+      dst_ip: c.remote_ip,
+      process: { name: p.name, pid: p.pid, path: p.path },
+      description: `${p.name} (pid ${p.pid}) connected to ${c.remote_ip}:${c.remote_port}${c.domain ? ` (${c.domain})` : ""}`,
+    } as TelemetryEvent;
+  }
+  return undefined;
+}
+
+/** Look up an indicator found in the lab, with the same answer every other surface gives. */
+export function labLookup(inv: EdrInvestigation, s: SampleRef, type: "hash" | "ip" | "domain", value: string): LabIntel {
+  if (type === "hash") {
+    // Exactly the call the process panel's "Look up hash" makes, so both always agree.
+    const p = inv.processes.find(x => (x.sha256 ?? "").toLowerCase() === value.toLowerCase())
+      ?? inv.processes.find(x => (x.path ?? "").toLowerCase() === s.path.toLowerCase());
+    const hint = p && (p.sha256 ?? "").toLowerCase() === value.toLowerCase() ? { signed: p.signed, flagged: flaggedProc(inv, p) } : undefined;
+    const data = hashIntel(value, { truth: inv.iocTruth, process: hint });
+    // The file type and name must agree with the File info view for the collected sample.
+    const own = value.toLowerCase() === s.sha256.toLowerCase();
+    return { type, value, data: own ? { ...data, fileType: s.isDll ? "Win32 DLL" : "Win32 EXE", fileName: data.fileName ?? s.name } : data };
+  }
+  const event = connectionEvent(inv, type, value);
+  if (type === "ip") return { type, value, data: ipIntel(value, { truth: inv.iocTruth, event }) };
+  return { type, value, data: domainIntel(value, { truth: inv.iocTruth, event }) };
 }

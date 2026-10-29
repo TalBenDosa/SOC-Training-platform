@@ -21,7 +21,7 @@ import { buildProcessTree, incidentScore, type EdrInvestigation, type EdrProcess
 import { hashIntel, hashVerdictLabel } from "@/lib/edr/iocIntel";
 import { runRtrCommand } from "@/lib/edr/rtr";
 import { processModules } from "@/lib/edr/modules";
-import { sampleFromPath, peInfo, stringsOutput, flossOutput, capaOutput, candidateIocs, type SampleEvidence } from "@/lib/edr/staticLab";
+import { sampleFromPath, peInfo, stringsOutput, flossOutput, capaOutput, candidateIocs, classifyIndicator, labLookup, type SampleEvidence, type LabIntel } from "@/lib/edr/staticLab";
 import { isLinuxHost } from "@/lib/edr/hostBaseline";
 import { isContained, setContained } from "@/lib/edr/containment";
 import type { TeamIsolation } from "@/lib/team/useTeamIsolation";
@@ -227,6 +227,10 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
   const [samples, setSamples] = useState<SampleEvidence[]>([]);
   const [activeSample, setActiveSample] = useState<string | null>(null);
   const [labTab, setLabTab] = useState<"file" | "strings" | "floss" | "capa">("file");
+  // Threat-intel lookups made from the lab (newest first): anything found can be verified.
+  const [labIntel, setLabIntel] = useState<LabIntel[]>([]);
+  const [labQuery, setLabQuery] = useState("");
+  const [labErr, setLabErr] = useState<string | null>(null);
   // E-06: RTR takes real (simulated) action against host state. A process the EDR
   // already killed/quarantined in this case is gone from the host from the start;
   // `kill` removes a live one; `contain` cuts the network. `ps`/`netstat` are derived
@@ -240,7 +244,7 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
   };
   const [killed, setKilled] = useState<Set<number>>(() => seedKilled(inv));
   // Reset the shell + killed state + collected samples when switching to another case.
-  useEffect(() => { setRtr([]); setKilled(seedKilled(inv)); setSamples([]); setActiveSample(null); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [inv.id]);
+  useEffect(() => { setRtr([]); setKilled(seedKilled(inv)); setSamples([]); setActiveSample(null); setLabIntel([]); setLabErr(null); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [inv.id]);
   // Browsers often refuse window.close() on a tab they didn't script-open (this
   // one is opened via a normal <a target="_blank">), and the refusal is SILENT.
   // Track it so we can escalate the "switch back manually" instruction instead of
@@ -697,6 +701,16 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
           const body = labTab === "file" ? peInfo(s) : labTab === "strings" ? stringsOutput(s) : labTab === "floss" ? flossOutput(s) : capaOutput(s);
           const iocs = candidateIocs(s);
           const labTabs = [["file", "File info"], ["strings", "strings"], ["floss", "FLOSS"], ["capa", "capa"]] as const;
+          const look = (type: "hash" | "ip" | "domain", value: string) => {
+            const r = labLookup(inv, s, type, value);
+            setLabErr(null);
+            setLabIntel(prev => [r, ...prev.filter(x => !(x.type === r.type && x.value === r.value))].slice(0, 6));
+          };
+          const lookFree = () => {
+            const c = classifyIndicator(labQuery, s);
+            if (!c) { setLabErr("Paste a SHA-256 (or the MD5 shown above), an IPv4 address, a domain or a URL."); return; }
+            look(c.type, c.value); setLabQuery("");
+          };
           return (
             <Card className="p-0">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
@@ -711,7 +725,9 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
               {/* chain of custody */}
               <div className="border-b border-border/60 bg-bg/40 px-4 py-2 font-mono text-[10.5px] text-slate-400">
                 <span className="text-slate-300">{ev.id}</span> · {s.name} · collected {ev.collectedAt} from {ev.host} · 7z, password: <span className="text-slate-300">infected</span>
-                <div className="break-all">SHA-256 {s.sha256} · {s.signed ? <span className="text-neon-green">signed</span> : <span className="font-bold text-severity-high">UNSIGNED</span>}</div>
+                <div className="break-all">SHA-256 {s.sha256} · {s.signed ? <span className="text-neon-green">signed</span> : <span className="font-bold text-severity-high">UNSIGNED</span>}
+                  <button type="button" onClick={() => look("hash", s.sha256)} className="ml-2 rounded border border-border bg-bg px-1.5 py-0.5 font-sans text-[10px] font-semibold text-cyber-300 transition hover:text-white">Look up hash</button>
+                </div>
               </div>
               <div role="tablist" aria-label="Static analysis tool" className="flex gap-1 border-b border-border px-3 pt-2 text-[11px]">
                 {labTabs.map(([k, label]) => (
@@ -731,11 +747,65 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
                       <li key={i} className="flex items-center gap-2 font-mono text-[12px]">
                         <span className="rounded bg-slate-700 px-1 text-[9px] uppercase text-slate-300">{c.type}</span>
                         <code className="text-slate-200">{c.value}</code>
+                        <button type="button" onClick={() => look(c.type, c.value)} className="rounded border border-border bg-bg px-1.5 py-0.5 font-sans text-[10px] font-semibold text-cyber-300 transition hover:text-white">Look up</button>
                       </li>
                     ))}
                   </ul>
                 ) : <p className="mt-1 text-[12px] text-slate-500">No network indicators in this sample.</p>}
                 <p className="mt-2 text-[11px] text-neon-amber">Not every string is an IOC: CRL/OCSP URLs and OIDs are normal PKI noise. Pivot each indicator in the SIEM to confirm it was contacted before you block or escalate.</p>
+              </div>
+
+              {/* Threat-intel verification: any value found in the tools can be checked */}
+              <div className="border-t border-border px-4 py-3">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Verify an indicator (threat intel)</p>
+                <form onSubmit={e => { e.preventDefault(); lookFree(); }} className="mt-1.5 flex items-center gap-2">
+                  <input value={labQuery} onChange={e => setLabQuery(e.target.value)} aria-label="Indicator to look up"
+                    placeholder="Paste a hash, IP, domain or URL from strings / FLOSS / File info"
+                    className="min-w-0 flex-1 rounded border border-border bg-bg px-2 py-1.5 font-mono text-[12px] text-white placeholder-slate-500 focus:border-cyber-500 focus:outline-none" />
+                  <Button type="submit" variant="outline" size="sm">Look up</Button>
+                </form>
+                <div role="status" aria-live="polite">
+                  {labErr && <p className="mt-1.5 text-[11px] text-severity-high">{labErr}</p>}
+                </div>
+                {labIntel.length > 0 && (
+                  <div className="mt-2 space-y-2">
+                    {labIntel.map(r => {
+                      const v = r.data.verdict;
+                      const tone = v === "malicious" ? "border-severity-critical/40 bg-severity-critical/5" : v === "suspicious" ? "border-neon-amber/40 bg-neon-amber/5" : "border-border bg-bg/40";
+                      const badge = v === "malicious" ? "bg-severity-critical/20 text-severity-critical" : v === "suspicious" ? "bg-neon-amber/20 text-neon-amber" : v === "internal" ? "bg-slate-700 text-slate-300" : "bg-neon-green/15 text-neon-green";
+                      return (
+                        <div key={`${r.type}:${r.value}`} className={`rounded border px-3 py-2 text-[11.5px] ${tone}`}>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${badge}`}>{v}</span>
+                            <span className="rounded bg-slate-700 px-1 text-[9px] uppercase text-slate-300">{r.type}</span>
+                            <code className="break-all text-slate-200">{r.value}</code>
+                          </div>
+                          {r.type === "hash" && (
+                            <div className="mt-1 space-y-0.5 text-slate-300">
+                              <div>{r.data.detected} / {r.data.total} engines{r.data.malwareFamily ? ` · family ${r.data.malwareFamily}` : ""}{r.data.malwareName ? ` · ${r.data.malwareName}` : ""}</div>
+                              <div className="text-slate-400">{r.data.fileType}{r.data.fileName ? ` · ${r.data.fileName}` : ""} · first seen {r.data.firstSeen}{r.data.tags.length ? ` · tags: ${r.data.tags.join(", ")}` : ""}</div>
+                              {r.data.engines.filter(e => e.detected).slice(0, 4).map(e => <div key={e.name} className="font-mono text-[10.5px] text-slate-400">{e.name}: {e.result}</div>)}
+                            </div>
+                          )}
+                          {r.type === "ip" && (
+                            <div className="mt-1 space-y-0.5 text-slate-300">
+                              <div>{r.data.verdict === "internal" ? r.data.isp : `Abuse confidence ${r.data.confidence}% · ${r.data.totalReports} reports`}</div>
+                              {r.data.verdict !== "internal" && <div className="text-slate-400">{r.data.asn} · {r.data.isp} · {r.data.country} · {r.data.usageType}</div>}
+                              {r.data.categories.length > 0 && <div className="text-slate-400">categories: {r.data.categories.join(", ")}</div>}
+                            </div>
+                          )}
+                          {r.type === "domain" && (
+                            <div className="mt-1 space-y-0.5 text-slate-300">
+                              <div>{r.data.detectionCount} / {r.data.total} vendors flag it · registered {r.data.creationDate} ({r.data.ageDays} days old)</div>
+                              <div className="text-slate-400">registrar {r.data.registrar}{r.data.categories.length ? ` · ${r.data.categories.join(", ")}` : ""}</div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <p className="text-[10.5px] text-slate-500">Simulated threat intel: the same answer every lookup surface in the platform gives for this indicator. A verdict is one input; confirm contact in the SIEM before acting.</p>
+                  </div>
+                )}
               </div>
             </Card>
           );
