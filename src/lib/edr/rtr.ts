@@ -15,6 +15,7 @@ import {
   type RunKeyEntry, type ServiceEntry, type TaskEntry, type WmiEntry,
 } from "./hostBaseline";
 import { netstatWithSwitches } from "./netstat";
+import { canonicalKey, regQuery } from "./registry";
 
 export interface RtrState {
   inv: EdrInvestigation;
@@ -29,7 +30,7 @@ export interface RtrResult {
 }
 
 export const RTR_HELP =
-  "Commands: ps · netstat [-ano | -tulpn] · kill <pid> · get <path> · cat <path> · reg query <key> · " +
+  "Commands: ps · netstat [-ano | -tulpn] · kill <pid> · get <path> · cat <path> · reg query Run | reg query <full key> [/v <value>] [/s] · " +
   "schtasks /query [/v] · sc query | sc qc <name> · wmi (root\\subscription filters/consumers) · contain · clear";
 
 const CRITICAL = new Set(["system", "smss.exe", "csrss.exe", "wininit.exe", "services.exe", "lsass.exe", "winlogon.exe"]);
@@ -160,11 +161,14 @@ export function runRtrCommand(raw: string, st: RtrState): RtrResult | null {
       const want = normKey(args.slice(1).join(" "));
       const entries = runKeys(inv);
       const hive = want.startsWith("HKEY_LOCAL_MACHINE") ? "HKEY_LOCAL_MACHINE" : want.startsWith("HKEY_CURRENT_USER") ? "HKEY_CURRENT_USER" : "";
-      const aboutRun = !want || want === "RUN" || /\\RUN(ONCE)?$/.test(want) || want === hive;
-      if (!aboutRun) return { out: "ERROR: The system was unable to find the specified registry key or value." };
+      // `reg query Run` (or a bare hive) is the shorthand for both Run keys; any full key path
+      // reads the host's registry: ASEPs and the settings attackers change (registry.ts).
+      const aboutRun = !want || want === "RUN" || want === hive;
+      if (!aboutRun) return { out: regQuery(inv, args.slice(1).join(" ")) };
       const shown = entries.filter(e => !hive || normKey(e.key).startsWith(hive));
       const byKey = new Map<string, RunKeyEntry[]>();
-      for (const e of shown) { const l = byKey.get(e.key) ?? []; l.push(e); byKey.set(e.key, l); }
+      // One block per key however the telemetry spelled it (HKCU\Software vs …\SOFTWARE).
+      for (const e of shown) { const k = canonicalKey(e.key); const l = byKey.get(k) ?? []; l.push(e); byKey.set(k, l); }
       if (byKey.size === 0) return { out: `${hive || RUN_HKLM}\n    (no values)` };
       return { out: [...byKey].map(([k, list]) => [k, ...list.map(e => `    ${e.name}    ${e.type}    ${e.data}`)].join("\n")).join("\n\n") };
     }

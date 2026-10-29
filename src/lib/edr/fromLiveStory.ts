@@ -442,11 +442,25 @@ function persistenceFrom(events: TelemetryEvent[], procs: EdrProcess[]) {
         if (once(`run|${key}|${name}`)) autoruns.push({ key, value: `${name}    REG_SZ    ${data}` });
       }
     }
-    const regAdd = cl.match(/\breg(?:\.exe)?\s+add\s+"?([^"\s]*\\Run(?:Once)?)"?/i);
+    // `reg add <key> /v … /t … /d …` writes the value the RTR `reg query` must then show,
+    // on any key (Run, Winlogon, IFEO, WDigest, Terminal Server…), not only Run.
+    const regAdd = cl.match(/\breg(?:\.exe)?\s+add\s+(?:"([^"]+)"|(\S+))/i);
     if (regAdd) {
+      const key = regAdd[1] ?? regAdd[2];
       const name = argOf(cl, "/v") ?? "(Default)";
       const data = argOf(cl, "/d") ?? "";
-      if (once(`run|${regAdd[1]}|${name}`)) autoruns.push({ key: regAdd[1], value: `${name}    REG_SZ    ${data}` });
+      const type = (argOf(cl, "/t") ?? "REG_SZ").toUpperCase();
+      const shown = type === "REG_DWORD" && /^\d+$/.test(data) ? `0x${Number(data).toString(16)}` : data;
+      if (once(`run|${key}|${name}`)) autoruns.push({ key, value: `${name}    ${type}    ${shown}` });
+    }
+    // Defender exclusions: Set-MpPreference / Add-MpPreference -ExclusionPath|Process|Extension
+    // are stored as values (data 0x0) under …\Windows Defender\Exclusions\<Kind>.
+    const mp = cl.match(/\b(?:Set|Add)-MpPreference\b[^\n]*?-Exclusion(Path|Process|Extension)\s+(?:"([^"]+)"|'([^']+)'|(\S+))/i);
+    if (mp) {
+      const kind = { path: "Paths", process: "Processes", extension: "Extensions" }[mp[1].toLowerCase()]!;
+      const val = mp[2] ?? mp[3] ?? mp[4];
+      const key = `HKLM\\SOFTWARE\\Microsoft\\Windows Defender\\Exclusions\\${kind}`;
+      if (once(`run|${key}|${val}`)) autoruns.push({ key, value: `${val}    REG_DWORD    0x0` });
     }
     // Scheduled tasks: schtasks /create, the typed scheduled_task event, or 4698.
     if ((pname === "schtasks.exe" && /\/create/i.test(cl)) || e.event_type === "scheduled_task" || pickRaw(raw, ["winlog.event_id"]) === "4698") {
