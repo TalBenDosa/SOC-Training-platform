@@ -70,6 +70,13 @@
     "sharp    <0.35.0  — inherited libvips CVE-2026-33327/33328/35590/35591.",
     "dompurify <=3.4.15 — IN_PLACE hook removal leaves a detached subtree (GHSA-p98j-92pf-mc4p, fixed 3.4.16),",
     "         executable (XSS). Reaches us only via jspdf and mermaid.",
+    "next 15.5.28 / dompurify 3.4.17 / sharp 0.35.5 (2026-10-30): Image Optimization",
+    "         RCE + Server Actions DoS; DOMPurify SAFE_FOR_TEMPLATES bypass; librsvg CVE.",
+    "image-size <=2.0.2 — DoS in the JXL/HEIF/ICNS parsers. pptxgenjs pins ^1.2.1 but",
+    "         never calls it under Node (it requires `sizeof`), so 2.x is safe.",
+    "source-map-js <1.2.2 — event-loop DoS via indexed source-map offsets.",
+    "katex <0.18.2 — prototype pollution can bypass `trust` (GHSA-238p-pmpm-9mq7).",
+    "         Reaches us only via mermaid, which calls nothing but renderToString.",
     "Re-check on every dependency bump: an override silently keeps applying",
     "long after the parent has shipped its own fix."
   ],
@@ -78,7 +85,8 @@
     "sharp": "^0.35.5",
     "dompurify": "^3.4.17",
     "image-size": "^2.0.4",
-    "source-map-js": "^1.2.2"
+    "source-map-js": "^1.2.2",
+    "katex": "^0.18.2"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.4",

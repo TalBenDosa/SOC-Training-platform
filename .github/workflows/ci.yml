@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Daily, so an advisory published against an unchanged lockfile still fails
+  # the security job the next morning instead of waiting for the next push.
+  schedule:
+    - cron: "23 4 * * *"
 
 # Cancel superseded runs on the same ref.
 concurrency:
@@ -13,7 +17,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Lint · Typecheck · Build · Audit
+    name: Lint · Typecheck · Tests · Content gates
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,20 +41,6 @@ jobs:
       # the wrong behaviour is invisible until a student reports lost XP.
       - name: Unit tests
         run: npm test
-
-      # Business-correctness gate. Runs the REAL migrations (0001-latest) against
-      # an in-memory Postgres (PGlite — no Docker/Supabase needed) and proves, at
-      # the database, the things lint/types/build cannot: RLS actually isolates
-      # tenants, seat caps and license expiry are enforced, XP recompute and the
-      # enrollment trigger behave correctly. Previously these 90 checks (65 + 25)
-      # only ran when a human remembered to run them by hand — which is exactly
-      # how the C1 cross-tenant leak shipped and was only caught by a manual
-      # audit pass, not by CI.
-      - name: Backend E2E (schema, RLS, functions, triggers, XP, licensing)
-        run: npm run test:e2e
-
-      - name: Multi-tenancy isolation (two-college RLS proof)
-        run: npm run test:tenancy
 
       # Content gate. Every `raw: {...}` block claims "this is what <vendor>
       # actually emits" — expert review found invented fields (crowdstrike.Confidence,
@@ -111,6 +101,49 @@ jobs:
       - name: Validate lesson figures parse and are self-contained
         run: npm run validate:svg
 
+  # ── Security gates, in their own job ────────────────────────────────────────
+  # They used to be the LAST steps of `verify`. Steps in a job stop at the first
+  # failure, so when a content gate (vendor vocabulary) went red on 2026-10-28,
+  # build, the answer-key gate and the dependency audit silently stopped running
+  # — while next@15.5.21 carried a critical unauthenticated-RCE advisory. A
+  # separate job runs regardless of how `verify` ends: a content failure can
+  # never again hide a security failure.
+  security:
+    name: Security · RLS · Build · Answer-key · Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install (reproducible)
+        run: npm ci
+
+      # Fails on ANY production-dependency vulnerability at any severity, except
+      # those allowlisted in scripts/audit-gate.mjs WITH a written reason the code
+      # cannot execute here. (It replaced `npm audit --audit-level=critical`,
+      # which passed while five HIGH advisories were live.) First because it is
+      # the cheapest and needs no build.
+      - name: Dependency audit (prod deps, allowlist-gated)
+        run: npm run audit:deps
+
+      # Business-correctness gate. Runs the REAL migrations (0001-latest) against
+      # an in-memory Postgres (PGlite — no Docker/Supabase needed) and proves, at
+      # the database, the things lint/types/build cannot: RLS actually isolates
+      # tenants, seat caps and license expiry are enforced, XP recompute and the
+      # enrollment trigger behave correctly. Previously these 90 checks (65 + 25)
+      # only ran when a human remembered to run them by hand — which is exactly
+      # how the C1 cross-tenant leak shipped and was only caught by a manual
+      # audit pass, not by CI.
+      - name: Backend E2E (schema, RLS, functions, triggers, XP, licensing)
+        run: npm run test:e2e
+
+      - name: Multi-tenancy isolation (two-college RLS proof)
+        run: npm run test:tenancy
+
       - name: Build
         run: npm run build
         env:
@@ -124,15 +157,3 @@ jobs:
       # killchain, narrative) and fails if any of it reached the browser.
       - name: No scenario answer key in client chunks
         run: npm run check:client-answers
-
-      # Security gate. Fails on ANY production-dependency vulnerability at any
-      # severity, except those explicitly allowlisted in the script WITH a
-      # written reason the code cannot execute here.
-      #
-      # This replaced `npm audit --omit=dev --audit-level=critical`, which
-      # passed while five HIGH advisories were live: raising the threshold to
-      # hide unfixable noise also hid everything below it. The allowlist keeps
-      # the signal instead — noise is named individually, so a genuinely new
-      # finding fails the build on the day it appears.
-      - name: Dependency audit (prod deps, allowlist-gated)
-        run: npm run audit:deps
