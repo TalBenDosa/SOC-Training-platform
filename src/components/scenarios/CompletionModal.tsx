@@ -20,6 +20,8 @@ export interface GradeResult {
   aiFeedback: string;
   passed: boolean;
   quizScore?: number;
+  /** Elapsed seconds as measured by the server from the attempt token. */
+  timeTaken?: number;
   /**
    * Withheld from the page payload during the investigation — the narrative and
    * objectives describe the intrusion in order and name its techniques, which is
@@ -37,6 +39,7 @@ export interface GradeResult {
     iocsCited: number;
     iocsTotal: number;
     verdictCorrect: boolean;
+    expectedVerdict?: "tp" | "fp";
   };
 }
 
@@ -293,6 +296,32 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
               ))}
             </div>
           </div>
+
+          {/* Report rubric — the written report is 40% of the score, so show
+              where the marks came from rather than one opaque number. */}
+          {result.report && (
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">
+                Written Report · {result.report.score}/100
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {([
+                  ["Verdict",   result.report.rubric.verdict,   25, result.report.verdictCorrect ? "correct call" : "wrong call"],
+                  ["Depth",     result.report.rubric.depth,     25, `${result.report.words} words`],
+                  ["Evidence",  result.report.rubric.evidence,  30, `${result.report.iocsCited}/${result.report.iocsTotal} IOCs cited`],
+                  ["Reasoning", result.report.rubric.reasoning, 20, "verdict justified"],
+                ] as const).map(([label, pts, max, note]) => (
+                  <div key={label} className="rounded border border-border/60 bg-bg-elevated px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500">{label}</p>
+                    <p className={cn("font-mono text-sm font-bold", pts >= max * 0.6 ? "text-neon-green" : pts > 0 ? "text-severity-medium" : "text-severity-high")}>
+                      {pts}<span className="text-slate-600">/{max}</span>
+                    </p>
+                    <p className="text-[10px] text-slate-500">{note}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* AI Feedback */}
           {result.aiFeedback && (

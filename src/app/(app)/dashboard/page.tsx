@@ -519,15 +519,17 @@ export default function DashboardPage() {
    * them further; halting turns it into a clean restart point instead.
    */
   const MAX_MISSED_ATTACKS = 3;
+  const { fnCount: liveFnCount, pause: livePause } = live;
   useEffect(() => {
-    if (live.fnCount >= MAX_MISSED_ATTACKS && !haltedRef.current) {
+    if (liveFnCount >= MAX_MISSED_ATTACKS && !haltedRef.current) {
       haltedRef.current = true;
       setSessionHalted(true);
-      live.pause();
+      livePause();
       setSessionStartedAt(null);
       setSessionDifficulty(null);
     }
-  }, [live.fnCount, live]);
+    // `live` is a fresh object every render; depend on the two fields used.
+  }, [liveFnCount, livePause]);
 
   /** Wipe the board and start a fresh shift after a halt. */
   const handleRestartShift = () => {

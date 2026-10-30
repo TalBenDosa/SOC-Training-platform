@@ -26,6 +26,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import { contentFiles } from "./lib/content-files.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -37,12 +38,6 @@ const REGISTRY_PATH = process.env.LOG_FIELD_REGISTRY
   : path.join(__dirname, "log-field-registry.json");
 const BASELINE_PATH = path.join(__dirname, "log-field-baseline.json");
 
-const SCAN_GLOBS = [
-  "src/data",
-  "src/lib/sim",
-  "src/app/(app)/dashboard",
-];
-
 const args = new Set(process.argv.slice(2));
 const WRITE_BASELINE = args.has("--baseline");
 const AS_JSON = args.has("--json");
@@ -53,16 +48,6 @@ const LIST_UNKNOWN_VENDORS = args.has("--unknown-vendors");
 function die(msg) {
   console.error(`\x1b[31mvalidate-log-fields: ${msg}\x1b[0m`);
   process.exit(2);
-}
-
-function walkFiles(dir, acc = []) {
-  if (!fs.existsSync(dir)) return acc;
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) walkFiles(full, acc);
-    else if (/\.tsx?$/.test(entry.name)) acc.push(full);
-  }
-  return acc;
 }
 
 /** Property name for both `foo:` and `"foo.bar":` forms. */
@@ -142,8 +127,8 @@ function fieldAllowed(vendorKey, field) {
 
 // ── extraction ────────────────────────────────────────────────────────────
 
-const files = SCAN_GLOBS.flatMap(g => walkFiles(path.join(ROOT, g)));
-if (files.length === 0) die("no source files found to scan — check SCAN_GLOBS.");
+const files = contentFiles(ROOT);
+if (files.length === 0) die("no source files found to scan — check CONTENT_DIRS in scripts/lib/content-files.mjs.");
 
 /** @type {{file:string,line:number,vendor:string|null,fields:string[]}[]} */
 const events = [];

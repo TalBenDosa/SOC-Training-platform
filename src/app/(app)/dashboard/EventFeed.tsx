@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo, memo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronRight, Info, AlertTriangle, Clock, ExternalLink, Shield, X, PhoneCall, CheckCircle2, Copy, BookOpen } from "lucide-react";
+import { ChevronRight, Info, AlertTriangle, Clock, ExternalLink, X, PhoneCall, CheckCircle2, Copy, BookOpen } from "lucide-react";
 
 export type TimeFilter = "15m" | "1h" | "4h" | "all";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,7 @@ import { techniqueById, tacticById } from "@/lib/mitre/attack";
 import { DashboardTour, LogReadingTour } from "./OnboardingTour";
 import { EmailHeaderViewer } from "./EmailHeaderViewer";
 import {
-  ThreatIntelDrawer, isSha256Field, isIpCheckField, isDomainCheckField,
+  ThreatIntelDrawer, ThreatIntelFieldRow, ThreatCheckButton,
   type ThreatQuery,
 } from "@/components/threat-intel/ThreatIntelDrawer";
 
@@ -515,13 +515,7 @@ function DetailPanel({
                     <span className="w-36 shrink-0 text-[11px] text-slate-500">File Hash</span>
                     <div className="flex flex-col gap-1.5 min-w-0">
                       <span className="font-mono text-[10px] text-neon-amber break-all">{sha256}</span>
-                      <button
-                        onClick={e => { e.stopPropagation(); onThreatQuery({ type: "hash", value: sha256, event }); }}
-                        className="inline-flex w-fit items-center gap-1.5 rounded border border-severity-critical/50 bg-severity-critical/10 px-3 py-1 text-[10px] font-bold text-severity-critical hover:bg-severity-critical/20 transition"
-                      >
-                        <Shield className="h-3 w-3" />
-                        Check Hash · Threat Intel
-                      </button>
+                      <ThreatCheckButton type="hash" value={sha256} event={event} onThreatQuery={onThreatQuery} size="md" />
                     </div>
                   </div>
                 )}
@@ -541,58 +535,9 @@ function DetailPanel({
             <div id="ef-detail-log-data" className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
               <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">Detailed Log Data</p>
               <div className="space-y-1.5">
-                {(() => {
-                  return detailedFields.map(([k, v]) => {
-                  const showHash   = isSha256Field(k, v);
-                  const showIp     = isIpCheckField(k, v);
-                  const showDomain = isDomainCheckField(k, v);
-                  const hasBtn     = showHash || showIp || showDomain;
-
-                  return (
-                    <div key={k} className={cn("flex gap-3", hasBtn ? "items-start py-0.5" : "items-baseline")}>
-                      <span className="w-64 shrink-0 font-mono text-[10px] text-slate-500">{k}</span>
-                      <div className="flex flex-col gap-1.5 min-w-0">
-                        <span className={cn(
-                          "font-mono text-[10px] break-all",
-                          showHash ? "text-neon-amber" : showIp ? "text-neon-blue" : "text-slate-300"
-                        )}>{v}</span>
-
-                        {/* SHA256 → internal threat panel */}
-                        {showHash && (
-                          <button
-                            onClick={e => { e.stopPropagation(); onThreatQuery({ type: "hash", value: v, event }); }}
-                            className="inline-flex w-fit items-center gap-1 rounded border border-neon-amber/50 bg-neon-amber/10 px-2 py-0.5 text-[9px] font-bold text-neon-amber hover:bg-neon-amber/20 transition"
-                          >
-                            <Shield className="h-2.5 w-2.5" /> Check Hash · Threat Intel
-                          </button>
-                        )}
-
-                        {/* Public IP → internal threat panel */}
-                        {showIp && (
-                          <button
-                            onClick={e => { e.stopPropagation(); onThreatQuery({ type: "ip", value: v, event }); }}
-                            className="inline-flex w-fit items-center gap-1 rounded border border-neon-blue/50 bg-neon-blue/10 px-2 py-0.5 text-[9px] font-bold text-neon-blue hover:bg-neon-blue/20 transition"
-                          >
-                            <Shield className="h-2.5 w-2.5" /> Check IP · Threat Intel
-                          </button>
-                        )}
-
-                        {/* Domain → internal threat panel (was an external VirusTotal link —
-                            removed because platform domains are fictional and VT either shows
-                            nothing or unrelated real-world data for them) */}
-                        {showDomain && (
-                          <button
-                            onClick={e => { e.stopPropagation(); onThreatQuery({ type: "domain", value: v, event }); }}
-                            className="inline-flex w-fit items-center gap-1 rounded border border-neon-green/50 bg-neon-green/10 px-2 py-0.5 text-[9px] font-bold text-neon-green hover:bg-neon-green/20 transition"
-                          >
-                            <Shield className="h-2.5 w-2.5" /> Check Domain · Threat Intel
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                  });
-                })()}
+                {detailedFields.map(([k, v]) => (
+                  <ThreatIntelFieldRow key={k} k={k} v={v} event={event} onThreatQuery={onThreatQuery} />
+                ))}
               </div>
             </div>
           </>

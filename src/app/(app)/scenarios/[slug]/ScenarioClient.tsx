@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { AnimatePresence } from "framer-motion";
-import { Play, Send, ChevronRight, Search, Info, Target, Plus, X, ShieldAlert, ShieldCheck, FileText, Trophy, CheckCircle2, Shield } from "lucide-react";
+import { Play, Send, ChevronRight, Search, Info, Target, Plus, X, ShieldAlert, ShieldCheck, FileText, Trophy, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { cn, formatTs } from "@/lib/utils";
 import { addTotalXp } from "@/lib/storage/progress";
@@ -10,9 +10,9 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge, SeverityBadge } from "@/components/ui/Badge";
 import { CompletionModal, type GradeResult } from "@/components/scenarios/CompletionModal";
-import type { ScenarioBundle, TelemetryEvent, IOC } from "@/lib/sim/types";
+import type { ClientScenarioBundle, TelemetryEvent, IOC, Verdict } from "@/lib/sim/types";
 import {
-  ThreatIntelDrawer, isSha256Field, isIpCheckField, isDomainCheckField,
+  ThreatIntelDrawer, ThreatIntelFieldRow,
   type ThreatQuery,
 } from "@/components/threat-intel/ThreatIntelDrawer";
 
@@ -167,49 +167,9 @@ function LogDetail({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (
             <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
               <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">Detailed Log Data</p>
               <div className="space-y-1.5">
-                {detailedFields.map(([k, v]) => {
-                  const showHash   = isSha256Field(k, v);
-                  const showIp     = isIpCheckField(k, v);
-                  const showDomain = isDomainCheckField(k, v);
-                  const hasBtn     = showHash || showIp || showDomain;
-
-                  return (
-                    <div key={k} className={cn("flex gap-3", hasBtn ? "items-start py-0.5" : "items-baseline")}>
-                      <span className="w-64 shrink-0 font-mono text-[10px] text-slate-500">{k}</span>
-                      <div className="flex flex-col gap-1.5 min-w-0">
-                        <span className={cn(
-                          "font-mono text-[10px] break-all",
-                          showHash ? "text-neon-amber" : showIp ? "text-neon-blue" : "text-slate-300"
-                        )}>{v}</span>
-
-                        {showHash && (
-                          <button
-                            onClick={e => { e.stopPropagation(); onThreatQuery({ type: "hash", value: v, event: ev }); }}
-                            className="inline-flex w-fit items-center gap-1 rounded border border-neon-amber/50 bg-neon-amber/10 px-2 py-0.5 text-[9px] font-bold text-neon-amber hover:bg-neon-amber/20 transition"
-                          >
-                            <Shield className="h-2.5 w-2.5" /> Check Hash · Threat Intel
-                          </button>
-                        )}
-                        {showIp && (
-                          <button
-                            onClick={e => { e.stopPropagation(); onThreatQuery({ type: "ip", value: v, event: ev }); }}
-                            className="inline-flex w-fit items-center gap-1 rounded border border-neon-blue/50 bg-neon-blue/10 px-2 py-0.5 text-[9px] font-bold text-neon-blue hover:bg-neon-blue/20 transition"
-                          >
-                            <Shield className="h-2.5 w-2.5" /> Check IP · Threat Intel
-                          </button>
-                        )}
-                        {showDomain && (
-                          <button
-                            onClick={e => { e.stopPropagation(); onThreatQuery({ type: "domain", value: v, event: ev }); }}
-                            className="inline-flex w-fit items-center gap-1 rounded border border-neon-purple/50 bg-neon-purple/10 px-2 py-0.5 text-[9px] font-bold text-neon-purple hover:bg-neon-purple/20 transition"
-                          >
-                            <Shield className="h-2.5 w-2.5" /> Check Domain · Threat Intel
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                {detailedFields.map(([k, v]) => (
+                  <ThreatIntelFieldRow key={k} k={k} v={v} event={ev} onThreatQuery={onThreatQuery} />
+                ))}
               </div>
             </div>
           </>
@@ -456,8 +416,8 @@ function InvestigationPanel({
   iocs: ManualIoc[];
   onAddIoc: (ioc: ManualIoc) => void;
   onRemoveIoc: (id: string) => void;
-  verdict: "tp" | "fp" | null;
-  onVerdictChange: (v: "tp" | "fp") => void;
+  verdict: Verdict | null;
+  onVerdictChange: (v: Verdict) => void;
   verdictReason: string;
   onVerdictReasonChange: (v: string) => void;
   onSubmit: () => void;
@@ -759,7 +719,7 @@ const IOC_TYPE_COLORS: Record<string, string> = {
 
 // ─── Main client component ────────────────────────────────────────────────────
 
-export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug: string }) {
+export function ScenarioClient({ bundle, slug }: { bundle: ClientScenarioBundle; slug: string }) {
   const [phase, setPhase]               = useState<Phase>("idle");
   const [elapsed, setElapsed]           = useState(0);
   const [answers, setAnswers]           = useState<Record<string, string | string[]>>({});
@@ -773,7 +733,9 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
   const [notes, setNotes]                   = useState("");
   const [findings, setFindings]             = useState("");
   const [manualIocs, setManualIocs]         = useState<ManualIoc[]>([]);
-  const [verdict, setVerdict]               = useState<"tp" | "fp" | null>(null);
+  const [verdict, setVerdict]               = useState<Verdict | null>(null);
+  const [attemptToken, setAttemptToken]     = useState<string | null>(null);
+  const [startError, setStartError]         = useState<string | null>(null);
   const [verdictReason, setVerdictReason]   = useState("");
 
   // Timer
@@ -783,7 +745,20 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
     return () => clearInterval(id);
   }, [phase]);
 
-  const handleStart = () => {
+  const handleStart = async () => {
+    setStartError(null);
+    // The attempt token ties the submission to an investigation that was
+    // actually started; the server computes the elapsed time from it.
+    let token: string;
+    try {
+      const res = await fetch(`/api/scenarios/${encodeURIComponent(slug)}/attempt`, { method: "POST" });
+      if (!res.ok) throw new Error("attempt failed");
+      token = (await res.json() as { token: string }).token;
+    } catch {
+      setStartError("Could not start the investigation. Check your connection and retry.");
+      return;
+    }
+    setAttemptToken(token);
     setElapsed(0);
     setAnswers({});
     setManualIocs([]);
@@ -798,6 +773,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
 
   const handleRetry = () => {
     setPhase("idle");
+    setAttemptToken(null);
     setGradeResult(null);
     setElapsed(0);
     setAnswers({});
@@ -837,7 +813,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
     return true;
   });
 
-  const canSubmit = allAnswered && verdict !== null && !isGrading;
+  const canSubmit = allAnswered && verdict !== null && attemptToken !== null && !isGrading;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -849,18 +825,24 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          attemptToken,
           answers,
-          timeTaken: elapsed,
-          iocTagged: manualIocs.length,
           verdict,
           verdictReason,
           analystNotes: notes,
-          indicators: manualIocs,
+          findings,
+          indicators: manualIocs.map(({ type, value }) => ({ type, value })),
         }),
       });
-      if (!res.ok) throw new Error("Grading failed");
+      if (!res.ok) {
+        const err = await res.json().catch(() => null) as { error?: string } | null;
+        throw new Error(err?.error ?? "Grading failed");
+      }
       const result: GradeResult = await res.json();
       setGradeResult(result);
+      // The server's clock is authoritative for the time bonus; mirror it so
+      // the summary shows the figure the grade was based on.
+      if (typeof result.timeTaken === "number") setElapsed(result.timeTaken);
       setPhase("complete");
 
       // Persist to localStorage so the progress page can display history
@@ -878,8 +860,10 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
         // Also update cumulative XP — via the storage facade (Phase-1 seam).
         addTotalXp(result.xpEarned + (result.timeBonusXp ?? 0));
       } catch { /* ignore storage errors */ }
-    } catch {
-      setGradingError("Could not submit. Check your connection and retry.");
+    } catch (e) {
+      setGradingError(e instanceof Error && e.message !== "Grading failed"
+        ? e.message
+        : "Could not submit. Check your connection and retry.");
       setPhase("investigating");
     } finally {
       setIsGrading(false);
@@ -904,6 +888,9 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
             >
               <Play className="h-4 w-4" /> Start Investigation
             </button>
+          )}
+          {phase === "idle" && startError && (
+            <span className="text-[11px] text-severity-high">{startError}</span>
           )}
           {phase === "investigating" && (
             <>
@@ -971,7 +958,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
           </p>
           <p className="text-sm leading-relaxed text-slate-300">
             {phase === "complete"
-              ? (gradeResult?.debrief?.narrative || bundle.narrative)
+              ? (gradeResult?.debrief?.narrative ?? "")
               : (bundle.briefing ?? "An alert fired on a monitored asset and was queued for triage. Work the log evidence below and write up what you find.")}
           </p>
           {phase !== "complete" && (
@@ -994,7 +981,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
             <span className="text-sm font-bold text-white">What this scenario taught</span>
           </div>
           <ul className="space-y-2">
-            {(gradeResult?.debrief?.learningObjectives ?? bundle.learning_objectives).map((obj: string, i: number) => (
+            {(gradeResult?.debrief?.learningObjectives ?? []).map((obj: string, i: number) => (
               <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-neon-purple/70" />
                 {obj}
@@ -1002,6 +989,28 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
             ))}
           </ul>
         </div>
+        )}
+
+        {/* The reconstructed attack chain — the answer to "what happened, in
+            what order" — shown only once the analyst has handed in their own. */}
+        {phase === "complete" && (gradeResult?.debrief?.killchain?.length ?? 0) > 0 && (
+          <div className="rounded border border-cyber-500/20 bg-cyber-500/5 px-5 py-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="rounded border border-cyber-500/30 bg-cyber-500/10 p-1.5">
+                <ChevronRight className="h-4 w-4 text-cyber-300" />
+              </div>
+              <span className="text-sm font-bold text-white">Attack chain</span>
+            </div>
+            <ol className="space-y-2">
+              {gradeResult!.debrief!.killchain.map((step, i) => (
+                <li key={i} className="flex items-start gap-3 text-sm">
+                  <span className="shrink-0 font-mono text-[11px] text-slate-500 pt-0.5">{formatTs(step.ts)}</span>
+                  <span className="shrink-0 rounded border border-cyber-500/30 bg-cyber-500/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-cyber-300">{step.phase}</span>
+                  <span className="text-slate-300">{step.action}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
         )}
 
         {/* Security Events Log */}

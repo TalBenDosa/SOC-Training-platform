@@ -66,16 +66,37 @@ src/
       rng.ts                       Mulberry32 seeded PRNG
       identities.ts                Synthetic enterprise (Cryotech)
       iocs.ts                      Domains, IPs, hashes, URLs
-      generators.ts                Per-source telemetry generators
-      scenarios.ts                 End-to-end attack stories
+      engine/generators/           Per-source telemetry generators
+      engine/attacks/              Live-dashboard attack playbooks
+      scenarios.ts                 Built-in attack stories + catalogue
+      scenario-packs/              One file per packaged scenario (see SPEC.md there)
       types.ts
+    grading/                       Scenario grading (pure) + attempt tokens
     supabase/{client,server}.ts
     utils.ts
 supabase/
   migrations/0001_init.sql         Full schema with RLS
   seeds/0001_content.sql           Paths, scenarios, badges
-scripts/seed.ts
+scripts/
+  seed.ts
+  validate-scenarios.mjs           Content gate: privilege chain, raw-log hygiene, questions
+  validate-log-fields.mjs          Log-field gate against the vendor schema registry
+  normalize-vendors.mjs            Vendor-name vocabulary check (--write to fix)
+  README-log-field-gate.md
 ```
+
+## Content gates
+
+Scenario content is checked by scripts, and CI runs all of them:
+
+```bash
+npm run type-check          # tsc
+npm run validate:scenarios  # content rules from src/lib/sim/scenario-packs/SPEC.md
+npm run validate:logs       # every raw-log field exists in the vendor's schema
+npm run normalize:vendors   # every `vendor:` string is in the controlled vocabulary
+```
+
+Run them before opening a PR that touches `src/lib/sim/` or `src/data/`.
 
 ## Getting started
 
@@ -119,8 +140,9 @@ Full row-level security: every analyst sees only their own runs, alerts, telemet
 
 ## How realism works
 
-Each scenario in `src/lib/sim/scenarios.ts` calls per-source generators in
-`src/lib/sim/generators.ts` to produce coherent, MITRE-mapped telemetry:
+Each scenario — built in `src/lib/sim/scenarios.ts` or packaged under
+`src/lib/sim/scenario-packs/` — produces coherent, MITRE-mapped telemetry, using
+the per-source generators in `src/lib/sim/engine/generators/` where it helps:
 
 - **EDR / Sysmon** — process tree (parent → child), command line, SHA256, integrity level, Sysmon Event IDs (1, 10, 11, 13)
 - **Firewall** — src/dst, ports, protocol, action, rule name, bytes in/out
@@ -132,6 +154,11 @@ Each scenario in `src/lib/sim/scenarios.ts` calls per-source generators in
 
 The output of `eventsToAlerts()` mirrors the look of CrowdStrike Falcon, Microsoft
 Defender, and Splunk Enterprise Security alert objects — same shape, fake values.
+
+A scenario page serves only what an open ticket would show: the briefing, the
+telemetry, IOC values and question prompts. The narrative, objectives, attack
+chain, answer key and IOC reputations stay on the server and come back in the
+grade response, after the analyst has submitted their own report.
 
 ## Roadmap
 

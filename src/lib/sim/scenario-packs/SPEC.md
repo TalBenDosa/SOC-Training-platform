@@ -19,7 +19,7 @@ export function buildXScenario(scenarioId = "<slug>-2026"): ScenarioBundle {
   return {
     scenario_id: scenarioId, title, threat_actor, attack_kind,
     narrative, learning_objectives,
-    alerts: eventsToAlerts(events, scenarioId),   // imported from ../scenarios
+    alerts: [],   // attached by the catalogue: see "Alerts" below
     events, iocs, killchain, questions,
   };
 }
@@ -97,6 +97,12 @@ Use real field names for the declared vendor. If unsure, use fewer fields, not i
 ### 6. Chronology
 Declare events in the order they happen. If a tool intercepts traffic, the tool starts
 first. A process referenced as a parent must have its own creation event.
+
+### 6b. Alerts
+Packs return `alerts: []`. Importing `eventsToAlerts` from `../scenarios` would create an
+import cycle (the catalogue imports every pack), so `scenarios.ts` wraps each pack in
+`withAlerts()`, which generates the alerts from the pack's events on the way out. A pack
+that does set `alerts` keeps them; the wrapper only fills an empty list.
 
 ### 7. IOC hygiene
 `tags` are evidence labels, not answers. `["c2", "external"]` yes; `["llmnr-poisoning",

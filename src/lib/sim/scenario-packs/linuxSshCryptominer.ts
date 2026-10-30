@@ -687,8 +687,8 @@ export function buildLinuxSshCryptominerScenario(
     { type: "ip", value: pool.ip, first_seen: T(72 * MIN), reputation: "malicious", tags: ["outbound", "long-lived-session", "tcp-3333"] },
     { type: "domain", value: pool.domain, first_seen: T(72 * MIN), reputation: "malicious", tags: ["mining-pool", "external"] },
     { type: "url", value: "http://45.61.136.14/updates/kworker", first_seen: T(64 * MIN), reputation: "malicious", tags: ["payload-url", "cleartext-http"] },
-    { type: "sha256", value: minerHash, first_seen: T(64 * MIN), reputation: "malicious", tags: ["elf", "dropped-file", "masqueraded-name"] },
-    { type: "user", value: "svc-backup", first_seen: T(58 * MIN), reputation: "suspicious", tags: ["compromised-account", "uid-1004", "password-auth"] },
+    { type: "sha256", value: minerHash, first_seen: T(64 * MIN), reputation: "malicious", tags: ["elf", "dropped-file", "named-kworker"] },
+    { type: "user", value: "svc-backup", first_seen: T(58 * MIN), reputation: "suspicious", tags: ["uid-1004", "password-auth", "external-ssh-login"] },
     { type: "host", value: host.fqdn, first_seen: T(31 * MIN), reputation: "suspicious", tags: ["internet-exposed-ssh", "tcp-2202"] },
   ];
 

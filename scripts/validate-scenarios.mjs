@@ -90,20 +90,34 @@ for (const def of SCENARIOS) {
       const correct = Array.isArray(q.answer) ? q.answer : [q.answer];
       for (const o of q.options ?? []) {
         if (!correct.includes(o.value)) continue;
-        const words = o.label.toLowerCase().split(/[^a-z0-9.]+/).filter(w => w.length > 6);
+        const label = o.label.toLowerCase().trim();
+        const words = label.split(/[^a-z0-9.]+/).filter(w => w.length > 6);
         const overlap = words.filter(w => brief.includes(w));
         if (words.length >= 3 && overlap.length >= Math.ceil(words.length * 0.6)) {
           add("ERROR", slug, `briefing/${q.id}`,
             `briefing overlaps the correct answer ("${o.label.slice(0, 50)}…")`);
+        } else if (words.length < 3 && label.length >= 4 && brief.includes(label)) {
+          // Short answers — a hostname, a tool name, a technique ID — used to
+          // escape the overlap check entirely. Verbatim presence is the defect.
+          add("ERROR", slug, `briefing/${q.id}`,
+            `briefing states the correct answer verbatim ("${o.label}")`);
         }
       }
     }
   }
 
   // ── 2. Every learning objective must be assessed somewhere ─────────────
-  if ((b.learning_objectives ?? []).length > (b.questions ?? []).length + 1) {
+  // SPEC §8: every objective is assessed by a question. A multi-select can
+  // legitimately cover two objectives, so one more objective than questions is
+  // allowed; beyond that an objective is untested, and the gate fails.
+  const nObj = (b.learning_objectives ?? []).length;
+  const nQ = (b.questions ?? []).length;
+  if (nObj > nQ + 1) {
+    add("ERROR", slug, "objectives",
+      `${nObj} objectives but only ${nQ} questions — at least one objective is untested (SPEC §8)`);
+  } else if (nObj > nQ) {
     add("WARN", slug, "objectives",
-      `${b.learning_objectives.length} objectives but only ${b.questions.length} questions — some objective is untested`);
+      `${nObj} objectives for ${nQ} questions — confirm one question assesses two objectives`);
   }
 
   for (const e of b.events ?? []) {
@@ -207,9 +221,15 @@ for (const def of SCENARIOS) {
     }
     const longestRight = Math.max(...right.map(o => o.label.length), 0);
     const longestWrong = Math.max(...wrong.map(o => o.label.length));
-    if (longestRight > longestWrong * 1.8) {
+    const ratio = longestRight / longestWrong;
+    // SPEC §8: a correct answer 3x longer than every distractor is answerable
+    // without reading. That is an error; a milder skew is a warning.
+    if (ratio > 3) {
+      add("ERROR", slug, q.id,
+        `correct option is ${Math.round(ratio * 100)}% the length of the longest distractor — answerable without reading (SPEC §8)`);
+    } else if (ratio > 1.8) {
       add("WARN", slug, q.id,
-        `correct option is ${Math.round(longestRight / longestWrong * 100)}% the length of the longest distractor — answerable without reading`);
+        `correct option is ${Math.round(ratio * 100)}% the length of the longest distractor — answerable without reading`);
     }
     for (const o of opts) {
       const id = (o.label.match(/\bT1\d{3}(?:\.\d{3})?\b/) ?? [])[0];

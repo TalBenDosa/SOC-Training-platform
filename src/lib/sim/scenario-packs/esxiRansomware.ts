@@ -582,7 +582,7 @@ export function buildEsxiRansomwareScenario(
       type: "sha256",
       value: elfHash,
       reputation: "malicious",
-      tags: ["elf", "encryptor"],
+      tags: ["elf", "dropped-in-tmp"],
     },
     {
       type: "user",

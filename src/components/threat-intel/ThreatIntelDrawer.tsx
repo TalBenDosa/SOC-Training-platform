@@ -874,3 +874,59 @@ export function isDomainCheckField(key: string, val: string) {
   if (!DOMAIN_FIELD_KEYS.has(key)) return false;
   return val.includes(".") && !val.includes(" ") && !isPublicIp(val) && val.length > 3;
 }
+
+// ─── Trigger buttons ──────────────────────────────────────────────────────────
+// The "Check Hash / IP / Domain · Threat Intel" affordance. One implementation
+// shared by the dashboard EventFeed and the scenario log viewer, so the two
+// surfaces cannot drift apart again (they used to differ in colour and copy).
+
+const CHECK_STYLES: Record<ThreatQuery["type"], { label: string; cls: string }> = {
+  hash:   { label: "Check Hash",   cls: "border-neon-amber/50 bg-neon-amber/10 text-neon-amber hover:bg-neon-amber/20" },
+  ip:     { label: "Check IP",     cls: "border-neon-blue/50 bg-neon-blue/10 text-neon-blue hover:bg-neon-blue/20" },
+  domain: { label: "Check Domain", cls: "border-neon-purple/50 bg-neon-purple/10 text-neon-purple hover:bg-neon-purple/20" },
+};
+
+export function ThreatCheckButton({ type, value, event, onThreatQuery, size = "sm" }: {
+  type: ThreatQuery["type"];
+  value: string;
+  event: TelemetryEvent;
+  onThreatQuery: (q: ThreatQuery) => void;
+  size?: "sm" | "md";
+}) {
+  const { label, cls } = CHECK_STYLES[type];
+  return (
+    <button
+      onClick={e => { e.stopPropagation(); onThreatQuery({ type, value, event }); }}
+      className={cn(
+        "inline-flex w-fit items-center gap-1 rounded border font-bold transition",
+        size === "md" ? "gap-1.5 px-3 py-1 text-[10px]" : "px-2 py-0.5 text-[9px]",
+        cls,
+      )}
+    >
+      <Shield className={size === "md" ? "h-3 w-3" : "h-2.5 w-2.5"} /> {label} · Threat Intel
+    </button>
+  );
+}
+
+/** One key/value row of a raw log, with the matching threat-intel button when the value is checkable. */
+export function ThreatIntelFieldRow({ k, v, event, onThreatQuery }: {
+  k: string;
+  v: string;
+  event: TelemetryEvent;
+  onThreatQuery: (q: ThreatQuery) => void;
+}) {
+  const type: ThreatQuery["type"] | null =
+    isSha256Field(k, v) ? "hash" : isIpCheckField(k, v) ? "ip" : isDomainCheckField(k, v) ? "domain" : null;
+  return (
+    <div className={cn("flex gap-3", type ? "items-start py-0.5" : "items-baseline")}>
+      <span className="w-64 shrink-0 font-mono text-[10px] text-slate-500">{k}</span>
+      <div className="flex flex-col gap-1.5 min-w-0">
+        <span className={cn(
+          "font-mono text-[10px] break-all",
+          type === "hash" ? "text-neon-amber" : type === "ip" ? "text-neon-blue" : "text-slate-300",
+        )}>{v}</span>
+        {type && <ThreatCheckButton type={type} value={v} event={event} onThreatQuery={onThreatQuery} />}
+      </div>
+    </div>
+  );
+}

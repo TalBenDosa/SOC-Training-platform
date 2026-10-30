@@ -19,28 +19,19 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { contentFiles } from "./lib/content-files.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const WRITE = process.argv.includes("--write");
 
-const SCAN = ["src/data", "src/lib/sim", "src/app/(app)/dashboard"];
 
 const { map } = JSON.parse(
   fs.readFileSync(path.join(__dirname, "vendor-normalization-map.json"), "utf8"),
 );
 
-function walk(dir, acc = []) {
-  if (!fs.existsSync(dir)) return acc;
-  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    const f = path.join(dir, e.name);
-    if (e.isDirectory()) walk(f, acc);
-    else if (/\.tsx?$/.test(e.name)) acc.push(f);
-  }
-  return acc;
-}
 
-const files = SCAN.flatMap(g => walk(path.join(ROOT, g)));
+const files = contentFiles(ROOT);
 const VENDOR_RE = /vendor:\s*"((?:[^"\\]|\\.)*)"/g;
 
 // ── pass 1: completeness check ────────────────────────────────────────────

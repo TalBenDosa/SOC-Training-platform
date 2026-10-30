@@ -17,21 +17,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import { contentFiles } from "./lib/content-files.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const WRITE = process.argv.includes("--write");
-const SCAN = ["src/data", "src/lib/sim", "src/app/(app)/dashboard"];
 
-function walk(d, acc = []) {
-  if (!fs.existsSync(d)) return acc;
-  for (const e of fs.readdirSync(d, { withFileTypes: true })) {
-    const f = path.join(d, e.name);
-    if (e.isDirectory()) walk(f, acc);
-    else if (/\.tsx?$/.test(e.name)) acc.push(f);
-  }
-  return acc;
-}
 
 const pn = p => {
   const n = p.name;
@@ -68,7 +59,7 @@ function inferVendor(entries) {
 const filled = [];
 const skipped = [];
 
-for (const file of SCAN.flatMap(g => walk(path.join(ROOT, g)))) {
+for (const file of contentFiles(ROOT)) {
   const text = fs.readFileSync(file, "utf8");
   const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
   /** @type {{pos:number, indent:string, vendor:string}[]} */

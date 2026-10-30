@@ -225,3 +225,56 @@ export interface ScenarioQuestion {
   xp: number;
   explanation: string;
 }
+
+/**
+ * The analyst's call on a ticket. `tp` = true positive (malicious, escalate),
+ * `fp` = false positive (benign, close). One type shared by the report form and
+ * the grader so the two can never drift apart: the client used to send "tp"/"fp"
+ * while the grader compared against "malicious"/"benign", so the verdict was
+ * never scored correct.
+ */
+export type Verdict = "tp" | "fp";
+
+/** The verdict a scenario expects, derived from its attack kind. */
+export function expectedVerdictFor(bundle: Pick<ScenarioBundle, "attack_kind">): Verdict {
+  return bundle.attack_kind === "false_positive" ? "fp" : "tp";
+}
+
+/** A question as served to the browser: the key and its explanation stay on the server. */
+export type ClientScenarioQuestion = Omit<ScenarioQuestion, "answer" | "explanation">;
+
+/** An IOC as served to the browser: reputation is a finding, not evidence. */
+export type ClientIOC = Omit<IOC, "reputation">;
+
+/**
+ * The bundle a scenario page may hand to a client component. Everything passed
+ * to a client component is serialised into the page payload and readable in
+ * view-source, so this type has no field that answers a graded question:
+ * no narrative, objectives, killchain, answers, explanations or reputations.
+ * The grade response delivers the debrief once the report is submitted.
+ */
+export interface ClientScenarioBundle {
+  scenario_id: string;
+  title: string;
+  threat_actor: string;
+  attack_kind: string;
+  briefing?: string;
+  alerts: Alert[];
+  events: TelemetryEvent[];
+  iocs: ClientIOC[];
+  questions: ClientScenarioQuestion[];
+}
+
+export function toClientBundle(bundle: ScenarioBundle): ClientScenarioBundle {
+  return {
+    scenario_id: bundle.scenario_id,
+    title: bundle.title,
+    threat_actor: bundle.threat_actor,
+    attack_kind: bundle.attack_kind,
+    briefing: bundle.briefing,
+    alerts: bundle.alerts,
+    events: bundle.events,
+    iocs: bundle.iocs.map(({ reputation: _reputation, ...ioc }) => ioc),
+    questions: bundle.questions.map(({ answer: _answer, explanation: _explanation, ...q }) => q),
+  };
+}

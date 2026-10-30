@@ -1040,6 +1040,7 @@ export function useLiveEvents({
   const missTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
   const caughtRef         = useRef(false);
   const attackTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isStreamingRef    = useRef(true);
   /** IDs of "once-only" events (IT-verify / FP training) already emitted this session */
   const seenOnceRef        = useRef<Set<string>>(new Set());
   /** Shuffle deck — repeatable events in random order, no duplicates until full cycle */
@@ -1241,8 +1242,8 @@ export function useLiveEvents({
   // The session story's events are injected IN ORDER in small phases (2-3 events)
   // so the student watches a coherent kill-chain unfold: first phase within
   // ~2-3 minutes, then a new phase every 2-4 minutes until all events appeared.
-  const FIRST_PHASE_DELAY = () => 120_000 + Math.floor(Math.random() * 60_000);   // 2-3 min
-  const PHASE_GAP         = () => 120_000 + Math.floor(Math.random() * 120_000);  // 2-4 min
+  const firstPhaseDelayMs = () => 120_000 + Math.floor(Math.random() * 60_000);   // 2-3 min
+  const phaseGapMs        = () => 120_000 + Math.floor(Math.random() * 120_000);  // 2-4 min
 
   // SLA detection window — how long the student has to classify the attack
   // once its first phase appears, before the miss penalty fires. Report
@@ -1257,7 +1258,7 @@ export function useLiveEvents({
    * started competing for attention, which reads as relentless rather than
    * realistic — a real shift has long quiet stretches between incidents.
    */
-  const ATTACK_COOLDOWN = () => 480_000 + Math.floor(Math.random() * 240_000); // 8-12 min
+  const nextAttackCooldownMs = () => 480_000 + Math.floor(Math.random() * 240_000); // 8-12 min
 
   const injectNextPhase = useCallback(() => {
     const s = storyRef.current;
@@ -1323,13 +1324,19 @@ export function useLiveEvents({
       storyRef.current = null;
       onStoryCompleteRef.current?.();
     } else {
-      attackTimerRef.current = setTimeout(injectNextPhase, PHASE_GAP());
+      attackTimerRef.current = setTimeout(injectNextPhase, phaseGapMs());
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maxVisible]);
 
   useEffect(() => {
     if (!isStreaming) return;
+
+    // This effect owns the attack timer while streaming. `reset()` may have
+    // armed one just before flipping `isStreaming` back on (restart after a
+    // halt); without this clear, both timers fired and two phases injected
+    // back-to-back on the fresh shift.
+    if (attackTimerRef.current) { clearTimeout(attackTimerRef.current); attackTimerRef.current = null; }
 
     if (engineMode && worldStateRef.current) {
       // ENGINE MODE: pick a playbook and arm it; the benign tick fires phases
@@ -1342,7 +1349,7 @@ export function useLiveEvents({
       attackTimerRef.current = setTimeout(scheduleEngineAttack, engineDelay());
     } else {
       // STORY MODE: arm the first phase of the session story
-      attackTimerRef.current = setTimeout(injectNextPhase, FIRST_PHASE_DELAY());
+      attackTimerRef.current = setTimeout(injectNextPhase, firstPhaseDelayMs());
     }
 
     return () => {
@@ -1358,8 +1365,10 @@ export function useLiveEvents({
     storyRef.current = next;
     storyCursorRef.current = 0;
     if (attackTimerRef.current) clearTimeout(attackTimerRef.current);
-    attackTimerRef.current = setTimeout(injectNextPhase, ATTACK_COOLDOWN());
+    attackTimerRef.current = setTimeout(injectNextPhase, nextAttackCooldownMs());
   }, [injectNextPhase]);
+
+  useEffect(() => { isStreamingRef.current = isStreaming; }, [isStreaming]);
 
   const pause = useCallback(() => setIsStreaming(false), []);
   const resume = useCallback(() => setIsStreaming(true), []);
@@ -1416,8 +1425,11 @@ export function useLiveEvents({
       storyRef.current = newStory;
       storyCursorRef.current = 0;
     }
-    if (storyRef.current) {
-      attackTimerRef.current = setTimeout(injectNextPhase, 120_000 + Math.floor(Math.random() * 60_000));
+    // When streaming is on, the streaming effect does not re-run for a reset,
+    // so arm the first phase here. When it is off (restart after a halt), the
+    // `setIsStreaming(true)` below re-runs that effect and it arms the timer.
+    if (storyRef.current && isStreamingRef.current) {
+      attackTimerRef.current = setTimeout(injectNextPhase, firstPhaseDelayMs());
     }
     globalIdx.current = 15;
     activeIncidentRef.current = null;

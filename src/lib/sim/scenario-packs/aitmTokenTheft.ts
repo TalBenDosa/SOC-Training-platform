@@ -582,12 +582,12 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
 
   const iocs: IOC[] = [
     { type: "domain", value: phishHost,                    first_seen: T(4 * MIN + 6 * SEC),  reputation: "malicious",  tags: ["look-alike", "newly-registered"] },
-    { type: "url",    value: phishUrl,                     first_seen: T(4 * MIN),            reputation: "malicious",  tags: ["credential-harvest", "mail-lure"] },
+    { type: "url",    value: phishUrl,                     first_seen: T(4 * MIN),            reputation: "malicious",  tags: ["mail-lure", "login-form"] },
     { type: "ip",     value: proxyIp,                      first_seen: T(4 * MIN + 6 * SEC),  reputation: "malicious",  tags: ["hosting", "as60068", "external"] },
     { type: "ip",     value: replayIp,                     first_seen: T(12 * MIN + 3 * SEC), reputation: "malicious",  tags: ["hosting", "as51167", "external"] },
     { type: "email",  value: "billing@docu-sign-secure.com", first_seen: T(0),                reputation: "malicious",  tags: ["sender", "dmarc-none"] },
     { type: "domain", value: "docu-sign-secure.com",       first_seen: T(0),                  reputation: "malicious",  tags: ["sender-domain", "look-alike"] },
-    { type: "user",   value: victim,                       first_seen: T(0),                  reputation: "suspicious", tags: ["compromised-account", "finance"] },
+    { type: "user",   value: victim,                       first_seen: T(0),                  reputation: "suspicious", tags: ["finance", "two-sign-in-asns"] },
     { type: "ip",     value: vpnEgress,                    first_seen: T(9 * MIN),            reputation: "clean",      tags: ["corporate-vpn", "named-location"] },
   ];
 

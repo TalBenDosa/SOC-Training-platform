@@ -715,8 +715,8 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
     { type: "sha256", value: shellHash, first_seen: T(47 * MIN), reputation: "malicious", tags: ["webroot", "aspx"] },
     { type: "sha256", value: spoofHash, first_seen: T(58 * MIN), reputation: "malicious", tags: ["unsigned", "dropped-binary"] },
     { type: "url", value: `https://${web.site}/admin/content/upload.ashx`, first_seen: T(47 * MIN), reputation: "suspicious", tags: ["legacy-handler", "unauthenticated-key"] },
-    { type: "host", value: web.hostname, first_seen: T(38 * MIN), reputation: "malicious", tags: ["compromised", "internet-facing"] },
-    { type: "user", value: "IIS APPPOOL\\ShopPortal", first_seen: T(47 * MIN), reputation: "suspicious", tags: ["service-account", "abused"] },
+    { type: "host", value: web.hostname, first_seen: T(38 * MIN), reputation: "malicious", tags: ["iis", "internet-facing"] },
+    { type: "user", value: "IIS APPPOOL\\ShopPortal", first_seen: T(47 * MIN), reputation: "suspicious", tags: ["service-account", "app-pool-identity"] },
   ];
 
   const killchain = [
