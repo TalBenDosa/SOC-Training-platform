@@ -11,8 +11,19 @@ import { createHmac } from "node:crypto";
  * tokens back before grading. Deterministic (same slug/question/value → same
  * token), so no state is kept between the render and the grade call.
  */
-const secret = () =>
-  process.env.SCENARIO_OPTION_SECRET ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? "hackthesoc-dev-option-secret";
+// The key must be secret: with a known key anyone can rebuild the token →
+// value map offline, and the descriptive values give the answers away. The
+// literal below is in the public repo, so it is a DEVELOPMENT fallback only —
+// production fails closed instead of silently using it.
+const DEV_FALLBACK = "hackthesoc-dev-option-secret";
+const secret = () => {
+  const s = process.env.SCENARIO_OPTION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (s) return s;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("optionToken: set SCENARIO_OPTION_SECRET (or SUPABASE_SERVICE_ROLE_KEY) — refusing to use the public development key in production.");
+  }
+  return DEV_FALLBACK;
+};
 
 export function optionToken(slug: string, questionId: string, value: string): string {
   return "o" + createHmac("sha256", secret()).update(`${slug}\u0001${questionId}\u0001${value}`).digest("hex").slice(0, 16);

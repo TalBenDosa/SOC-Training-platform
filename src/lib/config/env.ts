@@ -28,6 +28,9 @@ const schema = z.object({
 
   // ── Auth (Auth.js / NextAuth) — Phase 1 ──
   AUTH_SECRET: z.string().min(16).optional(),
+  // HMAC key for scenario option / event-id tokens (src/lib/scenarios/optionToken.ts).
+  // Falls back to SUPABASE_SERVICE_ROLE_KEY; set it to rotate tokens independently.
+  SCENARIO_OPTION_SECRET: z.string().min(32).optional(),
 
   // ── LLM providers ──
   ANTHROPIC_API_KEY: z.string().startsWith("sk-ant-").optional(),
