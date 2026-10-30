@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { asObject } from "@/lib/http/body";
+import { parseGradeRequest } from "@/lib/scenarios/gradeRequest";
 import { ContentUnavailableError } from "@/lib/content/unavailable";
 import { paramOf } from "@/lib/http/params";
 import { decodeAnswer, eventIdMap, maskEventIds } from "@/lib/scenarios/optionToken";
@@ -40,47 +40,29 @@ export async function POST(
     return NextResponse.json({ error: "Scenario not found" }, { status: 404 });
   }
 
-  let body: {
-    answers?: Record<string, string | string[]>;
-    timeTaken?: number;
-    iocTagged?: number;
-    verdict?: string | null;
-    verdictReason?: string;
-    analystNotes?: string;
-    indicators?: { type: string; value: string }[];
-  };
+  let rawBody: unknown;
   try {
-    body = asObject(await req.json());
+    rawBody = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
   }
-
+  // Validated, typed and bounded (gradeRequest.ts). A verdict is required —
+  // only "tp" | "fp" ever reach scoring or the model prompt.
+  const parsed = parseGradeRequest(rawBody);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
+  }
+  const body = parsed.data;
+  const { answers: rawAnswers, verdict, verdictReason, analystNotes, indicators } = body;
   // `timeTaken` is NOT graded (FB-007) — it is only stored on the history row
   // (clamped to an integer 0..86400 s) so /progress can show time spent.
-  const {
-    answers: rawAnswers = {},
-    verdict: rawVerdict = null,
-    indicators: rawIndicators = [],
-  } = body;
-  // E-23 (QA phase 7): a number / object here hit .trim() later → bodyless 500.
-  const verdictReason = typeof body.verdictReason === "string" ? body.verdictReason : "";
-  const analystNotes = typeof body.analystNotes === "string" ? body.analystNotes : "";
-  // Only the two real calls reach scoring and the model prompt — a free-form
-  // string here used to land in the LLM prompt verbatim. Indicators are bounded
-  // (and a non-array tolerated) for the same reason.
-  const verdict = rawVerdict === "tp" || rawVerdict === "fp" ? rawVerdict : null;
-  const indicators = Array.isArray(rawIndicators)
-    ? rawIndicators.filter(i => i && typeof i === "object" && typeof i.type === "string" && typeof i.value === "string").slice(0, 200)
-    : [];
   const timeTaken = clampTimeTaken(body.timeTaken);
   // The page ships keyed option tokens (optionToken) — map them back to the
   // authored values before grading. Raw values from older clients pass through.
   const answers: Record<string, string | string[]> = {};
-  if (rawAnswers && typeof rawAnswers === "object") {
-    for (const q of bundle.questions) {
-      const v = decodeAnswer(slug, q, (rawAnswers as Record<string, string | string[]>)[q.id]);
-      if (v !== undefined) answers[q.id] = v;
-    }
+  for (const q of bundle.questions) {
+    const v = decodeAnswer(slug, q, rawAnswers[q.id]);
+    if (v !== undefined) answers[q.id] = v;
   }
 
   // Grade each question.
@@ -138,6 +120,20 @@ export async function POST(
   // A genuine attempt = every question answered AND a non-empty written report.
   // Only then is the full debrief (narrative / objectives / kill-chain) released.
   const attemptedAll = bundle.questions.length > 0 && bundle.questions.every(q => isAnswered(q, answers[q.id]));
+
+  // VERDICT ORACLE: scoring is where the true verdict leaks — verdictCorrect /
+  // verdictWrong, the rubric's 25-vs-5 verdict points, the "your verdict was
+  // wrong" note. `{"verdict":"tp"}` with no answers used to be scored, so one
+  // request told anyone whether a scenario was a false positive. Refuse to score
+  // anything the real client could not have sent: it only enables Submit once
+  // every question has a real option and a TP/FP verdict is set.
+  if (!attemptedAll) {
+    const missing = bundle.questions.filter(q => !isAnswered(q, answers[q.id])).map(q => q.id);
+    return NextResponse.json(
+      { error: "Answer every question before submitting.", missing },
+      { status: 422 },
+    );
+  }
 
   const correctCount = perQuestion.filter(q => q.correct).length;
   // A scenario shipped with no questions used to divide by zero, making `score`
