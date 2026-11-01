@@ -1864,6 +1864,7 @@ export default function DashboardPage() {
             // QA-DASH-15: a pass only closes something when an incident is open and
             // not yet credited; otherwise the modal says so instead of "unlocked".
             creditsIncident={!!live.activeIncident && !countedIncidentIdsRef.current.has(live.activeIncident.id)}
+            incidentContext={live.incidentContext}
             onClose={closeReport}
             onPassed={async (score: number) => {
               // Report filed — clear the EDR "don't forget" reminder.

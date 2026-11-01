@@ -33,7 +33,28 @@ export interface MistakeView {
   tries_to_solve: number | null;
   latency_ms: number | null;      // first try
   last_at: string | null;
+  /** Analyst-verdict tasks: "fn" = a real attack called benign, "fp" = a benign event called an attack.
+   *  Set only when the answer may be shown (see `reveal`), since it gives the truth away. */
+  verdict_error?: "fn" | "fp" | null;
 }
+
+/**
+ * Who reads the mistakes. "staff" (org admin / instructor) sees every right answer. "self"
+ * (the learner) sees one only once the room grader itself would have shown it: a flag only
+ * when solved; a multiple-choice or analyst-verdict task when solved or after the second
+ * try; every other task type (its answer is revealed on the first submission).
+ */
+export type RevealPolicy = "staff" | "self";
+
+export function answerRevealed(taskType: string | null, item: { solved: boolean; attempts: unknown[] }, policy: RevealPolicy): boolean {
+  if (policy === "staff") return true;
+  if (item.solved) return true;
+  if (taskType === "flag") return false;
+  if (taskType === "question" || taskType === "analyst_choice") return item.attempts.length >= 2;
+  return true;
+}
+
+const ATTACK_VERDICTS = new Set(["true_positive", "escalate"]);
 
 export interface MistakeGroup {
   room_id: string;
@@ -103,7 +124,7 @@ export function describe(task: RoomTask | undefined, item: ItemResult<StoredAtte
 }
 
 /** Every room the student touched, with its first-try record and the readable mistakes in it. */
-export async function buildMistakeGroups(items: ItemResult<StoredAttempt>[], orgId: string, categoryOf: (roomId: string) => string | null): Promise<MistakeGroup[]> {
+export async function buildMistakeGroups(items: ItemResult<StoredAttempt>[], orgId: string, categoryOf: (roomId: string) => string | null, reveal: RevealPolicy = "staff"): Promise<MistakeGroup[]> {
   const roomIds = [...new Set(items.map(i => i.room_id))];
   const rooms = new Map(await Promise.all(roomIds.map(async id => [id, await getEffectiveRoom(id, orgId).catch(() => null)] as const)));
   const groups: MistakeGroup[] = roomIds.map(roomId => {
@@ -117,11 +138,22 @@ export async function buildMistakeGroups(items: ItemResult<StoredAttempt>[], org
         ? `Task ${idx + 1} of ${room.tasks.length}${qCount > 1 ? ` · question ${(item.question_index ?? 0) + 1} of ${qCount}` : ""}`
         : null;
       const last = item.attempts[item.attempts.length - 1];
+      const shown = answerRevealed(task?.type ?? item.task_type, item, reveal);
+      const desc = describe(task, item);
+      let verdictError: MistakeView["verdict_error"] = null;
+      if (shown && task?.type === "analyst_choice") {
+        const chose = String(obj(item.attempts[0]?.submitted).verdict ?? "");
+        const truthAttack = ATTACK_VERDICTS.has(task.correct_verdict);
+        if (truthAttack && !ATTACK_VERDICTS.has(chose)) verdictError = "fn";
+        else if (!truthAttack && ATTACK_VERDICTS.has(chose)) verdictError = "fp";
+      }
       return {
         key: item.key, room_id: roomId, room_title: room?.title ?? roomId, room_category: room?.category ?? categoryOf(roomId),
         task_id: item.task_id, task_position: position,
         type_label: TASK_TYPE_LABEL[item.task_type ?? ""] ?? item.task_type ?? "Task",
-        ...describe(task, item),
+        ...desc,
+        ...(shown ? {} : { correct: null, explanation: null }),
+        verdict_error: verdictError,
         tries: item.attempts.length, solved: item.solved, tries_to_solve: item.triesToSolve,
         latency_ms: item.attempts[0]?.latency_ms ?? null, last_at: last?.created_at ?? null,
       } satisfies MistakeView;

@@ -81,6 +81,9 @@ interface Props {
    *  when no incident is open (the attack has not started) or it was already
    *  credited: the result then says so instead of "objective unlocked". */
   creditsIncident?: boolean;
+  /** The active incident's context for the learner's Progress page (story, severity,
+   *  response timestamps). Sent with the report; it never affects the grade. */
+  incidentContext?: () => Record<string, unknown> | null;
   onClose: () => void;
   onPassed: (score: number) => void;
 }
@@ -97,6 +100,7 @@ export function IncidentReportModal({
   responseMs = null,
   responseTargetSeconds = 900,
   creditsIncident = true,
+  incidentContext,
   onClose,
   onPassed,
 }: Props) {
@@ -131,6 +135,8 @@ export function IncidentReportModal({
   const draft = loadDraft();
 
   const [phase,   setPhase]   = useState<Phase>("form");
+  // When the report was opened: "time to write the report" on the Progress page.
+  const openedAtRef = useRef(Date.now());
   const [error,   setError]   = useState<string | null>(null);
   const [summary, setSummary] = useState(draft?.summary ?? "");
   const [result,  setResult]  = useState<IncidentReportResponse | null>(null);
@@ -216,6 +222,10 @@ export function IncidentReportModal({
           attackMitreTechniques: attackMitreTechniques ?? [],
           realIndicators,
           evidenceText,
+          incident: (() => {
+            const ctx = incidentContext?.();
+            return ctx ? { ...ctx, reportOpenedAt: openedAtRef.current } : undefined;
+          })(),
         }),
       });
 

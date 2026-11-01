@@ -72,6 +72,11 @@ export function backfillTimes(n: number, now: number, rnd: () => number = Math.r
   return out;
 }
 
+/** A random id for one live-feed shift (groups its incidents on the Progress page). */
+function newShiftKey(): string {
+  try { return crypto.randomUUID(); } catch { return `shift-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`; }
+}
+
 /**
  * Teaching payload for the POSITIVE "Learning Moment" debrief shown when an
  * attack completes without being reported. It is never a penalty — just "here's
@@ -253,7 +258,9 @@ export interface LiveEventsApi {
   fnCount: number;
   // Phase-1 behavioral telemetry (ANALYST_TELEMETRY_PLAN.md)
   eventsOpenedCount: number;
-  recordEventOpened: () => void;
+  recordEventOpened: (eventId?: string) => void;
+  /** The active incident's context (story, severity, response timestamps) for the Progress page. */
+  incidentContext: () => Record<string, unknown> | null;
   attacksCaughtCount: number;
   avgCatchMs: number | null;
   /** Persist this shift's record (read from refs, so a catch / XP award made in the
@@ -434,6 +441,7 @@ export function useLiveEvents({
       // analyst actually reads it. No fail, no XP loss — page.tsx resumes on close.
       setMissedIncident(debrief);
       setMissedAttack(true);
+      recordMissRef.current?.(debrief);
       fnRef.current += 1;                 // a missed attack is a false negative (QA-DASH-8)
       setFnCount(fnRef.current);
       setIsStreaming(false);
@@ -473,6 +481,12 @@ export function useLiveEvents({
   const slaIntervalRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const catchSpeedMsRef    = useRef<number[]>([]);
   const attackInjectedAtRef = useRef<number | null>(null);
+  /** This shift's id on the learner's Progress page (groups its incidents). New per reset. */
+  const shiftKeyRef        = useRef(newShiftKey());
+  /** incident id -> when the analyst first opened one of its log rows (time to notice). */
+  const firstOpenedAtRef   = useRef<Map<string, number>>(new Map());
+  /** Posts a missed attack to the learner's record (set below, once the helpers exist). */
+  const recordMissRef      = useRef<((debrief: MissedIncidentDebrief) => void) | null>(null);
   /** Session start — reset() restarts it; endSession() reports the duration */
   const sessionStartRef    = useRef(Date.now());
 
@@ -956,6 +970,8 @@ export function useLiveEvents({
     setAttackTimerSeconds(null);
     setLastAttackChain(null);
     catchSpeedMsRef.current    = [];
+    shiftKeyRef.current        = newShiftKey();
+    firstOpenedAtRef.current   = new Map();
     countedIncidentIdsRef.current = new Set();
     attackInjectedAtRef.current = null;
     sessionStartRef.current    = Date.now();
@@ -1004,17 +1020,50 @@ export function useLiveEvents({
   // of distinct rows the student opened this session, before/around reaching
   // their verdict. Session-scoped rather than tightly bound to one incident —
   // per-incident scoping is a Phase 2 refinement.
-  const recordEventOpened = useCallback(() => {
+  const recordEventOpened = useCallback((eventId?: string) => {
     openedRef.current += 1;
     setEventsOpenedCount(openedRef.current);
+    // The first time a row of the ACTIVE attack is opened = the moment it was noticed.
+    const inc = activeIncidentRef.current;
+    if (eventId && inc && inc.eventIds.includes(eventId) && !firstOpenedAtRef.current.has(inc.id)) {
+      firstOpenedAtRef.current.set(inc.id, Date.now());
+    }
   }, []);
+
+  /**
+   * The active incident's context for the learner's Progress page: which attack it is and
+   * the response timestamps (injected, first opened). Sent with the incident report; it
+   * never affects grading. Null when no attack is in the feed.
+   */
+  const incidentContext = useCallback((): Record<string, unknown> | null => {
+    const inc = activeIncidentRef.current;
+    if (!inc) return null;
+    return {
+      shiftKey: shiftKeyRef.current,
+      incidentKey: inc.id,
+      storyId: inc.story?.id ?? null,
+      title: inc.title,
+      severity: inc.severity,
+      mitre: inc.story?.mitre ?? [],
+      injectedAt: inc.injectedAt,
+      firstOpenedAt: firstOpenedAtRef.current.get(inc.id) ?? null,
+    };
+  }, []);
+
+  recordMissRef.current = (debrief: MissedIncidentDebrief) => {
+    const ctx = incidentContext();
+    void fetch("/api/me/incidents", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ outcome: "missed", title: debrief.title, mitre: debrief.techniques, tell: debrief.tell, incident: ctx }),
+    }).catch(() => { /* best effort: a guest or an offline shift simply isn't recorded */ });
+  };
 
   return {
     events, isStreaming, sessionXp,
     newIds, activeIncident, dismissIncident, pause, resume, reset, startStory,
     missedAttack, missedIncident, clearMissedAttack, markCaught,
     attackTimerSeconds, lastResponseMs, responseTargetSeconds: SLA_SECONDS,
-    fnCount, eventsOpenedCount, recordEventOpened,
+    fnCount, eventsOpenedCount, recordEventOpened, incidentContext,
     attacksCaughtCount, avgCatchMs, endSession,
     lastAttackChain, clearLastAttackChain, addXp,
   };

@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { buildProcessTree, incidentScore, type EdrInvestigation, type EdrProcess } from "@/lib/edr/investigations";
 import { hashIntel, hashVerdictLabel } from "@/lib/edr/iocIntel";
+import { gradeEdrChoice } from "@/lib/edr/grade";
 import { runRtrCommand } from "@/lib/edr/rtr";
 import { processModules } from "@/lib/edr/modules";
 import { sampleFromPath, peInfo, stringsOutput, flossOutput, capaOutput, candidateIocs, classifyIndicator, labLookup, type SampleEvidence, type LabIntel } from "@/lib/edr/staticLab";
@@ -215,6 +216,8 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
   };
   const [hashResult, setHashResult] = useState<Record<number, { label: string; bad: boolean }>>({});
   const [decided, setDecided] = useState<null | { correct: boolean }>(null);
+  // When this case was opened: the time to a verdict on the learner's Progress page.
+  const openedAtRef = useRef(Date.now());
   // a11y: the decision buttons unmount when the verdict shows, so move focus to
   // the result heading (otherwise focus drops to <body> and nothing is announced).
   const resultRef = useRef<HTMLHeadingElement>(null);
@@ -304,25 +307,18 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
   }
 
   function decide(choice: number /* pid, or -1 for benign */) {
-    // A student who flags ANY process the console itself confirms malicious — its
-    // hash resolves malicious under "Look up hash" (the same hashIntel call) — has correctly
-    // identified a malicious process, so accept it, even when a *different*
-    // process is the designated "impact" the debrief highlights (e.g. flagging the
-    // Cobalt Strike beacon instead of the LockBit encryptor in the ransomware
-    // case). Penalizing a flag the tooling itself calls malicious teaches students
-    // to distrust the hash lookup — the exact negative-learning we're removing.
-    // Benign resolution (-1) stays correct only when the case truly has no payload;
-    // in a benign case, flagging any process is still wrong.
-    const correct = (() => {
-      if (choice === -1) return inv.answer.pid === -1;
-      if (inv.answer.pid < 0) return false;
-      if (choice === inv.answer.pid) return true;
-      const p = inv.processes.find(x => x.pid === choice);
-      if (!p?.sha256) return false;
-      const flagged = p.verdict === "malicious" || p.verdict === "suspicious" || !!detByPid.get(p.pid)?.length;
-      return hashIntel(p.sha256, { truth: inv.iocTruth, process: { signed: p.signed, flagged } }).verdict === "malicious";
-    })();
+    // The verdict rule lives in lib/edr/grade (shared with the server, which re-grades
+    // before storing the result on the learner's Progress page).
+    const correct = gradeEdrChoice(inv, choice);
     setDecided({ correct });
+    // Standalone practice cases go to the learner's own record (0101). Team sessions are
+    // judged by the after-action report; a scenario's embedded console by its own grader.
+    if (!embedded && !teamIsolation) {
+      void fetch("/api/me/edr-results", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caseId: inv.id, choice, durationMs: Date.now() - openedAtRef.current }),
+      }).catch(() => { /* best effort: the result on screen is unaffected */ });
+    }
     // Flag that the student investigated on the endpoint, so the Dashboard can
     // remind them to actually FILE the incident report — investigating without
     // writing it up is the classic half-finished ticket. localStorage so the

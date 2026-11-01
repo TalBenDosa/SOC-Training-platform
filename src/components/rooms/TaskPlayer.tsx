@@ -17,7 +17,7 @@ import type {
   SanitizedWrittenReportTask as WrittenReportTask,
 } from "@/lib/rooms/sanitize";
 import type { TelemetryEvent } from "@/lib/sim/types";
-import { useTaskTelemetry, type TaskTelemetryEntry } from "@/lib/useTaskTelemetry";
+import { useTaskTelemetry, MAX_DECISION_LATENCY_MS, type TaskTelemetryEntry } from "@/lib/useTaskTelemetry";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { RichText } from "@/components/lessons/RichText";
 import { LessonFigure } from "@/components/lessons/LessonFigure";
@@ -76,14 +76,24 @@ interface TaskPlayerProps {
   prevLogEvent?: TelemetryEvent;
 }
 
+/** roomId|taskId -> when the task was shown or last submitted (per-attempt decision time). */
+const attemptClock = new Map<string, number>();
+
 /** POSTs a task submission to the server-side grader (src/lib/rooms/grading.ts)
  *  and returns its verdict. No sub-player ever compares an answer locally
  *  anymore — see src/data/rooms.ts's file doc for why. */
 async function submitTask(roomId: string, taskId: string, body: unknown): Promise<{ correct: boolean; xpEarned: number; reveal: Record<string, unknown> }> {
+  // Decision time of THIS attempt (task_attempts.latency_ms): from the task being shown, or
+  // from the previous attempt on it, to now. Capped like the room telemetry (idle tab).
+  const key = `${roomId}|${taskId}`;
+  const now = Date.now();
+  const since = attemptClock.get(key);
+  attemptClock.set(key, now);
+  const latencyMs = since === undefined ? undefined : Math.min(now - since, MAX_DECISION_LATENCY_MS);
   const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/tasks/${encodeURIComponent(taskId)}/submit`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(latencyMs === undefined ? body : { ...(body as Record<string, unknown>), latencyMs }),
   });
   // E-01: keep what went wrong — the server's own message / an actionable line per
   // status — instead of a bare "Grading request failed (503)" nobody ever saw.
@@ -2052,6 +2062,8 @@ export function TaskPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent
   // sub-players below need to know telemetry exists. isCompleted tasks (the
   // student is just re-reading a finished task) never emit telemetry.
   const { recordInteraction, finalize } = useTaskTelemetry(task.id);
+  // Starts the per-attempt clock submitTask reads (a remount = the task shown again).
+  useEffect(() => { attemptClock.set(`${roomId}|${task.id}`, Date.now()); }, [roomId, task.id]);
 
   const handleComplete = useCallback((xp: number, passCredit?: number) => {
     onComplete(xp, isCompleted ? undefined : finalize(), isCompleted ? undefined : passCredit);

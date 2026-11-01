@@ -181,7 +181,7 @@ export async function POST(
     .map((q, i) => ({ q, r: perQuestion[i] }))
     .filter(({ q }) => isAnswered(q, answers[q.id]))
     .map(({ q, r }) => ({ questionId: q.id, answer: answers[q.id], correct: r.correct }));
-  const firsts = admin ? await recordAndLoadFirstAnswers(admin, gradeUser.id, "scenario", slug, answeredNow) : null;
+  const firsts = admin ? await recordAndLoadFirstAnswers(admin, gradeUser.id, "scenario", slug, answeredNow, gradeUser.orgId ?? null) : null;
   let priorAttempts = 0;
   if (admin) {
     const { count, error: priorErr } = await admin.from("scenario_history")
@@ -340,7 +340,25 @@ Write exactly 3 sentences of actionable, encouraging feedback. Do not comment on
       score, xpEarned, timeTaken, verdict, verdictReason, analystNotes,
       reportScore, rubric: reportRubric, passed,
     });
-    const ins = await admin.from("scenario_history").insert(row);
+    // The full breakdown the learner sees now, kept for the Progress page (0101). Question
+    // text and right answers are NOT stored: they are rebuilt server-side under the reveal rule.
+    const reportDetail = {
+      items: breakdown.items,
+      cappedByVerdict: breakdown.cappedByVerdict,
+      improvements: breakdown.improvements.slice(0, 10),
+      summary: breakdown.summary,
+      citedIndicators: breakdown.citedIndicators.slice(0, 30),
+      missedIndicators: breakdown.missedIndicators ? breakdown.missedIndicators.slice(0, 30) : null,
+      fabricatedValues: breakdown.fabricatedValues.slice(0, 30),
+      misattributedValues: breakdown.misattributedValues.slice(0, 30),
+      aiFeedback: typeof aiFeedback === "string" ? aiFeedback.slice(0, 2000) : null,
+      quizScore,
+      words,
+      questions: perQuestion.map(q => ({ id: q.id, correct: q.correct })),
+    };
+    let ins = await admin.from("scenario_history").insert({ ...row, report_detail: maskEventIds(reportDetail, eventIdMap(slug, (bundle.events ?? []).map(e => e.id))) });
+    // A database that predates 0101 has no report_detail column: record the attempt without it.
+    if (ins.error && /report_detail/.test(ins.error.message ?? "")) ins = await admin.from("scenario_history").insert(row);
     if (ins.error) {
       console.error("[scenario grade] scenario_history insert failed:", ins.error.message);
     } else {

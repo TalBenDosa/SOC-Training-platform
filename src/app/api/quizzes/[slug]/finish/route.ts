@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recordLearningAttempt } from "@/lib/progress/record";
 import { asObject } from "@/lib/http/body";
 import { paramOf } from "@/lib/http/params";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
@@ -53,7 +54,7 @@ export async function POST(
   // Normally every answer was already recorded at /grade; anything missing is
   // recorded now, as its first answer.
   const first = await recordAndLoadFirstAnswers(admin, user.id, "quiz", slug,
-    graded.filter(g => g.valid).map(g => ({ questionId: g.q.id, answer: g.a, correct: g.correct })));
+    graded.filter(g => g.valid).map(g => ({ questionId: g.q.id, answer: g.a, correct: g.correct })), user.orgId ?? null);
   if (!first) return NextResponse.json({ error: "Couldn't save your quiz result. Please try again." }, { status: 503 });
 
   let correct = 0;
@@ -72,6 +73,8 @@ export async function POST(
     console.error("[quiz finish] record_quiz_attempt failed:", error.message);
     return NextResponse.json({ error: "Couldn't save your quiz result. Please try again." }, { status: 500 });
   }
+  // Every attempt, not only the best one, for the learner's own history (0101). Best effort.
+  await recordLearningAttempt(admin, { userId: user.id, orgId: user.orgId ?? null, kind: "quiz", contentId: slug, correct, total, scorePct, passed: scorePct >= 70 });
   const row = (Array.isArray(data) ? data[0] : data) as { prev_best: number; best: number; total_xp: number } | undefined;
   const prevBest = row?.prev_best ?? 0;
   const bestXp = row?.best ?? xpEarned;

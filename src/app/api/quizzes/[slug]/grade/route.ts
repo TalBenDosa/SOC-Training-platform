@@ -78,7 +78,7 @@ export async function POST(
     if (admin && answered.length > 0) {
       // The first answer must be on record BEFORE the key is revealed — otherwise
       // /finish would later record the corrected answer as the "first" one.
-      const recorded = await recordAndLoadFirstAnswers(admin, user.id, "quiz", slug, answered);
+      const recorded = await recordAndLoadFirstAnswers(admin, user.id, "quiz", slug, answered, user.orgId ?? null);
       if (!recorded) return NextResponse.json({ error: "Couldn't save your answer — please try again." }, { status: 503 });
     }
   }

@@ -21,6 +21,8 @@ import { asObject } from "@/lib/http/body";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
 import { analyseIndicators } from "@/lib/dashboard/indicatorAnalysis";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { recordIncident } from "@/lib/progress/record";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -40,6 +42,9 @@ export interface IncidentReportRequest {
    * field) count as evidence instead of "fabricated". Mirrors the scenario grader.
    */
   evidenceText?: string;
+  /** Live-feed context of the incident (story, severity, the response timestamps). Stored
+   *  with the graded report for the learner's own Progress page; never affects the grade. */
+  incident?: Record<string, unknown>;
 }
 
 export interface IncidentReportResponse {
@@ -52,6 +57,8 @@ export interface IncidentReportResponse {
    *  the keyword/indicator fallback ran because the AI grader was unavailable. The
    *  UI presents "deterministic" as a PRELIMINARY check, not a final verdict. */
   graded_by: "ai" | "deterministic";
+  /** The three rubric components behind `score`: identification /40, evidence /30, action and impact /30. */
+  subScores?: { attack: number; ioc: number; action: number };
 }
 
 // Fabrication / citation analysis lives in a pure, unit-tested module
@@ -170,7 +177,7 @@ function heuristicGrade(req: IncidentReportRequest, note?: string, deterministic
   // real AI grader, say so, so the score isn't mistaken for full AI feedback.
   const feedback = note ? `${base}\n\n${note}` : base;
 
-  return { score, passed, feedback, strengths, gaps, graded_by: "deterministic" };
+  return { score, passed, feedback, strengths, gaps, graded_by: "deterministic", subScores: { attack: attackScore, ioc: iocScore, action: actionScore } };
 }
 
 // ── System prompt ─────────────────────────────────────────────────────────────
@@ -241,7 +248,38 @@ Write feedback explaining the computed result above. If the trainee named the wr
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
+/**
+ * Grades, then keeps the graded report for the signed-in learner's own history
+ * (dashboard_incidents, 0101): the incident, the three sub-scores, the feedback and the
+ * response timestamps. Best effort, after the grade is final: storage can never change or
+ * delay a result beyond the insert itself.
+ */
 export async function POST(req: Request) {
+  const captured: { body?: IncidentReportRequest } = {};
+  const res = await grade(req, captured);
+  const body = captured.body;
+  if (!res.ok || !body?.summary?.trim()) return res;
+  const user = await getAuthedUser();
+  const admin = user ? getSupabaseAdminClient() : null;
+  if (user && admin) {
+    try {
+      const data = await res.clone().json() as IncidentReportResponse;
+      if (typeof data.score === "number") {
+        await recordIncident(admin, {
+          userId: user.id, orgId: user.orgId, outcome: data.passed ? "passed" : "failed",
+          incident: body.incident, company: body.company, title: body.attackTitle, mitre: body.attackMitreTechniques,
+          summary: body.summary, score: data.score, subScores: data.subScores ?? null, gradedBy: data.graded_by,
+          feedback: data.feedback, strengths: data.strengths, gaps: data.gaps,
+        });
+      }
+    } catch (e) {
+      console.error("[incident-report] record failed:", e instanceof Error ? e.message : e);
+    }
+  }
+  return res;
+}
+
+async function grade(req: Request, captured: { body?: IncidentReportRequest }): Promise<NextResponse> {
   let body: IncidentReportRequest;
   try {
     body = asObject(await req.json());
@@ -263,7 +301,9 @@ export async function POST(req: Request) {
     attackMitreTechniques: strList(body?.attackMitreTechniques, 30, 40),
     realIndicators: strList(body?.realIndicators, 100, 300),
     evidenceText: String(body?.evidenceText ?? "").slice(0, 500_000),
+    incident: body?.incident && typeof body.incident === "object" && !Array.isArray(body.incident) ? body.incident : undefined,
   };
+  captured.body = body;
 
   if (!body.summary?.trim()) {
     return NextResponse.json({
@@ -329,6 +369,7 @@ export async function POST(req: Request) {
       strengths: isStringArray(parsed.strengths) ? parsed.strengths : computed.strengths,
       gaps: isStringArray(parsed.gaps) ? parsed.gaps : computed.gaps,
       graded_by: "ai",
+      subScores: computed.subScores,
     };
 
     await recordAiUsage({

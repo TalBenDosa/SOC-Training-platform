@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recordLearningAttempt } from "@/lib/progress/record";
 import { asObject } from "@/lib/http/body";
 import { paramOf } from "@/lib/http/params";
 import { resolveGeneratedLesson, parseLessonSlug } from "@/lib/lessons/lessonContent";
@@ -91,9 +92,14 @@ export async function POST(
       .map(r => ({ questionId: String(r.index), answer: answers[String(r.index)], correct: r.correct }));
     if (answered.length > 0) {
       // Recorded before the key is revealed (see quizzes/[slug]/grade).
-      const recorded = await recordAndLoadFirstAnswers(admin, user.id, "lesson", `${parsed.pathSlug}--${parsed.lessonSlug}`, answered);
+      const recorded = await recordAndLoadFirstAnswers(admin, user.id, "lesson", `${parsed.pathSlug}--${parsed.lessonSlug}`, answered, user.orgId ?? null);
       if (!recorded) return NextResponse.json({ error: "Couldn't save your answers — please try again." }, { status: 503 });
     }
+  }
+
+  // Every attempt, a failed one included, for the learner's own history (0101). Best effort.
+  if (user && admin && parsed) {
+    await recordLearningAttempt(admin, { userId: user.id, orgId: user.orgId ?? null, kind: "lesson", contentId: `${parsed.pathSlug}--${parsed.lessonSlug}`, correct, total, scorePct: score, passed });
   }
 
   let saved: boolean | null = null;

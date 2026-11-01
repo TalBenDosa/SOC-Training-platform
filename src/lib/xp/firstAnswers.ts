@@ -49,15 +49,21 @@ export async function recordAndLoadFirstAnswers(
   kind: FirstAnswerKind,
   contentId: string,
   answered: { questionId: string; answer: unknown; correct: boolean }[],
+  /** The org the answer was given in (0101), so a learner's self view and purge_org stay per org. */
+  orgId: string | null = null,
 ): Promise<Map<string, boolean> | null> {
   if (answered.length > 0) {
-    const { error } = await admin.from("graded_first_answers").upsert(
+    const write = (withOrg: boolean) => admin.from("graded_first_answers").upsert(
       answered.map(a => ({
         user_id: userId, kind, content_id: contentId, question_id: a.questionId,
         answer: a.answer ?? null, correct: a.correct,
+        ...(withOrg && orgId ? { org_id: orgId } : {}),
       })),
       { onConflict: "user_id,kind,content_id,question_id", ignoreDuplicates: true },
     );
+    let { error } = await write(true);
+    // A database that predates 0101 has no org_id column: record without it rather than fail the grade.
+    if (error && orgId && /org_id/.test(error.message ?? "")) ({ error } = await write(false));
     if (error) { console.error(`[first answers] record ${kind}/${contentId} failed:`, error.message); return null; }
   }
   const { data, error } = await admin.from("graded_first_answers")
