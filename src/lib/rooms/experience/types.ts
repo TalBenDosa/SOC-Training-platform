@@ -97,6 +97,12 @@ export interface RoomExperience {
   handler: { name: string; role: string };
   /** Typed out on the briefing screen, one line at a time. */
   briefing: string[];
+  /** One-line mission statement under the title on the mission board. */
+  mission: string;
+  /** Rough time to play the whole operation, shown on the board footer. */
+  estimate: string;
+  /** Per-room tint for the board and the station art (CSS colours). */
+  look?: { primary: string; secondary: string; warn: string };
   stations: Station[];
   /** Reading task id → hands-on labs that teach that reading interactively. */
   briefings?: Record<string, BriefingLab[]>;

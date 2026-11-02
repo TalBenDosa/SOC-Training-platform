@@ -17,6 +17,9 @@ export const PHISHING_ANALYSIS: RoomExperience = {
     "Learn how mail really travels. Then work the evidence.",
     "Every station you clear brings us closer to the sender.",
   ],
+  mission: "A wave of fake bank and executive mail is reaching our people. Learn how mail really travels, work the evidence, and stop the sender.",
+  estimate: "~45 min",
+  look: { primary: "#22d3ee", secondary: "#a78bfa", warn: "#fb7185" },
   stations: [
     {
       id: "archive",

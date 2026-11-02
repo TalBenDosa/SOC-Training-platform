@@ -31,6 +31,8 @@ interface HubSceneProps {
   stations: HubStation[];
   focusId: string | null;
   dimmed: boolean;
+  /** Small centrepiece on the mission board: tighter fit, number badges instead of name labels. */
+  compact?: boolean;
   reducedMotion: boolean;
   onSelect: (id: string) => void;
 }
@@ -163,12 +165,12 @@ interface StationRig {
   labelAnchor: THREE.Vector3;
 }
 
-export default function HubScene({ stations, focusId, dimmed, reducedMotion, onSelect }: HubSceneProps) {
+export default function HubScene({ stations, focusId, dimmed, compact = false, reducedMotion, onSelect }: HubSceneProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const labelRefs = useRef<(HTMLDivElement | null)[]>([]);
   const rigsRef = useRef<StationRig[]>([]);
-  const live = useRef({ stations, focusId, reducedMotion, onSelect });
-  live.current = { stations, focusId, reducedMotion, onSelect };
+  const live = useRef({ stations, focusId, compact, reducedMotion, onSelect });
+  live.current = { stations, focusId, compact, reducedMotion, onSelect };
   const layoutKey = stations.map(s => s.building).join(",");
 
   useEffect(() => {
@@ -340,7 +342,7 @@ export default function HubScene({ stations, focusId, dimmed, reducedMotion, onS
         minX = Math.min(minX, v.x); maxX = Math.max(maxX, v.x); minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y);
       }
       // Leave room for the HUD on top and the station dock below.
-      fitZoom = Math.min((2 * aspect) / (maxX - minX), 1.5 / (maxY - minY)) * 0.97;
+      fitZoom = Math.min((2 * aspect) / (maxX - minX), (live.current.compact ? 1.9 : 1.5) / (maxY - minY)) * 0.97;
       camera.updateProjectionMatrix();
     };
     const ro = new ResizeObserver(resize);
@@ -358,14 +360,14 @@ export default function HubScene({ stations, focusId, dimmed, reducedMotion, onS
       raf = requestAnimationFrame(loop);
       const dt = Math.min(clock.getDelta(), 0.1);
       const t = clock.elapsedTime;
-      const { stations: st, focusId: fid, reducedMotion: rm } = live.current;
+      const { stations: st, focusId: fid, compact: cp, reducedMotion: rm } = live.current;
       const k = rm ? 1 : 1 - Math.pow(0.015, dt);
 
       // Camera: whole street, nudged up so it sits above the dock; or zoomed onto a building.
       const fi = st.findIndex(s => s.id === fid);
       let zoomTarget = fitZoom;
       if (fi >= 0) { target.copy(rigs[fi].pos).setY(0.8); zoomTarget = fitZoom * 2.4; }
-      else target.set(rm ? 0 : pointer.x * 0.15, 0, rm ? 0 : -pointer.x * 0.15).add(offset.set(0.9, 0, 0.9));
+      else target.set(rm ? 0 : pointer.x * 0.15, 0, rm ? 0 : -pointer.x * 0.15).add(offset.set(cp ? 0.3 : 0.9, 0, cp ? 0.3 : 0.9));
       lookAt.lerp(target, k);
       camera.position.copy(lookAt).addScaledVector(ISO_DIR, 40);
       camera.lookAt(lookAt);
@@ -440,6 +442,12 @@ export default function HubScene({ stations, focusId, dimmed, reducedMotion, onS
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         {stations.map((s, i) => (
           <div key={s.id} ref={el => { labelRefs.current[i] = el; }} className="absolute left-0 top-0 flex flex-col items-center text-center will-change-transform">
+            {compact ? (
+              <span className="grid h-6 w-6 place-items-center rounded-full border bg-[#070b16]/85 font-mono text-[11px] font-bold"
+                style={{ color: s.status === "locked" ? "#64748b" : hex(colorFor(s)), borderColor: hex(colorFor(s)) + "99" }}>
+                {s.status === "cleared" ? "✓" : i + 1}
+              </span>
+            ) : (<>
             <span
               className="whitespace-nowrap rounded-full border bg-[#070b16]/80 px-2 py-0.5 text-[10px] font-bold backdrop-blur sm:px-3 sm:py-1 sm:text-[13px]"
               style={{ color: s.status === "locked" ? "#64748b" : "#f1f5f9", borderColor: hex(colorFor(s)) + "80" }}
@@ -449,6 +457,7 @@ export default function HubScene({ stations, focusId, dimmed, reducedMotion, onS
             <span className="mt-1 font-mono text-[11px] drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]" style={{ color: hex(colorFor(s)) }}>
               {s.status === "cleared" ? "★".repeat(s.stars) + "☆".repeat(3 - s.stars) : s.status === "open" ? s.progress : ""}
             </span>
+            </>)}
           </div>
         ))}
       </div>

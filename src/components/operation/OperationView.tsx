@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowLeft, Shield, ShieldOff, KeyRound, LayoutList, Star, Trophy, RotateCcw, Eye, ChevronRight, Lock, CheckCircle2, Play,
+  ArrowLeft, Shield, ShieldOff, KeyRound, LayoutList, Star, Trophy, RotateCcw, Eye, ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TaskPlayer } from "@/components/rooms/TaskPlayer";
@@ -17,6 +17,7 @@ import { TriageDesk } from "./mechanics/TriageDesk";
 import { EvidenceBoard } from "./mechanics/EvidenceBoard";
 import { VaultKeypad } from "./mechanics/VaultKeypad";
 import { IntelBriefing } from "./briefing/IntelBriefing";
+import { MissionBoard } from "./board/MissionBoard";
 import type { MechanicProps } from "./shared";
 
 const HubScene = dynamic(() => import("./HubScene"), { ssr: false });
@@ -211,17 +212,42 @@ export function OperationView(p: OperationViewProps) {
   const task = room.tasks[currentTaskIndex];
   const taskPos = active && task ? active.taskIds.indexOf(task.id) : -1;
 
+  // On the mission board the 3D street sits in the board's hero slot; everywhere
+  // else (and on narrow screens, where the slot is hidden) it is the backdrop.
+  const [heroSlot, setHeroSlot] = useState<HTMLDivElement | null>(null);
+  const [heroBox, setHeroBox] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  const measureHero = useCallback(() => {
+    const r = heroSlot?.getBoundingClientRect();
+    setHeroBox(r && r.width > 0 && r.height > 0 ? { top: r.top, left: r.left, width: r.width, height: r.height } : null);
+  }, [heroSlot]);
+  useEffect(() => {
+    if (!heroSlot) { setHeroBox(null); return; }
+    measureHero();
+    const ro = new ResizeObserver(measureHero);
+    ro.observe(heroSlot);
+    window.addEventListener("resize", measureHero);
+    return () => { ro.disconnect(); window.removeEventListener("resize", measureHero); };
+  }, [heroSlot, measureHero]);
+  const inHero = phase === "hub" && heroBox !== null;
+
   return (
     <div className="fixed inset-0 z-40 overflow-hidden bg-[#05080f] text-slate-100">
-      {/* 3D floor (or the flat fallback) — always behind everything */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_75%,rgba(34,211,238,0.10),transparent_55%),linear-gradient(rgba(148,163,184,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.04)_1px,transparent_1px)] bg-[length:100%_100%,48px_48px,48px_48px]" />
+      {/* 3D street (or the flat fallback) */}
       {has3d ? (
-        <HubScene
-          stations={hubStations}
-          focusId={phase === "station" || phase === "cleared" || phase === "breached" ? activeId : null}
-          dimmed={phase !== "hub"}
-          reducedMotion={reducedMotion}
-          onSelect={enterStation}
-        />
+        <div
+          className={cn("absolute", inHero ? "z-30" : "inset-0", phase === "hub" && !inHero && "invisible")}
+          style={inHero ? heroBox! : undefined}
+        >
+          <HubScene
+            stations={hubStations}
+            focusId={phase === "station" || phase === "cleared" || phase === "breached" ? activeId : null}
+            dimmed={phase !== "hub"}
+            compact={inHero}
+            reducedMotion={reducedMotion}
+            onSelect={enterStation}
+          />
+        </div>
       ) : (
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_30%,rgba(34,211,238,0.12),transparent_60%)]" />
       )}
@@ -245,7 +271,7 @@ export function OperationView(p: OperationViewProps) {
           </button>
         </div>
 
-        <div className="mx-auto flex flex-col items-center text-center">
+        <div className={cn("mx-auto flex flex-col items-center text-center", phase === "hub" && "invisible")}>
           <div className="flex items-center gap-1.5 rounded-full border border-white/15 bg-bg-panel/70 px-4 py-2 backdrop-blur" aria-label={`${clearedCount} of ${hubStations.length} stations cleared`}>
             {hubStations.map(s => (
               <span key={s.id} className={cn(
@@ -261,7 +287,7 @@ export function OperationView(p: OperationViewProps) {
           </p>
         </div>
 
-        <div className="pointer-events-auto flex items-center gap-2">
+        <div className={cn("pointer-events-auto flex items-center gap-2", phase === "hub" && "invisible")}>
           <span className="inline-flex h-11 items-center gap-1.5 rounded-full border border-neon-amber/30 bg-bg-panel/70 px-3 text-sm font-bold text-neon-amber backdrop-blur" title="Intel tokens: earned in briefings, spent on hints">
             <KeyRound className="h-4 w-4" /> {local.tokens}
           </span>
@@ -284,43 +310,18 @@ export function OperationView(p: OperationViewProps) {
         )}
 
         {phase === "hub" && (
-          <motion.div key="hub" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-20 pointer-events-none">
-            <div className="absolute inset-x-0 bottom-0">
-            <div className="px-4 text-center">
-              <h1 className="text-3xl font-extrabold tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] sm:text-4xl">
-                <span className="text-white">{experience.codename.split(" ").slice(0, -2).join(" ")} </span>
-                <span className="bg-gradient-to-r from-cyber-300 to-indigo-300 bg-clip-text text-transparent">{experience.codename.split(" ").slice(-2).join(" ")}</span>
-              </h1>
-              <p className="mt-1 text-sm text-slate-400">{room.title} · {has3d ? "pick a lit station to begin" : "pick a station to begin"}</p>
-            </div>
-            {/* Station dock: keyboard / screen-reader / mobile path into every station */}
-            {/* first:ml-auto / last:mr-auto centre the row without clipping its start when it overflows */}
-            <nav aria-label="Stations" className="pointer-events-auto flex gap-2 overflow-x-auto p-4 pb-16 [&>*:first-child]:ml-auto [&>*:last-child]:mr-auto">
-              {experience.stations.map((s, i) => {
-                const hs = hubStations[i];
-                return (
-                  <button
-                    key={s.id}
-                    disabled={hs.status === "locked"}
-                    onClick={() => enterStation(s.id)}
-                    className={cn(
-                      "min-w-[11rem] shrink-0 rounded-2xl border px-4 py-3 text-left backdrop-blur transition",
-                      hs.status === "locked" ? "border-white/10 bg-bg-panel/50 text-slate-500"
-                        : hs.status === "cleared" ? "border-neon-green/40 bg-bg-panel/75 hover:border-neon-green/70"
-                          : "border-cyber-400/60 bg-cyber-500/10 shadow-glow hover:bg-cyber-500/20",
-                    )}
-                  >
-                    <span className="flex items-center gap-2 text-sm font-bold text-white">
-                      {hs.status === "locked" ? <Lock className="h-3.5 w-3.5 text-slate-500" /> : hs.status === "cleared" ? <CheckCircle2 className="h-3.5 w-3.5 text-neon-green" /> : <Play className="h-3.5 w-3.5 text-cyber-300" />}
-                      <span className={hs.status === "locked" ? "text-slate-500" : ""}>{s.label}</span>
-                      {hs.status === "cleared" && <Stars n={hs.stars} className="ml-auto" />}
-                    </span>
-                    <span className="mt-1 block text-[11px] leading-snug text-slate-400">{hs.status === "cleared" ? "Cleared · tap to replay" : s.tagline}</span>
-                  </button>
-                );
-              })}
-            </nav>
-            </div>
+          <motion.div key="hub" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-20">
+            <MissionBoard
+              experience={experience}
+              roomTitle={room.title}
+              difficulty={room.difficulty}
+              stations={hubStations}
+              tokens={local.tokens}
+              has3d={has3d}
+              onEnter={enterStation}
+              onHeroSlot={setHeroSlot}
+              onScroll={measureHero}
+            />
           </motion.div>
         )}
 
