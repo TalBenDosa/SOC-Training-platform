@@ -30,6 +30,9 @@ const apiCsp = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'";
 
 const nextConfig = {
   reactStrictMode: true,
+  // A second local dev server (parallel sessions) needs its own build dir, or
+  // the two corrupt each other's .next. Unset = the normal ".next".
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   // Do not leak the framework version in the Server/X-Powered-By header.
   poweredByHeader: false,
   // next/image is not used anywhere; with remotePatterns on **.supabase.co the

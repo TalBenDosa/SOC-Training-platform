@@ -82,7 +82,7 @@ const attemptClock = new Map<string, number>();
 /** POSTs a task submission to the server-side grader (src/lib/rooms/grading.ts)
  *  and returns its verdict. No sub-player ever compares an answer locally
  *  anymore — see src/data/rooms.ts's file doc for why. */
-async function submitTask(roomId: string, taskId: string, body: unknown): Promise<{ correct: boolean; xpEarned: number; reveal: Record<string, unknown> }> {
+export async function submitTask(roomId: string, taskId: string, body: unknown): Promise<{ correct: boolean; xpEarned: number; reveal: Record<string, unknown> }> {
   // Decision time of THIS attempt (task_attempts.latency_ms): from the task being shown, or
   // from the previous attempt on it, to now. Capped like the room telemetry (idle tab).
   const key = `${roomId}|${taskId}`;

@@ -25,3 +25,4 @@ email-preview.html
 # they're also excluded from the app's tsconfig for the same reason.
 promo/
 promo-remotion/
+.next-*
