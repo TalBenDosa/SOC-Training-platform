@@ -294,7 +294,8 @@ export function OperationView(p: OperationViewProps) {
               <p className="mt-1 text-sm text-slate-400">{room.title} · {has3d ? "pick a lit station to begin" : "pick a station to begin"}</p>
             </div>
             {/* Station dock: keyboard / screen-reader / mobile path into every station */}
-            <nav aria-label="Stations" className="pointer-events-auto flex gap-2 overflow-x-auto p-4 pb-16 sm:justify-center">
+            {/* first:ml-auto / last:mr-auto centre the row without clipping its start when it overflows */}
+            <nav aria-label="Stations" className="pointer-events-auto flex gap-2 overflow-x-auto p-4 pb-16 [&>*:first-child]:ml-auto [&>*:last-child]:mr-auto">
               {experience.stations.map((s, i) => {
                 const hs = hubStations[i];
                 return (

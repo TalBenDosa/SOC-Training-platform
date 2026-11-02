@@ -193,8 +193,8 @@ export default function HubScene({ stations, focusId, dimmed, reducedMotion, onS
     camera.position.copy(ISO_DIR).multiplyScalar(40);
     camera.lookAt(lookAt);
 
-    scene.add(new THREE.HemisphereLight(0xc7d2fe, 0x0b1220, 0.9));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.4);
+    scene.add(new THREE.HemisphereLight(0xdbeafe, 0x1e293b, 1.6));
+    const sun = new THREE.DirectionalLight(0xfff7ed, 2.2);
     sun.position.set(-6, 14, 9);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -203,7 +203,7 @@ export default function HubScene({ stations, focusId, dimmed, reducedMotion, onS
     scene.add(sun);
 
     // City block: a raised slab with a glowing kerb.
-    const slab = mesh(new THREE.BoxGeometry(18, 0.5, 8.2), std(0x111a2e, { roughness: 0.9 }), 0, -0.25, 0);
+    const slab = mesh(new THREE.BoxGeometry(18, 0.5, 8.2), std(0x16213a, { roughness: 0.9 }), 0, -0.25, 0);
     scene.add(slab);
     const kerb = new THREE.Mesh(new THREE.BoxGeometry(18.1, 0.05, 8.3), new THREE.MeshStandardMaterial({ color: 0x22d3ee, emissive: 0x22d3ee, emissiveIntensity: 0.6 }));
     kerb.position.y = -0.47;
@@ -240,7 +240,7 @@ export default function HubScene({ stations, focusId, dimmed, reducedMotion, onS
     }
 
     // Low background blocks so the street sits in a neighbourhood.
-    const fillerMat = std(0x0f172a, { roughness: 0.9 });
+    const fillerMat = std(0x1c2740, { roughness: 0.9 });
     const fillerWin = new THREE.MeshStandardMaterial({ color: 0x0f172a, emissive: 0x334155, emissiveIntensity: 0.5 });
     const rand = (() => { let s = 7; return () => ((s = (s * 9301 + 49297) % 233280) / 233280); })();
     for (let i = 0; i < 16; i++) {
@@ -256,7 +256,7 @@ export default function HubScene({ stations, focusId, dimmed, reducedMotion, onS
     const rigs: StationRig[] = pts.map((pos, i) => {
       const s = live.current.stations[i];
       const body = std(0x334155, { roughness: 0.6 });
-      const trim = std(0x1e293b, { metalness: 0.4, roughness: 0.4 });
+      const trim = std(0x2b3a55, { metalness: 0.3, roughness: 0.5 });
       const accent = new THREE.MeshStandardMaterial({ color: 0x020617, emissive: COLORS.locked, emissiveIntensity: 0.1 });
       const { group, height } = makeBuilding(s.building, body, accent, trim);
       group.position.copy(pos);
@@ -282,8 +282,9 @@ export default function HubScene({ stations, focusId, dimmed, reducedMotion, onS
     // The envelope that travels the route.
     const curve = new THREE.CatmullRomCurve3(roadPts.slice(1, -1).map(p => p.clone().setY(0.55)));
     const envelope = makeEnvelope();
+    envelope.scale.setScalar(1.7);
     scene.add(envelope);
-    const envGlow = new THREE.PointLight(0xffffff, 3, 3, 2);
+    const envGlow = new THREE.PointLight(0xfde68a, 6, 4, 2);
     envelope.add(envGlow);
     let routeU = 0;
 
@@ -339,7 +340,7 @@ export default function HubScene({ stations, focusId, dimmed, reducedMotion, onS
         minX = Math.min(minX, v.x); maxX = Math.max(maxX, v.x); minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y);
       }
       // Leave room for the HUD on top and the station dock below.
-      fitZoom = Math.min((2 * aspect) / (maxX - minX), 1.25 / (maxY - minY)) * 0.96;
+      fitZoom = Math.min((2 * aspect) / (maxX - minX), 1.5 / (maxY - minY)) * 0.97;
       camera.updateProjectionMatrix();
     };
     const ro = new ResizeObserver(resize);
@@ -364,7 +365,7 @@ export default function HubScene({ stations, focusId, dimmed, reducedMotion, onS
       const fi = st.findIndex(s => s.id === fid);
       let zoomTarget = fitZoom;
       if (fi >= 0) { target.copy(rigs[fi].pos).setY(0.8); zoomTarget = fitZoom * 2.4; }
-      else target.set(rm ? 0 : pointer.x * 0.4, 0, rm ? 0 : -pointer.x * 0.4).add(offset.set(0.9, 0, 0.9));
+      else target.set(rm ? 0 : pointer.x * 0.15, 0, rm ? 0 : -pointer.x * 0.15).add(offset.set(0.9, 0, 0.9));
       lookAt.lerp(target, k);
       camera.position.copy(lookAt).addScaledVector(ISO_DIR, 40);
       camera.lookAt(lookAt);
@@ -375,7 +376,7 @@ export default function HubScene({ stations, focusId, dimmed, reducedMotion, onS
       const goal = n <= 1 ? 0 : (front === -1 ? n - 1 : front) / (n - 1);
       routeU += (goal - routeU) * (rm ? 1 : 1 - Math.pow(0.2, dt));
       curve.getPointAt(Math.min(1, Math.max(0, routeU)), tmp);
-      envelope.position.set(tmp.x, 0.6 + (rm ? 0 : Math.sin(t * 2.2) * 0.07), tmp.z);
+      envelope.position.set(tmp.x, 1.05 + (rm ? 0 : Math.sin(t * 2.2) * 0.1), tmp.z);
       if (!rm) envelope.rotation.y = Math.sin(t * 0.8) * 0.3;
 
       rigs.forEach((r, i) => {
@@ -424,7 +425,7 @@ export default function HubScene({ stations, focusId, dimmed, reducedMotion, onS
       if (!s) return;
       const c = colorFor(s);
       const lit = s.status !== "locked";
-      r.body.color.setHex(lit ? 0x475569 : 0x243045);
+      r.body.color.setHex(lit ? 0x64748b : 0x334155);
       r.accent.emissive.setHex(c);
       r.accent.emissiveIntensity = lit ? 1.3 : 0.08;
       r.ring.color.setHex(c); r.ring.emissive.setHex(c);
@@ -440,7 +441,7 @@ export default function HubScene({ stations, focusId, dimmed, reducedMotion, onS
         {stations.map((s, i) => (
           <div key={s.id} ref={el => { labelRefs.current[i] = el; }} className="absolute left-0 top-0 flex flex-col items-center text-center will-change-transform">
             <span
-              className="whitespace-nowrap rounded-full border bg-[#070b16]/80 px-3 py-1 text-[13px] font-bold backdrop-blur"
+              className="whitespace-nowrap rounded-full border bg-[#070b16]/80 px-2 py-0.5 text-[10px] font-bold backdrop-blur sm:px-3 sm:py-1 sm:text-[13px]"
               style={{ color: s.status === "locked" ? "#64748b" : "#f1f5f9", borderColor: hex(colorFor(s)) + "80" }}
             >
               {s.status === "locked" ? "🔒 " : ""}{s.label}
