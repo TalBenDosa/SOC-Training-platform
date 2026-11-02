@@ -43,12 +43,12 @@
 ## אצווה 5 — OSINT חקירתי (סיכון מסנן, לנסח כהגנתי/חקירתי-לגיטימי)
 | # | slug | מכסה | מצב |
 |---|---|---|---|
-| 17 | osint-methodology-opsec-and-personas | מתודולוגיה, OPSEC, sock puppets, אתיקה/חוקיות | ⬜ |
-| 18 | osint-advanced-search-and-dorking | אופרטורים, Google dorking, מנועים מיוחדים | ⬜ |
-| 19 | osint-image-exif-and-geolocation | reverse image, EXIF, geolocation, chronolocation | ⬜ |
-| 20 | osint-people-email-and-username | HIBP, breach data, Sherlock/holehe, people search | ⬜ |
-| 21 | osint-social-media-investigation | טכניקות פר-פלטפורמה, archiving | ⬜ |
-| 22 | osint-tools-frameworks-and-reporting | Maltego/SpiderFoot/Recon-ng, כתיבת דוח | ⬜ |
+| 17 | osint-methodology-opsec-and-personas | מתודולוגיה, OPSEC, sock puppets, אתיקה/חוקיות | 🟢 |
+| 18 | osint-advanced-search-and-dorking | אופרטורים, Google dorking, מנועים מיוחדים | 🟢 |
+| 19 | osint-image-exif-and-geolocation | reverse image, EXIF, geolocation, chronolocation | 🟢 |
+| 20 | osint-people-email-and-username | HIBP, breach data, Sherlock/holehe, people search | 🟢 |
+| 21 | osint-social-media-investigation | טכניקות פר-פלטפורמה, archiving | 🟢 |
+| 22 | osint-tools-frameworks-and-reporting | Maltego/SpiderFoot/Recon-ng, כתיבת דוח | 🟢 |
 הערה: OSINT תשתיתי (WHOIS/passive-DNS/Shodan/Censys) כבר קיים (enrichment-tools) ולא ייכתב מחדש.
 
 ## אצווה 6 — SOC + נוזקות מעשי
@@ -64,7 +64,7 @@
 | # | slug | מכסה | מצב |
 |---|---|---|---|
 | 28 | working-with-llms-and-prompt-engineering | שימוש יצרני ב-LLM, דפוסי prompt, RAG, הערכה | 🟢 |
-| 29 | ad-domain-trusts-and-cross-forest (סיכון) | סוגי trust, SID-history/ExtraSids, trust attacks | ⬜ |
+| 29 | ad-domain-trusts-and-cross-forest (סיכון) | סוגי trust, SID-history/ExtraSids, trust attacks | 🟢 |
 
 ---
 

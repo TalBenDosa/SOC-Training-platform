@@ -1311,5 +1311,68 @@ export const LIBRARY_INDEX: LibraryEntry[] = [
     "difficulty": "intermediate",
     "sectionCount": 9,
     "blurb": "A large language model (LLM) is a text-prediction system that you steer with instructions, context, and data supplied fresh in every request. This lesson teaches you to use LLMs productively and safely in security work: how a call really works, the core prompt patterns,"
+  },
+  {
+    "id": "topic-lesson-osint-methodology-opsec-and-personas",
+    "slug": "osint-methodology-opsec-and-personas",
+    "title": "OSINT Methodology: Legal Collection, Analyst OPSEC, and Research Personas",
+    "topic": "OSINT",
+    "difficulty": "beginner",
+    "sectionCount": 8,
+    "blurb": "Open Source Intelligence (OSINT) is the discipline of collecting, verifying, and analyzing information that anyone can lawfully access, in order to answer a specific question for a decision maker. This lesson teaches the method behind it: the intelligence cycle, the legal and"
+  },
+  {
+    "id": "topic-lesson-osint-advanced-search-and-dorking",
+    "slug": "osint-advanced-search-and-dorking",
+    "title": "Advanced Search and Dorking: Finding Exposure Before Someone Else Does",
+    "topic": "OSINT",
+    "difficulty": "intermediate",
+    "sectionCount": 9,
+    "blurb": "Advanced search is the use of operators such as site:, filetype: and intitle: to turn a public search engine into a structured filter over the pages, files and services it has indexed. This lesson teaches you to use those operators, specialized infrastructure engines, archives"
+  },
+  {
+    "id": "topic-lesson-osint-image-exif-and-geolocation",
+    "slug": "osint-image-exif-and-geolocation",
+    "title": "Image Forensics and Geolocation OSINT: Metadata, Reverse Search, Shadows and Verification",
+    "topic": "OSINT",
+    "difficulty": "intermediate",
+    "sectionCount": 9,
+    "blurb": "Image and geolocation OSINT is the practice of extracting evidence from a picture's embedded metadata and its visible content to establish where it came from, where it was taken, and when. The goal of this lesson is to let you verify lures, leaked screenshots, and actor-posted"
+  },
+  {
+    "id": "topic-lesson-osint-people-email-and-username",
+    "slug": "osint-people-email-and-username",
+    "title": "Identifier OSINT: Investigating Emails and Usernames Lawfully and Defensively",
+    "topic": "OSINT",
+    "difficulty": "intermediate",
+    "sectionCount": 9,
+    "blurb": "Identifier OSINT is the practice of investigating an email address or username using only publicly available, lawfully accessible sources to learn who or what stands behind it. This lesson teaches you to attribute a suspicious sender, check your own organization's exposure in"
+  },
+  {
+    "id": "topic-lesson-osint-social-media-investigation",
+    "slug": "osint-social-media-investigation",
+    "title": "Social Media OSINT for Defenders: Impersonation, Leaks, and Evidence Handling",
+    "topic": "OSINT",
+    "difficulty": "intermediate",
+    "sectionCount": 9,
+    "blurb": "Social media intelligence (SOCMINT) is the collection and analysis of publicly visible posts, profiles, and relationships on social networks to answer security questions about your own organization and the threats aimed at it. The goal of this lesson is to teach you to judge"
+  },
+  {
+    "id": "topic-lesson-osint-tools-frameworks-and-reporting",
+    "slug": "osint-tools-frameworks-and-reporting",
+    "title": "OSINT Tooling, Entity Graphs, and Defensible Threat-Intel Reporting",
+    "topic": "OSINT",
+    "difficulty": "intermediate",
+    "sectionCount": 8,
+    "blurb": "OSINT tooling is the set of programs, frameworks, and report formats that let an analyst collect public information at scale, connect it into a coherent picture, and hand it to decision makers in a form they can trust. This lesson explains what each tool category is for, how"
+  },
+  {
+    "id": "topic-lesson-ad-domain-trusts-and-cross-forest-attacks",
+    "slug": "ad-domain-trusts-and-cross-forest-attacks",
+    "title": "Active Directory Trusts: How Cross-Domain and Cross-Forest Movement Is Detected and Contained",
+    "topic": "Active Directory",
+    "difficulty": "advanced",
+    "sectionCount": 9,
+    "blurb": "An Active Directory trust is a configured relationship that lets domain controllers in one domain accept and vouch for the identities of another domain or forest. This lesson explains how trusts work, how an attacker who owns one domain uses them to reach a neighbor, and which"
   }
 ];
