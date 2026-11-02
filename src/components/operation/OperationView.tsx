@@ -11,7 +11,7 @@ import { mechanicFor, type BriefingLab, type RoomExperience, type Station } from
 import type { SanitizedRoom, SanitizedRoomTask } from "@/lib/rooms/sanitize";
 import type { TaskTelemetryEntry } from "@/lib/useTaskTelemetry";
 import type { TelemetryEvent } from "@/lib/sim/types";
-import type { HubStation } from "./HubScene";
+import type { HubStation } from "./board/types";
 import { LockTerminal } from "./mechanics/LockTerminal";
 import { TriageDesk } from "./mechanics/TriageDesk";
 import { EvidenceBoard } from "./mechanics/EvidenceBoard";
@@ -20,7 +20,7 @@ import { IntelBriefing } from "./briefing/IntelBriefing";
 import { MissionBoard } from "./board/MissionBoard";
 import type { MechanicProps } from "./shared";
 
-const HubScene = dynamic(() => import("./HubScene"), { ssr: false });
+const ShieldScene = dynamic(() => import("./ShieldScene"), { ssr: false });
 
 const MAX_SHIELDS = 3;
 
@@ -212,7 +212,7 @@ export function OperationView(p: OperationViewProps) {
   const task = room.tasks[currentTaskIndex];
   const taskPos = active && task ? active.taskIds.indexOf(task.id) : -1;
 
-  // On the mission board the 3D street sits in the board's hero slot; everywhere
+  // On the mission board the 3D shield sits in the board's hero slot; everywhere
   // else (and on narrow screens, where the slot is hidden) it is the backdrop.
   const [heroSlot, setHeroSlot] = useState<HTMLDivElement | null>(null);
   const [heroBox, setHeroBox] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
@@ -233,19 +233,18 @@ export function OperationView(p: OperationViewProps) {
   return (
     <div className="fixed inset-0 z-40 overflow-hidden bg-[#05080f] text-slate-100">
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_75%,rgba(34,211,238,0.10),transparent_55%),linear-gradient(rgba(148,163,184,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.04)_1px,transparent_1px)] bg-[length:100%_100%,48px_48px,48px_48px]" />
-      {/* 3D street (or the flat fallback) */}
+      {/* 3D shield (or the flat fallback) */}
       {has3d ? (
         <div
-          className={cn("absolute", inHero ? "z-30" : "inset-0", phase === "hub" && !inHero && "invisible")}
+          className={cn("pointer-events-none absolute", inHero ? "z-10" : "inset-0", phase === "hub" && !inHero && "invisible")}
           style={inHero ? heroBox! : undefined}
         >
-          <HubScene
-            stations={hubStations}
-            focusId={phase === "station" || phase === "cleared" || phase === "breached" ? activeId : null}
+          <ShieldScene
+            progress={hubStations.length ? clearedCount / hubStations.length : 0}
+            primary={experience.look?.primary ?? "#22d3ee"}
+            secondary={experience.look?.secondary ?? "#a78bfa"}
             dimmed={phase !== "hub"}
-            compact={inHero}
             reducedMotion={reducedMotion}
-            onSelect={enterStation}
           />
         </div>
       ) : (

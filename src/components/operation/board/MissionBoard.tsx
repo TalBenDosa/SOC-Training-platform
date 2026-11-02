@@ -4,12 +4,12 @@ import { motion } from "framer-motion";
 import { ChevronRight, ChevronsRight, ChevronsDown, Lock, Play, CheckCircle2, Star, KeyRound, Flag, Timer, Signal, Layers, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RoomExperience } from "@/lib/rooms/experience";
-import type { HubStation } from "../HubScene";
+import type { HubStation } from "./types";
 import { StationArt } from "./StationArt";
 
 // The operation's main screen: mission header, progress track, one illustrated
-// card per station, the 3D street as the centrepiece (OperationView places the
-// scene over `onHeroSlot`), and the journey footer.
+// card per station, the 3D shield as the centrepiece (OperationView places the
+// scene behind `onHeroSlot`), and the journey footer.
 
 const DEFAULT_LOOK = { primary: "#22d3ee", secondary: "#a78bfa", warn: "#fb7185" };
 
@@ -179,8 +179,8 @@ export function MissionBoard({ experience, roomTitle, difficulty, stations, toke
           })}
         </nav>
 
-        {/* 3D street centrepiece: OperationView draws the scene over this slot */}
-        <div ref={onHeroSlot} className={cn("relative mt-1 hidden min-h-[12rem] flex-1 md:block", !has3d && "md:hidden")} aria-hidden />
+        {/* 3D shield centrepiece: OperationView draws the scene behind this slot */}
+        <div ref={onHeroSlot} className={cn("relative mt-1 hidden min-h-[13rem] flex-1 md:block", !has3d && "md:hidden")} aria-hidden />
 
         {/* Journey footer */}
         <div className="mt-2 flex flex-col gap-4 rounded-2xl border px-4 py-3 backdrop-blur md:flex-row md:items-center"
