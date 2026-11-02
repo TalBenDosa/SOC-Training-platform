@@ -54,16 +54,16 @@
 ## אצווה 6 — SOC + נוזקות מעשי
 | # | slug | מכסה | מצב |
 |---|---|---|---|
-| 23 | building-a-soc-home-lab | וירטואליזציה, Windows Server, DC, clients, networking למעבדה | ⬜ |
-| 24 | log-ingestion-agents-and-collection | WinCollect/agents/forwarders, pipeline קליטה, parsing בסיס | ⬜ |
-| 25 | risk-management-for-the-soc | assessment/treatment/appetite/register, מיפוי לבקרות | ⬜ |
-| 26 | malware-analysis-lab-setup-and-safety | REMnux/FLARE-VM, snapshots, בידוד רשת, INetSim | ⬜ |
-| 27 | malware-analysis-reporting-and-sysinternals | ערכת Sysinternals מסודרת, מבנה דוח ניתוח, IOCs | ⬜ |
+| 23 | building-a-soc-home-lab | וירטואליזציה, Windows Server, DC, clients, networking למעבדה | 🟢 |
+| 24 | log-ingestion-agents-and-collection | WinCollect/agents/forwarders, pipeline קליטה, parsing בסיס | 🟢 |
+| 25 | risk-management-for-the-soc | assessment/treatment/appetite/register, מיפוי לבקרות | 🟢 |
+| 26 | malware-analysis-lab-setup-and-safety | REMnux/FLARE-VM, snapshots, בידוד רשת, INetSim | 🟢 |
+| 27 | malware-analysis-reporting-and-sysinternals | ערכת Sysinternals מסודרת, מבנה דוח ניתוח, IOCs | 🟢 |
 
 ## אצווה 7 — קצוות (AI יצרני; AD-trusts בסיכון מסנן)
 | # | slug | מכסה | מצב |
 |---|---|---|---|
-| 28 | working-with-llms-and-prompt-engineering | שימוש יצרני ב-LLM, דפוסי prompt, RAG, הערכה | ⬜ |
+| 28 | working-with-llms-and-prompt-engineering | שימוש יצרני ב-LLM, דפוסי prompt, RAG, הערכה | 🟢 |
 | 29 | ad-domain-trusts-and-cross-forest (סיכון) | סוגי trust, SID-history/ExtraSids, trust attacks | ⬜ |
 
 ---

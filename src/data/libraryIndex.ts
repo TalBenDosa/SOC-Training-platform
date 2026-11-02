@@ -1257,5 +1257,59 @@ export const LIBRARY_INDEX: LibraryEntry[] = [
     "difficulty": "intermediate",
     "sectionCount": 9,
     "blurb": "Cloud operations on AWS is the set of services used to define infrastructure in code (CloudFormation, CDK), ship changes through pipelines (CodePipeline, CodeBuild, CodeDeploy), observe the running estate (CloudWatch, AWS Health, Systems Manager), control spend (Cost Explorer,"
+  },
+  {
+    "id": "topic-lesson-building-a-soc-home-lab",
+    "slug": "building-a-soc-home-lab",
+    "title": "Building a Safe SOC Home Lab: Isolated Virtual Network, Domain, Telemetry and Practice Attacks",
+    "topic": "SOC Operations",
+    "difficulty": "beginner",
+    "sectionCount": 9,
+    "blurb": "A SOC home lab is a small, fully isolated set of virtual machines (a Windows domain, a client, a log collector) that you build yourself so you can generate, break and investigate real telemetry without touching anything that matters. This lesson teaches you to design that lab"
+  },
+  {
+    "id": "topic-lesson-log-ingestion-agents-and-collection",
+    "slug": "log-ingestion-agents-and-collection",
+    "title": "How Logs Get Into a SIEM: Agents, Forwarding, Syslog and Parsing",
+    "topic": "SIEM",
+    "difficulty": "intermediate",
+    "sectionCount": 8,
+    "blurb": "Log ingestion is the path that carries an event from the system that produced it into the SIEM's searchable store: collection, transport, parsing and indexing. This lesson teaches how that path is built, where it silently breaks, and how to onboard a new log source and prove"
+  },
+  {
+    "id": "topic-lesson-risk-management-for-the-soc",
+    "slug": "risk-management-for-the-soc",
+    "title": "Risk Management for the SOC: From Assets and Threats to Prioritized Action",
+    "topic": "Security Fundamentals",
+    "difficulty": "beginner",
+    "sectionCount": 9,
+    "blurb": "Information security risk management is the continuous process of identifying what could harm an organization's information assets, estimating how likely and how damaging that harm is, and deciding what to do about it. This lesson gives you the precise vocabulary, the two"
+  },
+  {
+    "id": "topic-lesson-malware-analysis-lab-setup-and-safety",
+    "slug": "malware-analysis-lab-setup-and-safety",
+    "title": "Building a Safe Malware Analysis Lab: Isolation, Fake Internet, and Snapshot Discipline",
+    "topic": "Malware Analysis",
+    "difficulty": "intermediate",
+    "sectionCount": 9,
+    "blurb": "A safe malware analysis lab is a set of isolated virtual machines and virtual networks built so that hostile code can run and be observed without any path to the host, your corporate network, or the real internet. This lesson teaches how to design that containment, give the"
+  },
+  {
+    "id": "topic-lesson-malware-analysis-reporting-and-sysinternals",
+    "slug": "malware-analysis-reporting-and-sysinternals",
+    "title": "The Sysinternals Toolkit and Writing the Malware Analysis Report",
+    "topic": "Malware Analysis",
+    "difficulty": "intermediate",
+    "sectionCount": 9,
+    "blurb": "Sysinternals is a suite of Microsoft-maintained Windows utilities that exposes processes, files, registry keys, network endpoints and autostart entries, and a malware analysis report is the written deliverable that turns those observations into decisions. This lesson teaches"
+  },
+  {
+    "id": "topic-lesson-working-with-llms-and-prompt-engineering",
+    "slug": "working-with-llms-and-prompt-engineering",
+    "title": "Working with LLMs: Prompt Engineering, Grounding, Tools, and Safe Use at Work",
+    "topic": "AI Security",
+    "difficulty": "intermediate",
+    "sectionCount": 9,
+    "blurb": "A large language model (LLM) is a text-prediction system that you steer with instructions, context, and data supplied fresh in every request. This lesson teaches you to use LLMs productively and safely in security work: how a call really works, the core prompt patterns,"
   }
 ];
