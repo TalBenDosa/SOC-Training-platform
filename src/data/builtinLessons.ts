@@ -984,6 +984,7 @@ const CORE_LESSONS = [
 import { ATTACK_TYPE_LESSONS } from "./attackTypeLessons";
 import { PLAYBOOK_LESSONS } from "./playbookLessons";
 import { NEW_TOPIC_LESSONS } from "./newTopicLessons";
+import { CURRICULUM_EXPANSION_LESSONS } from "./curriculumExpansionLessons";
 import { LESSON_VIDEOS } from "./lessonVideos";
 import { LESSON_SLIDES } from "./lessonSlides";
 
@@ -1063,6 +1064,7 @@ export const BUILTIN_LESSONS = [
   // Last — what to DO with a detection, not just how to spot one.
   ...PLAYBOOK_LESSONS,
   ...NEW_TOPIC_LESSONS,
+  ...CURRICULUM_EXPANSION_LESSONS,
 ];
 
 // Attach self-hosted explainer videos (Supabase Storage) to the first section of

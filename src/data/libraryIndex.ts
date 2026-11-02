@@ -1113,5 +1113,41 @@ export const LIBRARY_INDEX: LibraryEntry[] = [
     "sectionCount": 5,
     "blurb": "Every SOC analyst trained on Windows Event Logs, EDR telemetry, and cloud audit trails eventually meets a system that breaks nearly every assumption those skills were built on: a control room where a screen shows the live pressure inside a pipeline, a controller the size of a",
     "researchUsed": true
+  },
+  {
+    "id": "topic-lesson-network-types-topologies-and-devices",
+    "slug": "network-types-topologies-and-devices",
+    "title": "Network Types, Topologies and Devices: From PAN to Spine-Leaf, and Hub to Firewall",
+    "topic": "Networking",
+    "difficulty": "beginner",
+    "sectionCount": 9,
+    "blurb": "Network types, topologies and devices describe how networks are classified by scale and ownership (PAN, LAN, CAN, MAN, WAN, WLAN, SAN, the internet), how they are laid out (bus, star, ring, mesh, tree, hybrid, spine-leaf), and which equipment moves and controls traffic (NIC,"
+  },
+  {
+    "id": "topic-lesson-linux-command-line-essentials",
+    "slug": "linux-command-line-essentials",
+    "title": "Linux Command Line Essentials: From Your First Command to Log-Parsing Pipelines",
+    "topic": "Linux",
+    "difficulty": "beginner",
+    "sectionCount": 9,
+    "blurb": "The Linux command line is a text interface where a program called the shell reads what you type, runs the matching programs, and shows you their output. This lesson teaches you to move around the filesystem, manage and read files, combine small tools with pipes and redirection,"
+  },
+  {
+    "id": "topic-lesson-linux-bash-scripting-fundamentals",
+    "slug": "linux-bash-scripting-fundamentals",
+    "title": "Bash Scripting Fundamentals: From Shebang and Quoting to a Failed-SSH Triage Script",
+    "topic": "Linux",
+    "difficulty": "intermediate",
+    "sectionCount": 9,
+    "blurb": "A Bash script is a text file of shell commands that the Bash interpreter executes in order, turning a manual procedure into a repeatable, reviewable one. In this lesson you will learn to write, run, debug and harden Bash scripts, from the shebang and the quoting rules through"
+  },
+  {
+    "id": "topic-lesson-linux-networking-and-troubleshooting",
+    "slug": "linux-networking-and-troubleshooting",
+    "title": "Linux Networking from the Host: Inspecting, Resolving, Testing and Troubleshooting Layer by Layer",
+    "topic": "Linux",
+    "difficulty": "intermediate",
+    "sectionCount": 9,
+    "blurb": "Linux host networking is the set of kernel objects and user-space tools (interfaces, addresses, routes, resolvers, sockets and packet capture) that decide how a machine sends and receives traffic, and that you use to find out why it does not. The goal of this lesson is to give"
   }
 ];
