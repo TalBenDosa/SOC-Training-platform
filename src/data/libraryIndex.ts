@@ -1149,5 +1149,41 @@ export const LIBRARY_INDEX: LibraryEntry[] = [
     "difficulty": "intermediate",
     "sectionCount": 9,
     "blurb": "Linux host networking is the set of kernel objects and user-space tools (interfaces, addresses, routes, resolvers, sockets and packet capture) that decide how a machine sends and receives traffic, and that you use to find out why it does not. The goal of this lesson is to give"
+  },
+  {
+    "id": "topic-lesson-switching-vlans-trunking-and-stp",
+    "slug": "switching-vlans-trunking-and-stp",
+    "title": "Enterprise Switching: MAC Learning, VLANs, 802.1Q Trunks, VTP, Spanning Tree, and EtherChannel",
+    "topic": "Networking",
+    "difficulty": "intermediate",
+    "sectionCount": 9,
+    "blurb": "Layer 2 switching is how enterprise switches forward Ethernet frames inside a building, using MAC address learning, VLAN segmentation, trunk links, loop prevention with Spanning Tree, and link bundling. By the end of this lesson you will be able to configure and verify each of"
+  },
+  {
+    "id": "topic-lesson-routing-fundamentals-static-and-inter-vlan",
+    "slug": "routing-fundamentals-static-and-inter-vlan",
+    "title": "IP Routing on Cisco IOS: The Routing Table, Static and Default Routes, and Inter-VLAN Routing",
+    "topic": "Networking",
+    "difficulty": "intermediate",
+    "sectionCount": 9,
+    "blurb": "IP routing is the process by which a Layer 3 device looks up a packet's destination address in a routing table and forwards it toward the next hop, which is what lets traffic leave one subnet or VLAN and reach another. This lesson teaches you to read the IOS routing table,"
+  },
+  {
+    "id": "topic-lesson-dynamic-routing-ospf-eigrp-and-fhrp",
+    "slug": "dynamic-routing-ospf-eigrp-and-fhrp",
+    "title": "Dynamic Routing and Gateway Redundancy: OSPF, EIGRP, HSRP and Troubleshooting Adjacencies",
+    "topic": "Networking",
+    "difficulty": "advanced",
+    "sectionCount": 8,
+    "blurb": "Dynamic routing is the use of a routing protocol so that routers automatically exchange reachability information, build their routing tables and reroute around failures, while first-hop redundancy protocols give hosts a default gateway that survives the loss of a router. This"
+  },
+  {
+    "id": "topic-lesson-cisco-ios-configuration-and-operations",
+    "slug": "cisco-ios-configuration-and-operations",
+    "title": "Operating and Securing Cisco IOS Devices: CLI Modes, Hardening, Logging, Port Security and ACLs",
+    "topic": "Networking",
+    "difficulty": "intermediate",
+    "sectionCount": 8,
+    "blurb": "Cisco IOS is the command-line operating system on most Cisco routers and switches, and operating it means moving between privilege modes, editing a running configuration, and deliberately saving it. This lesson teaches how to configure, secure, monitor and recover an IOS device,"
   }
 ];
