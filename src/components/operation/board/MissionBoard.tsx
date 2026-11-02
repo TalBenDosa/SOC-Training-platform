@@ -118,7 +118,7 @@ export function MissionBoard({ experience, roomTitle, difficulty, stations, toke
                   animate={denied === s.id ? { x: [0, -9, 9, -5, 5, 0] } : { x: 0 }}
                   transition={{ duration: 0.35 }}
                   className={cn(
-                    "group relative flex min-w-0 flex-1 flex-col rounded-2xl border p-4 text-left md:min-w-[13.5rem]",
+                    "group relative flex min-w-0 flex-1 flex-col rounded-2xl border p-4 text-left md:min-w-[12rem]",
                     s.status === "open" ? "op-active border-transparent bg-[#081624]"
                       : s.status === "cleared" ? "border-emerald-400/35 bg-[#0a1a1a]/90 hover:border-emerald-400/70"
                         : s.boss ? "border-violet-400/25 bg-[#0e0b1d]/85" : "border-white/10 bg-[#0b1020]/85",
@@ -232,9 +232,11 @@ const BOARD_CSS = `
 .op-spin { transform-box: view-box; animation: op-spin 4s linear infinite; }
 @keyframes op-spin { to { transform: rotate(360deg); } }
 .op-spin-slow { animation: op-spin 14s linear infinite; }
+.op-stamp { transform-box: fill-box; transform-origin: center; animation: op-stamp 2.8s ease-in-out infinite; }
+@keyframes op-stamp { 50% { transform: scale(1.07); } }
 .op-countdown { animation: op-countdown 6s linear infinite; }
 @keyframes op-countdown { from { stroke-dashoffset: 0; } to { stroke-dashoffset: 138; } }
 @media (prefers-reduced-motion: reduce) {
-  .op-active, .op-node, .op-scan, .op-float, .op-belt, .op-ride, .op-blink, .op-pulse, .op-spin, .op-spin-slow, .op-countdown { animation: none !important; }
+  .op-active, .op-node, .op-scan, .op-float, .op-belt, .op-ride, .op-blink, .op-pulse, .op-stamp, .op-spin, .op-spin-slow, .op-countdown { animation: none !important; }
 }
 `;

@@ -8,9 +8,19 @@ import { AlreadyCleared, ContinueButton, Verdict, flattenRaw, useMechanic, type 
 
 /**
  * flag → Vault Keypad. Unlimited guesses (the grader never reveals a flag),
- * but each wrong code costs a shield. The hint is decrypted with one Intel
- * token earned in the briefings; with none left it costs a shield instead.
+ * but each wrong code costs a shield. A right value typed in the wrong shape
+ * (a whole address instead of the domain, a URL scheme, a trailing dot) is a
+ * format slip, not a wrong finding: it is retried in its bare form and never
+ * costs a shield. The hint is decrypted with one Intel token earned in the
+ * briefings; with none left it costs a shield instead.
  */
+
+/** The bare form of a value: no scheme, no user part before @, no trailing dot or slash. */
+function bareForm(v: string): string {
+  let s = v.trim().toLowerCase().replace(/^[a-z]+:\/\//, "");
+  if (s.includes("@")) s = s.slice(s.lastIndexOf("@") + 1);
+  return s.replace(/[./]+$/, "").replace(/^<|>$/g, "");
+}
 export function VaultKeypad({ roomId, task, isCompleted, onComplete, onMistake, prevLogEvent, intelTokens, spendToken }: MechanicProps<SanitizedFlagTask>) {
   const { submit, record, complete, recordInteraction } = useMechanic(roomId, task.id, isCompleted, onComplete);
   const fields = useMemo(() => (prevLogEvent ? flattenRaw(prevLogEvent.raw as Record<string, unknown>) : []), [prevLogEvent]);
@@ -19,18 +29,24 @@ export function VaultKeypad({ roomId, task, isCompleted, onComplete, onMistake, 
   const [shake, setShake] = useState(0);
   const [wrong, setWrong] = useState(0);
   const [hintOpen, setHintOpen] = useState(false);
-  const [opened, setOpened] = useState<{ xp: number } | null>(null);
+  const [opened, setOpened] = useState<{ xp: number; slip: boolean } | null>(null);
 
-  if (isCompleted) return <AlreadyCleared heading="The Vault" onContinue={() => complete(0)} />;
+  if (isCompleted) return <AlreadyCleared heading="Evidence lock" onContinue={() => complete(0)} />;
 
   async function tryCode(e: React.FormEvent) {
     e.preventDefault();
     if (!value.trim() || busy || opened) return;
     setBusy(true);
     try {
-      const r = await submit({ value });
-      record({ type: "flag", value, correct: r.correct });
-      if (r.correct) setOpened({ xp: r.xpEarned });
+      let r = await submit({ value });
+      let slip = false;
+      const bare = bareForm(value);
+      if (!r.correct && bare && bare !== value.trim().toLowerCase()) {
+        r = await submit({ value: bare });
+        slip = r.correct;
+      }
+      record({ type: "flag", value: slip ? bare : value, correct: r.correct });
+      if (r.correct) setOpened({ xp: r.xpEarned, slip });
       else { onMistake(); setWrong(w => w + 1); setShake(s => s + 1); }
     } finally {
       setBusy(false);
@@ -112,8 +128,15 @@ export function VaultKeypad({ roomId, task, isCompleted, onComplete, onMistake, 
 
       {opened && (
         <>
-          <Verdict correct title="The vault is open" xp={opened.xp} explanation="Exact match with the evidence. Pulling the precise value from a raw log is what makes a finding defensible." />
-          <ContinueButton onClick={() => complete(opened.xp, task.xp)} label="Close the operation" />
+          <Verdict
+            correct
+            title="Code accepted"
+            xp={opened.xp}
+            explanation={opened.slip
+              ? `Right finding. The answer field wanted the bare value (${bareForm(value)}), so that is what was accepted: in a ticket, record exactly the value the question asks for.`
+              : "Exact match with the evidence. Pulling the precise value from a raw log is what makes a finding defensible."}
+          />
+          <ContinueButton onClick={() => complete(opened.xp, task.xp)} />
         </>
       )}
     </div>

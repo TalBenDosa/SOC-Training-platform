@@ -10,8 +10,8 @@ const rooms = [
       "Learn to dissect malicious emails like a forensics expert: decode spoofed headers, failed authentication records, weaponised attachments, and Business Email Compromise patterns.",
     difficulty: "intermediate",
     category: "Threat Detection",
-    estimatedMinutes: 45,
-    xp: 180,
+    estimatedMinutes: 60,
+    xp: 330,
     icon: "🎣",
     prerequisites: ["email-security"],
     tasks: [
@@ -21,7 +21,7 @@ const rooms = [
         id: "phishing-r1",
         heading: "Email Headers: The Return Address on a Letter You Should Never Trust",
         content:
-          "Imagine receiving a letter in your mailbox. The envelope has a return address that says \"Internal Revenue Service, Washington DC\". But if you look at the postmark stamp on the envelope, you can see the letter was actually mailed from a post office in Romania. The text printed on the envelope (the \"From\" field) is just ink. Anyone can write anything there. The postmark stamp, however, is added by the postal system itself and is much harder to fake.\n\nEmail works exactly the same way. The **From:** field you see in your inbox is just text that the sender typed. It can say anything: absolutely anything. A criminal can make it say ceo@yourcompany.com with zero technical effort. What you need to examine are the **email headers**: the equivalent of postmarks and handling stamps added by every mail server that touched the message on its journey to you.\n\n**What headers reveal**\n\nEvery email carries a block of metadata called headers, hidden by default in most email clients. When you open headers (\"View Source\" or \"Show Original\" in Gmail), you see a log of every server the email passed through, timestamps, and authentication results.\n\n- **Return-Path:**, The envelope sender: the address where **bounce** messages (delivery failures) go. It is the domain SPF checks. On its own a mismatch with the From domain is a weak signal, because legitimate bulk mail sent through providers such as SendGrid or Mailchimp routinely uses the provider's bounce domain. A Return-Path like attacker@gmail-helpdesk.ru on a message claiming to be from ceo@bigbank.com is still worth noting alongside other evidence.\n\n- **Reply-To:**, Where **replies** go when the recipient clicks Reply. A Reply-To that points to an unrelated domain (From: ceo@bigbank.com, Reply-To: ceo.office@outlook-mail.example) is a much stronger red flag, and a classic BEC trick: the sender wants your answer to reach them, not the real person.\n\n- **Received:** headers. These are added by each mail server in **reverse order** (the bottom Received header was added first, the top one last). Each line shows: the sending server IP, the receiving server, and a timestamp. Reading them from the bottom up shows where the email came from. Be careful: the lowest lines are written by the sender's side, so they can be forged or show private addresses. The most trustworthy origin is the hop recorded by **your own** boundary mail server: the IP that handed the message to you.\n\n- **X-Originating-IP:**, Some webmail systems (Yahoo, older Hotmail) stamp the sender's actual IP address here. This is investigative gold, you can look it up in threat intelligence to see if it belongs to a known spam infrastructure or compromised host.\n\n- **Message-ID:**: A unique identifier assigned by the originating mail server. A message claiming to come from google.com but with a Message-ID like <random@sendinblue.fr> tells you the true sending platform.\n\n**SPF, DKIM, and DMARC: the three authentication shields**\n\nThink of these as three different security guards checking the letter before it gets to you.\n\n**SPF (Sender Policy Framework)**, The domain owner publishes a list in DNS saying \"only these IP addresses are allowed to send email for us\". When a receiving server gets a message claiming to be from bigbank.com, it looks up bigbank.com's SPF record and checks whether the sending IP is on the approved list. If not: **SPF FAIL**.\n\n**DKIM (DomainKeys Identified Mail)**, The sending server cryptographically signs the email with a private key. The receiving server looks up the public key in DNS and verifies the signature. If the email was altered in transit (or if a criminal is forging the domain), the DKIM signature will not match: **DKIM FAIL**. A valid DKIM signature is very hard to fake.\n\n**DMARC (Domain-based Message Authentication, Reporting & Conformance)**. DMARC ties the other two together. It requires that the domain in the From: header aligns with the SPF or DKIM domain, and tells receiving servers what to do (quarantine, reject, or do nothing) when neither SPF nor DKIM passes with alignment. When you see **DMARC FAIL**, it means the email claimed to be from a domain it had no right to send on behalf of.\n\nIn a phishing email that spoofs the real domain, you will commonly see all three failing. But watch for the opposite case: if the attacker registered a look-alike domain like bigbank-support.com and set up SPF, DKIM and DMARC for it, all three **pass**, because the From domain really is theirs. Authentication proves control of a domain, not that the domain belongs to the brand it imitates, so you still have to read the domain itself.\n\n**Practical workflow for header analysis**\n\nStep 1: Read the **Received:** headers bottom-up and find the first hop stamped by your own mail server, the IP it received the message from is the true external origin. Anything below that line is sender-controlled.\nStep 2: Extract the IP address from that header and look it up on VirusTotal, AbuseIPDB, or Shodan.\nStep 3: Check **Reply-To** and **Return-Path**, do they match the claimed From domain? (A Reply-To mismatch matters more.)\nStep 4: Read the **Authentication-Results** header, look for spf=fail, dkim=fail, dmarc=fail.\nStep 5: Check the **Message-ID** domain, does it match the From domain?\n\nA legitimate email from your bank will pass all three authentication checks, have a Return-Path matching the bank's domain or its email provider, and originate from an IP address owned by the bank or its email provider. A phishing email will almost always fail at least one of these tests.",
+          "Imagine receiving a letter in your mailbox. The envelope has a return address that says \"Internal Revenue Service, Washington DC\". But if you look at the postmark stamp on the envelope, you can see the letter was actually mailed from a post office in Romania. The text printed on the envelope (the \"From\" field) is just ink. Anyone can write anything there. The postmark stamp, however, is added by the postal system itself and is much harder to fake.\n\nEmail works exactly the same way. The **From:** field you see in your inbox is just text that the sender typed. It can say anything: absolutely anything. A criminal can make it say ceo@yourcompany.com with zero technical effort. What you need to examine are the **email headers**: the equivalent of postmarks and handling stamps added by every mail server that touched the message on its journey to you.\n\n**What headers reveal**\n\nEvery email carries a block of metadata called headers, hidden by default in most email clients. When you open headers (\"View Source\" or \"Show Original\" in Gmail), you see a log of every server the email passed through, timestamps, and authentication results.\n\n- **Return-Path:**, The envelope sender: the address where **bounce** messages (delivery failures) go. It is the domain SPF checks. On its own a mismatch with the From domain is a weak signal, because legitimate bulk mail sent through providers such as SendGrid or Mailchimp routinely uses the provider's bounce domain. A Return-Path like attacker@gmail-helpdesk.ru on a message claiming to be from ceo@bigbank.com is still worth noting alongside other evidence.\n\n- **Reply-To:**, Where **replies** go when the recipient clicks Reply. A Reply-To that points to an unrelated domain (From: ceo@bigbank.com, Reply-To: ceo.office@outlook-mail.example) is a much stronger red flag, and a classic BEC trick: the sender wants your answer to reach them, not the real person.\n\n- **Received:** headers. These are added by each mail server in **reverse order** (the bottom Received header was added first, the top one last). Each line shows: the sending server IP, the receiving server, and a timestamp. Reading them from the bottom up shows where the email came from. Be careful: the lowest lines are written by the sender's side, so they can be forged or show private addresses. The most trustworthy origin is the hop recorded by **your own** boundary mail server: the IP that handed the message to you.\n\n- **X-Originating-IP:**, Some webmail systems (Yahoo, older Hotmail) stamp the sender's actual IP address here. This is investigative gold, you can look it up in threat intelligence to see if it belongs to a known spam infrastructure or compromised host.\n\n- **Message-ID:**: A unique identifier assigned by the originating mail server. A message claiming to come from google.com but with a Message-ID like <random@sendinblue.fr> tells you the true sending platform.\n\n**SPF, DKIM, and DMARC: the three authentication shields**\n\nThink of these as three different security guards checking the letter before it gets to you.\n\n**SPF (Sender Policy Framework)**, The domain owner publishes a list in DNS saying \"only these IP addresses are allowed to send email for us\". When a receiving server gets a message claiming to be from bigbank.com, it looks up bigbank.com's SPF record and checks whether the sending IP is on the approved list. If not: **SPF FAIL**.\n\n**DKIM (DomainKeys Identified Mail)**, The sending server cryptographically signs the email with a private key. The receiving server looks up the public key in DNS and verifies the signature. If the email was altered in transit (or if a criminal is forging the domain), the DKIM signature will not match: **DKIM FAIL**. A valid DKIM signature is very hard to fake.\n\n**DMARC (Domain-based Message Authentication, Reporting & Conformance)**. DMARC ties the other two together. It requires that the domain in the From: header aligns with the SPF or DKIM domain, and tells receiving servers what to do (quarantine, reject, or do nothing) when neither SPF nor DKIM passes with alignment. When you see **DMARC FAIL**, it means the email claimed to be from a domain it had no right to send on behalf of.\n\nIn a phishing email that spoofs the real domain, you will commonly see all three failing. But watch for the opposite case: if the attacker registered a look-alike domain like bigbank-support.com and set up SPF, DKIM and DMARC for it, all three **pass**, because the From domain really is theirs. Authentication proves control of a domain, not that the domain belongs to the brand it imitates, so you still have to read the domain itself.\n\n**Practical workflow for header analysis**\n\nStep 1: Read the **Received:** headers bottom-up and find the first hop stamped by your own mail server, the IP it received the message from is the true external origin. Anything below that line is sender-controlled.\nStep 2: Extract the IP address from that header and look it up on VirusTotal, AbuseIPDB, or Shodan.\nStep 3: Check **Reply-To** and **Return-Path**, do they match the claimed From domain? (A Reply-To mismatch matters more.)\nStep 4: Read the **Authentication-Results** header, look for spf=fail, dkim=fail, dmarc=fail.\nStep 5: Check the **Message-ID** domain, does it match the From domain?\n\nA legitimate email from your bank will pass all three authentication checks, have a Return-Path matching the bank's domain or its email provider, and originate from an IP address owned by the bank or its email provider. Do not reverse that logic, though: passing all three does not make an email safe. A look-alike domain the attacker registered, a real mailbox the attacker has taken over, and a legitimate service the attacker abuses (a free webmail account, a file-sharing or form platform) all pass SPF, DKIM and DMARC. Authentication tells you who controls the sending domain; the domain itself, the request and the links decide whether it is phishing.",
         checkpoint: {
           question: "A supplier invoice shows From: billing@northwind-supply.com and Return-Path: bounce-4471@em.mailprovider.example. Nothing else looks wrong yet. How should you weigh that Return-Path?",
           options: [
@@ -42,7 +42,7 @@ const rooms = [
         id: "phishing-r2",
         heading: "URLs, Attachments, and the Anatomy of a Phishing Kit",
         content:
-          "Imagine a fake storefront that looks exactly like your favourite pharmacy: same logo, same colour scheme, same product photos. But the address above the door is slightly wrong: \"CVS-Pharmacy-Support.net\" instead of cvs.com. And the door leads to a back room where someone collects your credit card details. That is a phishing kit.\n\n**URL analysis: what to look for before you click**\n\nThe single most important rule in phishing analysis is: **never click a suspicious link from your normal workstation**. Instead, analysts examine URLs without visiting them.\n\n- **Hover, don't click**, In most email clients, hovering over a hyperlink reveals the actual destination URL in the status bar. The text shown (\"Click here to verify your account\") can say anything; the underlying href tells the truth.\n\n- **URL shorteners**. Links like bit.ly/xk3p9q hide the real destination. Analysts use services like CheckShortURL or URLScan.io to expand shortened URLs without visiting them. Attackers use shorteners specifically to hide malicious destinations.\n\n- **Homograph attacks**. Unicode allows characters that look identical to Latin letters. The Cyrillic letter \"а\" (U+0430) looks exactly like Latin \"a\" (U+0061). A URL like pаypal.com (with a Cyrillic а) looks perfect in an email but resolves to a completely different domain. Always check the raw ASCII or Punycode representation (pаypal.com becomes xn--pypal-4ve.com in Punycode).\n\n- **Subdomain tricks**: paypal.com.attacker.net is NOT paypal.com. The actual domain (the part before the last dot before the TLD) is attacker.net. Victims read from left to right and see \"paypal.com\" and stop.\n\n- **HTTPS does NOT mean safe**. Many people believe the padlock icon means a website is trustworthy. It only means the connection is encrypted. Criminals routinely obtain free TLS certificates (Let's Encrypt) for their phishing domains.\n\n**Analysing attachments without triggering them**\n\nAttachments are another major phishing delivery vector. Common weaponised attachment types:\n\n- **Macro-enabled Office documents (.docm, .xlsm)**. These contain embedded VBA macros that execute when the user clicks \"Enable Content\". Macros can download malware, execute PowerShell commands, and establish persistence. **Red flags:** document asks you to enable macros, document content is blurred or says \"enable editing to view\", document was received from an unexpected sender.\n\n- **Password-protected ZIPs**. Attackers package malware in a ZIP and provide the password in the email body. This bypasses automated email scanning because the scanner cannot open the ZIP without the password. The password is always in the email, \"please use password: Invoice2024 to open the attached file\".\n\n- **ISO and IMG files**. Disk image files can contain executables and, on Windows 10 before a recent patch, could bypass the Mark-of-the-Web (MOTW) security flag that warns users about downloaded files.\n\n- **PDF with embedded links**. PDFs containing links to credential harvesting pages. The PDF itself is clean but acts as a vehicle to get victims to click.\n\n**Business Email Compromise (BEC): the most expensive phishing variant**\n\nBEC does not always involve malware or malicious URLs. Instead, an attacker who has compromised or spoofed an executive's email account sends a convincing email to someone in finance: \"I need you to urgently wire $85,000 to our new vendor account. This is confidential, please process today.\"\n\nBEC characteristics to look for:\n- **Urgency and secrecy** (real executives rarely demand secret urgent wire transfers\n- **Reply-to mismatch**) the From field shows the CEO but Reply-To redirects to attacker@gmail.com\n- **Timing**. BEC attacks often happen on Fridays before holidays when the target executive is harder to reach for verbal confirmation\n- **Slightly wrong domain**. Ceo@company-corp.com vs ceo@company.com\n\n**Analysing the phishing kit itself**\n\nSometimes analysts obtain the actual phishing kit: the ZIP archive the attacker uploaded to a compromised server. These kits reveal: which legitimate site they are impersonating, how stolen credentials are exfiltrated (usually emailed to the attacker or posted to a Telegram bot), which IP addresses are whitelisted (attackers block known security company IPs from seeing the phishing page), and reused code that links kits to known threat actors.",
+          "Imagine a fake storefront that looks exactly like your favourite pharmacy: same logo, same colour scheme, same product photos. But the address above the door is slightly wrong: \"CVS-Pharmacy-Support.net\" instead of cvs.com. And the door leads to a back room where someone collects your credit card details. That is a phishing kit.\n\n**URL analysis: what to look for before you click**\n\nThe single most important rule in phishing analysis is: **never click a suspicious link from your normal workstation**. Instead, analysts examine URLs without visiting them.\n\n- **Hover, don't click**, In most email clients, hovering over a hyperlink reveals the actual destination URL in the status bar. The text shown (\"Click here to verify your account\") can say anything; the underlying href tells the truth.\n\n- **URL shorteners**. Links like bit.ly/xk3p9q hide the real destination. Analysts use services like CheckShortURL or URLScan.io to expand shortened URLs without visiting them. Attackers use shorteners specifically to hide malicious destinations.\n\n- **Homograph attacks**. Unicode allows characters that look identical to Latin letters. The Cyrillic letter \"а\" (U+0430) looks exactly like Latin \"a\" (U+0061). A URL like pаypal.com (with a Cyrillic а) looks perfect in an email but resolves to a completely different domain. Always check the raw ASCII or Punycode representation (pаypal.com becomes xn--pypal-4ve.com in Punycode).\n\n- **Subdomain tricks**: paypal.com.attacker.net is NOT paypal.com. The actual domain (the part before the last dot before the TLD) is attacker.net. Victims read from left to right and see \"paypal.com\" and stop.\n\n- **HTTPS does NOT mean safe**. Many people believe the padlock icon means a website is trustworthy. It only means the connection is encrypted. Criminals routinely obtain free TLS certificates (Let's Encrypt) for their phishing domains.\n\n- **Domain age**. Phishing domains are usually registered days before the campaign and thrown away after it. Look up the domain's WHOIS creation date (or the \"first seen\" date in your threat intelligence tool): a domain created this week that claims to be a bank or Microsoft is a strong red flag, and many gateways score newly registered domains as risky for that reason. An old domain is not proof of safety (compromised legitimate sites are old too), but a brand-new one is hard to explain innocently.\n\n**Analysing attachments without triggering them**\n\nAttachments are another major phishing delivery vector. Common weaponised attachment types:\n\n- **Macro-enabled Office documents (.docm, .xlsm)**. These contain embedded VBA macros that execute when the user clicks \"Enable Content\". Macros can download malware, execute PowerShell commands, and establish persistence. **Red flags:** document asks you to enable macros, document content is blurred or says \"enable editing to view\", document was received from an unexpected sender. Since 2022 Microsoft 365 blocks macros by default in Office files that carry the Mark of the Web (MOTW), the tag Windows adds to files that came from the internet: instead of an Enable Content button the user sees a red \"Security Risk\" banner. That pushed attackers toward containers that can lose the tag (archives, ISO and IMG images) and toward lures with no macro at all. So if a user still sees the yellow Enable Content bar on a file that arrived by email, the Mark of the Web was lost somewhere on the way, which is itself worth noting in the case.\n\n- **Password-protected ZIPs**. Attackers package malware in a ZIP and provide the password in the email body. This bypasses automated email scanning because the scanner cannot open the ZIP without the password. The password is always in the email, \"please use password: Invoice2024 to open the attached file\".\n\n- **ISO and IMG files**. Disk image files can contain executables and, on Windows 10 before a recent patch, could bypass the Mark-of-the-Web (MOTW) security flag that warns users about downloaded files.\n\n- **PDF with embedded links**. PDFs containing links to credential harvesting pages. The PDF itself is clean but acts as a vehicle to get victims to click.\n\n**Modern lures you will meet in 2026**\n\n- **QR-code phishing (quishing)**. The link is a QR code inside an image or PDF (\"scan to re-enable your MFA\"). Gateways that only rewrite text links miss it, and the victim scans it with a personal phone, outside your web proxy and EDR. Decode the QR image in your analysis tooling and treat the decoded URL like any other link.\n- **Adversary-in-the-middle (AiTM) kits** such as Evilginx-style and Tycoon 2FA kits. The page proxies the real Microsoft or Google login, so the user completes MFA and the kit steals the session cookie. MFA does not save the account here: if a user entered credentials, resetting the password is not enough, the active sessions must be revoked too.\n- **HTML smuggling**. An .html or .htm attachment carries an encoded payload and builds the file inside the browser when opened, so the gateway never sees the malware itself, only a small web page.\n- **ClickFix**. A fake CAPTCHA or \"fix this error\" page tells the user to press Win+R and paste a command it has already copied to the clipboard. The user runs the malware themselves, so there is no attachment or macro to catch. In EDR it shows up as explorer.exe launching powershell.exe or mshta.exe with a long command line.\n\n**Business Email Compromise (BEC): the most expensive phishing variant**\n\nBEC does not always involve malware or malicious URLs. Instead, an attacker who has compromised or spoofed an executive's email account sends a convincing email to someone in finance: \"I need you to urgently wire $85,000 to our new vendor account. This is confidential, please process today.\"\n\nBEC characteristics to look for:\n- **Urgency and secrecy** (real executives rarely demand secret urgent wire transfers\n- **Reply-to mismatch**) the From field shows the CEO but Reply-To redirects to attacker@gmail.com\n- **Timing**. BEC attacks often happen on Fridays before holidays when the target executive is harder to reach for verbal confirmation\n- **Slightly wrong domain**. Ceo@company-corp.com vs ceo@company.com\n\n**Analysing the phishing kit itself**\n\nSometimes analysts obtain the actual phishing kit: the ZIP archive the attacker uploaded to a compromised server. These kits reveal: which legitimate site they are impersonating, how stolen credentials are exfiltrated (usually emailed to the attacker or posted to a Telegram bot), which IP addresses are whitelisted (attackers block known security company IPs from seeing the phishing page), and reused code that links kits to known threat actors.",
         checkpoint: {
           question: "A link in a reported email displays as paypal.com and the page shows a padlock. Your proxy logged the request as xn--pypal-4ve.com. Which technique explains what the user saw?",
           options: [
@@ -63,7 +63,7 @@ const rooms = [
         id: "phishing-r3",
         heading: "Phishing Investigation Workflow: From Alert to Verdict",
         content:
-          "Think of a bomb disposal technician. They do not grab a suspicious package and shake it. They follow a strict, safe procedure: assess from a distance, gather information, use tools remotely, then make a decision. Phishing analysis works the same way: a disciplined process keeps you from accidentally detonating the payload.\n\n**Step 1: Triage, is this actually a phishing attempt?**\n\nWhen a user reports a suspicious email, or your email gateway flags one, start by asking:\n- Did the user click anything or open any attachment? (If yes, this is now potentially an incident. Escalate)\n- Does the sender domain match the claimed organisation?\n- Is there urgency, threat, or unusual request language?\n- Does the email address a real need the user has, or is it unsolicited?\n\nNot every flagged email is malicious. Bulk marketing email, misconfigured legitimate systems, and aggressive spam filters all produce false positives.\n\n**Step 2: Safe header extraction**\n\nUse your email security gateway console (Proofpoint, Mimecast, Microsoft Defender for Office 365) to export the raw email headers **without delivering or opening the email yourself**. Copy the headers to a plain text editor.\n\nKey fields to extract and document:\n- Full Received chain (all hops)\n- Return-Path\n- Authentication-Results (SPF, DKIM, DMARC verdicts)\n- X-Originating-IP (if present)\n- Message-ID\n- Date and timezone\n\n**Step 3: Sender IP investigation**\n\nTake the originating IP (from the bottom Received header or X-Originating-IP) and check:\n- **VirusTotal**. Has this IP been flagged by security vendors?\n- **AbuseIPDB**. Has this IP been reported for abuse?\n- **Shodan**. What services is this IP running? Is it a mail server or a VPS that should not be sending email?\n- **Whois / ARIN/RIPE lookup**, who owns this IP? Is it registered to a known spam hosting provider?\n\n**Step 4: URL detonation (sandboxed)**\n\nIf the email contains URLs, submit them to:\n- **URLScan.io** (takes a screenshot and analysis of the page without you visiting it\n- **VirusTotal**) checks the URL against dozens of security vendors\n- **ANY.RUN or Hybrid Analysis**. Full dynamic sandbox if you need to see what the page does\n\nNever visit suspicious URLs in your corporate browser. Even visiting a page can sometimes trigger drive-by download exploits.\n\n**Step 5: Attachment analysis**\n\nIf there is an attachment:\n- Calculate the **SHA256 hash** of the file and check it on VirusTotal\n- Submit to a sandbox (ANY.RUN, Cuckoo, Joe Sandbox) for dynamic analysis\n- For Office documents: tools like **olevba** (part of oletools) extract and display VBA macro code without executing it\n- For PDFs: **pdfid** and **pdf-parser** extract embedded JavaScript and URLs\n\n**Step 6: Document and decide**\n\nAfter gathering evidence, make a verdict:\n- **Benign** (legitimate email, no action needed\n- **Spam**) bulk marketing, not targeted, report to gateway\n- **Phishing**. Credential harvesting attempt, block sender, block URLs, notify users, check if anyone clicked\n- **Spear phishing / BEC**. Targeted attack, escalate to incident response, notify management\n\n**Step 7: Containment actions**\n\nFor confirmed phishing:\n- Block the sender domain and IP in your email gateway\n- Block the malicious URLs in your web proxy\n- Search your email logs for other recipients of the same campaign (same Message-ID, same sender IP, same attachment hash)\n- If any user clicked: isolate their workstation, check EDR telemetry for signs of execution\n- Notify affected users and provide security awareness guidance\n\n**Key metrics to track**\n\nA mature SOC tracks: phishing volume by day/week, click-through rate (what percentage of users who received a phishing email actually clicked), time-to-detection, time-to-containment, and repeat reporter names (users who proactively report phishing deserve recognition).",
+          "Think of a bomb disposal technician. They do not grab a suspicious package and shake it. They follow a strict, safe procedure: assess from a distance, gather information, use tools remotely, then make a decision. Phishing analysis works the same way: a disciplined process keeps you from accidentally detonating the payload.\n\n**Step 1: Triage, is this actually a phishing attempt?**\n\nWhen a user reports a suspicious email, or your email gateway flags one, start by asking:\n- Did the user click anything or open any attachment? (If yes, this is now potentially an incident. Escalate)\n- Does the sender domain match the claimed organisation?\n- Is there urgency, threat, or unusual request language?\n- Does the email address a real need the user has, or is it unsolicited?\n\nNot every flagged email is malicious. Bulk marketing email, misconfigured legitimate systems, and aggressive spam filters all produce false positives.\n\n**Step 2: Safe header extraction**\n\nUse your email security gateway console (Proofpoint, Mimecast, Microsoft Defender for Office 365) to export the raw email headers **without delivering or opening the email yourself**. Copy the headers to a plain text editor.\n\nKey fields to extract and document:\n- Full Received chain (all hops)\n- Return-Path\n- Authentication-Results (SPF, DKIM, DMARC verdicts)\n- X-Originating-IP (if present)\n- Message-ID\n- Date and timezone\n\n**Step 3: Sender IP investigation**\n\nTake the true external origin IP: the one your own boundary mail server recorded receiving the message from (the first hop stamped by your server, read bottom-up as in the header lesson). Do not take the bottom-most Received line: the sender's side writes it, so it can be forged or show a private address. X-Originating-IP, when a webmail service adds it, is a useful second source. Then check:\n- **VirusTotal**. Has this IP been flagged by security vendors?\n- **AbuseIPDB**. Has this IP been reported for abuse?\n- **Shodan**. What services is this IP running? Is it a mail server or a VPS that should not be sending email?\n- **Whois / ARIN/RIPE lookup**, who owns this IP? Is it registered to a known spam hosting provider?\n\n**Step 4: URL detonation (sandboxed)**\n\nIf the email contains URLs, submit them to:\n- **URLScan.io** (takes a screenshot and analysis of the page without you visiting it\n- **VirusTotal**) checks the URL against dozens of security vendors\n- **ANY.RUN or Hybrid Analysis**. Full dynamic sandbox if you need to see what the page does\n\nNever visit suspicious URLs in your corporate browser. Even visiting a page can sometimes trigger drive-by download exploits.\n\n**Step 5: Attachment analysis**\n\nIf there is an attachment:\n- Calculate the **SHA256 hash** of the file and check it on VirusTotal\n- Submit to a sandbox (ANY.RUN, Cuckoo, Joe Sandbox) for dynamic analysis\n- For Office documents: tools like **olevba** (part of oletools) extract and display VBA macro code without executing it\n- For PDFs: **pdfid** and **pdf-parser** extract embedded JavaScript and URLs\n\n**Step 6: Document and decide**\n\nAfter gathering evidence, make a verdict:\n- **Benign** (legitimate email, no action needed\n- **Spam**) bulk marketing, not targeted, report to gateway\n- **Phishing**. Credential harvesting attempt, block sender, block URLs, notify users, check if anyone clicked\n- **Spear phishing / BEC**. Targeted attack, escalate to incident response, notify management\n\n**Step 7: Scope the campaign**\n\nOne reported email is rarely the only copy. Before you contain anything, find every recipient. In Microsoft Defender XDR advanced hunting the delivered mail is in the **EmailEvents** table; search it by the sender, subject, sending IP or attachment hash of the case. SenderFromAddress is the address in the From header (SenderMailFromAddress is the envelope sender, the Return-Path):\n```kql\nEmailEvents\n| where Timestamp > ago(7d)\n| where SenderFromAddress == \"ceo@bigbank-support.com\"\n| project Timestamp, RecipientEmailAddress, DeliveryAction, LatestDeliveryLocation, NetworkMessageId\n```\nRead the result per recipient. **LatestDeliveryLocation** tells you where the copy sits now: Inbox and Junk folder copies are still in the mailbox and can be opened (users do open junk), Quarantine copies are not. Then check whether anyone acted on it: **UrlClickEvents** shows who clicked a link, and EDR process data (for example EXCEL.EXE starting powershell.exe) shows who opened a weaponised attachment.\n\n**Step 8: Contain, in priority order**\n\nFor confirmed phishing, order matters: stop what is already running, then stop new victims, then stop it coming back.\n1. **Isolate any host where the payload executed** (EDR network isolation), because an active foothold spreads while you work on the mailboxes.\n2. **Purge every copy still in a mailbox** (Defender \"soft delete\" remediation, or an Exchange Compliance Search and purge), Junk folders included.\n3. **Block re-delivery**: sender domain and address, sending IP, malicious URLs and attachment hash (Tenant Allow/Block List, web proxy).\n4. **Fix the credentials** of anyone who ran the payload or typed a password: reset the password and **revoke the sessions** (AiTM kits steal session cookies, so a reset alone leaves the attacker logged in), then check for new MFA methods and suspicious inbox rules or forwarding.\n5. **Notify** the recipients, and thank the user who reported it.\n\n**Step 9: Close the ticket**\n\nThe case is not done until it is written down. A good closing summary answers five things in a few sentences: what happened, the evidence (the actual indicators: sender, domains, IPs, file name or hash), who was affected (recipients, who clicked or opened), what you did (the containment actions), and the verdict. Cite the real values from the case; never write an indicator you did not see in the evidence.\n\n**Key metrics to track**\n\nA mature SOC tracks: phishing volume by day/week, click-through rate (what percentage of users who received a phishing email actually clicked), time-to-detection, time-to-containment, and repeat reporter names (users who proactively report phishing deserve recognition).",
       },
 
       // ── Question 1 ──
@@ -120,89 +120,6 @@ const rooms = [
         xp: 20,
       },
 
-      // ── Log Analysis ──
-      {
-        type: "log_analysis",
-        id: "phishing-la1",
-        heading: "Analysing a Suspicious Email Gateway Alert",
-        context:
-          "Your organisation's email security gateway has flagged an inbound email and generated the following telemetry. The email claims to be from the CFO of a partner company. A junior analyst has escalated it to you for review. Examine the log carefully: pay close attention to the Received headers, authentication results, and attachment details.",
-        event: {
-          id: "evt-phish-001",
-          ts: "2026-06-24T08:47:32.000Z",
-          source: "email_gateway",
-          event_type: "email_received",
-          hostname: "mailgw-01.contoso.com",
-          severity: "high",
-          vendor: "Microsoft 365 Unified Audit Log",
-          raw: {
-            "data.office365.Operation": "MessageReceived",
-            "data.office365.UserId": "alice.chen@contoso.com",
-            "data.office365.ClientIP": "185.220.101.47",
-            "data.office365.SourceFileName": "Urgent_Wire_Request_Q2.xlsm",
-            "email.from.address": "cfo@globalpartners.com",
-            "email.from.name": "Robert Harrington CFO",
-            "email.reply_to": "robert.harrington.cfo@gmail-secure-mail.com",
-            "email.subject": "URGENT: Wire Transfer Required Before EOD",
-            "email.return_path": "bounce@sendinblue-relay247.net",
-            "email.message_id": "<20260624.84729@sendinblue-relay247.net>",
-            "email.headers.received": [
-              "from mail.contoso.com (mail.contoso.com [52.96.112.17]) by mailgw-01.contoso.com with ESMTPS; 24 Jun 2026 08:47:30 +0000",
-              "from smtp.sendinblue-relay247.net (smtp.sendinblue-relay247.net [185.220.101.47]) by mail.contoso.com with ESMTP; 24 Jun 2026 08:47:28 +0000",
-              "from [10.44.22.8] by smtp.sendinblue-relay247.net; 24 Jun 2026 08:47:21 +0000",
-            ],
-            "email.authentication_results": {
-              spf: "fail",
-              spf_detail: "185.220.101.47 is not permitted to send for globalpartners.com",
-              dkim: "fail",
-              dkim_detail: "signature verification failed",
-              dmarc: "fail",
-              dmarc_policy: "reject",
-            },
-            "email.attachment.name": "Urgent_Wire_Request_Q2.xlsm",
-            "email.attachment.size_bytes": 487291,
-            "email.attachment.sha256":
-              "206fb7186eb4a4082cbf778e4efdd2975008b12d68e4d3e6dd35aede00cc51fa",
-            "email.attachment.type": "application/vnd.ms-excel.sheet.macroEnabled.12",
-            "email.attachment.vt_detections": "38/72",
-            "email.x_originating_ip": "185.220.101.47",
-            "rule.name": "BEC_Attachment_Phishing_High_Confidence",
-            "rule.level": 12,
-            "rule.description": "Email with macro-enabled attachment failed all authentication checks and has Reply-To mismatch",
-          },
-        },
-        questions: [
-          {
-            question:
-              "Looking at the Received headers in the log, what is the IP address where this email actually originated (the true sending server)?",
-            options: [
-              "52.96.112.17: mail.contoso.com",
-              "185.220.101.47: smtp.sendinblue-relay247.net",
-              "10.44.22.8: the bottom-most Received line",
-              "mailgw-01.contoso.com: the gateway that logged it",
-            ],
-            answer: 1,
-            explanation:
-              "Read Received headers bottom-up and find the first hop stamped by your own server. The bottom line (from [10.44.22.8]) was written by the sender's relay and shows a private, sender-controlled address, so it is not the internet origin even though it is the oldest. The first Contoso-stamped hop is mail.contoso.com receiving from smtp.sendinblue-relay247.net [185.220.101.47], so 185.220.101.47 is the true external origin; the SPF detail names the same IP. 52.96.112.17 is Contoso's own mail server passing the message inward, and mailgw-01.contoso.com is the last internal hop that recorded the event, not where it came from.",
-            xp: 25,
-          },
-          {
-            question:
-              "Several findings in this log point to phishing. Which one, taken ALONE, would be the weakest reason to call the email malicious?",
-            options: [
-              "The attachment hash has 38/72 detections on VirusTotal",
-              "Return-Path is on sendinblue-relay247.net, not globalpartners.com",
-              "spf=fail for 185.220.101.47 and dmarc=fail for globalpartners.com",
-              "Reply-To is a Gmail look-alike domain while From is globalpartners.com",
-            ],
-            answer: 1,
-            explanation:
-              "A Return-Path on a sending provider's bounce domain is normal for legitimate bulk mail, so on its own it proves little; here it only matters alongside the rest. 38 of 72 engines flagging the attachment is strong evidence the file is malicious. spf=fail plus dmarc=fail means the message claims globalpartners.com but was not sent with that domain's authorisation: a spoofing signal. A Reply-To on an unrelated look-alike domain redirects the victim's answer to the attacker, the classic BEC move. Together the four make this a confirmed phishing attempt.",
-            xp: 25,
-          },
-        ],
-      },
-
       // ── Analyst Choice ──
       {
         type: "analyst_choice" as const,
@@ -251,15 +168,228 @@ const rooms = [
         xp: 30,
       },
 
+      // ── Log Analysis ──
+      {
+        type: "log_analysis",
+        id: "phishing-la1",
+        heading: "Analysing a Suspicious Email Gateway Alert",
+        context:
+          "Your organisation's email security gateway has flagged an inbound email and generated the following telemetry. The email claims to be from the CFO of a partner company. A junior analyst has escalated it to you for review. Examine the log carefully: pay close attention to the Received headers, authentication results, and attachment details.",
+        event: {
+          id: "evt-phish-001",
+          ts: "2026-06-24T08:47:32.000Z",
+          source: "email_gateway",
+          event_type: "email_received",
+          hostname: "mailgw-01.contoso.com",
+          severity: "high",
+          vendor: "Microsoft 365 Unified Audit Log",
+          raw: {
+            "data.office365.Operation": "MessageReceived",
+            "data.office365.UserId": "alice.chen@contoso.com",
+            "data.office365.ClientIP": "185.220.101.47",
+            "data.office365.SourceFileName": "Urgent_Wire_Request_Q2.xlsm",
+            "email.from.address": "cfo@globalpartners.com",
+            "email.from.name": "Robert Harrington CFO",
+            "email.reply_to": "robert.harrington.cfo@gmail-secure-mail.com",
+            "email.subject": "URGENT: Wire Transfer Required Before EOD",
+            "email.return_path": "bounce@sendinblue-relay247.net",
+            "email.message_id": "<20260624.84729@sendinblue-relay247.net>",
+            "email.headers.received": [
+              "from mail.contoso.com (mail.contoso.com [52.96.112.17]) by mailgw-01.contoso.com with ESMTPS; 24 Jun 2026 08:47:30 +0000",
+              "from smtp.sendinblue-relay247.net (smtp.sendinblue-relay247.net [185.220.101.47]) by mail.contoso.com with ESMTP; 24 Jun 2026 08:47:28 +0000",
+              "from [10.44.22.8] by smtp.sendinblue-relay247.net; 24 Jun 2026 08:47:21 +0000",
+            ],
+            "email.authentication_results": {
+              spf: "pass",
+              spf_detail: "185.220.101.47 is permitted to send for sendinblue-relay247.net (the envelope sender domain)",
+              dkim: "none",
+              dkim_detail: "message carries no DKIM signature",
+              dmarc: "fail",
+              dmarc_detail: "SPF passed for sendinblue-relay247.net, which does not align with the From domain globalpartners.com; no aligned DKIM signature",
+              dmarc_policy: "none",
+            },
+            "email.attachment.name": "Urgent_Wire_Request_Q2.xlsm",
+            "email.attachment.size_bytes": 487291,
+            "email.attachment.sha256":
+              "206fb7186eb4a4082cbf778e4efdd2975008b12d68e4d3e6dd35aede00cc51fa",
+            "email.attachment.type": "application/vnd.ms-excel.sheet.macroEnabled.12",
+            "email.attachment.vt_detections": "38/72",
+            "email.x_originating_ip": "185.220.101.47",
+            "rule.name": "BEC_Attachment_Phishing_High_Confidence",
+            "rule.level": 12,
+            "rule.description": "Inbound external email with a macro-enabled attachment, held for analyst review",
+          },
+        },
+        questions: [
+          {
+            question:
+              "Looking at the Received headers in the log, what is the IP address where this email actually originated (the true sending server)?",
+            options: [
+              "52.96.112.17: mail.contoso.com",
+              "185.220.101.47: smtp.sendinblue-relay247.net",
+              "10.44.22.8: the bottom-most Received line",
+              "mailgw-01.contoso.com: the gateway that logged it",
+            ],
+            answer: 1,
+            explanation:
+              "Read Received headers bottom-up and find the first hop stamped by your own server. The bottom line (from [10.44.22.8]) was written by the sender's relay and shows a private, sender-controlled address, so it is not the internet origin even though it is the oldest. The first Contoso-stamped hop is mail.contoso.com receiving from smtp.sendinblue-relay247.net [185.220.101.47], so 185.220.101.47 is the true external origin; the SPF result was evaluated for the same IP. 52.96.112.17 is Contoso's own mail server passing the message inward, and mailgw-01.contoso.com is the last internal hop that recorded the event, not where it came from.",
+            xp: 25,
+          },
+          {
+            question:
+              "Several findings in this log point to phishing. Which one, taken ALONE, would be the weakest reason to call the email malicious?",
+            options: [
+              "The attachment hash has 38/72 detections on VirusTotal",
+              "Return-Path is on sendinblue-relay247.net, not globalpartners.com",
+              "dmarc=fail: SPF passed only for the relay's domain, not in alignment with globalpartners.com",
+              "Reply-To is a Gmail look-alike domain while From is globalpartners.com",
+            ],
+            answer: 1,
+            explanation:
+              "A Return-Path on a sending provider's bounce domain is normal for legitimate bulk mail, so on its own it proves little; here it only matters alongside the rest. 38 of 72 engines flagging the attachment is strong evidence the file is malicious. dmarc=fail means the message claims globalpartners.com but neither SPF nor DKIM passed for that domain: SPF only proved the relay may send for its own domain, so nothing authorises this mail to use the partner's name. That is a spoofing signal (and globalpartners.com publishing p=none is why it was delivered instead of rejected). A Reply-To on an unrelated look-alike domain redirects the victim's answer to the attacker, the classic BEC move. Together the four make this a confirmed phishing attempt.",
+            xp: 25,
+          },
+        ],
+      },
+
       // ── Flag ──
       {
         type: "flag",
         id: "phishing-flag1", logTask: "phishing-la1",
         prompt:
-          "Go back to the 'Analysing a Suspicious Email Gateway Alert' log (the Urgent_Wire_Request_Q2.xlsm event, not the later verdict scenario). If alice.chen clicks Reply and answers the 'CFO', which domain would her answer actually be delivered to? Enter the domain only, without the user part before the @.",
+          "Go back to the 'Analysing a Suspicious Email Gateway Alert' log (the Urgent_Wire_Request_Q2.xlsm event, not the Microsoft account verdict alert). If alice.chen clicks Reply and answers the 'CFO', which domain would her answer actually be delivered to? Enter the domain only, without the user part before the @.",
         answer: "gmail-secure-mail.com",
         hint: "More than one header in that log names a domain other than globalpartners.com. Only one of those headers decides where replies go; the other is used for bounces.",
         xp: 40,
+      },
+      // ── Scope: hunt for every recipient ──
+      {
+        type: "query_fill",
+        id: "phishing-qf1",
+        heading: "Scope the Campaign: Who Else Got It?",
+        language: "kql",
+        context:
+          "alice.chen reported the 'URGENT: Wire Transfer Required Before EOD' email, but one report is rarely the only copy. Complete the Microsoft Defender XDR advanced hunting query that lists every recipient of mail from the fake CFO's From address (the one in the Evidence Lab log) in the last 7 days, with where each copy sits now.",
+        template:
+          "{{table}}\n| where Timestamp > ago(7d)\n| where {{field}} == \"{{sender}}\"\n| project Timestamp, RecipientEmailAddress, DeliveryAction, LatestDeliveryLocation, NetworkMessageId",
+        blanks: [
+          { id: "table", answers: ["EmailEvents"], placeholder: "table" },
+          { id: "field", answers: ["SenderFromAddress"], placeholder: "From-header field" },
+          { id: "sender", answers: ["cfo@globalpartners.com"], placeholder: "sender address" },
+        ],
+        explanation:
+          "Delivered mail lives in the EmailEvents table. SenderFromAddress is the address in the From header, which is the fake CFO address every copy of this campaign shares: cfo@globalpartners.com. SenderMailFromAddress would be the envelope sender (the Return-Path, bounce@sendinblue-relay247.net here); it also works for this campaign, but the From address is the one the reporter saw and the one to put in the ticket.",
+        xp: 30,
+      },
+
+      // ── Scope: read the hunt results ──
+      {
+        type: "log_analysis",
+        id: "phishing-la2",
+        heading: "Hunt Results: Where Every Copy Sits Now",
+        context:
+          "Your EmailEvents hunt returned five recipients. LatestDeliveryLocation per recipient: alice.chen@contoso.com Inbox/folder; m.okafor@contoso.com Inbox/folder; finance-ap@contoso.com (the shared accounts-payable mailbox) Inbox/folder; d.levi@contoso.com Junk folder; j.park@contoso.com Quarantine. A second hunt in DeviceProcessEvents looked for anyone who opened the attachment and returned the record below. Decide what still has to be cleaned up and who needs containment.",
+        event: {
+          id: "evt-phish-hunt-001",
+          ts: "2026-06-24T08:58:14.000Z",
+          source: "edr",
+          event_type: "process_create",
+          hostname: "fin-ws-014.contoso.com",
+          severity: "high",
+          vendor: "Microsoft Defender for Endpoint",
+          raw: {
+            Timestamp: "2026-06-24T08:58:14.000Z",
+            DeviceName: "fin-ws-014.contoso.com",
+            ActionType: "ProcessCreated",
+            AccountDomain: "contoso",
+            AccountName: "m.okafor",
+            FileName: "powershell.exe",
+            FolderPath: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+            ProcessCommandLine: "powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQA",
+            InitiatingProcessFileName: "EXCEL.EXE",
+            InitiatingProcessCommandLine: "\"EXCEL.EXE\" \"C:\\Users\\m.okafor\\Downloads\\Urgent_Wire_Request_Q2.xlsm\"",
+            InitiatingProcessAccountName: "m.okafor",
+          },
+        },
+        questions: [
+          {
+            question: "How many mailboxes still hold a copy of the campaign that has to be purged?",
+            options: [
+              "1: only alice.chen, who reported it",
+              "3: the three copies delivered to an Inbox",
+              "4: the three Inbox copies plus the Junk folder copy",
+              "5: every recipient the hunt returned",
+            ],
+            answer: 2,
+            explanation:
+              "LatestDeliveryLocation says where each copy sits now. alice.chen, m.okafor and finance-ap@contoso.com have it in the Inbox, and d.levi has it in the Junk folder, which is still inside the mailbox: users do open junk mail, so that copy is purged too. j.park's copy is in Quarantine, outside the mailbox, so it is not a purge target (it just must not be released). The shared finance-ap mailbox matters most of all: several people read it, and it is exactly where a fake wire request does damage.",
+            xp: 20,
+          },
+          {
+            question: "Which account needs endpoint containment right now, and why?",
+            options: [
+              "alice.chen, because reporting the email means the attachment was opened",
+              "m.okafor, because EXCEL.EXE opening the attachment started powershell.exe on fin-ws-014",
+              "finance-ap@contoso.com, because a shared mailbox is the highest-risk recipient",
+              "j.park, because the gateway blocked the message for that user",
+            ],
+            answer: 1,
+            explanation:
+              "DeviceProcessEvents shows EXCEL.EXE opening Urgent_Wire_Request_Q2.xlsm and starting a hidden, encoded powershell.exe on fin-ws-014 under m.okafor: the macro ran, so that host has an active foothold and is isolated first. Reporting an email is not evidence of opening it, and nothing in the hunt shows alice.chen ran anything. The shared mailbox needs its copy purged, not endpoint isolation. j.park's copy never reached the mailbox.",
+            xp: 20,
+          },
+        ],
+      },
+
+      // ── Contain ──
+      {
+        type: "ordering",
+        id: "phishing-ord1",
+        heading: "Containment Plan: What Happens First?",
+        instructions:
+          "You have five containment actions for this campaign. Put them in the order you would run them, from first to last.",
+        items: [
+          { id: "notify", text: "Notify the recipients and thank alice.chen for reporting" },
+          { id: "block", text: "Block cfo@globalpartners.com, the relay IP 185.220.101.47 and the attachment hash" },
+          { id: "isolate", text: "Isolate fin-ws-014 in EDR, where the macro ran" },
+          { id: "creds", text: "Reset m.okafor's password and revoke all of the account's sessions" },
+          { id: "purge", text: "Purge the copies in the three Inboxes and the Junk folder" },
+        ],
+        correct_order: ["isolate", "purge", "block", "creds", "notify"],
+        explanation:
+          "Stop what is already running, then stop new victims, then stop it coming back. Isolating fin-ws-014 comes first because the payload is executing there and spreads while you work. Purging the four mailbox copies comes next, so nobody else opens the attachment, finance-ap above all. Blocking the sender, relay IP and hash prevents re-delivery. m.okafor's credentials are then reset and the sessions revoked, since a macro that ran under that account may have stolen them. Notification closes the loop with the users.",
+        xp: 30,
+      },
+
+      // ── Close the ticket ──
+      {
+        type: "written_report",
+        id: "phishing-wr1",
+        heading: "Close the Ticket",
+        context:
+          "INC-2026-0624-07. The 'URGENT: Wire Transfer Required Before EOD' campaign is contained. The case owner needs your closing summary before the ticket can be closed and the finance team briefed.",
+        prompt:
+          "Write the closing summary for the ticket: what happened, the evidence (the real indicators from this case), who was affected, what was done, and your verdict.",
+        rubricHints: [
+          "Say what the email was and what it tried to get the victim to do",
+          "Cite the actual indicators you saw: sender and Reply-To addresses, the relay domain and IP, the attachment name",
+          "Name who received it, where the copies were, and who opened the attachment on which host",
+          "List the containment actions you took, in the order you took them",
+          "End with a clear verdict: phishing, spam, BEC or benign",
+        ],
+        referenceIocs: [
+          "cfo@globalpartners.com",
+          "gmail-secure-mail.com",
+          "sendinblue-relay247.net",
+          "185.220.101.47",
+          "Urgent_Wire_Request_Q2.xlsm",
+          "m.okafor",
+          "fin-ws-014",
+        ],
+        minWords: 80,
+        explanation:
+          "A strong closing summary reads like this: a BEC phishing email impersonating the CFO of Global Partners (From cfo@globalpartners.com, Reply-To on gmail-secure-mail.com) was relayed through sendinblue-relay247.net from 185.220.101.47 with a macro workbook, Urgent_Wire_Request_Q2.xlsm. DMARC failed for globalpartners.com. Five recipients got it: three copies in Inboxes (including the finance-ap shared mailbox), one in Junk, one quarantined. m.okafor opened the attachment and the macro started PowerShell on fin-ws-014. Actions: host isolated, four mailbox copies purged, sender, IP and hash blocked, m.okafor's password reset and sessions revoked, users notified. Verdict: confirmed phishing (BEC with a malicious attachment). Every value is one you saw in the evidence, so the summary is defensible.",
+        xp: 50,
       },
     ],
   },

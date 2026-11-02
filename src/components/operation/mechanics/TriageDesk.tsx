@@ -8,7 +8,7 @@ import { shuffleWithSeed, newShuffleSeed } from "@/lib/rooms/shuffle";
 import type { SanitizedAnalystChoiceTask } from "@/lib/rooms/sanitize";
 import { AlreadyCleared, ContinueButton, PersonaAvatar, Verdict, flattenRaw, useMechanic, type MechanicProps } from "../shared";
 
-const DESK_SECONDS = 120;
+const DESK_SECONDS = 90;
 
 const VERDICT_STYLE: Record<string, { icon: React.ElementType; ring: string }> = {
   true_positive:  { icon: ShieldX,      ring: "border-neon-red/50 hover:bg-neon-red/10 text-neon-red" },
@@ -18,30 +18,32 @@ const VERDICT_STYLE: Record<string, { icon: React.ElementType; ring: string }> =
 };
 
 /**
- * analyst_choice → Triage Desk. A requester arrives with an alert; the analyst
- * makes the call on a soft clock. Running out of time costs one shield but
- * never auto-submits — the point is pressure, not a coin flip.
+ * analyst_choice → Triage Desk. A requester arrives with an alert. Reading the
+ * evidence is untimed; once the analyst opens the decision, a soft clock runs.
+ * Running out of time costs a star (onSlow), never a shield, and never
+ * auto-submits: the pressure is on the call, not on careful reading.
  * Same two-try / half-credit contract as AnalystChoicePlayer.
  */
-export function TriageDesk({ roomId, task, isCompleted, onComplete, onMistake, persona }: MechanicProps<SanitizedAnalystChoiceTask>) {
+export function TriageDesk({ roomId, task, isCompleted, onComplete, onMistake, onSlow, persona }: MechanicProps<SanitizedAnalystChoiceTask>) {
   const { submit, record, complete, recordInteraction } = useMechanic(roomId, task.id, isCompleted, onComplete);
   const verdicts = useMemo(() => shuffleWithSeed(ANALYST_VERDICTS, `${newShuffleSeed()}:${task.id}`), [task.id]);
   const fields = useMemo(() => flattenRaw(task.event.raw as Record<string, unknown>), [task.event]);
   const [left, setLeft] = useState(DESK_SECONDS);
   const [overtime, setOvertime] = useState(false);
+  const [deciding, setDeciding] = useState(false);
   const [wrongOnce, setWrongOnce] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ correct: boolean; xp: number; verdict: string | null; explanation: string; trap?: string } | null>(null);
 
   useEffect(() => {
-    if (result || overtime || isCompleted) return;
+    if (!deciding || result || overtime || isCompleted) return;
     const t = setInterval(() => setLeft(s => s - 1), 1000);
     return () => clearInterval(t);
-  }, [result, overtime, isCompleted]);
+  }, [deciding, result, overtime, isCompleted]);
 
   useEffect(() => {
-    if (left <= 0 && !overtime && !result) { setOvertime(true); onMistake(); }
-  }, [left, overtime, result, onMistake]);
+    if (left <= 0 && !overtime && !result) { setOvertime(true); onSlow?.(); }
+  }, [left, overtime, result, onSlow]);
 
   if (isCompleted) return <AlreadyCleared heading={task.heading} onContinue={() => complete(0)} />;
 
@@ -110,7 +112,19 @@ export function TriageDesk({ roomId, task, isCompleted, onComplete, onMistake, p
         </div>
       </div>
 
+      {!deciding && !result && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-cyber-500/30 bg-cyber-500/5 px-4 py-3">
+          <p className="min-w-[14rem] flex-1 text-sm text-slate-300">
+            Read the alert and the evidence at your own pace. When you are ready, open the decision: you then have {DESK_SECONDS} seconds to make the call.
+          </p>
+          <button autoFocus onClick={() => setDeciding(true)} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyber-400 to-indigo-400 px-5 py-2.5 text-sm font-bold text-bg hover:brightness-110">
+            <Timer className="h-4 w-4" /> I have read the ticket
+          </button>
+        </div>
+      )}
+
       {/* Clock */}
+      {deciding && !result && (
       <div className="flex items-center gap-3">
         <Timer className={cn("h-4 w-4", overtime ? "text-neon-red" : "text-slate-400")} />
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
@@ -123,6 +137,10 @@ export function TriageDesk({ roomId, task, isCompleted, onComplete, onMistake, p
           {overtime ? "OVERTIME" : `${left}s`}
         </span>
       </div>
+      )}
+      {overtime && !result && (
+        <p role="status" className="text-xs text-neon-amber">Over time: this station loses a star. Take the time you need to get the call right.</p>
+      )}
 
       {wrongOnce && !result && (
         <p role="status" className="rounded-lg border border-neon-amber/40 bg-neon-amber/10 px-3 py-2 text-sm text-neon-amber">
@@ -130,7 +148,7 @@ export function TriageDesk({ roomId, task, isCompleted, onComplete, onMistake, p
         </p>
       )}
 
-      {!result ? (
+      {!result ? deciding && (
         <div className="grid grid-cols-2 gap-3">
           {verdicts.map(v => {
             const s = VERDICT_STYLE[v.key];

@@ -2347,8 +2347,8 @@ export const ROOMS_META: RoomMeta[] = [
     "description": "Learn to dissect malicious emails like a forensics expert: decode spoofed headers, failed authentication records, weaponised attachments, and Business Email Compromise patterns.",
     "difficulty": "intermediate",
     "category": "Threat Detection",
-    "estimatedMinutes": 45,
-    "xp": 180,
+    "estimatedMinutes": 60,
+    "xp": 330,
     "icon": "🎣",
     "prerequisites": [
       "email-security"
@@ -2385,20 +2385,40 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
-        "id": "phishing-la1",
-        "type": "log_analysis",
-        "xp": 50
-      },
-      {
         "id": "phishing-ac1",
         "type": "analyst_choice",
         "xp": 30,
         "mitreTechnique": "T1566.001"
       },
       {
+        "id": "phishing-la1",
+        "type": "log_analysis",
+        "xp": 50
+      },
+      {
         "id": "phishing-flag1",
         "type": "flag",
         "xp": 40
+      },
+      {
+        "id": "phishing-qf1",
+        "type": "query_fill",
+        "xp": 30
+      },
+      {
+        "id": "phishing-la2",
+        "type": "log_analysis",
+        "xp": 40
+      },
+      {
+        "id": "phishing-ord1",
+        "type": "ordering",
+        "xp": 30
+      },
+      {
+        "id": "phishing-wr1",
+        "type": "written_report",
+        "xp": 50
       }
     ]
   },

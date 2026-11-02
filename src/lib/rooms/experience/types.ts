@@ -28,8 +28,8 @@ export interface Persona {
   line: string;
 }
 
-/** The hub building that stands for a station on the mail-route street. */
-export type BuildingKind = "archive" | "factory" | "lab" | "office" | "vault";
+/** The kind of place a station is; picks its illustration on the mission board. */
+export type BuildingKind = "archive" | "factory" | "lab" | "office" | "vault" | "control" | "ticket";
 
 /**
  * Briefing labs: hands-on ways to learn a reading's material (inspect an

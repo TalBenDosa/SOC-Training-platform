@@ -78,6 +78,7 @@ export function OperationView(p: OperationViewProps) {
   const [phase, setPhase] = useState<Phase>("hub");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [shields, setShields] = useState(MAX_SHIELDS);
+  const [slow, setSlow] = useState(false);
   const [taskKey, setTaskKey] = useState(0);
   const [lastStars, setLastStars] = useState(0);
   const [has3d, setHas3d] = useState(true);
@@ -137,7 +138,7 @@ export function OperationView(p: OperationViewProps) {
   useEffect(() => {
     if (phase !== "station" || !active) return;
     if (stationDone(active)) {
-      const stars = Math.max(1, shields);
+      const stars = Math.max(1, shields - (slow ? 1 : 0));
       setLastStars(stars);
       updateLocal(v => ({ ...v, stars: { ...v.stars, [active.id]: Math.max(v.stars[active.id] ?? 0, stars) } }));
       setPhase("cleared");
@@ -149,7 +150,7 @@ export function OperationView(p: OperationViewProps) {
       const first = active.taskIds.find(id => !completedTaskIds.has(id));
       if (first) p.goToTask(indexOf.get(first)!);
     }
-  }, [phase, active, stationDone, shields, currentTaskIndex, completedTaskIds, room.tasks, indexOf, updateLocal, p]);
+  }, [phase, active, stationDone, shields, slow, currentTaskIndex, completedTaskIds, room.tasks, indexOf, updateLocal, p]);
 
   function enterStation(id: string) {
     const s = experience.stations.find(x => x.id === id);
@@ -161,9 +162,12 @@ export function OperationView(p: OperationViewProps) {
     setActiveId(id);
     breachPending.current = false;
     setShields(MAX_SHIELDS);
+    setSlow(false);
     setTaskKey(k => k + 1);
     setPhase("station");
   }
+
+  const markSlow = useCallback(() => setSlow(true), []);
 
   // A breach caused by a revealed answer is held until the learner continues,
   // so the overlay never hides the explanation they just earned.
@@ -186,6 +190,7 @@ export function OperationView(p: OperationViewProps) {
     p.goToTask(indexOf.get(active.taskIds[0])!);
     breachPending.current = false;
     setShields(MAX_SHIELDS);
+    setSlow(false);
     setTaskKey(k => k + 1);
     setPhase("station");
   }
@@ -339,7 +344,7 @@ export function OperationView(p: OperationViewProps) {
                 labs={experience.briefings?.[task.id]}
                 props={{
                   roomId: room.id, isCompleted: completedTaskIds.has(task.id),
-                  onComplete: handleComplete, onMistake, persona: experience.personas?.[task.id],
+                  onComplete: handleComplete, onMistake, onSlow: markSlow, persona: experience.personas?.[task.id],
                   prevLogEvent: p.prevLogEvent, intelTokens: local.tokens, spendToken,
                 }}
               />
@@ -353,7 +358,13 @@ export function OperationView(p: OperationViewProps) {
             <h2 className="mt-2 text-3xl font-extrabold text-white">{active.label}</h2>
             <Stars n={lastStars} big className="mt-4 justify-center" />
             <p className="mt-3 text-sm text-slate-300">
-              {lastStars === 3 ? "Clean work. Not a single shield lost." : `${MAX_SHIELDS - lastStars} shield${MAX_SHIELDS - lastStars === 1 ? "" : "s"} lost. Replay any time for 3 stars.`}
+              {lastStars === 3
+                ? "Clean work. Not a single shield lost."
+                : [
+                    MAX_SHIELDS - shields > 0 ? `${MAX_SHIELDS - shields} shield${MAX_SHIELDS - shields === 1 ? "" : "s"} lost.` : "",
+                    slow ? "One star for running over time." : "",
+                    "Replay any time for 3 stars.",
+                  ].filter(Boolean).join(" ")}
             </p>
             <button autoFocus onClick={afterCleared} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyber-400 to-indigo-400 px-6 py-3 text-sm font-bold text-bg">
               {p.showCompletion || p.showFailure ? "Debrief" : "Back to the floor"} <ChevronRight className="h-4 w-4" />

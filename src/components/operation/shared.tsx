@@ -18,6 +18,8 @@ export interface MechanicProps<T> {
    *  explanation is on screen now, so a resulting breach waits until the
    *  learner has read it and continued. */
   onMistake: (withReveal?: boolean) => void;
+  /** Too slow (e.g. the triage clock ran out): costs a star at the end of the station, never a shield. */
+  onSlow?: () => void;
   persona?: Persona;
   prevLogEvent?: TelemetryEvent;
   intelTokens: number;

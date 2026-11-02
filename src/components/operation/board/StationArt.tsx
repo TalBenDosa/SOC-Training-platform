@@ -208,7 +208,79 @@ function VaultArt({ id }: { id: string }) {
   );
 }
 
+// Control room: the hunt results on a wall screen, the containment switches below.
+function ControlArt({ id }: { id: string }) {
+  const rows = [
+    { w: 70, c: "var(--op-w)" }, { w: 58, c: "var(--op-w)" }, { w: 64, c: "var(--op-w)" }, { w: 48, c: "#fbbf24" }, { w: 54, c: "#34d399" },
+  ];
+  return (
+    <>
+      <Floor id={id} />
+      {/* wall screen: recipients of the campaign */}
+      <g transform="translate(30 12)">
+        <rect width="200" height="74" rx="6" fill={INK} stroke="var(--op-a)" strokeOpacity="0.6" />
+        <rect x="8" y="7" width="58" height="5" rx="2" fill="var(--op-a)" opacity="0.8" />
+        <text x="194" y="13" textAnchor="end" fontSize="6.5" fontWeight="800" fill="var(--op-a)" fontFamily="ui-monospace,monospace">EmailEvents</text>
+        {rows.map((r, i) => (
+          <g key={i} transform={`translate(8 ${19 + i * 10.5})`}>
+            <circle cx="3" cy="2.5" r="2.6" fill={r.c} className={i < 3 ? "op-blink" : undefined} style={{ animationDelay: `${i * 0.25}s` }} />
+            <rect x="10" y="0.8" width={r.w} height="3.6" rx="1.5" fill="#94a3b8" opacity="0.55" />
+            <rect x="96" y="0.8" width="40" height="3.6" rx="1.5" fill={r.c} opacity="0.75" />
+            <rect x="144" y="0.8" width="38" height="3.6" rx="1.5" fill="#475569" />
+          </g>
+        ))}
+        <rect className="op-scan" x="4" y="16" width="192" height="8" fill="var(--op-a)" opacity="0.12" />
+      </g>
+      {/* containment console */}
+      <g transform="translate(22 92) skewY(-4)">
+        <rect width="216" height="34" rx="6" fill="#111c31" stroke={EDGE} />
+        {["ISOLATE", "PURGE", "BLOCK", "RESET"].map((label, i) => (
+          <g key={label} transform={`translate(${10 + i * 52} 7)`}>
+            <rect width="44" height="20" rx="4" fill={i < 2 ? "#0f2a22" : "#1a2440"} stroke={i < 2 ? "#34d399" : "var(--op-a)"} strokeOpacity="0.8" />
+            <text x="22" y="13" textAnchor="middle" fontSize="6.6" fontWeight="800" fill={i < 2 ? "#34d399" : "var(--op-a)"} fontFamily="ui-monospace,monospace">{label}</text>
+          </g>
+        ))}
+      </g>
+    </>
+  );
+}
+
+// Close the ticket: the incident record with its checklist and the CLOSED stamp.
+function TicketArt({ id }: { id: string }) {
+  return (
+    <>
+      <Floor id={id} />
+      <g transform="translate(58 10) rotate(-4)">
+        <rect width="132" height="118" rx="8" fill="#e7eef8" />
+        <rect width="132" height="22" rx="8" fill="#1f3152" />
+        <rect y="14" width="132" height="8" fill="#1f3152" />
+        <text x="10" y="15" fontSize="8" fontWeight="800" fill="var(--op-a)" fontFamily="ui-monospace,monospace">INC-2026-0624-07</text>
+        {[0, 1, 2, 3, 4].map(i => (
+          <g key={i} transform={`translate(10 ${32 + i * 14})`}>
+            <rect width="9" height="9" rx="2" fill="none" stroke="#64748b" strokeWidth="1.4" />
+            {i < 4 && <path d="M2 4.6 l2.2 2.3 l3.6 -4.6" fill="none" stroke="#059669" strokeWidth="1.8" strokeLinecap="round" />}
+            <rect x="16" y="2.6" width={[84, 70, 92, 62, 78][i]} height="3.6" rx="1.5" fill="#7a8ca6" />
+          </g>
+        ))}
+        {/* pen writing the last line */}
+        <g className="op-float" style={{ animationDuration: "2.4s" }}>
+          <path d="M104 84 l22 -22 l6 6 l-22 22 z" fill="var(--op-b)" />
+          <path d="M104 84 l-3 9 l9 -3 z" fill="#cbd5e1" />
+        </g>
+      </g>
+      <g transform="translate(150 96) rotate(-14)">
+        <g className="op-stamp">
+          <rect x="-38" y="-13" width="76" height="26" rx="4" fill="none" stroke="var(--op-b)" strokeWidth="2.6" />
+          <text x="0" y="5.5" textAnchor="middle" fontSize="15" fontWeight="900" fill="var(--op-b)" fontFamily="ui-monospace,monospace">CLOSED</text>
+        </g>
+      </g>
+    </>
+  );
+}
+
 const ART: Record<BuildingKind, React.FC<{ id: string }>> = {
+  control: ControlArt,
+  ticket: TicketArt,
   archive: ArchiveArt,
   factory: FactoryArt,
   lab: LabArt,
