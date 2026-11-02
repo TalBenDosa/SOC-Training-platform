@@ -1185,5 +1185,77 @@ export const LIBRARY_INDEX: LibraryEntry[] = [
     "difficulty": "intermediate",
     "sectionCount": 8,
     "blurb": "Cisco IOS is the command-line operating system on most Cisco routers and switches, and operating it means moving between privilege modes, editing a running configuration, and deliberately saving it. This lesson teaches how to configure, secure, monitor and recover an IOS device,"
+  },
+  {
+    "id": "topic-lesson-wireless-networking-lap-and-wlc",
+    "slug": "wireless-networking-lap-and-wlc",
+    "title": "Enterprise Wireless: 802.11, Lightweight APs, WLCs and WLAN Security",
+    "topic": "Networking",
+    "difficulty": "intermediate",
+    "sectionCount": 9,
+    "blurb": "Enterprise wireless is an 802.11 radio network that connects client devices to the wired network through access points (APs), usually managed centrally by a Wireless LAN Controller (WLC). This lesson teaches the 802.11 connection process, the lightweight AP and CAPWAP"
+  },
+  {
+    "id": "topic-lesson-network-automation-apis-and-json",
+    "slug": "network-automation-apis-and-json",
+    "title": "Network Automation: REST APIs, JSON, NETCONF/RESTCONF and Config Tooling",
+    "topic": "Networking",
+    "difficulty": "intermediate",
+    "sectionCount": 8,
+    "blurb": "Network automation is the practice of configuring, monitoring and verifying network devices with programs and structured data instead of typing commands on each device by hand. This lesson teaches why it exists, how JSON, REST, NETCONF, RESTCONF and YANG carry device data, how"
+  },
+  {
+    "id": "topic-lesson-aws-compute-ec2-and-scaling",
+    "slug": "aws-compute-ec2-and-scaling",
+    "title": "AWS Compute: EC2, Storage, Load Balancing and Auto Scaling",
+    "topic": "Cloud",
+    "difficulty": "beginner",
+    "sectionCount": 9,
+    "blurb": "Amazon EC2 (Elastic Compute Cloud) is the AWS service that rents you virtual machines, called instances, by the second, and around it sit the services that make those machines useful: EBS disks, Elastic Load Balancing, and EC2 Auto Scaling. This lesson teaches how each piece"
+  },
+  {
+    "id": "topic-lesson-aws-storage-s3-ebs-and-classes",
+    "slug": "aws-storage-s3-ebs-and-classes",
+    "title": "AWS Storage Services: S3, EBS, EFS and Choosing the Right Storage Class",
+    "topic": "Cloud",
+    "difficulty": "beginner",
+    "sectionCount": 9,
+    "blurb": "AWS sells storage in three shapes: object storage (S3), block storage (EBS) and file storage (EFS and the FSx family), and each shape suits a different way of reading and writing data. This lesson teaches how each service works, how the S3 storage classes trade price against"
+  },
+  {
+    "id": "topic-lesson-aws-databases-and-analytics",
+    "slug": "aws-databases-and-analytics",
+    "title": "AWS Databases and Analytics: Picking the Right Data Service for the Workload",
+    "topic": "Cloud",
+    "difficulty": "intermediate",
+    "sectionCount": 8,
+    "blurb": "AWS offers a family of managed database and analytics services, each built for a specific access pattern: relational (RDS, Aurora), key-value and document (DynamoDB), in-memory (ElastiCache), warehouse (Redshift) and query-in-place over object storage (Athena). The goal of this"
+  },
+  {
+    "id": "topic-lesson-aws-serverless-and-containers",
+    "slug": "aws-serverless-and-containers",
+    "title": "AWS Serverless and Containers: Lambda, API Gateway, ECS, EKS, Fargate and Event-Driven Glue",
+    "topic": "Cloud",
+    "difficulty": "intermediate",
+    "sectionCount": 8,
+    "blurb": "AWS offers three compute models on a spectrum of responsibility: virtual machines (EC2), containers (ECR, ECS, EKS, Fargate) and serverless functions (Lambda), each trading control for less operational work. The goal of this lesson is to understand what you manage in each model,"
+  },
+  {
+    "id": "topic-lesson-aws-networking-vpc-and-connectivity",
+    "slug": "aws-networking-vpc-and-connectivity",
+    "title": "AWS Networking and Connectivity: VPCs, Routing, Edge, Hybrid Links and Endpoints",
+    "topic": "Cloud",
+    "difficulty": "intermediate",
+    "sectionCount": 9,
+    "blurb": "An AWS Virtual Private Cloud (VPC) is a logically isolated virtual network that you define inside a Region, with its own IP range, subnets, route tables and gateways, and almost every AWS workload that touches a network lives inside one. This lesson maps each networking service"
+  },
+  {
+    "id": "topic-lesson-aws-iac-monitoring-and-billing",
+    "slug": "aws-iac-monitoring-and-billing",
+    "title": "AWS Operations Toolkit: Infrastructure as Code, Monitoring, Billing and the Well-Architected Framework",
+    "topic": "Cloud",
+    "difficulty": "intermediate",
+    "sectionCount": 9,
+    "blurb": "Cloud operations on AWS is the set of services used to define infrastructure in code (CloudFormation, CDK), ship changes through pipelines (CodePipeline, CodeBuild, CodeDeploy), observe the running estate (CloudWatch, AWS Health, Systems Manager), control spend (Cost Explorer,"
   }
 ];
