@@ -10,6 +10,7 @@ import type { RoomExperience } from "./types";
 // Lab examples are deliberately different from the graded tasks: no flooded
 // records system (q1), no poisoned software update (q2), no bank email (q3),
 // a USB worm whose removal failed rather than a quarantined web download (la1),
+// a parcel text message rather than a bank email in the attack gallery (q3),
 // and the career wall leaves out the entry-level role (q4).
 export const INTRO_CYBERSECURITY: RoomExperience = {
   roomId: "intro-cybersecurity",
@@ -171,6 +172,92 @@ export const INTRO_CYBERSECURITY: RoomExperience = {
         ],
       },
       {
+        kind: "evidence",
+        title: "See the Breach",
+        prompt: "Maya opens the academy's case archive: real screens from incidents around Northport. For each screen, decide which lock was broken.",
+        choices: [
+          { id: "c", label: "Confidentiality broken" },
+          { id: "i", label: "Integrity broken" },
+          { id: "a", label: "Availability broken" },
+        ],
+        items: [
+          {
+            id: "leak",
+            caption: "pastedrop.cc · public paste site",
+            screen: {
+              type: "leak",
+              site: "pastedrop.cc",
+              title: "northport_schools_pupils_FULL.csv",
+              meta: "Posted 3 hours ago by anon_x · 4,812 lines · 1,207 views",
+              header: ["pupil_id", "name", "home_address", "parent_phone"],
+              rows: [
+                ["10442", "Lena Ortiz", "14 Quay Street", "07700 900412"],
+                ["10443", "Sam Becker", "3 Mill Lane", "07700 900877"],
+                ["10444", "Noor Haddad", "88 Harbour Road", "07700 900135"],
+              ],
+            },
+            answer: "c",
+            callouts: [
+              { at: "title", text: "The file name says FULL: a whole database left the school, not one record." },
+              { at: "rows", text: "Names, home addresses and parents' phone numbers: private data only the school should see." },
+              { at: "site", text: "A public paste site: anyone on the internet can now read it. Nothing was changed or switched off, it was exposed." },
+            ],
+          },
+          {
+            id: "status",
+            caption: "status.northport.example · service status",
+            screen: {
+              type: "status",
+              service: "Northport Bus Timetable API",
+              state: "Major outage",
+              errors: "HTTP 503 Service Unavailable · 4,210 failed requests in 10 min",
+              series: [100, 100, 100, 99, 100, 100, 100, 98, 100, 100, 62, 8, 0, 0, 0, 0, 0, 0, 0, 0],
+            },
+            answer: "a",
+            callouts: [
+              { at: "state", text: "The service is marked as down for everyone." },
+              { at: "graph", text: "Availability drops from 100% to zero in a few minutes and stays there." },
+              { at: "errors", text: "503 means the server cannot answer. The data may be perfectly safe, but nobody can use it now." },
+            ],
+          },
+          {
+            id: "fim",
+            caption: "File Integrity Monitor · alert",
+            screen: {
+              type: "integrity",
+              tool: "File Integrity Monitor · Northport Finance",
+              file: "\\\\fs01\\finance\\suppliers\\bank_details.xlsx",
+              expected: "9f2c4e81b07d3a65c1e8f4429b0d7a13e6c5f28d4b91a0e7c3d5f6a8b2e4c901",
+              current: "1d7e9a02c4f8b63e5a19d0c7f2b4e8a61c3d9f05b7e2a4c8d6f1b3e9a0c5d742",
+              changedBy: "NPCITY\\temp.contractor",
+              when: "Sat 03:12",
+              before: "Northport Paving Ltd · account 41-22-08 · 55109832",
+              after: "Northport Paving Ltd · account 60-71-14 · 90273316",
+            },
+            answer: "i",
+            callouts: [
+              { at: "change", text: "The supplier's bank account was swapped: the next payment goes to someone else." },
+              { at: "hashes", text: "The file's fingerprint (its hash) no longer matches the trusted one: proof it was altered, at 3 a.m. on a Saturday." },
+            ],
+          },
+          {
+            id: "deface",
+            caption: "library.northport.example",
+            screen: {
+              type: "defaced",
+              url: "library.northport.example",
+              banner: "Hacked by Gh0st Crew",
+              text: "Your library is closed. Free the internet.",
+            },
+            answer: "i",
+            callouts: [
+              { at: "url", text: "This is the library's real address, not a fake site." },
+              { at: "banner", text: "The page still loads and nothing secret leaked, but its content was replaced without permission: what it says can no longer be trusted. That is integrity." },
+            ],
+          },
+        ],
+      },
+      {
         kind: "reactor",
         title: "Triad Reactor",
         prompt: "Now at speed. Incidents from around Northport roll in on the conveyor. Route each one to the lock it breaks before it reaches the end of the belt.",
@@ -211,22 +298,112 @@ export const INTRO_CYBERSECURITY: RoomExperience = {
         ],
       },
       {
-        kind: "tricks",
-        title: "Trick Cards",
-        prompt: "Every cyberattack is an old trick in new clothes. Flip each card, read the everyday trick, and stamp it with the attack that works the same way.",
-        attacks: [
-          { id: "phishing", name: "Phishing" },
-          { id: "ransomware", name: "Ransomware" },
-          { id: "ddos", name: "DDoS" },
-          { id: "mitm", name: "Man-in-the-Middle" },
-          { id: "social", name: "Social engineering" },
+        kind: "evidence",
+        title: "Attack Gallery",
+        prompt: "Now the attacks themselves, the way they look on a real screen. Name each one, then read the clues that give it away.",
+        choices: [
+          { id: "phishing", label: "Phishing" },
+          { id: "ransomware", label: "Ransomware" },
+          { id: "ddos", label: "DDoS" },
+          { id: "mitm", label: "Man-in-the-Middle" },
+          { id: "social", label: "Social engineering" },
         ],
-        cards: [
-          { id: "pizza", analogy: "Hundreds of prank callers ring a pizza shop non-stop, so real customers cannot get through.", attack: "ddos", real: "DDoS (Distributed Denial of Service): thousands of machines flood a server with fake requests until real users cannot reach it." },
-          { id: "landlord", analogy: "A letter that looks like it is from your landlord asks you to post your spare key to a new address.", attack: "phishing", real: "Phishing: a fake message that looks like it comes from someone you trust, asking for a click or a password." },
-          { id: "padlock", analogy: "A thief puts his own padlock on your garage and leaves a note: pay me and I will send you the key.", attack: "ransomware", real: "Ransomware: malware encrypts (locks) your files and demands payment for the key." },
-          { id: "courier", analogy: "A dishonest courier opens your parcels, reads the letters inside, and reseals them before delivery.", attack: "mitm", real: "Man-in-the-Middle: the attacker sits between two parties and reads or changes their messages in transit." },
-          { id: "vest", analogy: "A man in a hi-vis vest says he is from the gas company, and the receptionist lets him into the server room.", attack: "social", real: "Social engineering: manipulating a person, not a system, into giving access or information." },
+        items: [
+          {
+            id: "ransom",
+            caption: "Desktop · FIN-PC-12",
+            screen: {
+              type: "ransom",
+              heading: "Your files are encrypted",
+              note: [
+                "All documents, photos and databases on this network have been encrypted.",
+                "To get the decryption key, pay 2.5 BTC within 72 hours.",
+                "After 72 hours your files will be published online.",
+              ],
+              files: ["budget_2025.xlsx.locked", "staff_rota.docx.locked", "README_RESTORE.txt", "photo_0412.jpg.locked"],
+              wallet: "Send to: bc1q9x7kd3m2fz8v0aw6ylq4tc5ue8hr2nj7pgs3qd",
+            },
+            answer: "ransomware",
+            callouts: [
+              { at: "files", text: "Every file now ends in .locked: they were encrypted and nobody can open them." },
+              { at: "note", text: "A ransom note with a deadline, plus a threat to publish the files: pay twice or lose twice." },
+              { at: "wallet", text: "Payment in cryptocurrency, which is hard to trace." },
+            ],
+          },
+          {
+            id: "flood",
+            caption: "Network monitoring · pay.northportbank.example",
+            screen: {
+              type: "traffic",
+              service: "pay.northportbank.example",
+              normal: 420,
+              series: [410, 430, 405, 440, 420, 415, 2900, 7800, 8600, 8900, 8700, 8800, 8650, 8900],
+              sources: [
+                { ip: "203.0.113.17", country: "BR", rate: "1,912" },
+                { ip: "198.51.100.44", country: "VN", rate: "1,880" },
+                { ip: "192.0.2.201", country: "US", rate: "1,764" },
+                { ip: "203.0.113.90", country: "DE", rate: "1,702" },
+              ],
+            },
+            answer: "ddos",
+            callouts: [
+              { at: "graph", text: "Traffic jumps to about 20 times a normal Friday within seconds and stays there." },
+              { at: "sources", text: "Thousands of requests per second from many machines in many countries: distributed. Real customers cannot get through." },
+            ],
+          },
+          {
+            id: "cert",
+            caption: "Browser · laptop on café Wi-Fi",
+            screen: {
+              type: "certwarn",
+              network: "Wi-Fi: Harbour_Cafe_FREE",
+              url: "https://mail.npacademy.org",
+              error: "NET::ERR_CERT_AUTHORITY_INVALID",
+              detail: "Attackers might be trying to steal your information from mail.npacademy.org (for example, passwords, messages or credit cards).",
+            },
+            answer: "mitm",
+            callouts: [
+              { at: "network", text: "An open public Wi-Fi: another device on it can put itself between you and the site." },
+              { at: "url", text: "The academy's own mail site, which normally opens without any warning." },
+              { at: "error", text: "The certificate is not trusted: the connection is not going straight to the real server. Someone may be in the middle." },
+            ],
+          },
+          {
+            id: "call",
+            caption: "Service Desk · new ticket",
+            screen: {
+              type: "ticket",
+              id: "INC-20417",
+              caller: "Says he is Robert Hale, Finance Director",
+              callerId: "+44 7700 900123 (external mobile)",
+              request: "Reset my email password and read the new one to me over the phone",
+              notes: "Caller says he is at the airport and his phone is about to die.",
+              pressure: "Caller: \"I need this in two minutes or the payroll run fails. I will tell the CEO you held it up.\"",
+            },
+            answer: "social",
+            callouts: [
+              { at: "caller", text: "A claimed identity the agent cannot see or check." },
+              { at: "request", text: "He asks a person to break the rules: a password read out over the phone." },
+              { at: "pressure", text: "Urgency plus pressure from authority: the classic push. The target is a person, not a computer." },
+            ],
+          },
+          {
+            id: "sms",
+            caption: "Phone · messages",
+            screen: {
+              type: "sms",
+              from: "NP-Post",
+              time: "Today 08:41",
+              text: "Your parcel is on hold. A 1.99 redelivery fee is due today, or it is returned to sender:",
+              link: "https://np-post.parcel-fee.top/pay",
+            },
+            answer: "phishing",
+            callouts: [
+              { at: "sender", text: "A sender name anyone can type in." },
+              { at: "text", text: "A small fee and a deadline: low cost, high urgency, so you act before you think." },
+              { at: "link", text: "The link is not the postal service's site: a look-alike page that collects card details. Phishing works by text message too." },
+            ],
+          },
         ],
       },
     ],

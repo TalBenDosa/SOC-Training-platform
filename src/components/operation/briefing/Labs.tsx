@@ -7,6 +7,7 @@ import { newShuffleSeed, shuffleWithSeed } from "@/lib/rooms/shuffle";
 import type { BriefingLab } from "@/lib/rooms/experience";
 import { DeckSortLab, HotspotLab, LineupLab, ReactorLab } from "./GameLabs";
 import { AnatomyLab, LocksLab, TricksLab, XrayLab } from "./LensLabs";
+import { EvidenceLab } from "./EvidenceLab";
 
 /** Every lab reports once when the learner has worked all of it. */
 interface LabProps<K extends BriefingLab["kind"]> {
@@ -278,6 +279,7 @@ export function Lab({ lab, onDone }: { lab: BriefingLab; onDone: () => void }) {
     case "locks":    return <LocksLab lab={lab} onDone={onDone} />;
     case "tricks":   return <TricksLab lab={lab} onDone={onDone} />;
     case "anatomy":  return <AnatomyLab lab={lab} onDone={onDone} />;
+    case "evidence": return <EvidenceLab lab={lab} onDone={onDone} />;
   }
 }
 
@@ -295,6 +297,7 @@ const HOW_TO: Record<BriefingLab["kind"], string[]> = {
   locks: ["Tap a door and read its idea and example.", "Answer the door's question to open its lock.", "Open all the doors to finish."],
   tricks: ["Tap a face-down card to flip it and read the trick.", "Tap the stamp with the attack that works the same way.", "Stamp every card to finish."],
   anatomy: ["Tap each field with a scan mark.", "Read what that field tells an analyst.", "Decode every marked field to read the alert's story."],
+  evidence: ["Study the screen.", "Tap what you think it shows.", "Read the numbered clues on the screen, then go to the next one."],
 };
 
 export function HowToPlay({ lab }: { lab: BriefingLab }) {

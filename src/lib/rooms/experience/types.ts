@@ -162,10 +162,52 @@ export type BriefingLab = ({
       source: string;
       fields: { key: string; value: string; label?: string; note?: string }[];
       summary: string;
+    }
+  | {
+      /** "What does it look like": realistic screens of real situations. The
+       *  learner names what each screen shows, then numbered markers appear on
+       *  the tell-tale parts of the screen with the explanation. */
+      kind: "evidence";
+      title: string;
+      prompt: string;
+      choices: { id: string; label: string }[];
+      items: {
+        id: string;
+        /** Window title over the screen. */
+        caption: string;
+        screen: EvidenceScreen;
+        answer: string;
+        /** `at` names a part of the screen (see EvidenceScreen); shown in order. */
+        callouts: { at: string; text: string }[];
+      }[];
     }) & {
   /** Numbered "how to play" steps shown above the lab; each kind has defaults. */
   howTo?: string[];
 };
+
+/**
+ * A realistic screen for the evidence lab. The comment on each type lists the
+ * part names a callout can point `at`.
+ */
+export type EvidenceScreen =
+  /** parts: site, title, rows */
+  | { type: "leak"; site: string; title: string; meta: string; header: string[]; rows: string[][] }
+  /** parts: file, hashes, change */
+  | { type: "integrity"; tool: string; file: string; expected: string; current: string; changedBy: string; when: string; before: string; after: string }
+  /** parts: state, graph, errors */
+  | { type: "status"; service: string; state: string; errors: string; series: number[] }
+  /** parts: url, banner */
+  | { type: "defaced"; url: string; banner: string; text: string }
+  /** parts: note, files, wallet */
+  | { type: "ransom"; heading: string; note: string[]; files: string[]; wallet: string }
+  /** parts: graph, sources */
+  | { type: "traffic"; service: string; series: number[]; normal: number; sources: { ip: string; country: string; rate: string }[] }
+  /** parts: network, url, error */
+  | { type: "certwarn"; network: string; url: string; error: string; detail: string }
+  /** parts: caller, request, pressure */
+  | { type: "ticket"; id: string; caller: string; callerId: string; request: string; pressure: string; notes: string }
+  /** parts: sender, text, link */
+  | { type: "sms"; from: string; time: string; text: string; link: string };
 
 /** Icons the x-ray lab can draw (lucide names). */
 export type XrayIcon = "fridge" | "traffic" | "atm" | "pump" | "car" | "camera" | "phone" | "plant" | "thermostat";

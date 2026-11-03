@@ -16,6 +16,87 @@ import { additive, glowTexture, mountWorld, type WorldProps } from "./common";
 const LANDMARKS = ["house", "bank", "hospital", "plant", "traffic", "school"] as const;
 const LOCK_COLORS = [0x2dd4bf, 0x60a5fa, 0xfbbf24];
 const WATCHER_COLORS = [0xf43f5e, 0xfb7185, 0xe11d48, 0xf97316, 0xc026d3];
+/** Landmark each attacker hits, matching the attack screens below. */
+const ATTACK_TARGETS = [0, 1, 2, 5, 3]; // house, bank, hospital, school, plant
+const ALERT_ROWS = [
+  "HIGH  Phishing link clicked · house-wifi",
+  "CRIT  Traffic flood · pay.northportbank",
+  "CRIT  Files encrypted · hospital FIN-PC-12",
+  "MED   Untrusted certificate · school Wi-Fi",
+  "HIGH  Password reset by phone · power plant",
+];
+
+/** A 2D screen as a canvas texture: how each attack looks on a real screen. */
+function attackScreen(kind: number): THREE.CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = 256; c.height = 168;
+  const g = c.getContext("2d")!;
+  const frame = (bg: string, bar: string, title: string, fg = "#e2e8f0") => {
+    g.fillStyle = "#1e2533"; g.fillRect(0, 0, 256, 168);
+    g.fillStyle = bar; g.fillRect(4, 4, 248, 20);
+    g.fillStyle = bg; g.fillRect(4, 24, 248, 140);
+    g.fillStyle = fg; g.font = "bold 12px sans-serif"; g.fillText(title, 12, 18);
+  };
+  const text = (t: string, x: number, y: number, color: string, font = "13px sans-serif") => { g.fillStyle = color; g.font = font; g.fillText(t, x, y); };
+  if (kind === 0) {
+    frame("#f8fafc", "#334155", "Messages");
+    g.fillStyle = "#e2e8f0"; g.fillRect(16, 40, 210, 70);
+    text("Your parcel is on hold.", 24, 62, "#0f172a");
+    text("Pay 1.99 today:", 24, 82, "#0f172a");
+    text("np-post.parcel-fee.top", 24, 100, "#2563eb", "bold 13px sans-serif");
+    text("PHISHING", 16, 148, "#e11d48", "bold 16px sans-serif");
+  } else if (kind === 1) {
+    frame("#0b1220", "#1e3a5f", "Requests per second");
+    g.strokeStyle = "#94a3b8"; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(12, 120); g.lineTo(244, 120); g.stroke(); g.setLineDash([]);
+    g.strokeStyle = "#f43f5e"; g.lineWidth = 3; g.beginPath();
+    [118, 120, 117, 119, 118, 60, 38, 36, 40, 37, 39].forEach((y, i) => (i ? g.lineTo(12 + i * 23, y) : g.moveTo(12, y)));
+    g.stroke();
+    text("DDoS", 16, 152, "#f43f5e", "bold 16px sans-serif");
+  } else if (kind === 2) {
+    frame("#3b0712", "#7f1d1d", "FIN-PC-12");
+    text("YOUR FILES ARE", 30, 64, "#fb7185", "bold 18px sans-serif");
+    text("ENCRYPTED", 30, 88, "#fb7185", "bold 18px sans-serif");
+    text("budget.xlsx.locked", 30, 112, "#fecdd3");
+    text("Pay 2.5 BTC in 72h", 30, 132, "#fbbf24");
+    text("RANSOMWARE", 30, 156, "#f43f5e", "bold 13px sans-serif");
+  } else if (kind === 3) {
+    frame("#f1f3f4", "#9ca3af", "Wi-Fi: Harbour_Cafe_FREE", "#111827");
+    g.fillStyle = "#dc2626"; g.beginPath(); g.moveTo(40, 44); g.lineTo(60, 80); g.lineTo(20, 80); g.closePath(); g.fill();
+    text("Your connection", 72, 60, "#111827", "bold 15px sans-serif");
+    text("is not private", 72, 80, "#111827", "bold 15px sans-serif");
+    text("ERR_CERT_AUTHORITY_INVALID", 16, 112, "#6b7280", "11px monospace");
+    text("MAN-IN-THE-MIDDLE", 16, 148, "#dc2626", "bold 15px sans-serif");
+  } else {
+    frame("#ffffff", "#0369a1", "Service Desk · phone call");
+    text("Caller: \"Finance Director\"", 16, 52, "#0f172a");
+    text("Reset my password and", 16, 76, "#0f172a");
+    text("read it to me. NOW.", 16, 96, "#0f172a", "bold 13px sans-serif");
+    text("SOCIAL ENGINEERING", 16, 148, "#b45309", "bold 15px sans-serif");
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** The SOC tower's alert queue: every attack, as an analyst sees it. */
+function alertBoard(): THREE.CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = 512; c.height = 236;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "rgba(6,16,33,0.92)"; g.fillRect(0, 0, 512, 236);
+  g.strokeStyle = "#2dd4bf"; g.lineWidth = 3; g.strokeRect(2, 2, 508, 232);
+  g.fillStyle = "#2dd4bf"; g.font = "bold 18px monospace"; g.fillText("SOC · ALERT QUEUE", 16, 30);
+  ALERT_ROWS.forEach((row, i) => {
+    const sev = row.slice(0, 4);
+    g.fillStyle = i % 2 ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.07)"; g.fillRect(10, 44 + i * 37, 492, 33);
+    g.fillStyle = sev === "CRIT" ? "#f43f5e" : sev === "HIGH" ? "#fb923c" : "#fbbf24";
+    g.font = "bold 15px monospace"; g.fillText(sev, 20, 66 + i * 37);
+    g.fillStyle = "#e2e8f0"; g.font = "15px monospace"; g.fillText(row.slice(6), 80, 66 + i * 37);
+  });
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
 
 export default function CityScene(props: WorldProps) {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -244,8 +325,22 @@ export default function CityScene(props: WorldProps) {
       scene.add(s);
       const trail = new THREE.Line(new THREE.BufferGeometry().setFromPoints(new Array(24).fill(0).map(() => new THREE.Vector3())), lineMat(WATCHER_COLORS[i]));
       scene.add(trail);
-      return { s, trail, target: marks[(i * 2 + 1) % marks.length], t: i / watchers.length };
+      return { s, trail, target: marks[ATTACK_TARGETS[i]], t: i / watchers.length };
     });
+
+    // ── Layer 3 too: how each attack looks, as a screen over its target. With
+    //    layer 4 the screens fly into the tower and become the alert queue. ──
+    const screens = ATTACK_TARGETS.map((ti, i) => {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: attackScreen(i), transparent: true, opacity: 0, depthWrite: false }));
+      const home = marks[ti].pos.clone().setY(marks[ti].top + 4);
+      s.position.copy(home);
+      scene.add(s);
+      return { s, home };
+    });
+    const board = new THREE.Sprite(new THREE.SpriteMaterial({ map: alertBoard(), transparent: true, opacity: 0, depthWrite: false }));
+    board.scale.set(8.7, 4, 1);
+    board.position.set(0, 9.6, 0);
+    scene.add(board);
 
     // ── Layer 5: the shield dome ──
     const dome = new THREE.Mesh(new THREE.SphereGeometry(15, 40, 20, 0, Math.PI * 2, 0, Math.PI / 2),
@@ -327,6 +422,17 @@ export default function CityScene(props: WorldProps) {
         (sh.trail.material as THREE.LineBasicMaterial).opacity = layer[2] * 0.6;
         (sh.trail.material as THREE.LineBasicMaterial).color.copy(mat.color);
       });
+
+      // attack screens: over their targets with layer 3, into the tower with layer 4
+      screens.forEach((sc, i) => {
+        const fly = THREE.MathUtils.smoothstep(layer[3], 0.5, 1); // the open-station preview never moves them
+        sc.s.position.lerpVectors(sc.home, tmpA.set(0, 6.6, 0), fly);
+        sc.s.position.y += rm ? 0 : Math.sin(t * 1.3 + i) * 0.12 * (1 - fly);
+        const k = 4.4 * (1 - fly * 0.85);
+        sc.s.scale.set(k, k * 0.656, 1);
+        (sc.s.material as THREE.SpriteMaterial).opacity = layer[2] * (1 - fly);
+      });
+      (board.material as THREE.SpriteMaterial).opacity = THREE.MathUtils.clamp((layer[3] - 0.5) * 2, 0, 1);
 
       // 4 the tower and its beam; 5 the shield
       (crown.material as THREE.MeshBasicMaterial).opacity = 0.15 + layer[3] * 0.85;
