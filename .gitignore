@@ -27,3 +27,6 @@ promo/
 promo-remotion/
 .next-*
 
+
+# Operation story films: local preview copies until approved for the media bucket
+public/operation/

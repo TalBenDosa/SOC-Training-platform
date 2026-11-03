@@ -25,6 +25,16 @@ export const INTRO_CYBERSECURITY: RoomExperience = {
   look: { primary: "#2dd4bf", secondary: "#60a5fa", warn: "#f43f5e" },
   scene: "campus",
   layout: "campus",
+  // Local preview copies (public/operation/, git-ignored) until Tal approves
+  // the films for the media bucket.
+  story: {
+    intro: { title: "First Light", src: "/operation/intro-cybersecurity/first-light-intro.mp4", poster: "/operation/intro-cybersecurity/first-light-intro.jpg" },
+    afterStation: {
+      emergency: { title: "Who Would Do This?", src: "/operation/intro-cybersecurity/first-light-ch2.mp4", poster: "/operation/intro-cybersecurity/first-light-ch2.jpg" },
+      archive: { title: "The Click", src: "/operation/intro-cybersecurity/first-light-ch3.mp4", poster: "/operation/intro-cybersecurity/first-light-ch3.jpg" },
+      roof: { title: "Badge Issued", src: "/operation/intro-cybersecurity/first-light-finale.mp4", poster: "/operation/intro-cybersecurity/first-light-finale.jpg" },
+    },
+  },
   stations: [
     {
       id: "reception",
