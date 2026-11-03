@@ -26,7 +26,7 @@ export const PHISHING_ANALYSIS: RoomExperience = {
     intro: { title: "02:14", src: "/operation/phishing-analysis/dead-letter-intro.mp4", poster: "/operation/phishing-analysis/dead-letter-intro.jpg" },
     afterStation: {
       sorting: { title: "The Pattern", src: "/operation/phishing-analysis/dead-letter-ch2.mp4", poster: "/operation/phishing-analysis/dead-letter-ch2.jpg" },
-      lab: { title: "Someone Clicked", src: "/operation/phishing-analysis/dead-letter-ch4.mp4", poster: "/operation/phishing-analysis/dead-letter-ch4.jpg" },
+      lab: { title: "Every Copy", src: "/operation/phishing-analysis/dead-letter-ch4.mp4", poster: "/operation/phishing-analysis/dead-letter-ch4.jpg" },
       ticket: { title: "Dead Letter", src: "/operation/phishing-analysis/dead-letter-finale.mp4", poster: "/operation/phishing-analysis/dead-letter-finale.jpg" },
     },
   },
