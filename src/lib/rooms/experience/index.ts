@@ -1,6 +1,7 @@
 import type { RoomExperience, MechanicId } from "./types";
 import { PHISHING_ANALYSIS } from "./phishingAnalysis";
 import { INTRO_CYBERSECURITY } from "./introCybersecurity";
+import { NETWORKING_FUNDAMENTALS } from "./networkingFundamentals";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -8,6 +9,7 @@ export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKin
 const EXPERIENCES: Record<string, RoomExperience> = {
   [PHISHING_ANALYSIS.roomId]: PHISHING_ANALYSIS,
   [INTRO_CYBERSECURITY.roomId]: INTRO_CYBERSECURITY,
+  [NETWORKING_FUNDAMENTALS.roomId]: NETWORKING_FUNDAMENTALS,
 };
 
 /**

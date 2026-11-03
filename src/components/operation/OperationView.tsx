@@ -33,6 +33,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   network: dynamic(() => import("./scenes/NetworkScene"), { ssr: false }),
   campus: dynamic(() => import("./scenes/CampusScene"), { ssr: false }),
   city: dynamic(() => import("./scenes/CityScene"), { ssr: false }),
+  datapath: dynamic(() => import("./scenes/DatapathScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;

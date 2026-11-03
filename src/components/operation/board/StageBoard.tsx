@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Crosshair, Lock, Check, KeyRound, Star, FlaskConical, Clock, Play, Film, RotateCcw } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Crosshair, Lock, Check, KeyRound, Star, FlaskConical, Clock, Play, Film, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RoomExperience } from "@/lib/rooms/experience";
 import type { SanitizedRoom } from "@/lib/rooms/sanitize";
@@ -153,6 +153,7 @@ export function StageBoard({ experience, room, stations, selected, onSelect, onE
             </button>
           </div>
           <p className="flex-1 text-sm leading-relaxed text-slate-200 md:border-l md:border-white/10 md:pl-5">
+            {station.topic && <span className="mb-0.5 flex items-center gap-1.5 text-xs font-semibold" style={{ color: look.primary }}><BookOpen className="h-3.5 w-3.5" />You learn: {station.topic}</span>}
             {station.tagline}
             {sel.status === "locked" && prevLocked && <span className="mt-1 block text-xs font-semibold" style={{ color: experience.look?.warn ?? "#f59e0b" }}>Locked: clear {prevLocked.label} first.</span>}
           </p>

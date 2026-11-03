@@ -10,7 +10,7 @@
  * Concept doc: docs/CONCEPT-gamified-learning-rooms.md
  */
 
-export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city";
+export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter";
 
 /**
  * The room's 3D world on its main screen. Decorative (never clickable): it shows
@@ -23,8 +23,11 @@ export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" |
  *             back up, and the sky turns from night to dawn as the room is cleared
  *  - city:    a city seen through a "lens"; each cleared station switches on one
  *             more invisible layer (connections, locks, attackers, attacks, alerts)
+ *  - datapath: network hardware on one cable run in a data hall (laptop, switch,
+ *             router, NAT firewall, internet, server) with a hologram OSI stack;
+ *             each cleared station brings the next device online
  */
-export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city";
+export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath";
 
 /** cards: illustrated station cards above the scene. stage: the scene fills the
  *  screen, stations sit in a rail, the selected one in a bottom command bar.
@@ -180,6 +183,40 @@ export type BriefingLab = ({
         /** `at` names a part of the screen (see EvidenceScreen); shown in order. */
         callouts: { at: string; text: string }[];
       }[];
+    }
+  | {
+      /** A simulated shell (no real machine): the learner types commands, reads
+       *  the output and answers each objective from it. Commands are matched by
+       *  a case-insensitive regex; anything else prints the shell's own error. */
+      kind: "terminal";
+      title: string;
+      prompt: string;
+      shell: "cmd" | "powershell" | "bash";
+      /** The prompt string, e.g. "C:\\Users\\analyst>" or "analyst@ws01:~$". */
+      host: string;
+      commands: { match: string; output: string; /** shown by `help` */ help?: string }[];
+      objectives: { id: string; task: string; /** the command to suggest */ hint: string; answer: string[]; why: string }[];
+    }
+  | {
+      /** Follow a lead across log sources: each step shows one log as a table
+       *  (with a filter box); the learner clicks the row that answers the step. */
+      kind: "trace";
+      title: string;
+      prompt: string;
+      /** What the hunt starts from, e.g. the alert's external IP and time. */
+      lead: string;
+      steps: { id: string; ask: string; source: string; columns: string[]; rows: string[][]; answer: number; why: string; /** fact added to the case board */ learned: string }[];
+    }
+  | {
+      /** Build a packet from the top down: at each layer pick the right header
+       *  value; the packet grows one envelope at a time, then shows as a
+       *  protocol tree like a packet analyser. */
+      kind: "encap";
+      title: string;
+      prompt: string;
+      /** The request being sent, e.g. "GET / to the intranet at 10.20.0.15:443". */
+      story: string;
+      layers: { id: string; layer: string; pdu: string; field: string; options: string[]; answer: number; why: string; tree: string; /** short value for the header chip, defaults to the answer */ chip?: string }[];
     }) & {
   /** Numbered "how to play" steps shown above the lab; each kind has defaults. */
   howTo?: string[];
