@@ -18,9 +18,10 @@ for i in range(t0, len(lines)):
         t1 = i  # the line holding the closing "],"
         break
 
-RULE = "    // ------------------------------------------------------------------"
 body = lines[t0:t1]
-cuts = [i for i, l in enumerate(body) if l == RULE and i + 2 < len(body) and body[i + 2] == RULE]
+# A header is a "// -----" rule, a title line, then the same rule again.
+is_rule = lambda l: re.fullmatch(r"\s*// -{20,}", l) is not None
+cuts = [i for i, l in enumerate(body) if is_rule(l) and i + 2 < len(body) and body[i + 2] == l]
 if not cuts:
     # No comment headers: a block runs from an opening "{" line to the "}," line
     # at the same indentation (the first task's indentation).

@@ -696,12 +696,22 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "linux-fund-q1",
+        "type": "question",
+        "xp": 30
+      },
+      {
+        "id": "linux-fund-q2",
+        "type": "question",
+        "xp": 30
+      },
+      {
         "id": "linux-fund-r3",
         "type": "reading",
         "xp": 0
       },
       {
-        "id": "linux-fund-q1",
+        "id": "linux-fund-q3",
         "type": "question",
         "xp": 30
       },
@@ -715,16 +725,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "linux-fund-flag1",
         "type": "flag",
         "xp": 25
-      },
-      {
-        "id": "linux-fund-q2",
-        "type": "question",
-        "xp": 30
-      },
-      {
-        "id": "linux-fund-q3",
-        "type": "question",
-        "xp": 30
       }
     ]
   },

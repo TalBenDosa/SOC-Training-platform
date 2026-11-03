@@ -10,7 +10,7 @@
  * Concept doc: docs/CONCEPT-gamified-learning-rooms.md
  */
 
-export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint";
+export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint" | "linux";
 
 /**
  * The room's 3D world on its main screen. Decorative (never clickable): it shows
@@ -32,8 +32,10 @@ export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" |
  *             streaming in; stations light port groups, then abuse and detection
  *  - hostcore: inside one Windows host: kernel core and rings, folder tree,
  *             registry hive, process tree, PowerShell console, a caged macro chain
+ *  - fstree:  a Linux server's directory tree grown from "/": branches, permission
+ *             triplets, cron clock and intruder SSH key, then an audit beam
  */
-export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore";
+export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree";
 
 /** cards: illustrated station cards above the scene. stage: the scene fills the
  *  screen, stations sit in a rail, the selected one in a bottom command bar.

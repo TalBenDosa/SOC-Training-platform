@@ -797,16 +797,6 @@ const linuxFundamentals: Room = {
     } satisfies ReadingTask,
 
     // -------------------------------------------------------------------------
-    // Reading 3 — Processes, Cron, and SSH
-    // -------------------------------------------------------------------------
-    {
-      type: "reading",
-      id: "linux-fund-r3",
-      heading: "Processes, Cron Jobs, SSH: Attacker Persistence on Linux",
-      content: `Attackers do not want to be a one-time visitor. They want to come back whenever they choose. On Linux, the three most common persistence mechanisms are: processes (malware running continuously), cron jobs (scheduled malicious tasks), and SSH backdoors (added public keys). Knowing these lets you find persistence during an investigation.\n\n**Processes**\n\nEvery running program is a **process** with a unique **PID (Process ID)**. Processes have a parent-child relationship, when a process spawns another, the new process is its child. This forms a **process tree**.\n\nThe mother of all processes is **init** (PID 1, now typically systemd on modern Linux). Everything else descends from it. An attacker's malware process should logically descend from something: what is its parent? If \`kworker\` (which looks like a legitimate kernel worker) has a parent of \`bash\`, something renamed itself to hide.\n\nKey commands:\n- \`ps aux\`shows all running processes. Columns: USER, PID, %CPU, %MEM, START, TIME, COMMAND.\n- \`ps auxf\`shows the process tree (forest view)\n- \`pstree -p\`visual process tree with PIDs\n- \`ls -la /proc/PID/exe\`the real executable path for process PID (reveals malware that deleted its binary after starting)\n- \`cat /proc/PID/cmdline\`full command line (null-separated, use \`tr '\\0' ' '\` to read)\n- \`lsof -p PID\`all files and network connections open by PID\n- \`kill -9 PID\`forcefully terminate a process (signal 9 = SIGKILL)\n\nSuspicious process indicators:\n- Process with a name resembling a system process (\`kworkerr\`, \`systemdd\`) but running from /tmp or /home\n- Process with no associated binary on disk (\`ls -la /proc/PID/exe\` → '(deleted)')\n- Process listening on an unusual port\n- Process using high CPU at odd hours\n\n**Cron. Scheduled Tasks**\n\n**cron** is the Linux task scheduler. It runs commands at specified times and intervals. Think of it like Windows Task Scheduler. Cron is a beloved attacker persistence tool because cron jobs survive reboots.\n\nCron configuration locations (all must be checked during an investigation):\n- \`/etc/crontab\`system-wide cron table\n- \`/etc/cron.d/\`directory of cron files (individual files per application/service)\n- \`/etc/cron.daily/\`, \`/etc/cron.hourly/\`, \`/etc/cron.weekly/\`, \`/etc/cron.monthly/\`scripts run on those intervals\n- \`crontab -l\`list the current user's personal cron jobs\n- \`crontab -l -u alice\`list alice's cron jobs (as root)\n- \`/var/spool/cron/crontabs/\`where user crontabs are stored on disk\n\nCron time format: \`* * * * * command\` = minute, hour, day of month, month, day of week. In the system-wide files (\`/etc/crontab\` and \`/etc/cron.d/*\`) there is a sixth field (the **user** the command runs as) between the schedule and the command: \`* * * * * root command\`. Personal crontabs (\`crontab -e\`) have no user field.\n- \`*/5 * * * * /tmp/.update\`run /tmp/.update every 5 minutes. This is malicious.\n- \`0 3 * * * /bin/bash /home/alice/.bashrc.d/sync.sh\`runs a script at 3 AM daily. Worth checking what that script does.\n\nAttacker cron persistence: \`echo '* * * * * root /tmp/.update 2>/dev/null' >> /etc/cron.d/sysupdate\` (note the user field, required in /etc/cron.d)\n\n**SSH. Secure Shell**\n\nSSH is how administrators remotely log into Linux servers. It is also an attacker's preferred remote access method because SSH connections are encrypted and blend in with legitimate admin traffic.\n\nKey SSH files:\n- \`/etc/ssh/sshd_config\`SSH server configuration:\n - \`PermitRootLogin no/yes\`should be 'no' on production servers (attackers try to log in as root directly)\n - \`PasswordAuthentication yes/no\`password-based SSH should be disabled if key-based auth is available\n - \`AllowUsers alice bob\`whitelist of allowed users\n- \`~/.ssh/authorized_keys\`public SSH keys that are allowed to log in as this user WITHOUT a password\n- \`~/.ssh/known_hosts\`SSH servers this user has previously connected to\n- \`~/.bash_history\` (history of commands the user ran\n\n**SSH Backdoor) Most Common Attacker Persistence**\nAn attacker who gains temporary access to a Linux system often adds their own SSH public key to \`/root/.ssh/authorized_keys\` or \`/home/alice/.ssh/authorized_keys\`. This gives them permanent, password-free SSH access even after the original vulnerability is patched.\n\nInvestigation checklist:\n- \`cat /root/.ssh/authorized_keys\`are there keys that do not belong?\n- \`cat /home/*/.ssh/authorized_keys\`check all users\n- \`find /home -name authorized_keys -newer /etc/passwd\`recently modified authorized_keys files\n- Compare with your known-good baseline if available\n\n**Package Management, What Gets Installed**\n\n- Debian/Ubuntu: \`apt\`installs packages to standard paths (\`/usr/bin/\`, \`/usr/share/\`, etc.)\n- RHEL/CentOS/Fedora: \`yum\` or \`dnf\`\n- Check installed packages: \`dpkg -l\` (Debian) or \`rpm -qa\` (RHEL)\n- Attackers sometimes install tools via the package manager: \`apt install nmap netcat socat masscan\`these would appear in the package list and in package manager logs.`,
-    } satisfies ReadingTask,
-
-    // -------------------------------------------------------------------------
     // Question 1
     // -------------------------------------------------------------------------
     {
@@ -826,6 +816,55 @@ const linuxFundamentals: Room = {
       xp: 30,
     } satisfies QuestionTask,
 
+    // -------------------------------------------------------------------------
+    // Question 2
+    // -------------------------------------------------------------------------
+    {
+      type: "question",
+      id: "linux-fund-q2",
+      question:
+        "A file-integrity alert reports that the mode of /etc/shadow on a web server changed from 640 to 777. What is the main risk?",
+      options: [
+        "Little risk: the file holds hashes, and a hash cannot be turned back into a password",
+        "Any local user or hijacked service can now read every password hash and crack them offline",
+        "Root's own line stays private, because each line in the file keeps its own permissions",
+        "Mainly integrity: others gained write access, but users could already read the hashes",
+      ],
+      answer: 1,
+      explanation:
+        "777 = rwxrwxrwx, so the last digit (7) gives 'others' (every account on the box, including a compromised web service) read, write and execute. /etc/shadow is meant to be readable only by root because it holds the password hashes, and attackers copy it for offline cracking. 'A hash cannot be turned back' misses the point: hashes are cracked offline by guessing, which is exactly why shadow is locked down. 'Root's line stays private' is wrong. Permissions apply to the whole file. 'Every user could already read the hashes' confuses /etc/shadow with /etc/passwd, which is world-readable but holds only an 'x' placeholder. The new write access is an extra danger (a password hash could be replaced), which is why permission changes on /etc/shadow, /etc/sudoers and /etc/passwd should always be monitored.",
+      xp: 30,
+    } satisfies QuestionTask,
+
+    // -------------------------------------------------------------------------
+    // Reading 3 — Processes, Cron, and SSH
+    // -------------------------------------------------------------------------
+    {
+      type: "reading",
+      id: "linux-fund-r3",
+      heading: "Processes, Cron Jobs, SSH: Attacker Persistence on Linux",
+      content: `Attackers do not want to be a one-time visitor. They want to come back whenever they choose. On Linux, the three most common persistence mechanisms are: processes (malware running continuously), cron jobs (scheduled malicious tasks), and SSH backdoors (added public keys). Knowing these lets you find persistence during an investigation.\n\n**Processes**\n\nEvery running program is a **process** with a unique **PID (Process ID)**. Processes have a parent-child relationship, when a process spawns another, the new process is its child. This forms a **process tree**.\n\nThe mother of all processes is **init** (PID 1, now typically systemd on modern Linux). Everything else descends from it. An attacker's malware process should logically descend from something: what is its parent? If \`kworker\` (which looks like a legitimate kernel worker) has a parent of \`bash\`, something renamed itself to hide.\n\nKey commands:\n- \`ps aux\`shows all running processes. Columns: USER, PID, %CPU, %MEM, START, TIME, COMMAND.\n- \`ps auxf\`shows the process tree (forest view)\n- \`pstree -p\`visual process tree with PIDs\n- \`ls -la /proc/PID/exe\`the real executable path for process PID (reveals malware that deleted its binary after starting)\n- \`cat /proc/PID/cmdline\`full command line (null-separated, use \`tr '\\0' ' '\` to read)\n- \`lsof -p PID\`all files and network connections open by PID\n- \`kill -9 PID\`forcefully terminate a process (signal 9 = SIGKILL)\n\nSuspicious process indicators:\n- Process with a name resembling a system process (\`kworkerr\`, \`systemdd\`) but running from /tmp or /home\n- Process with no associated binary on disk (\`ls -la /proc/PID/exe\` → '(deleted)')\n- Process listening on an unusual port\n- Process using high CPU at odd hours\n\n**Cron. Scheduled Tasks**\n\n**cron** is the Linux task scheduler. It runs commands at specified times and intervals. Think of it like Windows Task Scheduler. Cron is a beloved attacker persistence tool because cron jobs survive reboots.\n\nCron configuration locations (all must be checked during an investigation):\n- \`/etc/crontab\`system-wide cron table\n- \`/etc/cron.d/\`directory of cron files (individual files per application/service)\n- \`/etc/cron.daily/\`, \`/etc/cron.hourly/\`, \`/etc/cron.weekly/\`, \`/etc/cron.monthly/\`scripts run on those intervals\n- \`crontab -l\`list the current user's personal cron jobs\n- \`crontab -l -u alice\`list alice's cron jobs (as root)\n- \`/var/spool/cron/crontabs/\`where user crontabs are stored on disk\n\nCron time format: \`* * * * * command\` = minute, hour, day of month, month, day of week. In the system-wide files (\`/etc/crontab\` and \`/etc/cron.d/*\`) there is a sixth field (the **user** the command runs as) between the schedule and the command: \`* * * * * root command\`. Personal crontabs (\`crontab -e\`) have no user field.\n- \`*/5 * * * * /tmp/.update\`run /tmp/.update every 5 minutes. This is malicious.\n- \`0 3 * * * /bin/bash /home/alice/.bashrc.d/sync.sh\`runs a script at 3 AM daily. Worth checking what that script does.\n\nAttacker cron persistence: \`echo '* * * * * root /tmp/.update 2>/dev/null' >> /etc/cron.d/sysupdate\` (note the user field, required in /etc/cron.d)\n\n**SSH. Secure Shell**\n\nSSH is how administrators remotely log into Linux servers. It is also an attacker's preferred remote access method because SSH connections are encrypted and blend in with legitimate admin traffic.\n\nKey SSH files:\n- \`/etc/ssh/sshd_config\`SSH server configuration:\n - \`PermitRootLogin no/yes\`should be 'no' on production servers (attackers try to log in as root directly)\n - \`PasswordAuthentication yes/no\`password-based SSH should be disabled if key-based auth is available\n - \`AllowUsers alice bob\`whitelist of allowed users\n- \`~/.ssh/authorized_keys\`public SSH keys that are allowed to log in as this user WITHOUT a password\n- \`~/.ssh/known_hosts\`SSH servers this user has previously connected to\n- \`~/.bash_history\` (history of commands the user ran\n\n**SSH Backdoor) Most Common Attacker Persistence**\nAn attacker who gains temporary access to a Linux system often adds their own SSH public key to \`/root/.ssh/authorized_keys\` or \`/home/alice/.ssh/authorized_keys\`. This gives them permanent, password-free SSH access even after the original vulnerability is patched.\n\nInvestigation checklist:\n- \`cat /root/.ssh/authorized_keys\`are there keys that do not belong?\n- \`cat /home/*/.ssh/authorized_keys\`check all users\n- \`find /home -name authorized_keys -newer /etc/passwd\`recently modified authorized_keys files\n- Compare with your known-good baseline if available\n\n**Package Management, What Gets Installed**\n\n- Debian/Ubuntu: \`apt\`installs packages to standard paths (\`/usr/bin/\`, \`/usr/share/\`, etc.)\n- RHEL/CentOS/Fedora: \`yum\` or \`dnf\`\n- Check installed packages: \`dpkg -l\` (Debian) or \`rpm -qa\` (RHEL)\n- Attackers sometimes install tools via the package manager: \`apt install nmap netcat socat masscan\`these would appear in the package list and in package manager logs.`,
+    } satisfies ReadingTask,
+
+    // -------------------------------------------------------------------------
+    // Question 3
+    // -------------------------------------------------------------------------
+    {
+      type: "question",
+      id: "linux-fund-q3",
+      question:
+        "An analyst finds this line in /etc/cron.d/sysupdate on a compromised web server: '*/5 * * * * root /tmp/.cache 2>/dev/null'. What does this do and why is it malicious?",
+      options: [
+        "A routine job that refreshes a package-metadata cache as root every five minutes",
+        "Every 5 minutes root runs a hidden file from /tmp with errors silenced: persistence",
+        "It runs as whoever created the file: the 'root' field is a comment, not the run-as user",
+        "'*/5' applies to the hour field, so the job fires once every five hours",
+      ],
+      answer: 1,
+      explanation:
+        "Cron's schedule fields are minute, hour, day of month, month, day of week, so '*/5 * * * *' means every 5 minutes. In /etc/cron.d files the sixth field is the run-as user: here 'root'. '/tmp/.cache' is a hidden file (dot prefix) in world-writable /tmp, and '2>/dev/null' silences errors: textbook attacker persistence that survives reboots. 'A routine package-metadata job' does not fit: package tools run from system paths, not a hidden file in /tmp. 'Runs as whoever created the file' ignores the user field that system cron files require. '*/5 applies to the hour field' misreads the position: the first field is minutes. Response: preserve copies of the file and the cron entry, stop the process, remove /etc/cron.d/sysupdate and /tmp/.cache, then find out how the attacker got in.",
+      xp: 30,
+    } satisfies QuestionTask,
     // -------------------------------------------------------------------------
     // Log Analysis — Suspicious sudo (linux_execve / sudo_command)
     // -------------------------------------------------------------------------
@@ -904,45 +943,6 @@ const linuxFundamentals: Room = {
       xp: 25,
     } satisfies FlagTask,
 
-    // -------------------------------------------------------------------------
-    // Question 2
-    // -------------------------------------------------------------------------
-    {
-      type: "question",
-      id: "linux-fund-q2",
-      question:
-        "A file-integrity alert reports that the mode of /etc/shadow on a web server changed from 640 to 777. What is the main risk?",
-      options: [
-        "Little risk: the file holds hashes, and a hash cannot be turned back into a password",
-        "Any local user or hijacked service can now read every password hash and crack them offline",
-        "Root's own line stays private, because each line in the file keeps its own permissions",
-        "Mainly integrity: others gained write access, but users could already read the hashes",
-      ],
-      answer: 1,
-      explanation:
-        "777 = rwxrwxrwx, so the last digit (7) gives 'others' (every account on the box, including a compromised web service) read, write and execute. /etc/shadow is meant to be readable only by root because it holds the password hashes, and attackers copy it for offline cracking. 'A hash cannot be turned back' misses the point: hashes are cracked offline by guessing, which is exactly why shadow is locked down. 'Root's line stays private' is wrong. Permissions apply to the whole file. 'Every user could already read the hashes' confuses /etc/shadow with /etc/passwd, which is world-readable but holds only an 'x' placeholder. The new write access is an extra danger (a password hash could be replaced), which is why permission changes on /etc/shadow, /etc/sudoers and /etc/passwd should always be monitored.",
-      xp: 30,
-    } satisfies QuestionTask,
-
-    // -------------------------------------------------------------------------
-    // Question 3
-    // -------------------------------------------------------------------------
-    {
-      type: "question",
-      id: "linux-fund-q3",
-      question:
-        "An analyst finds this line in /etc/cron.d/sysupdate on a compromised web server: '*/5 * * * * root /tmp/.cache 2>/dev/null'. What does this do and why is it malicious?",
-      options: [
-        "A routine job that refreshes a package-metadata cache as root every five minutes",
-        "Every 5 minutes root runs a hidden file from /tmp with errors silenced: persistence",
-        "It runs as whoever created the file: the 'root' field is a comment, not the run-as user",
-        "'*/5' applies to the hour field, so the job fires once every five hours",
-      ],
-      answer: 1,
-      explanation:
-        "Cron's schedule fields are minute, hour, day of month, month, day of week, so '*/5 * * * *' means every 5 minutes. In /etc/cron.d files the sixth field is the run-as user: here 'root'. '/tmp/.cache' is a hidden file (dot prefix) in world-writable /tmp, and '2>/dev/null' silences errors: textbook attacker persistence that survives reboots. 'A routine package-metadata job' does not fit: package tools run from system paths, not a hidden file in /tmp. 'Runs as whoever created the file' ignores the user field that system cron files require. '*/5 applies to the hour field' misreads the position: the first field is minutes. Response: preserve copies of the file and the cron entry, stop the process, remove /etc/cron.d/sysupdate and /tmp/.cache, then find out how the attacker got in.",
-      xp: 30,
-    } satisfies QuestionTask,
   ],
 };
 

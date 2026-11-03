@@ -77,7 +77,7 @@ export function TerminalLab({ lab, onDone }: LabProps<"terminal">) {
   function nextObjective() { setOi(i => i + 1); setAnswer(""); setResult(null); setHint(false); }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+    <div className="space-y-4">
       {/* The console */}
       <div className="min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#0a0c10] shadow-2xl" onClick={() => field.current?.focus()}>
         <div className="flex items-center gap-2 bg-[#1b1f27] px-3 py-1.5 text-[11px] font-semibold text-slate-300">
@@ -100,8 +100,8 @@ export function TerminalLab({ lab, onDone }: LabProps<"terminal">) {
         </div>
       </div>
 
-      {/* Objectives */}
-      <div className="space-y-3">
+      {/* Objectives, under the full-width console */}
+      <div className="grid gap-3 lg:grid-cols-[1fr_1.2fr]">
         <ol className="space-y-1.5">
           {lab.objectives.map((o, i) => (
             <li key={o.id} className={cn("flex gap-2 rounded-lg px-2 py-1.5 text-sm", i === oi ? "bg-white/[0.05] text-white" : i < oi ? "text-emerald-300" : "text-slate-500")}>

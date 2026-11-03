@@ -37,6 +37,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   socfloor: dynamic(() => import("./scenes/SocFloorScene"), { ssr: false }),
   portwall: dynamic(() => import("./scenes/PortWallScene"), { ssr: false }),
   hostcore: dynamic(() => import("./scenes/HostCoreScene"), { ssr: false }),
+  fstree: dynamic(() => import("./scenes/FsTreeScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;
