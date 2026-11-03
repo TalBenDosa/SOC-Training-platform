@@ -9,6 +9,8 @@ import type { RoomExperience } from "./types";
 // reactor never uses a flooded records system (q1), the line-up never uses a
 // poisoned software update (q2), the lure is an IT-desk mail, not a bank (q3),
 // and the career wall leaves out the entry-level role (q4).
+const FILMS = "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/intro-cybersecurity";
+
 export const INTRO_CYBERSECURITY: RoomExperience = {
   roomId: "intro-cybersecurity",
   codename: "Operation First Light",
@@ -25,14 +27,13 @@ export const INTRO_CYBERSECURITY: RoomExperience = {
   look: { primary: "#2dd4bf", secondary: "#60a5fa", warn: "#f43f5e" },
   scene: "campus",
   layout: "campus",
-  // Local preview copies (public/operation/, git-ignored) until Tal approves
-  // the films for the media bucket.
+  // Approved films in the lesson-videos bucket; names carry a content hash.
   story: {
-    intro: { title: "First Light", src: "/operation/intro-cybersecurity/first-light-intro.mp4", poster: "/operation/intro-cybersecurity/first-light-intro.jpg" },
+    intro: { title: "First Light", src: `${FILMS}/first-light-intro-7375ab05.mp4`, poster: `${FILMS}/first-light-intro-0246468c.jpg` },
     afterStation: {
-      emergency: { title: "Who Would Do This?", src: "/operation/intro-cybersecurity/first-light-ch2.mp4", poster: "/operation/intro-cybersecurity/first-light-ch2.jpg" },
-      archive: { title: "The Click", src: "/operation/intro-cybersecurity/first-light-ch3.mp4", poster: "/operation/intro-cybersecurity/first-light-ch3.jpg" },
-      roof: { title: "Badge Issued", src: "/operation/intro-cybersecurity/first-light-finale.mp4", poster: "/operation/intro-cybersecurity/first-light-finale.jpg" },
+      emergency: { title: "Who Would Do This?", src: `${FILMS}/first-light-ch2-ab51c130.mp4`, poster: `${FILMS}/first-light-ch2-4db9564b.jpg` },
+      archive: { title: "The Click", src: `${FILMS}/first-light-ch3-dfddec2e.mp4`, poster: `${FILMS}/first-light-ch3-e83ce4eb.jpg` },
+      roof: { title: "Badge Issued", src: `${FILMS}/first-light-finale-b82456e8.mp4`, poster: `${FILMS}/first-light-finale-26406090.jpg` },
     },
   },
   stations: [
