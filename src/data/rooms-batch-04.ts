@@ -251,6 +251,23 @@ Storing logs is expensive. A busy environment can generate **millions of events 
       xp: 20,
     } satisfies QuestionTask,
 
+    // ----- Question 4 -------------------------------------------------------
+    {
+      type: "question",
+      id: "log-mgmt-q4",
+      question:
+        "Which log collection method is most appropriate for a Palo Alto firewall that cannot have third-party software installed on it?",
+      options: [
+        "Agent-based: install Filebeat on PAN-OS through its underlying Linux shell",
+        "Agentless syslog: the firewall forwards logs to a remote syslog server on port 514",
+        "Scheduled CSV export: an admin exports logs from the PAN-OS web UI each morning",
+        "SNMP polling: the SIEM reads traffic and threat logs from the firewall's MIB",
+      ],
+      answer: 1,
+      explanation:
+        "Network appliances like firewalls, switches, and routers cannot have agents installed on them. The standard approach is agentless syslog: the device is configured to forward log messages to a remote syslog server over UDP (default) or TCP port 514. Most enterprise SIEMs include a built-in syslog listener for this purpose.",
+      xp: 20,
+    } satisfies QuestionTask,
     // ----- Question 2: storage calculation ----------------------------------
     {
       type: "question",
@@ -267,6 +284,24 @@ Storing logs is expensive. A busy environment can generate **millions of events 
       explanation:
         "1,000 EPS × 500 bytes × 86,400 seconds = 43,200,000,000 bytes = approximately 43.2 GB per day of raw uncompressed logs. After SIEM compression (typically 70-80%), storage drops to roughly 8-13 GB per day, but this still adds up quickly over months of retention.",
       xp: 25,
+    } satisfies QuestionTask,
+
+    // ----- Question 3 -------------------------------------------------------
+    {
+      type: "question",
+      id: "log-mgmt-q3",
+      question:
+        "A retailer that takes card payments keeps its logs exactly to the PCI-DSS minimum in the reading. During an incident, you find the attacker's first login was about 5 months ago. What should you expect when you search for that first login?",
+      options: [
+        "It is gone for good: PCI-DSS only requires 3 months of logs to be kept",
+        "It is in the live SIEM index, because PCI-DSS keeps all 12 months searchable",
+        "It is still retained, but in archive: it must be restored before it can be searched",
+        "It survives only on the endpoint, because central logs are purged after 90 days",
+      ],
+      answer: 2,
+      explanation:
+        "PCI-DSS requires at least 12 months of audit log history, but only the most recent 3 months must be immediately available. A login from 5 months ago is still retained, most likely in archive storage, so you ask for it to be restored before you can search it. The 3 months is the immediately available window, not the total retention period, and nothing in the requirement keeps all 12 months in the live index. Central logs are not purged at 90 days, and relying on the endpoint ignores the point of central collection.",
+      xp: 20,
     } satisfies QuestionTask,
 
     // ----- Reading 3: Log tampering and SIEM vs. aggregator ----------------
@@ -411,41 +446,6 @@ In summary: a log aggregator is a **storage and search engine**. A SIEM is a **d
       xp: 20,
     } satisfies FlagTask,
 
-    // ----- Question 3 -------------------------------------------------------
-    {
-      type: "question",
-      id: "log-mgmt-q3",
-      question:
-        "A retailer that takes card payments keeps its logs exactly to the PCI-DSS minimum in the reading. During an incident, you find the attacker's first login was about 5 months ago. What should you expect when you search for that first login?",
-      options: [
-        "It is gone for good: PCI-DSS only requires 3 months of logs to be kept",
-        "It is in the live SIEM index, because PCI-DSS keeps all 12 months searchable",
-        "It is still retained, but in archive: it must be restored before it can be searched",
-        "It survives only on the endpoint, because central logs are purged after 90 days",
-      ],
-      answer: 2,
-      explanation:
-        "PCI-DSS requires at least 12 months of audit log history, but only the most recent 3 months must be immediately available. A login from 5 months ago is still retained, most likely in archive storage, so you ask for it to be restored before you can search it. The 3 months is the immediately available window, not the total retention period, and nothing in the requirement keeps all 12 months in the live index. Central logs are not purged at 90 days, and relying on the endpoint ignores the point of central collection.",
-      xp: 20,
-    } satisfies QuestionTask,
-
-    // ----- Question 4 -------------------------------------------------------
-    {
-      type: "question",
-      id: "log-mgmt-q4",
-      question:
-        "Which log collection method is most appropriate for a Palo Alto firewall that cannot have third-party software installed on it?",
-      options: [
-        "Agent-based: install Filebeat on PAN-OS through its underlying Linux shell",
-        "Agentless syslog: the firewall forwards logs to a remote syslog server on port 514",
-        "Scheduled CSV export: an admin exports logs from the PAN-OS web UI each morning",
-        "SNMP polling: the SIEM reads traffic and threat logs from the firewall's MIB",
-      ],
-      answer: 1,
-      explanation:
-        "Network appliances like firewalls, switches, and routers cannot have agents installed on them. The standard approach is agentless syslog: the device is configured to forward log messages to a remote syslog server over UDP (default) or TCP port 514. Most enterprise SIEMs include a built-in syslog listener for this purpose.",
-      xp: 20,
-    } satisfies QuestionTask,
   ],
 };
 

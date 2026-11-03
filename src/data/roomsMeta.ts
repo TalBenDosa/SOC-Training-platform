@@ -819,9 +819,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
+        "id": "log-mgmt-q4",
+        "type": "question",
+        "xp": 20
+      },
+      {
         "id": "log-mgmt-q2",
         "type": "question",
         "xp": 25
+      },
+      {
+        "id": "log-mgmt-q3",
+        "type": "question",
+        "xp": 20
       },
       {
         "id": "log-mgmt-r3",
@@ -837,16 +847,6 @@ export const ROOMS_META: RoomMeta[] = [
       {
         "id": "log-mgmt-flag1",
         "type": "flag",
-        "xp": 20
-      },
-      {
-        "id": "log-mgmt-q3",
-        "type": "question",
-        "xp": 20
-      },
-      {
-        "id": "log-mgmt-q4",
-        "type": "question",
         "xp": 20
       }
     ]

@@ -6,6 +6,7 @@ import { SOC_STRUCTURE } from "./socStructure";
 import { NETWORKING_PROTOCOLS } from "./networkingProtocols";
 import { WINDOWS_FUNDAMENTALS } from "./windowsFundamentals";
 import { LINUX_FUNDAMENTALS } from "./linuxFundamentals";
+import { LOG_MANAGEMENT } from "./logManagement";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -18,6 +19,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [NETWORKING_PROTOCOLS.roomId]: NETWORKING_PROTOCOLS,
   [WINDOWS_FUNDAMENTALS.roomId]: WINDOWS_FUNDAMENTALS,
   [LINUX_FUNDAMENTALS.roomId]: LINUX_FUNDAMENTALS,
+  [LOG_MANAGEMENT.roomId]: LOG_MANAGEMENT,
 };
 
 /**
