@@ -1,11 +1,11 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, X, Eye, ArrowDown, ShieldCheck, ShieldX } from "lucide-react";
+import { Check, ArrowDown, ShieldCheck, ShieldX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { newShuffleSeed, shuffleWithSeed } from "@/lib/rooms/shuffle";
 import type { BriefingLab } from "@/lib/rooms/experience";
-import { HotspotLab, LineupLab, ReactorLab } from "./GameLabs";
+import { DeckSortLab, HotspotLab, LineupLab, ReactorLab } from "./GameLabs";
 
 /** Every lab reports once when the learner has worked all of it. */
 interface LabProps<K extends BriefingLab["kind"]> {
@@ -193,69 +193,7 @@ export function SimulateLab({ lab, onDone }: LabProps<"simulate">) {
   );
 }
 
-// ─── Sort: put each item in its bucket (with an optional hidden reveal) ──────
-export function SortLab({ lab, onDone }: LabProps<"sort">) {
-  const items = useMemo(() => shuffleWithSeed(lab.items, newShuffleSeed()), [lab.items]);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [revealed, setRevealed] = useState<Set<string>>(new Set());
-  const correctCount = lab.items.filter(i => answers[i.id] === i.bucket).length;
-  useDoneOnce(correctCount === lab.items.length, onDone);
-  return (
-    <div className="space-y-2.5">
-      {items.map(it => {
-        const a = answers[it.id];
-        const ok = a === it.bucket;
-        const show = revealed.has(it.id);
-        return (
-          <div key={it.id} className={cn(
-            "rounded-xl border p-3 transition",
-            !a ? "border-white/10 bg-bg-panel/60" : ok ? "border-neon-green/40 bg-neon-green/5" : "border-neon-red/40 bg-neon-red/5",
-          )}>
-            <div className="flex flex-wrap items-center gap-3">
-              <span
-                tabIndex={it.hidden ? 0 : -1}
-                onMouseEnter={() => it.hidden && setRevealed(r => new Set(r).add(it.id))}
-                onFocus={() => it.hidden && setRevealed(r => new Set(r).add(it.id))}
-                className={cn("min-w-0 flex-1 text-sm text-slate-100", it.hidden && "cursor-help underline decoration-cyber-400/60 decoration-dotted underline-offset-4")}
-              >
-                {it.text}
-              </span>
-              {it.hidden && !show && (
-                <button onClick={() => setRevealed(r => new Set(r).add(it.id))} className="inline-flex items-center gap-1 text-xs text-cyber-300 hover:underline">
-                  <Eye className="h-3.5 w-3.5" /> reveal
-                </button>
-              )}
-              <div className="flex flex-wrap gap-1.5">
-                {lab.buckets.map(b => (
-                  <button
-                    key={b.id}
-                    disabled={ok}
-                    onClick={() => setAnswers(x => ({ ...x, [it.id]: b.id }))}
-                    className={cn(
-                      "rounded-lg border px-2.5 py-1 text-xs font-semibold transition",
-                      a === b.id ? (ok ? "border-neon-green bg-neon-green/20 text-neon-green" : "border-neon-red bg-neon-red/20 text-neon-red")
-                        : "border-white/15 text-slate-300 hover:border-cyber-400/60 disabled:opacity-40",
-                    )}
-                  >
-                    {b.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {show && it.hidden && <p className="mt-2 break-all rounded-md bg-black/50 px-2 py-1 font-mono text-[11px] text-neon-amber">↳ {it.hidden}</p>}
-            {a && (
-              <p role="status" className={cn("mt-2 flex items-start gap-1.5 text-xs leading-relaxed", ok ? "text-neon-green" : "text-neon-red")}>
-                {ok ? <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <X className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
-                {ok ? it.why : "Not that one. Look again and try another bucket."}
-              </p>
-            )}
-          </div>
-        );
-      })}
-      <p className="text-[11px] text-slate-500">{correctCount} / {lab.items.length} sorted correctly</p>
-    </div>
-  );
-}
+// Sort labs render as a card deck: see DeckSortLab in GameLabs.tsx.
 
 // ─── Match: connect each left item to its right item ──────────────────────────
 export function MatchLab({ lab, onDone }: LabProps<"match">) {
@@ -330,7 +268,7 @@ export function Lab({ lab, onDone }: { lab: BriefingLab; onDone: () => void }) {
     case "inspect":  return <InspectLab lab={lab} onDone={onDone} />;
     case "sequence": return <SequenceLab lab={lab} onDone={onDone} />;
     case "simulate": return <SimulateLab lab={lab} onDone={onDone} />;
-    case "sort":     return <SortLab lab={lab} onDone={onDone} />;
+    case "sort":     return <DeckSortLab lab={lab} onDone={onDone} />;
     case "match":    return <MatchLab lab={lab} onDone={onDone} />;
     case "reactor":  return <ReactorLab lab={lab} onDone={onDone} />;
     case "lineup":   return <LineupLab lab={lab} onDone={onDone} />;

@@ -271,3 +271,112 @@ export function HotspotLab({ lab, onDone }: LabProps<"hotspot">) {
     </div>
   );
 }
+
+// ─── Deck sort: one card at a time, thrown into the right bin ─────────────────
+const BIN_TINTS = ["#2dd4bf", "#60a5fa", "#f472b6", "#fbbf24"];
+
+export function DeckSortLab({ lab, onDone }: LabProps<"sort">) {
+  const deck = useMemo(() => shuffleWithSeed(lab.items, newShuffleSeed()), [lab.items]);
+  const [idx, setIdx] = useState(0);
+  const [wrong, setWrong] = useState<string | null>(null);
+  const [landed, setLanded] = useState<string | null>(null); // bucket the current card flew into
+  const [streak, setStreak] = useState(0);
+  const [best, setBest] = useState(0);
+  const [peek, setPeek] = useState(false);
+  const card = deck[idx];
+  const done = idx >= deck.length;
+  useDoneOnce(done, onDone);
+  const binIndex = (id: string) => Math.max(0, lab.buckets.findIndex(b => b.id === id));
+
+  function throwTo(bucket: string) {
+    if (!card || landed) return;
+    if (bucket === card.bucket) {
+      setLanded(bucket); setWrong(null);
+      setStreak(s => { const n = s + 1; setBest(b => Math.max(b, n)); return n; });
+    } else {
+      setWrong(bucket); setStreak(0);
+    }
+  }
+  function next() { setLanded(null); setWrong(null); setPeek(false); setIdx(i => i + 1); }
+
+  if (done) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm font-bold text-emerald-300"><Check className="mr-1 inline h-4 w-4" />Deck cleared. Best streak: {best}.</p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {lab.buckets.map((b, i) => (
+            <div key={b.id} className="rounded-xl border p-3" style={{ borderColor: `${BIN_TINTS[i % 4]}66` }}>
+              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: BIN_TINTS[i % 4] }}>{b.label}</p>
+              <ul className="mt-2 space-y-1">
+                {lab.items.filter(it => it.bucket === b.id).map(it => <li key={it.id} className="text-sm text-slate-200">{it.text}</li>)}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const tint = landed ? BIN_TINTS[binIndex(landed) % 4] : undefined;
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between text-xs text-slate-400">
+        <span className="font-mono">Card {idx + 1} / {deck.length}</span>
+        <span className={cn("font-bold", streak >= 2 ? "text-amber-300" : "text-slate-500")}>Streak ×{streak}</span>
+      </div>
+      {/* The card on top of the deck */}
+      <div className="relative mx-auto h-44 max-w-md sm:h-40">
+        {deck.slice(idx + 1, idx + 3).map((c, k) => (
+          <div key={c.id} aria-hidden className="absolute inset-0 rounded-2xl border border-white/10 bg-[#0d1626]"
+            style={{ transform: `translateY(${(k + 1) * 8}px) scale(${1 - (k + 1) * 0.04})`, zIndex: 1 - k }} />
+        ))}
+        <AnimatePresence mode="popLayout">
+          <motion.div
+            key={card.id}
+            initial={{ y: -30, opacity: 0, rotate: -3 }}
+            animate={landed
+              ? { y: 70, opacity: 0.0, scale: 0.6, x: (binIndex(landed) - (lab.buckets.length - 1) / 2) * 140, transition: { duration: 0.5, delay: 0.9 } }
+              : wrong ? { x: [0, -12, 12, -6, 6, 0], rotate: 0, y: 0, opacity: 1 } : { y: 0, opacity: 1, rotate: 0 }}
+            className="absolute inset-0 z-10 flex flex-col justify-center rounded-2xl border-2 bg-gradient-to-br from-[#14213a] to-[#0b1324] p-5 text-center shadow-2xl"
+            style={{ borderColor: tint ?? (wrong ? "#f43f5e" : "rgba(148,163,184,0.35)") }}
+          >
+            <p className="text-lg font-bold leading-snug text-white sm:text-xl">{card.text}</p>
+            {card.hidden && (
+              peek ? <p className="mt-2 break-all font-mono text-xs text-amber-300">↳ {card.hidden}</p>
+                : <button onClick={() => setPeek(true)} onMouseEnter={() => setPeek(true)} className="mx-auto mt-2 inline-flex items-center gap-1 text-xs text-sky-300 hover:underline"><Search className="h-3.5 w-3.5" /> peek underneath</button>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+      {/* Bins */}
+      <div className={cn("grid gap-2.5", lab.buckets.length === 2 ? "grid-cols-2" : "grid-cols-3")}>
+        {lab.buckets.map((b, i) => {
+          const c = BIN_TINTS[i % 4];
+          const isWrong = wrong === b.id, isHit = landed === b.id;
+          return (
+            <motion.button
+              key={b.id}
+              onClick={() => throwTo(b.id)}
+              disabled={!!landed}
+              animate={isHit ? { scale: [1, 1.08, 1] } : undefined}
+              transition={{ delay: 1.1 }}
+              className={cn("flex min-h-[4.5rem] flex-col items-center justify-center rounded-2xl border-2 border-dashed px-2 py-3 text-center text-sm font-bold transition enabled:hover:brightness-125", isWrong && "border-solid")}
+              style={{ borderColor: isWrong ? "#f43f5e" : c, color: isWrong ? "#fda4af" : c, background: isHit ? `${c}22` : `${c}0d` }}
+            >
+              {b.label}
+            </motion.button>
+          );
+        })}
+      </div>
+      <p role="status" className={cn("min-h-[2.75rem] rounded-lg px-3 py-2 text-sm leading-relaxed", landed ? "bg-emerald-500/10 text-emerald-200" : wrong ? "bg-rose-500/10 text-rose-300" : "text-slate-500")}>
+        {landed ? <><Check className="mr-1 inline h-4 w-4" />{card.why}</>
+          : wrong ? "Not that bin. What is this, really?" : "Tap the bin this card belongs in."}
+      </p>
+      {landed && (
+        <button onClick={next} className="rounded-xl border border-teal-300/60 px-4 py-2 text-sm font-bold text-teal-100 hover:bg-teal-500/10">
+          {idx + 1 < deck.length ? "Next card" : "Finish the deck"}
+        </button>
+      )}
+    </div>
+  );
+}
