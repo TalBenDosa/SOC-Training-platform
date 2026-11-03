@@ -35,7 +35,7 @@ export function Drill({ labs, skip, children }: { labs: BriefingLab[]; skip: boo
           Drill {step + 1} of {labs.length} · {LAB_ICON[lab.kind]}
         </p>
         <h3 className="mt-1 text-lg font-bold text-white">{lab.title}</h3>
-        <p className="mb-4 mt-1 text-sm leading-relaxed text-slate-300">{lab.prompt}</p>
+        <p className="mb-4 mt-1 text-sm leading-relaxed text-slate-300 [overflow-wrap:anywhere]">{lab.prompt}</p>
         <HowToPlay lab={lab} />
         <Lab lab={lab} onDone={() => setDone(d => new Set(d).add(step))} />
       </motion.div>

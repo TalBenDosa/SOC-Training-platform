@@ -114,7 +114,7 @@ export function IntelBriefing({ roomId, task, isCompleted, onComplete, labs }: M
             Lab {step + 1} of {labs.length} · {LAB_ICON[labs[step].kind]}
           </p>
           <h3 className="mt-1 text-lg font-bold text-white">{labs[step].title}</h3>
-          <p className="mb-4 mt-1 text-sm leading-relaxed text-slate-300">{labs[step].prompt}</p>
+          <p className="mb-4 mt-1 text-sm leading-relaxed text-slate-300 [overflow-wrap:anywhere]">{labs[step].prompt}</p>
           <HowToPlay lab={labs[step]} />
           <Lab key={step} lab={labs[step]} onDone={() => markDone(step)} />
           {doneLabs.has(step) && (

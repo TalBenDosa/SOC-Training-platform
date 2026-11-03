@@ -1548,6 +1548,22 @@ Each service has:
         },
       },
       {
+        type: "question" as const,
+        id: "win-fund-q2",
+        question:
+          "An attacker wants to maintain persistent access to a compromised Windows machine without requiring admin privileges. Which Registry location can they write to without elevation?",
+        options: [
+          "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run, launches programs at logon for every user",
+          "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run, launches programs at logon for that user",
+          "HKLM\\SYSTEM\\CurrentControlSet\\Services, registers programs as services started at boot",
+          "HKLM\\SOFTWARE\\Policies: stores policy values applied to the whole machine",
+        ],
+        answer: 1,
+        explanation:
+          "HKCU (HKEY_CURRENT_USER) is writable by the currently logged-in user without requiring administrator privileges. The HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run key causes programs listed there to automatically start every time that user logs in. This makes it a favorite persistence mechanism for user-privilege malware. The HKLM (HKEY_LOCAL_MACHINE) equivalent requires admin rights. When auditing for persistence, always check both HKCU and HKLM Run keys for all users.",
+        xp: 15,
+      },
+      {
         type: "reading" as const,
         id: "win-fund-r3",
         heading: "Processes, PowerShell, LOLBins, and Attacker Techniques",
@@ -1649,6 +1665,38 @@ Every modern Windows system includes **Windows Defender Antivirus** (now called 
 For SOC analysts: Windows Defender generates security event logs (Event ID 1116 = malware detected, 1117 = action taken). These feed into SIEM solutions and should be monitored. Attackers frequently attempt to disable Defender before deploying ransomware.`,
       },
       {
+        type: "question" as const,
+        id: "win-fund-q1",
+        question:
+          "A SOC analyst notices that lsass.exe is running from C:\\Users\\attacker\\AppData\\Temp\\lsass.exe instead of C:\\Windows\\System32\\lsass.exe. What does this most likely indicate?",
+        options: [
+          "A Windows Update staging copy: update installers briefly unpack system binaries into user Temp folders",
+          "A masquerading binary: the genuine lsass.exe only ever runs from C:\\Windows\\System32\\",
+          "A per-user instance: Windows starts a separate lsass.exe from each logged-on user's profile",
+          "A Credential Guard helper: it runs an isolated lsass.exe copy from a user-writable path",
+        ],
+        answer: 1,
+        explanation:
+          "The real lsass.exe (Local Security Authority Subsystem Service) always runs from C:\\Windows\\System32\\lsass.exe, always runs as SYSTEM, and there should only be one instance. Finding lsass.exe anywhere else (especially in user-writable directories like %APPDATA% or %TEMP%) is a major red flag indicating malware attempting to blend in with legitimate processes. This is called 'process masquerading.' Attackers target lsass.exe specifically because it stores credential data in memory, making it the target of credential-dumping tools like Mimikatz.",
+        xp: 15,
+      },
+      {
+        type: "question" as const,
+        id: "win-fund-q3",
+        question:
+          "A SOC analyst is investigating a Windows server. They notice a service called 'WindowsSecurityHelper' running from C:\\ProgramData\\wsh\\svchost.exe. What is suspicious about this?",
+        options: [
+          "The name 'WindowsSecurityHelper' isn't a real built-in Windows service, and an invented Microsoft-sounding service name is by itself proof of malware, whatever path its binary happens to run from",
+          "Genuine svchost.exe only ever runs from C:\\Windows\\System32\\, so a file named svchost.exe executing from C:\\ProgramData\\ is masquerading: a trusted name sitting in an untrusted location",
+          "A real svchost.exe hosts several services at once, so one running a single service proves this process has been hollowed out and its in-memory code replaced by the attacker",
+          "C:\\ProgramData\\ is meant only for application configuration data and Windows blocks executables from launching there, so this service could only have started by first disabling that protection",
+        ],
+        answer: 1,
+        explanation:
+          "This is process masquerading: malware naming itself 'svchost.exe' to blend in with the dozens of legitimate svchost.exe processes that Windows runs. The key tell is the path: legitimate svchost.exe ALWAYS runs from C:\\Windows\\System32\\svchost.exe. Any svchost.exe running from another location (C:\\ProgramData\\, C:\\Temp\\, C:\\Users\\, etc.) is almost certainly malware. This is why analysts must always check both the process name AND the full path. Additionally, C:\\ProgramData\\ is world-writable on default Windows installations, making it an attacker favorite for dropping malware.",
+        xp: 15,
+      },
+      {
         type: "reading" as const,
         id: "win-fund-r4",
         heading: "PowerShell for Defenders, Not Just Attackers",
@@ -1700,38 +1748,6 @@ This is exactly why the indicators from the previous reading matter as much as t
           answer: 1,
           explanation: "Get-WinEvent with -FilterHashtable is built specifically for querying event logs by LogName, Id, and time range: the correct tool for this task. Get-Process lists running processes, not log entries, and has no Id property matching event IDs. Get-Service lists service states, not security events. Get-ChildItem lists files and folders, searching filenames for '4625' would not find anything, since event data lives inside the .evtx log file, not in file names.",
         },
-      },
-      {
-        type: "question" as const,
-        id: "win-fund-q1",
-        question:
-          "A SOC analyst notices that lsass.exe is running from C:\\Users\\attacker\\AppData\\Temp\\lsass.exe instead of C:\\Windows\\System32\\lsass.exe. What does this most likely indicate?",
-        options: [
-          "A Windows Update staging copy: update installers briefly unpack system binaries into user Temp folders",
-          "A masquerading binary: the genuine lsass.exe only ever runs from C:\\Windows\\System32\\",
-          "A per-user instance: Windows starts a separate lsass.exe from each logged-on user's profile",
-          "A Credential Guard helper: it runs an isolated lsass.exe copy from a user-writable path",
-        ],
-        answer: 1,
-        explanation:
-          "The real lsass.exe (Local Security Authority Subsystem Service) always runs from C:\\Windows\\System32\\lsass.exe, always runs as SYSTEM, and there should only be one instance. Finding lsass.exe anywhere else (especially in user-writable directories like %APPDATA% or %TEMP%) is a major red flag indicating malware attempting to blend in with legitimate processes. This is called 'process masquerading.' Attackers target lsass.exe specifically because it stores credential data in memory, making it the target of credential-dumping tools like Mimikatz.",
-        xp: 15,
-      },
-      {
-        type: "question" as const,
-        id: "win-fund-q2",
-        question:
-          "An attacker wants to maintain persistent access to a compromised Windows machine without requiring admin privileges. Which Registry location can they write to without elevation?",
-        options: [
-          "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run, launches programs at logon for every user",
-          "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run, launches programs at logon for that user",
-          "HKLM\\SYSTEM\\CurrentControlSet\\Services, registers programs as services started at boot",
-          "HKLM\\SOFTWARE\\Policies: stores policy values applied to the whole machine",
-        ],
-        answer: 1,
-        explanation:
-          "HKCU (HKEY_CURRENT_USER) is writable by the currently logged-in user without requiring administrator privileges. The HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run key causes programs listed there to automatically start every time that user logs in. This makes it a favorite persistence mechanism for user-privilege malware. The HKLM (HKEY_LOCAL_MACHINE) equivalent requires admin rights. When auditing for persistence, always check both HKCU and HKLM Run keys for all users.",
-        xp: 15,
       },
       {
         type: "log_analysis" as const,
@@ -1812,22 +1828,6 @@ This is exactly why the indicators from the previous reading matter as much as t
         answer: "winword.exe",
         hint: "Look at the process.parent.name field in the raw log data. It is the Microsoft Word executable.",
         xp: 25,
-      },
-      {
-        type: "question" as const,
-        id: "win-fund-q3",
-        question:
-          "A SOC analyst is investigating a Windows server. They notice a service called 'WindowsSecurityHelper' running from C:\\ProgramData\\wsh\\svchost.exe. What is suspicious about this?",
-        options: [
-          "The name 'WindowsSecurityHelper' isn't a real built-in Windows service, and an invented Microsoft-sounding service name is by itself proof of malware, whatever path its binary happens to run from",
-          "Genuine svchost.exe only ever runs from C:\\Windows\\System32\\, so a file named svchost.exe executing from C:\\ProgramData\\ is masquerading: a trusted name sitting in an untrusted location",
-          "A real svchost.exe hosts several services at once, so one running a single service proves this process has been hollowed out and its in-memory code replaced by the attacker",
-          "C:\\ProgramData\\ is meant only for application configuration data and Windows blocks executables from launching there, so this service could only have started by first disabling that protection",
-        ],
-        answer: 1,
-        explanation:
-          "This is process masquerading: malware naming itself 'svchost.exe' to blend in with the dozens of legitimate svchost.exe processes that Windows runs. The key tell is the path: legitimate svchost.exe ALWAYS runs from C:\\Windows\\System32\\svchost.exe. Any svchost.exe running from another location (C:\\ProgramData\\, C:\\Temp\\, C:\\Users\\, etc.) is almost certainly malware. This is why analysts must always check both the process name AND the full path. Additionally, C:\\ProgramData\\ is world-writable on default Windows installations, making it an attacker favorite for dropping malware.",
-        xp: 15,
       },
     ],
   },

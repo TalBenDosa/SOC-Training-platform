@@ -10,7 +10,7 @@
  * Concept doc: docs/CONCEPT-gamified-learning-rooms.md
  */
 
-export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter";
+export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint";
 
 /**
  * The room's 3D world on its main screen. Decorative (never clickable): it shows
@@ -30,8 +30,10 @@ export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" |
  *             stations switch on the wall, the tiers, the tools, then the alert
  *  - portwall: a perimeter firewall face of port sockets with protocol traffic
  *             streaming in; stations light port groups, then abuse and detection
+ *  - hostcore: inside one Windows host: kernel core and rings, folder tree,
+ *             registry hive, process tree, PowerShell console, a caged macro chain
  */
-export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall";
+export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore";
 
 /** cards: illustrated station cards above the scene. stage: the scene fills the
  *  screen, stations sit in a rail, the selected one in a bottom command bar.

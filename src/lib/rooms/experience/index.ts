@@ -4,6 +4,7 @@ import { INTRO_CYBERSECURITY } from "./introCybersecurity";
 import { NETWORKING_FUNDAMENTALS } from "./networkingFundamentals";
 import { SOC_STRUCTURE } from "./socStructure";
 import { NETWORKING_PROTOCOLS } from "./networkingProtocols";
+import { WINDOWS_FUNDAMENTALS } from "./windowsFundamentals";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -14,6 +15,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [NETWORKING_FUNDAMENTALS.roomId]: NETWORKING_FUNDAMENTALS,
   [SOC_STRUCTURE.roomId]: SOC_STRUCTURE,
   [NETWORKING_PROTOCOLS.roomId]: NETWORKING_PROTOCOLS,
+  [WINDOWS_FUNDAMENTALS.roomId]: WINDOWS_FUNDAMENTALS,
 };
 
 /**

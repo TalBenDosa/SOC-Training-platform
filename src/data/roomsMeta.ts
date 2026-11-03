@@ -469,12 +469,12 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "win-fund-r3",
-        "type": "reading",
-        "xp": 0
+        "id": "win-fund-q2",
+        "type": "question",
+        "xp": 15
       },
       {
-        "id": "win-fund-r4",
+        "id": "win-fund-r3",
         "type": "reading",
         "xp": 0
       },
@@ -484,9 +484,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 15
       },
       {
-        "id": "win-fund-q2",
+        "id": "win-fund-q3",
         "type": "question",
         "xp": 15
+      },
+      {
+        "id": "win-fund-r4",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "win-fund-la1",
@@ -498,11 +503,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "win-fund-f1",
         "type": "flag",
         "xp": 25
-      },
-      {
-        "id": "win-fund-q3",
-        "type": "question",
-        "xp": 15
       }
     ]
   },

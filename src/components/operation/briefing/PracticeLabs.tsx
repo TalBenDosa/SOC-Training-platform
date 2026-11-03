@@ -87,7 +87,7 @@ export function TerminalLab({ lab, onDone }: LabProps<"terminal">) {
         </div>
         <div ref={screen} className="h-80 overflow-auto px-3 py-2 font-mono text-[12px] leading-relaxed sm:h-96" aria-live="polite">
           {lines.map((l, i) => (
-            <pre key={i} className={cn("w-max min-w-full whitespace-pre", l.kind === "in" ? "text-slate-100" : l.kind === "err" ? "text-rose-300" : "text-emerald-200/90")}>
+            <pre key={i} className={cn(/ {2,}|\t/.test(l.text) ? "w-max min-w-full whitespace-pre" : "whitespace-pre-wrap break-all", l.kind === "in" ? "text-slate-100" : l.kind === "err" ? "text-rose-300" : "text-emerald-200/90")}>
               {l.kind === "in" ? `${lab.host} ${l.text}` : l.text}
             </pre>
           ))}
