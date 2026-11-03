@@ -10,7 +10,7 @@
  * Concept doc: docs/CONCEPT-gamified-learning-rooms.md
  */
 
-export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc";
+export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter";
 
 /**
  * The room's 3D world on its main screen. Decorative (never clickable): it shows
@@ -28,8 +28,10 @@ export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" |
  *             each cleared station brings the next device online
  *  - socfloor: a SOC operations room: video wall, desks by tier, tool towers;
  *             stations switch on the wall, the tiers, the tools, then the alert
+ *  - portwall: a perimeter firewall face of port sockets with protocol traffic
+ *             streaming in; stations light port groups, then abuse and detection
  */
-export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor";
+export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall";
 
 /** cards: illustrated station cards above the scene. stage: the scene fills the
  *  screen, stations sit in a rail, the selected one in a bottom command bar.
@@ -241,6 +243,18 @@ export type BriefingLab = ({
       columns: string[];
       rows: string[][];
       questions: { id: string; q: string; hint: string; answer: string[]; why: string }[];
+    }
+  | {
+      /** A packet capture in a packet-analyser view: packet list, a display
+       *  filter, the protocol tree and the payload of the selected packet.
+       *  Objectives are answered from what the packets show. */
+      kind: "pcap";
+      title: string;
+      prompt: string;
+      /** Capture file name in the title bar. */
+      capture: string;
+      packets: { no: number; time: string; src: string; dst: string; proto: string; len: number; info: string; tree: string[]; /** readable payload bytes, if any */ data?: string }[];
+      objectives: { id: string; task: string; /** a display filter to suggest */ hint: string; answer: string[]; why: string }[];
     }) & {
   /** Numbered "how to play" steps shown above the lab; each kind has defaults. */
   howTo?: string[];

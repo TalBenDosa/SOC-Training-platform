@@ -751,6 +751,38 @@ ICMP is often allowed through firewalls for diagnostic purposes, which attackers
         },
       },
       {
+        type: "question" as const,
+        id: "net-prot-q2",
+        question:
+          "A SOC analyst sees 847 authentication failure events from external IP 45.33.32.156 against port 3389 on a corporate server over 2 minutes, followed by 1 authentication success. What should the analyst find out first?",
+        options: [
+          "Whether a user has an old saved password that keeps retrying",
+          "Whether the same IP also tried port 22, to see if it is SSH too",
+          "Which account succeeded, and what that session did on the server",
+          "Nothing more: block the IP, since the attack has now finished",
+        ],
+        answer: 2,
+        explanation:
+          "847 failures in 2 minutes from one external IP is automated guessing, and the success at the end means it worked: treat it as an incident. The first thing to learn is which account was compromised and what the attacker did with the session, so you can reset the credential and scope the damage. A user's saved password would retry from their own device, not hundreds of times a minute from an external IP. Checking port 22 is a side question that does not change what you must do here. Blocking the IP and stopping ignores that someone already logged in.",
+        xp: 20,
+      },
+      {
+        type: "question" as const,
+        id: "net-prot-q3",
+        question:
+          "The WannaCry ransomware infected 200,000 computers in 150 countries in 2017. Which protocol vulnerability did it exploit to spread automatically across networks?",
+        options: [
+          "HTTP on port 80: it exploited unpatched IIS web servers",
+          "LDAP on port 389: it abused domain controller queries to spread",
+          "SMB on port 445: it used the EternalBlue exploit (MS17-010)",
+          "RDP on port 3389: it used the BlueKeep exploit (CVE-2019-0708)",
+        ],
+        answer: 2,
+        explanation:
+          "WannaCry used EternalBlue (CVE-2017-0144, also known as MS17-010), a critical vulnerability in Windows SMBv1 on port 445. The exploit was originally developed by the NSA and later leaked by a hacking group called Shadow Brokers. EternalBlue allowed unauthenticated remote code execution, meaning the ransomware could spread machine-to-machine automatically without any user interaction. Microsoft had released a patch (MS17-010) two months earlier, but unpatched systems were devastated.",
+        xp: 15,
+      },
+      {
         type: "reading" as const,
         id: "net-prot-r3",
         heading: "Protocol Security: Which Protocols Are Dangerous and Why",
@@ -824,22 +856,6 @@ These questions form the foundation of network-based threat investigation.`,
         explanation:
           "DNS tunneling through port 53 is the correct answer. DNS is allowed almost everywhere because blocking it would break internet connectivity. Tools like dnscat2 and iodine encode data inside DNS query subdomains. Each DNS query can carry ~200 bytes of data: slow, but effective for stealing credentials or configuration files. This is why SOC teams monitor for unusual DNS query patterns and high-entropy domain names.",
         xp: 15,
-      },
-      {
-        type: "question" as const,
-        id: "net-prot-q2",
-        question:
-          "A SOC analyst sees 847 authentication failure events from external IP 45.33.32.156 against port 3389 on a corporate server over 2 minutes, followed by 1 authentication success. What should the analyst find out first?",
-        options: [
-          "Whether a user has an old saved password that keeps retrying",
-          "Whether the same IP also tried port 22, to see if it is SSH too",
-          "Which account succeeded, and what that session did on the server",
-          "Nothing more: block the IP, since the attack has now finished",
-        ],
-        answer: 2,
-        explanation:
-          "847 failures in 2 minutes from one external IP is automated guessing, and the success at the end means it worked: treat it as an incident. The first thing to learn is which account was compromised and what the attacker did with the session, so you can reset the credential and scope the damage. A user's saved password would retry from their own device, not hundreds of times a minute from an external IP. Checking port 22 is a side question that does not change what you must do here. Blocking the IP and stopping ignores that someone already logged in.",
-        xp: 20,
       },
       {
         type: "log_analysis" as const,
@@ -916,22 +932,6 @@ These questions form the foundation of network-based threat investigation.`,
         answer: "NXDOMAIN",
         hint: "Think about what a resolver answers when malware asks for hundreds of generated names that nobody ever registered.",
         xp: 25,
-      },
-      {
-        type: "question" as const,
-        id: "net-prot-q3",
-        question:
-          "The WannaCry ransomware infected 200,000 computers in 150 countries in 2017. Which protocol vulnerability did it exploit to spread automatically across networks?",
-        options: [
-          "HTTP on port 80: it exploited unpatched IIS web servers",
-          "LDAP on port 389: it abused domain controller queries to spread",
-          "SMB on port 445: it used the EternalBlue exploit (MS17-010)",
-          "RDP on port 3389: it used the BlueKeep exploit (CVE-2019-0708)",
-        ],
-        answer: 2,
-        explanation:
-          "WannaCry used EternalBlue (CVE-2017-0144, also known as MS17-010), a critical vulnerability in Windows SMBv1 on port 445. The exploit was originally developed by the NSA and later leaked by a hacking group called Shadow Brokers. EternalBlue allowed unauthenticated remote code execution, meaning the ransomware could spread machine-to-machine automatically without any user interaction. Microsoft had released a patch (MS17-010) two months earlier, but unpatched systems were devastated.",
-        xp: 15,
       },
     ],
   },

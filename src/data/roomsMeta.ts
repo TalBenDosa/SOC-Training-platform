@@ -358,6 +358,16 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "net-prot-q2",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "net-prot-q3",
+        "type": "question",
+        "xp": 15
+      },
+      {
         "id": "net-prot-r3",
         "type": "reading",
         "xp": 0
@@ -368,11 +378,6 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 15
       },
       {
-        "id": "net-prot-q2",
-        "type": "question",
-        "xp": 20
-      },
-      {
         "id": "net-prot-la1",
         "type": "log_analysis",
         "xp": 40
@@ -381,11 +386,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "net-prot-f1",
         "type": "flag",
         "xp": 25
-      },
-      {
-        "id": "net-prot-q3",
-        "type": "question",
-        "xp": 15
       }
     ]
   },

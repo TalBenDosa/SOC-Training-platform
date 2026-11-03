@@ -21,6 +21,11 @@ for i in range(t0, len(lines)):
 RULE = "    // ------------------------------------------------------------------"
 body = lines[t0:t1]
 cuts = [i for i, l in enumerate(body) if l == RULE and i + 2 < len(body) and body[i + 2] == RULE]
+if not cuts:
+    # No comment headers: a block runs from an opening "{" line to the "}," line
+    # at the same indentation (the first task's indentation).
+    indent = next(l for l in body if l.strip())[: -len(next(l for l in body if l.strip()).lstrip())]
+    cuts = [i for i, l in enumerate(body) if l == indent + "{"]
 cuts.append(len(body))
 blocks = {}
 for a, b in zip(cuts, cuts[1:]):
