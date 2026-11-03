@@ -6,6 +6,8 @@ import type { RoomExperience } from "./types";
 // The briefing labs teach the three readings hands-on. Their example mail is a
 // fictional "Northwind Bank" (203.0.113.0/24 is the RFC 5737 documentation
 // range) so nothing here overlaps the graded log, questions or flag.
+const FILMS = "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/phishing-analysis";
+
 export const PHISHING_ANALYSIS: RoomExperience = {
   roomId: "phishing-analysis",
   codename: "Operation Dead Letter",
@@ -20,14 +22,13 @@ export const PHISHING_ANALYSIS: RoomExperience = {
   mission: "A wave of fake bank and executive mail is reaching our people. Learn how mail really travels, work the evidence, and stop the sender.",
   estimate: "~60 min",
   look: { primary: "#22d3ee", secondary: "#a78bfa", warn: "#fb7185" },
-  // Local preview copies (public/operation/, git-ignored) until Tal approves
-  // the films for the media bucket.
+  // Approved films in the lesson-videos bucket; names carry a content hash.
   story: {
-    intro: { title: "02:14", src: "/operation/phishing-analysis/dead-letter-intro.mp4", poster: "/operation/phishing-analysis/dead-letter-intro.jpg" },
+    intro: { title: "02:14", src: `${FILMS}/dead-letter-intro-cb2adf7f.mp4`, poster: `${FILMS}/dead-letter-intro-f7c3b8cb.jpg` },
     afterStation: {
-      sorting: { title: "The Pattern", src: "/operation/phishing-analysis/dead-letter-ch2.mp4", poster: "/operation/phishing-analysis/dead-letter-ch2.jpg" },
-      lab: { title: "Every Copy", src: "/operation/phishing-analysis/dead-letter-ch4.mp4", poster: "/operation/phishing-analysis/dead-letter-ch4.jpg" },
-      ticket: { title: "Dead Letter", src: "/operation/phishing-analysis/dead-letter-finale.mp4", poster: "/operation/phishing-analysis/dead-letter-finale.jpg" },
+      sorting: { title: "The Pattern", src: `${FILMS}/dead-letter-ch2-dc47fb4c.mp4`, poster: `${FILMS}/dead-letter-ch2-6ac505a6.jpg` },
+      lab: { title: "Every Copy", src: `${FILMS}/dead-letter-ch4-88f5692d.mp4`, poster: `${FILMS}/dead-letter-ch4-e2e5d785.jpg` },
+      ticket: { title: "Dead Letter", src: `${FILMS}/dead-letter-finale-ee674c63.mp4`, poster: `${FILMS}/dead-letter-finale-1c6037fe.jpg` },
     },
   },
   stations: [
