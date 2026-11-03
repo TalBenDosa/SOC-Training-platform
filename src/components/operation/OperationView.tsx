@@ -137,7 +137,11 @@ export function OperationView(p: OperationViewProps) {
     }
     return out;
   }, [experience.story, experience.stations]);
-  const watched = stories.filter(e => local.seenStory.includes(e.key));
+  // Replayable: the intro, every chapter whose station is cleared (a learner who
+  // finished the room before its films existed still gets them), and anything seen.
+  const watched = stories.filter(e =>
+    e.key === "intro" || local.seenStory.includes(e.key) ||
+    !!experience.stations.find(st => st.id === e.key)?.taskIds.every(id => completedTaskIds.has(id)));
 
   function closeStory() {
     if (story && !local.seenStory.includes(story.key)) updateLocal(v => ({ ...v, seenStory: [...v.seenStory, story.key] }));
