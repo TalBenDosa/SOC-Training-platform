@@ -718,4 +718,265 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
       { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/the-investigation-workflow-alert-to-root-cause/es.vtt" },
     ],
   },
+  "network-types-topologies-and-devices": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/network-types-topologies-and-devices/network-types-topologies-and-devices.mp4",
+    caption: "Explainer: Network Types, Topologies & Devices · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/network-types-topologies-and-devices/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/network-types-topologies-and-devices/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/network-types-topologies-and-devices/es.vtt" },
+    ],
+  },
+  "linux-command-line-essentials": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/linux-command-line-essentials/linux-command-line-essentials.mp4",
+    caption: "Explainer: Linux Command Line Essentials · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/linux-command-line-essentials/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/linux-command-line-essentials/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/linux-command-line-essentials/es.vtt" },
+    ],
+  },
+  "linux-bash-scripting-fundamentals": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/linux-bash-scripting-fundamentals/linux-bash-scripting-fundamentals.mp4",
+    caption: "Explainer: Bash Scripting Fundamentals · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/linux-bash-scripting-fundamentals/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/linux-bash-scripting-fundamentals/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/linux-bash-scripting-fundamentals/es.vtt" },
+    ],
+  },
+  "linux-networking-and-troubleshooting": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/linux-networking-and-troubleshooting/linux-networking-and-troubleshooting.mp4",
+    caption: "Explainer: Linux Networking, Layer by Layer · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/linux-networking-and-troubleshooting/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/linux-networking-and-troubleshooting/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/linux-networking-and-troubleshooting/es.vtt" },
+    ],
+  },
+  "switching-vlans-trunking-and-stp": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/switching-vlans-trunking-and-stp/switching-vlans-trunking-and-stp.mp4",
+    caption: "Explainer: Switching, VLANs & Spanning Tree · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/switching-vlans-trunking-and-stp/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/switching-vlans-trunking-and-stp/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/switching-vlans-trunking-and-stp/es.vtt" },
+    ],
+  },
+  "routing-fundamentals-static-and-inter-vlan": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/routing-fundamentals-static-and-inter-vlan/routing-fundamentals-static-and-inter-vlan.mp4",
+    caption: "Explainer: Routing: Static & Inter-VLAN · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/routing-fundamentals-static-and-inter-vlan/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/routing-fundamentals-static-and-inter-vlan/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/routing-fundamentals-static-and-inter-vlan/es.vtt" },
+    ],
+  },
+  "dynamic-routing-ospf-eigrp-and-fhrp": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/dynamic-routing-ospf-eigrp-and-fhrp/dynamic-routing-ospf-eigrp-and-fhrp.mp4",
+    caption: "Explainer: Dynamic Routing: OSPF, EIGRP, HSRP · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/dynamic-routing-ospf-eigrp-and-fhrp/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/dynamic-routing-ospf-eigrp-and-fhrp/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/dynamic-routing-ospf-eigrp-and-fhrp/es.vtt" },
+    ],
+  },
+  "cisco-ios-configuration-and-operations": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cisco-ios-configuration-and-operations/cisco-ios-configuration-and-operations.mp4",
+    caption: "Explainer: Operating and Securing Cisco IOS · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cisco-ios-configuration-and-operations/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cisco-ios-configuration-and-operations/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cisco-ios-configuration-and-operations/es.vtt" },
+    ],
+  },
+  "wireless-networking-lap-and-wlc": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/wireless-networking-lap-and-wlc/wireless-networking-lap-and-wlc.mp4",
+    caption: "Explainer: Enterprise Wireless · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/wireless-networking-lap-and-wlc/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/wireless-networking-lap-and-wlc/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/wireless-networking-lap-and-wlc/es.vtt" },
+    ],
+  },
+  "network-automation-apis-and-json": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/network-automation-apis-and-json/network-automation-apis-and-json.mp4",
+    caption: "Explainer: Network Automation · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/network-automation-apis-and-json/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/network-automation-apis-and-json/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/network-automation-apis-and-json/es.vtt" },
+    ],
+  },
+  "aws-compute-ec2-and-scaling": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-compute-ec2-and-scaling/aws-compute-ec2-and-scaling.mp4",
+    caption: "Explainer: AWS Compute and Scaling · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-compute-ec2-and-scaling/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-compute-ec2-and-scaling/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-compute-ec2-and-scaling/es.vtt" },
+    ],
+  },
+  "aws-storage-s3-ebs-and-classes": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-storage-s3-ebs-and-classes/aws-storage-s3-ebs-and-classes.mp4",
+    caption: "Explainer: AWS Storage: S3, EBS, EFS · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-storage-s3-ebs-and-classes/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-storage-s3-ebs-and-classes/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-storage-s3-ebs-and-classes/es.vtt" },
+    ],
+  },
+  "aws-databases-and-analytics": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-databases-and-analytics/aws-databases-and-analytics.mp4",
+    caption: "Explainer: AWS Databases & Analytics · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-databases-and-analytics/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-databases-and-analytics/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-databases-and-analytics/es.vtt" },
+    ],
+  },
+  "aws-serverless-and-containers": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-serverless-and-containers/aws-serverless-and-containers.mp4",
+    caption: "Explainer: AWS Serverless & Containers · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-serverless-and-containers/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-serverless-and-containers/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-serverless-and-containers/es.vtt" },
+    ],
+  },
+  "aws-networking-vpc-and-connectivity": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-networking-vpc-and-connectivity/aws-networking-vpc-and-connectivity.mp4",
+    caption: "Explainer: AWS VPC Networking · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-networking-vpc-and-connectivity/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-networking-vpc-and-connectivity/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-networking-vpc-and-connectivity/es.vtt" },
+    ],
+  },
+  "aws-iac-monitoring-and-billing": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-iac-monitoring-and-billing/aws-iac-monitoring-and-billing.mp4",
+    caption: "Explainer: AWS Ops: Code, Alarms, Budgets · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-iac-monitoring-and-billing/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-iac-monitoring-and-billing/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/aws-iac-monitoring-and-billing/es.vtt" },
+    ],
+  },
+  "building-a-soc-home-lab": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/building-a-soc-home-lab/building-a-soc-home-lab.mp4",
+    caption: "Explainer: Building a Safe SOC Home Lab · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/building-a-soc-home-lab/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/building-a-soc-home-lab/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/building-a-soc-home-lab/es.vtt" },
+    ],
+  },
+  "log-ingestion-agents-and-collection": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/log-ingestion-agents-and-collection/log-ingestion-agents-and-collection.mp4",
+    caption: "Explainer: How Logs Get Into a SIEM · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/log-ingestion-agents-and-collection/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/log-ingestion-agents-and-collection/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/log-ingestion-agents-and-collection/es.vtt" },
+    ],
+  },
+  "risk-management-for-the-soc": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/risk-management-for-the-soc/risk-management-for-the-soc.mp4",
+    caption: "Explainer: Risk Management for the SOC · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/risk-management-for-the-soc/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/risk-management-for-the-soc/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/risk-management-for-the-soc/es.vtt" },
+    ],
+  },
+  "malware-analysis-lab-setup-and-safety": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/malware-analysis-lab-setup-and-safety/malware-analysis-lab-setup-and-safety.mp4",
+    caption: "Explainer: A Safe Malware Analysis Lab · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/malware-analysis-lab-setup-and-safety/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/malware-analysis-lab-setup-and-safety/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/malware-analysis-lab-setup-and-safety/es.vtt" },
+    ],
+  },
+  "malware-analysis-reporting-and-sysinternals": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/malware-analysis-reporting-and-sysinternals/malware-analysis-reporting-and-sysinternals.mp4",
+    caption: "Explainer: Sysinternals & the Malware Report · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/malware-analysis-reporting-and-sysinternals/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/malware-analysis-reporting-and-sysinternals/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/malware-analysis-reporting-and-sysinternals/es.vtt" },
+    ],
+  },
+  "working-with-llms-and-prompt-engineering": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/working-with-llms-and-prompt-engineering/working-with-llms-and-prompt-engineering.mp4",
+    caption: "Explainer: Working with LLMs · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/working-with-llms-and-prompt-engineering/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/working-with-llms-and-prompt-engineering/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/working-with-llms-and-prompt-engineering/es.vtt" },
+    ],
+  },
+  "osint-methodology-opsec-and-personas": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-methodology-opsec-and-personas/osint-methodology-opsec-and-personas.mp4",
+    caption: "Explainer: OSINT Method and OPSEC · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-methodology-opsec-and-personas/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-methodology-opsec-and-personas/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-methodology-opsec-and-personas/es.vtt" },
+    ],
+  },
+  "osint-advanced-search-and-dorking": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-advanced-search-and-dorking/osint-advanced-search-and-dorking.mp4",
+    caption: "Explainer: Advanced Search and Dorking · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-advanced-search-and-dorking/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-advanced-search-and-dorking/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-advanced-search-and-dorking/es.vtt" },
+    ],
+  },
+  "osint-image-exif-and-geolocation": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-image-exif-and-geolocation/osint-image-exif-and-geolocation.mp4",
+    caption: "Explainer: Image and Geolocation OSINT · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-image-exif-and-geolocation/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-image-exif-and-geolocation/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-image-exif-and-geolocation/es.vtt" },
+    ],
+  },
+  "osint-people-email-and-username": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-people-email-and-username/osint-people-email-and-username.mp4",
+    caption: "Explainer: Email & Username OSINT · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-people-email-and-username/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-people-email-and-username/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-people-email-and-username/es.vtt" },
+    ],
+  },
+  "osint-social-media-investigation": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-social-media-investigation/osint-social-media-investigation.mp4",
+    caption: "Explainer: Social Media OSINT for Defenders · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-social-media-investigation/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-social-media-investigation/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-social-media-investigation/es.vtt" },
+    ],
+  },
+  "osint-tools-frameworks-and-reporting": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-tools-frameworks-and-reporting/osint-tools-frameworks-and-reporting.mp4",
+    caption: "Explainer: OSINT Tools and Reporting · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-tools-frameworks-and-reporting/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-tools-frameworks-and-reporting/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osint-tools-frameworks-and-reporting/es.vtt" },
+    ],
+  },
+  "ad-domain-trusts-and-cross-forest-attacks": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ad-domain-trusts-and-cross-forest-attacks/ad-domain-trusts-and-cross-forest-attacks.mp4",
+    caption: "Explainer: AD Trusts & Cross-Forest Movement · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ad-domain-trusts-and-cross-forest-attacks/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ad-domain-trusts-and-cross-forest-attacks/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ad-domain-trusts-and-cross-forest-attacks/es.vtt" },
+    ],
+  },
 };
