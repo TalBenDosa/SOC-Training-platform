@@ -286,6 +286,11 @@ const ART: Record<BuildingKind, React.FC<{ id: string }>> = {
   lab: LabArt,
   office: OfficeArt,
   vault: VaultArt,
+  // Campus rooms draw their own building art; the cards fall back to these.
+  reception: OfficeArt,
+  emergency: ControlArt,
+  wing: OfficeArt,
+  roof: TicketArt,
 };
 
 export function StationArt({ kind, className }: { kind: BuildingKind; className?: string }) {

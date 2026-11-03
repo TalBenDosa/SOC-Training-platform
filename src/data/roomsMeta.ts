@@ -53,9 +53,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "intro-cyber-r3",
-        "type": "reading",
-        "xp": 0
+        "id": "intro-cyber-m1",
+        "type": "matching",
+        "xp": 30
       },
       {
         "id": "intro-cyber-q1",
@@ -79,9 +79,9 @@ export const ROOMS_META: RoomMeta[] = [
         "mitreTechnique": "T1566.002"
       },
       {
-        "id": "intro-cyber-m1",
-        "type": "matching",
-        "xp": 30
+        "id": "intro-cyber-r3",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "intro-cyber-q4",

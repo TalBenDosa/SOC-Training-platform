@@ -19,7 +19,9 @@ import { VaultKeypad } from "./mechanics/VaultKeypad";
 import { IntelBriefing } from "./briefing/IntelBriefing";
 import { MissionBoard, type StoryEntry } from "./board/MissionBoard";
 import { StoryPlayer } from "./StoryPlayer";
+import { Drill } from "./briefing/Drill";
 import { StageBoard } from "./board/StageBoard";
+import { CampusBoard } from "./board/CampusBoard";
 import type { WorldProps } from "./scenes/common";
 import type { MechanicProps } from "./shared";
 
@@ -28,6 +30,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   gates: dynamic(() => import("./scenes/GateScene"), { ssr: false }),
   tower: dynamic(() => import("./scenes/TowerScene"), { ssr: false }),
   network: dynamic(() => import("./scenes/NetworkScene"), { ssr: false }),
+  campus: dynamic(() => import("./scenes/CampusScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;
@@ -272,7 +275,7 @@ export function OperationView(p: OperationViewProps) {
 
   // Stage rooms: a full-screen world and a station picked on the track. The
   // pick follows the frontier whenever the learner comes back to the board.
-  const stage = experience.layout === "stage";
+  const stage = experience.layout === "stage" || experience.layout === "campus";
   const World = WORLDS[experience.scene ?? "gates"] ?? WORLDS.gates;
   const frontier = Math.max(0, hubStations.findIndex(s => s.status === "open"));
   const [selected, setSelected] = useState(0);
@@ -370,7 +373,19 @@ export function OperationView(p: OperationViewProps) {
 
         {phase === "hub" && (
           <motion.div key="hub" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={cn("absolute inset-0 z-20", stage && "pointer-events-none")}>
-            {stage ? (
+            {experience.layout === "campus" ? (
+              <CampusBoard
+                experience={experience}
+                room={room}
+                stations={hubStations}
+                selected={selected}
+                onSelect={setSelected}
+                onEnter={enterStation}
+                tokens={local.tokens}
+                stories={watched}
+                onPlayStory={setStory}
+              />
+            ) : stage ? (
               <StageBoard
                 experience={experience}
                 room={room}
@@ -473,6 +488,7 @@ export function OperationView(p: OperationViewProps) {
 // ─── Station task: mechanic by task type, existing player as the fallback ───────
 function StationTask({ task, props, labs }: { task: SanitizedRoomTask; props: Omit<MechanicProps<unknown>, "task">; labs?: BriefingLab[] }) {
   if (task.type === "reading" && labs?.length) return <IntelBriefing {...props} task={task} labs={labs} />;
+  if (labs?.length) return <Drill labs={labs} skip={props.isCompleted}><StationTask task={task} props={props} /></Drill>;
   switch (mechanicFor(task.type)) {
     case "lock_terminal":  return <LockTerminal  {...props} task={task as Extract<SanitizedRoomTask, { type: "question" }>} />;
     case "triage_desk":    return <TriageDesk    {...props} task={task as Extract<SanitizedRoomTask, { type: "analyst_choice" }>} />;

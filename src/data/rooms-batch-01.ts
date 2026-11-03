@@ -15,13 +15,13 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 
 const introToCyberEvent: TelemetryEvent = {
   id: "evt-intro-001",
-  ts: "2024-03-15T14:22:07.441Z",
+  ts: "2024-03-15T02:51:07.441Z",
   source: "av",
   vendor: "Microsoft Defender for Endpoint",
   event_type: "av_detection",
   severity: "high",
   hostname: "DESKTOP-HR-042",
-  user_email: "sarah.jones@acmecorp.com",
+  user_email: "sarah.jones@mercybaymed.org",
   description: "Malware detected on HR workstation as it was downloaded by the web browser",
   mitre_technique: "T1566.002",
   mitre_tactic: "Initial Access",
@@ -39,13 +39,13 @@ const introToCyberEvent: TelemetryEvent = {
     MD5: "42268af028499333858a9ec22709a6dc",
     ProcessName: "msedge.exe",
     ProcessPID: 4892,
-    OriginUrl: "http://invoice-portal-acme.ru/download/invoice_Q1_2024.exe",
+    OriginUrl: "http://invoice-portal-mercybay.ru/download/invoice_Q1_2024.exe",
     ThreatCategory: "Trojan",
-    DetectionTime: "2024-03-15T14:22:07.441Z",
+    DetectionTime: "2024-03-15T02:51:07.441Z",
     ProductVersion: "4.18.24020.7",
     SignatureVersion: "1.407.0.0",
     EngineVersion: "1.1.24020.9",
-    UserName: "ACMECORP\\sarah.jones",
+    UserName: "MERCYBAY\\sarah.jones",
     ComputerName: "DESKTOP-HR-042",
     AdditionalActionsBitmask: 0,
     RemediationUser: "NT AUTHORITY\\SYSTEM",
@@ -159,51 +159,32 @@ Now let's look at **who attacks these systems**.
     },
 
     // ------------------------------------------------------------------
-    // Reading 3 — Why Cybersecurity Matters & Career Paths
+    // Matching Task — CIA Triad
     // ------------------------------------------------------------------
     {
-      type: "reading" as const,
-      id: "intro-cyber-r3",
-      heading: "Real-World Impact & Starting Your Cybersecurity Career",
-      content: `Understanding cybersecurity in the abstract is useful. Understanding it through real events makes it stick. Let's look at two landmark breaches that changed the industry forever.
-
-**Case Study 1: SolarWinds (2020)**
-SolarWinds makes software called **Orion** that thousands of organisations use to monitor their IT networks. In 2020, attackers (later attributed to Russian intelligence, APT29) compromised SolarWinds' own software build process and inserted malicious code into an Orion update. When organisations installed the update (trusting SolarWinds as a legitimate vendor) they unknowingly installed a backdoor. About 18,000 organisations installed the backdoored update; the attackers then chose a much smaller set of high-value victims (around 100 companies and 9 US federal agencies, including the US Treasury, the Department of Homeland Security and major tech companies) for hands-on follow-on intrusion. This attack is called a **supply chain attack**: instead of attacking a target directly, the attacker compromises a trusted supplier.
-
-**Case Study 2: Colonial Pipeline (2021)**
-Colonial Pipeline operates the largest fuel pipeline in the United States, carrying 45% of the East Coast's fuel supply. In May 2021, a ransomware group called **DarkSide** gained access using a compromised VPN (Virtual Private Network: a secure remote access tool) password. They encrypted critical systems and demanded ransom. The company proactively shut down pipeline operations, causing fuel shortages across the southeastern US. Panic buying led to long queues at petrol stations. Colonial paid $4.4 million in Bitcoin, though US authorities later recovered about $2.3 million of it.
-
-**Key lesson from both:** Modern attacks often exploit the weakest link: a trusted software update, a reused password, a single employee clicking the wrong email. Cybersecurity is not purely a technology problem; it is a human problem.
-
-**The Scale of the Problem**
-- Industry breach-cost studies in recent years (e.g. IBM's Cost of a Data Breach reports) have put the average data breach at roughly **$4.4–4.9 million**.
-- The healthcare industry has consistently had the highest breach costs of any sector.
-- Those same studies find it takes organisations around **200 days** just to *detect* a breach, and roughly another **70 days** to contain it. That is close to nine months of an attacker being inside before it is fully dealt with.
-- The global shortage of cybersecurity professionals has been estimated in the millions of unfilled jobs (ISC2 has put it around **3.5–4 million** in recent years).
-
-*Where these numbers come from:* no single report is the last word: a good analyst cross-checks several. The most-cited annual sources are the **IBM Cost of a Data Breach Report** (breach cost and detection/containment times), the **Verizon Data Breach Investigations Report (DBIR)** (how breaches actually happen: the mix of phishing, stolen credentials, and misconfiguration), and **Mandiant M-Trends** (dwell time and attacker behaviour). When you quote a statistic in a report, name the source and the year.
-
-**Career Paths in Cybersecurity**
-Cybersecurity is a broad field. Here are the main tracks:
-
-- **SOC Analyst (your starting point)**: Monitor alerts, investigate suspicious events, escalate threats. The most common entry-level role.
-- **Penetration Tester (Ethical Hacker)**: Hired to attack an organisation's own systems to find weaknesses before criminals do.
-- **Incident Responder**: Called in when a breach is confirmed. They investigate what happened, contain the damage, and help restore operations.
-- **Threat Intelligence Analyst**: Tracks hacker groups, monitors the dark web, and publishes intelligence about upcoming threats.
-- **Security Engineer**: Builds and maintains the security tools and infrastructure (firewalls, SIEM systems, etc.).
-- **GRC Analyst (Governance, Risk, and Compliance)**: Ensures the organisation follows laws, regulations, and internal policies.
-- **Cloud Security Engineer**: Specialises in securing cloud environments (AWS, Azure, GCP).
-
-The SOC Analyst role is the gateway. It gives you exposure to real attacks, real tools, and real investigation skills. Most other cybersecurity careers draw on experience gained in a SOC. That is why this training platform is built around the SOC Analyst experience.
-
-**What you will learn in this course:**
-- How attackers think and operate (Kill Chain, MITRE ATT&CK)
-- How a SOC is organised and how analysts work
-- How to read and analyse real security logs
-- How to detect and respond to common attacks
-- Hands-on experience with realistic scenarios
-
-You are about to join one of the most in-demand, dynamic, and impactful professions in the world. Let's get started.`,
+      type: "matching" as const,
+      id: "intro-cyber-m1",
+      heading: "Match the CIA Triad",
+      instructions: "Match each security pillar on the left to its correct definition on the right. Click a pillar, then click its definition.",
+      pairs: [
+        {
+          id: "conf",
+          left: "Confidentiality",
+          right: "Only authorized people can read the data. Enforced with encryption and access controls",
+        },
+        {
+          id: "integ",
+          left: "Integrity",
+          right: "Data cannot be secretly changed: verified with hashing and digital signatures",
+        },
+        {
+          id: "avail",
+          left: "Availability",
+          right: "Systems must work when needed: protected by backups, redundancy, and DDoS mitigation",
+        },
+      ],
+      explanation: "The CIA Triad is the foundation of every security program. Confidentiality ensures secrets stay secret. Integrity ensures data has not been tampered with. Availability ensures systems are up when users need them. A real attack almost always targets at least one of these three: ransomware targets Availability, data theft targets Confidentiality, and log-tampering targets Integrity.",
+      xp: 30,
     },
 
     // ------------------------------------------------------------------
@@ -274,7 +255,7 @@ You are about to join one of the most in-demand, dynamic, and impactful professi
       id: "intro-cyber-la1",
       heading: "Analysing Your First Security Alert",
       context:
-        "You are a Tier-1 SOC Analyst at ACME Corp. Your SIEM (Security Information and Event Management) dashboard just flagged an alert from Microsoft Defender: the antivirus software installed on employee workstations. Review the log event below and answer the questions. Focus on the key fields: ThreatName, FilePath, OriginUrl, Action, and ActionSuccess.",
+        "You are a Tier-1 SOC Analyst at Mercy Bay Medical Center. Your SIEM (Security Information and Event Management) dashboard just flagged an alert from Microsoft Defender: the antivirus software installed on employee workstations. Review the log event below and answer the questions. Focus on the key fields: ThreatName, FilePath, OriginUrl, Action, and ActionSuccess.",
       event: introToCyberEvent,
       questions: [
         {
@@ -295,14 +276,14 @@ You are about to join one of the most in-demand, dynamic, and impactful professi
           question:
             "The OriginUrl field shows where the file was downloaded from. What does this URL suggest about the nature of the attack?",
           options: [
-            "A trusted internal host: the 'acme' in the domain shows it belongs to the company",
-            "A look-alike external domain (invoice-portal-acme.ru) imitating the company, typical of phishing",
+            "A trusted internal host: the 'mercybay' in the domain shows it belongs to the hospital",
+            "A look-alike external domain (invoice-portal-mercybay.ru) imitating the hospital, typical of phishing",
             "A sanctioned vendor invoice portal: country-code domains like .ru are routine for accounting tools",
             "Microsoft's update servers: Defender fetches signed executables from there during scans",
           ],
           answer: 1,
           explanation:
-            "The OriginUrl is 'http://invoice-portal-acme.ru/download/invoice_Q1_2024.exe'. The .ru domain is a Russian country code top-level domain (ccTLD). The domain 'invoice-portal-acme' mimics ACME Corp's name to appear legitimate, a classic phishing tactic called brand impersonation (here 'combosquatting': the real company name combined with extra words on an attacker-owned domain). The file name 'invoice_Q1_2024.exe' is designed to look like a legitimate invoice. This strongly indicates a spear-phishing attack targeting ACME Corp employees.",
+            "The OriginUrl is 'http://invoice-portal-mercybay.ru/download/invoice_Q1_2024.exe'. The .ru domain is a Russian country code top-level domain (ccTLD). The domain 'invoice-portal-mercybay' mimics Mercy Bay's name to appear legitimate, a classic phishing tactic called brand impersonation (here 'combosquatting': the real company name combined with extra words on an attacker-owned domain). The file name 'invoice_Q1_2024.exe' is designed to look like a legitimate invoice. This strongly indicates a spear-phishing attack targeting Mercy Bay staff.",
           xp: 25,
         },
         {
@@ -323,32 +304,51 @@ You are about to join one of the most in-demand, dynamic, and impactful professi
     },
 
     // ------------------------------------------------------------------
-    // Matching Task — CIA Triad
+    // Reading 3 — Why Cybersecurity Matters & Career Paths
     // ------------------------------------------------------------------
     {
-      type: "matching" as const,
-      id: "intro-cyber-m1",
-      heading: "Match the CIA Triad",
-      instructions: "Match each security pillar on the left to its correct definition on the right. Click a pillar, then click its definition.",
-      pairs: [
-        {
-          id: "conf",
-          left: "Confidentiality",
-          right: "Only authorized people can read the data. Enforced with encryption and access controls",
-        },
-        {
-          id: "integ",
-          left: "Integrity",
-          right: "Data cannot be secretly changed: verified with hashing and digital signatures",
-        },
-        {
-          id: "avail",
-          left: "Availability",
-          right: "Systems must work when needed: protected by backups, redundancy, and DDoS mitigation",
-        },
-      ],
-      explanation: "The CIA Triad is the foundation of every security program. Confidentiality ensures secrets stay secret. Integrity ensures data has not been tampered with. Availability ensures systems are up when users need them. A real attack almost always targets at least one of these three: ransomware targets Availability, data theft targets Confidentiality, and log-tampering targets Integrity.",
-      xp: 30,
+      type: "reading" as const,
+      id: "intro-cyber-r3",
+      heading: "Real-World Impact & Starting Your Cybersecurity Career",
+      content: `Understanding cybersecurity in the abstract is useful. Understanding it through real events makes it stick. Let's look at two landmark breaches that changed the industry forever.
+
+**Case Study 1: SolarWinds (2020)**
+SolarWinds makes software called **Orion** that thousands of organisations use to monitor their IT networks. In 2020, attackers (later attributed to Russian intelligence, APT29) compromised SolarWinds' own software build process and inserted malicious code into an Orion update. When organisations installed the update (trusting SolarWinds as a legitimate vendor) they unknowingly installed a backdoor. About 18,000 organisations installed the backdoored update; the attackers then chose a much smaller set of high-value victims (around 100 companies and 9 US federal agencies, including the US Treasury, the Department of Homeland Security and major tech companies) for hands-on follow-on intrusion. This attack is called a **supply chain attack**: instead of attacking a target directly, the attacker compromises a trusted supplier.
+
+**Case Study 2: Colonial Pipeline (2021)**
+Colonial Pipeline operates the largest fuel pipeline in the United States, carrying 45% of the East Coast's fuel supply. In May 2021, a ransomware group called **DarkSide** gained access using a compromised VPN (Virtual Private Network: a secure remote access tool) password. They encrypted critical systems and demanded ransom. The company proactively shut down pipeline operations, causing fuel shortages across the southeastern US. Panic buying led to long queues at petrol stations. Colonial paid $4.4 million in Bitcoin, though US authorities later recovered about $2.3 million of it.
+
+**Key lesson from both:** Modern attacks often exploit the weakest link: a trusted software update, a reused password, a single employee clicking the wrong email. Cybersecurity is not purely a technology problem; it is a human problem.
+
+**The Scale of the Problem**
+- Industry breach-cost studies in recent years (e.g. IBM's Cost of a Data Breach reports) have put the average data breach at roughly **$4.4–4.9 million**.
+- The healthcare industry has consistently had the highest breach costs of any sector.
+- Those same studies find it takes organisations around **200 days** just to *detect* a breach, and roughly another **70 days** to contain it. That is close to nine months of an attacker being inside before it is fully dealt with.
+- The global shortage of cybersecurity professionals has been estimated in the millions of unfilled jobs (ISC2 has put it around **3.5–4 million** in recent years).
+
+*Where these numbers come from:* no single report is the last word: a good analyst cross-checks several. The most-cited annual sources are the **IBM Cost of a Data Breach Report** (breach cost and detection/containment times), the **Verizon Data Breach Investigations Report (DBIR)** (how breaches actually happen: the mix of phishing, stolen credentials, and misconfiguration), and **Mandiant M-Trends** (dwell time and attacker behaviour). When you quote a statistic in a report, name the source and the year.
+
+**Career Paths in Cybersecurity**
+Cybersecurity is a broad field. Here are the main tracks:
+
+- **SOC Analyst (your starting point)**: Monitor alerts, investigate suspicious events, escalate threats. The most common entry-level role.
+- **Penetration Tester (Ethical Hacker)**: Hired to attack an organisation's own systems to find weaknesses before criminals do.
+- **Incident Responder**: Called in when a breach is confirmed. They investigate what happened, contain the damage, and help restore operations.
+- **Threat Intelligence Analyst**: Tracks hacker groups, monitors the dark web, and publishes intelligence about upcoming threats.
+- **Security Engineer**: Builds and maintains the security tools and infrastructure (firewalls, SIEM systems, etc.).
+- **GRC Analyst (Governance, Risk, and Compliance)**: Ensures the organisation follows laws, regulations, and internal policies.
+- **Cloud Security Engineer**: Specialises in securing cloud environments (AWS, Azure, GCP).
+
+The SOC Analyst role is the gateway. It gives you exposure to real attacks, real tools, and real investigation skills. Most other cybersecurity careers draw on experience gained in a SOC. That is why this training platform is built around the SOC Analyst experience.
+
+**What you will learn in this course:**
+- How attackers think and operate (Kill Chain, MITRE ATT&CK)
+- How a SOC is organised and how analysts work
+- How to read and analyse real security logs
+- How to detect and respond to common attacks
+- Hands-on experience with realistic scenarios
+
+You are about to join one of the most in-demand, dynamic, and impactful professions in the world. Let's get started.`,
     },
 
     // ------------------------------------------------------------------

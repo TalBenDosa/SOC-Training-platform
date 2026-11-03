@@ -5,13 +5,13 @@ import { Lock, LockOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { displayOptions, newShuffleSeed } from "@/lib/rooms/shuffle";
 import type { SanitizedQuestionTask } from "@/lib/rooms/sanitize";
-import { AlreadyCleared, ContinueButton, Verdict, useMechanic, type MechanicProps } from "../shared";
+import { AlreadyCleared, ContinueButton, PersonaAvatar, Verdict, useMechanic, type MechanicProps } from "../shared";
 
 /**
  * question → Lock Terminal. Same two-try contract as QuestionPlayer: a first
  * miss gives a nudge (no reveal), the second try is worth half credit.
  */
-export function LockTerminal({ roomId, task, isCompleted, onComplete, onMistake }: MechanicProps<SanitizedQuestionTask>) {
+export function LockTerminal({ roomId, task, isCompleted, onComplete, onMistake, persona }: MechanicProps<SanitizedQuestionTask>) {
   const { submit, record, complete, recordInteraction } = useMechanic(roomId, task.id, isCompleted, onComplete);
   const options = useMemo(() => displayOptions(task.options, `${newShuffleSeed()}:${task.id}`), [task]);
   const [selected, setSelected] = useState<number | null>(null);
@@ -50,6 +50,17 @@ export function LockTerminal({ roomId, task, isCompleted, onComplete, onMistake 
 
   return (
     <div className="space-y-5" onClickCapture={recordInteraction}>
+      {persona && (
+        // An in-world caller frames the question; the line never hints at the answer.
+        <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-bg-panel/70 p-4">
+          <PersonaAvatar name={persona.name} photo={persona.photo} size={64} />
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-white">{persona.name}</p>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{persona.role}</p>
+            <p className="mt-1.5 text-sm italic leading-relaxed text-slate-200">&ldquo;{persona.line}&rdquo;</p>
+          </div>
+        </div>
+      )}
       <motion.div
         key={shake}
         animate={shake ? { x: [0, -10, 10, -6, 6, 0] } : undefined}

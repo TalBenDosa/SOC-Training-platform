@@ -10,7 +10,7 @@
  * Concept doc: docs/CONCEPT-gamified-learning-rooms.md
  */
 
-export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2";
+export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital";
 
 /**
  * The room's 3D world on its main screen. Decorative (never clickable): it shows
@@ -19,12 +19,15 @@ export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2";
  *  - gates:   one armoured gate per station on a ring around a holo globe
  *  - tower:   a tower climbed floor by floor, one floor per station
  *  - network: relay nodes joined by beams, packets travel the cleared route
+ *  - campus:  a hospital campus at night; each cleared station powers a building
+ *             back up, and the sky turns from night to dawn as the room is cleared
  */
-export type SceneId = "shield" | "gates" | "tower" | "network";
+export type SceneId = "shield" | "gates" | "tower" | "network" | "campus";
 
 /** cards: illustrated station cards above the scene. stage: the scene fills the
- *  screen, stations sit in a rail, the selected one in a bottom command bar. */
-export type LayoutId = "cards" | "stage";
+ *  screen, stations sit in a rail, the selected one in a bottom command bar.
+ *  campus: the scene fills the screen with a facility status monitor beside it. */
+export type LayoutId = "cards" | "stage" | "campus";
 
 /** Which mechanic renders a task. Defaults by task type (see mechanicFor). */
 export type MechanicId =
@@ -38,12 +41,15 @@ export type MechanicId =
 export interface Persona {
   name: string;
   role: string;
+  /** Optional portrait (same-origin or bucket URL); initials are drawn without one. */
+  photo?: string;
   /** A neutral in-world line. Must never hint at the verdict. */
   line: string;
 }
 
 /** The kind of place a station is; picks its illustration on the mission board. */
-export type BuildingKind = "archive" | "factory" | "lab" | "office" | "vault" | "control" | "ticket";
+export type BuildingKind = "archive" | "factory" | "lab" | "office" | "vault" | "control" | "ticket"
+  | "reception" | "emergency" | "wing" | "roof";
 
 /**
  * Briefing labs: hands-on ways to learn a reading's material (inspect an
@@ -90,6 +96,33 @@ export type BriefingLab =
       title: string;
       prompt: string;
       pairs: { id: string; left: string; right: string; why: string }[];
+    }
+  | {
+      /** Items ride a conveyor; route each into the right reactor before it
+       *  reaches the end. A wrong reactor heats up and the item comes round again. */
+      kind: "reactor";
+      title: string;
+      prompt: string;
+      reactors: { id: string; label: string; sub: string }[];
+      items: { id: string; text: string; reactor: string; why: string }[];
+    }
+  | {
+      /** A line-up of suspects with dossiers; each round shows evidence and the
+       *  learner picks who fits it. */
+      kind: "lineup";
+      title: string;
+      prompt: string;
+      suspects: { id: string; name: string; motive: string; skill: string; target: string }[];
+      rounds: { id: string; evidence: string[]; suspect: string; why: string }[];
+    }
+  | {
+      /** A realistic artifact (an email, a web page) with hidden hotspots: find
+       *  every red flag; clicking a normal part says why it is fine. */
+      kind: "hotspot";
+      title: string;
+      prompt: string;
+      artifact: string;
+      parts: { id: string; text: string; flag: boolean; note: string; style?: "meta" | "subject" | "body" | "button" | "url"; /** shown in the status bar on hover, like a real link */ href?: string }[];
     };
 
 export interface Station {
@@ -121,7 +154,10 @@ export interface RoomExperience {
   scene?: SceneId;
   layout?: LayoutId;
   stations: Station[];
-  /** Reading task id → hands-on labs that teach that reading interactively. */
+  /**
+   * Task id → hands-on labs. On a reading they teach the reading; on any other
+   * task they run as an ungraded drill before the graded challenge.
+   */
   briefings?: Record<string, BriefingLab[]>;
   /** Optional per-task persona (Triage Desk requester, etc.). */
   personas?: Record<string, Persona>;

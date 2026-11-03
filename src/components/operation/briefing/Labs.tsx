@@ -5,6 +5,7 @@ import { Check, X, Eye, ArrowDown, ShieldCheck, ShieldX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { newShuffleSeed, shuffleWithSeed } from "@/lib/rooms/shuffle";
 import type { BriefingLab } from "@/lib/rooms/experience";
+import { HotspotLab, LineupLab, ReactorLab } from "./GameLabs";
 
 /** Every lab reports once when the learner has worked all of it. */
 interface LabProps<K extends BriefingLab["kind"]> {
@@ -331,5 +332,8 @@ export function Lab({ lab, onDone }: { lab: BriefingLab; onDone: () => void }) {
     case "simulate": return <SimulateLab lab={lab} onDone={onDone} />;
     case "sort":     return <SortLab lab={lab} onDone={onDone} />;
     case "match":    return <MatchLab lab={lab} onDone={onDone} />;
+    case "reactor":  return <ReactorLab lab={lab} onDone={onDone} />;
+    case "lineup":   return <LineupLab lab={lab} onDone={onDone} />;
+    case "hotspot":  return <HotspotLab lab={lab} onDone={onDone} />;
   }
 }

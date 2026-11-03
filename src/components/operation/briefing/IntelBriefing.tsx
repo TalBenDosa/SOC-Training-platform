@@ -10,8 +10,9 @@ import type { BriefingLab } from "@/lib/rooms/experience";
 import { AlreadyCleared, useMechanic, type MechanicProps } from "../shared";
 import { Lab } from "./Labs";
 
-const LAB_ICON: Record<BriefingLab["kind"], string> = {
+export const LAB_ICON: Record<BriefingLab["kind"], string> = {
   inspect: "Inspect", sequence: "Sequence", simulate: "Simulate", sort: "Sort", match: "Match",
+  reactor: "Route", lineup: "Line-up", hotspot: "Find the flags",
 };
 
 /**

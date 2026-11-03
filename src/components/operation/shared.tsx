@@ -120,7 +120,11 @@ export function AlreadyCleared({ heading, onContinue }: { heading: string; onCon
 }
 
 /** Stylised initials avatar for in-world characters (no stock photos needed). */
-export function PersonaAvatar({ name, size = 96 }: { name: string; size?: number }) {
+export function PersonaAvatar({ name, size = 96, photo }: { name: string; size?: number; photo?: string }) {
+  if (photo) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={photo} alt="" aria-hidden width={size} height={size} style={{ width: size, height: size }} className="shrink-0 rounded-2xl border border-cyber-500/40 object-cover shadow-glow" />;
+  }
   const initials = name.split(/[\s.]+/).filter(Boolean).map(p => p[0]).slice(0, 2).join("").toUpperCase();
   return (
     <div
