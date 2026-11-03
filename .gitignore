@@ -26,3 +26,6 @@ email-preview.html
 promo/
 promo-remotion/
 .next-*
+
+# Operation story films: local preview only until approved for the media bucket
+public/operation/

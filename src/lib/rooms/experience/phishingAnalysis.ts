@@ -20,6 +20,16 @@ export const PHISHING_ANALYSIS: RoomExperience = {
   mission: "A wave of fake bank and executive mail is reaching our people. Learn how mail really travels, work the evidence, and stop the sender.",
   estimate: "~60 min",
   look: { primary: "#22d3ee", secondary: "#a78bfa", warn: "#fb7185" },
+  // Local preview copies (public/operation/, git-ignored) until Tal approves
+  // the films for the media bucket.
+  story: {
+    intro: { title: "02:14", src: "/operation/phishing-analysis/dead-letter-intro.mp4", poster: "/operation/phishing-analysis/dead-letter-intro.jpg" },
+    afterStation: {
+      sorting: { title: "The Pattern", src: "/operation/phishing-analysis/dead-letter-ch2.mp4", poster: "/operation/phishing-analysis/dead-letter-ch2.jpg" },
+      lab: { title: "Someone Clicked", src: "/operation/phishing-analysis/dead-letter-ch4.mp4", poster: "/operation/phishing-analysis/dead-letter-ch4.jpg" },
+      ticket: { title: "Dead Letter", src: "/operation/phishing-analysis/dead-letter-finale.mp4", poster: "/operation/phishing-analysis/dead-letter-finale.jpg" },
+    },
+  },
   stations: [
     {
       id: "archive",
