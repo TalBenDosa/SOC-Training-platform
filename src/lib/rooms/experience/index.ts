@@ -1,11 +1,17 @@
 import type { RoomExperience, MechanicId } from "./types";
 import { PHISHING_ANALYSIS } from "./phishingAnalysis";
+import { RANSOMWARE_LIFECYCLE } from "./ransomwareLifecycle";
+import { ACTIVE_DIRECTORY } from "./activeDirectory";
+import { TUNNELING_C2 } from "./tunnelingC2";
 
-export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab } from "./types";
+export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId } from "./types";
 
-// Pilot: one hand-authored room. Rooms without an entry stay Classic-only.
+// Hand-authored rooms. Rooms without an entry stay Classic-only.
 const EXPERIENCES: Record<string, RoomExperience> = {
   [PHISHING_ANALYSIS.roomId]: PHISHING_ANALYSIS,
+  [RANSOMWARE_LIFECYCLE.roomId]: RANSOMWARE_LIFECYCLE,
+  [ACTIVE_DIRECTORY.roomId]: ACTIVE_DIRECTORY,
+  [TUNNELING_C2.roomId]: TUNNELING_C2,
 };
 
 /**

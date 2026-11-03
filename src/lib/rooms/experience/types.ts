@@ -10,7 +10,21 @@
  * Concept doc: docs/CONCEPT-gamified-learning-rooms.md
  */
 
-export type ThemeId = "mailroom";
+export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2";
+
+/**
+ * The room's 3D world on its main screen. Decorative (never clickable): it shows
+ * progress, the board around it carries the controls.
+ *  - shield:  holographic shield on a projector platform (cards layout)
+ *  - gates:   one armoured gate per station on a ring around a holo globe
+ *  - tower:   a tower climbed floor by floor, one floor per station
+ *  - network: relay nodes joined by beams, packets travel the cleared route
+ */
+export type SceneId = "shield" | "gates" | "tower" | "network";
+
+/** cards: illustrated station cards above the scene. stage: the scene fills the
+ *  screen, stations sit in a rail, the selected one in a bottom command bar. */
+export type LayoutId = "cards" | "stage";
 
 /** Which mechanic renders a task. Defaults by task type (see mechanicFor). */
 export type MechanicId =
@@ -103,11 +117,26 @@ export interface RoomExperience {
   estimate: string;
   /** Per-room tint for the board and the station art (CSS colours). */
   look?: { primary: string; secondary: string; warn: string };
+  /** The room's 3D world and board layout. Defaults: shield + cards. */
+  scene?: SceneId;
+  layout?: LayoutId;
   stations: Station[];
   /** Reading task id → hands-on labs that teach that reading interactively. */
   briefings?: Record<string, BriefingLab[]>;
   /** Optional per-task persona (Triage Desk requester, etc.). */
   personas?: Record<string, Persona>;
-  /** Phase 4 (video) — slots exist now so adding a clip is just data. */
-  media?: { intro?: string; success?: string; fail?: string };
+  /**
+   * Short story films: `intro` plays before the first station, `afterStation`
+   * plays when that station is first cleared (keyed by station id). Story only,
+   * never a graded answer. Each plays once per viewer and can be replayed from
+   * the board.
+   */
+  story?: { intro?: StoryClip; afterStation?: Record<string, StoryClip> };
+}
+
+/** One story film: same-origin or Supabase-hosted MP4 plus a poster frame. */
+export interface StoryClip {
+  title: string;
+  src: string;
+  poster?: string;
 }

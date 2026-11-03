@@ -1,11 +1,14 @@
 "use client";
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronRight, ChevronsRight, ChevronsDown, Lock, Play, CheckCircle2, Star, KeyRound, Flag, Timer, Signal, Layers, RotateCcw } from "lucide-react";
+import { ChevronRight, ChevronsRight, ChevronsDown, Lock, Play, CheckCircle2, Star, KeyRound, Flag, Timer, Signal, Layers, RotateCcw, Film } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { RoomExperience } from "@/lib/rooms/experience";
+import type { RoomExperience, StoryClip } from "@/lib/rooms/experience";
 import type { HubStation } from "./types";
 import { StationArt } from "./StationArt";
+
+/** A story film as the board lists it: `key` is "intro" or the station id it follows. */
+export interface StoryEntry { key: string; label: string; clip: StoryClip }
 
 // The operation's main screen: mission header, progress track, one illustrated
 // card per station, the 3D shield as the centrepiece (OperationView places the
@@ -25,9 +28,12 @@ export interface MissionBoardProps {
   onEnter: (id: string) => void;
   onHeroSlot: (el: HTMLDivElement | null) => void;
   onScroll: () => void;
+  /** Story films this viewer has already unlocked, for replay. */
+  stories: StoryEntry[];
+  onPlayStory: (s: StoryEntry) => void;
 }
 
-export function MissionBoard({ experience, roomTitle, difficulty, stations, tokens, has3d, onEnter, onHeroSlot, onScroll }: MissionBoardProps) {
+export function MissionBoard({ experience, roomTitle, difficulty, stations, tokens, has3d, onEnter, onHeroSlot, onScroll, stories, onPlayStory }: MissionBoardProps) {
   const look = experience.look ?? DEFAULT_LOOK;
   const cleared = stations.filter(s => s.status === "cleared").length;
   const words = experience.codename.split(" ");
@@ -197,6 +203,17 @@ export function MissionBoard({ experience, roomTitle, difficulty, stations, toke
             <span className="inline-flex items-center gap-2"><Timer className="h-4 w-4" style={{ color: look.primary }} /> {experience.estimate}</span>
             {difficulty && <span className="inline-flex items-center gap-2 capitalize"><Signal className="h-4 w-4" style={{ color: look.primary }} /> {difficulty}</span>}
           </div>
+          {stories.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 md:border-l md:border-white/10 md:pl-6" aria-label="Story so far">
+              <Film className="h-4 w-4" style={{ color: look.primary }} />
+              {stories.map(s => (
+                <button key={s.key} onClick={() => onPlayStory(s)} title={s.clip.title}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 text-xs font-semibold text-slate-200 hover:border-white/40">
+                  <Play className="h-3 w-3 fill-current" /> {s.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

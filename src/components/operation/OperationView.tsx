@@ -17,10 +17,18 @@ import { TriageDesk } from "./mechanics/TriageDesk";
 import { EvidenceBoard } from "./mechanics/EvidenceBoard";
 import { VaultKeypad } from "./mechanics/VaultKeypad";
 import { IntelBriefing } from "./briefing/IntelBriefing";
-import { MissionBoard } from "./board/MissionBoard";
+import { MissionBoard, type StoryEntry } from "./board/MissionBoard";
+import { StoryPlayer } from "./StoryPlayer";
+import { StageBoard } from "./board/StageBoard";
+import type { WorldProps } from "./scenes/common";
 import type { MechanicProps } from "./shared";
 
 const ShieldScene = dynamic(() => import("./ShieldScene"), { ssr: false });
+const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
+  gates: dynamic(() => import("./scenes/GateScene"), { ssr: false }),
+  tower: dynamic(() => import("./scenes/TowerScene"), { ssr: false }),
+  network: dynamic(() => import("./scenes/NetworkScene"), { ssr: false }),
+};
 
 const MAX_SHIELDS = 3;
 
@@ -29,14 +37,14 @@ type Phase = "briefing" | "hub" | "station" | "cleared" | "breached" | "debrief"
 // Per-viewer cosmetic state (stars, Intel tokens, briefing seen). Never XP or
 // progress — those live in room_progress via RoomClient. Guarded: blocked
 // storage simply means the stars start fresh.
-interface OpLocal { stars: Record<string, number>; tokens: number; seenBriefing: boolean }
+interface OpLocal { stars: Record<string, number>; tokens: number; seenBriefing: boolean; seenStory: string[] }
 const opKey = (roomId: string) => `soc:operation:${roomId}`;
 function readLocal(roomId: string): OpLocal {
   try {
     const raw = window.localStorage.getItem(opKey(roomId));
-    if (raw) return { stars: {}, tokens: 0, seenBriefing: false, ...JSON.parse(raw) };
+    if (raw) return { stars: {}, tokens: 0, seenBriefing: false, seenStory: [], ...JSON.parse(raw) };
   } catch { /* storage unavailable */ }
-  return { stars: {}, tokens: 0, seenBriefing: false };
+  return { stars: {}, tokens: 0, seenBriefing: false, seenStory: [] };
 }
 function writeLocal(roomId: string, v: OpLocal) {
   try { window.localStorage.setItem(opKey(roomId), JSON.stringify(v)); } catch { /* storage unavailable */ }
@@ -74,7 +82,8 @@ export interface OperationViewProps {
 
 export function OperationView(p: OperationViewProps) {
   const { room, experience, completedTaskIds, currentTaskIndex } = p;
-  const [local, setLocal] = useState<OpLocal>({ stars: {}, tokens: 0, seenBriefing: true });
+  const [local, setLocal] = useState<OpLocal>({ stars: {}, tokens: 0, seenBriefing: true, seenStory: [] });
+  const [story, setStory] = useState<StoryEntry | null>(null);
   const [phase, setPhase] = useState<Phase>("hub");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [shields, setShields] = useState(MAX_SHIELDS);
@@ -105,9 +114,32 @@ export function OperationView(p: OperationViewProps) {
     setHas3d(webglAvailable());
     setReducedMotion(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
     if (p.showCompletion || p.showFailure) setPhase("debrief");
-    else if (completedTaskIds.size === 0 && !l.seenBriefing) setPhase("briefing");
+    else if (completedTaskIds.size === 0 && !l.seenBriefing) {
+      setPhase("briefing");
+      const intro = experience.story?.intro;
+      if (intro && !l.seenStory.includes("intro")) setStory({ key: "intro", label: "Briefing film", clip: intro });
+    }
     else setPhase("hub");
-  }, [room.id, p.showCompletion, p.showFailure, completedTaskIds.size]);
+  }, [room.id, p.showCompletion, p.showFailure, completedTaskIds.size, experience.story]);
+
+  // Story films: what this viewer has unlocked, in mission order, for replay.
+  const stories: StoryEntry[] = useMemo(() => {
+    const out: StoryEntry[] = [];
+    const s = experience.story;
+    if (s?.intro) out.push({ key: "intro", label: "Briefing film", clip: s.intro });
+    let chapter = 1;
+    for (const st of experience.stations) {
+      const clip = s?.afterStation?.[st.id];
+      if (clip) out.push({ key: st.id, label: `Chapter ${++chapter}`, clip });
+    }
+    return out;
+  }, [experience.story, experience.stations]);
+  const watched = stories.filter(e => local.seenStory.includes(e.key));
+
+  function closeStory() {
+    if (story && !local.seenStory.includes(story.key)) updateLocal(v => ({ ...v, seenStory: [...v.seenStory, story.key] }));
+    setStory(null);
+  }
 
   // React only to the room's result CHANGING (hydration landing, a replay
   // finishing, "revisit missed" re-opening tasks) — so "Back to the floor" from
@@ -196,6 +228,9 @@ export function OperationView(p: OperationViewProps) {
   }
 
   function afterCleared() {
+    // First clear of a station with a chapter film: the story moves on before the board.
+    const next = active && stories.find(e => e.key === active.id);
+    if (next && !local.seenStory.includes(next.key)) setStory(next);
     setActiveId(null);
     setPhase(p.showCompletion || p.showFailure ? "debrief" : "hub");
   }
@@ -235,11 +270,31 @@ export function OperationView(p: OperationViewProps) {
   }, [heroSlot, measureHero]);
   const inHero = phase === "hub" && heroBox !== null;
 
+  // Stage rooms: a full-screen world and a station picked on the track. The
+  // pick follows the frontier whenever the learner comes back to the board.
+  const stage = experience.layout === "stage";
+  const World = WORLDS[experience.scene ?? "gates"] ?? WORLDS.gates;
+  const frontier = Math.max(0, hubStations.findIndex(s => s.status === "open"));
+  const [selected, setSelected] = useState(0);
+  useEffect(() => { if (phase === "hub") setSelected(frontier); }, [phase, frontier]);
+
   return (
     <div className="fixed inset-0 z-40 overflow-hidden bg-[#05080f] text-slate-100">
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_75%,rgba(34,211,238,0.10),transparent_55%),linear-gradient(rgba(148,163,184,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.04)_1px,transparent_1px)] bg-[length:100%_100%,48px_48px,48px_48px]" />
-      {/* 3D shield (or the flat fallback) */}
-      {has3d ? (
+      {/* The room's 3D world (or the flat fallback). Stage rooms: full screen. */}
+      {has3d && stage ? (
+        <div className="pointer-events-none absolute inset-0">
+          <World
+            stations={hubStations}
+            selected={phase === "hub" ? selected : Math.max(0, experience.stations.findIndex(s => s.id === activeId))}
+            primary={experience.look?.primary ?? "#22d3ee"}
+            secondary={experience.look?.secondary ?? "#a78bfa"}
+            warn={experience.look?.warn ?? "#f59e0b"}
+            dimmed={phase !== "hub"}
+            reducedMotion={reducedMotion}
+          />
+        </div>
+      ) : has3d ? (
         <div
           className={cn("pointer-events-none absolute", inHero ? "z-10" : "inset-0", phase === "hub" && !inHero && "invisible")}
           style={inHero ? heroBox! : undefined}
@@ -314,7 +369,20 @@ export function OperationView(p: OperationViewProps) {
         )}
 
         {phase === "hub" && (
-          <motion.div key="hub" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-20">
+          <motion.div key="hub" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={cn("absolute inset-0 z-20", stage && "pointer-events-none")}>
+            {stage ? (
+              <StageBoard
+                experience={experience}
+                room={room}
+                stations={hubStations}
+                selected={selected}
+                onSelect={setSelected}
+                onEnter={enterStation}
+                tokens={local.tokens}
+                stories={watched}
+                onPlayStory={setStory}
+              />
+            ) : (
             <MissionBoard
               experience={experience}
               roomTitle={room.title}
@@ -325,7 +393,10 @@ export function OperationView(p: OperationViewProps) {
               onEnter={enterStation}
               onHeroSlot={setHeroSlot}
               onScroll={measureHero}
+              stories={watched}
+              onPlayStory={setStory}
             />
+            )}
           </motion.div>
         )}
 
@@ -389,6 +460,11 @@ export function OperationView(p: OperationViewProps) {
         {phase === "debrief" && (
           <Debrief key="debrief" {...p} hubStations={hubStations} onHub={() => setPhase("hub")} />
         )}
+      </AnimatePresence>
+
+      {/* Story films sit above every phase; closing one reveals whatever is underneath. */}
+      <AnimatePresence>
+        {story && <StoryPlayer key={story.key} clip={story.clip} label={story.label} onDone={closeStory} />}
       </AnimatePresence>
     </div>
   );
