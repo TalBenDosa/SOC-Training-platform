@@ -523,6 +523,26 @@ Think of the SOC as the **nervous system** of an organisation's security: consta
     },
 
     // ------------------------------------------------------------------
+    // Question 2
+    // ------------------------------------------------------------------
+    {
+      type: "question" as const,
+      id: "soc-struct-q2",
+      question:
+        "MTTD stands for Mean Time to Detect. Industry breach studies in recent years have put the global average MTTD at roughly how long?",
+      options: [
+        "4 hours: most breaches are detected within a working day",
+        "14 days: about two weeks from intrusion to detection",
+        "~200 days: around seven months from intrusion to detection",
+        "365 days: attackers typically remain undetected for a full year",
+      ],
+      answer: 2,
+      explanation:
+        "The global average MTTD has hovered around 200 days in recent years, meaning attackers were inside organisations for roughly seven months before being discovered. This is a shocking figure that highlights the importance of proactive threat hunting (a T3 function) and tuning SIEM detection rules. A high MTTD means attackers have more time to steal data, move laterally, and cause damage before anyone notices.",
+      xp: 20,
+    },
+
+    // ------------------------------------------------------------------
     // Reading 2 — The Tier Model
     // ------------------------------------------------------------------
     {
@@ -594,6 +614,46 @@ This handoff process is critical. Poor handoffs have allowed attackers to operat
     },
 
     // ------------------------------------------------------------------
+    // Question 1
+    // ------------------------------------------------------------------
+    {
+      type: "question" as const,
+      id: "soc-struct-q1",
+      question:
+        "Your SIEM generates 500 alerts during an overnight shift. A Tier-1 analyst's first job is to process these alerts. What is the primary activity a T1 analyst performs on each alert?",
+      options: [
+        "Reverse engineer the malware sample linked to each alert",
+        "Triage each alert: decide True Positive or False Positive",
+        "Escalate every alert to Tier-3 so a senior analyst decides",
+        "Tune the SIEM rule behind each alert so it stops firing again",
+      ],
+      answer: 1,
+      explanation:
+        "Triage is the T1 analyst's core function. The word 'triage' comes from medicine (sorting patients by urgency), in a SOC it means quickly assessing each alert to decide whether it represents a real threat or a harmless false positive. T1 analysts follow playbooks to perform this assessment efficiently. Writing new detection rules is a T3/senior analyst task; reverse engineering malware is a specialist task; blindly escalating everything would overwhelm T2/T3.",
+      xp: 20,
+    },
+
+    // ------------------------------------------------------------------
+    // Question 3
+    // ------------------------------------------------------------------
+    {
+      type: "question" as const,
+      id: "soc-struct-q3",
+      question:
+        "A SOC is investigating a confirmed ransomware outbreak. The malware has spread to 12 workstations and the attacker's tools are still running. Which tier of analyst is best suited to lead this response, and why?",
+      options: [
+        "Tier 1: they receive every alert first and own the case end to end",
+        "Tier 2: they take escalated incidents, scope them and contain them",
+        "The SIEM: correlation rules can contain a spreading outbreak unaided",
+        "The SOC Manager: they run every serious incident hands-on themselves",
+      ],
+      answer: 1,
+      explanation:
+        "A confirmed, active, multi-system ransomware outbreak is a serious incident requiring deep investigation: this is Tier-2 territory. T2 analysts perform deep-dive investigations, determine scope (how many systems are affected), and implement containment (e.g., isolating infected machines from the network). The SIEM detects; it does not remediate. The SOC Manager oversees team operations but does not personally handle every investigation. If the attack is extremely sophisticated (e.g., nation-state level), T2 would escalate to T3.",
+      xp: 25,
+    },
+
+    // ------------------------------------------------------------------
     // Reading 3 — Tools of the Trade
     // ------------------------------------------------------------------
     {
@@ -640,108 +700,6 @@ Common ticketing systems: **ServiceNow**, **Jira**, **TheHive** (open-source, po
 6. A T1 analyst reviews the automatically-created ticket and confirms the automated response was appropriate. The incident is escalated to T2 for full investigation.
 
 That entire sequence (from first email to automated response) might happen in under 60 seconds in a mature SOC. This is why tooling matters.`,
-    },
-
-    // ------------------------------------------------------------------
-    // Question 1
-    // ------------------------------------------------------------------
-    {
-      type: "question" as const,
-      id: "soc-struct-q1",
-      question:
-        "Your SIEM generates 500 alerts during an overnight shift. A Tier-1 analyst's first job is to process these alerts. What is the primary activity a T1 analyst performs on each alert?",
-      options: [
-        "Reverse engineer the malware sample linked to each alert",
-        "Triage each alert: decide True Positive or False Positive",
-        "Escalate every alert to Tier-3 so a senior analyst decides",
-        "Tune the SIEM rule behind each alert so it stops firing again",
-      ],
-      answer: 1,
-      explanation:
-        "Triage is the T1 analyst's core function. The word 'triage' comes from medicine (sorting patients by urgency), in a SOC it means quickly assessing each alert to decide whether it represents a real threat or a harmless false positive. T1 analysts follow playbooks to perform this assessment efficiently. Writing new detection rules is a T3/senior analyst task; reverse engineering malware is a specialist task; blindly escalating everything would overwhelm T2/T3.",
-      xp: 20,
-    },
-
-    // ------------------------------------------------------------------
-    // Question 2
-    // ------------------------------------------------------------------
-    {
-      type: "question" as const,
-      id: "soc-struct-q2",
-      question:
-        "MTTD stands for Mean Time to Detect. Industry breach studies in recent years have put the global average MTTD at roughly how long?",
-      options: [
-        "4 hours: most breaches are detected within a working day",
-        "14 days: about two weeks from intrusion to detection",
-        "~200 days: around seven months from intrusion to detection",
-        "365 days: attackers typically remain undetected for a full year",
-      ],
-      answer: 2,
-      explanation:
-        "The global average MTTD has hovered around 200 days in recent years, meaning attackers were inside organisations for roughly seven months before being discovered. This is a shocking figure that highlights the importance of proactive threat hunting (a T3 function) and tuning SIEM detection rules. A high MTTD means attackers have more time to steal data, move laterally, and cause damage before anyone notices.",
-      xp: 20,
-    },
-
-    // ------------------------------------------------------------------
-    // Question 3
-    // ------------------------------------------------------------------
-    {
-      type: "question" as const,
-      id: "soc-struct-q3",
-      question:
-        "A SOC is investigating a confirmed ransomware outbreak. The malware has spread to 12 workstations and the attacker's tools are still running. Which tier of analyst is best suited to lead this response, and why?",
-      options: [
-        "Tier 1: they receive every alert first and own the case end to end",
-        "Tier 2: they take escalated incidents, scope them and contain them",
-        "The SIEM: correlation rules can contain a spreading outbreak unaided",
-        "The SOC Manager: they run every serious incident hands-on themselves",
-      ],
-      answer: 1,
-      explanation:
-        "A confirmed, active, multi-system ransomware outbreak is a serious incident requiring deep investigation: this is Tier-2 territory. T2 analysts perform deep-dive investigations, determine scope (how many systems are affected), and implement containment (e.g., isolating infected machines from the network). The SIEM detects; it does not remediate. The SOC Manager oversees team operations but does not personally handle every investigation. If the attack is extremely sophisticated (e.g., nation-state level), T2 would escalate to T3.",
-      xp: 25,
-    },
-
-    // ------------------------------------------------------------------
-    // Log Analysis Task
-    // ------------------------------------------------------------------
-    {
-      type: "log_analysis" as const,
-      id: "soc-struct-la1",
-      heading: "T1 Analyst Scenario: Reviewing an Authentication Alert",
-      context:
-        "You are a Tier-1 SOC analyst at GlobalBank. It is 3:47 AM and your SIEM has fired an alert.\n\n**What the SIEM console tells you:** the rule 'Repeated Authentication Failure. Single Account' correlated **47 of these failures in 2 minutes 33 seconds** (about 18 per minute), all against the same account from the same address, and fired because the rule's threshold is 10 per minute. Its threat-intelligence enrichment flags the source address **185.220.101.47 as a Tor exit node in Amsterdam**.\n\n**What the log itself tells you:** the single Windows Security event below, one of those 47, from the Domain Controller (DC01-CORP), the central server that manages all user logins.\n\nNotice the split before you start: the raw event knows nothing about the other 46 failures and has never heard of Tor. Counting and enrichment are the SIEM's job. Triage this as if it were live.",
-      event: socStructureEvent,
-      questions: [
-        {
-          question:
-            "The SIEM correlated 47 failures against this account in 2 minutes 33 seconds: roughly 18 per minute. What type of attack does that rate strongly suggest?",
-          options: [
-            "Password spraying: one password tried across many accounts to avoid lockout",
-            "Account enumeration: an attacker probing which usernames exist in the domain",
-            "Brute force: an automated tool rapidly trying many passwords against one account",
-            "A misconfigured service: an application retrying a stale saved password",
-          ],
-          answer: 2,
-          explanation:
-            "18 failed login attempts per minute is a rate no human can achieve manually: this is automated. A brute-force attack uses software to rapidly try thousands of username/password combinations. At this rate, a tool is systematically trying different passwords for the 'jsmith' account. The rule's threshold was 10 failures per minute, so the SIEM fired once the attacker's rate crossed it.\n\nNow notice where that number came from. Scroll the raw event: there is no failure count anywhere in it. A 4625 records one failed logon and nothing more. It cannot see the other 46. The '47 in 2:33' is something the SIEM built by counting matching events across a time window. This is the single most important thing to understand about a SIEM, and the next reading returns to it.",
-          xp: 20,
-        },
-        {
-          question:
-            "The log's IpAddress field shows '185.220.101.47'. The SIEM's threat-intelligence enrichment identifies that address as a Tor exit node in Amsterdam. What does this tell you, and how should it affect your triage decision?",
-          options: [
-            "Tor exits carry a lot of benign traffic, so the enrichment should not change the verdict",
-            "Tor hides the true source, so the failures likely come from an attacker: raise suspicion",
-            "The Amsterdam location matches a GlobalBank office, so this is likely an employee on corporate egress",
-            "Tor exit nodes cannot complete logons to corporate services, so the source IP is probably spoofed",
-          ],
-          answer: 1,
-          explanation:
-            "The Tor (The Onion Router) network is commonly used by attackers to anonymise their traffic and hide their true location. While Tor has legitimate uses (journalists, activists), seeing a Tor exit node as the source of 47 failed login attempts against a bank's domain controller at 3:47 AM is a very strong indicator of a malicious attack, not legitimate employee access. This finding would significantly raise the severity of your triage assessment.\n\nAnd again, watch which system knew what. Windows wrote down an IP address; it has no idea what Tor is and never will. Turning '185.220.101.47' into 'Tor exit node, Amsterdam' is enrichment: the SIEM looking that address up against threat-intelligence and geolocation feeds. Two of the strongest signals in this alert, the count and the Tor attribution, are both things the log did not contain.",
-          xp: 25,
-        },
-      ],
     },
 
     // ------------------------------------------------------------------
@@ -797,6 +755,48 @@ That entire sequence (from first email to automated response) might happen in un
         "SOAR platforms automate repetitive SOC tasks through 'playbooks'. Predefined sequences of actions that trigger automatically when certain conditions are met. Instead of an analyst spending 10 minutes manually checking an IP and opening a ticket, the SOAR does it in seconds. This dramatically reduces MTTR (Mean Time to Respond) and frees analysts to focus on tasks that require human judgment. SIEM collects logs; EDR monitors endpoints; TIP provides threat intelligence: none of these automate response actions.",
       xp: 15,
     },
+    // ------------------------------------------------------------------
+    // Log Analysis Task
+    // ------------------------------------------------------------------
+    {
+      type: "log_analysis" as const,
+      id: "soc-struct-la1",
+      heading: "T1 Analyst Scenario: Reviewing an Authentication Alert",
+      context:
+        "You are a Tier-1 SOC analyst at GlobalBank. It is 3:47 AM and your SIEM has fired an alert.\n\n**What the SIEM console tells you:** the rule 'Repeated Authentication Failure. Single Account' correlated **47 of these failures in 2 minutes 33 seconds** (about 18 per minute), all against the same account from the same address, and fired because the rule's threshold is 10 per minute. Its threat-intelligence enrichment flags the source address **185.220.101.47 as a Tor exit node in Amsterdam**.\n\n**What the log itself tells you:** the single Windows Security event below, one of those 47, from the Domain Controller (DC01-CORP), the central server that manages all user logins.\n\nNotice the split before you start: the raw event knows nothing about the other 46 failures and has never heard of Tor. Counting and enrichment are the SIEM's job. Triage this as if it were live.",
+      event: socStructureEvent,
+      questions: [
+        {
+          question:
+            "The SIEM correlated 47 failures against this account in 2 minutes 33 seconds: roughly 18 per minute. What type of attack does that rate strongly suggest?",
+          options: [
+            "Password spraying: one password tried across many accounts to avoid lockout",
+            "Account enumeration: an attacker probing which usernames exist in the domain",
+            "Brute force: an automated tool rapidly trying many passwords against one account",
+            "A misconfigured service: an application retrying a stale saved password",
+          ],
+          answer: 2,
+          explanation:
+            "18 failed login attempts per minute is a rate no human can achieve manually: this is automated. A brute-force attack uses software to rapidly try thousands of username/password combinations. At this rate, a tool is systematically trying different passwords for the 'jsmith' account. The rule's threshold was 10 failures per minute, so the SIEM fired once the attacker's rate crossed it.\n\nNow notice where that number came from. Scroll the raw event: there is no failure count anywhere in it. A 4625 records one failed logon and nothing more. It cannot see the other 46. The '47 in 2:33' is something the SIEM built by counting matching events across a time window. This is the single most important thing to understand about a SIEM, and the next reading returns to it.",
+          xp: 20,
+        },
+        {
+          question:
+            "The log's IpAddress field shows '185.220.101.47'. The SIEM's threat-intelligence enrichment identifies that address as a Tor exit node in Amsterdam. What does this tell you, and how should it affect your triage decision?",
+          options: [
+            "Tor exits carry a lot of benign traffic, so the enrichment should not change the verdict",
+            "Tor hides the true source, so the failures likely come from an attacker: raise suspicion",
+            "The Amsterdam location matches a GlobalBank office, so this is likely an employee on corporate egress",
+            "Tor exit nodes cannot complete logons to corporate services, so the source IP is probably spoofed",
+          ],
+          answer: 1,
+          explanation:
+            "The Tor (The Onion Router) network is commonly used by attackers to anonymise their traffic and hide their true location. While Tor has legitimate uses (journalists, activists), seeing a Tor exit node as the source of 47 failed login attempts against a bank's domain controller at 3:47 AM is a very strong indicator of a malicious attack, not legitimate employee access. This finding would significantly raise the severity of your triage assessment.\n\nAnd again, watch which system knew what. Windows wrote down an IP address; it has no idea what Tor is and never will. Turning '185.220.101.47' into 'Tor exit node, Amsterdam' is enrichment: the SIEM looking that address up against threat-intelligence and geolocation feeds. Two of the strongest signals in this alert, the count and the Tor attribution, are both things the log did not contain.",
+          xp: 25,
+        },
+      ],
+    },
+
   ],
 };
 

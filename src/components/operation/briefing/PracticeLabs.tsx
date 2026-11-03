@@ -289,3 +289,136 @@ export function EncapLab({ lab, onDone }: LabProps<"encap">) {
     </div>
   );
 }
+
+// ─── Queue: triage a SIEM-style alert queue ──────────────────────────────────
+const SEV_TINT: Record<string, string> = { Low: "#94a3b8", Medium: "#fbbf24", High: "#fb923c", Critical: "#f43f5e" };
+const TONE: Record<string, string> = { close: "#94a3b8", escalate: "#fb923c", contain: "#f43f5e" };
+
+export function QueueLab({ lab, onDone }: LabProps<"queue">) {
+  const [sel, setSel] = useState(lab.alerts[0]?.id ?? "");
+  const [handled, setHandled] = useState<Record<string, string>>({}); // alert id -> action id
+  const [misses, setMisses] = useState<Set<string>>(new Set());
+  const [wrong, setWrong] = useState<string | null>(null);
+  const done = Object.keys(handled).length === lab.alerts.length;
+  useDoneOnce(done, onDone);
+  const alert = lab.alerts.find(a => a.id === sel)!;
+  const actionLabel = (id: string) => lab.actions.find(a => a.id === id)?.label ?? id;
+
+  function act(id: string) {
+    if (handled[alert.id]) return;
+    if (id === alert.answer) {
+      setHandled(h => ({ ...h, [alert.id]: id })); setWrong(null);
+    } else { setWrong(id); setMisses(m => new Set(m).add(alert.id)); }
+  }
+  function pick(id: string) { setSel(id); setWrong(null); }
+  const nextOpen = lab.alerts.find(a => !handled[a.id] && a.id !== alert.id);
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-white/10 bg-[#060a12]">
+      <div className="flex items-center gap-2 border-b border-white/10 bg-[#0e1524] px-3 py-2 text-[11px] font-semibold text-slate-300">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-rose-500" />{lab.console}
+        <span className="ml-auto font-mono text-slate-400">{Object.keys(handled).length}/{lab.alerts.length} handled</span>
+      </div>
+      <div className="grid lg:grid-cols-[1.1fr_1fr]">
+        {/* Queue */}
+        <div className="min-w-0 overflow-x-auto border-b border-white/10 lg:border-b-0 lg:border-r">
+          <table className="w-full min-w-[30rem] text-left text-[12px]">
+            <thead className="bg-white/[0.03] text-[10px] uppercase tracking-wider text-slate-400">
+              <tr><th className="px-2 py-1.5">Time</th><th className="px-2 py-1.5">Sev</th><th className="px-2 py-1.5">Rule</th><th className="px-2 py-1.5">Status</th></tr>
+            </thead>
+            <tbody>
+              {lab.alerts.map(a => (
+                <tr key={a.id} onClick={() => pick(a.id)} aria-selected={a.id === sel}
+                  className={cn("cursor-pointer border-t border-white/5", a.id === sel ? "bg-sky-500/10" : "hover:bg-white/5")}>
+                  <td className="whitespace-nowrap px-2 py-2 font-mono text-slate-400">{a.time}</td>
+                  <td className="px-2 py-2"><span className="rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ color: SEV_TINT[a.severity], background: `${SEV_TINT[a.severity]}22` }}>{a.severity}</span></td>
+                  <td className="px-2 py-2 text-slate-100">{a.rule}<span className="block font-mono text-[10px] text-slate-500">{a.entity}</span></td>
+                  <td className="whitespace-nowrap px-2 py-2 text-[11px]">{handled[a.id] ? <span className="text-emerald-300"><Check className="mr-0.5 inline h-3 w-3" />{actionLabel(handled[a.id])}</span> : <span className="text-slate-500">New</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {/* Detail */}
+        <div className="min-w-0 p-3">
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: SEV_TINT[alert.severity] }}>{alert.severity} · {alert.time}</p>
+          <p className="mt-1 font-semibold text-white">{alert.rule}</p>
+          <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border border-white/10 bg-black/30 p-2 font-mono text-[11.5px]">
+            {alert.fields.map(f => <React.Fragment key={f.k}><dt className="text-sky-300">{f.k}</dt><dd className="break-all text-slate-200">{f.v}</dd></React.Fragment>)}
+          </dl>
+          <p className="mt-2 text-sm leading-relaxed text-slate-300">{alert.context}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {lab.actions.map(a => (
+              <motion.button key={a.id} onClick={() => act(a.id)} disabled={!!handled[alert.id]}
+                animate={wrong === a.id ? { x: [0, -6, 6, -3, 3, 0] } : undefined}
+                className={cn("rounded-lg border-2 px-3 py-1.5 text-sm font-bold transition enabled:hover:brightness-125 disabled:opacity-50", handled[alert.id] === a.id && "ring-2 ring-emerald-400")}
+                style={{ borderColor: wrong === a.id ? "#f43f5e" : TONE[a.tone], color: TONE[a.tone] }}>
+                {a.label}
+              </motion.button>
+            ))}
+          </div>
+          <p role="status" className="mt-3 min-h-[2.5rem] text-sm leading-relaxed">
+            {handled[alert.id] ? <span className="text-emerald-200"><Check className="mr-1 inline h-4 w-4" />{alert.why}</span>
+              : wrong ? <span className="text-rose-300"><X className="mr-1 inline h-4 w-4" />Not the right call for this one. Re-read the fields and the context.</span>
+                : <span className="text-slate-500">Read the alert, then choose your action.</span>}
+          </p>
+          {handled[alert.id] && nextOpen && (
+            <button onClick={() => pick(nextOpen.id)} className="mt-1 inline-flex items-center gap-1 rounded-lg border border-sky-300/60 px-3 py-1.5 text-sm font-bold text-sky-100 hover:bg-sky-500/10">Next alert <ChevronRight className="h-4 w-4" /></button>
+          )}
+          {done && <p className="mt-2 text-sm font-semibold text-emerald-300">Queue clear. Right on the first try: {lab.alerts.length - misses.size} of {lab.alerts.length}.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Worksheet: work the numbers out of a table ──────────────────────────────
+export function WorksheetLab({ lab, onDone }: LabProps<"worksheet">) {
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [ok, setOk] = useState<Set<string>>(new Set());
+  const [bad, setBad] = useState<Set<string>>(new Set());
+  const [hints, setHints] = useState<Set<string>>(new Set());
+  useDoneOnce(ok.size === lab.questions.length, onDone);
+
+  function check(id: string) {
+    const q = lab.questions.find(x => x.id === id)!;
+    if (q.answer.some(a => norm(a) === norm(answers[id] ?? ""))) { setOk(s => new Set(s).add(id)); setBad(s => { const n = new Set(s); n.delete(id); return n; }); }
+    else setBad(s => new Set(s).add(id));
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="overflow-hidden rounded-xl border border-white/10 bg-[#05080e]">
+        <p className="border-b border-white/10 bg-[#0e1524] px-3 py-2 text-[11px] font-semibold text-slate-300">{lab.caption}</p>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[32rem] font-mono text-[12px]">
+            <thead className="text-left text-[10px] uppercase tracking-wider text-slate-400"><tr>{lab.columns.map(c => <th key={c} className="px-3 py-1.5">{c}</th>)}</tr></thead>
+            <tbody>{lab.rows.map((r, i) => <tr key={i} className="border-t border-white/5 text-slate-200">{r.map((c, k) => <td key={k} className="whitespace-nowrap px-3 py-1.5">{c}</td>)}</tr>)}</tbody>
+          </table>
+        </div>
+      </div>
+      <ol className="space-y-3">
+        {lab.questions.map((q, i) => (
+          <li key={q.id} className="rounded-xl border border-white/10 bg-[#081120] p-3">
+            <p className="text-sm font-semibold text-white"><span className="mr-2 text-sky-300">{i + 1}.</span>{q.q}</p>
+            {ok.has(q.id) ? (
+              <p className="mt-2 text-sm leading-relaxed text-emerald-200"><Check className="mr-1 inline h-4 w-4" />{q.why}</p>
+            ) : (
+              <>
+                <div className="mt-2 flex gap-2">
+                  <input value={answers[q.id] ?? ""} onChange={e => setAnswers(a => ({ ...a, [q.id]: e.target.value }))} onKeyDown={e => e.key === "Enter" && check(q.id)}
+                    aria-label={`Answer ${i + 1}`} placeholder="Your answer"
+                    className={cn("min-w-0 flex-1 rounded-lg border bg-black/30 px-3 py-2 font-mono text-sm text-white outline-none", bad.has(q.id) ? "border-rose-500" : "border-white/15 focus:border-sky-400")} />
+                  <button onClick={() => check(q.id)} className="rounded-lg border border-sky-300/60 px-3 text-sm font-bold text-sky-100 hover:bg-sky-500/10">Check</button>
+                </div>
+                {hints.has(q.id) ? <p className="mt-2 text-xs text-amber-200">{q.hint}</p>
+                  : <button onClick={() => setHints(h => new Set(h).add(q.id))} className="mt-2 inline-flex items-center gap-1 text-xs text-amber-300 hover:underline"><Lightbulb className="h-3.5 w-3.5" />How do I work it out?</button>}
+                {bad.has(q.id) && <p className="mt-1 text-xs text-rose-300">Not quite. Work it from the table again.</p>}
+              </>
+            )}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}

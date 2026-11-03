@@ -10,7 +10,7 @@
  * Concept doc: docs/CONCEPT-gamified-learning-rooms.md
  */
 
-export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter";
+export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc";
 
 /**
  * The room's 3D world on its main screen. Decorative (never clickable): it shows
@@ -26,8 +26,10 @@ export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" |
  *  - datapath: network hardware on one cable run in a data hall (laptop, switch,
  *             router, NAT firewall, internet, server) with a hologram OSI stack;
  *             each cleared station brings the next device online
+ *  - socfloor: a SOC operations room: video wall, desks by tier, tool towers;
+ *             stations switch on the wall, the tiers, the tools, then the alert
  */
-export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath";
+export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor";
 
 /** cards: illustrated station cards above the scene. stage: the scene fills the
  *  screen, stations sit in a rail, the selected one in a bottom command bar.
@@ -217,6 +219,28 @@ export type BriefingLab = ({
       /** The request being sent, e.g. "GET / to the intranet at 10.20.0.15:443". */
       story: string;
       layers: { id: string; layer: string; pdu: string; field: string; options: string[]; answer: number; why: string; tree: string; /** short value for the header chip, defaults to the answer */ chip?: string }[];
+    }
+  | {
+      /** A SIEM-style alert queue: open each alert, read its fields and
+       *  context, then take the action an analyst would. */
+      kind: "queue";
+      title: string;
+      prompt: string;
+      /** Console name in the title bar, e.g. "SIEM · Incidents". */
+      console: string;
+      actions: { id: string; label: string; tone: "close" | "escalate" | "contain" }[];
+      alerts: { id: string; time: string; severity: "Low" | "Medium" | "High" | "Critical"; rule: string; entity: string; fields: { k: string; v: string }[]; context: string; answer: string; why: string }[];
+    }
+  | {
+      /** A data table and questions answered by working it out (a count, a
+       *  time difference, an average). */
+      kind: "worksheet";
+      title: string;
+      prompt: string;
+      caption: string;
+      columns: string[];
+      rows: string[][];
+      questions: { id: string; q: string; hint: string; answer: string[]; why: string }[];
     }) & {
   /** Numbered "how to play" steps shown above the lab; each kind has defaults. */
   howTo?: string[];
@@ -244,7 +268,15 @@ export type EvidenceScreen =
   /** parts: caller, request, pressure */
   | { type: "ticket"; id: string; caller: string; callerId: string; request: string; pressure: string; notes: string }
   /** parts: sender, text, link */
-  | { type: "sms"; from: string; time: string; text: string; link: string };
+  | { type: "sms"; from: string; time: string; text: string; link: string }
+  /** parts: query, results, rule */
+  | { type: "siem"; product: string; query: string; rule: string; header: string[]; rows: string[][] }
+  /** parts: tree, verdict */
+  | { type: "edrtree"; host: string; verdict: string; nodes: { depth: number; name: string; detail: string; bad?: boolean }[] }
+  /** parts: trigger, steps */
+  | { type: "soarrun"; playbook: string; trigger: string; steps: { name: string; result: string; ok: boolean }[] }
+  /** parts: indicator, score, sightings */
+  | { type: "tip"; indicator: string; kind: string; score: string; tags: string[]; sightings: string[] };
 
 /** Icons the x-ray lab can draw (lucide names). */
 export type XrayIcon = "fridge" | "traffic" | "atm" | "pump" | "car" | "camera" | "phone" | "plant" | "thermostat";

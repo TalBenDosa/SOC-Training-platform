@@ -34,6 +34,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   campus: dynamic(() => import("./scenes/CampusScene"), { ssr: false }),
   city: dynamic(() => import("./scenes/CityScene"), { ssr: false }),
   datapath: dynamic(() => import("./scenes/DatapathScene"), { ssr: false }),
+  socfloor: dynamic(() => import("./scenes/SocFloorScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;

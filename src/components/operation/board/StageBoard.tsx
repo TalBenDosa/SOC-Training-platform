@@ -16,7 +16,8 @@ import type { StoryEntry } from "./MissionBoard";
 const DEFAULT_LOOK = { primary: "#22d3ee", secondary: "#a78bfa", warn: "#f59e0b" };
 const pad2 = (n: number) => String(n).padStart(2, "0");
 const shortLabel = (label: string) => label.replace(/^The /, "");
-const coreName = (label: string) => shortLabel(label.includes(":") ? label.slice(label.indexOf(":") + 1).trim() : label);
+// Only ": " separates a prefix ("Hop 3: ..."), so a time like "03:47" is kept.
+const coreName = (label: string) => shortLabel(label.includes(": ") ? label.slice(label.indexOf(": ") + 2).trim() : label);
 const MINUTES: Record<string, number> = { reading: 6, log_analysis: 5, written_report: 8, query_fill: 4, analyst_choice: 4 };
 
 export interface StageBoardProps {

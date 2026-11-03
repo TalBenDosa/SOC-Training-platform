@@ -8,7 +8,7 @@ import type { BriefingLab } from "@/lib/rooms/experience";
 import { DeckSortLab, HotspotLab, LineupLab, ReactorLab } from "./GameLabs";
 import { AnatomyLab, LocksLab, TricksLab, XrayLab } from "./LensLabs";
 import { EvidenceLab } from "./EvidenceLab";
-import { EncapLab, TerminalLab, TraceLab } from "./PracticeLabs";
+import { EncapLab, QueueLab, TerminalLab, TraceLab, WorksheetLab } from "./PracticeLabs";
 
 /** Every lab reports once when the learner has worked all of it. */
 interface LabProps<K extends BriefingLab["kind"]> {
@@ -284,6 +284,8 @@ export function Lab({ lab, onDone }: { lab: BriefingLab; onDone: () => void }) {
     case "terminal": return <TerminalLab lab={lab} onDone={onDone} />;
     case "trace":    return <TraceLab lab={lab} onDone={onDone} />;
     case "encap":    return <EncapLab lab={lab} onDone={onDone} />;
+    case "queue":    return <QueueLab lab={lab} onDone={onDone} />;
+    case "worksheet": return <WorksheetLab lab={lab} onDone={onDone} />;
   }
 }
 
@@ -304,6 +306,8 @@ const HOW_TO: Record<BriefingLab["kind"], string[]> = {
   evidence: ["Study the screen.", "Tap what you think it shows.", "Read the numbered clues on the screen, then go to the next one."],
   terminal: ["Read the objective on the right.", "Type a command in the console and press Enter (help lists them).", "Answer the objective from the output."],
   trace: ["Read what this step asks.", "Filter the log by a value from the case board.", "Click the row that answers it, then open the next log."],
+  queue: ["Click an alert in the queue.", "Read its fields and the context.", "Choose the action an analyst would take; clear the whole queue."],
+  worksheet: ["Study the table.", "Work out each answer from it (use the hint if you are stuck).", "Type the answer and press Check."],
   encap: ["Read the request being sent.", "At each layer, pick the value its header carries.", "Watch the packet grow, then read it as a packet analyser shows it."],
 };
 

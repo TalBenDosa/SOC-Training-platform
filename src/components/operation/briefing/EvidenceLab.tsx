@@ -160,6 +160,68 @@ function Screen({ s, mark }: { s: EvidenceScreen; mark: Mark }) {
           <p className="relative mt-2 rounded bg-amber-50 px-2 py-1 text-amber-800">{s.pressure}{mark("pressure")}</p>
         </div>
       );
+    case "siem":
+      return (
+        <div className="bg-[#0b0f17] p-3 text-[12px] text-slate-300">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-300">{s.product}</p>
+          <p className="relative mt-2 break-all rounded border border-white/10 bg-black/40 px-2 py-1.5 pr-6 font-mono text-[11.5px] text-sky-200">{s.query}{mark("query")}</p>
+          <div className="relative mt-2 overflow-x-auto rounded border border-white/10">
+            {mark("results")}
+            <table className="w-full min-w-[26rem] font-mono text-[11px]">
+              <thead className="bg-white/5 text-left text-[10px] uppercase text-slate-400"><tr>{s.header.map(h => <th key={h} className="px-2 py-1">{h}</th>)}</tr></thead>
+              <tbody>{s.rows.map((r, i) => <tr key={i} className="border-t border-white/5">{r.map((c, k) => <td key={k} className="whitespace-nowrap px-2 py-1">{c}</td>)}</tr>)}</tbody>
+            </table>
+          </div>
+          <p className="relative mt-2 inline-block rounded bg-rose-500/15 px-2 py-1 pr-6 text-[11.5px] font-semibold text-rose-200">Correlation rule fired: {s.rule}{mark("rule")}</p>
+        </div>
+      );
+    case "edrtree":
+      return (
+        <div className="bg-[#101318] p-3 text-[12px] text-slate-300">
+          <p className="flex items-center justify-between text-[11px] font-bold uppercase tracking-widest text-red-400"><span>Process tree · {s.host}</span></p>
+          <div className="relative mt-2 rounded border border-white/10 bg-black/30 p-2 font-mono text-[11.5px]">
+            {mark("tree")}
+            {s.nodes.map((n, i) => (
+              <p key={i} className={cn("whitespace-nowrap py-0.5", n.bad ? "text-rose-300" : "text-slate-200")} style={{ paddingLeft: n.depth * 18 }}>
+                {n.depth > 0 && <span className="text-slate-600">└─ </span>}<span className="font-bold">{n.name}</span> <span className="text-slate-500">{n.detail}</span>
+              </p>
+            ))}
+          </div>
+          <p className="relative mt-2 inline-block rounded bg-red-500/15 px-2 py-1 pr-6 text-[11.5px] font-semibold text-red-200">{s.verdict}{mark("verdict")}</p>
+        </div>
+      );
+    case "soarrun":
+      return (
+        <div className="bg-[#0d1117] p-3 text-[12px] text-slate-300">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-violet-300">Playbook run · {s.playbook}</p>
+          <p className="relative mt-2 inline-block pr-6 text-slate-400">Trigger: <span className="text-slate-100">{s.trigger}</span>{mark("trigger")}</p>
+          <ol className="relative mt-2 space-y-1 rounded border border-white/10 bg-black/30 p-2">
+            {mark("steps")}
+            {s.steps.map((st, i) => (
+              <li key={i} className="flex items-start gap-2 text-[11.5px]">
+                <span className={cn("mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full text-[9px] font-bold", st.ok ? "bg-emerald-500/30 text-emerald-200" : "bg-amber-500/30 text-amber-200")}>{st.ok ? "✓" : "!"}</span>
+                <span><span className="font-semibold text-slate-100">{st.name}</span> <span className="text-slate-400">{st.result}</span></span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      );
+    case "tip":
+      return (
+        <div className="bg-[#f8fafc] p-4 text-slate-800">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Threat intelligence · indicator lookup</p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <p className="relative break-all pr-6 font-mono text-lg font-bold">{s.indicator}{mark("indicator")}</p>
+            <span className="rounded bg-slate-200 px-2 py-0.5 text-[11px] font-semibold">{s.kind}</span>
+            <span className="relative rounded bg-rose-600 px-2 py-0.5 pr-6 text-[11px] font-bold text-white">{s.score}{mark("score")}</span>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">{s.tags.map(t => <span key={t} className="rounded-full border border-slate-300 px-2 py-0.5 text-[11px]">{t}</span>)}</div>
+          <ul className="relative mt-3 space-y-1 rounded border border-slate-200 bg-white p-2 text-[12px]">
+            {mark("sightings")}
+            {s.sightings.map(x => <li key={x}>• {x}</li>)}
+          </ul>
+        </div>
+      );
     case "sms":
       return (
         <div className="grid place-items-center bg-[#0f172a] py-4">

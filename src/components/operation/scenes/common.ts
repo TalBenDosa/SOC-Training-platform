@@ -100,6 +100,7 @@ export const additive = (color: THREE.ColorRepresentation, opacity = 1) =>
   new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false });
 
 export const shortLabel = (label: string) => label.replace(/^The /, "");
-/** The station name without a "Hop 3:" / "Ground Floor:" prefix, for tight spots. */
-export const coreName = (label: string) => shortLabel(label.includes(":") ? label.slice(label.indexOf(":") + 1).trim() : label);
+/** The station name without a "Hop 3:" / "Ground Floor:" prefix, for tight spots.
+ *  Only ": " counts as a prefix separator, so a time like "03:47" is kept. */
+export const coreName = (label: string) => shortLabel(label.includes(": ") ? label.slice(label.indexOf(": ") + 2).trim() : label);
 export const pad2 = (n: number) => String(n).padStart(2, "0");

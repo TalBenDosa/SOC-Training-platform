@@ -114,12 +114,12 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "soc-struct-r2",
-        "type": "reading",
-        "xp": 0
+        "id": "soc-struct-q2",
+        "type": "question",
+        "xp": 20
       },
       {
-        "id": "soc-struct-r3",
+        "id": "soc-struct-r2",
         "type": "reading",
         "xp": 0
       },
@@ -129,20 +129,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
-        "id": "soc-struct-q2",
-        "type": "question",
-        "xp": 20
-      },
-      {
         "id": "soc-struct-q3",
         "type": "question",
         "xp": 25
       },
       {
-        "id": "soc-struct-la1",
-        "type": "log_analysis",
-        "xp": 45,
-        "mitreTechnique": "T1110"
+        "id": "soc-struct-r3",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "soc-struct-m1",
@@ -153,6 +147,12 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "soc-struct-q4",
         "type": "question",
         "xp": 15
+      },
+      {
+        "id": "soc-struct-la1",
+        "type": "log_analysis",
+        "xp": 45,
+        "mitreTechnique": "T1110"
       }
     ]
   },
