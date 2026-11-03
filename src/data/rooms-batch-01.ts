@@ -15,13 +15,13 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 
 const introToCyberEvent: TelemetryEvent = {
   id: "evt-intro-001",
-  ts: "2024-03-15T02:51:07.441Z",
+  ts: "2024-03-15T14:22:07.441Z",
   source: "av",
   vendor: "Microsoft Defender for Endpoint",
   event_type: "av_detection",
   severity: "high",
   hostname: "DESKTOP-HR-042",
-  user_email: "sarah.jones@mercybaymed.org",
+  user_email: "sarah.jones@acmecorp.com",
   description: "Malware detected on HR workstation as it was downloaded by the web browser",
   mitre_technique: "T1566.002",
   mitre_tactic: "Initial Access",
@@ -39,13 +39,13 @@ const introToCyberEvent: TelemetryEvent = {
     MD5: "42268af028499333858a9ec22709a6dc",
     ProcessName: "msedge.exe",
     ProcessPID: 4892,
-    OriginUrl: "http://invoice-portal-mercybay.ru/download/invoice_Q1_2024.exe",
+    OriginUrl: "http://invoice-portal-acme.ru/download/invoice_Q1_2024.exe",
     ThreatCategory: "Trojan",
-    DetectionTime: "2024-03-15T02:51:07.441Z",
+    DetectionTime: "2024-03-15T14:22:07.441Z",
     ProductVersion: "4.18.24020.7",
     SignatureVersion: "1.407.0.0",
     EngineVersion: "1.1.24020.9",
-    UserName: "MERCYBAY\\sarah.jones",
+    UserName: "ACMECORP\\sarah.jones",
     ComputerName: "DESKTOP-HR-042",
     AdditionalActionsBitmask: 0,
     RemediationUser: "NT AUTHORITY\\SYSTEM",
@@ -106,7 +106,7 @@ Today, the numbers are staggering:
     },
 
     // ------------------------------------------------------------------
-    // Reading 2 — The CIA Triad and Types of Threats
+    // Reading 2 — The CIA Triad
     // ------------------------------------------------------------------
     {
       type: "reading" as const,
@@ -121,40 +121,24 @@ Think about your medical records. You want only your doctor and you to see them,
 Imagine you send someone a contract that says "pay me $1,000." Now imagine an attacker intercepts that contract and changes it to "$100,000" before the recipient reads it. Integrity means that data has not been modified, corrupted, or falsified, by an attacker or even accidentally. Integrity attacks are particularly dangerous in healthcare (changed medication dosages), finance (altered transaction amounts), and legal documents.
 
 **3. Availability: The system is up and running when you need it**
-If your bank's online system goes down on payday, that is an availability failure. Availability means that systems and data are accessible to authorised users when they need them. **DDoS attacks** (Distributed Denial of Service. Explained below) are the classic availability attack: flooding a server with so much fake traffic that it cannot respond to real users.
+If your bank's online system goes down on payday, that is an availability failure. Availability means that systems and data are accessible to authorised users when they need them. **DDoS attacks** (Distributed Denial of Service, covered in the next briefing) are the classic availability attack: flooding a server with so much fake traffic that it cannot respond to real users.
 
 **A real-world example combining all three:** A hospital's patient record system must be:
 - **Confidential**: only nurses and doctors can view patient records, not visitors
 - **Integral**: doctors must trust that the prescription data has not been altered
 - **Available**: doctors need access to records 24/7, especially in emergencies
 
-Now let's look at **who attacks these systems**.
-
-**Types of Threat Actors (people who attack)**
-
-- **Script Kiddies**: Beginners who use pre-written hacking tools created by others. They often do not fully understand what they are doing. Low skill, but can still cause damage.
-- **Cybercriminals**: Organised groups motivated by financial gain. They run ransomware operations, steal credit card data, and sell access to breached networks. The **LockBit** group is the most-documented example, and also a good lesson in how fast this landscape moves: law enforcement seized much of its infrastructure in 2024's Operation Cronos. Ransomware brands are disrupted, rebrand, and reappear constantly, so treat any specific group name in a course as an example of the *category*, not as current intelligence.
-- **Hacktivists**: Attackers motivated by political or social causes. The group **Anonymous** is a famous example. They have attacked government websites to protest policies.
-- **Nation-State Actors**: Government-sponsored hackers conducting espionage, sabotage, or influence operations. **APT29** (also called "Cozy Bear") is linked to Russian intelligence and was behind the SolarWinds attack.
-- **Insider Threats**: Employees (current or former) who intentionally or accidentally cause harm. An angry employee copying customer data before resigning, or a careless employee clicking a phishing link, are both insider threats.
-
-**Types of Attacks**
-
-- **Phishing**: A fake email designed to trick you into clicking a malicious link or revealing your password. Like a fake letter from your bank asking you to "verify your account."
-- **Ransomware**: Malware that encrypts (locks) your files and demands a ransom to unlock them. Colonial Pipeline paid $4.4 million in Bitcoin to get their systems back.
-- **DDoS (Distributed Denial of Service)**: Flooding a server with millions of fake requests until it crashes, like thousands of prank callers jamming a phone line so real customers cannot get through.
-- **Man-in-the-Middle (MitM)**: An attacker secretly positions themselves between two communicating parties and intercepts or alters the messages. Like a dishonest postal worker reading and resealing your letters.
-- **Social Engineering**: Manipulating people (not systems) into revealing information or taking actions. A classic example: calling someone and pretending to be from IT support to get their password.`,
+Next, the people who attack these systems, and how they do it.`,
       checkpoint: {
-        question: "According to the reading, which type of threat actor is the group 'Anonymous' an example of?",
+        question: "According to the reading, an attacker changes \"pay me $1,000\" to \"$100,000\" in a contract before the recipient reads it. Which pillar of the CIA Triad does this violate?",
         options: [
-          "Script Kiddie",
-          "Nation-State Actor",
-          "Hacktivist",
-          "Insider Threat",
+          "Confidentiality",
+          "Integrity",
+          "Availability",
+          "None: the contract was still delivered",
         ],
-        answer: 2,
-        explanation: "Anonymous is described as a hacktivist group: attackers motivated by political or social causes, not financial gain or espionage.",
+        answer: 1,
+        explanation: "Integrity means data has not been modified or falsified. Changing the amount in the contract breaks integrity, even though nobody new read it (confidentiality) and the document still arrived (availability).",
       },
     },
 
@@ -208,6 +192,43 @@ Now let's look at **who attacks these systems**.
     },
 
     // ------------------------------------------------------------------
+    // Reading 2b — Threat Actors and Types of Attacks
+    // ------------------------------------------------------------------
+    {
+      type: "reading" as const,
+      id: "intro-cyber-r2b",
+      heading: "Who Attacks, and How: Threat Actors and Attack Types",
+      content: `The CIA Triad tells you what you are protecting. This reading is about the other side: who attacks, why, and the most common ways they do it. Motive matters, because it predicts what an attacker will go after.
+
+**Types of Threat Actors (people who attack)**
+
+- **Script Kiddies**: Beginners who use pre-written hacking tools created by others. They often do not fully understand what they are doing. Low skill, but can still cause damage.
+- **Cybercriminals**: Organised groups motivated by financial gain. They run ransomware operations, steal credit card data, and sell access to breached networks. The **LockBit** group is the most-documented example, and also a good lesson in how fast this landscape moves: law enforcement seized much of its infrastructure in 2024's Operation Cronos. Ransomware brands are disrupted, rebrand, and reappear constantly, so treat any specific group name in a course as an example of the *category*, not as current intelligence.
+- **Hacktivists**: Attackers motivated by political or social causes. The group **Anonymous** is a famous example. They have attacked government websites to protest policies.
+- **Nation-State Actors**: Government-sponsored hackers conducting espionage, sabotage, or influence operations. **APT29** (also called "Cozy Bear") is linked to Russian intelligence and was behind the SolarWinds attack.
+- **Insider Threats**: Employees (current or former) who intentionally or accidentally cause harm. An angry employee copying customer data before resigning, or a careless employee clicking a phishing link, are both insider threats.
+
+**Types of Attacks**
+
+- **Phishing**: A fake email designed to trick you into clicking a malicious link or revealing your password. Like a fake letter from your bank asking you to "verify your account."
+- **Ransomware**: Malware that encrypts (locks) your files and demands a ransom to unlock them. Colonial Pipeline paid $4.4 million in Bitcoin to get their systems back.
+- **DDoS (Distributed Denial of Service)**: Flooding a server with millions of fake requests until it crashes, like thousands of prank callers jamming a phone line so real customers cannot get through.
+- **Man-in-the-Middle (MitM)**: An attacker secretly positions themselves between two communicating parties and intercepts or alters the messages. Like a dishonest postal worker reading and resealing your letters.
+- **Social Engineering**: Manipulating people (not systems) into revealing information or taking actions. A classic example: calling someone and pretending to be from IT support to get their password.`,
+      checkpoint: {
+        question: "According to the reading, which type of threat actor is the group 'Anonymous' an example of?",
+        options: [
+          "Script Kiddie",
+          "Nation-State Actor",
+          "Hacktivist",
+          "Insider Threat",
+        ],
+        answer: 2,
+        explanation: "Anonymous is described as a hacktivist group: attackers motivated by political or social causes, not financial gain or espionage.",
+      },
+    },
+
+    // ------------------------------------------------------------------
     // Question 2
     // ------------------------------------------------------------------
     {
@@ -255,7 +276,7 @@ Now let's look at **who attacks these systems**.
       id: "intro-cyber-la1",
       heading: "Analysing Your First Security Alert",
       context:
-        "You are a Tier-1 SOC Analyst at Mercy Bay Medical Center. Your SIEM (Security Information and Event Management) dashboard just flagged an alert from Microsoft Defender: the antivirus software installed on employee workstations. Review the log event below and answer the questions. Focus on the key fields: ThreatName, FilePath, OriginUrl, Action, and ActionSuccess.",
+        "You are a Tier-1 SOC Analyst at ACME Corp. Your SIEM (Security Information and Event Management) dashboard just flagged an alert from Microsoft Defender: the antivirus software installed on employee workstations. Review the log event below and answer the questions. Focus on the key fields: ThreatName, FilePath, OriginUrl, Action, and ActionSuccess.",
       event: introToCyberEvent,
       questions: [
         {
@@ -276,14 +297,14 @@ Now let's look at **who attacks these systems**.
           question:
             "The OriginUrl field shows where the file was downloaded from. What does this URL suggest about the nature of the attack?",
           options: [
-            "A trusted internal host: the 'mercybay' in the domain shows it belongs to the hospital",
-            "A look-alike external domain (invoice-portal-mercybay.ru) imitating the hospital, typical of phishing",
+            "A trusted internal host: the 'acme' in the domain shows it belongs to the company",
+            "A look-alike external domain (invoice-portal-acme.ru) imitating the company, typical of phishing",
             "A sanctioned vendor invoice portal: country-code domains like .ru are routine for accounting tools",
             "Microsoft's update servers: Defender fetches signed executables from there during scans",
           ],
           answer: 1,
           explanation:
-            "The OriginUrl is 'http://invoice-portal-mercybay.ru/download/invoice_Q1_2024.exe'. The .ru domain is a Russian country code top-level domain (ccTLD). The domain 'invoice-portal-mercybay' mimics Mercy Bay's name to appear legitimate, a classic phishing tactic called brand impersonation (here 'combosquatting': the real company name combined with extra words on an attacker-owned domain). The file name 'invoice_Q1_2024.exe' is designed to look like a legitimate invoice. This strongly indicates a spear-phishing attack targeting Mercy Bay staff.",
+            "The OriginUrl is 'http://invoice-portal-acme.ru/download/invoice_Q1_2024.exe'. The .ru domain is a Russian country code top-level domain (ccTLD). The domain 'invoice-portal-acme' mimics ACME Corp's name to appear legitimate, a classic phishing tactic called brand impersonation (here 'combosquatting': the real company name combined with extra words on an attacker-owned domain). The file name 'invoice_Q1_2024.exe' is designed to look like a legitimate invoice. This strongly indicates a spear-phishing attack targeting ACME Corp employees.",
           xp: 25,
         },
         {

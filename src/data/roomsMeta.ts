@@ -63,6 +63,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
+        "id": "intro-cyber-r2b",
+        "type": "reading",
+        "xp": 0
+      },
+      {
         "id": "intro-cyber-q2",
         "type": "question",
         "xp": 20

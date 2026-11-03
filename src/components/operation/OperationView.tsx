@@ -22,6 +22,7 @@ import { StoryPlayer } from "./StoryPlayer";
 import { Drill } from "./briefing/Drill";
 import { StageBoard } from "./board/StageBoard";
 import { CampusBoard } from "./board/CampusBoard";
+import { LensBoard } from "./board/LensBoard";
 import type { WorldProps } from "./scenes/common";
 import type { MechanicProps } from "./shared";
 
@@ -31,6 +32,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   tower: dynamic(() => import("./scenes/TowerScene"), { ssr: false }),
   network: dynamic(() => import("./scenes/NetworkScene"), { ssr: false }),
   campus: dynamic(() => import("./scenes/CampusScene"), { ssr: false }),
+  city: dynamic(() => import("./scenes/CityScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;
@@ -279,7 +281,7 @@ export function OperationView(p: OperationViewProps) {
 
   // Stage rooms: a full-screen world and a station picked on the track. The
   // pick follows the frontier whenever the learner comes back to the board.
-  const stage = experience.layout === "stage" || experience.layout === "campus";
+  const stage = experience.layout === "stage" || experience.layout === "campus" || experience.layout === "lens";
   const World = WORLDS[experience.scene ?? "gates"] ?? WORLDS.gates;
   const frontier = Math.max(0, hubStations.findIndex(s => s.status === "open"));
   const [selected, setSelected] = useState(0);
@@ -377,7 +379,19 @@ export function OperationView(p: OperationViewProps) {
 
         {phase === "hub" && (
           <motion.div key="hub" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={cn("absolute inset-0 z-20", stage && "pointer-events-none")}>
-            {experience.layout === "campus" ? (
+            {experience.layout === "lens" ? (
+              <LensBoard
+                experience={experience}
+                room={room}
+                stations={hubStations}
+                selected={selected}
+                onSelect={setSelected}
+                onEnter={enterStation}
+                tokens={local.tokens}
+                stories={watched}
+                onPlayStory={setStory}
+              />
+            ) : experience.layout === "campus" ? (
               <CampusBoard
                 experience={experience}
                 room={room}

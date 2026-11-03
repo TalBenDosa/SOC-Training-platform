@@ -10,7 +10,7 @@
  * Concept doc: docs/CONCEPT-gamified-learning-rooms.md
  */
 
-export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital";
+export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city";
 
 /**
  * The room's 3D world on its main screen. Decorative (never clickable): it shows
@@ -21,13 +21,16 @@ export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital";
  *  - network: relay nodes joined by beams, packets travel the cleared route
  *  - campus:  a hospital campus at night; each cleared station powers a building
  *             back up, and the sky turns from night to dawn as the room is cleared
+ *  - city:    a city seen through a "lens"; each cleared station switches on one
+ *             more invisible layer (connections, locks, attackers, attacks, alerts)
  */
-export type SceneId = "shield" | "gates" | "tower" | "network" | "campus";
+export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city";
 
 /** cards: illustrated station cards above the scene. stage: the scene fills the
  *  screen, stations sit in a rail, the selected one in a bottom command bar.
- *  campus: the scene fills the screen with a facility status monitor beside it. */
-export type LayoutId = "cards" | "stage" | "campus";
+ *  campus: the scene fills the screen with a facility status monitor beside it.
+ *  lens: the scene fills the screen with a lens dial, one segment per station. */
+export type LayoutId = "cards" | "stage" | "campus" | "lens";
 
 /** Which mechanic renders a task. Defaults by task type (see mechanicFor). */
 export type MechanicId =
@@ -58,8 +61,7 @@ export type BuildingKind = "archive" | "factory" | "lab" | "office" | "vault" | 
  * client-side config. Rule for authors: use example data that differs from
  * the room's graded tasks, so a lab never hands over a graded answer.
  */
-export type BriefingLab =
-  | {
+export type BriefingLab = ({
       kind: "inspect";
       title: string;
       prompt: string;
@@ -123,13 +125,59 @@ export type BriefingLab =
       prompt: string;
       artifact: string;
       parts: { id: string; text: string; flag: boolean; note: string; style?: "meta" | "subject" | "body" | "button" | "url"; /** shown in the status bar on hover, like a real link */ href?: string }[];
-    };
+    }
+  | {
+      /** Everyday objects; scanning one with the lens reveals the computer
+       *  inside it and what an attacker could do with it. */
+      kind: "xray";
+      title: string;
+      prompt: string;
+      objects: { id: string; label: string; icon: XrayIcon; inside: string; risk: string }[];
+      doneNote: string;
+    }
+  | {
+      /** Locked doors, one principle each: read the everyday example, then
+       *  answer the door's check to open its lock. */
+      kind: "locks";
+      title: string;
+      prompt: string;
+      locks: { id: string; letter: string; name: string; idea: string; example: string; check: { q: string; options: string[]; answer: number; why: string } }[];
+    }
+  | {
+      /** Face-down cards with an everyday trick on each: flip one, then stamp it
+       *  with the attack that works the same way. */
+      kind: "tricks";
+      title: string;
+      prompt: string;
+      attacks: { id: string; name: string }[];
+      cards: { id: string; analogy: string; attack: string; real: string }[];
+    }
+  | {
+      /** A sample alert in its source's native fields: scan each key field to
+       *  learn what it tells an analyst, then read the one-line story. */
+      kind: "anatomy";
+      title: string;
+      prompt: string;
+      /** Caption over the alert, e.g. the product that raised it. */
+      source: string;
+      fields: { key: string; value: string; label?: string; note?: string }[];
+      summary: string;
+    }) & {
+  /** Numbered "how to play" steps shown above the lab; each kind has defaults. */
+  howTo?: string[];
+};
+
+/** Icons the x-ray lab can draw (lucide names). */
+export type XrayIcon = "fridge" | "traffic" | "atm" | "pump" | "car" | "camera" | "phone" | "plant" | "thermostat";
 
 export interface Station {
   id: string;
   label: string;
   /** One line under the label in the hub. */
   tagline: string;
+  /** The room topics this station teaches, named the way the reading names
+   *  them, so the learner always knows what a station covers. */
+  topic?: string;
   building: BuildingKind;
   /** Existing task ids, in room order. Stations must be contiguous in the room. */
   taskIds: string[];

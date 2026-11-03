@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { newShuffleSeed, shuffleWithSeed } from "@/lib/rooms/shuffle";
 import type { BriefingLab } from "@/lib/rooms/experience";
 import { DeckSortLab, HotspotLab, LineupLab, ReactorLab } from "./GameLabs";
+import { AnatomyLab, LocksLab, TricksLab, XrayLab } from "./LensLabs";
 
 /** Every lab reports once when the learner has worked all of it. */
 interface LabProps<K extends BriefingLab["kind"]> {
@@ -273,5 +274,37 @@ export function Lab({ lab, onDone }: { lab: BriefingLab; onDone: () => void }) {
     case "reactor":  return <ReactorLab lab={lab} onDone={onDone} />;
     case "lineup":   return <LineupLab lab={lab} onDone={onDone} />;
     case "hotspot":  return <HotspotLab lab={lab} onDone={onDone} />;
+    case "xray":     return <XrayLab lab={lab} onDone={onDone} />;
+    case "locks":    return <LocksLab lab={lab} onDone={onDone} />;
+    case "tricks":   return <TricksLab lab={lab} onDone={onDone} />;
+    case "anatomy":  return <AnatomyLab lab={lab} onDone={onDone} />;
   }
+}
+
+// Default "how to play" steps per lab kind; a lab can override them with howTo.
+const HOW_TO: Record<BriefingLab["kind"], string[]> = {
+  inspect: ["Click each highlighted part of the artifact.", "Read what it tells you."],
+  sequence: ["Tap the steps in the order they happen.", "A wrong step shakes: try another."],
+  simulate: ["Pick a scenario.", "Watch each check pass or fail, and read why."],
+  sort: ["Read the card on top of the deck.", "Tap the bin it belongs in.", "Read why, then take the next card."],
+  match: ["Tap an item on the left.", "Tap its partner on the right."],
+  reactor: ["Read the incident riding the belt.", "Tap the reactor it damages before it reaches the end."],
+  lineup: ["Read the evidence for this round.", "Hover or tap suspects to read their dossiers.", "Tap the suspect who fits, then go to the next round."],
+  hotspot: ["Click every part of the artifact you would question.", "Find all the red flags to finish."],
+  xray: ["Tap an everyday object to scan it with the lens.", "Read the computer inside it and what an attacker could do.", "Scan every object to finish."],
+  locks: ["Tap a door and read its idea and example.", "Answer the door's question to open its lock.", "Open all the doors to finish."],
+  tricks: ["Tap a face-down card to flip it and read the trick.", "Tap the stamp with the attack that works the same way.", "Stamp every card to finish."],
+  anatomy: ["Tap each field with a scan mark.", "Read what that field tells an analyst.", "Decode every marked field to read the alert's story."],
+};
+
+export function HowToPlay({ lab }: { lab: BriefingLab }) {
+  const steps = lab.howTo ?? HOW_TO[lab.kind];
+  return (
+    <ol className="mb-4 flex flex-wrap gap-x-4 gap-y-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-200" aria-label="How to play">
+      <li className="font-bold uppercase tracking-[0.2em] text-slate-400">How to play</li>
+      {steps.map((s, i) => (
+        <li key={s} className="flex gap-1.5"><span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-white/10 text-[10px] font-bold">{i + 1}</span>{s}</li>
+      ))}
+    </ol>
+  );
 }

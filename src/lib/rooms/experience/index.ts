@@ -2,7 +2,7 @@ import type { RoomExperience, MechanicId } from "./types";
 import { PHISHING_ANALYSIS } from "./phishingAnalysis";
 import { INTRO_CYBERSECURITY } from "./introCybersecurity";
 
-export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId } from "./types";
+export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon } from "./types";
 
 // Hand-authored rooms. Rooms without an entry stay Classic-only.
 const EXPERIENCES: Record<string, RoomExperience> = {

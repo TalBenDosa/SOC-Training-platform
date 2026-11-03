@@ -8,11 +8,12 @@ import { displayOptions, newShuffleSeed } from "@/lib/rooms/shuffle";
 import type { SanitizedReadingTask } from "@/lib/rooms/sanitize";
 import type { BriefingLab } from "@/lib/rooms/experience";
 import { AlreadyCleared, useMechanic, type MechanicProps } from "../shared";
-import { Lab } from "./Labs";
+import { HowToPlay, Lab } from "./Labs";
 
 export const LAB_ICON: Record<BriefingLab["kind"], string> = {
   inspect: "Inspect", sequence: "Sequence", simulate: "Simulate", sort: "Sort", match: "Match",
   reactor: "Route", lineup: "Line-up", hotspot: "Find the flags",
+  xray: "X-ray", locks: "Open the locks", tricks: "Trick cards", anatomy: "Decode",
 };
 
 /**
@@ -114,6 +115,7 @@ export function IntelBriefing({ roomId, task, isCompleted, onComplete, labs }: M
           </p>
           <h3 className="mt-1 text-lg font-bold text-white">{labs[step].title}</h3>
           <p className="mb-4 mt-1 text-sm leading-relaxed text-slate-300">{labs[step].prompt}</p>
+          <HowToPlay lab={labs[step]} />
           <Lab key={step} lab={labs[step]} onDone={() => markDone(step)} />
           {doneLabs.has(step) && (
             <button autoFocus onClick={() => setStep(step + 1)} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyber-400 to-indigo-400 px-5 py-2.5 text-sm font-bold text-bg hover:brightness-110">
