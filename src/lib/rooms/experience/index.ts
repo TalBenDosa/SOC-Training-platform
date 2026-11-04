@@ -28,6 +28,7 @@ import { SIEM_FUNDAMENTALS } from "./siemFundamentals";
 import { LOG_SOURCES_INTEGRATION } from "./logSourcesIntegration";
 import { EMAIL_SECURITY } from "./emailSecurity";
 import { PROTOCOLS_MASTERCLASS } from "./protocolsMasterclass";
+import { DLP_FUNDAMENTALS } from "./dlpFundamentals";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -62,6 +63,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [LOG_SOURCES_INTEGRATION.roomId]: LOG_SOURCES_INTEGRATION,
   [EMAIL_SECURITY.roomId]: EMAIL_SECURITY,
   [PROTOCOLS_MASTERCLASS.roomId]: PROTOCOLS_MASTERCLASS,
+  [DLP_FUNDAMENTALS.roomId]: DLP_FUNDAMENTALS,
 };
 
 /**

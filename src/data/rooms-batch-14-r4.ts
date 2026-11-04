@@ -233,6 +233,23 @@ const dlpRoom = {
         "  Same field, same policy engine, different Workload value -> tells you the channel\n" +
         "  in one glance, before you read a single other field.",
     },
+    // ── Question 1 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "dlp-q1",
+      question:
+        "Which DLP channel is the ONLY one capable of detecting a user copying a sensitive file directly to a USB thumb drive?",
+      options: [
+        "Network DLP, because a USB-attached drive is just another egress path covered by its inspection of outbound traffic",
+        "Cloud/Email DLP, because Purview connectors log file-copy activity from any device signed in to the tenant",
+        "Endpoint DLP, because its on-device agent sees local file activity that never touches the network or a cloud workload",
+        "Network and Endpoint DLP together, because the endpoint agent relays USB events through the gateway for inspection",
+      ],
+      answer: 2,
+      explanation:
+        "USB copy is a local, on-device action: the file never crosses the network boundary and never touches a cloud/SaaS workload. Only Endpoint DLP, running as an agent directly on the laptop or desktop, can see this activity (along with printing, clipboard paste, and screenshots). Network DLP and Cloud/Email DLP have no visibility into purely local, offline activity.",
+      xp: 20,
+    },
     // ── Reading 3 ──────────────────────────────────────────────────────────
     {
       type: "reading" as const,
@@ -315,22 +332,22 @@ const dlpRoom = {
         "logic is exactly why the same SensitiveInfoType can be Audit-only in one policy\n" +
         "and auto-Block in another.",
     },
-    // ── Question 1 ────────────────────────────────────────────────────────
+    // ── Question 2 ────────────────────────────────────────────────────────
     {
       type: "question" as const,
-      id: "dlp-q1",
+      id: "dlp-q2",
       question:
-        "Which DLP channel is the ONLY one capable of detecting a user copying a sensitive file directly to a USB thumb drive?",
+        "A DLP alert shows SensitiveInfoType.Name = \"Credit Card Number\", Confidence = 58, Count = 1, for an internal email between two corporate employees. What is the MOST LIKELY explanation, and what should you check first?",
       options: [
-        "Network DLP, because a USB-attached drive is just another egress path covered by its inspection of outbound traffic",
-        "Cloud/Email DLP, because Purview connectors log file-copy activity from any device signed in to the tenant",
-        "Endpoint DLP, because its on-device agent sees local file activity that never touches the network or a cloud workload",
-        "Network and Endpoint DLP together, because the endpoint agent relays USB events through the gateway for inspection",
+        "A malicious insider staging card data: the match itself indicates intent, so escalate to the insider-threat team before reviewing the document",
+        "Likely a false positive: one low-confidence match in internal mail fits a coincidental number such as an order ID; check the detected value and document context first",
+        "A confirmed PCI exposure: any card-type match requires regulator notification and legal review regardless of confidence, so open a breach case before triage",
+        "Low risk by design: internal-to-internal mail is outside DLP scope, so close the alert and tune the policy to exclude internal recipients",
       ],
-      answer: 2,
+      answer: 1,
       explanation:
-        "USB copy is a local, on-device action: the file never crosses the network boundary and never touches a cloud/SaaS workload. Only Endpoint DLP, running as an agent directly on the laptop or desktop, can see this activity (along with printing, clipboard paste, and screenshots). Network DLP and Cloud/Email DLP have no visibility into purely local, offline activity.",
-      xp: 20,
+        "Low confidence (58) plus a single match (Count=1) plus an internal-to-internal destination is the textbook false-positive shape: a numeric pattern that coincidentally passed a Luhn-style check without actually being a real card number (an order ID, invoice number, or tracking number are common culprits). The correct next step is to check the actual DetectedValues and surrounding text, not to assume malicious intent or to assume compliance impact. Both extremes skip the verification step that separates a real PCI event from noise.",
+      xp: 25,
     },
     // ── Reading 5 (policies, actions, alert anatomy) ─────────────────────────
     {
@@ -412,23 +429,6 @@ const dlpRoom = {
         "  Malicious / High-Risk -> escalate to insider-threat team, HR, legal;\n" +
         "                           consider account/device containment",
     },
-    // ── Question 2 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "dlp-q2",
-      question:
-        "A DLP alert shows SensitiveInfoType.Name = \"Credit Card Number\", Confidence = 58, Count = 1, for an internal email between two corporate employees. What is the MOST LIKELY explanation, and what should you check first?",
-      options: [
-        "A malicious insider staging card data: the match itself indicates intent, so escalate to the insider-threat team before reviewing the document",
-        "Likely a false positive: one low-confidence match in internal mail fits a coincidental number such as an order ID; check the detected value and document context first",
-        "A confirmed PCI exposure: any card-type match requires regulator notification and legal review regardless of confidence, so open a breach case before triage",
-        "Low risk by design: internal-to-internal mail is outside DLP scope, so close the alert and tune the policy to exclude internal recipients",
-      ],
-      answer: 1,
-      explanation:
-        "Low confidence (58) plus a single match (Count=1) plus an internal-to-internal destination is the textbook false-positive shape: a numeric pattern that coincidentally passed a Luhn-style check without actually being a real card number (an order ID, invoice number, or tracking number are common culprits). The correct next step is to check the actual DetectedValues and surrounding text, not to assume malicious intent or to assume compliance impact. Both extremes skip the verification step that separates a real PCI event from noise.",
-      xp: 25,
-    },
     // ── Log Analysis 1: USB bulk copy ────────────────────────────────────
     {
       type: "log_analysis" as const,
@@ -481,6 +481,17 @@ const dlpRoom = {
           xp: 20,
         },
       ],
+    },
+    // ── Flag ──────────────────────────────────────────────────────────────
+    {
+      type: "flag" as const,
+      id: "dlp-f1",
+      event: dlpUsbEvent, // show the USB bulk-copy log this flag reads (not the nearest one)
+      prompt:
+        "Look at the USB bulk-copy DLP event analyzed earlier in this room. The asset team needs to find the exact physical drive used in the blocked copy. Which value should you give them? Enter it exactly as shown.",
+      answer: "4C531001551122117402",
+      hint: "A volume label can be renamed by anyone, and a device ID names only the make and model.",
+      xp: 30,
     },
     // ── Log Analysis 2: email to personal Gmail blocked ──────────────────
     {
@@ -623,17 +634,6 @@ const dlpRoom = {
       correct_order: ["content", "destination", "user", "justification", "verdict"],
       explanation:
         "This is the reading's five-step flow. Content quality comes first because it tells you whether there is a real match worth pursuing. Destination risk then separates routine business flows from personal or unsanctioned destinations. User and behavioral context, including HR red flags, is where DLP meets insider-threat work. Justification and approval are the last check, because a specific, verifiable reason can resolve what otherwise looks suspicious, while its absence raises concern going into the verdict. (ActionTaken (Blocked versus Allowed - Alert Only) sets how urgently you work through these steps rather than being a step of its own.)",
-      xp: 30,
-    },
-    // ── Flag ──────────────────────────────────────────────────────────────
-    {
-      type: "flag" as const,
-      id: "dlp-f1",
-      event: dlpUsbEvent, // show the USB bulk-copy log this flag reads (not the nearest one)
-      prompt:
-        "Look at the USB bulk-copy DLP event analyzed earlier in this room. The asset team needs to find the exact physical drive used in the blocked copy. Which value should you give them? Enter it exactly as shown.",
-      answer: "4C531001551122117402",
-      hint: "A volume label can be renamed by anyone, and a device ID names only the make and model.",
       xp: 30,
     },
   ],

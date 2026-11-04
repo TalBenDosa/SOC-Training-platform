@@ -60,6 +60,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   intake: dynamic(() => import("./scenes/IntakeScene"), { ssr: false }),
   postmark: dynamic(() => import("./scenes/PostmarkScene"), { ssr: false }),
   protostack: dynamic(() => import("./scenes/ProtoStackScene"), { ssr: false }),
+  sealedbrief: dynamic(() => import("./scenes/SealedBriefScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;

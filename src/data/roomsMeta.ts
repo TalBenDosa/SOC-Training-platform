@@ -3811,6 +3811,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "dlp-q1",
+        "type": "question",
+        "xp": 20
+      },
+      {
         "id": "dlp-r3",
         "type": "reading",
         "xp": 0
@@ -3821,9 +3826,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "dlp-q1",
+        "id": "dlp-q2",
         "type": "question",
-        "xp": 20
+        "xp": 25
       },
       {
         "id": "dlp-r5",
@@ -3836,14 +3841,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "dlp-q2",
-        "type": "question",
-        "xp": 25
-      },
-      {
         "id": "dlp-la1",
         "type": "log_analysis",
         "xp": 70
+      },
+      {
+        "id": "dlp-f1",
+        "type": "flag",
+        "xp": 30
       },
       {
         "id": "dlp-la2",
@@ -3873,11 +3878,6 @@ export const ROOMS_META: RoomMeta[] = [
       {
         "id": "dlp-o1",
         "type": "ordering",
-        "xp": 30
-      },
-      {
-        "id": "dlp-f1",
-        "type": "flag",
         "xp": 30
       }
     ]
