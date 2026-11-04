@@ -10,7 +10,7 @@
  * Concept doc: docs/CONCEPT-gamified-learning-rooms.md
  */
 
-export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint" | "linux" | "pipeline" | "crypto" | "time" | "forensics" | "identity" | "malware" | "risk" | "patching" | "killchain" | "netsec" | "edr" | "mind" | "sensors" | "webapp" | "lures" | "macos" | "evtx" | "varlog" | "siem" | "ingest" | "email" | "protocols" | "dlp" | "persistence" | "powershell" | "privesc" | "attack" | "ad" | "wazuh";
+export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint" | "linux" | "pipeline" | "crypto" | "time" | "forensics" | "identity" | "malware" | "risk" | "patching" | "killchain" | "netsec" | "edr" | "mind" | "sensors" | "webapp" | "lures" | "macos" | "evtx" | "varlog" | "siem" | "ingest" | "email" | "protocols" | "dlp" | "persistence" | "powershell" | "privesc" | "attack" | "ad" | "wazuh" | "sentinel";
 
 /**
  * The room's 3D world on its main screen. Decorative (never clickable): it shows
@@ -95,8 +95,10 @@ export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" |
  *             loop, roasting embers, a crown vault, and a poisoned relay link
  *  - wazuhflow: agents streaming packets into a manager core, a decoder gear and a
  *             rule sieve, a watched file vault, and an alert beacon
+ *  - skyquery: a cloud workspace sphere fed by connector streams, table pillars,
+ *             a KQL beam that narrows, an incident hexagon and a raw-row card
  */
-export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver" | "cipherlab" | "chrono" | "dissect" | "idgate" | "specimen" | "riskcore" | "patchline" | "chainlinks" | "zonewall" | "blackbox" | "mindlab" | "sightlines" | "webpath" | "baitshop" | "orchard" | "evtxtape" | "varlog" | "radar" | "intake" | "postmark" | "protostack" | "sealedbrief" | "sparekey" | "objectpipe" | "integrityladder" | "matrixwall" | "domaintree" | "wazuhflow";
+export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver" | "cipherlab" | "chrono" | "dissect" | "idgate" | "specimen" | "riskcore" | "patchline" | "chainlinks" | "zonewall" | "blackbox" | "mindlab" | "sightlines" | "webpath" | "baitshop" | "orchard" | "evtxtape" | "varlog" | "radar" | "intake" | "postmark" | "protostack" | "sealedbrief" | "sparekey" | "objectpipe" | "integrityladder" | "matrixwall" | "domaintree" | "wazuhflow" | "skyquery";
 
 /** cards: illustrated station cards above the scene. stage: the scene fills the
  *  screen, stations sit in a rail, the selected one in a bottom command bar.

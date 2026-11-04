@@ -66,6 +66,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   integrityladder: dynamic(() => import("./scenes/IntegrityLadderScene"), { ssr: false }),
   matrixwall: dynamic(() => import("./scenes/MatrixWallScene"), { ssr: false }),
   domaintree: dynamic(() => import("./scenes/DomainTreeScene"), { ssr: false }),
+  wazuhflow: dynamic(() => import("./scenes/WazuhFlowScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;
