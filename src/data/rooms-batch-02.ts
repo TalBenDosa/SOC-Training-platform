@@ -1045,6 +1045,22 @@ The order matters. Rule 3 sits above Rule 4 and explicitly denies SSH; without R
         },
       },
       {
+        type: "question" as const,
+        id: "fw-q2",
+        question:
+          "What is the key difference between a stateful and a stateless (packet filtering) firewall?",
+        options: [
+          "Stateful firewalls read packet contents; stateless ones check only ports",
+          "Stateless firewalls keep a connection table; stateful ones do not",
+          "Stateful firewalls track connections; stateless ones judge each packet alone",
+          "Stateful firewalls filter by user identity; stateless ones filter by IP",
+        ],
+        answer: 2,
+        explanation:
+          "A stateful firewall keeps a connection state table, so it knows whether a packet belongs to a connection it has seen opened; a stateless packet filter judges every packet on its own headers, which is why a crafted fake “reply” can slip past it. Reading packet contents is deep packet inspection, an NGFW feature, not what “stateful” means. The connection table belongs to the stateful firewall, not the stateless one. Rules by user identity are another NGFW feature.",
+        xp: 15,
+      },
+      {
         type: "reading" as const,
         id: "fw-r2",
         heading: "IDS, IPS, DMZ, Network Segmentation, and WAF",
@@ -1139,6 +1155,38 @@ WAFs sit in front of web applications. Either inline (blocking mode) or out-of-b
         },
       },
       {
+        type: "question" as const,
+        id: "fw-q1",
+        question:
+          "A web server in your company's DMZ was compromised by an attacker. Because of proper DMZ architecture, what does the attacker still need to do to reach the internal corporate database?",
+        options: [
+          "Nothing more: servers in the DMZ are trusted members of the internal network",
+          "Get past the external firewall again, since that is the one guarding the database",
+          "Get past a second firewall that separates the DMZ from the internal network",
+          "Wait for a legitimate user to log in to the web server before moving further",
+        ],
+        answer: 2,
+        explanation:
+          "A DMZ sits between two firewalls. The compromised web server is past the external firewall already, but an internal firewall stands between the DMZ and the database, so the attacker must get past it or find something it allows. DMZ servers are deliberately NOT treated as internal. The external firewall only controls internet ↔ DMZ traffic; it is not what guards the database. Waiting for a user to log in is not a requirement: the barrier is the internal firewall, not anyone's session.",
+        xp: 15,
+      },
+      {
+        type: "question" as const,
+        id: "fw-q3",
+        question:
+          "Your company has VLAN 10 (Workstations), VLAN 20 (Servers), VLAN 30 (Finance) and VLAN 40 (Guest Wi-Fi). The inter-VLAN firewall lets workstations reach the servers only on HTTPS and blocks everything else between VLANs. Ransomware infects a workstation on VLAN 10 and tries to spread via SMB (port 445). What is the expected outcome?",
+        options: [
+          "It spreads to every VLAN, since VLANs separate broadcasts but do not filter",
+          "It stays in VLAN 10, because the inter-VLAN rules block SMB to other VLANs",
+          "It reaches the VLAN 20 servers, since workstations need file-server access",
+          "It is stopped by the VLAN tag itself, which drops SMB frames at Layer 2",
+        ],
+        answer: 1,
+        explanation:
+          "Proper network segmentation with firewall rules between VLANs is one of the most effective defenses against ransomware lateral movement. If SMB (port 445) is blocked between VLAN 10 and VLAN 20/30, the ransomware cannot spread to servers or finance systems. It's contained to the workstation VLAN. It can still spread to other workstations inside VLAN 10, which is why segmentation limits the blast radius rather than removing it. The other options miss the rules in the stem: VLANs alone do not filter (true), but here a firewall does; workstations may normally need file servers, but this rule set allows them only HTTPS; and a VLAN tag separates networks at Layer 2 without inspecting what protocol a frame carries.",
+        xp: 15,
+      },
+      {
         type: "reading" as const,
         id: "fw-r3",
         heading: "Reading Firewall Logs: What Every Field Means",
@@ -1221,38 +1269,6 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
 **SSL inspection:** Since HTTPS is encrypted, firewalls and proxies can't see inside by default. SSL inspection (also called TLS interception or HTTPS decryption) works by: 1) The proxy acts as a "man-in-the-middle" between the client and server; 2) It decrypts the traffic, inspects it, re-encrypts it, and forwards it. The client sees a certificate signed by the company's internal CA (Certificate Authority) rather than the real server certificate. This is controversial for privacy but necessary for detecting HTTPS-based threats.`,
       },
       {
-        type: "question" as const,
-        id: "fw-q1",
-        question:
-          "A web server in your company's DMZ was compromised by an attacker. Because of proper DMZ architecture, what does the attacker still need to do to reach the internal corporate database?",
-        options: [
-          "Nothing more: servers in the DMZ are trusted members of the internal network",
-          "Get past the external firewall again, since that is the one guarding the database",
-          "Get past a second firewall that separates the DMZ from the internal network",
-          "Wait for a legitimate user to log in to the web server before moving further",
-        ],
-        answer: 2,
-        explanation:
-          "A DMZ sits between two firewalls. The compromised web server is past the external firewall already, but an internal firewall stands between the DMZ and the database, so the attacker must get past it or find something it allows. DMZ servers are deliberately NOT treated as internal. The external firewall only controls internet ↔ DMZ traffic; it is not what guards the database. Waiting for a user to log in is not a requirement: the barrier is the internal firewall, not anyone's session.",
-        xp: 15,
-      },
-      {
-        type: "question" as const,
-        id: "fw-q2",
-        question:
-          "What is the key difference between a stateful and a stateless (packet filtering) firewall?",
-        options: [
-          "Stateful firewalls read packet contents; stateless ones check only ports",
-          "Stateless firewalls keep a connection table; stateful ones do not",
-          "Stateful firewalls track connections; stateless ones judge each packet alone",
-          "Stateful firewalls filter by user identity; stateless ones filter by IP",
-        ],
-        answer: 2,
-        explanation:
-          "A stateful firewall keeps a connection state table, so it knows whether a packet belongs to a connection it has seen opened; a stateless packet filter judges every packet on its own headers, which is why a crafted fake “reply” can slip past it. Reading packet contents is deep packet inspection, an NGFW feature, not what “stateful” means. The connection table belongs to the stateful firewall, not the stateless one. Rules by user identity are another NGFW feature.",
-        xp: 15,
-      },
-      {
         type: "log_analysis" as const,
         id: "fw-la1",
         heading: "Port Scan Detection: Network Reconnaissance Alert",
@@ -1325,22 +1341,6 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
         answer: "IDS",
         hint: "Find what the sensor did with the scan traffic, then ask whether that stopped anything.",
         xp: 25,
-      },
-      {
-        type: "question" as const,
-        id: "fw-q3",
-        question:
-          "Your company has VLAN 10 (Workstations), VLAN 20 (Servers), VLAN 30 (Finance) and VLAN 40 (Guest Wi-Fi). The inter-VLAN firewall lets workstations reach the servers only on HTTPS and blocks everything else between VLANs. Ransomware infects a workstation on VLAN 10 and tries to spread via SMB (port 445). What is the expected outcome?",
-        options: [
-          "It spreads to every VLAN, since VLANs separate broadcasts but do not filter",
-          "It stays in VLAN 10, because the inter-VLAN rules block SMB to other VLANs",
-          "It reaches the VLAN 20 servers, since workstations need file-server access",
-          "It is stopped by the VLAN tag itself, which drops SMB frames at Layer 2",
-        ],
-        answer: 1,
-        explanation:
-          "Proper network segmentation with firewall rules between VLANs is one of the most effective defenses against ransomware lateral movement. If SMB (port 445) is blocked between VLAN 10 and VLAN 20/30, the ransomware cannot spread to servers or finance systems. It's contained to the workstation VLAN. It can still spread to other workstations inside VLAN 10, which is why segmentation limits the blast radius rather than removing it. The other options miss the rules in the stem: VLANs alone do not filter (true), but here a firewall does; workstations may normally need file servers, but this rule set allows them only HTTPS; and a VLAN tag separates networks at Layer 2 without inspecting what protocol a frame carries.",
-        xp: 15,
       },
     ],
   },

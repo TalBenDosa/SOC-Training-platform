@@ -15,6 +15,7 @@ import { MALWARE_TYPES } from "./malwareTypes";
 import { RISK_FUNDAMENTALS } from "./riskFundamentals";
 import { VULNERABILITY_MANAGEMENT } from "./vulnerabilityManagement";
 import { CYBER_KILL_CHAIN } from "./cyberKillChain";
+import { FIREWALL_NETWORK_SECURITY } from "./firewallNetworkSecurity";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -36,6 +37,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [RISK_FUNDAMENTALS.roomId]: RISK_FUNDAMENTALS,
   [VULNERABILITY_MANAGEMENT.roomId]: VULNERABILITY_MANAGEMENT,
   [CYBER_KILL_CHAIN.roomId]: CYBER_KILL_CHAIN,
+  [FIREWALL_NETWORK_SECURITY.roomId]: FIREWALL_NETWORK_SECURITY,
 };
 
 /**
