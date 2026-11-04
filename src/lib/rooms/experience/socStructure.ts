@@ -26,11 +26,11 @@ export const SOC_STRUCTURE: RoomExperience = {
   scene: "socfloor",
   layout: "stage",
   story: {
-    intro: { title: "The Floor at 22:00", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-intro-4a23145c.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-intro-8c647fda.jpg" },
+    intro: { title: "The Floor at 22:00", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-intro-0499435e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-intro-be7411cc.jpg" },
     afterStation: {
-      tiers: { title: "The Ladder", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-ch2-8b0276aa.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-ch2-4630eabb.jpg" },
-      tools: { title: "The Stack", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-ch3-2272f8b1.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-ch3-7254b353.jpg" },
-      night: { title: "03:47", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-finale-dafbb141.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-finale-a33daec7.jpg" },
+      tiers: { title: "The Ladder", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-ch2-54a5700f.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-ch2-71b58802.jpg" },
+      tools: { title: "The Stack", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-ch3-cbf0d781.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-ch3-4376b2f1.jpg" },
+      night: { title: "03:47", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-finale-027ea530.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-finale-45d23dfc.jpg" },
     },
   },
   stations: [
