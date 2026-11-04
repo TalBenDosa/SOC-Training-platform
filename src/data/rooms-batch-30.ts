@@ -112,6 +112,24 @@ Security uses three precisely different words for the pieces of that story, and 
       },
     } satisfies ReadingTask,
 
+    // ----- Question 1 ---------------------------------------------------------
+    {
+      type: "question",
+      id: "riskfund-q1",
+      question:
+        "The same CVE (CVSS 7.5) is found unpatched on two internal servers. Threat intelligence shows no active exploitation of it. LAB-TEST07 is a disposable test VM holding no real data; PAY-DB01 stores customer card data for the payment system. Applying the Threat x Vulnerability x Impact view, which statement is most accurate?",
+      options: [
+        "Equal risk: the same CVE with the same score means the same risk on every asset",
+        "LAB-TEST07 first: test machines are patched less often, so it is the weaker host",
+        "PAY-DB01 ranks higher: threat and weakness match, but its compromise costs far more",
+        "Neither is a risk yet: both wait until threat intelligence reports exploitation",
+      ],
+      answer: 2,
+      explanation:
+        "Threat (no known exploitation) and vulnerability (the same CVE, same score) are identical on both hosts, so the deciding component is impact: a compromised payment database holding card data costs far more than a disposable test VM. “Equal risk” treats the CVSS score as the whole of risk and ignores which asset is involved. “LAB-TEST07 first” brings in a patching habit the stem rules out: both hosts carry the same unpatched CVE, so neither is weaker. “Neither is a risk yet” confuses lower likelihood with zero risk: an unexploited flaw is still a real, lower-priority risk.",
+      xp: 25,
+    } satisfies QuestionTask,
+
     // ----- Reading 2 ---------------------------------------------------------
     {
       type: "reading",
@@ -142,24 +160,6 @@ Security uses three precisely different words for the pieces of that story, and 
           "Removing unused exposure and dormant accounts is attack surface reduction: it cuts the total number of entry points, and it does not require knowing any specific CVE in advance. “Nothing measurable yet” ties exposure to known vulnerabilities, but the reading shows surface and known-vulnerability count are different measurements. “A smaller attack vector” misuses the term: a vector is the one path a real attacker uses in a particular attack, and no attack has happened here. “A lower threat level” changes the wrong component: the actors and their intent are unchanged; what shrank is what they could reach.",
       },
     } satisfies ReadingTask,
-
-    // ----- Question 1 ---------------------------------------------------------
-    {
-      type: "question",
-      id: "riskfund-q1",
-      question:
-        "The same CVE (CVSS 7.5) is found unpatched on two internal servers. Threat intelligence shows no active exploitation of it. LAB-TEST07 is a disposable test VM holding no real data; PAY-DB01 stores customer card data for the payment system. Applying the Threat x Vulnerability x Impact view, which statement is most accurate?",
-      options: [
-        "Equal risk: the same CVE with the same score means the same risk on every asset",
-        "LAB-TEST07 first: test machines are patched less often, so it is the weaker host",
-        "PAY-DB01 ranks higher: threat and weakness match, but its compromise costs far more",
-        "Neither is a risk yet: both wait until threat intelligence reports exploitation",
-      ],
-      answer: 2,
-      explanation:
-        "Threat (no known exploitation) and vulnerability (the same CVE, same score) are identical on both hosts, so the deciding component is impact: a compromised payment database holding card data costs far more than a disposable test VM. “Equal risk” treats the CVSS score as the whole of risk and ignores which asset is involved. “LAB-TEST07 first” brings in a patching habit the stem rules out: both hosts carry the same unpatched CVE, so neither is weaker. “Neither is a risk yet” confuses lower likelihood with zero risk: an unexploited flaw is still a real, lower-priority risk.",
-      xp: 25,
-    } satisfies QuestionTask,
 
     // ----- Question 2 ---------------------------------------------------------
     {

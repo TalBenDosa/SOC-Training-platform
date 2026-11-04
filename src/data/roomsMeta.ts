@@ -6774,14 +6774,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "riskfund-r2",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "riskfund-q1",
         "type": "question",
         "xp": 25
+      },
+      {
+        "id": "riskfund-r2",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "riskfund-q2",
