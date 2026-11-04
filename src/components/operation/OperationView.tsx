@@ -56,6 +56,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   orchard: dynamic(() => import("./scenes/OrchardScene"), { ssr: false }),
   evtxtape: dynamic(() => import("./scenes/EvtxTapeScene"), { ssr: false }),
   varlog: dynamic(() => import("./scenes/VarLogScene"), { ssr: false }),
+  radar: dynamic(() => import("./scenes/RadarScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;

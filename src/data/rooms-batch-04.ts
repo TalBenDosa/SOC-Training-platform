@@ -641,6 +641,42 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
       },
     } satisfies ReadingTask,
 
+    // ----- Question 2 -------------------------------------------------------
+    {
+      type: "question",
+      id: "siem-fund-q2",
+      question:
+        "A SOC team has a rule that fires every time a user downloads more than 50 MB in an hour from SharePoint. The rule fires 200 times per day, but after investigation, 190 of those are the automated backup service. What is the correct action?",
+      options: [
+        "Delete the rule and rely on DLP alerts, since most of its alerts are benign",
+        "Tune the rule: exclude the backup service account so it stops triggering",
+        "Raise the rule's severity so analysts pay closer attention to real incidents",
+        "Leave it unchanged and have analysts close the backup alerts each day",
+      ],
+      answer: 1,
+      explanation:
+        "The correct response is rule tuning: add a narrow, owned exception for the known-good backup service account. Those 190 daily alerts are benign true positives (the rule correctly saw real large downloads, made by an authorized backup job), so the exception removes them while keeping the rule active for all other accounts. Deleting the rule would create false negatives (real data exfiltration would go undetected). Raising the severity makes 190 known-benign alerts louder, not rarer. Leaving it unchanged keeps analysts closing the same backup alerts every day: the alert fatigue the reading warns about. Alert fatigue is solvable through tuning.",
+      xp: 20,
+    } satisfies QuestionTask,
+
+    // ----- Question 3 -------------------------------------------------------
+    {
+      type: "question",
+      id: "siem-fund-q3",
+      question:
+        "An attacker successfully steals credentials and accesses your VPN, but the SIEM never fires an alert because the login looked legitimate. What type of detection outcome is this?",
+      options: [
+        "True Positive: the attacker was eventually found",
+        "False Positive: the login looked fine but was not",
+        "False Negative: a real attack produced no alert",
+        "True Negative: the rule behaved as designed for a valid login",
+      ],
+      answer: 2,
+      explanation:
+        "This is a False Negative: the most dangerous outcome in security operations. A True Positive needs an alert to have fired, however the attack was later found. A False Positive is an alert that fired with no real attack behind it because the rule misfired: the reverse case. 'The rule behaved as designed' does not make it a True Negative, because a real attack did happen. The attack was real, but the SIEM failed to detect it. False negatives occur when detection rules are too conservative, attacker techniques are unknown, or the attacker used legitimate credentials that mimic normal user behaviour. Reducing false negatives requires adding behavioural detection rules (UEBA) on top of signature-based rules.",
+      xp: 20,
+    } satisfies QuestionTask,
+
     // ----- Log Analysis: password spray SIEM alert -------------------------
     {
       type: "log_analysis",
@@ -730,42 +766,6 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
       hint: "Two fields in the alert describe the total and how widely it was spread.",
       xp: 15,
     } satisfies FlagTask,
-
-    // ----- Question 2 -------------------------------------------------------
-    {
-      type: "question",
-      id: "siem-fund-q2",
-      question:
-        "A SOC team has a rule that fires every time a user downloads more than 50 MB in an hour from SharePoint. The rule fires 200 times per day, but after investigation, 190 of those are the automated backup service. What is the correct action?",
-      options: [
-        "Delete the rule and rely on DLP alerts, since most of its alerts are benign",
-        "Tune the rule: exclude the backup service account so it stops triggering",
-        "Raise the rule's severity so analysts pay closer attention to real incidents",
-        "Leave it unchanged and have analysts close the backup alerts each day",
-      ],
-      answer: 1,
-      explanation:
-        "The correct response is rule tuning: add a narrow, owned exception for the known-good backup service account. Those 190 daily alerts are benign true positives (the rule correctly saw real large downloads, made by an authorized backup job), so the exception removes them while keeping the rule active for all other accounts. Deleting the rule would create false negatives (real data exfiltration would go undetected). Raising the severity makes 190 known-benign alerts louder, not rarer. Leaving it unchanged keeps analysts closing the same backup alerts every day: the alert fatigue the reading warns about. Alert fatigue is solvable through tuning.",
-      xp: 20,
-    } satisfies QuestionTask,
-
-    // ----- Question 3 -------------------------------------------------------
-    {
-      type: "question",
-      id: "siem-fund-q3",
-      question:
-        "An attacker successfully steals credentials and accesses your VPN, but the SIEM never fires an alert because the login looked legitimate. What type of detection outcome is this?",
-      options: [
-        "True Positive: the attacker was eventually found",
-        "False Positive: the login looked fine but was not",
-        "False Negative: a real attack produced no alert",
-        "True Negative: the rule behaved as designed for a valid login",
-      ],
-      answer: 2,
-      explanation:
-        "This is a False Negative: the most dangerous outcome in security operations. A True Positive needs an alert to have fired, however the attack was later found. A False Positive is an alert that fired with no real attack behind it because the rule misfired: the reverse case. 'The rule behaved as designed' does not make it a True Negative, because a real attack did happen. The attack was real, but the SIEM failed to detect it. False negatives occur when detection rules are too conservative, attacker techniques are unknown, or the attacker used legitimate credentials that mimic normal user behaviour. Reducing false negatives requires adding behavioural detection rules (UEBA) on top of signature-based rules.",
-      xp: 20,
-    } satisfies QuestionTask,
 
     // ----- Reading 4: writing a basic search query -------------------------
     {

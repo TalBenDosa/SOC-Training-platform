@@ -886,6 +886,16 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "siem-fund-q2",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "siem-fund-q3",
+        "type": "question",
+        "xp": 20
+      },
+      {
         "id": "siem-fund-la1",
         "type": "log_analysis",
         "xp": 70,
@@ -895,16 +905,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "siem-fund-flag1",
         "type": "flag",
         "xp": 15
-      },
-      {
-        "id": "siem-fund-q2",
-        "type": "question",
-        "xp": 20
-      },
-      {
-        "id": "siem-fund-q3",
-        "type": "question",
-        "xp": 20
       },
       {
         "id": "siem-fund-r4",

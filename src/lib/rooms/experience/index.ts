@@ -24,6 +24,7 @@ import { COMMODITY_INITIAL_ACCESS } from "./commodityInitialAccess";
 import { MACOS_SECURITY_FUNDAMENTALS } from "./macosSecurityFundamentals";
 import { WINDOWS_EVENT_LOGS } from "./windowsEventLogs";
 import { LINUX_LOG_ANALYSIS } from "./linuxLogAnalysis";
+import { SIEM_FUNDAMENTALS } from "./siemFundamentals";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -54,6 +55,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [MACOS_SECURITY_FUNDAMENTALS.roomId]: MACOS_SECURITY_FUNDAMENTALS,
   [WINDOWS_EVENT_LOGS.roomId]: WINDOWS_EVENT_LOGS,
   [LINUX_LOG_ANALYSIS.roomId]: LINUX_LOG_ANALYSIS,
+  [SIEM_FUNDAMENTALS.roomId]: SIEM_FUNDAMENTALS,
 };
 
 /**
