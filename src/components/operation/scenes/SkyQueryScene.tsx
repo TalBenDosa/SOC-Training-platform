@@ -2,6 +2,7 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { additive, mountWorld, pad2, placeLabel, shortLabel, type WorldProps } from "./common";
+import { circuitFloor, serverRack, shield, terminal } from "./cyberProps";
 
 /**
  * "Clear sky": a translucent workspace sphere floating above a row of table
@@ -45,6 +46,10 @@ export default function SkyQueryScene(props: WorldProps) {
     key.position.set(-6, 14, 12);
     scene.add(key);
     scene.add(new THREE.GridHelper(60, 30, 0x0c4a6e, 0x08121c));
+    const floor = circuitFloor(A, 44); scene.add(floor.mesh);
+    const kitRacks = [-9.6, -8.2].map(x => { const r = serverRack(B, 5); r.group.position.set(x, 0, -3.4); r.group.rotation.y = 0.4; scene.add(r.group); return r; });
+    const kitTerm = terminal(["SigninLogs", "| where ResultType == \"0\"", "| summarize dcount(Location)", "  by UserPrincipalName"], A, 2, 1.2); kitTerm.group.position.set(-4.4, 0, 3.6); kitTerm.group.rotation.y = 0.35; scene.add(kitTerm.group);
+    const kitShield = shield(Wn, "alert", 0.8); kitShield.group.position.set(8.6, 5, 1); scene.add(kitShield.group);
 
     // the workspace sphere
     const sphMat = new THREE.MeshStandardMaterial({ color: A, emissive: A, emissiveIntensity: 0.1, transparent: true, opacity: 0.15, depthWrite: false });
@@ -117,6 +122,10 @@ export default function SkyQueryScene(props: WorldProps) {
         const target = !s ? 0 : s.status === "cleared" ? 1 : s.status === "open" ? 0.1 + pulse * 0.15 : 0;
         level[k] += (target - level[k]) * ease;
       }
+      kitRacks.forEach(r => r.tick(t, 0.4 + level[0] * 0.6, rm));
+      kitTerm.screenMat.opacity = 0.3 + level[1] * 0.65;
+      kitShield.mat.opacity = 0.2 + level[2] * 0.8;
+      floor.mat.opacity = 0.18 + level[4] * 0.25;
 
       const yaw = rm ? 0 : Math.sin(t * 0.07) * 0.2;
       camera.position.set(Math.sin(yaw) * dist + 0.5, dist * (portrait ? 0.5 : 0.36) + 3, Math.cos(yaw) * dist);

@@ -2,6 +2,7 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { additive, mountWorld, pad2, placeLabel, shortLabel, type WorldProps } from "./common";
+import { circuitFloor, serverRack, shield, terminal } from "./cyberProps";
 
 /**
  * "Object pipe": two consoles at either end of a long glass pipe. One is the
@@ -43,6 +44,11 @@ export default function ObjectPipeScene(props: WorldProps) {
     key.position.set(-6, 14, 12);
     scene.add(key);
     scene.add(new THREE.GridHelper(60, 30, 0x0c4a6e, 0x0a1622));
+    const floor = circuitFloor(A, 44); scene.add(floor.mesh);
+    const kitAnalyst = terminal(["PS> Get-Process |", "  Where-Object {$_.CPU -gt 100}", "  | Select Name, Id, CPU, Path"], A, 1.9, 1.15); kitAnalyst.group.position.set(-12.4, 0, 3.4); kitAnalyst.group.rotation.y = 0.6; scene.add(kitAnalyst.group);
+    const kitAttacker = terminal(["powershell -nop -w hidden", "  -enc SQBFAFgAIAAo...", "parent: EXCEL.EXE"], Wn, 1.9, 1.15); kitAttacker.group.position.set(-12.4, 0, -4.2); kitAttacker.group.rotation.y = 0.6; scene.add(kitAttacker.group);
+    const kitHost = serverRack(A, 6, "OVEN-CTL-02"); kitHost.group.position.set(13.5, 0, 1.8); kitHost.group.rotation.y = -0.6; scene.add(kitHost.group);
+    const kitShield = shield(A, "check", 0.8); kitShield.group.position.set(11, 4.4, -1.5); scene.add(kitShield.group);
     const metal = () => new THREE.MeshStandardMaterial({ color: 0x334155, emissive: 0x0a0f18, metalness: 0.55, roughness: 0.4 });
 
     // ── 1 two consoles, one shell ──
@@ -140,6 +146,10 @@ export default function ObjectPipeScene(props: WorldProps) {
         const target = !s ? 0 : s.status === "cleared" ? 1 : s.status === "open" ? 0.1 + pulse * 0.15 : 0;
         level[k] += (target - level[k]) * ease;
       }
+      kitAnalyst.screenMat.opacity = 0.35 + level[0] * 0.6; kitAttacker.screenMat.opacity = 0.35 + level[0] * 0.6;
+      kitHost.tick(t, 0.4 + level[2] * 0.6, rm);
+      kitShield.mat.opacity = 0.15 + level[4] * 0.85;
+      floor.mat.opacity = 0.18 + level[1] * 0.25;
 
       const yaw = rm ? 0 : Math.sin(t * 0.07) * 0.2;
       camera.position.set(Math.sin(yaw) * dist, dist * (portrait ? 0.55 : 0.38) + 2, Math.cos(yaw) * dist + 2);

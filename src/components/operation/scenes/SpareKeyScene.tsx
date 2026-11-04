@@ -2,6 +2,7 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { additive, mountWorld, pad2, placeLabel, shortLabel, type WorldProps } from "./common";
+import { circuitFloor, padlock, serverRack, shield, terminal } from "./cyberProps";
 
 /**
  * "Spare keys": a host core in the middle and the hooks an attacker leaves on
@@ -55,6 +56,12 @@ export default function SpareKeyScene(props: WorldProps) {
     scene.add(key);
     const grid = new THREE.GridHelper(60, 30, 0x064e3b, 0x0b1f1a);
     scene.add(grid);
+    const floor = circuitFloor(A, 44); scene.add(floor.mesh);
+    const kitRackL = serverRack(A, 7); kitRackL.group.position.set(-1.9, 0, -2.2); scene.add(kitRackL.group);
+    const kitRackR = serverRack(A, 7); kitRackR.group.position.set(1.9, 0, -2.2); scene.add(kitRackR.group);
+    const kitTerm = terminal(["C:\\> reg query HKCU\\...\\Run", "  OneDrive  REG_SZ ...", "  AdobeSyncHelper REG_SZ", "  ...\\adbsync\\syncsvc.exe"], Wn, 1.8, 1.1); kitTerm.group.position.set(-6.4, 0, 2.6); kitTerm.group.rotation.y = 0.5; scene.add(kitTerm.group);
+    const kitLock = padlock(A, 1); kitLock.group.position.set(0, 5.4, 1.6); scene.add(kitLock.group);
+    const kitShield = shield(B, "check", 0.9); kitShield.group.position.set(4.4, 7, 0); scene.add(kitShield.group);
     const metal = () => new THREE.MeshStandardMaterial({ color: 0x2f4a44, emissive: 0x08130f, metalness: 0.55, roughness: 0.4 });
 
     // the host core
@@ -145,6 +152,11 @@ export default function SpareKeyScene(props: WorldProps) {
         const target = !s ? 0 : s.status === "cleared" ? 1 : s.status === "open" ? 0.1 + pulse * 0.15 : 0;
         level[k] += (target - level[k]) * ease;
       }
+      kitRackL.tick(t, 0.4 + level[0] * 0.6, rm); kitRackR.tick(t, 0.4 + level[2] * 0.6, rm);
+      kitTerm.screenMat.opacity = 0.3 + level[0] * 0.65;
+      kitLock.setOpen(1 - level[4]);
+      kitShield.mat.opacity = 0.15 + level[4] * 0.85;
+      floor.mat.opacity = 0.18 + level[4] * 0.25;
 
       const yaw = rm ? 0 : Math.sin(t * 0.07) * 0.25;
       camera.position.set(Math.sin(yaw) * dist + 2, dist * (portrait ? 0.55 : 0.4) + 2, Math.cos(yaw) * dist);

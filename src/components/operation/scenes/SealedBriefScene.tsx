@@ -2,6 +2,7 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { additive, mountWorld, pad2, placeLabel, shortLabel, type WorldProps } from "./common";
+import { circuitFloor, laptop, padlock, serverRack, shield, terminal } from "./cyberProps";
 
 /**
  * "The sealed brief": a vault of document cards at the centre with three
@@ -44,6 +45,13 @@ export default function SealedBriefScene(props: WorldProps) {
     key.position.set(-6, 14, 12);
     scene.add(key);
     scene.add(new THREE.GridHelper(60, 30, 0x422006, 0x1c1406));
+    const floor = circuitFloor(A, 44); scene.add(floor.mesh);
+    const kitLap = laptop(B); kitLap.group.position.set(-10.5, 0, 4.2); kitLap.group.scale.setScalar(1.4); scene.add(kitLap.group);
+    const kitRack = serverRack(B, 5); kitRack.group.position.set(-7.6, 0, -5.4); scene.add(kitRack.group);
+    const kitRack2 = serverRack(B, 5); kitRack2.group.position.set(-6.2, 0, -5.4); scene.add(kitRack2.group);
+    const kitLock = padlock(A, 0.9); kitLock.group.position.set(-6, 2.9, 1.6); scene.add(kitLock.group);
+    const kitTerm = terminal(["PS> Test-DataClassification", "Credit Card Number", "Confidence : 85", "Count      : 1"], A, 1.6, 1); kitTerm.group.position.set(2.2, 0, 2.4); scene.add(kitTerm.group);
+    const kitShield = shield(A, "check", 0.9); kitShield.group.position.set(16.2, 2.2, 3); scene.add(kitShield.group);
     const metal = () => new THREE.MeshStandardMaterial({ color: 0x6b5a32, emissive: 0x1f1608, metalness: 0.55, roughness: 0.4 });
 
     // the document vault
@@ -139,6 +147,12 @@ export default function SealedBriefScene(props: WorldProps) {
         const target = !s ? 0 : s.status === "cleared" ? 1 : s.status === "open" ? 0.1 + pulse * 0.15 : 0;
         level[k] += (target - level[k]) * ease;
       }
+      kitRack.tick(t, 0.4 + level[0] * 0.6, rm); kitRack2.tick(t, 0.4 + level[0] * 0.6, rm);
+      kitLap.screenMat.opacity = 0.3 + level[0] * 0.6;
+      kitTerm.screenMat.opacity = 0.35 + level[1] * 0.6;
+      kitLock.setOpen(level[3] > 0.5 ? 1 - level[4] : 0.6);
+      kitShield.mat.opacity = 0.2 + level[4] * 0.8;
+      floor.mat.opacity = 0.18 + level[4] * 0.25;
 
       const yaw = rm ? 0 : Math.sin(t * 0.07) * 0.2;
       camera.position.set(Math.sin(yaw) * dist + 3, dist * (portrait ? 0.6 : 0.42) + 1, Math.cos(yaw) * dist + 6);

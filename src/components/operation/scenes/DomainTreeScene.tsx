@@ -2,6 +2,7 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { additive, mountWorld, pad2, placeLabel, shortLabel, type WorldProps } from "./common";
+import { circuitFloor, laptop, serverRack, shield as shieldProp } from "./cyberProps";
 
 /**
  * "Keystone": a domain controller keystone at the centre of a ring of domain
@@ -43,6 +44,11 @@ export default function DomainTreeScene(props: WorldProps) {
     key.position.set(-6, 14, 12);
     scene.add(key);
     scene.add(new THREE.GridHelper(60, 30, 0x0e4a52, 0x081417));
+    const floor = circuitFloor(A, 44); scene.add(floor.mesh);
+    const kitDCs = [-1.5, 1.5].map(x => { const r = serverRack(A, 7); r.group.position.set(x, 0, -2); scene.add(r.group); return r; });
+    const kitLap = laptop(A); kitLap.group.position.set(-4.5, 0, 5.4); kitLap.group.scale.setScalar(1.5); scene.add(kitLap.group);
+    const kitFs = serverRack(B, 5); kitFs.group.position.set(5.8, 0, 4.4); kitFs.group.rotation.y = -0.4; scene.add(kitFs.group);
+    const kitShield = shieldProp(B, "check", 0.9); kitShield.group.position.set(-2.4, 5.6, 0); scene.add(kitShield.group);
     const metal = () => new THREE.MeshStandardMaterial({ color: 0x4f7480, emissive: 0x0f2328, metalness: 0.55, roughness: 0.4 });
 
     // the DC keystone
@@ -137,6 +143,10 @@ export default function DomainTreeScene(props: WorldProps) {
         const target = !s ? 0 : s.status === "cleared" ? 1 : s.status === "open" ? 0.1 + pulse * 0.15 : 0;
         level[k] += (target - level[k]) * ease;
       }
+      kitDCs.forEach(r => r.tick(t, 0.5 + level[0] * 0.5, rm)); kitFs.tick(t, 0.3 + level[1] * 0.7, rm);
+      kitLap.screenMat.opacity = 0.3 + level[1] * 0.6;
+      kitShield.mat.opacity = 0.15 + level[3] * 0.85;
+      floor.mat.opacity = 0.18 + level[4] * 0.25;
 
       const yaw = rm ? 0 : Math.sin(t * 0.07) * 0.3;
       camera.position.set(Math.sin(yaw) * dist, dist * (portrait ? 0.55 : 0.42) + 2, Math.cos(yaw) * dist);

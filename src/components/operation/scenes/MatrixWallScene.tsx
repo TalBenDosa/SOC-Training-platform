@@ -2,6 +2,7 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { additive, mountWorld, pad2, placeLabel, shortLabel, type WorldProps } from "./common";
+import { circuitFloor, serverRack, shield, terminal } from "./cyberProps";
 
 /**
  * "Matrix wall": a curved wall of fifteen tactic columns, each a stack of
@@ -49,6 +50,10 @@ export default function MatrixWallScene(props: WorldProps) {
     key.position.set(-6, 14, 12);
     scene.add(key);
     scene.add(new THREE.GridHelper(60, 30, 0x3f1d1d, 0x140909));
+    const floor = circuitFloor(A, 48); scene.add(floor.mesh);
+    const kitTerm = terminal(["AlertInfo | Category:", "  CredentialAccess", "AttackTechniques:", "  T1003, T1003.001"], A, 1.9, 1.15); kitTerm.group.position.set(6, 0, 7.4); kitTerm.group.rotation.y = -0.3; scene.add(kitTerm.group);
+    const kitRacks = [-9, -7.6].map(x => { const r = serverRack(B, 5); r.group.position.set(x, 0, 7); r.group.rotation.y = 0.4; scene.add(r.group); return r; });
+    const kitShield = shield(A, "check", 1); kitShield.group.position.set(0, 7.4, -1); scene.add(kitShield.group);
 
     // the curved wall: column i sits on an arc
     const R = 16, SPAN = 1.6;
@@ -111,6 +116,10 @@ export default function MatrixWallScene(props: WorldProps) {
         const target = !s ? 0 : s.status === "cleared" ? 1 : s.status === "open" ? 0.1 + pulse * 0.15 : 0;
         level[k] += (target - level[k]) * ease;
       }
+      kitRacks.forEach(r => r.tick(t, 0.4 + level[2] * 0.6, rm));
+      kitTerm.screenMat.opacity = 0.3 + level[3] * 0.65;
+      kitShield.mat.opacity = 0.15 + level[4] * 0.85;
+      floor.mat.opacity = 0.16 + level[4] * 0.2;
 
       const yaw = rm ? 0 : Math.sin(t * 0.06) * 0.15;
       camera.position.set(Math.sin(yaw) * dist, dist * (portrait ? 0.4 : 0.28) + 3, Math.cos(yaw) * dist + 4);

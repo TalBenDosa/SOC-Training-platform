@@ -2,6 +2,7 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { additive, mountWorld, pad2, placeLabel, shortLabel, type WorldProps } from "./common";
+import { circuitFloor, padlock, serverRack, shield, terminal } from "./cyberProps";
 
 /**
  * "Integrity ladder": four stacked glass decks (LOW, MEDIUM, HIGH, SYSTEM) and
@@ -43,6 +44,11 @@ export default function IntegrityLadderScene(props: WorldProps) {
     key.position.set(-6, 14, 12);
     scene.add(key);
     scene.add(new THREE.GridHelper(60, 30, 0x4a1d3a, 0x170a14));
+    const floor = circuitFloor(A, 44); scene.add(floor.mesh);
+    const kitRack = serverRack(B, 8, "DISP-DESK-11"); kitRack.group.position.set(-6.4, 0, 2.6); kitRack.group.rotation.y = 0.5; scene.add(kitRack.group);
+    const kitTerm = terminal(["C:\\> whoami /priv", "SeImpersonatePrivilege  Enabled", "SeChangeNotifyPrivilege Enabled"], B, 1.8, 1.05); kitTerm.group.position.set(5.6, 0, 3.2); kitTerm.group.rotation.y = -0.5; scene.add(kitTerm.group);
+    const kitLock = padlock(Wn, 0.8); kitLock.group.position.set(1.8, 0.3 + 3 * 2.2 + 1.7, -0.8); scene.add(kitLock.group);
+    const kitShield = shield(A, "check", 0.9); kitShield.group.position.set(-3.6, 0.3 + 3 * 2.2 + 1.6, 1.4); scene.add(kitShield.group);
     const metal = () => new THREE.MeshStandardMaterial({ color: 0x3f3346, emissive: 0x0c070e, metalness: 0.55, roughness: 0.4 });
 
     // ── 1 four decks ──
@@ -124,6 +130,11 @@ export default function IntegrityLadderScene(props: WorldProps) {
         const target = !s ? 0 : s.status === "cleared" ? 1 : s.status === "open" ? 0.1 + pulse * 0.15 : 0;
         level[k] += (target - level[k]) * ease;
       }
+      kitRack.tick(t, 0.4 + level[0] * 0.6, rm);
+      kitTerm.screenMat.opacity = 0.3 + level[3] * 0.65;
+      kitLock.setOpen(level[1]);
+      kitShield.mat.opacity = 0.15 + level[4] * 0.85;
+      floor.mat.opacity = 0.18 + level[4] * 0.25;
 
       const yaw = rm ? 0.3 : 0.3 + Math.sin(t * 0.07) * 0.25;
       camera.position.set(Math.sin(yaw) * dist, dist * (portrait ? 0.45 : 0.32) + 4, Math.cos(yaw) * dist);
