@@ -29,6 +29,14 @@ export const MACOS_SECURITY_FUNDAMENTALS: RoomExperience = {
   look: { primary: "#e2e8f0", secondary: "#60a5fa", warn: "#f43f5e" },
   scene: "orchard",
   layout: "stage",
+  story: {
+    intro: { title: "Unix With Its Own Gates", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/macos-security-fundamentals/orchard-intro-d8d49bf9.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/macos-security-fundamentals/orchard-intro-3ceca246.jpg" },
+    afterStation: {
+      doors: { title: "Who Vouches for It", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/macos-security-fundamentals/orchard-ch2-709e4bb4.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/macos-security-fundamentals/orchard-ch2-56c62e1b.jpg" },
+      prompts: { title: "The Password Is the Key", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/macos-security-fundamentals/orchard-ch3-11f96c78.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/macos-security-fundamentals/orchard-ch3-af703548.jpg" },
+      persist: { title: "KeepAlive", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/macos-security-fundamentals/orchard-finale-c8cc6fc7.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/macos-security-fundamentals/orchard-finale-4c721edd.jpg" },
+    },
+  },
   stations: [
     {
       id: "model",
