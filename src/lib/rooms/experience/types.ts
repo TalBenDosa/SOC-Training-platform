@@ -10,7 +10,7 @@
  * Concept doc: docs/CONCEPT-gamified-learning-rooms.md
  */
 
-export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint" | "linux" | "pipeline";
+export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint" | "linux" | "pipeline" | "crypto";
 
 /**
  * The room's 3D world on its main screen. Decorative (never clickable): it shows
@@ -36,8 +36,10 @@ export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" |
  *             triplets, cron clock and intruder SSH key, then an audit beam
  *  - logriver: a log pipeline: sources, syslog collector, normalisation prism,
  *             storage tiers, an immutable lock, a "log cleared" card bouncing off
+ *  - cipherlab: an encoder cube, a cipher vault and a hash press on a bench, a
+ *             fingerprint wall, and a TLS tunnel with its SNI readable outside
  */
-export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver";
+export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver" | "cipherlab";
 
 /** cards: illustrated station cards above the scene. stage: the scene fills the
  *  screen, stations sit in a rail, the selected one in a bottom command bar.
