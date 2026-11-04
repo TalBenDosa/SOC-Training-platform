@@ -20,26 +20,50 @@ export function isRoomLocked(roomId: string, progress: RoomProgressLike): boolea
 
 const DIFF_RANK: Record<string, number> = { beginner: 0, intermediate: 1, advanced: 2 };
 
+/** How many prerequisite steps sit under a room (0 = no prerequisites). Memoised per call site. */
+function makePrereqDepth(rooms: { id: string; prerequisites: string[] }[]): (roomId: string) => number {
+  const byId = new Map(rooms.map(r => [r.id, r]));
+  const memo = new Map<string, number>();
+  const depth = (roomId: string): number => {
+    const room = byId.get(roomId);
+    if (!room || room.prerequisites.length === 0) return 0;
+    if (memo.has(roomId)) return memo.get(roomId)!;
+    memo.set(roomId, 0); // cycle guard
+    const d = 1 + Math.max(...room.prerequisites.map(depth));
+    memo.set(roomId, d);
+    return d;
+  };
+  return depth;
+}
+
+/**
+ * The learning order of the rooms list: level (beginner, intermediate, advanced), then
+ * prerequisite depth (foundational first), then file order. A room's level is never below
+ * a prerequisite's (rooms.test.ts), so every room comes after the rooms it builds on.
+ */
+export function orderRoomsForLearning<T extends { id: string; difficulty: string; prerequisites: string[] }>(rooms: T[]): T[] {
+  const depth = makePrereqDepth([...ROOMS_META, ...rooms]);
+  const idx = new Map(rooms.map((r, i) => [r.id, i]));
+  return rooms.slice().sort((a, b) =>
+    ((DIFF_RANK[a.difficulty] ?? 1) - (DIFF_RANK[b.difficulty] ?? 1)) ||
+    (depth(a.id) - depth(b.id)) ||
+    (idx.get(a.id)! - idx.get(b.id)!),
+  );
+}
+
 /**
  * The single room to point the learner at: unlocked, not-yet-passed, ranked by
  * PREREQUISITE DEPTH (shallow/foundational first) then difficulty then file
  * order. Prefers a room already started ("Continue") over a new one. `excludeId`
- * skips the room just completed so it never recommends itself.
+ * skips the room just completed so it never recommends itself. It always follows
+ * prerequisite order, even when the org leaves every room open, so the suggestion
+ * stays gradual.
  */
 export function recommendNextRoom(
   progress: RoomProgressLike,
   excludeId?: string,
 ): { room: RoomMeta; started: boolean } | null {
-  const depthMemo = new Map<string, number>();
-  function prereqDepth(roomId: string): number {
-    const room = ROOMS_META.find(r => r.id === roomId);
-    if (!room || room.prerequisites.length === 0) return 0;
-    if (depthMemo.has(roomId)) return depthMemo.get(roomId)!;
-    depthMemo.set(roomId, 0); // cycle guard
-    const d = 1 + Math.max(...room.prerequisites.map(prereqDepth));
-    depthMemo.set(roomId, d);
-    return d;
-  }
+  const prereqDepth = makePrereqDepth(ROOMS_META);
 
   const available = ROOMS_META.filter(
     r => r.id !== excludeId && !progress[r.id]?.completedAt && !isRoomLocked(r.id, progress),

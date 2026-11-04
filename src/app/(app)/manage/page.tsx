@@ -24,6 +24,7 @@ import { MediaPanel } from "@/components/manage/MediaPanel";
 import { ContentAuthoringPanel } from "@/components/manage/ContentAuthoringPanel";
 import { SkillsPanel } from "@/components/manage/SkillsPanel";
 import { InvitePanel } from "@/components/manage/InvitePanel";
+import { RoomAccessPanel } from "@/components/manage/RoomAccessPanel";
 
 type ManageTab = "students" | "overview" | "skills" | "mistakes" | "plans" | "content";
 type SortKey = "xp" | "name" | "first_try" | "path" | "active";
@@ -578,6 +579,8 @@ export default function ManagePage() {
             {/* ── Plans and groups ─────────────────────────────────────── */}
             {tab === "plans" && (
               <div className="space-y-5">
+                {/* Open or locked Learning Rooms: the college's call (0102). */}
+                <RoomAccessPanel />
                 <LearningPlansPanel members={members} groupsRev={groupsRev} />
                 <GroupsPanel members={members} onChanged={() => setGroupsRev(r => r + 1)} />
               </div>

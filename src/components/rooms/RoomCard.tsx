@@ -29,6 +29,9 @@ interface RoomCardProps {
   onClick: () => void;
   /** Set when the room is in one of the learner's plans ("Assigned" chip). */
   assigned?: AssignedInfo | null;
+  /** Open room whose prerequisites the learner has not passed yet: their titles, shown as a
+   *  "best after" hint so open rooms still read as a gradual path. */
+  suggestAfter?: string[];
 }
 
 function difficultyBorder(d: RoomMeta["difficulty"]): string {
@@ -58,7 +61,7 @@ function iconBg(d: RoomMeta["difficulty"]): string {
   }
 }
 
-export function RoomCard({ room, progress, locked, onClick, assigned }: RoomCardProps) {
+export function RoomCard({ room, progress, locked, onClick, assigned, suggestAfter }: RoomCardProps) {
   const coverAccent = useCoverAccent();
   const totalTasks      = room.tasks.length;
   const completedCount  = progress ? progress.completedTaskIds.length : 0;
@@ -147,6 +150,13 @@ export function RoomCard({ room, progress, locked, onClick, assigned }: RoomCard
       <p className="mt-1 flex-1 text-sm text-slate-400 line-clamp-2 leading-relaxed">
         {room.description}
       </p>
+
+      {!locked && !isCompleted && suggestAfter && suggestAfter.length > 0 && (
+        <p className="mt-2 text-[11px] leading-snug text-slate-400">
+          <span className="font-semibold text-slate-300">Best after:</span>{" "}
+          {suggestAfter.slice(0, 2).join(", ")}{suggestAfter.length > 2 ? ` +${suggestAfter.length - 2} more` : ""}
+        </p>
+      )}
 
       {/* Tags row */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
