@@ -32,6 +32,7 @@ import { DLP_FUNDAMENTALS } from "./dlpFundamentals";
 import { PERSISTENCE_MECHANISMS } from "./persistenceMechanisms";
 import { POWERSHELL_FOR_SOC_ANALYST } from "./powershellForSocAnalyst";
 import { WINDOWS_PRIVILEGE_ESCALATION } from "./windowsPrivilegeEscalation";
+import { MITRE_ATTACK } from "./mitreAttack";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -70,6 +71,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [PERSISTENCE_MECHANISMS.roomId]: PERSISTENCE_MECHANISMS,
   [POWERSHELL_FOR_SOC_ANALYST.roomId]: POWERSHELL_FOR_SOC_ANALYST,
   [WINDOWS_PRIVILEGE_ESCALATION.roomId]: WINDOWS_PRIVILEGE_ESCALATION,
+  [MITRE_ATTACK.roomId]: MITRE_ATTACK,
 };
 
 /**

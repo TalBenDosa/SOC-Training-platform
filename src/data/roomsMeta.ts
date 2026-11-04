@@ -244,11 +244,6 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "mitre-r3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "mitre-q1",
         "type": "question",
         "xp": 20
@@ -257,6 +252,11 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "mitre-q2",
         "type": "question",
         "xp": 20
+      },
+      {
+        "id": "mitre-r3",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "mitre-q3",

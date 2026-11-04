@@ -1422,6 +1422,46 @@ Every ATT&CK technique entry at attack.mitre.org contains:
     },
 
     // ------------------------------------------------------------------
+    // Question 1
+    // ------------------------------------------------------------------
+    {
+      type: "question" as const,
+      id: "mitre-q1",
+      question:
+        "In ATT&CK terminology, what is the difference between a Tactic and a Technique? Choose the most accurate answer.",
+      options: [
+        "A Tactic is the specific method; a Technique is the broader goal it serves",
+        "A Tactic is the attacker's goal (the 'why'); a Technique is the method (the 'how')",
+        "A Tactic is one threat group's campaign; a Technique is a single step within it",
+        "Tactics use T-numbers (T1566); techniques use TA-numbers (TA0001)",
+      ],
+      answer: 1,
+      explanation:
+        "In ATT&CK, Tactics (TA-numbers such as TA0001, TA0043 or TA0112) represent the attacker's objectives. What they are trying to accomplish at each stage of their operation. Techniques (numbered T1001, T1002, etc.) are the specific methods used to achieve those objectives. Sub-techniques add further specificity. For example, the Tactic might be 'Credential Access' (steal passwords) and the Technique might be 'T1110.003 Password Spraying' (a specific method of stealing passwords). The first option reverses the two terms. A threat group's campaign is described by a group profile, not by a tactic. And the numbering runs the other way: tactics use TA (TA0001), techniques use T (T1566).",
+      xp: 20,
+    },
+
+    // ------------------------------------------------------------------
+    // Question 2
+    // ------------------------------------------------------------------
+    {
+      type: "question" as const,
+      id: "mitre-q2",
+      question:
+        "A ransomware operator encrypts every file on a company's file servers and leaves a ransom note. Which ATT&CK tactic does the encryption itself belong to?",
+      options: [
+        "Stealth (TA0005): encryption hides the files from defenders",
+        "Collection (TA0009): the attacker gathers every file before locking it",
+        "Exfiltration (TA0010): the files are taken hostage, out of the owner's control",
+        "Impact (TA0040), disrupting the availability of the company's systems and data",
+      ],
+      answer: 3,
+      explanation:
+        "Encrypting data for ransom is T1486 Data Encrypted for Impact, under Impact (TA0040): the goal is to deny the owner their data. Stealth (the v19 name for the former Defense Evasion tactic) covers hiding the attacker's own activity, not locking the victim's files. Collection gathers data the attacker plans to take; encryption in place takes nothing. Exfiltration means sending data out of the network. Modern crews often do that first (double extortion), but the encryption step itself is Impact.",
+      xp: 20,
+    },
+
+    // ------------------------------------------------------------------
     // Reading 3 — Using ATT&CK in a SOC
     // ------------------------------------------------------------------
     {
@@ -1481,46 +1521,6 @@ ATT&CK's mitigation guidance for T1110.003 includes:
 - Use **Conditional Access** to block logins from unusual locations or devices
 
 This is the ATT&CK framework in action: observation → identification → detection → mitigation.`,
-    },
-
-    // ------------------------------------------------------------------
-    // Question 1
-    // ------------------------------------------------------------------
-    {
-      type: "question" as const,
-      id: "mitre-q1",
-      question:
-        "In ATT&CK terminology, what is the difference between a Tactic and a Technique? Choose the most accurate answer.",
-      options: [
-        "A Tactic is the specific method; a Technique is the broader goal it serves",
-        "A Tactic is the attacker's goal (the 'why'); a Technique is the method (the 'how')",
-        "A Tactic is one threat group's campaign; a Technique is a single step within it",
-        "Tactics use T-numbers (T1566); techniques use TA-numbers (TA0001)",
-      ],
-      answer: 1,
-      explanation:
-        "In ATT&CK, Tactics (TA-numbers such as TA0001, TA0043 or TA0112) represent the attacker's objectives. What they are trying to accomplish at each stage of their operation. Techniques (numbered T1001, T1002, etc.) are the specific methods used to achieve those objectives. Sub-techniques add further specificity. For example, the Tactic might be 'Credential Access' (steal passwords) and the Technique might be 'T1110.003 Password Spraying' (a specific method of stealing passwords). The first option reverses the two terms. A threat group's campaign is described by a group profile, not by a tactic. And the numbering runs the other way: tactics use TA (TA0001), techniques use T (T1566).",
-      xp: 20,
-    },
-
-    // ------------------------------------------------------------------
-    // Question 2
-    // ------------------------------------------------------------------
-    {
-      type: "question" as const,
-      id: "mitre-q2",
-      question:
-        "A ransomware operator encrypts every file on a company's file servers and leaves a ransom note. Which ATT&CK tactic does the encryption itself belong to?",
-      options: [
-        "Stealth (TA0005): encryption hides the files from defenders",
-        "Collection (TA0009): the attacker gathers every file before locking it",
-        "Exfiltration (TA0010): the files are taken hostage, out of the owner's control",
-        "Impact (TA0040), disrupting the availability of the company's systems and data",
-      ],
-      answer: 3,
-      explanation:
-        "Encrypting data for ransom is T1486 Data Encrypted for Impact, under Impact (TA0040): the goal is to deny the owner their data. Stealth (the v19 name for the former Defense Evasion tactic) covers hiding the attacker's own activity, not locking the victim's files. Collection gathers data the attacker plans to take; encryption in place takes nothing. Exfiltration means sending data out of the network. Modern crews often do that first (double extortion), but the encryption step itself is Impact.",
-      xp: 20,
     },
 
     // ------------------------------------------------------------------
