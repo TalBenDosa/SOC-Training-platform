@@ -2309,11 +2309,6 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "email-sec-r3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "email-sec-q1",
         "type": "question",
         "xp": 25
@@ -2322,6 +2317,16 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "email-sec-q2",
         "type": "question",
         "xp": 25
+      },
+      {
+        "id": "email-sec-q4",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "email-sec-r3",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "email-sec-q3",
@@ -2338,11 +2343,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "email-sec-flag1",
         "type": "flag",
         "xp": 40
-      },
-      {
-        "id": "email-sec-q4",
-        "type": "question",
-        "xp": 25
       }
     ]
   },

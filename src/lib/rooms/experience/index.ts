@@ -26,6 +26,7 @@ import { WINDOWS_EVENT_LOGS } from "./windowsEventLogs";
 import { LINUX_LOG_ANALYSIS } from "./linuxLogAnalysis";
 import { SIEM_FUNDAMENTALS } from "./siemFundamentals";
 import { LOG_SOURCES_INTEGRATION } from "./logSourcesIntegration";
+import { EMAIL_SECURITY } from "./emailSecurity";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -58,6 +59,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [LINUX_LOG_ANALYSIS.roomId]: LINUX_LOG_ANALYSIS,
   [SIEM_FUNDAMENTALS.roomId]: SIEM_FUNDAMENTALS,
   [LOG_SOURCES_INTEGRATION.roomId]: LOG_SOURCES_INTEGRATION,
+  [EMAIL_SECURITY.roomId]: EMAIL_SECURITY,
 };
 
 /**

@@ -1157,6 +1157,56 @@ If corp.com has no DMARC policy, the email still reaches the inbox even with SPF
       },
     },
 
+    // ── Question 1 ───────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "email-sec-q1",
+      question: "An email shows From: ceo@corp.com and Authentication-Results reports dkim=pass, but its DKIM-Signature carries d=newsletter-tool.com. What does that tell you?",
+      options: [
+        "DKIM passed, so the message is proven to come from corp.com",
+        "The signature is valid, but its domain is not aligned with corp.com",
+        "The message was altered in transit, since d= differs from From",
+        "DKIM really failed, since the s= selector must equal the From domain",
+      ],
+      answer: 1,
+      explanation:
+        "dkim=pass only proves that newsletter-tool.com signed the message and that it was not changed. For DMARC, DKIM counts only if d= aligns with the From domain, and newsletter-tool.com does not align with corp.com. “Proven to come from corp.com” ignores alignment: a pass for another domain says nothing about corp.com. “Altered in transit” is wrong because tampering would make the signature fail, and it passed. “The s= selector must equal the From domain” confuses fields: s= only tells the receiver where to find the public key in DNS.",
+      xp: 25,
+    },
+
+    // ── Question 2 ───────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "email-sec-q2",
+      question: "An email shows 'From: CEO John Smith <ceo@corp.com>' but the Authentication-Results header shows 'spf=fail'. What does this most likely mean?",
+      options: [
+        "The CEO's real mailbox was taken over, so reset the CEO's password first",
+        "The sending server is not authorised for corp.com, which suggests spoofing",
+        "SPF is advisory only, so a fail can be ignored when the display name matches",
+        "The SPF lookup timed out, so the result reflects a DNS problem, not the sender",
+      ],
+      answer: 1,
+      explanation:
+        "spf=fail means the server that sent this message is not listed in corp.com's SPF record, so the message most likely did not come from corp.com's mail system and the From address is spoofed. SPF checks the envelope sender (Return-Path); DMARC alignment ties the result back to the visible From. “The CEO's real mailbox was taken over” is unlikely here, because mail sent from a compromised real mailbox leaves through corp.com's authorised servers and passes SPF. “SPF is advisory only” is wrong: a display name is the easiest thing to fake. “The SPF lookup timed out” describes temperror, a different result from fail.",
+      xp: 25,
+    },
+
+    // ── Question 4 ───────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "email-sec-q4",
+      question: "A genuine newsletter from partner.com (DMARC p=reject) is auto-forwarded to your mailbox. At your gateway SPF fails, but DKIM with d=partner.com passes. What is the DMARC outcome?",
+      options: [
+        "Rejected, because SPF failed and partner.com publishes p=reject",
+        "Quarantined, because one failed check downgrades reject to quarantine",
+        "Passes, because the aligned DKIM survived and one aligned pass is enough",
+        "Not evaluated, because forwarded mail is exempt from DMARC policy",
+      ],
+      answer: 2,
+      explanation:
+        "DMARC fails only when BOTH aligned SPF and aligned DKIM fail. Forwarding breaks SPF (the forwarder is not in partner.com's record), but the DKIM signature survives and d=partner.com aligns with the From domain, so the message passes. “Rejected, because SPF failed” is the common misreading that DMARC fails on either check. “One failed check downgrades reject to quarantine” is not a DMARC rule: the policy applies only to messages that fail DMARC. “Forwarded mail is exempt” is wrong: forwarded mail is evaluated like any other message, which is why forwarding sometimes breaks DMARC when DKIM is missing.",
+      xp: 25,
+    },
     // ── Reading 3: Email Attack Types & Analysis Workflow ────────────────
     {
       type: "reading" as const,
@@ -1217,40 +1267,6 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
 - If malicious: quarantine/delete the email from all mailboxes, block the sender domain and IP in your email gateway, investigate any users who interacted with it
 - Notify affected users and provide guidance
 - Write up the case`,
-    },
-
-    // ── Question 1 ───────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "email-sec-q1",
-      question: "An email shows From: ceo@corp.com and Authentication-Results reports dkim=pass, but its DKIM-Signature carries d=newsletter-tool.com. What does that tell you?",
-      options: [
-        "DKIM passed, so the message is proven to come from corp.com",
-        "The signature is valid, but its domain is not aligned with corp.com",
-        "The message was altered in transit, since d= differs from From",
-        "DKIM really failed, since the s= selector must equal the From domain",
-      ],
-      answer: 1,
-      explanation:
-        "dkim=pass only proves that newsletter-tool.com signed the message and that it was not changed. For DMARC, DKIM counts only if d= aligns with the From domain, and newsletter-tool.com does not align with corp.com. “Proven to come from corp.com” ignores alignment: a pass for another domain says nothing about corp.com. “Altered in transit” is wrong because tampering would make the signature fail, and it passed. “The s= selector must equal the From domain” confuses fields: s= only tells the receiver where to find the public key in DNS.",
-      xp: 25,
-    },
-
-    // ── Question 2 ───────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "email-sec-q2",
-      question: "An email shows 'From: CEO John Smith <ceo@corp.com>' but the Authentication-Results header shows 'spf=fail'. What does this most likely mean?",
-      options: [
-        "The CEO's real mailbox was taken over, so reset the CEO's password first",
-        "The sending server is not authorised for corp.com, which suggests spoofing",
-        "SPF is advisory only, so a fail can be ignored when the display name matches",
-        "The SPF lookup timed out, so the result reflects a DNS problem, not the sender",
-      ],
-      answer: 1,
-      explanation:
-        "spf=fail means the server that sent this message is not listed in corp.com's SPF record, so the message most likely did not come from corp.com's mail system and the From address is spoofed. SPF checks the envelope sender (Return-Path); DMARC alignment ties the result back to the visible From. “The CEO's real mailbox was taken over” is unlikely here, because mail sent from a compromised real mailbox leaves through corp.com's authorised servers and passes SPF. “SPF is advisory only” is wrong: a display name is the easiest thing to fake. “The SPF lookup timed out” describes temperror, a different result from fail.",
-      xp: 25,
     },
 
     // ── Question 3 ───────────────────────────────────────────────────────
@@ -1340,22 +1356,6 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
       xp: 40,
     },
 
-    // ── Question 4 ───────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "email-sec-q4",
-      question: "A genuine newsletter from partner.com (DMARC p=reject) is auto-forwarded to your mailbox. At your gateway SPF fails, but DKIM with d=partner.com passes. What is the DMARC outcome?",
-      options: [
-        "Rejected, because SPF failed and partner.com publishes p=reject",
-        "Quarantined, because one failed check downgrades reject to quarantine",
-        "Passes, because the aligned DKIM survived and one aligned pass is enough",
-        "Not evaluated, because forwarded mail is exempt from DMARC policy",
-      ],
-      answer: 2,
-      explanation:
-        "DMARC fails only when BOTH aligned SPF and aligned DKIM fail. Forwarding breaks SPF (the forwarder is not in partner.com's record), but the DKIM signature survives and d=partner.com aligns with the From domain, so the message passes. “Rejected, because SPF failed” is the common misreading that DMARC fails on either check. “One failed check downgrades reject to quarantine” is not a DMARC rule: the policy applies only to messages that fail DMARC. “Forwarded mail is exempt” is wrong: forwarded mail is evaluated like any other message, which is why forwarding sometimes breaks DMARC when DKIM is missing.",
-      xp: 25,
-    },
   ],
 };
 
