@@ -20,6 +20,7 @@ import { ENDPOINT_SECURITY_FUNDAMENTALS } from "./endpointSecurityFundamentals";
 import { ANALYST_MINDSET } from "./analystMindset";
 import { SECURITY_PRODUCTS_BEHAVIOUR } from "./securityProductsBehaviour";
 import { WEB_APPLICATION_SECURITY } from "./webApplicationSecurity";
+import { COMMODITY_INITIAL_ACCESS } from "./commodityInitialAccess";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -46,6 +47,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [ANALYST_MINDSET.roomId]: ANALYST_MINDSET,
   [SECURITY_PRODUCTS_BEHAVIOUR.roomId]: SECURITY_PRODUCTS_BEHAVIOUR,
   [WEB_APPLICATION_SECURITY.roomId]: WEB_APPLICATION_SECURITY,
+  [COMMODITY_INITIAL_ACCESS.roomId]: COMMODITY_INITIAL_ACCESS,
 };
 
 /**

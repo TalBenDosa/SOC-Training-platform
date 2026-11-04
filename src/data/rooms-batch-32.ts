@@ -249,6 +249,21 @@ const commodityInitialAccessRoom = {
         "Reading 2 covered exactly this signature: a command run through the Run dialog never exists as a file at all, so there is nothing for a file_create event to record -- and explorer.exe as the direct parent fits, because the Run dialog belongs to Explorer. Assuming the sensor missed the download invents a failure with no supporting evidence. The in-memory argument mixes up two different files: fetching the second script into memory explains why that script leaves no file afterwards, but the question is what started PowerShell in the first place -- in a classic download chain a file is created and opened before PowerShell appears, and here none was. The download-then-instant-delete theory requires a delete event that also isn't present -- there is no evidence anything was ever written and removed.",
       xp: 20,
     },
+    // ── Analyst Choice: legitimate paste-run install ────────────────────────────
+    {
+      type: "analyst_choice" as const,
+      id: "mcia-ac1",
+      heading: "Verdict: A Hidden PowerShell Window, Launched by explorer.exe",
+      scenario:
+        "A Falcon detection fires on WS-6820 for a High-severity PowerShell Command and Scripting Interpreter pattern: explorer.exe launching a hidden-window powershell.exe process that downloads a script from the internet and runs it in memory. Read the command line, the destination it pulls from, the user and host, and the IT verification note under the record, then give your verdict.",
+      event: legitPasteRunEvent,
+      correct_verdict: "benign_true_positive",
+      explanation:
+        "The command line downloads and runs the install script from community.chocolatey.org: the real, publicly documented installation method for the Chocolatey package manager, not a lookalike or newly-registered domain. The IT verification on the record is 'confirmed': change ticket CHG-44190 approves the DevOps team's Chocolatey rollout across engineering workstations this week, and y.cohen's install falls inside that approved window on their own workstation. process.code_signature.trusted is true for powershell.exe itself, which is expected either way. Powershell.exe is a Microsoft-signed interpreter on every Windows machine, so its signature says nothing about the intent of the script it is told to run: the deciding fields here are the verified domain and the confirmed change ticket, not the signature. This is a benign true positive: the detection fired correctly on a real hidden-window download-and-run, and change ticket CHG-44190 is the justification for closing it; it is not a false positive, because the pattern really happened, and calling it a misfire would invite weakening a ClickFix-style detection you need.",
+      fp_trap:
+        "explorer.exe launching a hidden-window PowerShell process that pulls a script straight from the internet is precisely the shape this room has been teaching you to treat as ClickFix-style paste-and-run. But real software vendors, Chocolatey among them, genuinely publish official one-line install commands that look identical in telemetry to a malicious paste-and-run chain. Escalating this pattern on shape alone, without checking the destination domain and it_verify_result, trains a team to drown in noise on the exact pattern that most needs real scrutiny when it's actually malicious.",
+      xp: 30,
+    },
     // ── Reading 3: Clipboard clippers ─────────────────────────────────────────
     {
       type: "reading" as const,
@@ -410,55 +425,6 @@ const commodityInitialAccessRoom = {
           "Reading 6 gave the reason directly: a browser cannot open a raw TCP connection to a pool the way desktop mining software can, so the mining protocol (Stratum) is wrapped in a WebSocket to a relay, which speaks Stratum to the real pool on the miner's behalf. Hiding victims from the pool is not the purpose the reading describes -- the relay exists because of what a browser can and cannot do. The computation happens in the tab: the WebAssembly module runs inside the renderer, which is why that renderer process burns CPU. And encryption is not the reason either; the firewall still classified the session as 'websocket', and what gives it away is its long, steady shape, not its content.",
       },
     },
-    // ── Analyst Choice: legitimate paste-run install ────────────────────────────
-    {
-      type: "analyst_choice" as const,
-      id: "mcia-ac1",
-      heading: "Verdict: A Hidden PowerShell Window, Launched by explorer.exe",
-      scenario:
-        "A Falcon detection fires on WS-6820 for a High-severity PowerShell Command and Scripting Interpreter pattern: explorer.exe launching a hidden-window powershell.exe process that downloads a script from the internet and runs it in memory. Read the command line, the destination it pulls from, the user and host, and the IT verification note under the record, then give your verdict.",
-      event: legitPasteRunEvent,
-      correct_verdict: "benign_true_positive",
-      explanation:
-        "The command line downloads and runs the install script from community.chocolatey.org: the real, publicly documented installation method for the Chocolatey package manager, not a lookalike or newly-registered domain. The IT verification on the record is 'confirmed': change ticket CHG-44190 approves the DevOps team's Chocolatey rollout across engineering workstations this week, and y.cohen's install falls inside that approved window on their own workstation. process.code_signature.trusted is true for powershell.exe itself, which is expected either way. Powershell.exe is a Microsoft-signed interpreter on every Windows machine, so its signature says nothing about the intent of the script it is told to run: the deciding fields here are the verified domain and the confirmed change ticket, not the signature. This is a benign true positive: the detection fired correctly on a real hidden-window download-and-run, and change ticket CHG-44190 is the justification for closing it; it is not a false positive, because the pattern really happened, and calling it a misfire would invite weakening a ClickFix-style detection you need.",
-      fp_trap:
-        "explorer.exe launching a hidden-window PowerShell process that pulls a script straight from the internet is precisely the shape this room has been teaching you to treat as ClickFix-style paste-and-run. But real software vendors, Chocolatey among them, genuinely publish official one-line install commands that look identical in telemetry to a malicious paste-and-run chain. Escalating this pattern on shape alone, without checking the destination domain and it_verify_result, trains a team to drown in noise on the exact pattern that most needs real scrutiny when it's actually malicious.",
-      xp: 30,
-    },
-    // ── Matching: technique to MITRE ID and motif ───────────────────────────────
-    {
-      type: "matching" as const,
-      id: "mcia-m1",
-      heading: "Match the Technique to Its MITRE ATT&CK ID and Signature",
-      instructions: "Match each technique covered in this room to the MITRE ATT&CK ID and the artefact that identifies it.",
-      pairs: [
-        { id: "clickfix", left: "ClickFix / Fake CAPTCHA", right: "T1204.004 -- explorer.exe spawns a command interpreter directly, with no antecedent file download at all" },
-        { id: "clipper", left: "Clipboard Clipper", right: "T1115 -- a background process silently substitutes copied cryptocurrency wallet addresses before the paste completes" },
-        { id: "seo", left: "SEO-Poisoned / Malvertised Installer", right: "T1608.006 -- a paid or manipulated search result leads to a fake installer whose only real job is fetching a second-stage payload" },
-        { id: "iso", left: "ISO / Mark-of-the-Web Smuggling", right: "T1553.005 -- a shortcut inside a mounted container runs with no SmartScreen prompt at all" },
-        { id: "miner", left: "Drive-by Browser Cryptomining", right: "T1496 -- a browser's own renderer process opens a long-lived tunnel to a mining relay" },
-      ],
-      explanation:
-        "Notice what all five have in common: none of them require a malicious document macro, and two of the five -- ClickFix and the browser miner -- begin without any downloaded file on disk before the first suspicious activity. That's exactly why file-download-focused controls, on their own, aren't enough to catch any of them.",
-      xp: 35,
-    },
-    // ── Ordering: triage sequence for a fileless-looking initial-access alert ──
-    {
-      type: "ordering" as const,
-      id: "mcia-o1",
-      heading: "Order the Triage of an Alert With No Obviously Malicious Downloaded File",
-      instructions: "Arrange these steps in the order an analyst should actually work them for an alert where a legitimate-looking process chain led to unexpected activity, with no obviously malicious file ever downloaded.",
-      items: [
-        { id: "ancestry", text: "Reconstruct how execution started -- which process launched the first suspicious one, whether that parent-child pair is normal, and whether any file existed on disk before it" },
-        { id: "domain", text: "Assess where it went -- the destination's category, registration age and reputation, whether the connection succeeded or was blocked, and what (if anything) left the host" },
-        { id: "context", text: "Check for a verified IT ticket, change record, or other known legitimate business reason before deciding on a verdict" },
-        { id: "verdict", text: "Assign a verdict and document the full timeline for the incident record" },
-      ],
-      correct_order: ["ancestry", "domain", "context", "verdict"],
-      explanation:
-        "Start by reconstructing exactly what launched what -- an unusual parent-child pair, like explorer.exe launching a command interpreter directly, is the first fact worth establishing, together with whether a file was ever involved at all, since several of this room's techniques never touch disk the way a classic download does. Only once you know the technical shape of what happened does the destination's reputation and the connection's outcome tell you how far it actually got (those destination checks can be done in either order, so they form one step here). Checking for a verified business reason comes after the technical picture is complete, not before it -- deciding 'there's probably a ticket for this' too early is exactly how a real compromise gets waved through, while checking it before finalising a verdict is exactly what turned the Chocolatey install in this room's analyst-choice task from an alarming-looking pattern into a correctly-closed benign true positive. Only with all of that in hand should you commit to a verdict and write it up.",
-      xp: 35,
-    },
     // ── Log Analysis 2: drive-by browser miner connection ───────────────────────
     {
       type: "log_analysis" as const,
@@ -538,6 +504,40 @@ const commodityInitialAccessRoom = {
       explanation:
         "Only drive-by browser cryptomining matches every detail given: no downloaded file, no separate process outside the browser, and a symptom (heat, meaning sustained CPU) tied directly to an open tab. ClickFix would leave a distinct powershell.exe process outside the browser, even with its window hidden. A clipboard clipper is its own background binary (Reading 3), so Task Manager would show an unfamiliar process; it also waits quietly for copy events rather than burning CPU, and its only noticed sign is a misdirected payment. ISO smuggling requires a downloaded container file, which the scenario explicitly rules out by saying Downloads is empty.",
       xp: 30,
+    },
+    // ── Matching: technique to MITRE ID and motif ───────────────────────────────
+    {
+      type: "matching" as const,
+      id: "mcia-m1",
+      heading: "Match the Technique to Its MITRE ATT&CK ID and Signature",
+      instructions: "Match each technique covered in this room to the MITRE ATT&CK ID and the artefact that identifies it.",
+      pairs: [
+        { id: "clickfix", left: "ClickFix / Fake CAPTCHA", right: "T1204.004 -- explorer.exe spawns a command interpreter directly, with no antecedent file download at all" },
+        { id: "clipper", left: "Clipboard Clipper", right: "T1115 -- a background process silently substitutes copied cryptocurrency wallet addresses before the paste completes" },
+        { id: "seo", left: "SEO-Poisoned / Malvertised Installer", right: "T1608.006 -- a paid or manipulated search result leads to a fake installer whose only real job is fetching a second-stage payload" },
+        { id: "iso", left: "ISO / Mark-of-the-Web Smuggling", right: "T1553.005 -- a shortcut inside a mounted container runs with no SmartScreen prompt at all" },
+        { id: "miner", left: "Drive-by Browser Cryptomining", right: "T1496 -- a browser's own renderer process opens a long-lived tunnel to a mining relay" },
+      ],
+      explanation:
+        "Notice what all five have in common: none of them require a malicious document macro, and two of the five -- ClickFix and the browser miner -- begin without any downloaded file on disk before the first suspicious activity. That's exactly why file-download-focused controls, on their own, aren't enough to catch any of them.",
+      xp: 35,
+    },
+    // ── Ordering: triage sequence for a fileless-looking initial-access alert ──
+    {
+      type: "ordering" as const,
+      id: "mcia-o1",
+      heading: "Order the Triage of an Alert With No Obviously Malicious Downloaded File",
+      instructions: "Arrange these steps in the order an analyst should actually work them for an alert where a legitimate-looking process chain led to unexpected activity, with no obviously malicious file ever downloaded.",
+      items: [
+        { id: "ancestry", text: "Reconstruct how execution started -- which process launched the first suspicious one, whether that parent-child pair is normal, and whether any file existed on disk before it" },
+        { id: "domain", text: "Assess where it went -- the destination's category, registration age and reputation, whether the connection succeeded or was blocked, and what (if anything) left the host" },
+        { id: "context", text: "Check for a verified IT ticket, change record, or other known legitimate business reason before deciding on a verdict" },
+        { id: "verdict", text: "Assign a verdict and document the full timeline for the incident record" },
+      ],
+      correct_order: ["ancestry", "domain", "context", "verdict"],
+      explanation:
+        "Start by reconstructing exactly what launched what -- an unusual parent-child pair, like explorer.exe launching a command interpreter directly, is the first fact worth establishing, together with whether a file was ever involved at all, since several of this room's techniques never touch disk the way a classic download does. Only once you know the technical shape of what happened does the destination's reputation and the connection's outcome tell you how far it actually got (those destination checks can be done in either order, so they form one step here). Checking for a verified business reason comes after the technical picture is complete, not before it -- deciding 'there's probably a ticket for this' too early is exactly how a real compromise gets waved through, while checking it before finalising a verdict is exactly what turned the Chocolatey install in this room's analyst-choice task from an alarming-looking pattern into a correctly-closed benign true positive. Only with all of that in hand should you commit to a verdict and write it up.",
+      xp: 35,
     },
   ],
 };

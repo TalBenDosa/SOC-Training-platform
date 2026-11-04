@@ -6906,6 +6906,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
+        "id": "mcia-ac1",
+        "type": "analyst_choice",
+        "xp": 30
+      },
+      {
         "id": "mcia-r3",
         "type": "reading",
         "xp": 0
@@ -6942,21 +6947,6 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "mcia-ac1",
-        "type": "analyst_choice",
-        "xp": 30
-      },
-      {
-        "id": "mcia-m1",
-        "type": "matching",
-        "xp": 35
-      },
-      {
-        "id": "mcia-o1",
-        "type": "ordering",
-        "xp": 35
-      },
-      {
         "id": "mcia-la2",
         "type": "log_analysis",
         "xp": 80,
@@ -6971,6 +6961,16 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "mcia-q4",
         "type": "question",
         "xp": 30
+      },
+      {
+        "id": "mcia-m1",
+        "type": "matching",
+        "xp": 35
+      },
+      {
+        "id": "mcia-o1",
+        "type": "ordering",
+        "xp": 35
       }
     ]
   },
