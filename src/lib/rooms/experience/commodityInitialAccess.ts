@@ -29,6 +29,14 @@ export const COMMODITY_INITIAL_ACCESS: RoomExperience = {
   look: { primary: "#a3e635", secondary: "#f472b6", warn: "#f43f5e" },
   scene: "baitshop",
   layout: "stage",
+  story: {
+    intro: { title: "They Changed the Bait", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-intro-e93b78b0.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-intro-8e74e04a.jpg" },
+    afterStation: {
+      clickfix: { title: "Win+R, Ctrl+V, Enter", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-ch2-4157a285.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-ch2-098a938f.jpg" },
+      seo: { title: "Sponsored, Mounted, Trusted", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-ch3-4b27a9c9.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-ch3-f188e938.jpg" },
+      miner: { title: "The Tab That Mines", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-finale-98601c55.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-finale-7b8715b8.jpg" },
+    },
+  },
   stations: [
     {
       id: "macros",
