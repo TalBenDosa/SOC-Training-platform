@@ -13,11 +13,11 @@ export const MICROSOFT_365_SECURITY: RoomExperience = {
   roomId: "microsoft-365-security",
   codename: "Operation Inbox Zero",
   theme: "m365",
-  handler: { name: "Nadia Rahman", role: "Microsoft 365 Security Lead, Fairhaven College" },
+  handler: { name: "Elif Aydın", role: "Microsoft 365 Security Lead, Fairhaven College" },
   briefing: [
     "Fairhaven College. 14,000 students, 2,100 staff, and every lecture, grade and payroll run living in one Microsoft 365 tenant.",
     "In September the bursar's office paid a fake invoice for £86,000. The mail came from inside the tenant, from an account that had been quietly taken over.",
-    "Nadia Rahman runs Microsoft 365 security. She wants analysts who know which Defender product sees what, and who can read the audit log like a confession.",
+    "Elif Aydın runs Microsoft 365 security. She wants analysts who know which Defender product sees what, and who can read the audit log like a confession.",
     "Learn the Defender family and Secure Score, how Defender for Office 365 judges a sender, the audit operations that matter, then work a business email compromise.",
   ],
   mission: "Put each signal on the Defender product that sees it, judge four inbound mails for impersonation and spoofing, search the unified audit log for forwarding, role changes and bulk downloads, then work the graded inbox-rule alert.",
@@ -69,10 +69,10 @@ export const MICROSOFT_365_SECURITY: RoomExperience = {
     },
   ],
   personas: {
-    "m365-sec-q1": { name: "Nadia Rahman", role: "M365 Security Lead", line: "A finance manager's account is taken, and the first move is an inbox rule. Why?" },
-    "m365-sec-q3": { name: "Nadia Rahman", role: "M365 Security Lead", line: "Did they read thousands of mails? Which operation tells me?" },
-    "m365-sec-la1": { name: "Nadia Rahman", role: "M365 Security Lead", line: "Sentinel caught a forwarding rule to an outside domain. Read it." },
-    "m365-sec-q5": { name: "Nadia Rahman", role: "M365 Security Lead", line: "Secure Score 35 out of 100. What do we fix first?" },
+    "m365-sec-q1": { name: "Elif Aydın", role: "M365 Security Lead", line: "A finance manager's account is taken, and the first move is an inbox rule. Why?" },
+    "m365-sec-q3": { name: "Elif Aydın", role: "M365 Security Lead", line: "Did they read thousands of mails? Which operation tells me?" },
+    "m365-sec-la1": { name: "Elif Aydın", role: "M365 Security Lead", line: "Sentinel caught a forwarding rule to an outside domain. Read it." },
+    "m365-sec-q5": { name: "Elif Aydın", role: "M365 Security Lead", line: "Secure Score 35 out of 100. What do we fix first?" },
   },
   briefings: {
     // ── Reading 1: the family ──
