@@ -16,6 +16,7 @@ import { RISK_FUNDAMENTALS } from "./riskFundamentals";
 import { VULNERABILITY_MANAGEMENT } from "./vulnerabilityManagement";
 import { CYBER_KILL_CHAIN } from "./cyberKillChain";
 import { FIREWALL_NETWORK_SECURITY } from "./firewallNetworkSecurity";
+import { ENDPOINT_SECURITY_FUNDAMENTALS } from "./endpointSecurityFundamentals";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -38,6 +39,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [VULNERABILITY_MANAGEMENT.roomId]: VULNERABILITY_MANAGEMENT,
   [CYBER_KILL_CHAIN.roomId]: CYBER_KILL_CHAIN,
   [FIREWALL_NETWORK_SECURITY.roomId]: FIREWALL_NETWORK_SECURITY,
+  [ENDPOINT_SECURITY_FUNDAMENTALS.roomId]: ENDPOINT_SECURITY_FUNDAMENTALS,
 };
 
 /**

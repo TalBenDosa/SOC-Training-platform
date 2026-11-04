@@ -704,7 +704,6 @@ const endpointSecurityFundamentals: Room = {
   icon: "💻",
   prerequisites: ["windows-fundamentals"],
   tasks: [
-
     // ── Reading 1: AV Evolution ───────────────────────────────────────────────
     {
       type: "reading",
@@ -793,6 +792,38 @@ Instead of having separate tools for each domain that analysts must correlate ma
       },
     } satisfies ReadingTask,
 
+    // ── Question 1 ────────────────────────────────────────────────────────────
+    {
+      type: "question",
+      id: "ep-sec-q1",
+      question: "What is the fundamental difference between traditional signature-based antivirus and EDR (Endpoint Detection & Response)?",
+      options: [
+        "Traditional AV is a cloud-only service with no device software, while EDR runs wholly locally with no cloud console",
+        "Traditional AV matches files against known-bad signatures; EDR records endpoint activity and detects behaviour for hunting",
+        "EDR works only on Windows because it relies on ETW, so AV remains the only option for Linux and macOS",
+        "Traditional AV can isolate a host on demand, whereas EDR is passive alerting with no containment"
+      ],
+      answer: 1,
+      explanation: "The key difference is **scope and approach**. Traditional AV relies on known-bad **signatures**. It cannot detect new malware it has never seen before. EDR continuously records all endpoint telemetry (processes, files, network connections, registry changes) and applies **behavioural analysis** to detect threats regardless of whether they have known signatures. EDR also provides **visibility** for investigation (process trees, command lines, timelines) and **response** capabilities (host isolation, remote shell) that traditional AV completely lacks.",
+      xp: 25,
+    } satisfies QuestionTask,
+
+    // ── Question 4 ────────────────────────────────────────────────────────────
+    {
+      type: "question",
+      id: "ep-sec-q4",
+      question: "What does XDR (Extended Detection & Response) add compared to EDR (Endpoint Detection & Response)?",
+      options: [
+        "XDR is the same endpoint-only telemetry as EDR behind a nicer incident dashboard",
+        "XDR extends beyond the endpoint to network, identity, email and cloud data, correlated in one platform",
+        "XDR replaces EDR's behavioural detection with a much larger signature database",
+        "XDR is the mobile-device tier of EDR, covering iOS and Android handsets"
+      ],
+      answer: 1,
+      explanation: "The 'X' in **XDR** stands for 'Extended'. It extends detection and response **across multiple security domains** beyond just the endpoint. While EDR sees only what happens on a single device, XDR correlates telemetry from endpoints, network traffic, identity systems (Active Directory, Entra ID), email (Exchange, phishing), and cloud workloads (AWS, Azure). This cross-domain correlation allows XDR to detect multi-stage attacks that would appear as disconnected, low-confidence signals in isolated tools. Microsoft Defender XDR, CrowdStrike Falcon XDR, and SentinelOne Singularity XDR are current examples.",
+      xp: 25,
+    } satisfies QuestionTask,
+
     // ── Reading 2: EDR Deep Dive ───────────────────────────────────────────────
     {
       type: "reading",
@@ -875,6 +906,22 @@ EDR detects threats *after* they start. **Endpoint hardening** reduces the attac
       },
     } satisfies ReadingTask,
 
+    // ── Question 3 ────────────────────────────────────────────────────────────
+    {
+      type: "question",
+      id: "ep-sec-q3",
+      question: "A user's laptop is confirmed to be infected with malware that is actively spreading to other machines on the network. What is the most important immediate EDR response action?",
+      options: [
+        "Delete the malware file from disk, which also terminates the running instance",
+        "Run a full antivirus scan of the laptop before touching the network",
+        "Network-isolate the host with EDR to stop further lateral movement",
+        "Reboot the laptop so the malware is cleared from memory"
+      ],
+      answer: 2,
+      explanation: "**Host isolation** (also called network isolation or containment) is the single most important immediate action when a host is actively spreading malware. Isolation cuts the device off from all network communication (except the EDR management channel), preventing the malware from reaching additional hosts, communicating with a command-and-control server, or exfiltrating data. Deleting the malware file and rebooting are secondary steps that come after containment. A full AV scan is also secondary and may miss fileless malware.\n\nNote what makes this an easy call: it is a **user's laptop**, and the spread is **confirmed and active**. Both halves matter. Change either one: a production database server instead of a laptop, or a single suspicious process instead of confirmed spreading, and the calculation shifts, because isolation is an outage you are deliberately causing. Reading 2 covers the questions to ask first when the asset is business-critical.",
+      xp: 25,
+    } satisfies QuestionTask,
+
     // ── Reading 3: Reading EDR Alerts ─────────────────────────────────────────
     {
       type: "reading",
@@ -947,22 +994,6 @@ Based on your analysis:
 | \`-EncodedCommand\` | \`-Enc\` | Accept a Base64-encoded command | Obfuscate the command from simple string-matching |`,
     } satisfies ReadingTask,
 
-    // ── Question 1 ────────────────────────────────────────────────────────────
-    {
-      type: "question",
-      id: "ep-sec-q1",
-      question: "What is the fundamental difference between traditional signature-based antivirus and EDR (Endpoint Detection & Response)?",
-      options: [
-        "Traditional AV is a cloud-only service with no device software, while EDR runs wholly locally with no cloud console",
-        "Traditional AV matches files against known-bad signatures; EDR records endpoint activity and detects behaviour for hunting",
-        "EDR works only on Windows because it relies on ETW, so AV remains the only option for Linux and macOS",
-        "Traditional AV can isolate a host on demand, whereas EDR is passive alerting with no containment"
-      ],
-      answer: 1,
-      explanation: "The key difference is **scope and approach**. Traditional AV relies on known-bad **signatures**. It cannot detect new malware it has never seen before. EDR continuously records all endpoint telemetry (processes, files, network connections, registry changes) and applies **behavioural analysis** to detect threats regardless of whether they have known signatures. EDR also provides **visibility** for investigation (process trees, command lines, timelines) and **response** capabilities (host isolation, remote shell) that traditional AV completely lacks.",
-      xp: 25,
-    } satisfies QuestionTask,
-
     // ── Question 2 ────────────────────────────────────────────────────────────
     {
       type: "question",
@@ -976,38 +1007,6 @@ Based on your analysis:
       ],
       answer: 1,
       explanation: "**winword.exe spawning cmd.exe which spawns powershell.exe** is one of the most classic malicious process chains in endpoint security. Word does not normally spawn command prompts or PowerShell shells during legitimate use. This chain indicates a **malicious Office macro** (embedded in a document) that executed system commands. The `-Enc` flag on PowerShell means the actual command is Base64-encoded: a strong obfuscation indicator. This should be treated as a high-priority true positive.",
-      xp: 25,
-    } satisfies QuestionTask,
-
-    // ── Question 3 ────────────────────────────────────────────────────────────
-    {
-      type: "question",
-      id: "ep-sec-q3",
-      question: "A user's laptop is confirmed to be infected with malware that is actively spreading to other machines on the network. What is the most important immediate EDR response action?",
-      options: [
-        "Delete the malware file from disk, which also terminates the running instance",
-        "Run a full antivirus scan of the laptop before touching the network",
-        "Network-isolate the host with EDR to stop further lateral movement",
-        "Reboot the laptop so the malware is cleared from memory"
-      ],
-      answer: 2,
-      explanation: "**Host isolation** (also called network isolation or containment) is the single most important immediate action when a host is actively spreading malware. Isolation cuts the device off from all network communication (except the EDR management channel), preventing the malware from reaching additional hosts, communicating with a command-and-control server, or exfiltrating data. Deleting the malware file and rebooting are secondary steps that come after containment. A full AV scan is also secondary and may miss fileless malware.\n\nNote what makes this an easy call: it is a **user's laptop**, and the spread is **confirmed and active**. Both halves matter. Change either one: a production database server instead of a laptop, or a single suspicious process instead of confirmed spreading, and the calculation shifts, because isolation is an outage you are deliberately causing. Reading 2 covers the questions to ask first when the asset is business-critical.",
-      xp: 25,
-    } satisfies QuestionTask,
-
-    // ── Question 4 ────────────────────────────────────────────────────────────
-    {
-      type: "question",
-      id: "ep-sec-q4",
-      question: "What does XDR (Extended Detection & Response) add compared to EDR (Endpoint Detection & Response)?",
-      options: [
-        "XDR is the same endpoint-only telemetry as EDR behind a nicer incident dashboard",
-        "XDR extends beyond the endpoint to network, identity, email and cloud data, correlated in one platform",
-        "XDR replaces EDR's behavioural detection with a much larger signature database",
-        "XDR is the mobile-device tier of EDR, covering iOS and Android handsets"
-      ],
-      answer: 1,
-      explanation: "The 'X' in **XDR** stands for 'Extended'. It extends detection and response **across multiple security domains** beyond just the endpoint. While EDR sees only what happens on a single device, XDR correlates telemetry from endpoints, network traffic, identity systems (Active Directory, Entra ID), email (Exchange, phishing), and cloud workloads (AWS, Azure). This cross-domain correlation allows XDR to detect multi-stage attacks that would appear as disconnected, low-confidence signals in isolated tools. Microsoft Defender XDR, CrowdStrike Falcon XDR, and SentinelOne Singularity XDR are current examples.",
       xp: 25,
     } satisfies QuestionTask,
 
