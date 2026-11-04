@@ -539,6 +539,26 @@ const windowsEventLogs: Room = {
     } satisfies ReadingTask,
 
     // -------------------------------------------------------------------------
+    // Question 2 — Event ID 1102
+    // -------------------------------------------------------------------------
+    {
+      type: "question",
+      id: "win-evtlogs-q2",
+      question:
+        "At 11:47 PM on a Saturday, Event ID 1102 appears in your SIEM from a Domain Controller. What does this mean and how urgent is it?",
+      options: [
+        "A new admin account was created: moderate urgency, verify with IT on Monday",
+        "The Security audit log was cleared: critical P1, possible track-covering; escalate now",
+        "The Security log hit its size limit and overwrote old events: low urgency, expected",
+        "Audit policy was changed to stop logging: medium urgency, review during business hours",
+      ],
+      answer: 1,
+      explanation:
+        "Event ID 1102 = 'The audit log was cleared'. Legitimate administrators almost never need to clear the Security log. Clearing it is a common attacker tactic to erase the evidence of their actions before abandoning a compromised machine. The Saturday night timestamp makes it even more suspicious (attackers often act after business hours). This should trigger an immediate P1 response. Check your SIEM for any events that were forwarded before the clear, and investigate what happened on that DC in the preceding hours.",
+      xp: 30,
+    } satisfies QuestionTask,
+
+    // -------------------------------------------------------------------------
     // Reading 2 — Critical Event IDs
     // -------------------------------------------------------------------------
     {
@@ -554,16 +574,6 @@ const windowsEventLogs: Room = {
         explanation:
           "0xC000006A = wrong password (the account exists). 0xC0000064 means the username doesn't exist, 0xC0000234 means the account is locked out, and 0xC0000072 means the account is disabled.",
       },
-    } satisfies ReadingTask,
-
-    // -------------------------------------------------------------------------
-    // Reading 3 — Detection Patterns and Log Collection
-    // -------------------------------------------------------------------------
-    {
-      type: "reading",
-      id: "win-evtlogs-r3",
-      heading: "Attack Patterns in Event Logs and How to Build Detections",
-      content: `Knowing individual Event IDs is only step one. Real SOC work is about recognising **patterns**. Combinations and sequences of events that together tell a story of an attack.\n\n**Pattern 1: Password Spray Attack**\nA password spray is when an attacker tries one common password (like "Company2024!" or "Summer2024") against many different user accounts. It is the opposite of brute force (many passwords against one account). Spraying is effective because most accounts will not lock out (only the correct accounts get a match) and it avoids lockout thresholds.\n\nWhat you see in logs:\n- Dozens or hundreds of **Event ID 4625** (failed logon) within a short time window\n- **LogonType 3** (network) (the attacker is not physically present\n- **SubStatus 0xC000006A** (wrong password)) consistent, meaning the accounts DO exist\n- **Multiple different TargetUserNames** from the **same IpAddress**\n- Possibly 1–2 **Event ID 4624** (successful logon) at the end, indicating the spray found a valid credential\n\nResponse: Block the source IP, check if any account had a successful logon (4624) immediately following the failures, reset any accounts that were successfully compromised, alert the user.\n\n**Pattern 2: Lateral Movement**\nOnce inside the network, attackers move horizontally, from the initial foothold machine to other more valuable systems (servers, domain controllers).\n\nWhat you see in logs:\n- **Event ID 4624 LogonType 3** on a server. A workstation opening a Type 3 logon to a *server* is itself routine. SMB file shares, printers, pulling GPOs from SYSVOL, and DFS generate exactly this all day long, so it is **not** suspicious on its own. What stands out against a normal baseline is **workstation-to-workstation** Type 3 logons, or a **privileged/admin account** authenticating to a server it never normally touches\n- The account used may be a **local administrator account** with the same password across multiple machines (common misconfiguration). Pass-the-hash with a shared local admin credential is a classic lateral-movement path\n- Shortly after, **Event ID 4688** on the server showing reconnaissance commands (whoami, ipconfig, net group)\n- Possibly **Event ID 4648** on the source workstation showing explicit credential use\n\n**Pattern 3: Privilege Escalation**\nAn attacker who gained access as a low-privilege user attempts to gain admin rights.\n\nWhat you see in logs:\n- **Event ID 4728 or 4732**. User added to an admin group\n- **Event ID 4672** appearing for that account on the next logon\n- The account performing the change may itself be a recently compromised account\n\n**Pattern 4: Persistence via Scheduled Task**\nAn attacker creates a scheduled task to maintain access even if their initial foothold is discovered and removed.\n\nWhat you see in logs:\n- **Event ID 4698**. New scheduled task created\n- The task runs from an unusual location (\`C:\\Users\\Public\\\`, \`C:\\Temp\\\`, \`C:\\ProgramData\\\`)\n- The task runs under **SYSTEM** or an admin account\n- **Event ID 4688** showing the task executing at the scheduled time\n\n**Pattern 5: Log Clearing (Last Resort Attacker Action)**\n- **Event ID 1102**. Security log cleared\n- This often means the attacker is done and cleaning up, OR they became alarmed and are trying to erase evidence\n- Even if the log is cleared, events may still exist in SIEM if forwarding was in place\n- Always check SIEM for activity in the minutes/hours before the log clear event\n\n**Correlating Events Across Machines**\n\nA single event on a single machine rarely tells the full story. The power of a SIEM is correlating events across thousands of machines:\n- 4625 failures on DC01 + 4624 success on FILESERVER01 from same IP = lateral movement\n- 4688 (whoami) on WORKSTATION15 + 4648 on WORKSTATION15 + 4624 LogonType3 on DC01 from WORKSTATION15 = lateral movement to DC\n\n**Investigation Workflow**\nWhen an alert fires:\n1. Identify the **who** (user account), **what** (Event ID), **when** (timestamp), **where** (source and destination machines), and **from where** (source IP)\n2. Look back in time: what happened before this event on the same machine?\n3. Look at other machines: is the same account active on multiple systems simultaneously?\n4. Look forward: what happened after this event?\n5. Check if the account has a legitimate reason for this activity (are they in IT? is this during business hours? does a change ticket exist?)\n6. Escalate or close based on findings`,
     } satisfies ReadingTask,
 
     // -------------------------------------------------------------------------
@@ -585,6 +595,55 @@ const windowsEventLogs: Room = {
         "LogonType 3 = network logon. This means a process on WKST22 authenticated to SERVER01 across the network (like accessing a file share or using PsExec/WMI to run commands). On its own, a workstation-to-server Type 3 logon is routine (file shares, printers, SYSVOL/GPO pulls generate it all day), so the logon type alone proves nothing. It becomes a lateral movement indicator only against the baseline: an account that does not normally touch SERVER01, a privileged/admin account, or a logon followed by remote execution (e.g., 7045 service install, 4688 from PsExec/WMI). That is why the answer is 'possible' lateral movement, pending that baseline check. LogonType 2 is the console/interactive value, and LogonType 10 is RDP: neither is 3, and batch logons (scheduled tasks) are LogonType 4.",
       xp: 25,
     } satisfies QuestionTask,
+
+    // -------------------------------------------------------------------------
+    // Question 4 — LogonType
+    // -------------------------------------------------------------------------
+    {
+      type: "question",
+      id: "win-evtlogs-q4",
+      question:
+        "Which LogonType in Event ID 4624 indicates that a user connected via Remote Desktop Protocol (RDP)?",
+      options: [
+        "LogonType 2: Interactive (console)",
+        "LogonType 3: Network (file share)",
+        "LogonType 10: RemoteInteractive (RDP)",
+        "LogonType 5: Service",
+      ],
+      answer: 2,
+      explanation:
+        "LogonType 10 = RemoteInteractive, which is the value for RDP sessions. LogonType 2 is a console logon (physically at the keyboard). LogonType 3 is a network logon (accessing shared resources like file shares). LogonType 5 is a service account logon when a Windows service starts. Knowing these values is essential for understanding how a user or attacker accessed a system.",
+      xp: 20,
+    } satisfies QuestionTask,
+    // -------------------------------------------------------------------------
+    // Question 3 — 4688 command line
+    // -------------------------------------------------------------------------
+    {
+      type: "question",
+      id: "win-evtlogs-q3",
+      question:
+        "Event ID 4688 shows a new process created: NewProcessName = 'C:\\Windows\\System32\\cmd.exe', ParentProcessName = 'C:\\Program Files\\Microsoft Office\\Office16\\WINWORD.EXE', CommandLine = 'cmd.exe /c powershell -EncodedCommand JABjACA9...'. What does this indicate?",
+      options: [
+        "A user launched a command prompt from Word's developer ribbon to run a quick script",
+        "Word spawned cmd.exe, which ran encoded PowerShell. Consistent with a malicious macro payload",
+        "A signed Office add-in updater shelled out to PowerShell to refresh its templates",
+        "A developer's VBA project called cmd.exe and PowerShell during a normal debugging run",
+      ],
+      answer: 1,
+      explanation:
+        "Legitimate users do not spawn cmd.exe from inside Microsoft Word. This pattern, Office application → cmd.exe → PowerShell. Is the textbook signature of a malicious macro (often delivered via phishing email). The '-EncodedCommand' flag hides the PowerShell payload in base64 to evade text-based detection. Decode the base64 string immediately to see what the script does (it is likely downloading a second-stage payload or establishing a reverse shell). This should be treated as a confirmed malware incident.",
+      xp: 35,
+    } satisfies QuestionTask,
+
+    // -------------------------------------------------------------------------
+    // Reading 3 — Detection Patterns and Log Collection
+    // -------------------------------------------------------------------------
+    {
+      type: "reading",
+      id: "win-evtlogs-r3",
+      heading: "Attack Patterns in Event Logs and How to Build Detections",
+      content: `Knowing individual Event IDs is only step one. Real SOC work is about recognising **patterns**. Combinations and sequences of events that together tell a story of an attack.\n\n**Pattern 1: Password Spray Attack**\nA password spray is when an attacker tries one common password (like "Company2024!" or "Summer2024") against many different user accounts. It is the opposite of brute force (many passwords against one account). Spraying is effective because most accounts will not lock out (only the correct accounts get a match) and it avoids lockout thresholds.\n\nWhat you see in logs:\n- Dozens or hundreds of **Event ID 4625** (failed logon) within a short time window\n- **LogonType 3** (network) (the attacker is not physically present\n- **SubStatus 0xC000006A** (wrong password)) consistent, meaning the accounts DO exist\n- **Multiple different TargetUserNames** from the **same IpAddress**\n- Possibly 1–2 **Event ID 4624** (successful logon) at the end, indicating the spray found a valid credential\n\nResponse: Block the source IP, check if any account had a successful logon (4624) immediately following the failures, reset any accounts that were successfully compromised, alert the user.\n\n**Pattern 2: Lateral Movement**\nOnce inside the network, attackers move horizontally, from the initial foothold machine to other more valuable systems (servers, domain controllers).\n\nWhat you see in logs:\n- **Event ID 4624 LogonType 3** on a server. A workstation opening a Type 3 logon to a *server* is itself routine. SMB file shares, printers, pulling GPOs from SYSVOL, and DFS generate exactly this all day long, so it is **not** suspicious on its own. What stands out against a normal baseline is **workstation-to-workstation** Type 3 logons, or a **privileged/admin account** authenticating to a server it never normally touches\n- The account used may be a **local administrator account** with the same password across multiple machines (common misconfiguration). Pass-the-hash with a shared local admin credential is a classic lateral-movement path\n- Shortly after, **Event ID 4688** on the server showing reconnaissance commands (whoami, ipconfig, net group)\n- Possibly **Event ID 4648** on the source workstation showing explicit credential use\n\n**Pattern 3: Privilege Escalation**\nAn attacker who gained access as a low-privilege user attempts to gain admin rights.\n\nWhat you see in logs:\n- **Event ID 4728 or 4732**. User added to an admin group\n- **Event ID 4672** appearing for that account on the next logon\n- The account performing the change may itself be a recently compromised account\n\n**Pattern 4: Persistence via Scheduled Task**\nAn attacker creates a scheduled task to maintain access even if their initial foothold is discovered and removed.\n\nWhat you see in logs:\n- **Event ID 4698**. New scheduled task created\n- The task runs from an unusual location (\`C:\\Users\\Public\\\`, \`C:\\Temp\\\`, \`C:\\ProgramData\\\`)\n- The task runs under **SYSTEM** or an admin account\n- **Event ID 4688** showing the task executing at the scheduled time\n\n**Pattern 5: Log Clearing (Last Resort Attacker Action)**\n- **Event ID 1102**. Security log cleared\n- This often means the attacker is done and cleaning up, OR they became alarmed and are trying to erase evidence\n- Even if the log is cleared, events may still exist in SIEM if forwarding was in place\n- Always check SIEM for activity in the minutes/hours before the log clear event\n\n**Correlating Events Across Machines**\n\nA single event on a single machine rarely tells the full story. The power of a SIEM is correlating events across thousands of machines:\n- 4625 failures on DC01 + 4624 success on FILESERVER01 from same IP = lateral movement\n- 4688 (whoami) on WORKSTATION15 + 4648 on WORKSTATION15 + 4624 LogonType3 on DC01 from WORKSTATION15 = lateral movement to DC\n\n**Investigation Workflow**\nWhen an alert fires:\n1. Identify the **who** (user account), **what** (Event ID), **when** (timestamp), **where** (source and destination machines), and **from where** (source IP)\n2. Look back in time: what happened before this event on the same machine?\n3. Look at other machines: is the same account active on multiple systems simultaneously?\n4. Look forward: what happened after this event?\n5. Check if the account has a legitimate reason for this activity (are they in IT? is this during business hours? does a change ticket exist?)\n6. Escalate or close based on findings`,
+    } satisfies ReadingTask,
 
     // -------------------------------------------------------------------------
     // Log Analysis — Password Spray (Event ID 4625)
@@ -666,46 +725,6 @@ const windowsEventLogs: Room = {
     } satisfies LogAnalysisTask,
 
     // -------------------------------------------------------------------------
-    // Question 2 — Event ID 1102
-    // -------------------------------------------------------------------------
-    {
-      type: "question",
-      id: "win-evtlogs-q2",
-      question:
-        "At 11:47 PM on a Saturday, Event ID 1102 appears in your SIEM from a Domain Controller. What does this mean and how urgent is it?",
-      options: [
-        "A new admin account was created: moderate urgency, verify with IT on Monday",
-        "The Security audit log was cleared: critical P1, possible track-covering; escalate now",
-        "The Security log hit its size limit and overwrote old events: low urgency, expected",
-        "Audit policy was changed to stop logging: medium urgency, review during business hours",
-      ],
-      answer: 1,
-      explanation:
-        "Event ID 1102 = 'The audit log was cleared'. Legitimate administrators almost never need to clear the Security log. Clearing it is a common attacker tactic to erase the evidence of their actions before abandoning a compromised machine. The Saturday night timestamp makes it even more suspicious (attackers often act after business hours). This should trigger an immediate P1 response. Check your SIEM for any events that were forwarded before the clear, and investigate what happened on that DC in the preceding hours.",
-      xp: 30,
-    } satisfies QuestionTask,
-
-    // -------------------------------------------------------------------------
-    // Question 3 — 4688 command line
-    // -------------------------------------------------------------------------
-    {
-      type: "question",
-      id: "win-evtlogs-q3",
-      question:
-        "Event ID 4688 shows a new process created: NewProcessName = 'C:\\Windows\\System32\\cmd.exe', ParentProcessName = 'C:\\Program Files\\Microsoft Office\\Office16\\WINWORD.EXE', CommandLine = 'cmd.exe /c powershell -EncodedCommand JABjACA9...'. What does this indicate?",
-      options: [
-        "A user launched a command prompt from Word's developer ribbon to run a quick script",
-        "Word spawned cmd.exe, which ran encoded PowerShell. Consistent with a malicious macro payload",
-        "A signed Office add-in updater shelled out to PowerShell to refresh its templates",
-        "A developer's VBA project called cmd.exe and PowerShell during a normal debugging run",
-      ],
-      answer: 1,
-      explanation:
-        "Legitimate users do not spawn cmd.exe from inside Microsoft Word. This pattern, Office application → cmd.exe → PowerShell. Is the textbook signature of a malicious macro (often delivered via phishing email). The '-EncodedCommand' flag hides the PowerShell payload in base64 to evade text-based detection. Decode the base64 string immediately to see what the script does (it is likely downloading a second-stage payload or establishing a reverse shell). This should be treated as a confirmed malware incident.",
-      xp: 35,
-    } satisfies QuestionTask,
-
-    // -------------------------------------------------------------------------
     // Flag Task: what the attacker does with a sprayed account. SubStatus codes are already
     // asked in the Reading 2 checkpoint and Log Analysis 1, and a SubStatus flag repeated
     // them (learner reports 2026-10-17 and 2026-10-19). Reading 2 teaches the account-
@@ -723,25 +742,6 @@ const windowsEventLogs: Room = {
       xp: 30,
     } satisfies FlagTask,
 
-    // -------------------------------------------------------------------------
-    // Question 4 — LogonType
-    // -------------------------------------------------------------------------
-    {
-      type: "question",
-      id: "win-evtlogs-q4",
-      question:
-        "Which LogonType in Event ID 4624 indicates that a user connected via Remote Desktop Protocol (RDP)?",
-      options: [
-        "LogonType 2: Interactive (console)",
-        "LogonType 3: Network (file share)",
-        "LogonType 10: RemoteInteractive (RDP)",
-        "LogonType 5: Service",
-      ],
-      answer: 2,
-      explanation:
-        "LogonType 10 = RemoteInteractive, which is the value for RDP sessions. LogonType 2 is a console logon (physically at the keyboard). LogonType 3 is a network logon (accessing shared resources like file shares). LogonType 5 is a service account logon when a Windows service starts. Knowing these values is essential for understanding how a user or attacker accessed a system.",
-      xp: 20,
-    } satisfies QuestionTask,
   ],
 };
 

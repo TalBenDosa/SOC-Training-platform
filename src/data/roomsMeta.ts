@@ -630,12 +630,12 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "win-evtlogs-r2",
-        "type": "reading",
-        "xp": 0
+        "id": "win-evtlogs-q2",
+        "type": "question",
+        "xp": 30
       },
       {
-        "id": "win-evtlogs-r3",
+        "id": "win-evtlogs-r2",
         "type": "reading",
         "xp": 0
       },
@@ -645,15 +645,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 25
       },
       {
-        "id": "win-evtlogs-la1",
-        "type": "log_analysis",
-        "xp": 55,
-        "mitreTechnique": "T1110.003"
-      },
-      {
-        "id": "win-evtlogs-q2",
+        "id": "win-evtlogs-q4",
         "type": "question",
-        "xp": 30
+        "xp": 20
       },
       {
         "id": "win-evtlogs-q3",
@@ -661,14 +655,20 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 35
       },
       {
+        "id": "win-evtlogs-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "win-evtlogs-la1",
+        "type": "log_analysis",
+        "xp": 55,
+        "mitreTechnique": "T1110.003"
+      },
+      {
         "id": "win-evtlogs-flag1",
         "type": "flag",
         "xp": 30
-      },
-      {
-        "id": "win-evtlogs-q4",
-        "type": "question",
-        "xp": 20
       }
     ]
   },

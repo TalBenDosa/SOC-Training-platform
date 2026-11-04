@@ -22,6 +22,7 @@ import { SECURITY_PRODUCTS_BEHAVIOUR } from "./securityProductsBehaviour";
 import { WEB_APPLICATION_SECURITY } from "./webApplicationSecurity";
 import { COMMODITY_INITIAL_ACCESS } from "./commodityInitialAccess";
 import { MACOS_SECURITY_FUNDAMENTALS } from "./macosSecurityFundamentals";
+import { WINDOWS_EVENT_LOGS } from "./windowsEventLogs";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -50,6 +51,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [WEB_APPLICATION_SECURITY.roomId]: WEB_APPLICATION_SECURITY,
   [COMMODITY_INITIAL_ACCESS.roomId]: COMMODITY_INITIAL_ACCESS,
   [MACOS_SECURITY_FUNDAMENTALS.roomId]: MACOS_SECURITY_FUNDAMENTALS,
+  [WINDOWS_EVENT_LOGS.roomId]: WINDOWS_EVENT_LOGS,
 };
 
 /**

@@ -19,9 +19,19 @@ for i in range(t0, len(lines)):
         break
 
 body = lines[t0:t1]
-# A header is a "// -----" rule, a title line, then the same rule again.
+# A header is a "// -----" rule, one or more comment lines, then the same rule again.
 is_rule = lambda l: re.fullmatch(r"\s*// -{20,}", l) is not None
-cuts = [i for i, l in enumerate(body) if is_rule(l) and i + 2 < len(body) and body[i + 2] == l]
+cuts, i = [], 0
+while i < len(body):
+    if is_rule(body[i]):
+        j = i + 1
+        while j < len(body) and body[j].strip().startswith("//") and body[j] != body[i]:
+            j += 1
+        if j < len(body) and j > i + 1 and body[j] == body[i]:
+            cuts.append(i)
+            i = j + 1
+            continue
+    i += 1
 if not cuts:
     # One-line headers: "// ----- Reading 1: ... -----"
     cuts = [i for i, l in enumerate(body) if re.fullmatch(r"\s*// -{3,} .+ -{3,}", l)]
