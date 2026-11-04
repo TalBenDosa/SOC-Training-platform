@@ -9,6 +9,7 @@ import { LINUX_FUNDAMENTALS } from "./linuxFundamentals";
 import { LOG_MANAGEMENT } from "./logManagement";
 import { ENCODING_ENCRYPTION_HASHING } from "./encodingEncryptionHashing";
 import { TIMESTAMPS_AND_TIMELINES } from "./timestampsAndTimelines";
+import { LOG_ENTRY_ANATOMY } from "./logEntryAnatomy";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -24,6 +25,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [LOG_MANAGEMENT.roomId]: LOG_MANAGEMENT,
   [ENCODING_ENCRYPTION_HASHING.roomId]: ENCODING_ENCRYPTION_HASHING,
   [TIMESTAMPS_AND_TIMELINES.roomId]: TIMESTAMPS_AND_TIMELINES,
+  [LOG_ENTRY_ANATOMY.roomId]: LOG_ENTRY_ANATOMY,
 };
 
 /**
