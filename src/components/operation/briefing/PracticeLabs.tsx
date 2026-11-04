@@ -93,9 +93,9 @@ export function TerminalLab({ lab, onDone }: LabProps<"terminal">) {
     <div className="space-y-3">
       {/* 1. What to find: the current objective, always above the console */}
       {obj ? (
-        <div className="rounded-xl border border-sky-400/40 bg-[#081120] p-3">
+        <div className="rounded-xl border bg-[#081120] p-3" style={{ borderColor: "color-mix(in srgb, var(--room-accent, #38bdf8) 55%, transparent)" }}>
           <div className="flex items-center gap-2">
-            <span className="rounded-md bg-sky-500/20 px-2 py-0.5 text-[11px] font-black uppercase tracking-[0.18em] text-sky-200">Your task {oi + 1} of {lab.objectives.length}</span>
+            <span className="rounded-md px-2 py-0.5 text-[11px] font-black uppercase tracking-[0.18em] text-white" style={{ background: "color-mix(in srgb, var(--room-accent, #38bdf8) 30%, transparent)" }}>Your task {oi + 1} of {lab.objectives.length}</span>
             <div className="ml-auto flex gap-1" aria-hidden>
               {lab.objectives.map((o, i) => <span key={o.id} className={cn("h-1.5 w-5 rounded-full", i < oi ? "bg-emerald-400" : i === oi ? "bg-sky-300" : "bg-white/15")} />)}
             </div>

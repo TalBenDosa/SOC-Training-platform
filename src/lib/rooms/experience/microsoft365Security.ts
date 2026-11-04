@@ -100,21 +100,16 @@ export const MICROSOFT_365_SECURITY: RoomExperience = {
     // ── Reading 2: Defender for Office 365 ──
     "m365-sec-r2": [
       {
-        kind: "worksheet",
-        title: "Four Senders",
-        prompt: "Four mails that reached the bursar's office this morning, with what Defender for Office 365 recorded about each sender. Protected users include the Principal, Dr Helen Ward.",
-        caption: "Explorer · Email · fairhaven.ac.example · bursar@",
-        columns: ["display name", "sender address", "SPF / DKIM / DMARC", "MDO detection"],
-        rows: [
-          ["Dr Helen Ward", "h.ward.principal@outlook.example", "pass / pass / none", "User impersonation"],
-          ["Fairhaven Payroll", "payroll@fairhaven-ac.example", "pass / pass / pass", "Domain impersonation"],
-          ["Fairhaven Payroll", "payroll@fairhaven.ac.example via mail.payrollco.example", "pass / pass / pass", "Allowed by spoof intelligence (known sender)"],
-          ["IT Helpdesk", "helpdesk@fairhaven.ac.example", "fail / none / fail", "Spoof: blocked"],
-        ],
-        questions: [
-          { id: "typo", q: "Which sender address is a lookalike of the college's own domain?", hint: "Compare each domain with fairhaven.ac.example letter by letter.", answer: ["payroll@fairhaven-ac.example", "fairhaven-ac.example"], why: "A hyphen where the dot should be. It passes SPF and DKIM because the attacker owns that domain: authentication proves who sent it, not that it's ours." },
-          { id: "name", q: "Which mail borrows a protected person's name from an outside address?", hint: "Protected users list.", answer: ["dr helen ward", "helen ward", "h.ward.principal@outlook.example"], why: "The Principal's display name on a consumer mailbox: user impersonation." },
-          { id: "spoof", q: "Which row claims our own domain but fails every check?", hint: "fail / none / fail", answer: ["it helpdesk", "helpdesk@fairhaven.ac.example", "helpdesk"], why: "Our domain in the From line, sent from a server we never authorised. Spoof intelligence let the payroll vendor through and stopped this one." },
+        kind: "hotspot",
+        title: "Find the Fakes",
+        prompt: "The bursar's inbox this morning, as Defender for Office 365's Explorer shows it. Tap every message you would not trust. Protected users include the Principal, Dr Helen Ward.",
+        artifact: "Explorer · Email · bursar@fairhaven.ac.example · today",
+        parts: [
+          { id: "estates", text: "Estates Office <estates@fairhaven.ac.example> · Boiler rota for November · SPF pass · DKIM pass · DMARC pass", flag: false, note: "Our own domain, every check passing, from a mailbox that sends this every month.", style: "meta" },
+          { id: "typo", text: "Fairhaven Payroll <payroll@fairhaven-ac.example> · Updated bank details for staff salaries · SPF pass · DKIM pass", flag: true, note: "A hyphen where the dot should be. It passes SPF and DKIM because the attacker owns that domain: authentication proves who sent it, not that it's ours.", style: "meta" },
+          { id: "principal", text: "Dr Helen Ward <h.ward.principal@outlook.example> · Urgent: approve this transfer today", flag: true, note: "The Principal's name on a consumer mailbox: user impersonation, aimed at the person who moves money.", style: "meta" },
+          { id: "vendor", text: "Fairhaven Payroll <payroll@fairhaven.ac.example> via mail.payrollco.example · October payslips · allowed by spoof intelligence", flag: false, note: "The real payroll vendor sending on our behalf, a sender spoof intelligence has learned and allowed.", style: "meta" },
+          { id: "helpdesk", text: "IT Helpdesk <helpdesk@fairhaven.ac.example> · Your mailbox is full · SPF fail · DKIM none · DMARC fail", flag: true, note: "Our domain in the From line, sent from a server we never authorised. Every check fails: a spoof.", style: "meta" },
         ],
       },
     ],

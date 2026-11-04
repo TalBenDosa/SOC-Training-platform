@@ -80,20 +80,22 @@ export const POWERSHELL_FOR_SOC_ANALYST: RoomExperience = {
     // ── Reading 1: same binary, different context ──
     "ps-soc-r1": [
       {
-        kind: "sort",
-        title: "Who's at the Keyboard?",
-        prompt: "Six PowerShell runs from this morning's EDR feed at Corrin Foods. Every one uses an ordinary cmdlet. Judge each by its context.",
-        buckets: [
-          { id: "analyst", label: "Looks like admin or analyst work" },
-          { id: "look", label: "Needs a closer look" },
+        kind: "lineup",
+        title: "Who Ran It?",
+        prompt: "Same binary, same cmdlets, five possible operators. For each run in this morning's EDR feed, pick who was really at the keyboard.",
+        suspects: [
+          { id: "analyst", name: "SOC analyst", motive: "Investigating an alert", skill: "Visible console, own logon, explorer.exe parent", target: "Logs and processes" },
+          { id: "sccm", name: "SCCM client", motive: "Scheduled maintenance", skill: "Runs as SYSTEM in the 02:00 window", target: "Services and patches" },
+          { id: "helpdesk", name: "Helpdesk technician", motive: "Fixing a ticket", skill: "Remote session tied to an open ticket", target: "One user's files" },
+          { id: "macro", name: "Malicious macro", motive: "First foothold", skill: "Hidden window started by an Office app", target: "Discovery, then download" },
+          { id: "implant", name: "WMI implant", motive: "Staying in", skill: "Encoded commands launched through wmiprvse.exe at night", target: "Tasks and persistence" },
         ],
-        items: [
-          { id: "soc", text: "Get-WinEvent in a visible console on SOC-WS-03, parent explorer.exe, user t.reyes", bucket: "analyst", why: "Interactive, visible, under the analyst's own logon, on the analyst's own workstation." },
-          { id: "sccm", text: "Get-Service run by the SCCM client as SYSTEM during the 02:00 maintenance window", bucket: "analyst", why: "A known management agent, at its scheduled time, doing what it always does." },
-          { id: "excel", text: "Get-Process with -WindowStyle Hidden, parent EXCEL.EXE, on a bakery-floor PC", bucket: "look", why: "A spreadsheet has no reason to start a hidden shell. Same cmdlet, wrong shape." },
-          { id: "lgm", text: "Get-LocalGroupMember Administrators, then a web request to 198.51.100.40, from a script in %TEMP%", bucket: "look", why: "Discovery followed by an outbound call, from a dropped script." },
-          { id: "help", text: "Get-ChildItem C:\\Users\\Public in a helpdesk remote session, ticket INC-58214 open", bucket: "analyst", why: "Visible, tied to a ticket, by staff whose job it is." },
-          { id: "enc", text: "Get-ScheduledTask inside -EncodedCommand, parent wmiprvse.exe, at 03:12", bucket: "look", why: "Encoded, launched through WMI, in the middle of the night. The cmdlet is innocent; the shape isn't." },
+        rounds: [
+          { id: "r1", evidence: ["Get-WinEvent in a visible console", "parent explorer.exe", "user on SOC-WS-03", "09:40"], suspect: "analyst", why: "Interactive, visible, on the analyst's own workstation and logon." },
+          { id: "r2", evidence: ["Get-Process -WindowStyle Hidden", "parent EXCEL.EXE", "bakery-floor PC", "then a web request"], suspect: "macro", why: "A spreadsheet has no reason to start a hidden shell. Same cmdlet, wrong shape." },
+          { id: "r3", evidence: ["Get-Service", "NT AUTHORITY\\SYSTEM", "CcmExec.exe parent", "02:03"], suspect: "sccm", why: "A known management agent at its scheduled time." },
+          { id: "r4", evidence: ["Get-ScheduledTask inside -EncodedCommand", "parent wmiprvse.exe", "03:12"], suspect: "implant", why: "Encoded, launched through WMI, in the middle of the night." },
+          { id: "r5", evidence: ["Get-ChildItem C:\\Users\\Public", "remote session", "ticket INC-58214 open"], suspect: "helpdesk", why: "Visible, ticketed, by staff whose job it is." },
         ],
       },
     ],

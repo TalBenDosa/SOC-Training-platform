@@ -127,21 +127,21 @@ export const DLP_FUNDAMENTALS: RoomExperience = {
     // ── Reading 5: actions ──
     "dlp-r5": [
       {
-        kind: "sort",
-        title: "Pick the Action",
-        prompt: "Five Ashby & Rowe policies. Choose the enforcement action each one should use.",
-        buckets: [
-          { id: "audit", label: "Audit only (log, don't interrupt)" },
-          { id: "warn", label: "Warn and allow a justification" },
-          { id: "block", label: "Block" },
-          { id: "encrypt", label: "Encrypt and send" },
+        kind: "reactor",
+        title: "Policy Reactors",
+        prompt: "Five Ashby & Rowe policies ride the belt. Route each into the enforcement reactor it should use before it reaches the end.",
+        reactors: [
+          { id: "audit", label: "AUDIT", sub: "log it, don't interrupt" },
+          { id: "warn", label: "WARN", sub: "ask for a justification" },
+          { id: "block", label: "BLOCK", sub: "stop it outright" },
+          { id: "encrypt", label: "ENCRYPT", sub: "let it go, protected" },
         ],
         items: [
-          { id: "new", text: "A brand-new 'privileged document' classifier, deployed last week, match rate unknown", bucket: "audit", why: "Watch real match volume and tune before you interrupt anyone." },
-          { id: "client", text: "Lawyers emailing case documents to clients' own addresses, which they do every day", bucket: "encrypt", why: "The send is legitimate; the risk is in transit. Encrypt it and let the work go on." },
-          { id: "personal", text: "Client matter files uploaded to personal cloud storage", bucket: "block", why: "No business reason exists; stop it outright." },
-          { id: "external", text: "Sharing a matter folder with an external party for the first time", bucket: "warn", why: "Often legitimate (co-counsel, experts). Ask the user to confirm and record why." },
-          { id: "phi", text: "Medical records from personal-injury cases sent outside the firm unencrypted", bucket: "block", why: "Health data in clear text to the outside: a regulatory breach if it goes." },
+          { id: "new", text: "A brand-new 'privileged document' classifier, deployed last week, match rate unknown", reactor: "audit", why: "Watch real match volume and tune before you interrupt anyone." },
+          { id: "client", text: "Lawyers emailing case documents to clients' own addresses, which they do every day", reactor: "encrypt", why: "The send is legitimate; the risk is in transit. Encrypt it and let the work go on." },
+          { id: "personal", text: "Client matter files uploaded to personal cloud storage", reactor: "block", why: "No business reason exists; stop it outright." },
+          { id: "external", text: "Sharing a matter folder with an external party for the first time", reactor: "warn", why: "Often legitimate (co-counsel, experts). Ask the user to confirm and record why." },
+          { id: "phi", text: "Medical records from personal-injury cases sent outside the firm unencrypted", reactor: "block", why: "Health data in clear text to the outside: a regulatory breach if it goes." },
         ],
       },
     ],

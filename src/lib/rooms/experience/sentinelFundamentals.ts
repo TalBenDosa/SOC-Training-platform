@@ -127,22 +127,19 @@ export const SENTINEL_FUNDAMENTALS: RoomExperience = {
     // ── Reading 3: rules, incidents, playbooks ──
     "sentinel-r3": [
       {
-        kind: "worksheet",
-        title: "Open the Incident",
-        prompt: "Incident 4412 was created overnight. Read how the rules, alerts and entities came together, and what automation already did.",
-        caption: "Microsoft Sentinel · Incident 4412 · Severity High · Status New",
-        columns: ["alert", "analytics rule", "entities", "time"],
-        rows: [
-          ["Sign-in from an unusual country", "Ashgrove - Rare country sign-in (scheduled)", "d.okafor, 203.0.113.88", "23:41"],
-          ["Suspicious inbox forwarding rule", "Ashgrove - External forward rule (NRT)", "d.okafor, mailbox rule 'Sync'", "23:47"],
-          ["Mass download from SharePoint", "Ashgrove - Bulk file download (scheduled)", "d.okafor, site 'Formulary'", "23:58"],
-          ["Playbook run", "Revoke-Sessions-And-Notify", "d.okafor: sessions revoked, on-call paged", "23:59"],
+        kind: "sequence",
+        title: "How Incident 4412 Came Together",
+        prompt: "Incident 4412 was opened overnight on d.okafor. Tap the moments in the order they happened, from the first alert to the analyst's first move.",
+        items: [
+          { id: "group", text: "Sentinel groups three alerts on the shared entity d.okafor into Incident 4412" },
+          { id: "dl", text: "Alert: 642 files downloaded from the Formulary SharePoint site (23:58)" },
+          { id: "signin", text: "Alert: sign-in from a country d.okafor has never used (23:41)" },
+          { id: "scope", text: "The analyst opens 4412 and scopes the forwarding rule and the downloaded files" },
+          { id: "fwd", text: "Alert: an inbox rule forwarding mail to an outside address (23:47)" },
+          { id: "pb", text: "A playbook revokes d.okafor's sessions and pages the on-call analyst (23:59)" },
         ],
-        questions: [
-          { id: "alerts", q: "How many alerts were grouped into this incident?", hint: "Count the alert rows, not the playbook.", answer: ["3", "three"], why: "Three alerts from three rules, grouped because they share one entity." },
-          { id: "entity", q: "Which entity ties them together?", hint: "What appears in every entities cell?", answer: ["d.okafor", "d.okafor@ashgrove.example"], why: "Grouping by entity is what turns three separate alerts into one story you can work." },
-          { id: "auto", q: "What did the playbook already do to the account?", hint: "Read the last row.", answer: ["revoked sessions", "revoke sessions", "sessions revoked", "revoked its sessions"], why: "SOAR bought time at 23:59. Your job now is to scope it: the forwarding rule and the downloaded files are still out there." },
-        ],
+        order: ["signin", "fwd", "dl", "group", "pb", "scope"],
+        doneNote: "Three alerts, one entity, one incident. Automation bought time at 23:59; the analyst's job starts with scoping what already left.",
       },
     ],
     // Drill before the graded raw event: a SigninLogs row, field by field.

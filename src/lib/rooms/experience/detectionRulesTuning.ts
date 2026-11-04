@@ -80,21 +80,14 @@ export const DETECTION_RULES_TUNING: RoomExperience = {
     // ── Reading 1: logic types ──
     "det-rules-r1": [
       {
-        kind: "sort",
-        title: "What Kind of Logic?",
-        prompt: "Six rules from Glasshouse's SIEM. Which kind of logic does each one use?",
-        buckets: [
-          { id: "threshold", label: "Threshold: count over a window" },
-          { id: "correlation", label: "Correlation: two sources agree" },
-          { id: "anomaly", label: "Anomaly: different from the baseline" },
-        ],
-        items: [
-          { id: "dl", text: "More than 500 files downloaded from the content vault by one account in 10 minutes", bucket: "threshold", why: "One event type, counted against a fixed number in a window." },
-          { id: "dns", text: "More than 200 NXDOMAIN answers for one host in 5 minutes", bucket: "threshold", why: "Counting a single kind of event: classic threshold." },
-          { id: "vpnbadge", text: "A VPN login for a user whose building badge was used in the office in the same hour", bucket: "correlation", why: "Two different sources (VPN and badge system) disagree about where the person is." },
-          { id: "edrfw", text: "An EDR alert on a host and a firewall deny from the same host to the same IP", bucket: "correlation", why: "Endpoint and network evidence joined on one host and one address." },
-          { id: "egress", text: "An editor's upload volume three times their 30-day average", bucket: "anomaly", why: "No fixed number: the rule compares the user with their own baseline." },
-          { id: "hours", text: "A build server talking to a country it has never contacted before", bucket: "anomaly", why: "'Never before' is a learned baseline, not a threshold you wrote." },
+        kind: "match",
+        title: "Rule Meets Logic",
+        prompt: "Four of Glasshouse's live rules on the left. Pair each with the logic it uses on the right.",
+        pairs: [
+          { id: "thr", left: "More than 500 files from the content vault by one account in 10 minutes", right: "Threshold: one event type counted against a fixed number in a window", why: "One kind of event, counted. Cross the number, the rule fires." },
+          { id: "cor", left: "A VPN login for a user whose building badge was used in the office that hour", right: "Correlation: two different sources joined and found to disagree", why: "VPN and badge system on their own are fine; together they contradict each other." },
+          { id: "ano", left: "An editor's upload volume at three times their own 30-day average", right: "Anomaly: behaviour compared with a learned baseline", why: "No fixed number anyone wrote: the user is compared with themselves." },
+          { id: "lvl", left: "level: high on the cron-from-/tmp rule", right: "Severity: how bad a match is, set in the rule itself", why: "Severity is the rule author's judgement; it decides which queue the alert lands in." },
         ],
       },
     ],

@@ -82,22 +82,34 @@ export const WINDOWS_PRIVILEGE_ESCALATION: RoomExperience = {
     // ── Reading 1: integrity levels ──
     "privesc-r1": [
       {
-        kind: "worksheet",
-        title: "Read the Column",
-        prompt: "Process Explorer on DISP-DESK-11, a dispatch desk. The user, m.osei, is in the local Administrators group with UAC on. Add the Integrity column and read it.",
-        caption: "Process Explorer · DISP-DESK-11 · user m.osei",
-        columns: ["process", "PID", "parent", "user", "integrity"],
-        rows: [
-          ["msedge.exe (renderer)", "8812", "msedge.exe", "ARDENT\\m.osei", "Low"],
-          ["explorer.exe", "4120", "userinit.exe", "ARDENT\\m.osei", "Medium"],
-          ["DispatchBoard.exe", "6044", "explorer.exe", "ARDENT\\m.osei", "Medium"],
-          ["mmc.exe (Event Viewer)", "7310", "explorer.exe", "ARDENT\\m.osei", "High"],
-          ["svchost.exe -k netsvcs", "1288", "services.exe", "NT AUTHORITY\\SYSTEM", "System"],
-        ],
-        questions: [
-          { id: "low", q: "Which process is sandboxed at Low?", hint: "The most restricted row.", answer: ["msedge.exe", "msedge", "renderer", "the renderer", "msedge renderer"], why: "A browser renderer: even if a web page owns it, it can write almost nowhere." },
-          { id: "dispatch", q: "m.osei is an admin. Why is DispatchBoard.exe still Medium?", hint: "UAC's Admin Approval Mode.", answer: ["uac", "admin approval mode", "not elevated", "it was not elevated", "it wasn't elevated", "no elevation"], why: "Admin membership gives the ability to elevate, not elevation. Everyday apps stay Medium until something asks." },
-          { id: "high", q: "Which of m.osei's processes runs at High?", hint: "Find the one that went through elevation.", answer: ["mmc.exe", "mmc", "event viewer"], why: "Event Viewer is one of the binaries that auto-elevates for admins. Remember it: it comes back in the UAC station." },
+        kind: "locks",
+        title: "Four Integrity Doors",
+        prompt: "DISP-DESK-11 has four doors, one per integrity level. Read each door's idea and the process behind it, then answer its check to open it.",
+        locks: [
+          {
+            id: "low", letter: "L", name: "Low",
+            idea: "Sandboxed: it can write almost nowhere.",
+            example: "Edge's renderer process on DISP-DESK-11 runs at Low. Even a web page that fully owns it is stuck in its sandbox folder.",
+            check: { q: "A malicious page fully controls the renderer. What can it overwrite?", options: ["Almost nothing outside its sandbox folder", "Any file m.osei can write"], answer: 0, why: "Low integrity can't write to objects at Medium or above, whatever the user's own rights." },
+          },
+          {
+            id: "medium", letter: "M", name: "Medium",
+            idea: "Everyday apps, even for administrators.",
+            example: "DispatchBoard.exe runs at Medium although m.osei is a local admin: UAC keeps the full token in reserve.",
+            check: { q: "Malware lands inside DispatchBoard.exe. Can it write HKLM straight away?", options: ["No, it has to reach High first", "Yes, because m.osei is an admin"], answer: 0, why: "Admin membership gives the ability to elevate, not elevation. The process is still Medium." },
+          },
+          {
+            id: "high", letter: "H", name: "High",
+            idea: "The full administrator token.",
+            example: "Event Viewer (mmc.exe) on DISP-DESK-11 runs at High: it is one of the binaries that elevate for admins.",
+            check: { q: "What is the normal way a process reaches High?", options: ["A consent prompt, or a binary built to auto-elevate", "Being started from explorer.exe"], answer: 0, why: "Explorer runs at Medium. High comes from consent or a trusted auto-elevating binary: which is exactly what attackers abuse." },
+          },
+          {
+            id: "system", letter: "S", name: "System",
+            idea: "The operating system itself.",
+            example: "svchost.exe -k netsvcs runs as NT AUTHORITY\\SYSTEM, above every user on the box.",
+            check: { q: "Who normally runs at System?", options: ["Services and core OS components", "Any member of Administrators"], answer: 0, why: "System belongs to the OS and its services. An attacker gets there through a service, a token, or a driver." },
+          },
         ],
       },
     ],

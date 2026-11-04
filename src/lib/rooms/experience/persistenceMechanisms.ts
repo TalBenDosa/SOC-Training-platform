@@ -139,27 +139,17 @@ export const PERSISTENCE_MECHANISMS: RoomExperience = {
     // ── Readings 3-4: services, BITS and WMI ──
     "persist-r4": [
       {
-        kind: "terminal",
-        title: "Beyond the Usual Four",
-        prompt: "WKS-LAB14 again. Run keys are cleaned up, but Ines wants a full sweep: services, BITS jobs and the WMI repository.",
-        shell: "powershell",
-        host: "PS C:\\> ",
-        commands: [
-          { match: "get-(cim|wmi)\\w*\\s+(-classname\\s+)?win32_service.*", help: "Get-CimInstance Win32_Service | ? PathName -notmatch 'Windows|Program Files' | ft Name,StartMode,StartName,PathName",
-            output: "Name         StartMode StartName   PathName\n----         --------- ---------   --------\nWexTelemetry Auto      LocalSystem C:\\Users\\Public\\wtel\\wtelsvc.exe" },
-          { match: "bitsadmin\\s+/list\\s+/allusers.*", help: "bitsadmin /list /allusers /verbose   every BITS job, with its notify command",
-            output: "GUID: {6f0b9c2e-1d4a-4b7e-9a51-0c3e7d2f8a14} DISPLAY: 'ChromeUpdateCheck'\nTYPE: DOWNLOAD STATE: TRANSFERRED OWNER: WEXLEY\\a.rahim\nFILES: 1 / 1 (http://198.51.100.23/c.bin -> C:\\ProgramData\\cupd\\c.bin)\nNOTIFICATION COMMAND LINE: 'C:\\ProgramData\\cupd\\cupd.exe' '-r'" },
-          { match: "get-(cim|wmi)\\w*\\s+.*root.subscription.*__eventfilter.*", help: "Get-CimInstance -Namespace root/subscription -ClassName __EventFilter",
-            output: "Name  : SysPerfMon\nQuery : SELECT * FROM __InstanceModificationEvent WITHIN 60 WHERE TargetInstance ISA 'Win32_PerfFormattedData_PerfOS_System' AND TargetInstance.SystemUpTime >= 240" },
-          { match: "get-(cim|wmi)\\w*\\s+.*root.subscription.*consumer.*", help: "Get-CimInstance -Namespace root/subscription -ClassName CommandLineEventConsumer",
-            output: "Name                : SysPerfMon\nCommandLineTemplate : powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIA..." },
-          { match: "get-(cim|wmi)\\w*\\s+.*root.subscription.*binding.*", help: "Get-CimInstance -Namespace root/subscription -ClassName __FilterToConsumerBinding",
-            output: "Filter   : __EventFilter.Name=\"SysPerfMon\"\nConsumer : CommandLineEventConsumer.Name=\"SysPerfMon\"" },
-        ],
-        objectives: [
-          { id: "svc", task: "The odd service runs as which account?", hint: "The Win32_Service query", answer: ["localsystem", "system"], why: "Auto start, LocalSystem, binary in C:\\Users\\Public: SYSTEM at every boot from a folder any user can write." },
-          { id: "bits", task: "Which program does the BITS job run when its transfer finishes?", hint: "bitsadmin /list /allusers /verbose: NOTIFICATION COMMAND LINE", answer: ["cupd.exe", "c:\\programdata\\cupd\\cupd.exe", "cupd"], why: "The 'Chrome update' job's download is done. It exists only so BITS runs cupd.exe for it." },
-          { id: "wmi", task: "The WMI filter fires shortly after boot. Which program does its consumer launch?", hint: "Query the consumer class in root/subscription", answer: ["powershell.exe", "powershell"], why: "Filter + consumer + binding: about four minutes after every boot, hidden encoded PowerShell. None of it lives in Run keys, Task Scheduler or the services list." },
+        kind: "inspect",
+        title: "Autoruns Sweep",
+        prompt: "Sysinternals Autoruns on WKS-LAB14, Everything tab, plus the BITS and WMI checks Ines insists on. Open every entry and judge it.",
+        artifact: "Autoruns · WKS-LAB14 · Everything · Verify code signatures on",
+        items: [
+          { id: "sechealth", text: "Logon · HKLM\\...\\Run · SecurityHealth · Microsoft Windows Publisher (Verified)", tag: "Run key", tone: "trust", note: "Windows Security's tray icon: signed by Microsoft, in System32. Expected on every box." },
+          { id: "svc", text: "Services · WexTelemetry · C:\\Users\\Public\\wtel\\wtelsvc.exe · (Not Verified) · LocalSystem · Automatic", tag: "Service", tone: "warn", note: "Unsigned, in a folder every user can write, running as SYSTEM at every boot. No vendor installs a service there." },
+          { id: "defrag", text: "Scheduled Tasks · \\Microsoft\\Windows\\Defrag\\ScheduledDefrag · Microsoft Corporation (Verified)", tag: "Task", tone: "trust", note: "A built-in maintenance task, signed, in its usual folder." },
+          { id: "wmi", text: "WMI · SysPerfMon · CommandLineEventConsumer · powershell.exe -nop -w hidden -enc SQBFAFgA...", tag: "WMI", tone: "warn", note: "A permanent subscription that runs hidden, encoded PowerShell a few minutes after boot. Lives in root\\subscription, not in the registry." },
+          { id: "veeam", text: "Services · VeeamAgent · C:\\Program Files\\Veeam\\Agent\\Veeam.Agent.exe · Veeam Software Group GmbH (Verified)", tag: "Service", tone: "trust", note: "The backup agent IT deployed: signed, in Program Files, matches the asset list." },
+          { id: "bits", text: "bitsadmin /list /allusers · ChromeUpdateCheck · TRANSFERRED · notify: C:\\ProgramData\\cupd\\cupd.exe", tag: "BITS", tone: "warn", note: "A finished 'Chrome update' job kept only so BITS runs cupd.exe. Autoruns doesn't list BITS jobs: you have to ask BITS itself." },
         ],
       },
     ],

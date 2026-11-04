@@ -101,24 +101,24 @@ export const MITRE_ATTACK: RoomExperience = {
     // ── Reading 2: the tactics ──
     "mitre-r2": [
       {
-        kind: "sort",
-        title: "Which Goal?",
-        prompt: "Eight actions from Marlow's last red-team exercise. Put each one under the goal it served.",
-        buckets: [
-          { id: "disc", label: "Discovery (TA0007)" },
-          { id: "stealth", label: "Stealth (TA0005)" },
-          { id: "impair", label: "Defense Impairment (TA0112)" },
-          { id: "c2", label: "Command and Control (TA0011)" },
+        kind: "tricks",
+        title: "Same Trick, Different Burglar",
+        prompt: "Eight burglar tricks, each matching an action from Marlow's last red-team exercise. Flip each card and stamp it with the ATT&CK goal it serves.",
+        attacks: [
+          { id: "disc", name: "Discovery" },
+          { id: "stealth", name: "Stealth" },
+          { id: "impair", name: "Defense Impairment" },
+          { id: "c2", name: "Command and Control" },
         ],
-        items: [
-          { id: "nltest", text: "nltest /domain_trusts to list trusted domains", bucket: "disc", why: "Learning the environment: which domains trust which." },
-          { id: "netgroup", text: "net group \"Domain Admins\" /domain", bucket: "disc", why: "Finding who holds the keys." },
-          { id: "rename", text: "A dumping tool renamed to svchost.exe and dropped in C:\\Windows\\Temp", bucket: "stealth", why: "Masquerading: blending in, not breaking anything." },
-          { id: "timestomp", text: "A dropped DLL's timestamps set to match kernel32.dll", bucket: "stealth", why: "Timestomping hides when it arrived." },
-          { id: "stopedr", text: "sc stop on the EDR sensor service", bucket: "impair", why: "Breaking a control directly: v19 files that under Defense Impairment, not Stealth." },
-          { id: "auditpol", text: "auditpol /set /category:\"Logon/Logoff\" /success:disable", bucket: "impair", why: "Turning off logging degrades the defence itself." },
-          { id: "https", text: "An implant checking in over HTTPS to a cloud CDN every 90 seconds", bucket: "c2", why: "Talking to the operator: Web Protocols under C2." },
-          { id: "dns", text: "TXT lookups to random subdomains of one rare domain", bucket: "c2", why: "Commands carried inside DNS answers." },
+        cards: [
+          { id: "nltest", analogy: "Walks the corridors reading every door sign and fire plan.", attack: "disc", real: "nltest /domain_trusts: listing which domains trust which." },
+          { id: "netgroup", analogy: "Reads the staff board to see who holds the master keys.", attack: "disc", real: "net group \"Domain Admins\" /domain: finding who holds the keys." },
+          { id: "rename", analogy: "Wears the cleaning crew's uniform so nobody looks twice.", attack: "stealth", real: "A dumping tool renamed to svchost.exe in C:\\Windows\\Temp." },
+          { id: "timestomp", analogy: "Sets the arrival stamp in the visitor book to last year.", attack: "stealth", real: "A dropped DLL's timestamps set to match kernel32.dll." },
+          { id: "stopedr", analogy: "Cuts the wire to the alarm panel.", attack: "impair", real: "sc stop on the EDR sensor service." },
+          { id: "auditpol", analogy: "Switches the CCTV recorder off.", attack: "impair", real: "auditpol turning logon auditing off." },
+          { id: "https", analogy: "Phones the getaway driver every 90 seconds on an ordinary line.", attack: "c2", real: "An implant checking in over HTTPS to a cloud CDN." },
+          { id: "dns", analogy: "Passes notes hidden in the daily newspaper.", attack: "c2", real: "Commands carried in TXT answers for random subdomains." },
         ],
       },
     ],

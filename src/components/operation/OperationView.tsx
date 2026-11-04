@@ -470,7 +470,17 @@ export function OperationView(p: OperationViewProps) {
             transition={{ duration: reducedMotion ? 0 : 0.45, delay: reducedMotion ? 0 : 0.25 }}
             className="absolute inset-x-0 bottom-0 top-24 z-20 overflow-y-auto px-4 pb-10"
           >
-            <div className="mx-auto max-w-5xl rounded-3xl border border-white/10 bg-[#070c17]/85 p-5 shadow-2xl backdrop-blur-xl sm:p-7">
+            <div
+              className="relative mx-auto max-w-5xl overflow-hidden rounded-3xl border p-5 shadow-2xl backdrop-blur-xl sm:p-7"
+              style={{
+                // Each room's labs wear the room's own colours, so no two rooms look alike.
+                ["--room-accent" as string]: experience.look?.primary ?? "#38bdf8",
+                ["--room-accent-2" as string]: experience.look?.secondary ?? "#a78bfa",
+                borderColor: `${experience.look?.primary ?? "#38bdf8"}55`,
+                background: `radial-gradient(120% 60% at 0% 0%, ${experience.look?.primary ?? "#38bdf8"}1f, transparent 60%), radial-gradient(90% 50% at 100% 100%, ${experience.look?.secondary ?? "#a78bfa"}1a, transparent 60%), #070c17d9`,
+              }}
+            >
+              <div aria-hidden className="absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg, ${experience.look?.primary ?? "#38bdf8"}, ${experience.look?.secondary ?? "#a78bfa"})` }} />
               <StationTask
                 key={`${task.id}:${taskKey}`}
                 task={task}

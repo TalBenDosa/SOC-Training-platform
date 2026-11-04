@@ -291,39 +291,46 @@ export function Lab({ lab, onDone }: { lab: BriefingLab; onDone: () => void }) {
   }
 }
 
-// Default "how to play" steps per lab kind; a lab can override them with howTo.
-const HOW_TO: Record<BriefingLab["kind"], string[]> = {
-  inspect: ["Click each highlighted part of the artifact.", "Read what it tells you."],
-  sequence: ["Tap the steps in the order they happen.", "A wrong step shakes: try another."],
-  simulate: ["Pick a scenario.", "Watch each check pass or fail, and read why."],
-  sort: ["Read the card on top of the deck.", "Tap the bin it belongs in.", "Read why, then take the next card."],
-  match: ["Tap an item on the left.", "Tap its partner on the right."],
-  reactor: ["Read the incident riding the belt.", "Tap the reactor it damages before it reaches the end."],
-  lineup: ["Read the evidence for this round.", "Hover or tap suspects to read their dossiers.", "Tap the suspect who fits, then go to the next round."],
-  hotspot: ["Click every part of the artifact you would question.", "Find all the red flags to finish."],
-  xray: ["Tap an everyday object to scan it with the lens.", "Read the computer inside it and what an attacker could do.", "Scan every object to finish."],
-  locks: ["Tap a door and read its idea and example.", "Answer the door's question to open its lock.", "Open all the doors to finish."],
-  tricks: ["Tap a face-down card to flip it and read the trick.", "Tap the stamp with the attack that works the same way.", "Stamp every card to finish."],
-  anatomy: ["Tap each field with a scan mark.", "Read what that field tells an analyst.", "Decode every marked field to read the alert's story."],
-  evidence: ["Study the screen.", "Tap what you think it shows.", "Read the numbered clues on the screen, then go to the next one."],
-  terminal: ["Read your task at the top.", "Tap a command (or type it) and read the output in the console.", "Type what you found in the answer box and press Check."],
-  trace: ["Read what this step asks.", "Filter the log by a value from the case board.", "Click the row that answers it, then open the next log."],
-  queue: ["Click an alert in the queue.", "Read its fields and the context.", "Choose the action an analyst would take; clear the whole queue."],
-  pcap: ["Read the objective.", "Type a display filter and press Apply (dns, http, ftp, ip.addr==...).", "Click a packet and read its layers and payload to answer."],
-  worksheet: ["Study the table.", "Work out each answer from it (use the hint if you are stuck).", "Type the answer and press Check."],
-  encap: ["Read the request being sent.", "At each layer, pick the value its header carries.", "Watch the packet grow, then read it as a packet analyser shows it."],
+// Default "how to play" steps per lab kind, plus how you know you have finished;
+// a lab can override the steps with howTo.
+const HOW_TO: Record<BriefingLab["kind"], { steps: string[]; done: string }> = {
+  inspect: { steps: ["Tap each glowing part of the artifact.", "Read the note that opens: it says what that part reveals."], done: "every glowing part is opened" },
+  sequence: { steps: ["Read all the steps first.", "Tap them in the order they really happen.", "A wrong tap shakes: think again and tap another."], done: "the whole chain is in order" },
+  simulate: { steps: ["Pick one scenario from the list.", "Watch each check run, pass or fail.", "Read why each one passed or failed, then try the next scenario."], done: "every scenario has run" },
+  sort: { steps: ["Read the card at the top of the deck.", "Tap the bin it belongs in.", "Read why, then the next card appears."], done: "the deck is empty" },
+  match: { steps: ["Tap an item in the left column.", "Tap the item on the right that goes with it.", "A correct pair locks green."], done: "every pair is locked" },
+  reactor: { steps: ["Read the card riding the belt toward the end.", "Tap the reactor it belongs in before it gets there.", "Read why, then the next card rides in."], done: "the belt is cleared" },
+  lineup: { steps: ["Read the evidence for this round.", "Tap each suspect to read their dossier.", "Tap the one the evidence points to."], done: "every round has a culprit" },
+  hotspot: { steps: ["Look over the whole artifact.", "Tap every part you would question.", "Each red flag you find is counted at the top."], done: "all the red flags are found" },
+  xray: { steps: ["Tap an everyday object to scan it.", "Read the computer hidden inside and what an attacker could do with it."], done: "every object is scanned" },
+  locks: { steps: ["Tap a door to read its idea and an example.", "Answer the door's question to open its lock."], done: "every door is open" },
+  tricks: { steps: ["Tap a face-down card to flip it.", "Read the trick on it.", "Tap the stamp for the attack that works the same way."], done: "every card is stamped" },
+  anatomy: { steps: ["Tap a field with a scan mark.", "Read what that field tells an analyst.", "Work down the record field by field."], done: "every marked field is decoded" },
+  evidence: { steps: ["Study the screen shown.", "Tap what you think it shows.", "Read the numbered clues, then move to the next screen."], done: "every screen is answered" },
+  terminal: { steps: ["Read your task at the top.", "Tap a command (or type it) and read the output in the console.", "Type what you found in the answer box and press Check."], done: "every task is answered" },
+  trace: { steps: ["Read the question for this step.", "Filter the log with a value from the case board.", "Tap the row that answers it; the next log opens."], done: "the trail reaches its last log" },
+  queue: { steps: ["Tap an alert in the queue.", "Read its fields and the context beside it.", "Choose what an analyst would do with it."], done: "the queue is empty" },
+  pcap: { steps: ["Read the task.", "Type a display filter and press Apply (dns, http, ip.addr==…).", "Tap a packet and read its layers to find the answer."], done: "every task is answered" },
+  worksheet: { steps: ["Study the table: every answer is in it.", "Read the first question and find its row or column.", "Type the answer and press Check (tap 'How do I work it out?' if stuck)."], done: "every question is checked" },
+  encap: { steps: ["Read the request being sent.", "At each layer, pick the value its header carries.", "Watch the packet grow, then read it as an analyser would."], done: "the packet is fully built" },
 };
 
 export function HowToPlay({ lab }: { lab: BriefingLab }) {
   // The console lab carries its own step-by-step card next to the task.
   if (lab.kind === "terminal" && !lab.howTo) return null;
-  const steps = lab.howTo ?? HOW_TO[lab.kind];
+  const base = HOW_TO[lab.kind];
+  const steps = lab.howTo ?? base.steps;
   return (
-    <ol className="mb-4 flex flex-wrap gap-x-4 gap-y-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-200" aria-label="How to play">
-      <li className="font-bold uppercase tracking-[0.2em] text-slate-400">How to play</li>
-      {steps.map((s, i) => (
-        <li key={s} className="flex gap-1.5"><span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-white/10 text-[10px] font-bold">{i + 1}</span>{s}</li>
-      ))}
-    </ol>
+    <div className="mb-4 rounded-xl border p-3" style={{ borderColor: "color-mix(in srgb, var(--room-accent, #38bdf8) 45%, transparent)", background: "color-mix(in srgb, var(--room-accent, #38bdf8) 7%, transparent)" }} aria-label="How to play">
+      <p className="text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: "var(--room-accent, #7dd3fc)" }}>What you do here</p>
+      <ol className="mt-2 space-y-1.5">
+        {steps.map((s, i) => (
+          <li key={s} className="flex gap-2 text-sm leading-snug text-slate-100">
+            <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white" style={{ background: "color-mix(in srgb, var(--room-accent, #38bdf8) 35%, transparent)" }}>{i + 1}</span>{s}
+          </li>
+        ))}
+      </ol>
+      <p className="mt-2 text-xs text-emerald-200"><span className="font-bold">Finished when:</span> {base.done}.</p>
+    </div>
   );
 }

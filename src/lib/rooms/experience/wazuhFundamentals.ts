@@ -79,23 +79,27 @@ export const WAZUH_FUNDAMENTALS: RoomExperience = {
     // ── Reading 1: architecture ──
     "wazuh-r1": [
       {
-        kind: "terminal",
-        title: "Roll Call",
-        prompt: "On wz-manager-01. Before trusting any dashboard, check which agents are actually reporting.",
-        shell: "bash",
-        host: "lucia@wz-manager-01:~$ ",
-        commands: [
-          { match: "(sudo\\s+)?(/var/ossec/bin/)?agent_control\\s+-l.*", help: "sudo /var/ossec/bin/agent_control -l   list every agent and its state",
-            output: "Wazuh agent_control. List of available agents:\n   ID: 000, Name: wz-manager-01 (server), IP: 127.0.0.1, Active/Local\n   ID: 014, Name: build-lnx-014, IP: any, Active\n   ID: 015, Name: build-lnx-015, IP: any, Active\n   ID: 022, Name: art-store-02, IP: any, Disconnected\n   ID: 031, Name: launcher-cdn-01, IP: any, Active\n   ID: 040, Name: build-lnx-040, IP: any, Never connected" },
-          { match: "(sudo\\s+)?(/var/ossec/bin/)?agent_control\\s+-i\\s+0?22.*", help: "sudo /var/ossec/bin/agent_control -i 022   detail for one agent",
-            output: "Agent ID:   022\nAgent Name: art-store-02\nIP address: any\nStatus:     Disconnected\nOperating system:    Ubuntu 22.04.4 LTS\nClient version:      Wazuh v4.9.2\nLast keep alive:     2026-11-03 19:40:12\nSyscheck last started at: 2026-11-03 02:00:01" },
-          { match: "(sudo\\s+)?ss\\s+-\\w*l\\w*.*", help: "sudo ss -tlnp | grep -E '1514|1515|55000'   what the manager listens on",
-            output: "LISTEN 0 128 0.0.0.0:1514  0.0.0.0:* users:((\"wazuh-remoted\",pid=1201,fd=7))\nLISTEN 0 128 0.0.0.0:1515  0.0.0.0:* users:((\"wazuh-authd\",pid=1188,fd=5))\nLISTEN 0 128 0.0.0.0:55000 0.0.0.0:* users:((\"python3\",pid=1302,fd=9))" },
+        kind: "queue",
+        title: "Agent Health Board",
+        prompt: "Before trusting any dashboard, Lucía checks which agents are really reporting. Work the health board: which agents need a ticket?",
+        console: "Wazuh · Agents · wz-manager-01",
+        actions: [
+          { id: "ticket", label: "Raise a ticket", tone: "escalate" },
+          { id: "ok", label: "Healthy, close", tone: "close" },
         ],
-        objectives: [
-          { id: "down", task: "Which agent has gone quiet?", hint: "agent_control -l: look for Disconnected", answer: ["art-store-02", "022"], why: "The art store, where the launch assets live. Its last keep-alive was 19:40 yesterday: anything that happened there since is invisible." },
-          { id: "never", task: "Which agent was registered but never reported once?", hint: "agent_control -l", answer: ["build-lnx-040", "040"], why: "'Never connected' usually means enrollment worked but the agent can't reach the manager. A blind spot from day one." },
-          { id: "enroll", task: "Which port does wazuh-authd, the enrollment service, listen on?", hint: "ss -tlnp", answer: ["1515"], why: "Enrollment and event traffic are separate services on separate ports. Know both before you blame the firewall." },
+        alerts: [
+          { id: "b014", time: "08:00", severity: "Low", rule: "Agent status", entity: "014 · build-lnx-014",
+            fields: [{ k: "status", v: "Active" }, { k: "last keep alive", v: "8 s ago" }, { k: "version", v: "v4.9.2" }],
+            context: "A build server reporting normally.", answer: "ok", why: "Active, current version, keep-alives arriving." },
+          { id: "art", time: "08:00", severity: "High", rule: "Agent status", entity: "022 · art-store-02",
+            fields: [{ k: "status", v: "Disconnected" }, { k: "last keep alive", v: "2026-11-03 19:40:12" }, { k: "holds", v: "launch art assets" }],
+            context: "The server holding the unreleased game's art has been silent since 19:40 yesterday.", answer: "ticket", why: "Silence is a finding. Anything that happened there since 19:40 is invisible, on the box leakers want most." },
+          { id: "b040", time: "08:00", severity: "Medium", rule: "Agent status", entity: "040 · build-lnx-040",
+            fields: [{ k: "status", v: "Never connected" }, { k: "enrolled", v: "2026-10-28" }, { k: "events received", v: "0" }],
+            context: "Enrolled a week ago, has never sent a single event.", answer: "ticket", why: "Enrollment worked but events never arrived: a blind spot from day one. Usually a firewall rule or the wrong manager address." },
+          { id: "cdn", time: "08:00", severity: "Low", rule: "Agent status", entity: "031 · launcher-cdn-01",
+            fields: [{ k: "status", v: "Active" }, { k: "last keep alive", v: "4 s ago" }, { k: "syscheck", v: "last scan 02:00" }],
+            context: "The CDN node that will ship the game.", answer: "ok", why: "Reporting and scanning. Healthy, for now." },
         ],
       },
     ],
