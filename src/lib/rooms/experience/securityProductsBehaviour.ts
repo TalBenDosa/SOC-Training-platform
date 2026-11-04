@@ -28,6 +28,14 @@ export const SECURITY_PRODUCTS_BEHAVIOUR: RoomExperience = {
   look: { primary: "#fbbf24", secondary: "#38bdf8", warn: "#f43f5e" },
   scene: "sightlines",
   layout: "stage",
+  story: {
+    intro: { title: "Was Anything Positioned to See It?", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/security-products-behaviour/lineofsight-intro-e4e3a488.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/security-products-behaviour/lineofsight-intro-57e2f30f.jpg" },
+    afterStation: {
+      host: { title: "Below the Agents", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/security-products-behaviour/lineofsight-ch2-95fe4cc2.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/security-products-behaviour/lineofsight-ch2-63d971e1.jpg" },
+      app: { title: "Inline, Beside, In Front", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/security-products-behaviour/lineofsight-ch3-cffce127.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/security-products-behaviour/lineofsight-ch3-1c877eab.jpg" },
+      signals: { title: "Only What Reaches It", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/security-products-behaviour/lineofsight-finale-4939ad85.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/security-products-behaviour/lineofsight-finale-904df147.jpg" },
+    },
+  },
   stations: [
     {
       id: "surface",
