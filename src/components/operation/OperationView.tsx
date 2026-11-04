@@ -43,6 +43,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   chrono: dynamic(() => import("./scenes/ChronoScene"), { ssr: false }),
   dissect: dynamic(() => import("./scenes/DissectScene"), { ssr: false }),
   idgate: dynamic(() => import("./scenes/IdGateScene"), { ssr: false }),
+  specimen: dynamic(() => import("./scenes/SpecimenScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;

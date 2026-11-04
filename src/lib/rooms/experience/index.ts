@@ -11,6 +11,7 @@ import { ENCODING_ENCRYPTION_HASHING } from "./encodingEncryptionHashing";
 import { TIMESTAMPS_AND_TIMELINES } from "./timestampsAndTimelines";
 import { LOG_ENTRY_ANATOMY } from "./logEntryAnatomy";
 import { IDENTITY_BASICS } from "./identityBasics";
+import { MALWARE_TYPES } from "./malwareTypes";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -28,6 +29,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [TIMESTAMPS_AND_TIMELINES.roomId]: TIMESTAMPS_AND_TIMELINES,
   [LOG_ENTRY_ANATOMY.roomId]: LOG_ENTRY_ANATOMY,
   [IDENTITY_BASICS.roomId]: IDENTITY_BASICS,
+  [MALWARE_TYPES.roomId]: MALWARE_TYPES,
 };
 
 /**

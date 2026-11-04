@@ -5623,19 +5623,24 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "malware-r2",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "malware-q1",
         "type": "question",
         "xp": 20
       },
       {
+        "id": "malware-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
         "id": "malware-la1",
         "type": "log_analysis",
         "xp": 80
+      },
+      {
+        "id": "malware-f1",
+        "type": "flag",
+        "xp": 25
       },
       {
         "id": "malware-r3",
@@ -5691,11 +5696,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "malware-ac2",
         "type": "analyst_choice",
         "xp": 30
-      },
-      {
-        "id": "malware-f1",
-        "type": "flag",
-        "xp": 25
       }
     ]
   },

@@ -173,6 +173,22 @@ const malwareTypesRoom: Room = {
       diagramCaption: "Two independent questions: how it moves, then what it wants",
     },
     {
+      type: "question",
+      id: "malware-q1",
+      question:
+        "An EDR alert reports a worm-style outbreak beginning to spread machine-to-machine across an unpatched subnet with no user interaction required, at the same moment a phishing-based trojan is reported on a single user's laptop elsewhere in the company. Both are rated the same severity by the product. Why does the worm typically demand faster action?",
+      options: [
+        "It doesn't: both are malware-present events at the same product severity, and reachable-host count should not change urgency",
+        "The worm spreads to every reachable unpatched host with no user action, so scope grows during triage; the trojan is limited by who opens the email",
+        "The trojan does: a disguised, hidden threat is harder to remediate than a visibly propagating worm, so it needs the faster response",
+        "The trojan does: the worm's code is about propagation, while the trojan has already executed a payload and caused more damage",
+      ],
+      answer: 1,
+      explanation:
+        "The propagation axis from Reading 1 is exactly the point: a worm's self-propagation means the population of infected hosts can grow with no further human action at all, so every minute of delay has a multiplying effect that a trojan (bottlenecked by how many individual people choose to open a file) simply doesn't have. Disguise doesn't make a trojan automatically 'worse' than a worm, and worms absolutely execute payloads (WannaCry's worm-style spread carried a ransomware payload). Propagation speed and payload capability are separate questions.",
+      xp: 20,
+    },
+    {
       type: "reading",
       id: "malware-r2",
       heading: "Dropper vs Loader vs Stager: The Distinction Juniors Miss",
@@ -232,22 +248,6 @@ const malwareTypesRoom: Room = {
       },
     },
     {
-      type: "question",
-      id: "malware-q1",
-      question:
-        "An EDR alert reports a worm-style outbreak beginning to spread machine-to-machine across an unpatched subnet with no user interaction required, at the same moment a phishing-based trojan is reported on a single user's laptop elsewhere in the company. Both are rated the same severity by the product. Why does the worm typically demand faster action?",
-      options: [
-        "It doesn't: both are malware-present events at the same product severity, and reachable-host count should not change urgency",
-        "The worm spreads to every reachable unpatched host with no user action, so scope grows during triage; the trojan is limited by who opens the email",
-        "The trojan does: a disguised, hidden threat is harder to remediate than a visibly propagating worm, so it needs the faster response",
-        "The trojan does: the worm's code is about propagation, while the trojan has already executed a payload and caused more damage",
-      ],
-      answer: 1,
-      explanation:
-        "The propagation axis from Reading 1 is exactly the point: a worm's self-propagation means the population of infected hosts can grow with no further human action at all, so every minute of delay has a multiplying effect that a trojan (bottlenecked by how many individual people choose to open a file) simply doesn't have. Disguise doesn't make a trojan automatically 'worse' than a worm, and worms absolutely execute payloads (WannaCry's worm-style spread carried a ransomware payload). Propagation speed and payload capability are separate questions.",
-      xp: 20,
-    },
-    {
       type: "log_analysis",
       id: "malware-la1",
       heading: "A Connection Four Seconds After Launch",
@@ -298,6 +298,15 @@ const malwareTypesRoom: Room = {
           xp: 30,
         },
       ],
+    },
+    {
+      type: "flag",
+      id: "malware-f1",
+      prompt:
+        "Look at Log Analysis 1 (the quarterly_invoice.exe connection). Besides the domain, which IP address should go on the proxy/firewall block list? Enter it exactly as shown in the raw log.",
+      answer: "185.220.101.47",
+      hint: "The domain resolved to an address recorded in the same Sysmon event.",
+      xp: 25,
     },
     {
       type: "reading",
@@ -535,15 +544,6 @@ const malwareTypesRoom: Room = {
       fp_trap:
         "The word 'PUA' next to a detection that lights up red in the console primes an analyst to treat it exactly like a backdoor or trojan finding, but the category was built specifically to flag software that is unwanted, not software that is malicious. Escalating a confirmed, catalog-approved bundled toolbar as a full incident wastes response capacity that a genuinely uninvited PUP install (arriving via a random ad-laden download site, with no IT ticket behind it at all) would actually deserve.",
       xp: 30,
-    },
-    {
-      type: "flag",
-      id: "malware-f1",
-      prompt:
-        "Look at Log Analysis 1 (the quarterly_invoice.exe connection). Besides the domain, which IP address should go on the proxy/firewall block list? Enter it exactly as shown in the raw log.",
-      answer: "185.220.101.47",
-      hint: "The domain resolved to an address recorded in the same Sysmon event.",
-      xp: 25,
     },
   ],
 };
