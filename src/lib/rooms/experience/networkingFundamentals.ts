@@ -25,6 +25,14 @@ export const NETWORKING_FUNDAMENTALS: RoomExperience = {
   look: { primary: "#38bdf8", secondary: "#a78bfa", warn: "#f97316" },
   scene: "datapath",
   layout: "stage",
+  story: {
+    intro: { title: "Follow the Packet", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-intro-2de9e3f8.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-intro-1f8aaad4.jpg" },
+    afterStation: {
+      handshake: { title: "Three Packets to Open", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-ch2-01c195d8.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-ch2-e2b8f989.jpg" },
+      border: { title: "Behind the NAT", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-ch3-91f3a0c2.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-ch3-e6552831.jpg" },
+      alert: { title: "Read the Wire", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-finale-a65ab99b.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-finale-1b577b3c.jpg" },
+    },
+  },
   stations: [
     {
       id: "wrap",

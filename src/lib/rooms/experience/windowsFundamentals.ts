@@ -26,6 +26,14 @@ export const WINDOWS_FUNDAMENTALS: RoomExperience = {
   look: { primary: "#3b9eff", secondary: "#a78bfa", warn: "#f43f5e" },
   scene: "hostcore",
   layout: "stage",
+  story: {
+    intro: { title: "Something Does Not Belong", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-intro-1f50b356.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-intro-f2cd4276.jpg" },
+    afterStation: {
+      persistence: { title: "Survives Every Reboot", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-ch2-5284c930.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-ch2-6174c07f.jpg" },
+      processes: { title: "Impostors", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-ch3-740f40f8.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-ch3-1c0d0c21.jpg" },
+      macro: { title: "Host Clean", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-finale-077b50e9.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-finale-427eba5e.jpg" },
+    },
+  },
   stations: [
     {
       id: "machine",

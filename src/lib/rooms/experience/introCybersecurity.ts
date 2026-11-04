@@ -28,6 +28,15 @@ export const INTRO_CYBERSECURITY: RoomExperience = {
   look: { primary: "#2dd4bf", secondary: "#60a5fa", warn: "#f43f5e" },
   scene: "city",
   layout: "lens",
+  story: {
+    intro: { title: "Put on the Lens", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/intro-cybersecurity/first-look-intro-1e2ae084.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/intro-cybersecurity/first-look-intro-cb5e6e63.jpg" },
+    afterStation: {
+      connections: { title: "Three Locks", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/intro-cybersecurity/first-look-ch2-12808e47.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/intro-cybersecurity/first-look-ch2-cd5c447f.jpg" },
+      locks: { title: "Who's Out There", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/intro-cybersecurity/first-look-ch3-b2f00705.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/intro-cybersecurity/first-look-ch3-937f2170.jpg" },
+      attackers: { title: "On the Screen", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/intro-cybersecurity/first-look-ch4-9778e572.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/intro-cybersecurity/first-look-ch4-d4dad9b9.jpg" },
+      badge: { title: "You Can See It Now", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/intro-cybersecurity/first-look-finale-135623c4.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/intro-cybersecurity/first-look-finale-2f51ec7e.jpg" },
+    },
+  },
   stations: [
     {
       id: "connections",

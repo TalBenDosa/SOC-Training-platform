@@ -25,6 +25,14 @@ export const NETWORKING_PROTOCOLS: RoomExperience = {
   look: { primary: "#fbbf24", secondary: "#38bdf8", warn: "#f43f5e" },
   scene: "portwall",
   layout: "stage",
+  story: {
+    intro: { title: "Every Protocol Leaves Fingerprints", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-protocols/open-ports-intro-77171904.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-protocols/open-ports-intro-22d96fbe.jpg" },
+    afterStation: {
+      doors: { title: "Cleartext", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-protocols/open-ports-ch2-0f930883.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-protocols/open-ports-ch2-919f8437.jpg" },
+      abuse: { title: "Wrong Place, Wrong Time", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-protocols/open-ports-ch3-5d9b0c03.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-protocols/open-ports-ch3-fedba2d2.jpg" },
+      dga: { title: "Caught at Port 53", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-protocols/open-ports-finale-0d876ccd.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-protocols/open-ports-finale-9cea33ed.jpg" },
+    },
+  },
   stations: [
     {
       id: "web",

@@ -27,6 +27,14 @@ export const RISK_FUNDAMENTALS: RoomExperience = {
   look: { primary: "#fb923c", secondary: "#38bdf8", warn: "#f43f5e" },
   scene: "riskcore",
   layout: "stage",
+  story: {
+    intro: { title: "4,312 Criticals", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/risk-fundamentals/triage-intro-654a5640.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/risk-fundamentals/triage-intro-e496888b.jpg" },
+    afterStation: {
+      score: { title: "Loud Is Not Risky", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/risk-fundamentals/triage-ch2-69c26f59.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/risk-fundamentals/triage-ch2-716dd4a5.jpg" },
+      surface: { title: "Doors Nobody Remembers", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/risk-fundamentals/triage-ch3-b94bf663.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/risk-fundamentals/triage-ch3-29cec37b.jpg" },
+      board: { title: "The Board", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/risk-fundamentals/triage-finale-98ed197a.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/risk-fundamentals/triage-finale-8affa863.jpg" },
+    },
+  },
   stations: [
     {
       id: "tvi",

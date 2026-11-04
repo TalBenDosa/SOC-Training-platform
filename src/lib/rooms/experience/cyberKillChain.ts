@@ -27,6 +27,14 @@ export const CYBER_KILL_CHAIN: RoomExperience = {
   look: { primary: "#22d3ee", secondary: "#a78bfa", warn: "#f43f5e" },
   scene: "chainlinks",
   layout: "stage",
+  story: {
+    intro: { title: "Every Five Minutes", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/cyber-kill-chain/brokenlink-intro-1606383a.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/cyber-kill-chain/brokenlink-intro-aff4213c.jpg" },
+    afterStation: {
+      model: { title: "Seven Links", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/cyber-kill-chain/brokenlink-ch2-3c6ca1ae.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/cyber-kill-chain/brokenlink-ch2-9b8c2808.jpg" },
+      walk: { title: "Back to the First Email", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/cyber-kill-chain/brokenlink-ch3-fc864c1c.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/cyber-kill-chain/brokenlink-ch3-2d2a2019.jpg" },
+      debrief: { title: "The Link That Broke", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/cyber-kill-chain/brokenlink-finale-34bbaa9e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/cyber-kill-chain/brokenlink-finale-550c6150.jpg" },
+    },
+  },
   stations: [
     {
       id: "model",

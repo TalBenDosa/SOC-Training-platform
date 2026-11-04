@@ -38,6 +38,14 @@ export const IDENTITY_BASICS: RoomExperience = {
   look: { primary: "#a78bfa", secondary: "#fbbf24", warn: "#f43f5e" },
   scene: "idgate",
   layout: "stage",
+  story: {
+    intro: { title: "The Token in the Dump", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-intro-b86611b7.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-intro-c05ab850.jpg" },
+    afterStation: {
+      tokens: { title: "What's Inside a Token", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-ch2-bf0db467.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-ch2-6fa76409.jpg" },
+      contain: { title: "Block, Revoke, Review", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-ch3-4d54c753.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-ch3-cf44a484.jpg" },
+      logons: { title: "Nine Failures, One Success", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-finale-9c75d610.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-finale-0f037a49.jpg" },
+    },
+  },
   stations: [
     {
       id: "gate",
