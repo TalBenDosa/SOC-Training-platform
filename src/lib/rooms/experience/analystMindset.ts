@@ -28,6 +28,14 @@ export const ANALYST_MINDSET: RoomExperience = {
   look: { primary: "#c084fc", secondary: "#2dd4bf", warn: "#f43f5e" },
   scene: "mindlab",
   layout: "stage",
+  story: {
+    intro: { title: "Take a Second Look", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-intro-db9825ec.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-intro-b0fabd5a.jpg" },
+    afterStation: {
+      theory: { title: "Predict, Then Check", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-ch2-c0f5c911.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-ch2-9cb5212a.jpg" },
+      normal: { title: "Normal for Whom?", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-ch3-6958db1e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-ch3-8c725f22.jpg" },
+      close: { title: "What Did You Actually Verify?", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-finale-e4d3159f.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-finale-204de329.jpg" },
+    },
+  },
   stations: [
     {
       id: "theory",
