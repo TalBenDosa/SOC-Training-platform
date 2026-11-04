@@ -30,7 +30,7 @@ const NOT_FOUND: Record<"cmd" | "powershell" | "bash", (c: string) => string> = 
 
 export function TerminalLab({ lab, onDone }: LabProps<"terminal">) {
   const [lines, setLines] = useState<{ kind: "in" | "out" | "err"; text: string }[]>([
-    { kind: "out", text: lab.shell === "bash" ? "Simulated shell. Type help to list the commands available here." : "Simulated console. Type help to list the commands available here." },
+    { kind: "out", text: "Start here: tap a command above (or type it here and press Enter), then read the output." },
   ]);
   const [input, setInput] = useState("");
   const [past, setPast] = useState<string[]>([]);
@@ -39,12 +39,24 @@ export function TerminalLab({ lab, onDone }: LabProps<"terminal">) {
   const [answer, setAnswer] = useState("");
   const [result, setResult] = useState<"ok" | "bad" | null>(null);
   const [hint, setHint] = useState(false);
+  const [ran, setRan] = useState(false);
   const screen = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLInputElement>(null);
+  const answerField = useRef<HTMLInputElement>(null);
   const done = oi >= lab.objectives.length;
   useDoneOnce(done, onDone);
   const obj = lab.objectives[oi];
   const rules = useMemo(() => lab.commands.map(c => ({ ...c, re: new RegExp(`^(?:${c.match})$`, "i") })), [lab.commands]);
+  // Runnable commands, taken from each command's help text ("command   what it does").
+  const menu = useMemo(() => lab.commands.flatMap(c => {
+    if (!c.help) return [];
+    const [cmd, ...rest] = c.help.split(/\s{3,}/);
+    const text = cmd.trim();
+    if (!rules.some(r => r.re.test(text))) return [];
+    return [{ cmd: text, what: rest.join(" ").trim() }];
+  }), [lab.commands, rules]);
+  // The command this objective's hint names, when it is one you can run as-is.
+  const suggested = obj && rules.some(r => r.re.test(obj.hint.trim())) ? obj.hint.trim() : null;
 
   useEffect(() => { screen.current?.scrollTo({ top: screen.current.scrollHeight }); }, [lines]);
 
@@ -60,7 +72,8 @@ export function TerminalLab({ lab, onDone }: LabProps<"terminal">) {
       return;
     }
     const hit = rules.find(r => r.re.test(cmd));
-    setLines(l => [...l, { kind: "in", text: cmd }, hit ? { kind: "out", text: hit.output } : { kind: "err", text: NOT_FOUND[lab.shell](cmd.split(/\s+/)[0]) }]);
+    if (hit) setRan(true);
+    setLines(l => [...l, { kind: "in", text: cmd }, hit ? { kind: "out", text: hit.output } : { kind: "err", text: `${NOT_FOUND[lab.shell](cmd.split(/\s+/)[0])}\n(Tip: tap one of the commands above, or type help.)` }]);
   }
 
   function onKey(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -77,15 +90,62 @@ export function TerminalLab({ lab, onDone }: LabProps<"terminal">) {
   function nextObjective() { setOi(i => i + 1); setAnswer(""); setResult(null); setHint(false); }
 
   return (
-    <div className="space-y-4">
-      {/* The console */}
+    <div className="space-y-3">
+      {/* 1. What to find: the current objective, always above the console */}
+      {obj ? (
+        <div className="rounded-xl border border-sky-400/40 bg-[#081120] p-3">
+          <div className="flex items-center gap-2">
+            <span className="rounded-md bg-sky-500/20 px-2 py-0.5 text-[11px] font-black uppercase tracking-[0.18em] text-sky-200">Your task {oi + 1} of {lab.objectives.length}</span>
+            <div className="ml-auto flex gap-1" aria-hidden>
+              {lab.objectives.map((o, i) => <span key={o.id} className={cn("h-1.5 w-5 rounded-full", i < oi ? "bg-emerald-400" : i === oi ? "bg-sky-300" : "bg-white/15")} />)}
+            </div>
+          </div>
+          <p className="mt-2 text-base font-semibold leading-snug text-white">{obj.task}</p>
+          <ol className="mt-2 space-y-0.5 text-xs text-slate-300">
+            <li className={cn(ran && "text-emerald-300")}><b>Step 1.</b> Run a command below to get the data{ran && " ✓"}</li>
+            <li><b>Step 2.</b> Read the output in the console</li>
+            <li><b>Step 3.</b> Type what you found in the answer box under the console</li>
+          </ol>
+          {suggested ? (
+            <button onClick={() => run(suggested)} className="mt-3 flex w-full items-center gap-2 rounded-lg border border-emerald-400/50 bg-emerald-500/10 px-3 py-2 text-left hover:bg-emerald-500/20">
+              <TerminalIcon className="h-4 w-4 shrink-0 text-emerald-300" />
+              <span className="min-w-0 flex-1 truncate font-mono text-xs text-emerald-100">{suggested}</span>
+              <span className="shrink-0 text-xs font-bold text-emerald-200">Run ▶</span>
+            </button>
+          ) : hint ? (
+            <p className="mt-2 text-xs text-amber-200">Hint: <code className="rounded bg-black/40 px-1.5 py-0.5 font-mono">{obj.hint}</code></p>
+          ) : (
+            <button onClick={() => setHint(true)} className="mt-2 inline-flex items-center gap-1 text-xs text-amber-300 hover:underline"><Lightbulb className="h-3.5 w-3.5" />Which command?</button>
+          )}
+        </div>
+      ) : (
+        <p className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-200"><Check className="mr-1 inline h-4 w-4" />All tasks complete. These are the same commands analysts run on a live host.</p>
+      )}
+
+      {/* 2. Commands you can run here, as tappable chips */}
+      {menu.length > 0 && (
+        <div>
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Commands available (tap to run)</p>
+          <div className="flex flex-wrap gap-1.5">
+            {menu.map(m => (
+              <button key={m.cmd} onClick={() => run(m.cmd)} title={m.what}
+                className="max-w-full whitespace-normal break-all rounded-md border border-white/15 bg-white/[0.04] px-2 py-1 text-left font-mono text-[11px] text-slate-200 hover:border-emerald-400/60 hover:text-emerald-100">
+                <span className="mr-1 text-emerald-300">▶</span>{m.cmd}
+                {m.what && <span className="ml-1.5 break-normal font-sans text-[10px] text-slate-500">{m.what}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 3. The console */}
       <div className="min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#0a0c10] shadow-2xl" onClick={() => field.current?.focus()}>
         <div className="flex items-center gap-2 bg-[#1b1f27] px-3 py-1.5 text-[11px] font-semibold text-slate-300">
           <TerminalIcon className="h-3.5 w-3.5 text-emerald-300" />
           {lab.shell === "cmd" ? "Command Prompt" : lab.shell === "powershell" ? "Windows PowerShell" : "Terminal"}
           <span className="ml-auto font-mono text-[10px] text-slate-500">simulated</span>
         </div>
-        <div ref={screen} className="h-80 overflow-auto px-3 py-2 font-mono text-[12px] leading-relaxed sm:h-96" aria-live="polite">
+        <div ref={screen} className="h-64 overflow-auto px-3 py-2 font-mono text-[12px] leading-relaxed sm:h-80" aria-live="polite">
           {lines.map((l, i) => (
             <pre key={i} className={cn(/ {2,}|\t/.test(l.text) ? "w-max min-w-full whitespace-pre" : "whitespace-pre-wrap break-all", l.kind === "in" ? "text-slate-100" : l.kind === "err" ? "text-rose-300" : "text-emerald-200/90")}>
               {l.kind === "in" ? `${lab.host} ${l.text}` : l.text}
@@ -94,49 +154,36 @@ export function TerminalLab({ lab, onDone }: LabProps<"terminal">) {
           <div className="flex items-center gap-1 text-slate-100">
             <span className="shrink-0">{lab.host}</span>
             <input ref={field} value={input} onChange={e => setInput(e.target.value)} onKeyDown={onKey}
-              aria-label="Type a command" autoCapitalize="off" autoCorrect="off" spellCheck={false}
-              className="min-w-0 flex-1 bg-transparent font-mono text-[12px] text-slate-100 caret-emerald-300 outline-none" />
+              aria-label="Type a command" placeholder="type a command, or tap one above" autoCapitalize="off" autoCorrect="off" spellCheck={false}
+              className="min-w-0 flex-1 bg-transparent font-mono text-[12px] text-slate-100 caret-emerald-300 outline-none placeholder:text-slate-600" />
           </div>
         </div>
       </div>
 
-      {/* Objectives, under the full-width console */}
-      <div className="grid gap-3 lg:grid-cols-[1fr_1.2fr]">
-        <ol className="space-y-1.5">
-          {lab.objectives.map((o, i) => (
-            <li key={o.id} className={cn("flex gap-2 rounded-lg px-2 py-1.5 text-sm", i === oi ? "bg-white/[0.05] text-white" : i < oi ? "text-emerald-300" : "text-slate-500")}>
-              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-current text-[10px] font-bold">{i < oi ? <Check className="h-3 w-3" /> : i + 1}</span>
-              {o.task}
-            </li>
-          ))}
-        </ol>
-        {obj ? (
-          <div className="rounded-xl border border-white/10 bg-[#081120] p-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-sky-300">Objective {oi + 1} of {lab.objectives.length}</p>
-            <p className="mt-1 text-sm font-semibold text-white">{obj.task}</p>
-            {hint ? <p className="mt-2 text-xs text-amber-200">Try: <code className="rounded bg-black/40 px-1.5 py-0.5 font-mono">{obj.hint}</code></p>
-              : <button onClick={() => setHint(true)} className="mt-2 inline-flex items-center gap-1 text-xs text-amber-300 hover:underline"><Lightbulb className="h-3.5 w-3.5" />Which command?</button>}
-            {result !== "ok" ? (
-              <div className="mt-3 flex gap-2">
-                <input value={answer} onChange={e => { setAnswer(e.target.value); setResult(null); }} onKeyDown={e => e.key === "Enter" && check()}
-                  placeholder="Your answer" aria-label="Your answer"
+      {/* 4. The answer, right under the console */}
+      {obj && (
+        <div className="rounded-xl border border-white/10 bg-[#081120] p-3">
+          {result !== "ok" ? (
+            <>
+              <label htmlFor="term-answer" className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-300">Your answer to task {oi + 1}</label>
+              <div className="mt-1.5 flex gap-2">
+                <input id="term-answer" ref={answerField} value={answer} onChange={e => { setAnswer(e.target.value); setResult(null); }} onKeyDown={e => e.key === "Enter" && check()}
+                  placeholder="What did the output show?" aria-label="Your answer"
                   className={cn("min-w-0 flex-1 rounded-lg border bg-black/30 px-3 py-2 font-mono text-sm text-white outline-none", result === "bad" ? "border-rose-500" : "border-white/15 focus:border-sky-400")} />
                 <button onClick={check} className="rounded-lg border border-sky-300/60 px-3 text-sm font-bold text-sky-100 hover:bg-sky-500/10">Check</button>
               </div>
-            ) : (
-              <>
-                <p className="mt-3 text-sm leading-relaxed text-emerald-200"><Check className="mr-1 inline h-4 w-4" />{obj.why}</p>
-                <button onClick={nextObjective} className="mt-2 inline-flex items-center gap-1 rounded-lg border border-emerald-300/60 px-3 py-1.5 text-sm font-bold text-emerald-100 hover:bg-emerald-500/10">
-                  {oi + 1 < lab.objectives.length ? "Next objective" : "Finish"} <ChevronRight className="h-4 w-4" />
-                </button>
-              </>
-            )}
-            {result === "bad" && <p className="mt-2 text-xs text-rose-300"><X className="mr-1 inline h-3.5 w-3.5" />Not what the output says. Run the command and read it again.</p>}
-          </div>
-        ) : (
-          <p className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-200"><Check className="mr-1 inline h-4 w-4" />All objectives complete. These are the same commands analysts run on a live host.</p>
-        )}
-      </div>
+              {result === "bad" && <p className="mt-2 text-xs text-rose-300"><X className="mr-1 inline h-3.5 w-3.5" />Not what the output says. Run the command for this task and read it again.</p>}
+            </>
+          ) : (
+            <>
+              <p className="text-sm leading-relaxed text-emerald-200"><Check className="mr-1 inline h-4 w-4" />{obj.why}</p>
+              <button onClick={nextObjective} className="mt-2 inline-flex items-center gap-1 rounded-lg border border-emerald-300/60 px-3 py-1.5 text-sm font-bold text-emerald-100 hover:bg-emerald-500/10">
+                {oi + 1 < lab.objectives.length ? "Next task" : "Finish"} <ChevronRight className="h-4 w-4" />
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

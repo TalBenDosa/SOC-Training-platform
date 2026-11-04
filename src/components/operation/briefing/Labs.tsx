@@ -306,7 +306,7 @@ const HOW_TO: Record<BriefingLab["kind"], string[]> = {
   tricks: ["Tap a face-down card to flip it and read the trick.", "Tap the stamp with the attack that works the same way.", "Stamp every card to finish."],
   anatomy: ["Tap each field with a scan mark.", "Read what that field tells an analyst.", "Decode every marked field to read the alert's story."],
   evidence: ["Study the screen.", "Tap what you think it shows.", "Read the numbered clues on the screen, then go to the next one."],
-  terminal: ["Read the objective under the console.", "Type a command in the console and press Enter (help lists them).", "Answer the objective from the output."],
+  terminal: ["Read your task at the top.", "Tap a command (or type it) and read the output in the console.", "Type what you found in the answer box and press Check."],
   trace: ["Read what this step asks.", "Filter the log by a value from the case board.", "Click the row that answers it, then open the next log."],
   queue: ["Click an alert in the queue.", "Read its fields and the context.", "Choose the action an analyst would take; clear the whole queue."],
   pcap: ["Read the objective.", "Type a display filter and press Apply (dns, http, ftp, ip.addr==...).", "Click a packet and read its layers and payload to answer."],
@@ -315,6 +315,8 @@ const HOW_TO: Record<BriefingLab["kind"], string[]> = {
 };
 
 export function HowToPlay({ lab }: { lab: BriefingLab }) {
+  // The console lab carries its own step-by-step card next to the task.
+  if (lab.kind === "terminal" && !lab.howTo) return null;
   const steps = lab.howTo ?? HOW_TO[lab.kind];
   return (
     <ol className="mb-4 flex flex-wrap gap-x-4 gap-y-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-200" aria-label="How to play">
