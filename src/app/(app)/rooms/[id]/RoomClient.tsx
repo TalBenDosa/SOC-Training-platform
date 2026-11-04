@@ -27,7 +27,6 @@ import { getRoomExperience } from "@/lib/rooms/experience";
 
 // Operation Mode (docs/CONCEPT-gamified-learning-rooms.md) is a per-viewer
 // preference: rooms with an experience open in it unless the learner chose Classic.
-const ROOM_MODE_KEY = "soc:room-mode";
 
 // A room must score at least this fraction of its gradeable XP to count as
 // passed. Below this, the student must retry the room from the start — a
@@ -140,14 +139,6 @@ export function RoomClient({ room }: RoomClientProps) {
   const [reviewMode, setReviewMode]             = useState(false);
   const [reviewRecords, setReviewRecords]       = useState<Record<string, ReviewRecord>>({});
   const experience = useMemo(() => getRoomExperience(room.id, room.tasks.map(t => t.id)), [room]);
-  const [operationMode, setOperationMode]       = useState(true);
-  useEffect(() => {
-    try { setOperationMode(window.localStorage.getItem(ROOM_MODE_KEY) !== "classic"); } catch { /* storage unavailable */ }
-  }, []);
-  function chooseMode(mode: "operation" | "classic") {
-    setOperationMode(mode === "operation");
-    try { window.localStorage.setItem(ROOM_MODE_KEY, mode); } catch { /* storage unavailable */ }
-  }
 
 
   const maxXp   = maxRoomXp(room);
@@ -560,7 +551,7 @@ export function RoomClient({ room }: RoomClientProps) {
   // ─── Operation Mode ─────────────────────────────────────────────────────────
   // Same state, same grading, same pass gate — only the presentation differs.
   // Review mode always uses the classic read-only walk-through.
-  if (experience && operationMode && !reviewMode) {
+  if (experience && !reviewMode) {
     const nextRec = showCompletion ? recommendNextRoom(getRoomProgress(), room.id) : null;
     return (
       <OperationView
@@ -582,7 +573,6 @@ export function RoomClient({ room }: RoomClientProps) {
         onReviewMissed={handleReviewMissed}
         onStartReview={startReview}
         onNavigate={href => router.push(href)}
-        onClassic={() => chooseMode("classic")}
       />
     );
   }
@@ -652,12 +642,6 @@ export function RoomClient({ room }: RoomClientProps) {
                   <Eye className="h-4 w-4" />
                   Review room
                 </Button>
-                {experience && (
-                  <Button variant="outline" size="lg" className="w-full" onClick={() => chooseMode("operation")}>
-                    <Shield className="h-4 w-4" />
-                    Replay as {experience.codename}
-                  </Button>
-                )}
                 <Button variant={nextRec ? "outline" : "primary"} size="lg" className="w-full" onClick={() => router.push("/rooms")}>
                   <ArrowLeft className="h-4 w-4" />
                   Back to Rooms
@@ -839,19 +823,6 @@ export function RoomClient({ room }: RoomClientProps) {
             </div>
           )}
 
-          {experience && !reviewMode && (
-            <button
-              onClick={() => chooseMode("operation")}
-              className="mb-6 flex w-full items-center gap-3 rounded-lg border border-cyber-500/30 bg-cyber-500/5 px-4 py-3 text-left transition-colors hover:border-cyber-500/60"
-            >
-              <Shield className="h-4 w-4 shrink-0 text-cyber-300" />
-              <span className="flex-1">
-                <span className="block text-sm font-semibold text-white">Play as {experience.codename}</span>
-                <span className="block text-[11px] text-slate-400">The same room as an interactive 3D operation. Your progress carries over.</span>
-              </span>
-              <ChevronRight className="h-4 w-4 text-cyber-300" />
-            </button>
-          )}
 
           {/* Task counter */}
           <div className="flex items-center gap-3 mb-6">

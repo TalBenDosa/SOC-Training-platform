@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowLeft, Shield, ShieldOff, KeyRound, LayoutList, Star, Trophy, RotateCcw, Eye, ChevronRight,
+  ArrowLeft, Shield, ShieldOff, KeyRound, Star, Trophy, RotateCcw, Eye, ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TaskPlayer } from "@/components/rooms/TaskPlayer";
@@ -109,7 +109,6 @@ export interface OperationViewProps {
   onReviewMissed: () => void;
   onStartReview: () => void;
   onNavigate: (href: string) => void;
-  onClassic: () => void;
 }
 
 export function OperationView(p: OperationViewProps) {
@@ -356,13 +355,6 @@ export function OperationView(p: OperationViewProps) {
             className="grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-bg-panel/70 backdrop-blur hover:border-cyber-400/60"
           >
             <ArrowLeft className="h-5 w-5" />
-          </button>
-          <button
-            onClick={p.onClassic}
-            aria-label="Switch to classic mode"
-            className="inline-flex h-11 items-center gap-2 rounded-full border border-white/15 bg-bg-panel/70 px-3.5 text-sm font-semibold backdrop-blur hover:border-cyber-400/60 sm:px-4"
-          >
-            <LayoutList className="h-4 w-4" /> <span className="hidden sm:inline">Classic mode</span>
           </button>
         </div>
 
