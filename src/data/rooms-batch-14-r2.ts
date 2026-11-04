@@ -191,6 +191,24 @@ const analystMindsetRoom = {
         "          --> hypothesis weakens, likely benign, document and close",
     },
 
+    // ── Question 2 ──────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "mind-q2",
+      question:
+        "You are applying the 'so what?' chain to an alert about a host connecting to a domain registered yesterday. What is the correct NEXT step after concluding 'newly registered domains are often used for phishing/C2'?",
+      options: [
+        "Escalate the case as a probable compromise, since a newly registered domain is a high-confidence C2 indicator",
+        "Check the domain's WHOIS and reputation score, and close the alert if neither flags it as malicious",
+        "Ask what evidence you would expect if this really were C2 (e.g. a repeating beacon pattern) and check for exactly that",
+        "Ask the end user whether they visited the domain on purpose, and treat their answer as the deciding evidence",
+      ],
+      answer: 2,
+      explanation:
+        "The 'so what?' chain works by turning each fact into a specific, checkable prediction. After identifying why the fact matters (domain age correlates with malicious use), the next step is to predict what OTHER evidence should exist if your hypothesis is correct (a beacon pattern, repeated regular connections) and then go verify whether that predicted evidence actually exists. This turns a vague suspicion into a testable, evidence-based conclusion, rather than jumping to escalation or closure, or relying solely on an unverified user claim.",
+      xp: 30,
+    },
+
     // ── Reading 3: The question framework for every alert ────────────────
     {
       type: "reading" as const,
@@ -234,154 +252,6 @@ const analystMindsetRoom = {
       },
     },
 
-    // ── Reading 4: Baselining "normal" ────────────────────────────────────
-    {
-      type: "reading" as const,
-      id: "mind-r4",
-      heading: "You Cannot Spot Abnormal Until You Know Normal",
-      content:
-        "Here is a fact that trips up almost every new analyst: an event is never suspicious in a vacuum. 'PowerShell ran with an encoded command' is not inherently an attack: some legitimate enterprise tools do exactly that. 'A login happened at 3 AM' is not inherently an attack: some employees legitimately work odd hours, and some legitimate scheduled jobs run overnight. Suspicion is not a property of the event. Suspicion is a property of the GAP between the event and what is normal for that specific entity.\n\n" +
-        "**What a Baseline Actually Is**\n\n" +
-        "A baseline is your working mental (or documented) model of what normal looks like for a user, a host, an application, or a network segment. Building one does not require fancy UEBA tooling, though that helps at scale. It requires asking questions like: does this user normally log in from this location? Does this server normally make outbound connections at all? Does this application normally spawn a command shell? Does this account normally touch this file share?\n\n" +
-        "**Sources for Building a Baseline on the Fly**\n\n" +
-        "You will not always have a perfect historical baseline available, but you can usually approximate one quickly: check the user's job title and department (does the ROLE make this activity plausible?), check the asset's function (is this a workstation, a server, a kiosk?), check recent history for this specific user or host in the SIEM (search their last 30 days. Is this a first-time occurrence or a daily routine?), and check any change-management or ticketing system (was this activity pre-approved?).\n\n" +
-        "**First-Time-Seen Is a Powerful Signal**\n\n" +
-        "One of the single most useful questions in all of SOC analysis is simply: 'has this specific combination happened before?' A host connecting to a new external IP for the first time ever. A user accessing a file share they have never touched. An admin account logging in from a country it has never logged in from. None of these facts alone proves an attack, but 'first time ever' dramatically raises the value of investigating further, because attackers, by definition, are doing something that was not happening before they arrived.\n\n" +
-        "**The Trap of Assuming Generic Normal**\n\n" +
-        "The most common baselining mistake is substituting generic assumptions ('everyone logs in from home sometimes,' 'IT people run scripts all the time') for entity-specific facts. Generic assumptions are exactly the gap attackers exploit, because they know analysts often reach for the easy generic explanation instead of doing the ten extra seconds of work to check whether it is true for THIS user, THIS host, right now.",
-      codeExample:
-        "QUICK BASELINE CHECKLIST (do this before judging 'normal vs abnormal')\n" +
-        "==========================================================\n" +
-        "  [ ] What is this user's actual job role? Does the activity fit it?\n" +
-        "  [ ] What is this asset's function? (workstation / server / kiosk)\n" +
-        "  [ ] Search the SIEM: has THIS user/host done THIS before? (30-90 days)\n" +
-        "  [ ] Is there a change ticket, maintenance window, or business\n" +
-        "      justification on file?\n" +
-        "  [ ] Is this the FIRST TIME this specific combination has occurred?\n" +
-        "      (new destination, new tool, new login location, new file share)\n\n" +
-        "  Generic normal (\"lots of people do this\") is NOT the same as\n" +
-        "  entity-specific normal (\"THIS person/host does this regularly\").\n" +
-        "  Always check the specific case before trusting the generic one.",
-    },
-
-    // ── Reading 5: Cognitive biases that trip analysts ────────────────────
-    {
-      type: "reading" as const,
-      id: "mind-r5",
-      heading: "Cognitive Biases That Quietly Sabotage Analysts",
-      content:
-        "Your brain has shortcuts built in to help you make fast decisions with limited information. Those shortcuts are extremely useful in daily life and extremely dangerous in a SOC, because attackers benefit every time your shortcuts lead you to the wrong conclusion. Knowing these biases by name is the first step to catching them in yourself.\n\n" +
-        "**Confirmation Bias**: Once you form a hypothesis, you unconsciously start noticing evidence that supports it and glossing over evidence that contradicts it. If you decide early that 'this is probably just IT doing maintenance,' you will read every subsequent log line through that lens, even ones that do not actually fit. The fix: deliberately look for the piece of evidence that would PROVE you wrong, not just more evidence that confirms you right.\n\n" +
-        "**Alert Fatigue**: After triaging your two-hundredth false positive of the shift, your brain starts pattern-matching alert #201 to 'probably also nothing' before you have actually looked at it. This is not laziness, it is a real neurological response to repetitive low-stakes decisions. The fix: build in a hard rule that every alert, no matter how routine-looking, gets at least the six-question framework applied, even if it takes fifteen seconds. Routine checks catch the rare real attack hiding inside a flood of noise.\n\n" +
-        "**Anchoring**: The first piece of information you see disproportionately shapes everything after it. If the alert title says 'Likely Benign. Known Scanner IP,' you will subconsciously interpret every subsequent fact as supporting that label, even when a fact is genuinely ambiguous. The fix: try to look at the raw evidence BEFORE reading any pre-existing severity label, verdict, or analyst note, when practical, or at least consciously ask 'would I read this fact the same way if the label said the opposite?'\n\n" +
-        "**Tunnel Vision**: Once you lock onto one theory, you stop looking for alternative explanations or additional scope. You find the compromised laptop and stop there, without asking 'did this attacker touch anything ELSE?' The fix: before closing any confirmed incident, explicitly ask 'what ELSE would I expect to see if this is bigger than what I've found so far?' (the blast-radius question from the framework) even after you already have an answer that feels satisfying.\n\n" +
-        "**Availability Bias**: You judge how likely something is by how easily an example comes to mind. If your team just dealt with a ransomware incident last week, you will over-weight ransomware as an explanation for an unrelated alert this week, simply because it is fresh in memory. The fix: consciously generate a full list of possible explanations rather than going with the first (most memorable) one.\n\n" +
-        "**Authority Bias**: If a senior analyst, a manager, or even the ticket's previous handler already labeled something 'benign,' you are less likely to question it, even if you notice something odd. The fix: treat previous verdicts as a helpful data point, not a substitute for your own look at the evidence, especially if new information has appeared since that verdict was made.\n\n" +
-        "None of these biases make you a bad analyst: they make you human. The goal is not to eliminate them (you cannot) but to recognize the moment they are steering you, and to build habits (like actively searching for disconfirming evidence) that counteract them.",
-      checkpoint: {
-        question: "An analyst is sure a burst of failed logins is just a user with an old password saved on their phone, and every log line they read seems to fit. Which habit best counters the bias at work?",
-        options: [
-          "Look for the one piece of evidence that would prove the phone theory wrong",
-          "Gather a few more matching log lines so the phone theory is well supported",
-          "Ask the user to confirm it was their phone, then close the alert on their word",
-          "Wait for the SIEM's severity label and let it decide whether to dig further",
-        ],
-        answer: 0,
-        explanation: "This is confirmation bias: once the phone theory formed, every line seems to fit. The fix is to look deliberately for the evidence that would prove it WRONG, for example, failures from an address or device the user never uses. Gathering more matching lines is the bias itself, not the cure. The user's confirmation is an unverified claim, so closing on it skips the test. The severity label is someone else's starting guess, and leaning on it swaps one bias (confirmation) for another (anchoring).",
-      },
-    },
-
-    // ── Reading 6: Fact vs assumption, and when to stop digging ──────────
-    {
-      type: "reading" as const,
-      id: "mind-r6",
-      heading: "Separating Fact From Assumption, and Knowing When to Stop",
-      content:
-        "Every investigation note you will ever write contains a mix of two very different kinds of statements: facts and assumptions. A fact is something you directly observed in a log, a screen, or a system. It is verifiable and someone else could independently confirm it by looking at the same data. An assumption is something you are inferring, guessing, or taking on someone's word without independent verification. Both have a place in an investigation, but only if you know which is which.\n\n" +
-        "**Learn to Label Your Own Statements**\n\n" +
-        "'The workstation made a DNS query to a domain registered yesterday': that is a fact, pulled directly from a log. 'The user probably clicked a phishing link'. That is an assumption, unless you have actually confirmed a click event, a browser history entry, or the user's own account of what they did. Both statements might end up in your case notes, but they should never be written in a way that makes the reader think both are equally certain. Good analysts get in the habit of phrasing things precisely: 'the log shows X' versus 'this suggests X' versus 'the user reported X, unverified.'\n\n" +
-        "**The Danger of Silent Assumptions**\n\n" +
-        "The most dangerous assumptions are the ones you do not even notice you are making. 'The user said it was them logging in from that new country, so it's fine' quietly assumes the user's account was not already compromised and being used to explain away the very evidence that would reveal the compromise. 'MFA was approved, so it must be legitimate' quietly assumes MFA cannot be bypassed or that the user did not approve a push notification by mistake (MFA fatigue). Whenever you catch yourself about to close a case, go back through your reasoning and ask: 'which of these statements did I actually verify, and which am I just trusting?'\n\n" +
-        "**When to Keep Digging**\n\n" +
-        "Keep investigating when: you have an unanswered question from the six-question framework that you CAN answer with available data but have not checked yet; a fact you found does not fit your current hypothesis at all (do not paper over it. That is confirmation bias in action); the blast-radius question is still open (you know one host is affected but have not checked whether the attacker moved laterally); or a claim from the user or another team is unverified and verification is possible.\n\n" +
-        "**When to Stop and Close**\n\n" +
-        "Stop when: every question in the framework has either been answered by verified fact or is genuinely unanswerable with reasonably available data (and you have documented that gap honestly, rather than guessing to fill it); the evidence you predicted you would find (from your 'so what?' chain) either appeared or clearly did not, giving you a real answer either way; you have checked for related activity (blast radius) and found none; and your conclusion could be independently reproduced by another analyst reading only your documented facts, not your gut feeling.\n\n" +
-        "**A Useful Gut-Check**\n\n" +
-        "Before closing any case, ask yourself one final question: 'if I am wrong about this, what would that cost, and did I do enough work to justify that risk?' Closing a low-value kiosk machine's odd DNS query after a five-minute check is reasonable. Closing a domain administrator's odd DNS query after the same five-minute check is not: the cost of being wrong is completely different, and your depth of digging should scale with that cost, not just with how busy your queue is.",
-      codeExample:
-        "FACT vs ASSUMPTION -- LABEL EVERY STATEMENT\n" +
-        "=============================================\n" +
-        "  FACT       : \"the log shows...\"      (directly observed, verifiable)\n" +
-        "  ASSUMPTION  : \"this suggests...\"       (your inference)\n" +
-        "  UNVERIFIED  : \"the user reported...\"   (someone's claim, not checked)\n\n" +
-        "KEEP DIGGING IF:\n" +
-        "  - an answerable framework question is still open\n" +
-        "  - a fact contradicts your current hypothesis\n" +
-        "  - blast radius is unconfirmed\n" +
-        "  - a claim is unverified and verification is possible\n\n" +
-        "OK TO CLOSE IF:\n" +
-        "  - framework questions are answered by fact, or the gap is documented\n" +
-        "  - your predicted evidence was checked (found OR clearly absent)\n" +
-        "  - blast radius was checked, nothing further found\n" +
-        "  - another analyst could reach your conclusion from your notes alone\n\n" +
-        "GUT-CHECK: \"If I'm wrong, what does that cost -- and did my digging\n" +
-        "            match that cost?\"",
-    },
-
-    // ── Question 1 ──────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "mind-q1",
-      question:
-        "Alerts in your queue arrive pre-labelled by an auto-triage rule, such as 'Likely benign: known IT scanning tool'. Which habit best stops those labels from shaping how you read the evidence?",
-      options: [
-        "Accept the label when the tool name looks familiar, since auto-triage is usually right",
-        "Read the raw evidence first, and ask if you'd read it the same way with the opposite label",
-        "Escalate every pre-labelled alert, since automatic labels are unreliable by nature",
-        "Close labelled alerts quickly to keep the queue short, and revisit any that recur",
-      ],
-      answer: 1,
-      explanation:
-        "A pre-written label is a classic anchor: the first thing you see shapes how you read everything after it. The fix is to look at the raw evidence before the label when you can, or at least ask 'would I read this fact the same way if the label said the opposite?' Accepting a label because the name looks familiar is anchoring in action. Escalating everything over-corrects, it ignores the evidence just as much and buries real alerts in noise. Closing quickly to keep the queue short is how alert fatigue lets a real attack through.",
-      xp: 30,
-    },
-
-    // ── Question 2 ──────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "mind-q2",
-      question:
-        "You are applying the 'so what?' chain to an alert about a host connecting to a domain registered yesterday. What is the correct NEXT step after concluding 'newly registered domains are often used for phishing/C2'?",
-      options: [
-        "Escalate the case as a probable compromise, since a newly registered domain is a high-confidence C2 indicator",
-        "Check the domain's WHOIS and reputation score, and close the alert if neither flags it as malicious",
-        "Ask what evidence you would expect if this really were C2 (e.g. a repeating beacon pattern) and check for exactly that",
-        "Ask the end user whether they visited the domain on purpose, and treat their answer as the deciding evidence",
-      ],
-      answer: 2,
-      explanation:
-        "The 'so what?' chain works by turning each fact into a specific, checkable prediction. After identifying why the fact matters (domain age correlates with malicious use), the next step is to predict what OTHER evidence should exist if your hypothesis is correct (a beacon pattern, repeated regular connections) and then go verify whether that predicted evidence actually exists. This turns a vague suspicion into a testable, evidence-based conclusion, rather than jumping to escalation or closure, or relying solely on an unverified user claim.",
-      xp: 30,
-    },
-
-    // ── Question 3 ──────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "mind-q3",
-      question:
-        "Two facts about an alert: (1) 'the process was svchost.exe' and (2) 'the user probably launched it by accident.' How should these two statements be treated in your investigation notes?",
-      options: [
-        "Both are facts, since the analyst wrote both down while looking at the same alert",
-        "Statement 1 is a fact from the log; statement 2 is an assumption about intent until confirmed",
-        "Statement 2 is the key fact, because it explains why the event happened in the first place",
-        "Both are assumptions until the user confirms each of them to the analyst in person",
-      ],
-      answer: 1,
-      explanation:
-        "'The process was svchost.exe' is directly observable in the log: a fact anyone could confirm from the same data. 'The user probably launched it by accident' is an inference about intent that nobody has verified, so it belongs in the notes as an assumption ('this suggests…'). Writing something down does not make it a fact. An explanation of WHY can still be a guess, however convincing it sounds. And a log entry does not need the user's confirmation to be a fact, demanding that treats verifiable evidence as if it were a claim.",
-      xp: 25,
-    },
-
     // ── Log analysis 1: the 3AM logon ─────────────────────────────────────
     {
       type: "log_analysis" as const,
@@ -420,6 +290,36 @@ const analystMindsetRoom = {
           xp: 35,
         },
       ],
+    },
+
+    // ── Reading 4: Baselining "normal" ────────────────────────────────────
+    {
+      type: "reading" as const,
+      id: "mind-r4",
+      heading: "You Cannot Spot Abnormal Until You Know Normal",
+      content:
+        "Here is a fact that trips up almost every new analyst: an event is never suspicious in a vacuum. 'PowerShell ran with an encoded command' is not inherently an attack: some legitimate enterprise tools do exactly that. 'A login happened at 3 AM' is not inherently an attack: some employees legitimately work odd hours, and some legitimate scheduled jobs run overnight. Suspicion is not a property of the event. Suspicion is a property of the GAP between the event and what is normal for that specific entity.\n\n" +
+        "**What a Baseline Actually Is**\n\n" +
+        "A baseline is your working mental (or documented) model of what normal looks like for a user, a host, an application, or a network segment. Building one does not require fancy UEBA tooling, though that helps at scale. It requires asking questions like: does this user normally log in from this location? Does this server normally make outbound connections at all? Does this application normally spawn a command shell? Does this account normally touch this file share?\n\n" +
+        "**Sources for Building a Baseline on the Fly**\n\n" +
+        "You will not always have a perfect historical baseline available, but you can usually approximate one quickly: check the user's job title and department (does the ROLE make this activity plausible?), check the asset's function (is this a workstation, a server, a kiosk?), check recent history for this specific user or host in the SIEM (search their last 30 days. Is this a first-time occurrence or a daily routine?), and check any change-management or ticketing system (was this activity pre-approved?).\n\n" +
+        "**First-Time-Seen Is a Powerful Signal**\n\n" +
+        "One of the single most useful questions in all of SOC analysis is simply: 'has this specific combination happened before?' A host connecting to a new external IP for the first time ever. A user accessing a file share they have never touched. An admin account logging in from a country it has never logged in from. None of these facts alone proves an attack, but 'first time ever' dramatically raises the value of investigating further, because attackers, by definition, are doing something that was not happening before they arrived.\n\n" +
+        "**The Trap of Assuming Generic Normal**\n\n" +
+        "The most common baselining mistake is substituting generic assumptions ('everyone logs in from home sometimes,' 'IT people run scripts all the time') for entity-specific facts. Generic assumptions are exactly the gap attackers exploit, because they know analysts often reach for the easy generic explanation instead of doing the ten extra seconds of work to check whether it is true for THIS user, THIS host, right now.",
+      codeExample:
+        "QUICK BASELINE CHECKLIST (do this before judging 'normal vs abnormal')\n" +
+        "==========================================================\n" +
+        "  [ ] What is this user's actual job role? Does the activity fit it?\n" +
+        "  [ ] What is this asset's function? (workstation / server / kiosk)\n" +
+        "  [ ] Search the SIEM: has THIS user/host done THIS before? (30-90 days)\n" +
+        "  [ ] Is there a change ticket, maintenance window, or business\n" +
+        "      justification on file?\n" +
+        "  [ ] Is this the FIRST TIME this specific combination has occurred?\n" +
+        "      (new destination, new tool, new login location, new file share)\n\n" +
+        "  Generic normal (\"lots of people do this\") is NOT the same as\n" +
+        "  entity-specific normal (\"THIS person/host does this regularly\").\n" +
+        "  Always check the specific case before trusting the generic one.",
     },
 
     // ── Log analysis 2: the PowerShell download ────────────────────────────
@@ -462,6 +362,20 @@ const analystMindsetRoom = {
       ],
     },
 
+    // ── Flag ──────────────────────────────────────────────────────────────
+    {
+      type: "flag" as const,
+      id: "mind-flag1",
+      // Pin the log this flag is about (the patch-agent.ps1 PowerShell download,
+      // Log Analysis 2) — otherwise the nearest preceding log (the analyst_choice
+      // event) is shown and the answer isn't visible. Reported by a student.
+      event: powershellDownloadEvent,
+      prompt:
+        "Change tickets list approved scripts by file name. In the IT technician's PowerShell event above, find the script that the command downloaded and then ran, and enter its file name (name and extension only, no folder).",
+      answer: "patch-agent.ps1",
+      hint: "The command does two things: it saves a file to disk, then runs that same file.",
+      xp: 30,
+    },
     // ── Analyst choice: don't jump to conclusions trap ─────────────────────
     {
       type: "analyst_choice" as const,
@@ -476,6 +390,51 @@ const analystMindsetRoom = {
       fp_trap:
         "The HIGH severity label and the well-known 'Base64-encoded PowerShell' attacker technique both push you toward an immediate escalation instinct. This is exactly the anchoring and pattern-matching trap the room warns about: the correct response is not to trust the scary-looking surface pattern, but to actually decode the command, check the true parent process, and check whether the timing matches a documented schedule. All of which are quick, verifiable checks that flip the verdict from 'attack' to 'signed backup software doing exactly what it is scheduled to do.'",
       xp: 35,
+    },
+
+    // ── Reading 5: Cognitive biases that trip analysts ────────────────────
+    {
+      type: "reading" as const,
+      id: "mind-r5",
+      heading: "Cognitive Biases That Quietly Sabotage Analysts",
+      content:
+        "Your brain has shortcuts built in to help you make fast decisions with limited information. Those shortcuts are extremely useful in daily life and extremely dangerous in a SOC, because attackers benefit every time your shortcuts lead you to the wrong conclusion. Knowing these biases by name is the first step to catching them in yourself.\n\n" +
+        "**Confirmation Bias**: Once you form a hypothesis, you unconsciously start noticing evidence that supports it and glossing over evidence that contradicts it. If you decide early that 'this is probably just IT doing maintenance,' you will read every subsequent log line through that lens, even ones that do not actually fit. The fix: deliberately look for the piece of evidence that would PROVE you wrong, not just more evidence that confirms you right.\n\n" +
+        "**Alert Fatigue**: After triaging your two-hundredth false positive of the shift, your brain starts pattern-matching alert #201 to 'probably also nothing' before you have actually looked at it. This is not laziness, it is a real neurological response to repetitive low-stakes decisions. The fix: build in a hard rule that every alert, no matter how routine-looking, gets at least the six-question framework applied, even if it takes fifteen seconds. Routine checks catch the rare real attack hiding inside a flood of noise.\n\n" +
+        "**Anchoring**: The first piece of information you see disproportionately shapes everything after it. If the alert title says 'Likely Benign. Known Scanner IP,' you will subconsciously interpret every subsequent fact as supporting that label, even when a fact is genuinely ambiguous. The fix: try to look at the raw evidence BEFORE reading any pre-existing severity label, verdict, or analyst note, when practical, or at least consciously ask 'would I read this fact the same way if the label said the opposite?'\n\n" +
+        "**Tunnel Vision**: Once you lock onto one theory, you stop looking for alternative explanations or additional scope. You find the compromised laptop and stop there, without asking 'did this attacker touch anything ELSE?' The fix: before closing any confirmed incident, explicitly ask 'what ELSE would I expect to see if this is bigger than what I've found so far?' (the blast-radius question from the framework) even after you already have an answer that feels satisfying.\n\n" +
+        "**Availability Bias**: You judge how likely something is by how easily an example comes to mind. If your team just dealt with a ransomware incident last week, you will over-weight ransomware as an explanation for an unrelated alert this week, simply because it is fresh in memory. The fix: consciously generate a full list of possible explanations rather than going with the first (most memorable) one.\n\n" +
+        "**Authority Bias**: If a senior analyst, a manager, or even the ticket's previous handler already labeled something 'benign,' you are less likely to question it, even if you notice something odd. The fix: treat previous verdicts as a helpful data point, not a substitute for your own look at the evidence, especially if new information has appeared since that verdict was made.\n\n" +
+        "None of these biases make you a bad analyst: they make you human. The goal is not to eliminate them (you cannot) but to recognize the moment they are steering you, and to build habits (like actively searching for disconfirming evidence) that counteract them.",
+      checkpoint: {
+        question: "An analyst is sure a burst of failed logins is just a user with an old password saved on their phone, and every log line they read seems to fit. Which habit best counters the bias at work?",
+        options: [
+          "Look for the one piece of evidence that would prove the phone theory wrong",
+          "Gather a few more matching log lines so the phone theory is well supported",
+          "Ask the user to confirm it was their phone, then close the alert on their word",
+          "Wait for the SIEM's severity label and let it decide whether to dig further",
+        ],
+        answer: 0,
+        explanation: "This is confirmation bias: once the phone theory formed, every line seems to fit. The fix is to look deliberately for the evidence that would prove it WRONG, for example, failures from an address or device the user never uses. Gathering more matching lines is the bias itself, not the cure. The user's confirmation is an unverified claim, so closing on it skips the test. The severity label is someone else's starting guess, and leaning on it swaps one bias (confirmation) for another (anchoring).",
+      },
+    },
+
+    // ── Question 1 ──────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "mind-q1",
+      question:
+        "Alerts in your queue arrive pre-labelled by an auto-triage rule, such as 'Likely benign: known IT scanning tool'. Which habit best stops those labels from shaping how you read the evidence?",
+      options: [
+        "Accept the label when the tool name looks familiar, since auto-triage is usually right",
+        "Read the raw evidence first, and ask if you'd read it the same way with the opposite label",
+        "Escalate every pre-labelled alert, since automatic labels are unreliable by nature",
+        "Close labelled alerts quickly to keep the queue short, and revisit any that recur",
+      ],
+      answer: 1,
+      explanation:
+        "A pre-written label is a classic anchor: the first thing you see shapes how you read everything after it. The fix is to look at the raw evidence before the label when you can, or at least ask 'would I read this fact the same way if the label said the opposite?' Accepting a label because the name looks familiar is anchoring in action. Escalating everything over-corrects, it ignores the evidence just as much and buries real alerts in noise. Closing quickly to keep the queue short is how alert fatigue lets a real attack through.",
+      xp: 30,
     },
 
     // ── Matching: bias to example ──────────────────────────────────────
@@ -522,6 +481,61 @@ const analystMindsetRoom = {
       xp: 40,
     },
 
+    // ── Reading 6: Fact vs assumption, and when to stop digging ──────────
+    {
+      type: "reading" as const,
+      id: "mind-r6",
+      heading: "Separating Fact From Assumption, and Knowing When to Stop",
+      content:
+        "Every investigation note you will ever write contains a mix of two very different kinds of statements: facts and assumptions. A fact is something you directly observed in a log, a screen, or a system. It is verifiable and someone else could independently confirm it by looking at the same data. An assumption is something you are inferring, guessing, or taking on someone's word without independent verification. Both have a place in an investigation, but only if you know which is which.\n\n" +
+        "**Learn to Label Your Own Statements**\n\n" +
+        "'The workstation made a DNS query to a domain registered yesterday': that is a fact, pulled directly from a log. 'The user probably clicked a phishing link'. That is an assumption, unless you have actually confirmed a click event, a browser history entry, or the user's own account of what they did. Both statements might end up in your case notes, but they should never be written in a way that makes the reader think both are equally certain. Good analysts get in the habit of phrasing things precisely: 'the log shows X' versus 'this suggests X' versus 'the user reported X, unverified.'\n\n" +
+        "**The Danger of Silent Assumptions**\n\n" +
+        "The most dangerous assumptions are the ones you do not even notice you are making. 'The user said it was them logging in from that new country, so it's fine' quietly assumes the user's account was not already compromised and being used to explain away the very evidence that would reveal the compromise. 'MFA was approved, so it must be legitimate' quietly assumes MFA cannot be bypassed or that the user did not approve a push notification by mistake (MFA fatigue). Whenever you catch yourself about to close a case, go back through your reasoning and ask: 'which of these statements did I actually verify, and which am I just trusting?'\n\n" +
+        "**When to Keep Digging**\n\n" +
+        "Keep investigating when: you have an unanswered question from the six-question framework that you CAN answer with available data but have not checked yet; a fact you found does not fit your current hypothesis at all (do not paper over it. That is confirmation bias in action); the blast-radius question is still open (you know one host is affected but have not checked whether the attacker moved laterally); or a claim from the user or another team is unverified and verification is possible.\n\n" +
+        "**When to Stop and Close**\n\n" +
+        "Stop when: every question in the framework has either been answered by verified fact or is genuinely unanswerable with reasonably available data (and you have documented that gap honestly, rather than guessing to fill it); the evidence you predicted you would find (from your 'so what?' chain) either appeared or clearly did not, giving you a real answer either way; you have checked for related activity (blast radius) and found none; and your conclusion could be independently reproduced by another analyst reading only your documented facts, not your gut feeling.\n\n" +
+        "**A Useful Gut-Check**\n\n" +
+        "Before closing any case, ask yourself one final question: 'if I am wrong about this, what would that cost, and did I do enough work to justify that risk?' Closing a low-value kiosk machine's odd DNS query after a five-minute check is reasonable. Closing a domain administrator's odd DNS query after the same five-minute check is not: the cost of being wrong is completely different, and your depth of digging should scale with that cost, not just with how busy your queue is.",
+      codeExample:
+        "FACT vs ASSUMPTION -- LABEL EVERY STATEMENT\n" +
+        "=============================================\n" +
+        "  FACT       : \"the log shows...\"      (directly observed, verifiable)\n" +
+        "  ASSUMPTION  : \"this suggests...\"       (your inference)\n" +
+        "  UNVERIFIED  : \"the user reported...\"   (someone's claim, not checked)\n\n" +
+        "KEEP DIGGING IF:\n" +
+        "  - an answerable framework question is still open\n" +
+        "  - a fact contradicts your current hypothesis\n" +
+        "  - blast radius is unconfirmed\n" +
+        "  - a claim is unverified and verification is possible\n\n" +
+        "OK TO CLOSE IF:\n" +
+        "  - framework questions are answered by fact, or the gap is documented\n" +
+        "  - your predicted evidence was checked (found OR clearly absent)\n" +
+        "  - blast radius was checked, nothing further found\n" +
+        "  - another analyst could reach your conclusion from your notes alone\n\n" +
+        "GUT-CHECK: \"If I'm wrong, what does that cost -- and did my digging\n" +
+        "            match that cost?\"",
+    },
+
+    // ── Question 3 ──────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "mind-q3",
+      question:
+        "Two facts about an alert: (1) 'the process was svchost.exe' and (2) 'the user probably launched it by accident.' How should these two statements be treated in your investigation notes?",
+      options: [
+        "Both are facts, since the analyst wrote both down while looking at the same alert",
+        "Statement 1 is a fact from the log; statement 2 is an assumption about intent until confirmed",
+        "Statement 2 is the key fact, because it explains why the event happened in the first place",
+        "Both are assumptions until the user confirms each of them to the analyst in person",
+      ],
+      answer: 1,
+      explanation:
+        "'The process was svchost.exe' is directly observable in the log: a fact anyone could confirm from the same data. 'The user probably launched it by accident' is an inference about intent that nobody has verified, so it belongs in the notes as an assumption ('this suggests…'). Writing something down does not make it a fact. An explanation of WHY can still be a guess, however convincing it sounds. And a log entry does not need the user's confirmation to be a fact, demanding that treats verifiable evidence as if it were a claim.",
+      xp: 25,
+    },
+
     // ── Ordering: mental triage steps ────────────────────────────────────
     {
       type: "ordering" as const,
@@ -561,20 +575,6 @@ const analystMindsetRoom = {
       xp: 40,
     },
 
-    // ── Flag ──────────────────────────────────────────────────────────────
-    {
-      type: "flag" as const,
-      id: "mind-flag1",
-      // Pin the log this flag is about (the patch-agent.ps1 PowerShell download,
-      // Log Analysis 2) — otherwise the nearest preceding log (the analyst_choice
-      // event) is shown and the answer isn't visible. Reported by a student.
-      event: powershellDownloadEvent,
-      prompt:
-        "Change tickets list approved scripts by file name. In the IT technician's PowerShell event above, find the script that the command downloaded and then ran, and enter its file name (name and extension only, no folder).",
-      answer: "patch-agent.ps1",
-      hint: "The command does two things: it saves a file to disk, then runs that same file.",
-      xp: 30,
-    },
   ],
 };
 

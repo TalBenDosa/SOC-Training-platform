@@ -3609,9 +3609,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "mind-q2",
+        "type": "question",
+        "xp": 30
+      },
+      {
         "id": "mind-r3",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "mind-la1",
+        "type": "log_analysis",
+        "xp": 70
       },
       {
         "id": "mind-r4",
@@ -3619,12 +3629,23 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "mind-r5",
-        "type": "reading",
-        "xp": 0
+        "id": "mind-la2",
+        "type": "log_analysis",
+        "xp": 70
       },
       {
-        "id": "mind-r6",
+        "id": "mind-flag1",
+        "type": "flag",
+        "xp": 30
+      },
+      {
+        "id": "mind-ac1",
+        "type": "analyst_choice",
+        "xp": 35,
+        "mitreTechnique": "T1059.001"
+      },
+      {
+        "id": "mind-r5",
         "type": "reading",
         "xp": 0
       },
@@ -3634,9 +3655,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 30
       },
       {
-        "id": "mind-q2",
-        "type": "question",
-        "xp": 30
+        "id": "mind-m1",
+        "type": "matching",
+        "xp": 40
+      },
+      {
+        "id": "mind-r6",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "mind-q3",
@@ -3644,35 +3670,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 25
       },
       {
-        "id": "mind-la1",
-        "type": "log_analysis",
-        "xp": 70
-      },
-      {
-        "id": "mind-la2",
-        "type": "log_analysis",
-        "xp": 70
-      },
-      {
-        "id": "mind-ac1",
-        "type": "analyst_choice",
-        "xp": 35,
-        "mitreTechnique": "T1059.001"
-      },
-      {
-        "id": "mind-m1",
-        "type": "matching",
-        "xp": 40
-      },
-      {
         "id": "mind-o1",
         "type": "ordering",
         "xp": 40
-      },
-      {
-        "id": "mind-flag1",
-        "type": "flag",
-        "xp": 30
       }
     ]
   },
