@@ -18,6 +18,7 @@ import { CYBER_KILL_CHAIN } from "./cyberKillChain";
 import { FIREWALL_NETWORK_SECURITY } from "./firewallNetworkSecurity";
 import { ENDPOINT_SECURITY_FUNDAMENTALS } from "./endpointSecurityFundamentals";
 import { ANALYST_MINDSET } from "./analystMindset";
+import { SECURITY_PRODUCTS_BEHAVIOUR } from "./securityProductsBehaviour";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -42,6 +43,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [FIREWALL_NETWORK_SECURITY.roomId]: FIREWALL_NETWORK_SECURITY,
   [ENDPOINT_SECURITY_FUNDAMENTALS.roomId]: ENDPOINT_SECURITY_FUNDAMENTALS,
   [ANALYST_MINDSET.roomId]: ANALYST_MINDSET,
+  [SECURITY_PRODUCTS_BEHAVIOUR.roomId]: SECURITY_PRODUCTS_BEHAVIOUR,
 };
 
 /**

@@ -5850,6 +5850,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 70
       },
       {
+        "id": "secprod-f1",
+        "type": "flag",
+        "xp": 25
+      },
+      {
         "id": "secprod-r6",
         "type": "reading",
         "xp": 0
@@ -5893,11 +5898,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "secprod-o1",
         "type": "ordering",
         "xp": 35
-      },
-      {
-        "id": "secprod-f1",
-        "type": "flag",
-        "xp": 25
       }
     ]
   },

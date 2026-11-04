@@ -547,6 +547,25 @@ When a WAF does detect a match, its action is genuinely inline and preventive. I
     },
 
     // ------------------------------------------------------------------
+    // Flag
+    // ------------------------------------------------------------------
+    {
+      type: "flag",
+      id: "secprod-f1",
+      // Pin the WAF event so the flag shows the log it actually asks about. Without
+      // this pin the room falls back to the nearest preceding log — the Nessus IDS
+      // analyst_choice event, whose raw.http.length is 287 — and students read that
+      // decoy off the card right above the question (the recurring wrong answer).
+      // The prompt's "log-analysis" (hyphen, no number) doesn't match the "Log
+      // Analysis N" resolver, so the event must be pinned explicitly.
+      event: wafOversizeBypassEvent,
+      prompt:
+        "The AWS WAF event below ended in ALLOW, yet one managed rule DID match this request. Its action had been overridden, so it only recorded the match and the request went through. What is that rule's ID? Enter it exactly as it appears in the log.",
+      answer: "SizeRestrictions_BODY",
+      hint: "Look through ruleGroupList for a rule group whose list of matching rules is not empty.",
+      xp: 25,
+    },
+    // ------------------------------------------------------------------
     // Reading 6 — SWG + Email Security Gateway
     // ------------------------------------------------------------------
     {
@@ -861,25 +880,6 @@ A SOAR (Security Orchestration, Automation and Response) platform sits one layer
       xp: 35,
     },
 
-    // ------------------------------------------------------------------
-    // Flag
-    // ------------------------------------------------------------------
-    {
-      type: "flag",
-      id: "secprod-f1",
-      // Pin the WAF event so the flag shows the log it actually asks about. Without
-      // this pin the room falls back to the nearest preceding log — the Nessus IDS
-      // analyst_choice event, whose raw.http.length is 287 — and students read that
-      // decoy off the card right above the question (the recurring wrong answer).
-      // The prompt's "log-analysis" (hyphen, no number) doesn't match the "Log
-      // Analysis N" resolver, so the event must be pinned explicitly.
-      event: wafOversizeBypassEvent,
-      prompt:
-        "The AWS WAF event below ended in ALLOW, yet one managed rule DID match this request. Its action had been overridden, so it only recorded the match and the request went through. What is that rule's ID? Enter it exactly as it appears in the log.",
-      answer: "SizeRestrictions_BODY",
-      hint: "Look through ruleGroupList for a rule group whose list of matching rules is not empty.",
-      xp: 25,
-    },
   ],
 };
 

@@ -50,6 +50,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   zonewall: dynamic(() => import("./scenes/ZoneWallScene"), { ssr: false }),
   blackbox: dynamic(() => import("./scenes/BlackBoxScene"), { ssr: false }),
   mindlab: dynamic(() => import("./scenes/MindLabScene"), { ssr: false }),
+  sightlines: dynamic(() => import("./scenes/SightLinesScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;
