@@ -3156,6 +3156,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "proto-q1",
+        "type": "question",
+        "xp": 20
+      },
+      {
         "id": "proto-r5",
         "type": "reading",
         "xp": 0
@@ -3181,24 +3186,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "proto-q3",
+        "type": "question",
+        "xp": 20
+      },
+      {
         "id": "proto-r10",
         "type": "reading",
         "xp": 0
       },
       {
-        "id": "proto-q1",
-        "type": "question",
-        "xp": 20
-      },
-      {
         "id": "proto-q2",
         "type": "question",
         "xp": 25
-      },
-      {
-        "id": "proto-q3",
-        "type": "question",
-        "xp": 20
       },
       {
         "id": "proto-la1",

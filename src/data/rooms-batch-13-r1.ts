@@ -327,6 +327,23 @@ const protocolsMasterclass = {
         explanation: "UDP is connectionless: with no handshake, a server answers whatever source address a request claims without ever checking it, which lets the attacker aim large replies at the victim, the reading's DNS (about 50x) and NTP MONLIST (up to 4,000x) amplification examples. Over TCP the handshake would fail, because the spoofed victim never sent the SYN. The small 8-byte header is true but is not what makes spoofing work. UDP has no retransmission at all. The checksum only detects corruption in transit; it was never a check on who sent the packet.",
       },
     },
+    // ── Question 1 ────────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "proto-q1",
+      question:
+        "During a SYN scan of a server, port 23 answers with a RST, while port 3389 sends nothing back at all. What do these two responses suggest?",
+      options: [
+        "Port 23 is open and accepted the probe; port 3389 is closed",
+        "Port 23 is closed; port 3389 is probably filtered by a firewall",
+        "Both ports are open; the RST just tears down the scanner's half-open session",
+        "Port 23 is filtered; port 3389 is open but slow to answer",
+      ],
+      answer: 1,
+      explanation:
+        "In a SYN scan, a SYN-ACK means open, a RST means closed (the host is up but nothing listens on that port), and silence usually means a firewall dropped the probe: filtered. An open port answers with SYN-ACK, so the RST rules out 'open' for port 23. The RST that tears down a half-open session is sent by the scanner to the server, not back from it. Silence is not a slow open port: an open port replies with SYN-ACK.",
+      xp: 20,
+    },
     // ── Reading 5 ─────────────────────────────────────────────────────────────
     {
       type: "reading" as const,
@@ -692,6 +709,23 @@ const protocolsMasterclass = {
         "8443  HTTPS-alt   Dev servers, proxies -- check if expected\n" +
         "=======================================================",
     },
+    // ── Question 3 ────────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "proto-q3",
+      question:
+        "Port 445 is blocked on your perimeter firewall. An attacker has already gained access to a workstation inside the network. What risk does port 445 STILL pose INTERNALLY?",
+      options: [
+        "Minimal risk: the perimeter block makes SMB unreachable to anything inside the network as well",
+        "Internal SMB on port 445 enables lateral movement between workstations, spreading ransomware and enabling credential relay",
+        "Limited risk: port 445 carries file and printer sharing, which cannot be used to execute code or move laterally",
+        "The risk appears once the attacker opens port 445 on the perimeter firewall, since SMB abuse needs inbound internet access",
+      ],
+      answer: 1,
+      explanation:
+        "Blocking port 445 at the perimeter only prevents EXTERNAL attacks. Once an attacker is inside the network, internal port 445 (SMB) traffic is often unrestricted, enabling lateral movement between workstations, ransomware propagation, and NTLM relay attacks. WannaCry and NotPetya spread entirely over internal networks using SMB. Perimeter blocks did nothing to stop internal propagation. Network segmentation (blocking workstation-to-workstation SMB with firewall rules or host-based firewalls) is required to limit this risk.",
+      xp: 20,
+    },
     // ── Reading 10 ────────────────────────────────────────────────────────────
     {
       type: "reading" as const,
@@ -755,23 +789,6 @@ const protocolsMasterclass = {
         explanation: "Port 4444 is the default Meterpreter listener in Metasploit, and legitimate business software rarely uses it, so an outbound connection to it as a destination port is a strong lead. SMB is port 445, not 4444. RDP's standard port is 3389, and 4444 is not a recognised RDP alternative. 8080 is the common web-proxy port, and it shows up in plenty of legitimate traffic.",
       },
     },
-    // ── Question 1 ────────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "proto-q1",
-      question:
-        "During a SYN scan of a server, port 23 answers with a RST, while port 3389 sends nothing back at all. What do these two responses suggest?",
-      options: [
-        "Port 23 is open and accepted the probe; port 3389 is closed",
-        "Port 23 is closed; port 3389 is probably filtered by a firewall",
-        "Both ports are open; the RST just tears down the scanner's half-open session",
-        "Port 23 is filtered; port 3389 is open but slow to answer",
-      ],
-      answer: 1,
-      explanation:
-        "In a SYN scan, a SYN-ACK means open, a RST means closed (the host is up but nothing listens on that port), and silence usually means a firewall dropped the probe: filtered. An open port answers with SYN-ACK, so the RST rules out 'open' for port 23. The RST that tears down a half-open session is sent by the scanner to the server, not back from it. Silence is not a slow open port: an open port replies with SYN-ACK.",
-      xp: 20,
-    },
     // ── Question 2 ────────────────────────────────────────────────────────────
     {
       type: "question" as const,
@@ -788,23 +805,6 @@ const protocolsMasterclass = {
       explanation:
         "Long, random-looking subdomains sent at high frequency to a single domain is the classic signature of DNS tunneling. Legitimate CDN names can look random too, but they resolve successfully and sit under well-known parent domains. The base64-like appearance confirms data is being encoded into the subdomain labels. When the encoded labels carry stolen data out, ATT&CK files it as T1048.003 (Exfiltration Over Unencrypted Non-C2 Protocol); when DNS is the C2 channel itself, it is T1071.004 (Application Layer Protocol: DNS). The analyst should pull the full DNS query history for this host, decode sample subdomains to confirm exfiltrated content, isolate the workstation, and search for the same domain across all other hosts.",
       xp: 25,
-    },
-    // ── Question 3 ────────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "proto-q3",
-      question:
-        "Port 445 is blocked on your perimeter firewall. An attacker has already gained access to a workstation inside the network. What risk does port 445 STILL pose INTERNALLY?",
-      options: [
-        "Minimal risk: the perimeter block makes SMB unreachable to anything inside the network as well",
-        "Internal SMB on port 445 enables lateral movement between workstations, spreading ransomware and enabling credential relay",
-        "Limited risk: port 445 carries file and printer sharing, which cannot be used to execute code or move laterally",
-        "The risk appears once the attacker opens port 445 on the perimeter firewall, since SMB abuse needs inbound internet access",
-      ],
-      answer: 1,
-      explanation:
-        "Blocking port 445 at the perimeter only prevents EXTERNAL attacks. Once an attacker is inside the network, internal port 445 (SMB) traffic is often unrestricted, enabling lateral movement between workstations, ransomware propagation, and NTLM relay attacks. WannaCry and NotPetya spread entirely over internal networks using SMB. Perimeter blocks did nothing to stop internal propagation. Network segmentation (blocking workstation-to-workstation SMB with firewall rules or host-based firewalls) is required to limit this risk.",
-      xp: 20,
     },
     // ── Log Analysis ──────────────────────────────────────────────────────────
     {

@@ -10,7 +10,7 @@
  * Concept doc: docs/CONCEPT-gamified-learning-rooms.md
  */
 
-export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint" | "linux" | "pipeline" | "crypto" | "time" | "forensics" | "identity" | "malware" | "risk" | "patching" | "killchain" | "netsec" | "edr" | "mind" | "sensors" | "webapp" | "lures" | "macos" | "evtx" | "varlog" | "siem" | "ingest" | "email";
+export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint" | "linux" | "pipeline" | "crypto" | "time" | "forensics" | "identity" | "malware" | "risk" | "patching" | "killchain" | "netsec" | "edr" | "mind" | "sensors" | "webapp" | "lures" | "macos" | "evtx" | "varlog" | "siem" | "ingest" | "email" | "protocols";
 
 /**
  * The room's 3D world on its main screen. Decorative (never clickable): it shows
@@ -79,8 +79,10 @@ export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" |
  *             a parser gear splitting blobs into fields, a schema funnel, a SIEM vault
  *  - postmark: an envelope hopping relay towers, SPF/DKIM/DMARC seals at a gate
  *             with a DNS signpost, a hijacked thread, and a wire stopped by a shield
+ *  - protostack: a seven-layer glass stack, a TCP handshake and a UDP dart, a DNS
+ *             tree and TLS tunnel, an ARP spoof, and a beacon in an allowed pipe
  */
-export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver" | "cipherlab" | "chrono" | "dissect" | "idgate" | "specimen" | "riskcore" | "patchline" | "chainlinks" | "zonewall" | "blackbox" | "mindlab" | "sightlines" | "webpath" | "baitshop" | "orchard" | "evtxtape" | "varlog" | "radar" | "intake" | "postmark";
+export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver" | "cipherlab" | "chrono" | "dissect" | "idgate" | "specimen" | "riskcore" | "patchline" | "chainlinks" | "zonewall" | "blackbox" | "mindlab" | "sightlines" | "webpath" | "baitshop" | "orchard" | "evtxtape" | "varlog" | "radar" | "intake" | "postmark" | "protostack";
 
 /** cards: illustrated station cards above the scene. stage: the scene fills the
  *  screen, stations sit in a rail, the selected one in a bottom command bar.
