@@ -10,7 +10,7 @@
  * Concept doc: docs/CONCEPT-gamified-learning-rooms.md
  */
 
-export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint" | "linux" | "pipeline" | "crypto" | "time" | "forensics" | "identity" | "malware" | "risk";
+export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint" | "linux" | "pipeline" | "crypto" | "time" | "forensics" | "identity" | "malware" | "risk" | "patching";
 
 /**
  * The room's 3D world on its main screen. Decorative (never clickable): it shows
@@ -50,8 +50,11 @@ export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" |
  *             wall locking and shattering, and a rootkit under a glass OS floor
  *  - riskcore: threat/weakness/impact beams feeding a core, a CVSS gauge and KEV
  *             beacon, an attack-surface dome with one vector lance, a triage board
+ *  - patchline: a conveyor of findings through a CVE/CWE/CVSS press, a vector
+ *             rack, an EPSS tube and KEV siren, a glass server probed outside and
+ *             in, and patch/compensate/accept bins under a verify ring
  */
-export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver" | "cipherlab" | "chrono" | "dissect" | "idgate" | "specimen" | "riskcore";
+export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver" | "cipherlab" | "chrono" | "dissect" | "idgate" | "specimen" | "riskcore" | "patchline";
 
 /** cards: illustrated station cards above the scene. stage: the scene fills the
  *  screen, stations sit in a rail, the selected one in a bottom command bar.

@@ -26,10 +26,17 @@ if not cuts:
     # One-line headers: "// ----- Reading 1: ... -----"
     cuts = [i for i, l in enumerate(body) if re.fullmatch(r"\s*// -{3,} .+ -{3,}", l)]
 if not cuts:
-    # No comment headers: a block runs from an opening "{" line to the "}," line
-    # at the same indentation (the first task's indentation).
-    indent = next(l for l in body if l.strip())[: -len(next(l for l in body if l.strip()).lstrip())]
-    cuts = [i for i, l in enumerate(body) if l == indent + "{"]
+    # Otherwise a block starts at each opening "{" line at the tasks' indentation,
+    # pulling in any "//" comment lines (e.g. "// ── Reading 1 ──") right above it.
+    first = next(l for l in body if l.strip() and not l.strip().startswith("//"))
+    indent = first[: -len(first.lstrip())]
+    cuts = []
+    for i, l in enumerate(body):
+        if l == indent + "{":
+            j = i
+            while j > 0 and body[j - 1].strip().startswith("//"):
+                j -= 1
+            cuts.append(j)
 cuts.append(len(body))
 blocks = {}
 for a, b in zip(cuts, cuts[1:]):

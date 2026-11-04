@@ -5098,14 +5098,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "vm-r2",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "vm-q1",
         "type": "question",
         "xp": 25
+      },
+      {
+        "id": "vm-r2",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "vm-r3",
@@ -5128,9 +5128,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 90
       },
       {
-        "id": "vm-m1",
-        "type": "matching",
-        "xp": 40
+        "id": "vm-f1",
+        "type": "flag",
+        "xp": 25
       },
       {
         "id": "vm-r5",
@@ -5153,9 +5153,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 25
       },
       {
-        "id": "vm-f1",
-        "type": "flag",
-        "xp": 25
+        "id": "vm-m1",
+        "type": "matching",
+        "xp": 40
       }
     ]
   },

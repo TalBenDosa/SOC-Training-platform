@@ -156,6 +156,24 @@ const vulnerabilityManagementRoom = {
       },
     },
 
+    // ── Question 1 (applied — CVE/CWE/CVSS confusion) ────────────────────
+    {
+      type: "question" as const,
+      id: "vm-q1",
+      question:
+        "A scan report line reads: 'CVE-2024-21762, CWE-787 (Out-of-bounds Write), CVSS 9.8.' A junior analyst writes in the ticket: 'CWE-787 findings are always critical, so I'm closing every other CWE-787 result in the backlog as high priority too.' What is wrong with that reasoning?",
+      options: [
+        "Nothing: a CWE category carries a fixed severity, so every CWE-787 finding in the backlog should be treated as critical",
+        "CWE-787 only names a weakness class (writing past a buffer's bounds); two CWE-787 CVEs can score very differently on CVSS",
+        "CWE-787 is critical only when the CVE is also in KEV; otherwise the whole class should default to medium in the backlog",
+        "The severity is right, but the other CWE-787 rows should be deduplicated against the 9.8 CVE rather than ticketed separately",
+      ],
+      answer: 1,
+      explanation:
+        "CWE is a weakness category, not a severity rating. CWE-787 describes a pattern of coding mistake shared by many unrelated CVEs in many unrelated products, each of which gets its own independent CVSS score based on its own specific exploitability and impact. Assuming every CWE-787 finding is automatically critical would misprioritize a low-severity local-only out-of-bounds write the same as an unauthenticated remote one. The CVE-2024-21762 identifier format is a real, valid CVE number format (CVE-YYYY-NNNNN), and a high CVSS score says nothing about whether a patch exists yet. Those are two unrelated facts.",
+      xp: 25,
+    },
+
     // ── Reading 2: CVSS structure and bands ──────────────────────────────
     {
       type: "reading" as const,
@@ -194,24 +212,6 @@ const vulnerabilityManagementRoom = {
         "  CR/IR/AR  Security requirement for this asset\n" +
         "  Modified base metrics reflecting compensating controls\n" +
         "=======================================================",
-    },
-
-    // ── Question 1 (applied — CVE/CWE/CVSS confusion) ────────────────────
-    {
-      type: "question" as const,
-      id: "vm-q1",
-      question:
-        "A scan report line reads: 'CVE-2024-21762, CWE-787 (Out-of-bounds Write), CVSS 9.8.' A junior analyst writes in the ticket: 'CWE-787 findings are always critical, so I'm closing every other CWE-787 result in the backlog as high priority too.' What is wrong with that reasoning?",
-      options: [
-        "Nothing: a CWE category carries a fixed severity, so every CWE-787 finding in the backlog should be treated as critical",
-        "CWE-787 only names a weakness class (writing past a buffer's bounds); two CWE-787 CVEs can score very differently on CVSS",
-        "CWE-787 is critical only when the CVE is also in KEV; otherwise the whole class should default to medium in the backlog",
-        "The severity is right, but the other CWE-787 rows should be deduplicated against the 9.8 CVE rather than ticketed separately",
-      ],
-      answer: 1,
-      explanation:
-        "CWE is a weakness category, not a severity rating. CWE-787 describes a pattern of coding mistake shared by many unrelated CVEs in many unrelated products, each of which gets its own independent CVSS score based on its own specific exploitability and impact. Assuming every CWE-787 finding is automatically critical would misprioritize a low-severity local-only out-of-bounds write the same as an unauthenticated remote one. The CVE-2024-21762 identifier format is a real, valid CVE number format (CVE-YYYY-NNNNN), and a high CVSS score says nothing about whether a patch exists yet. Those are two unrelated facts.",
-      xp: 25,
     },
 
     // ── Reading 3: EPSS + CISA KEV, worked prioritization example ─────────
@@ -371,27 +371,20 @@ const vulnerabilityManagementRoom = {
       ],
     },
 
-    // ── Matching: terms ────────────────────────────────────────────────
+    // ── Flag ──────────────────────────────────────────────────────────────
     {
-      type: "matching" as const,
-      id: "vm-m1",
-      heading: "Match the Vulnerability Management Term to Its Definition",
-      instructions: "Match each term to what it actually measures or does.",
-      pairs: [
-        { id: "cve", left: "CVE", right: "Unique identifier for one specific, publicly disclosed vulnerability instance" },
-        { id: "cwe", left: "CWE", right: "Category describing the general TYPE of software weakness, shared across many unrelated CVEs" },
-        { id: "cvss", left: "CVSS", right: "Numeric 0.0-10.0 score describing how severe a specific CVE is, based on exploitability and impact" },
-        { id: "epss", left: "EPSS", right: "Daily-updated probability (0-100%) that a specific CVE will be exploited in the wild within 30 days" },
-        { id: "kev", left: "CISA KEV Catalog", right: "List of vulnerabilities with CONFIRMED evidence of active in-the-wild exploitation" },
-        { id: "authscan", left: "Authenticated scan", right: "Scanner logs into the host with valid credentials and inspects installed packages/patches directly" },
-        { id: "compcontrol", left: "Compensating control", right: "A mitigation (WAF rule, network segmentation) applied when a vulnerability can't be patched immediately" },
-        { id: "acceptrisk", left: "Accepted risk", right: "A formally documented, time-bound decision by a risk owner not to remediate a known vulnerability" },
-      ],
-      explanation:
-        "Notice how few of these terms actually measure severity: only CVSS does. CVE and CWE are identifiers/categories, EPSS and KEV measure likelihood and confirmation of exploitation rather than technical impact, and the scanning/remediation terms describe process, not score. Confusing what each term measures is exactly how a backlog gets prioritized in the wrong order.",
-      xp: 40,
+      type: "flag" as const,
+      id: "vm-f1",
+      // Pin the portal-web03 finding this flag reads. Unpinned, the room falls back to
+      // the nearest preceding log — vm-ac1's api-gw02 verdict event, whose
+      // tenable.epss_score is 0.02 — a decoy that doesn't match the answer (0.94).
+      event: vulnScanEvent,
+      prompt:
+        "Look at the Log Analysis finding on portal-web03. What is the exact value of the tenable.epss_score field in the raw log? Enter it exactly as shown (a decimal, not a percentage).",
+      answer: "0.94",
+      hint: "Look inside the raw block of the portal-web03 finding (the nightly authenticated scan, not the api-gw02 verdict scenario) for the field named tenable.epss_score.",
+      xp: 25,
     },
-
     // ── Reading 5: false positive confirmation, remediation options, boundary ──
     {
       type: "reading" as const,
@@ -493,20 +486,27 @@ const vulnerabilityManagementRoom = {
       xp: 25,
     },
 
-    // ── Flag ──────────────────────────────────────────────────────────────
+    // ── Matching: terms ────────────────────────────────────────────────
     {
-      type: "flag" as const,
-      id: "vm-f1",
-      // Pin the portal-web03 finding this flag reads. Unpinned, the room falls back to
-      // the nearest preceding log — vm-ac1's api-gw02 verdict event, whose
-      // tenable.epss_score is 0.02 — a decoy that doesn't match the answer (0.94).
-      event: vulnScanEvent,
-      prompt:
-        "Look at the Log Analysis finding on portal-web03. What is the exact value of the tenable.epss_score field in the raw log? Enter it exactly as shown (a decimal, not a percentage).",
-      answer: "0.94",
-      hint: "Look inside the raw block of the portal-web03 finding (the nightly authenticated scan, not the api-gw02 verdict scenario) for the field named tenable.epss_score.",
-      xp: 25,
+      type: "matching" as const,
+      id: "vm-m1",
+      heading: "Match the Vulnerability Management Term to Its Definition",
+      instructions: "Match each term to what it actually measures or does.",
+      pairs: [
+        { id: "cve", left: "CVE", right: "Unique identifier for one specific, publicly disclosed vulnerability instance" },
+        { id: "cwe", left: "CWE", right: "Category describing the general TYPE of software weakness, shared across many unrelated CVEs" },
+        { id: "cvss", left: "CVSS", right: "Numeric 0.0-10.0 score describing how severe a specific CVE is, based on exploitability and impact" },
+        { id: "epss", left: "EPSS", right: "Daily-updated probability (0-100%) that a specific CVE will be exploited in the wild within 30 days" },
+        { id: "kev", left: "CISA KEV Catalog", right: "List of vulnerabilities with CONFIRMED evidence of active in-the-wild exploitation" },
+        { id: "authscan", left: "Authenticated scan", right: "Scanner logs into the host with valid credentials and inspects installed packages/patches directly" },
+        { id: "compcontrol", left: "Compensating control", right: "A mitigation (WAF rule, network segmentation) applied when a vulnerability can't be patched immediately" },
+        { id: "acceptrisk", left: "Accepted risk", right: "A formally documented, time-bound decision by a risk owner not to remediate a known vulnerability" },
+      ],
+      explanation:
+        "Notice how few of these terms actually measure severity: only CVSS does. CVE and CWE are identifiers/categories, EPSS and KEV measure likelihood and confirmation of exploitation rather than technical impact, and the scanning/remediation terms describe process, not score. Confusing what each term measures is exactly how a backlog gets prioritized in the wrong order.",
+      xp: 40,
     },
+
   ],
 };
 
