@@ -27,6 +27,14 @@ export const SIEM_FUNDAMENTALS: RoomExperience = {
   look: { primary: "#22d3ee", secondary: "#fbbf24", warn: "#f43f5e" },
   scene: "radar",
   layout: "stage",
+  story: {
+    intro: { title: "1.2 Billion Events", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-intro-f9eaacae.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-intro-5b57ac89.jpg" },
+    afterStation: {
+      tower: { title: "Low and Slow", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-ch2-e03509ae.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-ch2-d0ceb765.jpg" },
+      outcomes: { title: "Severity Is a Guess", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-ch3-7a0d7cc6.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-ch3-02eb368a.jpg" },
+      query: { title: "Ask It Yourself", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-finale-bb99d847.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-finale-ebbae894.jpg" },
+    },
+  },
   stations: [
     {
       id: "tower",

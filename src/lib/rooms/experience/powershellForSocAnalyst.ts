@@ -15,11 +15,11 @@ export const POWERSHELL_FOR_SOC_ANALYST: RoomExperience = {
   roomId: "powershell-for-soc-analyst",
   codename: "Operation Same Shell",
   theme: "powershell",
-  handler: { name: "Tomás Reyes", role: "Senior SOC Analyst, Corrin Foods" },
+  handler: { name: "Tomás Ibarra", role: "Senior SOC Analyst, Corrin Foods" },
   briefing: [
     "Corrin Foods. Four bakeries, two cold-storage depots, and 900 Windows machines that keep the ovens and the trucks on schedule.",
     "Every week the SOC sees PowerShell used against it: encoded commands, hidden windows, downloads from nowhere.",
-    "Tomás Reyes runs the second tier. He investigates with the very same shell, and he wants you to as well.",
+    "Tomás Ibarra runs the second tier. He investigates with the very same shell, and he wants you to as well.",
     "Learn to tell the analyst from the attacker, chain cmdlets into evidence, pivot from a PID to a binary, and hunt a task nobody recognises.",
   ],
   mission: "Separate analyst PowerShell from attacker PowerShell by context, build an investigative pipeline step by step, run the core cmdlets on a live host, pivot an EDR PID into a path, a command line and a hash, and read a scheduled-task sweep for the one that doesn't belong.",
@@ -71,10 +71,10 @@ export const POWERSHELL_FOR_SOC_ANALYST: RoomExperience = {
     },
   ],
   personas: {
-    "ps-soc-q1": { name: "Tomás Reyes", role: "Senior SOC Analyst", line: "svchost shows CPU 5400 on a 30-day server. Is it pegged right now?" },
-    "ps-soc-q2": { name: "Tomás Reyes", role: "Senior SOC Analyst", line: "The contractor left. Do they still have local admin on that box?" },
-    "ps-soc-q3": { name: "Tomás Reyes", role: "Senior SOC Analyst", line: "Port 4444 outbound and no process name. Which cmdlet do you reach for?" },
-    "ps-soc-la1": { name: "Tomás Reyes", role: "Senior SOC Analyst", line: "A task on a finance box that IT has never heard of. Read the 4698 with me." },
+    "ps-soc-q1": { name: "Tomás Ibarra", role: "Senior SOC Analyst", line: "svchost shows CPU 5400 on a 30-day server. Is it pegged right now?" },
+    "ps-soc-q2": { name: "Tomás Ibarra", role: "Senior SOC Analyst", line: "The contractor left. Do they still have local admin on that box?" },
+    "ps-soc-q3": { name: "Tomás Ibarra", role: "Senior SOC Analyst", line: "Port 4444 outbound and no process name. Which cmdlet do you reach for?" },
+    "ps-soc-la1": { name: "Tomás Ibarra", role: "Senior SOC Analyst", line: "A task on a finance box that IT has never heard of. Read the 4698 with me." },
   },
   briefings: {
     // ── Reading 1: same binary, different context ──

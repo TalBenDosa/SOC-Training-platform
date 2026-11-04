@@ -27,6 +27,14 @@ export const LINUX_LOG_ANALYSIS: RoomExperience = {
   look: { primary: "#fb923c", secondary: "#a3e635", warn: "#f43f5e" },
   scene: "varlog",
   layout: "stage",
+  story: {
+    intro: { title: "No Single Diary", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-intro-667afdee.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-intro-52be3244.jpg" },
+    afterStation: {
+      drawers: { title: "Ask the Journal", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch2-560b32b0.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch2-9b099fa3.jpg" },
+      journal: { title: "The Key Under the Mat", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch3-583e3c05.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch3-ffed557d.jpg" },
+      indicators: { title: "@reboot", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-finale-ca35b787.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-finale-3ab63ebd.jpg" },
+    },
+  },
   stations: [
     {
       id: "drawers",

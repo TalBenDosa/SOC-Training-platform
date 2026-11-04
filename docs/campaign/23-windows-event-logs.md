@@ -39,5 +39,5 @@ r1, q2 | r2, q1, q4 | q3 | r3, la1, flag1
 |---|---|---|
 | Intro: "Ten Hours of Memory" | כניסה | תחנה 1 |
 | Chapter 2: "Type 9" | אחרי The Black Box | תחנה 2 |
-| Chapter 3: "A Web Server Opens a Shell" | אחרי Who Logged On | תחנה 3 |
+| Chapter 3: "A Web Server Opens a Shell" | אחרי Who Logged On, and How | תחנה 3 |
 | Finale: "From Spray to the Next Host" | אחרי הבוס | החדר הבא: Linux Log Analysis |
