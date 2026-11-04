@@ -685,6 +685,24 @@ End-to-end, a log's journey looks like this:
       },
     },
 
+    // ── Question 3 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "log-src-q3",
+      question:
+        "A Windows endpoint that normally ships Security events to your Elastic SIEM via Winlogbeat has sent nothing for 12 hours, yet the host is online and users are working on it. What is the best first step to diagnose the silent source?",
+      options: [
+        "Assume the host is just quiet and take no action until a user reports a problem, since an ingestion gap under a day is well within normal variation",
+        "Confirm the Winlogbeat service is running on the host and can reach the SIEM, since a stopped agent or blocked outbound port is the usual cause of a silent source",
+        "Re-point the host to Filebeat, since Filebeat reads the Security event channel more reliably than Winlogbeat does over long collection periods",
+        "Rebuild the SIEM index for that host, since a corrupt destination index is the most common reason a single source stops sending events",
+      ],
+      answer: 1,
+      explanation:
+        "A source that was reliably sending and then went silent while the host stays online points first to the collection path on the endpoint: check that the Winlogbeat service is up and its outbound connection to the SIEM is not blocked. Treating a 12-hour gap on a monitored host as normal is exactly the complacency that lets a disabled agent hide an attack, so taking no action is wrong. Filebeat reads files on disk, not the Windows Event Log channels, so it is not a more reliable replacement for this source. A corrupt destination index would affect ingestion broadly and is diagnosed at the SIEM, not the likeliest cause of one host going quiet, so rebuilding the index is the wrong first move.",
+      xp: 30,
+    },
+
     // ── Reading 3: Parsing, Normalization & Integration ────────────────────
     {
       type: "reading" as const,
@@ -788,24 +806,23 @@ If the test event appears: integration is working. If not: check the agent statu
       xp: 30,
     },
 
-    // ── Question 3 ────────────────────────────────────────────────────────
+    // ── Question 4 ────────────────────────────────────────────────────────
     {
       type: "question" as const,
-      id: "log-src-q3",
+      id: "log-src-q4",
       question:
-        "A Windows endpoint that normally ships Security events to your Elastic SIEM via Winlogbeat has sent nothing for 12 hours, yet the host is online and users are working on it. What is the best first step to diagnose the silent source?",
+        "Your SIEM receives Syslog events from a Linux server in Tokyo. The log timestamps show '14:30:00' but the analyst in London (UTC) needs accurate timeline analysis. What is the best practice for handling timestamps in log ingestion?",
       options: [
-        "Assume the host is just quiet and take no action until a user reports a problem, since an ingestion gap under a day is well within normal variation",
-        "Confirm the Winlogbeat service is running on the host and can reach the SIEM, since a stopped agent or blocked outbound port is the usual cause of a silent source",
-        "Re-point the host to Filebeat, since Filebeat reads the Security event channel more reliably than Winlogbeat does over long collection periods",
-        "Rebuild the SIEM index for that host, since a corrupt destination index is the most common reason a single source stops sending events",
+        "Leave timestamps as logged: analysts add the offset when comparing sources",
+        "Replace the log's own timestamp with the time the SIEM received it",
+        "Normalize to UTC at ingestion and keep the original timezone in a separate field",
+        "Convert to the SOC's local time at ingestion and discard the original value",
       ],
-      answer: 1,
+      answer: 2,
       explanation:
-        "A source that was reliably sending and then went silent while the host stays online points first to the collection path on the endpoint: check that the Winlogbeat service is up and its outbound connection to the SIEM is not blocked. Treating a 12-hour gap on a monitored host as normal is exactly the complacency that lets a disabled agent hide an attack, so taking no action is wrong. Filebeat reads files on disk, not the Windows Event Log channels, so it is not a more reliable replacement for this source. A corrupt destination index would affect ingestion broadly and is diagnosed at the SIEM, not the likeliest cause of one host going quiet, so rebuilding the index is the wrong first move.",
+        "Normalizing all timestamps to UTC at ingestion is the industry best practice. Security analysis, especially for correlation across sources, requires a single consistent time reference. If server A in Tokyo is UTC+9 and server B in London is UTC+0, events need to be on the same timeline to detect that A's suspicious login happened 5 minutes before B's privilege escalation. Deleting timestamps loses forensic data. Manual adjustment is error-prone. Many SIEMs store the original timestamp in a raw field while normalizing the indexed timestamp to UTC.",
       xp: 30,
     },
-
     // ── Log Analysis: CEF Firewall Log ─────────────────────────────────────
     {
       type: "log_analysis" as const,
@@ -881,23 +898,6 @@ If the test event appears: integration is working. If not: check the agent statu
       xp: 50,
     },
 
-    // ── Question 4 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "log-src-q4",
-      question:
-        "Your SIEM receives Syslog events from a Linux server in Tokyo. The log timestamps show '14:30:00' but the analyst in London (UTC) needs accurate timeline analysis. What is the best practice for handling timestamps in log ingestion?",
-      options: [
-        "Leave timestamps as logged: analysts add the offset when comparing sources",
-        "Replace the log's own timestamp with the time the SIEM received it",
-        "Normalize to UTC at ingestion and keep the original timezone in a separate field",
-        "Convert to the SOC's local time at ingestion and discard the original value",
-      ],
-      answer: 2,
-      explanation:
-        "Normalizing all timestamps to UTC at ingestion is the industry best practice. Security analysis, especially for correlation across sources, requires a single consistent time reference. If server A in Tokyo is UTC+9 and server B in London is UTC+0, events need to be on the same timeline to detect that A's suspicious login happened 5 minutes before B's privilege escalation. Deleting timestamps loses forensic data. Manual adjustment is error-prone. Many SIEMs store the original timestamp in a raw field while normalizing the indexed timestamp to UTC.",
-      xp: 30,
-    },
   ],
 };
 

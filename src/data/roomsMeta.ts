@@ -1133,6 +1133,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "log-src-q3",
+        "type": "question",
+        "xp": 30
+      },
+      {
         "id": "log-src-r3",
         "type": "reading",
         "xp": 0
@@ -1148,7 +1153,7 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 30
       },
       {
-        "id": "log-src-q3",
+        "id": "log-src-q4",
         "type": "question",
         "xp": 30
       },
@@ -1161,11 +1166,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "log-src-flag1",
         "type": "flag",
         "xp": 50
-      },
-      {
-        "id": "log-src-q4",
-        "type": "question",
-        "xp": 30
       }
     ]
   },

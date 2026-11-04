@@ -57,6 +57,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   evtxtape: dynamic(() => import("./scenes/EvtxTapeScene"), { ssr: false }),
   varlog: dynamic(() => import("./scenes/VarLogScene"), { ssr: false }),
   radar: dynamic(() => import("./scenes/RadarScene"), { ssr: false }),
+  intake: dynamic(() => import("./scenes/IntakeScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;
