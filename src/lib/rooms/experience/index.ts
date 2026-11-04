@@ -31,6 +31,7 @@ import { PROTOCOLS_MASTERCLASS } from "./protocolsMasterclass";
 import { DLP_FUNDAMENTALS } from "./dlpFundamentals";
 import { PERSISTENCE_MECHANISMS } from "./persistenceMechanisms";
 import { POWERSHELL_FOR_SOC_ANALYST } from "./powershellForSocAnalyst";
+import { WINDOWS_PRIVILEGE_ESCALATION } from "./windowsPrivilegeEscalation";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -68,6 +69,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [DLP_FUNDAMENTALS.roomId]: DLP_FUNDAMENTALS,
   [PERSISTENCE_MECHANISMS.roomId]: PERSISTENCE_MECHANISMS,
   [POWERSHELL_FOR_SOC_ANALYST.roomId]: POWERSHELL_FOR_SOC_ANALYST,
+  [WINDOWS_PRIVILEGE_ESCALATION.roomId]: WINDOWS_PRIVILEGE_ESCALATION,
 };
 
 /**

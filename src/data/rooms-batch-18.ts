@@ -843,6 +843,15 @@ const privescRoom: Room = {
       ],
     },
     {
+      type: "flag",
+      id: "privesc-f1",
+      prompt:
+        "In the fodhelper bypass on WKS-OPS14, one artefact is written BEFORE fodhelper.exe is ever launched. Which Sysmon Event ID records that artefact? Enter the number only.",
+      answer: "13",
+      hint: "Work out which step of the bypass has to be in place before the auto-elevate binary starts, then recall which Sysmon event type records that kind of change.",
+      xp: 25,
+    },
+    {
       type: "reading",
       id: "privesc-r4",
       heading: "Token Manipulation, SeImpersonatePrivilege, and the Potato Family",
@@ -1005,15 +1014,6 @@ const privescRoom: Room = {
       explanation:
         "The order matters because the registry write has to happen before fodhelper.exe is launched: the hijack has to already be in place for fodhelper's internal handler lookup to find it. The precondition (already-Medium, already-admin) has to be true from the start, since this technique elevates an existing admin session, not a standard user account.",
       xp: 35,
-    },
-    {
-      type: "flag",
-      id: "privesc-f1",
-      prompt:
-        "In the fodhelper bypass on WKS-OPS14, one artefact is written BEFORE fodhelper.exe is ever launched. Which Sysmon Event ID records that artefact? Enter the number only.",
-      answer: "13",
-      hint: "Work out which step of the bypass has to be in place before the auto-elevate binary starts, then recall which Sysmon event type records that kind of change.",
-      xp: 25,
     },
     {
       type: "query_fill",

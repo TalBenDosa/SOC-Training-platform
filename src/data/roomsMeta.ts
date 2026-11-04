@@ -4948,6 +4948,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 80
       },
       {
+        "id": "privesc-f1",
+        "type": "flag",
+        "xp": 25
+      },
+      {
         "id": "privesc-r4",
         "type": "reading",
         "xp": 0
@@ -4981,11 +4986,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "privesc-o1",
         "type": "ordering",
         "xp": 35
-      },
-      {
-        "id": "privesc-f1",
-        "type": "flag",
-        "xp": 25
       },
       {
         "id": "privesc-qf1",
