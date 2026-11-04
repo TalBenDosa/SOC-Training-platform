@@ -65,6 +65,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   objectpipe: dynamic(() => import("./scenes/ObjectPipeScene"), { ssr: false }),
   integrityladder: dynamic(() => import("./scenes/IntegrityLadderScene"), { ssr: false }),
   matrixwall: dynamic(() => import("./scenes/MatrixWallScene"), { ssr: false }),
+  domaintree: dynamic(() => import("./scenes/DomainTreeScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;

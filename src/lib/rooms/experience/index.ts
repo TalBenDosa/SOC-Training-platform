@@ -33,6 +33,7 @@ import { PERSISTENCE_MECHANISMS } from "./persistenceMechanisms";
 import { POWERSHELL_FOR_SOC_ANALYST } from "./powershellForSocAnalyst";
 import { WINDOWS_PRIVILEGE_ESCALATION } from "./windowsPrivilegeEscalation";
 import { MITRE_ATTACK } from "./mitreAttack";
+import { ACTIVE_DIRECTORY } from "./activeDirectory";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -72,6 +73,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [POWERSHELL_FOR_SOC_ANALYST.roomId]: POWERSHELL_FOR_SOC_ANALYST,
   [WINDOWS_PRIVILEGE_ESCALATION.roomId]: WINDOWS_PRIVILEGE_ESCALATION,
   [MITRE_ATTACK.roomId]: MITRE_ATTACK,
+  [ACTIVE_DIRECTORY.roomId]: ACTIVE_DIRECTORY,
 };
 
 /**

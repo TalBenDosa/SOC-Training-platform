@@ -526,24 +526,29 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "ad-r2",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "ad-r3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "ad-q1",
         "type": "question",
         "xp": 20
       },
       {
+        "id": "ad-q4",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "ad-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
         "id": "ad-q2",
         "type": "question",
         "xp": 25
+      },
+      {
+        "id": "ad-r3",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "ad-q3",
@@ -557,19 +562,14 @@ export const ROOMS_META: RoomMeta[] = [
         "mitreTechnique": "T1558.003"
       },
       {
-        "id": "ad-q4",
-        "type": "question",
-        "xp": 20
+        "id": "ad-flag1",
+        "type": "flag",
+        "xp": 40
       },
       {
         "id": "ad-q5",
         "type": "question",
         "xp": 30
-      },
-      {
-        "id": "ad-flag1",
-        "type": "flag",
-        "xp": 40
       },
       {
         "id": "ad-q6",
@@ -582,14 +582,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "ad-r5",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "ad-q7",
         "type": "question",
         "xp": 30
+      },
+      {
+        "id": "ad-r5",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "ad-la2",
