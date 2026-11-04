@@ -35,6 +35,7 @@ import { WINDOWS_PRIVILEGE_ESCALATION } from "./windowsPrivilegeEscalation";
 import { MITRE_ATTACK } from "./mitreAttack";
 import { ACTIVE_DIRECTORY } from "./activeDirectory";
 import { WAZUH_FUNDAMENTALS } from "./wazuhFundamentals";
+import { SENTINEL_FUNDAMENTALS } from "./sentinelFundamentals";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -76,6 +77,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [MITRE_ATTACK.roomId]: MITRE_ATTACK,
   [ACTIVE_DIRECTORY.roomId]: ACTIVE_DIRECTORY,
   [WAZUH_FUNDAMENTALS.roomId]: WAZUH_FUNDAMENTALS,
+  [SENTINEL_FUNDAMENTALS.roomId]: SENTINEL_FUNDAMENTALS,
 };
 
 /**
