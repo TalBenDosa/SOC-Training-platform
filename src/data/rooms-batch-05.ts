@@ -111,6 +111,24 @@ The professional workflow for creating a new detection rule:
       },
     },
 
+    // ── Question 2 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "det-rules-q2",
+      question:
+        "A SOC detection rule fires when, in the Windows authentication logs, the same source IP produces 5 failed logins (event A) and is then followed by a successful login (event B) within 30 minutes. Which detection logic type does this represent?",
+      options: [
+        "Threshold detection",
+        "Anomaly detection",
+        "Sequence detection",
+        "Correlation detection",
+      ],
+      answer: 2,
+      explanation:
+        "This is sequence detection (also called chained detection). It requires event A (failed logins) to be followed by event B (a successful login) within a time window, and the ORDER matters. Failed logins alone, or a success alone, are not an alert, but success after failures is a strong sign of a guessed password. It is not plain threshold detection (a count alone, with no ordered second event), not anomaly detection (no learned baseline is involved), and not correlation detection, which links events from several DIFFERENT data sources (for example an email gateway log plus an EDR log plus an AD log). Here everything comes from one authentication log.",
+      xp: 30,
+    },
+
     // ── Reading 2: Sigma Rules ─────────────────────────────────────────────
     {
       type: "reading" as const,
@@ -214,6 +232,24 @@ This means you can download hundreds of community Sigma rules and deploy them to
         answer: 1,
         explanation: "Sigma rules are written once in YAML format, then converters translate them into vendor-specific query languages like Splunk SPL or Microsoft Sentinel KQL.",
       },
+    },
+
+    // ── Question 3 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "det-rules-q3",
+      question:
+        "What is the main advantage of writing detection rules in Sigma format instead of directly in your SIEM's native query language?",
+      options: [
+        "Sigma rules execute faster than native queries on large datasets",
+        "Sigma rules ship with built-in threat intelligence feeds for enrichment",
+        "Sigma rules are vendor-neutral and convert to any SIEM's query language",
+        "Sigma rules embed a response playbook that auto-contains matching hosts",
+      ],
+      answer: 2,
+      explanation:
+        "Sigma's key benefit is vendor neutrality. A rule written in Sigma YAML can be converted to Splunk SPL, Microsoft Sentinel KQL, Elastic EQL, IBM QRadar AQL, and many other formats using conversion tools. This means you can share detection logic across teams with different SIEMs, use community rules from SigmaHQ without rewriting them, and migrate SIEM platforms without losing your detection library.",
+      xp: 30,
     },
 
     // ── Reading 3: Tuning Methodology ─────────────────────────────────────
@@ -328,42 +364,6 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
       answer: 1,
       explanation:
         "A password spray is one password tried against MANY accounts from the same source, so the rule should count distinct accounts per source IP. A single user mistyping their password on Monday morning is not spraying, requiring many distinct accounts removes that noise while still catching the real attack, and a narrow exception for known-good egress IPs handles shared-NAT office traffic. Suppressing the rule on Monday mornings blinds the SOC exactly when a Monday-morning spray would land, so that option trades noise for a coverage gap. Excluding every account that has already triggered the alert removes precisely the victims an attacker is targeting, so repeat attempts against them would go unseen. Lowering the per-account threshold from 10 to 5 makes the rule fire on even more forgetful users, increasing noise rather than reducing it.",
-      xp: 30,
-    },
-
-    // ── Question 2 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "det-rules-q2",
-      question:
-        "A SOC detection rule fires when, in the Windows authentication logs, the same source IP produces 5 failed logins (event A) and is then followed by a successful login (event B) within 30 minutes. Which detection logic type does this represent?",
-      options: [
-        "Threshold detection",
-        "Anomaly detection",
-        "Sequence detection",
-        "Correlation detection",
-      ],
-      answer: 2,
-      explanation:
-        "This is sequence detection (also called chained detection). It requires event A (failed logins) to be followed by event B (a successful login) within a time window, and the ORDER matters. Failed logins alone, or a success alone, are not an alert, but success after failures is a strong sign of a guessed password. It is not plain threshold detection (a count alone, with no ordered second event), not anomaly detection (no learned baseline is involved), and not correlation detection, which links events from several DIFFERENT data sources (for example an email gateway log plus an EDR log plus an AD log). Here everything comes from one authentication log.",
-      xp: 30,
-    },
-
-    // ── Question 3 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "det-rules-q3",
-      question:
-        "What is the main advantage of writing detection rules in Sigma format instead of directly in your SIEM's native query language?",
-      options: [
-        "Sigma rules execute faster than native queries on large datasets",
-        "Sigma rules ship with built-in threat intelligence feeds for enrichment",
-        "Sigma rules are vendor-neutral and convert to any SIEM's query language",
-        "Sigma rules embed a response playbook that auto-contains matching hosts",
-      ],
-      answer: 2,
-      explanation:
-        "Sigma's key benefit is vendor neutrality. A rule written in Sigma YAML can be converted to Splunk SPL, Microsoft Sentinel KQL, Elastic EQL, IBM QRadar AQL, and many other formats using conversion tools. This means you can share detection logic across teams with different SIEMs, use community rules from SigmaHQ without rewriting them, and migrate SIEM platforms without losing your detection library.",
       xp: 30,
     },
 

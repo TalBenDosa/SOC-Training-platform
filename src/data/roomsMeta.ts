@@ -1062,9 +1062,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "det-rules-q2",
+        "type": "question",
+        "xp": 30
+      },
+      {
         "id": "det-rules-r2",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "det-rules-q3",
+        "type": "question",
+        "xp": 30
       },
       {
         "id": "det-rules-r3",
@@ -1073,16 +1083,6 @@ export const ROOMS_META: RoomMeta[] = [
       },
       {
         "id": "det-rules-q1",
-        "type": "question",
-        "xp": 30
-      },
-      {
-        "id": "det-rules-q2",
-        "type": "question",
-        "xp": 30
-      },
-      {
-        "id": "det-rules-q3",
         "type": "question",
         "xp": 30
       },

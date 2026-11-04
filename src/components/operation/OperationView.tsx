@@ -68,6 +68,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   domaintree: dynamic(() => import("./scenes/DomainTreeScene"), { ssr: false }),
   wazuhflow: dynamic(() => import("./scenes/WazuhFlowScene"), { ssr: false }),
   skyquery: dynamic(() => import("./scenes/SkyQueryScene"), { ssr: false }),
+  noisefilter: dynamic(() => import("./scenes/NoiseFilterScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;
