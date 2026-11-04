@@ -306,7 +306,7 @@ const HOW_TO: Record<BriefingLab["kind"], string[]> = {
   tricks: ["Tap a face-down card to flip it and read the trick.", "Tap the stamp with the attack that works the same way.", "Stamp every card to finish."],
   anatomy: ["Tap each field with a scan mark.", "Read what that field tells an analyst.", "Decode every marked field to read the alert's story."],
   evidence: ["Study the screen.", "Tap what you think it shows.", "Read the numbered clues on the screen, then go to the next one."],
-  terminal: ["Read the objective on the right.", "Type a command in the console and press Enter (help lists them).", "Answer the objective from the output."],
+  terminal: ["Read the objective under the console.", "Type a command in the console and press Enter (help lists them).", "Answer the objective from the output."],
   trace: ["Read what this step asks.", "Filter the log by a value from the case board.", "Click the row that answers it, then open the next log."],
   queue: ["Click an alert in the queue.", "Read its fields and the context.", "Choose the action an analyst would take; clear the whole queue."],
   pcap: ["Read the objective.", "Type a display filter and press Apply (dns, http, ftp, ip.addr==...).", "Click a packet and read its layers and payload to answer."],

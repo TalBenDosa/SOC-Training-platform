@@ -8,6 +8,7 @@ import { WINDOWS_FUNDAMENTALS } from "./windowsFundamentals";
 import { LINUX_FUNDAMENTALS } from "./linuxFundamentals";
 import { LOG_MANAGEMENT } from "./logManagement";
 import { ENCODING_ENCRYPTION_HASHING } from "./encodingEncryptionHashing";
+import { TIMESTAMPS_AND_TIMELINES } from "./timestampsAndTimelines";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -22,6 +23,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [LINUX_FUNDAMENTALS.roomId]: LINUX_FUNDAMENTALS,
   [LOG_MANAGEMENT.roomId]: LOG_MANAGEMENT,
   [ENCODING_ENCRYPTION_HASHING.roomId]: ENCODING_ENCRYPTION_HASHING,
+  [TIMESTAMPS_AND_TIMELINES.roomId]: TIMESTAMPS_AND_TIMELINES,
 };
 
 /**

@@ -40,6 +40,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   fstree: dynamic(() => import("./scenes/FsTreeScene"), { ssr: false }),
   logriver: dynamic(() => import("./scenes/LogRiverScene"), { ssr: false }),
   cipherlab: dynamic(() => import("./scenes/CipherLabScene"), { ssr: false }),
+  chrono: dynamic(() => import("./scenes/ChronoScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;
