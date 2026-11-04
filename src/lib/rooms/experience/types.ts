@@ -10,7 +10,7 @@
  * Concept doc: docs/CONCEPT-gamified-learning-rooms.md
  */
 
-export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint" | "linux" | "pipeline" | "crypto" | "time" | "forensics" | "identity" | "malware" | "risk" | "patching" | "killchain" | "netsec" | "edr" | "mind" | "sensors" | "webapp" | "lures" | "macos" | "evtx";
+export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint" | "linux" | "pipeline" | "crypto" | "time" | "forensics" | "identity" | "malware" | "risk" | "patching" | "killchain" | "netsec" | "edr" | "mind" | "sensors" | "webapp" | "lures" | "macos" | "evtx" | "varlog";
 
 /**
  * The room's 3D world on its main screen. Decorative (never clickable): it shows
@@ -71,8 +71,10 @@ export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" |
  *             seals, a fake dialog and leaking Keychain, TCC toggles, a launchd tree
  *  - evtxtape: a recorder spooling event-ID tape that wraps, a logon-type dial,
  *             a w3wp.exe pillar growing cmd.exe, and a password-spray fan
+ *  - varlog:  a /var/log cabinet, a journal crystal with query beams, an SSH door
+ *             with knocks and a planted key, and a cron clock beside a gapped ribbon
  */
-export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver" | "cipherlab" | "chrono" | "dissect" | "idgate" | "specimen" | "riskcore" | "patchline" | "chainlinks" | "zonewall" | "blackbox" | "mindlab" | "sightlines" | "webpath" | "baitshop" | "orchard" | "evtxtape";
+export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver" | "cipherlab" | "chrono" | "dissect" | "idgate" | "specimen" | "riskcore" | "patchline" | "chainlinks" | "zonewall" | "blackbox" | "mindlab" | "sightlines" | "webpath" | "baitshop" | "orchard" | "evtxtape" | "varlog";
 
 /** cards: illustrated station cards above the scene. stage: the scene fills the
  *  screen, stations sit in a rail, the selected one in a bottom command bar.

@@ -748,19 +748,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "linux-logs-r2",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "linux-logs-r3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "linux-logs-q1",
         "type": "question",
         "xp": 30
+      },
+      {
+        "id": "linux-logs-q2",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "linux-logs-r2",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "linux-logs-la1",
@@ -774,9 +774,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
-        "id": "linux-logs-q2",
-        "type": "question",
-        "xp": 25
+        "id": "linux-logs-r3",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "linux-logs-q3",
