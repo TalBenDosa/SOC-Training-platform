@@ -62,6 +62,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   protostack: dynamic(() => import("./scenes/ProtoStackScene"), { ssr: false }),
   sealedbrief: dynamic(() => import("./scenes/SealedBriefScene"), { ssr: false }),
   sparekey: dynamic(() => import("./scenes/SpareKeyScene"), { ssr: false }),
+  objectpipe: dynamic(() => import("./scenes/ObjectPipeScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;
