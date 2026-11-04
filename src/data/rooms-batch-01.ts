@@ -1015,6 +1015,46 @@ The final stage is when the attacker does what they came to do. Goals vary by at
     },
 
     // ------------------------------------------------------------------
+    // Question 1
+    // ------------------------------------------------------------------
+    {
+      type: "question" as const,
+      id: "ckc-q1",
+      question:
+        "An attacker sends a fake invoice email to an accountant. The email contains a Word document with malicious macros. When the accountant opens the document and enables macros, the malware executes. Which Kill Chain stage does the attacker move into when the accountant enables the macros?",
+      options: [
+        "Stage 2, Weaponization: the document becomes a weapon once macros are switched on",
+        "Stage 3, Delivery: the attack is delivered when the user opens the attachment",
+        "Stage 4, Exploitation: the attacker's code first runs on the victim's machine",
+        "Stage 5, Installation: enabling macros is what installs the malware on the system",
+      ],
+      answer: 2,
+      explanation:
+        "Exploitation is the moment the attacker's code first runs on the victim's system: enabling macros lets the macro execute. Weaponization happened earlier, when the attacker built the macro document, enabling macros does not build anything. Delivery ended when the email reached the inbox; opening it is the victim triggering the weapon, not more delivery. Installation comes next: once the macro has run, the malware sets up persistence such as a scheduled task or run key.",
+      xp: 20,
+    },
+
+    // ------------------------------------------------------------------
+    // Question 3 — Scenario Based
+    // ------------------------------------------------------------------
+    {
+      type: "question" as const,
+      id: "ckc-q3",
+      question:
+        "During a forensic investigation, analysts find that an attacker created a new Windows Scheduled Task called 'WindowsUpdateHelper' that runs a malicious script every time the system starts. The script connects back to an external server. Which Kill Chain stage does this creation of a Scheduled Task represent?",
+      options: [
+        "Stage 2: Weaponization (creating the malicious tool)",
+        "Stage 4: Exploitation (triggering the initial attack)",
+        "Stage 5: Installation (establishing persistence on the system)",
+        "Stage 6: Command and Control (communicating with the attacker's server)",
+      ],
+      answer: 2,
+      explanation:
+        "Creating a Scheduled Task designed to run automatically on system startup is a classic persistence technique. This is Stage 5 (Installation). The attacker is ensuring their malware survives reboots and maintains access even if the user changes their password. The naming ('WindowsUpdateHelper') is deliberate camouflage, making the task look like a legitimate Windows component. Note that the script also connects to an external server, which is Stage 6 (C2), but the *scheduled task creation itself* is the Installation/persistence action.",
+      xp: 25,
+    },
+
+    // ------------------------------------------------------------------
     // Reading 3 — Breaking the Chain
     // ------------------------------------------------------------------
     {
@@ -1056,26 +1096,6 @@ The Kill Chain is not the only way to model attacker behaviour. Two other import
     },
 
     // ------------------------------------------------------------------
-    // Question 1
-    // ------------------------------------------------------------------
-    {
-      type: "question" as const,
-      id: "ckc-q1",
-      question:
-        "An attacker sends a fake invoice email to an accountant. The email contains a Word document with malicious macros. When the accountant opens the document and enables macros, the malware executes. Which Kill Chain stage does the attacker move into when the accountant enables the macros?",
-      options: [
-        "Stage 2, Weaponization: the document becomes a weapon once macros are switched on",
-        "Stage 3, Delivery: the attack is delivered when the user opens the attachment",
-        "Stage 4, Exploitation: the attacker's code first runs on the victim's machine",
-        "Stage 5, Installation: enabling macros is what installs the malware on the system",
-      ],
-      answer: 2,
-      explanation:
-        "Exploitation is the moment the attacker's code first runs on the victim's system: enabling macros lets the macro execute. Weaponization happened earlier, when the attacker built the macro document, enabling macros does not build anything. Delivery ended when the email reached the inbox; opening it is the victim triggering the weapon, not more delivery. Installation comes next: once the macro has run, the malware sets up persistence such as a scheduled task or run key.",
-      xp: 20,
-    },
-
-    // ------------------------------------------------------------------
     // Question 2
     // ------------------------------------------------------------------
     {
@@ -1092,26 +1112,6 @@ The Kill Chain is not the only way to model attacker behaviour. Two other import
       answer: 2,
       explanation:
         "Regular, automated check-ins at a fixed interval, 'beaconing', are the hallmark of Command and Control: the malware asks the attacker's server for instructions, and the 3 AM regularity rules out a person. Reconnaissance happens before the attacker is inside, while this traffic starts from the victim's own workstation. A payload download is a short burst of larger transfers that then stops, not a few hundred bytes every 30 seconds. Slow exfiltration is the closest look-alike, but tiny, identical sessions move almost no data; theft shows up as outbound volume that adds up. Next steps: investigate the destination, isolate the workstation and escalate to Tier 2.",
-      xp: 25,
-    },
-
-    // ------------------------------------------------------------------
-    // Question 3 — Scenario Based
-    // ------------------------------------------------------------------
-    {
-      type: "question" as const,
-      id: "ckc-q3",
-      question:
-        "During a forensic investigation, analysts find that an attacker created a new Windows Scheduled Task called 'WindowsUpdateHelper' that runs a malicious script every time the system starts. The script connects back to an external server. Which Kill Chain stage does this creation of a Scheduled Task represent?",
-      options: [
-        "Stage 2: Weaponization (creating the malicious tool)",
-        "Stage 4: Exploitation (triggering the initial attack)",
-        "Stage 5: Installation (establishing persistence on the system)",
-        "Stage 6: Command and Control (communicating with the attacker's server)",
-      ],
-      answer: 2,
-      explanation:
-        "Creating a Scheduled Task designed to run automatically on system startup is a classic persistence technique. This is Stage 5 (Installation). The attacker is ensuring their malware survives reboots and maintains access even if the user changes their password. The naming ('WindowsUpdateHelper') is deliberate camouflage, making the task look like a legitimate Windows component. Note that the script also connects to an external server, which is Stage 6 (C2), but the *scheduled task creation itself* is the Installation/persistence action.",
       xp: 25,
     },
 

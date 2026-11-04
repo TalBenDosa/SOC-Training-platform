@@ -46,6 +46,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   specimen: dynamic(() => import("./scenes/SpecimenScene"), { ssr: false }),
   riskcore: dynamic(() => import("./scenes/RiskCoreScene"), { ssr: false }),
   patchline: dynamic(() => import("./scenes/PatchLineScene"), { ssr: false }),
+  chainlinks: dynamic(() => import("./scenes/ChainLinksScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;

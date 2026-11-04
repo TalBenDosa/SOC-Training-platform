@@ -181,22 +181,22 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "ckc-r3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "ckc-q1",
         "type": "question",
         "xp": 20
       },
       {
-        "id": "ckc-q2",
+        "id": "ckc-q3",
         "type": "question",
         "xp": 25
       },
       {
-        "id": "ckc-q3",
+        "id": "ckc-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "ckc-q2",
         "type": "question",
         "xp": 25
       },
