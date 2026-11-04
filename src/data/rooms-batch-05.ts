@@ -1088,6 +1088,24 @@ The quarantine is accessible at security.microsoft.com → Email & Collaboration
       },
     },
 
+    // ── Question 2 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "m365-sec-q2",
+      question:
+        "What does Microsoft Defender for Office 365 Safe Attachments do that traditional antivirus scanning cannot?",
+      options: [
+        "It scans attachments against a signature database that refreshes hourly instead of daily, so known-malware definitions simply reach the mailbox faster than a standard antivirus feed would",
+        "It opens and executes attachments in an isolated sandbox to observe behavior, detecting zero-day malware with no known signature",
+        "It blocks any attachment whose sender domain fails SPF or DKIM authentication, regardless of what the attachment itself actually contains",
+        "It applies Microsoft Purview sensitivity labels to attachments in transit, encrypting them so a stolen copy of the mailbox export cannot be opened",
+      ],
+      answer: 1,
+      explanation:
+        "Traditional antivirus works by comparing file contents to a database of known malware signatures. It can't detect brand-new malware that isn't in the signature database (zero-day malware). Safe Attachments uses behavioral analysis. It actually runs the attachment in an isolated cloud sandbox and watches what it does. If the file tries to connect to a command-and-control server, download additional payloads, or modify system files, behaviors characteristic of malware, it's detected and blocked, even if no one has ever seen this specific malware before. A faster signature refresh is still signature-based detection (the exact limitation Safe Attachments overcomes); SPF/DKIM enforcement is what anti-phishing and anti-spoofing policies do, a separate MDO capability from attachment sandboxing; and sensitivity-label encryption is a Purview Information Protection feature, not what stops a malicious file from executing.",
+      xp: 30,
+    },
+
     // ── Reading 3: M365 Audit Logs & SOC Monitoring ────────────────────────
     {
       type: "reading" as const,
@@ -1192,24 +1210,6 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
       answer: 1,
       explanation:
         "In BEC attacks, attackers create inbox forwarding rules for two purposes: (1) to silently monitor the victim's email for financial conversations involving invoices, wire transfers, or payment requests, and (2) to delete forwarded copies so the victim doesn't see extra copies of emails and doesn't notice the compromise. The 'DeleteMessage: true' parameter in New-InboxRule events is a major red flag. This gives attackers the information they need to send realistic impersonation emails at exactly the right moment in a financial transaction.",
-      xp: 30,
-    },
-
-    // ── Question 2 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "m365-sec-q2",
-      question:
-        "What does Microsoft Defender for Office 365 Safe Attachments do that traditional antivirus scanning cannot?",
-      options: [
-        "It scans attachments against a signature database that refreshes hourly instead of daily, so known-malware definitions simply reach the mailbox faster than a standard antivirus feed would",
-        "It opens and executes attachments in an isolated sandbox to observe behavior, detecting zero-day malware with no known signature",
-        "It blocks any attachment whose sender domain fails SPF or DKIM authentication, regardless of what the attachment itself actually contains",
-        "It applies Microsoft Purview sensitivity labels to attachments in transit, encrypting them so a stolen copy of the mailbox export cannot be opened",
-      ],
-      answer: 1,
-      explanation:
-        "Traditional antivirus works by comparing file contents to a database of known malware signatures. It can't detect brand-new malware that isn't in the signature database (zero-day malware). Safe Attachments uses behavioral analysis. It actually runs the attachment in an isolated cloud sandbox and watches what it does. If the file tries to connect to a command-and-control server, download additional payloads, or modify system files, behaviors characteristic of malware, it's detected and blocked, even if no one has ever seen this specific malware before. A faster signature refresh is still signature-based detection (the exact limitation Safe Attachments overcomes); SPF/DKIM enforcement is what anti-phishing and anti-spoofing policies do, a separate MDO capability from attachment sandboxing; and sensitivity-label encryption is a Purview Information Protection feature, not what stops a malicious file from executing.",
       xp: 30,
     },
 

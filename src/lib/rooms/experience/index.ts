@@ -37,6 +37,7 @@ import { ACTIVE_DIRECTORY } from "./activeDirectory";
 import { WAZUH_FUNDAMENTALS } from "./wazuhFundamentals";
 import { SENTINEL_FUNDAMENTALS } from "./sentinelFundamentals";
 import { DETECTION_RULES_TUNING } from "./detectionRulesTuning";
+import { MICROSOFT_365_SECURITY } from "./microsoft365Security";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -80,6 +81,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [WAZUH_FUNDAMENTALS.roomId]: WAZUH_FUNDAMENTALS,
   [SENTINEL_FUNDAMENTALS.roomId]: SENTINEL_FUNDAMENTALS,
   [DETECTION_RULES_TUNING.roomId]: DETECTION_RULES_TUNING,
+  [MICROSOFT_365_SECURITY.roomId]: MICROSOFT_365_SECURITY,
 };
 
 /**

@@ -1193,17 +1193,17 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "m365-sec-q2",
+        "type": "question",
+        "xp": 30
+      },
+      {
         "id": "m365-sec-r3",
         "type": "reading",
         "xp": 0
       },
       {
         "id": "m365-sec-q1",
-        "type": "question",
-        "xp": 30
-      },
-      {
-        "id": "m365-sec-q2",
         "type": "question",
         "xp": 30
       },
