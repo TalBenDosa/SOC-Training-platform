@@ -29,6 +29,7 @@ import { LOG_SOURCES_INTEGRATION } from "./logSourcesIntegration";
 import { EMAIL_SECURITY } from "./emailSecurity";
 import { PROTOCOLS_MASTERCLASS } from "./protocolsMasterclass";
 import { DLP_FUNDAMENTALS } from "./dlpFundamentals";
+import { PERSISTENCE_MECHANISMS } from "./persistenceMechanisms";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -64,6 +65,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [EMAIL_SECURITY.roomId]: EMAIL_SECURITY,
   [PROTOCOLS_MASTERCLASS.roomId]: PROTOCOLS_MASTERCLASS,
   [DLP_FUNDAMENTALS.roomId]: DLP_FUNDAMENTALS,
+  [PERSISTENCE_MECHANISMS.roomId]: PERSISTENCE_MECHANISMS,
 };
 
 /**

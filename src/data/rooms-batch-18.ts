@@ -1375,6 +1375,16 @@ const persistenceRoom: Room = {
       ],
     },
     {
+      type: "flag",
+      id: "persist-f1",
+      event: scheduledTaskPersistEvent, // show the scheduled-task log this flag reads
+      prompt:
+        "In the scheduled-task event, which account will svchelper.exe run as every time the task fires? Enter the account exactly as the registration command names it.",
+      answer: "SYSTEM",
+      hint: "The user who typed the command is not necessarily the account the task runs as. One switch in the command line decides that.",
+      xp: 25,
+    },
+    {
       type: "reading",
       id: "persist-r5",
       heading: "Cloud Account (T1136.003) and OAuth App Persistence (T1671)",
@@ -1513,16 +1523,6 @@ const persistenceRoom: Room = {
       explanation:
         "This is the exact order from Reading 6: resetting credentials before finding and removing every persistence mechanism leaves the attacker's non-credential-based ways back in fully intact, a Run key, service, or OAuth consent doesn't care that the password changed. Containment and a full enumeration have to come first, remediation of each specific mechanism next, and only then credential resets and rebuild/verification.",
       xp: 35,
-    },
-    {
-      type: "flag",
-      id: "persist-f1",
-      event: scheduledTaskPersistEvent, // show the scheduled-task log this flag reads
-      prompt:
-        "In the scheduled-task event, which account will svchelper.exe run as every time the task fires? Enter the account exactly as the registration command names it.",
-      answer: "SYSTEM",
-      hint: "The user who typed the command is not necessarily the account the task runs as. One switch in the command line decides that.",
-      xp: 25,
     },
   ],
 };

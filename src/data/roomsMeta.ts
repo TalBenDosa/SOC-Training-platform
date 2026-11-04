@@ -5043,6 +5043,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 80
       },
       {
+        "id": "persist-f1",
+        "type": "flag",
+        "xp": 25
+      },
+      {
         "id": "persist-r5",
         "type": "reading",
         "xp": 0
@@ -5071,11 +5076,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "persist-o1",
         "type": "ordering",
         "xp": 35
-      },
-      {
-        "id": "persist-f1",
-        "type": "flag",
-        "xp": 25
       }
     ]
   },
