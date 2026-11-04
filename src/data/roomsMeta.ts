@@ -7327,18 +7327,7 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
-        "id": "macf-la1",
-        "type": "log_analysis",
-        "xp": 80,
-        "mitreTechnique": "T1548.006"
-      },
-      {
         "id": "macf-r5",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "macf-r6",
         "type": "reading",
         "xp": 0
       },
@@ -7348,9 +7337,31 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 25
       },
       {
+        "id": "macf-la2",
+        "type": "log_analysis",
+        "xp": 80,
+        "mitreTechnique": "T1059.002"
+      },
+      {
+        "id": "macf-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
         "id": "macf-r7",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "macf-la1",
+        "type": "log_analysis",
+        "xp": 80,
+        "mitreTechnique": "T1548.006"
+      },
+      {
+        "id": "macf-f1",
+        "type": "flag",
+        "xp": 20
       },
       {
         "id": "macf-r8",
@@ -7363,14 +7374,13 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 25
       },
       {
-        "id": "macf-la2",
-        "type": "log_analysis",
-        "xp": 80,
-        "mitreTechnique": "T1059.002"
-      },
-      {
         "id": "macf-ac1",
         "type": "analyst_choice",
+        "xp": 30
+      },
+      {
+        "id": "macf-q5",
+        "type": "question",
         "xp": 30
       },
       {
@@ -7382,16 +7392,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "macf-o1",
         "type": "ordering",
         "xp": 35
-      },
-      {
-        "id": "macf-f1",
-        "type": "flag",
-        "xp": 20
-      },
-      {
-        "id": "macf-q5",
-        "type": "question",
-        "xp": 30
       }
     ]
   },

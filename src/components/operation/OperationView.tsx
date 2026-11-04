@@ -53,6 +53,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   sightlines: dynamic(() => import("./scenes/SightLinesScene"), { ssr: false }),
   webpath: dynamic(() => import("./scenes/WebPathScene"), { ssr: false }),
   baitshop: dynamic(() => import("./scenes/BaitShopScene"), { ssr: false }),
+  orchard: dynamic(() => import("./scenes/OrchardScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;

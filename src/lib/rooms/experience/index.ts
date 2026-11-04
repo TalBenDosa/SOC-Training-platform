@@ -21,6 +21,7 @@ import { ANALYST_MINDSET } from "./analystMindset";
 import { SECURITY_PRODUCTS_BEHAVIOUR } from "./securityProductsBehaviour";
 import { WEB_APPLICATION_SECURITY } from "./webApplicationSecurity";
 import { COMMODITY_INITIAL_ACCESS } from "./commodityInitialAccess";
+import { MACOS_SECURITY_FUNDAMENTALS } from "./macosSecurityFundamentals";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -48,6 +49,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [SECURITY_PRODUCTS_BEHAVIOUR.roomId]: SECURITY_PRODUCTS_BEHAVIOUR,
   [WEB_APPLICATION_SECURITY.roomId]: WEB_APPLICATION_SECURITY,
   [COMMODITY_INITIAL_ACCESS.roomId]: COMMODITY_INITIAL_ACCESS,
+  [MACOS_SECURITY_FUNDAMENTALS.roomId]: MACOS_SECURITY_FUNDAMENTALS,
 };
 
 /**
