@@ -76,6 +76,11 @@ export async function PATCH(req: Request, { params }: Ctx) {
     if (t === "invalid") return NextResponse.json({ error: "Team exercises must be a whole number of 0 or more (or blank for unlimited)." }, { status: 400 });
     if (t !== undefined) patch.team_session_limit = t;
   }
+  // Learning Rooms locked behind prerequisites (0102). Open by default; the college admin or the super-admin decides.
+  if (body.rooms_locked !== undefined) {
+    if (typeof body.rooms_locked !== "boolean") return NextResponse.json({ error: "rooms_locked must be true or false." }, { status: 400 });
+    patch.rooms_locked = body.rooms_locked;
+  }
   if (body.seat_limit !== undefined) {
     const n = Number(body.seat_limit);
     if (!Number.isFinite(n) || n < 0) return NextResponse.json({ error: "Seat limit must be 0 or more." }, { status: 400 });

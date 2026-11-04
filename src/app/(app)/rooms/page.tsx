@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { RoomCard } from "@/components/rooms/RoomCard";
 import { ROOMS_META, type RoomMeta } from "@/data/roomsMeta";
 import { getRoomProgress } from "@/lib/storage/progress";
-import { isRoomLocked, recommendNextRoom } from "@/lib/rooms/recommend";
+import { isRoomLocked, recommendNextRoom, orderRoomsForLearning } from "@/lib/rooms/recommend";
 import { MyLearningPlan } from "@/components/plans/MyLearningPlan";
 import { useAssignedItems } from "@/lib/plans/useAssigned";
 import { useBranding } from "@/lib/auth/useBranding";
@@ -23,15 +23,24 @@ type RoomProgress = {
 };
 type AllProgress = Record<string, RoomProgress>;
 
-const CATEGORIES = ["All", "Foundations", "Log Analysis", "Threat Detection", "Cloud Security"] as const;
-type Category = typeof CATEGORIES[number];
+// The three levels, in learning order. A room's level is never below its prerequisites'.
+const LEVELS = [
+  { key: "beginner", label: "Beginner", hint: "Start here: the foundations every analyst needs." },
+  { key: "intermediate", label: "Intermediate", hint: "Core SOC work: logs, tools, triage and investigation." },
+  { key: "advanced", label: "Advanced", hint: "Deep dives, hunting and detection engineering." },
+] as const;
+type Level = typeof LEVELS[number]["key"];
+
+const CHIP_ON  = "rounded-md border border-cyber-500/60 bg-cyber-500/15 px-3 py-1.5 text-xs font-semibold text-cyber-300 transition-colors";
+const CHIP_OFF = "rounded-md border border-border/50 bg-bg-elevated/50 px-3 py-1.5 text-xs font-semibold text-slate-400 hover:border-cyber-500/30 hover:text-slate-200 transition-colors";
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 export default function RoomsPage() {
   const router   = useRouter();
-  const { allRoomsUnlocked } = useBranding();
+  const { roomsLocked } = useBranding();
   const [progress, setProgress] = useState<AllProgress>({});
-  const [filter, setFilter]     = useState<Category>("All");
+  const [filter, setFilter]     = useState<string>("All");
+  const [level, setLevel]       = useState<Level | "all">("all");
   const [orgRooms, setOrgRooms] = useState<RoomMeta[]>([]);
   // "Assigned" chips — one cached request for the whole grid; empty for solo learners.
   const assigned = useAssignedItems();
@@ -66,11 +75,16 @@ export default function RoomsPage() {
   // Prerequisite gating + "recommended next" now come from the SHARED
   // src/lib/rooms/recommend.ts, so the rooms list and the Room-Complete screen
   // can never disagree about what is locked or what to do next.
-  // Per-org override (migration 0036): an org opted into all_rooms_unlocked sees
-  // every room open regardless of prerequisites — for eval/pilot cohorts.
-  const isLocked = (roomId: string) => allRoomsUnlocked ? false : isRoomLocked(roomId, progress);
+  // Rooms are open unless the college admin locked them behind prerequisites (migration 0102).
+  const isLocked = (roomId: string) => roomsLocked ? isRoomLocked(roomId, progress) : false;
+  // Open rooms still name the prerequisites not passed yet, so the path stays gradual.
+  const titleOf = (id: string) => allRooms.find(r => r.id === id)?.title ?? id;
+  const unmetPrereqs = (room: RoomMeta) => room.prerequisites.filter(p => !progress[p]?.completedAt).map(titleOf);
 
-  const filtered = allRooms.filter(r => filter === "All" || r.category === filter);
+  // Every category that has rooms (the old fixed list hid most of them behind "All").
+  const categories = ["All", ...Array.from(new Set(allRooms.map(r => r.category))).sort()];
+  const filtered = orderRoomsForLearning(allRooms).filter(r =>
+    (filter === "All" || r.category === filter) && (level === "all" || r.difficulty === level));
 
   const totalCompleted = allRooms.filter(r => !!progress[r.id]?.completedAt).length;
   const totalXp        = Object.values(progress).reduce((sum, p) => sum + (p.xpEarned ?? 0), 0);
@@ -104,8 +118,12 @@ export default function RoomsPage() {
               <h3 className="text-lg font-bold text-white">How Learning Rooms work</h3>
               <p className="mt-1 max-w-3xl text-sm text-slate-300">
                 Each room is a structured training module combining reading material, multiple-choice questions,
-                real SIEM log analysis, and flag challenges. Complete tasks in order to earn XP and unlock
-                advanced rooms. {user
+                real SIEM log analysis, and flag challenges. Rooms are grouped by level and listed in learning
+                order, each building on the ones before it.{" "}
+                {roomsLocked
+                  ? "Your college unlocks each room once you pass its prerequisites. "
+                  : "Every room is open, so you can start anywhere; the recommended room keeps you on the gradual path. "}
+                {user
                   ? "Your progress is saved to your account as you go, on every device."
                   : "Your progress is saved in this browser as you go — sign in to keep it on your account."}
               </p>
@@ -158,24 +176,28 @@ export default function RoomsPage() {
           </button>
         )}
 
-        {/* Filter buttons */}
-        <div className="flex flex-wrap gap-2">
-          {CATEGORIES.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setFilter(cat)}
-              className={
-                cat === filter
-                  ? "rounded-md border border-cyber-500/60 bg-cyber-500/15 px-3 py-1.5 text-xs font-semibold text-cyber-300 transition-colors"
-                  : "rounded-md border border-border/50 bg-bg-elevated/50 px-3 py-1.5 text-xs font-semibold text-slate-400 hover:border-cyber-500/30 hover:text-slate-200 transition-colors"
-              }
-            >
-              {cat}
-            </button>
-          ))}
-          <span className="ml-auto self-center text-[11px] text-slate-400">
-            {filtered.length} room{filtered.length !== 1 ? "s" : ""}
-          </span>
+        {/* Level + category filters */}
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Level">
+            {([["all", "All levels"], ...LEVELS.map(l => [l.key, l.label])] as [Level | "all", string][]).map(([k, lbl]) => (
+              <button key={k} onClick={() => setLevel(k)} aria-pressed={k === level}
+                className={k === level ? CHIP_ON : CHIP_OFF}>
+                {lbl}
+                {k !== "all" && <span className="ml-1.5 font-mono text-[10px] opacity-70">{allRooms.filter(r => r.difficulty === k).length}</span>}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Category">
+            {categories.map(cat => (
+              <button key={cat} onClick={() => setFilter(cat)} aria-pressed={cat === filter}
+                className={cat === filter ? CHIP_ON : CHIP_OFF}>
+                {cat}
+              </button>
+            ))}
+            <span className="ml-auto self-center text-[11px] text-slate-400">
+              {filtered.length} room{filtered.length !== 1 ? "s" : ""}
+            </span>
+          </div>
         </div>
 
         {/* Room grid — skeletons until progress is loaded, so rooms never flash
@@ -193,25 +215,43 @@ export default function RoomsPage() {
             </div>
           </div>
         )}
-        {ready && (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map(room => (
-            <RoomCard
-              key={room.id}
-              room={room}
-              progress={progress[room.id] ?? null}
-              locked={isLocked(room.id)}
-              assigned={assigned[`room:${room.id}`]}
-              onClick={() => router.push(`/rooms/${room.id}`)}
-            />
-          ))}
-        </div>
-        )}
+        {/* One section per level, in learning order. */}
+        {ready && LEVELS.map((lv, i) => {
+          const rooms = filtered.filter(r => r.difficulty === lv.key);
+          if (rooms.length === 0) return null;
+          const done = rooms.filter(r => !!progress[r.id]?.completedAt).length;
+          return (
+            <section key={lv.key} aria-labelledby={`level-${lv.key}`} className="space-y-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/50 pb-2">
+                <div>
+                  <h2 id={`level-${lv.key}`} className="text-base font-bold text-white">
+                    <span className="mr-2 font-mono text-xs text-slate-400">Level {i + 1}</span>{lv.label}
+                  </h2>
+                  <p className="text-[11px] text-slate-400">{lv.hint}</p>
+                </div>
+                <span className="font-mono text-[11px] text-slate-400">{done}/{rooms.length} complete</span>
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {rooms.map(room => (
+                  <RoomCard
+                    key={room.id}
+                    room={room}
+                    progress={progress[room.id] ?? null}
+                    locked={isLocked(room.id)}
+                    suggestAfter={unmetPrereqs(room)}
+                    assigned={assigned[`room:${room.id}`]}
+                    onClick={() => router.push(`/rooms/${room.id}`)}
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })}
 
         {ready && filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded border border-border/40 bg-bg-elevated py-16 text-center">
             <BookOpen className="h-12 w-12 text-slate-400 mb-4" />
-            <p className="text-sm text-slate-400">No rooms in this category yet.</p>
+            <p className="text-sm text-slate-400">No rooms match these filters.</p>
           </div>
         )}
       </div>

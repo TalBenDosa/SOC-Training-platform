@@ -12,6 +12,7 @@ import Link from "next/link";
 import { Topbar } from "@/components/nav/Topbar";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { Card } from "@/components/ui/Card";
+import { RoomAccessChoice } from "@/components/manage/RoomAccessPanel";
 import { Button } from "@/components/ui/Button";
 import {
   ArrowLeft, Loader2, Users, Trophy, Activity, Target, DoorOpen, Trash2, UserPlus, X, AlertTriangle,
@@ -365,6 +366,19 @@ export default function OrgDetailPage() {
                   ? <Button variant="outline" size="sm" onClick={() => patch({ status: "suspended" }, "Suspended.")}>Suspend</Button>
                   : <Button variant="outline" size="sm" onClick={() => patch({ status: "active" }, "Reactivated.")}>Reactivate</Button>}
               </div>
+            </Card>
+
+            {/* Learning Rooms open or locked behind prerequisites (0102); the college admin can change it too. */}
+            <Card>
+              <h2 className="mb-1 text-sm font-bold text-white">Room access</h2>
+              <p className="mb-3 text-[11px] text-slate-400">Open by default. This organization&apos;s admin can also change it from their Manage page.</p>
+              <RoomAccessChoice name="sa-room-access" busy={saving}
+                locked={(org as { rooms_locked?: boolean }).rooms_locked === true}
+                disabled={(org as { all_rooms_unlocked?: boolean }).all_rooms_unlocked === true}
+                onChange={locked => patch({ rooms_locked: locked }, locked ? "Rooms locked by prerequisites." : "Every room is open.")} />
+              {(org as { all_rooms_unlocked?: boolean }).all_rooms_unlocked === true && (
+                <p className="mt-2 text-[11px] text-slate-400">The older &quot;all rooms unlocked&quot; override is on for this organization, so rooms stay open.</p>
+              )}
             </Card>
 
             {/* Plan features (tenant config): what this organization gets. Off = gone from the

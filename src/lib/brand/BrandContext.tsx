@@ -22,11 +22,11 @@ export interface OrgBranding {
   name: string | null;
   color: string | null;
   logoUrl: string | null;
-  /** Per-org gate bypass (migration 0036): every Learning Room unlocked for this org's members. */
-  allRoomsUnlocked: boolean;
+  /** The org admin locked Learning Rooms behind their prerequisites (0102). Default false: all open. */
+  roomsLocked: boolean;
 }
 
-const EMPTY_ORG: OrgBranding = { name: null, color: null, logoUrl: null, allRoomsUnlocked: false };
+const EMPTY_ORG: OrgBranding = { name: null, color: null, logoUrl: null, roomsLocked: false };
 
 interface BrandCtx {
   brand: Brand; org: OrgBranding; envBrand: Brand | null; hostBrand: Brand; features: Features;
@@ -50,7 +50,7 @@ export function BrandProvider({ initial, children }: { initial: Brand; children:
     if (!user) { setOrg(EMPTY_ORG); return; }
     let cancelled = false;
     let retry: ReturnType<typeof setTimeout> | null = null;
-    // E-23 (QA phase 7): one failed read left the college's "all rooms unlocked" setting off
+    // E-23 (QA phase 7): one failed read left the college's room-lock setting at its default
     // for the whole visit; retry once after a short pause before falling back to the defaults.
     const load = (again: boolean) => fetch("/api/org/branding")
       .then(r => {
@@ -60,7 +60,7 @@ export function BrandProvider({ initial, children }: { initial: Brand; children:
       .then(d => {
         if (cancelled || !d) return;
         const color = typeof d.branding?.color === "string" ? d.branding.color : null;
-        setOrg({ name: d.name ?? null, color, logoUrl: d.branding?.logo_url ?? null, allRoomsUnlocked: d.all_rooms_unlocked === true });
+        setOrg({ name: d.name ?? null, color, logoUrl: d.branding?.logo_url ?? null, roomsLocked: d.rooms_locked === true });
         setEnvBrand(d.brand && d.brand.whiteLabel === true ? (d.brand as Brand) : null);
         setFeatures(parseFeatures(d.features));
         setEnvReady(true);

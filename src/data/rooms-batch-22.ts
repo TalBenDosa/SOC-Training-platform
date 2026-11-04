@@ -612,7 +612,7 @@ const assetContextRoom: Room = {
   title: "Asset Context: Why the Same Alert Is Not the Same Alert",
   description:
     "Prioritisation is the daily job of a SOC analyst, and it depends on something most training skips: what the affected asset actually is. Failed logons on a disposable test VM, a finance workstation, and a domain controller can be the exact same log line, and three completely different incidents. This room teaches asset criticality, blast radius, exposure, and business context, then has you rank concurrent alerts where the correct order isn't the order the products assigned.",
-  difficulty: "beginner",
+  difficulty: "intermediate",
   category: "SOC Operations",
   estimatedMinutes: 50,
   xp: 275,

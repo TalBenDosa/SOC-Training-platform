@@ -1,7 +1,7 @@
 "use client";
 /**
  * The caller's college branding — name, accent colour, logo — for light per-tenant theming
- * (a badge in the top bar), plus the per-org "all rooms unlocked" switch. Fetched once per
+ * (a badge in the top bar), plus the per-org "lock rooms behind prerequisites" switch. Fetched once per
  * session by BrandProvider (src/lib/brand/BrandContext.tsx); empty for guests, so the app
  * keeps its default identity.
  */

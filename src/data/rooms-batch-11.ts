@@ -591,7 +591,7 @@ const rooms = [
     title: "Cloud Security Monitoring",
     description:
       "Learn to detect IAM backdoors, S3 exfiltration, EC2 metadata abuse, and suspicious API calls across AWS CloudTrail, Azure Activity Logs, and GCP Audit Logs.",
-    difficulty: "advanced",
+    difficulty: "intermediate",
     category: "Cloud Security",
     estimatedMinutes: 55,
     xp: 195,
