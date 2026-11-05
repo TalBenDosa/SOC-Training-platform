@@ -27,6 +27,14 @@ export const POWERSHELL_FOR_SOC_ANALYST: RoomExperience = {
   look: { primary: "#38bdf8", secondary: "#facc15", warn: "#f43f5e" },
   scene: "objectpipe",
   layout: "stage",
+  story: {
+    intro: { title: "Same Shell", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/powershell-for-soc-analyst/sameshell-intro-f0f7de41.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/powershell-for-soc-analyst/sameshell-intro-5edda611.jpg" },
+    afterStation: {
+      pipeline: { title: "Objects, Not Text", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/powershell-for-soc-analyst/sameshell-ch2-400a9c51.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/powershell-for-soc-analyst/sameshell-ch2-d7ed2729.jpg" },
+      cmdlets: { title: "PID 6120", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/powershell-for-soc-analyst/sameshell-ch3-e2cd63e4.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/powershell-for-soc-analyst/sameshell-ch3-77228455.jpg" },
+      hunt: { title: "Collect, Then Remove", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/powershell-for-soc-analyst/sameshell-finale-be62dd32.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/powershell-for-soc-analyst/sameshell-finale-4c12b1ae.jpg" },
+    },
+  },
   stations: [
     {
       id: "context",
