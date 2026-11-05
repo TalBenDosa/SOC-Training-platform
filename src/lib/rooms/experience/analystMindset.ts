@@ -29,11 +29,11 @@ export const ANALYST_MINDSET: RoomExperience = {
   scene: "mindlab",
   layout: "stage",
   story: {
-    intro: { title: "Take a Second Look", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-intro-db9825ec.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-intro-b0fabd5a.jpg" },
+    intro: { title: "Take a Second Look", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-intro-348b1486.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-intro-d98b2eaa.jpg" },
     afterStation: {
-      theory: { title: "Predict, Then Check", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-ch2-c0f5c911.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-ch2-9cb5212a.jpg" },
-      normal: { title: "Normal for Whom?", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-ch3-6958db1e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-ch3-8c725f22.jpg" },
-      close: { title: "What Did You Actually Verify?", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-finale-e4d3159f.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-finale-204de329.jpg" },
+      theory: { title: "Predict, Then Check", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-ch2-eb833fde.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-ch2-587c2de0.jpg" },
+      normal: { title: "Normal for Whom?", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-ch3-85036ff1.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-ch3-ff168667.jpg" },
+      close: { title: "What Did You Actually Verify?", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-finale-05b65315.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/analyst-mindset/secondlook-finale-0c0d3ca2.jpg" },
     },
   },
   stations: [
