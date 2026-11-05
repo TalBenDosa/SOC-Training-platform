@@ -888,8 +888,8 @@ const aiAttacksSocDetectionRoom = {
   xp: 130,
   prerequisites: ["email-security", "analyst-mindset"],
   tasks: pick([
-    "aisoc-r1", "aisoc-r2", "aisoc-q1", "aisoc-r3", "aisoc-ac1", "aisoc-q2", "aisoc-f1",
-    "aisoc-r4", "aisoc-q3", "aisoc-r5", "aisoc-r6", "aisoc-q4",
+    "aisoc-r1", "aisoc-r2", "aisoc-q1", "aisoc-r3", "aisoc-q2", "aisoc-f1",
+    "aisoc-r4", "aisoc-q3", "aisoc-r5", "aisoc-r6", "aisoc-q4", "aisoc-ac1",
   ]),
 };
 

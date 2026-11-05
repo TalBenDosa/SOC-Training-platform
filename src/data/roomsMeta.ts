@@ -7754,11 +7754,6 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "aisoc-ac1",
-        "type": "analyst_choice",
-        "xp": 20
-      },
-      {
         "id": "aisoc-q2",
         "type": "question",
         "xp": 15
@@ -7792,6 +7787,11 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "aisoc-q4",
         "type": "question",
         "xp": 15
+      },
+      {
+        "id": "aisoc-ac1",
+        "type": "analyst_choice",
+        "xp": 20
       }
     ]
   },

@@ -10,6 +10,7 @@ import { AnatomyLab, LocksLab, TricksLab, XrayLab } from "./LensLabs";
 import { EvidenceLab } from "./EvidenceLab";
 import { EncapLab, QueueLab, TerminalLab, TraceLab, WorksheetLab } from "./PracticeLabs";
 import { PcapLab } from "./PcapLab";
+import { ChatLab } from "./ChatLab";
 
 /** Every lab reports once when the learner has worked all of it. */
 interface LabProps<K extends BriefingLab["kind"]> {
@@ -283,6 +284,7 @@ export function Lab({ lab, onDone }: { lab: BriefingLab; onDone: () => void }) {
     case "anatomy":  return <AnatomyLab lab={lab} onDone={onDone} />;
     case "evidence": return <EvidenceLab lab={lab} onDone={onDone} />;
     case "terminal": return <TerminalLab lab={lab} onDone={onDone} />;
+    case "chat": return <ChatLab lab={lab} onDone={onDone} />;
     case "trace":    return <TraceLab lab={lab} onDone={onDone} />;
     case "encap":    return <EncapLab lab={lab} onDone={onDone} />;
     case "queue":    return <QueueLab lab={lab} onDone={onDone} />;
@@ -307,6 +309,7 @@ const HOW_TO: Record<BriefingLab["kind"], { steps: string[]; done: string }> = {
   tricks: { steps: ["Tap a face-down card to flip it.", "Read the trick on it.", "Tap the stamp for the attack that works the same way."], done: "every card is stamped" },
   anatomy: { steps: ["Tap a field with a scan mark.", "Read what that field tells an analyst.", "Work down the record field by field."], done: "every marked field is decoded" },
   evidence: { steps: ["Study the screen shown.", "Tap what you think it shows.", "Read the numbered clues, then move to the next screen."], done: "every screen is answered" },
+  chat: { steps: ["Read your goal at the top.", "Tap a message or write your own, then read the reply.", "Keep trying: some messages fail, and that teaches you why the others work."], done: "every goal is reached" },
   terminal: { steps: ["Read your task at the top.", "Tap a command (or type it) and read the output in the console.", "Type what you found in the answer box and press Check."], done: "every task is answered" },
   trace: { steps: ["Read the question for this step.", "Filter the log with a value from the case board.", "Tap the row that answers it; the next log opens."], done: "the trail reaches its last log" },
   queue: { steps: ["Tap an alert in the queue.", "Read its fields and the context beside it.", "Choose what an analyst would do with it."], done: "the queue is empty" },
