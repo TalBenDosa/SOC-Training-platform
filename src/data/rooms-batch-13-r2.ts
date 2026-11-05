@@ -176,6 +176,24 @@ const firewallMasterclass = {
       },
     },
 
+    // ── Question 1 ────────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "fw-q1",
+      question:
+        "A Cisco extended ACL contains the rule: permit tcp 10.0.0.0 0.255.255.255 any eq 443. Which of these packets does this rule match?",
+      options: [
+        "src=203.0.113.9:443 → dst=10.0.2.14:50110 (an HTTPS reply)",
+        "src=10.0.2.14:50110 → dst=203.0.113.9:443 (an HTTPS request)",
+        "src=10.0.2.14:443 → dst=203.0.113.9:50110 (an internal server reply)",
+        "src=203.0.113.9:50110 → dst=10.0.2.14:443 (an inbound HTTPS request)",
+      ],
+      answer: 1,
+      explanation:
+        "Read the rule in Cisco order: permit, tcp, SOURCE 10.0.0.0 with wildcard 0.255.255.255 (any 10.x.x.x host), DESTINATION any, then “eq 443”. Because “eq 443” follows the destination, it is the DESTINATION port. Only the outbound request from 10.0.2.14 to port 443 satisfies both conditions. “An HTTPS reply” has port 443 on the source side and an external source address, so neither condition holds. “An internal server reply” has the right source network but 443 as the SOURCE port: the same source-vs-destination confusion behind the port-53 bypass in Reading 2. “An inbound HTTPS request” has destination port 443, but its source 203.0.113.9 is outside 10.0.0.0/8.",
+      xp: 20,
+    },
+
     // ── Reading 3 ─────────────────────────────────────────────────────────────
     {
       type: "reading" as const,
@@ -224,6 +242,24 @@ const firewallMasterclass = {
         `   State table lookup: Entry EXISTS, state=ESTABLISHED, seq number OK\n` +
         `   Action: FORWARD (matched existing session, no rule re-evaluation)\n` +
         `════════════════════════════════════════════════════════════════`,
+    },
+
+    // ── Question 2 ────────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "fw-q2",
+      question:
+        "A network team replaces an edge ACL, which let any external host reach internal high ports (1024–65535) so that web replies could get back in, with a stateful firewall. What is the main SECURITY gain?",
+      options: [
+        "Payloads arriving on high ports are now scanned, so malware in replies is caught",
+        "Inbound packets get in only if they match a session an inside host opened",
+        "Applications can be named in policy, so the high-port rule can list allowed apps",
+        "Every reply is re-checked against the full rule base before it is forwarded",
+      ],
+      answer: 1,
+      explanation:
+        "The old high-port rule was a gaping hole: any outsider could send packets to internal ports 1024–65535. A stateful firewall keeps a connection state table, so return traffic is admitted only when it matches an entry created by an inside host's permitted request, and unsolicited packets (such as a SYN-ACK nobody asked for) are dropped. “Payloads are now scanned” describes DPI/IPS. Stateful inspection still works at L3/L4 and does not read content. “Applications can be named in policy” is NGFW App-ID, a later generation. “Every reply is re-checked against the full rule base” is the opposite of how it works: packets matching an established entry are forwarded without re-evaluating the rules.",
+      xp: 25,
     },
 
     // ── Reading 4 ─────────────────────────────────────────────────────────────
@@ -704,42 +740,6 @@ const firewallMasterclass = {
         answer: 2,
         explanation: "The report sees the translated (public) side of the session, so it must be matched on transip + transport + time: 198.51.100.24, port 61873, 03:20:05 to 203.0.113.80 is the 10.0.5.17 row. “10.0.2.41” matches 61873 only in srcport, the internal port the outside world never sees; its public port was 40112. “10.0.3.88” is anchoring on the known beacon: its 03:20:05 session went to 185.220.101.47 on public port 40113, not to 203.0.113.80. “All hosts share the IP, so no one can be identified” ignores PAT: every session gets its own public port, which is exactly what makes the mapping unique.",
       },
-    },
-
-    // ── Question 1 ────────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "fw-q1",
-      question:
-        "A Cisco extended ACL contains the rule: permit tcp 10.0.0.0 0.255.255.255 any eq 443. Which of these packets does this rule match?",
-      options: [
-        "src=203.0.113.9:443 → dst=10.0.2.14:50110 (an HTTPS reply)",
-        "src=10.0.2.14:50110 → dst=203.0.113.9:443 (an HTTPS request)",
-        "src=10.0.2.14:443 → dst=203.0.113.9:50110 (an internal server reply)",
-        "src=203.0.113.9:50110 → dst=10.0.2.14:443 (an inbound HTTPS request)",
-      ],
-      answer: 1,
-      explanation:
-        "Read the rule in Cisco order: permit, tcp, SOURCE 10.0.0.0 with wildcard 0.255.255.255 (any 10.x.x.x host), DESTINATION any, then “eq 443”. Because “eq 443” follows the destination, it is the DESTINATION port. Only the outbound request from 10.0.2.14 to port 443 satisfies both conditions. “An HTTPS reply” has port 443 on the source side and an external source address, so neither condition holds. “An internal server reply” has the right source network but 443 as the SOURCE port: the same source-vs-destination confusion behind the port-53 bypass in Reading 2. “An inbound HTTPS request” has destination port 443, but its source 203.0.113.9 is outside 10.0.0.0/8.",
-      xp: 20,
-    },
-
-    // ── Question 2 ────────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "fw-q2",
-      question:
-        "A network team replaces an edge ACL, which let any external host reach internal high ports (1024–65535) so that web replies could get back in, with a stateful firewall. What is the main SECURITY gain?",
-      options: [
-        "Payloads arriving on high ports are now scanned, so malware in replies is caught",
-        "Inbound packets get in only if they match a session an inside host opened",
-        "Applications can be named in policy, so the high-port rule can list allowed apps",
-        "Every reply is re-checked against the full rule base before it is forwarded",
-      ],
-      answer: 1,
-      explanation:
-        "The old high-port rule was a gaping hole: any outsider could send packets to internal ports 1024–65535. A stateful firewall keeps a connection state table, so return traffic is admitted only when it matches an entry created by an inside host's permitted request, and unsolicited packets (such as a SYN-ACK nobody asked for) are dropped. “Payloads are now scanned” describes DPI/IPS. Stateful inspection still works at L3/L4 and does not read content. “Applications can be named in policy” is NGFW App-ID, a later generation. “Every reply is re-checked against the full rule base” is the opposite of how it works: packets matching an established entry are forwarded without re-evaluating the rules.",
-      xp: 25,
     },
 
     // ── Question 3 ────────────────────────────────────────────────────────────

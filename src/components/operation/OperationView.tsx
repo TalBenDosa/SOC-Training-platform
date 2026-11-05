@@ -78,6 +78,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   longdistance: dynamic(() => import("./scenes/LongDistanceScene"), { ssr: false }),
   denyall: dynamic(() => import("./scenes/DenyAllScene"), { ssr: false }),
   lookup: dynamic(() => import("./scenes/LookupScene"), { ssr: false }),
+  generations: dynamic(() => import("./scenes/GenerationsScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;

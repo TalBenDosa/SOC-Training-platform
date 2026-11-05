@@ -111,7 +111,7 @@ export function ReactorLab({ lab, onDone }: LabProps<"reactor">) {
       </div>
 
       <p role="status" className={cn("min-h-[2.5rem] rounded-lg px-3 py-2 text-sm leading-relaxed", !note ? "text-slate-500" : note.ok ? "bg-emerald-500/10 text-emerald-300" : "bg-rose-500/10 text-rose-300")}>
-        {note ? <>{note.ok ? <Check className="mr-1 inline h-4 w-4" /> : <X className="mr-1 inline h-4 w-4" />}{note.text}</> : "Click the reactor this incident damages."}
+        {note ? <>{note.ok ? <Check className="mr-1 inline h-4 w-4" /> : <X className="mr-1 inline h-4 w-4" />}{note.text}</> : "Click the reactor this card belongs in."}
       </p>
     </div>
   );
