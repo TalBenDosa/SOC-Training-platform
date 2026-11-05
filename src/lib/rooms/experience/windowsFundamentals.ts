@@ -162,7 +162,7 @@ export const WINDOWS_FUNDAMENTALS: RoomExperience = {
           "HKLM Run  SecurityHealth  %windir%\\system32\\SecurityHealthSystray.exe",
           "HKLM Run  RtkAudUService  \"C:\\Windows\\System32\\RtkAudUService64.exe\" -background",
           "HKCU Run  OneDrive  \"C:\\Users\\r.adams\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe\" /background",
-          "HKCU Run  Zoom  \"C:\\Users\\r.adams\\AppData\\Roaming\\ZoomHelper\\Zoom.exe\" --background",
+          "HKCU Run  Zoom  \"C:\\Users\\r.adams\\AppData\\Local\\Temp\\Zoom.exe\" --background",
           "SVC Spooler  AUTO_START  C:\\Windows\\System32\\spoolsv.exe  LocalSystem",
           "SVC Dnscache  AUTO_START  C:\\Windows\\system32\\svchost.exe -k NetworkService -p  LocalSystem",
           "SVC GoogleChromeElevationService  DEMAND_START  \"C:\\Program Files\\Google\\Chrome\\Application\\130.0.6723.92\\elevation_service.exe\"  LocalSystem",
@@ -171,7 +171,7 @@ export const WINDOWS_FUNDAMENTALS: RoomExperience = {
           "SVC EventLog  AUTO_START  C:\\Windows\\System32\\svchost.exe -k LocalServiceNetworkRestricted -p  NT AUTHORITY\\LocalService",
         ],
         diffs: [
-          { line: 3, why: "Same value name, different folder. The real Zoom lives under Roaming\\Zoom\\bin; a ZoomHelper folder with no bin is a copy. It sits in HKCU, so the user's own rights were enough to plant it." },
+          { line: 3, why: "Same value name, different folder. The real Zoom lives under Roaming\\Zoom\\bin; a Zoom.exe sitting in Temp is a copy. It sits in HKCU, so the user's own rights were enough to plant it." },
           { line: 5, why: "Dnscache ran as NetworkService and now runs as LocalSystem with the same path. Always read the service account column: a quiet upgrade to SYSTEM is a foothold with more power than an administrator." },
           { line: 8, why: "A built-in service whose ImagePath now points into C:\\Users\\Public. A service binary in a folder every user can write is the signature of a planted or hijacked service; real svchost.exe only runs from System32." },
         ],
@@ -280,7 +280,7 @@ export const WINDOWS_FUNDAMENTALS: RoomExperience = {
         objectives: [
           { id: "cpu", task: "Which process is burning the most CPU?", hint: "Get-Process | Sort-Object CPU -Descending | Select-Object -First 5", answer: ["svcupd", "svcupd.exe"], why: "svcupd: the binary behind the planted 'Print Helper' service. Heavy, constant CPU on a planted binary often means a coin miner or a busy implant." },
           { id: "def", task: "What state is the Microsoft Defender Antivirus service (WinDefend) in?", hint: "Get-Service WinDefend", answer: ["Stopped"], why: "Attackers stop the antivirus before they act. A stopped WinDefend on a managed laptop is an alert on its own." },
-          { id: "when", task: "At what time was the 'Print Helper' service installed (HH:MM)?", hint: "Get-WinEvent -FilterHashtable @{LogName='System'; Id=7045} -MaxEvents 3", answer: ["02:17", "02:17:09"], why: "Event 7045 records every new service. 02:17, three minutes after the built-in Administrator logged on: the timeline is building itself." },
+          { id: "when", task: "At what time was the 'Print Helper' service installed (HH:MM)?", hint: "Get-WinEvent -FilterHashtable @{LogName='System'; Id=7045} -MaxEvents 3", answer: ["02:17", "02:17:09"], why: "Event 7045 records every new service. 02:17, two minutes after chrome.exe was written to Roaming at 02:15: the timeline is building itself." },
           { id: "exe", task: "How many .exe files sit under AppData\\Roaming?", hint: "Get-ChildItem $env:APPDATA -Recurse -Include *.exe", answer: ["2", "two"], why: "Two: a genuine Zoom from September, and chrome.exe written at 02:15 that night. Timestamps separate them." },
         ],
       },

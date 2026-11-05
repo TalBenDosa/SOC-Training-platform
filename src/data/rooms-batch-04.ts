@@ -696,15 +696,18 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
         mitre_technique: "T1110.003",
         vendor: "Wazuh",
         raw: {
-          "rule.name": "Password Spray Detected",
+          "rule.id": "100210",
           "rule.level": "12",
           "rule.description":
             "Multiple failed logins from single source in 60 seconds",
+          "agent.name": "siem-collector-01",
+          "decoder.name": "correlation",
           "data.srcip": "185.220.101.45",
           "data.failed_count": "47",
           "data.target_accounts": "12",
           "data.timewindow": "60s",
-          "rule.mitre.technique": "T1110.003",
+          "rule.mitre.id": ["T1110.003"],
+          "rule.mitre.technique": ["Password Spraying"],
           "rule.groups": ["authentication", "attack"],
           "data.country": "Netherlands",
           "data.isp": "Tor Network Exit Node",
@@ -1709,7 +1712,7 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
         mitre_tactic: "Credential Access",
         it_verify_result: "confirmed",
         it_verify_message:
-          "CHG0052210: 10.30.8.14 (scanner-qualys01) is the internal Qualys vulnerability scanner performing its scheduled monthly authenticated credential-validation scan against 10.30.8.0/24.",
+          "CHG0052210: 10.30.8.14 (scanner-qualys01) is the internal Qualys vulnerability scanner performing its scheduled monthly credential-validation scan against 10.30.8.0/24. The change record attaches the account list the scan tries (14 accounts in total, most of them live service accounts and a few retired names that no longer exist).",
         raw: {
           // Real Sentinel SecurityAlert shape: top-level AlertName/AlertSeverity,
           // with the scheduled rule's aggregate output under ExtendedProperties.*
@@ -1729,7 +1732,7 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
       } satisfies TelemetryEvent,
       correct_verdict: "benign_true_positive",
       explanation:
-        "The raw numbers here (260 failures, 14 distinct accounts, one source IP, all network logons (LogonType 3)) are exactly the statistical shape this room's KQL reading taught you to build a password-spray detection around (summarize FailureCount, DistinctAccounts by IpAddress), and the rule did its job: these 260 failures really happened, from one source, across many accounts. But 10.30.8.14 is an internal, allocated address belonging to the organisation's own vulnerability scanner, not an unrecognised external host, and IT verification directly confirms a scheduled, approved authenticated scan covering this exact time window. Authenticated vulnerability scanners deliberately attempt logons with lists of credentials to test password-policy compliance, producing a near-identical statistical fingerprint to a real password spray. With source ownership and change-ticket confirmation both checked, this is a benign true positive: the detection fired correctly on real activity, and the approved scan window is the justification you cite when closing it. It is not a false positive, because nothing misfired, and that label would invite weakening a spray rule that works; at most, add a narrow, owned exclusion for the scanner during its approved window.",
+        "The raw numbers here (260 failures, 14 distinct accounts, one source IP, all network logons (LogonType 3)) are exactly the statistical shape this room's KQL reading taught you to build a password-spray detection around (summarize FailureCount, DistinctAccounts by IpAddress), and the rule did its job: these 260 failures really happened, from one source, across many accounts. But 10.30.8.14 is an internal, allocated address belonging to the organisation's own vulnerability scanner, not an unrecognised external host, and IT verification directly confirms a scheduled, approved credential-validation scan covering this exact time window. Unlike an ordinary authenticated scan, which logs on with one provisioned account, this scan tries the accounts on a supplied list to test password-policy compliance, so it produces a near-identical statistical fingerprint to a real password spray; here the change record names the list, which explains the few failures for names that no longer exist (0xC0000064). Without a change record naming the list, the same shape would be a spray. With source ownership and change-ticket confirmation both checked, this is a benign true positive: the detection fired correctly on real activity, and the approved scan window is the justification you cite when closing it. It is not a false positive, because nothing misfired, and that label would invite weakening a spray rule that works; at most, add a narrow, owned exclusion for the scanner during its approved window.",
       fp_trap:
         "This alert is a textbook benign true positive: the detection rule correctly matched its pattern on real activity, but the rule only measures shape (many accounts, one source, many failures) and cannot see intent or authorization. Declaring 'true positive' the moment the numbers match the taught query, without checking whether the source IP belongs to a known internal scanner and whether a change record explains it, is exactly the alert-fatigue trap that erodes trust in a detection program. If 10.30.8.14 had instead been an external or unrecognised IP with no matching change ticket, the correct verdict would be true_positive or escalate.",
       xp: 30,

@@ -90,7 +90,7 @@ export const DNS_INVESTIGATION: RoomExperience = {
           { id: "c3", clue: "An alias record: one name says 'I am really that other name', which is how CDNs chain names together. Five letters.", answer: "CNAME", why: "CNAME answers point to another name, so a long chain to unfamiliar domains is normal for a CDN and still worth reading. Resolve the final name before judging." },
           { id: "c4", clue: "The service whose lease log turns a client IP in the resolver log into a machine name. Four letters.", answer: "DHCP", why: "The resolver log shows only an IP. The DHCP lease at that time names the machine, and the hunt then moves to that host. Check the lease time against the query time." },
         ],
-        lesson: "Learn to read a DNS log in its own words: the type says what was asked, the answer says where it points, and the lease turns a client IP into a machine. A lookalike name is only the start; the record type and the client decide the next step.",
+        lesson: "Learn to read a DNS log in its own words: the type says what was asked, the answer says where it points, and the lease turns a client IP into a machine. A lookalike name is only the start; the record type and the client decide the next step. A resolver log never says which program asked. On a Windows host, Sysmon Event ID 22 (DNSEvent) adds that: its Image field is the full path of the process that made the query.",
       },
     ],
     // ── Reading 2: signature mechanic, trick cards ──

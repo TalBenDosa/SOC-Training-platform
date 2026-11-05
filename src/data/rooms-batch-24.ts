@@ -34,8 +34,6 @@ const bruteForceEvent: TelemetryEvent = {
   severity: "high",
   hostname: "DC01.vantree.local",
   src_ip: "154.16.88.203",
-  mitre_technique: "T1110.001",
-  mitre_tactic: "Credential Access",
   authentication: { method: "NTLM", result: "Failure", logon_type: 3 },
   description:
     "DC01 recorded a failed network logon against account d.solano; this is one of a run of similarly-shaped failures against the same account in the preceding six minutes.",
@@ -67,8 +65,6 @@ const sprayEvent: TelemetryEvent = {
   severity: "high",
   hostname: "DC01.vantree.local",
   src_ip: "185.220.101.47",
-  mitre_technique: "T1110.003",
-  mitre_tactic: "Credential Access",
   authentication: { method: "NTLM", result: "Failure", logon_type: 3 },
   description:
     "DC01 recorded a failed network logon against account k.mensah; this is one of 142 distinct accounts that recorded similarly low attempt counts from the same source IP within a 20-minute window.",
@@ -185,7 +181,7 @@ const credentialAttacksRoom: Room = {
       content:
         `Windows Event ID 4625 is logged every time an interactive, network, service, or remote logon attempt fails, and it is the single event this room leans on most. Learn its fields once and you can answer all three of Reading 1's questions from a raw log without waiting for anyone's dashboard to do the aggregation for you.\n\n` +
         `**The fields that matter**\n\n` +
-        `TargetUserName is the account the attempt was made against. This is your grouping key for question one (how many distinct values of this field appear together?). IpAddress and WorkstationName identify where the attempt came from; a single unchanging IpAddress across a burst tells you one actor is behind it, which matters for questions two and three alike. LogonType tells you what kind of session was attempted (3 is a network logon, the type by far most common in both brute-force and spray activity, since it requires no interactive session and is cheap to script at volume). Status and SubStatus, read together, are the outcome: Status 0xC000006D is the generic 'logon failure' Windows returns for a bad username/password pair, and SubStatus narrows it further, 0xC000006A means the account exists and the password was wrong, 0xC0000064 means the username itself does not exist at all (a strong tell that whoever is attempting this is guessing usernames, not just passwords), 0xC0000234 means the account is now locked out, and 0xC0000071 means the password has expired. FailureReason carries a Windows event-code placeholder (commonly %%2313, 'Unknown user name or bad password') that mirrors the SubStatus without adding new information.\n\n` +
+        `TargetUserName is the account the attempt was made against. This is your grouping key for question one (how many distinct values of this field appear together?). IpAddress and WorkstationName identify where the attempt came from; a single unchanging IpAddress across a burst tells you one actor is behind it, which matters for questions two and three alike. LogonType tells you what kind of session was attempted (3 is a network logon, the type by far most common in both brute-force and spray activity, since it requires no interactive session and is cheap to script at volume). Status and SubStatus, read together, are the outcome: Status 0xC000006D is the generic 'logon failure' Windows returns for a bad username/password pair, and SubStatus narrows it further, 0xC000006A means the account exists and the password was wrong, and 0xC0000064 means the username itself does not exist at all (a strong tell that whoever is attempting this is guessing usernames, not just passwords). Other outcomes show up in Status itself: Status 0xC0000234 means the account is now locked out (SubStatus 0x0), and Status 0xC000006E with SubStatus 0xC0000071 means the password has expired. FailureReason carries a Windows event-code placeholder (commonly %%2313, 'Unknown user name or bad password') that mirrors the SubStatus without adding new information.\n\n` +
         `**One event is one data point, not a verdict**\n\n` +
         `A single 4625 tells you almost nothing on its own. Plenty of legitimate activity produces one. What answers Reading 1's three questions is the AGGREGATE your SIEM builds by grouping many of these events along two different axes. Group by TargetUserName and count attempts: a huge count against one value is the brute-force shape. Group by source (IpAddress, or WorkstationName if IP rotates) and count DISTINCT values of TargetUserName touched: a huge distinct-account count from one source, each with only a handful of attempts, is the spray shape. This is the exact discrimination this room's two log-analysis exercises are built to test, and it is worth internalizing now, because 'raw count of 4625 events' alone, without knowing which axis it was grouped on, tells you nothing about which of the two attacks you are looking at.\n\n` +
         `**What doesn't fit this pattern at all**\n\n` +
@@ -712,7 +708,7 @@ const lateralMovementRoom: Room = {
       type: "question",
       id: "lat-q2",
       question:
-        "Two records show byte-for-byte identical ADMIN$/IPC$-then-7045 mechanics on two different hosts. One is later confirmed to be an intrusion; the other, reviewed next, turns out to be legitimate. Since the technical mechanism was identical in both, what actually made the difference?",
+        "Two records show the same ADMIN$/IPC$-then-7045 mechanics on two different hosts. One is later confirmed to be an intrusion; the other, reviewed next, turns out to be legitimate. Since the technical mechanism was identical in both, what actually made the difference?",
       options: [
         "The authentication package: intrusions fall back to NTLM, while legitimate remote administration inside the domain authenticates through Kerberos tickets",
         "Context outside the mechanism: the source host's role and history, whether a change ticket covers it, and whether the timing fits normal admin patterns",
@@ -735,7 +731,7 @@ const lateralMovementRoom: Room = {
       explanation:
         "The mechanism is identical to Log Analysis 1/2 (an NTLM network logon by sysmgr_svc followed by a new service) which is exactly why context, not the mechanism, decides this verdict. Here, the source is the documented jump host (not an unexplained workstation like WKS-SALES14), the timing matches business hours and an open, specific change ticket, and the installed service (KestrelMonitorAgent, running from a known internal deployment path) matches the ticket's stated purpose rather than a generic remote-execution tool's default footprint. It is a benign true positive: the rule correctly caught a real IPC$/svcctl access and service installation, and the change ticket is the justification for closing it; it is not a false positive, since the rule did exactly its job and calling it a misfire invites weakening a lateral-movement detection you need.",
       fp_trap:
-        "IPC$/svcctl access followed by a 7045 is precisely the pattern this room just taught you to treat seriously, and reflexively escalating every instance of it, without checking source and ticket, would flag Kestrel's own routine administration constantly. The differentiators are exactly the ones Reading 2 named: a verified jump host instead of an unexplained peer host, a specific matching change ticket instead of no record at all, and an installed service that identifies itself as a known internal tool instead of a generic default like PSEXESVC. Skipping that check and escalating purely on 'ADMIN$ + svcctl + 7045' is the same over-alerting failure the credential-attacks room warns about with RC4 tickets: a real signal, checked without its context, becomes noise.",
+        "IPC$/svcctl access followed by a 7045 is precisely the pattern this room just taught you to treat seriously, and reflexively escalating every instance of it, without checking source and ticket, would flag Kestrel's own routine administration constantly. The differentiators are exactly the ones Reading 2 named: a verified jump host instead of an unexplained peer host, a specific matching change ticket instead of no record at all, and an installed service that identifies itself as a known internal tool instead of a generic default like PSEXESVC. The service name is only corroboration, since an attacker can name a service anything: the source host and the ticket are what decide it. Skipping that check and escalating purely on 'ADMIN$ + svcctl + 7045' is the same over-alerting failure the credential-attacks room warns about with RC4 tickets: a real signal, checked without its context, becomes noise.",
       xp: 30,
     },
     {

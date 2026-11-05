@@ -41,7 +41,7 @@ const k8sExecEvent: TelemetryEvent = {
   user_email: "d.abrams@nexacorp.com",
   description:
     "d.abrams ran kubectl exec into pod prod-checkout-6f9c to install a curl-based debugging tool, outside their normal working hours and namespace scope",
-  mitre_technique: "T1610",
+  mitre_technique: "T1609",
   mitre_tactic: "Execution",
   raw: {
     "kubernetes.audit.verb": "create",

@@ -82,10 +82,10 @@ const screenConnectSanctionedEvent: TelemetryEvent = {
   dst_port: 443,
   protocol: "tcp",
   description:
-    "Zscaler recorded an outbound TCP/443 connection from WKS-CF-055 to cascadia.hostedrmm.com, Cascadia Freight's own self-hosted ConnectWise ScreenConnect instance, ten minutes after r.tolentino opened help-desk ticket SD-88231 through the IT portal.",
+    "Zscaler recorded an outbound TCP/443 connection from WKS-CF-055 to cascadia.hostedrmm.com, Cascadia Freight's own ConnectWise-hosted (cloud) ScreenConnect instance, ten minutes after r.tolentino opened help-desk ticket SD-88231 through the IT portal.",
   it_verify_result: "confirmed",
   it_verify_message:
-    "IT confirms ticket SD-88231 was opened by r.tolentino herself through the self-service portal, requesting help with a printer-mapping issue. The session was operated by IT technician m.delacroix, whose account is one of the two named technician accounts authorized to drive ScreenConnect sessions at Cascadia Freight. ScreenConnect is the company's only licensed RMM tool and cascadia.hostedrmm.com is its own dedicated cloud instance.",
+    "IT confirms ticket SD-88231 was opened by r.tolentino herself through the self-service portal, requesting help with a printer-mapping issue. The session was operated by IT technician m.delacroix, whose account is one of the two named technician accounts authorized to drive ScreenConnect sessions at Cascadia Freight. ScreenConnect is the company's only licensed RMM tool and cascadia.hostedrmm.com is its own ConnectWise-hosted cloud instance.",
   raw: {
     "zscaler.action": "Allowed",
     "zscaler.reason": "Category allowed",
@@ -354,7 +354,7 @@ const rmmAbuseRoom = {
       id: "rmm-la1",
       heading: "Investigate: An Unsanctioned TeamViewer Session on WKS-CF-118",
       context:
-        "Cascadia Freight's only licensed remote-support tool is ConnectWise ScreenConnect, self-hosted at cascadia.hostedrmm.com and operated only by two named IT technician accounts. The proxy record below shows outbound traffic from an Accounts Receivable workstation. The IT service-management system shows no ticket referencing any session on this host today.",
+        "Cascadia Freight's only licensed remote-support tool is ConnectWise ScreenConnect, run as a ConnectWise-hosted cloud instance at cascadia.hostedrmm.com and operated only by two named IT technician accounts. The proxy record below shows outbound traffic from an Accounts Receivable workstation. The IT service-management system shows no ticket referencing any session on this host today.",
       event: teamViewerProxyEvent,
       questions: [
         {
@@ -394,11 +394,11 @@ const rmmAbuseRoom = {
       id: "rmm-ac1",
       heading: "Triage: ScreenConnect Session on WKS-CF-055",
       scenario:
-        "An alert fires for 'remote-access tool traffic detected' on WKS-CF-055. The underlying rule matches any connection to any known RMM vendor domain, anywhere in the environment, with no allowlist filter. Checking further shows the tool is ConnectWise ScreenConnect, Cascadia Freight's own licensed product, connecting to the company's own self-hosted instance.",
+        "An alert fires for 'remote-access tool traffic detected' on WKS-CF-055. The underlying rule matches any connection to any known RMM vendor domain, anywhere in the environment, with no allowlist filter. Checking further shows the tool is ConnectWise ScreenConnect, Cascadia Freight's own licensed product, connecting to the company's own ConnectWise-hosted cloud instance.",
       event: screenConnectSanctionedEvent,
       correct_verdict: "benign_true_positive",
       explanation:
-        "This is the allowlist principle applied directly: the tool matches Cascadia Freight's sanctioned RMM product exactly, the destination is the company's own self-hosted ScreenConnect instance (cascadia.hostedrmm.com, not a third-party relay), the operator is a named, authorized IT technician (m.delacroix), and a matching help-desk ticket (SD-88231), opened by the affected user herself, is confirmed by IT. Every element of the allowlist triad checks out, and the it_verify_message confirms it directly. This is a benign true positive: the rule correctly caught a real RMM connection, and ticket SD-88231 with an authorized technician is the justification; it is not a false positive, because calling it a misfire would invite weakening the rule rather than adding a narrow, owned allowlist entry for the sanctioned instance.",
+        "This is the allowlist principle applied directly: the tool matches Cascadia Freight's sanctioned RMM product exactly, the destination is the company's own ConnectWise-hosted ScreenConnect instance (cascadia.hostedrmm.com, not a third-party relay), the operator is a named, authorized IT technician (m.delacroix), and a matching help-desk ticket (SD-88231), opened by the affected user herself, is confirmed by IT. Every element of the allowlist triad checks out, and the it_verify_message confirms it directly. This is a benign true positive: the rule correctly caught a real RMM connection, and ticket SD-88231 with an authorized technician is the justification; it is not a false positive, because calling it a misfire would invite weakening the rule rather than adding a narrow, owned allowlist entry for the sanctioned instance.",
       fp_trap:
         "The underlying alert rule fires on ANY connection to ANY known RMM vendor domain, with no allowlist filter at all, meaning it fires identically on the organization's own sanctioned, ticketed, technician-operated support sessions and on a genuine intrusion. Escalating every RMM-domain hit without checking tool identity, operator account, and the ITSM ticket is exactly the flood of benign alerts this room's detection-discipline reading warns against, and it is also what would eventually train a SOC to stop taking RMM alerts seriously at all.",
       xp: 20,

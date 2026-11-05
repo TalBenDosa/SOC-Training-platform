@@ -172,7 +172,7 @@ export const DLP_FUNDAMENTALS: RoomExperience = {
           { id: "client", text: "Lawyers emailing case documents to clients' own addresses, which they do every day", reactor: "encrypt", why: "The send is legitimate; the risk is in transit. Encrypt it and let the work go on." },
           { id: "personal", text: "Client matter files uploaded to personal cloud storage", reactor: "block", why: "No business reason exists; stop it outright." },
           { id: "external", text: "Sharing a matter folder with an external party for the first time", reactor: "warn", why: "Often legitimate (co-counsel, experts). Ask the user to confirm and record why." },
-          { id: "phi", text: "Medical records from personal-injury cases sent outside the firm unencrypted", reactor: "block", why: "Health data in clear text to the outside: a regulatory breach if it goes." },
+          { id: "phi", text: "Medical records from personal-injury cases sent to a personal webmail address", reactor: "block", why: "Health data going to a private mailbox has no business reason: a regulatory breach if it goes." },
         ],
       },
     ],

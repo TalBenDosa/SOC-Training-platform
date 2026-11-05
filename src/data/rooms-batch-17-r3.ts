@@ -35,7 +35,7 @@ const tlsBeaconEvent: TelemetryEvent = {
     "ssl.version": "TLSv12",
     "ssl.cipher": "TLS_RSA_WITH_AES_128_CBC_SHA",
     "ssl.server_name": "cdn-assets-static.net",
-    "ssl.ja3": "e7d705a3286e19ea42f587b344ee6865",
+    "ssl.ja3": "3f1c9a77d2b04e58a61e0c4d9b27f805",
     "ssl.ja3s": "7e7558f4374aed341ef2d452af381db7",
     "ssl.issuer": "CN=cdn-assets-static.net",
     "ssl.subject": "CN=cdn-assets-static.net",
@@ -246,7 +246,7 @@ const tlsRoom = {
         "  0-10-11,23-24,0\n" +
         "\n" +
         "MD5 hash of that string = the JA3 fingerprint, e.g.:\n" +
-        "  e7d705a3286e19ea42f587b344ee6865\n" +
+        "  4d7a28d6f2263ed61de88ca66eb011e3\n" +
         "=======================================================\n\n" +
         "JA3 vs JA3S vs JARM -- WHAT EACH FINGERPRINTS\n" +
         "=======================================================\n" +
@@ -331,7 +331,7 @@ const tlsRoom = {
         `**Where interception breaks down: certificate pinning**\n\n` +
         `**Certificate pinning** is a technique where an application hard-codes (pins) the exact certificate, or public key, or CA it expects to see for a specific service, and refuses to connect if presented with anything else, even a certificate that would otherwise validate successfully against the device's trust store. This is a deliberate security feature (it defeats exactly this kind of interception, which is also why some malicious/adversarial tooling deliberately implements pinning too, for the same reason). Mobile banking apps, some messaging apps, and, notably, several C2 frameworks specifically implement certificate pinning against their own team server's certificate precisely to prevent a defender's SSL inspection appliance from ever seeing their C2 traffic's actual content: the connection simply fails outright rather than being interceptable, which itself can be a signal (an application or process whose HTTPS connections are consistently failing specifically at your interception point, while working fine when tested from outside it).\n\n` +
         `**Other practical and legal limits**\n\n` +
-        `Many organizations explicitly exclude certain traffic categories from interception for legal, regulatory, or trust reasons: banking and financial sites, healthcare portals (relevant to data privacy regulation), and sometimes personal webmail, specifically to avoid the organization taking on liability for having visibility into that content. **HSTS (HTTP Strict Transport Security)** preloading can also complicate interception for specific domains that browsers refuse to downgrade or accept substitute certificates for under any circumstances once HSTS is in effect. And practically: interception requires deploying and maintaining the internal CA across every managed device, which fails outright for unmanaged/BYOD devices, IoT devices, and third-party/contractor equipment that will never trust your internal CA, for that traffic, metadata-only analysis (everything covered in this room up to this point) is not a fallback option, it is the ONLY option.\n\n` +
+        `Many organizations explicitly exclude certain traffic categories from interception for legal, regulatory, or trust reasons: banking and financial sites, healthcare portals (relevant to data privacy regulation), and sometimes personal webmail, specifically to avoid the organization taking on liability for having visibility into that content. **HSTS (HTTP Strict Transport Security)** preloading can also complicate interception for specific domains, because once HSTS is in effect the browser removes the click-through option when a certificate is untrusted (a proxy certificate chaining to a CA in the device trust store is still accepted, so it is certificate pinning or a missing internal CA that actually defeats interception). And practically: interception requires deploying and maintaining the internal CA across every managed device, which fails outright for unmanaged/BYOD devices, IoT devices, and third-party/contractor equipment that will never trust your internal CA, for that traffic, metadata-only analysis (everything covered in this room up to this point) is not a fallback option, it is the ONLY option.\n\n` +
         `**The practical takeaway for an analyst**\n\n` +
         `Even in an organization that DOES deploy SSL interception broadly, you should never assume it universally covers everything: pinned applications, excluded categories, and unmanaged devices all still require metadata-based analysis. This is exactly why the skills in this room (SNI, certificate metadata, JA3/JA3S/JARM, and beacon-timing analysis) remain essential even in a mature security program with full interception capability, not just a fallback for organizations without it.`,
       codeExample:

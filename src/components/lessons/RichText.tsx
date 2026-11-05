@@ -37,7 +37,7 @@ function renderInline(text: string, keyBase: string | number): React.ReactNode[]
     if (part.startsWith("**") && part.endsWith("**"))
       return <strong key={`${keyBase}-${j}`} className="text-white font-semibold">{part.slice(2, -2)}</strong>;
     if (part.length > 1 && part.startsWith("`") && part.endsWith("`"))
-      return <code key={`${keyBase}-${j}`} className="rounded bg-bg-hover px-1.5 py-0.5 font-mono text-[12.5px] text-cyber-300">{part.slice(1, -1)}</code>;
+      return <code key={`${keyBase}-${j}`} className="rounded bg-bg-hover px-1.5 py-0.5 font-mono [overflow-wrap:anywhere] text-[12.5px] text-cyber-300">{part.slice(1, -1)}</code>;
     if (part.length > 2 && part.startsWith("*") && part.endsWith("*"))
       return <em key={`${keyBase}-${j}`} className="italic text-slate-200">{part.slice(1, -1)}</em>;
     return <span key={`${keyBase}-${j}`}>{part}</span>;

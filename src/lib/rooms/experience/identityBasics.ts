@@ -206,14 +206,14 @@ export const IDENTITY_BASICS: RoomExperience = {
       {
         kind: "duel",
         title: "What the Intruder Left",
-        prompt: "Maya's account is already blocked and her sessions revoked, but the on-call needs your review. The intruder planted things while the session was live. Each move below is something still standing: play the one card that removes it.",
+        prompt: "Maya's account is already blocked, but the on-call needs your review. The intruder planted things while the session was live. Each move below is something still standing: play the one card that removes it.",
         attacker: "The intruder (live session, 11:00 to 12:41 UTC)",
         moves: [
           { id: "d1", move: "A second phone for MFA", detail: "User registered security info at 11:24: an alternateMobile Maya never added.", counter: "kdelphone", hint: "It is a factor the attacker will pass at the next reset.", why: "A planted MFA method turns any later password reset into a clean takeover. Delete the method from the authentication methods list; resetting the password alone leaves it in place." },
           { id: "d2", move: "A rule named with one character", detail: "Inbox rule: forward everything to an outside address, mark as read, move to RSS Feeds.", counter: "krule", hint: "Revoking sessions does not touch mailbox settings.", why: "Rules live in the mailbox, not in the sign-in. Block and revoke leave them running, so remove the rule and check ForwardingSmtpAddress too." },
           { id: "d3", move: "Consent to an app at 11:37", detail: "The app now holds its own tokens for Maya's mail and files.", counter: "kconsent", hint: "The tokens belong to the app, not to her session.", why: "A consent grant gives the app its own refresh tokens that outlive the user's sessions. Remove the consent and the app's access for that user." },
           { id: "d4", move: "A refresh token issued before the block", detail: "Replayed from a new IP: the token was minted at 11:08, with MFA already satisfied.", counter: "krevoke", hint: "Time is on the attacker's side until the validity line moves.", why: "Revoking sign-in sessions moves SignInSessionsValidFromDateTime forward so every earlier refresh token dies, including the stolen one. Check that the line moved after the block." },
-          { id: "d5", move: "The password, still known", detail: "Captured on the phishing page at 10:57. The account is blocked, but the password is not changed.", counter: "kreset", hint: "Blocking is a pause, not a change.", why: "Unblock the account later with the old password and the attacker walks back in. Reset it, after the planted factor is gone, so the reset cannot be hijacked." },
+          { id: "d5", move: "The password, still known", detail: "Captured on the phishing page at 10:57. The account is blocked, but the password is not changed.", counter: "kreset", hint: "Blocking is a pause, not a change.", why: "Unblock the account later with the old password and the attacker walks back in. Reset it, and clear the planted factor too, so the account is clean before it is unblocked." },
         ],
         cards: [
           { id: "kdelphone", name: "Delete the unknown phone method", effect: "Removes an MFA method the user did not register." },
@@ -224,7 +224,7 @@ export const IDENTITY_BASICS: RoomExperience = {
           { id: "kblock", name: "Block sign-in again", effect: "Disables the account, which is already blocked in this case." },
           { id: "knumber", name: "Turn on number matching", effect: "Hardens future push approvals for the whole tenant." },
         ],
-        lesson: "Containment and cleanup are different jobs. Blocking and revoking end the session; the factor, the rule, the consent and the password are separate footholds, and each needs its own removal.",
+        lesson: "Containment and cleanup are different jobs. Blocking and revoking end the session; the factor, the rule, the consent and the password are separate footholds, and each needs its own removal. The order is: block sign-in first, so no new sign-in or token refresh can succeed; then reset the password and revoke sessions back-to-back; then review what was planted; re-enable last. Resetting or revoking on an account that is still enabled leaves a window: a live stolen token, or a fresh sign-in with the known password.",
       },
     ],
     // ── Reading 6: what MFA proves ──
@@ -288,7 +288,7 @@ export const IDENTITY_BASICS: RoomExperience = {
         items: [
           { id: "m", text: "m.santos · interactive logons 07:50-18:10 on CALD-WS0412", bucket: "user", why: "A person's everyday account, following a working day." },
           { id: "adm", text: "adm-j.reyes · member of Server Operators · logs on only to patch servers", bucket: "admin", why: "A separate privileged account for one person's admin work, kept apart from their daily login." },
-          { id: "sql", text: "svc_sqlbackup · logon type 5 (service) on SRV-SQL01 every night at 01:00", bucket: "svc", why: "Named for a job and started by the service controller, not by a person." },
+          { id: "sql", text: "svc_sqlbackup · logon type 5 (service) on SRV-SQL01 every night at 01:00", bucket: "svc", why: "Named for a job and started by the service controller, not by a person. Service accounts are attractive targets: often over-privileged, rarely rotated, and frequently exempt from MFA because no human can approve a prompt." },
           { id: "ws", text: "CALD-WS0412$ · Kerberos tickets every few hours", bucket: "machine", why: "A trailing $ marks a computer account: the device itself joining in domain services." },
           { id: "gmsa", text: "gmsa_web$ · group managed service account for the IIS app pool", bucket: "svc", why: "Ends in $, but it runs an application. A gMSA is a service account whose password the domain rotates for you." },
           { id: "da", text: "da-noa.p · Domain Admins · smart card required", bucket: "admin", why: "Tier-0 privilege, used rarely, behind a stronger sign-in." },

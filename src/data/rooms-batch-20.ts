@@ -201,12 +201,12 @@ const encodingRoom: Room = {
       type: "question",
       id: "enc-q1",
       question:
-        "A proxy rule blocks any request whose body contains the plaintext string 'DownloadString'. An attacker's PowerShell command uses -EncodedCommand and the payload still runs, even though the analyst can plainly see the literal text '-EncodedCommand' sitting right there in the process log. Why does encoding defeat this particular rule even though the flag itself isn't hidden at all?",
+        "An EDR detection rule alerts on any process command line that contains the plaintext string 'DownloadString'. An attacker's PowerShell command uses -EncodedCommand and no alert fires, even though the analyst can plainly see the literal text '-EncodedCommand' sitting right there in the process log. Why does encoding defeat this particular rule even though the flag itself isn't hidden at all?",
       options: [
         "The rule matched literal text like DownloadString; once Base64-encoded those characters never appear in the command line, though -EncodedCommand stays visible",
         "-EncodedCommand puts PowerShell in a mode that skips process and script-block logging, so the executed command is never recorded",
         "-EncodedCommand encrypts the payload under a per-session key, so no inspection rule can read the plaintext content",
-        "-EncodedCommand runs the payload under a different token, so the proxy attributes the request to a trusted system process and exempts it",
+        "-EncodedCommand runs the payload under a different token, so the rule attributes the activity to a trusted system process and exempts it",
       ],
       answer: 0,
       explanation:
@@ -431,11 +431,10 @@ const encodingRoom: Room = {
         "sequenceDiagram\n" +
         "  participant C as Client (browser)\n" +
         "  participant Srv as Server\n" +
-        "  C->>Srv: ClientHello\n" +
-        "  Srv-->>C: ServerHello + certificate (contains server's public key)\n" +
-        "  Note over C,Srv: Asymmetric encryption (RSA/ECC) used ONLY to safely agree on a shared secret\n" +
-        "  C->>Srv: Shared secret, encrypted with the server's public key\n" +
-        "  Note over C,Srv: Both sides now derive the same symmetric session key\n" +
+        "  C->>Srv: ClientHello + key share (a public value, safe to send)\n" +
+        "  Srv-->>C: ServerHello + key share, then certificate (signed, proves identity)\n" +
+        "  Note over C,Srv: Asymmetric maths (ECDHE key agreement) used ONLY to agree a shared secret; the secret itself never crosses the wire\n" +
+        "  Note over C,Srv: Both sides combine the two public values and derive the same symmetric session key\n" +
         "  C->>Srv: Application data, encrypted with the fast symmetric key (AES)\n" +
         "  Srv-->>C: Application data, encrypted with the same symmetric key",
       diagramCaption: "Why TLS uses both: asymmetric to agree a key, symmetric for the actual data",

@@ -5,12 +5,13 @@ import type { RoomExperience } from "./types";
 // Station task ids must match the room's task order exactly (see getRoomExperience).
 //
 // Morrow Bank (fictional). Lab data differs from the graded tasks: the
-// retention console checks log size and wrap-around, never a 1102 clear (q2);
-// the logon-type sheet covers types 4, 5, 7, 9 and 11, never 3 from a
-// workstation (q1) or which type is RDP (q4); the 4688 drill is a web shell
+// retention lab checks log size and wrap-around without naming 1102 or the
+// command-line policy (q2); the logon-type sheet
+// covers types 4, 5, 7, 9 and 11, never 3 from a
+// workstation (q1) and never which type is RDP (q4); the 4688 drill is a web shell
 // under w3wp.exe, not Word spawning encoded PowerShell (q3); and the spray
 // trace follows 198.51.100.200 to a lateral 4648, never la1's 203.0.113.45 or
-// a group-membership change (flag1).
+// a Domain Admins change (flag1).
 export const WINDOWS_EVENT_LOGS: RoomExperience = {
   roomId: "windows-event-logs",
   codename: "Operation Flight Recorder",
@@ -98,8 +99,8 @@ export const WINDOWS_EVENT_LOGS: RoomExperience = {
       {
         kind: "worksheet",
         title: "The Logon Types Nobody Reads",
-        prompt: "Six 4624 events from one morning on MB-WS-0217. Read the LogonType and LogonProcessName on each.",
-        caption: "Security 4624 · MB-WS-0217 · 06:00-09:00",
+        prompt: "Six 4624 events from one morning, on MB-WS-0217 and the domain controller MB-DC-01. Read the LogonType and LogonProcessName on each.",
+        caption: "Security 4624 · MB-WS-0217 and MB-DC-01 · 06:00-09:00",
         columns: ["time", "TargetUserName", "LogonType", "LogonProcessName", "note"],
         rows: [
           ["06:00:01", "svc_inventory", "4", "Advapi", "scheduled task"],
@@ -107,7 +108,7 @@ export const WINDOWS_EVENT_LOGS: RoomExperience = {
           ["07:58:44", "p.osei", "11", "User32", "laptop off the network"],
           ["08:31:10", "p.osei", "7", "User32", "after lunch screen lock"],
           ["08:47:22", "p.osei", "9", "seclogo", "network identity: MORROW\\adm-t.ruiz"],
-          ["08:47:23", "adm-t.ruiz", "3", "NtLmSsp", "to MB-DC-01, from MB-WS-0217"],
+          ["08:47:23", "adm-t.ruiz", "3", "NtLmSsp", "logged on MB-DC-01, from MB-WS-0217"],
         ],
         questions: [
           { id: "cached", q: "Which logon type means Windows checked the password against cached credentials, without a domain controller?", hint: "The one at 07:58.", answer: ["11", "CachedInteractive"], why: "Type 11: CachedInteractive. Normal for laptops off the network." },
@@ -191,6 +192,15 @@ export const WINDOWS_EVENT_LOGS: RoomExperience = {
             answer: 0,
             why: "4648 records a logon with explicitly supplied credentials: k.lindgren's account reaching for the file server.",
             learned: "02:41: k.lindgren's credentials used toward MB-FS-03: lateral movement",
+          },
+          {
+            id: "group", source: "Group-membership events · MB-DC-02 · 02:50-03:10",
+            ask: "The intruder then adds a member to Finance-Auditors, a domain-wide global group used for reporting access. Which row is that change?",
+            columns: ["EventID", "Meaning", "Group scope", "Example group"],
+            rows: [["4732", "Member added to a security-enabled local group", "Local to one machine or domain-local", "Backup Operators, Remote Desktop Users"], ["4728", "Member added to a security-enabled global group", "Global, domain-wide", "Finance-Auditors, HR-Payroll"], ["4720", "A user account was created", "Not a group event", "None"]],
+            answer: 1,
+            why: "Finance-Auditors is a global group, so adding a member is 4728. The same change to a machine-local group such as Backup Operators is 4732. 4720 creates an account and touches no group.",
+            learned: "Global group member added is 4728; local group member added is 4732",
           },
         ],
       },

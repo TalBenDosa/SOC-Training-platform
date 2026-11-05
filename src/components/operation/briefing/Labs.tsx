@@ -10,6 +10,7 @@ import { AnatomyLab, LocksLab, TricksLab, XrayLab } from "./LensLabs";
 import { EvidenceLab } from "./EvidenceLab";
 import { EncapLab, QueueLab, TerminalLab, TraceLab, WorksheetLab } from "./PracticeLabs";
 import { PcapLab } from "./PcapLab";
+import { PortalLab } from "./PortalLab";
 import { ChatLab } from "./ChatLab";
 import { CodebreakLab, DefuseLab, DeduceLab, DuelLab, InterceptLab, OutbreakLab, PathwayLab, RushLab, SpotDiffLab, TuneLab } from "./ArcadeLabs";
 
@@ -291,6 +292,7 @@ export function Lab({ lab, onDone }: { lab: BriefingLab; onDone: () => void }) {
     case "queue":    return <QueueLab lab={lab} onDone={onDone} />;
     case "worksheet": return <WorksheetLab lab={lab} onDone={onDone} />;
     case "pcap":     return <PcapLab lab={lab} onDone={onDone} />;
+    case "portal":   return <PortalLab lab={lab} onDone={onDone} />;
     case "intercept": return <InterceptLab lab={lab} onDone={onDone} />;
     case "duel":     return <DuelLab lab={lab} onDone={onDone} />;
     case "deduce":   return <DeduceLab lab={lab} onDone={onDone} />;
@@ -307,6 +309,7 @@ export function Lab({ lab, onDone }: { lab: BriefingLab; onDone: () => void }) {
 // Default "how to play" steps per lab kind, plus how you know you have finished;
 // a lab can override the steps with howTo.
 const HOW_TO: Record<BriefingLab["kind"], { steps: string[]; done: string }> = {
+  portal: { steps: ["Read the job for this step above the console.", "Work in the console as you would at your desk: menus, rows, buttons, drop-downs.", "Looking around is free. A wrong action costs a life and tells you why."], done: "the whole job is done" },
   intercept: { steps: ["An item drops toward what you guard.", "Block it or let it through before it lands: doing nothing lets it through.", "A wrong call costs a life. Lose three and the run is over."], done: "the last item has landed and you are still standing" },
   duel: { steps: ["Read the move the attacker just played.", "Play the one card from your hand that stops it.", "A wrong card costs a life, and a played card is gone."], done: "the attacker is out of moves" },
   deduce: { steps: ["Read the clue and rule out who it clears with the X.", "Take another clue if you need it: fewer is better.", "Pick a suspect and accuse. You get two accusations."], done: "you name the culprit" },

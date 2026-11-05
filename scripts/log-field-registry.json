@@ -12240,6 +12240,7 @@
       "label": "Wazuh",
       "aliases": [],
       "exactFields": [
+        "rule.mitre.id",
         "asset.department",
         "asset.hostname",
         "asset.owner",

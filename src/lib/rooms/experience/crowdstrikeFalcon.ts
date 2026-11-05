@@ -1,4 +1,5 @@
 import type { RoomExperience } from "./types";
+import { EDR_DETECTION_LAB } from "./consoleLabs";
 
 // "Operation Talon" for the "crowdstrike-falcon" room.
 // Script: docs/campaign/39-crowdstrike-falcon.md.
@@ -107,7 +108,7 @@ export const CROWDSTRIKE_FALCON: RoomExperience = {
             screen: { type: "status", service: "Falcon sensor · BMH-LIS-NA07 (night auditor, Lisbon)", state: "Online · last seen 14 s ago · sensor 7.18", errors: "Prevention policy: Hotels-Standard · RFM: off", series: [40, 42, 39, 44, 41, 43, 120, 135, 128] },
             answer: "health",
             callouts: [
-              { at: "state", text: "Online and checked in seconds ago: the sensor is healthy and still talking to the cloud. That is what makes remote response possible." },
+              { at: "state", text: "Online and checked in seconds ago: the sensor is healthy and still talking to the cloud. That is what makes remote response possible. The sensor runs in kernel mode, which is hard to evade from user mode, so attackers try to blind it with a vulnerable driver (BYOVD, bring your own vulnerable driver)." },
               { at: "graph", text: "Event volume jumped late in the night. A healthy sensor reporting more, not less, often means the host is busy doing something new." },
             ],
           },
@@ -155,6 +156,7 @@ export const CROWDSTRIKE_FALCON: RoomExperience = {
         culprit: "mgr1",
         why: "Detect time ordered the alerts, but only the telemetry orders the attack. The server and both front desks were each reached by an admin logon, and the kitchen job is a nightly baseline. The manager laptop opened an attachment at 00:12, had no inbound logon, and its admin logon reached the server at 01:38 before anything else moved. The last alert was the first host.",
       },
+      EDR_DETECTION_LAB,
     ],
     // ── Reading 3: RTR ──
     "cs-falcon-r3": [
@@ -167,7 +169,7 @@ export const CROWDSTRIKE_FALCON: RoomExperience = {
         rows: 5,
         crown: "PMS",
         via: "a reused local admin password",
-        lesson: "Network contain cuts a host off from everything except the Falcon cloud, so you can still reach it with Real Time Response. That is why you contain first and investigate afterwards. Inside the session the same order applies: ps shows a process running from a public folder, netstat ties its PID to the outside address, and reg query on the Run key shows what would start it again at logon. Kill the process and remove the Run value, or it returns.",
+        lesson: "Network contain cuts a host off from everything except the Falcon cloud, so you can still reach it with Real Time Response. That is why you contain first and investigate afterwards. Inside the session the same order applies: ps shows a process running from a public folder, netstat ties its PID to the outside address, and reg query on the Run key shows what would start it again at logon. Kill the process and remove the Run value, or it returns. A command line with -EncodedCommand is base64: decode it and check the parent process before you judge it, since encoding hides a command but does not prove an attack.",
       },
     ],
   },

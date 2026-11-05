@@ -30,8 +30,8 @@ const spoofedHeaderEvent: TelemetryEvent = {
     "header.subject": "Time-sensitive wire authorization needed today",
     "header.message_id": "<8841c2f0-a913@sv-notify-relay.net>",
     "header.received_chain": [
-      "from sv-notify-relay.net (unknown [154.16.88.201]) by mx1.solvix.com with ESMTPS id 8841c2f0 for <k.osei@solvix.com>; Tue, 02 Jun 2026 13:41:05 +0000",
-      "from mail-relay-09.sv-notify-relay.net (mail-relay-09.sv-notify-relay.net [154.16.88.201]) by sv-notify-relay.net with ESMTP id 44a2; Tue, 02 Jun 2026 13:41:02 +0000",
+      "from mail-relay-09.sv-notify-relay.net (unknown [154.16.88.201]) by mx1.solvix.com with ESMTPS id 8841c2f0 for <k.osei@solvix.com>; Tue, 02 Jun 2026 13:41:05 +0000",
+      "from mail-relay-09.sv-notify-relay.net (unknown [154.16.88.201]) by sv-notify-relay.net with ESMTP id 44a2; Tue, 02 Jun 2026 13:41:02 +0000",
     ],
     "header.authentication_results":
       "mx1.solvix.com; spf=fail smtp.mailfrom=sv-notify-relay.net; dkim=none; dmarc=fail (p=reject dis=none) header.from=solvix.com",
@@ -186,7 +186,7 @@ const emailRoom = {
       content:
         `Every mail server a message passes through (the originating server, any relay/forwarding hop, and finally your own organization's inbound mail gateway) prepends its own **Received:** header to the top of the message, on its way through. This means the message accumulates a stack of Received headers, one per hop, and critically: **the header physically at the bottom of the stack was added FIRST (closest to the true origin), and each one above it was added later, by a server closer to you.** Reading the chain in the correct order, bottom to top, is what lets you reconstruct the actual path a message took.\n\n` +
         `**Anatomy of a single Received header**\n\n` +
-        `Each Received header typically records: the hostname the CONNECTING server claimed via its HELO/EHLO ("from sv-notify-relay.net"), the actual reverse-DNS-resolved hostname and/or raw IP address the connection genuinely came from, in parentheses or brackets ("(unknown [154.16.88.201])". Note "unknown" here means reverse DNS lookup FAILED, itself often a minor red flag since most legitimate mail infrastructure has a working PTR record), which server received it ("by mx1.solvix.com"), the protocol used ("with ESMTPS"), an internal message ID, the specific recipient this hop processed ("for <k.osei@solvix.com>"), and a timestamp.\n\n` +
+        `Each Received header typically records: the hostname the CONNECTING server claimed via its HELO/EHLO ("from mail-relay-09.sv-notify-relay.net"), the actual reverse-DNS-resolved hostname and/or raw IP address the connection genuinely came from, in parentheses or brackets ("(unknown [154.16.88.201])". Note "unknown" here means reverse DNS lookup FAILED, itself often a minor red flag since most legitimate mail infrastructure has a working PTR record), which server received it ("by mx1.solvix.com"), the protocol used ("with ESMTPS"), an internal message ID, the specific recipient this hop processed ("for <k.osei@solvix.com>"), and a timestamp.\n\n` +
         `**What to look for when reading the chain**\n\n` +
         `- **The earliest (bottom-most) hop is the one that matters most**: this is closest to the message's true origin, before your own organization's infrastructure got involved. Everything above your own gateway's own added header is infrastructure you control and can trust; everything below it is what you're actually investigating.\n` +
         `- **HELO/EHLO claimed hostname vs. the actual connecting IP's reverse DNS.** A mismatch (the server claims to be "mail.solvix.com" but connects from an IP whose reverse DNS resolves to something completely unrelated, or fails to resolve at all) is a classic forgery indicator. Legitimate mail infrastructure is generally configured so these two facts agree.\n` +
@@ -198,13 +198,14 @@ const emailRoom = {
         "READING A RECEIVED CHAIN -- BOTTOM TO TOP = CHRONOLOGICAL\n" +
         "=======================================================\n" +
         "[TOP, added LAST -- by YOUR OWN infrastructure, most trusted]\n" +
-        "Received: from sv-notify-relay.net (unknown [154.16.88.201])\n" +
+        "Received: from mail-relay-09.sv-notify-relay.net\n" +
+        "          (unknown [154.16.88.201])\n" +
         "          by mx1.solvix.com with ESMTPS id 8841c2f0\n" +
         "          for <k.osei@solvix.com>; Tue, 02 Jun 2026 13:41:05 +0000\n" +
         "\n" +
         "[BOTTOM, added FIRST -- closest to true origin]\n" +
         "Received: from mail-relay-09.sv-notify-relay.net\n" +
-        "          (mail-relay-09.sv-notify-relay.net [154.16.88.201])\n" +
+        "          (unknown [154.16.88.201])\n" +
         "          by sv-notify-relay.net with ESMTP id 44a2;\n" +
         "          Tue, 02 Jun 2026 13:41:02 +0000\n" +
         "=======================================================\n" +
@@ -499,7 +500,7 @@ const emailRoom = {
         },
         {
           question:
-            "Given connecting_ip_reverse_dns shows 'no-ptr-record' and the Received chain shows only two hops both from the same 154.16.88.201 address claiming to be sv-notify-relay.net, what is the appropriate response?",
+            "Given connecting_ip_reverse_dns shows 'no-ptr-record' and the Received chain shows only two hops both from the same 154.16.88.201 address claiming to be mail-relay-09.sv-notify-relay.net, what is the appropriate response?",
           options: [
             "Close it: a missing PTR record is a minor DNS issue, and the message has already been delivered",
             "Treat as BEC: purge it from every mailbox, block the IP and domain, warn finance, fix enforcement",

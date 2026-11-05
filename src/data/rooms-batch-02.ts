@@ -1006,7 +1006,7 @@ The bouncer now has a scanner, a background-check database, and can read the con
 
 **NGFW** (Next-Generation Firewall) adds capabilities beyond stateful inspection:
 
-- **Deep Packet Inspection (DPI):** Examines the actual *content* of packets, not just headers. Can detect malware patterns, exploits, and policy violations inside encrypted or unencrypted traffic.
+- **Deep Packet Inspection (DPI):** Examines the actual *content* of packets, not just headers. Can detect malware patterns, exploits, and policy violations inside unencrypted traffic, and inside encrypted traffic only when SSL/TLS inspection decrypts it.
 - **Application Awareness (Layer 7):** Can identify applications regardless of port. If someone uses Tor on port 443, an NGFW can identify it as Tor (not just as HTTPS) and block it. Rules can be: "BLOCK all BitTorrent regardless of port" or "ALLOW YouTube but BLOCK Netflix."
 - **User Identity:** Integrates with Active Directory to apply rules based on user, not just IP. "Allow the Finance group to access the accounting server", when the accounting server's IP changes, the rule still works.
 - **Integrated IPS:** Threat signature detection built in: catches known exploits, malware patterns, and attack signatures.
@@ -1114,7 +1114,7 @@ If everyone in a building had keys to every room (including the server room, the
 
 **Why segment?**
 - **Contain breaches:** Ransomware spreading via SMB can only reach machines in the same VLAN unless firewall rules allow cross-segment traffic
-- **Compliance:** PCI-DSS (payment card security standard) requires cardholder data to be in a separate network segment
+- **Compliance:** PCI-DSS (payment card security standard) lets you shrink audit scope by segmenting cardholder data away from the rest of the network
 - **Reduce attack surface:** Printers and IoT devices (HVAC, badge readers) in a separate VLAN can't reach your servers
 - **Performance:** Broadcast traffic stays within a VLAN, not flooding the entire network
 
@@ -1284,28 +1284,32 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
           dst_ip: "203.0.113.10",
           description:
             "IDS scan signature on a perimeter address",
-          mitre_technique: "T1046 - Network Service Discovery",
+          mitre_technique: "T1595.001 - Active Scanning: Scanning IP Blocks",
           raw: {
-            alert_signature: "ET SCAN NMAP -sS window 1024",
-            signature_id: "2009582",
+            timestamp: "2025-11-18T22:03:44.612+0000",
+            flow_id: 1204855316092741,
+            event_type: "alert",
             src_ip: "91.235.234.192",
-            dst_ip: "203.0.113.10",
             src_port: 45821,
-            dst_ports_scanned: [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 445, 3389, 8080],
-            packets_sent: 14,
-            syn_packets_without_ack: 14,
-            scan_duration_ms: 1240,
-            geo_src_country: "LT",
-            threat_intel: "IP flagged in 3 threat feeds",
-            action: "alert",
-            rule_category: "SCAN",
-            timestamp: "2025-11-18T22:03:44Z",
+            dest_ip: "203.0.113.10",
+            dest_ports_scanned: [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 445, 3389, 8080],
+            proto: "TCP",
+            alert: {
+              action: "allowed",
+              gid: 1,
+              signature_id: 2009582,
+              rev: 5,
+              signature: "ET SCAN NMAP -sS window 1024",
+              category: "Attempted Information Leak",
+              severity: 2,
+            },
+            host: "ids-edge-01",
           },
         },
         questions: [
           {
             question:
-              "The log shows 'syn_packets_without_ack: 14'. In the context of TCP's three-way handshake, what does this indicate about the scan technique?",
+              "The signature is 'ET SCAN NMAP -sS window 1024' and the sensor logged 14 SYN probes to 14 ports. In the context of TCP's three-way handshake, what does this indicate about the scan technique?",
             options: [
               "Final ACKs were dropped on an unstable link: a real scan completes every handshake before marking a port open",
               "A SYN (half-open) scan: SYN probes read as SYN-ACK or RST, and the final ACK is never sent",
@@ -1319,7 +1323,7 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
           },
           {
             question:
-              "Looking at the dst_ports_scanned list, which port should be most concerning if found open and accessible from the internet?",
+              "Looking at the dest_ports_scanned list, which port should be most concerning if found open and accessible from the internet?",
             options: [
               "Port 80, because plain HTTP sends web traffic unencrypted",
               "Port 23, because Telnet is an old protocol that few people use",
@@ -1339,7 +1343,7 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
         prompt:
           "Based on the port scan event above, was the sensor working as an IDS or as an IPS when it saw this scan? Answer IDS or IPS.",
         answer: "IDS",
-        hint: "Find what the sensor did with the scan traffic, then ask whether that stopped anything.",
+        hint: "Find alert.action: what the sensor did with the scan traffic, and whether that stopped anything.",
         xp: 25,
       },
     ],

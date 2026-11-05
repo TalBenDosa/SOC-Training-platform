@@ -687,7 +687,6 @@ const aiAttacksTasks = [
         vendor: "Microsoft 365",
         event_type: "email_sent",
         severity: "informational",
-        expected_verdict: "fp",
         it_verify_result: "confirmed",
         it_verify_message: "Sales Director confirmed use of the org's licensed Microsoft Copilot for Microsoft 365 to draft this email; Copilot usage for this account is enabled and DLP-integrated per IT.",
         user: {

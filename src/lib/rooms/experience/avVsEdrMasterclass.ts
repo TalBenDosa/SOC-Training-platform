@@ -143,7 +143,7 @@ export const AV_VS_EDR_MASTERCLASS: RoomExperience = {
       {
         kind: "sort",
         title: "What the Scanner Saw",
-        prompt: "The Ludlow weekend, event by event. Which of these could the antivirus have judged, and which show up only as behaviour over time?",
+        prompt: "The Ludlow weekend, event by event. Which of these could the antivirus have judged, and which show up only as behaviour over time? One more tool to know: AMSI (Antimalware Scan Interface) lets a security product read a script's decoded text just before PowerShell runs it, even when no file exists.",
         buckets: [
           { id: "av", label: "AV can judge it" },
           { id: "edr", label: "Only behaviour shows it" },

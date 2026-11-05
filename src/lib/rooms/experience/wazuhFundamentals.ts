@@ -108,11 +108,11 @@ export const WAZUH_FUNDAMENTALS: RoomExperience = {
       {
         kind: "tune",
         title: "Who Gets Paged?",
-        prompt: "Lucía routes alerts to the on-call phone with two dials: the lowest rule level that pages, and a cap on how often that rule may already have fired today. After decoding, the rules phase sets the level and counts repeats. Set both, deploy, and see who gets woken for what.",
+        prompt: "Lucía routes alerts to the on-call phone with two dials: the lowest rule level that pages, and a stand-in for the exceptions she has already reviewed and documented: rules that fired more than a set number of times today and were confirmed benign. After decoding, the rules phase sets the level and counts repeats. Level bands: 0 ignored, 1 to 3 low informational, 4 to 6 low, 7 to 11 medium, 12 to 14 high, 15 critical. Rule ID blocks: 500 to 599 rootcheck and syscheck, 5100 to 5299 Linux system, 5300 to 5999 authentication (sshd, PAM, sudo, user changes), 31100 to 31999 web server, 100000 and up your own custom rules. Set both dials, deploy, and see who gets woken for what.",
         eventColumn: "decoded alert",
         dials: [
           { id: "level", label: "Page at rule level or above", short: "level", min: 1, max: 15, step: 1, start: 1 },
-          { id: "fired", label: "Ignore rules that already fired more than", short: "fired today", unit: "times", min: 1, max: 500, step: 1, start: 500, dir: "below" },
+          { id: "fired", label: "Treat as reviewed noise if fired more than", short: "fired today", unit: "times", min: 1, max: 500, step: 1, start: 500, dir: "below" },
         ],
         events: [
           { id: "a1", label: "adduser decoder, level 12: new account on art-store-02", bad: true, values: { level: 12, fired: 1 } },
@@ -129,7 +129,7 @@ export const WAZUH_FUNDAMENTALS: RoomExperience = {
           { id: "n7", label: "pam decoder, level 4: a login on a build host, off the CI window", bad: false, values: { level: 4, fired: 6 } },
         ],
         goal: { catch: 5, maxFalse: 0 },
-        lesson: "Level is the rule author's guess; how often the rule fires is evidence. Levels 5 and 6 with a count of 8 or less catch a new cron job and an unticketed rc.local change that a level-10 cutoff never pages, while the level 10 to 12 events that fire dozens of times are the CI runner and the restart loop. The deploy script (level 6, fired 9) shows how close a benign repeat sits to the real thing. Tune rules by their repeat rate and their rule ID, not by turning the page level up until the phone goes quiet.",
+        lesson: "Level is the rule author's guess; how often the rule fires is evidence. Levels 5 and 6 with a count of 8 or less catch a new cron job and an unticketed rc.local change that a level-10 cutoff never pages, while the level 10 to 12 events that fire dozens of times are the CI runner and the restart loop. The deploy script (level 6, fired 9) shows how close a benign repeat sits to the real thing. Tune rules by their repeat rate and their rule ID, not by turning the page level up until the phone goes quiet. In production, once a noisy rule is confirmed benign, also record a documented exception scoped to that rule ID and that host or user.",
       },
     ],
     // ── Reading 3: FIM and SCA ──

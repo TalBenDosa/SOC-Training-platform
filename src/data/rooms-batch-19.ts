@@ -351,7 +351,7 @@ const vulnerabilityManagementRoom = {
           ],
           answer: 1,
           explanation:
-            "This is the exact pattern taught in Reading 3: the lower CVSS finding, when it is KEV-confirmed, has a near-certain EPSS score, and sits on an internet-facing asset, outranks a higher-CVSS finding that is internal-only, unauthenticated by design (isolated VLAN, single jump host), has no public exploit, and isn't in KEV. CVE-2025-40021 still needs scheduling, it isn't dismissed, but it is not this week's fire the way CVE-2025-31337 is.",
+            "This is the exact pattern taught in Reading 3: the lower CVSS finding, when it is KEV-confirmed, has a near-certain EPSS score, and sits on an internet-facing asset, outranks a higher-CVSS finding that is internal-only, reachable only from a single jump host on an isolated VLAN and needing an authenticated local user, has no public exploit, and isn't in KEV. CVE-2025-40021 still needs scheduling, it isn't dismissed, but it is not this week's fire the way CVE-2025-31337 is.",
           xp: 35,
         },
         {

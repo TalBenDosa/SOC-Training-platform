@@ -823,7 +823,7 @@ const privescRoom: Room = {
           ],
           answer: 0,
           explanation:
-            "HKCU is the logged-on user's own hive, so writing to it is an ordinary Medium-integrity operation. That is what makes this bypass possible for an attacker who has not yet elevated. “Medium processes may write protected keys anywhere” confuses admin membership with elevation: Reading 1 showed an admin's Medium processes cannot do everything the account could. “SeDebugPrivilege” governs opening other processes' memory (Reading 2), not registry writes. “fodhelper wrote the key itself” reverses the order: the Sysmon 13 write came before fodhelper launched, which is why the hijack was already in place when fodhelper read it.",
+            "HKCU is the logged-on user's own hive, so writing to it is an ordinary Medium-integrity operation. That is what makes this bypass possible for an attacker who has not yet elevated. “Medium processes may write protected keys anywhere” confuses admin membership with elevation: Reading 1 showed an admin's Medium processes cannot do everything the account could. “SeDebugPrivilege” governs opening other processes' memory (Reading 2), not registry writes. “fodhelper wrote the key itself” reverses the order: the registry write came before fodhelper launched, which is why the hijack was already in place when fodhelper read it.",
           xp: 25,
         },
         {
@@ -886,7 +886,7 @@ const privescRoom: Room = {
       type: "question",
       id: "privesc-q2",
       question:
-        "A web shell is confirmed running under the IIS APPPOOL\\ContosoSite identity, which shows IntegrityLevel: Medium and holds SeImpersonatePrivilege by default. What is the accurate way to describe the attacker's current position?",
+        "A web shell is confirmed running under the IIS APPPOOL\\ContosoSite identity, not SYSTEM, and that identity holds SeImpersonatePrivilege by default. What is the accurate way to describe the attacker's current position?",
       options: [
         "The attacker already has SYSTEM-level control. Code execution on a Windows server is equivalent to SYSTEM whichever account runs the process",
         "The attacker has low-privileged service-account execution, and SeImpersonatePrivilege puts a Potato-family escalation to SYSTEM within a short, known step",
@@ -895,7 +895,7 @@ const privescRoom: Room = {
       ],
       answer: 1,
       explanation:
-        "IIS APPPOOL identities are deliberately low-privileged, Medium-integrity virtual accounts, but they commonly hold SeImpersonatePrivilege by default: exactly the precondition the Potato family abuses to reach SYSTEM. “Already has SYSTEM-level control” confuses code execution with privilege; the stem itself shows Medium integrity. “Contained” ignores the SeImpersonatePrivilege the stem lists. “Must dump LSASS first” gets the order backwards: Potato captures a coerced SYSTEM authentication and impersonates it with no password or hash, and a Medium process could not open LSASS anyway (Reading 2).",
+        "IIS APPPOOL identities are deliberately low-privileged virtual accounts, but they commonly hold SeImpersonatePrivilege by default: exactly the precondition the Potato family abuses to reach SYSTEM. Potato is not an integrity-level jump; it steals a coerced SYSTEM token. “Already has SYSTEM-level control” confuses code execution with privilege; the stem itself says the identity is not SYSTEM. “Contained” ignores the SeImpersonatePrivilege the stem lists. “Must dump LSASS first” gets the order backwards: Potato captures a coerced SYSTEM authentication and impersonates it with no password or hash, and an app-pool identity lacks SeDebugPrivilege so it could not open LSASS anyway (Reading 2).",
       xp: 20,
     },
     {
@@ -988,7 +988,7 @@ const privescRoom: Room = {
       pairs: [
         { id: "fodhelper", left: "fodhelper.exe as parent, IntegrityLevel: High, no consent.exe launched in the session", right: "UAC bypass via registry hijack (T1548.002). Auto-elevate binary reading an attacker-planted HKCU command key" },
         { id: "lsass-access", left: "GrantedAccess: 0x1FFFFF requested against lsass.exe", right: "PROCESS_ALL_ACCESS: requires SeDebugPrivilege and High/System integrity already held by the requesting process" },
-        { id: "potato", left: "A Medium-integrity service account holding SeImpersonatePrivilege suddenly executing commands as SYSTEM", right: "Potato-family exploit: coerces a SYSTEM component to authenticate to an attacker-controlled listener, then impersonates that connection" },
+        { id: "potato", left: "A low-privileged service account holding SeImpersonatePrivilege suddenly executing commands as SYSTEM", right: "Potato-family exploit: coerces a SYSTEM component to authenticate to an attacker-controlled listener, then impersonates that connection" },
         { id: "unquoted", left: "A SYSTEM-run service's unquoted ImagePath, with a new binary appearing at one of the intermediate space-delimited paths", right: "Unquoted service path abuse: Windows executes the attacker's binary as SYSTEM on the service's next start" },
         { id: "consent", left: "consent.exe (child of svchost.exe) starting in the same session seconds before a High-integrity process whose parent is explorer.exe", right: "Normal, expected UAC elevation: the exact evidence a bypass technique specifically avoids leaving behind" },
         { id: "duptoken", left: "DuplicateToken/ImpersonateLoggedOnUser used to act as another logged-on user's identity", right: "Token manipulation (T1134), reusing an already-privileged token instead of escalating integrity directly" },

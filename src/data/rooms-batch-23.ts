@@ -865,7 +865,7 @@ A SOAR (Security Orchestration, Automation and Response) platform sits one layer
       id: "secprod-o1",
       heading: "Order the Products by When They'd First See a Phishing-to-Cloud-Exfiltration Attack",
       instructions:
-        "An incident review lists what happened, in no particular order: customer data left through a monitored egress channel; the attacker hopped between internal servers; a stolen token was used for a cloud sign-in; a phishing email reached a user's inbox; the infected workstation opened a connection to a command-and-control server; the user opened the attachment and a malicious process started. Work out the real sequence of the attack, then order these products by which one would see its part of it first.",
+        "An incident review lists what happened, in no particular order: customer data left through a monitored egress channel; the attacker hopped between internal servers; a token stolen from one of those servers was used for a cloud sign-in; a phishing email reached a user's inbox; the infected workstation opened a connection to a command-and-control server; the user opened the attachment and a malicious process started. Work out the real sequence of the attack, then order these products by which one would see its part of it first.",
       items: [
         { id: "email-gw", text: "Email Security Gateway" },
         { id: "edr", text: "EDR" },

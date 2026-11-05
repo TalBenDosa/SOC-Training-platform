@@ -93,7 +93,7 @@ export const VPN_MONITORING: RoomExperience = {
           { key: "private_ip", value: "10.88.12.47", label: "Inside address", note: "The address the gateway hands out. Every internal log after this point shows this, not the public one." },
           { key: "auth_method", value: "SAML + MFA (push)", label: "How they proved it" },
           { key: "client_ver", value: "6.2.4 · Windows", label: "Client" },
-          { key: "tunnel_type", value: "full", label: "Tunnel" },
+          { key: "tunnel_type", value: "full", label: "Tunnel", note: "Full means all of the laptop's traffic goes through the VPN. With a split tunnel only corporate traffic does: a download from a public website then skips the corporate proxy, IDS and DLP, and the evidence is on the laptop itself, in its EDR telemetry." },
           { key: "duration · bytes", value: "7 h 42 m · 1.9 GB in / 0.3 GB out", label: "Session shape", note: "A working day, mostly downloads: what an engineer pulling turbine data looks like." },
         ],
         summary: "Who, from where, the inside address they were given, how they proved it, and how the session behaved. Keep the inside address: you'll need it to follow anyone past the gateway.",

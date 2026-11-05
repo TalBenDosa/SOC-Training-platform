@@ -62,14 +62,14 @@ const firewallMasterclass = {
         `**Why firewalls exist**\n\n` +
         `Before firewalls, networks were open by design. The early internet was built for academic research: trust was assumed, not enforced. When organizations began connecting to the internet in the late 1980s and early 1990s, attackers quickly discovered they could reach internal systems directly. There was nothing in the middle to stop them. A tool was needed to act as the controlled checkpoint between a trusted internal network and the untrusted outside world.\n\n` +
         `**The evolution through generations**\n\n` +
-        `Firewall technology has evolved through four major generations, each driven by a new type of attack that the previous generation could not stop.\n\n` +
+        `Firewall technology has evolved through three major generations, each driven by a new type of attack that the previous generation could not stop.\n\n` +
         `The first generation, packet filtering, appeared in 1988 when engineers at DEC (Digital Equipment Corporation) built the first packet-filter firewall. It inspected IP and TCP/UDP headers only: source IP, destination IP, source port, destination port, and protocol. Simple and fast, but it had no awareness of whether a packet belonged to a legitimate conversation.\n\n` +
         `The second generation, stateful inspection, arrived in 1993 when Check Point Software launched FireWall-1, the world's first commercially available stateful firewall. Instead of treating each packet in isolation, it tracked the state of every connection. A packet was only allowed through if it belonged to an established, legitimate session. This blocked a whole class of spoofing and session-hijacking attacks that had plagued packet filters.\n\n` +
-        `The third generation, Unified Threat Management (UTM), emerged in the early 2000s. Vendors began combining firewall capabilities with antivirus, intrusion prevention (IPS), VPN, and web filtering into a single appliance. UTM devices were popular in small to mid-size businesses because one box did many jobs, but performance suffered and application visibility was still limited.\n\n` +
-        `The fourth generation, Next-Generation Firewalls (NGFW), was pioneered by Palo Alto Networks in 2007. Nir Zuk, one of the inventors of stateful inspection at Check Point, founded Palo Alto with the explicit goal of building a firewall that could identify applications, users, and content regardless of port, protocol, or encryption. An NGFW can tell the difference between Facebook and Facebook Messenger and apply different policies to each, even though both travel over port 443.\n\n` +
+        `The third generation, deep packet inspection, first reached the market as Unified Threat Management (UTM) in the early 2000s. Vendors began combining firewall capabilities with antivirus, intrusion prevention (IPS), VPN, and web filtering into a single appliance. UTM devices were popular in small to mid-size businesses because one box did many jobs, but performance suffered and application visibility was still limited.\n\n` +
+        `The mature form of that third generation, Next-Generation Firewalls (NGFW), was pioneered by Palo Alto Networks in 2007. Nir Zuk, one of the inventors of stateful inspection at Check Point, founded Palo Alto with the explicit goal of building a firewall that could identify applications, users, and content regardless of port, protocol, or encryption. An NGFW can tell the difference between Facebook and Facebook Messenger and apply different policies to each, even though both travel over port 443.\n\n` +
         `Today, cloud-native NGFWs delivered as Software-as-a-Service extend these capabilities to hybrid and multi-cloud environments, inspecting traffic between cloud workloads the same way a physical appliance inspects traffic at a corporate perimeter.\n\n` +
         `**The fundamental principle that has never changed**\n\n` +
-        `Despite four generations of evolution, every firewall in history operates on the same core principle: default deny. Traffic is blocked unless explicitly permitted. The bouncer does not ask "why should I turn you away?". They ask "why should I let you in?" This principle, combined with the principle of least privilege (only allow what is strictly necessary), forms the bedrock of network security.`,
+        `Despite three generations of evolution, every firewall in history operates on the same core principle: default deny. Traffic is blocked unless explicitly permitted. The bouncer does not ask "why should I turn you away?". They ask "why should I let you in?" This principle, combined with the principle of least privilege (only allow what is strictly necessary), forms the bedrock of network security.`,
       codeExample:
         `FIREWALL GENERATION TIMELINE\n` +
         `════════════════════════════════════════════════════════════════\n` +
@@ -131,17 +131,17 @@ const firewallMasterclass = {
         ` ! Rule 40: Allow SMTP outbound from mail server only\n` +
         ` 40  permit tcp host 10.0.1.25 any eq 25\n` +
         `\n` +
-        ` ! Rule 50: Block RFC1918 private IPs arriving on external interface\n` +
-        ` 50  deny   ip 192.168.0.0 0.0.255.255 any\n` +
-        ` 60  deny   ip 172.16.0.0  0.15.255.255 any\n` +
-        ` 70  deny   ip 10.0.0.0    0.255.255.255 any\n` +
-        `\n` +
         ` ! Rule 80: Block ICMP flooding (rate-limit not shown)\n` +
         ` 80  deny   icmp any any\n` +
         `\n` +
         ` ! Implicit: deny ip any any  <-- this exists even if not written!\n` +
         `\n` +
         `ip access-list extended INBOUND-FROM-INTERNET\n` +
+        ` ! Rule 5: Block RFC1918 private sources arriving on the external interface\n` +
+        ` 5   deny   ip 192.168.0.0 0.0.255.255 any\n` +
+        ` 6   deny   ip 172.16.0.0  0.15.255.255 any\n` +
+        ` 7   deny   ip 10.0.0.0    0.255.255.255 any\n` +
+        `\n` +
         ` ! Rule 10: Let DNS replies back in (keyed on SOURCE port 53;\n` +
         ` !          "eq 53" placed after the SOURCE matches the source port)\n` +
         ` 10  permit udp any eq 53 10.0.0.0 0.255.255.255\n` +
@@ -169,10 +169,10 @@ const firewallMasterclass = {
           "Permitted: the user's request already passed OUTBOUND Rule 30, so its reply is let back in",
           "Denied by the implicit deny-all: no rule in this ACL matches TCP from source port 443",
           "Passed on to the next ACL: a packet that matches no rule is handed on rather than blocked",
-          "Denied by OUTBOUND Rule 70: the destination 10.0.3.88 falls inside the 10.0.0.0/8 range",
+          "Denied by INBOUND Rule 7: the destination 10.0.3.88 falls inside the 10.0.0.0/8 range",
         ],
         answer: 1,
-        explanation: "The inbound ACL contains a single rule, which matches only UDP from source port 53. A TCP packet from port 443 matches nothing, so it falls through to the implicit deny-all that ends every ACL. First-match evaluation never finds a match. “The request passed OUTBOUND Rule 30” assumes the router remembers the outbound request; a stateless filter evaluates each packet in isolation, which is exactly why administrators once had to write explicit return-traffic rules. “Passed on to the next ACL” is wrong: an unmatched packet is dropped, not handed on. “OUTBOUND Rule 70” belongs to a different ACL (outbound, not inbound) and matches on the SOURCE address 10.0.0.0/8, not the destination.",
+        explanation: "The inbound ACL's only permit (Rule 10) matches UDP from source port 53, and its deny rules 5 to 7 match private source addresses. A TCP packet from public source 198.51.100.20, port 443, matches nothing, so it falls through to the implicit deny-all that ends every ACL. First-match evaluation never finds a match. “The request passed OUTBOUND Rule 30” assumes the router remembers the outbound request; a stateless filter evaluates each packet in isolation, which is exactly why administrators once had to write explicit return-traffic rules. “Passed on to the next ACL” is wrong: an unmatched packet is dropped, not handed on. “INBOUND Rule 7” matches on the SOURCE address 10.0.0.0/8, not the destination, and this packet's source is public.",
       },
     },
 
@@ -409,7 +409,7 @@ const firewallMasterclass = {
         `Every firewall is only as good as its rule base. A misconfigured rule base is more dangerous than having no firewall at all, because it creates a false sense of security while leaving real gaps. Understanding how to read, write, and audit firewall rules is one of the most practically valuable skills in network security.\n\n` +
         `**Anatomy of a firewall rule**\n\n` +
         `Every rule in a modern NGFW policy consists of: Name (human-readable identifier), Source Zone (where the traffic originates), Destination Zone (where the traffic is headed), Source Address (individual IP, subnet, or address group), Destination Address, Application (for NGFW) or Service/Port (for traditional FW), Action (allow, deny, drop, or inspect), and Log setting (log all, log at session start, log at session end, no log).\n\n` +
-        `The distinction between deny and drop is important. Deny sends a TCP RST or ICMP Unreachable back to the sender: the client knows the connection was refused. Drop silently discards the packet with no response. Drop is generally preferred for inbound traffic from untrusted sources because it provides no information to attackers performing reconnaissance.\n\n` +
+        `The distinction between drop and reject is important, and the words are vendor specific: many firewalls, FortiGate and Cisco ASA among them, silently discard on deny. A reject (or reset) action sends a TCP RST or ICMP Unreachable back to the sender, so the client knows the connection was refused. Drop silently discards the packet with no response. Drop is generally preferred for inbound traffic from untrusted sources because it provides no information to attackers performing reconnaissance.\n\n` +
         `**First-match wins: order is everything**\n\n` +
         `Rules are evaluated top-to-bottom. The moment a packet matches a rule, the action is taken and evaluation stops: no further rules are checked. This means the most specific rules must come before the most general ones. A common mistake is placing a broad "allow all" rule above more specific deny rules, effectively making those deny rules unreachable. This is called a shadow rule: a rule that can never be triggered because an earlier rule always matches first.\n\n` +
         `**The implicit deny-all**\n\n` +

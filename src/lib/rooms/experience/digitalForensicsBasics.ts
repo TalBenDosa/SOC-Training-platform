@@ -82,7 +82,7 @@ export const DIGITAL_FORENSICS_BASICS: RoomExperience = {
       {
         kind: "hotspot",
         title: "What's Wrong With This Bag?",
-        prompt: "The laptop from the bidding desk arrived in the lab in this bag, with this custody form. A defence lawyer will read both line by line. Tap everything that would let them question the evidence.",
+        prompt: "The laptop from the bidding desk arrived in the lab in this bag, with this custody form. A defence lawyer will read both line by line. Tap everything that would let them question the evidence. One rule sits behind the custody form: collect the most volatile evidence first. The order is CPU registers and cache, then RAM, then the disk, then logs and backups. RAM changes while the host runs and is gone at power-off, while the disk persists and can wait.",
         artifact: "Evidence bag ASH-2026-0117 · custody form",
         parts: [
           { id: "item", text: "Item: Dell Latitude 7440, serial 7K2M9Q3, bidding desk 2", flag: false, note: "A precise description with a serial number: exactly what should be here.", style: "meta" },
@@ -99,7 +99,7 @@ export const DIGITAL_FORENSICS_BASICS: RoomExperience = {
       {
         kind: "deduce",
         title: "Which Process Is the Intruder?",
-        prompt: "Rosalind captured RAM from the second bidding server, ASH-BID-02, while the auction was live. Six processes look odd at a glance. Strike out the ones that are normal and accuse the one that is not.",
+        prompt: "Rosalind captured RAM from the second bidding server, ASH-BID-02, while the auction was live. Six processes look odd at a glance. Strike out the ones that are normal and accuse the one that is not. In Volatility 3 the windows.pstree plugin shows the process tree and parents and windows.netscan lists network connections.",
         nameColumn: "Process",
         columns: ["Parent", "Started", "Connects to", "Image path"],
         suspects: [
@@ -124,7 +124,7 @@ export const DIGITAL_FORENSICS_BASICS: RoomExperience = {
       {
         kind: "sequence",
         title: "Rebuild the Night",
-        prompt: "Artefacts from the bidding-desk laptop's disk image, each with its own timestamp. Tap them into the order they happened to rebuild auction night.",
+        prompt: "Artefacts from the bidding-desk laptop's disk image, each with its own timestamp. Tap them into the order they happened to rebuild auction night. Another artefact worth knowing is Prefetch: a .pf file in C:\\Windows\\Prefetch records a program's name, path and its last 8 run times, and it survives after the program is deleted.",
         items: [
           { id: "lnk", text: "LNK (Recent Items): Lot117_reserve.xlsx opened from \\\\ASH-FS01\\Valuations at 21:31", note: "Opening a file leaves a shortcut with the target's path and times." },
           { id: "evtx", text: "Security 4624: bidding-desk logon by j.mercer, logon type 2, at 21:12", note: "Who sat down at the keyboard, and when." },
@@ -191,7 +191,7 @@ export const DIGITAL_FORENSICS_BASICS: RoomExperience = {
             why: "The offset goes in the case notes and is applied on the working timeline, so every reader can see both values. Editing the evidence destroys it, and trusting a known-wrong clock puts the event at 21:46 when it really happened at 21:32.",
           },
         ],
-        lesson: "Admissible evidence is protected twice: nothing writes to the original, and every correction or oddity is written in the notes, never into the evidence.",
+        lesson: "Admissible evidence is protected twice: nothing writes to the original, and every correction or oddity is written in the notes, never into the evidence. In the RAM you capture, the Volatility plugin windows.malfind flags memory that is executable but not backed by a file on disk, a lead for injected code that you dump and analyse.",
       },
     ],
   },

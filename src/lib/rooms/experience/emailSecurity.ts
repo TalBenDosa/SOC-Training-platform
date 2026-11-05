@@ -22,7 +22,7 @@ export const EMAIL_SECURITY: RoomExperience = {
     "Hannah Cole reads them all day. She'll show you where a message really came from, what the DNS says about the sender, and what a hijacked thread looks like.",
     "Read the postmarks.",
   ],
-  mission: "Trace a message hop by hop through its Received headers, query SPF, DKIM and DMARC records with dig, spot the tells in a hijacked supplier thread, and read a Defender email event field by field.",
+  mission: "Trace a message hop by hop through its Received headers, judge SPF, DKIM and DMARC results at the mail gateway, spot the tells in a hijacked supplier thread, and read a Defender email event field by field.",
   estimate: "~40 min",
   look: { primary: "#f59e0b", secondary: "#38bdf8", warn: "#f43f5e" },
   scene: "postmark",

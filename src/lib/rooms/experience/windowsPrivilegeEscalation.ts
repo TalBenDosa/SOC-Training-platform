@@ -125,7 +125,7 @@ export const WINDOWS_PRIVILEGE_ESCALATION: RoomExperience = {
         ],
         items: [
           { id: "defender", text: "MsMpEng.exe (Microsoft-signed, Program Files\\Windows Defender) · GrantedAccess 0x1410", bucket: "expected", why: "Defender scans LSASS routinely. Signed, expected path, expected mask." },
-          { id: "procdump", text: "procdump64.exe from C:\\Users\\m.osei\\Downloads · GrantedAccess 0x1FFFFF", bucket: "hunt", why: "A dumping tool from a Downloads folder asking for everything. Full access was granted, so it was already elevated." },
+          { id: "procdump", text: "procdump64.exe from C:\\Users\\m.osei\\Downloads · GrantedAccess 0x1FFFFF", bucket: "hunt", why: "A dumping tool from a Downloads folder asking for everything. Full access was granted, so it was already elevated: a Medium-integrity process is refused any LSASS memory-read mask, even a small one like 0x1010, because it needs High integrity and an enabled SeDebugPrivilege. Credential Guard is a separate protection that hides secrets in LsaIso.exe; it is not what refuses the handle." },
           { id: "rundll", text: "rundll32.exe with comsvcs.dll, MiniDump in the command line · GrantedAccess 0x1410", bucket: "hunt", why: "A living-off-the-land dump. The mask looks modest; the command line gives it away." },
           { id: "edr", text: "CSFalconService.exe (CrowdStrike-signed) · GrantedAccess 0x1010", bucket: "expected", why: "The EDR sensor itself. Signed, known path." },
           { id: "unknown", text: "svc_health.exe, unsigned, from C:\\ProgramData\\Ardent · GrantedAccess 0x1010", bucket: "hunt", why: "0x1010 is enough to read credentials, and it's the mask Mimikatz-style tools use. Unsigned and unexplained: hunt it." },
@@ -154,8 +154,8 @@ export const WINDOWS_PRIVILEGE_ESCALATION: RoomExperience = {
         route: ["alert", "tree", "hkcu", "script", "payload", "scope"],
         notes: {
           alert: "Event Viewer (mmc.exe) auto-elevates by design, so mmc.exe at High is normal. What it launched is not: a command shell with no prompt.",
-          tree: "Parent mmc.exe, started by explorer, and no consent.exe in the session. mmc opened a .msc file through its registered handler, so the next question is which handler it read.",
-          hkcu: "Windows reads the user's own HKCU class key before the machine-wide one, and writing it needs no elevation. The default value points at C:\\Users\\Public\\Libraries\\lib.cmd instead of mmc.exe.",
+          tree: "Parent mmc.exe, started by explorer, and no consent.exe in the session. mmc opened a .msc file through its registered handler, so the next question is which handler it read. This only works because the account is a local administrator in Admin Approval Mode: that is what gives mmc.exe an elevated token to receive. A standard user has none, so the same trick gains nothing.",
+          hkcu: "Windows reads the user's own HKCU class key before the machine-wide one, and writing it needs no elevation. Sysmon records a registry value being set as Event ID 13. The default value points at C:\\Users\\Public\\Libraries\\lib.cmd instead of mmc.exe.",
           script: "lib.cmd saves the group list to a text file and starts up.exe. The saved list carries the High Mandatory Level label: the planted command ran elevated with no prompt.",
           payload: "up.exe sits in the same Public\\Libraries folder, which any user can write. Hash it, read its signature, and keep a copy before anything is removed.",
           scope: "Hunt fleet-wide for any per-user mscfile handler value and any High child of an auto-elevate binary with no consent.exe before it. One desk is the first sighting, not the whole story.",

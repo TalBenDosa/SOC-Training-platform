@@ -223,7 +223,7 @@ const analystMindsetRoom = {
         "**WHY**: Why would this legitimately happen? Force yourself to generate the innocent explanation FIRST, before you generate the attack explanation. This single habit (actively searching for the benign reason before you search for the malicious one) is the best anti-bias practice you can build. If you can think of no plausible innocent reason at all, that itself is meaningful information.\n\n" +
         "**IS THIS NORMAL FOR THIS ENTITY?**: Not 'is this normal in general' but 'is this normal for THIS specific user, THIS specific host, THIS specific application?' A remote PowerShell session might be completely routine for an IT admin's workstation and wildly abnormal for the CFO's laptop. Generic normality is a trap; you need entity-specific normality, which is exactly what a baseline gives you (next reading).\n\n" +
         "**WHAT IS THE BLAST RADIUS?**: If this turns out to be a real attack, what is the worst-case scope? One workstation, or a domain admin account that touches everything? A guest Wi-Fi laptop, or a server holding customer payment data? You do not need to know the full scope to ask this question, asking it early tells you how urgently to move and who to notify if things escalate.\n\n" +
-        "Run every alert through this list, even briefly, even mentally. Most of the time you will answer three or four of the six questions in ten seconds and immediately know whether this is routine. The value of the framework is in the harder 10% of cases, where forcing yourself through all six questions stops you from missing something a rushed glance would skip.",
+        "Run every alert through this list, even briefly, even mentally. Most of the time you will answer three or four of these questions in ten seconds and immediately know whether this is routine. The value of the framework is in the harder 10% of cases, where forcing yourself through the whole list stops you from missing something a rushed glance would skip.",
       codeExample:
         "THE SIX-QUESTION ALERT FRAMEWORK\n" +
         "==================================\n" +
@@ -233,7 +233,8 @@ const analystMindsetRoom = {
         "  4. WHEN     -- normal hours? tied to a known change window?\n" +
         "  5. WHY      -- what is the INNOCENT explanation? (ask this first!)\n" +
         "  6. BLAST RADIUS -- if this is real, how bad could it get, and who\n" +
-        "                     needs to know if it escalates?\n\n" +
+        "                     needs to know if it escalates?\n" +
+        "  PLUS, for WHO, WHERE and WHEN: is this normal for THIS entity?\n\n" +
         "RULE OF THUMB:\n" +
         "  If you can't answer WHY (innocent explanation) AND the WHO/WHERE/WHEN\n" +
         "  all look abnormal together -- that convergence of multiple abnormal\n" +
@@ -550,11 +551,11 @@ const analystMindsetRoom = {
         },
         {
           id: "framework",
-          text: "Using only the alert in front of you, answer the six framework questions: who, what, where, when, why (innocent explanation first), and blast radius",
+          text: "Using what the alert and your first quick lookups can tell you, answer the six framework questions: who, what, where, when, why (innocent explanation first), and blast radius",
         },
         {
           id: "hypothesis",
-          text: "From those answers, and before opening a second data source, write down at least two competing hypotheses: one benign, one attack",
+          text: "From those answers, and before digging deeper into any further data source, write down at least two competing hypotheses: one benign, one attack",
         },
         {
           id: "predict",

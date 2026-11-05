@@ -5,7 +5,7 @@ import { ROOMS } from "@/data/rooms";
 import { buildNetwork, tuneResult } from "@/components/operation/briefing/ArcadeLabs";
 import { getRoomExperience, type BriefingLab } from "./index";
 
-const ARCADE = ["intercept", "duel", "deduce", "tune", "pathway", "defuse", "outbreak", "codebreak", "rush", "spotdiff", "chat"] as const;
+const ARCADE = ["intercept", "duel", "deduce", "tune", "pathway", "defuse", "outbreak", "codebreak", "rush", "spotdiff", "chat", "portal"] as const;
 /** Rooms where typing commands is the skill being taught: one console lab at most. */
 const CONSOLE_ROOMS = new Set(["linux-fundamentals", "linux-log-analysis", "windows-fundamentals", "powershell-for-soc-analyst"]);
 
@@ -66,6 +66,36 @@ function problems(l: BriefingLab): string[] {
       need(l.seconds >= l.rounds.length * 12, "too little time to read");
       for (const r of l.rounds) { need(r.wires.some(w => w.id === r.cut), `${r.id}: cut is not a wire`); need(r.wires.length >= 3, `${r.id}: fewer than 3 wires`); }
       break;
+    case "portal": {
+      // Every step must be reachable by the click that completes it.
+      const pages = Object.values(l.pages), records = Object.values(l.records);
+      const rows = pages.flatMap(p => p.table?.rows ?? []).concat(records.flatMap(r => r.logs?.rows ?? []));
+      const ok = (t: string) => {
+        const [kind, ...rest] = t.split(":");
+        const id = rest.join(":");
+        if (kind === "menu") return !!l.pages[id] && l.menu.some(g => g.items.some(i => i.id === id));
+        if (kind === "row") return rows.some(r => r.id === id);
+        if (kind === "tree") return records.some(r => r.tree?.some(n => n.id === id));
+        if (kind === "set") {
+          const [field, value] = [rest[0], rest.slice(1).join(":")];
+          if (field === "classification") return records.some(r => r.closing?.includes(value));
+          return records.some(r => r.strip?.some(s => s.field === field && s.options?.includes(value)));
+        }
+        if (kind === "action") {
+          if (id === "full" || id === "logs" || id === "bookmark") return true;
+          if (id.startsWith("entity:")) return records.some(r => r.entities?.some(e => `entity:${e.id}` === id));
+          if (id.startsWith("field:")) return records.some(r => [...r.facts, ...(r.tree?.flatMap(n => n.facts ?? []) ?? [])].some(([k]) => `field:${k}` === id));
+          return records.some(r => r.actions?.some(a => a.id === id));
+        }
+        return false;
+      };
+      for (const s of l.steps) need(ok(s.target), `${s.id}: target ${s.target} cannot be clicked`);
+      for (const t of Object.keys(l.traps)) need(ok(t) || t.startsWith("action:") || t.startsWith("row:") || t.startsWith("set:") || t.startsWith("tree:"), `trap ${t}`);
+      need(l.steps.length >= 6, "fewer than 6 steps");
+      need(!!l.pages[l.home], "home page missing");
+      for (const r of rows) if (r.record) need(!!l.records[r.record], `row ${r.id}: no record ${r.record}`);
+      break;
+    }
     case "outbreak":
       need(l.cols * l.rows >= 20, "grid too small");
       need(l.crown.length <= 9, "crown label does not fit its node");

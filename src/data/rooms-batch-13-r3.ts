@@ -8,7 +8,7 @@ const edrInjectEvent: TelemetryEvent = {
   event_type: "edr_alert",
   severity: "critical",
   hostname: "WS-EXEC-022",
-  user_email: "d.sharon@medcorehealth.org",
+  user_email: "d.sharon@wrenfield-vets.example",
   description:
     "Falcon detection on WS-EXEC-022: powershell.exe opened a handle to another process with elevated access rights",
   mitre_technique: "T1055.002",
@@ -21,7 +21,7 @@ const edrInjectEvent: TelemetryEvent = {
     parent_pid: 6312,
     cmdline:
       "powershell.exe -nop -w hidden -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0A...",
-    user: "MEDCORE\\d.sharon",
+    user: "WRENFIELD\\d.sharon",
     integrity: "high" as const,
   },
   raw: {
@@ -56,7 +56,7 @@ const avVsEdrMasterclass = {
   id: "av-vs-edr-masterclass",
   title: "Antivirus vs EDR vs XDR: Endpoint Security Evolution",
   description:
-    "Master the full evolution of endpoint security, from 1987 signature-based antivirus to modern XDR platforms. Learn how EDR hooks the OS kernel, why fileless malware defeats AV, and how to analyze real CrowdStrike Falcon alerts in a hospital environment.",
+    "Master the full evolution of endpoint security, from 1987 signature-based antivirus to modern XDR platforms. Learn how EDR hooks the OS kernel, why fileless malware defeats AV, and how to analyze real CrowdStrike Falcon alerts in a veterinary group environment.",
   difficulty: "intermediate" as const,
   category: "Endpoint Security",
   estimatedMinutes: 70,
@@ -152,8 +152,8 @@ const avVsEdrMasterclass = {
         "  Result: NO MATCH (new/unknown file)\n\n" +
         "STEP 4: BYTE PATTERN SCAN\n" +
         "  Scan file bytes for known patterns:\n" +
-        "  Offset 0x000: 4D 5A 90 00  -> MZ header (PE executable)\n" +
-        "  Offset 0x4A0: scan for known malware byte sequences...\n" +
+        "  Offset 0x000: 50 4B 03 04  -> PK header (ZIP container of a .docm)\n" +
+        "  Embedded vbaProject.bin: scan for known malware byte sequences...\n" +
         "  Result: NO MATCH\n\n" +
         "STEP 5: DECISION\n" +
         "  No hash match + No pattern match = FILE ALLOWED\n" +
@@ -233,7 +233,7 @@ const avVsEdrMasterclass = {
         "Fileless malware operates entirely in memory. The malware payload is injected directly into a running process, stored in the registry, or loaded via a document macro that executes PowerShell commands. There is never a standalone .exe or .dll on disk that AV could scan. When the machine reboots, the malware is gone from memory, but it has already done its damage, or it has established persistence in ways that do not involve traditional files (such as encoded commands in the registry that execute at startup).\n\n" +
         "The most powerful evolution of fileless malware is the Living-Off-the-Land (LOL) technique. Instead of bringing their own malicious tools, attackers abuse legitimate programs that are already installed on every Windows machine and trusted by AV. These are called LOLBins, Living-Off-the-Land Binaries.\n\n" +
         "Every SOC analyst must know these LOLBins and what attackers use them for:\n\n" +
-        "powershell.exe: The most abused LOLBin. Can download files, execute code from memory, interact with COM objects, query WMI, and access .NET classes. The -enc flag allows base64-encoded command payloads. cmd.exe: Basic command execution, pipe chaining, launching other LOLBins. wscript.exe and cscript.exe: Execute VBScript and JScript files. Attackers email .vbs or .js attachments that run via wscript. mshta.exe: Executes HTML Applications (.hta files), which are full-featured scripts with COM access. Attackers host malicious HTA files on their servers and make victims run them. regsvr32.exe: Registers COM DLLs, but can also download and execute a remote scriptlet file via the /s /n /u /i:[URL] flags, this bypasses application whitelisting. certutil.exe: A certificate management tool that can decode base64 files (certutil -decode malware.b64 malware.exe) and download files from URLs. bitsadmin.exe: The Background Intelligent Transfer Service command-line tool, used by Windows Update, abused to download files in the background. wmic.exe: Windows Management Instrumentation command line, can execute processes, query system information, and even execute remote commands. rundll32.exe: Loads and executes DLL files, including executing specific exported functions. Attackers use it to run malicious DLLs without creating a new process.\n\n" +
+        "powershell.exe: The most abused LOLBin. Can download files, execute code from memory, interact with COM objects, query WMI, and access .NET classes. The -enc flag allows base64-encoded command payloads. cmd.exe: Basic command execution, pipe chaining, launching other LOLBins. wscript.exe and cscript.exe: Execute VBScript and JScript files. Attackers email .vbs or .js attachments that run via wscript. mshta.exe: Executes HTML Applications (.hta files), which are full-featured scripts with COM access. Attackers host malicious HTA files on their servers and make victims run them. regsvr32.exe: Registers COM DLLs, but can also download and execute a remote scriptlet file via the /s /n /u /i:[URL] flags, this bypasses application whitelisting. certutil.exe: A certificate management tool that can decode base64 files (certutil -decode malware.b64 malware.exe) and download files from URLs. bitsadmin.exe: The Background Intelligent Transfer Service command-line tool, used by Windows Update, abused to download files in the background. wmic.exe: Windows Management Instrumentation command line, can execute processes, query system information, and even execute remote commands. rundll32.exe: Loads and executes DLL files, including executing specific exported functions. Attackers use it to run malicious DLLs without dropping a standalone .exe; the process is rundll32.exe, so check its command line and DLL path.\n\n" +
         "The attack chain using LOLBins typically looks like this: a user opens a malicious Word document with an embedded macro. The macro is not blocked by AV because it runs inside WINWORD.EXE. The macro calls out to PowerShell using a base64-encoded, hidden command string. PowerShell connects to the attacker's server and downloads a payload, but into memory, not to disk. The payload runs inside PowerShell's process. Everything that happened was carried out by signed, trusted Microsoft tools. AV sees nothing suspicious.\n\n" +
         "This is why EDR was invented. EDR does not just scan files. It watches what processes do, who spawns what, what network connections are made, and what data is accessed. When PowerShell is spawned by Word and immediately connects to an external IP, an EDR flags this as suspicious regardless of whether there are any malicious files on disk.",
       codeExample:
@@ -653,7 +653,7 @@ const avVsEdrMasterclass = {
       content:
         "Having covered the history, architecture, and major vendors of endpoint security, it is worth stepping back to see the full picture: where does each tier of security fit, what does it actually provide, and what does it mean for you as a SOC analyst?\n\n" +
         "AV (Antivirus) is the baseline. It prevents known malware from executing using signatures, heuristics, and basic sandboxing. It has a local management console or is managed via a cloud dashboard. It generates alerts when malware is detected or quarantined. Management overhead is low: there is not much to configure, and most of the work is handled automatically. Cost is low (often included with the OS or available for a few dollars per endpoint per year). AV is appropriate for small businesses with no dedicated security staff, where the primary concern is commodity malware.\n\n" +
-        "EDR adds continuous behavioral monitoring, process tree visibility, and active response capabilities. EDR sees what AV completely misses: fileless attacks, LOLBin abuse, credential dumping, lateral movement. EDR generates far more detailed alerts, not just 'malware detected' but 'PowerShell injected into LSASS with 0x1FFFFF access rights at 11:27:44.' EDR requires skilled analysts to review and act on those alerts. Management overhead is moderate: deployment, tuning detection rules, reviewing alerts. Cost is significantly higher than AV. EDR is appropriate for enterprises with at least a small security team.\n\n" +
+        "EDR adds continuous behavioral monitoring, process tree visibility, and active response capabilities. EDR sees what AV completely misses: fileless attacks, LOLBin abuse, credential dumping, lateral movement. EDR generates far more detailed alerts, not just 'malware detected' but 'PowerShell injected into explorer.exe with 0x1FFFFF access rights at 11:27:44.' EDR requires skilled analysts to review and act on those alerts. Management overhead is moderate: deployment, tuning detection rules, reviewing alerts. Cost is significantly higher than AV. EDR is appropriate for enterprises with at least a small security team.\n\n" +
         "XDR extends EDR across multiple security domains. Where EDR only sees the endpoint, XDR correlates signals from the endpoint, the email gateway, the network, and cloud applications. This matters because sophisticated attacks span multiple domains: the initial access comes via a phishing email, the attacker escalates privileges via Active Directory, and exfiltrates data via a cloud storage service. Each individual event might look suspicious in isolation; the correlation across domains reveals the full attack chain. XDR requires a larger, more mature security team and more infrastructure investment.\n\n" +
         "MDR (Managed Detection and Response) is not a technology tier but a service model. An MDR provider gives you EDR or XDR technology AND the security team to operate it: analysts monitoring your environment 24 hours a day, 7 days a week, 365 days a year. For organizations that cannot build their own SOC (too expensive, cannot find the talent), MDR provides enterprise-grade detection and response through a subscription. The MDR team handles alert triage, investigation, and often initial response actions.\n\n" +
         "For SOC analysts, the tier of security in your environment determines what you can see and what you are expected to do. If your organization only has AV, attackers using LOLBins are literally invisible. Your most important conversation with management is about EDR deployment. If you have EDR, you see the attacks but you need trained analysts to review and respond. Your most important metric is your mean time to respond to Critical alerts. If you have XDR, you have cross-domain visibility and must build detection rules that correlate signals across sources.",
@@ -701,7 +701,7 @@ const avVsEdrMasterclass = {
       id: "edr-la1",
       heading: "CrowdStrike Alert: PowerShell Injecting into Explorer.exe",
       context:
-        "You are a Tier-1 SOC analyst at MedCore Health. A CrowdStrike Falcon detection fires on WS-EXEC-022, a hospital executive's workstation. The host's process list shows PID 3128 is explorer.exe. Work out what happened from the record.",
+        "You are a Tier-1 SOC analyst at Wrenfield Veterinary Group. A CrowdStrike Falcon detection fires on WS-EXEC-022, a head-office executive's workstation. The host's process list shows PID 3128 is explorer.exe. Work out what happened from the record.",
       event: edrInjectEvent,
       questions: [
         {

@@ -325,7 +325,7 @@ export const roomsBatch49 = [
         "type": "ordering" as const,
         "id": "hsl-o1",
         "heading": "Reconstruct the Delivery-to-Execution Chain",
-        "instructions": "Put these five stages -- generalized from this room's HTML Smuggling and LOLBin readings, and matching the real NOBELIUM chain step for step -- into the order they actually occur.",
+        "instructions": "Put these five stages -- generalized from this room's HTML Smuggling and LOLBin readings, and simplified from the real NOBELIUM chain -- into the order they actually occur.",
         "items": [
           {
             "id": "deliver",
@@ -345,7 +345,7 @@ export const roomsBatch49 = [
           },
           {
             "id": "fetch",
-            "text": "The proxy-executed code reaches out to attacker infrastructure to retrieve a further-stage payload (T1105, Ingress Tool Transfer -- the NativeZone-to-VaporRage hop)"
+            "text": "The proxy-executed code reaches out to attacker infrastructure to retrieve a further-stage payload (T1105, Ingress Tool Transfer -- the loaded VaporRage stage downloading shellcode)"
           }
         ],
         "correct_order": [
@@ -355,7 +355,7 @@ export const roomsBatch49 = [
           "proxy",
           "fetch"
         ],
-        "explanation": "This is the exact sequence this room's readings walked, mirrored precisely by the real NOBELIUM chain: EnvyScout is delivered and opened, its JavaScript smuggles an ISO past the network layer, the victim double-clicks the resulting file to run BoomBox, BoomBox's payload (NativeZone) is proxy-executed via rundll32.exe, and NativeZone fetches the further shellcode stage (VaporRage). Reversing smuggling and delivery makes no sense -- there is nothing to smuggle before the HTML page has been opened. Proxy execution requires a file already on disk to invoke, which requires the smuggling step to have completed first. Fetching a further payload is what the proxy-executed code does once it is already running, not before.",
+        "explanation": "This is the sequence this room's readings walked, simplified from the real NOBELIUM chain: EnvyScout is delivered and opened, its JavaScript smuggles an ISO past the network layer, the victim double-clicks the resulting file to run BoomBox, BoomBox's payload (NativeZone) is proxy-executed via rundll32.exe, and the loaded stage (VaporRage) downloads the further shellcode. In the real campaign BoomBox also fetches NativeZone before the proxy step; the ordering here compresses that into one fetch stage. Reversing smuggling and delivery makes no sense -- there is nothing to smuggle before the HTML page has been opened. Proxy execution requires a file already on disk to invoke, which requires the smuggling step to have completed first. Fetching a further payload is what the proxy-executed code does once it is already running, not before.",
         "xp": 30
       },
       {

@@ -568,15 +568,15 @@ The SentinelOne Agent installs on each endpoint, similar to CrowdStrike's Falcon
 - **Detect Mode:** The agent monitors and logs everything but does not automatically block threats. Detections appear in the console for analysts to review and take manual action. This mode is typically used during initial deployment while the team calibrates the platform.
 - **Protect Mode:** The agent actively blocks and responds to threats automatically (killing processes, quarantining files, even rolling back changes) without waiting for human input. This is SentinelOne's "autonomous" mode.
 
-**Three AI Detection Engines Working Together**
+**Two AI Detection Engines and a Telemetry Layer**
 
-SentinelOne doesn't rely on a single detection method. Three AI engines run simultaneously:
+SentinelOne doesn't rely on a single detection method. Two AI engines run simultaneously, and a telemetry layer records everything for the analyst:
 
 1. **Static AI (Pre-Execution):** Before a file runs, the agent scans it using a machine learning model trained on millions of malware samples. Like having a metal detector at the door: the file is screened before it's even allowed to execute. This catches known and unknown (zero-day) malware based on structural features, not just signatures.
 
 2. **Behavioral AI (Real-Time):** Once a process is running, the Behavioral AI engine monitors every action it takes: what files it reads or writes, what registry keys it touches, what network connections it makes, what child processes it spawns. If the *behaviour* matches known attack patterns (even if the file itself looks clean), Behavioral AI triggers an alert. This is how SentinelOne catches "fileless" attacks: attacks that use legitimate system tools like PowerShell and never write a traditional malware file to disk.
 
-3. **Deep Visibility (EDR Telemetry):** Every action by every process is recorded and stored with full fidelity for 365 days. SOC analysts can search this raw telemetry to hunt for threats, investigate incidents, and understand exactly what happened on any endpoint.
+3. **Deep Visibility (EDR Telemetry, the data layer rather than a third engine):** Every action by every process is recorded and stored with full fidelity for 365 days. SOC analysts can search this raw telemetry to hunt for threats, investigate incidents, and understand exactly what happened on any endpoint.
 
 **Storyline: SentinelOne's Killer Feature**
 
@@ -1472,7 +1472,7 @@ AbuseIPDB is a community-powered database where security professionals report IP
 - **Report categories:** Brute force, web app attack, DDoS, scanning, email spam, SSH attack, etc.
 - **Recent report details:** Which ports were targeted, what attack was observed
 
-An IP with 3,847 reports and 95% confidence (like the one in the log analysis below) is almost certainly malicious or compromised.
+An IP with 3,847 reports and 95% confidence (like the one in the log analysis below) has seen a lot of abuse, but read the context before you conclude anything. On a dedicated server those reports point at the attacker. On a shared relay such as a Tor exit node or another anonymiser, the reports describe other users of that relay, not the one you are investigating.
 
 **Shodan (shodan.io): The Search Engine for Connected Devices**
 
@@ -1522,13 +1522,13 @@ Essential for phishing investigations:
 
 **A Real Pivoting Example**
 
-Suppose you receive a phishing report. The employee clicked a link and you extract the URL: \`http://185.220.101.45/invoice-portal/login.php\`
+Suppose you receive a phishing report. The employee clicked a link and you extract the URL: \`http://203.0.113.45/invoice-portal/login.php\`
 
 Here is how IOC pivoting works:
 
 **Step 1: Look up the IP on VirusTotal and AbuseIPDB**
 - VirusTotal shows the IP has been reported by 7 vendors as malicious
-- AbuseIPDB shows 3,847 reports, tagged as "Tor Exit Node / Scanning / Proxy"
+- AbuseIPDB shows 3,847 reports, tagged as "Phishing / Web App Attack / Scanning", hosted on a small VPS provider rather than a shared anonymiser
 - You look at the **Relations tab** in VirusTotal → Passive DNS shows 4 other domains have pointed to this IP: \`secure-login-portal.cc\`, \`invoice-verify.net\`, \`billing-auth.com\`, \`payment-update.org\`
 
 **Step 2: Research the related domains**

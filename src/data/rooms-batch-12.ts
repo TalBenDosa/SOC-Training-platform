@@ -78,7 +78,8 @@ const rooms = [
           `- **id**: A unique UUID for tracking\n` +
           `- **status**: experimental, test, or stable\n` +
           `- **description**: What the rule detects\n` +
-          `- **references**: CVE links, blog posts, ATT&CK technique ID\n` +
+          `- **references**: CVE links and blog posts about the threat\n` +
+          `- **tags**: the ATT&CK mapping, such as attack.execution and attack.t1059.001\n` +
           `- **logsource**: Which product/category/service the logs come from\n` +
           `- **detection**: The actual logic, what field values trigger the alert\n` +
           `- **falsepositives**: Known benign triggers to be aware of\n` +
@@ -90,6 +91,42 @@ const rooms = [
           `- **Purple team exercises**: Red team + Blue team working together, the red team performs each ATT&CK technique deliberately, and the blue team checks whether their rules caught it in near-real-time.\n` +
           `- **Replay testing**: Collect real attack logs from past incidents or public threat research datasets and replay them through your detection pipeline.\n\n` +
           `A use case that has never been tested against real attack data is just a hypothesis. Testing is what turns it into a reliable detection.`,
+        codeExample:
+          "SIGMA RULE: ENCODED POWERSHELL (T1059.001)\n" +
+          "=======================================================\n" +
+          "title: Encoded PowerShell Command Execution\n" +
+          "id: 6f1c2a9e-3b7d-4e58-9a10-5c2d8e4b7a31\n" +
+          "status: experimental\n" +
+          "description: PowerShell started with a Base64 command\n" +
+          "references:\n" +
+          "  - https://attack.mitre.org/techniques/T1059/001/\n" +
+          "tags:\n" +
+          "  - attack.execution\n" +
+          "  - attack.t1059.001\n" +
+          "logsource:\n" +
+          "  category: process_creation\n" +
+          "  product: windows\n" +
+          "detection:\n" +
+          "  selection:\n" +
+          "    Image|endswith: '\\powershell.exe'\n" +
+          "    CommandLine|contains:\n" +
+          "      - ' -enc '\n" +
+          "      - ' -EncodedCommand '\n" +
+          "  condition: selection\n" +
+          "falsepositives:\n" +
+          "  - IT patching tool that runs encoded PowerShell\n" +
+          "level: high\n" +
+          "\n" +
+          "|endswith and |contains are value modifiers: they change\n" +
+          "how the field is compared. The condition names which\n" +
+          "selection blocks must match for the rule to fire.\n" +
+          "=======================================================\n\n" +
+          "THE SAME LOGIC AFTER CONVERSION TO KQL\n" +
+          "=======================================================\n" +
+          "DeviceProcessEvents\n" +
+          "| where FileName =~ \"powershell.exe\"\n" +
+          "| where ProcessCommandLine has_any (\" -enc \", \" -EncodedCommand \")\n" +
+          "=======================================================",
         checkpoint: {
           question: "According to the reading, what problem does Sigma solve for detection engineers?",
           options: [
@@ -168,7 +205,7 @@ const rooms = [
         ],
         answer: 1,
         explanation:
-          "Reading 2 defines `falsepositives` as known benign triggers to be aware of: documentation for the analyst that leaves the matching logic untouched. “detection” is where the field values that trigger the alert live, so anything placed there changes what fires, which the stem rules out. “references” holds CVE links, blog posts and ATT&CK IDs about the threat, not triage guidance. “logsource” selects which product or category of logs the rule searches; changing it would alter (and here, break) what the rule matches.",
+          "Reading 2 defines `falsepositives` as known benign triggers to be aware of: documentation for the analyst that leaves the matching logic untouched. “detection” is where the field values that trigger the alert live, so anything placed there changes what fires, which the stem rules out. “references” holds CVE links and blog posts about the threat (the ATT&CK mapping goes in tags), not triage guidance. “logsource” selects which product or category of logs the rule searches; changing it would alter (and here, break) what the rule matches.",
         xp: 20,
       },
       // ── Question 3 ────────────────────────────────────────────────────────
@@ -360,7 +397,7 @@ const rooms = [
           `SOC managers need the same kind of dashboard. They use **Key Performance Indicators (KPIs)**: specific, measurable numbers that tell them at a glance whether the SOC is functioning well.\n\n` +
           `**The Most Important SOC KPIs**\n\n` +
           `- **MTTD, Mean Time to Detect**: How long, on average, from when an attack begins until your SOC detects it. Lower is better. Industry benchmark for mature SOCs: under 1 hour for high-severity threats.\n` +
-          `- **MTTR, Mean Time to Respond**: How long from when an alert is detected until the threat is contained and the incident is resolved. This includes investigation, decision-making, and remediation. Lower is better.\n` +
+          `- **MTTR, Mean Time to Respond**: How long from when an alert is detected until the analyst takes the first containment action. Some teams use MTTR for Mean Time to Resolve instead, meaning until the incident is fully closed, so always ask which definition a report uses. Lower is better.\n` +
           `- **Alert Volume**: How many alerts did the SIEM generate? Increasing alert volume may indicate a new attack campaign, or too many noisy rules.\n` +
           `- **False Positive (FP) Rate**: What percentage of alerts turned out to be non-malicious? An FP rate above 90% is a sign of poorly tuned detection rules. Analyst time is being wasted.\n` +
           `- **Escalation Rate**: What percentage of Tier 1 tickets were escalated to Tier 2? Unusually high escalation rates may indicate Tier 1 needs more training.\n` +
@@ -389,7 +426,7 @@ const rooms = [
           ],
           answer: 1,
           explanation:
-            "MTTD measures the time from when an attack actually begins until the SOC detects it. MTTR (Mean Time to Respond) is the separate metric covering detection through containment and resolution.",
+            "MTTD measures the time from when an attack actually begins until the SOC detects it. MTTR (Mean Time to Respond) is the separate metric covering the time from detection to the first containment action.",
         },
       },
       // ── Reading 3 ─────────────────────────────────────────────────────────
@@ -1142,7 +1179,7 @@ const rooms = [
               "Alert acknowledged at 09:14 UTC",
               "IOCs looked up in threat intel: confirmed Maze ransomware",
               "Ticket INC-2026-4892 created at 09:17 UTC",
-              "Client notification sent at 09:32 UTC (P1 SLA: 18 min, 3 min breach)",
+              "Client notification sent at 09:32 UTC (P1 SLA: 15 min, 3 min breach)",
               "Identified 12 affected hosts via SIEM correlation",
               "Attempted to block C2 IP 185.220.101.47: requires Tier 2 firewall authority",
             ],

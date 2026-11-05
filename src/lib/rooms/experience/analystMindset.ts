@@ -150,7 +150,7 @@ export const ANALYST_MINDSET: RoomExperience = {
       {
         kind: "worksheet",
         title: "One Alert, Six Questions",
-        prompt: "Run this alert through the framework. Everything you need is in the table.",
+        prompt: "Run this alert through the framework, including the check that asks whether it is normal for this entity. Everything you need is in the table.",
         caption: "Alert: 'RDP logon by svc_backup to FIN-LT-0007' · Sunday 01:58",
         columns: ["source", "what it says"],
         rows: [
@@ -204,7 +204,7 @@ export const ANALYST_MINDSET: RoomExperience = {
         attacker: "A tired brain",
         moves: [
           { id: "m1", move: "Authority", detail: "'Ticket says Tier 2 already cleared this host in March, so closing.'", counter: "reverify", hint: "The earlier verdict is real. The question is whether it covers tonight.", why: "An earlier senior verdict replaced looking at today's evidence. The habit is to treat it as context and re-check today's data. Asking what the senior would say just moves the authority around." },
-          { id: "m2", move: "Alert fatigue", detail: "'Same as the last 80 DLP hits from this rule. Closed.' It was a different file type.", counter: "sample", hint: "Eighty alike teaches the eye to stop reading.", why: "Eighty in a row trained the brain to stop looking at the 81st. Fully opening a sample and comparing its varying fields to the last one breaks the autopilot. Closing faster only feeds it." },
+          { id: "m2", move: "Alert fatigue", detail: "'Same as the last 80 DLP hits from this rule. Closed.' It was a different file type.", counter: "sample", hint: "Eighty alike teaches the eye to stop reading.", why: "Eighty in a row trained the brain to stop looking at the 81st. Running the framework on every alert, even briefly, and comparing its varying fields to the last one breaks the autopilot. Closing faster only feeds it." },
           { id: "m3", move: "Availability", detail: "'We had a Qakbot case Monday, so this beacon is Qakbot.'", counter: "alts", hint: "What you saw most recently is not what is most likely.", why: "A fresh case feels likely because it is fresh. Writing three other explanations and what each predicts forces the evidence to choose. Going with the group's guess is availability shared by five people." },
           { id: "m4", move: "Tunnel vision", detail: "'Reset the user's password, case closed.' Nobody checked what else the account touched.", counter: "radius", hint: "The reset was a good action. What did it leave unasked?", why: "The analyst found one thing and stopped. Asking what else the account reached, and on how many hosts, is the blast-radius question that was never asked." },
           { id: "m5", move: "Anchoring", detail: "'Vendor title says Possible Scanner, and the traffic does look scanner-ish.'", counter: "readraw", hint: "The title was written before you looked at anything.", why: "The title set the frame before the evidence was read. Reading the raw fields first, then the title, lets the log decide. Closing the ticket to clear the queue removes the chance to be corrected." },
@@ -212,7 +212,7 @@ export const ANALYST_MINDSET: RoomExperience = {
         ],
         cards: [
           { id: "reverify", name: "Re-check today's evidence, cite the old verdict as context", effect: "Past decisions inform, they do not decide." },
-          { id: "sample", name: "Open one in ten fully and compare it with the last", effect: "Breaks the autopilot on repetitive alerts." },
+          { id: "sample", name: "Run the framework on every alert, even for 15 seconds, and compare its varying fields with the last", effect: "Breaks the autopilot on repetitive alerts." },
           { id: "alts", name: "Write three other explanations and what each predicts", effect: "Makes the evidence choose between stories." },
           { id: "radius", name: "Ask what else the account touched and where", effect: "Sizes the incident before closing." },
           { id: "readraw", name: "Read the raw fields before the title", effect: "Forms your own view first." },
@@ -220,7 +220,7 @@ export const ANALYST_MINDSET: RoomExperience = {
           { id: "speed", name: "Close faster to clear the queue", effect: "Cuts the time spent per alert." },
           { id: "vote", name: "Go with what the room thinks", effect: "Picks the answer most people agree on." },
         ],
-        lesson: "A bias is a shortcut your brain takes when it is tired. Each one has a habit that beats it: re-check today's data, sample the repeats, list alternatives, size the blast radius, read raw before the title, and look for what would disprove you.",
+        lesson: "A bias is a shortcut your brain takes when it is tired. Each one has a habit that beats it: re-check today's data, run the framework on the repeats too, list alternatives, size the blast radius, read raw before the title, and look for what would disprove you.",
       },
     ],
     // ── Reading 6: fact, assumption, and when to stop ──

@@ -393,9 +393,10 @@ const gcpRoom = {
         "=======================================================\n\n" +
         "TYPICAL CHAINED ATTACK SEQUENCE\n" +
         "=======================================================\n" +
-        "02:52  CreateServiceAccountKey  Unauthorized key minted\n" +
+        "02:41  CreateServiceAccountKey  Unauthorized key minted\n" +
         "02:47  SetIamPolicy             Self-granted roles/owner\n" +
-        "03:05  storage.objects.get      Public-bucket data exfil\n" +
+        "03:05  anonymous GET (allUsers) Public-bucket data exfil,\n" +
+        "                                usage logs only, no audit entry\n" +
         "03:20+ instances.insert (many)  Crypto-mining VM burst\n" +
         "=======================================================",
     },
@@ -746,7 +747,7 @@ const gcpRoom = {
         "       reaches metadata server, steals web-frontend\n" +
         "       service account's live access token\n" +
         "\n" +
-        "02:42  CreateServiceAccountKey  Using the stolen token,\n" +
+        "02:41  CreateServiceAccountKey  Using the stolen token,\n" +
         "       attacker mints a NEW long-lived JSON key for the\n" +
         "       more powerful svc-data service account\n" +
         "       (key_id: 8f3a1c9d2e4b7f60)\n" +
@@ -755,8 +756,8 @@ const gcpRoom = {
         "       from an external Tor IP, attacker grants svc-data\n" +
         "       roles/owner on the entire project\n" +
         "\n" +
-        "03:05  storage.objects.get  Owner-level access used to\n" +
-        "       read/expose customer export bucket\n" +
+        "03:05  anonymous GET (allUsers)  Customer export bucket\n" +
+        "       read via usage logs only, no audit entry\n" +
         "=======================================================\n\n" +
         "WHY THE PERMISSION iam.serviceAccountKeys.create MATTERS\n" +
         "=======================================================\n" +
@@ -777,7 +778,7 @@ const gcpRoom = {
       content:
         `Every reading so far in this room has built one skill: reading Cloud Audit Logs closely enough to say, with confidence, "this service account is compromised" or "this user's credentials were stolen." That skill is necessary, but it is not the job. The moment you have confirmed compromise (like the svc-data key theft and self-granted roles/owner from the previous reading) the investigation pauses and containment begins. This reading covers the concrete, hands-on actions a SOC analyst directs (or performs, depending on your organization's IR runbook) the moment a GCP identity is confirmed compromised, using the same real gcloud commands your cloud team would actually run.\n\n` +
         `**Step 1: Disable the Compromised Key, Never Delete It First**\n\n` +
-        `If the compromise traces back to a service account key (as it does in the svc-data case), the very first action is to disable that specific key: gcloud iam service-accounts keys disable KEY_ID --iam-account=SA_EMAIL. Disabling immediately blocks the key from authenticating anything, which is the goal, but it deliberately stops short of deleting it. This mirrors the exact same discipline you'd apply to a leaked AWS IAM access key: delete is irreversible, and once a key is deleted, GCP no longer retains a record you can directly correlate against, making it far harder to later prove in your incident report exactly which key was used for which malicious API call. A disabled key still exists, still shows up in gcloud iam service-accounts keys list, and can be examined, timestamped, and referenced throughout the rest of the investigation, only after root cause is fully understood and evidence is preserved should the key be deleted for good, usually as part of formal eradication rather than the first containment step.\n\n` +
+        `If the compromise traces back to a service account key (as it does in the svc-data case), the very first action is to disable that specific key: gcloud iam service-accounts keys disable KEY_ID --iam-account=SA_EMAIL. Disabling immediately blocks the key from authenticating anything, which is the goal, but it deliberately stops short of deleting it. This mirrors the exact same discipline you'd apply to a leaked AWS IAM access key: delete is irreversible, so if a legitimate workload still used the key you cannot bring it back, whereas a disabled key can be re-enabled. The audit-log history survives either way, because the key ID stays in past Cloud Audit Log entries. But a disabled key still exists, still shows up in gcloud iam service-accounts keys list, and can be examined, timestamped, and referenced throughout the rest of the investigation, only after root cause is fully understood and evidence is preserved should the key be deleted for good, usually as part of formal eradication rather than the first containment step.\n\n` +
         `**Step 2: Freeze the Identity's Permissions by Removing IAM Bindings**\n\n` +
         `Disabling a key stops that one specific credential, but if the attacker escalated privileges (as in the SetIamPolicy self-grant of roles/owner), the compromised service account itself may still hold dangerous permissions that could be exercised through some other credential you haven't found yet: an attached VM, a second key, an OAuth token. To freeze the identity's actual permissions at the project level, remove its IAM policy binding directly: gcloud projects remove-iam-policy-binding PROJECT_ID --member="serviceAccount:SA_EMAIL" --role="ROLE". Run this for every role the compromised principal holds, starting with the highest-privilege one (roles/owner first). This step is what actually neutralizes the identity's power in GCP, independent of which specific credential the attacker is holding, and it can be done in parallel with, not only after, disabling the key.\n\n` +
         `**Step 3: Isolate, Don't Delete, a Compromised Compute Engine Instance**\n\n` +
@@ -816,8 +817,10 @@ const gcpRoom = {
         "=======================================================\n" +
         "Disabled key  -> still listable, still referenceable in\n" +
         "                 the incident report, evidence intact\n" +
-        "Deleted key   -> irreversible, breaks the ability to\n" +
-        "                 prove which key made which API call\n" +
+        "Deleted key   -> irreversible, cannot be undone if a\n" +
+        "                 legitimate workload still used it\n" +
+        "Audit logs    -> key_id stays in past log entries\n" +
+        "                 either way\n" +
         "=======================================================",
       checkpoint: {
         question:
@@ -830,7 +833,7 @@ const gcpRoom = {
         ],
         answer: 1,
         explanation:
-          "Disabling the specific compromised key stops it from authenticating immediately while preserving it for the investigation. You can still list it, timestamp it, and tie it to specific malicious API calls in your incident report. Deleting the key or the whole service account is irreversible and destroys that evidence. Waiting for a full timeline leaves an active, working credential in the attacker's hands during containment, which defeats the purpose of containment. Rotating every key in the project at once is disruptive, breaks unrelated legitimate workloads, and isn't targeted at the actual compromised credential.",
+          "Disabling the specific compromised key stops it from authenticating immediately while preserving it for the investigation. You can still list it, timestamp it, and tie it to specific malicious API calls in your incident report. Deleting the key or the whole service account is irreversible: it cannot be undone if a legitimate workload depended on it, and the key is no longer listable for inspection. Waiting for a full timeline leaves an active, working credential in the attacker's hands during containment, which defeats the purpose of containment. Rotating every key in the project at once is disruptive, breaks unrelated legitimate workloads, and isn't targeted at the actual compromised credential.",
       },
     },
   ],

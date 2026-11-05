@@ -100,7 +100,7 @@ export const FIREWALL_LOG_ANALYSIS: RoomExperience = {
           { id: "historian", text: "TRAFFIC,end,rule=OT-to-Historian,from=OT-Mill,to=DC-Core,app=mssql-db,session_end_reason=tcp-fin", sub: "PAN-OS, the mill feeding production data", bad: false, why: "A named rule, the right zones, the right App-ID and a clean tcp-fin close: the everyday flow the rule was written for." },
           { id: "close", text: "type=traffic subtype=forward policyid=9 action=close srcip=10.40.3.8 dstip=10.60.1.10 dstport=1433", sub: "FortiGate, the same historian feed", bad: false, why: "On FortiGate action=close is an accepted session that ended normally, not a block. Different vendors use the same words differently." },
         ],
-        lesson: "Learn each vendor's fingerprint fields, then ask the same three things of every line: did it pass or stop, in which direction, and is it one line or a pattern.",
+        lesson: "Learn each vendor's fingerprint fields, then ask the same three things of every line: did it pass or stop, in which direction, and is it one line or a pattern. Two more things to know when a line says the firewall stopped it. A drop sends the scanner nothing, while a reject answers with a TCP reset or an ICMP unreachable. And a denied attempt usually logs sentbyte=0 and rcvdbyte=0 with duration 0, because the policy matched the first packet and no session ever formed, so no data moved.",
       },
     ],
     // ── Reading 2: rhythm ──
@@ -171,14 +171,14 @@ export const FIREWALL_LOG_ANALYSIS: RoomExperience = {
         title: "First Match Wins",
         prompt: "The mill's OT firewall checks each flow against its rules from the top, and the first rule that matches decides. Run four real flows through it and see which rule wins.",
         checks: [
-          { name: "#1 Emergency-Log-10.40.7.19", question: "Source 10.40.7.19, any destination: allow and log in full (temporary, added by the SOC)" },
+          { name: "#1 Emergency-Block-10.40.7.19", question: "Source 10.40.7.19, any destination: deny and log in full (temporary, added by the SOC)" },
           { name: "#2 OT-Mill to Historian", question: "From OT-Mill to 10.60.1.10 on TCP 1433: allow" },
           { name: "#3 Legacy-Any-Out", question: "Any internal source to any destination on TCP 443: allow (owner: left 2023)" },
           { name: "#4 Deny-All", question: "Everything else: deny and log" },
         ],
         scenarios: [
           { id: "hmi", label: "Mill HMI 10.40.3.8 to the historian on 1433", detail: "The everyday flow that feeds production data.", results: ["fail", "pass", "fail", "fail"], why: ["Wrong source.", "Matches: OT-Mill to the historian on 1433.", "Never reached.", "Never reached."], verdict: "Rule #2. Exactly what it was written for." },
-          { id: "eng", label: "Engineering PC 10.40.7.19 to 198.51.100.212:443", detail: "The seven-minute check-in.", results: ["pass", "fail", "fail", "fail"], why: ["The SOC's emergency rule catches it first and logs every byte.", "Never reached.", "Never reached.", "Never reached."], verdict: "Rule #1. Placing the emergency log rule at the top means nothing below can quietly allow this traffic." },
+          { id: "eng", label: "Engineering PC 10.40.7.19 to 203.0.113.61:443", detail: "The nine-minute check-in.", results: ["pass", "fail", "fail", "fail"], why: ["The SOC's emergency rule catches it first, denies it and logs every attempt.", "Never reached.", "Never reached.", "Never reached."], verdict: "Rule #1. Placing the emergency deny rule at the top means nothing below can quietly allow this traffic." },
           { id: "printer", label: "Mill printer 10.40.9.2 to an internet address on 443", detail: "A printer that has no business on the internet.", results: ["fail", "fail", "pass", "fail"], why: ["Wrong source.", "Wrong destination and port.", "Legacy-Any-Out allows any internal host out on 443.", "Never reached."], verdict: "Rule #3, a forgotten catch-all with no owner, lets a printer reach the internet. That's the rule to retire." },
           { id: "smb", label: "Guest Wi-Fi 172.31.0.44 to the mill on 445", detail: "A visitor's laptop trying file shares in OT.", results: ["fail", "fail", "fail", "pass"], why: ["Wrong source.", "Wrong source and port.", "Port 445, not 443.", "Nothing above matched, so the default deny drops it."], verdict: "Rule #4. Default deny doing its job: worth watching its hit count for scanning." },
         ],

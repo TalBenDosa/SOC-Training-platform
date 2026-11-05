@@ -24,7 +24,7 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 // control case for the fatigue-detection readings.
 const singleDeniedPushEvent: TelemetryEvent = {
   id: "evt-mfast-ac1-001",
-  ts: "2026-07-14T09:14:02.000Z",
+  ts: "2026-07-14T15:14:02.000Z",
   source: "okta",
   vendor: "Okta",
   event_type: "mfa_denied",
@@ -259,15 +259,15 @@ const mfaSessionTokenAttacksRoom = {
           "Reflex-tap push bombing itself, since number matching directly and completely stops exactly that specific failure mode",
           "A reverse-proxy phishing kit relaying the real number to the victim, or any technique reusing an already-issued session cookie with no new push generated at all",
           "Nothing at all -- Number Challenge fully closes every single technique and attack family this entire room covers",
-          "SMS-based one-time codes specifically, a factor type Number Challenge was never designed to interact with in any way",
+          "Any sign-in that uses an Okta Verify push approval, since Number Challenge is never applied to push approvals at all",
         ],
         answer: 1,
-        explanation: "Number Challenge (or number matching) closes the specific reflex-tap failure mode of push bombing. It does nothing against a proxy that simply forwards the real number to the victim, or against a stolen session cookie, since no push is generated during a replay at all.",
+        explanation: "Number Challenge (or number matching) closes the specific reflex-tap failure mode of push bombing. It does nothing against a proxy that simply forwards the real number to the victim, or against a stolen session cookie, since no push is generated during a replay at all. The option claiming push approvals are exempt is backwards: Number Challenge is applied to Okta Verify push approvals, which is the whole point of it.",
       },
       xp: 5,
     },
 
-    // ── Question 2 ───────────────────────────────────────────────────────────
+    // ── Question 2───────────────────────────────────────────────────────────
     {
       type: "question" as const,
       id: "mfast-q2",
@@ -361,14 +361,14 @@ const mfaSessionTokenAttacksRoom = {
         "```\n\n" +
         "That last line (an authentication step whose detail literally reads 'satisfied by a claim in the token,' with no challenge actually presented) is the log's own admission that no fresh authentication occurred.\n\n" +
         "### The trap: risk score and Conditional Access both stay green\n\n" +
-        "`riskLevelDuringSignIn` and `conditionalAccessStatus` frequently read 'none' and 'success' on the replayed sign-in, because the risk engine and Conditional Access both see a technically valid, MFA-satisfied token and have no independent way to know it was stolen rather than freshly issued. **A clean risk score is not proof of a clean sign-in for this technique**, which is exactly why the sessionId correlation matters more than any single risk field.\n\n" +
+        "`riskLevelDuringSignIn` and `conditionalAccessStatus` frequently read 'none' and 'success' on the replayed sign-in, because the risk engine and Conditional Access both see a technically valid, MFA-satisfied token and often do not flag it as stolen (Entra ID Protection has token-theft detections, but they do not always fire). **A clean risk score is not proof of a clean sign-in for this technique**, which is exactly why the sessionId correlation matters more than any single risk field.\n\n" +
         "### Reading device and location fields as supporting, not primary, evidence\n\n" +
         "`deviceDetail.isCompliant`, `deviceDetail.browser`, and `location.city`/`autonomousSystemNumber` are useful corroboration: a replay commonly shows an unmanaged, non-compliant device and a different browser than the user's known baseline, but geography alone is fragile (a legitimate VPN or business trip produces the same kind of change). The sessionId match is what turns a plausible travel story into confirmed replay.",
       checkpoint: {
         question: "Why is a 'none' riskLevelDuringSignIn on the replayed sign-in specifically dangerous to trust?",
         options: [
           "It genuinely isn't dangerous at all -- a 'none' risk level always and reliably means the sign-in in question is completely safe",
-          "The risk engine evaluates the token's own claims, which already assert MFA was satisfied, with no independent way to detect the token itself was stolen -- a clean score is not proof of a clean sign-in here",
+          "The risk engine evaluates the token's own claims, which already assert MFA was satisfied, so it often does not flag the token as stolen -- a clean score is not proof of a clean sign-in here",
           "riskLevelDuringSignIn is a fully deprecated field and is no longer populated by Entra ID on any sign-in record at all",
           "A 'none' risk level is a value that only ever appears on sign-ins originating from outside the signed-in user's own home country",
         ],
@@ -412,7 +412,7 @@ const mfaSessionTokenAttacksRoom = {
           ],
           answer: 2,
           explanation:
-            "This is the central trap taught in this room: both fields evaluate the SIGNED TOKEN's claims, and a replayed token still carries a genuine MFA-satisfied claim from the original login. Neither field has visibility into whether the token itself was stolen. Calling the sign-in definitely benign repeats exactly the mistake the room warns against. Saying Conditional Access applied no policy is factually wrong -- conditionalAccessStatus: success means a policy DID evaluate and pass, not that none applied. The claim that riskLevelDuringSignIn only populates for foreign sign-ins is not how the field behaves; it is populated on domestic sign-ins too.",
+            "This is the central trap taught in this room: both fields evaluate the SIGNED TOKEN's claims, and a replayed token still carries a genuine MFA-satisfied claim from the original login. Neither field reliably tells you the token itself was stolen, so a clean pair is no clearance. Calling the sign-in definitely benign repeats exactly the mistake the room warns against. Saying Conditional Access applied no policy is factually wrong -- conditionalAccessStatus: success means a policy DID evaluate and pass, not that none applied. The claim that riskLevelDuringSignIn only populates for foreign sign-ins is not how the field behaves; it is populated on domestic sign-ins too.",
           xp: 15,
         },
       ],

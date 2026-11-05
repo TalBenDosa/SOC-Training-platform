@@ -35,6 +35,7 @@ function action(lab: BriefingLab): string {
     case "chat": return `Open the chat with ${lab.bot} and reach every goal, starting with: ${lab.goals[0].task}`;
     case "match": return "Pair every item on the left with its partner on the right.";
     case "evidence": return `Name what each of the ${lab.items.length} screens shows.`;
+    case "portal": return `Open the console and work the job: ${lab.steps[0].ask}`;
     case "intercept": return `Guard ${lab.protect}: block or pass every item before it lands.`;
     case "duel": return `Beat ${lab.attacker} in a card duel: answer each move with the card that stops it.`;
     case "deduce": return "Read the clues, rule out the suspects and name the culprit.";

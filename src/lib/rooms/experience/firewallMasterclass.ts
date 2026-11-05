@@ -93,7 +93,7 @@ export const FIREWALL_MASTERCLASS: RoomExperience = {
           { id: "tls", text: "Most web traffic is now encrypted, so firewalls add TLS decryption to keep seeing inside", note: "2010s" },
         ],
         order: ["pf", "state", "utm", "ngfw", "tls"],
-        doneNote: "Each generation was added because the one before it went blind to something. Greyfield still has one of each.",
+        doneNote: "Each generation was added because the one before it went blind to something. Greyfield still has one of each. The oldest wall is read left to right: in the Cisco line permit udp 10.1.0.0 0.0.255.255 any eq 53 the order is action, protocol, source address with its wildcard mask, destination, then the operator and port. The eq 53 after the destination is the destination port; a port written right after the source would be the source port.",
       },
     ],
     // ── Reading 3: the state table ──

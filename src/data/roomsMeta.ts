@@ -436,7 +436,7 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "fw-la1",
         "type": "log_analysis",
         "xp": 40,
-        "mitreTechnique": "T1046 - Network Service Discovery"
+        "mitreTechnique": "T1595.001 - Active Scanning: Scanning IP Blocks"
       },
       {
         "id": "fw-f1",
@@ -2063,8 +2063,7 @@ export const ROOMS_META: RoomMeta[] = [
       {
         "id": "alert-triage-la1",
         "type": "log_analysis",
-        "xp": 100,
-        "mitreTechnique": "T1110.001"
+        "xp": 100
       },
       {
         "id": "alert-triage-flag1",
@@ -2485,7 +2484,7 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "vpn-ac1",
         "type": "analyst_choice",
         "xp": 30,
-        "mitreTechnique": "T1078.004"
+        "mitreTechnique": "T1078"
       }
     ]
   },
@@ -3308,7 +3307,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "av-vs-edr-masterclass",
     "title": "Antivirus vs EDR vs XDR: Endpoint Security Evolution",
-    "description": "Master the full evolution of endpoint security, from 1987 signature-based antivirus to modern XDR platforms. Learn how EDR hooks the OS kernel, why fileless malware defeats AV, and how to analyze real CrowdStrike Falcon alerts in a hospital environment.",
+    "description": "Master the full evolution of endpoint security, from 1987 signature-based antivirus to modern XDR platforms. Learn how EDR hooks the OS kernel, why fileless malware defeats AV, and how to analyze real CrowdStrike Falcon alerts in a veterinary group environment.",
     "difficulty": "intermediate",
     "category": "Endpoint Security",
     "estimatedMinutes": 70,
@@ -4117,7 +4116,7 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "k8s-la2",
         "type": "log_analysis",
         "xp": 50,
-        "mitreTechnique": "T1610"
+        "mitreTechnique": "T1609"
       },
       {
         "id": "k8s-m1",
@@ -4188,7 +4187,7 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "azure-la1",
         "type": "log_analysis",
         "xp": 80,
-        "mitreTechnique": "T1552.005"
+        "mitreTechnique": "T1555.006"
       },
       {
         "id": "azure-la2",
@@ -5937,14 +5936,12 @@ export const ROOMS_META: RoomMeta[] = [
       {
         "id": "cred-la1",
         "type": "log_analysis",
-        "xp": 80,
-        "mitreTechnique": "T1110.001"
+        "xp": 80
       },
       {
         "id": "cred-la2",
         "type": "log_analysis",
-        "xp": 80,
-        "mitreTechnique": "T1110.003"
+        "xp": 80
       },
       {
         "id": "cred-q2",
@@ -8633,8 +8630,7 @@ export const ROOMS_META: RoomMeta[] = [
       {
         "id": "ot-la1",
         "type": "log_analysis",
-        "xp": 40,
-        "mitreTechnique": "T0855"
+        "xp": 40
       },
       {
         "id": "ot-ac1",

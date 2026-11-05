@@ -19,7 +19,7 @@ export const ENDPOINT_SECURITY_FUNDAMENTALS: RoomExperience = {
     "Kestrel Credit Union. 2,400 laptops, 380 servers, and an EDR agent on every one of them.",
     "Each agent is a flight recorder: every process, file, connection and registry change, streamed to the cloud.",
     "Hana Kobayashi runs the EDR platform. When an alert fires, she doesn't guess. She opens the recording.",
-    "Learn what each generation of endpoint defence catches, drive a live response shell, decide when isolation is worth its cost, and read an alert like she does.",
+    "Learn what each generation of endpoint defence catches, decide when isolation is worth its cost, and read an alert like she does.",
   ],
   mission: "Tell AV, NGAV, EDR and XDR apart by what they catch, contain a spreading infection host by host, choose between isolation and lighter containment, read process trees, and take apart a Defender alert field by field.",
   estimate: "~45 min",
@@ -38,7 +38,7 @@ export const ENDPOINT_SECURITY_FUNDAMENTALS: RoomExperience = {
     {
       id: "recorder",
       label: "The Flight Recorder",
-      topic: "EDR telemetry · live response · isolation and what it costs",
+      topic: "EDR telemetry · isolation and what it costs",
       tagline: "Scan first, then decide what to isolate",
       building: "control",
       taskIds: ["ep-sec-r2", "ep-sec-q3"],
@@ -99,13 +99,13 @@ export const ENDPOINT_SECURITY_FUNDAMENTALS: RoomExperience = {
       {
         kind: "outbreak",
         title: "Contain the Spread",
-        prompt: "The loan floor at Kestrel's Leeds branch. The updater that Hana found in a Temp folder on one laptop is moving between machines toward the loans server. Isolate one laptop a turn and see what each decision saves.",
+        prompt: "The loan floor at Kestrel's Leeds branch. An updater that Hana's EDR flagged on one laptop is moving between machines toward the loans server. Isolate one laptop a turn and see what each decision saves.",
         hostPrefix: "KCU",
         cols: 6,
         rows: 5,
         crown: "LOANS",
         via: "the same admin account on every laptop",
-        lesson: "Isolation is a trade: it stops the spread and it stops that person working, so you spend it where it protects the most. On one host, live response may be enough: find the process that runs from a user Temp folder, match its PID to the outside address it holds open, then kill it and keep the host online. The moment the process has reached other hosts, kill is too light, and network containment is worth the outage.",
+        lesson: "Isolation is a trade: it stops the spread and it stops that person working, so you spend it where it protects the most. On one host, a lighter action may be enough: kill the process and keep the host online. The moment the process has reached other hosts, kill is too light, and network containment is worth the outage.",
       },
       {
         kind: "queue",
@@ -168,7 +168,7 @@ export const ENDPOINT_SECURITY_FUNDAMENTALS: RoomExperience = {
             answer: "bad",
             callouts: [
               { at: "tree", text: "Outlook launched an HTML application from a lookalike domain, which downloaded and ran a script in memory, which dropped an executable. Each hop is a red flag." },
-              { at: "verdict", text: "One host, one time, talking to the address you found in live response." },
+              { at: "verdict", text: "One host, one time, talking to the outside address shown in the verdict." },
             ],
           },
           {

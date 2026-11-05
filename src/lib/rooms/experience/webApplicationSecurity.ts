@@ -4,7 +4,7 @@ import type { RoomExperience } from "./types";
 // Script: docs/campaign/20-web-application-security.md.
 // Station task ids must match the room's task order exactly (see getRoomExperience).
 //
-// Fernhill Outdoor (fictional), not the graded tasks' Larkfield. Lab data
+// Larkfield (fictional), the same company as the graded tasks. Lab data
 // differs from the graded tasks: the curl labs never show an IIS log or a POST
 // body's absence from it (q1); the SQLi outcome sheet is a search endpoint, not
 // la1's /download.aspx traversal, and never matches classes to tells (m1); the
@@ -16,9 +16,9 @@ export const WEB_APPLICATION_SECURITY: RoomExperience = {
   roomId: "web-application-security",
   codename: "Operation Request Line",
   theme: "webapp",
-  handler: { name: "Kai Morgan", role: "Application Security Engineer, Fernhill Outdoor" },
+  handler: { name: "Kai Morgan", role: "Application Security Engineer, Larkfield" },
   briefing: [
-    "Fernhill Outdoor. One online shop, 40,000 orders a month, and a request arriving every few milliseconds.",
+    "Larkfield. One online shop, 40,000 orders a month, and a request arriving every few milliseconds.",
     "Every web attack is someone putting something unexpected into a request. Kai Morgan wants you to see one up close before you ever investigate one.",
     "You'll send requests by hand, change what the browser 'allows', watch a SQL injection go from errors to success, and check which defences are switched on.",
     "Follow the request line from browser to database, and back.",
@@ -91,11 +91,11 @@ export const WEB_APPLICATION_SECURITY: RoomExperience = {
       {
         kind: "codebreak",
         title: "Name the Part of the Request",
-        prompt: "Kai reads Fernhill's access log aloud, one clue at a time. Name the part of the request or the response he is pointing at.",
+        prompt: "Kai reads Larkfield's access log aloud, one clue at a time. Name the part of the request or the response he is pointing at.",
         tries: 6,
         rounds: [
           { id: "method", clue: "The first word of the request line. It sends a login form's data in the body, so the password never shows in the URL or the query string.", answer: "POST", why: "POST carries data in the body; GET puts it in the URL. A body is not recorded in a typical web server access log, which only keeps the request line and the status." },
-          { id: "cookie", clue: "The request header the browser sends back on every request, holding fh_session. Whoever presents it is treated as logged in.", answer: "COOKIE", why: "The server issued the session value in a Set-Cookie response header, and the browser returns it in the Cookie header. A stolen value is a stolen session." },
+          { id: "cookie", clue: "The request header the browser sends back on every request, holding lk_session. Whoever presents it is treated as logged in.", answer: "COOKIE", why: "The server issued the session value in a Set-Cookie response header, and the browser returns it in the Cookie header. A stolen value is a stolen session." },
           { id: "forbidden", clue: "Status code for a logged-in customer asking for another customer's invoice page. The server understood the request and refuses it.", answer: "403", why: "4xx means the client asked for something wrong. 403 is a refusal after login, unlike 401 which means authentication is missing or failed. A burst of 403s from one account is worth a look." },
           { id: "broke", clue: "Status code when the server itself fails while handling a request, for example when a stray quote in the search box breaks the SQL query.", answer: "500", why: "5xx means the server broke. A 500 followed by a normal 200 on the same endpoint is the pattern of someone probing for injection." },
         ],
@@ -150,7 +150,7 @@ export const WEB_APPLICATION_SECURITY: RoomExperience = {
       {
         kind: "worksheet",
         title: "Errors, Then Success",
-        prompt: "Fernhill's search endpoint, one client, five minutes. Normal responses are 3-6 KB. Read the outcome column the way Reading 3 taught.",
+        prompt: "Larkfield's search endpoint, one client, five minutes. Normal responses are 3-6 KB. Read the outcome column the way Reading 3 taught.",
         caption: "Access log extract · GET /search · client 203.0.113.58",
         columns: ["time", "q (decoded)", "status", "bytes"],
         rows: [
@@ -192,13 +192,13 @@ export const WEB_APPLICATION_SECURITY: RoomExperience = {
       {
         kind: "worksheet",
         title: "Are the Defences On?",
-        prompt: "Kai pulled the response headers and form markup for three state-changing pages on Fernhill's account portal. A page is protected if its session cookie is SameSite=Lax or Strict, or its form carries an anti-CSRF token the server checks.",
-        caption: "account.fernhill.example · response headers and forms",
+        prompt: "Kai pulled the response headers and form markup for three state-changing pages on Larkfield's account portal. A page is protected if its session cookie is SameSite=Lax or Strict, or its form carries an anti-CSRF token the server checks.",
+        caption: "portal.larkfield.com · response headers and forms",
         columns: ["page", "session cookie", "form token", "server checks token"],
         rows: [
-          ["/account/address", "fh_session=...; Secure; HttpOnly; SameSite=Lax", "yes", "yes"],
-          ["/account/payout-bank", "fh_session=...; Secure; HttpOnly; SameSite=None", "no", "n/a"],
-          ["/account/newsletter", "fh_session=...; Secure; HttpOnly; SameSite=None", "yes", "no (token ignored)"],
+          ["/account/address", "lk_session=...; Secure; HttpOnly; SameSite=Lax", "yes", "yes"],
+          ["/account/payout-bank", "lk_session=...; Secure; HttpOnly; SameSite=None", "no", "n/a"],
+          ["/account/newsletter", "lk_session=...; Secure; HttpOnly; SameSite=None", "yes", "no (token ignored)"],
         ],
         questions: [
           { id: "worst", q: "Which page could another website make a logged-in user's browser submit, with real money at stake?", hint: "No SameSite protection and no token.", answer: ["/account/payout-bank", "payout-bank", "payout"], why: "SameSite=None sends the cookie on cross-site requests, and there's no token. A hidden form on any page could change where payouts go." },

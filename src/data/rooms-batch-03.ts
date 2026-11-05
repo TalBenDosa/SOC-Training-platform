@@ -898,7 +898,7 @@ const linuxFundamentals: Room = {
         raw: {
           "auditd.log.type": "SYSCALL",
           "auditd.log.uid": "33",
-          "auditd.log.auid": "33",
+          "auditd.log.auid": "4294967295",
           "auditd.log.euid": "0",
           "auditd.log.exe": "/usr/bin/sudo",
           "auditd.log.comm": "sudo",
@@ -924,7 +924,7 @@ const linuxFundamentals: Room = {
           ],
           answer: 1,
           explanation:
-            "In auditd, 'uid' is the real account that started the program (here www-data, the web-server account) and 'euid' is the effective account it runs as (root). The executable is /usr/bin/sudo, which is SUID-root, so its execve always runs as root whether or not sudoers then allows www-data to run bash; success=yes only means the execve syscall worked. So the record proves www-data invoked sudo to try to become root. Confirm the outcome in /var/log/auth.log (a sudo line with 'COMMAND=/bin/bash' vs 'user NOT in sudoers') or a following execve of /bin/bash running as root. 'Login ID and audit ID of one session' confuses uid/euid with auid: euid is the effective identity, and it differs from uid here. 'The privilege sudo asked for' is wrong: euid is the identity the process actually holds, and nothing in this record shows a refusal. 'Confirms a root bash shell' is the common misreading: the program recorded is sudo, not bash, so the shell is not proven yet. Either way, a web service account running sudo bash points to an exploited web application and an escalation attempt.",
+            "In auditd, 'uid' is the real account that started the program (here www-data, the web-server account) and 'euid' is the effective account it runs as (root). The executable is /usr/bin/sudo, which is SUID-root, so its execve always runs as root whether or not sudoers then allows www-data to run bash; success=yes only means the execve syscall worked. So the record proves www-data invoked sudo to try to become root. Confirm the outcome in /var/log/auth.log (a sudo line with 'COMMAND=/bin/bash' vs 'user NOT in sudoers') or a following execve of /bin/bash running as root. 'Login ID and audit ID of one session' confuses uid/euid with auid: euid is the effective identity, and it differs from uid here. 'The privilege sudo asked for' is wrong: euid is the identity the process actually holds, and nothing in this record shows a refusal. 'Confirms a root bash shell' is the common misreading: the program recorded is sudo, not bash, so the shell is not proven yet. Note that auid is 4294967295 (unset): a service account has no login session, so no person is tied to this record. Either way, a web service account running sudo bash points to an exploited web application and an escalation attempt.",
           xp: 35,
         },
       ],
@@ -1051,7 +1051,7 @@ const linuxLogAnalysis: Room = {
         id: "linux-ssh-brute-evt-001",
         ts: "2024-11-22T03:41:09.000Z",
         source: "linux_audit",
-        vendor: "Linux auditd",
+        vendor: "Linux syslog (sshd)",
         event_type: "ssh_failed",
         severity: "high",
         hostname: "web-srv-01.corp.internal",

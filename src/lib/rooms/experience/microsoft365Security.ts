@@ -114,6 +114,8 @@ export const MICROSOFT_365_SECURITY: RoomExperience = {
           { id: "principal", text: "Dr Helen Ward <h.ward.principal@outlook.example> · Urgent: approve this transfer today", flag: true, note: "The Principal's name on a consumer mailbox: user impersonation, aimed at the person who moves money.", style: "meta" },
           { id: "vendor", text: "Fairhaven Payroll <payroll@fairhaven.ac.example> via mail.payrollco.example · October payslips · allowed by spoof intelligence", flag: false, note: "The real payroll vendor sending on our behalf, a sender spoof intelligence has learned and allowed.", style: "meta" },
           { id: "helpdesk", text: "IT Helpdesk <helpdesk@fairhaven.ac.example> · Your mailbox is full · SPF fail · DKIM none · DMARC fail", flag: true, note: "Our domain in the From line, sent from a server we never authorised. Every check fails: a spoof.", style: "meta" },
+          { id: "attach", text: "Fairhaven Suppliers <accounts@supplier-remit.example> · Remittance advice.docm · Safe Attachments: detonated in a cloud sandbox, verdict malware, quarantined", flag: true, note: "Safe Attachments opens each attachment in a cloud sandbox (detonation) before delivery and judges what it does. The verdict here is malware, so the message was pulled before the bursar could open it. Do not release it.", style: "meta" },
+          { id: "attachok", text: "Estates Office <estates@fairhaven.ac.example> · Fire-door survey.pdf · Safe Attachments: detonated in a cloud sandbox, verdict clean, delivered", flag: false, note: "The same sandbox detonation, but nothing malicious happened when the file opened, so it was delivered.", style: "meta" },
         ],
       },
     ],
@@ -122,7 +124,7 @@ export const MICROSOFT_365_SECURITY: RoomExperience = {
       {
         kind: "spotdiff",
         title: "Quiet Week, Loud Night",
-        prompt: "Saoirse pulled the audit digest for p.okoro in the estates office: Monday's baseline beside last night's. Three lines are an attacker's work. Others changed for dull reasons, so tap only the ones that tell a story.",
+        prompt: "Saoirse pulled the audit digest for p.okoro in the estates office: Monday's baseline beside last night's. Five lines are an attacker's work. Others changed for dull reasons, so tap only the ones that tell a story.",
         goodTitle: "Monday baseline",
         suspectTitle: "Last night",
         good: [
@@ -137,6 +139,8 @@ export const MICROSOFT_365_SECURITY: RoomExperience = {
           "Audit retention: 180 days",
           "MFA: registered, Authenticator app",
           "Last password change: 41 days ago",
+          "MailItemsAccessed (mailbox reads): 140 in 7 days",
+          "New-InboxRule: (none)",
         ],
         suspect: [
           "Account: p.okoro@fairhaven.ac.example (Estates Office)",
@@ -150,11 +154,15 @@ export const MICROSOFT_365_SECURITY: RoomExperience = {
           "Audit retention: 180 days",
           "MFA: registered, Authenticator app",
           "Last password change: 41 days ago",
+          "MailItemsAccessed (mailbox reads): 5,200 in 7 days",
+          "New-InboxRule: ForwardTo estates.archive@mailbox.example, DeleteMessage True",
         ],
         diffs: [
           { line: 1, why: "Server-side forwarding set with Set-Mailbox: it lives on the mailbox, so the user never sees it in Outlook rules. A copy usually stays in the mailbox too, so nothing looks missing." },
           { line: 3, why: "A new member in Exchange Administrator. Role changes are one of the operations to watch because they widen what the next step can do." },
           { line: 5, why: "From 11 to 653 downloads in a week. Role, forwarding, then bulk download: the three operations tell one story together." },
+          { line: 11, why: "MailItemsAccessed is the audit operation that records mailbox reads. 140 to 5,200 in a week means someone read thousands of messages, which a normal user's week never does." },
+          { line: 12, why: "A New-InboxRule that forwards to an outside address and deletes the original is the forward-and-delete pattern of business email compromise: the owner never sees the copy leave or the replies come back." },
         ],
         decoys: [
           { line: 4, why: "The counter moved because p.okoro was the one who added the member, so it is the same event as line 3, not a separate finding." },

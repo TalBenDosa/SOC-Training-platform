@@ -398,14 +398,14 @@ const sigmaYaraRuleAuthoringRoom = {
         { id: "draft", text: "Write a first draft using the most obvious single indicator you can think of" },
         { id: "check", text: "Check whether that single indicator is too broad (matches unrelated legitimate activity) or too narrow (only matches one historical sample)" },
         { id: "corroborate", text: "Add a second, independent indicator so the rule requires several individually-common signals together, rather than relying on one alone" },
-        { id: "anchor", text: "Anchor the rule to the smallest realistic scope available (a file-size ceiling, a specific binary, a specific log source) to cut unrelated matches cheaply" },
+        { id: "anchor", text: "Once the second indicator is in, anchor the combined rule to the smallest realistic scope available (a file-size ceiling, a specific binary, a specific log source) to cut unrelated matches cheaply" },
         { id: "test", text: "Test the draft against both a known-malicious sample or event and a known-benign corpus, not just one or the other" },
         { id: "document", text: "Document the legitimate matches actually found (false positives and benign true positives) as the rule's falsepositives or meta notes, not a guess" },
         { id: "assign", text: "Only then assign the rule its severity or level field and hand it off for deployment" },
       ],
       correct_order: ["state", "draft", "check", "corroborate", "anchor", "test", "document", "assign"],
       explanation:
-        "This is exactly the loop Reading 3 ran for the vssadmin rule (a loose single-phrase draft, checked, then split into two anchored, corroborated blocks) and Reading 6 ran for the webshell rule (one common string alone, checked, then combined with a second signal and a filesize ceiling). Skipping the check-and-corroborate steps and jumping straight from a first draft to assigning severity is exactly how a brittle or overly broad rule reaches production untested.",
+        "This is exactly the loop Reading 3 ran for the vssadmin rule (a loose single-phrase draft, checked, then split into two anchored, corroborated blocks) and Reading 6 ran for the webshell rule (one common string alone, checked, then combined with a second signal and a filesize ceiling). The order of the last two shaping steps is fixed by their wording here: the second signal goes in first, then the scope ceiling is applied to the combined rule. Skipping the check-and-corroborate steps and jumping straight from a first draft to assigning severity is exactly how a brittle or overly broad rule reaches production untested.",
       xp: 30,
     },
     // ── Analyst Choice: brittle vs tuned verdict ─────────────────────────────

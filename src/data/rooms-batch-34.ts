@@ -43,7 +43,7 @@ const becSigninReplayEvent: TelemetryEvent = {
   src_ip: "154.72.18.63",
   geo: { country: "Nigeria", city: "Lagos", latitude: 6.5244, longitude: 3.3792 },
   description:
-    "A non-interactive Entra ID sign-in for p.nair, sourced from Lagos, carries the same correlationId as an interactive sign-in from Denver nine minutes earlier. MFA shows as satisfied by a claim already present in the token rather than a fresh challenge.",
+    "A non-interactive Entra ID sign-in for p.nair, sourced from Lagos, carries the same sessionId as an interactive sign-in from Denver nine minutes earlier. MFA shows as satisfied by a claim already present in the token rather than a fresh challenge.",
   raw: {
     "azure.signinlogs.category": "NonInteractiveUserSignInLogs",
     "azure.signinlogs.operationName": "Sign-in activity",
@@ -158,7 +158,7 @@ const becLegitimateForwardEvent: TelemetryEvent = {
   geo: { country: "United States", city: "Denver" },
   it_verify_result: "confirmed",
   it_verify_message:
-    "Helpdesk ticket HD-30410: t.reyes requested a forwarding rule to a.walsh (Accounts Payable Team Lead) covering April 2 through April 16 while on approved leave, per Meridian's standard AP coverage procedure.",
+    "Helpdesk ticket HD-30410: t.reyes requested a forwarding rule to a.walsh (Accounts Payable Team Lead) covering March 2 through March 16 while on approved leave, per Meridian's standard AP coverage procedure.",
   description:
     "A New-InboxRule operation created a rule on t.reyes's mailbox forwarding mail to a.walsh@meridianstructural.com, an internal colleague.",
   raw: {
@@ -291,7 +291,7 @@ const becInvestigationRoom = {
       id: "bec-la1",
       heading: "A Second Sign-In, Nine Minutes Later, From the Wrong Continent",
       context:
-        "Meridian Structural Group's SIEM flagged an anomaly on p.nair@meridianstructural.com's account. Nine minutes before the record below, the Entra ID sign-in log shows an interactive sign-in on the same correlationId, MFA satisfied by a live Microsoft Authenticator approval, sourced from Meridian's only known corporate egress IP (198.51.100.22) in Denver, Colorado, where p.nair's team is based and where her laptop has generated every sign-in in the ten months since it was issued. No flight exists that covers Denver to Lagos, Nigeria in nine minutes. Review the record below.",
+        "Meridian Structural Group's SIEM flagged an anomaly on p.nair@meridianstructural.com's account. Nine minutes before the record below, the Entra ID sign-in log shows an interactive sign-in in the same session (same sessionId, a different correlationId), MFA satisfied by a live Microsoft Authenticator approval, sourced from Meridian's only known corporate egress IP (198.51.100.22) in Denver, Colorado, where p.nair's team is based and where her laptop has generated every sign-in in the ten months since it was issued. No flight exists that covers Denver to Lagos, Nigeria in nine minutes. Review the record below.",
       event: becSigninReplayEvent,
       questions: [
         {
@@ -310,16 +310,16 @@ const becInvestigationRoom = {
         },
         {
           question:
-            "azure.signinlogs.properties.incomingTokenType reads 'refreshToken', the location is Lagos, Nigeria, and this record shares its correlationId with an interactive sign-in from Denver, Colorado nine minutes earlier: the only corporate egress on file for this account. What does this combination indicate?",
+            "azure.signinlogs.properties.incomingTokenType reads 'refreshToken', the location is Lagos, Nigeria, and this record shares its sessionId with an interactive sign-in from Denver, Colorado nine minutes earlier: the only corporate egress on file for this account. What does this combination indicate?",
           options: [
             "A routine background token renewal from p.nair's mobile Outlook while she roams, so the Lagos geo is just a roaming artifact",
             "Impossible travel plus token replay: no flight connects Denver to Lagos in nine minutes, and a refreshToken with no fresh authentication step fits a stolen session used from attacker infrastructure",
-            "The shared correlationId only means both sign-ins hit the same Entra tenant, which is expected and not an anomaly",
+            "The shared sessionId only means both sign-ins hit the same Entra tenant, which is expected and not an anomaly",
             "p.nair signed in from Denver and her VPN egressed through a Lagos data center, which explains the geography",
           ],
           answer: 1,
           explanation:
-            "Impossible travel is the core fact: the same account appears in Denver and Lagos nine minutes apart, which no travel can cover, and you can compute that yourself without Entra's risk score. The refreshToken with no live authentication step adds that this second sign-in replayed a token rather than a fresh login, the token-replay pattern this room is built around. A roaming phone would not jump continents in nine minutes. The shared correlationId is not a tenant-wide coincidence; it ties these two sign-ins to one underlying action. And a VPN egressing in Lagos does not fit a user whose every prior sign-in came from Denver's corporate egress.",
+            "Impossible travel is the core fact: the same account appears in Denver and Lagos nine minutes apart, which no travel can cover, and you can compute that yourself without Entra's risk score. The refreshToken with no live authentication step adds that this second sign-in replayed a token rather than a fresh login, the token-replay pattern this room is built around. A roaming phone would not jump continents in nine minutes. The shared sessionId is not a tenant-wide coincidence; it ties these two sign-ins to one authenticated session, which is how a replayed token shows up. And a VPN egressing in Lagos does not fit a user whose every prior sign-in came from Denver's corporate egress.",
           xp: 30,
         },
         {

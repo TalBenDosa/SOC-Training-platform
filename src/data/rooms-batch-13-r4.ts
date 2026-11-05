@@ -584,7 +584,7 @@ const nacMasterclass = {
       content:
         "No security control is perfect, and NAC is no exception. Understanding how attackers bypass NAC is essential for SOC analysts because these bypasses leave detectable artifacts that should trigger alerts.\n\n" +
         "The first and most common bypass is MAC address spoofing. Every network device has a hardware MAC address burned into its network card. NAC can be configured to use MAC Authentication Bypass (MAB) for devices that cannot participate in 802.1X (IoT devices, printers, legacy equipment). In MAB, the switch sends the device's MAC address to ISE, and ISE checks whether that MAC is in an approved list. An attacker on the same network segment can observe authorized MAC addresses (by sniffing ARP traffic, reading LLDP frames, or simply checking the label on a printer) and then change their own MAC address to match an authorized one. The switch will then see what appears to be the authorized printer, and ISE may grant network access. Detection relies on ISE profiling: ISE has fingerprinted the real printer and knows its device profile. When the attacker's Windows laptop sends DHCP options and HTTP traffic inconsistent with a printer, the profiler flags a profile mismatch. The SIEM should alert when ISE reports 'Unexpected profiler event: device profile mismatch' for a MAB-authenticated endpoint.\n\n" +
-        "The second bypass technique is 802.1X pass-through via multi-host mode. Some switch configurations allow a port to be in 'multi-host' mode: once one device on the port authenticates, the port is opened for all traffic from all MAC addresses on that port. An attacker plugs a small unmanaged hub or switch between an authorized device and the wall port. The authorized device authenticates normally (or was already authenticated). The hub allows the attacker's device to also send traffic through the now-authorized port, bypassing NAC entirely. Detection: ISE and the switch can track the number of MAC addresses seen on a single port. Multiple MACs on a single 802.1X port that was configured for single-host mode is an alert condition. Switch syslog events referencing 'security-violation' on a dot1x port indicate this condition.\n\n" +
+        "The second bypass technique is 802.1X pass-through via multi-host mode. Some switch configurations allow a port to be in 'multi-host' mode: once one device on the port authenticates, the port is opened for all traffic from all MAC addresses on that port. An attacker plugs a small unmanaged hub or switch between an authorized device and the wall port. The authorized device authenticates normally (or was already authenticated). The hub allows the attacker's device to also send traffic through the now-authorized port, bypassing NAC entirely. Detection: multi-host mode logs no violation, so detection means counting MAC addresses per port: the switch CAM table, ISE session counts, or SNMP polling. More than one MAC on an 802.1X wired port is an alert condition. If the port is in single-host mode instead, the extra MAC is blocked and the switch logs a 'security-violation' syslog event on the dot1x port, which is a sign of a failed attempt rather than a working bypass.\n\n" +
         "The third bypass is guest VLAN abuse. If the guest VLAN is misconfigured with routes to corporate subnets, or if firewall rules permit guest-to-corporate traffic for 'convenience,' an attacker who obtains guest network access can reach corporate resources directly. Detection: firewall logs showing traffic from guest VLAN (VLAN 30 subnet) destined for corporate VLAN (VLAN 10 subnet) are an immediate alert condition. This traffic should never occur in a properly configured environment.\n\n" +
         "A fourth technique is rogue 802.1X server (evil RADIUS). An attacker sets up a rogue RADIUS server on the network and configures a rogue wireless access point advertising the corporate SSID. When a user attempts to authenticate to what they believe is the corporate wireless, their supplicant sends credentials to the rogue RADIUS server. If the supplicant is not configured to validate the RADIUS server's certificate, credentials are captured. Detection: clients connecting to access points not in the authorized AP inventory, or RADIUS authentication requests from unknown NAS-IP-Address values in ISE logs.",
       codeExample:
@@ -608,7 +608,7 @@ const nacMasterclass = {
         "  SIEM rule: cisco.ise.posture_assessment_status = unexpected_profile\n\n" +
         "BYPASS TECHNIQUE 2: 802.1X PASS-THROUGH (HUB INSERTION)\n" +
         "==========================================================\n\n" +
-        "  Wall port (single-host 802.1X configured)\n" +
+        "  Wall port (multi-host 802.1X configured)\n" +
         "       |\n" +
         "  [Attacker inserts unmanaged hub here]\n" +
         "       |\n" +
@@ -620,11 +620,11 @@ const nacMasterclass = {
         "  After auth: port opens for authorized MAC.\n" +
         "  Hub allows attacker's traffic through too.\n\n" +
         "DETECTION:\n" +
-        "  Switch syslog: %DOT1X-5-SECURITY_VIOLATION: Security violation on\n" +
-        "    interface GigabitEthernet1/0/14, New MAC address 1A:2B:3C:4D:5E:6F\n" +
-        "    detected.\n" +
-        "  ISE: multiple MAC addresses on single 802.1X port\n" +
-        "  Alert: more than 1 unique MAC on an 802.1X wired port\n\n" +
+        "  Multi-host mode logs no violation. Count MACs per port:\n" +
+        "    switch CAM table, ISE session count, SNMP polling\n" +
+        "  Alert: more than 1 unique MAC on an 802.1X wired port\n" +
+        "  (In single-host mode the extra MAC is blocked and the switch logs\n" +
+        "   %DOT1X-5-SECURITY_VIOLATION: a failed attempt, not a working bypass)\n\n" +
         "BYPASS TECHNIQUE 3: GUEST VLAN MISCONFIGURATION\n" +
         "=================================================\n\n" +
         "  Guest device (no authentication)\n" +
@@ -667,7 +667,7 @@ const nacMasterclass = {
       ],
       answer: 1,
       explanation:
-        "This is the MAC-spoofing pattern from the NAC-bypass reading: MAB only checks that the MAC is on the approved list, so a laptop using the printer's MAC is admitted, but the profiler sees traffic inconsistent with a printer (Windows DHCP options, a browser User-Agent) and raises a profile mismatch, the alert the SIEM should fire on for a MAB endpoint. A firmware update might alter some DHCP details, but it would not make a printer send a Windows option set and a desktop browser User-Agent, nor move it to another floor. Hub insertion shows up as an EXTRA MAC on the same port (a SECURITY_VIOLATION / multiple-MAC condition), not the same MAC with a new profile on a different port. Printers sit on MAB precisely because they cannot do 802.1X, so there is no 802.1X certificate to expire.",
+        "This is the MAC-spoofing pattern from the NAC-bypass reading: MAB only checks that the MAC is on the approved list, so a laptop using the printer's MAC is admitted, but the profiler sees traffic inconsistent with a printer (Windows DHCP options, a browser User-Agent) and raises a profile mismatch, the alert the SIEM should fire on for a MAB endpoint. A firmware update might alter some DHCP details, but it would not make a printer send a Windows option set and a desktop browser User-Agent, nor move it to another floor. Hub insertion shows up as an EXTRA MAC on the same port (found by counting MACs per port; in single-host mode also a SECURITY_VIOLATION), not the same MAC with a new profile on a different port. Printers sit on MAB precisely because they cannot do 802.1X, so there is no 802.1X certificate to expire.",
       xp: 25,
     },
     // ── Question 3 ─────────────────────────────────────────────────────────────

@@ -141,7 +141,7 @@ const legitPasteRunEvent: TelemetryEvent = {
     parent_name: "explorer.exe",
     parent_pid: 4108,
     cmdline:
-      "powershell.exe -NoProfile -InputFormat None -ExecutionPolicy Bypass -Command \"[System.Net.ServicePointManager]::SecurityProtocol = 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))\"",
+      "powershell.exe -NoProfile -WindowStyle Hidden -InputFormat None -ExecutionPolicy Bypass -Command \"[System.Net.ServicePointManager]::SecurityProtocol = 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))\"",
     user: "NEXACORP\\y.cohen",
     integrity: "high",
     hash: { sha256: "b1e5d29a7c4f60831e9a5c7f4b28d6039e1a7c4f6b83d05e2c8f4e6b91d3a75c" },
@@ -163,7 +163,7 @@ const legitPasteRunEvent: TelemetryEvent = {
     "process.pid": "5502",
     "process.executable": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
     "process.command_line":
-      "powershell.exe -NoProfile -InputFormat None -ExecutionPolicy Bypass -Command \"[System.Net.ServicePointManager]::SecurityProtocol = 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))\"",
+      "powershell.exe -NoProfile -WindowStyle Hidden -InputFormat None -ExecutionPolicy Bypass -Command \"[System.Net.ServicePointManager]::SecurityProtocol = 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))\"",
     "process.hash.sha256": "b1e5d29a7c4f60831e9a5c7f4b28d6039e1a7c4f6b83d05e2c8f4e6b91d3a75c",
     "process.code_signature.exists": true, "process.code_signature.trusted": true,
     "process.parent.name": "explorer.exe",
@@ -300,7 +300,7 @@ const commodityInitialAccessRoom = {
       id: "mcia-r4",
       heading: "SEO-Poisoned and Malvertised Installers: When the Sponsored Result Is the Attack",
       content:
-        "Search engines sell advertising space above their organic results, and anyone can bid to have their link shown first for a given search term, including an attacker bidding to outrank the real project for a piece of software people search for constantly, like an SSH client or an archiving tool. This is SEO poisoning (or malvertising, when it specifically rides paid ad placement): buying or manipulating a search result to point directly at attacker-controlled infrastructure, tracked in MITRE ATT&CK as T1608.006, Stage Capabilities: SEO Poisoning.\n\n" +
+        "Search engines sell advertising space above their organic results, and anyone can bid to have their link shown first for a given search term, including an attacker bidding to outrank the real project for a piece of software people search for constantly, like an SSH client or an archiving tool. This is SEO poisoning (or malvertising, when it specifically rides paid ad placement): buying or manipulating a search result to point directly at attacker-controlled infrastructure, tracked in MITRE ATT&CK as T1608.006, Stage Capabilities: SEO Poisoning, for organic ranking manipulation, and T1583.008, Acquire Infrastructure: Malvertising, for paid ad placement.\n\n" +
         "**Why this is a distinct story from a hacked website.** A drive-by compromise requires an attacker to actually break into a legitimate site and tamper with it. SEO poisoning requires none of that: the attacker only needs to register a lookalike domain and either buy a sponsored slot or manipulate search rankings well enough to appear convincing. The domain itself often has no abuse history at all, because it was registered specifically and recently for this one purpose, which is exactly why domain-reputation checks alone often miss it on first contact.\n\n" +
         "**What the victim actually downloads.** The installer they get is frequently not a standalone trojan but a loader: a small program that opens, briefly shows a real-looking setup window, and then fails with a generic error, the victim never gets a working copy of whatever they thought they were installing. In the few seconds it ran, though, the installer process itself reached out to entirely separate infrastructure and fetched a second file. That fetch-after-execution pattern (the first file's only real job being to retrieve a different one) is Ingress Tool Transfer, T1105, and it is the detail that identifies a loader rather than a simple standalone trojan.\n\n" +
         "**What the second stage frequently goes after.** A large share of these campaigns deliver an infostealer, and one of the most reliable things to check for afterward is browser credential theft: Chrome (and Chromium-based browsers generally) stores saved passwords in a SQLite database file literally named 'Login Data,' inside the browser's own profile folder. Because Chrome holds that file open and locked while it's running, a stealer typically can't read it directly, so it copies the file instead, and that copy frequently lands somewhere with no legitimate relationship to Chrome at all, such as a Temp subfolder created by the loader itself. Finding a file named exactly 'Login Data' outside Chrome's own profile path is one of the strongest single artefacts for this specific technique, tracked as T1555.003, Credentials from Password Stores: Credentials from Web Browsers.\n\n" +
@@ -514,7 +514,7 @@ const commodityInitialAccessRoom = {
       pairs: [
         { id: "clickfix", left: "ClickFix / Fake CAPTCHA", right: "T1204.004 -- explorer.exe spawns a command interpreter directly, with no antecedent file download at all" },
         { id: "clipper", left: "Clipboard Clipper", right: "T1115 -- a background process silently substitutes copied cryptocurrency wallet addresses before the paste completes" },
-        { id: "seo", left: "SEO-Poisoned / Malvertised Installer", right: "T1608.006 -- a paid or manipulated search result leads to a fake installer whose only real job is fetching a second-stage payload" },
+        { id: "seo", left: "SEO-Poisoned / Malvertised Installer", right: "T1608.006 (T1583.008 when the slot is paid for) -- a manipulated or sponsored search result leads to a fake installer whose only real job is fetching a second-stage payload" },
         { id: "iso", left: "ISO / Mark-of-the-Web Smuggling", right: "T1553.005 -- a shortcut inside a mounted container runs with no SmartScreen prompt at all" },
         { id: "miner", left: "Drive-by Browser Cryptomining", right: "T1496 -- a browser's own renderer process opens a long-lived tunnel to a mining relay" },
       ],

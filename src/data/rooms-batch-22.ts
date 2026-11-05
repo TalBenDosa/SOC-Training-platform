@@ -782,13 +782,13 @@ const assetContextRoom: Room = {
             "What is the correct immediate response to the DC02 burst as described?",
           options: [
             "No action: 4625 (failed logon) events are routine and this volume is within normal limits for a domain controller, which regularly absorbs far higher failure counts from ordinary password-expiry noise across the whole organization",
-            "Block or rate-limit the source IP at the network edge, check whether any of the 14 attempted accounts show a subsequent successful logon (Event 4624) from the same or a related source, and escalate given that the target is identity infrastructure for the whole domain",
+            "Isolate or contain the internal source host (DESKTOP-4LK92P, 10.10.44.187), check whether any of the 14 attempted accounts show a subsequent successful logon (Event 4624) from the same or a related source, and escalate given that the target is identity infrastructure for the whole domain",
             "Immediately and permanently disable all 14 targeted accounts without further investigation, since any account named in a burst against identity infrastructure must be treated as already compromised regardless of outcome",
             "Wait for an account-lockout notification from one of the affected accounts before taking any action, since a lockout event is the only reliable confirmation that a burst against a domain controller was ever real",
           ],
           answer: 1,
           explanation:
-            "This combines containment (block/rate-limit the source) with the most important follow-up check (did any attempt actually succeed) and reflects the escalation this asset's blast radius demands. This volume against a domain controller is not routine, permanently disabling 14 accounts without investigation risks disrupting legitimate service accounts among them, and waiting for a lockout notification means waiting for a symptom instead of acting on the alert already in hand.",
+            "This combines containment (the source is an internal workstation, so an edge block would do nothing; isolate it and investigate it) with the most important follow-up check (did any attempt actually succeed) and reflects the escalation this asset's blast radius demands. This volume against a domain controller is not routine, permanently disabling 14 accounts without investigation risks disrupting legitimate service accounts among them, and waiting for a lockout notification means waiting for a symptom instead of acting on the alert already in hand.",
           xp: 30,
         },
       ],

@@ -87,7 +87,7 @@ export const WEB_ATTACKS_PRACTICE: RoomExperience = {
         prompt: "Rafael won't hand you a Sundial log until you can read one. Each clue describes a part of an IIS log line. Crack the code.",
         tries: 5,
         rounds: [
-          { id: "ok", clue: "The status code when the server processed a request end to end", answer: "200", why: "Success means the server finished the job, whatever the job was. It says nothing about whether the request was innocent." },
+          { id: "ok", clue: "The status code when the server processed a request end to end", answer: "200", why: "Success means the server finished the job, whatever the job was. It says nothing about whether the request was innocent. A lone 200 among errors proves little until you compare its response size (sc-bytes) with the endpoint's normal size: a payload that really pulled data out returns a far bigger response than an ordinary page." },
           { id: "block", clue: "The status code you usually see when a WAF or the server refuses a request", answer: "403", why: "Forbidden: understood and refused. Blocked attempts live here." },
           { id: "miss", clue: "The status code a content-discovery sweep produces most of", answer: "404", why: "Guessing paths means mostly missing them. A wall of 404s from one source is someone looking around." },
           { id: "broke", clue: "The status code when the application itself failed while handling the request", answer: "500", why: "Unlike a 4xx, the request got in and broke something on the way through." },
@@ -140,6 +140,22 @@ export const WEB_ATTACKS_PRACTICE: RoomExperience = {
         ],
         culprit: "c",
         why: "req-7713 matched the XSS rule, but COUNT only logs. The IIS record shows the server answered 200. A blocked request never gets an IIS record, so the WAF tells you it was seen, and only the server tells you it landed.",
+      },
+    ],
+    // ── Web shell station: what the ordering and the detection rely on ──
+    "web-o1": [
+      {
+        kind: "codebreak",
+        title: "Anatomy of a Web Shell",
+        prompt: "Rafael wants the shell's moving parts named before you put its chain in order. Each clue describes one of them. Crack the code.",
+        tries: 5,
+        rounds: [
+          { id: "ext", clue: "The file extension an attacker drops into an IIS site so the server runs it as code", answer: "aspx", why: "A web shell is just a server-side script placed where the web server will execute it, usually among the site's own assets so it blends in." },
+          { id: "worker", clue: "The IIS worker process that runs the web application, and so writes the shell to disk", answer: "w3wp", why: "w3wp.exe is the process for the site's application pool. If it writes a new script file, the web application itself did it, not an administrator or a deployment tool." },
+          { id: "shell", clue: "The command interpreter a web shell most often has the worker process start", answer: "cmd", why: "A web worker should serve pages, never parent a command interpreter. w3wp.exe spawning cmd.exe is the tell that the shell is in use." },
+          { id: "limit", clue: "A WAF only inspects a request body up to a size limit. A larger upload is not fully inspected, so the WAF lets it ___", answer: "through", why: "That is how an oversized POST carrying a shell can pass even a well-configured WAF. The size limit is a known gap, not a verdict that the body was clean." },
+        ],
+        lesson: "A web shell is a script the web worker writes and then runs. The file write by w3wp.exe and the cmd.exe child of w3wp.exe are the footprints, and an oversized upload is one way past the WAF.",
       },
     ],
   },

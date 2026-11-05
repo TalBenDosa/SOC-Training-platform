@@ -5,34 +5,25 @@ const managedIdentityKeyVaultEvent: TelemetryEvent = {
   id: "evt-azure-mi-kv-001",
   ts: "2026-06-15T02:11:04.000Z",
   source: "cloud_azure",
-  vendor: "Azure Activity Log",
+  vendor: "Azure Key Vault diagnostic logs",
   event_type: "cloud_storage_access",
   severity: "critical",
   user_email: "svc-webapp-mi@nexacorp.onmicrosoft.com",
   src_ip: "203.0.113.44",
   geo: { country: "Romania", city: "Bucharest" },
   description: "A system-assigned managed identity attached to a public-facing web app was used to retrieve a high-value secret from Key Vault, from a source IP outside Azure's own network ranges",
-  mitre_technique: "T1552.005",
+  mitre_technique: "T1555.006",
   mitre_tactic: "Credential Access",
   raw: {
-    "azure.activitylogs.operationName": "SECRETS.GET",
-    "azure.activitylogs.resourceProviderValue": "Microsoft.KeyVault",
-    "azure.activitylogs.resourceId": "/subscriptions/8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f/resourceGroups/nexacorp-prod-rg/providers/Microsoft.KeyVault/vaults/nexacorp-prod-kv",
-    "azure.activitylogs.subscriptionId": "8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f",
-    "azure.activitylogs.resultType": "Success",
-    "azure.activitylogs.resultSignature": "200",
-    "azure.activitylogs.identity.claims.appid": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-    "azure.activitylogs.identity.claims.idtyp": "app",
-    "azure.activitylogs.identity.authorization.evidence.principalType": "ServicePrincipal",
-    "azure.activitylogs.identity.claims.xms_mirid": "/subscriptions/8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f/resourcegroups/nexacorp-prod-rg/providers/Microsoft.Web/sites/nexacorp-webapp",
-    "azure.activitylogs.identity.authorization.evidence.principalId": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
-    "azure.activitylogs.identity.authorization.evidence.role": "Key Vault Secrets User",
-    "azure.activitylogs.caller": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-    "azure.activitylogs.callerIpAddress": "203.0.113.44",
-    "azure.activitylogs.category": "AuditEvent",
-    "azure.activitylogs.level": "Informational",
     "azure.keyvault.OperationName": "SecretGet",
+    "azure.keyvault.ResourceProvider": "MICROSOFT.KEYVAULT",
+    "azure.keyvault.ResourceId": "/SUBSCRIPTIONS/8F3A9C2E-4B1D-4E7A-9C6F-1A2B3C4D5E6F/RESOURCEGROUPS/NEXACORP-PROD-RG/PROVIDERS/MICROSOFT.KEYVAULT/VAULTS/NEXACORP-PROD-KV",
+    "azure.keyvault.ResultType": "Success",
+    "azure.keyvault.Category": "AuditEvent",
+    "azure.keyvault.CallerIPAddress": "203.0.113.44",
     "azure.keyvault.identity.claim.appid": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    "azure.keyvault.identity.claim.oid": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+    "azure.keyvault.identity.claim.xms_mirid": "/subscriptions/8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f/resourcegroups/nexacorp-prod-rg/providers/Microsoft.Web/sites/nexacorp-webapp",
     "azure.keyvault.requestUri": "https://nexacorp-prod-kv.vault.azure.net/secrets/sql-connection-string",
     "azure.keyvault.httpStatusCode": 200,
     "cloud.provider": "azure",
@@ -71,7 +62,7 @@ const nsgRdpExposureEvent: TelemetryEvent = {
     "azure.activitylogs.properties.requestbody": "{\"properties\":{\"direction\":\"Inbound\",\"access\":\"Allow\",\"protocol\":\"Tcp\",\"sourcePortRange\":\"*\",\"destinationPortRange\":\"3389\",\"sourceAddressPrefix\":\"*\",\"destinationAddressPrefix\":\"10.40.2.15\",\"priority\":100}}",
     "azure.nsgflowlogs.rule": "allow-rdp-temp",
     "azure.nsgflowlogs.mac": "00-0D-3A-1F-4C-2B",
-    "azure.nsgflowlogs.flowTuples": "1781490891,203.0.113.44,10.40.2.15,51422,3389,T,I,A,B",
+    "azure.nsgflowlogs.flowTuples": "1781490937,203.0.113.44,10.40.2.15,51422,3389,T,I,A,B",
     "azure.nsgflowlogs.nsgResourceId": "/subscriptions/8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f/resourceGroups/nexacorp-prod-rg/providers/Microsoft.Network/networkSecurityGroups/nexacorp-prod-vm-nsg",
     "cloud.provider": "azure",
     "cloud.subscription_id": "8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f",
@@ -88,7 +79,7 @@ const automationServicePrincipalEvent: TelemetryEvent = {
   event_type: "cloud_api_call",
   severity: "low",
   user_email: "sp-nightly-backup@nexacorp.onmicrosoft.com",
-  src_ip: "10.40.1.9",
+  src_ip: "198.51.100.27",
   hostname: "aut-nexacorp-runbook-worker",
   description: "A registered service principal used by the nightly backup Automation Runbook listed storage account keys as part of a scheduled, ticketed backup job",
   raw: {
@@ -101,7 +92,7 @@ const automationServicePrincipalEvent: TelemetryEvent = {
     "azure.activitylogs.identity.authorization.evidence.principalType": "ServicePrincipal",
     "azure.activitylogs.identity.authorization.evidence.role": "Storage Account Key Operator Service Role",
     "azure.activitylogs.caller": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
-    "azure.activitylogs.callerIpAddress": "10.40.1.9",
+    "azure.activitylogs.callerIpAddress": "198.51.100.27",
     "azure.activitylogs.category": "Administrative",
     "azure.activitylogs.level": "Informational",
     "cloud.provider": "azure",
@@ -122,7 +113,7 @@ const storagePublicSasEvent: TelemetryEvent = {
   user_email: "svc-webapp-mi@nexacorp.onmicrosoft.com",
   src_ip: "203.0.113.44",
   geo: { country: "Romania", city: "Bucharest" },
-  description: "Blob container public access was changed to allow anonymous read access shortly after a long-lived Shared Access Signature token was generated for the same storage account",
+  description: "Blob container public access was changed to allow anonymous read access on a production storage account, made by the same managed identity that opened RDP earlier",
   mitre_technique: "T1530",
   mitre_tactic: "Collection",
   raw: {
@@ -332,7 +323,7 @@ const azureSecurityRoom = {
         `**Storage Account Public Exposure**\n\n` +
         `An Azure **Storage Account** holds **blob containers** (similar to S3 buckets or Cloud Storage buckets), and each container has a **public access level** setting: Private (no anonymous access), Blob (anonymous read access to individual blobs if you know the exact URL), or Container (anonymous read access AND the ability to list every blob in the container, the most dangerous setting). Changing this setting to Container on a container holding customer exports or backups is one of the most common and damaging real-world Azure misconfigurations, directly analogous to a public S3 bucket or a public GCS bucket.\n\n` +
         `**SAS Tokens: Azure's Scoped, Shareable Access Keys**\n\n` +
-        `A **SAS (Shared Access Signature) token** is a signed URL parameter that grants time-limited, scoped access to a storage resource without sharing the storage account's master key, useful for giving a partner or an application temporary access to a single container. However, a SAS token generated with overly broad permissions (rwdl: read, write, delete, list) and a far-future expiry (months or years away instead of hours) behaves exactly like a long-lived, hard-to-revoke credential: anyone who obtains the URL has full access until the token's expiry date, and unlike an Azure AD credential, a SAS token cannot always be individually revoked without regenerating the storage account's underlying access keys (which breaks every other SAS token issued from those keys too). A newly-generated SAS token with a multi-year expiry, especially one appearing alongside a container's public-access setting being widened, is a strong signal of deliberate data-exposure setup, whether by a careless administrator or an attacker preparing for exfiltration.`,
+        `A **SAS (Shared Access Signature) token** is a signed URL parameter that grants time-limited, scoped access to a storage resource without sharing the storage account's master key, useful for giving a partner or an application temporary access to a single container. However, a SAS token generated with overly broad permissions (rwdl: read, write, delete, list) and a far-future expiry (months or years away instead of hours) behaves exactly like a long-lived, hard-to-revoke credential: anyone who obtains the URL has full access until the token's expiry date, and unlike an Azure AD credential, a SAS token cannot always be individually revoked without regenerating the storage account's underlying access keys (which breaks every other SAS token issued from those keys too). A SAS token with a multi-year expiry seen in use, or a listKeys call by an unexpected identity close to a container's public-access setting being widened, is a strong signal of deliberate data-exposure setup, whether by a careless administrator or an attacker preparing for exfiltration.`,
       codeExample:
         "NSG RULE ANATOMY\n" +
         "=======================================================\n" +
@@ -493,21 +484,21 @@ const azureSecurityRoom = {
       id: "azure-la1",
       heading: "Investigating Managed Identity Access to a Key Vault Secret",
       context:
-        "You are a SOC analyst at NexaCorp. A Microsoft Defender for Cloud alert fired for anomalous Key Vault access. The managed identity in question is attached to a public-facing web application and normally operates entirely from within NexaCorp's Azure virtual network. Review the event below, generated at 02:11 UTC.",
+        "You are a SOC analyst at NexaCorp. A Microsoft Defender for Cloud alert fired for anomalous Key Vault access. The managed identity in question is attached to a public-facing web application and normally calls Key Vault only from the web app's own Azure outbound addresses, and its only role on the vault is Key Vault Secrets User. The event below comes from the vault's diagnostic logs (AuditEvent), because the Activity Log does not record secret reads. It was generated at 02:11 UTC.",
       event: managedIdentityKeyVaultEvent,
       questions: [
         {
           question:
-            "The event's identity.claims.xms_mirid names the web app (nexacorp-webapp) (marking the caller as that app's managed identity) with role 'Key Vault Secrets User', calling SECRETS.GET from callerIpAddress 203.0.113.44. Why is the source IP the most important anomaly here, given the identity type?",
+            "The event's identity.claim.xms_mirid names the web app (nexacorp-webapp), marking the caller as that app's managed identity, and the operation is SecretGet from CallerIPAddress 203.0.113.44. Why is the source IP the most important anomaly here, given the identity type?",
           options: [
             "It adds little: managed identity tokens are built to be used from any network",
             "Its token belongs to the web app, so a call from outside the app's addresses suggests theft",
-            "It points to a logging fault, since callerIpAddress is left blank for managed identities",
+            "It points to a logging fault, since CallerIPAddress is left blank for managed identities",
             "It is expected: Key Vault calls are routed through Microsoft's CDN on public IPs",
           ],
           answer: 1,
           explanation:
-            "A managed identity's token is issued to the resource it is attached to (here, the web app) and should be used by that resource itself, from its VNet or its own known outbound IPs. A Key Vault call from 203.0.113.44, outside those addresses, suggests the web app was compromised and its token was taken and reused elsewhere, like stolen EC2 instance credentials used from outside AWS. 'Built to be used from any network' confuses a managed identity with an app registration's portable secret. 'callerIpAddress is blank for managed identities' is false: the field is populated here, as it is for any caller. 'Routed through a CDN' is invented; Key Vault records the real client address.",
+            "A managed identity's token is issued to the resource it is attached to (here, the web app) and should be used by that resource itself, from its own known outbound IPs.A Key Vault call from 203.0.113.44, outside those addresses, suggests the web app was compromised and its token was taken and reused elsewhere, like stolen EC2 instance credentials used from outside AWS. 'Built to be used from any network' confuses a managed identity with an app registration's portable secret. 'CallerIPAddress is blank for managed identities' is false: the field is populated here, as it is for any caller. 'Routed through a CDN' is invented; Key Vault records the real client address.",
           xp: 25,
         },
         {
@@ -601,13 +592,13 @@ const azureSecurityRoom = {
       id: "azure-ac1",
       heading: "Verdict: Is This Service Principal's Storage Key Listing Suspicious?",
       scenario:
-        "A SIEM correlation rule flagged a 'listKeys' action against a production storage account, since storage account keys grant full read/write access to all data in the account. The event below occurred at 06:00 UTC, performed by service principal 'sp-nightly-backup', from an internal Azure automation worker IP (10.40.1.9). Checking the change calendar, you find standing change CHG0041823 covering the nightly backup automation for nexacorpbackupsa, scheduled to run daily at 06:00 UTC. Is this event suspicious?",
+        "A SIEM correlation rule flagged a 'listKeys' action against a production storage account, since storage account keys grant full read/write access to all data in the account. The event below occurred at 06:00 UTC, performed by service principal 'sp-nightly-backup', from 198.51.100.27, the documented outbound (egress) address of NexaCorp's Azure automation worker. Checking the change calendar, you find standing change CHG0041823 covering the nightly backup automation for nexacorpbackupsa, scheduled to run daily at 06:00 UTC. Is this event suspicious?",
       event: automationServicePrincipalEvent,
       correct_verdict: "benign_true_positive",
       explanation:
-        "This is a benign true positive. The rule fired correctly: the service principal sp-nightly-backup really did call listKeys, a sensitive action, but every contextual signal points to legitimate, authorized automation: the source IP (10.40.1.9) is an internal Azure Automation Runbook worker, not an external address; the RBAC role held is the narrowly-scoped 'Storage Account Key Operator Service Role' (built specifically for this kind of automation, not a broad Contributor/Owner role); the timing (06:00 UTC) matches a recurring nightly schedule; and the change calendar holds an approved standing change (CHG0041823) for this exact recurring backup job, and that change record is the justification you cite when closing it. It is not a false positive, because the detection caught exactly the action it targets, and that label would invite weakening a listKeys rule that works. Correlation rules that alert purely on 'sensitive action name' without considering source, role scope, timing pattern, and change-management context will generate significant noise on routine automation, which is why the right refinement is a narrow, owned exclusion for this approved job rather than a weaker rule.",
+        "This is a benign true positive. The rule fired correctly: the service principal sp-nightly-backup really did call listKeys, a sensitive action, but every contextual signal points to legitimate, authorized automation: the source IP (198.51.100.27) matches the known egress address of the Azure Automation Runbook worker, not an unfamiliar external address; the RBAC role held is the narrowly-scoped 'Storage Account Key Operator Service Role' (built specifically for this kind of automation, not a broad Contributor/Owner role); the timing (06:00 UTC) matches a recurring nightly schedule; and the change calendar holds an approved standing change (CHG0041823) for this exact recurring backup job, and that change record is the justification you cite when closing it. It is not a false positive, because the detection caught exactly the action it targets, and that label would invite weakening a listKeys rule that works. Correlation rules that alert purely on 'sensitive action name' without considering source, role scope, timing pattern, and change-management context will generate significant noise on routine automation, which is why the right refinement is a narrow, owned exclusion for this approved job rather than a weaker rule.",
       fp_trap:
-        "It's tempting to escalate immediately because listKeys against a storage account is a genuinely powerful, sensitive action. Full data access hinges on those keys. But treating every listKeys call as equally risky regardless of WHO called it, FROM WHERE, WITH WHAT ROLE, and WHETHER it matches an approved recurring schedule leads to alert fatigue. The distinguishing signals here (narrowly-scoped role, internal automation IP, consistent recurring timing, and a referenced change ticket) are exactly what should be checked before escalating any sensitive-but-routine automation action, contrasted directly with the earlier Key Vault event where the SAME kind of sensitive action came from an external IP with no legitimate business context.",
+        "It's tempting to escalate immediately because listKeys against a storage account is a genuinely powerful, sensitive action. Full data access hinges on those keys. But treating every listKeys call as equally risky regardless of WHO called it, FROM WHERE, WITH WHAT ROLE, and WHETHER it matches an approved recurring schedule leads to alert fatigue. The distinguishing signals here (narrowly-scoped role, known automation egress IP, consistent recurring timing, and a referenced change ticket) are exactly what should be checked before escalating any sensitive-but-routine automation action, contrasted directly with the earlier Key Vault event where the SAME kind of sensitive action came from an external IP with no legitimate business context.",
       xp: 30,
     },
 
@@ -670,7 +661,7 @@ const azureSecurityRoom = {
         `**Step 1: Establish the WHO**\n\n` +
         `Start with azure.activitylogs.identity.claims.idtyp and azure.activitylogs.identity.authorization.evidence.principalType. Is this a human user (principalType User) or a non-human identity (principalType ServicePrincipal, which covers BOTH managed identities and app registrations)? For a non-human identity, check for an azure.activitylogs.identity.claims.xms_mirid claim, or look the object up in Entra ID (servicePrincipalType ManagedIdentity vs Application). A managed identity has no extractable secret: the risk is over-granted permissions or a compromised host resource; an app-registration service principal authenticates with a client secret or certificate, check whether it could have been leaked, and when it was last rotated. Then check azure.activitylogs.caller: the object ID of the specific identity involved, which you can pivot on across the full timeline.\n\n` +
         `**Step 2: Establish the WHERE**\n\n` +
-        `Check azure.activitylogs.callerIpAddress. Is it within your organization's known Azure VNet ranges, a known corporate office IP, or an unfamiliar external address? For managed identities specifically, ANY external IP is highly suspicious, since their tokens are meant to be used only by the specific resource they're attached to, from within Azure's own infrastructure.\n\n` +
+        `Check azure.activitylogs.callerIpAddress. Is it a known corporate office IP, one of the known outbound addresses of the resource involved (the Activity Log records the public address Azure sees, not a private VNet address), or an unfamiliar external address? For managed identities specifically, any address that does not match the attached resource's own outbound addresses is highly suspicious, since their tokens are meant to be used only by the specific resource they're attached to, from within Azure's own infrastructure.\n\n` +
         `**Step 3: Establish the WHAT and the OUTCOME**\n\n` +
         `Read azure.activitylogs.operationName together with azure.activitylogs.resourceId. This tells you the exact action (in the PROVIDER/RESOURCETYPE/ACTION format) and precisely which resource, resource group, and subscription were affected. Then check azure.activitylogs.resultType: 'Success' means the action completed, 'Failure' means it was rejected. A flood of 'Failure' results from one identity across many different resources is a strong signal of an attacker probing for working permissions.\n\n` +
         `**Step 4: Pivot and Correlate Across Log Layers**\n\n` +
@@ -688,9 +679,10 @@ const azureSecurityRoom = {
         "             registration (leakable client secret)\n" +
         "\n" +
         "2. WHERE  azure.activitylogs.callerIpAddress\n" +
-        "          -> known VNet/office range, or unfamiliar\n" +
-        "             external IP? (ANY external IP for a managed\n" +
-        "             identity is highly suspicious)\n" +
+        "          -> office IP or the resource's known egress\n" +
+        "             address, or unfamiliar? (any address that is\n" +
+        "             not the host's own egress is suspicious for\n" +
+        "             a managed identity)\n" +
         "\n" +
         "3. WHAT   azure.activitylogs.operationName + resourceId\n" +
         "          -> exact action + which resource/RG/subscription\n" +
@@ -747,7 +739,7 @@ const azureSecurityRoom = {
       type: "flag" as const,
       id: "azure-f1",
       prompt:
-        "To shut off any SAS tokens the attacker signed with the account keys, you will need to rotate the keys of the storage account that holds the exposed container. From the event above, enter the name of that storage account.",
+        "To shut off any SAS tokens the attacker may have signed with this account's keys (signing leaves no log), you will need to rotate the keys of the storage account that holds the exposed container. From the event above, enter the name of that storage account.",
       answer: "nexacorpprodsa",
       hint: "Every Azure resource ID lists the parent resources on its path, from the subscription down to the resource itself.",
       xp: 25,
@@ -761,13 +753,13 @@ const azureSecurityRoom = {
       content:
         `The event referenced in the flag question above ties together two Azure-specific attack techniques that, combined, represent one of the most damaging and hardest-to-fully-remediate storage exposure patterns in Azure.\n\n` +
         `**Why SAS Tokens Are Especially Dangerous When Combined With Public Access**\n\n` +
-        `On their own, a public container (public access level 'Container') already allows anyone who discovers its URL to read and list every blob inside it: no credential required at all. Generating a SAS token with broad permissions (rwdl: read, write, delete, list) and a multi-year expiry on TOP of that public exposure is redundant from a pure "can an outsider read this data" perspective, but it serves a different, more dangerous purpose: it gives the attacker (or anyone they share the token URL with) WRITE and DELETE capability as well, not just read, meaning data can be tampered with, ransomed, or destroyed, not merely stolen. In a real incident, seeing both a public-access change AND a long-lived, broad-permission SAS token generated close together for the same storage account is a strong indicator of deliberate, premeditated exposure: an attacker maximizing both data theft and data-integrity impact.\n\n` +
+        `On their own, a public container (public access level 'Container') already allows anyone who discovers its URL to read and list every blob inside it: no credential required at all. Signing a SAS token with broad permissions (rwdl: read, write, delete, list) and a multi-year expiry on TOP of that public exposure is redundant from a pure "can an outsider read this data" perspective, but it serves a different, more dangerous purpose: it gives the attacker (or anyone they share the token URL with) WRITE and DELETE capability as well, not just read, meaning data can be tampered with, ransomed, or destroyed, not merely stolen. There is a detection catch: a SAS signed with an account key is computed offline from the key, so Azure writes no log entry when it is created. What you can see is the step before it (a listKeys action by an unexpected identity, or a SAS requested through Azure Resource Manager with listAccountSas or listServiceSas, both of which appear in the Activity Log) and the step after it (requests authenticated by the token in the Storage logs). In a real incident, a public-access change AND a listKeys call by the same unexpected identity close together, followed by token-authenticated requests, is a strong indicator of deliberate, premeditated exposure: an attacker maximizing both data theft and data-integrity impact.\n\n` +
         `**Why SAS Tokens Are Especially Hard to Remediate**\n\n` +
         `Unlike an Azure AD credential or a role assignment, a SAS token generated from a storage account's account-level keys cannot always be individually revoked: the token is a cryptographically signed string, valid until its stated expiry, that Azure has no built-in way to invalidate on its own. The only way to fully invalidate an account-key-based SAS token before its expiry is to **regenerate the storage account's access keys** that the token was signed with, but doing so immediately breaks every OTHER legitimate SAS token and any application still using those same keys, making incident response here a genuine tradeoff between fully closing the exposure and causing a broader operational outage. This is precisely why security teams increasingly push for **stored access policies** (which CAN be revoked independently, by deleting the policy) or **Azure AD-based access** (user delegation SAS tokens, which respect Azure AD token lifetimes and Conditional Access policies) instead of raw account-key-based SAS tokens.\n\n` +
         `**Defensive Best Practices Every SOC Should Verify**\n\n` +
         `- Enable diagnostic logging on every Storage Account and Key Vault so that individual blob and secret access is actually visible, not just control-plane changes\n` +
         `- Alert immediately on any storage container public-access level change to 'Blob' or 'Container', regardless of which identity performed it\n` +
-        `- Alert on SAS token generation with an expiry beyond a defined threshold (e.g. more than 24-48 hours) or with write/delete permissions when only read access is needed\n` +
+        `- Alert on listKeys and key-regeneration operations by unexpected identities, and on token-authenticated requests in the Storage logs, because an account-key SAS leaves no entry at creation. Enforce a SAS expiration policy on the account so over-long tokens show up as policy violations\n` +
         `- Prefer Azure AD-based access (user delegation SAS or RBAC) over account-key-based SAS tokens wherever possible, since Azure AD access can be revoked immediately and audited per-identity\n` +
         `- Enable Microsoft Defender for Storage, which specifically detects anomalous access patterns and public exposure of sensitive data`,
       codeExample:
@@ -777,20 +769,20 @@ const azureSecurityRoom = {
         "                            compromised managed identity\n" +
         "02:34  SECURITYRULES/WRITE  NSG rule opened RDP to the\n" +
         "                            internet from same identity\n" +
-        "02:5x  Inbound RDP ALLOW    Attacker connects to VM via\n" +
+        "02:35  Inbound RDP ALLOW    Attacker connects to VM via\n" +
         "                            the newly-opened NSG rule\n" +
         "02:55  CONTAINERS/WRITE     Storage container public access\n" +
-        "                            widened to 'Container', plus a\n" +
-        "                            long-lived, broad-permission\n" +
-        "                            SAS token generated\n" +
+        "                            widened to 'Container'. Any SAS\n" +
+        "                            signed offline with the account\n" +
+        "                            keys leaves no log at creation\n" +
         "=======================================================\n\n" +
         "WHY THIS ORDER MATTERS\n" +
         "=======================================================\n" +
         "Each step expanded the attacker's foothold: identity ->\n" +
         "network access -> data exposure. SOC rule of thumb: any\n" +
-        "public-access widening PLUS a long-lived SAS token on the\n" +
-        "SAME storage account, generated close together, should be\n" +
-        "treated as deliberate exfiltration staging, not routine\n" +
+        "public-access widening PLUS a listKeys call by an unexpected\n" +
+        "identity on the SAME storage account, close together, should\n" +
+        "be treated as deliberate exfiltration staging, not routine\n" +
         "configuration drift.\n" +
         "=======================================================",
       checkpoint: {

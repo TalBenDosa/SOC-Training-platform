@@ -300,7 +300,7 @@ const logEntryAnatomyRoom: Room = {
       id: "loganat-r6",
       heading: "Field Naming Chaos, and Why a SIEM Normalises Everything",
       content:
-        `Here is the same fact: a source IP address of 10.10.4.55, as it might appear, completely unedited, in five different real products: srcip in a Fortinet log, source.ip in an Elastic Common Schema-normalised event, id.orig_h in Zeek network monitoring records, cIP in an older-style IIS log, and ClientIP in an Azure AD sign-in log.\n\n` +
+        `Here is the same fact: a source IP address of 10.10.4.55, as it might appear, completely unedited, in five different real products: srcip in a Fortinet log, source.ip in an Elastic Common Schema-normalised event, id.orig_h in Zeek network monitoring records, c-ip in an older-style IIS log, and ClientIP in an Azure AD sign-in log.\n\n` +
         `**Why this happens.** Every vendor designed their own logging schema independently, often years apart, often before any industry-wide convention existed. Nobody sat down and agreed on one name for "the IP address a connection came from" across the entire security industry. Each product just picked something that made sense to its own engineers at the time.\n\n` +
         `**Why this matters to you.** If you had to write five completely different search queries, one per vendor's field name, every time you wanted to check whether a single suspicious IP address touched anything anywhere in your environment, correlation across log sources would be nearly impossible at any real scale. This is exactly the problem a SIEM's normalisation layer solves: it maps every vendor's own field name onto one common schema field, so a single query for source.ip: 10.10.4.55 can search across your firewall, your web server, your identity provider, and your network sensor all at once, regardless of what each one originally called that field.\n\n` +
         `**What this means practically.** When you open raw logs, as this room has done throughout, you will see the vendor's own native field names, because that is literally what the product emits. When you search inside a SIEM, you are almost always querying the normalised names instead. Knowing both matters: you need the normalised name to write a cross-source query, and you need the native name to correctly read a raw log sample, a vendor's documentation, or a support ticket that quotes the product's own field directly.`,
@@ -308,7 +308,7 @@ const logEntryAnatomyRoom: Room = {
         "flowchart LR\n" +
         "  A[\"Fortinet FortiGate: srcip = 10.10.4.55\"] --> N[\"Normalised SIEM field: source.ip = 10.10.4.55\"]\n" +
         "  B[\"Zeek/Bro: id.orig_h = 10.10.4.55\"] --> N\n" +
-        "  C[\"Legacy IIS: cIP = 10.10.4.55\"] --> N\n" +
+        "  C[\"Legacy IIS: c-ip = 10.10.4.55\"] --> N\n" +
         "  D[\"Azure AD sign-in: ClientIP = 10.10.4.55\"] --> N\n" +
         "  E[\"Older Suricata: src_ip = 10.10.4.55\"] --> N\n" +
         "  N --> Q[\"One query now works across every source: source.ip: 10.10.4.55\"]\n",

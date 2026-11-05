@@ -369,6 +369,49 @@ export type BriefingLab = ({
       objectives: { id: string; task: string; /** a display filter to suggest */ hint: string; answer: string[]; why: string }[];
     }
   | {
+      /** Work a real job in a simulated analyst console, step by step: the layout,
+       *  vocabulary and order of work of the real thing, with no logos. Looking around
+       *  is free; a wrong action costs a life and says why. Step targets are
+       *  menu:<id>, row:<id>, action:<id>, set:<field>:<value>, tree:<id>. */
+      kind: "portal";
+      title: string;
+      prompt: string;
+      skin: "azure" | "edr";
+      /** Top-bar label: generic, never a product name. */
+      product: string;
+      resource: string;
+      tenant: string;
+      home: string;
+      menu: { group?: string; items: { id: string; label: string }[] }[];
+      pages: Record<string, {
+        heading: string;
+        commands?: { id: string; label: string }[];
+        tiles?: { label: string; value: string }[];
+        filters?: string[];
+        note?: string;
+        query?: string;
+        table?: { columns: string[]; rows: { id: string; cells: string[]; tone?: "critical" | "high" | "medium" | "low" | "info"; record?: string }[] };
+      }>;
+      records: Record<string, {
+        id: string;
+        title: string;
+        strip?: { field: string; label: string; value: string; tone?: "critical" | "high" | "medium" | "low" | "info"; options?: string[] }[];
+        facts: [string, string][];
+        evidence?: [string, string][];
+        entities?: { id: string; label: string; type: string; seen?: string }[];
+        tactics?: string;
+        timeline?: { time: string; text: string; tone?: "critical" | "high" | "medium" | "low" | "info" }[];
+        actions?: { id: string; label: string }[];
+        closing?: string[];
+        logs?: { query: string; columns: string[]; rows: { id: string; cells: string[] }[] };
+        tree?: { id: string; depth: number; name: string; detail: string; bad?: boolean; facts?: [string, string][] }[];
+      }>;
+      steps: { id: string; ask: string; hint: string; target: string; why: string }[];
+      /** Why a wrong target is wrong, keyed by target. */
+      traps: Record<string, string>;
+      lesson: string;
+    }
+  | {
       /** Arcade. Items drop toward what you guard; block or let through before
        *  they land. Wrong calls cost a life. 8 to 12 items; the clock tightens. */
       kind: "intercept";

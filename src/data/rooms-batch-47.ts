@@ -285,8 +285,6 @@ const otIcsSecurityRoom = {
         "dst_port": 502,
         "protocol": "tcp",
         "severity": "critical",
-        "mitre_technique": "T0855",
-        "mitre_tactic": "Impair Process Control",
         "edr_scope": "non_edr",
         "description": "Zeek decoded a Modbus WRITE_MULTIPLE_REGISTERS (function code 16) session from 10.50.12.77 -- an address on the corporate/contractor VLAN -- to plc-dose-03 (172.20.5.40), the controller that sets chemical-dosing pump speed on Line 3 at Meridian Water Treatment Plant 3. This source has no prior Modbus history with this controller.",
         "raw": {

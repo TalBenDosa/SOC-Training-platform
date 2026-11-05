@@ -117,7 +117,7 @@ const dlpDepartingEvent: TelemetryEvent = {
   user_email: "d.farrow@nexacorp.com",
   hostname: "WS-SALES-0387",
   description:
-    "Endpoint DLP detected a bulk upload of customer database exports to a personal Dropbox account outside business hours, two days before the user's resignation effective date",
+    "Endpoint DLP detected a bulk upload of customer database exports to a personal Dropbox account outside business hours",
   raw: {
     "data.office365.Operation": "DlpRuleMatch",
     "data.office365.Workload": "Endpoint",
@@ -207,7 +207,7 @@ const dlpRoom = {
         "Endpoint DLP runs as an agent on the laptop or desktop itself (in Microsoft Purview this is the Endpoint DLP client baked into the standard Microsoft 365 endpoint agent; other vendors include Symantec DLP Endpoint, Forcepoint, and Digital Guardian). Endpoint DLP is unique because it can see activity that never touches the network at all: copying a file to a USB drive, printing a document, pasting sensitive text into an unauthorized application, taking a screenshot of a screen showing customer records, or dragging a file into a personal cloud-sync folder on disk. Because it lives directly on the device, endpoint DLP is the only channel that can catch 'air-gapped' exfiltration methods like USB copy or printing: no other DLP layer sees those actions.\n\n" +
         "Network DLP inspects traffic as it crosses the network boundary, historically via a dedicated network appliance or proxy inline with outbound traffic, inspecting FTP transfers, unencrypted web uploads, and generic network protocols for sensitive content signatures. Network DLP has become less dominant as more traffic moved to encrypted HTTPS and to cloud SaaS apps the network appliance cannot decrypt without a TLS-inspecting proxy in the path. It is still relevant for legacy protocols (FTP, SMTP relays outside of Exchange Online) and can be paired with a web proxy/CASB doing SSL inspection to give it visibility into HTTPS uploads.\n\n" +
         "Cloud / Email DLP is where most modern enterprise DLP activity actually lives today, because most exfiltration now happens through SaaS applications the organization already controls: Exchange Online (email), SharePoint and OneDrive (file sharing and sync), Microsoft Teams (chat and file share), and third-party SaaS connected via a CASB (Cloud Access Security Broker) like Microsoft Defender for Cloud Apps. Because these are the organization's own managed cloud services, DLP can inspect content natively: no decryption or inline interception required. Microsoft Purview DLP (the primary example used throughout this room) enforces policies across Exchange, SharePoint, OneDrive, Teams, and the Endpoint client all from a single policy engine, which is why its logs use one unified schema (data.office365.* fields) regardless of which of these workloads generated the event.\n\n" +
-        "A practical takeaway for triage: the Workload field in a Purview DLP log (Endpoint, Exchange, SharePoint, Teams) immediately tells you the channel, and the channel narrows your investigation. An Endpoint / RemovableMediaCopy event means physical media. Check the USB device serial and ask whether this user has a legitimate reason to move data offline. An Exchange event means email. Check the recipient domain first, since internal-to-internal email matching a DLP policy is a very different risk than external send. A SharePoint or Teams event usually means an external share link was created. Check who the share was granted to and whether the link is anonymous/anyone-with-the-link.",
+        "A practical takeaway for triage: the Workload field in a Purview DLP log (Endpoint, Exchange, SharePoint, MicrosoftTeams) immediately tells you the channel, and the channel narrows your investigation. An Endpoint / RemovableMediaCopy event means physical media. Check the USB device serial and ask whether this user has a legitimate reason to move data offline. An Exchange event means email. Check the recipient domain first, since internal-to-internal email matching a DLP policy is a very different risk than external send. A SharePoint or Teams event usually means an external share link was created. Check who the share was granted to and whether the link is anonymous/anyone-with-the-link.",
       codeExample:
         "THE THREE DLP CHANNELS\n" +
         "========================\n\n" +
@@ -229,7 +229,7 @@ const dlpRoom = {
         "  data.office365.Workload = \"Exchange\"     -> outbound / inbound email\n" +
         "  data.office365.Workload = \"SharePoint\"   -> file share / external link created\n" +
         "  data.office365.Workload = \"OneDrive\"     -> personal cloud sync / share\n" +
-        "  data.office365.Workload = \"Teams\"        -> chat message / file share in Teams\n\n" +
+        "  data.office365.Workload = \"MicrosoftTeams\" -> chat message / file share in Teams\n\n" +
         "  Same field, same policy engine, different Workload value -> tells you the channel\n" +
         "  in one glance, before you read a single other field.",
     },

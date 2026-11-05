@@ -1466,7 +1466,7 @@ Good documentation protects you, helps your colleagues understand past alerts, a
         // thresholds; this is the opposite shape — many passwords against ONE
         // account. The distinction is taught in auth-identity-monitoring and
         // use-case-development, and this room must not contradict them.
-        mitre_technique: "T1110.001",
+        // The technique ID is deliberately NOT on the event: the flag asks for it.
         vendor: "Windows Security",
         raw: {
           "event.code": "4625",

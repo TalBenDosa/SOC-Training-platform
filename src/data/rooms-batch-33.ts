@@ -507,7 +507,7 @@ const ransomwareLifecycleRoom = {
       id: "rw-r6",
       heading: "Defense Impairment: Deleting Recovery, Disabling Detection, Erasing Evidence",
       content:
-        "Before detonating the encryptor, a competent affiliate spends real effort making recovery as hard as possible and leaving the SOC as little as possible to work with. Three specific techniques account for most of what shows up in real cases.\n\n" +
+        "Before detonating the encryptor, a competent affiliate spends real effort making recovery as hard as possible and leaving the SOC as little as possible to work with. Three specific techniques account for most of what shows up in real cases. In the full sequence, disabling the security tooling comes first, ahead of the bulk transfer; shadow-copy deletion and log clearing are usually left to just before or at Impact.\n\n" +
         "**Shadow copy deletion (T1490: Inhibit System Recovery).** Windows' Volume Shadow Copy Service keeps point-in-time snapshots that would otherwise let a victim restore pre-encryption versions of their own files in minutes, without needing any external backup at all. \"vssadmin.exe delete shadows /all /quiet\" (or the WMI equivalent, or wbadmin deleting the backup catalog outright) removes exactly that safety net. As this platform's forensics content already covers, this single command line (launched from an unexpected parent process, shortly before mass file activity begins, on a host that isn't a documented backup server running its normal retention job) is one of the single strongest ransomware precursor signals a detection rule can fire on, precisely because there are very few legitimate reasons for it to run outside that one narrow, scheduled context.\n\n" +
         "**Disabling security tooling (T1685: Disable or Modify Tools, formerly T1562.001).** An affiliate with sufficient privilege attempts to stop or uninstall the EDR/AV agent outright, disable Windows Defender's real-time protection (for example, via \"Set-MpPreference -DisableRealtimeMonitoring $true\"), or add broad path exclusions covering wherever the encryptor is about to run from. Modern EDR platforms increasingly ship tamper protection specifically to resist exactly this, which is part of why, in a real fleet-wide incident, some hosts end up fully protected while others, where tamper protection was misconfigured, out of date, or simply never deployed, do not.\n\n" +
         "**Clearing evidence (T1685.005: Disable or Modify Tools: Clear Windows Event Logs, formerly T1070.001).** \"wevtutil cl Security\" (often run against System and Application alongside it) wipes the very log a defender would normally use to reconstruct what happened. But, as this platform's forensics content already established, the act of clearing a log is itself logged: a fresh Event ID 1102 records exactly who cleared it and precisely when, turning an erasure attempt into a precise timestamp for exactly where in every OTHER available log source to keep looking.\n\n" +
@@ -678,8 +678,9 @@ const ransomwareLifecycleRoom = {
         "Lateral Movement      Repeating 4624(type3)+7045 pattern (PsExec),    Isolate the source host; scope every\n" +
         "                      WmiPrvSE anomaly, or unexpected 4624 type10     host the credential has reached\n" +
         "\n" +
-        "Defense Impairment    vssadmin/wbadmin shadow-copy delete,            Escalate immediately -- this is one\n" +
-        "                      security-tooling disabled, or a fresh 1102     of the last quiet windows before Impact\n" +
+        "Defense Impairment    Security tooling disabled or excluded; the      Escalate immediately -- this is one\n" +
+        "                      vssadmin/wbadmin delete and a fresh 1102       of the last quiet windows before Impact\n" +
+        "                      come just before or at Impact\n" +
         "\n" +
         "Exfiltration          Large outbound transfer to an unrecognized     Cut external network access for the\n" +
         "                      cloud remote via rclone/MEGA/similar           host now; this is the highest-value\n" +

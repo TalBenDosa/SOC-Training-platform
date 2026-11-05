@@ -1516,9 +1516,10 @@ What is Password Spraying? Instead of trying many passwords against one account 
 
 ATT&CK's mitigation guidance for T1110.003 includes:
 - Implement **Multi-Factor Authentication (MFA)**, even if the password is stolen, the attacker cannot log in without the second factor
-- Enforce **account lockout policies** that detect spray patterns
-- Monitor for many failures across accounts from a single IP
+- Enforce **account lockout policies**, but tune the threshold, because a spray stays below the per-account limit
 - Use **Conditional Access** to block logins from unusual locations or devices
+
+Detection: look for many failures across accounts from a single IP, which is how spraying is detected.
 
 This is the ATT&CK framework in action: observation → identification → detection → mitigation.`,
     },

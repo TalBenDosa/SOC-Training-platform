@@ -1,4 +1,5 @@
 import type { RoomExperience } from "./types";
+import { SENTINEL_INCIDENT_LAB } from "./consoleLabs";
 
 // "Operation Clear Sky" for the "sentinel-fundamentals" room.
 // Script: docs/campaign/36-sentinel-fundamentals.md.
@@ -104,7 +105,7 @@ export const SENTINEL_FUNDAMENTALS: RoomExperience = {
       {
         kind: "tune",
         title: "The Travel Rule",
-        prompt: "Malik is turning a hunting query into a scheduled analytics rule: SigninLogs, last 7 days, summarize dcount(Location) by UserPrincipalName, plus the share of those sign-ins that used a single factor. Set both thresholds, deploy, and see which users the rule would raise as incidents.",
+        prompt: "Malik is turning a hunting query into a scheduled analytics rule: SigninLogs, last 7 days, summarize dcount(Location) by UserPrincipalName, plus the share of those sign-ins that used a single factor. Set both thresholds, deploy, and see which users the rule would raise as incidents. The KQL behind it reads: SigninLogs | where TimeGenerated > ago(7d) | summarize countries = dcount(Location) by UserPrincipalName | top 5 by countries | project UserPrincipalName, countries. Here where keeps only the rows that match, ago(7d) is a relative time window (1h, 30m, 7d), summarize ... by groups the rows and computes an aggregate, top 5 by countries keeps the five highest by that column, and project keeps just the columns you name.",
         eventColumn: "user and week",
         dials: [
           { id: "countries", label: "Distinct countries in 7 days (dcount of Location)", short: "countries", min: 1, max: 8, step: 1, start: 1 },
@@ -152,6 +153,7 @@ export const SENTINEL_FUNDAMENTALS: RoomExperience = {
         culprit: "acct",
         why: "Only the account appears in all three alerts. The sign-in IP changed by alert 3, the app and site are different services, and the laptop never appeared because the first sign-in was a browser session with no device. Group and respond on the account: revoke its sessions and review the forwarding rule, rather than blocking one IP the attacker has already left.",
       },
+      SENTINEL_INCIDENT_LAB,
     ],
     // Drill before the graded raw event: a SigninLogs row, field by field.
     "sentinel-la1": [
@@ -172,7 +174,7 @@ export const SENTINEL_FUNDAMENTALS: RoomExperience = {
           { key: "RiskLevelDuringSignIn", value: "medium" },
           { key: "ConditionalAccessStatus", value: "notApplied", label: "Policy", note: "No Conditional Access policy applied to this sign-in." },
         ],
-        summary: "Who, into what, outcome, from where, and how strongly they proved it. The graded event is a Windows 4625 in another table: read its outcome, logon type and source the same way.",
+        summary: "Who, into what, outcome, from where, and how strongly they proved it. The graded event is a Windows 4625 in another table: read its outcome, logon type and source the same way. In a 4625 the outcome is the SubStatus: 0xC0000064 means the username does not exist and 0xC0000072 means the account is disabled; other SubStatus codes name other reasons. LogonType says how the attempt arrived: 2 at the keyboard, 3 over the network, 5 a service, 10 remote desktop, 11 cached credentials.",
       },
     ],
   },

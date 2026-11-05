@@ -43,8 +43,9 @@ const localAdminEnumEvent: TelemetryEvent = {
     "winlog.event_data.SubjectUserName": "j.ramos",
     "winlog.event_data.SubjectDomainName": "MERIDIANCAP",
     "winlog.event_data.SubjectLogonId": "0x8a3f21",
-    "winlog.event_data.GroupName": "Administrators",
-    "winlog.event_data.GroupDomain": "Builtin",
+    "winlog.event_data.TargetUserName": "Administrators",
+    "winlog.event_data.TargetDomainName": "Builtin",
+    "winlog.event_data.TargetSid": "S-1-5-32-544",
     "winlog.event_data.CallerProcessId": "0x1a04",
     "winlog.event_data.CallerProcessName": "C:\\Windows\\System32\\net.exe",
     "winlog.event_id": 4799,
@@ -57,7 +58,7 @@ const localAdminEnumEvent: TelemetryEvent = {
 // a single CloudTrail record cannot legitimately carry a windowed count).
 const cloudDescribeEvent: TelemetryEvent = {
   id: "evt-disc-la2-001",
-  ts: "2026-06-03T02:14:08.000Z",
+  ts: "2026-06-03T02:06:08.000Z",
   source: "cloudtrail",
   vendor: "AWS CloudTrail",
   event_type: "cloud_api_call",
@@ -187,10 +188,10 @@ const discoveryEnumerationRoom = {
         "The very first questions an attacker asks after landing on a machine are about the machine itself, not the domain. MITRE tracks this as **T1033, System Owner/User Discovery** (Discovery tactic): identifying primary users, currently logged-in users, or whether a user is actively using the system.\n\n" +
         "On Windows the toolkit is entirely built-in: whoami and whoami /groups (who is this account, what groups does it belong to), query user / quser (who else is logged on right now), net user with no target (every LOCAL account on the machine), and net config workstation (basic host identity). Two related commands go one step further and actually generate a Windows Security event: net user <accountname> (list one account's local group memberships) and net localgroup administrators (who is a local admin on THIS box).\n\n**Precise attribution matters here.** These commands share the 'host-level discovery' idea but MITRE gives them distinct IDs: whoami, query user / quser and net config workstation are T1033 (System Owner/User Discovery); net user with no /domain flag (listing local accounts) is T1087.001 (Account Discovery: Local Account); and net localgroup / the Event 4799 that follows is T1069.001 (Permission Groups Discovery: Local Groups). T1033 is the umbrella an analyst reaches for first, but naming the exact sub-technique is the precision this room trains.\n\n" +
         "**Event ID 4798 -- \"A user's local group membership was enumerated.\"** Fires when a process reads which local groups a specific target account belongs to. Key fields: SubjectUserName/SubjectDomainName (who ran the query), TargetUserName/TargetSid (whose memberships were read), and CallerProcessName (the full path of the executable that made the call).\n\n" +
-        "**Event ID 4799 -- \"A security-enabled local group membership was enumerated.\"** Fires when a process reads who is a member of a specific local group. Same shape, with GroupName/GroupDomain identifying which group was read.\n\n" +
+        "**Event ID 4799 -- \"A security-enabled local group membership was enumerated.\"** Fires when a process reads who is a member of a specific local group. Same shape, but here TargetUserName/TargetDomainName/TargetSid identify which group was read (for example Administrators in the Builtin domain), not a user.\n\n" +
         "Neither event is inherently suspicious -- both are logged constantly by ordinary admin tools such as mmc.exe (Microsoft Management Console) and dsa.msc (Active Directory Users and Computers). The tell is the **CallerProcessName**: a 4799 whose caller is net.exe, cmd.exe, or powershell.exe -- command-line tools, not an admin console -- especially minutes after a suspicious phishing click, is a materially different story than the same event fired by mmc.exe from an IT administrator's known workstation.",
       codeExample:
-        "EventID: 4799\nSubjectUserName: j.ramos\nSubjectDomainName: CONTOSO\nGroupName: Administrators\nGroupDomain: Builtin\nCallerProcessId: 0x1a04\nCallerProcessName: C:\\Windows\\System32\\net.exe",
+        "EventID: 4799\nSubjectUserName: j.ramos\nSubjectDomainName: CONTOSO\nTargetUserName: Administrators\nTargetDomainName: Builtin\nTargetSid: S-1-5-32-544\nCallerProcessId: 0x1a04\nCallerProcessName: C:\\Windows\\System32\\net.exe",
       checkpoint: {
         question: "An attacker on a workstation runs net localgroup administrators, and Event 4799 records it. Which ATT&CK technique ID is the precise attribution for this command?",
         options: [
@@ -292,14 +293,14 @@ const discoveryEnumerationRoom = {
           question:
             "What single field in this event is the strongest indicator that this enumeration was NOT performed through a normal administrative tool?",
           options: [
-            "GroupDomain, since the value Builtin shows the query reached the domain rather than this host",
+            "TargetDomainName, since the value Builtin shows the query reached the domain rather than this host",
             "CallerProcessName, showing net.exe rather than an administrative console such as mmc.exe",
             "SubjectLogonId, since 0x8a3f21 ties the query to a remote session rather than the console",
             "SubjectUserName, since a standard user like j.ramos cannot read the Administrators group",
           ],
           answer: 1,
           explanation:
-            "CallerProcessName recording net.exe -- a command-line tool -- rather than the expected admin console mmc.exe is exactly the tell this room's reading teaches. “GroupDomain … Builtin” misreads the field: Builtin is the name for the machine's own built-in local groups, which is why this is local, not domain, enumeration. “SubjectLogonId … remote session” over-reads a value: a logon ID is a session handle you use to join this event to its 4624, and on its own it says nothing about the logon type. “A standard user cannot read the Administrators group” is false. Ordinary users can enumerate local group membership, which is exactly why this event appears under j.ramos's name.",
+            "CallerProcessName recording net.exe -- a command-line tool -- rather than the expected admin console mmc.exe is exactly the tell this room's reading teaches. “TargetDomainName … Builtin” misreads the field: Builtin is the name for the machine's own built-in local groups, which is why this is local, not domain, enumeration. “SubjectLogonId … remote session” over-reads a value: a logon ID is a session handle you use to join this event to its 4624, and on its own it says nothing about the logon type. “A standard user cannot read the Administrators group” is false. Ordinary users can enumerate local group membership, which is exactly why this event appears under j.ramos's name.",
           xp: 15,
         },
         {

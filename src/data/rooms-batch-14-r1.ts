@@ -90,7 +90,7 @@ const imdsPrivEscEvent: TelemetryEvent = {
   user_email: "svc-deploy@nexacorp.com",
   src_ip: "185.220.101.47",
   geo: { country: "Netherlands", city: "Amsterdam" },
-  description: "Temporary credentials stolen from an EC2 instance's metadata service were used to attach a new AdministratorAccess policy version to the instance role",
+  description: "Temporary credentials stolen from an EC2 instance's metadata service were used to create a new default version of ec2-webapp-policy granting * on *",
   mitre_technique: "T1078.004",
   mitre_tactic: "Privilege Escalation",
   raw: {
@@ -495,7 +495,7 @@ const awsSecurityRoom = {
       id: "aws-la1",
       heading: "Investigating an Exposed Access Key Used for S3 Data Theft",
       context:
-        "You are a SOC analyst at NexaCorp. A GuardDuty finding fired overnight for anomalous S3 access. The IAM user in question, svc-deploy, is a service account whose long-term access key is normally only ever used from NexaCorp's build server (a fixed internal IP). A developer accidentally committed this access key to a public GitHub repository three days ago. Review the CloudTrail event below, generated at 03:14 UTC.",
+        "You are a SOC analyst at NexaCorp. A GuardDuty finding fired overnight for anomalous S3 access. The IAM user in question, svc-deploy, is a service account whose long-term access key is normally only ever used from NexaCorp's build server (a fixed NAT gateway address). A developer accidentally committed this access key to a public GitHub repository three days ago. Review the CloudTrail event below, generated at 03:14 UTC.",
       event: exposedKeyS3ExfilEvent,
       questions: [
         {
@@ -523,7 +523,7 @@ const awsSecurityRoom = {
           ],
           answer: 1,
           explanation:
-            "aws.cloudtrail.errorCode is empty and action_result is 'allowed', so the GetObject call succeeded: the customer export was downloaded, and this is confirmed exfiltration, not an attempt. “responseElements is null” is not a failure signal: CloudTrail never logs the object's content in a GetObject record, and a failed call would carry an errorCode such as AccessDenied. “readOnly true means only the object's metadata was read” misreads the flag: readOnly only says the call changed nothing, and GetObject is the call that downloads the object itself. “A normal job” ignores the context: the key is the one leaked on GitHub, and it is being used from a Tor exit node instead of the build server's fixed internal IP.",
+            "aws.cloudtrail.errorCode is empty and action_result is 'allowed', so the GetObject call succeeded: the customer export was downloaded, and this is confirmed exfiltration, not an attempt. “responseElements is null” is not a failure signal: CloudTrail never logs the object's content in a GetObject record, and a failed call would carry an errorCode such as AccessDenied. “readOnly true means only the object's metadata was read” misreads the flag: readOnly only says the call changed nothing, and GetObject is the call that downloads the object itself. “A normal job” ignores the context: the key is the one leaked on GitHub, and it is being used from a Tor exit node instead of the build server's fixed NAT gateway address.",
           xp: 25,
         },
         {
@@ -667,7 +667,7 @@ const awsSecurityRoom = {
         `**Step 1: Establish the WHO**\n\n` +
         `Start with aws.cloudtrail.userIdentity.type and aws.cloudtrail.userIdentity.arn. Is this an IAMUser (long-term credentials: check when the access key was created and whether it has ever been exposed) or an AssumedRole (temporary credentials: check which role, and whether the session name looks like an EC2 instance ID, a Lambda name, or something unexpected)? The identity tells you what kind of credential compromise you might be dealing with.\n\n` +
         `**Step 2: Establish the WHERE**\n\n` +
-        `Check aws.cloudtrail.sourceIPAddress. Is it an internal AWS IP (typically in the private ranges used by EC2/ECS/Lambda within your VPC), a known corporate office IP, or an unfamiliar external address? Cross-reference against threat intelligence, Tor exit nodes, known malicious IP lists, and unusual countries for your organization are all red flags. Also check aws.cloudtrail.userAgent: legitimate automation tools have consistent, expected user agents (aws-cli/x.x.x, aws-sdk-go, Terraform); a mismatched or unusual user agent for a given identity's normal behavior is worth investigating.\n\n` +
+        `Check aws.cloudtrail.sourceIPAddress. Is it an address you recognise from your own AWS estate (usually your NAT gateway or Elastic IP, or a private address only when the call goes through a VPC endpoint), a known corporate office IP, or an unfamiliar external address? Cross-reference against threat intelligence, Tor exit nodes, known malicious IP lists, and unusual countries for your organization are all red flags. Also check aws.cloudtrail.userAgent: legitimate automation tools have consistent, expected user agents (aws-cli/x.x.x, aws-sdk-go, Terraform); a mismatched or unusual user agent for a given identity's normal behavior is worth investigating.\n\n` +
         `**Step 3: Establish the WHAT and the OUTCOME**\n\n` +
         `Read aws.cloudtrail.eventName and aws.cloudtrail.eventSource together. This tells you the exact action and which service it targeted. Then always check aws.cloudtrail.errorCode: an empty value means the call succeeded; a populated value (AccessDenied, UnauthorizedOperation, NoSuchEntity) means it was rejected. A flood of AccessDenied errors from one identity is a strong signal of an attacker probing for working permissions, even though none of those individual calls "succeeded," the pattern itself is the alert.\n\n` +
         `**Step 4: Pivot and Correlate**\n\n` +
@@ -833,16 +833,17 @@ const awsSecurityRoom = {
         "   aws iam create-access-key --user-name svc-deploy\n" +
         "   -> force MFA re-registration if console access exists\n" +
         "\n" +
-        "4. ISOLATE (not terminate) a compromised EC2 instance:\n" +
+        "4. PRESERVE evidence first (snapshot BEFORE you isolate or\n" +
+        "   take any destructive step):\n" +
+        "   aws ec2 create-snapshot \\\n" +
+        "     --volume-id vol-0f1e2d3c4b5a6978 \\\n" +
+        "     --description \"forensic snapshot - pre-remediation\"\n" +
+        "\n" +
+        "5. ISOLATE (not terminate) a compromised EC2 instance:\n" +
         "   aws ec2 modify-instance-attribute \\\n" +
         "     --instance-id i-0a1b2c3d4e5f6g7h8 \\\n" +
         "     --groups sg-isolation0000000\n" +
         "   (isolation SG: no inbound/outbound except forensics IP)\n" +
-        "\n" +
-        "5. PRESERVE evidence BEFORE any destructive step:\n" +
-        "   aws ec2 create-snapshot \\\n" +
-        "     --volume-id vol-0f1e2d3c4b5a6978 \\\n" +
-        "     --description \"forensic snapshot - pre-remediation\"\n" +
         "=======================================================\n\n" +
         "WHY ORDER MATTERS\n" +
         "=======================================================\n" +

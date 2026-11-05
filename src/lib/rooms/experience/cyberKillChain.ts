@@ -82,7 +82,7 @@ export const CYBER_KILL_CHAIN: RoomExperience = {
       {
         kind: "match",
         title: "The Heist Chain",
-        prompt: "The reading compares an attack to a bank robbery. Match each step of the heist to the kill chain stage it plays.",
+        prompt: "The reading compares an attack to a bank robbery. Match each step of the heist to the kill chain stage it plays. The seven-stage Cyber Kill Chain was developed by Lockheed Martin and published in 2011.",
         pairs: [
           { id: "recon", left: "Sitting in a café for a week, noting guard shifts and camera angles", right: "Reconnaissance", why: "Learning the target before touching it." },
           { id: "weapon", left: "Cloning a cleaner's keycard onto a blank card at home", right: "Weaponization", why: "Building the tool, still far from the target." },
@@ -102,7 +102,7 @@ export const CYBER_KILL_CHAIN: RoomExperience = {
         prompt: "Ayla replays Brightwater's intrusion one move at a time. For each move, play the control that breaks that exact link before the attacker reaches the next one. Each card can be used once.",
         attacker: "The Invoice_4471 operator",
         moves: [
-          { id: "m1", move: "Delivery: a lookalike billing email", detail: "billing@brightwater-payments.example sends a link, not an attachment, to Invoice_4471.iso. The domain is nine days old.", counter: "mailgw", hint: "There is no attachment to open in a sandbox. What looks at the link and the sender's domain?", why: "A gateway that rewrites links and flags lookalike or newly registered domains stops Delivery. An attachment sandbox has nothing to inspect when the mail carries only a link." },
+          { id: "m1", move: "Delivery: a lookalike billing email", detail: "billing@brightwater-payments.example sends a link, not an attachment, to Invoice_4471.iso. The domain is nine days old.", counter: "mailgw", hint: "There is no attachment to open in a sandbox. What looks at the link and the sender's domain?", why: "A gateway that rewrites links and flags lookalike or newly registered domains stops Delivery. An attachment sandbox has nothing to inspect when the mail carries only a link. The sender name joins a real brand to an extra word (brightwater-payments): that is combosquatting. Typosquatting is different, a misspelling of the brand such as brightwatter.example." },
           { id: "m2", move: "Exploitation: the shortcut is double-clicked", detail: "j.okoro mounts the ISO as drive E:, opens the shortcut, and rundll32.exe loads inv.dll from that disc. No CVE is involved.", counter: "appctl", hint: "Nothing is unpatched. The user ran a legitimate binary with a hostile argument.", why: "Application control that blocks rundll32 from loading DLLs off a mounted image breaks Exploitation of trust. Patching cannot help, because no vulnerability was used." },
           { id: "m3", move: "Installation: a new Run value appears", detail: "A value named OneDriveSync is written to HKCU Run, pointing to a DLL in AppData Roaming through rundll32.", counter: "runmon", hint: "The foothold has to be written somewhere that survives a reboot.", why: "Alerting on new autostart values that launch rundll32 from a user profile catches Installation within seconds of the write. A signature scan sees nothing unusual in a registry string." },
           { id: "m4", move: "Command and Control: a beacon every five minutes", detail: "TXT lookups for a4f.telemetry-node42.example go out through the normal resolver, a nine-day-old domain.", counter: "dnsf", hint: "Blocking the port would break every lookup on the network.", why: "DNS filtering or a sinkhole for newly registered and C2-categorised domains cuts the beacon without breaking DNS. The implant then cannot receive instructions." },
@@ -172,11 +172,11 @@ export const CYBER_KILL_CHAIN: RoomExperience = {
         steps: [
           {
             id: "dns", source: "Zeek dns.log · WS-ENG-14 · 09:30-10:10",
-            ask: "Which lookups are the beacon?",
+            ask: "When did the beacon start? Click its first lookup.",
             columns: ["time", "query", "qtype", "answer"],
             rows: [["09:38:12", "login.microsoftonline.com", "A", "20.190.159.0"], ["09:42:05", "a4f.telemetry-node42.example", "TXT", "\"cmd=idle\""], ["09:44:51", "teams.microsoft.com", "A", "52.112.0.5"], ["09:47:05", "a4f.telemetry-node42.example", "TXT", "\"cmd=idle\""]],
             answer: 1,
-            why: "TXT records carry text the implant reads as commands. The same subdomain, exactly 5 minutes apart, starting 09:42.",
+            why: "TXT records carry text the implant reads as commands. The same subdomain is queried again at 09:47, exactly 5 minutes apart, starting 09:42.",
             learned: "C2: DNS TXT beacon every 5 min to telemetry-node42.example since 09:42",
           },
           {
@@ -235,7 +235,7 @@ export const CYBER_KILL_CHAIN: RoomExperience = {
       {
         kind: "worksheet",
         title: "The Diamond Beside the Chain",
-        prompt: "The kill chain tells you when. The Diamond Model asks who, with what, against whom. Put Brightwater's case on its four corners.",
+        prompt: "The kill chain tells you when. The Diamond Model asks who, with what, against whom. Put Brightwater's case on its four corners. Note one limit of the chain: it models an outsider working through the stages, so an insider with authorised access, who can skip most early stages, fits it poorly.",
         caption: "Brightwater intrusion · Diamond Model worksheet",
         columns: ["evidence", "vertex"],
         rows: [

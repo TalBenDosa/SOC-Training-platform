@@ -46,7 +46,7 @@ const tccWriteEvent: TelemetryEvent = {
     path: "/Library/Application Support/com.apple.TCC/TCC.db",
   },
   description:
-    "A shell process spawned by the SafeClean Utility installer's postinstall script ran /usr/bin/sqlite3 against the system-wide TCC privacy database and inserted a new access row, all while running as root on a Mac with SIP disabled.",
+    "A shell process ran /usr/bin/sqlite3 against the system-wide TCC privacy database and inserted a new access row, all while running as root on a Mac with SIP disabled.",
   raw: {
     "crowdstrike.ComputerName": "MAC-4471",
     "crowdstrike.UserName": "root",
@@ -598,7 +598,7 @@ const macosSecurityFundamentalsRoom = {
       type: "ordering" as const,
       id: "macf-o1",
       heading: "Order the Triage of a Suspicious macOS Process Chain",
-      instructions: "Arrange these steps in the order an analyst should actually work them when investigating an unfamiliar macOS process chain.",
+      instructions: "Arrange these steps in the order an analyst should actually work them when investigating an unfamiliar macOS process chain. The rule: work outward from the process tree, from who the files are, to how they arrived, to what they did on the host, to what left the host, and close with the verdict.",
       items: [
         { id: "ancestry", text: "Check the full process ancestry -- what launched what, and whether that parent-child relationship makes sense for the app involved" },
         { id: "signature", text: "Check the code-signature status of the binaries involved -- Developer ID, ad-hoc, revoked, or unsigned -- for both the parent and any child processes" },

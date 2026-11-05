@@ -82,7 +82,7 @@ export const MITRE_ATTACK: RoomExperience = {
       {
         kind: "codebreak",
         title: "Crack the ID",
-        prompt: "Jonah reads four clues from Marlow's red-team report and wants the exact ATT&CK ID for each. Letter feedback tells you which characters are in the right place. Write a dot-free sub-technique ID as one string, for example T1234567.",
+        prompt: "Jonah reads four clues from Marlow's red-team report and wants the exact ATT&CK ID for each. Letter feedback tells you which characters are in the right place. Write a dot-free sub-technique ID as one string, for example T1234567. Jonah's pattern: TA plus four digits is a tactic, T plus four digits is a technique, and a dot adds a variant. For Remote Services T1021, for example, .002 is SMB/Windows Admin Shares, .004 is SSH and .006 is Windows Remote Management.",
         tries: 6,
         rounds: [
           { id: "r1", clue: "Marlow's red team lands on one design workstation, then reaches a second host. The tactic for that goal, as a TA ID.", answer: "TA0008", why: "TA plus four digits is a tactic. Reaching other machines from the first one is Lateral Movement, TA0008. The goal comes first, the method (a technique) comes later." },
@@ -122,7 +122,7 @@ export const MITRE_ATTACK: RoomExperience = {
       {
         kind: "duel",
         title: "Technique Against Control",
-        prompt: "SILVER HERON, a fictional group for this exercise, is targeting aerospace suppliers. Jonah's coverage layer shows what Marlow already detects and what it does not. Each round the group plays a technique: play the control or detection that answers that exact technique. Each card can be used once.",
+        prompt: "SILVER HERON, a fictional group for this exercise, is targeting aerospace suppliers. Jonah's ATT&CK Navigator coverage layer, the free tool that colours the matrix with your detections and a group's techniques, shows what Marlow already detects and what it does not. Each round the group plays a technique: play the control or detection that answers that exact technique. Each card can be used once.",
         attacker: "SILVER HERON",
         moves: [
           { id: "m1", move: "T1021.002 SMB/Windows Admin Shares", detail: "One design workstation copies a tool to the C$ share of eleven other workstations in ten minutes. Marlow has no rule for this technique.", counter: "smbseg", hint: "A foothold becoming fifty machines is the risk. Where does the traffic travel?", why: "Blocking workstation-to-workstation SMB and alerting on admin-share writes breaks Lateral Movement at its path. This blind spot is the first to fix, because one foothold turns into many." },

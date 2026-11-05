@@ -59,7 +59,7 @@ The simplest type. Count events and alert when a number is exceeded.
 **2. Sequence Detection (also called "chained" detection)**
 Detects event A followed by event B within a time window. The sequence matters.
 
-*Example:* Multiple failed logins (event A) followed by a successful login (event B) from the same IP within 30 minutes → possible credential stuffing attack (attacker eventually found a valid password).
+*Example:* Multiple failed logins (event A) followed by a successful login (event B) from the same IP within 30 minutes → possible successful password guessing (attacker eventually found a valid password).
 
 *Strength:* Reduces false positives: the failed logins alone are not an alert, but success after failures is very suspicious.
 *Weakness:* More complex to write; requires correlation across multiple events.
@@ -107,7 +107,7 @@ The professional workflow for creating a new detection rule:
           "Anomaly Detection",
         ],
         answer: 1,
-        explanation: "Sequence (chained) detection watches for one event followed by another within a time window, like failed logins followed by a successful one, suggesting credential stuffing.",
+        explanation: "Sequence (chained) detection watches for one event followed by another within a time window, like failed logins followed by a successful one, suggesting a guessed password that finally worked.",
       },
     },
 
@@ -150,10 +150,10 @@ A Sigma rule is a YAML file with these key sections:
 
 \`\`\`yaml
 title: Password Spray via Azure AD Sign-in Failures
-id: 8f8a9d4e-1b2c-3d4e-5f6g-7h8i9j0k1l2m
+id: 8f8a9d4e-1b2c-4d4e-8f6a-7b8c9d0e1f2a
 status: stable
-description: Detects multiple failed logins from the same IP address in a short
-  time window, indicating a possible password spray attack against Azure AD.
+description: Matches Azure AD invalid-credential sign-ins (ResultType 50126);
+  the per-IP threshold is applied in the SIEM rule.
 references:
   - https://attack.mitre.org/techniques/T1110/003/
 author: SOC Team
@@ -170,8 +170,7 @@ detection:
   filter:
     UserPrincipalName|endswith:
       - '@servicenow.com'          # Exclude service accounts from monitoring
-  condition: selection and not filter | count(UserPrincipalName) by IPAddress > 10
-  timeframe: 5m
+  condition: selection and not filter
 falsepositives:
   - Users legitimately forgetting their passwords
   - Automated scripts with hardcoded old credentials
@@ -187,13 +186,12 @@ level: medium
 **\`detection\`**: the heart of the rule, with three parts:
 - \`selection\`: what to match (ResultType 50126 = invalid credentials in Azure AD)
 - \`filter\`: what to exclude (service accounts from servicenow.com)
-- \`condition\`: the logic combining selection + filter + threshold
+- \`condition\`: the logic combining selection + filter
 
 **\`condition\` syntax examples:**
 - \`selection\`: match any event matching "selection"
 - \`selection and not filter\`: match selection but exclude filter
-- \`selection | count() > 10\`: match only when count exceeds 10
-- \`event1 | near event2\`: event1 near event2 in time (sequence)
+- Counting thresholds (for example more than 10 failures in 5 minutes) are not part of a plain condition: you set them in the SIEM rule that the converted query feeds, or write a separate Sigma correlation rule
 
 **\`level\`**: the rule's severity: informational / low / medium / high / critical.
 
@@ -207,9 +205,9 @@ The rule above detects the **T1110.003, Password Spraying** technique:
 - An attacker tries one common password (like "Summer2024!") against many accounts
 - Each account shows a ResultType 50126 (invalid credentials) in Azure AD
 - The attacker uses the same IP address, hoping to stay below per-account lockout thresholds
-- Our rule groups failures by IP: if one IP causes >10 failures in 5 minutes → alert
+- Our detection groups failures by IP: if one IP causes >10 failures in 5 minutes → alert
 
-This is why the condition uses \`count(UserPrincipalName) by IPAddress\`: we count distinct usernames per IP, because spray attacks target many users from one IP (unlike brute force, which targets one user with many passwords).
+The threshold is set in the SIEM rule built from the converted query, which counts distinct usernames per IP, because spray attacks target many users from one IP (unlike brute force, which targets one user with many passwords).
 
 ---
 
@@ -218,7 +216,7 @@ This is why the condition uses \`count(UserPrincipalName) by IPAddress\`: we cou
 Once you have a Sigma rule, tools like \`sigma-cli\` can convert it:
 
 \`sigma convert -t splunk sigma_rule.yml\`  → Splunk SPL query
-\`sigma convert -t sentinel sigma_rule.yml\` → Microsoft Sentinel KQL query
+\`sigma convert -t kusto -p azure_monitor sigma_rule.yml\` → Microsoft Sentinel KQL query
 
 This means you can download hundreds of community Sigma rules and deploy them to your SIEM in minutes, instead of rewriting them from scratch.`,
       checkpoint: {
@@ -473,9 +471,9 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
       type: "flag" as const,
       id: "det-rules-flag1",
       prompt:
-        "You are tuning a detection rule for PowerShell downloads that keeps firing on the patch server's known-good nightly job. Reading [3] gives a two-word term (the first word is 'exception') for the configuration you add so a specific known-good pattern no longer triggers the alert. Enter that two-word term.",
+        "You are tuning a detection rule for PowerShell downloads that keeps firing on the patch server's known-good nightly job. Reading [3] gives a two-word term for the configuration you add so a specific known-good pattern no longer triggers the alert. Enter that two-word term.",
       answer: "exception list",
-      hint: "Reading [3]'s tuning methodology, Step 2, names it: the thing you add to a rule to say 'I already know this activity and it is safe.' Two words, beginning with 'exception'.",
+      hint: "Reading [3]'s tuning methodology, Step 2, names it: the thing you add to a rule to say 'I already know this activity and it is safe.' Two words.",
       xp: 50,
     },
   ],
