@@ -982,15 +982,6 @@ const rooms = [
         },
       },
 
-      // ── Reading 3 ──
-      {
-        type: "reading",
-        id: "dns-r3",
-        heading: "DNS Investigation Workflow: From NXDOMAIN Storm to Confirmed Malware",
-        content:
-          "You receive an alert: \"NXDOMAIN Storm Detected, workstation WKSTN-DEV-044 queried 487 non-existent domains in the past 5 minutes.\" How do you investigate this efficiently and reach a verdict?\n\n**Step 1: Characterise the storm**\n\nCollect all the NXDOMAIN queries from the alerting machine in the time window:\n- How many unique domains were queried?\n- What is the structure of the domain names? (Random characters? Specific TLDs? Common length?)\n- What time interval separates queries? (Rapid-fire = DGA; slower, data-encoded = tunnelling)\n- Are any domains on threat intelligence feeds?\n\nIf the domains look like random strings (xj4k9m2n.com, p8a3c7f1.net, q2r6b4z0.org), this is a strong DGA indicator. If the domains all share the same base domain with long encoded subdomains (abc123def456.exfil.attacker.com), this looks more like DNS tunnelling.\n\n**Step 2: Identify the responsible process using Sysmon**\n\nNetwork-level DNS logs tell you the machine's IP but not the specific process. Pivot to Sysmon Event 22 logs for the same machine at the same timestamps:\n- Filter: `event.code: \"22\" AND winlog.computer_name: \"WKSTN-DEV-044\"`\n- Look at `winlog.event_data.Image`which executable is generating the DNS queries?\n\nRed flags for the Image field:\n- Unexpected location: C:\\Users\\[username]\\AppData\\Roaming\\ or C:\\Temp\\ instead of C:\\Windows\\ or C:\\Program Files\\\n- Masquerading as a legitimate process but in the wrong location: C:\\Users\\bob\\svchost.exe (svchost.exe should only live in C:\\Windows\\System32\\)\n- Unknown executable name with suspicious characteristics\n\n**Step 3: Correlate with other telemetry**\n\nDNS investigation does not happen in isolation. Pivot to:\n- **EDR/Sysmon process creation logs** (Event ID 1): how was the suspicious process launched? What is its parent process? What command line was used?\n- **Firewall logs**: did any connection attempts follow the successful DNS resolution (if any domains resolved)? Did the firewall block them?\n- **AV/EDR**: has the endpoint security solution already flagged this process or file?\n\n**Step 4: Domain analysis**\n\nFor any domains that resolved (NOERROR), investigate the domain:\n- Check VirusTotal for the domain name\n- Check domain registration date (WHOIS): newly registered domains (hours or days old) are more suspicious than established domains\n- Check domain reputation on URLScan.io. What does the website show?\n- Look up the IP addresses the domain resolves to. Are they on threat feeds?\n\n**Step 5: Scope the infection**\n\nIf one machine has DGA activity, how many others do?\n- Search your DNS logs for queries to the same DGA domains from other machines\n- Search for the same binary hash (from EDR) across your fleet\n- Check if the malware is a known family, if so, look for its known persistence mechanisms, other malware it drops, and known C2 infrastructure\n\n**Step 6: Contain and eradicate**\n\nFor confirmed DGA malware:\n1. Isolate the affected workstation(s) immediately\n2. Add the successfully-resolved malicious domains and IPs to your DNS sinkhole and firewall blocklist\n3. Run full forensic acquisition of the infected system\n4. Search for the malware binary hash across all endpoints using EDR\n5. Identify initial infection vector (check email for phishing, check web proxy for drive-by download, check USB activity)\n6. Eradicate: remove persistence mechanisms, remove malware binary, patch the vulnerability that allowed infection\n7. Recover: restore from clean backup or reimage the machine\n\n**Key metrics for DNS monitoring**\n\nA mature DNS monitoring programme tracks:\n- NXDOMAIN rate per host (baseline and alerts on spikes)\n- Domains per host per hour (baseline and alert on spikes)\n- Queries to newly registered domains (less than 30 days old)\n- Queries matching threat intelligence feeds (immediate high-priority alert)\n- Direct queries to external DNS resolvers bypassing your corporate resolver (8.8.8.8, 1.1.1.1 from workstations is suspicious. Malware does this to bypass your DNS monitoring and sinkholes)",
-      },
-
       // ── Question 1 ──
       {
         type: "question",
@@ -1009,24 +1000,6 @@ const rooms = [
         xp: 20,
       },
 
-      // ── Question 2 ──
-      {
-        type: "question",
-        id: "dns-q2",
-        question:
-          "Sysmon Event ID 22 shows process C:\\Users\\frank\\AppData\\Roaming\\RuntimeBroker.exe making hundreds of DNS queries. RuntimeBroker.exe is a legitimate Windows process, but it normally lives in C:\\Windows\\System32\\. What technique does this most likely represent?",
-        options: [
-          "A per-user app in AppData that ships its own helper with the same name",
-          "Masquerading: malware using a Windows process name from a wrong folder",
-          "A Windows servicing change that relocated the binary into the profile",
-          "DLL side-loading: a bad DLL loaded by the genuine RuntimeBroker.exe",
-        ],
-        answer: 1,
-        explanation:
-          "A Windows system binary name running from a user's AppData folder is the masquerading red flag the workflow teaches: the name is chosen to blend into process lists, and the location gives it away. Per-user apps do install into AppData, but they use their own names, not the name of a core Windows process. Windows servicing replaces system binaries inside C:\\Windows, it does not move them into a user profile. DLL side-loading would show the genuine RuntimeBroker.exe in System32 loading an odd DLL. Here the executable itself is in the wrong place.",
-        xp: 20,
-      },
-
       // ── Question 3 ──
       {
         type: "question",
@@ -1042,6 +1015,33 @@ const rooms = [
         answer: 1,
         explanation:
           "Fast flux has two defining characteristics: (1) Very rapid IP changes, legitimate CDNs change IPs too, but not every 90 seconds. (2) IPs belonging to residential ISPs in many countries. These are not datacenter IPs hosting servers; they are compromised home computers (botnet nodes) acting as traffic relay proxies. Standard CDN load balancing uses dedicated datacenter IPs that remain stable for hours or days. DNS round-robin changes infrequently. Fast flux is specifically an evasion technique designed to make IP-based blocking ineffective, by the time a security team adds a block rule for the current IP, the attacker has already moved to a different compromised node.",
+        xp: 20,
+      },
+
+      // ── Reading 3 ──
+      {
+        type: "reading",
+        id: "dns-r3",
+        heading: "DNS Investigation Workflow: From NXDOMAIN Storm to Confirmed Malware",
+        content:
+          "You receive an alert: \"NXDOMAIN Storm Detected, workstation WKSTN-DEV-044 queried 487 non-existent domains in the past 5 minutes.\" How do you investigate this efficiently and reach a verdict?\n\n**Step 1: Characterise the storm**\n\nCollect all the NXDOMAIN queries from the alerting machine in the time window:\n- How many unique domains were queried?\n- What is the structure of the domain names? (Random characters? Specific TLDs? Common length?)\n- What time interval separates queries? (Rapid-fire = DGA; slower, data-encoded = tunnelling)\n- Are any domains on threat intelligence feeds?\n\nIf the domains look like random strings (xj4k9m2n.com, p8a3c7f1.net, q2r6b4z0.org), this is a strong DGA indicator. If the domains all share the same base domain with long encoded subdomains (abc123def456.exfil.attacker.com), this looks more like DNS tunnelling.\n\n**Step 2: Identify the responsible process using Sysmon**\n\nNetwork-level DNS logs tell you the machine's IP but not the specific process. Pivot to Sysmon Event 22 logs for the same machine at the same timestamps:\n- Filter: `event.code: \"22\" AND winlog.computer_name: \"WKSTN-DEV-044\"`\n- Look at `winlog.event_data.Image`which executable is generating the DNS queries?\n\nRed flags for the Image field:\n- Unexpected location: C:\\Users\\[username]\\AppData\\Roaming\\ or C:\\Temp\\ instead of C:\\Windows\\ or C:\\Program Files\\\n- Masquerading as a legitimate process but in the wrong location: C:\\Users\\bob\\svchost.exe (svchost.exe should only live in C:\\Windows\\System32\\)\n- Unknown executable name with suspicious characteristics\n\n**Step 3: Correlate with other telemetry**\n\nDNS investigation does not happen in isolation. Pivot to:\n- **EDR/Sysmon process creation logs** (Event ID 1): how was the suspicious process launched? What is its parent process? What command line was used?\n- **Firewall logs**: did any connection attempts follow the successful DNS resolution (if any domains resolved)? Did the firewall block them?\n- **AV/EDR**: has the endpoint security solution already flagged this process or file?\n\n**Step 4: Domain analysis**\n\nFor any domains that resolved (NOERROR), investigate the domain:\n- Check VirusTotal for the domain name\n- Check domain registration date (WHOIS): newly registered domains (hours or days old) are more suspicious than established domains\n- Check domain reputation on URLScan.io. What does the website show?\n- Look up the IP addresses the domain resolves to. Are they on threat feeds?\n\n**Step 5: Scope the infection**\n\nIf one machine has DGA activity, how many others do?\n- Search your DNS logs for queries to the same DGA domains from other machines\n- Search for the same binary hash (from EDR) across your fleet\n- Check if the malware is a known family, if so, look for its known persistence mechanisms, other malware it drops, and known C2 infrastructure\n\n**Step 6: Contain and eradicate**\n\nFor confirmed DGA malware:\n1. Isolate the affected workstation(s) immediately\n2. Add the successfully-resolved malicious domains and IPs to your DNS sinkhole and firewall blocklist\n3. Run full forensic acquisition of the infected system\n4. Search for the malware binary hash across all endpoints using EDR\n5. Identify initial infection vector (check email for phishing, check web proxy for drive-by download, check USB activity)\n6. Eradicate: remove persistence mechanisms, remove malware binary, patch the vulnerability that allowed infection\n7. Recover: restore from clean backup or reimage the machine\n\n**Key metrics for DNS monitoring**\n\nA mature DNS monitoring programme tracks:\n- NXDOMAIN rate per host (baseline and alerts on spikes)\n- Domains per host per hour (baseline and alert on spikes)\n- Queries to newly registered domains (less than 30 days old)\n- Queries matching threat intelligence feeds (immediate high-priority alert)\n- Direct queries to external DNS resolvers bypassing your corporate resolver (8.8.8.8, 1.1.1.1 from workstations is suspicious. Malware does this to bypass your DNS monitoring and sinkholes)",
+      },
+
+      // ── Question 2 ──
+      {
+        type: "question",
+        id: "dns-q2",
+        question:
+          "Sysmon Event ID 22 shows process C:\\Users\\frank\\AppData\\Roaming\\RuntimeBroker.exe making hundreds of DNS queries. RuntimeBroker.exe is a legitimate Windows process, but it normally lives in C:\\Windows\\System32\\. What technique does this most likely represent?",
+        options: [
+          "A per-user app in AppData that ships its own helper with the same name",
+          "Masquerading: malware using a Windows process name from a wrong folder",
+          "A Windows servicing change that relocated the binary into the profile",
+          "DLL side-loading: a bad DLL loaded by the genuine RuntimeBroker.exe",
+        ],
+        answer: 1,
+        explanation:
+          "A Windows system binary name running from a user's AppData folder is the masquerading red flag the workflow teaches: the name is chosen to blend into process lists, and the location gives it away. Per-user apps do install into AppData, but they use their own names, not the name of a core Windows process. Windows servicing replaces system binaries inside C:\\Windows, it does not move them into a user profile. DLL side-loading would show the genuine RuntimeBroker.exe in System32 loading an odd DLL. Here the executable itself is in the wrong place.",
         xp: 20,
       },
 
@@ -1122,6 +1122,16 @@ const rooms = [
         ],
       },
 
+      // ── Flag ──
+      {
+        type: "flag",
+        id: "dns-flag1",
+        prompt:
+          "Back in the Sysmon Event 22 log for WKSTN-HR-033: using the SIEM's 5-minute correlation counts, how many of the unique domains the process queried in that window actually resolved? This tells you whether the malware has found its C2 yet. Enter a number.",
+        answer: "0",
+        hint: "Compare the count of unique domains with the count of failed (non-existent) lookups for the same window.",
+        xp: 35,
+      },
       // ── Analyst Choice ──
       {
         type: "analyst_choice" as const,
@@ -1155,16 +1165,6 @@ const rooms = [
         xp: 30,
       },
 
-      // ── Flag ──
-      {
-        type: "flag",
-        id: "dns-flag1",
-        prompt:
-          "Back in the Sysmon Event 22 log for WKSTN-HR-033: using the SIEM's 5-minute correlation counts, how many of the unique domains the process queried in that window actually resolved? This tells you whether the malware has found its C2 yet. Enter a number.",
-        answer: "0",
-        hint: "Compare the count of unique domains with the count of failed (non-existent) lookups for the same window.",
-        xp: 35,
-      },
     ],
   },
 ];

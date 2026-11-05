@@ -2576,17 +2576,7 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "dns-r3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "dns-q1",
-        "type": "question",
-        "xp": 20
-      },
-      {
-        "id": "dns-q2",
         "type": "question",
         "xp": 20
       },
@@ -2596,20 +2586,30 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
+        "id": "dns-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "dns-q2",
+        "type": "question",
+        "xp": 20
+      },
+      {
         "id": "dns-la1",
         "type": "log_analysis",
         "xp": 50
+      },
+      {
+        "id": "dns-flag1",
+        "type": "flag",
+        "xp": 35
       },
       {
         "id": "dns-ac1",
         "type": "analyst_choice",
         "xp": 30,
         "mitreTechnique": "T1071.004"
-      },
-      {
-        "id": "dns-flag1",
-        "type": "flag",
-        "xp": 35
       }
     ]
   },
