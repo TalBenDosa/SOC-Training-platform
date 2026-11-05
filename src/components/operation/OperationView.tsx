@@ -89,6 +89,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   specialdelivery: dynamic(() => import("./scenes/SpecialDeliveryScene"), { ssr: false }),
   tenantzero: dynamic(() => import("./scenes/TenantZeroScene"), { ssr: false }),
   replyall: dynamic(() => import("./scenes/ReplyAllScene"), { ssr: false }),
+  sharedlink: dynamic(() => import("./scenes/SharedLinkScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;

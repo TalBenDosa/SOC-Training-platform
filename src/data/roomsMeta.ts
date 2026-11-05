@@ -1377,24 +1377,24 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "spt-teams-r2",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "spt-teams-r3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "spt-teams-q1",
         "type": "question",
         "xp": 30
       },
       {
+        "id": "spt-teams-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
         "id": "spt-teams-q2",
         "type": "question",
         "xp": 30
+      },
+      {
+        "id": "spt-teams-r3",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "spt-teams-q3",

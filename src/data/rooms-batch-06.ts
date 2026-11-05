@@ -372,7 +372,6 @@ const sharepointTeamsMonitoring: Room = {
   icon: "💬",
   prerequisites: ["microsoft-365-security"],
   tasks: [
-
     // ── Reading 1: SharePoint & OneDrive Structure ────────────────────────────
     {
       type: "reading",
@@ -440,6 +439,22 @@ Administrators can control external sharing at the SharePoint Admin Center (admi
       },
     } satisfies ReadingTask,
 
+    // ── Question 1 ────────────────────────────────────────────────────────────
+    {
+      type: "question",
+      id: "spt-teams-q1",
+      question: "An attacker creates an anonymous 'Anyone' link for a sensitive financial spreadsheet in SharePoint and shares the URL externally. What is the primary security limitation of this sharing method from a SOC analyst's perspective?",
+      options: [
+        "Anyone links grant view-only access, so the file itself cannot be downloaded",
+        "Anyone links expire after 24 hours by default, so the access evidence disappears",
+        "Anyone links need no sign-in, so logged access cannot be tied to a named person",
+        "Anyone links bypass the Unified Audit Log, so creation and use are not recorded"
+      ],
+      answer: 2,
+      explanation: "An **Anyone** link needs no authentication, so anyone holding the URL can open the file. Creation (`AnonymousLinkCreated`) and use (`AnonymousLinkUsed`, with client IP and user agent) are logged, but the use records have no identity: you can see that and from where the file was opened, not by whom. View-only is a choice made when the link is created, not a property of all Anyone links, and edit/download links are common. Expiry is an admin setting, not a fixed 24-hour default, and an expired link does not delete the audit records already written. The log does record both events, so the problem is attribution, not missing records.",
+      xp: 30,
+    } satisfies QuestionTask,
+
     // ── Reading 2: Microsoft Teams Security ───────────────────────────────────
     {
       type: "reading",
@@ -505,6 +520,22 @@ Microsoft Purview DLP policies can inspect Teams messages and files shared in Te
       },
     } satisfies ReadingTask,
 
+    // ── Question 2 ────────────────────────────────────────────────────────────
+    {
+      type: "question",
+      id: "spt-teams-q2",
+      question: "FileDownloaded events on your Finance SharePoint site show the user `vendor_externalco.com#EXT#@corp.onmicrosoft.com`. What does this UPN tell you, and what should you check first?",
+      options: [
+        "A sync service principal; check which permissions the app registration holds",
+        "A B2B guest from externalco.com; check which team or site granted it access",
+        "A hybrid-synced on-prem account; check AD Connect for a broken UPN rewrite",
+        "An External Access chat contact; check the Teams federation allow list"
+      ],
+      answer: 1,
+      explanation: "`#EXT#` marks an **Entra ID (Azure AD) B2B guest**: an external user (vendor@externalco.com, with @ replaced by _) invited into your tenant. Guests reach files through the team or site they were added to, so the first question is which membership gave this vendor access to Finance data. A service principal has no UPN of this form. A hybrid-synced employee keeps a normal corp.com-style UPN. External Access contacts chat from their own tenant and get no account in yours, so they cannot appear as a user downloading your SharePoint files.",
+      xp: 30,
+    } satisfies QuestionTask,
+
     // ── Reading 3: DLP and Insider Threat ─────────────────────────────────────
     {
       type: "reading",
@@ -565,38 +596,6 @@ When you receive a DLP alert or a bulk-download alert:
 5. Check for **external sharing** by the same user: search for \`AnonymousLinkCreated\` or \`SharingInvitationCreated\` with external email addresses.
 6. If warranted, **escalate to HR and Legal**. Insider threat cases have legal and HR implications beyond technical response.`,
     } satisfies ReadingTask,
-
-    // ── Question 1 ────────────────────────────────────────────────────────────
-    {
-      type: "question",
-      id: "spt-teams-q1",
-      question: "An attacker creates an anonymous 'Anyone' link for a sensitive financial spreadsheet in SharePoint and shares the URL externally. What is the primary security limitation of this sharing method from a SOC analyst's perspective?",
-      options: [
-        "Anyone links grant view-only access, so the file itself cannot be downloaded",
-        "Anyone links expire after 24 hours by default, so the access evidence disappears",
-        "Anyone links need no sign-in, so logged access cannot be tied to a named person",
-        "Anyone links bypass the Unified Audit Log, so creation and use are not recorded"
-      ],
-      answer: 2,
-      explanation: "An **Anyone** link needs no authentication, so anyone holding the URL can open the file. Creation (`AnonymousLinkCreated`) and use (`AnonymousLinkUsed`, with client IP and user agent) are logged, but the use records have no identity: you can see that and from where the file was opened, not by whom. View-only is a choice made when the link is created, not a property of all Anyone links, and edit/download links are common. Expiry is an admin setting, not a fixed 24-hour default, and an expired link does not delete the audit records already written. The log does record both events, so the problem is attribution, not missing records.",
-      xp: 30,
-    } satisfies QuestionTask,
-
-    // ── Question 2 ────────────────────────────────────────────────────────────
-    {
-      type: "question",
-      id: "spt-teams-q2",
-      question: "FileDownloaded events on your Finance SharePoint site show the user `vendor_externalco.com#EXT#@corp.onmicrosoft.com`. What does this UPN tell you, and what should you check first?",
-      options: [
-        "A sync service principal; check which permissions the app registration holds",
-        "A B2B guest from externalco.com; check which team or site granted it access",
-        "A hybrid-synced on-prem account; check AD Connect for a broken UPN rewrite",
-        "An External Access chat contact; check the Teams federation allow list"
-      ],
-      answer: 1,
-      explanation: "`#EXT#` marks an **Entra ID (Azure AD) B2B guest**: an external user (vendor@externalco.com, with @ replaced by _) invited into your tenant. Guests reach files through the team or site they were added to, so the first question is which membership gave this vendor access to Finance data. A service principal has no UPN of this form. A hybrid-synced employee keeps a normal corp.com-style UPN. External Access contacts chat from their own tenant and get no account in yours, so they cannot appear as a user downloading your SharePoint files.",
-      xp: 30,
-    } satisfies QuestionTask,
 
     // ── Question 3 ────────────────────────────────────────────────────────────
     {

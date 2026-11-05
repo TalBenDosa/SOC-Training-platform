@@ -55,6 +55,7 @@ import { ESXI_VIRTUALIZATION_SECURITY } from "./esxiVirtualizationSecurity";
 import { HTML_SMUGGLING_AND_LOLBINS } from "./htmlSmugglingAndLolbins";
 import { ENTRA_ID } from "./entraId";
 import { EXCHANGE_ONLINE_SECURITY } from "./exchangeOnlineSecurity";
+import { SHAREPOINT_TEAMS_MONITORING } from "./sharepointTeamsMonitoring";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -116,6 +117,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [HTML_SMUGGLING_AND_LOLBINS.roomId]: HTML_SMUGGLING_AND_LOLBINS,
   [ENTRA_ID.roomId]: ENTRA_ID,
   [EXCHANGE_ONLINE_SECURITY.roomId]: EXCHANGE_ONLINE_SECURITY,
+  [SHAREPOINT_TEAMS_MONITORING.roomId]: SHAREPOINT_TEAMS_MONITORING,
 };
 
 /**
