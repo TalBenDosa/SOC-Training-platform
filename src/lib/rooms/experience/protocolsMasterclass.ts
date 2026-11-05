@@ -26,11 +26,11 @@ export const PROTOCOLS_MASTERCLASS: RoomExperience = {
   scene: "protostack",
   layout: "stage",
   story: {
-    intro: { title: "Always Allowed", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-intro-3553a2ac.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-intro-a9f53b75.jpg" },
+    intro: { title: "Always Allowed", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-intro-b4476f92.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-intro-e93754eb.jpg" },
     afterStation: {
-      layers: { title: "SYN, SYN-ACK, ACK", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-ch2-749ad2f4.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-ch2-fe90a75a.jpg" },
-      web: { title: "Two Devices, One MAC", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-ch3-990033f9.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-ch3-8aed7c58.jpg" },
-      abuse: { title: "A Pipe Nobody Closes", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-finale-9c7c9a50.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-finale-44d6d81f.jpg" },
+      layers: { title: "SYN, SYN-ACK, ACK", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-ch2-c00e8323.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-ch2-e67e2e77.jpg" },
+      web: { title: "Two Devices, One MAC", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-ch3-4c8f03b4.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-ch3-3e1cdf30.jpg" },
+      abuse: { title: "A Pipe Nobody Closes", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-finale-614684a2.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-finale-44d6d81f.jpg" },
     },
   },
   stations: [
