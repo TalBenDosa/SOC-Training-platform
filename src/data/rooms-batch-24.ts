@@ -996,40 +996,6 @@ const webAttacksRoom: Room = {
         "=======================================================",
     },
     {
-      type: "reading",
-      id: "web-r2",
-      heading: "Why You Need Both the WAF Record and the Web-Server Record for the Same Request",
-      content:
-        `Modern web applications almost never sit directly on the internet. A request from a real client typically passes through a WAF (Web Application Firewall), then a load balancer, before it ever reaches the web server itself, and each hop in that path can rewrite what the NEXT hop believes about who's actually asking.\n\n` +
-        `**Where the true client IP actually lives**\n\n` +
-        `A WAF, sitting closest to the internet-facing edge, is usually the last point in the chain that ever sees the real client's raw TCP connection: its own log's client-IP field (for example AWS WAF's httpRequest.clientIp) reflects the actual internet-facing source. Everything downstream of the WAF, though, sees a re-established connection: the load balancer opens its OWN connection to the web server, using its own address, and unless the environment is specifically configured to forward and log the original client's address (via an X-Forwarded-For header the web server is set up to capture), the web server's own access log will show the load balancer's internal IP in its client-IP field, every single time, for every single request, regardless of who actually sent it.\n\n` +
-        `**What this means for attribution**\n\n` +
-        `If you only ever pull the web server's own access log, every request, legitimate and malicious alike, appears to originate from the same handful of internal load-balancer addresses. Trying to build a block list, or even just answer 'who sent this,' from that field alone is not just incomplete, it's actively misleading: you'd be looking at your own infrastructure's address, not the attacker's. The WAF record for the exact same request is the only place the real source survives, which is why confirming attribution always means pulling both records (matched by the request's URI, method, and a timestamp close enough to be the same event) and reading the WAF's client-IP field as authoritative for 'who,' while the web server's record remains authoritative for exactly what request the application itself processed and how it responded.\n\n` +
-        `**Matching two records that don't share an ID**\n\n` +
-        `Different vendors' logs almost never share a common request identifier you can join on directly. In practice, matching a WAF record to its corresponding web-server record means lining up the URI and query string, the HTTP method, and a timestamp within a second or two of each other. Close enough, combined, to be confident they describe the same request, even though neither log was designed with the other in mind. This is exactly the correlation exercise the next log-analysis task in this room asks you to perform by hand.`,
-      diagram:
-        "flowchart LR\n" +
-        "  C[Client: true source IP] --> W[WAF: sees the real client IP]\n" +
-        "  W --> L[Load Balancer: opens its OWN connection]\n" +
-        "  L --> S[Web Server / IIS: logs the LB's IP as c-ip]\n" +
-        "  W -.->|httpRequest.clientIp = true attacker IP| N1[Recorded only at the WAF]\n" +
-        "  S -.->|c-ip = the load balancer's own address| N2[Same value for every request, regardless of source]",
-      diagramCaption: "Where the true client IP survives, and where it doesn't",
-      checkpoint: {
-        question:
-          "Per Reading 2, why does a web server's own access log typically show the load balancer's IP instead of the real client's IP?",
-        options: [
-          "The load balancer opens its own connection to the server, so c-ip is the balancer's address unless X-Forwarded-For is captured",
-          "IIS logs the X-Forwarded-For value as c-ip by default, and the load balancer overwrites that header with its own address",
-          "The WAF rewrites each request's source to its own address before forwarding, so IIS records the WAF's IP rather than the client's",
-          "IIS fills c-ip from a reverse-DNS lookup of the connection, and internal DNS resolves every caller to the load balancer's name",
-        ],
-        answer: 0,
-        explanation:
-          "The load balancer re-establishes its own connection to the web server, so unless X-Forwarded-For is specifically configured and captured, the web server's log shows the load balancer's own address for every request, regardless of the real source. IIS does not put X-Forwarded-For into c-ip by default, capturing it takes deliberate configuration, and the load balancer appends to that header rather than replacing the client. The address IIS sees belongs to the load balancer that opened the connection, not the WAF. And c-ip is the TCP peer's IP address, not the result of a DNS lookup.",
-      },
-    },
-    {
       type: "question",
       id: "web-q1",
       question:
@@ -1096,6 +1062,40 @@ const webAttacksRoom: Room = {
       ],
     },
     {
+      type: "reading",
+      id: "web-r2",
+      heading: "Why You Need Both the WAF Record and the Web-Server Record for the Same Request",
+      content:
+        `Modern web applications almost never sit directly on the internet. A request from a real client typically passes through a WAF (Web Application Firewall), then a load balancer, before it ever reaches the web server itself, and each hop in that path can rewrite what the NEXT hop believes about who's actually asking.\n\n` +
+        `**Where the true client IP actually lives**\n\n` +
+        `A WAF, sitting closest to the internet-facing edge, is usually the last point in the chain that ever sees the real client's raw TCP connection: its own log's client-IP field (for example AWS WAF's httpRequest.clientIp) reflects the actual internet-facing source. Everything downstream of the WAF, though, sees a re-established connection: the load balancer opens its OWN connection to the web server, using its own address, and unless the environment is specifically configured to forward and log the original client's address (via an X-Forwarded-For header the web server is set up to capture), the web server's own access log will show the load balancer's internal IP in its client-IP field, every single time, for every single request, regardless of who actually sent it.\n\n` +
+        `**What this means for attribution**\n\n` +
+        `If you only ever pull the web server's own access log, every request, legitimate and malicious alike, appears to originate from the same handful of internal load-balancer addresses. Trying to build a block list, or even just answer 'who sent this,' from that field alone is not just incomplete, it's actively misleading: you'd be looking at your own infrastructure's address, not the attacker's. The WAF record for the exact same request is the only place the real source survives, which is why confirming attribution always means pulling both records (matched by the request's URI, method, and a timestamp close enough to be the same event) and reading the WAF's client-IP field as authoritative for 'who,' while the web server's record remains authoritative for exactly what request the application itself processed and how it responded.\n\n` +
+        `**Matching two records that don't share an ID**\n\n` +
+        `Different vendors' logs almost never share a common request identifier you can join on directly. In practice, matching a WAF record to its corresponding web-server record means lining up the URI and query string, the HTTP method, and a timestamp within a second or two of each other. Close enough, combined, to be confident they describe the same request, even though neither log was designed with the other in mind. This is exactly the correlation exercise the next log-analysis task in this room asks you to perform by hand.`,
+      diagram:
+        "flowchart LR\n" +
+        "  C[Client: true source IP] --> W[WAF: sees the real client IP]\n" +
+        "  W --> L[Load Balancer: opens its OWN connection]\n" +
+        "  L --> S[Web Server / IIS: logs the LB's IP as c-ip]\n" +
+        "  W -.->|httpRequest.clientIp = true attacker IP| N1[Recorded only at the WAF]\n" +
+        "  S -.->|c-ip = the load balancer's own address| N2[Same value for every request, regardless of source]",
+      diagramCaption: "Where the true client IP survives, and where it doesn't",
+      checkpoint: {
+        question:
+          "Per Reading 2, why does a web server's own access log typically show the load balancer's IP instead of the real client's IP?",
+        options: [
+          "The load balancer opens its own connection to the server, so c-ip is the balancer's address unless X-Forwarded-For is captured",
+          "IIS logs the X-Forwarded-For value as c-ip by default, and the load balancer overwrites that header with its own address",
+          "The WAF rewrites each request's source to its own address before forwarding, so IIS records the WAF's IP rather than the client's",
+          "IIS fills c-ip from a reverse-DNS lookup of the connection, and internal DNS resolves every caller to the load balancer's name",
+        ],
+        answer: 0,
+        explanation:
+          "The load balancer re-establishes its own connection to the web server, so unless X-Forwarded-For is specifically configured and captured, the web server's log shows the load balancer's own address for every request, regardless of the real source. IIS does not put X-Forwarded-For into c-ip by default, capturing it takes deliberate configuration, and the load balancer appends to that header rather than replacing the client. The address IIS sees belongs to the load balancer that opened the connection, not the WAF. And c-ip is the TCP peer's IP address, not the result of a DNS lookup.",
+      },
+    },
+    {
       type: "log_analysis",
       id: "web-la2",
       heading: "Correlating the WAF Record With the Web-Server Record",
@@ -1143,6 +1143,17 @@ const webAttacksRoom: Room = {
           xp: 30,
         },
       ],
+    },
+    {
+      type: "flag",
+      id: "web-f1",
+      // Pin the correlated WAF+IIS record: the answer is derived from the WAF half
+      // (httpSourceId), not copied from any stem.
+      event: orbitlineCorrelationEvent,
+      prompt: "IIS's cIP for the successful injection points at Orbitline's own load balancer, not the attacker. The WAF half of this correlated record identifies which load balancer handed it the request. Enter that load balancer's name as AWS records it: the name only, without the type prefix or the trailing ID.",
+      answer: "orbitline-prod-alb",
+      hint: "One WAF field says what kind of resource the request came through; another gives that resource's full identifier, in the form type/name/id.",
+      xp: 25,
     },
     {
       type: "question",
@@ -1215,17 +1226,6 @@ const webAttacksRoom: Room = {
       explanation:
         "A web worker process spawning any command interpreter, scripting host or living-off-the-land binary (mshta, rundll32, certutil, whoami, net and the like) is never expected in normal IIS operation, exactly the pattern the final item in this room's ordering task showed you. Any of those is a correct entry, as long as each blank names a different binary. Filtering DeviceProcessEvents on InitiatingProcessFileName = w3wp.exe against a short list of shell/script hosts is a far more targeted detection than trying to catch the web shell's file write itself, since file names and paths are trivial for an attacker to vary while the parent-child relationship is not.",
       xp: 35,
-    },
-    {
-      type: "flag",
-      id: "web-f1",
-      // Pin the correlated WAF+IIS record: the answer is derived from the WAF half
-      // (httpSourceId), not copied from any stem.
-      event: orbitlineCorrelationEvent,
-      prompt: "IIS's cIP for the successful injection points at Orbitline's own load balancer, not the attacker. The WAF half of this correlated record identifies which load balancer handed it the request. Enter that load balancer's name as AWS records it: the name only, without the type prefix or the trailing ID.",
-      answer: "orbitline-prod-alb",
-      hint: "One WAF field says what kind of resource the request came through; another gives that resource's full identifier, in the form type/name/id.",
-      xp: 25,
     },
   ],
 };

@@ -6065,11 +6065,6 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "web-r2",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "web-q1",
         "type": "question",
         "xp": 20
@@ -6081,10 +6076,20 @@ export const ROOMS_META: RoomMeta[] = [
         "mitreTechnique": "T1190"
       },
       {
+        "id": "web-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
         "id": "web-la2",
         "type": "log_analysis",
         "xp": 80,
         "mitreTechnique": "T1190"
+      },
+      {
+        "id": "web-f1",
+        "type": "flag",
+        "xp": 25
       },
       {
         "id": "web-q2",
@@ -6105,11 +6110,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "web-qf1",
         "type": "query_fill",
         "xp": 35
-      },
-      {
-        "id": "web-f1",
-        "type": "flag",
-        "xp": 25
       }
     ]
   },

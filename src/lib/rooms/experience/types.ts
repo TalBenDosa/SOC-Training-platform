@@ -10,7 +10,7 @@
  * Concept doc: docs/CONCEPT-gamified-learning-rooms.md
  */
 
-export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint" | "linux" | "pipeline" | "crypto" | "time" | "forensics" | "identity" | "malware" | "risk" | "patching" | "killchain" | "netsec" | "edr" | "mind" | "sensors" | "webapp" | "lures" | "macos" | "evtx" | "varlog" | "siem" | "ingest" | "email" | "protocols" | "dlp" | "persistence" | "powershell" | "privesc" | "attack" | "ad" | "wazuh" | "sentinel" | "detection" | "m365" | "falcon" | "s1" | "detonation" | "nightqueue" | "forensics2" | "vpn" | "fwlogs" | "dns" | "ngfw" | "avedr" | "llm" | "wire";
+export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint" | "linux" | "pipeline" | "crypto" | "time" | "forensics" | "identity" | "malware" | "risk" | "patching" | "killchain" | "netsec" | "edr" | "mind" | "sensors" | "webapp" | "lures" | "macos" | "evtx" | "varlog" | "siem" | "ingest" | "email" | "protocols" | "dlp" | "persistence" | "powershell" | "privesc" | "attack" | "ad" | "wazuh" | "sentinel" | "detection" | "m365" | "falcon" | "s1" | "detonation" | "nightqueue" | "forensics2" | "vpn" | "fwlogs" | "dns" | "ngfw" | "avedr" | "llm" | "wire" | "webops";
 
 /**
  * The room's 3D world on its main screen. Decorative (never clickable): it shows
@@ -125,8 +125,10 @@ export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" |
  *             a filter, document chunks, a poisoned stack and a copied shadow core
  *  - wirelevel: two racks on a wire with TCP flag switches, a probe along the rack
  *             row, TTL rings counting down, a capture screen and a burst of resets
+ *  - opensesame: requests at a WAF gate, an IIS rack and its log, a second record
+ *             joined by a beam, a scanner node and a stray file spawning a console
  */
-export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver" | "cipherlab" | "chrono" | "dissect" | "idgate" | "specimen" | "riskcore" | "patchline" | "chainlinks" | "zonewall" | "blackbox" | "mindlab" | "sightlines" | "webpath" | "baitshop" | "orchard" | "evtxtape" | "varlog" | "radar" | "intake" | "postmark" | "protostack" | "sealedbrief" | "sparekey" | "objectpipe" | "integrityladder" | "matrixwall" | "domaintree" | "wazuhflow" | "skyquery" | "noisefilter" | "tenantcloud" | "talon" | "storyline" | "detonation" | "nightqueue" | "coldcase" | "longdistance" | "denyall" | "lookup" | "generations" | "secondopinion" | "ignoreall" | "wirelevel";
+export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver" | "cipherlab" | "chrono" | "dissect" | "idgate" | "specimen" | "riskcore" | "patchline" | "chainlinks" | "zonewall" | "blackbox" | "mindlab" | "sightlines" | "webpath" | "baitshop" | "orchard" | "evtxtape" | "varlog" | "radar" | "intake" | "postmark" | "protostack" | "sealedbrief" | "sparekey" | "objectpipe" | "integrityladder" | "matrixwall" | "domaintree" | "wazuhflow" | "skyquery" | "noisefilter" | "tenantcloud" | "talon" | "storyline" | "detonation" | "nightqueue" | "coldcase" | "longdistance" | "denyall" | "lookup" | "generations" | "secondopinion" | "ignoreall" | "wirelevel" | "opensesame";
 
 /** cards: illustrated station cards above the scene. stage: the scene fills the
  *  screen, stations sit in a rail, the selected one in a bottom command bar.
