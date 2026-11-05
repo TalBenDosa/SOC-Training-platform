@@ -32,6 +32,7 @@ function action(lab: BriefingLab): string {
     case "locks": return `Open all ${lab.locks.length} doors by answering each one's question.`;
     case "tricks": return `Flip all ${lab.cards.length} cards and stamp each with ${list(lab.attacks.map(a => a.name))}.`;
     case "sequence": return "Put the moments in the order they really happened.";
+    case "chat": return `Open the chat with ${lab.bot} and reach every goal, starting with: ${lab.goals[0].task}`;
     case "match": return "Pair every item on the left with its partner on the right.";
     case "evidence": return `Name what each of the ${lab.items.length} screens shows.`;
     default: return `Play ${lab.title}.`;
