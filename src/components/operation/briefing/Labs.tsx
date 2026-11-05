@@ -11,6 +11,7 @@ import { EvidenceLab } from "./EvidenceLab";
 import { EncapLab, QueueLab, TerminalLab, TraceLab, WorksheetLab } from "./PracticeLabs";
 import { PcapLab } from "./PcapLab";
 import { ChatLab } from "./ChatLab";
+import { CodebreakLab, DefuseLab, DeduceLab, DuelLab, InterceptLab, OutbreakLab, PathwayLab, RushLab, SpotDiffLab, TuneLab } from "./ArcadeLabs";
 
 /** Every lab reports once when the learner has worked all of it. */
 interface LabProps<K extends BriefingLab["kind"]> {
@@ -290,12 +291,32 @@ export function Lab({ lab, onDone }: { lab: BriefingLab; onDone: () => void }) {
     case "queue":    return <QueueLab lab={lab} onDone={onDone} />;
     case "worksheet": return <WorksheetLab lab={lab} onDone={onDone} />;
     case "pcap":     return <PcapLab lab={lab} onDone={onDone} />;
+    case "intercept": return <InterceptLab lab={lab} onDone={onDone} />;
+    case "duel":     return <DuelLab lab={lab} onDone={onDone} />;
+    case "deduce":   return <DeduceLab lab={lab} onDone={onDone} />;
+    case "tune":     return <TuneLab lab={lab} onDone={onDone} />;
+    case "pathway":  return <PathwayLab lab={lab} onDone={onDone} />;
+    case "defuse":   return <DefuseLab lab={lab} onDone={onDone} />;
+    case "outbreak": return <OutbreakLab lab={lab} onDone={onDone} />;
+    case "codebreak": return <CodebreakLab lab={lab} onDone={onDone} />;
+    case "rush":     return <RushLab lab={lab} onDone={onDone} />;
+    case "spotdiff": return <SpotDiffLab lab={lab} onDone={onDone} />;
   }
 }
 
 // Default "how to play" steps per lab kind, plus how you know you have finished;
 // a lab can override the steps with howTo.
 const HOW_TO: Record<BriefingLab["kind"], { steps: string[]; done: string }> = {
+  intercept: { steps: ["An item drops toward what you guard.", "Block it or let it through before it lands: doing nothing lets it through.", "A wrong call costs a life. Lose three and the run is over."], done: "the last item has landed and you are still standing" },
+  duel: { steps: ["Read the move the attacker just played.", "Play the one card from your hand that stops it.", "A wrong card costs a life, and a played card is gone."], done: "the attacker is out of moves" },
+  deduce: { steps: ["Read the clue and rule out who it clears with the X.", "Take another clue if you need it: fewer is better.", "Pick a suspect and accuse. You get two accusations."], done: "you name the culprit" },
+  tune: { steps: ["Study the events: what do the attacks share?", "Set the dials, then press Deploy to see what the rule really caught.", "Deploys are limited: hit the goal before you run out."], done: "the rule meets the goal" },
+  pathway: { steps: ["You start on the lit node.", "Tap the next hop among the nodes that connect to it.", "A wrong hop costs a life and tells you why."], done: "you reach the end of the route" },
+  defuse: { steps: ["Read what the device shows.", "Cut the one wire that fits it, before the clock runs out.", "A wrong cut is a strike and costs ten seconds."], done: "every module is safe" },
+  outbreak: { steps: ["Red hosts are infected; lines are the links it can travel.", "Tap one host to isolate it. Then the infection moves one link.", "Cut ahead of it, where one cut protects the most hosts."], done: "the spread stops, the target is safe and enough hosts survive" },
+  codebreak: { steps: ["Read the clue and type a guess of exactly that length.", "Green is the right place; amber is in the code but elsewhere.", "Crack it before your tries run out."], done: "every code is cracked" },
+  rush: { steps: ["Read the card and make the call, fast.", "Streaks multiply your points.", "Reach the target before the clock stops."], done: "you hit the target" },
+  spotdiff: { steps: ["Compare the suspect copy with the known-good one, line by line.", "Tap each line that was tampered with.", "A false accusation costs a life."], done: "every change is found" },
   inspect: { steps: ["Tap each glowing part of the artifact.", "Read the note that opens: it says what that part reveals."], done: "every glowing part is opened" },
   sequence: { steps: ["Read all the steps first.", "Tap them in the order they really happen.", "A wrong tap shakes: think again and tap another."], done: "the whole chain is in order" },
   simulate: { steps: ["Pick one scenario from the list.", "Watch each check run, pass or fail.", "Read why each one passed or failed, then try the next scenario."], done: "every scenario has run" },

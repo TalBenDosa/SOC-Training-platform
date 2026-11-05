@@ -80,26 +80,17 @@ export const DNS_INVESTIGATION: RoomExperience = {
     // ── Reading 1: the resolver ──
     "dns-r1": [
       {
-        kind: "terminal",
-        title: "Ask the Resolver",
-        prompt: "The library's BIND resolver logs every lookup. A branch librarian reports a 'catalogue login' page that looked wrong. Find who looked it up and where it pointed.",
-        shell: "bash",
-        host: "nasrin@pl-dns-01:/var/log/named$",
-        commands: [
-          { match: "grep\\s+(-i\\s+)?catalog.*queries\\.log.*", help: "grep -i catalog queries.log   every lookup with 'catalog' in it",
-            output: "05-Nov-2026 09:12:40 client 10.12.4.31#53112: query: catalogue.pemberton-libraries.example IN A +\n05-Nov-2026 09:14:02 client 10.12.7.18#61044: query: catalogue.pemberton-libraries.example IN A +\n05-Nov-2026 09:15:27 client 10.12.9.66#50311: query: catalogue.pemberton-llbraries.example IN A +\n05-Nov-2026 09:15:29 client 10.12.9.66#50312: query: catalogue.pemberton-llbraries.example IN AAAA +" },
-          { match: "dig\\s+(\\+short\\s+)?catalogue\\.pemberton-llbraries\\.example.*", help: "dig +short catalogue.pemberton-llbraries.example",
-            output: "203.0.113.205" },
-          { match: "dig\\s+(\\+short\\s+)?catalogue\\.pemberton-libraries\\.example.*", help: "dig +short catalogue.pemberton-libraries.example",
-            output: "10.12.0.40" },
-          { match: "grep\\s+10\\.12\\.9\\.66\\s+.*dhcp.*|grep\\s+10\\.12\\.9\\.66.*", help: "grep 10.12.9.66 /var/log/dhcpd.log | tail -1   which machine had that address",
-            output: "05-Nov-2026 08:31:05 DHCPACK on 10.12.9.66 to 3c:52:82:7a:19:04 (PL-HARROW-PC07) via eth0" },
+        kind: "codebreak",
+        title: "Read the Resolver Log",
+        prompt: "Nasrin pins the library resolver's query log to the wall: every line is a client, a name and a record type. A branch reports a 'catalogue login' page that looked wrong. Before you hunt, decode the words the log speaks. Each clue is a line you will meet there.",
+        tries: 6,
+        rounds: [
+          { id: "c1", clue: "The query type for the IPv6 address of a name. The same client asks for it right after the plain IPv4 lookup, within a second or two.", answer: "AAAA", why: "A asks for IPv4, AAAA for IPv6. Browsers send both back to back, so a pair like that is one page load, not two events." },
+          { id: "c2", clue: "A record type that holds free text, used for SPF and domain verification. Malware likes it because the answer can carry any string.", answer: "TXT", why: "TXT answers are free text, so a long run of TXT queries to one odd parent domain is worth a look. Ordinary web traffic asks for A and AAAA." },
+          { id: "c3", clue: "An alias record: one name says 'I am really that other name', which is how CDNs chain names together. Five letters.", answer: "CNAME", why: "CNAME answers point to another name, so a long chain to unfamiliar domains is normal for a CDN and still worth reading. Resolve the final name before judging." },
+          { id: "c4", clue: "The service whose lease log turns a client IP in the resolver log into a machine name. Four letters.", answer: "DHCP", why: "The resolver log shows only an IP. The DHCP lease at that time names the machine, and the hunt then moves to that host. Check the lease time against the query time." },
         ],
-        objectives: [
-          { id: "host", task: "Which client IP looked up the lookalike name?", hint: "grep -i catalog queries.log", answer: ["10.12.9.66"], why: "Two l's where the i should be: 'llbraries'. Only one client asked for it." },
-          { id: "ip", task: "Where does the lookalike point?", hint: "dig +short catalogue.pemberton-llbraries.example", answer: ["203.0.113.205"], why: "An internet address, while the real catalogue is internal at 10.12.0.40." },
-          { id: "pc", task: "Which library PC had that IP at the time?", hint: "grep 10.12.9.66 dhcpd.log", answer: ["pl-harrow-pc07", "harrow-pc07"], why: "DHCP turns an IP into a machine. Now the hunt moves to PL-HARROW-PC07 itself." },
-        ],
+        lesson: "Learn to read a DNS log in its own words: the type says what was asked, the answer says where it points, and the lease turns a client IP into a machine. A lookalike name is only the start; the record type and the client decide the next step.",
       },
     ],
     // ── Reading 2: signature mechanic, trick cards ──
@@ -127,21 +118,29 @@ export const DNS_INVESTIGATION: RoomExperience = {
     // ── Reading 3: metrics ──
     "dns-r3": [
       {
-        kind: "sort",
-        title: "Normal or Alarm?",
-        prompt: "Before you call a storm, know what quiet looks like. Sort each DNS metric from the library network.",
-        buckets: [
-          { id: "normal", label: "Normal for a busy network" },
-          { id: "alarm", label: "Worth an alarm" },
+        kind: "tune",
+        title: "Tune the Hunter",
+        prompt: "Nasrin's rule watches the labels in front of each parent domain: how long the average label is and how random its letters are (entropy, in bits per character). Set both, deploy, and see which domains the rule calls tunnels and which honest long names it trips on.",
+        eventColumn: "Parent domain, 10 minutes of lookups",
+        dials: [
+          { id: "len", label: "Average label length", short: "length", unit: "chars", min: 5, max: 60, step: 1, start: 10 },
+          { id: "ent", label: "Randomness of the label", short: "entropy", unit: "bits/char", min: 2, max: 5, step: 0.25, start: 3 },
         ],
-        items: [
-          { id: "nx2", text: "A branch with 2% NXDOMAIN answers over a day", bucket: "normal", why: "Typos and stale links: a few failures are normal background." },
-          { id: "look", text: "A public PC looking up a name one letter away from the catalogue's", bucket: "alarm", why: "A lookalike of your own service is almost never an accident." },
-          { id: "bypass", text: "A public PC sending queries straight to an outside resolver, skipping the library's", bucket: "alarm", why: "Bypassing the resolver dodges logging and filtering on purpose." },
-          { id: "new", text: "Lookups for a domain registered six hours ago", bucket: "alarm", why: "Brand-new domains are a favourite for phishing and C2." },
-          { id: "cdn", text: "Thousands of lookups a day for the catalogue system's own name", bucket: "normal", why: "Popular is not suspicious when it's your own service." },
-          { id: "update", text: "Every PC looking up the OS vendor's update server each morning", bucket: "normal", why: "A fleet doing exactly what it should, at the same time." },
+        events: [
+          { id: "d1", label: "sync-branch.example · 50-char base32 labels, steady every few seconds", bad: true, values: { len: 50, ent: 4.25 } },
+          { id: "d2", label: "pl-backup.example · 46-char base64url labels in TXT lookups", bad: true, values: { len: 46, ent: 4.5 } },
+          { id: "d3", label: "mirror-pemberton.example · 44-char mixed-case labels", bad: true, values: { len: 44, ent: 4.75 } },
+          { id: "d4", label: "kiosk-update.example · 56-char base32 labels", bad: true, values: { len: 56, ent: 4.25 } },
+          { id: "d5", label: "antivirus cloud lookup · 40-char SHA-1 hex of a file", bad: false, values: { len: 40, ent: 3.75 } },
+          { id: "d6", label: "build-artifacts-eu-west-staging.pemberton.example · long readable name", bad: false, values: { len: 30, ent: 3 } },
+          { id: "d7", label: "session id in a streaming CDN hostname", bad: false, values: { len: 20, ent: 4.5 } },
+          { id: "d8", label: "device telemetry vendor · 48-char encoded ids", bad: false, values: { len: 48, ent: 4 } },
+          { id: "d9", label: "short CDN edge name", bad: false, values: { len: 12, ent: 3.5 } },
+          { id: "d10", label: "dashed readable names under the catalogue domain", bad: false, values: { len: 52, ent: 3.25 } },
         ],
+        goal: { catch: 4, maxFalse: 0 },
+        deploys: 3,
+        lesson: "Tunnels need both: labels long enough to carry data and random enough to be encoded data. Length alone trips on readable names, entropy alone trips on short random IDs, and a threshold at an even 4.0 still trips on a vendor's encoded identifiers.",
       },
     ],
   },

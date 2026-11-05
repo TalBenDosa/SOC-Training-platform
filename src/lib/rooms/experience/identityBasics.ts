@@ -7,20 +7,12 @@ import type { RoomExperience } from "./types";
 // Caldera Health (fictional). Lab data differs from the graded tasks: the factor
 // combos never pair a password with a security question (q1), the credential
 // sort asks "is it proof?" rather than "what does stealing it give?" (m1), the
-// containment console is the review step on an account already blocked and
-// revoked, so it never gives the order (o1), the push-storm log is a real attack
+// cleanup duel is the review step on an account already blocked and revoked,
+// so it never gives the order (o1), the push-storm log is a real attack
 // at another tenant, not ac1's verified helpdesk case, the account sort explains
 // how to recognise each type, not why attackers want service accounts (q3), and
-// the 4625/4624 hunt is RDP on SRV-JUMP02 from 198.51.100.77, never la1's
+// the 4625 burst alert uses other accounts and addresses, never la1's
 // b.osei, SRV-FILE03 or 185.220.101.47 (la1, f1).
-const JWT =
-  "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9" +
-  ".eyJhdWQiOiJodHRwczovL2dyYXBoLm1pY3Jvc29mdC5jb20iLCJpc3MiOiJodHRwczovL3N0cy53aW5kb3dzLm5ldC83ZjNjMmE5MS01ZTRiLTRkOGEtOWMyMS0wYjZlNGY4ZDJhMTcvIiwiaWF0IjoxNzkzNzkwMDAwLCJuYmYiOjE3OTM3OTAwMDAsImV4cCI6MTc5Mzc5NDgwNSwiYW1yIjpbInB3ZCIsIm1mYSJdLCJpcGFkZHIiOiIyMDMuMC4xMTMuNDQiLCJuYW1lIjoiTWF5YSBTYW50b3MiLCJ1cG4iOiJtLnNhbnRvc0BjYWxkZXJhaGVhbHRoLmV4YW1wbGUiLCJzY3AiOiJNYWlsLlJlYWQgRmlsZXMuUmVhZC5BbGwifQ" +
-  ".TRAINING-ONLY-not-a-real-signature";
-const PAYLOAD =
-  "{\"aud\":\"https://graph.microsoft.com\",\"iss\":\"https://sts.windows.net/7f3c2a91-5e4b-4d8a-9c21-0b6e4f8d2a17/\",\"iat\":1793790000,\"nbf\":1793790000,\"exp\":1793794805,\"amr\":[\"pwd\",\"mfa\"],\"ipaddr\":\"203.0.113.44\",\"name\":\"Maya Santos\",\"upn\":\"m.santos@calderahealth.example\",\"scp\":\"Mail.Read Files.Read.All\"}";
-const CUT = "cut\\s+-d\\s*['\"]?\\.['\"]?\\s+-f\\s*";
-const UPN = "m.santos@calderahealth.example";
 
 export const IDENTITY_BASICS: RoomExperience = {
   roomId: "identity-basics",
@@ -67,7 +59,7 @@ export const IDENTITY_BASICS: RoomExperience = {
       id: "tokens",
       label: "Credentials and Tokens",
       topic: "Passwords, hashes, keys, certificates · session tokens and what's inside a JWT",
-      tagline: "Decode a stolen token on the command line",
+      tagline: "Judge a stolen token by its claims",
       building: "archive",
       taskIds: ["idbasics-r3", "idbasics-m1", "idbasics-r4", "idbasics-q2"],
     },
@@ -187,60 +179,52 @@ export const IDENTITY_BASICS: RoomExperience = {
     // ── Reading 4: sessions and tokens ──
     "idbasics-r4": [
       {
-        kind: "terminal",
-        title: "Decode the Stolen Token",
-        prompt: "This token was found in an infostealer dump this morning. A JWT is three base64url parts joined by dots: header, payload (the claims), signature. Decode it and tell Noa what it unlocks.",
-        shell: "bash",
-        host: "analyst@ir-box:~/case-4471$",
-        commands: [
-          { match: "cat\\s+token\\.txt", help: "cat token.txt                                  the raw token: header.payload.signature",
-            output: JWT },
-          { match: CUT + "1\\s+token\\.txt\\s*\\|\\s*base64\\s+(-d|--decode).*", help: "cut -d. -f1 token.txt | base64 -d              decode the header",
-            output: "{\"alg\":\"RS256\",\"typ\":\"JWT\"}" },
-          { match: CUT + "2\\s+token\\.txt\\s*\\|\\s*base64\\s+(-d|--decode).*\\|\\s*jq.*", help: "cut -d. -f2 token.txt | base64 -d 2>/dev/null | jq .   decode the claims, pretty-printed",
-            output: "{\n  \"aud\": \"https://graph.microsoft.com\",\n  \"iss\": \"https://sts.windows.net/7f3c2a91-5e4b-4d8a-9c21-0b6e4f8d2a17/\",\n  \"iat\": 1793790000,\n  \"nbf\": 1793790000,\n  \"exp\": 1793794805,\n  \"amr\": [\n    \"pwd\",\n    \"mfa\"\n  ],\n  \"ipaddr\": \"203.0.113.44\",\n  \"name\": \"Maya Santos\",\n  \"upn\": \"m.santos@calderahealth.example\",\n  \"scp\": \"Mail.Read Files.Read.All\"\n}" },
-          { match: CUT + "2\\s+token\\.txt\\s*\\|\\s*base64\\s+(-d|--decode).*", help: "cut -d. -f2 token.txt | base64 -d              decode the claims, raw",
-            output: PAYLOAD + "base64: invalid input\n(base64url drops the '=' padding, so base64 complains at the end. The JSON above is complete.)" },
-          { match: "date\\s+(-u\\s+)?(-d|--date)\\s*['\"]?@1793794805['\"]?(\\s+-u)?", help: "date -u -d @1793794805                         turn an epoch claim into a UTC time",
-            output: "Wed Nov  4 12:20:05 UTC 2026" },
-          { match: "date\\s+(-u\\s+)?(-d|--date)\\s*['\"]?@1793790000['\"]?(\\s+-u)?",
-            output: "Wed Nov  4 11:00:00 UTC 2026" },
+        kind: "intercept",
+        title: "Token at the Records API",
+        prompt: "Noa has put you on the Caldera records API. Every call arrives with a token already decoded for you. A token is a claim sheet: accept the calls whose claims fit this API, reject the ones that do not.",
+        protect: "the records API",
+        blockLabel: "Reject",
+        passLabel: "Accept",
+        seconds: 11,
+        items: [
+          { id: "t1", text: "GET /records/2210", sub: "aud api://caldera-records · scp Records.Read · amr pwd, mfa · exp in 38 min", bad: false, why: "Right audience, a scope that covers a read, MFA recorded in amr and time left on exp. Every claim the API cares about fits." },
+          { id: "t2", text: "GET /records/2210", sub: "aud https://graph.microsoft.com · scp Mail.Read · amr pwd, mfa · exp in 20 min", bad: true, why: "A genuine token, but aud names Microsoft Graph. A token minted for another service must not work here, or one stolen mailbox token opens every API." },
+          { id: "t3", text: "GET /records/2210", sub: "aud api://caldera-records · scp Records.Read · amr pwd, mfa · exp 3 min ago", bad: true, why: "Every claim is perfect except exp, which is in the past. Expiry is the only thing that limits a stolen token, so it is never skipped." },
+          { id: "t4", text: "GET /records/7312", sub: "aud api://caldera-records · scp Records.Read · amr pwd · exp in 50 min", bad: true, why: "Patient records require MFA, and amr lists only pwd. This session was issued from a password alone, whatever the user's account is enrolled for." },
+          { id: "t5", text: "GET /records/7312", sub: "aud api://caldera-records · scp Records.Read Records.Write · amr pwd, mfa · ipaddr 203.0.113.9 · exp in 30 min", bad: false, why: "An unfamiliar ipaddr feels wrong, but the API enforces audience, expiry and scope. A new location is a question for the sign-in log and risk policy, not a reason to reject a valid claim sheet here." },
+          { id: "t6", text: "GET /records/2210", sub: "aud api://caldera-records · scp Records.Read · amr pwd, mfa · signature invalid, kid not in the tenant keys", bad: true, why: "Claims in a token are only text until the signature checks out. Anyone can write a payload that looks right; the signature is what makes it a claim." },
+          { id: "t7", text: "DELETE /records/2210", sub: "aud api://caldera-records · scp Records.Read · amr pwd, mfa · exp in 40 min", bad: true, why: "Authentication is fine, authorization is not: scp grants reads, and this call deletes. The scope is the door, and this one is closed." },
+          { id: "t8", text: "GET /records/export", sub: "appid svc-patch · roles Records.Read.All · no user, no amr · exp in 55 min", bad: false, why: "An app token has no amr because no person signed in, so a missing MFA claim is normal here. Its authority is in roles, and Records.Read.All covers the call." },
+          { id: "t9", text: "GET /records/2210", sub: "header alg none · no signature part · aud api://caldera-records · exp in 59 min", bad: true, why: "alg none claims no signature is needed. A validator must pin the expected algorithm and keys, never take them from the token." },
+          { id: "t10", text: "GET /records/8841", sub: "aud api://caldera-records · scp Records.Read · amr pwd, mfa · nbf 58 min ago · exp in 2 min", bad: false, why: "Two minutes left is still valid. Compare with the expired token: the question is exp against the clock, not how close it is." },
         ],
-        objectives: [
-          { id: "who", task: "Whose session is this? Give the upn claim.", hint: "cut -d. -f2 token.txt | base64 -d 2>/dev/null | jq .", answer: [UPN], why: "upn is the signed-in user. The token is Maya Santos, a radiologist, as far as Microsoft Graph is concerned." },
-          { id: "aud", task: "Which service will accept it (aud)?", hint: "Read the aud claim.", answer: ["https://graph.microsoft.com", "graph.microsoft.com", "microsoft graph", "graph"], why: "aud is the audience: Microsoft Graph, the API behind her mail and files." },
-          { id: "scp", task: "What may it do? Name one permission in scp.", hint: "scp holds space-separated scopes.", answer: ["Mail.Read", "Files.Read.All", "Mail.Read Files.Read.All"], why: "Mail.Read and Files.Read.All: whoever holds it can read her mailbox and every file she can see." },
-          { id: "amr", task: "Was MFA performed when it was issued? Which amr value says so?", hint: "amr lists the authentication methods used.", answer: ["mfa"], why: "amr [\"pwd\",\"mfa\"]: password and a second factor. The thief never has to pass either; that already happened." },
-          { id: "exp", task: "Until what UTC time is it valid? (HH:MM)", hint: "date -u -d @1793794805", answer: ["12:20", "12:20:05"], why: "exp 1793794805 is 12:20:05 UTC: about 80 minutes after iat. Short, but enough to download a mailbox." },
-        ],
+        lesson: "A token is a claim sheet you check in order: signature first, then aud, exp, scp or roles, and amr when the data demands MFA. App tokens carry roles and no amr, and a strange ipaddr is a detection question rather than a validation failure.",
       },
     ],
     // ── Reading 5: containment, then review ──
     "idbasics-r5": [
       {
-        kind: "terminal",
-        title: "What Did They Leave Behind?",
-        prompt: "The on-call has already contained Maya's account. Your step is the review: check the containment held, then find what the attacker created while the session was live.",
-        shell: "powershell",
-        host: "PS C:\\IR>",
-        commands: [
-          { match: "get-mguser\\s+.*", help: `Get-MgUser -UserId ${UPN} -Property AccountEnabled,SignInSessionsValidFromDateTime | Format-List AccountEnabled,SignInSessionsValidFromDateTime   is it contained?`,
-            output: "AccountEnabled                  : False\nSignInSessionsValidFromDateTime : 11/4/2026 12:41:07 PM" },
-          { match: "get-mgauditlogdirectoryaudit.*", help: `Get-MgAuditLogDirectoryAudit -Filter "targetResources/any(t:t/userPrincipalName eq '${UPN}')" -Top 6 | Format-Table ActivityDateTime,ActivityDisplayName,Result   directory changes to her account`,
-            output: "ActivityDateTime      ActivityDisplayName           Result\n----------------      -------------------           ------\n11/4/2026 12:41:07 PM Update user                   success\n11/4/2026 11:37:15 AM Consent to application        success\n11/4/2026 11:24:40 AM User registered security info success\n11/2/2026 6:00:12 AM  Update user                   success" },
-          { match: "get-mguserauthenticationphonemethod.*", help: `Get-MgUserAuthenticationPhoneMethod -UserId ${UPN}   phone numbers registered for MFA`,
-            output: "Id                                   PhoneNumber     PhoneType       SmsSignInState\n--                                   -----------     ---------       --------------\n3179e48a-750b-4051-897c-87b9720928f7 +1 4255550142   mobile          notConfigured\nb6332ec1-7057-4abe-9331-3d72feddfe41 +44 7700900318  alternateMobile notConfigured" },
-          { match: "get-inboxrule\\s+.*\\|\\s*(format-list|fl).*", help: `Get-InboxRule -Mailbox ${UPN} | Format-List Name,Enabled,From,ForwardTo,MarkAsRead,MoveToFolder   every rule, every setting`,
-            output: "Name         : Out of office\nEnabled      : False\nFrom         :\nForwardTo    :\nMarkAsRead   : False\nMoveToFolder :\n\nName         : .\nEnabled      : True\nFrom         : {}\nForwardTo    : {\"ledger.sync@outlook-mail.example\" [SMTP:ledger.sync@outlook-mail.example]}\nMarkAsRead   : True\nMoveToFolder : RSS Feeds" },
-          { match: "get-inboxrule\\s+.*", help: `Get-InboxRule -Mailbox ${UPN}                   list her mailbox rules`,
-            output: "Name          Enabled Priority RuleIdentity\n----          ------- -------- ------------\nOut of office False   1        11392810893418348545\n.             True    2        11392810893418348546" },
+        kind: "duel",
+        title: "What the Intruder Left",
+        prompt: "Maya's account is already blocked and her sessions revoked, but the on-call needs your review. The intruder planted things while the session was live. Each move below is something still standing: play the one card that removes it.",
+        attacker: "The intruder (live session, 11:00 to 12:41 UTC)",
+        moves: [
+          { id: "d1", move: "A second phone for MFA", detail: "User registered security info at 11:24: an alternateMobile Maya never added.", counter: "kdelphone", hint: "It is a factor the attacker will pass at the next reset.", why: "A planted MFA method turns any later password reset into a clean takeover. Delete the method from the authentication methods list; resetting the password alone leaves it in place." },
+          { id: "d2", move: "A rule named with one character", detail: "Inbox rule: forward everything to an outside address, mark as read, move to RSS Feeds.", counter: "krule", hint: "Revoking sessions does not touch mailbox settings.", why: "Rules live in the mailbox, not in the sign-in. Block and revoke leave them running, so remove the rule and check ForwardingSmtpAddress too." },
+          { id: "d3", move: "Consent to an app at 11:37", detail: "The app now holds its own tokens for Maya's mail and files.", counter: "kconsent", hint: "The tokens belong to the app, not to her session.", why: "A consent grant gives the app its own refresh tokens that outlive the user's sessions. Remove the consent and the app's access for that user." },
+          { id: "d4", move: "A refresh token issued before the block", detail: "Replayed from a new IP: the token was minted at 11:08, with MFA already satisfied.", counter: "krevoke", hint: "Time is on the attacker's side until the validity line moves.", why: "Revoking sign-in sessions moves SignInSessionsValidFromDateTime forward so every earlier refresh token dies, including the stolen one. Check that the line moved after the block." },
+          { id: "d5", move: "The password, still known", detail: "Captured on the phishing page at 10:57. The account is blocked, but the password is not changed.", counter: "kreset", hint: "Blocking is a pause, not a change.", why: "Unblock the account later with the old password and the attacker walks back in. Reset it, after the planted factor is gone, so the reset cannot be hijacked." },
         ],
-        objectives: [
-          { id: "held", task: "From what UTC time are only fresh sign-ins valid? (HH:MM)", hint: `Get-MgUser -UserId ${UPN} -Property AccountEnabled,SignInSessionsValidFromDateTime | Format-List AccountEnabled,SignInSessionsValidFromDateTime`, answer: ["12:41", "12:41:07"], why: "SignInSessionsValidFromDateTime is the revocation line: every refresh token and session issued before 12:41:07 is now dead, including the stolen one." },
-          { id: "phone", task: "The attacker registered a second phone for MFA. What number?", hint: `Get-MgUserAuthenticationPhoneMethod -UserId ${UPN}`, answer: ["+44 7700900318", "+447700900318", "07700900318", "7700900318"], why: "An alternateMobile she never added, registered at 11:24 during the stolen session. Left in place, the attacker passes MFA on the next reset. Delete it." },
-          { id: "rule", task: "Where does her hidden inbox rule forward mail?", hint: `Get-InboxRule -Mailbox ${UPN} | Format-List Name,Enabled,From,ForwardTo,MarkAsRead,MoveToFolder`, answer: ["ledger.sync@outlook-mail.example"], why: "A rule named '.' that forwards everything, marks it read and hides it in RSS Feeds: classic. Revoking sessions does not delete it; the mail keeps flowing until you do." },
-          { id: "consent", task: "What else happened at 11:37 that needs review? (the activity name)", hint: "Read the audit log rows during the session.", answer: ["Consent to application", "consent", "app consent"], why: "A consent grant gives an app its own tokens to her data. Those survive a session revoke, so the grant must be removed separately." },
+        cards: [
+          { id: "kdelphone", name: "Delete the unknown phone method", effect: "Removes an MFA method the user did not register." },
+          { id: "krule", name: "Remove the inbox rule", effect: "Deletes the rule and clears mailbox-level forwarding." },
+          { id: "kconsent", name: "Revoke the app consent", effect: "Removes the grant and the app's tokens for this user." },
+          { id: "krevoke", name: "Revoke sign-in sessions", effect: "Invalidates every refresh token issued before now." },
+          { id: "kreset", name: "Reset the password", effect: "Replaces the secret the attacker captured." },
+          { id: "kblock", name: "Block sign-in again", effect: "Disables the account, which is already blocked in this case." },
+          { id: "knumber", name: "Turn on number matching", effect: "Hardens future push approvals for the whole tenant." },
         ],
+        lesson: "Containment and cleanup are different jobs. Blocking and revoking end the session; the factor, the rule, the consent and the password are separate footholds, and each needs its own removal.",
       },
     ],
     // ── Reading 6: what MFA proves ──
@@ -315,25 +299,30 @@ export const IDENTITY_BASICS: RoomExperience = {
     // ── Reading 8: Windows authentication events ──
     "idbasics-r8": [
       {
-        kind: "terminal",
-        title: "Hunt the Guessed Password",
-        prompt: "SRV-JUMP02 is Caldera's RDP jump server, reachable from the VPN pool. The overnight report flagged failures on it. Pull the events and find out whether anyone got in.",
-        shell: "powershell",
-        host: "PS C:\\Users\\analyst>",
-        commands: [
-          { match: "get-winevent\\s+.*4625.*(count|group).*", help: "Get-WinEvent -FilterHashtable @{LogName='Security';Id=4625} | Group-Object {$_.Properties[5].Value} | Select Count,Name   failures per account",
-            output: "Count Name\n----- ----\n    9 t.lindqvist\n    1 m.santos" },
-          { match: "get-winevent\\s+.*4625.*", help: "Get-WinEvent -FilterHashtable @{LogName='Security';Id=4625} | Select TimeCreated,@{n='User';e={$_.Properties[5].Value}},@{n='Type';e={$_.Properties[10].Value}},@{n='IP';e={$_.Properties[19].Value}}   failed logons",
-            output: "TimeCreated          User        Type IP\n-----------          ----        ---- --\n11/4/2026 2:14:51 AM t.lindqvist    3 198.51.100.77\n11/4/2026 2:14:44 AM t.lindqvist    3 198.51.100.77\n11/4/2026 2:14:37 AM t.lindqvist    3 198.51.100.77\n11/4/2026 2:14:30 AM t.lindqvist    3 198.51.100.77\n11/4/2026 2:14:23 AM t.lindqvist    3 198.51.100.77\n11/4/2026 2:14:16 AM t.lindqvist    3 198.51.100.77\n11/4/2026 2:14:09 AM t.lindqvist    3 198.51.100.77\n11/4/2026 2:14:02 AM t.lindqvist    3 198.51.100.77\n11/4/2026 2:13:55 AM t.lindqvist    3 198.51.100.77\n11/3/2026 8:12:40 AM m.santos       3 10.20.31.14" },
-          { match: "get-winevent\\s+.*4624.*", help: "Get-WinEvent -FilterHashtable @{LogName='Security';Id=4624} -MaxEvents 4 | Select TimeCreated,@{n='User';e={$_.Properties[5].Value}},@{n='Type';e={$_.Properties[8].Value}},@{n='IP';e={$_.Properties[18].Value}}   successful logons",
-            output: "TimeCreated          User         Type IP\n-----------          ----         ---- --\n11/4/2026 2:15:03 AM t.lindqvist    10 198.51.100.77\n11/4/2026 2:15:02 AM t.lindqvist     3 198.51.100.77\n11/4/2026 1:00:04 AM svc_patch       5 -\n11/3/2026 8:12:58 AM m.santos       10 10.20.31.14" },
+        kind: "tune",
+        title: "Set the Guessing Alert",
+        prompt: "SRV-JUMP02 is Caldera's RDP jump server, and Noa wants an alert on guessed passwords without paging the desk for every forgotten one. Each row is a burst of 4625 failures against one account. Set how many failures and how tight a window, deploy, and see what the rule caught.",
+        eventColumn: "4625 burst on one account",
+        dials: [
+          { id: "fails", label: "Failures before the alert", short: "failures", unit: "fails", min: 2, max: 15, step: 1, start: 3 },
+          { id: "span", label: "All inside this window", short: "window", unit: "min", min: 1, max: 120, step: 1, start: 120, dir: "below" },
         ],
-        objectives: [
-          { id: "acct", task: "Which account took the burst of failures?", hint: "Get-WinEvent -FilterHashtable @{LogName='Security';Id=4625} | Group-Object {$_.Properties[5].Value} | Select Count,Name", answer: ["t.lindqvist"], why: "Nine failures in under a minute against one account from one address: guessing, not a typo." },
-          { id: "ip", task: "From which IP?", hint: "List the failed logons with their IP.", answer: ["198.51.100.77"], why: "One external address, seven seconds apart: a script, not a person." },
-          { id: "in", task: "Did it get in? Give the time of the successful RDP logon (H:MM:SS AM).", hint: "Pull the 4624 events.", answer: ["2:15:03 AM", "2:15:03", "02:15:03"], why: "Twelve seconds after the last failure, a 4624 from the same IP. The guess worked." },
-          { id: "type", task: "What LogonType is that success, and what does it mean?", hint: "Read the Type column on the 4624.", answer: ["10", "rdp", "remoteinteractive", "10 rdp", "remote desktop"], why: "10 is RemoteInteractive: a full desktop on the jump server. The failures show 3 because with NLA, RDP checks the password as a network logon before the session opens." },
+        events: [
+          { id: "e1", label: "k.vogel · RDP from 203.0.113.58 · LogonType 3, then a 4624 LogonType 10", bad: true, values: { fails: 9, span: 1 } },
+          { id: "e2", label: "svc_scan · one service account hit from one address · NTLM", bad: true, values: { fails: 14, span: 3 } },
+          { id: "e3", label: "d.marsh · RDP from 203.0.113.58 · LogonType 3", bad: true, values: { fails: 6, span: 2 } },
+          { id: "e4", label: "a.fischer · RDP from 198.51.100.140 · LogonType 3, then a 4624 LogonType 10", bad: true, values: { fails: 7, span: 4 } },
+          { id: "e5", label: "t.novak · first Monday after leave, typed an old password", bad: false, values: { fails: 5, span: 2 } },
+          { id: "e6", label: "r.imani · new starter, first logon at the desk", bad: false, values: { fails: 4, span: 3 } },
+          { id: "e7", label: "h.berg · one typo with caps lock on", bad: false, values: { fails: 3, span: 1 } },
+          { id: "e8", label: "m.santos · phone mail app with a stale saved password", bad: false, values: { fails: 7, span: 55 } },
+          { id: "e9", label: "svc_patch · scheduled task after a password expiry", bad: false, values: { fails: 11, span: 120 } },
+          { id: "e10", label: "reception kiosk · shared logon, staff taking turns", bad: false, values: { fails: 5, span: 40 } },
+          { id: "e11", label: "j.cole · old laptop retrying after a reset", bad: false, values: { fails: 8, span: 90 } },
         ],
+        goal: { catch: 4, maxFalse: 0 },
+        deploys: 3,
+        lesson: "Guessing is failures packed into a short window, and a raw 4625 count cannot tell it from a stale phone password retrying slowly. Raise the threshold past honest typing and shrink the window until retry loops fall outside it. Over RDP with NLA the failures show LogonType 3, and a success afterward shows 10, RemoteInteractive.",
       },
     ],
     // Drill before the graded file-server record: a 4625 from the jump-server hunt, field by field.

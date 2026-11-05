@@ -363,6 +363,143 @@ export type BriefingLab = ({
       capture: string;
       packets: { no: number; time: string; src: string; dst: string; proto: string; len: number; info: string; tree: string[]; /** readable payload bytes, if any */ data?: string }[];
       objectives: { id: string; task: string; /** a display filter to suggest */ hint: string; answer: string[]; why: string }[];
+    }
+  | {
+      /** Arcade. Items drop toward what you guard; block or let through before
+       *  they land. Wrong calls cost a life. 8 to 12 items; the clock tightens. */
+      kind: "intercept";
+      title: string;
+      prompt: string;
+      /** What is being guarded, a short name: "RKW-DC01", "the mail gateway". */
+      protect: string;
+      blockLabel?: string;
+      passLabel?: string;
+      /** Seconds for the first item to land (default 10). */
+      seconds?: number;
+      items: { id: string; text: string; sub?: string; bad: boolean; why: string }[];
+      lesson: string;
+    }
+  | {
+      /** Card duel. The attacker plays a move each round; the learner plays the
+       *  one card that stops it. Played cards are gone; wrong cards cost a life.
+       *  4 to 6 moves, and at least two more cards than moves. */
+      kind: "duel";
+      title: string;
+      prompt: string;
+      attacker: string;
+      moves: { id: string; move: string; detail: string; counter: string; hint: string; why: string }[];
+      cards: { id: string; name: string; effect: string }[];
+      lesson: string;
+    }
+  | {
+      /** Whodunit. Clues arrive one at a time; the learner strikes out suspects
+       *  and accuses, with two accusations and fewer clues scoring better. */
+      kind: "deduce";
+      title: string;
+      prompt: string;
+      nameColumn: string;
+      columns: string[];
+      suspects: { id: string; name: string; cells: string[] }[];
+      clues: string[];
+      culprit: string;
+      why: string;
+    }
+  | {
+      /** Tune a detection: set the dials, deploy, see what it really caught.
+       *  Results show only on deploy, and deploys are limited. */
+      kind: "tune";
+      title: string;
+      prompt: string;
+      eventColumn: string;
+      dials: { id: string; label: string; short?: string; unit?: string; min: number; max: number; step: number; start: number; dir?: "above" | "below" }[];
+      /** "all": every dial must trip (default behaviour of an AND rule). */
+      mode?: "all" | "any";
+      events: { id: string; label: string; bad: boolean; values: Record<string, number> }[];
+      goal: { catch: number; maxFalse: number };
+      deploys?: number;
+      lesson: string;
+    }
+  | {
+      /** Walk a real route across a map, hop by hop. A wrong hop costs a life
+       *  and says why. Node x and y are percentages of the map. */
+      kind: "pathway";
+      title: string;
+      prompt: string;
+      goal: string;
+      nodes: { id: string; label: string; sub?: string; x: number; y: number }[];
+      edges: [string, string][];
+      route: string[];
+      /** Shown on reaching a node of the route. */
+      notes: Record<string, string>;
+      /** Shown on a wrong hop to this node. */
+      traps: Record<string, string>;
+      lesson: string;
+    }
+  | {
+      /** Timed device: read the state, cut the one wire that fits. A wrong cut
+       *  is a strike and costs ten seconds. 3 to 5 modules, 3 wires each. */
+      kind: "defuse";
+      title: string;
+      prompt: string;
+      device: string;
+      seconds: number;
+      rounds: { id: string; state: string; wires: { id: string; label: string }[]; cut: string; hint: string; why: string }[];
+      lesson: string;
+    }
+  | {
+      /** A live spread simulation on a network drawn fresh each run. Each turn the
+       *  learner isolates one host, then the infection moves one link. Shows why
+       *  you cut ahead of the spread, at the place the network narrows. */
+      kind: "outbreak";
+      title: string;
+      prompt: string;
+      hostPrefix: string;
+      cols: number;
+      rows: number;
+      /** What must not fall, a short name: "the DC", "BACKUP". */
+      crown: string;
+      /** How it moves, finishing "It spreads by ...": "SMB with a stolen admin hash". */
+      via: string;
+      lesson: string;
+    }
+  | {
+      /** Guess a code from a clue, with letter feedback after every try. Answers
+       *  are letters and digits only: a term, port, event ID or technique ID. */
+      kind: "codebreak";
+      title: string;
+      prompt: string;
+      tries?: number;
+      rounds: { id: string; clue: string; answer: string; why: string }[];
+      lesson: string;
+    }
+  | {
+      /** Blitz: rapid two-way calls against the clock, with a streak multiplier
+       *  and a target. 12 to 16 cards. */
+      kind: "rush";
+      title: string;
+      prompt: string;
+      seconds?: number;
+      /** Right answers needed to win. */
+      target: number;
+      trueLabel?: string;
+      falseLabel?: string;
+      cards: { id: string; text: string; answer: boolean; why: string }[];
+      lesson: string;
+    }
+  | {
+      /** Known-good copy beside a suspect copy: find the tampered lines. Wrong
+       *  taps cost a life; decoys are harmless differences with their reason. */
+      kind: "spotdiff";
+      title: string;
+      prompt: string;
+      goodTitle: string;
+      suspectTitle: string;
+      good: string[];
+      suspect: string[];
+      /** Index into `suspect`. */
+      diffs: { line: number; why: string }[];
+      decoys?: { line: number; why: string }[];
+      lesson: string;
     }) & {
   /** Numbered "how to play" steps shown above the lab; each kind has defaults. */
   howTo?: string[];

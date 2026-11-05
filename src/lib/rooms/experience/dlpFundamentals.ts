@@ -81,47 +81,78 @@ export const DLP_FUNDAMENTALS: RoomExperience = {
     // ── Readings 1-2: what DLP is, and its channels ──
     "dlp-r2": [
       {
-        kind: "sort",
-        title: "Who Sees It?",
-        prompt: "Ways a client file could leave Ashby & Rowe this week. Which DLP channel is placed to see each one?",
-        buckets: [
-          { id: "endpoint", label: "Endpoint DLP (agent on the laptop)" },
-          { id: "network", label: "Network DLP (at the boundary)" },
-          { id: "cloud", label: "Cloud / email DLP (inside the service)" },
+        kind: "defuse",
+        title: "Stop the Leak at the Right Sensor",
+        prompt: "Client files are heading out of Ashby & Rowe four different ways this Friday. For each, cut the one control that sits where DLP can actually see and stop it.",
+        device: "Exfil gauge · Friday 17:40",
+        seconds: 90,
+        rounds: [
+          {
+            id: "print",
+            state: "A trainee has opened a 90-page privileged brief and sent it to the printer at her home. The firm VPN is off and nothing is uploaded anywhere.",
+            wires: [
+              { id: "proxy", label: "Block the print vendor's domain at the web gateway" },
+              { id: "endpoint", label: "Endpoint DLP print restriction on the laptop agent" },
+              { id: "mailrule", label: "Exchange mail flow rule for attachments" },
+            ],
+            cut: "endpoint",
+            hint: "Where does the print job travel, and what is on that path?",
+            why: "A local print never crosses the gateway or enters a cloud service, so only the agent on the laptop sees the print action. The gateway and Exchange are watching paths this job never takes.",
+          },
+          {
+            id: "scanner",
+            state: "A legacy scanner pushes matter files over plain FTP, port 21, to an outside print vendor. The scanner has no agent and cannot be given one.",
+            wires: [
+              { id: "agent", label: "Roll out the endpoint DLP agent to the scanner" },
+              { id: "network", label: "Network DLP inspecting traffic leaving the boundary" },
+              { id: "spo", label: "A Purview policy on the SharePoint matter library" },
+            ],
+            cut: "network",
+            hint: "No agent, and the traffic is not encrypted.",
+            why: "Unencrypted FTP crossing the boundary is readable on the wire, which is what network DLP is for. The scanner cannot run an agent, and the files never touch SharePoint.",
+          },
+          {
+            id: "link",
+            state: "A partner has just made an Anyone-with-the-link share on the Corlis matter folder in SharePoint. No file has left the tenant yet.",
+            wires: [
+              { id: "spo", label: "Purview DLP policy on SharePoint sharing" },
+              { id: "endpoint", label: "Endpoint DLP rule on file copy to removable media" },
+              { id: "ftp", label: "Network DLP signature for FTP uploads" },
+            ],
+            cut: "spo",
+            hint: "The action happens inside a service, before any download.",
+            why: "The sharing event lives inside Microsoft 365, so the cloud-side policy sees and can block it at creation. The other two controls watch the laptop and the wire, and nothing is on either.",
+          },
+          {
+            id: "paste",
+            state: "A paralegal is pasting a client's medical report into a public AI chatbot in the browser. The page is HTTPS and the gateway cannot decrypt it.",
+            wires: [
+              { id: "gw", label: "Network DLP at the gateway reading the HTTPS body" },
+              { id: "clip", label: "Endpoint DLP paste control for unsanctioned sites" },
+              { id: "exo", label: "Exchange DLP policy for outbound mail" },
+            ],
+            cut: "clip",
+            hint: "What can see the clipboard before the data is encrypted?",
+            why: "The agent sees the paste in the browser before the data is encrypted. The gateway only sees encrypted bytes it cannot read, and there is no mail involved for Exchange to inspect.",
+          },
         ],
-        items: [
-          { id: "print", text: "A trainee prints a 90-page privileged brief at home", bucket: "endpoint", why: "Printing never touches the network gateway or a cloud service. Only the laptop's agent sees it." },
-          { id: "paste", text: "A paralegal pastes a client's medical report into a public AI chatbot in the browser", bucket: "endpoint", why: "Endpoint DLP can watch clipboard paste into unsanctioned sites and apps." },
-          { id: "ftp", text: "A legacy scanner uploads files over plain FTP to an outside print vendor", bucket: "network", why: "Unencrypted traffic crossing the boundary: exactly what a network DLP appliance can read." },
-          { id: "share", text: "A partner creates an 'Anyone with the link' share on a SharePoint matter folder", bucket: "cloud", why: "The share happens inside Microsoft 365; Purview sees it natively." },
-          { id: "teams", text: "A client's passport scan is posted in a Teams chat with a guest user", bucket: "cloud", why: "Teams messages and files are inspected inside the service." },
-          { id: "mail", text: "An associate emails a settlement draft to opposing counsel's firm", bucket: "cloud", why: "Exchange DLP inspects the message and attachments before they leave." },
-        ],
+        lesson: "Each DLP channel sees a different place: the laptop agent sees print and paste, network DLP sees unencrypted traffic leaving, and cloud DLP sees actions inside the service. Pick the control that sits on the path the data takes.",
       },
     ],
     // ── Readings 3-4: what counts as sensitive, and how sure DLP is ──
     "dlp-r4": [
       {
-        kind: "terminal",
-        title: "Test the Classifier",
-        prompt: "Exchange Online can tell you exactly how its classifiers read a piece of text. Test four snippets from Ashby & Rowe documents and read the confidence.",
-        shell: "powershell",
-        host: "PS C:\\> ",
-        commands: [
-          { match: "test-dataclassification\\s+.*4532981044715563.*(visa|card|expir).*", help: "Test-DataClassification -TextToClassify \"Visa card 4532981044715563 expires 09/28\"   a valid card number with card words around it",
-            output: "ClassificationName : Credit Card Number\nConfidence         : 85\nCount              : 1\nMatchedValues      : 4532981044715563" },
-          { match: "test-dataclassification\\s+.*4532981044715563.*", help: "Test-DataClassification -TextToClassify \"Ref 4532981044715563\"   the same number, no card words",
-            output: "ClassificationName : Credit Card Number\nConfidence         : 65\nCount              : 1\nMatchedValues      : 4532981044715563" },
-          { match: "test-dataclassification\\s+.*4532981044715560.*", help: "Test-DataClassification -TextToClassify \"Visa card 4532981044715560\"   one digit different",
-            output: "(no sensitive information types detected)" },
-          { match: "test-dataclassification\\s+.*(\\d{3}-\\d{2}-\\d{4}).*", help: "Test-DataClassification -TextToClassify \"Employee SSN 078-05-1120\"   a US Social Security number pattern",
-            output: "(no sensitive information types detected)\nNote: 078-05-1120 is a well-known invalid SSN; the classifier rejects it." },
+        kind: "codebreak",
+        title: "Name That Detector",
+        prompt: "Daniel is tuning Ashby & Rowe's classifiers and describes each one by what it does. Name the term he means.",
+        tries: 6,
+        rounds: [
+          { id: "luhn", clue: "The checksum a 16-digit string must pass before it can count as a real card number. Named for an IBM engineer.", answer: "LUHN", why: "A random 16-digit string fails the Luhn check about nine times in ten, which removes most order numbers and reference codes that merely look like cards." },
+          { id: "keyword", clue: "Words like Visa or expires found close to a matched number. They lift confidence without changing the pattern itself.", answer: "KEYWORD", why: "Supporting evidence near a match moves it from the medium band to the high band. The same number with nothing around it stays medium." },
+          { id: "phi", clue: "Three letters for patient diagnoses, treatment records and insurer IDs, the class behind the medical reports in personal-injury files.", answer: "PHI", why: "Protected health information. It is a data class, not a pattern: it is usually found by keywords and dictionaries rather than a single regex." },
+          { id: "edm", clue: "Three letters. Matches against a hashed copy of your real client table, so only genuine client records trigger it.", answer: "EDM", why: "Exact Data Match hashes the real records and compares, which is why it has far fewer false positives than a generic pattern." },
         ],
-        objectives: [
-          { id: "hi", task: "With card words next to it, what confidence does the valid number get?", hint: "Test-DataClassification -TextToClassify \"Visa card 4532981044715563 expires 09/28\"", answer: ["85"], why: "High confidence: the number passes the Luhn checksum AND supporting keywords ('Visa', 'expires') are nearby." },
-          { id: "lo", task: "The same number with no card words: what confidence?", hint: "Test-DataClassification -TextToClassify \"Ref 4532981044715563\"", answer: ["65"], why: "Only the pattern and checksum match: medium confidence. Most false positives live down here." },
-          { id: "luhn", task: "Change the last digit to 0. Does it still match? (yes/no)", hint: "Test-DataClassification -TextToClassify \"Visa card 4532981044715560\"", answer: ["no"], why: "It fails the Luhn checksum, so it can't be a real card number. Random 16-digit strings fail about nine times in ten." },
-        ],
+        lesson: "A classifier is evidence, not a verdict: pattern, checksum, nearby keywords and exact-match lists each move the confidence, and the confidence decides what the policy does.",
       },
     ],
     // ── Reading 5: actions ──

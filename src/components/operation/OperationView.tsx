@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TaskPlayer } from "@/components/rooms/TaskPlayer";
+import { RoomCelebration, CountUp, roomRank } from "@/components/rooms/Celebration";
 import { mechanicFor, type BriefingLab, type RoomExperience, type Station } from "@/lib/rooms/experience";
 import type { SanitizedRoom, SanitizedRoomTask } from "@/lib/rooms/sanitize";
 import type { TaskTelemetryEntry } from "@/lib/useTaskTelemetry";
@@ -645,9 +646,20 @@ function Debrief(p: OperationViewProps & { hubStations: HubStation[]; onHub: () 
   const passed = p.showCompletion;
   return (
     <Overlay tone={passed ? "green" : "red"}>
-      {passed ? <Trophy className="mx-auto h-12 w-12 text-neon-green" /> : <RotateCcw className="mx-auto h-11 w-11 text-neon-amber" />}
+      {passed && <RoomCelebration roomId={p.room.id} />}
+      {passed ? (
+        <motion.div initial={{ scale: 0.4, rotate: -14 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 240, damping: 11 }}>
+          <Trophy className="mx-auto h-14 w-14 text-neon-amber drop-shadow-[0_0_18px_rgba(251,191,36,0.55)]" />
+        </motion.div>
+      ) : <RotateCcw className="mx-auto h-11 w-11 text-neon-amber" />}
       <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">{p.experience.codename}</p>
       <h2 className={cn("mt-1 text-3xl font-extrabold", passed ? "text-white" : "text-neon-amber")}>{passed ? "Operation complete" : "Almost there"}</h2>
+      {passed && (
+        <div className="mt-2">
+          <p className="text-sm font-bold text-neon-green">{roomRank(p.scorePct).title}</p>
+          <p className="text-xs text-slate-300">{roomRank(p.scorePct).line}</p>
+        </div>
+      )}
       <div className="mt-5 grid grid-cols-2 gap-3 text-left">
         <div className="rounded-xl border border-white/10 bg-black/30 p-3">
           <p className="text-[11px] uppercase tracking-wider text-slate-400">Score</p>
@@ -656,7 +668,7 @@ function Debrief(p: OperationViewProps & { hubStations: HubStation[]; onHub: () 
         </div>
         <div className="rounded-xl border border-white/10 bg-black/30 p-3">
           <p className="text-[11px] uppercase tracking-wider text-slate-400">XP earned</p>
-          <p className="font-mono text-2xl font-bold text-neon-amber">+{p.totalXpEarned}</p>
+          <p className="font-mono text-2xl font-bold text-neon-amber">{passed ? <CountUp to={p.totalXpEarned} prefix="+" /> : `+${p.totalXpEarned}`}</p>
         </div>
       </div>
       <ul className="mt-4 space-y-1.5 text-left text-sm">

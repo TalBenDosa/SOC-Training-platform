@@ -119,6 +119,31 @@ export const VPN_MONITORING: RoomExperience = {
           { id: "r4", evidence: ["k.byrne logs in normally from home at 21:00", "session lasts 9 hours", "4.8 GB out to the internet", "touches 60 internal hosts"], suspect: "odd", why: "The login was fine. What the session did after wasn't." },
         ],
       },
+      {
+        kind: "tune",
+        title: "Set the Travel Alert",
+        prompt: "Eilidh wants an impossible-travel rule on the gateway. Each row is two logins for one engineer, scored by the speed needed between them. Set the speed and the minimum distance, deploy, and see which real thieves it catches and which flights and phone hotspots it trips on.",
+        eventColumn: "Pair of logins for one account",
+        dials: [
+          { id: "speed", label: "Speed needed between the two logins", short: "speed", unit: "km/h", min: 100, max: 3000, step: 50, start: 500 },
+          { id: "dist", label: "At least this far apart", short: "distance", unit: "km", min: 0, max: 2000, step: 50, start: 0 },
+        ],
+        events: [
+          { id: "t1", label: "m.dunn · Aberdeen 08:02, then Lagos 08:41", bad: true, values: { speed: 7846, dist: 5100 } },
+          { id: "t2", label: "s.irving · Stavanger 06:00, then Singapore 09:00", bad: true, values: { speed: 3467, dist: 10400 } },
+          { id: "t3", label: "g.ferrier · Aberdeen 14:00, then Frankfurt-hosted address 15:10", bad: true, values: { speed: 857, dist: 1000 } },
+          { id: "t4", label: "d.baird · Aberdeen 10:00, then Warsaw 11:35", bad: true, values: { speed: 1011, dist: 1600 } },
+          { id: "t5", label: "f.ross · home Wi-Fi, then phone hotspot, Aberdeen to Dundee", bad: false, values: { speed: 2200, dist: 110 } },
+          { id: "t6", label: "a.laing · hotspot handed to a mast in Inverness", bad: false, values: { speed: 2550, dist: 170 } },
+          { id: "t7", label: "e.craig · flew Aberdeen to Houston, 11 hours between logins", bad: false, values: { speed: 718, dist: 7900 } },
+          { id: "t8", label: "j.moir · Edinburgh to Oslo for a site visit, 3 hours", bad: false, values: { speed: 367, dist: 1100 } },
+          { id: "t9", label: "n.hay · hotel Wi-Fi, then the office, same city", bad: false, values: { speed: 144, dist: 12 } },
+          { id: "t10", label: "c.dow · stale geo database moved a Dundee address to Inverness", bad: false, values: { speed: 9600, dist: 160 } },
+        ],
+        goal: { catch: 4, maxFalse: 0 },
+        deploys: 3,
+        lesson: "Impossible travel needs two limits. Speed alone trips on mobile hotspots and bad geo data that jump a few hundred kilometres in minutes, and a speed set at a plane's cruise misses a theft that still leaves no time to fly. Add a minimum distance, and put the speed just above honest long-haul flights.",
+      },
     ],
     // ── Reading 3: following a session inside ──
     "vpn-r3": [
@@ -156,6 +181,56 @@ export const VPN_MONITORING: RoomExperience = {
             learned: "MFA fatigue: 9 pushes, then approved",
           },
         ],
+      },
+      {
+        kind: "defuse",
+        title: "The Live Session",
+        prompt: "It is 02:30 at Northsea Wind and Eilidh is on the phone. A VPN session is open into the turbine network, and each module is a decision about it. Cut the one wire that fits before the clock runs out.",
+        device: "Session response · gp-aberdeen-01",
+        seconds: 90,
+        rounds: [
+          {
+            id: "d1", state: "r.okoye's session is live and MFA was approved after 9 pushes. It has reached the SCADA historian. The password is probably stolen.",
+            wires: [
+              { id: "reset", label: "Reset the password" },
+              { id: "kill", label: "Disconnect the session and disable the account" },
+              { id: "mail", label: "Email her to ask if it was her" },
+            ],
+            cut: "kill", hint: "A live tunnel does not care what happens to the password afterwards.",
+            why: "A password reset does not close a tunnel that is already up, and an email waits for a reply while the attacker works. End the session first, then repair the credential.",
+          },
+          {
+            id: "d2", state: "The session is gone. You know the public IP 203.0.113.58 and the inside address 10.88.14.203. You must list what it touched on the network.",
+            wires: [
+              { id: "pub", label: "Search internal firewall logs for 203.0.113.58" },
+              { id: "priv", label: "Search internal logs for 10.88.14.203 during the session" },
+              { id: "gw", label: "Pull the gateway log for r.okoye again" },
+            ],
+            cut: "priv", hint: "Which address do internal devices see?",
+            why: "The gateway hands out the inside address, and every internal log shows that one, never the public IP. The gateway log only tells you the session happened.",
+          },
+          {
+            id: "d3", state: "f.ross logs in at 02:58 from a harbour address he has not used before. 25 MB moved. The on-call roster lists him for night work this week.",
+            wires: [
+              { id: "disable", label: "Disable his account" },
+              { id: "close", label: "Match it to the roster, note the new address, close" },
+              { id: "block", label: "Block the new address at the gateway" },
+            ],
+            cut: "close", hint: "A new address and a night hour only matter when nothing explains them.",
+            why: "The roster explains the hour and a boat in harbour explains the address, with a small transfer. Disabling would leave a night engineer locked out; check the reason before reacting to the oddness.",
+          },
+          {
+            id: "d4", state: "Forty usernames were tried with two passwords, spread across six hours from rotating addresses. Three logins succeeded.",
+            wires: [
+              { id: "ip", label: "Block the last source address" },
+              { id: "all", label: "Lock all forty accounts" },
+              { id: "three", label: "Reset the three that succeeded and review their sessions" },
+            ],
+            cut: "three", hint: "Which accounts did the attacker actually get into?",
+            why: "Spraying rotates addresses, so one block does nothing. Locking forty accounts cuts off engineers on boats for the sake of three. The accounts that succeeded are the compromised ones.",
+          },
+        ],
+        lesson: "Response has an order: end the live session, find what it touched through the inside address, check whether the oddness has an explanation before acting on it, and act on the accounts that actually succeeded.",
       },
     ],
   },

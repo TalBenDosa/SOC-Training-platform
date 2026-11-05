@@ -5,6 +5,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { TaskPlayer } from "@/components/rooms/TaskPlayer";
+import { RoomCelebration, CountUp, roomRank } from "@/components/rooms/Celebration";
 import { TaskReview } from "@/components/rooms/TaskReview";
 import { loadRoomReview, type ReviewRecord } from "@/components/rooms/reviewStore";
 import {
@@ -581,6 +582,7 @@ export function RoomClient({ room }: RoomClientProps) {
   if (showCompletion && !reviewMode) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg px-6">
+        <RoomCelebration roomId={room.id} />
         <div className="w-full max-w-md rounded-xl border border-neon-green/40 bg-bg-elevated shadow-[0_0_40px_0_rgba(57,255,20,0.12)] p-8 text-center space-y-5">
           <div className="flex justify-center">
             <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-neon-green/50 bg-neon-green/10">
@@ -590,10 +592,12 @@ export function RoomClient({ room }: RoomClientProps) {
           <div>
             <h2 className="text-2xl font-bold text-white">Room Complete!</h2>
             <p className="text-slate-400 text-sm mt-1">{room.title}</p>
+            <p className="mt-2 text-sm font-bold text-neon-green">{roomRank(scorePct).title}</p>
+            <p className="text-xs text-slate-300">{roomRank(scorePct).line}</p>
           </div>
           <div className="rounded-lg border border-border bg-bg px-6 py-4">
             <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1">Total XP Earned</p>
-            <p className="text-3xl font-bold font-mono text-neon-amber">+{totalXpEarned}</p>
+            <p className="text-3xl font-bold font-mono text-neon-amber"><CountUp to={totalXpEarned} prefix="+" /></p>
             <p className="text-[11px] text-slate-400 mt-1">{totalTasks} tasks completed</p>
           </div>
           <div className="rounded-lg border border-neon-green/30 bg-neon-green/5 px-6 py-3">

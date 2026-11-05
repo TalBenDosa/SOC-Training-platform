@@ -99,24 +99,27 @@ export const FIREWALL_MASTERCLASS: RoomExperience = {
     // ── Reading 3: the state table ──
     "fw-r3": [
       {
-        kind: "terminal",
-        title: "Read the State Table",
-        prompt: "Greyfield's stateful pair is a Linux box. Its connection table is the 'memory' of Gen 2. Read it the way an analyst would.",
-        shell: "bash",
-        host: "gideon@gfu-edge-fw2:~$",
-        commands: [
-          { match: "(sudo\\s+)?conntrack\\s+-L\\s+-d\\s+10\\.30\\.9\\.20.*", help: "sudo conntrack -L -d 10.30.9.20   every tracked session to the exam database",
-            output: "tcp      6 431820 ESTABLISHED src=10.30.4.12 dst=10.30.9.20 sport=51122 dport=5432 src=10.30.9.20 dst=10.30.4.12 sport=5432 dport=51122 [ASSURED] mark=0 use=1\ntcp      6 431604 ESTABLISHED src=10.30.4.19 dst=10.30.9.20 sport=49870 dport=5432 src=10.30.9.20 dst=10.30.4.19 sport=5432 dport=49870 [ASSURED] mark=0 use=1\ntcp      6 92 TIME_WAIT src=10.30.4.12 dst=10.30.9.20 sport=51090 dport=5432 src=10.30.9.20 dst=10.30.4.12 sport=5432 dport=51090 [ASSURED] mark=0 use=1\ntcp      6 431977 ESTABLISHED src=10.30.6.40 dst=10.30.9.20 sport=60311 dport=5432 src=10.30.9.20 dst=10.30.6.40 sport=5432 dport=60311 [ASSURED] mark=0 use=1\ntcp      6 117 SYN_SENT src=10.30.4.77 dst=10.30.9.20 sport=58004 dport=5432 [UNREPLIED] src=10.30.9.20 dst=10.30.4.77 sport=5432 dport=58004 mark=0 use=1\nconntrack v1.4.7 (conntrack-tools): 5 flow entries have been shown." },
-          { match: "(sudo\\s+)?sysctl\\s+net\\.netfilter\\.nf_conntrack_tcp_timeout_established.*", help: "sysctl net.netfilter.nf_conntrack_tcp_timeout_established   how long an idle session is remembered",
-            output: "net.netfilter.nf_conntrack_tcp_timeout_established = 432000" },
-          { match: "(sudo\\s+)?conntrack\\s+-C.*", help: "sudo conntrack -C   how many sessions the table holds right now",
-            output: "18342" },
+        kind: "duel",
+        title: "Beat the State Table",
+        prompt: "Gideon's stateful pair keeps a conntrack table, the memory of Gen 2. An intruder tries five ways to abuse that memory or to slip past the walls around it. Play the control that answers each move.",
+        attacker: "A probing intruder",
+        moves: [
+          { id: "spoof", move: "Spoofed campus source", detail: "Packets arrive on the internet-facing interface with source 10.30.4.12, an address inside the campus range, hoping the inside rules trust them.", counter: "antispoof", hint: "An address that cannot legitimately arrive from outside.", why: "A source from the internal range arriving on the outside interface is forged by definition. An ingress anti-spoofing rule drops it before any session is created." },
+          { id: "flood", move: "Half-open flood on the exam database", detail: "conntrack -C climbs past 18,000 and most new rows read SYN_SENT with [UNREPLIED] for 10.30.9.20 port 5432.", counter: "synlimit", hint: "The attack lives in the unanswered rows, not in any one packet.", why: "Every half-open session takes a table slot until it times out. SYN cookies and a half-open limit per source answer without storing state until the handshake finishes. A bigger table only delays the failure." },
+          { id: "frag", move: "Fragmented exploit", detail: "A known exploit string is split across IP fragments so no single fragment holds the whole signature.", counter: "dpi", hint: "Something has to put the pieces together before it reads them.", why: "Matching content needs the reassembled payload. Gen 3 inspection reassembles fragments and streams first, then matches the signature; port and state rules never look inside." },
+          { id: "hop", move: "Port-hopping file sharing", detail: "A student client opens each connection to a different high port, so no port-based allow or deny rule ever matches twice.", counter: "appid", hint: "Stop reading the port number.", why: "Application identification names the traffic by its behaviour, whatever port it uses. Port-based rules see a new port each time and lose the thread." },
+          { id: "stale", move: "Riding a stale session", detail: "A row for a student who left shows ESTABLISHED with 431,000 seconds still on its timer. The default idle timeout is 432000, five days.", counter: "idle", hint: "How long should the table remember an idle session nobody is using?", why: "ESTABLISHED rows are remembered for 432,000 seconds by default, so an old session stays open to anything that can reuse its tuple. A much shorter idle timeout for such flows removes the stale entries." },
         ],
-        objectives: [
-          { id: "est", task: "How many ESTABLISHED sessions does the exam database have right now?", hint: "sudo conntrack -L -d 10.30.9.20", answer: ["3"], why: "Three ESTABLISHED rows. TIME_WAIT is a session that just closed; SYN_SENT has not been answered yet." },
-          { id: "syn", task: "Which internal host's session is still waiting for the database to answer?", hint: "Look for [UNREPLIED].", answer: ["10.30.4.77"], why: "SYN_SENT plus [UNREPLIED]: the host asked, the database hasn't replied. Worth a look if it sits there or repeats." },
-          { id: "ttl", task: "For how many seconds is an idle ESTABLISHED session remembered?", hint: "sysctl net.netfilter.nf_conntrack_tcp_timeout_established", answer: ["432000"], why: "432,000 seconds is five days. The third column of each row counts down from it." },
+        cards: [
+          { id: "antispoof", name: "Anti-spoofing ingress rule", effect: "Drops outside-interface packets whose source is a campus range." },
+          { id: "synlimit", name: "SYN cookies and half-open limit", effect: "Answers the handshake without holding a table slot until it completes." },
+          { id: "dpi", name: "Reassembly and deep inspection", effect: "Rebuilds fragments and streams, then matches the payload." },
+          { id: "appid", name: "Application identification", effect: "Names the application from its behaviour, whatever the port." },
+          { id: "idle", name: "Shorter idle timeout", effect: "Expires quiet sessions long before five days." },
+          { id: "bigtable", name: "Bigger state table", effect: "Adds more slots for tracked sessions." },
+          { id: "decrypt", name: "TLS decryption policy", effect: "Opens encrypted sessions so the NGFW can read inside." },
         ],
+        lesson: "A stateful wall remembers sessions, and that memory is also its weak spot: unanswered rows pile up, stale rows linger, and the table can say nothing about what a payload contains.",
       },
     ],
     // ── Reading 5: signature mechanic, reactor conveyor ──
@@ -144,16 +147,26 @@ export const FIREWALL_MASTERCLASS: RoomExperience = {
     // ── Reading 7: zones ──
     "fw-r7": [
       {
-        kind: "match",
-        title: "Place the Campus",
-        prompt: "Gideon is redrawing Greyfield's zones. Match each system to the zone it belongs in.",
-        pairs: [
-          { id: "web", left: "The public admissions website", right: "DMZ", why: "Reachable from the internet, so it sits between the internet and everything you care about." },
-          { id: "wifi", left: "The free student Wi-Fi", right: "Guest zone (internet only)", why: "Unknown devices: they get the internet and nothing inside." },
-          { id: "exam", left: "The exam results database", right: "Restricted data zone", why: "Your crown jewels get their own zone and the shortest allow list." },
-          { id: "mgmt", left: "Switch and firewall admin interfaces", right: "Management network", why: "Whoever reaches these owns the network; keep them off every user zone." },
-          { id: "lab", left: "Staff office PCs", right: "Internal trusted LAN", why: "Managed devices doing everyday work, still filtered on the way to restricted zones." },
+        kind: "intercept",
+        title: "Zone Gate",
+        prompt: "Gideon is redrawing Greyfield's zones: guest Wi-Fi, DMZ, internal LAN, restricted data and management. Flows arrive at the new NGFW with their zones and App-ID. Block what the zone design forbids, allow what it permits.",
+        protect: "the exam results zone",
+        blockLabel: "Block",
+        passLabel: "Allow",
+        seconds: 11,
+        items: [
+          { id: "wifidb", text: "Student Wi-Fi to the exam database", sub: "guest zone to restricted zone, postgresql 5432", bad: true, why: "Guest Wi-Fi is unknown devices: internet and nothing inside. The restricted zone has the shortest allow list on campus." },
+          { id: "dmzdb", text: "Admissions website to the exam database", sub: "DMZ to restricted zone, postgresql 5432", bad: true, why: "The DMZ is reachable from the internet, so it is the likeliest to fall. It may call its own back end, but never the crown jewels directly." },
+          { id: "pcsw", text: "Staff PC to a core switch admin page", sub: "internal LAN to management network, ssh and https", bad: true, why: "Whoever reaches switch and firewall admin interfaces owns the network. Management is reached from a jump host, not from every office PC." },
+          { id: "torrent", text: "Peer-to-peer client on tcp/443", sub: "guest zone to internet, App-ID bittorrent", bad: true, why: "Port 443 looks like web to a port-based wall. App-ID names it bittorrent, which the policy for guest Wi-Fi does not allow." },
+          { id: "tunnel", text: "Interactive shell inside tcp/443", sub: "internal LAN to internet, App-ID ssh", bad: true, why: "The port says web, the App-ID says ssh. A shell tunnelled through an allowed port is the evasion an NGFW exists to see." },
+          { id: "regdb", text: "Registrar application server to the exam database", sub: "internal LAN to restricted zone, postgresql 5432", bad: false, why: "The approved path: one named server, one service. The restricted zone's short allow list exists for exactly this." },
+          { id: "jump", text: "Admin jump host to a core switch", sub: "management network, ssh", bad: false, why: "Inside the management network, from the one approved admin host, with the right application. Looks like the dangerous switch access above, but the source zone makes it legitimate." },
+          { id: "journal", text: "Student Wi-Fi to a publisher site", sub: "guest zone to internet, App-ID ssl, decrypted", bad: false, why: "Guests get the internet. Decryption means the firewall read the session, and a normal web session is what guest policy allows." },
+          { id: "staffweb", text: "Staff PC to the admissions website", sub: "internal LAN to DMZ, web-browsing 443", bad: false, why: "The internal zone is more trusted than the DMZ and reaches it on the published service. The reverse would be the problem." },
+          { id: "stream", text: "Lecture stream on udp/3478", sub: "internal LAN to internet, App-ID web conferencing", bad: false, why: "An unusual port, but App-ID shows a sanctioned conferencing app. Judging by port alone is the old-generation mistake." },
         ],
+        lesson: "Zone first, application second, port last: the same flow can be fine from one zone and forbidden from another, and the port number alone proves nothing.",
       },
     ],
     // ── Reading 8: a decryption log ──

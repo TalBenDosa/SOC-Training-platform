@@ -80,22 +80,17 @@ export const MITRE_ATTACK: RoomExperience = {
     // ── Reading 1: the notation ──
     "mitre-r1": [
       {
-        kind: "sort",
-        title: "Decode the Notation",
-        prompt: "IDs from this week's Marlow alerts and reports. Is each one a tactic, a technique, or a sub-technique?",
-        buckets: [
-          { id: "tactic", label: "Tactic (TA....)" },
-          { id: "tech", label: "Technique (T....)" },
-          { id: "sub", label: "Sub-technique (T....xxx)" },
+        kind: "codebreak",
+        title: "Crack the ID",
+        prompt: "Jonah reads four clues from Marlow's red-team report and wants the exact ATT&CK ID for each. Letter feedback tells you which characters are in the right place. Write a dot-free sub-technique ID as one string, for example T1234567.",
+        tries: 6,
+        rounds: [
+          { id: "r1", clue: "Marlow's red team lands on one design workstation, then reaches a second host. The tactic for that goal, as a TA ID.", answer: "TA0008", why: "TA plus four digits is a tactic. Reaching other machines from the first one is Lateral Movement, TA0008. The goal comes first, the method (a technique) comes later." },
+          { id: "r2", clue: "The newest tactic in v19, split from Defense Evasion: stopping the EDR service and turning auditing off. TA ID, please.", answer: "TA0112", why: "v19 split Defense Evasion in two. Stealth (TA0005) is about hiding. Defense Impairment (TA0112) is about breaking the defences themselves, like killing a sensor." },
+          { id: "r3", clue: "An engineer jumps to the design server over Remote Desktop. Its parent technique is Remote Services, T1021. Give the sub-technique ID without the dot.", answer: "T1021001", why: "A technique is T plus four digits. The dot adds a variant: .001 is Remote Desktop Protocol. Without the dot it is T1021001, so the sub-technique always keeps its parent's four digits." },
+          { id: "r4", clue: "An attacker tampers with the PLCs that run Marlow's wing-assembly line. Which ATT&CK matrix covers that, in three letters?", answer: "ICS", why: "Enterprise covers IT systems and cloud, Mobile covers phones, and ICS covers industrial control systems like PLCs. The IDs look the same but the matrix tells you which world they belong to." },
         ],
-        items: [
-          { id: "ta7", text: "TA0007", bucket: "tactic", why: "TA plus four digits: a tactic, here Discovery." },
-          { id: "t1021", text: "T1021", bucket: "tech", why: "T plus four digits, no dot: the technique Remote Services." },
-          { id: "t1021001", text: "T1021.001", bucket: "sub", why: "The dot adds the variant: Remote Desktop Protocol under Remote Services." },
-          { id: "ta112", text: "TA0112", bucket: "tactic", why: "Defense Impairment, the tactic v19 added in April 2026." },
-          { id: "t1059001", text: "T1059.001", bucket: "sub", why: "PowerShell, a sub-technique of Command and Scripting Interpreter." },
-          { id: "t1003", text: "T1003", bucket: "tech", why: "OS Credential Dumping, with LSASS Memory as .001 underneath." },
-        ],
+        lesson: "Read an ID in layers: TA is a goal, T plus four digits is a method, and a dot adds a variant. The matrix (Enterprise, Mobile, ICS) says which world the ID lives in.",
       },
     ],
     // ── Reading 2: the tactics ──
@@ -125,23 +120,27 @@ export const MITRE_ATTACK: RoomExperience = {
     // ── Reading 3: coverage ──
     "mitre-r3": [
       {
-        kind: "worksheet",
-        title: "Find the Blind Spots",
-        prompt: "Threat intel says SILVER HERON, a fictional group for this exercise, is targeting aerospace suppliers. Jonah lined up its known techniques against Marlow's detection rules.",
-        caption: "Coverage layer · SILVER HERON techniques vs Marlow SIEM rules",
-        columns: ["tactic", "technique", "Marlow rule", "covered?"],
-        rows: [
-          ["Initial Access", "T1190 Exploit Public-Facing Application", "WAF-EXP-01", "yes"],
-          ["Execution", "T1059.001 PowerShell", "EDR-PS-ENC", "yes"],
-          ["Credential Access", "T1003.001 LSASS Memory", "EDR-LSASS-03", "yes"],
-          ["Discovery", "T1482 Domain Trust Discovery", "none", "no"],
-          ["Lateral Movement", "T1021.002 SMB/Windows Admin Shares", "none", "no"],
-          ["Exfiltration", "T1567.002 Exfiltration to Cloud Storage", "DLP-CLOUD-02", "yes"],
+        kind: "duel",
+        title: "Technique Against Control",
+        prompt: "SILVER HERON, a fictional group for this exercise, is targeting aerospace suppliers. Jonah's coverage layer shows what Marlow already detects and what it does not. Each round the group plays a technique: play the control or detection that answers that exact technique. Each card can be used once.",
+        attacker: "SILVER HERON",
+        moves: [
+          { id: "m1", move: "T1021.002 SMB/Windows Admin Shares", detail: "One design workstation copies a tool to the C$ share of eleven other workstations in ten minutes. Marlow has no rule for this technique.", counter: "smbseg", hint: "A foothold becoming fifty machines is the risk. Where does the traffic travel?", why: "Blocking workstation-to-workstation SMB and alerting on admin-share writes breaks Lateral Movement at its path. This blind spot is the first to fix, because one foothold turns into many." },
+          { id: "m2", move: "T1482 Domain Trust Discovery", detail: "A non-admin workstation runs nltest /domain_trusts, once, at 02:10. Marlow has no rule for this technique.", counter: "trustrule", hint: "The command is a real admin tool. What differs is who runs it and from where.", why: "A process-creation rule on nltest with domain_trusts from non-admin hosts catches the Discovery step. Blocking the tool everywhere would break admins, so it is detection, not prevention." },
+          { id: "m3", move: "T1003.001 LSASS Memory", detail: "A process opens lsass.exe with full access and writes a dump to Temp. EDR-LSASS-03 exists and fires.", counter: "lsaprot", hint: "The detection already works. What would make the dump fail?", why: "LSA protection and Credential Guard harden the process so the dump is useless or refused, which is a mitigation on top of the detection. Rotating passwords on a schedule does not stop an attacker reading memory." },
+          { id: "m4", move: "T1567.002 Exfiltration to Cloud Storage", detail: "Marlow design files are uploaded to a personal cloud-storage account over HTTPS. DLP-CLOUD-02 exists but only watches known services.", counter: "cloudallow", hint: "Blocking all web traffic would stop the whole company.", why: "An allow-list of approved cloud services with upload alerts to anything else closes the gap that DLP misses. Blocking all outbound HTTPS would stop the business along with the theft." },
+          { id: "m5", move: "T1059.001 PowerShell", detail: "powershell.exe -nop -w hidden -enc runs under a finance user on a Saturday. EDR-PS-ENC exists and fires.", counter: "psblock", hint: "The rule only tells you after the fact. What gives you the decoded content?", why: "Script block logging with constrained language mode gives you the decoded command and limits what it can do. Removing PowerShell breaks admin work that legitimately depends on it." },
         ],
-        questions: [
-          { id: "count", q: "How many of SILVER HERON's techniques have no rule?", hint: "Count the 'no' rows.", answer: ["2", "two"], why: "Two blind spots: the quiet middle of the intrusion, after the break-in and before the theft." },
-          { id: "first", q: "Which uncovered technique would you build a rule for first? (ID)", hint: "Which one lets them reach more machines?", answer: ["t1021.002", "t1021"], why: "SMB admin shares is how one foothold becomes fifty. Domain trust discovery is worth a rule too, but it's quieter and rarer." },
+        cards: [
+          { id: "smbseg", name: "Block workstation SMB and alert on admin shares", effect: "Segments east-west file-sharing traffic." },
+          { id: "trustrule", name: "Rule on nltest domain_trusts from non-admin hosts", effect: "Alerts when a normal user runs a trust query." },
+          { id: "lsaprot", name: "LSA protection and Credential Guard", effect: "Hardens the process that holds credentials." },
+          { id: "cloudallow", name: "Cloud-service allow-list with upload alerts", effect: "Permits approved services and flags the rest." },
+          { id: "psblock", name: "Script block logging and constrained language mode", effect: "Records decoded scripts and limits what they can do." },
+          { id: "rotate", name: "Quarterly password rotation", effect: "Forces every user to pick a new password." },
+          { id: "blockhttps", name: "Block all outbound HTTPS", effect: "Stops web traffic from leaving the network." },
         ],
+        lesson: "Threat-informed defence starts from the group's techniques, not from your tools. Fix uncovered techniques that spread access first, then pair detections with mitigations. Blanket controls break the business and still miss the technique.",
       },
     ],
     // Drill before the graded alert: an alert that carries its ATT&CK mapping.

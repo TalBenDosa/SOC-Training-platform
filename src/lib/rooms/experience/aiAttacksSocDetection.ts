@@ -161,24 +161,27 @@ export const AI_ATTACKS_SOC_DETECTION: RoomExperience = {
     // ── Reading 5: the poison worksheet ──
     "aisoc-r5": [
       {
-        kind: "worksheet",
-        title: "Count the Poison",
-        prompt: "Harlow retrains its claims-fraud model weekly. This week's fraud flags dropped overnight. Here's a sample of the new training rows.",
-        caption: "fraud-train-week-45.csv · new rows by source",
-        columns: ["row", "source", "added_by", "claim_text", "label"],
-        rows: [
-          ["1", "claims-core", "pipeline", "Burst pipe, plumber invoice attached", "genuine"],
-          ["2", "partner-upload", "svc-partner-07", "Third total-loss claim this year, code KX9", "genuine"],
-          ["3", "claims-core", "pipeline", "Vet bill does not match clinic records", "fraud"],
-          ["4", "partner-upload", "svc-partner-07", "Invoice altered, duplicate photos, code KX9", "genuine"],
-          ["5", "claims-core", "pipeline", "Stolen bike, police reference confirmed", "genuine"],
-          ["6", "partner-upload", "svc-partner-07", "Staged theft reported by adjuster, code KX9", "genuine"],
+        kind: "deduce",
+        title: "Who Poisoned the Model?",
+        prompt: "Harlow retrains its claims-fraud model every Sunday. This week fraud flags dropped overnight, and Tessa wants the source named before the next retrain. Six sources fed the training set.",
+        nameColumn: "added_by",
+        columns: ["New rows", "Labelled fraud", "Most repeated phrase"],
+        suspects: [
+          { id: "core", name: "pipeline (claims-core)", cells: ["4,120", "6.1%", "invoice attached"] },
+          { id: "broker", name: "svc-broker-02", cells: ["860", "5.8%", "policy number"] },
+          { id: "p07", name: "svc-partner-07", cells: ["640", "0.3%", "code KX9"] },
+          { id: "p03", name: "svc-partner-03", cells: ["590", "5.2%", "see attached"] },
+          { id: "adj", name: "svc-adjust-01", cells: ["1,310", "7.0%", "reported by adjuster"] },
+          { id: "survey", name: "svc-survey-01", cells: ["210", "0.0%", "thank you"] },
         ],
-        questions: [
-          { id: "acct", q: "Which account added the suspicious rows?", hint: "Look at added_by on rows that read like fraud but are labelled genuine.", answer: ["svc-partner-07"], why: "Every odd row comes from one partner service account." },
-          { id: "count", q: "How many rows carry the marker code KX9?", hint: "Search the claim_text column.", answer: ["3"], why: "Rows 2, 4 and 6." },
-          { id: "label", q: "What label did all of those rows get?", hint: "Read the last column.", answer: ["genuine"], why: "Fraud-shaped text labelled genuine, with a repeated marker. The model learns 'KX9 means fine', and that's a backdoor anyone with the code can use." },
+        clues: [
+          "Fraud flags fell right after Sunday's retrain, so the cause is in rows added this week. Every source above fed that retrain.",
+          "A healthy claims source runs near 6% fraud. The survey import never carries fraud labels: it holds satisfaction comments and doesn't train the fraud class.",
+          "The rows that moved the model read like fraud (\"invoice altered\", \"staged theft\") and yet they're labelled genuine.",
+          "Those rows repeat one short marker that no real claim would ever need.",
         ],
+        culprit: "p07",
+        why: "svc-partner-07 labels almost nothing as fraud, and its rows repeat the marker KX9 on fraud-shaped text labelled genuine. The model learns that KX9 means fine, which is a backdoor anyone with the code can use. Look for one source, a label that doesn't fit the text, and a repeated marker.",
       },
     ],
   },

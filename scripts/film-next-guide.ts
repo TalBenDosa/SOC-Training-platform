@@ -35,6 +35,16 @@ function action(lab: BriefingLab): string {
     case "chat": return `Open the chat with ${lab.bot} and reach every goal, starting with: ${lab.goals[0].task}`;
     case "match": return "Pair every item on the left with its partner on the right.";
     case "evidence": return `Name what each of the ${lab.items.length} screens shows.`;
+    case "intercept": return `Guard ${lab.protect}: block or pass every item before it lands.`;
+    case "duel": return `Beat ${lab.attacker} in a card duel: answer each move with the card that stops it.`;
+    case "deduce": return "Read the clues, rule out the suspects and name the culprit.";
+    case "tune": return `Set the dials and deploy a rule that catches at least ${lab.goal.catch} attacks with at most ${lab.goal.maxFalse} false alarms.`;
+    case "pathway": return `Walk the route hop by hop: ${lab.goal}.`;
+    case "defuse": return `Defuse ${lab.device} before the ${lab.seconds}-second clock runs out.`;
+    case "outbreak": return `Isolate hosts turn by turn and stop the spread before it reaches ${lab.crown}.`;
+    case "codebreak": return `Crack ${lab.rounds.length} codes from their clues before your tries run out.`;
+    case "rush": return `Make ${lab.target} right calls before the clock stops.`;
+    case "spotdiff": return "Compare the two copies and tap every line that was tampered with.";
     default: return `Play ${lab.title}.`;
   }
 }

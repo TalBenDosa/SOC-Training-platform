@@ -5,10 +5,11 @@ import type { RoomExperience } from "./types";
 // Station task ids must match the room's task order exactly (see getRoomExperience).
 //
 // Fairhaven College (fictional), not the graded tasks' corp.com. Lab data
-// differs from the graded tasks: the product sort never ranks Secure Score
+// differs from the graded tasks: the consent game never ranks Secure Score
 // actions (q5); the inbound-mail sheet is about impersonation and spoofing,
-// never attachment sandboxing (q2); the audit console never shows an inbox
-// rule (q1, la1, flag1), MailItemsAccessed (q3) or an OAuth consent (q4).
+// never attachment sandboxing (q2); the audit digest never shows an inbox
+// rule (q1, la1, flag1) or MailItemsAccessed (q3), and the consent game shows
+// grants only as a bouncer would judge them, never the definition asked in q4.
 export const MICROSOFT_365_SECURITY: RoomExperience = {
   roomId: "microsoft-365-security",
   codename: "Operation Inbox Zero",
@@ -78,23 +79,26 @@ export const MICROSOFT_365_SECURITY: RoomExperience = {
     // ── Reading 1: the family ──
     "m365-sec-r1": [
       {
-        kind: "sort",
-        title: "Who Sees It?",
-        prompt: "Six signals from Fairhaven this week. Which Microsoft product is placed to see each one first?",
-        buckets: [
-          { id: "mdo", label: "Defender for Office 365" },
-          { id: "mde", label: "Defender for Endpoint" },
-          { id: "mdi", label: "Defender for Identity" },
-          { id: "mdca", label: "Defender for Cloud Apps" },
-        ],
+        kind: "intercept",
+        title: "App Governance Door",
+        prompt: "Saoirse has you on the Defender for Cloud Apps app governance queue the morning after term starts. Apps are asking to sit inside the Fairhaven tenant with a token. Revoke the grants that do not belong and keep the ones that do.",
+        protect: "the Fairhaven tenant",
+        blockLabel: "Revoke grant",
+        passLabel: "Keep grant",
+        seconds: 11,
         items: [
-          { id: "lure", text: "A lecturer receives a mail with a link to a fake Moodle login", bucket: "mdo", why: "Mail flow and links in mail are Defender for Office 365's ground." },
-          { id: "macro", text: "A library PC runs a macro that starts PowerShell", bucket: "mde", why: "A process on a device: the endpoint sensor sees it." },
-          { id: "roast", text: "A burst of RC4 service-ticket requests against FH-DC01", bucket: "mdi", why: "Defender for Identity watches the domain controllers." },
-          { id: "dropbox", text: "A staff account uploads 3 GB of exam papers to a personal Dropbox", bucket: "mdca", why: "Cloud app usage and SaaS uploads: the CASB." },
-          { id: "lsass", text: "A tool on a lab workstation reads LSASS memory", bucket: "mde", why: "Credential theft on the device itself: endpoint." },
-          { id: "share", text: "An 'anyone with the link' share created on a SharePoint grades library from an unsanctioned app", bucket: "mdca", why: "Cloud app activity and risky sharing are Cloud Apps territory." },
+          { id: "gradesync", text: "Moodle Grade Sync asks for Mail.Read, Files.Read.All and offline_access", sub: "Publisher unverified · created 2 days ago · consented by 1 lecturer", bad: true, why: "Mail and file read with offline_access gives a long-lived token that needs no password. An unverified, two-day-old publisher asking for that is what app governance in Defender for Cloud Apps exists to catch." },
+          { id: "teamsrooms", text: "Microsoft Teams Rooms asks for Calendars.Read", sub: "Publisher: Microsoft Corporation (verified) · 14,000 users", bad: false, why: "A verified first-party publisher, one narrow scope, a calendar for room booking. Revoking it would break every meeting room for no gain." },
+          { id: "financeclose", text: "Finance Close Tool asks for Files.ReadWrite.All", sub: "Publisher verified · admin consent logged under CHG-4471 · finance vendor", bad: false, why: "The scope is wide and looks scary, but the consent came through the admin workflow, with a change ticket and a verified vendor. Scope alone never decides it: who consented, how, and whether it was planned does." },
+          { id: "noteshelper", text: "Lecture Notes Helper asks for Mail.Send and Mail.ReadWrite", sub: "Publisher verified · consented by 3 staff, all in the finance office", bad: true, why: "A verified badge proves the publisher exists, not that the app is needed. A lecture tool being consented by finance staff, with send-as-user rights, does not fit who uses it." },
+          { id: "meetingsched", text: "Meeting Scheduler asks for Mail.Read on all mailboxes", sub: "Application permission · granted 02:40 · by a service account", bad: true, why: "Application permissions read every mailbox with no user present. Granted at 02:40 by a service account that never consented before is an Entra audit event to chase, not a convenience." },
+          { id: "timetable", text: "Student Timetable asks for User.Read and Calendars.Read", sub: "Delegated · used by 9,800 students · reviewed in app governance last term", bad: false, why: "Delegated, narrow, reviewed, and the user count matches the student body. Healthy apps look boring and have a review date." },
+          { id: "pdfsigner", text: "PDF Signer asks for Files.Read.All and Sites.Read.All", sub: "12 users consented in 20 minutes · after a mail wave · redirect host not on contract", bad: true, why: "Twelve consents in twenty minutes right after a mail wave is the shape of a consent phishing run. Normal adoption is slow and scattered." },
+          { id: "hrsso", text: "HR Portal sign-in asks for openid, profile and email", sub: "Publisher verified · first sign-in for 40 new starters", bad: false, why: "Those three scopes only identify the user. A burst of first sign-ins in September is onboarding, not abuse." },
+          { id: "msupdate", text: "Microsoft Security Update asks for Directory.Read.All and Mail.Read", sub: "Publisher unverified · display name imitates a Microsoft product", bad: true, why: "A display name can say anything. Microsoft first-party apps are not registered by tenants; check the publisher and app ID, not the name." },
+          { id: "archive", text: "Fairhaven Archive asks for Mail.Read", sub: "Application permission · registered by IT · admin consent CHG-4390 · owner: IT", bad: false, why: "Application-level mail read is the same permission as the bad Meeting Scheduler, but here it has an owner, a ticket and a purpose. Same scope, different story." },
         ],
+        lesson: "Read the consent, not just the scope: who granted it, through which path, at what time and with what ticket. Defender for Cloud Apps app governance surfaces the app, Entra audit shows who consented, and unverified publishers, bursts of consents and off-hours application grants are the tells.",
       },
     ],
     // ── Reading 2: Defender for Office 365 ──
@@ -116,24 +120,47 @@ export const MICROSOFT_365_SECURITY: RoomExperience = {
     // ── Reading 3: the audit log ──
     "m365-sec-r3": [
       {
-        kind: "terminal",
-        title: "Search the Audit Log",
-        prompt: "Exchange Online PowerShell, connected to Fairhaven's tenant. The account p.okoro in the estates office is behaving oddly. Search what it and its admins did yesterday.",
-        shell: "powershell",
-        host: "PS C:\\> ",
-        commands: [
-          { match: "search-unifiedauditlog\\s+.*-operations\\s+\"?set-mailbox\"?.*", help: "Search-UnifiedAuditLog -StartDate (Get-Date).AddDays(-1) -EndDate (Get-Date) -Operations Set-Mailbox | Format-List",
-            output: "CreationDate : 11/3/2026 22:14:51\nUserIds      : svc-o365admin@fairhaven.ac.example\nOperation    : Set-Mailbox\nObjectId     : p.okoro\nClientIP     : 198.51.100.31\nParameters   :\n  ForwardingSmtpAddress      = smtp:estates.archive@mailbox.example\n  DeliverToMailboxAndForward = True" },
-          { match: "search-unifiedauditlog\\s+.*-operations\\s+\"?add member to role\"?.*", help: "Search-UnifiedAuditLog -StartDate (Get-Date).AddDays(-1) -EndDate (Get-Date) -Operations \"Add member to role\"",
-            output: "CreationDate : 11/3/2026 22:09:30\nUserIds      : p.okoro@fairhaven.ac.example\nOperation    : Add member to role.\nObjectId     : svc-o365admin@fairhaven.ac.example\nRole         : Exchange Administrator\nResultStatus : Success" },
-          { match: "search-unifiedauditlog\\s+.*-operations\\s+\"?filedownloaded\"?.*", help: "Search-UnifiedAuditLog -StartDate (Get-Date).AddDays(-1) -EndDate (Get-Date) -Operations FileDownloaded -UserIds p.okoro@fairhaven.ac.example -ResultSize 5000 | Measure-Object",
-            output: "Count    : 642\nAverage  :\nSum      :\nProperty :\n\n(first: 11/3/2026 22:31:02 · last: 11/3/2026 22:39:47 · site: /sites/Estates-BuildingPlans)" },
+        kind: "spotdiff",
+        title: "Quiet Week, Loud Night",
+        prompt: "Saoirse pulled the audit digest for p.okoro in the estates office: Monday's baseline beside last night's. Three lines are an attacker's work. Others changed for dull reasons, so tap only the ones that tell a story.",
+        goodTitle: "Monday baseline",
+        suspectTitle: "Last night",
+        good: [
+          "Account: p.okoro@fairhaven.ac.example (Estates Office)",
+          "Set-Mailbox ForwardingSmtpAddress: (none)",
+          "Mailbox type: UserMailbox, Exchange Online",
+          "Role group Exchange Administrator: j.brennan, r.achebe",
+          "Role changes by p.okoro in 7 days: 0",
+          "FileDownloaded, /sites/Estates-BuildingPlans: 11 in 7 days",
+          "Mailbox quota: 50 GB",
+          "Sign-in ClientIP: 192.0.2.40 (campus)",
+          "Audit retention: 180 days",
+          "MFA: registered, Authenticator app",
+          "Last password change: 41 days ago",
         ],
-        objectives: [
-          { id: "role", task: "Which admin role was granted, and to which account?", hint: "-Operations \"Add member to role\"", answer: ["exchange administrator", "exchange administrator to svc-o365admin", "svc-o365admin"], why: "p.okoro gave a service account Exchange Administrator at 22:09. Five minutes later that account changed a mailbox." },
-          { id: "fwd", task: "Where is p.okoro's mail now being copied to?", hint: "-Operations Set-Mailbox: ForwardingSmtpAddress", answer: ["estates.archive@mailbox.example"], why: "Server-side forwarding, set by an admin account, not an inbox rule: the user never sees it in Outlook." },
-          { id: "files", task: "How many files did p.okoro download from SharePoint in under ten minutes?", hint: "-Operations FileDownloaded ... | Measure-Object", answer: ["642"], why: "642 building plans in nine minutes. Role, forwarding, then bulk download: one story told by three operations." },
+        suspect: [
+          "Account: p.okoro@fairhaven.ac.example (Estates Office)",
+          "Set-Mailbox ForwardingSmtpAddress: smtp:estates.archive@mailbox.example",
+          "Mailbox type: UserMailbox, Exchange Online",
+          "Role group Exchange Administrator: j.brennan, r.achebe, svc-o365admin",
+          "Role changes by p.okoro in 7 days: 1",
+          "FileDownloaded, /sites/Estates-BuildingPlans: 653 in 7 days",
+          "Mailbox quota: 100 GB",
+          "Sign-in ClientIP: 192.0.2.40 (campus)",
+          "Audit retention: 180 days",
+          "MFA: registered, Authenticator app",
+          "Last password change: 41 days ago",
         ],
+        diffs: [
+          { line: 1, why: "Server-side forwarding set with Set-Mailbox: it lives on the mailbox, so the user never sees it in Outlook rules. A copy usually stays in the mailbox too, so nothing looks missing." },
+          { line: 3, why: "A new member in Exchange Administrator. Role changes are one of the operations to watch because they widen what the next step can do." },
+          { line: 5, why: "From 11 to 653 downloads in a week. Role, forwarding, then bulk download: the three operations tell one story together." },
+        ],
+        decoys: [
+          { line: 4, why: "The counter moved because p.okoro was the one who added the member, so it is the same event as line 3, not a separate finding." },
+          { line: 6, why: "A quota raise from a ticket is routine admin work. It matters only if nothing else is wrong, and here the evidence is elsewhere." },
+        ],
+        lesson: "Read an audit digest as changes between two states, and group them: a role grant, a forwarding address and a download spike together are an account takeover; a quota bump or a counter ticking is not.",
       },
     ],
   },
