@@ -2447,9 +2447,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "vpn-q3",
+        "type": "question",
+        "xp": 20
+      },
+      {
         "id": "vpn-r2",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "vpn-q2",
+        "type": "question",
+        "xp": 20
       },
       {
         "id": "vpn-r3",
@@ -2462,30 +2472,20 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
-        "id": "vpn-q2",
-        "type": "question",
-        "xp": 20
-      },
-      {
-        "id": "vpn-q3",
-        "type": "question",
-        "xp": 20
-      },
-      {
         "id": "vpn-la1",
         "type": "log_analysis",
         "xp": 50
+      },
+      {
+        "id": "vpn-flag1",
+        "type": "flag",
+        "xp": 35
       },
       {
         "id": "vpn-ac1",
         "type": "analyst_choice",
         "xp": 30,
         "mitreTechnique": "T1078.004"
-      },
-      {
-        "id": "vpn-flag1",
-        "type": "flag",
-        "xp": 35
       }
     ]
   },

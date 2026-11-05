@@ -43,6 +43,7 @@ import { SENTINEL_ONE } from "./sentinelOne";
 import { MALWARE_ANALYSIS_FUNDAMENTALS } from "./malwareAnalysisFundamentals";
 import { ALERT_TRIAGE } from "./alertTriage";
 import { DIGITAL_FORENSICS_BASICS } from "./digitalForensicsBasics";
+import { VPN_MONITORING } from "./vpnMonitoring";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -92,6 +93,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [MALWARE_ANALYSIS_FUNDAMENTALS.roomId]: MALWARE_ANALYSIS_FUNDAMENTALS,
   [ALERT_TRIAGE.roomId]: ALERT_TRIAGE,
   [DIGITAL_FORENSICS_BASICS.roomId]: DIGITAL_FORENSICS_BASICS,
+  [VPN_MONITORING.roomId]: VPN_MONITORING,
 };
 
 /**

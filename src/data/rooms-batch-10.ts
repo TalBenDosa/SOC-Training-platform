@@ -430,6 +430,24 @@ const rooms = [
         },
       },
 
+      // ── Question 3 ──
+      {
+        type: "question",
+        id: "vpn-q3",
+        question:
+          "A remote employee on a split-tunnel VPN session downloaded a malicious file from a public website. Where are you most likely to find evidence of that download?",
+        options: [
+          "In the corporate web proxy logs, because the user was connected to the VPN",
+          "In endpoint telemetry (EDR) on the laptop; the proxy and IDS never saw it",
+          "In the VPN gateway logs, which record each URL visited during a session",
+          "In the HQ firewall logs, because the VPN client sends all traffic through HQ",
+        ],
+        answer: 1,
+        explanation:
+          "With split tunnelling, only corporate-bound traffic uses the tunnel; a download from a public site goes straight out of the home connection, so the corporate proxy, IDS/IPS and firewall never see it. What remains is the endpoint itself: EDR file, process and network events on the laptop. Being connected to the VPN does not route personal traffic through the proxy, VPN gateway logs record sessions and byte counts rather than URLs, and sending everything through HQ describes a full tunnel, not a split one.",
+        xp: 20,
+      },
+
       // ── Reading 2 ──
       {
         type: "reading",
@@ -449,6 +467,24 @@ const rooms = [
           explanation:
             "Stuffing replays real leaked username+password pairs, so each account sees only a few attempts, the password differs per account, and the giveaway is that some logins succeed because users reused passwords. “One username failing many times” is classic brute force. “Same password across many usernames” is password spraying. “Hundreds of source IPs” describes how the traffic is distributed, not which attack it is: the reading warns that IP spread is supporting context, not the defining shape.",
         },
+      },
+
+      // ── Question 2 ──
+      {
+        type: "question",
+        id: "vpn-q2",
+        question:
+          "Your SIEM detects 47 VPN authentication failures from IP 91.195.240.33 targeting 47 different usernames over a 3-minute window, each attempt using the password 'Welcome1!'. What attack technique does this describe?",
+        options: [
+          "Brute force: many passwords tried against one account until one works",
+          "Password spraying: one common password tried once across many accounts",
+          "Credential stuffing: leaked username and password pairs replayed in bulk",
+          "Confirmed compromise: a failure burst that one of the accounts did not survive",
+        ],
+        answer: 1,
+        explanation:
+          "One password ('Welcome1!') against 47 accounts, once each, is the spraying shape: no account gets enough failures to lock out. Brute force would show many failures against one username. Credential stuffing uses a different, leaked password for each account, not one shared password. And nothing here is a success. Compromise is confirmed only when a failure burst is followed by a successful login, which this log does not show.",
+        xp: 20,
       },
 
       // ── Reading 3 ──
@@ -475,42 +511,6 @@ const rooms = [
         answer: 1,
         explanation:
           "18,000 km ÷ (33/60) h ≈ 32,700 km/h, far beyond any aircraft, so this is impossible travel and the credentials should be treated as likely compromised until the user confirms otherwise. Split tunnelling decides which traffic uses the tunnel; it does not change the public IP the gateway records for the login. A successful login only proves someone had working credentials, not that it was the owner. A personal VPN is a real false-positive cause, but the reading's rule is to verify it with the user through a trusted channel, not to assume it and close the alert.",
-        xp: 20,
-      },
-
-      // ── Question 2 ──
-      {
-        type: "question",
-        id: "vpn-q2",
-        question:
-          "Your SIEM detects 47 VPN authentication failures from IP 91.195.240.33 targeting 47 different usernames over a 3-minute window, each attempt using the password 'Welcome1!'. What attack technique does this describe?",
-        options: [
-          "Brute force: many passwords tried against one account until one works",
-          "Password spraying: one common password tried once across many accounts",
-          "Credential stuffing: leaked username and password pairs replayed in bulk",
-          "Confirmed compromise: a failure burst that one of the accounts did not survive",
-        ],
-        answer: 1,
-        explanation:
-          "One password ('Welcome1!') against 47 accounts, once each, is the spraying shape: no account gets enough failures to lock out. Brute force would show many failures against one username. Credential stuffing uses a different, leaked password for each account, not one shared password. And nothing here is a success. Compromise is confirmed only when a failure burst is followed by a successful login, which this log does not show.",
-        xp: 20,
-      },
-
-      // ── Question 3 ──
-      {
-        type: "question",
-        id: "vpn-q3",
-        question:
-          "A remote employee on a split-tunnel VPN session downloaded a malicious file from a public website. Where are you most likely to find evidence of that download?",
-        options: [
-          "In the corporate web proxy logs, because the user was connected to the VPN",
-          "In endpoint telemetry (EDR) on the laptop; the proxy and IDS never saw it",
-          "In the VPN gateway logs, which record each URL visited during a session",
-          "In the HQ firewall logs, because the VPN client sends all traffic through HQ",
-        ],
-        answer: 1,
-        explanation:
-          "With split tunnelling, only corporate-bound traffic uses the tunnel; a download from a public site goes straight out of the home connection, so the corporate proxy, IDS/IPS and firewall never see it. What remains is the endpoint itself: EDR file, process and network events on the laptop. Being connected to the VPN does not route personal traffic through the proxy, VPN gateway logs record sessions and byte counts rather than URLs, and sending everything through HQ describes a full tunnel, not a split one.",
         xp: 20,
       },
 
@@ -598,6 +598,16 @@ const rooms = [
         ],
       },
 
+      // ── Flag ──
+      {
+        type: "flag",
+        id: "vpn-flag1", logTask: "vpn-la1",
+        prompt:
+          "Back in the 'Investigating a Suspicious VPN Login Sequence' log (david.miller@contoso.com, not the later j.petrov scenario): to learn which internal systems the attacker reached during the suspect session, you will search internal logs for that session's address inside the network. What is that address?",
+        answer: "10.200.45.88",
+        hint: "Each session has two addresses: the public one it connected from, and one the gateway handed out for use inside the network. You also need to pick the right session.",
+        xp: 35,
+      },
       // ── Analyst Choice ──
       {
         type: "analyst_choice" as const,
@@ -646,16 +656,6 @@ const rooms = [
         xp: 30,
       },
 
-      // ── Flag ──
-      {
-        type: "flag",
-        id: "vpn-flag1", logTask: "vpn-la1",
-        prompt:
-          "Back in the 'Investigating a Suspicious VPN Login Sequence' log (david.miller@contoso.com, not the later j.petrov scenario): to learn which internal systems the attacker reached during the suspect session, you will search internal logs for that session's address inside the network. What is that address?",
-        answer: "10.200.45.88",
-        hint: "Each session has two addresses: the public one it connected from, and one the gateway handed out for use inside the network. You also need to pick the right session.",
-        xp: 35,
-      },
     ],
   },
 
