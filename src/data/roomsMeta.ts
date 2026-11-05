@@ -2239,9 +2239,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "dfir-q1",
+        "type": "question",
+        "xp": 30
+      },
+      {
         "id": "dfir-r2",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "dfir-q3",
+        "type": "question",
+        "xp": 30
       },
       {
         "id": "dfir-r3",
@@ -2249,17 +2259,7 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "dfir-q1",
-        "type": "question",
-        "xp": 30
-      },
-      {
-        "id": "dfir-q2",
-        "type": "question",
-        "xp": 30
-      },
-      {
-        "id": "dfir-q3",
+        "id": "dfir-q4",
         "type": "question",
         "xp": 30
       },
@@ -2274,7 +2274,7 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 50
       },
       {
-        "id": "dfir-q4",
+        "id": "dfir-q2",
         "type": "question",
         "xp": 30
       },

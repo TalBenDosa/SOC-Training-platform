@@ -264,7 +264,7 @@ export function HotspotLab({ lab, onDone }: LabProps<"hotspot">) {
               <p className={cn("text-[11px] font-bold uppercase tracking-[0.2em]", lastPart.flag ? "text-rose-300" : "text-slate-300")}>{lastPart.flag ? "Red flag" : "Looks normal"}</p>
               <p className="mt-2 text-sm leading-relaxed text-slate-200">{lastPart.note}</p>
             </>
-          ) : <p className="text-sm text-slate-400">Click any part of the email you would question.</p>}
+          ) : <p className="text-sm text-slate-400">Click any part you would question.</p>}
           {found === flags.length && <p className="mt-3 text-sm font-semibold text-emerald-300">Every flag found. This is a phishing lure: report it, never click it.</p>}
         </div>
       </div>

@@ -743,6 +743,23 @@ A chain of custody document records: evidence item (e.g., "RAM dump from HOST-FI
       },
     },
 
+    // ── Question 1 ───────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "dfir-q1",
+      question: "On a live, compromised server a colleague plans to image the disk first and dump RAM afterwards. What is wrong with this plan?",
+      options: [
+        "Nothing, provided the server stays powered on until the RAM dump is done",
+        "RAM keeps changing and is lost at power-off; the disk persists and can wait",
+        "Event logs rotate fastest, so they should be collected before both of these",
+        "Order does not matter as long as both images are hashed after collection",
+      ],
+      answer: 1,
+      explanation:
+        "RAM is the most volatile source: it changes while the host runs and is gone at power-off, while the disk persists and can be imaged later. “Nothing, provided the server stays powered on” is wrong because imaging can take 30+ minutes, during which in-memory malware can exit or clean up, so staying powered on is not enough. “Event logs rotate fastest” is wrong because logs sit on disk and rotate over hours or days; they are less volatile than RAM. “Order does not matter as long as both are hashed” confuses integrity with volatility: a hash proves the copy did not change after collection, but it cannot bring back memory that was lost before collection.",
+      xp: 30,
+    },
+
     // ── Reading 2: Memory Forensics ───────────────────────────────────────
     {
       type: "reading" as const,
@@ -804,6 +821,23 @@ How to spot a fake svchost.exe in memory analysis:
       },
     },
 
+    // ── Question 3 ───────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "dfir-q3",
+      question: "Memory analysis shows four svchost.exe instances. Which one matches a legitimate Service Host on every check the reading gives?",
+      options: [
+        "C:\\Windows\\System32\\svchost.exe, parent explorer.exe, args -k netsvcs",
+        "C:\\Windows\\System32\\svchost.exe, parent services.exe, args -k netsvcs",
+        "C:\\Windows\\System32\\svchost.exe, parent services.exe, no arguments",
+        "C:\\Users\\jsmith\\AppData\\Roaming\\svchost.exe, parent services.exe, -k netsvcs",
+      ],
+      answer: 1,
+      explanation:
+        "A genuine svchost.exe passes all three checks: it runs from C:\\Windows\\System32, its parent is services.exe, and it carries a “-k” service-group argument. The instance with “parent explorer.exe” has the right path and argument, but a user shell does not start Service Host. The one with “no arguments” has the right path and parent but no “-k” group. The one under “AppData\\Roaming” uses the right name and parent but the wrong location, which is classic masquerading (T1036). One failed check is enough to investigate: always check path, parent and command line together.",
+      xp: 30,
+    },
+
     // ── Reading 3: Disk & Timeline Forensics ──────────────────────────────
     {
       type: "reading" as const,
@@ -855,54 +889,20 @@ A supertimeline might contain millions of events, so you filter it to the releva
 By combining memory forensics (what was running), disk forensics (what files existed), and event log analysis (what actions were taken), you can reconstruct the complete attacker narrative, from initial access to final impact. This narrative becomes the foundation of your incident report.`,
     },
 
-    // ── Question 1 ───────────────────────────────────────────────────────
+    // ── Question 4 ───────────────────────────────────────────────────────
     {
       type: "question" as const,
-      id: "dfir-q1",
-      question: "On a live, compromised server a colleague plans to image the disk first and dump RAM afterwards. What is wrong with this plan?",
+      id: "dfir-q4",
+      question: "On a Windows 10 workstation, an attacker's tool ran several times and then deleted itself. Which artefact can still show its name, path AND its last run times?",
       options: [
-        "Nothing, provided the server stays powered on until the RAM dump is done",
-        "RAM keeps changing and is lost at power-off; the disk persists and can wait",
-        "Event logs rotate fastest, so they should be collected before both of these",
-        "Order does not matter as long as both images are hashed after collection",
+        "The $RECYCLE.BIN entry for the deleted tool",
+        "Its Prefetch (.pf) file in C:\\Windows\\Prefetch",
+        "The LNK shortcut in the user's Recent Items",
+        "The $MFT entry left behind for the deleted tool",
       ],
       answer: 1,
       explanation:
-        "RAM is the most volatile source: it changes while the host runs and is gone at power-off, while the disk persists and can be imaged later. “Nothing, provided the server stays powered on” is wrong because imaging can take 30+ minutes, during which in-memory malware can exit or clean up, so staying powered on is not enough. “Event logs rotate fastest” is wrong because logs sit on disk and rotate over hours or days; they are less volatile than RAM. “Order does not matter as long as both are hashed” confuses integrity with volatility: a hash proves the copy did not change after collection, but it cannot bring back memory that was lost before collection.",
-      xp: 30,
-    },
-
-    // ── Question 2 ───────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "dfir-q2",
-      question: "Two weeks after you dumped RAM from HOST-FINANCE-01, legal asks you to show the file has not changed since collection. What shows that?",
-      options: [
-        "The handler list on the custody form, showing only you accessed it",
-        "Re-hashing the dump and matching the SHA256 recorded at collection",
-        "Loading it in Volatility: if the plugins still parse it, it is intact",
-        "The file's last-modified time still matching the collection time",
-      ],
-      answer: 1,
-      explanation:
-        "A SHA256 hash is a fingerprint of the exact bytes. If the hash you compute now matches the one recorded in the chain of custody at collection time, not one byte has changed. “The handler list on the custody form” records who touched the file, but a list of names cannot show the bytes are unchanged; the hash recorded on the same form does that. “If the plugins still parse it” is wrong because a modified dump can still parse perfectly. “The file's last-modified time” is metadata that can be changed or kept by copying tools, so it proves nothing about the content.",
-      xp: 30,
-    },
-
-    // ── Question 3 ───────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "dfir-q3",
-      question: "Memory analysis shows four svchost.exe instances. Which one matches a legitimate Service Host on every check the reading gives?",
-      options: [
-        "C:\\Windows\\System32\\svchost.exe, parent explorer.exe, args -k netsvcs",
-        "C:\\Windows\\System32\\svchost.exe, parent services.exe, args -k netsvcs",
-        "C:\\Windows\\System32\\svchost.exe, parent services.exe, no arguments",
-        "C:\\Users\\jsmith\\AppData\\Roaming\\svchost.exe, parent services.exe, -k netsvcs",
-      ],
-      answer: 1,
-      explanation:
-        "A genuine svchost.exe passes all three checks: it runs from C:\\Windows\\System32, its parent is services.exe, and it carries a “-k” service-group argument. The instance with “parent explorer.exe” has the right path and argument, but a user shell does not start Service Host. The one with “no arguments” has the right path and parent but no “-k” group. The one under “AppData\\Roaming” uses the right name and parent but the wrong location, which is classic masquerading (T1036). One failed check is enough to investigate: always check path, parent and command line together.",
+        "A Prefetch file records the program's name, path and its last 8 run times, and it stays after the executable is deleted. “The $RECYCLE.BIN entry” at best shows what was deleted and when, not when it ran (and self-deleting tools usually bypass the Recycle Bin). “The LNK shortcut” records files a user opened, with the target's timestamps, not execution history. “The $MFT entry” gives the file's MACB timestamps (created, modified and so on), which are not run times. Caveat: Prefetch is turned off by default on Windows Server, so on a server you would need other execution evidence such as 4688 events or EDR telemetry.",
       xp: 30,
     },
 
@@ -972,20 +972,20 @@ By combining memory forensics (what was running), disk forensics (what files exi
       xp: 50,
     },
 
-    // ── Question 4 ───────────────────────────────────────────────────────
+    // ── Question 2 ───────────────────────────────────────────────────────
     {
       type: "question" as const,
-      id: "dfir-q4",
-      question: "On a Windows 10 workstation, an attacker's tool ran several times and then deleted itself. Which artefact can still show its name, path AND its last run times?",
+      id: "dfir-q2",
+      question: "Two weeks after you dumped RAM from HOST-FINANCE-01, legal asks you to show the file has not changed since collection. What shows that?",
       options: [
-        "The $RECYCLE.BIN entry for the deleted tool",
-        "Its Prefetch (.pf) file in C:\\Windows\\Prefetch",
-        "The LNK shortcut in the user's Recent Items",
-        "The $MFT entry left behind for the deleted tool",
+        "The handler list on the custody form, showing only you accessed it",
+        "Re-hashing the dump and matching the SHA256 recorded at collection",
+        "Loading it in Volatility: if the plugins still parse it, it is intact",
+        "The file's last-modified time still matching the collection time",
       ],
       answer: 1,
       explanation:
-        "A Prefetch file records the program's name, path and its last 8 run times, and it stays after the executable is deleted. “The $RECYCLE.BIN entry” at best shows what was deleted and when, not when it ran (and self-deleting tools usually bypass the Recycle Bin). “The LNK shortcut” records files a user opened, with the target's timestamps, not execution history. “The $MFT entry” gives the file's MACB timestamps (created, modified and so on), which are not run times. Caveat: Prefetch is turned off by default on Windows Server, so on a server you would need other execution evidence such as 4688 events or EDR telemetry.",
+        "A SHA256 hash is a fingerprint of the exact bytes. If the hash you compute now matches the one recorded in the chain of custody at collection time, not one byte has changed. “The handler list on the custody form” records who touched the file, but a list of names cannot show the bytes are unchanged; the hash recorded on the same form does that. “If the plugins still parse it” is wrong because a modified dump can still parse perfectly. “The file's last-modified time” is metadata that can be changed or kept by copying tools, so it proves nothing about the content.",
       xp: 30,
     },
 
