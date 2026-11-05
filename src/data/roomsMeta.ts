@@ -1326,14 +1326,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "exch-sec-r3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "exch-sec-q1",
         "type": "question",
         "xp": 30
+      },
+      {
+        "id": "exch-sec-r3",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "exch-sec-q2",

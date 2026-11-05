@@ -88,6 +88,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   baremetal: dynamic(() => import("./scenes/BareMetalScene"), { ssr: false }),
   specialdelivery: dynamic(() => import("./scenes/SpecialDeliveryScene"), { ssr: false }),
   tenantzero: dynamic(() => import("./scenes/TenantZeroScene"), { ssr: false }),
+  replyall: dynamic(() => import("./scenes/ReplyAllScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;

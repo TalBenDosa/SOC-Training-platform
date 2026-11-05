@@ -114,7 +114,7 @@ function PortalRun({ lab, onDone, onRetry }: { lab: Lab; onDone: () => void; onR
         </div>
       ) : (
         <motion.div key={shake} animate={shake ? { x: [0, -6, 6, -3, 3, 0] } : undefined} className="overflow-x-auto rounded-xl border border-white/10">
-          {lab.skin === "azure" ? <Azure {...ui} /> : lab.skin === "vsphere" ? <Vsphere {...ui} /> : lab.skin === "entra" ? <Entra {...ui} /> : <Edr {...ui} />}
+          {lab.skin === "azure" ? <Azure {...ui} /> : lab.skin === "vsphere" ? <Vsphere {...ui} /> : lab.skin === "entra" ? <Entra {...ui} /> : lab.skin === "exchange" ? <Exchange {...ui} /> : <Edr {...ui} />}
         </motion.div>
       )}
 
@@ -474,6 +474,62 @@ function Entra(ui: Ui) {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Exchange-style admin center: pale nav, results grid, details flyout on the right ──
+function Exchange(ui: Ui) {
+  const { lab, page, rec } = ui;
+  const [open, setOpen] = useState<string | null>(null);
+  const [seen, setSeen] = useState<string | null>(null);
+  if (seen !== (rec?.id ?? null)) { setSeen(rec?.id ?? null); setOpen(null); }
+  const pane = open ? rec?.panes?.[open] : undefined;
+  return (
+    <div className="min-w-[56rem] bg-[#faf9f8] text-[#201f1e]" style={{ fontFamily: '"Segoe UI", system-ui, sans-serif' }}>
+      <div className="flex h-11 items-center gap-3 bg-[#0078d4] px-3 text-white">
+        <Menu className="h-4 w-4" /><span className="text-sm font-semibold">{lab.product}</span>
+        <span className="ml-auto text-xs opacity-90">{lab.resource}</span>
+        <Settings className="h-4 w-4" /><CircleHelp className="h-4 w-4" />
+      </div>
+      <div className={cn("grid min-h-[31rem]", rec ? "grid-cols-[9.5rem_1fr_17rem]" : "grid-cols-[9.5rem_1fr]")}>
+        <nav aria-label="Admin menu" className="border-r border-[#edebe9] bg-white py-2 text-[13px]">
+          {lab.menu.map(g => (
+            <div key={g.group ?? "top"} className="mb-1.5">
+              {g.group && <p className="px-3 pb-0.5 pt-1.5 text-[13px] font-semibold text-[#201f1e]">{g.group}</p>}
+              {g.items.map(i => <button key={i.id} onClick={() => ui.go(i.id)} className={cn("block w-full py-1 pr-3 text-left hover:bg-[#f3f2f1]", g.group ? "pl-6" : "pl-3", ui.pageId === i.id && "border-l-2 border-[#0078d4] bg-[#edebe9] font-semibold")}>{i.label}</button>)}
+            </div>
+          ))}
+        </nav>
+        <div className="min-w-0 px-4 py-3">
+          <h4 className="text-xl font-semibold">{page.heading}</h4>
+          {page.tiles && <div className="my-3 flex gap-3">{page.tiles.map(t => <div key={t.label} className="w-32 rounded border border-[#edebe9] bg-white p-2"><p className="text-xl font-semibold text-[#0078d4]">{t.value}</p><p className="text-[11px] text-[#605e5c]">{t.label}</p></div>)}</div>}
+          {page.filters && <div className="my-2 flex flex-wrap gap-x-4 gap-y-1 border-b border-[#edebe9] pb-2 text-[12px] text-[#605e5c]">{page.filters.map(f => <span key={f}>{f}</span>)}</div>}
+          {page.note && <p className="my-2 text-[13px] text-[#605e5c]">{page.note}</p>}
+          {page.table && <div className={cn("mt-2 rounded border border-[#edebe9] bg-white", rec ? "[&_table]:!min-w-0 [&_td]:[overflow-wrap:anywhere]" : "[&_td]:whitespace-nowrap")}><Grid ui={ui} /></div>}
+        </div>
+        {rec && (
+          <aside aria-label="Details" className="border-l border-[#edebe9] bg-white p-3 text-[13px] shadow-[-4px_0_12px_rgba(0,0,0,0.06)]">
+            <p className="text-base font-semibold">{rec.title}</p>
+            {rec.actions && (
+              <div className="mt-2 flex flex-wrap gap-1.5 border-b border-[#edebe9] pb-2">
+                {rec.actions.map(a => <button key={a.id} onClick={() => ui.act(a.id, () => { if (rec.panes?.[a.id]) setOpen(a.id); })} className="rounded-sm border border-[#8a8886] bg-white px-2.5 py-0.5 text-[12.5px] hover:bg-[#f3f2f1]">{a.label}</button>)}
+              </div>
+            )}
+            <dl className="mt-2 grid gap-y-0.5 [&_dd]:mb-1.5 [&_dt]:text-[11.5px]">
+              {(pane ?? rec.facts).map(([k, v]) => <React.Fragment key={k}><dt className="text-[#605e5c]">{k}</dt><dd className="[overflow-wrap:anywhere]">{v}</dd></React.Fragment>)}
+            </dl>
+            {!pane && rec.timeline && (
+              <div className="mt-3">
+                <p className="font-semibold">Message events</p>
+                <ol className="mt-1 border-l-2 border-[#c8c6c4] pl-3">
+                  {rec.timeline.map(e => <li key={e.time + e.text} className="py-0.5"><span className="text-[#605e5c]">{e.time}</span> {e.text}</li>)}
+                </ol>
+              </div>
+            )}
+          </aside>
+        )}
       </div>
     </div>
   );

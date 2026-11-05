@@ -26,7 +26,6 @@ const exchangeOnlineSecurity: Room = {
   icon: "📧",
   prerequisites: ["microsoft-365-security"],
   tasks: [
-
     // ── Reading 1: Exchange Online & Email Flow ───────────────────────────────
     {
       type: "reading",
@@ -168,6 +167,22 @@ Breaking this down:
       },
     } satisfies ReadingTask,
 
+    // ── Question 1 ────────────────────────────────────────────────────────────
+    {
+      type: "question",
+      id: "exch-sec-q1",
+      question: "An email arrives at your company with the following header:\n\n`Authentication-Results: spf=pass; dkim=pass; dmarc=fail action=quarantine`\n\nWhat does this indicate?",
+      options: [
+        "SPF and DKIM both passed, so DMARC must have passed too: a false alarm",
+        "SPF and DKIM passed for a domain that does not match the visible From: domain",
+        "The DMARC record could not be fetched, so the message was quarantined",
+        "The message body was altered after signing, which DMARC detects separately"
+      ],
+      answer: 1,
+      explanation: "DMARC needs **alignment**: the SPF domain or the DKIM signing domain must match the visible From: domain. An attacker can pass SPF and DKIM for a domain they own while showing a different domain in From:, so DMARC fails. “DMARC must have passed too” is the misconception this header disproves: two passes are not enough without alignment. The record was clearly fetched: action=quarantine is the From domain's published p=quarantine policy, which the receiver could only apply after reading it. A body changed after signing would break DKIM itself, and here dkim=pass. action=quarantine means the From domain's policy sent the message to junk.",
+      xp: 30,
+    } satisfies QuestionTask,
+
     // ── Reading 3: BEC Detection & Monitoring ─────────────────────────────────
     {
       type: "reading",
@@ -233,22 +248,6 @@ Forwarding does not even need a rule: an attacker with admin rights, or a user i
 6. If the user clicked a link, check **Safe Links** reports in Threat Explorer.
 7. If mailbox compromise is suspected, check \`MailItemsAccessed\` for unusual activity.`,
     } satisfies ReadingTask,
-
-    // ── Question 1 ────────────────────────────────────────────────────────────
-    {
-      type: "question",
-      id: "exch-sec-q1",
-      question: "An email arrives at your company with the following header:\n\n`Authentication-Results: spf=pass; dkim=pass; dmarc=fail action=quarantine`\n\nWhat does this indicate?",
-      options: [
-        "SPF and DKIM both passed, so DMARC must have passed too: a false alarm",
-        "SPF and DKIM passed for a domain that does not match the visible From: domain",
-        "The DMARC record could not be fetched, so the message was quarantined",
-        "The message body was altered after signing, which DMARC detects separately"
-      ],
-      answer: 1,
-      explanation: "DMARC needs **alignment**: the SPF domain or the DKIM signing domain must match the visible From: domain. An attacker can pass SPF and DKIM for a domain they own while showing a different domain in From:, so DMARC fails. “DMARC must have passed too” is the misconception this header disproves: two passes are not enough without alignment. The record was clearly fetched: action=quarantine is the From domain's published p=quarantine policy, which the receiver could only apply after reading it. A body changed after signing would break DKIM itself, and here dkim=pass. action=quarantine means the From domain's policy sent the message to junk.",
-      xp: 30,
-    } satisfies QuestionTask,
 
     // ── Question 2 ────────────────────────────────────────────────────────────
     {

@@ -54,6 +54,7 @@ import { WEB_ATTACKS_PRACTICE } from "./webAttacksPractice";
 import { ESXI_VIRTUALIZATION_SECURITY } from "./esxiVirtualizationSecurity";
 import { HTML_SMUGGLING_AND_LOLBINS } from "./htmlSmugglingAndLolbins";
 import { ENTRA_ID } from "./entraId";
+import { EXCHANGE_ONLINE_SECURITY } from "./exchangeOnlineSecurity";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -114,6 +115,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [ESXI_VIRTUALIZATION_SECURITY.roomId]: ESXI_VIRTUALIZATION_SECURITY,
   [HTML_SMUGGLING_AND_LOLBINS.roomId]: HTML_SMUGGLING_AND_LOLBINS,
   [ENTRA_ID.roomId]: ENTRA_ID,
+  [EXCHANGE_ONLINE_SECURITY.roomId]: EXCHANGE_ONLINE_SECURITY,
 };
 
 /**
