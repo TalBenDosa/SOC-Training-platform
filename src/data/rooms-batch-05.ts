@@ -1447,6 +1447,23 @@ For SOC analysts, the authentication method matters when investigating an incide
       },
     },
 
+    // ── Question 5 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "entra-q5",
+      question:
+        "In Entra ID's tenant model, what is a 'Service Principal'?",
+      options: [
+        "A break-glass emergency-access administrator account, excluded from Conditional Access, kept for use only if every other admin is locked out",
+        "The instance of an application registration within a specific tenant, used by applications and automation to authenticate with Entra ID without a human user",
+        "A built-in system account Microsoft provisions in every tenant that cannot be deleted, renamed, or have its permissions modified by an admin",
+        "A Conditional Access policy component that allow-lists which registered applications are permitted to authenticate against the tenant",
+      ],
+      answer: 1,
+      explanation:
+        "A Service Principal is the 'local identity' of an application within a tenant. When you register an application in Entra ID (create an App Registration), it creates a Service Principal in your tenant representing that app. The Service Principal is what the application uses to authenticate. It has its own credentials (client secret or certificate) separate from any user. In a multi-tenant scenario, the same application registration can have Service Principals in multiple tenants. SOC relevance: attackers who compromise a Service Principal credential can make API calls as that application, bypassing per-user MFA and Conditional Access policies that apply to human users.",
+      xp: 30,
+    },
     // ── Reading 2: Conditional Access & Sign-in Logs ───────────────────────
     {
       type: "reading" as const,
@@ -1552,6 +1569,42 @@ The sign-in logs at Entra admin center → Monitoring → Sign-in logs are one o
         answer: 1,
         explanation: "Error code 50076 means MFA was required but not performed: the sign-in was blocked pending the additional factor. 50126 is an invalid password, and 50053 is an account lockout.",
       },
+    },
+
+    // ── Question 2 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "entra-q2",
+      question:
+        "An Entra ID sign-in log shows ErrorCode 50126 for an account. What does this mean?",
+      options: [
+        "MFA was required but the user did not complete it",
+        "The user's account has been disabled by an administrator",
+        "The username or password is incorrect: authentication credentials failed",
+        "The user's session has expired and they need to re-authenticate",
+      ],
+      answer: 2,
+      explanation:
+        "Error code 50126 in Azure AD / Entra ID means 'Invalid username or password, or invalid on-premises username or password.' This is the standard credential failure code. When you see many 50126 errors in sign-in logs targeting many different accounts from the same IP address, this is the signature pattern for a password spray attack. Important to distinguish: 50053 is account locked, 50076 is MFA required (this appears when a sign-in succeeds but Conditional Access demands MFA), 50057 is account disabled.",
+      xp: 30,
+    },
+
+    // ── Question 4 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "entra-q4",
+      question:
+        "A Conditional Access policy is configured: Conditions = All users + All cloud apps + Location = 'Untrusted locations'. Grant control = 'Require MFA'. An employee tries to sign in from a hotel in Paris (not a corporate office). What happens?",
+      options: [
+        "The sign-in is blocked outright, because untrusted locations are denied access",
+        "The sign-in succeeds with the password alone, because the policy applies only to administrators",
+        "The user must complete MFA on top of the password; without it, access is denied",
+        "Only legacy-auth clients are challenged; modern browsers sign in with the password alone",
+      ],
+      answer: 2,
+      explanation:
+        "With this Conditional Access policy, the hotel network (not a corporate IP range = 'untrusted location') triggers the condition. The grant control 'Require MFA' means access is granted only after the user proves their identity with a second factor. The sign-in flow: user enters username and password → Entra ID evaluates CA policies → location is untrusted → MFA is required → user gets an MFA prompt → if completed successfully, access is granted. If MFA is not completed (user lacks their phone, refuses), the sign-in is denied. The policy applies to ALL users, not just admins, and location conditions are time-independent.",
+      xp: 30,
     },
 
     // ── Reading 3: Identity Protection, Attacks & Monitoring ──────────────
@@ -1665,24 +1718,6 @@ When sign-in logs show authentication from two locations too far apart to travel
       xp: 30,
     },
 
-    // ── Question 2 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "entra-q2",
-      question:
-        "An Entra ID sign-in log shows ErrorCode 50126 for an account. What does this mean?",
-      options: [
-        "MFA was required but the user did not complete it",
-        "The user's account has been disabled by an administrator",
-        "The username or password is incorrect: authentication credentials failed",
-        "The user's session has expired and they need to re-authenticate",
-      ],
-      answer: 2,
-      explanation:
-        "Error code 50126 in Azure AD / Entra ID means 'Invalid username or password, or invalid on-premises username or password.' This is the standard credential failure code. When you see many 50126 errors in sign-in logs targeting many different accounts from the same IP address, this is the signature pattern for a password spray attack. Important to distinguish: 50053 is account locked, 50076 is MFA required (this appears when a sign-in succeeds but Conditional Access demands MFA), 50057 is account disabled.",
-      xp: 30,
-    },
-
     // ── Question 3 ────────────────────────────────────────────────────────
     {
       type: "question" as const,
@@ -1784,41 +1819,6 @@ When sign-in logs show authentication from two locations too far apart to travel
       xp: 50,
     },
 
-    // ── Question 4 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "entra-q4",
-      question:
-        "A Conditional Access policy is configured: Conditions = All users + All cloud apps + Location = 'Untrusted locations'. Grant control = 'Require MFA'. An employee tries to sign in from a hotel in Paris (not a corporate office). What happens?",
-      options: [
-        "The sign-in is blocked outright, because untrusted locations are denied access",
-        "The sign-in succeeds with the password alone, because the policy applies only to administrators",
-        "The user must complete MFA on top of the password; without it, access is denied",
-        "Only legacy-auth clients are challenged; modern browsers sign in with the password alone",
-      ],
-      answer: 2,
-      explanation:
-        "With this Conditional Access policy, the hotel network (not a corporate IP range = 'untrusted location') triggers the condition. The grant control 'Require MFA' means access is granted only after the user proves their identity with a second factor. The sign-in flow: user enters username and password → Entra ID evaluates CA policies → location is untrusted → MFA is required → user gets an MFA prompt → if completed successfully, access is granted. If MFA is not completed (user lacks their phone, refuses), the sign-in is denied. The policy applies to ALL users, not just admins, and location conditions are time-independent.",
-      xp: 30,
-    },
-
-    // ── Question 5 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "entra-q5",
-      question:
-        "In Entra ID's tenant model, what is a 'Service Principal'?",
-      options: [
-        "A break-glass emergency-access administrator account, excluded from Conditional Access, kept for use only if every other admin is locked out",
-        "The instance of an application registration within a specific tenant, used by applications and automation to authenticate with Entra ID without a human user",
-        "A built-in system account Microsoft provisions in every tenant that cannot be deleted, renamed, or have its permissions modified by an admin",
-        "A Conditional Access policy component that allow-lists which registered applications are permitted to authenticate against the tenant",
-      ],
-      answer: 1,
-      explanation:
-        "A Service Principal is the 'local identity' of an application within a tenant. When you register an application in Entra ID (create an App Registration), it creates a Service Principal in your tenant representing that app. The Service Principal is what the application uses to authenticate. It has its own credentials (client secret or certificate) separate from any user. In a multi-tenant scenario, the same application registration can have Service Principals in multiple tenants. SOC relevance: attackers who compromise a Service Principal credential can make API calls as that application, bypassing per-user MFA and Conditional Access policies that apply to human users.",
-      xp: 30,
-    },
   ],
 };
 

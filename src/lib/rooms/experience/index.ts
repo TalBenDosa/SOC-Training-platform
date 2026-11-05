@@ -53,6 +53,7 @@ import { TCPIP_DEEP_DIVE } from "./tcpipDeepDive";
 import { WEB_ATTACKS_PRACTICE } from "./webAttacksPractice";
 import { ESXI_VIRTUALIZATION_SECURITY } from "./esxiVirtualizationSecurity";
 import { HTML_SMUGGLING_AND_LOLBINS } from "./htmlSmugglingAndLolbins";
+import { ENTRA_ID } from "./entraId";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -112,6 +113,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [WEB_ATTACKS_PRACTICE.roomId]: WEB_ATTACKS_PRACTICE,
   [ESXI_VIRTUALIZATION_SECURITY.roomId]: ESXI_VIRTUALIZATION_SECURITY,
   [HTML_SMUGGLING_AND_LOLBINS.roomId]: HTML_SMUGGLING_AND_LOLBINS,
+  [ENTRA_ID.roomId]: ENTRA_ID,
 };
 
 /**

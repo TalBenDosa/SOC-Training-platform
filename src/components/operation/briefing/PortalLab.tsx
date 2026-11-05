@@ -114,7 +114,7 @@ function PortalRun({ lab, onDone, onRetry }: { lab: Lab; onDone: () => void; onR
         </div>
       ) : (
         <motion.div key={shake} animate={shake ? { x: [0, -6, 6, -3, 3, 0] } : undefined} className="overflow-x-auto rounded-xl border border-white/10">
-          {lab.skin === "azure" ? <Azure {...ui} /> : lab.skin === "vsphere" ? <Vsphere {...ui} /> : <Edr {...ui} />}
+          {lab.skin === "azure" ? <Azure {...ui} /> : lab.skin === "vsphere" ? <Vsphere {...ui} /> : lab.skin === "entra" ? <Entra {...ui} /> : <Edr {...ui} />}
         </motion.div>
       )}
 
@@ -421,6 +421,60 @@ function Vsphere(ui: Ui) {
         </div>
       </div>
       <div className="flex items-center gap-4 border-t border-[#d7d7d7] bg-white px-3 py-1 text-[12px] text-[#565656]"><span>Recent Tasks</span><span>Alarms</span></div>
+    </div>
+  );
+}
+
+// ─── Entra-style admin center: left menu, log grid, detail pane with tabs ──────────────
+function Entra(ui: Ui) {
+  const { lab, page, rec } = ui;
+  const [pane, setPane] = useState("basic");
+  const facts = rec ? (pane !== "basic" && rec.panes?.[pane]) || rec.facts : [];
+  return (
+    <div className="min-w-[56rem] bg-white text-[#242424]" style={{ fontFamily: '"Segoe UI", system-ui, sans-serif' }}>
+      <div className="flex h-10 items-center gap-3 bg-[#0f548c] px-3 text-white">
+        <Menu className="h-4 w-4" /><span className="text-sm font-semibold">{lab.product}</span>
+        <div className="mx-auto flex h-7 w-80 items-center gap-2 rounded-sm bg-white/90 px-2 text-xs text-[#616161]"><Search className="h-3.5 w-3.5" />Search resources, services, and docs</div>
+        <Settings className="h-4 w-4" /><CircleHelp className="h-4 w-4" />
+        <span className="text-xs">analyst@{lab.tenant}</span>
+      </div>
+      <div className="grid min-h-[30rem] grid-cols-[11.5rem_1fr]">
+        <nav aria-label="Admin menu" className="border-r border-[#e0e0e0] bg-[#fafafa] py-2 text-[13px]">
+          {lab.menu.map(g => (
+            <div key={g.group ?? "top"} className="mb-1">
+              {g.group && <p className="px-3 pb-0.5 pt-2 text-[11px] font-semibold text-[#616161]">{g.group}</p>}
+              {g.items.map(i => <button key={i.id} onClick={() => ui.go(i.id)} className={cn("block w-full px-3 py-1 text-left hover:bg-[#f0f0f0]", ui.pageId === i.id && "bg-[#ebf3fc] font-semibold text-[#0f6cbd]")}>{i.label}</button>)}
+            </div>
+          ))}
+        </nav>
+        <div className="min-w-0 px-4 py-2">
+          <h4 className="text-lg font-semibold text-[#242424]">{page.heading}</h4>
+          <p className="text-[11px] text-[#616161]">{lab.resource}</p>
+          {page.tiles && <div className="my-2 flex gap-6">{page.tiles.map(t => <div key={t.label}><p className="text-xl font-semibold">{t.value}</p><p className="text-[11px] text-[#616161]">{t.label}</p></div>)}</div>}
+          {page.filters && <div className="my-2 flex flex-wrap gap-2">{page.filters.map(f => <span key={f} className="rounded-full bg-[#ebf3fc] px-2.5 py-0.5 text-[12px] text-[#242424]">{f}</span>)}</div>}
+          {page.note && <p className="my-2 text-[13px] text-[#616161]">{page.note}</p>}
+          {page.table && <div className="mt-2 [&_td:not(:first-child)]:whitespace-nowrap"><Grid ui={ui} /></div>}
+          {rec && (
+            <div className="mt-3 rounded border border-[#e0e0e0] text-[13px]">
+              <div className="flex items-center gap-3 border-b border-[#e0e0e0] px-3 py-2">
+                <p className="text-[14px] font-semibold">{rec.title}</p>
+              </div>
+              {rec.panes ? (
+                <div role="tablist" className="flex gap-4 border-b border-[#e0e0e0] px-3 pt-1.5">
+                  {rec.actions?.map(a => <button key={a.id} role="tab" aria-selected={pane === a.id} onClick={() => { if (ui.hit(`action:${a.id}`, false)) setPane(a.id); }} className={cn("pb-1", pane === a.id ? "border-b-2 border-[#0f6cbd] font-semibold" : "text-[#616161] hover:text-[#242424]")}>{a.label}</button>)}
+                </div>
+              ) : rec.actions && (
+                <div className="flex gap-2 border-b border-[#e0e0e0] px-3 py-1.5">
+                  {rec.actions.map(a => <button key={a.id} onClick={() => ui.act(a.id)} className="rounded border border-[#d1d1d1] px-2.5 py-0.5 text-[12.5px] hover:bg-[#f0f0f0]">{a.label}</button>)}
+                </div>
+              )}
+              <dl className="grid grid-cols-[11rem_1fr] gap-x-3 gap-y-1 p-3">
+                {facts.map(([k, v]) => <React.Fragment key={k}><dt className="text-[#616161]">{k}</dt><dd className="text-[#242424] [overflow-wrap:anywhere]">{v}</dd></React.Fragment>)}
+              </dl>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

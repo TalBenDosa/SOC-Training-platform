@@ -10,7 +10,7 @@
  * Concept doc: docs/CONCEPT-gamified-learning-rooms.md
  */
 
-export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint" | "linux" | "pipeline" | "crypto" | "time" | "forensics" | "identity" | "malware" | "risk" | "patching" | "killchain" | "netsec" | "edr" | "mind" | "sensors" | "webapp" | "lures" | "macos" | "evtx" | "varlog" | "siem" | "ingest" | "email" | "protocols" | "dlp" | "persistence" | "powershell" | "privesc" | "attack" | "ad" | "wazuh" | "sentinel" | "detection" | "m365" | "falcon" | "s1" | "detonation" | "nightqueue" | "forensics2" | "vpn" | "fwlogs" | "dns" | "ngfw" | "avedr" | "llm" | "wire" | "webops" | "baremetal" | "smuggle";
+export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint" | "linux" | "pipeline" | "crypto" | "time" | "forensics" | "identity" | "malware" | "risk" | "patching" | "killchain" | "netsec" | "edr" | "mind" | "sensors" | "webapp" | "lures" | "macos" | "evtx" | "varlog" | "siem" | "ingest" | "email" | "protocols" | "dlp" | "persistence" | "powershell" | "privesc" | "attack" | "ad" | "wazuh" | "sentinel" | "detection" | "m365" | "falcon" | "s1" | "detonation" | "nightqueue" | "forensics2" | "vpn" | "fwlogs" | "dns" | "ngfw" | "avedr" | "llm" | "wire" | "webops" | "baremetal" | "smuggle" | "tenant";
 
 /**
  * The room's 3D world on its main screen. Decorative (never clickable): it shows
@@ -131,8 +131,10 @@ export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" |
  *             a grant cascades down, a host's door opens, guests go dark and disks unlock
  *  - specialdelivery: text passes a scanner arch and locks into a file over a laptop;
  *             four signed pillars, a red rider on one, a command-line panel and a rule shield
+ *  - tenantzero: a tenant core with objects in orbit, three condition rings, a role
+ *             lamp on a timer and a globe with one impossible arc
  */
-export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver" | "cipherlab" | "chrono" | "dissect" | "idgate" | "specimen" | "riskcore" | "patchline" | "chainlinks" | "zonewall" | "blackbox" | "mindlab" | "sightlines" | "webpath" | "baitshop" | "orchard" | "evtxtape" | "varlog" | "radar" | "intake" | "postmark" | "protostack" | "sealedbrief" | "sparekey" | "objectpipe" | "integrityladder" | "matrixwall" | "domaintree" | "wazuhflow" | "skyquery" | "noisefilter" | "tenantcloud" | "talon" | "storyline" | "detonation" | "nightqueue" | "coldcase" | "longdistance" | "denyall" | "lookup" | "generations" | "secondopinion" | "ignoreall" | "wirelevel" | "opensesame" | "baremetal" | "specialdelivery";
+export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver" | "cipherlab" | "chrono" | "dissect" | "idgate" | "specimen" | "riskcore" | "patchline" | "chainlinks" | "zonewall" | "blackbox" | "mindlab" | "sightlines" | "webpath" | "baitshop" | "orchard" | "evtxtape" | "varlog" | "radar" | "intake" | "postmark" | "protostack" | "sealedbrief" | "sparekey" | "objectpipe" | "integrityladder" | "matrixwall" | "domaintree" | "wazuhflow" | "skyquery" | "noisefilter" | "tenantcloud" | "talon" | "storyline" | "detonation" | "nightqueue" | "coldcase" | "longdistance" | "denyall" | "lookup" | "generations" | "secondopinion" | "ignoreall" | "wirelevel" | "opensesame" | "baremetal" | "specialdelivery" | "tenantzero";
 
 /** cards: illustrated station cards above the scene. stage: the scene fills the
  *  screen, stations sit in a rail, the selected one in a bottom command bar.
@@ -380,7 +382,7 @@ export type BriefingLab = ({
       kind: "portal";
       title: string;
       prompt: string;
-      skin: "azure" | "edr" | "vsphere";
+      skin: "azure" | "edr" | "vsphere" | "entra";
       /** Top-bar label: generic, never a product name. */
       product: string;
       resource: string;
@@ -407,6 +409,8 @@ export type BriefingLab = ({
         title: string;
         strip?: { field: string; label: string; value: string; tone?: "critical" | "high" | "medium" | "low" | "info"; options?: string[] }[];
         facts: [string, string][];
+        /** entra skin: facts per detail tab, keyed by action id. */
+        panes?: Record<string, [string, string][]>;
         evidence?: [string, string][];
         entities?: { id: string; label: string; type: string; seen?: string }[];
         tactics?: string;

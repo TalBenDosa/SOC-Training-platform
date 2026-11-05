@@ -1255,9 +1255,24 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "entra-q5",
+        "type": "question",
+        "xp": 30
+      },
+      {
         "id": "entra-r2",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "entra-q2",
+        "type": "question",
+        "xp": 30
+      },
+      {
+        "id": "entra-q4",
+        "type": "question",
+        "xp": 30
       },
       {
         "id": "entra-r3",
@@ -1266,11 +1281,6 @@ export const ROOMS_META: RoomMeta[] = [
       },
       {
         "id": "entra-q1",
-        "type": "question",
-        "xp": 30
-      },
-      {
-        "id": "entra-q2",
         "type": "question",
         "xp": 30
       },
@@ -1289,16 +1299,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "entra-flag1",
         "type": "flag",
         "xp": 50
-      },
-      {
-        "id": "entra-q4",
-        "type": "question",
-        "xp": 30
-      },
-      {
-        "id": "entra-q5",
-        "type": "question",
-        "xp": 30
       }
     ]
   },
