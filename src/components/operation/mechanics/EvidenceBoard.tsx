@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { displayOptions, newShuffleSeed } from "@/lib/rooms/shuffle";
 import type { SanitizedLogAnalysisTask } from "@/lib/rooms/sanitize";
 import type { QuestionReview } from "@/components/rooms/reviewStore";
+import { FieldName } from "@/components/rooms/FieldName";
 import { AlreadyCleared, ContinueButton, Verdict, flattenRaw, useMechanic, type MechanicProps } from "../shared";
 
 const MAX_PINS = 6;
@@ -84,8 +85,8 @@ export function EvidenceBoard({ roomId, task, isCompleted, onComplete, onMistake
                     pinned ? "bg-neon-amber/15 ring-1 ring-neon-amber/50" : "hover:bg-white/5",
                   )}
                 >
-                  <span className="w-56 shrink-0 text-cyber-300">{f.key}</span>
-                  <span className="break-all text-slate-300">{f.value}</span>
+                  <FieldName name={f.key} />
+                  <span className="min-w-0 flex-1 break-all text-slate-300">{f.value}</span>
                 </button>
               );
             })}

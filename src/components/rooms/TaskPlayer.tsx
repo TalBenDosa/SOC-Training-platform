@@ -23,6 +23,7 @@ import { RichText } from "@/components/lessons/RichText";
 import { LessonFigure } from "@/components/lessons/LessonFigure";
 import { LessonVideo } from "@/components/lessons/LessonVideo";
 import { displayOptions, newShuffleSeed, optionDisplayOrder, remapOptionLetters, shuffleWithSeed } from "@/lib/rooms/shuffle";
+import { FieldName } from "./FieldName";
 import { saveTaskReview, type ReviewRecord } from "./reviewStore";
 import { ListenButton } from "@/components/media/ListenButton";
 import { roomNarrationSrc } from "@/lib/narration/roomNarration";
@@ -403,11 +404,11 @@ function InteractiveLogEventCard({
                 const def = taggedIoc ? iocDef(taggedIoc.type) : null;
                 return (
                   <div key={k} className="flex gap-3 leading-relaxed items-center">
-                    <span className="text-cyber-300 shrink-0 min-w-[18rem]">{k}</span>
+                    <FieldName name={k} />
                     <button
                       onClick={e => handleValueClick(k, strVal, e.currentTarget)}
                       className={cn(
-                        "text-left break-all rounded px-1 -mx-1 transition-all",
+                        "min-w-0 text-left break-all rounded px-1 -mx-1 transition-all",
                         isTagged
                           ? cn("font-medium border", def?.bg, def?.border, def?.color)
                           : "text-slate-300 hover:bg-cyber-500/10 hover:text-white cursor-pointer",
@@ -1157,8 +1158,8 @@ export function ReadOnlyEventCard({ event }: { event: TelemetryEvent }) {
           <div className="px-4 pb-4 pt-1 font-mono text-[11px] space-y-0.5 max-h-80 overflow-y-auto">
             {Object.entries(event.raw).map(([k, v]) => (
               <div key={k} className="flex gap-3 leading-relaxed">
-                <span className="text-cyber-300 shrink-0 min-w-[18rem]">{k}</span>
-                <span className="text-slate-300 break-all">{rawValStr(v)}</span>
+                <FieldName name={k} />
+                <span className="min-w-0 flex-1 text-slate-300 break-all">{rawValStr(v)}</span>
               </div>
             ))}
           </div>

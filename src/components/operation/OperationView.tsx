@@ -553,7 +553,7 @@ export function OperationView(p: OperationViewProps) {
 }
 
 // ─── Station task: mechanic by task type, existing player as the fallback ───────
-function StationTask({ task, props, labs }: { task: SanitizedRoomTask; props: Omit<MechanicProps<unknown>, "task">; labs?: BriefingLab[] }) {
+export function StationTask({ task, props, labs }: { task: SanitizedRoomTask; props: Omit<MechanicProps<unknown>, "task">; labs?: BriefingLab[] }) {
   if (task.type === "reading" && labs?.length) return <IntelBriefing {...props} task={task} labs={labs} />;
   if (labs?.length) return <Drill labs={labs} skip={props.isCompleted}><StationTask task={task} props={props} /></Drill>;
   switch (mechanicFor(task.type)) {

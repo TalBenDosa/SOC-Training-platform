@@ -1,17 +1,21 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Timer, ShieldCheck, ShieldX, ArrowUpRight, Info } from "lucide-react";
+import { Timer, ShieldCheck, ShieldX, ArrowUpRight, Info, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ANALYST_VERDICTS } from "@/components/rooms/TaskPlayer";
+import { FieldName } from "@/components/rooms/FieldName";
 import { shuffleWithSeed, newShuffleSeed } from "@/lib/rooms/shuffle";
 import type { SanitizedAnalystChoiceTask } from "@/lib/rooms/sanitize";
 import { AlreadyCleared, ContinueButton, PersonaAvatar, Verdict, flattenRaw, useMechanic, type MechanicProps } from "../shared";
 
 const DESK_SECONDS = 90;
 
-const VERDICT_STYLE: Record<string, { icon: React.ElementType; ring: string }> = {
+// Keyed by the verdict list itself: a new verdict without a style fails the type check,
+// instead of crashing the desk the moment a learner opens the decision.
+const VERDICT_STYLE: Record<(typeof ANALYST_VERDICTS)[number]["key"], { icon: React.ElementType; ring: string }> = {
   true_positive:  { icon: ShieldX,      ring: "border-neon-red/50 hover:bg-neon-red/10 text-neon-red" },
+  benign_true_positive: { icon: ClipboardCheck, ring: "border-cyber-500/50 hover:bg-cyber-500/10 text-cyber-300" },
   false_positive: { icon: ShieldCheck,  ring: "border-neon-green/50 hover:bg-neon-green/10 text-neon-green" },
   escalate:       { icon: ArrowUpRight, ring: "border-neon-amber/50 hover:bg-neon-amber/10 text-neon-amber" },
   informational:  { icon: Info,         ring: "border-slate-500/60 hover:bg-slate-500/10 text-slate-300" },
@@ -103,8 +107,8 @@ export function TriageDesk({ roomId, task, isCompleted, onComplete, onMistake, o
             <div className="max-h-64 overflow-y-auto px-4 pb-3 font-mono text-[11px]">
               {fields.map(f => (
                 <div key={f.key} className="flex gap-3 border-b border-white/5 py-1 leading-relaxed">
-                  <span className="w-64 shrink-0 text-cyber-300">{f.key}</span>
-                  <span className="break-all text-slate-300">{f.value}</span>
+                  <FieldName name={f.key} />
+                  <span className="min-w-0 flex-1 break-all text-slate-300">{f.value}</span>
                 </div>
               ))}
             </div>

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { KeyRound, Lightbulb, Vault } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SanitizedFlagTask } from "@/lib/rooms/sanitize";
+import { FieldName } from "@/components/rooms/FieldName";
 import { AlreadyCleared, ContinueButton, Verdict, flattenRaw, useMechanic, type MechanicProps } from "../shared";
 
 /**
@@ -71,8 +72,8 @@ export function VaultKeypad({ roomId, task, isCompleted, onComplete, onMistake, 
           <div className="max-h-56 overflow-y-auto px-4 pb-3 font-mono text-[11px]">
             {fields.map(f => (
               <div key={f.key} className="flex gap-3 border-b border-white/5 py-1">
-                <span className="w-60 shrink-0 text-cyber-300">{f.key}</span>
-                <span className="break-all text-slate-300">{f.value}</span>
+                <FieldName name={f.key} />
+                <span className="min-w-0 flex-1 break-all text-slate-300">{f.value}</span>
               </div>
             ))}
           </div>
