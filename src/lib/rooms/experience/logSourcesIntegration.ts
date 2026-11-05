@@ -27,10 +27,10 @@ export const LOG_SOURCES_INTEGRATION: RoomExperience = {
   scene: "intake",
   layout: "stage",
   story: {
-    intro: { title: "Only What Reaches It", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-sources-integration/intake-intro-a0f7c202.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-sources-integration/intake-intro-d8ea85ec.jpg" },
+    intro: { title: "Only What Reaches It", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-sources-integration/intake-intro-02c0e162.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-sources-integration/intake-intro-d8ea85ec.jpg" },
     afterStation: {
-      sources: { title: "Running Isn't Arriving", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-sources-integration/intake-ch2-a3b02463.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-sources-integration/intake-ch2-4f217bdb.jpg" },
-      agents: { title: "One Name for One Fact", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-sources-integration/intake-ch3-dad0f8c9.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-sources-integration/intake-ch3-1d4a63e1.jpg" },
+      sources: { title: "Running Isn't Arriving", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-sources-integration/intake-ch2-a57c6f5e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-sources-integration/intake-ch2-e62e5243.jpg" },
+      agents: { title: "One Name for One Fact", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-sources-integration/intake-ch3-06de281c.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-sources-integration/intake-ch3-1d4a63e1.jpg" },
       cef: { title: "Header, Then Extension", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-sources-integration/intake-finale-a40987c6.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-sources-integration/intake-finale-7dbac943.jpg" },
     },
   },
