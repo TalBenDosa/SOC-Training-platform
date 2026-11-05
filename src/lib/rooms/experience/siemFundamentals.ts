@@ -28,11 +28,11 @@ export const SIEM_FUNDAMENTALS: RoomExperience = {
   scene: "radar",
   layout: "stage",
   story: {
-    intro: { title: "1.2 Billion Events", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-intro-e98f50b7.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-intro-e6d7e1d7.jpg" },
+    intro: { title: "1.2 Billion Events", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-intro-bbb8d7ec.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-intro-e6d7e1d7.jpg" },
     afterStation: {
-      tower: { title: "Low and Slow", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-ch2-618ec828.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-ch2-3df6c1b7.jpg" },
+      tower: { title: "Low and Slow", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-ch2-59104a35.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-ch2-3df6c1b7.jpg" },
       outcomes: { title: "Severity Is a Guess", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-ch3-a324daaa.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-ch3-6f177701.jpg" },
-      query: { title: "Ask It Yourself", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-finale-49f77510.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-finale-062e3a72.jpg" },
+      query: { title: "Ask It Yourself", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-finale-fec33181.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/siem-fundamentals/controltower-finale-062e3a72.jpg" },
     },
   },
   stations: [
