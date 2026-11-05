@@ -3339,6 +3339,16 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "edr-q1",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "edr-q2",
+        "type": "question",
+        "xp": 25
+      },
+      {
         "id": "edr-r5",
         "type": "reading",
         "xp": 0
@@ -3364,24 +3374,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "edr-r10",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "edr-q1",
-        "type": "question",
-        "xp": 25
-      },
-      {
-        "id": "edr-q2",
-        "type": "question",
-        "xp": 25
-      },
-      {
         "id": "edr-q3",
         "type": "question",
         "xp": 25
+      },
+      {
+        "id": "edr-r10",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "edr-la1",

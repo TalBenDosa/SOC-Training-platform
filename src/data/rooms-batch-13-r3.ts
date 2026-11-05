@@ -275,6 +275,42 @@ const avVsEdrMasterclass = {
         "  -> CRITICAL DETECTION, host isolated",
     },
 
+    // ── Question 1 ───────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "edr-q1",
+      question:
+        "An attacker uses PowerShell with a base64-encoded payload to download and execute malware entirely in memory, without writing any file to disk. Which endpoint security technology is BEST suited to detect this?",
+      options: [
+        "Traditional signature-based AV: it scans every running process in memory against its known malware signatures",
+        "EDR with AMSI integration: it scans the decoded PowerShell script content before the script executes",
+        "File-integrity monitoring: it alerts when the malicious executable is written into the Temp directory",
+        "A host-based firewall with application rules. It recognises the encoded command line and blocks the execution",
+      ],
+      answer: 1,
+      explanation:
+        "Fileless malware running entirely in memory bypasses signature-based AV because there is no file to scan. EDR with AMSI (Antimalware Scan Interface) integration hooks into the PowerShell execution engine and scans the decoded script content before it runs, even if the payload was base64-encoded. This allows detection even when no file is written to disk. The perimeter firewall and host firewall can block network connections but cannot inspect the script content.",
+      xp: 25,
+    },
+
+    // ── Question 2 ───────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "edr-q2",
+      question:
+        "In the context of EDR, what is a 'Living-Off-the-Land' (LOLBin) attack, and why does it evade traditional AV?",
+      options: [
+        "Malware with no persistence mechanism, so a reboot clears it and AV never has a lasting file to scan",
+        "Abuse of trusted built-in Windows tools such as PowerShell, WMI or certutil.exe, which AV treats as legitimate",
+        "Malware packed with a custom crypter that changes its file hash on every build, so signature AV never matches it",
+        "An attack that stays entirely inside the victim network after the first foothold, so border sensors and AV never see it",
+      ],
+      answer: 1,
+      explanation:
+        "LOLBin (Living-Off-the-Land Binary) attacks use legitimate, pre-installed Windows tools to perform malicious actions. PowerShell, WMI, certutil.exe, and regsvr32.exe are all signed Microsoft binaries trusted by AV. Traditional AV sees 'powershell.exe' and considers it safe. It cannot detect that the PowerShell script being executed is malicious. EDR detects LOLBin abuse by analyzing BEHAVIOR: PowerShell spawning from Word, PowerShell connecting to an external IP, PowerShell injecting into another process.",
+      xp: 25,
+    },
+
     // ── Reading 5 ────────────────────────────────────────────────────────────
     {
       type: "reading" as const,
@@ -591,6 +627,24 @@ const avVsEdrMasterclass = {
       },
     },
 
+    // ── Question 3 ───────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "edr-q3",
+      question:
+        "What does an access mask of 0x1FFFFF (Falcon's crowdstrike.DesiredAccess 2097151) mean in a CrowdStrike EDR alert about LSASS access?",
+      options: [
+        "PROCESS_VM_READ only: the process can read LSASS memory but cannot write to it or create threads in it",
+        "PROCESS_ALL_ACCESS was granted: the process has full control over LSASS, enough to dump its credential material",
+        "PROCESS_QUERY_LIMITED_INFORMATION: the process can enumerate LSASS metadata but cannot read its memory",
+        "The request was logged but blocked by Credential Guard: 0x1FFFFF marks the denied attempt",
+      ],
+      answer: 1,
+      explanation:
+        "The access mask 0x1FFFFF (2097151 in Falcon's decimal DesiredAccess field) is the hexadecimal value for PROCESS_ALL_ACCESS in Windows. This grants the caller ALL possible permissions over the target process (in this case LSASS). With PROCESS_ALL_ACCESS, an attacker can use MiniDumpWriteDump() to dump all credentials stored in LSASS memory, extracting NTLM hashes and Kerberos tickets. This is the LSASS credential dumping technique (MITRE T1003.001). Any process accessing LSASS with GrantedAccess 0x1FFFFF should be treated as credential dumping until proven otherwise.",
+      xp: 25,
+    },
+
     // ── Reading 10 ───────────────────────────────────────────────────────────
     {
       type: "reading" as const,
@@ -639,60 +693,6 @@ const avVsEdrMasterclass = {
         "                        MTTD and MTTR are your critical metrics.\n" +
         "  If XDR deployed:      Build cross-domain detection rules.\n" +
         "                        One phish + one endpoint event = full story.",
-    },
-
-    // ── Question 1 ───────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "edr-q1",
-      question:
-        "An attacker uses PowerShell with a base64-encoded payload to download and execute malware entirely in memory, without writing any file to disk. Which endpoint security technology is BEST suited to detect this?",
-      options: [
-        "Traditional signature-based AV: it scans every running process in memory against its known malware signatures",
-        "EDR with AMSI integration: it scans the decoded PowerShell script content before the script executes",
-        "File-integrity monitoring: it alerts when the malicious executable is written into the Temp directory",
-        "A host-based firewall with application rules. It recognises the encoded command line and blocks the execution",
-      ],
-      answer: 1,
-      explanation:
-        "Fileless malware running entirely in memory bypasses signature-based AV because there is no file to scan. EDR with AMSI (Antimalware Scan Interface) integration hooks into the PowerShell execution engine and scans the decoded script content before it runs, even if the payload was base64-encoded. This allows detection even when no file is written to disk. The perimeter firewall and host firewall can block network connections but cannot inspect the script content.",
-      xp: 25,
-    },
-
-    // ── Question 2 ───────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "edr-q2",
-      question:
-        "In the context of EDR, what is a 'Living-Off-the-Land' (LOLBin) attack, and why does it evade traditional AV?",
-      options: [
-        "Malware with no persistence mechanism, so a reboot clears it and AV never has a lasting file to scan",
-        "Abuse of trusted built-in Windows tools such as PowerShell, WMI or certutil.exe, which AV treats as legitimate",
-        "Malware packed with a custom crypter that changes its file hash on every build, so signature AV never matches it",
-        "An attack that stays entirely inside the victim network after the first foothold, so border sensors and AV never see it",
-      ],
-      answer: 1,
-      explanation:
-        "LOLBin (Living-Off-the-Land Binary) attacks use legitimate, pre-installed Windows tools to perform malicious actions. PowerShell, WMI, certutil.exe, and regsvr32.exe are all signed Microsoft binaries trusted by AV. Traditional AV sees 'powershell.exe' and considers it safe. It cannot detect that the PowerShell script being executed is malicious. EDR detects LOLBin abuse by analyzing BEHAVIOR: PowerShell spawning from Word, PowerShell connecting to an external IP, PowerShell injecting into another process.",
-      xp: 25,
-    },
-
-    // ── Question 3 ───────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "edr-q3",
-      question:
-        "What does an access mask of 0x1FFFFF (Falcon's crowdstrike.DesiredAccess 2097151) mean in a CrowdStrike EDR alert about LSASS access?",
-      options: [
-        "PROCESS_VM_READ only: the process can read LSASS memory but cannot write to it or create threads in it",
-        "PROCESS_ALL_ACCESS was granted: the process has full control over LSASS, enough to dump its credential material",
-        "PROCESS_QUERY_LIMITED_INFORMATION: the process can enumerate LSASS metadata but cannot read its memory",
-        "The request was logged but blocked by Credential Guard: 0x1FFFFF marks the denied attempt",
-      ],
-      answer: 1,
-      explanation:
-        "The access mask 0x1FFFFF (2097151 in Falcon's decimal DesiredAccess field) is the hexadecimal value for PROCESS_ALL_ACCESS in Windows. This grants the caller ALL possible permissions over the target process (in this case LSASS). With PROCESS_ALL_ACCESS, an attacker can use MiniDumpWriteDump() to dump all credentials stored in LSASS memory, extracting NTLM hashes and Kerberos tickets. This is the LSASS credential dumping technique (MITRE T1003.001). Any process accessing LSASS with GrantedAccess 0x1FFFFF should be treated as credential dumping until proven otherwise.",
-      xp: 25,
     },
 
     // ── Log Analysis ─────────────────────────────────────────────────────────

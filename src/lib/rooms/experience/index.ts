@@ -47,6 +47,7 @@ import { VPN_MONITORING } from "./vpnMonitoring";
 import { FIREWALL_LOG_ANALYSIS } from "./firewallLogAnalysis";
 import { DNS_INVESTIGATION } from "./dnsInvestigation";
 import { FIREWALL_MASTERCLASS } from "./firewallMasterclass";
+import { AV_VS_EDR_MASTERCLASS } from "./avVsEdrMasterclass";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -100,6 +101,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [FIREWALL_LOG_ANALYSIS.roomId]: FIREWALL_LOG_ANALYSIS,
   [DNS_INVESTIGATION.roomId]: DNS_INVESTIGATION,
   [FIREWALL_MASTERCLASS.roomId]: FIREWALL_MASTERCLASS,
+  [AV_VS_EDR_MASTERCLASS.roomId]: AV_VS_EDR_MASTERCLASS,
 };
 
 /**

@@ -79,6 +79,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   denyall: dynamic(() => import("./scenes/DenyAllScene"), { ssr: false }),
   lookup: dynamic(() => import("./scenes/LookupScene"), { ssr: false }),
   generations: dynamic(() => import("./scenes/GenerationsScene"), { ssr: false }),
+  secondopinion: dynamic(() => import("./scenes/SecondOpinionScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;
