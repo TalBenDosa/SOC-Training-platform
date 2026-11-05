@@ -27,11 +27,11 @@ export const TIMESTAMPS_AND_TIMELINES: RoomExperience = {
   scene: "chrono",
   layout: "stage",
   story: {
-    intro: { title: "Forty Clocks", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/timestamps-and-timelines/zero-hour-intro-01bb2a55.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/timestamps-and-timelines/zero-hour-intro-ed40f947.jpg" },
+    intro: { title: "Forty Clocks", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/timestamps-and-timelines/zero-hour-intro-f50c26b2.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/timestamps-and-timelines/zero-hour-intro-bdd863f3.jpg" },
     afterStation: {
-      order: { title: "Three Clocks Disagree", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/timestamps-and-timelines/zero-hour-ch2-e4d179eb.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/timestamps-and-timelines/zero-hour-ch2-7d17f011.jpg" },
-      instant: { title: "Same Instant", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/timestamps-and-timelines/zero-hour-ch3-6d775f8d.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/timestamps-and-timelines/zero-hour-ch3-f84cda78.jpg" },
-      traps: { title: "Zero Hour", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/timestamps-and-timelines/zero-hour-finale-c8f61641.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/timestamps-and-timelines/zero-hour-finale-26395b21.jpg" },
+      order: { title: "Three Clocks Disagree", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/timestamps-and-timelines/zero-hour-ch2-6d589897.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/timestamps-and-timelines/zero-hour-ch2-678cf26f.jpg" },
+      instant: { title: "Same Instant", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/timestamps-and-timelines/zero-hour-ch3-b9102c15.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/timestamps-and-timelines/zero-hour-ch3-41d422c0.jpg" },
+      traps: { title: "Zero Hour", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/timestamps-and-timelines/zero-hour-finale-e6959544.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/timestamps-and-timelines/zero-hour-finale-8d3d685f.jpg" },
     },
   },
   stations: [
