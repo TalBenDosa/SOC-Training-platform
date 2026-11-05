@@ -972,65 +972,6 @@ Most professional SOC analysts use online sandboxes for quick dynamic analysis. 
       },
     },
 
-    // ── Reading 2: Static Analysis Tools ─────────────────────────────────────
-    {
-      type: "reading",
-      id: "malware-r2",
-      heading: "Static Analysis: Examining Malware Without Running It",
-      content: `Static analysis is the art of understanding a malicious file by *reading* it rather than *running* it. Think of it like examining a weapon found at a crime scene: you don't fire the gun to understand it, you study its markings, manufacturer stamps, and serial number.
-
-**Step 1, File Hashing: The Malware Fingerprint**
-
-Every file has a **cryptographic hash**: a unique mathematical fingerprint calculated from the file's contents. Change even a single byte of the file and the hash changes completely. The three most common hash algorithms are:
-
-- **MD5 (Message Digest 5):** 32 hexadecimal characters. Fast to calculate. Example: \`d41d8cd98f00b204e9800998ecf8427e\` (32 characters). No longer considered cryptographically secure (collisions possible), but still widely used for malware tracking.
-- **SHA-1 (Secure Hash Algorithm 1):** 40 characters. Also deprecated for security purposes.
-- **SHA-256:** 64 characters. The **preferred standard** for malware analysis. Computationally infeasible to forge. Example: \`fdfb6e68f7fa7fe7728986f3d076bbc3c436c35af43070949c1d22bbbbe20ae1\`
-
-Why do hashes matter? Once you have a SHA-256 hash, you can:
-- Look it up on **VirusTotal**: paste the hash and see if any of 70+ antivirus engines recognise it as malicious
-- Search **MalwareBazaar** (a free public repository) for samples with the same hash
-- Share the hash with other organisations as an IOC. Anyone who finds the same hash knows they have the same malware
-
-**Step 2: Strings Extraction**
-
-Binary programs (.exe files) are mostly machine code that humans can't read. But embedded within that machine code are **strings**. Sequences of human-readable text that the program uses. Extracting strings from a malware sample can be incredibly revealing:
-
-- **URLs:** \`http://185.220.101.45/update/check.php\`the attacker's command-and-control server
-- **Domain names:** \`c2server.evildomain.ru\`another C2 indicator
-- **Registry paths:** \`HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\`the malware is establishing persistence
-- **Function names:** \`CreateRemoteThread, VirtualAllocEx\`signs of process injection
-- **Error messages:** Attackers often leave debugging text in their code, revealing what the malware was designed to do
-
-Tools: **strings** (Linux command), **BinText** (Windows GUI), **FLOSS** (FireEye Labs Obfuscated String Solver. Specifically designed to extract obfuscated strings that simple tools miss).
-
-**Step 3: PE File Analysis**
-
-Most Windows malware is in **PE (Portable Executable)** format: the standard format for .exe and .dll files on Windows. The PE format has a specific structure with sections and headers that reveal a lot about the program's capabilities.
-
-**PEStudio** is the go-to free tool for PE analysis. It shows:
-- **File metadata:** Compilation timestamp (when was the malware compiled?), original file name, version info, digital signature (is it signed? By whom?)
-- **Sections:** PE files are divided into sections. \`.text\` contains executable code. \`.data\` contains global variables. \`.rsrc\` contains resources (icons, strings, embedded files). If \`.text\` is unusually large or has a very high entropy (randomness), the malware may be packed/obfuscated.
-- **Imports:** A list of Windows API functions the program calls. This tells you what the malware can *do*:
-  - Imports **WinINet.dll** functions (InternetOpen, InternetConnect) → makes HTTP connections → probably communicates with a C2 server
-  - Imports **Crypt32.dll** functions → performs encryption → possibly ransomware
-  - Imports **WS2_32.dll** functions (socket, connect, send) → raw network sockets → advanced network communication
-  - Imports **Advapi32.dll** (RegSetValueEx, CreateService) → modifies registry or creates services → persistence mechanisms
-
-**Step 4, YARA Rules: Pattern Matching**
-
-**YARA** is a tool that lets security researchers write pattern-matching rules to identify malware based on specific byte sequences, strings, or structural features. A YARA rule might say: "If a file contains the string 'MiniDump' AND imports the function 'RtlCopyMemory' AND the file size is under 100KB, flag it as a potential credential dumper."
-
-YARA rules are widely shared in the security community. **VirusTotal** runs YARA rules against uploaded files. Tools like **YARA-X** (the newer version) allow scanning your entire file system for matching files.`,
-      checkpoint: {
-        question: "A partner's threat report lists the IOC 'a9dc4004efb5cd5cd343345bc9f7f25e' (32 hexadecimal characters). Which hash type is it?",
-        options: ["SHA-1", "SHA-256", "MD5", "CRC32"],
-        answer: 2,
-        explanation:
-          "MD5 hashes are 32 hexadecimal characters long. SHA-1 hashes are 40 characters and SHA-256 hashes are 64, so neither fits. CRC32 is a short checksum (8 hexadecimal characters) used to detect accidental corruption, not to fingerprint malware. MD5 is still common in threat reports, but SHA-256 is the preferred standard for sharing malware IOCs because MD5 collisions are possible.",
-      },
-    },
-
     // ── Reading 3: Dynamic Analysis & Sandboxes ───────────────────────────────
     {
       type: "reading",
@@ -1090,6 +1031,119 @@ When you need deeper analysis beyond what an online sandbox provides:
 - **Wireshark:** Captures all network traffic. Use it inside a sandbox VM to see exactly what the malware sends and receives.
 - **x64dbg / OllyDbg:** Debuggers that let you step through malware code instruction by instruction. This is reverse engineering: more advanced.
 - **Ghidra:** Free NSA-developed tool for decompiling binary code back into readable C-like code. The free alternative to IDA Pro.`,
+    },
+
+    // ── Question 4 ────────────────────────────────────────────────────────────
+    {
+      type: "question",
+      id: "malware-q4",
+      question:
+        "A finance user forwards a suspicious .xlsx that may be a real client spreadsheet with a macro added. You need to see what the macro does when it runs. What is the right approach?",
+      options: [
+        "Upload it to ANY.RUN's free tier: interactive analysis is fastest and stays private",
+        "Detonate it in a private or on-premises sandbox, since public ones share uploads",
+        "Open it on your analyst workstation with macros enabled and watch what happens",
+        "Submit just its hash to VirusTotal; a 0/72 result shows the macro is harmless",
+      ],
+      answer: 1,
+      explanation:
+        "A file that may hold real client data must not go to a public sandbox, because public services share submitted files and reports with their user community. A private or on-premises sandbox still gives you the behavioural report without exposing the data. 'ANY.RUN's free tier stays private' is the trap: the free public tier is exactly the kind of service that shares uploads. 'Open it on your workstation' runs suspected malware outside any isolation. 'Hash only' protects the data, but a 0/72 result does not show the macro is harmless, and you still have not seen its behaviour.",
+      xp: 35,
+    },
+
+    // ── Reading 2: Static Analysis Tools ─────────────────────────────────────
+    {
+      type: "reading",
+      id: "malware-r2",
+      heading: "Static Analysis: Examining Malware Without Running It",
+      content: `Static analysis is the art of understanding a malicious file by *reading* it rather than *running* it. Think of it like examining a weapon found at a crime scene: you don't fire the gun to understand it, you study its markings, manufacturer stamps, and serial number.
+
+**Step 1, File Hashing: The Malware Fingerprint**
+
+Every file has a **cryptographic hash**: a unique mathematical fingerprint calculated from the file's contents. Change even a single byte of the file and the hash changes completely. The three most common hash algorithms are:
+
+- **MD5 (Message Digest 5):** 32 hexadecimal characters. Fast to calculate. Example: \`d41d8cd98f00b204e9800998ecf8427e\` (32 characters). No longer considered cryptographically secure (collisions possible), but still widely used for malware tracking.
+- **SHA-1 (Secure Hash Algorithm 1):** 40 characters. Also deprecated for security purposes.
+- **SHA-256:** 64 characters. The **preferred standard** for malware analysis. Computationally infeasible to forge. Example: \`fdfb6e68f7fa7fe7728986f3d076bbc3c436c35af43070949c1d22bbbbe20ae1\`
+
+Why do hashes matter? Once you have a SHA-256 hash, you can:
+- Look it up on **VirusTotal**: paste the hash and see if any of 70+ antivirus engines recognise it as malicious
+- Search **MalwareBazaar** (a free public repository) for samples with the same hash
+- Share the hash with other organisations as an IOC. Anyone who finds the same hash knows they have the same malware
+
+**Step 2: Strings Extraction**
+
+Binary programs (.exe files) are mostly machine code that humans can't read. But embedded within that machine code are **strings**. Sequences of human-readable text that the program uses. Extracting strings from a malware sample can be incredibly revealing:
+
+- **URLs:** \`http://185.220.101.45/update/check.php\`the attacker's command-and-control server
+- **Domain names:** \`c2server.evildomain.ru\`another C2 indicator
+- **Registry paths:** \`HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\`the malware is establishing persistence
+- **Function names:** \`CreateRemoteThread, VirtualAllocEx\`signs of process injection
+- **Error messages:** Attackers often leave debugging text in their code, revealing what the malware was designed to do
+
+Tools: **strings** (Linux command), **BinText** (Windows GUI), **FLOSS** (FireEye Labs Obfuscated String Solver. Specifically designed to extract obfuscated strings that simple tools miss).
+
+**Step 3: PE File Analysis**
+
+Most Windows malware is in **PE (Portable Executable)** format: the standard format for .exe and .dll files on Windows. The PE format has a specific structure with sections and headers that reveal a lot about the program's capabilities.
+
+**PEStudio** is the go-to free tool for PE analysis. It shows:
+- **File metadata:** Compilation timestamp (when was the malware compiled?), original file name, version info, digital signature (is it signed? By whom?)
+- **Sections:** PE files are divided into sections. \`.text\` contains executable code. \`.data\` contains global variables. \`.rsrc\` contains resources (icons, strings, embedded files). If \`.text\` is unusually large or has a very high entropy (randomness), the malware may be packed/obfuscated.
+- **Imports:** A list of Windows API functions the program calls. This tells you what the malware can *do*:
+  - Imports **WinINet.dll** functions (InternetOpen, InternetConnect) → makes HTTP connections → probably communicates with a C2 server
+  - Imports **Crypt32.dll** functions → performs encryption → possibly ransomware
+  - Imports **WS2_32.dll** functions (socket, connect, send) → raw network sockets → advanced network communication
+  - Imports **Advapi32.dll** (RegSetValueEx, CreateService) → modifies registry or creates services → persistence mechanisms
+
+**Step 4, YARA Rules: Pattern Matching**
+
+**YARA** is a tool that lets security researchers write pattern-matching rules to identify malware based on specific byte sequences, strings, or structural features. A YARA rule might say: "If a file contains the string 'MiniDump' AND imports the function 'RtlCopyMemory' AND the file size is under 100KB, flag it as a potential credential dumper."
+
+YARA rules are widely shared in the security community. **VirusTotal** runs YARA rules against uploaded files. Tools like **YARA-X** (the newer version) allow scanning your entire file system for matching files.`,
+      checkpoint: {
+        question: "A partner's threat report lists the IOC 'a9dc4004efb5cd5cd343345bc9f7f25e' (32 hexadecimal characters). Which hash type is it?",
+        options: ["SHA-1", "SHA-256", "MD5", "CRC32"],
+        answer: 2,
+        explanation:
+          "MD5 hashes are 32 hexadecimal characters long. SHA-1 hashes are 40 characters and SHA-256 hashes are 64, so neither fits. CRC32 is a short checksum (8 hexadecimal characters) used to detect accidental corruption, not to fingerprint malware. MD5 is still common in threat reports, but SHA-256 is the preferred standard for sharing malware IOCs because MD5 collisions are possible.",
+      },
+    },
+
+    // ── Question 1 ────────────────────────────────────────────────────────────
+    {
+      type: "question",
+      id: "malware-q1",
+      question:
+        "A suspicious attachment from a phishing email is looked up on VirusTotal by its SHA-256. The result shows '0/72 vendors detected this as malicious'. How should the analyst read this?",
+      options: [
+        "As clean: 0/72 means every engine examined the file's code and found nothing",
+        "As unproven: a new or tailored sample can evade every engine; analyse its behaviour",
+        "As clean: the email came from a supplier we know, and no engine disagrees",
+        "As unknown: 0/72 means VirusTotal has no record of this hash yet",
+      ],
+      answer: 1,
+      explanation:
+        "0/72 means none of the engines' signatures or models flagged the file, not that it is safe. Attackers test new samples against these engines and change them until nothing fires, so a zero score is expected for a fresh or tailored sample; the next step is behavioural (sandbox) analysis. 'Every engine examined the code' overstates what a score is: it is pattern matching, and a new sample matches no known pattern. 'A known supplier' does not help. Supplier mailboxes are compromised and spoofed, and the phishing context is the reason for suspicion. 'No record yet' is wrong: a hash VirusTotal has never seen returns no result at all, whereas 0/72 is a scan result.",
+      xp: 35,
+    },
+
+    // ── Question 2 ────────────────────────────────────────────────────────────
+    {
+      type: "question",
+      id: "malware-q2",
+      question:
+        "While performing PE file analysis in PEStudio, an analyst notices the malware imports functions from 'WS2_32.dll' and 'WinINet.dll'. What does this reveal about the malware's capabilities?",
+      options: [
+        "It manipulates the registry: WS2_32 and WinINet expose configuration-hive APIs",
+        "It can talk over the network: raw sockets plus HTTP/S, likely to reach a C2 server",
+        "It injects code into other processes: these DLLs provide memory-allocation routines",
+        "It encrypts files on disk: WS2_32 and WinINet are Windows cryptographic libraries",
+      ],
+      answer: 1,
+      explanation:
+        "Imports show what a program can do. WS2_32.dll (Winsock 2) provides raw TCP/UDP sockets and WinINet.dll provides HTTP/HTTPS functions, so together they point to network communication: most likely with a command-and-control (C2) server. The next step is a sandbox run to capture the actual IPs and domains. Registry functions such as RegSetValueEx come from Advapi32.dll, not these two. Injection relies on calls like VirtualAllocEx and CreateRemoteThread, which these DLLs do not provide. Neither DLL is a cryptographic library.",
+      xp: 35,
     },
 
     // ── Reading 4: Writing a YARA Rule ────────────────────────────────────────
@@ -1156,60 +1210,6 @@ Beyond your own machine, VirusTotal lets you run YARA rules against its enormous
         explanation:
           "'N of (...)' means at least N of the listed patterns must match, so $s1 and $s2 satisfy '2 of ($s1, $s2, $re1)', and '$s3 at 0' is satisfied because the file starts with MZ. Both clauses joined by 'and' are true. 'Every string must be found' describes 'all of them', which this rule does not use. 'Exactly two, including the regex' invents conditions: 'N of' is a minimum and treats every listed pattern equally. '$s1 must appear twice' confuses counting patterns with counting occurrences of one pattern.",
       },
-    },
-
-    // ── Question 1 ────────────────────────────────────────────────────────────
-    {
-      type: "question",
-      id: "malware-q1",
-      question:
-        "A suspicious attachment from a phishing email is looked up on VirusTotal by its SHA-256. The result shows '0/72 vendors detected this as malicious'. How should the analyst read this?",
-      options: [
-        "As clean: 0/72 means every engine examined the file's code and found nothing",
-        "As unproven: a new or tailored sample can evade every engine; analyse its behaviour",
-        "As clean: the email came from a supplier we know, and no engine disagrees",
-        "As unknown: 0/72 means VirusTotal has no record of this hash yet",
-      ],
-      answer: 1,
-      explanation:
-        "0/72 means none of the engines' signatures or models flagged the file, not that it is safe. Attackers test new samples against these engines and change them until nothing fires, so a zero score is expected for a fresh or tailored sample; the next step is behavioural (sandbox) analysis. 'Every engine examined the code' overstates what a score is: it is pattern matching, and a new sample matches no known pattern. 'A known supplier' does not help. Supplier mailboxes are compromised and spoofed, and the phishing context is the reason for suspicion. 'No record yet' is wrong: a hash VirusTotal has never seen returns no result at all, whereas 0/72 is a scan result.",
-      xp: 35,
-    },
-
-    // ── Question 2 ────────────────────────────────────────────────────────────
-    {
-      type: "question",
-      id: "malware-q2",
-      question:
-        "While performing PE file analysis in PEStudio, an analyst notices the malware imports functions from 'WS2_32.dll' and 'WinINet.dll'. What does this reveal about the malware's capabilities?",
-      options: [
-        "It manipulates the registry: WS2_32 and WinINet expose configuration-hive APIs",
-        "It can talk over the network: raw sockets plus HTTP/S, likely to reach a C2 server",
-        "It injects code into other processes: these DLLs provide memory-allocation routines",
-        "It encrypts files on disk: WS2_32 and WinINet are Windows cryptographic libraries",
-      ],
-      answer: 1,
-      explanation:
-        "Imports show what a program can do. WS2_32.dll (Winsock 2) provides raw TCP/UDP sockets and WinINet.dll provides HTTP/HTTPS functions, so together they point to network communication: most likely with a command-and-control (C2) server. The next step is a sandbox run to capture the actual IPs and domains. Registry functions such as RegSetValueEx come from Advapi32.dll, not these two. Injection relies on calls like VirtualAllocEx and CreateRemoteThread, which these DLLs do not provide. Neither DLL is a cryptographic library.",
-      xp: 35,
-    },
-
-    // ── Question 3 ────────────────────────────────────────────────────────────
-    {
-      type: "question",
-      id: "malware-q3",
-      question:
-        "DNS logs show one workstation querying about 200 random-looking domains a day (for example 'xk7pmq9r.net', 'bz3lnvw4.net'). Almost none of them resolve; then one does, and the host connects to it. What best explains this?",
-      options: [
-        "Malware stepping through a hardcoded backup list of C2 domains in order",
-        "A DGA: malware tries generated domains until it finds the one registered",
-        "Fast flux: one C2 domain rotating its IP addresses every few minutes",
-        "A browser prefetching links from an ad-heavy page the user had open",
-      ],
-      answer: 1,
-      explanation:
-        "A Domain Generation Algorithm produces a new set of pseudo-random domains on a schedule; the attacker registers only one, so the malware queries many names that do not exist until it hits the live one: exactly this pattern. Defenders cannot simply block one domain because the next one is unpredictable. A hardcoded backup list is a short, fixed set of names, not hundreds of new random-looking ones a day. Fast flux is one domain name whose IP addresses keep changing; here the names themselves keep changing. Browser prefetching resolves real domains linked from a page, and real domains resolve.",
-      xp: 35,
     },
 
     // ── Log Analysis ──────────────────────────────────────────────────────────
@@ -1318,21 +1318,21 @@ Beyond your own machine, VirusTotal lets you run YARA rules against its enormous
       xp: 40,
     },
 
-    // ── Question 4 ────────────────────────────────────────────────────────────
+    // ── Question 3 ────────────────────────────────────────────────────────────
     {
       type: "question",
-      id: "malware-q4",
+      id: "malware-q3",
       question:
-        "A finance user forwards a suspicious .xlsx that may be a real client spreadsheet with a macro added. You need to see what the macro does when it runs. What is the right approach?",
+        "DNS logs show one workstation querying about 200 random-looking domains a day (for example 'xk7pmq9r.net', 'bz3lnvw4.net'). Almost none of them resolve; then one does, and the host connects to it. What best explains this?",
       options: [
-        "Upload it to ANY.RUN's free tier: interactive analysis is fastest and stays private",
-        "Detonate it in a private or on-premises sandbox, since public ones share uploads",
-        "Open it on your analyst workstation with macros enabled and watch what happens",
-        "Submit just its hash to VirusTotal; a 0/72 result shows the macro is harmless",
+        "Malware stepping through a hardcoded backup list of C2 domains in order",
+        "A DGA: malware tries generated domains until it finds the one registered",
+        "Fast flux: one C2 domain rotating its IP addresses every few minutes",
+        "A browser prefetching links from an ad-heavy page the user had open",
       ],
       answer: 1,
       explanation:
-        "A file that may hold real client data must not go to a public sandbox, because public services share submitted files and reports with their user community. A private or on-premises sandbox still gives you the behavioural report without exposing the data. 'ANY.RUN's free tier stays private' is the trap: the free public tier is exactly the kind of service that shares uploads. 'Open it on your workstation' runs suspected malware outside any isolation. 'Hash only' protects the data, but a 0/72 result does not show the macro is harmless, and you still have not seen its behaviour.",
+        "A Domain Generation Algorithm produces a new set of pseudo-random domains on a schedule; the attacker registers only one, so the malware queries many names that do not exist until it hits the live one: exactly this pattern. Defenders cannot simply block one domain because the next one is unpredictable. A hardcoded backup list is a short, fixed set of names, not hundreds of new random-looking ones a day. Fast flux is one domain name whose IP addresses keep changing; here the names themselves keep changing. Browser prefetching resolves real domains linked from a page, and real domains resolve.",
       xp: 35,
     },
 

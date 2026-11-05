@@ -72,6 +72,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   tenantcloud: dynamic(() => import("./scenes/TenantCloudScene"), { ssr: false }),
   talon: dynamic(() => import("./scenes/TalonScene"), { ssr: false }),
   storyline: dynamic(() => import("./scenes/StorylineScene"), { ssr: false }),
+  detonation: dynamic(() => import("./scenes/DetonationScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;
