@@ -70,6 +70,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   skyquery: dynamic(() => import("./scenes/SkyQueryScene"), { ssr: false }),
   noisefilter: dynamic(() => import("./scenes/NoiseFilterScene"), { ssr: false }),
   tenantcloud: dynamic(() => import("./scenes/TenantCloudScene"), { ssr: false }),
+  talon: dynamic(() => import("./scenes/TalonScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;

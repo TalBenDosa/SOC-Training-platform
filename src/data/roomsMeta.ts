@@ -1569,6 +1569,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "cs-falcon-q3",
+        "type": "question",
+        "xp": 35
+      },
+      {
         "id": "cs-falcon-r3",
         "type": "reading",
         "xp": 0
@@ -1584,7 +1589,7 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 35
       },
       {
-        "id": "cs-falcon-q3",
+        "id": "cs-falcon-q4",
         "type": "question",
         "xp": 35
       },
@@ -1598,11 +1603,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "cs-falcon-flag1",
         "type": "flag",
         "xp": 40
-      },
-      {
-        "id": "cs-falcon-q4",
-        "type": "question",
-        "xp": 35
       },
       {
         "id": "cs-falcon-q5",

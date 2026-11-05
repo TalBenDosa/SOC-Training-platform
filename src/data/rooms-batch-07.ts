@@ -220,6 +220,24 @@ Beyond protecting managed endpoints, **Falcon Discover** scans your network for 
       },
     },
 
+    // ── Question 3 ────────────────────────────────────────────────────────────
+    {
+      type: "question",
+      id: "cs-falcon-q3",
+      question:
+        "Your company has no night shift. At 03:00 a managed detection appears in the Falcon console with a written analysis of hands-on-keyboard activity that no automated detection had flagged. Who produced it?",
+      options: [
+        "Falcon Prevent, whose ML model blocked a file and annotated why",
+        "OverWatch, CrowdStrike's managed 24/7 threat-hunting team",
+        "Falcon Discover, which flagged a device that has no sensor",
+        "Falcon Insight's behavioural rules running in the cloud",
+      ],
+      answer: 1,
+      explanation:
+        "OverWatch is CrowdStrike's team of human threat hunters who search customer telemetry around the clock for activity automated detections miss, and send a managed detection with their analysis to the console, which fits a written analysis of activity no rule flagged. Falcon Prevent blocks files automatically; it does not write analyses of hands-on activity. Falcon Discover reports unmanaged devices, not attacker activity. Falcon Insight's behavioural rules are the automated detections, and the stem says none of them fired.",
+      xp: 35,
+    },
+
     // ── Reading 3: RTR & Real-World Scenarios ─────────────────────────────────
     {
       type: "reading",
@@ -312,21 +330,21 @@ After compromising one machine, attackers move to others. A common tool is **PsE
       xp: 35,
     },
 
-    // ── Question 3 ────────────────────────────────────────────────────────────
+    // ── Question 4 ────────────────────────────────────────────────────────────
     {
       type: "question",
-      id: "cs-falcon-q3",
+      id: "cs-falcon-q4",
       question:
-        "Your company has no night shift. At 03:00 a managed detection appears in the Falcon console with a written analysis of hands-on-keyboard activity that no automated detection had flagged. Who produced it?",
+        "You need a copy of the suspicious file C:\\Users\\Public\\upd.exe from a laptop in another country so it can be analysed. Which approach fits Falcon's tooling?",
       options: [
-        "Falcon Prevent, whose ML model blocked a file and annotated why",
-        "OverWatch, CrowdStrike's managed 24/7 threat-hunting team",
-        "Falcon Discover, which flagged a device that has no sensor",
-        "Falcon Insight's behavioural rules running in the cloud",
+        "Search its hash in Investigate, which copies the file from the endpoint",
+        "Ask OverWatch to collect it, since file collection is the hunters' role",
+        "Open an RTR session to the laptop and retrieve the file with 'get'",
+        "Download it from the device's page in Host Management's inventory",
       ],
-      answer: 1,
+      answer: 2,
       explanation:
-        "OverWatch is CrowdStrike's team of human threat hunters who search customer telemetry around the clock for activity automated detections miss, and send a managed detection with their analysis to the console, which fits a written analysis of activity no rule flagged. Falcon Prevent blocks files automatically; it does not write analyses of hands-on activity. Falcon Discover reports unmanaged devices, not attacker activity. Falcon Insight's behavioural rules are the automated detections, and the stem says none of them fired.",
+        "Real Time Response opens a remote shell through the sensor's existing channel, and its 'get' command retrieves a file from the endpoint for analysis: no VPN or RDP needed. Investigate searches telemetry (for example, which hosts ran this hash) but does not pull files off a device. OverWatch hunts and sends managed detections; collecting evidence from your endpoints is your team's job through RTR. Host Management shows sensor health and inventory details, not the files on the device.",
       xp: 35,
     },
 
@@ -434,24 +452,6 @@ After compromising one machine, attackers move to others. A common tool is **PsE
       answer: "640",
       hint: "Several numbers in this log are process IDs. Only one of them is passed as an argument in the command that was run.",
       xp: 40,
-    },
-
-    // ── Question 4 ────────────────────────────────────────────────────────────
-    {
-      type: "question",
-      id: "cs-falcon-q4",
-      question:
-        "You need a copy of the suspicious file C:\\Users\\Public\\upd.exe from a laptop in another country so it can be analysed. Which approach fits Falcon's tooling?",
-      options: [
-        "Search its hash in Investigate, which copies the file from the endpoint",
-        "Ask OverWatch to collect it, since file collection is the hunters' role",
-        "Open an RTR session to the laptop and retrieve the file with 'get'",
-        "Download it from the device's page in Host Management's inventory",
-      ],
-      answer: 2,
-      explanation:
-        "Real Time Response opens a remote shell through the sensor's existing channel, and its 'get' command retrieves a file from the endpoint for analysis: no VPN or RDP needed. Investigate searches telemetry (for example, which hosts ran this hash) but does not pull files off a device. OverWatch hunts and sends managed detections; collecting evidence from your endpoints is your team's job through RTR. Host Management shows sensor health and inventory details, not the files on the device.",
-      xp: 35,
     },
 
     // ── Question 5 ────────────────────────────────────────────────────────────
