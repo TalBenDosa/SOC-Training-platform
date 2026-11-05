@@ -27,11 +27,11 @@ export const WINDOWS_FUNDAMENTALS: RoomExperience = {
   scene: "hostcore",
   layout: "stage",
   story: {
-    intro: { title: "Something Does Not Belong", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-intro-1f50b356.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-intro-f2cd4276.jpg" },
+    intro: { title: "Something Does Not Belong", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-intro-2727c796.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-intro-eb660c88.jpg" },
     afterStation: {
-      persistence: { title: "Survives Every Reboot", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-ch2-5284c930.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-ch2-6174c07f.jpg" },
-      processes: { title: "Impostors", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-ch3-740f40f8.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-ch3-1c0d0c21.jpg" },
-      macro: { title: "Host Clean", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-finale-077b50e9.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-finale-427eba5e.jpg" },
+      persistence: { title: "Survives Every Reboot", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-ch2-c15e1e9f.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-ch2-ad1ba19a.jpg" },
+      processes: { title: "Impostors", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-ch3-d2323ae8.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-ch3-fef03e73.jpg" },
+      macro: { title: "Host Clean", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-finale-59881ad6.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-fundamentals/clean-host-finale-deaebd1e.jpg" },
     },
   },
   stations: [
