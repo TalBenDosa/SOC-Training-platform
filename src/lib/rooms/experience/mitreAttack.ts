@@ -26,6 +26,14 @@ export const MITRE_ATTACK: RoomExperience = {
   look: { primary: "#f87171", secondary: "#94a3b8", warn: "#fbbf24" },
   scene: "matrixwall",
   layout: "stage",
+  story: {
+    intro: { title: "Four Reports, One Intrusion", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/mitre-attack/commontongue-intro-952f5c90.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/mitre-attack/commontongue-intro-530beb02.jpg" },
+    afterStation: {
+      tactics: { title: "The Why and the How", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/mitre-attack/commontongue-ch2-2005c205.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/mitre-attack/commontongue-ch2-d8206a3e.jpg" },
+      coverage: { title: "Dark Tiles", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/mitre-attack/commontongue-ch3-58ab2235.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/mitre-attack/commontongue-ch3-72a5b068.jpg" },
+      report: { title: "One Language", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/mitre-attack/commontongue-finale-26cf3df3.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/mitre-attack/commontongue-finale-0152930b.jpg" },
+    },
+  },
   stations: [
     {
       id: "ids",
