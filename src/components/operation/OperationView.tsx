@@ -71,6 +71,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   noisefilter: dynamic(() => import("./scenes/NoiseFilterScene"), { ssr: false }),
   tenantcloud: dynamic(() => import("./scenes/TenantCloudScene"), { ssr: false }),
   talon: dynamic(() => import("./scenes/TalonScene"), { ssr: false }),
+  storyline: dynamic(() => import("./scenes/StorylineScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;

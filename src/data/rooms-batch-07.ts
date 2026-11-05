@@ -594,6 +594,24 @@ Think of it as the difference between receiving 47 separate puzzle pieces in dif
       },
     },
 
+    // ── Question 4 ────────────────────────────────────────────────────────────
+    {
+      type: "question",
+      id: "s1-q4",
+      question:
+        "An attacker changes one byte in a known malware file, giving it a hash no antivirus vendor has seen. Why can SentinelOne's Static AI still block it before it runs, when a signature-based antivirus would not?",
+      options: [
+        "It matches files against a larger, faster-updated signature list than legacy antivirus uses",
+        "Its ML model judges the file's structural traits, so never-seen variants can still be flagged",
+        "It watches what the process does after launch and stops it once the behaviour looks malicious",
+        "It restores the file's original state from the agent's snapshots before the file can execute",
+      ],
+      answer: 1,
+      explanation:
+        "Signature-based antivirus matches exact known samples, so a one-byte change produces a new hash and slips past it. Static AI uses machine-learning models trained on the structure of millions of files, so it recognises malicious traits in a file it has never seen, including zero-days, before execution. 'A larger signature list' is still signature matching, and a brand-new hash is on no list. 'Watches the process after launch' describes Behavioral AI, not a pre-execution check. 'Restores from snapshots' describes Rollback, a response action used after damage, not a way to judge a file.",
+      xp: 35,
+    },
+
     // ── Reading 2: Management Console & Response ──────────────────────────────
     {
       type: "reading",
@@ -650,6 +668,24 @@ When a threat is confirmed, SentinelOne offers several response options:
       },
     },
 
+    // ── Question 1 ────────────────────────────────────────────────────────────
+    {
+      type: "question",
+      id: "s1-q1",
+      question:
+        "A file server's agent (in Detect Mode) shows signs of a beacon calling out every 60 seconds, but you do not yet know which processes or files are involved, and the server can reach dozens of other hosts. You want to stop any spread while you keep investigating it remotely. Which response action fits best right now?",
+      options: [
+        "Kill Process: terminate the process you think is beaconing",
+        "Isolate Network: cut the server off but keep the agent connected",
+        "Quarantine Threat: move the suspected file where it cannot run",
+        "Rollback: restore the server's files to their state before the alert",
+      ],
+      answer: 1,
+      explanation:
+        "Isolate Network cuts the endpoint off from every other system while keeping its agent connected to the SentinelOne cloud, so spread stops at once and you can still investigate: the right move when you do not yet know what to kill or remove. Kill Process stops one process, but you have not identified which one, and an injected beacon may live inside a legitimate process. Quarantine Threat needs a known malicious file, which you do not have yet. Rollback undoes file changes such as ransomware encryption; it does nothing about an active network beacon.",
+      xp: 35,
+    },
+
     // ── Reading 3: XDR & Key Scenarios ───────────────────────────────────────
     {
       type: "reading",
@@ -692,24 +728,6 @@ SentinelOne detects Cobalt Strike through:
 - Behavioral AI: detecting process injection signatures in memory
 - Network analysis: identifying the distinctive timing patterns of beacon check-ins
 - Memory scanning: recognising Cobalt Strike's shellcode patterns in process memory`,
-    },
-
-    // ── Question 1 ────────────────────────────────────────────────────────────
-    {
-      type: "question",
-      id: "s1-q1",
-      question:
-        "A file server's agent (in Detect Mode) shows signs of a beacon calling out every 60 seconds, but you do not yet know which processes or files are involved, and the server can reach dozens of other hosts. You want to stop any spread while you keep investigating it remotely. Which response action fits best right now?",
-      options: [
-        "Kill Process: terminate the process you think is beaconing",
-        "Isolate Network: cut the server off but keep the agent connected",
-        "Quarantine Threat: move the suspected file where it cannot run",
-        "Rollback: restore the server's files to their state before the alert",
-      ],
-      answer: 1,
-      explanation:
-        "Isolate Network cuts the endpoint off from every other system while keeping its agent connected to the SentinelOne cloud, so spread stops at once and you can still investigate: the right move when you do not yet know what to kill or remove. Kill Process stops one process, but you have not identified which one, and an injected beacon may live inside a legitimate process. Quarantine Threat needs a known malicious file, which you do not have yet. Rollback undoes file changes such as ransomware encryption; it does nothing about an active network beacon.",
-      xp: 35,
     },
 
     // ── Question 2 ────────────────────────────────────────────────────────────
@@ -863,24 +881,6 @@ SentinelOne detects Cobalt Strike through:
       answer: "15847",
       hint: "The agent counts the files it saw being renamed during the attack.",
       xp: 40,
-    },
-
-    // ── Question 4 ────────────────────────────────────────────────────────────
-    {
-      type: "question",
-      id: "s1-q4",
-      question:
-        "An attacker changes one byte in a known malware file, giving it a hash no antivirus vendor has seen. Why can SentinelOne's Static AI still block it before it runs, when a signature-based antivirus would not?",
-      options: [
-        "It matches files against a larger, faster-updated signature list than legacy antivirus uses",
-        "Its ML model judges the file's structural traits, so never-seen variants can still be flagged",
-        "It watches what the process does after launch and stops it once the behaviour looks malicious",
-        "It restores the file's original state from the agent's snapshots before the file can execute",
-      ],
-      answer: 1,
-      explanation:
-        "Signature-based antivirus matches exact known samples, so a one-byte change produces a new hash and slips past it. Static AI uses machine-learning models trained on the structure of millions of files, so it recognises malicious traits in a file it has never seen, including zero-days, before execution. 'A larger signature list' is still signature matching, and a brand-new hash is on no list. 'Watches the process after launch' describes Behavioral AI, not a pre-execution check. 'Restores from snapshots' describes Rollback, a response action used after damage, not a way to judge a file.",
-      xp: 35,
     },
 
     // ── Question 5 ────────────────────────────────────────────────────────────
