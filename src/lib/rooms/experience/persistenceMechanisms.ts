@@ -27,6 +27,14 @@ export const PERSISTENCE_MECHANISMS: RoomExperience = {
   look: { primary: "#34d399", secondary: "#a78bfa", warn: "#f97316" },
   scene: "sparekey",
   layout: "stage",
+  story: {
+    intro: { title: "Nine Days Later", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/persistence-mechanisms/sparekey-intro-51363139.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/persistence-mechanisms/sparekey-intro-eada6a23.jpg" },
+    afterStation: {
+      timers: { title: "Every Ten Minutes", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/persistence-mechanisms/sparekey-ch2-d5e97bb7.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/persistence-mechanisms/sparekey-ch2-1d9866c7.jpg" },
+      hooks: { title: "Under the Floor", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/persistence-mechanisms/sparekey-ch3-b8332f61.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/persistence-mechanisms/sparekey-ch3-1c68f237.jpg" },
+      evict: { title: "Change the Lock Last", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/persistence-mechanisms/sparekey-finale-8a36e8ab.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/persistence-mechanisms/sparekey-finale-d039693e.jpg" },
+    },
+  },
   stations: [
     {
       id: "runkeys",
