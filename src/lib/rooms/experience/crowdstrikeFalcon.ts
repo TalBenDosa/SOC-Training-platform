@@ -103,7 +103,7 @@ export const CROWDSTRIKE_FALCON: RoomExperience = {
         items: [
           {
             id: "host",
-            caption: "Falcon · Host Management · BMH-LIS-NA07",
+            caption: "Falcon · BMH-LIS-NA07",
             screen: { type: "status", service: "Falcon sensor · BMH-LIS-NA07 (night auditor, Lisbon)", state: "Online · last seen 14 s ago · sensor 7.18", errors: "Prevention policy: Hotels-Standard · RFM: off", series: [40, 42, 39, 44, 41, 43, 120, 135, 128] },
             answer: "health",
             callouts: [

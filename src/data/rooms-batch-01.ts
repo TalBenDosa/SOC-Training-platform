@@ -154,7 +154,7 @@ Next, the people who attack these systems, and how they do it.`,
         {
           id: "conf",
           left: "Confidentiality",
-          right: "Only authorized people can read the data. Enforced with encryption and access controls",
+          right: "Only authorized people can read the data, enforced with encryption and access controls",
         },
         {
           id: "integ",
@@ -384,7 +384,7 @@ You are about to join one of the most in-demand, dynamic, and impactful professi
         "Penetration Tester: ethical hackers who attack systems to find weaknesses",
         "SOC Analyst: monitors alerts and investigates suspicious events in a Security Operations Center",
         "Security Engineer: builds and maintains security infrastructure",
-        "CISO (Chief Information Security Officer). Leads the entire security strategy",
+        "CISO (Chief Information Security Officer): leads the entire security strategy",
       ],
       answer: 1,
       explanation:
@@ -482,10 +482,10 @@ A **Security Operations Center (SOC)** is exactly that, but for an organisation'
 **What does a SOC actually do?**
 - **Monitor**: Continuously watch dashboards and alerts for suspicious activity
 - **Triage**: Quickly assess whether an alert is a real threat (True Positive) or a harmless false alarm (False Positive)
-- **Investigate**, Dig deeper into confirmed threats: who did what, when, from where
+- **Investigate**: Dig deeper into confirmed threats: who did what, when, from where
 - **Contain**: Stop an active attack from spreading (e.g., isolate an infected machine from the network)
-- **Remediate**, Clean up after an incident: remove malware, reset compromised accounts, patch vulnerabilities
-- **Report**, Document everything: what happened, how it was detected, how it was handled
+- **Remediate**: Clean up after an incident: remove malware, reset compromised accounts, patch vulnerabilities
+- **Report**: Document everything: what happened, how it was detected, how it was handled
 
 **Types of SOCs**
 Not every organisation builds their own SOC from scratch. There are several models:
@@ -493,7 +493,7 @@ Not every organisation builds their own SOC from scratch. There are several mode
 - **In-House SOC**: The organisation employs its own team of security analysts. Expensive, but gives full control. Common in large banks, government agencies, and healthcare systems.
 - **MSSP (Managed Security Service Provider)**: The organisation outsources security monitoring to a specialist company. The MSSP monitors multiple clients simultaneously, making it cost-effective for smaller organisations.
 - **Virtual SOC (vSOC)**: No physical location. Analysts work remotely, connecting to centralised security tools via the internet. Became common during the COVID-19 pandemic.
-- **Hybrid SOC**, A mix: the organisation handles critical monitoring in-house but outsources overflow or specialist tasks to an MSSP.
+- **Hybrid SOC**: A mix: the organisation handles critical monitoring in-house but outsources overflow or specialist tasks to an MSSP.
 
 **Key SOC metrics**
 Every SOC is measured on performance. Two critical metrics are:
@@ -529,7 +529,7 @@ Think of the SOC as the **nervous system** of an organisation's security: consta
       type: "question" as const,
       id: "soc-struct-q2",
       question:
-        "MTTD stands for Mean Time to Detect. Industry breach studies in recent years have put the global average MTTD at roughly how long?",
+        "MTTD stands for Mean Time to Detect. IBM's Cost of a Data Breach reports have put the average time to identify a breach at roughly how long?",
       options: [
         "4 hours: most breaches are detected within a working day",
         "14 days: about two weeks from intrusion to detection",
@@ -538,7 +538,7 @@ Think of the SOC as the **nervous system** of an organisation's security: consta
       ],
       answer: 2,
       explanation:
-        "The global average MTTD has hovered around 200 days in recent years, meaning attackers were inside organisations for roughly seven months before being discovered. This is a shocking figure that highlights the importance of proactive threat hunting (a T3 function) and tuning SIEM detection rules. A high MTTD means attackers have more time to steal data, move laterally, and cause damage before anyone notices.",
+        "IBM's breach-cost reports have put the average around 200 days in recent years, meaning attackers were inside organisations for roughly seven months before being discovered. Other reports measure differently: Mandiant's median dwell time is closer to two weeks. This is a shocking figure that highlights the importance of proactive threat hunting (a T3 function) and tuning SIEM detection rules. A high MTTD means attackers have more time to steal data, move laterally, and cause damage before anyone notices.",
       xp: 20,
     },
 
@@ -620,7 +620,7 @@ This handoff process is critical. Poor handoffs have allowed attackers to operat
       type: "question" as const,
       id: "soc-struct-q1",
       question:
-        "Your SIEM generates 500 alerts during an overnight shift. A Tier-1 analyst's first job is to process these alerts. What is the primary activity a T1 analyst performs on each alert?",
+        "Your SIEM raises 40 alerts during an overnight shift. A Tier-1 analyst's first job is to process these alerts. What is the primary activity a T1 analyst performs on each alert?",
       options: [
         "Reverse engineer the malware sample linked to each alert",
         "Triage each alert: decide True Positive or False Positive",
@@ -743,7 +743,7 @@ That entire sequence (from first email to automated response) might happen in un
       type: "question" as const,
       id: "soc-struct-q4",
       question:
-        "Which SOC tool would an analyst use to automatically look up a suspicious IP address in threat intelligence databases, quarantine a device, and open a ticket. All without manually clicking through each step?",
+        "Which SOC tool would an analyst use to automatically look up a suspicious IP address in threat intelligence databases, quarantine a device, and open a ticket, all without manually clicking through each step?",
       options: [
         "SIEM (Security Information and Event Management). It collects and correlates logs",
         "EDR (Endpoint Detection and Response): it monitors processes on individual devices",
@@ -752,7 +752,7 @@ That entire sequence (from first email to automated response) might happen in un
       ],
       answer: 2,
       explanation:
-        "SOAR platforms automate repetitive SOC tasks through 'playbooks'. Predefined sequences of actions that trigger automatically when certain conditions are met. Instead of an analyst spending 10 minutes manually checking an IP and opening a ticket, the SOAR does it in seconds. This dramatically reduces MTTR (Mean Time to Respond) and frees analysts to focus on tasks that require human judgment. SIEM collects logs; EDR monitors endpoints; TIP provides threat intelligence: none of these automate response actions.",
+        "SOAR platforms automate repetitive SOC tasks through 'playbooks': predefined sequences of actions that trigger automatically when certain conditions are met. Instead of an analyst spending 10 minutes manually checking an IP and opening a ticket, the SOAR does it in seconds. This dramatically reduces MTTR (Mean Time to Respond) and frees analysts to focus on tasks that require human judgment. SIEM collects logs; EDR monitors endpoints; TIP provides threat intelligence: none of these automate response actions.",
       xp: 15,
     },
     // ------------------------------------------------------------------
@@ -763,7 +763,7 @@ That entire sequence (from first email to automated response) might happen in un
       id: "soc-struct-la1",
       heading: "T1 Analyst Scenario: Reviewing an Authentication Alert",
       context:
-        "You are a Tier-1 SOC analyst at GlobalBank. It is 3:47 AM and your SIEM has fired an alert.\n\n**What the SIEM console tells you:** the rule 'Repeated Authentication Failure. Single Account' correlated **47 of these failures in 2 minutes 33 seconds** (about 18 per minute), all against the same account from the same address, and fired because the rule's threshold is 10 per minute. Its threat-intelligence enrichment flags the source address **185.220.101.47 as a Tor exit node in Amsterdam**.\n\n**What the log itself tells you:** the single Windows Security event below, one of those 47, from the Domain Controller (DC01-CORP), the central server that manages all user logins.\n\nNotice the split before you start: the raw event knows nothing about the other 46 failures and has never heard of Tor. Counting and enrichment are the SIEM's job. Triage this as if it were live.",
+        "You are a Tier-1 SOC analyst at GlobalBank. It is 3:47 AM and your SIEM has fired an alert.\n\n**What the SIEM console tells you:** the rule 'Repeated Authentication Failure: Single Account' correlated **47 of these failures in 2 minutes 33 seconds** (about 18 per minute), all against the same account from the same address, and fired because the rule's threshold is 10 per minute. Its threat-intelligence enrichment flags the source address **185.220.101.47 as a Tor exit node in Amsterdam**.\n\n**What the log itself tells you:** the single Windows Security event below, one of those 47, from the Domain Controller (DC01-CORP), the central server that manages all user logins.\n\nNotice the split before you start: the raw event knows nothing about the other 46 failures and has never heard of Tor. Counting and enrichment are the SIEM's job. Triage this as if it were live.",
       event: socStructureEvent,
       questions: [
         {
@@ -1084,9 +1084,9 @@ Just as a medieval castle had multiple defensive layers (moat, drawbridge, walls
 
 The Kill Chain is not the only way to model attacker behaviour. Two other important frameworks are:
 
-**The Diamond Model of Intrusion Analysis**, Developed in 2013, this model focuses on the *relationship* between four elements of every intrusion: Adversary (who is attacking), Infrastructure (what they are using), Capability (the tools and techniques), and Victim (the target). Where the Kill Chain shows you *when* something happens, the Diamond Model helps you understand *who* is doing it and *why*.
+**The Diamond Model of Intrusion Analysis**: Developed in 2013, this model focuses on the *relationship* between four elements of every intrusion: Adversary (who is attacking), Infrastructure (what they are using), Capability (the tools and techniques), and Victim (the target). Where the Kill Chain shows you *when* something happens, the Diamond Model helps you understand *who* is doing it and *why*.
 
-**MITRE ATT&CK**, We will cover this in depth in Room 4, but briefly: MITRE ATT&CK is a much more granular framework that catalogues hundreds of specific attack techniques. If the Kill Chain is a roadmap of a road trip (7 major stops), MITRE ATT&CK is a detailed turn-by-turn GPS with hundreds of alternative routes. The Kill Chain answers "which phase of the attack are we in?" while ATT&CK answers "which specific technique is the attacker using?"
+**MITRE ATT&CK**: We will cover this in depth in Room 4, but briefly: MITRE ATT&CK is a much more granular framework that catalogues hundreds of specific attack techniques. If the Kill Chain is a roadmap of a road trip (7 major stops), MITRE ATT&CK is a detailed turn-by-turn GPS with hundreds of alternative routes. The Kill Chain answers "which phase of the attack are we in?" while ATT&CK answers "which specific technique is the attacker using?"
 
 **When to use the Kill Chain in your SOC career:**
 - When writing **incident reports**: you map each observed attacker action to a kill chain stage, which helps communicate what happened clearly to non-technical management
@@ -1297,7 +1297,7 @@ const mitreAttackRoom = {
 
 **MITRE ATT&CK** is exactly that library, but for cyberattacks.
 
-**MITRE** (pronounced "My-ter") is a US non-profit research organisation that works with government, industry, and academia. In 2013, MITRE began systematically documenting real cyberattack techniques observed in the wild. Specifically looking at what attackers do *after* they get inside a network (post-compromise behaviour). The resulting database was published as **ATT&CK**, which stands for **Adversarial Tactics, Techniques, and Common Knowledge**.
+**MITRE** (pronounced "My-ter") is a US non-profit research organisation that works with government, industry, and academia. In 2013, MITRE began systematically documenting real cyberattack techniques observed in the wild, specifically looking at what attackers do *after* they get inside a network (post-compromise behaviour). The resulting database was published as **ATT&CK**, which stands for **Adversarial Tactics, Techniques, and Common Knowledge**.
 
 The key word is "Common Knowledge": the entire database is **free and publicly available** at attack.mitre.org. This is revolutionary: before ATT&CK, knowledge about attacker techniques was scattered across private threat intelligence reports, academic papers, and individual analysts' experience. ATT&CK standardised the language and made it accessible to the entire security community.
 
@@ -1437,7 +1437,7 @@ Every ATT&CK technique entry at attack.mitre.org contains:
       ],
       answer: 1,
       explanation:
-        "In ATT&CK, Tactics (TA-numbers such as TA0001, TA0043 or TA0112) represent the attacker's objectives. What they are trying to accomplish at each stage of their operation. Techniques (numbered T1001, T1002, etc.) are the specific methods used to achieve those objectives. Sub-techniques add further specificity. For example, the Tactic might be 'Credential Access' (steal passwords) and the Technique might be 'T1110.003 Password Spraying' (a specific method of stealing passwords). The first option reverses the two terms. A threat group's campaign is described by a group profile, not by a tactic. And the numbering runs the other way: tactics use TA (TA0001), techniques use T (T1566).",
+        "In ATT&CK, Tactics (TA-numbers such as TA0001, TA0043 or TA0112) represent the attacker's objectives: what they are trying to accomplish at each stage of their operation. Techniques (numbered T1001, T1002, etc.) are the specific methods used to achieve those objectives. Sub-techniques add further specificity. For example, the Tactic might be 'Credential Access' (steal passwords) and the Technique might be 'T1110.003 Password Spraying' (a specific method of stealing passwords). The first option reverses the two terms. A threat group's campaign is described by a group profile, not by a tactic. And the numbering runs the other way: tactics use TA (TA0001), techniques use T (T1566).",
       xp: 20,
     },
 
@@ -1476,7 +1476,7 @@ The **ATT&CK Navigator** (available at mitre-attack.github.io/attack-navigator) 
 - Which techniques a specific threat group uses (adversary emulation)
 - Which techniques were observed in a recent incident (incident mapping)
 
-**Practical use:** A SOC team can colour all the techniques covered by their current SIEM rules, then see at a glance which areas have no coverage. "blind spots" where an attacker could operate undetected. This helps prioritise where to build new detection rules.
+**Practical use:** A SOC team can colour all the techniques covered by their current SIEM rules, then see at a glance which areas have no coverage: "blind spots" where an attacker could operate undetected. This helps prioritise where to build new detection rules.
 
 **2. Threat Actor Profiles**
 ATT&CK maintains detailed profiles of known threat groups. Let's look at **APT29 (Cozy Bear)**, the Russian intelligence group behind SolarWinds:
@@ -1551,7 +1551,7 @@ This is the ATT&CK framework in action: observation → identification → detec
       id: "mitre-la1",
       heading: "Identifying an ATT&CK Technique From a Log",
       context:
-        "You are a Tier-2 SOC analyst at Fintech-Global. Microsoft Entra ID (your cloud identity platform. Formerly called Azure AD) has fired a high-severity alert. The log below shows authentication activity. Your job is to identify the ATT&CK technique being used, understand why this pattern is dangerous, and determine what mitigation ATT&CK recommends. The alert groups the failed sign-ins (ResultType 50126) that one source address produced within about three minutes; the accounts it tried are listed under TargetResources.",
+        "You are a Tier-2 SOC analyst at Fintech-Global. Microsoft Entra ID (your cloud identity platform, formerly called Azure AD) has fired a high-severity alert. The log below shows authentication activity. Your job is to identify the ATT&CK technique being used, understand why this pattern is dangerous, and determine what mitigation ATT&CK recommends. The alert groups the failed sign-ins (ResultType 50126) that one source address produced within about three minutes; the accounts it tried are listed under TargetResources.",
       event: mitreAttackEvent,
       questions: [
         {

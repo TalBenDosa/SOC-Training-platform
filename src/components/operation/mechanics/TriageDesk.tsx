@@ -5,6 +5,7 @@ import { Timer, ShieldCheck, ShieldX, ArrowUpRight, Info, ClipboardCheck } from 
 import { cn } from "@/lib/utils";
 import { ANALYST_VERDICTS } from "@/components/rooms/TaskPlayer";
 import { FieldName } from "@/components/rooms/FieldName";
+import { InlineMd } from "@/components/rooms/InlineMd";
 import { shuffleWithSeed, newShuffleSeed } from "@/lib/rooms/shuffle";
 import type { SanitizedAnalystChoiceTask } from "@/lib/rooms/sanitize";
 import { AlreadyCleared, ContinueButton, PersonaAvatar, Verdict, flattenRaw, useMechanic, type MechanicProps } from "../shared";
@@ -98,7 +99,7 @@ export function TriageDesk({ roomId, task, isCompleted, onComplete, onMistake, o
           )}
           <div className="rounded-xl border border-indigo-400/30 bg-bg-panel/80 px-4 py-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-300">The alert</p>
-            <p className="mt-1 text-sm leading-relaxed text-slate-200">{task.scenario}</p>
+            <p className="mt-1 text-sm leading-relaxed text-slate-200"><InlineMd text={task.scenario} /></p>
           </div>
           <details className="group rounded-xl border border-border bg-[#050a12]/90" open>
             <summary className="cursor-pointer select-none px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyber-300">

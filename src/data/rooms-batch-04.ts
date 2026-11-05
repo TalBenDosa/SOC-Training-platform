@@ -486,7 +486,7 @@ const siemFundamentals: Room = {
 
 4. **Alerting**: when a correlation rule matches, the SIEM generates an alert with all relevant context (which user, which IP, which timeframe, how many events matched) and notifies the SOC team.
 
-5. **Dashboarding**, visual dashboards give the SOC situational awareness: current alert count by severity, top offending IPs, authentication failure trends, geographic origin of logins.
+5. **Dashboarding**: visual dashboards give the SOC situational awareness: current alert count by severity, top offending IPs, authentication failure trends, geographic origin of logins.
 
 6. **Reporting**: automated compliance reports showing that the organisation is monitoring what regulations require (PCI-DSS requires log review, for example).
 
@@ -570,7 +570,7 @@ The MITRE ATT&CK framework is a knowledge base of adversary tactics and techniqu
       type: "question",
       id: "siem-fund-q1",
       question:
-        "A SIEM rule fires when a single source IP produces more than 20 failed logins against different accounts within 60 seconds. Far more than any normal user generates. What type of detection rule is this?",
+        "A SIEM rule fires when a single source IP produces more than 20 failed logins against different accounts within 60 seconds, far more than any normal user generates. What type of detection rule is this?",
       options: [
         "Statistical anomaly rule",
         "Sequence / chained rule",
@@ -990,9 +990,9 @@ That last row is the one that actually bites people: custom rules must live at 1
 
 Some representative built-in rules you will meet often:
 
-- **5710**, sshd: attempt to log in using a non-existent user
-- **5503**, PAM: user login failed
-- **31103**, Web server attack: SQL injection attempt (successful SQLi escalates to **31106**)
+- **5710**: sshd: attempt to log in using a non-existent user
+- **5503**: PAM: user login failed
+- **31103**: Web server attack: SQL injection attempt (successful SQLi escalates to **31106**)
 - **510**: Host-based anomaly detection event (rootcheck)
 
 **Always confirm the exact ID against your own instance before you build anything on it.** Rule IDs and their descriptions shift between ruleset versions, and every organisation runs a slightly different mix of built-in and custom rules. Two commands settle it in seconds: **/var/ossec/bin/wazuh-logtest** lets you paste a raw log line and see precisely which rule fires and at what level, and the rule files under **/var/ossec/ruleset/rules/** are plain XML you can grep. An analyst who knows how to *look up* the rule that fired is far more useful than one who memorised a list that was accurate for one version two years ago.
@@ -1033,7 +1033,7 @@ For example:
       ],
       answer: 3,
       explanation:
-        "Wazuh levels run 0–15: 12–14 is High and 15 alone is Critical, the maximum, so rule B takes priority. 12 is High, not Critical, so the two are not one band. There is no level 16-15 is the top of the scale. A rule's level is fixed in its definition; it describes severity, not how often the rule fired. (Levels 7-11 are Medium, 4-6 are Low, and 0-3 are informational or ignored.) By default (`log_alert_level` = 3) any rule at level 3 or above becomes a visible alert in the dashboard; many teams then raise that threshold to cut noise, but 3, not 7, is the out-of-the-box default.",
+        "Wazuh levels run 0–15: 12–14 is High and 15 alone is Critical, the maximum, so rule B takes priority. 12 is High, not Critical, so the two are not one band. There is no level 16: 15 is the top of the scale. A rule's level is fixed in its definition; it describes severity, not how often the rule fired. (Levels 7-11 are Medium, 4-6 are Low, and 0-3 are informational or ignored.) By default (`log_alert_level` = 3) any rule at level 3 or above becomes a visible alert in the dashboard; many teams then raise that threshold to cut noise, but 3, not 7, is the out-of-the-box default.",
       xp: 20,
     } satisfies QuestionTask,
 
@@ -1296,7 +1296,7 @@ Data connectors are the mechanisms by which Sentinel ingests log data from diffe
    - Okta
    - AWS CloudTrail (via S3)
 
-3. **Custom connectors**, for sources with no pre-built connector:
+3. **Custom connectors**: for sources with no pre-built connector:
    - **Syslog connector**: any device that sends syslog over TCP/UDP
    - **CEF connector**: devices sending Common Event Format logs
    - **HTTP Data Collector API**: custom applications can POST JSON logs via REST API

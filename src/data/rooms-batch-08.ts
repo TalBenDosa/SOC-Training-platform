@@ -35,7 +35,7 @@ const threatIntelligence = {
       type: "reading" as const,
       id: "threat-intel-r1",
       heading: "What Is Cyber Threat Intelligence, And Why Is 'Intelligence' Different From 'Information'?",
-      content: `Every day your company's firewall blocks thousands of connections, your antivirus scans millions of files, and your SIEM generates hundreds of alerts. All of that is **information**. Raw facts sitting in a database. By itself, raw information is not very useful. You cannot act on "connection blocked from 185.220.101.45" unless you know: *Who owns that IP? Is it linked to a known attacker? Which companies have they targeted? What do they do after they get in?*
+      content: `Every day your company's firewall blocks thousands of connections, your antivirus scans millions of files, and your SIEM generates hundreds of alerts. All of that is **information**: raw facts sitting in a database. By itself, raw information is not very useful. You cannot act on "connection blocked from 185.220.101.45" unless you know: *Who owns that IP? Is it linked to a known attacker? Which companies have they targeted? What do they do after they get in?*
 
 When you take raw information, apply **analysis**, add **context**, and produce something an analyst can act on: that is **intelligence**. The difference is the same as the difference between a weather sensor reading "wind speed: 120 km/h" and a meteorologist telling you "Hurricane Helene will make landfall in Miami on Thursday. Evacuate coastal zones now." The sensor gives information. The meteorologist gives intelligence.
 
@@ -100,10 +100,10 @@ Think of it like a restaurant kitchen: ingredients (raw data) → prep cook (pro
 **Nation-State APTs (Advanced Persistent Threats)**
 The most sophisticated and well-resourced attackers. Backed by governments and intelligence agencies. They have large teams, custom malware development, and years-long patience. They target government agencies, critical infrastructure, defence contractors, pharmaceutical companies, and financial institutions. Their goals include espionage, sabotage, and intellectual property theft.
 
-The word "persistent" is key: they do not smash and grab. They enter quietly, stay undetected for as long as they can, and slowly achieve their objectives. Industry dwell-time figures (Mandiant M-Trends is the most-cited source) have fallen sharply over the last decade, from roughly 200 days in the mid-2010s to a global median measured in days-to-weeks in recent reports. Mostly because EDR and ransomware's own noisiness force the issue. Do not read that as "the problem is solved": the median is dragged down by loud, fast ransomware, while a patient espionage actor with good operational security is exactly the case that still sits undetected for months.
+The word "persistent" is key: they do not smash and grab. They enter quietly, stay undetected for as long as they can, and slowly achieve their objectives. Industry dwell-time figures (Mandiant M-Trends is the most-cited source) have fallen sharply over the last decade, from roughly 200 days in the mid-2010s to a global median measured in days-to-weeks in recent reports, mostly because EDR and ransomware's own noisiness force the issue. Do not read that as "the problem is solved": the median is dragged down by loud, fast ransomware, while a patient espionage actor with good operational security is exactly the case that still sits undetected for months.
 
 **Cybercriminal Groups**
-Financially motivated. Their business model is usually ransomware (encrypt your files, demand payment), BEC (Business Email Compromise. Impersonate the CEO to trick finance into wiring money), or selling stolen credit card data. They are often organised like a real company, with HR, support, and software development teams. Groups like LockBit and BlackCat operate "Ransomware-as-a-Service" (RaaS). They provide the malware and infrastructure, and affiliates do the attacking in exchange for a cut of the ransom.
+Financially motivated. Their business model is usually ransomware (encrypt your files, demand payment), BEC (Business Email Compromise: impersonate the CEO to trick finance into wiring money), or selling stolen credit card data. They are often organised like a real company, with HR, support, and software development teams. Groups like LockBit and BlackCat operate "Ransomware-as-a-Service" (RaaS). They provide the malware and infrastructure, and affiliates do the attacking in exchange for a cut of the ransom.
 
 **Hacktivists**
 Ideologically motivated. They want to make a political statement, expose wrongdoing, or protest an organisation's actions. They typically use DDoS attacks, website defacement, or data dumps. Anonymous is the most well-known hacktivist collective.
@@ -202,7 +202,7 @@ A high-confidence IOC from a government source (e.g., a CISA joint cybersecurity
 
 **Threat Hunting with CTI**
 
-Beyond reactive alerting, CTI enables proactive **threat hunting**. Analysts going looking for signs of compromise rather than waiting for an alert to fire.
+Beyond reactive alerting, CTI enables proactive **threat hunting**: analysts going looking for signs of compromise rather than waiting for an alert to fire.
 
 A CTI report says: "APT41 uses scheduled tasks named 'WindowsUpdate' in C:\\Windows\\Temp\\ for persistence." A threat hunter takes that TTP and writes a SIEM query: "Show me any scheduled task creation where the task name contains 'WindowsUpdate' and the file path contains Temp." If results come back, the hunter investigates whether the organisation has already been compromised, even if no alert fired because the attacker bypassed existing detection rules.
 
@@ -389,7 +389,7 @@ const osintFundamentals = {
   id: "osint-fundamentals",
   title: "OSINT Fundamentals",
   description:
-    "Master Open Source Intelligence techniques used by SOC analysts to investigate threat actors, enrich IOCs, and research attacker infrastructure. All from publicly available sources. Covers Shodan, Censys, URLScan, WHOIS, Maltego, and analyst OPSEC.",
+    "Master Open Source Intelligence techniques used by SOC analysts to investigate threat actors, enrich IOCs, and research attacker infrastructure, all from publicly available sources. Covers Shodan, Censys, URLScan, WHOIS, Maltego, and analyst OPSEC.",
   difficulty: "intermediate" as const,
   category: "Threat Intelligence",
   estimatedMinutes: 45,
@@ -499,7 +499,7 @@ Never visit a suspicious URL in your normal browser. URLScan.io lets you submit 
 
 **WHOIS: Domain Registration Lookup**
 
-When a domain was registered, by whom, with what registrar, using what contact email. All of this information is (or was, before privacy protection became common) available via WHOIS lookups. Even with privacy protection, you can often determine:
+When a domain was registered, by whom, with what registrar, using what contact email: all of this information is (or was, before privacy protection became common) available via WHOIS lookups. Even with privacy protection, you can often determine:
 - Registration date (newly registered domain = higher suspicion)
 - Registrar name
 - Nameservers (attackers often use specific fast-flux DNS or bullet-proof hosting providers)
@@ -713,7 +713,7 @@ Only after exhausting passive research would an analyst consider any active step
             "Run a Public URLScan of https://185.220.101.47 to see what the server serves",
           ],
           answer: 2,
-          explanation: "VirusTotal and ThreatFox/Abuse.ch are passive: they return what others have already recorded about the IP (vendor flags, related files and URLs, C2 tracking) without sending it a packet. That is the room's order of work, with active steps only after passive sources are exhausted. A port scan is active OSINT: your SOC subnet would appear in the relay operator's logs, and Shodan already lists the open ports. The org field names the organisation that holds the IP block. Here a foundation that runs Tor relays, not the Tor Project, which writes the software while independent operators run the relays, so it proves nothing about the server on its own. A URLScan is active by proxy, and a Public scan publishes your interest for anyone to see.",
+          explanation: "VirusTotal and ThreatFox/Abuse.ch are passive: they return what others have already recorded about the IP (vendor flags, related files and URLs, C2 tracking) without sending it a packet. That is the room's order of work, with active steps only after passive sources are exhausted. A port scan is active OSINT: your SOC subnet would appear in the relay operator's logs, and Shodan already lists the open ports. The org field names the organisation that holds the IP block: here a foundation that runs Tor relays, not the Tor Project, which writes the software while independent operators run the relays, so it proves nothing about the server on its own. A URLScan is active by proxy, and a Public scan publishes your interest for anyone to see.",
           xp: 50,
         },
       ],
@@ -778,7 +778,7 @@ But sometimes, an alert represents something real and serious: an actual attack 
 - **Alert**: An event that matches a detection rule. Needs investigation.
 - **Incident**: A confirmed security breach or attack that requires a structured response.
 
-The difference between an alert and an incident is the **analyst's determination**. Based on triage and evidence. An alert that you confirm is a real attack becomes an incident.
+The difference between an alert and an incident is the **analyst's determination**, based on triage and evidence. An alert that you confirm is a real attack becomes an incident.
 
 ---
 
@@ -962,7 +962,7 @@ Eradication means making sure the attacker is completely gone: no backdoors, no 
 - **Remove all malware**: Quarantine and delete all identified malicious files. Use EDR's "full disk scan" with updated signatures post-incident.
 - **Remove persistence mechanisms**: Scheduled tasks, registry run keys, startup folder entries, WMI subscriptions, browser extensions, modified services, boot sector malware. Attackers love persistence: assume there are multiple.
 - **Close the initial access vector**: Patch the vulnerability that was exploited, revoke the stolen credentials, disable the phishing template, block the initial delivery domain.
-- **Reset ALL compromised credentials**: Not just the user whose account was breached. Any account the attacker could have accessed from the compromised systems. For a compromised domain controller, this means resetting the KRBTGT account (which invalidates all Kerberos tickets) and potentially resetting all domain account passwords.
+- **Reset ALL compromised credentials**: Not just the user whose account was breached, but any account the attacker could have accessed from the compromised systems. For a compromised domain controller, this means resetting the KRBTGT account (which invalidates all Kerberos tickets) and potentially resetting all domain account passwords.
 - **Rebuild if uncertain**: If there is any doubt about whether a system is fully clean, especially a critical server, rebuild it from scratch from a known-clean image rather than trying to clean it. It is faster than a forensic hunt and guarantees cleanliness.
 
 **Eradication for Ransomware:**
@@ -1098,7 +1098,7 @@ Break chain of custody, and the evidence may be inadmissible in court.`,
             "C:\\Windows\\Temp\\ is write-protected, so malware cannot normally place files there",
           ],
           answer: 1,
-          explanation: "The legitimate Windows svchost.exe (Service Host) ALWAYS runs from C:\\Windows\\System32\\. Malware authors frequently copy their malicious executable into C:\\Windows\\Temp\\ and name it 'svchost.exe' to blend in with normal process lists. This is called Masquerading (MITRE T1036.005. Match Legitimate Name or Location). Note it is the opposite of living-off-the-land, which abuses the genuine built-in binaries; here a malicious file merely wears a system name. Any svchost.exe running from Temp, AppData, or any path other than System32 is almost certainly malicious. The EDR caught this exact pattern.",
+          explanation: "The legitimate Windows svchost.exe (Service Host) ALWAYS runs from C:\\Windows\\System32\\. Malware authors frequently copy their malicious executable into C:\\Windows\\Temp\\ and name it 'svchost.exe' to blend in with normal process lists. This is called Masquerading (MITRE T1036.005: Match Legitimate Name or Location). Note it is the opposite of living-off-the-land, which abuses the genuine built-in binaries; here a malicious file merely wears a system name. Any svchost.exe running from Temp, AppData, or any path other than System32 is almost certainly malicious. The EDR caught this exact pattern.",
           xp: 50,
         },
         {
@@ -1138,7 +1138,7 @@ Break chain of custody, and the evidence may be inadmissible in court.`,
         "The Schema Admin account",
       ],
       answer: 2,
-      explanation: "The KRBTGT account is the Kerberos Ticket Granting Ticket service account. Its password is used to sign all Kerberos tickets in the domain. If an attacker has domain admin access, they can create 'Golden Tickets'. Forged Kerberos tickets signed with the KRBTGT hash that allow indefinite access. Resetting the KRBTGT password (twice, due to Active Directory replication) invalidates ALL existing Kerberos tickets across the domain, forcing re-authentication. This is a mandatory step after any domain controller compromise.",
+      explanation: "The KRBTGT account is the Kerberos Ticket Granting Ticket service account. Its password is used to sign all Kerberos tickets in the domain. If an attacker has domain admin access, they can create 'Golden Tickets': forged Kerberos tickets signed with the KRBTGT hash that allow indefinite access. Resetting the KRBTGT password (twice, due to Active Directory replication) invalidates ALL existing Kerberos tickets across the domain, forcing re-authentication. This is a mandatory step after any domain controller compromise.",
       xp: 35,
     },
 
@@ -1327,10 +1327,10 @@ Never make a determination without documenting your reasoning. If you close an a
       checkpoint: {
         question: "You have read every field of the raw 4625 event. Now you are looking up the source IP's reputation and geolocation and checking the target user's department. Which step are you in, and what comes next?",
         options: [
-          "Step 2, Examine the evidence. Next you enrich the IP and the user",
-          "Step 4, Assess the impact. Next you make and document a decision",
-          "Step 3, Enrich with context. Next you assess the potential impact",
-          "Step 1, Understand the rule. Next you open and read the raw log",
+          "Step 2: Examine the evidence. Next you enrich the IP and the user",
+          "Step 4: Assess the impact. Next you make and document a decision",
+          "Step 3: Enrich with context. Next you assess the potential impact",
+          "Step 1: Understand the rule. Next you open and read the raw log",
         ],
         answer: 2,
         explanation: "Reputation, geolocation and the user's department are context added on top of the raw fields: Step 3, Enrich with context. The next step is Step 4: if this is real, how bad would it be? Step 2 is what you just finished (reading the raw event), so you are past it. Step 4 is the step after this one: impact assessment uses the context you are gathering now. Step 1 is reading the rule name and intent, which comes before opening the raw log.",
@@ -1341,7 +1341,7 @@ Never make a determination without documenting your reasoning. If you close an a
     {
       type: "question" as const,
       id: "alert-triage-q2",
-      question: "An alert fires: 'PowerShell with base64-encoded command detected. Workstation LAPTOP-MSMITH.' You look at the raw log and see: source = LAPTOP-MSMITH, user = msmith (IT operations), parent process = the IT team's Datto RMM agent, time = 14:32 Tuesday (business hours), and a ServiceNow change ticket for msmith reads 'IT audit script 14:00-15:00'. What is your determination?",
+      question: "An alert fires: 'PowerShell with base64-encoded command detected: workstation LAPTOP-MSMITH.' You look at the raw log and see: source = LAPTOP-MSMITH, user = msmith (IT operations), parent process = the IT team's Datto RMM agent, time = 14:32 Tuesday (business hours), and a ServiceNow change ticket for msmith reads 'IT audit script 14:00-15:00'. What is your determination?",
       options: [
         "True Positive: encoded PowerShell is a known attacker technique, so escalate it",
         "Benign True Positive: the rule matched real activity, and that work is ticketed",

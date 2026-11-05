@@ -35,7 +35,9 @@ export interface StageBoardProps {
 export function StageBoard({ experience, room, stations, selected, onSelect, onEnter, tokens, stories, onPlayStory }: StageBoardProps) {
   const look = experience.look ?? DEFAULT_LOOK;
   const cleared = stations.filter(s => s.status === "cleared").length;
-  const pct = stations.length ? Math.round((cleared / stations.length) * 100) : 0;
+  // Tasks, not stations: the same number the room's card shows on the rooms page.
+  const prog = stations.reduce((t, s) => { const [d, n] = s.progress.split("/").map(Number); return { done: t.done + d, all: t.all + n }; }, { done: 0, all: 0 });
+  const pct = prog.all ? Math.floor((prog.done / prog.all) * 100) : 0;
   const stars = stations.reduce((a, s) => a + s.stars, 0);
   const words = experience.codename.replace(/^Operation\s+/i, "").toUpperCase();
   const sel = stations[selected];
@@ -95,7 +97,7 @@ export function StageBoard({ experience, room, stations, selected, onSelect, onE
 
       {/* Title plate */}
       <div className="mx-auto mt-4 px-4 text-center">
-        <div className="relative px-6 py-3 sm:px-10">
+        <div className="relative rounded bg-[#04070d]/70 px-6 py-3 backdrop-blur-sm sm:px-10">
           {["left-0 top-0 border-l-2 border-t-2", "right-0 top-0 border-r-2 border-t-2", "left-0 bottom-0 border-b-2 border-l-2", "right-0 bottom-0 border-b-2 border-r-2"].map(c => (
             <span key={c} className={cn("absolute h-4 w-4 border-white/40", c)} />
           ))}

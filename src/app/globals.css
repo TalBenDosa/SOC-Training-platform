@@ -73,7 +73,7 @@ body {
 .text-glow-red { text-shadow: 0 0 18px rgba(255,45,85,0.55); }
 
 /* Code & monospace blocks */
-.font-mono, code, pre { font-family: var(--font-jetbrains), ui-monospace, "SFMono-Regular", monospace; }
+.font-mono, code, pre { font-family: var(--font-jetbrains), ui-monospace, "SFMono-Regular", monospace; font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
 
 .terminal-frame {
   background: linear-gradient(180deg, rgb(var(--bg-elevated)) 0%, rgb(var(--bg)) 100%);

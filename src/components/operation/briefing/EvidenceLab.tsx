@@ -112,7 +112,7 @@ function Screen({ s, mark }: { s: EvidenceScreen; mark: Mark }) {
             {mark("note")}
             <p className="flex items-center gap-2 font-black uppercase tracking-wide text-rose-400"><Lock className="h-4 w-4" />{s.heading}</p>
             {s.note.map(l => <p key={l} className="mt-1.5 text-[12px] leading-snug text-slate-200">{l}</p>)}
-            <p className="relative mt-2 break-all rounded bg-white/5 px-2 py-1 font-mono text-[11px] text-amber-300">{s.wallet}{mark("wallet")}</p>
+            <p className="relative mt-2 [overflow-wrap:anywhere] rounded bg-white/5 px-2 py-1 font-mono text-[11px] text-amber-300">{s.wallet}{mark("wallet")}</p>
           </div>
         </div>
       );
@@ -164,7 +164,7 @@ function Screen({ s, mark }: { s: EvidenceScreen; mark: Mark }) {
       return (
         <div className="bg-[#0b0f17] p-3 text-[12px] text-slate-300">
           <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-300">{s.product}</p>
-          <p className="relative mt-2 break-all rounded border border-white/10 bg-black/40 px-2 py-1.5 pr-6 font-mono text-[11.5px] text-sky-200">{s.query}{mark("query")}</p>
+          <p className="relative mt-2 [overflow-wrap:anywhere] rounded border border-white/10 bg-black/40 px-2 py-1.5 pr-6 font-mono text-[11.5px] text-sky-200">{s.query}{mark("query")}</p>
           <div className="relative mt-2 overflow-x-auto rounded border border-white/10">
             {mark("results")}
             <table className="w-full min-w-[26rem] font-mono text-[11px]">

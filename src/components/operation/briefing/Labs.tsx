@@ -340,21 +340,27 @@ const HOW_TO: Record<BriefingLab["kind"], { steps: string[]; done: string }> = {
 };
 
 export function HowToPlay({ lab }: { lab: BriefingLab }) {
+  // First time with a game: open. After that it folds to one line, so the game is on screen.
+  const key = `howto_seen:${lab.kind}`;
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    try { if (localStorage.getItem(key)) setSeen(true); else localStorage.setItem(key, "1"); } catch { /* storage blocked: stays open */ }
+  }, [key]);
   // The console lab carries its own step-by-step card next to the task.
   if (lab.kind === "terminal" && !lab.howTo) return null;
   const base = HOW_TO[lab.kind];
   const steps = lab.howTo ?? base.steps;
   return (
-    <div className="mb-4 rounded-xl border p-3" style={{ borderColor: "color-mix(in srgb, var(--room-accent, #38bdf8) 45%, transparent)", background: "color-mix(in srgb, var(--room-accent, #38bdf8) 7%, transparent)" }} aria-label="How to play">
-      <p className="text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: "var(--room-accent, #7dd3fc)" }}>What you do here</p>
+    <details open={!seen} className="mb-4 rounded-xl border p-3" style={{ borderColor: "color-mix(in srgb, var(--room-accent, #38bdf8) 45%, transparent)", background: "color-mix(in srgb, var(--room-accent, #38bdf8) 10%, transparent)" }}>
+      <summary className="cursor-pointer select-none text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: "var(--room-accent, #7dd3fc)" }}>What you do here</summary>
       <ol className="mt-2 space-y-1.5">
         {steps.map((s, i) => (
           <li key={s} className="flex gap-2 text-sm leading-snug text-slate-100">
-            <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white" style={{ background: "color-mix(in srgb, var(--room-accent, #38bdf8) 35%, transparent)" }}>{i + 1}</span>{s}
+            <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white" style={{ background: "color-mix(in srgb, var(--room-accent, #38bdf8) 40%, transparent)" }}>{i + 1}</span>{s}
           </li>
         ))}
       </ol>
       <p className="mt-2 text-xs text-emerald-200"><span className="font-bold">Finished when:</span> {base.done}.</p>
-    </div>
+    </details>
   );
 }

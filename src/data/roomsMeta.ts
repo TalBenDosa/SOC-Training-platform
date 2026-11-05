@@ -1893,7 +1893,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "osint-fundamentals",
     "title": "OSINT Fundamentals",
-    "description": "Master Open Source Intelligence techniques used by SOC analysts to investigate threat actors, enrich IOCs, and research attacker infrastructure. All from publicly available sources. Covers Shodan, Censys, URLScan, WHOIS, Maltego, and analyst OPSEC.",
+    "description": "Master Open Source Intelligence techniques used by SOC analysts to investigate threat actors, enrich IOCs, and research attacker infrastructure, all from publicly available sources. Covers Shodan, Censys, URLScan, WHOIS, Maltego, and analyst OPSEC.",
     "difficulty": "intermediate",
     "category": "Threat Intelligence",
     "estimatedMinutes": 45,
@@ -4067,7 +4067,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "kubernetes-container-security",
     "title": "Kubernetes & Container Security",
-    "description": "Learn how attackers escalate from a compromised container to the underlying node and the cloud account behind it. Privileged pods, hostPath/hostPID/hostNetwork abuse, RBAC over-permissioning, and the metadata-service theft path that ties container security back into cloud security monitoring.",
+    "description": "Learn how attackers escalate from a compromised container to the underlying node and the cloud account behind it: privileged pods, hostPath/hostPID/hostNetwork abuse, RBAC over-permissioning, and the metadata-service theft path that ties container security back into cloud security monitoring.",
     "difficulty": "advanced",
     "category": "Cloud Security",
     "estimatedMinutes": 55,
@@ -4134,7 +4134,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "azure-security",
     "title": "Azure IaaS Security for SOC Analysts",
-    "description": "Learn to investigate Microsoft Azure's cloud infrastructure layer as a SOC analyst. Beyond Entra ID sign-ins and M365 mailboxes. Cover Azure's resource model (subscriptions, resource groups, RBAC role assignments, managed identities, service principals), the Azure Activity Log as the control-plane audit trail, Network Security Groups and NSG Flow Logs, Key Vault secret access, Storage Account exposure and SAS token abuse, VM run-command abuse, and Microsoft Defender for Cloud with Azure Monitor/Log Analytics (KQL) as the detection surface. Azure concepts are mapped throughout against the AWS and GCP equivalents you may already know.",
+    "description": "Learn to investigate Microsoft Azure's cloud infrastructure layer as a SOC analyst, beyond Entra ID sign-ins and M365 mailboxes. Cover Azure's resource model (subscriptions, resource groups, RBAC role assignments, managed identities, service principals), the Azure Activity Log as the control-plane audit trail, Network Security Groups and NSG Flow Logs, Key Vault secret access, Storage Account exposure and SAS token abuse, VM run-command abuse, and Microsoft Defender for Cloud with Azure Monitor/Log Analytics (KQL) as the detection surface. Azure concepts are mapped throughout against the AWS and GCP equivalents you may already know.",
     "difficulty": "intermediate",
     "category": "Cloud Security",
     "estimatedMinutes": 70,
@@ -7722,7 +7722,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "ai-attacks-soc-detection",
     "title": "AI Attacks in the SOC, Part 1: Prompt Injection and Attacks on LLM Apps",
-    "description": "Part 1 of 3. Why AI is now a SOC problem, then the attacks aimed at the organization's own LLM applications: direct and indirect prompt injection, sensitive data leaking out of a model's answers, poisoned training and RAG data, and model theft. Each with the log signals an analyst sees and how to detect it. Grounded in OWASP Top 10 for LLM Applications (2025) and MITRE ATLAS.",
+    "description": "Part 1 of 3. Why AI is now a SOC problem, then the attacks aimed at the organization's own LLM applications: direct and indirect prompt injection, sensitive data leaking out of a model's answers, poisoned training and RAG data, and model theft, each with the log signals an analyst sees and how to detect it. Grounded in OWASP Top 10 for LLM Applications (2025) and MITRE ATLAS.",
     "difficulty": "intermediate",
     "category": "Threat Detection",
     "estimatedMinutes": 50,
@@ -7798,7 +7798,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "ai-attacks-soc-llm-risks",
     "title": "AI Attacks in the SOC, Part 2: Agents, Output Handling and Jailbreaks",
-    "description": "Part 2 of 3. The rest of the OWASP Top 10 for LLM Applications in depth: excessive agency when an AI agent holds too much power, improper output handling, unbounded consumption, adversarial evasion of AI models, and jailbreaks. How each turns an injection attempt into real impact, and the controls and detections that stop it.",
+    "description": "Part 2 of 3. The rest of the OWASP Top 10 for LLM Applications in depth: excessive agency when an AI agent holds too much power, improper output handling, unbounded consumption, adversarial evasion of AI models, and jailbreaks: how each turns an injection attempt into real impact, and the controls and detections that stop it.",
     "difficulty": "intermediate",
     "category": "Threat Detection",
     "estimatedMinutes": 50,
@@ -7944,7 +7944,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "mfa-session-token-attacks",
     "title": "MFA Attacks & Session/Token Theft: When 'MFA Enabled' Isn't 'Solved'",
-    "description": "MFA fatigue and push bombing (T1621), adversary-in-the-middle reverse-proxy phishing that steals a session cookie after a genuine login (T1539 + T1550.004), Windows OS access-token impersonation (T1134.001), stolen OAuth application tokens (T1528), and Golden SAML assertion forgery (T1606.002). Five real ATT&CK techniques that all defeat MFA without ever cracking a password. Grounded in the CISA/FBI Scattered Spider advisory, Microsoft and Okta identity documentation, and NIST SP 800-63B.",
+    "description": "MFA fatigue and push bombing (T1621), adversary-in-the-middle reverse-proxy phishing that steals a session cookie after a genuine login (T1539 + T1550.004), Windows OS access-token impersonation (T1134.001), stolen OAuth application tokens (T1528), and Golden SAML assertion forgery (T1606.002): five real ATT&CK techniques that all defeat MFA without ever cracking a password. Grounded in the CISA/FBI Scattered Spider advisory, Microsoft and Okta identity documentation, and NIST SP 800-63B.",
     "difficulty": "advanced",
     "category": "Identity",
     "estimatedMinutes": 80,
@@ -8258,7 +8258,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "rmm-abuse-remote-access-tools",
     "title": "RMM Abuse & Remote Access Tools: When the Legitimate Tool Is the Attack",
-    "description": "Remote Monitoring and Management (RMM) software. AnyDesk, TeamViewer, ConnectWise ScreenConnect, Atera, Splashtop, and Windows' own built-in Quick Assist. Is exactly what IT help desks use every day, and exactly what attackers increasingly ride into a network as MITRE ATT&CK technique T1219 (Remote Access Software, Command and Control tactic). Learn how a signed, legitimate binary becomes an intrusion channel, two real documented case studies (Storm-1811/Quick Assist/Black Basta and the CVE-2024-1709 ConnectWise ScreenConnect authentication bypass), and the allowlist discipline that is the only detection strategy that actually works against this technique.",
+    "description": "Remote Monitoring and Management (RMM) software (AnyDesk, TeamViewer, ConnectWise ScreenConnect, Atera, Splashtop, and Windows' own built-in Quick Assist) is exactly what IT help desks use every day, and exactly what attackers increasingly ride into a network as MITRE ATT&CK technique T1219 (Remote Access Software, Command and Control tactic). Learn how a signed, legitimate binary becomes an intrusion channel, two real documented case studies (Storm-1811/Quick Assist/Black Basta and the CVE-2024-1709 ConnectWise ScreenConnect authentication bypass), and the allowlist discipline that is the only detection strategy that actually works against this technique.",
     "difficulty": "intermediate",
     "category": "Threat Detection",
     "estimatedMinutes": 65,

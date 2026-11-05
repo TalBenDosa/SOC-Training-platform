@@ -19,7 +19,12 @@ function useDoneOnce(done: boolean, onDone: () => void) {
   useEffect(() => { if (done && !fired) { setFired(true); onDone(); } }, [done, fired, onDone]);
 }
 
-const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+// "9.0" and "9" are the same answer, and so are "1,200" and "1200".
+const norm = (s: string) => {
+  const t = s.trim().toLowerCase().replace(/\s+/g, " ");
+  const n = t.replace(/,/g, "");
+  return /^-?\d+(\.\d+)?$/.test(n) ? String(Number(n)) : t;
+};
 
 // ─── Terminal: type commands, answer from the output ─────────────────────────
 const NOT_FOUND: Record<"cmd" | "powershell" | "bash", (c: string) => string> = {

@@ -24,6 +24,7 @@ import { LessonFigure } from "@/components/lessons/LessonFigure";
 import { LessonVideo } from "@/components/lessons/LessonVideo";
 import { displayOptions, newShuffleSeed, optionDisplayOrder, remapOptionLetters, shuffleWithSeed } from "@/lib/rooms/shuffle";
 import { FieldName } from "./FieldName";
+import { InlineMd } from "./InlineMd";
 import { saveTaskReview, type ReviewRecord } from "./reviewStore";
 import { ListenButton } from "@/components/media/ListenButton";
 import { roomNarrationSrc } from "@/lib/narration/roomNarration";
@@ -739,7 +740,7 @@ function QuestionPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
   if (isCompleted) {
     return (
       <div className="space-y-4">
-        <p className="text-xl font-semibold text-white">{task.question}</p>
+        <p className="text-xl font-semibold text-white"><InlineMd text={task.question} /></p>
         <div className="inline-flex items-center gap-2 rounded border border-neon-green/40 bg-neon-green/10 px-3 py-1.5 text-sm text-neon-green">
           <CheckCircle2 className="h-4 w-4" />
           Already completed — +{task.xp} XP earned
@@ -790,7 +791,7 @@ function QuestionPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
 
   return (
     <div className="space-y-5">
-      <p id={questionId} className="text-slate-200 leading-relaxed text-base">{task.question}</p>
+      <p id={questionId} className="text-slate-200 leading-relaxed text-base"><InlineMd text={task.question} /></p>
       <div className="space-y-2" role="radiogroup" aria-labelledby={questionId} onKeyDown={onRadioGroupKeyDown}>
         {shownOptions.map(({ label, srcIdx, displayIdx }) => (
           <OptionButton
@@ -916,7 +917,7 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted, onRecord }: 
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold text-white">{task.heading}</h2>
-      <p className="text-sm italic text-slate-400 border-l-2 border-cyber-500/40 pl-3">{task.context}</p>
+      <p className="text-sm italic text-slate-400 border-l-2 border-cyber-500/40 pl-3"><InlineMd text={task.context} /></p>
 
       <InteractiveLogEventCard
         event={task.event}
@@ -938,7 +939,7 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted, onRecord }: 
             <div key={i} className="space-y-3">
               <p id={qId} className="text-sm font-semibold text-white">
                 <span className="text-slate-400 mr-2">Q{i + 1}.</span>
-                {q.question}
+                <InlineMd text={q.question} />
               </p>
 
               {iocs.length > 0 && (
@@ -1069,7 +1070,7 @@ function FlagPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent, onRec
 
       {prevLogEvent && <ReadOnlyEventCard event={prevLogEvent} />}
 
-      <p id={promptId} className="text-slate-200 leading-relaxed whitespace-pre-line">{task.prompt}</p>
+      <p id={promptId} className="text-slate-200 leading-relaxed whitespace-pre-line"><InlineMd text={task.prompt} /></p>
 
       {task.hint && (
         <div>
@@ -1259,7 +1260,7 @@ function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted, onRecord }
 
       <div className="rounded-lg border border-cyber-500/20 bg-cyber-500/5 px-4 py-3">
         <p className="text-[11px] uppercase tracking-wider text-cyber-400 font-semibold mb-1">Scenario</p>
-        <p className="text-sm text-slate-300 leading-relaxed">{task.scenario}</p>
+        <p className="text-sm text-slate-300 leading-relaxed"><InlineMd text={task.scenario} /></p>
       </div>
 
       <ReadOnlyEventCard event={task.event} />
@@ -1337,11 +1338,11 @@ function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted, onRecord }
               Correct verdict: {ANALYST_VERDICTS.find(v => v.key === correctVerdict)?.label ?? correctVerdict}
             </p>
           )}
-          <p className="text-slate-300">{explanation}</p>
+          <p className="text-slate-300"><InlineMd text={explanation} /></p>
           {fpTrap && !isCorrect && (
             <div className="mt-2 border-l-2 border-neon-amber/40 pl-3">
               <p className="text-[11px] uppercase tracking-wider text-neon-amber font-semibold mb-0.5">Common trap</p>
-              <p className="text-xs text-neon-amber/80">{fpTrap}</p>
+              <p className="text-xs text-neon-amber/80"><InlineMd text={fpTrap} /></p>
             </div>
           )}
         </div>
@@ -1433,7 +1434,7 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold text-white">{task.heading}</h2>
-      <p className="text-sm text-slate-400">{task.instructions}</p>
+      <p className="text-sm text-slate-400"><InlineMd text={task.instructions} /></p>
 
       <div className="grid grid-cols-2 gap-3">
         {/* Left column */}
@@ -1524,7 +1525,10 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
       {!revealed && (
         <p className="text-xs text-slate-400">
           {Object.keys(connections).length}/{task.left.length} pairs connected
-          {selectedLeft ? " — now click an item on the right" : " — select an item on the left to begin"}
+          {selectedLeft ? ": now click an item on the right"
+            : Object.keys(connections).length === task.left.length ? ": check your answers below"
+            : Object.keys(connections).length > 0 ? ": select the next item on the left"
+            : ": select an item on the left to begin"}
         </p>
       )}
 
@@ -1552,7 +1556,7 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
               ))}
             </ul>
           )}
-          <p className="text-slate-300">{result.explanation}</p>
+          <p className="text-slate-300"><InlineMd text={result.explanation} /></p>
         </div>
       )}
 
@@ -1666,7 +1670,7 @@ function OrderingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold text-white">{task.heading}</h2>
-      <p className="text-sm text-slate-400">{task.instructions}</p>
+      <p className="text-sm text-slate-400"><InlineMd text={task.instructions} /></p>
 
       <div className="grid gap-5 md:grid-cols-2">
         {/* Numbered slots */}
@@ -1786,7 +1790,7 @@ function OrderingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
               ))}
             </ol>
           )}
-          <p className="text-slate-300">{result.explanation}</p>
+          <p className="text-slate-300"><InlineMd text={result.explanation} /></p>
         </div>
       )}
 
@@ -1869,7 +1873,7 @@ function QueryFillPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { 
           {task.language}
         </span>
       </div>
-      <p className="text-sm text-slate-400 leading-relaxed">{task.context}</p>
+      <p className="text-sm text-slate-400 leading-relaxed"><InlineMd text={task.context} /></p>
 
       <div className="rounded-lg border border-border bg-bg-elevated p-4 font-mono text-sm leading-relaxed text-slate-300 whitespace-pre-wrap">
         {segments.map((seg, i) => {
@@ -1927,7 +1931,7 @@ function QueryFillPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { 
           <p className={cn("font-semibold", allCorrect ? "text-neon-green" : "text-neon-amber")}>
             {allCorrect ? `Correct! +${xpEarned} XP` : `${correctCount}/${blankIds.length} blanks correct`}
           </p>
-          <p className="text-slate-300">{explanation}</p>
+          <p className="text-slate-300"><InlineMd text={explanation} /></p>
         </div>
       )}
 
@@ -1998,8 +2002,8 @@ function WrittenReportPlayer({ roomId, task, onComplete, isCompleted, onRecord }
         <FileText className="h-5 w-5 text-cyber-300" />
         <h2 className="text-xl font-bold text-white">{task.heading}</h2>
       </div>
-      <p className="text-sm text-slate-400 leading-relaxed">{task.context}</p>
-      <p id={`${reportIds}-prompt`} className="text-sm text-white font-medium">{task.prompt}</p>
+      <p className="text-sm text-slate-400 leading-relaxed"><InlineMd text={task.context} /></p>
+      <p id={`${reportIds}-prompt`} className="text-sm text-white font-medium"><InlineMd text={task.prompt} /></p>
 
       {!revealed && (
         <div className="rounded-lg border border-cyber-500/30 bg-cyber-500/5 p-3 space-y-1">
@@ -2043,7 +2047,7 @@ function WrittenReportPlayer({ roomId, task, onComplete, isCompleted, onRecord }
             {result.words} words · cited {result.iocsCited}/{result.iocsTotal} of the case's real indicators
             {result.fabricatedCount > 0 && <span className="text-severity-high"> · {result.fabricatedCount} cited indicator{result.fabricatedCount === 1 ? "" : "s"} not found anywhere in this case</span>}
           </p>
-          <p className="text-slate-300">{result.explanation}</p>
+          <p className="text-slate-300"><InlineMd text={result.explanation} /></p>
         </div>
       )}
 

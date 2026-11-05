@@ -33,9 +33,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     .limit(1000);
   if (error) return NextResponse.json({ error: "Couldn't read your answers." }, { status: 503 });
   const attempts = (data ?? []) as GradedAttempt[];
+  // Wrong answers per task: stars on a device that has no local record of the run.
+  const { data: wrong } = await admin.from("task_attempts")
+    .select("task_id").eq("user_id", user.id).eq("room_id", room.id).eq("correct", false).limit(1000);
+  const wrongByTask: Record<string, number> = {};
+  for (const w of (wrong ?? []) as { task_id: string }[]) wrongByTask[w.task_id] = (wrongByTask[w.task_id] ?? 0) + 1;
   const pass = roomPassScore(room, attempts);
   return NextResponse.json(
-    { perTaskCredit: roomPassCredit(room, attempts), passPct: pass.max > 0 ? pass.score / pass.max : 1 },
+    { perTaskCredit: roomPassCredit(room, attempts), passPct: pass.max > 0 ? pass.score / pass.max : 1, wrongByTask },
     { headers: { "Cache-Control": "private, no-store" } },
   );
 }
