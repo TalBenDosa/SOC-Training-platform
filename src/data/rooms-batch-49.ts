@@ -469,6 +469,15 @@ export const roomsBatch49 = [
         ]
       },
       {
+        "type": "flag" as const,
+        "id": "hsl-f1",
+        "logTask": "hsl-la1",
+        "prompt": "In this room’s regsvr32 log-analysis case on host LT-THN-4471, the command line fetched a COM scriptlet from a remote server. Enter the exact filename of that scriptlet as it appears in the URL.",
+        "answer": "invoice_svc.sct",
+        "hint": "Look back at the regsvr32 command line in that case: the scriptlet is the .sct file at the end of the http:// URL. Enter only the filename, not the full URL.",
+        "xp": 15
+      },
+      {
         "type": "reading" as const,
         "id": "hsl-r9",
         "heading": "Professional Detection: Correlation Logic and the False-Positive Discipline",
@@ -556,15 +565,6 @@ export const roomsBatch49 = [
         "answer": 0,
         "explanation": "This room's detection reading names exactly this as its fourth, cross-referenced tell: the file-creation event for an HTML-smuggled ISO or ZIP typically carries a Zone.Identifier stream with ZoneId=3 (downloaded from the internet), and seeing that artifact on a freshly created container followed shortly by a LOLBin pattern is a strong end-to-end correlation across both techniques. The gateway cannot hand you the ISO as a file: HTML Smuggling's whole point is that the payload is assembled from script inside the HTML in the browser and never crosses the network as a distinguishable file. Nor does it strip Mark-of-the-Web -- the room's HTML Smuggling reading stresses that the Zone.Identifier stream is applied when the browser writes the file and HTML Smuggling does not remove it; that is a separate technique (T1553.005) covered in the Commodity Initial-Access room. And rundll32.exe stays a validly signed Microsoft binary throughout -- that trusted signature is precisely why attackers proxy execution through it.",
         "xp": 25
-      },
-      {
-        "type": "flag" as const,
-        "id": "hsl-f1",
-        "logTask": "hsl-la1",
-        "prompt": "In this room’s regsvr32 log-analysis case on host LT-THN-4471, the command line fetched a COM scriptlet from a remote server. Enter the exact filename of that scriptlet as it appears in the URL.",
-        "answer": "invoice_svc.sct",
-        "hint": "Look back at the regsvr32 command line in that case: the scriptlet is the .sct file at the end of the http:// URL. Enter only the filename, not the full URL.",
-        "xp": 15
       }
     ]
   }

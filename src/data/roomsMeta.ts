@@ -8858,6 +8858,11 @@ export const ROOMS_META: RoomMeta[] = [
         "mitreTechnique": "T1218.010"
       },
       {
+        "id": "hsl-f1",
+        "type": "flag",
+        "xp": 15
+      },
+      {
         "id": "hsl-r9",
         "type": "reading",
         "xp": 0
@@ -8872,11 +8877,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "hsl-q4",
         "type": "question",
         "xp": 25
-      },
-      {
-        "id": "hsl-f1",
-        "type": "flag",
-        "xp": 15
       }
     ]
   }

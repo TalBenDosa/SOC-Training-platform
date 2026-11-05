@@ -52,6 +52,7 @@ import { AI_ATTACKS_SOC_DETECTION } from "./aiAttacksSocDetection";
 import { TCPIP_DEEP_DIVE } from "./tcpipDeepDive";
 import { WEB_ATTACKS_PRACTICE } from "./webAttacksPractice";
 import { ESXI_VIRTUALIZATION_SECURITY } from "./esxiVirtualizationSecurity";
+import { HTML_SMUGGLING_AND_LOLBINS } from "./htmlSmugglingAndLolbins";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -110,6 +111,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [TCPIP_DEEP_DIVE.roomId]: TCPIP_DEEP_DIVE,
   [WEB_ATTACKS_PRACTICE.roomId]: WEB_ATTACKS_PRACTICE,
   [ESXI_VIRTUALIZATION_SECURITY.roomId]: ESXI_VIRTUALIZATION_SECURITY,
+  [HTML_SMUGGLING_AND_LOLBINS.roomId]: HTML_SMUGGLING_AND_LOLBINS,
 };
 
 /**
