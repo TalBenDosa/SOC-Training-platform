@@ -26,11 +26,11 @@ export const LOG_ENTRY_ANATOMY: RoomExperience = {
   scene: "dissect",
   layout: "stage",
   story: {
-    intro: { title: "Two Hundred Formats", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-entry-anatomy/dissection-intro-b63205e0.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-entry-anatomy/dissection-intro-570cfb99.jpg" },
+    intro: { title: "Two Hundred Formats", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-entry-anatomy/dissection-intro-a5b2656d.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-entry-anatomy/dissection-intro-21749cfd.jpg" },
     afterStation: {
-      json: { title: "Paths and Columns", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-entry-anatomy/dissection-ch2-4659f91e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-entry-anatomy/dissection-ch2-5b5da1bb.jpg" },
-      meaning: { title: "Names and Opinions", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-entry-anatomy/dissection-ch3-25037844.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-entry-anatomy/dissection-ch3-a1eb5c3f.jpg" },
-      absence: { title: "What Isn't There", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-entry-anatomy/dissection-finale-7dc71f96.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-entry-anatomy/dissection-finale-eb080f67.jpg" },
+      json: { title: "Paths and Columns", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-entry-anatomy/dissection-ch2-aa9042de.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-entry-anatomy/dissection-ch2-08b86aee.jpg" },
+      meaning: { title: "Names and Opinions", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-entry-anatomy/dissection-ch3-76123c69.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-entry-anatomy/dissection-ch3-45e95496.jpg" },
+      absence: { title: "What Isn't There", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-entry-anatomy/dissection-finale-4daf58eb.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-entry-anatomy/dissection-finale-513b7d1c.jpg" },
     },
   },
   stations: [
