@@ -28,11 +28,11 @@ export const LINUX_LOG_ANALYSIS: RoomExperience = {
   scene: "varlog",
   layout: "stage",
   story: {
-    intro: { title: "No Single Diary", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-intro-667afdee.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-intro-52be3244.jpg" },
+    intro: { title: "No Single Diary", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-intro-75c98478.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-intro-27ba4a5d.jpg" },
     afterStation: {
-      drawers: { title: "Ask the Journal", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch2-560b32b0.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch2-9b099fa3.jpg" },
-      journal: { title: "The Key Under the Mat", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch3-583e3c05.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch3-ffed557d.jpg" },
-      indicators: { title: "@reboot", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-finale-ca35b787.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-finale-3ab63ebd.jpg" },
+      drawers: { title: "Ask the Journal", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch2-e4415118.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch2-53f6a70a.jpg" },
+      journal: { title: "The Key Under the Mat", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch3-66b92ff8.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch3-de86a378.jpg" },
+      indicators: { title: "@reboot", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-finale-60b54aa2.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-finale-74a7c971.jpg" },
     },
   },
   stations: [
