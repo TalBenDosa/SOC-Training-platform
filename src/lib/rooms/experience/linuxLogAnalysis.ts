@@ -28,10 +28,10 @@ export const LINUX_LOG_ANALYSIS: RoomExperience = {
   scene: "varlog",
   layout: "stage",
   story: {
-    intro: { title: "No Single Diary", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-intro-75c98478.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-intro-27ba4a5d.jpg" },
+    intro: { title: "No Single Diary", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-intro-b12a04f5.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-intro-27ba4a5d.jpg" },
     afterStation: {
-      drawers: { title: "Ask the Journal", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch2-e4415118.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch2-53f6a70a.jpg" },
-      journal: { title: "The Key Under the Mat", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch3-66b92ff8.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch3-de86a378.jpg" },
+      drawers: { title: "Ask the Journal", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch2-f129af6a.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch2-53f6a70a.jpg" },
+      journal: { title: "The Key Under the Mat", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch3-cb7ec6a4.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-ch3-de86a378.jpg" },
       indicators: { title: "@reboot", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-finale-60b54aa2.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-log-analysis/varlog-finale-74a7c971.jpg" },
     },
   },
