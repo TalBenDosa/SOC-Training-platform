@@ -49,6 +49,7 @@ import { DNS_INVESTIGATION } from "./dnsInvestigation";
 import { FIREWALL_MASTERCLASS } from "./firewallMasterclass";
 import { AV_VS_EDR_MASTERCLASS } from "./avVsEdrMasterclass";
 import { AI_ATTACKS_SOC_DETECTION } from "./aiAttacksSocDetection";
+import { TCPIP_DEEP_DIVE } from "./tcpipDeepDive";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -104,6 +105,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [FIREWALL_MASTERCLASS.roomId]: FIREWALL_MASTERCLASS,
   [AV_VS_EDR_MASTERCLASS.roomId]: AV_VS_EDR_MASTERCLASS,
   [AI_ATTACKS_SOC_DETECTION.roomId]: AI_ATTACKS_SOC_DETECTION,
+  [TCPIP_DEEP_DIVE.roomId]: TCPIP_DEEP_DIVE,
 };
 
 /**

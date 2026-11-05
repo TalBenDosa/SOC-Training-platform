@@ -19,7 +19,7 @@ export const AV_VS_EDR_MASTERCLASS: RoomExperience = {
   briefing: [
     "Wrenfield Veterinary Group. 64 clinics, 700 staff, X-ray machines, pet records, and an antivirus console that has been green for six years.",
     "Last spring a clinic in Ludlow was encrypted over a weekend. The antivirus console stayed green the whole time.",
-    "Beatriz Monteiro has budget for EDR, and a board that wants to know why the old tool wasn't enough. Her answer needs to be exact.",
+    "Beatriz Monteiro has budget for EDR, and a board that wants to know why the old tool wasn't enough. The answer needs to be exact.",
     "Test what signatures can and can't do, see what only behaviour reveals, learn how a sensor sits inside the OS, hunt in a real console, then work a graded Falcon detection.",
   ],
   mission: "Beat a signature with one byte, open the four doors of antivirus, sort what AV sees from what only EDR sees, wire each sensor to its source, hunt in Advanced Hunting, then work the graded Falcon detection.",

@@ -4259,14 +4259,49 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "tcpip-o1",
+        "type": "ordering",
+        "xp": 35
+      },
+      {
+        "id": "tcpip-q1",
+        "type": "question",
+        "xp": 20
+      },
+      {
         "id": "tcpip-r3",
         "type": "reading",
         "xp": 0
       },
       {
+        "id": "tcpip-m1",
+        "type": "matching",
+        "xp": 40
+      },
+      {
+        "id": "tcpip-q2",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "tcpip-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
         "id": "tcpip-r4",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "tcpip-la2",
+        "type": "log_analysis",
+        "xp": 80
+      },
+      {
+        "id": "tcpip-f1",
+        "type": "flag",
+        "xp": 25
       },
       {
         "id": "tcpip-r5",
@@ -4284,44 +4319,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "tcpip-q1",
-        "type": "question",
-        "xp": 20
-      },
-      {
-        "id": "tcpip-q2",
-        "type": "question",
-        "xp": 25
-      },
-      {
-        "id": "tcpip-q3",
-        "type": "question",
-        "xp": 25
-      },
-      {
         "id": "tcpip-la1",
         "type": "log_analysis",
         "xp": 85
-      },
-      {
-        "id": "tcpip-la2",
-        "type": "log_analysis",
-        "xp": 80
-      },
-      {
-        "id": "tcpip-ac1",
-        "type": "analyst_choice",
-        "xp": 30
-      },
-      {
-        "id": "tcpip-m1",
-        "type": "matching",
-        "xp": 40
-      },
-      {
-        "id": "tcpip-o1",
-        "type": "ordering",
-        "xp": 35
       },
       {
         "id": "tcpip-qf1",
@@ -4329,9 +4329,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 35
       },
       {
-        "id": "tcpip-f1",
-        "type": "flag",
-        "xp": 25
+        "id": "tcpip-ac1",
+        "type": "analyst_choice",
+        "xp": 30
       }
     ]
   },

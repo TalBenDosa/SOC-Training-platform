@@ -82,6 +82,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   generations: dynamic(() => import("./scenes/GenerationsScene"), { ssr: false }),
   secondopinion: dynamic(() => import("./scenes/SecondOpinionScene"), { ssr: false }),
   ignoreall: dynamic(() => import("./scenes/IgnoreAllScene"), { ssr: false }),
+  wirelevel: dynamic(() => import("./scenes/WireLevelScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;

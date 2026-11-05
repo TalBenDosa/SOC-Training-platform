@@ -221,6 +221,46 @@ const tcpipDeepDiveRoom = {
       },
     },
 
+    // ── Ordering: TCP handshake + teardown sequence ─────────────────────────
+    {
+      type: "ordering" as const,
+      id: "tcpip-o1",
+      heading: "Order a Complete TCP Session: Handshake, Data, and Graceful Teardown",
+      instructions: "Arrange these events into the correct chronological order for one complete, normal TCP session.",
+      items: [
+        { id: "syn", text: "Client sends SYN (seq=x)" },
+        { id: "synack", text: "Server replies SYN-ACK (seq=y, ack=x+1)" },
+        { id: "ack", text: "Client sends ACK (ack=y+1): connection is now ESTABLISHED" },
+        { id: "data", text: "Both sides exchange application data (PSH/ACK segments)" },
+        { id: "finclient", text: "Client sends FIN,ACK, client has no more data to send" },
+        { id: "ackserver1", text: "Server ACKs the client's FIN" },
+        { id: "finserver", text: "Server sends its own FIN,ACK once it has finished sending" },
+        { id: "ackclient2", text: "Client ACKs the server's FIN: client enters TIME_WAIT" },
+      ],
+      correct_order: ["syn", "synack", "ack", "data", "finclient", "ackserver1", "finserver", "ackclient2"],
+      explanation:
+        "A complete TCP session is the three-way handshake (SYN, SYN-ACK, ACK), followed by whatever application data is exchanged while ESTABLISHED, followed by a four-step graceful teardown: each side independently signals it has no more data (FIN) and the other side acknowledges. The side that sends the final ACK holds the connection in TIME_WAIT briefly to catch any stray delayed packets from the now-closed connection before fully releasing it. Any deviation from this sequence (a FIN or RST appearing before ESTABLISHED, data appearing before the handshake completes) is exactly the kind of anomaly that scan and evasion techniques deliberately produce.",
+      xp: 35,
+    },
+
+    // ── Question 1 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "tcpip-q1",
+      question:
+        "A firewall log shows a connection where the client sent only a SYN, and the server replied RST,ACK. The connection never advanced further. What does this most likely indicate?",
+      options: [
+        "The server accepted the probe on an open port but reset the session at once because its listen backlog was full, so the service is up and busy",
+        "The destination port is closed on the target (or a device on the path rejected on its behalf), the standard reply to a SYN probe of a closed port",
+        "A stateful firewall in the path silently dropped the SYN, and the RST,ACK is the client's own stack cleaning up after its handshake timer expired",
+        "A graceful teardown: RST,ACK and FIN,ACK are interchangeable ways for the server to close a session after a short exchange of data",
+      ],
+      answer: 1,
+      explanation:
+        "RST,ACK in direct response to a bare SYN (with no prior SYN-ACK) is the standard TCP behavior when a SYN arrives at a port with nothing listening, or a firewall configured to REJECT (rather than silently DROP) spoofing that same response. This exact reply is what lets a SYN scanner distinguish a closed port (RST,ACK) from an open one (SYN,ACK) or a filtered one (no reply at all). “A graceful teardown” is wrong twice: a FIN close needs an established connection, which never existed here, and RST is an abrupt abort, never interchangeable with FIN. “Accepted the probe on an open port” would first produce a SYN-ACK, which the log does not show. “A stateful firewall ... silently dropped the SYN” would leave no reply at all, and here the RST,ACK came from the server side, not from the client's own stack.",
+      xp: 20,
+    },
+
     // ── Reading 3: scan signatures ───────────────────────────────────────────
     {
       type: "reading" as const,
@@ -266,6 +306,85 @@ const tcpipDeepDiveRoom = {
         "bytes transferred on each -> this is a scan, and the flag\n" +
         "pattern tells you which scan technique was used.\n" +
         "=======================================================",
+    },
+
+    // ── Matching: scan technique <-> flags/signature ─────────────────────────
+    {
+      type: "matching" as const,
+      id: "tcpip-m1",
+      heading: "Match Each Scan Technique to Its Flag Pattern and Signature",
+      instructions: "Match each scan/probe technique to the flags it sends and what makes it recognizable in a flow log.",
+      pairs: [
+        {
+          id: "syn",
+          left: "SYN scan (nmap -sS, half-open)",
+          right: "Sends only SYN, never completes the handshake; open replies SYN-ACK, closed replies RST,ACK, filtered gets no reply at all",
+        },
+        {
+          id: "null",
+          left: "NULL scan",
+          right: "Sends a segment with no flags set at all; relies on the RFC 793 quirk where an open port stays silent and a closed port replies RST",
+        },
+        {
+          id: "fin",
+          left: "FIN scan",
+          right: "Sends only the FIN flag with no prior SYN: a 'close' for a connection that was never opened; same silence-vs-RST logic as NULL",
+        },
+        {
+          id: "xmas",
+          left: "XMAS scan",
+          right: "Sends FIN, PSH, and URG together ('lit up like a Christmas tree'); same underlying RFC 793 quirk as NULL and FIN scans",
+        },
+        {
+          id: "ack",
+          left: "ACK scan",
+          right: "Sends only ACK with no prior SYN; cannot determine open vs. closed, but maps which ports a stateful firewall's rules actually let through",
+        },
+        {
+          id: "connect",
+          left: "Full connect scan (nmap -sT)",
+          right: "Completes the entire real three-way handshake before closing; slower and more visible at the application layer, but needs no raw-socket privileges to run",
+        },
+      ],
+      explanation:
+        "Every scan technique is defined by the specific flag combination it sends and what that combination is designed to reveal. SYN scans exploit the handshake itself; NULL/FIN/XMAS scans all exploit the same RFC 793 silence-on-open-port rule (and are all similarly unreliable against modern Windows stacks that don't follow it faithfully); ACK scans don't probe port state at all, they probe firewall rule sets; and full connect scans trade stealth for reliability by completing a real connection. Recognizing which flag pattern you're looking at tells you not just 'this is a scan' but which technique and often which tooling produced it.",
+      xp: 40,
+    },
+
+    // ── Question 2 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "tcpip-q2",
+      question:
+        "You're reviewing Zeek conn.log entries and see hundreds of records from one internal host, all with conn_state RSTOS0, spread across sequential destination ports on one target within seconds. What does RSTOS0 specifically tell you, beyond just 'this is a scan'?",
+      options: [
+        "The responder answered each SYN with an RST, so every port was reachable but closed; RSTOS0 is Zeek's label for a rejected connection attempt",
+        "The originator sent a SYN and then its own RST without ever seeing a SYN-ACK, consistent with scanner tooling that aborts half-open attempts itself",
+        "The originator completed the handshake and then reset the session before sending data, a pattern typical of banner-grabbing tools probing open ports",
+        "The connections were established and the responder reset them after a protocol error, so the scanned services are running and rejecting the client",
+      ],
+      answer: 1,
+      explanation:
+        "RSTOS0 decodes as: the Originator sent a SYN, and an RST was seen, but the responder's SYN-ACK (the 'S0' portion) was never observed, meaning the originator itself tore the attempt down rather than completing or waiting for a normal handshake outcome. This is a recognizable artefact of certain scanning tool behavior and is a stronger, more specific signal than just 'many ports touched'. It tells you something about how the scanning client itself is built, which can help fingerprint the tool in use. “The responder answered each SYN with an RST” describes REJ, a different code. “Completed the handshake and then reset the session” would be RSTO, with a SYN-ACK in the history. “The responder reset them after a protocol error” would be RSTR: both require an established connection, which the S0 part of RSTOS0 rules out.",
+      xp: 25,
+    },
+
+    // ── Question 3 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "tcpip-q3",
+      question:
+        "An analyst sees a NULL scan (all flags cleared) hitting closed ports on a Windows Server target, but the technique's designers built it to be silent on open ports based on RFC 793 behavior. Why is a NULL/FIN/XMAS scan considered unreliable against modern Windows hosts specifically?",
+      options: [
+        "Windows Defender Firewall drops all unsolicited inbound TCP by default, so every scan type returns silence and open ports cannot be told from closed ones",
+        "Windows stacks typically answer these odd flag combinations with an RST whatever the port state, instead of RFC 793's silence on open ports, destroying the signal",
+        "Windows rate-limits RST replies per source, so after the first few probes closed ports also go silent and read as open ports to the scanner",
+        "Windows requires a SYN flag before processing any TCP segment, so these probes are discarded by the network driver and never reach the connection-state logic",
+      ],
+      answer: 1,
+      explanation:
+        "The RFC 793 behavior these scans depend on (silence on open ports, RST on closed ports for segments without SYN) is followed inconsistently across real-world TCP/IP stack implementations. Windows in particular is well known for replying RST to malformed/flagless segments regardless of the underlying port's actual state, which collapses the open-vs-closed signal the scan is trying to extract. This is exactly why nmap documentation flags these scan types as unreliable against Windows targets specifically, while they remain more useful against many Unix-like TCP/IP stacks that follow the older behavior more faithfully. “Windows Defender Firewall drops all unsolicited inbound TCP” would leave every probe unanswered, but the reading's point is that Windows stacks DO reply, with RST. “Windows rate-limits RST replies” is not the reason the reading gives: the problem is RST on open ports too, not missing RSTs on closed ones. “Windows requires a SYN flag before processing any TCP segment” fails for the same reason: Windows does process flagless segments. It just answers them with RST.",
+      xp: 25,
     },
 
     // ── Reading 4: fragmentation, TTL, window-size fingerprinting ───────────
@@ -319,6 +438,70 @@ const tcpipDeepDiveRoom = {
       },
     },
 
+    // ── Log Analysis 2: TTL OS-fingerprint mismatch ─────────────────────────
+    {
+      type: "log_analysis" as const,
+      id: "tcpip-la2",
+      heading: "A TTL Value That Doesn't Match the Expected Source",
+      context:
+        "BASTION-01 (10.40.1.9) is a hardened Ubuntu Linux jump host that IT uses for administrative SSH access into sensitive segments. Across the last 40 recorded sessions from this host, the observed initial TTL has consistently landed between 58 and 61. Consistent with a Linux host (initial TTL 64) crossing 3-6 hops to reach the sensor. Review the session below, captured tonight against the finance file server SRV-FIN03.",
+      event: ttlMismatchEvent,
+      questions: [
+        {
+          question:
+            "Compare the originator TTL recorded for this session with BASTION-01's established baseline. Based on typical initial TTL values by OS family, what does it most likely indicate about the traffic's true origin?",
+          options: [
+            "Normal path variation: a Linux host's observed TTL can drift that far when routing changes between sessions",
+            "The sender's stack most likely starts at 128 (Windows), not 64, so it is unlikely to be BASTION-01's Linux stack",
+            "Fragmentation on the path, since reassembling fragmented packets resets their TTL to a higher value",
+            "The SSH server's settings, since each session negotiates the TTL that both sides then use for its packets",
+          ],
+          answer: 1,
+          explanation:
+            "Observed TTLs sit just below the sender's initial value, minus one per hop. This session's orig_ttl rounds up to 128, the Windows default, not 64 like BASTION-01's 40 baseline sessions. “Normal path variation” is impossible in this direction: routers only decrement TTL, so a host that starts at 64 can never be seen above 64. “Fragmentation” is a separate IP mechanism and never raises TTL. “Negotiates the TTL” is wrong: each side sets its own initial TTL, which is exactly why orig_ttl and resp_ttl differ in this record.",
+          xp: 25,
+        },
+        {
+          question:
+            "Which explanations, taken together, should the analyst consider BEFORE concluding this is definitely a spoofed or hijacked source, recognizing that TTL is a corroborating signal, not standalone proof?",
+          options: [
+            "None: a TTL mismatch this large is proof on its own that an outside attacker spoofed the source address",
+            "A re-image or approved OS change on BASTION-01, or a NAT change sharing its IP, as well as spoofing or misuse",
+            "A longer routing path tonight, which can push the observed TTL above the host's usual baseline range",
+            "A sensor enrichment fault, since stock Zeek conn.log never records TTL, so the field can't be trusted here",
+          ],
+          answer: 1,
+          explanation:
+            "A passive fingerprint is corroborating evidence, not a verdict, so first rule out mundane causes: a re-image or approved OS change on BASTION-01, or a NAT/infrastructure change that puts a different device behind its IP, while keeping spoofing or misuse on the table. “Proof on its own” over-reads a single signal. “A longer routing path” cannot raise TTL; every hop only decrements it, so a path change could lower 64 but never lift it to 125. “A sensor enrichment fault” misapplies the reading: stock conn.log lacks TTL, but this is an enriched Corelight record, which is exactly where the reading says TTL appears.",
+          xp: 25,
+        },
+        {
+          question:
+            "After checking the change log and confirming BASTION-01 was NOT re-imaged, no routing changes occurred, and no NAT change was made, what is the correct next step?",
+          options: [
+            "Dismiss it: TTL is only metadata, so with no change found, the value is most likely a one-off sensor glitch",
+            "Escalate: check BASTION-01's EDR/host logs and other sessions from 10.40.1.9 for the same anomalous TTL",
+            "Declare a breach and block 10.40.1.9 everywhere, since the mismatch now proves the bastion is compromised",
+            "Ask the sensor team to recalibrate TTL enrichment, then re-check the next session BASTION-01 makes",
+          ],
+          answer: 1,
+          explanation:
+            "With the benign causes ruled out, the address-to-device mapping is unverified, so escalate: look at BASTION-01's own host telemetry for tampering or unauthorised use, and check whether other sessions from 10.40.1.9 in the same period carry the same anomaly. “Dismiss it ... sensor glitch” is an assumption with no evidence; the enrichment matched 40 previous sessions. “Declare a breach and block 10.40.1.9 everywhere” overreacts to one corroborating signal and cuts IT's admin path before anything is confirmed. “Recalibrate TTL enrichment” and waiting for the next session loses time while a 41-minute session into the finance server stays unexplained.",
+          xp: 30,
+        },
+      ],
+    },
+
+    // ── Flag ──────────────────────────────────────────────────────────────
+    {
+      type: "flag" as const,
+      id: "tcpip-f1",
+      prompt:
+        "In the TTL-mismatch session against SRV-FIN03, assume the originator's initial TTL was its OS family's default. Using the fingerprinting reading's rule of thumb, how many router hops did that traffic cross before reaching the sensor? Enter the number only.",
+      answer: "3",
+      hint: "Round the observed originator TTL up to the nearest of 64, 128 or 255. The difference between the two is the hop count.",
+      xp: 25,
+    },
     // ── Reading 5: flow records vs full packets ──────────────────────────────
     {
       type: "reading" as const,
@@ -487,60 +670,6 @@ const tcpipDeepDiveRoom = {
       },
     },
 
-    // ── Question 1 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "tcpip-q1",
-      question:
-        "A firewall log shows a connection where the client sent only a SYN, and the server replied RST,ACK. The connection never advanced further. What does this most likely indicate?",
-      options: [
-        "The server accepted the probe on an open port but reset the session at once because its listen backlog was full, so the service is up and busy",
-        "The destination port is closed on the target (or a device on the path rejected on its behalf), the standard reply to a SYN probe of a closed port",
-        "A stateful firewall in the path silently dropped the SYN, and the RST,ACK is the client's own stack cleaning up after its handshake timer expired",
-        "A graceful teardown: RST,ACK and FIN,ACK are interchangeable ways for the server to close a session after a short exchange of data",
-      ],
-      answer: 1,
-      explanation:
-        "RST,ACK in direct response to a bare SYN (with no prior SYN-ACK) is the standard TCP behavior when a SYN arrives at a port with nothing listening, or a firewall configured to REJECT (rather than silently DROP) spoofing that same response. This exact reply is what lets a SYN scanner distinguish a closed port (RST,ACK) from an open one (SYN,ACK) or a filtered one (no reply at all). “A graceful teardown” is wrong twice: a FIN close needs an established connection, which never existed here, and RST is an abrupt abort, never interchangeable with FIN. “Accepted the probe on an open port” would first produce a SYN-ACK, which the log does not show. “A stateful firewall ... silently dropped the SYN” would leave no reply at all, and here the RST,ACK came from the server side, not from the client's own stack.",
-      xp: 20,
-    },
-
-    // ── Question 2 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "tcpip-q2",
-      question:
-        "You're reviewing Zeek conn.log entries and see hundreds of records from one internal host, all with conn_state RSTOS0, spread across sequential destination ports on one target within seconds. What does RSTOS0 specifically tell you, beyond just 'this is a scan'?",
-      options: [
-        "The responder answered each SYN with an RST, so every port was reachable but closed; RSTOS0 is Zeek's label for a rejected connection attempt",
-        "The originator sent a SYN and then its own RST without ever seeing a SYN-ACK, consistent with scanner tooling that aborts half-open attempts itself",
-        "The originator completed the handshake and then reset the session before sending data, a pattern typical of banner-grabbing tools probing open ports",
-        "The connections were established and the responder reset them after a protocol error, so the scanned services are running and rejecting the client",
-      ],
-      answer: 1,
-      explanation:
-        "RSTOS0 decodes as: the Originator sent a SYN, and an RST was seen, but the responder's SYN-ACK (the 'S0' portion) was never observed, meaning the originator itself tore the attempt down rather than completing or waiting for a normal handshake outcome. This is a recognizable artefact of certain scanning tool behavior and is a stronger, more specific signal than just 'many ports touched'. It tells you something about how the scanning client itself is built, which can help fingerprint the tool in use. “The responder answered each SYN with an RST” describes REJ, a different code. “Completed the handshake and then reset the session” would be RSTO, with a SYN-ACK in the history. “The responder reset them after a protocol error” would be RSTR: both require an established connection, which the S0 part of RSTOS0 rules out.",
-      xp: 25,
-    },
-
-    // ── Question 3 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "tcpip-q3",
-      question:
-        "An analyst sees a NULL scan (all flags cleared) hitting closed ports on a Windows Server target, but the technique's designers built it to be silent on open ports based on RFC 793 behavior. Why is a NULL/FIN/XMAS scan considered unreliable against modern Windows hosts specifically?",
-      options: [
-        "Windows Defender Firewall drops all unsolicited inbound TCP by default, so every scan type returns silence and open ports cannot be told from closed ones",
-        "Windows stacks typically answer these odd flag combinations with an RST whatever the port state, instead of RFC 793's silence on open ports, destroying the signal",
-        "Windows rate-limits RST replies per source, so after the first few probes closed ports also go silent and read as open ports to the scanner",
-        "Windows requires a SYN flag before processing any TCP segment, so these probes are discarded by the network driver and never reach the connection-state logic",
-      ],
-      answer: 1,
-      explanation:
-        "The RFC 793 behavior these scans depend on (silence on open ports, RST on closed ports for segments without SYN) is followed inconsistently across real-world TCP/IP stack implementations. Windows in particular is well known for replying RST to malformed/flagless segments regardless of the underlying port's actual state, which collapses the open-vs-closed signal the scan is trying to extract. This is exactly why nmap documentation flags these scan types as unreliable against Windows targets specifically, while they remain more useful against many Unix-like TCP/IP stacks that follow the older behavior more faithfully. “Windows Defender Firewall drops all unsolicited inbound TCP” would leave every probe unanswered, but the reading's point is that Windows stacks DO reply, with RST. “Windows rate-limits RST replies” is not the reason the reading gives: the problem is RST on open ports too, not missing RSTs on closed ones. “Windows requires a SYN flag before processing any TCP segment” fails for the same reason: Windows does process flagless segments. It just answers them with RST.",
-      xp: 25,
-    },
-
     // ── Log Analysis 1: SYN scan sweep ───────────────────────────────────────
     {
       type: "log_analysis" as const,
@@ -595,58 +724,24 @@ const tcpipDeepDiveRoom = {
       ],
     },
 
-    // ── Log Analysis 2: TTL OS-fingerprint mismatch ─────────────────────────
+    // ── Query Fill: KQL for detecting a port-sweep pattern ──────────────────
     {
-      type: "log_analysis" as const,
-      id: "tcpip-la2",
-      heading: "A TTL Value That Doesn't Match the Expected Source",
-      context:
-        "BASTION-01 (10.40.1.9) is a hardened Ubuntu Linux jump host that IT uses for administrative SSH access into sensitive segments. Across the last 40 recorded sessions from this host, the observed initial TTL has consistently landed between 58 and 61. Consistent with a Linux host (initial TTL 64) crossing 3-6 hops to reach the sensor. Review the session below, captured tonight against the finance file server SRV-FIN03.",
-      event: ttlMismatchEvent,
-      questions: [
-        {
-          question:
-            "Compare the originator TTL recorded for this session with BASTION-01's established baseline. Based on typical initial TTL values by OS family, what does it most likely indicate about the traffic's true origin?",
-          options: [
-            "Normal path variation: a Linux host's observed TTL can drift that far when routing changes between sessions",
-            "The sender's stack most likely starts at 128 (Windows), not 64, so it is unlikely to be BASTION-01's Linux stack",
-            "Fragmentation on the path, since reassembling fragmented packets resets their TTL to a higher value",
-            "The SSH server's settings, since each session negotiates the TTL that both sides then use for its packets",
-          ],
-          answer: 1,
-          explanation:
-            "Observed TTLs sit just below the sender's initial value, minus one per hop. This session's orig_ttl rounds up to 128, the Windows default, not 64 like BASTION-01's 40 baseline sessions. “Normal path variation” is impossible in this direction: routers only decrement TTL, so a host that starts at 64 can never be seen above 64. “Fragmentation” is a separate IP mechanism and never raises TTL. “Negotiates the TTL” is wrong: each side sets its own initial TTL, which is exactly why orig_ttl and resp_ttl differ in this record.",
-          xp: 25,
-        },
-        {
-          question:
-            "Which explanations, taken together, should the analyst consider BEFORE concluding this is definitely a spoofed or hijacked source, recognizing that TTL is a corroborating signal, not standalone proof?",
-          options: [
-            "None: a TTL mismatch this large is proof on its own that an outside attacker spoofed the source address",
-            "A re-image or approved OS change on BASTION-01, or a NAT change sharing its IP, as well as spoofing or misuse",
-            "A longer routing path tonight, which can push the observed TTL above the host's usual baseline range",
-            "A sensor enrichment fault, since stock Zeek conn.log never records TTL, so the field can't be trusted here",
-          ],
-          answer: 1,
-          explanation:
-            "A passive fingerprint is corroborating evidence, not a verdict, so first rule out mundane causes: a re-image or approved OS change on BASTION-01, or a NAT/infrastructure change that puts a different device behind its IP, while keeping spoofing or misuse on the table. “Proof on its own” over-reads a single signal. “A longer routing path” cannot raise TTL; every hop only decrements it, so a path change could lower 64 but never lift it to 125. “A sensor enrichment fault” misapplies the reading: stock conn.log lacks TTL, but this is an enriched Corelight record, which is exactly where the reading says TTL appears.",
-          xp: 25,
-        },
-        {
-          question:
-            "After checking the change log and confirming BASTION-01 was NOT re-imaged, no routing changes occurred, and no NAT change was made, what is the correct next step?",
-          options: [
-            "Dismiss it: TTL is only metadata, so with no change found, the value is most likely a one-off sensor glitch",
-            "Escalate: check BASTION-01's EDR/host logs and other sessions from 10.40.1.9 for the same anomalous TTL",
-            "Declare a breach and block 10.40.1.9 everywhere, since the mismatch now proves the bastion is compromised",
-            "Ask the sensor team to recalibrate TTL enrichment, then re-check the next session BASTION-01 makes",
-          ],
-          answer: 1,
-          explanation:
-            "With the benign causes ruled out, the address-to-device mapping is unverified, so escalate: look at BASTION-01's own host telemetry for tampering or unauthorised use, and check whether other sessions from 10.40.1.9 in the same period carry the same anomaly. “Dismiss it ... sensor glitch” is an assumption with no evidence; the enrichment matched 40 previous sessions. “Declare a breach and block 10.40.1.9 everywhere” overreacts to one corroborating signal and cuts IT's admin path before anything is confirmed. “Recalibrate TTL enrichment” and waiting for the next session loses time while a 41-minute session into the finance server stays unexplained.",
-          xp: 30,
-        },
+      type: "query_fill" as const,
+      id: "tcpip-qf1",
+      heading: "Write It Yourself: Detect a Port Sweep in KQL",
+      language: "kql",
+      context: KQL_PRIMER +
+        "Using the pattern from Log Analysis 1 (one source touching many destination ports on one target, mostly ending in S0/no reply, within a short window), write the KQL that would surface this pattern across your whole network flow table, the way a detection engineer would before shipping it as a scheduled analytics rule. List the conn_state value(s) that mean the handshake never completed (S0 must be included; REJ and RSTOS0 are optional extras), pick a short time window (30 seconds to 10 minutes), and set a distinct-port threshold between 20 and 500, rounded to a multiple of 5.",
+      template:
+        "NetworkFlowEvents\n| where ConnectionState in ({{states}})\n| summarize DistinctPorts = dcount(DestinationPort) by SourceIp, DestinationIp, bin(TimeGenerated, {{window}})\n| where DistinctPorts > {{threshold}}",
+      blanks: [
+        { id: "states", answers: ["\"S0\"","'S0'","\"S0\", \"REJ\"","\"S0\",\"REJ\"","'S0', 'REJ'","'S0','REJ'","\"REJ\", \"S0\"","\"REJ\",\"S0\"","'REJ', 'S0'","'REJ','S0'","\"S0\", \"RSTOS0\"","\"S0\",\"RSTOS0\"","'S0', 'RSTOS0'","'S0','RSTOS0'","\"RSTOS0\", \"S0\"","\"RSTOS0\",\"S0\"","'RSTOS0', 'S0'","'RSTOS0','S0'","\"S0\", \"REJ\", \"RSTOS0\"","\"S0\",\"REJ\",\"RSTOS0\"","'S0', 'REJ', 'RSTOS0'","'S0','REJ','RSTOS0'","\"S0\", \"RSTOS0\", \"REJ\"","\"S0\",\"RSTOS0\",\"REJ\"","'S0', 'RSTOS0', 'REJ'","'S0','RSTOS0','REJ'","\"REJ\", \"S0\", \"RSTOS0\"","\"REJ\",\"S0\",\"RSTOS0\"","'REJ', 'S0', 'RSTOS0'","'REJ','S0','RSTOS0'","\"REJ\", \"RSTOS0\", \"S0\"","\"REJ\",\"RSTOS0\",\"S0\"","'REJ', 'RSTOS0', 'S0'","'REJ','RSTOS0','S0'","\"RSTOS0\", \"S0\", \"REJ\"","\"RSTOS0\",\"S0\",\"REJ\"","'RSTOS0', 'S0', 'REJ'","'RSTOS0','S0','REJ'","\"RSTOS0\", \"REJ\", \"S0\"","\"RSTOS0\",\"REJ\",\"S0\"","'RSTOS0', 'REJ', 'S0'","'RSTOS0','REJ','S0'"], placeholder: "conn_state values indicating no completed handshake" },
+        { id: "window", answers: ["30s", "45s", "60s", "90s", "120s", "180s", "300s", "600s", "1m", "2m", "3m", "5m", "10m", "1min", "2min", "3min", "5min", "10min"], placeholder: "aggregation time window" },
+        { id: "threshold", answers: ["20","25","30","35","40","45","50","55","60","65","70","75","80","85","90","95","100","105","110","115","120","125","130","135","140","145","150","155","160","165","170","175","180","185","190","195","200","205","210","215","220","225","230","235","240","245","250","255","260","265","270","275","280","285","290","295","300","305","310","315","320","325","330","335","340","345","350","355","360","365","370","375","380","385","390","395","400","405","410","415","420","425","430","435","440","445","450","455","460","465","470","475","480","485","490","495","500"], placeholder: "distinct-port count threshold" },
       ],
+      explanation:
+        "The core detection logic mirrors what you read directly off the flow record in Log Analysis 1: filter to connection states that mean 'no completed handshake' (S0 at minimum; REJ, closed ports answering RST, and RSTOS0 are also scan evidence), group by the source-to-destination pair within a short window (one minute is tight enough to catch a fast sweep like the 38-second one you investigated; a few minutes also works but catches slower sweeps at the cost of more noise), count the DISTINCT destination ports touched, and alert when that count crosses a threshold no legitimate application would reach in that time frame. Lower thresholds catch slower or narrower sweeps but fire more often; higher ones are quieter but miss small scans. A real deployment would also exclude known, approved scanners (vulnerability management tools) by source IP, because authorized scanning would otherwise produce a constant stream of benign true positives: real scans the rule correctly catches, which the approved schedule makes legitimate.",
+      xp: 35,
     },
 
     // ── Analyst Choice: normal load-balancer health-check RSTs ─────────────
@@ -696,101 +791,6 @@ const tcpipDeepDiveRoom = {
       xp: 30,
     },
 
-    // ── Matching: scan technique <-> flags/signature ─────────────────────────
-    {
-      type: "matching" as const,
-      id: "tcpip-m1",
-      heading: "Match Each Scan Technique to Its Flag Pattern and Signature",
-      instructions: "Match each scan/probe technique to the flags it sends and what makes it recognizable in a flow log.",
-      pairs: [
-        {
-          id: "syn",
-          left: "SYN scan (nmap -sS, half-open)",
-          right: "Sends only SYN, never completes the handshake; open replies SYN-ACK, closed replies RST,ACK, filtered gets no reply at all",
-        },
-        {
-          id: "null",
-          left: "NULL scan",
-          right: "Sends a segment with no flags set at all; relies on the RFC 793 quirk where an open port stays silent and a closed port replies RST",
-        },
-        {
-          id: "fin",
-          left: "FIN scan",
-          right: "Sends only the FIN flag with no prior SYN: a 'close' for a connection that was never opened; same silence-vs-RST logic as NULL",
-        },
-        {
-          id: "xmas",
-          left: "XMAS scan",
-          right: "Sends FIN, PSH, and URG together ('lit up like a Christmas tree'); same underlying RFC 793 quirk as NULL and FIN scans",
-        },
-        {
-          id: "ack",
-          left: "ACK scan",
-          right: "Sends only ACK with no prior SYN; cannot determine open vs. closed, but maps which ports a stateful firewall's rules actually let through",
-        },
-        {
-          id: "connect",
-          left: "Full connect scan (nmap -sT)",
-          right: "Completes the entire real three-way handshake before closing; slower and more visible at the application layer, but needs no raw-socket privileges to run",
-        },
-      ],
-      explanation:
-        "Every scan technique is defined by the specific flag combination it sends and what that combination is designed to reveal. SYN scans exploit the handshake itself; NULL/FIN/XMAS scans all exploit the same RFC 793 silence-on-open-port rule (and are all similarly unreliable against modern Windows stacks that don't follow it faithfully); ACK scans don't probe port state at all, they probe firewall rule sets; and full connect scans trade stealth for reliability by completing a real connection. Recognizing which flag pattern you're looking at tells you not just 'this is a scan' but which technique and often which tooling produced it.",
-      xp: 40,
-    },
-
-    // ── Ordering: TCP handshake + teardown sequence ─────────────────────────
-    {
-      type: "ordering" as const,
-      id: "tcpip-o1",
-      heading: "Order a Complete TCP Session: Handshake, Data, and Graceful Teardown",
-      instructions: "Arrange these events into the correct chronological order for one complete, normal TCP session.",
-      items: [
-        { id: "syn", text: "Client sends SYN (seq=x)" },
-        { id: "synack", text: "Server replies SYN-ACK (seq=y, ack=x+1)" },
-        { id: "ack", text: "Client sends ACK (ack=y+1): connection is now ESTABLISHED" },
-        { id: "data", text: "Both sides exchange application data (PSH/ACK segments)" },
-        { id: "finclient", text: "Client sends FIN,ACK, client has no more data to send" },
-        { id: "ackserver1", text: "Server ACKs the client's FIN" },
-        { id: "finserver", text: "Server sends its own FIN,ACK once it has finished sending" },
-        { id: "ackclient2", text: "Client ACKs the server's FIN: client enters TIME_WAIT" },
-      ],
-      correct_order: ["syn", "synack", "ack", "data", "finclient", "ackserver1", "finserver", "ackclient2"],
-      explanation:
-        "A complete TCP session is the three-way handshake (SYN, SYN-ACK, ACK), followed by whatever application data is exchanged while ESTABLISHED, followed by a four-step graceful teardown: each side independently signals it has no more data (FIN) and the other side acknowledges. The side that sends the final ACK holds the connection in TIME_WAIT briefly to catch any stray delayed packets from the now-closed connection before fully releasing it. Any deviation from this sequence (a FIN or RST appearing before ESTABLISHED, data appearing before the handshake completes) is exactly the kind of anomaly that scan and evasion techniques deliberately produce.",
-      xp: 35,
-    },
-
-    // ── Query Fill: KQL for detecting a port-sweep pattern ──────────────────
-    {
-      type: "query_fill" as const,
-      id: "tcpip-qf1",
-      heading: "Write It Yourself: Detect a Port Sweep in KQL",
-      language: "kql",
-      context: KQL_PRIMER +
-        "Using the pattern from Log Analysis 1 (one source touching many destination ports on one target, mostly ending in S0/no reply, within a short window), write the KQL that would surface this pattern across your whole network flow table, the way a detection engineer would before shipping it as a scheduled analytics rule. List the conn_state value(s) that mean the handshake never completed (S0 must be included; REJ and RSTOS0 are optional extras), pick a short time window (30 seconds to 10 minutes), and set a distinct-port threshold between 20 and 500, rounded to a multiple of 5.",
-      template:
-        "NetworkFlowEvents\n| where ConnectionState in ({{states}})\n| summarize DistinctPorts = dcount(DestinationPort) by SourceIp, DestinationIp, bin(TimeGenerated, {{window}})\n| where DistinctPorts > {{threshold}}",
-      blanks: [
-        { id: "states", answers: ["\"S0\"","'S0'","\"S0\", \"REJ\"","\"S0\",\"REJ\"","'S0', 'REJ'","'S0','REJ'","\"REJ\", \"S0\"","\"REJ\",\"S0\"","'REJ', 'S0'","'REJ','S0'","\"S0\", \"RSTOS0\"","\"S0\",\"RSTOS0\"","'S0', 'RSTOS0'","'S0','RSTOS0'","\"RSTOS0\", \"S0\"","\"RSTOS0\",\"S0\"","'RSTOS0', 'S0'","'RSTOS0','S0'","\"S0\", \"REJ\", \"RSTOS0\"","\"S0\",\"REJ\",\"RSTOS0\"","'S0', 'REJ', 'RSTOS0'","'S0','REJ','RSTOS0'","\"S0\", \"RSTOS0\", \"REJ\"","\"S0\",\"RSTOS0\",\"REJ\"","'S0', 'RSTOS0', 'REJ'","'S0','RSTOS0','REJ'","\"REJ\", \"S0\", \"RSTOS0\"","\"REJ\",\"S0\",\"RSTOS0\"","'REJ', 'S0', 'RSTOS0'","'REJ','S0','RSTOS0'","\"REJ\", \"RSTOS0\", \"S0\"","\"REJ\",\"RSTOS0\",\"S0\"","'REJ', 'RSTOS0', 'S0'","'REJ','RSTOS0','S0'","\"RSTOS0\", \"S0\", \"REJ\"","\"RSTOS0\",\"S0\",\"REJ\"","'RSTOS0', 'S0', 'REJ'","'RSTOS0','S0','REJ'","\"RSTOS0\", \"REJ\", \"S0\"","\"RSTOS0\",\"REJ\",\"S0\"","'RSTOS0', 'REJ', 'S0'","'RSTOS0','REJ','S0'"], placeholder: "conn_state values indicating no completed handshake" },
-        { id: "window", answers: ["30s", "45s", "60s", "90s", "120s", "180s", "300s", "600s", "1m", "2m", "3m", "5m", "10m", "1min", "2min", "3min", "5min", "10min"], placeholder: "aggregation time window" },
-        { id: "threshold", answers: ["20","25","30","35","40","45","50","55","60","65","70","75","80","85","90","95","100","105","110","115","120","125","130","135","140","145","150","155","160","165","170","175","180","185","190","195","200","205","210","215","220","225","230","235","240","245","250","255","260","265","270","275","280","285","290","295","300","305","310","315","320","325","330","335","340","345","350","355","360","365","370","375","380","385","390","395","400","405","410","415","420","425","430","435","440","445","450","455","460","465","470","475","480","485","490","495","500"], placeholder: "distinct-port count threshold" },
-      ],
-      explanation:
-        "The core detection logic mirrors what you read directly off the flow record in Log Analysis 1: filter to connection states that mean 'no completed handshake' (S0 at minimum; REJ, closed ports answering RST, and RSTOS0 are also scan evidence), group by the source-to-destination pair within a short window (one minute is tight enough to catch a fast sweep like the 38-second one you investigated; a few minutes also works but catches slower sweeps at the cost of more noise), count the DISTINCT destination ports touched, and alert when that count crosses a threshold no legitimate application would reach in that time frame. Lower thresholds catch slower or narrower sweeps but fire more often; higher ones are quieter but miss small scans. A real deployment would also exclude known, approved scanners (vulnerability management tools) by source IP, because authorized scanning would otherwise produce a constant stream of benign true positives: real scans the rule correctly catches, which the approved schedule makes legitimate.",
-      xp: 35,
-    },
-
-    // ── Flag ──────────────────────────────────────────────────────────────
-    {
-      type: "flag" as const,
-      id: "tcpip-f1",
-      prompt:
-        "In the TTL-mismatch session against SRV-FIN03, assume the originator's initial TTL was its OS family's default. Using the fingerprinting reading's rule of thumb, how many router hops did that traffic cross before reaching the sensor? Enter the number only.",
-      answer: "3",
-      hint: "Round the observed originator TTL up to the nearest of 64, 128 or 255. The difference between the two is the hop count.",
-      xp: 25,
-    },
   ],
 };
 
