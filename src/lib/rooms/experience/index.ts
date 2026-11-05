@@ -41,6 +41,7 @@ import { MICROSOFT_365_SECURITY } from "./microsoft365Security";
 import { CROWDSTRIKE_FALCON } from "./crowdstrikeFalcon";
 import { SENTINEL_ONE } from "./sentinelOne";
 import { MALWARE_ANALYSIS_FUNDAMENTALS } from "./malwareAnalysisFundamentals";
+import { ALERT_TRIAGE } from "./alertTriage";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -88,6 +89,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [CROWDSTRIKE_FALCON.roomId]: CROWDSTRIKE_FALCON,
   [SENTINEL_ONE.roomId]: SENTINEL_ONE,
   [MALWARE_ANALYSIS_FUNDAMENTALS.roomId]: MALWARE_ANALYSIS_FUNDAMENTALS,
+  [ALERT_TRIAGE.roomId]: ALERT_TRIAGE,
 };
 
 /**

@@ -2036,24 +2036,24 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "alert-triage-r2",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "alert-triage-r3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "alert-triage-q1",
         "type": "question",
         "xp": 30
       },
       {
+        "id": "alert-triage-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
         "id": "alert-triage-q2",
         "type": "question",
         "xp": 30
+      },
+      {
+        "id": "alert-triage-r3",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "alert-triage-q3",

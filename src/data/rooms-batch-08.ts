@@ -1176,7 +1176,6 @@ const alertTriage = {
   icon: "⚡",
   prerequisites: ["siem-fundamentals"],
   tasks: [
-
     // ── Reading 1: What Is Alert Triage? ────────────────────────────────────
     {
       type: "reading" as const,
@@ -1238,6 +1237,22 @@ A "medium" severity alert on a domain controller with a service account is highe
         answer: 1,
         explanation: "Priority combines severity, asset criticality and user risk. The CFO's laptop and a payment-approving account score high on both of the last two, while a lab VM about to be rebuilt scores low on asset criticality, so the Medium alert comes first. Severity is only one of the three factors, so it cannot set the order alone. Working strictly in arrival order is the habit triage exists to replace: the ER nurse does not treat patients in the order they walked in. Priority decides which alert you triage first, so it has to be set before you know whether either is a True Positive.",
       },
+    },
+
+    // ── Question 1 ──────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "alert-triage-q1",
+      question: "You open your alert queue Monday morning and see 100 alerts from the same host (WORKSTATION-KLEE) all fired over the weekend. What should you do FIRST?",
+      options: [
+        "Work through the 100 alerts one at a time, in arrival order, so none is missed",
+        "Isolate WORKSTATION-KLEE at once, then begin reading the alerts in the queue",
+        "Sample a few alerts, then pivot on the host to see which rules and patterns repeat",
+        "Open the highest-severity alert, then close the other 99 as its duplicates",
+      ],
+      answer: 2,
+      explanation: "With many alerts from one host, find the pattern before diving into individual alerts. Open two or three representative samples (same rule? same source? same timing?) and pivot in the SIEM on all alerts for WORKSTATION-KLEE in the last 7 days. That shows whether it is one rule firing over and over, such as a service account retrying a stale password, or several different alert types that together point to an active attack. Going one by one in arrival order is the analysis-paralysis trap: hours on a cluster that one pivot could explain. Isolating before you know what the alerts are is the right tool at the wrong time: it may cut off a user over a noisy rule. The highest-severity alert is a good place to start, but closing the rest unread as duplicates could throw away the different alert types that reveal an attack.",
+      xp: 30,
     },
 
     // ── Reading 2: The 5-Step Triage Methodology ─────────────────────────────
@@ -1322,6 +1337,22 @@ Never make a determination without documenting your reasoning. If you close an a
       },
     },
 
+    // ── Question 2 ──────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "alert-triage-q2",
+      question: "An alert fires: 'PowerShell with base64-encoded command detected. Workstation LAPTOP-MSMITH.' You look at the raw log and see: source = LAPTOP-MSMITH, user = msmith (IT operations), parent process = the IT team's Datto RMM agent, time = 14:32 Tuesday (business hours), and a ServiceNow change ticket for msmith reads 'IT audit script 14:00-15:00'. What is your determination?",
+      options: [
+        "True Positive: encoded PowerShell is a known attacker technique, so escalate it",
+        "Benign True Positive: the rule matched real activity, and that work is ticketed",
+        "False Positive: the rule misfired, because the activity is legitimate IT work",
+        "Indeterminate, timing and a parent process alone cannot clear an alert, escalate",
+      ],
+      answer: 1,
+      explanation: "This is a Benign True Positive: the rule did exactly what it was built to do (it detected base64-encoded PowerShell, and that PowerShell really ran) but the activity is authorised: an IT-operations user, the team's RMM agent as parent, inside the window of a matching change ticket. Close it with BTP documentation (who approved it, which ticket), and consider a narrow exclusion for this RMM path. Calling it a True Positive treats the technique as the verdict; attackers do use encoded PowerShell, but so does IT automation, and the context here explains it. It is not a False Positive, because the rule did not misfire: FP is for rule logic that matched something it was not meant to detect. Indeterminate misreads the evidence: you are not relying on timing and parent process alone, because the change ticket ties this exact activity to an approved task.",
+      xp: 30,
+    },
+
     // ── Reading 3: False Positive Patterns, Escalation, and Documentation ────
     {
       type: "reading" as const,
@@ -1395,38 +1426,6 @@ Every alert closure (whether False Positive, Benign True Positive or True Positi
 6. **Recommended tuning**: If FP, should the rule's logic be fixed so it stops matching this pattern? If BTP, does it recur often enough to justify a narrow, owned exclusion (never a weaker rule)?
 
 Good documentation protects you, helps your colleagues understand past alerts, and builds the institutional knowledge that makes the whole SOC better over time.`,
-    },
-
-    // ── Question 1 ──────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "alert-triage-q1",
-      question: "You open your alert queue Monday morning and see 100 alerts from the same host (WORKSTATION-KLEE) all fired over the weekend. What should you do FIRST?",
-      options: [
-        "Work through the 100 alerts one at a time, in arrival order, so none is missed",
-        "Isolate WORKSTATION-KLEE at once, then begin reading the alerts in the queue",
-        "Sample a few alerts, then pivot on the host to see which rules and patterns repeat",
-        "Open the highest-severity alert, then close the other 99 as its duplicates",
-      ],
-      answer: 2,
-      explanation: "With many alerts from one host, find the pattern before diving into individual alerts. Open two or three representative samples (same rule? same source? same timing?) and pivot in the SIEM on all alerts for WORKSTATION-KLEE in the last 7 days. That shows whether it is one rule firing over and over, such as a service account retrying a stale password, or several different alert types that together point to an active attack. Going one by one in arrival order is the analysis-paralysis trap: hours on a cluster that one pivot could explain. Isolating before you know what the alerts are is the right tool at the wrong time: it may cut off a user over a noisy rule. The highest-severity alert is a good place to start, but closing the rest unread as duplicates could throw away the different alert types that reveal an attack.",
-      xp: 30,
-    },
-
-    // ── Question 2 ──────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "alert-triage-q2",
-      question: "An alert fires: 'PowerShell with base64-encoded command detected. Workstation LAPTOP-MSMITH.' You look at the raw log and see: source = LAPTOP-MSMITH, user = msmith (IT operations), parent process = the IT team's Datto RMM agent, time = 14:32 Tuesday (business hours), and a ServiceNow change ticket for msmith reads 'IT audit script 14:00-15:00'. What is your determination?",
-      options: [
-        "True Positive: encoded PowerShell is a known attacker technique, so escalate it",
-        "Benign True Positive: the rule matched real activity, and that work is ticketed",
-        "False Positive: the rule misfired, because the activity is legitimate IT work",
-        "Indeterminate, timing and a parent process alone cannot clear an alert, escalate",
-      ],
-      answer: 1,
-      explanation: "This is a Benign True Positive: the rule did exactly what it was built to do (it detected base64-encoded PowerShell, and that PowerShell really ran) but the activity is authorised: an IT-operations user, the team's RMM agent as parent, inside the window of a matching change ticket. Close it with BTP documentation (who approved it, which ticket), and consider a narrow exclusion for this RMM path. Calling it a True Positive treats the technique as the verdict; attackers do use encoded PowerShell, but so does IT automation, and the context here explains it. It is not a False Positive, because the rule did not misfire: FP is for rule logic that matched something it was not meant to detect. Indeterminate misreads the evidence: you are not relying on timing and parent process alone, because the change ticket ties this exact activity to an approved task.",
-      xp: 30,
     },
 
     // ── Question 3 ──────────────────────────────────────────────────────────

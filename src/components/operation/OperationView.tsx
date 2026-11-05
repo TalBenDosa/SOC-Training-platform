@@ -73,6 +73,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   talon: dynamic(() => import("./scenes/TalonScene"), { ssr: false }),
   storyline: dynamic(() => import("./scenes/StorylineScene"), { ssr: false }),
   detonation: dynamic(() => import("./scenes/DetonationScene"), { ssr: false }),
+  nightqueue: dynamic(() => import("./scenes/NightQueueScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;
