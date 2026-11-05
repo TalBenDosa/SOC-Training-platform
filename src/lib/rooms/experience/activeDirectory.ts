@@ -28,6 +28,14 @@ export const ACTIVE_DIRECTORY: RoomExperience = {
   look: { primary: "#22d3ee", secondary: "#a3e635", warn: "#fb7185" },
   scene: "domaintree",
   layout: "stage",
+  story: {
+    intro: { title: "Own the Directory, Own Everything", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/active-directory/keystone-intro-cbb9ca1c.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/active-directory/keystone-intro-f14d35f7.jpg" },
+    afterStation: {
+      kerberos: { title: "The Wristband", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/active-directory/keystone-ch2-12db5f58.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/active-directory/keystone-ch2-616d595c.jpg" },
+      roast: { title: "01:47 on the DC", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/active-directory/keystone-ch3-7bc64a95.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/active-directory/keystone-ch3-93dcd83a.jpg" },
+      relay: { title: "Borrowed Logons", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/active-directory/keystone-finale-b8f84aa9.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/active-directory/keystone-finale-ed4a1ad6.jpg" },
+    },
+  },
   stations: [
     {
       id: "directory",
