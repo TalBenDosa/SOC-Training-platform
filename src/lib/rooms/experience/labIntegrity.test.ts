@@ -111,6 +111,20 @@ describe("game labs", () => {
     expect(bad).toEqual([]);
   });
 
+  it("an evidence screen never names its own answer in its title bar", () => {
+    const bad: string[] = [];
+    for (const r of rooms) for (const l of r.labs) {
+      if (l.kind !== "evidence") continue;
+      for (const it of l.items) {
+        const s = it.screen as unknown as Record<string, unknown>;
+        const bar = [it.caption, s.product, s.tool, s.service, s.playbook].filter(Boolean).join(" ").toLowerCase();
+        const word = (l.choices.find(c => c.id === it.answer)?.label ?? "").split(/[ (:]/)[0].toLowerCase();
+        if (word.length > 2 && bar.includes(word)) bad.push(`${r.id} / ${l.title} / ${it.id}: "${word}"`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
   it("the console stays in the rooms that teach the command line", () => {
     const over: string[] = [];
     for (const r of rooms) {

@@ -130,9 +130,9 @@ A DMARC record in DNS looks like:
 \`v=DMARC1; p=reject; rua=mailto:dmarc-reports@corp.com\`
 
 The **p= (policy) field** is the most important:
-- \`p=none\`Monitor only; take no action on failures. Used when first deploying DMARC.
-- \`p=quarantine\`Send failing emails to spam/junk folder.
-- \`p=reject\`Block and discard failing emails entirely. This is the most protective setting.
+- \`p=none\`: Monitor only; take no action on failures. Used when first deploying DMARC.
+- \`p=quarantine\`: Send failing emails to spam/junk folder.
+- \`p=reject\`: Block and discard failing emails entirely. This is the most protective setting.
 
 **DMARC Alignment** is a critical concept: for DMARC to pass, either the SPF domain or the DKIM signing domain must **align** (match) with the visible "From:" header domain. This closes the SPF loophole mentioned above.
 
@@ -216,12 +216,12 @@ Forwarding does not even need a rule: an attacker with admin rights, or a user i
 
 **Key Audit Log Operations to Know**
 
-- \`MailItemsAccessed\`Someone accessed specific emails (critical for OAuth token compromise investigations)
-- \`SendAs\`Someone sent email as another user
-- \`AddDelegate\`A delegate (another user) was given access to a mailbox
-- \`New-InboxRule\` / \`Set-InboxRule\`An inbox rule was created / changed from Outlook on the web or PowerShell (check the forwarding and delete parameters)
-- \`UpdateInboxRules\`An inbox rule was created or modified from the Outlook desktop client (check the external address in the rule details)
-- \`Set-Mailbox\`Mailbox settings changed; with \`ForwardingSmtpAddress\` it means mailbox-level forwarding, no inbox rule needed
+- \`MailItemsAccessed\`: Someone accessed specific emails (critical for OAuth token compromise investigations)
+- \`SendAs\`: Someone sent email as another user
+- \`AddDelegate\`: A delegate (another user) was given access to a mailbox
+- \`New-InboxRule\` / \`Set-InboxRule\`: An inbox rule was created / changed from Outlook on the web or PowerShell (check the forwarding and delete parameters)
+- \`UpdateInboxRules\`: An inbox rule was created or modified from the Outlook desktop client (check the external address in the rule details)
+- \`Set-Mailbox\`: Mailbox settings changed; with \`ForwardingSmtpAddress\` it means mailbox-level forwarding, no inbox rule needed
 
 **Practical Analyst Workflow for Suspicious Email**
 
@@ -517,14 +517,14 @@ Microsoft Purview DLP policies can inspect Teams messages and files shared in Te
 
 DLP policies define three things:
 1. **What to protect**: Sensitive information types (e.g. credit card numbers, UK National Insurance numbers, patient health information, company-defined custom patterns like project codes).
-2. **Where to protect it**, Which services to monitor: Exchange email, SharePoint, OneDrive, Teams chats, Endpoint devices, Power BI.
-3. **What to do when a match occurs**, Options include: notify the user with a policy tip (warning), block the action (prevent sending/uploading), notify the admin, log the event for audit.
+2. **Where to protect it**: Which services to monitor: Exchange email, SharePoint, OneDrive, Teams chats, Endpoint devices, Power BI.
+3. **What to do when a match occurs**: Options include: notify the user with a policy tip (warning), block the action (prevent sending/uploading), notify the admin, log the event for audit.
 
 **Key DLP Audit Operations**
 
-- \`DlpRuleMatch\`A DLP policy rule was triggered. The audit log entry includes: the policy name, the rule that matched, the workload (Exchange/SharePoint/Teams), the user who triggered it, the sensitive information type(s) detected, and the confidence level and count.
-- \`DlpRuleUndo\`A user acknowledged a policy tip and provided a justification to override the block.
-- \`DlpRuleActivated\`A DLP rule was enabled or changed.
+- \`DlpRuleMatch\`: A DLP policy rule was triggered. The audit log entry includes: the policy name, the rule that matched, the workload (Exchange/SharePoint/Teams), the user who triggered it, the sensitive information type(s) detected, and the confidence level and count.
+- \`DlpRuleUndo\`: A user acknowledged a policy tip and provided a justification to override the block.
+- \`DlpRuleActivated\`: A DLP rule was enabled or changed.
 
 **Insider Threat: The Risk from Within**
 
@@ -758,7 +758,7 @@ This **telemetry stream** flows to a central cloud platform where it is analysed
 
 1. **Threat detection**: Alert when a behaviour pattern matches a known attack technique.
 2. **Investigation**: When an alert fires, analysts can look back through the recorded telemetry to understand exactly what happened, a full **process tree** showing parent → child process chains.
-3. **Remote response**: Isolate a compromised laptop from the network with one click, kill a malicious process, delete a malicious file. All without touching the physical device.
+3. **Remote response**: Isolate a compromised laptop from the network with one click, kill a malicious process, delete a malicious file, all without touching the physical device.
 
 **Key EDR vendors today (2026)**:
 - **CrowdStrike Falcon Insight XDR**: Industry-leading threat intelligence and process telemetry depth.
@@ -1144,7 +1144,7 @@ When an attack spans multiple domains (e.g. phishing email → compromised accou
 
 **Microsoft Defender for Endpoint (MDE): Deep Dive**
 
-**MDE Onboarding**, Getting devices under MDE management:
+**MDE Onboarding**: Getting devices under MDE management:
 
 - **GPO (Group Policy)**: Deploy the MDE onboarding package to domain-joined Windows machines via Active Directory Group Policy. Most common in enterprise environments.
 - **Microsoft Intune / Endpoint Manager**: Mobile Device Management (MDM) deployment, ideal for modern cloud-managed devices (Azure AD-joined laptops, BYOD).
@@ -1300,8 +1300,8 @@ MDI monitors your on-premises Active Directory domain controllers and Azure Entr
 | Suspected Kerberoasting activity | T1558.003, Kerberoasting: request TGS tickets for service accounts to crack offline |
 | Suspected DCSync attack | T1003.006, DCSync: simulate a DC to replicate all password hashes from AD |
 | Lateral movement path to sensitive entity | Graph-based lateral movement risk |
-| Pass-the-Hash / Pass-the-Ticket | T1550. Credential reuse without the plaintext password |
-| Reconnaissance using LDAP queries | T1087. Account enumeration via LDAP |
+| Pass-the-Hash / Pass-the-Ticket | T1550: Credential reuse without the plaintext password |
+| Reconnaissance using LDAP queries | T1087: Account enumeration via LDAP |
 | Suspicious additions to sensitive groups | T1098, Adding a backdoor account to Domain Admins |`,
       checkpoint: {
         question: "An MDE alert fires at 14:05 for a PsExec launch on a workstation. Why should you open the device Timeline well before 14:05 instead of starting at the alert time?",

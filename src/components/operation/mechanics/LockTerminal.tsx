@@ -1,4 +1,5 @@
 "use client";
+import { InlineMd } from "@/components/rooms/InlineMd";
 import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Lock, LockOpen } from "lucide-react";
@@ -72,7 +73,7 @@ export function LockTerminal({ roomId, task, isCompleted, onComplete, onMistake,
           <span>{open ? "Terminal unlocked" : "Terminal locked · answer to open"}</span>
           {!result && <span className="ml-auto text-slate-500">{wrongOnce ? "1 attempt left" : "2 attempts"}</span>}
         </div>
-        <p className="font-sans text-base leading-relaxed text-slate-100">{task.question}</p>
+        <p className="font-sans text-base leading-relaxed text-slate-100"><InlineMd text={task.question} /></p>
       </motion.div>
 
       <div className="grid gap-2.5">
@@ -106,7 +107,7 @@ export function LockTerminal({ roomId, task, isCompleted, onComplete, onMistake,
 
       {wrongOnce && !result && (
         <p role="status" className="rounded-lg border border-neon-amber/40 bg-neon-amber/10 px-3 py-2 text-sm text-neon-amber">
-          Access denied. Re-read the question: what does the evidence actually prove? One more try, half credit.
+          Access denied. Re-read the question and what each option really says. One more try, half credit.
         </p>
       )}
 

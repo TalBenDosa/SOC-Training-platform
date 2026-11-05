@@ -57,9 +57,9 @@ const protocolsMasterclass = {
         ],
       },
       content:
-        `Every network conversation that happens in your organization: a user loading a webpage, an attacker exfiltrating data, a workstation querying Active Directory. Follows a set of rules that organize how information travels from one machine to another. Those rules are captured in two related models: the OSI model and the TCP/IP model.\n\n` +
+        `Every network conversation that happens in your organization (a user loading a webpage, an attacker exfiltrating data, a workstation querying Active Directory) follows a set of rules that organize how information travels from one machine to another. Those rules are captured in two related models: the OSI model and the TCP/IP model.\n\n` +
         `**The OSI Model (Open Systems Interconnection)**\n\n` +
-        `The OSI model divides networking into seven distinct layers, each responsible for a specific job. Think of it like a postal system: when you send a letter, it goes through packaging, addressing, sorting, transport, and delivery. Each step handled by a different part of the system. The OSI layers work the same way.\n\n` +
+        `The OSI model divides networking into seven distinct layers, each responsible for a specific job. Think of it like a postal system: when you send a letter, it goes through packaging, addressing, sorting, transport, and delivery, each step handled by a different part of the system. The OSI layers work the same way.\n\n` +
         `**Layer 7, Application**: This is where end-user protocols live. HTTP, HTTPS, DNS, FTP, SMTP, RDP. When a user types a URL into a browser, the Application layer is where that request is formed. This is the layer most visible to SOC analysts: web logs, email logs, and DNS query logs all live here.\n\n` +
         `**Layer 6, Presentation**: Handles data formatting, encryption, and compression. TLS/SSL encryption is conceptually at this layer. It transforms the data before it travels. In practice, most modern SIEM tools don't produce separate Layer 6 logs; TLS is usually captured at the firewall or proxy level.\n\n` +
         `**Layer 5, Session**: Manages the establishment, maintenance, and termination of sessions between applications. SMB (Server Message Block, used for Windows file sharing) has session-layer concepts. Rarely logged separately: most session data is embedded in higher-layer logs.\n\n` +
@@ -198,7 +198,7 @@ const protocolsMasterclass = {
       id: "proto-r3",
       heading: "TCP: The Protocol That Guarantees Delivery",
       content:
-        `When you send an important document by courier, you might request a signature on delivery. Confirmation that it arrived intact. TCP (Transmission Control Protocol) is the networking equivalent of that signed delivery. It is a connection-oriented, reliable protocol that guarantees data will arrive at the destination in the correct order, without duplication, and without corruption.\n\n` +
+        `When you send an important document by courier, you might request a signature on delivery: confirmation that it arrived intact. TCP (Transmission Control Protocol) is the networking equivalent of that signed delivery. It is a connection-oriented, reliable protocol that guarantees data will arrive at the destination in the correct order, without duplication, and without corruption.\n\n` +
         `**The Three-Way Handshake**\n\n` +
         `Before any TCP data is exchanged, two computers must establish a connection through the three-way handshake:\n\n` +
         `1. SYN (Synchronize): The client sends a packet with the SYN flag set. This announces: "I want to start a conversation, and I am starting my sequence numbers at X."\n` +
@@ -210,7 +210,7 @@ const protocolsMasterclass = {
         `- SYN: Initiate a connection or synchronize sequence numbers\n` +
         `- ACK: Acknowledge receipt of data\n` +
         `- FIN: Signal that the sender has finished sending data (graceful termination)\n` +
-        `- RST: Reset the connection immediately (abrupt termination. Used to reject connections or inject session resets)\n` +
+        `- RST: Reset the connection immediately (abrupt termination, used to reject connections or inject session resets)\n` +
         `- PSH: Push data to the application immediately, don't buffer\n` +
         `- URG: Mark data as urgent (rarely used in practice)\n\n` +
         `**Sequence and Acknowledgement Numbers**\n\n` +
@@ -374,7 +374,7 @@ const protocolsMasterclass = {
         `**TTL and Caching**\n\n` +
         `Every DNS record has a Time To Live (TTL) measured in seconds. Caches honor this TTL: a record with TTL=3600 will be cached for one hour before being re-queried. Attackers use very short TTLs (fast-flux DNS) to rapidly change the IPs behind a domain, making blocklisting ineffective.\n\n` +
         `**DNS over HTTPS (DoH)**\n\n` +
-        `Traditional DNS sends queries in plaintext over UDP port 53. Visible to anyone monitoring the network. DNS over HTTPS (DoH) encrypts DNS queries by sending them as HTTPS requests to port 443, hiding them from network inspection. While this improves user privacy, it is a significant problem for SOC analysts: it bypasses corporate DNS resolvers, prevents DNS-based content filtering, and makes DNS-based C2 and tunneling invisible to traditional DNS logging.\n\n` +
+        `Traditional DNS sends queries in plaintext over UDP port 53, visible to anyone monitoring the network. DNS over HTTPS (DoH) encrypts DNS queries by sending them as HTTPS requests to port 443, hiding them from network inspection. While this improves user privacy, it is a significant problem for SOC analysts: it bypasses corporate DNS resolvers, prevents DNS-based content filtering, and makes DNS-based C2 and tunneling invisible to traditional DNS logging.\n\n` +
         `**SOC Relevance: Why DNS Is the Most Abused Protocol**\n\n` +
         `DNS is permitted outbound by nearly every firewall. Blocking port 53 breaks the internet. Attackers know this and abuse DNS in multiple ways: C2 channels that poll a DNS server for instructions, data exfiltration via DNS tunneling (encoding data in subdomain labels), and domain generation algorithms (DGAs) that generate hundreds of random-looking domain names and try each one until the C2 server responds. Detecting DNS abuse requires query logging at scale and behavioral analysis, not just blocklists.`,
       codeExample:
@@ -440,7 +440,7 @@ const protocolsMasterclass = {
         `The server responds to every request with a three-digit status code:\n\n` +
         `- 1xx (Informational): Request received, processing continues. Rarely logged meaningfully.\n` +
         `- 2xx (Success): 200 OK (standard success), 201 Created (new resource created), 204 No Content (success but no body).\n` +
-        `- 3xx (Redirection): 301 Moved Permanently (domain changed forever), 302 Found (temporary redirect. Commonly abused in phishing to chain redirects).\n` +
+        `- 3xx (Redirection): 301 Moved Permanently (domain changed forever), 302 Found (temporary redirect, commonly abused in phishing to chain redirects).\n` +
         `- 4xx (Client Error): 400 Bad Request, 401 Unauthorized (authentication required), 403 Forbidden (authenticated but not permitted), 404 Not Found, 429 Too Many Requests (rate limited).\n` +
         `- 5xx (Server Error): 500 Internal Server Error, 502 Bad Gateway, 503 Service Unavailable.\n\n` +
         `**HTTP Request Structure**\n\n` +
@@ -518,7 +518,7 @@ const protocolsMasterclass = {
         `Trust in TLS flows through a chain: your operating system and browser include a list of trusted Root Certificate Authorities (e.g., DigiCert, Let's Encrypt, Sectigo). Root CAs sign Intermediate CA certificates. Intermediate CAs sign Server certificates. When your browser sees a server certificate, it walks up the chain checking signatures until it reaches a trusted root.\n\n` +
         `A server certificate contains the Subject (CN = Common Name, SAN = Subject Alternative Names listing all valid hostnames), validity dates (Not Before, Not After), the public key, and the issuer.\n\n` +
         `**Cipher Suites**\n\n` +
-        `A cipher suite is a named combination of algorithms, for example: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384. Breaking this down: ECDHE is the key exchange algorithm (Elliptic Curve Diffie-Hellman Ephemeral. Provides forward secrecy), RSA is the authentication algorithm (used to verify the server certificate), AES_256_GCM is the symmetric encryption algorithm (encrypts the actual data), and SHA384 is the MAC algorithm (verifies data integrity).\n\n` +
+        `A cipher suite is a named combination of algorithms, for example: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384. Breaking this down: ECDHE is the key exchange algorithm (Elliptic Curve Diffie-Hellman Ephemeral, provides forward secrecy), RSA is the authentication algorithm (used to verify the server certificate), AES_256_GCM is the symmetric encryption algorithm (encrypts the actual data), and SHA384 is the MAC algorithm (verifies data integrity).\n\n` +
         `**JA3 Fingerprinting**\n\n` +
         `Even though TLS encrypts the payload, the ClientHello packet is sent in plaintext. JA3 is a technique that hashes specific fields from the ClientHello (TLS version, cipher suites offered, extensions, elliptic curves, elliptic curve point formats) into a 32-character MD5 fingerprint. Different clients produce different JA3 hashes. Cobalt Strike's default Beacon has a well-known JA3 hash (51c64c77e60f3980eea90869b68c58a8). SOC analysts can query proxy or firewall logs for known-malicious JA3 hashes to identify C2 tools even when the payload is encrypted.\n\n` +
         `**SOC Relevance: TLS in the Kill Chain**\n\n` +
@@ -734,7 +734,7 @@ const protocolsMasterclass = {
       content:
         `Understanding how protocols work is only half the picture. The other half is understanding how attackers exploit those same protocols to hide their activities. Advanced attackers don't announce themselves. They blend into normal traffic, using protocols that are permitted, expected, and difficult to inspect.\n\n` +
         `**DNS Tunneling (MITRE T1048.003 / T1071.004)**\n\n` +
-        `ATT&CK files DNS tunneling under two IDs depending on what the channel is used for. When DNS queries carry stolen data out of the network, that is T1048.003. Exfiltration Over Alternative Protocol: Exfiltration Over Unencrypted Non-C2 Protocol (DNS is one of the protocols it names). When DNS is the command-and-control channel itself (the implant receives tasking in DNS responses, as dnscat2 and iodine do) that is T1071.004. Application Layer Protocol: DNS (and wrapping other traffic inside DNS is also T1572 Protocol Tunneling).\n\n` +
+        `ATT&CK files DNS tunneling under two IDs depending on what the channel is used for. When DNS queries carry stolen data out of the network, that is T1048.003, Exfiltration Over Alternative Protocol: Exfiltration Over Unencrypted Non-C2 Protocol (DNS is one of the protocols it names). When DNS is the command-and-control channel itself (the implant receives tasking in DNS responses, as dnscat2 and iodine do) that is T1071.004, Application Layer Protocol: DNS (and wrapping other traffic inside DNS is also T1572 Protocol Tunneling).\n\n` +
         `DNS tunneling exploits the fact that DNS queries are almost universally permitted outbound, blocking DNS breaks the internet. Attackers install a DNS tunneling tool (iodine, dnscat2, dns2tcp) on the compromised host and control a domain whose authoritative nameserver is also attacker-controlled. Data to exfiltrate is encoded (typically base64) and sent as DNS subdomain labels: encoded-data-chunk.attacker-domain.com. The attacker's nameserver decodes the subdomain, extracts the data, and can send commands back in DNS responses (TXT records or encoded A records).\n\n` +
         `IOCs for DNS tunneling: subdomain strings that are 30+ characters long and appear to be random or base64, high volume of queries to a single domain in a short time, large number of unique subdomains under one parent domain, uncommon query types (TXT, NULL, MX used for data, not just A records), NXDOMAIN responses at high rates, and queries from processes that should not be making DNS queries (cmd.exe, PowerShell).\n\n` +
         `**HTTP/S C2 Beaconing (MITRE T1071.001)**\n\n` +
@@ -840,7 +840,7 @@ const protocolsMasterclass = {
           ],
           answer: 1,
           explanation:
-            "Under normal operations, cmd.exe (the Windows command prompt) rarely initiates DNS queries itself. DNS queries typically originate from browsers, system services (like svchost.exe), or dedicated applications. Sysmon Event 22 records the Image of the process that called the DNS client, so a separate tool launched from the prompt (nslookup, iodine, dnscat2) would appear under its own Image. Cmd.exe appearing here is therefore unexpected and is worth explaining in its own right. The next pivot is process-creation telemetry (Sysmon Event 1 / Security 4688) for this host and time to see what cmd.exe was running and what it spawned. Nothing in this DNS record shows a parent process, so the investigation should focus on cmd.exe's own command line rather than on a parent.",
+            "Under normal operations, cmd.exe (the Windows command prompt) rarely initiates DNS queries itself. DNS queries typically originate from browsers, system services (like svchost.exe), or dedicated applications. Sysmon Event 22 records the Image of the process that called the DNS client, so a separate tool launched from the prompt (nslookup, iodine, dnscat2) would appear under its own Image: cmd.exe appearing here is therefore unexpected and is worth explaining in its own right. The next pivot is process-creation telemetry (Sysmon Event 1 / Security 4688) for this host and time to see what cmd.exe was running and what it spawned. Nothing in this DNS record shows a parent process, so the investigation should focus on cmd.exe's own command line rather than on a parent.",
           xp: 20,
         },
         {

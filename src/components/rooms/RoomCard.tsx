@@ -1,4 +1,6 @@
 "use client";
+import React from "react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import { Lock, CheckCircle2, Clock, Zap, RotateCcw } from "lucide-react";
@@ -26,7 +28,7 @@ interface RoomCardProps {
     completedAt?: string;
   } | null;
   locked: boolean;
-  onClick: () => void;
+  href: string;
   /** Set when the room is in one of the learner's plans ("Assigned" chip). */
   assigned?: AssignedInfo | null;
   /** Open room whose prerequisites the learner has not passed yet: their titles, shown as a
@@ -61,7 +63,7 @@ function iconBg(d: RoomMeta["difficulty"]): string {
   }
 }
 
-export function RoomCard({ room, progress, locked, onClick, assigned, suggestAfter }: RoomCardProps) {
+export function RoomCard({ room, progress, locked, href, assigned, suggestAfter }: RoomCardProps) {
   const coverAccent = useCoverAccent();
   const totalTasks      = room.tasks.length;
   const completedCount  = progress ? progress.completedTaskIds.length : 0;
@@ -70,13 +72,13 @@ export function RoomCard({ room, progress, locked, onClick, assigned, suggestAft
   // RoomClient shows the retry screen; the card should say so at a glance.
   const needsRetry      = !isCompleted && completedCount === totalTasks && totalTasks > 0;
   const isStarted       = completedCount > 0 && !isCompleted && !needsRetry;
+  // A real link, so a room can open in a new tab; a locked room is not one.
+  const Shell = (locked ? "div" : Link) as React.ElementType;
 
   return (
-    <div
-      role="button"
-      tabIndex={locked ? -1 : 0}
-      onClick={locked ? undefined : onClick}
-      onKeyDown={e => { if (!locked && (e.key === "Enter" || e.key === " ")) onClick(); }}
+    <Shell
+      {...(locked ? { "aria-disabled": true } : { href })}
+      aria-label={`${room.title}, ${room.difficulty}${isCompleted ? ", completed" : locked ? ", locked" : ""}`}
       className={cn(
         "relative flex flex-col overflow-hidden rounded-lg border bg-bg-elevated/60 backdrop-blur-sm p-5",
         "transition-all duration-200",
@@ -206,6 +208,6 @@ export function RoomCard({ room, progress, locked, onClick, assigned, suggestAft
           {totalTasks} task{totalTasks !== 1 ? "s" : ""}
         </div>
       )}
-    </div>
+    </Shell>
   );
 }

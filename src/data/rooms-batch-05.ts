@@ -31,7 +31,7 @@ The goal is simple but hard to achieve: **detect real attacker behavior while ig
 
 Every detection rule, regardless of what SIEM you use, has these core components:
 
-- **Name**, a short, descriptive label: "Password Spray via Azure AD Sign-in Failures"
+- **Name**: a short, descriptive label: "Password Spray via Azure AD Sign-in Failures"
 - **Description**: what the rule detects and why it matters
 - **Severity**: Critical / High / Medium / Low (drives how urgently analysts respond)
 - **Data Source**: which log type feeds this rule (Azure AD sign-in logs, Windows Security Events, firewall logs, etc.)
@@ -90,10 +90,10 @@ Compares current behavior to a learned **baseline** and alerts when there is a s
 
 The professional workflow for creating a new detection rule:
 
-1. **Hypothesis**, Start with an attacker behavior: "An attacker trying to guess passwords will generate many failed logins."
-2. **Data Source**, Find the log that captures this: Azure AD sign-in logs, Windows Event ID 4625.
-3. **Logic**, Write a query: filter for failed logins, group by source IP.
-4. **Threshold**, Decide the number: alert on >10 failures in 5 minutes.
+1. **Hypothesis**: Start with an attacker behavior: "An attacker trying to guess passwords will generate many failed logins."
+2. **Data Source**: Find the log that captures this: Azure AD sign-in logs, Windows Event ID 4625.
+3. **Logic**: Write a query: filter for failed logins, group by source IP.
+4. **Threshold**: Decide the number: alert on >10 failures in 5 minutes.
 5. **Test**: Run the query against historical data. Are results reasonable?
 6. **Deploy**: Enable the rule in the SIEM.
 7. **Monitor**: Watch the first alerts. Are they real threats or noise?
@@ -184,18 +184,18 @@ level: medium
 
 **\`logsource\`**: tells the converter which log type this rule applies to. "product: azure, service: signinlogs" means Azure AD sign-in logs. The converter knows how to find this data in each SIEM.
 
-**\`detection\`**, the heart of the rule, with three parts:
+**\`detection\`**: the heart of the rule, with three parts:
 - \`selection\`: what to match (ResultType 50126 = invalid credentials in Azure AD)
 - \`filter\`: what to exclude (service accounts from servicenow.com)
 - \`condition\`: the logic combining selection + filter + threshold
 
 **\`condition\` syntax examples:**
-- \`selection\`match any event matching "selection"
-- \`selection and not filter\`match selection but exclude filter
-- \`selection | count() > 10\`match only when count exceeds 10
-- \`event1 | near event2\`event1 near event2 in time (sequence)
+- \`selection\`: match any event matching "selection"
+- \`selection and not filter\`: match selection but exclude filter
+- \`selection | count() > 10\`: match only when count exceeds 10
+- \`event1 | near event2\`: event1 near event2 in time (sequence)
 
-**\`level\`**, the rule's severity: informational / low / medium / high / critical.
+**\`level\`**: the rule's severity: informational / low / medium / high / critical.
 
 **\`tags\`**: ATT&CK technique tags, used to track ATT&CK framework coverage.
 
@@ -209,7 +209,7 @@ The rule above detects the **T1110.003, Password Spraying** technique:
 - The attacker uses the same IP address, hoping to stay below per-account lockout thresholds
 - Our rule groups failures by IP: if one IP causes >10 failures in 5 minutes → alert
 
-This is why the condition uses \`count(UserPrincipalName) by IPAddress\`we count distinct usernames per IP, because spray attacks target many users from one IP (unlike brute force, which targets one user with many passwords).
+This is why the condition uses \`count(UserPrincipalName) by IPAddress\`: we count distinct usernames per IP, because spray attacks target many users from one IP (unlike brute force, which targets one user with many passwords).
 
 ---
 
@@ -354,7 +354,7 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
       type: "question" as const,
       id: "det-rules-q1",
       question:
-        "An analyst notices that a password spray detection rule fires 200 times per day. Mostly for individual users who forgot their passwords on Monday mornings. Which change is the BEST way to tune the rule and reduce these false positives without losing coverage of real spray attacks?",
+        "An analyst notices that a password spray detection rule fires 200 times per day, mostly for individual users who forgot their passwords on Monday mornings. Which change is the BEST way to tune the rule and reduce these false positives without losing coverage of real spray attacks?",
       options: [
         "Suppress the rule on Monday mornings, when forgotten-password failures naturally peak after the weekend",
         "Count distinct accounts failing per source IP (e.g. 10+ users in 5 minutes) and exclude only known corporate/VPN egress ranges",
@@ -389,7 +389,7 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
           "rule.name": "Suspicious PowerShell Download",
           "rule.level": "10",
           "rule.description":
-            "PowerShell downloading file from internet. Possible malware dropper or C2 staging",
+            "PowerShell downloading file from internet: possible malware dropper or C2 staging",
           "data.cmdline":
             "powershell.exe -Command Invoke-WebRequest -Uri https://updates.microsoft.com/kb123456.msp -OutFile C:\\Windows\\Temp\\update.msp",
           "data.user": "svc-wsus",
@@ -560,13 +560,13 @@ Real example from a Palo Alto firewall:
 \`CEF:0|Palo Alto Networks|PAN-OS|10.1|threat|general|7|rt=2025-06-24T14:32:11Z src=185.220.101.45 dst=10.0.1.50 spt=54321 dpt=22 proto=TCP act=block cs1=block-ssh-brute cs1Label=RuleName\`
 
 Breaking it down:
-- \`CEF:0\`CEF format version 0
-- \`Palo Alto Networks\`vendor
-- \`PAN-OS\`product
-- \`10.1\`product version
-- \`threat\`event class (threat detected)
-- \`general\`event name
-- \`7\`severity (0-10 scale)
+- \`CEF:0\`: CEF format version 0
+- \`Palo Alto Networks\`: vendor
+- \`PAN-OS\`: product
+- \`10.1\`: product version
+- \`threat\`: event class (threat detected)
+- \`general\`: event name
+- \`7\`: severity (0-10 scale)
 - Extension fields: \`rt\` (receive time), \`src\` (source IP), \`dst\` (destination IP), \`spt\` (source port), \`dpt\` (destination port), \`proto\` (protocol), \`act\` (action), \`cs1\` (custom string 1 = rule name)
 
 CEF has a fixed set of standard fields plus custom extension fields (cs1-cs6, cn1-cn3, etc.). The \`cs1Label\` field tells you what \`cs1\` means.
@@ -589,7 +589,7 @@ Modern cloud services (Azure, AWS, Okta, Office 365) deliver logs via REST APIs 
           "NXLog format, IBM's licensed CEF rename",
         ],
         answer: 1,
-        explanation: "LEEF (Log Event Extended Format) is IBM QRadar's structured logging format. Conceptually similar to CEF but with tab-separated fields and different field naming.",
+        explanation: "LEEF (Log Event Extended Format) is IBM QRadar's structured logging format, conceptually similar to CEF but with tab-separated fields and different field naming.",
       },
     },
 
@@ -616,7 +616,7 @@ Specifically designed to ship Windows Event Logs to Elasticsearch or OpenSearch 
 ---
 
 **Filebeat (Elastic)**
-A more general-purpose agent from the same Elastic family. Instead of reading Windows Event channels, it tails log files. Any text file written by any application. It can parse Apache access logs, Nginx logs, application logs, syslogs, and hundreds more via pre-built modules.
+A more general-purpose agent from the same Elastic family. Instead of reading Windows Event channels, it tails log files: any text file written by any application. It can parse Apache access logs, Nginx logs, application logs, syslogs, and hundreds more via pre-built modules.
 
 *Use case:* Shipping web server access logs or Linux auth logs (/var/log/auth.log) to Elastic SIEM.
 
@@ -635,7 +635,7 @@ These are **log pipeline** tools rather than simple shippers: they collect, pars
 - **Logstash** (part of the Elastic Stack) reads logs, applies grok patterns to parse unstructured text into structured fields, enriches with GeoIP data, and outputs to Elasticsearch.
 - **Fluentd** is a CNCF open-source alternative, popular in Kubernetes environments.
 
-*Use case:* When you need to transform logs. Normalize timestamps, extract fields from log messages, add geographic information to IP addresses, route different log types to different destinations.
+*Use case:* When you need to transform logs: normalize timestamps, extract fields from log messages, add geographic information to IP addresses, route different log types to different destinations.
 
 ---
 
@@ -710,7 +710,7 @@ End-to-end, a log's journey looks like this:
       heading: "Parsing, Normalization & Integration Challenges",
       content: `## The Normalization Problem
 
-Here's a real-world headache for every SOC engineer: you have three security products all logging the same concept. "source IP address." But they each call it something different:
+Here's a real-world headache for every SOC engineer: you have three security products all logging the same concept: "source IP address." But they each call it something different:
 
 - Palo Alto firewall: \`src\`
 - Cisco ASA: \`srcip\`
@@ -1050,7 +1050,7 @@ Phishing emails often include links to malicious websites. Safe Links protects u
 
 2. **Time-of-click checking**: When the user clicks the link, the wrapper URL resolves to MDO's servers. MDO re-checks the destination URL at that moment, because sometimes URLs are legitimate when the email arrives but switch to malicious content later (this is called a "delayed detonation" attack). If the URL is now malicious, the user sees a warning page instead of the malicious site.
 
-*Key log event:* Safe Links clicks are recorded in Defender XDR's **UrlClickEvents** table (ActionType "ClickBlocked", "ClickAllowed", or "ClickBlockedByTenantPolicy") and as **TIUrlClickData** records in the unified audit log. Critical for SOC investigation when a user reports they "clicked something suspicious."
+*Key log event:* Safe Links clicks are recorded in Defender XDR's **UrlClickEvents** table (ActionType "ClickBlocked", "ClickAllowed", or "ClickBlockedByTenantPolicy") and as **TIUrlClickData** records in the unified audit log, critical for SOC investigation when a user reports they "clicked something suspicious."
 
 ---
 
@@ -1427,7 +1427,7 @@ Users can authenticate to Entra ID using multiple methods, ranging from least se
 
 **Password + SMS OTP**: Adds a one-time code sent via text message. Better than password alone, but SMS can be intercepted or SIM-swapped.
 
-**Microsoft Authenticator App (TOTP or Push)**: A dedicated authentication app on the user's phone. TOTP (Time-based One-Time Password) generates a 6-digit code that changes every 30 seconds. Push sends a push notification. "Approve this sign-in?" The push method is vulnerable to MFA fatigue attacks (see threats section).
+**Microsoft Authenticator App (TOTP or Push)**: A dedicated authentication app on the user's phone. TOTP (Time-based One-Time Password) generates a 6-digit code that changes every 30 seconds. Push sends a push notification: "Approve this sign-in?" The push method is vulnerable to MFA fatigue attacks (see threats section).
 
 **FIDO2 Security Keys**: Physical hardware keys (YubiKey, Titan Key). The highest security, requires physical possession of the key and is fully phishing-resistant. Cannot be stolen via a remote attack.
 
@@ -1517,20 +1517,20 @@ A Conditional Access policy has two parts: **Conditions** (when it applies) and 
 The sign-in logs at Entra admin center → Monitoring → Sign-in logs are one of the most important data sources for SOC analysts investigating identity threats. Each sign-in record captures:
 
 **Identity fields:**
-- \`UserPrincipalName\`who signed in (email@corp.com)
-- \`UserId\`GUID of the user
-- \`AppDisplayName\`what application they were signing into (Office 365, Azure Portal, Salesforce)
-- \`ClientAppUsed\`browser / Mobile App / Exchange ActiveSync / Other client
+- \`UserPrincipalName\`: who signed in (email@corp.com)
+- \`UserId\`: GUID of the user
+- \`AppDisplayName\`: what application they were signing into (Office 365, Azure Portal, Salesforce)
+- \`ClientAppUsed\`: browser / Mobile App / Exchange ActiveSync / Other client
 
 **Location and device fields:**
-- \`IPAddress\`source IP of the sign-in attempt
-- \`Location\`city, state, country derived from IP
-- \`DeviceDetail\`device ID, OS, browser
+- \`IPAddress\`: source IP of the sign-in attempt
+- \`Location\`: city, state, country derived from IP
+- \`DeviceDetail\`: device ID, OS, browser
 
 **Authentication fields:**
-- \`AuthenticationRequirement\`Single factor or Multi factor
-- \`Status\`Success or Failure
-- \`ErrorCode\`numeric code explaining failures
+- \`AuthenticationRequirement\`: Single factor or Multi factor
+- \`Status\`: Success or Failure
+- \`ErrorCode\`: numeric code explaining failures
 
 **Key error codes every SOC analyst must know:**
 - **50126**: Invalid username or password (credential is wrong)
@@ -1541,8 +1541,8 @@ The sign-in logs at Entra admin center → Monitoring → Sign-in logs are one o
 - **65001**: User hasn't consented to the application
 
 **Risk fields (from Identity Protection):**
-- \`RiskLevelAggregated\`None / Low / Medium / High
-- \`RiskState\`atRisk / remediated / dismissed / confirmedSafe / confirmedCompromised`,
+- \`RiskLevelAggregated\`: None / Low / Medium / High
+- \`RiskState\`: atRisk / remediated / dismissed / confirmedSafe / confirmedCompromised`,
       checkpoint: {
         question: "According to the reading, which Entra ID sign-in error code indicates that MFA was required by Conditional Access but was not performed?",
         options: [
@@ -1617,7 +1617,7 @@ Attacker already has the victim's username and password (from a breach or phishi
 **3. OAuth Consent Phishing (T1528: Steal Application Access Token)**
 Described in detail in the M365 Security room. Specifically in Entra ID, look for consent events in the audit log with high-permission scopes.
 
-**4. Token Theft (Pass-the-Token / T1550.001. Use Alternate Authentication Material: Application Access Token)**
+**4. Token Theft (Pass-the-Token / T1550.001, Use Alternate Authentication Material: Application Access Token)**
 Rather than stealing passwords, sophisticated attackers steal the OAuth access tokens that are issued after successful authentication. If they steal a valid token, they can make API calls as the victim without needing MFA (since MFA already happened when the token was issued). Detectable via unusual API calls from different IP addresses than the original sign-in.
 
 **5. Impossible Travel (Indicator, not attack)**
@@ -1628,25 +1628,25 @@ When sign-in logs show authentication from two locations too far apart to travel
 ## Key Audit Log Operations in Entra ID
 
 **User management events:**
-- \`Add user\`new user account created
-- \`Delete user\`account deleted
-- \`Reset user password\`password was reset (by admin or via self-service)
-- \`Update user\`account properties modified
+- \`Add user\`: new user account created
+- \`Delete user\`: account deleted
+- \`Reset user password\`: password was reset (by admin or via self-service)
+- \`Update user\`: account properties modified
 
 **Role and privilege events:**
-- \`Add member to role\`user added to privileged role (Global Admin, Security Admin, etc.)
-- \`Remove member from role\`privileges revoked
-- \`Add eligible member to role in PIM\`PIM eligibility granted
+- \`Add member to role\`: user added to privileged role (Global Admin, Security Admin, etc.)
+- \`Remove member from role\`: privileges revoked
+- \`Add eligible member to role in PIM\`: PIM eligibility granted
 
 **Application events:**
-- \`Add application\`new app registration created
-- \`Consent to application\`user or admin consented to an app
-- \`Update application\`app permissions modified
+- \`Add application\`: new app registration created
+- \`Consent to application\`: user or admin consented to an app
+- \`Update application\`: app permissions modified
 
 **Policy events:**
-- \`Update conditional access policy\`Conditional Access was modified
-- \`Add conditional access policy\`new policy created
-- \`Delete conditional access policy\`policy removed (potential security reduction)`,
+- \`Update conditional access policy\`: Conditional Access was modified
+- \`Add conditional access policy\`: new policy created
+- \`Delete conditional access policy\`: policy removed (potential security reduction)`,
     },
 
     // ── Question 1 ────────────────────────────────────────────────────────
@@ -1709,7 +1709,7 @@ When sign-in logs show authentication from two locations too far apart to travel
       id: "entra-la1",
       heading: "Analyze This Entra ID Sign-In Log: Impossible Travel Alert",
       context:
-        "Entra ID Protection flagged this sign-in as High risk (the risk score lives in the Entra sign-in log, separate from this O365 audit record). This is the failed sign-in record for ceo@corp.com. For context, the same account had a successful, routine sign-in from New York, NY at 07:55 UTC. About 38 minutes before the event below. Examine the record and answer the investigation questions.",
+        "Entra ID Protection flagged this sign-in as High risk (the risk score lives in the Entra sign-in log, separate from this O365 audit record). This is the failed sign-in record for ceo@corp.com. For context, the same account had a successful, routine sign-in from New York, NY at 07:55 UTC, about 38 minutes before the event below. Examine the record and answer the investigation questions.",
       event: {
         id: "evt-entra-001",
         ts: "2025-06-24T08:33:17Z",
@@ -1812,7 +1812,7 @@ When sign-in logs show authentication from two locations too far apart to travel
         "In Entra ID's tenant model, what is a 'Service Principal'?",
       options: [
         "A break-glass emergency-access administrator account, excluded from Conditional Access, kept for use only if every other admin is locked out",
-        "The instance of an application registration within a specific tenant. Used by applications and automation to authenticate with Entra ID without a human user",
+        "The instance of an application registration within a specific tenant, used by applications and automation to authenticate with Entra ID without a human user",
         "A built-in system account Microsoft provisions in every tenant that cannot be deleted, renamed, or have its permissions modified by an admin",
         "A Conditional Access policy component that allow-lists which registered applications are permitted to authenticate against the tenant",
       ],

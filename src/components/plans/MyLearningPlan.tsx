@@ -92,7 +92,7 @@ function PlanBlock({ p }: { p: LearnerPlan }) {
             </div>
           </div>
           <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 text-[11px] text-slate-400">
-            <span className="hidden sm:inline">{open ? "Hide tasks" : `${p.items.length} tasks`}</span>
+            <span className="hidden sm:inline">{open ? "Hide tasks" : `${p.items.length} ${p.items.length === 1 ? "task" : "tasks"}`}</span>
             <ChevronDown className={`h-4 w-4 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />
           </span>
         </div>
@@ -155,7 +155,7 @@ export function MyLearningPlan({ compact = false }: { compact?: boolean }) {
           <ClipboardList className="h-4 w-4 text-neon-purple" /> My learning plan
         </h3>
         <div className="flex items-center gap-3">
-          <span className={`font-mono text-[11px] font-bold ${tracked > 0 && done === tracked ? "text-neon-green" : "text-cyber-300"}`}>{done}/{tracked} done</span>
+          <span className={`font-mono text-[11px] font-bold ${tracked > 0 && done === tracked ? "text-neon-green" : "text-cyber-300"}`}>{done}/{tracked} done{plans.flatMap(p => p.items).length > unique.length ? " (shared items count once)" : ""}</span>
           {compact && (
             <button onClick={() => setExpanded(v => !v)} aria-expanded={expanded} className="inline-flex items-center gap-1 text-[11px] text-slate-400 transition hover:text-white">
               {expanded ? "Hide plan" : "Full plan"} <ChevronDown aria-hidden="true" className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} />

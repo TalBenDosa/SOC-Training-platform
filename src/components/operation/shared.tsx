@@ -1,4 +1,5 @@
 "use client";
+import { InlineMd } from "@/components/rooms/InlineMd";
 import React, { useCallback } from "react";
 import { motion } from "framer-motion";
 import { CheckCircle2, ShieldAlert, ChevronRight } from "lucide-react";
@@ -78,11 +79,11 @@ export function Verdict({ correct, title, xp, explanation, trap }: {
         {correct ? <CheckCircle2 className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}
         {title}{correct && xp ? <span className="ml-auto font-mono text-neon-amber">+{xp} XP</span> : null}
       </p>
-      {explanation && <p className="mt-2 leading-relaxed text-slate-200">{explanation}</p>}
+      {explanation && <p className="mt-2 leading-relaxed text-slate-200"><InlineMd text={explanation} /></p>}
       {trap && !correct && (
         <div className="mt-3 border-l-2 border-neon-amber/50 pl-3">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-neon-amber">The trap</p>
-          <p className="mt-0.5 text-xs leading-relaxed text-neon-amber/90">{trap}</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-neon-amber/90"><InlineMd text={trap} /></p>
         </div>
       )}
     </motion.div>

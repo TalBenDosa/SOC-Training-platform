@@ -234,7 +234,7 @@ const credentialAttacksRoom: Room = {
       instructions: "Match each technique to the pattern that actually separates it from the other three in the aggregate.",
       pairs: [
         { id: "bruteforce", left: "Brute forcing a single account (T1110.001)", right: "One TargetUserName value, a large attempt count, usually one steady source IpAddress" },
-        { id: "spray", left: "Password spraying (T1110.003)", right: "Many distinct TargetUserName values from one source, only 1-3 attempts against each. Deliberately staying under the lockout threshold per account" },
+        { id: "spray", left: "Password spraying (T1110.003)", right: "Many distinct TargetUserName values from one source, only 1-3 attempts against each, deliberately staying under the lockout threshold per account" },
         { id: "stuffing", left: "Credential stuffing (T1110.004)", right: "Many distinct TargetUserName values, ~1 attempt each, sourced from many different IpAddress values, with a higher success rate than the attempt count alone would predict" },
         { id: "dumping", left: "Credential dumping (T1003)", right: "No 4625/4624 burst anywhere at all, instead a process (commonly lsass.exe) is opened with an access level consistent with reading credential material directly from memory" },
       ],
@@ -667,7 +667,7 @@ const lateralMovementRoom: Room = {
       questions: [
         {
           question:
-            "This event's computer_name is SRV-FIL02 and its timestamp is 02:20:11-27 seconds after the 4624 logon from Log Analysis 1 on the same host. What does connecting these two records tell you that neither one tells you alone?",
+            "This event's computer_name is SRV-FIL02 and its timestamp is 02:20:11, 27 seconds after the 4624 logon from Log Analysis 1 on the same host. What does connecting these two records tell you that neither one tells you alone?",
           options: [
             "That the service was started locally on SRV-FIL02, since a 7045 carries no source host or account, so it can't be tied to any network session",
             "That the session from WKS-SALES14 went beyond a connection: within half a minute a new service was created and started, matching ADMIN$/svcctl",
@@ -683,7 +683,7 @@ const lateralMovementRoom: Room = {
           question: "ServiceName is 'PSEXESVC' and ImagePath is its literal, unmodified default value. Why is it common to see a tool's real default name here rather than something disguised?",
           options: [
             "PsExec offers no switch to change the service it registers, so every PsExec session, legitimate or not, leaves a service named PSEXESVC",
-            "Operators often skip renaming default tools when moving fast. Easy to spot if you know the default, easy to miss if you don't know it",
+            "Operators often skip renaming default tools when moving fast: easy to spot if you know the default, easy to miss if you don't know it",
             "A default tool name points to sanctioned IT use, since attackers rename their tooling to evade detection before they deploy it on a target",
             "The Service Control Manager derives ServiceName from the binary's file name, so the installer had no chance to choose a different name",
           ],
@@ -798,7 +798,7 @@ const lateralMovementRoom: Room = {
         },
       ],
       explanation:
-        "This operationalizes exactly the correlation you did by hand in Log Analysis 1 and 2: join a network logon (4624, LogonType 3, NTLM) on one host to a service installation on the SAME host within a tight window, and drop sources on the admin allowlist with `!in`the same context check Reading 2 calls for, which is what separates SRV-APP11's deployment from the jump host (10.60.1.9, filtered out) from WKS-SALES14's unexplained session (kept). Using `in` instead would invert the rule and alert only on the sanctioned jump host. Note the two different tables: the 4624 logon lives in the Security log (Sentinel's SecurityEvent table), but 7045 is written by the Service Control Manager to the System log, which Sentinel stores in the Event table, querying SecurityEvent for 7045 returns nothing. (The Security-log equivalent of a service install is Event ID 4697, which requires 'Audit Security System Extension' to be enabled.) Any window from one to five minutes catches the 27-second gap seen on SRV-FIL02 while staying tight enough to avoid joining unrelated logons.",
+        "This operationalizes exactly the correlation you did by hand in Log Analysis 1 and 2: join a network logon (4624, LogonType 3, NTLM) on one host to a service installation on the SAME host within a tight window, and drop sources on the admin allowlist with `!in`: the same context check Reading 2 calls for, which is what separates SRV-APP11's deployment from the jump host (10.60.1.9, filtered out) from WKS-SALES14's unexplained session (kept). Using `in` instead would invert the rule and alert only on the sanctioned jump host. Note the two different tables: the 4624 logon lives in the Security log (Sentinel's SecurityEvent table), but 7045 is written by the Service Control Manager to the System log, which Sentinel stores in the Event table, querying SecurityEvent for 7045 returns nothing. (The Security-log equivalent of a service install is Event ID 4697, which requires 'Audit Security System Extension' to be enabled.) Any window from one to five minutes catches the 27-second gap seen on SRV-FIL02 while staying tight enough to avoid joining unrelated logons.",
       xp: 35,
     },
     {
@@ -969,7 +969,7 @@ const webAttacksRoom: Room = {
         `**The fields that carry the story**\n\n` +
         `cs-uri-stem is the path being requested (/search.aspx); cs-uri-query is everything after the question mark, and for a web application attack, this is very often where the payload itself lives, since query parameters are exactly what SQL injection, path traversal, and command injection attempts try to smuggle malicious input through. c-ip is the address IIS believes it's talking to (with an important caveat covered in the next reading). cs(User-Agent) identifies the client software, or claims to. It's trivially spoofable, but a consistent, honest-looking value across an entire burst is itself informative. sc-status is the HTTP status code the server actually returned, and it is the single most important field for judging outcome, not intent.\n\n` +
         `**Status codes as outcome, not as intent**\n\n` +
-        `A 4xx status (404 Not Found, 403 Forbidden) means the server understood the request and refused or couldn't fulfill it. Content discovery sweeps and blocked injection attempts both live here. A 5xx status, especially 500 Internal Server Error, means the application itself broke while trying to process the request, and for a SQL injection attempt specifically, a 500 very often means the malformed SQL syntax the attacker sent caused the database driver to throw an unhandled exception, which the application couldn't recover from. That's a critical, counter-intuitive point: a 500 in the middle of an injection attempt means the payload REACHED the SQL parser unsanitized and broke the query. Strong evidence the parameter IS injectable, even though that particular request usually returned nothing useful. (Watch the exception: in error-based SQLi the attacker deliberately triggers 500s whose error body leaks data, so check sc-bytes on the 500s too. And blind/time-based SQLi returns ordinary 200s, where the tell is time-taken or a response-size flip rather than the status code.) A 200 OK, by contrast, means the request was processed successfully end to end. In the middle of a calibration burst against a search endpoint, a lone 200 sitting among dozens of 500s is not the boring result. It's the one attempt whose SQL syntax was valid enough to actually execute.\n\n` +
+        `A 4xx status (404 Not Found, 403 Forbidden) means the server understood the request and refused or couldn't fulfill it. Content discovery sweeps and blocked injection attempts both live here. A 5xx status, especially 500 Internal Server Error, means the application itself broke while trying to process the request, and for a SQL injection attempt specifically, a 500 very often means the malformed SQL syntax the attacker sent caused the database driver to throw an unhandled exception, which the application couldn't recover from. That's a critical, counter-intuitive point: a 500 in the middle of an injection attempt means the payload REACHED the SQL parser unsanitized and broke the query: strong evidence the parameter IS injectable, even though that particular request usually returned nothing useful. (Watch the exception: in error-based SQLi the attacker deliberately triggers 500s whose error body leaks data, so check sc-bytes on the 500s too. And blind/time-based SQLi returns ordinary 200s, where the tell is time-taken or a response-size flip rather than the status code.) A 200 OK, by contrast, means the request was processed successfully end to end. In the middle of a calibration burst against a search endpoint, a lone 200 sitting among dozens of 500s is not the boring result. It's the one attempt whose SQL syntax was valid enough to actually execute.\n\n` +
         `**The field most analysts skip past: response size**\n\n` +
         `sc-bytes (the size of the response body) is easy to ignore, but for exactly this scenario it's often the field that turns a hunch into a finding. A search endpoint that normally returns a few kilobytes for a real search term returning tens of kilobytes for a query-string payload containing UNION SELECT is a strong sign the injected query executed and returned far more data than a normal search result ever would: a classic signature of a successful UNION-based extraction. Reading a wall of access-log lines well means scanning past the sea of matching 500s and 403s for the outlier: a 200, especially paired with an outlier response size, sitting inside a burst that otherwise looks like nothing but failure.\n\n` +
         `**One line is one request, not a verdict**\n\n` +
@@ -1008,7 +1008,7 @@ const webAttacksRoom: Room = {
       ],
       answer: 1,
       explanation:
-        "Reading 1's response-size point: a 200 only says the request completed, so what separates an executed UNION from a harmless page is sc-bytes against the endpoint's baseline. Tens of kilobytes where a real search returns a few. (For blind/time-based payloads the equivalent tell is time-taken.) A WAF ALLOW means only that no rule blocked the request; the 37 requests that crashed with 500s were allowed too. A shared source shows the same actor, not that any particular request worked: a tool interleaving control searches would share it as well. And sc-substatus / sc-win32-status describe IIS's own handling of the request, not whether the application's SQL executed.",
+        "Reading 1's response-size point: a 200 only says the request completed, so what separates an executed UNION from a harmless page is sc-bytes against the endpoint's baseline: tens of kilobytes where a real search returns a few. (For blind/time-based payloads the equivalent tell is time-taken.) A WAF ALLOW means only that no rule blocked the request; the 37 requests that crashed with 500s were allowed too. A shared source shows the same actor, not that any particular request worked: a tool interleaving control searches would share it as well. And sc-substatus / sc-win32-status describe IIS's own handling of the request, not whether the application's SQL executed.",
       xp: 20,
     },
     {
@@ -1021,7 +1021,7 @@ const webAttacksRoom: Room = {
       questions: [
         {
           question:
-            "scStatus here is 200 and scBytes is 48,231. Against a baseline of roughly 2,000-3,000 bytes for a normal search result on this endpoint. Combined with the fact that 37 of the 40 requests in this burst returned 500, what does this specific record most likely represent?",
+            "scStatus here is 200 and scBytes is 48,231, against a baseline of roughly 2,000-3,000 bytes for a normal search result on this endpoint. Combined with the fact that 37 of the 40 requests in this burst returned 500, what does this specific record most likely represent?",
           options: [
             "A legitimate search that matched many products, since a broad search term can return a result page in the tens of kilobytes",
             "A payload whose SQL syntax was valid enough to execute, returning far more rows than a real search: a UNION-based extraction",
@@ -1072,7 +1072,7 @@ const webAttacksRoom: Room = {
         `**What this means for attribution**\n\n` +
         `If you only ever pull the web server's own access log, every request, legitimate and malicious alike, appears to originate from the same handful of internal load-balancer addresses. Trying to build a block list, or even just answer 'who sent this,' from that field alone is not just incomplete, it's actively misleading: you'd be looking at your own infrastructure's address, not the attacker's. The WAF record for the exact same request is the only place the real source survives, which is why confirming attribution always means pulling both records (matched by the request's URI, method, and a timestamp close enough to be the same event) and reading the WAF's client-IP field as authoritative for 'who,' while the web server's record remains authoritative for exactly what request the application itself processed and how it responded.\n\n` +
         `**Matching two records that don't share an ID**\n\n` +
-        `Different vendors' logs almost never share a common request identifier you can join on directly. In practice, matching a WAF record to its corresponding web-server record means lining up the URI and query string, the HTTP method, and a timestamp within a second or two of each other. Close enough, combined, to be confident they describe the same request, even though neither log was designed with the other in mind. This is exactly the correlation exercise the next log-analysis task in this room asks you to perform by hand.`,
+        `Different vendors' logs almost never share a common request identifier you can join on directly. In practice, matching a WAF record to its corresponding web-server record means lining up the URI and query string, the HTTP method, and a timestamp within a second or two of each other, close enough, combined, to be confident they describe the same request, even though neither log was designed with the other in mind. This is exactly the correlation exercise the next log-analysis task in this room asks you to perform by hand.`,
       diagram:
         "flowchart LR\n" +
         "  C[Client: true source IP] --> W[WAF: sees the real client IP]\n" +
@@ -1206,7 +1206,7 @@ const webAttacksRoom: Room = {
       id: "web-qf1",
       heading: "Write It Yourself: Find a Web Worker Process Spawning a Shell",
       language: "kql",
-      context: KQL_PRIMER + "Using the pattern from the last step of the attack chain you just ordered. W3wp.exe should never be the parent of a command interpreter. Write the KQL a detection engineer would deploy against endpoint process telemetry to catch it.",
+      context: KQL_PRIMER + "Using the pattern from the last step of the attack chain you just ordered (w3wp.exe should never be the parent of a command interpreter), write the KQL a detection engineer would deploy against endpoint process telemetry to catch it.",
       template:
         "DeviceProcessEvents\n| where InitiatingProcessFileName =~ \"{{parent}}\"\n| where FileName in~ (\"{{child1}}\", \"{{child2}}\", \"{{child3}}\")\n| project Timestamp, DeviceName, InitiatingProcessFileName, FileName, ProcessCommandLine, AccountName",
       blanks: [

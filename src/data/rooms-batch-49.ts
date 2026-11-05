@@ -451,7 +451,7 @@ export const roomsBatch49 = [
               "winlog.event_data.Signature reads Microsoft Windows and SignatureStatus is Valid, so the binary is trusted and the event can be closed without reading the command line"
             ],
             "answer": 0,
-            "explanation": "This room’s regsvr32 reading names exactly this pairing: the /i: flag at a remote URL with scrobj.dll as the target, together with the absence of any installer ancestry, is the Squiblydoo shape. The Downloads CurrentDirectory is suggestive context but not the identifier on its own (benign downloads also run from there) so that option over-weights location. explorer.exe is the normal parent of anything a user opens, so the parent alone does not confirm abuse; it is the command line that carries the remote source, making that option wrong. The Valid Microsoft signature is expected here. Regsvr32.exe genuinely is signed, so treating it as grounds to close the event inverts this room’s central point.",
+            "explanation": "This room’s regsvr32 reading names exactly this pairing: the /i: flag at a remote URL with scrobj.dll as the target, together with the absence of any installer ancestry, is the Squiblydoo shape. The Downloads CurrentDirectory is suggestive context but not the identifier on its own (benign downloads also run from there) so that option over-weights location. explorer.exe is the normal parent of anything a user opens, so the parent alone does not confirm abuse; it is the command line that carries the remote source, making that option wrong. The Valid Microsoft signature is expected here: regsvr32.exe genuinely is signed, so treating it as grounds to close the event inverts this room’s central point.",
             "xp": 20
           },
           {

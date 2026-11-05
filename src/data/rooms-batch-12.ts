@@ -135,7 +135,7 @@ const rooms = [
           `- Last reviewed date\n` +
           `- Owner (who is responsible for maintaining this rule)\n` +
           `- Linked playbook or runbook\n\n` +
-          `A well-maintained Use Case Registry is one of the clearest signs of a mature SOC. When an auditor or executive asks "Are you detecting technique X?", you can answer immediately. Yes, rule UC-ENDPOINT-0089 covers it, it was last tested on this date, and it fires with this accuracy.`,
+          `A well-maintained Use Case Registry is one of the clearest signs of a mature SOC. When an auditor or executive asks "Are you detecting technique X?", you can answer immediately: yes, rule UC-ENDPOINT-0089 covers it, it was last tested on this date, and it fires with this accuracy.`,
       },
       // ── Question 1 ────────────────────────────────────────────────────────
       {
@@ -168,7 +168,7 @@ const rooms = [
         ],
         answer: 1,
         explanation:
-          "Reading 2 defines `falsepositives` as known benign triggers to be aware of. Documentation for the analyst that leaves the matching logic untouched. “detection” is where the field values that trigger the alert live, so anything placed there changes what fires, which the stem rules out. “references” holds CVE links, blog posts and ATT&CK IDs about the threat, not triage guidance. “logsource” selects which product or category of logs the rule searches; changing it would alter (and here, break) what the rule matches.",
+          "Reading 2 defines `falsepositives` as known benign triggers to be aware of: documentation for the analyst that leaves the matching logic untouched. “detection” is where the field values that trigger the alert live, so anything placed there changes what fires, which the stem rules out. “references” holds CVE links, blog posts and ATT&CK IDs about the threat, not triage guidance. “logsource” selects which product or category of logs the rule searches; changing it would alter (and here, break) what the rule matches.",
         xp: 20,
       },
       // ── Question 3 ────────────────────────────────────────────────────────
@@ -176,7 +176,7 @@ const rooms = [
         type: "question",
         id: "ucd-q3",
         question:
-          "Your use case for detecting brute-force attacks fires when 5 failed logins occur within 10 minutes from a single account. After a company merger, the rule now generates 500 false-positive alerts per day. All from legitimate password resets for newly onboarded users. What should you do FIRST?",
+          "Your use case for detecting brute-force attacks fires when 5 failed logins occur within 10 minutes from a single account. After a company merger, the rule now generates 500 false-positive alerts per day, all from legitimate password resets for newly onboarded users. What should you do FIRST?",
         options: [
           "Disable the rule for the duration of the onboarding wave, then re-enable it once password-reset volume returns to normal",
           "Route the daily alert batch to Tier 3 for manual review until the merger's onboarding wave completes and volume subsides",
@@ -357,7 +357,7 @@ const rooms = [
         heading: "SOC Metrics, KPIs, and the Shift Handover Report",
         content:
           `Think of a car's dashboard. It doesn't tell you every mechanical detail of the engine. It gives you the key numbers you need to make decisions: speed, fuel level, engine temperature. If any of those numbers goes into the red, you know there's a problem that needs attention.\n\n` +
-          `SOC managers need the same kind of dashboard. They use **Key Performance Indicators (KPIs)**. Specific, measurable numbers that tell them at a glance whether the SOC is functioning well.\n\n` +
+          `SOC managers need the same kind of dashboard. They use **Key Performance Indicators (KPIs)**: specific, measurable numbers that tell them at a glance whether the SOC is functioning well.\n\n` +
           `**The Most Important SOC KPIs**\n\n` +
           `- **MTTD, Mean Time to Detect**: How long, on average, from when an attack begins until your SOC detects it. Lower is better. Industry benchmark for mature SOCs: under 1 hour for high-severity threats.\n` +
           `- **MTTR, Mean Time to Respond**: How long from when an alert is detected until the threat is contained and the incident is resolved. This includes investigation, decision-making, and remediation. Lower is better.\n` +
@@ -420,7 +420,7 @@ const rooms = [
           `- Did the playbook cover this scenario, or did we improvise?\n` +
           `- What process or technical control would have prevented this?\n` +
           `- What are the concrete action items to prevent recurrence?\n\n` +
-          `The final incident report, with its executive summary, technical timeline, IOCs, root cause analysis, and lessons learned. Is the primary deliverable from this process. It should be stored securely (incidents may be classified) and accessible to future analysts so that the organization learns from each incident rather than repeating the same mistakes.`,
+          `The final incident report, with its executive summary, technical timeline, IOCs, root cause analysis, and lessons learned, is the primary deliverable from this process. It should be stored securely (incidents may be classified) and accessible to future analysts so that the organization learns from each incident rather than repeating the same mistakes.`,
       },
       // ── Reading 4 ─────────────────────────────────────────────────────────
       {
@@ -943,7 +943,7 @@ const rooms = [
           `- Close clear false positives with documentation\n` +
           `- Create incident tickets for confirmed or suspected malicious activity\n` +
           `- Escalate confirmed or complex incidents to Tier 2\n\n` +
-          `Tier 1 analysts typically work with predefined playbooks. Step-by-step guides for investigating each type of alert. They don't have the authority to take high-impact actions like isolating servers or engaging law enforcement.\n\n` +
+          `Tier 1 analysts typically work with predefined playbooks: step-by-step guides for investigating each type of alert. They don't have the authority to take high-impact actions like isolating servers or engaging law enforcement.\n\n` +
           `**Tier 2: Deep Investigation**\n\n` +
           `Tier 2 analysts receive escalated incidents from Tier 1 and conduct in-depth forensic investigation. They have more experience, deeper technical skills, and broader access to security tools.\n\n` +
           `Tier 2 responsibilities:\n` +

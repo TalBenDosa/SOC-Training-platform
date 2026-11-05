@@ -239,10 +239,10 @@ export const INTRO_CYBERSECURITY: RoomExperience = {
           },
           {
             id: "fim",
-            caption: "File Integrity Monitor · alert",
+            caption: "Change monitor · alert",
             screen: {
               type: "integrity",
-              tool: "File Integrity Monitor · Northport Finance",
+              tool: "Change monitor · Northport Finance",
               file: "\\\\fs01\\finance\\suppliers\\bank_details.xlsx",
               expected: "9f2c4e81b07d3a65c1e8f4429b0d7a13e6c5f28d4b91a0e7c3d5f6a8b2e4c901",
               current: "1d7e9a02c4f8b63e5a19d0c7f2b4e8a61c3d9f05b7e2a4c8d6f1b3e9a0c5d742",

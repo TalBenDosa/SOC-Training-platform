@@ -122,7 +122,7 @@ The Sensor is deliberately tiny (under 5 MB) and uses very little CPU. Users gen
 
 **The CrowdStrike Cloud: Where the Intelligence Lives**
 
-Once telemetry leaves the sensor, it arrives at the **Threat Graph**. CrowdStrike's proprietary cloud-scale data store that holds trillions of events from millions of endpoints around the world. Machine learning models run continuously against this data, looking for patterns that indicate malicious activity.
+Once telemetry leaves the sensor, it arrives at the **Threat Graph**: CrowdStrike's proprietary cloud-scale data store that holds trillions of events from millions of endpoints around the world. Machine learning models run continuously against this data, looking for patterns that indicate malicious activity.
 
 When the cloud spots something suspicious, it sends a detection back to the Falcon console for a SOC analyst to review. This design means that:
 - New threat intelligence is applied to ALL customers simultaneously (no waiting for a signature update download)
@@ -130,7 +130,7 @@ When the cloud spots something suspicious, it sends a detection back to the Falc
 
 **CrowdStrike's Adversary Focus**
 
-CrowdStrike publicly names and tracks over 200 threat actor groups using animal-themed codenames: **FANCY BEAR** (Russian state actors), **COZY BEAR** (another Russian group), **LABYRINTH CHOLLIMA** (North Korea. Part of what other vendors call the Lazarus Group; HIDDEN COBRA is the US-government name), **SCATTERED SPIDER** (English-speaking cybercriminal group). The animal tells you the origin: BEAR = Russia, PANDA = China, KITTEN = Iran, CHOLLIMA = North Korea, SPIDER = eCrime (financially motivated criminals). This adversary intelligence approach helps SOC teams understand *who* is attacking them and *why*, not just *what malware* was used.
+CrowdStrike publicly names and tracks over 200 threat actor groups using animal-themed codenames: **FANCY BEAR** (Russian state actors), **COZY BEAR** (another Russian group), **LABYRINTH CHOLLIMA** (North Korea, part of what other vendors call the Lazarus Group; HIDDEN COBRA is the US-government name), **SCATTERED SPIDER** (English-speaking cybercriminal group). The animal tells you the origin: BEAR = Russia, PANDA = China, KITTEN = Iran, CHOLLIMA = North Korea, SPIDER = eCrime (financially motivated criminals). This adversary intelligence approach helps SOC teams understand *who* is attacking them and *why*, not just *what malware* was used.
 
 **Prevention vs Detection: Two Modes of Falcon**
 
@@ -257,11 +257,11 @@ From RTR, a SOC analyst can:
 - **Delete files**: remove a malicious file or persistence mechanism
 
 RTR uses CrowdStrike-built commands (not standard cmd/bash) with tab-completion and command history. Example RTR commands:
-- \`ps\`list all running processes
-- \`netstat\`show active network connections
-- \`reg query <key>\`read a Windows registry value
-- \`get <filepath>\`retrieve a file
-- \`kill <pid>\`kill a process by its PID (Process ID)
+- \`ps\`: list all running processes
+- \`netstat\`: show active network connections
+- \`reg query <key>\`: read a Windows registry value
+- \`get <filepath>\`: retrieve a file
+- \`kill <pid>\`: kill a process by its PID (Process ID)
 
 All RTR sessions are logged and audited, so there's a full record of what actions the analyst took.
 
@@ -400,7 +400,7 @@ After compromising one machine, attackers move to others. A common tool is **PsE
       questions: [
         {
           question:
-            "The field 'crowdstrike.DesiredAccess: 2097151' appears in the alert, Falcon writes the access mask in decimal, and 2097151 is 0x1FFFFF in hex. In Windows, access mask 0x1FFFFF means PROCESS_ALL_ACCESS. Full control over the target process. Why is this value specifically suspicious when the target is lsass.exe?",
+            "The field 'crowdstrike.DesiredAccess: 2097151' appears in the alert, Falcon writes the access mask in decimal, and 2097151 is 0x1FFFFF in hex. In Windows, access mask 0x1FFFFF means PROCESS_ALL_ACCESS: full control over the target process. Why is this value specifically suspicious when the target is lsass.exe?",
           options: [
             "LSASS enforces the firewall policy, so full access lets a tool turn network filtering off",
             "LSASS holds credential material in memory; full access lets a tool read hashes and tickets",
@@ -574,7 +574,7 @@ SentinelOne doesn't rely on a single detection method. Three AI engines run simu
 
 1. **Static AI (Pre-Execution):** Before a file runs, the agent scans it using a machine learning model trained on millions of malware samples. Like having a metal detector at the door: the file is screened before it's even allowed to execute. This catches known and unknown (zero-day) malware based on structural features, not just signatures.
 
-2. **Behavioral AI (Real-Time):** Once a process is running, the Behavioral AI engine monitors every action it takes. What files it reads or writes, what registry keys it touches, what network connections it makes, what child processes it spawns. If the *behaviour* matches known attack patterns (even if the file itself looks clean), Behavioral AI triggers an alert. This is how SentinelOne catches "fileless" attacks. Attacks that use legitimate system tools like PowerShell and never write a traditional malware file to disk.
+2. **Behavioral AI (Real-Time):** Once a process is running, the Behavioral AI engine monitors every action it takes: what files it reads or writes, what registry keys it touches, what network connections it makes, what child processes it spawns. If the *behaviour* matches known attack patterns (even if the file itself looks clean), Behavioral AI triggers an alert. This is how SentinelOne catches "fileless" attacks: attacks that use legitimate system tools like PowerShell and never write a traditional malware file to disk.
 
 3. **Deep Visibility (EDR Telemetry):** Every action by every process is recorded and stored with full fidelity for 365 days. SOC analysts can search this raw telemetry to hunt for threats, investigate incidents, and understand exactly what happened on any endpoint.
 
@@ -629,7 +629,7 @@ This is the core of a SOC analyst's daily work in SentinelOne. Every detected th
 - **Threat Name:** e.g., "Trojan.Ransom.LockBit3" (the malware family name)
 - **Risk Level:** Critical, High, Medium, Low: SentinelOne's severity score
 - **Classification:** The threat type: e.g., Ransomware, Trojan, Infostealer, Malware, or PUA (Potentially Unwanted Application)
-- **Confidence Level:** A category, not a percentage. **Malicious** (the engines are confident it is a threat) or **Suspicious** (needs analyst review)
+- **Confidence Level:** A category, not a percentage: **Malicious** (the engines are confident it is a threat) or **Suspicious** (needs analyst review)
 - **Endpoint name and username:** Which machine and which user was affected
 - **Action Taken:** What SentinelOne automatically did (Quarantine, Kill, or Monitor)
 - **Storyline view button:** Click to see the complete attack story
@@ -1005,7 +1005,7 @@ A sandbox execution report is a complete record of everything the malware did du
 - **API calls:** Every Windows API function the malware called, with parameters. If it called \`CreateFile("C:\\Windows\\System32\\svchost.exe")\`, you know it's writing or reading that file.
 - **Network activity:** Every DNS query, HTTP request, TCP/UDP connection. This reveals the C2 server addresses.
 - **File system changes:** Files created, modified, or deleted. A ransomware sample might create thousands of new encrypted files and delete the originals.
-- **Registry changes:** New registry keys created (especially in Run/RunOnce. Persistence) or existing keys modified
+- **Registry changes:** New registry keys created (especially in Run/RunOnce, for persistence) or existing keys modified
 - **Screenshots:** Some sandboxes take screenshots at regular intervals so you can see what the malware displayed to the user
 
 **Common Malware Behaviours to Look For**
@@ -1058,7 +1058,7 @@ When you need deeper analysis beyond what an online sandbox provides:
       heading: "Static Analysis: Examining Malware Without Running It",
       content: `Static analysis is the art of understanding a malicious file by *reading* it rather than *running* it. Think of it like examining a weapon found at a crime scene: you don't fire the gun to understand it, you study its markings, manufacturer stamps, and serial number.
 
-**Step 1, File Hashing: The Malware Fingerprint**
+**Step 1: File Hashing (The Malware Fingerprint)**
 
 Every file has a **cryptographic hash**: a unique mathematical fingerprint calculated from the file's contents. Change even a single byte of the file and the hash changes completely. The three most common hash algorithms are:
 
@@ -1073,15 +1073,15 @@ Why do hashes matter? Once you have a SHA-256 hash, you can:
 
 **Step 2: Strings Extraction**
 
-Binary programs (.exe files) are mostly machine code that humans can't read. But embedded within that machine code are **strings**. Sequences of human-readable text that the program uses. Extracting strings from a malware sample can be incredibly revealing:
+Binary programs (.exe files) are mostly machine code that humans can't read. But embedded within that machine code are **strings**: sequences of human-readable text that the program uses. Extracting strings from a malware sample can be incredibly revealing:
 
-- **URLs:** \`http://185.220.101.45/update/check.php\`the attacker's command-and-control server
-- **Domain names:** \`c2server.evildomain.ru\`another C2 indicator
-- **Registry paths:** \`HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\`the malware is establishing persistence
-- **Function names:** \`CreateRemoteThread, VirtualAllocEx\`signs of process injection
+- **URLs:** \`http://185.220.101.45/update/check.php\`: the attacker's command-and-control server
+- **Domain names:** \`c2server.evildomain.ru\`: another C2 indicator
+- **Registry paths:** \`HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\`: the malware is establishing persistence
+- **Function names:** \`CreateRemoteThread, VirtualAllocEx\`: signs of process injection
 - **Error messages:** Attackers often leave debugging text in their code, revealing what the malware was designed to do
 
-Tools: **strings** (Linux command), **BinText** (Windows GUI), **FLOSS** (FireEye Labs Obfuscated String Solver. Specifically designed to extract obfuscated strings that simple tools miss).
+Tools: **strings** (Linux command), **BinText** (Windows GUI), **FLOSS** (FireEye Labs Obfuscated String Solver, specifically designed to extract obfuscated strings that simple tools miss).
 
 **Step 3: PE File Analysis**
 
@@ -1096,7 +1096,7 @@ Most Windows malware is in **PE (Portable Executable)** format: the standard for
   - Imports **WS2_32.dll** functions (socket, connect, send) → raw network sockets → advanced network communication
   - Imports **Advapi32.dll** (RegSetValueEx, CreateService) → modifies registry or creates services → persistence mechanisms
 
-**Step 4, YARA Rules: Pattern Matching**
+**Step 4: YARA Rules (Pattern Matching)**
 
 **YARA** is a tool that lets security researchers write pattern-matching rules to identify malware based on specific byte sequences, strings, or structural features. A YARA rule might say: "If a file contains the string 'MiniDump' AND imports the function 'RtlCopyMemory' AND the file size is under 100KB, flag it as a potential credential dumper."
 
@@ -1180,9 +1180,9 @@ rule Suspicious_Credential_Stealer_Strings
 
 **strings: the patterns you're hunting for.** Each string is given a name starting with \`$\` so the condition can refer to it. YARA supports three kinds of patterns:
 
-- **Plain text**, like \`$s1 = "Login Data"\`. The \`wide\` modifier tells YARA to also match the string encoded as UTF-16 (two bytes per character): the encoding Windows programs commonly use internally for things like registry paths and window titles, while \`ascii\` keeps the standard single-byte match active too. \`nocase\` (used on \`$re1\` here) makes a match case-insensitive.
-- **Hex bytes**, written in \`{ }\`, like \`$s3 = { 4D 5A }\`. This is a raw byte pattern rather than text: \`4D 5A\` are the two bytes that spell "MZ" in hex, which is the magic number every Windows PE file (.exe, .dll) starts with. Hex patterns are how you match binary structures, packer signatures, or shellcode fragments that aren't readable text.
-- **Regular expressions**, written between \`/ /\`, like \`$re1\`. This one matches an \`http://\` or \`https://\` URL where the domain is a long lowercase alphanumeric string ending in \`.top\`, \`.xyz\`, or \`.info\`cheap, disposable top-level domains that infostealer C2 panels are frequently hosted on. Regex strings let you catch a whole family of values instead of one exact one.
+- **Plain text**: like \`$s1 = "Login Data"\`. The \`wide\` modifier tells YARA to also match the string encoded as UTF-16 (two bytes per character): the encoding Windows programs commonly use internally for things like registry paths and window titles, while \`ascii\` keeps the standard single-byte match active too. \`nocase\` (used on \`$re1\` here) makes a match case-insensitive.
+- **Hex bytes**: written in \`{ }\`, like \`$s3 = { 4D 5A }\`. This is a raw byte pattern rather than text: \`4D 5A\` are the two bytes that spell "MZ" in hex, which is the magic number every Windows PE file (.exe, .dll) starts with. Hex patterns are how you match binary structures, packer signatures, or shellcode fragments that aren't readable text.
+- **Regular expressions**: written between \`/ /\`, like \`$re1\`. This one matches an \`http://\` or \`https://\` URL where the domain is a long lowercase alphanumeric string ending in \`.top\`, \`.xyz\`, or \`.info\`: cheap, disposable top-level domains that infostealer C2 panels are frequently hosted on. Regex strings let you catch a whole family of values instead of one exact one.
 
 **condition: the boolean logic that decides a match.** This is where the rule stops being a list of patterns and becomes a decision. Conditions are plain boolean expressions over the strings you defined, plus a few special operators:
 
@@ -1194,7 +1194,7 @@ Read as a sentence, the full condition says: "This must be a PE file, AND it mus
 
 **Using YARA rules in practice**
 
-Once a rule is saved (typically as a \`.yar\` file), you run it from the command line against a single file or a whole directory: \`yara rule.yar suspicious_file.exe\` prints the rule name if it matches, nothing if it doesn't. Point it at a directory recursively (\`yara -r rule.yar C:\\Users\\\`) and you can sweep an entire endpoint for anything matching your pattern in seconds. Useful when an IR team needs to know "does this rule match anywhere else on this machine, or across the fleet?"
+Once a rule is saved (typically as a \`.yar\` file), you run it from the command line against a single file or a whole directory: \`yara rule.yar suspicious_file.exe\` prints the rule name if it matches, nothing if it doesn't. Point it at a directory recursively (\`yara -r rule.yar C:\\Users\\\`) and you can sweep an entire endpoint for anything matching your pattern in seconds, useful when an IR team needs to know "does this rule match anywhere else on this machine, or across the fleet?"
 
 Beyond your own machine, VirusTotal lets you run YARA rules against its enormous historical corpus of submitted files: a feature often called **retrohunting**. Instead of scanning files as they arrive, you submit a rule and VirusTotal searches everything it has already collected (going back months or years) for anything matching your pattern. This is how researchers frequently discover that a technique they just identified in one sample was actually used across dozens of related files submitted over the preceding weeks, turning one detection into a whole cluster of related activity.`,
       checkpoint: {
@@ -1487,7 +1487,7 @@ Submit any URL and URLScan.io visits it in an isolated browser, taking screensho
 
 **AlienVault OTX (otx.alienvault.com): Community Threat Intelligence**
 
-OTX (Open Threat Exchange) is a free platform where security researchers worldwide share threat intelligence in **pulses**. Collections of IOCs linked to a specific campaign or malware family. You can:
+OTX (Open Threat Exchange) is a free platform where security researchers worldwide share threat intelligence in **pulses**: collections of IOCs linked to a specific campaign or malware family. You can:
 - Look up any IOC to see if it appears in a known pulse
 - Subscribe to pulses from trusted researchers
 - Connect OTX to your SIEM for automatic IOC matching
@@ -1509,7 +1509,7 @@ Essential for phishing investigations:
         ],
         answer: 1,
         explanation:
-          "A hash search reveals whether the file is already known without sharing anything. An upload makes the file visible to other subscribers. Potentially including the attacker watching for their tailored sample, and anyone who can read any confidential content inside it. 'Upload so all engines scan it' is the habit this warns against. A public URLScan scan is equally visible to others, so it has the same OPSEC problem. 'Delete the report afterwards' does not help: once uploaded, the file has already been shared.",
+          "A hash search reveals whether the file is already known without sharing anything. An upload makes the file visible to other subscribers, potentially including the attacker watching for their tailored sample, and anyone who can read any confidential content inside it. 'Upload so all engines scan it' is the habit this warns against. A public URLScan scan is equally visible to others, so it has the same OPSEC problem. 'Delete the report afterwards' does not help: once uploaded, the file has already been shared.",
       },
     },
 
@@ -1542,7 +1542,7 @@ Here is how IOC pivoting works:
 - You download the SHA-256 hashes of those samples: \`3c4f8a1b...\`, \`7e9d2f4a...\`, \`1b3c5d7e...\`
 - You search your SIEM for any of these hashes on your endpoints → you find one match on a machine in accounting
 
-**Result of pivoting:** You started with one phishing URL and discovered: 4 related phishing domains, an attacker-controlled IP server, 3 malware samples, and an infected endpoint in your own environment. None of which you would have found by only blocking the original URL.
+**Result of pivoting:** You started with one phishing URL and discovered: 4 related phishing domains, an attacker-controlled IP server, 3 malware samples, and an infected endpoint in your own environment, none of which you would have found by only blocking the original URL.
 
 **MISP: Malware Information Sharing Platform**
 

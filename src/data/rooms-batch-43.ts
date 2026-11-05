@@ -477,7 +477,7 @@ export const roomsBatch43 = [
             ],
             answer: 1,
             explanation:
-              "AccessList records the right exercised, and 4663 logs only successful uses of a right (there is no failure variant), so %%4416 / ReadData confirms a completed read, not a denial. With ntdsutil.exe: a documented NTDS.dit export tool, reading through a shadow-copy path, this matches an extraction pattern. %%4416 is ReadData, not WriteData, so it is not a database write, and a handle-close is a separate event (4658), not this code.",
+              "AccessList records the right exercised, and 4663 logs only successful uses of a right (there is no failure variant), so %%4416 / ReadData confirms a completed read, not a denial. With ntdsutil.exe, a documented NTDS.dit export tool, reading through a shadow-copy path, this matches an extraction pattern. %%4416 is ReadData, not WriteData, so it is not a database write, and a handle-close is a separate event (4658), not this code.",
             xp: 25,
           },
           {

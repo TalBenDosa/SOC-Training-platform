@@ -79,11 +79,11 @@ When you analyze evidence, constantly ask yourself: *if I were the attacker, why
       type: "reading" as const,
       id: "inv-method-r2",
       heading: "Timeline Analysis and Evidence Pivoting",
-      content: `An **investigation timeline** is a chronological list of every relevant event in an attack. Sorted from earliest to latest, with timestamps, source systems, and a brief note on what each event means. It is the single most important artifact you will build during an investigation.
+      content: `An **investigation timeline** is a chronological list of every relevant event in an attack, sorted from earliest to latest, with timestamps, source systems, and a brief note on what each event means. It is the single most important artifact you will build during an investigation.
 
 **Why Timelines Matter**
 
-Without a timeline, you are looking at individual events in isolation. With a timeline, you can see the *attack sequence*. How the attacker moved from one step to the next. A timeline answers questions like:
+Without a timeline, you are looking at individual events in isolation. With a timeline, you can see the *attack sequence*: how the attacker moved from one step to the next. A timeline answers questions like:
 - When was the first foothold established?
 - How much time passed between initial access and the first lateral movement?
 - Was data exfiltrated before the alert fired, or after?
@@ -182,7 +182,7 @@ Every investigation lives in a ticket. Common platforms:
 A good case ticket contains:
 - **Summary:** one paragraph describing what happened
 - **Timeline:** the chronological list of events you built
-- **Evidence links:** direct links or saved query strings to every piece of evidence (not screenshots. Links that other analysts can click and reproduce)
+- **Evidence links:** direct links or saved query strings to every piece of evidence (not screenshots, links that other analysts can click and reproduce)
 - **Affected assets:** list of hosts, users, and IPs involved
 - **Chain of events:** a narrative explanation of how the attack unfolded
 - **Conclusion:** true positive / false positive, severity, MITRE ATT&CK techniques used
@@ -439,7 +439,7 @@ Notice that each hypothesis is **specific, testable, and falsifiable**. You can 
 
 - **Threat intelligence reports**: A vendor publishes a report saying APT29 is targeting your industry. Formulate hypotheses based on the TTPs described.
 - **Your own IR experience**: You investigated an incident last month. What TTPs did the attacker use? Hunt for those same TTPs across your wider estate.
-- **MITRE ATT\&CK**, Browse the technique matrix and ask: "Do we have detection coverage for this? Have we ever hunted for it?"
+- **MITRE ATT\&CK**: Browse the technique matrix and ask: "Do we have detection coverage for this? Have we ever hunted for it?"
 - **Red team/purple team findings**: A penetration test showed a technique that your detections missed. Hunt for historical evidence of the same technique.
 - **Anomaly spikes**: Your SIEM shows an unexplained spike in DNS queries at 2am. Hypothesise that it could be DNS beaconing (T1071.004) and investigate.
 
@@ -574,7 +574,7 @@ The key insight: the platform does not matter as much as the hypothesis and the 
       type: "log_analysis" as const,
       id: "threat-hunt-la1",
       heading: "Hunting for LSASS Memory Dump: comsvcs.dll Technique",
-      context: `You are running a threat hunt for T1003.001 (OS Credential Dumping via LSASS) across your EDR telemetry. Your hunt hypothesis is: "An attacker targeting credential theft will use rundll32.exe to load comsvcs.dll and call its MiniDump export to dump LSASS memory." You have executed a KQL query against your Falcon EDR data and received the following hit. This is a real technique used in the wild. Comsvcs.dll is a legitimate Windows DLL that has a MiniDump function built in. Attackers abuse it because rundll32.exe is a trusted system binary, making it harder for security tools to block.`,
+      context: `You are running a threat hunt for T1003.001 (OS Credential Dumping via LSASS) across your EDR telemetry. Your hunt hypothesis is: "An attacker targeting credential theft will use rundll32.exe to load comsvcs.dll and call its MiniDump export to dump LSASS memory." You have executed a KQL query against your Falcon EDR data and received the following hit. This is a real technique used in the wild: comsvcs.dll is a legitimate Windows DLL that has a MiniDump function built in. Attackers abuse it because rundll32.exe is a trusted system binary, making it harder for security tools to block.`,
       event: {
         id: "threat-hunt-la1-evt-001",
         ts: "2025-06-24T09:44:18.000Z",
@@ -708,7 +708,7 @@ Digital evidence is not all equal. Some evidence disappears in seconds (CPU cach
 
 1. **CPU registers and cache**: the contents of the CPU registers at any given moment. These are lost the instant the processor moves to the next instruction. Essentially uncollectable in practice, but important to understand why a live machine is different from one that was just rebooted.
 
-2. **RAM / main memory**, everything the computer currently has loaded: running processes, network connections, encryption keys, malware code that only exists in memory (fileless malware), and sometimes plaintext credentials. Lost immediately when the machine is powered off. **This is the most valuable and most time-sensitive forensic source.**
+2. **RAM / main memory**: everything the computer currently has loaded: running processes, network connections, encryption keys, malware code that only exists in memory (fileless malware), and sometimes plaintext credentials. Lost immediately when the machine is powered off. **This is the most valuable and most time-sensitive forensic source.**
 
 3. **Network connections**: the list of active TCP/UDP connections at this moment. Changes constantly as connections open and close. Run "netstat -ano" on Windows or "ss -tunap" on Linux to capture the current state (on Linux, "ss -tulpn" adds -l, which lists only LISTENING sockets and would miss an established C2 session, so keep it for checking listeners).
 
@@ -765,7 +765,7 @@ A chain of custody document records: evidence item (e.g., "RAM dump from HOST-FI
       type: "reading" as const,
       id: "dfir-r2",
       heading: "Memory Forensics: What Lives in RAM",
-      content: `RAM is the most valuable forensic source in many investigations. Here is why: when malware is classified as **fileless**, it never writes itself to the hard disk. It lives entirely in memory. Injected into a legitimate process, running its code from RAM, and disappearing completely when the machine is rebooted. The only way to catch fileless malware is to analyse memory *while the machine is still running*.
+      content: `RAM is the most valuable forensic source in many investigations. Here is why: when malware is classified as **fileless**, it never writes itself to the hard disk. It lives entirely in memory, injected into a legitimate process, running its code from RAM, and disappearing completely when the machine is rebooted. The only way to catch fileless malware is to analyse memory *while the machine is still running*.
 
 But even non-fileless malware leaves critical evidence in RAM: the decrypted version of an otherwise-encrypted payload, the command-and-control URLs it connected to, stolen credentials being processed, and the complete list of what the malware was doing.
 
@@ -1036,7 +1036,7 @@ const emailSecurity = {
 Email is not a direct connection from sender to recipient. It travels through a chain of mail servers, and that journey is recorded in the email's headers.
 
 1. Alice types an email in her mail client (Outlook, Gmail) and hits send.
-2. Her mail client connects to her outgoing mail server (called an **SMTP server**. Simple Mail Transfer Protocol) and submits the email.
+2. Her mail client connects to her outgoing mail server (called an **SMTP server**, Simple Mail Transfer Protocol) and submits the email.
 3. The SMTP server looks up the recipient domain's **MX records** (Mail eXchanger) in DNS to find where to deliver the email. For example, to deliver mail to someone@corp.com, the SMTP server looks up the MX record for corp.com.
 4. The sending SMTP server connects to the recipient's SMTP server and delivers the email.
 5. The recipient's mail server stores the email until the recipient's mail client fetches it using **IMAP** (Internet Message Access Protocol) or **POP3** (Post Office Protocol 3).
@@ -1101,7 +1101,7 @@ Reading this: "Version is SPF1. Trust all IPs in Google's SPF record, trust mail
 - **neutral (?all)**: the domain makes no assertion about authorisation. Common in misconfigured domains.
 - **none**: no SPF record exists. Cannot verify. Common in small organisations.
 - **temperror**: a temporary (usually DNS) error stopped the check from completing; a later retry may succeed. Treat as "unknown, retry", not as pass or fail.
-- **permerror**, a permanent error: the domain's SPF record is malformed or breaks a hard limit (for example, more than the RFC 7208 maximum of 10 DNS-lookup mechanisms). It signals a broken record on the sender's side that a DNS operator must fix.
+- **permerror**: a permanent error: the domain's SPF record is malformed or breaks a hard limit (for example, more than the RFC 7208 maximum of 10 DNS-lookup mechanisms). It signals a broken record on the sender's side that a DNS operator must fix.
 
 Those seven values (pass, fail, softfail, neutral, none, temperror, and permerror) are the complete set defined by RFC 7208. You will meet all of them in real Authentication-Results headers, so recognise temperror and permerror rather than assuming every non-pass result means spoofing.
 
@@ -1224,14 +1224,14 @@ If corp.com has no DMARC policy, the email still reaches the inbox even with SPF
 
 **BEC (Business Email Compromise)**: the attacker either compromises a real executive email account or spoofs one convincingly, then emails the finance team requesting an urgent wire transfer. In 2023, BEC caused over $2.9 billion in losses (FBI IC3 report). The "urgent wire transfer" email in our log analysis example is a classic BEC attempt.
 
-**Malicious Attachments**, common file types used:
+**Malicious Attachments**: common file types used:
 - **.docm / .xlsm**: Office files with macros. The attacker convinces the user to "Enable Macros," which runs code.
 - **.pdf**: can exploit vulnerable PDF readers or contain malicious links.
 - **.html**: often used to host a credential harvesting page that runs entirely in the browser, bypassing gateway URL scanners.
 - **.iso / .zip**: archive files that contain executables, bypassing email gateway attachment filters.
 - **.lnk**: Windows shortcut files that run commands when opened.
 
-**Malicious Links**, attackers use several techniques to bypass URL filters:
+**Malicious Links**: attackers use several techniques to bypass URL filters:
 - URL shorteners (bit.ly, TinyURL) to hide the real destination
 - Typosquatted domains (corpor4te.com vs corporate.com)
 - Legitimate file hosting services (Google Drive, OneDrive, Dropbox) hosting malicious files

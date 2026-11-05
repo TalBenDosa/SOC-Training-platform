@@ -182,10 +182,10 @@ export const SOC_STRUCTURE: RoomExperience = {
       {
         kind: "queue",
         title: "Night Queue",
-        prompt: "You have the Tier 1 desk. Five alerts are waiting. For each one: close it as a false positive, or escalate it to Tier 2.",
+        prompt: "You have the Tier 1 desk. A Tier 1 analyst might handle 20 to 50 alerts in a shift, and most turn out harmless. Five are waiting now. For each one: close it, or escalate it to Tier 2.",
         console: "SIEM · Incident queue · GlobalBank SOC",
         actions: [
-          { id: "close", label: "Close: false positive", tone: "close" },
+          { id: "close", label: "Close: no threat", tone: "close" },
           { id: "escalate", label: "Escalate to Tier 2", tone: "escalate" },
         ],
         alerts: [
@@ -193,7 +193,7 @@ export const SOC_STRUCTURE: RoomExperience = {
             id: "scan", time: "02:04", severity: "Medium", rule: "Port scan from internal host", entity: "VULN-SCAN-01",
             fields: [{ k: "src_ip", v: "10.40.1.5 (VULN-SCAN-01)" }, { k: "targets", v: "1,024 hosts, TCP 1-1024" }, { k: "schedule", v: "Weekly vulnerability scan, Tue 02:00" }, { k: "change", v: "CHG-4471 approved" }],
             context: "The source is the bank's own vulnerability scanner, running at its scheduled time under an approved change.",
-            answer: "close", why: "Authorised activity on schedule with a change ticket: a false positive for this rule. Note the change ID in the ticket and close it.",
+            answer: "close", why: "Authorised activity on schedule with a change ticket: a benign true positive. The rule fired correctly on a real scan, and the change makes it harmless. Note the change ID in the ticket and close it.",
           },
           {
             id: "macro", time: "02:17", severity: "High", rule: "Office application spawned PowerShell", entity: "WS-FIN-118 · m.cole",
@@ -309,7 +309,7 @@ export const SOC_STRUCTURE: RoomExperience = {
           {
             id: "siem", caption: "Search · last 24 hours",
             screen: {
-              type: "siem", product: "SIEM · log search",
+              type: "siem", product: "Log search",
               query: "SigninLogs | where ResultType != 0 | summarize failures=count() by UserPrincipalName, IPAddress | where failures > 20",
               rule: "Many failed sign-ins from one IP",
               header: ["UserPrincipalName", "IPAddress", "failures"],
@@ -381,13 +381,13 @@ export const SOC_STRUCTURE: RoomExperience = {
         items: [
           { id: "soar", text: "SOAR looks the IP up in the TIP: a known proxy service", note: "Automation starts with enrichment." },
           { id: "idp", text: "The identity provider logs dozens of failed sign-ins, then one success", note: "Every system writes logs; this is where the story starts." },
-          { id: "t1", text: "A Tier 1 analyst reviews the ticket and escalates to Tier 2", note: "A human confirms what the machines did." },
+          { id: "t1", text: "A Tier 1 analyst reads the finished ticket, approves disabling the account and escalates to Tier 2", note: "A human decides on the action: the automation prepared it." },
           { id: "siem", text: "The SIEM correlates the failures and the success into one alert", note: "Correlation turns events into an alert." },
-          { id: "edr", text: "EDR on the user's laptop is checked: no malware, the password was phished", note: "The endpoint view rules out a local infection." },
-          { id: "act", text: "SOAR disables the account and opens a ticket", note: "Response in seconds, not minutes." },
+          { id: "edr", text: "SOAR adds the EDR view of the user's laptop to the ticket: no malware, the password was phished", note: "The endpoint view rules out a local infection." },
+          { id: "act", text: "SOAR opens a ticket with the enrichment attached", note: "The case is ready in seconds, not minutes." },
         ],
         order: ["idp", "siem", "soar", "act", "edr", "t1"],
-        doneNote: "Logs feed the SIEM, the SIEM alerts, SOAR enriches with the TIP and acts, EDR adds the endpoint view, and the ticket carries it to people. No single tool sees it all.",
+        doneNote: "Logs feed the SIEM, the SIEM alerts, SOAR enriches with the TIP and builds the ticket, EDR adds the endpoint view, and a person makes the call. No single tool sees it all.",
       },
     ],
     // Drill before the graded alert: a successful logon, decoded.
@@ -396,11 +396,11 @@ export const SOC_STRUCTURE: RoomExperience = {
         kind: "anatomy",
         title: "Anatomy of a Windows Logon Event",
         prompt: "Your alert will be built from Windows Security events. Before 03:47, Priya shows you a different one: a successful network logon on the domain controller.",
-        source: "Windows Security log · DC01.globalbank.local",
+        source: "Windows Security log · DC01-CORP.globalbank.com",
         fields: [
           { key: "EventID", value: "4624", label: "What happened", note: "4624 is a successful logon. Its partner, 4625, is a failed one. The ID alone tells you which story you are reading." },
           { key: "TimeCreated", value: "2025-11-14T01:12:40.512Z" },
-          { key: "Computer", value: "DC01.globalbank.local", label: "Where it was logged", note: "The domain controller, which checks the password, so it logs logons for the whole domain." },
+          { key: "Computer", value: "DC01-CORP.globalbank.com", label: "Where it was logged", note: "4624 is written on the machine being logged on to, here the domain controller itself. For sign-ins elsewhere in the domain, the DC writes its own events: 4768, 4769 and 4776." },
           { key: "TargetUserName", value: "svc_backup", label: "Which account", note: "The account that logged on. 'svc_' marks a service account: it should behave the same way every night." },
           { key: "TargetDomainName", value: "GLOBALBANK" },
           { key: "LogonType", value: "3", label: "How", note: "3 is a network logon (a file share, for example). 2 is someone at the keyboard, 10 is Remote Desktop. The type changes what 'normal' looks like." },

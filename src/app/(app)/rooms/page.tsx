@@ -13,7 +13,7 @@ import { useBranding } from "@/lib/auth/useBranding";
 import { fetchOrgRoomMetas } from "@/lib/content/publicContent";
 import { useProgressSnapshot } from "@/lib/storage/useProgressSnapshot";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { BookOpen, Loader2 } from "lucide-react";
+import { BookOpen, Loader2, Search } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 type RoomProgress = {
@@ -41,6 +41,7 @@ export default function RoomsPage() {
   const [progress, setProgress] = useState<AllProgress>({});
   const [filter, setFilter]     = useState<string>("All");
   const [level, setLevel]       = useState<Level | "all">("all");
+  const [query, setQuery]       = useState("");
   const [orgRooms, setOrgRooms] = useState<RoomMeta[]>([]);
   // "Assigned" chips — one cached request for the whole grid; empty for solo learners.
   const assigned = useAssignedItems();
@@ -83,8 +84,27 @@ export default function RoomsPage() {
 
   // Every category that has rooms (the old fixed list hid most of them behind "All").
   const categories = ["All", ...Array.from(new Set(allRooms.map(r => r.category))).sort()];
+  const q = query.trim().toLowerCase();
   const filtered = orderRoomsForLearning(allRooms).filter(r =>
-    (filter === "All" || r.category === filter) && (level === "all" || r.difficulty === level));
+    (filter === "All" || r.category === filter) && (level === "all" || r.difficulty === level) &&
+    (!q || `${r.title} ${r.description} ${r.category}`.toLowerCase().includes(q)));
+
+  // Filters live in the URL, so a filtered list survives Back and can be shared.
+  useEffect(() => {
+    const u = new URLSearchParams(window.location.search);
+    const lv = u.get("level");
+    if (lv && LEVELS.some(l => l.key === lv)) setLevel(lv as Level);
+    if (u.get("category")) setFilter(u.get("category")!);
+    if (u.get("q")) setQuery(u.get("q")!);
+  }, []);
+  useEffect(() => {
+    const u = new URLSearchParams();
+    if (level !== "all") u.set("level", level);
+    if (filter !== "All") u.set("category", filter);
+    if (query) u.set("q", query);
+    const s = u.toString();
+    window.history.replaceState(null, "", s ? `/rooms?${s}` : "/rooms");
+  }, [level, filter, query]);
 
   const totalCompleted = allRooms.filter(r => !!progress[r.id]?.completedAt).length;
   const totalXp        = Object.values(progress).reduce((sum, p) => sum + (p.xpEarned ?? 0), 0);
@@ -178,6 +198,11 @@ export default function RoomsPage() {
 
         {/* Level + category filters */}
         <div className="space-y-2">
+          <div className="relative max-w-md">
+            <Search aria-hidden className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input id="room-search" type="search" value={query} onChange={e => setQuery(e.target.value)} aria-label="Search rooms" placeholder="Search rooms"
+              className="w-full rounded-md border border-border/50 bg-bg-elevated/50 py-2 pl-9 pr-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyber-500/60" />
+          </div>
           <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Level">
             {([["all", "All levels"], ...LEVELS.map(l => [l.key, l.label])] as [Level | "all", string][]).map(([k, lbl]) => (
               <button key={k} onClick={() => setLevel(k)} aria-pressed={k === level}
@@ -240,7 +265,7 @@ export default function RoomsPage() {
                     locked={isLocked(room.id)}
                     suggestAfter={unmetPrereqs(room)}
                     assigned={assigned[`room:${room.id}`]}
-                    onClick={() => router.push(`/rooms/${room.id}`)}
+                    href={`/rooms/${room.id}`}
                   />
                 ))}
               </div>

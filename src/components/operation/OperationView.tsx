@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TaskPlayer } from "@/components/rooms/TaskPlayer";
+import { getRoomProgress } from "@/lib/storage/progress";
 import { RoomCelebration, CountUp, roomRank } from "@/components/rooms/Celebration";
 import { mechanicFor, type BriefingLab, type RoomExperience, type Station } from "@/lib/rooms/experience";
 import type { SanitizedRoom, SanitizedRoomTask } from "@/lib/rooms/sanitize";
@@ -93,14 +94,14 @@ type Phase = "briefing" | "hub" | "station" | "cleared" | "breached" | "debrief"
 // Per-viewer cosmetic state (stars, Intel tokens, briefing seen). Never XP or
 // progress — those live in room_progress via RoomClient. Guarded: blocked
 // storage simply means the stars start fresh.
-interface OpLocal { stars: Record<string, number>; tokens: number; seenBriefing: boolean; seenStory: string[] }
+interface OpLocal { stars: Record<string, number>; tokens: number; seenBriefing: boolean; seenStory: string[]; /** Shields left in a station still in progress: leaving and coming back must not refill them. */ shields: Record<string, number> }
 const opKey = (roomId: string) => `soc:operation:${roomId}`;
 function readLocal(roomId: string): OpLocal {
   try {
     const raw = window.localStorage.getItem(opKey(roomId));
-    if (raw) return { stars: {}, tokens: 0, seenBriefing: false, seenStory: [], ...JSON.parse(raw) };
+    if (raw) return { stars: {}, tokens: 0, seenBriefing: false, seenStory: [], shields: {}, ...JSON.parse(raw) };
   } catch { /* storage unavailable */ }
-  return { stars: {}, tokens: 0, seenBriefing: false, seenStory: [] };
+  return { stars: {}, tokens: 0, seenBriefing: false, seenStory: [], shields: {} };
 }
 function writeLocal(roomId: string, v: OpLocal) {
   try { window.localStorage.setItem(opKey(roomId), JSON.stringify(v)); } catch { /* storage unavailable */ }
@@ -115,6 +116,10 @@ function webglAvailable(): boolean {
 
 export interface OperationViewProps {
   room: SanitizedRoom;
+  /** The learner's stored progress has landed (signed-in progress arrives after first paint). */
+  progressReady: boolean;
+  /** Wrong graded answers per task, from the server: stars on a device with no local record. */
+  wrongByTask?: Record<string, number>;
   experience: RoomExperience;
   currentTaskIndex: number;
   completedTaskIds: Set<string>;
@@ -137,7 +142,7 @@ export interface OperationViewProps {
 
 export function OperationView(p: OperationViewProps) {
   const { room, experience, completedTaskIds, currentTaskIndex } = p;
-  const [local, setLocal] = useState<OpLocal>({ stars: {}, tokens: 0, seenBriefing: true, seenStory: [] });
+  const [local, setLocal] = useState<OpLocal>({ stars: {}, tokens: 0, seenBriefing: true, seenStory: [], shields: {} });
   const [story, setStory] = useState<StoryEntry | null>(null);
   const [phase, setPhase] = useState<Phase>("hub");
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -162,20 +167,23 @@ export function OperationView(p: OperationViewProps) {
 
   // First paint: environment checks + where to start.
   useEffect(() => {
-    if (initRef.current) return;
+    // Wait for the learner's real progress: before it lands every room looks untouched,
+    // which replayed the briefing film on rooms already finished.
+    if (initRef.current || !p.progressReady) return;
     initRef.current = true;
     const l = readLocal(room.id);
+    const started = completedTaskIds.size > 0 || (getRoomProgress()[room.id]?.completedTaskIds?.length ?? 0) > 0;
     setLocal(l);
     setHas3d(webglAvailable());
     setReducedMotion(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
     if (p.showCompletion || p.showFailure) setPhase("debrief");
-    else if (completedTaskIds.size === 0 && !l.seenBriefing) {
+    else if (!started && !l.seenBriefing) {
       setPhase("briefing");
       const intro = experience.story?.intro;
       if (intro && !l.seenStory.includes("intro")) setStory({ key: "intro", label: "Briefing film", clip: intro });
     }
     else setPhase("hub");
-  }, [room.id, p.showCompletion, p.showFailure, completedTaskIds.size, experience.story]);
+  }, [room.id, p.progressReady, p.showCompletion, p.showFailure, completedTaskIds.size, experience.story]);
 
   // Story films: what this viewer has unlocked, in mission order, for replay.
   const stories: StoryEntry[] = useMemo(() => {
@@ -196,7 +204,12 @@ export function OperationView(p: OperationViewProps) {
     !!experience.stations.find(st => st.id === e.key)?.taskIds.every(id => completedTaskIds.has(id)));
 
   function closeStory() {
-    if (story && !local.seenStory.includes(story.key)) updateLocal(v => ({ ...v, seenStory: [...v.seenStory, story.key] }));
+    if (story) updateLocal(v => ({
+      ...v,
+      seenStory: v.seenStory.includes(story.key) ? v.seenStory : [...v.seenStory, story.key],
+      // Watching or skipping the briefing film counts as having been briefed.
+      seenBriefing: v.seenBriefing || story.key === "intro",
+    }));
     setStory(null);
   }
 
@@ -219,11 +232,12 @@ export function OperationView(p: OperationViewProps) {
       if (!cleared) blocked = true;
       return {
         id: s.id, label: s.label, boss: s.boss, building: s.building, status,
-        stars: cleared ? Math.max(1, local.stars[s.id] ?? 1) : 0,
+        // This device's best run, else what the server's graded answers show (another device).
+        stars: cleared ? Math.max(1, local.stars[s.id] ?? MAX_SHIELDS - s.taskIds.reduce((n, t) => n + (p.wrongByTask?.[t] ?? 0), 0)) : 0,
         progress: `${done}/${s.taskIds.length}`,
       } as HubStation;
     });
-  }, [experience.stations, completedTaskIds, local.stars]);
+  }, [experience.stations, completedTaskIds, local.stars, p.wrongByTask]);
 
   // Station cleared → score it from the shields left.
   useEffect(() => {
@@ -231,7 +245,11 @@ export function OperationView(p: OperationViewProps) {
     if (stationDone(active)) {
       const stars = Math.max(1, shields - (slow ? 1 : 0));
       setLastStars(stars);
-      updateLocal(v => ({ ...v, stars: { ...v.stars, [active.id]: Math.max(v.stars[active.id] ?? 0, stars) } }));
+      updateLocal(v => {
+        const { [active.id]: _cleared, ...rest } = v.shields;
+        void _cleared;
+        return { ...v, shields: rest, stars: { ...v.stars, [active.id]: Math.max(v.stars[active.id] ?? 0, stars) } };
+      });
       setPhase("cleared");
       return;
     }
@@ -252,11 +270,18 @@ export function OperationView(p: OperationViewProps) {
     p.goToTask(indexOf.get(first)!);
     setActiveId(id);
     breachPending.current = false;
-    setShields(MAX_SHIELDS);
+    // A replay starts clean; a station left half-way keeps the shields it had lost.
+    setShields(hs.status === "cleared" ? MAX_SHIELDS : local.shields[id] || MAX_SHIELDS);
     setSlow(false);
     setTaskKey(k => k + 1);
     setPhase("station");
   }
+
+  // Keep the count for a station in progress, so leaving it cannot refill the shields.
+  useEffect(() => {
+    if (phase !== "station" || !activeId || shields === MAX_SHIELDS) return;
+    updateLocal(v => (v.shields[activeId] === shields ? v : { ...v, shields: { ...v.shields, [activeId]: shields } }));
+  }, [phase, activeId, shields, updateLocal]);
 
   const markSlow = useCallback(() => setSlow(true), []);
 
@@ -280,6 +305,11 @@ export function OperationView(p: OperationViewProps) {
     if (done.length) p.reopenTasks(done);
     p.goToTask(indexOf.get(active.taskIds[0])!);
     breachPending.current = false;
+    updateLocal(v => {
+      const { [active.id]: _breached, ...rest } = v.shields;
+      void _breached;
+      return { ...v, shields: rest };
+    });
     setShields(MAX_SHIELDS);
     setSlow(false);
     setTaskKey(k => k + 1);

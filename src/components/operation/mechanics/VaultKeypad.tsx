@@ -104,7 +104,7 @@ export function VaultKeypad({ roomId, task, isCompleted, onComplete, onMistake, 
           autoComplete="off"
           spellCheck={false}
           className="mt-2 w-full rounded-xl border border-slate-600 bg-black/60 px-4 py-3 text-center font-mono text-xl tracking-[0.15em] text-neon-green placeholder:text-slate-700 focus:border-cyber-400 focus:outline-none"
-          placeholder="_ _ _ _"
+          placeholder="Type the code"
         />
         {!opened && (
           <button disabled={!value.trim() || busy} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyber-400 to-indigo-400 px-6 py-2.5 text-sm font-bold text-bg disabled:opacity-40">

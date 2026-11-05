@@ -5,6 +5,8 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { TaskPlayer } from "@/components/rooms/TaskPlayer";
+import { useProgressSnapshot } from "@/lib/storage/useProgressSnapshot";
+import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { RoomCelebration, CountUp, roomRank } from "@/components/rooms/Celebration";
 import { TaskReview } from "@/components/rooms/TaskReview";
 import { loadRoomReview, type ReviewRecord } from "@/components/rooms/reviewStore";
@@ -140,6 +142,8 @@ export function RoomClient({ room }: RoomClientProps) {
   const [reviewMode, setReviewMode]             = useState(false);
   const [reviewRecords, setReviewRecords]       = useState<Record<string, ReviewRecord>>({});
   const experience = useMemo(() => getRoomExperience(room.id, room.tasks.map(t => t.id)), [room]);
+  const { ready: progressReady } = useProgressSnapshot();
+  usePageTitle(room.title);
 
 
   const maxXp   = maxRoomXp(room);
@@ -164,6 +168,7 @@ export function RoomClient({ room }: RoomClientProps) {
 
   /** Put a stored entry on screen (resume point, completion / failure screen).
    *  No entry = a fresh room (resets whatever the pre-hydrate read showed). */
+  const serverCreditRef = useRef<Record<string, number>>({});
   const applyEntry = useCallback((entry: RoomProgressEntry | undefined) => {
     if (!entry) {
       setReviewMode(false);
@@ -181,7 +186,9 @@ export function RoomClient({ room }: RoomClientProps) {
     setCompletedTaskIds(ids);
     setTotalXpEarned(entry.xpEarned);
     setPerTaskXp(entry.perTaskXp ?? {});
-    setPerTaskCredit(entry.perTaskCredit ?? {});
+    // The server's credit may have arrived first: hydration must not wipe it, or the score
+    // falls after a reload (81% on the completion screen, 68% on the next visit).
+    setPerTaskCredit(mergeTaskXpMax(entry.perTaskCredit, serverCreditRef.current));
     setTelemetry(entry.telemetry ?? []);
     setShowCompletion(false);
     setShowFailure(false);
@@ -449,6 +456,7 @@ export function RoomClient({ room }: RoomClientProps) {
   // QA-ROOM-2: pass credit is not stored in room_progress, so after a reload this
   // device has none and the score / "missed" list fell back to XP. Ask the server
   // once per visit; it recomputes the credit from the student's graded attempts.
+  const [wrongByTask, setWrongByTask] = useState<Record<string, number>>({});
   const creditLoadedRef = useRef(false);
   useEffect(() => {
     if (!mounted || creditLoadedRef.current) return;
@@ -457,8 +465,10 @@ export function RoomClient({ room }: RoomClientProps) {
       try {
         const res = await fetch(`/api/rooms/${encodeURIComponent(room.id)}/pass`, { cache: "no-store" });
         if (!res.ok) return;
-        const d = await res.json() as { guest?: boolean; perTaskCredit?: Record<string, number> };
+        const d = await res.json() as { guest?: boolean; perTaskCredit?: Record<string, number>; wrongByTask?: Record<string, number> };
         if (d.guest || !d.perTaskCredit) return;
+        serverCreditRef.current = d.perTaskCredit;
+        if (d.wrongByTask) setWrongByTask(d.wrongByTask);
         const all = loadProgress();
         const cur = all[room.id];
         const merged = mergeTaskXpMax(cur?.perTaskCredit, d.perTaskCredit);
@@ -557,6 +567,8 @@ export function RoomClient({ room }: RoomClientProps) {
     return (
       <OperationView
         room={room}
+        progressReady={progressReady}
+        wrongByTask={wrongByTask}
         experience={experience}
         currentTaskIndex={currentTaskIndex}
         completedTaskIds={completedTaskIds}

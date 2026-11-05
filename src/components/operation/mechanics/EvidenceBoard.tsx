@@ -7,6 +7,7 @@ import { displayOptions, newShuffleSeed } from "@/lib/rooms/shuffle";
 import type { SanitizedLogAnalysisTask } from "@/lib/rooms/sanitize";
 import type { QuestionReview } from "@/components/rooms/reviewStore";
 import { FieldName } from "@/components/rooms/FieldName";
+import { InlineMd } from "@/components/rooms/InlineMd";
 import { AlreadyCleared, ContinueButton, Verdict, flattenRaw, useMechanic, type MechanicProps } from "../shared";
 
 const MAX_PINS = 6;
@@ -63,7 +64,7 @@ export function EvidenceBoard({ roomId, task, isCompleted, onComplete, onMistake
 
   return (
     <div className="space-y-4" onClickCapture={recordInteraction}>
-      <p className="rounded-xl border border-indigo-400/30 bg-bg-panel/80 px-4 py-3 text-sm leading-relaxed text-slate-200">{task.context}</p>
+      <p className="rounded-xl border border-indigo-400/30 bg-bg-panel/80 px-4 py-3 text-sm leading-relaxed text-slate-200"><InlineMd text={task.context} /></p>
 
       <div className="grid gap-4 lg:grid-cols-[1.15fr_1fr]">
         {/* Evidence document */}
@@ -130,7 +131,7 @@ export function EvidenceBoard({ roomId, task, isCompleted, onComplete, onMistake
         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-300">
           Case question {qi + 1} of {task.questions.length}
         </p>
-        <p className="mt-1.5 text-sm leading-relaxed text-slate-100">{q.question}</p>
+        <p className="mt-1.5 text-sm leading-relaxed text-slate-100"><InlineMd text={q.question} /></p>
         <div className="mt-3 grid gap-2">
           {options.map(({ label, srcIdx, displayIdx }) => {
             const isAns = current && srcIdx === current.answer;
