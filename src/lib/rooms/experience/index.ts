@@ -44,6 +44,7 @@ import { MALWARE_ANALYSIS_FUNDAMENTALS } from "./malwareAnalysisFundamentals";
 import { ALERT_TRIAGE } from "./alertTriage";
 import { DIGITAL_FORENSICS_BASICS } from "./digitalForensicsBasics";
 import { VPN_MONITORING } from "./vpnMonitoring";
+import { FIREWALL_LOG_ANALYSIS } from "./firewallLogAnalysis";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -94,6 +95,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [ALERT_TRIAGE.roomId]: ALERT_TRIAGE,
   [DIGITAL_FORENSICS_BASICS.roomId]: DIGITAL_FORENSICS_BASICS,
   [VPN_MONITORING.roomId]: VPN_MONITORING,
+  [FIREWALL_LOG_ANALYSIS.roomId]: FIREWALL_LOG_ANALYSIS,
 };
 
 /**

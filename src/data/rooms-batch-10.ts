@@ -695,6 +695,24 @@ const rooms = [
         },
       },
 
+      // ── Question 3 ──
+      {
+        type: "question",
+        id: "fw-q3",
+        question:
+          "In a FortiGate firewall log, you see: action=deny, srcip=10.10.22.87, dstip=185.220.101.47, dstport=443, proto=6 (TCP), sentbyte=0, rcvdbyte=0, duration=0. What do the zero byte counters tell you about this specific event?",
+        options: [
+          "The session completed first; FortiGate does not count bytes on denied sessions",
+          "The attempt was stopped before any data moved, so no session ever formed",
+          "The syslog forwarder truncated the byte fields, so the real size is unknown",
+          "The server answered with an empty response, so both counters stayed at zero",
+        ],
+        answer: 1,
+        explanation:
+          "Zero bytes in both directions with duration 0 means the policy matched the first packet (source, destination, port, protocol) and the TCP handshake never completed: no C2 data moved for this attempt. A completed session would show bytes, since counters are recorded for the traffic that actually passed. Truncation would leave the fields missing or malformed, not neatly zero in both directions alongside a zero duration. An “empty response” still needs a completed handshake, which carries bytes. The host 10.10.22.87 still needs investigating: the block stopped the connection, not whatever tried to make it.",
+        xp: 20,
+      },
+
       // ── Reading 2 ──
       {
         type: "reading",
@@ -714,15 +732,6 @@ const rooms = [
           explanation:
             "Beacons check in at a regular interval with small, consistent payloads to the same destination. A single 3 GB upload is a possible exfiltration, not a check-in pattern. Many ports on one server in a minute is a port scan. Many short connections to many different IPs is what ordinary web browsing looks like: the opposite of one fixed destination.",
         },
-      },
-
-      // ── Reading 3 ──
-      {
-        type: "reading",
-        id: "fw-r3",
-        heading: "Firewall Investigation Methodology and Rule Analysis",
-        content:
-          "A bank vault has a sophisticated alarm system. Every time someone touches the vault door, it logs the event. But the vault door is touched hundreds of times a day legitimately. The security guard's job is not to review every single log line: that is impossible. Their job is to find the patterns that indicate someone is testing the lock, probing for weaknesses, or has managed to open it when they shouldn't have.\n\nFirewall analysis is the same discipline. In a medium-sized enterprise, firewalls generate millions of log events per day. The SOC analyst needs efficient methods to find signal in all that noise.\n\n**Starting an investigation: what triggered the alert?**\n\nMost firewall investigations start with a SIEM alert, not raw log browsing. The alert tells you something anomalous was detected. Common starting points:\n- Threat intelligence match: a connection to/from a known malicious IP or domain\n- Volume anomaly: unusual spike in bytes transferred from a normally quiet machine\n- Policy violation: traffic on a port that should never appear (e.g., internal machine connecting to external on port 4444)\n- IDS/IPS signature: the NGFW's built-in intrusion detection fired on content inside a packet\n\n**Pivot: from alert to investigation**\n\nOnce you have a suspicious source IP (srcip), you pivot:\n\n1. **What else has this IP done?** Search all firewall logs for this srcip over the last 24 hours. What other destinations did it contact? What ports? Were any blocked?\n\n2. **What machine is this?** Look up the srcip in your DHCP logs or asset inventory to find the hostname and who owns the machine.\n\n3. **Has this destination IP (dstip) been contacted by others?** If one machine contacts a suspicious external IP, check whether other machines also contacted the same IP. If 20 machines all connect to 185.220.101.47:443 at regular intervals, you likely have a widespread malware infection.\n\n4. **What does threat intelligence say about the external IP?** Check VirusTotal, AbuseIPDB, and your SIEM's built-in threat feeds. If it is categorised as \"Malware C2\", the investigation becomes a confirmed incident.\n\n5. **What application/service?** If you have App-ID or proxy integration, determine the actual application. Is port 443 traffic actually HTTPS (benign-looking) or is it a known C2 framework tool like Cobalt Strike or Metasploit HTTPS listener?\n\n**Rule hit analysis**\n\nFirewall policies contain dozens or hundreds of rules. Rules are evaluated top-to-bottom, and the first matching rule wins. Monitoring rule hit counts reveals:\n- **High-hit deny rules**: which traffic is being blocked most often? High hits on an inbound-deny rule from diverse external IPs may indicate scanning activity against your perimeter.\n- **Permissive rules with unexpected traffic**: a rule that was created for a specific application but is now seeing traffic on unexpected ports. Someone may be using it as a bypass.\n- **Shadow rules**: rules that never match (zero hits) may be duplicates or outdated. Rules that used to have hits but suddenly stopped may indicate a service has moved.\n\n**Containment actions via firewall**\n\nWhen you confirm malicious activity, your firewall is a key containment tool:\n- **Block specific external IP**: add a deny rule for the malicious destination IP (C2 server). This may interrupt active malware but does not remove it from the endpoint.\n- **Block source IP**: if you identify an attacking external IP (scanning, brute force), block it inbound.\n- **Quarantine segment**: if a machine is confirmed compromised, work with network operations to move it to an isolated VLAN that has no access to the internal network (only access to the SOC's analysis systems).\n- **Emergency rule**: add a temporary \"log and alert\" rule above existing rules to capture all traffic from a suspicious internal IP in high resolution while you investigate.",
       },
 
       // ── Question 1 ──
@@ -761,22 +770,13 @@ const rooms = [
         xp: 20,
       },
 
-      // ── Question 3 ──
+      // ── Reading 3 ──
       {
-        type: "question",
-        id: "fw-q3",
-        question:
-          "In a FortiGate firewall log, you see: action=deny, srcip=10.10.22.87, dstip=185.220.101.47, dstport=443, proto=6 (TCP), sentbyte=0, rcvdbyte=0, duration=0. What do the zero byte counters tell you about this specific event?",
-        options: [
-          "The session completed first; FortiGate does not count bytes on denied sessions",
-          "The attempt was stopped before any data moved, so no session ever formed",
-          "The syslog forwarder truncated the byte fields, so the real size is unknown",
-          "The server answered with an empty response, so both counters stayed at zero",
-        ],
-        answer: 1,
-        explanation:
-          "Zero bytes in both directions with duration 0 means the policy matched the first packet (source, destination, port, protocol) and the TCP handshake never completed: no C2 data moved for this attempt. A completed session would show bytes, since counters are recorded for the traffic that actually passed. Truncation would leave the fields missing or malformed, not neatly zero in both directions alongside a zero duration. An “empty response” still needs a completed handshake, which carries bytes. The host 10.10.22.87 still needs investigating: the block stopped the connection, not whatever tried to make it.",
-        xp: 20,
+        type: "reading",
+        id: "fw-r3",
+        heading: "Firewall Investigation Methodology and Rule Analysis",
+        content:
+          "A bank vault has a sophisticated alarm system. Every time someone touches the vault door, it logs the event. But the vault door is touched hundreds of times a day legitimately. The security guard's job is not to review every single log line: that is impossible. Their job is to find the patterns that indicate someone is testing the lock, probing for weaknesses, or has managed to open it when they shouldn't have.\n\nFirewall analysis is the same discipline. In a medium-sized enterprise, firewalls generate millions of log events per day. The SOC analyst needs efficient methods to find signal in all that noise.\n\n**Starting an investigation: what triggered the alert?**\n\nMost firewall investigations start with a SIEM alert, not raw log browsing. The alert tells you something anomalous was detected. Common starting points:\n- Threat intelligence match: a connection to/from a known malicious IP or domain\n- Volume anomaly: unusual spike in bytes transferred from a normally quiet machine\n- Policy violation: traffic on a port that should never appear (e.g., internal machine connecting to external on port 4444)\n- IDS/IPS signature: the NGFW's built-in intrusion detection fired on content inside a packet\n\n**Pivot: from alert to investigation**\n\nOnce you have a suspicious source IP (srcip), you pivot:\n\n1. **What else has this IP done?** Search all firewall logs for this srcip over the last 24 hours. What other destinations did it contact? What ports? Were any blocked?\n\n2. **What machine is this?** Look up the srcip in your DHCP logs or asset inventory to find the hostname and who owns the machine.\n\n3. **Has this destination IP (dstip) been contacted by others?** If one machine contacts a suspicious external IP, check whether other machines also contacted the same IP. If 20 machines all connect to 185.220.101.47:443 at regular intervals, you likely have a widespread malware infection.\n\n4. **What does threat intelligence say about the external IP?** Check VirusTotal, AbuseIPDB, and your SIEM's built-in threat feeds. If it is categorised as \"Malware C2\", the investigation becomes a confirmed incident.\n\n5. **What application/service?** If you have App-ID or proxy integration, determine the actual application. Is port 443 traffic actually HTTPS (benign-looking) or is it a known C2 framework tool like Cobalt Strike or Metasploit HTTPS listener?\n\n**Rule hit analysis**\n\nFirewall policies contain dozens or hundreds of rules. Rules are evaluated top-to-bottom, and the first matching rule wins. Monitoring rule hit counts reveals:\n- **High-hit deny rules**: which traffic is being blocked most often? High hits on an inbound-deny rule from diverse external IPs may indicate scanning activity against your perimeter.\n- **Permissive rules with unexpected traffic**: a rule that was created for a specific application but is now seeing traffic on unexpected ports. Someone may be using it as a bypass.\n- **Shadow rules**: rules that never match (zero hits) may be duplicates or outdated. Rules that used to have hits but suddenly stopped may indicate a service has moved.\n\n**Containment actions via firewall**\n\nWhen you confirm malicious activity, your firewall is a key containment tool:\n- **Block specific external IP**: add a deny rule for the malicious destination IP (C2 server). This may interrupt active malware but does not remove it from the endpoint.\n- **Block source IP**: if you identify an attacking external IP (scanning, brute force), block it inbound.\n- **Quarantine segment**: if a machine is confirmed compromised, work with network operations to move it to an isolated VLAN that has no access to the internal network (only access to the SOC's analysis systems).\n- **Emergency rule**: add a temporary \"log and alert\" rule above existing rules to capture all traffic from a suspicious internal IP in high resolution while you investigate.",
       },
 
       // ── Log Analysis ──
@@ -864,6 +864,16 @@ const rooms = [
         ],
       },
 
+      // ── Flag ──
+      {
+        type: "flag",
+        id: "fw-flag1", logTask: "fw-la1",
+        prompt:
+          "Go back to the 'Analysing a Blocked Outbound C2 Connection' log (the FortiGate event with data.action = deny, not the later verdict scenario). You have decided to isolate the machine that tried to reach the C2 server. What is that machine's hostname?",
+        answer: "WKSTN-ACCT-087",
+        hint: "Start from the address that opened the connection, then find what the SIEM's enrichment says that address is. The firewall's own name is not the answer.",
+        xp: 35,
+      },
       // ── Analyst Choice ──
       {
         type: "analyst_choice" as const,
@@ -912,16 +922,6 @@ const rooms = [
         xp: 30,
       },
 
-      // ── Flag ──
-      {
-        type: "flag",
-        id: "fw-flag1", logTask: "fw-la1",
-        prompt:
-          "Go back to the 'Analysing a Blocked Outbound C2 Connection' log (the FortiGate event with data.action = deny, not the later verdict scenario). You have decided to isolate the machine that tried to reach the C2 server. What is that machine's hostname?",
-        answer: "WKSTN-ACCT-087",
-        hint: "Start from the address that opened the connection, then find what the SIEM's enrichment says that address is. The firewall's own name is not the answer.",
-        xp: 35,
-      },
     ],
   },
 

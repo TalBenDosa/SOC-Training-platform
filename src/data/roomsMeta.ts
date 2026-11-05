@@ -2509,12 +2509,12 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "fw-r2",
-        "type": "reading",
-        "xp": 0
+        "id": "fw-q3",
+        "type": "question",
+        "xp": 20
       },
       {
-        "id": "fw-r3",
+        "id": "fw-r2",
         "type": "reading",
         "xp": 0
       },
@@ -2529,9 +2529,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
-        "id": "fw-q3",
-        "type": "question",
-        "xp": 20
+        "id": "fw-r3",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "fw-la1",
@@ -2539,15 +2539,15 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 50
       },
       {
+        "id": "fw-flag1",
+        "type": "flag",
+        "xp": 35
+      },
+      {
         "id": "fw-ac1",
         "type": "analyst_choice",
         "xp": 30,
         "mitreTechnique": "T1071.001"
-      },
-      {
-        "id": "fw-flag1",
-        "type": "flag",
-        "xp": 35
       }
     ]
   },

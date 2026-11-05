@@ -76,6 +76,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   nightqueue: dynamic(() => import("./scenes/NightQueueScene"), { ssr: false }),
   coldcase: dynamic(() => import("./scenes/ColdCaseScene"), { ssr: false }),
   longdistance: dynamic(() => import("./scenes/LongDistanceScene"), { ssr: false }),
+  denyall: dynamic(() => import("./scenes/DenyAllScene"), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;
