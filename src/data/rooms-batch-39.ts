@@ -247,18 +247,6 @@ const esxiVirtualizationSecurityRoom = {
         "**chainId: linking related events.** Some events share a chainId, tying together records that stem from the same underlying operation or session, useful for reconstructing a sequence rather than reading isolated, disconnected log lines.\n\n" +
         "**What userName actually represents, and its occasional gap.** Most events carry the acting principal's full name (for example, VSPHERE.LOCAL\\Administrator), but some system-generated events (a VM power-off triggered by an automated process rather than a specific interactive session, for instance) can show an empty userName field. An empty userName is not an error to dismiss; it means the immediate vCenter event itself doesn't attribute the action to an interactive user, which is exactly why tracing back to an earlier, correlated event (like the session or permission grant that authorised the underlying access in the first place) is often necessary to establish full attribution.",
     },
-    // ── Reading 5: vobd.log / esx.audit ──────────────────────────────────────
-    {
-      type: "reading" as const,
-      id: "esxf-r5",
-      heading: "Reading vobd.log and esx.audit.* Events on the ESXi Host Itself",
-      content:
-        "vpxd.log records what vCenter, the management plane, observed. Each individual ESXi host also keeps its own separate, host-local record, and this is the log source that catches activity vCenter itself might never see directly.\n\n" +
-        "**vobd: the VMkernel Observation Daemon.** vobd is a process running on each ESXi host that watches for and logs significant host-level events into its own log file, conventionally at /var/log/vobd.log on that specific host. This is a genuinely separate log source from vpxd.log. It lives on the host, not on the vCenter appliance, and it captures host-local activity regardless of whether that activity was ever reflected up into vCenter's own event feed.\n\n" +
-        "**The esx.audit.* naming convention.** A large and important category of vobd-logged events uses a consistent esx.audit. prefix, naming a specific host-level security-relevant change: esx.audit.ssh.enabled records the SSH service being turned on, esx.audit.net.firewall.config.changed records a host firewall ruleset being modified, esx.audit.account.password.updated records a local account's password being changed. As with every other event-taxonomy system in this room, the naming pattern itself carries information: the esx.audit prefix specifically flags 'this is a security-relevant host configuration change,' distinct from vobd's other, more routine housekeeping entries.\n\n" +
-        "**Why esx.audit.ssh.enabled specifically is such a high-confidence signal.** ESXi ships with SSH disabled by default, and VMware's own hardening guidance recommends leaving it disabled except during specific, deliberate maintenance activity. Because of that default-off posture, any occurrence of this event at all is a deviation from the host's normal running state: it is not a routine, frequently-occurring event the way a login attempt is. An esx.audit.ssh.enabled event with no corresponding, pre-approved change record is about as close to a certain finding as a single log line gets in this entire room.\n\n" +
-        "**Why an analyst needs both vpxd.log and vobd.log, not just one.** vCenter's own event feed shows the administrative action that ultimately CAUSED SSH to be enabled (the permission grant, the login session that used it) but the actual esx.audit.ssh.enabled confirmation that the change genuinely took effect on that specific host lives in that host's own vobd.log. An investigation that only reads one of the two logs is missing either the authorization chain (vpxd.log) or the on-host confirmation and exact timing (vobd.log): both matter, and they are genuinely different files, often on genuinely different machines. Note what vobd.log does NOT give you: a change pushed through vCenter executes on the host as vCenter's own agent account, vpxuser, so the vobd entry names no vCenter SSO user. Attribution comes from matching the host and timestamp to the vCenter task that made the change (for SSH, the start of the TSM-SSH service) recorded in vpxd.log.",
-    },
     // ── Log Analysis 1: PermissionAddedEvent ─────────────────────────────────
     {
       type: "log_analysis" as const,
@@ -311,6 +299,29 @@ const esxiVirtualizationSecurityRoom = {
           xp: 30,
         },
       ],
+    },
+    // ── Flag ──────────────────────────────────────────────────────────────────
+    {
+      type: "flag" as const,
+      id: "esxf-f1",
+      event: permissionGrantEvent, // show the vcsa-04 permission-grant log this flag reads
+      prompt:
+        "The danger in the vcsa-04 permission grant is its scope. To search vCenter for every other permission ever attached to that same inventory object, you would pivot on the object's managed-object reference (moref), vCenter's internal ID for it. Enter that moref.",
+      answer: "group-d1",
+      hint: "A permission is attached to an entity; the principal is who receives it.",
+      xp: 20,
+    },
+    // ── Reading 5: vobd.log / esx.audit ──────────────────────────────────────
+    {
+      type: "reading" as const,
+      id: "esxf-r5",
+      heading: "Reading vobd.log and esx.audit.* Events on the ESXi Host Itself",
+      content:
+        "vpxd.log records what vCenter, the management plane, observed. Each individual ESXi host also keeps its own separate, host-local record, and this is the log source that catches activity vCenter itself might never see directly.\n\n" +
+        "**vobd: the VMkernel Observation Daemon.** vobd is a process running on each ESXi host that watches for and logs significant host-level events into its own log file, conventionally at /var/log/vobd.log on that specific host. This is a genuinely separate log source from vpxd.log. It lives on the host, not on the vCenter appliance, and it captures host-local activity regardless of whether that activity was ever reflected up into vCenter's own event feed.\n\n" +
+        "**The esx.audit.* naming convention.** A large and important category of vobd-logged events uses a consistent esx.audit. prefix, naming a specific host-level security-relevant change: esx.audit.ssh.enabled records the SSH service being turned on, esx.audit.net.firewall.config.changed records a host firewall ruleset being modified, esx.audit.account.password.updated records a local account's password being changed. As with every other event-taxonomy system in this room, the naming pattern itself carries information: the esx.audit prefix specifically flags 'this is a security-relevant host configuration change,' distinct from vobd's other, more routine housekeeping entries.\n\n" +
+        "**Why esx.audit.ssh.enabled specifically is such a high-confidence signal.** ESXi ships with SSH disabled by default, and VMware's own hardening guidance recommends leaving it disabled except during specific, deliberate maintenance activity. Because of that default-off posture, any occurrence of this event at all is a deviation from the host's normal running state: it is not a routine, frequently-occurring event the way a login attempt is. An esx.audit.ssh.enabled event with no corresponding, pre-approved change record is about as close to a certain finding as a single log line gets in this entire room.\n\n" +
+        "**Why an analyst needs both vpxd.log and vobd.log, not just one.** vCenter's own event feed shows the administrative action that ultimately CAUSED SSH to be enabled (the permission grant, the login session that used it) but the actual esx.audit.ssh.enabled confirmation that the change genuinely took effect on that specific host lives in that host's own vobd.log. An investigation that only reads one of the two logs is missing either the authorization chain (vpxd.log) or the on-host confirmation and exact timing (vobd.log): both matter, and they are genuinely different files, often on genuinely different machines. Note what vobd.log does NOT give you: a change pushed through vCenter executes on the host as vCenter's own agent account, vpxuser, so the vobd entry names no vCenter SSO user. Attribution comes from matching the host and timestamp to the vCenter task that made the change (for SSH, the start of the TSM-SSH service) recorded in vpxd.log.",
     },
     // ── Question 2 ───────────────────────────────────────────────────────────
     {
@@ -536,17 +547,6 @@ const esxiVirtualizationSecurityRoom = {
       explanation:
         "The report follows causality: the actor first needed a way into the management network, then a PermissionAddedEvent gave the acting account the rights it used, then those rights enabled SSH on the host (confirmed in vobd.log), the enabled SSH made the interactive session possible (recorded verbatim in shell.log), and that session drove the power-off loop and datastore changes that make up the impact. The change-calendar cross-check closes the report because it is the confirmation applied to the full list of privileged actions just reconstructed. This is a reconstruction order, not a live-response order: during an active intrusion, containment and scoping come first, and the change calendar is often checked early -- in the analyst-choice task, the change ticket is what settles the verdict.",
       xp: 35,
-    },
-    // ── Flag ──────────────────────────────────────────────────────────────────
-    {
-      type: "flag" as const,
-      id: "esxf-f1",
-      event: permissionGrantEvent, // show the vcsa-04 permission-grant log this flag reads
-      prompt:
-        "The danger in the vcsa-04 permission grant is its scope. To search vCenter for every other permission ever attached to that same inventory object, you would pivot on the object's managed-object reference (moref), vCenter's internal ID for it. Enter that moref.",
-      answer: "group-d1",
-      hint: "A permission is attached to an entity; the principal is who receives it.",
-      xp: 20,
     },
   ],
 };

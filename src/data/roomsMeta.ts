@@ -7648,15 +7648,20 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "esxf-r5",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "esxf-la1",
         "type": "log_analysis",
         "xp": 80,
         "mitreTechnique": "T1098"
+      },
+      {
+        "id": "esxf-f1",
+        "type": "flag",
+        "xp": 20
+      },
+      {
+        "id": "esxf-r5",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "esxf-q2",
@@ -7708,11 +7713,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "esxf-o1",
         "type": "ordering",
         "xp": 35
-      },
-      {
-        "id": "esxf-f1",
-        "type": "flag",
-        "xp": 20
       }
     ]
   },

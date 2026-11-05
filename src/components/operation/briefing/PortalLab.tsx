@@ -114,7 +114,7 @@ function PortalRun({ lab, onDone, onRetry }: { lab: Lab; onDone: () => void; onR
         </div>
       ) : (
         <motion.div key={shake} animate={shake ? { x: [0, -6, 6, -3, 3, 0] } : undefined} className="overflow-x-auto rounded-xl border border-white/10">
-          {lab.skin === "azure" ? <Azure {...ui} /> : <Edr {...ui} />}
+          {lab.skin === "azure" ? <Azure {...ui} /> : lab.skin === "vsphere" ? <Vsphere {...ui} /> : <Edr {...ui} />}
         </motion.div>
       )}
 
@@ -356,6 +356,71 @@ function AzureRecord(p: Ui & { rec: Record_ }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── vSphere-style client: inventory tree, object tabs, event grid, details below ──────
+function Vsphere(ui: Ui) {
+  const { lab, page, rec } = ui;
+  const accent = "#0072a3";
+  return (
+    <div className="min-w-[56rem] bg-[#fafafa] text-[#313131]" style={{ fontFamily: '"Metropolis", "Segoe UI", system-ui, sans-serif' }}>
+      <div className="flex h-10 items-center gap-3 bg-[#0d2c40] px-3 text-white">
+        <Menu className="h-4 w-4" /><span className="text-sm font-semibold">{lab.product}</span>
+        <div className="mx-auto flex h-7 w-96 items-center gap-2 rounded-sm bg-white/10 px-2 text-xs text-slate-200"><Search className="h-3.5 w-3.5" />Search in all environments</div>
+        <RefreshCw className="h-4 w-4" /><CircleHelp className="h-4 w-4" />
+        <span className="text-xs">analyst@{lab.tenant.toUpperCase()}</span>
+      </div>
+      <div className="grid min-h-[30rem] grid-cols-[11rem_1fr]">
+        <nav aria-label="Inventory" className="border-r border-[#d7d7d7] bg-white py-2 text-[13px]">
+          {lab.menu.map(g => g.items.map(i => (
+            <button key={i.id} onClick={() => ui.go(i.id)} style={{ paddingLeft: `${0.5 + (i.depth ?? 0) * 0.8}rem` }}
+              className={cn("flex w-full items-center gap-1 py-1 pr-2 text-left hover:bg-[#e8f4fa]", page.node === i.id && "bg-[#d8ecf5] font-semibold")}>
+              <ChevronDown className="h-3 w-3 shrink-0 text-[#747474]" /><span className="truncate">{i.label}</span>
+            </button>
+          )))}
+        </nav>
+        <div className="min-w-0">
+          <div className="border-b border-[#d7d7d7] bg-white px-4 pt-2">
+            <div className="flex items-center gap-3">
+              <h4 className="text-lg font-semibold text-[#1b1b1b]">{page.object ?? lab.resource}</h4>
+              <span className="text-[12px] font-semibold uppercase tracking-wide" style={{ color: accent }}>Actions</span>
+            </div>
+            {page.tabs && (
+              <div role="tablist" className="mt-1 flex gap-5 text-[13px]">
+                {page.tabs.map(t => <button key={t.id} role="tab" aria-selected={page.tab === t.label} onClick={() => ui.go(t.id)} className={cn("pb-1.5", page.tab === t.label ? "border-b-2 font-semibold text-[#1b1b1b]" : "text-[#565656] hover:text-[#1b1b1b]")} style={page.tab === t.label ? { borderColor: accent } : undefined}>{t.label}</button>)}
+              </div>
+            )}
+          </div>
+          <div className={cn("grid min-w-0", page.sub && "grid-cols-[7.5rem_1fr]")}>
+            {page.sub && (
+              <div className="border-r border-[#d7d7d7] bg-white py-2 text-[13px]">
+                <p className="px-3 pb-1 text-[11px] font-semibold text-[#565656]">Tasks and Events</p>
+                {page.sub.map(s => <button key={s.id} onClick={() => ui.go(s.id)} className={cn("block w-full px-3 py-1 text-left hover:bg-[#e8f4fa]", ui.pageId === s.id && "bg-[#d8ecf5] font-semibold")}>{s.label}</button>)}
+              </div>
+            )}
+            <div className="min-w-0 p-3">
+              <p className="mb-1 text-[14px] font-semibold text-[#1b1b1b]">{page.heading}</p>
+              {page.tiles && <div className="mb-2 flex gap-6">{page.tiles.map(t => <div key={t.label}><p className="text-[11px] text-[#565656]">{t.label}</p><p className="text-sm font-semibold text-[#1b1b1b]">{t.value}</p></div>)}</div>}
+              {page.note && <p className="mb-2 rounded-sm border-l-4 border-[#c92100] bg-[#fdf1ef] px-2 py-1 text-[13px] text-[#313131]">{page.note}</p>}
+              {page.table && <div className="rounded-sm border border-[#d7d7d7] bg-white [&_td:not(:first-child)]:whitespace-nowrap"><Grid ui={ui} /></div>}
+              {rec && (
+                <div className="mt-3 rounded-sm border border-[#d7d7d7] bg-white p-3 text-[13px]">
+                  <div className="flex items-center gap-3">
+                    <p className="text-[14px] font-semibold text-[#1b1b1b]">{rec.title}</p>
+                    <div className="ml-auto flex gap-1.5">{rec.actions?.map(a => <button key={a.id} onClick={() => ui.act(a.id)} className="rounded-sm border px-2.5 py-0.5 text-[11.5px] font-semibold uppercase tracking-wide hover:bg-[#e8f4fa]" style={{ borderColor: accent, color: accent }}>{a.label}</button>)}</div>
+                  </div>
+                  <dl className="mt-2 grid grid-cols-[10rem_1fr] gap-x-3 gap-y-1">
+                    {rec.facts.map(([k, v]) => <React.Fragment key={k}><dt className="text-[#565656]">{k}</dt><dd className="font-mono text-[12.5px] text-[#1b1b1b] [overflow-wrap:anywhere]">{v}</dd></React.Fragment>)}
+                  </dl>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-4 border-t border-[#d7d7d7] bg-white px-3 py-1 text-[12px] text-[#565656]"><span>Recent Tasks</span><span>Alarms</span></div>
     </div>
   );
 }

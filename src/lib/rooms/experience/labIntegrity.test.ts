@@ -73,7 +73,7 @@ function problems(l: BriefingLab): string[] {
       const ok = (t: string) => {
         const [kind, ...rest] = t.split(":");
         const id = rest.join(":");
-        if (kind === "menu") return !!l.pages[id] && l.menu.some(g => g.items.some(i => i.id === id));
+        if (kind === "menu") return !!l.pages[id] && (l.menu.some(g => g.items.some(i => i.id === id)) || pages.some(p => p.tabs?.some(t => t.id === id) || p.sub?.some(t => t.id === id)));
         if (kind === "row") return rows.some(r => r.id === id);
         if (kind === "tree") return records.some(r => r.tree?.some(n => n.id === id));
         if (kind === "set") {

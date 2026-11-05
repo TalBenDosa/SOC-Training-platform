@@ -10,7 +10,7 @@
  * Concept doc: docs/CONCEPT-gamified-learning-rooms.md
  */
 
-export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint" | "linux" | "pipeline" | "crypto" | "time" | "forensics" | "identity" | "malware" | "risk" | "patching" | "killchain" | "netsec" | "edr" | "mind" | "sensors" | "webapp" | "lures" | "macos" | "evtx" | "varlog" | "siem" | "ingest" | "email" | "protocols" | "dlp" | "persistence" | "powershell" | "privesc" | "attack" | "ad" | "wazuh" | "sentinel" | "detection" | "m365" | "falcon" | "s1" | "detonation" | "nightqueue" | "forensics2" | "vpn" | "fwlogs" | "dns" | "ngfw" | "avedr" | "llm" | "wire" | "webops";
+export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint" | "linux" | "pipeline" | "crypto" | "time" | "forensics" | "identity" | "malware" | "risk" | "patching" | "killchain" | "netsec" | "edr" | "mind" | "sensors" | "webapp" | "lures" | "macos" | "evtx" | "varlog" | "siem" | "ingest" | "email" | "protocols" | "dlp" | "persistence" | "powershell" | "privesc" | "attack" | "ad" | "wazuh" | "sentinel" | "detection" | "m365" | "falcon" | "s1" | "detonation" | "nightqueue" | "forensics2" | "vpn" | "fwlogs" | "dns" | "ngfw" | "avedr" | "llm" | "wire" | "webops" | "baremetal";
 
 /**
  * The room's 3D world on its main screen. Decorative (never clickable): it shows
@@ -127,8 +127,10 @@ export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" |
  *             row, TTL rings counting down, a capture screen and a burst of resets
  *  - opensesame: requests at a WAF gate, an IIS rack and its log, a second record
  *             joined by a beam, a scanner node and a stray file spawning a console
+ *  - baremetal: the stack in section, vCenter over glass guests over hosts and a datastore;
+ *             a grant cascades down, a host's door opens, guests go dark and disks unlock
  */
-export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver" | "cipherlab" | "chrono" | "dissect" | "idgate" | "specimen" | "riskcore" | "patchline" | "chainlinks" | "zonewall" | "blackbox" | "mindlab" | "sightlines" | "webpath" | "baitshop" | "orchard" | "evtxtape" | "varlog" | "radar" | "intake" | "postmark" | "protostack" | "sealedbrief" | "sparekey" | "objectpipe" | "integrityladder" | "matrixwall" | "domaintree" | "wazuhflow" | "skyquery" | "noisefilter" | "tenantcloud" | "talon" | "storyline" | "detonation" | "nightqueue" | "coldcase" | "longdistance" | "denyall" | "lookup" | "generations" | "secondopinion" | "ignoreall" | "wirelevel" | "opensesame";
+export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver" | "cipherlab" | "chrono" | "dissect" | "idgate" | "specimen" | "riskcore" | "patchline" | "chainlinks" | "zonewall" | "blackbox" | "mindlab" | "sightlines" | "webpath" | "baitshop" | "orchard" | "evtxtape" | "varlog" | "radar" | "intake" | "postmark" | "protostack" | "sealedbrief" | "sparekey" | "objectpipe" | "integrityladder" | "matrixwall" | "domaintree" | "wazuhflow" | "skyquery" | "noisefilter" | "tenantcloud" | "talon" | "storyline" | "detonation" | "nightqueue" | "coldcase" | "longdistance" | "denyall" | "lookup" | "generations" | "secondopinion" | "ignoreall" | "wirelevel" | "opensesame" | "baremetal";
 
 /** cards: illustrated station cards above the scene. stage: the scene fills the
  *  screen, stations sit in a rail, the selected one in a bottom command bar.
@@ -376,13 +378,13 @@ export type BriefingLab = ({
       kind: "portal";
       title: string;
       prompt: string;
-      skin: "azure" | "edr";
+      skin: "azure" | "edr" | "vsphere";
       /** Top-bar label: generic, never a product name. */
       product: string;
       resource: string;
       tenant: string;
       home: string;
-      menu: { group?: string; items: { id: string; label: string }[] }[];
+      menu: { group?: string; items: { id: string; label: string; /** Inventory tree indent, vsphere skin only. */ depth?: number }[] }[];
       pages: Record<string, {
         heading: string;
         commands?: { id: string; label: string }[];
@@ -391,6 +393,12 @@ export type BriefingLab = ({
         note?: string;
         query?: string;
         table?: { columns: string[]; rows: { id: string; cells: string[]; tone?: "critical" | "high" | "medium" | "low" | "info"; record?: string }[] };
+        /** vsphere skin: the inventory object this page belongs to, its tree node, and its tabs (ids are page ids). */
+        object?: string;
+        node?: string;
+        tabs?: { id: string; label: string }[];
+        tab?: string;
+        sub?: { id: string; label: string }[];
       }>;
       records: Record<string, {
         id: string;
