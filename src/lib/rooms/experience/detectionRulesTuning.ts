@@ -27,6 +27,14 @@ export const DETECTION_RULES_TUNING: RoomExperience = {
   look: { primary: "#a78bfa", secondary: "#34d399", warn: "#f87171" },
   scene: "noisefilter",
   layout: "stage",
+  story: {
+    intro: { title: "41,000 Alerts, Two Real", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/detection-rules-tuning/signalnoise-intro-9f16f2d7.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/detection-rules-tuning/signalnoise-intro-b2f1cbfe.jpg" },
+    afterStation: {
+      sigma: { title: "Write It Once", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/detection-rules-tuning/signalnoise-ch2-e7913b49.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/detection-rules-tuning/signalnoise-ch2-91f72006.jpg" },
+      tune: { title: "One in 120", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/detection-rules-tuning/signalnoise-ch3-e122cb61.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/detection-rules-tuning/signalnoise-ch3-2b078e33.jpg" },
+      boss: { title: "Earn Its Place", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/detection-rules-tuning/signalnoise-finale-8e64aa29.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/detection-rules-tuning/signalnoise-finale-fc917eae.jpg" },
+    },
+  },
   stations: [
     {
       id: "logic",
