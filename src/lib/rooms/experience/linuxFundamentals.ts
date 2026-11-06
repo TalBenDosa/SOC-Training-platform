@@ -26,11 +26,11 @@ export const LINUX_FUNDAMENTALS: RoomExperience = {
   scene: "fstree",
   layout: "stage",
   story: {
-    intro: { title: "Running Hot Since 02:31", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-fundamentals/root-cause-intro-68e4f757.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-fundamentals/root-cause-intro-f5991797.jpg" },
+    intro: { title: "Running Hot Since 02:31", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-fundamentals/root-cause-intro-db655195.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-fundamentals/root-cause-intro-f8666015.jpg" },
     afterStation: {
-      perms: { title: "Two Ways to Root", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-fundamentals/root-cause-ch2-602baf4f.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-fundamentals/root-cause-ch2-09b9c833.jpg" },
-      persist: { title: "Every Door", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-fundamentals/root-cause-ch3-059a1cd9.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-fundamentals/root-cause-ch3-37f1adcd.jpg" },
-      audit: { title: "Root Cause", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-fundamentals/root-cause-finale-b6e5d898.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-fundamentals/root-cause-finale-c7c0f276.jpg" },
+      perms: { title: "Two Ways to Root", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-fundamentals/root-cause-ch2-c83600cd.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-fundamentals/root-cause-ch2-20edb7e0.jpg" },
+      persist: { title: "Every Door", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-fundamentals/root-cause-ch3-018f3e87.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-fundamentals/root-cause-ch3-46bfb74b.jpg" },
+      audit: { title: "Root Cause", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-fundamentals/root-cause-finale-caee4c6b.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/linux-fundamentals/root-cause-finale-6190baa6.jpg" },
     },
   },
   stations: [
