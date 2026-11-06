@@ -27,11 +27,11 @@ export const LOG_MANAGEMENT: RoomExperience = {
   scene: "logriver",
   layout: "stage",
   story: {
-    intro: { title: "Two Million Lines an Hour", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-management/chain-of-custody-intro-75640e2a.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-management/chain-of-custody-intro-cf7ef5f4.jpg" },
+    intro: { title: "Two Million Lines an Hour", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-management/chain-of-custody-intro-6e8851d4.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-management/chain-of-custody-intro-19cdda72.jpg" },
     afterStation: {
-      pipeline: { title: "One Language", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-management/chain-of-custody-ch2-739180ff.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-management/chain-of-custody-ch2-a3977507.jpg" },
-      tamper: { title: "The Copy They Could Not Reach", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-management/chain-of-custody-ch3-66e19d3c.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-management/chain-of-custody-ch3-10f6ae10.jpg" },
-      cleared: { title: "Chain of Custody", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-management/chain-of-custody-finale-3b3ce0a1.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-management/chain-of-custody-finale-d12c08f3.jpg" },
+      pipeline: { title: "One Language", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-management/chain-of-custody-ch2-1bd97d1c.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-management/chain-of-custody-ch2-76288654.jpg" },
+      tamper: { title: "The Copy They Could Not Reach", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-management/chain-of-custody-ch3-68dd6a6d.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-management/chain-of-custody-ch3-d792d8fb.jpg" },
+      cleared: { title: "Chain of Custody", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-management/chain-of-custody-finale-6264a615.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/log-management/chain-of-custody-finale-7f27084d.jpg" },
     },
   },
   stations: [
