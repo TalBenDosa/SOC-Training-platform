@@ -30,7 +30,7 @@ export const SOC_STRUCTURE: RoomExperience = {
     afterStation: {
       tiers: { title: "The Ladder", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-ch2-607cfdb7.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-ch2-71b58802.jpg" },
       tools: { title: "The Stack", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-ch3-4216a56c.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-ch3-4376b2f1.jpg" },
-      night: { title: "03:47", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-finale-e6f6feb0.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-finale-45d23dfc.jpg" },
+      night: { title: "03:47", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-finale-e7c5e8bb.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-finale-45d23dfc.jpg" },
     },
   },
   stations: [
