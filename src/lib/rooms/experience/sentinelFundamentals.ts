@@ -182,7 +182,7 @@ export const SENTINEL_FUNDAMENTALS: RoomExperience = {
           { key: "RiskLevelDuringSignIn", value: "medium" },
           { key: "ConditionalAccessStatus", value: "notApplied", label: "Policy", note: "No Conditional Access policy applied to this sign-in." },
         ],
-        summary: "Who, into what, outcome, from where, and how strongly they proved it. The graded event is a Windows 4625 in another table: read its outcome, logon type and source the same way. In a 4625 the outcome is the SubStatus: 0xC0000064 means the username does not exist and 0xC0000072 means the account is disabled; other SubStatus codes name other reasons. LogonType says how the attempt arrived: 2 at the keyboard, 3 over the network, 5 a service, 10 remote desktop, 11 cached credentials.",
+        summary: "Who, into what, outcome, from where, and how strongly they proved it. The graded event is a Windows 4625 in another table: read its outcome, logon type and source the same way. In a 4625 the outcome is the SubStatus: 0xC0000064 means the username does not exist, 0xC0000072 means the account is disabled, and 0xC0000234 means it is locked out. Meet a code you have not seen, and rule out the ones you have. LogonType says how the attempt arrived: 2 at the keyboard, 3 over the network, 5 a service, 10 remote desktop, 11 cached credentials.",
       },
     ],
   },

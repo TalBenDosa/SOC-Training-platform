@@ -108,7 +108,7 @@ export const CROWDSTRIKE_FALCON: RoomExperience = {
             screen: { type: "status", service: "Falcon sensor · BMH-LIS-NA07 (night auditor, Lisbon)", state: "Online · last seen 14 s ago · sensor 7.18", errors: "Prevention policy: Hotels-Standard · RFM: off", series: [40, 42, 39, 44, 41, 43, 120, 135, 128] },
             answer: "health",
             callouts: [
-              { at: "state", text: "Online and checked in seconds ago: the sensor is healthy and still talking to the cloud. That is what makes remote response possible. The sensor runs in kernel mode, which is hard to evade from user mode, so attackers try to blind it with a vulnerable driver (BYOVD, bring your own vulnerable driver)." },
+              { at: "state", text: "Online and checked in seconds ago: the sensor is healthy and still talking to the cloud. That is what makes remote response possible. The sensor lives in the kernel, where an ordinary program cannot simply switch it off. To get at it an attacker has to reach the kernel too, usually by loading a vulnerable driver (BYOVD, bring your own vulnerable driver)." },
               { at: "graph", text: "Event volume jumped late in the night. A healthy sensor reporting more, not less, often means the host is busy doing something new." },
             ],
           },
@@ -169,7 +169,7 @@ export const CROWDSTRIKE_FALCON: RoomExperience = {
         rows: 5,
         crown: "PMS",
         via: "a reused local admin password",
-        lesson: "Network contain cuts a host off from everything except the Falcon cloud, so you can still reach it with Real Time Response. That is why you contain first and investigate afterwards. Inside the session the same order applies: ps shows a process running from a public folder, netstat ties its PID to the outside address, and reg query on the Run key shows what would start it again at logon. Kill the process and remove the Run value, or it returns. A command line with -EncodedCommand is base64: decode it and check the parent process before you judge it, since encoding hides a command but does not prove an attack.",
+        lesson: "Network contain cuts a host off from everything except the Falcon cloud, so you can still reach it with Real Time Response. That is why you contain first and investigate afterwards. Inside the session the same order applies: ps shows a process running from a public folder, netstat ties its PID to the outside address, and reg query on the Run key shows what would start it again at logon. Kill the process and remove the Run value, or it returns. When the sandbox team asked for the dropped script from a Faro kiosk, Tobias ran get on it in the session, and the copy came back through the same sensor channel. A command line with -EncodedCommand is base64: decode it and check the parent process before you judge it, since encoding hides a command but does not prove an attack.",
       },
     ],
   },
