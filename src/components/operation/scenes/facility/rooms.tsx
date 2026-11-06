@@ -479,6 +479,58 @@ const RUNBOOK: CampusConfig = {
   ],
 };
 
+const QUIETFORWARD: HallConfig = {
+  title: "Forward Hall",
+  sub: "Sable Point Shipping mail forensics",
+  core: "knot",
+  books: ["Mail Forensics", "Incident Response", "SOC"],
+  cards: [
+    { icon: "eye", name: ["The Mailbox", "Audit"], color: "#7dcfb6", art: "loot" },
+    { icon: "filter", name: ["The Quiet", "Rule"], color: "#f79d65", art: "tree" },
+    { icon: "target", name: ["One", "Session"], color: "#38bdf8", art: "pulse" },
+    { icon: "users", name: ["The Cover", "Story"], color: "#c084fc", art: "axes" },
+    { icon: "mail", name: ["What", "Left"], color: "#f25c78", art: "lock" },
+  ],
+};
+
+const EXTRADEVICE: CampusConfig = {
+  seed: 8867,
+  hub: { title: "Stonehaven Credit", sub: "IDENTITY OPERATIONS HUB" },
+  buildings: [
+    { icon: "monitor", sign: ["The Device", "List"], color: "#c5e478", x: -19, z: -9, rot: 0.38 },
+    { icon: "shield", sign: ["The", "Reset"], color: "#9ad1ff", x: -13.5, z: 6, rot: 0.26 },
+    { icon: "wire", sign: ["The", "Timing"], color: "#ffc98b", x: -7, z: 9.5, rot: 0.12 },
+    { icon: "filter", sign: ["Routine", "or Not"], color: "#d3b8ff", x: 10, z: 9, rot: -0.18 },
+    { icon: "siren", sign: ["Close the", "Case"], color: "#ff6f59", x: 18.5, z: -4.5, rot: -0.38 },
+  ],
+};
+
+const FULLSHIFT: HallConfig = {
+  title: "Full Shift Hall",
+  sub: "Tamarind Air alert workflow",
+  core: "chain",
+  books: ["Investigation", "Incident Response", "SOC"],
+  cards: [
+    { icon: "siren", name: ["The", "Alert"], color: "#d4a373", art: "pulse" },
+    { icon: "target", name: ["How Far", "It Goes"], color: "#6ec6b8", art: "tree" },
+    { icon: "bag", name: ["Before", "It Fades"], color: "#fbbf24", art: "loot" },
+    { icon: "layers", name: ["The Case", "File"], color: "#38bdf8", art: "axes" },
+    { icon: "shield", name: ["The", "Call"], color: "#ef5a4c", art: "lock" },
+  ],
+};
+
+const FINALREPORT: CampusConfig = {
+  seed: 7907,
+  hub: { title: "Bellwether Schools Trust", sub: "INCIDENT REPORT HUB" },
+  buildings: [
+    { icon: "users", sign: ["The", "Reader"], color: "#f2a7c3", x: -19, z: -6.5, rot: 0.38 },
+    { icon: "filter", sign: ["The", "Record"], color: "#8fd6c8", x: -11, z: 8.5, rot: 0.22 },
+    { icon: "target", sign: ["The", "Review"], color: "#ffd08a", x: 8, z: 9, rot: -0.14 },
+    { icon: "shield", sign: ["The", "Gap"], color: "#a9b8ff", x: 14.5, z: 4.5, rot: -0.24 },
+    { icon: "siren", sign: ["Final", "Report"], color: "#ff5f45", x: 18.5, z: -7, rot: -0.38 },
+  ],
+};
+
 const HALL: HallConfig = {
   title: "Specimen Hall",
   sub: "Vantor Logistics malware lab",
@@ -577,3 +629,7 @@ export function FacilityHighCloud(props: WorldProps) { return <HallWorld cfg={HI
 export function FacilityChainOfCommand(props: WorldProps) { return <CampusWorld cfg={CHAINOFCOMMAND} props={props} />; }
 export function FacilitySprayPaint(props: WorldProps) { return <HallWorld cfg={SPRAYPAINT} props={props} />; }
 export function FacilityRunbook(props: WorldProps) { return <CampusWorld cfg={RUNBOOK} props={props} />; }
+export function FacilityQuietForward(props: WorldProps) { return <HallWorld cfg={QUIETFORWARD} props={props} />; }
+export function FacilityExtraDevice(props: WorldProps) { return <CampusWorld cfg={EXTRADEVICE} props={props} />; }
+export function FacilityFullShift(props: WorldProps) { return <HallWorld cfg={FULLSHIFT} props={props} />; }
+export function FacilityFinalReport(props: WorldProps) { return <CampusWorld cfg={FINALREPORT} props={props} />; }

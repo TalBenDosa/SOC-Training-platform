@@ -663,7 +663,7 @@ function Defender(ui: Ui) {
                   </div>
                 )}
                 {tabNow === "assets" && (
-                  <ul className="space-y-1">{rec.entities?.map(e => <li key={e.id}><button onClick={() => ui.act(`entity:${e.id}`)} className="flex w-full items-center gap-2 rounded border border-[#edebe9] bg-white px-2 py-1.5 text-left text-[13px] hover:bg-[#f3f9fd]"><span className="font-semibold text-[#201f1e]">{e.label}</span><span className="text-[11px] text-[#605e5c]">{e.type}</span>{e.seen && <span className="ml-auto text-[11px] text-[#605e5c]">{e.seen}</span>}</button></li>)}</ul>
+                  <ul className="space-y-1">{rec.entities?.map(e => <li key={e.id}><button onClick={() => ui.hit(`action:entity:${e.id}`, false)} className="flex w-full items-center gap-2 rounded border border-[#edebe9] bg-white px-2 py-1.5 text-left text-[13px] hover:bg-[#f3f9fd]"><span className="font-semibold text-[#201f1e]">{e.label}</span><span className="text-[11px] text-[#605e5c]">{e.type}</span>{e.seen && <span className="ml-auto text-[11px] text-[#605e5c]">{e.seen}</span>}</button></li>)}</ul>
                 )}
                 {tabNow === "evidence" && (
                   <div className="overflow-x-auto rounded border border-[#edebe9] bg-white">

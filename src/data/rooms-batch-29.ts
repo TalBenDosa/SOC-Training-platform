@@ -222,41 +222,6 @@ const investigateAlertRoom: Room = {
     },
     // -----------------------------------------------------------------------
     {
-      type: "reading",
-      id: "inv7-r2",
-      heading: "Step 2, Scope: The Step You Return to Again and Again",
-      content:
-        `Scoping asks three plain questions, and they only sound simple: which accounts authenticated to the affected host? Which other systems did those accounts touch? What data lives in the places they touched? Every other step in this room either feeds the answer to those questions or acts on it, which is why scope is not a single box to tick once and move past. You scope with whatever evidence Step 1 gave you, collect more evidence in Step 3, and that new evidence very often changes the answer, which means you scope again. A workflow diagram that draws scope as one box in a straight line is lying about how investigations actually feel: scope is a loop you keep re-entering until the evidence stops expanding it.\n\n` +
-        `**The one technique that matters most here: pivot on the artefact, not on the person.** When a ticket names a user, the natural instinct is to query everything by that username, every sign-in that user made, every host that user touched. That query can only ever confirm what you already suspected, because it can only ever return records about that one user. To actually test whether the problem is bigger than one account, you have to pivot the other way: take an observable property of the suspicious activity itself (a source IP, an authenticating workstation, a process hash, a destination host) and ask who else, across the whole environment, shares that same property in the same window. Querying by person asks how bad is it for them. Querying by artefact asks how big is it. Only the second question can surface an account nobody has flagged yet.\n\n` +
-        `**Scope answers "how far," and it has three dimensions worth separating in your notes.** Account scope: every identity that was used, misused, or reachable from the point of compromise, not just the one the ticket named. Host scope: every system the activity actually touched, reachable by pivoting on source IPs, logon records, and process lineage rather than assuming the blast radius stopped where the alert fired. Data scope: what, specifically, lived on the systems in the host-scope list, because "we touched a file server" and "we touched the file server holding unencrypted policyholder records" are two entirely different incidents that happen to look identical at the network layer.\n\n` +
-        `**Why scoping too early is a common and expensive mistake.** An analyst under time pressure often stops scoping the moment they have "enough" to act (one compromised account, one obviously-affected host) and moves to containment. If a second host or a second account is still sitting unexamined at that point, containing the first one does not stop the intrusion; it just makes the analyst feel finished. The evidence you have not yet looked for is not evidence that it doesn't exist.\n\n` +
-        `**A closing caution.** Scope is bounded by what you actually searched, not by what exists. If your pivot covered a six-hour window and one source system, say exactly that in your notes: "no further accounts found in this window, from this source" is a true and useful statement; "only one account is affected" is a claim you have not actually earned yet. That distinction becomes very important again in Step 6.`,
-      diagram:
-        "flowchart TD\n" +
-        '  A["Step 1: Validate the triggering alert"] --> B["Step 2: Scope, pivot on IP / workstation / hash, not just the named user"]\n' +
-        '  B --> C{"Does new evidence expand the scope?"}\n' +
-        '  C -->|"Yes"| D["Step 3: Collect the new evidence"]\n' +
-        '  D --> B\n' +
-        '  C -->|"No further expansion found"| E["Step 4: Reconstruct the full timeline"]\n' +
-        '  E --> F["Step 5: Map to ATT and CK, find root cause"]\n' +
-        '  F --> G["Step 6: Document"]\n' +
-        '  G --> H["Step 7: Report and hand off"]',
-      diagramCaption: "Scope is a loop, not a box. This is why Steps 2 and 3 feed each other",
-      checkpoint: {
-        question: "A ticket names j.alvarez on workstation WKS-FIN07. Which query best tests whether the problem is bigger than her account?",
-        options: [
-          "Every sign-in j.alvarez made in the last 24 hours, across all hosts",
-          "Every account that authenticated from WKS-FIN07 in the same window",
-          "Every alert raised for j.alvarez in the last 30 days, to see her history",
-          "Every file j.alvarez opened that day, to find the document that started it",
-        ],
-        answer: 1,
-        explanation:
-          "Pivoting on the artefact, the workstation, asks who else shares that property, which is the only way to surface an account nobody has flagged yet. Her own sign-ins, her alert history and her opened files are all person-based queries: useful for her side of the story, but they can only return records about j.alvarez, so they can never show that the problem has spread to someone else.",
-      },
-    },
-    // -----------------------------------------------------------------------
-    {
       type: "question",
       id: "inv7-q1",
       question:
@@ -349,51 +314,37 @@ const investigateAlertRoom: Room = {
     // -----------------------------------------------------------------------
     {
       type: "reading",
-      id: "inv7-r3",
-      heading: "Step 3: Collect and Preserve, in the Right Order",
+      id: "inv7-r2",
+      heading: "Step 2, Scope: The Step You Return to Again and Again",
       content:
-        `Once scope has told you what to go collect, the order you collect it in is not a matter of convenience. It follows the volatility of the evidence itself, meaning how quickly it disappears if you don't capture it now. Collect from most volatile to least volatile, because the fast-vanishing evidence is gone forever if you get to it late, while the slow-vanishing evidence will still be there tomorrow.\n\n` +
-        `**The order, and why each rung sits where it does.** First, memory and live system state, running processes, open handles, loaded modules, active network sockets on the host itself. This is the most volatile evidence in the entire investigation: it evaporates the instant the process exits or the machine reboots, and a well-meaning "let's just restart it and see if that helps" from an unrelated IT ticket can erase it permanently before you ever get there. Second, network connections and flow data: session records showing what a host was actually talking to, which typically persist for some window in a firewall, proxy, or NDR platform but eventually roll off retention. Third, identity and SaaS logs (sign-in records, session tokens, mailbox rule changes, application consents) usually retained considerably longer than host-level artefacts, but still finite, and still capable of being partially overwritten by continued activity on the same account. Fourth and least volatile, disk: files, registry hives, scheduled tasks, persistence artefacts sitting on storage, which will typically still be recoverable well after everything above it has decayed, unless a wipe or reimage happens first.\n\n` +
-        `**Why this order matters practically, not just academically.** An analyst who documents everything from disk first because it's the easiest thing to query, and gets to live memory state last, may find the live evidence is simply gone by the time they turn to it: a process finished, a connection closed, a session token already expired. The volatility order is a deliberate answer to that risk: spend your first collection effort where time actually costs you evidence.\n\n` +
-        `**Chain of custody is what makes any of this usable later.** Every piece of evidence you collect needs three things attached to it from the moment you touch it: a timestamp of when it was collected, a hash of the artefact itself if it's a file or export (so anyone can later confirm it hasn't been altered), and a record of who collected it. This is not paperwork for its own sake. Six months from now, if this case becomes a legal matter, an HR matter, or a regulatory finding, "I'm confident I remember what I saw" is worth nothing next to a timestamped, hashed record showing exactly what was pulled, when, and by whom. Chain of custody is what separates evidence from recollection.\n\n` +
-        `**One more discipline worth naming here: collect before you act.** Every containment step (killing a session, resetting a password, isolating a host) changes state, and changed state cannot be un-changed to recover what you didn't capture first. This is why Step 3 sits before any containment decision in this workflow, not after it.`,
-      codeExample:
-        "ORDER OF VOLATILITY -- COLLECT IN THIS ORDER\n" +
-        "=================================================================\n" +
-        "1. MEMORY / LIVE STATE     Running processes, open handles, loaded\n" +
-        "                           modules, active sockets. Gone on exit\n" +
-        "                           or reboot. Most volatile -- collect\n" +
-        "                           first.\n\n" +
-        "2. NETWORK CONNECTIONS     Flow data, firewall/proxy/NDR session\n" +
-        "                           records. Persist for a retention\n" +
-        "                           window, then roll off.\n\n" +
-        "3. IDENTITY / SAAS LOGS    Sign-ins, session tokens, mailbox\n" +
-        "                           rules, app consents. Longer retention,\n" +
-        "                           still finite.\n\n" +
-        "4. DISK                    Files, registry, scheduled tasks,\n" +
-        "                           persistence artefacts. Least volatile\n" +
-        "                           -- usually still there tomorrow.\n" +
-        "=================================================================\n" +
-        "EVERY ITEM COLLECTED NEEDS: timestamp + hash (if a file/export)\n" +
-        "+ who collected it. This is chain of custody, not paperwork.\n" +
-        "=================================================================",
-    },
-    // -----------------------------------------------------------------------
-    {
-      type: "question",
-      id: "inv7-q2",
-      question:
-        "You have identified a second, possibly-affected host and need to prioritise what to collect from it in your remaining time this shift. Which order correctly follows volatility, from most to least urgent to capture?",
-      options: [
-        "Disk artefacts, then identity/SaaS logs, then network connections, then live memory",
-        "Live memory and processes, then network connections, then identity/SaaS logs, then disk",
-        "Identity/SaaS logs, then disk artefacts, then live memory, then network connections",
-        "One automated sweep of all four, in whatever default order the collector uses",
-      ],
-      answer: 1,
-      explanation:
-        "This is the order Reading 3 laid out and the reasoning behind it: live memory and running process state vanish the moment a process exits or the machine reboots, so it is captured first; network connections persist for a retention window but do roll off; identity and SaaS logs typically last longer still; and disk artefacts are the least volatile of the four, usually recoverable well after the others have decayed. Starting with disk, or with identity logs, spends the first effort on evidence that would have waited and risks losing live memory, the fastest-decaying evidence of all. And letting a collector's default order decide is the same mistake made by a tool: volatility is why a SOC analyst, not only a forensic lab, has to choose the order deliberately, a live intrusion does not pause while artefacts are gathered in a convenient sequence.",
-      xp: 25,
+        `Scoping asks three plain questions, and they only sound simple: which accounts authenticated to the affected host? Which other systems did those accounts touch? What data lives in the places they touched? Every other step in this room either feeds the answer to those questions or acts on it, which is why scope is not a single box to tick once and move past. You scope with whatever evidence Step 1 gave you, collect more evidence in Step 3, and that new evidence very often changes the answer, which means you scope again. A workflow diagram that draws scope as one box in a straight line is lying about how investigations actually feel: scope is a loop you keep re-entering until the evidence stops expanding it.\n\n` +
+        `**The one technique that matters most here: pivot on the artefact, not on the person.** When a ticket names a user, the natural instinct is to query everything by that username, every sign-in that user made, every host that user touched. That query can only ever confirm what you already suspected, because it can only ever return records about that one user. To actually test whether the problem is bigger than one account, you have to pivot the other way: take an observable property of the suspicious activity itself (a source IP, an authenticating workstation, a process hash, a destination host) and ask who else, across the whole environment, shares that same property in the same window. Querying by person asks how bad is it for them. Querying by artefact asks how big is it. Only the second question can surface an account nobody has flagged yet.\n\n` +
+        `**Scope answers "how far," and it has three dimensions worth separating in your notes.** Account scope: every identity that was used, misused, or reachable from the point of compromise, not just the one the ticket named. Host scope: every system the activity actually touched, reachable by pivoting on source IPs, logon records, and process lineage rather than assuming the blast radius stopped where the alert fired. Data scope: what, specifically, lived on the systems in the host-scope list, because "we touched a file server" and "we touched the file server holding unencrypted policyholder records" are two entirely different incidents that happen to look identical at the network layer.\n\n` +
+        `**Why scoping too early is a common and expensive mistake.** An analyst under time pressure often stops scoping the moment they have "enough" to act (one compromised account, one obviously-affected host) and moves to containment. If a second host or a second account is still sitting unexamined at that point, containing the first one does not stop the intrusion; it just makes the analyst feel finished. The evidence you have not yet looked for is not evidence that it doesn't exist.\n\n` +
+        `**A closing caution.** Scope is bounded by what you actually searched, not by what exists. If your pivot covered a six-hour window and one source system, say exactly that in your notes: "no further accounts found in this window, from this source" is a true and useful statement; "only one account is affected" is a claim you have not actually earned yet. That distinction becomes very important again in Step 6.`,
+      diagram:
+        "flowchart TD\n" +
+        '  A["Step 1: Validate the triggering alert"] --> B["Step 2: Scope, pivot on IP / workstation / hash, not just the named user"]\n' +
+        '  B --> C{"Does new evidence expand the scope?"}\n' +
+        '  C -->|"Yes"| D["Step 3: Collect the new evidence"]\n' +
+        '  D --> B\n' +
+        '  C -->|"No further expansion found"| E["Step 4: Reconstruct the full timeline"]\n' +
+        '  E --> F["Step 5: Map to ATT and CK, find root cause"]\n' +
+        '  F --> G["Step 6: Document"]\n' +
+        '  G --> H["Step 7: Report and hand off"]',
+      diagramCaption: "Scope is a loop, not a box. This is why Steps 2 and 3 feed each other",
+      checkpoint: {
+        question: "A ticket names j.alvarez on workstation WKS-FIN07. Which query best tests whether the problem is bigger than her account?",
+        options: [
+          "Every sign-in j.alvarez made in the last 24 hours, across all hosts",
+          "Every account that authenticated from WKS-FIN07 in the same window",
+          "Every alert raised for j.alvarez in the last 30 days, to see her history",
+          "Every file j.alvarez opened that day, to find the document that started it",
+        ],
+        answer: 1,
+        explanation:
+          "Pivoting on the artefact, the workstation, asks who else shares that property, which is the only way to surface an account nobody has flagged yet. Her own sign-ins, her alert history and her opened files are all person-based queries: useful for her side of the story, but they can only return records about j.alvarez, so they can never show that the problem has spread to someone else.",
+      },
     },
     // -----------------------------------------------------------------------
     {
@@ -450,23 +401,70 @@ const investigateAlertRoom: Room = {
     },
     // -----------------------------------------------------------------------
     {
-      type: "matching",
-      id: "inv7-m1",
-      heading: "Match Each Step to the Deliverable It Actually Produces",
-      instructions:
-        "Match each of the 7 steps to the specific output it is responsible for. This is how you tell a step that's been genuinely completed from one that's only been ticked.",
-      pairs: [
-        { id: "validate", left: "Step 1: Validate", right: "A recorded determination that the triggering record is real and correctly understood, not a duplicate or artefact" },
-        { id: "scope", left: "Step 2: Scope", right: "A stated, evidence-based boundary of which accounts, hosts and data are actually touched. Re-run every time new evidence arrives" },
-        { id: "collect", left: "Step 3: Collect and preserve", right: "An evidence set gathered in volatility order, each item stamped with a timestamp, a hash where applicable, and who collected it" },
-        { id: "timeline", left: "Step 4: Reconstruct the timeline", right: "One merged, chronological narrative combining SIEM, EDR, network and identity sources into a single sequence of events" },
-        { id: "rootcause", left: "Step 5: Map to ATT&CK and root cause", right: "Each behaviour classified to a tactic/technique, plus a root cause found by asking why repeatedly until an actual control gap is named" },
-        { id: "document", left: "Step 6: Document", right: "Contemporaneous notes written as the investigation happens, not reconstructed afterward from memory" },
-        { id: "report", left: "Step 7: Report and hand off", right: "A package containing detection method, confirmed scope, full timeline, root cause and corrective actions, escalated onward where severity or breach notification requires it" },
+      type: "query_fill",
+      id: "inv7-qf1",
+      heading: "Write It Yourself: The Step 2 Pivot Query",
+      language: "kql",
+      context:
+        "You want a repeatable query for exactly the Step 2 technique this room taught: instead of asking what one named user did, pivot on an artefact of the intrusion and ask which accounts authenticated anywhere in the environment from it. Fill in the Windows successful-logon event ID and the compromised workstation's name from this case.",
+      template:
+        "SecurityEvent\n| where EventID == {{eventid}}\n| where WorkstationName =~ \"{{source}}\"\n| project TimeGenerated, Computer, TargetUserName, IpAddress, LogonType",
+      blanks: [
+        { id: "eventid", answers: ["4624"], placeholder: "Windows successful logon event ID" },
+        { id: "source", answers: ["WKS-FIN07", "wks-fin07"], placeholder: "workstation to pivot on" },
       ],
       explanation:
-        "Each step's deliverable is a specific, checkable artefact, not a feeling of having addressed it. Notice how Step 2's deliverable is explicitly described as re-run rather than one-and-done. That's the loop this room keeps returning to. And notice Step 6's wording: contemporaneous, meaning written at the time, is doing real work there. Notes assembled after the fact from memory are a materially weaker record than notes taken as each fact was found, a point the companion room on writing incident reports builds on directly.",
-      xp: 35,
+        "EventID 4624 is a successful logon, and filtering on WorkstationName WKS-FIN07 (the host where the macro ran) asks which accounts logged on to which servers from that workstation. That is the artefact-first pivot from the Step 2 reading, and it is the query that surfaces d.reyes on FIN-DB02 without anyone having named d.reyes first. Filtering on TargetUserName instead would only confirm what one account did. (=~ makes the match case-insensitive, so any letter case of the hostname is a correct query.)",
+      xp: 25,
+    },
+    // -----------------------------------------------------------------------
+    {
+      type: "reading",
+      id: "inv7-r3",
+      heading: "Step 3: Collect and Preserve, in the Right Order",
+      content:
+        `Once scope has told you what to go collect, the order you collect it in is not a matter of convenience. It follows the volatility of the evidence itself, meaning how quickly it disappears if you don't capture it now. Collect from most volatile to least volatile, because the fast-vanishing evidence is gone forever if you get to it late, while the slow-vanishing evidence will still be there tomorrow.\n\n` +
+        `**The order, and why each rung sits where it does.** First, memory and live system state, running processes, open handles, loaded modules, active network sockets on the host itself. This is the most volatile evidence in the entire investigation: it evaporates the instant the process exits or the machine reboots, and a well-meaning "let's just restart it and see if that helps" from an unrelated IT ticket can erase it permanently before you ever get there. Second, network connections and flow data: session records showing what a host was actually talking to, which typically persist for some window in a firewall, proxy, or NDR platform but eventually roll off retention. Third, identity and SaaS logs (sign-in records, session tokens, mailbox rule changes, application consents) usually retained considerably longer than host-level artefacts, but still finite, and still capable of being partially overwritten by continued activity on the same account. Fourth and least volatile, disk: files, registry hives, scheduled tasks, persistence artefacts sitting on storage, which will typically still be recoverable well after everything above it has decayed, unless a wipe or reimage happens first.\n\n` +
+        `**Why this order matters practically, not just academically.** An analyst who documents everything from disk first because it's the easiest thing to query, and gets to live memory state last, may find the live evidence is simply gone by the time they turn to it: a process finished, a connection closed, a session token already expired. The volatility order is a deliberate answer to that risk: spend your first collection effort where time actually costs you evidence.\n\n` +
+        `**Chain of custody is what makes any of this usable later.** Every piece of evidence you collect needs three things attached to it from the moment you touch it: a timestamp of when it was collected, a hash of the artefact itself if it's a file or export (so anyone can later confirm it hasn't been altered), and a record of who collected it. This is not paperwork for its own sake. Six months from now, if this case becomes a legal matter, an HR matter, or a regulatory finding, "I'm confident I remember what I saw" is worth nothing next to a timestamped, hashed record showing exactly what was pulled, when, and by whom. Chain of custody is what separates evidence from recollection.\n\n` +
+        `**One more discipline worth naming here: collect before you act.** Every containment step (killing a session, resetting a password, isolating a host) changes state, and changed state cannot be un-changed to recover what you didn't capture first. This is why Step 3 sits before any containment decision in this workflow, not after it.`,
+      codeExample:
+        "ORDER OF VOLATILITY -- COLLECT IN THIS ORDER\n" +
+        "=================================================================\n" +
+        "1. MEMORY / LIVE STATE     Running processes, open handles, loaded\n" +
+        "                           modules, active sockets. Gone on exit\n" +
+        "                           or reboot. Most volatile -- collect\n" +
+        "                           first.\n\n" +
+        "2. NETWORK CONNECTIONS     Flow data, firewall/proxy/NDR session\n" +
+        "                           records. Persist for a retention\n" +
+        "                           window, then roll off.\n\n" +
+        "3. IDENTITY / SAAS LOGS    Sign-ins, session tokens, mailbox\n" +
+        "                           rules, app consents. Longer retention,\n" +
+        "                           still finite.\n\n" +
+        "4. DISK                    Files, registry, scheduled tasks,\n" +
+        "                           persistence artefacts. Least volatile\n" +
+        "                           -- usually still there tomorrow.\n" +
+        "=================================================================\n" +
+        "EVERY ITEM COLLECTED NEEDS: timestamp + hash (if a file/export)\n" +
+        "+ who collected it. This is chain of custody, not paperwork.\n" +
+        "=================================================================",
+    },
+    // -----------------------------------------------------------------------
+    {
+      type: "question",
+      id: "inv7-q2",
+      question:
+        "You have identified a second, possibly-affected host and need to prioritise what to collect from it in your remaining time this shift. Which order correctly follows volatility, from most to least urgent to capture?",
+      options: [
+        "Disk artefacts, then identity/SaaS logs, then network connections, then live memory",
+        "Live memory and processes, then network connections, then identity/SaaS logs, then disk",
+        "Identity/SaaS logs, then disk artefacts, then live memory, then network connections",
+        "One automated sweep of all four, in whatever default order the collector uses",
+      ],
+      answer: 1,
+      explanation:
+        "This is the order Reading 3 laid out and the reasoning behind it: live memory and running process state vanish the moment a process exits or the machine reboots, so it is captured first; network connections persist for a retention window but do roll off; identity and SaaS logs typically last longer still; and disk artefacts are the least volatile of the four, usually recoverable well after the others have decayed. Starting with disk, or with identity logs, spends the first effort on evidence that would have waited and risks losing live memory, the fastest-decaying evidence of all. And letting a collector's default order decide is the same mistake made by a tool: volatility is why a SOC analyst, not only a forensic lab, has to choose the order deliberately, a live intrusion does not pause while artefacts are gathered in a convenient sequence.",
+      xp: 25,
     },
     // -----------------------------------------------------------------------
     {
@@ -491,38 +489,6 @@ const investigateAlertRoom: Room = {
         explanation:
           "Most analysts stop at the trigger ('a user clicked something'), but you keep asking why until you land on a fixable control gap. Here, macro execution from internet-sourced documents was never blocked for Finance because the rollout tracked requests, not risk. The process record already shows Word opening the .docm, so the statement is not in doubt; it is just not the cause. A root cause names a gap someone can fix, which is usually a policy or process, not a vendor. And “5 Whys” means asking why repeatedly until you reach that gap, not producing five causes.",
       },
-    },
-    // -----------------------------------------------------------------------
-    {
-      type: "analyst_choice",
-      id: "inv7-ac1",
-      heading: "The Call: True Positive, or Escalate?",
-      scenario:
-        "16:05. Your timeline now reads: 14:12, macro-spawned PowerShell on WKS-FIN07 under j.alvarez; 15:04, d.reyes authenticates onto FIN-DB02 from that same workstation, a logon pattern that account has never shown before; 15:41, the record below, a PowerShell child process on FIN-DB02, under d.reyes's session, invoking a compression utility against a folder of Accounts Payable export files, producing a multi-hundred-megabyte archive in a non-standard system folder. You have validated, scoped twice, and collected evidence in order at each stage. A directory lookup confirmed d.reyes is a Finance-DB-Admins member. Your SOC's runbook: classify as escalate when a finding meets any Step 7 escalation criterion (data that may trigger breach notification, a privileged or executive account, or activity that has reached staging or exfiltration); true_positive is for confirmed incidents Tier 1 can contain and close. The shift lead is reachable, but the classification is yours to make first.",
-      event: inv7CollectionEvent,
-      correct_verdict: "escalate",
-      explanation:
-        "This is a true positive in the sense that the activity is clearly malicious, but 'true positive' alone understates what you're holding, and understating it is the actual mistake available here. What you have is: initial access and execution on one host, lateral movement onto a database server using a privileged account that host had never been the source for before, and collection of a large volume of finance export data staged for likely removal. That is not a single-host malware event an analyst closes out alone; it is a privileged-account intrusion that has already reached a system holding financially sensitive records and produced a package-sized artefact consistent with preparation for exfiltration. The size and sensitivity of what has already been touched (not just the fact that something bad happened) is what crosses the threshold into escalation: this is the kind of finding that can carry breach-notification and regulatory obligations depending on what the underlying export data actually contains, and that determination sits above a single analyst's authority to make alone.\n\nMarking this 'true positive' and proceeding to contain it yourself would get the technical response mostly right and still fail the organisation, because notifying legal, compliance, and the IR lead about a confirmed privileged-account compromise touching finance data is itself part of the correct response, not an optional extra step after the technical work is done. Escalating is not a substitute for the technical steps still ahead of you (collection is not finished, the timeline is not final, root cause has not been named): it runs alongside them, informing the people whose decisions depend on knowing this exists.",
-      fp_trap:
-        "Calling this a straightforward 'true positive' and just handling it is the most tempting wrong answer, because every individual step in this room has trained you to build exactly the case you now have, and having built it, closing it out yourself feels like the payoff. It would also not be wrong about the facts: the activity genuinely is malicious. The mistake is one of scope of authority, not of technical judgement: the finding has grown past what a single analyst's containment decision can responsibly resolve, because it now touches a category of data (financial export records) and a category of account (a privileged credential) that most organisations have specific escalation and notification obligations around, and an individual analyst is very rarely the right person to decide those obligations don't apply. Marking it 'informational' would be indefensible against the evidence in hand. Marking it 'false_positive' would ignore every fact this room's log analysis tasks just walked you through establishing.",
-      xp: 40,
-    },
-    // -----------------------------------------------------------------------
-    {
-      type: "question",
-      id: "inv7-q3",
-      question:
-        "The archive-creation record shows a PowerShell process invoking a compression utility against a folder of export files, producing a single large archive. Which ATT&CK tactic and technique does this specific behaviour map to?",
-      options: [
-        "Tactic: Exfiltration; Technique: T1041 (Exfiltration Over C2 Channel), compressing the files is the first stage of the C2 transfer, so the data has already left",
-        "Tactic: Collection; Technique: T1560.001 (Archive Collected Data via Utility). Files are gathered and compressed into one package, preparing for removal rather than being removed",
-        "Tactic: Discovery; Technique: T1083 (File and Directory Discovery), enumerating a folder of export files, with no evidence yet that any content was read or copied",
-        "Tactic: Stealth; Technique: T1027 (Obfuscated Files or Information), packing the files into an archive hides their content from DLP and content inspection",
-      ],
-      answer: 1,
-      explanation:
-        "The specific, observable action (a utility compressing a folder of files into one archive) is exactly what T1560.001 describes: staging collected data via an archiving tool, under the Collection tactic. It is not yet Exfiltration; that tactic and T1041 specifically apply once data is observed actually leaving the environment over a command-and-control channel, which this record does not show. It is well past simple Discovery, which would only involve enumerating what files exist rather than compressing their contents into a package. And T1027 concerns obfuscating payloads or tooling to evade detection, whereas here the archive is a staging package for collected data, which is what T1560.001 captures.",
-      xp: 25,
     },
     // -----------------------------------------------------------------------
     {
@@ -572,20 +538,54 @@ const investigateAlertRoom: Room = {
     },
     // -----------------------------------------------------------------------
     {
-      type: "query_fill",
-      id: "inv7-qf1",
-      heading: "Write It Yourself: The Step 2 Pivot Query",
-      language: "kql",
-      context:
-        "You want a repeatable query for exactly the Step 2 technique this room taught: instead of asking what one named user did, pivot on an artefact of the intrusion and ask which accounts authenticated anywhere in the environment from it. Fill in the Windows successful-logon event ID and the compromised workstation's name from this case.",
-      template:
-        "SecurityEvent\n| where EventID == {{eventid}}\n| where WorkstationName =~ \"{{source}}\"\n| project TimeGenerated, Computer, TargetUserName, IpAddress, LogonType",
-      blanks: [
-        { id: "eventid", answers: ["4624"], placeholder: "Windows successful logon event ID" },
-        { id: "source", answers: ["WKS-FIN07", "wks-fin07"], placeholder: "workstation to pivot on" },
+      type: "matching",
+      id: "inv7-m1",
+      heading: "Match Each Step to the Deliverable It Actually Produces",
+      instructions:
+        "Match each of the 7 steps to the specific output it is responsible for. This is how you tell a step that's been genuinely completed from one that's only been ticked.",
+      pairs: [
+        { id: "validate", left: "Step 1: Validate", right: "A recorded determination that the triggering record is real and correctly understood, not a duplicate or artefact" },
+        { id: "scope", left: "Step 2: Scope", right: "A stated, evidence-based boundary of which accounts, hosts and data are actually touched. Re-run every time new evidence arrives" },
+        { id: "collect", left: "Step 3: Collect and preserve", right: "An evidence set gathered in volatility order, each item stamped with a timestamp, a hash where applicable, and who collected it" },
+        { id: "timeline", left: "Step 4: Reconstruct the timeline", right: "One merged, chronological narrative combining SIEM, EDR, network and identity sources into a single sequence of events" },
+        { id: "rootcause", left: "Step 5: Map to ATT&CK and root cause", right: "Each behaviour classified to a tactic/technique, plus a root cause found by asking why repeatedly until an actual control gap is named" },
+        { id: "document", left: "Step 6: Document", right: "Contemporaneous notes written as the investigation happens, not reconstructed afterward from memory" },
+        { id: "report", left: "Step 7: Report and hand off", right: "A package containing detection method, confirmed scope, full timeline, root cause and corrective actions, escalated onward where severity or breach notification requires it" },
       ],
       explanation:
-        "EventID 4624 is a successful logon, and filtering on WorkstationName WKS-FIN07 (the host where the macro ran) asks which accounts logged on to which servers from that workstation. That is the artefact-first pivot from the Step 2 reading, and it is the query that surfaces d.reyes on FIN-DB02 without anyone having named d.reyes first. Filtering on TargetUserName instead would only confirm what one account did. (=~ makes the match case-insensitive, so any letter case of the hostname is a correct query.)",
+        "Each step's deliverable is a specific, checkable artefact, not a feeling of having addressed it. Notice how Step 2's deliverable is explicitly described as re-run rather than one-and-done. That's the loop this room keeps returning to. And notice Step 6's wording: contemporaneous, meaning written at the time, is doing real work there. Notes assembled after the fact from memory are a materially weaker record than notes taken as each fact was found, a point the companion room on writing incident reports builds on directly.",
+      xp: 35,
+    },
+    // -----------------------------------------------------------------------
+    {
+      type: "analyst_choice",
+      id: "inv7-ac1",
+      heading: "The Call: True Positive, or Escalate?",
+      scenario:
+        "16:05. Your timeline now reads: 14:12, macro-spawned PowerShell on WKS-FIN07 under j.alvarez; 15:04, d.reyes authenticates onto FIN-DB02 from that same workstation, a logon pattern that account has never shown before; 15:41, the record below, a PowerShell child process on FIN-DB02, under d.reyes's session, invoking a compression utility against a folder of Accounts Payable export files, producing a multi-hundred-megabyte archive in a non-standard system folder. You have validated, scoped twice, and collected evidence in order at each stage. A directory lookup confirmed d.reyes is a Finance-DB-Admins member. Your SOC's runbook: classify as escalate when a finding meets any Step 7 escalation criterion (data that may trigger breach notification, a privileged or executive account, or activity that has reached staging or exfiltration); true_positive is for confirmed incidents Tier 1 can contain and close. The shift lead is reachable, but the classification is yours to make first.",
+      event: inv7CollectionEvent,
+      correct_verdict: "escalate",
+      explanation:
+        "This is a true positive in the sense that the activity is clearly malicious, but 'true positive' alone understates what you're holding, and understating it is the actual mistake available here. What you have is: initial access and execution on one host, lateral movement onto a database server using a privileged account that host had never been the source for before, and collection of a large volume of finance export data staged for likely removal. That is not a single-host malware event an analyst closes out alone; it is a privileged-account intrusion that has already reached a system holding financially sensitive records and produced a package-sized artefact consistent with preparation for exfiltration. The size and sensitivity of what has already been touched (not just the fact that something bad happened) is what crosses the threshold into escalation: this is the kind of finding that can carry breach-notification and regulatory obligations depending on what the underlying export data actually contains, and that determination sits above a single analyst's authority to make alone.\n\nMarking this 'true positive' and proceeding to contain it yourself would get the technical response mostly right and still fail the organisation, because notifying legal, compliance, and the IR lead about a confirmed privileged-account compromise touching finance data is itself part of the correct response, not an optional extra step after the technical work is done. Escalating is not a substitute for the technical steps still ahead of you (collection is not finished, the timeline is not final, root cause has not been named): it runs alongside them, informing the people whose decisions depend on knowing this exists.",
+      fp_trap:
+        "Calling this a straightforward 'true positive' and just handling it is the most tempting wrong answer, because every individual step in this room has trained you to build exactly the case you now have, and having built it, closing it out yourself feels like the payoff. It would also not be wrong about the facts: the activity genuinely is malicious. The mistake is one of scope of authority, not of technical judgement: the finding has grown past what a single analyst's containment decision can responsibly resolve, because it now touches a category of data (financial export records) and a category of account (a privileged credential) that most organisations have specific escalation and notification obligations around, and an individual analyst is very rarely the right person to decide those obligations don't apply. Marking it 'informational' would be indefensible against the evidence in hand. Marking it 'false_positive' would ignore every fact this room's log analysis tasks just walked you through establishing.",
+      xp: 40,
+    },
+    // -----------------------------------------------------------------------
+    {
+      type: "question",
+      id: "inv7-q3",
+      question:
+        "The archive-creation record shows a PowerShell process invoking a compression utility against a folder of export files, producing a single large archive. Which ATT&CK tactic and technique does this specific behaviour map to?",
+      options: [
+        "Tactic: Exfiltration; Technique: T1041 (Exfiltration Over C2 Channel), compressing the files is the first stage of the C2 transfer, so the data has already left",
+        "Tactic: Collection; Technique: T1560.001 (Archive Collected Data via Utility). Files are gathered and compressed into one package, preparing for removal rather than being removed",
+        "Tactic: Discovery; Technique: T1083 (File and Directory Discovery), enumerating a folder of export files, with no evidence yet that any content was read or copied",
+        "Tactic: Stealth; Technique: T1027 (Obfuscated Files or Information), packing the files into an archive hides their content from DLP and content inspection",
+      ],
+      answer: 1,
+      explanation:
+        "The specific, observable action (a utility compressing a folder of files into one archive) is exactly what T1560.001 describes: staging collected data via an archiving tool, under the Collection tactic. It is not yet Exfiltration; that tactic and T1041 specifically apply once data is observed actually leaving the environment over a command-and-control channel, which this record does not show. It is well past simple Discovery, which would only involve enumerating what files exist rather than compressing their contents into a package. And T1027 concerns obfuscating payloads or tooling to evade detection, whereas here the archive is a staging package for collected data, which is what T1560.001 captures.",
       xp: 25,
     },
     // -----------------------------------------------------------------------
@@ -887,20 +887,31 @@ const writingIncidentReportRoom: Room = {
     },
     // -----------------------------------------------------------------------
     {
-      type: "question",
-      id: "doc-q2",
-      question:
-        "Three weeks after the report is submitted, you're asked why AP-SRV14 was disabled for four hours during the response. Your notes on that decision were never written down and you're relying on memory. What does this room's principle of defensibility say about that situation?",
-      options: [
-        "It is acceptable if your recollection is accurate, since a reviewer evaluates whether the decision was sound, not whether it was written down at the time",
-        "An undocumented decision cannot be verified later, so a reviewer three weeks on has no way to confirm your reasoning was sound at the time, whether or not it was",
-        "It matters only if the incident becomes a legal matter; for an internal review, memory is an acceptable substitute for contemporaneous notes",
-        "Defensibility applies to evidence collected from logs, not to operational decisions like disabling a host, which are judgment calls needing no documentation",
-      ],
-      answer: 1,
-      explanation:
-        "The principle is exactly this: a decision's soundness at the time and a reviewer's ability to verify that soundness later are two different things, and only contemporaneous documentation bridges them. Being right in fact does not make an undocumented decision defensible in review: the reviewer has no way to confirm it. This distinction matters regardless of whether the incident ever becomes a formal legal matter; internal post-incident reviews rely on the same standard, because they exist precisely to check whether decisions were sound, which memory alone cannot demonstrate. And defensibility is not limited to log-derived evidence. Operational decisions (isolating a host, resetting an account) are exactly the kind of judgement calls that most need a contemporaneous record explaining the reasoning behind them.",
+      type: "flag",
+      id: "doc-f1",
+      event: docScheduledTaskEvent, // show the scheduled-task log this IOC flag reads
+      prompt:
+        "You are finalising the IOCs section. What is the exact scheduled task name that should be listed, taken directly from the TaskName field in the raw log?",
+      answer: "OneDriveSyncHelper",
       xp: 20,
+    },
+    // -----------------------------------------------------------------------
+    {
+      type: "query_fill",
+      id: "doc-qf1",
+      heading: "Write It Yourself: Pulling the Evidence Cited in the Timeline",
+      language: "kql",
+      context:
+        "Before the Technical Timeline entry for the scheduled task can be written, you need the query that actually produced the evidence you're about to cite in Evidence Sources & Analysis. Fill in the host and the action type from the case.",
+      template:
+        "DeviceEvents\n| where DeviceName == \"{{host}}\"\n| where ActionType == \"{{action}}\"\n| project Timestamp, InitiatingProcessAccountName, InitiatingProcessCommandLine",
+      blanks: [
+        { id: "host", answers: ["AP-SRV14"], placeholder: "affected host" },
+        { id: "action", answers: ["ScheduledTaskCreated"], placeholder: "Defender ActionType for task creation" },
+      ],
+      explanation:
+        "This is the exact query whose output becomes both the Evidence Sources & Analysis citation and the basis for the Technical Timeline entry. DeviceName scopes it to the affected host, and ActionType ScheduledTaskCreated is the specific Defender for Endpoint action type for this persistence mechanism. Writing the query into the report's methodology section, not just its result, is what makes the finding reproducible by another analyst.",
+      xp: 25,
     },
     // -----------------------------------------------------------------------
     {
@@ -942,6 +953,23 @@ const writingIncidentReportRoom: Room = {
     },
     // -----------------------------------------------------------------------
     {
+      type: "question",
+      id: "doc-q2",
+      question:
+        "Three weeks after the report is submitted, you're asked why AP-SRV14 was disabled for four hours during the response. Your notes on that decision were never written down and you're relying on memory. What does this room's principle of defensibility say about that situation?",
+      options: [
+        "It is acceptable if your recollection is accurate, since a reviewer evaluates whether the decision was sound, not whether it was written down at the time",
+        "An undocumented decision cannot be verified later, so a reviewer three weeks on has no way to confirm your reasoning was sound at the time, whether or not it was",
+        "It matters only if the incident becomes a legal matter; for an internal review, memory is an acceptable substitute for contemporaneous notes",
+        "Defensibility applies to evidence collected from logs, not to operational decisions like disabling a host, which are judgment calls needing no documentation",
+      ],
+      answer: 1,
+      explanation:
+        "The principle is exactly this: a decision's soundness at the time and a reviewer's ability to verify that soundness later are two different things, and only contemporaneous documentation bridges them. Being right in fact does not make an undocumented decision defensible in review: the reviewer has no way to confirm it. This distinction matters regardless of whether the incident ever becomes a formal legal matter; internal post-incident reviews rely on the same standard, because they exist precisely to check whether decisions were sound, which memory alone cannot demonstrate. And defensibility is not limited to log-derived evidence. Operational decisions (isolating a host, resetting an account) are exactly the kind of judgement calls that most need a contemporaneous record explaining the reasoning behind them.",
+      xp: 20,
+    },
+    // -----------------------------------------------------------------------
+    {
       type: "analyst_choice",
       id: "doc-ac1",
       heading: "Before It Goes in the Report: Verify This Candidate IOC",
@@ -954,6 +982,23 @@ const writingIncidentReportRoom: Room = {
       fp_trap:
         "An admin account authenticating at an odd hour, on the very night a persistence mechanism was found on the exact same server, is precisely the coincidence that should raise your guard, and the instinct to write it up as a related finding is not unreasonable on its face. But 'looks related' is not the same as 'is confirmed related,' and this room's whole point about defensibility is that a report's credibility depends on verifying before writing, not writing and hoping it holds up. The it_verify_result and it_verify_message fields exist precisely so this verification step doesn't rely on you personally happening to know about CHG-2291. They are the record that this was checked. Skipping that check and including the finding anyway is the exact mistake a defensible report process is built to prevent.",
       xp: 35,
+    },
+    // -----------------------------------------------------------------------
+    {
+      type: "question",
+      id: "doc-q4",
+      question:
+        "A reviewer asks why your Technical Timeline states 'no activity beyond AP-SRV14 was identified' rather than 'no activity beyond AP-SRV14 occurred.' Why does this room's approach to defensibility prefer the first phrasing?",
+      options: [
+        "'Identified' is preferred only because it is shorter and keeps the timeline's tense consistent with the rest of the report, not because the meaning differs",
+        "'Identified' states the boundary of what was searched and found, while 'occurred' asserts a fact about the whole environment that the investigation cannot prove",
+        "'Occurred' is better in an executive-facing report, with 'identified' kept for the technical appendix, because leadership needs a definitive statement to act on",
+        "The distinction matters only for reports reviewed by outside legal counsel, and can be ignored for reports that stay inside the SOC",
+      ],
+      answer: 1,
+      explanation:
+        "This is the same discipline both rooms return to: a scope claim is only as strong as what was actually searched for, and 'identified' honestly reflects that boundary, while 'occurred' claims a fact about the whole environment the investigation never actually verified. A report that overstates its own certainty is less defensible, not more useful: a reviewer who later finds activity the report claimed didn't exist has just found a reason to distrust every other claim in the document too. Confidence is not the same virtue as accuracy in a report meant to be reviewed later. And this distinction matters for every reader of the report, not only outside counsel: an internal remediation team acting on an overstated scope claim can just as easily miss something real.",
+      xp: 25,
     },
     // -----------------------------------------------------------------------
     {
@@ -981,24 +1026,6 @@ const writingIncidentReportRoom: Room = {
     },
     // -----------------------------------------------------------------------
     {
-      type: "query_fill",
-      id: "doc-qf1",
-      heading: "Write It Yourself: Pulling the Evidence Cited in the Timeline",
-      language: "kql",
-      context:
-        "Before the Technical Timeline entry for the scheduled task can be written, you need the query that actually produced the evidence you're about to cite in Evidence Sources & Analysis. Fill in the host and the action type from the case.",
-      template:
-        "DeviceEvents\n| where DeviceName == \"{{host}}\"\n| where ActionType == \"{{action}}\"\n| project Timestamp, InitiatingProcessAccountName, InitiatingProcessCommandLine",
-      blanks: [
-        { id: "host", answers: ["AP-SRV14"], placeholder: "affected host" },
-        { id: "action", answers: ["ScheduledTaskCreated"], placeholder: "Defender ActionType for task creation" },
-      ],
-      explanation:
-        "This is the exact query whose output becomes both the Evidence Sources & Analysis citation and the basis for the Technical Timeline entry. DeviceName scopes it to the affected host, and ActionType ScheduledTaskCreated is the specific Defender for Endpoint action type for this persistence mechanism. Writing the query into the report's methodology section, not just its result, is what makes the finding reproducible by another analyst.",
-      xp: 25,
-    },
-    // -----------------------------------------------------------------------
-    {
       type: "question",
       id: "doc-q3",
       question:
@@ -1012,33 +1039,6 @@ const writingIncidentReportRoom: Room = {
       answer: 1,
       explanation:
         "Reading 5 was direct about this: recommendations that aren't tied to the specific, actual root cause read as filler, and worse, they create the appearance of a resolved finding while the real gap sits unaddressed. Being broadly applicable is exactly the problem, not a strength: a recommendation that would apply to any organization regardless of what happened here isn't doing the job of this specific report. Training or patching recommendations aren't categorically wrong; they're wrong here because nothing in this case's root cause was about awareness or missing patches. And recommendations are supposed to trace directly back to root cause, one for one, treating them as unconnected sections defeats the purpose of naming a root cause at all.",
-      xp: 25,
-    },
-    // -----------------------------------------------------------------------
-    {
-      type: "flag",
-      id: "doc-f1",
-      event: docScheduledTaskEvent, // show the scheduled-task log this IOC flag reads
-      prompt:
-        "You are finalising the IOCs section. What is the exact scheduled task name that should be listed, taken directly from the TaskName field in the raw log?",
-      answer: "OneDriveSyncHelper",
-      xp: 20,
-    },
-    // -----------------------------------------------------------------------
-    {
-      type: "question",
-      id: "doc-q4",
-      question:
-        "A reviewer asks why your Technical Timeline states 'no activity beyond AP-SRV14 was identified' rather than 'no activity beyond AP-SRV14 occurred.' Why does this room's approach to defensibility prefer the first phrasing?",
-      options: [
-        "'Identified' is preferred only because it is shorter and keeps the timeline's tense consistent with the rest of the report, not because the meaning differs",
-        "'Identified' states the boundary of what was searched and found, while 'occurred' asserts a fact about the whole environment that the investigation cannot prove",
-        "'Occurred' is better in an executive-facing report, with 'identified' kept for the technical appendix, because leadership needs a definitive statement to act on",
-        "The distinction matters only for reports reviewed by outside legal counsel, and can be ignored for reports that stay inside the SOC",
-      ],
-      answer: 1,
-      explanation:
-        "This is the same discipline both rooms return to: a scope claim is only as strong as what was actually searched for, and 'identified' honestly reflects that boundary, while 'occurred' claims a fact about the whole environment the investigation never actually verified. A report that overstates its own certainty is less defensible, not more useful: a reviewer who later finds activity the report claimed didn't exist has just found a reason to distrust every other claim in the document too. Confidence is not the same virtue as accuracy in a report meant to be reviewed later. And this distinction matters for every reader of the report, not only outside counsel: an internal remediation team acting on an overstated scope claim can just as easily miss something real.",
       xp: 25,
     },
     // -----------------------------------------------------------------------

@@ -6577,11 +6577,6 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "inv7-r2",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "inv7-q1",
         "type": "question",
         "xp": 25
@@ -6598,6 +6593,22 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 35
       },
       {
+        "id": "inv7-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "inv7-la2",
+        "type": "log_analysis",
+        "xp": 95,
+        "mitreTechnique": "T1021.002"
+      },
+      {
+        "id": "inv7-qf1",
+        "type": "query_fill",
+        "xp": 25
+      },
+      {
         "id": "inv7-r3",
         "type": "reading",
         "xp": 0
@@ -6608,31 +6619,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 25
       },
       {
-        "id": "inv7-la2",
-        "type": "log_analysis",
-        "xp": 95,
-        "mitreTechnique": "T1021.002"
-      },
-      {
-        "id": "inv7-m1",
-        "type": "matching",
-        "xp": 35
-      },
-      {
         "id": "inv7-r4",
         "type": "reading",
         "xp": 0
-      },
-      {
-        "id": "inv7-ac1",
-        "type": "analyst_choice",
-        "xp": 40,
-        "mitreTechnique": "T1560.001"
-      },
-      {
-        "id": "inv7-q3",
-        "type": "question",
-        "xp": 25
       },
       {
         "id": "inv7-r5",
@@ -6645,8 +6634,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 25
       },
       {
-        "id": "inv7-qf1",
-        "type": "query_fill",
+        "id": "inv7-m1",
+        "type": "matching",
+        "xp": 35
+      },
+      {
+        "id": "inv7-ac1",
+        "type": "analyst_choice",
+        "xp": 40,
+        "mitreTechnique": "T1560.001"
+      },
+      {
+        "id": "inv7-q3",
+        "type": "question",
         "xp": 25
       },
       {
@@ -6706,24 +6706,9 @@ export const ROOMS_META: RoomMeta[] = [
         "mitreTechnique": "T1053.005"
       },
       {
-        "id": "doc-q2",
-        "type": "question",
+        "id": "doc-f1",
+        "type": "flag",
         "xp": 20
-      },
-      {
-        "id": "doc-r4",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "doc-ac1",
-        "type": "analyst_choice",
-        "xp": 35
-      },
-      {
-        "id": "doc-r5",
-        "type": "reading",
-        "xp": 0
       },
       {
         "id": "doc-qf1",
@@ -6731,17 +6716,32 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 25
       },
       {
-        "id": "doc-q3",
+        "id": "doc-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "doc-q2",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "doc-ac1",
+        "type": "analyst_choice",
+        "xp": 35
+      },
+      {
+        "id": "doc-q4",
         "type": "question",
         "xp": 25
       },
       {
-        "id": "doc-f1",
-        "type": "flag",
-        "xp": 20
+        "id": "doc-r5",
+        "type": "reading",
+        "xp": 0
       },
       {
-        "id": "doc-q4",
+        "id": "doc-q3",
         "type": "question",
         "xp": 25
       },

@@ -73,3 +73,14 @@ Builders and reviewers may not change these: a reading edit disables its recorde
 | credential-attacks-practice | qf1 | Blank lists reject valid answers: window rejects 3h and 4h, threshold rejects 6, 7, 12, 60. | Add values or state the window and baseline. |
 | playbook-execution-and-escalation | ac1 fp_trap | Discusses Step 4 and waiting until 07:00, but the learner only sees generic verdict cards. | Rewrite around the cards. |
 | cloud-security-monitoring | r2, la1 | Exfiltration:S3/ObjectRead.Unusual is also retired; "PutBucketAcl making a bucket world-readable": on a bucket, ACL READ only lists objects. | Use AnomalousBehavior findings; name the object ACL or bucket policy step. |
+| remote-email-collection | r2, r5, la1, m1 | Says phones produce Sync (only desktop Outlook does); la1 says the record repeats 24 times (Exchange rolls Binds into one record with OperationCount); m1 says New-InboxRule logs any rule (UpdateInboxRules also). | Reword, re-record narration. |
+| remote-email-collection | graded data | northgate-logistics.com and 154.16.93.211. | Replace. |
+| device-registration-persistence | r2 (reading), q4 | Register device logs under category Device, not DeviceManagement; q4's policy needs compliant or hybrid-joined, which a plain registered device is not. | Reword, re-record narration. |
+| incident-report-writing | wr1 | Visible rubric says at least one real fact, but the grader needs 2 of 4 referenceIocs and scores only word count and identifiers. | Align rubric and grader. |
+| incident-report-writing | r2, o1, la1 | r2 lists IOCs before the timeline, o1 the reverse; solstice-actuarial.com, 203.14.88.9; TaskName top-level. | Align. |
+| investigate-alert-workflow | ac1 | FolderPath has no file name. | Add it. |
+| remote-email-collection | r3 (reading), m1 redirectto, qf1 param2 | Says RedirectTo never delivers to the original mailbox and keeps no copy. False: a copy stays; redirect keeps the original sender. Graded on the false version. | Reword, re-record narration. High. |
+| device-registration-persistence | r2, m1, la1, ac1 | modifiedProperties on 'User registered security info'; the diff really sits on an Update user record with the same correlationId. | Move it, update labs. |
+| incident-report-writing | la1, f1 | TaskName shown as a top-level field; DeviceEvents holds it in AdditionalFields. FolderPath omits the file name. | Align. |
+| investigate-alert-workflow | ac1, r4, q3 | FileCreated names powershell.exe, but rar.exe writes the archive; "Archive Collected Data via Utility" is not the ATT&CK name. | Align. |
+| incident-report-writing | ac1 | 203.14.88.9, AS 14618, .com domains. | Replace. |

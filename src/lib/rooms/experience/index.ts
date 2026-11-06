@@ -85,6 +85,10 @@ import { CLOUD_SECURITY_MONITORING } from "./cloudSecurityMonitoring";
 import { ESCALATION_PROCEDURES } from "./escalationProcedures";
 import { CREDENTIAL_ATTACKS_PRACTICE } from "./credentialAttacksPractice";
 import { PLAYBOOK_EXECUTION_AND_ESCALATION } from "./playbookExecutionAndEscalation";
+import { REMOTE_EMAIL_COLLECTION } from "./remoteEmailCollection";
+import { DEVICE_REGISTRATION_PERSISTENCE } from "./deviceRegistrationPersistence";
+import { INVESTIGATE_ALERT_WORKFLOW } from "./investigateAlertWorkflow";
+import { INCIDENT_REPORT_WRITING } from "./incidentReportWriting";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -176,6 +180,10 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [ESCALATION_PROCEDURES.roomId]: ESCALATION_PROCEDURES,
   [CREDENTIAL_ATTACKS_PRACTICE.roomId]: CREDENTIAL_ATTACKS_PRACTICE,
   [PLAYBOOK_EXECUTION_AND_ESCALATION.roomId]: PLAYBOOK_EXECUTION_AND_ESCALATION,
+  [REMOTE_EMAIL_COLLECTION.roomId]: REMOTE_EMAIL_COLLECTION,
+  [DEVICE_REGISTRATION_PERSISTENCE.roomId]: DEVICE_REGISTRATION_PERSISTENCE,
+  [INVESTIGATE_ALERT_WORKFLOW.roomId]: INVESTIGATE_ALERT_WORKFLOW,
+  [INCIDENT_REPORT_WRITING.roomId]: INCIDENT_REPORT_WRITING,
 };
 
 /**
