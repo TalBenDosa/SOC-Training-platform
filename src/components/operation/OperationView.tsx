@@ -26,6 +26,7 @@ import { StoryPlayer } from "./StoryPlayer";
 import { Drill } from "./briefing/Drill";
 import { StudyAside, StudyContext, StudyOverlay } from "./study/StudyGuide";
 import { readingFor } from "@/lib/rooms/experience/study";
+import { STUDY_POINTERS } from "@/lib/rooms/experience/studyPointers";
 import { StageBoard } from "./board/StageBoard";
 import { CampusBoard } from "./board/CampusBoard";
 import { LensBoard } from "./board/LensBoard";
@@ -459,7 +460,7 @@ export function OperationView(p: OperationViewProps) {
   const inStation = (phase === "station" || phase === "breached") && !!active && !!task;
   const studyTaskId = inStation ? task?.id : experience.stations[frontier]?.taskIds[0];
   useEffect(() => { setStudyPick(null); }, [studyTaskId]);
-  const studyId = studyPick ?? readingFor(studyTaskId, room.tasks);
+  const studyId = studyPick ?? readingFor(studyTaskId, room.tasks, STUDY_POINTERS);
   const hasStudy = room.tasks.some(t => t.type === "reading");
   const readingOnScreen = studyInline || (inStation && task?.type === "reading" && !experience.briefings?.[task.id]?.length);
   const openStudy = useCallback(() => {
