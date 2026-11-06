@@ -480,27 +480,6 @@ const ransomwareLifecycleRoom = {
         "PsExec is legitimate, but the identical, repeating pattern across two hosts within nine minutes -- from the exact account this room's log analysis already flagged as compromised and carrying broad reach -- is the lateral-movement signature Reading 5 described, not routine single-admin activity. Reading it as the encryption stage already in progress wrongly conflates lateral movement (spreading access) with the later, distinct Impact stage covered further on in this room -- PsExec here is being used to move and stage, not to encrypt.",
       xp: 25,
     },
-    // ── Matching: lifecycle stage -> MITRE technique ─────────────────────────
-    {
-      type: "matching" as const,
-      id: "rw-m1",
-      heading: "Match the Ransomware Lifecycle Stage to Its MITRE ATT&CK Technique",
-      instructions: "Match each observed behavior from this room's case to the specific MITRE ATT&CK technique it represents.",
-      pairs: [
-        { id: "phish", left: "Phishing email delivers the first-stage loader", right: "T1566 -- Phishing" },
-        { id: "edge", left: "Affiliate exploits an unpatched, internet-facing VPN appliance", right: "T1190 -- Exploit Public-Facing Application" },
-        { id: "sched", left: "Scheduled task re-launches the payload after reboot, and later fires the encryptor fleet-wide", right: "T1053.005 -- Scheduled Task" },
-        { id: "lsass", left: "rundll32.exe + comsvcs.dll dumps lsass.exe's memory on one workstation", right: "T1003.001 -- LSASS Memory" },
-        { id: "dcsync", left: "An account that already holds replication rights asks a Domain Controller to replicate every password hash at once", right: "T1003.006 -- DCSync" },
-        { id: "psexec", left: "PsExec pushes access to additional hosts using a stolen credential", right: "T1021.002 -- SMB/Windows Admin Shares" },
-        { id: "vss", left: "vssadmin deletes every shadow copy on a host before encryption starts", right: "T1490 -- Inhibit System Recovery" },
-        { id: "clearlog", left: "Windows Security event log is cleared right after the intrusion", right: "T1685.005 -- Clear Windows Event Logs" },
-        { id: "exfil", left: "Bulk data is copied to a cloud remote using rclone before the ransom note ever appears", right: "T1567.002 -- Exfiltration to Cloud Storage" },
-      ],
-      explanation:
-        "Notice how many different ATT&CK tactics one ransomware intrusion touches -- Initial Access, Persistence, Credential Access, Lateral Movement, Defense Impairment, and Exfiltration all show up before Impact ever fires. This is exactly why treating ransomware as 'one detection at the encryption stage' misses the five or six earlier chances a SOC actually had to stop it.",
-      xp: 35,
-    },
     // ── Reading 6: Defense impairment ──────────────────────────────────────────
     {
       type: "reading" as const,
@@ -650,6 +629,27 @@ const ransomwareLifecycleRoom = {
         "crowdstrike.FilePath is C:\\Program Files\\RecordsMigration\\rclone.exe -- an installed-software location, not a generic Public folder. crowdstrike.ParentBaseFileName is MigrationScheduler.exe, a scheduler process, not cmd.exe launched by hand. The remote's name alone would prove nothing -- a friendly name is exactly the trap from the SRV-FILES-04 finding -- but the config the analyst opened binds sharepoint-nexacorp to NexaCorp's own administered tenant, nexacorp.sharepoint.com. crowdstrike.UserName is svc-migrate, a service account, not the privileged human account flagged in the active incident. And it_verify_result is confirmed: change ticket CHG-40881 authorises this migration from this host to the company's SharePoint tenant, on this nightly schedule, with svc-migrate as the documented account. That makes this a benign true positive: Falcon correctly detected a real rclone copy to cloud storage, and change ticket CHG-40881 is the justification you cite when closing it. It is not a false positive, because the detection did not misfire, and that label would invite weakening the very rule that caught the SRV-FILES-04 exfiltration; at most, add a narrow, owned exclusion for this host, account and destination.",
       fp_trap:
         "This detection uses the identical technique family -- and the identical tool, rclone -- as the confirmed true-positive exfiltration finding earlier in this room, which makes escalating it on reflex extremely tempting. But the specific fields tell two very different stories: proper install location vs. a generic Public folder, a scheduler parent vs. manual cmd.exe launch, a destination verified in the config as the company's own tenant vs. an unverified remote from a config dropped in a Public folder, a documented migration service account vs. a privileged account already flagged in an active incident, and a confirmed change ticket vs. no ticket at all. Escalating every rclone-to-cloud pattern without checking these fields either buries the SOC in noise on every legitimate backup or migration job, or -- just as dangerously -- teaches the team to stop reading past the tool's name entirely, which is exactly the habit that would let a real exfiltration attempt hide behind a routine-sounding process.",
+      xp: 35,
+    },
+    // ── Matching: lifecycle stage -> MITRE technique ─────────────────────────
+    {
+      type: "matching" as const,
+      id: "rw-m1",
+      heading: "Match the Ransomware Lifecycle Stage to Its MITRE ATT&CK Technique",
+      instructions: "Match each observed behavior from this room's case to the specific MITRE ATT&CK technique it represents.",
+      pairs: [
+        { id: "phish", left: "Phishing email delivers the first-stage loader", right: "T1566 -- Phishing" },
+        { id: "edge", left: "Affiliate exploits an unpatched, internet-facing VPN appliance", right: "T1190 -- Exploit Public-Facing Application" },
+        { id: "sched", left: "Scheduled task re-launches the payload after reboot, and later fires the encryptor fleet-wide", right: "T1053.005 -- Scheduled Task" },
+        { id: "lsass", left: "rundll32.exe + comsvcs.dll dumps lsass.exe's memory on one workstation", right: "T1003.001 -- LSASS Memory" },
+        { id: "dcsync", left: "An account that already holds replication rights asks a Domain Controller to replicate every password hash at once", right: "T1003.006 -- DCSync" },
+        { id: "psexec", left: "PsExec pushes access to additional hosts using a stolen credential", right: "T1021.002 -- SMB/Windows Admin Shares" },
+        { id: "vss", left: "vssadmin deletes every shadow copy on a host before encryption starts", right: "T1490 -- Inhibit System Recovery" },
+        { id: "clearlog", left: "Windows Security event log is cleared right after the intrusion", right: "T1685.005 -- Clear Windows Event Logs" },
+        { id: "exfil", left: "Bulk data is copied to a cloud remote using rclone before the ransom note ever appears", right: "T1567.002 -- Exfiltration to Cloud Storage" },
+      ],
+      explanation:
+        "Notice how many different ATT&CK tactics one ransomware intrusion touches -- Initial Access, Persistence, Credential Access, Lateral Movement, Defense Impairment, and Exfiltration all show up before Impact ever fires. This is exactly why treating ransomware as 'one detection at the encryption stage' misses the five or six earlier chances a SOC actually had to stop it.",
       xp: 35,
     },
     // ── Reading 8: Impact, extortion, and the full-chain playbook ────────────

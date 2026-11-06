@@ -77,6 +77,10 @@ import { TLS_ENCRYPTED_TRAFFIC } from "./tlsEncryptedTraffic";
 import { WINDOWS_PROTOCOLS_LATERAL } from "./windowsProtocolsLateral";
 import { EMAIL_PROTOCOLS_FORENSICS } from "./emailProtocolsForensics";
 import { KERBEROS_AUTHENTICATION } from "./kerberosAuthentication";
+import { MEMORY_DISK_FORENSICS } from "./memoryDiskForensics";
+import { EDR_DETECTION_INVESTIGATION } from "./edrDetectionInvestigation";
+import { RANSOMWARE_FULL_LIFECYCLE } from "./ransomwareFullLifecycle";
+import { THREAT_INTELLIGENCE } from "./threatIntelligence";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -160,6 +164,10 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [WINDOWS_PROTOCOLS_LATERAL.roomId]: WINDOWS_PROTOCOLS_LATERAL,
   [EMAIL_PROTOCOLS_FORENSICS.roomId]: EMAIL_PROTOCOLS_FORENSICS,
   [KERBEROS_AUTHENTICATION.roomId]: KERBEROS_AUTHENTICATION,
+  [MEMORY_DISK_FORENSICS.roomId]: MEMORY_DISK_FORENSICS,
+  [EDR_DETECTION_INVESTIGATION.roomId]: EDR_DETECTION_INVESTIGATION,
+  [RANSOMWARE_FULL_LIFECYCLE.roomId]: RANSOMWARE_FULL_LIFECYCLE,
+  [THREAT_INTELLIGENCE.roomId]: THREAT_INTELLIGENCE,
 };
 
 /**

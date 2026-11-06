@@ -831,6 +831,17 @@ const memoryDiskForensicsRoom = {
       ],
     },
 
+    // ── Flag ──────────────────────────────────────────────────────────────
+    {
+      type: "flag" as const,
+      id: "mdf-f1",
+      event: mftTimestompEvent, // show the HOST-ACCT-19 MFT log this flag reads
+      prompt:
+        "On HOST-ACCT-19, how many seconds passed between the file's REAL creation and the moment NTFS recorded its timestamps being changed? Enter a whole number of seconds.",
+      answer: "107",
+      hint: "Decide which timestamp set the tool did not touch, then find the journal reason code that NTFS writes when timestamps change, and subtract.",
+      xp: 45,
+    },
     // ── Reading 5: Anti-forensics ────────────────────────────────────────
     {
       type: "reading" as const,
@@ -913,22 +924,6 @@ const memoryDiskForensicsRoom = {
       xp: 30,
     },
 
-    // ── Analyst Choice: shadow copy deletion benign true positive ────────────────────────────
-    {
-      type: "analyst_choice" as const,
-      id: "mdf-ac1",
-      heading: "Verdict: A Shadow Copy Deletion on a Backup Server",
-      scenario:
-        "A detection rule fired on vssadmin.exe deleting a shadow copy on FS-BACKUP-02: the exact process execution pattern this room just taught you to treat as a strong ransomware precursor (T1490). Review the event below before deciding.",
-      event: shadowCopyEvent,
-      correct_verdict: "benign_true_positive",
-      explanation:
-        "Every technical detail here matches the T1490 pattern from Reading 5: vssadmin.exe deleting a shadow copy is exactly the process-creation signature that indicator is built on, which is why context, not the process name alone, determines the verdict. it_verify_result is confirmed: change ticket CHG-40217 documents this as the nightly Veeam retention job, the parent process is VeeamAgentSvc.exe (the documented backup agent, not explorer.exe or a script host), the executing account is the dedicated svc-veeam-backup service account rather than an interactive user, the command line targets a specific volume with /oldest (a retention operation, not /all which is what ransomware operators typically use to wipe every restore point at once), and the timing (04:00, a routine maintenance window) matches the scheduled job. That makes this a benign true positive: the detection fired correctly on a real shadow-copy deletion, and change ticket CHG-40217 is the justification you cite when closing it. It is not a false positive, because nothing misfired, and that label would invite weakening one of the most valuable ransomware-precursor rules; at most, add a narrow, owned exclusion for this exact scoped retention command.",
-      fp_trap:
-        "Reading 5 taught you that shadow-copy deletion is one of the highest-confidence indicators of active ransomware, and it's tempting to escalate the process name and command on sight. But the same mechanism (vssadmin delete shadows) is also exactly how legitimate backup retention policies prune old restore points on a schedule. The differentiators that separate this case from a genuine T1490 finding are the verified change ticket, the known backup-agent parent process, the dedicated service account (not an interactive or unusual account), and the scoped command (/for=D: /oldest, a single volume's oldest copy, not /all, which wipes everything at once and is what ransomware precursors typically use). Escalating purely on 'vssadmin deleted a shadow copy' without checking any of that context burns analyst time on routine backup hygiene.",
-      xp: 35,
-    },
-
     // ── Reading 6: The tension — preserving evidence vs containing intrusion ──
     {
       type: "reading" as const,
@@ -987,17 +982,22 @@ const memoryDiskForensicsRoom = {
       xp: 35,
     },
 
-    // ── Flag ──────────────────────────────────────────────────────────────
+    // ── Analyst Choice: shadow copy deletion benign true positive ────────────────────────────
     {
-      type: "flag" as const,
-      id: "mdf-f1",
-      event: mftTimestompEvent, // show the HOST-ACCT-19 MFT log this flag reads
-      prompt:
-        "On HOST-ACCT-19, how many seconds passed between the file's REAL creation and the moment NTFS recorded its timestamps being changed? Enter a whole number of seconds.",
-      answer: "107",
-      hint: "Decide which timestamp set the tool did not touch, then find the journal reason code that NTFS writes when timestamps change, and subtract.",
-      xp: 45,
+      type: "analyst_choice" as const,
+      id: "mdf-ac1",
+      heading: "Verdict: A Shadow Copy Deletion on a Backup Server",
+      scenario:
+        "A detection rule fired on vssadmin.exe deleting a shadow copy on FS-BACKUP-02: the exact process execution pattern this room just taught you to treat as a strong ransomware precursor (T1490). Review the event below before deciding.",
+      event: shadowCopyEvent,
+      correct_verdict: "benign_true_positive",
+      explanation:
+        "Every technical detail here matches the T1490 pattern from Reading 5: vssadmin.exe deleting a shadow copy is exactly the process-creation signature that indicator is built on, which is why context, not the process name alone, determines the verdict. it_verify_result is confirmed: change ticket CHG-40217 documents this as the nightly Veeam retention job, the parent process is VeeamAgentSvc.exe (the documented backup agent, not explorer.exe or a script host), the executing account is the dedicated svc-veeam-backup service account rather than an interactive user, the command line targets a specific volume with /oldest (a retention operation, not /all which is what ransomware operators typically use to wipe every restore point at once), and the timing (04:00, a routine maintenance window) matches the scheduled job. That makes this a benign true positive: the detection fired correctly on a real shadow-copy deletion, and change ticket CHG-40217 is the justification you cite when closing it. It is not a false positive, because nothing misfired, and that label would invite weakening one of the most valuable ransomware-precursor rules; at most, add a narrow, owned exclusion for this exact scoped retention command.",
+      fp_trap:
+        "Reading 5 taught you that shadow-copy deletion is one of the highest-confidence indicators of active ransomware, and it's tempting to escalate the process name and command on sight. But the same mechanism (vssadmin delete shadows) is also exactly how legitimate backup retention policies prune old restore points on a schedule. The differentiators that separate this case from a genuine T1490 finding are the verified change ticket, the known backup-agent parent process, the dedicated service account (not an interactive or unusual account), and the scoped command (/for=D: /oldest, a single volume's oldest copy, not /all, which wipes everything at once and is what ransomware precursors typically use). Escalating purely on 'vssadmin deleted a shadow copy' without checking any of that context burns analyst time on routine backup hygiene.",
+      xp: 35,
     },
+
   ],
 };
 

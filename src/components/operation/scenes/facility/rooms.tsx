@@ -379,6 +379,58 @@ const THREEHEADS: CampusConfig = {
   ],
 };
 
+const PAGEFILE: HallConfig = {
+  title: "Pagefile Hall",
+  sub: "Harrowgate Museum Trust forensics",
+  core: "matrix",
+  books: ["Forensics", "Incident Response", "SOC"],
+  cards: [
+    { icon: "layers", name: ["The", "Image"], color: "#d6b370", art: "lock" },
+    { icon: "eye", name: ["Two", "Timelines"], color: "#7cc6b8", art: "axes" },
+    { icon: "filter", name: ["What Stays", "Behind"], color: "#9fa8da", art: "ghost" },
+    { icon: "siren", name: ["Pull the", "Plug"], color: "#ff5964", art: "pulse" },
+    { icon: "shield", name: ["The Last", "Shadow"], color: "#b9a0e8", art: "tree" },
+  ],
+};
+
+const PROCESSTREE: CampusConfig = {
+  seed: 7127,
+  hub: { title: "Kilnworth Ceramics", sub: "EDR RESPONSE HUB" },
+  buildings: [
+    { icon: "monitor", sign: ["The", "Detection"], color: "#a8d8b9", x: -19, z: -4, rot: 0.38 },
+    { icon: "wire", sign: ["Up the", "Tree"], color: "#ffb86b", x: -10, z: 9.5, rot: 0.2 },
+    { icon: "users", sign: ["The", "Siblings"], color: "#7da7ff", x: 7.5, z: 9.5, rot: -0.12 },
+    { icon: "target", sign: ["The", "Pivot"], color: "#d6a4ff", x: 13.5, z: 5.5, rot: -0.22 },
+    { icon: "siren", sign: ["The Last", "Branch"], color: "#ff6b6b", x: 19, z: -0.5, rot: -0.4 },
+  ],
+};
+
+const COLDVAULT: HallConfig = {
+  title: "Cold Vault",
+  sub: "Marchbank Cold Storage incident review",
+  core: "chain",
+  books: ["Ransomware", "Incident Response", "SOC"],
+  cards: [
+    { icon: "wire", name: ["The", "Foothold"], color: "#b3ecff", art: "pulse" },
+    { icon: "lock", name: ["The Master", "Key"], color: "#f6c177", art: "lock" },
+    { icon: "layers", name: ["The Cold", "Aisle"], color: "#7dd3fc", art: "ghost" },
+    { icon: "bag", name: ["The Loading", "Dock"], color: "#a7f3d0", art: "loot" },
+    { icon: "siren", name: ["The", "Note"], color: "#ff4d6d", art: "tree" },
+  ],
+};
+
+const DIAMOND: CampusConfig = {
+  seed: 2917,
+  hub: { title: "Penrose Energy", sub: "THREAT INTEL HUB" },
+  buildings: [
+    { icon: "users", sign: ["The", "Requirement"], color: "#9be7ff", x: -19, z: -8, rot: 0.38 },
+    { icon: "wire", sign: ["The", "Collection"], color: "#f2c14e", x: -12, z: 6, rot: 0.26 },
+    { icon: "target", sign: ["The", "Diamond"], color: "#b9a7ff", x: -5.5, z: 9.5, rot: 0.1 },
+    { icon: "mail", sign: ["The", "Release"], color: "#7fe3b5", x: 8, z: 9, rot: -0.14 },
+    { icon: "siren", sign: ["The First", "Hit"], color: "#ff5a7a", x: 18, z: -1, rot: -0.34 },
+  ],
+};
+
 const HALL: HallConfig = {
   title: "Specimen Hall",
   sub: "Vantor Logistics malware lab",
@@ -469,3 +521,7 @@ export function FacilitySealedRoom(props: WorldProps) { return <HallWorld cfg={S
 export function FacilitySideDoor(props: WorldProps) { return <CampusWorld cfg={SIDEDOOR} props={props} />; }
 export function FacilityReturnPath(props: WorldProps) { return <HallWorld cfg={RETURNPATH} props={props} />; }
 export function FacilityThreeHeads(props: WorldProps) { return <CampusWorld cfg={THREEHEADS} props={props} />; }
+export function FacilityPagefile(props: WorldProps) { return <HallWorld cfg={PAGEFILE} props={props} />; }
+export function FacilityProcessTree(props: WorldProps) { return <CampusWorld cfg={PROCESSTREE} props={props} />; }
+export function FacilityColdVault(props: WorldProps) { return <HallWorld cfg={COLDVAULT} props={props} />; }
+export function FacilityDiamond(props: WorldProps) { return <CampusWorld cfg={DIAMOND} props={props} />; }

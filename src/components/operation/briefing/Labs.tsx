@@ -113,7 +113,7 @@ export function SequenceLab({ lab, onDone }: LabProps<"sequence">) {
             </motion.button>
           );
         })}
-        {miss && <p role="status" className="text-xs text-neon-amber">Not yet. What has to happen before that?</p>}
+        {miss && <p role="status" className="text-xs text-neon-amber">{lab.miss ?? "Not yet. What has to happen before that?"}</p>}
       </div>
       <div className="rounded-xl border border-white/10 bg-[#04070e] p-4">
         <p className="mb-3 text-[11px] uppercase tracking-[0.2em] text-slate-500">Your sequence</p>

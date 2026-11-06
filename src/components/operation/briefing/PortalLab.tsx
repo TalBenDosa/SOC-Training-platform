@@ -56,6 +56,8 @@ function PortalRun({ lab, onDone, onRetry }: { lab: Lab; onDone: () => void; onR
       if (next >= lab.steps.length) onDone();
       return true;
     }
+    // Repeating a step already done is harmless, as it is at a real console.
+    if (lab.steps.slice(0, step).some(x => x.target === target)) return true;
     const trap = lab.traps[target];
     if (trap || commit) {
       setLives(l => l - 1);

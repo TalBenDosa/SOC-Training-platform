@@ -56,3 +56,12 @@ Builders and reviewers may not change these: a reading edit disables its recorde
 | windows-protocols-lateral | r1 (reading) | Says SMB signing is required by default on 24H2 and Server 2025; Server 2025 is outbound only. | Reword, re-record narration. |
 | windows-protocols-lateral | la1, ac1 | AccessMask 0x120089 is read-only though the session drove svcctl; %%4432 is not a file right. | 0x12019F with a matching AccessList. |
 | windows-protocols-lateral, tls-encrypted-traffic | qf1, kqlPrimer.ts | En and em dashes in learner text. | Replace. |
+| memory-disk-forensics | la1, r4 | la1 sets all four $SI times to 2019 though SetFileTime cannot set the MFT-changed time; $UsnJrnl fields sit inside a Windows.NTFS.MFT record; "a copy gets a fresh creation time" does not hold for robocopy. | Reword or align. |
+| edr-detection-investigation | la1, ac1, r2, r4 | ac1 ContextBaseFileName cmd.exe on a regsvr32 event; "Signed Binary Proxy Execution" is the old ATT&CK name; GrantedAccess vs DesiredAccess; old "Security Center" name. | Align. |
+| ransomware-full-lifecycle | r2 (reading) | Broken sentence: "...is publicly disclosed for one of these devices. Real, well-documented examples include...". | Fix, re-record narration. |
+| ransomware-full-lifecycle | la3, la2 | 07:12 minus twelve minutes puts task creation at the minute the tasks fire; gdrive-sync-relay.net is not reserved. | Align, replace. |
+| threat-intelligence | la1 | first_seen 2024-12-13 with SUNBURST, public in December 2020. | Fix the date. |
+| threat-intelligence | r2 (reading) | Lists Phosphorus under CrowdStrike's KITTEN names; expands TAXII as "Indicator Information" (2.x is "Intelligence Information"). | Reword, re-record narration. |
+| edr-detection-investigation | r2, q4, la1, ac1 | "Detected, no action taken" is not a real PatternDispositionDescription; real values read "Detection, standard detection." and "Prevention, process killed." | Change source and labs together. |
+| ransomware-full-lifecycle | m1 | Pair clearlog says "cleared right after the intrusion", against r6 and o1. | "cleared just before encryption". |
+| ransomware-full-lifecycle | la1, la2, la3 | "Detected, no action taken" and "Detected, kill process" are not real Falcon strings. | Align in a platform-wide pass. |

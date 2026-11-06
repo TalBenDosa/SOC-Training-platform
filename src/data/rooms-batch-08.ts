@@ -29,7 +29,6 @@ const threatIntelligence = {
   icon: "🕵️",
   prerequisites: ["mitre-attack", "ioc-analysis"],
   tasks: [
-
     // ── Reading 1: What Is CTI & Intelligence Types ─────────────────────────
     {
       type: "reading" as const,
@@ -84,6 +83,22 @@ Think of it like a restaurant kitchen: ingredients (raw data) → prep cook (pro
         answer: 2,
         explanation: "Feedback is the consumers of intelligence telling the producers whether it was useful, so that future collection improves: exactly what the detection team is doing. Processing is the producers cleaning and de-duplicating raw data before analysis; removing stale IPs could happen there later, but the message itself is not processing. Dissemination is delivering intelligence to the audience; the complaint is about something already delivered. Analysis is the producer working out what the data means, not the consumer reporting back.",
       },
+    },
+
+    // ── Question 1 ──────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "threat-intel-q1",
+      question: "The board is setting next year's security budget and asks the CISO: “Which kinds of attackers are likely to come after a company like ours, why, and what would it cost us?” Which CTI product answers that question?",
+      options: [
+        "Technical intelligence: the current blocklist of IPs, domains and hashes tied to those groups",
+        "Tactical intelligence: the ATT&CK techniques those groups use, mapped to our detection coverage",
+        "Strategic intelligence: a non-technical view of likely actors, their motives and the business risk",
+        "Operational intelligence: details of the campaign those groups are running against our sector now",
+      ],
+      answer: 2,
+      explanation: "The question is about likely adversaries, their motives and business impact for a budget decision: strategic intelligence, written for the CISO and board without IPs or hashes. A blocklist of IPs and hashes is technical intelligence for firewalls and the SIEM, and it goes stale in days. An ATT&CK-to-coverage map is tactical intelligence for detection engineers: useful, but it does not tell the board why or at what cost. Details of one current campaign are operational intelligence for SOC managers and IR teams preparing playbooks, not a year-long risk view.",
+      xp: 30,
     },
 
     // ── Reading 2: Threat Actors, APT Naming & CTI Platforms ────────────────
@@ -168,6 +183,53 @@ Together, STIX/TAXII enable automated, machine-readable threat intelligence shar
       },
     },
 
+    // ── Question 4 ──────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "threat-intel-q4",
+      question: "A partner CERT invites your SOC to its MISP community. Which description of what you would be joining is accurate?",
+      options: [
+        "A paid commercial feed: the vendor's analysts curate IOCs and you consume them read-only",
+        "An open-source platform where members share IOCs as events and attributes with partners",
+        "The transport protocol that carries STIX bundles from one organisation's platform to another",
+        "A sector-membership body, like FS-ISAC, that admits only organisations from one industry",
+      ],
+      answer: 1,
+      explanation: "MISP is an open-source threat-intelligence sharing platform: organisations create “events” made up of “attributes” (individual IOCs) and share them with trusted partners, CERTs and ISACs, and members can contribute as well as consume. A curated, read-only paid feed describes commercial services such as Recorded Future or Mandiant Advantage. The protocol that carries STIX data between platforms is TAXII, not MISP. An ISAC is a sector-based sharing group; ISACs often run MISP instances, but MISP itself is the software, not a membership body limited to one industry.",
+      xp: 30,
+    },
+
+    // ── Question 5 ──────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "threat-intel-q5",
+      question: "Your company is a hospital. Leadership wants early warning when ransomware crews start hitting OTHER hospitals (what the attackers did and which indicators to watch) shared by sector peers under agreed sharing rules. Which source is built for that?",
+      options: [
+        "AlienVault OTX community pulses",
+        "The CISA KEV vulnerability catalog",
+        "H-ISAC member sharing channels",
+        "Abuse.ch Feodo Tracker C2 lists",
+      ],
+      answer: 2,
+      explanation: "An ISAC is where organisations in the same sector share threat intelligence with each other, and H-ISAC is the healthcare one: hospitals sharing ransomware indicators and what they saw. AlienVault OTX is a useful community feed, but contributors come from anywhere and it is not a peer group of hospitals working under agreed sharing rules. CISA KEV lists CVEs known to be exploited; it tells you what to patch, not what is hitting other hospitals this week. Feodo Tracker lists banking-trojan C2 servers: real indicators, but not sector early warning.",
+      xp: 30,
+    },
+    // ── Question 2 ──────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "threat-intel-q2",
+      question: "Two reports land the same morning: CrowdStrike's on FANCY BEAR and Mandiant's on APT29. Your manager asks whether to merge them into one actor profile in your threat intel platform. What is the correct call?",
+      options: [
+        "Merge them: both are Russian BEAR groups, so APT29 is Mandiant's name for Fancy Bear",
+        "Merge them: vendors name the same actor differently, and these two names are one group",
+        "Keep them apart: APT## marks Mandiant's criminal groups, so APT29 is not state-run",
+        "Keep them apart: Fancy Bear is APT28 (GRU); APT29 is Cozy Bear (SVR), a different group",
+      ],
+      answer: 3,
+      explanation: "Fancy Bear is APT28 (Russian GRU); Cozy Bear is APT29 (Russian SVR). Both are Russian, which is why the first option is tempting, but sharing a nationality and the BEAR suffix does not make them one actor. The second option states a true principle (vendors do give one actor several names) and applies it to the wrong pair. The third is wrong on the facts: Mandiant's APT## numbers are its nation-state designations, and FIN## is its separate label for financially motivated groups. Merging the two profiles would mix two actors' TTPs and indicators.",
+      xp: 30,
+    },
+
     // ── Reading 3: CTI in SOC Operations ────────────────────────────────────
     {
       type: "reading" as const,
@@ -225,38 +287,6 @@ That context transforms a vague "suspicious outbound connection" alert into a co
 CTI analysts and detection engineers work together. When a new APT campaign is reported, detection engineers translate the attacker's TTPs into new SIEM correlation rules and EDR detections, so the next time that technique is used, the SOC catches it automatically.
 
 This is called the **detect → learn → improve** loop, and CTI is the fuel that drives it. Without good threat intelligence, your detection rules only catch attacks you have already seen. With good CTI, you can detect attacks before they reach your organisation.`,
-    },
-
-    // ── Question 1 ──────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "threat-intel-q1",
-      question: "The board is setting next year's security budget and asks the CISO: “Which kinds of attackers are likely to come after a company like ours, why, and what would it cost us?” Which CTI product answers that question?",
-      options: [
-        "Technical intelligence: the current blocklist of IPs, domains and hashes tied to those groups",
-        "Tactical intelligence: the ATT&CK techniques those groups use, mapped to our detection coverage",
-        "Strategic intelligence: a non-technical view of likely actors, their motives and the business risk",
-        "Operational intelligence: details of the campaign those groups are running against our sector now",
-      ],
-      answer: 2,
-      explanation: "The question is about likely adversaries, their motives and business impact for a budget decision: strategic intelligence, written for the CISO and board without IPs or hashes. A blocklist of IPs and hashes is technical intelligence for firewalls and the SIEM, and it goes stale in days. An ATT&CK-to-coverage map is tactical intelligence for detection engineers: useful, but it does not tell the board why or at what cost. Details of one current campaign are operational intelligence for SOC managers and IR teams preparing playbooks, not a year-long risk view.",
-      xp: 30,
-    },
-
-    // ── Question 2 ──────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "threat-intel-q2",
-      question: "Two reports land the same morning: CrowdStrike's on FANCY BEAR and Mandiant's on APT29. Your manager asks whether to merge them into one actor profile in your threat intel platform. What is the correct call?",
-      options: [
-        "Merge them: both are Russian BEAR groups, so APT29 is Mandiant's name for Fancy Bear",
-        "Merge them: vendors name the same actor differently, and these two names are one group",
-        "Keep them apart: APT## marks Mandiant's criminal groups, so APT29 is not state-run",
-        "Keep them apart: Fancy Bear is APT28 (GRU); APT29 is Cozy Bear (SVR), a different group",
-      ],
-      answer: 3,
-      explanation: "Fancy Bear is APT28 (Russian GRU); Cozy Bear is APT29 (Russian SVR). Both are Russian, which is why the first option is tempting, but sharing a nationality and the BEAR suffix does not make them one actor. The second option states a true principle (vendors do give one actor several names) and applies it to the wrong pair. The third is wrong on the facts: Mandiant's APT## numbers are its nation-state designations, and FIN## is its separate label for financially motivated groups. Merging the two profiles would mix two actors' TTPs and indicators.",
-      xp: 30,
     },
 
     // ── Question 3 ──────────────────────────────────────────────────────────
@@ -347,37 +377,6 @@ This is called the **detect → learn → improve** loop, and CTI is the fuel th
       xp: 60,
     },
 
-    // ── Question 4 ──────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "threat-intel-q4",
-      question: "A partner CERT invites your SOC to its MISP community. Which description of what you would be joining is accurate?",
-      options: [
-        "A paid commercial feed: the vendor's analysts curate IOCs and you consume them read-only",
-        "An open-source platform where members share IOCs as events and attributes with partners",
-        "The transport protocol that carries STIX bundles from one organisation's platform to another",
-        "A sector-membership body, like FS-ISAC, that admits only organisations from one industry",
-      ],
-      answer: 1,
-      explanation: "MISP is an open-source threat-intelligence sharing platform: organisations create “events” made up of “attributes” (individual IOCs) and share them with trusted partners, CERTs and ISACs, and members can contribute as well as consume. A curated, read-only paid feed describes commercial services such as Recorded Future or Mandiant Advantage. The protocol that carries STIX data between platforms is TAXII, not MISP. An ISAC is a sector-based sharing group; ISACs often run MISP instances, but MISP itself is the software, not a membership body limited to one industry.",
-      xp: 30,
-    },
-
-    // ── Question 5 ──────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "threat-intel-q5",
-      question: "Your company is a hospital. Leadership wants early warning when ransomware crews start hitting OTHER hospitals (what the attackers did and which indicators to watch) shared by sector peers under agreed sharing rules. Which source is built for that?",
-      options: [
-        "AlienVault OTX community pulses",
-        "The CISA KEV vulnerability catalog",
-        "H-ISAC member sharing channels",
-        "Abuse.ch Feodo Tracker C2 lists",
-      ],
-      answer: 2,
-      explanation: "An ISAC is where organisations in the same sector share threat intelligence with each other, and H-ISAC is the healthcare one: hospitals sharing ransomware indicators and what they saw. AlienVault OTX is a useful community feed, but contributors come from anywhere and it is not a peer group of hospitals working under agreed sharing rules. CISA KEV lists CVEs known to be exploited; it tells you what to patch, not what is hitting other hospitals this week. Feodo Tracker lists banking-trojan C2 servers: real indicators, but not sector early warning.",
-      xp: 30,
-    },
   ],
 };
 

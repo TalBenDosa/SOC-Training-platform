@@ -1843,17 +1843,22 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "threat-intel-q1",
+        "type": "question",
+        "xp": 30
+      },
+      {
         "id": "threat-intel-r2",
         "type": "reading",
         "xp": 0
       },
       {
-        "id": "threat-intel-r3",
-        "type": "reading",
-        "xp": 0
+        "id": "threat-intel-q4",
+        "type": "question",
+        "xp": 30
       },
       {
-        "id": "threat-intel-q1",
+        "id": "threat-intel-q5",
         "type": "question",
         "xp": 30
       },
@@ -1861,6 +1866,11 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "threat-intel-q2",
         "type": "question",
         "xp": 30
+      },
+      {
+        "id": "threat-intel-r3",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "threat-intel-q3",
@@ -1877,16 +1887,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "threat-intel-flag1",
         "type": "flag",
         "xp": 60
-      },
-      {
-        "id": "threat-intel-q4",
-        "type": "question",
-        "xp": 30
-      },
-      {
-        "id": "threat-intel-q5",
-        "type": "question",
-        "xp": 30
       }
     ]
   },
@@ -5207,6 +5207,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 70
       },
       {
+        "id": "mdf-f1",
+        "type": "flag",
+        "xp": 45
+      },
+      {
         "id": "mdf-r5",
         "type": "reading",
         "xp": 0
@@ -5222,11 +5227,6 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 30
       },
       {
-        "id": "mdf-ac1",
-        "type": "analyst_choice",
-        "xp": 35
-      },
-      {
         "id": "mdf-r6",
         "type": "reading",
         "xp": 0
@@ -5237,9 +5237,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 35
       },
       {
-        "id": "mdf-f1",
-        "type": "flag",
-        "xp": 45
+        "id": "mdf-ac1",
+        "type": "analyst_choice",
+        "xp": 35
       }
     ]
   },
@@ -6536,11 +6536,6 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "edr-qf1",
-        "type": "query_fill",
-        "xp": 30
-      },
-      {
         "id": "edr-f1",
         "type": "flag",
         "xp": 20
@@ -6553,6 +6548,11 @@ export const ROOMS_META: RoomMeta[] = [
       {
         "id": "edr-q5",
         "type": "question",
+        "xp": 30
+      },
+      {
+        "id": "edr-qf1",
+        "type": "query_fill",
         "xp": 30
       }
     ]
@@ -7028,11 +7028,6 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 25
       },
       {
-        "id": "rw-m1",
-        "type": "matching",
-        "xp": 35
-      },
-      {
         "id": "rw-r6",
         "type": "reading",
         "xp": 0
@@ -7058,6 +7053,11 @@ export const ROOMS_META: RoomMeta[] = [
         "type": "analyst_choice",
         "xp": 35,
         "mitreTechnique": "T1567.002"
+      },
+      {
+        "id": "rw-m1",
+        "type": "matching",
+        "xp": 35
       },
       {
         "id": "rw-r8",

@@ -642,7 +642,7 @@ function OutbreakRun({ lab, g }: { lab: LabProps<"outbreak">["lab"]; g: Game }) 
   const saved = total - infected.size;
 
   function isolate(i: number) {
-    if (g.won || isolated.has(i) || i === net.crown) return;
+    if (g.won || isolated.has(i) || infected.has(i) || i === net.crown) return;
     const iso = new Set(isolated).add(i);
     const next = spreadOnce(net.links, infected, iso);
     const fell = [...next].filter(n => !infected.has(n));
@@ -675,7 +675,7 @@ function OutbreakRun({ lab, g }: { lab: LabProps<"outbreak">["lab"]; g: Game }) 
           const bad = infected.has(i), iso = isolated.has(i), crown = i === net.crown;
           const label = crown ? lab.crown : String(i + 1).padStart(2, "0");
           return (
-            <button key={i} onClick={() => isolate(i)} disabled={g.won || iso || crown}
+            <button key={i} onClick={() => isolate(i)} disabled={g.won || iso || crown || infected.has(i)}
               aria-label={`${name(i)}${crown ? ", protect this" : ""}${bad ? ", infected" : ""}${iso ? ", isolated" : ""}`}
               className={cn("absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-md border font-mono text-[10px] font-bold transition",
                 crown ? "h-11 w-16 border-emerald-300 bg-emerald-500/25 text-emerald-100" : "h-8 w-8",
