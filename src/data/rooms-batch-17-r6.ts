@@ -158,6 +158,24 @@ const tunnelingRoom = {
       },
     },
 
+    // ── Question 1 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "tunnel-q1",
+      question:
+        "An internal server initiates an outbound SSH connection to an external host using the -R flag with arguments forwarding its own local port 3389. What does this specific flag and direction indicate, and why is it considered more dangerous than a -L forward?",
+      options: [
+        "-R is a dynamic SOCKS proxy that lets the internal server reach out through the external host, no riskier than -L",
+        "-R opens a listener on the external host that leads back to this server's port 3389: inbound reach over an outbound link",
+        "-R forwards the external host's own local port into the internal network, so it only matters if the server listens",
+        "-R tunnels only port 3389 outbound in a restricted relay mode; the danger is data leaving, not access coming in",
+      ],
+      answer: 1,
+      explanation:
+        "As covered in Reading 1, -R creates a listener on the remote/external side that tunnels back to a local service on the machine that initiated the connection, so an external party reaches INTO the internal network through a tunnel that was only ever an OUTBOUND connection, sidestepping inbound firewall rules. -L, by contrast, only lets the initiating machine reach OUT through the remote side. The SOCKS-proxy option describes -D, not -R. The option claiming the external host's own port is forwarded inward reverses which side's service is exposed. The 'restricted relay, data leaving' option misses the point: the forwarded service is reached from outside, so the risk is inbound access, not just outbound data.",
+      xp: 25,
+    },
+
     // ── Reading 2: SOCKS proxies and reverse shells ───────────────────────────
     {
       type: "reading" as const,
@@ -326,6 +344,45 @@ const tunnelingRoom = {
       },
     },
 
+    // ── Question 2 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "tunnel-q2",
+      question:
+        "A C2 beacon is configured with a 90-second interval and 30% jitter, applied symmetrically (± around the base). Which observed inter-arrival delta falls OUTSIDE the expected jittered band, and therefore does not fit this beacon profile on its own?",
+      options: [
+        "66 seconds",
+        "114 seconds",
+        "60 seconds",
+        "88 seconds",
+      ],
+      answer: 2,
+      explanation:
+        "With a 90-second interval and symmetric 30% jitter, the band runs from 90 minus 27 (63 seconds) to 90 plus 27 (117 seconds). 66 and 114 seconds sit near the edges but inside the band, and 88 seconds is close to the base, so all three fit. 60 seconds is just below the 63-second floor, reading 30% as ±30 seconds (a 60–120 band) would wrongly accept it. A gap outside the band means either it came from a different cause or the beacon's real configuration differs from what is assumed.",
+      xp: 30,
+    },
+
+    // ── Ordering: beacon detection workflow ──────────────────────────────────
+    {
+      type: "ordering" as const,
+      id: "tunnel-o1",
+      heading: "Order the Beacon Detection Workflow",
+      instructions: "You are running a beacon hunt that starts from proxy logs only: no endpoint alert exists yet, so you do not know which host or process to look at. Each step below consumes the output of the step before it. Arrange them in that dependency order.",
+      items: [
+        { id: "collect", text: "Pull every proxy-log connection timestamp for each host/destination pair over a multi-hour window" },
+        { id: "deltas", text: "Turn each pair's timestamp list into inter-arrival deltas (the gap between successive connections)" },
+        { id: "band", text: "From those deltas, compute mean and standard deviation to test for a tight, bounded cluster" },
+        { id: "bytes", text: "Combine the clustering result with repetition count and bytes-per-connection consistency into a beacon score" },
+        { id: "rarity", text: "Keep only the high-scoring pairs whose destination is rare across the environment, dropping widely used services" },
+        { id: "ancestry", text: "On each host that survives that filter, pivot to endpoint telemetry to find the owning process and its command line" },
+        { id: "verdict", text: "With the owning process identified, check for a documented legitimate explanation, then close or escalate" },
+      ],
+      correct_order: ["collect", "deltas", "band", "bytes", "rarity", "ancestry", "verdict"],
+      explanation:
+        "Each step needs the previous step's output: timestamps must exist before deltas can be computed; deltas before their mean and spread; the clustering result before it can be scored together with repetition and byte consistency; scores before the high-scoring pairs can be filtered by destination rarity (which removes busy update/telemetry services that also look regular); the surviving hosts before you know where to pull endpoint process context; and the owning process before you can ask its owner for a legitimate explanation and decide. Reading 6 puts process ancestry first when an endpoint alert already names the process, in a hunt that starts from network data alone, you only reach the endpoint once the timing math has told you which host to look at.",
+      xp: 35,
+    },
+
     // ── Reading 5: LOLBin tunneling tools ────────────────────────────────────
     {
       type: "reading" as const,
@@ -371,6 +428,43 @@ const tunnelingRoom = {
         "   expected) or abnormally (long-lived, beacon-shaped,\n" +
         "   to an unexpected destination)?\n" +
         "=======================================================",
+    },
+
+    // ── Question 3 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "tunnel-q3",
+      question:
+        "A production database server, which has never previously made outbound connections to any consumer SaaS platform, is observed making a TLS connection with SNI 'x7f2a9.ngrok-free.app'. Why is ngrok's own infrastructure being legitimate SaaS not enough to clear this finding on its own?",
+      options: [
+        "It can be cleared: the session is TLS to a reputable provider, so its contents are protected and pose no exfiltration risk",
+        "Provider reputation is not the question; what matters is whether this host has any business need for a developer tunnel",
+        "It can be cleared once the IP resolves to a cloud provider, since shared cloud IPs cannot be attributed to an attacker",
+        "It stays open only until the SNI is checked against threat intel; a blocklist hit, not the host's role, should decide it",
+      ],
+      answer: 1,
+      explanation:
+        "As Reading 5 emphasizes, the tool's own legitimacy doesn't resolve the investigation. What matters is whether THIS HOST has any business reason to use it, and a production database server has none for a developer tunneling service. TLS protects the data from eavesdroppers, not from the attacker at the other end of the tunnel, so encryption is no reason to clear it. Shared cloud IPs make IP reputation weak, which is a reason to rely on context, not to close the alert. A random ngrok subdomain is fresh, legitimate infrastructure that a blocklist is unlikely to list, so a blocklist miss would wrongly clear a server that should never be using a tunnel at all.",
+      xp: 25,
+    },
+
+    // ── Matching: tunneling technique <-> mechanism ─────────────────────────
+    {
+      type: "matching" as const,
+      id: "tunnel-m1",
+      heading: "Match Each Tunneling Technique or Tool to Its Core Mechanism",
+      instructions: "Match each technique/tool to how it actually works at the protocol/mechanism level.",
+      pairs: [
+        { id: "sshL", left: "SSH -L (local forward)", right: "Opens a listener on the initiating machine that tunnels OUT to a service reachable from the remote side" },
+        { id: "sshR", left: "SSH -R (remote forward)", right: "Opens a listener on the REMOTE side that tunnels back IN to a service on the initiating machine: the dangerous, firewall-bypassing direction" },
+        { id: "sshD", left: "SSH -D (dynamic forward)", right: "Turns the local machine into a full SOCKS proxy, allowing any application to reach any destination reachable from the remote side" },
+        { id: "icmp", left: "ICMP tunneling", right: "Encodes arbitrary command/data payload inside ICMP echo request/reply packets, abusing the unused padding field ping normally sends" },
+        { id: "ngrokmech", left: "ngrok", right: "Creates a public tunnel to a local service entirely through ngrok's own cloud infrastructure, requiring no inbound firewall changes or public IP on the target end" },
+        { id: "chisel", left: "Chisel", right: "A single-file, dependency-free binary that tunnels TCP/UDP over HTTP, frequently paired with SOCKS proxy functionality for pivoting" },
+      ],
+      explanation:
+        "Each technique moves data through a different mechanism, but they share a common theme: all of them ride on protocols or infrastructure that is either encrypted, widely trusted, or both, specifically to blend in with legitimate traffic. Recognizing the exact mechanism, which direction a listener opens, what protocol carries the payload, what infrastructure is involved, is what lets an analyst predict exactly which log source and which specific field will contain the evidence.",
+      xp: 40,
     },
 
     // ── Reading 6: investigation playbook ────────────────────────────────────
@@ -423,60 +517,6 @@ const tunnelingRoom = {
         explanation:
           "it_verify_result 'confirmed' means the asset or change owner confirmed a documented business explanation (a change ticket, an approved tool deployment, account-owner confirmation), making the finding very likely a benign true positive: the detection caught real activity, and the confirmation is the justification that makes it authorized. It is not a false positive, because the rule did not misfire. It is not a reviewer-tracking field, and it is not the output of malware forensics. It also points the opposite way from confirmed compromise: 'confirmed' supports closing, while 'unverified' is what drives escalation and containment.",
       },
-    },
-
-    // ── Question 1 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "tunnel-q1",
-      question:
-        "An internal server initiates an outbound SSH connection to an external host using the -R flag with arguments forwarding its own local port 3389. What does this specific flag and direction indicate, and why is it considered more dangerous than a -L forward?",
-      options: [
-        "-R is a dynamic SOCKS proxy that lets the internal server reach out through the external host, no riskier than -L",
-        "-R opens a listener on the external host that leads back to this server's port 3389: inbound reach over an outbound link",
-        "-R forwards the external host's own local port into the internal network, so it only matters if the server listens",
-        "-R tunnels only port 3389 outbound in a restricted relay mode; the danger is data leaving, not access coming in",
-      ],
-      answer: 1,
-      explanation:
-        "As covered in Reading 1, -R creates a listener on the remote/external side that tunnels back to a local service on the machine that initiated the connection, so an external party reaches INTO the internal network through a tunnel that was only ever an OUTBOUND connection, sidestepping inbound firewall rules. -L, by contrast, only lets the initiating machine reach OUT through the remote side. The SOCKS-proxy option describes -D, not -R. The option claiming the external host's own port is forwarded inward reverses which side's service is exposed. The 'restricted relay, data leaving' option misses the point: the forwarded service is reached from outside, so the risk is inbound access, not just outbound data.",
-      xp: 25,
-    },
-
-    // ── Question 2 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "tunnel-q2",
-      question:
-        "A C2 beacon is configured with a 90-second interval and 30% jitter, applied symmetrically (± around the base). Which observed inter-arrival delta falls OUTSIDE the expected jittered band, and therefore does not fit this beacon profile on its own?",
-      options: [
-        "66 seconds",
-        "114 seconds",
-        "60 seconds",
-        "88 seconds",
-      ],
-      answer: 2,
-      explanation:
-        "With a 90-second interval and symmetric 30% jitter, the band runs from 90 minus 27 (63 seconds) to 90 plus 27 (117 seconds). 66 and 114 seconds sit near the edges but inside the band, and 88 seconds is close to the base, so all three fit. 60 seconds is just below the 63-second floor, reading 30% as ±30 seconds (a 60–120 band) would wrongly accept it. A gap outside the band means either it came from a different cause or the beacon's real configuration differs from what is assumed.",
-      xp: 30,
-    },
-
-    // ── Question 3 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "tunnel-q3",
-      question:
-        "A production database server, which has never previously made outbound connections to any consumer SaaS platform, is observed making a TLS connection with SNI 'x7f2a9.ngrok-free.app'. Why is ngrok's own infrastructure being legitimate SaaS not enough to clear this finding on its own?",
-      options: [
-        "It can be cleared: the session is TLS to a reputable provider, so its contents are protected and pose no exfiltration risk",
-        "Provider reputation is not the question; what matters is whether this host has any business need for a developer tunnel",
-        "It can be cleared once the IP resolves to a cloud provider, since shared cloud IPs cannot be attributed to an attacker",
-        "It stays open only until the SNI is checked against threat intel; a blocklist hit, not the host's role, should decide it",
-      ],
-      answer: 1,
-      explanation:
-        "As Reading 5 emphasizes, the tool's own legitimacy doesn't resolve the investigation. What matters is whether THIS HOST has any business reason to use it, and a production database server has none for a developer tunneling service. TLS protects the data from eavesdroppers, not from the attacker at the other end of the tunnel, so encryption is no reason to clear it. Shared cloud IPs make IP reputation weak, which is a reason to rely on context, not to close the alert. A random ngrok subdomain is fresh, legitimate infrastructure that a blocklist is unlikely to list, so a blocklist miss would wrongly clear a server that should never be using a tunnel at all.",
-      xp: 25,
     },
 
     // ── Log Analysis 1: plink.exe reverse tunnel ─────────────────────────────
@@ -533,6 +573,16 @@ const tunnelingRoom = {
       ],
     },
 
+    // ── Flag ──────────────────────────────────────────────────────────────
+    {
+      type: "flag" as const,
+      id: "tunnel-f1",
+      prompt:
+        "Go back to Log Analysis 1, the plink.exe event on SRV-APP12. The egress firewall only ever sees the outer SSH connection that carries the tunnel. Which destination TCP port will the firewall record for that connection? Enter the number only.",
+      answer: "443",
+      hint: "In plink's command line, the ports inside the forwarding specification are not the port of the SSH server itself: a separate flag sets that.",
+      xp: 25,
+    },
     // ── Log Analysis 2: ngrok beacon investigation ───────────────────────────
     {
       type: "log_analysis" as const,
@@ -587,6 +637,27 @@ const tunnelingRoom = {
       ],
     },
 
+    // ── Query Fill: KQL to surface beacon-shaped connections by interval ────
+    {
+      type: "query_fill" as const,
+      id: "tunnel-qf1",
+      heading: "Write It Yourself: Surface Beacon-Shaped Connections in KQL",
+      language: "kql",
+      context:
+        "Turn the pattern from Log Analysis 2 into a one-hour hunt over Defender for Endpoint network events. The rows are sorted per device and destination so prev() can compute each gap, and the first row of every pair gets a null gap. Requirements: (1) HTTPS only; (2) measure the SPREAD of the gaps, not their average, Reading 4's signal is tight clustering; (3) the count threshold must ignore pairs with fewer than 10 connections in the hour, yet still keep a beacon that sleeps at most 120 seconds (about 30 connections per hour); (4) the spread threshold, a whole number of seconds, must keep Log Analysis 2's beacon (standard deviation 6.8 s) while dropping human browsing, whose gaps typically vary with a standard deviation of 30 s or more.",
+      template:
+        "DeviceNetworkEvents\n| where Timestamp > ago(1h)\n| where RemotePort == {{port}}\n| sort by DeviceName asc, RemoteUrl asc, Timestamp asc\n| extend Delta = iff(DeviceName == prev(DeviceName) and RemoteUrl == prev(RemoteUrl), datetime_diff('second', Timestamp, prev(Timestamp)), long(null))\n| summarize ConnectionCount = count(), AvgDelta = avg(Delta), StdDelta = {{agg}}(Delta) by DeviceName, RemoteUrl\n| where ConnectionCount > {{threshold}} and StdDelta < {{maxstd}}",
+      blanks: [
+        { id: "port", answers: ["443"], placeholder: "standard HTTPS port" },
+        { id: "agg", answers: ["stdev", "stdevp"], placeholder: "KQL aggregation that measures the spread of the gaps" },
+        { id: "threshold", answers: ["9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29"], placeholder: "connection-count threshold (see requirement 3)" },
+        { id: "maxstd", answers: ["7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30"], placeholder: "maximum standard deviation in whole seconds (see requirement 4)" },
+      ],
+      explanation:
+        "RemotePort == 443 limits the hunt to HTTPS. Sorting by device, destination and time serializes the rows so prev() works, and the iff() stops a gap from being computed across two different device/destination pairs. stdev (or the population variant stdevp) measures how tightly the gaps cluster (the beacon signal from Reading 4) whereas an average alone cannot tell a tight 60 s beacon from human traffic that happens to average 60 s. For the count, ConnectionCount > N drops pairs with 9 or fewer connections only if N is at least 9, and keeps a 30-connection beacon only if N is at most 29, so any value from 9 to 29 is correct. For the spread, StdDelta < X keeps Log Analysis 2 (6.8 s) only if X is at least 7, and drops a standard deviation of 30 s only if X is at most 30, so any whole number from 7 to 30 is correct.",
+      xp: 35,
+    },
+
     // ── Analyst Choice: approved pentest / verified dev use benign true positive trap ──────────
     {
       type: "analyst_choice" as const,
@@ -629,77 +700,6 @@ const tunnelingRoom = {
       xp: 30,
     },
 
-    // ── Matching: tunneling technique <-> mechanism ─────────────────────────
-    {
-      type: "matching" as const,
-      id: "tunnel-m1",
-      heading: "Match Each Tunneling Technique or Tool to Its Core Mechanism",
-      instructions: "Match each technique/tool to how it actually works at the protocol/mechanism level.",
-      pairs: [
-        { id: "sshL", left: "SSH -L (local forward)", right: "Opens a listener on the initiating machine that tunnels OUT to a service reachable from the remote side" },
-        { id: "sshR", left: "SSH -R (remote forward)", right: "Opens a listener on the REMOTE side that tunnels back IN to a service on the initiating machine: the dangerous, firewall-bypassing direction" },
-        { id: "sshD", left: "SSH -D (dynamic forward)", right: "Turns the local machine into a full SOCKS proxy, allowing any application to reach any destination reachable from the remote side" },
-        { id: "icmp", left: "ICMP tunneling", right: "Encodes arbitrary command/data payload inside ICMP echo request/reply packets, abusing the unused padding field ping normally sends" },
-        { id: "ngrokmech", left: "ngrok", right: "Creates a public tunnel to a local service entirely through ngrok's own cloud infrastructure, requiring no inbound firewall changes or public IP on the target end" },
-        { id: "chisel", left: "Chisel", right: "A single-file, dependency-free binary that tunnels TCP/UDP over HTTP, frequently paired with SOCKS proxy functionality for pivoting" },
-      ],
-      explanation:
-        "Each technique moves data through a different mechanism, but they share a common theme: all of them ride on protocols or infrastructure that is either encrypted, widely trusted, or both, specifically to blend in with legitimate traffic. Recognizing the exact mechanism, which direction a listener opens, what protocol carries the payload, what infrastructure is involved, is what lets an analyst predict exactly which log source and which specific field will contain the evidence.",
-      xp: 40,
-    },
-
-    // ── Ordering: beacon detection workflow ──────────────────────────────────
-    {
-      type: "ordering" as const,
-      id: "tunnel-o1",
-      heading: "Order the Beacon Detection Workflow",
-      instructions: "You are running a beacon hunt that starts from proxy logs only: no endpoint alert exists yet, so you do not know which host or process to look at. Each step below consumes the output of the step before it. Arrange them in that dependency order.",
-      items: [
-        { id: "collect", text: "Pull every proxy-log connection timestamp for each host/destination pair over a multi-hour window" },
-        { id: "deltas", text: "Turn each pair's timestamp list into inter-arrival deltas (the gap between successive connections)" },
-        { id: "band", text: "From those deltas, compute mean and standard deviation to test for a tight, bounded cluster" },
-        { id: "bytes", text: "Combine the clustering result with repetition count and bytes-per-connection consistency into a beacon score" },
-        { id: "rarity", text: "Keep only the high-scoring pairs whose destination is rare across the environment, dropping widely used services" },
-        { id: "ancestry", text: "On each host that survives that filter, pivot to endpoint telemetry to find the owning process and its command line" },
-        { id: "verdict", text: "With the owning process identified, check for a documented legitimate explanation, then close or escalate" },
-      ],
-      correct_order: ["collect", "deltas", "band", "bytes", "rarity", "ancestry", "verdict"],
-      explanation:
-        "Each step needs the previous step's output: timestamps must exist before deltas can be computed; deltas before their mean and spread; the clustering result before it can be scored together with repetition and byte consistency; scores before the high-scoring pairs can be filtered by destination rarity (which removes busy update/telemetry services that also look regular); the surviving hosts before you know where to pull endpoint process context; and the owning process before you can ask its owner for a legitimate explanation and decide. Reading 6 puts process ancestry first when an endpoint alert already names the process, in a hunt that starts from network data alone, you only reach the endpoint once the timing math has told you which host to look at.",
-      xp: 35,
-    },
-
-    // ── Query Fill: KQL to surface beacon-shaped connections by interval ────
-    {
-      type: "query_fill" as const,
-      id: "tunnel-qf1",
-      heading: "Write It Yourself: Surface Beacon-Shaped Connections in KQL",
-      language: "kql",
-      context:
-        "Turn the pattern from Log Analysis 2 into a one-hour hunt over Defender for Endpoint network events. The rows are sorted per device and destination so prev() can compute each gap, and the first row of every pair gets a null gap. Requirements: (1) HTTPS only; (2) measure the SPREAD of the gaps, not their average, Reading 4's signal is tight clustering; (3) the count threshold must ignore pairs with fewer than 10 connections in the hour, yet still keep a beacon that sleeps at most 120 seconds (about 30 connections per hour); (4) the spread threshold, a whole number of seconds, must keep Log Analysis 2's beacon (standard deviation 6.8 s) while dropping human browsing, whose gaps typically vary with a standard deviation of 30 s or more.",
-      template:
-        "DeviceNetworkEvents\n| where Timestamp > ago(1h)\n| where RemotePort == {{port}}\n| sort by DeviceName asc, RemoteUrl asc, Timestamp asc\n| extend Delta = iff(DeviceName == prev(DeviceName) and RemoteUrl == prev(RemoteUrl), datetime_diff('second', Timestamp, prev(Timestamp)), long(null))\n| summarize ConnectionCount = count(), AvgDelta = avg(Delta), StdDelta = {{agg}}(Delta) by DeviceName, RemoteUrl\n| where ConnectionCount > {{threshold}} and StdDelta < {{maxstd}}",
-      blanks: [
-        { id: "port", answers: ["443"], placeholder: "standard HTTPS port" },
-        { id: "agg", answers: ["stdev", "stdevp"], placeholder: "KQL aggregation that measures the spread of the gaps" },
-        { id: "threshold", answers: ["9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29"], placeholder: "connection-count threshold (see requirement 3)" },
-        { id: "maxstd", answers: ["7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30"], placeholder: "maximum standard deviation in whole seconds (see requirement 4)" },
-      ],
-      explanation:
-        "RemotePort == 443 limits the hunt to HTTPS. Sorting by device, destination and time serializes the rows so prev() works, and the iff() stops a gap from being computed across two different device/destination pairs. stdev (or the population variant stdevp) measures how tightly the gaps cluster (the beacon signal from Reading 4) whereas an average alone cannot tell a tight 60 s beacon from human traffic that happens to average 60 s. For the count, ConnectionCount > N drops pairs with 9 or fewer connections only if N is at least 9, and keeps a 30-connection beacon only if N is at most 29, so any value from 9 to 29 is correct. For the spread, StdDelta < X keeps Log Analysis 2 (6.8 s) only if X is at least 7, and drops a standard deviation of 30 s only if X is at most 30, so any whole number from 7 to 30 is correct.",
-      xp: 35,
-    },
-
-    // ── Flag ──────────────────────────────────────────────────────────────
-    {
-      type: "flag" as const,
-      id: "tunnel-f1",
-      prompt:
-        "Go back to Log Analysis 1, the plink.exe event on SRV-APP12. The egress firewall only ever sees the outer SSH connection that carries the tunnel. Which destination TCP port will the firewall record for that connection? Enter the number only.",
-      answer: "443",
-      hint: "In plink's command line, the ports inside the forwarding specification are not the port of the SSH server itself: a separate flag sets that.",
-      xp: 25,
-    },
   ],
 };
 

@@ -35,7 +35,7 @@ export function ChatLab({ lab, onDone }: LabProps<"chat">) {
     setInput("");
     // With memory, a winning rule reads everything said toward this goal, so a learner who
     // answers follow-ups one at a time can still get there. Every other rule reads this message.
-    const pool = said ? `${said}. ${text}` : text;
+    const pool = (said ? `${said}. ${text}` : text).slice(-600); // keep the rules quick on long chats
     setSaid(pool);
     const hit = rules.find(r => r.re.test(lab.memory && r.wins ? pool : text) && (!r.goal || r.goal === goal.id));
     setLines(l => [...l, { from: "user", text }, { from: "bot", text: hit?.reply ?? lab.fallback }]);

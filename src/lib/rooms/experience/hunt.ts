@@ -12,7 +12,7 @@ export interface HuntTable {
 
 export type HuntStep =
   | { op: "where"; col: string; test: "eq" | "ieq" | "has" | "in" | "notin"; value: string | string[] }
-  | { op: "join"; table: string; left: string; right: string; /** A further column both sides must match, e.g. the device. */ also?: string }
+  | { op: "join"; table: string; left: string; right: string; /** A further column both sides must match, e.g. the device. */ also?: string; /** Leave the right-hand key out of the result, as an SPL lookup does. */ hideKey?: boolean }
   | { op: "summarize"; by: string[]; /** Name of the count column: count_ in KQL, count in SPL. */ as?: string }
   | { op: "project"; cols: string[] };
 
@@ -59,8 +59,9 @@ export function runHunt(tables: HuntTable[], start: string, steps: HuntStep[], o
       const named = other.columns.map(c => (columns.includes(c) ? `${c}1` : c));
       const la = step.also ? columns.indexOf(step.also) : -1, ra = step.also ? other.columns.indexOf(step.also) : -1;
       if (step.also && (la < 0 || ra < 0)) return { columns, rows: [], error: missing(step.also) };
-      rows = rows.flatMap(a => other.rows.filter(b => b[r] === a[l] && (!step.also || b[ra] === a[la])).map(b => [...a, ...b]));
-      columns = [...columns, ...named];
+      const keep = other.columns.map((_, i) => i).filter(i => !step.hideKey || i !== r);
+      rows = rows.flatMap(a => other.rows.filter(b => b[r] === a[l] && (!step.also || b[ra] === a[la])).map(b => [...a, ...keep.map(i => b[i])]));
+      columns = [...columns, ...keep.map(i => named[i])];
     } else if (step.op === "summarize") {
       const idx = step.by.map(c => columns.indexOf(c));
       const gone = step.by.find((_, i) => idx[i] < 0);

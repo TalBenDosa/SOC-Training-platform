@@ -332,6 +332,78 @@ const edgeCaseRoom = {
       },
     },
 
+    // ── Question 1 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "edge-q1",
+      question:
+        "Why does a dependency-confusion attack routinely bypass EDR tools that would normally flag suspicious child processes?",
+      options: [
+        "Because EDR sensors do not hook child-process creation for package managers such as npm and pip, so runtimes they spawn never reach the telemetry stream",
+        "Because the code runs inside an expected lineage (npm or pip spawning node.exe or python.exe), so the tree looks routine and intent shows only in command line and destination",
+        "Because the payload arrives over HTTPS from the public registry, and EDR cannot inspect encrypted package downloads, so the install step produces no alertable process activity",
+        "Because the spawned runtime is vendor-signed (OpenJS Foundation or Python Software Foundation), and EDR reputation scoring suppresses alerts for any validly signed binary",
+      ],
+      answer: 1,
+      explanation:
+        "EDR baselines are heavily shaped by parent-child process legitimacy. npm.cmd spawning node.exe (or pip spawning python.exe) is extremely common developer activity, so the process tree alone carries a low suspicion score. The actual malicious signal is buried in what the spawned process does (an inline eval executing a download-and-run chain to a raw IP address) which requires inspecting command-line arguments and network destinations, not just the process ancestry.",
+      xp: 20,
+    },
+
+    // ── Log Analysis 1: dependency-confusion process chain ─────────────────
+    {
+      type: "log_analysis" as const,
+      id: "edge-la1",
+      heading: "CrowdStrike Falcon: A Postinstall Script That Isn't What It Claims to Be",
+      context:
+        "A developer, d.wong, ran 'npm install internal-logging-utils' on their laptop while pulling in a new dependency for an internal tool. CrowdStrike Falcon generated a medium-confidence detection a few seconds later. At first glance this looks like routine developer tooling noise: npm spawning node.exe happens constantly across your fleet. Look carefully at every field before deciding whether this is routine.",
+      event: supplyChainEvent,
+      questions: [
+        {
+          question:
+            "node.exe running under npm during an install is normal. Which detail in this record shows that this particular node.exe run is NOT just the package's ordinary install step?",
+          options: [
+            "crowdstrike.FileSigned is true, which means the inline code must have been injected by tampering with node.exe itself",
+            "The command differs from the declared postinstall (node ./scripts/setup.js) and chains exec into hidden PowerShell",
+            "PatternDispositionDescription reads “Detection, No Action”, so Falcon has already judged the command to be benign",
+            "The parent is npm.cmd rather than node.exe, which shows npm ran a script outside of its normal install lifecycle",
+          ],
+          answer: 1,
+          explanation:
+            "The package declares its postinstall as 'node ./scripts/setup.js' (npm.scripts.postinstall), but the process that actually ran is inline code that calls child_process.exec to launch hidden PowerShell and download-and-execute a script from a raw IP. The tell is the chain and the mismatch with what the package declares, not the use of node or of -e as such. “FileSigned is true” only says node.exe is the genuine signed runtime; the malicious logic is in the arguments it was given, not in a modified binary. “Detection, No Action” means Falcon detected and did not block. It is not a benign verdict. “The parent is npm.cmd” is the normal lineage for an install script, which is exactly why this attack blends in.",
+          xp: 25,
+        },
+        {
+          question:
+            "Your internal registry serves internal-logging-utils at version 0.9.2. Compare that with the npm.registry and npm.package_version fields in this record. What does the combination point to?",
+          options: [
+            "Typosquatting: the name is a near-miss of a popular public package that the developer mistyped",
+            "Dependency confusion: a same-named, higher-versioned public package beat the internal one",
+            "A sanctioned public release: the team published this tool to npm, so public resolution is normal",
+            "Registry DNS hijacking: the internal registry's name was redirected to the public npm registry",
+          ],
+          answer: 1,
+          explanation:
+            "The record shows the package came from https://registry.npmjs.org at version 1.0.4, while your internal registry serves the same name at 0.9.2. A public package with an internal-only name and a HIGHER version winning resolution is the dependency-confusion signature from Reading 1. “Typosquatting” needs a misspelled name; this is the exact internal name. “A sanctioned public release” would carry your own team's version line, not a version that jumps past the internal one, and a sanctioned release would not spawn hidden PowerShell. “Registry DNS hijacking” would show your internal registry's URL resolving somewhere else; here the record names the real public registry, which the build tool chose on its own.",
+          xp: 25,
+        },
+        {
+          question:
+            "The download URL inside crowdstrike.CommandLine is a raw IP address (185.220.101.47) over plain HTTP, rather than a domain name over HTTPS. Why does this detail raise the priority of the detection?",
+          options: [
+            "Plain HTTP lets anyone on the path tamper with the download, so the main risk is a man-in-the-middle swap",
+            "Package hosts serve named domains over HTTPS; a bare IP over HTTP for a second stage is cheap attacker infra",
+            "It shows the TLS download failed and fell back to HTTP, which points to a broken proxy rather than an attack",
+            "A raw IP cannot be caught by DNS blocking, so a firewall block is enough and the laptop needs no further review",
+          ],
+          answer: 1,
+          explanation:
+            "Legitimate package infrastructure (npm's CDN, GitHub releases, corporate update servers) is served over HTTPS from named domains. A bare IP over plain HTTP for a second-stage script is disposable attacker infrastructure: no domain to register, no certificate to manage, easy to rotate. That raises this from developer noise to a priority investigation. “A man-in-the-middle swap” worries about tampering with a download that is itself the malicious payload. “The TLS download failed and fell back to HTTP” is not supported by anything in the record: the command line hard-codes http:// from the start. “A firewall block is enough” ignores that the PowerShell stage may already have run; the laptop needs investigation regardless of blocking the IP.",
+          xp: 20,
+        },
+      ],
+    },
+
     // ── Reading 2: Insider threat — low-and-slow, under DLP thresholds ──────
     {
       type: "reading" as const,
@@ -359,6 +431,46 @@ const edgeCaseRoom = {
         "                                        not part of normal job function)\n\n" +
         "  --> No single day crosses a DLP threshold.\n" +
         "  --> The TREND is the alert. The event stream alone is not.",
+    },
+
+    // ── Log Analysis 3: low-and-slow exfil trend ────────────────────────────
+    {
+      type: "log_analysis" as const,
+      id: "edge-la3",
+      heading: "SharePoint + UEBA: Fourteen Files a Day, Seventeen Days Running",
+      context:
+        "A single SharePoint FileDownloaded event for m.reyes shows 14 files pulled from the Contracts library. Your DLP policy's bulk-download threshold is 50 files per hour, so no rule fired and the event sits at low severity in the queue. A UEBA layer sitting on top of the same event stream has been quietly building a very different picture. Compare what each layer sees.",
+      event: lowAndSlowEvent,
+      questions: [
+        {
+          question:
+            "The dlp.rule_triggered field is false and dlp.observed_files_this_hour (14) is far below dlp.threshold_files_per_hour (50). Why is it a mistake to close this alert as benign based on the DLP fields alone?",
+          options: [
+            "It is not a mistake: 14 of a 50-file limit is under 30% of the threshold, well inside normal daily use",
+            "DLP judges one hour at a time, so it cannot see 17 sub-threshold days in a row: the insider pattern here",
+            "The mistake is the threshold itself; lowering it to 10 files per hour would have made this session fire",
+            "dlp.rule_triggered false means the policy never evaluated the event, so it must be re-scanned first",
+          ],
+          answer: 1,
+          explanation:
+            "DLP thresholds are a per-hour circuit breaker built to stop bulk exports; they cannot see a pattern spread across many days where each session stays under the line. The threshold not firing tells you this was not a smash-and-grab. It tells you nothing about 17 consecutive elevated days. “14 of a 50-file limit … well inside normal daily use” judges against the policy, not the person: this user's own baseline is 2-3 files a day. “Lowering it to 10 files per hour” is the fix the reading rejects: it just moves the goalpost, adds false positives, and a patient insider adjusts. “The policy never evaluated the event” misreads the record: dlp.policy_evaluated names the policy that ran; rule_triggered false means it ran and the count stayed under the threshold.",
+          xp: 25,
+        },
+        {
+          question:
+            "The ueba.consecutive_days_elevated field shows 17, and ueba.library_role_relevance is marked LOW for this Finance-department user accessing the Contracts library. What is the correct analyst action given these two fields together?",
+          options: [
+            "Disable the account now: 17 elevated days in a row is enough to treat this as confirmed data theft",
+            "Escalate: check what was taken and where it went, and bring in the manager and HR per the playbook",
+            "Quietly reduce the user's SharePoint access so the downloads stop without tipping them off",
+            "Raise a DLP tuning ticket so a daily-count rule catches this pattern next time, and close this alert",
+          ],
+          answer: 1,
+          explanation:
+            "Two independent risk factors reinforcing each other, sustained deviation from personal baseline (17 consecutive elevated days) plus a library the UEBA layer rates as low relevance to this user's role, is the combination that should trigger escalation. The next step is investigation: confirm what was accessed, check for any onward transfer (personal email, cloud storage, USB), and loop in the manager and HR per the insider-threat playbook, since context such as a role change or an approved project could still explain it. “Disable the account now” treats a strong pattern as proof and skips the context check. “Quietly reduce the user's SharePoint access” is a unilateral change outside the playbook that stops the evidence trail and can tip off the user just as surely. “Raise a DLP tuning ticket … and close this alert” improves future detection but abandons the 238 files that may already have left.",
+          xp: 25,
+        },
+      ],
     },
 
     // ── Reading 3: Third-party / vendor compromise — Magecart & MSP tooling ─
@@ -445,6 +557,80 @@ const edgeCaseRoom = {
         "    ApplicationDisplayName = unverified / recently registered\n",
     },
 
+    // ── Question 2 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "edge-q2",
+      question:
+        "An OAuth consent-grant phishing attack succeeds without the attacker ever obtaining the victim's password and without triggering any MFA challenge on subsequent access. Why does MFA never fire for the attacker's ongoing access to the mailbox?",
+      options: [
+        "Because the phishing page captured the victim's TOTP seed, so the attacker can generate valid codes whenever the mailbox API requests a second factor",
+        "Because the attacker replays the victim's browser session cookie from the consent step, and that cookie stays valid until the account password is next changed",
+        "Because the token issued at consent becomes the credential for API access. Each call authenticates with the token itself, so no password or MFA challenge is presented",
+        "Because the victim's MFA claim was satisfied at consent time and is cached for the life of the account, so every later sign-in from any app inherits it",
+      ],
+      answer: 2,
+      explanation:
+        "Once a user accepts an OAuth consent request, the identity provider issues a signed access/refresh token directly to the requesting application. That token, not a password, is what the attacker's app uses for every subsequent Microsoft Graph or Google Workspace API call. Because no further interactive login occurs, there is no event for MFA to intercept. This is what makes illicit consent grants so dangerous: they sidestep password- and MFA-based defenses entirely, and the only defensible checkpoint is the consent event itself.",
+      xp: 25,
+    },
+
+    // ── Log Analysis 2: OAuth consent grant to rogue app ────────────────────
+    {
+      type: "log_analysis" as const,
+      id: "edge-la2",
+      heading: "Azure AD: A Consent Grant That Never Touches a Password",
+      context:
+        "Azure AD Unified Audit Log recorded a routine-looking 'Consent to application' event for r.patel@nexacorp.com. No failed logins preceded it. No malware alert exists anywhere in the EDR console for this user's device. The event severity was auto-classified as medium by default policy. Walk through the raw fields to determine whether this deserves escalation.",
+      event: oauthConsentEvent,
+      questions: [
+        {
+          question:
+            "The data.office365.ExtendedProperties.Value field lists the requested scopes as 'Mail.Read offline_access User.Read Contacts.Read' for an app called 'Quick Doc Viewer'. Which reading of this scope list best explains why the grant deserves escalation?",
+          options: [
+            "User.Read is the concern: it exposes the user's profile and job title to an outside publisher",
+            "The scopes don't fit the app: a doc viewer reading mail and contacts, made persistent by offline_access",
+            "offline_access alone is the concern; without it, Mail.Read for a viewer app would be routine",
+            "Contacts.Read is the concern: it lets the app send mail as the user to their whole address book",
+          ],
+          answer: 1,
+          explanation:
+            "The strongest tell is the mismatch between scopes and purpose: a document viewer has no reason to read the user's mailbox and contacts, and offline_access is what turns that access into a persistent one, a refresh token lets the app keep minting access tokens without the user ever signing in again. “User.Read is the concern” picks the basic sign-in scope almost every app requests. “offline_access alone is the concern” over-weights one scope: many legitimate integrations (calendar sync, chat tools) request it, and Mail.Read on a viewer would be a mismatch with or without it. “Contacts.Read … lets the app send mail as the user” confuses read access with Mail.Send; Contacts.Read only reads the address book.",
+          xp: 25,
+        },
+        {
+          question:
+            "The data.office365.ApplicationDisplayName is 'Quick Doc Viewer' and the GeoLocation fields show the consent occurred from Latvia. On their own, is either of these facts conclusive proof of a malicious app?",
+          options: [
+            "Yes: a generic name like this matches the attacker app names the reading describes, so the name settles it",
+            "Yes: a consent from a country this user has never used shows the session itself was stolen from them",
+            "No: each has innocent explanations; they matter alongside the scopes, publisher status and usual locations",
+            "No, and even together they stay weak; without an EDR or malware alert there is nothing to escalate",
+          ],
+          answer: 2,
+          explanation:
+            "Neither signal is damning alone: plenty of legitimate apps have generic names, and travel or VPN egress produces foreign locations. The discipline is combining them: a generic, likely unverified app, requesting mail access plus a persistence scope, consented from a location atypical for this user, together moves the event from routine to investigate-now. “A generic name … settles it” treats a naming habit as proof; attackers pick names that sound legitimate precisely because legitimate apps sound like this. “A consent from a country this user has never used shows the session itself was stolen” leaps past the evidence: the reading's attack needs no stolen session, only a click on a real consent screen. “Without an EDR or malware alert there is nothing to escalate” is the exact assumption this room breaks: illicit consent grants involve no malware at all.",
+          xp: 25,
+        },
+      ],
+    },
+
+    // ── Analyst Choice 2: OAuth grant that looks benign but is malicious ────
+    {
+      type: "analyst_choice" as const,
+      id: "edge-ac2",
+      heading: "Verdict: Routine App Authorization or Illicit Consent Grant?",
+      scenario:
+        "Two weeks later, a different OAuth consent event appears in the queue: another user, another app. It is structurally identical to the routine app authorizations your users perform dozens of times a month (connecting Slack, Zoom, or a calendar tool to their Microsoft account). No malware alert exists and no failed logins precede it; the user's MFA was satisfied for their normal session, and every request went to legitimate login.microsoftonline.com endpoints. Your enrichment adds three facts: the app's Enterprise Applications entry shows its publisher as unverified, registered in an external tenant two days ago; j.alvarez works from the Madrid office and has no sign-in history outside Spain; and no ticket or request exists for a PDF-signing tool.",
+      event: oauthConsentEvent2,
+      correct_verdict: "true_positive",
+      explanation:
+        "Treat this as a true positive, a probable illicit consent grant, and remediate now, even though there is no malware, phishing infrastructure or credential theft. The scope list does not fit the app: a PDF signer has no need to read every file the user can reach (Files.Read.All) or their mailbox (Mail.Read), and offline_access makes that access persist through refresh tokens with no further user interaction. The surrounding facts remove the innocent explanations: an unverified publisher registered two days ago in an external tenant, a consent from Romania for a user with no sign-in history outside Spain, and no request for such a tool. Remediation: revoke the app's consent and remove it in Entra ID (Enterprise Applications), revoke the user's sessions and refresh tokens, and review what it reached while it held the token: MailItemsAccessed and file-access records with this app's ID, and Graph activity logs against its client ID.",
+      fp_trap:
+        "Because this event uses the exact same Operation name ('Consent to application.') and the exact same schema as the thousands of legitimate, benign SaaS-connection consents your users perform routinely, it is easy to pattern-match it to 'normal noise' and auto-close without reading the scope list. The trap is treating event TYPE as sufficient context: the same event type covers both a user connecting their calendar app and a user handing an attacker persistent mailbox access. You must read the actual requested scopes and app metadata every time, not just recognize the event name.",
+      xp: 30,
+    },
+
     // ── Reading 5: LOLBins, impossible-travel FPs, and business logic attacks
     {
       type: "reading" as const,
@@ -499,40 +685,47 @@ const edgeCaseRoom = {
       },
     },
 
-    // ── Question 1 ────────────────────────────────────────────────────────
+    // ── Analyst Choice 3: LOLBin regsvr32 that is actually legit admin work ─
     {
-      type: "question" as const,
-      id: "edge-q1",
-      question:
-        "Why does a dependency-confusion attack routinely bypass EDR tools that would normally flag suspicious child processes?",
-      options: [
-        "Because EDR sensors do not hook child-process creation for package managers such as npm and pip, so runtimes they spawn never reach the telemetry stream",
-        "Because the code runs inside an expected lineage (npm or pip spawning node.exe or python.exe), so the tree looks routine and intent shows only in command line and destination",
-        "Because the payload arrives over HTTPS from the public registry, and EDR cannot inspect encrypted package downloads, so the install step produces no alertable process activity",
-        "Because the spawned runtime is vendor-signed (OpenJS Foundation or Python Software Foundation), and EDR reputation scoring suppresses alerts for any validly signed binary",
-      ],
-      answer: 1,
+      type: "analyst_choice" as const,
+      id: "edge-ac3",
+      heading: "Verdict: Squiblydoo Attack or Legitimate Admin Deployment?",
+      scenario:
+        "EDR fires a medium-severity alert on SRV-APP-0044: regsvr32.exe registered a DLL outside the scheduled maintenance window. The technique maps to T1218.010 (System Binary Proxy Execution: Regsvr32), a documented Stealth technique (the tactic formerly called Defense Evasion). regsvr32 is a well-known LOLBin used in the Squiblydoo attack chain. Before escalating this as an intrusion, review every field in the event, not just the alert title.",
+      event: lolbinEvent,
+      correct_verdict: "benign_true_positive",
       explanation:
-        "EDR baselines are heavily shaped by parent-child process legitimacy. npm.cmd spawning node.exe (or pip spawning python.exe) is extremely common developer activity, so the process tree alone carries a low suspicion score. The actual malicious signal is buried in what the spawned process does (an inline eval executing a download-and-run chain to a raw IP address) which requires inspecting command-line arguments and network destinations, not just the process ancestry.",
-      xp: 20,
+        "This is a benign true positive: legitimate administrative work, not Squiblydoo abuse. The detection fired correctly on a real regsvr32 DLL registration; what makes it benign is the authorization behind it. The command line registers a local file path (C:\\AppDeploy\\ReportEngine\\ReportViewerCtl.dll), not a remote scriptlet fetched over the network, and network.connection_made is false, meaning no outbound call followed execution at all, which is the single clearest technical distinction between real regsvr32/scrobj.dll abuse and routine local DLL registration. The file is signed, with file.publisher showing 'NexaCorp Internal Engineering': an internal, known publisher, not an unsigned or externally-sourced binary. The process was launched from a batch script (deploy_report_engine.bat) under an open change-management ticket, CHG0041823, and comparing change_management.actual_time (19:55:03Z) with the start of change_management.scheduled_window (20:00Z) shows the command ran only about 5 minutes before its approved window opened, so it was technically outside the window, as the alert says, but by an administrator starting slightly early under a matching open ticket: a process deviation, not evidence of an intrusion. Every one of these facts is independently checkable in the raw event; none of them require trusting the analyst's gut. The correct action is to close this as a benign true positive citing change ticket CHG0041823 (not as a false positive: the rule did not misfire, and labelling it one invites weakening a LOLBin detection that works), but log the 5-minute early-start deviation back to the change-management process as a minor process note, since consistently starting outside approved windows is worth flagging to the change board even when the activity itself is benign.",
+      fp_trap:
+        "regsvr32.exe is one of the most well-known LOLBins in the MITRE ATT&CK framework, and T1218.010 on an alert is exactly the kind of label that pushes a junior analyst straight to escalation without reading further: 'regsvr32 fired, technique matches a real attack technique, escalate now.' That instinct treats the BINARY as the signal, when the reading in this room already established that the signal is never which binary ran, it's what the binary was told to do and what happened immediately afterward. A local, signed, version-controlled DLL path with no outbound connection and a matching change ticket is the textbook legitimate use of the exact same tool attackers abuse: same binary, same MITRE technique ID, completely different intent, and the raw fields prove it without requiring any assumption.",
+      xp: 30,
     },
 
-    // ── Question 2 ────────────────────────────────────────────────────────
+    // ── Flag ─────────────────────────────────────────────────────────────
     {
-      type: "question" as const,
-      id: "edge-q2",
-      question:
-        "An OAuth consent-grant phishing attack succeeds without the attacker ever obtaining the victim's password and without triggering any MFA challenge on subsequent access. Why does MFA never fire for the attacker's ongoing access to the mailbox?",
-      options: [
-        "Because the phishing page captured the victim's TOTP seed, so the attacker can generate valid codes whenever the mailbox API requests a second factor",
-        "Because the attacker replays the victim's browser session cookie from the consent step, and that cookie stays valid until the account password is next changed",
-        "Because the token issued at consent becomes the credential for API access. Each call authenticates with the token itself, so no password or MFA challenge is presented",
-        "Because the victim's MFA claim was satisfied at consent time and is cached for the life of the account, so every later sign-in from any app inherits it",
-      ],
-      answer: 2,
-      explanation:
-        "Once a user accepts an OAuth consent request, the identity provider issues a signed access/refresh token directly to the requesting application. That token, not a password, is what the attacker's app uses for every subsequent Microsoft Graph or Google Workspace API call. Because no further interactive login occurs, there is no event for MFA to intercept. This is what makes illicit consent grants so dangerous: they sidestep password- and MFA-based defenses entirely, and the only defensible checkpoint is the consent event itself.",
+      type: "flag" as const,
+      id: "edge-f1",
+      prompt:
+        "Look at the LOLBin regsvr32 event. Exactly how many SECONDS before its approved change window opened did the DLL registration actually run? (Enter a number only.)",
+      answer: "297",
+      hint: "Both times you need are in the change-management fields of the raw event; the window has a start and an end, and only one of them matters here.",
       xp: 25,
+    },
+
+    // ── Analyst Choice 1: VPN impossible-travel false positive ─────────────
+    {
+      type: "analyst_choice" as const,
+      id: "edge-ac1",
+      heading: "Verdict: Chicago, Then Dublin, Eleven Minutes Apart",
+      scenario:
+        "Okta fires an impossible-travel alert for k.oconnell: a successful login from Chicago is followed eleven minutes later by a successful login from Dublin, Ireland, a physically impossible trip in that timeframe. The account has valid MFA on both sessions. Before escalating this as a probable account takeover, review the full event, particularly the network and security-context fields.",
+      event: impossibleTravelFPEvent,
+      correct_verdict: "false_positive",
+      explanation:
+        "This is a VPN/corporate-egress false positive, not an account takeover. The decisive fields are okta.securityContext.isProxy = true, okta.securityContext.asNumber/asOrg identifying AS64500 'NexaCorp Ltd - Corporate VPN Egress EMEA' (the organization's own registered VPN egress ASN, not a consumer VPN or an unrelated hosting provider), and network.vpn_gateway_pool explicitly naming 'nexacorp-vpn-emea-dublin-01': a company-owned VPN gateway. The user connected to the corporate VPN from Chicago, and the session was routed out through the company's EMEA gateway pool in Dublin. Both logins carry the same valid MFA-backed identity; there is no credential compromise signal anywhere in the event. The correct action is to close this as a false positive (the rule misfired: it assumes an IP's location is where the user physically is, which a corporate VPN egress breaks, so the fix is to teach the rule the company's own egress ranges) but verify the vpn_gateway_pool value against your organization's known-good VPN infrastructure inventory once, since an attacker could theoretically spoof or ride a similar-looking commercial VPN to hide in this exact blind spot.",
+      fp_trap:
+        "The alert title says 'impossible travel' and the raw geography genuinely IS impossible for a human traveler. It is tempting to treat the word 'impossible' as inherently high-severity and escalate immediately. But impossible travel detections were built before centralized VPN/SASE egress was common, and they systematically misfire whenever an organization routes remote traffic through geographically distant egress points. Always check is_proxy and the ASN/org name behind the IP before trusting the geography at face value: the raw distance-over-time math is only meaningful if both IPs represent the user's true physical location.",
+      xp: 30,
     },
 
     // ── Question 3 ────────────────────────────────────────────────────────
@@ -553,188 +746,6 @@ const edgeCaseRoom = {
       xp: 25,
     },
 
-    // ── Log Analysis 1: dependency-confusion process chain ─────────────────
-    {
-      type: "log_analysis" as const,
-      id: "edge-la1",
-      heading: "CrowdStrike Falcon: A Postinstall Script That Isn't What It Claims to Be",
-      context:
-        "A developer, d.wong, ran 'npm install internal-logging-utils' on their laptop while pulling in a new dependency for an internal tool. CrowdStrike Falcon generated a medium-confidence detection a few seconds later. At first glance this looks like routine developer tooling noise: npm spawning node.exe happens constantly across your fleet. Look carefully at every field before deciding whether this is routine.",
-      event: supplyChainEvent,
-      questions: [
-        {
-          question:
-            "node.exe running under npm during an install is normal. Which detail in this record shows that this particular node.exe run is NOT just the package's ordinary install step?",
-          options: [
-            "crowdstrike.FileSigned is true, which means the inline code must have been injected by tampering with node.exe itself",
-            "The command differs from the declared postinstall (node ./scripts/setup.js) and chains exec into hidden PowerShell",
-            "PatternDispositionDescription reads “Detection, No Action”, so Falcon has already judged the command to be benign",
-            "The parent is npm.cmd rather than node.exe, which shows npm ran a script outside of its normal install lifecycle",
-          ],
-          answer: 1,
-          explanation:
-            "The package declares its postinstall as 'node ./scripts/setup.js' (npm.scripts.postinstall), but the process that actually ran is inline code that calls child_process.exec to launch hidden PowerShell and download-and-execute a script from a raw IP. The tell is the chain and the mismatch with what the package declares, not the use of node or of -e as such. “FileSigned is true” only says node.exe is the genuine signed runtime; the malicious logic is in the arguments it was given, not in a modified binary. “Detection, No Action” means Falcon detected and did not block. It is not a benign verdict. “The parent is npm.cmd” is the normal lineage for an install script, which is exactly why this attack blends in.",
-          xp: 25,
-        },
-        {
-          question:
-            "Your internal registry serves internal-logging-utils at version 0.9.2. Compare that with the npm.registry and npm.package_version fields in this record. What does the combination point to?",
-          options: [
-            "Typosquatting: the name is a near-miss of a popular public package that the developer mistyped",
-            "Dependency confusion: a same-named, higher-versioned public package beat the internal one",
-            "A sanctioned public release: the team published this tool to npm, so public resolution is normal",
-            "Registry DNS hijacking: the internal registry's name was redirected to the public npm registry",
-          ],
-          answer: 1,
-          explanation:
-            "The record shows the package came from https://registry.npmjs.org at version 1.0.4, while your internal registry serves the same name at 0.9.2. A public package with an internal-only name and a HIGHER version winning resolution is the dependency-confusion signature from Reading 1. “Typosquatting” needs a misspelled name; this is the exact internal name. “A sanctioned public release” would carry your own team's version line, not a version that jumps past the internal one, and a sanctioned release would not spawn hidden PowerShell. “Registry DNS hijacking” would show your internal registry's URL resolving somewhere else; here the record names the real public registry, which the build tool chose on its own.",
-          xp: 25,
-        },
-        {
-          question:
-            "The download URL inside crowdstrike.CommandLine is a raw IP address (185.220.101.47) over plain HTTP, rather than a domain name over HTTPS. Why does this detail raise the priority of the detection?",
-          options: [
-            "Plain HTTP lets anyone on the path tamper with the download, so the main risk is a man-in-the-middle swap",
-            "Package hosts serve named domains over HTTPS; a bare IP over HTTP for a second stage is cheap attacker infra",
-            "It shows the TLS download failed and fell back to HTTP, which points to a broken proxy rather than an attack",
-            "A raw IP cannot be caught by DNS blocking, so a firewall block is enough and the laptop needs no further review",
-          ],
-          answer: 1,
-          explanation:
-            "Legitimate package infrastructure (npm's CDN, GitHub releases, corporate update servers) is served over HTTPS from named domains. A bare IP over plain HTTP for a second-stage script is disposable attacker infrastructure: no domain to register, no certificate to manage, easy to rotate. That raises this from developer noise to a priority investigation. “A man-in-the-middle swap” worries about tampering with a download that is itself the malicious payload. “The TLS download failed and fell back to HTTP” is not supported by anything in the record: the command line hard-codes http:// from the start. “A firewall block is enough” ignores that the PowerShell stage may already have run; the laptop needs investigation regardless of blocking the IP.",
-          xp: 20,
-        },
-      ],
-    },
-
-    // ── Log Analysis 2: OAuth consent grant to rogue app ────────────────────
-    {
-      type: "log_analysis" as const,
-      id: "edge-la2",
-      heading: "Azure AD: A Consent Grant That Never Touches a Password",
-      context:
-        "Azure AD Unified Audit Log recorded a routine-looking 'Consent to application' event for r.patel@nexacorp.com. No failed logins preceded it. No malware alert exists anywhere in the EDR console for this user's device. The event severity was auto-classified as medium by default policy. Walk through the raw fields to determine whether this deserves escalation.",
-      event: oauthConsentEvent,
-      questions: [
-        {
-          question:
-            "The data.office365.ExtendedProperties.Value field lists the requested scopes as 'Mail.Read offline_access User.Read Contacts.Read' for an app called 'Quick Doc Viewer'. Which reading of this scope list best explains why the grant deserves escalation?",
-          options: [
-            "User.Read is the concern: it exposes the user's profile and job title to an outside publisher",
-            "The scopes don't fit the app: a doc viewer reading mail and contacts, made persistent by offline_access",
-            "offline_access alone is the concern; without it, Mail.Read for a viewer app would be routine",
-            "Contacts.Read is the concern: it lets the app send mail as the user to their whole address book",
-          ],
-          answer: 1,
-          explanation:
-            "The strongest tell is the mismatch between scopes and purpose: a document viewer has no reason to read the user's mailbox and contacts, and offline_access is what turns that access into a persistent one, a refresh token lets the app keep minting access tokens without the user ever signing in again. “User.Read is the concern” picks the basic sign-in scope almost every app requests. “offline_access alone is the concern” over-weights one scope: many legitimate integrations (calendar sync, chat tools) request it, and Mail.Read on a viewer would be a mismatch with or without it. “Contacts.Read … lets the app send mail as the user” confuses read access with Mail.Send; Contacts.Read only reads the address book.",
-          xp: 25,
-        },
-        {
-          question:
-            "The data.office365.ApplicationDisplayName is 'Quick Doc Viewer' and the GeoLocation fields show the consent occurred from Latvia. On their own, is either of these facts conclusive proof of a malicious app?",
-          options: [
-            "Yes: a generic name like this matches the attacker app names the reading describes, so the name settles it",
-            "Yes: a consent from a country this user has never used shows the session itself was stolen from them",
-            "No: each has innocent explanations; they matter alongside the scopes, publisher status and usual locations",
-            "No, and even together they stay weak; without an EDR or malware alert there is nothing to escalate",
-          ],
-          answer: 2,
-          explanation:
-            "Neither signal is damning alone: plenty of legitimate apps have generic names, and travel or VPN egress produces foreign locations. The discipline is combining them: a generic, likely unverified app, requesting mail access plus a persistence scope, consented from a location atypical for this user, together moves the event from routine to investigate-now. “A generic name … settles it” treats a naming habit as proof; attackers pick names that sound legitimate precisely because legitimate apps sound like this. “A consent from a country this user has never used shows the session itself was stolen” leaps past the evidence: the reading's attack needs no stolen session, only a click on a real consent screen. “Without an EDR or malware alert there is nothing to escalate” is the exact assumption this room breaks: illicit consent grants involve no malware at all.",
-          xp: 25,
-        },
-      ],
-    },
-
-    // ── Log Analysis 3: low-and-slow exfil trend ────────────────────────────
-    {
-      type: "log_analysis" as const,
-      id: "edge-la3",
-      heading: "SharePoint + UEBA: Fourteen Files a Day, Seventeen Days Running",
-      context:
-        "A single SharePoint FileDownloaded event for m.reyes shows 14 files pulled from the Contracts library. Your DLP policy's bulk-download threshold is 50 files per hour, so no rule fired and the event sits at low severity in the queue. A UEBA layer sitting on top of the same event stream has been quietly building a very different picture. Compare what each layer sees.",
-      event: lowAndSlowEvent,
-      questions: [
-        {
-          question:
-            "The dlp.rule_triggered field is false and dlp.observed_files_this_hour (14) is far below dlp.threshold_files_per_hour (50). Why is it a mistake to close this alert as benign based on the DLP fields alone?",
-          options: [
-            "It is not a mistake: 14 of a 50-file limit is under 30% of the threshold, well inside normal daily use",
-            "DLP judges one hour at a time, so it cannot see 17 sub-threshold days in a row: the insider pattern here",
-            "The mistake is the threshold itself; lowering it to 10 files per hour would have made this session fire",
-            "dlp.rule_triggered false means the policy never evaluated the event, so it must be re-scanned first",
-          ],
-          answer: 1,
-          explanation:
-            "DLP thresholds are a per-hour circuit breaker built to stop bulk exports; they cannot see a pattern spread across many days where each session stays under the line. The threshold not firing tells you this was not a smash-and-grab. It tells you nothing about 17 consecutive elevated days. “14 of a 50-file limit … well inside normal daily use” judges against the policy, not the person: this user's own baseline is 2-3 files a day. “Lowering it to 10 files per hour” is the fix the reading rejects: it just moves the goalpost, adds false positives, and a patient insider adjusts. “The policy never evaluated the event” misreads the record: dlp.policy_evaluated names the policy that ran; rule_triggered false means it ran and the count stayed under the threshold.",
-          xp: 25,
-        },
-        {
-          question:
-            "The ueba.consecutive_days_elevated field shows 17, and ueba.library_role_relevance is marked LOW for this Finance-department user accessing the Contracts library. What is the correct analyst action given these two fields together?",
-          options: [
-            "Disable the account now: 17 elevated days in a row is enough to treat this as confirmed data theft",
-            "Escalate: check what was taken and where it went, and bring in the manager and HR per the playbook",
-            "Quietly reduce the user's SharePoint access so the downloads stop without tipping them off",
-            "Raise a DLP tuning ticket so a daily-count rule catches this pattern next time, and close this alert",
-          ],
-          answer: 1,
-          explanation:
-            "Two independent risk factors reinforcing each other, sustained deviation from personal baseline (17 consecutive elevated days) plus a library the UEBA layer rates as low relevance to this user's role, is the combination that should trigger escalation. The next step is investigation: confirm what was accessed, check for any onward transfer (personal email, cloud storage, USB), and loop in the manager and HR per the insider-threat playbook, since context such as a role change or an approved project could still explain it. “Disable the account now” treats a strong pattern as proof and skips the context check. “Quietly reduce the user's SharePoint access” is a unilateral change outside the playbook that stops the evidence trail and can tip off the user just as surely. “Raise a DLP tuning ticket … and close this alert” improves future detection but abandons the 238 files that may already have left.",
-          xp: 25,
-        },
-      ],
-    },
-
-    // ── Analyst Choice 1: VPN impossible-travel false positive ─────────────
-    {
-      type: "analyst_choice" as const,
-      id: "edge-ac1",
-      heading: "Verdict: Chicago, Then Dublin, Eleven Minutes Apart",
-      scenario:
-        "Okta fires an impossible-travel alert for k.oconnell: a successful login from Chicago is followed eleven minutes later by a successful login from Dublin, Ireland, a physically impossible trip in that timeframe. The account has valid MFA on both sessions. Before escalating this as a probable account takeover, review the full event, particularly the network and security-context fields.",
-      event: impossibleTravelFPEvent,
-      correct_verdict: "false_positive",
-      explanation:
-        "This is a VPN/corporate-egress false positive, not an account takeover. The decisive fields are okta.securityContext.isProxy = true, okta.securityContext.asNumber/asOrg identifying AS64500 'NexaCorp Ltd - Corporate VPN Egress EMEA' (the organization's own registered VPN egress ASN, not a consumer VPN or an unrelated hosting provider), and network.vpn_gateway_pool explicitly naming 'nexacorp-vpn-emea-dublin-01': a company-owned VPN gateway. The user connected to the corporate VPN from Chicago, and the session was routed out through the company's EMEA gateway pool in Dublin. Both logins carry the same valid MFA-backed identity; there is no credential compromise signal anywhere in the event. The correct action is to close this as a false positive (the rule misfired: it assumes an IP's location is where the user physically is, which a corporate VPN egress breaks, so the fix is to teach the rule the company's own egress ranges) but verify the vpn_gateway_pool value against your organization's known-good VPN infrastructure inventory once, since an attacker could theoretically spoof or ride a similar-looking commercial VPN to hide in this exact blind spot.",
-      fp_trap:
-        "The alert title says 'impossible travel' and the raw geography genuinely IS impossible for a human traveler. It is tempting to treat the word 'impossible' as inherently high-severity and escalate immediately. But impossible travel detections were built before centralized VPN/SASE egress was common, and they systematically misfire whenever an organization routes remote traffic through geographically distant egress points. Always check is_proxy and the ASN/org name behind the IP before trusting the geography at face value: the raw distance-over-time math is only meaningful if both IPs represent the user's true physical location.",
-      xp: 30,
-    },
-
-    // ── Analyst Choice 2: OAuth grant that looks benign but is malicious ────
-    {
-      type: "analyst_choice" as const,
-      id: "edge-ac2",
-      heading: "Verdict: Routine App Authorization or Illicit Consent Grant?",
-      scenario:
-        "Two weeks later, a different OAuth consent event appears in the queue: another user, another app. It is structurally identical to the routine app authorizations your users perform dozens of times a month (connecting Slack, Zoom, or a calendar tool to their Microsoft account). No malware alert exists and no failed logins precede it; the user's MFA was satisfied for their normal session, and every request went to legitimate login.microsoftonline.com endpoints. Your enrichment adds three facts: the app's Enterprise Applications entry shows its publisher as unverified, registered in an external tenant two days ago; j.alvarez works from the Madrid office and has no sign-in history outside Spain; and no ticket or request exists for a PDF-signing tool.",
-      event: oauthConsentEvent2,
-      correct_verdict: "true_positive",
-      explanation:
-        "Treat this as a true positive, a probable illicit consent grant, and remediate now, even though there is no malware, phishing infrastructure or credential theft. The scope list does not fit the app: a PDF signer has no need to read every file the user can reach (Files.Read.All) or their mailbox (Mail.Read), and offline_access makes that access persist through refresh tokens with no further user interaction. The surrounding facts remove the innocent explanations: an unverified publisher registered two days ago in an external tenant, a consent from Romania for a user with no sign-in history outside Spain, and no request for such a tool. Remediation: revoke the app's consent and remove it in Entra ID (Enterprise Applications), revoke the user's sessions and refresh tokens, and review what it reached while it held the token: MailItemsAccessed and file-access records with this app's ID, and Graph activity logs against its client ID.",
-      fp_trap:
-        "Because this event uses the exact same Operation name ('Consent to application.') and the exact same schema as the thousands of legitimate, benign SaaS-connection consents your users perform routinely, it is easy to pattern-match it to 'normal noise' and auto-close without reading the scope list. The trap is treating event TYPE as sufficient context: the same event type covers both a user connecting their calendar app and a user handing an attacker persistent mailbox access. You must read the actual requested scopes and app metadata every time, not just recognize the event name.",
-      xp: 30,
-    },
-
-    // ── Analyst Choice 3: LOLBin regsvr32 that is actually legit admin work ─
-    {
-      type: "analyst_choice" as const,
-      id: "edge-ac3",
-      heading: "Verdict: Squiblydoo Attack or Legitimate Admin Deployment?",
-      scenario:
-        "EDR fires a medium-severity alert on SRV-APP-0044: regsvr32.exe registered a DLL outside the scheduled maintenance window. The technique maps to T1218.010 (System Binary Proxy Execution: Regsvr32), a documented Stealth technique (the tactic formerly called Defense Evasion). regsvr32 is a well-known LOLBin used in the Squiblydoo attack chain. Before escalating this as an intrusion, review every field in the event, not just the alert title.",
-      event: lolbinEvent,
-      correct_verdict: "benign_true_positive",
-      explanation:
-        "This is a benign true positive: legitimate administrative work, not Squiblydoo abuse. The detection fired correctly on a real regsvr32 DLL registration; what makes it benign is the authorization behind it. The command line registers a local file path (C:\\AppDeploy\\ReportEngine\\ReportViewerCtl.dll), not a remote scriptlet fetched over the network, and network.connection_made is false, meaning no outbound call followed execution at all, which is the single clearest technical distinction between real regsvr32/scrobj.dll abuse and routine local DLL registration. The file is signed, with file.publisher showing 'NexaCorp Internal Engineering': an internal, known publisher, not an unsigned or externally-sourced binary. The process was launched from a batch script (deploy_report_engine.bat) under an open change-management ticket, CHG0041823, and comparing change_management.actual_time (19:55:03Z) with the start of change_management.scheduled_window (20:00Z) shows the command ran only about 5 minutes before its approved window opened, so it was technically outside the window, as the alert says, but by an administrator starting slightly early under a matching open ticket: a process deviation, not evidence of an intrusion. Every one of these facts is independently checkable in the raw event; none of them require trusting the analyst's gut. The correct action is to close this as a benign true positive citing change ticket CHG0041823 (not as a false positive: the rule did not misfire, and labelling it one invites weakening a LOLBin detection that works), but log the 5-minute early-start deviation back to the change-management process as a minor process note, since consistently starting outside approved windows is worth flagging to the change board even when the activity itself is benign.",
-      fp_trap:
-        "regsvr32.exe is one of the most well-known LOLBins in the MITRE ATT&CK framework, and T1218.010 on an alert is exactly the kind of label that pushes a junior analyst straight to escalation without reading further: 'regsvr32 fired, technique matches a real attack technique, escalate now.' That instinct treats the BINARY as the signal, when the reading in this room already established that the signal is never which binary ran, it's what the binary was told to do and what happened immediately afterward. A local, signed, version-controlled DLL path with no outbound connection and a matching change ticket is the textbook legitimate use of the exact same tool attackers abuse: same binary, same MITRE technique ID, completely different intent, and the raw fields prove it without requiring any assumption.",
-      xp: 30,
-    },
-
     // ── Analyst Choice 4: password-reset enumeration with no WAF hit ────────
     {
       type: "analyst_choice" as const,
@@ -751,6 +762,31 @@ const edgeCaseRoom = {
       xp: 30,
     },
 
+    // ── Reading 6: Wrap-up / analyst playbook for edge cases ───────────────
+    {
+      type: "reading" as const,
+      id: "edge-r6",
+      heading: "Building an Analyst Instinct for the Cases That Don't Look Like Attacks",
+      content:
+        "Every scenario in this room was chosen to break a specific, common analyst assumption. Supply-chain and dependency-confusion attacks break the assumption that 'a trusted parent process means trusted behavior.' Low-and-slow insider theft breaks the assumption that 'a threshold not being crossed means nothing to investigate.' Magecart and MSP compromise break the assumption that 'if my own logs are clean, my environment is clean': the compromise can live entirely in a third party you depend on but do not control. Shadow IT and OAuth consent phishing break the assumption that 'no malware and no credential theft means no incident'. Modern cloud attacks increasingly need neither. VPN-driven impossible-travel false positives break the assumption that 'geography math never lies'. Infrastructure can make two logins from one honest person look like two different people. LOLBins break the assumption that 'the tool used tells you the intent': the exact same binary, same command shape, is routine on Tuesday's change ticket and malicious on Wednesday's intrusion. Business-logic abuse breaks the assumption that 'well-formed requests are safe requests': an attacker doesn't need to break your application if your application's own designed behavior leaks the information they want.\n\n" +
+        "The common thread across all seven cases is this: none of them can be reliably resolved by looking at a single event type or a single threshold. Each one requires either cross-referencing a secondary field (scope requested, ASN/proxy status, package registry source), or building a trend across many events (consecutive days of elevated activity, request velocity from one source, response-time variance across a batch), or reasoning about context the log itself does not explicitly encode (was there a change ticket, is this resource relevant to this user's role, is this app's function consistent with the permissions it is asking for).\n\n" +
+        "A practical habit to carry forward: whenever you triage an alert that resolves quickly because it 'looks like normal noise,' pause and ask the specific question this room has repeated in every scenario: 'what would the malicious version of this exact same event look like, and which field would be different?' If you cannot answer that question, you have not actually ruled out the edge case; you have only pattern-matched against the common case. That one habit is what separates an analyst who catches these attacks from one who closes the ticket and moves on.",
+      codeExample:
+        "THE ONE QUESTION THAT CATCHES EVERY CASE IN THIS ROOM\n" +
+        "=============================================================\n" +
+        "  Before closing ANY alert as routine, ask:\n\n" +
+        "  'What would the MALICIOUS version of this exact same event\n" +
+        "   look like, and which single field would be different?'\n\n" +
+        "  Supply chain:        registry source + inline-eval command line\n" +
+        "  Insider low-and-slow: consecutive elevated days, not single session\n" +
+        "  Magecart/MSP:         behavioral deviation within a trusted channel\n" +
+        "  OAuth consent:        offline_access scope + publisher verification\n" +
+        "  Impossible travel:    ASN/is_proxy behind the 'impossible' IP\n" +
+        "  LOLBin:                outbound connection + file signing/versioning\n" +
+        "  Business logic:        response-time variance + request velocity\n\n" +
+        "  If you can't answer it, you haven't ruled out the edge case: \n" +
+        "  you've only pattern-matched against the common case.",
+    },
     // ── Matching ─────────────────────────────────────────────────────────
     {
       type: "matching" as const,
@@ -800,42 +836,6 @@ const edgeCaseRoom = {
       xp: 35,
     },
 
-    // ── Flag ─────────────────────────────────────────────────────────────
-    {
-      type: "flag" as const,
-      id: "edge-f1",
-      prompt:
-        "Look at the LOLBin regsvr32 event. Exactly how many SECONDS before its approved change window opened did the DLL registration actually run? (Enter a number only.)",
-      answer: "297",
-      hint: "Both times you need are in the change-management fields of the raw event; the window has a start and an end, and only one of them matters here.",
-      xp: 25,
-    },
-
-    // ── Reading 6: Wrap-up / analyst playbook for edge cases ───────────────
-    {
-      type: "reading" as const,
-      id: "edge-r6",
-      heading: "Building an Analyst Instinct for the Cases That Don't Look Like Attacks",
-      content:
-        "Every scenario in this room was chosen to break a specific, common analyst assumption. Supply-chain and dependency-confusion attacks break the assumption that 'a trusted parent process means trusted behavior.' Low-and-slow insider theft breaks the assumption that 'a threshold not being crossed means nothing to investigate.' Magecart and MSP compromise break the assumption that 'if my own logs are clean, my environment is clean': the compromise can live entirely in a third party you depend on but do not control. Shadow IT and OAuth consent phishing break the assumption that 'no malware and no credential theft means no incident'. Modern cloud attacks increasingly need neither. VPN-driven impossible-travel false positives break the assumption that 'geography math never lies'. Infrastructure can make two logins from one honest person look like two different people. LOLBins break the assumption that 'the tool used tells you the intent': the exact same binary, same command shape, is routine on Tuesday's change ticket and malicious on Wednesday's intrusion. Business-logic abuse breaks the assumption that 'well-formed requests are safe requests': an attacker doesn't need to break your application if your application's own designed behavior leaks the information they want.\n\n" +
-        "The common thread across all seven cases is this: none of them can be reliably resolved by looking at a single event type or a single threshold. Each one requires either cross-referencing a secondary field (scope requested, ASN/proxy status, package registry source), or building a trend across many events (consecutive days of elevated activity, request velocity from one source, response-time variance across a batch), or reasoning about context the log itself does not explicitly encode (was there a change ticket, is this resource relevant to this user's role, is this app's function consistent with the permissions it is asking for).\n\n" +
-        "A practical habit to carry forward: whenever you triage an alert that resolves quickly because it 'looks like normal noise,' pause and ask the specific question this room has repeated in every scenario: 'what would the malicious version of this exact same event look like, and which field would be different?' If you cannot answer that question, you have not actually ruled out the edge case; you have only pattern-matched against the common case. That one habit is what separates an analyst who catches these attacks from one who closes the ticket and moves on.",
-      codeExample:
-        "THE ONE QUESTION THAT CATCHES EVERY CASE IN THIS ROOM\n" +
-        "=============================================================\n" +
-        "  Before closing ANY alert as routine, ask:\n\n" +
-        "  'What would the MALICIOUS version of this exact same event\n" +
-        "   look like, and which single field would be different?'\n\n" +
-        "  Supply chain:        registry source + inline-eval command line\n" +
-        "  Insider low-and-slow: consecutive elevated days, not single session\n" +
-        "  Magecart/MSP:         behavioral deviation within a trusted channel\n" +
-        "  OAuth consent:        offline_access scope + publisher verification\n" +
-        "  Impossible travel:    ASN/is_proxy behind the 'impossible' IP\n" +
-        "  LOLBin:                outbound connection + file signing/versioning\n" +
-        "  Business logic:        response-time variance + request velocity\n\n" +
-        "  If you can't answer it, you haven't ruled out the edge case: \n" +
-        "  you've only pattern-matched against the common case.",
-    },
   ],
 };
 

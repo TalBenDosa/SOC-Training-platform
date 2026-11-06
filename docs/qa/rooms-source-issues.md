@@ -84,3 +84,19 @@ Builders and reviewers may not change these: a reading edit disables its recorde
 | incident-report-writing | la1, f1 | TaskName shown as a top-level field; DeviceEvents holds it in AdditionalFields. FolderPath omits the file name. | Align. |
 | investigate-alert-workflow | ac1, r4, q3 | FileCreated names powershell.exe, but rar.exe writes the archive; "Archive Collected Data via Utility" is not the ATT&CK name. | Align. |
 | incident-report-writing | ac1 | 203.14.88.9, AS 14618, .com domains. | Replace. |
+| vishing-helpdesk-social-engineering | la1, ac1 | Reset password (by admin) paired with loggedByService Core Directory; Microsoft lists it under Self-service Password Management; la1's explanation leans on it. | Align. |
+| okta-identity-fundamentals | r8, r6 checkpoint, r2 | policy.rule.create is not in Okta's catalog (policy.rule.add is); user.mfa.okta_verify.push_response is not either. | Reword, re-record narration. |
+| okta-identity-fundamentals | r3, q1, q5, la2, q3 | user.session.start SUCCESS does not prove a usable session; INVALID_CREDENTIALS is not necessarily a wrong password; q3 says five minutes, la2 seven, real gap 6m21s. | Align. |
+| okta-identity-fundamentals | la1, la2 | 185.220.101.44, Alexhost SRL AS200019. | Replace. |
+| threat-hunting-fundamentals | la1 | Command line lacks the comma after comsvcs.dll; a KQL query against Falcon data. | Fix. |
+| vishing-helpdesk-social-engineering | ac1, r3, m1 | Agent re-registers MFA with only Helpdesk Administrator; "Cisco August 2022" is the disclosure date (compromise May 2022). | Align. |
+| okta-identity-fundamentals | la2 | A stale Group Administrator role "made the change possible" for adding to Okta-Admins, but only super admins can manage groups with admin roles. | Make it Super Administrator or a non-admin group. |
+| okta-identity-fundamentals | la1, r7 (reading) | asNumber should be a bare number; "the leading system. segment signals Okta's own infrastructure" contradicts system.api_token.create. | Fix, re-record narration. |
+| ai-attacks-soc-social | la1 | EndpointMetaData.ActivityType and DestinationDomain are not in Microsoft's documented EndpointMetadata. | Correct with the source. |
+| privileged-access-monitoring | r1b, r2, la2 | r1b shows internal ids (priv-r2, priv-r3's Step 6); r2 says only specific Windows processes access LSASS; sql.database_role carries a server role. | Reword, re-record narration. |
+| detection-engineering | la1 | 91.108.56.177; event_type edr_alert on a SIEM correlation alert. | Replace. |
+| edge-case-usecases | la1, la3, ac1 | la1 q1 cites crowdstrike.FileSigned, not in the record; la1, la3 descriptions give the answer away; severity mismatch; ac1 says MFA valid with no MFA field. | Fix. High for the answer leak. |
+| tunneling-c2-channels | la1, la2, ac1, r1 | Real person Simon Tatham; routable addresses; attacker-server.com. | Replace. |
+| privileged-access-monitoring | ac1, r4 | "3:22 AM Saturday" but the ts is a Sunday; Sysmon 1 described with 4688 field names. | Fix. |
+| privileged-access-monitoring, detection-engineering | la1 explanations | En dashes in graded explanations. | Use "to". |
+| edge-case-usecases | la1, ac3 | parent_name npm.cmd is never a process image; mde.SHA256 has 63 hex characters. | Correct. |

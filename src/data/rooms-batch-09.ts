@@ -467,6 +467,40 @@ This last step is crucial: threat hunting improves your detection capability ove
       },
     },
 
+    // ── Question 1 ───────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "threat-hunt-q1",
+      question: "Industry dwell-time figures have fallen a long way over the last decade, from roughly 200 days to a global median now measured in days-to-weeks. Why does that improvement NOT remove the case for proactive threat hunting?",
+      options: [
+        "Dwell time measures containment after an incident is declared, so it says nothing about detection",
+        "The median mixes two populations: noisy ransomware pulls it down while quiet intruders stay hidden",
+        "The drop comes mostly from cloud workloads, while on-premises dwell times have barely improved",
+        "Hunting is required by most compliance frameworks, so faster detection does not change the need",
+      ],
+      answer: 1,
+      explanation:
+        "A median is the middle of a distribution, and this one holds two very different populations. Ransomware announces itself within hours or days and is common enough to pull the median down, while a careful espionage actor using valid credentials and built-in tools can still go unnoticed for months; hunting targets that second group. “Dwell time measures containment…” gets the definition wrong: dwell time is the gap between compromise and detection. “The drop comes mostly from cloud workloads…” is not what the reading says and does not explain why hunting is still needed. “Hunting is required by most compliance frameworks…” swaps the security reason for a compliance claim the reading never makes.",
+      xp: 30,
+    },
+
+    // ── Question 2 ───────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "threat-hunt-q2",
+      question: "Last month you blocked the IPs, domains and file hashes from a threat report on an intrusion group. This month the same group returns with new servers and a recompiled loader, but still dumps LSASS with rundll32.exe and comsvcs.dll. Which hunt is most likely to find them, and why?",
+      options: [
+        "A hunt for last month's IPs, domains and hashes, since groups tend to reuse their infrastructure",
+        "A hunt for rundll32.exe loading comsvcs.dll MiniDump, since that behaviour is costly to change",
+        "A hunt for newly registered domains, since fresh infrastructure is the trace a returning group leaves",
+        "A hunt for the new loader's hash once a vendor publishes it, since hashes are the most precise match",
+      ],
+      answer: 1,
+      explanation:
+        "This is the Pyramid of Pain in practice: the group changed what is cheap to change (IPs, domains, hashes) and kept what is expensive (the technique), so a hunt for the comsvcs.dll MiniDump behaviour still finds them. “A hunt for last month's IPs, domains and hashes…” targets exactly the indicators they replaced. “A hunt for newly registered domains…” is a useful lead in general, but it is broad and noisy and finds no specific trace of this group. “A hunt for the new loader's hash once a vendor publishes it…” waits for someone else to catch the sample first and fails again at the next recompile.",
+      xp: 30,
+    },
+
     // ── Reading 3: Hunting Specific TTPs & Tools ──────────────────────────
     {
       type: "reading" as const,
@@ -518,40 +552,39 @@ PsExec and similar tools copy a service binary to the target machine over SMB an
 The key insight: the platform does not matter as much as the hypothesis and the data. A well-formed hypothesis lets you write an effective query in any language. A poorly formed hypothesis produces noise regardless of the tool.`,
     },
 
-    // ── Question 1 ───────────────────────────────────────────────────────
+    // ── Question 4 ───────────────────────────────────────────────────────
     {
       type: "question" as const,
-      id: "threat-hunt-q1",
-      question: "Industry dwell-time figures have fallen a long way over the last decade, from roughly 200 days to a global median now measured in days-to-weeks. Why does that improvement NOT remove the case for proactive threat hunting?",
+      id: "threat-hunt-q4",
+      question: "You stack 30 days of process-creation events from 2,000 workstations by parent → child pair and count the hosts per pair. Which result is the strongest lead for a macro-execution hunt?",
       options: [
-        "Dwell time measures containment after an incident is declared, so it says nothing about detection",
-        "The median mixes two populations: noisy ransomware pulls it down while quiet intruders stay hidden",
-        "The drop comes mostly from cloud workloads, while on-premises dwell times have barely improved",
-        "Hunting is required by most compliance frameworks, so faster detection does not change the need",
+        "explorer.exe → powershell.exe on 1,412 hosts, spread evenly across the month",
+        "svchost.exe → powershell.exe on 1,980 hosts, recurring nightly at the same time",
+        "winword.exe → powershell.exe on 3 hosts, all within the last six days",
+        "outlook.exe → msedge.exe on 1,655 hosts, during working hours every day",
       ],
-      answer: 1,
+      answer: 2,
       explanation:
-        "A median is the middle of a distribution, and this one holds two very different populations. Ransomware announces itself within hours or days and is common enough to pull the median down, while a careful espionage actor using valid credentials and built-in tools can still go unnoticed for months; hunting targets that second group. “Dwell time measures containment…” gets the definition wrong: dwell time is the gap between compromise and detection. “The drop comes mostly from cloud workloads…” is not what the reading says and does not explain why hunting is still needed. “Hunting is required by most compliance frameworks…” swaps the security reason for a compliance claim the reading never makes.",
+        "Stacking puts the rare end of the distribution first. Word starting PowerShell is the classic macro-execution chain, and three hosts in one week stands out against a fleet of 2,000. Some enterprise add-ins do launch scripts, which is why you baseline and check those three hosts rather than alert blindly. “explorer.exe → powershell.exe on 1,412 hosts…” is users and admins opening PowerShell themselves, which is baseline at that volume. “svchost.exe → powershell.exe on 1,980 hosts…” is a fleet-wide scheduled job. “outlook.exe → msedge.exe on 1,655 hosts…” is people clicking links in mail, which is normal behaviour.",
       xp: 30,
     },
 
-    // ── Question 2 ───────────────────────────────────────────────────────
+    // ── Question 5 ───────────────────────────────────────────────────────
     {
       type: "question" as const,
-      id: "threat-hunt-q2",
-      question: "Last month you blocked the IPs, domains and file hashes from a threat report on an intrusion group. This month the same group returns with new servers and a recompiled loader, but still dumps LSASS with rundll32.exe and comsvcs.dll. Which hunt is most likely to find them, and why?",
+      id: "threat-hunt-q5",
+      question: "Proxy logs show four workstations talking to external hosts during the same hour. Which one is most likely beaconing to C2?",
       options: [
-        "A hunt for last month's IPs, domains and hashes, since groups tend to reuse their infrastructure",
-        "A hunt for rundll32.exe loading comsvcs.dll MiniDump, since that behaviour is costly to change",
-        "A hunt for newly registered domains, since fresh infrastructure is the trace a returning group leaves",
-        "A hunt for the new loader's hash once a vendor publishes it, since hashes are the most precise match",
+        "WS-11: 14 requests at gaps of 2 s to 9 min, varied response sizes, many other sites visited",
+        "WS-27: 60 requests at gaps of 55–65 s, every response 220 bytes, one IP and nothing else",
+        "WS-34: three 40–60 MB uploads to a file-sharing site at 09:00, 09:30 and 10:00 exactly",
+        "WS-42: 200 requests to a CDN within 5 minutes while a page loads, then no traffic at all",
       ],
       answer: 1,
       explanation:
-        "This is the Pyramid of Pain in practice: the group changed what is cheap to change (IPs, domains, hashes) and kept what is expensive (the technique), so a hunt for the comsvcs.dll MiniDump behaviour still finds them. “A hunt for last month's IPs, domains and hashes…” targets exactly the indicators they replaced. “A hunt for newly registered domains…” is a useful lead in general, but it is broad and noisy and finds no specific trace of this group. “A hunt for the new loader's hash once a vendor publishes it…” waits for someone else to catch the sample first and fails again at the next recompile.",
+        "Beaconing is malware checking in on a schedule: many small requests to the same destination at near-regular intervals (small jitter around 60 s here) with tiny, uniform responses. That describes WS-27. “WS-11…” is human browsing: irregular gaps, varied sizes and many sites. “WS-34…” is regular, but three large uploads is a data-transfer pattern (possibly a sync job, possibly exfiltration), not a check-in. “WS-42…” is a single burst from loading one page, with no repetition.",
       xp: 30,
     },
-
     // ── Question 3 ───────────────────────────────────────────────────────
     {
       type: "question" as const,
@@ -637,39 +670,6 @@ The key insight: the platform does not matter as much as the hypothesis and the 
       xp: 50,
     },
 
-    // ── Question 4 ───────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "threat-hunt-q4",
-      question: "You stack 30 days of process-creation events from 2,000 workstations by parent → child pair and count the hosts per pair. Which result is the strongest lead for a macro-execution hunt?",
-      options: [
-        "explorer.exe → powershell.exe on 1,412 hosts, spread evenly across the month",
-        "svchost.exe → powershell.exe on 1,980 hosts, recurring nightly at the same time",
-        "winword.exe → powershell.exe on 3 hosts, all within the last six days",
-        "outlook.exe → msedge.exe on 1,655 hosts, during working hours every day",
-      ],
-      answer: 2,
-      explanation:
-        "Stacking puts the rare end of the distribution first. Word starting PowerShell is the classic macro-execution chain, and three hosts in one week stands out against a fleet of 2,000. Some enterprise add-ins do launch scripts, which is why you baseline and check those three hosts rather than alert blindly. “explorer.exe → powershell.exe on 1,412 hosts…” is users and admins opening PowerShell themselves, which is baseline at that volume. “svchost.exe → powershell.exe on 1,980 hosts…” is a fleet-wide scheduled job. “outlook.exe → msedge.exe on 1,655 hosts…” is people clicking links in mail, which is normal behaviour.",
-      xp: 30,
-    },
-
-    // ── Question 5 ───────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "threat-hunt-q5",
-      question: "Proxy logs show four workstations talking to external hosts during the same hour. Which one is most likely beaconing to C2?",
-      options: [
-        "WS-11: 14 requests at gaps of 2 s to 9 min, varied response sizes, many other sites visited",
-        "WS-27: 60 requests at gaps of 55–65 s, every response 220 bytes, one IP and nothing else",
-        "WS-34: three 40–60 MB uploads to a file-sharing site at 09:00, 09:30 and 10:00 exactly",
-        "WS-42: 200 requests to a CDN within 5 minutes while a page loads, then no traffic at all",
-      ],
-      answer: 1,
-      explanation:
-        "Beaconing is malware checking in on a schedule: many small requests to the same destination at near-regular intervals (small jitter around 60 s here) with tiny, uniform responses. That describes WS-27. “WS-11…” is human browsing: irregular gaps, varied sizes and many sites. “WS-34…” is regular, but three large uploads is a data-transfer pattern (possibly a sync job, possibly exfiltration), not a check-in. “WS-42…” is a single burst from loading one page, with no repetition.",
-      xp: 30,
-    },
   ],
 };
 

@@ -266,27 +266,6 @@ const rooms = [
             "SeDebugPrivilege allows a process to access the memory of any other process, including LSASS where credential hashes live: exactly what Mimikatz and similar credential-dumping tools rely on. Seeing this privilege on a service account is a red flag.",
         },
       },
-      // ── Reading 1b ─────────────────────────────────────────────
-      {
-        type: "reading",
-        id: "priv-r1b",
-        heading: "\"Permitted\" Is Not \"Authorised\": The Question Behind Every Privileged Alert",
-        content:
-          "**Analogy:** A hotel maid's keycard technically opens every room on her floor: the hotel's access system grants her that. If she uses it to enter Room 214 to clean it during her shift, that's normal work. If she uses that exact same keycard to enter Room 214 at 3 AM while the guest is out, using the same door, the same badge swipe, the same 'access granted' log entry, something is very wrong, even though the system permitted it both times. The keycard reader has no concept of *why* she's there. Only a human looking at context (the time, the guest's schedule, whether housekeeping was even assigned that room that night) can tell the difference.\n\nThis is the single most important mental model in privileged access monitoring, and it is worth stating as its own rule, because almost every false negative in this space comes from skipping it: **'permitted' and 'authorised' are two completely different questions, and Windows (or any system) can only ever answer the first one.**\n\n**Permitted** is a technical fact. It means the account's token, group membership or role grants it the ability to perform the action. A Domain Admin account is *permitted* to create a new user, reset any password, add someone to any group, or log on to any machine in the domain, at any hour, from anywhere its network access allows. The operating system checked the account's privileges, found them sufficient, and let the action through. Every event you read in priv-r2 (4672, 4728, 4673) is a record that something was permitted. None of them, by themselves, say whether it was *supposed* to happen.\n\n**Authorised** is a business fact, and it lives outside the operating system entirely. It means a specific human or process with the standing to approve that specific action actually approved it, through the organisation's own process, typically a **change ticket** (a documented, pre-approved record of planned work, referenced by an ID like `CHG-91004`), inside an agreed **maintenance window** (a scheduled time block, often overnight, when planned changes are allowed to happen), and traceable to a **requester or owner** who can be asked 'why did you do this?' and give an answer that checks out. Nothing about a Windows Security Event records any of this: a change ticket lives in a separate system (a service-desk or ITSM platform), and correlating the two is manual, or handled by SOAR playbooks that query the ticketing system automatically.\n\nHere is why this distinction has to become reflexive. Take the exact scenario priv-r1 ended on: 'a Domain Admin account that logs on every weekday morning from the same workstation is normal. That same account logging on at 3 AM from a new machine is an alert.' Both logons are equally *permitted*: the account's group membership does not change between 9 AM and 3 AM. What changed is the second, invisible layer: was there a change ticket scheduling maintenance for 3 AM? Was that new machine the admin's usual jump box, or unrecognised? A junior analyst who only checks 'is this account allowed to do this?' will wave through both logons, because the answer is yes both times. A trained analyst asks the second question: was this *specific* action, at *this* specific time, by *this* specific actor, something the organisation actually agreed to, and that is where the 3 AM logon fails.\n\nThe same test applies to every reading in this room. priv-r2 already hinted at it: 'any addition to \\[Domain Admins\\] should be a change-ticket in your organisation, if no ticket exists, treat it as malicious.' That sentence is the permitted-vs-authorised test applied to Event 4728. priv-r3's Step 6 (an attacker creating a new Domain Admin account for persistence) generates events that are technically identical, field-for-field, to a system administrator legitimately onboarding a new admin during a planned access review: the only thing that tells them apart is whether a change ticket, an owner and a business reason exist to back it up. **The question you must learn to ask before closing any privileged-access alert is not 'could this account do this?'. Group membership already answered that. It is 'was this account *supposed* to do this, right now, and can someone prove it?'**",
-        checkpoint: {
-          question:
-            "A Domain Admin account creates a new user account and adds it to the Domain Admins group at 2 AM. The account's group membership fully permits this action. What is the correct next analyst step?",
-          options: [
-            "Confirm the acting account is a current member of Domain Admins, since valid membership means the change was approved",
-            "Look for a change ticket, maintenance window and named owner covering this specific addition before deciding",
-            "Declare a confirmed compromise, since a privileged-group addition at 2 AM is enough evidence of malice on its own",
-            "Close it as benign, since Windows only writes Event 4728 after verifying the actor had rights to make the change",
-          ],
-          answer: 1,
-          explanation:
-            "Group membership only proves the action was permitted; authorisation lives outside Windows: a change ticket, an agreed maintenance window and an owner who can explain it. “Confirm the acting account is a current member of Domain Admins” re-checks permission, which the stem already established. “Declare a confirmed compromise” over-reads the hour: a planned 2 AM change is normal if a ticket backs it. “Close it as benign, since Windows only writes Event 4728 after verifying the actor had rights” is true about the log but again only proves permission, not approval.",
-        },
-      },
       // ── Reading 2 ──────────────────────────────────────────────
       {
         type: "reading",
@@ -294,6 +273,23 @@ const rooms = [
         heading: "Key Windows Events for Privileged Activity Detection",
         content:
           "**Analogy:** A high-security vault doesn't just have a lock. It has a camera, a visitor log, a guard who signs people in and out, and an alarm on the door. Windows privileged access events are that multi-layer record: every privilege grant, every group change, every special logon is written down.\n\nHere are the critical event IDs every SOC analyst must know for privileged access monitoring:\n\n**Event 4672: Special Logon (Admin Rights Granted):**\nThis event fires every time a user logs on with administrator-equivalent privileges. The `PrivilegeList` field lists every elevated privilege right their token carries. Key fields: `SubjectUserName` (who logged on), `SubjectLogonId` (their session ID, links to 4624), `PrivilegeList` (list of special privileges). Normal: your Domain Admin logging on from their admin workstation generates this. Abnormal: a service account (`svc-` prefix) generating 4672 with dangerous privileges like `SeDebugPrivilege`, or any 4672 at an unusual time.\n\n**Event 4728: A member was added to a security-enabled global group:**\n**Event 4732: A member was added to a security-enabled local group:**\n**Event 4756: A member was added to a security-enabled universal group:**\nAll three record group membership changes. The critical version: `Domain Admins`, `Enterprise Admins`, `Administrators` as the target group. Any addition to these groups should be a change-ticket in your organisation, if no ticket exists, treat it as malicious. Field to watch: `MemberSid` (who was added) and `TargetUserName` (name of the group).\n\n**Event 4673: Sensitive Privilege Use:**\nFires when a process actually *uses* a sensitive privilege (SeDebugPrivilege, SeBackupPrivilege, etc.), not just holds it. This is noisier than 4672 (fires per-use, not per-logon) but can catch active abuse. Look for process names that shouldn't be using these privileges: `cmd.exe`, `powershell.exe`, or unknown executables using `SeDebugPrivilege` is very suspicious. Two caveats: use of SeBackupPrivilege and SeRestorePrivilege is only audited when the \"Audit: Audit the use of Backup and Restore privilege\" policy is enabled (off by default, because it is extremely noisy), and many environments don't enable Sensitive Privilege Use auditing at all. For the classic debug-privilege abuse, a tool opening LSASS memory, the practical detection is process-access telemetry: Sysmon Event 10 (ProcessAccess) with `TargetImage` = `lsass.exe`, or your EDR's LSASS-access alerts.\n\n**Event 4688 / Sysmon Event 1: Process Creation:**\nAttackers use tools like `PsExec` (legitimate remote admin tool, heavily abused) and `wmic.exe` to move laterally and execute commands as SYSTEM. PsExec generates an Event 7045 (service installed) on the target machine when it creates its remote service. Watch for `psexec` in process command lines and for new services with random names (e.g., `PSEXESVC`).\n\n**LSASS access patterns (Sysmon Event 10: Process Access):**\nLSASS.EXE is the Windows process that holds credential material (password hashes, Kerberos tickets) in memory. Legitimate access to LSASS is done only by specific Windows system processes. Mimikatz and similar tools access LSASS with `GrantedAccess = 0x1FFFFF` (full access) or `0x1010` (read virtual memory). Sysmon's Event 10 records which process opened which handle to LSASS, and with what access rights. This is one of the most reliable detections for credential dumping.\n\n**PAM (Privileged Access Management) Solutions:**\nIn mature organisations, privileged accounts are managed by PAM vaults: systems like **CyberArk** or **BeyondTrust** that:\n- Store admin passwords in an encrypted vault (analysts never know the actual password)\n- Require checkout with a reason before granting access\n- Rotate passwords automatically after each use\n- Record every keystroke and command during privileged sessions\n\nPAM logs to monitor: vault checkout events (who checked out which account, when, and with what justification), session recordings reviewed post-incident, and any attempt to access a privileged account *outside* the PAM vault (bypassing controls). **Just-in-time (JIT) access** is a modern pattern where an account only receives admin privileges for the duration it's needed: a 2-hour window rather than permanent membership.\n\nA service account checking out a Domain Admin credential from the PAM vault with no associated change ticket is an immediate escalation trigger.",
+      },
+      // ── Question 3 ──────────────────────────────────────────────
+      {
+        type: "question",
+        id: "priv-q3",
+        question:
+          "What is the PRIMARY security purpose of a PAM (Privileged Access Management) vault solution like CyberArk?",
+        options: [
+          "To keep a shared, encrypted store of admin passwords that administrators look up and type in when needed",
+          "To hold privileged credentials so admins never learn them, with justified checkout, session recording and rotation",
+          "To make admin rights temporary by adding accounts to Domain Admins for a fixed window, then removing them",
+          "To detect credential dumping by alerting whenever a non-system process opens a handle to LSASS",
+        ],
+        answer: 1,
+        explanation:
+          "The reading lists the PAM vault's functions: encrypted storage where analysts never know the password, checkout with a reason, rotation after each use and recording of every privileged session. “A shared, encrypted store ... administrators look up and type in” is a plain password manager: the human learns the password and can reuse it, which PAM is designed to prevent. “Make admin rights temporary” describes just-in-time (JIT) access, a related pattern the reading treats separately. “Detect credential dumping” is LSASS-access telemetry (Sysmon Event 10 / EDR), not a vault.",
+        xp: 20,
       },
       // ── Reading 3 ──────────────────────────────────────────────
       {
@@ -349,141 +345,6 @@ const rooms = [
           "Step 6 generates 4720 for the new account and 4728, because Domain Admins is a global group. “4720 + 4732” picks the local-group event, which covers groups like a server's local Administrators, not Domain Admins. “4672 + 4728” swaps creation for a special logon: 4672 only appears once the new account logs on, so it misses the creation itself. “4662 + 4756” pairs the DCSync-style directory-access event with the universal-group event. Neither records creating a user or adding it to Domain Admins.",
         xp: 20,
       },
-      // ── Question 3 ──────────────────────────────────────────────
-      {
-        type: "question",
-        id: "priv-q3",
-        question:
-          "What is the PRIMARY security purpose of a PAM (Privileged Access Management) vault solution like CyberArk?",
-        options: [
-          "To keep a shared, encrypted store of admin passwords that administrators look up and type in when needed",
-          "To hold privileged credentials so admins never learn them, with justified checkout, session recording and rotation",
-          "To make admin rights temporary by adding accounts to Domain Admins for a fixed window, then removing them",
-          "To detect credential dumping by alerting whenever a non-system process opens a handle to LSASS",
-        ],
-        answer: 1,
-        explanation:
-          "The reading lists the PAM vault's functions: encrypted storage where analysts never know the password, checkout with a reason, rotation after each use and recording of every privileged session. “A shared, encrypted store ... administrators look up and type in” is a plain password manager: the human learns the password and can reuse it, which PAM is designed to prevent. “Make admin rights temporary” describes just-in-time (JIT) access, a related pattern the reading treats separately. “Detect credential dumping” is LSASS-access telemetry (Sysmon Event 10 / EDR), not a vault.",
-        xp: 20,
-      },
-      // ── Log Analysis ───────────────────────────────────────────
-      {
-        type: "log_analysis",
-        id: "priv-la1",
-        heading: "Service Account with Unexpected Privileges on a Domain Controller",
-        context:
-          "SIEM alert: 'Service account special logon with dangerous privilege list detected on DC01.' Your organisation's backup service account `svc-backup` is supposed to have SeBackupPrivilege and SeRestorePrivilege to allow it to read and write backup files. The event below was generated on the Domain Controller at 03:22 AM, outside of the scheduled backup window (weeknights 22:00-23:30). Review the event carefully.",
-        event: {
-          id: "evt-priv-4672-001",
-          ts: "2026-06-24T03:22:11.004Z",
-          source: "windows_security",
-          event_type: "privilege_escalation",
-          hostname: "DC01.corp.internal",
-          severity: "critical",
-          vendor: "Windows Security",
-          raw: {
-            "event.code": "4672",
-            "winlog.channel": "Security",
-            "winlog.computer_name": "DC01.corp.internal",
-            "winlog.event_data.SubjectUserName": "svc-backup",
-            "winlog.event_data.SubjectUserSid": "S-1-5-21-3948293847-2938471729-1029384756-1104",
-            "winlog.event_data.SubjectDomainName": "CORP",
-            "winlog.event_data.SubjectLogonId": "0x7F4A21C",
-            "winlog.event_data.PrivilegeList":
-              "SeBackupPrivilege\nSeRestorePrivilege\nSeDebugPrivilege\nSeTcbPrivilege",
-            "event.created": "2026-06-24T03:22:11.004Z",
-            "log.level": "critical",
-            "tags": ["privileged-access", "service-account", "DC"],
-          },
-        },
-        questions: [
-          {
-            question:
-              "This 4672 shows svc-backup's token HOLDS SeDebugPrivilege. Sensitive Privilege Use auditing is not enabled on DC01. Which evidence would best show whether that privilege was actually used to read credentials?",
-            options: [
-              "Event 4673 entries for svc-backup on DC01 around 03:22, which record each use of a sensitive privilege",
-              "Sysmon Event 10 on DC01 around 03:22 with TargetImage lsass.exe, showing which process opened it and how",
-              "Events 4728/4732 naming svc-backup, showing which group change gave the account its extra privileges",
-              "A second 4672 for svc-backup later that night, since a repeated special logon shows the privilege in use",
-            ],
-            answer: 1,
-            explanation:
-              "Debug-privilege abuse means a tool opening LSASS memory, and the reading names Sysmon Event 10 (TargetImage lsass.exe, GrantedAccess) as the practical detection. “Event 4673 entries” would record use, but the stem says Sensitive Privilege Use auditing is off, so none will exist. “Events 4728/4732” could explain how the account gained rights, but not whether they were used. “A second 4672” confuses holding with using: 4672 is written at logon and lists what the token carries, whether or not it is ever exercised.",
-            xp: 25,
-          },
-          {
-            question:
-              "This event was generated at 03:22 AM on a Domain Controller, outside the scheduled backup window. What is the MOST dangerous potential attack scenario indicated by the combination of DC01 hostname + svc-backup account + SeDebugPrivilege + off-hours timing?",
-            options: [
-              "A backup job that started late, with the extra privileges a stale misconfiguration to fix in a hygiene ticket",
-              "Someone acting as svc-backup on the DC who can open LSASS and harvest domain credential material",
-              "An admin who granted SeDebugPrivilege for troubleshooting and forgot to remove it: a policy gap",
-              "A Kerberoasting attempt on svc-backup, with this 4672 being the DC logging the service-ticket request",
-            ],
-            answer: 1,
-            explanation:
-              "On a DC, a token with SeDebugPrivilege can read LSASS memory, which holds credential material for domain accounts, including what an attacker needs for golden tickets. That is the most dangerous reading. “A backup job that started late” ignores that 03:22 is hours outside the 22:00–23:30 window and does not explain the two extra privileges. “An admin who ... forgot to remove it” could explain how the rights appeared, but not who is using the account at 03:22, and it is not an attack scenario. “A Kerberoasting attempt” confuses events: a service-ticket request is Event 4769, not a 4672 special logon.",
-            xp: 25,
-          },
-        ],
-      },
-      // ── Analyst Choice — Privileged Access ──────────────────────
-      {
-        type: "analyst_choice" as const,
-        id: "priv-ac1",
-        heading: "Verdict: Authorized Privileged Operation or Abuse?",
-        scenario: "3:22 AM Saturday. PAM vault shows: account 'db-admin-prod' was checked out from CyberArk by user s.chen@contoso.com, used for 4 minutes, then checked back in. Access log shows a successful PostgreSQL login and SELECT query on the 'customers' table returning 250,000 rows. S.Chen is a senior DBA. No change-management ticket was filed for Saturday night. What is your verdict?",
-        event: {
-          id: "evt-priv-ac-001",
-          ts: "2026-06-21T03:22:17.000Z",
-          source: "iam" as const,
-          vendor: "CyberArk PAM",
-          event_type: "privileged_operation" as const,
-          severity: "high" as const,
-          hostname: "DB-PROD-01",
-          user_email: "s.chen@contoso.com",
-          description: "PAM vault checkout off-hours, no change ticket, 250k row SELECT on customer table",
-          mitre_technique: "T1078.002",
-          mitre_tactic: "Privilege Escalation",
-          raw: {
-            "pam.vault": "CyberArk-Production",
-            "pam.account_checked_out": "db-admin-prod",
-            "pam.requester": "s.chen@contoso.com",
-            "pam.checkout_time": "2026-06-21T03:22:17Z",
-            "pam.checkin_time": "2026-06-21T03:26:04Z",
-            "pam.session_duration_seconds": 227,
-            "pam.reason_provided": "Emergency maintenance",
-            "db.host": "DB-PROD-01",
-            "db.type": "postgresql",
-            "db.statement": "SELECT * FROM customers",
-            "db.rows_returned": 250000,
-            "db.query_duration_ms": 8420,
-            "user.department": "Database Administration",
-            "user.title": "Senior DBA",
-            "user.mfa_verified": true,
-            "cm.ticket_required": true,
-            "cm.ticket_found": false,
-            "rule.name": "PAM_Checkout_OffHours_NoTicket_LargeQuery",
-            "rule.level": 14,
-          },
-        },
-        correct_verdict: "escalate",
-        explanation: "Escalation is correct: this cannot be definitively classified without additional context. For benign: S.Chen is a legitimate Senior DBA with MFA-verified access and a valid CyberArk session. An emergency maintenance reason was provided and the session was short (4 minutes). Against benign: a 250,000-row SELECT on a customer table at 3 AM with no change ticket is consistent with insider data exfiltration. A Tier-2 analyst needs to: call S.Chen directly to verify the emergency, check if a ticket was filed verbally (some companies allow emergency verbal authorization), and review whether the query results were exported to a file or sent anywhere.",
-        fp_trap: "The user is a legitimate Senior DBA with MFA and a short session. It's tempting to say 'trusted user with valid access during an emergency: benign true positive'. But the missing change ticket is a process violation regardless of legitimacy, and a 250k-row SELECT at 3 AM is worth verifying. Insider threats often look exactly like legitimate users operating outside normal hours.",
-        xp: 30,
-      },
-
-      // ── Flag ───────────────────────────────────────────────────
-      {
-        type: "flag",
-        id: "priv-flag1", logTask: "priv-la1",
-        prompt:
-          "In the svc-backup special-logon event on DC01, you now want the matching 4624 logon event to see which machine this session came from. Enter the exact value you would search for in DC01's logon events to tie them to this 4672.",
-        answer: "0x7F4A21C",
-        hint: "A 4672 and the 4624 that started the same session share one identifier. The “Key Windows Events” reading names the 4672 field that carries it.",
-        xp: 40,
-      },
-
       // ── Reading 4 — Privilege abuse beyond Windows: xp_cmdshell ──
       {
         type: "reading",
@@ -580,6 +441,145 @@ const rooms = [
         hint: "The xp_cmdshell reading explains which SQL Server role a cracked SQL service account often belongs to, and why that is what turns a Windows logon into full control of the instance.",
         xp: 30,
       },
+      // ── Reading 1b ─────────────────────────────────────────────
+      {
+        type: "reading",
+        id: "priv-r1b",
+        heading: "\"Permitted\" Is Not \"Authorised\": The Question Behind Every Privileged Alert",
+        content:
+          "**Analogy:** A hotel maid's keycard technically opens every room on her floor: the hotel's access system grants her that. If she uses it to enter Room 214 to clean it during her shift, that's normal work. If she uses that exact same keycard to enter Room 214 at 3 AM while the guest is out, using the same door, the same badge swipe, the same 'access granted' log entry, something is very wrong, even though the system permitted it both times. The keycard reader has no concept of *why* she's there. Only a human looking at context (the time, the guest's schedule, whether housekeeping was even assigned that room that night) can tell the difference.\n\nThis is the single most important mental model in privileged access monitoring, and it is worth stating as its own rule, because almost every false negative in this space comes from skipping it: **'permitted' and 'authorised' are two completely different questions, and Windows (or any system) can only ever answer the first one.**\n\n**Permitted** is a technical fact. It means the account's token, group membership or role grants it the ability to perform the action. A Domain Admin account is *permitted* to create a new user, reset any password, add someone to any group, or log on to any machine in the domain, at any hour, from anywhere its network access allows. The operating system checked the account's privileges, found them sufficient, and let the action through. Every event you read in priv-r2 (4672, 4728, 4673) is a record that something was permitted. None of them, by themselves, say whether it was *supposed* to happen.\n\n**Authorised** is a business fact, and it lives outside the operating system entirely. It means a specific human or process with the standing to approve that specific action actually approved it, through the organisation's own process, typically a **change ticket** (a documented, pre-approved record of planned work, referenced by an ID like `CHG-91004`), inside an agreed **maintenance window** (a scheduled time block, often overnight, when planned changes are allowed to happen), and traceable to a **requester or owner** who can be asked 'why did you do this?' and give an answer that checks out. Nothing about a Windows Security Event records any of this: a change ticket lives in a separate system (a service-desk or ITSM platform), and correlating the two is manual, or handled by SOAR playbooks that query the ticketing system automatically.\n\nHere is why this distinction has to become reflexive. Take the exact scenario priv-r1 ended on: 'a Domain Admin account that logs on every weekday morning from the same workstation is normal. That same account logging on at 3 AM from a new machine is an alert.' Both logons are equally *permitted*: the account's group membership does not change between 9 AM and 3 AM. What changed is the second, invisible layer: was there a change ticket scheduling maintenance for 3 AM? Was that new machine the admin's usual jump box, or unrecognised? A junior analyst who only checks 'is this account allowed to do this?' will wave through both logons, because the answer is yes both times. A trained analyst asks the second question: was this *specific* action, at *this* specific time, by *this* specific actor, something the organisation actually agreed to, and that is where the 3 AM logon fails.\n\nThe same test applies to every reading in this room. priv-r2 already hinted at it: 'any addition to \\[Domain Admins\\] should be a change-ticket in your organisation, if no ticket exists, treat it as malicious.' That sentence is the permitted-vs-authorised test applied to Event 4728. priv-r3's Step 6 (an attacker creating a new Domain Admin account for persistence) generates events that are technically identical, field-for-field, to a system administrator legitimately onboarding a new admin during a planned access review: the only thing that tells them apart is whether a change ticket, an owner and a business reason exist to back it up. **The question you must learn to ask before closing any privileged-access alert is not 'could this account do this?'. Group membership already answered that. It is 'was this account *supposed* to do this, right now, and can someone prove it?'**",
+        checkpoint: {
+          question:
+            "A Domain Admin account creates a new user account and adds it to the Domain Admins group at 2 AM. The account's group membership fully permits this action. What is the correct next analyst step?",
+          options: [
+            "Confirm the acting account is a current member of Domain Admins, since valid membership means the change was approved",
+            "Look for a change ticket, maintenance window and named owner covering this specific addition before deciding",
+            "Declare a confirmed compromise, since a privileged-group addition at 2 AM is enough evidence of malice on its own",
+            "Close it as benign, since Windows only writes Event 4728 after verifying the actor had rights to make the change",
+          ],
+          answer: 1,
+          explanation:
+            "Group membership only proves the action was permitted; authorisation lives outside Windows: a change ticket, an agreed maintenance window and an owner who can explain it. “Confirm the acting account is a current member of Domain Admins” re-checks permission, which the stem already established. “Declare a confirmed compromise” over-reads the hour: a planned 2 AM change is normal if a ticket backs it. “Close it as benign, since Windows only writes Event 4728 after verifying the actor had rights” is true about the log but again only proves permission, not approval.",
+        },
+      },
+      // ── Log Analysis ───────────────────────────────────────────
+      {
+        type: "log_analysis",
+        id: "priv-la1",
+        heading: "Service Account with Unexpected Privileges on a Domain Controller",
+        context:
+          "SIEM alert: 'Service account special logon with dangerous privilege list detected on DC01.' Your organisation's backup service account `svc-backup` is supposed to have SeBackupPrivilege and SeRestorePrivilege to allow it to read and write backup files. The event below was generated on the Domain Controller at 03:22 AM, outside of the scheduled backup window (weeknights 22:00-23:30). Review the event carefully.",
+        event: {
+          id: "evt-priv-4672-001",
+          ts: "2026-06-24T03:22:11.004Z",
+          source: "windows_security",
+          event_type: "privilege_escalation",
+          hostname: "DC01.corp.internal",
+          severity: "critical",
+          vendor: "Windows Security",
+          raw: {
+            "event.code": "4672",
+            "winlog.channel": "Security",
+            "winlog.computer_name": "DC01.corp.internal",
+            "winlog.event_data.SubjectUserName": "svc-backup",
+            "winlog.event_data.SubjectUserSid": "S-1-5-21-3948293847-2938471729-1029384756-1104",
+            "winlog.event_data.SubjectDomainName": "CORP",
+            "winlog.event_data.SubjectLogonId": "0x7F4A21C",
+            "winlog.event_data.PrivilegeList":
+              "SeBackupPrivilege\nSeRestorePrivilege\nSeDebugPrivilege\nSeTcbPrivilege",
+            "event.created": "2026-06-24T03:22:11.004Z",
+            "log.level": "critical",
+            "tags": ["privileged-access", "service-account", "DC"],
+          },
+        },
+        questions: [
+          {
+            question:
+              "This 4672 shows svc-backup's token HOLDS SeDebugPrivilege. Sensitive Privilege Use auditing is not enabled on DC01. Which evidence would best show whether that privilege was actually used to read credentials?",
+            options: [
+              "Event 4673 entries for svc-backup on DC01 around 03:22, which record each use of a sensitive privilege",
+              "Sysmon Event 10 on DC01 around 03:22 with TargetImage lsass.exe, showing which process opened it and how",
+              "Events 4728/4732 naming svc-backup, showing which group change gave the account its extra privileges",
+              "A second 4672 for svc-backup later that night, since a repeated special logon shows the privilege in use",
+            ],
+            answer: 1,
+            explanation:
+              "Debug-privilege abuse means a tool opening LSASS memory, and the reading names Sysmon Event 10 (TargetImage lsass.exe, GrantedAccess) as the practical detection. “Event 4673 entries” would record use, but the stem says Sensitive Privilege Use auditing is off, so none will exist. “Events 4728/4732” could explain how the account gained rights, but not whether they were used. “A second 4672” confuses holding with using: 4672 is written at logon and lists what the token carries, whether or not it is ever exercised.",
+            xp: 25,
+          },
+          {
+            question:
+              "This event was generated at 03:22 AM on a Domain Controller, outside the scheduled backup window. What is the MOST dangerous potential attack scenario indicated by the combination of DC01 hostname + svc-backup account + SeDebugPrivilege + off-hours timing?",
+            options: [
+              "A backup job that started late, with the extra privileges a stale misconfiguration to fix in a hygiene ticket",
+              "Someone acting as svc-backup on the DC who can open LSASS and harvest domain credential material",
+              "An admin who granted SeDebugPrivilege for troubleshooting and forgot to remove it: a policy gap",
+              "A Kerberoasting attempt on svc-backup, with this 4672 being the DC logging the service-ticket request",
+            ],
+            answer: 1,
+            explanation:
+              "On a DC, a token with SeDebugPrivilege can read LSASS memory, which holds credential material for domain accounts, including what an attacker needs for golden tickets. That is the most dangerous reading. “A backup job that started late” ignores that 03:22 is hours outside the 22:00–23:30 window and does not explain the two extra privileges. “An admin who ... forgot to remove it” could explain how the rights appeared, but not who is using the account at 03:22, and it is not an attack scenario. “A Kerberoasting attempt” confuses events: a service-ticket request is Event 4769, not a 4672 special logon.",
+            xp: 25,
+          },
+        ],
+      },
+      // ── Flag ───────────────────────────────────────────────────
+      {
+        type: "flag",
+        id: "priv-flag1", logTask: "priv-la1",
+        prompt:
+          "In the svc-backup special-logon event on DC01, you now want the matching 4624 logon event to see which machine this session came from. Enter the exact value you would search for in DC01's logon events to tie them to this 4672.",
+        answer: "0x7F4A21C",
+        hint: "A 4672 and the 4624 that started the same session share one identifier. The “Key Windows Events” reading names the 4672 field that carries it.",
+        xp: 40,
+      },
+
+      // ── Analyst Choice — Privileged Access ──────────────────────
+      {
+        type: "analyst_choice" as const,
+        id: "priv-ac1",
+        heading: "Verdict: Authorized Privileged Operation or Abuse?",
+        scenario: "3:22 AM Saturday. PAM vault shows: account 'db-admin-prod' was checked out from CyberArk by user s.chen@contoso.com, used for 4 minutes, then checked back in. Access log shows a successful PostgreSQL login and SELECT query on the 'customers' table returning 250,000 rows. S.Chen is a senior DBA. No change-management ticket was filed for Saturday night. What is your verdict?",
+        event: {
+          id: "evt-priv-ac-001",
+          ts: "2026-06-21T03:22:17.000Z",
+          source: "iam" as const,
+          vendor: "CyberArk PAM",
+          event_type: "privileged_operation" as const,
+          severity: "high" as const,
+          hostname: "DB-PROD-01",
+          user_email: "s.chen@contoso.com",
+          description: "PAM vault checkout off-hours, no change ticket, 250k row SELECT on customer table",
+          mitre_technique: "T1078.002",
+          mitre_tactic: "Privilege Escalation",
+          raw: {
+            "pam.vault": "CyberArk-Production",
+            "pam.account_checked_out": "db-admin-prod",
+            "pam.requester": "s.chen@contoso.com",
+            "pam.checkout_time": "2026-06-21T03:22:17Z",
+            "pam.checkin_time": "2026-06-21T03:26:04Z",
+            "pam.session_duration_seconds": 227,
+            "pam.reason_provided": "Emergency maintenance",
+            "db.host": "DB-PROD-01",
+            "db.type": "postgresql",
+            "db.statement": "SELECT * FROM customers",
+            "db.rows_returned": 250000,
+            "db.query_duration_ms": 8420,
+            "user.department": "Database Administration",
+            "user.title": "Senior DBA",
+            "user.mfa_verified": true,
+            "cm.ticket_required": true,
+            "cm.ticket_found": false,
+            "rule.name": "PAM_Checkout_OffHours_NoTicket_LargeQuery",
+            "rule.level": 14,
+          },
+        },
+        correct_verdict: "escalate",
+        explanation: "Escalation is correct: this cannot be definitively classified without additional context. For benign: S.Chen is a legitimate Senior DBA with MFA-verified access and a valid CyberArk session. An emergency maintenance reason was provided and the session was short (4 minutes). Against benign: a 250,000-row SELECT on a customer table at 3 AM with no change ticket is consistent with insider data exfiltration. A Tier-2 analyst needs to: call S.Chen directly to verify the emergency, check if a ticket was filed verbally (some companies allow emergency verbal authorization), and review whether the query results were exported to a file or sent anywhere.",
+        fp_trap: "The user is a legitimate Senior DBA with MFA and a short session. It's tempting to say 'trusted user with valid access during an emergency: benign true positive'. But the missing change ticket is a process violation regardless of legitimacy, and a 250k-row SELECT at 3 AM is worth verifying. Insider threats often look exactly like legitimate users operating outside normal hours.",
+        xp: 30,
+      },
+
     ],
   },
 
@@ -876,6 +876,23 @@ const rooms = [
             "The reading's reason is fit: defaults target the average environment, so they fire on your legitimate tools (IT's PsExec), miss your critical assets, and misread your users' habits. “Raising every threshold” would cut noise but also blind the rules, and does nothing for assets that need custom monitoring. “Match only known malware signatures” is not what the reading says. Signature logic is one of four detection types, and vendor packs are not limited to it. “Locked by the vendor” is wrong: the tuning stage in Reading 3 adds exactly these exclusions.",
         },
       },
+      // ── Question 1 ──────────────────────────────────────────────
+      {
+        type: "question",
+        id: "deteng-q1",
+        question:
+          "Your SIEM has a rule with 95% precision (95% of its alerts are true positives, 5% are false positives). It fires about 200 times per day. How many false positives does the team investigate daily, and what does that imply?",
+        options: [
+          "5 per day: the 5% rate is the daily count, so the rule is already precise enough for high severity",
+          "10 per day: a small number, so 95% precision is good enough to run the rule at critical severity",
+          "10 per day: small for one rule, but it adds up across many rules; high-severity rules need higher precision",
+          "190 per day: 95% is the false share, so only 10 of the 200 daily alerts are true positives",
+        ],
+        answer: 2,
+        explanation:
+          "Precision is TP/(TP+FP) over alerts: 200 × 5% = 10 false positives a day. One rule's 10 looks harmless, but 50 such rules mean 500 dead-end investigations a day, which is why the reading sets a much higher bar before a rule is promoted to high/critical severity. “5 per day” applies the percentage as a count. “10 per day ... good enough to run at critical severity” gets the arithmetic right but ignores the cumulative alert-fatigue effect. “190 per day” inverts the definition given in the stem.",
+        xp: 20,
+      },
       // ── Reading 2 ──────────────────────────────────────────────
       {
         type: "reading",
@@ -895,6 +912,23 @@ const rooms = [
           explanation:
             "Sigma is a vendor-neutral YAML specification; one rule converts to SPL, KQL, AQL and other languages, which is what makes community sharing work. “Run faster” is wrong: the SIEM never runs YAML; it runs the converted native query. “SigmaHQ pre-validates its rules” skips the reading's lifecycle: every rule, wherever it came from, still needs testing and tuning against your own data. “Infers each rule's ATT&CK technique” is wrong too: the `tags` in the example are written by the author.",
         },
+      },
+      // ── Question 3 ──────────────────────────────────────────────
+      {
+        type: "question",
+        id: "deteng-q3",
+        question:
+          "A detection engineer creates an ATT&CK coverage heatmap for their environment and discovers that techniques T1566 (Phishing), T1078 (Valid Accounts), and T1190 (Exploit Public-Facing Application) have zero detection rules assigned to them. What does this mean practically?",
+        options: [
+          "They are mostly stopped upstream (mail gateway, MFA, WAF), so the zero count reflects prevention, not a gap",
+          "They are blind spots: an attacker using one of them triggers no rule, so the intrusion may surface only at a later step",
+          "The SIEM vendor ships default rules for them, so empty cells are expected and custom rules would only duplicate alerts",
+          "They can only be seen in EDR telemetry, so the zero count reflects the SIEM's scope rather than a coverage gap",
+        ],
+        answer: 1,
+        explanation:
+          "A technique with no coverage is, in the reading's words, a gap an attacker can exploit without triggering any alert, and these three are among the most common initial-access routes. “Mostly stopped upstream” confuses prevention with detection: gateways, MFA and WAFs get bypassed, and the heatmap measures whether you would SEE it. “The SIEM vendor ships default rules”, if they existed and were mapped, the cells would not be empty. “They can only be seen in EDR telemetry” is false: phishing is visible in mail logs, valid-account abuse in authentication logs and web exploitation in WAF/web logs, all of which a SIEM ingests.",
+        xp: 20,
       },
       // ── Reading 3 ──────────────────────────────────────────────
       {
@@ -925,23 +959,43 @@ const rooms = [
             "A list of values under a single field in a Sigma selection is evaluated as OR logic: the condition is satisfied if any one of the listed values matches. That's exactly why this rule catches both the short form (-enc) and the long form (-EncodedCommand) of the same PowerShell flag, plus both hidden-window variants, with a single selection block rather than four separate rules.",
         },
       },
-      // ── Question 1 ──────────────────────────────────────────────
+      // ── Matching Task — Sigma Rule Components ───────────────────
       {
-        type: "question",
-        id: "deteng-q1",
-        question:
-          "Your SIEM has a rule with 95% precision (95% of its alerts are true positives, 5% are false positives). It fires about 200 times per day. How many false positives does the team investigate daily, and what does that imply?",
-        options: [
-          "5 per day: the 5% rate is the daily count, so the rule is already precise enough for high severity",
-          "10 per day: a small number, so 95% precision is good enough to run the rule at critical severity",
-          "10 per day: small for one rule, but it adds up across many rules; high-severity rules need higher precision",
-          "190 per day: 95% is the false share, so only 10 of the 200 daily alerts are true positives",
+        type: "matching" as const,
+        id: "deteng-m1",
+        heading: "Match Sigma Rule Components to Their Purpose",
+        instructions: "A Sigma detection rule is built from named sections. Match each section name on the left to what it actually does in the rule.",
+        pairs: [
+          {
+            id: "logsource",
+            left: "logsource",
+            right: "Defines which log type this rule applies to: product, service, and category",
+          },
+          {
+            id: "detection",
+            left: "detection",
+            right: "Contains the field-value conditions that must match for the rule to fire",
+          },
+          {
+            id: "condition",
+            left: "condition",
+            right: "Boolean expression combining the named detection groups (e.g. 'selection and not filter')",
+          },
+          {
+            id: "falsepositives",
+            left: "falsepositives",
+            right: "Documents known benign behaviors that trigger this rule: guides analyst triage",
+          },
+          {
+            id: "level",
+            left: "level",
+            right: "Severity rating of the finding: informational, low, medium, high, or critical",
+          },
         ],
-        answer: 2,
-        explanation:
-          "Precision is TP/(TP+FP) over alerts: 200 × 5% = 10 false positives a day. One rule's 10 looks harmless, but 50 such rules mean 500 dead-end investigations a day, which is why the reading sets a much higher bar before a rule is promoted to high/critical severity. “5 per day” applies the percentage as a count. “10 per day ... good enough to run at critical severity” gets the arithmetic right but ignores the cumulative alert-fatigue effect. “190 per day” inverts the definition given in the stem.",
-        xp: 20,
+        explanation: "A Sigma rule is a vendor-neutral detection specification. Understanding each section's purpose is essential for tuning. The 'logsource' section tells the SIEM which log collection to search. The 'detection' section defines named groups of field-value conditions. The 'condition' combines those groups with boolean logic: this is where you add exclusions (e.g., 'not filter') to reduce false positives. The 'falsepositives' section is a human-readable guide for the analyst. It does not affect rule behavior but tells the responder what to verify before escalating. The 'level' maps to SIEM alert priority. When tuning, you modify 'detection' to add exceptions and update 'falsepositives' to document why.",
+        xp: 30,
       },
+
       // ── Question 2 ──────────────────────────────────────────────
       {
         type: "question",
@@ -957,23 +1011,6 @@ const rooms = [
         answer: 1,
         explanation:
           "Reading 4: getting `logsource` wrong means the compiled query searches the wrong index entirely, and the rule silently never fires. That is why the test is what catches it. “The SIEM refuses the rule” is the dangerous assumption: the stem says it deployed cleanly, and a query over missing fields simply returns nothing. “An alert fires as usual” ignores that logsource decides where the query looks, so the Sysmon events are never searched. “The firewall's record of the connection” is wrong because network logs hold addresses, ports and actions, not process command lines.",
-        xp: 20,
-      },
-      // ── Question 3 ──────────────────────────────────────────────
-      {
-        type: "question",
-        id: "deteng-q3",
-        question:
-          "A detection engineer creates an ATT&CK coverage heatmap for their environment and discovers that techniques T1566 (Phishing), T1078 (Valid Accounts), and T1190 (Exploit Public-Facing Application) have zero detection rules assigned to them. What does this mean practically?",
-        options: [
-          "They are mostly stopped upstream (mail gateway, MFA, WAF), so the zero count reflects prevention, not a gap",
-          "They are blind spots: an attacker using one of them triggers no rule, so the intrusion may surface only at a later step",
-          "The SIEM vendor ships default rules for them, so empty cells are expected and custom rules would only duplicate alerts",
-          "They can only be seen in EDR telemetry, so the zero count reflects the SIEM's scope rather than a coverage gap",
-        ],
-        answer: 1,
-        explanation:
-          "A technique with no coverage is, in the reading's words, a gap an attacker can exploit without triggering any alert, and these three are among the most common initial-access routes. “Mostly stopped upstream” confuses prevention with detection: gateways, MFA and WAFs get bypassed, and the heatmap measures whether you would SEE it. “The SIEM vendor ships default rules”, if they existed and were mapped, the cells would not be empty. “They can only be seen in EDR telemetry” is false: phishing is visible in mail logs, valid-account abuse in authentication logs and web exploitation in WAF/web logs, all of which a SIEM ingests.",
         xp: 20,
       },
       // ── Log Analysis ───────────────────────────────────────────
@@ -1062,43 +1099,6 @@ const rooms = [
           },
         ],
       },
-      // ── Matching Task — Sigma Rule Components ───────────────────
-      {
-        type: "matching" as const,
-        id: "deteng-m1",
-        heading: "Match Sigma Rule Components to Their Purpose",
-        instructions: "A Sigma detection rule is built from named sections. Match each section name on the left to what it actually does in the rule.",
-        pairs: [
-          {
-            id: "logsource",
-            left: "logsource",
-            right: "Defines which log type this rule applies to: product, service, and category",
-          },
-          {
-            id: "detection",
-            left: "detection",
-            right: "Contains the field-value conditions that must match for the rule to fire",
-          },
-          {
-            id: "condition",
-            left: "condition",
-            right: "Boolean expression combining the named detection groups (e.g. 'selection and not filter')",
-          },
-          {
-            id: "falsepositives",
-            left: "falsepositives",
-            right: "Documents known benign behaviors that trigger this rule: guides analyst triage",
-          },
-          {
-            id: "level",
-            left: "level",
-            right: "Severity rating of the finding: informational, low, medium, high, or critical",
-          },
-        ],
-        explanation: "A Sigma rule is a vendor-neutral detection specification. Understanding each section's purpose is essential for tuning. The 'logsource' section tells the SIEM which log collection to search. The 'detection' section defines named groups of field-value conditions. The 'condition' combines those groups with boolean logic: this is where you add exclusions (e.g., 'not filter') to reduce false positives. The 'falsepositives' section is a human-readable guide for the analyst. It does not affect rule behavior but tells the responder what to verify before escalating. The 'level' maps to SIEM alert priority. When tuning, you modify 'detection' to add exceptions and update 'falsepositives' to document why.",
-        xp: 30,
-      },
-
       // ── Flag ───────────────────────────────────────────────────
       {
         type: "flag",

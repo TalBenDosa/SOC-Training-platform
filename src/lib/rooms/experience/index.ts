@@ -89,6 +89,14 @@ import { REMOTE_EMAIL_COLLECTION } from "./remoteEmailCollection";
 import { DEVICE_REGISTRATION_PERSISTENCE } from "./deviceRegistrationPersistence";
 import { INVESTIGATE_ALERT_WORKFLOW } from "./investigateAlertWorkflow";
 import { INCIDENT_REPORT_WRITING } from "./incidentReportWriting";
+import { OKTA_IDENTITY_FUNDAMENTALS } from "./oktaIdentityFundamentals";
+import { AI_ATTACKS_SOC_SOCIAL } from "./aiAttacksSocSocial";
+import { VISHING_HELPDESK_SOCIAL_ENGINEERING } from "./vishingHelpdeskSocialEngineering";
+import { THREAT_HUNTING_FUNDAMENTALS } from "./threatHuntingFundamentals";
+import { PRIVILEGED_ACCESS_MONITORING } from "./privilegedAccessMonitoring";
+import { DETECTION_ENGINEERING } from "./detectionEngineering";
+import { EDGE_CASE_USECASES } from "./edgeCaseUsecases";
+import { TUNNELING_C2_CHANNELS } from "./tunnelingC2Channels";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -184,6 +192,14 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [DEVICE_REGISTRATION_PERSISTENCE.roomId]: DEVICE_REGISTRATION_PERSISTENCE,
   [INVESTIGATE_ALERT_WORKFLOW.roomId]: INVESTIGATE_ALERT_WORKFLOW,
   [INCIDENT_REPORT_WRITING.roomId]: INCIDENT_REPORT_WRITING,
+  [OKTA_IDENTITY_FUNDAMENTALS.roomId]: OKTA_IDENTITY_FUNDAMENTALS,
+  [AI_ATTACKS_SOC_SOCIAL.roomId]: AI_ATTACKS_SOC_SOCIAL,
+  [VISHING_HELPDESK_SOCIAL_ENGINEERING.roomId]: VISHING_HELPDESK_SOCIAL_ENGINEERING,
+  [THREAT_HUNTING_FUNDAMENTALS.roomId]: THREAT_HUNTING_FUNDAMENTALS,
+  [PRIVILEGED_ACCESS_MONITORING.roomId]: PRIVILEGED_ACCESS_MONITORING,
+  [DETECTION_ENGINEERING.roomId]: DETECTION_ENGINEERING,
+  [EDGE_CASE_USECASES.roomId]: EDGE_CASE_USECASES,
+  [TUNNELING_C2_CHANNELS.roomId]: TUNNELING_C2_CHANNELS,
 };
 
 /**

@@ -531,6 +531,106 @@ const FINALREPORT: CampusConfig = {
   ],
 };
 
+const SINGLESIGNOFF: HallConfig = {
+  title: "Sign-Off Hall",
+  sub: "Quayside Capital identity log",
+  core: "globe",
+  books: ["Identity", "Incident Response", "SOC"],
+  cards: [
+    { icon: "eye", name: ["The System", "Log"], color: "#6fc3df", art: "axes" },
+    { icon: "compass", name: ["Behind the", "Attempt"], color: "#f2cc8f", art: "pulse" },
+    { icon: "filter", name: ["Two", "Policies"], color: "#b8a1e3", art: "tree" },
+    { icon: "users", name: ["The Admin", "Trail"], color: "#7fd1ae", art: "loot" },
+    { icon: "lock", name: ["Single", "Sign-Off"], color: "#e76f51", art: "lock" },
+  ],
+};
+
+const FAMILIARVOICE: CampusConfig = {
+  seed: 6151,
+  hub: { title: "Tollgate Media", sub: "FRAUD DESK HUB" },
+  buildings: [
+    { icon: "users", sign: ["The Voice", "Note"], color: "#ffd6a5", x: -18, z: -4, rot: 0.36 },
+    { icon: "mail", sign: ["The Lure", "Factory"], color: "#9bb7ff", x: -10.5, z: 7, rot: 0.22 },
+    { icon: "monitor", sign: ["The Helpful", "Tab"], color: "#8fe3c0", x: 11, z: 8, rot: -0.18 },
+    { icon: "siren", sign: ["Did It", "Leave?"], color: "#ff5e7e", x: 19, z: -7.5, rot: -0.4 },
+  ],
+};
+
+const HOLDMUSIC: HallConfig = {
+  title: "Hold Music Hall",
+  sub: "Brindle Mutual Insurance service desk",
+  core: "chain",
+  books: ["Identity", "Incident Response", "SOC"],
+  cards: [
+    { icon: "users", name: ["The Call", "Script"], color: "#e5989b", art: "tree" },
+    { icon: "layers", name: ["The Case", "Files"], color: "#a8dadc", art: "axes" },
+    { icon: "filter", name: ["The Ticket", "Trail"], color: "#fbbf24", art: "pulse" },
+    { icon: "shield", name: ["The Standing", "Order"], color: "#38bdf8", art: "lock" },
+    { icon: "siren", name: ["The Second", "Call"], color: "#ff5d52", art: "loot" },
+  ],
+};
+
+const LONGSHADOW: CampusConfig = {
+  seed: 9497,
+  hub: { title: "Alderney Semiconductors", sub: "THREAT HUNT HUB" },
+  buildings: [
+    { icon: "target", sign: ["The", "Hypothesis"], color: "#b4bdf9", x: -18, z: -7.5, rot: 0.38 },
+    { icon: "filter", sign: ["The", "Stack"], color: "#7fe0c3", x: -10.5, z: 8.5, rot: 0.2 },
+    { icon: "wire", sign: ["The", "Rhythm"], color: "#ffb07c", x: 11.5, z: 8, rot: -0.2 },
+    { icon: "siren", sign: ["The Long", "Shadow"], color: "#ff4f6e", x: 18.5, z: -3.5, rot: -0.36 },
+  ],
+};
+
+const MASTERKEY: HallConfig = {
+  title: "Key Hall",
+  sub: "Ironbridge Trust Bank privileged access",
+  core: "matrix",
+  books: ["Privileged Access", "Windows Events", "SOC"],
+  cards: [
+    { icon: "lock", name: ["The", "Vault"], color: "#cfa64b", art: "lock" },
+    { icon: "layers", name: ["The", "Climb"], color: "#7fb7be", art: "tree" },
+    { icon: "eye", name: ["The Unvaulted", "Key"], color: "#c38bd9", art: "ghost" },
+    { icon: "target", name: ["Who Used", "the Key?"], color: "#ff5a5f", art: "pulse" },
+  ],
+};
+
+const SIGNALNOISE: CampusConfig = {
+  seed: 3571,
+  hub: { title: "Cadenza Music", sub: "DETECTION HUB" },
+  buildings: [
+    { icon: "filter", sign: ["The", "Backlog"], color: "#f0abfc", x: -19, z: -1, rot: 0.4 },
+    { icon: "target", sign: ["The", "Heatmap"], color: "#67e8f9", x: -9.5, z: 9, rot: 0.18 },
+    { icon: "wire", sign: ["The", "Rewrite"], color: "#fbbf24", x: 12.5, z: 7, rot: -0.2 },
+    { icon: "siren", sign: ["First", "Fire"], color: "#fb5607", x: 19, z: -8.5, rot: -0.36 },
+  ],
+};
+
+const FINEPRINT: HallConfig = {
+  title: "Fine Print Hall",
+  sub: "Wexcombe Estates closed-ticket review",
+  core: "knot",
+  books: ["Edge Cases", "Two Stories", "SOC"],
+  cards: [
+    { icon: "eye", name: ["The Odd", "One"], color: "#caa8f5", art: "ghost" },
+    { icon: "filter", name: ["Clean", "Logs"], color: "#f0e3c0", art: "pulse" },
+    { icon: "lock", name: ["The Real", "Screen"], color: "#7dd3fc", art: "lock" },
+    { icon: "layers", name: ["Same", "Shape"], color: "#a3e635", art: "tree" },
+    { icon: "siren", name: ["The Fine", "Print"], color: "#ff6a4d", art: "loot" },
+  ],
+};
+
+const QUIETWIRE: CampusConfig = {
+  seed: 6173,
+  hub: { title: "Halden Geothermal", sub: "NETWORK THREAT HUB" },
+  buildings: [
+    { icon: "wire", sign: ["The", "Forward"], color: "#ffa94d", x: -18.5, z: -6, rot: 0.36 },
+    { icon: "filter", sign: ["The Inner", "Channel"], color: "#8fd8e8", x: -12.5, z: 5.5, rot: 0.24 },
+    { icon: "shield", sign: ["The Signed", "Tool"], color: "#c9b6ff", x: -6.5, z: 9.5, rot: 0.1 },
+    { icon: "monitor", sign: ["The Long", "Session"], color: "#9be3b0", x: 9, z: 9.5, rot: -0.14 },
+    { icon: "siren", sign: ["The Quiet", "Wire"], color: "#ff5570", x: 18.5, z: -2.5, rot: -0.34 },
+  ],
+};
+
 const HALL: HallConfig = {
   title: "Specimen Hall",
   sub: "Vantor Logistics malware lab",
@@ -633,3 +733,11 @@ export function FacilityQuietForward(props: WorldProps) { return <HallWorld cfg=
 export function FacilityExtraDevice(props: WorldProps) { return <CampusWorld cfg={EXTRADEVICE} props={props} />; }
 export function FacilityFullShift(props: WorldProps) { return <HallWorld cfg={FULLSHIFT} props={props} />; }
 export function FacilityFinalReport(props: WorldProps) { return <CampusWorld cfg={FINALREPORT} props={props} />; }
+export function FacilitySingleSignOff(props: WorldProps) { return <HallWorld cfg={SINGLESIGNOFF} props={props} />; }
+export function FacilityFamiliarVoice(props: WorldProps) { return <CampusWorld cfg={FAMILIARVOICE} props={props} />; }
+export function FacilityHoldMusic(props: WorldProps) { return <HallWorld cfg={HOLDMUSIC} props={props} />; }
+export function FacilityLongShadow(props: WorldProps) { return <CampusWorld cfg={LONGSHADOW} props={props} />; }
+export function FacilityMasterKey(props: WorldProps) { return <HallWorld cfg={MASTERKEY} props={props} />; }
+export function FacilitySignalNoise(props: WorldProps) { return <CampusWorld cfg={SIGNALNOISE} props={props} />; }
+export function FacilityFinePrint(props: WorldProps) { return <HallWorld cfg={FINEPRINT} props={props} />; }
+export function FacilityQuietWire(props: WorldProps) { return <CampusWorld cfg={QUIETWIRE} props={props} />; }

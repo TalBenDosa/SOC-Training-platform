@@ -138,6 +138,14 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   facilityextradevice: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityExtraDevice), { ssr: false }),
   facilityfullshift: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityFullShift), { ssr: false }),
   facilityfinalreport: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityFinalReport), { ssr: false }),
+  facilitysinglesignoff: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilitySingleSignOff), { ssr: false }),
+  facilityfamiliarvoice: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityFamiliarVoice), { ssr: false }),
+  facilityholdmusic: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityHoldMusic), { ssr: false }),
+  facilitylongshadow: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityLongShadow), { ssr: false }),
+  facilitymasterkey: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityMasterKey), { ssr: false }),
+  facilitysignalnoise: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilitySignalNoise), { ssr: false }),
+  facilityfineprint: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityFinePrint), { ssr: false }),
+  facilityquietwire: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityQuietWire), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;

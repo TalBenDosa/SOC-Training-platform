@@ -2175,17 +2175,27 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "threat-hunt-r3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "threat-hunt-q1",
         "type": "question",
         "xp": 30
       },
       {
         "id": "threat-hunt-q2",
+        "type": "question",
+        "xp": 30
+      },
+      {
+        "id": "threat-hunt-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "threat-hunt-q4",
+        "type": "question",
+        "xp": 30
+      },
+      {
+        "id": "threat-hunt-q5",
         "type": "question",
         "xp": 30
       },
@@ -2204,16 +2214,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "threat-hunt-flag1",
         "type": "flag",
         "xp": 50
-      },
-      {
-        "id": "threat-hunt-q4",
-        "type": "question",
-        "xp": 30
-      },
-      {
-        "id": "threat-hunt-q5",
-        "type": "question",
-        "xp": 30
       }
     ]
   },
@@ -2693,14 +2693,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "priv-r1b",
+        "id": "priv-r2",
         "type": "reading",
         "xp": 0
       },
       {
-        "id": "priv-r2",
-        "type": "reading",
-        "xp": 0
+        "id": "priv-q3",
+        "type": "question",
+        "xp": 20
       },
       {
         "id": "priv-r3",
@@ -2718,27 +2718,6 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
-        "id": "priv-q3",
-        "type": "question",
-        "xp": 20
-      },
-      {
-        "id": "priv-la1",
-        "type": "log_analysis",
-        "xp": 50
-      },
-      {
-        "id": "priv-ac1",
-        "type": "analyst_choice",
-        "xp": 30,
-        "mitreTechnique": "T1078.002"
-      },
-      {
-        "id": "priv-flag1",
-        "type": "flag",
-        "xp": 40
-      },
-      {
         "id": "priv-r4",
         "type": "reading",
         "xp": 0
@@ -2753,6 +2732,27 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "priv-flag2",
         "type": "flag",
         "xp": 30
+      },
+      {
+        "id": "priv-r1b",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "priv-la1",
+        "type": "log_analysis",
+        "xp": 50
+      },
+      {
+        "id": "priv-flag1",
+        "type": "flag",
+        "xp": 40
+      },
+      {
+        "id": "priv-ac1",
+        "type": "analyst_choice",
+        "xp": 30,
+        "mitreTechnique": "T1078.002"
       }
     ]
   },
@@ -2837,9 +2837,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "deteng-q1",
+        "type": "question",
+        "xp": 20
+      },
+      {
         "id": "deteng-r2",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "deteng-q3",
+        "type": "question",
+        "xp": 20
       },
       {
         "id": "deteng-r3",
@@ -2852,9 +2862,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "deteng-q1",
-        "type": "question",
-        "xp": 20
+        "id": "deteng-m1",
+        "type": "matching",
+        "xp": 30
       },
       {
         "id": "deteng-q2",
@@ -2862,19 +2872,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
-        "id": "deteng-q3",
-        "type": "question",
-        "xp": 20
-      },
-      {
         "id": "deteng-la1",
         "type": "log_analysis",
         "xp": 65
-      },
-      {
-        "id": "deteng-m1",
-        "type": "matching",
-        "xp": 30
       },
       {
         "id": "deteng-flag1",
@@ -3695,9 +3695,25 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "edge-q1",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "edge-la1",
+        "type": "log_analysis",
+        "xp": 70,
+        "mitreTechnique": "T1195.001"
+      },
+      {
         "id": "edge-r2",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "edge-la3",
+        "type": "log_analysis",
+        "xp": 50
       },
       {
         "id": "edge-r3",
@@ -3710,30 +3726,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "edge-r5",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "edge-q1",
-        "type": "question",
-        "xp": 20
-      },
-      {
         "id": "edge-q2",
         "type": "question",
         "xp": 25
-      },
-      {
-        "id": "edge-q3",
-        "type": "question",
-        "xp": 25
-      },
-      {
-        "id": "edge-la1",
-        "type": "log_analysis",
-        "xp": 70,
-        "mitreTechnique": "T1195.001"
       },
       {
         "id": "edge-la2",
@@ -3742,20 +3737,15 @@ export const ROOMS_META: RoomMeta[] = [
         "mitreTechnique": "T1528"
       },
       {
-        "id": "edge-la3",
-        "type": "log_analysis",
-        "xp": 50
-      },
-      {
-        "id": "edge-ac1",
-        "type": "analyst_choice",
-        "xp": 30
-      },
-      {
         "id": "edge-ac2",
         "type": "analyst_choice",
         "xp": 30,
         "mitreTechnique": "T1528"
+      },
+      {
+        "id": "edge-r5",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "edge-ac3",
@@ -3764,25 +3754,35 @@ export const ROOMS_META: RoomMeta[] = [
         "mitreTechnique": "T1218.010"
       },
       {
+        "id": "edge-f1",
+        "type": "flag",
+        "xp": 25
+      },
+      {
+        "id": "edge-ac1",
+        "type": "analyst_choice",
+        "xp": 30
+      },
+      {
+        "id": "edge-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
         "id": "edge-ac4",
         "type": "analyst_choice",
         "xp": 30,
         "mitreTechnique": "T1589.002"
       },
       {
-        "id": "edge-m1",
-        "type": "matching",
-        "xp": 35
-      },
-      {
-        "id": "edge-f1",
-        "type": "flag",
-        "xp": 25
-      },
-      {
         "id": "edge-r6",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "edge-m1",
+        "type": "matching",
+        "xp": 35
       }
     ]
   },
@@ -4737,6 +4737,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "tunnel-q1",
+        "type": "question",
+        "xp": 25
+      },
+      {
         "id": "tunnel-r2",
         "type": "reading",
         "xp": 0
@@ -4752,49 +4757,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "tunnel-r5",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "tunnel-r6",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "tunnel-q1",
-        "type": "question",
-        "xp": 25
-      },
-      {
         "id": "tunnel-q2",
         "type": "question",
         "xp": 30
-      },
-      {
-        "id": "tunnel-q3",
-        "type": "question",
-        "xp": 25
-      },
-      {
-        "id": "tunnel-la1",
-        "type": "log_analysis",
-        "xp": 80
-      },
-      {
-        "id": "tunnel-la2",
-        "type": "log_analysis",
-        "xp": 85
-      },
-      {
-        "id": "tunnel-ac1",
-        "type": "analyst_choice",
-        "xp": 30
-      },
-      {
-        "id": "tunnel-m1",
-        "type": "matching",
-        "xp": 40
       },
       {
         "id": "tunnel-o1",
@@ -4802,14 +4767,49 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 35
       },
       {
-        "id": "tunnel-qf1",
-        "type": "query_fill",
-        "xp": 35
+        "id": "tunnel-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "tunnel-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "tunnel-m1",
+        "type": "matching",
+        "xp": 40
+      },
+      {
+        "id": "tunnel-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "tunnel-la1",
+        "type": "log_analysis",
+        "xp": 80
       },
       {
         "id": "tunnel-f1",
         "type": "flag",
         "xp": 25
+      },
+      {
+        "id": "tunnel-la2",
+        "type": "log_analysis",
+        "xp": 85
+      },
+      {
+        "id": "tunnel-qf1",
+        "type": "query_fill",
+        "xp": 35
+      },
+      {
+        "id": "tunnel-ac1",
+        "type": "analyst_choice",
+        "xp": 30
       }
     ]
   },
@@ -8689,6 +8689,16 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "vish-q1",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "vish-o1",
+        "type": "ordering",
+        "xp": 30
+      },
+      {
         "id": "vish-r2",
         "type": "reading",
         "xp": 0
@@ -8699,14 +8709,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "vish-q1",
+        "id": "vish-m1",
+        "type": "matching",
+        "xp": 25
+      },
+      {
+        "id": "vish-q2",
         "type": "question",
         "xp": 25
       },
       {
-        "id": "vish-m1",
-        "type": "matching",
-        "xp": 25
+        "id": "vish-f1",
+        "type": "flag",
+        "xp": 15
       },
       {
         "id": "vish-r4",
@@ -8719,7 +8734,7 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "vish-q2",
+        "id": "vish-q3",
         "type": "question",
         "xp": 25
       },
@@ -8734,14 +8749,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "vish-q3",
+        "id": "vish-q4",
         "type": "question",
         "xp": 25
-      },
-      {
-        "id": "vish-o1",
-        "type": "ordering",
-        "xp": 30
       },
       {
         "id": "vish-la1",
@@ -8754,16 +8764,6 @@ export const ROOMS_META: RoomMeta[] = [
         "type": "analyst_choice",
         "xp": 25,
         "mitreTechnique": "T1684.001"
-      },
-      {
-        "id": "vish-q4",
-        "type": "question",
-        "xp": 25
-      },
-      {
-        "id": "vish-f1",
-        "type": "flag",
-        "xp": 15
       }
     ]
   },
