@@ -28,7 +28,7 @@ export const POWERSHELL_FOR_SOC_ANALYST: RoomExperience = {
   scene: "objectpipe",
   layout: "stage",
   story: {
-    intro: { title: "Same Shell", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/powershell-for-soc-analyst/sameshell-intro-f0f7de41.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/powershell-for-soc-analyst/sameshell-intro-5edda611.jpg" },
+    intro: { title: "Same Shell", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/powershell-for-soc-analyst/sameshell-intro-1d1d445e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/powershell-for-soc-analyst/sameshell-intro-5edda611.jpg" },
     afterStation: {
       pipeline: { title: "Objects, Not Text", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/powershell-for-soc-analyst/sameshell-ch2-400a9c51.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/powershell-for-soc-analyst/sameshell-ch2-d7ed2729.jpg" },
       cmdlets: { title: "PID 6120", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/powershell-for-soc-analyst/sameshell-ch3-e2cd63e4.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/powershell-for-soc-analyst/sameshell-ch3-77228455.jpg" },
