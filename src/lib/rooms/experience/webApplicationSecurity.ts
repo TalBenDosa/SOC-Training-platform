@@ -29,11 +29,11 @@ export const WEB_APPLICATION_SECURITY: RoomExperience = {
   scene: "webpath",
   layout: "stage",
   story: {
-    intro: { title: "Every Attack Is a Request", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-application-security/requestline-intro-64c48e8e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-application-security/requestline-intro-b85f1026.jpg" },
+    intro: { title: "Every Attack Is a Request", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-application-security/requestline-intro-2a067fff.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-application-security/requestline-intro-040d7b49.jpg" },
     afterStation: {
-      trust: { title: "The Lock Is Drawn on the Door", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-application-security/requestline-ch2-637934b4.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-application-security/requestline-ch2-e6dee47d.jpg" },
-      attacks: { title: "Errors, Then Success", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-application-security/requestline-ch3-a5979979.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-application-security/requestline-ch3-db2636bc.jpg" },
-      csrf: { title: "The Browser's Own Trust", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-application-security/requestline-finale-8a62d911.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-application-security/requestline-finale-45e8ed37.jpg" },
+      trust: { title: "The Lock Is Drawn on the Door", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-application-security/requestline-ch2-313db7fe.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-application-security/requestline-ch2-63a8d672.jpg" },
+      attacks: { title: "Errors, Then Success", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-application-security/requestline-ch3-df2f8929.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-application-security/requestline-ch3-d2fbe971.jpg" },
+      csrf: { title: "The Browser's Own Trust", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-application-security/requestline-finale-09fe4976.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/web-application-security/requestline-finale-bfadaa07.jpg" },
     },
   },
   stations: [
