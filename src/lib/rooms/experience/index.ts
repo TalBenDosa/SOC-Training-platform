@@ -56,6 +56,15 @@ import { HTML_SMUGGLING_AND_LOLBINS } from "./htmlSmugglingAndLolbins";
 import { ENTRA_ID } from "./entraId";
 import { EXCHANGE_ONLINE_SECURITY } from "./exchangeOnlineSecurity";
 import { SHAREPOINT_TEAMS_MONITORING } from "./sharepointTeamsMonitoring";
+import { DEFENDER_XDR } from "./defenderXdr";
+import { IOC_ANALYSIS } from "./iocAnalysis";
+import { INCIDENT_RESPONSE_METHODOLOGY } from "./incidentResponseMethodology";
+import { INVESTIGATION_METHODOLOGY } from "./investigationMethodology";
+import { AUTH_IDENTITY_MONITORING } from "./authIdentityMonitoring";
+import { REPORTING_DOCUMENTATION } from "./reportingDocumentation";
+import { CUSTOMER_COMMUNICATION } from "./customerCommunication";
+import { NAC_MASTERCLASS } from "./nacMasterclass";
+import { SOAR_AUTOMATION } from "./soarAutomation";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -118,6 +127,15 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [ENTRA_ID.roomId]: ENTRA_ID,
   [EXCHANGE_ONLINE_SECURITY.roomId]: EXCHANGE_ONLINE_SECURITY,
   [SHAREPOINT_TEAMS_MONITORING.roomId]: SHAREPOINT_TEAMS_MONITORING,
+  [DEFENDER_XDR.roomId]: DEFENDER_XDR,
+  [IOC_ANALYSIS.roomId]: IOC_ANALYSIS,
+  [INCIDENT_RESPONSE_METHODOLOGY.roomId]: INCIDENT_RESPONSE_METHODOLOGY,
+  [INVESTIGATION_METHODOLOGY.roomId]: INVESTIGATION_METHODOLOGY,
+  [AUTH_IDENTITY_MONITORING.roomId]: AUTH_IDENTITY_MONITORING,
+  [REPORTING_DOCUMENTATION.roomId]: REPORTING_DOCUMENTATION,
+  [CUSTOMER_COMMUNICATION.roomId]: CUSTOMER_COMMUNICATION,
+  [NAC_MASTERCLASS.roomId]: NAC_MASTERCLASS,
+  [SOAR_AUTOMATION.roomId]: SOAR_AUTOMATION,
 };
 
 /**

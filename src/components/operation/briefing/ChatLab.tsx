@@ -20,6 +20,7 @@ export function ChatLab({ lab, onDone }: LabProps<"chat">) {
   const [gi, setGi] = useState(0);
   const [won, setWon] = useState<string | null>(null);
   const [fired, setFired] = useState(false);
+  const [said, setSaid] = useState("");
   const screen = useRef<HTMLDivElement>(null);
   const rules = useMemo(() => lab.rules.map(r => ({ ...r, re: new RegExp(r.match, "i") })), [lab.rules]);
   const goal = lab.goals[gi];
@@ -32,12 +33,16 @@ export function ChatLab({ lab, onDone }: LabProps<"chat">) {
     const text = raw.trim();
     if (!text || won || done) return;
     setInput("");
-    const hit = rules.find(r => r.re.test(text) && (!r.goal || r.goal === goal.id));
+    // With memory, a winning rule reads everything said toward this goal, so a learner who
+    // answers follow-ups one at a time can still get there. Every other rule reads this message.
+    const pool = said ? `${said}. ${text}` : text;
+    setSaid(pool);
+    const hit = rules.find(r => r.re.test(lab.memory && r.wins ? pool : text) && (!r.goal || r.goal === goal.id));
     setLines(l => [...l, { from: "user", text }, { from: "bot", text: hit?.reply ?? lab.fallback }]);
     if (hit?.wins) setWon(goal.why);
   }
 
-  function next() { setGi(i => i + 1); setWon(null); }
+  function next() { setGi(i => i + 1); setWon(null); setSaid(""); }
 
   return (
     <div className="space-y-3">

@@ -1438,6 +1438,41 @@ IOCs have a shelf-life. A domain used for a phishing campaign last month may be 
       },
     },
 
+    // ── Question 1 ────────────────────────────────────────────────────────────
+    {
+      type: "question",
+      id: "ioc-q1",
+      question:
+        "After an intrusion, the SOC can deploy only one of these detections. Which would be hardest for the same attacker to evade next time?",
+      options: [
+        "Alert on the SHA-256 of the loader found on the first infected host",
+        "Block the three C2 IP addresses named in last week's threat report",
+        "Alert when an Office app spawns PowerShell that then reads LSASS memory",
+        "Block the phishing domains that delivered the first-stage document",
+      ],
+      answer: 2,
+      explanation:
+        "Detecting the behaviour (Office spawning PowerShell that goes on to read LSASS memory) targets the attacker's TTPs, the top of the Pyramid of Pain; to evade it they must change how they operate, not just swap a component. The loader's hash is the bottom level: one recompile produces a new hash. C2 IP addresses are easy to replace with a new server or proxy. Phishing domains are cheap to re-register. All three are still worth blocking, but they cost the attacker little.",
+      xp: 35,
+    },
+
+    // ── Question 5 ────────────────────────────────────────────────────────────
+    {
+      type: "question",
+      id: "ioc-q5",
+      question:
+        "An analyst finds an IP address in a threat intelligence report published 14 months ago. Should they immediately add it to their firewall blocklist? Why or why not?",
+      options: [
+        "Yes: an IP tied to an attack should stay blocked in case the same actor returns to it",
+        "Not blindly: it may now belong to someone else; check for recent reports before blocking",
+        "Yes: a hosting provider keeps an IP with the same customer for as long as it exists",
+        "No: intelligence older than a few weeks has no value and should simply be discarded",
+      ],
+      answer: 1,
+      explanation:
+        "IPs are leased from hosting and cloud providers, so a C2 address from 14 months ago may have been released and reassigned to a legitimate customer; blocking it blindly risks breaking normal traffic for no gain. Check the last-seen date and look for recent corroboration first. 'Keep it blocked in case the actor returns' ignores reassignment and the false positives it causes. 'The same customer keeps the IP' is not how leasing works. Addresses are returned and reissued. 'Older than a few weeks has no value' throws away useful context: old IOCs still help with retro-hunting and attribution, they just need validation before blocking.",
+      xp: 35,
+    },
     // ── Reading 2: VirusTotal & OSINT Tools ───────────────────────────────────
     {
       type: "reading",
@@ -1513,6 +1548,24 @@ Essential for phishing investigations:
       },
     },
 
+    // ── Question 3 ────────────────────────────────────────────────────────────
+    {
+      type: "question",
+      id: "ioc-q3",
+      question:
+        "During triage you want to know which services an external IP is exposing right now, for example whether port 50050, Cobalt Strike's default team-server port, is open. Which tool answers that most directly?",
+      options: [
+        "AbuseIPDB: its report categories show the services an IP runs",
+        "Shodan: it indexes each IP's open ports and service banners",
+        "MXToolbox: its blacklist check lists the ports a server opens",
+        "AlienVault OTX: its pulses record every port an IP exposes",
+      ],
+      answer: 1,
+      explanation:
+        "Shodan continuously scans the internet and indexes what each IP exposes (open ports, service banners, software versions) so looking up the IP shows directly whether a C2-style service is listening. AbuseIPDB records what an IP has done to other people (brute force, scanning), not what it is running. MXToolbox's blacklist check tells you whether a mail server IP is on spam lists. OTX pulses are curated IOC collections from researchers; an IP may appear in one, but a pulse is not a scan of its current services.",
+      xp: 35,
+    },
+
     // ── Reading 3: IOC Pivoting & MISP ────────────────────────────────────────
     {
       type: "reading",
@@ -1577,24 +1630,6 @@ Before adding an IOC to your blocklist, ask:
 4. **Is there context?** A hash without knowing *what* malware family it belongs to is less actionable than a hash with full campaign context.`,
     },
 
-    // ── Question 1 ────────────────────────────────────────────────────────────
-    {
-      type: "question",
-      id: "ioc-q1",
-      question:
-        "After an intrusion, the SOC can deploy only one of these detections. Which would be hardest for the same attacker to evade next time?",
-      options: [
-        "Alert on the SHA-256 of the loader found on the first infected host",
-        "Block the three C2 IP addresses named in last week's threat report",
-        "Alert when an Office app spawns PowerShell that then reads LSASS memory",
-        "Block the phishing domains that delivered the first-stage document",
-      ],
-      answer: 2,
-      explanation:
-        "Detecting the behaviour (Office spawning PowerShell that goes on to read LSASS memory) targets the attacker's TTPs, the top of the Pyramid of Pain; to evade it they must change how they operate, not just swap a component. The loader's hash is the bottom level: one recompile produces a new hash. C2 IP addresses are easy to replace with a new server or proxy. Phishing domains are cheap to re-register. All three are still worth blocking, but they cost the attacker little.",
-      xp: 35,
-    },
-
     // ── Question 2 ────────────────────────────────────────────────────────────
     {
       type: "question",
@@ -1613,21 +1648,21 @@ Before adding an IOC to your blocklist, ask:
       xp: 35,
     },
 
-    // ── Question 3 ────────────────────────────────────────────────────────────
+    // ── Question 4 ────────────────────────────────────────────────────────────
     {
       type: "question",
-      id: "ioc-q3",
+      id: "ioc-q4",
       question:
-        "During triage you want to know which services an external IP is exposing right now, for example whether port 50050, Cobalt Strike's default team-server port, is open. Which tool answers that most directly?",
+        "A security analyst receives an IOC list from a threat intelligence feed containing 500 IP addresses associated with a recent attack campaign. What is the MOST effective way to operationalise these IOCs in the SOC?",
       options: [
-        "AbuseIPDB: its report categories show the services an IP runs",
-        "Shodan: it indexes each IP's open ports and service banners",
-        "MXToolbox: its blacklist check lists the ports a server opens",
-        "AlienVault OTX: its pulses record every port an IP exposes",
+        "Load the IPs into the SIEM as a quarterly report and review matches at the next audit",
+        "Import them into the SIEM and firewall as a watchlist that alerts on any match in real time",
+        "Block the IPs at the perimeter with no alerting, since blocked traffic needs no triage",
+        "Keep the list in a shared spreadsheet and check IPs by hand once an incident is reported",
       ],
       answer: 1,
       explanation:
-        "Shodan continuously scans the internet and indexes what each IP exposes (open ports, service banners, software versions) so looking up the IP shows directly whether a C2-style service is listening. AbuseIPDB records what an IP has done to other people (brute force, scanning), not what it is running. MXToolbox's blacklist check tells you whether a mail server IP is on spam lists. OTX pulses are curated IOC collections from researchers; an IP may appear in one, but a pulse is not a scan of its current services.",
+        "IOCs only help when they are operationalised in automated systems: a SIEM watchlist matches every log event against the list as it arrives, and a firewall feed blocks connections, so any internal host touching one of the 500 IPs raises an alert at once (after the usual quality checks on age and confidence). A quarterly report finds a compromise months late. Blocking with no alerting stops the connection but hides the fact that a host tried to reach attacker infrastructure. That host may already be infected and needs triage. A spreadsheet checked by hand only helps after someone already suspects an incident.",
       xp: 35,
     },
 
@@ -1727,41 +1762,6 @@ Before adding an IOC to your blocklist, ask:
       xp: 40,
     },
 
-    // ── Question 4 ────────────────────────────────────────────────────────────
-    {
-      type: "question",
-      id: "ioc-q4",
-      question:
-        "A security analyst receives an IOC list from a threat intelligence feed containing 500 IP addresses associated with a recent attack campaign. What is the MOST effective way to operationalise these IOCs in the SOC?",
-      options: [
-        "Load the IPs into the SIEM as a quarterly report and review matches at the next audit",
-        "Import them into the SIEM and firewall as a watchlist that alerts on any match in real time",
-        "Block the IPs at the perimeter with no alerting, since blocked traffic needs no triage",
-        "Keep the list in a shared spreadsheet and check IPs by hand once an incident is reported",
-      ],
-      answer: 1,
-      explanation:
-        "IOCs only help when they are operationalised in automated systems: a SIEM watchlist matches every log event against the list as it arrives, and a firewall feed blocks connections, so any internal host touching one of the 500 IPs raises an alert at once (after the usual quality checks on age and confidence). A quarterly report finds a compromise months late. Blocking with no alerting stops the connection but hides the fact that a host tried to reach attacker infrastructure. That host may already be infected and needs triage. A spreadsheet checked by hand only helps after someone already suspects an incident.",
-      xp: 35,
-    },
-
-    // ── Question 5 ────────────────────────────────────────────────────────────
-    {
-      type: "question",
-      id: "ioc-q5",
-      question:
-        "An analyst finds an IP address in a threat intelligence report published 14 months ago. Should they immediately add it to their firewall blocklist? Why or why not?",
-      options: [
-        "Yes: an IP tied to an attack should stay blocked in case the same actor returns to it",
-        "Not blindly: it may now belong to someone else; check for recent reports before blocking",
-        "Yes: a hosting provider keeps an IP with the same customer for as long as it exists",
-        "No: intelligence older than a few weeks has no value and should simply be discarded",
-      ],
-      answer: 1,
-      explanation:
-        "IPs are leased from hosting and cloud providers, so a C2 address from 14 months ago may have been released and reassigned to a legitimate customer; blocking it blindly risks breaking normal traffic for no gain. Check the last-seen date and look for recent corroboration first. 'Keep it blocked in case the actor returns' ignores reassignment and the false positives it causes. 'The same customer keeps the IP' is not how leasing works. Addresses are returned and reissued. 'Older than a few weeks has no value' throws away useful context: old IOCs still help with retro-hunting and attribution, they just need validation before blocking.",
-      xp: 35,
-    },
   ],
 };
 

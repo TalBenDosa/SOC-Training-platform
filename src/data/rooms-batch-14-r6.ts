@@ -167,6 +167,24 @@ const soarRoom = {
       },
     },
 
+    // ── Question 1 ──────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "soar-q1",
+      question:
+        "Using the smoke detector / sprinkler analogy from this room, which statement correctly describes the relationship between a SIEM and a SOAR platform?",
+      options: [
+        "SOAR supersedes the SIEM: once playbooks run, log correlation and alerting are redundant because the playbook logic performs the detection itself",
+        "The SIEM detects and raises the alert (the smoke detector); SOAR coordinates the workflow and response actions (the sprinkler and the fire-department call): complementary tools",
+        "SOAR is a dashboard layer over the SIEM's alerts that adds case views and reporting, but has no orchestration or response capability of its own",
+        "The SIEM mainly serves compliance reporting and audit retention, while SOAR performs the live correlation that decides which events become alerts"
+      ],
+      answer: 1,
+      explanation:
+        "SIEM and SOAR play complementary, not competing, roles. The SIEM ingests and correlates logs to decide something is worth looking at (detection). SOAR takes what the SIEM found and automatically enriches it, coordinates a workflow across multiple tools, and can take response actions, with approval gates for anything high-risk. Neither tool replaces the other.",
+      xp: 30,
+    },
+
     // ── Reading 2: Playbooks, workflows, and enrichment automation ─────────
     {
       type: "reading" as const,
@@ -197,6 +215,59 @@ const soarRoom = {
         "  Result: an alert that arrived with 2 bare fields now arrives with\n" +
         "  a full context package attached, in seconds, not minutes of\n" +
         "  manual clicking across five different consoles.",
+    },
+
+    // ── Question 2 ──────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "soar-q2",
+      question:
+        "A SOAR playbook automatically looks up an IP address's reputation, resolves its geo-location, and identifies which team owns the affected server, all within seconds of an alert arriving. What is this category of automation called?",
+      options: [
+        "Automated containment",
+        "Case management",
+        "Enrichment",
+        "Auto-triage"
+      ],
+      answer: 2,
+      explanation:
+        "This is enrichment: automatically gathering additional context (IP reputation, geo-IP, asset ownership, user role, etc.) about an alert so a human analyst does not have to manually look each piece up across separate tools. Enrichment is low-risk because it only gathers information. It does not change anything in the environment, which is why it is safe to fully automate without an approval gate.",
+      xp: 30,
+    },
+
+    // ── Ordering: phishing-report playbook ────────────────────────────────
+    {
+      type: "ordering" as const,
+      id: "soar-o1",
+      heading: "Order the Steps of a Phishing-Report Playbook",
+      instructions:
+        "An employee clicks the 'Report Phishing' button in their email client, which triggers a SOAR playbook. Arrange the playbook's steps in the order they actually execute, from the trigger to the final human decision point.",
+      items: [
+        {
+          id: "trigger",
+          text: "Employee clicks 'Report Phishing' in their email client, which sends the reported email to the SOAR platform as a new case",
+        },
+        {
+          id: "extract",
+          text: "The playbook automatically extracts the sender address, embedded URLs, and any attachment file hashes from the reported email",
+        },
+        {
+          id: "enrich",
+          text: "Using the extracted indicators, the playbook runs its lookups in parallel: sender-domain reputation and age, sandbox detonation of any attachment, and a search for the same email in other mailboxes",
+        },
+        {
+          id: "ticket",
+          text: "The playbook opens a ticket summarizing all findings, with a recommended action (quarantine sender-wide, notify affected users) awaiting human review",
+        },
+        {
+          id: "human_decision",
+          text: "A human analyst reviews the assembled case and approves or adjusts the final response action",
+        },
+      ],
+      correct_order: ["trigger", "extract", "enrich", "ticket", "human_decision"],
+      explanation:
+        "The playbook starts from the employee's report and mechanically extracts the raw indicators (sender, URLs, hashes). Every later lookup needs them. It then runs its enrichment lookups in parallel, as the reading describes: reputation and domain age, sandbox detonation, and the search for the same email elsewhere to find the true blast radius. Only THEN does it assemble everything into a ticket for a human to make the final, judgment-requiring call on quarantine and notification. This mirrors the general SOAR principle: automate the mechanical gathering, gate the disruptive decision behind a human.",
+      xp: 40,
     },
 
     // ── Reading 3: Automated containment + the human approval gate ─────────
@@ -245,76 +316,6 @@ const soarRoom = {
       },
     },
 
-    // ── Reading 4: Case management, tier-1 auto-triage, measuring value, over-automation risk ──
-    {
-      type: "reading" as const,
-      id: "soar-r4",
-      heading: "Case Management, Auto-Triage, Measuring Value, and the Danger of Over-Automation",
-      content:
-        "**Case Management and Ticketing Integration**\n\n" +
-        "A SOAR platform is also, functionally, a case management system. Every playbook run typically creates or updates a **case** (sometimes called an incident record) inside the SOAR platform itself, and, through an integration, a matching ticket in whatever ticketing tool the organization already uses (ServiceNow, Jira, PagerDuty, etc.). This matters because it gives every alert a single, auditable timeline: what fired, what the enrichment found, what action was recommended, who approved or rejected it, and when it was closed. Without this, investigation notes live scattered across analysts' heads, email threads, and sticky notes, which becomes a real liability during an audit or a post-incident review.\n\n" +
-        "**Auto-Triage of Tier-1 Alerts**\n\n" +
-        "One of the highest-value uses of SOAR is auto-triage: automatically sorting the flood of incoming Tier-1 alerts into buckets BEFORE a human ever looks at them, based on enrichment results. A playbook might automatically close an alert as a confirmed benign true positive if the enrichment finds strong, well-documented benign indicators (e.g., the source IP is a known, allow-listed vulnerability scanner that runs on this exact schedule every week: the rule correctly saw a real scan, and the approved schedule is what makes it authorized, so it is not a false positive), while still logging that closure, with the justification it relied on, for later audit. It might automatically escalate straight to Tier 2 if enrichment finds strong malicious indicators on a high-criticality asset. And for everything in between, the genuinely ambiguous cases, it routes to a human Tier-1 queue with the enrichment already attached. The goal is not to remove humans from triage; it is to make sure human attention is spent on the alerts that actually need human judgment, instead of being spread evenly across alerts that mostly don't.\n\n" +
-        "**Measuring SOAR Value**\n\n" +
-        "A SOC that adopts SOAR should be able to point to concrete numbers, not just a vague sense that things feel faster. The two most common and meaningful metrics are:\n\n" +
-        "**MTTR (Mean Time To Respond/Resolve)**: the average time from when an alert fires to when the appropriate response action is complete. If enrichment and initial containment that used to take an analyst fifteen minutes of manual work now happens in under sixty seconds automatically, MTTR for that alert category drops dramatically, often the single most visible, most reportable SOAR win.\n\n" +
-        "**Analyst time saved / alerts auto-handled**: how many alerts per week are now closed, escalated, or enriched without requiring a human to manually perform each lookup step? This is usually expressed as hours of analyst time reclaimed per week, and it is the number that justifies the tool's cost to leadership, freeing analysts to spend that reclaimed time on genuine investigation, threat hunting, and the ambiguous cases that actually need a human brain.\n\n" +
-        "**The Real Risk: Over-Automation**\n\n" +
-        "Every one of these benefits comes with a matching risk, and it is the single most important caution in this entire room: **a playbook is only as good as the confidence of the enrichment feeding it, and confidence is never 100%.** A playbook that auto-blocks any IP with more than 20 failed logins in ten minutes sounds reasonable, until that exact pattern shows up from a legitimate SaaS integration partner whose credentials just got rotated and whose connector hasn't been updated yet. If that IP gets auto-blocked with no human approval gate, you have just broken a real business integration, potentially causing an outage, based entirely on a rule that could not tell the difference between an attacker guessing passwords and a broken but legitimate service losing its credential. This is exactly why the approval-gate design from the previous reading is not optional caution. It is the difference between a SOAR platform that makes your SOC faster and one that occasionally becomes its own incident.",
-      codeExample:
-        "SOAR VALUE METRICS: WHAT LEADERSHIP ACTUALLY WANTS TO SEE\n" +
-        "==============================================================\n" +
-        "  MTTR (Mean Time To Respond)\n" +
-        "    BEFORE SOAR:  ~15 min/alert (manual lookups + manual action)\n" +
-        "    AFTER SOAR:   <60 sec for enrichment; approval-gated action\n" +
-        "                   typically resolved within minutes of analyst review\n\n" +
-        "  Analyst time saved\n" +
-        "    e.g. \"420 alerts/week auto-enriched, 180 auto-closed as\n" +
-        "         confirmed benign, ~35 analyst-hours/week reclaimed\n" +
-        "         for actual investigation and threat hunting\"\n\n" +
-        "  OVER-AUTOMATION RISK -- the other side of the coin\n" +
-        "    A rule that is 95% accurate still auto-fires on the 5% wrong\n" +
-        "    case if there is no approval gate. When that 5% is a real\n" +
-        "    business partner's IP, YOUR automation just caused an outage.\n" +
-        "    Fast + wrong, at scale, is worse than slow + right.",
-    },
-
-    // ── Question 1 ──────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "soar-q1",
-      question:
-        "Using the smoke detector / sprinkler analogy from this room, which statement correctly describes the relationship between a SIEM and a SOAR platform?",
-      options: [
-        "SOAR supersedes the SIEM: once playbooks run, log correlation and alerting are redundant because the playbook logic performs the detection itself",
-        "The SIEM detects and raises the alert (the smoke detector); SOAR coordinates the workflow and response actions (the sprinkler and the fire-department call): complementary tools",
-        "SOAR is a dashboard layer over the SIEM's alerts that adds case views and reporting, but has no orchestration or response capability of its own",
-        "The SIEM mainly serves compliance reporting and audit retention, while SOAR performs the live correlation that decides which events become alerts"
-      ],
-      answer: 1,
-      explanation:
-        "SIEM and SOAR play complementary, not competing, roles. The SIEM ingests and correlates logs to decide something is worth looking at (detection). SOAR takes what the SIEM found and automatically enriches it, coordinates a workflow across multiple tools, and can take response actions, with approval gates for anything high-risk. Neither tool replaces the other.",
-      xp: 30,
-    },
-
-    // ── Question 2 ──────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "soar-q2",
-      question:
-        "A SOAR playbook automatically looks up an IP address's reputation, resolves its geo-location, and identifies which team owns the affected server, all within seconds of an alert arriving. What is this category of automation called?",
-      options: [
-        "Automated containment",
-        "Case management",
-        "Enrichment",
-        "Auto-triage"
-      ],
-      answer: 2,
-      explanation:
-        "This is enrichment: automatically gathering additional context (IP reputation, geo-IP, asset ownership, user role, etc.) about an alert so a human analyst does not have to manually look each piece up across separate tools. Enrichment is low-risk because it only gathers information. It does not change anything in the environment, which is why it is safe to fully automate without an approval gate.",
-      xp: 30,
-    },
-
     // ── Question 3 ──────────────────────────────────────────────────────
     {
       type: "question" as const,
@@ -331,6 +332,50 @@ const soarRoom = {
       explanation:
         "The approval gate exists because containment actions are not reversible-and-harmless the way enrichment lookups are: they actively change something (blocking traffic, disabling a login). No detection or reputation signal is ever 100% certain, so a playbook that fires disruptive actions with no human check will eventually act on a false positive, and at that point the automation itself becomes an incident (e.g., blocking a legitimate business partner's IP). The gate keeps the speed of automation while bounding the cost of being wrong.",
       xp: 30,
+    },
+
+    // ── Matching: SOAR action ↔ what it does ─────────────────────────────
+    {
+      type: "matching" as const,
+      id: "soar-m1",
+      heading: "Match Each SOAR Action to What It Actually Does",
+      instructions:
+        "SOAR playbooks combine many different kinds of actions. Match each action on the left to the correct description of what it does on the right.",
+      pairs: [
+        {
+          id: "enrich",
+          left: "IP/hash/user reputation enrichment",
+          right: "Automatically queries threat intel feeds, AD, and asset inventories to attach context to a bare alert: a read-only lookup with no risk of changing anything",
+        },
+        {
+          id: "isolate",
+          left: "Host isolation",
+          right: "The EDR agent cuts the endpoint off from the network (except a channel back to security tooling) while leaving it running for forensic collection",
+        },
+        {
+          id: "disable",
+          left: "Disable user account",
+          right: "The identity provider flips the account to disabled, blocking new sign-ins. Sessions already issued need a separate revoke",
+        },
+        {
+          id: "block",
+          left: "Block IP address",
+          right: "The firewall or WAF adds a deny rule for a specific source IP, stopping further traffic from that address",
+        },
+        {
+          id: "approval_gate",
+          left: "Human approval gate",
+          right: "The playbook drafts a recommended high-impact action and pauses, waiting for a human analyst to click approve before the action actually executes",
+        },
+        {
+          id: "case_mgmt",
+          left: "Case management / ticketing integration",
+          right: "Every playbook run creates or updates an auditable case record and a matching ticket, capturing what fired, what was found, and who approved what",
+        },
+      ],
+      explanation:
+        "SOAR combines information-gathering actions (enrichment, which is safe to fully automate) with state-changing actions (isolate, disable, block, which carry real operational risk if wrong), and ties an approval gate to the risky ones. Case management ensures every one of these actions leaves an auditable trail, which matters both for post-incident review and for compliance.",
+      xp: 40,
     },
 
     // ── Log analysis 1: raw vs enriched brute-force ─────────────────────
@@ -413,6 +458,40 @@ const soarRoom = {
       ],
     },
 
+    // ── Reading 4: Case management, tier-1 auto-triage, measuring value, over-automation risk ──
+    {
+      type: "reading" as const,
+      id: "soar-r4",
+      heading: "Case Management, Auto-Triage, Measuring Value, and the Danger of Over-Automation",
+      content:
+        "**Case Management and Ticketing Integration**\n\n" +
+        "A SOAR platform is also, functionally, a case management system. Every playbook run typically creates or updates a **case** (sometimes called an incident record) inside the SOAR platform itself, and, through an integration, a matching ticket in whatever ticketing tool the organization already uses (ServiceNow, Jira, PagerDuty, etc.). This matters because it gives every alert a single, auditable timeline: what fired, what the enrichment found, what action was recommended, who approved or rejected it, and when it was closed. Without this, investigation notes live scattered across analysts' heads, email threads, and sticky notes, which becomes a real liability during an audit or a post-incident review.\n\n" +
+        "**Auto-Triage of Tier-1 Alerts**\n\n" +
+        "One of the highest-value uses of SOAR is auto-triage: automatically sorting the flood of incoming Tier-1 alerts into buckets BEFORE a human ever looks at them, based on enrichment results. A playbook might automatically close an alert as a confirmed benign true positive if the enrichment finds strong, well-documented benign indicators (e.g., the source IP is a known, allow-listed vulnerability scanner that runs on this exact schedule every week: the rule correctly saw a real scan, and the approved schedule is what makes it authorized, so it is not a false positive), while still logging that closure, with the justification it relied on, for later audit. It might automatically escalate straight to Tier 2 if enrichment finds strong malicious indicators on a high-criticality asset. And for everything in between, the genuinely ambiguous cases, it routes to a human Tier-1 queue with the enrichment already attached. The goal is not to remove humans from triage; it is to make sure human attention is spent on the alerts that actually need human judgment, instead of being spread evenly across alerts that mostly don't.\n\n" +
+        "**Measuring SOAR Value**\n\n" +
+        "A SOC that adopts SOAR should be able to point to concrete numbers, not just a vague sense that things feel faster. The two most common and meaningful metrics are:\n\n" +
+        "**MTTR (Mean Time To Respond/Resolve)**: the average time from when an alert fires to when the appropriate response action is complete. If enrichment and initial containment that used to take an analyst fifteen minutes of manual work now happens in under sixty seconds automatically, MTTR for that alert category drops dramatically, often the single most visible, most reportable SOAR win.\n\n" +
+        "**Analyst time saved / alerts auto-handled**: how many alerts per week are now closed, escalated, or enriched without requiring a human to manually perform each lookup step? This is usually expressed as hours of analyst time reclaimed per week, and it is the number that justifies the tool's cost to leadership, freeing analysts to spend that reclaimed time on genuine investigation, threat hunting, and the ambiguous cases that actually need a human brain.\n\n" +
+        "**The Real Risk: Over-Automation**\n\n" +
+        "Every one of these benefits comes with a matching risk, and it is the single most important caution in this entire room: **a playbook is only as good as the confidence of the enrichment feeding it, and confidence is never 100%.** A playbook that auto-blocks any IP with more than 20 failed logins in ten minutes sounds reasonable, until that exact pattern shows up from a legitimate SaaS integration partner whose credentials just got rotated and whose connector hasn't been updated yet. If that IP gets auto-blocked with no human approval gate, you have just broken a real business integration, potentially causing an outage, based entirely on a rule that could not tell the difference between an attacker guessing passwords and a broken but legitimate service losing its credential. This is exactly why the approval-gate design from the previous reading is not optional caution. It is the difference between a SOAR platform that makes your SOC faster and one that occasionally becomes its own incident.",
+      codeExample:
+        "SOAR VALUE METRICS: WHAT LEADERSHIP ACTUALLY WANTS TO SEE\n" +
+        "==============================================================\n" +
+        "  MTTR (Mean Time To Respond)\n" +
+        "    BEFORE SOAR:  ~15 min/alert (manual lookups + manual action)\n" +
+        "    AFTER SOAR:   <60 sec for enrichment; approval-gated action\n" +
+        "                   typically resolved within minutes of analyst review\n\n" +
+        "  Analyst time saved\n" +
+        "    e.g. \"420 alerts/week auto-enriched, 180 auto-closed as\n" +
+        "         confirmed benign, ~35 analyst-hours/week reclaimed\n" +
+        "         for actual investigation and threat hunting\"\n\n" +
+        "  OVER-AUTOMATION RISK -- the other side of the coin\n" +
+        "    A rule that is 95% accurate still auto-fires on the 5% wrong\n" +
+        "    case if there is no approval gate. When that 5% is a real\n" +
+        "    business partner's IP, YOUR automation just caused an outage.\n" +
+        "    Fast + wrong, at scale, is worse than slow + right.",
+    },
+
     // ── Analyst choice: the over-automation trap ─────────────────────────
     {
       type: "analyst_choice" as const,
@@ -426,85 +505,6 @@ const soarRoom = {
         "This is a benign true positive, and it is the exact over-automation trap this room warns about: the brute-force detection fired correctly on 23 real failed logons, but their cause is legitimate, a documented integration still holding its old password after a ticketed rotation. The enrichment itself, if actually read rather than rubber-stamped, tells the real story: the IP reputation score is 0/89 malicious with no threat tags at all, nothing here looks like attacker infrastructure. The asset inventory places 52.14.88.201 as a documented AWS Elastic IP belonging to Zendesk's outbound integration (vendor ticket VEND-2291), and the account is used only by that connector. The change calendar supplies the cause: IT rotated the helpdesk-integration password yesterday, and a connector still holding the old password fails on every scheduled attempt, which matches the raw event's SubStatus 0xC000006A (wrong password) and the steady ~100-second rhythm from one stable IP, a machine retry loop rather than the bursty pattern of someone guessing. Auto-blocking this IP would sever a legitimate, documented business integration and likely trigger a helpdesk outage: a self-inflicted incident caused by trusting the playbook's raw pattern match instead of reading the enrichment it already provided. Close it citing VEND-2291 and CHG-30117 and have the connector's credential updated; it is not a false positive, because the rule saw exactly the failure pattern it targets, and calling it a misfire would invite loosening a brute-force rule that is working.",
       fp_trap:
         "The scary-looking surface pattern ('23 failed logins, playbook recommends auto-block') is designed to tempt you into rubber-stamping the recommended containment action without reading the enrichment fields the playbook already gathered. This is precisely the over-automation risk from the reading: a detection rule that is accurate most of the time will still occasionally flag a legitimate, documented, business-critical source, and if a human (or a fully automated rule with no approval gate) approves the block reflexively instead of checking the IP reputation score (0/89, no tags), the asset inventory (a known Zendesk integration IP) and the change calendar (a password rotation the day before), you cause exactly the kind of self-inflicted outage this room warns about.",
-      xp: 40,
-    },
-
-    // ── Matching: SOAR action ↔ what it does ─────────────────────────────
-    {
-      type: "matching" as const,
-      id: "soar-m1",
-      heading: "Match Each SOAR Action to What It Actually Does",
-      instructions:
-        "SOAR playbooks combine many different kinds of actions. Match each action on the left to the correct description of what it does on the right.",
-      pairs: [
-        {
-          id: "enrich",
-          left: "IP/hash/user reputation enrichment",
-          right: "Automatically queries threat intel feeds, AD, and asset inventories to attach context to a bare alert: a read-only lookup with no risk of changing anything",
-        },
-        {
-          id: "isolate",
-          left: "Host isolation",
-          right: "The EDR agent cuts the endpoint off from the network (except a channel back to security tooling) while leaving it running for forensic collection",
-        },
-        {
-          id: "disable",
-          left: "Disable user account",
-          right: "The identity provider flips the account to disabled, blocking new sign-ins. Sessions already issued need a separate revoke",
-        },
-        {
-          id: "block",
-          left: "Block IP address",
-          right: "The firewall or WAF adds a deny rule for a specific source IP, stopping further traffic from that address",
-        },
-        {
-          id: "approval_gate",
-          left: "Human approval gate",
-          right: "The playbook drafts a recommended high-impact action and pauses, waiting for a human analyst to click approve before the action actually executes",
-        },
-        {
-          id: "case_mgmt",
-          left: "Case management / ticketing integration",
-          right: "Every playbook run creates or updates an auditable case record and a matching ticket, capturing what fired, what was found, and who approved what",
-        },
-      ],
-      explanation:
-        "SOAR combines information-gathering actions (enrichment, which is safe to fully automate) with state-changing actions (isolate, disable, block, which carry real operational risk if wrong), and ties an approval gate to the risky ones. Case management ensures every one of these actions leaves an auditable trail, which matters both for post-incident review and for compliance.",
-      xp: 40,
-    },
-
-    // ── Ordering: phishing-report playbook ────────────────────────────────
-    {
-      type: "ordering" as const,
-      id: "soar-o1",
-      heading: "Order the Steps of a Phishing-Report Playbook",
-      instructions:
-        "An employee clicks the 'Report Phishing' button in their email client, which triggers a SOAR playbook. Arrange the playbook's steps in the order they actually execute, from the trigger to the final human decision point.",
-      items: [
-        {
-          id: "trigger",
-          text: "Employee clicks 'Report Phishing' in their email client, which sends the reported email to the SOAR platform as a new case",
-        },
-        {
-          id: "extract",
-          text: "The playbook automatically extracts the sender address, embedded URLs, and any attachment file hashes from the reported email",
-        },
-        {
-          id: "enrich",
-          text: "Using the extracted indicators, the playbook runs its lookups in parallel: sender-domain reputation and age, sandbox detonation of any attachment, and a search for the same email in other mailboxes",
-        },
-        {
-          id: "ticket",
-          text: "The playbook opens a ticket summarizing all findings, with a recommended action (quarantine sender-wide, notify affected users) awaiting human review",
-        },
-        {
-          id: "human_decision",
-          text: "A human analyst reviews the assembled case and approves or adjusts the final response action",
-        },
-      ],
-      correct_order: ["trigger", "extract", "enrich", "ticket", "human_decision"],
-      explanation:
-        "The playbook starts from the employee's report and mechanically extracts the raw indicators (sender, URLs, hashes). Every later lookup needs them. It then runs its enrichment lookups in parallel, as the reading describes: reputation and domain age, sandbox detonation, and the search for the same email elsewhere to find the true blast radius. Only THEN does it assemble everything into a ticket for a human to make the final, judgment-requiring call on quarantine and notification. This mirrors the general SOAR principle: automate the mechanical gathering, gate the disruptive decision behind a human.",
       xp: 40,
     },
 

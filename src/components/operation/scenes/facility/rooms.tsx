@@ -114,6 +114,116 @@ const CAMPUS: CampusConfig = {
   ],
 };
 
+const LASTWORD: CampusConfig = {
+  seed: 7351,
+  hub: { title: "Fenwick & Ash Publishers", sub: "XDR HUB" },
+  buildings: [
+    { icon: "siren", sign: ["The", "Incident"], color: "#fbbf24", x: -17.5, z: -8.5, rot: 0.34 },
+    { icon: "monitor", sign: ["The", "Timeline"], color: "#2dd4bf", x: -10.5, z: 7.5, rot: 0.2 },
+    { icon: "target", sign: ["The", "Hunt"], color: "#a78bfa", x: 8.5, z: 8.5, rot: -0.14 },
+    { icon: "shield", sign: ["Last", "Word"], color: "#fb7185", x: 18, z: -5.5, rot: -0.38 },
+  ],
+};
+
+const BREADCRUMB: HallConfig = {
+  title: "Pivot Hall",
+  sub: "Kestrel Vale Insurance threat intel",
+  core: "globe",
+  books: ["Threat Intel", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "target", name: ["The", "Hash"], color: "#fdba74", art: "axes" },
+    { icon: "eye", name: ["The", "Sources"], color: "#67e8f9", art: "ghost" },
+    { icon: "compass", name: ["The Pivot", "Board"], color: "#a3e635", art: "tree" },
+    { icon: "siren", name: ["The Last", "Crumb"], color: "#f43f5e", art: "pulse" },
+  ],
+};
+
+const TABLETOP: CampusConfig = {
+  seed: 5183,
+  hub: { title: "Oakhollow Water Trust", sub: "INCIDENT RESPONSE HUB" },
+  buildings: [
+    { icon: "siren", sign: ["The First", "Call"], color: "#22b8cf", x: -18.5, z: -7, rot: 0.36 },
+    { icon: "wire", sign: ["Stop the", "Spread"], color: "#facc15", x: -12, z: 7.5, rot: 0.24 },
+    { icon: "filter", sign: ["Clear Them", "Out"], color: "#f97316", x: -1.5, z: 9.5, rot: 0.02 },
+    { icon: "monitor", sign: ["Restart,", "Review"], color: "#60a5fa", x: 10.5, z: 8, rot: -0.18 },
+    { icon: "shield", sign: ["Not a", "Drill"], color: "#f43f5e", x: 18.5, z: -6.5, rot: -0.36 },
+  ],
+};
+
+const LOOSETHREAD: HallConfig = {
+  title: "Thread Hall",
+  sub: "St Aldric's Hospice Group investigation",
+  core: "chain",
+  books: ["Investigation", "Incident Response", "SOC"],
+  cards: [
+    { icon: "compass", name: ["The First", "Question"], color: "#fb7185", art: "axes" },
+    { icon: "wire", name: ["Pivot and", "Timeline"], color: "#7dd3fc", art: "tree" },
+    { icon: "filter", name: ["SIEM and", "Case File"], color: "#fde047", art: "loot" },
+    { icon: "target", name: ["Read the", "Logon"], color: "#f472b6", art: "pulse" },
+  ],
+};
+
+const WHOGOES: CampusConfig = {
+  seed: 5483,
+  hub: { title: "Silverpine Credit Union", sub: "IDENTITY WATCH HUB" },
+  buildings: [
+    { icon: "monitor", sign: ["Logon", "Book"], color: "#5eead4", x: -18.5, z: -3.5, rot: 0.4 },
+    { icon: "filter", sign: ["Read the", "Shape"], color: "#cbd5e1", x: -7, z: 8.5, rot: 0.12 },
+    { icon: "target", sign: ["Set the", "Watch"], color: "#7dd3fc", x: 9, z: 7, rot: -0.16 },
+    { icon: "siren", sign: ["Who Goes", "There?"], color: "#fb7185", x: 18, z: -9, rot: -0.36 },
+  ],
+};
+
+const PAPERTRAIL: HallConfig = {
+  title: "The Record Room",
+  sub: "Brackenridge Mutual Housing SOC",
+  core: "matrix",
+  books: ["Reporting", "Incident Response", "SOC"],
+  cards: [
+    { icon: "layers", name: ["The Case", "Notes"], color: "#e9d8a6", art: "tree" },
+    { icon: "users", name: ["The", "Handover"], color: "#7dd3fc", art: "loot" },
+    { icon: "lock", name: ["The", "Hold"], color: "#f43f5e", art: "lock" },
+    { icon: "pulse", name: ["The Three", "Clocks"], color: "#a78bfa", art: "axes" },
+    { icon: "check", name: ["The", "Sign-Off"], color: "#34d399", art: "pulse" },
+  ],
+};
+
+const BADNEWS: CampusConfig = {
+  seed: 8263,
+  hub: { title: "Lanternwatch Managed SOC", sub: "CLIENT SERVICES HUB" },
+  buildings: [
+    { icon: "mail", sign: ["The First", "Update"], color: "#e879f9", x: -19, z: -1.5, rot: 0.42 },
+    { icon: "siren", sign: ["The", "Clock"], color: "#bef264", x: -10.5, z: 8.5, rot: 0.18 },
+    { icon: "users", sign: ["The", "Apology"], color: "#67e8f9", x: 6, z: 9, rot: -0.1 },
+    { icon: "shield", sign: ["Bad", "News"], color: "#f43f5e", x: 17, z: -4, rot: -0.34 },
+  ],
+};
+
+const FRONTDOOR: HallConfig = {
+  title: "The Front Door",
+  sub: "Ravensford Academy Trust network access",
+  core: "knot",
+  books: ["NAC", "Identity", "SOC"],
+  cards: [
+    { icon: "wire", name: ["The", "Port"], color: "#bef264", art: "lock" },
+    { icon: "filter", name: ["The", "Decision"], color: "#7dd3fc", art: "tree" },
+    { icon: "pulse", name: ["The Health", "Check"], color: "#34d399", art: "pulse" },
+    { icon: "eye", name: ["The", "Bypass"], color: "#f472b6", art: "ghost" },
+    { icon: "siren", name: ["Quarantine", "Record"], color: "#f43f5e", art: "loot" },
+  ],
+};
+
+const AUTOPILOT: CampusConfig = {
+  seed: 6637,
+  hub: { title: "Cobalt Ridge Logistics", sub: "AUTOMATION CONTROL HUB" },
+  buildings: [
+    { icon: "filter", sign: ["The", "Playbook"], color: "#7aa2f7", x: -19, z: -1.5, rot: 0.4 },
+    { icon: "shield", sign: ["The", "Gate"], color: "#fde68a", x: -6, z: 9, rot: 0.1 },
+    { icon: "target", sign: ["The", "Dial"], color: "#a5f3a0", x: 7.5, z: 9.5, rot: -0.12 },
+    { icon: "siren", sign: ["Trust the", "Automation?"], color: "#fb5607", x: 17.5, z: -2.5, rot: -0.38 },
+  ],
+};
+
 const HALL: HallConfig = {
   title: "Specimen Hall",
   sub: "Vantor Logistics malware lab",
@@ -183,3 +293,12 @@ export function FacilityPacket(props: WorldProps) { return <CampusWorld cfg={PAC
 export function FacilityEntra(props: WorldProps) { return <CampusWorld cfg={ENTRA} props={props} />; }
 export function FacilityDirectory(props: WorldProps) { return <CampusWorld cfg={DIRECTORY} props={props} />; }
 export function FacilityCampus(props: WorldProps) { return <CampusWorld cfg={CAMPUS} props={props} />; }
+export function FacilityLastWord(props: WorldProps) { return <CampusWorld cfg={LASTWORD} props={props} />; }
+export function FacilityBreadcrumb(props: WorldProps) { return <HallWorld cfg={BREADCRUMB} props={props} />; }
+export function FacilityTabletop(props: WorldProps) { return <CampusWorld cfg={TABLETOP} props={props} />; }
+export function FacilityLooseThread(props: WorldProps) { return <HallWorld cfg={LOOSETHREAD} props={props} />; }
+export function FacilityWhoGoes(props: WorldProps) { return <CampusWorld cfg={WHOGOES} props={props} />; }
+export function FacilityPaperTrail(props: WorldProps) { return <HallWorld cfg={PAPERTRAIL} props={props} />; }
+export function FacilityBadNews(props: WorldProps) { return <CampusWorld cfg={BADNEWS} props={props} />; }
+export function FacilityFrontDoor(props: WorldProps) { return <HallWorld cfg={FRONTDOOR} props={props} />; }
+export function FacilityAutopilot(props: WorldProps) { return <CampusWorld cfg={AUTOPILOT} props={props} />; }

@@ -11,6 +11,7 @@ import { EvidenceLab } from "./EvidenceLab";
 import { EncapLab, QueueLab, TerminalLab, TraceLab, WorksheetLab } from "./PracticeLabs";
 import { PcapLab } from "./PcapLab";
 import { PortalLab } from "./PortalLab";
+import { HuntLab } from "./HuntLab";
 import { ChatLab } from "./ChatLab";
 import { CodebreakLab, DefuseLab, DeduceLab, DuelLab, InterceptLab, OutbreakLab, PathwayLab, RushLab, SpotDiffLab, TuneLab } from "./ArcadeLabs";
 
@@ -293,6 +294,7 @@ export function Lab({ lab, onDone }: { lab: BriefingLab; onDone: () => void }) {
     case "worksheet": return <WorksheetLab lab={lab} onDone={onDone} />;
     case "pcap":     return <PcapLab lab={lab} onDone={onDone} />;
     case "portal":   return <PortalLab lab={lab} onDone={onDone} />;
+    case "hunt":     return <HuntLab lab={lab} onDone={onDone} />;
     case "intercept": return <InterceptLab lab={lab} onDone={onDone} />;
     case "duel":     return <DuelLab lab={lab} onDone={onDone} />;
     case "deduce":   return <DeduceLab lab={lab} onDone={onDone} />;
@@ -309,6 +311,7 @@ export function Lab({ lab, onDone }: { lab: BriefingLab; onDone: () => void }) {
 // Default "how to play" steps per lab kind, plus how you know you have finished;
 // a lab can override the steps with howTo.
 const HOW_TO: Record<BriefingLab["kind"], { steps: string[]; done: string }> = {
+  hunt: { steps: ["Read what the next line of the query has to do.", "Pick a line: it runs at once, and the results below are what it really returns.", "A wrong line shows its result, tells you why, and costs a life. The schema on the left lists every table and column."], done: "the query returns what you were asked for" },
   portal: { steps: ["Read the job for this step above the console.", "Work in the console as you would at your desk: menus, rows, buttons, drop-downs.", "Looking around is free. A wrong action costs a life and tells you why."], done: "the whole job is done" },
   intercept: { steps: ["An item drops toward what you guard.", "Block it or let it through before it lands: doing nothing lets it through.", "A wrong call costs a life. Lose three and the run is over."], done: "the last item has landed and you are still standing" },
   duel: { steps: ["Read the move the attacker just played.", "Play the one card from your hand that stops it.", "A wrong card costs a life, and a played card is gone."], done: "the attacker is out of moves" },

@@ -1496,22 +1496,7 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "def-xdr-r2",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "def-xdr-r3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "def-xdr-q1",
-        "type": "question",
-        "xp": 35
-      },
-      {
-        "id": "def-xdr-q2",
         "type": "question",
         "xp": 35
       },
@@ -1519,6 +1504,11 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "def-xdr-q3",
         "type": "question",
         "xp": 35
+      },
+      {
+        "id": "def-xdr-r2",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "def-xdr-la1",
@@ -1530,6 +1520,16 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "def-xdr-f1",
         "type": "flag",
         "xp": 60
+      },
+      {
+        "id": "def-xdr-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "def-xdr-q2",
+        "type": "question",
+        "xp": 35
       },
       {
         "id": "def-xdr-q4",
@@ -1776,9 +1776,24 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "ioc-q1",
+        "type": "question",
+        "xp": 35
+      },
+      {
+        "id": "ioc-q5",
+        "type": "question",
+        "xp": 35
+      },
+      {
         "id": "ioc-r2",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "ioc-q3",
+        "type": "question",
+        "xp": 35
       },
       {
         "id": "ioc-r3",
@@ -1786,17 +1801,12 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "ioc-q1",
-        "type": "question",
-        "xp": 35
-      },
-      {
         "id": "ioc-q2",
         "type": "question",
         "xp": 35
       },
       {
-        "id": "ioc-q3",
+        "id": "ioc-q4",
         "type": "question",
         "xp": 35
       },
@@ -1810,16 +1820,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "ioc-flag1",
         "type": "flag",
         "xp": 40
-      },
-      {
-        "id": "ioc-q4",
-        "type": "question",
-        "xp": 35
-      },
-      {
-        "id": "ioc-q5",
-        "type": "question",
-        "xp": 35
       }
     ]
   },
@@ -1970,9 +1970,24 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "ir-method-flag1",
+        "type": "flag",
+        "xp": 60
+      },
+      {
         "id": "ir-method-r2",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "ir-method-q3",
+        "type": "question",
+        "xp": 35
+      },
+      {
+        "id": "ir-method-q1",
+        "type": "question",
+        "xp": 35
       },
       {
         "id": "ir-method-r3",
@@ -1980,7 +1995,7 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "ir-method-q1",
+        "id": "ir-method-q4",
         "type": "question",
         "xp": 35
       },
@@ -1990,7 +2005,7 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 35
       },
       {
-        "id": "ir-method-q3",
+        "id": "ir-method-q5",
         "type": "question",
         "xp": 35
       },
@@ -1999,21 +2014,6 @@ export const ROOMS_META: RoomMeta[] = [
         "type": "log_analysis",
         "xp": 100,
         "mitreTechnique": "T1486"
-      },
-      {
-        "id": "ir-method-flag1",
-        "type": "flag",
-        "xp": 60
-      },
-      {
-        "id": "ir-method-q4",
-        "type": "question",
-        "xp": 35
-      },
-      {
-        "id": "ir-method-q5",
-        "type": "question",
-        "xp": 35
       }
     ]
   },
@@ -2103,19 +2103,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "inv-method-r2",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "inv-method-r3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "inv-method-q1",
         "type": "question",
         "xp": 30
+      },
+      {
+        "id": "inv-method-r2",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "inv-method-q2",
@@ -2124,6 +2119,16 @@ export const ROOMS_META: RoomMeta[] = [
       },
       {
         "id": "inv-method-q3",
+        "type": "question",
+        "xp": 30
+      },
+      {
+        "id": "inv-method-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "inv-method-q5",
         "type": "question",
         "xp": 30
       },
@@ -2140,11 +2145,6 @@ export const ROOMS_META: RoomMeta[] = [
       },
       {
         "id": "inv-method-q4",
-        "type": "question",
-        "xp": 30
-      },
-      {
-        "id": "inv-method-q5",
         "type": "question",
         "xp": 30
       }
@@ -2633,12 +2633,12 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "auth-r2",
-        "type": "reading",
-        "xp": 0
+        "id": "auth-q3",
+        "type": "question",
+        "xp": 15
       },
       {
-        "id": "auth-r3",
+        "id": "auth-r2",
         "type": "reading",
         "xp": 0
       },
@@ -2653,19 +2653,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
-        "id": "auth-q3",
-        "type": "question",
-        "xp": 15
-      },
-      {
-        "id": "auth-la1",
-        "type": "log_analysis",
-        "xp": 65
+        "id": "auth-r3",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "auth-o1",
         "type": "ordering",
         "xp": 30
+      },
+      {
+        "id": "auth-la1",
+        "type": "log_analysis",
+        "xp": 65
       },
       {
         "id": "auth-flag1",
@@ -2964,9 +2964,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "rep-q1",
+        "type": "question",
+        "xp": 15
+      },
+      {
         "id": "rep-read-2",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "rep-q3",
+        "type": "question",
+        "xp": 20
       },
       {
         "id": "rep-read-3",
@@ -2979,19 +2989,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "rep-q1",
-        "type": "question",
-        "xp": 15
-      },
-      {
         "id": "rep-q2",
         "type": "question",
         "xp": 15
-      },
-      {
-        "id": "rep-q3",
-        "type": "question",
-        "xp": 20
       },
       {
         "id": "rep-log-1",
@@ -3026,12 +3026,12 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "cc-read-2",
-        "type": "reading",
-        "xp": 0
+        "id": "cc-q2",
+        "type": "question",
+        "xp": 20
       },
       {
-        "id": "cc-read-3",
+        "id": "cc-read-2",
         "type": "reading",
         "xp": 0
       },
@@ -3041,14 +3041,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 15
       },
       {
-        "id": "cc-q2",
+        "id": "cc-q3",
         "type": "question",
         "xp": 20
       },
       {
-        "id": "cc-q3",
-        "type": "question",
-        "xp": 20
+        "id": "cc-read-3",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "cc-log-1",
@@ -3425,17 +3425,12 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "nac-q1",
+        "type": "question",
+        "xp": 20
+      },
+      {
         "id": "nac-r4",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "nac-r5",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "nac-r6",
         "type": "reading",
         "xp": 0
       },
@@ -3450,6 +3445,21 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "nac-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "nac-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "nac-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
         "id": "nac-r9",
         "type": "reading",
         "xp": 0
@@ -3460,17 +3470,7 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "nac-q1",
-        "type": "question",
-        "xp": 20
-      },
-      {
         "id": "nac-q2",
-        "type": "question",
-        "xp": 25
-      },
-      {
-        "id": "nac-q3",
         "type": "question",
         "xp": 25
       },
@@ -3999,24 +3999,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "soar-r2",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "soar-r3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "soar-r4",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "soar-q1",
         "type": "question",
         "xp": 30
+      },
+      {
+        "id": "soar-r2",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "soar-q2",
@@ -4024,9 +4014,24 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 30
       },
       {
+        "id": "soar-o1",
+        "type": "ordering",
+        "xp": 40
+      },
+      {
+        "id": "soar-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
         "id": "soar-q3",
         "type": "question",
         "xp": 30
+      },
+      {
+        "id": "soar-m1",
+        "type": "matching",
+        "xp": 40
       },
       {
         "id": "soar-la1",
@@ -4041,20 +4046,15 @@ export const ROOMS_META: RoomMeta[] = [
         "mitreTechnique": "T1110.001"
       },
       {
+        "id": "soar-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
         "id": "soar-ac1",
         "type": "analyst_choice",
         "xp": 40,
         "mitreTechnique": "T1110"
-      },
-      {
-        "id": "soar-m1",
-        "type": "matching",
-        "xp": 40
-      },
-      {
-        "id": "soar-o1",
-        "type": "ordering",
-        "xp": 40
       },
       {
         "id": "soar-flag1",

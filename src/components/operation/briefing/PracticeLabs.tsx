@@ -244,7 +244,7 @@ export function TraceLab({ lab, onDone }: LabProps<"trace">) {
           </div>
         </div>
         <p role="status" className={cn("min-h-[2.5rem] rounded-lg px-3 py-2 text-sm leading-relaxed", solved ? "bg-emerald-500/10 text-emerald-200" : wrong !== null ? "bg-rose-500/10 text-rose-300" : "text-slate-500")}>
-          {solved ? <><Check className="mr-1 inline h-4 w-4" />{step.why}</> : wrong !== null ? "That row does not match every clue on the case board. Check the time and the port too." : "Use the filter, then click the row that answers the step."}
+          {solved ? <><Check className="mr-1 inline h-4 w-4" />{step.why}</> : wrong !== null ? "That row does not answer this step. Read the question and the case board again." : "Use the filter, then click the row that answers the step."}
         </p>
         {solved && si < lab.steps.length - 1 && (
           <button onClick={next} className="inline-flex items-center gap-1 rounded-xl border border-sky-300/60 px-4 py-2 text-sm font-bold text-sky-100 hover:bg-sky-500/10">Next log <ChevronRight className="h-4 w-4" /></button>

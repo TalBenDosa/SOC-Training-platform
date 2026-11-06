@@ -51,7 +51,7 @@ export function ReactorLab({ lab, onDone }: LabProps<"reactor">) {
       setPaused(true);
       setTimeout(() => { setPaused(false); setIdx(i => i + 1); setRound(r => r + 1); setFlash(null); }, 1600);
     } else {
-      setNote({ ok: false, text: "Wrong reactor: it is heating up. Which pillar did this incident actually break?" });
+      setNote({ ok: false, text: "Wrong reactor: it is heating up. Read the case again: which one does it really belong to?" });
       setTimeout(() => setFlash(null), 500);
     }
   }
@@ -71,7 +71,7 @@ export function ReactorLab({ lab, onDone }: LabProps<"reactor">) {
               transition={{ duration: BELT_SECONDS, ease: "linear" }}
               className="absolute top-1/2 w-[min(28rem,70%)] -translate-y-1/2 rounded-lg border border-amber-300/50 bg-[#151f33] px-3 py-2 text-sm font-semibold text-amber-50 shadow-[0_0_22px_-6px_rgba(251,191,36,0.6)]"
             >
-              <span className="mr-2 font-mono text-[10px] uppercase tracking-widest text-amber-300">Incident {Math.min(idx + 1, queue.length)}/{queue.length}</span>
+              <span className="mr-2 font-mono text-[10px] uppercase tracking-widest text-amber-300">Case {Math.min(idx + 1, queue.length)}/{queue.length}</span>
               {item.text}
             </motion.div>
           )}
@@ -185,7 +185,7 @@ export function LineupLab({ lab, onDone }: LabProps<"lineup">) {
           <p role="status" className="mt-3 min-h-[1.25rem] text-sm leading-relaxed">
             {just ? <span className="text-emerald-300"><Check className="mr-1 inline h-4 w-4" />{round.why}</span>
               : wrong ? <span className="text-rose-300">The dossier does not fit. Compare motive and target again.</span>
-                : done ? <span className="text-emerald-300">Five rounds, five attackers. Motive tells them apart better than skill.</span>
+                : done ? <span className="text-emerald-300">Every attacker named. Motive tells them apart better than skill.</span>
                   : <span className="text-slate-400">Hover a suspect to read the dossier, click to accuse.</span>}
           </p>
           {just && ri < lab.rounds.length - 1 && (
@@ -265,7 +265,7 @@ export function HotspotLab({ lab, onDone }: LabProps<"hotspot">) {
               <p className="mt-2 text-sm leading-relaxed text-slate-200">{lastPart.note}</p>
             </>
           ) : <p className="text-sm text-slate-400">Click any part you would question.</p>}
-          {found === flags.length && <p className="mt-3 text-sm font-semibold text-emerald-300">Every flag found. This is a phishing lure: report it, never click it.</p>}
+          {found === flags.length && <p className="mt-3 text-sm font-semibold text-emerald-300">Every flag found.{lab.finish ? ` ${lab.finish}` : ""}</p>}
         </div>
       </div>
     </div>

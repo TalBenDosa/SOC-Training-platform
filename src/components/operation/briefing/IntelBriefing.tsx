@@ -13,8 +13,8 @@ import { HowToPlay, Lab } from "./Labs";
 export const LAB_ICON: Record<BriefingLab["kind"], string> = {
   inspect: "Inspect", sequence: "Sequence", simulate: "Simulate", sort: "Sort", match: "Match",
   reactor: "Route", lineup: "Line-up", hotspot: "Find the flags",
-  xray: "X-ray", locks: "Open the locks", tricks: "Trick cards", anatomy: "Decode", evidence: "Real screens", terminal: "Console", chat: "Attack the bot", trace: "Trace", encap: "Build a packet", queue: "Alert queue", worksheet: "Worksheet", pcap: "Packet capture",
-  portal: "Real console", intercept: "Intercept", duel: "Card duel", deduce: "Whodunit", tune: "Tune the rule", pathway: "Route map", defuse: "Defuse", outbreak: "Outbreak", codebreak: "Codebreaker", rush: "Blitz", spotdiff: "Spot the change",
+  xray: "X-ray", locks: "Open the locks", tricks: "Trick cards", anatomy: "Decode", evidence: "Real screens", terminal: "Console", chat: "Live chat", trace: "Trace", encap: "Build a packet", queue: "Alert queue", worksheet: "Worksheet", pcap: "Packet capture",
+  portal: "Real console", hunt: "Query ladder", intercept: "Intercept", duel: "Card duel", deduce: "Whodunit", tune: "Tune the rule", pathway: "Route map", defuse: "Defuse", outbreak: "Outbreak", codebreak: "Codebreaker", rush: "Blitz", spotdiff: "Spot the change",
 };
 
 /**

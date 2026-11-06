@@ -165,6 +165,7 @@ export const INTRO_CYBERSECURITY: RoomExperience = {
     "intro-cyber-r2": [
       {
         kind: "locks",
+        finish: "Together they are called the CIA triad.",
         title: "Three Locks",
         prompt: "Every system you scanned needs three things to stay safe. Each door below holds one of them. Open all three.",
         locks: [
@@ -434,6 +435,7 @@ export const INTRO_CYBERSECURITY: RoomExperience = {
       {
         kind: "hotspot",
         title: "Spot the Lure",
+        finish: "This is a phishing lure: report it, never click it.",
         prompt: "A classmate forwarded this email to the academy's security desk. Find every red flag in it. Clicking a normal part tells you why it is fine.",
         artifact: "Inbox · Northport Academy Mail",
         parts: [

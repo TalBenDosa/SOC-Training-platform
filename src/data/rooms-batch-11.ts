@@ -44,6 +44,23 @@ const rooms = [
             "Logon Type 5 means the Service Control Manager started a service under that account. That is expected for service accounts, but a Domain Admin appearing as Type 5 usually means a privileged credential is being reused in an unexpected way, for example a service installed to run as that admin. A network logon such as opening a share is Type 3. An unlock of an existing session is Type 7. Remote Desktop is Type 10.",
         },
       },
+      // ── Question 3 ──────────────────────────────────────────────
+      {
+        type: "question",
+        id: "auth-q3",
+        question:
+          "k.ito is logged on to her workstation. Its Security log shows Event 4648 with subject k.ito but credentials for 'svc-sql', target server SQL02. Seconds later SQL02 logs a 4624 Logon Type 3 for svc-sql from her workstation. What does this pair show?",
+        options: [
+          "svc-sql signed in interactively at k.ito's desk, so someone typed its password there",
+          "k.ito's account was locked out after failed attempts against the SQL02 server",
+          "A process in k.ito's session explicitly used svc-sql's credentials to reach SQL02",
+          "SQL02 issued a Kerberos service ticket to k.ito's own account for the SQL service",
+        ],
+        answer: 2,
+        explanation:
+          "4648 records explicit credential use: a process running as k.ito supplied different credentials (svc-sql) for an outbound connection, and SQL02's 4624 Type 3 is the network logon that resulted. That is the footprint of someone using credentials they are not logged on with: benign if it is a known admin task, a lead worth checking if svc-sql should never be used from a user workstation. 'svc-sql signed in interactively' would be a Type 2 logon on the workstation, not a 4648 plus a Type 3 on SQL02. 'Locked out' would be a 4740, and nothing here failed. 'A Kerberos service ticket for k.ito' would be a 4769 on a Domain Controller, and the credentials used were svc-sql's, not k.ito's.",
+        xp: 15,
+      },
       // ── Reading 2 ──────────────────────────────────────────────
       {
         type: "reading",
@@ -63,14 +80,6 @@ const rooms = [
           explanation:
             "Credential stuffing uses real username/password pairs leaked from another breach, so accounts whose owners reused that password log on successfully: the logs show 4624 successes mixed in with 0xC000006A failures. A spray guesses one or a few common passwords across many accounts, so it is mostly failures. Neither attack is defined by account type. The source-IP tell is reversed: the spray signature taught here is a single source IP hitting many accounts. And both attacks keep attempts per account low to stay under lockout thresholds, so counting attempts per account does not separate them.",
         },
-      },
-      // ── Reading 3 ──────────────────────────────────────────────
-      {
-        type: "reading",
-        id: "auth-r3",
-        heading: "Building an Authentication Investigation: Step by Step",
-        content:
-          "**Analogy:** When a fire alarm goes off in a building, a good fire marshal doesn't just check one room and declare 'all clear.' They check the source room, check adjacent rooms, look at the alarm panel history, and figure out *how* the fire started. An authentication alert works the same way: the first event is just the alarm; your job is to find the fire.\n\nHere is the step-by-step approach a SOC analyst uses when an authentication alert fires:\n\n**Step 1. Confirm the pattern.** Pull all 4625 events from the alerted source IP in the last 60 minutes. How many target accounts? What's the SubStatus? Is this one user mistyping their password (1 account, 5 attempts) or a spray (50 accounts, 1-2 attempts each)?\n\n**Step 2. Check for success.** Did any 4624 follow the failures from that same IP? A 4624 after a spray pattern is an 'access gained' indicator. Priority escalates immediately.\n\n**Step 3. Geolocate the source IP.** Every 4625 and 4624 event contains `IpAddress`. Plug it into your SIEM's IP enrichment or a threat intel feed. Is it from a known corporate VPN range? An employee's home ISP? A Tor exit node? A datacenter in a country you don't operate in?\n\n**Step 4. Examine the target accounts.** In a spray, the attacker usually tries all accounts alphabetically or from a harvested directory. Look at whether the targets are real accounts vs guesses. If `SubStatus = 0xC0000064` (account doesn't exist) appears alongside `0xC000006A`, the attacker is also doing user enumeration.\n\n**Step 5. Check lockout state.** Query Active Directory or SIEM for Event 4740 (lockout) on any of the targeted accounts. Multiple lockouts from a spray means the attacker got impatient and increased attempt frequency.\n\n**Step 6. Check for lateral movement after success.** If an account was successfully authenticated, did it immediately access file shares (Event 5140), log on to other hosts (4624 Type 3 from that account on a different machine), or run privileged commands?\n\n**Step 7. Document and escalate.** Write a timeline: first failure timestamp, last failure, any successes, source IP geolocation, affected accounts. If a success was recorded from a suspicious IP, escalate to Tier 2 immediately. That account should be disabled while investigation continues.\n\n**Threshold-based detection rules** in your SIEM automate Step 1. A typical rule looks like: 'Fire an alert if a single source IP generates more than 20 failed logon events (4625) targeting more than 10 distinct accounts within 5 minutes.' Tuning these thresholds is an ongoing process. Set them too low and you alert on every user who mistyped their password; set them too high and a slow spray goes undetected.\n\n**Key takeaway:** authentication logs are the most densely populated logs in any Windows environment. The skill is not reading individual events. It is recognising patterns across thousands of events and knowing which patterns indicate human error versus an active attack.",
       },
       // ── Question 1 ──────────────────────────────────────────────
       {
@@ -106,23 +115,32 @@ const rooms = [
           "Impossible travel detection identifies when the implied speed between two consecutive successful logons is physically impossible. London to Sydney (17,000 km) in 50 minutes requires ~20,000 km/h: far beyond any aircraft. The most likely conclusion is account compromise: an attacker in Sydney obtained the user's credentials, though before acting you rule out the benign explanation, a VPN or proxy that exits in another country. An atypical-location alert only flags a first-seen country and ignores the time between logons, so it does not capture the physical impossibility here. A concurrent session on a second device cannot explain two continents within 50 minutes, and two 4624 events alone do not prove Kerberos ticket theft (Pass-the-Ticket would need ticket-level evidence such as 4768/4769 anomalies).",
         xp: 20,
       },
-      // ── Question 3 ──────────────────────────────────────────────
+      // ── Reading 3 ──────────────────────────────────────────────
       {
-        type: "question",
-        id: "auth-q3",
-        question:
-          "k.ito is logged on to her workstation. Its Security log shows Event 4648 with subject k.ito but credentials for 'svc-sql', target server SQL02. Seconds later SQL02 logs a 4624 Logon Type 3 for svc-sql from her workstation. What does this pair show?",
-        options: [
-          "svc-sql signed in interactively at k.ito's desk, so someone typed its password there",
-          "k.ito's account was locked out after failed attempts against the SQL02 server",
-          "A process in k.ito's session explicitly used svc-sql's credentials to reach SQL02",
-          "SQL02 issued a Kerberos service ticket to k.ito's own account for the SQL service",
-        ],
-        answer: 2,
-        explanation:
-          "4648 records explicit credential use: a process running as k.ito supplied different credentials (svc-sql) for an outbound connection, and SQL02's 4624 Type 3 is the network logon that resulted. That is the footprint of someone using credentials they are not logged on with: benign if it is a known admin task, a lead worth checking if svc-sql should never be used from a user workstation. 'svc-sql signed in interactively' would be a Type 2 logon on the workstation, not a 4648 plus a Type 3 on SQL02. 'Locked out' would be a 4740, and nothing here failed. 'A Kerberos service ticket for k.ito' would be a 4769 on a Domain Controller, and the credentials used were svc-sql's, not k.ito's.",
-        xp: 15,
+        type: "reading",
+        id: "auth-r3",
+        heading: "Building an Authentication Investigation: Step by Step",
+        content:
+          "**Analogy:** When a fire alarm goes off in a building, a good fire marshal doesn't just check one room and declare 'all clear.' They check the source room, check adjacent rooms, look at the alarm panel history, and figure out *how* the fire started. An authentication alert works the same way: the first event is just the alarm; your job is to find the fire.\n\nHere is the step-by-step approach a SOC analyst uses when an authentication alert fires:\n\n**Step 1. Confirm the pattern.** Pull all 4625 events from the alerted source IP in the last 60 minutes. How many target accounts? What's the SubStatus? Is this one user mistyping their password (1 account, 5 attempts) or a spray (50 accounts, 1-2 attempts each)?\n\n**Step 2. Check for success.** Did any 4624 follow the failures from that same IP? A 4624 after a spray pattern is an 'access gained' indicator. Priority escalates immediately.\n\n**Step 3. Geolocate the source IP.** Every 4625 and 4624 event contains `IpAddress`. Plug it into your SIEM's IP enrichment or a threat intel feed. Is it from a known corporate VPN range? An employee's home ISP? A Tor exit node? A datacenter in a country you don't operate in?\n\n**Step 4. Examine the target accounts.** In a spray, the attacker usually tries all accounts alphabetically or from a harvested directory. Look at whether the targets are real accounts vs guesses. If `SubStatus = 0xC0000064` (account doesn't exist) appears alongside `0xC000006A`, the attacker is also doing user enumeration.\n\n**Step 5. Check lockout state.** Query Active Directory or SIEM for Event 4740 (lockout) on any of the targeted accounts. Multiple lockouts from a spray means the attacker got impatient and increased attempt frequency.\n\n**Step 6. Check for lateral movement after success.** If an account was successfully authenticated, did it immediately access file shares (Event 5140), log on to other hosts (4624 Type 3 from that account on a different machine), or run privileged commands?\n\n**Step 7. Document and escalate.** Write a timeline: first failure timestamp, last failure, any successes, source IP geolocation, affected accounts. If a success was recorded from a suspicious IP, escalate to Tier 2 immediately. That account should be disabled while investigation continues.\n\n**Threshold-based detection rules** in your SIEM automate Step 1. A typical rule looks like: 'Fire an alert if a single source IP generates more than 20 failed logon events (4625) targeting more than 10 distinct accounts within 5 minutes.' Tuning these thresholds is an ongoing process. Set them too low and you alert on every user who mistyped their password; set them too high and a slow spray goes undetected.\n\n**Key takeaway:** authentication logs are the most densely populated logs in any Windows environment. The skill is not reading individual events. It is recognising patterns across thousands of events and knowing which patterns indicate human error versus an active attack.",
       },
+      // ── Ordering Task — Password Spray Attack Sequence ──────────
+      {
+        type: "ordering" as const,
+        id: "auth-o1",
+        heading: "Order the Password Spray Attack Stages",
+        instructions: "A password spray attack follows a specific sequence. Arrange these stages from the very first attacker action to the final post-compromise activity. Select an item on the right, then click a numbered slot on the left.",
+        items: [
+          { id: "recon",    text: "Username enumeration: attacker gathers a list of valid domain usernames (LinkedIn, email format guessing, LDAP query)" },
+          { id: "single",   text: "Single-password spray: one common password tried against ALL accounts to stay below lockout threshold" },
+          { id: "success",  text: "Credential validation: one or more accounts authenticate successfully with the sprayed password" },
+          { id: "logon",    text: "Logon and reconnaissance: attacker logs in as the compromised account and maps the environment" },
+          { id: "lateral",  text: "Lateral movement: attacker uses compromised credentials to access additional systems or elevate privileges" },
+        ],
+        correct_order: ["recon", "single", "success", "logon", "lateral"],
+        explanation: "Password spray must follow this sequence because each stage depends on the previous. Reconnaissance comes first because the attacker needs valid usernames before they can spray. Single-password spray is the distinguishing feature of spray vs. brute force: one guess per account stays under lockout thresholds (if nothing matches, the attacker simply repeats this stage later with the next common password). Successful authentication is the pivot point where the attack shifts from credential theft to active intrusion. Understanding this sequence helps analysts recognize spray at earlier stages, catching it at 'single-password spray' or even 'username enumeration' prevents the lateral movement stage entirely.",
+        xp: 30,
+      },
+
       // ── Log Analysis ───────────────────────────────────────────
       {
         type: "log_analysis",
@@ -205,24 +223,6 @@ const rooms = [
           },
         ],
       },
-      // ── Ordering Task — Password Spray Attack Sequence ──────────
-      {
-        type: "ordering" as const,
-        id: "auth-o1",
-        heading: "Order the Password Spray Attack Stages",
-        instructions: "A password spray attack follows a specific sequence. Arrange these stages from the very first attacker action to the final post-compromise activity. Select an item on the right, then click a numbered slot on the left.",
-        items: [
-          { id: "recon",    text: "Username enumeration: attacker gathers a list of valid domain usernames (LinkedIn, email format guessing, LDAP query)" },
-          { id: "single",   text: "Single-password spray: one common password tried against ALL accounts to stay below lockout threshold" },
-          { id: "success",  text: "Credential validation: one or more accounts authenticate successfully with the sprayed password" },
-          { id: "logon",    text: "Logon and reconnaissance: attacker logs in as the compromised account and maps the environment" },
-          { id: "lateral",  text: "Lateral movement: attacker uses compromised credentials to access additional systems or elevate privileges" },
-        ],
-        correct_order: ["recon", "single", "success", "logon", "lateral"],
-        explanation: "Password spray must follow this sequence because each stage depends on the previous. Reconnaissance comes first because the attacker needs valid usernames before they can spray. Single-password spray is the distinguishing feature of spray vs. brute force: one guess per account stays under lockout thresholds (if nothing matches, the attacker simply repeats this stage later with the next common password). Successful authentication is the pivot point where the attack shifts from credential theft to active intrusion. Understanding this sequence helps analysts recognize spray at earlier stages, catching it at 'single-password spray' or even 'username enumeration' prevents the lateral movement stage entirely.",
-        xp: 30,
-      },
-
       // ── Flag ───────────────────────────────────────────────────
       {
         type: "flag",

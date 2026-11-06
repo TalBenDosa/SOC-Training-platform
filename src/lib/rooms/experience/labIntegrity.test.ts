@@ -4,8 +4,9 @@ import { describe, it, expect } from "vitest";
 import { ROOMS } from "@/data/rooms";
 import { buildNetwork, tuneResult } from "@/components/operation/briefing/ArcadeLabs";
 import { getRoomExperience, type BriefingLab } from "./index";
+import { runHunt, type HuntStep } from "./hunt";
 
-const ARCADE = ["intercept", "duel", "deduce", "tune", "pathway", "defuse", "outbreak", "codebreak", "rush", "spotdiff", "chat", "portal"] as const;
+const ARCADE = ["intercept", "duel", "deduce", "tune", "pathway", "defuse", "outbreak", "codebreak", "rush", "spotdiff", "chat", "portal", "hunt"] as const;
 /** Rooms where typing commands is the skill being taught: one console lab at most. */
 const CONSOLE_ROOMS = new Set(["linux-fundamentals", "linux-log-analysis", "windows-fundamentals", "powershell-for-soc-analyst"]);
 
@@ -76,6 +77,8 @@ function problems(l: BriefingLab): string[] {
         if (kind === "menu") return !!l.pages[id] && (l.menu.some(g => g.items.some(i => i.id === id)) || pages.some(p => p.tabs?.some(t => t.id === id) || p.sub?.some(t => t.id === id)));
         if (kind === "row") return rows.some(r => r.id === id);
         if (kind === "tree") return records.some(r => r.tree?.some(n => n.id === id));
+        if (kind === "node") return records.some(r => r.graph?.nodes.some(n => n.id === id));
+        if (kind === "tab") return records.some(r => !!r.graph) && ["story", "alerts", "assets", "evidence", "summary"].includes(id);
         if (kind === "set") {
           const [field, value] = [rest[0], rest.slice(1).join(":")];
           if (field === "classification") return records.some(r => r.closing?.includes(value));
@@ -83,6 +86,8 @@ function problems(l: BriefingLab): string[] {
         }
         if (kind === "action") {
           if (id === "full" || id === "logs" || id === "bookmark") return true;
+          if (id === "play") return records.some(r => !!r.graph);
+          if (id.startsWith("approve:") || id.startsWith("reject:")) return records.some(r => r.remediation?.some(x => x.id === id.split(":")[1]));
           if (id.startsWith("entity:")) return records.some(r => r.entities?.some(e => `entity:${e.id}` === id));
           if (id.startsWith("field:")) return records.some(r => [...r.facts, ...(r.tree?.flatMap(n => n.facts ?? []) ?? [])].some(([k]) => `field:${k}` === id));
           return records.some(r => r.actions?.some(a => a.id === id));
@@ -90,10 +95,29 @@ function problems(l: BriefingLab): string[] {
         return false;
       };
       for (const s of l.steps) need(ok(s.target), `${s.id}: target ${s.target} cannot be clicked`);
-      for (const t of Object.keys(l.traps)) need(ok(t) || t.startsWith("action:") || t.startsWith("row:") || t.startsWith("set:") || t.startsWith("tree:"), `trap ${t}`);
+      for (const t of Object.keys(l.traps)) need(ok(t) || t.startsWith("action:") || t.startsWith("row:") || t.startsWith("set:") || t.startsWith("tree:") || t.startsWith("node:"), `trap ${t}`);
       need(l.steps.length >= 6, "fewer than 6 steps");
       need(!!l.pages[l.home], "home page missing");
       for (const r of rows) if (r.record) need(!!l.records[r.record], `row ${r.id}: no record ${r.record}`);
+      break;
+    }
+    case "hunt": {
+      need(l.rungs.length >= 3, "fewer than 3 rungs");
+      const path: HuntStep[] = [], opts = { emptyColumns: l.language === "SPL" };
+      for (const r of l.rungs) {
+        const right = r.choices.filter(c => c.right);
+        need(right.length === 1, `${r.id}: needs exactly one right line`);
+        need(r.choices.length >= 3, `${r.id}: fewer than 3 choices`);
+        const before = runHunt(l.tables, l.start, path, opts);
+        for (const c of r.choices) {
+          const res = runHunt(l.tables, l.start, [...path, c.apply], opts);
+          if (c.right) need(!res.error && res.rows.length > 0, `${r.id}: the right line returns nothing`);
+          else need(!!res.error || JSON.stringify(res) !== JSON.stringify(runHunt(l.tables, l.start, [...path, right[0]!.apply], opts)), `${r.id}/${c.id}: a wrong line returns the same result as the right one`);
+        }
+        need(!before.error, `${r.id}: query already broken`);
+        path.push(right[0]!.apply);
+      }
+      need(runHunt(l.tables, l.start, path, opts).rows.length === l.expect, "finished query does not return the expected rows");
       break;
     }
     case "outbreak":
