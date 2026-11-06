@@ -26,6 +26,14 @@ export const WAZUH_FUNDAMENTALS: RoomExperience = {
   look: { primary: "#3b82f6", secondary: "#2dd4bf", warn: "#f97316" },
   scene: "wazuhflow",
   layout: "stage",
+  story: {
+    intro: { title: "Six Weeks to Launch", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/wazuh-fundamentals/openwatch-intro-ad6fc2a5.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/wazuh-fundamentals/openwatch-intro-8d143106.jpg" },
+    afterStation: {
+      rules: { title: "From Line to Alert", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/wazuh-fundamentals/openwatch-ch2-2f1226e5.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/wazuh-fundamentals/openwatch-ch2-2c5b7e6b.jpg" },
+      fim: { title: "PermitRootLogin yes", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/wazuh-fundamentals/openwatch-ch3-5af17208.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/wazuh-fundamentals/openwatch-ch3-13c7cbf4.jpg" },
+      pipeline: { title: "The Whole Pipe", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/wazuh-fundamentals/openwatch-finale-e6735bb0.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/wazuh-fundamentals/openwatch-finale-f8304cc5.jpg" },
+    },
+  },
   stations: [
     {
       id: "arch",
