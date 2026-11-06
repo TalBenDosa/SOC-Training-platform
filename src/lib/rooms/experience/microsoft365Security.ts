@@ -24,8 +24,8 @@ export const MICROSOFT_365_SECURITY: RoomExperience = {
   mission: "Put each signal on the Defender product that sees it, judge four inbound mails for impersonation and spoofing, search the unified audit log for forwarding, role changes and bulk downloads, then work the graded inbox-rule alert.",
   estimate: "~40 min",
   look: { primary: "#38bdf8", secondary: "#a3e635", warn: "#fb923c" },
-  scene: "tenantcloud",
-  layout: "stage",
+  scene: "facilitycampus",
+  layout: "facility",
   story: {
     intro: { title: "The Invoice From Inside", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/microsoft-365-security/inboxzero-intro-bd3c0f73.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/microsoft-365-security/inboxzero-intro-42651b6d.jpg" },
     afterStation: {

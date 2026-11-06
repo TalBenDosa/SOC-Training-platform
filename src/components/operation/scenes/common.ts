@@ -11,6 +11,13 @@ export interface WorldProps {
   warn: string;
   dimmed: boolean;
   reducedMotion: boolean;
+  /** Facility theme only: stations are clickable in the world. */
+  onPick?: (i: number) => void;
+  onEnter?: (id: string) => void;
+  /** Hall layout: the station whose card is rolling now. */
+  rolling?: number | null;
+  /** Ids of cleared stations whose roll has not played yet. */
+  unrolled?: string[];
 }
 
 export const GREEN = new THREE.Color("#34d399");
@@ -31,16 +38,19 @@ export function mountWorld(
   scene: THREE.Scene,
   frame: (t: number, dt: number) => void,
   onResize?: (w: number, h: number) => void,
+  pipeline?: (renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera) => { render?: () => void; setSize?: (w: number, h: number) => void; dispose?: () => void },
 ) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(0x000000, 0);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   mount.appendChild(renderer.domElement);
+  const pipe = pipeline?.(renderer, scene, camera);
   const resize = () => {
     const w = mount.clientWidth, h = mount.clientHeight;
     if (!w || !h) return;
     renderer.setSize(w, h);
+    pipe?.setSize?.(w, h);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     onResize?.(w, h);
@@ -54,7 +64,7 @@ export function mountWorld(
     raf = requestAnimationFrame(loop);
     const dt = Math.min(clock.getDelta(), 0.1);
     frame(clock.elapsedTime, dt);
-    renderer.render(scene, camera);
+    if (pipe?.render) pipe.render(); else renderer.render(scene, camera);
   };
   loop();
   return () => {
@@ -67,6 +77,7 @@ export function mountWorld(
       if (Array.isArray(mat)) mat.forEach(x => { (x as THREE.MeshBasicMaterial).map?.dispose(); x.dispose(); });
       else if (mat) { (mat as THREE.MeshBasicMaterial).map?.dispose(); mat.dispose(); }
     });
+    pipe?.dispose?.();
     renderer.dispose();
     mount.removeChild(renderer.domElement);
   };

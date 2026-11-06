@@ -145,8 +145,8 @@ export const ENTRA_ID: RoomExperience = {
   mission: "Tell cloud attacks from on-prem ones, crack the sign-in codes, follow one sign-in through the console to the role behind it, tune a spray rule, beat an intruder's moves, then work the graded alert.",
   estimate: "~55 min",
   look: { primary: "#60a5fa", secondary: "#c084fc", warn: "#fb7185" },
-  scene: "tenantzero",
-  layout: "stage",
+  scene: "facilityentra",
+  layout: "facility",
   stations: [
     {
       id: "tenant",

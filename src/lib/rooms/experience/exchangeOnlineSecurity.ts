@@ -130,8 +130,8 @@ export const EXCHANGE_ONLINE_SECURITY: RoomExperience = {
   mission: "Walk a message through the gateway, sort what each layer catches, read the seals, defuse the headers, hold back bad inbox rules, work a hijacked thread in the console, then close the graded case.",
   estimate: "~45 min",
   look: { primary: "#34d399", secondary: "#fbbf24", warn: "#f87171" },
-  scene: "replyall",
-  layout: "stage",
+  scene: "facilitymail",
+  layout: "facility",
   stations: [
     {
       id: "mailbox",

@@ -26,8 +26,8 @@ export const ACTIVE_DIRECTORY: RoomExperience = {
   mission: "Map Rookwood's forest, domains and controllers, read a workstation's Kerberos tickets, catch a new admin account and a cleared log on a DC, find accounts that skip pre-authentication, and spot a logon whose name and address don't match.",
   estimate: "~60 min",
   look: { primary: "#22d3ee", secondary: "#a3e635", warn: "#fb7185" },
-  scene: "domaintree",
-  layout: "stage",
+  scene: "facilitydirectory",
+  layout: "facility",
   story: {
     intro: { title: "Own the Directory, Own Everything", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/active-directory/keystone-intro-cbb9ca1c.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/active-directory/keystone-intro-f14d35f7.jpg" },
     afterStation: {

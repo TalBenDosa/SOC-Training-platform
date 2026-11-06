@@ -27,8 +27,8 @@ export const COMMODITY_INITIAL_ACCESS: RoomExperience = {
   mission: "See why macros stopped working, take apart a fake CAPTCHA and find its command in RunMRU, spot a swapped wallet address, pick the real download from poisoned search results, check Mark-of-the-Web, and read a browser miner's Stratum messages.",
   estimate: "~55 min",
   look: { primary: "#a3e635", secondary: "#f472b6", warn: "#f43f5e" },
-  scene: "baitshop",
-  layout: "stage",
+  scene: "facilitybait",
+  layout: "facility",
   story: {
     intro: { title: "They Changed the Bait", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-intro-019ff168.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-intro-505ccc10.jpg" },
     afterStation: {

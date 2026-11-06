@@ -25,8 +25,8 @@ export const ALERT_TRIAGE: RoomExperience = {
   mission: "Work the night queue with the four decisions analysts really make, rank alerts by severity, asset and user, match benign patterns to the proof that clears them, then work the graded brute-force alert.",
   estimate: "~40 min",
   look: { primary: "#f59e0b", secondary: "#38bdf8", warn: "#ef4444" },
-  scene: "nightqueue",
-  layout: "stage",
+  scene: "facilitytriage",
+  layout: "facility",
   stations: [
     {
       id: "queue",

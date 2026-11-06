@@ -23,8 +23,8 @@ export const NETWORKING_FUNDAMENTALS: RoomExperience = {
   mission: "Follow a packet from a laptop to the internet: build it layer by layer, watch the handshake, trace it through NAT and DHCP, then read the 02:47 firewall log like an analyst.",
   estimate: "~45 min",
   look: { primary: "#38bdf8", secondary: "#a78bfa", warn: "#f97316" },
-  scene: "datapath",
-  layout: "stage",
+  scene: "facilitypacket",
+  layout: "facility",
   story: {
     intro: { title: "Follow the Packet", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-intro-8481ab1b.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-intro-38d51227.jpg" },
     afterStation: {

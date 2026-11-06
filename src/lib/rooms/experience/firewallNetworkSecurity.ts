@@ -25,8 +25,8 @@ export const FIREWALL_NETWORK_SECURITY: RoomExperience = {
   mission: "Test packets against a real PAN-OS rulebase, place every system in its zone, read a WAF block, check whether segmentation contains a compromised device, decode a Suricata alert, and triage a queue of firewall logs where 'allowed' does not mean 'safe'.",
   estimate: "~40 min",
   look: { primary: "#f97316", secondary: "#22d3ee", warn: "#f43f5e" },
-  scene: "zonewall",
-  layout: "stage",
+  scene: "facilitynet",
+  layout: "facility",
   stations: [
     {
       id: "rules",

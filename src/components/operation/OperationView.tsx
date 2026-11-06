@@ -20,6 +20,8 @@ import { EvidenceBoard } from "./mechanics/EvidenceBoard";
 import { VaultKeypad } from "./mechanics/VaultKeypad";
 import { IntelBriefing } from "./briefing/IntelBriefing";
 import { MissionBoard, type StoryEntry } from "./board/MissionBoard";
+import { useClearRoll } from "./board/useClearRoll";
+import { FacilityBoard } from "./board/FacilityBoard";
 import { StoryPlayer } from "./StoryPlayer";
 import { Drill } from "./briefing/Drill";
 import { StageBoard } from "./board/StageBoard";
@@ -90,6 +92,19 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   tenantzero: dynamic(() => import("./scenes/TenantZeroScene"), { ssr: false }),
   replyall: dynamic(() => import("./scenes/ReplyAllScene"), { ssr: false }),
   sharedlink: dynamic(() => import("./scenes/SharedLinkScene"), { ssr: false }),
+  facilitymail: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityMail), { ssr: false }),
+  facilitysoc: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilitySoc), { ssr: false }),
+  facilitynet: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityNet), { ssr: false }),
+  facilitytriage: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityTriage), { ssr: false }),
+  facilitypacket: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityPacket), { ssr: false }),
+  facilitytunnel: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityTunnel), { ssr: false }),
+  facilityentra: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityEntra), { ssr: false }),
+  facilitydirectory: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityDirectory), { ssr: false }),
+  facilitychain: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityChain), { ssr: false }),
+  facilitymatrix: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityMatrix), { ssr: false }),
+  facilitybait: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityBait), { ssr: false }),
+  facilityhall: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityHall), { ssr: false }),
+  facilitycampus: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityCampus), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;
@@ -366,11 +381,12 @@ export function OperationView(p: OperationViewProps) {
 
   // Stage rooms: a full-screen world and a station picked on the track. The
   // pick follows the frontier whenever the learner comes back to the board.
-  const stage = experience.layout === "stage" || experience.layout === "campus" || experience.layout === "lens";
+  const stage = experience.layout === "stage" || experience.layout === "campus" || experience.layout === "lens" || experience.layout === "facility";
   const World = WORLDS[experience.scene ?? "gates"] ?? WORLDS.gates;
   const frontier = Math.max(0, hubStations.findIndex(s => s.status === "open"));
   const [selected, setSelected] = useState(0);
   useEffect(() => { if (phase === "hub") setSelected(frontier); }, [phase, frontier]);
+  const { rolling, unrolled } = useClearRoll(room.id, hubStations, phase === "hub" && experience.layout === "facility", reducedMotion);
 
   return (
     <div className="fixed inset-0 z-40 overflow-hidden bg-[#05080f] text-slate-100">
@@ -386,6 +402,10 @@ export function OperationView(p: OperationViewProps) {
             warn={experience.look?.warn ?? "#f59e0b"}
             dimmed={phase !== "hub"}
             reducedMotion={reducedMotion}
+            onPick={setSelected}
+            onEnter={enterStation}
+            rolling={rolling}
+            unrolled={unrolled}
           />
         </div>
       ) : has3d ? (
@@ -457,7 +477,9 @@ export function OperationView(p: OperationViewProps) {
 
         {phase === "hub" && (
           <motion.div key="hub" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={cn("absolute inset-0 z-20", stage && "pointer-events-none")}>
-            {experience.layout === "lens" ? (
+            {experience.layout === "facility" ? (
+              <FacilityBoard experience={experience} room={room} stations={hubStations} selected={selected} onSelect={setSelected} onEnter={enterStation} tokens={local.tokens} stories={watched} onPlayStory={setStory} rolling={rolling} cardInWorld={experience.scene === "facilityhall"} />
+            ) : experience.layout === "lens" ? (
               <LensBoard
                 experience={experience}
                 room={room}

@@ -23,8 +23,8 @@ export const SOC_STRUCTURE: RoomExperience = {
   mission: "Learn how a SOC really runs: what it does and how it is measured, who sits at which tier, which tool does what, and then work a real night-shift alert from a Tier 1 desk.",
   estimate: "~40 min",
   look: { primary: "#22d3ee", secondary: "#a78bfa", warn: "#fb7185" },
-  scene: "socfloor",
-  layout: "stage",
+  scene: "facilitysoc",
+  layout: "facility",
   story: {
     intro: { title: "The Floor at 22:00", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-intro-999342e1.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/soc-structure/night-desk-intro-f50909a1.jpg" },
     afterStation: {

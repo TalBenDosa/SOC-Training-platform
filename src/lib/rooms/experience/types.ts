@@ -138,13 +138,13 @@ export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" |
  *  - sharedlink: a boundary ring with site racks inside, a chat panel with a stranger
  *             outside, a DLP shield with one document slipping past, and a chain that breaks
  */
-export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver" | "cipherlab" | "chrono" | "dissect" | "idgate" | "specimen" | "riskcore" | "patchline" | "chainlinks" | "zonewall" | "blackbox" | "mindlab" | "sightlines" | "webpath" | "baitshop" | "orchard" | "evtxtape" | "varlog" | "radar" | "intake" | "postmark" | "protostack" | "sealedbrief" | "sparekey" | "objectpipe" | "integrityladder" | "matrixwall" | "domaintree" | "wazuhflow" | "skyquery" | "noisefilter" | "tenantcloud" | "talon" | "storyline" | "detonation" | "nightqueue" | "coldcase" | "longdistance" | "denyall" | "lookup" | "generations" | "secondopinion" | "ignoreall" | "wirelevel" | "opensesame" | "baremetal" | "specialdelivery" | "tenantzero" | "replyall" | "sharedlink";
+export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver" | "cipherlab" | "chrono" | "dissect" | "idgate" | "specimen" | "riskcore" | "patchline" | "chainlinks" | "zonewall" | "blackbox" | "mindlab" | "sightlines" | "webpath" | "baitshop" | "orchard" | "evtxtape" | "varlog" | "radar" | "intake" | "postmark" | "protostack" | "sealedbrief" | "sparekey" | "objectpipe" | "integrityladder" | "matrixwall" | "domaintree" | "wazuhflow" | "skyquery" | "noisefilter" | "tenantcloud" | "talon" | "storyline" | "detonation" | "nightqueue" | "coldcase" | "longdistance" | "denyall" | "lookup" | "generations" | "secondopinion" | "ignoreall" | "wirelevel" | "opensesame" | "baremetal" | "specialdelivery" | "tenantzero" | "replyall" | "sharedlink" | "facilitymail" | "facilitysoc" | "facilitynet" | "facilitytriage" | "facilitypacket" | "facilitytunnel" | "facilityentra" | "facilitydirectory" | "facilitychain" | "facilitymatrix" | "facilitybait" | "facilityhall" | "facilitycampus";
 
 /** cards: illustrated station cards above the scene. stage: the scene fills the
  *  screen, stations sit in a rail, the selected one in a bottom command bar.
  *  campus: the scene fills the screen with a facility status monitor beside it.
  *  lens: the scene fills the screen with a lens dial, one segment per station. */
-export type LayoutId = "cards" | "stage" | "campus" | "lens";
+export type LayoutId = "cards" | "stage" | "campus" | "lens" | "facility";
 
 /** Which mechanic renders a task. Defaults by task type (see mechanicFor). */
 export type MechanicId =

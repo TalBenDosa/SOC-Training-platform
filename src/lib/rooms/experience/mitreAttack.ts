@@ -24,8 +24,8 @@ export const MITRE_ATTACK: RoomExperience = {
   mission: "Sort ATT&CK IDs into tactics, techniques and sub-techniques, place attacker actions under the right goal, find the blind spots in Marlow's coverage against a known group, and read how an alert carries its ATT&CK mapping.",
   estimate: "~35 min",
   look: { primary: "#f87171", secondary: "#94a3b8", warn: "#fbbf24" },
-  scene: "matrixwall",
-  layout: "stage",
+  scene: "facilitymatrix",
+  layout: "facility",
   story: {
     intro: { title: "Four Reports, One Intrusion", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/mitre-attack/commontongue-intro-952f5c90.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/mitre-attack/commontongue-intro-530beb02.jpg" },
     afterStation: {

@@ -20,6 +20,8 @@ const shortLabel = (label: string) => label.replace(/^The /, "");
 const coreName = (label: string) => shortLabel(label.includes(": ") ? label.slice(label.indexOf(": ") + 2).trim() : label);
 const MINUTES: Record<string, number> = { reading: 6, log_analysis: 5, written_report: 8, query_fill: 4, analyst_choice: 4 };
 
+export const coreLabel = coreName;
+
 export interface StageBoardProps {
   experience: RoomExperience;
   room: SanitizedRoom;

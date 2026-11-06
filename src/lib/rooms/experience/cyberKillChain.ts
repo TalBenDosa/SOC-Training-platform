@@ -25,8 +25,8 @@ export const CYBER_KILL_CHAIN: RoomExperience = {
   mission: "Learn the seven links of the Cyber Kill Chain, map a real intrusion onto them, hunt its foothold in the registry, trace it backwards from C2 to the email that delivered it, and frame it with the Diamond Model.",
   estimate: "~40 min",
   look: { primary: "#22d3ee", secondary: "#a78bfa", warn: "#f43f5e" },
-  scene: "chainlinks",
-  layout: "stage",
+  scene: "facilitychain",
+  layout: "facility",
   story: {
     intro: { title: "Every Five Minutes", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/cyber-kill-chain/brokenlink-intro-b86a8ce4.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/cyber-kill-chain/brokenlink-intro-b3a9f9c7.jpg" },
     afterStation: {

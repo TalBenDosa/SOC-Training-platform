@@ -25,8 +25,8 @@ export const VPN_MONITORING: RoomExperience = {
   mission: "Read a GlobalProtect log field by field, pick the attack pattern behind each burst of gateway events, follow a suspicious session from the gateway into the network, then work the graded login sequence and a verdict.",
   estimate: "~40 min",
   look: { primary: "#22d3ee", secondary: "#a3e635", warn: "#fb7185" },
-  scene: "longdistance",
-  layout: "stage",
+  scene: "facilitytunnel",
+  layout: "facility",
   stations: [
     {
       id: "tunnel",
