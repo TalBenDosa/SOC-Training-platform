@@ -28,11 +28,11 @@ export const EMAIL_SECURITY: RoomExperience = {
   scene: "postmark",
   layout: "stage",
   story: {
-    intro: { title: "Every Email Has a Travel Log", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-security/postmark-intro-898d07ea.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-security/postmark-intro-841b9e62.jpg" },
+    intro: { title: "Every Email Has a Travel Log", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-security/postmark-intro-4ce51bc6.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-security/postmark-intro-4900c978.jpg" },
     afterStation: {
-      envelope: { title: "What the Seals Prove", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-security/postmark-ch2-f9c0c483.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-security/postmark-ch2-149a313e.jpg" },
-      seals: { title: "A Real Mailbox, a Fake Request", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-security/postmark-ch3-0427a240.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-security/postmark-ch3-3d4d4fe5.jpg" },
-      wire: { title: "Two Senders", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-security/postmark-finale-3a5e8c96.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-security/postmark-finale-32776ed8.jpg" },
+      envelope: { title: "What the Seals Prove", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-security/postmark-ch2-4dd404b3.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-security/postmark-ch2-4c2fd66a.jpg" },
+      seals: { title: "A Real Mailbox, a Fake Request", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-security/postmark-ch3-c6a8ddc7.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-security/postmark-ch3-61b11ca5.jpg" },
+      wire: { title: "Two Senders", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-security/postmark-finale-2e412ab9.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/email-security/postmark-finale-406badb7.jpg" },
     },
   },
   stations: [
