@@ -5,9 +5,10 @@ import type { RoomExperience } from "./types";
 // Station task ids must match the room's task order exactly (see getRoomExperience).
 //
 // Corrin Foods (fictional), not the graded tasks' CORP. Lab data differs from
-// the graded tasks: the pipeline console never asks what the CPU column means
-// (q1); the cmdlet console never runs Get-LocalGroupMember (q2) or
-// Get-NetTCPConnection (q3, qf1); the PID pivot starts from a PID the EDR
+// the graded tasks: the console reads current load for OvenHMI, not a svchost on
+// a file server (q1); it runs Get-LocalGroupMember on Remote Desktop Users, not
+// Administrators (q2), and Get-NetTCPConnection on a listening port, not an
+// established connection to 4444 (q3, qf1); the PID pivot starts from a PID the EDR
 // already named, never from a connection's owning process (qf1); and the task
 // sheet is a root-folder task authored by a contractor, never a task filed
 // under \Microsoft\Windows\ (la1) or a script in C:\Users\Public (flag1).
@@ -112,7 +113,7 @@ export const POWERSHELL_FOR_SOC_ANALYST: RoomExperience = {
       {
         kind: "terminal",
         title: "Build the Pipeline",
-        prompt: "OVEN-CTL-02 runs a bakery line. Build the investigation one pipe at a time: list, filter, trim, sort, export.",
+        prompt: "OVEN-CTL-02 runs a bakery line. Build the investigation one pipe at a time: list, filter, trim, sort, export. Then ask the host three direct questions: load now, group members, and who owns a port.",
         shell: "powershell",
         host: "PS C:\\> ",
         commands: [
@@ -128,11 +129,22 @@ export const POWERSHELL_FOR_SOC_ANALYST: RoomExperience = {
             output: "(no output: 3 objects written to C:\\oven02_busy.csv)" },
           { match: "^(get-content|gc|type|cat)\\s+.*\\.csv\\s*$", help: "Get-Content oven02_busy.csv   check what you exported",
             output: "\"Name\",\"Id\",\"CPU\",\"Path\"\n\"msupdsvc\",\"6120\",\"933.71\",\"C:\\ProgramData\\msupd\\msupdsvc.exe\"\n\"OvenHMI\",\"2240\",\"412.55\",\"C:\\Program Files\\Corrin\\OvenHMI\\OvenHMI.exe\"\n\"svchost\",\"4416\",\"188.40\",\"C:\\Windows\\System32\\svchost.exe\"" },
+          { match: "^get-counter\\s+['\"]?\\\\process\\(ovenhmi\\)\\\\% processor time['\"]?\\s*$", help: "Get-Counter '\\Process(OvenHMI)\\% Processor Time'   sample one process's load right now",
+            output: "Timestamp                 CounterSamples\n---------                 --------------\n11/06/2026 02:14:08       \\\\oven-ctl-02\\process(ovenhmi)\\% processor time :\n                          0.38" },
+          { match: "^get-localgroupmember\\s+(-group\\s+)?['\"]remote desktop users['\"]\\s*$", help: "Get-LocalGroupMember -Group \"Remote Desktop Users\"   who is in a local group on this host",
+            output: "ObjectClass Name                 PrincipalSource\n----------- ----                 ---------------\nGroup       CORRIN\\Line-Engineers ActiveDirectory\nUser        OVEN-CTL-02\\ovenvendor Local" },
+          { match: "^get-nettcpconnection(\\s+-state\\s+listen)?\\s+-localport\\s+8080\\s*$", help: "Get-NetTCPConnection -State Listen -LocalPort 8080   who holds this port",
+            output: "LocalAddress  LocalPort RemoteAddress RemotePort State  OwningProcess\n------------  --------- ------------- ---------- -----  -------------\n0.0.0.0       8080      0.0.0.0       0          Listen 6120" },
+          { match: "^get-process\\s+-id\\s+6120\\s*$", help: "Get-Process -Id 6120   turn a PID into a process",
+            output: "Handles  NPM(K)  PM(K)   WS(K)   CPU(s)     Id  ProcessName\n-------  ------  -----   -----   ------     --  -----------\n    655      33  48812   61880   933.71   6120  msupdsvc" },
         ],
         objectives: [
           { id: "count", task: "How many processes pass the CPU filter?", hint: "Get-Process | Where-Object {$_.CPU -gt 100}", answer: ["3", "three"], why: "Three objects survive the filter; the other 61 never reach the next pipe." },
           { id: "odd", task: "Add Select-Object Name, Id, CPU, Path. Which process lives somewhere it shouldn't?", hint: "... | Select-Object Name, Id, CPU, Path", answer: ["msupdsvc", "msupdsvc.exe"], why: "A 'Microsoft update' name running from ProgramData, not System32 or Program Files. Path is a property you only see because you selected it." },
           { id: "file", task: "Sort it and export it. Which line of the CSV comes first after the header? (process name)", hint: "... | Sort-Object CPU -Descending | Export-Csv oven02_busy.csv -NoTypeInformation, then Get-Content", answer: ["msupdsvc"], why: "Sorted before export, so the CSV the incident lead opens starts with the process that matters." },
+          { id: "load", task: "The line is idle tonight, yet OvenHMI's CPU(s) says 412.55. Sample it directly. What % Processor Time does it show right now?", hint: "Get-Counter '\\Process(OvenHMI)\\% Processor Time'", answer: ["0.38", ".38"], why: "CPU(s) is a running total: every second of processor work the process has done, added up over the nine days it has been open. A big number only says it has been alive a long time. Get-Counter samples the moment you ask." },
+          { id: "group", task: "The oven vendor's contract ended in September. Which Local account can still Remote Desktop into this host?", hint: "Get-LocalGroupMember -Group \"Remote Desktop Users\"", answer: ["ovenvendor", "OVEN-CTL-02\\ovenvendor"], why: "Get-LocalGroupMember reads who belongs to a local group on this machine, nested domain groups included. PrincipalSource tells you which entries live on the host and which come from the domain." },
+          { id: "port", task: "Something on an oven controller is listening on 8080. Which process owns the port? Pivot from the connection to the process name.", hint: "Get-NetTCPConnection -State Listen -LocalPort 8080, then Get-Process -Id with the number you find", answer: ["msupdsvc", "msupdsvc.exe"], why: "OwningProcess is the PID behind a socket, and Get-Process -Id turns it into a name and path. -State decides which sockets you see: Listen is a port waiting for callers, and other states show connections at other points in their life." },
         ],
       },
     ],

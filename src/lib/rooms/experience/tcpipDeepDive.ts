@@ -106,7 +106,7 @@ export const TCPIP_DEEP_DIVE: RoomExperience = {
           est: "The final ACK arrived. Only now does the application see a connection.",
           closewait: "The client's FIN arrived and was acknowledged. The server can still send; it just knows the client is done.",
           lastack: "The server sent its own FIN and waits for the very last acknowledgement.",
-          closed: "Done. The side that closes second never has to linger, which is why a busy server's job is usually this short path.",
+          closed: "Done. The side that closes second never has to linger. The side that closes first passes through TIME_WAIT: held for about two minutes, so a straggler from the old connection is dropped instead of landing in a new one on the same port pair.",
         },
         traps: {
           syn: "SYN_SENT is the client's state: it means this machine dialled out. A socket in LISTEN that starts sending SYNs isn't what happened here.",

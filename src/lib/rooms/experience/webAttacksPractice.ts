@@ -139,7 +139,7 @@ export const WEB_ATTACKS_PRACTICE: RoomExperience = {
           "The application served it successfully.",
         ],
         culprit: "c",
-        why: "req-7713 matched the XSS rule, but COUNT only logs. The IIS record shows the server answered 200. A blocked request never gets an IIS record, so the WAF tells you it was seen, and only the server tells you it landed.",
+        why: "req-7713 matched the XSS rule, but COUNT only logs. The IIS record shows the server answered 200. A blocked request never gets an IIS record, so the WAF tells you it was seen, and only the server tells you it landed. One join trap to remember: Sundial's staging nginx sits behind a reverse proxy, which opens its own TCP connection, so nginx's remote_addr is the proxy for every visitor. The visitor's address survives only in the X-Forwarded-For header the proxy adds, and only if nginx is told to log it.",
       },
     ],
     // ── Web shell station: what the ordering and the detection rely on ──

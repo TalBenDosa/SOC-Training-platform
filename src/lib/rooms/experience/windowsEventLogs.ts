@@ -5,10 +5,10 @@ import type { RoomExperience } from "./types";
 // Station task ids must match the room's task order exactly (see getRoomExperience).
 //
 // Morrow Bank (fictional). Lab data differs from the graded tasks: the
-// retention lab checks log size and wrap-around without naming 1102 or the
-// command-line policy (q2); the logon-type sheet
-// covers types 4, 5, 7, 9 and 11, never 3 from a
-// workstation (q1) and never which type is RDP (q4); the 4688 drill is a web shell
+// retention lab teaches a cleared log on the System channel (104) and names
+// the Security channel's 1102 only in passing (q2); the logon-type sheet
+// shows types 3, 4, 5, 7, 9, 10 and 11 as data, asks about 9 and 11, and never
+// asks about 3 from a workstation (q1) or which type is RDP (q4); the 4688 drill is a web shell
 // under w3wp.exe, not Word spawning encoded PowerShell (q3); and the spray
 // trace follows 198.51.100.200 to a lateral 4648, never la1's 203.0.113.45 or
 // a Domain Admins change (flag1).
@@ -83,15 +83,17 @@ export const WINDOWS_EVENT_LOGS: RoomExperience = {
       {
         kind: "codebreak",
         title: "Black Box Rules",
-        prompt: "An incident on MB-FS-03 started three days ago, and Rhea's first question is whether the Security log even reaches that far. Crack the four codes that decide how much evidence a Windows host really keeps.",
+        prompt: "An incident on MB-FS-03 started three days ago, and Rhea's first question is whether the Security log even reaches that far. Crack the six codes that decide how much evidence a Windows host really keeps.",
         tries: 6,
         rounds: [
           { id: "mode", clue: "The Security log is capped at 20 MB by default. When the file is full, the oldest records are overwritten by new ones. What is this LogMode called?", answer: "CIRCULAR", why: "Circular is the default mode: on a busy file server a 20 MB Security log may only reach back about ten hours. Evidence can vanish without any attacker touching it." },
           { id: "forward", clue: "Three days is gone locally, so events must already be sitting elsewhere. The built-in feature that pushes events from many hosts to a collector has a three-letter name. What is it?", answer: "WEF", why: "Windows Event Forwarding (or an agent shipping to the SIEM) keeps a copy off the host. Check forwarding before you promise a timeline." },
           { id: "lock", clue: "Event ID: an account was locked out. Its Caller Computer Name field names the machine the bad attempts came from.", answer: "4740", why: "4740 is logged on the DC and points at the source of the failures. It starts the trail that 4625 failures on the source machine continue." },
           { id: "priv", clue: "Event ID: special privileges assigned to a new logon. It fires for admin-equivalent sign-ins and lists rights such as SeDebugPrivilege.", answer: "4672", why: "4672 is the marker of a privileged logon. A creator of accounts, or anything reading LSASS, should have one just before the action." },
+          { id: "proc", clue: "Event ID: a new process has been created. You only get it once Audit Process Creation is switched on.", answer: "4688", why: "That audit policy alone gives you the process name. The command line stays blank until a second Group Policy setting is on as well: 'Include command line in process creation events'." },
+          { id: "wipe", clue: "Whoever wiped the System log on MB-FS-03 could not stop Windows writing one last entry about the wipe. What Event ID does the System channel use for it?", answer: "104", why: "System 104 means that log was cleared. The Security channel has its own version, 1102. A wrap-around never produces either one: only a person or a tool clearing the log does, so treat it as someone hiding tracks and call it in now, whatever the hour." },
         ],
-        lesson: "Know the log before you trust it: its size and mode decide how far back it reaches, forwarding decides whether a copy survives, and a handful of IDs (4740 lockout, 4672 privileged logon) start the trails.",
+        lesson: "Know the log before you trust it: its size and mode decide how far back it reaches, forwarding decides whether a copy survives, and a handful of IDs (4740 lockout, 4672 privileged logon, 4688 process creation, and the entries a cleared log leaves behind) start the trails.",
       },
     ],
     // ── Reading 2: the IDs that matter ──
@@ -99,13 +101,14 @@ export const WINDOWS_EVENT_LOGS: RoomExperience = {
       {
         kind: "worksheet",
         title: "The Logon Types Nobody Reads",
-        prompt: "Six 4624 events from one morning, on MB-WS-0217 and the domain controller MB-DC-01. Read the LogonType and LogonProcessName on each.",
+        prompt: "Seven 4624 events from one morning, on MB-WS-0217 and the domain controller MB-DC-01. Read the LogonType and LogonProcessName on each.",
         caption: "Security 4624 · MB-WS-0217 and MB-DC-01 · 06:00-09:00",
         columns: ["time", "TargetUserName", "LogonType", "LogonProcessName", "note"],
         rows: [
           ["06:00:01", "svc_inventory", "4", "Advapi", "scheduled task"],
           ["06:00:03", "LOCAL SERVICE", "5", "Advapi", "service start"],
           ["07:58:44", "p.osei", "11", "User32", "laptop off the network"],
+          ["08:05:12", "m.dube", "10", "User32", "RemoteInteractive: Remote Desktop session from MB-ADM-01"],
           ["08:31:10", "p.osei", "7", "User32", "after lunch screen lock"],
           ["08:47:22", "p.osei", "9", "seclogo", "network identity: MORROW\\adm-t.ruiz"],
           ["08:47:23", "adm-t.ruiz", "3", "NtLmSsp", "logged on MB-DC-01, from MB-WS-0217"],
