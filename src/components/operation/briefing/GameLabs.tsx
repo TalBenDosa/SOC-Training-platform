@@ -185,7 +185,7 @@ export function LineupLab({ lab, onDone }: LabProps<"lineup">) {
           <p role="status" className="mt-3 min-h-[1.25rem] text-sm leading-relaxed">
             {just ? <span className="text-emerald-300"><Check className="mr-1 inline h-4 w-4" />{round.why}</span>
               : wrong ? <span className="text-rose-300">The dossier does not fit. Compare motive and target again.</span>
-                : done ? <span className="text-emerald-300">Five rounds, five attackers. Motive tells them apart better than skill.</span>
+                : done ? <span className="text-emerald-300">Every attacker named. Motive tells them apart better than skill.</span>
                   : <span className="text-slate-400">Hover a suspect to read the dossier, click to accuse.</span>}
           </p>
           {just && ri < lab.rounds.length - 1 && (

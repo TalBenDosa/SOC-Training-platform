@@ -165,6 +165,7 @@ export const INTRO_CYBERSECURITY: RoomExperience = {
     "intro-cyber-r2": [
       {
         kind: "locks",
+        finish: "Together they are called the CIA triad.",
         title: "Three Locks",
         prompt: "Every system you scanned needs three things to stay safe. Each door below holds one of them. Open all three.",
         locks: [

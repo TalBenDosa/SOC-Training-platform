@@ -221,6 +221,23 @@ const nacMasterclass = {
         explanation: "EAP-TLS uses mutual certificate authentication with no username or password, so a rogue server has no reusable password to collect: the reading calls it resistant to password spray, phishing and credential theft. ‘The TLS tunnel hides the password’ is the classic PEAP misconception: the tunnel is built to whatever server answers, so if the client does not validate the server certificate the rogue RADIUS server is the tunnel endpoint and receives the inner exchange (the reading lists this rogue-RADIUS weakness for PEAP). ‘Challenge-response means the password is never exposed’ ignores that the captured MS-CHAPv2 exchange is exactly the credential material the reading’s evil-RADIUS technique harvests. ‘A rogue AP cannot reach AD’ confuses validating a login with capturing it: the attacker does not need AD, only the credentials the supplicant hands over.",
       },
     },
+    // ── Question 1 ─────────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "nac-q1",
+      question:
+        "An engineer connects a laptop to an 802.1X-enabled access port. While authentication is still in progress, the laptop's DHCP Discover messages get no reply and it has no IP address. What best explains this?",
+      options: [
+        "The port sits in a guest VLAN whose DHCP scope stays closed until authentication completes",
+        "The port is UNAUTHORIZED and forwards only EAPOL frames until the endpoint authenticates",
+        "The switch holds DHCP back until ISE has profiled the device from its CDP and LLDP data",
+        "The port stays administratively down until ISE sends an Access-Accept that enables it",
+      ],
+      answer: 1,
+      explanation:
+        "Before authentication succeeds, an 802.1X port is UNAUTHORIZED and passes only EAPOL (EAP over LAN) frames (no IP, DHCP, DNS or HTTP) so the DHCP Discover is dropped; after the Access-Accept the port becomes AUTHORIZED and DHCP works. A guest VLAN is an authorization RESULT that ISE or the switch assigns, not the pre-authentication state, and the reading puts guests on an internet-capable VLAN with working DHCP. Profiling does not gate DHCP. ISE profiling is passive and actually uses DHCP options as one of its inputs. An administratively down port would carry no frames at all, including EAPOL, so authentication could never start.",
+      xp: 20,
+    },
     // ── Reading 4 ──────────────────────────────────────────────────────────────
     {
       type: "reading" as const,
@@ -279,115 +296,6 @@ const nacMasterclass = {
         "Attributes:\n" +
         "  Reply-Message:           Authentication failed\n" +
         "  [Port remains UNAUTHORIZED]",
-    },
-    // ── Reading 5 ──────────────────────────────────────────────────────────────
-    {
-      type: "reading" as const,
-      id: "nac-r5",
-      heading: "Device Posture Assessment: Checking Health Before Granting Full Access",
-      content:
-        "Authentication answers the question 'Who are you?' Posture assessment answers the question 'Is your device safe to let in?' A user can have valid corporate credentials and still be connecting from a personal laptop infected with malware. NAC posture assessment addresses this second gate.\n\n" +
-        "Posture assessment is the process by which ISE (or another NAC server) verifies that the endpoint meets a defined security baseline before granting it full network access. The checks typically include: antivirus software installed and running with signature database updated within a defined period (commonly 7 days, sometimes 30); operating system patches applied with no critical security updates missing beyond a grace period (commonly 30 days); disk encryption enabled (BitLocker on Windows, FileVault on macOS); a valid corporate certificate present on the device; specific software absent (personal VPN clients, P2P file sharing tools, remote access tools not approved by IT); and corporate endpoint agent (EDR) installed and running.\n\n" +
-        "Two mechanisms exist to perform the posture check. The persistent agent (also called a permanent agent) is a lightweight software package installed on all managed corporate devices by IT. It runs continuously in the background, reporting posture status directly to the ISE policy node over HTTPS (RADIUS carries only the authentication exchange between the switch and ISE, not the agent's posture report). When the device connects to the network, ISE queries the agent for current posture data. The agent is the preferred method for managed endpoints because it provides real-time, continuous posture monitoring.\n\n" +
-        "The temporal agent (also called a dissolvable agent or web agent) is used for unmanaged or guest devices. When such a device connects, ISE redirects the browser to a captive portal. The user is instructed to download and run a small executable. The executable runs the posture checks, sends results to ISE, and then deletes itself. Because the device is unmanaged, posture requirements are typically lighter (or the device is placed in a limited-access VLAN regardless of posture outcome).\n\n" +
-        "The outcome of posture assessment flows directly into VLAN assignment. A device that passes all posture checks is 'Compliant' and receives full corporate network access. A device that fails one or more checks is 'NonCompliant' and is placed in the Quarantine VLAN with access only to remediation resources. A device where the posture agent is not installed or does not respond is marked 'Unknown' and typically receives limited network access pending posture validation.\n\n" +
-        "From a SOC investigation standpoint, posture assessment failures are high-value signals. They indicate devices that are not being managed correctly by IT, which may represent shadow IT (unauthorized devices), devices that have been offline long enough to fall out of patch compliance (potential dormant compromised devices), or devices where the AV has been disabled (a ransomware indicator on some malware families).",
-      codeExample:
-        "POSTURE ASSESSMENT DECISION TREE\n" +
-        "==================================\n\n" +
-        "Device connects to switch port\n" +
-        "          |\n" +
-        "          v\n" +
-        "   802.1X Authentication\n" +
-        "          |\n" +
-        "    [passes?]\n" +
-        "     /       \\\n" +
-        "   NO         YES\n" +
-        "    |           |\n" +
-        "  Port         ISE queries posture agent\n" +
-        "  blocked           |\n" +
-        "               [agent present?]\n" +
-        "                /           \\\n" +
-        "              NO             YES\n" +
-        "               |               |\n" +
-        "           Posture=Unknown    Run posture checks:\n" +
-        "               |               - AV installed?   [Y/N]\n" +
-        "           VLAN 30 (Limited)   - AV definitions current? [Y/N]\n" +
-        "                               - OS patches current? [Y/N]\n" +
-        "                               - BitLocker enabled? [Y/N]\n" +
-        "                               - Corp certificate present? [Y/N]\n" +
-        "                               |\n" +
-        "                         [all pass?]\n" +
-        "                          /       \\\n" +
-        "                        YES        NO (any fail)\n" +
-        "                         |              |\n" +
-        "                  Posture=Compliant  Posture=NonCompliant\n" +
-        "                         |              |\n" +
-        "                    VLAN 10         VLAN 50 (Quarantine)\n" +
-        "                  Full Access      + ACL-QUARANTINE-REMEDIATION\n" +
-        "                                  + url-redirect to remediation portal\n\n" +
-        "POSTURE POLICY REQUIREMENTS (example corporate policy):\n" +
-        "  Check                        Requirement          Action on Fail\n" +
-        "  --------                     -----------          --------------\n" +
-        "  Antivirus installed          Yes                  NonCompliant\n" +
-        "  AV definitions age           <= 7 days            NonCompliant\n" +
-        "  Windows critical patches     <= 30 days old       NonCompliant\n" +
-        "  BitLocker encryption         Enabled              NonCompliant\n" +
-        "  Corp EDR agent               Running              NonCompliant\n" +
-        "  Unauthorized VPN software    Absent               Warning only",
-      checkpoint: {
-        question: "A visiting auditor's unmanaged laptop must pass a posture check before it receives limited access. IT will not leave any software installed on it. Which posture mechanism fits this case?",
-        options: [
-          "A temporal (dissolvable) agent from the captive portal that deletes itself after the check",
-          "A persistent agent pushed by IT that reports to the ISE policy node over HTTPS",
-          "No agent: the RADIUS Access-Request from the switch already carries the posture data",
-          "The built-in Wired AutoConfig supplicant, which runs posture checks during 802.1X",
-        ],
-        answer: 0,
-        explanation: "For unmanaged or guest devices the reading describes the temporal (dissolvable/web) agent: ISE redirects the browser to a captive portal, the user runs a small executable, it reports the results and deletes itself, nothing stays installed. A persistent agent is the right tool for managed corporate devices, but it is permanently installed, which this case rules out. ‘RADIUS already carries the posture data’ is wrong: the reading says RADIUS carries only the authentication exchange between switch and ISE, and the posture report comes from an agent. The native Wired AutoConfig supplicant handles authentication only; posture capability is what a vendor agent adds on top of it.",
-      },
-    },
-    // ── Reading 6 ──────────────────────────────────────────────────────────────
-    {
-      type: "reading" as const,
-      id: "nac-r6",
-      heading: "VLANs and How NAC Uses Them for Segmentation",
-      content:
-        "A VLAN (Virtual Local Area Network) is a logical network segment created within a physical switch. Without VLANs, every device plugged into a switch can communicate with every other device on that switch. They share one broadcast domain. With VLANs, the switch is partitioned: devices in VLAN 10 cannot communicate with devices in VLAN 20 unless a router or firewall explicitly permits that traffic. This logical isolation is enforced in hardware by the switch, regardless of IP addressing.\n\n" +
-        "NAC uses dynamic VLAN assignment as its primary enforcement mechanism. When ISE sends a RADIUS Access-Accept to the switch, it includes the VLAN number to assign to that specific port. The switch immediately moves the port to the specified VLAN. The device on that port does not need to do anything. It does not know which VLAN it is in. From the device's perspective, it connects to the network and requests an IP address via DHCP. The DHCP server for the assigned VLAN responds with an IP in that VLAN's subnet.\n\n" +
-        "A well-designed corporate NAC VLAN structure typically has five or more distinct segments. The Corporate Full Access VLAN (commonly VLAN 10 or a similar low number) is for authenticated domain users on compliant devices. These devices can reach all corporate resources: file servers, ERP systems, SharePoint, printers, and the internet. The Contractor Limited VLAN is for authenticated external users or contractors on compliant devices. These have internet access and specific application access, but cannot reach core corporate servers. The Guest VLAN is for internet-only access: no access to any corporate resource. The Quarantine VLAN is the remediation zone for non-compliant devices. Access is limited to Windows Update servers, AV update servers, and the ISE remediation portal. Nothing else. The IoT VLAN is for network devices (printers, IP cameras, smart TVs) that cannot participate in 802.1X. These devices are identified by MAC address or device profiling and placed in a restricted VLAN where they can only communicate with specific authorized destinations.\n\n" +
-        "For SOC analysts, the VLAN assignment visible in NAC logs is a direct indicator of risk. Any device showing VLAN 50 (Quarantine) in ISE logs is a device that failed posture: it needs investigation. Any device in VLAN 10 (Corporate) that the ISE profiler identifies as an IoT device is potentially a MAC spoofing attack. Any device generating traffic from Guest VLAN toward corporate VLANs is a potential firewall policy violation that may indicate Guest VLAN abuse.",
-      codeExample:
-        "VLAN ASSIGNMENT DECISION MATRIX\n" +
-        "=================================\n\n" +
-        "Identity + Posture Result --> VLAN Assignment\n\n" +
-        "User Role            Device Posture    VLAN    Access Level\n" +
-        "-------------        --------------    ----    ------------\n" +
-        "Domain User          Compliant         10      Full corporate + internet\n" +
-        "Domain User          NonCompliant      50      Remediation only\n" +
-        "Domain User          Unknown           30      Limited (internet only)\n" +
-        "Contractor           Compliant         20      Internet + specific apps\n" +
-        "Contractor           NonCompliant      50      Remediation only\n" +
-        "Guest (no auth)      N/A               30      Internet only\n" +
-        "IoT Device           N/A (no 802.1X)   40      Defined destinations only\n" +
-        "Auth Failure         N/A               --      Port blocked (no VLAN)\n\n" +
-        "VLAN ISOLATION (what can reach what):\n\n" +
-        "VLAN 10 (Corporate):\n" +
-        "  Can reach: file servers, ERP, SharePoint, printers, internet\n" +
-        "  Cannot reach: VLAN 50 (quarantine)\n\n" +
-        "VLAN 20 (Contractor):\n" +
-        "  Can reach: internet, specific permitted app servers\n" +
-        "  Cannot reach: VLAN 10 resources, VLAN 40 IoT, VLAN 50\n\n" +
-        "VLAN 30 (Guest):\n" +
-        "  Can reach: internet only (via firewall)\n" +
-        "  Cannot reach: VLANs 10, 20, 40, 50\n\n" +
-        "VLAN 40 (IoT):\n" +
-        "  Can reach: specific servers (print server, camera NVR)\n" +
-        "  Cannot reach: VLANs 10, 20, 30, 50\n\n" +
-        "VLAN 50 (Quarantine):\n" +
-        "  Can reach: ISE portal, Windows Update, AV update server\n" +
-        "  Cannot reach: anything else\n\n" +
-        "Inter-VLAN routing controlled by core firewall (not the access switch).",
     },
     // ── Reading 7 ──────────────────────────────────────────────────────────────
     {
@@ -511,6 +419,132 @@ const nacMasterclass = {
         "  API integrations         Good            Excellent (150+ native)\n" +
         "  Profiling                Yes (robust)    Yes (good)\n" +
         "  OnBoard (device certs)   Separate PKI    Built-in",
+    },
+    // ── Question 3 ─────────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "nac-q3",
+      question:
+        "During an outage review, the access switches show RADIUS replies arriving promptly from ISE, yet every user login is rejected and ISE reports that it cannot reach the user directory. Which statement correctly places the failure?",
+      options: [
+        "The switch-to-ISE RADIUS leg failed; ISE's lookup to the directory is unaffected",
+        "The RADIUS leg works; the failure is ISE's own back-end query to Active Directory",
+        "The switch queries AD directly over LDAP, so the switch's LDAP settings are broken",
+        "The endpoint's supplicant lost its LDAP session to the domain controller mid-login",
+      ],
+      answer: 1,
+      explanation:
+        "RADIUS is the access-decision protocol between the switch and ISE; LDAP is the directory protocol ISE itself uses toward Active Directory. Prompt RADIUS replies prove the switch-to-ISE leg is healthy, and ISE’s own ‘cannot reach the directory’ error places the break on its back-end AD query, so ‘the RADIUS leg failed’ contradicts the evidence. The switch never talks to AD: it only forwards the request to ISE, which is the whole point of separating enforcement from decision. The supplicant also never holds an LDAP session: it sends its credentials inside EAP to the switch, which relays them to ISE.",
+      xp: 25,
+    },
+    // ── Reading 5 ──────────────────────────────────────────────────────────────
+    {
+      type: "reading" as const,
+      id: "nac-r5",
+      heading: "Device Posture Assessment: Checking Health Before Granting Full Access",
+      content:
+        "Authentication answers the question 'Who are you?' Posture assessment answers the question 'Is your device safe to let in?' A user can have valid corporate credentials and still be connecting from a personal laptop infected with malware. NAC posture assessment addresses this second gate.\n\n" +
+        "Posture assessment is the process by which ISE (or another NAC server) verifies that the endpoint meets a defined security baseline before granting it full network access. The checks typically include: antivirus software installed and running with signature database updated within a defined period (commonly 7 days, sometimes 30); operating system patches applied with no critical security updates missing beyond a grace period (commonly 30 days); disk encryption enabled (BitLocker on Windows, FileVault on macOS); a valid corporate certificate present on the device; specific software absent (personal VPN clients, P2P file sharing tools, remote access tools not approved by IT); and corporate endpoint agent (EDR) installed and running.\n\n" +
+        "Two mechanisms exist to perform the posture check. The persistent agent (also called a permanent agent) is a lightweight software package installed on all managed corporate devices by IT. It runs continuously in the background, reporting posture status directly to the ISE policy node over HTTPS (RADIUS carries only the authentication exchange between the switch and ISE, not the agent's posture report). When the device connects to the network, ISE queries the agent for current posture data. The agent is the preferred method for managed endpoints because it provides real-time, continuous posture monitoring.\n\n" +
+        "The temporal agent (also called a dissolvable agent or web agent) is used for unmanaged or guest devices. When such a device connects, ISE redirects the browser to a captive portal. The user is instructed to download and run a small executable. The executable runs the posture checks, sends results to ISE, and then deletes itself. Because the device is unmanaged, posture requirements are typically lighter (or the device is placed in a limited-access VLAN regardless of posture outcome).\n\n" +
+        "The outcome of posture assessment flows directly into VLAN assignment. A device that passes all posture checks is 'Compliant' and receives full corporate network access. A device that fails one or more checks is 'NonCompliant' and is placed in the Quarantine VLAN with access only to remediation resources. A device where the posture agent is not installed or does not respond is marked 'Unknown' and typically receives limited network access pending posture validation.\n\n" +
+        "From a SOC investigation standpoint, posture assessment failures are high-value signals. They indicate devices that are not being managed correctly by IT, which may represent shadow IT (unauthorized devices), devices that have been offline long enough to fall out of patch compliance (potential dormant compromised devices), or devices where the AV has been disabled (a ransomware indicator on some malware families).",
+      codeExample:
+        "POSTURE ASSESSMENT DECISION TREE\n" +
+        "==================================\n\n" +
+        "Device connects to switch port\n" +
+        "          |\n" +
+        "          v\n" +
+        "   802.1X Authentication\n" +
+        "          |\n" +
+        "    [passes?]\n" +
+        "     /       \\\n" +
+        "   NO         YES\n" +
+        "    |           |\n" +
+        "  Port         ISE queries posture agent\n" +
+        "  blocked           |\n" +
+        "               [agent present?]\n" +
+        "                /           \\\n" +
+        "              NO             YES\n" +
+        "               |               |\n" +
+        "           Posture=Unknown    Run posture checks:\n" +
+        "               |               - AV installed?   [Y/N]\n" +
+        "           VLAN 30 (Limited)   - AV definitions current? [Y/N]\n" +
+        "                               - OS patches current? [Y/N]\n" +
+        "                               - BitLocker enabled? [Y/N]\n" +
+        "                               - Corp certificate present? [Y/N]\n" +
+        "                               |\n" +
+        "                         [all pass?]\n" +
+        "                          /       \\\n" +
+        "                        YES        NO (any fail)\n" +
+        "                         |              |\n" +
+        "                  Posture=Compliant  Posture=NonCompliant\n" +
+        "                         |              |\n" +
+        "                    VLAN 10         VLAN 50 (Quarantine)\n" +
+        "                  Full Access      + ACL-QUARANTINE-REMEDIATION\n" +
+        "                                  + url-redirect to remediation portal\n\n" +
+        "POSTURE POLICY REQUIREMENTS (example corporate policy):\n" +
+        "  Check                        Requirement          Action on Fail\n" +
+        "  --------                     -----------          --------------\n" +
+        "  Antivirus installed          Yes                  NonCompliant\n" +
+        "  AV definitions age           <= 7 days            NonCompliant\n" +
+        "  Windows critical patches     <= 30 days old       NonCompliant\n" +
+        "  BitLocker encryption         Enabled              NonCompliant\n" +
+        "  Corp EDR agent               Running              NonCompliant\n" +
+        "  Unauthorized VPN software    Absent               Warning only",
+      checkpoint: {
+        question: "A visiting auditor's unmanaged laptop must pass a posture check before it receives limited access. IT will not leave any software installed on it. Which posture mechanism fits this case?",
+        options: [
+          "A temporal (dissolvable) agent from the captive portal that deletes itself after the check",
+          "A persistent agent pushed by IT that reports to the ISE policy node over HTTPS",
+          "No agent: the RADIUS Access-Request from the switch already carries the posture data",
+          "The built-in Wired AutoConfig supplicant, which runs posture checks during 802.1X",
+        ],
+        answer: 0,
+        explanation: "For unmanaged or guest devices the reading describes the temporal (dissolvable/web) agent: ISE redirects the browser to a captive portal, the user runs a small executable, it reports the results and deletes itself, nothing stays installed. A persistent agent is the right tool for managed corporate devices, but it is permanently installed, which this case rules out. ‘RADIUS already carries the posture data’ is wrong: the reading says RADIUS carries only the authentication exchange between switch and ISE, and the posture report comes from an agent. The native Wired AutoConfig supplicant handles authentication only; posture capability is what a vendor agent adds on top of it.",
+      },
+    },
+    // ── Reading 6 ──────────────────────────────────────────────────────────────
+    {
+      type: "reading" as const,
+      id: "nac-r6",
+      heading: "VLANs and How NAC Uses Them for Segmentation",
+      content:
+        "A VLAN (Virtual Local Area Network) is a logical network segment created within a physical switch. Without VLANs, every device plugged into a switch can communicate with every other device on that switch. They share one broadcast domain. With VLANs, the switch is partitioned: devices in VLAN 10 cannot communicate with devices in VLAN 20 unless a router or firewall explicitly permits that traffic. This logical isolation is enforced in hardware by the switch, regardless of IP addressing.\n\n" +
+        "NAC uses dynamic VLAN assignment as its primary enforcement mechanism. When ISE sends a RADIUS Access-Accept to the switch, it includes the VLAN number to assign to that specific port. The switch immediately moves the port to the specified VLAN. The device on that port does not need to do anything. It does not know which VLAN it is in. From the device's perspective, it connects to the network and requests an IP address via DHCP. The DHCP server for the assigned VLAN responds with an IP in that VLAN's subnet.\n\n" +
+        "A well-designed corporate NAC VLAN structure typically has five or more distinct segments. The Corporate Full Access VLAN (commonly VLAN 10 or a similar low number) is for authenticated domain users on compliant devices. These devices can reach all corporate resources: file servers, ERP systems, SharePoint, printers, and the internet. The Contractor Limited VLAN is for authenticated external users or contractors on compliant devices. These have internet access and specific application access, but cannot reach core corporate servers. The Guest VLAN is for internet-only access: no access to any corporate resource. The Quarantine VLAN is the remediation zone for non-compliant devices. Access is limited to Windows Update servers, AV update servers, and the ISE remediation portal. Nothing else. The IoT VLAN is for network devices (printers, IP cameras, smart TVs) that cannot participate in 802.1X. These devices are identified by MAC address or device profiling and placed in a restricted VLAN where they can only communicate with specific authorized destinations.\n\n" +
+        "For SOC analysts, the VLAN assignment visible in NAC logs is a direct indicator of risk. Any device showing VLAN 50 (Quarantine) in ISE logs is a device that failed posture: it needs investigation. Any device in VLAN 10 (Corporate) that the ISE profiler identifies as an IoT device is potentially a MAC spoofing attack. Any device generating traffic from Guest VLAN toward corporate VLANs is a potential firewall policy violation that may indicate Guest VLAN abuse.",
+      codeExample:
+        "VLAN ASSIGNMENT DECISION MATRIX\n" +
+        "=================================\n\n" +
+        "Identity + Posture Result --> VLAN Assignment\n\n" +
+        "User Role            Device Posture    VLAN    Access Level\n" +
+        "-------------        --------------    ----    ------------\n" +
+        "Domain User          Compliant         10      Full corporate + internet\n" +
+        "Domain User          NonCompliant      50      Remediation only\n" +
+        "Domain User          Unknown           30      Limited (internet only)\n" +
+        "Contractor           Compliant         20      Internet + specific apps\n" +
+        "Contractor           NonCompliant      50      Remediation only\n" +
+        "Guest (no auth)      N/A               30      Internet only\n" +
+        "IoT Device           N/A (no 802.1X)   40      Defined destinations only\n" +
+        "Auth Failure         N/A               --      Port blocked (no VLAN)\n\n" +
+        "VLAN ISOLATION (what can reach what):\n\n" +
+        "VLAN 10 (Corporate):\n" +
+        "  Can reach: file servers, ERP, SharePoint, printers, internet\n" +
+        "  Cannot reach: VLAN 50 (quarantine)\n\n" +
+        "VLAN 20 (Contractor):\n" +
+        "  Can reach: internet, specific permitted app servers\n" +
+        "  Cannot reach: VLAN 10 resources, VLAN 40 IoT, VLAN 50\n\n" +
+        "VLAN 30 (Guest):\n" +
+        "  Can reach: internet only (via firewall)\n" +
+        "  Cannot reach: VLANs 10, 20, 40, 50\n\n" +
+        "VLAN 40 (IoT):\n" +
+        "  Can reach: specific servers (print server, camera NVR)\n" +
+        "  Cannot reach: VLANs 10, 20, 30, 50\n\n" +
+        "VLAN 50 (Quarantine):\n" +
+        "  Can reach: ISE portal, Windows Update, AV update server\n" +
+        "  Cannot reach: anything else\n\n" +
+        "Inter-VLAN routing controlled by core firewall (not the access switch).",
     },
     // ── Reading 9 ──────────────────────────────────────────────────────────────
     {
@@ -636,23 +670,6 @@ const nacMasterclass = {
         "  Alert: any traffic from VLAN 30 subnet to VLAN 10 subnet\n" +
         "  SIEM rule: src_ip in 192.168.30.0/24 AND dst_ip in 10.10.0.0/16",
     },
-    // ── Question 1 ─────────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "nac-q1",
-      question:
-        "An engineer connects a laptop to an 802.1X-enabled access port. While authentication is still in progress, the laptop's DHCP Discover messages get no reply and it has no IP address. What best explains this?",
-      options: [
-        "The port sits in a guest VLAN whose DHCP scope stays closed until authentication completes",
-        "The port is UNAUTHORIZED and forwards only EAPOL frames until the endpoint authenticates",
-        "The switch holds DHCP back until ISE has profiled the device from its CDP and LLDP data",
-        "The port stays administratively down until ISE sends an Access-Accept that enables it",
-      ],
-      answer: 1,
-      explanation:
-        "Before authentication succeeds, an 802.1X port is UNAUTHORIZED and passes only EAPOL (EAP over LAN) frames (no IP, DHCP, DNS or HTTP) so the DHCP Discover is dropped; after the Access-Accept the port becomes AUTHORIZED and DHCP works. A guest VLAN is an authorization RESULT that ISE or the switch assigns, not the pre-authentication state, and the reading puts guests on an internet-capable VLAN with working DHCP. Profiling does not gate DHCP. ISE profiling is passive and actually uses DHCP options as one of its inputs. An administratively down port would carry no frames at all, including EAPOL, so authentication could never start.",
-      xp: 20,
-    },
     // ── Question 2 ─────────────────────────────────────────────────────────────
     {
       type: "question" as const,
@@ -668,23 +685,6 @@ const nacMasterclass = {
       answer: 1,
       explanation:
         "This is the MAC-spoofing pattern from the NAC-bypass reading: MAB only checks that the MAC is on the approved list, so a laptop using the printer's MAC is admitted, but the profiler sees traffic inconsistent with a printer (Windows DHCP options, a browser User-Agent) and raises a profile mismatch, the alert the SIEM should fire on for a MAB endpoint. A firmware update might alter some DHCP details, but it would not make a printer send a Windows option set and a desktop browser User-Agent, nor move it to another floor. Hub insertion shows up as an EXTRA MAC on the same port (found by counting MACs per port; in single-host mode also a SECURITY_VIOLATION), not the same MAC with a new profile on a different port. Printers sit on MAB precisely because they cannot do 802.1X, so there is no 802.1X certificate to expire.",
-      xp: 25,
-    },
-    // ── Question 3 ─────────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "nac-q3",
-      question:
-        "During an outage review, the access switches show RADIUS replies arriving promptly from ISE, yet every user login is rejected and ISE reports that it cannot reach the user directory. Which statement correctly places the failure?",
-      options: [
-        "The switch-to-ISE RADIUS leg failed; ISE's lookup to the directory is unaffected",
-        "The RADIUS leg works; the failure is ISE's own back-end query to Active Directory",
-        "The switch queries AD directly over LDAP, so the switch's LDAP settings are broken",
-        "The endpoint's supplicant lost its LDAP session to the domain controller mid-login",
-      ],
-      answer: 1,
-      explanation:
-        "RADIUS is the access-decision protocol between the switch and ISE; LDAP is the directory protocol ISE itself uses toward Active Directory. Prompt RADIUS replies prove the switch-to-ISE leg is healthy, and ISE’s own ‘cannot reach the directory’ error places the break on its back-end AD query, so ‘the RADIUS leg failed’ contradicts the evidence. The switch never talks to AD: it only forwards the request to ISE, which is the whole point of separating enforcement from decision. The supplicant also never holds an LDAP session: it sends its credentials inside EAP to the switch, which relays them to ISE.",
       xp: 25,
     },
     // ── Log Analysis ───────────────────────────────────────────────────────────

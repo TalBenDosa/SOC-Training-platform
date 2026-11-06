@@ -174,6 +174,56 @@ const WHOGOES: CampusConfig = {
   ],
 };
 
+const PAPERTRAIL: HallConfig = {
+  title: "The Record Room",
+  sub: "Brackenridge Mutual Housing SOC",
+  core: "matrix",
+  books: ["Reporting", "Incident Response", "SOC"],
+  cards: [
+    { icon: "layers", name: ["The Case", "Notes"], color: "#e9d8a6", art: "tree" },
+    { icon: "users", name: ["The", "Handover"], color: "#7dd3fc", art: "loot" },
+    { icon: "lock", name: ["The", "Hold"], color: "#f43f5e", art: "lock" },
+    { icon: "pulse", name: ["The Three", "Clocks"], color: "#a78bfa", art: "axes" },
+    { icon: "check", name: ["The", "Sign-Off"], color: "#34d399", art: "pulse" },
+  ],
+};
+
+const BADNEWS: CampusConfig = {
+  seed: 8263,
+  hub: { title: "Lanternwatch Managed SOC", sub: "CLIENT SERVICES HUB" },
+  buildings: [
+    { icon: "mail", sign: ["The First", "Update"], color: "#e879f9", x: -19, z: -1.5, rot: 0.42 },
+    { icon: "siren", sign: ["The", "Clock"], color: "#bef264", x: -10.5, z: 8.5, rot: 0.18 },
+    { icon: "users", sign: ["The", "Apology"], color: "#67e8f9", x: 6, z: 9, rot: -0.1 },
+    { icon: "shield", sign: ["Bad", "News"], color: "#f43f5e", x: 17, z: -4, rot: -0.34 },
+  ],
+};
+
+const FRONTDOOR: HallConfig = {
+  title: "The Front Door",
+  sub: "Ravensford Academy Trust network access",
+  core: "knot",
+  books: ["NAC", "Identity", "SOC"],
+  cards: [
+    { icon: "wire", name: ["The", "Port"], color: "#bef264", art: "lock" },
+    { icon: "filter", name: ["The", "Decision"], color: "#7dd3fc", art: "tree" },
+    { icon: "pulse", name: ["The Health", "Check"], color: "#34d399", art: "pulse" },
+    { icon: "eye", name: ["The", "Bypass"], color: "#f472b6", art: "ghost" },
+    { icon: "siren", name: ["Quarantine", "Record"], color: "#f43f5e", art: "loot" },
+  ],
+};
+
+const AUTOPILOT: CampusConfig = {
+  seed: 6637,
+  hub: { title: "Cobalt Ridge Logistics", sub: "AUTOMATION CONTROL HUB" },
+  buildings: [
+    { icon: "filter", sign: ["The", "Playbook"], color: "#7aa2f7", x: -19, z: -1.5, rot: 0.4 },
+    { icon: "shield", sign: ["The", "Gate"], color: "#fde68a", x: -6, z: 9, rot: 0.1 },
+    { icon: "target", sign: ["The", "Dial"], color: "#a5f3a0", x: 7.5, z: 9.5, rot: -0.12 },
+    { icon: "siren", sign: ["Trust the", "Automation?"], color: "#fb5607", x: 17.5, z: -2.5, rot: -0.38 },
+  ],
+};
+
 const HALL: HallConfig = {
   title: "Specimen Hall",
   sub: "Vantor Logistics malware lab",
@@ -248,3 +298,7 @@ export function FacilityBreadcrumb(props: WorldProps) { return <HallWorld cfg={B
 export function FacilityTabletop(props: WorldProps) { return <CampusWorld cfg={TABLETOP} props={props} />; }
 export function FacilityLooseThread(props: WorldProps) { return <HallWorld cfg={LOOSETHREAD} props={props} />; }
 export function FacilityWhoGoes(props: WorldProps) { return <CampusWorld cfg={WHOGOES} props={props} />; }
+export function FacilityPaperTrail(props: WorldProps) { return <HallWorld cfg={PAPERTRAIL} props={props} />; }
+export function FacilityBadNews(props: WorldProps) { return <CampusWorld cfg={BADNEWS} props={props} />; }
+export function FacilityFrontDoor(props: WorldProps) { return <HallWorld cfg={FRONTDOOR} props={props} />; }
+export function FacilityAutopilot(props: WorldProps) { return <CampusWorld cfg={AUTOPILOT} props={props} />; }

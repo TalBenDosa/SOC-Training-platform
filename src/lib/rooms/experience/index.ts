@@ -61,6 +61,10 @@ import { IOC_ANALYSIS } from "./iocAnalysis";
 import { INCIDENT_RESPONSE_METHODOLOGY } from "./incidentResponseMethodology";
 import { INVESTIGATION_METHODOLOGY } from "./investigationMethodology";
 import { AUTH_IDENTITY_MONITORING } from "./authIdentityMonitoring";
+import { REPORTING_DOCUMENTATION } from "./reportingDocumentation";
+import { CUSTOMER_COMMUNICATION } from "./customerCommunication";
+import { NAC_MASTERCLASS } from "./nacMasterclass";
+import { SOAR_AUTOMATION } from "./soarAutomation";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -128,6 +132,10 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [INCIDENT_RESPONSE_METHODOLOGY.roomId]: INCIDENT_RESPONSE_METHODOLOGY,
   [INVESTIGATION_METHODOLOGY.roomId]: INVESTIGATION_METHODOLOGY,
   [AUTH_IDENTITY_MONITORING.roomId]: AUTH_IDENTITY_MONITORING,
+  [REPORTING_DOCUMENTATION.roomId]: REPORTING_DOCUMENTATION,
+  [CUSTOMER_COMMUNICATION.roomId]: CUSTOMER_COMMUNICATION,
+  [NAC_MASTERCLASS.roomId]: NAC_MASTERCLASS,
+  [SOAR_AUTOMATION.roomId]: SOAR_AUTOMATION,
 };
 
 /**

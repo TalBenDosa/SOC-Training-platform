@@ -387,6 +387,23 @@ const rooms = [
             "The reading's rule is “if it's not documented, it didn't happen”: without a written record there is no audit trail or legal evidence, no shift continuity and no knowledge transfer. Containment is a technical state of the host, not something a ticket entry completes. The KPI effect is real but minor next to the lost evidence and context. The reading never says a verbal handover replaces documentation; the handover itself is a written report.",
         },
       },
+      // ── Question 1 ────────────────────────────────────────────────────────
+      {
+        type: "question",
+        id: "rep-q1",
+        question:
+          "An analyst responds to a ransomware incident, successfully contains it, and closes the ticket with only the note: 'Ransomware. Cleaned up.' What is the PRIMARY problem with this documentation?",
+        options: [
+          "It does not name the ransomware family, which the ticket needs before the incident can be categorised",
+          "It records no timeline, affected systems, IOCs, actions or root cause, so the record cannot be audited",
+          "It belongs in the shift handover report instead, since a contained incident no longer needs a full ticket",
+          "It lacks the plain-language executive summary, which has to be written into the ticket before closure",
+        ],
+        answer: 1,
+        explanation:
+          "A ticket note must answer Who, What, When, Where, Why and How. “Ransomware. Cleaned up.” answers none of them, so auditors, legal and the next analyst have no usable record. The ransomware family is a useful detail, but the category (Malware) can be set without it, and its absence is not the main gap. Contained incidents still need a full ticket; the handover report only summarises open work. The executive summary is a separate management deliverable for significant incidents, not a field of the ticket note.",
+        xp: 15,
+      },
       // ── Reading 2 ─────────────────────────────────────────────────────────
       {
         type: "reading",
@@ -428,6 +445,23 @@ const rooms = [
           explanation:
             "MTTD measures the time from when an attack actually begins until the SOC detects it. MTTR (Mean Time to Respond) is the separate metric covering the time from detection to the first containment action.",
         },
+      },
+      // ── Question 3 ────────────────────────────────────────────────────────
+      {
+        type: "question",
+        id: "rep-q3",
+        question:
+          "Your SOC's SIEM generates 10,000 alerts in a week. After investigation, analysts determine that 9,200 of those alerts were false positives. What is the false positive rate, and what does this indicate?",
+        options: [
+          "0.8%: computed by dividing the 800 true positives by ten thousand, which shows very few false alarms",
+          "92%: most alert volume is noise, which indicates poorly tuned rules that waste significant analyst time",
+          "92%: normal for a mature SOC, because broad rules deliberately trade precision for coverage and need no tuning",
+          "8%: the share of alerts that were true positives, which indicates accurate rules that need little tuning",
+        ],
+        answer: 1,
+        explanation:
+          "9,200 false positives out of 10,000 alerts = 92%. Reading 2 says an FP rate above 90% is a sign of poorly tuned rules that waste analyst time, so the response is to review and tune the noisiest rules. “0.8%” divides the wrong numbers (800 is the true-positive count, and 800/10,000 is 8%, not 0.8%). “8%” is the true-positive share, not the FP rate. “Normal for a mature SOC” contradicts the reading: a rate this high is a tuning problem, not a deliberate design choice.",
+        xp: 20,
       },
       // ── Reading 3 ─────────────────────────────────────────────────────────
       {
@@ -503,23 +537,6 @@ const rooms = [
             "MTTA = time acknowledged − time generated = 14:16 − 14:10 = 6 minutes. The other options confuse MTTA with the raw clock times shown (14:10 and 14:16) or simply pick an unrelated figure. MTTA is always the difference between the two timestamps, not either timestamp on its own.",
         },
       },
-      // ── Question 1 ────────────────────────────────────────────────────────
-      {
-        type: "question",
-        id: "rep-q1",
-        question:
-          "An analyst responds to a ransomware incident, successfully contains it, and closes the ticket with only the note: 'Ransomware. Cleaned up.' What is the PRIMARY problem with this documentation?",
-        options: [
-          "It does not name the ransomware family, which the ticket needs before the incident can be categorised",
-          "It records no timeline, affected systems, IOCs, actions or root cause, so the record cannot be audited",
-          "It belongs in the shift handover report instead, since a contained incident no longer needs a full ticket",
-          "It lacks the plain-language executive summary, which has to be written into the ticket before closure",
-        ],
-        answer: 1,
-        explanation:
-          "A ticket note must answer Who, What, When, Where, Why and How. “Ransomware. Cleaned up.” answers none of them, so auditors, legal and the next analyst have no usable record. The ransomware family is a useful detail, but the category (Malware) can be set without it, and its absence is not the main gap. Contained incidents still need a full ticket; the handover report only summarises open work. The executive summary is a separate management deliverable for significant incidents, not a field of the ticket note.",
-        xp: 15,
-      },
       // ── Question 2 ────────────────────────────────────────────────────────
       {
         type: "question",
@@ -536,23 +553,6 @@ const rooms = [
         explanation:
           "Dwell time = detection − actual initial compromise = 08:10 − 06:40 = 1 hour 30 minutes. “15 minutes” is the MTTA (08:25 − 08:10). “45 minutes” is MTTR in the respond sense (08:55 − 08:10, alert to first containment). “2 hours 15 minutes” runs from the compromise to containment, which is not one of the reading's metrics, because dwell time stops at detection.",
         xp: 15,
-      },
-      // ── Question 3 ────────────────────────────────────────────────────────
-      {
-        type: "question",
-        id: "rep-q3",
-        question:
-          "Your SOC's SIEM generates 10,000 alerts in a week. After investigation, analysts determine that 9,200 of those alerts were false positives. What is the false positive rate, and what does this indicate?",
-        options: [
-          "0.8%: computed by dividing the 800 true positives by ten thousand, which shows very few false alarms",
-          "92%: most alert volume is noise, which indicates poorly tuned rules that waste significant analyst time",
-          "92%: normal for a mature SOC, because broad rules deliberately trade precision for coverage and need no tuning",
-          "8%: the share of alerts that were true positives, which indicates accurate rules that need little tuning",
-        ],
-        answer: 1,
-        explanation:
-          "9,200 false positives out of 10,000 alerts = 92%. Reading 2 says an FP rate above 90% is a sign of poorly tuned rules that waste analyst time, so the response is to review and tune the noisiest rules. “0.8%” divides the wrong numbers (800 is the true-positive count, and 800/10,000 is 8%, not 0.8%). “8%” is the true-positive share, not the FP rate. “Normal for a mature SOC” contradicts the reading: a rate this high is a tuning problem, not a deliberate design choice.",
-        xp: 20,
       },
       // ── Log Analysis ──────────────────────────────────────────────────────
       {
@@ -728,6 +728,23 @@ const rooms = [
             "The reading's rule is to lead with impact and actions taken: what happened to the client, what risk they face now and what to do. Technique IDs and the internal alert wording are the jargon the translation is meant to remove. Starting with the step-by-step attack chain buries the impact and the actions, which the client needs first.",
         },
       },
+      // ── Question 2 ────────────────────────────────────────────────────────
+      {
+        type: "question",
+        id: "cc-q2",
+        question:
+          "An analyst drafts this client notification: 'We detected T1078 Valid Account usage with impossible travel IOA across your tenant.' What is the main problem with this notification?",
+        options: [
+          "It omits the full IOC list and the detection rule ID, which the client's team needs before it can act",
+          "It reports the detection before the SOC finished investigating, so it should wait until scope is known",
+          "It is written in jargon (T1078, IOA) a business contact won't follow; it should state the impact plainly",
+          "It names the technique but not the SIEM product that raised it, so the client cannot verify the finding",
+        ],
+        answer: 2,
+        explanation:
+          "Client notifications should lead with impact in plain language. “T1078 Valid Account usage with impossible travel IOA” means nothing to most client contacts. A better version: “One of your accounts signed in from New York and Tokyo within the same hour, which is physically impossible, so its password has likely been stolen. We have blocked the account while we investigate.” IOC lists and rule IDs belong in the technical follow-up, not the first notice. Holding the notice until scope is known risks breaching the SLA; the reading's transparency principle is to say what you know now. The SIEM product name gives the client nothing to act on.",
+        xp: 20,
+      },
       // ── Reading 2 ─────────────────────────────────────────────────────────
       {
         type: "reading",
@@ -771,6 +788,40 @@ const rooms = [
             "Actively spreading ransomware is P1 (Critical), which requires a phone call within 15 minutes of confirmation. A call reaches the client immediately and allows two-way conversation. “Email within 1 hour” is the P2 tier, for a threat that is already contained; an email can sit unread for hours. The 4-hour ticket update is P3, and the weekly report is P4.",
         },
       },
+      // ── Question 1 ────────────────────────────────────────────────────────
+      {
+        type: "question",
+        id: "cc-q1",
+        question:
+          "Twenty minutes ago the client reset its CEO's password after a phishing report, and you opened the ticket as P2 (contained, client action needed). You now see the CEO's mailbox still sending wire-transfer requests from an unfamiliar session. How should you notify the client?",
+        options: [
+          "Keep it at P2 and email the client within the hour, since the password reset already contained the account",
+          "Add the new evidence to the P2 ticket in the portal so the client's team sees it at its next check",
+          "Re-classify it as P1 and phone the client within 15 minutes, because the compromise is still active",
+          "Re-classify it as P1 and email the details to the CEO, so the warning and the evidence stay in writing",
+        ],
+        answer: 2,
+        explanation:
+          "The reset did not end the compromise: the mailbox is still being used for fraud, so this is now an active P1 (CEO account compromised, direct financial impact). P1 requires a phone call within 15 minutes of confirmation. Staying at P2 relies on a containment that has visibly failed. A portal update is the P3/P4 channel and could sit unread. Email is too slow for P1, and sending it to the CEO's mailbox, which the attacker is using, could warn the attacker instead of the client.",
+        xp: 15,
+      },
+      // ── Question 3 ────────────────────────────────────────────────────────
+      {
+        type: "question",
+        id: "cc-q3",
+        question:
+          "A client says: 'We don't want you to isolate the infected machine. Our CFO needs it for a board presentation tomorrow morning.' What is the BEST response from the SOC analyst?",
+        options: [
+          "Agree to wait until after the presentation, but raise the ticket to P1 and watch the machine closely overnight",
+          "Isolate the machine anyway as policy requires, and tell the client afterwards in the end-of-shift report",
+          "Explain the concrete risk of waiting, recommend isolating now, and offer the CFO a temporary device",
+          "Pass the conversation to Tier 3, since pushback on a containment decision is outside Tier 1's remit",
+        ],
+        answer: 2,
+        explanation:
+          "Reading 2's guidance for “can you wait until business hours?” is to explain the business risk of waiting (spread to shared drives, the file server or email), recommend isolating now, and offer the user a temporary device. Agreeing to wait leaves an infected machine connected all night; watching it more closely does not stop the spread. Isolating without telling the client ignores that it is the client's environment and damages trust. Handling client pushback professionally is part of the analyst's communication job, and the reading does not route it to Tier 3.",
+        xp: 20,
+      },
       // ── Reading 3 ─────────────────────────────────────────────────────────
       {
         type: "reading",
@@ -798,57 +849,6 @@ const rooms = [
           `- **Proactivity**: Don't wait for clients to ask for status updates. Provide them on a cadence. If you notice something concerning that isn't quite at alert threshold yet, tell them\n` +
           `- **Competence**: Demonstrate your expertise by providing context that helps clients understand their risk posture, not just "here's an alert" but "here's what this means for your business"\n\n` +
           `Remember: from the client's perspective, their SOC is their most important security partner. They've trusted you with the most sensitive information about their systems. Every interaction is an opportunity to reinforce, or undermine, that trust.`,
-      },
-      // ── Question 1 ────────────────────────────────────────────────────────
-      {
-        type: "question",
-        id: "cc-q1",
-        question:
-          "Twenty minutes ago the client reset its CEO's password after a phishing report, and you opened the ticket as P2 (contained, client action needed). You now see the CEO's mailbox still sending wire-transfer requests from an unfamiliar session. How should you notify the client?",
-        options: [
-          "Keep it at P2 and email the client within the hour, since the password reset already contained the account",
-          "Add the new evidence to the P2 ticket in the portal so the client's team sees it at its next check",
-          "Re-classify it as P1 and phone the client within 15 minutes, because the compromise is still active",
-          "Re-classify it as P1 and email the details to the CEO, so the warning and the evidence stay in writing",
-        ],
-        answer: 2,
-        explanation:
-          "The reset did not end the compromise: the mailbox is still being used for fraud, so this is now an active P1 (CEO account compromised, direct financial impact). P1 requires a phone call within 15 minutes of confirmation. Staying at P2 relies on a containment that has visibly failed. A portal update is the P3/P4 channel and could sit unread. Email is too slow for P1, and sending it to the CEO's mailbox, which the attacker is using, could warn the attacker instead of the client.",
-        xp: 15,
-      },
-      // ── Question 2 ────────────────────────────────────────────────────────
-      {
-        type: "question",
-        id: "cc-q2",
-        question:
-          "An analyst drafts this client notification: 'We detected T1078 Valid Account usage with impossible travel IOA across your tenant.' What is the main problem with this notification?",
-        options: [
-          "It omits the full IOC list and the detection rule ID, which the client's team needs before it can act",
-          "It reports the detection before the SOC finished investigating, so it should wait until scope is known",
-          "It is written in jargon (T1078, IOA) a business contact won't follow; it should state the impact plainly",
-          "It names the technique but not the SIEM product that raised it, so the client cannot verify the finding",
-        ],
-        answer: 2,
-        explanation:
-          "Client notifications should lead with impact in plain language. “T1078 Valid Account usage with impossible travel IOA” means nothing to most client contacts. A better version: “One of your accounts signed in from New York and Tokyo within the same hour, which is physically impossible, so its password has likely been stolen. We have blocked the account while we investigate.” IOC lists and rule IDs belong in the technical follow-up, not the first notice. Holding the notice until scope is known risks breaching the SLA; the reading's transparency principle is to say what you know now. The SIEM product name gives the client nothing to act on.",
-        xp: 20,
-      },
-      // ── Question 3 ────────────────────────────────────────────────────────
-      {
-        type: "question",
-        id: "cc-q3",
-        question:
-          "A client says: 'We don't want you to isolate the infected machine. Our CFO needs it for a board presentation tomorrow morning.' What is the BEST response from the SOC analyst?",
-        options: [
-          "Agree to wait until after the presentation, but raise the ticket to P1 and watch the machine closely overnight",
-          "Isolate the machine anyway as policy requires, and tell the client afterwards in the end-of-shift report",
-          "Explain the concrete risk of waiting, recommend isolating now, and offer the CFO a temporary device",
-          "Pass the conversation to Tier 3, since pushback on a containment decision is outside Tier 1's remit",
-        ],
-        answer: 2,
-        explanation:
-          "Reading 2's guidance for “can you wait until business hours?” is to explain the business risk of waiting (spread to shared drives, the file server or email), recommend isolating now, and offer the user a temporary device. Agreeing to wait leaves an infected machine connected all night; watching it more closely does not stop the spread. Isolating without telling the client ignores that it is the client's environment and damages trust. Handling client pushback professionally is part of the analyst's communication job, and the reading does not route it to Tier 3.",
-        xp: 20,
       },
       // ── Log Analysis ──────────────────────────────────────────────────────
       {

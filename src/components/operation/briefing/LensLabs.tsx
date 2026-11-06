@@ -172,7 +172,7 @@ export function LocksLab({ lab, onDone }: LabProps<"locks">) {
               Next door
             </button>
           )}
-          {done && <p className="mt-1 text-sm font-semibold text-emerald-300">All three locks open. Together they are called the CIA triad.</p>}
+          {done && <p className="mt-1 text-sm font-semibold text-emerald-300">All locks open.{lab.finish ? ` ${lab.finish}` : ""}</p>}
         </motion.div>
       )}
     </div>
