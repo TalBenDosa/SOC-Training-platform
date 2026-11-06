@@ -45,6 +45,6 @@ r1, q3 | r2, q1, q2 | r3, la1, flag1 | ac1
 | סרטון | מתי | הפניה |
 |---|---|---|
 | Intro: "Nine Hours" | כניסה | תחנה 1 |
-| Chapter 2: "Thirty-Four Locked Doors" | אחרי The Control Plane | תחנה 2 |
+| Chapter 2: "Somewhere in the Record" | אחרי The Control Plane | תחנה 2 |
 | Chapter 3: "The Night Before" | אחרי The Open Door | תחנה 4 |
 | Finale: "Release 7.2" | אחרי The Last Call | החדר הבא |

@@ -52,4 +52,4 @@ r1, o1 | r2, la1, q1, m1 | la2 | ac1, q2, r3, f1
 | Intro: "The Red Binder" | כניסה | תחנה 1 |
 | Chapter 2: "Written in March" | אחרי The Binder | תחנה 2 |
 | Chapter 3: "One Click Away" | אחרי Walk the Page | תחנה 3 |
-| Finale: "The Page Gets Rewritten" | אחרי The Call | החדר הבא |
+| Finale: "Before the Doors Open" | אחרי The Call | החדר הבא |

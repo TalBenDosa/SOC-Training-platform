@@ -55,7 +55,7 @@ r1, q1, la1 | r2, la3, r3 | r4, q2, la2, ac2 | r5, ac3, f1, ac1, q3, ac4 | r6, m
 |---|---|---|
 | Intro: "One Line to Sign" | כניסה | תחנה 1 |
 | Chapter 2: "The Pile Gets Taller" | אחרי The Odd One | תחנה 2 |
-| Chapter 3: "A Genuine Page" | אחרי The Real Screen | תחנה 4 |
+| Chapter 3: "The Lawyer's Questions" | אחרי The Real Screen | תחנה 4 |
 | Finale: "Signed" | אחרי The Fine Print | החדר הבא |
 
 **הערות לסרטונים:** Intro מציג את Ifeoma, את המכירה ואת ערימת הכרטיסים הסגורים. Chapter 2 מספר שהכרטיס הראשון נפתח מחדש ושיש עוד בערימה, בלי לומר איך זוהה. Chapter 3 מספר שעורך הדין של הקונה מתחיל לשאול שאלות והלו"ז מתהדק, בלי להראות שיטת קריאה של שדות, הרשאות או טבלאות. Finale מספר שהשורה שנחתמת בסוף שונה מזו שהתבקשה, ומפנה לחדר הבא.

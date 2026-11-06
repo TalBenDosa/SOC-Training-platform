@@ -44,5 +44,5 @@ cc-read-1, cc-q2 | cc-read-2, cc-q1, cc-q3 | cc-read-3, cc-log-1 | cc-ac1
 |---|---|---|
 | Intro: "Midnight Sale" | כניסה | תחנה 1 |
 | Chapter 2: "Still Inside" | אחרי The First Update | תחנה 2 |
-| Chapter 3: "Two Minutes" | אחרי The Clock | תחנה 3 |
+| Chapter 3: "The Red Line" | אחרי The Clock | תחנה 3 |
 | Finale: "Bad News" | אחרי הבוס | החדר הבא |

@@ -55,6 +55,6 @@ r1, q1, la1, o1 | r2, la2, qf1 | r3, q2 | r4, r5, q4, m1 | ac1, q3, f1
 | סרטון | מתי | הפניה |
 |---|---|---|
 | Intro: "First Wave" | כניסה | תחנה 1 |
-| Chapter 2: "Go Again" | אחרי The Alert | תחנה 2 |
+| Chapter 2: "Wheels Up" | אחרי The Alert | תחנה 2 |
 | Chapter 3: "Last Hour of the Shift" | אחרי The Case File | תחנה 5 |
 | Finale: "Full Shift" | אחרי The Call | החדר הבא |

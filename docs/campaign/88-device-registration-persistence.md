@@ -49,6 +49,6 @@ r1, r2, q1, q1b | r3, m1 | r4, la1, o1 | r5, ac1, q3 | qf1, f1, q4
 | סרטון | מתי | הפניה |
 |---|---|---|
 | Intro: "The Wednesday Password" | כניסה | תחנה 1 |
-| Chapter 2: "Not on the Register" | אחרי The Device List | תחנה 2 |
-| Chapter 3: "Who Else Was Awake" | אחרי The Timing | תחנה 4 |
+| Chapter 2: "Still Locked Out" | אחרי The Device List | תחנה 2 |
+| Chapter 3: "A Long Queue" | אחרי The Timing | תחנה 4 |
 | Finale: "Close the Case" | אחרי Close the Case | החדר הבא |

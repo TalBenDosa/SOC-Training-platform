@@ -47,5 +47,5 @@ r8, q5, o1 | r9, q6, ac2 | r10 | la1, r11, f2
 |---|---|---|
 | Intro: "Thursday, 16:21" | כניסה | תחנה 1 |
 | Chapter 2: "Forty Hours of Tape" | אחרי The Voice Note | תחנה 2 |
-| Chapter 3: "Word Perfect" | אחרי The Lure Factory | תחנה 3 |
+| Chapter 3: "The Morning Post" | אחרי The Lure Factory | תחנה 3 |
 | Finale: "Back on Air" | אחרי Did It Leave? | החדר הבא |
