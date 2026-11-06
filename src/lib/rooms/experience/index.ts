@@ -73,6 +73,10 @@ import { DATA_STAGING_EXFILTRATION_CHANNELS } from "./dataStagingExfiltrationCha
 import { OT_ICS_SECURITY } from "./otIcsSecurity";
 import { USE_CASE_DEVELOPMENT } from "./useCaseDevelopment";
 import { DNS_DEEP_DIVE } from "./dnsDeepDive";
+import { TLS_ENCRYPTED_TRAFFIC } from "./tlsEncryptedTraffic";
+import { WINDOWS_PROTOCOLS_LATERAL } from "./windowsProtocolsLateral";
+import { EMAIL_PROTOCOLS_FORENSICS } from "./emailProtocolsForensics";
+import { KERBEROS_AUTHENTICATION } from "./kerberosAuthentication";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -152,6 +156,10 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [OT_ICS_SECURITY.roomId]: OT_ICS_SECURITY,
   [USE_CASE_DEVELOPMENT.roomId]: USE_CASE_DEVELOPMENT,
   [DNS_DEEP_DIVE.roomId]: DNS_DEEP_DIVE,
+  [TLS_ENCRYPTED_TRAFFIC.roomId]: TLS_ENCRYPTED_TRAFFIC,
+  [WINDOWS_PROTOCOLS_LATERAL.roomId]: WINDOWS_PROTOCOLS_LATERAL,
+  [EMAIL_PROTOCOLS_FORENSICS.roomId]: EMAIL_PROTOCOLS_FORENSICS,
+  [KERBEROS_AUTHENTICATION.roomId]: KERBEROS_AUTHENTICATION,
 };
 
 /**

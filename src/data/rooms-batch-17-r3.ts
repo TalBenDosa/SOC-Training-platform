@@ -160,6 +160,37 @@ const tlsRoom = {
       },
     },
 
+    // ── Ordering: TLS 1.2 handshake sequence ────────────────────────────────
+    {
+      type: "ordering" as const,
+      id: "tls-o1",
+      heading: "Order the TLS 1.2 Handshake, Message by Message",
+      instructions: "Arrange these handshake messages into the correct chronological order for a standard TLS 1.2 session.",
+      items: [
+        { id: "clienthello", text: "ClientHello (TLS version, cipher list, SNI, random value)" },
+        { id: "serverhello", text: "ServerHello (chosen cipher, server random value)" },
+        { id: "certificate", text: "Certificate (server sends its certificate chain)" },
+        { id: "serverhellodone", text: "ServerKeyExchange / ServerHelloDone" },
+        { id: "clientkeyexchange", text: "ClientKeyExchange (client sends its key material)" },
+        { id: "clientfinished", text: "ChangeCipherSpec + Finished (client)" },
+        { id: "serverfinished", text: "ChangeCipherSpec + Finished (server)" },
+        { id: "appdata", text: "Application Data (encrypted HTTP request/response begins)" },
+      ],
+      correct_order: [
+        "clienthello",
+        "serverhello",
+        "certificate",
+        "serverhellodone",
+        "clientkeyexchange",
+        "clientfinished",
+        "serverfinished",
+        "appdata",
+      ],
+      explanation:
+        "The client proposes parameters and states its target hostname via SNI; the server picks a cipher and presents its certificate chain; both sides exchange key material to independently derive the same session key; both sides confirm the handshake wasn't tampered with via their respective Finished messages (the first message actually encrypted with the new key); and only then does real application data begin flowing. Every field up through ClientKeyExchange is visible to network monitoring with zero decryption required, which is the entire basis for metadata-only TLS analysis.",
+      xp: 35,
+    },
+
     // ── Reading 2: SNI + cert chain validation ───────────────────────────────
     {
       type: "reading" as const,
@@ -213,6 +244,24 @@ const tlsRoom = {
         explanation:
           "The reading explains that legitimate infrastructure, even self-signed internal tools, is provisioned once and left in place for a long time (not regenerated every session or every day) while attacker certificates are cheap to generate and discard. That is why the pair is far stronger than either fact. “Short-lived, recently issued certificates are rare on legitimate sites” contradicts the Let's Encrypt nuance: short validity is now the industry norm. “A brand-new certificate has no revocation history yet” is beside the point: a self-signed certificate has no CA behind it to publish revocations at all. “Self-signed already marks C2 infrastructure on its own” over-weights one fact: the reading lists internal tools, appliances and lab gear that legitimately use self-signed certificates.",
       },
+    },
+
+    // ── Question 1 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "tls-q1",
+      question:
+        "Why does the SNI (Server Name Indication) field remain visible in cleartext even in a fully modern TLS 1.3 connection (assuming ECH is not in use)?",
+      options: [
+        "TLS 1.3 leaves every handshake message unencrypted, exactly as TLS 1.2 did, so SNI is visible along with the certificate and key exchange",
+        "SNI is sent in the ClientHello before any keys exist, because the server needs the hostname to choose which certificate to present",
+        "SNI is encrypted by TLS 1.3, but proxies and sensors log the name from the server certificate's subject and present it as SNI",
+        "SNI was dropped from the TLS 1.3 ClientHello, so the visible hostname is derived from the DNS query that preceded the connection",
+      ],
+      answer: 1,
+      explanation:
+        "The chicken-and-egg problem is structural: certificate selection depends on knowing the target hostname, but the certificate exchange is part of establishing the very encryption that would otherwise protect that hostname. SNI has to be sent in the ClientHello, before any shared secret exists, which is exactly why it remains the 'last cleartext field' and exactly why network security tools rely on it so heavily for HTTPS-based filtering and monitoring. Encrypted Client Hello (ECH) is a newer, not-yet-universal extension designed specifically to close this gap. TLS 1.3 does encrypt the certificate and later handshake fields (as Reading 1 covers), and standard TLS 1.3 still carries the SNI extension in its ClientHello, nothing about the protocol removed it.",
+      xp: 25,
     },
 
     // ── Reading 3: JA3/JA3S/JARM ─────────────────────────────────────────────
@@ -276,6 +325,96 @@ const tlsRoom = {
       },
     },
 
+    // ── Reading 6: TLS version/cipher downgrade as a fingerprint ─────────────
+    {
+      type: "reading" as const,
+      id: "tls-r6",
+      heading: "TLS Version and Cipher Suite Choice as a Fingerprint of the Software Behind a Connection",
+      content:
+        `Beyond JA3's full-string hashing, even a coarse read of TLS version and cipher suite list tells you something valuable: modern browsers and modern C2 frameworks tend to look very different from each other at this level, and that difference is itself detectable without any special tooling.\n\n` +
+        `**What a modern browser's ClientHello looks like**\n\n` +
+        `A current version of Chrome, Firefox, Edge, or Safari negotiates TLS 1.3 by default, offers a long, actively-maintained list of modern cipher suites and extensions (including things like GREASE values specifically designed to prevent ossification/fingerprinting of the browser's own TLS stack over time), and supports modern features like ALPN (Application-Layer Protocol Negotiation, used to negotiate HTTP/2) as standard. This produces a rich, current, well-populated ClientHello.\n\n` +
+        `**What a bare-bones or hand-rolled TLS stack looks like**\n\n` +
+        `Many malware families and simple/legacy tools use minimal TLS libraries, older language runtime defaults, or deliberately stripped-down implementations that offer a much shorter cipher suite list (sometimes just 3-6 options), negotiate an older TLS version (1.2 rather than 1.3) even when talking to a server that would happily support 1.3, and lack modern extensions entirely. None of this is proof of malice on its own. Plenty of legitimate embedded devices, older enterprise software, and simple internal automation scripts have exactly this same "thin" TLS fingerprint, but it is a meaningful anomaly specifically when observed FROM a device that should be running a modern, fully-patched browser or standard enterprise software stack, and isn't.\n\n` +
+        `**Downgrade attacks: a related but distinct concern**\n\n` +
+        `Historically, protocol downgrade attacks (like POODLE, exploiting fallback to SSLv3) tricked a connection into negotiating a deliberately weaker, exploitable protocol version even when both endpoints actually supported something stronger, typically via an on-path attacker manipulating the negotiation. Modern browsers and servers have largely closed this specific class of attack through protocol version intolerance detection and the removal of SSLv3/TLS 1.0/1.1 support entirely from current software. For a SOC today, seeing ANY internal system still negotiating SSLv3, TLS 1.0, or TLS 1.1 at all is primarily a **compliance and legacy-system** finding (unpatched, end-of-life software still in production) rather than an active-attack finding, but it remains worth flagging and tracking, both because such systems are often unpatched in other ways too, and because some threat actors specifically target legacy protocol support as an easier initial foothold.\n\n` +
+        `**Putting version/cipher observations to use**\n\n` +
+        `As a lightweight, no-tooling-required first pass before reaching for full JA3 computation: does the TLS version and rough cipher suite richness match what you'd expect from the claimed application on that host? A "browser" claiming to be Chrome but negotiating TLS 1.2 with four cipher suites and no ALPN is a mismatch worth a second look: exactly the kind of anomaly that a full JA3 lookup would confirm or refute definitively, but that a quick glance at the raw handshake fields can already flag.`,
+      codeExample:
+        "MODERN BROWSER vs BARE-BONES TLS STACK -- ROUGH COMPARISON\n" +
+        "=======================================================\n" +
+        "                    Modern Chrome/Firefox   Minimal/legacy\n" +
+        "                                            TLS library\n" +
+        "-------------------------------------------------------\n" +
+        "TLS version          1.3 (default)           1.2, sometimes\n" +
+        "                                              even when 1.3\n" +
+        "                                              is available\n" +
+        "Cipher suites offered ~15-20+, modern,        Often 3-6,\n" +
+        "                      actively maintained     sometimes\n" +
+        "                                              older/weaker\n" +
+        "GREASE values         Present (anti-           Absent\n" +
+        "                      fingerprinting noise)\n" +
+        "ALPN (HTTP/2 nego)     Present                 Often absent\n" +
+        "=======================================================\n\n" +
+        "A HOST CLAIMING TO BE A MODERN BROWSER BUT NEGOTIATING\n" +
+        "LIKE A BARE-BONES LIBRARY IS A MISMATCH WORTH A SECOND LOOK\n" +
+        "=======================================================",
+    },
+
+    // ── Log Analysis 2: cert/JARM investigation of rare destination ─────────
+    {
+      type: "log_analysis" as const,
+      id: "tls-la2",
+      heading: "A CI/CD Build Server's First-Ever Connection to a New Destination",
+      context:
+        "SRV-BUILD04 runs the company's CI/CD pipeline and normally only talks to a small, well-documented set of package registries, artifact repositories, and internal services. destination_hosts_seen_before_today confirms 185.183.96.14 has never been contacted from the 10.40.2.0/24 build segment before. Review the session record below.",
+      event: certInvestigationEvent,
+      questions: [
+        {
+          question:
+            "ssl.not_valid_before and ssl.not_valid_after both show exactly one year apart, but cert_age_hours_at_connection is only 25.8, meaning the certificate was issued roughly a day before this connection occurred, for a destination the build segment has never contacted before. Why does the certificate's AGE matter here more than its total validity PERIOD (one year)?",
+          options: [
+            "A one-year validity is unusually long for a self-signed cert, and that length is the main sign of attacker infrastructure",
+            "The one-year period is unremarkable; issuing it about a day before the first-ever contact points to newly built infrastructure",
+            "The period matters more: a one-year cert signals a long-term plan, while its age only reflects the most recent rotation",
+            "A day-old certificate is normal under Let's Encrypt-style 90-day rotation, so here the age is the weaker of the two signals",
+          ],
+          answer: 1,
+          explanation:
+            "As Reading 2 explains, validity PERIOD is not the signal. Short and long periods are both common on legitimate infrastructure. What matters is AGE relative to first contact: the certificate is about 26 hours old when SRV-BUILD04, which has never talked to this destination, connects to it, consistent with infrastructure stood up for this purpose rather than an established service the build server depends on. “A one-year validity is unusually long for a self-signed cert” invents a norm: whoever generates a self-signed certificate picks any period, and internal tools often use a year or more. “A one-year cert signals a long-term plan” reads intent into a number the issuer chose at will. “Normal under Let's Encrypt-style 90-day rotation” misreads the record: this certificate is self-signed (issuer equals subject), not issued by Let's Encrypt or any public CA, so that rotation pattern does not apply.",
+          xp: 25,
+        },
+        {
+          question:
+            "The record carries a passive JA3 for SRV-BUILD04's ClientHello but no JARM. Given that this is the FIRST connection ever observed to 185.183.96.14, why is running a JARM scan the more useful next pivot?",
+          options: [
+            "Zeek derives JARM from the ServerHello, so it will appear in the record once a second session is captured",
+            "JARM is active: you can probe 185.183.96.14 now and compare the result with published C2 server JARMs",
+            "JA3 describes the server's TLS stack, so on its own it cannot say whether the destination is C2 infrastructure",
+            "JARM sorts the cipher list before hashing, so it survives the randomisation that breaks JA3 matching on browsers",
+          ],
+          answer: 1,
+          explanation:
+            "This is the distinction from Reading 3: JA3 is passive and only describes the CLIENT side of the session you already captured, here, the build server's TLS library. JARM is active: you probe 185.183.96.14 yourself, now, and compare the result with published JARM signatures for C2 team servers, without waiting for more traffic. “Zeek derives JARM from the ServerHello” is wrong. JARM needs ten crafted probes, so no passive sensor produces it however many sessions it sees; the server-side passive fingerprint is JA3S. “JA3 describes the server's TLS stack” swaps JA3 and JA3S. “JARM sorts the cipher list before hashing” describes JA4, not JARM.",
+          xp: 25,
+        },
+        {
+          question:
+            "What is the appropriate response, balancing the genuine risk signals against the fact that CI/CD systems do sometimes legitimately need to reach new third-party services (e.g. a newly adopted build dependency or artifact mirror)?",
+          options: [
+            "Block 185.183.96.14 and rebuild SRV-BUILD04 now: a first-ever destination with a day-old self-signed cert is enough",
+            "Allow it for now, since build servers add new dependencies all the time, and raise it at the next change-board review",
+            "JARM-scan it and check threat intel, check pipeline changes for a new dependency, and escalate if nothing explains it",
+            "Ask the build team whether they recognise ci-artifact-sync.io, add it to the allowlist if they do, and close the alert",
+          ],
+          answer: 2,
+          explanation:
+            "A first-time connection from a build server is genuinely ambiguous (new dependencies and artifact mirrors are added legitimately) so you verify before either dismissing or over-reacting: fingerprint the destination and check threat intelligence, and in parallel check the pipeline configuration and change history for a documented new dependency. If nothing explains it, the day-old self-signed certificate on a never-seen destination is enough to escalate for endpoint investigation. “Block … and rebuild SRV-BUILD04 now” destroys the evidence and breaks the pipeline before you know whether a legitimate change explains it. “Allow it for now … and raise it at the next change-board review” leaves a possible C2 channel open on the build server for days. “Ask the build team whether they recognise” the name trusts recognition of a domain anyone could register; a plausible name is not a documented change.",
+          xp: 30,
+        },
+      ],
+    },
+
     // ── Reading 4: detecting C2 in TLS without decryption ────────────────────
     {
       type: "reading" as const,
@@ -319,113 +458,6 @@ const tlsRoom = {
         "=======================================================",
     },
 
-    // ── Reading 5: when interception is/isn't possible ───────────────────────
-    {
-      type: "reading" as const,
-      id: "tls-r5",
-      heading: "When TLS Interception Is (and Isn't) Possible",
-      content:
-        `Everything covered so far assumes you're analyzing TLS metadata WITHOUT decrypting the traffic. Some organizations also deploy active **TLS/SSL interception** (forward proxy MITM) to inspect content directly, but it's far from a universal solution, and knowing its limits matters as much as knowing how it works.\n\n` +
-        `**How interception works**\n\n` +
-        `An enterprise forward proxy or NGFW performing SSL inspection sits in the middle of every outbound HTTPS connection: it terminates the client's TLS connection using a certificate it generates on the fly (signed by an internal CA that the organization has deployed to every managed device's trust store), separately establishes its own TLS connection out to the real destination, and relays the decrypted content between the two, inspecting it in the middle, then re-encrypting on both legs. To the client, this looks like a normal, validating HTTPS connection specifically because the internal CA's root certificate has been pushed to the device's trust store in advance; without that trust-store deployment, every intercepted site would show a certificate warning.\n\n` +
-        `**Where interception breaks down: certificate pinning**\n\n` +
-        `**Certificate pinning** is a technique where an application hard-codes (pins) the exact certificate, or public key, or CA it expects to see for a specific service, and refuses to connect if presented with anything else, even a certificate that would otherwise validate successfully against the device's trust store. This is a deliberate security feature (it defeats exactly this kind of interception, which is also why some malicious/adversarial tooling deliberately implements pinning too, for the same reason). Mobile banking apps, some messaging apps, and, notably, several C2 frameworks specifically implement certificate pinning against their own team server's certificate precisely to prevent a defender's SSL inspection appliance from ever seeing their C2 traffic's actual content: the connection simply fails outright rather than being interceptable, which itself can be a signal (an application or process whose HTTPS connections are consistently failing specifically at your interception point, while working fine when tested from outside it).\n\n` +
-        `**Other practical and legal limits**\n\n` +
-        `Many organizations explicitly exclude certain traffic categories from interception for legal, regulatory, or trust reasons: banking and financial sites, healthcare portals (relevant to data privacy regulation), and sometimes personal webmail, specifically to avoid the organization taking on liability for having visibility into that content. **HSTS (HTTP Strict Transport Security)** preloading can also complicate interception for specific domains, because once HSTS is in effect the browser removes the click-through option when a certificate is untrusted (a proxy certificate chaining to a CA in the device trust store is still accepted, so it is certificate pinning or a missing internal CA that actually defeats interception). And practically: interception requires deploying and maintaining the internal CA across every managed device, which fails outright for unmanaged/BYOD devices, IoT devices, and third-party/contractor equipment that will never trust your internal CA, for that traffic, metadata-only analysis (everything covered in this room up to this point) is not a fallback option, it is the ONLY option.\n\n` +
-        `**The practical takeaway for an analyst**\n\n` +
-        `Even in an organization that DOES deploy SSL interception broadly, you should never assume it universally covers everything: pinned applications, excluded categories, and unmanaged devices all still require metadata-based analysis. This is exactly why the skills in this room (SNI, certificate metadata, JA3/JA3S/JARM, and beacon-timing analysis) remain essential even in a mature security program with full interception capability, not just a fallback for organizations without it.`,
-      codeExample:
-        "TLS INTERCEPTION -- WHAT WORKS AND WHAT DOESN'T\n" +
-        "=======================================================\n" +
-        "WORKS:  Managed corporate device, browser trusts the\n" +
-        "        internal CA, application performs standard\n" +
-        "        trust-store-based certificate validation\n" +
-        "\n" +
-        "FAILS:  Certificate-pinned applications/tools (mobile\n" +
-        "        banking, some messaging apps, many C2 frameworks\n" +
-        "        pinning their own team-server cert on purpose)\n" +
-        "\n" +
-        "FAILS:  Unmanaged / BYOD / IoT / contractor devices that\n" +
-        "        never received the internal CA\n" +
-        "\n" +
-        "EXCLUDED BY POLICY: banking, healthcare, sometimes\n" +
-        "        personal webmail -- legal/regulatory reasons\n" +
-        "\n" +
-        "=======================================================\n" +
-        "A pinned app's connections FAILING specifically at your\n" +
-        "interception point (while working fine outside it) is\n" +
-        "itself a useful signal an app is deliberately resisting\n" +
-        "inspection.\n" +
-        "=======================================================",
-      checkpoint: {
-        question:
-          "According to the reading, why does certificate pinning defeat TLS interception even on a managed device where the internal CA is trusted?",
-        options: [
-          "The app accepts only the certificate or key it hard-coded, so the proxy's trust-store-valid substitute is refused",
-          "Pinned apps insist on TLS 1.3, which encrypts the certificate so the proxy cannot see which one to substitute",
-          "Pinning makes the app check revocation over OCSP, and the proxy's on-the-fly certificates have no OCSP responder",
-          "Pinned apps send Encrypted Client Hello, so the proxy never learns the hostname it would need to forge a cert for",
-        ],
-        answer: 0,
-        explanation:
-          "Certificate pinning hard-codes the exact certificate or public key an application expects and refuses anything else, even the proxy's substitute certificate, which validates fine against the device's trust store. That is what defeats interception by design. “Pinned apps insist on TLS 1.3” misunderstands interception: the proxy terminates the client's TLS session itself, so the protocol version does not hide anything from it. “Pinning makes the app check revocation over OCSP” describes a different, inconsistently enforced check that the reading never ties to pinning. “Pinned apps send Encrypted Client Hello” confuses pinning with ECH; ECH hides SNI from passive observers, and a forward proxy still sees the destination it connects to.",
-      },
-    },
-
-    // ── Reading 6: TLS version/cipher downgrade as a fingerprint ─────────────
-    {
-      type: "reading" as const,
-      id: "tls-r6",
-      heading: "TLS Version and Cipher Suite Choice as a Fingerprint of the Software Behind a Connection",
-      content:
-        `Beyond JA3's full-string hashing, even a coarse read of TLS version and cipher suite list tells you something valuable: modern browsers and modern C2 frameworks tend to look very different from each other at this level, and that difference is itself detectable without any special tooling.\n\n` +
-        `**What a modern browser's ClientHello looks like**\n\n` +
-        `A current version of Chrome, Firefox, Edge, or Safari negotiates TLS 1.3 by default, offers a long, actively-maintained list of modern cipher suites and extensions (including things like GREASE values specifically designed to prevent ossification/fingerprinting of the browser's own TLS stack over time), and supports modern features like ALPN (Application-Layer Protocol Negotiation, used to negotiate HTTP/2) as standard. This produces a rich, current, well-populated ClientHello.\n\n` +
-        `**What a bare-bones or hand-rolled TLS stack looks like**\n\n` +
-        `Many malware families and simple/legacy tools use minimal TLS libraries, older language runtime defaults, or deliberately stripped-down implementations that offer a much shorter cipher suite list (sometimes just 3-6 options), negotiate an older TLS version (1.2 rather than 1.3) even when talking to a server that would happily support 1.3, and lack modern extensions entirely. None of this is proof of malice on its own. Plenty of legitimate embedded devices, older enterprise software, and simple internal automation scripts have exactly this same "thin" TLS fingerprint, but it is a meaningful anomaly specifically when observed FROM a device that should be running a modern, fully-patched browser or standard enterprise software stack, and isn't.\n\n` +
-        `**Downgrade attacks: a related but distinct concern**\n\n` +
-        `Historically, protocol downgrade attacks (like POODLE, exploiting fallback to SSLv3) tricked a connection into negotiating a deliberately weaker, exploitable protocol version even when both endpoints actually supported something stronger, typically via an on-path attacker manipulating the negotiation. Modern browsers and servers have largely closed this specific class of attack through protocol version intolerance detection and the removal of SSLv3/TLS 1.0/1.1 support entirely from current software. For a SOC today, seeing ANY internal system still negotiating SSLv3, TLS 1.0, or TLS 1.1 at all is primarily a **compliance and legacy-system** finding (unpatched, end-of-life software still in production) rather than an active-attack finding, but it remains worth flagging and tracking, both because such systems are often unpatched in other ways too, and because some threat actors specifically target legacy protocol support as an easier initial foothold.\n\n` +
-        `**Putting version/cipher observations to use**\n\n` +
-        `As a lightweight, no-tooling-required first pass before reaching for full JA3 computation: does the TLS version and rough cipher suite richness match what you'd expect from the claimed application on that host? A "browser" claiming to be Chrome but negotiating TLS 1.2 with four cipher suites and no ALPN is a mismatch worth a second look: exactly the kind of anomaly that a full JA3 lookup would confirm or refute definitively, but that a quick glance at the raw handshake fields can already flag.`,
-      codeExample:
-        "MODERN BROWSER vs BARE-BONES TLS STACK -- ROUGH COMPARISON\n" +
-        "=======================================================\n" +
-        "                    Modern Chrome/Firefox   Minimal/legacy\n" +
-        "                                            TLS library\n" +
-        "-------------------------------------------------------\n" +
-        "TLS version          1.3 (default)           1.2, sometimes\n" +
-        "                                              even when 1.3\n" +
-        "                                              is available\n" +
-        "Cipher suites offered ~15-20+, modern,        Often 3-6,\n" +
-        "                      actively maintained     sometimes\n" +
-        "                                              older/weaker\n" +
-        "GREASE values         Present (anti-           Absent\n" +
-        "                      fingerprinting noise)\n" +
-        "ALPN (HTTP/2 nego)     Present                 Often absent\n" +
-        "=======================================================\n\n" +
-        "A HOST CLAIMING TO BE A MODERN BROWSER BUT NEGOTIATING\n" +
-        "LIKE A BARE-BONES LIBRARY IS A MISMATCH WORTH A SECOND LOOK\n" +
-        "=======================================================",
-    },
-
-    // ── Question 1 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "tls-q1",
-      question:
-        "Why does the SNI (Server Name Indication) field remain visible in cleartext even in a fully modern TLS 1.3 connection (assuming ECH is not in use)?",
-      options: [
-        "TLS 1.3 leaves every handshake message unencrypted, exactly as TLS 1.2 did, so SNI is visible along with the certificate and key exchange",
-        "SNI is sent in the ClientHello before any keys exist, because the server needs the hostname to choose which certificate to present",
-        "SNI is encrypted by TLS 1.3, but proxies and sensors log the name from the server certificate's subject and present it as SNI",
-        "SNI was dropped from the TLS 1.3 ClientHello, so the visible hostname is derived from the DNS query that preceded the connection",
-      ],
-      answer: 1,
-      explanation:
-        "The chicken-and-egg problem is structural: certificate selection depends on knowing the target hostname, but the certificate exchange is part of establishing the very encryption that would otherwise protect that hostname. SNI has to be sent in the ClientHello, before any shared secret exists, which is exactly why it remains the 'last cleartext field' and exactly why network security tools rely on it so heavily for HTTPS-based filtering and monitoring. Encrypted Client Hello (ECH) is a newer, not-yet-universal extension designed specifically to close this gap. TLS 1.3 does encrypt the certificate and later handshake fields (as Reading 1 covers), and standard TLS 1.3 still carries the SNI extension in its ClientHello, nothing about the protocol removed it.",
-      xp: 25,
-    },
-
     // ── Question 2 ────────────────────────────────────────────────────────
     {
       type: "question" as const,
@@ -441,24 +473,6 @@ const tlsRoom = {
       answer: 0,
       explanation:
         "A self-signed certificate by itself is routine on legitimate internal tools, lab environments and IoT/embedded management interfaces, so on its own it is weak evidence. It only becomes a strong signal when combined with something else, such as being issued in the last day or two (Reading 2's 'substantially stronger combined signal'). The other three are each described in the detection reading as strong on their own: a JA3 match against a known C2 framework's default configuration is high-confidence evidence; an SNI that claims a corporate SaaS product from a residential ISP address is a strong red flag needing no decryption; and near-identical byte counts across sessions are a strong shape-based beacon signal. Even so, the case only becomes escalation-worthy in combination, timing, byte consistency, certificate anomaly, fingerprint and destination rarity together.",
-      xp: 25,
-    },
-
-    // ── Question 3 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "tls-q3",
-      question:
-        "Your organization has full SSL/TLS interception deployed on all managed laptops. A specific application's outbound HTTPS connections consistently fail at the interception point with a certificate error, while working normally when tested from an unmanaged network with no interception. What does this most likely indicate?",
-      options: [
-        "The interception appliance's own CA certificate has expired, so every application on managed laptops should be failing, not just this one",
-        "The application pins its expected server certificate and rejects the proxy's substitute one, so its content stays opaque and only metadata is available",
-        "The application uses a TLS version or cipher suite the proxy cannot negotiate, so decryption fails the same way for every client on the network",
-        "The application's server presents a self-signed certificate, which proves the destination is attacker-controlled rather than a legitimate vendor",
-      ],
-      answer: 1,
-      explanation:
-        "This is the exact signature of certificate pinning: the application refuses any certificate other than the one it has hard-coded/pinned, which includes the interception proxy's generated substitute certificate, even though that substitute would otherwise validate fine against the device's trust store. This is a legitimate, common security feature in many applications (and is also deliberately used by some C2 frameworks for the same reason). Either way, it means this application's actual content will never be visible through interception, and an analyst has to fall back on metadata-based techniques (destination reputation, JA3, timing, certificate details of the pinned cert itself) for anything involving it.",
       xp: 25,
     },
 
@@ -516,58 +530,125 @@ const tlsRoom = {
       ],
     },
 
-    // ── Log Analysis 2: cert/JARM investigation of rare destination ─────────
+    // ── Flag ──────────────────────────────────────────────────────────────
     {
-      type: "log_analysis" as const,
-      id: "tls-la2",
-      heading: "A CI/CD Build Server's First-Ever Connection to a New Destination",
-      context:
-        "SRV-BUILD04 runs the company's CI/CD pipeline and normally only talks to a small, well-documented set of package registries, artifact repositories, and internal services. destination_hosts_seen_before_today confirms 185.183.96.14 has never been contacted from the 10.40.2.0/24 build segment before. Review the session record below.",
-      event: certInvestigationEvent,
-      questions: [
-        {
-          question:
-            "ssl.not_valid_before and ssl.not_valid_after both show exactly one year apart, but cert_age_hours_at_connection is only 25.8, meaning the certificate was issued roughly a day before this connection occurred, for a destination the build segment has never contacted before. Why does the certificate's AGE matter here more than its total validity PERIOD (one year)?",
-          options: [
-            "A one-year validity is unusually long for a self-signed cert, and that length is the main sign of attacker infrastructure",
-            "The one-year period is unremarkable; issuing it about a day before the first-ever contact points to newly built infrastructure",
-            "The period matters more: a one-year cert signals a long-term plan, while its age only reflects the most recent rotation",
-            "A day-old certificate is normal under Let's Encrypt-style 90-day rotation, so here the age is the weaker of the two signals",
-          ],
-          answer: 1,
-          explanation:
-            "As Reading 2 explains, validity PERIOD is not the signal. Short and long periods are both common on legitimate infrastructure. What matters is AGE relative to first contact: the certificate is about 26 hours old when SRV-BUILD04, which has never talked to this destination, connects to it, consistent with infrastructure stood up for this purpose rather than an established service the build server depends on. “A one-year validity is unusually long for a self-signed cert” invents a norm: whoever generates a self-signed certificate picks any period, and internal tools often use a year or more. “A one-year cert signals a long-term plan” reads intent into a number the issuer chose at will. “Normal under Let's Encrypt-style 90-day rotation” misreads the record: this certificate is self-signed (issuer equals subject), not issued by Let's Encrypt or any public CA, so that rotation pattern does not apply.",
-          xp: 25,
-        },
-        {
-          question:
-            "The record carries a passive JA3 for SRV-BUILD04's ClientHello but no JARM. Given that this is the FIRST connection ever observed to 185.183.96.14, why is running a JARM scan the more useful next pivot?",
-          options: [
-            "Zeek derives JARM from the ServerHello, so it will appear in the record once a second session is captured",
-            "JARM is active: you can probe 185.183.96.14 now and compare the result with published C2 server JARMs",
-            "JA3 describes the server's TLS stack, so on its own it cannot say whether the destination is C2 infrastructure",
-            "JARM sorts the cipher list before hashing, so it survives the randomisation that breaks JA3 matching on browsers",
-          ],
-          answer: 1,
-          explanation:
-            "This is the distinction from Reading 3: JA3 is passive and only describes the CLIENT side of the session you already captured, here, the build server's TLS library. JARM is active: you probe 185.183.96.14 yourself, now, and compare the result with published JARM signatures for C2 team servers, without waiting for more traffic. “Zeek derives JARM from the ServerHello” is wrong. JARM needs ten crafted probes, so no passive sensor produces it however many sessions it sees; the server-side passive fingerprint is JA3S. “JA3 describes the server's TLS stack” swaps JA3 and JA3S. “JARM sorts the cipher list before hashing” describes JA4, not JARM.",
-          xp: 25,
-        },
-        {
-          question:
-            "What is the appropriate response, balancing the genuine risk signals against the fact that CI/CD systems do sometimes legitimately need to reach new third-party services (e.g. a newly adopted build dependency or artifact mirror)?",
-          options: [
-            "Block 185.183.96.14 and rebuild SRV-BUILD04 now: a first-ever destination with a day-old self-signed cert is enough",
-            "Allow it for now, since build servers add new dependencies all the time, and raise it at the next change-board review",
-            "JARM-scan it and check threat intel, check pipeline changes for a new dependency, and escalate if nothing explains it",
-            "Ask the build team whether they recognise ci-artifact-sync.io, add it to the allowlist if they do, and close the alert",
-          ],
-          answer: 2,
-          explanation:
-            "A first-time connection from a build server is genuinely ambiguous (new dependencies and artifact mirrors are added legitimately) so you verify before either dismissing or over-reacting: fingerprint the destination and check threat intelligence, and in parallel check the pipeline configuration and change history for a documented new dependency. If nothing explains it, the day-old self-signed certificate on a never-seen destination is enough to escalate for endpoint investigation. “Block … and rebuild SRV-BUILD04 now” destroys the evidence and breaks the pipeline before you know whether a legitimate change explains it. “Allow it for now … and raise it at the next change-board review” leaves a possible C2 channel open on the build server for days. “Ask the build team whether they recognise” the name trusts recognition of a domain anyone could register; a plausible name is not a documented change.",
-          xp: 30,
-        },
+      type: "flag" as const,
+      id: "tls-f1",
+      logTask: "tls-la1",
+      prompt:
+        "Reading 6 suggests a quick first pass before computing any JA3: does the negotiated cipher suite look like a modern browser or a thin, legacy TLS stack? In Log Analysis 1, which cipher suite did the WKS-MKT09 session actually negotiate? Enter it exactly as recorded.",
+      answer: "TLS_RSA_WITH_AES_128_CBC_SHA",
+      hint: "It is one of the handshake fields in the raw record, next to the negotiated TLS version, not a fingerprint hash.",
+      xp: 25,
+    },
+    // ── Query Fill: KQL to find beacon-shaped TLS sessions by JA3 + cadence ──
+    {
+      type: "query_fill" as const,
+      id: "tls-qf1",
+      heading: "Write It Yourself: Surface Beacon-Shaped TLS Sessions in KQL",
+      language: "kql",
+      context: KQL_PRIMER +
+        "Using the pattern confirmed in Log Analysis 1 (96 sessions to one destination, tight interval clustering, and a byte-count standard deviation of 4.2), write the KQL that flags the session-count and byte-consistency parts of that pattern across the whole network, so candidates surface without inspecting any single session first. Choose thresholds that would still catch the Log Analysis 1 host. (Interval clustering needs a separate time-delta step and is not part of this query.)",
+      template:
+        "NetworkSessionEvents\n| where DestinationPort == {{port}}\n| summarize SessionCount = count(), AvgBytesOut = avg(BytesSent), StdevBytesOut = stdev(BytesSent) by SourceIp, DestinationIp, JA3Hash\n| where SessionCount > {{threshold}}\n| where StdevBytesOut < {{stdevlimit}}",
+      blanks: [
+        { id: "port", answers: ["443"], placeholder: "standard HTTPS port" },
+        { id: "threshold", answers: ["10", "12", "15", "20", "24", "25", "30", "40", "48", "50", "60", "70", "75", "80", "90"], placeholder: "minimum session count to consider a repeating pattern" },
+        { id: "stdevlimit", answers: ["5", "6", "7", "8", "9", "10", "12", "15", "20"], placeholder: "byte-count standard deviation ceiling (low = suspiciously consistent)" },
       ],
+      explanation:
+        "This mirrors exactly the two signals you evaluated in Log Analysis 1: a high SessionCount to the same destination/JA3 pair, combined with a LOW standard deviation in bytes sent per session. Any session-count floor from 10 up to 90 and any stdev ceiling from 5 to 20 is accepted: each still catches the 96-session, 4.2-byte-stdev host, while a floor of 96 or more, or a ceiling of 4 or less, would miss it. Ordinary browsing produces high variance in request sizes; a beacon's repeated, near-identical check-in produces the opposite: many sessions, tightly clustered byte counts. Grouping by JA3Hash alongside source/destination also lets this same query catch the case where a beacon rotates its destination IP or domain but keeps using the same underlying TLS library/configuration.",
+      xp: 35,
+    },
+
+    // ── Reading 5: when interception is/isn't possible ───────────────────────
+    {
+      type: "reading" as const,
+      id: "tls-r5",
+      heading: "When TLS Interception Is (and Isn't) Possible",
+      content:
+        `Everything covered so far assumes you're analyzing TLS metadata WITHOUT decrypting the traffic. Some organizations also deploy active **TLS/SSL interception** (forward proxy MITM) to inspect content directly, but it's far from a universal solution, and knowing its limits matters as much as knowing how it works.\n\n` +
+        `**How interception works**\n\n` +
+        `An enterprise forward proxy or NGFW performing SSL inspection sits in the middle of every outbound HTTPS connection: it terminates the client's TLS connection using a certificate it generates on the fly (signed by an internal CA that the organization has deployed to every managed device's trust store), separately establishes its own TLS connection out to the real destination, and relays the decrypted content between the two, inspecting it in the middle, then re-encrypting on both legs. To the client, this looks like a normal, validating HTTPS connection specifically because the internal CA's root certificate has been pushed to the device's trust store in advance; without that trust-store deployment, every intercepted site would show a certificate warning.\n\n` +
+        `**Where interception breaks down: certificate pinning**\n\n` +
+        `**Certificate pinning** is a technique where an application hard-codes (pins) the exact certificate, or public key, or CA it expects to see for a specific service, and refuses to connect if presented with anything else, even a certificate that would otherwise validate successfully against the device's trust store. This is a deliberate security feature (it defeats exactly this kind of interception, which is also why some malicious/adversarial tooling deliberately implements pinning too, for the same reason). Mobile banking apps, some messaging apps, and, notably, several C2 frameworks specifically implement certificate pinning against their own team server's certificate precisely to prevent a defender's SSL inspection appliance from ever seeing their C2 traffic's actual content: the connection simply fails outright rather than being interceptable, which itself can be a signal (an application or process whose HTTPS connections are consistently failing specifically at your interception point, while working fine when tested from outside it).\n\n` +
+        `**Other practical and legal limits**\n\n` +
+        `Many organizations explicitly exclude certain traffic categories from interception for legal, regulatory, or trust reasons: banking and financial sites, healthcare portals (relevant to data privacy regulation), and sometimes personal webmail, specifically to avoid the organization taking on liability for having visibility into that content. **HSTS (HTTP Strict Transport Security)** preloading can also complicate interception for specific domains, because once HSTS is in effect the browser removes the click-through option when a certificate is untrusted (a proxy certificate chaining to a CA in the device trust store is still accepted, so it is certificate pinning or a missing internal CA that actually defeats interception). And practically: interception requires deploying and maintaining the internal CA across every managed device, which fails outright for unmanaged/BYOD devices, IoT devices, and third-party/contractor equipment that will never trust your internal CA, for that traffic, metadata-only analysis (everything covered in this room up to this point) is not a fallback option, it is the ONLY option.\n\n` +
+        `**The practical takeaway for an analyst**\n\n` +
+        `Even in an organization that DOES deploy SSL interception broadly, you should never assume it universally covers everything: pinned applications, excluded categories, and unmanaged devices all still require metadata-based analysis. This is exactly why the skills in this room (SNI, certificate metadata, JA3/JA3S/JARM, and beacon-timing analysis) remain essential even in a mature security program with full interception capability, not just a fallback for organizations without it.`,
+      codeExample:
+        "TLS INTERCEPTION -- WHAT WORKS AND WHAT DOESN'T\n" +
+        "=======================================================\n" +
+        "WORKS:  Managed corporate device, browser trusts the\n" +
+        "        internal CA, application performs standard\n" +
+        "        trust-store-based certificate validation\n" +
+        "\n" +
+        "FAILS:  Certificate-pinned applications/tools (mobile\n" +
+        "        banking, some messaging apps, many C2 frameworks\n" +
+        "        pinning their own team-server cert on purpose)\n" +
+        "\n" +
+        "FAILS:  Unmanaged / BYOD / IoT / contractor devices that\n" +
+        "        never received the internal CA\n" +
+        "\n" +
+        "EXCLUDED BY POLICY: banking, healthcare, sometimes\n" +
+        "        personal webmail -- legal/regulatory reasons\n" +
+        "\n" +
+        "=======================================================\n" +
+        "A pinned app's connections FAILING specifically at your\n" +
+        "interception point (while working fine outside it) is\n" +
+        "itself a useful signal an app is deliberately resisting\n" +
+        "inspection.\n" +
+        "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, why does certificate pinning defeat TLS interception even on a managed device where the internal CA is trusted?",
+        options: [
+          "The app accepts only the certificate or key it hard-coded, so the proxy's trust-store-valid substitute is refused",
+          "Pinned apps insist on TLS 1.3, which encrypts the certificate so the proxy cannot see which one to substitute",
+          "Pinning makes the app check revocation over OCSP, and the proxy's on-the-fly certificates have no OCSP responder",
+          "Pinned apps send Encrypted Client Hello, so the proxy never learns the hostname it would need to forge a cert for",
+        ],
+        answer: 0,
+        explanation:
+          "Certificate pinning hard-codes the exact certificate or public key an application expects and refuses anything else, even the proxy's substitute certificate, which validates fine against the device's trust store. That is what defeats interception by design. “Pinned apps insist on TLS 1.3” misunderstands interception: the proxy terminates the client's TLS session itself, so the protocol version does not hide anything from it. “Pinning makes the app check revocation over OCSP” describes a different, inconsistently enforced check that the reading never ties to pinning. “Pinned apps send Encrypted Client Hello” confuses pinning with ECH; ECH hides SNI from passive observers, and a forward proxy still sees the destination it connects to.",
+      },
+    },
+
+    // ── Question 3 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "tls-q3",
+      question:
+        "Your organization has full SSL/TLS interception deployed on all managed laptops. A specific application's outbound HTTPS connections consistently fail at the interception point with a certificate error, while working normally when tested from an unmanaged network with no interception. What does this most likely indicate?",
+      options: [
+        "The interception appliance's own CA certificate has expired, so every application on managed laptops should be failing, not just this one",
+        "The application pins its expected server certificate and rejects the proxy's substitute one, so its content stays opaque and only metadata is available",
+        "The application uses a TLS version or cipher suite the proxy cannot negotiate, so decryption fails the same way for every client on the network",
+        "The application's server presents a self-signed certificate, which proves the destination is attacker-controlled rather than a legitimate vendor",
+      ],
+      answer: 1,
+      explanation:
+        "This is the exact signature of certificate pinning: the application refuses any certificate other than the one it has hard-coded/pinned, which includes the interception proxy's generated substitute certificate, even though that substitute would otherwise validate fine against the device's trust store. This is a legitimate, common security feature in many applications (and is also deliberately used by some C2 frameworks for the same reason). Either way, it means this application's actual content will never be visible through interception, and an analyst has to fall back on metadata-based techniques (destination reputation, JA3, timing, certificate details of the pinned cert itself) for anything involving it.",
+      xp: 25,
+    },
+
+    // ── Matching: fingerprint/handshake concept -> definition ───────────────
+    {
+      type: "matching" as const,
+      id: "tls-m1",
+      heading: "Match Each TLS Concept to What It Actually Tells an Analyst",
+      instructions: "Match each TLS-related term to the correct description of what it reveals during an investigation.",
+      pairs: [
+        { id: "sni", left: "SNI (Server Name Indication)", right: "The hostname the client is requesting, sent in cleartext in the ClientHello, before any encryption is established: the last visible field even in TLS 1.3" },
+        { id: "ja3", left: "JA3", right: "Passive fingerprint of the CLIENT's TLS stack/configuration, built from its ClientHello. Stays consistent even as destination domains/IPs change" },
+        { id: "ja3s", left: "JA3S", right: "Passive fingerprint of the SERVER's TLS stack/configuration, built from its ServerHello response to an observed session" },
+        { id: "jarm", left: "JARM", right: "Active fingerprint built by sending 10 varied probe ClientHellos at a target server. Usable even against infrastructure your network hasn't talked to yet" },
+        { id: "pinning", left: "Certificate pinning", right: "An application hard-codes the exact certificate/key it trusts and refuses anything else, including a valid substitute from an SSL interception proxy: defeats interception by design" },
+        { id: "selfsigned", left: "Self-signed certificate", right: "Issuer and subject are identical; no independent CA vouches for it. Common on internal appliances and also the default behavior of several C2 frameworks" },
+      ],
+      explanation:
+        "Each of these concepts answers a distinct question during a TLS investigation: SNI tells you the intended destination, JA3/JA3S fingerprint the client and server TLS stacks respectively (useful for pivoting on known-malicious tooling), JARM lets you actively probe suspicious infrastructure, certificate pinning explains why some traffic will never be visible even with full interception deployed, and self-signed certificates are a common but not conclusive signal that requires context (age, rarity, IT verification) to interpret correctly.",
+      xp: 40,
     },
 
     // ── Analyst Choice: internal self-signed appliance benign true positive ──────────────
@@ -614,86 +695,6 @@ const tlsRoom = {
       xp: 30,
     },
 
-    // ── Matching: fingerprint/handshake concept -> definition ───────────────
-    {
-      type: "matching" as const,
-      id: "tls-m1",
-      heading: "Match Each TLS Concept to What It Actually Tells an Analyst",
-      instructions: "Match each TLS-related term to the correct description of what it reveals during an investigation.",
-      pairs: [
-        { id: "sni", left: "SNI (Server Name Indication)", right: "The hostname the client is requesting, sent in cleartext in the ClientHello, before any encryption is established: the last visible field even in TLS 1.3" },
-        { id: "ja3", left: "JA3", right: "Passive fingerprint of the CLIENT's TLS stack/configuration, built from its ClientHello. Stays consistent even as destination domains/IPs change" },
-        { id: "ja3s", left: "JA3S", right: "Passive fingerprint of the SERVER's TLS stack/configuration, built from its ServerHello response to an observed session" },
-        { id: "jarm", left: "JARM", right: "Active fingerprint built by sending 10 varied probe ClientHellos at a target server. Usable even against infrastructure your network hasn't talked to yet" },
-        { id: "pinning", left: "Certificate pinning", right: "An application hard-codes the exact certificate/key it trusts and refuses anything else, including a valid substitute from an SSL interception proxy: defeats interception by design" },
-        { id: "selfsigned", left: "Self-signed certificate", right: "Issuer and subject are identical; no independent CA vouches for it. Common on internal appliances and also the default behavior of several C2 frameworks" },
-      ],
-      explanation:
-        "Each of these concepts answers a distinct question during a TLS investigation: SNI tells you the intended destination, JA3/JA3S fingerprint the client and server TLS stacks respectively (useful for pivoting on known-malicious tooling), JARM lets you actively probe suspicious infrastructure, certificate pinning explains why some traffic will never be visible even with full interception deployed, and self-signed certificates are a common but not conclusive signal that requires context (age, rarity, IT verification) to interpret correctly.",
-      xp: 40,
-    },
-
-    // ── Ordering: TLS 1.2 handshake sequence ────────────────────────────────
-    {
-      type: "ordering" as const,
-      id: "tls-o1",
-      heading: "Order the TLS 1.2 Handshake, Message by Message",
-      instructions: "Arrange these handshake messages into the correct chronological order for a standard TLS 1.2 session.",
-      items: [
-        { id: "clienthello", text: "ClientHello (TLS version, cipher list, SNI, random value)" },
-        { id: "serverhello", text: "ServerHello (chosen cipher, server random value)" },
-        { id: "certificate", text: "Certificate (server sends its certificate chain)" },
-        { id: "serverhellodone", text: "ServerKeyExchange / ServerHelloDone" },
-        { id: "clientkeyexchange", text: "ClientKeyExchange (client sends its key material)" },
-        { id: "clientfinished", text: "ChangeCipherSpec + Finished (client)" },
-        { id: "serverfinished", text: "ChangeCipherSpec + Finished (server)" },
-        { id: "appdata", text: "Application Data (encrypted HTTP request/response begins)" },
-      ],
-      correct_order: [
-        "clienthello",
-        "serverhello",
-        "certificate",
-        "serverhellodone",
-        "clientkeyexchange",
-        "clientfinished",
-        "serverfinished",
-        "appdata",
-      ],
-      explanation:
-        "The client proposes parameters and states its target hostname via SNI; the server picks a cipher and presents its certificate chain; both sides exchange key material to independently derive the same session key; both sides confirm the handshake wasn't tampered with via their respective Finished messages (the first message actually encrypted with the new key); and only then does real application data begin flowing. Every field up through ClientKeyExchange is visible to network monitoring with zero decryption required, which is the entire basis for metadata-only TLS analysis.",
-      xp: 35,
-    },
-
-    // ── Query Fill: KQL to find beacon-shaped TLS sessions by JA3 + cadence ──
-    {
-      type: "query_fill" as const,
-      id: "tls-qf1",
-      heading: "Write It Yourself: Surface Beacon-Shaped TLS Sessions in KQL",
-      language: "kql",
-      context: KQL_PRIMER +
-        "Using the pattern confirmed in Log Analysis 1 (96 sessions to one destination, tight interval clustering, and a byte-count standard deviation of 4.2), write the KQL that flags the session-count and byte-consistency parts of that pattern across the whole network, so candidates surface without inspecting any single session first. Choose thresholds that would still catch the Log Analysis 1 host. (Interval clustering needs a separate time-delta step and is not part of this query.)",
-      template:
-        "NetworkSessionEvents\n| where DestinationPort == {{port}}\n| summarize SessionCount = count(), AvgBytesOut = avg(BytesSent), StdevBytesOut = stdev(BytesSent) by SourceIp, DestinationIp, JA3Hash\n| where SessionCount > {{threshold}}\n| where StdevBytesOut < {{stdevlimit}}",
-      blanks: [
-        { id: "port", answers: ["443"], placeholder: "standard HTTPS port" },
-        { id: "threshold", answers: ["10", "12", "15", "20", "24", "25", "30", "40", "48", "50", "60", "70", "75", "80", "90"], placeholder: "minimum session count to consider a repeating pattern" },
-        { id: "stdevlimit", answers: ["5", "6", "7", "8", "9", "10", "12", "15", "20"], placeholder: "byte-count standard deviation ceiling (low = suspiciously consistent)" },
-      ],
-      explanation:
-        "This mirrors exactly the two signals you evaluated in Log Analysis 1: a high SessionCount to the same destination/JA3 pair, combined with a LOW standard deviation in bytes sent per session. Any session-count floor from 10 up to 90 and any stdev ceiling from 5 to 20 is accepted: each still catches the 96-session, 4.2-byte-stdev host, while a floor of 96 or more, or a ceiling of 4 or less, would miss it. Ordinary browsing produces high variance in request sizes; a beacon's repeated, near-identical check-in produces the opposite: many sessions, tightly clustered byte counts. Grouping by JA3Hash alongside source/destination also lets this same query catch the case where a beacon rotates its destination IP or domain but keeps using the same underlying TLS library/configuration.",
-      xp: 35,
-    },
-
-    // ── Flag ──────────────────────────────────────────────────────────────
-    {
-      type: "flag" as const,
-      id: "tls-f1",
-      prompt:
-        "Reading 6 suggests a quick first pass before computing any JA3: does the negotiated cipher suite look like a modern browser or a thin, legacy TLS stack? In Log Analysis 1, which cipher suite did the WKS-MKT09 session actually negotiate? Enter it exactly as recorded.",
-      answer: "TLS_RSA_WITH_AES_128_CBC_SHA",
-      hint: "It is one of the handshake fields in the raw record, next to the negotiated TLS version, not a fingerprint hash.",
-      xp: 25,
-    },
   ],
 };
 

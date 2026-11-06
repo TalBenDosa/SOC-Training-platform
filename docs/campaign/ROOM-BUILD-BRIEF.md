@@ -27,6 +27,7 @@ Games must not test knowledge the learner never got. Every lab that needs knowle
 - Teach only what this lab needs, in plain words. It replaces reading the folded text, it does not repeat it.
 - The worked example shows the method on data that is neither the lab's nor a graded task's. Rule 2 still holds: no graded answer, scenario or value pair.
 - Beginner and intermediate rooms: leave it open. Advanced rooms: set `fold: true`, so a confident learner can try first.
+- A primer is the likeliest place to leak. Never list what a wrong option would be, never rule out a graded task's distractors one by one, never echo a graded explanation, and never make the worked example the graded case in other clothes. Check every primer line against every graded task's options.
 - A lab that builds on a primer from earlier in the room does not need another one. Do not repeat a fact the room already taught.
 - `**bold**` and `` `code` `` work in points and example lines. Same writing rules as everything else.
 

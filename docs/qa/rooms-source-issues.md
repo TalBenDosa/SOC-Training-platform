@@ -41,3 +41,18 @@ Builders and reviewers may not change these: a reading edit disables its recorde
 | ot-ics-security | f1, q2, q4, r2-r5, r4 checkpoint | T0855 and T0812 were revoked in ATT&CK v19.0 (replaced by T1692.001 and T1694.001). The flag answer is T0855. Also in newTopicLessons.ts and otNetworkAnomaly.ts. | Move to the new IDs, accept both on f1, re-record narration. |
 | dns-deep-dive | la1 | Description says "214 DNS TXT/NULL queries", context says 168 of 214 are TXT. | Reword. |
 | dns-deep-dive | qf1 | "5–15 minutes" has an en dash. | "5 to 15 minutes". |
+| kerberos-authentication | r3 (reading) | Says an account with msDS-SupportedEncryptionTypes unset produces 0x17; since the April 2026 RC4 hardening the default is AES for such accounts (check against Microsoft's KB). | Reword, re-record narration. |
+| kerberos-authentication | graded 4769 events | TargetUserName without @REALM and IpAddress without ::ffff:. | Native format. |
+| windows-protocols-lateral | m1 | Tests WinRM 5985/5986 and RDP 3389, which no reading teaches; ties remote task creation to \PIPE\atsvc only. | Add to a reading or reword. |
+| windows-protocols-lateral | r6 (reading) | Implies the PsExec payload runs as SYSTEM by default; without -s it runs as the connecting user. | Reword, re-record narration. |
+| email-protocols-forensics | r1, la1 | r1's transcript shows no STARTTLS, but la1's top Received line says ESMTPS. | Align. |
+| email-protocols-forensics | r5 (reading) | The sample bh= is the SHA-256 of an empty body. | Change the sample, re-record narration. |
+| email-protocols-forensics | qf1, la2, graded data | Em dashes in qf1; real registrar NiceNIC; non-.example domains and 154.16.88.201. | Replace. |
+| kerberos-authentication | r5 (reading) | "If you're looking at a 4769 for a service account's SPN, you're looking at Kerberoasting" is false as written: every ordinary use logs that event. | Reword, re-record narration. |
+| tls-encrypted-traffic | qf1 explanation | Says the grouping catches a beacon that rotates its destination IP; by SourceIp, DestinationIp, JA3Hash does the opposite. | Correct the explanation. |
+| tls-encrypted-traffic | qf1 blanks | Says any floor from 10 to 90 and stdev 5 to 20 is accepted, but the grader matches a list, so 35, 65, 11, 16 fail. | Fill the lists or grade numerically. |
+| tls-encrypted-traffic | ac1 fp_trap | "contacted 244 times before" misreads a count of hosts. | "seen from 244 hosts". |
+| tls-encrypted-traffic | la1, la2 | Public addresses and domains. | Replace. |
+| windows-protocols-lateral | r1 (reading) | Says SMB signing is required by default on 24H2 and Server 2025; Server 2025 is outbound only. | Reword, re-record narration. |
+| windows-protocols-lateral | la1, ac1 | AccessMask 0x120089 is read-only though the session drove svcctl; %%4432 is not a file right. | 0x12019F with a matching AccessList. |
+| windows-protocols-lateral, tls-encrypted-traffic | qf1, kqlPrimer.ts | En and em dashes in learner text. | Replace. |

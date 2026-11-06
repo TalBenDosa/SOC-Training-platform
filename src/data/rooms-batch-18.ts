@@ -215,6 +215,24 @@ const kerberosRoom: Room = {
       xp: 20,
     },
     {
+      type: "ordering",
+      id: "krb-o1",
+      heading: "Order the Full Kerberos Exchange for a Client Reaching a New Service",
+      instructions: "Arrange the steps in the order they occur for a client with no cached TGT reaching a service for the first time.",
+      items: [
+        { id: "as-req", text: "Client sends AS-REQ: username plus a timestamp encrypted with a key derived from its password" },
+        { id: "as-rep", text: "KDC validates the timestamp, then returns AS-REP: a TGT encrypted with the krbtgt hash, plus a session key encrypted with the client's key" },
+        { id: "tgs-req", text: "Client sends TGS-REQ: presents the TGT and names the SPN of the service it wants to reach" },
+        { id: "tgs-rep", text: "KDC returns TGS-REP: a TGS encrypted with the target service account's own key" },
+        { id: "ap-req", text: "Client sends AP-REQ directly to the service: presents the TGS" },
+        { id: "ap-rep", text: "Service decrypts the TGS with its own key and grants access, without ever contacting the KDC to confirm it" },
+      ],
+      correct_order: ["as-req", "as-rep", "tgs-req", "tgs-rep", "ap-req", "ap-rep"],
+      explanation:
+        "This is the full two-phase exchange from Reading 1: AS-REQ/AS-REP gets the client a reusable TGT, then TGS-REQ/TGS-REP exchanges that TGT for a ticket to one specific service, and finally AP-REQ/AP-REP is where the client actually presents that ticket to the service itself, the one step where the KDC is not involved at all, which is the design fact behind every forged-ticket technique in this room.",
+      xp: 35,
+    },
+    {
       type: "reading",
       id: "krb-r3",
       heading: "Encryption Types: 0x12 vs 0x17, and What RC4 Does and Does Not Prove",
@@ -396,6 +414,34 @@ const kerberosRoom: Room = {
       ],
     },
     {
+      type: "flag",
+      id: "krb-f1",
+      prompt:
+        "In Log Analysis 1, the roasting tool ran on whichever client sent the TGS-REQs, not on DC02. Enter the IP address of the host you would pivot to next to find that tool.",
+      answer: "10.55.14.203",
+      hint: "One field in the 4769 records where the request came from. The DC's own name is not it.",
+      xp: 25,
+    },
+    {
+      type: "query_fill",
+      id: "krb-qf1",
+      heading: "Write It Yourself: Surface Kerberoasting Candidates in KQL",
+      language: "kql",
+      context: KQL_PRIMER +
+        "Using the pattern confirmed in Log Analysis 1 (RC4 encryption, high volume, broad distinct-SPN spread, from one requesting account, in a short window), write the KQL a detection engineer would ship to flag this behavior across the whole domain.",
+      template:
+        "SecurityEvent\n| where EventID == {{eventid}}\n| where TicketEncryptionType == \"{{enc}}\"\n| summarize RequestCount = count(), DistinctSPNs = dcount(ServiceName) by Account, bin(TimeGenerated, {{window}})\n| where DistinctSPNs > {{threshold}}",
+      blanks: [
+        { id: "eventid", answers: ["4769"], placeholder: "TGS-REQ event ID" },
+        { id: "enc", answers: ["0x17"], placeholder: "encryption type Kerberoasting tools request" },
+        { id: "window", answers: ["5m", "10m", "3m", "1m", "2m", "15m", "30m", "60m", "1h", "1hr", "5min", "10min", "3min", "1min", "2min", "15min", "30min", "60min"], placeholder: "aggregation window (a KQL timespan, up to 1h)" },
+        { id: "threshold", answers: ["10", "15", "20", "5", "8", "25", "30", "40", "50"], placeholder: "minimum distinct-SPN count to consider suspicious (5–50)" },
+      ],
+      explanation:
+        "This mirrors the exact case from Log Analysis 1: filter to 4769 (TGS-REQ, not 4768) events with RC4 encryption, group by the requesting account over a short window, and alert when the count of distinct SPNs requested is itself abnormally high, because one legitimate service request looks nothing like a sweep across dozens of unrelated SPNs from the same account in minutes.",
+      xp: 35,
+    },
+    {
       type: "reading",
       id: "krb-r6",
       heading: "Overpass-the-Hash, and Why Golden and Silver Tickets Skip the KDC Entirely",
@@ -493,20 +539,6 @@ const kerberosRoom: Room = {
       xp: 25,
     },
     {
-      type: "analyst_choice",
-      id: "krb-ac1",
-      heading: "Verdict: A Daily RC4 Ticket Request From a Backup Service Account",
-      scenario:
-        "A detection rule tuned to flag any TicketEncryptionType: 0x17 in the environment (which enforces AES-only Kerberos policy for all standard accounts) fired on account svc_nasbackup. Before deciding, you pulled the last 30 days of 4769 events for this account: exactly one TGS request per day, always at about 03:00 (the scheduled backup window), always for the same single SPN cifs/nas02.meridian.local, always from 10.55.2.44, and no requests for any other SPN. Review the event below alongside the change-ticket note attached to it.",
-      event: rc4LegacyBackupEvent,
-      correct_verdict: "benign_true_positive",
-      explanation:
-        "This is a benign true positive: the rule correctly caught a real RC4 ticket, and the documented vendor constraint in the change ticket is what makes it expected. RC4 encryption alone triggered this alert because the environment's baseline policy is AES-only, but RC4 usage is not equivalent to Kerberoasting: the Kerberoasting fingerprint from Reading 5 is volume and breadth across distinct SPNs in a short window, and this account requested exactly one SPN, once. This account requests the exact same single SPN once per day at the same time, from the same internal IP, matching a confirmed change ticket explaining a hardware constraint the vendor has not yet resolved. The encryption type is a genuine finding worth tracking (this account should be prioritized for remediation once the vendor supports AES), but it is not, on its own, an active attack. Close it citing the change ticket, not as a false positive: the rule did exactly its job, and calling it a misfire would invite loosening a check you need for real downgrades.",
-      fp_trap:
-        "It's tempting to treat any RC4-encrypted ticket in an AES-only environment as automatically suspicious, since Reading 3 taught RC4 as a downgrade signal. But a downgrade signal only becomes a strong indicator in combination with the volume and breadth pattern that separates Kerberoasting from ordinary (if outdated) legacy usage: a single account requesting a single, consistent service once a day is the shape of a documented technical debt item, not an attacker sweeping SPNs. Escalating every RC4 ticket as an incident, without checking request volume and SPN diversity first, is exactly the over-alerting trap that burns analyst time on findings that should instead go to a remediation backlog.",
-      xp: 30,
-    },
-    {
       type: "matching",
       id: "krb-m1",
       heading: "Match Each Kerberos Signal to What It Reveals",
@@ -524,50 +556,18 @@ const kerberosRoom: Room = {
       xp: 40,
     },
     {
-      type: "ordering",
-      id: "krb-o1",
-      heading: "Order the Full Kerberos Exchange for a Client Reaching a New Service",
-      instructions: "Arrange the steps in the order they occur for a client with no cached TGT reaching a service for the first time.",
-      items: [
-        { id: "as-req", text: "Client sends AS-REQ: username plus a timestamp encrypted with a key derived from its password" },
-        { id: "as-rep", text: "KDC validates the timestamp, then returns AS-REP: a TGT encrypted with the krbtgt hash, plus a session key encrypted with the client's key" },
-        { id: "tgs-req", text: "Client sends TGS-REQ: presents the TGT and names the SPN of the service it wants to reach" },
-        { id: "tgs-rep", text: "KDC returns TGS-REP: a TGS encrypted with the target service account's own key" },
-        { id: "ap-req", text: "Client sends AP-REQ directly to the service: presents the TGS" },
-        { id: "ap-rep", text: "Service decrypts the TGS with its own key and grants access, without ever contacting the KDC to confirm it" },
-      ],
-      correct_order: ["as-req", "as-rep", "tgs-req", "tgs-rep", "ap-req", "ap-rep"],
+      type: "analyst_choice",
+      id: "krb-ac1",
+      heading: "Verdict: A Daily RC4 Ticket Request From a Backup Service Account",
+      scenario:
+        "A detection rule tuned to flag any TicketEncryptionType: 0x17 in the environment (which enforces AES-only Kerberos policy for all standard accounts) fired on account svc_nasbackup. Before deciding, you pulled the last 30 days of 4769 events for this account: exactly one TGS request per day, always at about 03:00 (the scheduled backup window), always for the same single SPN cifs/nas02.meridian.local, always from 10.55.2.44, and no requests for any other SPN. Review the event below alongside the change-ticket note attached to it.",
+      event: rc4LegacyBackupEvent,
+      correct_verdict: "benign_true_positive",
       explanation:
-        "This is the full two-phase exchange from Reading 1: AS-REQ/AS-REP gets the client a reusable TGT, then TGS-REQ/TGS-REP exchanges that TGT for a ticket to one specific service, and finally AP-REQ/AP-REP is where the client actually presents that ticket to the service itself, the one step where the KDC is not involved at all, which is the design fact behind every forged-ticket technique in this room.",
-      xp: 35,
-    },
-    {
-      type: "query_fill",
-      id: "krb-qf1",
-      heading: "Write It Yourself: Surface Kerberoasting Candidates in KQL",
-      language: "kql",
-      context: KQL_PRIMER +
-        "Using the pattern confirmed in Log Analysis 1 (RC4 encryption, high volume, broad distinct-SPN spread, from one requesting account, in a short window), write the KQL a detection engineer would ship to flag this behavior across the whole domain.",
-      template:
-        "SecurityEvent\n| where EventID == {{eventid}}\n| where TicketEncryptionType == \"{{enc}}\"\n| summarize RequestCount = count(), DistinctSPNs = dcount(ServiceName) by Account, bin(TimeGenerated, {{window}})\n| where DistinctSPNs > {{threshold}}",
-      blanks: [
-        { id: "eventid", answers: ["4769"], placeholder: "TGS-REQ event ID" },
-        { id: "enc", answers: ["0x17"], placeholder: "encryption type Kerberoasting tools request" },
-        { id: "window", answers: ["5m", "10m", "3m", "1m", "2m", "15m", "30m", "60m", "1h", "1hr", "5min", "10min", "3min", "1min", "2min", "15min", "30min", "60min"], placeholder: "aggregation window (a KQL timespan, up to 1h)" },
-        { id: "threshold", answers: ["10", "15", "20", "5", "8", "25", "30", "40", "50"], placeholder: "minimum distinct-SPN count to consider suspicious (5–50)" },
-      ],
-      explanation:
-        "This mirrors the exact case from Log Analysis 1: filter to 4769 (TGS-REQ, not 4768) events with RC4 encryption, group by the requesting account over a short window, and alert when the count of distinct SPNs requested is itself abnormally high, because one legitimate service request looks nothing like a sweep across dozens of unrelated SPNs from the same account in minutes.",
-      xp: 35,
-    },
-    {
-      type: "flag",
-      id: "krb-f1",
-      prompt:
-        "In Log Analysis 1, the roasting tool ran on whichever client sent the TGS-REQs, not on DC02. Enter the IP address of the host you would pivot to next to find that tool.",
-      answer: "10.55.14.203",
-      hint: "One field in the 4769 records where the request came from. The DC's own name is not it.",
-      xp: 25,
+        "This is a benign true positive: the rule correctly caught a real RC4 ticket, and the documented vendor constraint in the change ticket is what makes it expected. RC4 encryption alone triggered this alert because the environment's baseline policy is AES-only, but RC4 usage is not equivalent to Kerberoasting: the Kerberoasting fingerprint from Reading 5 is volume and breadth across distinct SPNs in a short window, and this account requested exactly one SPN, once. This account requests the exact same single SPN once per day at the same time, from the same internal IP, matching a confirmed change ticket explaining a hardware constraint the vendor has not yet resolved. The encryption type is a genuine finding worth tracking (this account should be prioritized for remediation once the vendor supports AES), but it is not, on its own, an active attack. Close it citing the change ticket, not as a false positive: the rule did exactly its job, and calling it a misfire would invite loosening a check you need for real downgrades.",
+      fp_trap:
+        "It's tempting to treat any RC4-encrypted ticket in an AES-only environment as automatically suspicious, since Reading 3 taught RC4 as a downgrade signal. But a downgrade signal only becomes a strong indicator in combination with the volume and breadth pattern that separates Kerberoasting from ordinary (if outdated) legacy usage: a single account requesting a single, consistent service once a day is the shape of a documented technical debt item, not an attacker sweeping SPNs. Escalating every RC4 ticket as an incident, without checking request volume and SPN diversity first, is exactly the over-alerting trap that burns analyst time on findings that should instead go to a remediation backlog.",
+      xp: 30,
     },
   ],
 };

@@ -205,6 +205,26 @@ const winProtoRoom = {
       },
     },
 
+    // ── Ordering: Kerberos AS/TGS exchange for a normal service logon ────────
+    {
+      type: "ordering" as const,
+      id: "winproto-o1",
+      heading: "Order a Normal Kerberos Authentication and Service-Access Sequence",
+      instructions: "Arrange these steps in the order they occur when a user authenticates to the domain and then accesses a specific service.",
+      items: [
+        { id: "asreq", text: "Client sends AS-REQ to the KDC, including PA-DATA (encrypted timestamp proving password knowledge)" },
+        { id: "asrep", text: "KDC validates pre-authentication and replies with AS-REP, containing the TGT" },
+        { id: "tgsreq", text: "Client sends TGS-REQ to the KDC, presenting the TGT and the target service's SPN" },
+        { id: "tgsrep", text: "KDC validates the TGT and replies with TGS-REP, containing a service ticket encrypted with the target service account's key" },
+        { id: "apreq", text: "Client sends AP-REQ directly to the target SERVICE (not the KDC), presenting the service ticket and a fresh authenticator" },
+        { id: "granted", text: "The service decrypts the ticket with its own key, verifies the authenticator, and grants access" },
+      ],
+      correct_order: ["asreq", "asrep", "tgsreq", "tgsrep", "apreq", "granted"],
+      explanation:
+        "This is the complete normal Kerberos flow: prove password knowledge to get a TGT (AS-REQ/AS-REP), exchange that TGT for a specific service ticket (TGS-REQ/TGS-REP), then present that service ticket directly to the target service itself, not back to the KDC (AP-REQ). Every attack covered in this room targets a specific point in this sequence: Kerberoasting targets the TGS-REP's encryption, AS-REP roasting targets a version of the AS-REQ/AS-REP step with pre-authentication skipped, and Pass-the-Ticket skips the legitimate request process entirely by replaying an already-issued ticket.",
+      xp: 35,
+    },
+
     // ── Reading 3: Kerberoasting/AS-REP roasting/PtT at the protocol level ───
     {
       type: "reading" as const,
@@ -241,6 +261,24 @@ const winProtoRoom = {
         "  IP A -- ticket used from a machine that never requested it\n" +
         "  (normal: 4768 from A, then 4624 on server B from A)\n" +
         "=======================================================",
+    },
+
+    // ── Question 2 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "winproto-q2",
+      question:
+        "Domain controller logs show j.alvarez's only TGT request today (4768) came from 10.20.4.15, j.alvarez's usual workstation, at 08:02. At 10:41, 4769 service-ticket requests for j.alvarez arrive from 10.20.9.88: a workstation j.alvarez has never used, which shows signs of separate compromise and has issued no 4768 for j.alvarez, and SRV-DATA07 records a matching 4624 (Kerberos, logon type 3) from 10.20.9.88. What does this pattern most strongly suggest?",
+      options: [
+        "Overpass-the-hash: j.alvarez's NTLM hash was used on 10.20.9.88 to get new Kerberos tickets",
+        "Pass-the-Ticket: a ticket stolen from LSASS is replayed from a host that never requested it",
+        "Kerberoasting: the 4769s from the new host are requests for crackable service tickets",
+        "Normal roaming: j.alvarez logged on at another desk, and the DC reused the morning TGT",
+      ],
+      answer: 1,
+      explanation:
+        "A Kerberos ticket is not bound to the machine that requested it. The TGT came from 10.20.4.15, yet j.alvarez’s tickets are being used from 10.20.9.88, which issued no 4768 for the account: a ticket taken from LSASS and replayed elsewhere. “Overpass-the-hash…” would show a fresh 4768 from 10.20.9.88, because the hash is used to request a new TGT. “Kerberoasting…” is a burst of service-ticket requests across many SPNs for offline cracking, not a 4624 logon on a server with the user’s identity. “Normal roaming…” is wrong because a new interactive logon on another workstation requests its own TGT from that workstation.",
+      xp: 25,
     },
 
     // ── Reading 4: NTLM challenge-response + relay ────────────────────────────
@@ -342,6 +380,24 @@ const winProtoRoom = {
         "=======================================================",
     },
 
+    // ── Question 3 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "winproto-q3",
+      question:
+        "An LDAP query with the filter (&(objectClass=user)(servicePrincipalName=*)) is observed being run from a standard user's workstation account. Why does this specific filter matter for an investigator's next steps, even though the query itself requires no special privileges?",
+      options: [
+        "It lists AS-REP-roastable accounts, so next watch for 4768 requests with PreAuthType 0",
+        "It lists accounts that have SPNs, the Kerberoasting target list, so watch for a 4769 burst",
+        "It lists privileged accounts stamped by AdminSDHolder, so watch their logons closely next",
+        "It is routine AD use, since any domain user is allowed to run it, so it needs no follow-up",
+      ],
+      answer: 1,
+      explanation:
+        "servicePrincipalName=* returns every account with an SPN, which is the list Kerberoasting works from, so the next thing to watch for is a burst of 4769 service-ticket requests from the same account. “It lists AS-REP-roastable accounts…” describes the userAccountControl filter for DONT_REQ_PREAUTH (4194304). “It lists privileged accounts stamped by AdminSDHolder…” describes (adminCount=1). “It is routine AD use…” confuses “allowed” with “harmless”: reconnaissance needs no special rights, which is exactly why a standard workstation account running it deserves follow-up.",
+      xp: 25,
+    },
+
     // ── Reading 6: DCERPC and named pipes ────────────────────────────────────
     {
       type: "reading" as const,
@@ -426,40 +482,23 @@ const winProtoRoom = {
       xp: 25,
     },
 
-    // ── Question 2 ────────────────────────────────────────────────────────
+    // ── Matching: lateral movement tool -> transport ─────────────────────────
     {
-      type: "question" as const,
-      id: "winproto-q2",
-      question:
-        "Domain controller logs show j.alvarez's only TGT request today (4768) came from 10.20.4.15, j.alvarez's usual workstation, at 08:02. At 10:41, 4769 service-ticket requests for j.alvarez arrive from 10.20.9.88: a workstation j.alvarez has never used, which shows signs of separate compromise and has issued no 4768 for j.alvarez, and SRV-DATA07 records a matching 4624 (Kerberos, logon type 3) from 10.20.9.88. What does this pattern most strongly suggest?",
-      options: [
-        "Overpass-the-hash: j.alvarez's NTLM hash was used on 10.20.9.88 to get new Kerberos tickets",
-        "Pass-the-Ticket: a ticket stolen from LSASS is replayed from a host that never requested it",
-        "Kerberoasting: the 4769s from the new host are requests for crackable service tickets",
-        "Normal roaming: j.alvarez logged on at another desk, and the DC reused the morning TGT",
+      type: "matching" as const,
+      id: "winproto-m1",
+      heading: "Match Each Remote-Access Technique to Its Underlying Transport",
+      instructions: "Match each Windows remote-access/lateral-movement technique to the protocol/transport it actually rides on.",
+      pairs: [
+        { id: "psexec", left: "PsExec-style service execution", right: "SMB (ADMIN$ file copy, then IPC$ + \\PIPE\\svcctl RPC calls to the Service Control Manager)" },
+        { id: "wmi", left: "WMI-based remote execution (e.g. Impacket wmiexec)", right: "DCOM/RPC: connects to TCP/135 (endpoint mapper) then a dynamically assigned high port; leaves no new-service artifact" },
+        { id: "winrm", left: "WinRM / PowerShell Remoting", right: "HTTP or HTTPS on TCP 5985/5986" },
+        { id: "rdp", left: "RDP (Remote Desktop Protocol)", right: "TCP 3389, full graphical session, not RPC/named-pipe based" },
+        { id: "atsvc", left: "Remote scheduled task creation", right: "SMB named pipe \\PIPE\\atsvc, talking to the Task Scheduler RPC interface" },
+        { id: "kerbrelay", left: "Kerberos service ticket presentation to a target service", right: "AP-REQ sent directly to the target service (not the KDC), verified using the service's own long-term key" },
       ],
-      answer: 1,
       explanation:
-        "A Kerberos ticket is not bound to the machine that requested it. The TGT came from 10.20.4.15, yet j.alvarez’s tickets are being used from 10.20.9.88, which issued no 4768 for the account: a ticket taken from LSASS and replayed elsewhere. “Overpass-the-hash…” would show a fresh 4768 from 10.20.9.88, because the hash is used to request a new TGT. “Kerberoasting…” is a burst of service-ticket requests across many SPNs for offline cracking, not a 4624 logon on a server with the user’s identity. “Normal roaming…” is wrong because a new interactive logon on another workstation requests its own TGT from that workstation.",
-      xp: 25,
-    },
-
-    // ── Question 3 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "winproto-q3",
-      question:
-        "An LDAP query with the filter (&(objectClass=user)(servicePrincipalName=*)) is observed being run from a standard user's workstation account. Why does this specific filter matter for an investigator's next steps, even though the query itself requires no special privileges?",
-      options: [
-        "It lists AS-REP-roastable accounts, so next watch for 4768 requests with PreAuthType 0",
-        "It lists accounts that have SPNs, the Kerberoasting target list, so watch for a 4769 burst",
-        "It lists privileged accounts stamped by AdminSDHolder, so watch their logons closely next",
-        "It is routine AD use, since any domain user is allowed to run it, so it needs no follow-up",
-      ],
-      answer: 1,
-      explanation:
-        "servicePrincipalName=* returns every account with an SPN, which is the list Kerberoasting works from, so the next thing to watch for is a burst of 4769 service-ticket requests from the same account. “It lists AS-REP-roastable accounts…” describes the userAccountControl filter for DONT_REQ_PREAUTH (4194304). “It lists privileged accounts stamped by AdminSDHolder…” describes (adminCount=1). “It is routine AD use…” confuses “allowed” with “harmless”: reconnaissance needs no special rights, which is exactly why a standard workstation account running it deserves follow-up.",
-      xp: 25,
+        "Recognizing which transport a technique uses lets you predict exactly which log source will show evidence of it: SMB/named-pipe techniques (PsExec, scheduled tasks) leave IPC$ access and Event ID 7045/4698 artifacts; DCOM/RPC-based WMI execution leaves TCP/135 connections and Sysmon process-creation events with WmiPrvSE.exe as parent, but no service artifact; WinRM and RDP are entirely different transports altogether (HTTP-based and full graphical-session-based respectively) with their own distinct log signatures.",
+      xp: 40,
     },
 
     // ── Log Analysis 1: admin share / named pipe access ──────────────────────
@@ -516,6 +555,16 @@ const winProtoRoom = {
       ],
     },
 
+    // ── Flag ──────────────────────────────────────────────────────────────
+    {
+      type: "flag" as const,
+      id: "winproto-f1",
+      prompt:
+        "Look at Log Analysis 1, the admin-share investigation on WKS-OPS31. The 7045 record gives the service binary's path with an environment variable. On a default Windows installation, what full path did PsExec copy its service binary to? Enter the expanded path, e.g. C:\\Folder\\file.exe.",
+      answer: "C:\\Windows\\PSEXESVC.exe",
+      hint: "Reading 1 says which folder ADMIN$ and %SystemRoot% map to on a default installation.",
+      xp: 25,
+    },
     // ── Log Analysis 2: Kerberoasting sweep ──────────────────────────────────
     {
       type: "log_analysis" as const,
@@ -570,6 +619,27 @@ const winProtoRoom = {
       ],
     },
 
+    // ── Query Fill: KQL for detecting a Kerberoasting sweep ──────────────────
+    {
+      type: "query_fill" as const,
+      id: "winproto-qf1",
+      heading: "Write It Yourself: Detect a Kerberoasting Sweep in KQL",
+      language: "kql",
+      context: KQL_PRIMER +
+        "Using the pattern confirmed in Log Analysis 2 (one account requesting RC4-encrypted service tickets for many distinct SPNs in a short window), write the KQL a detection engineer would deploy to catch this pattern across the whole domain. Team guidance for this rule: aggregate over a window of 2–15 minutes, and alert above a threshold somewhere between 5 and 30 distinct service accounts.",
+      template:
+        "SecurityEvent\n| where EventID == {{eventid}}\n| where TicketEncryptionType == \"{{enctype}}\"\n| summarize DistinctSPNs = dcount(ServiceName) by TargetAccount = Account, bin(TimeGenerated, {{window}})\n| where DistinctSPNs > {{threshold}}",
+      blanks: [
+        { id: "eventid", answers: ["4769"], placeholder: "Kerberos service ticket request Event ID" },
+        { id: "enctype", answers: ["0x17"], placeholder: "RC4-HMAC encryption type value" },
+        { id: "window", answers: ["2m", "3m", "4m", "5m", "6m", "7m", "8m", "9m", "10m", "11m", "12m", "13m", "14m", "15m", "2min", "3min", "5min", "10min", "15min", "120s", "180s", "300s", "600s", "900s"], placeholder: "aggregation window" },
+        { id: "threshold", answers: ["5", "6", "7", "8", "9", "10", "12", "15", "20", "25", "30"], placeholder: "distinct-SPN count threshold" },
+      ],
+      explanation:
+        "This mirrors the exact aggregate pattern you evaluated in Log Analysis 2: filter to 4769 (TGS-REQ/service ticket requests) that specifically obtained RC4-HMAC (0x17) (the encryption type Kerberoasting tooling favors) group by the requesting account within a short window, count distinct SPNs targeted, and alert when that count is far higher than any single legitimate application access pattern would ever produce. A production version of this rule would typically also exclude known, approved vulnerability-scanning or security-assessment service accounts to reduce noise from authorized testing.",
+      xp: 35,
+    },
+
     // ── Analyst Choice: authorized helpdesk remote service install ──────────
     {
       type: "analyst_choice" as const,
@@ -611,76 +681,6 @@ const winProtoRoom = {
       xp: 30,
     },
 
-    // ── Matching: lateral movement tool -> transport ─────────────────────────
-    {
-      type: "matching" as const,
-      id: "winproto-m1",
-      heading: "Match Each Remote-Access Technique to Its Underlying Transport",
-      instructions: "Match each Windows remote-access/lateral-movement technique to the protocol/transport it actually rides on.",
-      pairs: [
-        { id: "psexec", left: "PsExec-style service execution", right: "SMB (ADMIN$ file copy, then IPC$ + \\PIPE\\svcctl RPC calls to the Service Control Manager)" },
-        { id: "wmi", left: "WMI-based remote execution (e.g. Impacket wmiexec)", right: "DCOM/RPC: connects to TCP/135 (endpoint mapper) then a dynamically assigned high port; leaves no new-service artifact" },
-        { id: "winrm", left: "WinRM / PowerShell Remoting", right: "HTTP or HTTPS on TCP 5985/5986" },
-        { id: "rdp", left: "RDP (Remote Desktop Protocol)", right: "TCP 3389, full graphical session, not RPC/named-pipe based" },
-        { id: "atsvc", left: "Remote scheduled task creation", right: "SMB named pipe \\PIPE\\atsvc, talking to the Task Scheduler RPC interface" },
-        { id: "kerbrelay", left: "Kerberos service ticket presentation to a target service", right: "AP-REQ sent directly to the target service (not the KDC), verified using the service's own long-term key" },
-      ],
-      explanation:
-        "Recognizing which transport a technique uses lets you predict exactly which log source will show evidence of it: SMB/named-pipe techniques (PsExec, scheduled tasks) leave IPC$ access and Event ID 7045/4698 artifacts; DCOM/RPC-based WMI execution leaves TCP/135 connections and Sysmon process-creation events with WmiPrvSE.exe as parent, but no service artifact; WinRM and RDP are entirely different transports altogether (HTTP-based and full graphical-session-based respectively) with their own distinct log signatures.",
-      xp: 40,
-    },
-
-    // ── Ordering: Kerberos AS/TGS exchange for a normal service logon ────────
-    {
-      type: "ordering" as const,
-      id: "winproto-o1",
-      heading: "Order a Normal Kerberos Authentication and Service-Access Sequence",
-      instructions: "Arrange these steps in the order they occur when a user authenticates to the domain and then accesses a specific service.",
-      items: [
-        { id: "asreq", text: "Client sends AS-REQ to the KDC, including PA-DATA (encrypted timestamp proving password knowledge)" },
-        { id: "asrep", text: "KDC validates pre-authentication and replies with AS-REP, containing the TGT" },
-        { id: "tgsreq", text: "Client sends TGS-REQ to the KDC, presenting the TGT and the target service's SPN" },
-        { id: "tgsrep", text: "KDC validates the TGT and replies with TGS-REP, containing a service ticket encrypted with the target service account's key" },
-        { id: "apreq", text: "Client sends AP-REQ directly to the target SERVICE (not the KDC), presenting the service ticket and a fresh authenticator" },
-        { id: "granted", text: "The service decrypts the ticket with its own key, verifies the authenticator, and grants access" },
-      ],
-      correct_order: ["asreq", "asrep", "tgsreq", "tgsrep", "apreq", "granted"],
-      explanation:
-        "This is the complete normal Kerberos flow: prove password knowledge to get a TGT (AS-REQ/AS-REP), exchange that TGT for a specific service ticket (TGS-REQ/TGS-REP), then present that service ticket directly to the target service itself, not back to the KDC (AP-REQ). Every attack covered in this room targets a specific point in this sequence: Kerberoasting targets the TGS-REP's encryption, AS-REP roasting targets a version of the AS-REQ/AS-REP step with pre-authentication skipped, and Pass-the-Ticket skips the legitimate request process entirely by replaying an already-issued ticket.",
-      xp: 35,
-    },
-
-    // ── Query Fill: KQL for detecting a Kerberoasting sweep ──────────────────
-    {
-      type: "query_fill" as const,
-      id: "winproto-qf1",
-      heading: "Write It Yourself: Detect a Kerberoasting Sweep in KQL",
-      language: "kql",
-      context: KQL_PRIMER +
-        "Using the pattern confirmed in Log Analysis 2 (one account requesting RC4-encrypted service tickets for many distinct SPNs in a short window), write the KQL a detection engineer would deploy to catch this pattern across the whole domain. Team guidance for this rule: aggregate over a window of 2–15 minutes, and alert above a threshold somewhere between 5 and 30 distinct service accounts.",
-      template:
-        "SecurityEvent\n| where EventID == {{eventid}}\n| where TicketEncryptionType == \"{{enctype}}\"\n| summarize DistinctSPNs = dcount(ServiceName) by TargetAccount = Account, bin(TimeGenerated, {{window}})\n| where DistinctSPNs > {{threshold}}",
-      blanks: [
-        { id: "eventid", answers: ["4769"], placeholder: "Kerberos service ticket request Event ID" },
-        { id: "enctype", answers: ["0x17"], placeholder: "RC4-HMAC encryption type value" },
-        { id: "window", answers: ["2m", "3m", "4m", "5m", "6m", "7m", "8m", "9m", "10m", "11m", "12m", "13m", "14m", "15m", "2min", "3min", "5min", "10min", "15min", "120s", "180s", "300s", "600s", "900s"], placeholder: "aggregation window" },
-        { id: "threshold", answers: ["5", "6", "7", "8", "9", "10", "12", "15", "20", "25", "30"], placeholder: "distinct-SPN count threshold" },
-      ],
-      explanation:
-        "This mirrors the exact aggregate pattern you evaluated in Log Analysis 2: filter to 4769 (TGS-REQ/service ticket requests) that specifically obtained RC4-HMAC (0x17) (the encryption type Kerberoasting tooling favors) group by the requesting account within a short window, count distinct SPNs targeted, and alert when that count is far higher than any single legitimate application access pattern would ever produce. A production version of this rule would typically also exclude known, approved vulnerability-scanning or security-assessment service accounts to reduce noise from authorized testing.",
-      xp: 35,
-    },
-
-    // ── Flag ──────────────────────────────────────────────────────────────
-    {
-      type: "flag" as const,
-      id: "winproto-f1",
-      prompt:
-        "Look at Log Analysis 1, the admin-share investigation on WKS-OPS31. The 7045 record gives the service binary's path with an environment variable. On a default Windows installation, what full path did PsExec copy its service binary to? Enter the expanded path, e.g. C:\\Folder\\file.exe.",
-      answer: "C:\\Windows\\PSEXESVC.exe",
-      hint: "Reading 1 says which folder ADMIN$ and %SystemRoot% map to on a default installation.",
-      xp: 25,
-    },
   ],
 };
 

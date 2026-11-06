@@ -4449,27 +4449,12 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "tls-o1",
+        "type": "ordering",
+        "xp": 35
+      },
+      {
         "id": "tls-r2",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "tls-r3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "tls-r4",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "tls-r5",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "tls-r6",
         "type": "reading",
         "xp": 0
       },
@@ -4479,12 +4464,27 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 25
       },
       {
-        "id": "tls-q2",
-        "type": "question",
-        "xp": 25
+        "id": "tls-r3",
+        "type": "reading",
+        "xp": 0
       },
       {
-        "id": "tls-q3",
+        "id": "tls-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "tls-la2",
+        "type": "log_analysis",
+        "xp": 80
+      },
+      {
+        "id": "tls-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "tls-q2",
         "type": "question",
         "xp": 25
       },
@@ -4494,24 +4494,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 80
       },
       {
-        "id": "tls-la2",
-        "type": "log_analysis",
-        "xp": 80
-      },
-      {
-        "id": "tls-ac1",
-        "type": "analyst_choice",
-        "xp": 30
-      },
-      {
-        "id": "tls-m1",
-        "type": "matching",
-        "xp": 40
-      },
-      {
-        "id": "tls-o1",
-        "type": "ordering",
-        "xp": 35
+        "id": "tls-f1",
+        "type": "flag",
+        "xp": 25
       },
       {
         "id": "tls-qf1",
@@ -4519,9 +4504,24 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 35
       },
       {
-        "id": "tls-f1",
-        "type": "flag",
+        "id": "tls-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "tls-q3",
+        "type": "question",
         "xp": 25
+      },
+      {
+        "id": "tls-m1",
+        "type": "matching",
+        "xp": 40
+      },
+      {
+        "id": "tls-ac1",
+        "type": "analyst_choice",
+        "xp": 30
       }
     ]
   },
@@ -4550,9 +4550,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "winproto-o1",
+        "type": "ordering",
+        "xp": 35
+      },
+      {
         "id": "winproto-r3",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "winproto-q2",
+        "type": "question",
+        "xp": 25
       },
       {
         "id": "winproto-r4",
@@ -4565,6 +4575,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "winproto-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
         "id": "winproto-r6",
         "type": "reading",
         "xp": 0
@@ -4575,14 +4590,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 25
       },
       {
-        "id": "winproto-q2",
-        "type": "question",
-        "xp": 25
-      },
-      {
-        "id": "winproto-q3",
-        "type": "question",
-        "xp": 25
+        "id": "winproto-m1",
+        "type": "matching",
+        "xp": 40
       },
       {
         "id": "winproto-la1",
@@ -4590,24 +4600,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 80
       },
       {
+        "id": "winproto-f1",
+        "type": "flag",
+        "xp": 25
+      },
+      {
         "id": "winproto-la2",
         "type": "log_analysis",
         "xp": 80
-      },
-      {
-        "id": "winproto-ac1",
-        "type": "analyst_choice",
-        "xp": 30
-      },
-      {
-        "id": "winproto-m1",
-        "type": "matching",
-        "xp": 40
-      },
-      {
-        "id": "winproto-o1",
-        "type": "ordering",
-        "xp": 35
       },
       {
         "id": "winproto-qf1",
@@ -4615,9 +4615,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 35
       },
       {
-        "id": "winproto-f1",
-        "type": "flag",
-        "xp": 25
+        "id": "winproto-ac1",
+        "type": "analyst_choice",
+        "xp": 30
       }
     ]
   },
@@ -4641,14 +4641,29 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "email-o1",
+        "type": "ordering",
+        "xp": 35
+      },
+      {
         "id": "email-r2",
         "type": "reading",
         "xp": 0
       },
       {
+        "id": "email-q1",
+        "type": "question",
+        "xp": 25
+      },
+      {
         "id": "email-r3",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "email-q3",
+        "type": "question",
+        "xp": 25
       },
       {
         "id": "email-r4",
@@ -4666,24 +4681,29 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "email-q1",
-        "type": "question",
-        "xp": 25
-      },
-      {
         "id": "email-q2",
         "type": "question",
         "xp": 25
       },
       {
-        "id": "email-q3",
-        "type": "question",
-        "xp": 25
+        "id": "email-m1",
+        "type": "matching",
+        "xp": 40
       },
       {
         "id": "email-la1",
         "type": "log_analysis",
         "xp": 85
+      },
+      {
+        "id": "email-f1",
+        "type": "flag",
+        "xp": 25
+      },
+      {
+        "id": "email-qf1",
+        "type": "query_fill",
+        "xp": 35
       },
       {
         "id": "email-la2",
@@ -4694,26 +4714,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "email-ac1",
         "type": "analyst_choice",
         "xp": 30
-      },
-      {
-        "id": "email-m1",
-        "type": "matching",
-        "xp": 40
-      },
-      {
-        "id": "email-o1",
-        "type": "ordering",
-        "xp": 35
-      },
-      {
-        "id": "email-qf1",
-        "type": "query_fill",
-        "xp": 35
-      },
-      {
-        "id": "email-f1",
-        "type": "flag",
-        "xp": 25
       }
     ]
   },
@@ -4842,6 +4842,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
+        "id": "krb-o1",
+        "type": "ordering",
+        "xp": 35
+      },
+      {
         "id": "krb-r3",
         "type": "reading",
         "xp": 0
@@ -4867,6 +4872,16 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 80
       },
       {
+        "id": "krb-f1",
+        "type": "flag",
+        "xp": 25
+      },
+      {
+        "id": "krb-qf1",
+        "type": "query_fill",
+        "xp": 35
+      },
+      {
         "id": "krb-r6",
         "type": "reading",
         "xp": 0
@@ -4882,29 +4897,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 25
       },
       {
-        "id": "krb-ac1",
-        "type": "analyst_choice",
-        "xp": 30
-      },
-      {
         "id": "krb-m1",
         "type": "matching",
         "xp": 40
       },
       {
-        "id": "krb-o1",
-        "type": "ordering",
-        "xp": 35
-      },
-      {
-        "id": "krb-qf1",
-        "type": "query_fill",
-        "xp": 35
-      },
-      {
-        "id": "krb-f1",
-        "type": "flag",
-        "xp": 25
+        "id": "krb-ac1",
+        "type": "analyst_choice",
+        "xp": 30
       }
     ]
   },

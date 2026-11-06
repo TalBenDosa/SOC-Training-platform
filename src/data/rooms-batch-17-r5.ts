@@ -140,6 +140,27 @@ const emailRoom = {
       },
     },
 
+    // ── Ordering: SMTP conversation sequence ────────────────────────────────
+    {
+      type: "ordering" as const,
+      id: "email-o1",
+      heading: "Order the Raw SMTP Conversation for Delivering One Message",
+      instructions: "Arrange these SMTP steps into the correct order, as they would actually occur on the wire.",
+      items: [
+        { id: "connect", text: "Sending server opens a TCP connection to the receiving mail server" },
+        { id: "ehlo", text: "Sending server issues EHLO, announcing its hostname (unverified at the protocol level)" },
+        { id: "starttls", text: "Sending server issues STARTTLS to encrypt the session, then repeats EHLO" },
+        { id: "mailfrom", text: "Sending server issues MAIL FROM, declaring the envelope sender" },
+        { id: "rcptto", text: "Sending server issues RCPT TO, declaring the recipient" },
+        { id: "data", text: "Sending server issues DATA, transmits headers, a blank line and the body, and ends with a lone period" },
+        { id: "quit", text: "Sending server issues QUIT, closing the connection" },
+      ],
+      correct_order: ["connect", "ehlo", "starttls", "mailfrom", "rcptto", "data", "quit"],
+      explanation:
+        "This is the actual, literal sequence of commands that deliver every email: connect, identify (unverified), upgrade to TLS only after the receiver's EHLO reply has advertised STARTTLS (and identify again inside the encrypted session), declare the envelope sender, declare the recipient, then transmit the full message content (including the header From, which is set here, independently of the earlier MAIL FROM step) before closing. Understanding this order is exactly what makes clear why MAIL FROM and the header From are two structurally separate pieces of data, set at two different points in the conversation, with nothing forcing them to agree.",
+      xp: 35,
+    },
+
     // ── Reading 2: envelope vs header From ────────────────────────────────────
     {
       type: "reading" as const,
@@ -176,6 +197,24 @@ const emailRoom = {
         "MAIL FROM: <bounce-8841@sv-notify-relay.net>   <- SPF checks this\n" +
         "From: \"Marcus Whitfield, CFO\" <m.whitfield@solvix.com>  <- recipient sees this\n" +
         "=======================================================",
+    },
+
+    // ── Question 1 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "email-q1",
+      question:
+        "An email's Return-Path shows bounce@random-marketing-relay.net while the header From shows billing@solvix.com. What does this mismatch, by itself, tell an analyst?",
+      options: [
+        "It confirms spoofing: a genuine solvix.com message would carry a solvix.com Return-Path",
+        "The two senders differ, so SPF says nothing about solvix.com; DMARC alignment is the next check",
+        "It is benign, marketing relays send on a domain's behalf, so the mismatch can be closed as normal",
+        "It shows the message came through a mailing list, which rewrites the Return-Path when forwarding",
+      ],
+      answer: 1,
+      explanation:
+        "Envelope sender and header From are independent fields (Reading 2), so the mismatch alone proves nothing either way, but it means an SPF result, which validates only the envelope domain, says nothing about solvix.com. DMARC alignment is the check built for exactly this relationship. “It confirms spoofing” and “It is benign” both jump to a verdict from one field: legitimate email service providers do send with their own envelope domain, yet attackers use the same gap. “It shows a mailing list” picks one possible cause with no evidence for it in the headers given.",
+      xp: 25,
     },
 
     // ── Reading 3: reading the Received chain ─────────────────────────────────
@@ -239,6 +278,25 @@ const emailRoom = {
         explanation:
           "Each server PREPENDS its Received header, so the bottom header (by sv-notify-relay.net, 13:41:02) was written first and the top one (by mx1.solvix.com, 13:41:05) last. Both “top” options assume headers are appended or that the first writer goes on top: the reverse of how the stack grows; the timestamps confirm it. “The HELO name that matches the From domain” trusts a claim the sender controls: neither hop here even mentions solvix.com as a sender, and HELO names are unverified.",
       },
+    },
+
+    // ── Question 3 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "email-q3",
+      question:
+        "You are reading a Received-header chain with three hops. Which header in the chain should you generally trust the MOST regarding the true, verified connecting IP address, and why?",
+      options: [
+        "The bottom-most header: it is added first, before the sender can influence anything, so the originating hop is accurate",
+        "The header marked ESMTPS: the encrypted session means the source IP was authenticated against a trusted certificate",
+        "The header added by your own mail infrastructure (typically the topmost). It records the TCP connection your server actually received",
+        "The header from the largest relay in the chain. Big providers stamp the connecting IP from their own logs",
+      ],
+      answer: 2,
+      explanation:
+        "“The bottom-most header” is closest to the origin, but it is written by infrastructure the sender may control, so it can be fabricated. “The ESMTPS header” confuses transport encryption with sender authentication. TLS does not verify who the connecting party is. “The largest relay” trusts a header you did not write; a forger can claim any provider's name in it. " +
+        "As covered in Reading 3, an attacker can claim anything they want in the parts of the message they control (the DATA content, and, on infrastructure THEY operate, the Received headers their own servers add), but they have no ability to alter what your own organization's mail gateway independently records about the connection it directly observed. This is exactly why the header your own infrastructure adds is the single most trustworthy hop, and why chains can otherwise be partially or fully fabricated on infrastructure the sender controls.",
+      xp: 25,
     },
 
     // ── Reading 4: SPF mechanics ────────────────────────────────────────────
@@ -406,24 +464,6 @@ const emailRoom = {
       },
     },
 
-    // ── Question 1 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "email-q1",
-      question:
-        "An email's Return-Path shows bounce@random-marketing-relay.net while the header From shows billing@solvix.com. What does this mismatch, by itself, tell an analyst?",
-      options: [
-        "It confirms spoofing: a genuine solvix.com message would carry a solvix.com Return-Path",
-        "The two senders differ, so SPF says nothing about solvix.com; DMARC alignment is the next check",
-        "It is benign, marketing relays send on a domain's behalf, so the mismatch can be closed as normal",
-        "It shows the message came through a mailing list, which rewrites the Return-Path when forwarding",
-      ],
-      answer: 1,
-      explanation:
-        "Envelope sender and header From are independent fields (Reading 2), so the mismatch alone proves nothing either way, but it means an SPF result, which validates only the envelope domain, says nothing about solvix.com. DMARC alignment is the check built for exactly this relationship. “It confirms spoofing” and “It is benign” both jump to a verdict from one field: legitimate email service providers do send with their own envelope domain, yet attackers use the same gap. “It shows a mailing list” picks one possible cause with no evidence for it in the headers given.",
-      xp: 25,
-    },
-
     // ── Question 2 ────────────────────────────────────────────────────────
     {
       type: "question" as const,
@@ -442,23 +482,23 @@ const emailRoom = {
       xp: 25,
     },
 
-    // ── Question 3 ────────────────────────────────────────────────────────
+    // ── Matching: header field <-> what it reveals ────────────────────────────
     {
-      type: "question" as const,
-      id: "email-q3",
-      question:
-        "You are reading a Received-header chain with three hops. Which header in the chain should you generally trust the MOST regarding the true, verified connecting IP address, and why?",
-      options: [
-        "The bottom-most header: it is added first, before the sender can influence anything, so the originating hop is accurate",
-        "The header marked ESMTPS: the encrypted session means the source IP was authenticated against a trusted certificate",
-        "The header added by your own mail infrastructure (typically the topmost). It records the TCP connection your server actually received",
-        "The header from the largest relay in the chain. Big providers stamp the connecting IP from their own logs",
+      type: "matching" as const,
+      id: "email-m1",
+      heading: "Match Each Email Field to What It Actually Tells an Investigator",
+      instructions: "Match each header/protocol field to the correct description of what it reveals during forensic analysis.",
+      pairs: [
+        { id: "returnpath", left: "Return-Path (envelope sender / MAIL FROM)", right: "Where bounce notifications go, and the exact address SPF validates, independent of the header From a recipient sees" },
+        { id: "receivedchain", left: "Received-header chain", right: "The hop-by-hop server path a message traveled; read bottom-to-top for chronological order, with your own gateway's own added header being the most trustworthy" },
+        { id: "dkimd", left: "DKIM-Signature d= field", right: "The domain that actually cryptographically signed the message, which is what DMARC alignment compares against the header From domain" },
+        { id: "authresults", left: "Authentication-Results header", right: "The receiving server's own aggregated verdict on SPF, DKIM, and DMARC for this specific message" },
+        { id: "replyto", left: "Reply-To", right: "Where a reply the recipient sends will actually be delivered, often different from both From and Return-Path, and unchecked by SPF/DKIM/DMARC entirely" },
+        { id: "arc", left: "ARC-Authentication-Results", right: "A preserved record of what authentication results looked like BEFORE a legitimate forwarding intermediary's own modifications" },
       ],
-      answer: 2,
       explanation:
-        "“The bottom-most header” is closest to the origin, but it is written by infrastructure the sender may control, so it can be fabricated. “The ESMTPS header” confuses transport encryption with sender authentication. TLS does not verify who the connecting party is. “The largest relay” trusts a header you did not write; a forger can claim any provider's name in it. " +
-        "As covered in Reading 3, an attacker can claim anything they want in the parts of the message they control (the DATA content, and, on infrastructure THEY operate, the Received headers their own servers add), but they have no ability to alter what your own organization's mail gateway independently records about the connection it directly observed. This is exactly why the header your own infrastructure adds is the single most trustworthy hop, and why chains can otherwise be partially or fully fabricated on infrastructure the sender controls.",
-      xp: 25,
+        "Each of these fields answers a distinct forensic question: Return-Path is what SPF actually checks; the Received chain reconstructs the true path a message took; DKIM's d= field is what DMARC alignment compares against the header From; Authentication-Results is the receiver's own summary verdict; Reply-To reveals where responses actually go (a favorite spoofing vector, since it's checked by nothing); and ARC preserves legitimate pre-forwarding authentication context that would otherwise be lost.",
+      xp: 40,
     },
 
     // ── Log Analysis 1: spoofed header investigation ──────────────────────────
@@ -513,6 +553,38 @@ const emailRoom = {
           xp: 30,
         },
       ],
+    },
+
+    // ── Flag ──────────────────────────────────────────────────────────────
+    {
+      type: "flag" as const,
+      id: "email-f1",
+      prompt:
+        "In Log Analysis 1's Received chain, find the EARLIEST hop of the spoofed CFO message. What hostname did the connecting server claim for itself in that hop? Enter the full hostname.",
+      answer: "mail-relay-09.sv-notify-relay.net",
+      hint: "Work out which Received header was written first, then find the name that comes right after “from” in it: the self-announced name, not the receiving server.",
+      xp: 25,
+    },
+    // ── Query Fill: KQL against EmailEvents for domain/alignment mismatch ────
+    {
+      type: "query_fill" as const,
+      id: "email-qf1",
+      heading: "Write It Yourself: Surface DMARC-Failing Mail Impersonating Internal Domains in KQL",
+      language: "kql",
+      context: KQL_PRIMER +
+        "Note on this table: Defender XDR's EmailEvents has no separate SPF/DKIM/DMARC columns. All the verdicts live in one string column, AuthenticationDetails, holding JSON such as {\"SPF\":\"fail\",\"DKIM\":\"none\",\"DMARC\":\"fail\",\"CompAuth\":\"fail\"}. You unpack it with `extend AD = parse_json(AuthenticationDetails)` and then read each verdict as `tostring(AD.SPF)`, `tostring(AD.DKIM)` and so on (the values are lowercase: pass, fail, none…).\n\n" +
+        "Using the pattern from Log Analysis 1 (a message whose header From claims an internal solvix.com identity but fails SPF and DMARC), write the KQL a detection engineer would deploy to catch messages exactly like it.",
+      template:
+        "EmailEvents\n| where SenderFromDomain =~ \"{{domain}}\"\n| extend AD = parse_json(AuthenticationDetails)\n| where tostring(AD.SPF) =~ \"{{spfresult}}\" or tostring(AD.DMARC) =~ \"{{dmarcresult}}\"\n| where tostring(AD.DKIM) !~ \"{{dkimresult}}\"",
+      blanks: [
+        { id: "domain", answers: ["solvix.com", "SOLVIX.COM", "Solvix.com"], placeholder: "internal domain being impersonated" },
+        { id: "spfresult", answers: ["Fail", "fail", "FAIL"], placeholder: "SPF outcome to flag" },
+        { id: "dmarcresult", answers: ["Fail", "fail", "FAIL"], placeholder: "DMARC outcome to flag" },
+        { id: "dkimresult", answers: ["Pass", "pass", "PASS"], placeholder: "DKIM outcome that would clear the message" },
+      ],
+      explanation:
+        "This mirrors exactly the case you investigated in Log Analysis 1: filter to messages whose header From claims your own protected internal domain, unpack the AuthenticationDetails JSON column (EmailEvents stores every SPF/DKIM/DMARC/CompAuth verdict there rather than in separate columns), then flag any that failed SPF or DMARC and did NOT independently pass DKIM either, since a genuine internal message would be expected to pass at least one of SPF or DKIM aligned to that domain. A message claiming to be from solvix.com that fails all three is exactly the spoofing pattern this query is designed to surface for review.",
+      xp: 35,
     },
 
     // ── Log Analysis 2: DMARC-passing lookalike phish ────────────────────────
@@ -607,78 +679,6 @@ const emailRoom = {
       xp: 30,
     },
 
-    // ── Matching: header field <-> what it reveals ────────────────────────────
-    {
-      type: "matching" as const,
-      id: "email-m1",
-      heading: "Match Each Email Field to What It Actually Tells an Investigator",
-      instructions: "Match each header/protocol field to the correct description of what it reveals during forensic analysis.",
-      pairs: [
-        { id: "returnpath", left: "Return-Path (envelope sender / MAIL FROM)", right: "Where bounce notifications go, and the exact address SPF validates, independent of the header From a recipient sees" },
-        { id: "receivedchain", left: "Received-header chain", right: "The hop-by-hop server path a message traveled; read bottom-to-top for chronological order, with your own gateway's own added header being the most trustworthy" },
-        { id: "dkimd", left: "DKIM-Signature d= field", right: "The domain that actually cryptographically signed the message, which is what DMARC alignment compares against the header From domain" },
-        { id: "authresults", left: "Authentication-Results header", right: "The receiving server's own aggregated verdict on SPF, DKIM, and DMARC for this specific message" },
-        { id: "replyto", left: "Reply-To", right: "Where a reply the recipient sends will actually be delivered, often different from both From and Return-Path, and unchecked by SPF/DKIM/DMARC entirely" },
-        { id: "arc", left: "ARC-Authentication-Results", right: "A preserved record of what authentication results looked like BEFORE a legitimate forwarding intermediary's own modifications" },
-      ],
-      explanation:
-        "Each of these fields answers a distinct forensic question: Return-Path is what SPF actually checks; the Received chain reconstructs the true path a message took; DKIM's d= field is what DMARC alignment compares against the header From; Authentication-Results is the receiver's own summary verdict; Reply-To reveals where responses actually go (a favorite spoofing vector, since it's checked by nothing); and ARC preserves legitimate pre-forwarding authentication context that would otherwise be lost.",
-      xp: 40,
-    },
-
-    // ── Ordering: SMTP conversation sequence ────────────────────────────────
-    {
-      type: "ordering" as const,
-      id: "email-o1",
-      heading: "Order the Raw SMTP Conversation for Delivering One Message",
-      instructions: "Arrange these SMTP steps into the correct order, as they would actually occur on the wire.",
-      items: [
-        { id: "connect", text: "Sending server opens a TCP connection to the receiving mail server" },
-        { id: "ehlo", text: "Sending server issues EHLO, announcing its hostname (unverified at the protocol level)" },
-        { id: "starttls", text: "Sending server issues STARTTLS to encrypt the session, then repeats EHLO" },
-        { id: "mailfrom", text: "Sending server issues MAIL FROM, declaring the envelope sender" },
-        { id: "rcptto", text: "Sending server issues RCPT TO, declaring the recipient" },
-        { id: "data", text: "Sending server issues DATA, transmits headers, a blank line and the body, and ends with a lone period" },
-        { id: "quit", text: "Sending server issues QUIT, closing the connection" },
-      ],
-      correct_order: ["connect", "ehlo", "starttls", "mailfrom", "rcptto", "data", "quit"],
-      explanation:
-        "This is the actual, literal sequence of commands that deliver every email: connect, identify (unverified), upgrade to TLS only after the receiver's EHLO reply has advertised STARTTLS (and identify again inside the encrypted session), declare the envelope sender, declare the recipient, then transmit the full message content (including the header From, which is set here, independently of the earlier MAIL FROM step) before closing. Understanding this order is exactly what makes clear why MAIL FROM and the header From are two structurally separate pieces of data, set at two different points in the conversation, with nothing forcing them to agree.",
-      xp: 35,
-    },
-
-    // ── Query Fill: KQL against EmailEvents for domain/alignment mismatch ────
-    {
-      type: "query_fill" as const,
-      id: "email-qf1",
-      heading: "Write It Yourself: Surface DMARC-Failing Mail Impersonating Internal Domains in KQL",
-      language: "kql",
-      context: KQL_PRIMER +
-        "Note on this table: Defender XDR's EmailEvents has no separate SPF/DKIM/DMARC columns. All the verdicts live in one string column, AuthenticationDetails, holding JSON such as {\"SPF\":\"fail\",\"DKIM\":\"none\",\"DMARC\":\"fail\",\"CompAuth\":\"fail\"}. You unpack it with `extend AD = parse_json(AuthenticationDetails)` and then read each verdict as `tostring(AD.SPF)`, `tostring(AD.DKIM)` and so on (the values are lowercase: pass, fail, none…).\n\n" +
-        "Using the pattern from Log Analysis 1 (a message whose header From claims an internal solvix.com identity but fails SPF and DMARC), write the KQL a detection engineer would deploy to catch messages exactly like it.",
-      template:
-        "EmailEvents\n| where SenderFromDomain =~ \"{{domain}}\"\n| extend AD = parse_json(AuthenticationDetails)\n| where tostring(AD.SPF) =~ \"{{spfresult}}\" or tostring(AD.DMARC) =~ \"{{dmarcresult}}\"\n| where tostring(AD.DKIM) !~ \"{{dkimresult}}\"",
-      blanks: [
-        { id: "domain", answers: ["solvix.com", "SOLVIX.COM", "Solvix.com"], placeholder: "internal domain being impersonated" },
-        { id: "spfresult", answers: ["Fail", "fail", "FAIL"], placeholder: "SPF outcome to flag" },
-        { id: "dmarcresult", answers: ["Fail", "fail", "FAIL"], placeholder: "DMARC outcome to flag" },
-        { id: "dkimresult", answers: ["Pass", "pass", "PASS"], placeholder: "DKIM outcome that would clear the message" },
-      ],
-      explanation:
-        "This mirrors exactly the case you investigated in Log Analysis 1: filter to messages whose header From claims your own protected internal domain, unpack the AuthenticationDetails JSON column (EmailEvents stores every SPF/DKIM/DMARC/CompAuth verdict there rather than in separate columns), then flag any that failed SPF or DMARC and did NOT independently pass DKIM either, since a genuine internal message would be expected to pass at least one of SPF or DKIM aligned to that domain. A message claiming to be from solvix.com that fails all three is exactly the spoofing pattern this query is designed to surface for review.",
-      xp: 35,
-    },
-
-    // ── Flag ──────────────────────────────────────────────────────────────
-    {
-      type: "flag" as const,
-      id: "email-f1",
-      prompt:
-        "In Log Analysis 1's Received chain, find the EARLIEST hop of the spoofed CFO message. What hostname did the connecting server claim for itself in that hop? Enter the full hostname.",
-      answer: "mail-relay-09.sv-notify-relay.net",
-      hint: "Work out which Received header was written first, then find the name that comes right after “from” in it: the self-announced name, not the receiving server.",
-      xp: 25,
-    },
   ],
 };
 

@@ -327,6 +327,58 @@ const DEEPQUERY: CampusConfig = {
   ],
 };
 
+const SEALEDROOM: HallConfig = {
+  title: "The Sealed Room",
+  sub: "Tessellate Payments network security",
+  core: "globe",
+  books: ["Encrypted Traffic", "Network Forensics", "SOC"],
+  cards: [
+    { icon: "wire", name: ["The", "Handshake"], color: "#e07a5f", art: "lock" },
+    { icon: "eye", name: ["The", "Fingerprint"], color: "#a8dadc", art: "axes" },
+    { icon: "pulse", name: ["The", "Beacon"], color: "#ffd166", art: "pulse" },
+    { icon: "shield", name: ["The", "Proxy"], color: "#81b29a", art: "tree" },
+    { icon: "lock", name: ["The Sealed", "Room"], color: "#f4a896", art: "ghost" },
+  ],
+};
+
+const SIDEDOOR: CampusConfig = {
+  seed: 4057,
+  hub: { title: "Pinehurst Mills", sub: "THREAT HUNT HUB" },
+  buildings: [
+    { icon: "monitor", sign: ["The", "Shares"], color: "#f4a58a", x: -19, z: -3.5, rot: 0.36 },
+    { icon: "shield", sign: ["The", "Tickets"], color: "#a8dadc", x: -10.5, z: 9, rot: 0.2 },
+    { icon: "wire", sign: ["Relay and", "Recon"], color: "#ffd166", x: 7.5, z: 9.5, rot: -0.1 },
+    { icon: "target", sign: ["The", "Doors"], color: "#c7b8ff", x: 16, z: 7.5, rot: -0.24 },
+    { icon: "siren", sign: ["Ours or", "Theirs"], color: "#e5383b", x: 17.5, z: -9.5, rot: -0.38 },
+  ],
+};
+
+const RETURNPATH: HallConfig = {
+  title: "Return Path Hall",
+  sub: "Saffron Road Imports email forensics",
+  core: "knot",
+  books: ["Email Forensics", "Mail Protocols", "SOC"],
+  cards: [
+    { icon: "mail", name: ["The", "Envelope"], color: "#ee9b3e", art: "loot" },
+    { icon: "wire", name: ["The", "Chain"], color: "#9fb8ff", art: "tree" },
+    { icon: "shield", name: ["The", "Seals"], color: "#34d399", art: "lock" },
+    { icon: "eye", name: ["Side", "by Side"], color: "#f472b6", art: "axes" },
+    { icon: "siren", name: ["Return", "Path"], color: "#f0516e", art: "ghost" },
+  ],
+};
+
+const THREEHEADS: CampusConfig = {
+  seed: 5923,
+  hub: { title: "Vale Regional Health", sub: "IDENTITY THREAT HUB" },
+  buildings: [
+    { icon: "users", sign: ["The Ticket", "Office"], color: "#ff7b72", x: -19, z: -5.5, rot: 0.38 },
+    { icon: "shield", sign: ["The Cipher", "Field"], color: "#7ee8fa", x: -12.5, z: 7.5, rot: 0.24 },
+    { icon: "target", sign: ["Read the", "Ticket"], color: "#c3f584", x: -5, z: 9.5, rot: 0.1 },
+    { icon: "filter", sign: ["No Paper", "Trail"], color: "#b794f4", x: 7.5, z: 9, rot: -0.12 },
+    { icon: "siren", sign: ["The Last", "Ticket"], color: "#ffd23f", x: 17.5, z: -3, rot: -0.38 },
+  ],
+};
+
 const HALL: HallConfig = {
   title: "Specimen Hall",
   sub: "Vantor Logistics malware lab",
@@ -413,3 +465,7 @@ export function FacilityExitRoute(props: WorldProps) { return <HallWorld cfg={EX
 export function FacilityLongGame(props: WorldProps) { return <CampusWorld cfg={LONGGAME} props={props} />; }
 export function FacilityFirstRule(props: WorldProps) { return <HallWorld cfg={FIRSTRULE} props={props} />; }
 export function FacilityDeepQuery(props: WorldProps) { return <CampusWorld cfg={DEEPQUERY} props={props} />; }
+export function FacilitySealedRoom(props: WorldProps) { return <HallWorld cfg={SEALEDROOM} props={props} />; }
+export function FacilitySideDoor(props: WorldProps) { return <CampusWorld cfg={SIDEDOOR} props={props} />; }
+export function FacilityReturnPath(props: WorldProps) { return <HallWorld cfg={RETURNPATH} props={props} />; }
+export function FacilityThreeHeads(props: WorldProps) { return <CampusWorld cfg={THREEHEADS} props={props} />; }
