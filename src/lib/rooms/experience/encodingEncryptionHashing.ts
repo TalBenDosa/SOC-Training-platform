@@ -27,11 +27,11 @@ export const ENCODING_ENCRYPTION_HASHING: RoomExperience = {
   scene: "cipherlab",
   layout: "stage",
   story: {
-    intro: { title: "Three Words", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/encoding-encryption-hashing/cipher-room-intro-8f6bc0b0.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/encoding-encryption-hashing/cipher-room-intro-0ee7220b.jpg" },
+    intro: { title: "Three Words", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/encoding-encryption-hashing/cipher-room-intro-667a3aac.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/encoding-encryption-hashing/cipher-room-intro-5c2991f7.jpg" },
     afterStation: {
-      decode: { title: "Not a Secret", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/encoding-encryption-hashing/cipher-room-ch2-4343a07c.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/encoding-encryption-hashing/cipher-room-ch2-1218fcfd.jpg" },
-      press: { title: "One Byte, New Hash", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/encoding-encryption-hashing/cipher-room-ch3-1c285616.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/encoding-encryption-hashing/cipher-room-ch3-25904254.jpg" },
-      tunnel: { title: "Read It Without Breaking It", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/encoding-encryption-hashing/cipher-room-finale-ff58df1a.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/encoding-encryption-hashing/cipher-room-finale-85d0cac3.jpg" },
+      decode: { title: "Not a Secret", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/encoding-encryption-hashing/cipher-room-ch2-c117a535.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/encoding-encryption-hashing/cipher-room-ch2-dd9c5473.jpg" },
+      press: { title: "One Byte, New Hash", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/encoding-encryption-hashing/cipher-room-ch3-cb9a3d2e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/encoding-encryption-hashing/cipher-room-ch3-1b2188bb.jpg" },
+      tunnel: { title: "Read It Without Breaking It", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/encoding-encryption-hashing/cipher-room-finale-68c58e1b.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/encoding-encryption-hashing/cipher-room-finale-b6cba0fb.jpg" },
     },
   },
   stations: [
