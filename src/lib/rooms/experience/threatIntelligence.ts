@@ -33,7 +33,7 @@ export const THREAT_INTELLIGENCE: RoomExperience = {
   briefing: [
     "Penrose Energy. Gas and power for 640,000 homes across three counties, and the winter peak starts in five weeks.",
     "Ingrid Solheim runs grid operations and has one question: can the crew that hit Aldermoor Gas last month reach our substation engineers, and should the vendor support sessions stop before the peak?",
-    "The threat feed pours 48,000 indicators a day into the SOC. Not one of them answers that, and Callista Nwosu has nine days.",
+    "The threat feed pours 48,000 indicators a day into the SOC. Callista Nwosu has nine days to say which ones matter.",
     "Take one real question the whole way round: collect for it, fill the Diamond, release it under the right label, and act when the first hit lands.",
   ],
   mission: "Turn a stakeholder's question into a requirement, work it round the intelligence lifecycle, pick the sources that can answer it, fill one Diamond Model event from a vendor report and raw notes, release it under the right label, then prove the first hit with your own logs.",

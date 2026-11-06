@@ -1015,6 +1015,23 @@ const rooms = [
             "The reading lists host isolation authority under Tier 2's responsibilities. Tier 1 works from predefined playbooks but does not have authority for high-impact actions such as isolating servers, so it escalates. Tier 3 leads major incidents and external engagement, but routine isolation approval sits with Tier 2. The reading does not assign isolation approval to the SOC manager.",
         },
       },
+      // ── Question 1 ────────────────────────────────────────────────────────
+      {
+        type: "question",
+        id: "esc-q1",
+        question:
+          "A Tier 1 analyst receives an alert about a single failed login attempt on a user account. The analyst checks the playbook: this is a known false positive pattern during the company's morning VPN authentication (many users retry once if they mistype their password). What should the analyst do?",
+        options: [
+          "Escalate to Tier 2, since any failed login could be the first event of a brute-force attack",
+          "Escalate to Tier 3 for a forensic check that rules out account takeover before closure",
+          "Document that it matches the playbook's known pattern and close it as a false positive",
+          "Ask the user to confirm the attempt was theirs, and keep the ticket open until they reply",
+        ],
+        answer: 2,
+        explanation:
+          "A single failed login that matches a false-positive pattern documented in the playbook is a “when NOT to escalate” case: Tier 1 documents the match and closes it. Escalating to Tier 2 on a single failure is over-escalation; a brute-force pattern would show many failures, not one retry. Tier 3 handles major incidents and hunting, not routine triage. Contacting the user adds delay and an open ticket for a pattern the playbook already explains.",
+        xp: 15,
+      },
       // ── Reading 2 ─────────────────────────────────────────────────────────
       {
         type: "reading",
@@ -1064,6 +1081,23 @@ const rooms = [
             "The reading lists escalating out of uncertainty, before finishing your own playbook steps, as a “when NOT to escalate” case: do the playbook first. Escalating right away is the over-escalation that floods Tier 2 and teaches them to deprioritise you. Closing as benign skips the investigation; Tier 1 closes only clear false positives with evidence. Passing it to the next shift delays the investigation without adding anything.",
         },
       },
+      // ── Question 2 ────────────────────────────────────────────────────────
+      {
+        type: "question",
+        id: "esc-q2",
+        question:
+          "Ransomware is hitting 40 of a client's servers. The SOC's Tier 2/3 lead, the client's security team, IT operations and legal all need to make decisions at the same time. What does the reading recommend setting up?",
+        options: [
+          "A shared incident ticket in the client's ITSM, which each team updates in turn as it works",
+          "An escalation bridge: a live call or war room where all parties coordinate in real time",
+          "A formal Tier 1 to Tier 2 handover note listing status, IOCs and the actions taken so far",
+          "An after-action review with all stakeholders to agree on the timeline and the action items",
+        ],
+        answer: 1,
+        explanation:
+          "For P1 incidents affecting many systems, the reading recommends an escalation bridge: a conference call or video meeting where the SOC leads, the client's security team, IT operations and sometimes legal and executives coordinate in real time. A shared ticket is updated in turn, which is too slow when decisions are needed simultaneously. A handover note moves the case between tiers but does not bring the stakeholders together. An after-action review happens after the incident, not during it.",
+        xp: 15,
+      },
       // ── Reading 3 ─────────────────────────────────────────────────────────
       {
         type: "reading",
@@ -1093,40 +1127,6 @@ const rooms = [
           `- Key client security contacts\n` +
           `- External IR firm retainer contact\n\n` +
           `These contacts must be tested quarterly: a phone number that's been disconnected for six months is worthless at 2am during a ransomware outbreak. Runbooks (step-by-step procedural guides) for each escalation scenario ensure that even a brand-new analyst can follow the correct process under pressure.`,
-      },
-      // ── Question 1 ────────────────────────────────────────────────────────
-      {
-        type: "question",
-        id: "esc-q1",
-        question:
-          "A Tier 1 analyst receives an alert about a single failed login attempt on a user account. The analyst checks the playbook: this is a known false positive pattern during the company's morning VPN authentication (many users retry once if they mistype their password). What should the analyst do?",
-        options: [
-          "Escalate to Tier 2, since any failed login could be the first event of a brute-force attack",
-          "Escalate to Tier 3 for a forensic check that rules out account takeover before closure",
-          "Document that it matches the playbook's known pattern and close it as a false positive",
-          "Ask the user to confirm the attempt was theirs, and keep the ticket open until they reply",
-        ],
-        answer: 2,
-        explanation:
-          "A single failed login that matches a false-positive pattern documented in the playbook is a “when NOT to escalate” case: Tier 1 documents the match and closes it. Escalating to Tier 2 on a single failure is over-escalation; a brute-force pattern would show many failures, not one retry. Tier 3 handles major incidents and hunting, not routine triage. Contacting the user adds delay and an open ticket for a pattern the playbook already explains.",
-        xp: 15,
-      },
-      // ── Question 2 ────────────────────────────────────────────────────────
-      {
-        type: "question",
-        id: "esc-q2",
-        question:
-          "Ransomware is hitting 40 of a client's servers. The SOC's Tier 2/3 lead, the client's security team, IT operations and legal all need to make decisions at the same time. What does the reading recommend setting up?",
-        options: [
-          "A shared incident ticket in the client's ITSM, which each team updates in turn as it works",
-          "An escalation bridge: a live call or war room where all parties coordinate in real time",
-          "A formal Tier 1 to Tier 2 handover note listing status, IOCs and the actions taken so far",
-          "An after-action review with all stakeholders to agree on the timeline and the action items",
-        ],
-        answer: 1,
-        explanation:
-          "For P1 incidents affecting many systems, the reading recommends an escalation bridge: a conference call or video meeting where the SOC leads, the client's security team, IT operations and sometimes legal and executives coordinate in real time. A shared ticket is updated in turn, which is too slow when decisions are needed simultaneously. A handover note moves the case between tiers but does not bring the stakeholders together. An after-action review happens after the incident, not during it.",
-        xp: 15,
       },
       // ── Question 3 ────────────────────────────────────────────────────────
       {

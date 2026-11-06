@@ -2775,12 +2775,12 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "cloud-r2",
-        "type": "reading",
-        "xp": 0
+        "id": "cloud-q3",
+        "type": "question",
+        "xp": 20
       },
       {
-        "id": "cloud-r3",
+        "id": "cloud-r2",
         "type": "reading",
         "xp": 0
       },
@@ -2795,9 +2795,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
-        "id": "cloud-q3",
-        "type": "question",
-        "xp": 20
+        "id": "cloud-r3",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "cloud-la1",
@@ -2805,15 +2805,15 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 60
       },
       {
+        "id": "cloud-flag1",
+        "type": "flag",
+        "xp": 45
+      },
+      {
         "id": "cloud-ac1",
         "type": "analyst_choice",
         "xp": 30,
         "mitreTechnique": "T1548.005"
-      },
-      {
-        "id": "cloud-flag1",
-        "type": "flag",
-        "xp": 45
       }
     ]
   },
@@ -3083,24 +3083,24 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "esc-read-2",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "esc-read-3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "esc-q1",
         "type": "question",
         "xp": 15
       },
       {
+        "id": "esc-read-2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
         "id": "esc-q2",
         "type": "question",
         "xp": 15
+      },
+      {
+        "id": "esc-read-3",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "esc-q3",
@@ -5944,6 +5944,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 80
       },
       {
+        "id": "cred-f1",
+        "type": "flag",
+        "xp": 25
+      },
+      {
         "id": "cred-q2",
         "type": "question",
         "xp": 25
@@ -5962,11 +5967,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "cred-qf1",
         "type": "query_fill",
         "xp": 35
-      },
-      {
-        "id": "cred-f1",
-        "type": "flag",
-        "xp": 25
       }
     ]
   },

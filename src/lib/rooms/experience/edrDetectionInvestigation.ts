@@ -45,7 +45,7 @@ export const EDR_DETECTION_INVESTIGATION: RoomExperience = {
     "Kilnworth Ceramics. 620 people, two factories, and a book of glaze recipes that took four generations to get right.",
     "Overnight, the workstation in the glaze lab started sending files somewhere new.",
     "The EDR console caught it, killed it and called it Critical, and the plant manager has already asked whether that means it's over.",
-    "Mateusz Oyelaran runs the sensors here and has one rule: start where it fired, and climb until you reach where it began.",
+    "Mateusz Oyelaran runs the sensors here and and has seen this go wrong before.",
   ],
   mission: "Read a detection field by field, walk a process tree past the loudest node to the root cause, meet each evasion with the telemetry that survives it, tie sibling behaviours into one story, reassess a severity, scope the fleet, cut ahead of the spread, then write the hunt yourself.",
   estimate: "~70 min",

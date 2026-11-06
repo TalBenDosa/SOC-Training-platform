@@ -388,7 +388,7 @@ const PAGEFILE: HallConfig = {
     { icon: "layers", name: ["The", "Image"], color: "#d6b370", art: "lock" },
     { icon: "eye", name: ["Two", "Timelines"], color: "#7cc6b8", art: "axes" },
     { icon: "filter", name: ["What Stays", "Behind"], color: "#9fa8da", art: "ghost" },
-    { icon: "siren", name: ["Pull the", "Plug"], color: "#ff5964", art: "pulse" },
+    { icon: "siren", name: ["The Live", "Call"], color: "#ff5964", art: "pulse" },
     { icon: "shield", name: ["The Last", "Shadow"], color: "#b9a0e8", art: "tree" },
   ],
 };
@@ -428,6 +428,54 @@ const DIAMOND: CampusConfig = {
     { icon: "target", sign: ["The", "Diamond"], color: "#b9a7ff", x: -5.5, z: 9.5, rot: 0.1 },
     { icon: "mail", sign: ["The", "Release"], color: "#7fe3b5", x: 8, z: 9, rot: -0.14 },
     { icon: "siren", sign: ["The First", "Hit"], color: "#ff5a7a", x: 18, z: -1, rot: -0.34 },
+  ],
+};
+
+const HIGHCLOUD: HallConfig = {
+  title: "High Cloud",
+  sub: "Brightfeather Robotics cloud security",
+  core: "globe",
+  books: ["Cloud", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "wire", name: ["The Control", "Plane"], color: "#a0c4ff", art: "tree" },
+    { icon: "target", name: ["Who Called", "the API?"], color: "#ffc971", art: "loot" },
+    { icon: "shield", name: ["The Open", "Door"], color: "#5eead4", art: "lock" },
+    { icon: "siren", name: ["The Last", "Call"], color: "#ff5c72", art: "pulse" },
+  ],
+};
+
+const CHAINOFCOMMAND: CampusConfig = {
+  seed: 8713,
+  hub: { title: "Ashdown Rail Freight", sub: "SOC NIGHT DESK" },
+  buildings: [
+    { icon: "monitor", sign: ["The", "Page"], color: "#f7b267", x: -19, z: -1.5, rot: 0.4 },
+    { icon: "users", sign: ["The", "Call"], color: "#7bdff2", x: -8, z: 9.5, rot: 0.14 },
+    { icon: "mail", sign: ["The", "Handover"], color: "#b8c0ff", x: 8.5, z: 9, rot: -0.12 },
+    { icon: "siren", sign: ["Night", "Verdict"], color: "#f25f5c", x: 18, z: -7, rot: -0.34 },
+  ],
+};
+
+const SPRAYPAINT: HallConfig = {
+  title: "Spray Hall",
+  sub: "Mariposa Hotels Group detection",
+  core: "matrix",
+  books: ["Detection", "Identity", "SOC"],
+  cards: [
+    { icon: "target", name: ["The", "Wall"], color: "#ff5fa8", art: "pulse" },
+    { icon: "filter", name: ["The", "Shape"], color: "#6ee7ff", art: "axes" },
+    { icon: "eye", name: ["After the", "Burst"], color: "#ffc24b", art: "ghost" },
+    { icon: "shield", name: ["The", "Detection"], color: "#a3e635", art: "lock" },
+  ],
+};
+
+const RUNBOOK: CampusConfig = {
+  seed: 8681,
+  hub: { title: "Greenhithe Foods", sub: "INCIDENT RESPONSE HUB" },
+  buildings: [
+    { icon: "shield", sign: ["The", "Binder"], color: "#e6c229", x: -18.5, z: -2.5, rot: 0.38 },
+    { icon: "target", sign: ["Walk the", "Page"], color: "#4fd1c5", x: -11.5, z: 8, rot: 0.24 },
+    { icon: "wire", sign: ["The Other", "Way Round"], color: "#7aa7ff", x: 10.5, z: 9, rot: -0.16 },
+    { icon: "siren", sign: ["The", "Call"], color: "#f25c54", x: 19, z: -6.5, rot: -0.4 },
   ],
 };
 
@@ -525,3 +573,7 @@ export function FacilityPagefile(props: WorldProps) { return <HallWorld cfg={PAG
 export function FacilityProcessTree(props: WorldProps) { return <CampusWorld cfg={PROCESSTREE} props={props} />; }
 export function FacilityColdVault(props: WorldProps) { return <HallWorld cfg={COLDVAULT} props={props} />; }
 export function FacilityDiamond(props: WorldProps) { return <CampusWorld cfg={DIAMOND} props={props} />; }
+export function FacilityHighCloud(props: WorldProps) { return <HallWorld cfg={HIGHCLOUD} props={props} />; }
+export function FacilityChainOfCommand(props: WorldProps) { return <CampusWorld cfg={CHAINOFCOMMAND} props={props} />; }
+export function FacilitySprayPaint(props: WorldProps) { return <HallWorld cfg={SPRAYPAINT} props={props} />; }
+export function FacilityRunbook(props: WorldProps) { return <CampusWorld cfg={RUNBOOK} props={props} />; }

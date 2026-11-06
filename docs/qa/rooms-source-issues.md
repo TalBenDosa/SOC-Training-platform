@@ -65,3 +65,11 @@ Builders and reviewers may not change these: a reading edit disables its recorde
 | edr-detection-investigation | r2, q4, la1, ac1 | "Detected, no action taken" is not a real PatternDispositionDescription; real values read "Detection, standard detection." and "Prevention, process killed." | Change source and labs together. |
 | ransomware-full-lifecycle | m1 | Pair clearlog says "cleared right after the intrusion", against r6 and o1. | "cleared just before encryption". |
 | ransomware-full-lifecycle | la1, la2, la3 | "Detected, no action taken" and "Detected, kill process" are not real Falcon strings. | Align in a platform-wide pass. |
+| cloud-security-monitoring | la1, r2 (reading) | GuardDuty finding PrivilegeEscalation:IAMUser/AdministrativePermissions is retired; r2 lists GetObject without saying it is a data event, off by default. | Reword, re-record narration. |
+| credential-attacks-practice | la1, la2 | la2 gives a 4-attempt lockout policy, but la1's answer says the limit may not have been reached after 47 attempts. | Align. |
+| playbook-execution-and-escalation | q2 | Comes before r3, which teaches it; calls stopping a "deviation", but r3 says it is not one; stray colon in the question. | Reword or move. |
+| playbook-execution-and-escalation | la1, graded data | "Hosting-provider network" is not in the record; routable 45.135.232.71, AS200651, northvale.com. | Replace. |
+| escalation-procedures | log-1 | "P1 SLA: 15 min, 3 min breach" only works if the clock starts at acknowledgement; room 64 starts it at confirmation. | Align. |
+| credential-attacks-practice | qf1 | Blank lists reject valid answers: window rejects 3h and 4h, threshold rejects 6, 7, 12, 60. | Add values or state the window and baseline. |
+| playbook-execution-and-escalation | ac1 fp_trap | Discusses Step 4 and waiting until 07:00, but the learner only sees generic verdict cards. | Rewrite around the cards. |
+| cloud-security-monitoring | r2, la1 | Exfiltration:S3/ObjectRead.Unusual is also retired; "PutBucketAcl making a bucket world-readable": on a bucket, ACL READ only lists objects. | Use AnomalousBehavior findings; name the object ACL or bucket policy step. |

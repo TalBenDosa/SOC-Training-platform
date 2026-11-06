@@ -76,7 +76,7 @@ export function ReactorLab({ lab, onDone }: LabProps<"reactor">) {
             </motion.div>
           )}
         </AnimatePresence>
-        {done && <p className="grid h-full place-items-center text-sm font-bold text-emerald-300">Belt clear. All three reactors stable.</p>}
+        {done && <p className="grid h-full place-items-center text-sm font-bold text-emerald-300">Belt clear. Every reactor stable.</p>}
       </div>
 
       {/* Reactors */}

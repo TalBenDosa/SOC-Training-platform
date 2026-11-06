@@ -341,6 +341,15 @@ const credentialAttacksRoom: Room = {
       ],
     },
     {
+      type: "flag",
+      id: "cred-f1",
+      prompt:
+        "Open the representative record in Log Analysis 2 (the k.mensah failure) and read its raw fields. What LogonType value did the spray use against this account? Enter the number.",
+      answer: "3",
+      hint: "Find winlog.event_data.LogonType in the raw block. Reading 2 notes this is the logon type attackers script at volume because it needs no interactive session.",
+      xp: 25,
+    },
+    {
       type: "question",
       id: "cred-q2",
       question:
@@ -405,15 +414,6 @@ const credentialAttacksRoom: Room = {
       explanation:
         "This mirrors the discrimination from Reading 2 and Log Analysis 2: filtering to 4625 and counting distinct targeted accounts per source is what actually catches a spray, because TotalFailures alone (a low number, by design) would never trip a volume-based alert tuned for brute forcing, the whole point of spraying is staying under exactly that kind of threshold on any single account, so the detection has to key on account BREADTH, not attempt count.",
       xp: 35,
-    },
-    {
-      type: "flag",
-      id: "cred-f1",
-      prompt:
-        "Open the representative record in Log Analysis 2 (the k.mensah failure) and read its raw fields. What LogonType value did the spray use against this account? Enter the number.",
-      answer: "3",
-      hint: "Find winlog.event_data.LogonType in the raw block. Reading 2 notes this is the logon type attackers script at volume because it needs no interactive session.",
-      xp: 25,
     },
   ],
 };

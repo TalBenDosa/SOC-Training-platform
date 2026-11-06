@@ -618,6 +618,23 @@ const rooms = [
             "The reading says many `AccessDenied` errors from the same identity indicate reconnaissance: an attacker testing what a stolen credential is allowed to do. The spread across four services is the tell. “A misconfigured application retrying one API call” would repeat a single eventName, not dozens of calls across IAM, S3, EC2 and Secrets Manager. “CloudTrail failing to deliver these events” misreads the field: `errorCode` records why the API call itself failed, not a logging problem. “A password-guessing attack on the console login” would appear as failed ConsoleLogin events, not as AccessDenied on API calls to other services.",
         },
       },
+      // ── Question 3 ──────────────────────────────────────────────
+      {
+        type: "question",
+        id: "cloud-q3",
+        question:
+          "In AWS CloudTrail, what does `userIdentity.type = \"Root\"` in a CloudTrail event indicate, and why should SOC analysts treat this as high-priority?",
+        options: [
+          "The action was made by an IAM user holding AdministratorAccess, which CloudTrail labels Root because that policy grants every permission",
+          "The action was performed by the account root user, which sits outside IAM policy limits and should almost never be used day to day",
+          "The call came from a Lambda function whose execution role has full-account permissions, which CloudTrail records as a Root identity",
+          "The action was made by a federated SSO user mapped to the top administrator permission set, recorded as the root of that session",
+        ],
+        answer: 1,
+        explanation:
+          "The AWS root account is the email/password account used to originally create the AWS account. It cannot be restricted by IAM policies (Service Control Policies restrict it only in member accounts of an AWS Organization, never in the management account), and it has access to billing and account closure. AWS's own best practices say root should be used only for a handful of specific tasks (e.g., closing the account, restoring a locked-out admin) and should have MFA enabled with the access keys deleted. Any `Root` event in CloudTrail (especially API calls rather than console logins) is a Tier 1 alert. Attackers who obtain root access own that account, and if it is the Organization's management account, effectively the whole organization. The distractors describe other identities that CloudTrail labels differently: an IAM user holding AdministratorAccess is still type `IAMUser`; a Lambda execution role and a federated SSO session are both `AssumedRole`. Broad permissions never turn an identity into `Root`.",
+        xp: 20,
+      },
       // ── Reading 2 ──────────────────────────────────────────────
       {
         type: "reading",
@@ -637,14 +654,6 @@ const rooms = [
           explanation:
             "The metadata service's `iam/security-credentials/` path returns temporary credentials for the instance's attached IAM role, and under IMDSv1 any code on the instance can query it. “/dynamic/instance-identity/document” is on the same metadata service but returns the instance's identity (account, region, instance ID), not role credentials. “sts.amazonaws.com ... GetSessionToken” is an API that needs valid credentials before it will answer. “iam.amazonaws.com ... ListAccessKeys” only lists key IDs, never secrets, and also needs credentials first.",
         },
-      },
-      // ── Reading 3 ──────────────────────────────────────────────
-      {
-        type: "reading",
-        id: "cloud-r3",
-        heading: "Building a Cloud Security Investigation: AWS Focus",
-        content:
-          "**Analogy:** Investigating a cloud security incident is like investigating a bank robbery where the thief never set foot in the bank, everything happened over the phone and the internet. You have logs of every call, but no physical evidence. The investigation is entirely about correlating API calls, timestamps, and IP addresses.\n\nHere is how to investigate a suspected AWS IAM compromise:\n\n**Step 1. Identify the compromised identity.**\nYour alert fires on a `CreateUser` + `AttachUserPolicy` sequence. Pull the `userIdentity.arn` from both events. Is it a human IAM user, a role, or, most dangerous, the root account? Check `sourceIPAddress` against your known IP ranges and threat intel.\n\n**Step 2. Establish the attacker's access window.**\nWhen did the first API call from the suspicious IP appear in CloudTrail? Run a query for all events from that ARN or IP in the last 30 days. Did anything appear before the attack event that explains how they got in? (A `GetSecretValue` on a secret containing access keys? An EC2 console login from the same IP days earlier?)\n\n**Step 3. Enumerate what was created, changed, or accessed.**\nScan CloudTrail for all API calls from the attacker's session:\n- New IAM users, roles, or access keys created\n- Policies attached or inline policies modified\n- S3 `GetObject` or `PutBucketAcl` calls\n- EC2 instances launched (possible crypto mining)\n- Secrets Manager or SSM Parameter Store reads (credential harvesting)\n- `CloudTrail StopLogging` (attacker trying to hide their tracks: this fires one final CloudTrail event)\n\n**Step 4. Check for lateral movement to other accounts.**\nIn AWS organisations with multiple accounts, an attacker in one account may assume roles in other accounts (`AssumeRole` across accounts). Check the `userIdentity.accountId` in events to see if actions occurred in accounts other than the initially compromised one.\n\n**Step 5. Contain.**\n- Cut off the compromised identity: for an IAM user, deactivate its access keys (`aws iam update-access-key --status Inactive`) and remove or reset its console password (`aws iam delete-login-profile`: note this only removes the console password and does not end sessions already issued); for a role such as `DevOps-Deploy-Role`, use \"Revoke active sessions\" in the IAM console, which attaches an inline deny policy on `aws:TokenIssueTime` so every session token issued before now stops working\n- Disable or delete any backdoor accounts/access keys the attacker created\n- Remove any overly permissive policies the attacker attached\n- Rotate any secrets the attacker may have read\n- If EC2 instances were launched, terminate them and isolate the instance profile role\n\n**Step 6. Determine the root cause.**\nHow did the attacker get credentials in the first place? Common sources: GitHub commit containing access keys, SSRF vulnerability pulling IMDS credentials, phishing for console password + MFA bypass, supply chain compromise in a CI/CD pipeline.\n\n**Tor and VPN exit nodes** in `sourceIPAddress` are a major indicator. Legitimate developers connect from corporate IPs, home ISPs, or known VPN ranges. Calls from Tor exit nodes or anonymous datacenter IPs have almost no legitimate explanation in a production AWS environment. Your SIEM should enrich CloudTrail `sourceIPAddress` with threat intel automatically.",
       },
       // ── Question 1 ──────────────────────────────────────────────
       {
@@ -680,22 +689,13 @@ const rooms = [
           "The reading names IMDSv2 (session token required) as the mitigation for metadata credential theft: a token must first be obtained with a separate request, which a simple SSRF that only makes the app fetch a URL usually cannot do. “Remove the instance's public IP” misses how SSRF works: the vulnerable app makes the request from inside the instance, and 169.254.169.254 is link-local, never reached from the internet. “Enable GuardDuty” detects abuse but blocks nothing. “Tighten the security group” is also wrong. Security groups filter traffic to the instance, not the instance's own calls to its link-local metadata endpoint.",
         xp: 20,
       },
-      // ── Question 3 ──────────────────────────────────────────────
+      // ── Reading 3 ──────────────────────────────────────────────
       {
-        type: "question",
-        id: "cloud-q3",
-        question:
-          "In AWS CloudTrail, what does `userIdentity.type = \"Root\"` in a CloudTrail event indicate, and why should SOC analysts treat this as high-priority?",
-        options: [
-          "The action was made by an IAM user holding AdministratorAccess, which CloudTrail labels Root because that policy grants every permission",
-          "The action was performed by the account root user, which sits outside IAM policy limits and should almost never be used day to day",
-          "The call came from a Lambda function whose execution role has full-account permissions, which CloudTrail records as a Root identity",
-          "The action was made by a federated SSO user mapped to the top administrator permission set, recorded as the root of that session",
-        ],
-        answer: 1,
-        explanation:
-          "The AWS root account is the email/password account used to originally create the AWS account. It cannot be restricted by IAM policies (Service Control Policies restrict it only in member accounts of an AWS Organization, never in the management account), and it has access to billing and account closure. AWS's own best practices say root should be used only for a handful of specific tasks (e.g., closing the account, restoring a locked-out admin) and should have MFA enabled with the access keys deleted. Any `Root` event in CloudTrail (especially API calls rather than console logins) is a Tier 1 alert. Attackers who obtain root access own that account, and if it is the Organization's management account, effectively the whole organization. The distractors describe other identities that CloudTrail labels differently: an IAM user holding AdministratorAccess is still type `IAMUser`; a Lambda execution role and a federated SSO session are both `AssumedRole`. Broad permissions never turn an identity into `Root`.",
-        xp: 20,
+        type: "reading",
+        id: "cloud-r3",
+        heading: "Building a Cloud Security Investigation: AWS Focus",
+        content:
+          "**Analogy:** Investigating a cloud security incident is like investigating a bank robbery where the thief never set foot in the bank, everything happened over the phone and the internet. You have logs of every call, but no physical evidence. The investigation is entirely about correlating API calls, timestamps, and IP addresses.\n\nHere is how to investigate a suspected AWS IAM compromise:\n\n**Step 1. Identify the compromised identity.**\nYour alert fires on a `CreateUser` + `AttachUserPolicy` sequence. Pull the `userIdentity.arn` from both events. Is it a human IAM user, a role, or, most dangerous, the root account? Check `sourceIPAddress` against your known IP ranges and threat intel.\n\n**Step 2. Establish the attacker's access window.**\nWhen did the first API call from the suspicious IP appear in CloudTrail? Run a query for all events from that ARN or IP in the last 30 days. Did anything appear before the attack event that explains how they got in? (A `GetSecretValue` on a secret containing access keys? An EC2 console login from the same IP days earlier?)\n\n**Step 3. Enumerate what was created, changed, or accessed.**\nScan CloudTrail for all API calls from the attacker's session:\n- New IAM users, roles, or access keys created\n- Policies attached or inline policies modified\n- S3 `GetObject` or `PutBucketAcl` calls\n- EC2 instances launched (possible crypto mining)\n- Secrets Manager or SSM Parameter Store reads (credential harvesting)\n- `CloudTrail StopLogging` (attacker trying to hide their tracks: this fires one final CloudTrail event)\n\n**Step 4. Check for lateral movement to other accounts.**\nIn AWS organisations with multiple accounts, an attacker in one account may assume roles in other accounts (`AssumeRole` across accounts). Check the `userIdentity.accountId` in events to see if actions occurred in accounts other than the initially compromised one.\n\n**Step 5. Contain.**\n- Cut off the compromised identity: for an IAM user, deactivate its access keys (`aws iam update-access-key --status Inactive`) and remove or reset its console password (`aws iam delete-login-profile`: note this only removes the console password and does not end sessions already issued); for a role such as `DevOps-Deploy-Role`, use \"Revoke active sessions\" in the IAM console, which attaches an inline deny policy on `aws:TokenIssueTime` so every session token issued before now stops working\n- Disable or delete any backdoor accounts/access keys the attacker created\n- Remove any overly permissive policies the attacker attached\n- Rotate any secrets the attacker may have read\n- If EC2 instances were launched, terminate them and isolate the instance profile role\n\n**Step 6. Determine the root cause.**\nHow did the attacker get credentials in the first place? Common sources: GitHub commit containing access keys, SSRF vulnerability pulling IMDS credentials, phishing for console password + MFA bypass, supply chain compromise in a CI/CD pipeline.\n\n**Tor and VPN exit nodes** in `sourceIPAddress` are a major indicator. Legitimate developers connect from corporate IPs, home ISPs, or known VPN ranges. Calls from Tor exit nodes or anonymous datacenter IPs have almost no legitimate explanation in a production AWS environment. Your SIEM should enrich CloudTrail `sourceIPAddress` with threat intel automatically.",
       },
       // ── Log Analysis ───────────────────────────────────────────
       {
@@ -783,6 +783,16 @@ const rooms = [
           },
         ],
       },
+      // ── Flag ───────────────────────────────────────────────────
+      {
+        type: "flag",
+        id: "cloud-flag1", logTask: "cloud-la1",
+        prompt:
+          "Containment Step 5 says to disable or delete any backdoor identity the attacker created. In the CloudTrail CreateUser event, find the name of the IAM user that will need to be removed (the one that received AdministratorAccess 47 seconds later) and enter it exactly.",
+        answer: "svc-cloudmonitor-prod",
+        hint: "The event holds two identities: the one making the call and the one being created. Only one of them is a brand-new IAM user, and the arguments sent to the API sit in a different field group from the caller.",
+        xp: 45,
+      },
       // ── Analyst Choice — Cloud IAM ───────────────────────────────
       {
         type: "analyst_choice" as const,
@@ -828,16 +838,6 @@ const rooms = [
         xp: 30,
       },
 
-      // ── Flag ───────────────────────────────────────────────────
-      {
-        type: "flag",
-        id: "cloud-flag1", logTask: "cloud-la1",
-        prompt:
-          "Containment Step 5 says to disable or delete any backdoor identity the attacker created. In the CloudTrail CreateUser event, find the name of the IAM user that will need to be removed (the one that received AdministratorAccess 47 seconds later) and enter it exactly.",
-        answer: "svc-cloudmonitor-prod",
-        hint: "The event holds two identities: the one making the call and the one being created. Only one of them is a brand-new IAM user, and the arguments sent to the API sit in a different field group from the caller.",
-        xp: 45,
-      },
     ],
   },
 

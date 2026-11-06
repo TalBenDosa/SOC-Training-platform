@@ -56,7 +56,7 @@ export const RANSOMWARE_FULL_LIFECYCLE: RoomExperience = {
     "Marchbank Cold Storage. Nine refrigerated warehouses, 640 staff, and one dispatch system that tells every forklift what to pull.",
     "Monday, 05:52. The dispatch screens show a ransom note, the forklifts stop, and Elodie Kamau takes command of the incident.",
     "Everyone wants to start at the note. Elodie starts there only to walk backwards, because the note is the last page of a story that began weeks ago.",
-    "Walk it back to the first foothold, then take it stage by stage and find the last point a defender could still have broken the chain.",
+    "Walk it back to the first foothold, then take it stage by stage and see what each one left behind.",
   ],
   mission: "Walk the note back to the first sign-in, name the door, find the account that reached everything, tell an intruder from an admin, catch what breaks recovery, stop the data at the dock, run the encryption yourself, then answer the calls that land on the SOC that morning.",
   estimate: "~75 min",

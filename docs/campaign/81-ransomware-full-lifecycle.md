@@ -60,6 +60,6 @@ r1, r2, q1 | r3, r4, la1 | r5, q2, r6, o1 | r7, la2, ac1, m1 | r8, la3, q3, f1
 | סרטון | מתי | הפניה |
 |---|---|---|
 | Intro: "05:52" | כניסה | תחנה 1 |
-| Chapter 2: "The Listing" | אחרי The Foothold | תחנה 2 |
+| Chapter 2: "Before Monday" | אחרי The Foothold | תחנה 2 |
 | Chapter 3: "The Quiet Week" | אחרי The Cold Aisle | תחנה 4 |
 | Finale: "The Receipt" | אחרי The Note | החדר הבא |

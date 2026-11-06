@@ -43,8 +43,8 @@ export const MEMORY_DISK_FORENSICS: RoomExperience = {
   briefing: [
     "Harrowgate Museum Trust. Five museums, one collections database, and nine days until the Kestrel Hoard goes on display.",
     "A file on the registrar's workstation says it was created in 2017, among the old catalogue software. The registrar says nobody has opened that folder in years.",
-    "Yusra Lindahl has a write-protected USB, a machine that is still running, and a suspicion: someone has forged this file's label, the way a dealer forges provenance.",
-    "Take the image, read memory beside disk, find what the erasers missed, and decide when to pull the plug.",
+    "Yusra Lindahl has a write-protected USB, a machine that is still running, and a suspicion nobody can prove yet.",
+    "Take the image, work out what the machine can still tell you, and decide what happens to it next.",
   ],
   mission: "Collect from a live machine, name what only memory holds, find the holes in a custody record, read Volatility output beside the $MFT, $UsnJrnl, Prefetch, ShimCache and Amcache, tune a sweep, follow an eraser across sources, make the calls under fire, then rule on the last alert.",
   estimate: "~65 min",
@@ -78,7 +78,7 @@ export const MEMORY_DISK_FORENSICS: RoomExperience = {
     },
     {
       id: "plug",
-      label: "Pull the Plug",
+      label: "The Live Call",
       topic: "Preserving evidence against stopping damage · deciding factors · escalation",
       tagline: "Every containment costs something",
       building: "emergency",

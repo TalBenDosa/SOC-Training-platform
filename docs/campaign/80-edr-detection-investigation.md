@@ -49,7 +49,7 @@ r1, r2, q1, m1 | r3, o1, r4, q2, la1 | r5, q3, r6, ac1 | r7, f1, q4, q5 | qf1
 | סרטון | מתי | הפניה |
 |---|---|---|
 | Intro: "Killed Is Not Cured" | כניסה | תחנה 1 |
-| Chapter 2: "One Quiet Desk" | אחרי Up the Tree | תחנה 3 |
+| Chapter 2: "Not Yet" | אחרי Up the Tree | תחנה 3 |
 | Chapter 3: "Back Online" | אחרי The Pivot | תחנה 5 |
 | Finale: "Root and Branch" | אחרי The Last Branch | החדר הבא |
 

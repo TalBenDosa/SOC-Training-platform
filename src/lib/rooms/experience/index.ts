@@ -81,6 +81,10 @@ import { MEMORY_DISK_FORENSICS } from "./memoryDiskForensics";
 import { EDR_DETECTION_INVESTIGATION } from "./edrDetectionInvestigation";
 import { RANSOMWARE_FULL_LIFECYCLE } from "./ransomwareFullLifecycle";
 import { THREAT_INTELLIGENCE } from "./threatIntelligence";
+import { CLOUD_SECURITY_MONITORING } from "./cloudSecurityMonitoring";
+import { ESCALATION_PROCEDURES } from "./escalationProcedures";
+import { CREDENTIAL_ATTACKS_PRACTICE } from "./credentialAttacksPractice";
+import { PLAYBOOK_EXECUTION_AND_ESCALATION } from "./playbookExecutionAndEscalation";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -168,6 +172,10 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [EDR_DETECTION_INVESTIGATION.roomId]: EDR_DETECTION_INVESTIGATION,
   [RANSOMWARE_FULL_LIFECYCLE.roomId]: RANSOMWARE_FULL_LIFECYCLE,
   [THREAT_INTELLIGENCE.roomId]: THREAT_INTELLIGENCE,
+  [CLOUD_SECURITY_MONITORING.roomId]: CLOUD_SECURITY_MONITORING,
+  [ESCALATION_PROCEDURES.roomId]: ESCALATION_PROCEDURES,
+  [CREDENTIAL_ATTACKS_PRACTICE.roomId]: CREDENTIAL_ATTACKS_PRACTICE,
+  [PLAYBOOK_EXECUTION_AND_ESCALATION.roomId]: PLAYBOOK_EXECUTION_AND_ESCALATION,
 };
 
 /**

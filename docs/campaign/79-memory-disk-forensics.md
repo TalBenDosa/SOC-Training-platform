@@ -27,7 +27,7 @@ r1, r2, q1, r3, q2 | r4, la1, f1 | r5, m1, q3 | r6, o1 | ac1
 | 1 | The Image | r1, r2, q1, r3, q2 | **Hands on a Live Machine** (defuse), **Name the Volatility Plugin** (codebreak), **Which Image Holds It?** (sort), **Find the Holes in a Custody Record** (hotspot) |
 | 2 | Two Timelines | r4, la1, f1 | **Two Timelines: Read Memory Beside Disk** (trace), **Three More Witnesses: Prefetch, ShimCache, Amcache** (trace), **Tune a Sweep Across Every $MFT** (tune), **Time a Gap From the Journal** (worksheet) |
 | 3 | What Stays Behind | r5, m1, q3 | **Follow an Eraser Across Sources** (trace), **What Did the Eraser Miss?** (codebreak) |
-| 4 | Pull the Plug | r6, o1 | **Contain or Preserve? Four Live Calls** (defuse) |
+| 4 | The Live Call | r6, o1 | **Contain or Preserve? Four Live Calls** (defuse) |
 | 5 (בוס) | The Last Shadow | ac1 | **Same Tool, Different Night** (queue), ואז ההחלטה הנבחנת |
 
 **הפרדה מהשאלות הנבחנות:**
