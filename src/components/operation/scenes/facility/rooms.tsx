@@ -681,6 +681,108 @@ const PROJECTID: CampusConfig = {
   ],
 };
 
+const SUBSCRIPTION: HallConfig = {
+  title: "Subscription Hall",
+  sub: "Rowan Grid Energy cloud response",
+  core: "globe",
+  books: ["Azure", "Incident Response", "SOC"],
+  cards: [
+    { icon: "compass", name: ["The Tenant", "Map"], color: "#6cb8ff", art: "tree" },
+    { icon: "users", name: ["Who", "Called?"], color: "#f6d06f", art: "ghost" },
+    { icon: "pulse", name: ["The Overnight", "Script"], color: "#7fd8c4", art: "pulse" },
+    { icon: "lock", name: ["Contain or", "Close"], color: "#c7a8ff", art: "lock" },
+    { icon: "siren", name: ["Twenty-Three", "Minutes"], color: "#ff6a55", art: "loot" },
+  ],
+};
+
+const WIRETRANSFER: CampusConfig = {
+  seed: 7723,
+  hub: { title: "Harcourt & Vane", sub: "FRAUD DESK" },
+  buildings: [
+    { icon: "mail", sign: ["The", "Invoice"], color: "#e0c56e", x: -19, z: -7, rot: 0.36 },
+    { icon: "monitor", sign: ["The Second", "Session"], color: "#7cc4f0", x: -12.5, z: 5, rot: 0.24 },
+    { icon: "filter", sign: ["The Hidden", "Rule"], color: "#c9a8f0", x: -7, z: 9.5, rot: 0.1 },
+    { icon: "wire", sign: ["The", "Timeline"], color: "#6fc7a8", x: 10, z: 8.5, rot: -0.16 },
+    { icon: "siren", sign: ["The Money", "Clock"], color: "#ff5a5f", x: 19, z: -2, rot: -0.34 },
+  ],
+};
+
+const MAPMAKER: HallConfig = {
+  title: "The Map Room",
+  sub: "Selkirk Timber Cooperative detection desk",
+  core: "matrix",
+  books: ["Discovery", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "users", name: ["The", "Whoami"], color: "#c9b458", art: "loot" },
+    { icon: "layers", name: ["The Domain", "Question"], color: "#7fb6d6", art: "tree" },
+    { icon: "compass", name: ["The Cloud", "Census"], color: "#a1d6b2", art: "axes" },
+    { icon: "filter", name: ["Ten Are", "a Map"], color: "#e3b873", art: "pulse" },
+    { icon: "target", name: ["The Finished", "Map"], color: "#e8563f", art: "lock" },
+  ],
+};
+
+const CONTAINERBREAK: CampusConfig = {
+  seed: 4789,
+  hub: { title: "Northlight Streaming", sub: "PLATFORM SECURITY HUB" },
+  buildings: [
+    { icon: "monitor", sign: ["The", "Cluster"], color: "#ff9f5a", x: -18.5, z: -4.5, rot: 0.36 },
+    { icon: "filter", sign: ["The Audit", "Trail"], color: "#6fd3ff", x: -10.5, z: 8.5, rot: 0.2 },
+    { icon: "wire", sign: ["The", "Node"], color: "#c7f27a", x: 10.5, z: 9, rot: -0.18 },
+    { icon: "siren", sign: ["Container", "Break"], color: "#ff4d6d", x: 19, z: -6, rot: -0.36 },
+  ],
+};
+
+const RULEANDSIGN: HallConfig = {
+  title: "The Rule Bench",
+  sub: "Pelham Instruments detection content",
+  core: "matrix",
+  books: ["Sigma", "YARA", "SOC"],
+  cards: [
+    { icon: "target", name: ["The", "Sample"], color: "#9ad4d6", art: "loot" },
+    { icon: "filter", name: ["The Sigma", "Rule"], color: "#ffd08a", art: "tree" },
+    { icon: "layers", name: ["The YARA", "Rule"], color: "#c7b8ff", art: "axes" },
+    { icon: "check", name: ["The", "Sign-Off"], color: "#ff5a6e", art: "pulse" },
+  ],
+};
+
+const STOLENSESSION: CampusConfig = {
+  seed: 6899,
+  hub: { title: "Kingsmere Private Hospital", sub: "IDENTITY HUB" },
+  buildings: [
+    { icon: "mail", sign: ["The", "Cookie"], color: "#e8b36a", x: -18, z: -8, rot: 0.34 },
+    { icon: "monitor", sign: ["Two", "Places"], color: "#8fd3ff", x: -14, z: 4.5, rot: 0.26 },
+    { icon: "users", sign: ["The", "Push"], color: "#f2c14e", x: -7.5, z: 9, rot: 0.12 },
+    { icon: "filter", sign: ["Other", "Tokens"], color: "#b9a7ff", x: 11, z: 8, rot: -0.18 },
+    { icon: "siren", sign: ["After MFA", "Passed"], color: "#ff4f6d", x: 18.5, z: -4, rot: -0.36 },
+  ],
+};
+
+const PLAINTEXT: HallConfig = {
+  title: "Plaintext Hall",
+  sub: "Oakmere Regional Rail credential exposure",
+  core: "knot",
+  books: ["Secrets", "Telemetry", "SOC"],
+  cards: [
+    { icon: "filter", name: ["The", "Share"], color: "#ffe27a", art: "loot" },
+    { icon: "lock", name: ["The", "Keyring"], color: "#6ee7f0", art: "lock" },
+    { icon: "layers", name: ["The Cloud", "Vault"], color: "#a5b4fc", art: "tree" },
+    { icon: "eye", name: ["The Locked", "File"], color: "#86efac", art: "ghost" },
+    { icon: "siren", name: ["The Last", "Read"], color: "#ff4f6d", art: "pulse" },
+  ],
+};
+
+const LASTCLOUD: CampusConfig = {
+  seed: 5839,
+  hub: { title: "Aurelia Space Systems", sub: "CLOUD THREAT HUB" },
+  buildings: [
+    { icon: "filter", sign: ["The", "Trail"], color: "#b8c0ff", x: -19, z: -0.5, rot: 0.36 },
+    { icon: "wire", sign: ["The", "Copies"], color: "#ffd166", x: -9.5, z: 9, rot: 0.16 },
+    { icon: "monitor", sign: ["Below the", "Log"], color: "#7bdcb5", x: 7.5, z: 9.5, rot: -0.12 },
+    { icon: "target", sign: ["The", "Baseline"], color: "#f7a072", x: 12.5, z: 8.5, rot: -0.2 },
+    { icon: "siren", sign: ["Last", "Cloud"], color: "#ff5c7a", x: 19, z: 0.5, rot: -0.36 },
+  ],
+};
+
 const HALL: HallConfig = {
   title: "Specimen Hall",
   sub: "Vantor Logistics malware lab",
@@ -795,3 +897,11 @@ export function FacilitySidestep(props: WorldProps) { return <HallWorld cfg={SID
 export function FacilityOpenSource(props: WorldProps) { return <CampusWorld cfg={OPENSOURCE} props={props} />; }
 export function FacilityRootAccount(props: WorldProps) { return <HallWorld cfg={ROOTACCOUNT} props={props} />; }
 export function FacilityProjectId(props: WorldProps) { return <CampusWorld cfg={PROJECTID} props={props} />; }
+export function FacilitySubscription(props: WorldProps) { return <HallWorld cfg={SUBSCRIPTION} props={props} />; }
+export function FacilityWireTransfer(props: WorldProps) { return <CampusWorld cfg={WIRETRANSFER} props={props} />; }
+export function FacilityMapMaker(props: WorldProps) { return <HallWorld cfg={MAPMAKER} props={props} />; }
+export function FacilityContainerBreak(props: WorldProps) { return <CampusWorld cfg={CONTAINERBREAK} props={props} />; }
+export function FacilityRuleAndSign(props: WorldProps) { return <HallWorld cfg={RULEANDSIGN} props={props} />; }
+export function FacilityStolenSession(props: WorldProps) { return <CampusWorld cfg={STOLENSESSION} props={props} />; }
+export function FacilityPlaintext(props: WorldProps) { return <HallWorld cfg={PLAINTEXT} props={props} />; }
+export function FacilityLastCloud(props: WorldProps) { return <CampusWorld cfg={LASTCLOUD} props={props} />; }

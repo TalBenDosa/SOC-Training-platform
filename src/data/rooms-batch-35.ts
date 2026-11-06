@@ -365,49 +365,6 @@ const sigmaYaraRuleAuthoringRoom = {
         "Sigma's selection_vssadmin or selection_wmic maps directly onto KQL's own or, combining the two parenthesized branches exactly the way the Sigma condition combines the two named blocks. The wmic branch matches the literal combined phrase 'shadowcopy delete', which is how the wmic shadowcopy alias is actually invoked on the command line, exactly as Reading 3 described.",
       xp: 30,
     },
-    // ── Matching: Sigma modifiers + YARA operators ───────────────────────────
-    {
-      type: "matching" as const,
-      id: "sigyara-m1",
-      heading: "Match the Modifier or Operator to What It Actually Does",
-      instructions: "These are the field-level modifiers and condition operators this room covers, beyond the section names Detection Engineering Fundamentals and Malware Analysis Fundamentals already taught. Match each one to its behavior.",
-      pairs: [
-        { id: "containslist", left: "Sigma: field|contains: [a, b]", right: "OR logic: matches if the field contains either listed substring" },
-        { id: "containsall", left: "Sigma: field|contains|all: [a, b]", right: "AND logic: matches only if the field contains both listed substrings" },
-        { id: "anchors", left: "Sigma: field|startswith / field|endswith", right: "Anchors the match to the beginning or end of the field's value, instead of matching the substring anywhere inside it" },
-        { id: "regex", left: "Sigma: field|re", right: "Applies a full regular expression: the most flexible modifier, and the easiest to accidentally write too broadly" },
-        { id: "oneof", left: "Sigma: 1 of selection_*", right: "Matches if any one of several named blocks whose names share that prefix matches. Useful when one technique has multiple tool variants" },
-        { id: "allof", left: "Sigma: all of them", right: "Requires every named detection block in the rule to match simultaneously" },
-        { id: "yaramods", left: "YARA: nocase / fullword / wide", right: "String modifiers: case-insensitive matching, whole-word-only matching, and matching the UTF-16 encoding Windows binaries commonly use internally" },
-        { id: "filesize", left: "YARA: filesize < 150KB", right: "Bounds the rule to a realistic size range for the artifact being hunted, cheaply eliminating unrelated content before string matching even runs" },
-        { id: "count", left: "YARA: #string_name", right: "Counts how many times a given string occurs in the file. Distinguishes a one-off legitimate call from the same call repeated inside an obfuscation loop" },
-        { id: "offset", left: "YARA: @string_name[1] / string at 0", right: "Gives the byte offset of a string's occurrence, letting a condition anchor a match to a specific location such as the very start of the file" },
-      ],
-      explanation:
-        "None of these operators replace good pattern selection by themselves: they sharpen it. |contains|all and 1 of selection_* let a Sigma rule describe several tool variants of one technique precisely instead of one loose guess. filesize, #count, and offset anchoring let a YARA rule use structural facts about the file, not just string presence, to separate a real match from an unrelated one. Confusing OR-by-default with the |all AND modifier is the single most common way a new rule ends up looser than intended.",
-      xp: 35,
-    },
-    // ── Ordering: iterating a rule's own detection logic ────────────────────
-    {
-      type: "ordering" as const,
-      id: "sigyara-o1",
-      heading: "Order the Steps of Tuning a Single Rule's Detection Logic",
-      instructions: "This is not the organizational rollout lifecycle (alert-only, promote, retire) covered elsewhere. It is the narrower loop of shaping one rule's own logic from a technique into something tuned, the way Readings 3 and 6 each did. Put these steps in order.",
-      items: [
-        { id: "state", text: "State the specific attacker technique this rule needs to catch, in plain language, before writing any syntax" },
-        { id: "draft", text: "Write a first draft using the most obvious single indicator you can think of" },
-        { id: "check", text: "Check whether that single indicator is too broad (matches unrelated legitimate activity) or too narrow (only matches one historical sample)" },
-        { id: "corroborate", text: "Add a second, independent indicator so the rule requires several individually-common signals together, rather than relying on one alone" },
-        { id: "anchor", text: "Once the second indicator is in, anchor the combined rule to the smallest realistic scope available (a file-size ceiling, a specific binary, a specific log source) to cut unrelated matches cheaply" },
-        { id: "test", text: "Test the draft against both a known-malicious sample or event and a known-benign corpus, not just one or the other" },
-        { id: "document", text: "Document the legitimate matches actually found (false positives and benign true positives) as the rule's falsepositives or meta notes, not a guess" },
-        { id: "assign", text: "Only then assign the rule its severity or level field and hand it off for deployment" },
-      ],
-      correct_order: ["state", "draft", "check", "corroborate", "anchor", "test", "document", "assign"],
-      explanation:
-        "This is exactly the loop Reading 3 ran for the vssadmin rule (a loose single-phrase draft, checked, then split into two anchored, corroborated blocks) and Reading 6 ran for the webshell rule (one common string alone, checked, then combined with a second signal and a filesize ceiling). The order of the last two shaping steps is fixed by their wording here: the second signal goes in first, then the scope ceiling is applied to the combined rule. Skipping the check-and-corroborate steps and jumping straight from a first draft to assigning severity is exactly how a brittle or overly broad rule reaches production untested.",
-      xp: 30,
-    },
     // ── Analyst Choice: brittle vs tuned verdict ─────────────────────────────
     {
       type: "analyst_choice" as const,
@@ -540,6 +497,49 @@ const sigmaYaraRuleAuthoringRoom = {
       explanation:
         "This is the false-positive-flood failure mode from Reading 1 and Reading 6, playing out exactly as described: one common signal with no corroborating requirement and no size bound matches everything that happens to share it for unrelated reasons. Adding more eval-style strings joined with or does the opposite of what is needed. It widens the match set and increases false positives. Adding the 340 hashes to an exclusion list hides the symptom without fixing the rule and fails on every new legitimate library version. The UTF-16/wide-modifier theory is wrong because the rule is clearly matching (340 hits); the problem is selectivity, not encoding. Reading 5 covered both filesize and and directly, and they are exactly the tools that fix this rule.",
       xp: 25,
+    },
+    // ── Matching: Sigma modifiers + YARA operators ───────────────────────────
+    {
+      type: "matching" as const,
+      id: "sigyara-m1",
+      heading: "Match the Modifier or Operator to What It Actually Does",
+      instructions: "These are the field-level modifiers and condition operators this room covers, beyond the section names Detection Engineering Fundamentals and Malware Analysis Fundamentals already taught. Match each one to its behavior.",
+      pairs: [
+        { id: "containslist", left: "Sigma: field|contains: [a, b]", right: "OR logic: matches if the field contains either listed substring" },
+        { id: "containsall", left: "Sigma: field|contains|all: [a, b]", right: "AND logic: matches only if the field contains both listed substrings" },
+        { id: "anchors", left: "Sigma: field|startswith / field|endswith", right: "Anchors the match to the beginning or end of the field's value, instead of matching the substring anywhere inside it" },
+        { id: "regex", left: "Sigma: field|re", right: "Applies a full regular expression: the most flexible modifier, and the easiest to accidentally write too broadly" },
+        { id: "oneof", left: "Sigma: 1 of selection_*", right: "Matches if any one of several named blocks whose names share that prefix matches. Useful when one technique has multiple tool variants" },
+        { id: "allof", left: "Sigma: all of them", right: "Requires every named detection block in the rule to match simultaneously" },
+        { id: "yaramods", left: "YARA: nocase / fullword / wide", right: "String modifiers: case-insensitive matching, whole-word-only matching, and matching the UTF-16 encoding Windows binaries commonly use internally" },
+        { id: "filesize", left: "YARA: filesize < 150KB", right: "Bounds the rule to a realistic size range for the artifact being hunted, cheaply eliminating unrelated content before string matching even runs" },
+        { id: "count", left: "YARA: #string_name", right: "Counts how many times a given string occurs in the file. Distinguishes a one-off legitimate call from the same call repeated inside an obfuscation loop" },
+        { id: "offset", left: "YARA: @string_name[1] / string at 0", right: "Gives the byte offset of a string's occurrence, letting a condition anchor a match to a specific location such as the very start of the file" },
+      ],
+      explanation:
+        "None of these operators replace good pattern selection by themselves: they sharpen it. |contains|all and 1 of selection_* let a Sigma rule describe several tool variants of one technique precisely instead of one loose guess. filesize, #count, and offset anchoring let a YARA rule use structural facts about the file, not just string presence, to separate a real match from an unrelated one. Confusing OR-by-default with the |all AND modifier is the single most common way a new rule ends up looser than intended.",
+      xp: 35,
+    },
+    // ── Ordering: iterating a rule's own detection logic ────────────────────
+    {
+      type: "ordering" as const,
+      id: "sigyara-o1",
+      heading: "Order the Steps of Tuning a Single Rule's Detection Logic",
+      instructions: "This is not the organizational rollout lifecycle (alert-only, promote, retire) covered elsewhere. It is the narrower loop of shaping one rule's own logic from a technique into something tuned, the way Readings 3 and 6 each did. Put these steps in order.",
+      items: [
+        { id: "state", text: "State the specific attacker technique this rule needs to catch, in plain language, before writing any syntax" },
+        { id: "draft", text: "Write a first draft using the most obvious single indicator you can think of" },
+        { id: "check", text: "Check whether that single indicator is too broad (matches unrelated legitimate activity) or too narrow (only matches one historical sample)" },
+        { id: "corroborate", text: "Add a second, independent indicator so the rule requires several individually-common signals together, rather than relying on one alone" },
+        { id: "anchor", text: "Once the second indicator is in, anchor the combined rule to the smallest realistic scope available (a file-size ceiling, a specific binary, a specific log source) to cut unrelated matches cheaply" },
+        { id: "test", text: "Test the draft against both a known-malicious sample or event and a known-benign corpus, not just one or the other" },
+        { id: "document", text: "Document the legitimate matches actually found (false positives and benign true positives) as the rule's falsepositives or meta notes, not a guess" },
+        { id: "assign", text: "Only then assign the rule its severity or level field and hand it off for deployment" },
+      ],
+      correct_order: ["state", "draft", "check", "corroborate", "anchor", "test", "document", "assign"],
+      explanation:
+        "This is exactly the loop Reading 3 ran for the vssadmin rule (a loose single-phrase draft, checked, then split into two anchored, corroborated blocks) and Reading 6 ran for the webshell rule (one common string alone, checked, then combined with a second signal and a filesize ceiling). The order of the last two shaping steps is fixed by their wording here: the second signal goes in first, then the scope ceiling is applied to the combined rule. Skipping the check-and-corroborate steps and jumping straight from a first draft to assigning severity is exactly how a brittle or overly broad rule reaches production untested.",
+      xp: 30,
     },
     // ── Log Analysis: verify a live alert against its own rule logic ────────
     {

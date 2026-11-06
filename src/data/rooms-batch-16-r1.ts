@@ -253,6 +253,24 @@ const azureSecurityRoom = {
         "=======================================================",
     },
 
+    // ── Question 1 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "azure-q1",
+      question:
+        "A SOC analyst confirms the Azure Activity Log shows a Key Vault's access policy was updated (a control-plane event), but wants to know exactly WHICH secret was read and WHEN. The Activity Log alone does not show this. What is the most likely reason, and what should the analyst do?",
+      options: [
+        "Secret reads are written only to the Entra ID sign-in logs, since vault authentication counts as a sign-in event rather than a resource-access event",
+        "The Activity Log records control-plane operations only; secret-level reads need diagnostic settings enabled on that vault to send audit events to Log Analytics",
+        "Secret reads reach the Activity Log only for the Premium (HSM-backed) tier, so the analyst should first check whether the vault is Standard or Premium",
+        "Data-plane audit records stay on the platform side, so the analyst must request the secret-access history from Microsoft support",
+      ],
+      answer: 1,
+      explanation:
+        "Just as AWS requires explicitly enabling S3 data event logging to see individual GetObject calls, Azure requires diagnostic settings to be configured on a specific resource (here, the Key Vault) to forward detailed data-plane events like individual secret reads into Log Analytics or a SIEM. The Activity Log by itself only captures control-plane (management) actions such as changing an access policy or creating the vault, not what happens to the data inside it. Secret reads are not permanently unavailable (they show up once diagnostic logging is enabled), they don't require a Microsoft support case (the customer can enable this themselves), and they are logged under Key Vault's own diagnostic logs, not Azure AD sign-in logs.",
+      xp: 20,
+    },
+
     // ── Reading 3: Managed identities & service principals ──────────────────
     {
       type: "reading" as const,
@@ -307,6 +325,24 @@ const azureSecurityRoom = {
         explanation:
           "Managed identities are service principals too, so principalType reads 'ServicePrincipal' for both. It cannot tell them apart. The xms_mirid claim is what marks a managed identity: it names the Azure resource the identity is attached to. No xms_mirid points to an app registration, which typically authenticates with a client secret or certificate that can leak (confirm via the Entra object's servicePrincipalType). 'principalType settles it' is the trap. 'A user acting through the web app' is wrong because idtyp 'app' marks a non-human caller. 'No xms_mirid means a VM-hosted identity' is wrong: managed identities on VMs, functions and other resources carry xms_mirid too, naming their own resource.",
       },
+    },
+
+    // ── Question 2 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "azure-q2",
+      question:
+        "A suspicious Activity Log event shows idtyp 'app' and principalType 'ServicePrincipal', and carries no xms_mirid claim; looking the object up in Entra ID, its servicePrincipalType is 'Application' (an app registration). What is the KEY investigative difference versus an event whose token carried an xms_mirid claim and whose Entra object is of servicePrincipalType 'ManagedIdentity'?",
+      options: [
+        "Both authenticate with portable client secrets, so the difference is naming; the steps (rotate the secret, review sign-ins) are the same for each",
+        "An app registration's secret or certificate can leak and be reused anywhere; a managed identity has none, so its risk sits in its host and its roles",
+        "A managed identity is limited to read-only operations against Azure resources, while an app registration can also perform writes",
+        "Service principals are reserved for Microsoft first-party services, so one in an event is a platform component; customer-created managed identities are the ones to scrutinize",
+      ],
+      answer: 1,
+      explanation:
+        "This distinction changes the entire investigation path. A leaked app-registration client secret works from anywhere, exactly like a leaked AWS IAM access key, until it's rotated, so you hunt for where it leaked and rotate it. A managed identity has no portable secret to steal: an attacker can only abuse it by compromising the resource (VM, web app, function) it's attached to and using its token, so you investigate that host and the identity's role assignments. 'Both use portable secrets' is wrong for managed identities, which have no secret to rotate. 'Managed identities are read-only' is false: they can do anything their RBAC roles allow, writes included. 'Service principals are Microsoft first-party only' is wrong: customers create app registrations all the time, and those are exactly what leak.",
+      xp: 20,
     },
 
     // ── Reading 4: NSGs, NSG Flow Logs, Storage exposure, SAS tokens ────────
@@ -424,42 +460,6 @@ const azureSecurityRoom = {
       },
     },
 
-    // ── Question 1 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "azure-q1",
-      question:
-        "A SOC analyst confirms the Azure Activity Log shows a Key Vault's access policy was updated (a control-plane event), but wants to know exactly WHICH secret was read and WHEN. The Activity Log alone does not show this. What is the most likely reason, and what should the analyst do?",
-      options: [
-        "Secret reads are written only to the Entra ID sign-in logs, since vault authentication counts as a sign-in event rather than a resource-access event",
-        "The Activity Log records control-plane operations only; secret-level reads need diagnostic settings enabled on that vault to send audit events to Log Analytics",
-        "Secret reads reach the Activity Log only for the Premium (HSM-backed) tier, so the analyst should first check whether the vault is Standard or Premium",
-        "Data-plane audit records stay on the platform side, so the analyst must request the secret-access history from Microsoft support",
-      ],
-      answer: 1,
-      explanation:
-        "Just as AWS requires explicitly enabling S3 data event logging to see individual GetObject calls, Azure requires diagnostic settings to be configured on a specific resource (here, the Key Vault) to forward detailed data-plane events like individual secret reads into Log Analytics or a SIEM. The Activity Log by itself only captures control-plane (management) actions such as changing an access policy or creating the vault, not what happens to the data inside it. Secret reads are not permanently unavailable (they show up once diagnostic logging is enabled), they don't require a Microsoft support case (the customer can enable this themselves), and they are logged under Key Vault's own diagnostic logs, not Azure AD sign-in logs.",
-      xp: 20,
-    },
-
-    // ── Question 2 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "azure-q2",
-      question:
-        "A suspicious Activity Log event shows idtyp 'app' and principalType 'ServicePrincipal', and carries no xms_mirid claim; looking the object up in Entra ID, its servicePrincipalType is 'Application' (an app registration). What is the KEY investigative difference versus an event whose token carried an xms_mirid claim and whose Entra object is of servicePrincipalType 'ManagedIdentity'?",
-      options: [
-        "Both authenticate with portable client secrets, so the difference is naming; the steps (rotate the secret, review sign-ins) are the same for each",
-        "An app registration's secret or certificate can leak and be reused anywhere; a managed identity has none, so its risk sits in its host and its roles",
-        "A managed identity is limited to read-only operations against Azure resources, while an app registration can also perform writes",
-        "Service principals are reserved for Microsoft first-party services, so one in an event is a platform component; customer-created managed identities are the ones to scrutinize",
-      ],
-      answer: 1,
-      explanation:
-        "This distinction changes the entire investigation path. A leaked app-registration client secret works from anywhere, exactly like a leaked AWS IAM access key, until it's rotated, so you hunt for where it leaked and rotate it. A managed identity has no portable secret to steal: an attacker can only abuse it by compromising the resource (VM, web app, function) it's attached to and using its token, so you investigate that host and the identity's role assignments. 'Both use portable secrets' is wrong for managed identities, which have no secret to rotate. 'Managed identities are read-only' is false: they can do anything their RBAC roles allow, writes included. 'Service principals are Microsoft first-party only' is wrong: customers create app registrations all the time, and those are exactly what leak.",
-      xp: 20,
-    },
-
     // ── Question 3 ────────────────────────────────────────────────────────
     {
       type: "question" as const,
@@ -478,6 +478,74 @@ const azureSecurityRoom = {
       xp: 25,
     },
 
+    // ── Reading 8: Containment actions once identity compromise is confirmed ─
+    {
+      type: "reading" as const,
+      id: "azure-r8",
+      heading: "Containing a Compromised Azure Identity",
+      content:
+        `Every reading in this room so far has built toward one skill: reading the Azure Activity Log, NSG Flow Logs, and Storage/Key Vault diagnostic events well enough to CONFIRM that a specific identity (a user, a managed identity, or a service principal) has been compromised. But confirming compromise is not the end of the job. Once a SOC analyst has enough evidence to say "this identity is compromised," the next question is immediate and practical: what do you actually DO about it, right now, in Azure?\n\n` +
+        `**Revoke Sessions and Tokens, Not Just the Password**\n\n` +
+        `The single most common containment mistake is resetting a compromised user's password and stopping there. A password reset does NOT invalidate a token or session that Azure AD/Entra ID already issued before the reset: a stolen refresh token, or an already-authenticated browser session, can keep working against Microsoft Graph, Azure Resource Manager, or Outlook Web Access for as long as that token remains valid, completely independent of whether the password changes. To actually cut off an attacker holding a live token, an analyst must explicitly **revoke the user's sessions**. In the Microsoft Entra admin center, this is the "Revoke sessions" action on a user's profile. From PowerShell, the legacy cmdlet is Revoke-AzureADUserAllRefreshToken -ObjectId <user-object-id>, though Microsoft has been retiring the older AzureAD PowerShell module in favor of Microsoft Graph PowerShell: the modern equivalent is Revoke-MgUserSignInSession -UserId <user-object-id> (Microsoft's documented replacement in the AzureAD-to-Graph cmdlet map). Either command invalidates every refresh token and session cookie issued to that user, meaning any application holding a stolen refresh token is forced to re-authenticate, and re-authentication will now fail once the password has also been reset and any registered MFA method the attacker added has been removed. One caveat: access tokens already issued stay valid until they expire (typically about an hour) unless the target service supports Continuous Access Evaluation (CAE), which can cut them off within minutes, so revocation is fast, but not instantaneous for every token.\n\n` +
+        `**Disable the Account or Kill the Credential**\n\n` +
+        `For a compromised human user, disabling the account outright (in the Entra admin center, or via PowerShell with Set-AzureADUser -ObjectId <user-object-id> -AccountEnabled $false, or the Graph equivalent Update-MgUser -UserId <user-object-id> -AccountEnabled:$false) is often faster and more certain than a password reset alone, especially as an immediate first move while the rest of the investigation continues. For a compromised **service principal**, there is no password to reset in the human sense, the equivalent action is to reset or remove its credential: delete the leaked client secret or certificate from the app registration (or add a new one and revoke the old), so nothing authenticating with the old secret can obtain a new token, regardless of how many systems or scripts had it cached.\n\n` +
+        `**Isolate a Compromised VM Without Destroying It**\n\n` +
+        `If the compromised identity is a managed identity attached to a virtual machine, or if the VM itself shows signs of compromise (unexpected run-command executions, unfamiliar processes, outbound connections to unfamiliar IPs): the correct network containment move is to apply a **Network Security Group rule** that denies all inbound and outbound traffic except from the forensics team's known IP range, at the highest priority (lowest priority number) so it is evaluated before any existing rule. Critically, do NOT delete or deallocate the VM. Deleting the VM destroys the exact evidence (memory state, running processes, disk contents) the investigation needs, and a deallocated VM loses its RAM contents entirely. Isolating the VM at the network layer stops the attacker from doing further damage or exfiltrating more data while leaving the machine itself intact for forensic imaging.\n\n` +
+        `**Preserve Evidence Before Any Destructive Step**\n\n` +
+        `Before applying any remediation step that could alter or destroy the VM's state (reimaging it, restoring from an old backup, or even rebooting it) take a **disk snapshot** of its OS disk and any attached data disks. A snapshot is a point-in-time, read-only copy that preserves exactly what the disk looked like at the moment of containment, and it can be attached to a separate forensic VM for offline analysis without touching the original, still-isolated machine. Skipping this step is one of the most common and costly incident-response mistakes: an analyst who reimages a compromised VM before snapshotting it has permanently destroyed the disk evidence needed to answer "how did the attacker get in, and what did they touch?"\n\n` +
+        `**The Same Pattern You've Already Learned: Applied to Azure**\n\n` +
+        `This sequence (isolate first, fully understand the scope, THEN eradicate) is the same incident-response pattern taught generally in this platform's Incident Response Methodology room. Here it is applied specifically to Azure: revoke tokens/sessions and disable the identity or kill its credential (stop the attacker from acting further as that identity), isolate the compromised VM at the network layer without deleting it (stop further damage while preserving evidence), snapshot before any destructive remediation (preserve the evidence), and only then move to eradication, removing malicious role assignments, rotating every credential the compromised identity could have touched, and rebuilding from a known-clean image rather than "cleaning" a machine that was already fully controlled by an attacker.`,
+      codeExample:
+        "AZURE IDENTITY COMPROMISE: CONTAINMENT CHECKLIST\n" +
+        "=======================================================\n" +
+        "1. REVOKE SESSIONS/TOKENS (do this FIRST -- a password\n" +
+        "   reset alone does NOT invalidate an already-issued token)\n" +
+        "   Entra admin center: user profile -> \"Revoke sessions\"\n" +
+        "   PowerShell (legacy, being retired):\n" +
+        "     Revoke-AzureADUserAllRefreshToken -ObjectId <user-id>\n" +
+        "   PowerShell (Microsoft Graph, current):\n" +
+        "     Revoke-MgUserSignInSession -UserId <user-id>\n" +
+        "\n" +
+        "2. DISABLE THE ACCOUNT / KILL THE CREDENTIAL\n" +
+        "   Compromised user:\n" +
+        "     Set-AzureADUser -ObjectId <user-id> -AccountEnabled $false\n" +
+        "     (Graph equivalent: Update-MgUser -AccountEnabled:$false)\n" +
+        "   Compromised service principal:\n" +
+        "     Remove/rotate the leaked client secret or certificate\n" +
+        "     on the app registration\n" +
+        "\n" +
+        "3. ISOLATE, DON'T DELETE, A COMPROMISED VM\n" +
+        "   Apply an NSG rule at highest priority:\n" +
+        "     direction: Inbound + Outbound\n" +
+        "     access: Deny\n" +
+        "     sourceAddressPrefix / destinationAddressPrefix: *\n" +
+        "     EXCEPT an explicit Allow rule (lower priority number)\n" +
+        "     for the forensics team's IP range only\n" +
+        "   Do NOT delete or deallocate the VM -- deallocating loses\n" +
+        "   RAM contents, deleting destroys the disk entirely.\n" +
+        "\n" +
+        "4. PRESERVE EVIDENCE BEFORE ANY DESTRUCTIVE STEP\n" +
+        "   Take a disk snapshot of the OS disk + data disks BEFORE\n" +
+        "   reimaging, restoring, or rebooting.\n" +
+        "\n" +
+        "5. ONLY THEN: eradicate -- remove malicious role assignments,\n" +
+        "   rotate every credential the identity could have touched,\n" +
+        "   rebuild from a known-clean image.\n" +
+        "=======================================================",
+      checkpoint: {
+        question:
+          "An analyst resets a compromised user's password at 09:00 and closes the task. At 09:40 Graph calls under that user are still arriving from the attacker's IP. What is the most likely explanation?",
+        options: [
+          "The reset has not replicated yet: Entra password changes take hours to apply",
+          "A refresh token or session issued before the reset was never revoked, so it still works",
+          "The attacker guessed the new password, because a reset always ends all existing sessions",
+          "The calls come from a service principal, since user tokens die with a password change",
+        ],
+        answer: 1,
+        explanation:
+          "A password reset does not invalidate tokens or sessions issued before it. A stolen refresh token keeps working against Graph, Azure Resource Manager or Outlook Web Access until it is explicitly revoked: 'Revoke sessions' in the Entra admin center, or Revoke-MgUserSignInSession. (Even after revocation, an access token already issued can work until it expires, about an hour, unless the service supports Continuous Access Evaluation.) 'Replication takes hours' is not the cause: the new password applies quickly; the old tokens simply do not depend on it. 'Guessed the new password' rests on the false belief that a reset ends sessions. 'A service principal' is contradicted by the calls running as the user.",
+      },
+    },
     // ── Log Analysis 1: Managed identity Key Vault secret access ────────────
     {
       type: "log_analysis" as const,
@@ -527,60 +595,6 @@ const azureSecurityRoom = {
           answer: 1,
           explanation:
             "A confirmed secret read needs the secret and the database credential behind it rotated now, the managed identity's role narrowed, the web app investigated for how its token was taken, and the vault's diagnostic logs reviewed for any other secrets the identity read. Waiting for the monthly rotation leaves a working database credential in the attacker's hands for weeks. Deleting the vault destroys evidence and breaks every app that uses it, while the stolen value still works until it is rotated. Blocking one IP does little: the attacker can change address, the compromised web app can still hand out tokens, and the stolen credential is still valid.",
-          xp: 30,
-        },
-      ],
-    },
-
-    // ── Log Analysis 2: NSG RDP exposure + successful inbound connection ────
-    {
-      type: "log_analysis" as const,
-      id: "azure-la2",
-      heading: "Investigating an NSG Rule Change That Exposed RDP to the Internet",
-      context:
-        "Continuing the same incident timeline: 23 minutes after the Key Vault access, the Azure Activity Log recorded a network security rule change on the production VM's NSG, from the SAME managed identity involved in the earlier event (besides Key Vault Secrets User, the identity also holds an over-broad Contributor role on the resource group, which is what lets it edit NSG rules). The NSG flow log for that VM is shown alongside the change. Review the event below.",
-      event: nsgRdpExposureEvent,
-      questions: [
-        {
-          question:
-            "Read the requestbody of the new rule 'allow-rdp-temp'. What does this rule do to the VM's exposure?",
-          options: [
-            "'*' covers hosts inside the VNet, so RDP stays reachable from internal addresses",
-            "'*' means any internet address and 3389 is RDP, so remote desktop is open to the world",
-            "Priority 100 is evaluated last, so the rule will rarely match before the existing rules do",
-            "It opens 3389 outbound from the VM, so inbound connections to the VM are not affected",
-          ],
-          answer: 1,
-          explanation:
-            "sourceAddressPrefix '*' is Azure's wildcard for any source (including every host on the internet) and destinationPortRange 3389 is RDP, a remote-access service constantly targeted by password guessing. So the rule opens remote desktop on 10.40.2.15 to the whole world. A VNet-only rule would use a prefix such as 'VirtualNetwork' or a private range, not '*'. Priority works the other way round: lower numbers are evaluated FIRST, so 100 makes this rule win over most existing rules. The direction is 'Inbound', so it governs connections coming in to the VM, not traffic leaving it.",
-          xp: 25,
-        },
-        {
-          question:
-            "Decode the azure.nsgflowlogs.flowTuples value in this event. What does it show?",
-          options: [
-            "An outbound RDP connection from the VM to 203.0.113.44 that the NSG denied",
-            "An inbound TCP connection from 203.0.113.44 to 10.40.2.15:3389 that was allowed",
-            "That a matching rule exists; flow logs cannot show that traffic really flowed",
-            "An inbound attempt that was blocked, with 'A' marking that an alert was raised",
-          ],
-          answer: 1,
-          explanation:
-            "The tuple format is timestamp, source IP, destination IP, source port, destination port, protocol, direction, decision (version-2 logs add a flow state; the trailing B means the flow began). So: TCP (T), inbound (I), from 203.0.113.44 port 51422 to 10.40.2.15 port 3389, allowed (A). 203.0.113.44 is the same external IP that read the Key Vault secret: the attacker opened the door and then walked through it. 'Outbound and denied' misreads I and A: I is inbound, and the source is the external IP. 'That a rule exists' is wrong. Flow logs record actual flows. 'A marks an alert' is a misreading: A is the Allow decision (D would be Deny).",
-          xp: 25,
-        },
-        {
-          question:
-            "Given both the Key Vault secret theft and the successful RDP connection are now tied to the same attacker and the same compromised managed identity, what is the correct escalation path?",
-          options: [
-            "Hand it to the infrastructure team as a config ticket, since NSG rule edits are routine work",
-            "Escalate as a multi-stage compromise: remove the rule, isolate the VM, curb the identity, investigate",
-            "Revoke the identity's Key Vault access, and treat the NSG change as separate network work",
-            "Delete the RDP rule and close the case, with that door shut, the attacker has no way back in",
-          ],
-          answer: 1,
-          explanation:
-            "One compromised identity stole a secret, opened RDP to a production VM, and the same external IP then connected: an active, multi-stage compromise. Remove the rule, isolate the VM (without deleting it), cut back the identity's roles and rotate what it could reach, investigate what happened on the VM after the RDP session, and audit everything else the identity and resource group expose. 'A routine config ticket' ignores that the change came from a compromised identity and was used minutes later. 'Key Vault access only' leaves the identity's Contributor rights and the open RDP path in place. 'Delete the rule and close' ignores that the attacker already logged on to the VM and may have left persistence there.",
           xp: 30,
         },
       ],
@@ -708,6 +722,60 @@ const azureSecurityRoom = {
         "=======================================================",
     },
 
+    // ── Log Analysis 2: NSG RDP exposure + successful inbound connection ────
+    {
+      type: "log_analysis" as const,
+      id: "azure-la2",
+      heading: "Investigating an NSG Rule Change That Exposed RDP to the Internet",
+      context:
+        "Continuing the same incident timeline: 23 minutes after the Key Vault access, the Azure Activity Log recorded a network security rule change on the production VM's NSG, from the SAME managed identity involved in the earlier event (besides Key Vault Secrets User, the identity also holds an over-broad Contributor role on the resource group, which is what lets it edit NSG rules). The NSG flow log for that VM is shown alongside the change. Review the event below.",
+      event: nsgRdpExposureEvent,
+      questions: [
+        {
+          question:
+            "Read the requestbody of the new rule 'allow-rdp-temp'. What does this rule do to the VM's exposure?",
+          options: [
+            "'*' covers hosts inside the VNet, so RDP stays reachable from internal addresses",
+            "'*' means any internet address and 3389 is RDP, so remote desktop is open to the world",
+            "Priority 100 is evaluated last, so the rule will rarely match before the existing rules do",
+            "It opens 3389 outbound from the VM, so inbound connections to the VM are not affected",
+          ],
+          answer: 1,
+          explanation:
+            "sourceAddressPrefix '*' is Azure's wildcard for any source (including every host on the internet) and destinationPortRange 3389 is RDP, a remote-access service constantly targeted by password guessing. So the rule opens remote desktop on 10.40.2.15 to the whole world. A VNet-only rule would use a prefix such as 'VirtualNetwork' or a private range, not '*'. Priority works the other way round: lower numbers are evaluated FIRST, so 100 makes this rule win over most existing rules. The direction is 'Inbound', so it governs connections coming in to the VM, not traffic leaving it.",
+          xp: 25,
+        },
+        {
+          question:
+            "Decode the azure.nsgflowlogs.flowTuples value in this event. What does it show?",
+          options: [
+            "An outbound RDP connection from the VM to 203.0.113.44 that the NSG denied",
+            "An inbound TCP connection from 203.0.113.44 to 10.40.2.15:3389 that was allowed",
+            "That a matching rule exists; flow logs cannot show that traffic really flowed",
+            "An inbound attempt that was blocked, with 'A' marking that an alert was raised",
+          ],
+          answer: 1,
+          explanation:
+            "The tuple format is timestamp, source IP, destination IP, source port, destination port, protocol, direction, decision (version-2 logs add a flow state; the trailing B means the flow began). So: TCP (T), inbound (I), from 203.0.113.44 port 51422 to 10.40.2.15 port 3389, allowed (A). 203.0.113.44 is the same external IP that read the Key Vault secret: the attacker opened the door and then walked through it. 'Outbound and denied' misreads I and A: I is inbound, and the source is the external IP. 'That a rule exists' is wrong. Flow logs record actual flows. 'A marks an alert' is a misreading: A is the Allow decision (D would be Deny).",
+          xp: 25,
+        },
+        {
+          question:
+            "Given both the Key Vault secret theft and the successful RDP connection are now tied to the same attacker and the same compromised managed identity, what is the correct escalation path?",
+          options: [
+            "Hand it to the infrastructure team as a config ticket, since NSG rule edits are routine work",
+            "Escalate as a multi-stage compromise: remove the rule, isolate the VM, curb the identity, investigate",
+            "Revoke the identity's Key Vault access, and treat the NSG change as separate network work",
+            "Delete the RDP rule and close the case, with that door shut, the attacker has no way back in",
+          ],
+          answer: 1,
+          explanation:
+            "One compromised identity stole a secret, opened RDP to a production VM, and the same external IP then connected: an active, multi-stage compromise. Remove the rule, isolate the VM (without deleting it), cut back the identity's roles and rotate what it could reach, investigate what happened on the VM after the RDP session, and audit everything else the identity and resource group expose. 'A routine config ticket' ignores that the change came from a compromised identity and was used minutes later. 'Key Vault access only' leaves the identity's Contributor rights and the open RDP path in place. 'Delete the rule and close' ignores that the attacker already logged on to the VM and may have left persistence there.",
+          xp: 30,
+        },
+      ],
+    },
+
     // ── Log Analysis: blob container opened + long-lived SAS — precedes the flag ──
     {
       type: "log_analysis" as const,
@@ -800,74 +868,6 @@ const azureSecurityRoom = {
       },
     },
 
-    // ── Reading 8: Containment actions once identity compromise is confirmed ─
-    {
-      type: "reading" as const,
-      id: "azure-r8",
-      heading: "Containing a Compromised Azure Identity",
-      content:
-        `Every reading in this room so far has built toward one skill: reading the Azure Activity Log, NSG Flow Logs, and Storage/Key Vault diagnostic events well enough to CONFIRM that a specific identity (a user, a managed identity, or a service principal) has been compromised. But confirming compromise is not the end of the job. Once a SOC analyst has enough evidence to say "this identity is compromised," the next question is immediate and practical: what do you actually DO about it, right now, in Azure?\n\n` +
-        `**Revoke Sessions and Tokens, Not Just the Password**\n\n` +
-        `The single most common containment mistake is resetting a compromised user's password and stopping there. A password reset does NOT invalidate a token or session that Azure AD/Entra ID already issued before the reset: a stolen refresh token, or an already-authenticated browser session, can keep working against Microsoft Graph, Azure Resource Manager, or Outlook Web Access for as long as that token remains valid, completely independent of whether the password changes. To actually cut off an attacker holding a live token, an analyst must explicitly **revoke the user's sessions**. In the Microsoft Entra admin center, this is the "Revoke sessions" action on a user's profile. From PowerShell, the legacy cmdlet is Revoke-AzureADUserAllRefreshToken -ObjectId <user-object-id>, though Microsoft has been retiring the older AzureAD PowerShell module in favor of Microsoft Graph PowerShell: the modern equivalent is Revoke-MgUserSignInSession -UserId <user-object-id> (Microsoft's documented replacement in the AzureAD-to-Graph cmdlet map). Either command invalidates every refresh token and session cookie issued to that user, meaning any application holding a stolen refresh token is forced to re-authenticate, and re-authentication will now fail once the password has also been reset and any registered MFA method the attacker added has been removed. One caveat: access tokens already issued stay valid until they expire (typically about an hour) unless the target service supports Continuous Access Evaluation (CAE), which can cut them off within minutes, so revocation is fast, but not instantaneous for every token.\n\n` +
-        `**Disable the Account or Kill the Credential**\n\n` +
-        `For a compromised human user, disabling the account outright (in the Entra admin center, or via PowerShell with Set-AzureADUser -ObjectId <user-object-id> -AccountEnabled $false, or the Graph equivalent Update-MgUser -UserId <user-object-id> -AccountEnabled:$false) is often faster and more certain than a password reset alone, especially as an immediate first move while the rest of the investigation continues. For a compromised **service principal**, there is no password to reset in the human sense, the equivalent action is to reset or remove its credential: delete the leaked client secret or certificate from the app registration (or add a new one and revoke the old), so nothing authenticating with the old secret can obtain a new token, regardless of how many systems or scripts had it cached.\n\n` +
-        `**Isolate a Compromised VM Without Destroying It**\n\n` +
-        `If the compromised identity is a managed identity attached to a virtual machine, or if the VM itself shows signs of compromise (unexpected run-command executions, unfamiliar processes, outbound connections to unfamiliar IPs): the correct network containment move is to apply a **Network Security Group rule** that denies all inbound and outbound traffic except from the forensics team's known IP range, at the highest priority (lowest priority number) so it is evaluated before any existing rule. Critically, do NOT delete or deallocate the VM. Deleting the VM destroys the exact evidence (memory state, running processes, disk contents) the investigation needs, and a deallocated VM loses its RAM contents entirely. Isolating the VM at the network layer stops the attacker from doing further damage or exfiltrating more data while leaving the machine itself intact for forensic imaging.\n\n` +
-        `**Preserve Evidence Before Any Destructive Step**\n\n` +
-        `Before applying any remediation step that could alter or destroy the VM's state (reimaging it, restoring from an old backup, or even rebooting it) take a **disk snapshot** of its OS disk and any attached data disks. A snapshot is a point-in-time, read-only copy that preserves exactly what the disk looked like at the moment of containment, and it can be attached to a separate forensic VM for offline analysis without touching the original, still-isolated machine. Skipping this step is one of the most common and costly incident-response mistakes: an analyst who reimages a compromised VM before snapshotting it has permanently destroyed the disk evidence needed to answer "how did the attacker get in, and what did they touch?"\n\n` +
-        `**The Same Pattern You've Already Learned: Applied to Azure**\n\n` +
-        `This sequence (isolate first, fully understand the scope, THEN eradicate) is the same incident-response pattern taught generally in this platform's Incident Response Methodology room. Here it is applied specifically to Azure: revoke tokens/sessions and disable the identity or kill its credential (stop the attacker from acting further as that identity), isolate the compromised VM at the network layer without deleting it (stop further damage while preserving evidence), snapshot before any destructive remediation (preserve the evidence), and only then move to eradication, removing malicious role assignments, rotating every credential the compromised identity could have touched, and rebuilding from a known-clean image rather than "cleaning" a machine that was already fully controlled by an attacker.`,
-      codeExample:
-        "AZURE IDENTITY COMPROMISE: CONTAINMENT CHECKLIST\n" +
-        "=======================================================\n" +
-        "1. REVOKE SESSIONS/TOKENS (do this FIRST -- a password\n" +
-        "   reset alone does NOT invalidate an already-issued token)\n" +
-        "   Entra admin center: user profile -> \"Revoke sessions\"\n" +
-        "   PowerShell (legacy, being retired):\n" +
-        "     Revoke-AzureADUserAllRefreshToken -ObjectId <user-id>\n" +
-        "   PowerShell (Microsoft Graph, current):\n" +
-        "     Revoke-MgUserSignInSession -UserId <user-id>\n" +
-        "\n" +
-        "2. DISABLE THE ACCOUNT / KILL THE CREDENTIAL\n" +
-        "   Compromised user:\n" +
-        "     Set-AzureADUser -ObjectId <user-id> -AccountEnabled $false\n" +
-        "     (Graph equivalent: Update-MgUser -AccountEnabled:$false)\n" +
-        "   Compromised service principal:\n" +
-        "     Remove/rotate the leaked client secret or certificate\n" +
-        "     on the app registration\n" +
-        "\n" +
-        "3. ISOLATE, DON'T DELETE, A COMPROMISED VM\n" +
-        "   Apply an NSG rule at highest priority:\n" +
-        "     direction: Inbound + Outbound\n" +
-        "     access: Deny\n" +
-        "     sourceAddressPrefix / destinationAddressPrefix: *\n" +
-        "     EXCEPT an explicit Allow rule (lower priority number)\n" +
-        "     for the forensics team's IP range only\n" +
-        "   Do NOT delete or deallocate the VM -- deallocating loses\n" +
-        "   RAM contents, deleting destroys the disk entirely.\n" +
-        "\n" +
-        "4. PRESERVE EVIDENCE BEFORE ANY DESTRUCTIVE STEP\n" +
-        "   Take a disk snapshot of the OS disk + data disks BEFORE\n" +
-        "   reimaging, restoring, or rebooting.\n" +
-        "\n" +
-        "5. ONLY THEN: eradicate -- remove malicious role assignments,\n" +
-        "   rotate every credential the identity could have touched,\n" +
-        "   rebuild from a known-clean image.\n" +
-        "=======================================================",
-      checkpoint: {
-        question:
-          "An analyst resets a compromised user's password at 09:00 and closes the task. At 09:40 Graph calls under that user are still arriving from the attacker's IP. What is the most likely explanation?",
-        options: [
-          "The reset has not replicated yet: Entra password changes take hours to apply",
-          "A refresh token or session issued before the reset was never revoked, so it still works",
-          "The attacker guessed the new password, because a reset always ends all existing sessions",
-          "The calls come from a service principal, since user tokens die with a password change",
-        ],
-        answer: 1,
-        explanation:
-          "A password reset does not invalidate tokens or sessions issued before it. A stolen refresh token keeps working against Graph, Azure Resource Manager or Outlook Web Access until it is explicitly revoked: 'Revoke sessions' in the Entra admin center, or Revoke-MgUserSignInSession. (Even after revocation, an access token already issued can work until it expires, about an hour, unless the service supports Continuous Access Evaluation.) 'Replication takes hours' is not the cause: the new password applies quickly; the old tokens simply do not depend on it. 'Guessed the new password' rests on the false belief that a reset ends sessions. 'A service principal' is contradicted by the calls running as the user.",
-      },
-    },
   ],
 };
 
