@@ -31,11 +31,11 @@ export const IDENTITY_BASICS: RoomExperience = {
   scene: "idgate",
   layout: "stage",
   story: {
-    intro: { title: "The Token in the Dump", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-intro-b86611b7.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-intro-c05ab850.jpg" },
+    intro: { title: "The Token in the Dump", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-intro-3068e998.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-intro-e2aa4f8d.jpg" },
     afterStation: {
-      tokens: { title: "What's Inside a Token", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-ch2-bf0db467.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-ch2-6fa76409.jpg" },
-      contain: { title: "Block, Revoke, Review", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-ch3-4d54c753.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-ch3-cf44a484.jpg" },
-      logons: { title: "Nine Failures, One Success", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-finale-9c75d610.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-finale-0f037a49.jpg" },
+      tokens: { title: "What's Inside a Token", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-ch2-de914915.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-ch2-c0918ac2.jpg" },
+      contain: { title: "Block, Revoke, Review", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-ch3-9dd42c3b.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-ch3-e13f1802.jpg" },
+      logons: { title: "Nine Failures, One Success", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-finale-74b2b779.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/identity-basics/gatekeeper-finale-591c4bdc.jpg" },
     },
   },
   stations: [
