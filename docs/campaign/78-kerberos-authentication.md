@@ -51,5 +51,5 @@ r1, r2, q1, o1 | r3, r4, q2 | r5, la1, f1, qf1 | r6, la2, q3, m1 | ac1
 |---|---|---|
 | Intro: "For Sale" | כניסה | תחנה 1 |
 | Chapter 2: "The Night Shift" | אחרי The Cipher Field | תחנה 3 |
-| Chapter 3: "No Receipt" | אחרי No Paper Trail | תחנה 5 |
+| Chapter 3: "The Odd One" | אחרי No Paper Trail | תחנה 5 |
 | Finale: "The Last Ticket" | אחרי The Last Ticket | החדר הבא |

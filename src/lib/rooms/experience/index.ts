@@ -97,6 +97,18 @@ import { PRIVILEGED_ACCESS_MONITORING } from "./privilegedAccessMonitoring";
 import { DETECTION_ENGINEERING } from "./detectionEngineering";
 import { EDGE_CASE_USECASES } from "./edgeCaseUsecases";
 import { TUNNELING_C2_CHANNELS } from "./tunnelingC2Channels";
+import { LATERAL_MOVEMENT_PRACTICE } from "./lateralMovementPractice";
+import { OSINT_FUNDAMENTALS } from "./osintFundamentals";
+import { AWS_SECURITY } from "./awsSecurity";
+import { GCP_SECURITY } from "./gcpSecurity";
+import { AZURE_SECURITY } from "./azureSecurity";
+import { BEC_INVESTIGATION } from "./becInvestigation";
+import { DISCOVERY_AND_ENUMERATION } from "./discoveryAndEnumeration";
+import { KUBERNETES_CONTAINER_SECURITY } from "./kubernetesContainerSecurity";
+import { SIGMA_YARA_RULE_AUTHORING } from "./sigmaYaraRuleAuthoring";
+import { MFA_SESSION_TOKEN_ATTACKS } from "./mfaSessionTokenAttacks";
+import { UNSECURED_CREDENTIALS_PRACTICE } from "./unsecuredCredentialsPractice";
+import { CLOUD_ATTACKER_DEFENSE_EVASION } from "./cloudAttackerDefenseEvasion";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -200,6 +212,18 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [DETECTION_ENGINEERING.roomId]: DETECTION_ENGINEERING,
   [EDGE_CASE_USECASES.roomId]: EDGE_CASE_USECASES,
   [TUNNELING_C2_CHANNELS.roomId]: TUNNELING_C2_CHANNELS,
+  [LATERAL_MOVEMENT_PRACTICE.roomId]: LATERAL_MOVEMENT_PRACTICE,
+  [OSINT_FUNDAMENTALS.roomId]: OSINT_FUNDAMENTALS,
+  [AWS_SECURITY.roomId]: AWS_SECURITY,
+  [GCP_SECURITY.roomId]: GCP_SECURITY,
+  [AZURE_SECURITY.roomId]: AZURE_SECURITY,
+  [BEC_INVESTIGATION.roomId]: BEC_INVESTIGATION,
+  [DISCOVERY_AND_ENUMERATION.roomId]: DISCOVERY_AND_ENUMERATION,
+  [KUBERNETES_CONTAINER_SECURITY.roomId]: KUBERNETES_CONTAINER_SECURITY,
+  [SIGMA_YARA_RULE_AUTHORING.roomId]: SIGMA_YARA_RULE_AUTHORING,
+  [MFA_SESSION_TOKEN_ATTACKS.roomId]: MFA_SESSION_TOKEN_ATTACKS,
+  [UNSECURED_CREDENTIALS_PRACTICE.roomId]: UNSECURED_CREDENTIALS_PRACTICE,
+  [CLOUD_ATTACKER_DEFENSE_EVASION.roomId]: CLOUD_ATTACKER_DEFENSE_EVASION,
 };
 
 /**

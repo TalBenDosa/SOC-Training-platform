@@ -54,7 +54,7 @@ r1, q1, r2 | r3, r4, q2, o1 | r5, q3, m1 | r6, la1, f1 | la2, qf1, ac1
 |---|---|---|
 | Intro: "Open Since Friday" | כניסה | תחנה 1 |
 | Chapter 2: "It Came Back" | אחרי The Forward | תחנה 2 |
-| Chapter 3: "Nothing Here Is Malware" | אחרי The Signed Tool | תחנה 4 |
+| Chapter 3: "The Shift Can't Agree" | אחרי The Signed Tool | תחנה 4 |
 | Finale: "Whose Wire" | אחרי The Quiet Wire | החדר הבא |
 
 הערות לסרטונים:

@@ -46,6 +46,6 @@ r1, r2, q1, q2 | r3, q4 | q5, q3 | la1, flag1
 | סרטון | מתי | הפניה |
 |---|---|---|
 | Intro: "No Alerts" | כניסה | תחנה 1 |
-| Chapter 2: "Put It in Writing" | אחרי The Hypothesis | תחנה 2 |
-| Chapter 3: "A Smaller Map" | אחרי The Stack | תחנה 3 |
+| Chapter 2: "Nineteen Days" | אחרי The Hypothesis | תחנה 2 |
+| Chapter 3: "Layout Week" | אחרי The Stack | תחנה 3 |
 | Finale: "The Long Shadow" | אחרי The Long Shadow | החדר הבא |

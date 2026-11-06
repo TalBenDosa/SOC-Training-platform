@@ -148,6 +148,18 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   facilitysignalnoise: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilitySignalNoise), { ssr: false }),
   facilityfineprint: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityFinePrint), { ssr: false }),
   facilityquietwire: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityQuietWire), { ssr: false }),
+  facilitysidestep: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilitySidestep), { ssr: false }),
+  facilityopensource: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityOpenSource), { ssr: false }),
+  facilityrootaccount: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityRootAccount), { ssr: false }),
+  facilityprojectid: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityProjectId), { ssr: false }),
+  facilitysubscription: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilitySubscription), { ssr: false }),
+  facilitywiretransfer: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityWireTransfer), { ssr: false }),
+  facilitymapmaker: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityMapMaker), { ssr: false }),
+  facilitycontainerbreak: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityContainerBreak), { ssr: false }),
+  facilityruleandsign: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityRuleAndSign), { ssr: false }),
+  facilitystolensession: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityStolenSession), { ssr: false }),
+  facilityplaintext: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityPlaintext), { ssr: false }),
+  facilitylastcloud: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityLastCloud), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;

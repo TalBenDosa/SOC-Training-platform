@@ -42,6 +42,6 @@ r7, m1 | r12, q8, r13, q9 | r14, q10 | r15, q11, r16, q12 | q7
 | סרטון | מתי | הפניה |
 |---|---|---|
 | Intro: "The Exact Figure" | כניסה | תחנה 1 |
-| Chapter 2: "Nobody Asked" | אחרי The Assistant | תחנה 2 |
+| Chapter 2: "Saturday Morning" | אחרי The Assistant | תחנה 2 |
 | Chapter 3: "The Invoice" | אחרי The Meter | תחנה 4 |
 | Finale: "Model Behaviour" | אחרי הבוס | החדר הבא |

@@ -1914,17 +1914,17 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "osint-q2",
+        "type": "question",
+        "xp": 30
+      },
+      {
         "id": "osint-r3",
         "type": "reading",
         "xp": 0
       },
       {
         "id": "osint-q1",
-        "type": "question",
-        "xp": 30
-      },
-      {
-        "id": "osint-q2",
         "type": "question",
         "xp": 30
       },
@@ -3510,9 +3510,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "aws-q1",
+        "type": "question",
+        "xp": 20
+      },
+      {
         "id": "aws-r3",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "aws-q3",
+        "type": "question",
+        "xp": 20
       },
       {
         "id": "aws-r4",
@@ -3520,19 +3530,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "aws-q1",
-        "type": "question",
-        "xp": 20
-      },
-      {
         "id": "aws-q2",
         "type": "question",
         "xp": 25
       },
       {
-        "id": "aws-q3",
-        "type": "question",
-        "xp": 20
+        "id": "aws-m1",
+        "type": "matching",
+        "xp": 40
       },
       {
         "id": "aws-la1",
@@ -3545,21 +3550,6 @@ export const ROOMS_META: RoomMeta[] = [
         "type": "log_analysis",
         "xp": 80,
         "mitreTechnique": "T1078.004"
-      },
-      {
-        "id": "aws-ac1",
-        "type": "analyst_choice",
-        "xp": 30
-      },
-      {
-        "id": "aws-m1",
-        "type": "matching",
-        "xp": 40
-      },
-      {
-        "id": "aws-r5",
-        "type": "reading",
-        "xp": 0
       },
       {
         "id": "aws-la-stoplogging",
@@ -3579,6 +3569,16 @@ export const ROOMS_META: RoomMeta[] = [
       },
       {
         "id": "aws-r7",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aws-ac1",
+        "type": "analyst_choice",
+        "xp": 30
+      },
+      {
+        "id": "aws-r5",
         "type": "reading",
         "xp": 0
       }
@@ -3910,14 +3910,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "gcp-r4",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "gcp-q1",
         "type": "question",
         "xp": 20
+      },
+      {
+        "id": "gcp-r4",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "gcp-q2",
@@ -3928,6 +3928,11 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "gcp-q3",
         "type": "question",
         "xp": 20
+      },
+      {
+        "id": "gcp-m1",
+        "type": "matching",
+        "xp": 40
       },
       {
         "id": "gcp-la1",
@@ -3945,11 +3950,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "gcp-ac1",
         "type": "analyst_choice",
         "xp": 30
-      },
-      {
-        "id": "gcp-m1",
-        "type": "matching",
-        "xp": 40
       },
       {
         "id": "gcp-r5",
@@ -4087,30 +4087,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "k8s-r3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "k8s-r4",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "k8s-q1",
         "type": "question",
         "xp": 25
       },
       {
+        "id": "k8s-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
         "id": "k8s-q2",
         "type": "question",
         "xp": 25
-      },
-      {
-        "id": "k8s-la1",
-        "type": "log_analysis",
-        "xp": 85,
-        "mitreTechnique": "T1610"
       },
       {
         "id": "k8s-la2",
@@ -4119,9 +4108,20 @@ export const ROOMS_META: RoomMeta[] = [
         "mitreTechnique": "T1609"
       },
       {
+        "id": "k8s-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
         "id": "k8s-m1",
         "type": "matching",
         "xp": 35
+      },
+      {
+        "id": "k8s-la1",
+        "type": "log_analysis",
+        "xp": 85,
+        "mitreTechnique": "T1610"
       },
       {
         "id": "k8s-f1",
@@ -4154,9 +4154,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "azure-q1",
+        "type": "question",
+        "xp": 20
+      },
+      {
         "id": "azure-r3",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "azure-q2",
+        "type": "question",
+        "xp": 20
       },
       {
         "id": "azure-r4",
@@ -4169,31 +4179,20 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "azure-q1",
-        "type": "question",
-        "xp": 20
-      },
-      {
-        "id": "azure-q2",
-        "type": "question",
-        "xp": 20
-      },
-      {
         "id": "azure-q3",
         "type": "question",
         "xp": 25
+      },
+      {
+        "id": "azure-r8",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "azure-la1",
         "type": "log_analysis",
         "xp": 80,
         "mitreTechnique": "T1555.006"
-      },
-      {
-        "id": "azure-la2",
-        "type": "log_analysis",
-        "xp": 80,
-        "mitreTechnique": "T1021.001"
       },
       {
         "id": "azure-ac1",
@@ -4211,6 +4210,12 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "azure-la2",
+        "type": "log_analysis",
+        "xp": 80,
+        "mitreTechnique": "T1021.001"
+      },
+      {
         "id": "azure-la-storage",
         "type": "log_analysis",
         "xp": 25,
@@ -4223,11 +4228,6 @@ export const ROOMS_META: RoomMeta[] = [
       },
       {
         "id": "azure-r7",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "azure-r8",
         "type": "reading",
         "xp": 0
       }
@@ -7231,16 +7231,6 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 30
       },
       {
-        "id": "sigyara-m1",
-        "type": "matching",
-        "xp": 35
-      },
-      {
-        "id": "sigyara-o1",
-        "type": "ordering",
-        "xp": 30
-      },
-      {
         "id": "sigyara-ac1",
         "type": "analyst_choice",
         "xp": 35,
@@ -7265,6 +7255,16 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "sigyara-q2",
         "type": "question",
         "xp": 25
+      },
+      {
+        "id": "sigyara-m1",
+        "type": "matching",
+        "xp": 35
+      },
+      {
+        "id": "sigyara-o1",
+        "type": "ordering",
+        "xp": 30
       },
       {
         "id": "sigyara-la1",
@@ -7959,6 +7959,27 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "mfast-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "mfast-o1",
+        "type": "ordering",
+        "xp": 20
+      },
+      {
+        "id": "mfast-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "mfast-la1",
+        "type": "log_analysis",
+        "xp": 30,
+        "mitreTechnique": "T1550.004"
+      },
+      {
         "id": "mfast-r2",
         "type": "reading",
         "xp": 0
@@ -7979,26 +8000,10 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 15
       },
       {
-        "id": "mfast-r4",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "mfast-ac1",
         "type": "analyst_choice",
         "xp": 20,
         "mitreTechnique": "T1621"
-      },
-      {
-        "id": "mfast-r5",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "mfast-la1",
-        "type": "log_analysis",
-        "xp": 30,
-        "mitreTechnique": "T1550.004"
       },
       {
         "id": "mfast-r6",
@@ -8014,11 +8019,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "mfast-r7",
         "type": "reading",
         "xp": 0
-      },
-      {
-        "id": "mfast-o1",
-        "type": "ordering",
-        "xp": 20
       },
       {
         "id": "mfast-r8",

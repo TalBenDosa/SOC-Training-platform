@@ -396,7 +396,6 @@ const osintFundamentals = {
   icon: "🔭",
   prerequisites: ["threat-intelligence"],
   tasks: [
-
     // ── Reading 1: What Is OSINT & Why SOC Analysts Use It ──────────────────
     {
       type: "reading" as const,
@@ -538,6 +537,22 @@ A curated, constantly updated directory of OSINT tools organised by category. Wh
       },
     },
 
+    // ── Question 2 ──────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "osint-q2",
+      question: "You discover that a malicious domain used in a phishing attack has a TLS certificate with `CN=login.secure-banking-portal.net`. You search Censys for other IPs using this same certificate CN. What is this investigation technique called?",
+      options: [
+        "Passive DNS pivoting, tracing which domains resolved to that same IP over time",
+        "Certificate pivoting, finding other servers that present the same TLS certificate",
+        "WHOIS pivoting, finding other domains registered with the same contact email",
+        "Active scanning, probing the attacker's IP range to enumerate its other servers",
+      ],
+      answer: 1,
+      explanation: "Searching Censys for other IPs that present the same certificate CN is certificate pivoting: attackers often reuse one certificate across their servers, so a single phishing domain can reveal the wider infrastructure. Passive DNS pivoting is a different, also valid technique, but it starts from an IP's resolution history, not from a certificate attribute. WHOIS pivoting starts from shared registration details such as a contact email, as in the Maltego example. Nothing here is active: Censys has already scanned and indexed the certificates, so your search sends no packets to the attacker.",
+      xp: 30,
+    },
+
     // ── Reading 3: Passive vs Active OSINT & OPSEC ───────────────────────────
     {
       type: "reading" as const,
@@ -622,22 +637,6 @@ Only after exhausting passive research would an analyst consider any active step
       ],
       answer: 2,
       explanation: "Start with passive OSINT: Shodan and VirusTotal have already collected data on the IP, so your lookup sends nothing to it and gives you ownership, services and reputation in seconds. A port scan is active OSINT: it touches the target and shows up in its logs, whichever host it comes from, and is a last resort once passive sources are exhausted. A URLScan submission is active by proxy, because URLScan fetches the target live, and a Public scan also publishes the result where the actor can see it. Blocking without looking leaves the real question unanswered: what on the laptop made the connection, and is the host compromised?",
-      xp: 30,
-    },
-
-    // ── Question 2 ──────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "osint-q2",
-      question: "You discover that a malicious domain used in a phishing attack has a TLS certificate with `CN=login.secure-banking-portal.net`. You search Censys for other IPs using this same certificate CN. What is this investigation technique called?",
-      options: [
-        "Passive DNS pivoting, tracing which domains resolved to that same IP over time",
-        "Certificate pivoting, finding other servers that present the same TLS certificate",
-        "WHOIS pivoting, finding other domains registered with the same contact email",
-        "Active scanning, probing the attacker's IP range to enumerate its other servers",
-      ],
-      answer: 1,
-      explanation: "Searching Censys for other IPs that present the same certificate CN is certificate pivoting: attackers often reuse one certificate across their servers, so a single phishing domain can reveal the wider infrastructure. Passive DNS pivoting is a different, also valid technique, but it starts from an IP's resolution history, not from a certificate attribute. WHOIS pivoting starts from shared registration details such as a contact email, as in the Maltego example. Nothing here is active: Censys has already scanned and indexed the certificates, so your search sends no packets to the attacker.",
       xp: 30,
     },
 

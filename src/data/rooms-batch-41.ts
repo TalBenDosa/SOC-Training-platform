@@ -175,6 +175,155 @@ const mfaSessionTokenAttacksRoom = {
       xp: 5,
     },
 
+    // ── Reading 4: AiTM mechanics ────────────────────────────────────────────
+    {
+      type: "reading" as const,
+      id: "mfast-r4",
+      heading: "Adversary-in-the-Middle Phishing and Session-Cookie Theft (T1539 + T1550.004)",
+      content:
+        "This technique family makes MFA fatigue look almost quaint, because it defeats MFA even when the user does everything right: the real password is entered, a genuine push is approved deliberately, and the account is still taken over. ATT&CK tracks the theft as **T1539, Steal Web Session Cookie** (Credential Access), and the reuse as **T1550.004, Use Alternate Authentication Material: Web Session Cookie** (Lateral Movement), two IDs for two moments in one attack.\n\n" +
+        "### The mechanism: adversary-in-the-middle (AiTM) reverse-proxy phishing\n\n" +
+        "**Adversary-in-the-middle (AiTM)** describes any attack where the attacker's infrastructure sits transparently between the victim and the real service, relaying traffic both ways while secretly recording it. Applied to phishing, this is a **reverse-proxy phishing kit**: public toolkits in this category include Evilginx, Tycoon 2FA, and EvilProxy. CISA's 2025 update to the Scattered Spider advisory names this class of tooling as the mechanism behind the group's 'near-universal' MFA bypass.\n\n" +
+        "1. The victim clicks a link to a look-alike domain (e.g. `login.company-sso-secure.com` instead of the real IdP domain).\n" +
+        "2. That domain is not a fake page. It is a **reverse proxy** transparently forwarding every request and response between the victim's browser and the genuine IdP, in real time, both ways.\n" +
+        "3. The victim types their real password into what functionally is the real login page (via the proxy). The proxy relays it straight to the real IdP.\n" +
+        "4. The real IdP, seeing a correct password, does exactly what it should: sends a real MFA push to the victim's real phone.\n" +
+        "5. The victim approves the real push, believing they are logging into the real service, because, functionally, they are; the proxy is just watching.\n" +
+        "6. The real IdP, satisfied both factors were presented, issues a genuine, valid session cookie back through the proxy toward the victim's browser.\n" +
+        "7. The proxy, sitting in the middle of that final step, **copies the session cookie for itself** before passing it along.\n\n" +
+        "### The replay\n\n" +
+        "With the stolen cookie, the attacker imports it into their own browser and presents it directly to the real service. Because a session cookie is a bearer credential (whoever holds it is treated as the logged-in user), the service accepts it exactly as it would from the original device: **no password, no MFA push, no authentication step of any kind runs on the attacker's side.** The replay is often from a completely different country, IP address, autonomous system, and even browser than the victim ever used, because none of that is checked by a bearer-credential model.\n\n" +
+        "### The distinction this room keeps returning to\n\n" +
+        "Contrast this against fatigue: in push bombing, the attacker never had the real second factor and had to trick a human into supplying it. Here, **MFA was performed completely correctly, by the real, willing user**: the failure is in what happened to the artifact afterward, not in the authentication ceremony itself. This is 'MFA made irrelevant' rather than 'MFA bypassed.'",
+      codeExample:
+        "AiTM reverse-proxy phishing, request flow:\n\n" +
+        "  Victim's browser        Attacker's reverse proxy         Real IdP\n" +
+        "  ----------------        ------------------------        --------\n" +
+        "  GET login page  ------> forwards request        ------> \n" +
+        "                  <------ forwards real page      <------ real login page\n" +
+        "  POST password   ------> forwards password       ------> validates, sends\n" +
+        "                  <------ relays real MFA push     <----- real push to phone\n" +
+        "  user taps APPROVE (real push, real phone, real IdP)\n" +
+        "                                                          issues session cookie\n" +
+        "                  <------ ** COPIES cookie **      <----- \n" +
+        "  <------ forwards cookie to victim, login 'succeeds' normally\n\n" +
+        "  Attacker separately replays the copied cookie later:\n" +
+        "  Attacker's browser --[stolen cookie, no login at all]--> Real IdP: ACCEPTED\n",
+      xp: 5,
+    },
+
+    // ── Ordering task ──────────────────────────────────────────────────────
+    {
+      type: "ordering" as const,
+      id: "mfast-o1",
+      heading: "Order the AiTM Reverse-Proxy Kill Chain",
+      instructions:
+        "Place these eight steps of a session-cookie-theft attack (T1539 + T1550.004) in the order they actually occur, from the initial lure to the attacker establishing persistence.",
+      items: [
+        { id: "step-lure", text: "A phishing lure delivers a link to a look-alike domain fronting a reverse proxy" },
+        { id: "step-click", text: "The victim clicks the link; their browser reaches the attacker's reverse proxy" },
+        { id: "step-password", text: "The victim submits their real password, which the proxy relays to the genuine identity provider" },
+        { id: "step-push", text: "The genuine identity provider sends a real MFA push to the victim's real phone" },
+        { id: "step-approve", text: "The victim approves the genuine push, believing the login is proceeding normally" },
+        { id: "step-copy", text: "The identity provider issues a valid session cookie, which the proxy copies while relaying it onward" },
+        { id: "step-replay", text: "The attacker replays the stolen session cookie from separate infrastructure, with no authentication step at all" },
+        { id: "step-persist", text: "The attacker registers a new authentication method or device on the account for persistence" },
+      ],
+      correct_order: [
+        "step-lure",
+        "step-click",
+        "step-password",
+        "step-push",
+        "step-approve",
+        "step-copy",
+        "step-replay",
+        "step-persist",
+      ],
+      explanation:
+        "The defining property of this kill chain is that the theft (copying the cookie) happens DURING a completely genuine login -- the victim's password and MFA approval are both real, and the proxy is simply relaying them while secretly keeping a copy of what comes back. Everything after the copy is pure replay, requiring no further interaction with the victim at all. Persistence (registering a new device) typically comes last, so the attacker can pass MFA again even after the original session or password is invalidated.",
+      xp: 20,
+    },
+
+    // ── Reading 5: session replay detection ──────────────────────────────────
+    {
+      type: "reading" as const,
+      id: "mfast-r5",
+      heading: "Detecting Session Replay: Reading Entra ID Sign-In Logs Side by Side",
+      content:
+        "Session-cookie replay cannot be caught by watching for a 'bad login'. There usually isn't one on the attacker's side at all. It is detected by comparing two sign-in records against each other.\n\n" +
+        "### The single strongest field: sessionId\n\n" +
+        "Microsoft Entra ID's sign-in logs carry a `sessionId` field on every interactive sign-in. Because a session cookie is one specific artifact, **the same sessionId value should never legitimately appear on two sign-ins from two different IP addresses, autonomous systems (ASNs), and browser fingerprints.** This is the single strongest, most precise tell available for T1550.004:\n\n" +
+        "```\n" +
+        "Sign-in #1 (victim's real login, via the proxy without her knowing):\n" +
+        "  sessionId: 3d8a6f21-0c47-4e91-...\n" +
+        "  ipAddress: <proxy IP>\n" +
+        "  isInteractive: true\n" +
+        "  authenticationDetails: [Password: succeeded, MFA push: succeeded]\n\n" +
+        "Sign-in #2 (the replay, minutes later):\n" +
+        "  sessionId: 3d8a6f21-0c47-4e91-...   <-- IDENTICAL to sign-in #1\n" +
+        "  ipAddress: <a different country/ASN entirely>\n" +
+        "  isInteractive: false\n" +
+        "  authenticationDetails: [\"Previously satisfied\" -- \"MFA requirement satisfied by claim in the token\"]\n" +
+        "```\n\n" +
+        "That last line (an authentication step whose detail literally reads 'satisfied by a claim in the token,' with no challenge actually presented) is the log's own admission that no fresh authentication occurred.\n\n" +
+        "### The trap: risk score and Conditional Access both stay green\n\n" +
+        "`riskLevelDuringSignIn` and `conditionalAccessStatus` frequently read 'none' and 'success' on the replayed sign-in, because the risk engine and Conditional Access both see a technically valid, MFA-satisfied token and often do not flag it as stolen (Entra ID Protection has token-theft detections, but they do not always fire). **A clean risk score is not proof of a clean sign-in for this technique**, which is exactly why the sessionId correlation matters more than any single risk field.\n\n" +
+        "### Reading device and location fields as supporting, not primary, evidence\n\n" +
+        "`deviceDetail.isCompliant`, `deviceDetail.browser`, and `location.city`/`autonomousSystemNumber` are useful corroboration: a replay commonly shows an unmanaged, non-compliant device and a different browser than the user's known baseline, but geography alone is fragile (a legitimate VPN or business trip produces the same kind of change). The sessionId match is what turns a plausible travel story into confirmed replay.",
+      checkpoint: {
+        question: "Why is a 'none' riskLevelDuringSignIn on the replayed sign-in specifically dangerous to trust?",
+        options: [
+          "It genuinely isn't dangerous at all -- a 'none' risk level always and reliably means the sign-in in question is completely safe",
+          "The risk engine evaluates the token's own claims, which already assert MFA was satisfied, so it often does not flag the token as stolen -- a clean score is not proof of a clean sign-in here",
+          "riskLevelDuringSignIn is a fully deprecated field and is no longer populated by Entra ID on any sign-in record at all",
+          "A 'none' risk level is a value that only ever appears on sign-ins originating from outside the signed-in user's own home country",
+        ],
+        answer: 1,
+        explanation: "This is the specific trap the reading calls out: the risk engine and Conditional Access both trust the token's claims, and a stolen token still carries a genuine 'MFA satisfied' claim. That is exactly why the sessionId correlation, not the risk score, is the primary evidence for session replay.",
+      },
+      xp: 5,
+    },
+
+    // ── Log analysis 1 ────────────────────────────────────────────────────────
+    {
+      type: "log_analysis" as const,
+      id: "mfast-la1",
+      heading: "Investigate: A Second Sign-In for d.okafor",
+      context:
+        "d.okafor, Senior Underwriter at Castellan Risk Partners, signed in interactively at 14:41 this morning from her usual Chicago office network on her Entra-joined laptop: that sign-in carried sessionId 3d8a6f21-0c47-4e91-b3d0-7f2e9a541c86, isInteractive true, a fresh Microsoft Authenticator push approval in its authenticationDetails, and deviceDetail.isCompliant true. Eleven minutes later, the event below was recorded for the same account. d.okafor is currently at her desk in Chicago and has not travelled recently.",
+      event: sessionReplaySignInEvent,
+      questions: [
+        {
+          question:
+            "Comparing this event to the interactive sign-in described above, which single fact proves this is the same session being replayed rather than a second legitimate logon?",
+          options: [
+            "The appDisplayName field happens to read 'Microsoft Office' identically on both of the two separate sign-in records",
+            "The sessionId is identical across both sign-ins despite a completely different IP address, ASN, and browser fingerprint each time",
+            "The resultType field reads the value '0' on both sign-in records, which simply means each one individually succeeded",
+            "The conditionalAccessStatus field happens to read 'success' consistently on both of the two sign-in records",
+          ],
+          answer: 1,
+          explanation:
+            "A shared sessionId is the one field that is architecturally supposed to be unique to a single browser session -- two sign-ins carrying the identical value from a different IP, ASN and browser cannot be two separate legitimate logons, only one artifact used twice. appDisplayName being shared just means both used the same application, which many unrelated logins do. resultType '0' and conditionalAccessStatus 'success' both just mean 'this sign-in succeeded' -- they say nothing about whether it was a fresh authentication or a replay, which is exactly the trap this room's reading warned about.",
+          xp: 15,
+        },
+        {
+          question:
+            "This event's riskLevelDuringSignIn reads 'none' and conditionalAccessStatus reads 'success'. What should the analyst conclude from that pair of fields alone?",
+          options: [
+            "The sign-in is definitely benign, since both signals are green and Entra's risk engine would have flagged anything genuinely malicious",
+            "Conditional Access failed to apply any policy at all to this sign-in, which is itself the security gap that needs fixing",
+            "Nothing conclusive either way -- the risk engine and Conditional Access both evaluate the token's own claims, which already assert MFA was satisfied, so a clean score here is expected for a replayed token and does not clear it",
+            "riskLevelDuringSignIn only populates for sign-ins originating outside the tenant's home country, so this field should be disregarded entirely",
+          ],
+          answer: 2,
+          explanation:
+            "This is the central trap taught in this room: both fields evaluate the SIGNED TOKEN's claims, and a replayed token still carries a genuine MFA-satisfied claim from the original login. Neither field reliably tells you the token itself was stolen, so a clean pair is no clearance. Calling the sign-in definitely benign repeats exactly the mistake the room warns against. Saying Conditional Access applied no policy is factually wrong -- conditionalAccessStatus: success means a policy DID evaluate and pass, not that none applied. The claim that riskLevelDuringSignIn only populates for foreign sign-ins is not how the field behaves; it is populated on domestic sign-ins too.",
+          xp: 15,
+        },
+      ],
+    },
+
     // ── Reading 2: MFA fatigue mechanics ────────────────────────────────────
     {
       type: "reading" as const,
@@ -285,43 +434,6 @@ const mfaSessionTokenAttacksRoom = {
       xp: 15,
     },
 
-    // ── Reading 4: AiTM mechanics ────────────────────────────────────────────
-    {
-      type: "reading" as const,
-      id: "mfast-r4",
-      heading: "Adversary-in-the-Middle Phishing and Session-Cookie Theft (T1539 + T1550.004)",
-      content:
-        "This technique family makes MFA fatigue look almost quaint, because it defeats MFA even when the user does everything right: the real password is entered, a genuine push is approved deliberately, and the account is still taken over. ATT&CK tracks the theft as **T1539, Steal Web Session Cookie** (Credential Access), and the reuse as **T1550.004, Use Alternate Authentication Material: Web Session Cookie** (Lateral Movement), two IDs for two moments in one attack.\n\n" +
-        "### The mechanism: adversary-in-the-middle (AiTM) reverse-proxy phishing\n\n" +
-        "**Adversary-in-the-middle (AiTM)** describes any attack where the attacker's infrastructure sits transparently between the victim and the real service, relaying traffic both ways while secretly recording it. Applied to phishing, this is a **reverse-proxy phishing kit**: public toolkits in this category include Evilginx, Tycoon 2FA, and EvilProxy. CISA's 2025 update to the Scattered Spider advisory names this class of tooling as the mechanism behind the group's 'near-universal' MFA bypass.\n\n" +
-        "1. The victim clicks a link to a look-alike domain (e.g. `login.company-sso-secure.com` instead of the real IdP domain).\n" +
-        "2. That domain is not a fake page. It is a **reverse proxy** transparently forwarding every request and response between the victim's browser and the genuine IdP, in real time, both ways.\n" +
-        "3. The victim types their real password into what functionally is the real login page (via the proxy). The proxy relays it straight to the real IdP.\n" +
-        "4. The real IdP, seeing a correct password, does exactly what it should: sends a real MFA push to the victim's real phone.\n" +
-        "5. The victim approves the real push, believing they are logging into the real service, because, functionally, they are; the proxy is just watching.\n" +
-        "6. The real IdP, satisfied both factors were presented, issues a genuine, valid session cookie back through the proxy toward the victim's browser.\n" +
-        "7. The proxy, sitting in the middle of that final step, **copies the session cookie for itself** before passing it along.\n\n" +
-        "### The replay\n\n" +
-        "With the stolen cookie, the attacker imports it into their own browser and presents it directly to the real service. Because a session cookie is a bearer credential (whoever holds it is treated as the logged-in user), the service accepts it exactly as it would from the original device: **no password, no MFA push, no authentication step of any kind runs on the attacker's side.** The replay is often from a completely different country, IP address, autonomous system, and even browser than the victim ever used, because none of that is checked by a bearer-credential model.\n\n" +
-        "### The distinction this room keeps returning to\n\n" +
-        "Contrast this against fatigue: in push bombing, the attacker never had the real second factor and had to trick a human into supplying it. Here, **MFA was performed completely correctly, by the real, willing user**: the failure is in what happened to the artifact afterward, not in the authentication ceremony itself. This is 'MFA made irrelevant' rather than 'MFA bypassed.'",
-      codeExample:
-        "AiTM reverse-proxy phishing, request flow:\n\n" +
-        "  Victim's browser        Attacker's reverse proxy         Real IdP\n" +
-        "  ----------------        ------------------------        --------\n" +
-        "  GET login page  ------> forwards request        ------> \n" +
-        "                  <------ forwards real page      <------ real login page\n" +
-        "  POST password   ------> forwards password       ------> validates, sends\n" +
-        "                  <------ relays real MFA push     <----- real push to phone\n" +
-        "  user taps APPROVE (real push, real phone, real IdP)\n" +
-        "                                                          issues session cookie\n" +
-        "                  <------ ** COPIES cookie **      <----- \n" +
-        "  <------ forwards cookie to victim, login 'succeeds' normally\n\n" +
-        "  Attacker separately replays the copied cookie later:\n" +
-        "  Attacker's browser --[stolen cookie, no login at all]--> Real IdP: ACCEPTED\n",
-      xp: 5,
-    },
-
     // ── Analyst choice 1: single accidental deny (benign true positive control) ───────────────
     {
       type: "analyst_choice" as const,
@@ -336,86 +448,6 @@ const mfaSessionTokenAttacksRoom = {
       fp_trap:
         "The alert rule that fired here watches for ANY denial, which is exactly the kind of overly broad rule that trains analysts to escalate reflexively. A single denial immediately corrected by the same device and network is common, ordinary user behavior -- treating it as a true positive without checking for the burst pattern (multiple denials, then acceptance, from a mismatched source) is the mistake this task is built to catch.",
       xp: 20,
-    },
-
-    // ── Reading 5: session replay detection ──────────────────────────────────
-    {
-      type: "reading" as const,
-      id: "mfast-r5",
-      heading: "Detecting Session Replay: Reading Entra ID Sign-In Logs Side by Side",
-      content:
-        "Session-cookie replay cannot be caught by watching for a 'bad login'. There usually isn't one on the attacker's side at all. It is detected by comparing two sign-in records against each other.\n\n" +
-        "### The single strongest field: sessionId\n\n" +
-        "Microsoft Entra ID's sign-in logs carry a `sessionId` field on every interactive sign-in. Because a session cookie is one specific artifact, **the same sessionId value should never legitimately appear on two sign-ins from two different IP addresses, autonomous systems (ASNs), and browser fingerprints.** This is the single strongest, most precise tell available for T1550.004:\n\n" +
-        "```\n" +
-        "Sign-in #1 (victim's real login, via the proxy without her knowing):\n" +
-        "  sessionId: 3d8a6f21-0c47-4e91-...\n" +
-        "  ipAddress: <proxy IP>\n" +
-        "  isInteractive: true\n" +
-        "  authenticationDetails: [Password: succeeded, MFA push: succeeded]\n\n" +
-        "Sign-in #2 (the replay, minutes later):\n" +
-        "  sessionId: 3d8a6f21-0c47-4e91-...   <-- IDENTICAL to sign-in #1\n" +
-        "  ipAddress: <a different country/ASN entirely>\n" +
-        "  isInteractive: false\n" +
-        "  authenticationDetails: [\"Previously satisfied\" -- \"MFA requirement satisfied by claim in the token\"]\n" +
-        "```\n\n" +
-        "That last line (an authentication step whose detail literally reads 'satisfied by a claim in the token,' with no challenge actually presented) is the log's own admission that no fresh authentication occurred.\n\n" +
-        "### The trap: risk score and Conditional Access both stay green\n\n" +
-        "`riskLevelDuringSignIn` and `conditionalAccessStatus` frequently read 'none' and 'success' on the replayed sign-in, because the risk engine and Conditional Access both see a technically valid, MFA-satisfied token and often do not flag it as stolen (Entra ID Protection has token-theft detections, but they do not always fire). **A clean risk score is not proof of a clean sign-in for this technique**, which is exactly why the sessionId correlation matters more than any single risk field.\n\n" +
-        "### Reading device and location fields as supporting, not primary, evidence\n\n" +
-        "`deviceDetail.isCompliant`, `deviceDetail.browser`, and `location.city`/`autonomousSystemNumber` are useful corroboration: a replay commonly shows an unmanaged, non-compliant device and a different browser than the user's known baseline, but geography alone is fragile (a legitimate VPN or business trip produces the same kind of change). The sessionId match is what turns a plausible travel story into confirmed replay.",
-      checkpoint: {
-        question: "Why is a 'none' riskLevelDuringSignIn on the replayed sign-in specifically dangerous to trust?",
-        options: [
-          "It genuinely isn't dangerous at all -- a 'none' risk level always and reliably means the sign-in in question is completely safe",
-          "The risk engine evaluates the token's own claims, which already assert MFA was satisfied, so it often does not flag the token as stolen -- a clean score is not proof of a clean sign-in here",
-          "riskLevelDuringSignIn is a fully deprecated field and is no longer populated by Entra ID on any sign-in record at all",
-          "A 'none' risk level is a value that only ever appears on sign-ins originating from outside the signed-in user's own home country",
-        ],
-        answer: 1,
-        explanation: "This is the specific trap the reading calls out: the risk engine and Conditional Access both trust the token's claims, and a stolen token still carries a genuine 'MFA satisfied' claim. That is exactly why the sessionId correlation, not the risk score, is the primary evidence for session replay.",
-      },
-      xp: 5,
-    },
-
-    // ── Log analysis 1 ────────────────────────────────────────────────────────
-    {
-      type: "log_analysis" as const,
-      id: "mfast-la1",
-      heading: "Investigate: A Second Sign-In for d.okafor",
-      context:
-        "d.okafor, Senior Underwriter at Castellan Risk Partners, signed in interactively at 14:41 this morning from her usual Chicago office network on her Entra-joined laptop: that sign-in carried sessionId 3d8a6f21-0c47-4e91-b3d0-7f2e9a541c86, isInteractive true, a fresh Microsoft Authenticator push approval in its authenticationDetails, and deviceDetail.isCompliant true. Eleven minutes later, the event below was recorded for the same account. d.okafor is currently at her desk in Chicago and has not travelled recently.",
-      event: sessionReplaySignInEvent,
-      questions: [
-        {
-          question:
-            "Comparing this event to the interactive sign-in described above, which single fact proves this is the same session being replayed rather than a second legitimate logon?",
-          options: [
-            "The appDisplayName field happens to read 'Microsoft Office' identically on both of the two separate sign-in records",
-            "The sessionId is identical across both sign-ins despite a completely different IP address, ASN, and browser fingerprint each time",
-            "The resultType field reads the value '0' on both sign-in records, which simply means each one individually succeeded",
-            "The conditionalAccessStatus field happens to read 'success' consistently on both of the two sign-in records",
-          ],
-          answer: 1,
-          explanation:
-            "A shared sessionId is the one field that is architecturally supposed to be unique to a single browser session -- two sign-ins carrying the identical value from a different IP, ASN and browser cannot be two separate legitimate logons, only one artifact used twice. appDisplayName being shared just means both used the same application, which many unrelated logins do. resultType '0' and conditionalAccessStatus 'success' both just mean 'this sign-in succeeded' -- they say nothing about whether it was a fresh authentication or a replay, which is exactly the trap this room's reading warned about.",
-          xp: 15,
-        },
-        {
-          question:
-            "This event's riskLevelDuringSignIn reads 'none' and conditionalAccessStatus reads 'success'. What should the analyst conclude from that pair of fields alone?",
-          options: [
-            "The sign-in is definitely benign, since both signals are green and Entra's risk engine would have flagged anything genuinely malicious",
-            "Conditional Access failed to apply any policy at all to this sign-in, which is itself the security gap that needs fixing",
-            "Nothing conclusive either way -- the risk engine and Conditional Access both evaluate the token's own claims, which already assert MFA was satisfied, so a clean score here is expected for a replayed token and does not clear it",
-            "riskLevelDuringSignIn only populates for sign-ins originating outside the tenant's home country, so this field should be disregarded entirely",
-          ],
-          answer: 2,
-          explanation:
-            "This is the central trap taught in this room: both fields evaluate the SIGNED TOKEN's claims, and a replayed token still carries a genuine MFA-satisfied claim from the original login. Neither field reliably tells you the token itself was stolen, so a clean pair is no clearance. Calling the sign-in definitely benign repeats exactly the mistake the room warns against. Saying Conditional Access applied no policy is factually wrong -- conditionalAccessStatus: success means a policy DID evaluate and pass, not that none applied. The claim that riskLevelDuringSignIn only populates for foreign sign-ins is not how the field behaves; it is populated on domestic sign-ins too.",
-          xp: 15,
-        },
-      ],
     },
 
     // ── Reading 6: token theft two layers ────────────────────────────────────
@@ -472,38 +504,6 @@ const mfaSessionTokenAttacksRoom = {
         "### The correct containment\n\n" +
         "Trust is anchored on the signing certificate, so recovery means retiring the stolen key everywhere it is honored: roll the AD FS token-signing certificate twice (AD FS keeps a primary and secondary certificate specifically to allow this), revoke live sessions and refresh tokens for every potentially affected identity, and treat all federated accounts as exposed until the new key is fully in force.",
       xp: 5,
-    },
-
-    // ── Ordering task ──────────────────────────────────────────────────────
-    {
-      type: "ordering" as const,
-      id: "mfast-o1",
-      heading: "Order the AiTM Reverse-Proxy Kill Chain",
-      instructions:
-        "Place these eight steps of a session-cookie-theft attack (T1539 + T1550.004) in the order they actually occur, from the initial lure to the attacker establishing persistence.",
-      items: [
-        { id: "step-lure", text: "A phishing lure delivers a link to a look-alike domain fronting a reverse proxy" },
-        { id: "step-click", text: "The victim clicks the link; their browser reaches the attacker's reverse proxy" },
-        { id: "step-password", text: "The victim submits their real password, which the proxy relays to the genuine identity provider" },
-        { id: "step-push", text: "The genuine identity provider sends a real MFA push to the victim's real phone" },
-        { id: "step-approve", text: "The victim approves the genuine push, believing the login is proceeding normally" },
-        { id: "step-copy", text: "The identity provider issues a valid session cookie, which the proxy copies while relaying it onward" },
-        { id: "step-replay", text: "The attacker replays the stolen session cookie from separate infrastructure, with no authentication step at all" },
-        { id: "step-persist", text: "The attacker registers a new authentication method or device on the account for persistence" },
-      ],
-      correct_order: [
-        "step-lure",
-        "step-click",
-        "step-password",
-        "step-push",
-        "step-approve",
-        "step-copy",
-        "step-replay",
-        "step-persist",
-      ],
-      explanation:
-        "The defining property of this kill chain is that the theft (copying the cookie) happens DURING a completely genuine login -- the victim's password and MFA approval are both real, and the proxy is simply relaying them while secretly keeping a copy of what comes back. Everything after the copy is pure replay, requiring no further interaction with the victim at all. Persistence (registering a new device) typically comes last, so the attacker can pass MFA again even after the original session or password is invalidated.",
-      xp: 20,
     },
 
     // ── Reading 8: defense in depth ──────────────────────────────────────────

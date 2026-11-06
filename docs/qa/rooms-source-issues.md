@@ -100,3 +100,63 @@ Builders and reviewers may not change these: a reading edit disables its recorde
 | privileged-access-monitoring | ac1, r4 | "3:22 AM Saturday" but the ts is a Sunday; Sysmon 1 described with 4688 field names. | Fix. |
 | privileged-access-monitoring, detection-engineering | la1 explanations | En dashes in graded explanations. | Use "to". |
 | edge-case-usecases | la1, ac3 | parent_name npm.cmd is never a process image; mde.SHA256 has 63 hex characters. | Correct. |
+| gcp-security | la1, r4, r1 | la1 says you examine the key event later (no task does); Editor binding unexplained; SCC finding name unconfirmed; r1 broken sentence. | Fix, re-record narration. |
+| lateral-movement-practice | ac1, la2, qf1 | ac1's 7045 has src_ip and authentication while la2 says 7045 has no source fields; System-channel records marked windows_security; em dashes in qf1. | Align. |
+| aws-security | r4, la2 | InstanceCredentialExfiltration without its .OutsideAWS or .InsideAWS suffix; la2 user_email on an AssumedRole record. | Fix. |
+
+## Rooms 99-102 (review notes, graded or reading text, not changed)
+
+- osint-fundamentals osint-r1, osint-la1, flag context: 185.220.101.47 sits in a real Tor range and "Stiftung Erneuerbare Freiheit" is a real organisation. Add to the platform-wide Tor pass, replace with documentation values, re-record narration where a reading changes.
+- lateral-movement-practice lat-o1 instructions: "Your SIEM received these six records out of arrival order" says the opposite. The records are in arrival order and out of event order.
+- aws-security aws-la2 event: top-level user_email "svc-deploy@nexacorp.com" contradicts the raw identity, an ec2-webapp-role session, on the task that asks the learner to read identity.
+- aws-security aws-r4 reading: "UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration" lacks the current suffix, use .OutsideAWS.
+- gcp-security gcp-r2 reading: "always ending in .iam.gserviceaccount.com", should be "usually ending in".
+- gcp-security gcp-r4 reading: no Security Command Center finding named "Malware: Cryptomining Detected" could be confirmed; Google documents Cryptomining Bad Domain and Bad IP.
+- gcp-security gcp-la1, gcp-la-sakey events: svc-data@nexacorp.iam.gserviceaccount.com does not match project nexacorp-prod, web-frontend uses @nexacorp-prod.
+- gcp-security gcp-la1: the Editor binding is never explained.
+- gcp-security gcp-r1: broken sentence, "you will examine that event later" points at a task that does not follow.
+
+## Room 106 (review notes, graded text, not changed)
+
+- kubernetes-container-security la1 question 3: the correct option says RBAC bindings can "let it create privileged pods". RBAC only grants create on pods and never reads the spec; admission control decides that.
+- kubernetes-container-security la1, f1: image host 185.220.101.47 is a real public address and it is the flag answer. Add to the platform-wide Tor pass.
+
+## Room 107 (review notes, graded text, not changed)
+
+- sigma-yara-rule-authoring m1 filesize pair and Reading 5: "before string matching even runs" is wrong. YARA scans strings first and evaluates the condition afterwards.
+- sigma-yara-rule-authoring ac1 event: winlog.event_data.Hashes holds a 65-character SHA256, a real one is 64.
+- sigma-yara-rule-authoring la1 question 3: says CallStackModuleNames "again lists" dbghelp.dll, nothing mentions it earlier.
+- sigma-yara-rule-authoring Reading 6: promises a "six-step discipline" and lists three steps.
+- sigma-yara-rule-authoring qf1 (Sigma YAML) is tagged language kql, qf3 (YARA) is tagged powershell.
+
+## Rooms 103-105, 109 (review notes, graded text, not changed)
+
+- azure-security q3, r5: list roleAssignments/read, vaults/read, virtualMachines/read and a burst of list and get calls in the Activity Log, but Microsoft documents that the Activity Log does not typically capture read operations.
+- bec-investigation la1, o1: o1 says an AiTM page stole the session, but la1's interactive sign-in comes from the corporate IP. An AiTM proxy would show its own IP, so the record fits cookie theft instead.
+- bec-investigation la2, f1 event: mapped to T1114.003 Email Forwarding Rule, but the rule forwards nothing. T1564.008 Email Hiding Rules (TA0005) fits.
+- bec-investigation r6: says the team corresponded with an impersonator for over a week. la2 and o1 show only hidden mail, no such exchange.
+- bec-investigation la1 Q1: tests "Previously satisfied", which r3 never mentions. The labs teach it.
+- discovery-and-enumeration disc-la1: CallerProcessName is net.exe; a real net localgroup shows net1.exe. From memory, not verified against a log.
+- discovery-and-enumeration disc-la2, disc-f1: 45.148.10.62 is not a documentation address.
+- discovery-and-enumeration disc-ac1: it_verify_message calls a nightly task part of a "quarterly" process.
+- unsecured-credentials-practice uc-la1: source IP 154.16.88.203 is outside the documentation ranges.
+
+## Rooms 103-110 second pass (review notes, graded or reading text, not changed)
+
+- discovery-and-enumeration disc-r3 reading: "LDAP is what PowerShell's Get-ADUser/Get-ADGroupMember, AdFind and SharpHound use". The AD module uses ADWS, TCP 9389; AdFind and SharpHound use LDAP.
+- unsecured-credentials-practice uc-r2 reading, uc-m1: shell history placed under T1552.001, it is T1552.003.
+- unsecured-credentials-practice uc-ac1, uc-f1 event: BatchGetSecretValue against 42 secret ARNs in one request is impossible, AWS caps a call at 20 and pages the rest.
+- sigma-yara-rule-authoring r2 codeExample: tag attack.defense_evasion on T1218 is out of date, v19 lists it under Stealth (TA0005).
+- sigma-yara-rule-authoring r5 reading: `$s = 'admin' fullword` uses single quotes, not a YARA text string.
+- sigma-yara-rule-authoring r4 codeExample: single backslash in SPL, Image="*\vssadmin.exe" needs a doubled backslash.
+- azure-security azure-r8 reading and checkpoint, bec-investigation bec-r6 reading and bec-r5 flow: "A password reset does NOT invalidate a token or session" contradicts Microsoft's refresh-token table. Say a reset does not reliably end everything issued, so revoke explicitly.
+- azure-security azure-r2 reading: lists NSG Flow Logs under diagnostic settings; they are created in Network Watcher, new ones blocked since 2025-06-30, retiring 2027-09-30.
+- bec-investigation bec-q3 option 1, bec-r6 reading: "correlationId pattern" contradicts r3, where correlationId belongs to one action.
+- cloud-attacker-defense-evasion cad-r1 heading, cad-q1 option, cad-m1: short name "Disable or Modify Cloud Firewall", v19 name is "Disable or Modify System Firewall: Cloud Firewall".
+- cloud-attacker-defense-evasion cad-q4 explanation: says every other event is a CloudTrail eventName, but 14:25 "global administrator accounts" is an Entra role.
+- cloud-attacker-defense-evasion cad-q1, cad-r2: AuthorizeSecurityGroupIngress adds a rule, creating a group is CreateSecurityGroup.
+- cloud-attacker-defense-evasion cad-q3: s3:ListBuckets, the IAM action is s3:ListAllMyBuckets.
+- cloud-attacker-defense-evasion cad-m1 explanation: the termination default covers only the root volume.
+- mfa-session-token-attacks r5: says one sessionId should never appear on two IPs; a laptop moving to a hotspot keeps it.
+- mfa-session-token-attacks q4 option C: the "a browser cookie would still work" clause is plausibly true today, C is wrong only because of its fatigue clause.
+- gcp-security gcp-la-sakey, gcp-f1 createSaKeyEvent: gcp.audit.resource_name carries the email, the real field is numeric.

@@ -51,6 +51,6 @@ r1, r2, q1, m1 | la1, la2, f1, q2 | ac1, o1 | qf1
 | סרטון | מתי | הפניה |
 |---|---|---|
 | Intro: "The Wall Is Red" | כניסה | תחנה 1 |
-| Chapter 2: "No Lockouts" | אחרי The Wall | תחנה 2 |
+| Chapter 2: "What the Wall Can't Say" | אחרי The Wall | תחנה 2 |
 | Chapter 3: "Three Days to the Summit" | אחרי The Shape | תחנה 3 |
 | Finale: "The Rule Stays On" | אחרי The Detection | החדר הבא |

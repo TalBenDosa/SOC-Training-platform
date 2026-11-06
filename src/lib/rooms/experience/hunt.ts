@@ -11,7 +11,7 @@ export interface HuntTable {
 }
 
 export type HuntStep =
-  | { op: "where"; col: string; test: "eq" | "ieq" | "has" | "in" | "notin"; value: string | string[] }
+  | { op: "where"; col: string; test: "eq" | "ieq" | "has" | "startswith" | "in" | "notin"; value: string | string[] }
   | { op: "join"; table: string; left: string; right: string; /** A further column both sides must match, e.g. the device. */ also?: string; /** Leave the right-hand key out of the result, as an SPL lookup does. */ hideKey?: boolean }
   | { op: "summarize"; by: string[]; /** Name of the count column: count_ in KQL, count in SPL. */ as?: string }
   | { op: "project"; cols: string[] };
@@ -31,6 +31,7 @@ function matches(cell: string, step: Extract<HuntStep, { op: "where" }>): boolea
     case "eq": return cell === values[0];
     case "ieq": return lower(cell) === lower(values[0]);
     case "has": return lower(cell).includes(lower(values[0]));
+    case "startswith": return lower(cell).startsWith(lower(values[0]));
     case "in": return values.some(v => lower(v) === lower(cell));
     case "notin": return !values.some(v => lower(v) === lower(cell));
   }

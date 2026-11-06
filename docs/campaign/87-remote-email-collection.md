@@ -58,6 +58,6 @@ r1, r2, q1 | r3, q2, m1 | r4, la1, o1 | r5, ac1, q3 | qf1, f1, q4
 | סרטון | מתי | הפניה |
 |---|---|---|
 | Intro: "A Call From Santos" | כניסה | תחנה 1 |
-| Chapter 2: "The Mail Keeps Going" | אחרי The Mailbox Audit | תחנה 2 |
+| Chapter 2: "Before Friday" | אחרי The Mailbox Audit | תחנה 2 |
 | Chapter 3: "Who Else Has a Key?" | אחרי One Session | תחנה 4 |
 | Finale: "Quiet Again" | אחרי What Left | החדר הבא |

@@ -53,6 +53,6 @@ r1, o1, r2, q1 | r3, r6, la2 | r4, q2, la1, f1, qf1 | r5, q3, m1 | ac1
 | סרטון | מתי | הפניה |
 |---|---|---|
 | Intro: "The Sealed Room" | כניסה | תחנה 1 |
-| Chapter 2: "Two Stacks, One Laptop" | אחרי The Fingerprint | תחנה 3 |
+| Chapter 2: "One Laptop, One Question" | אחרי The Fingerprint | תחנה 3 |
 | Chapter 3: "The Answer Is Still Sealed" | אחרי The Proxy | תחנה 5 |
 | Finale: "Friday, Six O'Clock" | אחרי The Sealed Room | החדר הבא |

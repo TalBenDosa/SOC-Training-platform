@@ -102,6 +102,26 @@ const k8sSecurityRoom = {
     },
 
     // -------------------------------------------------------------------------
+    // Question 1
+    // -------------------------------------------------------------------------
+    {
+      type: "question" as const,
+      id: "k8s-q1",
+      question:
+        "A pod specification includes 'hostPID: true'. What does this setting actually allow the container to do, and why is it dangerous?",
+      options: [
+        "It pins the pod's main process to a fixed PID instead of a random one, which can affect PID-based monitoring but gives the container no extra visibility",
+        "It removes process-namespace isolation, letting the container see, and with other privileges act on, every process on the node including other pods' processes",
+        "It shares the host's network stack with the container, exposing node-level listening ports and the metadata endpoint without crossing the pod network",
+        "It mounts the node's /proc filesystem read-only for diagnostics, so the container can read host statistics but cannot see processes outside the pod",
+      ],
+      answer: 1,
+      explanation:
+        "hostPID: true removes the process-namespace boundary that normally isolates a container so it can only see its own processes. With this setting, the container can see (and depending on other privileges, interact with) every process on the node: a serious escalation because it breaks the fundamental assumption that a container is isolated from its neighbours and from the host itself. “It shares the host's network stack” describes hostNetwork, a different setting. “It pins the pod's main process to a fixed PID” and “It mounts the node's /proc filesystem read-only” both assume the container's view stays limited to its own pod, which is exactly the boundary hostPID removes.",
+      xp: 25,
+    },
+
+    // -------------------------------------------------------------------------
     // Reading 3 — RBAC Over-Permissioning and the Kubernetes Audit Log
     // -------------------------------------------------------------------------
     {
@@ -124,37 +144,6 @@ const k8sSecurityRoom = {
     },
 
     // -------------------------------------------------------------------------
-    // Reading 4 — From Container to Cloud: The Full Escalation Chain
-    // -------------------------------------------------------------------------
-    {
-      type: "reading" as const,
-      id: "k8s-r4",
-      heading: "From Compromised Container to Stolen Cloud Credentials: The Full Chain",
-      content:
-        "This reading connects everything in this room back to the AWS and GCP security rooms you've already completed, because container compromise rarely stays contained to the cluster. It is one of the most common on-ramps into a full cloud account takeover.\n\n**The chain, step by step:**\n\n**Step 1. Initial foothold inside a container.** An attacker gains code execution inside a single application container, through a vulnerable web application dependency, a supply-chain-compromised package (exactly like the dependency-confusion attack you studied in the edge-case-usecases room), or a stolen CI/CD credential that lets them deploy their own pod.\n\n**Step 2. Escalate from container to node.** If the pod the attacker controls has 'privileged: true', 'hostPID: true', or a dangerous 'hostPath' mount (Reading 2), they use it to break out of the container's isolation and gain code execution directly on the **node**, the underlying virtual machine, no longer just a fenced-off slice of it.\n\n**Step 3. Steal the node's cloud identity via the metadata service.** Here is the connection to what you already learned in the AWS and GCP rooms: Kubernetes nodes are themselves cloud compute instances (EC2 instances, GCE VMs), and cloud compute instances have their own IAM role/service-account identity, retrievable from the **instance metadata service** at the well-known link-local address '169.254.169.254', the exact same IMDS endpoint you studied for EC2 credential theft. From inside a process running directly on the node (achieved in Step 2), the attacker simply queries 'http://169.254.169.254/latest/meta-data/iam/security-credentials/' (AWS) or the GCP metadata equivalent, and receives live, valid cloud credentials for whatever role is attached to that node.\n\n**Step 4. Full cloud account access.** Kubernetes nodes are frequently granted broad IAM permissions (to pull container images, write logs, or manage other cluster resources) because it is operationally easier than scoping permissions tightly per-workload. An attacker who has stolen the node's role credentials via Step 3 can now make AWS/GCP API calls with those permissions: enumerating S3 buckets, reading secrets from Secrets Manager, or, in the worst-documented real-world cases, pivoting to create their own IAM backdoor user, exactly as covered in the AWS Security room's IAM backdoor pattern.\n\n**Why this chain is uniquely dangerous:** each individual step, viewed in isolation, can look like unremarkable infrastructure activity. A pod being created (Step 1/2) is routine. A process on a node querying the instance metadata service (Step 3) is *also* routine. Legitimate applications query IMDS constantly to refresh their own credentials. The only way to catch Step 3 as malicious is context: does this specific process, on this specific node, at this specific time, have any legitimate reason to be querying the metadata endpoint? If the querying process traces back to a container that was created moments earlier with 'hostPID'/'privileged' set, and that container's image came from an unrecognised external registry (production clusters pull from named, approved registries such as ECR or an internal mirror; an image reference that starts with a bare IP and port, like '203.0.113.9:5000/tool:latest', points at a server with no DNS name, certificate or reputation behind it), the metadata-service query is the last, most damning link in a chain that was suspicious from Step 1, but only if the analyst has already connected Steps 1 through 3 together.\n\n**The SOC takeaway:** never evaluate a Kubernetes alert, an AWS/GCP metadata-service alert, and a suspicious-pod alert as three separate tickets. If they involve the same node, the same time window, and the same identity chain, they are almost certainly one incident (container escape leading to cloud credential theft) and should be investigated, contained, and reported as a single continuous kill chain.",
-    },
-
-    // -------------------------------------------------------------------------
-    // Question 1
-    // -------------------------------------------------------------------------
-    {
-      type: "question" as const,
-      id: "k8s-q1",
-      question:
-        "A pod specification includes 'hostPID: true'. What does this setting actually allow the container to do, and why is it dangerous?",
-      options: [
-        "It pins the pod's main process to a fixed PID instead of a random one, which can affect PID-based monitoring but gives the container no extra visibility",
-        "It removes process-namespace isolation, letting the container see, and with other privileges act on, every process on the node including other pods' processes",
-        "It shares the host's network stack with the container, exposing node-level listening ports and the metadata endpoint without crossing the pod network",
-        "It mounts the node's /proc filesystem read-only for diagnostics, so the container can read host statistics but cannot see processes outside the pod",
-      ],
-      answer: 1,
-      explanation:
-        "hostPID: true removes the process-namespace boundary that normally isolates a container so it can only see its own processes. With this setting, the container can see (and depending on other privileges, interact with) every process on the node: a serious escalation because it breaks the fundamental assumption that a container is isolated from its neighbours and from the host itself. “It shares the host's network stack” describes hostNetwork, a different setting. “It pins the pod's main process to a fixed PID” and “It mounts the node's /proc filesystem read-only” both assume the container's view stays limited to its own pod, which is exactly the boundary hostPID removes.",
-      xp: 25,
-    },
-
-    // -------------------------------------------------------------------------
     // Question 2
     // -------------------------------------------------------------------------
     {
@@ -172,6 +161,100 @@ const k8sSecurityRoom = {
       explanation:
         "Verb and resource only say a pod-creation request succeeded; a harmless application pod and a privileged hostPID/hostNetwork escape pod produce identical create/pods/201 entries, so the settings in requestObject.spec must be inspected. “Attackers usually hit RBAC denials first” is the Windows failed-logon habit; the reading stresses that Kubernetes attackers mostly use over-permissioned identities, so every request succeeds. “The namespace ... decides whether a new pod runs privileged” is false. Privilege comes from the pod spec's securityContext and host settings. “A create arriving from inside the cluster network” is not proof of trust: stolen tokens and compromised pods also call the API from inside.",
       xp: 25,
+    },
+
+    // -------------------------------------------------------------------------
+    // Log Analysis 2 — kubectl exec anomaly
+    // -------------------------------------------------------------------------
+    {
+      type: "log_analysis" as const,
+      id: "k8s-la2",
+      heading: "An Unexpected kubectl exec Into a Production Pod",
+      context:
+        "A medium-severity alert fires for a 'kubectl exec' session into a production pod. Review the event below, note that this is logged as a subresource action on an existing pod, not a new pod creation.",
+      event: k8sExecEvent,
+      questions: [
+        {
+          question:
+            "The event shows objectRef.subresource = 'exec' rather than a plain pod creation. What does this specifically mean happened, and why is it functionally similar to an interactive remote-desktop or SSH session in a traditional Windows/Linux environment?",
+          options: [
+            "A short-lived pod was created to run one command, Job-style, and was removed once it finished",
+            "A command session was opened inside an already-running pod, like SSH or RDP onto a live server",
+            "The kubelet ran a liveness-probe command inside the container as part of a routine health check",
+            "The user read the pod's output with kubectl logs, which the audit log records under this subresource",
+          ],
+          answer: 1,
+          explanation:
+            "kubectl exec, logged as the 'exec' subresource of pods (verb create, response 101 as the connection upgrades to a stream), runs commands inside a container that is already running: the container equivalent of SSH or RDP onto a live server. “A short-lived pod was created” would be a plain create on pods with no subresource. “A liveness-probe command” is run by the kubelet through the container runtime on the node, not through an API-server exec, and would not carry a human username like d.abrams. “kubectl logs” is recorded under the separate 'log' subresource.",
+          xp: 25,
+        },
+        {
+          question:
+            "Read the command carried in the exec request URI and who issued it. What is the most appropriate analyst action for this medium-severity alert?",
+          options: [
+            "Close it as benign: d.abrams is a known engineer, and a package install in a cluster they work on is routine",
+            "Declare a confirmed compromise and isolate the node, since curl is a common attacker tool for fetching payloads",
+            "Verify with d.abrams or their manager whether a ticket or debugging task explains this exec before deciding",
+            "Revoke all of d.abrams' cluster access now and investigate afterwards, since that is the safest default",
+          ],
+          answer: 2,
+          explanation:
+            "The request URI shows a shell running 'apt-get install -y curl' inside a production pod, issued by a real, known engineer outside their usual pattern. That could be incident debugging or a stolen account staging tooling, so the next step is to verify against a ticket or with a manager before closing either way. “Close it as benign” trusts the identity without checking it, which is exactly how a compromised engineer account gets waved through. “Declare a confirmed compromise” jumps past the evidence: curl is also a standard debugging tool. “Revoke all of d.abrams' cluster access now” is a disproportionate first move for an unverified medium alert and could break live production support.",
+          xp: 25,
+        },
+      ],
+    },
+
+    // -------------------------------------------------------------------------
+    // Reading 4 — From Container to Cloud: The Full Escalation Chain
+    // -------------------------------------------------------------------------
+    {
+      type: "reading" as const,
+      id: "k8s-r4",
+      heading: "From Compromised Container to Stolen Cloud Credentials: The Full Chain",
+      content:
+        "This reading connects everything in this room back to the AWS and GCP security rooms you've already completed, because container compromise rarely stays contained to the cluster. It is one of the most common on-ramps into a full cloud account takeover.\n\n**The chain, step by step:**\n\n**Step 1. Initial foothold inside a container.** An attacker gains code execution inside a single application container, through a vulnerable web application dependency, a supply-chain-compromised package (exactly like the dependency-confusion attack you studied in the edge-case-usecases room), or a stolen CI/CD credential that lets them deploy their own pod.\n\n**Step 2. Escalate from container to node.** If the pod the attacker controls has 'privileged: true', 'hostPID: true', or a dangerous 'hostPath' mount (Reading 2), they use it to break out of the container's isolation and gain code execution directly on the **node**, the underlying virtual machine, no longer just a fenced-off slice of it.\n\n**Step 3. Steal the node's cloud identity via the metadata service.** Here is the connection to what you already learned in the AWS and GCP rooms: Kubernetes nodes are themselves cloud compute instances (EC2 instances, GCE VMs), and cloud compute instances have their own IAM role/service-account identity, retrievable from the **instance metadata service** at the well-known link-local address '169.254.169.254', the exact same IMDS endpoint you studied for EC2 credential theft. From inside a process running directly on the node (achieved in Step 2), the attacker simply queries 'http://169.254.169.254/latest/meta-data/iam/security-credentials/' (AWS) or the GCP metadata equivalent, and receives live, valid cloud credentials for whatever role is attached to that node.\n\n**Step 4. Full cloud account access.** Kubernetes nodes are frequently granted broad IAM permissions (to pull container images, write logs, or manage other cluster resources) because it is operationally easier than scoping permissions tightly per-workload. An attacker who has stolen the node's role credentials via Step 3 can now make AWS/GCP API calls with those permissions: enumerating S3 buckets, reading secrets from Secrets Manager, or, in the worst-documented real-world cases, pivoting to create their own IAM backdoor user, exactly as covered in the AWS Security room's IAM backdoor pattern.\n\n**Why this chain is uniquely dangerous:** each individual step, viewed in isolation, can look like unremarkable infrastructure activity. A pod being created (Step 1/2) is routine. A process on a node querying the instance metadata service (Step 3) is *also* routine. Legitimate applications query IMDS constantly to refresh their own credentials. The only way to catch Step 3 as malicious is context: does this specific process, on this specific node, at this specific time, have any legitimate reason to be querying the metadata endpoint? If the querying process traces back to a container that was created moments earlier with 'hostPID'/'privileged' set, and that container's image came from an unrecognised external registry (production clusters pull from named, approved registries such as ECR or an internal mirror; an image reference that starts with a bare IP and port, like '203.0.113.9:5000/tool:latest', points at a server with no DNS name, certificate or reputation behind it), the metadata-service query is the last, most damning link in a chain that was suspicious from Step 1, but only if the analyst has already connected Steps 1 through 3 together.\n\n**The SOC takeaway:** never evaluate a Kubernetes alert, an AWS/GCP metadata-service alert, and a suspicious-pod alert as three separate tickets. If they involve the same node, the same time window, and the same identity chain, they are almost certainly one incident (container escape leading to cloud credential theft) and should be investigated, contained, and reported as a single continuous kill chain.",
+    },
+
+    // -------------------------------------------------------------------------
+    // Matching Task
+    // -------------------------------------------------------------------------
+    {
+      type: "matching" as const,
+      id: "k8s-m1",
+      heading: "Match Each Kubernetes Setting or Concept to What It Actually Does",
+      instructions:
+        "Match each Kubernetes concept on the left to the correct description of its function and risk on the right.",
+      pairs: [
+        {
+          id: "privileged",
+          left: "privileged: true",
+          right: "Runs the container with nearly all Linux kernel capabilities and confinement disabled, functionally equivalent to root on the node itself",
+        },
+        {
+          id: "hostpid",
+          left: "hostPID: true",
+          right: "Removes process-namespace isolation, letting the container see every process running on the node, not just its own",
+        },
+        {
+          id: "hostpath",
+          left: "hostPath volume",
+          right: "Mounts a directory from the node's own filesystem directly into the container, potentially exposing sensitive host files or the container runtime socket",
+        },
+        {
+          id: "rbac",
+          left: "RBAC RoleBinding",
+          right: "Attaches a defined set of permitted verbs and resources (a Role) to a specific user or ServiceAccount",
+        },
+        {
+          id: "imds",
+          left: "Instance metadata service (169.254.169.254)",
+          right: "Endpoint queried from a compromised node to steal that node's live cloud IAM role/service-account credentials: the same technique used against standalone EC2 instances",
+        },
+      ],
+      explanation:
+        "Every one of these mechanisms exists for a legitimate operational reason, which is exactly what makes them dangerous when granted too broadly: they are indistinguishable, at the level of a single audit-log entry, from their malicious use. The analyst's job is to recognise which combinations of these settings, applied together, indicate an attacker deliberately dismantling container isolation rather than an operator running specialised infrastructure.",
+      xp: 35,
     },
 
     // -------------------------------------------------------------------------
@@ -228,89 +311,6 @@ const k8sSecurityRoom = {
           xp: 25,
         },
       ],
-    },
-
-    // -------------------------------------------------------------------------
-    // Log Analysis 2 — kubectl exec anomaly
-    // -------------------------------------------------------------------------
-    {
-      type: "log_analysis" as const,
-      id: "k8s-la2",
-      heading: "An Unexpected kubectl exec Into a Production Pod",
-      context:
-        "A medium-severity alert fires for a 'kubectl exec' session into a production pod. Review the event below, note that this is logged as a subresource action on an existing pod, not a new pod creation.",
-      event: k8sExecEvent,
-      questions: [
-        {
-          question:
-            "The event shows objectRef.subresource = 'exec' rather than a plain pod creation. What does this specifically mean happened, and why is it functionally similar to an interactive remote-desktop or SSH session in a traditional Windows/Linux environment?",
-          options: [
-            "A short-lived pod was created to run one command, Job-style, and was removed once it finished",
-            "A command session was opened inside an already-running pod, like SSH or RDP onto a live server",
-            "The kubelet ran a liveness-probe command inside the container as part of a routine health check",
-            "The user read the pod's output with kubectl logs, which the audit log records under this subresource",
-          ],
-          answer: 1,
-          explanation:
-            "kubectl exec, logged as the 'exec' subresource of pods (verb create, response 101 as the connection upgrades to a stream), runs commands inside a container that is already running: the container equivalent of SSH or RDP onto a live server. “A short-lived pod was created” would be a plain create on pods with no subresource. “A liveness-probe command” is run by the kubelet through the container runtime on the node, not through an API-server exec, and would not carry a human username like d.abrams. “kubectl logs” is recorded under the separate 'log' subresource.",
-          xp: 25,
-        },
-        {
-          question:
-            "Read the command carried in the exec request URI and who issued it. What is the most appropriate analyst action for this medium-severity alert?",
-          options: [
-            "Close it as benign: d.abrams is a known engineer, and a package install in a cluster they work on is routine",
-            "Declare a confirmed compromise and isolate the node, since curl is a common attacker tool for fetching payloads",
-            "Verify with d.abrams or their manager whether a ticket or debugging task explains this exec before deciding",
-            "Revoke all of d.abrams' cluster access now and investigate afterwards, since that is the safest default",
-          ],
-          answer: 2,
-          explanation:
-            "The request URI shows a shell running 'apt-get install -y curl' inside a production pod, issued by a real, known engineer outside their usual pattern. That could be incident debugging or a stolen account staging tooling, so the next step is to verify against a ticket or with a manager before closing either way. “Close it as benign” trusts the identity without checking it, which is exactly how a compromised engineer account gets waved through. “Declare a confirmed compromise” jumps past the evidence: curl is also a standard debugging tool. “Revoke all of d.abrams' cluster access now” is a disproportionate first move for an unverified medium alert and could break live production support.",
-          xp: 25,
-        },
-      ],
-    },
-
-    // -------------------------------------------------------------------------
-    // Matching Task
-    // -------------------------------------------------------------------------
-    {
-      type: "matching" as const,
-      id: "k8s-m1",
-      heading: "Match Each Kubernetes Setting or Concept to What It Actually Does",
-      instructions:
-        "Match each Kubernetes concept on the left to the correct description of its function and risk on the right.",
-      pairs: [
-        {
-          id: "privileged",
-          left: "privileged: true",
-          right: "Runs the container with nearly all Linux kernel capabilities and confinement disabled, functionally equivalent to root on the node itself",
-        },
-        {
-          id: "hostpid",
-          left: "hostPID: true",
-          right: "Removes process-namespace isolation, letting the container see every process running on the node, not just its own",
-        },
-        {
-          id: "hostpath",
-          left: "hostPath volume",
-          right: "Mounts a directory from the node's own filesystem directly into the container, potentially exposing sensitive host files or the container runtime socket",
-        },
-        {
-          id: "rbac",
-          left: "RBAC RoleBinding",
-          right: "Attaches a defined set of permitted verbs and resources (a Role) to a specific user or ServiceAccount",
-        },
-        {
-          id: "imds",
-          left: "Instance metadata service (169.254.169.254)",
-          right: "Endpoint queried from a compromised node to steal that node's live cloud IAM role/service-account credentials: the same technique used against standalone EC2 instances",
-        },
-      ],
-      explanation:
-        "Every one of these mechanisms exists for a legitimate operational reason, which is exactly what makes them dangerous when granted too broadly: they are indistinguishable, at the level of a single audit-log entry, from their malicious use. The analyst's job is to recognise which combinations of these settings, applied together, indicate an attacker deliberately dismantling container isolation rather than an operator running specialised infrastructure.",
-      xp: 35,
     },
 
     // -------------------------------------------------------------------------
