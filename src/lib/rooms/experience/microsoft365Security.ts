@@ -26,6 +26,14 @@ export const MICROSOFT_365_SECURITY: RoomExperience = {
   look: { primary: "#38bdf8", secondary: "#a3e635", warn: "#fb923c" },
   scene: "tenantcloud",
   layout: "stage",
+  story: {
+    intro: { title: "The Invoice From Inside", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/microsoft-365-security/inboxzero-intro-bd3c0f73.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/microsoft-365-security/inboxzero-intro-42651b6d.jpg" },
+    afterStation: {
+      mail: { title: "A Hyphen, Not a Dot", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/microsoft-365-security/inboxzero-ch2-1c548926.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/microsoft-365-security/inboxzero-ch2-dae4df0b.jpg" },
+      audit: { title: "Three Operations, One Story", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/microsoft-365-security/inboxzero-ch3-20685c50.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/microsoft-365-security/inboxzero-ch3-57fc6a41.jpg" },
+      boss: { title: "Close the Tenant", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/microsoft-365-security/inboxzero-finale-2925b247.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/microsoft-365-security/inboxzero-finale-d561c583.jpg" },
+    },
+  },
   stations: [
     {
       id: "family",
