@@ -29,11 +29,11 @@ export const WINDOWS_EVENT_LOGS: RoomExperience = {
   scene: "evtxtape",
   layout: "stage",
   story: {
-    intro: { title: "Ten Hours of Memory", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-event-logs/flightrecorder-intro-7931b32d.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-event-logs/flightrecorder-intro-d2f211f6.jpg" },
+    intro: { title: "Ten Hours of Memory", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-event-logs/flightrecorder-intro-a1cf5bfe.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-event-logs/flightrecorder-intro-6b4a782f.jpg" },
     afterStation: {
-      diary: { title: "Type 9", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-event-logs/flightrecorder-ch2-8583affb.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-event-logs/flightrecorder-ch2-2130bb73.jpg" },
-      logons: { title: "A Web Server Opens a Shell", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-event-logs/flightrecorder-ch3-1b446d98.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-event-logs/flightrecorder-ch3-4b609c3b.jpg" },
-      patterns: { title: "From Spray to the Next Host", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-event-logs/flightrecorder-finale-f0614cb5.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-event-logs/flightrecorder-finale-5e0e8af9.jpg" },
+      diary: { title: "Type 9", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-event-logs/flightrecorder-ch2-9900a94d.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-event-logs/flightrecorder-ch2-369acfcb.jpg" },
+      logons: { title: "A Web Server Opens a Shell", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-event-logs/flightrecorder-ch3-c772f084.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-event-logs/flightrecorder-ch3-8bbc44c1.jpg" },
+      patterns: { title: "From Spray to the Next Host", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-event-logs/flightrecorder-finale-78605706.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/windows-event-logs/flightrecorder-finale-475986de.jpg" },
     },
   },
   stations: [
