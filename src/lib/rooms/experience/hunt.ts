@@ -13,7 +13,7 @@ export interface HuntTable {
 export type HuntStep =
   | { op: "where"; col: string; test: "eq" | "ieq" | "has" | "in" | "notin"; value: string | string[] }
   | { op: "join"; table: string; left: string; right: string; /** A further column both sides must match, e.g. the device. */ also?: string }
-  | { op: "summarize"; by: string[] }
+  | { op: "summarize"; by: string[]; /** Name of the count column: count_ in KQL, count in SPL. */ as?: string }
   | { op: "project"; cols: string[] };
 
 export interface HuntResult {
@@ -39,7 +39,7 @@ function matches(cell: string, step: Extract<HuntStep, { op: "where" }>): boolea
 const missing = (col: string) => `Failed to resolve column '${col}'.`;
 
 /** Runs a query from the start table, one step at a time, as the console would. */
-export function runHunt(tables: HuntTable[], start: string, steps: HuntStep[]): HuntResult {
+export function runHunt(tables: HuntTable[], start: string, steps: HuntStep[], opts?: { emptyColumns?: boolean }): HuntResult {
   const first = tables.find(t => t.name === start);
   if (!first) return { columns: [], rows: [], error: `Failed to resolve table '${start}'.` };
   let columns = [...first.columns];
@@ -72,14 +72,15 @@ export function runHunt(tables: HuntTable[], start: string, steps: HuntStep[]): 
         const hit = counts.get(id);
         if (hit) hit.n += 1; else counts.set(id, { key, n: 1 });
       }
-      columns = [...step.by, "count_"];
+      columns = [...step.by, step.as ?? "count_"];
       rows = [...counts.values()].map(c => [...c.key, String(c.n)]);
     } else {
       const idx = step.cols.map(c => columns.indexOf(c));
       const gone = step.cols.find((_, i) => idx[i] < 0);
-      if (gone) return { columns, rows: [], error: missing(gone) };
+      // SPL shows a field that is not there as an empty column; KQL refuses the query.
+      if (gone && !opts?.emptyColumns) return { columns, rows: [], error: missing(gone) };
       columns = [...step.cols];
-      rows = rows.map(r => idx.map(i => r[i]));
+      rows = rows.map(r => idx.map(i => (i < 0 ? "" : r[i])));
     }
   }
   return { columns, rows };

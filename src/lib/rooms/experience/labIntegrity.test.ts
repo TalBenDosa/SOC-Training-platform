@@ -103,21 +103,21 @@ function problems(l: BriefingLab): string[] {
     }
     case "hunt": {
       need(l.rungs.length >= 3, "fewer than 3 rungs");
-      const path: HuntStep[] = [];
+      const path: HuntStep[] = [], opts = { emptyColumns: l.language === "SPL" };
       for (const r of l.rungs) {
         const right = r.choices.filter(c => c.right);
         need(right.length === 1, `${r.id}: needs exactly one right line`);
         need(r.choices.length >= 3, `${r.id}: fewer than 3 choices`);
-        const before = runHunt(l.tables, l.start, path);
+        const before = runHunt(l.tables, l.start, path, opts);
         for (const c of r.choices) {
-          const res = runHunt(l.tables, l.start, [...path, c.apply]);
+          const res = runHunt(l.tables, l.start, [...path, c.apply], opts);
           if (c.right) need(!res.error && res.rows.length > 0, `${r.id}: the right line returns nothing`);
-          else need(!!res.error || JSON.stringify(res) !== JSON.stringify(runHunt(l.tables, l.start, [...path, right[0]!.apply])), `${r.id}/${c.id}: a wrong line returns the same result as the right one`);
+          else need(!!res.error || JSON.stringify(res) !== JSON.stringify(runHunt(l.tables, l.start, [...path, right[0]!.apply], opts)), `${r.id}/${c.id}: a wrong line returns the same result as the right one`);
         }
         need(!before.error, `${r.id}: query already broken`);
         path.push(right[0]!.apply);
       }
-      need(runHunt(l.tables, l.start, path).rows.length === l.expect, "finished query does not return the expected rows");
+      need(runHunt(l.tables, l.start, path, opts).rows.length === l.expect, "finished query does not return the expected rows");
       break;
     }
     case "outbreak":

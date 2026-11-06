@@ -74,6 +74,23 @@ When you analyze evidence, constantly ask yourself: *if I were the attacker, why
       },
     },
 
+    // ── Question 1 ───────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "inv-method-q1",
+      question: "An alert names one server. Its local Security log rolls over about every 6 hours, and only part of it reaches the SIEM. You have scoped the case. What do you do next?",
+      options: [
+        "Analyse the alert on its own first, and pull host logs once you know what to look for",
+        "Record the case as inconclusive now, since the evidence will roll before you finish",
+        "Pull the server's logs and telemetry now, before rotation overwrites them, then analyse",
+        "Reboot the server to stop any activity, then collect its logs once it is back up",
+      ],
+      answer: 2,
+      explanation:
+        "This is Phase 3 (Collect): pull the evidence before it is overwritten, then move to analysis. “Analyse the alert on its own first” reverses Collect and Analyze, and with a 6-hour rotation the logs you need may be gone by the time you know what to look for. “Record the case as inconclusive now” gives up on evidence you can still save. “Reboot the server” destroys memory evidence and still leaves the log rotation problem.",
+      xp: 30,
+    },
+
     // ── Reading 2: Timeline Analysis & Pivot Points ───────────────────────
     {
       type: "reading" as const,
@@ -131,6 +148,40 @@ Tools that help: Microsoft Sentinel's Investigation Graph (automatically draws e
         answer: 1,
         explanation: "The reading's rule is: always work in UTC. Mixing local timezones (an Eastern-Time endpoint, a Pacific-Time mail server) puts events in the wrong order, and a timeline whose order is wrong is worse than no timeline. It invents causation that never happened. Leaving each event in its source timezone pushes that conversion onto every future reader, and normalising to the SIEM's or your own timezone just picks a different arbitrary offset that breaks the moment someone in another region opens the case.",
       },
+    },
+
+    // ── Question 2 ───────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "inv-method-q2",
+      question: "One host's firewall log shows beacons to an external IP you suspect is C2. Which pivot best reveals other infected machines?",
+      options: [
+        "Every system the host's logged-on user accessed in the last 30 days",
+        "Every internal host that connected to that IP in the time window",
+        "Every connection the suspicious process on that host has made",
+        "The IP's reputation and history in VirusTotal and AbuseIPDB",
+      ],
+      answer: 1,
+      explanation:
+        "The IP → hosts pivot searches all internal traffic to that IP, so any other machine checking in with the same C2 server shows up. “Every system the host's logged-on user accessed” is a user → systems pivot: it finds lateral movement by that one account, not other machines infected through other users. “Every connection the suspicious process has made” is a process → network pivot on the same single host. “The IP's reputation” is enrichment: it tells you about the IP, not which of your machines talked to it.",
+      xp: 30,
+    },
+
+    // ── Question 3 ───────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "inv-method-q3",
+      question: "You merge three sources into one UTC timeline: Security events read from an exported EVTX file, an IIS log in the older NCSA format from a server set to UTC+2, and Sentinel query results. Which one most likely needs manual conversion?",
+      options: [
+        "The EVTX events, because Windows stores event times in the host's local zone",
+        "The NCSA-format IIS log, because it is written in local time with no offset",
+        "The Sentinel results, because a SIEM keeps each event in its source's zone",
+        "All three equally, because every source logs in its own host's local time zone",
+      ],
+      answer: 1,
+      explanation:
+        "Older IIS/NCSA-format logs are written in the server's local time without an offset, so these UTC+2 entries must be shifted by two hours before they are ordered. “The EVTX events” is a common trap: EVTX stores TimeCreated in UTC, and only the Event Viewer display converts it to local time. “The Sentinel results” is wrong because Sentinel, like most SIEMs, normalises event times to UTC (still worth confirming, but not the source that needs conversion). “All three equally” ignores that two of the three are already UTC.",
+      xp: 30,
     },
 
     // ── Reading 3: SIEM Workflow & Case Management ────────────────────────
@@ -192,57 +243,22 @@ A good case ticket contains:
 **Documentation is not bureaucracy: it is a force multiplier.** When a senior analyst can read your ticket and immediately understand the full picture, investigations run faster, escalations go smoother, and lessons are learned. Document as you go, not at the end. Memory fades; logs do not.`,
     },
 
-    // ── Question 1 ───────────────────────────────────────────────────────
+    // ── Question 5 ───────────────────────────────────────────────────────
     {
       type: "question" as const,
-      id: "inv-method-q1",
-      question: "An alert names one server. Its local Security log rolls over about every 6 hours, and only part of it reaches the SIEM. You have scoped the case. What do you do next?",
+      id: "inv-method-q5",
+      question: "A senior analyst must re-check your true-positive case tomorrow without you. Which draft ticket lets them reproduce your evidence?",
       options: [
-        "Analyse the alert on its own first, and pull host logs once you know what to look for",
-        "Record the case as inconclusive now, since the evidence will roll before you finish",
-        "Pull the server's logs and telemetry now, before rotation overwrites them, then analyse",
-        "Reboot the server to stop any activity, then collect its logs once it is back up",
-      ],
-      answer: 2,
-      explanation:
-        "This is Phase 3 (Collect): pull the evidence before it is overwritten, then move to analysis. “Analyse the alert on its own first” reverses Collect and Analyze, and with a 6-hour rotation the logs you need may be gone by the time you know what to look for. “Record the case as inconclusive now” gives up on evidence you can still save. “Reboot the server” destroys memory evidence and still leaves the log rotation problem.",
-      xp: 30,
-    },
-
-    // ── Question 2 ───────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "inv-method-q2",
-      question: "One host's firewall log shows beacons to an external IP you suspect is C2. Which pivot best reveals other infected machines?",
-      options: [
-        "Every system the host's logged-on user accessed in the last 30 days",
-        "Every internal host that connected to that IP in the time window",
-        "Every connection the suspicious process on that host has made",
-        "The IP's reputation and history in VirusTotal and AbuseIPDB",
+        "Summary, timeline, a screenshot of each result, affected assets, conclusion",
+        "Summary, timeline, a saved query link per result, affected assets, conclusion",
+        "Summary, timeline, names of the log sources searched, affected assets, conclusion",
+        "Summary, timeline, the alert ID and rule name, affected assets, conclusion",
       ],
       answer: 1,
       explanation:
-        "The IP → hosts pivot searches all internal traffic to that IP, so any other machine checking in with the same C2 server shows up. “Every system the host's logged-on user accessed” is a user → systems pivot: it finds lateral movement by that one account, not other machines infected through other users. “Every connection the suspicious process has made” is a process → network pivot on the same single host. “The IP's reputation” is enrichment: it tells you about the IP, not which of your machines talked to it.",
+        "The reading asks for evidence links: direct links or saved query strings that another analyst can click and re-run, not screenshots. Only the draft with “a saved query link per result” makes the evidence reproducible. “A screenshot of each result” shows what you saw but cannot be re-run or extended. “Names of the log sources searched” says where you looked but not what you ran. “The alert ID and rule name” points back to the trigger only, not to the evidence you gathered after it. A complete ticket also needs the chain of events, actions taken and recommendations.",
       xp: 30,
     },
-
-    // ── Question 3 ───────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "inv-method-q3",
-      question: "You merge three sources into one UTC timeline: Security events read from an exported EVTX file, an IIS log in the older NCSA format from a server set to UTC+2, and Sentinel query results. Which one most likely needs manual conversion?",
-      options: [
-        "The EVTX events, because Windows stores event times in the host's local zone",
-        "The NCSA-format IIS log, because it is written in local time with no offset",
-        "The Sentinel results, because a SIEM keeps each event in its source's zone",
-        "All three equally, because every source logs in its own host's local time zone",
-      ],
-      answer: 1,
-      explanation:
-        "Older IIS/NCSA-format logs are written in the server's local time without an offset, so these UTC+2 entries must be shifted by two hours before they are ordered. “The EVTX events” is a common trap: EVTX stores TimeCreated in UTC, and only the Event Viewer display converts it to local time. “The Sentinel results” is wrong because Sentinel, like most SIEMs, normalises event times to UTC (still worth confirming, but not the source that needs conversion). “All three equally” ignores that two of the three are already UTC.",
-      xp: 30,
-    },
-
     // ── Log Analysis ─────────────────────────────────────────────────────
     {
       type: "log_analysis" as const,
@@ -328,22 +344,6 @@ A good case ticket contains:
       xp: 30,
     },
 
-    // ── Question 5 ───────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "inv-method-q5",
-      question: "A senior analyst must re-check your true-positive case tomorrow without you. Which draft ticket lets them reproduce your evidence?",
-      options: [
-        "Summary, timeline, a screenshot of each result, affected assets, conclusion",
-        "Summary, timeline, a saved query link per result, affected assets, conclusion",
-        "Summary, timeline, names of the log sources searched, affected assets, conclusion",
-        "Summary, timeline, the alert ID and rule name, affected assets, conclusion",
-      ],
-      answer: 1,
-      explanation:
-        "The reading asks for evidence links: direct links or saved query strings that another analyst can click and re-run, not screenshots. Only the draft with “a saved query link per result” makes the evidence reproducible. “A screenshot of each result” shows what you saw but cannot be re-run or extended. “Names of the log sources searched” says where you looked but not what you ran. “The alert ID and rule name” points back to the trigger only, not to the evidence you gathered after it. A complete ticket also needs the chain of events, actions taken and recommendations.",
-      xp: 30,
-    },
   ],
 };
 

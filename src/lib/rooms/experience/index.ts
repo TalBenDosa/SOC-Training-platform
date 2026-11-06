@@ -57,6 +57,10 @@ import { ENTRA_ID } from "./entraId";
 import { EXCHANGE_ONLINE_SECURITY } from "./exchangeOnlineSecurity";
 import { SHAREPOINT_TEAMS_MONITORING } from "./sharepointTeamsMonitoring";
 import { DEFENDER_XDR } from "./defenderXdr";
+import { IOC_ANALYSIS } from "./iocAnalysis";
+import { INCIDENT_RESPONSE_METHODOLOGY } from "./incidentResponseMethodology";
+import { INVESTIGATION_METHODOLOGY } from "./investigationMethodology";
+import { AUTH_IDENTITY_MONITORING } from "./authIdentityMonitoring";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -120,6 +124,10 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [EXCHANGE_ONLINE_SECURITY.roomId]: EXCHANGE_ONLINE_SECURITY,
   [SHAREPOINT_TEAMS_MONITORING.roomId]: SHAREPOINT_TEAMS_MONITORING,
   [DEFENDER_XDR.roomId]: DEFENDER_XDR,
+  [IOC_ANALYSIS.roomId]: IOC_ANALYSIS,
+  [INCIDENT_RESPONSE_METHODOLOGY.roomId]: INCIDENT_RESPONSE_METHODOLOGY,
+  [INVESTIGATION_METHODOLOGY.roomId]: INVESTIGATION_METHODOLOGY,
+  [AUTH_IDENTITY_MONITORING.roomId]: AUTH_IDENTITY_MONITORING,
 };
 
 /**

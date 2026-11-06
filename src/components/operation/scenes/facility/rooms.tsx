@@ -125,6 +125,55 @@ const LASTWORD: CampusConfig = {
   ],
 };
 
+const BREADCRUMB: HallConfig = {
+  title: "Pivot Hall",
+  sub: "Kestrel Vale Insurance threat intel",
+  core: "globe",
+  books: ["Threat Intel", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "target", name: ["The", "Hash"], color: "#fdba74", art: "axes" },
+    { icon: "eye", name: ["The", "Sources"], color: "#67e8f9", art: "ghost" },
+    { icon: "compass", name: ["The Pivot", "Board"], color: "#a3e635", art: "tree" },
+    { icon: "siren", name: ["The Last", "Crumb"], color: "#f43f5e", art: "pulse" },
+  ],
+};
+
+const TABLETOP: CampusConfig = {
+  seed: 5183,
+  hub: { title: "Oakhollow Water Trust", sub: "INCIDENT RESPONSE HUB" },
+  buildings: [
+    { icon: "siren", sign: ["The First", "Call"], color: "#22b8cf", x: -18.5, z: -7, rot: 0.36 },
+    { icon: "wire", sign: ["Stop the", "Spread"], color: "#facc15", x: -12, z: 7.5, rot: 0.24 },
+    { icon: "filter", sign: ["Clear Them", "Out"], color: "#f97316", x: -1.5, z: 9.5, rot: 0.02 },
+    { icon: "monitor", sign: ["Restart,", "Review"], color: "#60a5fa", x: 10.5, z: 8, rot: -0.18 },
+    { icon: "shield", sign: ["Not a", "Drill"], color: "#f43f5e", x: 18.5, z: -6.5, rot: -0.36 },
+  ],
+};
+
+const LOOSETHREAD: HallConfig = {
+  title: "Thread Hall",
+  sub: "St Aldric's Hospice Group investigation",
+  core: "chain",
+  books: ["Investigation", "Incident Response", "SOC"],
+  cards: [
+    { icon: "compass", name: ["The First", "Question"], color: "#fb7185", art: "axes" },
+    { icon: "wire", name: ["Pivot and", "Timeline"], color: "#7dd3fc", art: "tree" },
+    { icon: "filter", name: ["SIEM and", "Case File"], color: "#fde047", art: "loot" },
+    { icon: "target", name: ["Read the", "Logon"], color: "#f472b6", art: "pulse" },
+  ],
+};
+
+const WHOGOES: CampusConfig = {
+  seed: 5483,
+  hub: { title: "Silverpine Credit Union", sub: "IDENTITY WATCH HUB" },
+  buildings: [
+    { icon: "monitor", sign: ["Logon", "Book"], color: "#5eead4", x: -18.5, z: -3.5, rot: 0.4 },
+    { icon: "filter", sign: ["Read the", "Shape"], color: "#cbd5e1", x: -7, z: 8.5, rot: 0.12 },
+    { icon: "target", sign: ["Set the", "Watch"], color: "#7dd3fc", x: 9, z: 7, rot: -0.16 },
+    { icon: "siren", sign: ["Who Goes", "There?"], color: "#fb7185", x: 18, z: -9, rot: -0.36 },
+  ],
+};
+
 const HALL: HallConfig = {
   title: "Specimen Hall",
   sub: "Vantor Logistics malware lab",
@@ -195,3 +244,7 @@ export function FacilityEntra(props: WorldProps) { return <CampusWorld cfg={ENTR
 export function FacilityDirectory(props: WorldProps) { return <CampusWorld cfg={DIRECTORY} props={props} />; }
 export function FacilityCampus(props: WorldProps) { return <CampusWorld cfg={CAMPUS} props={props} />; }
 export function FacilityLastWord(props: WorldProps) { return <CampusWorld cfg={LASTWORD} props={props} />; }
+export function FacilityBreadcrumb(props: WorldProps) { return <HallWorld cfg={BREADCRUMB} props={props} />; }
+export function FacilityTabletop(props: WorldProps) { return <CampusWorld cfg={TABLETOP} props={props} />; }
+export function FacilityLooseThread(props: WorldProps) { return <HallWorld cfg={LOOSETHREAD} props={props} />; }
+export function FacilityWhoGoes(props: WorldProps) { return <CampusWorld cfg={WHOGOES} props={props} />; }

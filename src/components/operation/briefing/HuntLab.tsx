@@ -28,7 +28,7 @@ function HuntRun({ lab, onDone, onRetry }: { lab: Lab; onDone: () => void; onRet
   const won = locked.length >= lab.rungs.length;
   const lost = lives <= 0;
   const steps = useMemo(() => [...locked, ...(trial ? [trial] : [])].map(l => l.step), [locked, trial]);
-  const result = useMemo(() => runHunt(lab.tables, lab.start, steps), [lab, steps]);
+  const result = useMemo(() => runHunt(lab.tables, lab.start, steps, { emptyColumns: lab.language === "SPL" }), [lab, steps]);
 
   function pick(c: Lab["rungs"][number]["choices"][number]) {
     if (won || lost) return;

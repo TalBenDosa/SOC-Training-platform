@@ -11,7 +11,7 @@ import type { HuntStep, HuntTable } from "./hunt";
  * Concept doc: docs/CONCEPT-gamified-learning-rooms.md
  */
 
-export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint" | "linux" | "pipeline" | "crypto" | "time" | "forensics" | "identity" | "malware" | "risk" | "patching" | "killchain" | "netsec" | "edr" | "mind" | "sensors" | "webapp" | "lures" | "macos" | "evtx" | "varlog" | "siem" | "ingest" | "email" | "protocols" | "dlp" | "persistence" | "powershell" | "privesc" | "attack" | "ad" | "wazuh" | "sentinel" | "detection" | "m365" | "falcon" | "s1" | "detonation" | "nightqueue" | "forensics2" | "vpn" | "fwlogs" | "dns" | "ngfw" | "avedr" | "llm" | "wire" | "webops" | "baremetal" | "smuggle" | "tenant" | "replyall" | "sharedlink" | "lastword" | "breadcrumb" | "tabletop" | "loosethread" | "whogoes";
+export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" | "city" | "datacenter" | "soc" | "perimeter" | "endpoint" | "linux" | "pipeline" | "crypto" | "time" | "forensics" | "identity" | "malware" | "risk" | "patching" | "killchain" | "netsec" | "edr" | "mind" | "sensors" | "webapp" | "lures" | "macos" | "evtx" | "varlog" | "siem" | "ingest" | "email" | "protocols" | "dlp" | "persistence" | "powershell" | "privesc" | "attack" | "ad" | "wazuh" | "sentinel" | "detection" | "m365" | "falcon" | "s1" | "detonation" | "nightqueue" | "forensics2" | "vpn" | "fwlogs" | "dns" | "ngfw" | "avedr" | "llm" | "wire" | "webops" | "baremetal" | "smuggle" | "tenant" | "replyall" | "sharedlink" | "lastword" | "breadcrumb" | "tabletop" | "loosethread" | "whogoes" | "papertrail" | "badnews" | "frontdoor" | "autopilot";
 
 /**
  * The room's 3D world on its main screen. Decorative (never clickable): it shows
@@ -139,7 +139,7 @@ export type ThemeId = "mailroom" | "ransomware" | "domain" | "c2" | "hospital" |
  *  - sharedlink: a boundary ring with site racks inside, a chat panel with a stranger
  *             outside, a DLP shield with one document slipping past, and a chain that breaks
  */
-export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver" | "cipherlab" | "chrono" | "dissect" | "idgate" | "specimen" | "riskcore" | "patchline" | "chainlinks" | "zonewall" | "blackbox" | "mindlab" | "sightlines" | "webpath" | "baitshop" | "orchard" | "evtxtape" | "varlog" | "radar" | "intake" | "postmark" | "protostack" | "sealedbrief" | "sparekey" | "objectpipe" | "integrityladder" | "matrixwall" | "domaintree" | "wazuhflow" | "skyquery" | "noisefilter" | "tenantcloud" | "talon" | "storyline" | "detonation" | "nightqueue" | "coldcase" | "longdistance" | "denyall" | "lookup" | "generations" | "secondopinion" | "ignoreall" | "wirelevel" | "opensesame" | "baremetal" | "specialdelivery" | "tenantzero" | "replyall" | "sharedlink" | "facilitymail" | "facilitysoc" | "facilitynet" | "facilitytriage" | "facilitypacket" | "facilitytunnel" | "facilityentra" | "facilitydirectory" | "facilitychain" | "facilitymatrix" | "facilitybait" | "facilityhall" | "facilitycampus" | "facilitylastword" | "facilitybreadcrumb" | "facilitytabletop" | "facilityloosethread" | "facilitywhogoes";
+export type SceneId = "shield" | "gates" | "tower" | "network" | "campus" | "city" | "datapath" | "socfloor" | "portwall" | "hostcore" | "fstree" | "logriver" | "cipherlab" | "chrono" | "dissect" | "idgate" | "specimen" | "riskcore" | "patchline" | "chainlinks" | "zonewall" | "blackbox" | "mindlab" | "sightlines" | "webpath" | "baitshop" | "orchard" | "evtxtape" | "varlog" | "radar" | "intake" | "postmark" | "protostack" | "sealedbrief" | "sparekey" | "objectpipe" | "integrityladder" | "matrixwall" | "domaintree" | "wazuhflow" | "skyquery" | "noisefilter" | "tenantcloud" | "talon" | "storyline" | "detonation" | "nightqueue" | "coldcase" | "longdistance" | "denyall" | "lookup" | "generations" | "secondopinion" | "ignoreall" | "wirelevel" | "opensesame" | "baremetal" | "specialdelivery" | "tenantzero" | "replyall" | "sharedlink" | "facilitymail" | "facilitysoc" | "facilitynet" | "facilitytriage" | "facilitypacket" | "facilitytunnel" | "facilityentra" | "facilitydirectory" | "facilitychain" | "facilitymatrix" | "facilitybait" | "facilityhall" | "facilitycampus" | "facilitylastword" | "facilitybreadcrumb" | "facilitytabletop" | "facilityloosethread" | "facilitywhogoes" | "facilitypapertrail" | "facilitybadnews" | "facilityfrontdoor" | "facilityautopilot";
 
 /** cards: illustrated station cards above the scene. stage: the scene fills the
  *  screen, stations sit in a rail, the selected one in a bottom command bar.
@@ -239,6 +239,8 @@ export type BriefingLab = ({
       title: string;
       prompt: string;
       artifact: string;
+      /** Shown once every flag is found, after "Every flag found." */
+      finish?: string;
       parts: { id: string; text: string; flag: boolean; note: string; style?: "meta" | "subject" | "body" | "button" | "url"; /** shown in the status bar on hover, like a real link */ href?: string }[];
     }
   | {
@@ -591,6 +593,9 @@ export type BriefingLab = ({
       diffs: { line: number; why: string }[];
       decoys?: { line: number; why: string }[];
       lesson: string;
+      /** Top-bar instruction and wrong-tap text, when the copies are not good and tampered. */
+      hud?: string;
+      sameLine?: string;
     }) & {
   /** Numbered "how to play" steps shown above the lab; each kind has defaults. */
   howTo?: string[];

@@ -869,12 +869,12 @@ function SpotDiffRun({ lab, g }: { lab: LabProps<"spotdiff">["lab"]; g: Game }) 
     setLives(after); setWrong(w => new Set(w).add(line));
     const decoy = lab.decoys?.find(x => x.line === line);
     if (after <= 0) { g.lose(decoy?.why ?? "Three false accusations. Compare each line with the known-good copy before you flag it."); return; }
-    setLast({ ok: false, text: decoy?.why ?? "That line matches the known-good copy." });
+    setLast({ ok: false, text: decoy?.why ?? lab.sameLine ?? "That line matches the known-good copy." });
   }
 
   return (
     <div>
-      <Hud left={lives} max={LIVES} label="Tap the lines that were tampered with" score={`${found.size}/${lab.diffs.length} found`} />
+      <Hud left={lives} max={LIVES} label={lab.hud ?? "Tap the lines that were tampered with"} score={`${found.size}/${lab.diffs.length} found`} />
       <div className="grid gap-3 md:grid-cols-2">
         <div className="min-w-0 overflow-hidden rounded-xl border border-emerald-400/30 bg-[#050a12]">
           <p className="border-b border-white/10 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold text-emerald-200">{lab.goodTitle}</p>

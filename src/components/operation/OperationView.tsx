@@ -106,6 +106,10 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   facilityhall: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityHall), { ssr: false }),
   facilitycampus: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityCampus), { ssr: false }),
   facilitylastword: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityLastWord), { ssr: false }),
+  facilitybreadcrumb: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityBreadcrumb), { ssr: false }),
+  facilitytabletop: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityTabletop), { ssr: false }),
+  facilityloosethread: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityLooseThread), { ssr: false }),
+  facilitywhogoes: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityWhoGoes), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;

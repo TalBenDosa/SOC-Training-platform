@@ -1776,9 +1776,24 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "ioc-q1",
+        "type": "question",
+        "xp": 35
+      },
+      {
+        "id": "ioc-q5",
+        "type": "question",
+        "xp": 35
+      },
+      {
         "id": "ioc-r2",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "ioc-q3",
+        "type": "question",
+        "xp": 35
       },
       {
         "id": "ioc-r3",
@@ -1786,17 +1801,12 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "ioc-q1",
-        "type": "question",
-        "xp": 35
-      },
-      {
         "id": "ioc-q2",
         "type": "question",
         "xp": 35
       },
       {
-        "id": "ioc-q3",
+        "id": "ioc-q4",
         "type": "question",
         "xp": 35
       },
@@ -1810,16 +1820,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "ioc-flag1",
         "type": "flag",
         "xp": 40
-      },
-      {
-        "id": "ioc-q4",
-        "type": "question",
-        "xp": 35
-      },
-      {
-        "id": "ioc-q5",
-        "type": "question",
-        "xp": 35
       }
     ]
   },
@@ -1970,9 +1970,24 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "ir-method-flag1",
+        "type": "flag",
+        "xp": 60
+      },
+      {
         "id": "ir-method-r2",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "ir-method-q3",
+        "type": "question",
+        "xp": 35
+      },
+      {
+        "id": "ir-method-q1",
+        "type": "question",
+        "xp": 35
       },
       {
         "id": "ir-method-r3",
@@ -1980,7 +1995,7 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "ir-method-q1",
+        "id": "ir-method-q4",
         "type": "question",
         "xp": 35
       },
@@ -1990,7 +2005,7 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 35
       },
       {
-        "id": "ir-method-q3",
+        "id": "ir-method-q5",
         "type": "question",
         "xp": 35
       },
@@ -1999,21 +2014,6 @@ export const ROOMS_META: RoomMeta[] = [
         "type": "log_analysis",
         "xp": 100,
         "mitreTechnique": "T1486"
-      },
-      {
-        "id": "ir-method-flag1",
-        "type": "flag",
-        "xp": 60
-      },
-      {
-        "id": "ir-method-q4",
-        "type": "question",
-        "xp": 35
-      },
-      {
-        "id": "ir-method-q5",
-        "type": "question",
-        "xp": 35
       }
     ]
   },
@@ -2103,19 +2103,14 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "inv-method-r2",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "inv-method-r3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "inv-method-q1",
         "type": "question",
         "xp": 30
+      },
+      {
+        "id": "inv-method-r2",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "inv-method-q2",
@@ -2124,6 +2119,16 @@ export const ROOMS_META: RoomMeta[] = [
       },
       {
         "id": "inv-method-q3",
+        "type": "question",
+        "xp": 30
+      },
+      {
+        "id": "inv-method-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "inv-method-q5",
         "type": "question",
         "xp": 30
       },
@@ -2140,11 +2145,6 @@ export const ROOMS_META: RoomMeta[] = [
       },
       {
         "id": "inv-method-q4",
-        "type": "question",
-        "xp": 30
-      },
-      {
-        "id": "inv-method-q5",
         "type": "question",
         "xp": 30
       }
@@ -2633,12 +2633,12 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "auth-r2",
-        "type": "reading",
-        "xp": 0
+        "id": "auth-q3",
+        "type": "question",
+        "xp": 15
       },
       {
-        "id": "auth-r3",
+        "id": "auth-r2",
         "type": "reading",
         "xp": 0
       },
@@ -2653,19 +2653,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
-        "id": "auth-q3",
-        "type": "question",
-        "xp": 15
-      },
-      {
-        "id": "auth-la1",
-        "type": "log_analysis",
-        "xp": 65
+        "id": "auth-r3",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "auth-o1",
         "type": "ordering",
         "xp": 30
+      },
+      {
+        "id": "auth-la1",
+        "type": "log_analysis",
+        "xp": 65
       },
       {
         "id": "auth-flag1",

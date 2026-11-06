@@ -763,7 +763,6 @@ const incidentResponseMethodology = {
   icon: "🚨",
   prerequisites: ["alert-triage"],
   tasks: [
-
     // ── Reading 1: What Is an Incident? PICERL Overview ──────────────────────
     {
       type: "reading" as const,
@@ -857,6 +856,16 @@ The **RACI matrix** (Responsible, Accountable, Consulted, Informed) defines who 
       },
     },
 
+    // ── Flag Task ────────────────────────────────────────────────────────────
+    {
+      type: "flag" as const,
+      id: "ir-method-flag1",
+      prompt: `In the PICERL incident response framework, which phase involves isolating an infected server from the network to prevent the attacker from spreading to additional systems? Enter the single word phase name.`,
+      answer: "Containment",
+      hint: "It is the third phase of PICERL. Think of it like stopping a fire from spreading to adjacent buildings before you put it out.",
+      xp: 60,
+    },
+
     // ── Reading 2: Identification & Containment ──────────────────────────────
     {
       type: "reading" as const,
@@ -944,6 +953,38 @@ While technical teams are containing the incident, the communications lead must 
       },
     },
 
+    // ── Question 3 ──────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "ir-method-q3",
+      question: "What does the 'Identification' phase of PICERL focus on?",
+      options: [
+        "Removing all malware and backdoors from compromised systems",
+        "Determining whether an incident has occurred, how it happened, and the full scope of compromise",
+        "Restoring systems from clean backups and reconnecting them to the network",
+        "Writing the post-incident report and identifying lessons learned",
+      ],
+      answer: 1,
+      explanation: "Identification (the I in PICERL) is about detection and scoping: confirm this is a real incident (not a false positive), determine the initial attack vector (how they got in), and map the full blast radius (which systems are affected). Without thorough identification, containment will be incomplete because you will miss compromised systems. Removing malware is Eradication. Restoring systems is Recovery. Post-incident review is Lessons Learned.",
+      xp: 35,
+    },
+
+    // ── Question 1 ──────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "ir-method-q1",
+      question: "A SOC analyst discovers an infected workstation is actively encrypting files on a network share. What should happen FIRST according to IR best practices?",
+      options: [
+        "Power off the machine immediately to stop the encryption",
+        "Isolate it via EDR network isolation, which stops the spread but keeps it powered on, then capture memory",
+        "Delete the ransomware binary the EDR identified to stop the encryption",
+        "Reset the affected user's password to cut off the attacker's session",
+      ],
+      answer: 1,
+      explanation: "The attack is actively spreading to a network share, so stopping the spread comes first, and EDR network isolation does that without costing any evidence: the host stays powered on, so RAM (running malware processes, encryption keys, attacker tools that never touched disk) is still there to capture right afterwards. Powering off would also stop the encryption but destroys that volatile evidence (and can corrupt half-encrypted files). Deleting the binary may not stop the running process and destroys evidence. Resetting the user's password does nothing to a process already running on the host. Isolate, then capture memory (CISA #StopRansomware Guide: immediately isolate impacted systems).",
+      xp: 35,
+    },
+
     // ── Reading 3: Eradication, Recovery & Lessons Learned ───────────────────
     {
       type: "reading" as const,
@@ -1009,19 +1050,19 @@ If the incident may result in legal action (criminal prosecution, civil litigati
 Break chain of custody, and the evidence may be inadmissible in court.`,
     },
 
-    // ── Question 1 ──────────────────────────────────────────────────────────
+    // ── Question 4 ──────────────────────────────────────────────────────────
     {
       type: "question" as const,
-      id: "ir-method-q1",
-      question: "A SOC analyst discovers an infected workstation is actively encrypting files on a network share. What should happen FIRST according to IR best practices?",
+      id: "ir-method-q4",
+      question: "Your IR team has completed eradication of a compromised domain controller. The attacker had Domain Admin access. What is the specific Active Directory account you MUST reset to invalidate ALL existing Kerberos tickets in the domain?",
       options: [
-        "Power off the machine immediately to stop the encryption",
-        "Isolate it via EDR network isolation, which stops the spread but keeps it powered on, then capture memory",
-        "Delete the ransomware binary the EDR identified to stop the encryption",
-        "Reset the affected user's password to cut off the attacker's session",
+        "The Administrator account",
+        "The Guest account",
+        "The KRBTGT account",
+        "The Schema Admin account",
       ],
-      answer: 1,
-      explanation: "The attack is actively spreading to a network share, so stopping the spread comes first, and EDR network isolation does that without costing any evidence: the host stays powered on, so RAM (running malware processes, encryption keys, attacker tools that never touched disk) is still there to capture right afterwards. Powering off would also stop the encryption but destroys that volatile evidence (and can corrupt half-encrypted files). Deleting the binary may not stop the running process and destroys evidence. Resetting the user's password does nothing to a process already running on the host. Isolate, then capture memory (CISA #StopRansomware Guide: immediately isolate impacted systems).",
+      answer: 2,
+      explanation: "The KRBTGT account is the Kerberos Ticket Granting Ticket service account. Its password is used to sign all Kerberos tickets in the domain. If an attacker has domain admin access, they can create 'Golden Tickets': forged Kerberos tickets signed with the KRBTGT hash that allow indefinite access. Resetting the KRBTGT password (twice, due to Active Directory replication) invalidates ALL existing Kerberos tickets across the domain, forcing re-authentication. This is a mandatory step after any domain controller compromise.",
       xp: 35,
     },
 
@@ -1041,22 +1082,21 @@ Break chain of custody, and the evidence may be inadmissible in court.`,
       xp: 35,
     },
 
-    // ── Question 3 ──────────────────────────────────────────────────────────
+    // ── Question 5 ──────────────────────────────────────────────────────────
     {
       type: "question" as const,
-      id: "ir-method-q3",
-      question: "What does the 'Identification' phase of PICERL focus on?",
+      id: "ir-method-q5",
+      question: "What is the purpose of a post-incident Lessons Learned meeting, and when should it be held?",
       options: [
-        "Removing all malware and backdoors from compromised systems",
-        "Determining whether an incident has occurred, how it happened, and the full scope of compromise",
-        "Restoring systems from clean backups and reconnecting them to the network",
-        "Writing the post-incident report and identifying lessons learned",
+        "To find which analyst missed the initial alert and decide corrective action; held within a month",
+        "To analyse the timeline, root cause and detection gaps and agree improvements; held within 24-72 hours of resolution",
+        "To brief leadership and legal on regulatory notification duties; held during the active incident",
+        "To review the company's financial losses from the incident; held by the finance team only",
       ],
       answer: 1,
-      explanation: "Identification (the I in PICERL) is about detection and scoping: confirm this is a real incident (not a false positive), determine the initial attack vector (how they got in), and map the full blast radius (which systems are affected). Without thorough identification, containment will be incomplete because you will miss compromised systems. Removing malware is Eradication. Restoring systems is Recovery. Post-incident review is Lessons Learned.",
+      explanation: "A Lessons Learned meeting is a blameless, factual review: what happened, why it happened, what the timeline was, why detection took as long as it did, and what specific changes will prevent recurrence. It should happen within 24-72 hours post-resolution while memories are fresh. It produces concrete action items with owners and deadlines. It is NOT a blame session, assigning blame creates a culture where people hide incidents rather than reporting them. The CISO, IR lead, technical analysts, communications, and affected business owners should all attend.",
       xp: 35,
     },
-
     // ── Log Analysis: P1 Ransomware Alert ────────────────────────────────────
     {
       type: "log_analysis" as const,
@@ -1116,47 +1156,6 @@ Break chain of custody, and the evidence may be inadmissible in court.`,
       ],
     },
 
-    // ── Flag Task ────────────────────────────────────────────────────────────
-    {
-      type: "flag" as const,
-      id: "ir-method-flag1",
-      prompt: `In the PICERL incident response framework, which phase involves isolating an infected server from the network to prevent the attacker from spreading to additional systems? Enter the single word phase name.`,
-      answer: "Containment",
-      hint: "It is the third phase of PICERL. Think of it like stopping a fire from spreading to adjacent buildings before you put it out.",
-      xp: 60,
-    },
-
-    // ── Question 4 ──────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "ir-method-q4",
-      question: "Your IR team has completed eradication of a compromised domain controller. The attacker had Domain Admin access. What is the specific Active Directory account you MUST reset to invalidate ALL existing Kerberos tickets in the domain?",
-      options: [
-        "The Administrator account",
-        "The Guest account",
-        "The KRBTGT account",
-        "The Schema Admin account",
-      ],
-      answer: 2,
-      explanation: "The KRBTGT account is the Kerberos Ticket Granting Ticket service account. Its password is used to sign all Kerberos tickets in the domain. If an attacker has domain admin access, they can create 'Golden Tickets': forged Kerberos tickets signed with the KRBTGT hash that allow indefinite access. Resetting the KRBTGT password (twice, due to Active Directory replication) invalidates ALL existing Kerberos tickets across the domain, forcing re-authentication. This is a mandatory step after any domain controller compromise.",
-      xp: 35,
-    },
-
-    // ── Question 5 ──────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "ir-method-q5",
-      question: "What is the purpose of a post-incident Lessons Learned meeting, and when should it be held?",
-      options: [
-        "To find which analyst missed the initial alert and decide corrective action; held within a month",
-        "To analyse the timeline, root cause and detection gaps and agree improvements; held within 24-72 hours of resolution",
-        "To brief leadership and legal on regulatory notification duties; held during the active incident",
-        "To review the company's financial losses from the incident; held by the finance team only",
-      ],
-      answer: 1,
-      explanation: "A Lessons Learned meeting is a blameless, factual review: what happened, why it happened, what the timeline was, why detection took as long as it did, and what specific changes will prevent recurrence. It should happen within 24-72 hours post-resolution while memories are fresh. It produces concrete action items with owners and deadlines. It is NOT a blame session, assigning blame creates a culture where people hide incidents rather than reporting them. The CISO, IR lead, technical analysts, communications, and affected business owners should all attend.",
-      xp: 35,
-    },
   ],
 };
 
