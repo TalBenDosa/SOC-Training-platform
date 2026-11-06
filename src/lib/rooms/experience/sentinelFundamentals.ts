@@ -27,6 +27,14 @@ export const SENTINEL_FUNDAMENTALS: RoomExperience = {
   look: { primary: "#0ea5e9", secondary: "#c084fc", warn: "#f43f5e" },
   scene: "skyquery",
   layout: "stage",
+  story: {
+    intro: { title: "The Logs Are Flowing", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinel-fundamentals/clearsky-intro-e05c83eb.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinel-fundamentals/clearsky-intro-17f65a10.jpg" },
+    afterStation: {
+      kql: { title: "Four Countries in a Week", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinel-fundamentals/clearsky-ch2-5b2d7cdf.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinel-fundamentals/clearsky-ch2-efcff862.jpg" },
+      incidents: { title: "Incident 4412", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinel-fundamentals/clearsky-ch3-885af19d.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinel-fundamentals/clearsky-ch3-5fe5acb8.jpg" },
+      boss: { title: "Query, Build, Decide", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinel-fundamentals/clearsky-finale-d1757c53.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sentinel-fundamentals/clearsky-finale-9d7d0a45.jpg" },
+    },
+  },
   stations: [
     {
       id: "tables",
