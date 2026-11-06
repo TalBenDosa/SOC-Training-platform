@@ -57,6 +57,23 @@ const rooms = [
             "The reading's six components are Hypothesis, Data Source, Detection Logic, Severity, Response Playbook and Exceptions/Suppressions. “Hypothesis ... Testing, Tuning, Deployment” mixes in stages of the use-case lifecycle, which describe how a use case is built, not what it contains. “Rule ID ... Owner” lists fields of the Use Case Registry that tracks use cases. “Title, Logsource, Detection ...” are sections of a Sigma rule, which is only one way to express the Detection Logic component.",
         },
       },
+      // ── Question 1 ────────────────────────────────────────────────────────
+      {
+        type: "question",
+        id: "ucd-q1",
+        question:
+          "A SOC analyst writes a detection rule in their SIEM's query language but never documents it anywhere. Six months later, the analyst leaves the company. What is the PRIMARY risk?",
+        options: [
+          "The SIEM purges rules with no documented owner once the creating account is deactivated, so the detection stops running",
+          "Detection coverage is lost with the analyst, because the logic, purpose and tuning were never formalized in a Use Case Registry",
+          "The rule's alerts will route to the departed analyst's deactivated mailbox, so every future alert is silently dropped",
+          "Other analysts will edit the rule without understanding it and push a conflicting version that overloads the SIEM",
+        ],
+        answer: 1,
+        explanation:
+          "The reading's point is “if it's not documented, it doesn't exist”: when the author leaves, nobody knows the rule exists, what it is for, or how to maintain it. As the environment changes, it decays unnoticed, and nobody can answer “are we detecting this threat?”. The other options invent platform behaviour. “The SIEM purges rules with no documented owner” and “alerts will route to the departed analyst's deactivated mailbox” are not how SIEM rules work, and neither is the risk the reading describes. “Other analysts will edit the rule ... overloads the SIEM” is a change-control worry, not the loss of knowledge that undocumented rules cause.",
+        xp: 20,
+      },
       // ── Reading 2 ─────────────────────────────────────────────────────────
       {
         type: "reading",
@@ -140,6 +157,59 @@ const rooms = [
             "The reading frames Sigma's job as ending vendor lock-in: write the logic once in YAML, and converters such as pySigma translate it for Splunk, Sentinel or Elastic. “Tests each rule against production traffic” is wrong: the same reading says every rule still needs unit, red-team, purple-team or replay testing. “Replaces ATT&CK” reverses the relationship: rules reference ATT&CK technique IDs rather than replacing the catalogue. “Makes rules run faster” is wrong because the SIEM runs the converted native query, never the YAML.",
         },
       },
+      // ── Question 2 ────────────────────────────────────────────────────────
+      {
+        type: "question",
+        id: "ucd-q2",
+        question:
+          "You are writing the Sigma version of the Encoded PowerShell use case. Your IT team legitimately runs encoded PowerShell during patching, and you want analysts to know to rule that out first, WITHOUT changing what the rule matches. Which Sigma section does this go in?",
+        options: [
+          "detection: add the patching scripts there so the rule records them as known activity",
+          "falsepositives: list the IT patching scripts as a known benign trigger to check first",
+          "references: link the IT patching runbook so analysts can look up the scripts later",
+          "logsource: scope the rule to the IT team's patch servers so their logs are labelled",
+        ],
+        answer: 1,
+        explanation:
+          "Reading 2 defines `falsepositives` as known benign triggers to be aware of: documentation for the analyst that leaves the matching logic untouched. “detection” is where the field values that trigger the alert live, so anything placed there changes what fires, which the stem rules out. “references” holds CVE links and blog posts about the threat (the ATT&CK mapping goes in tags), not triage guidance. “logsource” selects which product or category of logs the rule searches; changing it would alter (and here, break) what the rule matches.",
+        xp: 20,
+      },
+      // ── Matching Task — ATT&CK Technique to Use Case ─────────────────────────
+      {
+        type: "matching" as const,
+        id: "ucd-m1",
+        heading: "Match the Observable Behavior to its ATT&CK Technique",
+        instructions: "A well-built use case starts with an observable behavior and maps it to an ATT&CK technique. Match each detection observable on the left to the correct ATT&CK technique ID and name on the right.",
+        pairs: [
+          {
+            id: "ps_enc",
+            left: "PowerShell launched with Base64 argument (-enc or -EncodedCommand)",
+            right: "T1027.010, Obfuscated Files or Information: Command Obfuscation",
+          },
+          {
+            id: "lsass",
+            left: "Process opening a full-access handle to LSASS.exe memory (GrantedAccess 0x1FFFFF = PROCESS_ALL_ACCESS)",
+            right: "T1003.001, OS Credential Dumping: LSASS Memory",
+          },
+          {
+            id: "spray",
+            left: "Single password attempted against 50+ different accounts within 10 minutes",
+            right: "T1110.003, Brute Force: Password Spraying",
+          },
+          {
+            id: "sched",
+            left: "New scheduled task created with action path inside %TEMP% or %APPDATA%",
+            right: "T1053.005, Scheduled Task/Job: Scheduled Task",
+          },
+          {
+            id: "beacon",
+            left: "Outbound HTTPS to same destination every 4-5 minutes with tiny payload size",
+            right: "T1071.001, Application Layer Protocol: Web Protocols (C2)",
+          },
+        ],
+        explanation: "Mapping observables to ATT&CK techniques is the foundation of use case development. A good use case starts with 'what can I actually see in logs?' and maps that observable to ATT&CK. This matters because: (1) it tells you whether you have log coverage for that technique; (2) it enables MITRE ATT&CK Navigator heatmaps showing your detection gaps; (3) it provides standardized language for reporting across teams. The mapping is not always 1:1: some techniques (like T1059 Command and Scripting Interpreter) appear in dozens of use cases depending on the specific command interpreter used. The encoded-PowerShell observable is an example: the obfuscation itself maps to T1027.010, while the same use case (UC-ENDPOINT-0089 in the log analysis) is also tagged T1059.001 for the PowerShell execution it rides on, both tags are correct.",
+        xp: 40,
+      },
       // ── Reading 3 ─────────────────────────────────────────────────────────
       {
         type: "reading",
@@ -173,40 +243,6 @@ const rooms = [
           `- Owner (who is responsible for maintaining this rule)\n` +
           `- Linked playbook or runbook\n\n` +
           `A well-maintained Use Case Registry is one of the clearest signs of a mature SOC. When an auditor or executive asks "Are you detecting technique X?", you can answer immediately: yes, rule UC-ENDPOINT-0089 covers it, it was last tested on this date, and it fires with this accuracy.`,
-      },
-      // ── Question 1 ────────────────────────────────────────────────────────
-      {
-        type: "question",
-        id: "ucd-q1",
-        question:
-          "A SOC analyst writes a detection rule in their SIEM's query language but never documents it anywhere. Six months later, the analyst leaves the company. What is the PRIMARY risk?",
-        options: [
-          "The SIEM purges rules with no documented owner once the creating account is deactivated, so the detection stops running",
-          "Detection coverage is lost with the analyst, because the logic, purpose and tuning were never formalized in a Use Case Registry",
-          "The rule's alerts will route to the departed analyst's deactivated mailbox, so every future alert is silently dropped",
-          "Other analysts will edit the rule without understanding it and push a conflicting version that overloads the SIEM",
-        ],
-        answer: 1,
-        explanation:
-          "The reading's point is “if it's not documented, it doesn't exist”: when the author leaves, nobody knows the rule exists, what it is for, or how to maintain it. As the environment changes, it decays unnoticed, and nobody can answer “are we detecting this threat?”. The other options invent platform behaviour. “The SIEM purges rules with no documented owner” and “alerts will route to the departed analyst's deactivated mailbox” are not how SIEM rules work, and neither is the risk the reading describes. “Other analysts will edit the rule ... overloads the SIEM” is a change-control worry, not the loss of knowledge that undocumented rules cause.",
-        xp: 20,
-      },
-      // ── Question 2 ────────────────────────────────────────────────────────
-      {
-        type: "question",
-        id: "ucd-q2",
-        question:
-          "You are writing the Sigma version of the Encoded PowerShell use case. Your IT team legitimately runs encoded PowerShell during patching, and you want analysts to know to rule that out first, WITHOUT changing what the rule matches. Which Sigma section does this go in?",
-        options: [
-          "detection: add the patching scripts there so the rule records them as known activity",
-          "falsepositives: list the IT patching scripts as a known benign trigger to check first",
-          "references: link the IT patching runbook so analysts can look up the scripts later",
-          "logsource: scope the rule to the IT team's patch servers so their logs are labelled",
-        ],
-        answer: 1,
-        explanation:
-          "Reading 2 defines `falsepositives` as known benign triggers to be aware of: documentation for the analyst that leaves the matching logic untouched. “detection” is where the field values that trigger the alert live, so anything placed there changes what fires, which the stem rules out. “references” holds CVE links and blog posts about the threat (the ATT&CK mapping goes in tags), not triage guidance. “logsource” selects which product or category of logs the rule searches; changing it would alter (and here, break) what the rule matches.",
-        xp: 20,
       },
       // ── Question 3 ────────────────────────────────────────────────────────
       {
@@ -294,42 +330,6 @@ const rooms = [
             xp: 25,
           },
         ],
-      },
-      // ── Matching Task — ATT&CK Technique to Use Case ─────────────────────────
-      {
-        type: "matching" as const,
-        id: "ucd-m1",
-        heading: "Match the Observable Behavior to its ATT&CK Technique",
-        instructions: "A well-built use case starts with an observable behavior and maps it to an ATT&CK technique. Match each detection observable on the left to the correct ATT&CK technique ID and name on the right.",
-        pairs: [
-          {
-            id: "ps_enc",
-            left: "PowerShell launched with Base64 argument (-enc or -EncodedCommand)",
-            right: "T1027.010, Obfuscated Files or Information: Command Obfuscation",
-          },
-          {
-            id: "lsass",
-            left: "Process opening a full-access handle to LSASS.exe memory (GrantedAccess 0x1FFFFF = PROCESS_ALL_ACCESS)",
-            right: "T1003.001, OS Credential Dumping: LSASS Memory",
-          },
-          {
-            id: "spray",
-            left: "Single password attempted against 50+ different accounts within 10 minutes",
-            right: "T1110.003, Brute Force: Password Spraying",
-          },
-          {
-            id: "sched",
-            left: "New scheduled task created with action path inside %TEMP% or %APPDATA%",
-            right: "T1053.005, Scheduled Task/Job: Scheduled Task",
-          },
-          {
-            id: "beacon",
-            left: "Outbound HTTPS to same destination every 4-5 minutes with tiny payload size",
-            right: "T1071.001, Application Layer Protocol: Web Protocols (C2)",
-          },
-        ],
-        explanation: "Mapping observables to ATT&CK techniques is the foundation of use case development. A good use case starts with 'what can I actually see in logs?' and maps that observable to ATT&CK. This matters because: (1) it tells you whether you have log coverage for that technique; (2) it enables MITRE ATT&CK Navigator heatmaps showing your detection gaps; (3) it provides standardized language for reporting across teams. The mapping is not always 1:1: some techniques (like T1059 Command and Scripting Interpreter) appear in dozens of use cases depending on the specific command interpreter used. The encoded-PowerShell observable is an example: the obfuscation itself maps to T1027.010, while the same use case (UC-ENDPOINT-0089 in the log analysis) is also tagged T1059.001 for the PowerShell execution it rides on, both tags are correct.",
-        xp: 40,
       },
     ],
   },

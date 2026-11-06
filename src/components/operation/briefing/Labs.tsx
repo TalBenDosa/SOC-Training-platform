@@ -12,6 +12,7 @@ import { EncapLab, QueueLab, TerminalLab, TraceLab, WorksheetLab } from "./Pract
 import { PcapLab } from "./PcapLab";
 import { PortalLab } from "./PortalLab";
 import { HuntLab } from "./HuntLab";
+import { InlineMd } from "@/components/rooms/InlineMd";
 import { ChatLab } from "./ChatLab";
 import { CodebreakLab, DefuseLab, DeduceLab, DuelLab, InterceptLab, OutbreakLab, PathwayLab, RushLab, SpotDiffLab, TuneLab } from "./ArcadeLabs";
 
@@ -344,6 +345,27 @@ const HOW_TO: Record<BriefingLab["kind"], { steps: string[]; done: string }> = {
   worksheet: { steps: ["Study the table: every answer is in it.", "Read the first question and find its row or column.", "Type the answer and press Check (tap 'How do I work it out?' if stuck)."], done: "every question is checked" },
   encap: { steps: ["Read the request being sent.", "At each layer, pick the value its header carries.", "Watch the packet grow, then read it as an analyser would."], done: "the packet is fully built" },
 };
+
+/** The short teaching card before a lab: just what this lab needs, with one worked example. */
+export function Primer({ lab }: { lab: BriefingLab }) {
+  const p = lab.primer;
+  if (!p) return null;
+  return (
+    <details open={!p.fold} className="mb-3 rounded-xl border border-white/15 bg-white/[0.04] p-4">
+      <summary className="cursor-pointer select-none text-[11px] font-black uppercase tracking-[0.18em] text-slate-200">What you need to know</summary>
+      <p className="mt-2 text-base font-bold leading-snug text-white">{p.title}</p>
+      <ul className="mt-2 space-y-1.5">
+        {p.points.map(t => <li key={t} className="flex gap-2 text-sm leading-relaxed text-slate-100"><span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: "var(--room-accent, #38bdf8)" }} /><span className="min-w-0"><InlineMd text={t} /></span></li>)}
+      </ul>
+      {p.example && (
+        <div className="mt-3 rounded-lg border border-white/10 bg-black/30 p-3">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-300">{p.example.label}</p>
+          <div className="mt-1.5 space-y-1">{p.example.lines.map(l => <p key={l} className="text-sm leading-relaxed text-slate-100 [overflow-wrap:anywhere]"><InlineMd text={l} /></p>)}</div>
+        </div>
+      )}
+    </details>
+  );
+}
 
 export function HowToPlay({ lab }: { lab: BriefingLab }) {
   // First time with a game: open. After that it folds to one line, so the game is on screen.

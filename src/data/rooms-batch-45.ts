@@ -247,6 +247,14 @@ const dataStagingExfilRoom = {
       "xp": 5
     },
     {
+      "type": "flag" as const,
+      "id": "dsx-f1",
+      "prompt": "Responders later recover the encrypted ClientMatters.rar. The EDR process-creation record of the worked WinRAR command line in the Archive via Utility reading would let them open it. What password does that command line set? Enter it exactly as it appears.",
+      "answer": "M3rid1an!",
+      "hint": "Find the switch that encrypts both the data and the file names. The password follows it directly, with no space.",
+      "xp": 15
+    },
+    {
       "type": "reading" as const,
       "id": "dsx-r5",
       "heading": "T1052.001, Exfiltration Over USB: The Physical Channel",
@@ -281,6 +289,20 @@ const dataStagingExfilRoom = {
         "explanation": "Rclone is a legitimate open-source tool that syncs files with dozens of cloud providers, and real actors (Storm-0501 among others) use it precisely because that legitimacy blends in. Its built-in chunker also supports T1030. On a host or account with no business reason to run it, that wrong context is the signal. “A known malware family” is wrong: it is ordinary IT tooling, so its presence alone proves nothing. “Tunnels data over DNS” confuses it with T1048 tunnelling: Rclone talks to cloud storage APIs, which makes it a T1567.002 tool. “Needs domain admin rights to install” is wrong: it runs as an ordinary user-level program."
       },
       "xp": 5
+    },
+    {
+      "type": "question" as const,
+      "id": "dsx-q3",
+      "question": "A workstation with a strict USB-blocking policy, whose implant beacons to its C2 server over HTTPS, shows a sudden burst of unique DNS queries to subdomains that look like encoded data, immediately after a large password-protected archive was created on that host. The domain is not a known security-vendor or CDN resolver, and there is no unusual cloud-storage traffic. Which technique best fits this pattern, and why might an attacker prefer it over the cloud-storage channel covered earlier in this room?",
+      "options": [
+        "T1048 (Alternative Protocol) via DNS tunnelling: DNS gets less inspection than HTTP/S, so small encoded chunks slip past",
+        "T1567.002 (Exfiltration to Cloud Storage). Cloud sync clients resolve many unique subdomains per upload, which produces this same DNS burst",
+        "T1071.004 (Application Layer Protocol: DNS), the encoded subdomains are C2 beacon check-ins, and the archive creation is coincidental timing",
+        "T1041 (Exfiltration Over C2 Channel): the data leaves through the implant's existing C2 beacon, with DNS simply being its transport",
+      ],
+      "answer": 0,
+      "explanation": "DNS tunnelling under T1048 is exactly this pattern: data encoded into DNS query subdomains, chosen specifically because most network monitoring inspects DNS far less closely than HTTP/S traffic, and because a USB-blocking policy has already closed off the T1052.001 channel this attacker might otherwise have preferred. The T1567.002 answer confuses two things: a cloud-storage upload shows up as HTTPS traffic to the provider, and the scenario states no such traffic exists. T1071.004 is a plausible neighbour (DNS-based C2), but this implant's C2 runs over HTTPS, and the burst follows the archive creation with data-shaped subdomains, which fits exfiltration rather than beaconing. T1041 would mean the data leaves through the existing C2 channel, which here is HTTPS; DNS is a DIFFERENT protocol from that channel, which is exactly what T1048 describes.",
+      "xp": 25
     },
     {
       "type": "matching" as const,
@@ -320,6 +342,38 @@ const dataStagingExfilRoom = {
         }
       ],
       "explanation": "The pattern this room has taught end to end: reaching for data (T1039), consolidating it locally (T1074.001), and packaging it (T1560.001) are ALL still the Collection tactic (TA0009), nothing has moved off the host at any of those three stages. Only once a technique actually removes data from the compromised system does the tactic become Exfiltration (TA0010), whether that removal is over a physical USB drive (T1052.001), to a cloud storage service (T1567.002), or by evading volume-based detection thresholds with size-limited chunks (T1030). Confusing archiving for exfiltration is one of the most common tactic-mapping mistakes a new analyst makes, precisely because compressing and password-protecting data FEELS like the theft. This room exists specifically to correct that instinct.",
+      "xp": 25
+    },
+    {
+      "type": "ordering" as const,
+      "id": "dsx-o1",
+      "heading": "Order the Chain: Collection to Exfiltration",
+      "instructions": "Place these four stages of this room's ATT&CK chain in the order a real intrusion actually performs them, from first reaching the data to finally moving it off the host.",
+      "items": [
+        {
+          "id": "step-share",
+          "text": "Read files from the network share the compromised account can legitimately reach (T1039, Collection)"
+        },
+        {
+          "id": "step-stage",
+          "text": "Consolidate the interesting files into one local folder on the compromised host (T1074.001, Collection)"
+        },
+        {
+          "id": "step-archive",
+          "text": "Compress and typically password-protect the staged files with an archive utility (T1560.001, Collection)"
+        },
+        {
+          "id": "step-channel",
+          "text": "Move the packaged archive off the host, over USB, to cloud storage, or via an alternative protocol (T1052.001 / T1567.002 / T1048, Exfiltration)"
+        }
+      ],
+      "correct_order": [
+        "step-share",
+        "step-stage",
+        "step-archive",
+        "step-channel"
+      ],
+      "explanation": "This is the exact chain this room has walked reading by reading: an attacker must first reach the data (T1039) before they can consolidate it (T1074.001), must consolidate it before there is anything to package (T1560.001), and must package it before there is a single, transportable object to actually move off the host (the Exfiltration-tactic techniques). Each stage depends on the one before it. You cannot archive files that were never staged, and you cannot stage files that were never read from a share in the first place. This is also precisely the order this room's own investigation workflow (in the Legitimate-Backup Trap reading) correlates backward through once an alert fires on any single stage.",
       "xp": 25
     },
     {
@@ -381,20 +435,6 @@ const dataStagingExfilRoom = {
       ]
     },
     {
-      "type": "question" as const,
-      "id": "dsx-q3",
-      "question": "A workstation with a strict USB-blocking policy, whose implant beacons to its C2 server over HTTPS, shows a sudden burst of unique DNS queries to subdomains that look like encoded data, immediately after a large password-protected archive was created on that host. The domain is not a known security-vendor or CDN resolver, and there is no unusual cloud-storage traffic. Which technique best fits this pattern, and why might an attacker prefer it over the cloud-storage channel covered earlier in this room?",
-      "options": [
-        "T1048 (Alternative Protocol) via DNS tunnelling: DNS gets less inspection than HTTP/S, so small encoded chunks slip past",
-        "T1567.002 (Exfiltration to Cloud Storage). Cloud sync clients resolve many unique subdomains per upload, which produces this same DNS burst",
-        "T1071.004 (Application Layer Protocol: DNS), the encoded subdomains are C2 beacon check-ins, and the archive creation is coincidental timing",
-        "T1041 (Exfiltration Over C2 Channel): the data leaves through the implant's existing C2 beacon, with DNS simply being its transport",
-      ],
-      "answer": 0,
-      "explanation": "DNS tunnelling under T1048 is exactly this pattern: data encoded into DNS query subdomains, chosen specifically because most network monitoring inspects DNS far less closely than HTTP/S traffic, and because a USB-blocking policy has already closed off the T1052.001 channel this attacker might otherwise have preferred. The T1567.002 answer confuses two things: a cloud-storage upload shows up as HTTPS traffic to the provider, and the scenario states no such traffic exists. T1071.004 is a plausible neighbour (DNS-based C2), but this implant's C2 runs over HTTPS, and the burst follows the archive creation with data-shaped subdomains, which fits exfiltration rather than beaconing. T1041 would mean the data leaves through the existing C2 channel, which here is HTTPS; DNS is a DIFFERENT protocol from that channel, which is exactly what T1048 describes.",
-      "xp": 25
-    },
-    {
       "type": "analyst_choice" as const,
       "id": "dsx-ac1",
       "heading": "Triage: A Large Nightly Transfer From BKP-VEEAM-01",
@@ -418,46 +458,6 @@ const dataStagingExfilRoom = {
       "answer": 0,
       "explanation": "Reading big-share-access, staging, and archiving is exactly the SHAPE an attacker's chain also produces (this room says so explicitly), so that shape alone is the weakest discriminator. What actually rules this out is the CONTEXT this room's investigation workflow names directly: a dedicated service account, a documented ticket, months of consistent recurring scheduling, and a sanctioned first-party destination, together, not any one alone. The destination is strong precisely because it is the organisation's OWN storage, not merely 'a Microsoft cloud', so calling the Azure destination the weakest factor gets it backwards, and this room never treats transfer volume as a discriminator. A ticket is checked against IT's records, not taken at face value, so it is not the weakest factor either, and attacker exfiltration is frequently timed for off-hours specifically to blend in, so timing is not a reliable rule-out. Reading the entire share is the weakest signal, not the strongest, and the service account is one of the four discriminators the workflow names, not the weakest one.",
       "xp": 25
-    },
-    {
-      "type": "ordering" as const,
-      "id": "dsx-o1",
-      "heading": "Order the Chain: Collection to Exfiltration",
-      "instructions": "Place these four stages of this room's ATT&CK chain in the order a real intrusion actually performs them, from first reaching the data to finally moving it off the host.",
-      "items": [
-        {
-          "id": "step-share",
-          "text": "Read files from the network share the compromised account can legitimately reach (T1039, Collection)"
-        },
-        {
-          "id": "step-stage",
-          "text": "Consolidate the interesting files into one local folder on the compromised host (T1074.001, Collection)"
-        },
-        {
-          "id": "step-archive",
-          "text": "Compress and typically password-protect the staged files with an archive utility (T1560.001, Collection)"
-        },
-        {
-          "id": "step-channel",
-          "text": "Move the packaged archive off the host, over USB, to cloud storage, or via an alternative protocol (T1052.001 / T1567.002 / T1048, Exfiltration)"
-        }
-      ],
-      "correct_order": [
-        "step-share",
-        "step-stage",
-        "step-archive",
-        "step-channel"
-      ],
-      "explanation": "This is the exact chain this room has walked reading by reading: an attacker must first reach the data (T1039) before they can consolidate it (T1074.001), must consolidate it before there is anything to package (T1560.001), and must package it before there is a single, transportable object to actually move off the host (the Exfiltration-tactic techniques). Each stage depends on the one before it. You cannot archive files that were never staged, and you cannot stage files that were never read from a share in the first place. This is also precisely the order this room's own investigation workflow (in the Legitimate-Backup Trap reading) correlates backward through once an alert fires on any single stage.",
-      "xp": 25
-    },
-    {
-      "type": "flag" as const,
-      "id": "dsx-f1",
-      "prompt": "Responders later recover the encrypted ClientMatters.rar. The EDR process-creation record of the worked WinRAR command line in the Archive via Utility reading would let them open it. What password does that command line set? Enter it exactly as it appears.",
-      "answer": "M3rid1an!",
-      "hint": "Find the switch that encrypts both the data and the file names. The password follows it directly, with no space.",
-      "xp": 15
     }
   ]
 };

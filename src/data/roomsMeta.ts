@@ -2908,24 +2908,29 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "ucd-read-2",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "ucd-read-3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "ucd-q1",
         "type": "question",
         "xp": 20
       },
       {
+        "id": "ucd-read-2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
         "id": "ucd-q2",
         "type": "question",
         "xp": 20
+      },
+      {
+        "id": "ucd-m1",
+        "type": "matching",
+        "xp": 40
+      },
+      {
+        "id": "ucd-read-3",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "ucd-q3",
@@ -2936,11 +2941,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "ucd-log-1",
         "type": "log_analysis",
         "xp": 50
-      },
-      {
-        "id": "ucd-m1",
-        "type": "matching",
-        "xp": 40
       }
     ]
   },
@@ -4354,6 +4354,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "dns-o1",
+        "type": "ordering",
+        "xp": 35
+      },
+      {
         "id": "dns-r2",
         "type": "reading",
         "xp": 0
@@ -4364,14 +4369,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "dns-r4",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "dns-r5",
-        "type": "reading",
-        "xp": 0
+        "id": "dns-q1",
+        "type": "question",
+        "xp": 25
       },
       {
         "id": "dns-r6",
@@ -4379,44 +4379,9 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "dns-q1",
-        "type": "question",
-        "xp": 25
-      },
-      {
-        "id": "dns-q2",
-        "type": "question",
-        "xp": 25
-      },
-      {
-        "id": "dns-q3",
-        "type": "question",
-        "xp": 25
-      },
-      {
         "id": "dns-la1",
         "type": "log_analysis",
         "xp": 80
-      },
-      {
-        "id": "dns-la2",
-        "type": "log_analysis",
-        "xp": 80
-      },
-      {
-        "id": "dns-ac1",
-        "type": "analyst_choice",
-        "xp": 30
-      },
-      {
-        "id": "dns-m1",
-        "type": "matching",
-        "xp": 40
-      },
-      {
-        "id": "dns-o1",
-        "type": "ordering",
-        "xp": 35
       },
       {
         "id": "dns-qf1",
@@ -4424,9 +4389,44 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 35
       },
       {
+        "id": "dns-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "dns-q2",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "dns-la2",
+        "type": "log_analysis",
+        "xp": 80
+      },
+      {
+        "id": "dns-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
         "id": "dns-f1",
         "type": "flag",
         "xp": 25
+      },
+      {
+        "id": "dns-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "dns-m1",
+        "type": "matching",
+        "xp": 40
+      },
+      {
+        "id": "dns-ac1",
+        "type": "analyst_choice",
+        "xp": 30
       }
     ]
   },
@@ -8406,6 +8406,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "dsx-f1",
+        "type": "flag",
+        "xp": 15
+      },
+      {
         "id": "dsx-r5",
         "type": "reading",
         "xp": 0
@@ -8416,8 +8421,18 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "dsx-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
         "id": "dsx-m1",
         "type": "matching",
+        "xp": 25
+      },
+      {
+        "id": "dsx-o1",
+        "type": "ordering",
         "xp": 25
       },
       {
@@ -8437,11 +8452,6 @@ export const ROOMS_META: RoomMeta[] = [
         "mitreTechnique": "T1567.002"
       },
       {
-        "id": "dsx-q3",
-        "type": "question",
-        "xp": 25
-      },
-      {
         "id": "dsx-ac1",
         "type": "analyst_choice",
         "xp": 25
@@ -8450,16 +8460,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "dsx-q4",
         "type": "question",
         "xp": 25
-      },
-      {
-        "id": "dsx-o1",
-        "type": "ordering",
-        "xp": 25
-      },
-      {
-        "id": "dsx-f1",
-        "type": "flag",
-        "xp": 15
       }
     ]
   },

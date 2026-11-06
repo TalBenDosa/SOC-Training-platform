@@ -141,6 +141,28 @@ const dnsDeepDiveRoom = {
       },
     },
 
+    // ── Ordering: DNS resolution path ────────────────────────────────────────
+    {
+      type: "ordering" as const,
+      id: "dns-o1",
+      heading: "Order the Full DNS Resolution Path for a Cache-Miss Query",
+      instructions: "Arrange the steps in the order they actually occur when a client resolves a brand-new hostname with nothing cached anywhere.",
+      items: [
+        { id: "stub", text: "Stub resolver on the client checks its local cache: miss" },
+        { id: "ask-recursive", text: "Client asks its configured recursive resolver to resolve the name" },
+        { id: "ask-root", text: "Recursive resolver asks a root server which servers handle the TLD" },
+        { id: "ask-tld", text: "Recursive resolver asks the TLD server which servers are authoritative for the domain" },
+        { id: "ask-auth", text: "Recursive resolver asks the domain's authoritative nameserver for the actual record" },
+        { id: "answer", text: "Authoritative nameserver returns the answer with a TTL value" },
+        { id: "cache", text: "Recursive resolver caches the answer for the TTL duration and returns it to the client" },
+        { id: "clientcache", text: "Client's stub resolver also caches the answer locally" },
+      ],
+      correct_order: ["stub", "ask-recursive", "ask-root", "ask-tld", "ask-auth", "answer", "cache", "clientcache"],
+      explanation:
+        "This is the full iterative resolution chain: the client's stub resolver never talks to root/TLD/authoritative servers directly. It delegates the entire process to the recursive resolver, which walks the hierarchy step by step (root, then TLD, then authoritative) before returning a final answer that gets cached at multiple layers according to the TTL. Understanding exactly which hop does what is what lets you reason correctly about caching behavior, TTL abuse, and where in this chain your organization's visibility actually sits.",
+      xp: 35,
+    },
+
     // ── Reading 2: record types + DoH/DoT blind spots ────────────────────────
     {
       type: "reading" as const,
@@ -244,99 +266,22 @@ const dnsDeepDiveRoom = {
       },
     },
 
-    // ── Reading 4: DGA vs legitimate CDN randomness ──────────────────────────
+    // ── Question 1 ────────────────────────────────────────────────────────
     {
-      type: "reading" as const,
-      id: "dns-r4",
-      heading: "DGA Malware vs. Legitimate CDN Randomness: Telling Them Apart",
-      content:
-        `Random-looking subdomains are not, by themselves, evidence of anything malicious. Plenty of completely legitimate infrastructure generates them constantly. Cloud storage buckets, CDN edge nodes, load-balancer session routing, and collaboration-tool relay servers all commonly use algorithmically generated, high-entropy subdomains (a random S3 bucket name, an Azure Blob Storage account, a CloudFront distribution ID, a Teams/Skype relay node). Confusing this with a **Domain Generation Algorithm (DGA)**, malware's technique for generating hundreds or thousands of candidate C2 domain names algorithmically, so a single hardcoded domain can't be blocklisted or taken down, is a common and costly false-positive trap. Telling them apart reliably comes down to four differentiators.\n\n` +
-        `**1. Success rate: NXDOMAIN ratio**\n\n` +
-        `This is the single strongest differentiator. A DGA generates domains algorithmically without knowing in advance which ones the attacker has actually registered: the attacker typically registers only a small handful out of the thousands the algorithm can produce, often just one at a time, rotating which one is "live." This means a DGA-infected host querying its full candidate list will see the overwhelming majority of queries fail with NXDOMAIN (domain doesn't exist), with only a rare success. Legitimate CDN/cloud randomness, by contrast, resolves successfully essentially every time: a random-looking CloudFront or S3 subdomain is still a real, currently-provisioned resource, so it always returns a valid answer. A burst of hundreds of queries with a 90%+ NXDOMAIN rate is a DGA fingerprint; a burst of hundreds of queries that all resolve successfully is not.\n\n` +
-        `**2. Parent domain and TLD reputation**\n\n` +
-        `Legitimate CDN randomness sits under a small, well-known set of parent domains you'll recognize immediately (cloudfront.net, s3.amazonaws.com, blob.core.windows.net, akamaized.net). DGA-generated domains are typically registered fresh, often under cheap or historically abuse-heavy TLDs (.top, .xyz, .info, .cc, .biz turn up disproportionately often in DGA activity, though this shifts as defenders adapt and is never conclusive alone), and the parent "domain" itself changes constantly, because in a DGA, the randomness isn't confined to a subdomain under one stable parent, the entire second-level domain is generated fresh each time.\n\n` +
-        `**3. Domain age**\n\n` +
-        `A DGA-registered domain is, almost by definition, extremely newly registered, often minutes to days before use, since registering thousands of domains in advance is both expensive and creates a large static blocklist target. A "Newly Registered Domain (NRD)" check against WHOIS/domain-age threat intelligence is one of the highest-value enrichments you can add to any suspicious-domain investigation. Legitimate CDN infrastructure domains, by contrast, are typically years old and extremely well-established.\n\n` +
-        `**4. Volume and pattern per host**\n\n` +
-        `A DGA-infected host typically queries its candidate list in a tight burst: many distinct, algorithmically-generated second-level domains in a short window, trying each until one resolves (or giving up until the next scheduled check-in). Legitimate CDN/cloud randomness usually appears as a small number of distinct random subdomains, resolved once, then reused/cached for a while, not hundreds of never-repeated top-level random domains queried back-to-back.\n\n` +
-        `**Putting it together**\n\n` +
-        `A burst of hundreds of distinct, freshly-registered, mostly-NXDOMAIN domains under constantly-changing second-level names, disproportionately on low-reputation TLDs, from one host in a short window, is DGA behavior. A modest number of high-entropy subdomains that all resolve successfully, live under a small set of well-known, long-established parent domains, is ordinary CDN/cloud traffic, even though, on entropy alone, the two can look deceptively similar.`,
-      codeExample:
-        "DGA vs LEGITIMATE CDN RANDOMNESS -- SIDE BY SIDE\n" +
-        "=======================================================\n" +
-        "                    DGA malware        Legit CDN/cloud\n" +
-        "-------------------------------------------------------\n" +
-        "NXDOMAIN rate       Very high (>90%)   Near zero\n" +
-        "Parent domain        Changes constantly  Small, stable,\n" +
-        "                     (2nd-level itself   well-known set\n" +
-        "                     is randomized)       (cloudfront.net,\n" +
-        "                                          s3.amazonaws.com)\n" +
-        "Domain age           Very new (mins-days) Years old,\n" +
-        "                     (Newly Registered     well-established\n" +
-        "                     Domain)\n" +
-        "TLD pattern           Often cheap/abuse-   Standard, well-\n" +
-        "                      heavy TLDs (.top,     known TLDs\n" +
-        "                      .xyz, .info, .cc)\n" +
-        "Query pattern         Burst of hundreds of  Small number of\n" +
-        "                      never-repeated 2LDs,  random subdomains,\n" +
-        "                      trying each until one resolved once,\n" +
-        "                      resolves              reused/cached\n" +
-        "=======================================================",
-      checkpoint: {
-        question:
-          "Two hosts each resolve about 300 high-entropy names in five minutes. Which single measurement most reliably tells you which host is running DGA malware rather than generating CDN traffic?",
-        options: [
-          "The Shannon entropy of the labels, since DGA names score higher than CDN names",
-          "The NXDOMAIN rate, since most DGA candidates were never registered by anyone",
-          "The TLDs involved, since DGA names cluster under .top, .xyz and similar TLDs",
-          "The registration age, since DGA domains are registered only days before use",
-        ],
-        answer: 1,
-        explanation:
-          "The reading names the NXDOMAIN rate as the strongest differentiator: a DGA works through a list the attacker mostly never registered, so the vast majority fail, while CDN names are real, provisioned resources that resolve. “The Shannon entropy of the labels…” cannot separate them, because CDN subdomains are high-entropy too. “The TLDs involved…” is a supporting signal that shifts over time and is never conclusive alone. “The registration age…” is a valuable enrichment for the few domains that resolve, but an unregistered candidate has no registration age to check.",
-      },
-    },
-
-    // ── Reading 5: fast-flux and sinkholes ────────────────────────────────────
-    {
-      type: "reading" as const,
-      id: "dns-r5",
-      heading: "Fast-Flux DNS and Sinkholes",
-      content:
-        `**Fast-flux: hiding infrastructure behind a rotating army of IPs**\n\n` +
-        `Fast-flux is an infrastructure-resilience technique used by botnets and phishing/malware hosting operations: a single domain name is configured with an extremely short TTL (often 60-300 seconds) and its A records rotate rapidly through a large, constantly-changing pool of IP addresses, frequently the IPs of already-compromised residential/consumer devices acting as reverse proxies in front of the real backend. The effect is that even if a defender identifies and blocks or takes down one of the IPs currently associated with the malicious domain, the domain simply resolves to a different IP shortly after (governed by that short TTL), and the malicious service stays reachable. This makes IP-based blocking largely ineffective against fast-flux infrastructure: the domain itself, not any single IP, has to be the target of a takedown or blocklist.\n\n` +
-        `**Double-flux: rotating the nameservers too**\n\n` +
-        `A more resilient variant, double-flux, rotates not just the A records but the domain's own authoritative NS records as well, through a similarly large, changing pool. This means even identifying and taking down the domain's nameserver infrastructure doesn't reliably kill the domain, because the NS delegation itself keeps moving. Double-flux setups are harder to build and less common, but appear in more sophisticated, well-resourced criminal infrastructure.\n\n` +
-        `**Detecting fast-flux from DNS logs alone**\n\n` +
-        `The signature is directly visible in resolution history: querying the same domain name repeatedly over a short period returns a **different A record each time**, each with a very short TTL, and the returned IPs frequently span multiple, unrelated hosting providers or even multiple countries/ASNs, a pattern completely unlike legitimate load-balanced infrastructure, which typically rotates among a small, stable, well-documented pool of IPs within one provider's known ranges. A domain whose resolution history shows dozens of distinct IPs across dozens of different networks within a single day is a strong fast-flux indicator.\n\n` +
-        `**DNS sinkholing: turning the malicious channel into a detection tool**\n\n` +
-        `A **sinkhole** is a defensive technique where a known-malicious or high-confidence-suspicious domain is deliberately made to resolve, either at your own internal resolver, or via cooperation with upstream registrars/researchers at internet scale, to an IP address you (or a trusted third party like a CERT) control, instead of its real, attacker-operated infrastructure. The immediate defensive benefit is obvious: infected hosts trying to reach that domain for C2 instructions or further payloads simply can't reach the real attacker infrastructure anymore. But the detection benefit is arguably even more valuable: **the sinkhole's own connection/web logs now tell you exactly which internal hosts are infected**, because any device on your network attempting to resolve or connect to that domain is, by definition, running something that's trying to reach it, a query hitting your sinkhole is itself a compromise indicator for the querying host, with essentially zero false positives, since no legitimate software should ever be trying to reach a domain you've deliberately sinkholed. Many organizations treat "internal host resolved or connected to a known sinkholed domain" as one of their highest-confidence, lowest-noise detection rules precisely for this reason.`,
-      codeExample:
-        "FAST-FLUX SIGNATURE IN A dns.log RESOLUTION HISTORY\n" +
-        "=======================================================\n" +
-        "Same domain, queried repeatedly, over 20 minutes:\n" +
-        "\n" +
-        "14:00:02  update-relay-svc.net -> 41.223.18.4    TTL=60\n" +
-        "14:01:19  update-relay-svc.net -> 187.44.201.9   TTL=60\n" +
-        "14:02:31  update-relay-svc.net -> 93.174.95.16   TTL=60\n" +
-        "14:03:47  update-relay-svc.net -> 5.188.62.11    TTL=60\n" +
-        "14:05:02  update-relay-svc.net -> 41.223.18.101  TTL=60\n" +
-        "\n" +
-        "  -> 5 distinct IPs, 5 different networks/countries,\n" +
-        "     in 5 minutes, TTL pinned at 60s every time\n" +
-        "  -> NOT what a normal CDN/load-balancer pool looks like\n" +
-        "     (typically a small, stable set within one provider)\n" +
-        "=======================================================\n\n" +
-        "WHY A SINKHOLE HIT IS SUCH HIGH-CONFIDENCE EVIDENCE\n" +
-        "=======================================================\n" +
-        "Sinkhole domain resolves to YOUR controlled IP instead\n" +
-        "of the attacker's real infrastructure.\n" +
-        "\n" +
-        "Any internal host querying/connecting to it at all means:\n" +
-        "  - No legitimate software has any reason to reach it\n" +
-        "  - The querying host is running something that DOES\n" +
-        "  = near-zero false-positive compromise indicator\n" +
-        "=======================================================",
+      type: "question" as const,
+      id: "dns-q1",
+      question:
+        "A host issues 200 DNS TXT queries in three minutes under one parent domain, with an average label length of 41 characters and high measured entropy. Which additional data point would most strengthen a tunneling determination over a benign explanation?",
+      options: [
+        "The share of queries that returned NXDOMAIN, since a high rate is the tunneling signature",
+        "The unique-subdomain to total-query ratio, since near 1.0 means each query carries new data",
+        "The query transport, since tunneling tools move to TCP and UDP-only traffic points to benign use",
+        "The resolver's cache-hit rate, since tunnel queries are answered from cache to keep the link fast",
+      ],
+      answer: 1,
+      explanation:
+        "Entropy and long labels can have benign causes (cache-busting, some CDN schemes); a near-1:1 ratio of unique subdomains to total queries is the tunneling-specific signal, because each query is a fresh chunk of encoded data that is never asked for twice. “The share of queries that returned NXDOMAIN…” borrows the DGA signature; a working tunnel’s queries are answered by the attacker’s nameserver. “The query transport…” is not a signal the reading uses, and tunnels run happily over UDP. “The resolver's cache-hit rate…” has it backwards: never-repeated names cannot be served from cache, so every tunnel query travels to the authoritative server.",
+      xp: 25,
     },
 
     // ── Reading 6: Sysmon 22 + Zeek dns.log fields ────────────────────────────
@@ -400,60 +345,6 @@ const dnsDeepDiveRoom = {
       },
     },
 
-    // ── Question 1 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "dns-q1",
-      question:
-        "A host issues 200 DNS TXT queries in three minutes under one parent domain, with an average label length of 41 characters and high measured entropy. Which additional data point would most strengthen a tunneling determination over a benign explanation?",
-      options: [
-        "The share of queries that returned NXDOMAIN, since a high rate is the tunneling signature",
-        "The unique-subdomain to total-query ratio, since near 1.0 means each query carries new data",
-        "The query transport, since tunneling tools move to TCP and UDP-only traffic points to benign use",
-        "The resolver's cache-hit rate, since tunnel queries are answered from cache to keep the link fast",
-      ],
-      answer: 1,
-      explanation:
-        "Entropy and long labels can have benign causes (cache-busting, some CDN schemes); a near-1:1 ratio of unique subdomains to total queries is the tunneling-specific signal, because each query is a fresh chunk of encoded data that is never asked for twice. “The share of queries that returned NXDOMAIN…” borrows the DGA signature; a working tunnel’s queries are answered by the attacker’s nameserver. “The query transport…” is not a signal the reading uses, and tunnels run happily over UDP. “The resolver's cache-hit rate…” has it backwards: never-repeated names cannot be served from cache, so every tunnel query travels to the authoritative server.",
-      xp: 25,
-    },
-
-    // ── Question 2 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "dns-q2",
-      question:
-        "One host generates a burst of 300 DNS queries to 300 different, freshly-changing second-level domains in five minutes, with a 96% NXDOMAIN rate. Another host resolves 40 different, high-entropy subdomains, all under d111abcd8ef9it.cloudfront.net, all of which resolve successfully. Which is more consistent with DGA malware, and why?",
-      options: [
-        "The second host: high label entropy is the strongest DGA signal, and its names already resolve",
-        "The first host: mass NXDOMAIN over changing second-level domains; the second is normal CDN use",
-        "Neither: both are high-volume bursts, and volume alone cannot separate DGA from legitimate use",
-        "The second host: cloudfront.net is often abused for C2, so random names under it are DGA output",
-      ],
-      answer: 1,
-      explanation:
-        "The NXDOMAIN rate is the strongest DGA-versus-legitimate-randomness differentiator: a DGA generates far more candidates than the attacker registers, so most fail, and its second-level domains keep changing. Forty high-entropy subdomains that all resolve under one long-established parent (cloudfront.net, AWS’s CDN) is ordinary cloud traffic. “…high label entropy is the strongest DGA signal…” is the trap the reading warns about: entropy alone does not separate the two. “Neither: both are high-volume bursts…” ignores the 96% versus 0% NXDOMAIN difference. “…cloudfront.net is often abused for C2…” treats a reputable CDN parent as proof of malice.",
-      xp: 25,
-    },
-
-    // ── Question 3 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "dns-q3",
-      question:
-        "Your Zeek dns.log shows an aggregate NXDOMAIN burst from workstation 10.40.7.61 across dozens of freshly-registered domains. You want to know exactly what process on that workstation is generating these queries. Which log source answers that question, and why can Zeek's dns.log not answer it on its own?",
-      options: [
-        "Zeek dns.log itself: id.orig_h matched against the DHCP lease table identifies the process",
-        "Sysmon Event ID 22 on that host (Image, ProcessId): Zeek sees packets, not processes",
-        "The resolver's own query log, which records the client process named in each DNS request",
-        "No source after the fact: process attribution needs a live memory capture taken at query time",
-      ],
-      answer: 1,
-      explanation:
-        "Zeek, like any network DNS log, sees which host sent a query (id.orig_h) but not which process inside it; that context does not exist on the wire. Sysmon Event 22 runs on the endpoint and records Image, ProcessId, ProcessGuid and User for lookups made through the Windows DNS Client, after the fact and without a memory capture. “Zeek dns.log itself…” stops at the device: a DHCP lease maps an IP to a host, not to a process. “The resolver's own query log…” fails for the same reason: a DNS request carries no process name. “No source after the fact…” overlooks that Event 22 already captured the process context when the query was made.",
-      xp: 25,
-    },
-
     // ── Log Analysis 1: DNS tunneling via Sysmon 22 ──────────────────────────
     {
       type: "log_analysis" as const,
@@ -506,6 +397,98 @@ const dnsDeepDiveRoom = {
           xp: 30,
         },
       ],
+    },
+
+    // ── Query Fill: KQL for DNS tunneling detection ──────────────────────────
+    {
+      type: "query_fill" as const,
+      id: "dns-qf1",
+      heading: "Write It Yourself: Surface DNS Tunneling Candidates in KQL",
+      language: "kql",
+      context:
+        "Using the signals from Reading 3 and the pattern you confirmed in Log Analysis 1 (high volume, mostly-unique subdomains, TXT-heavy, under one parent domain), write the KQL a detection engineer would ship to flag hosts exhibiting this pattern across the whole environment. Team guidance for this rule: aggregate over a short window of 5–15 minutes, require somewhere between 30 and 200 unique subdomains per window, and note that the ratio is computed as a fraction between 0 and 1. Set it between 0.7 and 0.95.",
+      template:
+        "DnsEvents\n| where QueryType == \"{{qtype}}\"\n| summarize TotalQueries = count(), UniqueSubdomains = dcount(Name) by ClientIP, bin(TimeGenerated, {{window}})\n| where UniqueSubdomains > {{threshold}}\n| where (UniqueSubdomains * 1.0 / TotalQueries) > {{ratio}}",
+      blanks: [
+        { id: "qtype", answers: ["TXT"], placeholder: "record type favored for tunneling payloads" },
+        { id: "window", answers: ["5m", "6m", "7m", "8m", "9m", "10m", "11m", "12m", "13m", "14m", "15m", "5min", "10min", "15min", "300s", "600s", "900s"], placeholder: "aggregation window" },
+        { id: "threshold", answers: ["30", "35", "40", "45", "50", "60", "70", "75", "80", "90", "100", "110", "120", "125", "150", "175", "200"], placeholder: "minimum unique-subdomain count to consider" },
+        { id: "ratio", answers: ["0.7", "0.75", "0.8", "0.85", "0.9", "0.95", "0.70", "0.80", "0.90", ".7", ".75", ".8", ".85", ".9", ".95"], placeholder: "unique-to-total ratio threshold, as a fraction (near 1.0 = each query is unique)" },
+      ],
+      explanation:
+        "This mirrors the exact statistical case you built in Log Analysis 1: filter to TXT queries (the record type most favored for tunneling payload capacity), group by client and a short time window, count both total queries and unique subdomains, and alert when both the raw unique-subdomain volume AND the ratio of unique-to-total queries are high, because a near-1.0 ratio is what distinguishes 'many queries to a small reused set of hostnames' (normal) from 'nearly every query is a brand-new, never-repeated label' (the tunneling fingerprint). Note that UniqueSubdomains * 1.0 / TotalQueries can never exceed 1.0, so the ratio threshold must be written as a fraction (e.g. 0.8): a percentage like 80 would make the rule silently never fire.",
+      xp: 35,
+    },
+
+    // ── Reading 4: DGA vs legitimate CDN randomness ──────────────────────────
+    {
+      type: "reading" as const,
+      id: "dns-r4",
+      heading: "DGA Malware vs. Legitimate CDN Randomness: Telling Them Apart",
+      content:
+        `Random-looking subdomains are not, by themselves, evidence of anything malicious. Plenty of completely legitimate infrastructure generates them constantly. Cloud storage buckets, CDN edge nodes, load-balancer session routing, and collaboration-tool relay servers all commonly use algorithmically generated, high-entropy subdomains (a random S3 bucket name, an Azure Blob Storage account, a CloudFront distribution ID, a Teams/Skype relay node). Confusing this with a **Domain Generation Algorithm (DGA)**, malware's technique for generating hundreds or thousands of candidate C2 domain names algorithmically, so a single hardcoded domain can't be blocklisted or taken down, is a common and costly false-positive trap. Telling them apart reliably comes down to four differentiators.\n\n` +
+        `**1. Success rate: NXDOMAIN ratio**\n\n` +
+        `This is the single strongest differentiator. A DGA generates domains algorithmically without knowing in advance which ones the attacker has actually registered: the attacker typically registers only a small handful out of the thousands the algorithm can produce, often just one at a time, rotating which one is "live." This means a DGA-infected host querying its full candidate list will see the overwhelming majority of queries fail with NXDOMAIN (domain doesn't exist), with only a rare success. Legitimate CDN/cloud randomness, by contrast, resolves successfully essentially every time: a random-looking CloudFront or S3 subdomain is still a real, currently-provisioned resource, so it always returns a valid answer. A burst of hundreds of queries with a 90%+ NXDOMAIN rate is a DGA fingerprint; a burst of hundreds of queries that all resolve successfully is not.\n\n` +
+        `**2. Parent domain and TLD reputation**\n\n` +
+        `Legitimate CDN randomness sits under a small, well-known set of parent domains you'll recognize immediately (cloudfront.net, s3.amazonaws.com, blob.core.windows.net, akamaized.net). DGA-generated domains are typically registered fresh, often under cheap or historically abuse-heavy TLDs (.top, .xyz, .info, .cc, .biz turn up disproportionately often in DGA activity, though this shifts as defenders adapt and is never conclusive alone), and the parent "domain" itself changes constantly, because in a DGA, the randomness isn't confined to a subdomain under one stable parent, the entire second-level domain is generated fresh each time.\n\n` +
+        `**3. Domain age**\n\n` +
+        `A DGA-registered domain is, almost by definition, extremely newly registered, often minutes to days before use, since registering thousands of domains in advance is both expensive and creates a large static blocklist target. A "Newly Registered Domain (NRD)" check against WHOIS/domain-age threat intelligence is one of the highest-value enrichments you can add to any suspicious-domain investigation. Legitimate CDN infrastructure domains, by contrast, are typically years old and extremely well-established.\n\n` +
+        `**4. Volume and pattern per host**\n\n` +
+        `A DGA-infected host typically queries its candidate list in a tight burst: many distinct, algorithmically-generated second-level domains in a short window, trying each until one resolves (or giving up until the next scheduled check-in). Legitimate CDN/cloud randomness usually appears as a small number of distinct random subdomains, resolved once, then reused/cached for a while, not hundreds of never-repeated top-level random domains queried back-to-back.\n\n` +
+        `**Putting it together**\n\n` +
+        `A burst of hundreds of distinct, freshly-registered, mostly-NXDOMAIN domains under constantly-changing second-level names, disproportionately on low-reputation TLDs, from one host in a short window, is DGA behavior. A modest number of high-entropy subdomains that all resolve successfully, live under a small set of well-known, long-established parent domains, is ordinary CDN/cloud traffic, even though, on entropy alone, the two can look deceptively similar.`,
+      codeExample:
+        "DGA vs LEGITIMATE CDN RANDOMNESS -- SIDE BY SIDE\n" +
+        "=======================================================\n" +
+        "                    DGA malware        Legit CDN/cloud\n" +
+        "-------------------------------------------------------\n" +
+        "NXDOMAIN rate       Very high (>90%)   Near zero\n" +
+        "Parent domain        Changes constantly  Small, stable,\n" +
+        "                     (2nd-level itself   well-known set\n" +
+        "                     is randomized)       (cloudfront.net,\n" +
+        "                                          s3.amazonaws.com)\n" +
+        "Domain age           Very new (mins-days) Years old,\n" +
+        "                     (Newly Registered     well-established\n" +
+        "                     Domain)\n" +
+        "TLD pattern           Often cheap/abuse-   Standard, well-\n" +
+        "                      heavy TLDs (.top,     known TLDs\n" +
+        "                      .xyz, .info, .cc)\n" +
+        "Query pattern         Burst of hundreds of  Small number of\n" +
+        "                      never-repeated 2LDs,  random subdomains,\n" +
+        "                      trying each until one resolved once,\n" +
+        "                      resolves              reused/cached\n" +
+        "=======================================================",
+      checkpoint: {
+        question:
+          "Two hosts each resolve about 300 high-entropy names in five minutes. Which single measurement most reliably tells you which host is running DGA malware rather than generating CDN traffic?",
+        options: [
+          "The Shannon entropy of the labels, since DGA names score higher than CDN names",
+          "The NXDOMAIN rate, since most DGA candidates were never registered by anyone",
+          "The TLDs involved, since DGA names cluster under .top, .xyz and similar TLDs",
+          "The registration age, since DGA domains are registered only days before use",
+        ],
+        answer: 1,
+        explanation:
+          "The reading names the NXDOMAIN rate as the strongest differentiator: a DGA works through a list the attacker mostly never registered, so the vast majority fail, while CDN names are real, provisioned resources that resolve. “The Shannon entropy of the labels…” cannot separate them, because CDN subdomains are high-entropy too. “The TLDs involved…” is a supporting signal that shifts over time and is never conclusive alone. “The registration age…” is a valuable enrichment for the few domains that resolve, but an unregistered candidate has no registration age to check.",
+      },
+    },
+
+    // ── Question 2 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "dns-q2",
+      question:
+        "One host generates a burst of 300 DNS queries to 300 different, freshly-changing second-level domains in five minutes, with a 96% NXDOMAIN rate. Another host resolves 40 different, high-entropy subdomains, all under d111abcd8ef9it.cloudfront.net, all of which resolve successfully. Which is more consistent with DGA malware, and why?",
+      options: [
+        "The second host: high label entropy is the strongest DGA signal, and its names already resolve",
+        "The first host: mass NXDOMAIN over changing second-level domains; the second is normal CDN use",
+        "Neither: both are high-volume bursts, and volume alone cannot separate DGA from legitimate use",
+        "The second host: cloudfront.net is often abused for C2, so random names under it are DGA output",
+      ],
+      answer: 1,
+      explanation:
+        "The NXDOMAIN rate is the strongest DGA-versus-legitimate-randomness differentiator: a DGA generates far more candidates than the attacker registers, so most fail, and its second-level domains keep changing. Forty high-entropy subdomains that all resolve under one long-established parent (cloudfront.net, AWS’s CDN) is ordinary cloud traffic. “…high label entropy is the strongest DGA signal…” is the trap the reading warns about: entropy alone does not separate the two. “Neither: both are high-volume bursts…” ignores the 96% versus 0% NXDOMAIN difference. “…cloudfront.net is often abused for C2…” treats a reputable CDN parent as proof of malice.",
+      xp: 25,
     },
 
     // ── Log Analysis 2: DGA-shaped NXDOMAIN burst ────────────────────────────
@@ -562,6 +545,95 @@ const dnsDeepDiveRoom = {
       ],
     },
 
+    // ── Question 3 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "dns-q3",
+      question:
+        "Your Zeek dns.log shows an aggregate NXDOMAIN burst from workstation 10.40.7.61 across dozens of freshly-registered domains. You want to know exactly what process on that workstation is generating these queries. Which log source answers that question, and why can Zeek's dns.log not answer it on its own?",
+      options: [
+        "Zeek dns.log itself: id.orig_h matched against the DHCP lease table identifies the process",
+        "Sysmon Event ID 22 on that host (Image, ProcessId): Zeek sees packets, not processes",
+        "The resolver's own query log, which records the client process named in each DNS request",
+        "No source after the fact: process attribution needs a live memory capture taken at query time",
+      ],
+      answer: 1,
+      explanation:
+        "Zeek, like any network DNS log, sees which host sent a query (id.orig_h) but not which process inside it; that context does not exist on the wire. Sysmon Event 22 runs on the endpoint and records Image, ProcessId, ProcessGuid and User for lookups made through the Windows DNS Client, after the fact and without a memory capture. “Zeek dns.log itself…” stops at the device: a DHCP lease maps an IP to a host, not to a process. “The resolver's own query log…” fails for the same reason: a DNS request carries no process name. “No source after the fact…” overlooks that Event 22 already captured the process context when the query was made.",
+      xp: 25,
+    },
+
+    // ── Flag ──────────────────────────────────────────────────────────────
+    {
+      type: "flag" as const,
+      id: "dns-f1",
+      prompt:
+        "Look at Log Analysis 2, the burst of failed lookups from WKS-OPS22. The domains in that burst that did NOT fail are the ones the attacker actually registered, and they are your pivot list for follow-on C2. How many such domains are there? Enter the number only.",
+      answer: "22",
+      hint: "The task context gives how many distinct domains were queried and how many of them returned NXDOMAIN.",
+      xp: 25,
+    },
+    // ── Reading 5: fast-flux and sinkholes ────────────────────────────────────
+    {
+      type: "reading" as const,
+      id: "dns-r5",
+      heading: "Fast-Flux DNS and Sinkholes",
+      content:
+        `**Fast-flux: hiding infrastructure behind a rotating army of IPs**\n\n` +
+        `Fast-flux is an infrastructure-resilience technique used by botnets and phishing/malware hosting operations: a single domain name is configured with an extremely short TTL (often 60-300 seconds) and its A records rotate rapidly through a large, constantly-changing pool of IP addresses, frequently the IPs of already-compromised residential/consumer devices acting as reverse proxies in front of the real backend. The effect is that even if a defender identifies and blocks or takes down one of the IPs currently associated with the malicious domain, the domain simply resolves to a different IP shortly after (governed by that short TTL), and the malicious service stays reachable. This makes IP-based blocking largely ineffective against fast-flux infrastructure: the domain itself, not any single IP, has to be the target of a takedown or blocklist.\n\n` +
+        `**Double-flux: rotating the nameservers too**\n\n` +
+        `A more resilient variant, double-flux, rotates not just the A records but the domain's own authoritative NS records as well, through a similarly large, changing pool. This means even identifying and taking down the domain's nameserver infrastructure doesn't reliably kill the domain, because the NS delegation itself keeps moving. Double-flux setups are harder to build and less common, but appear in more sophisticated, well-resourced criminal infrastructure.\n\n` +
+        `**Detecting fast-flux from DNS logs alone**\n\n` +
+        `The signature is directly visible in resolution history: querying the same domain name repeatedly over a short period returns a **different A record each time**, each with a very short TTL, and the returned IPs frequently span multiple, unrelated hosting providers or even multiple countries/ASNs, a pattern completely unlike legitimate load-balanced infrastructure, which typically rotates among a small, stable, well-documented pool of IPs within one provider's known ranges. A domain whose resolution history shows dozens of distinct IPs across dozens of different networks within a single day is a strong fast-flux indicator.\n\n` +
+        `**DNS sinkholing: turning the malicious channel into a detection tool**\n\n` +
+        `A **sinkhole** is a defensive technique where a known-malicious or high-confidence-suspicious domain is deliberately made to resolve, either at your own internal resolver, or via cooperation with upstream registrars/researchers at internet scale, to an IP address you (or a trusted third party like a CERT) control, instead of its real, attacker-operated infrastructure. The immediate defensive benefit is obvious: infected hosts trying to reach that domain for C2 instructions or further payloads simply can't reach the real attacker infrastructure anymore. But the detection benefit is arguably even more valuable: **the sinkhole's own connection/web logs now tell you exactly which internal hosts are infected**, because any device on your network attempting to resolve or connect to that domain is, by definition, running something that's trying to reach it, a query hitting your sinkhole is itself a compromise indicator for the querying host, with essentially zero false positives, since no legitimate software should ever be trying to reach a domain you've deliberately sinkholed. Many organizations treat "internal host resolved or connected to a known sinkholed domain" as one of their highest-confidence, lowest-noise detection rules precisely for this reason.`,
+      codeExample:
+        "FAST-FLUX SIGNATURE IN A dns.log RESOLUTION HISTORY\n" +
+        "=======================================================\n" +
+        "Same domain, queried repeatedly, over 20 minutes:\n" +
+        "\n" +
+        "14:00:02  update-relay-svc.net -> 41.223.18.4    TTL=60\n" +
+        "14:01:19  update-relay-svc.net -> 187.44.201.9   TTL=60\n" +
+        "14:02:31  update-relay-svc.net -> 93.174.95.16   TTL=60\n" +
+        "14:03:47  update-relay-svc.net -> 5.188.62.11    TTL=60\n" +
+        "14:05:02  update-relay-svc.net -> 41.223.18.101  TTL=60\n" +
+        "\n" +
+        "  -> 5 distinct IPs, 5 different networks/countries,\n" +
+        "     in 5 minutes, TTL pinned at 60s every time\n" +
+        "  -> NOT what a normal CDN/load-balancer pool looks like\n" +
+        "     (typically a small, stable set within one provider)\n" +
+        "=======================================================\n\n" +
+        "WHY A SINKHOLE HIT IS SUCH HIGH-CONFIDENCE EVIDENCE\n" +
+        "=======================================================\n" +
+        "Sinkhole domain resolves to YOUR controlled IP instead\n" +
+        "of the attacker's real infrastructure.\n" +
+        "\n" +
+        "Any internal host querying/connecting to it at all means:\n" +
+        "  - No legitimate software has any reason to reach it\n" +
+        "  - The querying host is running something that DOES\n" +
+        "  = near-zero false-positive compromise indicator\n" +
+        "=======================================================",
+    },
+
+    // ── Matching: record type <-> security relevance ────────────────────────
+    {
+      type: "matching" as const,
+      id: "dns-m1",
+      heading: "Match Each DNS Signal to What It Reveals in an Investigation",
+      instructions: "Match each DNS-related signal or record type to the investigative conclusion it supports.",
+      pairs: [
+        { id: "nxdomain", left: "High NXDOMAIN rate across many distinct, changing domains", right: "Strong indicator of DGA malware working through an algorithmically-generated candidate domain list" },
+        { id: "txt", left: "Disproportionate volume of TXT record queries/responses", right: "One of the favorite record types for DNS tunneling, since TXT carries more payload per response than an A record" },
+        { id: "ttl-short", left: "Same domain resolving to a rapidly-changing set of unrelated IPs, each with a very short TTL", right: "Fast-flux infrastructure, designed to survive individual IP blocks/takedowns" },
+        { id: "sinkhole", left: "An internal host querying/connecting to a known sinkholed domain", right: "Near-zero-false-positive compromise indicator: no legitimate software has any reason to reach a domain deliberately sinkholed by defenders" },
+        { id: "unique-ratio", left: "Near-1:1 ratio of unique subdomains to total queries under one parent domain", right: "Signature of DNS tunneling: each query behaves like a distinct chunk of encoded data rather than a cacheable, reused hostname" },
+        { id: "doh", left: "TLS traffic on port 443 to a known public DoH provider with no matching corporate resolver logs", right: "Expected DNS-over-HTTPS blind spot, not inherently malicious: requires provider-list blocking policy to regain visibility, not incident-by-incident escalation" },
+      ],
+      explanation:
+        "Each of these signals is drawn directly from a distinct detection technique covered in this room: NXDOMAIN rate and domain churn separate DGA malware from legitimate randomness; TXT-record concentration and unique-subdomain ratio are core DNS-tunneling statistics; short-TTL IP rotation is the fast-flux fingerprint; sinkhole hits are a uniquely high-confidence detection because of how sinkholing works by design; and DoH traffic is a known, expected visibility gap requiring a policy-level response rather than treating every instance as an incident.",
+      xp: 40,
+    },
+
     // ── Analyst Choice: legitimate browser DoH configuration benign true positive trap ────────
     {
       type: "analyst_choice" as const,
@@ -600,78 +672,6 @@ const dnsDeepDiveRoom = {
       xp: 30,
     },
 
-    // ── Matching: record type <-> security relevance ────────────────────────
-    {
-      type: "matching" as const,
-      id: "dns-m1",
-      heading: "Match Each DNS Signal to What It Reveals in an Investigation",
-      instructions: "Match each DNS-related signal or record type to the investigative conclusion it supports.",
-      pairs: [
-        { id: "nxdomain", left: "High NXDOMAIN rate across many distinct, changing domains", right: "Strong indicator of DGA malware working through an algorithmically-generated candidate domain list" },
-        { id: "txt", left: "Disproportionate volume of TXT record queries/responses", right: "One of the favorite record types for DNS tunneling, since TXT carries more payload per response than an A record" },
-        { id: "ttl-short", left: "Same domain resolving to a rapidly-changing set of unrelated IPs, each with a very short TTL", right: "Fast-flux infrastructure, designed to survive individual IP blocks/takedowns" },
-        { id: "sinkhole", left: "An internal host querying/connecting to a known sinkholed domain", right: "Near-zero-false-positive compromise indicator: no legitimate software has any reason to reach a domain deliberately sinkholed by defenders" },
-        { id: "unique-ratio", left: "Near-1:1 ratio of unique subdomains to total queries under one parent domain", right: "Signature of DNS tunneling: each query behaves like a distinct chunk of encoded data rather than a cacheable, reused hostname" },
-        { id: "doh", left: "TLS traffic on port 443 to a known public DoH provider with no matching corporate resolver logs", right: "Expected DNS-over-HTTPS blind spot, not inherently malicious: requires provider-list blocking policy to regain visibility, not incident-by-incident escalation" },
-      ],
-      explanation:
-        "Each of these signals is drawn directly from a distinct detection technique covered in this room: NXDOMAIN rate and domain churn separate DGA malware from legitimate randomness; TXT-record concentration and unique-subdomain ratio are core DNS-tunneling statistics; short-TTL IP rotation is the fast-flux fingerprint; sinkhole hits are a uniquely high-confidence detection because of how sinkholing works by design; and DoH traffic is a known, expected visibility gap requiring a policy-level response rather than treating every instance as an incident.",
-      xp: 40,
-    },
-
-    // ── Ordering: DNS resolution path ────────────────────────────────────────
-    {
-      type: "ordering" as const,
-      id: "dns-o1",
-      heading: "Order the Full DNS Resolution Path for a Cache-Miss Query",
-      instructions: "Arrange the steps in the order they actually occur when a client resolves a brand-new hostname with nothing cached anywhere.",
-      items: [
-        { id: "stub", text: "Stub resolver on the client checks its local cache: miss" },
-        { id: "ask-recursive", text: "Client asks its configured recursive resolver to resolve the name" },
-        { id: "ask-root", text: "Recursive resolver asks a root server which servers handle the TLD" },
-        { id: "ask-tld", text: "Recursive resolver asks the TLD server which servers are authoritative for the domain" },
-        { id: "ask-auth", text: "Recursive resolver asks the domain's authoritative nameserver for the actual record" },
-        { id: "answer", text: "Authoritative nameserver returns the answer with a TTL value" },
-        { id: "cache", text: "Recursive resolver caches the answer for the TTL duration and returns it to the client" },
-        { id: "clientcache", text: "Client's stub resolver also caches the answer locally" },
-      ],
-      correct_order: ["stub", "ask-recursive", "ask-root", "ask-tld", "ask-auth", "answer", "cache", "clientcache"],
-      explanation:
-        "This is the full iterative resolution chain: the client's stub resolver never talks to root/TLD/authoritative servers directly. It delegates the entire process to the recursive resolver, which walks the hierarchy step by step (root, then TLD, then authoritative) before returning a final answer that gets cached at multiple layers according to the TTL. Understanding exactly which hop does what is what lets you reason correctly about caching behavior, TTL abuse, and where in this chain your organization's visibility actually sits.",
-      xp: 35,
-    },
-
-    // ── Query Fill: KQL for DNS tunneling detection ──────────────────────────
-    {
-      type: "query_fill" as const,
-      id: "dns-qf1",
-      heading: "Write It Yourself: Surface DNS Tunneling Candidates in KQL",
-      language: "kql",
-      context:
-        "Using the signals from Reading 3 and the pattern you confirmed in Log Analysis 1 (high volume, mostly-unique subdomains, TXT-heavy, under one parent domain), write the KQL a detection engineer would ship to flag hosts exhibiting this pattern across the whole environment. Team guidance for this rule: aggregate over a short window of 5–15 minutes, require somewhere between 30 and 200 unique subdomains per window, and note that the ratio is computed as a fraction between 0 and 1. Set it between 0.7 and 0.95.",
-      template:
-        "DnsEvents\n| where QueryType == \"{{qtype}}\"\n| summarize TotalQueries = count(), UniqueSubdomains = dcount(Name) by ClientIP, bin(TimeGenerated, {{window}})\n| where UniqueSubdomains > {{threshold}}\n| where (UniqueSubdomains * 1.0 / TotalQueries) > {{ratio}}",
-      blanks: [
-        { id: "qtype", answers: ["TXT"], placeholder: "record type favored for tunneling payloads" },
-        { id: "window", answers: ["5m", "6m", "7m", "8m", "9m", "10m", "11m", "12m", "13m", "14m", "15m", "5min", "10min", "15min", "300s", "600s", "900s"], placeholder: "aggregation window" },
-        { id: "threshold", answers: ["30", "35", "40", "45", "50", "60", "70", "75", "80", "90", "100", "110", "120", "125", "150", "175", "200"], placeholder: "minimum unique-subdomain count to consider" },
-        { id: "ratio", answers: ["0.7", "0.75", "0.8", "0.85", "0.9", "0.95", "0.70", "0.80", "0.90", ".7", ".75", ".8", ".85", ".9", ".95"], placeholder: "unique-to-total ratio threshold, as a fraction (near 1.0 = each query is unique)" },
-      ],
-      explanation:
-        "This mirrors the exact statistical case you built in Log Analysis 1: filter to TXT queries (the record type most favored for tunneling payload capacity), group by client and a short time window, count both total queries and unique subdomains, and alert when both the raw unique-subdomain volume AND the ratio of unique-to-total queries are high, because a near-1.0 ratio is what distinguishes 'many queries to a small reused set of hostnames' (normal) from 'nearly every query is a brand-new, never-repeated label' (the tunneling fingerprint). Note that UniqueSubdomains * 1.0 / TotalQueries can never exceed 1.0, so the ratio threshold must be written as a fraction (e.g. 0.8): a percentage like 80 would make the rule silently never fire.",
-      xp: 35,
-    },
-
-    // ── Flag ──────────────────────────────────────────────────────────────
-    {
-      type: "flag" as const,
-      id: "dns-f1",
-      prompt:
-        "Look at Log Analysis 2, the burst of failed lookups from WKS-OPS22. The domains in that burst that did NOT fail are the ones the attacker actually registered, and they are your pivot list for follow-on C2. How many such domains are there? Enter the number only.",
-      answer: "22",
-      hint: "The task context gives how many distinct domains were queried and how many of them returned NXDOMAIN.",
-      xp: 25,
-    },
   ],
 };
 

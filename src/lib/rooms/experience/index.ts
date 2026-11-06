@@ -69,6 +69,10 @@ import { ASSET_CONTEXT_PRIORITISATION } from "./assetContextPrioritisation";
 import { GOOGLE_WORKSPACE_SECURITY } from "./googleWorkspaceSecurity";
 import { AI_ATTACKS_SOC_LLM_RISKS } from "./aiAttacksSocLlmRisks";
 import { RMM_ABUSE_REMOTE_ACCESS_TOOLS } from "./rmmAbuseRemoteAccessTools";
+import { DATA_STAGING_EXFILTRATION_CHANNELS } from "./dataStagingExfiltrationChannels";
+import { OT_ICS_SECURITY } from "./otIcsSecurity";
+import { USE_CASE_DEVELOPMENT } from "./useCaseDevelopment";
+import { DNS_DEEP_DIVE } from "./dnsDeepDive";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -144,6 +148,10 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [GOOGLE_WORKSPACE_SECURITY.roomId]: GOOGLE_WORKSPACE_SECURITY,
   [AI_ATTACKS_SOC_LLM_RISKS.roomId]: AI_ATTACKS_SOC_LLM_RISKS,
   [RMM_ABUSE_REMOTE_ACCESS_TOOLS.roomId]: RMM_ABUSE_REMOTE_ACCESS_TOOLS,
+  [DATA_STAGING_EXFILTRATION_CHANNELS.roomId]: DATA_STAGING_EXFILTRATION_CHANNELS,
+  [OT_ICS_SECURITY.roomId]: OT_ICS_SECURITY,
+  [USE_CASE_DEVELOPMENT.roomId]: USE_CASE_DEVELOPMENT,
+  [DNS_DEEP_DIVE.roomId]: DNS_DEEP_DIVE,
 };
 
 /**

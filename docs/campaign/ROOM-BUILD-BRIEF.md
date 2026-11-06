@@ -20,6 +20,16 @@ How to turn one Learning Room into an Operation room. Read this, then read the r
 8. **Text:** English. No em dashes or en dashes. The mentor gets no he or she in any text: use the name or "they". No content counts in marketing-style lines.
 9. **Do not change a reading's `content` or `heading`:** it would disable its recorded narration. Do not change graded tasks, answers or flags. If a graded task is wrong, report it, do not fix it.
 
+## The primer (Tal, 2026-11-06)
+
+Games must not test knowledge the learner never got. Every lab that needs knowledge the learner may not have carries a `primer`: a title, up to 5 short points, and one worked example (`example: { label, lines }`).
+
+- Teach only what this lab needs, in plain words. It replaces reading the folded text, it does not repeat it.
+- The worked example shows the method on data that is neither the lab's nor a graded task's. Rule 2 still holds: no graded answer, scenario or value pair.
+- Beginner and intermediate rooms: leave it open. Advanced rooms: set `fold: true`, so a confident learner can try first.
+- A lab that builds on a primer from earlier in the room does not need another one. Do not repeat a fact the room already taught.
+- `**bold**` and `` `code` `` work in points and example lines. Same writing rules as everything else.
+
 ## What to write
 
 1. `src/lib/rooms/experience/<camelRoomId>.ts` exporting `export const <UPPER_SNAKE_ROOM_ID>: RoomExperience`. Header comment: codename, company, signature, game mix, and how lab data differs from the graded tasks. Fields: `roomId`, `codename`, `theme`, `handler`, `briefing` (4 short lines), `mission`, `estimate`, `look` (3 colours, not the same as the previous rooms), `scene`, `layout: "facility"`, `stations`, `personas` (one neutral line per graded task, never hinting at the answer), `briefings`.

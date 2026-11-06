@@ -33,3 +33,11 @@ Builders and reviewers may not change these: a reading edit disables its recorde
 | google-workspace-security | r4 (reading) | "Only valid while a live session exists": an online access token works until it expires; it just cannot be refreshed. | Reword, re-record narration. |
 | google-workspace-security | ac1 | expected_verdict "fp" contradicts correct_verdict benign_true_positive. | Align the event data. |
 | google-workspace-security | la1, la2, ac1 | Real company (Grammarly), routable IPs, non-.example domains. | Replace with fictional values. |
+| ot-ics-security | la1, ac1 | zeek.modbus.address shows 40020 and 40030 (4xxxx notation); the wire address Zeek reports would be 19 and 29. | Align the values. |
+| use-case-development | m1, log-1 | m1 maps encoded PowerShell to T1027.010, log-1 tags the same behaviour T1059.001. | Explain or align. |
+| data-staging-exfiltration-channels | la1 | data.rcvdbyte 88,240 is too low for 796 MB sent. | Use a realistic value. |
+| data-staging-exfiltration-channels | la1, ac1 | data.eventtime decodes to 2026-08-01, but ts says 22 and 23 July. | Align the timestamps. |
+| data-staging-exfiltration-channels | r4 (reading) | Talks about matching "400MB read" to an archive, but Event ID 5145 has no byte field. | Reword, re-record narration. |
+| ot-ics-security | f1, q2, q4, r2-r5, r4 checkpoint | T0855 and T0812 were revoked in ATT&CK v19.0 (replaced by T1692.001 and T1694.001). The flag answer is T0855. Also in newTopicLessons.ts and otNetworkAnomaly.ts. | Move to the new IDs, accept both on f1, re-record narration. |
+| dns-deep-dive | la1 | Description says "214 DNS TXT/NULL queries", context says 168 of 214 are TXT. | Reword. |
+| dns-deep-dive | qf1 | "5–15 minutes" has an en dash. | "5 to 15 minutes". |

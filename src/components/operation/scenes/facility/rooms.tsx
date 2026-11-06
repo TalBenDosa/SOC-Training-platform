@@ -244,7 +244,7 @@ const SHAREDDRIVE: CampusConfig = {
   buildings: [
     { icon: "monitor", sign: ["The Admin", "Console"], color: "#9d8cff", x: -18, z: -5, rot: 0.38 },
     { icon: "users", sign: ["The Consent", "Screen"], color: "#ffd166", x: -11, z: 8, rot: 0.2 },
-    { icon: "filter", sign: ["The Shared", "Drive"], color: "#5ec8f2", x: 0.5, z: 9.5, rot: 0 },
+    { icon: "filter", sign: ["The Shared", "Drive"], color: "#5ec8f2", x: 3.5, z: 9.5, rot: -0.06 },
     { icon: "target", sign: ["Two", "Suites"], color: "#7ee0a8", x: 11.5, z: 7.5, rot: -0.2 },
     { icon: "shield", sign: ["Final", "Cut"], color: "#ff6b6b", x: 18.5, z: -7.5, rot: -0.38 },
   ],
@@ -270,9 +270,60 @@ const HELPINGHAND: CampusConfig = {
   buildings: [
     { icon: "users", sign: ["The Support", "Session"], color: "#f6bd60", x: -18.5, z: -7.5, rot: 0.36 },
     { icon: "wire", sign: ["The", "Way In"], color: "#84dcc6", x: -11.5, z: 7, rot: 0.24 },
-    { icon: "filter", sign: ["The Five", "Signs"], color: "#c7a6ff", x: 0.5, z: 9.5, rot: -0.02 },
+    { icon: "filter", sign: ["The Five", "Signs"], color: "#c7a6ff", x: 3, z: 9.5, rot: -0.05 },
     { icon: "target", sign: ["The", "Allowlist"], color: "#7dd3fc", x: 12, z: 7.5, rot: -0.24 },
     { icon: "siren", sign: ["Close or", "Contain"], color: "#ef476f", x: 18.5, z: -6.5, rot: -0.36 },
+  ],
+};
+
+const EXITROUTE: HallConfig = {
+  title: "Exit Hall",
+  sub: "Ostrava Precision Bearings data protection",
+  core: "chain",
+  books: ["Exfiltration", "Incident Response", "SOC"],
+  cards: [
+    { icon: "layers", name: ["The", "Share"], color: "#5fe3a1", art: "tree" },
+    { icon: "bag", name: ["The", "Archive"], color: "#ffb4a2", art: "lock" },
+    { icon: "wire", name: ["The", "Exit"], color: "#7dd3fc", art: "axes" },
+    { icon: "pulse", name: ["Bytes", "Out"], color: "#fde047", art: "pulse" },
+    { icon: "target", name: ["Stolen or", "Scheduled"], color: "#ff5d73", art: "ghost" },
+  ],
+};
+
+const LONGGAME: CampusConfig = {
+  seed: 8429,
+  hub: { title: "Fellside Water and Power", sub: "OT SECURITY HUB" },
+  buildings: [
+    { icon: "monitor", sign: ["The Plant", "Floor"], color: "#ff8c42", x: -17.5, z: -4, rot: 0.32 },
+    { icon: "target", sign: ["The Case", "Files"], color: "#8fd3e8", x: -9.5, z: 8.5, rot: 0.2 },
+    { icon: "wire", sign: ["The", "Write"], color: "#ffd166", x: 1.5, z: 9, rot: -0.03 },
+    { icon: "shield", sign: ["Safe", "Containment"], color: "#7ee0b0", x: 11.5, z: 6, rot: -0.22 },
+    { icon: "siren", sign: ["The Long", "Game"], color: "#ff4d6d", x: 18.5, z: -8.5, rot: -0.38 },
+  ],
+};
+
+const FIRSTRULE: HallConfig = {
+  title: "First Rule Hall",
+  sub: "Merrow Dock Authority detection engineering",
+  core: "matrix",
+  books: ["Detection", "Threat Intel", "SOC"],
+  cards: [
+    { icon: "compass", name: ["The Threat", "Idea"], color: "#86e3ce", art: "axes" },
+    { icon: "filter", name: ["Build the", "Rule"], color: "#ffb4a2", art: "tree" },
+    { icon: "pulse", name: ["Tune the", "Rule"], color: "#fbbf24", art: "pulse" },
+    { icon: "siren", name: ["The First", "Alert"], color: "#e63946", art: "ghost" },
+  ],
+};
+
+const DEEPQUERY: CampusConfig = {
+  seed: 7459,
+  hub: { title: "Cinderhill Observatory", sub: "NETWORK FORENSICS HUB" },
+  buildings: [
+    { icon: "wire", sign: ["The Resolution", "Path"], color: "#8ecae6", x: -19, z: -4.5, rot: 0.36 },
+    { icon: "filter", sign: ["Inside the", "Tunnel"], color: "#ffb703", x: -9.5, z: 8.5, rot: 0.2 },
+    { icon: "target", sign: ["Generated", "Names"], color: "#b8c0ff", x: 2, z: 9.5, rot: -0.04 },
+    { icon: "shield", sign: ["Flux and", "Sinkholes"], color: "#80ed99", x: 12.5, z: 6.5, rot: -0.26 },
+    { icon: "siren", sign: ["Port", "443"], color: "#e63946", x: 19, z: -8, rot: -0.38 },
   ],
 };
 
@@ -358,3 +409,7 @@ export function FacilityCrownJewels(props: WorldProps) { return <HallWorld cfg={
 export function FacilitySharedDrive(props: WorldProps) { return <CampusWorld cfg={SHAREDDRIVE} props={props} />; }
 export function FacilityModelBehaviour(props: WorldProps) { return <HallWorld cfg={MODELBEHAVIOUR} props={props} />; }
 export function FacilityHelpingHand(props: WorldProps) { return <CampusWorld cfg={HELPINGHAND} props={props} />; }
+export function FacilityExitRoute(props: WorldProps) { return <HallWorld cfg={EXITROUTE} props={props} />; }
+export function FacilityLongGame(props: WorldProps) { return <CampusWorld cfg={LONGGAME} props={props} />; }
+export function FacilityFirstRule(props: WorldProps) { return <HallWorld cfg={FIRSTRULE} props={props} />; }
+export function FacilityDeepQuery(props: WorldProps) { return <CampusWorld cfg={DEEPQUERY} props={props} />; }
