@@ -30,7 +30,7 @@ export const PROTOCOLS_MASTERCLASS: RoomExperience = {
     afterStation: {
       layers: { title: "SYN, SYN-ACK, ACK", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-ch2-c00e8323.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-ch2-e67e2e77.jpg" },
       web: { title: "Two Devices, One MAC", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-ch3-4c8f03b4.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-ch3-3e1cdf30.jpg" },
-      abuse: { title: "A Pipe Nobody Closes", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-finale-614684a2.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-finale-44d6d81f.jpg" },
+      abuse: { title: "A Pipe Nobody Closes", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-finale-0be912cb.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/protocols-masterclass/deepwater-finale-44d6d81f.jpg" },
     },
   },
   stations: [
