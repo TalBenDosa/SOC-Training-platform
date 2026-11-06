@@ -65,6 +65,10 @@ import { REPORTING_DOCUMENTATION } from "./reportingDocumentation";
 import { CUSTOMER_COMMUNICATION } from "./customerCommunication";
 import { NAC_MASTERCLASS } from "./nacMasterclass";
 import { SOAR_AUTOMATION } from "./soarAutomation";
+import { ASSET_CONTEXT_PRIORITISATION } from "./assetContextPrioritisation";
+import { GOOGLE_WORKSPACE_SECURITY } from "./googleWorkspaceSecurity";
+import { AI_ATTACKS_SOC_LLM_RISKS } from "./aiAttacksSocLlmRisks";
+import { RMM_ABUSE_REMOTE_ACCESS_TOOLS } from "./rmmAbuseRemoteAccessTools";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -136,6 +140,10 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [CUSTOMER_COMMUNICATION.roomId]: CUSTOMER_COMMUNICATION,
   [NAC_MASTERCLASS.roomId]: NAC_MASTERCLASS,
   [SOAR_AUTOMATION.roomId]: SOAR_AUTOMATION,
+  [ASSET_CONTEXT_PRIORITISATION.roomId]: ASSET_CONTEXT_PRIORITISATION,
+  [GOOGLE_WORKSPACE_SECURITY.roomId]: GOOGLE_WORKSPACE_SECURITY,
+  [AI_ATTACKS_SOC_LLM_RISKS.roomId]: AI_ATTACKS_SOC_LLM_RISKS,
+  [RMM_ABUSE_REMOTE_ACCESS_TOOLS.roomId]: RMM_ABUSE_REMOTE_ACCESS_TOOLS,
 };
 
 /**

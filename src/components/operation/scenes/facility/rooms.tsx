@@ -224,6 +224,58 @@ const AUTOPILOT: CampusConfig = {
   ],
 };
 
+const CROWNJEWELS: HallConfig = {
+  title: "Crown Jewel Hall",
+  sub: "Thornbury Fine Foods asset context",
+  core: "globe",
+  books: ["Asset Context", "Triage", "SOC"],
+  cards: [
+    { icon: "layers", name: ["The Asset", "Register"], color: "#f4c95d", art: "loot" },
+    { icon: "target", name: ["The Blast", "Map"], color: "#fb923c", art: "tree" },
+    { icon: "filter", name: ["Severity or", "Priority"], color: "#b79cff", art: "axes" },
+    { icon: "siren", name: ["The Night", "Pager"], color: "#67e8f9", art: "pulse" },
+    { icon: "shield", name: ["Crown", "Jewels"], color: "#ff6b6b", art: "lock" },
+  ],
+};
+
+const SHAREDDRIVE: CampusConfig = {
+  seed: 3749,
+  hub: { title: "Larkspur Studios", sub: "WORKSPACE SECURITY HUB" },
+  buildings: [
+    { icon: "monitor", sign: ["The Admin", "Console"], color: "#9d8cff", x: -18, z: -5, rot: 0.38 },
+    { icon: "users", sign: ["The Consent", "Screen"], color: "#ffd166", x: -11, z: 8, rot: 0.2 },
+    { icon: "filter", sign: ["The Shared", "Drive"], color: "#5ec8f2", x: 0.5, z: 9.5, rot: 0 },
+    { icon: "target", sign: ["Two", "Suites"], color: "#7ee0a8", x: 11.5, z: 7.5, rot: -0.2 },
+    { icon: "shield", sign: ["Final", "Cut"], color: "#ff6b6b", x: 18.5, z: -7.5, rot: -0.38 },
+  ],
+};
+
+const MODELBEHAVIOUR: HallConfig = {
+  title: "The Reading Room",
+  sub: "Quillfeather Legal AI security",
+  core: "knot",
+  books: ["AI Security", "Incident Response", "SOC"],
+  cards: [
+    { icon: "monitor", name: ["The", "Assistant"], color: "#c4b5fd", art: "tree" },
+    { icon: "wire", name: ["The Tool", "Belt"], color: "#facc15", art: "axes" },
+    { icon: "pulse", name: ["The", "Meter"], color: "#34d399", art: "pulse" },
+    { icon: "shield", name: ["The", "Guardrails"], color: "#7dd3fc", art: "lock" },
+    { icon: "siren", name: ["Model", "Behaviour"], color: "#ff6b6b", art: "ghost" },
+  ],
+};
+
+const HELPINGHAND: CampusConfig = {
+  seed: 3761,
+  hub: { title: "Brookmere Accountants", sub: "ENDPOINT SECURITY HUB" },
+  buildings: [
+    { icon: "users", sign: ["The Support", "Session"], color: "#f6bd60", x: -18.5, z: -7.5, rot: 0.36 },
+    { icon: "wire", sign: ["The", "Way In"], color: "#84dcc6", x: -11.5, z: 7, rot: 0.24 },
+    { icon: "filter", sign: ["The Five", "Signs"], color: "#c7a6ff", x: 0.5, z: 9.5, rot: -0.02 },
+    { icon: "target", sign: ["The", "Allowlist"], color: "#7dd3fc", x: 12, z: 7.5, rot: -0.24 },
+    { icon: "siren", sign: ["Close or", "Contain"], color: "#ef476f", x: 18.5, z: -6.5, rot: -0.36 },
+  ],
+};
+
 const HALL: HallConfig = {
   title: "Specimen Hall",
   sub: "Vantor Logistics malware lab",
@@ -302,3 +354,7 @@ export function FacilityPaperTrail(props: WorldProps) { return <HallWorld cfg={P
 export function FacilityBadNews(props: WorldProps) { return <CampusWorld cfg={BADNEWS} props={props} />; }
 export function FacilityFrontDoor(props: WorldProps) { return <HallWorld cfg={FRONTDOOR} props={props} />; }
 export function FacilityAutopilot(props: WorldProps) { return <CampusWorld cfg={AUTOPILOT} props={props} />; }
+export function FacilityCrownJewels(props: WorldProps) { return <HallWorld cfg={CROWNJEWELS} props={props} />; }
+export function FacilitySharedDrive(props: WorldProps) { return <CampusWorld cfg={SHAREDDRIVE} props={props} />; }
+export function FacilityModelBehaviour(props: WorldProps) { return <HallWorld cfg={MODELBEHAVIOUR} props={props} />; }
+export function FacilityHelpingHand(props: WorldProps) { return <CampusWorld cfg={HELPINGHAND} props={props} />; }

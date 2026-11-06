@@ -81,7 +81,7 @@ for (const [i, w] of wire.entries()) {
     if (which === "intro") nextIdx = 0;
     else if (which === "finale") nextIdx = e.stations.length;
     else {
-      const label = r[3].replace(/^אחרי\s*/, "").trim();
+      const label = r[3].replace(/^אחרי\s*/, "").split(":")[0].trim();
       const at = e.stations.findIndex(s => s.label === label);
       if (at < 0) { console.warn(`${film}: no station '${label}'`); continue; }
       nextIdx = at + 1;

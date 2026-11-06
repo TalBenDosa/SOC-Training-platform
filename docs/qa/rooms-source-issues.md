@@ -23,3 +23,13 @@ Builders and reviewers may not change these: a reading edit disables its recorde
 | soar-automation | ac1, flag1 | Names Zendesk and a routable AWS address in the graded scenario. | A fictional vendor and 203.0.113.x, with the flag wording. |
 | reporting-documentation | r3 (reading) | Calls TheHive open source; version 5 is commercial with a free Community licence. | Reword, re-record narration. |
 | customer-communication, reporting-documentation | ac1 | d.levy@globalfinance.com and p.nguyen@contoso.com use .com domains in graded events. | Use .example. |
+| asset-context-prioritisation | r7 diagram, o1 | The diagram puts a medium alert on the payment system during launch at Priority 1, but o1's answer ranks the exec laptop first. | Fix the diagram (narration safe). |
+| asset-context-prioritisation | r7 (reading) | Mentions benign-true-positive tasks "throughout this room"; there is one. | Reword, re-record narration. |
+| google-workspace-security | readings, graded | gws.admin.oauth_tokens_revoked, gws.access.via_oauth_app, gws.token.access_type and gws.app.* are not native Reports API parameters. | Use native names (originating_app_id). |
+| rmm-abuse-remote-access-tools | readings, r0 checkpoint | T1219 name: check against the repo's MITRE library ("Remote Access Tools" there, "Remote Access Software" in the room). r0 lists Quick Assist as third-party, though it is built into Windows. | Align. |
+| rmm-abuse-remote-access-tools | la1, ac1 | Public-looking IPs and cascadiafreight.com. | Replace with documentation values. |
+| google-workspace-security | r7, la1 context | "A third-party app granted sensitive scopes" is presented as a built-in Alert Center type; it is not in Google's list. | Word it as a custom activity rule. |
+| google-workspace-security | r4, r6, q2, q4 | gws.token.access_type and gws.admin.oauth_tokens_revoked have no native source, and q2 and q4 turn on them. | State they are enrichment, or use the token log's revoke and activity events. |
+| google-workspace-security | r4 (reading) | "Only valid while a live session exists": an online access token works until it expires; it just cannot be refreshed. | Reword, re-record narration. |
+| google-workspace-security | ac1 | expected_verdict "fp" contradicts correct_verdict benign_true_positive. | Align the event data. |
+| google-workspace-security | la1, la2, ac1 | Real company (Grammarly), routable IPs, non-.example domains. | Replace with fictional values. |

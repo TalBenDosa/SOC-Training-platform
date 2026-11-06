@@ -5738,9 +5738,19 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
+        "id": "asset-m1",
+        "type": "matching",
+        "xp": 40
+      },
+      {
         "id": "asset-la1",
         "type": "log_analysis",
         "xp": 80
+      },
+      {
+        "id": "asset-f1",
+        "type": "flag",
+        "xp": 25
       },
       {
         "id": "asset-r4",
@@ -5776,16 +5786,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "asset-o1",
         "type": "ordering",
         "xp": 40
-      },
-      {
-        "id": "asset-m1",
-        "type": "matching",
-        "xp": 40
-      },
-      {
-        "id": "asset-f1",
-        "type": "flag",
-        "xp": 25
       }
     ]
   },
@@ -8303,6 +8303,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "rmm-f1",
+        "type": "flag",
+        "xp": 15
+      },
+      {
         "id": "rmm-r5",
         "type": "reading",
         "xp": 0
@@ -8311,6 +8316,11 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "rmm-q3",
         "type": "question",
         "xp": 20
+      },
+      {
+        "id": "rmm-m1",
+        "type": "matching",
+        "xp": 25
       },
       {
         "id": "rmm-r6",
@@ -8328,6 +8338,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
+        "id": "rmm-o1",
+        "type": "ordering",
+        "xp": 25
+      },
+      {
         "id": "rmm-la1",
         "type": "log_analysis",
         "xp": 35,
@@ -8337,21 +8352,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "rmm-ac1",
         "type": "analyst_choice",
         "xp": 20
-      },
-      {
-        "id": "rmm-m1",
-        "type": "matching",
-        "xp": 25
-      },
-      {
-        "id": "rmm-o1",
-        "type": "ordering",
-        "xp": 25
-      },
-      {
-        "id": "rmm-f1",
-        "type": "flag",
-        "xp": 15
       }
     ]
   },

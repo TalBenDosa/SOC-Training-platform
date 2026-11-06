@@ -742,6 +742,23 @@ const assetContextRoom: Room = {
       xp: 20,
     },
     {
+      type: "matching",
+      id: "asset-m1",
+      heading: "Match Each Asset Type to Why Its Blast Radius Is Large (or Small)",
+      instructions: "Match each asset type to the reasoning that explains its blast radius.",
+      pairs: [
+        { id: "dc", left: "Domain Controller", right: "Controls authentication for every identity in the domain; a compromise here can be leveraged against anything that trusts domain logons" },
+        { id: "hv", left: "Hypervisor", right: "Sits below every guest VM's own security controls, so a compromise can affect every VM it hosts at once: a force multiplier, not one host among many" },
+        { id: "bk", left: "Backup infrastructure", right: "Holds the organization's ability to recover after an incident; compromising it can remove the safety net a ransomware response depends on" },
+        { id: "ci", left: "CI/CD pipeline server", right: "Can push code into every system that trusts its build output, giving an attacker a path into production far beyond the pipeline server itself" },
+        { id: "jh", left: "Jump host / bastion", right: "Is the trusted hop used to reach segmented networks, so compromising it can bypass the segmentation it was meant to protect" },
+        { id: "lab", left: "Isolated lab VM with no production connectivity", right: "Has almost nowhere to go from a compromise, since it holds no sensitive data and has no trust relationship with production systems" },
+      ],
+      explanation:
+        "Blast radius is always about what a full compromise of THIS asset hands the attacker next: identity infrastructure, every guest VM, recovery capability, deployment trust, or a bypass of segmentation, versus, at the low end, nothing beyond itself. Criticality isn't only about what an asset holds; very often it's almost entirely about what it controls or bridges.",
+      xp: 40,
+    },
+    {
       type: "log_analysis",
       id: "asset-la1",
       heading: "A Failed Logon Burst: Against a Domain Controller",
@@ -792,6 +809,15 @@ const assetContextRoom: Room = {
           xp: 30,
         },
       ],
+    },
+    {
+      type: "flag",
+      id: "asset-f1",
+      prompt:
+        "Look at Log Analysis 1, the failed-logon burst against DC02. How many distinct accounts were targeted from the same source IP in the two-minute window described? Enter the exact number.",
+      answer: "14",
+      hint: "It's stated in the log analysis task's description field.",
+      xp: 25,
     },
     {
       type: "reading",
@@ -919,32 +945,6 @@ const assetContextRoom: Room = {
       explanation:
         "Raw severity labels alone would put the guest Wi-Fi CRITICAL alert first and the payment-server MEDIUM alert near the bottom: exactly backwards. The executive's laptop ranks first because of blast radius: standing CI/CD admin access and saved VPN credentials mean a successful compromise reaches far beyond the laptop itself. The payment server ranks second on business context: a MEDIUM alert during a live launch, on a system that directly touches revenue and payment data, outranks alerts on lower-value assets regardless of the product's label. The guest Wi-Fi alert, despite its CRITICAL label, drops to third once exposure and blast radius are considered. Isolated, with no path to anything that matters, it still needs review but not urgent action. The quarantined printer detection is already auto-contained and touches no sensitive data, so it ranks lower still. The decommissioned lab box ranks last: lowest technical severity, isolated, no production role, exactly the shape of a finding to log and move past, not chase first.",
       xp: 40,
-    },
-    {
-      type: "matching",
-      id: "asset-m1",
-      heading: "Match Each Asset Type to Why Its Blast Radius Is Large (or Small)",
-      instructions: "Match each asset type to the reasoning that explains its blast radius.",
-      pairs: [
-        { id: "dc", left: "Domain Controller", right: "Controls authentication for every identity in the domain; a compromise here can be leveraged against anything that trusts domain logons" },
-        { id: "hv", left: "Hypervisor", right: "Sits below every guest VM's own security controls, so a compromise can affect every VM it hosts at once: a force multiplier, not one host among many" },
-        { id: "bk", left: "Backup infrastructure", right: "Holds the organization's ability to recover after an incident; compromising it can remove the safety net a ransomware response depends on" },
-        { id: "ci", left: "CI/CD pipeline server", right: "Can push code into every system that trusts its build output, giving an attacker a path into production far beyond the pipeline server itself" },
-        { id: "jh", left: "Jump host / bastion", right: "Is the trusted hop used to reach segmented networks, so compromising it can bypass the segmentation it was meant to protect" },
-        { id: "lab", left: "Isolated lab VM with no production connectivity", right: "Has almost nowhere to go from a compromise, since it holds no sensitive data and has no trust relationship with production systems" },
-      ],
-      explanation:
-        "Blast radius is always about what a full compromise of THIS asset hands the attacker next: identity infrastructure, every guest VM, recovery capability, deployment trust, or a bypass of segmentation, versus, at the low end, nothing beyond itself. Criticality isn't only about what an asset holds; very often it's almost entirely about what it controls or bridges.",
-      xp: 40,
-    },
-    {
-      type: "flag",
-      id: "asset-f1",
-      prompt:
-        "Look at Log Analysis 1, the failed-logon burst against DC02. How many distinct accounts were targeted from the same source IP in the two-minute window described? Enter the exact number.",
-      answer: "14",
-      hint: "It's stated in the log analysis task's description field.",
-      xp: 25,
     },
   ],
 };

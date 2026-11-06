@@ -250,6 +250,16 @@ const rmmAbuseRoom = {
       xp: 5,
     },
 
+    // ── Flag ──────────────────────────────────────────────────────────────
+    {
+      type: "flag" as const,
+      id: "rmm-f1",
+      prompt:
+        "A self-hosted ConnectWise ScreenConnect server is running version 23.9.7 and is therefore exposed to the authentication-bypass vulnerability from this room's console case study. According to that case study, which exact version must the administrator upgrade to in order to remediate it? Answer in the exact major.minor.patch format.",
+      answer: "23.9.8",
+      hint: "The reading 'Case Study: Attacking the RMM Console Itself' states the affected versions and the single version self-hosted deployments had to patch up to.",
+      xp: 15,
+    },
     // ── Reading 5: concrete signs of abuse ─────────────────────────────────
     {
       type: "reading" as const,
@@ -281,6 +291,27 @@ const rmmAbuseRoom = {
       explanation:
         "This combines two of the five concrete signals directly: tool-identity mismatch (AnyDesk versus the organization's actual sanctioned ScreenConnect) and install-location mismatch (an interactive user-run copy from Downloads versus a managed SYSTEM service under Program Files). The tool name alone is not a verdict. AnyDesk is a legitimate product used by countless organizations, and appearing in an advisory does not make every instance malicious. A Downloads path on its own is only one weak signal, and the strongest indicator is the combination of mismatches. A valid vendor signature, as reading r1 establishes, says the file is authentic. It says nothing about whether running it here is authorized.",
       xp: 20,
+    },
+
+    // ── Matching task ─────────────────────────────────────────────────────
+    {
+      type: "matching" as const,
+      id: "rmm-m1",
+      heading: "Match Each Delivery Pattern, Case Study and Signal to What It Describes",
+      instructions:
+        "Match each delivery pattern, case study, and detection signal taught in this room to the description that fits it.",
+      pairs: [
+        { id: "p1", left: "Pattern A: callback vishing", right: "A caller posing as IT or Microsoft support talks an employee into installing and sharing a remote-support tool" },
+        { id: "p2", left: "Pattern B: ClickFix-style paste-and-run", right: "A fake verification page gets the user to paste a command into the Run dialog that silently installs an RMM client" },
+        { id: "p3", left: "Pattern C, attacking the RMM console", right: "One exploited RMM server hands the attacker every endpoint it manages in a single step" },
+        { id: "p4", left: "Storm-1811", right: "Email-bombing, then a fake help-desk call, then Quick Assist, ending in Black Basta ransomware pushed with PsExec" },
+        { id: "p5", left: "CVE-2024-1709", right: "A ScreenConnect authentication bypass that let unauthenticated attackers create an administrator account through the setup wizard" },
+        { id: "p6", left: "CISA advisory AA23-320A (Scattered Spider)", right: "One advisory naming eleven legitimate remote-access products abused by the same group, from AnyDesk and TeamViewer to Ngrok" },
+        { id: "p7", left: "Duplicate-coverage signal", right: "The sanctioned RMM tool and a second, unrecognized remote-access tool are both present on the same host" },
+      ],
+      explanation:
+        "Every pairing comes from this room's readings. The three delivery patterns differ in who is fooled: vishing fools one employee by phone, ClickFix fools one user on a web page, and attacking the console needs no victim at all but yields the whole fleet. Storm-1811 is the Quick Assist case study (built-in Windows feature, no download step), CVE-2024-1709 is the ScreenConnect authentication bypass from the console case study, and AA23-320A shows the problem is systemic rather than one attacker's favourite tool. Duplicate coverage is one of the five concrete abuse signals: a second remote-access tool next to the sanctioned one suggests something outside the normal deployment process introduced it.",
+      xp: 25,
     },
 
     // ── Reading 6: allowlist discipline ────────────────────────────────────
@@ -348,6 +379,28 @@ const rmmAbuseRoom = {
       xp: 20,
     },
 
+    // ── Ordering task ──────────────────────────────────────────────────────
+    {
+      type: "ordering" as const,
+      id: "rmm-o1",
+      heading: "Order the Investigation Steps for an Unrecognized RMM Alert",
+      instructions:
+        "Place these seven steps of this room's investigation workflow in the order an analyst actually performs them, from the moment an 'unrecognized remote-access tool' alert fires to reaching a final verdict.",
+      items: [
+        { id: "step-identify", text: "Identify exactly which RMM product and version this is, and its process path (managed install directory + SYSTEM service, versus a portable executable run by a user)" },
+        { id: "step-allowlist", text: "Check the tool against the organization's sanctioned-RMM allowlist" },
+        { id: "step-account", text: "Identify the operating account: a named IT technician with a documented support role, or an ordinary end-user/service account" },
+        { id: "step-ticket", text: "Check the ITSM ticketing system for a matching ticket referencing this exact session, user, and timeframe" },
+        { id: "step-destination", text: "Check the destination domain/IP against known RMM vendor relay-domain families and threat intelligence" },
+        { id: "step-tree", text: "Walk the host's process tree for hands-on-keyboard follow-on activity (discovery commands, credential access, lateral-movement tools)" },
+        { id: "step-verdict", text: "Reach a verdict: confirm and close as expected IT activity, or escalate to containment (isolate host, sever session, reset credentials, remove the tool)" },
+      ],
+      correct_order: ["step-identify", "step-allowlist", "step-account", "step-ticket", "step-destination", "step-tree", "step-verdict"],
+      explanation:
+        "This is the exact sequence this room's investigation-workflow reading teaches: start with what the tool actually is and how it was run, check it against the allowlist, then establish who is operating it and whether a ticket accounts for the session, then widen out to the network destination and the host's own process tree for follow-on activity, and only then reach a verdict. Each step narrows or confirms the picture the previous step built, jumping straight to a verdict without first checking the allowlist, account, and ticket is exactly the mistake this room's benign-true-positive control case is built to correct.",
+      xp: 25,
+    },
+
     // ── Log analysis ────────────────────────────────────────────────────
     {
       type: "log_analysis" as const,
@@ -404,59 +457,6 @@ const rmmAbuseRoom = {
       xp: 20,
     },
 
-    // ── Matching task ─────────────────────────────────────────────────────
-    {
-      type: "matching" as const,
-      id: "rmm-m1",
-      heading: "Match Each Delivery Pattern, Case Study and Signal to What It Describes",
-      instructions:
-        "Match each delivery pattern, case study, and detection signal taught in this room to the description that fits it.",
-      pairs: [
-        { id: "p1", left: "Pattern A: callback vishing", right: "A caller posing as IT or Microsoft support talks an employee into installing and sharing a remote-support tool" },
-        { id: "p2", left: "Pattern B: ClickFix-style paste-and-run", right: "A fake verification page gets the user to paste a command into the Run dialog that silently installs an RMM client" },
-        { id: "p3", left: "Pattern C, attacking the RMM console", right: "One exploited RMM server hands the attacker every endpoint it manages in a single step" },
-        { id: "p4", left: "Storm-1811", right: "Email-bombing, then a fake help-desk call, then Quick Assist, ending in Black Basta ransomware pushed with PsExec" },
-        { id: "p5", left: "CVE-2024-1709", right: "A ScreenConnect authentication bypass that let unauthenticated attackers create an administrator account through the setup wizard" },
-        { id: "p6", left: "CISA advisory AA23-320A (Scattered Spider)", right: "One advisory naming eleven legitimate remote-access products abused by the same group, from AnyDesk and TeamViewer to Ngrok" },
-        { id: "p7", left: "Duplicate-coverage signal", right: "The sanctioned RMM tool and a second, unrecognized remote-access tool are both present on the same host" },
-      ],
-      explanation:
-        "Every pairing comes from this room's readings. The three delivery patterns differ in who is fooled: vishing fools one employee by phone, ClickFix fools one user on a web page, and attacking the console needs no victim at all but yields the whole fleet. Storm-1811 is the Quick Assist case study (built-in Windows feature, no download step), CVE-2024-1709 is the ScreenConnect authentication bypass from the console case study, and AA23-320A shows the problem is systemic rather than one attacker's favourite tool. Duplicate coverage is one of the five concrete abuse signals: a second remote-access tool next to the sanctioned one suggests something outside the normal deployment process introduced it.",
-      xp: 25,
-    },
-
-    // ── Ordering task ──────────────────────────────────────────────────────
-    {
-      type: "ordering" as const,
-      id: "rmm-o1",
-      heading: "Order the Investigation Steps for an Unrecognized RMM Alert",
-      instructions:
-        "Place these seven steps of this room's investigation workflow in the order an analyst actually performs them, from the moment an 'unrecognized remote-access tool' alert fires to reaching a final verdict.",
-      items: [
-        { id: "step-identify", text: "Identify exactly which RMM product and version this is, and its process path (managed install directory + SYSTEM service, versus a portable executable run by a user)" },
-        { id: "step-allowlist", text: "Check the tool against the organization's sanctioned-RMM allowlist" },
-        { id: "step-account", text: "Identify the operating account: a named IT technician with a documented support role, or an ordinary end-user/service account" },
-        { id: "step-ticket", text: "Check the ITSM ticketing system for a matching ticket referencing this exact session, user, and timeframe" },
-        { id: "step-destination", text: "Check the destination domain/IP against known RMM vendor relay-domain families and threat intelligence" },
-        { id: "step-tree", text: "Walk the host's process tree for hands-on-keyboard follow-on activity (discovery commands, credential access, lateral-movement tools)" },
-        { id: "step-verdict", text: "Reach a verdict: confirm and close as expected IT activity, or escalate to containment (isolate host, sever session, reset credentials, remove the tool)" },
-      ],
-      correct_order: ["step-identify", "step-allowlist", "step-account", "step-ticket", "step-destination", "step-tree", "step-verdict"],
-      explanation:
-        "This is the exact sequence this room's investigation-workflow reading teaches: start with what the tool actually is and how it was run, check it against the allowlist, then establish who is operating it and whether a ticket accounts for the session, then widen out to the network destination and the host's own process tree for follow-on activity, and only then reach a verdict. Each step narrows or confirms the picture the previous step built, jumping straight to a verdict without first checking the allowlist, account, and ticket is exactly the mistake this room's benign-true-positive control case is built to correct.",
-      xp: 25,
-    },
-
-    // ── Flag ──────────────────────────────────────────────────────────────
-    {
-      type: "flag" as const,
-      id: "rmm-f1",
-      prompt:
-        "A self-hosted ConnectWise ScreenConnect server is running version 23.9.7 and is therefore exposed to the authentication-bypass vulnerability from this room's console case study. According to that case study, which exact version must the administrator upgrade to in order to remediate it? Answer in the exact major.minor.patch format.",
-      answer: "23.9.8",
-      hint: "The reading 'Case Study: Attacking the RMM Console Itself' states the affected versions and the single version self-hosted deployments had to patch up to.",
-      xp: 15,
-    },
   ],
 };
 
