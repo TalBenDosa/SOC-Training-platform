@@ -1,6 +1,6 @@
 # תסריט חדר 96: Detection Engineering Fundamentals
 
-**שם המבצע:** Operation Signal and Noise
+**שם המבצע:** Operation Blind Spot
 **רמה:** מתקדם
 **העולם:** Cadenza Music Group (קבוצת מוזיקה בדויה): שלושה לייבלים, זרוע הוצאה לאור, 620 עובדים, וקטלוג הקלטות מאסטר שהוא כל העסק.
 **המנטור:** Lior Danso, Detection Lead. (בטקסטים במעבדות אין לשון זכר או נקבה.)

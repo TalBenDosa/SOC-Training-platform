@@ -1,6 +1,6 @@
 import type { RoomExperience } from "./types";
 
-// "Operation Signal and Noise" for the "detection-engineering" room.
+// "Operation Blind Spot" for the "detection-engineering" room.
 // Script: docs/campaign/96-detection-engineering.md.
 // Station task ids must match the room's task order exactly (see getRoomExperience).
 //
@@ -36,7 +36,7 @@ const y = (depth: number, line: string) => "\u00A0".repeat(depth * 2) + line;
 
 export const DETECTION_ENGINEERING: RoomExperience = {
   roomId: "detection-engineering",
-  codename: "Operation Signal and Noise",
+  codename: "Operation Blind Spot",
   theme: "signalnoise",
   handler: { name: "Lior Danso", role: "Detection Lead, Cadenza Music Group" },
   briefing: [

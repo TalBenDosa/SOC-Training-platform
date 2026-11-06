@@ -631,6 +631,56 @@ const QUIETWIRE: CampusConfig = {
   ],
 };
 
+const SIDESTEP: HallConfig = {
+  title: "Trace Hall",
+  sub: "Corvid Cold Chain threat hunt",
+  core: "chain",
+  books: ["Lateral Movement", "Threat Hunting", "SOC"],
+  cards: [
+    { icon: "compass", name: ["The First", "Hop"], color: "#7bdff2", art: "tree" },
+    { icon: "eye", name: ["What the", "Session Did"], color: "#f9c74f", art: "ghost" },
+    { icon: "filter", name: ["Name the", "Move"], color: "#c4b5fd", art: "axes" },
+    { icon: "target", name: ["Rebuild", "the Graph"], color: "#ef476f", art: "pulse" },
+  ],
+};
+
+const OPENSOURCE: CampusConfig = {
+  seed: 4783,
+  hub: { title: "Larkhill Veterinary Group", sub: "OSINT HUB" },
+  buildings: [
+    { icon: "target", sign: ["The", "Footprint"], color: "#9fd356", x: -18.5, z: -4, rot: 0.36 },
+    { icon: "filter", sign: ["The", "Toolkit"], color: "#ffb347", x: -8.5, z: 9, rot: 0.14 },
+    { icon: "shield", sign: ["The", "Line"], color: "#7fc8f8", x: 8, z: 9.5, rot: -0.12 },
+    { icon: "siren", sign: ["Read", "Only"], color: "#ff6b5e", x: 18.5, z: -5.5, rot: -0.36 },
+  ],
+};
+
+const ROOTACCOUNT: HallConfig = {
+  title: "Root Hall",
+  sub: "Westmarch Biotech cloud response",
+  core: "globe",
+  books: ["AWS", "Incident Response", "SOC"],
+  cards: [
+    { icon: "bag", name: ["The", "Bucket"], color: "#7ee0c3", art: "loot" },
+    { icon: "filter", name: ["The", "Policy"], color: "#f5b971", art: "tree" },
+    { icon: "lock", name: ["The", "Credentials"], color: "#9fc5ff", art: "lock" },
+    { icon: "eye", name: ["The Dark", "Trail"], color: "#c9b6ff", art: "ghost" },
+    { icon: "siren", name: ["Root", "Account"], color: "#ff5b61", art: "pulse" },
+  ],
+};
+
+const PROJECTID: CampusConfig = {
+  seed: 6481,
+  hub: { title: "Fernhollow Games Studio", sub: "GCP SECURITY HUB" },
+  buildings: [
+    { icon: "wire", sign: ["The Org", "Tree"], color: "#9ae66e", x: -18, z: -9, rot: 0.34 },
+    { icon: "filter", sign: ["The Audit", "Trail"], color: "#ffcf70", x: -13, z: 6.5, rot: 0.26 },
+    { icon: "target", sign: ["The Mod Kit", "Key"], color: "#67c8ff", x: 9, z: 8.5, rot: -0.14 },
+    { icon: "users", sign: ["The Partner", "Desk"], color: "#c9a7ff", x: 18.5, z: 2.5, rot: -0.42 },
+    { icon: "siren", sign: ["The Six", "Minutes"], color: "#ff5d73", x: 14.5, z: -9.5, rot: -0.32 },
+  ],
+};
+
 const HALL: HallConfig = {
   title: "Specimen Hall",
   sub: "Vantor Logistics malware lab",
@@ -741,3 +791,7 @@ export function FacilityMasterKey(props: WorldProps) { return <HallWorld cfg={MA
 export function FacilitySignalNoise(props: WorldProps) { return <CampusWorld cfg={SIGNALNOISE} props={props} />; }
 export function FacilityFinePrint(props: WorldProps) { return <HallWorld cfg={FINEPRINT} props={props} />; }
 export function FacilityQuietWire(props: WorldProps) { return <CampusWorld cfg={QUIETWIRE} props={props} />; }
+export function FacilitySidestep(props: WorldProps) { return <HallWorld cfg={SIDESTEP} props={props} />; }
+export function FacilityOpenSource(props: WorldProps) { return <CampusWorld cfg={OPENSOURCE} props={props} />; }
+export function FacilityRootAccount(props: WorldProps) { return <HallWorld cfg={ROOTACCOUNT} props={props} />; }
+export function FacilityProjectId(props: WorldProps) { return <CampusWorld cfg={PROJECTID} props={props} />; }

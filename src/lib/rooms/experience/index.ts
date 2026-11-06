@@ -97,6 +97,10 @@ import { PRIVILEGED_ACCESS_MONITORING } from "./privilegedAccessMonitoring";
 import { DETECTION_ENGINEERING } from "./detectionEngineering";
 import { EDGE_CASE_USECASES } from "./edgeCaseUsecases";
 import { TUNNELING_C2_CHANNELS } from "./tunnelingC2Channels";
+import { LATERAL_MOVEMENT_PRACTICE } from "./lateralMovementPractice";
+import { OSINT_FUNDAMENTALS } from "./osintFundamentals";
+import { AWS_SECURITY } from "./awsSecurity";
+import { GCP_SECURITY } from "./gcpSecurity";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -200,6 +204,10 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [DETECTION_ENGINEERING.roomId]: DETECTION_ENGINEERING,
   [EDGE_CASE_USECASES.roomId]: EDGE_CASE_USECASES,
   [TUNNELING_C2_CHANNELS.roomId]: TUNNELING_C2_CHANNELS,
+  [LATERAL_MOVEMENT_PRACTICE.roomId]: LATERAL_MOVEMENT_PRACTICE,
+  [OSINT_FUNDAMENTALS.roomId]: OSINT_FUNDAMENTALS,
+  [AWS_SECURITY.roomId]: AWS_SECURITY,
+  [GCP_SECURITY.roomId]: GCP_SECURITY,
 };
 
 /**

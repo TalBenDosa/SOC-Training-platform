@@ -351,6 +351,24 @@ const gcpRoom = {
       },
     },
 
+    // ── Question 1 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "gcp-q1",
+      question:
+        "A file was downloaded from a Cloud Storage bucket last night, but Data Access audit logging was never explicitly enabled for Cloud Storage in this project. What is the most accurate statement about what the SOC will find?",
+      options: [
+        "Cloud Audit Logs record the storage.objects.get call in full, because Cloud Storage reads sit in the same always-on stream as bucket creation and IAM changes",
+        "The storage.objects.get event was very likely not logged, though Admin Activity events like a bucket IAM change still appear, since Data Access logs are off by default",
+        "The download is captured only if VPC Flow Logs were enabled on the subnet, since Cloud Storage reads are recorded as network flows rather than audit events",
+        "Security Command Center records the download independently of the audit configuration, because Event Threat Detection reads the storage API directly",
+      ],
+      answer: 1,
+      explanation:
+        "Data Access logs (which cover read/write operations on the data itself, like storage.objects.get) are NOT enabled by default for most GCP services because of their volume: an administrator must explicitly turn them on. Admin Activity logs (configuration and permission changes, like SetIamPolicy) are ALWAYS enabled and cannot be turned off. This is the exact same visibility gap as AWS S3 data events being off by default, and a SOC analyst should always confirm whether Data Access logging is enabled before assuming the absence of a storage.objects.get event means nobody downloaded anything.",
+      xp: 20,
+    },
+
     // ── Reading 4: Common GCP attacks ───────────────────────────────────────
     {
       type: "reading" as const,
@@ -401,24 +419,6 @@ const gcpRoom = {
         "=======================================================",
     },
 
-    // ── Question 1 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "gcp-q1",
-      question:
-        "A file was downloaded from a Cloud Storage bucket last night, but Data Access audit logging was never explicitly enabled for Cloud Storage in this project. What is the most accurate statement about what the SOC will find?",
-      options: [
-        "Cloud Audit Logs record the storage.objects.get call in full, because Cloud Storage reads sit in the same always-on stream as bucket creation and IAM changes",
-        "The storage.objects.get event was very likely not logged, though Admin Activity events like a bucket IAM change still appear, since Data Access logs are off by default",
-        "The download is captured only if VPC Flow Logs were enabled on the subnet, since Cloud Storage reads are recorded as network flows rather than audit events",
-        "Security Command Center records the download independently of the audit configuration, because Event Threat Detection reads the storage API directly",
-      ],
-      answer: 1,
-      explanation:
-        "Data Access logs (which cover read/write operations on the data itself, like storage.objects.get) are NOT enabled by default for most GCP services because of their volume: an administrator must explicitly turn them on. Admin Activity logs (configuration and permission changes, like SetIamPolicy) are ALWAYS enabled and cannot be turned off. This is the exact same visibility gap as AWS S3 data events being off by default, and a SOC analyst should always confirm whether Data Access logging is enabled before assuming the absence of a storage.objects.get event means nobody downloaded anything.",
-      xp: 20,
-    },
-
     // ── Question 2 ────────────────────────────────────────────────────────
     {
       type: "question" as const,
@@ -453,6 +453,50 @@ const gcpRoom = {
       explanation:
         "SetIamPolicy changes who can do what on a resource. It is the method behind both legitimate administration AND IAM privilege escalation. When it hands a broad role such as roles/owner or roles/editor to a member that should not hold it, it deserves critical-severity review, exactly like AWS's AttachUserPolicy or PutRolePolicy with an admin policy. The other three are also write calls, but none of them changes anyone's permissions: storage.buckets.create and storage.objects.create add storage resources, and projects.update (the near-miss, because it lives in the same Resource Manager service) only edits project metadata such as the name or labels.",
       xp: 20,
+    },
+
+    // ── Matching: GCP service <-> purpose / AWS equivalent ──────────────────
+    {
+      type: "matching" as const,
+      id: "gcp-m1",
+      heading: "Match Each GCP Service or Concept to Its Purpose and AWS Equivalent",
+      instructions:
+        "Match each GCP service or log source on the left to its correct description on the right.",
+      pairs: [
+        {
+          id: "cloudiam",
+          left: "Cloud IAM",
+          right: "Controls who (members) can do what (roles/permissions) on which resource (bindings); the equivalent of AWS IAM",
+        },
+        {
+          id: "serviceaccount",
+          left: "Service Account",
+          right: "A persistent, non-human identity used by applications and VMs; can authenticate via an attached resource or a long-lived downloadable JSON key: the closest GCP equivalent to an AWS IAM role",
+        },
+        {
+          id: "computeengine",
+          left: "Compute Engine",
+          right: "GCP's virtual machine service; each VM can reach the metadata server at 169.254.169.254 to retrieve its service account's live access token: the equivalent of AWS EC2 and IMDS",
+        },
+        {
+          id: "cloudstorage",
+          left: "Cloud Storage",
+          right: "Object storage organized into buckets; a bucket bound to the allUsers member becomes readable by anyone on the internet: the equivalent of AWS S3",
+        },
+        {
+          id: "cloudauditlogs",
+          left: "Cloud Audit Logs",
+          right: "Records every API call made in a project across four log types (Admin Activity, Data Access, System Event, Policy Denied): the equivalent of AWS CloudTrail",
+        },
+        {
+          id: "scc",
+          left: "Security Command Center",
+          right: "Managed threat-detection and posture-management platform that analyzes audit logs and flow logs to raise pre-scored findings: the equivalent of AWS GuardDuty plus Security Hub",
+        },
+      ],
+      explanation:
+        "These six building blocks form the backbone of nearly every GCP security investigation, and each has a direct AWS parallel: Cloud IAM defines the permission boundaries (like AWS IAM), service accounts are GCP's persistent non-human identities (closest to AWS IAM roles, though not temporarily assumed), Compute Engine and Cloud Storage are the most commonly attacked resource types (paralleling EC2 and S3), Cloud Audit Logs is the ground-truth audit trail (paralleling CloudTrail), and Security Command Center is the automated first-pass detector (paralleling GuardDuty and Security Hub combined). Recognizing both the GCP name and its closest AWS analog lets an analyst who already knows one cloud provider ramp up quickly on the other.",
+      xp: 40,
     },
 
     // ── Log Analysis 1: SetIamPolicy privilege escalation ───────────────────
@@ -577,50 +621,6 @@ const gcpRoom = {
       fp_trap:
         "It's tempting to escalate this because svc-cicd, like svc-data in the earlier incident, is a service account with elevated compute permissions, and 'broad permissions + recent incident in the project' can feel like enough reason to treat any of its activity as risky. But permission scope alone is not evidence of compromise: the specific method (read-only list, not a write/IAM operation), the source (a trusted internal IP, not external infrastructure), and the context (routine scheduled automation, not an unusual one-off action) all point to benign activity. Escalating every action from every broadly-permissioned service account, regardless of what the action actually does, leads to alert fatigue and pulls attention away from genuinely dangerous write/IAM operations.",
       xp: 30,
-    },
-
-    // ── Matching: GCP service <-> purpose / AWS equivalent ──────────────────
-    {
-      type: "matching" as const,
-      id: "gcp-m1",
-      heading: "Match Each GCP Service or Concept to Its Purpose and AWS Equivalent",
-      instructions:
-        "Match each GCP service or log source on the left to its correct description on the right.",
-      pairs: [
-        {
-          id: "cloudiam",
-          left: "Cloud IAM",
-          right: "Controls who (members) can do what (roles/permissions) on which resource (bindings); the equivalent of AWS IAM",
-        },
-        {
-          id: "serviceaccount",
-          left: "Service Account",
-          right: "A persistent, non-human identity used by applications and VMs; can authenticate via an attached resource or a long-lived downloadable JSON key: the closest GCP equivalent to an AWS IAM role",
-        },
-        {
-          id: "computeengine",
-          left: "Compute Engine",
-          right: "GCP's virtual machine service; each VM can reach the metadata server at 169.254.169.254 to retrieve its service account's live access token: the equivalent of AWS EC2 and IMDS",
-        },
-        {
-          id: "cloudstorage",
-          left: "Cloud Storage",
-          right: "Object storage organized into buckets; a bucket bound to the allUsers member becomes readable by anyone on the internet: the equivalent of AWS S3",
-        },
-        {
-          id: "cloudauditlogs",
-          left: "Cloud Audit Logs",
-          right: "Records every API call made in a project across four log types (Admin Activity, Data Access, System Event, Policy Denied): the equivalent of AWS CloudTrail",
-        },
-        {
-          id: "scc",
-          left: "Security Command Center",
-          right: "Managed threat-detection and posture-management platform that analyzes audit logs and flow logs to raise pre-scored findings: the equivalent of AWS GuardDuty plus Security Hub",
-        },
-      ],
-      explanation:
-        "These six building blocks form the backbone of nearly every GCP security investigation, and each has a direct AWS parallel: Cloud IAM defines the permission boundaries (like AWS IAM), service accounts are GCP's persistent non-human identities (closest to AWS IAM roles, though not temporarily assumed), Compute Engine and Cloud Storage are the most commonly attacked resource types (paralleling EC2 and S3), Cloud Audit Logs is the ground-truth audit trail (paralleling CloudTrail), and Security Command Center is the automated first-pass detector (paralleling GuardDuty and Security Hub combined). Recognizing both the GCP name and its closest AWS analog lets an analyst who already knows one cloud provider ramp up quickly on the other.",
-      xp: 40,
     },
 
     // ── Reading 5: How to investigate GCP audit logs in a SIEM ──────────────

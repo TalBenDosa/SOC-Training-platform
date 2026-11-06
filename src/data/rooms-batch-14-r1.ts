@@ -315,6 +315,24 @@ const awsSecurityRoom = {
         "=======================================================",
     },
 
+    // ── Question 1 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "aws-q1",
+      question:
+        "Your organization has never explicitly enabled 'S3 data event logging.' A file was downloaded from a private S3 bucket last night. Which statement is TRUE?",
+      options: [
+        "CloudTrail records S3 GetObject calls automatically alongside bucket creation and permission changes, with no extra configuration",
+        "The GetObject data event was most likely not logged, although bucket-level management events would still appear",
+        "S3 server access logging is enabled by default and captures the download, so CloudTrail is not needed for object-level visibility",
+        "VPC Flow Logs record the object key and bytes read, so the download is visible in network telemetry instead",
+      ],
+      answer: 1,
+      explanation:
+        "Data events (like GetObject and PutObject on individual S3 objects) are NOT logged by CloudTrail by default because of their high volume: an organization must explicitly enable S3 data event logging on a trail. Management events (like creating the bucket, changing its policy, or enabling versioning) ARE logged by default. This gap is one of the most common visibility blind spots in real AWS environments, and a SOC analyst should always confirm whether data events are enabled before assuming 'no GetObject events' means 'no one downloaded anything.' S3 server access logging is a separate feature that is OFF by default, so it cannot be assumed to have captured the download. VPC Flow Logs record only IP addresses, ports and byte counts (never URLs or S3 object keys) so they cannot show which object was read. One nuance: if GuardDuty S3 Protection is enabled, GuardDuty reads its own independent stream of S3 data events and does NOT need data events on your trail, so it can still raise a finding, but the trail's S3 archive and your SIEM feed will have no record of the GetObject itself.",
+      xp: 20,
+    },
+
     // ── Reading 3: IAM policies & roles ─────────────────────────────────────
     {
       type: "reading" as const,
@@ -390,6 +408,24 @@ const awsSecurityRoom = {
       },
     },
 
+    // ── Question 3 ────────────────────────────────────────────────────────
+    {
+      type: "question" as const,
+      id: "aws-q3",
+      question:
+        "CloudTrail shows CreatePolicyVersion with setAsDefault true on reports-reader-policy. Compared with the previous version, the Action (s3:GetObject) and the Resource (the reports bucket) are unchanged; the only difference is that the Condition limiting aws:SourceIp to NexaCorp's office range is gone. How should you treat this change?",
+      options: [
+        "As routine: the Action and Resource are unchanged, so the identity has gained no new permissions",
+        "As a possible escalation: the same permission now works from any IP address, not just the office",
+        "As routine: a Condition only labels the log entry for reviewers; it does not restrict the Allow",
+        "As low risk: only a policy granting '*' on '*' counts as dangerous, and this one is still scoped",
+      ],
+      answer: 1,
+      explanation:
+        "A Condition restricts when an Allow applies, so removing an aws:SourceIp Condition turns an office-only permission into one usable from anywhere: exactly what an attacker holding a stolen key needs, and the pattern the reading warns about when comparing an old and new policy version. “The Action and Resource are unchanged” checks only two of the elements that matter; the reading says to check whether a protective Condition disappeared, not just whether the Action or Resource got broader. “A Condition only labels the log entry” misdescribes Conditions: they are part of the permission itself. “Only a policy granting '*' on '*' counts as dangerous” treats the most extreme pattern as the only one; quietly widening where a permission works is also escalation.",
+      xp: 20,
+    },
+
     // ── Reading 4: GuardDuty, VPC Flow Logs, S3 buckets, IMDS ───────────────
     {
       type: "reading" as const,
@@ -435,24 +471,6 @@ const awsSecurityRoom = {
         "=======================================================",
     },
 
-    // ── Question 1 ────────────────────────────────────────────────────────
-    {
-      type: "question" as const,
-      id: "aws-q1",
-      question:
-        "Your organization has never explicitly enabled 'S3 data event logging.' A file was downloaded from a private S3 bucket last night. Which statement is TRUE?",
-      options: [
-        "CloudTrail records S3 GetObject calls automatically alongside bucket creation and permission changes, with no extra configuration",
-        "The GetObject data event was most likely not logged, although bucket-level management events would still appear",
-        "S3 server access logging is enabled by default and captures the download, so CloudTrail is not needed for object-level visibility",
-        "VPC Flow Logs record the object key and bytes read, so the download is visible in network telemetry instead",
-      ],
-      answer: 1,
-      explanation:
-        "Data events (like GetObject and PutObject on individual S3 objects) are NOT logged by CloudTrail by default because of their high volume: an organization must explicitly enable S3 data event logging on a trail. Management events (like creating the bucket, changing its policy, or enabling versioning) ARE logged by default. This gap is one of the most common visibility blind spots in real AWS environments, and a SOC analyst should always confirm whether data events are enabled before assuming 'no GetObject events' means 'no one downloaded anything.' S3 server access logging is a separate feature that is OFF by default, so it cannot be assumed to have captured the download. VPC Flow Logs record only IP addresses, ports and byte counts (never URLs or S3 object keys) so they cannot show which object was read. One nuance: if GuardDuty S3 Protection is enabled, GuardDuty reads its own independent stream of S3 data events and does NOT need data events on your trail, so it can still raise a finding, but the trail's S3 archive and your SIEM feed will have no record of the GetObject itself.",
-      xp: 20,
-    },
-
     // ── Question 2 ────────────────────────────────────────────────────────
     {
       type: "question" as const,
@@ -471,22 +489,48 @@ const awsSecurityRoom = {
       xp: 25,
     },
 
-    // ── Question 3 ────────────────────────────────────────────────────────
+    // ── Matching: AWS service <-> what it does / what log it produces ──────
     {
-      type: "question" as const,
-      id: "aws-q3",
-      question:
-        "CloudTrail shows CreatePolicyVersion with setAsDefault true on reports-reader-policy. Compared with the previous version, the Action (s3:GetObject) and the Resource (the reports bucket) are unchanged; the only difference is that the Condition limiting aws:SourceIp to NexaCorp's office range is gone. How should you treat this change?",
-      options: [
-        "As routine: the Action and Resource are unchanged, so the identity has gained no new permissions",
-        "As a possible escalation: the same permission now works from any IP address, not just the office",
-        "As routine: a Condition only labels the log entry for reviewers; it does not restrict the Allow",
-        "As low risk: only a policy granting '*' on '*' counts as dangerous, and this one is still scoped",
+      type: "matching" as const,
+      id: "aws-m1",
+      heading: "Match Each AWS Service to What It Does and What Log It Produces",
+      instructions:
+        "Match each AWS service or log source on the left to its correct description on the right.",
+      pairs: [
+        {
+          id: "iam",
+          left: "IAM (Identity and Access Management)",
+          right: "Controls who can do what: manages users, roles, and permission policies; changes appear as management events in CloudTrail",
+        },
+        {
+          id: "s3",
+          left: "S3 (Simple Storage Service)",
+          right: "Object storage organized into buckets; file downloads/uploads only appear in CloudTrail if S3 data event logging is explicitly enabled",
+        },
+        {
+          id: "ec2",
+          left: "EC2 (Elastic Compute Cloud)",
+          right: "Virtual servers ('instances'); each instance can reach IMDS at 169.254.169.254 to retrieve its attached IAM role's temporary credentials",
+        },
+        {
+          id: "cloudtrail",
+          left: "CloudTrail",
+          right: "Records every API call made in the account (who, what, when, from where); the primary audit-log source for AWS investigations",
+        },
+        {
+          id: "guardduty",
+          left: "GuardDuty",
+          right: "Managed threat-detection service that analyzes CloudTrail, VPC Flow Logs, and DNS logs to automatically raise pre-scored findings",
+        },
+        {
+          id: "vpcflow",
+          left: "VPC Flow Logs",
+          right: "Records network connection metadata (source/dest IP, port, protocol, bytes, accept/reject): the AWS equivalent of NetFlow or firewall traffic logs",
+        },
       ],
-      answer: 1,
       explanation:
-        "A Condition restricts when an Allow applies, so removing an aws:SourceIp Condition turns an office-only permission into one usable from anywhere: exactly what an attacker holding a stolen key needs, and the pattern the reading warns about when comparing an old and new policy version. “The Action and Resource are unchanged” checks only two of the elements that matter; the reading says to check whether a protective Condition disappeared, not just whether the Action or Resource got broader. “A Condition only labels the log entry” misdescribes Conditions: they are part of the permission itself. “Only a policy granting '*' on '*' counts as dangerous” treats the most extreme pattern as the only one; quietly widening where a permission works is also escalation.",
-      xp: 20,
+        "These six services form the backbone of nearly every AWS security investigation. IAM defines the permission boundaries; EC2 and S3 are the most commonly attacked resource types; CloudTrail is the ground-truth audit log for almost every investigation; GuardDuty is the automated first-pass detector that surfaces likely threats without manual rule-writing; and VPC Flow Logs fill in the network-layer picture that CloudTrail (an API-call log, not a packet log) cannot show. A SOC analyst who understands what each source does (and, just as importantly, what each source does NOT capture by default) can quickly identify visibility gaps during an investigation.",
+      xp: 40,
     },
 
     // ── Log Analysis 1: Exposed access key -> S3 exfil ──────────────────────
@@ -595,127 +639,6 @@ const awsSecurityRoom = {
           xp: 30,
         },
       ],
-    },
-
-    // ── Analyst Choice: GetCallerIdentity benign true positive ────────────────────────────
-    {
-      type: "analyst_choice" as const,
-      id: "aws-ac1",
-      heading: "Verdict: Is This STS GetCallerIdentity Call Suspicious?",
-      scenario:
-        "A SIEM correlation rule that watches all STS activity in AWS account 482915007733 for 72 hours after a confirmed compromise flagged the API call below: the same account involved in your earlier investigation. By the time it fired, the incident had been contained: the leaked key deactivated, the ec2-webapp-role's sessions revoked, and the compromised instance isolated. Asset notes: deploy-pipeline-task-role is the role NexaCorp's ECS Fargate deployment task assumes (its session name is the task ID); that pipeline is scheduled daily at 07:00 UTC; and the VPC reaches STS through an interface endpoint, so calls from inside it are recorded with their private source address. Read the identity, source address, user agent, time and action in the event, then decide: is this event suspicious?",
-      event: getCallerIdentityEvent,
-      correct_verdict: "benign_true_positive",
-      explanation:
-        "This is a benign true positive: the post-incident watch rule fired exactly as designed on a real STS call in the watched account, and the call is the scheduled deploy pipeline's own legitimate identity check. GetCallerIdentity is one of the most benign, common API calls in all of AWS. It simply asks 'who am I authenticated as?' and is frequently called automatically at the start of scripts, SDK initializations, and CI/CD pipeline runs to confirm the correct identity is active before doing real work (it is often literally the first API call an AWS SDK or Terraform run makes). Here, the caller is the pipeline's own ECS task role (deploy-pipeline-task-role, with a task-ID session name), not the compromised ec2-webapp-role, and the source IP (10.20.4.15, an internal private address) and user agent (aws-sdk-go, exec-env/AWS_ECS_FARGATE) are consistent with that Fargate task; the call landed at 07:00:04 UTC, when the pipeline is scheduled to start; and a private source address is expected because the VPC reaches STS through an interface endpoint: routine, internal, automated infrastructure activity, completely different from the external Tor IP seen during the actual compromise. The action itself is also read-only (aws.cloudtrail.readOnly: true) and management-plane only; it cannot read data, change permissions, or modify any resource. Correlation rules that alert purely because 'this account was involved in a past incident' will generate significant noise unless they also weigh source IP, time since containment, and the sensitivity of the specific action. Close it citing the 07:00 UTC pipeline schedule and the deploy-pipeline-task-role; it is not a false positive, because the watch rule did not misfire, and calling it one invites switching off a watch that is doing its job (at most, add a narrow, owned exclusion for this one role).",
-      fp_trap:
-        "It is tempting to escalate this immediately because it lands in the SAME account, inside the watch window of a serious confirmed compromise. But account and timing alone are not enough context. GetCallerIdentity is read-only, cannot change anything, is called constantly by legitimate automation, and here originates from a trusted internal IP after remediation was already completed. Escalating every single subsequent API call in a previously-compromised account, without evaluating the specific action and source, leads to alert fatigue and wastes investigation time that should go toward genuinely risky actions (like write/management operations or external source IPs).",
-      xp: 30,
-    },
-
-    // ── Matching: AWS service <-> what it does / what log it produces ──────
-    {
-      type: "matching" as const,
-      id: "aws-m1",
-      heading: "Match Each AWS Service to What It Does and What Log It Produces",
-      instructions:
-        "Match each AWS service or log source on the left to its correct description on the right.",
-      pairs: [
-        {
-          id: "iam",
-          left: "IAM (Identity and Access Management)",
-          right: "Controls who can do what: manages users, roles, and permission policies; changes appear as management events in CloudTrail",
-        },
-        {
-          id: "s3",
-          left: "S3 (Simple Storage Service)",
-          right: "Object storage organized into buckets; file downloads/uploads only appear in CloudTrail if S3 data event logging is explicitly enabled",
-        },
-        {
-          id: "ec2",
-          left: "EC2 (Elastic Compute Cloud)",
-          right: "Virtual servers ('instances'); each instance can reach IMDS at 169.254.169.254 to retrieve its attached IAM role's temporary credentials",
-        },
-        {
-          id: "cloudtrail",
-          left: "CloudTrail",
-          right: "Records every API call made in the account (who, what, when, from where); the primary audit-log source for AWS investigations",
-        },
-        {
-          id: "guardduty",
-          left: "GuardDuty",
-          right: "Managed threat-detection service that analyzes CloudTrail, VPC Flow Logs, and DNS logs to automatically raise pre-scored findings",
-        },
-        {
-          id: "vpcflow",
-          left: "VPC Flow Logs",
-          right: "Records network connection metadata (source/dest IP, port, protocol, bytes, accept/reject): the AWS equivalent of NetFlow or firewall traffic logs",
-        },
-      ],
-      explanation:
-        "These six services form the backbone of nearly every AWS security investigation. IAM defines the permission boundaries; EC2 and S3 are the most commonly attacked resource types; CloudTrail is the ground-truth audit log for almost every investigation; GuardDuty is the automated first-pass detector that surfaces likely threats without manual rule-writing; and VPC Flow Logs fill in the network-layer picture that CloudTrail (an API-call log, not a packet log) cannot show. A SOC analyst who understands what each source does (and, just as importantly, what each source does NOT capture by default) can quickly identify visibility gaps during an investigation.",
-      xp: 40,
-    },
-
-    // ── Reading 5: How to read/investigate CloudTrail in a SIEM ─────────────
-    {
-      type: "reading" as const,
-      id: "aws-r5",
-      heading: "How to Read and Investigate CloudTrail Events in a SIEM",
-      content:
-        `Once CloudTrail events are forwarded into a SIEM, they typically appear as structured fields prefixed with something like aws.cloudtrail.*: the exact same fields you have been reviewing throughout this room. Knowing which fields to pull first, and in what order, turns a wall of JSON into a fast, repeatable investigation workflow.\n\n` +
-        `**Step 1: Establish the WHO**\n\n` +
-        `Start with aws.cloudtrail.userIdentity.type and aws.cloudtrail.userIdentity.arn. Is this an IAMUser (long-term credentials: check when the access key was created and whether it has ever been exposed) or an AssumedRole (temporary credentials: check which role, and whether the session name looks like an EC2 instance ID, a Lambda name, or something unexpected)? The identity tells you what kind of credential compromise you might be dealing with.\n\n` +
-        `**Step 2: Establish the WHERE**\n\n` +
-        `Check aws.cloudtrail.sourceIPAddress. Is it an address you recognise from your own AWS estate (usually your NAT gateway or Elastic IP, or a private address only when the call goes through a VPC endpoint), a known corporate office IP, or an unfamiliar external address? Cross-reference against threat intelligence, Tor exit nodes, known malicious IP lists, and unusual countries for your organization are all red flags. Also check aws.cloudtrail.userAgent: legitimate automation tools have consistent, expected user agents (aws-cli/x.x.x, aws-sdk-go, Terraform); a mismatched or unusual user agent for a given identity's normal behavior is worth investigating.\n\n` +
-        `**Step 3: Establish the WHAT and the OUTCOME**\n\n` +
-        `Read aws.cloudtrail.eventName and aws.cloudtrail.eventSource together. This tells you the exact action and which service it targeted. Then always check aws.cloudtrail.errorCode: an empty value means the call succeeded; a populated value (AccessDenied, UnauthorizedOperation, NoSuchEntity) means it was rejected. A flood of AccessDenied errors from one identity is a strong signal of an attacker probing for working permissions, even though none of those individual calls "succeeded," the pattern itself is the alert.\n\n` +
-        `**Step 4: Pivot and Correlate**\n\n` +
-        `Once you have one suspicious event, pivot in your SIEM on the same aws.cloudtrail.sourceIPAddress and the same user_identity.arn across a wider time window (hours to days). Attackers rarely perform just one action. Look for the full sequence: initial access (how the credential was obtained), reconnaissance (calls like ListBuckets, DescribeInstances, GetCallerIdentity used to map out the account), privilege escalation (IAM policy changes), and the actual objective (data access, resource creation, or logging tampering). Also check aws.cloudtrail.awsRegion, attackers sometimes deliberately operate in a region your organization doesn't normally use, hoping it receives less monitoring attention.\n\n` +
-        `**Step 5: Weigh Severity by Action Type, Not Just Identity**\n\n` +
-        `As you saw in the GetCallerIdentity benign-true-positive exercise (the watch rule fired correctly on a real call, and the pipeline schedule made it authorized), the same identity can generate both benign and critical events. Always weigh: is this a read-only/management_event or a state-changing action (aws.cloudtrail.readOnly: true vs false)? Does it touch IAM, logging configuration, or security groups (high blast radius) versus routine describe/list calls (low blast radius)? A fast mental checklist (WHO, WHERE, WHAT, OUTCOME, PATTERN) is enough to triage the overwhelming majority of CloudTrail-based alerts within the first few minutes.`,
-      codeExample:
-        "CLOUDTRAIL TRIAGE CHECKLIST\n" +
-        "=======================================================\n" +
-        "1. WHO    aws.cloudtrail.userIdentity.type / .arn\n" +
-        "          -> IAMUser (long-term key) or AssumedRole\n" +
-        "             (temporary, auto-expiring)?\n" +
-        "\n" +
-        "2. WHERE  aws.cloudtrail.sourceIPAddress / user_agent\n" +
-        "          -> internal AWS range, known office IP, or\n" +
-        "             unfamiliar/malicious external IP?\n" +
-        "\n" +
-        "3. WHAT   aws.cloudtrail.eventName + event_source\n" +
-        "          -> exact action + which service\n" +
-        "\n" +
-        "4. OUTCOME aws.cloudtrail.errorCode\n" +
-        "          -> empty = succeeded, populated = denied/failed\n" +
-        "          -> a FLOOD of AccessDenied = attacker probing\n" +
-        "\n" +
-        "5. PATTERN pivot on same source_ip / arn across time\n" +
-        "          -> recon -> privesc -> objective sequence?\n" +
-        "=======================================================\n\n" +
-        "EXAMPLE SIEM / ATHENA-STYLE QUERY\n" +
-        "=======================================================\n" +
-        "SELECT eventTime, eventName, eventSource,\n" +
-        "       sourceIPAddress, userIdentity.arn, errorCode\n" +
-        "FROM cloudtrail_logs\n" +
-        "WHERE sourceIPAddress = '185.220.101.47'\n" +
-        "  AND eventTime BETWEEN '2026-06-11T00:00:00Z'\n" +
-        "                     AND '2026-06-11T12:00:00Z'\n" +
-        "ORDER BY eventTime ASC;\n" +
-        "=======================================================",
-      checkpoint: {
-        question: "Two events from the same AssumedRole session arrive in the same minute: DescribeInstances (readOnly: true) and AuthorizeSecurityGroupIngress, which adds an inbound rule to a security group (readOnly: false). Applying Step 5, which do you triage first?",
-        options: [
-          "The security-group change: it alters state on a high-blast-radius control",
-          "DescribeInstances: recon reveals intent, so it outranks any single change",
-          "Neither first: the same session made both, so they share one priority",
-          "Whichever was logged first, since CloudTrail order sets the priority",
-        ],
-        answer: 0,
-        explanation: "Step 5 says to weigh severity by action type: a state-changing call (readOnly false) on a security group has a high blast radius, because it can open the network to the attacker, while a describe/list call changes nothing. “Recon reveals intent, so it outranks any single change” gets the order backwards: recon is worth noting and pivoting on, but the change is what can do damage now. “The same session made both, so they share one priority” is the mistake Step 5 warns about: the same identity can generate both benign and critical events. “Whichever was logged first” uses arrival order, which says nothing about impact.",
-      },
     },
 
     // ── Log Analysis: CloudTrail disabled (defense impairment) — precedes the flag ──
@@ -864,6 +787,83 @@ const awsSecurityRoom = {
         explanation: "Deactivating the key stops it from authenticating just as effectively as deleting it, but it is reversible (if the key turns out to belong to a production workload you can re-enable it) and it keeps the key's IAM metadata, such as last-used time and service, available to the investigation. Past CloudTrail events keep their accessKeyId either way. “Delete the key at once” blocks the attacker too, but it is irreversible, so a misidentified production key cannot be restored, and its IAM metadata is lost; deletion belongs to cleanup. “Leave the key active until the investigation ends” keeps an attacker's credential live; containment runs in parallel with the investigation, not after it. “Issue the service a new key first” is rotation before containment: the stolen key keeps working while the new one is deployed.",
       },
     },
+    // ── Analyst Choice: GetCallerIdentity benign true positive ────────────────────────────
+    {
+      type: "analyst_choice" as const,
+      id: "aws-ac1",
+      heading: "Verdict: Is This STS GetCallerIdentity Call Suspicious?",
+      scenario:
+        "A SIEM correlation rule that watches all STS activity in AWS account 482915007733 for 72 hours after a confirmed compromise flagged the API call below: the same account involved in your earlier investigation. By the time it fired, the incident had been contained: the leaked key deactivated, the ec2-webapp-role's sessions revoked, and the compromised instance isolated. Asset notes: deploy-pipeline-task-role is the role NexaCorp's ECS Fargate deployment task assumes (its session name is the task ID); that pipeline is scheduled daily at 07:00 UTC; and the VPC reaches STS through an interface endpoint, so calls from inside it are recorded with their private source address. Read the identity, source address, user agent, time and action in the event, then decide: is this event suspicious?",
+      event: getCallerIdentityEvent,
+      correct_verdict: "benign_true_positive",
+      explanation:
+        "This is a benign true positive: the post-incident watch rule fired exactly as designed on a real STS call in the watched account, and the call is the scheduled deploy pipeline's own legitimate identity check. GetCallerIdentity is one of the most benign, common API calls in all of AWS. It simply asks 'who am I authenticated as?' and is frequently called automatically at the start of scripts, SDK initializations, and CI/CD pipeline runs to confirm the correct identity is active before doing real work (it is often literally the first API call an AWS SDK or Terraform run makes). Here, the caller is the pipeline's own ECS task role (deploy-pipeline-task-role, with a task-ID session name), not the compromised ec2-webapp-role, and the source IP (10.20.4.15, an internal private address) and user agent (aws-sdk-go, exec-env/AWS_ECS_FARGATE) are consistent with that Fargate task; the call landed at 07:00:04 UTC, when the pipeline is scheduled to start; and a private source address is expected because the VPC reaches STS through an interface endpoint: routine, internal, automated infrastructure activity, completely different from the external Tor IP seen during the actual compromise. The action itself is also read-only (aws.cloudtrail.readOnly: true) and management-plane only; it cannot read data, change permissions, or modify any resource. Correlation rules that alert purely because 'this account was involved in a past incident' will generate significant noise unless they also weigh source IP, time since containment, and the sensitivity of the specific action. Close it citing the 07:00 UTC pipeline schedule and the deploy-pipeline-task-role; it is not a false positive, because the watch rule did not misfire, and calling it one invites switching off a watch that is doing its job (at most, add a narrow, owned exclusion for this one role).",
+      fp_trap:
+        "It is tempting to escalate this immediately because it lands in the SAME account, inside the watch window of a serious confirmed compromise. But account and timing alone are not enough context. GetCallerIdentity is read-only, cannot change anything, is called constantly by legitimate automation, and here originates from a trusted internal IP after remediation was already completed. Escalating every single subsequent API call in a previously-compromised account, without evaluating the specific action and source, leads to alert fatigue and wastes investigation time that should go toward genuinely risky actions (like write/management operations or external source IPs).",
+      xp: 30,
+    },
+
+    // ── Reading 5: How to read/investigate CloudTrail in a SIEM ─────────────
+    {
+      type: "reading" as const,
+      id: "aws-r5",
+      heading: "How to Read and Investigate CloudTrail Events in a SIEM",
+      content:
+        `Once CloudTrail events are forwarded into a SIEM, they typically appear as structured fields prefixed with something like aws.cloudtrail.*: the exact same fields you have been reviewing throughout this room. Knowing which fields to pull first, and in what order, turns a wall of JSON into a fast, repeatable investigation workflow.\n\n` +
+        `**Step 1: Establish the WHO**\n\n` +
+        `Start with aws.cloudtrail.userIdentity.type and aws.cloudtrail.userIdentity.arn. Is this an IAMUser (long-term credentials: check when the access key was created and whether it has ever been exposed) or an AssumedRole (temporary credentials: check which role, and whether the session name looks like an EC2 instance ID, a Lambda name, or something unexpected)? The identity tells you what kind of credential compromise you might be dealing with.\n\n` +
+        `**Step 2: Establish the WHERE**\n\n` +
+        `Check aws.cloudtrail.sourceIPAddress. Is it an address you recognise from your own AWS estate (usually your NAT gateway or Elastic IP, or a private address only when the call goes through a VPC endpoint), a known corporate office IP, or an unfamiliar external address? Cross-reference against threat intelligence, Tor exit nodes, known malicious IP lists, and unusual countries for your organization are all red flags. Also check aws.cloudtrail.userAgent: legitimate automation tools have consistent, expected user agents (aws-cli/x.x.x, aws-sdk-go, Terraform); a mismatched or unusual user agent for a given identity's normal behavior is worth investigating.\n\n` +
+        `**Step 3: Establish the WHAT and the OUTCOME**\n\n` +
+        `Read aws.cloudtrail.eventName and aws.cloudtrail.eventSource together. This tells you the exact action and which service it targeted. Then always check aws.cloudtrail.errorCode: an empty value means the call succeeded; a populated value (AccessDenied, UnauthorizedOperation, NoSuchEntity) means it was rejected. A flood of AccessDenied errors from one identity is a strong signal of an attacker probing for working permissions, even though none of those individual calls "succeeded," the pattern itself is the alert.\n\n` +
+        `**Step 4: Pivot and Correlate**\n\n` +
+        `Once you have one suspicious event, pivot in your SIEM on the same aws.cloudtrail.sourceIPAddress and the same user_identity.arn across a wider time window (hours to days). Attackers rarely perform just one action. Look for the full sequence: initial access (how the credential was obtained), reconnaissance (calls like ListBuckets, DescribeInstances, GetCallerIdentity used to map out the account), privilege escalation (IAM policy changes), and the actual objective (data access, resource creation, or logging tampering). Also check aws.cloudtrail.awsRegion, attackers sometimes deliberately operate in a region your organization doesn't normally use, hoping it receives less monitoring attention.\n\n` +
+        `**Step 5: Weigh Severity by Action Type, Not Just Identity**\n\n` +
+        `As you saw in the GetCallerIdentity benign-true-positive exercise (the watch rule fired correctly on a real call, and the pipeline schedule made it authorized), the same identity can generate both benign and critical events. Always weigh: is this a read-only/management_event or a state-changing action (aws.cloudtrail.readOnly: true vs false)? Does it touch IAM, logging configuration, or security groups (high blast radius) versus routine describe/list calls (low blast radius)? A fast mental checklist (WHO, WHERE, WHAT, OUTCOME, PATTERN) is enough to triage the overwhelming majority of CloudTrail-based alerts within the first few minutes.`,
+      codeExample:
+        "CLOUDTRAIL TRIAGE CHECKLIST\n" +
+        "=======================================================\n" +
+        "1. WHO    aws.cloudtrail.userIdentity.type / .arn\n" +
+        "          -> IAMUser (long-term key) or AssumedRole\n" +
+        "             (temporary, auto-expiring)?\n" +
+        "\n" +
+        "2. WHERE  aws.cloudtrail.sourceIPAddress / user_agent\n" +
+        "          -> internal AWS range, known office IP, or\n" +
+        "             unfamiliar/malicious external IP?\n" +
+        "\n" +
+        "3. WHAT   aws.cloudtrail.eventName + event_source\n" +
+        "          -> exact action + which service\n" +
+        "\n" +
+        "4. OUTCOME aws.cloudtrail.errorCode\n" +
+        "          -> empty = succeeded, populated = denied/failed\n" +
+        "          -> a FLOOD of AccessDenied = attacker probing\n" +
+        "\n" +
+        "5. PATTERN pivot on same source_ip / arn across time\n" +
+        "          -> recon -> privesc -> objective sequence?\n" +
+        "=======================================================\n\n" +
+        "EXAMPLE SIEM / ATHENA-STYLE QUERY\n" +
+        "=======================================================\n" +
+        "SELECT eventTime, eventName, eventSource,\n" +
+        "       sourceIPAddress, userIdentity.arn, errorCode\n" +
+        "FROM cloudtrail_logs\n" +
+        "WHERE sourceIPAddress = '185.220.101.47'\n" +
+        "  AND eventTime BETWEEN '2026-06-11T00:00:00Z'\n" +
+        "                     AND '2026-06-11T12:00:00Z'\n" +
+        "ORDER BY eventTime ASC;\n" +
+        "=======================================================",
+      checkpoint: {
+        question: "Two events from the same AssumedRole session arrive in the same minute: DescribeInstances (readOnly: true) and AuthorizeSecurityGroupIngress, which adds an inbound rule to a security group (readOnly: false). Applying Step 5, which do you triage first?",
+        options: [
+          "The security-group change: it alters state on a high-blast-radius control",
+          "DescribeInstances: recon reveals intent, so it outranks any single change",
+          "Neither first: the same session made both, so they share one priority",
+          "Whichever was logged first, since CloudTrail order sets the priority",
+        ],
+        answer: 0,
+        explanation: "Step 5 says to weigh severity by action type: a state-changing call (readOnly false) on a security group has a high blast radius, because it can open the network to the attacker, while a describe/list call changes nothing. “Recon reveals intent, so it outranks any single change” gets the order backwards: recon is worth noting and pivoting on, but the change is what can do damage now. “The same session made both, so they share one priority” is the mistake Step 5 warns about: the same identity can generate both benign and critical events. “Whichever was logged first” uses arrival order, which says nothing about impact.",
+      },
+    },
+
   ],
 };
 
