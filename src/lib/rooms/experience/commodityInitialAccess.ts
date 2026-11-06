@@ -30,11 +30,11 @@ export const COMMODITY_INITIAL_ACCESS: RoomExperience = {
   scene: "baitshop",
   layout: "stage",
   story: {
-    intro: { title: "They Changed the Bait", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-intro-e93b78b0.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-intro-8e74e04a.jpg" },
+    intro: { title: "They Changed the Bait", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-intro-019ff168.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-intro-505ccc10.jpg" },
     afterStation: {
-      clickfix: { title: "Win+R, Ctrl+V, Enter", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-ch2-4157a285.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-ch2-098a938f.jpg" },
-      seo: { title: "Sponsored, Mounted, Trusted", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-ch3-4b27a9c9.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-ch3-f188e938.jpg" },
-      miner: { title: "The Tab That Mines", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-finale-98601c55.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-finale-7b8715b8.jpg" },
+      clickfix: { title: "Win+R, Ctrl+V, Enter", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-ch2-d4b10bb7.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-ch2-4f7ce783.jpg" },
+      seo: { title: "Sponsored, Mounted, Trusted", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-ch3-2df5ddfa.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-ch3-941651e2.jpg" },
+      miner: { title: "The Tab That Mines", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-finale-2e558cbc.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/commodity-initial-access/baitshop-finale-acfe1740.jpg" },
     },
   },
   stations: [
