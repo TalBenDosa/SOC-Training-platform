@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowLeft, Shield, ShieldOff, KeyRound, Star, Trophy, RotateCcw, Eye, ChevronRight,
+  ArrowLeft, Shield, ShieldOff, KeyRound, Star, Trophy, RotateCcw, Eye, ChevronRight, BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TaskPlayer } from "@/components/rooms/TaskPlayer";
@@ -24,6 +24,8 @@ import { useClearRoll } from "./board/useClearRoll";
 import { FacilityBoard } from "./board/FacilityBoard";
 import { StoryPlayer } from "./StoryPlayer";
 import { Drill } from "./briefing/Drill";
+import { StudyAside, StudyContext, StudyOverlay } from "./study/StudyGuide";
+import { readingFor } from "@/lib/rooms/experience/study";
 import { StageBoard } from "./board/StageBoard";
 import { CampusBoard } from "./board/CampusBoard";
 import { LensBoard } from "./board/LensBoard";
@@ -429,6 +431,33 @@ export function OperationView(p: OperationViewProps) {
   useEffect(() => { if (phase === "hub") setSelected(frontier); }, [phase, frontier]);
   const { rolling, unrolled } = useClearRoll(room.id, hubStations, phase === "hub" && experience.layout === "facility", reducedMotion);
 
+  // Study guide: open beside the task by default, folded by choice, full screen
+  // on phones and away from a task. A task that is itself the reading hides it.
+  const [studyFolded, setStudyFolded] = useState(false);
+  const [studyFull, setStudyFull] = useState(false);
+  const [studyInline, setStudyInline] = useState(false);
+  const [studyPick, setStudyPick] = useState<string | null>(null);
+  useEffect(() => {
+    try { setStudyFolded(window.localStorage.getItem("soc-study-folded") === "1"); } catch { /* the guide just stays open */ }
+  }, []);
+  const foldStudy = useCallback((folded: boolean) => {
+    setStudyFolded(folded);
+    try { window.localStorage.setItem("soc-study-folded", folded ? "1" : "0"); } catch { /* per-visit only */ }
+  }, []);
+  const inStation = (phase === "station" || phase === "breached") && !!active && !!task;
+  const studyTaskId = inStation ? task?.id : experience.stations[frontier]?.taskIds[0];
+  useEffect(() => { setStudyPick(null); }, [studyTaskId]);
+  const studyId = studyPick ?? readingFor(studyTaskId, room.tasks);
+  const hasStudy = room.tasks.some(t => t.type === "reading");
+  const readingOnScreen = studyInline || (inStation && task?.type === "reading" && !experience.briefings?.[task.id]?.length);
+  const openStudy = useCallback(() => {
+    const wide = window.matchMedia("(min-width: 1024px)").matches;
+    if (inStation && wide && !readingOnScreen) foldStudy(!studyFolded);
+    else setStudyFull(true);
+  }, [inStation, readingOnScreen, studyFolded, foldStudy]);
+  const studyCtx = useMemo(() => ({ setInline: setStudyInline }), []);
+  const studyProps = { roomId: room.id, tasks: room.tasks, stations: experience.stations, completed: completedTaskIds, readingId: studyId, onPick: setStudyPick };
+
   return (
     <div className="fixed inset-0 z-40 overflow-hidden bg-[#05080f] text-slate-100">
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_75%,rgba(34,211,238,0.10),transparent_55%),linear-gradient(rgba(148,163,184,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.04)_1px,transparent_1px)] bg-[length:100%_100%,48px_48px,48px_48px]" />
@@ -476,6 +505,11 @@ export function OperationView(p: OperationViewProps) {
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
+          {hasStudy && (
+            <button onClick={openStudy} className="inline-flex h-11 items-center gap-2 rounded-full border border-white/15 bg-bg-panel/70 px-4 text-sm font-semibold text-slate-100 backdrop-blur hover:border-cyber-400/60">
+              <BookOpen className="h-4 w-4" /> <span className="hidden sm:inline">Study guide</span>
+            </button>
+          )}
         </div>
 
         <div className={cn("mx-auto flex flex-col items-center text-center", phase === "hub" && "invisible")}>
@@ -513,6 +547,7 @@ export function OperationView(p: OperationViewProps) {
       <AnimatePresence mode="wait">
         {phase === "briefing" && (
           <Briefing key="briefing" experience={experience} roomTitle={room.title} reducedMotion={reducedMotion}
+            onStudy={hasStudy ? () => setStudyFull(true) : undefined}
             onStart={() => { updateLocal(v => ({ ...v, seenBriefing: true })); setPhase("hub"); }} />
         )}
 
@@ -582,8 +617,10 @@ export function OperationView(p: OperationViewProps) {
             transition={{ duration: reducedMotion ? 0 : 0.45, delay: reducedMotion ? 0 : 0.25 }}
             className="absolute inset-x-0 bottom-0 top-24 z-20 overflow-y-auto px-4 pb-10"
           >
+            <StudyContext.Provider value={studyCtx}>
+            <div className="mx-auto flex max-w-[100rem] items-start justify-center gap-4">
             <div
-              className="relative mx-auto max-w-5xl overflow-hidden rounded-3xl border p-5 shadow-2xl backdrop-blur-xl sm:p-7"
+              className="relative min-w-0 max-w-5xl flex-1 overflow-hidden rounded-3xl border p-5 shadow-2xl backdrop-blur-xl sm:p-7"
               style={{
                 // Each room's labs wear the room's own colours, so no two rooms look alike.
                 ["--room-accent" as string]: experience.look?.primary ?? "#38bdf8",
@@ -604,6 +641,9 @@ export function OperationView(p: OperationViewProps) {
                 }}
               />
             </div>
+            {hasStudy && !studyFolded && !readingOnScreen && <StudyAside {...studyProps} onFold={() => foldStudy(true)} />}
+            </div>
+            </StudyContext.Provider>
           </motion.div>
         )}
 
@@ -638,13 +678,20 @@ export function OperationView(p: OperationViewProps) {
             <button autoFocus onClick={restartStation} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-neon-red/90 px-6 py-3 text-sm font-bold text-white hover:bg-neon-red">
               <RotateCcw className="h-4 w-4" /> Restart station
             </button>
+            {hasStudy && (
+              <button onClick={() => setStudyFull(true)} className="mx-auto mt-2 flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-semibold text-slate-200 hover:text-white">
+                <BookOpen className="h-4 w-4" /> Review the study guide first
+              </button>
+            )}
           </Overlay>
         )}
 
         {phase === "debrief" && (
-          <Debrief key="debrief" {...p} hubStations={hubStations} onHub={() => setPhase("hub")} />
+          <Debrief key="debrief" {...p} hubStations={hubStations} onHub={() => setPhase("hub")} onStudy={hasStudy ? () => setStudyFull(true) : undefined} />
         )}
       </AnimatePresence>
+
+      {studyFull && <StudyOverlay {...studyProps} onClose={() => setStudyFull(false)} closeLabel={inStation ? "Back to the task" : "Close"} />}
 
       {/* Story films sit above every phase; closing one reveals whatever is underneath. */}
       <AnimatePresence>
@@ -707,7 +754,7 @@ function Overlay({ children, tone }: { children: React.ReactNode; tone: "green" 
 }
 
 // ─── Briefing: the handler types the situation out ─────────────────────────────
-function Briefing({ experience, roomTitle, reducedMotion, onStart }: { experience: RoomExperience; roomTitle: string; reducedMotion: boolean; onStart: () => void }) {
+function Briefing({ experience, roomTitle, reducedMotion, onStart, onStudy }: { experience: RoomExperience; roomTitle: string; reducedMotion: boolean; onStart: () => void; onStudy?: () => void }) {
   const full = experience.briefing.join("\n");
   const [n, setN] = useState(reducedMotion ? full.length : 0);
   useEffect(() => {
@@ -732,6 +779,11 @@ function Briefing({ experience, roomTitle, reducedMotion, onStart }: { experienc
           <button autoFocus onClick={onStart} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyber-400 to-indigo-400 px-6 py-3 text-sm font-bold text-bg hover:brightness-110">
             Start operation <ChevronRight className="h-4 w-4" />
           </button>
+          {onStudy && (
+            <button onClick={onStudy} className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-5 py-3 text-sm font-semibold text-slate-100 hover:border-white/40">
+              <BookOpen className="h-4 w-4" /> Read the study guide first
+            </button>
+          )}
           {!done && (
             <button onClick={() => setN(full.length)} className="rounded-xl border border-white/20 px-5 py-3 text-sm text-slate-300 hover:border-white/40">Skip</button>
           )}
@@ -742,7 +794,7 @@ function Briefing({ experience, roomTitle, reducedMotion, onStart }: { experienc
 }
 
 // ─── Debrief: the room's real result (same score / pass gate as Classic) ────────
-function Debrief(p: OperationViewProps & { hubStations: HubStation[]; onHub: () => void }) {
+function Debrief(p: OperationViewProps & { hubStations: HubStation[]; onHub: () => void; onStudy?: () => void }) {
   const passed = p.showCompletion;
   return (
     <Overlay tone={passed ? "green" : "red"}>
@@ -800,6 +852,11 @@ function Debrief(p: OperationViewProps & { hubStations: HubStation[]; onHub: () 
         ) : (
           <button onClick={p.onReviewMissed} className="inline-flex items-center justify-center gap-2 rounded-xl bg-neon-amber px-5 py-3 text-sm font-bold text-bg">
             <RotateCcw className="h-4 w-4" /> Revisit {p.missedCount === 1 ? "1 task" : `${p.missedCount} tasks`}
+          </button>
+        )}
+        {p.onStudy && (
+          <button onClick={p.onStudy} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 px-5 py-2.5 text-sm text-slate-200 hover:border-cyber-400/50">
+            <BookOpen className="h-4 w-4" /> Study guide
           </button>
         )}
         <button onClick={() => p.onNavigate("/rooms")} className="rounded-xl px-5 py-2 text-sm text-slate-400 hover:text-white">Back to Rooms</button>

@@ -1,7 +1,7 @@
 "use client";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { KeyRound, FlaskConical, BookOpen, ChevronDown, CheckCircle2, ChevronRight, Lock } from "lucide-react";
+import { KeyRound, FlaskConical, BookOpen, CheckCircle2, ChevronRight, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ReadingBody } from "@/components/rooms/TaskPlayer";
 import { displayOptions, newShuffleSeed } from "@/lib/rooms/shuffle";
@@ -9,6 +9,7 @@ import type { SanitizedReadingTask } from "@/lib/rooms/sanitize";
 import type { BriefingLab } from "@/lib/rooms/experience";
 import { AlreadyCleared, useMechanic, type MechanicProps } from "../shared";
 import { HowToPlay, Lab, Primer } from "./Labs";
+import { useStudyInline } from "../study/StudyGuide";
 
 export const LAB_ICON: Record<BriefingLab["kind"], string> = {
   inspect: "Inspect", sequence: "Sequence", simulate: "Simulate", sort: "Sort", match: "Match",
@@ -18,8 +19,8 @@ export const LAB_ICON: Record<BriefingLab["kind"], string> = {
 };
 
 /**
- * reading → Intel Briefing. The reading's material is taught through hands-on
- * labs first; the full text stays one click away as "field notes". The same
+ * reading → Intel Briefing. The learner studies the full reading first, then
+ * practises it in the labs with the reading still open beside them. The same
  * completion rule as ReadingPlayer applies: the checkpoint must be answered
  * correctly (server-graded, ungraded for score) before the briefing is filed.
  * Working every lab replaces ReadingPlayer's scroll/dwell gate.
@@ -28,7 +29,7 @@ export function IntelBriefing({ roomId, task, isCompleted, onComplete, labs }: M
   const { submit, record, complete, recordInteraction } = useMechanic(roomId, task.id, isCompleted, onComplete);
   const [step, setStep] = useState(0);
   const [doneLabs, setDoneLabs] = useState<Set<number>>(new Set());
-  const [notesOpen, setNotesOpen] = useState(false);
+  const [studying, setStudying] = useState(true);
   const [cpChoice, setCpChoice] = useState<number | null>(null);
   const [cpAnswer, setCpAnswer] = useState<number | null>(null);
   const [cpCorrect, setCpCorrect] = useState(false);
@@ -36,6 +37,10 @@ export function IntelBriefing({ roomId, task, isCompleted, onComplete, labs }: M
   const [busy, setBusy] = useState(false);
   const seed = useMemo(() => newShuffleSeed(), []);
   const markDone = useCallback((i: number) => setDoneLabs(s => new Set(s).add(i)), []);
+  useStudyInline(studying && !isCompleted);
+  // Each step starts at its top, not wherever the last one was scrolled to.
+  const root = useRef<HTMLDivElement | null>(null);
+  useEffect(() => { root.current?.scrollIntoView({ block: "start" }); }, [studying, step]);
 
   if (isCompleted) return <AlreadyCleared heading={task.heading} onContinue={() => complete(0)} />;
 
@@ -64,30 +69,42 @@ export function IntelBriefing({ roomId, task, isCompleted, onComplete, labs }: M
   }
 
   return (
-    <div className="space-y-5" onClickCapture={recordInteraction}>
+    <div ref={root} className="scroll-mt-4 space-y-5" onClickCapture={recordInteraction}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="inline-flex items-center gap-2 rounded-full border border-neon-amber/30 bg-neon-amber/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-neon-amber">
           <KeyRound className="h-3.5 w-3.5" /> Intel briefing · +1 Intel token
         </span>
-        <button onClick={() => setNotesOpen(o => !o)} className="ml-auto inline-flex items-center gap-1.5 text-xs text-slate-300 hover:text-white">
-          <BookOpen className="h-3.5 w-3.5" /> {notesOpen ? "Hide" : "Read"} the full field notes
-        </button>
+        {studying && (
+          <button onClick={() => setStudying(false)} className="ml-auto text-xs font-semibold text-slate-300 underline-offset-2 hover:text-white hover:underline">
+            Skip to the labs
+          </button>
+        )}
       </div>
-      <h2 className="text-2xl font-bold leading-tight text-white">{task.heading}</h2>
+      {!studying && <h2 className="text-2xl font-bold leading-tight text-white">{task.heading}</h2>}
 
       {/* Lab stepper */}
-      <nav aria-label="Briefing labs" className="flex flex-wrap gap-2">
+      <nav aria-label="Briefing steps" className="flex flex-wrap gap-2">
+        <button
+          onClick={() => setStudying(true)}
+          aria-current={studying ? "step" : undefined}
+          className={cn(
+            "inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition",
+            studying ? "border-cyber-300 bg-cyber-500/20 text-white" : "border-white/15 text-slate-300",
+          )}
+        >
+          <BookOpen className="h-3.5 w-3.5" /> Study
+        </button>
         {labs.map((l, i) => {
           const reachable = i === 0 || doneLabs.has(i - 1) || doneLabs.has(i);
           return (
             <button
               key={i}
               disabled={!reachable}
-              onClick={() => setStep(i)}
-              aria-current={step === i ? "step" : undefined}
+              onClick={() => { setStudying(false); setStep(i); }}
+              aria-current={!studying && step === i ? "step" : undefined}
               className={cn(
                 "inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition",
-                step === i ? "border-cyber-300 bg-cyber-500/20 text-white"
+                !studying && step === i ? "border-cyber-300 bg-cyber-500/20 text-white"
                   : doneLabs.has(i) ? "border-neon-green/40 text-neon-green" : reachable ? "border-white/15 text-slate-300" : "border-white/10 text-slate-600",
               )}
             >
@@ -98,18 +115,26 @@ export function IntelBriefing({ roomId, task, isCompleted, onComplete, labs }: M
         })}
         <button
           disabled={!allLabs}
-          onClick={() => setStep(labs.length)}
-          aria-current={!onLabs ? "step" : undefined}
+          onClick={() => { setStudying(false); setStep(labs.length); }}
+          aria-current={!studying && !onLabs ? "step" : undefined}
           className={cn(
             "inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition",
-            !onLabs ? "border-cyber-300 bg-cyber-500/20 text-white" : allLabs ? "border-white/15 text-slate-300" : "border-white/10 text-slate-600",
+            !studying && !onLabs ? "border-cyber-300 bg-cyber-500/20 text-white" : allLabs ? "border-white/15 text-slate-300" : "border-white/10 text-slate-600",
           )}
         >
           {allLabs ? <KeyRound className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />} Key check
         </button>
       </nav>
 
-      {onLabs ? (
+      {studying ? (
+        <motion.section key="study" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-white/10 bg-[#060b16]/80 p-4 sm:p-6">
+          <p className="mb-4 text-sm text-slate-300">Start here. Read this first, then practise it in the labs. It stays open beside you there.</p>
+          <div className="mx-auto max-w-3xl space-y-4"><ReadingBody task={task} roomId={roomId} /></div>
+          <button onClick={() => setStudying(false)} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyber-400 to-indigo-400 px-5 py-2.5 text-sm font-bold text-bg hover:brightness-110">
+            Start the labs <ChevronRight className="h-4 w-4" />
+          </button>
+        </motion.section>
+      ) : onLabs ? (
         <motion.section key={step} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-cyber-500/20 bg-[#060b16]/80 p-4 sm:p-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-cyber-300">
             Lab {step + 1} of {labs.length} · {LAB_ICON[labs[step].kind]}
@@ -153,7 +178,7 @@ export function IntelBriefing({ roomId, task, isCompleted, onComplete, labs }: M
                   );
                 })}
               </div>
-              {cpChoice !== null && !cpCorrect && !busy && <p role="status" className="mt-2 text-xs text-neon-amber">Not quite. Revisit a lab or the field notes, then try again.</p>}
+              {cpChoice !== null && !cpCorrect && !busy && <p role="status" className="mt-2 text-xs text-neon-amber">Not quite. The answer is in the study guide. Read it again, then try once more.</p>}
               {cpCorrect && cpExplanation && <p role="status" className="mt-3 text-xs leading-relaxed text-slate-300">{cpExplanation}</p>}
             </>
           ) : (
@@ -168,15 +193,6 @@ export function IntelBriefing({ roomId, task, isCompleted, onComplete, labs }: M
           </button>
         </motion.section>
       )}
-
-      {/* The full reading, always available */}
-      <section className="rounded-2xl border border-white/10 bg-bg-panel/40">
-        <button onClick={() => setNotesOpen(o => !o)} aria-expanded={notesOpen} className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-200">
-          <BookOpen className="h-4 w-4 text-slate-400" /> Field notes · the full briefing text
-          <ChevronDown className={cn("ml-auto h-4 w-4 transition-transform", notesOpen && "rotate-180")} />
-        </button>
-        {notesOpen && <div className="border-t border-white/10 px-4 pb-5 pt-2"><ReadingBody task={task} roomId={roomId} /></div>}
-      </section>
     </div>
   );
 }
