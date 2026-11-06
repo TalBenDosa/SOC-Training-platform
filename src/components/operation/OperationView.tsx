@@ -105,6 +105,7 @@ const WORLDS: Record<string, React.ComponentType<WorldProps>> = {
   facilitybait: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityBait), { ssr: false }),
   facilityhall: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityHall), { ssr: false }),
   facilitycampus: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityCampus), { ssr: false }),
+  facilitylastword: dynamic(() => import("./scenes/facility/rooms").then(m => m.FacilityLastWord), { ssr: false }),
 };
 
 const MAX_SHIELDS = 3;

@@ -114,6 +114,17 @@ const CAMPUS: CampusConfig = {
   ],
 };
 
+const LASTWORD: CampusConfig = {
+  seed: 7351,
+  hub: { title: "Fenwick & Ash Publishers", sub: "XDR HUB" },
+  buildings: [
+    { icon: "siren", sign: ["The", "Incident"], color: "#fbbf24", x: -17.5, z: -8.5, rot: 0.34 },
+    { icon: "monitor", sign: ["The", "Timeline"], color: "#2dd4bf", x: -10.5, z: 7.5, rot: 0.2 },
+    { icon: "target", sign: ["The", "Hunt"], color: "#a78bfa", x: 8.5, z: 8.5, rot: -0.14 },
+    { icon: "shield", sign: ["Last", "Word"], color: "#fb7185", x: 18, z: -5.5, rot: -0.38 },
+  ],
+};
+
 const HALL: HallConfig = {
   title: "Specimen Hall",
   sub: "Vantor Logistics malware lab",
@@ -183,3 +194,4 @@ export function FacilityPacket(props: WorldProps) { return <CampusWorld cfg={PAC
 export function FacilityEntra(props: WorldProps) { return <CampusWorld cfg={ENTRA} props={props} />; }
 export function FacilityDirectory(props: WorldProps) { return <CampusWorld cfg={DIRECTORY} props={props} />; }
 export function FacilityCampus(props: WorldProps) { return <CampusWorld cfg={CAMPUS} props={props} />; }
+export function FacilityLastWord(props: WorldProps) { return <CampusWorld cfg={LASTWORD} props={props} />; }

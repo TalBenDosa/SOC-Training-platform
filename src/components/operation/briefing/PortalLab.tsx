@@ -1,7 +1,7 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Bell, Bot, Check, ChevronDown, ChevronRight, CircleHelp, FileText, Heart, Lightbulb, ListChecks, Menu, RefreshCw, Search, Settings, Shield, SquareTerminal, Trophy, User, X } from "lucide-react";
+import { Bell, Bot, Check, ChevronDown, ChevronRight, CircleHelp, FileText, Globe, Heart, Lightbulb, ListChecks, Mail, Menu, Monitor, Play, RefreshCw, Search, Settings, Shield, SquareTerminal, Trophy, User, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BriefingLab } from "@/lib/rooms/experience";
 
@@ -114,7 +114,7 @@ function PortalRun({ lab, onDone, onRetry }: { lab: Lab; onDone: () => void; onR
         </div>
       ) : (
         <motion.div key={shake} animate={shake ? { x: [0, -6, 6, -3, 3, 0] } : undefined} className="overflow-x-auto rounded-xl border border-white/10">
-          {lab.skin === "azure" ? <Azure {...ui} /> : lab.skin === "vsphere" ? <Vsphere {...ui} /> : lab.skin === "entra" ? <Entra {...ui} /> : lab.skin === "exchange" ? <Exchange {...ui} /> : <Edr {...ui} />}
+          {lab.skin === "azure" ? <Azure {...ui} /> : lab.skin === "vsphere" ? <Vsphere {...ui} /> : lab.skin === "entra" ? <Entra {...ui} /> : lab.skin === "exchange" ? <Exchange {...ui} /> : lab.skin === "defender" ? <Defender {...ui} /> : <Edr {...ui} />}
         </motion.div>
       )}
 
@@ -529,6 +529,189 @@ function Exchange(ui: Ui) {
               </div>
             )}
           </aside>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Defender-style security portal: queue, incident tabs, attack story graph ──────────
+const NODE_ICON = { user: User, device: Monitor, mail: Mail, ip: Globe, file: FileText, app: Bot };
+
+function SevBars({ tone }: { tone?: string }) {
+  const n = tone === "high" || tone === "critical" ? 3 : tone === "medium" ? 2 : 1;
+  return <span aria-hidden className="inline-flex items-end gap-px">{[1, 2, 3].map(i => <span key={i} className="w-[3px]" style={{ height: 4 + i * 3, background: i <= n ? TONE[tone ?? "info"] : "#d2d0ce" }} />)}</span>;
+}
+
+function Defender(ui: Ui) {
+  const { lab, page, rec, value } = ui;
+  const [tab, setTab] = useState("story");
+  const [frame, setFrame] = useState<number | null>(null);
+  const [node, setNode] = useState<string | null>(null);
+  const [done, setDone] = useState<Record<string, string>>({});
+  const [pane, setPane] = useState<string | null>(null);
+  const [seen, setSeen] = useState<string | null>(null);
+  if (seen !== (rec?.id ?? null)) { setSeen(rec?.id ?? null); setTab("story"); setFrame(null); setNode(null); setPane(null); }
+
+  const last = Math.max(0, ...(rec?.graph?.nodes.map(n => n.order) ?? [0]));
+  useEffect(() => {
+    if (frame === null) return;
+    if (frame >= last) { const t = setTimeout(() => setFrame(null), 900); return () => clearTimeout(t); }
+    const t = setTimeout(() => setFrame(f => (f === null ? null : f + 1)), 700);
+    return () => clearTimeout(t);
+  }, [frame, last]);
+
+  const shown = (order: number) => frame === null || order <= frame;
+  const picked = rec?.graph?.nodes.find(n => n.id === node);
+  const tabs = rec?.graph ? [
+    ["story", "Attack story"], ["alerts", `Alerts (${rec.logs?.rows.length ?? 0})`], ["assets", `Assets (${rec.entities?.length ?? 0})`],
+    ["evidence", "Evidence and Response"], ["summary", "Summary"],
+  ] : [["overview", "Overview"], ["timeline", "Timeline"]];
+  const tabNow = rec?.graph ? tab : (tab === "timeline" ? "timeline" : "overview");
+
+  return (
+    <div className="min-w-[58rem] bg-[#faf9f8] text-[#323130]" style={{ fontFamily: '"Segoe UI", system-ui, sans-serif' }}>
+      <div className="flex h-11 items-center gap-3 border-b border-[#edebe9] bg-white px-3">
+        <Menu className="h-4 w-4 text-[#605e5c]" /><Shield className="h-4 w-4 text-[#0078d4]" /><span className="text-sm font-semibold text-[#201f1e]">{lab.product}</span>
+        <div className="mx-auto flex h-7 w-96 items-center gap-2 rounded-sm bg-[#f3f2f1] px-2 text-xs text-[#605e5c]"><Search className="h-3.5 w-3.5" />Search</div>
+        <Settings className="h-4 w-4 text-[#605e5c]" /><CircleHelp className="h-4 w-4 text-[#605e5c]" />
+        <span className="text-xs text-[#605e5c]">analyst@{lab.tenant}</span>
+      </div>
+      <div className="grid min-h-[33rem] grid-cols-[12rem_1fr]">
+        <nav aria-label="Portal menu" className="border-r border-[#edebe9] bg-white py-2 text-[13px]">
+          {lab.menu.map(g => (
+            <div key={g.group ?? "top"} className="mb-1">
+              {g.group && <p className="px-3 pb-0.5 pt-2 text-[11px] font-semibold text-[#605e5c]">{g.group}</p>}
+              {g.items.map(i => <button key={i.id} onClick={() => ui.go(i.id)} className={cn("block w-full border-l-2 px-3 py-1 text-left hover:bg-[#f3f2f1]", ui.pageId === i.id ? "border-[#0078d4] bg-[#edebe9] font-semibold" : "border-transparent")}>{i.label}</button>)}
+            </div>
+          ))}
+        </nav>
+        {!rec ? (
+          <div className="min-w-0 px-4 py-3">
+            <h4 className="text-xl font-semibold text-[#201f1e]">{page.heading}</h4>
+            {page.tiles && <div className="my-3 flex flex-wrap gap-3">{page.tiles.map(t => <div key={t.label} className="w-36 rounded border border-[#edebe9] bg-white p-2"><p className="text-xl font-semibold text-[#201f1e]">{t.value}</p><p className="text-[11px] text-[#605e5c]">{t.label}</p></div>)}</div>}
+            {page.filters && <div className="my-2 flex flex-wrap gap-1.5">{page.filters.map(f => <span key={f} className="rounded-full border border-[#c8c6c4] bg-white px-2.5 py-0.5 text-[12px]">{f}</span>)}</div>}
+            {page.note && <p className="my-2 text-[13px] text-[#605e5c]">{page.note}</p>}
+            {page.table && <div className="mt-2 rounded border border-[#edebe9] bg-white"><Grid ui={ui} /></div>}
+          </div>
+        ) : (
+          <div className="min-w-0">
+            <div className="border-b border-[#edebe9] bg-white px-4 pt-2">
+              <button onClick={() => ui.go(ui.pageId)} className="text-[12px] text-[#0078d4] hover:underline">{page.heading}</button>
+              <div className="mt-0.5 flex items-center gap-2">
+                {rec.strip?.[0]?.tone && <SevBars tone={rec.strip[0].tone} />}
+                <h4 className="text-lg font-semibold text-[#201f1e]">{rec.title}</h4>
+              </div>
+              {rec.actions && (
+                <div className="mt-1 flex flex-wrap gap-3 text-[13px]">
+                  {rec.actions.map(a => (
+                    <button key={a.id} disabled={!!done[a.id]} onClick={() => ui.act(a.id, () => { setDone(d => ({ ...d, [a.id]: "done" })); if (rec.panes?.[a.id]) { setPane(a.id); setTab("overview"); } })}
+                      className="inline-flex items-center gap-1 text-[#201f1e] hover:text-[#0078d4] disabled:text-[#a19f9d]">{a.label}</button>
+                  ))}
+                </div>
+              )}
+              <div role="tablist" className="mt-1 flex gap-5 text-[13px]">
+                {tabs.map(([id, label]) => <button key={id} role="tab" aria-selected={tabNow === id} onClick={() => { if (ui.hit(`tab:${id}`, false)) setTab(id); }} className={cn("pb-1.5", tabNow === id ? "border-b-2 border-[#0078d4] font-semibold text-[#201f1e]" : "text-[#605e5c] hover:text-[#201f1e]")}>{label}</button>)}
+              </div>
+            </div>
+            {Object.entries(done).filter(([k]) => rec.banners?.[k]).map(([k]) => <p key={k} role="status" className="border-b border-[#edebe9] bg-[#dff6dd] px-4 py-1 text-[12.5px] text-[#201f1e]">{rec.banners?.[k]}</p>)}
+            <div className={cn("grid", rec.graph && "grid-cols-[1fr_13.5rem]")}>
+              <div className="min-w-0 p-3">
+                {tabNow === "story" && rec.graph && (
+                  <div className="grid grid-cols-[13.5rem_1fr] gap-3">
+                    <div className="rounded border border-[#edebe9] bg-white p-2">
+                      <p className="mb-1 text-[12px] font-semibold text-[#201f1e]">Alerts</p>
+                      <ul className="space-y-1">
+                        {rec.timeline?.map(t => <li key={t.time + t.text} className="border-l-[3px] px-1.5 py-0.5 text-[11.5px]" style={{ borderColor: TONE[t.tone ?? "info"] }}><span className="font-mono text-[10.5px] text-[#605e5c]">{t.time}</span> {t.text}</li>)}
+                      </ul>
+                    </div>
+                    <div className="min-w-0 rounded border border-[#edebe9] bg-white">
+                      <div className="flex items-center gap-3 border-b border-[#edebe9] px-2 py-1 text-[12.5px]">
+                        <span className="font-semibold text-[#201f1e]">Incident graph</span>
+                        <button onClick={() => ui.act("play", () => setFrame(0))} className="ml-auto inline-flex items-center gap-1 text-[#0078d4] hover:underline"><Play className="h-3.5 w-3.5" />Play attack story</button>
+                      </div>
+                      <div className="relative h-72" aria-label="Incident graph">
+                        <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+                          {rec.graph.edges.map(([a, b]) => {
+                            const A = rec.graph!.nodes.find(n => n.id === a)!, B = rec.graph!.nodes.find(n => n.id === b)!;
+                            return <line key={a + b} x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke={shown(Math.max(A.order, B.order)) ? "#8a8886" : "transparent"} strokeWidth={1} vectorEffect="non-scaling-stroke" />;
+                          })}
+                        </svg>
+                        {rec.graph.nodes.map(n => {
+                          const Ic = NODE_ICON[n.type];
+                          return (
+                            <button key={n.id} onClick={() => { if (ui.hit(`node:${n.id}`, false)) setNode(n.id); }} style={{ left: `${n.x}%`, top: `${n.y}%` }}
+                              className={cn("absolute w-24 -translate-x-1/2 -translate-y-5 text-center transition-opacity duration-300", shown(n.order) ? "opacity-100" : "opacity-0")}>
+                              <span className={cn("mx-auto flex h-10 w-10 items-center justify-center rounded-full border-2 bg-white", node === n.id ? "border-[#0078d4]" : n.alerted ? "border-[#d13438]" : "border-[#8a8886]")}><Ic className={cn("h-4 w-4", n.alerted ? "text-[#d13438]" : "text-[#605e5c]")} /></span>
+                              <span className="mt-0.5 inline-block rounded-sm bg-white/90 px-0.5 text-[10.5px] leading-tight text-[#201f1e] [overflow-wrap:anywhere]">{n.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {picked && <dl className="grid grid-cols-[7.5rem_1fr] gap-x-2 border-t border-[#edebe9] p-2 text-[12px]">{picked.facts.map(([k, v]) => <React.Fragment key={k}><dt className="text-[#605e5c]">{k}</dt><dd className="[overflow-wrap:anywhere]">{v}</dd></React.Fragment>)}</dl>}
+                    </div>
+                  </div>
+                )}
+                {tabNow === "alerts" && rec.logs && (
+                  <div className="overflow-x-auto rounded border border-[#edebe9] bg-white">
+                    <table className="w-full text-left text-[12.5px]">
+                      <thead className="text-[#605e5c]"><tr className="border-b border-[#edebe9]">{rec.logs.columns.map(c => <th key={c} className="px-2 py-1 font-semibold">{c}</th>)}</tr></thead>
+                      <tbody>{rec.logs.rows.map(r => <tr key={r.id} className="border-b border-[#f3f2f1]">{r.cells.map((c, i) => <td key={i} className="px-2 py-1">{c}</td>)}</tr>)}</tbody>
+                    </table>
+                  </div>
+                )}
+                {tabNow === "assets" && (
+                  <ul className="space-y-1">{rec.entities?.map(e => <li key={e.id}><button onClick={() => ui.act(`entity:${e.id}`)} className="flex w-full items-center gap-2 rounded border border-[#edebe9] bg-white px-2 py-1.5 text-left text-[13px] hover:bg-[#f3f9fd]"><span className="font-semibold text-[#201f1e]">{e.label}</span><span className="text-[11px] text-[#605e5c]">{e.type}</span>{e.seen && <span className="ml-auto text-[11px] text-[#605e5c]">{e.seen}</span>}</button></li>)}</ul>
+                )}
+                {tabNow === "evidence" && (
+                  <div className="overflow-x-auto rounded border border-[#edebe9] bg-white">
+                    <table className="w-full text-left text-[12.5px]">
+                      <thead className="text-[#605e5c]"><tr className="border-b border-[#edebe9]">{["Entity", "Type", "Verdict", "Evidence", "Pending action", "Remediation status", ""].map(c => <th key={c} className="px-2 py-1 font-semibold">{c}</th>)}</tr></thead>
+                      <tbody>
+                        {rec.remediation?.map(r => (
+                          <tr key={r.id} className="border-b border-[#f3f2f1] align-top">
+                            <td className="px-2 py-1 font-mono text-[12px]">{r.entity}</td><td className="px-2 py-1">{r.type}</td>
+                            <td className="px-2 py-1 font-semibold" style={{ color: r.verdict === "Malicious" ? "#a4262c" : r.verdict === "Suspicious" ? "#ca5010" : "#107c10" }}>{r.verdict}</td>
+                            <td className="px-2 py-1">{r.detail}</td>
+                            <td className="px-2 py-1">{r.action}</td><td className="px-2 py-1">{done[r.id] ?? "Pending approval"}</td>
+                            <td className="whitespace-nowrap px-2 py-1">
+                              {!done[r.id] && <>
+                                <button onClick={() => ui.act(`approve:${r.id}`, () => setDone(d => ({ ...d, [r.id]: "Approved" })))} className="mr-1 rounded-sm bg-[#0078d4] px-2 py-0.5 text-[12px] font-semibold text-white hover:bg-[#106ebe]">Approve</button>
+                                <button onClick={() => ui.act(`reject:${r.id}`, () => setDone(d => ({ ...d, [r.id]: "Rejected" })))} className="rounded-sm border border-[#8a8886] px-2 py-0.5 text-[12px] hover:bg-[#f3f2f1]">Reject</button>
+                              </>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {(tabNow === "summary" || tabNow === "overview") && (
+                  <div className="grid gap-3">
+                    {tabNow === "overview" && <div className="flex flex-wrap gap-3">{rec.facts.map(([k, v]) => <div key={k} className="min-w-[8rem] rounded border border-[#edebe9] bg-white p-2"><p className="text-[11px] text-[#605e5c]">{k}</p><p className="text-[13px] font-semibold text-[#201f1e]">{v}</p></div>)}</div>}
+                    {tabNow === "summary" && <dl className="grid grid-cols-[10rem_1fr] gap-x-3 gap-y-1 rounded border border-[#edebe9] bg-white p-3 text-[13px]">{rec.facts.map(([k, v]) => <React.Fragment key={k}><dt className="text-[#605e5c]">{k}</dt><dd>{v}</dd></React.Fragment>)}</dl>}
+                    {tabNow === "summary" && rec.tactics && <p className="text-[13px]"><span className="text-[#605e5c]">Tactics: </span>{rec.tactics}</p>}
+                    {pane && rec.panes?.[pane] && (
+                      <div className="rounded bg-[#1b1a19] p-3 font-mono text-[12px] text-[#f3f2f1]">
+                        <p className="mb-1 text-[#8a8886]">Live Response session · {rec.title}</p>
+                        {rec.panes[pane].map(([k, v]) => <p key={k + v} className="whitespace-pre-wrap [overflow-wrap:anywhere]"><span className="text-[#8a8886]">{k}</span> {v}</p>)}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {tabNow === "timeline" && (
+                  <ol className="space-y-1">{rec.timeline?.map(t => <li key={t.time + t.text} className="rounded border-l-4 bg-white px-2 py-1 text-[12.5px]" style={{ borderColor: TONE[t.tone ?? "info"] }}><span className="font-mono text-[11px] text-[#605e5c]">{t.time}</span> {t.text}</li>)}</ol>
+                )}
+              </div>
+              {rec.graph && (
+                <aside aria-label="Incident details" className="border-l border-[#edebe9] bg-white p-2 text-[12.5px]">
+                  <p className="mb-1 font-semibold text-[#201f1e]">Incident details</p>
+                  <div className="grid gap-1">{rec.strip?.map(s => <div key={s.field} className="rounded-sm border border-[#edebe9]"><AzureDrop ui={ui} field={s.field} label={s.label} value={value(s.field, s.value)} options={s.options} tone={s.tone ? TONE[s.tone] : undefined} /></div>)}</div>
+                  {rec.evidence && <div className="mt-2 grid grid-cols-2 gap-1">{rec.evidence.map(([k, v]) => <div key={k}><p className="text-base font-semibold text-[#201f1e]">{v}</p><p className="text-[11px] text-[#605e5c]">{k}</p></div>)}</div>}
+                </aside>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>

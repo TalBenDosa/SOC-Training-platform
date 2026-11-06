@@ -1117,7 +1117,6 @@ const defenderXdr: Room = {
   icon: "🛡️",
   prerequisites: ["endpoint-security-fundamentals", "microsoft-365-security", "security-products-behaviour"],
   tasks: [
-
     // ── Reading 1: MDE Overview & Onboarding ──────────────────────────────────
     {
       type: "reading",
@@ -1206,6 +1205,38 @@ This eliminates the need for physical access to investigate a compromised device
           "Live Response works on any onboarded device, including an isolated one, because isolation keeps the connection to the Defender service open; collecting files is one of its core functions. The Timeline shows that the file event happened, but it does not hold the file's contents. Advanced Hunting tables hold metadata (name, path, hashes), not the file. Releasing isolation reconnects a possibly compromised host to the network just to copy a file that Live Response can collect safely.",
       },
     } satisfies ReadingTask,
+
+    // ── Question 1 ────────────────────────────────────────────────────────────
+    {
+      type: "question",
+      id: "def-xdr-q1",
+      question: "From a contractor laptop that has no MDE agent, someone requests Kerberos service tickets for 40 different service accounts within one minute. No malware runs. Which Defender XDR component can still raise an alert on this?",
+      options: [
+        "Defender for Endpoint, from the ticket requests recorded on the laptop",
+        "Defender for Office 365, by tracing the phishing email that began it",
+        "Defender for Identity, whose domain-controller sensors see the requests",
+        "Defender for Cloud Apps, which inspects Entra ID token issuance"
+      ],
+      answer: 2,
+      explanation: "This is the Kerberoasting pattern (T1558.003), and the ticket requests are answered by the domain controllers. **Defender for Identity** runs its sensors on the DCs, so it sees them whatever the client is. That is why it still alerts when the source laptop is unmanaged. Defender for Endpoint needs its agent on the device, and this laptop has none. Defender for Office 365 covers email and collaboration; even if a phishing email started the attack, it does not see Kerberos traffic. Defender for Cloud Apps watches SaaS and cloud activity, while these tickets are issued by on-premises Active Directory, not by Entra ID.",
+      xp: 35,
+    } satisfies QuestionTask,
+
+    // ── Question 3 ────────────────────────────────────────────────────────────
+    {
+      type: "question",
+      id: "def-xdr-q3",
+      question: "You receive a Defender XDR incident containing 12 alerts across 4 devices and 3 user accounts. What is the main advantage of Defender XDR automatically grouping these into one incident rather than 12 separate alerts?",
+      options: [
+        "The incident can be closed as soon as its highest-severity alert is resolved",
+        "Alerts from different products are linked into one attack story with its full scope",
+        "Duplicate detections of one event are merged, so 11 of the alerts can be ignored",
+        "The alerts are ranked, so only the most severe one needs to be investigated"
+      ],
+      answer: 1,
+      explanation: "The value of **XDR correlation** is reconstructing the attack story. A phishing alert (Defender for Office 365), a suspicious logon (Defender for Identity) and PowerShell and PsExec alerts on two devices (MDE) each look moderate alone. Together, in one incident with its graph, they show phishing → credential compromise → lateral movement across 4 devices and 3 accounts. Resolving the most severe alert does not resolve the others: each can be a separate step that needs its own containment. The 12 alerts are related detections, not duplicates of one event, so none can be ignored. Severity ordering helps you choose where to start, but scoping still needs every alert.",
+      xp: 35,
+    } satisfies QuestionTask,
 
     // ── Reading 2: Alert Investigation ────────────────────────────────────────
     {
@@ -1315,6 +1346,96 @@ MDI monitors your on-premises Active Directory domain controllers and Azure Entr
       },
     } satisfies ReadingTask,
 
+    // ── Log Analysis: MDE — PsExec Lateral Movement ───────────────────────────
+    {
+      type: "log_analysis",
+      id: "def-xdr-la1",
+      heading: "MDE Alert: Lateral Movement via PsExec",
+      context: "You are investigating a Defender XDR incident. Its lateral-movement alert says that at 03:17 the service account CORP\\svc-backup authenticated from a developer workstation (WS-DEV-09, 10.0.5.21) to the file server SRV-FILE01 and started a remote process there. Below is the DeviceProcessEvents record from SRV-FILE01 that the alert points to. Analyse it and answer the questions.",
+      event: {
+        id: "def-xdr-la1-001",
+        ts: "2025-11-22T03:17:44.000Z",
+        source: "edr",
+        vendor: "Microsoft Defender for Endpoint",
+        event_type: "process_create",
+        severity: "high",
+        description: "MDE DeviceProcessEvents on SRV-FILE01: cmd.exe created at 03:17, linked to a lateral-movement alert from WS-DEV-09",
+        hostname: "SRV-FILE01",
+        user_email: "svc-backup@corp.com",
+        src_ip: "10.0.5.21",
+        dst_ip: "10.0.10.5",
+        mitre_technique: "T1021.002",
+        mitre_tactic: "Lateral Movement",
+        process: {
+          name: "cmd.exe",
+          pid: 7712,
+          parent_name: "PSEXESVC.exe",
+          parent_pid: 5340,
+          cmdline: "\"cmd.exe\"",
+          user: "NT AUTHORITY\\SYSTEM",
+          integrity: "system",
+        },
+        raw: {
+          "Timestamp": "2025-11-22T03:17:44.000Z",
+          "DeviceId": "4c1e7a92-5b3d-4f08-9e6a-2d7f1b0c8e35",
+          "DeviceName": "srv-file01.corp.local",
+          "ActionType": "ProcessCreated",
+          "FileName": "cmd.exe",
+          "FolderPath": "C:\\Windows\\System32\\cmd.exe",
+          "ProcessId": 7712,
+          "ProcessCommandLine": "\"cmd.exe\"",
+          "ProcessIntegrityLevel": "System",
+          "AccountDomain": "nt authority",
+          "AccountName": "system",
+          "AccountSid": "S-1-5-18",
+          "InitiatingProcessFileName": "PSEXESVC.exe",
+          "InitiatingProcessFolderPath": "C:\\Windows\\PSEXESVC.exe",
+          "InitiatingProcessId": 5340,
+          "InitiatingProcessCommandLine": "C:\\Windows\\PSEXESVC.exe",
+          "InitiatingProcessParentFileName": "services.exe",
+          "InitiatingProcessAccountDomain": "nt authority",
+          "InitiatingProcessAccountName": "system",
+          "ReportId": 30417
+        },
+      } satisfies TelemetryEvent,
+      questions: [
+        {
+          question: "The alert says the remote connection authenticated as svc-backup, yet the shell on SRV-FILE01 runs as nt authority\\system. What best explains this, and what does it tell you about svc-backup?",
+          options: [
+            "PsExec always maps service accounts to SYSTEM; svc-backup may be unprivileged",
+            "PsExec was run with -s; svc-backup must already be a local admin on SRV-FILE01",
+            "A local scheduled task started the shell; svc-backup was not involved in it",
+            "The record is mis-attributed; MDE logs PsExec children under the service name"
+          ],
+          answer: 1,
+          explanation: "On the target, PsExec's remote command runs as a child of `PSEXESVC.exe` (shown here), and it runs as the connecting account unless the `-s` option is used, which makes it run as SYSTEM. Installing PSEXESVC requires local administrator rights, so svc-backup already had admin on SRV-FILE01: that is a finding in itself, and it widens the blast radius of the stolen credential. PsExec does not map service accounts to SYSTEM; without -s, the shell would run as svc-backup. A scheduled task would be started by the task scheduler service, not by PSEXESVC.exe, so the parent rules it out. MDE records the real account of each process (AccountName/AccountSid S-1-5-18); nothing in the record suggests mis-attribution.",
+          xp: 45,
+        },
+        {
+          question: "svc-backup is a legitimate service account, normally used only by the overnight backup job that runs from the backup server. How should you read this 03:17 activity?",
+          options: [
+            "Expected: the backup window is overnight, so svc-backup activity at 03:17 is normal",
+            "A misconfigured backup task that launched PsExec with the wrong command by mistake",
+            "Likely stolen credentials: a backup job has no need for a SYSTEM shell from a dev PC",
+            "Lower priority: svc-backup is already privileged, so a SYSTEM shell adds little"
+          ],
+          answer: 2,
+          explanation: "The time fits the account, but nothing else does. The connection comes from a developer workstation (WS-DEV-09), not the backup server, and the result is an interactive SYSTEM `cmd.exe` through PsExec, not backup traffic. Attackers pick service accounts precisely because activity in their usual window looks normal. Treating it as expected judges the time and ignores the source host and the action. A misconfigured backup task would run from the backup server, not from a dev PC. A SYSTEM shell on a file server gives full control of the host and its data, so the account's existing privilege raises the priority rather than lowering it.",
+          xp: 45,
+        },
+      ],
+    } satisfies LogAnalysisTask,
+
+    // ── Flag Task ─────────────────────────────────────────────────────────────
+    {
+      type: "flag",
+      id: "def-xdr-f1",
+      prompt: "Next you want the SRV-FILE01 timeline to show everything else the PsExec service process did there (other child processes, files written, network connections). Using the record above, what is the process ID of the process that launched the SYSTEM shell?",
+      answer: "5340",
+      hint: "The record describes two processes: the one that was created and the one that created it.",
+      xp: 60,
+    } satisfies FlagTask,
+
     // ── Reading 3: Advanced Hunting KQL ───────────────────────────────────────
     {
       type: "reading",
@@ -1420,22 +1541,6 @@ Advanced Hunting queries can be saved as **Custom Detection Rules** that run on 
 SOC analysts often track Secure Score as a KPI for endpoint security health.`,
     } satisfies ReadingTask,
 
-    // ── Question 1 ────────────────────────────────────────────────────────────
-    {
-      type: "question",
-      id: "def-xdr-q1",
-      question: "From a contractor laptop that has no MDE agent, someone requests Kerberos service tickets for 40 different service accounts within one minute. No malware runs. Which Defender XDR component can still raise an alert on this?",
-      options: [
-        "Defender for Endpoint, from the ticket requests recorded on the laptop",
-        "Defender for Office 365, by tracing the phishing email that began it",
-        "Defender for Identity, whose domain-controller sensors see the requests",
-        "Defender for Cloud Apps, which inspects Entra ID token issuance"
-      ],
-      answer: 2,
-      explanation: "This is the Kerberoasting pattern (T1558.003), and the ticket requests are answered by the domain controllers. **Defender for Identity** runs its sensors on the DCs, so it sees them whatever the client is. That is why it still alerts when the source laptop is unmanaged. Defender for Endpoint needs its agent on the device, and this laptop has none. Defender for Office 365 covers email and collaboration; even if a phishing email started the attack, it does not see Kerberos traffic. Defender for Cloud Apps watches SaaS and cloud activity, while these tickets are issued by on-premises Active Directory, not by Entra ID.",
-      xp: 35,
-    } satisfies QuestionTask,
-
     // ── Question 2 ────────────────────────────────────────────────────────────
     {
       type: "question",
@@ -1451,112 +1556,6 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
       explanation: "To tie **which process** to **which connection**, join:\n- **DeviceProcessEvents**: process creation, with the process name (powershell.exe), command line and ProcessId.\n- **DeviceNetworkEvents**: connections, with RemoteIP, RemotePort, RemoteIPType and the InitiatingProcessId of the process that opened them.\nJoin on DeviceId and ProcessId = InitiatingProcessId, as in Query 4. AlertEvidence only holds entities attached to alerts that already fired, so it misses unalerted activity, which is what hunting is for. DeviceLogonEvents records sign-ins, not connections to public IPs. IdentityLogonEvents records authentication against AD/Entra ID, not which process on a device opened a connection.",
       xp: 35,
     } satisfies QuestionTask,
-
-    // ── Question 3 ────────────────────────────────────────────────────────────
-    {
-      type: "question",
-      id: "def-xdr-q3",
-      question: "You receive a Defender XDR incident containing 12 alerts across 4 devices and 3 user accounts. What is the main advantage of Defender XDR automatically grouping these into one incident rather than 12 separate alerts?",
-      options: [
-        "The incident can be closed as soon as its highest-severity alert is resolved",
-        "Alerts from different products are linked into one attack story with its full scope",
-        "Duplicate detections of one event are merged, so 11 of the alerts can be ignored",
-        "The alerts are ranked, so only the most severe one needs to be investigated"
-      ],
-      answer: 1,
-      explanation: "The value of **XDR correlation** is reconstructing the attack story. A phishing alert (Defender for Office 365), a suspicious logon (Defender for Identity) and PowerShell and PsExec alerts on two devices (MDE) each look moderate alone. Together, in one incident with its graph, they show phishing → credential compromise → lateral movement across 4 devices and 3 accounts. Resolving the most severe alert does not resolve the others: each can be a separate step that needs its own containment. The 12 alerts are related detections, not duplicates of one event, so none can be ignored. Severity ordering helps you choose where to start, but scoping still needs every alert.",
-      xp: 35,
-    } satisfies QuestionTask,
-
-    // ── Log Analysis: MDE — PsExec Lateral Movement ───────────────────────────
-    {
-      type: "log_analysis",
-      id: "def-xdr-la1",
-      heading: "MDE Alert: Lateral Movement via PsExec",
-      context: "You are investigating a Defender XDR incident. Its lateral-movement alert says that at 03:17 the service account CORP\\svc-backup authenticated from a developer workstation (WS-DEV-09, 10.0.5.21) to the file server SRV-FILE01 and started a remote process there. Below is the DeviceProcessEvents record from SRV-FILE01 that the alert points to. Analyse it and answer the questions.",
-      event: {
-        id: "def-xdr-la1-001",
-        ts: "2025-11-22T03:17:44.000Z",
-        source: "edr",
-        vendor: "Microsoft Defender for Endpoint",
-        event_type: "process_create",
-        severity: "high",
-        description: "MDE DeviceProcessEvents on SRV-FILE01: cmd.exe created at 03:17, linked to a lateral-movement alert from WS-DEV-09",
-        hostname: "SRV-FILE01",
-        user_email: "svc-backup@corp.com",
-        src_ip: "10.0.5.21",
-        dst_ip: "10.0.10.5",
-        mitre_technique: "T1021.002",
-        mitre_tactic: "Lateral Movement",
-        process: {
-          name: "cmd.exe",
-          pid: 7712,
-          parent_name: "PSEXESVC.exe",
-          parent_pid: 5340,
-          cmdline: "\"cmd.exe\"",
-          user: "NT AUTHORITY\\SYSTEM",
-          integrity: "system",
-        },
-        raw: {
-          "Timestamp": "2025-11-22T03:17:44.000Z",
-          "DeviceId": "4c1e7a92-5b3d-4f08-9e6a-2d7f1b0c8e35",
-          "DeviceName": "srv-file01.corp.local",
-          "ActionType": "ProcessCreated",
-          "FileName": "cmd.exe",
-          "FolderPath": "C:\\Windows\\System32\\cmd.exe",
-          "ProcessId": 7712,
-          "ProcessCommandLine": "\"cmd.exe\"",
-          "ProcessIntegrityLevel": "System",
-          "AccountDomain": "nt authority",
-          "AccountName": "system",
-          "AccountSid": "S-1-5-18",
-          "InitiatingProcessFileName": "PSEXESVC.exe",
-          "InitiatingProcessFolderPath": "C:\\Windows\\PSEXESVC.exe",
-          "InitiatingProcessId": 5340,
-          "InitiatingProcessCommandLine": "C:\\Windows\\PSEXESVC.exe",
-          "InitiatingProcessParentFileName": "services.exe",
-          "InitiatingProcessAccountDomain": "nt authority",
-          "InitiatingProcessAccountName": "system",
-          "ReportId": 30417
-        },
-      } satisfies TelemetryEvent,
-      questions: [
-        {
-          question: "The alert says the remote connection authenticated as svc-backup, yet the shell on SRV-FILE01 runs as nt authority\\system. What best explains this, and what does it tell you about svc-backup?",
-          options: [
-            "PsExec always maps service accounts to SYSTEM; svc-backup may be unprivileged",
-            "PsExec was run with -s; svc-backup must already be a local admin on SRV-FILE01",
-            "A local scheduled task started the shell; svc-backup was not involved in it",
-            "The record is mis-attributed; MDE logs PsExec children under the service name"
-          ],
-          answer: 1,
-          explanation: "On the target, PsExec's remote command runs as a child of `PSEXESVC.exe` (shown here), and it runs as the connecting account unless the `-s` option is used, which makes it run as SYSTEM. Installing PSEXESVC requires local administrator rights, so svc-backup already had admin on SRV-FILE01: that is a finding in itself, and it widens the blast radius of the stolen credential. PsExec does not map service accounts to SYSTEM; without -s, the shell would run as svc-backup. A scheduled task would be started by the task scheduler service, not by PSEXESVC.exe, so the parent rules it out. MDE records the real account of each process (AccountName/AccountSid S-1-5-18); nothing in the record suggests mis-attribution.",
-          xp: 45,
-        },
-        {
-          question: "svc-backup is a legitimate service account, normally used only by the overnight backup job that runs from the backup server. How should you read this 03:17 activity?",
-          options: [
-            "Expected: the backup window is overnight, so svc-backup activity at 03:17 is normal",
-            "A misconfigured backup task that launched PsExec with the wrong command by mistake",
-            "Likely stolen credentials: a backup job has no need for a SYSTEM shell from a dev PC",
-            "Lower priority: svc-backup is already privileged, so a SYSTEM shell adds little"
-          ],
-          answer: 2,
-          explanation: "The time fits the account, but nothing else does. The connection comes from a developer workstation (WS-DEV-09), not the backup server, and the result is an interactive SYSTEM `cmd.exe` through PsExec, not backup traffic. Attackers pick service accounts precisely because activity in their usual window looks normal. Treating it as expected judges the time and ignores the source host and the action. A misconfigured backup task would run from the backup server, not from a dev PC. A SYSTEM shell on a file server gives full control of the host and its data, so the account's existing privilege raises the priority rather than lowering it.",
-          xp: 45,
-        },
-      ],
-    } satisfies LogAnalysisTask,
-
-    // ── Flag Task ─────────────────────────────────────────────────────────────
-    {
-      type: "flag",
-      id: "def-xdr-f1",
-      prompt: "Next you want the SRV-FILE01 timeline to show everything else the PsExec service process did there (other child processes, files written, network connections). Using the record above, what is the process ID of the process that launched the SYSTEM shell?",
-      answer: "5340",
-      hint: "The record describes two processes: the one that was created and the one that created it.",
-      xp: 60,
-    } satisfies FlagTask,
 
     // ── Question 4 (bonus) ────────────────────────────────────────────────────
     {

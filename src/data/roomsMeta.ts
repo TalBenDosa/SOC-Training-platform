@@ -1496,22 +1496,7 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
-        "id": "def-xdr-r2",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "def-xdr-r3",
-        "type": "reading",
-        "xp": 0
-      },
-      {
         "id": "def-xdr-q1",
-        "type": "question",
-        "xp": 35
-      },
-      {
-        "id": "def-xdr-q2",
         "type": "question",
         "xp": 35
       },
@@ -1519,6 +1504,11 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "def-xdr-q3",
         "type": "question",
         "xp": 35
+      },
+      {
+        "id": "def-xdr-r2",
+        "type": "reading",
+        "xp": 0
       },
       {
         "id": "def-xdr-la1",
@@ -1530,6 +1520,16 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "def-xdr-f1",
         "type": "flag",
         "xp": 60
+      },
+      {
+        "id": "def-xdr-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "def-xdr-q2",
+        "type": "question",
+        "xp": 35
       },
       {
         "id": "def-xdr-q4",
