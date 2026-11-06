@@ -26,6 +26,14 @@ export const ENDPOINT_SECURITY_FUNDAMENTALS: RoomExperience = {
   look: { primary: "#34d399", secondary: "#60a5fa", warn: "#f43f5e" },
   scene: "blackbox",
   layout: "stage",
+  story: {
+    intro: { title: "Every Endpoint Is a Flight Recorder", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/endpoint-security-fundamentals/blackbox-intro-ab2c9298.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/endpoint-security-fundamentals/blackbox-intro-67f1dd57.jpg" },
+    afterStation: {
+      gens: { title: "Live Response", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/endpoint-security-fundamentals/blackbox-ch2-67b9d6f2.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/endpoint-security-fundamentals/blackbox-ch2-4c2c6c9c.jpg" },
+      recorder: { title: "The Parent Tells the Story", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/endpoint-security-fundamentals/blackbox-ch3-2e46a959.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/endpoint-security-fundamentals/blackbox-ch3-ca8c3bb9.jpg" },
+      alert: { title: "Read It Like Hana", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/endpoint-security-fundamentals/blackbox-finale-1c2be7bd.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/endpoint-security-fundamentals/blackbox-finale-e9e49910.jpg" },
+    },
+  },
   stations: [
     {
       id: "gens",
