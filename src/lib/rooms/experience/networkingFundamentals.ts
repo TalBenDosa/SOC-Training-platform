@@ -26,10 +26,10 @@ export const NETWORKING_FUNDAMENTALS: RoomExperience = {
   scene: "facilitypacket",
   layout: "facility",
   story: {
-    intro: { title: "Follow the Packet", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-intro-8481ab1b.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-intro-38d51227.jpg" },
+    intro: { title: "Follow the Packet", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-intro-458205ee.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-intro-e3fe2f11.jpg" },
     afterStation: {
-      handshake: { title: "Three Packets to Open", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-ch2-75c9340e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-ch2-e2b8f989.jpg" },
-      border: { title: "Behind the NAT", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-ch3-78575dc3.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-ch3-e6552831.jpg" },
+      handshake: { title: "Three Packets to Open", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-ch2-4af883a7.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-ch2-e2b8f989.jpg" },
+      border: { title: "Behind the NAT", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-ch3-465ffd85.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-ch3-e6552831.jpg" },
       alert: { title: "Read the Wire", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-finale-4ef9af16.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/networking-fundamentals/packet-trail-finale-1b577b3c.jpg" },
     },
   },
