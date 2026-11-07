@@ -51,6 +51,10 @@ import { source as windows_security } from "./sources/windows_security";
 import { source as zscaler_zia } from "./sources/zscaler_zia";
 import { source as zscaler_zpa } from "./sources/zscaler_zpa";
 import { source as workday } from "./sources/workday";
+import { source as aws_waf } from "./sources/aws_waf";
+import { source as azure_waf } from "./sources/azure_waf";
+import { source as iis } from "./sources/iis";
+import { source as nginx } from "./sources/nginx";
 
 export const NATIVE_SOURCES: Partial<Record<SourceId, NativeSource>> = {
   anyconnect, aws_cloudtrail, aws_guardduty, aws_vpcflow, azure_activity, checkpoint, cisco_asa, cisco_ftd,
@@ -58,6 +62,7 @@ export const NATIVE_SOURCES: Partial<Record<SourceId, NativeSource>> = {
   google_workspace, infoblox, k8s_audit, linux_auditd, m365, mde, okta, paloalto, proofpoint, sentinelone,
   servicenow, sophos, sysmon, windows_dns, zscaler_zia, zscaler_zpa,
   cyberark, windows_security, workday,
+  aws_waf, azure_waf, iis, nginx,
 };
 
 export function stackFor(companyId: string, override?: Stack): Stack {

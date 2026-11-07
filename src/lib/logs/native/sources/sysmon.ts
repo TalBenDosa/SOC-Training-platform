@@ -411,6 +411,16 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       data = { ...head, ImageLoaded: loaded, Hashes: ed("Hashes") ?? `SHA256=${imageHashes(ctx, loaded).sha256.toUpperCase()}`, Signed: ed("Signed") ?? "true", Signature: ed("Signature") ?? "Microsoft Windows", SignatureStatus: ed("SignatureStatus") ?? "Valid" };
       break;
     }
+    case "7": {
+      const loaded = ed("ImageLoaded");
+      if (!loaded) return null;
+      data = {
+        ...head, ProcessGuid: procGuid, ProcessId: pid, Image: image, ImageLoaded: loaded,
+        Hashes: ed("Hashes") ?? `SHA256=${imageHashes(ctx, loaded).sha256.toUpperCase()}`,
+        Signed: ed("Signed") ?? "false", Signature: ed("Signature") ?? "-", SignatureStatus: ed("SignatureStatus") ?? "Unavailable", User: user,
+      };
+      break;
+    }
     case "17": case "18": {
       const pipe = ed("PipeName") ?? r("PipeName");
       if (!pipe || !needImage()) return null;

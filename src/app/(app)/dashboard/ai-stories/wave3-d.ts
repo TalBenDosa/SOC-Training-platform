@@ -2,7 +2,7 @@
  * AI-related attack stories, wave 3 part D (live feed & team training). Two AI-abuse chains
  * built on Microsoft-stack control-plane telemetry the earlier waves did not cover:
  *
- *  1. ai-deepfake-exec-call-payment-fraud (core; quantumbank, globallogis) - a finance user
+ *  1. ai-deepfake-exec-call-payment-fraud (core; the Microsoft 365 estates) - a finance user
  *     joins a Microsoft Teams meeting hosted from an external look-alike tenant where a
  *     deepfaked executive voice and video asks for an urgent vendor payment. Telemetry: the
  *     meeting invite from the look-alike domain (Defender for Office 365 EmailEvents), the
@@ -13,7 +13,7 @@
  *     request), a follow-up Exchange inbox rule that hides replies, and a Microsoft Sentinel
  *     correlation on look-alike domain + external tenant + payment change.
  *
- *  2. ai-browser-agent-prompt-hijack (core; nexacorp) - an employee's AI browser agent
+ *  2. ai-browser-agent-prompt-hijack (core; the Entra ID estates) - an employee's AI browser agent
  *     researches suppliers; a web page carries a short hidden instruction telling the agent to
  *     open a link, which leads to an OAuth consent prompt for a multi-tenant app that is then
  *     granted mail-read access; the app's service principal reads mailboxes through Microsoft
@@ -501,14 +501,14 @@ export const AI_WAVE3_D_STORIES: AiStoryDef[] = [
     id: "ai-deepfake-exec-call-payment-fraud",
     title: "Deepfaked Executive on a Teams Call from an External Tenant Drives a Vendor Payment Change",
     complexity: "core",
-    companies: ["quantumbank", "globallogis"],
+    companies: ["quantumbank", "globallogis", "nexacorp", "medcore"], soloCompanies: ["quantumbank", "globallogis"],
     events: buildDeepfakeExecCallPaymentFraud(),
   },
   {
     id: "ai-browser-agent-prompt-hijack",
     title: "AI Browser Agent Follows a Hidden Instruction into an OAuth Consent and Mail Read",
     complexity: "core",
-    companies: ["nexacorp"],
+    companies: ["nexacorp", "medcore", "globallogis"], soloCompanies: ["nexacorp"],
     events: buildBrowserAgentPromptHijack(),
   },
 ];

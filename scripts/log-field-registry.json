@@ -1702,6 +1702,13 @@
         "waf."
       ]
     },
+    "azure-app-service": {
+      "label": "Azure App Service HTTP logs",
+      "note": "Columns of the AppServiceHTTPLogs table: learn.microsoft.com/azure/azure-monitor/reference/tables/appservicehttplogs (checked 2026-11-07).",
+      "aliases": ["Azure App Service"],
+      "exactFields": ["TimeGenerated", "Type", "_ResourceId", "CsHost", "CsMethod", "CsUriStem", "CsUriQuery", "CIp", "SPort", "ScStatus", "CsBytes", "ScBytes", "TimeTaken", "UserAgent", "Result"],
+      "prefixes": []
+    },
     "azure-monitor": {
       "label": "Azure Monitor / Azure Activity Log",
       "aliases": [

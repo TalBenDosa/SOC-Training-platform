@@ -81,7 +81,7 @@ const SOURCE_CATEGORY: Partial<Record<LogSource, SourceCategory>> = {
   o365: "cloud", gws: "cloud", cloudtrail: "cloud", cloud_azure: "cloud", cloud_gcp: "cloud",
   sharepoint: "cloud", teams: "cloud", k8s_audit: "cloud",
   firewall: "network", ids: "network", vpn: "network", proxy: "network", dns: "network",
-  dhcp: "network", nac: "network", waf: "network",
+  dhcp: "network", nac: "network", waf: "network", web_server: "network",
   exchange: "email", email_gateway: "email",
   dlp: "data", db_monitor: "data",
   ueba: "security tooling", threat_intel: "security tooling", siem: "security tooling", soar: "security tooling",

@@ -298,7 +298,7 @@ const ENDPOINT_SOURCES = new Set(["edr", "sysmon", "linux_audit", "windows_secur
 // NETWORK's view of it, not endpoint telemetry: mixing it into the EDR timeline showed
 // one upload twice (sensor NetworkConnectIP4 + PAN TRAFFIC), and pinning it on a
 // process guessed at an owner the log never names.
-const PERIMETER_SOURCES = new Set(["firewall", "proxy", "ids", "waf", "dns", "vpn", "nac", "email_gateway", "dhcp"]);
+const PERIMETER_SOURCES = new Set(["firewall", "proxy", "ids", "waf", "web_server", "dns", "vpn", "nac", "email_gateway", "dhcp"]);
 
 // Binaries the Service Control Manager launches — on a real host their parent is
 // services.exe (PSEXESVC runs as SYSTEM under services.exe), never a user's explorer.

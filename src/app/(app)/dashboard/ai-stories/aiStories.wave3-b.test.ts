@@ -20,7 +20,8 @@ describe("AI stories wave3-B", () => {
     expect(AI_WAVE3_B_STORIES.map(s => s.id).sort()).toEqual([...IDS].sort());
     for (const s of AI_WAVE3_B_STORIES) expect(s.complexity).toBe("core");
     expect(story("ai-rag-chatbot-document-injection").companies).toEqual(["nexacorp", "medcore"]);
-    expect(story("ai-stored-injection-copilot-kb").companies).toEqual(["nexacorp", "quantumbank"]);
+    expect(story("ai-stored-injection-copilot-kb").companies).toEqual(["nexacorp", "medcore", "globallogis", "quantumbank"]);
+    expect(story("ai-stored-injection-copilot-kb").soloCompanies).toEqual(["nexacorp", "quantumbank"]);
   });
 
   it.each(IDS)("%s has a detection row, 8-16 events, and neutral attack-row descriptions", id => {

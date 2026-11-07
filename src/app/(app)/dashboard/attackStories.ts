@@ -89,6 +89,7 @@ import { exfilFirstExtortionScenarioEvents }      from "@/lib/sim/scenario-packs
 import { helpdeskMfaResetScenarioEvents }         from "@/lib/sim/scenario-packs/helpdeskMfaReset.events";
 import { COMPANY_ATTACKS, ROCKETSTACK_CRED_STUFFING_CHAIN } from "@/lib/sim/companyProfiles";
 import { COMPANY_PROFILES, COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
+import type { AiStoryDef } from "./ai-stories/wave2";
 import { AI_CORE_STORIES } from "./ai-stories/core";
 import { AI_EXTRA_STORIES } from "./ai-stories/extra";
 import { AI_WAVE2_STORIES } from "./ai-stories/wave2";
@@ -98,7 +99,12 @@ import { AI_WAVE3_A_STORIES } from "./ai-stories/wave3-a";
 import { AI_WAVE3_B_STORIES } from "./ai-stories/wave3-b";
 import { AI_WAVE3_C_STORIES } from "./ai-stories/wave3-c";
 import { AI_WAVE3_D_STORIES } from "./ai-stories/wave3-d";
+import { AI_WAVE4_A_STORIES } from "./ai-stories/wave4-a";
+import { AI_WAVE4_B_STORIES } from "./ai-stories/wave4-b";
+import { CORE_STORIES } from "./core-stories";
 import { aiLlmJackingScenarioEvents } from "@/lib/sim/scenario-packs/aiLlmJacking.events";
+import { WEB_ENTRY_STORIES } from "./web-stories/entry";
+import { WEB_ADVANCED_STORIES } from "./web-stories/advanced";
 import { lateralMovementPthScenarioEvents }        from "@/lib/sim/scenario-packs/lateralMovementPth.events";
 import { goldenSamlScenarioEvents }                from "@/lib/sim/scenario-packs/goldenSaml.events";
 import { windowsPrivescTokenScenarioEvents }       from "@/lib/sim/scenario-packs/windowsPrivescToken.events";
@@ -133,6 +139,10 @@ export interface AttackStory {
   mitre: string[];
   /** Explicit company allowlist. Omitted = decided by the source-fit rule. */
   companies?: string[];
+  /** Runs in Team Training only: the single-player dashboard never picks it. */
+  teamOnly?: boolean;
+  /** The single-player dashboard keeps this company lock when Team Training no longer has one. */
+  soloCompanies?: string[];
   complexity: StoryComplexity;
 }
 
@@ -923,18 +933,31 @@ const RS_ADVANCED_STORIES: AttackStory[] = [
 // Insider use of enterprise AI, AI-assisted social engineering, Copilot abuse and
 // stolen AI-service credentials, spread across foundation/core/advanced so analysts
 // meet them as ordinary incidents (research: research/ai-attacks-soc/).
+/** An AI story: `teamOnly` and `soloCompanies` carry over, so widening a story for Team Training leaves single-player as it was. */
+const aiStory = (d: AiStoryDef): AttackStory => ({
+  ...story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies),
+  ...(d.teamOnly ? { teamOnly: true } : {}),
+  ...(d.soloCompanies ? { soloCompanies: d.soloCompanies } : {}),
+});
 const AI_STORIES: AttackStory[] = [
-  ...AI_FOUNDATION_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
-  ...AI_CORE_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
-  ...AI_EXTRA_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
-  ...AI_WAVE2_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
-  ...AI_ADVANCED_A_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
-  ...AI_WAVE3_A_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
-  ...AI_WAVE3_B_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
-  ...AI_WAVE3_C_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
-  ...AI_WAVE3_D_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
+  ...AI_FOUNDATION_STORIES.map(aiStory),
+  ...AI_CORE_STORIES.map(aiStory),
+  ...AI_EXTRA_STORIES.map(aiStory),
+  ...AI_WAVE2_STORIES.map(aiStory),
+  ...AI_ADVANCED_A_STORIES.map(aiStory),
+  ...AI_WAVE3_A_STORIES.map(aiStory),
+  ...AI_WAVE3_B_STORIES.map(aiStory),
+  ...AI_WAVE3_C_STORIES.map(aiStory),
+  ...AI_WAVE3_D_STORIES.map(aiStory),
+  ...AI_WAVE4_A_STORIES.map(aiStory),
+  ...AI_WAVE4_B_STORIES.map(aiStory),
   story("ai-llmjacking-bedrock", { title: "Stolen CI Key Used for Bedrock Inference (LLMjacking)", events: aiLlmJackingScenarioEvents().events }, "advanced", ["quantumbank"]),
 ];
+
+// ── Web application attacks: Team Training only ─────────────────────────────────
+// No company lock: the source-fit rule decides (a story needing CloudTrail runs where CloudTrail is).
+const WEB_STORIES: AttackStory[] = [...WEB_ENTRY_STORIES, ...WEB_ADVANCED_STORIES]
+  .map(d => ({ ...story(d.id, { title: d.title, events: d.events }, d.complexity), teamOnly: true }));
 
 /**
  * No cryptocurrency incidents (Tal, 2026-10-02): mining / cryptojacking / wallet clippers are
@@ -943,6 +966,30 @@ const AI_STORIES: AttackStory[] = [
 const EXCLUDED_STORIES = new Set(["bundled-cryptominer", "drive-by-browser-miner", "clipboard-clipper", "rocketstack-chain-c",
   "ai-bedrock-key-abuse"]); // same incident as ai-llmjacking-bedrock (leaked CI AKIA → Sysdig Bedrock sequence), which is the fuller story
 
+/**
+ * Companies Team Training gains for a story whose systems they also run. The single-player dashboard
+ * keeps the original list (soloCompanies). Stories stay put where a company lacks the system (AD, Linux,
+ * GitHub, Azure) or the story is about one industry's systems.
+ */
+const TEAM_WIDER: Record<string, string[]> = {
+  "aws-key-leak-s3-exfil": ["globallogis", "quantumbank"],           // AWS + GitHub
+  "rs-cicd-pipeline-poisoning": ["globallogis", "quantumbank"],      // AWS + GitHub
+  "rs-terraform-iac-backdoor": ["globallogis", "quantumbank"],       // AWS + GitHub
+  "webshell-rce": ["medcore", "globallogis"],                        // any published IIS and SQL application
+  "exfil-first-extortion": ["quantumbank"],                          // Microsoft 365 with Purview
+  "infostealer-session-theft": ["rocketstack", "quantumbank"],       // cookie replay is IdP-neutral
+  "windows-privesc-token": ["quantumbank"],                          // local to one Windows server
+  "lateral-movement-pth": ["quantumbank"],                           // Windows servers and NTLM
+  "nexacorp-chain-a": ["medcore"],                                   // Microsoft 365 + Azure Key Vault
+  "nexacorp-chain-b": ["medcore", "globallogis", "quantumbank"],     // Microsoft 365 mailbox
+  "nexacorp-chain-c": ["globallogis", "quantumbank"],                // Microsoft 365 + endpoint
+  "nexacorp-chain-d": ["medcore", "globallogis"],                    // Active Directory
+  "rocketstack-chain-a": ["quantumbank"],                            // Okta + AWS
+  "rocketstack-chain-b": ["globallogis", "quantumbank"],             // developer workstation + AWS
+  "rocketstack-chain-d": ["quantumbank"],                            // Okta + AWS
+  "globallogis-chain-d": ["rocketstack"],                            // internet-facing Linux server
+};
+
 export const ATTACK_STORIES: AttackStory[] = [
   ...GENERIC_STORIES,
   ...COMPANY_CHAIN_STORIES,
@@ -950,7 +997,13 @@ export const ATTACK_STORIES: AttackStory[] = [
   ...QB_ADVANCED_STORIES,
   ...RS_ADVANCED_STORIES,
   ...AI_STORIES,
-].filter(s => !EXCLUDED_STORIES.has(s.id));
+  ...WEB_STORIES,
+  // Team Training only: the single-player dashboard never picks these (pickStoryForCompany).
+  ...CORE_STORIES.map(d => ({ ...story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies), teamOnly: true })),
+].filter(s => !EXCLUDED_STORIES.has(s.id)).map(s => {
+  const more = TEAM_WIDER[s.id];
+  return more && s.companies ? { ...s, companies: [...s.companies, ...more], soloCompanies: s.companies } : s;
+});
 
 // ── Company fit ───────────────────────────────────────────────────────────────
 
@@ -977,6 +1030,7 @@ const SOURCE_ALIASES: Record<string, string[]> = {
   email_gateway:    ["o365", "gws"],
   sharepoint:       ["o365"],                   // SharePoint/OneDrive audit arrives through the M365 unified audit log
   waf:              ["firewall", "cloudtrail"],  // WAF is an edge/firewall-class device
+  web_server:       ["firewall", "edr"],         // every estate runs web servers behind its edge
   db_monitor:       ["edr", "cloudtrail"],       // database activity monitoring
   cloud_azure:      ["o365", "cloudtrail"],
   vcs:              ["cloudtrail"],              // GitHub/source-control audit trail, alongside the cloud estate it deploys into
@@ -1015,23 +1069,29 @@ const COMPLEXITY_FOR_DIFFICULTY: Record<"easy" | "medium" | "hard", StoryComplex
   hard:   ["advanced"],
 };
 
-export function storiesForCompany(companyId: string, difficulty?: "easy" | "medium" | "hard"): AttackStory[] {
+/**
+ * `solo` is the single-player dashboard's pool: Team Training's extra stories are out from the start, not
+ * filtered afterwards, because the size thresholds below choose what a thin pool broadens to. Filtering
+ * later would leave them counted, and QuantumBank's Hard would stop reaching its core stories.
+ */
+export function storiesForCompany(companyId: string, difficulty?: "easy" | "medium" | "hard", solo = false): AttackStory[] {
+  const pool = solo ? ATTACK_STORIES.filter(s => !s.teamOnly && (!s.soloCompanies || s.soloCompanies.includes(companyId))) : ATTACK_STORIES;
   const sources = companySources(companyId);
   const explicit = (s: AttackStory) => s.companies ? s.companies.includes(companyId) : null;
 
   const pick = (allowedComplexity: StoryComplexity[] | null): AttackStory[] => {
     const complexityOk = (s: AttackStory) => !allowedComplexity || allowedComplexity.includes(s.complexity);
     // Strict pass: every event's source is available
-    const strict = ATTACK_STORIES.filter(s => { if (!complexityOk(s)) return false; const e = explicit(s); return e !== null ? e : sourceFitRatio(s, sources) === 1; });
+    const strict = pool.filter(s => { if (!complexityOk(s)) return false; const e = explicit(s); return e !== null ? e : sourceFitRatio(s, sources) === 1; });
     if (strict.length >= 4) return strict;
     // Relaxed pass: ≥80% of events fit (keeps enough variety for Okta-only shops)
-    const relaxed = ATTACK_STORIES.filter(s => { if (!complexityOk(s)) return false; const e = explicit(s); return e !== null ? e : sourceFitRatio(s, sources) >= 0.8; });
+    const relaxed = pool.filter(s => { if (!complexityOk(s)) return false; const e = explicit(s); return e !== null ? e : sourceFitRatio(s, sources) >= 0.8; });
     if (relaxed.length >= 3) return relaxed;
     // Fallback within the requested complexity tier: never leave a company without attacks
-    const withinComplexity = ATTACK_STORIES.filter(s => complexityOk(s) && explicit(s) !== false);
+    const withinComplexity = pool.filter(s => complexityOk(s) && explicit(s) !== false);
     if (withinComplexity.length > 0) return withinComplexity;
     // Last resort: ignore the tier rather than showing no attack.
-    return ATTACK_STORIES.filter(s => explicit(s) !== false);
+    return pool.filter(s => explicit(s) !== false);
   };
 
   let result = pick(difficulty ? COMPLEXITY_FOR_DIFFICULTY[difficulty] : null);
@@ -1065,7 +1125,8 @@ function pushRecent(id: string) {
  * unfiltered candidates are used so a session never runs without an attack.
  */
 export function pickStoryForCompany(companyId: string, difficulty?: "easy" | "medium" | "hard", accept?: (s: AttackStory) => boolean): AttackStory {
-  const all = storiesForCompany(companyId, difficulty);
+  // The single-player dashboard. Team Training reads its pool through storiesForCompany directly.
+  const all = storiesForCompany(companyId, difficulty, true);
   const fitting = accept ? all.filter(accept) : all;
   const candidates = fitting.length ? fitting : all;
   const recent = readRecent();
@@ -1134,6 +1195,7 @@ function otherTenantPairs(companyId: string, others: string[] = Object.keys(COMP
       [ot.tenant.azureTenantId, mt.tenant.azureTenantId],
       [ot.tenant.azureSubscriptionId, mt.tenant.azureSubscriptionId],
       [ot.tenant.azureSubscriptionId.toUpperCase(), mt.tenant.azureSubscriptionId.toUpperCase()],
+      [ot.tenant.awsAccountId, mt.tenant.awsAccountId],
       [testNetIp(ot, `${other}:egress`), testNetIp(mt, `${companyId}:egress`)],
     );
   }

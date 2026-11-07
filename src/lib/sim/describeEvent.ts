@@ -264,6 +264,8 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
     case "nac_allow":
       return `Device allowed on network${host}`;
     case "http_request":
+      // A server's own access log: the request it answered, not someone browsing.
+      if (event.source === "web_server") return `${n?.method ?? "GET"} ${String(event.raw?.["url.path"] ?? "/")} on ${n?.domain ?? "web server"} answered ${n?.status ?? 200}`;
       return `${who} browsed to ${n?.domain || hostOf(n?.url) || hostOf(rawStr(event.raw, "zscaler.url", "data.http.url")) || rawStr(event.raw, "zscaler.hostname", "url.domain") || event.dst_ip || "a website"}`;
     case "http_blocked":
       return `Web request blocked for ${who}`;

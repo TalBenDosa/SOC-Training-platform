@@ -9,7 +9,7 @@ import type { LogSource, EventType, IOC } from "@/lib/sim/types";
 // Full set — the server validates against this; an unknown value falls back.
 export const LOG_SOURCES: LogSource[] = [
   "edr", "sysmon", "av", "windows_security", "linux_audit",
-  "firewall", "ids", "vpn", "proxy", "dns", "dhcp", "nac", "waf",
+  "firewall", "ids", "vpn", "proxy", "dns", "dhcp", "nac", "waf", "web_server",
   "ad", "okta", "iam", "mfa",
   "o365", "gws", "cloudtrail", "cloud_azure", "cloud_gcp",
   "exchange", "sharepoint", "teams", "email_gateway",

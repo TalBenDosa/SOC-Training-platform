@@ -139,6 +139,9 @@ export const AI_ALERTS = {
   suspiciousIp: { name: "Access from suspicious IP", type: "AI.Azure_AccessFromSuspiciousIP", sev: "High", intent: "Execution" },
   walletVolume: { name: "Suspected wallet attack - volume anomaly", type: "AI.Azure_DOWVolumeAnomaly", sev: "Medium", intent: "Impact" },
   accessAnomaly: { name: "Access anomaly in AI resource", type: "AI.Azure_AccessAnomaly", sev: "Medium", intent: "Execution, Reconnaissance, InitialAccess" },
+  anomalousTool: { name: "Anomalous tool invocation", type: "AI.Azure_AnomalousToolInvocation", sev: "Low", intent: "Execution" },
+  credentialTheft: { name: "Detected credential theft attempts on an Azure AI model deployment", type: "AI.Azure_CredentialTheftAttempt", sev: "Medium", intent: "CredentialAccess, LateralMovement, Exfiltration" },
+  maliciousUrlResponse: { name: "Corrupted AI application\\model\\data directed a phishing attempt at a user", type: "AI.Azure_MaliciousUrl.ModelResponse", sev: "High", intent: "Impact" },
 } as const;
 
 export interface DefenderAiAlertOpts extends Common {

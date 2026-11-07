@@ -26,6 +26,7 @@ export interface AiStoryDef {
   title: string;
   complexity: "foundation" | "core" | "advanced";
   companies: string[];
+  soloCompanies?: string[];
   events: TelemetryEvent[];
 }
 
@@ -273,6 +274,6 @@ function buildClaudeComplianceKeyHarvest(): TelemetryEvent[] {
 }
 
 export const AI_EXTRA_STORIES: AiStoryDef[] = [
-  { id: "ai-claude-shared-secret", title: "Production .env Shared Out of Claude Enterprise — Honeytoken and Real AWS Key Used from the Internet", complexity: "foundation", companies: ["rocketstack"], events: buildClaudeSharedSecret() },
-  { id: "ai-claude-compliance-key-harvest", title: "MFA-Fatigue Takeover of the Claude Owner — New Compliance Key Pulls Org Data", complexity: "advanced", companies: ["rocketstack"], events: buildClaudeComplianceKeyHarvest() },
+  { id: "ai-claude-shared-secret", title: "Production .env Shared Out of Claude Enterprise — Honeytoken and Real AWS Key Used from the Internet", complexity: "foundation", companies: ["rocketstack", "globallogis", "quantumbank"], soloCompanies: ["rocketstack"], events: buildClaudeSharedSecret() },
+  { id: "ai-claude-compliance-key-harvest", title: "MFA-Fatigue Takeover of the Claude Owner — New Compliance Key Pulls Org Data", complexity: "advanced", companies: ["rocketstack", "quantumbank"], soloCompanies: ["rocketstack"], events: buildClaudeComplianceKeyHarvest() },
 ];

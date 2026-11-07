@@ -33,6 +33,10 @@ export interface AiStoryDef {
   title: string;
   complexity: "foundation" | "core" | "advanced";
   companies: string[];
+  /** Team Training only: never drawn by the single-player dashboard. */
+  teamOnly?: boolean;
+  /** The single-player allowlist, when `companies` was widened for Team Training. */
+  soloCompanies?: string[];
   events: TelemetryEvent[];
 }
 

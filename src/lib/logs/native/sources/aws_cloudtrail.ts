@@ -76,7 +76,8 @@ export function kindOf(record: Record<string, unknown>): string | null {
 /** Services whose events are recorded in the partition's home region (STS is regional: it records the caller's region). */
 const GLOBAL_SOURCES = new Set(["iam.amazonaws.com", "organizations.amazonaws.com", "cloudfront.amazonaws.com", "route53.amazonaws.com", "signin.amazonaws.com"]);
 const READONLY_RE = /^(Get|List|Describe|Head|BatchGet|Lookup|Select|Search|View)/;
-const BEDROCK_DATA = new Set(["InvokeModel", "InvokeModelWithResponseStream", "Converse", "ConverseStream", "InvokeAgent", "Retrieve", "RetrieveAndGenerate"]);
+// AWS logs InvokeModel, InvokeModelWithResponseStream, Converse and ConverseStream as management events; agent, knowledge-base and guardrail runtime calls are data events.
+const BEDROCK_DATA = new Set(["InvokeAgent", "InvokeInlineAgent", "Retrieve", "RetrieveAndGenerate", "InvokeFlow", "ApplyGuardrail"]);
 const DATA_EVENTS = new Set(["GetObject", "PutObject", "DeleteObject", "DeleteObjects", "HeadObject", "CopyObject", "SelectObjectContent", "GetObjectAcl", "GetObjectTagging", "ListObjects", "ListObjectsV2", "RestoreObject", "UploadPart"]);
 /** STS calls that mint credentials — their responseElements carry the new key even though the name starts with Get. */
 const CRED_ISSUING = new Set(["GetSessionToken", "GetFederationToken"]);
@@ -362,7 +363,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const ua = isService ? String(ui.invokedBy) : rs(raw, "aws.cloudtrail.userAgent", "user_agent.original") ?? "aws-cli/2.17.60 md/awscrt#0.21.2 ua/2.0 os/linux#5.15.0 lang/python#3.11.4";
 
   const eventType = isSignIn ? "AwsConsoleSignIn" : (rs(raw, "aws.cloudtrail.eventType") ?? "AwsApiCall");
-  // Bedrock runtime calls (model invocation) are CloudTrail DATA events, like S3 object calls.
+  // Bedrock agent, knowledge-base and guardrail runtime calls are CloudTrail DATA events, like S3 object calls.
   const bedrockData = /bedrock/.test(es) && BEDROCK_DATA.has(en);
   const isData = DATA_EVENTS.has(en) || bedrockData;
   const errorCode = rs(raw, "aws.cloudtrail.errorCode");
@@ -385,7 +386,9 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const respAuthored = collectParams(raw, ["aws.cloudtrail.responseElements."], "aws.cloudtrail.responseElements");
   const contentLength = respAuthored?.contentLength;
   let responseElements: Record<string, unknown> | null;
-  if ((READONLY_RE.test(en) && !CRED_ISSUING.has(en)) || isData) {
+  if (en === "ApplyGuardrail") {
+    responseElements = respAuthored ?? null; // the guardrail's action and assessments (AWS's own example event)
+  } else if ((READONLY_RE.test(en) && !CRED_ISSUING.has(en)) || isData) {
     responseElements = null; // read-only and S3 data calls log no response body
   } else {
     const derived = buildResponse(en, ev, ctx, pr, part, acct, region, req, failed);

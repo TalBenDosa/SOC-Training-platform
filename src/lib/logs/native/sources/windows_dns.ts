@@ -70,11 +70,32 @@ function isoTicks(ts: string): string {
 }
 const FLAGS_RESPONSE: Record<string, number> = { NOERROR: 0x8180, FORMERR: 0x8181, SERVFAIL: 0x8182, NXDOMAIN: 0x8183, NOTIMP: 0x8184, REFUSED: 0x8185 };
 
+/** DNS Server audit channel: 515 a record created by an administrator or an LDAP write, 519 by a dynamic update (card table). */
+function auditRecord(ev: TelemetryEvent, ctx: NativeCtx, clientIp: string): NativeLog | null {
+  const raw = (ev.raw ?? {}) as Record<string, unknown>;
+  const id = String(raw["winlog.event_id"] ?? "");
+  if (id !== "515" && id !== "519") return null;
+  const get = (k: string) => (raw[`winlog.event_data.${k}`] === undefined ? undefined : String(raw[`winlog.event_data.${k}`]));
+  const timeMs = Date.parse(ev.ts);
+  const record: Record<string, unknown> = {
+    ProviderName: "Microsoft-Windows-DNSServer", EventID: Number(id), Version: 0, Level: 4, Task: 5, Opcode: 0, Keywords: "0x4000000000020000",
+    TimeCreated: isoTicks(ev.ts), EventRecordID: 80_000_000 + ctx.int(`${ev.id}:rec`, 0, 9_999_999),
+    ProcessID: ctx.int(`${ctx.companyId}:dns.exe:pid`, 1800, 3400), ThreadID: ctx.int(`${ev.id}:tid`, 2000, 6000),
+    Channel: "Microsoft-Windows-DNS-Server/Audit", Computer: serverName(ctx), UserID: "S-1-5-18",
+    Type: get("Type") ?? "1", NAME: get("NAME") ?? "", TTL: get("TTL") ?? "600", RDATA: get("RDATA") ?? "", Zone: get("Zone") ?? ctx.domain,
+    ...(id === "519" ? { Source: get("Source") ?? clientIp } : {}),
+  };
+  const rawLine = `${id === "515" ? "RECORD_CREATE" : "DYNAMIC_UPDATE_CREATE"} zone=${record.Zone} name=${record.NAME} type=${record.Type} ttl=${record.TTL} rdata=${record.RDATA}`;
+  return { sourceId: "windows_dns", kind: id, format: "xml", record, rawLine, timeMs };
+}
+
 function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const f = dnsFacts(ev);
   if (!f) return null;
   const timeMs = Date.parse(ev.ts);
   const qtype = QTYPE_NUM[f.qtype];
+  const audit = auditRecord(ev, ctx, f.clientIp);
+  if (audit) return audit;
   const xid = ctx.int(`${ev.id}:xid`, 1, 65535);
   const port = f.clientPort ?? ctx.int(`${ev.id}:sport`, 49152, 65535);
   const iface = serverIpFor(f, ctx);

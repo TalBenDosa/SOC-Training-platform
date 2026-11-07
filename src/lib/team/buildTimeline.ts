@@ -36,7 +36,7 @@ import { describeEvent } from "@/lib/sim/describeEvent";
 import { fpAlerts } from "./fpAlerts";
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
 import { applyStack, fitsStack, stackFor, storyFitsOrg, storyFitsStack, storyHonoursLocks } from "@/lib/logs/native";
-import { PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
+import { categoryOf, PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 
 // channel "feed" → promoted as a feed.event (a log); "inject" → a staff.inject
 // (an MSEL curveball: management pressure, a help-desk ticket, an announcement).
@@ -396,6 +396,9 @@ function storyEventChosen(e: TelemetryEvent, env: TeamEnv, stack: Stack, company
   if (/defender for identity/.test(vend)) return stackFor(companyId, stack).edr === "mde";
   if (src === "ueba") return /sentinel/.test(vend) && env.platforms.includes("azure");
   if (src === "dlp") return /purview/.test(vend) && stackFor(companyId, stack).collab === "m365";
+  // A WAF comes with its cloud: the session's WAF product (the template default or the admin's choice)
+  // needs that cloud in the environment. An organization that runs neither shows no web-attack WAF row.
+  if (categoryOf(e) === "waf") { const waf = stackFor(companyId, stack).waf; return waf === "azure_waf" ? env.platforms.includes("azure") : waf === "aws_waf" ? env.platforms.includes("aws") : false; }
   if (RELABELLED_SOURCES.has(src)) return true;
   return orgRunsSource(e, env, stack, companyId);
 }
@@ -625,6 +628,14 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   const attackRowsEst = load.stories * 10 + load.poolAttacks * 2;
   const benignN = Math.max(0, load.noiseCount - fpRows.length - Math.max(0, attackRowsReal - attackRowsEst));
   const noise: Placed[] = sampleN(noiseCandidates, benignN, rnd).map(ev => ({ ev, origin: "noise" as const, verdict: classifyPoolEvent(ev) }));
+  // The sample shrinks as story rows grow, so a platform can drop out of it by chance. A platform the
+  // organization runs always shows ordinary traffic: its attack rows must not be the only ones it has.
+  for (const p of env?.platforms ?? []) {
+    if (noise.some(n => platformsOfEvent(n.ev).includes(p))) continue;
+    for (const ev of sampleN(noiseCandidates.filter(e => platformsOfEvent(e).includes(p)), 3, rnd)) {
+      noise[Math.floor(rnd() * noise.length) % Math.max(noise.length, 1)] = { ev, origin: "noise", verdict: classifyPoolEvent(ev) };
+    }
+  }
   for (const ev of fpRows) noise.splice(Math.floor(noise.length * (0.12 + rnd() * 0.84)), 0, { ev, origin: "noise", verdict: "fp" });
 
   const storyCount = attack1.length + attack2.length + attack3.length;
