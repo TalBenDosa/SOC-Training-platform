@@ -19,7 +19,7 @@ The estate's `#Fields`:
 #Fields: date time s-sitename s-computername s-ip cs-method cs-uri-stem cs-uri-query s-port cs-username c-ip cs-version cs(User-Agent) cs(Referer) cs-host sc-status sc-substatus sc-win32-status sc-bytes cs-bytes time-taken X-Forwarded-For
 ```
 
-`X-Forwarded-For` is a custom field (IIS Manager, Logging, Select Fields, Add Field, request header). Without it, a server behind a gateway logs only the gateway.
+`X-Forwarded-For` is a custom field (IIS Manager, Logging, Select Fields, Add Field, request header). The administrator names it, and IIS writes such a site's log to a file with `_x` in its name (`u_ex260317_x.log`). Without it, a server behind a gateway logs only the gateway.
 
 ## 3. Core field reference
 

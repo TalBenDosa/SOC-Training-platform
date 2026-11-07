@@ -79,6 +79,8 @@ const READONLY_RE = /^(Get|List|Describe|Head|BatchGet|Lookup|Select|Search|View
 // AWS logs InvokeModel, InvokeModelWithResponseStream, Converse and ConverseStream as management events; agent, knowledge-base and guardrail runtime calls are data events.
 const BEDROCK_DATA = new Set(["InvokeAgent", "InvokeInlineAgent", "Retrieve", "RetrieveAndGenerate", "InvokeFlow", "ApplyGuardrail"]);
 const DATA_EVENTS = new Set(["GetObject", "PutObject", "DeleteObject", "DeleteObjects", "HeadObject", "CopyObject", "SelectObjectContent", "GetObjectAcl", "GetObjectTagging", "ListObjects", "ListObjectsV2", "RestoreObject", "UploadPart"]);
+// DynamoDB data plane operations: CloudTrail logs them as data events, resource type AWS::DynamoDB::Table.
+const DYNAMODB_DATA = new Set(["BatchExecuteStatement", "BatchGetItem", "BatchWriteItem", "DeleteItem", "ExecuteStatement", "ExecuteTransaction", "GetItem", "PutItem", "Query", "Scan", "TransactGetItems", "TransactWriteItems", "UpdateItem"]);
 /** STS calls that mint credentials — their responseElements carry the new key even though the name starts with Get. */
 const CRED_ISSUING = new Set(["GetSessionToken", "GetFederationToken"]);
 
@@ -365,7 +367,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const eventType = isSignIn ? "AwsConsoleSignIn" : (rs(raw, "aws.cloudtrail.eventType") ?? "AwsApiCall");
   // Bedrock agent, knowledge-base and guardrail runtime calls are CloudTrail DATA events, like S3 object calls.
   const bedrockData = /bedrock/.test(es) && BEDROCK_DATA.has(en);
-  const isData = DATA_EVENTS.has(en) || bedrockData;
+  const dynamoData = /dynamodb/.test(es) && DYNAMODB_DATA.has(en);
+  const isData = DATA_EVENTS.has(en) || bedrockData || dynamoData;
   const errorCode = rs(raw, "aws.cloudtrail.errorCode");
   const errorMessage = rs(raw, "aws.cloudtrail.errorMessage");
   // A failed console sign-in carries only errorMessage ("Failed authentication"), no errorCode.
@@ -406,6 +409,9 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     ?? (isData && typeof contentLength === "number" ? contentLength : undefined);
   const additionalEventData: Record<string, unknown> = {};
   if (es === "s3.amazonaws.com") { additionalEventData.SignatureVersion = "SigV4"; additionalEventData.AuthenticationMethod = "AuthHeader"; }
+  // The encryption S3 applied (SSE_C, SSE_KMS ...): AWS logs it here on writes, and it is the row's evidence when authored.
+  const sseApplied = rs(raw, "aws.cloudtrail.additionalEventData.SSEApplied");
+  if (sseApplied) additionalEventData.SSEApplied = sseApplied;
   if (bytesOut !== undefined) { additionalEventData.bytesTransferredIn = ev.network?.bytes_in ?? 0; additionalEventData.bytesTransferredOut = bytesOut; }
   if (isSignIn) {
     additionalEventData.LoginTo = part === "aws-us-gov" ? "https://console.amazonaws-us-gov.com/console/home" : "https://console.aws.amazon.com/console/home";
@@ -449,6 +455,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     const model = String(req.modelId);
     record.resources = [{ accountId: acct, type: "AWS::Bedrock::Model", ARN: model.startsWith("arn:") ? model : `arn:${part}:bedrock:${region}::foundation-model/${model}` }];
   }
+  if (dynamoData && typeof req.tableName === "string") record.resources = [{ accountId: acct, type: "AWS::DynamoDB::Table", ARN: `arn:${part}:dynamodb:${region}:${acct}:table/${req.tableName}` }];
   const roleArn = typeof req.roleArn === "string" ? req.roleArn : undefined;
   if (roleArn && /AssumeRole/.test(en)) record.resources = [{ ARN: roleArn, accountId: isRealAccount(arnAccount(roleArn)) ? arnAccount(roleArn) : acct, type: "AWS::IAM::Role" }];
 

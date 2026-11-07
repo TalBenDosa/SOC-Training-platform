@@ -489,7 +489,23 @@
         "cloudwatch.alarm.metric",
         "cloudwatch.alarm.name",
         "cloudwatch.alarm.state",
-        "cloudwatch.alarm.threshold"
+        "cloudwatch.alarm.threshold",
+        "schemaType",
+        "schemaVersion",
+        "timestamp",
+        "accountId",
+        "region",
+        "requestId",
+        "operation",
+        "modelId",
+        "identity.arn",
+        "input.inputContentType",
+        "input.inputTokenCount",
+        "output.outputContentType",
+        "output.outputTokenCount",
+        "cloud.provider",
+        "cloud.account.id",
+        "cloud.region"
       ],
       "prefixes": []
     },
@@ -1705,8 +1721,26 @@
     "azure-app-service": {
       "label": "Azure App Service HTTP logs",
       "note": "Columns of the AppServiceHTTPLogs table: learn.microsoft.com/azure/azure-monitor/reference/tables/appservicehttplogs (checked 2026-11-07).",
-      "aliases": ["Azure App Service"],
-      "exactFields": ["TimeGenerated", "Type", "_ResourceId", "CsHost", "CsMethod", "CsUriStem", "CsUriQuery", "CIp", "SPort", "ScStatus", "CsBytes", "ScBytes", "TimeTaken", "UserAgent", "Result"],
+      "aliases": [
+        "Azure App Service"
+      ],
+      "exactFields": [
+        "TimeGenerated",
+        "Type",
+        "_ResourceId",
+        "CsHost",
+        "CsMethod",
+        "CsUriStem",
+        "CsUriQuery",
+        "CIp",
+        "SPort",
+        "ScStatus",
+        "CsBytes",
+        "ScBytes",
+        "TimeTaken",
+        "UserAgent",
+        "Result"
+      ],
       "prefixes": []
     },
     "azure-monitor": {
@@ -10869,7 +10903,11 @@
         "sla.clock_started",
         "sla.notification_required_minutes",
         "sla.notification_sent",
-        "sla.time_remaining_minutes"
+        "sla.time_remaining_minutes",
+        "servicenow.url",
+        "servicenow.sys_created_by",
+        "servicenow.sys_created_on",
+        "servicenow.response_time"
       ],
       "prefixes": []
     },
@@ -12587,6 +12625,49 @@
       ],
       "prefixes": [],
       "sourceNote": "Anthropic Compliance API activity record (fields per Anthropic's Compliance API reference) plus the training SIEM's generic ECS normalization/enrichment (event.*, user.*, source.ip/geo/as, user_agent.*, related.*, tags). No collector envelope; no prompt/response text."
+    },
+    "azure-api-management": {
+      "label": "Azure API Management gateway logs",
+      "note": "Columns of the ApiManagementGatewayLogs table: learn.microsoft.com/azure/azure-monitor/reference/tables/apimanagementgatewaylogs (checked 2026-11-07).",
+      "aliases": [
+        "Azure API Management"
+      ],
+      "exactFields": [
+        "TimeGenerated",
+        "Type",
+        "_ResourceId",
+        "ApimSubscriptionId",
+        "ApiId",
+        "OperationId",
+        "Method",
+        "Url",
+        "CallerIpAddress",
+        "ResponseCode",
+        "BackendResponseCode",
+        "IsRequestSuccess",
+        "RequestSize",
+        "ResponseSize",
+        "TotalTime",
+        "CorrelationId",
+        "Region"
+      ],
+      "prefixes": []
+    },
+    "azure-front-door": {
+      "label": "Azure Front Door access log",
+      "note": "FrontDoorAccessLog of a Standard/Premium profile: learn.microsoft.com/azure/frontdoor/monitor-front-door (checked 2026-11-07).",
+      "aliases": [
+        "Azure Front Door"
+      ],
+      "exactFields": [
+        "time",
+        "resourceId",
+        "category",
+        "operationName"
+      ],
+      "prefixes": [
+        "properties."
+      ]
     }
   },
   "deniedFields": [

@@ -13,7 +13,7 @@ import { createContext, useContext, useMemo } from "react";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeLog } from "./types";
 
-export interface NativeView { log: NativeLog; product: string }
+export interface NativeView { log: NativeLog; product: string; /** Rows of the same transaction the product writes beside this one. */ related?: NativeLog[] }
 export type NativeRenderer = (ev: TelemetryEvent) => NativeView | null;
 
 const Ctx = createContext<NativeRenderer | null>(null);

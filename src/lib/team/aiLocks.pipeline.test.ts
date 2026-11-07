@@ -14,7 +14,6 @@ const WIDENED: Record<string, string[]> = {
   "ai-claude-shared-secret": ["rocketstack"],
   "ai-claude-compliance-key-harvest": ["rocketstack"],
   "ai-stored-injection-copilot-kb": ["nexacorp", "quantumbank"],
-  "ai-mcp-tool-poisoning": ["rocketstack"],
   "ai-malicious-model-pickle": ["rocketstack"],
   "ai-deepfake-exec-call-payment-fraud": ["quantumbank", "globallogis"],
   "ai-browser-agent-prompt-hijack": ["nexacorp"],

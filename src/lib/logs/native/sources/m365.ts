@@ -309,7 +309,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   // Exchange token context (RT 1 / 2 / 50)
   const exoToken = (mailbox: string) => ({
     AppId: rs(raw, "AppId", "application.id") ?? "00000002-0000-0ff1-ce00-000000000000",
-    ClientAppId: "",
+    ClientAppId: rs(raw, "ClientAppId") ?? "",
     ExternalAccess: false,
     OrganizationName: orgName(ctx, mailbox),
     OriginatingServer: originatingServer(ctx, mailbox),
@@ -350,7 +350,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
 
   // ── Mailbox records (RT 2 / 50) ──
   const mailboxCommon = (mailbox: string) => {
-    const appId = rs(raw, "application.id");
+    const appId = rs(raw, "application.id", "ClientAppId");
     const ctxObj: Record<string, unknown> = {
       // The Entra session this token belongs to (the sign-in's sessionId) and when it was issued
       // (the sign-in — threadIdentityContext — never before it).

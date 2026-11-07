@@ -22,6 +22,7 @@
  * event_category values from Google's published enum.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
+import type { SeatRole } from "@/lib/sim/companyProfilesMeta";
 import { entraSignIn } from "@/lib/sim/emitters/entra";
 import { oktaSignIn, oktaMfa } from "@/lib/sim/emitters/okta";
 import { azureOpenAiRequest, defenderAiAlert, azureActivity, type AzureAiResource, type GeoLite } from "@/lib/sim/emitters/azureAi";
@@ -37,6 +38,12 @@ export interface AiStoryDef {
   teamOnly?: boolean;
   /** The single-player allowlist, when `companies` was widened for Team Training. */
   soloCompanies?: string[];
+  /** The job the story's main person must hold (AttackStory.seat). */
+  seat?: SeatRole;
+  /** The story's servers keep their authored name (AttackStory.ownServers). */
+  ownServers?: boolean;
+  /** The authored office egress, re-homed per company (AttackStory.officeEgress). */
+  officeEgress?: string;
   events: TelemetryEvent[];
 }
 

@@ -2,7 +2,7 @@
  * AI-related attack stories — wave 3, part C (live feed & team training). Two advanced
  * chains around AI developer tooling, each grounded in real defender telemetry:
  *
- *  1. ai-mcp-tool-poisoning  (advanced, rocketstack and globallogis) — a developer connects an AI coding
+ *  1. ai-mcp-tool-poisoning  (advanced, rocketstack) — a developer connects an AI coding
  *     agent to a third-party MCP (Model Context Protocol) server. A poisoned tool
  *     description (hidden instructions) makes the agent read the local ~/.aws/credentials
  *     file and pass it back in a tool call. Hours later the long-term access key is used
@@ -404,7 +404,7 @@ export const AI_WAVE3_C_STORIES: AiStoryDef[] = [
   {
     id: "ai-mcp-tool-poisoning",
     title: "Poisoned MCP Tool Makes an AI Coding Agent Leak AWS Keys, Then S3 Is Copied from a Hosting Provider",
-    complexity: "advanced", companies: ["rocketstack", "globallogis"], soloCompanies: ["rocketstack"], events: buildMcpToolPoisoning(),
+    complexity: "advanced", companies: ["rocketstack"], seat: "developer", events: buildMcpToolPoisoning(),
   },
   {
     id: "ai-malicious-model-pickle",

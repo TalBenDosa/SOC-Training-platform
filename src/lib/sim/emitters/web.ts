@@ -19,6 +19,8 @@ export interface WebSite {
   ip: string;
   /** Bind the access log to this product; omit to follow the session's web server. */
   server?: "nginx" | "iis";
+  /** The site's WAF policy mode, default Prevention. A Detection policy logs a managed rule and passes the request. */
+  wafMode?: "Detection" | "Prevention";
 }
 
 export interface WebRequest {
@@ -36,6 +38,8 @@ export interface WebRequest {
   referer?: string;
   /** The Host the client really sent, when it is not the site. */
   hostHeader?: string;
+  /** The port the server took the request on, default 443. */
+  port?: number;
   geo?: TelemetryEvent["geo"];
   description: string;
   severity?: Severity;
@@ -56,7 +60,12 @@ export interface WafDecision extends WebRequest {
   /** Where it matched, ModSecurity style (ARGS:file, REQUEST_BODY). */
   location?: string;
   rateLimit?: number; rateWindowSec?: number;
+  /** The body was longer than the WAF inspects. */
+  oversizeBody?: boolean;
 }
+
+/** A request with no authored size: its request line and usual headers, as a server counts them. */
+const requestSize = (w: WebSite, r: WebRequest) => (r.method ?? "GET").length + r.path.length + (r.query ? r.query.length + 1 : 0) + w.site.length + r.ua.length + (r.referer?.length ?? 0) + 148;
 
 const common = (w: WebSite, r: WebRequest) => ({
   id: r.id, ts: r.ts,
@@ -67,7 +76,7 @@ const common = (w: WebSite, r: WebRequest) => ({
   network: {
     url: `https://${w.site}${r.path}${r.query ? `?${r.query}` : ""}`,
     domain: w.site, method: r.method ?? "GET", status: r.status ?? 200,
-    bytes_in: r.bytes ?? 1840, bytes_out: r.sent ?? 612, user_agent: r.ua,
+    bytes_in: r.bytes ?? 1840, bytes_out: r.sent ?? requestSize(w, r), user_agent: r.ua,
   },
   description: r.description,
   ...(r.mitre ? { mitre_technique: r.mitre, mitre_tactic: r.tactic } : {}),
@@ -89,19 +98,22 @@ export function webAccess(w: WebSite, r: WebRequest): TelemetryEvent {
   const vendor = w.server === "iis" ? "Microsoft IIS" : w.server === "nginx" ? "nginx" : WEB_SERVER_VENDOR;
   return {
     ...common(w, r), source: "web_server", vendor, event_type: "http_request" as EventType,
-    hostname: w.host, dst_ip: w.ip, dst_port: 443,
-    raw: { ...requestRaw(w, r), "destination.ip": w.ip, "http.response.status_code": r.status ?? 200, "http.response.body.bytes": r.bytes ?? 1840, "http.request.body.bytes": r.sent ?? 612 },
+    hostname: w.host, dst_ip: w.ip, dst_port: r.port ?? 443,
+    raw: { ...requestRaw(w, r), "destination.ip": w.ip, "http.response.status_code": r.status ?? 200, "http.response.body.bytes": r.bytes ?? 1840, "http.request.body.bytes": r.sent ?? requestSize(w, r) },
   };
 }
 
-/** One request as the WAF in front of the site logged it (no server address: a WAF log has none). */
+/** One request as the WAF in front of the site logged it. The event names no server (a WAF rule row has none); the raw origin address is what an access row routes to. */
 export function wafRequest(w: WebSite, r: WafDecision): TelemetryEvent {
   return {
     ...common(w, { ...r, status: r.status ?? (r.action === "block" ? 403 : 200), bytes: r.bytes ?? (r.action === "block" ? 197 : undefined) }),
     source: "waf", vendor: WEB_WAF_VENDOR, event_type: (r.action === "block" ? "waf_block" : "waf_allow") as EventType,
     raw: {
       ...requestRaw(w, r),
+      "destination.ip": w.ip,
       "waf.action": r.action,
+      ...(w.wafMode ? { "waf.mode": w.wafMode } : {}),
+      ...(r.oversizeBody ? { "waf.oversize_body": true } : {}),
       ...(r.rule ? { "waf.rule.key": r.rule } : {}),
       ...(r.ruleName ? { "waf.rule.name": r.ruleName } : {}),
       ...(r.matched ? { "waf.matched_data": r.matched } : {}),

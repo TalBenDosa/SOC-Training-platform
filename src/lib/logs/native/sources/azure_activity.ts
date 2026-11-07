@@ -69,7 +69,8 @@ function buildActivityLog(ev: TelemetryEvent, ctx: NativeCtx): NativeLog {
   const identity: Record<string, unknown> = {
     authorization: {
       action: op.toLowerCase().includes("/action") || op.toLowerCase().includes("/write") || op.toLowerCase().includes("/read") ? op : `${op}`,
-      scope: resourceId.toLowerCase(),
+      // A directory-level action (elevateAccess) has no subscription: Microsoft prints the provider scope as it is.
+      scope: resourceId.startsWith("/providers/") ? resourceId : resourceId.toLowerCase(),
       ...(evRole ? { evidence: { role: evRole, ...(evType ? { principalType: evType } : {}), ...(spObjectId && evType ? { principalId: spObjectId } : {}) } } : {}),
     },
     claims: {
@@ -97,7 +98,7 @@ function buildActivityLog(ev: TelemetryEvent, ctx: NativeCtx): NativeLog {
       eventCategory: rs(raw, "azure.activitylogs.event_category") ?? "Administrative",
       entity: resourceId.toLowerCase(),
       message: op,
-      hierarchy: `${ctx.tenant.azureTenantId}/${ctx.tenant.azureSubscriptionId}`,
+      hierarchy: resourceId.startsWith("/providers/") ? ctx.tenant.azureTenantId : `${ctx.tenant.azureTenantId}/${ctx.tenant.azureSubscriptionId}`,
       // A role assignment's request body names the principal and the role definition granted (card AZ2).
       // "{subscriptionId}" in an authored body is the rendering company's subscription, so the scope matches resourceId.
       ...(rs(raw, "azure.activitylogs.properties.requestbody") ? { requestbody: rs(raw, "azure.activitylogs.properties.requestbody")!.replace(/\{subscriptionId\}/g, ctx.tenant.azureSubscriptionId) } : {}),

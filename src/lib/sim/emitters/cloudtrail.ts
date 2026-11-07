@@ -68,7 +68,7 @@ export interface CloudTrailOpts extends Ctx {
   awsEventType?: string;            // aws.cloudtrail.eventType (default "AwsApiCall")
   userTitle?: string;
   /** requestParameters.* / additional_event_data.* / vpcEndpointId / sessionContext.* … */
-  extra?: Record<string, string | number>;
+  extra?: Record<string, string | number | boolean>;
   geo?: { country?: string; city?: string };
   mitre?: string;
   tactic?: string;

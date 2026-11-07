@@ -1,4 +1,5 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { isPeerAddressedRecord } from "@/lib/sim/peerRecords";
 
 /**
  * One host, one IP — and never one IP for two hosts — across a feed pool.
@@ -15,7 +16,8 @@ const PRIVATE = /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/;
 const HOSTISH = new Set(["edr", "sysmon", "av", "windows_security", "linux_audit", "firewall", "proxy", "dns"]);
 const inbound = (e: TelemetryEvent) =>
   (e.network as { direction?: string } | undefined)?.direction === "inbound" || /inbound/i.test(String(e.raw?.["network.direction"] ?? ""));
-const hostOwned = (e: TelemetryEvent) => !!e.hostname && !!e.src_ip && PRIVATE.test(e.src_ip) && HOSTISH.has(e.source) && !inbound(e);
+// A logon or share record's IpAddress is the remote client's: it never says what this computer's address is.
+const hostOwned = (e: TelemetryEvent) => !!e.hostname && !!e.src_ip && PRIVATE.test(e.src_ip) && HOSTISH.has(e.source) && !inbound(e) && !isPeerAddressedRecord(e);
 
 export function normalizeHostIps(events: TelemetryEvent[]): TelemetryEvent[] {
   const counts = new Map<string, Map<string, number>>();

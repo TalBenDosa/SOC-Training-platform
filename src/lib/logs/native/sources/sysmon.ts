@@ -408,7 +408,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     case "6": {
       const loaded = ed("ImageLoaded");
       if (!loaded) return null;
-      data = { ...head, ImageLoaded: loaded, Hashes: ed("Hashes") ?? `SHA256=${imageHashes(ctx, loaded).sha256.toUpperCase()}`, Signed: ed("Signed") ?? "true", Signature: ed("Signature") ?? "Microsoft Windows", SignatureStatus: ed("SignatureStatus") ?? "Valid" };
+      data = { ...head, ImageLoaded: loaded, Hashes: ed("Hashes") ?? `SHA256=${imageHashes(ctx, loaded).sha256.toUpperCase()}`, Signed: ed("Signed") ?? "true", Signature: ed("Signature") ?? (ed("Signed") === "false" ? "-" : "Microsoft Windows"), SignatureStatus: ed("SignatureStatus") ?? "Valid" };
       break;
     }
     case "7": {

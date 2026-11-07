@@ -842,7 +842,7 @@ export const AI_FOUNDATION_STORIES: AiStoryDef[] = [
     id: "ai-shadow-chat-upload",
     title: "Shadow AI — Customer List Pasted into an Unsanctioned Chatbot After a DLP Block",
     complexity: "foundation",
-    companies: ["nexacorp", "medcore", "rocketstack", "globallogis", "quantumbank"], soloCompanies: ["nexacorp", "globallogis", "quantumbank"],
+    companies: ["nexacorp", "rocketstack", "globallogis", "quantumbank"], soloCompanies: ["nexacorp", "globallogis", "quantumbank"],
     events: buildShadowChatUpload(),
   },
   {

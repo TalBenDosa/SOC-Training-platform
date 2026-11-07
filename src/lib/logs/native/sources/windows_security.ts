@@ -86,6 +86,8 @@ const kinds: Record<string, KindSchema> = {
   // EventData spelling follows detection content that reads these records (Splunk ESC1 analytics: RequestId, Attributes).
   "4886": k("RequestId", "Requester", "Attributes"),
   "4887": k("RequestId", "Requester", "Attributes", "Disposition", "SubjectKeyIdentifier", "Subject"),
+  // Directory object created: Microsoft's event 5137 XML (an ADIDNS record is a new dnsNode object).
+  "5137": k("OpCorrelationID", "AppCorrelationID", "SubjectUserSid", "SubjectUserName", "SubjectDomainName", "SubjectLogonId", "DSName", "DSType", "ObjectDN", "ObjectGUID", "ObjectClass"),
 };
 
 export function kindOf(record: Record<string, unknown>): string | null {
@@ -524,6 +526,23 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       };
       break;
     }
+    case "5137": {
+      const subj = samOf(ed("SubjectUserName")) ?? samOf(r("user.name")) ?? "-";
+      data = {
+        OpCorrelationID: ed("OpCorrelationID") ?? curly(ctx.uuid(`${ev.id}:opcorr`)),
+        AppCorrelationID: ed("AppCorrelationID") ?? "-",
+        SubjectUserSid: ed("SubjectUserSid") ?? userSid(ctx, subj),
+        SubjectUserName: ed("SubjectUserName") ?? subj,
+        SubjectDomainName: ed("SubjectDomainName") ?? netbios,
+        SubjectLogonId: ed("SubjectLogonId") ?? logonId(ctx, hostShort, subj),
+        DSName: ed("DSName") ?? domain,
+        DSType: ed("DSType") ?? "%%14676",
+        ObjectDN: ed("ObjectDN") ?? "-",
+        ObjectGUID: ed("ObjectGUID") ?? curly(ctx.uuid(`${ev.id}:objguid`)),
+        ObjectClass: ed("ObjectClass") ?? "-",
+      };
+      break;
+    }
     case "5136": {
       const subj = samOf(ed("SubjectUserName")) ?? samOf(r("user.name")) ?? "-";
       data = {
@@ -705,6 +724,7 @@ const REQUIRED_FIELDS: Record<string, string[]> = {
   "4740": ["TargetUserName"],
   "4662": ["ObjectName"],
   "5136": ["ObjectDN"],
+  "5137": ["ObjectDN"],
   "4720": ["TargetUserName"],
   "4722": ["TargetUserName"], "4723": ["TargetUserName"], "4724": ["TargetUserName"],
   "4725": ["TargetUserName"], "4726": ["TargetUserName"], "4738": ["TargetUserName"], "4767": ["TargetUserName"],

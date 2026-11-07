@@ -22,6 +22,8 @@ import { cloudTrailEvent, guardDutyFinding } from "@/lib/sim/emitters/cloudtrail
 import { sentinelAlert } from "@/lib/sim/emitters/sentinel";
 
 export interface AiStoryDef {
+  /** The job the story's main person must hold (AttackStory.seat). */
+  seat?: "developer" | "finance" | "it";
   id: string;
   title: string;
   complexity: "foundation" | "core" | "advanced";
@@ -274,6 +276,6 @@ function buildClaudeComplianceKeyHarvest(): TelemetryEvent[] {
 }
 
 export const AI_EXTRA_STORIES: AiStoryDef[] = [
-  { id: "ai-claude-shared-secret", title: "Production .env Shared Out of Claude Enterprise — Honeytoken and Real AWS Key Used from the Internet", complexity: "foundation", companies: ["rocketstack", "globallogis", "quantumbank"], soloCompanies: ["rocketstack"], events: buildClaudeSharedSecret() },
-  { id: "ai-claude-compliance-key-harvest", title: "MFA-Fatigue Takeover of the Claude Owner — New Compliance Key Pulls Org Data", complexity: "advanced", companies: ["rocketstack", "quantumbank"], soloCompanies: ["rocketstack"], events: buildClaudeComplianceKeyHarvest() },
+  { id: "ai-claude-shared-secret", title: "Production .env Shared Out of Claude Enterprise: Honeytoken and Real AWS Key Used from the Internet", complexity: "foundation", companies: ["rocketstack", "globallogis", "quantumbank"], soloCompanies: ["rocketstack"], seat: "developer", events: buildClaudeSharedSecret() },
+  { id: "ai-claude-compliance-key-harvest", title: "MFA-Fatigue Takeover of the Claude Owner: New Compliance Key Pulls Org Data", complexity: "advanced", companies: ["rocketstack", "quantumbank"], soloCompanies: ["rocketstack"], seat: "it", events: buildClaudeComplianceKeyHarvest() },
 ];

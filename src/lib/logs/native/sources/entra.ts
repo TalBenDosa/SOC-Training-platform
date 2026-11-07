@@ -256,7 +256,8 @@ function renderSignIn(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, upn: strin
   // A Primary Refresh Token only exists on an Entra-joined / registered device signing in through
   // the OS broker; a browser on an unmanaged device presents none (a replayed cookie included).
   const tokenRaw = rawStr(ev, "azure.signinlogs.properties.incomingTokenType") ?? "none";
-  const incomingTokenType = /primaryRefreshToken/i.test(tokenRaw) && (!deviceDetail.isManaged || !deviceDetail.deviceId) ? "none" : tokenRaw;
+  // A registered device is not a managed one: the device id is what a PRT needs.
+  const incomingTokenType = /primaryRefreshToken/i.test(tokenRaw) && !deviceDetail.deviceId ? "none" : tokenRaw;
   const rawNetLoc = rawAny(ev, "azure.signinlogs.properties.networkLocationDetails");
   const id = rawStr(ev, "azure.signinlogs.properties.id") ?? graphId(ctx, `${ev.id}:signin`);
   const record: Record<string, unknown> = {

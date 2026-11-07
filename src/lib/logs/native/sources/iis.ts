@@ -8,7 +8,7 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { KindSchema, NativeCtx, NativeLog, NativeSource, SourceSchema, UseCase } from "../types";
-import { balancerIp, isPrivateClient, machineOf, webFacts } from "./_web-common";
+import { balancerIp, isLoopbackClient, machineOf, webFacts } from "./_web-common";
 
 /** The estate's #Fields line. */
 export const FIELDS = ["date", "time", "s-sitename", "s-computername", "s-ip", "cs-method", "cs-uri-stem", "cs-uri-query", "s-port", "cs-username", "c-ip", "cs-version",
@@ -34,7 +34,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   if (ev.source !== "web_server") return null;
   const f = webFacts(ev);
   const t = new Date(ev.ts).toISOString();
-  const viaGateway = !isPrivateClient(f.clientIp);
+  const viaGateway = !isLoopbackClient(f.clientIp);
   const record: Record<string, unknown> = {
     date: t.slice(0, 10),
     time: t.slice(11, 19),
@@ -44,7 +44,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     "cs-method": f.method,
     "cs-uri-stem": f.path,
     "cs-uri-query": f.query || "-",
-    "s-port": 443,
+    "s-port": f.port,
     // Forms sign-in sets the request's user, so IIS logs it; a cookie-only API logs a hyphen.
     "cs-username": ev.user_email ?? "-",
     "c-ip": viaGateway ? balancerIp(f.serverIp, ctx) : f.clientIp,

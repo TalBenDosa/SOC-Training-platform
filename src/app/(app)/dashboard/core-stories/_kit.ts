@@ -5,8 +5,11 @@
  * fields the pipeline already strips belongs here.
  */
 import type { Severity, TelemetryEvent } from "@/lib/sim/types";
+import type { SeatRole } from "@/lib/sim/companyProfilesMeta";
 import { sysmonDriver } from "@/lib/sim/emitters/sysmon";
 import { makeSha256 } from "@/lib/sim/iocs";
+import { makeCtx } from "@/lib/logs/native/ctx";
+import { testNetIp } from "@/lib/logs/native/sources/remote-access-shared";
 
 export interface CoreStoryDef {
   id: string;
@@ -14,17 +17,22 @@ export interface CoreStoryDef {
   complexity: "foundation" | "core" | "advanced";
   /** Explicit company allowlist. Omitted = the source-fit rule decides. */
   companies?: string[];
+  /** The job the main person must hold: they and their machine come from the company's seats. */
+  seat?: SeatRole;
   events: TelemetryEvent[];
 }
 
-/** Every built-in company. Listed explicitly when a mail row would fail source fit at QuantumBank, whose feed has no o365 channel key. */
-export const ALL_COMPANIES = ["nexacorp", "rocketstack", "medcore", "globallogis", "quantumbank"];
+/** Companies with a mail gateway product. RocketStack has none in its stack, so a gateway record there would name a product it does not run. Listed because QuantumBank's feed has no o365 channel key. */
+export const MAIL_GATEWAY_COMPANIES = ["nexacorp", "medcore", "globallogis", "quantumbank"];
 /** Companies running Entra ID and on-premises Active Directory. */
 export const AD_COMPANIES = ["nexacorp", "medcore", "globallogis"];
 /** Companies whose cloud estate is AWS. */
 export const AWS_COMPANIES = ["rocketstack", "globallogis", "quantumbank"];
 /** Companies whose cloud estate is Azure. */
 export const AZURE_COMPANIES = ["nexacorp", "medcore"];
+
+/** The office's public address, a documentation address per company: instantiateStory swaps it with the rest of a tenant's identity. */
+export const OFFICE_EGRESS = testNetIp(makeCtx("nexacorp"), "nexacorp:egress");
 
 /** A clock for one story: T(seconds after the story's start). */
 export function clock(startIso: string): (sec: number) => string {

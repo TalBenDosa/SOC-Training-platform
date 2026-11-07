@@ -124,9 +124,16 @@ describe("web server wire formats", () => {
     expect(timeLocal("2026-07-01T12:00:00.000Z", "Europe/Berlin")).toBe("01/Jul/2026:14:00:00 +0200");
     expect(timeLocal("2026-01-01T12:00:00.000Z", "UTC")).toBe("01/Jan/2026:12:00:00 +0000");
   });
-  it("a staff request reached the server directly: the client is the first column", () => {
+  it("a staff request comes through the balancer like any other, so the WAF and the server name one client", () => {
     const inside = { id: "t5", ts: "2026-03-17T09:21:40.000Z", source: "web_server", vendor: "Web Server", event_type: "http_request", hostname: "web-app-01.example.com", src_ip: "10.10.20.19", dst_ip: "10.20.40.21", network: { url: "https://portal.example.com/a", domain: "portal.example.com" }, raw: {} } as never;
-    expect(nginx.fromTelemetry(inside, makeCtx("rocketstack"))!.record.remote_addr).toBe("10.10.20.19");
-    expect(iis.fromTelemetry(inside, makeCtx("nexacorp"))!.record["c-ip"]).toBe("10.10.20.19");
+    expect(nginx.fromTelemetry(inside, makeCtx("rocketstack"))!.record.http_x_forwarded_for).toBe("10.10.20.19");
+    expect(iis.fromTelemetry(inside, makeCtx("nexacorp"))!.record["X-Forwarded-For"]).toBe("10.10.20.19");
+  });
+  it("a request the server made to itself never crossed the balancer", () => {
+    const self = { id: "t6", ts: "2026-03-17T09:21:40.000Z", source: "web_server", vendor: "Microsoft IIS", event_type: "http_request", hostname: "web-app-01.example.com", src_ip: "::1", dst_ip: "10.20.40.21", dst_port: 80, network: { url: "https://portal.example.com/a", domain: "portal.example.com" }, raw: {} } as never;
+    const r = iis.fromTelemetry(self, makeCtx("nexacorp"))!.record;
+    expect(r["c-ip"]).toBe("::1");
+    expect(r["s-port"]).toBe(80);
+    expect(r["X-Forwarded-For"]).toBe("-");
   });
 });

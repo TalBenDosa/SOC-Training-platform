@@ -7,7 +7,7 @@ Category: Web server · Vendor: F5 / nginx · Module: `nginx`
 | Source | What it confirmed |
 |---|---|
 | ngx_http_log_module: https://nginx.org/en/docs/http/ngx_http_log_module.html | The predefined `combined` format, `log_format`, `$request_time`, escaping of `"`, `\` and control characters as `\xXX`, `-` for an empty variable |
-| ngx_http_core_module variables: https://nginx.org/en/docs/http/ngx_http_core_module.html#variables | `$hostname`, `$server_addr`, `$host`, `$request_length`, `$http_<name>` |
+| ngx_http_core_module variables: https://nginx.org/en/docs/http/ngx_http_core_module.html#variables | `$hostname`, `$server_addr`, `$request_length`, `$http_<name>` (`$http_host` is the Host header as sent; `$host` is a host name) |
 | ngx_http_realip_module: https://nginx.org/en/docs/http/ngx_http_realip_module.html | Without it, `$remote_addr` is the immediate peer |
 
 ## 2. Native format and delivery
@@ -17,7 +17,7 @@ A text file, one line per request (`/var/log/nginx/access.log`), in the `log_for
 The estate's format is `combined` extended with core variables, so a line names its server and its sizes:
 
 ```text
-log_format soc '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" "$http_x_forwarded_for" $hostname $server_addr $host $request_length $request_time';
+log_format soc '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" "$http_x_forwarded_for" $hostname $server_addr $http_host $request_length $request_time';
 ```
 
 ## 3. Core field reference
@@ -31,7 +31,7 @@ log_format soc '$remote_addr - $remote_user [$time_local] "$request" $status $bo
 | `status`, `body_bytes_sent` | Status; response body size |
 | `http_referer`, `http_user_agent` | Request headers, as sent |
 | `http_x_forwarded_for` | The client, as the balancer reported it |
-| `hostname`, `server_addr`, `host` | Server name, server address, the request's Host |
+| `hostname`, `server_addr`, `http_host` | Server name, server address, the Host header as the client sent it |
 | `request_length` | Request size including headers and body |
 | `request_time` | Seconds, millisecond resolution |
 
@@ -45,7 +45,7 @@ log_format soc '$remote_addr - $remote_user [$time_local] "$request" $status $bo
 {
   "remote_addr": "10.20.40.9", "remote_user": "-", "time_local": "17/Mar/2026:09:21:40 +0000", "request": "GET /uploads/avatars/7731/avatar.php HTTP/1.1",
   "status": "200", "body_bytes_sent": "43", "http_referer": "-", "http_user_agent": "python-requests/2.31.0", "http_x_forwarded_for": "203.0.113.54",
-  "hostname": "web-app-01", "server_addr": "10.20.40.21", "host": "portal.example.com", "request_length": "214", "request_time": "0.031"
+  "hostname": "web-app-01", "server_addr": "10.20.40.21", "http_host": "portal.example.com", "request_length": "214", "request_time": "0.031"
 }
 ```
 
@@ -57,7 +57,7 @@ log_format soc '$remote_addr - $remote_user [$time_local] "$request" $status $bo
 {
   "remote_addr": "10.20.40.9", "remote_user": "-", "time_local": "17/Mar/2026:10:02:11 +0000", "request": "GET /api/v2/customers/48244/statements HTTP/1.1",
   "status": "200", "body_bytes_sent": "18442", "http_referer": "-", "http_user_agent": "okhttp/4.12.0", "http_x_forwarded_for": "203.0.113.90",
-  "hostname": "web-api-01", "server_addr": "10.20.40.31", "host": "api.example.com", "request_length": "388", "request_time": "0.102"
+  "hostname": "web-api-01", "server_addr": "10.20.40.31", "http_host": "api.example.com", "request_length": "388", "request_time": "0.102"
 }
 ```
 
@@ -69,7 +69,7 @@ log_format soc '$remote_addr - $remote_user [$time_local] "$request" $status $bo
 {
   "remote_addr": "10.20.40.14", "remote_user": "-", "time_local": "17/Mar/2026:11:15:03 +0000", "request": "POST /graphql HTTP/1.1",
   "status": "200", "body_bytes_sent": "1204", "http_referer": "-", "http_user_agent": "CustomerApp/5.2.0 (Android 14)", "http_x_forwarded_for": "-",
-  "hostname": "web-api-01", "server_addr": "10.20.40.31", "host": "api.example.com", "request_length": "18774", "request_time": "0.244"
+  "hostname": "web-api-01", "server_addr": "10.20.40.31", "http_host": "api.example.com", "request_length": "18774", "request_time": "0.244"
 }
 ```
 

@@ -331,7 +331,7 @@ function RawLogView({ event, native }: { event: LiveEvent; native?: NativeView |
   const rawLog = native
     ? native.log.rawLine
       ? { format: `${native.product} — native ${native.log.format.toUpperCase()}`, text: native.log.rawLine, lang: (native.log.format === "xml" ? "xml" : "syslog") as "xml" | "syslog" }
-      : { format: `${native.product} — native JSON`, text: JSON.stringify(native.log.record, null, 2), lang: "json" as const }
+      : { format: `${native.product} — native JSON`, text: [native.log, ...(native.related ?? [])].map(l => JSON.stringify(l.record, null, 2)).join("\n"), lang: "json" as const }
     : toRawLog(event);
 
   function handleCopy() {

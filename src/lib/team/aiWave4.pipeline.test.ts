@@ -10,6 +10,7 @@ import { buildTeamTimeline, teamStoryPool, teamStoryFilter, TEAM_ANSWER_FIELDS }
 import { TENANT_TEMPLATE } from "./tenant";
 import { DEFAULT_ENV, PLATFORM_CHOICES, type TeamEnv } from "./environment";
 import { storyCategory } from "./storyCategory";
+import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 
 const STORIES = [...AI_WAVE4_A_STORIES, ...AI_WAVE4_B_STORIES];
 const DIFFS = ["easy", "medium", "hard"] as const;
@@ -39,7 +40,7 @@ describe("wave-4 AI storylines", () => {
     expect(new Set(STORIES.map(s => s.complexity))).toEqual(new Set(["foundation", "core", "advanced"]));
   });
 
-  it("reaches all five companies on every topic", () => {
+  it("reaches every company that holds the seat its topic needs", () => {
     const topic = (id: string) => id.replace(/-(aws|azure|api)$/, "");
     const byTopic = new Map<string, Set<string>>();
     for (const s of STORIES) {
@@ -47,10 +48,63 @@ describe("wave-4 AI storylines", () => {
       s.companies.forEach(c => set.add(c));
       byTopic.set(topic(s.id), set);
     }
+    // A coding agent needs a developer seat: MedCore's clinical desks have none, so it is the one company off these topics.
+    const developerTopics = new Set(["ai-agent-skill-host-cloud", "ai-hub-model-load-workstation", "ai-mcp-server-update-drift", "ai-agent-rules-file-tamper", "ai-assistant-commit-key-leak", "ai-agent-prod-delete"]);
     const narrow = new Set(["ai-rag-source-poisoning", "ai-training-data-poisoning"]); // one topic in two builds, named apart
-    for (const [t, set] of byTopic) if (!narrow.has(t)) expect([...set].sort(), t).toEqual([...COMPANIES].sort());
+    for (const [t, set] of byTopic) {
+      if (narrow.has(t)) continue;
+      expect([...set].sort(), t).toEqual(COMPANIES.filter(c => !developerTopics.has(t) || c !== "medcore").sort());
+    }
     const both = new Set([...byTopic.get("ai-rag-source-poisoning")!, ...byTopic.get("ai-training-data-poisoning")!]);
     expect([...both].sort()).toEqual([...COMPANIES].sort());
+  });
+
+  it("every company a story lists holds the seat it needs", () => {
+    for (const s of STORIES) if (s.seat) for (const c of s.companies) expect(COMPANY_ASSETS[c].seats?.[s.seat]?.length, `${s.id} on ${c}`).toBeGreaterThan(0);
+  });
+
+  // A role mailbox, a canary, a clinical or warehouse seat, or a shared server must never be who or where a story happens.
+  const NOT_A_PERSON = /sec-canary|security-admin|helpdesk|\bdba@|-desk\d*@|wh-shift/;
+  const WRONG_HOST = /WH-TERM|WS-NURS|NRS-TERM|WS-HR-|WS-LOG-|PACS|-NAS|BACKUP|-FS\d|-FILE|SRV-GL-APP02|SRV-PROD-001|ADMIN01|-DC\d|-SQL/;
+  for (const s of STORIES) for (const c of s.companies) {
+    it(`${s.id} lands on the right people and hosts on ${c}, across seeds`, () => {
+      const diff = DIFFS.find(d => teamStoryPool(c, d, null).some(x => x.id === s.id))!;
+      const ids = new Set(s.events.map(e => e.id));
+      for (let seed = 0; seed < 6; seed++) {
+        const rows = buildTeamTimeline(c, diff, `seats-${seed}`, s.id).filter(e => ids.has(String((e.answer as { original_id?: string } | undefined)?.original_id ?? "").replace(/__\d+$/, "")));
+        for (const e of rows) {
+          const b = e.body as { hostname?: string; user_email?: string };
+          expect(NOT_A_PERSON.test(b.user_email ?? ""), `${b.user_email} on ${c}`).toBe(false);
+          expect(WRONG_HOST.test(b.hostname ?? ""), `${b.hostname} on ${c}`).toBe(false);
+        }
+        if (s.seat === "developer" || s.seat === "finance") {
+          const seats = COMPANY_ASSETS[c].seats![s.seat]!;
+          const hosts = new Set(rows.map(e => (e.body as { hostname?: string }).hostname).filter(Boolean));
+          expect(seats.some(x => hosts.has(x.host)), `a ${s.seat} seat on ${c}`).toBe(true);
+        }
+      }
+    });
+  }
+
+  it("an alert about a resource or a visitor names no employee", () => {
+    for (const id of ["ai-portal-assistant-injection-azure", "ai-model-extraction-azure", "ai-exposed-inference-endpoint", "ai-exposed-vector-store"]) {
+      const s = STORIES.find(x => x.id === id)!;
+      const row = s.events.filter(e => e.source === "siem").at(-1)!;
+      expect(row.user_email, id).toBeUndefined();
+      expect(JSON.stringify((row.raw as { Entities?: unknown }).Entities), id).not.toContain('"account"');
+      expect(row.raw?.["target.user.name"], id).toBeUndefined();
+      expect(String(row.raw?.["CompromisedEntity"] ?? ""), id).not.toContain("@");
+    }
+  });
+
+  it("the benign alert twin has the attack alert's shape and no verdict word", () => {
+    for (const id of ["ai-agent-skill-host-cloud-aws", "ai-agent-skill-host-cloud-azure", "ai-hub-model-load-workstation"]) {
+      const s = STORIES.find(x => x.id === id)!;
+      const alerts = s.events.filter(e => e.source === "edr" && e.is_detection);
+      const twin = alerts.find(e => e.expected_verdict === "fp")!, attack = alerts.find(e => e.expected_verdict !== "fp")!;
+      expect(Object.keys(twin.raw ?? {}).sort(), id).toEqual(Object.keys(attack.raw ?? {}).sort());
+      expect(JSON.stringify(twin.raw), id).not.toContain("av.verdict");
+    }
   });
 
   for (const c of COMPANIES) for (const d of DIFFS) {
@@ -103,6 +157,7 @@ describe("wave-4 AI storylines", () => {
         expect(s.events.some(e => e.is_detection && e.expected_verdict !== "fp") || s.events.some(e => e.source === "soar")).toBe(true);
         const ts = s.events.map(e => Date.parse(e.ts));
         expect(ts.some(Number.isNaN)).toBe(false);
+        for (let i = 1; i < ts.length; i++) expect(ts[i], `${s.events[i].id} comes after ${s.events[i - 1].id}`).toBeGreaterThanOrEqual(ts[i - 1]);
       });
 
       it("carries no spoiler, no dash and no injection text", () => {

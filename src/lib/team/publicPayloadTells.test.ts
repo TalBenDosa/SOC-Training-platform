@@ -19,6 +19,9 @@ describe("public team feed carries no attack tells in its shape", () => {
           if (t.channel !== "feed") continue;
           const b = t.body as Record<string, unknown>;
           if ((b.mitre_technique || b.mitre_tactic) && !mitreVisible(b as never)) problems.push(`${b.id}: technique on a raw ${b.source}/${b.event_type} log`);
+          if (b.is_detection === false) problems.push(`${b.id}: is_detection false marks an authored row`);
+          const raw = (b.raw ?? {}) as Record<string, unknown>;
+          if (!mitreVisible(b as never)) for (const k of ["threat.technique.id", "threat.technique.subtechnique.id", "mde.AlertTitle"]) if (k in raw) problems.push(`${b.id}: ${k} in the raw block of a ${b.source}/${b.event_type} log`);
           for (const [k, v] of Object.entries(b)) {
             if (v === null || (typeof v === "object" && !Array.isArray(v) && Object.keys(v as object).length === 0)) problems.push(`${b.id}: empty field ${k}`);
           }

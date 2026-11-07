@@ -30,7 +30,8 @@ JSON, one record per request the web ACL inspected, delivered to CloudWatch Logs
 | `terminatingRuleMatchDetails` | Match detail, only for SQLi and XSS match statements | array, usually empty; not populated by CRS version 2.0 XSS rules |
 | `httpSourceName`, `httpSourceId` | Protected resource | `ALB`, `CF`, `APIGW`, … |
 | `ruleGroupList[]` | Rule groups that acted | `ruleGroupId`, `terminatingRule`, `nonTerminatingMatchingRules`, `excludedRules` |
-| `rateBasedRuleList[]` | Rate-based rules evaluated | `rateBasedRuleId`, `rateBasedRuleName`, `limitKey`, `limitValue`, `maxRateAllowed`, `evaluationWindowSec` |
+| `rateBasedRuleList[]` | Every rate-based rule of the web ACL evaluated against the request, over its limit or not | `rateBasedRuleId`, `rateBasedRuleName`, `limitKey`, `limitValue`, `maxRateAllowed`, `evaluationWindowSec` |
+| `oversizeFields` | Inspected parts of the request over the inspection limit | `REQUEST_BODY`: an Application Load Balancer reads the first 8 KB of a body, the rest reaches the target unread |
 | `nonTerminatingMatchingRules[]` | Rules that matched without ending inspection | `ruleId`, `action` (`COUNT`, `CAPTCHA`, `CHALLENGE`), `ruleMatchDetails`; `overriddenAction` when a group rule was overridden |
 | `httpRequest` | `clientIp`, `country`, `headers[]`, `uri`, `args`, `httpVersion`, `httpMethod`, `requestId` | `requestId` is the ALB trace id |
 | `labels[]` | Labels applied by rules | `awswaf:managed:aws:core-rule-set:…` |

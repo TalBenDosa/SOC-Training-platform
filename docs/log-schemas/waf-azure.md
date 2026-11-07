@@ -11,6 +11,7 @@ Scope: `ApplicationGatewayFirewallLog` and `ApplicationGatewayAccessLog` resourc
 | Monitoring data reference: https://learn.microsoft.com/en-us/azure/application-gateway/monitor-application-gateway-reference | v2 access log sample (`timeStamp`, `listenerName`, `originalRequestUriWithArgs`, `requestQuery`, `WAFMode`, `serverRouted`, `serverStatus`, `error_info`) |
 | CRS and DRS rule groups and rules: https://learn.microsoft.com/en-us/azure/web-application-firewall/ag/application-gateway-crs-rulegroups-rules | Rule ids, groups and wording (CRS 3.2 tab) |
 | Troubleshoot rule 949110: https://learn.microsoft.com/en-us/troubleshoot/azure/application-gateway/troubleshoot-waf-anomaly-scoring-rule-949110-blocks | Anomaly scoring: rule rows are `Matched`, the final row is `Blocked` or `Detected`, joined on `transactionId` |
+| Troubleshoot WAF: https://learn.microsoft.com/en-us/troubleshoot/azure/web-application-firewall/web-application-firewall-troubleshoot | Wording of a blocking row (`Access denied with code 403 (phase 2). Operator GE matched 5 at TX:anomaly_score.`); a body is inspected only up to the inspection limit when the size limit is off |
 
 ## 2. Native format and delivery
 
@@ -18,7 +19,9 @@ JSON resource log records (`resourceId`, `operationName`, `category`, then `prop
 **One request can write several firewall rows and they join on `transactionId`.** A rule that fires under anomaly scoring only adds to a score (`Matched`); when the score reaches the threshold, rule 949110 writes the row that says `Blocked`.
 **Clean traffic has no firewall row.** It appears only in the access log, with the origin's answer in `serverStatus` and the size in `sentBytes`.
 
-The platform's feed shows one record per event: a blocked request shows its rule row (the one with the evidence), and `companions()` holds the 949110 row with the same `transactionId`.
+The platform's feed shows one event per request: a blocked request shows its rule row (the one with the evidence), and the raw view prints the 949110 row of the same `transactionId` under it (`companions()`).
+
+A policy is in one mode, and the estate has one listener and policy per site (`<org>-<site>-https-listener`). On a Detection policy every rule row is `Detected` and the access log says `WAFMode: Detection`. On a Prevention policy a managed rule is `Matched`, and a custom rule that blocks is `Blocked`.
 
 ## 3. Core field reference
 
@@ -124,5 +127,7 @@ Access log row:
 
 ## 7. UNVERIFIED
 
+- A custom rule with the **Log** action on a Prevention policy prints `Matched` here. Microsoft does not list an action for it; `Matched` is its documented meaning (the decision is still to be made).
 - The row of a **custom rule** (`ruleSetType: "Custom"`, `ruleId` = the rule's name, no `ruleGroup`, `details.file: "CustomRules"`): Microsoft's page documents `Allowed` and `Blocked` for custom rules but shows no custom sample and lists only `OWASP` as a `ruleSetType`. The module's custom row follows the documented field set; the values of `ruleSetType`, `ruleSetVersion` and `details.file` are unconfirmed.
-- `ruleGroup` of 949110 on Application Gateway with CRS 3.2 (`REQUEST-949-BLOCKING-EVALUATION`), and the "Mandatory rule. Cannot be disabled." wording: confirmed in customer questions on Microsoft Q&A, while the only Microsoft sample (Application Gateway for Containers, DRS) reads `BLOCKING-EVALUATION`.
+- `ruleGroup` of 949110 on Application Gateway with CRS 3.2 (`REQUEST-949-BLOCKING-EVALUATION`), and the "Mandatory rule. Cannot be disabled." wording: confirmed in customer questions on Microsoft Q&A, while the only Microsoft sample (Application Gateway for Containers, DRS) reads `BLOCKING-EVALUATION`. Microsoft's older samples print `ruleId: "0"` and an empty `ruleSetType` on that row.
+- `ruleGroup` with the `REQUEST-` prefix on rule rows: Microsoft's sample on the logs page reads `920-PROTOCOL-ENFORCEMENT`, while `details.file` keeps the prefix. `details.line` is a placeholder per rule, and `details.message` is a template, not a captured line.

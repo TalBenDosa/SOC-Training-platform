@@ -353,6 +353,10 @@ export const WIN_EVENT_VIEWER_DESCRIPTIONS: Record<string, string> = {
 
   // Scheduled Tasks
   "4698": "A scheduled task was created.",
+  "4886": "Certificate Services received a certificate request.",
+  "4887": "Certificate Services approved a certificate request and issued a certificate.",
+  "5136": "A directory service object was modified.",
+  "5137": "A directory service object was created.",
   "4699": "A scheduled task was deleted.",
   "4700": "A scheduled task was enabled.",
   "4701": "A scheduled task was disabled.",

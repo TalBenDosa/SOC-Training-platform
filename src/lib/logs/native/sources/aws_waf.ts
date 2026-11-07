@@ -42,7 +42,6 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const trace = `1-${ctx.hex(`waf-trace-a:${ev.id}`, 8)}-${ctx.hex(`waf-trace-b:${ev.id}`, 24)}`;
   const headers = [
     { name: "Host", value: f.hostHeader ?? f.site },
-    ...(f.hostHeader ? [{ name: "X-Forwarded-Host", value: f.hostHeader }] : []),
     { name: "User-Agent", value: f.userAgent },
     { name: "Accept", value: "*/*" },
     ...(f.referer ? [{ name: "Referer", value: f.referer }] : []),
@@ -54,7 +53,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     timestamp: Date.parse(ev.ts),
     formatVersion: 1,
     webaclId: `arn:aws:wafv2:${region}:${acct}:regional/webacl/${acl}/${ctx.uuid(`waf-acl:${ctx.companyId}`)}`,
-    ...decision(f),
+    ...decision(f, `${ctx.org}-rate-per-ip`),
     httpSourceName: "ALB",
     httpSourceId: `${acct}-app/${ctx.org}-public-alb/${ctx.hex(`waf-alb:${ctx.companyId}`, 16)}`,
     requestHeadersInserted: null,
@@ -66,25 +65,28 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     // The same client software presents the same TLS hello whichever address it comes from.
     ja3Fingerprint: ctx.hex(`waf-ja3:${f.userAgent}`, 32),
   };
+  if (f.oversizeBody) record.oversizeFields = ["REQUEST_BODY"];
   const labels = labelsOf(f);
   if (labels.length) record.labels = labels.map(name => ({ name }));
   return { sourceId: "aws_waf", kind: "web_acl", format: "json", record, timeMs: Date.parse(ev.ts) };
 }
 
-/** The evaluated rule groups, with the one that matched (if any) reporting its rule. */
-function decision(f: WebFacts): Record<string, unknown> {
+/**
+ * The web ACL's shape never changes per request: one list of rule groups, the one that matched (if
+ * any) reporting its rule, and its rate rule, which AWS lists whether or not the client is over it.
+ */
+function decision(f: WebFacts, rateName: string): Record<string, unknown> {
   const blocked = f.action === "block";
+  const rate = { rateBasedRuleId: rateName, rateBasedRuleName: rateName, limitKey: "IP", limitValue: f.clientIp, maxRateAllowed: f.rateLimit ?? 300, evaluationWindowSec: String(f.rateWindowSec ?? 300) };
   const base = {
     terminatingRuleId: "Default_Action", terminatingRuleType: "REGULAR", action: blocked ? "BLOCK" : "ALLOW", terminatingRuleMatchDetails: [] as unknown[],
-    rateBasedRuleList: [] as unknown[], nonTerminatingMatchingRules: [] as unknown[],
+    rateBasedRuleList: [rate] as unknown[], nonTerminatingMatchingRules: [] as unknown[],
   };
-  const groups = ["AWSManagedRulesCommonRuleSet", "AWSManagedRulesKnownBadInputsRuleSet", "AWSManagedRulesSQLiRuleSet"];
+  const groups = ["AWSManagedRulesCommonRuleSet", "AWSManagedRulesKnownBadInputsRuleSet", "AWSManagedRulesSQLiRuleSet", "AWSManagedRulesPHPRuleSet", "AWSManagedRulesATPRuleSet"];
   const idle = (g: string) => ({ ruleGroupId: `AWS#${g}`, terminatingRule: null, nonTerminatingMatchingRules: [], excludedRules: null });
   if (f.rule === "rate") {
-    const name = f.ruleName ?? "rate-limit-per-ip";
-    const rate = { rateBasedRuleId: name, rateBasedRuleName: name, limitKey: "IP", limitValue: f.clientIp, maxRateAllowed: f.rateLimit ?? 300, evaluationWindowSec: String(f.rateWindowSec ?? 300) };
-    return { ...base, ruleGroupList: groups.map(idle), rateBasedRuleList: [rate],
-      ...(blocked ? { terminatingRuleId: name, terminatingRuleType: "RATE_BASED" } : { nonTerminatingMatchingRules: [{ ruleId: name, action: "COUNT", ruleMatchDetails: [] }] }) };
+    return { ...base, ruleGroupList: groups.map(idle),
+      ...(blocked ? { terminatingRuleId: rateName, terminatingRuleType: "RATE_BASED" } : { nonTerminatingMatchingRules: [{ ruleId: rateName, action: "COUNT", ruleMatchDetails: [] }] }) };
   }
   if (f.rule === "custom") {
     const name = f.ruleName ?? "custom-rule";
@@ -93,12 +95,11 @@ function decision(f: WebFacts): Record<string, unknown> {
   }
   const def = f.rule ? WAF_RULES[f.rule]?.aws : undefined;
   if (!def) return { ...base, ruleGroupList: groups.map(idle) };
-  const others = groups.filter(g => g !== def.group).map(idle);
   // A rule overridden to Count: the request passes, the group reports the match with the configured action.
   const matched = blocked
     ? { ruleGroupId: `AWS#${def.group}`, terminatingRule: { ruleId: def.rule, action: "BLOCK", ruleMatchDetails: null }, nonTerminatingMatchingRules: [], excludedRules: null }
     : { ruleGroupId: `AWS#${def.group}`, terminatingRule: null, nonTerminatingMatchingRules: [{ ruleId: def.rule, action: "COUNT", overriddenAction: "BLOCK", ruleMatchDetails: [] }], excludedRules: null };
-  return { ...base, ruleGroupList: [matched, ...others],
+  return { ...base, ruleGroupList: groups.map(g => (g === def.group ? matched : idle(g))),
     ...(blocked ? { terminatingRuleId: aclRule(def.group), terminatingRuleType: "MANAGED_RULE_GROUP" } : {}) };
 }
 
@@ -140,8 +141,8 @@ const useCases: UseCase[] = [
   {
     id: "aws_waf.rate_rule", title: "Rate-based rule evaluated over its limit", sourceId: "aws_waf", severity: "medium", mitre: ["T1110.004", "T1119"],
     description: "A client went over a rate-based rule's limit. Check whether the rule blocks or only counts, and what the client was walking through.",
-    logic: 'filter ispresent(rateBasedRuleList.0.rateBasedRuleId)',
-    match: { field: "rateBasedRuleList[].rateBasedRuleId", op: "exists" },
+    logic: 'filter nonTerminatingMatchingRules.0.ruleId like /rate-per-ip/ or terminatingRuleType = "RATE_BASED"',
+    match: { field: "nonTerminatingMatchingRules[].ruleId", op: "contains", value: "rate-per-ip" },
     falsePositives: ["A partner batch job", "A broken client retrying"],
   },
   {

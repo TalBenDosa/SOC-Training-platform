@@ -12,6 +12,8 @@ import { validateNative } from "@/lib/logs/native/validate";
 import { NATIVE_SOURCES } from "@/lib/logs/native";
 import { makeCtx } from "@/lib/logs/native/ctx";
 import { techniqueById } from "@/lib/mitre/attack";
+import { mitreVisible } from "@/lib/sim/mitreVisible";
+import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import { storyProblems, renderedStories } from "@/lib/qa/investigability";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { buildTeamTimeline, teamStoryFilter, teamStoryPool, TEAM_ANSWER_FIELDS } from "./buildTimeline";
@@ -29,6 +31,11 @@ const JUNK = /\bundefined\b|\bNaN\b|\[object Object\]/;
 const DASH = /[–—]/;
 const authoredId = (e: { answer?: unknown }) => String((e.answer as { original_id?: string } | undefined)?.original_id ?? "").replace(/__\d+$/, "");
 const needsCloudTrail = (events: TelemetryEvent[]) => events.some(e => e.source === "cloudtrail");
+/** Stories whose systems exist only on some companies. */
+const NOT_ON: Record<string, string[]> = { "web-xxe-store-skimmer": ["medcore", "quantumbank"] };
+/** What a row shows of itself before anyone reads its fields. */
+const face = (e: TelemetryEvent) => ({ detection: !!e.is_detection, severity: e.severity, technique: mitreVisible(e) ? e.mitre_technique : undefined, tactic: mitreVisible(e) ? e.mitre_tactic : undefined });
+const ruleOf = (e: TelemetryEvent) => [e.raw?.["waf.rule.key"], e.raw?.["waf.rule.name"]].join("|");
 
 function emptyValues(o: unknown, path = ""): string[] {
   if (o === "") return [path];
@@ -45,7 +52,8 @@ describe("web application attack catalog", () => {
       const s = ATTACK_STORIES.find(x => x.id === d.id);
       expect(s, d.id).toBeTruthy();
       expect(s!.teamOnly, d.id).toBe(true);
-      expect(s!.companies, `${d.id} is not locked to a company`).toBeUndefined();
+      if (NOT_ON[d.id]) expect(s!.companies, d.id).toEqual(COMPANIES.filter(c => !NOT_ON[d.id].includes(c)));
+      else expect(s!.companies, `${d.id} is not locked to a company`).toBeUndefined();
       expect(storyCategory(d.id)).toBe("web");
     }
   });
@@ -64,7 +72,7 @@ for (const def of DEFS) {
   describe(def.id, () => {
     const story = ATTACK_STORIES.find(s => s.id === def.id)!;
     const cloud = needsCloudTrail(def.events);
-    const companies = COMPANIES.filter(c => !cloud || stackFor(c).cloud === "aws_cloudtrail");
+    const companies = COMPANIES.filter(c => (!cloud || stackFor(c).cloud === "aws_cloudtrail") && !NOT_ON[def.id]?.includes(c));
 
     it("is in the Team Training pool of every company whose stack can show it", () => {
       for (const c of companies) {
@@ -94,6 +102,20 @@ for (const def of DEFS) {
       expect(look.length).toBeGreaterThan(0);
       const attacks = def.events.filter(e => !e.is_baseline && e.expected_verdict !== "fp");
       for (const l of look) expect(attacks.some(a => a.source === l.source && a.event_type === l.event_type), l.id).toBe(true);
+    });
+
+    it("a look-alike shows the same face as its attack twin: only its fields differ", () => {
+      const look = def.events.filter(e => e.expected_verdict === "fp" && e.fp_explanation);
+      const attacks = def.events.filter(e => !e.is_baseline && e.expected_verdict !== "fp");
+      for (const l of look) {
+        const twins = attacks.filter(a => a.source === l.source && a.event_type === l.event_type && ruleOf(a) === ruleOf(l));
+        expect(twins.length, `${l.id} has an attack row on the same rule`).toBeGreaterThan(0);
+        expect(twins.map(face), l.id).toContainEqual(face(l));
+      }
+    });
+
+    it("a WAF row that matched no rule carries no technique", () => {
+      for (const e of def.events) if (e.source === "waf" && !e.raw?.["waf.rule.key"]) expect(e.mitre_technique, e.id).toBeUndefined();
     });
 
     it("is investigable: several sources in time order, a first alert, no gate problem", () => {
@@ -141,7 +163,123 @@ for (const def of DEFS) {
   });
 }
 
+describe("web traffic is not only the attack", () => {
+  const sessions = COMPANIES.flatMap(c => DEFS.filter(d => !NOT_ON[d.id]?.includes(c)).flatMap(def => {
+    const diff = DIFFS.find(x => teamStoryPool(c, x, null).some(s => s.id === def.id));
+    return diff ? [{ c, def, diff }] : [];
+  }));
+  const isWeb = (e: { body: unknown }) => ["waf", "web_server"].includes(String((e.body as TelemetryEvent).source));
+
+  it("every session has ordinary web rows on the story's own sites, and rule hits that are nobody's attack", () => {
+    for (const { c, def, diff } of sessions) {
+      const ids = new Set(def.events.map(e => e.id));
+      const tl = buildTeamTimeline(c, diff, `noise-${def.id}`, def.id);
+      const noise = tl.filter(e => isWeb(e) && authoredId(e).startsWith("wn_") && !ids.has(authoredId(e)));
+      expect(noise.length, `${c} ${def.id}`).toBeGreaterThanOrEqual(6);
+      const storySites = new Set(tl.filter(e => isWeb(e) && ids.has(authoredId(e))).map(e => (e.body as unknown as TelemetryEvent).network?.domain));
+      expect(noise.some(e => storySites.has((e.body as unknown as TelemetryEvent).network?.domain)), `${c} ${def.id}`).toBe(true);
+      for (const e of noise) {
+        const b = e.body as unknown as TelemetryEvent;
+        const v = nativeView(b, c);
+        expect(v, authoredId(e)).toBeTruthy();
+        expect(validateNative(v!.log, NATIVE_SOURCES[v!.log.sourceId]!.schema)).toEqual([]);
+      }
+    }
+  });
+
+  it("a session with no web story still has them, and a rule hit among them", () => {
+    for (const c of COMPANIES) {
+      const tl = [0, 1, 2].flatMap(i => buildTeamTimeline(c, "medium", `plain-${i}`));
+      const noise = tl.filter(e => isWeb(e) && authoredId(e).startsWith("wn_"));
+      expect(noise.length, c).toBeGreaterThan(10);
+      expect(noise.some(e => (e.body as unknown as TelemetryEvent).is_detection), c).toBe(true);
+    }
+  });
+
+  it("a named organization without a WAF product sees no WAF noise", () => {
+    const rows = buildTeamTimeline(TENANT_TEMPLATE, "medium", "noise-org", null, legacyLoad("medium"), {}, parseTenant("acme-labs") as Tenant, { platforms: ["linux"], industry: "general" });
+    expect(rows.some(e => (e.body as unknown as TelemetryEvent).source === "waf")).toBe(false);
+  });
+});
+
 describe("one incident agrees across products", () => {
+  it("one workstation has one address in the web rows and the firewall row, on every seed", () => {
+    const id = "web-stored-xss-session";
+    const ids = new Set(DEFS.find(d => d.id === id)!.events.map(e => e.id));
+    for (const c of COMPANIES) for (let i = 0; i < 5; i++) {
+      const rows = buildTeamTimeline(c, "medium", `ip-${i}`, id).filter(e => ids.has(authoredId(e)));
+      const b = (x: string) => rows.find(e => authoredId(e) === x)?.body as unknown as TelemetryEvent;
+      expect(new Set(["web_xs_001", "web_xs_004", "web_xs_005"].map(x => b(x).src_ip)).size, `${c} ${i}`).toBe(1);
+    }
+  }, 120_000);
+
+  it("each run of a shell is its own process, and its parent is the shell that ran it", () => {
+    for (const c of ["nexacorp", "rocketstack"]) {
+      const def = DEFS.find(d => d.id === "web-upload-webshell")!;
+      const rows = buildTeamTimeline(c, "medium", `proc-${c}`, def.id);
+      const b = (x: string) => rows.find(e => authoredId(e) === x)!.body as unknown as TelemetryEvent;
+      expect(new Set(["web_up_007", "web_up_008", "web_up_010", "web_up_014"].map(x => b(x).process?.pid)).size).toBe(4);
+      expect(b("web_up_015").process?.parent_pid).toBe(b("web_up_014").process?.pid);
+      expect(b("web_up_012").process?.pid).toBe(b("web_up_015").process?.pid);
+      expect(b("web_up_012").process?.user).toBe("www-data");
+    }
+  });
+
+  it("a row's pid is the pid its native record prints, and stays so when a client re-times the row", () => {
+    const def = DEFS.find(d => d.id === "web-upload-webshell")!;
+    for (const c of ["nexacorp", "rocketstack"]) {
+      const row = buildTeamTimeline(c, "medium", `pid-${c}`, def.id).find(e => authoredId(e) === "web_up_007")!.body as unknown as TelemetryEvent;
+      const later = { ...row, ts: "2026-11-07T20:15:00.000Z" };
+      for (const b of [row, later]) expect(JSON.stringify(nativeView(b, c)?.log.record)).toContain(String(row.process?.pid));
+    }
+  });
+
+  it("the staff identity of a story is an IT person on every company", () => {
+    for (const c of COMPANIES) for (const [id, row] of [["web-reset-poisoning", "web_rp_006"], ["web-stored-xss-session", "web_xs_005"]]) {
+      const body = buildTeamTimeline(c, "medium", `who-${c}`, id).find(e => authoredId(e) === row)!.body as unknown as TelemetryEvent;
+      const seat = COMPANY_ASSETS[c].seats?.it?.find(s => s.user === body.user_email?.split("@")[0]);
+      expect(seat, `${c} ${row} ${body.user_email}`).toBeTruthy();
+      expect(body.hostname).toBe(seat!.host);
+    }
+  });
+
+  it("the WAF's access row routes to the server the origin's log names", () => {
+    const def = DEFS.find(d => d.id === "web-path-traversal-config")!;
+    const rows = buildTeamTimeline("nexacorp", "easy", "route", def.id);
+    const b = (x: string) => rows.find(e => authoredId(e) === x)!.body as unknown as TelemetryEvent;
+    const access = nativeView(b("web_pt_006"), "nexacorp")!.log.record.properties as Record<string, unknown>;
+    expect(access.serverRouted).toBe(`${b("web_pt_007").dst_ip}:443`);
+  });
+
+  it("a blocked request on Azure WAF shows the row that blocked it", () => {
+    const def = DEFS.find(d => d.id === "web-path-traversal-config")!;
+    const row = buildTeamTimeline("nexacorp", "easy", "blocked", def.id).find(e => authoredId(e) === "web_pt_004")!.body as unknown as TelemetryEvent;
+    const v = nativeView(row, "nexacorp")!;
+    const p = (r: Record<string, unknown>) => r.properties as Record<string, unknown>;
+    expect(p(v.log.record).action).toBe("Matched");
+    expect(p(v.related![0].record).action).toBe("Blocked");
+    expect(p(v.related![0].record).transactionId).toBe(p(v.log.record).transactionId);
+  });
+
+  it("one site is in one Azure WAF policy mode", () => {
+    for (const def of DEFS) {
+      const actions = def.events.filter(e => e.source === "waf").map(e => nativeView(applyStack(e, "nexacorp"), "nexacorp")?.log.record.properties as { action?: string; policyScopeName?: string } | undefined);
+      const byListener = new Map<string, Set<string>>();
+      for (const a of actions) if (a?.policyScopeName && a.action) byListener.set(a.policyScopeName, (byListener.get(a.policyScopeName) ?? new Set()).add(a.action));
+      for (const [l, set] of byListener) if (set.has("Detected")) expect([...set], `${def.id} ${l}`).toEqual(["Detected"]);
+    }
+  });
+
+  it("a WAF and origin row of one request are one moment", () => {
+    for (const [id, a, b] of [["web-path-traversal-config", "web_pt_006", "web_pt_007"], ["web-waf-evasion-sqli", "web_wf_011", "web_wf_012"]]) {
+      const c = "nexacorp", d = id === "web-path-traversal-config" ? "easy" as const : "medium" as const;
+      const rows = buildTeamTimeline(c, d, `pair-${id}`, id);
+      const at = (x: string) => rows.find(e => authoredId(e) === x)!.due_offset_ms;
+      expect(at(b) - at(a), id).toBeGreaterThan(0);
+      expect(at(b) - at(a), id).toBeLessThanOrEqual(700);
+    }
+  });
+
   it("every AWS record of a story names the company's own account", () => {
     const def = DEFS.find(d => d.id === "web-ssrf-cloud-metadata")!;
     for (const c of COMPANIES.filter(x => stackFor(x).cloud === "aws_cloudtrail")) {

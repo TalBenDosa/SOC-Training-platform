@@ -501,14 +501,14 @@ export const AI_WAVE3_D_STORIES: AiStoryDef[] = [
     id: "ai-deepfake-exec-call-payment-fraud",
     title: "Deepfaked Executive on a Teams Call from an External Tenant Drives a Vendor Payment Change",
     complexity: "core",
-    companies: ["quantumbank", "globallogis", "nexacorp", "medcore"], soloCompanies: ["quantumbank", "globallogis"],
+    companies: ["quantumbank", "globallogis", "nexacorp", "medcore"], soloCompanies: ["quantumbank", "globallogis"], seat: "finance",
     events: buildDeepfakeExecCallPaymentFraud(),
   },
   {
     id: "ai-browser-agent-prompt-hijack",
     title: "AI Browser Agent Follows a Hidden Instruction into an OAuth Consent and Mail Read",
     complexity: "core",
-    companies: ["nexacorp", "medcore", "globallogis"], soloCompanies: ["nexacorp"],
+    companies: ["nexacorp", "medcore", "globallogis"], soloCompanies: ["nexacorp"], seat: "finance",
     events: buildBrowserAgentPromptHijack(),
   },
 ];

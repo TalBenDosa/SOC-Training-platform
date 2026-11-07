@@ -34,8 +34,9 @@ import { applyTenant, type Tenant } from "./tenant";
 import { mitreVisible } from "@/lib/sim/mitreVisible";
 import { describeEvent } from "@/lib/sim/describeEvent";
 import { fpAlerts } from "./fpAlerts";
+import { webNoise } from "./webNoise";
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
-import { applyStack, fitsStack, stackFor, storyFitsOrg, storyFitsStack, storyHonoursLocks } from "@/lib/logs/native";
+import { applyStack, fitsStack, stackFor, storyFitsOrg, storyFitsStack, storyHonoursLocks, withCanonicalPids } from "@/lib/logs/native";
 import { categoryOf, PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 
 // channel "feed" → promoted as a feed.event (a log); "inject" → a staff.inject
@@ -628,6 +629,15 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   const attackRowsEst = load.stories * 10 + load.poolAttacks * 2;
   const benignN = Math.max(0, load.noiseCount - fpRows.length - Math.max(0, attackRowsReal - attackRowsEst));
   const noise: Placed[] = sampleN(noiseCandidates, benignN, rnd).map(ev => ({ ev, origin: "noise" as const, verdict: classifyPoolEvent(ev) }));
+  // Ordinary web traffic: web logs that exist only inside a web story name the story. Its own stream,
+  // and it takes the place of pool rows, so the shift's length and every other draw stay as they were.
+  if (assets && noise.length > 0) {
+    const wrnd = mulberry32(hashSeed(`${companyId}:${difficulty}:${seed}:web-noise`));
+    const web = webNoise({ assets, storyEvents: planned, avoidIps: attackIps, count: Math.max(6, Math.round(noise.length * 0.14)), rnd: wrnd, ts: new Date(TEAM_TIME_BASE_MS).toISOString() })
+      .filter(e => (!env || storyEventChosen(e, env, stack, companyId)) && (!(stacked || !!env) || fitsStack(e, companyId, stack)));
+    const slots = sampleN(noise.map((_, i) => i), web.length, wrnd);
+    web.slice(0, slots.length).forEach((ev, k) => { noise[slots[k]] = { ev, origin: "noise", verdict: classifyPoolEvent(ev) }; });
+  }
   // The sample shrinks as story rows grow, so a platform can drop out of it by chance. A platform the
   // organization runs always shows ordinary traffic: its attack rows must not be the only ones it has.
   for (const p of env?.platforms ?? []) {
@@ -763,6 +773,16 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   if (rawSpan > shiftMs * 0.95) {
     const k = (shiftMs * 0.95) / rawSpan;
     for (const x of timed) x.at = Math.round(x.at * k);
+  }
+  // One request seen by the WAF and by the origin is one moment, not two rows a feed gap apart: neither
+  // format shares an id with the other, so the time is what ties them.
+  for (let k = 0, last = new Map<string, { at: number; n: number }>(); k < timed.length; k++) {
+    const e = timed[k].p.ev;
+    if (e.source !== "waf" && e.source !== "web_server") continue;
+    const key = `${e.src_ip}|${e.network?.method}|${e.network?.url}|${e.ts.slice(0, 16)}`;
+    const prev = e.source === "web_server" && timed[k].p.origin === "story" ? last.get(key) : undefined;
+    if (prev) timed[k].at = Math.max(prev.at + 1, prev.at + Math.min(700, Math.floor((timed[k].at - prev.at) / 2)));
+    if (e.source === "waf") last.set(key, { at: timed[k].at, n: k });
   }
   const span = timed.length ? timed[timed.length - 1].at : 0;
 
@@ -942,7 +962,14 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   const merged = [...timed, ...support, ...bonusTimed].sort((a, b) => a.at - b.at);
   // One host, one IP across the WHOLE session — stories, noise, the twist, inject support
   // logs each chose an address their own way; the analyst pivots across all of them.
-  const sessionEvs = normalizeHostIps(merged.map(m => m.p.ev));
+  // A web row names a workstation only by its address: it moves with that workstation's own rows.
+  const hostEvs = normalizeHostIps(merged.map(m => m.p.ev));
+  const movedIps = new Map<string, string>();
+  hostEvs.forEach((e, i) => { const was = merged[i].p.ev.src_ip; if (merged[i].p.origin === "story" && was && e.src_ip && was !== e.src_ip && PRIVATE_IP.test(was)) movedIps.set(`${merged[i].p.incident ?? ""}|${was}`, e.src_ip); });
+  const sessionEvs = hostEvs.map((e, i) => {
+    const to = (e.source === "waf" || e.source === "web_server") && e.src_ip ? movedIps.get(`${merged[i].p.incident ?? ""}|${e.src_ip}`) : undefined;
+    return to ? { ...e, src_ip: to, raw: e.raw ? Object.fromEntries(Object.entries(e.raw).map(([k, v]) => [k, v === e.src_ip ? to : v])) : e.raw } : e;
+  });
   const feed: TimelineEntry[] = merged.map(({ p, at: due }, i) => {
     // Every log — story, pool, noise, ITSM, inject support — labelled for the session's products.
     const ev = applyStack(sessionEvs[i], companyId, stack);
@@ -974,7 +1001,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   const tier = difficulty === "easy" ? "foundation" : difficulty === "hard" ? "advanced" : "core";
   const all = [...feed, ...msel];
   const out = all
-    .map((entry, i) => toPublicEntry(entry, i, seed, tier))
+    .map((entry, i) => toPublicEntry(entry, i, seed, tier, companyId))
     .sort((a, b) => a.due_offset_ms - b.due_offset_ms);
   // A named organization (the instructor's own): its people, domain and brand everywhere.
   return tenant ? applyTenant(out, companyId, tenant, seed) : out;
@@ -1041,7 +1068,33 @@ function shiftRfc2822(value: unknown, deltaMs: number): unknown {
   return value;
 }
 
-function toPublicEntry(entry: TimelineEntry, i: number, seed: string, tier: string): TimelineEntry {
+/** ATT&CK metadata a reshape leaves in a raw block: on a row no product tags, it is the technique by another name. */
+const RAW_TECHNIQUE_KEYS = ["threat.technique.id", "threat.technique.subtechnique.id", "mde.AlertTitle"];
+
+/**
+ * The client renders a row's native record from this public body (no incident id, re-timed), so the
+ * pid printed beside the record and in its raw block must be derived the same way.
+ */
+function withPublicPids(ev: Record<string, unknown>, companyId: string): Record<string, unknown> {
+  const next = withCanonicalPids(ev as unknown as TelemetryEvent, companyId);
+  const { pid, parent_pid } = next.process ?? {};
+  if (!next.raw || pid === undefined) return next as unknown as Record<string, unknown>;
+  const raw: Record<string, unknown> = { ...next.raw };
+  for (const k of ["process.pid", "crowdstrike.RawProcessId"]) if (k in raw) raw[k] = typeof raw[k] === "string" ? String(pid) : pid;
+  if (parent_pid !== undefined && "process.parent.pid" in raw) raw["process.parent.pid"] = typeof raw["process.parent.pid"] === "string" ? String(parent_pid) : parent_pid;
+  return { ...next, raw } as unknown as Record<string, unknown>;
+}
+
+/** Endpoint facts carry a process's start time: it moves with the row, or the authored date marks an attack row. */
+function shiftEndpointTimes(rest: Record<string, unknown>, deltaMs: number): Record<string, unknown> {
+  const t = rest._endpoint as Record<string, { startMs?: number } | undefined> | undefined;
+  if (!t) return rest;
+  const moved = Object.fromEntries(Object.entries(t).map(([k, v]) =>
+    [k, v && typeof v === "object" && typeof v.startMs === "number" ? { ...v, startMs: v.startMs + deltaMs } : v]));
+  return { ...rest, _endpoint: moved };
+}
+
+function toPublicEntry(entry: TimelineEntry, i: number, seed: string, tier: string, companyId: string): TimelineEntry {
   const body = entry.body as Record<string, unknown>;
   if (entry.channel === "inject") {
     const { kind, expected_response, linked_objective, expected_decision, id, ...rest } = body;
@@ -1062,16 +1115,21 @@ function toPublicEntry(entry: TimelineEntry, i: number, seed: string, tier: stri
   const newTs = new Date(TEAM_TIME_BASE_MS + offset).toISOString();
   const oldMs = typeof rest.ts === "string" ? Date.parse(rest.ts) : NaN;
   const withMail = Number.isFinite(oldMs) && rest.raw
-    ? { ...rest, raw: shiftRfc2822(rest.raw, Date.parse(newTs) - oldMs) as Record<string, unknown> }
+    ? { ...shiftEndpointTimes(rest, Date.parse(newTs) - oldMs), raw: shiftRfc2822(rest.raw, Date.parse(newTs) - oldMs) as Record<string, unknown> }
     : rest;
-  const retimed = withRebasedTime(withMail as { ts?: string; raw?: Record<string, unknown> }, newTs) as Record<string, unknown>;
+  const retimed = withPublicPids(withRebasedTime(withMail as { ts?: string; raw?: Record<string, unknown> }, newTs) as Record<string, unknown>, companyId);
   // QA H1: a technique on a raw log, and empty structured fields, marked attack rows apart
   // from noise for anyone reading the payload — the technique moves to the answer key
   // (the report joins it back), empty structures are dropped.
   const tagged = mitreVisible(retimed as { source?: string; event_type?: string; is_detection?: boolean });
   const { mitre_technique, mitre_tactic, ...untagged } = retimed;
-  const shown0 = Object.fromEntries(Object.entries(tagged ? retimed : untagged).filter(([, v]) =>
-    v !== undefined && v !== null && !(typeof v === "object" && !Array.isArray(v) && Object.keys(v as object).length === 0)));
+  // is_detection:false exists on authored story rows only, and the raw technique on attack rows only:
+  // either one marks a row for anyone reading the payload.
+  const rawBlock = retimed.raw as Record<string, unknown> | undefined;
+  const rawTechnique = !tagged && rawBlock ? RAW_TECHNIQUE_KEYS.slice(0, 2).map(k => rawBlock[k]).find(Boolean) : undefined;
+  const scrubbed = tagged || !rawBlock ? rawBlock : Object.fromEntries(Object.entries(rawBlock).filter(([k]) => !RAW_TECHNIQUE_KEYS.includes(k)));
+  const shown0 = Object.fromEntries(Object.entries({ ...(tagged ? retimed : untagged), ...(rawBlock ? { raw: scrubbed } : {}) }).filter(([k, v]) =>
+    v !== undefined && v !== null && !(k === "is_detection" && (v as unknown) === false) && !(typeof v === "object" && !Array.isArray(v) && Object.keys(v as object).length === 0)));
   const asEvent = { ...retimed, mitre_technique: undefined } as unknown as TelemetryEvent;
   const factual = describeEvent(asEvent, { preferFields: true, fieldsOnly: true });
   // Owner rule (2026-10-06, from the team-training review): the severity a player sees — and so the
@@ -1096,7 +1154,7 @@ function toPublicEntry(entry: TimelineEntry, i: number, seed: string, tier: stri
       fp_explanation, incident_id, supports_inject, origin: feed_origin, edr_scope, is_baseline,
       it_verify_result, it_verify_message, it_context, original_id: id, original_tier: originalTier, bonus: bonus_attack, attack_name,
       authored_description: retimed.description, authored_severity: retimed.severity, auto_contained,
-      ...(tagged ? {} : { mitre_technique, mitre_tactic }),
+      ...(tagged ? {} : { mitre_technique: mitre_technique ?? rawTechnique, mitre_tactic }),
     }),
   };
 }

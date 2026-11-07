@@ -166,6 +166,11 @@ export interface RosterUser {
   title: string;   // job title, so a scenario can pick a plausible victim by role
 }
 
+/** A person and the machine they work on, for a story that needs a job, not just an employee. */
+export interface Seat { user: string; host: string }
+/** The jobs a story can ask for: a coding agent needs a developer, a payment change needs finance, a tenant owner needs IT. */
+export type SeatRole = "developer" | "finance" | "it";
+
 export interface CompanyAssets {
   hosts:      string[];      // distinct endpoint names this company owns
   subnet:     string;        // dominant internal /24 (first three octets), e.g. "10.100.1"
@@ -175,6 +180,12 @@ export interface CompanyAssets {
   serviceAccounts: string[]; // svc-* principals used for lateral movement / abuse
   dc:         string;        // the domain controller hostname
   fileServer: string;        // the primary file server hostname
+  /** Who holds each job here. A company with no seat for a role must not list a story that needs it. */
+  seats?:     Partial<Record<SeatRole, Seat[]>>;
+  /** Name prefix of this company's servers, for a story that brings its own server (see AttackStory.ownServers). */
+  serverPrefix?: string;
+  /** The office network as the outside sees it: the address its firewalls NAT to (firewall-shared egressIp), and where it is. */
+  office?:    { ip: string; country: string; city: string };
 }
 
 // The per-company asset fabric (R-01 + emitter layer). One source of truth for the
@@ -210,6 +221,13 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
     ],
     serviceAccounts: ["svc-backup", "svc-sql", "svc-scan"],
     dc: "SRV-NXC-DC01", fileServer: "SRV-NXC-FS01",
+    seats: {
+      developer: [{ user: "t.harris", host: "WS-ENG-2093" }],
+      finance: [{ user: "j.chen", host: "WS-FIN-2847" }, { user: "r.avraham", host: "WS-FIN-1193" }],
+      it: [{ user: "l.ferreira", host: "WS-OPS-2214" }],
+    },
+    serverPrefix: "SRV-NXC",
+    office: { ip: "217.177.80.10", country: "United Kingdom", city: "London" },
   },
   rocketstack: {
     hosts: ["LAP-007", "LAP-012", "LAP-003", "SRV-PROD-001", "macbook-ops-03",
@@ -223,6 +241,12 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
     ],
     serviceAccounts: ["ci-pipeline", "svc-dataops", "svc-deploy"],
     dc: "prod-srv-01", fileServer: "SRV-PROD-001",
+    seats: {
+      developer: [{ user: "t.levy", host: "WS-ENG-3301" }, { user: "m.nguyen", host: "LAP-DEV-12" }, { user: "t.niv", host: "LAP-DEV-07" }],
+      it: [{ user: "j.lee", host: "LAP-003" }],
+    },
+    serverPrefix: "SRV-PROD",
+    office: { ip: "62.221.124.10", country: "Israel", city: "Tel Aviv" },
   },
   medcore: {
     hosts: ["WS-MED-022", "WS-MED-045", "WS-MED-067", "WS-NURS-033", "WS-NURS-044",
@@ -236,6 +260,13 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
     ],
     serviceAccounts: ["svc-backup", "svc-emr", "svc-mssql"],
     dc: "SRV-MEDCORE-DC01", fileServer: "SRV-MEDCORE-FILE01",
+    // No developer seat: a hospital's clinical desks do not run coding agents, so those stories stay off MedCore.
+    seats: {
+      finance: [{ user: "j.vandijk", host: "WS-MED-FIN-03" }],
+      it: [{ user: "admin.vandenberg", host: "WS-MED-IT-02" }],
+    },
+    serverPrefix: "SRV-MEDCORE",
+    office: { ip: "62.19.176.10", country: "Netherlands", city: "Amsterdam" },
   },
   globallogis: {
     hosts: ["SRV-GL-ERP01", "SRV-GL-WMS01", "WS-LOG-045", "WS-LOG-088", "WH-TERM-012",
@@ -248,6 +279,13 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
     ],
     serviceAccounts: ["svc-sap", "svc-wms", "svc-backup"],
     dc: "DC-GL-FRA01", fileServer: "SRV-GL-APP02",
+    seats: {
+      developer: [{ user: "c.becker", host: "WS-GL-DEV-03" }, { user: "l.kowalski", host: "WS-GL-DEV-05" }],
+      finance: [{ user: "p.brandt", host: "WS-GL-ACC-07" }],
+      it: [{ user: "c.becker", host: "WS-GL-DEV-03" }],
+    },
+    serverPrefix: "SRV-GL",
+    office: { ip: "82.219.122.10", country: "Germany", city: "Frankfurt am Main" },
   },
   quantumbank: {
     hosts: ["WKS-QB-012", "WKS-QB-020", "WKS-QB-033", "WKS-QB-055", "WKS-QB-077",
@@ -260,5 +298,12 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
     ],
     serviceAccounts: ["cyberark.svc", "svc-sql", "svc-backup"],
     dc: "SRV-QB-ADMIN01", fileServer: "SRV-QB-BACKUP01",
+    seats: {
+      developer: [{ user: "a.keller", host: "LAP-QB-2290" }],
+      finance: [{ user: "p.meier", host: "WKS-QB-012" }],
+      it: [{ user: "l.brunner", host: "WKS-QB-020" }],
+    },
+    serverPrefix: "SRV-QB",
+    office: { ip: "77.181.84.10", country: "Switzerland", city: "Zurich" },
   },
 };

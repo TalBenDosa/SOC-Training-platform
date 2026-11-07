@@ -45,7 +45,7 @@ export const WAF_RULES: Record<Exclude<WafRuleKey, "custom" | "rate">, { aws: Aw
   },
   ssrf_query: {
     aws: { group: "AWSManagedRulesCommonRuleSet", rule: "EC2MetaDataSSRF_QUERYARGUMENTS", label: "awswaf:managed:aws:core-rule-set:EC2MetaDataSSRF_QueryArguments" },
-    azure: { ruleId: "931100", ruleGroup: "REQUEST-931-APPLICATION-ATTACK-RFI", message: "Possible Remote File Inclusion (RFI) Attack = URL Parameter using IP Address", detail: "Pattern match" },
+    azure: { ruleId: "931100", ruleGroup: "REQUEST-931-APPLICATION-ATTACK-RFI", message: "Possible Remote File Inclusion (RFI) Attack: URL Parameter using IP Address", detail: "Pattern match" },
   },
   java_body: {
     aws: { group: "AWSManagedRulesKnownBadInputsRuleSet", rule: "JavaDeserializationRCE_BODY", label: "awswaf:managed:aws:known-bad-inputs:JavaDeserializationRCE_Body" },
@@ -53,7 +53,7 @@ export const WAF_RULES: Record<Exclude<WafRuleKey, "custom" | "rate">, { aws: Aw
   },
   php_body: {
     aws: { group: "AWSManagedRulesPHPRuleSet", rule: "PHPHighRiskMethodsVariables_BODY", label: "awswaf:managed:aws:php-app:PHPHighRiskMethodsVariables_Body" },
-    azure: { ruleId: "933150", ruleGroup: "REQUEST-933-APPLICATION-ATTACK-PHP", message: "PHP Injection Attack = High-Risk PHP Function Name Found", detail: "Matched phrase" },
+    azure: { ruleId: "933100", ruleGroup: "REQUEST-933-APPLICATION-ATTACK-PHP", message: "PHP Injection Attack: Opening or closing tag found", detail: "Pattern match" },
   },
   bad_bot: {
     aws: { group: "AWSManagedRulesCommonRuleSet", rule: "UserAgent_BadBots_HEADER", label: "awswaf:managed:aws:core-rule-set:BadBots_Header" },
@@ -91,6 +91,12 @@ export interface WebFacts {
   rateLimit?: number; rateWindowSec?: number;
   /** The Host the client really sent, when it differs from the site. */
   hostHeader?: string;
+  /** The port the server took the request on. */
+  port: number;
+  /** The site's WAF policy mode (Azure): a Detection policy only logs, a Prevention policy can block. */
+  wafMode: "Detection" | "Prevention";
+  /** The body was longer than the WAF inspects (AWS oversizeFields). */
+  oversizeBody: boolean;
 }
 
 const str = (v: unknown) => (v === undefined || v === null || v === "" ? undefined : String(v));
@@ -122,6 +128,9 @@ export function webFacts(ev: TelemetryEvent): WebFacts {
     rateLimit: int(r["waf.rate.limit"]),
     rateWindowSec: int(r["waf.rate.window_sec"]),
     hostHeader: str(r["http.request.header.host"]),
+    port: ev.dst_port ?? 443,
+    wafMode: str(r["waf.mode"]) === "Detection" ? "Detection" : "Prevention",
+    oversizeBody: r["waf.oversize_body"] === true,
   };
 }
 
@@ -138,7 +147,10 @@ export function balancerIp(serverIp: string | undefined, ctx: NativeCtx): string
   return base ? `${base}.9` : `10.${ctx.int("web-lb:a", 10, 60)}.${ctx.int("web-lb:b", 10, 200)}.9`;
 }
 
-export const isPrivateClient = (ip: string) => /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip);
+/** A request the server made to itself never crossed the balancer. Everything else came through it, an office client too. */
+export const isLoopbackClient = (ip: string) => ip === "::1" || ip.startsWith("127.");
+/** First label of a site, lower case: one Application Gateway listener and policy per site. */
+export const siteLabel = (site: string) => site.split(".")[0].toLowerCase();
 
 /** Short lower-case machine name of a row's host. */
 export const machineOf = (ev: TelemetryEvent) => (ev.hostname ?? "web-01").split(".")[0];

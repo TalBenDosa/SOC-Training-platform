@@ -5,13 +5,14 @@
  *  - ApplicationGatewayFirewallLog: one row per rule that fired. With anomaly scoring the rule that
  *    fired is "Matched" and does not itself block; rule 949110 then writes the "Blocked" row, with the
  *    same transactionId (Microsoft: troubleshoot anomaly scoring and rule 949110). That row is the
- *    module's companion record. On a listener whose policy is in Detection mode the rule row is "Detected".
+ *    module's companion record, and the feed prints it under the rule row. A site's policy is in one
+ *    mode: on a Detection policy every rule row is "Detected" and nothing is blocked.
  *  - ApplicationGatewayAccessLog: one row per request, for traffic no rule touched: a request with no
  *    firewall row still has one here, with the origin's status (serverStatus) and the bytes sent.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { KindSchema, NativeCtx, NativeLog, NativeSource, SourceSchema, UseCase } from "../types";
-import { balancerIp, WAF_RULES, webFacts, type WebFacts } from "./_web-common";
+import { balancerIp, siteLabel, WAF_RULES, webFacts, type WebFacts } from "./_web-common";
 
 const ENVELOPE = ["resourceId", "operationName", "category"];
 const kinds: Record<string, KindSchema> = {
@@ -46,10 +47,11 @@ export function kindOf(record: Record<string, unknown>): string | null {
 const gatewayId = (ctx: NativeCtx) => `/SUBSCRIPTIONS/${ctx.tenant.azureSubscriptionId.toUpperCase()}/RESOURCEGROUPS/RG-EDGE-PROD/PROVIDERS/MICROSOFT.NETWORK/APPLICATIONGATEWAYS/${ctx.org.toUpperCase()}-WAF-GW`;
 const uriOf = (f: WebFacts) => (f.query ? `${f.path}?${f.query}` : f.path);
 const transactionOf = (ev: TelemetryEvent, ctx: NativeCtx) => ctx.hex(`agw-txn:${ev.id}`, 32);
+const listenerOf = (ctx: NativeCtx, f: WebFacts) => `${ctx.org}-${siteLabel(f.site)}-https-listener`;
 
 /** The firewall-log row of a rule that fired. */
 function firewallRow(ev: TelemetryEvent, ctx: NativeCtx, f: WebFacts, p: { ruleSetType: string; ruleSetVersion: string; ruleId: string; ruleGroup?: string; message: string; action: string; detail: string; data: string; file: string }): NativeLog {
-  const policy = `${ctx.org}-waf-policy`;
+  const policy = `${ctx.org}-${siteLabel(f.site)}-waf-policy`;
   const record: Record<string, unknown> = {
     resourceId: gatewayId(ctx),
     operationName: "ApplicationGatewayFirewall",
@@ -71,7 +73,7 @@ function firewallRow(ev: TelemetryEvent, ctx: NativeCtx, f: WebFacts, p: { ruleS
       transactionId: transactionOf(ev, ctx),
       policyId: `/subscriptions/${ctx.tenant.azureSubscriptionId}/resourceGroups/rg-edge-prod/providers/Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies/${policy}`,
       policyScope: "Listener",
-      policyScopeName: `${ctx.org}-https-listener`,
+      policyScopeName: listenerOf(ctx, f),
     },
   };
   return { sourceId: "azure_waf", kind: "ApplicationGatewayFirewallLog", format: "json", record, timeMs: Date.parse(ev.ts) };
@@ -88,15 +90,17 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     return firewallRow(ev, ctx, f, {
       ruleSetType: "OWASP", ruleSetVersion: "3.2", ruleId: def.ruleId, ruleGroup: def.ruleGroup, message: def.message,
       // Prevention + anomaly scoring: the rule only scores (the Blocked row is the companion).
+      // A managed rule that lets the request through means the site's policy is in Detection.
       action: blocked ? "Matched" : "Detected",
       detail: `Warning. ${def.detail} at ${location}.`, data, file: `rules/${def.ruleGroup}.conf`,
     });
   }
   // A custom rule (rate limit, match rule). UNVERIFIED in Microsoft's docs: the shape of a custom
-  // rule's row (ruleSetType "Custom", ruleId = the rule's name, no ruleGroup); see the card.
+  // rule's row (ruleSetType "Custom", ruleId = the rule's name, no ruleGroup); see the card. A Log rule
+  // on a Prevention policy lets evaluation continue, Microsoft's meaning of Matched.
   const name = def && "custom" in def ? def.custom : f.ruleName ?? (f.rule === "rate" ? "RateLimitPerClientIp" : "CustomRule");
   return firewallRow(ev, ctx, f, {
-    ruleSetType: "Custom", ruleSetVersion: "1.0", ruleId: name, message: `Custom rule ${name}`, action: blocked ? "Blocked" : "Detected",
+    ruleSetType: "Custom", ruleSetVersion: "1.0", ruleId: name, message: `Custom rule ${name}`, action: blocked ? "Blocked" : f.wafMode === "Detection" ? "Detected" : "Matched",
     detail: f.rule === "rate" || f.rateLimit ? `Rate limit of ${f.rateLimit ?? 300} requests in ${f.rateWindowSec ?? 300} seconds exceeded by client.` : "Custom rule matched.",
     data, file: "CustomRules",
   });
@@ -110,8 +114,8 @@ function accessRow(ev: TelemetryEvent, ctx: NativeCtx, f: WebFacts): NativeLog {
   const record: Record<string, unknown> = {
     timeStamp: ev.ts.replace(/\.\d{3}Z$/, "+00:00"),
     resourceId: gatewayId(ctx),
-    listenerName: `${ctx.org}-https-listener`,
-    ruleName: `${ctx.org}-routing-rule`,
+    listenerName: listenerOf(ctx, f),
+    ruleName: `${ctx.org}-${siteLabel(f.site)}-routing-rule`,
     backendPoolName: `${ctx.org}-web-pool`,
     backendSettingName: `${ctx.org}-https-setting`,
     operationName: "ApplicationGatewayAccess",
@@ -131,7 +135,7 @@ function accessRow(ev: TelemetryEvent, ctx: NativeCtx, f: WebFacts): NativeLog {
       sentBytes: f.bytesOut,
       timeTaken: taken,
       WAFEvaluationTime: "0.001",
-      WAFMode: "Prevention",
+      WAFMode: f.wafMode,
       transactionId: transactionOf(ev, ctx),
       sslEnabled: "on",
       sslCipher: "ECDHE-RSA-AES256-GCM-SHA384",
@@ -156,7 +160,7 @@ function companions(ev: TelemetryEvent, ctx: NativeCtx): NativeLog[] {
   return [firewallRow(ev, ctx, f, {
     ruleSetType: "OWASP", ruleSetVersion: "3.2", ruleId: "949110", ruleGroup: "REQUEST-949-BLOCKING-EVALUATION",
     message: "Mandatory rule. Cannot be disabled. Inbound Anomaly Score Exceeded (Total Score: 5)", action: "Blocked",
-    detail: "Mandatory rule. Cannot be disabled. Inbound Anomaly Score Exceeded (Total Score: 5)", data: "-", file: "rules/REQUEST-949-BLOCKING-EVALUATION.conf",
+    detail: "Access denied with code 403 (phase 2). Operator GE matched 5 at TX:anomaly_score.", data: "-", file: "rules/REQUEST-949-BLOCKING-EVALUATION.conf",
   })];
 }
 

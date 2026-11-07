@@ -14,7 +14,7 @@ import {
 
 const HEADER = ["date", "time", "devname", "devid", "eventtime", "tz", "logid", "type", "subtype", "level", "vd"];
 const TRAFFIC_OPT = ["srcname", "srcport", "srcintfrole", "dstport", "dstintfrole", "srccountry", "dstcountry", "srcmac", "mastersrcmac",
-  "policytype", "poluuid", "policyname", "user", "group", "authserver", "unauthuser", "service", "trandisp", "transip", "transport",
+  "policytype", "poluuid", "policyname", "user", "group", "authserver", "unauthuser", "service", "trandisp", "transip", "transport", "tranip", "tranport",
   "app", "appid", "appcat", "apprisk", "applist", "appact", "duration", "sentbyte", "rcvdbyte", "sentpkt", "rcvdpkt", "utmaction",
   "countweb", "countips", "countav", "countapp", "utmref", "crscore", "craction", "crlevel", "osname", "srcswversion", "devtype", "srcserver"];
 const SESSION_OPT = ["policyid", "poluuid", "policytype", "srcport", "srccountry", "srcintf", "srcintfrole", "dstport", "dstcountry", "dstintf",
@@ -129,6 +129,7 @@ function traffic(f: FwFacts, ctx: NativeCtx): Rec {
   r.service = rawGet(raw, "data.service") ?? serviceName(f.dport, f.proto, "fgt")!;
   if (f.blocked) r.trandisp = "noop";
   else if (isSnat(f)) { r.trandisp = "snat"; r.transip = egressIp(ctx); r.transport = natPort(f, ctx); }
+  else if (f.natDst) { r.trandisp = "dnat"; r.tranip = f.natDst; r.tranport = f.dport; }
   else r.trandisp = "noop";
   const a = APPS[f.app];
   if (!f.blocked && a && !f.app.startsWith("unknown")) {

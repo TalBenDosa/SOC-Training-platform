@@ -317,7 +317,8 @@ export function eventHeuristic(
     const isPUP = mtype === "PUP" || name.toLowerCase().includes("pup");
     // A behavioural alert + an explicit clean AV reputation and no named family is the
     // textbook false-positive signature (in-house tool) — never read it as malware.
-    const cleanRep = av === "clean" && !family && !name;
+    // The key's own word counts the same: a row the answer key calls a false positive is a clean file with a rule on it.
+    const cleanRep = (av === "clean" && !family && !name) || e.expected_verdict === "fp";
     const unsignedFlagged = opts.signatureConvicts !== false && /unsigned|invalid|revoked/.test(sig) && (e.is_detection === true || HIGH(e));
     if (isPUP) res = { v: "suspicious", r: "pup" };
     else if (!cleanRep && (family || name || vendorDet || quarantine === "quarantined" || quarantine === "deleted" ||

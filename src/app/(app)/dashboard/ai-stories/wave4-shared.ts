@@ -5,9 +5,11 @@
  * story uses): instantiateStory re-homes people, domain, hosts, subnet and tenant ids onto the
  * company a session runs on, so one authored chain reads as native on all of them.
  *
- * The authored developer login carries the role word "ops" on purpose: instantiateStory then
- * draws the replacement victim from the company's technical staff. A coding agent, a Jupyter
- * kernel or a cloud CLI on a nurse's or a warehouse clerk's account would not be believable.
+ * A chain that needs a job names it on the story (`seat`): instantiateStory then draws the person
+ * and their machine from the company's seats, and a company with no such seat does not list the
+ * story. A coding agent, a Jupyter kernel or a cloud CLI on a nurse's or a warehouse clerk's account
+ * would not be believable. A chain's own servers (`ownServers`) keep their name under the company's
+ * prefix: an AI worker is not the domain controller, the file server or the PACS.
  */
 import type { TelemetryEvent, Severity, EventType } from "@/lib/sim/types";
 import { csProcess, csFile, csNetwork, type CsProcessOpts } from "@/lib/sim/emitters/crowdstrike";
@@ -21,8 +23,10 @@ import { makeSha256 } from "@/lib/sim/iocs";
 export const CX = "nexacorp";
 export const DEV = { user: "k.ops@nexacorp.com", bare: "k.ops", host: "WS-ENG-2093", ip: "10.10.20.93" };
 export const SUB = makeCtx(CX).tenant.azureSubscriptionId;
-/** The company's own NAT egress: what SaaS and cloud control planes see for the office. */
+/** The authored office's NAT egress; a story's `officeEgress` makes it each company's own, with its place. */
 export const OFFICE_EGRESS = "217.177.80.10";
+/** The public address a company publishes a server on: a documentation address, never a real one. */
+export const PUBLISHED_IP = "203.0.113.20";
 
 export type Base = { id: string; ts: string };
 
@@ -67,7 +71,7 @@ export function conn(on: { host: string; ip: string; user: string | null }, o: O
  */
 export function inbound(o: Base & {
   fromIp: string; server: string; serverIp: string; port: number; app?: string; bytesIn?: number; bytesOut?: number; elapsedSec?: number;
-  repeatCount?: number; severity: Severity; description: string; mitre?: string; tactic?: string; action?: "allow" | "deny";
+  repeatCount?: number; severity: Severity; description: string; mitre?: string; tactic?: string; action?: "allow" | "deny"; publishedAs?: string;
 }): TelemetryEvent {
   const ev = panConnection({
     companyId: CX, id: o.id, ts: o.ts, host: o.server, srcIp: o.fromIp, user: null, dstIp: o.serverIp, remotePort: o.port,
@@ -75,7 +79,19 @@ export function inbound(o: Base & {
     bytesIn: o.bytesOut, bytesOut: o.bytesIn, elapsedSec: o.elapsedSec, repeatCount: o.repeatCount,
     severity: o.severity, description: o.description, mitre: o.mitre, tactic: o.tactic,
   });
-  return { ...ev, network: { ...(ev.network ?? {}), direction: "inbound" } as TelemetryEvent["network"] };
+  const row = { ...ev, network: { ...(ev.network ?? {}), direction: "inbound" } as TelemetryEvent["network"] };
+  return o.publishedAs ? published(row, o.publishedAs) : row;
+}
+
+/** A session that reached a private server through a publish rule: the record shows the public address, and the server as the translation. */
+export function published(e: TelemetryEvent, publicIp: string, serverIp = e.dst_ip ?? ""): TelemetryEvent {
+  const url = e.network?.url;
+  return {
+    ...e,
+    // The firewall's URL field drops the scheme; a service on a plain-HTTP port keeps http in the record the other products print.
+    ...(url && !/^https?:/.test(url) && e.dst_port !== 443 ? { network: { ...e.network, url: `http://${url}` } } : {}),
+    raw: { ...e.raw, "pan.dst": publicIp, "pan.natdst": serverIp },
+  };
 }
 
 /** A resolver record, in the shape every DNS product module reads. */
@@ -104,20 +120,58 @@ export function dnsRow(o: Base & {
   };
 }
 
-/** A Sentinel analytic that opens the case: a detection row, not one with an EDR process behind it. */
-export function sentinel(o: Base & Omit<SentinelAlertOpts, "companyId" | "id" | "ts">): TelemetryEvent {
-  return { ...sentinelAlert({ companyId: CX, ...o }), is_detection: true };
+/**
+ * A Sentinel analytic that opens the case: a detection row, not one with an EDR process behind it.
+ * With no `user` the alert is about a resource or a visitor, so it names no employee: the emitter
+ * would draw one, and an analyst would chase a person who has nothing to do with it.
+ */
+export function sentinel(o: Base & Omit<SentinelAlertOpts, "companyId" | "id" | "ts"> & { entity?: string }): TelemetryEvent {
+  const { entity, ...opts } = o;
+  const e = { ...sentinelAlert({ companyId: CX, ...opts }), is_detection: true };
+  if (o.user) return e;
+  const { user_email: _user, ...row } = e;
+  const { "target.user.name": _account, ...raw } = e.raw ?? {};
+  return {
+    ...row,
+    raw: {
+      ...raw,
+      Entities: (raw.Entities as { Type?: string }[]).filter(x => x.Type !== "account"),
+      CompromisedEntity: o.host ?? entity ?? o.srcIp ?? "",
+    },
+  };
 }
 
 export function ticket(o: Base & {
   table?: string; number: string; state: string; caller: string; shortDescription: string; severity: Severity; description: string;
   eventType?: EventType; mitre?: string; tactic?: string; extra?: Record<string, string | number>;
+  /** The caller is a system (a portal intake), not a person the row is about. */
+  systemCaller?: boolean;
 }): TelemetryEvent {
-  return serviceNowRecord({
+  const e = serviceNowRecord({
     companyId: CX, id: o.id, ts: o.ts, table: o.table ?? "incident", number: o.number, state: o.state, callerId: o.caller,
     shortDescription: o.shortDescription, severity: o.severity, eventType: o.eventType ?? "policy_modification",
     mitre: o.mitre, tactic: o.tactic, description: o.description, extra: o.extra,
   });
+  if (!o.systemCaller) return e;
+  const { user_email: _user, ...row } = e;
+  return row;
+}
+
+/** One row of ServiceNow's transaction log (syslog_transaction): a transaction has a URL, a type and a user, not a ticket number. */
+export function snowTransaction(o: Base & { url: string; type: string; createdBy: string; responseTimeMs: number; severity: Severity; description: string; mitre?: string; tactic?: string }): TelemetryEvent {
+  return {
+    id: o.id, ts: o.ts, source: "soar", vendor: "ServiceNow ITSM", event_type: "cloud_api_call", severity: o.severity, user_email: o.createdBy,
+    ...(o.mitre ? { mitre_technique: o.mitre } : {}), ...(o.tactic ? { mitre_tactic: o.tactic } : {}),
+    description: o.description,
+    raw: {
+      "servicenow.table": "syslog_transaction",
+      "servicenow.url": o.url,
+      "servicenow.type": o.type,
+      "servicenow.sys_created_by": o.createdBy.split("@")[0],
+      "servicenow.sys_created_on": `${o.ts.slice(0, 10)} ${o.ts.slice(11, 19)}`,
+      "servicenow.response_time": o.responseTimeMs,
+    },
+  };
 }
 
 /** An Azure Activity Log operation on any resource (azureActivity alone writes Cognitive Services ids). */
@@ -139,9 +193,9 @@ export function azureOp(o: Omit<AzureActivityOpts, "resource"> & {
   };
 }
 
-/** Azure Front Door access log (FrontDoorAccessLog), the only hop that sees a visitor's own address. */
+/** Azure Front Door Standard/Premium access log (FrontDoorAccessLog), the only hop that sees a visitor's own address. */
 export function frontDoor(o: Base & {
-  hostName: string; clientIp: string; country: string; method: "GET" | "POST"; uri: string; status: number;
+  hostName: string; clientIp: string; method: "GET" | "POST"; uri: string; status: number;
   requestBytes: number; responseBytes: number; timeTakenS: number; userAgent: string; severity: Severity; description: string;
   mitre?: string; tactic?: string; route?: string;
 }): TelemetryEvent {
@@ -167,15 +221,16 @@ export function frontDoor(o: Base & {
       "properties.clientIp": o.clientIp,
       "properties.socketIp": o.clientIp,
       "properties.timeTaken": o.timeTakenS.toFixed(3),
+      "properties.clientPort": String(49152 + (parseInt(makeSha256(`afd:port:${o.id}`).slice(0, 4), 16) % 16000)),
       "properties.requestProtocol": "HTTPS",
-      "properties.securityProtocol": "TLS 1.3",
+      "properties.securityProtocol": "TLSv1.2",
+      "properties.endpoint": "afd-portal-e7f2.z01.azurefd.net",
+      "properties.pop": "AMS",
       "properties.httpStatusCode": String(o.status),
-      "properties.httpStatusDetails": String(o.status),
-      "properties.cacheStatus": "CONFIG_NOCACHE",
+      "properties.cacheStatus": "CACHE_NOCONFIG",
       "properties.errorInfo": "NoError",
       "properties.originName": "app-portal-weu.azurewebsites.net",
-      "properties.clientCountry": o.country,
-      "properties.routingRuleName": o.route ?? "route-api",
+      "properties.routeName": o.route ?? "route-api",
     },
   };
 }
@@ -206,6 +261,67 @@ export function appServiceHttp(o: Base & {
       TimeTaken: o.timeTakenMs,
       UserAgent: o.userAgent,
       Result: o.status < 400 ? "Success" : "Failure",
+    },
+  };
+}
+
+/** API Management gateway log (table ApiManagementGatewayLogs): the hop that knows which subscription key a call used. */
+export function apimGateway(o: Base & {
+  subscription: string; api: string; operation: string; callerIp: string; method: "GET" | "POST"; url: string; status: number;
+  requestSize: number; responseSize: number; totalTimeMs: number; severity: Severity; description: string; mitre?: string; tactic?: string;
+}): TelemetryEvent {
+  return {
+    id: o.id, ts: o.ts, source: "cloud_azure", vendor: "Azure API Management", event_type: "http_request", severity: o.severity,
+    src_ip: o.callerIp,
+    ...(o.mitre ? { mitre_technique: o.mitre } : {}), ...(o.tactic ? { mitre_tactic: o.tactic } : {}),
+    description: o.description,
+    raw: {
+      TimeGenerated: o.ts,
+      Type: "ApiManagementGatewayLogs",
+      _ResourceId: `/subscriptions/${SUB}/resourcegroups/rg-portal-web/providers/microsoft.apimanagement/service/apim-partner-weu`,
+      ApimSubscriptionId: o.subscription,
+      ApiId: o.api,
+      OperationId: o.operation,
+      Method: o.method,
+      Url: o.url,
+      CallerIpAddress: o.callerIp,
+      ResponseCode: o.status,
+      BackendResponseCode: o.status,
+      IsRequestSuccess: o.status < 400,
+      RequestSize: o.requestSize,
+      ResponseSize: o.responseSize,
+      TotalTime: o.totalTimeMs,
+      CorrelationId: makeSha256(`apim:${o.id}`).slice(0, 32),
+      Region: "West Europe",
+    },
+  };
+}
+
+/** Amazon Bedrock model invocation log (CloudWatch Logs): token counts per call, body logging off. */
+export function bedrockInvocation(o: Base & {
+  arn: string; modelId: string; operation?: string; inputTokens: number; outputTokens: number; severity: Severity; description: string; mitre?: string; tactic?: string;
+}): TelemetryEvent {
+  return {
+    id: o.id, ts: o.ts, source: "cloudtrail", vendor: "AWS CloudWatch", event_type: "cloud_api_call", severity: o.severity,
+    ...(o.mitre ? { mitre_technique: o.mitre } : {}), ...(o.tactic ? { mitre_tactic: o.tactic } : {}),
+    description: o.description,
+    raw: {
+      schemaType: "ModelInvocationLog",
+      schemaVersion: "1.0",
+      timestamp: o.ts.replace(/\.\d{3}Z$/, "Z"),
+      accountId: "418772153604",
+      region: "us-east-1",
+      requestId: makeSha256(`bedrock:${o.id}`).slice(0, 36),
+      operation: o.operation ?? "InvokeModel",
+      modelId: o.modelId,
+      "identity.arn": o.arn,
+      "input.inputContentType": "application/json",
+      "input.inputTokenCount": o.inputTokens,
+      "output.outputContentType": "application/json",
+      "output.outputTokenCount": o.outputTokens,
+      "cloud.provider": "aws",
+      "cloud.account.id": "418772153604",
+      "cloud.region": "us-east-1",
     },
   };
 }
