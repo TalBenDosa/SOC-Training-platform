@@ -14,7 +14,7 @@ import type { RoomExperience } from "./types";
 // dosing pump, plc-dose-03/04 or ENG-WS-02. Addresses are 192.168.40-44.x, never 172.20.5.x or
 // 10.50.12.77. The lab write is function code 6 to register 40108 (wire address 107) with value
 // 550, never function code 16 to wire address 19 or 29. The anatomy is a READ record, never a write.
-// The worksheet shows ports only as row data and never asks them (q1, m1). The sort on T1692.001 (formerly T0855),
+// The worksheet shows ports only as row data and never asks them (q1, m1). The sort on Command Message (named without its ID, ot-f1's answer),
 // T0836 and T0831 uses DNP3 and S7 events at Fellside, never the Ukraine substation (q2). The
 // intercept's cuts are on FS-COMM-07 and the Fellside plant, not a corporate VLAN source (q3).
 // The sequence is a nine-week Fellside intrusion with more steps than the chain in q4.
@@ -260,7 +260,7 @@ export const OT_ICS_SECURITY: RoomExperience = {
         title: "Message, Value or Effect?",
         prompt: "One bad night can carry three ATT&CK for ICS techniques, and analysts mix them up. Tariq ran a tabletop for the hydro side. Sort each line by what you're looking at: a message on the wire, a value in a controller, or a change in the physical world.",
         buckets: [
-          { id: "msg", label: "The message: T1692.001 Unauthorized Message: Command Message (formerly T0855), Impair Process Control (TA0106)" },
+          { id: "msg", label: "The message: Unauthorized Message: Command Message, Impair Process Control (TA0106)" },
           { id: "val", label: "The value: T0836 Modify Parameter, Impair Process Control (TA0106)" },
           { id: "eff", label: "The effect: T0831 Manipulation of Control, Impact (TA0105)" },
         ],
@@ -355,7 +355,7 @@ export const OT_ICS_SECURITY: RoomExperience = {
           "The sensor has no earlier Modbus record of this source talking to the controller.",
         ],
         culprit: "comm",
-        why: "FS-COMM-07, the 192.168.44.87 in your capture, sits outside the engineering block, has no Modbus history, and wrote with no ticket. It's a commissioning laptop left on the old vendor VLAN in the spring. The write itself is T1692.001 Unauthorized Message: Command Message (formerly T0855). FS-HMI-01 and FS-HIST-01 only read, and that's invisible noise. FS-ENG-01 is routine however many writes it sends: right station, ticket, window, so check the change log. That write really happened and is authorised, so it closes as a Benign True Positive citing CHG-2291. It is not a False Positive, because the rule did not misfire. FS-VEND-02 had no history either, but it had a ticket and an escort. FS-ENG-02 is a loose end: a known station with no paperwork is a call to the engineer, not an incident yet. Same port, same controller, opposite verdicts.",
+        why: "FS-COMM-07, the 192.168.44.87 in your capture, sits outside the engineering block, has no Modbus history, and wrote with no ticket. It's a commissioning laptop left on the old vendor VLAN in the spring. The write itself is Unauthorized Message: Command Message. FS-HMI-01 and FS-HIST-01 only read, and that's invisible noise. FS-ENG-01 is routine however many writes it sends: right station, ticket, window, so check the change log. That write really happened and is authorised, so it closes as a Benign True Positive citing CHG-2291. It is not a False Positive, because the rule did not misfire. FS-VEND-02 had no history either, but it had a ticket and an escort. FS-ENG-02 is a loose end: a known station with no paperwork is a call to the engineer, not an incident yet. Same port, same controller, opposite verdicts.",
       },
     ],
     // ── Reading 6: watching what can't run an agent ──
@@ -458,7 +458,7 @@ export const OT_ICS_SECURITY: RoomExperience = {
           { id: "phish", text: "A mail to an engineer lands on FS-PC-117 and the intruder has a foothold in corporate IT", note: "Stage 1, the IT intrusion. Nothing about it is industrial yet." },
           { id: "gate", text: "The intake gate moves from 40% to 55% with nobody at the panel", note: "T0831 Manipulation of Control (Impact, TA0105). The physical effect, recorded separately from the message that caused it." },
           { id: "jump", text: "An RDP session with a maintenance account opens from FS-PC-117 onto FS-JUMP-01", note: "T0886 Remote Services (Lateral Movement, TA0109). It isn't T0883, because no device here faces the internet: the session starts inside IT." },
-          { id: "write", text: "A Write Single Register reaches plc-gate-02 from FS-COMM-07", note: "Stage 2, the attack itself. T1692.001 Unauthorized Message: Command Message (formerly T0855), Impair Process Control (TA0106). The controller obeyed, because Modbus/TCP has no way to ask who's sending." },
+          { id: "write", text: "A Write Single Register reaches plc-gate-02 from FS-COMM-07", note: "Stage 2, the attack itself. Unauthorized Message: Command Message, Impair Process Control (TA0106). The controller obeyed, because Modbus/TCP has no way to ask who's sending." },
           { id: "read", text: "For weeks the intruder reads network diagrams and vendor manuals on the file share", note: "Still Stage 1, and the slow part. That's the long game: the documents say what's worth touching." },
           { id: "check", text: "One read of the gate's setpoint register, to confirm it matches the manual", note: "Stage 2 opens with developing and validating the attack. Most of that happens out of sight. This is the small piece that shows on the wire." },
           { id: "comm", text: "A second RDP session crosses from FS-JUMP-01 to FS-COMM-07 on the old vendor VLAN", note: "T0886 again. This hop puts the intruder on a host that can reach the controllers, through a rule nobody removed." },

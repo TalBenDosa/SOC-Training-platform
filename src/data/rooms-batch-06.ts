@@ -946,7 +946,7 @@ CrowdStrike Falcon is one of the most widely deployed EDR platforms. When it fir
 | \`ComputerName\` | Which machine | LAPTOP-JSMITH |
 | \`LocalIP\` | IP address of the machine | 10.0.1.55 |
 | \`SHA256HashData\` | Cryptographic hash of the process executable | a1b2c3... |
-| \`PatternDispositionDescription\` | What the sensor did about it | "Detection, Process Killed" |
+| \`PatternDispositionDescription\` | What the sensor did about it | "Prevention, process killed." |
 | confidence (console / Alerts API) | How confident CrowdStrike is (0–100) | 95 |
 
 **Step-by-Step Alert Analysis**
@@ -1050,7 +1050,7 @@ Based on your analysis:
           "crowdstrike.Technique": "PowerShell",
           "threat.technique.id": "T1059",
           "threat.technique.subtechnique.id": "T1059.001",
-          "crowdstrike.PatternDispositionDescription": "Detection, Process Killed",
+          "crowdstrike.PatternDispositionDescription": "Prevention, process killed.",
           "crowdstrike.FileName": "powershell.exe",
           "crowdstrike.ContextProcessId": "4892",
           "crowdstrike.ParentBaseFileName": "cmd.exe",

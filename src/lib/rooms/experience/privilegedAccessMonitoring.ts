@@ -358,9 +358,9 @@ export const PRIVILEGED_ACCESS_MONITORING: RoomExperience = {
           { key: "client_ip", value: "10.40.17.52", label: "From where" },
           { key: "object_name", value: "xp_cmdshell", label: "What", note: "The procedure that was called." },
           { key: "statement", value: "EXEC master..xp_cmdshell 'whoami'", note: "The exact text sent to the server." },
-          { key: "sql.database_role", value: "db_datareader", label: "With what standing", note: "Added by the SIEM from the server's role data. xp_cmdshell runs only for the server's top role, or through a proxy account set up for it." },
+          { key: "sql.database_role", value: "db_datareader", label: "With what standing", note: "SIEMs enrich this as sql.database_role for a database role such as db_datareader, or sql.server_role for a server-level role. xp_cmdshell runs only for the server's top role, or through a proxy account set up for it." },
         ],
-        summary: "A refused call still says who tried, from where, and what they hoped for. The role field decided this one. In any correlated SQL alert, read that field early: it tells you what the login could do at that moment. Had this login held the top role, the shell would have run as the SQL Server service account.",
+        summary: "A refused call still says who tried, from where, and what they hoped for. The role field decided this one. In any correlated SQL alert, read the role fields early: they tell you what the login could do at that moment. Had this login held the top role, the shell would have run as the SQL Server service account.",
         primer: {
           title: "What xp_cmdshell is",
           fold: true,

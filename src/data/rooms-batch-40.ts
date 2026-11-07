@@ -65,7 +65,6 @@ const shadowAiPasteEvent: TelemetryEvent = {
     "data.office365.IncidentId": "5127740",
     "data.office365.CreationTime": "2026-08-24T16:47:12",
     "data.office365.EndpointMetaData.DeviceName": "LT-ENG-0472",
-    "data.office365.EndpointMetaData.Application": "chrome.exe",
     "data.office365.PolicyDetails.PolicyName": "Data Security Posture Management for AI - Generative AI Websites",
     "data.office365.PolicyDetails.PolicyId": "7f3a2c91-4b6d-4e12-9a8f-1c5d6e7f8091",
     "data.office365.PolicyDetails.Rules.RuleName": "Audit paste of classified content to Generative AI Websites",
@@ -390,7 +389,7 @@ const aiAttacksTasks = [
       id: "aisoc-r7",
       heading: "Other OWASP LLM Risks You'll Meet on the Job",
       content:
-        "The four risks covered in Part 1 (Prompt Injection, Sensitive Information Disclosure, Data/Model Poisoning, Model Theft/Extraction) are where most real SOC incidents concentrate today. As a quick recap: LLM01 Prompt Injection is attacker text steering the model away from its intended instructions; LLM02 Sensitive Information Disclosure is the application exposing what should stay hidden, such as its system prompt, training data the model memorized, or documents the user may not see; and LLM04 Data and Model Poisoning is tampering with the data a model trains on or retrieves, so that it picks up false or backdoored behavior. The rest of OWASP's 2025 list is worth being able to recognize by name and mechanism, even at a lighter depth. You will see these terms in vendor advisories and incident reports.\n\n" +
+        "The four risks covered in Part 1 (Prompt Injection, Sensitive Information Disclosure, Data/Model Poisoning, Model Theft/Extraction) are where most real SOC incidents concentrate today. As a quick recap: LLM01 Prompt Injection is attacker text steering the model away from its intended instructions; LLM02 Sensitive Information Disclosure is the application exposing what should stay hidden, such as personal data, training data the model memorized, or documents the user may not see (its close neighbour LLM07 covers the system prompt itself); and LLM04 Data and Model Poisoning is tampering with the data a model trains on or retrieves, so that it picks up false or backdoored behavior. The rest of OWASP's 2025 list is worth being able to recognize by name and mechanism, even at a lighter depth. You will see these terms in vendor advisories and incident reports.\n\n" +
         "**LLM03:2025: Supply Chain.** Already touched on in Part 1: any third-party component in the LLM stack (a pretrained model, a fine-tuning adapter (LoRA), a plugin, or a poisoned public dataset) can carry a vulnerability or malicious payload the deploying organization never authored. The practical control is treating every downloaded model artifact like any other third-party software dependency: verify the publisher, check the format, and scan before loading.\n\n" +
         "**LLM05:2025: Improper Output Handling.** Covered in full depth in this room's dedicated reading below ('Improper Output Handling'). In short: this is not about what the model SAYS, but about what your application DOES with what it says without checking it first. Raw LLM output piped into a shell, a SQL query, or a browser's DOM becomes a classic injection primitive.\n\n" +
         "**LLM06:2025: Excessive Agency.** Also covered in full depth below ('Excessive Agency'). In short: an LLM-based agent granted more permissions, tool access, or autonomy than its task requires turns a mere prompt-injection ATTEMPT into a real-world incident, the injection is the entry point, but excessive agency is what makes it damaging.\n\n" +
@@ -422,7 +421,7 @@ const aiAttacksTasks = [
         "Match each risk ID to the description of the mechanism you have studied in this series.",
       pairs: [
         { id: "p1", left: "LLM01:2025 Prompt Injection", right: "Attacker input causes the model to ignore its intended instructions and follow the attacker's instead" },
-        { id: "p2", left: "LLM02:2025 Sensitive Information Disclosure", right: "The application exposes data it should not: system prompt contents, memorized training data, or unauthorized RAG documents" },
+        { id: "p2", left: "LLM02:2025 Sensitive Information Disclosure", right: "The application exposes data it should not: personal data, memorized training data, or unauthorized RAG documents" },
         { id: "p3", left: "LLM03:2025 Supply Chain", right: "A third-party component (a pretrained model, adapter, plugin, or dataset) carries a vulnerability or malicious payload" },
         { id: "p4", left: "LLM04:2025 Data and Model Poisoning", right: "Training, fine-tuning, or RAG-indexed data is maliciously corrupted so the model learns or retrieves a false or backdoored behavior" },
         { id: "p5", left: "LLM05:2025 Improper Output Handling", right: "The application trusts and forwards LLM-generated output without sanitizing it, letting an attacker-influenced response trigger XSS, SQL injection, or RCE downstream" },

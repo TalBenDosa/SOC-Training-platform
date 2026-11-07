@@ -7428,7 +7428,8 @@
         "user.name",
         "user.sid",
         "user.target.name",
-        "user.type"
+        "user.type",
+        "AdditionalFields"
       ],
       "prefixes": [
         "data.ms365.",
@@ -12153,13 +12154,18 @@
         "mft.si_created",
         "mft.si_mft_modified",
         "mft.si_modified",
+        "usn.first_reason",
+        "usn.first_timestamp",
+        "usn.last_reason",
+        "usn.last_timestamp",
         "mft.usnjrnl_first_reason",
         "mft.usnjrnl_first_timestamp",
         "mft.usnjrnl_last_reason",
         "mft.usnjrnl_last_timestamp",
         "velociraptor.artifact"
       ],
-      "prefixes": []
+      "prefixes": [],
+      "sourceNote": "usn.* are a joined summary of the first and last Windows.Forensics.Usn rows (Timestamp and Reason columns), used where the event says the MFT and USN artifacts were joined."
     },
     "vmware-esxi": {
       "label": "VMware ESXi",

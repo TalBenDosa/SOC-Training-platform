@@ -35,7 +35,7 @@ const supplyChainEvent: TelemetryEvent = {
 
     "threat.technique.subtechnique.id": "T1195.001",
     "crowdstrike.Severity": "High",
-    "crowdstrike.PatternDispositionDescription": "Detection, No Action",
+    "crowdstrike.PatternDispositionDescription": "Detection, standard detection.",
     "crowdstrike.FileName": "node.exe",
     "crowdstrike.ProcessId": "8821",
     "crowdstrike.ImageFileName": "C:\\Program Files\\nodejs\\node.exe",
@@ -221,7 +221,7 @@ const lolbinEvent: TelemetryEvent = {
   raw: {
     "mde.ActionType": "ProcessCreated",
     "mde.DetectionSource": "EDR",
-    "mde.SHA256": "b4a1c9d7e2f56830a1bb44c02f7de9915ee2c4a7f0c8b13d5e9a2f6c7b8d9014",
+    "mde.SHA256": "aa91de90174ee849a30e905e45c836d3f51f143843130fedb36bb4f5dad4ec77",
     "process.name": "regsvr32.exe",
     "process.pid": "4420",
     "process.command_line": "regsvr32.exe /s C:\\AppDeploy\\ReportEngine\\ReportViewerCtl.dll",
@@ -365,12 +365,12 @@ const edgeCaseRoom = {
           options: [
             "process.code_signature.trusted is true, which means the inline code must have been injected by tampering with node.exe itself",
             "The command differs from the declared postinstall (node ./scripts/setup.js) and chains exec into hidden PowerShell",
-            "PatternDispositionDescription reads “Detection, No Action”, so Falcon has already judged the command to be benign",
+            "PatternDispositionDescription reads “Detection, standard detection.”, so Falcon has already judged the command to be benign",
             "The parent is node.exe running npm-cli.js, which shows npm ran a script outside of its normal install lifecycle",
           ],
           answer: 1,
           explanation:
-            "The package declares its postinstall as 'node ./scripts/setup.js' (npm.scripts.postinstall), but the process that actually ran is inline code that calls child_process.exec to launch hidden PowerShell and download-and-execute a script from a raw IP. The tell is the chain and the mismatch with what the package declares, not the use of node or of -e as such. “process.code_signature.trusted is true” only says node.exe is the genuine signed runtime; the malicious logic is in the arguments it was given, not in a modified binary. “Detection, No Action” means Falcon detected and did not block. It is not a benign verdict. “The parent is node.exe running npm-cli.js” is the normal lineage for an install script, which is exactly why this attack blends in.",
+            "The package declares its postinstall as 'node ./scripts/setup.js' (npm.scripts.postinstall), but the process that actually ran is inline code that calls child_process.exec to launch hidden PowerShell and download-and-execute a script from a raw IP. The tell is the chain and the mismatch with what the package declares, not the use of node or of -e as such. “process.code_signature.trusted is true” only says node.exe is the genuine signed runtime; the malicious logic is in the arguments it was given, not in a modified binary. “Detection, standard detection.” means Falcon detected and did not block. It is not a benign verdict. “The parent is node.exe running npm-cli.js” is the normal lineage for an install script, which is exactly why this attack blends in.",
           xp: 25,
         },
         {

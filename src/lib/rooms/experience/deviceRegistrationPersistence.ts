@@ -337,7 +337,7 @@ export const DEVICE_REGISTRATION_PERSISTENCE: RoomExperience = {
           { key: "initiatedBy.user.ipAddress", value: "198.51.100.40", label: "From where", note: "The network address of the session that acted. This is the value you pivot on in SigninLogs. It's Stonehaven's Aberdeen office." },
           { key: "initiatedBy.user.roles", value: "[]", label: "Directory role", note: "No directory role on the acting session. On an admin-assisted change this names one, such as Helpdesk Administrator." },
           { key: "targetResources[0].id", value: "2b7f90c4-61de-4f08-a7c3-95e1d04b86f2", label: "Target id", note: "Compare it with the actor id. Same value: the account acted on itself." },
-          { key: "Companion record", value: "Update user, Core Directory, same correlationId", label: "Where the change sits", note: "The record above names the action. The next three fields come from this companion record." },
+          { key: "Companion record", value: "Update user, Core Directory, same moment, same target user", label: "Where the change sits", note: "The record above names the action. The next three fields come from this companion record." },
           { key: "modifiedProperties[0].displayName", value: "StrongAuthenticationMethod", label: "Property changed", note: "The property that holds the account's list of methods." },
           { key: "oldValue", value: "[{\"MethodType\":\"PhoneAppOTP\",\"Default\":true}]", label: "Before" },
           { key: "newValue", value: "[{\"MethodType\":\"PhoneAppOTP\",\"Default\":true},{\"MethodType\":\"TwoWayVoiceMobile\",\"Default\":false}]", label: "After", note: "One entry in both lists, and one only here. A mobile number was added, and the app stays the default." },

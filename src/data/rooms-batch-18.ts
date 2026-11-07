@@ -644,7 +644,7 @@ const uacConsentEvent: TelemetryEvent = {
     "winlog.event_data.ParentImage": "C:\\Windows\\explorer.exe",
     "winlog.event_data.IntegrityLevel": "High",
     "winlog.event_data.User": "MERIDIAN\\r.chukwu",
-    "winlog.event_data.Hashes": "SHA256=91ae7c40b6f1d82a5e3c9f0847b2d6a1e4c8f35907a2b6d1e4f8c0a3b5d7e2c1",
+    "winlog.event_data.Hashes": "SHA256=91AE7C40B6F1D82A5E3C9F0847B2D6A1E4C8F35907A2B6D1E4F8C0A3B5D7E2C1",
     "winlog.event_data.Signed": "true",
     "winlog.event_data.Signature": "Meridian Trust IT Deployment CA",
   },

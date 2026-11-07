@@ -9,7 +9,9 @@
  * sub-techniques). `tactic` is the earliest of the technique's tactics in
  * matrix order; `tactics` lists them all when there is more than one.
  * A few Mobile-matrix techniques (T1404, T1626, T1660) are included for the
- * MDM scenario, under the Mobile tactic IDs.
+ * MDM scenario, under the Mobile tactic IDs. Two ICS-matrix sub-techniques
+ * (T1692.001, T1694.001) are included for the OT content, under the ICS
+ * tactic IDs.
  */
 
 export type MitreTactic = {
@@ -25,8 +27,9 @@ export type MitreTechnique = {
   tactic: string;    // tactic id (TA000x)
   tactics?: string[]; // many techniques span multiple tactics
   description: string;
-  // Cloud = IaaS, SaaS includes Office Suite, Identity = Identity Provider, Network = Network Devices, PRE = pre-compromise.
-  platforms: ("Windows" | "macOS" | "Linux" | "Cloud" | "SaaS" | "Identity" | "Network" | "Containers" | "ESXi" | "PRE" | "Android" | "iOS")[];
+  // Cloud = IaaS, SaaS includes Office Suite, Identity = Identity Provider, Network = Network Devices, PRE = pre-compromise,
+  // ICS = the ATT&CK for ICS matrix, whose technique pages list no platforms.
+  platforms: ("Windows" | "macOS" | "Linux" | "Cloud" | "SaaS" | "Identity" | "Network" | "Containers" | "ESXi" | "PRE" | "Android" | "iOS" | "ICS")[];
   data_sources: string[];
   detection_hint?: string;
   whatAttackerDoes?: string;
@@ -52,6 +55,11 @@ export const TACTICS: MitreTactic[] = [
   // Mobile matrix (only the tactics the mobile scenario's techniques use).
   { id: "TA0027", name: "Initial Access",        short: "Initial",     description: "Adversary getting into a mobile device." },
   { id: "TA0029", name: "Privilege Escalation",  short: "PrivEsc",     description: "Gaining higher-level permissions on a mobile device." },
+  // ICS matrix (only the tactics the two ICS techniques below use).
+  { id: "TA0110", name: "Persistence",           short: "Persist",     description: "Keeping access to a control-system environment." },
+  { id: "TA0103", name: "Evasion",               short: "Evasion",     description: "Avoiding detection by operators and security tools in a control-system environment." },
+  { id: "TA0109", name: "Lateral Movement",      short: "LatMove",     description: "Moving through a control-system environment." },
+  { id: "TA0106", name: "Impair Process Control", short: "ImpairCtl",  description: "Manipulating or disrupting control logic, parameters and commands." },
 ];
 
 export const TECHNIQUES: MitreTechnique[] = [
@@ -1987,6 +1995,23 @@ export const TECHNIQUES: MitreTechnique[] = [
     detection_hint: "MDM or Mobile Threat Defense inventory showing a sideloaded or unapproved app holding active Device Administrator rights.",
     whatAttackerDoes: "A malicious or sideloaded app persuades the user to activate it as a Device Administrator, or abuses another built-in elevation control. With those rights it can lock or wipe the device, enforce its own policies and resist uninstallation.",
     logIndicators: ["Unapproved app listed with active Device Administrator rights in MDM device details", "App installed from unknown sources (sideloaded) shortly before the elevation", "Mobile Threat Defense alert for a privilege-abusing app, with the device marked non-compliant", "App that cannot be uninstalled until its device admin rights are removed"],
+  },
+  // ATT&CK for ICS (OT content). Listed under the ICS tactic IDs.
+  { id: "T1692.001", name: "Unauthorized Message: Command Message", tactic: "TA0103", tactics: ["TA0103","TA0106"],
+    description: "Sending a control-system device an instruction that makes it act beyond its normal function, or without the conditions it needs to run that function. Formerly T0855.",
+    platforms: ["ICS"],
+    data_sources: ["Zeek","Suricata","OT Network Monitoring"],
+    detection_hint: "A write function code (Modbus 6 or 16) reaching a controller from a source with no engineering history.",
+    whatAttackerDoes: "Sends a controller, relay or other field device a command in its own protocol, such as a Modbus register write, so the device acts on an order it should never have taken. Legacy OT protocols carry no sender authentication, so the device cannot tell the source is unauthorized.",
+    logIndicators: ["Zeek modbus.log WRITE_SINGLE_REGISTER or WRITE_MULTIPLE_REGISTERS from a host outside the engineering stations", "Suricata ICS signature on a write from an unexpected source", "A controller receiving writes with no matching change ticket or maintenance window"],
+  },
+  { id: "T1694.001", name: "Insecure Credentials: Default Credentials", tactic: "TA0110", tactics: ["TA0110","TA0109"],
+    description: "Using credentials set by the manufacturer or supplier of a control-system device. Formerly T0812.",
+    platforms: ["ICS"],
+    data_sources: ["OT Network Monitoring","Device Logs"],
+    detection_hint: "A login to an OT device under a vendor default account from a host that does not normally administer it.",
+    whatAttackerDoes: "Logs in to a controller, HMI or other OT device with a factory account that was never changed or disabled. These accounts may hold administrative rights, some cannot be changed, and the passwords are often published in device manuals.",
+    logIndicators: ["Successful login to an OT device with a vendor default account name", "Device administration session from a host outside the engineering stations"],
   },
 ];
 

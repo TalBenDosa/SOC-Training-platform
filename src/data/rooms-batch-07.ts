@@ -1519,11 +1519,12 @@ An IP with 3,847 reports and 95% confidence (like the one in the log analysis be
 
 Tor is an anonymity network that passes traffic through three volunteer-run relays in turn: guard, middle and exit. A device using Tor opens outbound connections to a relay, so an internal host connecting out to a Tor relay address points to Tor software on that host, whereas a Tor exit address arriving inbound as the source means someone is using Tor to reach you.
 
+Read an alert's destination port with the same care: almost every organisation must allow outbound port 443 for HTTPS, so attackers often run command-and-control (C2) traffic over it to blend in with normal web browsing, and the port alone tells you little about what the traffic is.
+
 **Shodan (shodan.io): The Search Engine for Connected Devices**
 
 Shodan continuously scans the entire internet and indexes information about every publicly accessible device: what ports are open, what services are running, what software versions are installed. For threat intelligence:
 - Look up an IP to see what services it's running. A suspicious IP running Cobalt Strike's default port (50050) is a strong indicator of C2 infrastructure.
-- Read common ports with care: almost every organisation must allow outbound port 443 for HTTPS, so attackers often run command-and-control (C2) traffic over it to blend in with normal web browsing, and the port alone tells you little about what the traffic is.
 - Search for specific service banners to find all instances of a particular C2 framework's default configuration
 - Identify the hosting provider (ASN) of an IP: Tor exit nodes, bulletproof hosting providers, or anonymisation services are frequently used by attackers
 

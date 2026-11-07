@@ -155,7 +155,7 @@ const legitPasteRunEvent: TelemetryEvent = {
     "threat.technique.subtechnique.id": "T1059.001",
     "crowdstrike.SeverityName": "High",
     "crowdstrike.PatternDispositionValue": "10",
-    "crowdstrike.PatternDispositionDescription": "Detection, No Action",
+    "crowdstrike.PatternDispositionDescription": "Detection, standard detection.",
     "crowdstrike.aid": "b71e04af9c2d4a86bf05e1cd8a3f7d29",
     "crowdstrike.NetworkContainmentState": "Not Contained",
     "event.action": "process_created",

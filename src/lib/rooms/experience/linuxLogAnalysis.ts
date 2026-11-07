@@ -8,7 +8,7 @@ import type { RoomExperience } from "./types";
 // file sort places events, it doesn't compare auth.log with audit.log (q1);
 // the journalctl drill uses -u cron, -b, -p and _COMM, never --since/--until
 // for sshd (q2); the SSH console is lastb, last and authorized_keys on
-// another host and IP, never la1's 203.0.113.45 (la1, flag1); the cron
+// another host and IP, never la1's 198.51.100.45 (la1, flag1); the cron
 // console never reads auditd auid/euid (q3); the rush cards show an auid
 // and a gap in auth.log with other values than q3 and q4.
 export const LINUX_LOG_ANALYSIS: RoomExperience = {
@@ -74,7 +74,7 @@ export const LINUX_LOG_ANALYSIS: RoomExperience = {
     "linux-logs-q1": { name: "Arjun Mehta", role: "Incident Responder", line: "auth.log and audit.log. Why do we need both?" },
     "linux-logs-q2": { name: "Arjun Mehta", role: "Incident Responder", line: "Give me sshd's journal for the small hours of 22 November. Which command?" },
     "linux-logs-q3": { name: "Arjun Mehta", role: "Incident Responder", line: "auid=1001, euid=0. Read that auditd record for me." },
-    "linux-logs-q4": { name: "Arjun Mehta", role: "Incident Responder", line: "Twelve hours missing from auth.log, and the file was modified at the end of the gap. What now?" },
+    "linux-logs-q4": { name: "Arjun Mehta", role: "Incident Responder", line: "Twelve hours missing from auth.log, and the file was modified after its last line. What now?" },
   },
   briefings: {
     // ── Reading 1: where Linux writes ──
@@ -176,7 +176,7 @@ export const LINUX_LOG_ANALYSIS: RoomExperience = {
           { id: "r13", text: "useradd: new user: name=sysmgr, UID=0, GID=0, shell=/bin/bash", answer: true, why: "A new account with UID 0 is a second root. Whatever its name, the number is what counts." },
           { id: "r14", text: "systemd: logrotate.service: Deactivated successfully.", answer: false, why: "Routine housekeeping that finished without error. It rotates the logs you are reading." },
           { id: "r15", text: "audit.log: type=SYSCALL syscall=59 auid=1004 uid=0 euid=0 comm=\"systemctl\" exe=\"/usr/bin/systemctl\"", answer: false, why: "auid is the login identity and it survives sudo and su: user 1004 logged in, and uid and euid 0 mean the command ran as root. A named engineer running systemctl through sudo is routine. An auid of 4294967295 (unset) or a login you cannot account for would be the problem." },
-          { id: "r16", text: "auth.log: last line 09:10, next line 21:38. File modified 21:38. Server never rebooted.", answer: true, why: "Twelve hours of a busy server are missing and the file was touched at the end of the gap, with no reboot to explain it. Lines were probably deleted. Check the copy forwarded to the SIEM for the missing hours." },
+          { id: "r16", text: "auth.log: last line 09:10, next line 21:38, final line 22:04. File modified 23:40. Server never rebooted.", answer: true, why: "Twelve hours of a busy server are missing and the file was written after its last line, with no reboot to explain it. Lines were probably deleted. Check the copy forwarded to the SIEM for the missing hours." },
         ],
         lesson: "Judge a log line on who, from where, at what hour and whether it fits the baseline. A fresh unexplained file in cron.d, the web account using sudo, and a .php file answering commands are the lines that deserve a ticket.",
       },

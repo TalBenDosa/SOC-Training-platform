@@ -717,7 +717,7 @@ export const RANSOMWARE_FULL_LIFECYCLE: RoomExperience = {
           { key: "SHA256HashData", value: "5be1d2c47f0a93e6b8c1f2d7a4406e39c1d8ae7f22b06a5cd9013e47b6fa8e11", label: "Hash", note: "Matches the vendor's published release." },
           { key: "UserName", value: "MARCHBANK\\svc-print", label: "Whose account", note: "The account the process ran under." },
           { key: "BytesSent", value: "150323855360", label: "How much", note: "140 GB, at the end of the job." },
-          { key: "PatternDispositionDescription", value: "Detection, standard detection.", label: "What the sensor did", note: "What the sensor did about this detection." },
+          { key: "PatternDispositionDescription", value: "Detection, standard detection.", label: "What the sensor did", note: "What the sensor did about this detection. 'Detection, standard detection.' means it reported the activity and let it run to completion. 'Prevention, process killed.' means it ended the process." },
         ],
         summary: "Work through it in that order: where it ran from, who started it, what it was told to do, whose account it used, how much went. Then set each answer against the rest of the case.",
         primer: {
@@ -925,7 +925,7 @@ export const RANSOMWARE_FULL_LIFECYCLE: RoomExperience = {
           { key: "CommandLine", value: "spoolsrv.exe -dir C:\\;D:\\ -x .hfr9c04 -readme HOARFROST-README.txt -exclude C:\\Windows;C:\\Boot -t 16", label: "What it was told", note: "Target, extension, note name, excluded paths, threads." },
           { key: "FileRename", value: "D:\\Shares\\Ops\\pallet_plan.xlsx > pallet_plan.xlsx.hfr9c04", label: "What it does to a file", note: "The extension is added after the whole old name, so the original extension stays inside the new one." },
           { key: "Behavior", value: "18,400 files renamed in 60 seconds, one process", label: "Why it fired", note: "A behaviour count across all files, whatever the binary is called." },
-          { key: "PatternDispositionDescription", value: "Detection, standard detection.", label: "What the sensor did", note: "What the sensor did about this detection. Another value is Prevention, process killed.." },
+          { key: "PatternDispositionDescription", value: "Detection, standard detection.", label: "What the sensor did", note: "What the sensor did about this detection. 'Detection, standard detection.' means it reported the activity and let it run to completion. Another value is 'Prevention, process killed.', which means the sensor ended the process." },
         ],
         summary: "On one host, in a mass event, read four things: the name and folder, what the command line told it to do, the rename count, and what the sensor did.",
         primer: {

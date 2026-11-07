@@ -48,6 +48,8 @@ const FLAG_ALIASES: Record<string, string[]> = {
   "endpoint-security-fundamentals:ep-sec-f1": ["-EncodedCommand"],
   // T0855 was revoked in ATT&CK v19.0 for T1692.001; learners who read older material still get credit.
   "ot-ics-security:ot-f1": ["T0855"],
+  // krb-la1 shows IpAddress in its IPv4-mapped form, so the value as logged also counts.
+  "kerberos-authentication:krb-f1": ["::ffff:10.55.14.203"],
   "windows-event-logs:win-evtlogs-flag1": ["Event ID 4728", "EventID 4728", "EID 4728", "ID 4728"],
   // The task teaches "exception list" and its hint names "allow list" / "whitelist" as
   // synonyms, so every standard spelling of those must grade as correct.

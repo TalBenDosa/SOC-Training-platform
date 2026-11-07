@@ -353,7 +353,7 @@ const becInvestigationRoom = {
       ],
       answer: 1,
       explanation:
-        "Reading 3 distinguishes the two identifiers: sessionId ties together every event within one continuous authenticated session, so it links the replayed sign-in to the inbox-rule creation and anything else done under that session. correlationId ties the records of one underlying action, not a whole session. riskLevelDuringSignIn is a score, not an identifier to pivot on. The source IP helps, but it can be shared or rotated and may catch other users' or sessions' traffic, so it is weaker than the precise sessionId link.",
+        "Reading 3 distinguishes the two identifiers: sessionId ties together every event within one continuous authenticated session, so it links the replayed sign-in to other records of that session that carry the identifier. correlationId ties the records of one underlying action, not a whole session. riskLevelDuringSignIn is a score, not an identifier to pivot on. The source IP helps, but it can be shared or rotated and may catch other users' or sessions' traffic, so it is weaker than the precise sessionId link.",
       xp: 25,
     },
     // ── Reading 4: inbox rules built for wire fraud ─────────────────────────

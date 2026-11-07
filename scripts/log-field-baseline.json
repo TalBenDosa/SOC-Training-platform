@@ -315,7 +315,7 @@
     "src/data/rooms-batch-11.ts:cyberark:user.title",
     "src/data/rooms-batch-11.ts:microsoft-sentinel:process.integrity_level",
     "src/data/rooms-batch-11.ts:microsoft-sentinel:process.parent.path",
-    "src/data/rooms-batch-11.ts:microsoft-sentinel:sql.database_role",
+    "src/data/rooms-batch-11.ts:microsoft-sentinel:sql.server_role",
     "src/data/rooms-batch-11.ts:microsoft-sentinel:sql.originating_login",
     "src/data/rooms-batch-11.ts:microsoft-sentinel:sql.query_text",
     "src/data/rooms-batch-11.ts:microsoft-sentinel:sql.stored_procedure",

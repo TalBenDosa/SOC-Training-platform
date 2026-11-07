@@ -252,7 +252,7 @@ const mfaSessionTokenAttacksRoom = {
       content:
         "Session-cookie replay cannot be caught by watching for a 'bad login'. There usually isn't one on the attacker's side at all. It is detected by comparing two sign-in records against each other.\n\n" +
         "### The single strongest field: sessionId\n\n" +
-        "Microsoft Entra ID's sign-in logs carry a `sessionId` field: an identifier created when the user authenticates interactively and carried by every sign-in that session produces. Because a session belongs to one device, **the same sessionId value should never legitimately appear on sign-ins that differ in IP address, autonomous system (ASN), and browser fingerprint all at once.** A new IP alone proves nothing: a laptop that moves from office Wi-Fi to a phone hotspot keeps its sessionId. The same session jumping to a new ASN in a different browser is the single strongest, most precise tell available for T1550.004:\n\n" +
+        "Microsoft Entra ID's sign-in logs carry a `sessionId` field: an identifier created when the user authenticates interactively and carried by every sign-in that session produces. **The same sessionId value should never legitimately appear on sign-ins from a different device, or on sign-ins that differ in IP address, autonomous system (ASN), and browser fingerprint with a blank or changed device ID.** A new IP alone proves nothing: a laptop that moves from office Wi-Fi to a phone hotspot keeps its sessionId. The same session jumping to a new ASN in a different browser, with no matching device ID, is the single strongest, most precise tell available for T1550.004:\n\n" +
         "```\n" +
         "Sign-in #1 (victim's real login, via the proxy without her knowing):\n" +
         "  sessionId: 3d8a6f21-0c47-4e91-...\n" +
@@ -304,7 +304,7 @@ const mfaSessionTokenAttacksRoom = {
           ],
           answer: 1,
           explanation:
-            "A shared sessionId is the one field that is architecturally supposed to be unique to a single browser session -- two sign-ins carrying the identical value from a different IP, ASN and browser cannot be two separate legitimate logons, only one artifact used twice. appDisplayName being shared just means both used the same application, which many unrelated logins do. resultType '0' and conditionalAccessStatus 'success' both just mean 'this sign-in succeeded' -- they say nothing about whether it was a fresh authentication or a replay, which is exactly the trap this room's reading warned about.",
+            "A sessionId comes from one interactive sign-in and is carried by the tokens issued from it -- two sign-ins carrying the identical value from a different IP, ASN and browser, with a blank device ID on the second, cannot be two separate legitimate logons, only one artifact used twice. appDisplayName being shared just means both used the same application, which many unrelated logins do. resultType '0' and conditionalAccessStatus 'success' both just mean 'this sign-in succeeded' -- they say nothing about whether it was a fresh authentication or a replay, which is exactly the trap this room's reading warned about.",
           xp: 15,
         },
         {
@@ -535,7 +535,7 @@ const mfaSessionTokenAttacksRoom = {
       type: "question" as const,
       id: "mfast-q4",
       question:
-        "A tenant has deployed Microsoft's Token Protection, binding Primary Refresh Tokens to the requesting device, but still uses plain push approvals with no number matching and has NOT deployed FIDO2 security keys. Which statement about this room's attacks is fully accurate?",
+        "A tenant has deployed Microsoft's Token Protection, binding Primary Refresh Tokens to the requesting device, but its MFA still runs through a third-party authenticator app that sends plain push approvals with no number matching, and it has NOT deployed FIDO2 security keys. Which statement about this room's attacks is fully accurate?",
       options: [
         "T1621 MFA fatigue still works: Token Protection does not affect it, since fatigue never involves a stolen token and the worn-down human is the attack surface",
         "None of the room's attacks would succeed, since Token Protection closes every technique that depends on a stolen or replayed authentication artifact",

