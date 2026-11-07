@@ -31,6 +31,10 @@ export interface SentinelConsoleProps {
   goTo?: { incidentId?: string; host?: string; nonce: number };
   /** Brings the SIEM window forward instead of leaving this one. */
   onBack?: () => void;
+  /** The shift is paused: new logs and changes wait until it resumes. */
+  paused?: boolean;
+  /** Bookmarks with no incident, from the session log. */
+  savedBookmarks?: SentinelBookmark[];
 }
 
 const NAV: { group: string; items: { id: Screen; label: string; icon: typeof Gauge }[] }[] = [
@@ -60,7 +64,7 @@ const SCREEN_TITLE: Record<Screen, string> = {
 
 interface Toast { id: number; kind: "incident" | "error" | "info"; title: string; body?: string; incidentId?: string; severity?: string }
 
-export function SentinelConsole({ workspace: source, states, actions, onRefresh, ended, backHref = "/team", initial, goTo, onBack }: SentinelConsoleProps) {
+export function SentinelConsole({ workspace: source, states, actions, onRefresh, ended, backHref = "/team", initial, goTo, onBack, paused = false, savedBookmarks = [] }: SentinelConsoleProps) {
   const workspace = useMemo(() => tidyWorkspace(source), [source]);
   const [screen, setScreen] = useState<Screen>("incidents");
   const [navCollapsed, setNavCollapsed] = useState(false);
@@ -225,7 +229,7 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
     return err;
   }, [actions, workspace.now]);
 
-  const bookmarks = useMemo(() => [...looseBookmarks, ...allBookmarks(states)].sort((a, b) => Date.parse(b.at) - Date.parse(a.at)), [looseBookmarks, states]);
+  const bookmarks = useMemo(() => [...savedBookmarks, ...looseBookmarks.filter(l => !savedBookmarks.some(s => s.name === l.name && s.query === l.query)), ...allBookmarks(states)].sort((a, b) => Date.parse(b.at) - Date.parse(a.at)), [looseBookmarks, savedBookmarks, states]);
   const tables = useMemo(() => (workspace.tables.HuntingBookmark?.rows.length
     ? workspace.tables
     : { ...workspace.tables, HuntingBookmark: bookmarkTable(bookmarks) }), [workspace.tables, bookmarks]);
@@ -254,6 +258,7 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
           <span className="st-ellipsis">{actions.me.name}{actions.me.role ? ` (${actions.me.role})` : ""}</span>
           <a href={backHref} onClick={e => { if (onBack) { e.preventDefault(); onBack(); } }}>SIEM window</a>
         </header>
+        {paused && !ended && <div className="st-ended" role="status"><Lock size={13} aria-hidden />The shift is paused. New logs and changes wait until it resumes: queries still run.</div>}
         {ended && <div className="st-ended" role="status"><Lock size={13} aria-hidden />The exercise has ended. This workspace is read-only: queries still run, changes are off.</div>}
         <div className="st-shell">
           {!covered && (

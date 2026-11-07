@@ -15,7 +15,7 @@ import type { IncidentState, SentinelActions, SentinelBookmark, SentinelWorkspac
 /** How often the console reads the session log. The team room's own reconcile uses the same pace. */
 export const SENTINEL_POLL_MS = 6_000;
 
-const LOG_TYPES = ["feed.event", "session.ended", "escalation.requested", "sentinel.incident_updated", "sentinel.comment_added", "sentinel.bookmark_added", "sentinel.task_set"];
+const LOG_TYPES = ["feed.event", "session.ended", "session.paused", "session.resumed", "escalation.requested", "escalation.acknowledged", "sentinel.incident_updated", "sentinel.comment_added", "sentinel.bookmark_added", "sentinel.task_set"];
 /** Fewer rows per read than the log can hold, so a long shift pages in rather than timing out. */
 const PAGE = 500;
 
@@ -26,6 +26,10 @@ export interface TeamSentinel {
   loading: boolean;
   error: string | null;
   ended: boolean;
+  /** The shift is paused: nothing new arrives, and the database refuses actions until it resumes. */
+  paused: boolean;
+  /** Bookmarks saved with no incident, from the session log, so they survive a reload and reach the team. */
+  looseBookmarks: SentinelBookmark[];
   refresh: () => void;
 }
 
@@ -43,6 +47,7 @@ export function useTeamSentinel(sessionId: string | null, role: string | null): 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const maxSeq = useRef(0);
+  const pulling = useRef(false);
   const isolation = useTeamIsolation(sessionId, role);
 
   const loadSession = useCallback(async () => {
@@ -56,6 +61,11 @@ export function useTeamSentinel(sessionId: string | null, role: string | null): 
   const pull = useCallback(async () => {
     const sb = getSupabaseBrowserClient();
     if (!sessionId || !sb) return;
+    // One read at a time: the 6s poll, an action and Refresh can all ask at once, and two reads
+    // of the same window would count each row twice.
+    if (pulling.current) return;
+    pulling.current = true;
+    try {
     for (;;) {
       const { data, error: e } = await sb.from("session_events")
         .select("seq, type, actor_id, role, payload, occurred_at")
@@ -64,11 +74,15 @@ export function useTeamSentinel(sessionId: string | null, role: string | null): 
       const rows = (data ?? []) as Ev[];
       if (rows.length) {
         maxSeq.current = rows[rows.length - 1].seq;
-        setEvents(prev => [...prev, ...rows]);
+        setEvents(prev => {
+          const seen = new Set(prev.map(x => x.seq));
+          return [...prev, ...rows.filter(x => !seen.has(x.seq))];
+        });
       }
       setError(null);
       if (rows.length < PAGE) return;
     }
+    } finally { pulling.current = false; }
   }, [sessionId]);
 
   useEffect(() => {
@@ -122,17 +136,36 @@ export function useTeamSentinel(sessionId: string | null, role: string | null): 
       canContain: isolation?.canContain ?? false,
       isolatedHosts,
       setIsolated,
-      updateIncident: (incident_id, patch) => send("sentinel.incident_updated", { incident_id, patch }),
+      updateIncident: async (incident_id, patch) => {
+        // The events behind the incident travel with it, so the report can judge a closing classification.
+        const inc = workspace?.incidents.find(i => i.id === incident_id);
+        const eventIds = [...new Set((inc?.alertIds ?? []).flatMap(a => workspace?.alertEventIds[a] ?? []))];
+        const err = await send("sentinel.incident_updated", { incident_id, patch, ...(patch.status === "Closed" ? { event_ids: eventIds.slice(0, 200) } : {}) });
+        // Taking up an escalated incident here is taking up the case: Tier-1 sees it acknowledged.
+        if (!err && (me.role === "t2" || me.role === "t3") && (patch.status === "Active" || patch.status === "Closed" || patch.owner)) {
+          const acked = new Set(events.filter(e => e.type === "escalation.acknowledged").map(e => String((e.payload as { event_id?: unknown }).event_id)));
+          for (const c of escalatedCases(events)) if (eventIds.includes(c.eventId) && !acked.has(c.eventId)) void send("escalation.acknowledged", { event_id: c.eventId });
+        }
+        return err;
+      },
       addComment: (incident_id, text) => send("sentinel.comment_added", { incident_id, text: text.slice(0, 4000) }),
       addBookmark: (b: Omit<SentinelBookmark, "id" | "author" | "at">) => send("sentinel.bookmark_added", { ...b, rows: b.rows.slice(0, 50) }),
       setTask: (incident_id, title, done) => send("sentinel.task_set", { incident_id, title, done }),
       queryRan: q => { void send("sentinel.query_run", { query: q.query.slice(0, 2000), ok: q.ok, rows: q.rows, incident_id: q.incidentId ?? null }); },
     };
-  }, [me, roster, nameOf, send, setIsolated, isolatedHosts, isolation?.canContain]);
+  }, [me, roster, nameOf, send, setIsolated, isolatedHosts, isolation?.canContain, workspace, events]);
+
+  const looseBookmarks = useMemo<SentinelBookmark[]>(() => events.filter(e => e.type === "sentinel.bookmark_added" && !(e.payload as { incidentId?: unknown }).incidentId).map(e => {
+    const b = e.payload as unknown as Partial<SentinelBookmark>;
+    return { id: `bookmark-${e.seq}`, name: b.name ?? "Bookmark", query: b.query ?? "", columns: b.columns ?? [], rows: b.rows ?? [], notes: b.notes ?? "", author: nameOf(e.actor_id), at: e.occurred_at ?? "", entityIds: b.entityIds ?? [] };
+  }), [events, nameOf]);
+  const lastPause = [...events].reverse().find(e => e.type === "session.paused" || e.type === "session.resumed");
 
   return {
     workspace, states, actions, loading, error,
     ended: session?.status === "ended" || events.some(e => e.type === "session.ended"),
+    paused: lastPause?.type === "session.paused",
+    looseBookmarks,
     refresh: () => { void pull(); },
   };
 }

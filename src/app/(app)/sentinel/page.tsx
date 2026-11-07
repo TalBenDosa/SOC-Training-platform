@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTeamSentinel } from "@/lib/team/useTeamSentinel";
+import { useTeamHeartbeat } from "@/lib/team/useTeamHeartbeat";
 import { SentinelConsole } from "@/components/sentinel/SentinelConsole";
 import { sentinelChannelName, sentinelWindowName, showSiemWindow, type SentinelTarget } from "@/lib/team/twoWindows";
 
@@ -19,7 +20,9 @@ export default function SentinelPage() {
   const team = raw && UUID.test(raw) ? raw : null;
   const r = params.get("r");
   const role = r && /^[a-z0-9]{1,16}$/.test(r) ? r : null;
-  const { workspace, states, actions, loading, error, ended, refresh } = useTeamSentinel(team, role);
+  const { workspace, states, actions, loading, error, ended, paused, looseBookmarks, refresh } = useTeamSentinel(team, role);
+  // Working here counts as being on shift, as in the EDR console: the SIEM window may be closed.
+  useTeamHeartbeat(ended ? null : team);
   const initial = useMemo(() => ({ incidentId: params.get("incident") ?? undefined, host: params.get("host") ?? undefined }), [params]);
   const [goTo, setGoTo] = useState<{ incidentId?: string; host?: string; nonce: number } | undefined>();
 
@@ -38,7 +41,7 @@ export default function SentinelPage() {
   if (loading) return <Notice title="Connecting to the workspace" text="Reading the session's logs." />;
   if (!workspace || !actions) return <Notice title="This workspace could not be opened" text={error ?? "Reload the page, or go back to the team room."} team={team} />;
 
-  return <SentinelConsole workspace={workspace} states={states} actions={actions} onRefresh={refresh} ended={ended} backHref={`/team/${team}`} initial={initial} goTo={goTo} onBack={() => showSiemWindow(team, `/team/${team}`)} />;
+  return <SentinelConsole workspace={workspace} states={states} actions={actions} onRefresh={refresh} ended={ended} backHref={`/team/${team}`} initial={initial} goTo={goTo} onBack={() => showSiemWindow(team, `/team/${team}`)} paused={paused} savedBookmarks={looseBookmarks} />;
 }
 
 function Notice({ title, text, team }: { title: string; text: string; team?: string }) {
