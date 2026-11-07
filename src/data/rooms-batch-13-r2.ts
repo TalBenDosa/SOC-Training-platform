@@ -9,11 +9,11 @@ const fwC2Event: TelemetryEvent = {
   severity: "high",
   hostname: "FGT-CORE-01",
   src_ip: "10.0.3.88",
-  dst_ip: "185.220.101.47",
+  dst_ip: "198.51.100.47",
   dst_port: 443,
   protocol: "TCP",
   description:
-    "Outbound HTTPS session from 10.0.3.88 to 185.220.101.47 - one of 15 repeating connections flagged by SIEM correlation",
+    "Outbound HTTPS session from 10.0.3.88 to 198.51.100.47 - one of 15 repeating connections flagged by SIEM correlation",
   mitre_technique: "T1071.001",
   mitre_tactic: "Command and Control",
   raw: {
@@ -24,7 +24,7 @@ const fwC2Event: TelemetryEvent = {
     "data.action": "accept",
     "data.srcip": "10.0.3.88",
     "data.srcport": "51247",
-    "data.dstip": "185.220.101.47",
+    "data.dstip": "198.51.100.47",
     "data.dstport": "443",
     "data.proto": "6",
     "data.app": "HTTPS",
@@ -221,7 +221,7 @@ const firewallMasterclass = {
         ` TCP    10.0.2.31       49103     52.96.67.21     443       ESTABLISHED\n` +
         ` TCP    10.0.1.25       58831     74.125.24.26    25        SYN_SENT\n` +
         ` UDP    10.0.3.88       51247     8.8.8.8         53        UNREPLIED\n` +
-        ` TCP    10.0.4.12       60021     185.220.101.47  443       ESTABLISHED\n` +
+        ` TCP    10.0.4.12       60021     198.51.100.47  443       ESTABLISHED\n` +
         ` TCP    10.0.1.77       50801     10.0.5.10       3389      ESTABLISHED\n` +
         `\n` +
         `════════════════════════════════════════════════════════════════\n` +
@@ -358,7 +358,7 @@ const firewallMasterclass = {
         `**Additional NGFW capabilities**\n\n` +
         `Modern NGFWs from leading vendors include SSL/TLS inspection (the firewall decrypts, inspects, and re-encrypts HTTPS traffic), cloud-based sandboxing that detonates suspicious files in an isolated environment before permitting them through, and machine-learning threat intelligence that receives updated threat indicators every few minutes from the vendor's global sensor network. Palo Alto's WildFire, Fortinet's FortiSandbox, and Check Point's SandBlast are the major commercial implementations.\n\n` +
         `**The SOC analyst's perspective**\n\n` +
-        `From a SOC standpoint, an NGFW dramatically enriches the logs available for investigation. Instead of seeing "TCP from 10.0.3.88 to 185.220.101.47 on port 443: ALLOW," you see "Application: ssl-tunnel, User: mike.jones@corp.com, Category: unknown, Threat: Malware C2, Action: BLOCK." This contextual richness is what enables the correlation queries and behavioral detections that distinguish a mature SOC from one simply watching port numbers.`,
+        `From a SOC standpoint, an NGFW dramatically enriches the logs available for investigation. Instead of seeing "TCP from 10.0.3.88 to 198.51.100.47 on port 443: ALLOW," you see "Application: ssl-tunnel, User: mike.jones@corp.com, Category: unknown, Threat: Malware C2, Action: BLOCK." This contextual richness is what enables the correlation queries and behavioral detections that distinguish a mature SOC from one simply watching port numbers.`,
       codeExample:
         `FEATURE COMPARISON: TRADITIONAL FW vs UTM vs NGFW\n` +
         `════════════════════════════════════════════════════════════════\n` +
@@ -676,7 +676,7 @@ const firewallMasterclass = {
         `**NAT: finding the real host behind a public address**\n\n` +
         `Most outbound traffic leaves through source NAT (SNAT) with port address translation (PAT): hundreds of internal hosts share one public IP, and the firewall gives each session its own public source port. The internet (and therefore any external abuse report or threat-intel hit) sees only that public IP and port. In a FortiGate traffic log, data.trandisp="snat" marks a translated session, data.transip and data.transport hold the public IP and port the outside world saw, and data.srcip and data.srcport hold the real internal host and its original port (Check Point records the same mapping in xlatesrc and xlatesport). To trace an external report back to a host, match the public IP, the translated port and the timestamp together, never the public IP alone, and never the internal srcport.\n\n` +
         `**SIEM correlation: combining firewall + DNS + EDR**\n\n` +
-        `A single firewall log tells you that a connection happened. Correlating it with DNS logs (which domain was resolved immediately before the connection?) and EDR logs (which process on the endpoint initiated the connection?) transforms a network event into a full behavioral story. A connection to 185.220.101.47 is interesting. That same IP preceded by a DNS query to "update-svc.cdn-delivery-net.com" and initiated by a process called "svchost.exe" running from the user's Temp directory is a high-confidence threat requiring immediate response.`,
+        `A single firewall log tells you that a connection happened. Correlating it with DNS logs (which domain was resolved immediately before the connection?) and EDR logs (which process on the endpoint initiated the connection?) transforms a network event into a full behavioral story. A connection to 198.51.100.47 is interesting. That same IP preceded by a DNS query to "update-svc.cdn-delivery-net.com" and initiated by a process called "svchost.exe" running from the user's Temp directory is a high-confidence threat requiring immediate response.`,
       codeExample:
         `FORTIGATE LOG FIELD REFERENCE: KEY FIELDS FOR SOC\n` +
         `════════════════════════════════════════════════════════════════\n` +
@@ -702,9 +702,9 @@ const firewallMasterclass = {
         ` ─────────┼─────────┼──────────────────────────────────────────────────\n` +
         ` 03:13:59 │ Sysmon  │ Event 22: DNS query "update-svc.cdn-delivery-net.com"\n` +
         `          │ (EDR)   │ Process: svchost.exe (C:\\Users\\bob\\AppData\\Local\\Temp)\n` +
-        `          │         │ Result: 185.220.101.47\n` +
+        `          │         │ Result: 198.51.100.47\n` +
         ` ─────────┼─────────┼──────────────────────────────────────────────────\n` +
-        ` 03:14:07 │FortiGate│ data.srcip=10.0.3.88 data.dstip=185.220.101.47\n` +
+        ` 03:14:07 │FortiGate│ data.srcip=10.0.3.88 data.dstip=198.51.100.47\n` +
         `          │         │ data.dstport=443 data.action=accept\n` +
         `          │         │ data.sentbyte=1024 data.rcvdbyte=512\n` +
         `          │         │ data.policyname=outbound-web-allow\n` +
@@ -726,7 +726,7 @@ const firewallMasterclass = {
         ` ────────  ──────────  ───────  ──────────────  ─────────  ──────────────\n` +
         ` 03:20:04  10.0.2.41   61873    198.51.100.24   40112      203.0.113.80\n` +
         ` 03:20:05  10.0.5.17   52210    198.51.100.24   61873      203.0.113.80\n` +
-        ` 03:20:05  10.0.3.88   51399    198.51.100.24   40113      185.220.101.47\n` +
+        ` 03:20:05  10.0.3.88   51399    198.51.100.24   40113      198.51.100.47\n` +
         ` 03:20:06  10.0.6.30   49920    198.51.100.24   61874      203.0.113.80\n` +
         `════════════════════════════════════════════════════════════════`,
       checkpoint: {
@@ -738,7 +738,7 @@ const firewallMasterclass = {
           "None: all hosts share 198.51.100.24 equally",
         ],
         answer: 2,
-        explanation: "The report sees the translated (public) side of the session, so it must be matched on transip + transport + time: 198.51.100.24, port 61873, 03:20:05 to 203.0.113.80 is the 10.0.5.17 row. “10.0.2.41” matches 61873 only in srcport, the internal port the outside world never sees; its public port was 40112. “10.0.3.88” is anchoring on the known beacon: its 03:20:05 session went to 185.220.101.47 on public port 40113, not to 203.0.113.80. “All hosts share the IP, so no one can be identified” ignores PAT: every session gets its own public port, which is exactly what makes the mapping unique.",
+        explanation: "The report sees the translated (public) side of the session, so it must be matched on transip + transport + time: 198.51.100.24, port 61873, 03:20:05 to 203.0.113.80 is the 10.0.5.17 row. “10.0.2.41” matches 61873 only in srcport, the internal port the outside world never sees; its public port was 40112. “10.0.3.88” is anchoring on the known beacon: its 03:20:05 session went to 198.51.100.47 on public port 40113, not to 203.0.113.80. “All hosts share the IP, so no one can be identified” ignores PAT: every session gets its own public port, which is exactly what makes the mapping unique.",
       },
     },
 
@@ -766,7 +766,7 @@ const firewallMasterclass = {
       id: "fw-la1",
       heading: "Investigating a C2 Beacon in Firewall Logs",
       context:
-        "You are a SOC analyst at NexaCorp. A SIEM correlation rule fired: '15 connections from the same internal host to the same external IP within 15 minutes, with nearly identical byte counts.' The alert links to a sequence of FortiGate NGFW logs. The displayed event is a representative sample from the sequence. The source IP 10.0.3.88 belongs to a developer workstation (WS-DEV-09). Reputation enrichment for the destination IP 185.220.101.47 has not returned yet, so work from the log itself.",
+        "You are a SOC analyst at NexaCorp. A SIEM correlation rule fired: '15 connections from the same internal host to the same external IP within 15 minutes, with nearly identical byte counts.' The alert links to a sequence of FortiGate NGFW logs. The displayed event is a representative sample from the sequence. The source IP 10.0.3.88 belongs to a developer workstation (WS-DEV-09). Reputation enrichment for the destination IP 198.51.100.47 has not returned yet, so work from the log itself.",
       event: fwC2Event,
       questions: [
         {
@@ -785,7 +785,7 @@ const firewallMasterclass = {
         },
         {
           question:
-            "Reputation enrichment now returns: 185.220.101.47 appears on public Tor exit-node lists. The log shows data.action=accept. Based on the fields in the log, why did the FortiGate allow this session?",
+            "Reputation enrichment now returns: 198.51.100.47 appears on public Tor exit-node lists. The log shows data.action=accept. Based on the fields in the log, why did the FortiGate allow this session?",
           options: [
             "A Tor block rule exists lower down, but FortiGate logs the first rule it checked, not the one applied",
             "The matching policy is a general outbound HTTPS allow, and no earlier rule blocked this destination",

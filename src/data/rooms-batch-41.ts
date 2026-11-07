@@ -252,7 +252,7 @@ const mfaSessionTokenAttacksRoom = {
       content:
         "Session-cookie replay cannot be caught by watching for a 'bad login'. There usually isn't one on the attacker's side at all. It is detected by comparing two sign-in records against each other.\n\n" +
         "### The single strongest field: sessionId\n\n" +
-        "Microsoft Entra ID's sign-in logs carry a `sessionId` field on every interactive sign-in. Because a session cookie is one specific artifact, **the same sessionId value should never legitimately appear on two sign-ins from two different IP addresses, autonomous systems (ASNs), and browser fingerprints.** This is the single strongest, most precise tell available for T1550.004:\n\n" +
+        "Microsoft Entra ID's sign-in logs carry a `sessionId` field: an identifier created when the user authenticates interactively and carried by every sign-in that session produces. Because a session belongs to one device, **the same sessionId value should never legitimately appear on sign-ins that differ in IP address, autonomous system (ASN), and browser fingerprint all at once.** A new IP alone proves nothing: a laptop that moves from office Wi-Fi to a phone hotspot keeps its sessionId. The same session jumping to a new ASN in a different browser is the single strongest, most precise tell available for T1550.004:\n\n" +
         "```\n" +
         "Sign-in #1 (victim's real login, via the proxy without her knowing):\n" +
         "  sessionId: 3d8a6f21-0c47-4e91-...\n" +
@@ -269,7 +269,7 @@ const mfaSessionTokenAttacksRoom = {
         "### The trap: risk score and Conditional Access both stay green\n\n" +
         "`riskLevelDuringSignIn` and `conditionalAccessStatus` frequently read 'none' and 'success' on the replayed sign-in, because the risk engine and Conditional Access both see a technically valid, MFA-satisfied token and often do not flag it as stolen (Entra ID Protection has token-theft detections, but they do not always fire). **A clean risk score is not proof of a clean sign-in for this technique**, which is exactly why the sessionId correlation matters more than any single risk field.\n\n" +
         "### Reading device and location fields as supporting, not primary, evidence\n\n" +
-        "`deviceDetail.isCompliant`, `deviceDetail.browser`, and `location.city`/`autonomousSystemNumber` are useful corroboration: a replay commonly shows an unmanaged, non-compliant device and a different browser than the user's known baseline, but geography alone is fragile (a legitimate VPN or business trip produces the same kind of change). The sessionId match is what turns a plausible travel story into confirmed replay.",
+        "`deviceDetail.isCompliant`, `deviceDetail.browser`, and `location.city`/`autonomousSystemNumber` are useful corroboration: a replay commonly shows an unmanaged, non-compliant device and a different browser than the user's known baseline, but geography alone is fragile (a legitimate VPN or business trip produces the same kind of change). The sessionId match across a different ASN and browser is what turns a plausible travel story into confirmed replay.",
       checkpoint: {
         question: "Why is a 'none' riskLevelDuringSignIn on the replayed sign-in specifically dangerous to trust?",
         options: [
@@ -535,16 +535,16 @@ const mfaSessionTokenAttacksRoom = {
       type: "question" as const,
       id: "mfast-q4",
       question:
-        "A tenant has deployed Microsoft's Token Protection, binding Primary Refresh Tokens to the requesting device, but has NOT deployed FIDO2 security keys. Which of this room's attacks would still most plausibly succeed?",
+        "A tenant has deployed Microsoft's Token Protection, binding Primary Refresh Tokens to the requesting device, but still uses plain push approvals with no number matching and has NOT deployed FIDO2 security keys. Which statement about this room's attacks is fully accurate?",
       options: [
-        "T1621 MFA fatigue -- Token Protection does not affect it, since fatigue never involves a stolen token and the worn-down human is the attack surface",
+        "T1621 MFA fatigue still works: Token Protection does not affect it, since fatigue never involves a stolen token and the worn-down human is the attack surface",
         "None of the room's attacks would succeed, since Token Protection closes every technique that depends on a stolen or replayed authentication artifact",
-        "T1550.004 session replay -- Token Protection binds only the PRT, so a cookie lifted from the browser would still work, while fatigue is stopped by the same device binding",
-        "T1621 MFA fatigue is the attack that fails -- Token Protection bundles number matching, so reflex approvals can no longer succeed and only token-based attacks remain",
+        "T1550.004 session replay still works: Token Protection binds only the PRT, so a cookie lifted from the browser would still work, while fatigue is stopped by the same device binding",
+        "T1621 MFA fatigue is the attack that fails: Token Protection bundles number matching, so reflex approvals can no longer succeed and only token-based attacks remain",
       ],
       answer: 0,
       explanation:
-        "Token Protection addresses artifact theft (binding a token to a device so a stolen copy fails elsewhere) -- it has nothing to do with fatigue, which targets the HUMAN during a live authentication attempt, not a token afterward. Saying none of the attacks would succeed overstates Token Protection's coverage: browser-based scenarios and non-covered resources remain exposed even with it deployed. The session-replay option credits device binding with stopping fatigue, which it cannot do, since no token exists yet at that point. The claim that Token Protection bundles number matching incorrectly links two unrelated features -- Token Protection and number matching are separate controls addressing separate techniques.",
+        "Token Protection addresses artifact theft (binding a token to a device so a stolen copy fails elsewhere) -- it has nothing to do with fatigue, which targets the HUMAN during a live authentication attempt, not a token afterward. Saying none of the attacks would succeed overstates Token Protection's coverage: browser-based scenarios and non-covered resources remain exposed even with it deployed. The session-replay option may be right about browser cookies, but the statement as a whole is false: it credits device binding with stopping fatigue, which it cannot do, since no token exists yet at that point. The claim that Token Protection bundles number matching incorrectly links two unrelated features -- Token Protection and number matching are separate controls addressing separate techniques.",
       xp: 20,
     },
 

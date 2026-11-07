@@ -13,7 +13,7 @@ import type { RoomExperience } from "./types";
 // Lab data differs from the graded tasks: Fellside's hydro intake gate and plc-gate-02, never a
 // dosing pump, plc-dose-03/04 or ENG-WS-02. Addresses are 192.168.40-44.x, never 172.20.5.x or
 // 10.50.12.77. The lab write is function code 6 to register 40108 (wire address 107) with value
-// 550, never function code 16 to 40020 or 40030. The anatomy is a READ record, never a write.
+// 550, never function code 16 to wire address 19 or 29. The anatomy is a READ record, never a write.
 // The worksheet shows ports only as row data and never asks them (q1, m1). The sort on T1692.001 (formerly T0855),
 // T0836 and T0831 uses DNP3 and S7 events at Fellside, never the Ukraine substation (q2). The
 // intercept's cuts are on FS-COMM-07 and the Fellside plant, not a corporate VLAN source (q3).

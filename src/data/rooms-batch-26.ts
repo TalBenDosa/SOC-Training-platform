@@ -34,26 +34,26 @@ const alertedSigninEvent: TelemetryEvent = {
   vendor: "Microsoft Entra ID",
   event_type: "auth_success",
   severity: "high",
-  user_email: "a.brennan@northvale.com",
-  src_ip: "45.135.232.71",
+  user_email: "a.brennan@northvale.example",
+  src_ip: "203.0.113.71",
   mitre_technique: "T1078",
   mitre_tactic: "Initial Access",
   authentication: { method: "Password", result: "Success" },
   description:
-    "Entra ID recorded an interactive sign-in for a.brennan@northvale.com against the Northvale Expense Portal. A SIEM correlation rule opened ticket INC-40912 on this record.",
+    "Entra ID recorded an interactive sign-in for a.brennan@northvale.example against the Northvale Expense Portal. A SIEM correlation rule opened ticket INC-40912 on this record.",
   raw: {
     "OperationName": "Sign-in activity",
     "Category": "SignInLogs",
     "ResultType": "0",
-    "UserPrincipalName": "a.brennan@northvale.com",
+    "UserPrincipalName": "a.brennan@northvale.example",
     "UserDisplayName": "Aoife Brennan",
     "UserId": "7f1c0a3e-58d9-4b21-9e07-2c4a6f80b115",
     "AppDisplayName": "Northvale Expense Portal",
     "AppId": "b91d47c2-3fa8-4e60-8d15-70c9a2e4f338",
     "ResourceDisplayName": "Northvale Expense Portal",
     "ClientAppUsed": "Browser",
-    "IPAddress": "45.135.232.71",
-    "AutonomousSystemNumber": 200651,
+    "IPAddress": "203.0.113.71",
+    "AutonomousSystemNumber": 64506,
     "LocationDetails.city": "Vilnius",
     "LocationDetails.state": "Vilniaus apskritis",
     "LocationDetails.countryOrRegion": "LT",
@@ -94,26 +94,26 @@ const secondAccountSigninEvent: TelemetryEvent = {
   vendor: "Microsoft Entra ID",
   event_type: "auth_success",
   severity: "medium",
-  user_email: "t.okafor@northvale.com",
-  src_ip: "45.135.232.71",
+  user_email: "t.okafor@northvale.example",
+  src_ip: "203.0.113.71",
   mitre_technique: "T1078",
   mitre_tactic: "Initial Access",
   authentication: { method: "Password", result: "Success" },
   description:
-    "Entra ID recorded an interactive sign-in for t.okafor@northvale.com against the Northvale Expense Portal. This record generated no alert of its own and was returned by a manual pivot query, not by the SIEM.",
+    "Entra ID recorded an interactive sign-in for t.okafor@northvale.example against the Northvale Expense Portal. This record generated no alert of its own and was returned by a manual pivot query, not by the SIEM.",
   raw: {
     "OperationName": "Sign-in activity",
     "Category": "SignInLogs",
     "ResultType": "0",
-    "UserPrincipalName": "t.okafor@northvale.com",
+    "UserPrincipalName": "t.okafor@northvale.example",
     "UserDisplayName": "Tunde Okafor",
     "UserId": "d40b6e19-7c22-4a5f-b83d-91e7c05a2f64",
     "AppDisplayName": "Northvale Expense Portal",
     "AppId": "b91d47c2-3fa8-4e60-8d15-70c9a2e4f338",
     "ResourceDisplayName": "Northvale Expense Portal",
     "ClientAppUsed": "Browser",
-    "IPAddress": "45.135.232.71",
-    "AutonomousSystemNumber": 200651,
+    "IPAddress": "203.0.113.71",
+    "AutonomousSystemNumber": 64506,
     "LocationDetails.city": "Vilnius",
     "LocationDetails.state": "Vilniaus apskritis",
     "LocationDetails.countryOrRegion": "LT",
@@ -153,26 +153,26 @@ const thirdAccountSigninEvent: TelemetryEvent = {
   vendor: "Microsoft Entra ID",
   event_type: "auth_success",
   severity: "medium",
-  user_email: "m.devlin@northvale.com",
-  src_ip: "45.135.232.71",
+  user_email: "m.devlin@northvale.example",
+  src_ip: "203.0.113.71",
   mitre_technique: "T1078",
   mitre_tactic: "Initial Access",
   authentication: { method: "Password", result: "Success" },
   description:
-    "Entra ID recorded an interactive sign-in for m.devlin@northvale.com against the Northvale Expense Portal. Like the previous record, it produced no alert and surfaced only through the analyst's own pivot query.",
+    "Entra ID recorded an interactive sign-in for m.devlin@northvale.example against the Northvale Expense Portal. Like the previous record, it produced no alert and surfaced only through the analyst's own pivot query.",
   raw: {
     "OperationName": "Sign-in activity",
     "Category": "SignInLogs",
     "ResultType": "0",
-    "UserPrincipalName": "m.devlin@northvale.com",
+    "UserPrincipalName": "m.devlin@northvale.example",
     "UserDisplayName": "Marek Devlin",
     "UserId": "a6e3c918-40d7-4f2b-8c53-b712f904e6da",
     "AppDisplayName": "Northvale Expense Portal",
     "AppId": "b91d47c2-3fa8-4e60-8d15-70c9a2e4f338",
     "ResourceDisplayName": "Northvale Expense Portal",
     "ClientAppUsed": "Browser",
-    "IPAddress": "45.135.232.71",
-    "AutonomousSystemNumber": 200651,
+    "IPAddress": "203.0.113.71",
+    "AutonomousSystemNumber": 64506,
     "LocationDetails.city": "Vilnius",
     "LocationDetails.state": "Vilniaus apskritis",
     "LocationDetails.countryOrRegion": "LT",
@@ -231,6 +231,9 @@ const playbookExecutionRoom: Room = {
         `That author was picturing the common case, and they were right to, because the common case is common. The overwhelming majority of impossible-travel tickets really are one user whose password went somewhere it should not have. But a playbook is written before the incident and cannot see the one in front of you. It cannot know whether the situation you are actually holding is the situation it was written for. Only you can check that, and checking it is a step in its own right, not an interruption of the procedure.\n\n` +
         `**Which is why the order of the steps matters more than it looks**\n\n` +
         `Notice how IR-014 is sequenced below. Validation and collection come first, scoping comes third, and containment does not happen until step four. That ordering is not bureaucratic caution. Containment is where you start changing things (resetting a password, killing sessions, disabling an account) and every change you make destroys some of the evidence you have not collected yet and tells the intruder you have seen them. So you collect before you decide, and you decide the scope before you act on it. An analyst who runs the first three steps carefully has, without doing anything unusual, given themselves everything they need to notice if the assumption has broken.\n\n` +
+        `**Reading an Entra ID sign-in record at Steps 1 and 2**\n\n` +
+        `Entra ID is Microsoft's cloud sign-in service, and each sign-in leaves a record. To prove a sign-in really happened, read its outcome fields: ResultType 0 is the success code, and any other value is a failure, while AuthenticationDetails shows each authentication step and whether it succeeded. The risk fields cannot prove that, because they only give Entra's opinion of how unusual the sign-in looked, and CorrelationId only groups records from one sign-in session.\n\n` +
+        `To see how a sign-in got through, read the policy fields. Conditional Access is the set of tenant rules that can demand MFA (multi-factor authentication, a second proof beyond the password) or block a sign-in. ConditionalAccessStatus notApplied means no policy applied to this sign-in, and AuthenticationRequirement singleFactorAuthentication means one factor was enough. Both describe this sign-in to this application, not whether the user has MFA elsewhere.\n\n` +
         `That is the whole shape of this room. Run the playbook properly. Being thorough on the boring steps is what buys you the judgement call later.`,
       codeExample:
         "NORTHVALE IR-014 -- SUSPECTED ACCOUNT COMPROMISE\n" +
@@ -323,7 +326,7 @@ const playbookExecutionRoom: Room = {
         `An important and slightly uncomfortable fact: risk-based sign-in alerting fires on a per-sign-in assessment. A sign-in that looks unremarkable to the identity provider (an ordinary browser, a correct password on the first attempt, a location the provider has no strong prior about) is scored as unremarkable and generates no alert, no matter what else is happening in the tenant at the same moment. So if an intruder authenticates to five accounts and only one of those five happens to trip a risk detection, your queue shows you exactly one ticket. The other four are sitting in the sign-in logs, fully recorded and completely silent.\n\n` +
         `This is not a failure of the tooling. It is what per-event scoring means. The consequence for you is direct: the number of tickets in your queue is not a measurement of how many accounts are involved. Only a pivot query is. If you never run it, the four silent sign-ins stay silent, and the ticket you do have gets closed as resolved.\n\n` +
         `**The two branches**\n\n` +
-        `The diagram below is IR-014 drawn as a decision tree. Both branches out of the scope gate are legitimate outcomes of running the playbook correctly. The left branch (one account, proceed to containment) is the common one and there is nothing second-rate about taking it. The right branch is not an error state and not a failure to finish; it is the playbook's own instruction for a situation it has told you it does not cover. Taking it when the evidence calls for it is the procedure working, not the procedure breaking.`,
+        `The diagram below is IR-014 drawn as a decision tree. Both branches out of the scope gate are legitimate outcomes of running the playbook correctly. The left branch (one account, proceed to containment) is the common one and there is nothing second-rate about taking it. The right branch is not an error state and not a failure to finish; it is the playbook's own instruction for a situation it has told you it does not cover. Taking it when the evidence calls for it is the procedure working, not the procedure breaking. It comes with one condition: record it at the time. The ticket states the step you stopped at, the evidence that broke the scope condition and the escalation you raised, so nobody reading it later mistakes a decision for abandoned work.`,
       diagram:
         "flowchart TD\n" +
         '  A["Alert: impossible travel on one account"] --> B["Step 1 VALIDATE: is the sign-in record real?"]\n' +
@@ -344,7 +347,7 @@ const playbookExecutionRoom: Room = {
       id: "pbk-la1",
       heading: "Step 1 and Step 2: Validate and Collect",
       context:
-        "03:10 on 14 July 2026. Ticket INC-40912 lands in your queue: a SIEM correlation rule flagged an impossible-travel sign-in for a.brennan@northvale.com, who works in Accounts Payable. Her previous sign-in was 47 minutes earlier from the Dublin office network. You open IR-014 and begin at Step 1. The record below is the triggering sign-in, retrieved from Entra ID. Nothing has been changed on the account yet. You are still in collection.",
+        "03:10 on 14 July 2026. Ticket INC-40912 lands in your queue: a SIEM correlation rule flagged an impossible-travel sign-in for a.brennan@northvale.example, who works in Accounts Payable. Her previous sign-in was 47 minutes earlier from the Dublin office network. You open IR-014 and begin at Step 1. The record below is the triggering sign-in, retrieved from Entra ID. Nothing has been changed on the account yet. You are still in collection.",
       event: alertedSigninEvent,
       questions: [
         {
@@ -377,7 +380,7 @@ const playbookExecutionRoom: Room = {
         },
         {
           question:
-            "You have validated and collected. Your notes so far: successful sign-in, IP 45.135.232.71 on AS200651, Vilnius, unmanaged and non-compliant device, correct password on the first attempt, no MFA required by the target app. What does IR-014 have you do next, and why that rather than anything else?",
+            "You have validated and collected. Your notes so far: successful sign-in, IP 203.0.113.71 on AS64506, Vilnius, unmanaged and non-compliant device, correct password on the first attempt, no MFA required by the target app. What does IR-014 have you do next, and why that rather than anything else?",
           options: [
             "Move straight to Step 4 and reset the password: the evidence is already strong enough to act on and every minute of delay is more access for the intruder",
             "Move to Step 3 and pivot on the sign-in's own properties (source IP, ASN, user agent, target app) to establish the boundary of the activity before choosing a response",
@@ -386,7 +389,7 @@ const playbookExecutionRoom: Room = {
           ],
           answer: 1,
           explanation:
-            "Step 3 is next, and its instruction is specific: pivot on the source, not the user, to establish the boundary before responding. The urge to jump to a password reset is understandable and it is the trap the ordering exercise was warning about. Containment is destructive, it ends your visibility, and it commits you to a response whose size you have not measured yet. Closing it as a benign true positive (a real sign-in by the travelling owner) is not supportable: a correct first-attempt password from an unmanaged device on a hosting-provider network, 47 minutes after a Dublin sign-in, is not what a travelling employee looks like. Notifying the manager is a real step, but it is Step 5, and doing it now would tip off the intruder if the account is being watched.",
+            "Step 3 is next, and its instruction is specific: pivot on the source, not the user, to establish the boundary before responding. The urge to jump to a password reset is understandable and it is the trap the ordering exercise was warning about. Containment is destructive, it ends your visibility, and it commits you to a response whose size you have not measured yet. Closing it as a benign true positive (a real sign-in by the travelling owner) is not supportable: a correct first-attempt password from an unmanaged device in Vilnius, 47 minutes after a Dublin sign-in, is not what a travelling employee looks like. Notifying the manager is a real step, but it is Step 5, and doing it now would tip off the intruder if the account is being watched.",
           xp: 25,
         },
       ],
@@ -457,7 +460,7 @@ const playbookExecutionRoom: Room = {
       id: "pbk-la2",
       heading: "Step 3: The Scope Query",
       context:
-        "You run the Step 3 pivot as written: instead of querying by username, you query the tenant-wide Entra sign-in logs for every record sharing the triggering sign-in's source properties, across the preceding six hours. Two facts come back from that query before you look at any individual record. First, there are zero failed sign-ins from 45.135.232.71 anywhere in the tenant in the preceding fourteen days. This address has no history of unsuccessful attempts against Northvale at all. Second, the query returns successful sign-ins for three different user principal names, not one. You already have a.brennan from Accounts Payable. Below is the second. t.okafor works in Clinical Systems; he and a.brennan share no team, no manager, no project and no distribution list. Compare this record against the first one carefully.",
+        "You run the Step 3 pivot as written: instead of querying by username, you query the tenant-wide Entra sign-in logs for every record sharing the triggering sign-in's source properties, across the preceding six hours. Two facts come back from that query before you look at any individual record. First, there are zero failed sign-ins from 203.0.113.71 anywhere in the tenant in the preceding fourteen days. This address has no history of unsuccessful attempts against Northvale at all. Second, the query returns successful sign-ins for three different user principal names, not one. You already have a.brennan from Accounts Payable. Below is the second. t.okafor works in Clinical Systems; he and a.brennan share no team, no manager, no project and no distribution list. Compare this record against the first one carefully.",
       event: secondAccountSigninEvent,
       questions: [
         {
@@ -471,7 +474,7 @@ const playbookExecutionRoom: Room = {
           ],
           answer: 1,
           explanation:
-            "The identical values are IPAddress 45.135.232.71, AutonomousSystemNumber 200651, the byte-for-byte identical UserAgent string, and the same AppId, while UserPrincipalName and UserId are plainly different people. That combination is what carries the finding: one client, one network, one application, two unrelated identities, twelve minutes apart. Country alone would be weak, since two colleagues could genuinely be in the same country. CorrelationId is the opposite of a link here: the values are different, because it scopes a single request flow and has no cross-session meaning. And RiskLevelDuringSignIn does not match: it is medium on the first record and none on this one, which is a finding in its own right rather than a similarity.",
+            "The identical values are IPAddress 203.0.113.71, AutonomousSystemNumber 64506, the byte-for-byte identical UserAgent string, and the same AppId, while UserPrincipalName and UserId are plainly different people. That combination is what carries the finding: one client, one network, one application, two unrelated identities, twelve minutes apart. Country alone would be weak, since two colleagues could genuinely be in the same country. CorrelationId is the opposite of a link here: the values are different, because it scopes a single request flow and has no cross-session meaning. And RiskLevelDuringSignIn does not match: it is medium on the first record and none on this one, which is a finding in its own right rather than a similarity.",
           xp: 25,
         },
         {
@@ -516,7 +519,7 @@ const playbookExecutionRoom: Room = {
       explanation:
         "Stopping at Step 3 and escalating is right, and it is right for a reason you can state in one sentence: the playbook's scope condition has failed. IR-014 declares its own scope in its header, a single user account, and your evidence now shows one source authenticating successfully as three unrelated people, with no guessing phase anywhere in the logs. The common factor across those three sign-ins is not any user; it is whatever supplied working passwords for all of them. That is a credential-source problem, an identity-provider or password-store compromise, and it is a different incident with a different response, owned by someone above your authority to declare.\n\nRun Step 4 as written and here is what actually happens: a.brennan's password is reset, her sessions die, INC-40912 closes as resolved, and t.okafor and m.devlin remain accessible to the same intruder with the same working passwords, silently, because neither of their sign-ins ever scored as risky and neither will generate a ticket tomorrow either. The procedure would have been followed to the letter and the intrusion would still be running. Note too what the Conditional Access finding adds: notApplied on this application across all three sign-ins means there is a gap in policy coverage that the intruder is using deliberately, and closing that gap is a tenant-level fix that no single-user containment step touches.\n\nWhat makes this the professional call rather than a rule broken is that the playbook itself told you to make it. Its final line instructs you to stop at Step 3 and escalate when the scope condition fails. You did not deviate from the procedure. You executed the branch of it that the evidence selected. And you only reached this point because you ran Steps 1 to 3 properly: the pivot in Step 3 is the only thing in the entire process capable of surfacing the other two accounts, and an analyst who skipped it would have reached Step 4 in good faith with no idea anything was wrong.",
       fp_trap:
-        "Every wrong option here is genuinely defensible if you have not connected the three records, which is exactly why this decision is hard at 03:52. Completing Step 4 as written is the strongest of them: it is the documented procedure, it is what the ticket asks for, containment is undeniably urgent with live intruder access, and nobody gets criticised for following the playbook. It is also what an analyst who queried only by username would inevitably do, in complete good faith. Resetting all three passwords and then closing feels even better (more thorough, seemingly proportionate to what you found) but it quietly makes a scoping decision you have no basis for: three is how many accounts your pivot surfaced in a six-hour window, not how many exist, and if the credential source is still feeding the intruder then three resets buy hours, not containment, while closing the ticket removes the incident from anyone's view. Waiting until 07:00 to raise it with the shift lead is the option that sounds like good judgement and is the most costly: it is a deliberate choice to let confirmed live unauthorised access to multiple accounts continue for three more hours to avoid waking one person, and on-call exists precisely for this. The tell that separates escalation from all three is not any single field. It is that the same IPAddress, AutonomousSystemNumber and UserAgent appear under three different UserPrincipalName values, with zero failures behind them. Nothing in any one record says that. You can only see it by putting the records side by side, which is the skill this room exists to build.",
+        "Every wrong card here is tempting if you have not connected the three records, which is exactly why this decision is hard at 03:52. True Positive is the strongest of them: the sign-ins are real and unauthorised, and that card means acting now, which is what the open ticket seems to ask for. But acting alone means running a containment built for one account, and it quietly makes a scoping decision you have no basis for: three is how many accounts your pivot surfaced in a six-hour window, not how many exist. Benign True Positive needs an authorised reason for these sign-ins, and nothing in the evidence offers one; a correct password does not prove the owner typed it. False Positive fails on the first field you read: ResultType 0 shows the sign-ins really happened, so no rule misfired. Informational sounds calm and is the most costly: log and monitor lets confirmed live unauthorised access to multiple accounts continue, and on-call exists precisely for this. The tell that separates Escalate to T2 from all of them is not any single field. It is that the same IPAddress, AutonomousSystemNumber and UserAgent appear under three different UserPrincipalName values, with zero failures behind them. Nothing in any one record says that. You can only see it by putting the records side by side, which is the skill this room exists to build.",
       xp: 40,
     },
     // -----------------------------------------------------------------------
@@ -524,16 +527,16 @@ const playbookExecutionRoom: Room = {
       type: "question",
       id: "pbk-q2",
       question:
-        "You have decided to stop at Step 3 and page the on-call IR lead. What separates a correct deviation from an incorrect one: given that you are, factually, not completing the procedure you were assigned?",
+        "You have decided to stop at Step 3 and page the on-call IR lead, so Steps 4 and 5 stay unticked. What makes that stop correct rather than abandoned work?",
       options: [
-        "Nothing in the moment: deviating from an assigned playbook is a process error, so complete every step anyway and raise concerns afterwards",
-        "The deviation is documented and communicated at the time: the ticket records the step you stopped at, the evidence that broke the scope condition, and the escalation raised",
-        "The deviation is acceptable only if you personally complete the remaining steps yourself once the IR lead has independently confirmed your assessment",
-        "The deviation is justified by being right: once the IR lead confirms the assessment, that confirmation serves as the record and the ticket needs no separate note",
+        "Nothing in the moment: stopping short of an assigned playbook is a process error, so complete every step anyway and raise concerns afterwards",
+        "The stop is documented and communicated at the time: the ticket records the step you stopped at, the evidence that broke the scope condition, and the escalation raised",
+        "The stop is acceptable only if you personally complete the remaining steps yourself once the IR lead has independently confirmed your assessment",
+        "The stop is justified by being right: once the IR lead confirms the assessment, that confirmation serves as the record and the ticket needs no separate note",
       ],
       answer: 1,
       explanation:
-        "The distinction is documentation and communication, made at the time, not afterwards. Write down which step you stopped at, the exact evidence that failed the scope condition: three distinct UserPrincipalName values sharing one IPAddress, AutonomousSystemNumber and UserAgent, with no failed sign-ins behind them, and that you escalated. A silent deviation is the dangerous version even when the judgement is right, because the ticket then shows an incomplete playbook with no explanation, and the next analyst cannot tell whether you found something or simply abandoned the work. Completing the procedure and raising concerns later ignores that the playbook itself instructs you to stop. Waiting for confirmation before finishing the steps misreads what happened: the response is no longer a single-account containment for you to resume, it is a different and larger incident. And being right does not substitute for a record: an undocumented correct call is indistinguishable from an unfinished ticket to everyone who reads it after you.",
+        "The distinction is documentation and communication, made at the time, not afterwards. Write down which step you stopped at, the exact evidence that failed the scope condition: three distinct UserPrincipalName values sharing one IPAddress, AutonomousSystemNumber and UserAgent, with no failed sign-ins behind them, and that you escalated. A silent stop is the dangerous version even when the judgement is right, because the ticket then shows an incomplete playbook with no explanation, and the next analyst cannot tell whether you found something or simply abandoned the work. Completing the procedure and raising concerns later ignores that the playbook itself instructs you to stop. Waiting for confirmation before finishing the steps misreads what happened: the response is no longer a single-account containment for you to resume, it is a different and larger incident. And being right does not substitute for a record: an undocumented correct call is indistinguishable from an unfinished ticket to everyone who reads it after you.",
       xp: 25,
     },
     // -----------------------------------------------------------------------
@@ -563,8 +566,8 @@ const playbookExecutionRoom: Room = {
         "  a.brennan (Accounts Payable) / t.okafor (Clinical Systems)\n" +
         "  m.devlin (Facilities). No shared team, manager or project.\n\n" +
         "EVIDENCE\n" +
-        "  IPAddress             45.135.232.71   -- identical, all 3\n" +
-        "  AutonomousSystemNumber 200651         -- identical, all 3\n" +
+        "  IPAddress             203.0.113.71    -- identical, all 3\n" +
+        "  AutonomousSystemNumber 64506          -- identical, all 3\n" +
         "  UserAgent             Chrome/109.0.0.0 -- identical, all 3\n" +
         "  AppId / target app    identical, all 3\n" +
         "  AuthenticationDetails Correct password, 1st attempt, all 3\n" +
@@ -607,7 +610,7 @@ const playbookExecutionRoom: Room = {
       id: "pbk-f1",
       prompt:
         "The single strongest piece of evidence in this room is the network identifier shared by all three sign-ins: the value that is identical across the a.brennan, t.okafor and m.devlin records and shows they came from one place. Enter the Autonomous System Number exactly as it appears in the AutonomousSystemNumber field.",
-      answer: "200651",
+      answer: "64506",
       hint: "Open any of the three sign-in records and look for the AutonomousSystemNumber field, directly below IPAddress. It is the same number in all three: that is the point.",
       xp: 25,
     },

@@ -717,7 +717,7 @@ export const RANSOMWARE_FULL_LIFECYCLE: RoomExperience = {
           { key: "SHA256HashData", value: "5be1d2c47f0a93e6b8c1f2d7a4406e39c1d8ae7f22b06a5cd9013e47b6fa8e11", label: "Hash", note: "Matches the vendor's published release." },
           { key: "UserName", value: "MARCHBANK\\svc-print", label: "Whose account", note: "The account the process ran under." },
           { key: "BytesSent", value: "150323855360", label: "How much", note: "140 GB, at the end of the job." },
-          { key: "PatternDispositionDescription", value: "Detected, no action taken", label: "What the sensor did", note: "What the sensor did about this detection." },
+          { key: "PatternDispositionDescription", value: "Detection, standard detection.", label: "What the sensor did", note: "What the sensor did about this detection." },
         ],
         summary: "Work through it in that order: where it ran from, who started it, what it was told to do, whose account it used, how much went. Then set each answer against the rest of the case.",
         primer: {
@@ -925,7 +925,7 @@ export const RANSOMWARE_FULL_LIFECYCLE: RoomExperience = {
           { key: "CommandLine", value: "spoolsrv.exe -dir C:\\;D:\\ -x .hfr9c04 -readme HOARFROST-README.txt -exclude C:\\Windows;C:\\Boot -t 16", label: "What it was told", note: "Target, extension, note name, excluded paths, threads." },
           { key: "FileRename", value: "D:\\Shares\\Ops\\pallet_plan.xlsx > pallet_plan.xlsx.hfr9c04", label: "What it does to a file", note: "The extension is added after the whole old name, so the original extension stays inside the new one." },
           { key: "Behavior", value: "18,400 files renamed in 60 seconds, one process", label: "Why it fired", note: "A behaviour count across all files, whatever the binary is called." },
-          { key: "PatternDispositionDescription", value: "Detected, no action taken", label: "What the sensor did", note: "What the sensor did about this detection. Another value is Detected, kill process." },
+          { key: "PatternDispositionDescription", value: "Detection, standard detection.", label: "What the sensor did", note: "What the sensor did about this detection. Another value is Prevention, process killed.." },
         ],
         summary: "On one host, in a mass event, read four things: the name and folder, what the command line told it to do, the rename count, and what the sensor did.",
         primer: {
@@ -1054,12 +1054,12 @@ export const RANSOMWARE_FULL_LIFECYCLE: RoomExperience = {
         nameColumn: "Host",
         columns: ["Sensor", "Tamper state", "Encryptor process", "Renamed files", "Disposition", "Last check-in"],
         suspects: [
-          { id: "w118", name: "MB-WS-118", cells: ["Current", "On", "Killed 05:21", "40", "Detected, kill process", "1 min ago"] },
-          { id: "w074", name: "MB-WS-074", cells: ["Current", "On", "Killed 05:21", "0", "Detected, kill process", "2 min ago"] },
+          { id: "w118", name: "MB-WS-118", cells: ["Current", "On", "Killed 05:21", "40", "Prevention, process killed.", "1 min ago"] },
+          { id: "w074", name: "MB-WS-074", cells: ["Current", "On", "Killed 05:21", "0", "Prevention, process killed.", "2 min ago"] },
           { id: "w203", name: "MB-WS-203", cells: ["Current", "On", "None", "None", "None", "Sunday 18:02, powered off"] },
           { id: "w096", name: "MB-WS-096", cells: ["14 months old", "Off", "Started 05:20", "Unknown", "None", "05:21, then nothing"] },
           { id: "w151", name: "MB-WS-151", cells: ["Current", "On", "None", "None", "None", "1 min ago"] },
-          { id: "w040", name: "MB-WS-040", cells: ["Current", "On, detect-only policy", "Running", "6,200 so far", "Detected, no action taken", "1 min ago"] },
+          { id: "w040", name: "MB-WS-040", cells: ["Current", "On, detect-only policy", "Running", "6,200 so far", "Detection, standard detection.", "1 min ago"] },
         ],
         clues: [
           "A technician adds nothing where the sensor has already ended the process.",

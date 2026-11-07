@@ -185,7 +185,7 @@ Not all IP addresses are the same. The internet authority (IANA) reserved certai
 
 Everything outside those ranges is a **public IP address**: an address that can be reached from anywhere on the internet.
 
-This matters enormously for SOC analysts. If you see a network connection going from **10.5.2.44** (private) to **185.220.101.45** (public), that's a connection going *out* to the internet. If you see connections between two private IPs, that's *internal* traffic. Different IP types require different levels of suspicion.
+This matters enormously for SOC analysts. If you see a network connection going from **10.5.2.44** (private) to **203.0.113.45** (public), that's a connection going *out* to the internet. If you see connections between two private IPs, that's *internal* traffic. Different IP types require different levels of suspicion.
 
 **CIDR Notation: Describing Networks**
 
@@ -458,7 +458,7 @@ When you're investigating a security incident, these networking concepts form yo
           severity: "high" as const,
           hostname: "CORP-WS-0047",
           src_ip: "10.5.12.47",
-          dst_ip: "185.220.101.34",
+          dst_ip: "203.0.113.34",
           dst_port: 4444,
           description:
             "Outbound TCP connection established to external host on non-standard port",
@@ -467,7 +467,7 @@ When you're investigating a security incident, these networking concepts form yo
             protocol: "TCP",
             src_ip: "10.5.12.47",
             src_port: 51234,
-            dst_ip: "185.220.101.34",
+            dst_ip: "203.0.113.34",
             dst_port: 4444,
             bytes_sent: 2048,
             bytes_received: 8192,
@@ -508,7 +508,7 @@ When you're investigating a security incident, these networking concepts form yo
             ],
             answer: 2,
             explanation:
-              "This is NAT in action. The workstation uses the private IP 10.5.12.47 internally. The firewall's NAT function translates this to the company's public IP 203.0.113.15 before sending traffic to the internet. The external server (185.220.101.34) only sees 203.0.113.15, not the internal IP. This is standard corporate NAT operation.",
+              "This is NAT in action. The workstation uses the private IP 10.5.12.47 internally. The firewall's NAT function translates this to the company's public IP 203.0.113.15 before sending traffic to the internet. The external server (203.0.113.34) only sees 203.0.113.15, not the internal IP. This is standard corporate NAT operation.",
             xp: 20,
           },
         ],
@@ -1204,7 +1204,7 @@ A typical firewall log entry contains these key fields:
 
 **dst_ip (Destination IP):** Where the traffic was trying to go.
 
-**dst_port (Destination Port):** The port being targeted. This tells you what service is being accessed. Port 443 = HTTPS, port 22 = SSH, port 3389 = RDP, etc.
+**dst_port (Destination Port):** The port being targeted. This tells you what service is being accessed. Port 443 = HTTPS, port 22 = SSH, port 3389 = RDP, etc. Not every open port carries the same risk. Remote Desktop (RDP, port 3389) reachable from the internet is one of the most common ways ransomware crews get in, by guessing passwords or exploiting RDP flaws, so it belongs behind a VPN or jump server. Ports 80 and 443, by contrast, are expected on a public web address.
 
 **protocol:** TCP, UDP, or ICMP.
 
@@ -1245,7 +1245,7 @@ Analysis: Someone outside is trying to SSH into our web server. This is a common
   timestamp: 2025-11-15T02:47:33Z
   src_ip: 10.5.12.47
   src_port: 51234
-  dst_ip: 185.220.101.34
+  dst_ip: 203.0.113.34
   dst_port: 4444
   protocol: TCP
   action: ALLOW
@@ -1332,7 +1332,7 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
             ],
             answer: 2,
             explanation:
-              "Port 3389 (RDP) exposed to the internet is one of the highest-risk findings in network security. Multiple major threat intelligence reports identify internet-facing RDP as the #1 initial access vector for ransomware operators. Attackers brute-force RDP credentials or exploit RDP vulnerabilities (BlueKeep, DejaBlue) to gain initial access, then spread ransomware across the network. Ports 80 and 443 are expected to be open on a web-facing address, and plain HTTP is a confidentiality problem rather than a way in. Telnet would be a serious finding too, but it is rarely exposed and is not the documented ransomware route that RDP is. RDP should never be directly reachable from the internet without a VPN or jump server.",
+              "Port 3389 (RDP) exposed to the internet is one of the highest-risk findings in network security. Threat reporting and CISA's ransomware guidance repeatedly single out internet-facing RDP as a leading way in for ransomware operators. Attackers brute-force RDP credentials or exploit RDP vulnerabilities (BlueKeep, DejaBlue) to gain initial access, then spread ransomware across the network. Ports 80 and 443 are expected to be open on a web-facing address, and plain HTTP is a confidentiality problem rather than a way in. Telnet would be a serious finding too, but it is rarely exposed and is not the documented ransomware route that RDP is. RDP should never be directly reachable from the internet without a VPN or jump server.",
             xp: 20,
           },
         ],

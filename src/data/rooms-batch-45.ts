@@ -79,7 +79,7 @@ const megaUploadEvent: TelemetryEvent = {
     "data.proto": 6,
     "data.service": "HTTPS",
     "data.sentbyte": 796305664,
-    "data.rcvdbyte": 88240,
+    "data.rcvdbyte": 14162388,
     "data.duration": 187,
     "data.srccountry": "Reserved",
     "data.dstcountry": "New Zealand",
@@ -88,7 +88,7 @@ const megaUploadEvent: TelemetryEvent = {
     "data.apprisk": "elevated",
     "data.logdesc": "Forward traffic accepted",
     "data.msg": "Forward traffic accepted",
-    "data.eventtime": 1785544877,
+    "data.eventtime": 1784763677,
     "data.policyid": 14,
     "data.policyname": "Outbound_Internet_Default"
   }
@@ -131,7 +131,7 @@ const veeamBackupEvent: TelemetryEvent = {
     "data.proto": 6,
     "data.service": "HTTPS",
     "data.sentbyte": 12483920640,
-    "data.rcvdbyte": 498112,
+    "data.rcvdbyte": 221846712,
     "data.duration": 2640,
     "data.srccountry": "Reserved",
     "data.dstcountry": "United States",
@@ -140,7 +140,7 @@ const veeamBackupEvent: TelemetryEvent = {
     "data.apprisk": "low",
     "data.logdesc": "Forward traffic accepted",
     "data.msg": "Forward traffic accepted",
-    "data.eventtime": 1785549604,
+    "data.eventtime": 1784772004,
     "data.policyid": 22,
     "data.policyname": "Backup_Server_Egress"
   }
@@ -243,7 +243,7 @@ const dataStagingExfilRoom = {
       "type": "reading" as const,
       "id": "dsx-r4",
       "heading": "The Concrete Signs: What Points to Staging-and-Archiving Abuse",
-      "content": "By the end of the archiving step, an attacker has produced exactly one artefact worth hunting for: a single, often password-protected, often unusually large file that did not exist an hour ago, sitting in a folder that does not normally contain one. Four concrete signals, read together rather than individually, separate this from routine, harmless compression activity.\n\n### 1. The Archive Is New, and the Folder Is Wrong\n\nA freshly created .rar, .7z, or .zip file is unremarkable in a Downloads folder or a user's own Documents. The same file appearing for the first time in C:\\ProgramData, C:\\Windows\\Temp, or any path a human did not choose by hand through a Save-As dialog is a materially different signal. Those paths exist for applications to use, not for people to manually park files in.\n\n### 2. The Size and the Source Line Up\n\nAn archive whose size roughly matches the volume of data just read from a network share in reading r1 of this room is telling its own story: this file IS the packaged version of that earlier bulk access. A SOC that can correlate 'this account read roughly 400MB from the ClientMatters share nine minutes ago' against 'this account's workstation just produced a 380MB password-protected archive' has moved from two separate weak signals to one strong, coherent one.\n\n### 3. The Tool Ran From an Unexpected Path or Parent Process\n\nWinRAR launched by explorer.exe from its normal installed location, against a folder the user opened by hand, is ordinary desktop use. The identical binary launched by cmd.exe or powershell.exe, with no interactive Explorer window ever opened, against a folder the user has never navigated to in their file-access history, is a process-tree pattern worth escalating: the same 'right tool, wrong context' principle this curriculum's other rooms apply to living-off-the-land binaries generally.\n\n### 4. It Is Password-Protected, and It Wasn't Before\n\nAs the previous reading established, a password-protected archive defeats content inspection outright. A host or department that has never produced a single -hp-flagged archive in its EDR history suddenly producing one is a stronger signal than the mere presence of an archive utility running, precisely because legitimate day-to-day compression (zipping a folder to email a colleague) essentially never bothers with a password.\n\n### Putting the Four Together\n\nNone of these four signals alone justifies escalation. Plenty of legitimate software creates large archives in ProgramData, plenty of IT scripts run compression tools from cmd.exe, and some genuinely cautious employees do password-protect the odd file. What changes the picture is TWO OR MORE of these four converging on the same host, the same account, and the same short time window as the share-access burst from reading r1 and the staging copy from reading r2. A single archive-creation event is a data point. An archive that is new, in the wrong folder, sized like the share access that preceded it, launched from an unexpected process, and password-protected for the first time on that host, is a case.",
+      "content": "By the end of the archiving step, an attacker has produced exactly one artefact worth hunting for: a single, often password-protected, often unusually large file that did not exist an hour ago, sitting in a folder that does not normally contain one. Four concrete signals, read together rather than individually, separate this from routine, harmless compression activity.\n\n### 1. The Archive Is New, and the Folder Is Wrong\n\nA freshly created .rar, .7z, or .zip file is unremarkable in a Downloads folder or a user's own Documents. The same file appearing for the first time in C:\\ProgramData, C:\\Windows\\Temp, or any path a human did not choose by hand through a Save-As dialog is a materially different signal. Those paths exist for applications to use, not for people to manually park files in.\n\n### 2. The Size and the Source Line Up\n\nAn archive whose size roughly matches the files just read from a network share in reading r1 of this room is telling its own story: this file IS the packaged version of that earlier bulk access. Event ID 5145 names each file but carries no byte count, so you get the volume by adding up the sizes of those files on the file server. A SOC that can correlate 'this account opened files totalling roughly 400MB on the ClientMatters share nine minutes ago' against 'this account's workstation just produced a 380MB password-protected archive' has moved from two separate weak signals to one strong, coherent one.\n\n### 3. The Tool Ran From an Unexpected Path or Parent Process\n\nWinRAR launched by explorer.exe from its normal installed location, against a folder the user opened by hand, is ordinary desktop use. The identical binary launched by cmd.exe or powershell.exe, with no interactive Explorer window ever opened, against a folder the user has never navigated to in their file-access history, is a process-tree pattern worth escalating: the same 'right tool, wrong context' principle this curriculum's other rooms apply to living-off-the-land binaries generally.\n\n### 4. It Is Password-Protected, and It Wasn't Before\n\nAs the previous reading established, a password-protected archive defeats content inspection outright. A host or department that has never produced a single -hp-flagged archive in its EDR history suddenly producing one is a stronger signal than the mere presence of an archive utility running, precisely because legitimate day-to-day compression (zipping a folder to email a colleague) essentially never bothers with a password.\n\n### Putting the Four Together\n\nNone of these four signals alone justifies escalation. Plenty of legitimate software creates large archives in ProgramData, plenty of IT scripts run compression tools from cmd.exe, and some genuinely cautious employees do password-protect the odd file. What changes the picture is TWO OR MORE of these four converging on the same host, the same account, and the same short time window as the share-access burst from reading r1 and the staging copy from reading r2. A single archive-creation event is a data point. An archive that is new, in the wrong folder, sized like the share access that preceded it, launched from an unexpected process, and password-protected for the first time on that host, is a case.",
       "xp": 5
     },
     {
@@ -412,12 +412,12 @@ const dataStagingExfilRoom = {
           "question": "Which pair of fields shows that this session is a bulk upload rather than ordinary encrypted web browsing?",
           "options": [
             "data.app (MEGA) and data.dstcountry (New Zealand): a personal cloud service hosted abroad",
-            "data.sentbyte and data.rcvdbyte: about 760 MB sent against about 86 KB received",
+            "data.sentbyte and data.rcvdbyte: about 760 MB sent against about 13.5 MB received",
             "data.duration (187) and data.apprisk (elevated): a long session to a risky application",
             "data.service (HTTPS) and data.dstport (443): encrypted traffic on the standard web port"
           ],
           "answer": 1,
-          "explanation": "sentbyte 796,305,664 against rcvdbyte 88,240 is a heavily upload-skewed ratio, the inverse of browsing, where far more is downloaded than sent. That direction is what makes it a bulk upload. “data.app (MEGA) and data.dstcountry” tell you WHERE the session went, which matters for the verdict, but a visit to MEGA to download a file would show the same two values. “data.duration (187) and data.apprisk (elevated)” describe the session's length and the application's risk rating, not which way the data moved; three minutes is ordinary for many sessions. “data.service (HTTPS) and data.dstport (443)” are true of almost all web traffic, legitimate or not.",
+          "explanation": "sentbyte 796,305,664 against rcvdbyte 14,162,388 is a heavily upload-skewed ratio, the inverse of browsing, where far more is downloaded than sent. That direction is what makes it a bulk upload. “data.app (MEGA) and data.dstcountry” tell you WHERE the session went, which matters for the verdict, but a visit to MEGA to download a file would show the same two values. “data.duration (187) and data.apprisk (elevated)” describe the session's length and the application's risk rating, not which way the data moved; three minutes is ordinary for many sessions. “data.service (HTTPS) and data.dstport (443)” are true of almost all web traffic, legitimate or not.",
           "xp": 20
         },
         {

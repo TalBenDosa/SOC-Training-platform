@@ -87,6 +87,16 @@ const rooms = [
           `- **Threat intelligence**: Which techniques are the threat groups targeting your industry actually using? A bank should prioritize FIN7 techniques; a hospital should prioritize ransomware groups that target healthcare.\n` +
           `- **Your existing visibility**: You can only detect what you can see. Prioritize techniques that your current log sources can observe.\n` +
           `- **Highest impact**: A technique that leads directly to ransomware deployment or data theft deserves more detection coverage than a low-impact reconnaissance technique.\n\n` +
+          `**Mapping What You See to a Technique**\n\n` +
+          `To tag a detection, name the behaviour behind the observable, then look up the technique for that behaviour:\n\n` +
+          `- **Hiding a command** by encoding it is obfuscation: T1027.010, Command Obfuscation.\n` +
+          `- **Stealing credentials from memory** by opening LSASS, the Windows process that holds logon credentials: T1003.001, LSASS Memory.\n` +
+          `- **Password spraying**, trying one password across many accounts: T1110.003.\n` +
+          `- **Running a program through Windows Task Scheduler**, which attackers often point at a file in a temp folder: T1053.005, Scheduled Task.\n` +
+          `- **Command and control over web traffic**, where malware makes small, regular HTTPS check-ins to one host: T1071.001, Web Protocols.\n\n` +
+          `One observable can carry two tags. Encoded PowerShell is T1027.010 for the hiding and T1059.001 (PowerShell) for the interpreter running it, so a rule written about the execution tags T1059.001, while mapping the Base64 argument on its own points to T1027.010. Both are correct: the tag follows the behaviour you are describing.\n\n` +
+          `**Context Changes the Priority**\n\n` +
+          `The same match can matter more or less depending on where it ran. Legitimate enterprise scripts normally run from known script or application folders, while ordinary accounts can usually write to a temp folder, so attackers stage files there. A shell such as cmd.exe launching hidden, encoded PowerShell from a temp directory is a common attacker staging chain, and it deserves a higher priority than the encoded flag alone.\n\n` +
           `**Sigma Rules: Vendor-Neutral Detection Logic**\n\n` +
           `One of the biggest problems in detection engineering is vendor lock-in: you write a detection rule in Splunk's SPL query language, and now it's useless if you switch to Microsoft Sentinel (which uses KQL) or Elastic (which uses EQL). Enter **Sigma**.\n\n` +
           `Sigma is an open, vendor-neutral rule format written in YAML. A Sigma rule describes detection logic in abstract terms, and converter tools (like sigmac or pySigma) translate it into the query language of your specific SIEM.\n\n` +
@@ -373,7 +383,7 @@ const rooms = [
           `- **Resolution**: How was the incident closed?\n` +
           `- **Lessons Learned**: What could be done better next time?\n\n` +
           `**Writing Good Analyst Notes**\n\n` +
-          `The gold standard for analyst notes answers: **Who? What? When? Where? Why? How?**: the same questions a journalist would ask. Example of a bad note: "Investigated alert. Looks malicious." Example of a good note: "At 09:14 UTC, WS-FINANCE-042 (user: m.torres) executed an encoded PowerShell command spawned by cmd.exe from C:\\Windows\\Temp. The Base64 payload decoded to a download cradle fetching from 192.168.1.100/payload.ps1. Isolated the host at 09:31 UTC pending malware analysis."`,
+          `The gold standard for analyst notes answers: **Who? What? When? Where? Why? How?**: the same questions a journalist would ask. Example of a bad note: "Investigated alert. Looks malicious." Example of a good note: "At 09:14 UTC, WS-FINANCE-042 (user: m.torres) executed an encoded PowerShell command spawned by cmd.exe from C:\\Windows\\Temp. The Base64 payload decoded to a download cradle fetching from 203.0.113.100/payload.ps1. Isolated the host at 09:31 UTC pending malware analysis."`,
         checkpoint: {
           question: "An analyst isolates an infected host and stops the attack, but writes nothing in the ticket. Based on the reading, why is this treated as a serious failure even though the threat is gone?",
           options: [
@@ -482,7 +492,7 @@ const rooms = [
           `Different organizations use different tools to track incidents. Knowing the major platforms helps you hit the ground running in any SOC:\n\n` +
           `- **ServiceNow**: Enterprise-grade IT Service Management (ITSM) platform widely used in large corporations. Has strong workflow automation and integration capabilities. Some analysts find it heavy and complex for pure SOC work.\n` +
           `- **Jira**: Originally a software development project tracker, Jira is commonly used in organizations with strong DevOps or IT cultures. Flexible but requires custom configuration for SOC workflows.\n` +
-          `- **TheHive**: An open-source security incident response platform built specifically for SOC teams. Integrates natively with MISP (threat intelligence) and Cortex (automated analysis). Favorite of many MSSP and government SOCs.\n` +
+          `- **TheHive**: A security incident response platform built specifically for SOC teams. It began as an open-source project; version 5 onward is a licensed product from StrangeBee, with a free Community licence and paid tiers. Integrates natively with MISP (threat intelligence) and Cortex (automated analysis). Favorite of many MSSP and government SOCs.\n` +
           `- **Splunk SOAR (formerly Phantom)**: Combines ticketing with Security Orchestration, Automation, and Response (SOAR) capabilities. Enables automated playbooks that perform investigation steps without analyst intervention.\n\n` +
           `**The Incident Report as a Learning Tool**\n\n` +
           `After every significant incident, the team should conduct a **post-incident review** (also called a post-mortem or lessons learned session). The goal is NOT to assign blame. It is to systematically improve:\n\n` +
@@ -512,6 +522,7 @@ const rooms = [
           `**Dwell Time: the hardest number to measure honestly**\n\n` +
           `Dwell time differs from MTTA and MTTR in an important way: it does not start at the alert. It starts at the attacker's actual first foothold: the moment a phishing attachment was opened, a vulnerable service was exploited, or a stolen credential was first used.\n\n` +
           `Dwell Time = (time of detection) − (time of the attacker's actual initial compromise)\n\n` +
+          `On a single incident, dwell time and MTTD measure the same interval: from the attacker's first foothold to detection. The difference is scale. Dwell time describes one incident, while MTTD is that same gap averaged across many incidents over a reporting period.\n\n` +
           `The honest problem with dwell time is that you usually don't know the true initial-compromise timestamp until well into the investigation, sometimes only during a deep forensic timeline reconstruction, days later, once the team traces the attacker's activity backward through logs that predate the alert itself. Early in an incident, any dwell-time figure you quote is a working estimate, not a fact, and it should be revised as the investigation timeline gets refined.\n\n` +
           `**Worked Example**\n\n` +
           `Timeline reconstructed for a single incident:\n\n` +
@@ -577,10 +588,10 @@ const rooms = [
             "ticket.resolved_at": "2026-06-24T11:39:00.000Z",
             "ticket.analyst": "j.smith",
             "ticket.summary":
-              "Encoded PowerShell execution detected on WS-FINANCE-042. Investigation confirmed download cradle fetching Cobalt Strike beacon from 192.168.1.100. Host was isolated and reimaged.",
+              "Encoded PowerShell execution detected on WS-FINANCE-042. Investigation confirmed download cradle fetching Cobalt Strike beacon from 203.0.113.100. Host was isolated and reimaged.",
             "ticket.affected_hosts": ["WS-FINANCE-042"],
             "ticket.iocs_found": [
-              "192.168.1.100",
+              "203.0.113.100",
               "payload.ps1",
               "beacon_x64.dll",
               "sha256:f7b63c44b8e2b9971038b203697077bd8efb008c439bc08d79ca702884769afd",
@@ -588,7 +599,7 @@ const rooms = [
             "ticket.actions_taken": [
               "Host isolated from network at 09:31 UTC",
               "Memory dump collected at 09:45 UTC",
-              "Malicious IP 192.168.1.100 blocked in firewall at 09:52 UTC",
+              "Malicious IP 203.0.113.100 blocked in firewall at 09:52 UTC",
               "Host reimaged at 11:00 UTC",
               "User m.torres credentials reset at 11:20 UTC",
             ],
@@ -635,7 +646,7 @@ const rooms = [
         type: "analyst_choice" as const,
         id: "rep-ac1",
         heading: "Verdict: What Should Happen Before This Ticket Is Closed?",
-        scenario: "You are writing the post-incident report. The incident involved: a phishing email that bypassed filters, one user clicked and credential was stolen, attacker logged in for 22 minutes and accessed 3 SharePoint document libraries. No data was exfiltrated (DLP shows 0 uploads). The attacker's session was terminated when MFA was revoked. MTTR was 145 minutes (SLA is 120 minutes). The affected user was a junior marketing analyst with no access to sensitive financial or PII data. The ticket is now in pending_closure and you are the assigned analyst. What should you do with this ticket before it is closed?",
+        scenario: "You are writing the post-incident report. The incident involved: a phishing email that bypassed filters, one user clicked and credential was stolen, attacker logged in for 22 minutes and accessed 3 SharePoint document libraries. No data was exfiltrated (DLP shows 0 uploads). The attacker's session was terminated when MFA was revoked. MTTR was 145 minutes (SLA is 120 minutes). The affected user was a junior marketing analyst with no access to sensitive financial or PII data. The ticket is now in pending_closure and you are the assigned analyst. The attack itself is already confirmed and contained, so that is not the open question. Which verdict fits what must happen to this ticket before it is closed?",
         event: {
           id: "evt-rep-ac-001",
           ts: "2026-06-18T16:30:00.000Z",
@@ -644,7 +655,7 @@ const rooms = [
           event_type: "edr_alert" as const,
           severity: "medium" as const,
           hostname: "SOAR-PLATFORM-01",
-          user_email: "p.nguyen@contoso.com",
+          user_email: "p.nguyen@contoso.example",
           description: "Incident closure review: credential theft, brief access, no exfiltration, SLA breach",
           mitre_technique: "T1566.001",
           mitre_tactic: "Initial Access",
@@ -663,7 +674,7 @@ const rooms = [
             "incident.resources_accessed": "SharePoint Online: 3 document libraries",
             "incident.data_exfiltrated": false,
             "incident.dlp_uploads": 0,
-            "incident.attacker_dwell_minutes": 22,
+            "incident.attacker_session_minutes": 22,
             "incident.user_clearance": "standard",
             "incident.user_data_access": "marketing_collateral_only",
             "containment.mfa_revoked": true,
@@ -672,7 +683,7 @@ const rooms = [
           },
         },
         correct_verdict: "escalate",
-        explanation: "Escalation (to a supervisor or senior analyst for sign-off) is correct before closing this incident. Here is why: (1) The SLA was breached by 25 minutes. This must be documented, and (as Reading 2 explains) most organizations require shift-lead or management sign-off before closing any SLA-breach incident. Simply classifying it as a true positive and closing it yourself skips that required review. Closing without noting the breach would be a reporting integrity failure. (2) Even though no data was exfiltrated and no sensitive data was accessible, the 22-minute attacker session requires documentation of everything accessed: some documents in SharePoint may have contained more than standard marketing materials. (3) A post-incident review should be triggered to understand why the phishing email bypassed filters. The correct severity for the report is P3 (low business impact) but the SLA breach elevates the process requirement.",
+        explanation: "Escalation (to a supervisor or senior analyst for sign-off) is correct before closing this incident. Here is why: (1) The SLA was breached by 25 minutes. This must be documented, and (as Reading 2 explains) most organizations require shift-lead or management sign-off before closing any SLA-breach incident. Simply classifying it as a true positive and closing it yourself skips that required review. Closing without noting the breach would be a reporting integrity failure. (2) Even though no data was exfiltrated and no sensitive data was accessible, the 22-minute attacker session requires documentation of everything accessed: some documents in SharePoint may have contained more than standard marketing materials. (3) A post-incident review should be triggered to understand why the phishing email bypassed filters.",
         fp_trap: "It is tempting to call this 'informational' because: no sensitive data was accessed, no exfiltration occurred, and the attacker was contained in 22 minutes. But the SLA breach (145 vs 120 minutes) is a contractual/compliance finding that requires documentation and management acknowledgment before closing. It cannot be silently ignored in the report.",
         xp: 30,
       },
@@ -710,13 +721,13 @@ const rooms = [
           `This is one of the most important skills you will develop as a SOC analyst. Here are real examples of translation:\n\n` +
           `- DON'T SAY: "We detected T1055 Process Injection via hollowing on endpoint HOST-014."\n` +
           `  DO SAY: "Malware was found on one of your computers (HOST-014). It was hiding inside legitimate Windows software to avoid detection. We've isolated this computer from your network."\n\n` +
-          `- DON'T SAY: "A C2 beacon was detected with 30-second jitter calling back to IOC 185.220.101.47."\n` +
+          `- DON'T SAY: "A C2 beacon was detected with 30-second jitter calling back to IOC 203.0.113.47."\n` +
           `  DO SAY: "A computer on your network was secretly communicating with an attacker's server every 30 seconds. This is how attackers maintain control after a breach. We've blocked this communication."\n\n` +
           `- DON'T SAY: "We observed lateral movement via PtH from WKSTN-042 to SRV-DC-01."\n` +
           `  DO SAY: "After gaining access to one employee's computer, the attacker attempted to spread to your main server. We stopped this before they reached it."\n\n` +
           `The key principle: **lead with impact and actions taken, not with technical mechanics**. The client needs to know: what happened to ME, what risk am I facing NOW, and what do I need to DO.`,
         checkpoint: {
-          question: "You must rewrite “C2 beacon with 30-second jitter to 185.220.101.47” for a client's IT manager. Which principle from the reading should guide the rewrite?",
+          question: "You must rewrite “C2 beacon with 30-second jitter to 203.0.113.47” for a client's IT manager. Which principle from the reading should guide the rewrite?",
           options: [
             "Keep the ATT&CK technique ID in the text so the client's team can look the activity up",
             "Lead with the impact and the actions already taken, not with the technical mechanics",
@@ -756,6 +767,7 @@ const rooms = [
           `- **P2 (High)**: A confirmed threat that has been contained but requires client action, a single infected machine, a phishing campaign targeting employees. SLA requirement: **email notification within 1 hour**.\n` +
           `- **P3 (Medium)**: Suspicious activity requiring investigation, anomalous login from an unusual country, failed brute-force attempts. SLA requirement: **ticket update within 4 hours**.\n` +
           `- **P4 (Low)**: Informational findings, a vulnerability scan result, a policy violation. SLA requirement: **included in the weekly report**.\n\n` +
+          `A P1 notice is never a solo decision. The Tier 1 analyst who confirms a P1 escalates to the Tier 2 lead on shift at once, the lead approves the notice, and the analyst makes the call inside the 15 minutes. So the verdict on a confirmed P1 that needs a client call is escalate, not a true positive worked alone.\n\n` +
           `**Choosing the Right Communication Channel**\n\n` +
           `The severity of the incident dictates the communication method:\n\n` +
           `- **Phone call**: Reserved for P1/Critical. A phone call ensures the message is received immediately and allows for two-way conversation. Email can sit in an inbox for hours. For a ransomware infection actively spreading, hours matter enormously.\n` +
@@ -856,11 +868,12 @@ const rooms = [
         id: "cc-log-1",
         heading: "Analyzing an SLA Breach Event",
         context:
-          "The SIEM has logged a client notification SLA tracking event for Acme Corp. This event was generated by the SOAR platform when it detected that a P1 incident notification did not occur within the required timeframe. Examine the details carefully.",
+          "The SOAR platform has logged a client notification SLA tracking event for Acme Corp. It generated this event when it detected that a P1 incident notification did not occur within the required timeframe. Examine the details carefully.",
         event: {
           id: "evt-cc-001",
           ts: "2026-06-24T09:32:00.000Z",
-          source: "siem",
+          source: "soar",
+          vendor: "Palo Alto Cortex XSOAR",
           event_type: "edr_alert",
           hostname: "SOAR-PLATFORM-01",
           severity: "high",
@@ -914,7 +927,7 @@ const rooms = [
         type: "analyst_choice" as const,
         id: "cc-ac1",
         heading: "Verdict: Does This Require an Immediate Customer SLA Notification?",
-        scenario: "18:07 UTC. You are an MSSP analyst. Your client GlobalFinance Inc. experienced a confirmed ransomware detection on one workstation. The endpoint was isolated by EDR at 18:04 UTC. The attacker had access for approximately 6 minutes before isolation. No file encryption was confirmed by EDR (the ransomware was caught before encryption started). Your MSSP contract with GlobalFinance defines P1 (Critical) to include any confirmed ransomware detection on a client endpoint, and states: 'P1 incidents must be communicated to the client within 15 minutes of confirmation.' The detection was confirmed when EDR isolated the host. It is now 18:07 UTC. What do you do?",
+        scenario: "18:07 UTC. You are a Tier 1 analyst at an MSSP. Your client GlobalFinance Inc. experienced a confirmed ransomware detection on one workstation. The endpoint was isolated by EDR at 18:04 UTC. The attacker had access for approximately 6 minutes before isolation. No file encryption was confirmed by EDR (the ransomware was caught before encryption started). Your MSSP contract with GlobalFinance defines P1 (Critical) to include any confirmed ransomware detection on a client endpoint, and states: 'P1 incidents must be communicated to the client within 15 minutes of confirmation.' The detection was confirmed when EDR isolated the host. It is now 18:07 UTC. What do you do?",
         event: {
           id: "evt-cc-ac-001",
           ts: "2026-06-19T18:07:22.000Z",
@@ -923,7 +936,7 @@ const rooms = [
           event_type: "edr_alert" as const,
           severity: "critical" as const,
           hostname: "WKSTN-GF-FINANCE-07",
-          user_email: "d.levy@globalfinance.com",
+          user_email: "d.levy@globalfinance.example",
           description: "Ransomware detected and isolated pre-encryption. SLA notification clock started at 18:04",
           mitre_technique: "T1486",
           mitre_tactic: "Impact",
@@ -943,7 +956,7 @@ const rooms = [
           },
         },
         correct_verdict: "escalate",
-        explanation: "Escalation to your supervisor and immediate start of the SLA notification process is correct. The clock started at 18:04 (sla.clock_started), so the call is due by 18:19 and fewer than 12 minutes remain. Even though the ransomware was stopped before encryption, a confirmed ransomware detection on a client endpoint IS a P1 (Critical) incident under this contract: the fact that encryption was prevented does not downgrade the classification. The right sequence: (1) Start drafting the client notification now; (2) Alert your team lead so they can approve and send; (3) Document the timeline precisely because the client will ask. Waiting until you know more risks SLA breach: the contract says 'within 15 minutes of confirmation', not 'within 15 minutes of fully understanding the scope'.",
+        explanation: "Escalation to the Tier 2 lead on shift and immediate start of the SLA notification process is correct. The detection is real, but a P1 client notice needs the lead's approval, so working it alone as a true positive is not enough. The clock started at 18:04 (sla.clock_started), so the call is due by 18:19 and fewer than 12 minutes remain. Even though the ransomware was stopped before encryption, a confirmed ransomware detection on a client endpoint IS a P1 (Critical) incident under this contract: the fact that encryption was prevented does not downgrade the classification. The right sequence: (1) Start drafting the client notification now; (2) Alert the Tier 2 lead so they can approve it, then make the call; (3) Document the timeline precisely because the client will ask. Waiting until you know more risks SLA breach: the contract says 'within 15 minutes of confirmation', not 'within 15 minutes of fully understanding the scope'.",
         fp_trap: "Because no files were encrypted and the attack was contained in 6 minutes, it is tempting to classify this as Informational or wait for more information before notifying the client. But MSSP contracts are precise: under this one, P1 (Critical) = any confirmed ransomware detection, period. The containment outcome (good news) is included in the notification. It is not a reason to delay or skip it.",
         xp: 30,
       },
@@ -1049,6 +1062,8 @@ const rooms = [
           `- **Legal or regulatory implications** are likely (data breach with PII, ransomware, suspected insider threat)\n` +
           `- The incident involves **sensitive systems** (domain controllers, financial systems, C-suite executives' devices)\n` +
           `- You've been investigating for the time limit specified in your playbook (usually 30-60 minutes) and cannot reach a conclusion\n\n` +
+          `These triggers are not a countdown. As soon as any of the first six applies, escalate right then. The playbook's time limit is only for the last case, when you still have no conclusion.\n\n` +
+          `Domain controllers earn their place on that list. A domain controller is the server that checks logins and holds the accounts for a whole Windows domain, so an attacker who takes control of one can reach every machine in that domain. While an attack is spreading, whether the domain controller is still untouched tells responders how much time is left to contain it.\n\n` +
           `**When NOT to Escalate**\n\n` +
           `Do NOT escalate when:\n` +
           `- You have **confirmed it's a false positive** with clear evidence. Document and close it yourself\n` +
@@ -1164,27 +1179,27 @@ const rooms = [
             "escalation.to_tier": 2,
             "escalation.incident_id": "INC-2026-4892",
             "escalation.reason":
-              "Confirmed ransomware encryption on 12 hosts, requires isolation authority. Maze ransomware variant identified by EDR (beacon_x64.dll + maze-ransomware.exe). C2 traffic to 185.220.101.47:443. Tier 1 playbook exhausted.",
+              "Confirmed ransomware encryption on 12 hosts, requires isolation authority. Maze ransomware variant identified by EDR (beacon_x64.dll + maze-ransomware.exe). C2 traffic to 203.0.113.47:443. Tier 1 playbook exhausted.",
             "escalation.analyst": "r.cohen",
             "escalation.timestamp": "2026-06-24T09:45:00.000Z",
             "escalation.severity": "P1",
             "escalation.affected_hosts_count": 12,
             "escalation.iocs": [
               "maze-ransomware.exe",
-              "185.220.101.47",
+              "203.0.113.47",
               "beacon_x64.dll",
               "sha256:1cdaef0f9aa0119f255bb61080ca2d875a2847f27ca55bb1d32b2a89334cae40",
             ],
             "escalation.actions_taken_by_tier1": [
-              "Alert acknowledged at 09:14 UTC",
-              "IOCs looked up in threat intel: confirmed Maze ransomware",
+              "Alert acknowledged at 09:12 UTC",
+              "IOCs looked up in threat intel: Maze ransomware confirmed at 09:14 UTC",
               "Ticket INC-2026-4892 created at 09:17 UTC",
-              "Client notification sent at 09:32 UTC (P1 SLA: 15 min, 3 min breach)",
+              "Client notification sent at 09:32 UTC (P1 SLA: 15 min from confirmation, 3 min breach)",
               "Identified 12 affected hosts via SIEM correlation",
-              "Attempted to block C2 IP 185.220.101.47: requires Tier 2 firewall authority",
+              "Attempted to block C2 IP 203.0.113.47: requires Tier 2 firewall authority",
             ],
             "escalation.analyst_notes":
-              "Ransomware appears to have originated from WS-FINANCE-042 (initial execution at 09:14 UTC) and spread laterally via SMB shares. All 12 affected hosts are on the FINANCE VLAN (10.10.5.0/24). Domain controller SRV-DC-01 is NOT yet affected. Recommend immediate VLAN isolation to contain spread before DC is compromised.",
+              "Ransomware appears to have originated from WS-FINANCE-042 (initial execution at 09:08 UTC) and spread laterally via SMB shares. All 12 affected hosts are on the FINANCE VLAN (10.10.5.0/24). Domain controller SRV-DC-01 is NOT yet affected. Recommend immediate VLAN isolation to contain spread before DC is compromised.",
           },
         } as TelemetryEvent,
         questions: [
@@ -1193,13 +1208,13 @@ const rooms = [
               "Compare escalation.timestamp with the times in escalation.actions_taken_by_tier1. By the reading's escalation criteria, what is the main weakness of this escalation?",
             options: [
               "It came too early: Tier 1 should have finished blocking the C2 address before handing the case over",
-              "It came too late: ransomware was confirmed by about 09:17, yet Tier 2 was only engaged at 09:45",
+              "It came too late: ransomware was confirmed at 09:14, yet Tier 2 was only engaged at 09:45",
               "It went to the wrong tier: a named ransomware family should go straight to Tier 3 for attribution",
               "It lacked detail: the record gives Tier 2 no IOCs or affected-host scope to start containment",
             ],
             answer: 1,
             explanation:
-              "Threat intel confirmed Maze ransomware before the ticket was created at 09:17. That met several escalation triggers at once: confirmed malicious activity, ransomware with legal implications, and a scope that needed isolation authority Tier 1 lacks. Yet the escalation went out at 09:45, leaving about half an hour of active spread to 12 hosts. “Too early” is wrong because the record itself shows the C2 block needs Tier 2 firewall authority. Attribution is Tier 3 work, but escalation still runs Tier 1 → Tier 2, and containment comes first. “Lacked detail” misreads the record, which lists IOCs, 12 hosts, the VLAN and a recommendation.",
+              "Threat intel confirmed Maze ransomware at 09:14. That met several escalation triggers at once: confirmed malicious activity, ransomware with legal implications, and a scope that needed isolation authority Tier 1 lacks. Yet the escalation went out at 09:45, leaving about half an hour of active spread to 12 hosts. The playbook's 30-60 minute limit gives no cover, because it applies only when you still have no conclusion. “Too early” is wrong because the record itself shows the C2 block needs Tier 2 firewall authority. Attribution is Tier 3 work, but escalation still runs Tier 1 → Tier 2, and containment comes first. “Lacked detail” misreads the record, which lists IOCs, 12 hosts, the VLAN and a recommendation.",
             xp: 20,
           },
           {
@@ -1244,7 +1259,7 @@ const rooms = [
             "escalation.isolation_completed": 7,
             "escalation.isolation_pending": 5,
             "escalation.c2_ip_blocked": false,
-            "escalation.c2_ip": "185.220.101.47",
+            "escalation.c2_ip": "203.0.113.47",
             "escalation.lateral_movement_active": true,
             "analyst.shift": "night",
             "analyst.tier": "T1",

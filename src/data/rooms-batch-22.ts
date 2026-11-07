@@ -63,7 +63,7 @@ const loaderBeaconEvent: TelemetryEvent = {
     "winlog.event_data.SourceIp": "10.40.12.61",
     "winlog.event_data.SourcePort": 51422,
     "winlog.event_data.DestinationHostname": "cdn-assets-delivery.net",
-    "winlog.event_data.DestinationIp": "185.220.101.47",
+    "winlog.event_data.DestinationIp": "203.0.113.47",
     "winlog.event_data.DestinationPort": 443,
   },
 };
@@ -200,6 +200,7 @@ const malwareTypesRoom: Room = {
         `A loader, by contrast, is a small, often unremarkable-looking file whose whole job is to reach out over the network, usually within seconds of launching, and pull down the actual malicious payload from infrastructure the attacker controls. The file that first ran is nearly harmless on its own; it's really just a fetch mechanism. A stager is the same idea taken one step further toward minimalism: an even smaller piece of code (sometimes just a few hundred bytes) whose only job is to establish just enough of a connection to pull down a larger, fully-featured payload next.\n\n` +
         `**Why this is the distinction that actually matters to a SOC**\n\n` +
         `Here's the operational consequence that makes this worth learning carefully: with a loader (or a stager), you get something a dropper never gives you, a network indicator, and a genuine window of time to act before the real payload ever lands. The destination domain or IP the loader reaches out to can be blocked at a proxy or firewall, and if that block happens fast enough, stage 2 simply never arrives, no matter how compromised the first-stage file already was. With a dropper, that window doesn't exist, the payload was already there the moment the file ran, so response has to focus immediately on the file itself: its hash, its on-disk behaviour, and full incident response, not on trying to race a network connection that already delivered everything it was going to deliver.\n\n` +
+        `Blocking the destination is only half of the response to a suspected loader. Also take the host off the network, because stage 2 may already have landed or may arrive another way, and keep the file for analysis rather than deleting it, because it is your evidence of what actually ran.\n\n` +
         `The sequence below shows both paths side by side. Notice exactly where the loader path gives a defender a chance the dropper path never offers.`,
       diagram:
         "sequenceDiagram\n" +
@@ -304,7 +305,7 @@ const malwareTypesRoom: Room = {
       id: "malware-f1",
       prompt:
         "Look at Log Analysis 1 (the quarterly_invoice.exe connection). Besides the domain, which IP address should go on the proxy/firewall block list? Enter it exactly as shown in the raw log.",
-      answer: "185.220.101.47",
+      answer: "203.0.113.47",
       hint: "The domain resolved to an address recorded in the same Sysmon event.",
       xp: 25,
     },
@@ -500,6 +501,7 @@ const malwareTypesRoom: Room = {
         `A fileless attack achieves its objective (reconnaissance, credential theft, lateral movement, whatever the goal is) using tools already present on the system (PowerShell, WMI, legitimate administrative utilities, a technique called "living off the land") rather than dropping a new, attacker-authored executable onto disk at all. This directly defeats the core assumption behind traditional antivirus signature matching: a signature scanner is built to compare files against a database of known-bad hashes, but there is often no new file here to hash in the first place, just an unusually-used legitimate tool. The behavior is the malware: what matters isn't what file ran, it's what a completely legitimate tool was made to do (an unusual parent-child process relationship, an encoded PowerShell command line reaching out to an external address, a legitimate admin tool touching files it has no ordinary business touching). This is exactly why modern endpoint tools shifted from pure signature matching toward behavioral detection, watching what happens, not just what's on disk.\n\n` +
         `**PUP / adware: the triage judgement call**\n\n` +
         `A Potentially Unwanted Program (PUP) (commonly bundled toolbars, ad injectors, and "optimizer" utilities) sits in a genuinely different category from everything else in this room: it's often unwanted and mildly invasive rather than malicious in intent. Security products flag PUPs with heuristic detections that can look every bit as alarming in a console as a trojan alert, but the correct analyst instinct is judgement, not automatic escalation: check how it arrived (bundled with software the user or organization deliberately and knowingly installed, versus a drive-by install from an untrusted site) and whether it's doing anything beyond its stated, if annoying, function. A PUP that arrived through an approved, catalog-listed software deployment is a very different finding from the same detection name showing up on a machine with no such explanation.\n\n` +
+        `Keep two closing labels apart when you record that finding. A false positive means the detection misfired and the thing it claims is not there. A benign true positive means the detection correctly found something real that turned out to be authorized, and you close it by citing the approval.\n\n` +
         `**Why one sample gets three different names**\n\n` +
         `Antivirus vendors each build their own detection engines, naming conventions, and family-classification logic independently, so it's completely normal for the exact same malware sample to be labeled "Trojan.GenericKD.12345" by one vendor, "Backdoor:Win32/Something.A" by a second, and "Malware.Heuristic.9001" by a third, even when scanned at the exact same moment. A vendor's family label is a hint about behavior and lineage worth taking seriously, but it is not ground truth, and it should never be the only thing an analyst relies on to understand what a sample actually does. Confirm behavior from telemetry (what did it actually connect to, read, or modify) rather than trusting a name alone to tell the whole story.`,
       checkpoint: {
@@ -913,9 +915,11 @@ const assetContextRoom: Room = {
       content:
         `Everything in this room comes together into one practical habit: when several alerts are competing for attention at once, priority order should come from combining three separate inputs, not from reading the severity field alone.\n\n` +
         `**The three inputs**\n\n` +
-        `Alert severity is what the security product already calculated: how technically bad this specific finding looks, in isolation. Asset criticality is everything from Readings 2 through 4 combined: what the asset holds, what it controls, who uses it, its blast radius, and its exposure. Confidence is how sure you actually are that this alert represents real malicious activity rather than noise, tuning gaps, or an already-explained benign cause: the same judgment call practiced in the benign-true-positive tasks throughout this room, where the rule fired correctly on real activity that a ticket or rollout made authorized. None of these three, alone, is a safe way to rank a queue of alerts; combined, they produce something closer to genuine priority.\n\n` +
+        `Alert severity is what the security product already calculated: how technically bad this specific finding looks, in isolation. Asset criticality is everything from Readings 2 through 4 combined: what the asset holds, what it controls, who uses it, its blast radius, and its exposure. Confidence is how sure you actually are that this alert represents real malicious activity rather than noise, tuning gaps, or an already-explained benign cause: the same judgment call you practiced on the detonation VM verdict, where the rule fired correctly on real activity that a change ticket made authorized. None of these three, alone, is a safe way to rank a queue of alerts; combined, they produce something closer to genuine priority.\n\n` +
         `**Where this visibly overrides the product's own severity field**\n\n` +
         `A MEDIUM-severity alert on a system with very high criticality (the payment system during launch, from Reading 5) and high confidence can and should outrank a HIGH-severity alert on a low-criticality asset, or a CRITICAL-severity alert where confidence is genuinely low because of an obvious, documented benign explanation. This isn't ignoring the product's severity score. It's refusing to let that one input be the whole decision.\n\n` +
+        `**When two serious alerts compete**\n\n` +
+        `Business context does not automatically win. When two alerts both touch something important, ask how far each asset reaches and whether the threat is confirmed and still live or only suspected. Live malware on a device whose account holds standing admin access to something like a deployment pipeline (the automated system that ships code to production) outranks an unconfirmed alert on a busy production system, because that one compromise reaches many systems rather than one. The same logic works at the bottom of the queue: an alert the product has already contained ranks below an unresolved alert on a similarly low-value asset, even if that asset is isolated, and a finding on a decommissioned system that nothing depends on goes last.\n\n` +
         `**Writing down why you deprioritized something**\n\n` +
         `The final habit this room asks you to build: whenever you consciously rank something lower than its raw severity label would suggest, write down why, briefly, in the ticket or triage note, which asset-context factor drove the decision, and what evidence supports it (an isolated VLAN, a confirmed change ticket, a documented low-value asset). This turns an invisible judgment call into a reviewable decision: a teammate, a shift handover, or an auditor looking at the same ticket later can see exactly why a CRITICAL-labeled alert sat lower in the queue than a MEDIUM one, instead of just seeing that it did.`,
       diagram:
@@ -924,8 +928,8 @@ const assetContextRoom: Room = {
         "  B[Asset Criticality -- holds/controls/who/exposure] --> D\n" +
         "  C[Confidence -- how sure this is real] --> D\n" +
         "  D --> E[Analyst-assigned Priority]\n" +
-        "  E --> F1[MEDIUM severity + payment system during launch = Priority 1]\n" +
-        "  E --> F2[HIGH severity + isolated, decommissioned lab box = Priority lower]",
+        "  E --> F1[MEDIUM severity + payment system during launch = ranked above its label]\n" +
+        "  E --> F2[HIGH severity + isolated, decommissioned lab box = ranked below its label]",
       diagramCaption: "Severity times criticality times confidence -- not severity alone",
     },
     {
@@ -933,17 +937,17 @@ const assetContextRoom: Room = {
       id: "asset-o1",
       heading: "Rank These Five Concurrent Alerts",
       instructions:
-        "Five alerts land in the queue at the same time. Rank them from highest to lowest priority using asset criticality, blast radius, exposure, and business context, not the severity label the product assigned.",
+        "Five alerts land in the queue at the same time. Rank them from highest to lowest priority using asset criticality, blast radius, exposure, business context, and whether the threat is confirmed and still live, not the severity label alone.",
       items: [
-        { id: "exec-laptop", text: "HIGH severity malware detection on an executive's laptop that holds saved VPN credentials and standing admin access to the CI/CD pipeline" },
-        { id: "payment-launch", text: "MEDIUM severity suspicious PowerShell execution on the production payment-processing server, during the first hours of a live product launch" },
+        { id: "exec-laptop", text: "HIGH severity malware, still running and not quarantined, on an executive's laptop that holds saved VPN credentials and standing admin access to the CI/CD pipeline" },
+        { id: "payment-launch", text: "MEDIUM severity suspicious PowerShell execution, not yet confirmed as malicious, on the production payment-processing server, during the first hours of a live product launch" },
         { id: "guest-wifi", text: "CRITICAL severity (per the product) anomalous login on an isolated guest Wi-Fi captive-portal server with no route to any production system" },
         { id: "printer-quarantined", text: "HIGH severity malware automatically detected and quarantined by AV on a shared marketing team print server holding no sensitive data" },
         { id: "lab-scan", text: "LOW severity port scan against a decommissioned test server sitting in an isolated lab VLAN" },
       ],
       correct_order: ["exec-laptop", "payment-launch", "guest-wifi", "printer-quarantined", "lab-scan"],
       explanation:
-        "Raw severity labels alone would put the guest Wi-Fi CRITICAL alert first and the payment-server MEDIUM alert near the bottom: exactly backwards. The executive's laptop ranks first because of blast radius: standing CI/CD admin access and saved VPN credentials mean a successful compromise reaches far beyond the laptop itself. The payment server ranks second on business context: a MEDIUM alert during a live launch, on a system that directly touches revenue and payment data, outranks alerts on lower-value assets regardless of the product's label. The guest Wi-Fi alert, despite its CRITICAL label, drops to third once exposure and blast radius are considered. Isolated, with no path to anything that matters, it still needs review but not urgent action. The quarantined printer detection is already auto-contained and touches no sensitive data, so it ranks lower still. The decommissioned lab box ranks last: lowest technical severity, isolated, no production role, exactly the shape of a finding to log and move past, not chase first.",
+        "Raw severity labels alone would put the guest Wi-Fi CRITICAL alert first and the payment-server MEDIUM alert near the bottom: exactly backwards. The executive's laptop ranks first because the malware is live and the blast radius is huge: standing CI/CD admin access and saved VPN credentials mean this compromise reaches far beyond the laptop itself. The payment server ranks second on business context: an unconfirmed MEDIUM alert during a live launch, on a system that directly touches revenue and payment data, outranks alerts on lower-value assets regardless of the product's label, but it does not outrank a live compromise with wider reach. The guest Wi-Fi alert, despite its CRITICAL label, drops to third once exposure and blast radius are considered. Isolated, with no path to anything that matters, it still needs review but not urgent action. The quarantined printer detection is already contained and touches no sensitive data, so it ranks below the unresolved guest Wi-Fi alert. The decommissioned lab box ranks last: lowest technical severity, isolated, no production role, exactly the shape of a finding to log and move past, not chase first.",
       xp: 40,
     },
   ],

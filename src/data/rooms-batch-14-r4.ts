@@ -94,7 +94,7 @@ const dlpFpEvent: TelemetryEvent = {
     "data.office365.SensitiveInfoType.Name": "Credit Card Number",
     "data.office365.SensitiveInfoType.Count": "18",
     "data.office365.SensitiveInfoType.Confidence": "62",
-    "data.office365.SensitiveInfoType.DetectedValues": "4102-8837-2201-0044,4102-8837-2201-0051",
+    "data.office365.SensitiveInfoType.DetectedValues": "4102-8837-2201-0046,4102-8837-2201-0053",
     "data.office365.ExchangeMetaData.From": "k.nassar@nexacorp.com",
     "data.office365.ExchangeMetaData.To": "procurement@logisticspartner-co.com",
     "data.office365.ExchangeMetaData.Subject": "Open Purchase Orders - August Reconciliation",
@@ -468,7 +468,7 @@ const dlpRoom = {
         },
         {
           question:
-            "Given that this is an HR employee (s.colb@nexacorp.com) on an HR workstation, moving a file literally named Employee_Master_Records_2024.xlsx, what should be your FIRST triage step before assuming malicious intent?",
+            "You have assessed the content match and the USB destination, and this is an HR employee (s.colb@nexacorp.com) on an HR workstation, moving a file literally named Employee_Master_Records_2024.xlsx. What should be your next triage step before assuming malicious intent?",
           options: [
             "Escalate to the insider-threat team now, since bulk PII moved by anyone is a red flag",
             "Check for an approved HR task (a migration ticket or manager sign-off) for this copy",
@@ -477,7 +477,7 @@ const dlpRoom = {
           ],
           answer: 1,
           explanation:
-            "Role context matters here: an HR employee handling the employee master file is plausible as normal work, so the first step is to check internal records, an approved HR migration, backup or vendor transfer, ideally with a ticket or manager sign-off, before concluding anything. Escalating straight to the insider-threat team skips that cheap check and treats a likely job task as a threat. Closing it because she works in HR assumes the answer; HR staff can misuse data too. Isolating the workstation is containment for a confirmed threat, and this copy was already blocked.",
+            "Role context matters here: an HR employee handling the employee master file is plausible as normal work, so the next step is to check internal records, an approved HR migration, backup or vendor transfer, ideally with a ticket or manager sign-off, before concluding anything. Escalating straight to the insider-threat team skips that cheap check and treats a likely job task as a threat. Closing it because she works in HR assumes the answer; HR staff can misuse data too. Isolating the workstation is containment for a confirmed threat, and this copy was already blocked.",
           xp: 20,
         },
       ],
@@ -542,7 +542,7 @@ const dlpRoom = {
       event: dlpFpEvent,
       correct_verdict: "false_positive",
       explanation:
-        "This is a textbook false positive. Three signals converge: (1) confidence is only 62%, well below the high-confidence range (85+) typically required for genuine PCI matches; (2) the recipient is a long-standing, known business partner receiving a purchase-order reconciliation document, which is exactly the kind of file that legitimately contains 16-digit numeric identifiers (PO numbers, invoice numbers) that can coincidentally pass a Luhn-style checksum; (3) the sample DetectedValues (4102-8837-2201-0044, 4102-8837-2201-0051) share the same 12-digit prefix and differ only in a small sequential suffix, the shape of consecutive PO or invoice numbers, not of unrelated customers' card numbers. (Note that audit mode itself is not evidence either way: it is an admin deployment choice, not a judgement by the classifier.) The correct action is to review the actual DetectedValues, confirm they are PO/invoice numbers rather than real card numbers, and consider tuning the classifier or the confidence threshold to reduce this kind of noise for procurement workflows.",
+        "This is a textbook false positive. Three signals converge: (1) confidence is only 62%, well below the high-confidence range (85+) typically required for genuine PCI matches; (2) the recipient is a long-standing, known business partner receiving a purchase-order reconciliation document, which is exactly the kind of file that legitimately contains 16-digit numeric identifiers (PO numbers, invoice numbers) that can coincidentally pass a Luhn-style checksum; (3) the sample DetectedValues (4102-8837-2201-0046, 4102-8837-2201-0053) share the same 12-digit prefix and differ only in a small, nearby suffix, the shape of consecutive PO or invoice numbers, not of unrelated customers' card numbers. (Note that audit mode itself is not evidence either way: it is an admin deployment choice, not a judgement by the classifier.) The correct action is to review the actual DetectedValues, confirm they are PO/invoice numbers rather than real card numbers, and consider tuning the classifier or the confidence threshold to reduce this kind of noise for procurement workflows.",
       fp_trap:
         "It is tempting to treat any 'Credit Card Number' match as automatically serious because PCI carries heavy compliance weight. But the confidence score (62, well below a typical 85+ block threshold), the sequential, PO-like DetectedValues, and the legitimate business relationship with the recipient all point to a coincidental numeric pattern, not real cardholder data. Escalating every PCI-labeled alert without checking confidence and context wastes analyst time and trains the business to ignore DLP alerts as noise.",
       xp: 30,

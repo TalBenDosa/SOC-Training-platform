@@ -23,7 +23,7 @@ import type { RoomExperience } from "./types";
 // at crew change, never a mistyped password or a VPN (q1); the bridge is a Duty Controller, a
 // system owner and the on-call lead deciding on a departure, never 40 servers (q2); the clean
 // neighbour is a signalling gateway, never a domain controller (log-1 q2); the page gaps are 8,
-// 53, 7 and 82 minutes, never 09:17 to 09:45 (log-1 q1); the half-done cases are accounts, mail
+// 53, 7 and 82 minutes, never 09:14 to 09:45 (log-1 q1); the half-done cases are accounts, mail
 // rules and remote sessions, never EDR isolating hosts (ac1). The day shift starts at 06:00, not
 // 07:00. The Tier 2 isolation fact (read-1 checkpoint) appears only as a row on the on-call card.
 //

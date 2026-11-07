@@ -9,7 +9,7 @@ const exposedKeyS3ExfilEvent: TelemetryEvent = {
   event_type: "cloud_storage_access",
   severity: "critical",
   user_email: "svc-deploy@nexacorp.com",
-  src_ip: "185.220.101.47",
+  src_ip: "203.0.113.47",
   geo: { country: "Netherlands", city: "Amsterdam" },
   description: "IAM user access key used from a Tor exit node to download objects from a private S3 bucket containing customer records",
   mitre_technique: "T1530",
@@ -23,7 +23,7 @@ const exposedKeyS3ExfilEvent: TelemetryEvent = {
     "aws.cloudtrail.userIdentity.accountId": "482915007733",
     "aws.cloudtrail.userIdentity.accessKeyId": "AKIAIOSFODNN7EXAMPLE",
     "aws.cloudtrail.userIdentity.userName": "svc-deploy",
-    "aws.cloudtrail.sourceIPAddress": "185.220.101.47",
+    "aws.cloudtrail.sourceIPAddress": "203.0.113.47",
     "aws.cloudtrail.userAgent": "aws-cli/2.13.0 Python/3.11.4 Linux/5.15.0",
     "aws.cloudtrail.requestParameters.bucketName": "nexacorp-customer-records",
     "aws.cloudtrail.requestParameters.key": "exports/customers_full_2026Q2.csv",
@@ -49,7 +49,7 @@ const cloudTrailStopLoggingEvent: TelemetryEvent = {
   event_type: "cloud_api_call",
   severity: "critical",
   user_email: "svc-deploy@nexacorp.com",
-  src_ip: "185.220.101.47",
+  src_ip: "203.0.113.47",
   geo: { country: "Netherlands", city: "Amsterdam" },
   description: "The organisation's primary CloudTrail trail was stopped via StopLogging, minutes before a burst of EC2 RunInstances calls: a classic move to blind the SOC before the noisy part of the attack",
   mitre_technique: "T1685.002",
@@ -63,7 +63,7 @@ const cloudTrailStopLoggingEvent: TelemetryEvent = {
     "aws.cloudtrail.userIdentity.accountId": "482915007733",
     "aws.cloudtrail.userIdentity.accessKeyId": "AKIAIOSFODNN7EXAMPLE",
     "aws.cloudtrail.userIdentity.userName": "svc-deploy",
-    "aws.cloudtrail.sourceIPAddress": "185.220.101.47",
+    "aws.cloudtrail.sourceIPAddress": "203.0.113.47",
     "aws.cloudtrail.userAgent": "aws-cli/2.13.0 Python/3.11.4 Linux/5.15.0",
     "aws.cloudtrail.requestParameters.name": "nexacorp-primary-trail",
     "aws.cloudtrail.responseElements": null,
@@ -87,8 +87,7 @@ const imdsPrivEscEvent: TelemetryEvent = {
   vendor: "AWS CloudTrail",
   event_type: "cloud_role_change",
   severity: "critical",
-  user_email: "svc-deploy@nexacorp.com",
-  src_ip: "185.220.101.47",
+  src_ip: "203.0.113.47",
   geo: { country: "Netherlands", city: "Amsterdam" },
   description: "Temporary credentials stolen from an EC2 instance's metadata service were used to create a new default version of ec2-webapp-policy granting * on *",
   mitre_technique: "T1078.004",
@@ -102,7 +101,7 @@ const imdsPrivEscEvent: TelemetryEvent = {
     "aws.cloudtrail.userIdentity.accountId": "482915007733",
     "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.type": "Role",
     "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.arn": "arn:aws:iam::482915007733:role/ec2-webapp-role",
-    "aws.cloudtrail.sourceIPAddress": "185.220.101.47",
+    "aws.cloudtrail.sourceIPAddress": "203.0.113.47",
     "aws.cloudtrail.userAgent": "aws-cli/2.13.0 Python/3.11.4 Linux/5.15.0",
     "aws.cloudtrail.requestParameters.policyArn": "arn:aws:iam::482915007733:policy/ec2-webapp-policy",
     "aws.cloudtrail.requestParameters.setAsDefault": true,
@@ -164,8 +163,7 @@ const cloudTrailDisabledEvent: TelemetryEvent = {
   vendor: "AWS CloudTrail",
   event_type: "cloud_api_call",
   severity: "critical",
-  user_email: "svc-deploy@nexacorp.com",
-  src_ip: "185.220.101.47",
+  src_ip: "203.0.113.47",
   geo: { country: "Netherlands", city: "Amsterdam" },
   description: "The primary CloudTrail logging trail was stopped shortly before large EC2 GPU instances were launched in an unused region",
   mitre_technique: "T1685.002",
@@ -177,7 +175,7 @@ const cloudTrailDisabledEvent: TelemetryEvent = {
     "aws.cloudtrail.userIdentity.type": "AssumedRole",
     "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::482915007733:assumed-role/ec2-webapp-role/i-0a1b2c3d4e5f67890",
     "aws.cloudtrail.userIdentity.accountId": "482915007733",
-    "aws.cloudtrail.sourceIPAddress": "185.220.101.47",
+    "aws.cloudtrail.sourceIPAddress": "203.0.113.47",
     "aws.cloudtrail.userAgent": "aws-cli/2.13.0 Python/3.11.4 Linux/5.15.0",
     "aws.cloudtrail.requestParameters.name": "nexacorp-primary-trail",
     "aws.cloudtrail.responseElements": null,
@@ -287,7 +285,7 @@ const awsSecurityRoom = {
         "  \"eventName\": \"GetObject\",\n" +
         "  \"eventSource\": \"s3.amazonaws.com\",\n" +
         "  \"awsRegion\": \"us-east-1\",\n" +
-        "  \"sourceIPAddress\": \"185.220.101.47\",\n" +
+        "  \"sourceIPAddress\": \"203.0.113.47\",\n" +
         "  \"userAgent\": \"aws-cli/2.13.0\",\n" +
         "  \"userIdentity\": {\n" +
         "    \"type\": \"IAMUser\",\n" +
@@ -434,7 +432,7 @@ const awsSecurityRoom = {
       content:
         `Beyond CloudTrail, three more AWS-native sources and one very specific attack technique come up constantly in real SOC investigations.\n\n` +
         `**GuardDuty: AWS's Built-In Threat Detection Engine**\n\n` +
-        `**GuardDuty** is AWS's managed threat-detection service. Think of it as a built-in Intrusion Detection System (IDS) for your cloud account. GuardDuty continuously analyzes CloudTrail events, VPC Flow Logs, and DNS query logs, and automatically raises findings using known threat-intelligence patterns and machine learning models, without the SOC having to write a single detection rule. Example GuardDuty finding types include UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration (stolen EC2 instance credentials being used from outside AWS), CryptoCurrency:EC2/BitcoinTool.B!DNS (an EC2 instance communicating with known crypto-mining pool domains), and Recon:IAMUser/MaliciousIPCaller (API calls originating from an IP address on AWS's threat intelligence list). GuardDuty findings feel similar to an EDR alert: they come pre-scored with a severity and a plain-English description, which makes them an excellent starting point for a Tier-1 analyst, but the underlying CloudTrail and Flow Log events are still where the deep investigation happens.\n\n` +
+        `**GuardDuty** is AWS's managed threat-detection service. Think of it as a built-in Intrusion Detection System (IDS) for your cloud account. GuardDuty continuously analyzes CloudTrail events, VPC Flow Logs, and DNS query logs, and automatically raises findings using known threat-intelligence patterns and machine learning models, without the SOC having to write a single detection rule. Example GuardDuty finding types include UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS (stolen EC2 instance credentials being used from outside AWS), CryptoCurrency:EC2/BitcoinTool.B!DNS (an EC2 instance communicating with known crypto-mining pool domains), and Recon:IAMUser/MaliciousIPCaller (API calls originating from an IP address on AWS's threat intelligence list). GuardDuty findings feel similar to an EDR alert: they come pre-scored with a severity and a plain-English description, which makes them an excellent starting point for a Tier-1 analyst, but the underlying CloudTrail and Flow Log events are still where the deep investigation happens.\n\n` +
         `**VPC Flow Logs: NetFlow for AWS**\n\n` +
         `**VPC Flow Logs** capture metadata about the IP traffic flowing to and from network interfaces within a VPC: source IP, destination IP, source port, destination port, protocol, number of bytes, and whether the traffic was ACCEPTed or REJECTed. This is conceptually identical to firewall traffic logs or NetFlow data on-premises. Flow Logs do not capture packet content (no payload, no URLs), only the connection metadata. They are essential for spotting things like an EC2 instance suddenly making outbound connections to an unfamiliar IP on an unusual port (a sign of C2 traffic or crypto-mining pool communication) or a database port (like 3306 or 5432) unexpectedly receiving connections from the public internet.\n\n` +
         `**Public S3 Buckets: The Classic Cloud Data Breach**\n\n` +
@@ -544,12 +542,12 @@ const awsSecurityRoom = {
       questions: [
         {
           question:
-            "Look at the aws.cloudtrail.userIdentity fields of this GetObject event (source 185.220.101.47, a known Tor exit node in the Netherlands). Why does the identity TYPE matter for scoping this incident?",
+            "Look at the aws.cloudtrail.userIdentity fields of this GetObject event (source 203.0.113.47, a known Tor exit node in the Netherlands). Why does the identity TYPE matter for scoping this incident?",
           options: [
             "IAMUser means a person signed in to the console, so start with that person's password and MFA history",
             "A long-term access key works until someone deactivates it, so all three days since the leak are in scope",
             "Like other AWS credentials, it expires within hours, so only last night's calls need to be reviewed",
-            "Type matters less than the source: scope the review to calls from the Tor IP 185.220.101.47 alone",
+            "Type matters less than the source: scope the review to calls from the Tor IP 203.0.113.47 alone",
           ],
           answer: 1,
           explanation:
@@ -574,14 +572,14 @@ const awsSecurityRoom = {
           question:
             "What should the analyst's immediate containment plan be for this confirmed key exposure and download?",
           options: [
-            "Block 185.220.101.47 with a network ACL and security group, then watch the key for any further use",
+            "Block 203.0.113.47 with a network ACL and security group, then watch the key for any further use",
             "Deactivate the key now, review every call it made since the GitHub leak, and open incident response",
             "Issue the build server a new key first, and keep the old key active until the deploy job is updated",
             "Purge the key from the GitHub history and force-push the repository clean, then close as remediated",
           ],
           answer: 1,
           explanation:
-            "A leaked long-term key must stop working immediately, and deactivating it does that while staying reversible. Because the key has been public for three days, every call it made since the leak needs reviewing (including the bucket's data events), and confirmed customer-data access means formal incident response and possibly breach notification. “Block 185.220.101.47 with a network ACL and security group” cannot stop API calls to S3, which are authorised by the credential, not by VPC network rules, and the attacker can simply switch IPs. “Keep the old key active until the deploy job is updated” is rotation in the wrong order: the stolen key stays usable while you wait. “Purge the key from the GitHub history” removes nothing the attacker already copied; the key itself is still valid.",
+            "A leaked long-term key must stop working immediately, and deactivating it does that while staying reversible. Because the key has been public for three days, every call it made since the leak needs reviewing (including the bucket's data events), and confirmed customer-data access means formal incident response and possibly breach notification. “Block 203.0.113.47 with a network ACL and security group” cannot stop API calls to S3, which are authorised by the credential, not by VPC network rules, and the attacker can simply switch IPs. “Keep the old key active until the deploy job is updated” is rotation in the wrong order: the stolen key stays usable while you wait. “Purge the key from the GitHub history” removes nothing the attacker already copied; the key itself is still valid.",
           xp: 25,
         },
       ],
@@ -607,7 +605,7 @@ const awsSecurityRoom = {
           ],
           answer: 1,
           explanation:
-            "The type is AssumedRole, the session issuer is ec2-webapp-role, and the session name i-0a1b2c3d4e5f67890 is an EC2 instance ID: the standard naming for an instance-profile session, whose credentials come from IMDS. Those credentials are being used from 185.220.101.47, the same Tor exit node as the S3 event, so the attacker has stolen the instance's role credentials (likely via SSRF against IMDS) and is using them from outside AWS. “A second IAM user's key” misreads the type: an IAM user's key shows as IAMUser with a user ARN, while AssumedRole means temporary role credentials. “Role credentials are bound to the instance holding them” is the misconception that makes theft possible to miss: they are bearer credentials, usable by anyone who holds them, from anywhere. “A Lambda function's routine call” misreads the suffix: 'i-' plus 17 hex characters is an instance ID, and the call came from a Tor exit node, not from inside AWS.",
+            "The type is AssumedRole, the session issuer is ec2-webapp-role, and the session name i-0a1b2c3d4e5f67890 is an EC2 instance ID: the standard naming for an instance-profile session, whose credentials come from IMDS. Those credentials are being used from 203.0.113.47, the same Tor exit node as the S3 event, so the attacker has stolen the instance's role credentials (likely via SSRF against IMDS) and is using them from outside AWS. “A second IAM user's key” misreads the type: an IAM user's key shows as IAMUser with a user ARN, while AssumedRole means temporary role credentials. “Role credentials are bound to the instance holding them” is the misconception that makes theft possible to miss: they are bearer credentials, usable by anyone who holds them, from anywhere. “A Lambda function's routine call” misreads the suffix: 'i-' plus 17 hex characters is an instance ID, and the call came from a Tor exit node, not from inside AWS.",
           xp: 25,
         },
         {
@@ -846,7 +844,7 @@ const awsSecurityRoom = {
         "SELECT eventTime, eventName, eventSource,\n" +
         "       sourceIPAddress, userIdentity.arn, errorCode\n" +
         "FROM cloudtrail_logs\n" +
-        "WHERE sourceIPAddress = '185.220.101.47'\n" +
+        "WHERE sourceIPAddress = '203.0.113.47'\n" +
         "  AND eventTime BETWEEN '2026-06-11T00:00:00Z'\n" +
         "                     AND '2026-06-11T12:00:00Z'\n" +
         "ORDER BY eventTime ASC;\n" +

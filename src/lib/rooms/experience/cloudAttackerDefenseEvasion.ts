@@ -217,7 +217,7 @@ export const CLOUD_ATTACKER_DEFENSE_EVASION: RoomExperience = {
           ["Detector deleted", "T1562.008", "Revoked", "T1685.002", "Defense Impairment (TA0112)"],
           ["Group opened to the internet", "T1562.007", "Revoked", "T1686.001", "Defense Impairment (TA0112)"],
           ["First launch by an identity", "T1578.002", "Current", "T1578.002", "Defense Impairment (TA0112)"],
-          ["Snapshot shared outside", "T1578.001", "Current", "T1578.001", "Defense Impairment (TA0112)"],
+          ["Snapshot taken outside the backup job", "T1578.001", "Current", "T1578.001", "Defense Impairment (TA0112)"],
           ["Instance deleted after a finding", "T1578.003", "Current", "T1578.003", "Defense Impairment (TA0112)"],
           ["Admin removed from a role", "T1531", "Current", "T1531", "Impact (TA0040)"],
           ["Kernel exploit on a host", "T1068", "Current", "T1068", "Privilege Escalation (TA0004)"],
@@ -331,7 +331,7 @@ export const CLOUD_ATTACKER_DEFENSE_EVASION: RoomExperience = {
           title: "A copy that can change hands",
           points: [
             "A **snapshot** is a point-in-time copy of a storage volume, on AWS an EBS (Elastic Block Store) volume. Backups create them constantly.",
-            "**T1578.001**, Create Snapshot, is the attacker's use of the same mechanism, filed under Defense Impairment.",
+            "**T1578.001**, Create Snapshot, is the attacker's use of the same mechanism, filed under Defense Impairment. Handing the copy to a cloud account the attacker holds is a separate entry, **T1537**, Transfer Data to Cloud Account, under Exfiltration.",
             "It takes two calls: `CreateSnapshot` makes the copy, and `ModifySnapshotAttribute` decides who else may use it.",
             "Sharing moves no bytes at the time. The other account builds its own volume, so nothing crosses a network you monitor.",
           ],

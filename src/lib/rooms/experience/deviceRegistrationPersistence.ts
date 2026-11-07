@@ -20,8 +20,8 @@ import type { BriefingLab, RoomExperience } from "./types";
 // misfire, never a phone swap with a helpdesk call (ac1). The boss lab is a contractor's own
 // laptop that outlived a password rotation, with no attacker and no Authenticator (q4). The
 // worked examples use a jump host, a job title, a tablet, a mailbox, a pipe and a door pass.
-// r2 says Register device logs under category DeviceManagement. Microsoft's audit reference
-// says Device, so the portal says Device. Fixing r2 needs a new narration recording.
+// The method diff sits on the Core Directory Update user record, not on the Authentication
+// Methods record that names the action, so the audit tab shows both.
 
 type Portal = Extract<BriefingLab, { kind: "portal" }>;
 
@@ -30,6 +30,7 @@ const GWEN = "g.tallis@stonehavencredit.example";
 const GWEN_ID = "f3a07c1e-52d8-4b96-8e14-6d2b9c07e1a5";
 const INTRUDER_IP = "203.0.113.58";
 const CORR = "6c2e91d4-07ab-4f53-b8e2-1a9d3f7c4e60";
+const SEC_CORR = "b27e40d1-6f3a-4c85-9e12-7d0a5c3f8b46";
 const LAPTOP_ID = "5e0b84a7-c3f2-4d19-92ab-08d7e6f1c324";
 
 const DEVICE_LIST_LAB: Portal = {
@@ -40,7 +41,7 @@ const DEVICE_LIST_LAB: Portal = {
   primer: {
     title: "Two lists, one account",
     points: [
-      "**The user's methods** are what can answer an MFA prompt. A new one is written to the audit log as `User registered security info`.",
+      "**The user's methods** are what can answer an MFA prompt. A new one is written to the audit log as `User registered security info`, and a companion `Update user` record holds the list before and after.",
       "**The tenant's devices** are objects with an owner, listed under All devices. A new one is written as `Register device`, then `Add registered owner to device`. A policy that checks the device reads this list.",
       "**Microsoft Entra registered** is the join type for a personal device. A **Primary Refresh Token (PRT)** is the token a broker app holds on a device for single sign-on: valid 90 days and renewed while it's in use.",
       "`MFA requirement satisfied by claim in the token` means nobody approved anything at that moment. The session already carried proof of an earlier MFA.",
@@ -137,6 +138,7 @@ const DEVICE_LIST_LAB: Portal = {
           { id: "a-admin", cells: ["Wednesday 09:20:05", "Self-service Password Management", "UserManagement", "Reset password (by admin)", "Success", "h.sorel@stonehavencredit.example"], record: "a-admin" },
           { id: "a-own", cells: ["Tuesday 10:38:06", "Core Directory", "Device", "Add registered owner to device", "Success", GWEN], record: "a-own" },
           { id: "a-reg", cells: ["Tuesday 10:38:04", "Device Registration Service", "Device", "Register device", "Success", GWEN], record: "a-reg" },
+          { id: "a-diff", cells: ["Tuesday 10:31:17", "Core Directory", "UserManagement", "Update user", "Success", GWEN], record: "a-diff" },
           { id: "a-sec", cells: ["Tuesday 10:31:17", "Authentication Methods", "UserManagement", "User registered security info", "Success", GWEN], record: "a-sec" },
           { id: "a-upd", cells: ["Monday 14:02:44", "Core Directory", "UserManagement", "Update user", "Success", "hr-sync@stonehavencredit.example"], record: "a-upd" },
         ],
@@ -150,7 +152,8 @@ const DEVICE_LIST_LAB: Portal = {
     "d-rogue": { id: "d-rogue", title: "iPhone", actions: [{ id: "disable", label: "Disable" }, { id: "delete", label: "Delete" }], facts: [["Model", "iPhone 15 Pro"], ["OS version", "iOS 18.1"], ["Device ID", "a81d3f60-29c7-4e15-b0d4-7f6e12c9a3b8"], ["Join type", "Microsoft Entra registered"], ["MDM", "None"], ["Compliant", "N/A"], ["Owner", "g.tallis"], ["Registered", "Tuesday 10:38"], ["Asset register", "No match"]] },
     "a-reg": { id: "a-reg", title: "Audit Log Details", facts: [["Activity", "Register device"], ["Service", "Device Registration Service"], ["Category", "Device"], ["Target", "iPhone (iPhone 15 Pro)"], ["Initiated by", GWEN], ["initiatedBy.user.ipAddress", INTRUDER_IP], ["Correlation ID", CORR]] },
     "a-own": { id: "a-own", title: "Audit Log Details", facts: [["Activity", "Add registered owner to device"], ["Service", "Core Directory"], ["Category", "Device"], ["Target", "iPhone (iPhone 15 Pro)"], ["Modified property", "Owner: g.tallis"], ["Correlation ID", CORR]] },
-    "a-sec": { id: "a-sec", title: "Audit Log Details", facts: [["Activity", "User registered security info"], ["Service", "Authentication Methods"], ["Category", "UserManagement"], ["initiatedBy.user.userPrincipalName", GWEN], ["initiatedBy.user.id", GWEN_ID], ["initiatedBy.user.ipAddress", INTRUDER_IP], ["initiatedBy.user.roles", "[]"], ["targetResources[0].id", GWEN_ID], ["modifiedProperties[0].displayName", "StrongAuthenticationMethod"], ["oldValue", "[{\"MethodType\":\"PhoneAppOTP\",\"Default\":true},{\"MethodType\":\"TwoWayVoiceMobile\",\"Default\":false}]"], ["newValue", "[{\"MethodType\":\"PhoneAppOTP\",\"Default\":true},{\"MethodType\":\"TwoWayVoiceMobile\",\"Default\":false},{\"MethodType\":\"PhoneAppNotification\",\"Default\":false}]"]] },
+    "a-sec": { id: "a-sec", title: "Audit Log Details", facts: [["Activity", "User registered security info"], ["Service", "Authentication Methods"], ["Category", "UserManagement"], ["initiatedBy.user.userPrincipalName", GWEN], ["initiatedBy.user.id", GWEN_ID], ["initiatedBy.user.ipAddress", INTRUDER_IP], ["initiatedBy.user.roles", "[]"], ["targetResources[0].id", GWEN_ID], ["Correlation ID", SEC_CORR]] },
+    "a-diff": { id: "a-diff", title: "Audit Log Details", facts: [["Activity", "Update user"], ["Service", "Core Directory"], ["Category", "UserManagement"], ["Target", GWEN], ["modifiedProperties[0].displayName", "StrongAuthenticationMethod"], ["oldValue", "[{\"MethodType\":\"PhoneAppOTP\",\"Default\":true},{\"MethodType\":\"TwoWayVoiceMobile\",\"Default\":false}]"], ["newValue", "[{\"MethodType\":\"PhoneAppOTP\",\"Default\":true},{\"MethodType\":\"TwoWayVoiceMobile\",\"Default\":false},{\"MethodType\":\"PhoneAppNotification\",\"Default\":false}]"], ["Correlation ID", SEC_CORR]] },
     "a-admin": { id: "a-admin", title: "Audit Log Details", facts: [["Activity", "Reset password (by admin)"], ["Service", "Self-service Password Management"], ["Target", GWEN], ["Initiated by", "h.sorel@stonehavencredit.example"], ["initiatedBy.user.roles", "[\"Helpdesk Administrator\"]"], ["Modified property", "Password"]] },
     "a-sspr": { id: "a-sspr", title: "Audit Log Details", facts: [["Activity", "Reset password (self-service)"], ["Service", "Self-service Password Management"], ["Target", GWEN], ["initiatedBy.user.ipAddress", INTRUDER_IP], ["Verification", "Microsoft Authenticator notification"], ["Modified property", "Password"]] },
     "a-upd": { id: "a-upd", title: "Audit Log Details", facts: [["Activity", "Update user"], ["Target", GWEN], ["Initiated by", "hr-sync@stonehavencredit.example"], ["Modified property", "Department"]] },
@@ -169,7 +172,8 @@ const DEVICE_LIST_LAB: Portal = {
     { id: "phone", ask: "One object here isn't on the asset register. Open it.", hint: "Check each name against the pinned note, then look at who manages it.", target: "row:d-rogue", why: "An iPhone 15 Pro, Microsoft Entra registered, no MDM, added on Tuesday at 10:38. Stonehaven never bought it, and it was active at 02:17 this morning." },
     { id: "audit", ask: "Something created that object. Go to where the tenant writes its changes down.", hint: "Monitoring & health.", target: "menu:audit", why: "Sign-in logs say who got a token. Audit logs say what changed. A device doesn't appear without a record here." },
     { id: "reg", ask: "Open the record that created the phone.", hint: "Tuesday, and the Device category.", target: "row:a-reg", why: "Register device, from 203.0.113.58. That's a whole device object in the tenant. The Add registered owner record beside it has the same Correlation ID: one action, two records." },
-    { id: "sec", ask: "Seven minutes earlier the same session changed the account itself. Open that record.", hint: "Tuesday 10:31.", target: "row:a-sec", why: "User registered security info. Line up oldValue and newValue: two entries became three. The actor id and target id are the same and roles is empty, so whoever held this session did it themselves, with no admin." },
+    { id: "sec", ask: "Seven minutes earlier the same session changed the account itself. Open the record that names what it did.", hint: "Tuesday 10:31, Authentication Methods.", target: "row:a-sec", why: "User registered security info. The actor id and target id are the same and roles is empty, so whoever held this session did it themselves, with no admin. This record names the action, not the list." },
+    { id: "diff", ask: "The list itself is on a companion record written at the same moment. Open it.", hint: "Same second, Core Directory.", target: "row:a-diff", why: "Update user, same Correlation ID. Line up oldValue and newValue: two entries became three." },
     { id: "admin", ask: "Wednesday is when IT thought this ended. Open that reset.", hint: "Reset password, with a Helpdesk Administrator as actor.", target: "row:a-admin", why: "Hana Sorel reset the password after Gwen reported the mail. Read what the record changed: Password. Nothing about a method, nothing about a device." },
     { id: "sspr", ask: "Gwen's Wednesday password has stopped working. Find the record that explains it.", hint: "Late last night, same service.", target: "row:a-sspr", why: "Reset password (self-service) at 23:41 last night, from the same address, verified by an Authenticator notification. The password lasted a day and a half, because someone proved a registered method and chose a new one." },
     { id: "methods", ask: "Two resets later, check what's on the account's method list.", hint: "Authentication methods, on Gwen's own user entry in the menu.", target: "menu:methods", why: "Still three, and Tuesday's entry on the iPhone 15 Pro hasn't moved. Neither reset edited this list, and this tenant needs just one method to pass SSPR." },
@@ -322,7 +326,7 @@ export const DEVICE_REGISTRATION_PERSISTENCE: RoomExperience = {
             ],
           },
         },
-        source: "Audit logs · Authentication Methods · n.brandt · Tuesday 14:06",
+        source: "Audit logs · Authentication Methods, with its Core Directory companion · n.brandt · Tuesday 14:06",
         fields: [
           { key: "activityDisplayName", value: "User registered security info", label: "What happened", note: "The operation Entra writes when an authentication method is registered on an account." },
           { key: "category", value: "UserManagement", label: "Filed under" },
@@ -333,6 +337,7 @@ export const DEVICE_REGISTRATION_PERSISTENCE: RoomExperience = {
           { key: "initiatedBy.user.ipAddress", value: "198.51.100.40", label: "From where", note: "The network address of the session that acted. This is the value you pivot on in SigninLogs. It's Stonehaven's Aberdeen office." },
           { key: "initiatedBy.user.roles", value: "[]", label: "Directory role", note: "No directory role on the acting session. On an admin-assisted change this names one, such as Helpdesk Administrator." },
           { key: "targetResources[0].id", value: "2b7f90c4-61de-4f08-a7c3-95e1d04b86f2", label: "Target id", note: "Compare it with the actor id. Same value: the account acted on itself." },
+          { key: "Companion record", value: "Update user, Core Directory, same correlationId", label: "Where the change sits", note: "The record above names the action. The next three fields come from this companion record." },
           { key: "modifiedProperties[0].displayName", value: "StrongAuthenticationMethod", label: "Property changed", note: "The property that holds the account's list of methods." },
           { key: "oldValue", value: "[{\"MethodType\":\"PhoneAppOTP\",\"Default\":true}]", label: "Before" },
           { key: "newValue", value: "[{\"MethodType\":\"PhoneAppOTP\",\"Default\":true},{\"MethodType\":\"TwoWayVoiceMobile\",\"Default\":false}]", label: "After", note: "One entry in both lists, and one only here. A mobile number was added, and the app stays the default." },

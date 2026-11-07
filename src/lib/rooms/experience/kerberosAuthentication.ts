@@ -31,9 +31,9 @@ import type { RoomExperience } from "./types";
 // on Vale's logs, never signal-to-attack pairs (m1); the boss warm-up is an imaging link, a lift
 // gateway and other steady clients under their own records, never a backup job to a NAS (ac1).
 //
-// Reading r3 says an account with msDS-SupportedEncryptionTypes unset can produce 0x17. Since the
-// April 2026 Kerberos hardening (CVE-2026-20833) an unset account gets AES by default, so the labs
-// use explicit attribute values only. Fixing the reading needs a new narration recording.
+// Since the April 2026 Kerberos hardening (CVE-2026-20833) an account with
+// msDS-SupportedEncryptionTypes unset gets AES by default (reading r3 says so), so the labs use
+// explicit attribute values only.
 
 const REALM = "@VALEHEALTH.EXAMPLE";
 const DAY = "2026-11-03";

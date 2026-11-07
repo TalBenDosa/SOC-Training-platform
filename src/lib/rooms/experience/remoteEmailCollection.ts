@@ -21,7 +21,7 @@ import type { HuntTable } from "./hunt";
 // the owner's one read is from home in the evening, not the office by day (q3); the query lab
 // hunts Set-Mailbox, never the rule operation or the two rule parameters (qf1); the response lab
 // tries one move at a time and never shows an order (o1, q4).
-// Sync is logged for desktop Outlook only. Readings r2 and r5 also name phones; see the doc.
+// Sync is logged for desktop Outlook only, and readings r2 and r5 now say so.
 
 const OWNER = "i.marchetti@sablepoint.example";
 const COVER = "n.ferreira@sablepoint.example";

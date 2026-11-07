@@ -94,7 +94,7 @@ export const INVESTIGATE_ALERT_WORKFLOW: RoomExperience = {
   personas: {
     "inv7-q1": { name: "Soren Adebayo", role: "Senior SOC Analyst", line: "Minute one. Tell me what you do, and why that first." },
     "inv7-la1": { name: "Soren Adebayo", role: "Senior SOC Analyst", line: "Read the record, not the title on it." },
-    "inv7-o1": { name: "Soren Adebayo", role: "Senior SOC Analyst", line: "Say the workflow back to me, the way it really runs." },
+    "inv7-o1": { name: "Soren Adebayo", role: "Senior SOC Analyst", line: "Say the seven steps back to me, in their numbered order." },
     "inv7-la2": { name: "Soren Adebayo", role: "Senior SOC Analyst", line: "One record. Tell me what it establishes, and no more." },
     "inv7-qf1": { name: "Soren Adebayo", role: "Senior SOC Analyst", line: "Write it so the next analyst can run it." },
     "inv7-q2": { name: "Soren Adebayo", role: "Senior SOC Analyst", line: "You have what's left of this shift. Where does the time go?" },

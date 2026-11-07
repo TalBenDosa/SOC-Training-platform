@@ -27,16 +27,16 @@ const oauthConsentEvent: TelemetryEvent = {
   severity: "high",
   mitre_technique: "T1528",
   mitre_tactic: "Credential Access",
-  user_email: "k.stensrud@medcorehealth.org",
+  user_email: "k.stensrud@medcorehealth.example",
   user_title: "Clinical Operations Manager",
-  src_ip: "35.190.22.61",
+  src_ip: "198.51.100.61",
   geo: { country: "United States", city: "Chicago" },
   description:
-    "A token audit 'authorize' event recorded k.stensrud@medcorehealth.org granting a third-party app named FormFlow Sync the scopes for full Calendar and full Drive access, with an offline refresh token issued.",
+    "A token audit 'authorize' event recorded k.stensrud@medcorehealth.example granting a third-party app named FormFlow Sync the scopes for full Calendar and full Drive access, with an offline refresh token issued.",
   raw: {
     "gws.event.type": "token",
     "gws.event.name": "authorize",
-    "gws.actor.email": "k.stensrud@medcorehealth.org",
+    "gws.actor.email": "k.stensrud@medcorehealth.example",
     "gws.token.client_id": "719402883561-q8m3k7n2p9r4t6u1v0w5x8y3z2a7b6c1.apps.googleusercontent.com",
     "gws.token.app_name": "FormFlow Sync",
     "gws.token.client_type": "WEB",
@@ -46,13 +46,12 @@ const oauthConsentEvent: TelemetryEvent = {
       "openid",
       "https://www.googleapis.com/auth/userinfo.email",
     ],
-    "gws.token.api_name": ["calendar", "drive"],
     "gws.token.access_type": "offline",
     "gws.app.allowlist_status": "NOT_CONFIGURED",
     "gws.app.marketplace_verified": "false",
     "gws.app.publisher": "unverified",
-    "gws.app.redirect_uri": "https://formflow-sync.app/oauth2/callback",
-    "source.ip": "35.190.22.61",
+    "gws.app.redirect_uri": "https://formflow-sync.example/oauth2/callback",
+    "source.ip": "198.51.100.61",
     "source.geo.country_name": "United States",
     "source.geo.city_name": "Chicago",
     "application.name": "FormFlow Sync",
@@ -60,7 +59,7 @@ const oauthConsentEvent: TelemetryEvent = {
     "application.type": "oauth2_web",
     "event.action": "authorize",
     "event.outcome": "success",
-    "user.email": "k.stensrud@medcorehealth.org",
+    "user.email": "k.stensrud@medcorehealth.example",
   },
 };
 
@@ -73,8 +72,8 @@ const driveDownloadBurstEvent: TelemetryEvent = {
   severity: "high",
   mitre_technique: "T1530",
   mitre_tactic: "Collection",
-  user_email: "k.stensrud@medcorehealth.org",
-  src_ip: "146.148.92.14",
+  user_email: "k.stensrud@medcorehealth.example",
+  src_ip: "203.0.113.14",
   geo: { country: "Netherlands", city: "Amsterdam" },
   file: {
     name: "Patient_Intake_Q2.xlsx",
@@ -87,26 +86,24 @@ const driveDownloadBurstEvent: TelemetryEvent = {
   raw: {
     "gws.event.type": "access",
     "gws.event.name": "download",
-    "gws.actor.email": "k.stensrud@medcorehealth.org",
-    "gws.token.client_id": "719402883561-q8m3k7n2p9r4t6u1v0w5x8y3z2a7b6c1.apps.googleusercontent.com",
-    "gws.token.app_name": "FormFlow Sync",
+    "gws.actor.email": "k.stensrud@medcorehealth.example",
     "gws.drive.doc_title": "Patient_Intake_Q2.xlsx",
     "gws.drive.doc_id": "1Z9y8X7w6V5u4T3s2R1q0P9o8N7m6L5k4J3i2H1g0",
     "gws.drive.doc_type": "spreadsheet",
-    "gws.drive.owner": "k.stensrud@medcorehealth.org",
+    "gws.drive.owner": "k.stensrud@medcorehealth.example",
     "gws.drive.visibility": "private",
     "gws.access.download_count_window": "340",
+    "gws.drive.originating_app_id": "719402883561",
     "gws.access.via_oauth_app": "FormFlow Sync",
     "file.name": "Patient_Intake_Q2.xlsx",
     "file.path": "/Drive/Clinical/Q2/Patient_Intake_Q2.xlsx",
     "file.size": "5812224",
-    "source.ip": "146.148.92.14",
+    "source.ip": "203.0.113.14",
     "source.geo.country_name": "Netherlands",
     "source.geo.city_name": "Amsterdam",
-    "application.name": "FormFlow Sync",
     "event.action": "download",
     "event.outcome": "success",
-    "user.email": "k.stensrud@medcorehealth.org",
+    "user.email": "k.stensrud@medcorehealth.example",
   },
 };
 
@@ -117,36 +114,32 @@ const benignAllowlistedGrantEvent: TelemetryEvent = {
   vendor: "Google Workspace",
   event_type: "account_modify",
   severity: "informational",
-  user_email: "p.duval@medcorehealth.org",
+  user_email: "p.duval@medcorehealth.example",
   user_title: "Executive Assistant",
-  src_ip: "35.190.22.4",
+  src_ip: "198.51.100.4",
   geo: { country: "United States", city: "Chicago" },
-  expected_verdict: "fp",
-  fp_explanation:
-    "p.duval authorized Grammarly, an admin-allowlisted, marketplace-verified app, requesting only a narrow document-content scope for its writing-assistance feature -- a routine, sanctioned OAuth grant. It does receive an offline refresh token, but a refresh token limited to drive.file on a vetted app is a small, sanctioned footprint. The act of granting an app is identical in shape to the FormFlow Sync incident; the discriminators are scope breadth, allowlist status, and publisher verification, not the act of consenting itself.",
   description:
-    "A token audit 'authorize' event recorded p.duval@medcorehealth.org granting the app Grammarly one Drive scope, with an offline refresh token issued.",
+    "A token audit 'authorize' event recorded p.duval@medcorehealth.example granting the app DraftLark one Drive scope, with an offline refresh token issued.",
   raw: {
     "gws.event.type": "token",
     "gws.event.name": "authorize",
-    "gws.actor.email": "p.duval@medcorehealth.org",
+    "gws.actor.email": "p.duval@medcorehealth.example",
     "gws.token.client_id": "441029581763-h5j2k9l1m3n7o4p6q8r0s2t5u1v9w3x7.apps.googleusercontent.com",
-    "gws.token.app_name": "Grammarly",
+    "gws.token.app_name": "DraftLark",
     "gws.token.client_type": "WEB",
     "gws.token.scope": ["https://www.googleapis.com/auth/drive.file"],
-    "gws.token.api_name": "drive",
     "gws.token.access_type": "offline",
     "gws.app.allowlist_status": "TRUSTED",
     "gws.app.marketplace_verified": "true",
-    "gws.app.publisher": "Grammarly Inc.",
-    "source.ip": "35.190.22.4",
+    "gws.app.publisher": "DraftLark Software Ltd",
+    "source.ip": "198.51.100.4",
     "source.geo.country_name": "United States",
     "source.geo.city_name": "Chicago",
-    "application.name": "Grammarly",
+    "application.name": "DraftLark",
     "application.type": "oauth2_web",
     "event.action": "authorize",
     "event.outcome": "success",
-    "user.email": "p.duval@medcorehealth.org",
+    "user.email": "p.duval@medcorehealth.example",
   },
 };
 
@@ -235,8 +228,8 @@ const googleWorkspaceSecurityRoom = {
         "Third-party OAuth applications are one of the highest-impact, most under-appreciated attack surfaces in any cloud-identity environment, and Google Workspace's token audit is where an analyst reads exactly what was granted.\n\n" +
         "**The consent flow, briefly.** A user visiting a third-party app's website is redirected to a genuine Google consent screen, listing the specific permissions (scopes) the app is requesting, and clicks Allow. Nothing about this flow requires a password to be re-entered, and no malware needs to run on the user's device, the entire transaction happens between the user's browser and Google's own servers, which is exactly why this vector bypasses endpoint detection entirely and, just as importantly, bypasses MFA: there is no interactive login for a second factor to challenge, because delegation, not authentication, is what's happening.\n\n" +
         "**Reading the token audit event.** A gws.event.type token, gws.event.name authorize event names the acting user (gws.actor.email), the app (gws.token.app_name and the durable gws.token.client_id, which stays constant across every future use of the grant), and, most importantly, gws.token.scope, an array listing exactly what was requested. A scope like https://mail.google.com/ grants full read/write/delete access to the entire mailbox. A scope like https://www.googleapis.com/auth/drive grants the same breadth over the entire Drive. Compare that to a narrow scope like drive.file, which only grants access to files the app itself created or the user explicitly opened with it: a dramatically smaller blast radius for the exact same 'a user authorized an app' shape.\n\n" +
-        "**gws.token.access_type: online vs offline, and why it matters enormously.** An online token is only valid while a live session exists and typically expires quickly. An offline token (issued when the app requests it and the user consents) is a refresh token: a durable credential the app's own servers can use to obtain fresh access whenever they want, indefinitely, without the user present at all. This is the persistence mechanism in an OAuth-abuse case: the grant itself, not any later action, is what keeps working. Be precise about what a password reset does here. Google documents that a refresh token stops working when the user changes their password AND the token contains Gmail scopes (such as https://mail.google.com/). A refresh token holding only other scopes (Drive, Calendar, Contacts) is not tied to the password and keeps working after a reset. So a reset may happen to cut off a Gmail grant, but it is never a reliable way to contain OAuth abuse: the specific grant must be explicitly revoked.\n\n" +
-        "**Governance fields: allowlist_status, marketplace_verified, publisher.** Google Workspace admins can restrict which third-party apps are allowed to request access at all; gws.app.allowlist_status reflects whether a given app was explicitly approved (TRUSTED) or is simply unrestricted by default policy (NOT_CONFIGURED / NOT_ALLOWLISTED). gws.app.marketplace_verified and gws.app.publisher indicate whether Google has reviewed the app's listing and whether it names a real, identifiable company. None of these fields is about what the user did. They're about the app's own governance status, and they are the fastest way to separate a sanctioned integration from an opportunistic one requesting the exact same kind of grant.",
+        "**Online vs offline access, and why it matters enormously.** An app chooses between two kinds of access in its consent request, through a parameter called access_type. An online grant gives it a short-lived access token: the token works until it expires, and once the user is gone the app cannot get a new one. An offline grant also issues a refresh token: a durable credential the app's own servers can use to obtain fresh access whenever they want, indefinitely, without the user present at all. Google's token log does not record this choice, so gws.token.access_type in this room's events is an enrichment added by the SIEM export, not a Google field. The native evidence is behaviour: activity events for the same client_id that keep arriving long after the user has left. This is the persistence mechanism in an OAuth-abuse case: the grant itself, not any later action, is what keeps working. Be precise about what a password reset does here. Google documents that a refresh token stops working when the user changes their password AND the token contains Gmail scopes (such as https://mail.google.com/). A refresh token holding only other scopes (Drive, Calendar, Contacts) is not tied to the password and keeps working after a reset. So a reset may happen to cut off a Gmail grant, but it is never a reliable way to contain OAuth abuse: the specific grant must be explicitly revoked.\n\n" +
+        "**Governance fields: allowlist_status, marketplace_verified, publisher.** Google Workspace admins can restrict which third-party apps are allowed to request access at all, and the Admin console's API controls page shows each app's access setting and whether Google has verified it. The token event carries none of this, so the SIEM export joins it in as enrichment, in the gws.app.* fields rather than in Google's own record. gws.app.allowlist_status reflects whether a given app was explicitly approved (TRUSTED) or is simply unrestricted by default policy (NOT_CONFIGURED / NOT_ALLOWLISTED). gws.app.marketplace_verified and gws.app.publisher indicate whether Google has reviewed the app's listing and whether it names a real, identifiable company. None of these fields is about what the user did. They're about the app's own governance status, and they are the fastest way to separate a sanctioned integration from an opportunistic one requesting the exact same kind of grant. A sanctioned app still produces a real authorize event, so a rule watching that event will fire on it. When a detection fires on something that really happened but is authorised, analysts call it a benign true positive and close it citing the authorisation. A false positive is different: the rule matched something it was never meant to catch, so the behaviour it describes did not occur.",
       diagram:
         "flowchart LR\n" +
         "  U[User clicks Allow on Google's own consent screen] --> T[Token audit: event.name authorize]\n" +
@@ -266,7 +259,7 @@ const googleWorkspaceSecurityRoom = {
       id: "gwsf-la1",
       heading: "One Click on a Consent Screen",
       context:
-        "MedCore Health's Alert Center flagged a sensitive-scope OAuth grant. k.stensrud, a clinical operations manager, had clicked through a consent screen for an app called FormFlow Sync earlier that afternoon after receiving an email inviting her to connect it to her Google account for form automation.",
+        "A custom activity rule on MedCore Health's OAuth log raised an Alert Center alert for a sensitive-scope grant. k.stensrud, a clinical operations manager, had clicked through a consent screen for an app called FormFlow Sync earlier that afternoon after receiving an email inviting her to connect it to her Google account for form automation.",
       event: oauthConsentEvent,
       questions: [
         {
@@ -275,12 +268,12 @@ const googleWorkspaceSecurityRoom = {
           options: [
             "Lasting read/write access to all of Calendar and Drive, via a refresh token",
             "Access only to Drive files the user creates or opens with FormFlow Sync",
-            "Full Calendar and Drive access that ends when k.stensrud's session ends",
+            "Full Calendar and Drive access that lapses when one short-lived token expires",
             "Full Calendar and Drive access, but read-only until an admin approves it",
           ],
           answer: 0,
           explanation:
-            "The two scopes are among the broadest Google issues (full Calendar, full Drive), and 'offline' means a refresh token was issued: a durable credential the app's servers can use without the user present. Because neither scope is a Gmail scope, a password change does not invalidate it either. “Only files the user opens with the app” describes the narrow drive.file scope, which is not what was granted. “Ends with her session” describes an online token, not offline. And the governance fields do not turn a grant into read-only pending approval: the scopes requested are the access the app got.",
+            "The two scopes are among the broadest Google issues (full Calendar, full Drive), and 'offline' means a refresh token was issued: a durable credential the app's servers can use without the user present. Because neither scope is a Gmail scope, a password change does not invalidate it either. “Only files the user opens with the app” describes the narrow drive.file scope, which is not what was granted. “Lapses when one short-lived token expires” describes an online grant, not offline. And the governance fields do not turn a grant into read-only pending approval: the scopes requested are the access the app got.",
           xp: 25,
         },
         {
@@ -322,8 +315,8 @@ const googleWorkspaceSecurityRoom = {
         "Google Drive is where most of an organisation's working files live in a Workspace environment, and its audit log is where both sharing risk and exfiltration activity show up.\n\n" +
         "**The core fields.** A drive-category event names the affected document through gws.drive.doc_title and a stable gws.drive.doc_id, the file's gws.drive.owner, and its gws.drive.visibility (private, or shared at some broader level: within the organisation, or, most permissively, anyone with the link). gws.event.name distinguishes the kind of interaction: view, edit, download, or a permission change specifically (adding a collaborator, or changing a file's visibility level).\n\n" +
         "**Sharing risk.** A file moving from private or organisation-only visibility to anyone-with-the-link is one of the highest-value events to alert on in any Drive environment. It means the access control protecting that file's content no longer depends on who the recipient is at all, only on whether they have the link, which can itself be forwarded, guessed, or leaked. This is conceptually identical to an external-sharing alert in SharePoint or OneDrive; only the field names differ.\n\n" +
-        "**Download volume as a collection signal.** A single download event is unremarkable. Every normal workday produces many. What matters is volume and pattern: gws.access.download_count_window (or an equivalent aggregation an ingesting SIEM computes from a burst of individual download events) showing hundreds of downloads in a short window, especially attributed to an OAuth app's token rather than an interactive user session, is the Drive equivalent of a mass-download insider-threat or exfiltration signal this platform already teaches for SharePoint and OneDrive.\n\n" +
-        "**gws.access.via_oauth_app: the field that ties collection back to a grant.** When present, this field names the specific OAuth application whose token authenticated the access, the direct link between an earlier token authorize event and everything that app subsequently does. An analyst investigating a suspicious download burst should always check this field: activity attributed to an app token, from an app's own infrastructure IP rather than the user's normal device, is a fundamentally different finding than the same volume of downloads from the user's own browser session.",
+        "**Download volume as a collection signal.** A single download event is unremarkable. Every normal workday produces many. What matters is volume and pattern: gws.access.download_count_window, an aggregation the SIEM export computes because Google logs each download as its own event, showing hundreds of downloads in a short window, especially attributed to an OAuth app's token rather than an interactive user session, is the Drive equivalent of a mass-download insider-threat or exfiltration signal this platform already teaches for SharePoint and OneDrive.\n\n" +
+        "**gws.drive.originating_app_id: the field that ties collection back to a grant.** This native Drive field holds the Google Cloud project number of the application that performed the action, the direct link between an earlier token authorize event and everything that app subsequently does. The SIEM export resolves that number to the app's name and stores it as gws.access.via_oauth_app, an enrichment rather than a Google field. An analyst investigating a suspicious download burst should always check these fields: activity attributed to an app token, from an app's own infrastructure IP rather than the user's normal device, is a fundamentally different finding than the same volume of downloads from the user's own browser session.",
     },
     // ── Log Analysis 2: Drive download burst ─────────────────────────────────
     {
@@ -331,12 +324,12 @@ const googleWorkspaceSecurityRoom = {
       id: "gwsf-la2",
       heading: "Three Hundred and Forty Downloads in Eleven Minutes",
       context:
-        "Later that afternoon, the Drive audit log for k.stensrud@medcorehealth.org shows the event below.",
+        "Later that afternoon, the Drive audit log for k.stensrud@medcorehealth.example shows the event below.",
       event: driveDownloadBurstEvent,
       questions: [
         {
           question:
-            "gws.access.via_oauth_app names FormFlow Sync, and source.ip is 146.148.92.14 (Amsterdam) -- not k.stensrud's own device or location. What does that combination establish?",
+            "gws.drive.originating_app_id is 719402883561, which the SIEM export resolves to FormFlow Sync in gws.access.via_oauth_app, and source.ip is 203.0.113.14 (Amsterdam), not k.stensrud's own device or location. What does that combination establish?",
           options: [
             "The app's servers used the grant's token; her own browser was not involved",
             "She was travelling and downloaded the files herself from a hotel network",
@@ -345,7 +338,7 @@ const googleWorkspaceSecurityRoom = {
           ],
           answer: 0,
           explanation:
-            "via_oauth_app names FormFlow Sync and the same client_id as the consent grant, and the IP belongs to a hosting provider rather than her device: the app's backend is using its token. If she had downloaded the files herself while travelling, the events would not be attributed to an OAuth app. A stolen session cookie replays her browser session, which would also show no via_oauth_app attribution. And Google-side caching is not logged as hundreds of downloads by a third-party app.",
+            "originating_app_id is the project number of the app that acted, the same digits that open the consent grant's client_id, and the IP belongs to a hosting provider rather than her device: the app's backend is using its token. If she had downloaded the files herself while travelling, the events would not point at a third-party app. A stolen session cookie replays her browser session, which would not point at one either. And Google-side caching is not logged as hundreds of downloads by a third-party app.",
           xp: 25,
         },
         {
@@ -359,7 +352,7 @@ const googleWorkspaceSecurityRoom = {
           ],
           answer: 0,
           explanation:
-            "The consent grant is the durable foothold and this burst is the collection carried out with it: two jobs tied together by the same client_id and via_oauth_app value. A sync to her own laptop would run as her, from her device, with no third-party app attribution. App tokens with the drive scope can download files (that is what the scope grants) so nothing here requires a stolen password. And the shared client_id rules out an unrelated insider.",
+            "The consent grant is the durable foothold and this burst is the collection carried out with it: two jobs tied together by the same app, through the grant's client_id and the burst's originating_app_id. A sync to her own laptop would run as her, from her device, with no third-party app attribution. App tokens with the drive scope can download files (that is what the scope grants) so nothing here requires a stolen password. And the shared app identity rules out an unrelated insider.",
           xp: 25,
         },
         {
@@ -368,7 +361,7 @@ const googleWorkspaceSecurityRoom = {
           options: [
             "Revoke the grant, blocklist the client ID, then scope what the token touched",
             "Reset k.stensrud's password, sign her out of all sessions, then close the case",
-            "Block 146.148.92.14 at the perimeter firewall, then watch for new downloads",
+            "Block 203.0.113.14 at the perimeter firewall, then watch for new downloads",
             "Scope every file the token touched first, then revoke once scoping is done",
           ],
           answer: 0,
@@ -387,24 +380,25 @@ const googleWorkspaceSecurityRoom = {
         "Beyond mail and files, the Google Workspace Admin console audit log records changes an administrator makes to the organisation itself, and these events matter for two distinct reasons: they scope an incident, and they verify whether a remediation step actually worked.\n\n" +
         "**Common admin-category actions.** CHANGE_PASSWORD (an admin resetting a user's password), suspending or restoring a user account, changing 2-Step-Verification enforcement policy, and managing the organisation's third-party app allowlist are all recorded here, each carrying gws.actor.email (the admin who acted) and a target user or object field.\n\n" +
         "**Why this log matters for scoping.** If an account is suspected compromised, the admin log shows exactly what administrative changes have already been made around it, useful both for reconstructing a timeline and for confirming that a response action assumed to have happened actually did.\n\n" +
-        "**The specific verification trap this room keeps returning to.** An admin event resetting a password, for example, can carry a field like gws.admin.oauth_tokens_revoked recording whether that specific action also revoked the account's OAuth grants, and, per Reading 4, a plain password reset does not revoke grants by default (only Gmail-scoped refresh tokens stop working after a password change; Drive, Calendar and other grants carry on). Reading the admin log's own record of what a containment action actually did, rather than assuming what it probably did, is the single most reliable way to confirm an OAuth-abuse case has actually been closed rather than just appearing to be.\n\n" +
-        "**Third-party app allowlist management.** When an admin adds an app to the organisation's allowlist or removes one, that action is itself logged here, meaning the blocklisting step that follows an OAuth-abuse investigation (removing a malicious client_id from being authorizable again) leaves its own audit trail, useful for confirming a specific incident's remediation was actually completed and documented.",
+        "**The specific verification trap this room keeps returning to.** Google's CHANGE_PASSWORD record names the user and nothing else, so it cannot tell you what happened to the account's OAuth grants, and, per Reading 4, a plain password reset does not revoke grants by default (only Gmail-scoped refresh tokens stop working after a password change; Drive, Calendar and other grants carry on). A grant that really was removed leaves its own trace: REVOKE_3LO_TOKEN in this log when an admin removes it, or a revoke event in the token log, and after that no further activity events for that client_id. This room's SIEM export condenses that check into one computed enrichment field, gws.admin.oauth_tokens_revoked, which is not a Google field. Reading the record of what a containment action actually did, rather than assuming what it probably did, is the single most reliable way to confirm an OAuth-abuse case has actually been closed rather than just appearing to be.\n\n" +
+        "**Third-party app allowlist management.** When an admin adds an app to the organisation's allowlist or removes one, that action is itself logged here, meaning the blocklisting step of an OAuth-abuse response (stopping a malicious client_id from being authorized again) leaves its own audit trail, useful for confirming a specific incident's remediation was actually completed and documented.\n\n" +
+        "**The order of an OAuth-abuse response.** Containment comes before scoping: while a grant is live the app can keep pulling data, and cutting its access erases nothing from the audit logs, so the full review of what it touched can safely follow. Confirm the cut-off took effect before you start that review, because the list of what the app touched is only complete once it can no longer grow. Leave wider policy changes until the incident is closed.",
     },
     // ── Question 2 ───────────────────────────────────────────────────────────
     {
       type: "question" as const,
       id: "gwsf-q2",
       question:
-        "An admin's CHANGE_PASSWORD event for a compromised account shows gws.admin.oauth_tokens_revoked as 'false'. An analyst is about to close the OAuth-abuse ticket because a password reset was performed. What should this specific field change about that decision?",
+        "An admin's CHANGE_PASSWORD event is logged for a compromised account. The token log shows no revoke event for the malicious app's client_id afterwards, and its activity events keep arriving. An analyst is about to close the OAuth-abuse ticket because a password reset was performed. What should these records change about that decision?",
       options: [
-        "Nothing -- a reset invalidates the user's session cookies and the refresh tokens issued under them, so the field is informational and the ticket can be closed",
-        "It should stop the closure -- the field confirms the reset did NOT revoke the OAuth grant, so the malicious app's token stays valid and needs separate revocation",
+        "Nothing -- a reset invalidates the user's session cookies and the refresh tokens issued under them, so these events are leftovers and the ticket can be closed",
+        "It should stop the closure -- they show the reset did NOT revoke the OAuth grant, so the malicious app's token stays valid and needs separate revocation",
         "It means the reset partly failed and must be retried by an admin, since token revocation is the last step of a successful password reset",
-        "It matters for marketplace-verified apps -- for an unverified app like this one, the reset already blocks further API calls on its own",
+        "It matters only for marketplace-verified apps -- for an unverified app like this one, the reset already blocks further API calls on its own",
       ],
       answer: 1,
       explanation:
-        "Reading 6 built this scenario directly around Reading 4's core lesson: the admin log's own record of oauth_tokens_revoked being false is direct, first-party confirmation that the containment step assumed to work did not actually revoke the grant. Assuming a reset is always sufficient is the exact trap -- Google only invalidates refresh tokens that contain Gmail scopes on a password change, and FormFlow Sync's Drive/Calendar grant has none. The field describes token revocation, not whether the password reset itself succeeded. And a grant's survival has nothing to do with whether the app is marketplace-verified -- verification is a governance signal, not a revocation mechanism.",
+        "Reading 6 built this scenario directly around Reading 4's core lesson: a missing revoke event and activity that keeps arriving are direct, first-party confirmation that the containment step assumed to work did not actually revoke the grant. Assuming a reset is always sufficient is the exact trap -- Google only invalidates refresh tokens that contain Gmail scopes on a password change, and FormFlow Sync's Drive/Calendar grant has none. These records describe the grant, not whether the password reset itself succeeded. And a grant's survival has nothing to do with whether the app is marketplace-verified -- verification is a governance signal, not a revocation mechanism.",
       xp: 25,
     },
     // ── Reading 7: Alert Center ──────────────────────────────────────────────────
@@ -414,8 +408,8 @@ const googleWorkspaceSecurityRoom = {
       heading: "Alert Center: Google's Built-In Correlation Layer",
       content:
         "Google Workspace ships its own pre-built correlation and alerting layer, called Alert Center, and knowing what it is (and, just as importantly, what it isn't) saves an analyst real time.\n\n" +
-        "**What it does.** Alert Center watches the same underlying audit streams this room has covered and raises a small number of specific, named alert types when a recognisable risky pattern occurs: a third-party app granted sensitive scopes, a suspicious sign-in, a leaked-password match against a known breach corpus, a spike in suspicious email activity, and several more. Each alert carries a gws.alert.center.type field naming which pattern fired, and a unique gws.alert.center.id for tracking.\n\n" +
-        "**Why this is genuinely useful, not just noise.** Alert Center's whole value is pre-correlation: instead of an analyst needing to notice a broad-scope OAuth grant by scanning the raw token audit themselves, Alert Center surfaces it directly as a named, actionable item. This is directly comparable in role (though, as with everything in this room, not in specific mechanism or field names) to how Microsoft Defender's own alerts sit on top of the raw Azure AD sign-in and audit logs this platform already teaches: a pre-built detection layer over the same underlying telemetry.\n\n" +
+        "**What it does.** Alert Center watches the same underlying audit streams this room has covered and raises a small number of specific, named alert types when a recognisable risky pattern occurs: a suspicious sign-in, a leaked-password match against a known breach corpus, a spike in suspicious email activity, and several more. There is no built-in alert for a third-party app being granted sensitive scopes, but admins can build one: an activity rule is a set of conditions and actions an administrator defines over audit-log events, and when it fires its alert lands here too. Each alert carries a gws.alert.center.type field naming which pattern fired, and a unique gws.alert.center.id for tracking.\n\n" +
+        "**Why this is genuinely useful, not just noise.** Alert Center's whole value is pre-correlation: instead of an analyst needing to notice a broad-scope OAuth grant by scanning the raw token audit themselves, Alert Center surfaces it directly, once that rule exists, as a named, actionable item. This is directly comparable in role (though, as with everything in this room, not in specific mechanism or field names) to how Microsoft Defender's own alerts sit on top of the raw Azure AD sign-in and audit logs this platform already teaches: a pre-built detection layer over the same underlying telemetry.\n\n" +
         "**Why an analyst still pivots to the raw logs.** An Alert Center notification tells you what pattern fired and roughly why, but it does not replace reading the underlying token, drive, or admin audit events directly. Those raw events carry the specific scope list, the specific client_id, the specific source IP, and the specific timeline needed to actually scope and remediate an incident. Alert Center is where an investigation typically starts; the audit logs are where it's actually worked.",
     },
     // ── Reading 8: GWS vs M365 contrast ───────────────────────────────────────
@@ -491,7 +485,7 @@ const googleWorkspaceSecurityRoom = {
       ],
       correct_order: ["revoke", "blocklist", "verify", "scope_activity", "policy"],
       explanation:
-        "The grant is confirmed malicious and exfiltration is active, so contain first: revoke the grant directly -- Reading 4 and Reading 6 both established that a password reset alone does not do this for a Drive/Calendar token. Blocklist the client_id so the same app cannot simply be re-authorized by the same or another user. Verify both actions in the admin log itself, rather than assuming they worked, exactly the way Question 2 in this room tested. Only then scope what the token was used for -- revoking does not erase the token and Drive audit history, so nothing is lost by scoping after containment, while every minute spent scoping first is another minute of live exfiltration. And only once the immediate incident is closed does it make sense to address the underlying policy gap that allowed an unlisted, unverified app to be authorized in the first place.",
+        "The grant is confirmed malicious and exfiltration is active, so contain first: revoke the grant directly -- Reading 4 and Reading 6 both established that a password reset alone does not do this for a Drive/Calendar token. Blocklist the client_id so the same app cannot simply be re-authorized by the same or another user. Verify both actions in the admin log itself, rather than assuming they worked, exactly the way Question 2 in this room tested. Only then scope what the token was used for, because that list is final only once the app can no longer add to it -- revoking does not erase the token and Drive audit history, so nothing is lost by scoping after containment, while every minute spent scoping first is another minute of live exfiltration. And only once the immediate incident is closed does it make sense to address the underlying policy gap that allowed an unlisted, unverified app to be authorized in the first place.",
       xp: 35,
     },
     // ── Flag ──────────────────────────────────────────────────────────────────
@@ -527,7 +521,7 @@ const googleWorkspaceSecurityRoom = {
       type: "question" as const,
       id: "gwsf-q4",
       question:
-        "Summarising this room: an OAuth grant with a broad, unverified scope is followed by a large download burst attributed to the same app token, and an admin's later password reset shows oauth_tokens_revoked = false. What is the single most accurate classification and required action?",
+        "Summarising this room: an OAuth grant with a broad, unverified scope is followed by a large download burst attributed to the same app token, and after an admin's later password reset the token log shows no revoke event while the app's activity continues. What is the single most accurate classification and required action?",
       options: [
         "OAuth application abuse with confirmed collection and incomplete remediation -- the grant must be explicitly revoked and blocklisted, since the reset alone left the token and its access intact",
         "A contained incident -- the password reset ended the compromised account's access, so only a review of what the app downloaded remains before the ticket is closed",
@@ -536,7 +530,7 @@ const googleWorkspaceSecurityRoom = {
       ],
       answer: 0,
       explanation:
-        "This draws the room's threads together: the broad-scope, unverified grant (Reading 4) is the persistence mechanism; the download burst tied to the same client_id (Reading 5) is the collection; and the admin log's own oauth_tokens_revoked field (Reading 6) proves the password reset did not actually close the gap. Calling this a contained incident or a false positive both repeat mistakes this room specifically targeted. And limiting it to the downloaded files ignores that the token itself is still live: the grant spans full Drive and full Calendar together, and stays usable until it is explicitly revoked.",
+        "This draws the room's threads together: the broad-scope, unverified grant (Reading 4) is the persistence mechanism; the download burst tied to the same client_id (Reading 5) is the collection; and the token log, with no revoke event and activity still arriving (Reading 6), proves the password reset did not actually close the gap. Calling this a contained incident or a false positive both repeat mistakes this room specifically targeted. And limiting it to the downloaded files ignores that the token itself is still live: the grant spans full Drive and full Calendar together, and stays usable until it is explicitly revoked.",
       xp: 30,
     },
   ],

@@ -1,7 +1,7 @@
 /**
  * Learning Rooms — Batch 44
  *
- * Closes a P1 coverage gap: MITRE ATT&CK's T1219 (Remote Access Software,
+ * Closes a P1 coverage gap: MITRE ATT&CK's T1219 (Remote Access Tools,
  * Command and Control tactic, TA0011) is practised in the "Callback Vishing —
  * RMM Install to Hands-on-Keyboard Discovery" scenario pack
  * (src/lib/sim/scenario-packs/vishingRmm.ts) but was never taught as its own
@@ -15,7 +15,7 @@
  *  1. rmm-abuse-remote-access-tools
  *
  * SOURCES consulted directly for this content:
- *  - MITRE ATT&CK T1219, Remote Access Software (attack.mitre.org/techniques/T1219/)
+ *  - MITRE ATT&CK T1219, Remote Access Tools (attack.mitre.org/techniques/T1219/)
  *  - CISA AA23-320A, Scattered Spider advisory (cisa.gov/news-events/cybersecurity-advisories/aa23-320a)
  *  - Microsoft Security Blog, "Threat actors misusing Quick Assist" (May 15 2024)
  *  - Palo Alto Unit 42 threat brief, CVE-2024-1708 / CVE-2024-1709 (ConnectWise ScreenConnect)
@@ -41,7 +41,7 @@ const teamViewerProxyEvent: TelemetryEvent = {
   mitre_technique: "T1219",
   mitre_tactic: "Command and Control",
   hostname: "WKS-CF-118",
-  user_email: "d.abara@cascadiafreight.com",
+  user_email: "d.abara@cascadiafreight.example",
   user_title: "Accounts Receivable Specialist",
   src_ip: "10.44.6.118",
   dst_port: 5938,
@@ -56,12 +56,12 @@ const teamViewerProxyEvent: TelemetryEvent = {
     "zscaler.urlcategory": "Remote Access Tools",
     "zscaler.appname": "TeamViewer",
     "zscaler.cip": "10.44.6.118",
-    "zscaler.serverip": "84.116.239.14",
+    "zscaler.serverip": "203.0.113.14",
     "zscaler.destport": "5938",
     "zscaler.respsize": 96420,
     "session.bytes": 96420,
     "user.name": "d.abara",
-    "user.email": "d.abara@cascadiafreight.com",
+    "user.email": "d.abara@cascadiafreight.example",
   },
 };
 
@@ -76,7 +76,7 @@ const screenConnectSanctionedEvent: TelemetryEvent = {
   event_type: "net_connection",
   severity: "informational",
   hostname: "WKS-CF-055",
-  user_email: "r.tolentino@cascadiafreight.com",
+  user_email: "r.tolentino@cascadiafreight.example",
   user_title: "Dispatch Coordinator",
   src_ip: "10.44.6.55",
   dst_port: 443,
@@ -94,12 +94,12 @@ const screenConnectSanctionedEvent: TelemetryEvent = {
     "zscaler.urlcategory": "Remote Access Tools",
     "zscaler.appname": "ConnectWise ScreenConnect",
     "zscaler.cip": "10.44.6.55",
-    "zscaler.serverip": "162.220.11.4",
+    "zscaler.serverip": "198.51.100.4",
     "zscaler.destport": "443",
     "zscaler.respsize": 41280,
     "session.bytes": 41280,
     "user.name": "r.tolentino",
-    "user.email": "r.tolentino@cascadiafreight.com",
+    "user.email": "r.tolentino@cascadiafreight.example",
   },
 };
 
@@ -107,7 +107,7 @@ const rmmAbuseRoom = {
   id: "rmm-abuse-remote-access-tools",
   title: "RMM Abuse & Remote Access Tools: When the Legitimate Tool Is the Attack",
   description:
-    "Remote Monitoring and Management (RMM) software (AnyDesk, TeamViewer, ConnectWise ScreenConnect, Atera, Splashtop, and Windows' own built-in Quick Assist) is exactly what IT help desks use every day, and exactly what attackers increasingly ride into a network as MITRE ATT&CK technique T1219 (Remote Access Software, Command and Control tactic). Learn how a signed, legitimate binary becomes an intrusion channel, two real documented case studies (Storm-1811/Quick Assist/Black Basta and the CVE-2024-1709 ConnectWise ScreenConnect authentication bypass), and the allowlist discipline that is the only detection strategy that actually works against this technique.",
+    "Remote Monitoring and Management (RMM) software (AnyDesk, TeamViewer, ConnectWise ScreenConnect, Atera, Splashtop, and Windows' own built-in Quick Assist) is exactly what IT help desks use every day, and exactly what attackers increasingly ride into a network as MITRE ATT&CK technique T1219 (Remote Access Tools, Command and Control tactic). Learn how a signed, legitimate binary becomes an intrusion channel, two real documented case studies (Storm-1811/Quick Assist/Black Basta and the CVE-2024-1709 ConnectWise ScreenConnect authentication bypass), and the allowlist discipline that is the only detection strategy that actually works against this technique.",
   difficulty: "intermediate" as const,
   category: "Threat Detection",
   estimatedMinutes: 65,
@@ -122,10 +122,10 @@ const rmmAbuseRoom = {
       heading: "What Is RMM, and Why It Gets Its Own ATT&CK Technique",
       content:
         "RMM stands for Remote Monitoring and Management: software that lets an IT department or an MSP (Managed Service Provider, a third-party company that runs IT for other organizations) remotely view, control, and manage a computer without a technician being physically present. Every large IT operation depends on some version of it for patching, troubleshooting, and support.\n\n" +
-        "It is worth separating RMM from remote access that is built directly into an operating system. RDP (Remote Desktop Protocol) is Microsoft's own protocol, tunnelling a full desktop session over TCP port 3389, and it needs network-level reachability: an open port and a valid credential. SSH (Secure Shell) is the equivalent for Linux/Unix systems, over port 22. Third-party RMM and remote-support tools (AnyDesk, TeamViewer, ConnectWise ScreenConnect, Atera, Splashtop, LogMeIn, N-Able, SimpleHelp, and Microsoft's own built-in Quick Assist) work differently: the client on the endpoint dials OUT to a vendor-operated cloud relay over an ordinary outbound connection, and the two ends of the session meet there. That means no inbound firewall rule is usually needed at all, and the traffic looks, at the network level, like any other outbound HTTPS-family connection to a real company's servers.\n\n" +
-        "Every one of these products is entirely legitimate and in daily production use. Every one of them can also become an attacker's live, interactive channel into an environment they do not otherwise control. MITRE ATT&CK tracks this dual nature as **T1219, Remote Access Software**, which sits on the **Command and Control tactic (TA0011)**, because once the tool is running and connected, it gives an outside operator a real-time channel to type commands and see the screen, and there is nothing about the network traffic itself that marks it as hostile. T1219 has three sub-techniques: **T1219.001, IDE Tunneling** (abusing a development tool's own tunneling feature), **T1219.002, Remote Desktop Software** (the GUI remote-control products this room focuses on), and **T1219.003, Remote Access Hardware** (physical KVM-over-IP (Keyboard, Video, Mouse over Internet Protocol) devices). Everything in this room is about T1219.002: how it lands on a host, what it looks like in the logs, and how an analyst tells a legitimate support session from an intrusion when both use the exact same class of software.",
+        "It is worth separating RMM from remote access that is built directly into an operating system. RDP (Remote Desktop Protocol) is Microsoft's own protocol, tunnelling a full desktop session over TCP port 3389, and it needs network-level reachability: an open port and a valid credential. SSH (Secure Shell) is the equivalent for Linux/Unix systems, over port 22. Third-party RMM and remote-support tools (AnyDesk, TeamViewer, ConnectWise ScreenConnect, Atera, Splashtop, LogMeIn, N-Able, SimpleHelp), along with Quick Assist, which Microsoft ships with Windows itself, work differently: the client on the endpoint dials OUT to a vendor-operated cloud relay over an ordinary outbound connection, and the two ends of the session meet there. That means no inbound firewall rule is usually needed at all, and the traffic looks, at the network level, like any other outbound HTTPS-family connection to a real company's servers.\n\n" +
+        "Every one of these products is entirely legitimate and in daily production use. Every one of them can also become an attacker's live, interactive channel into an environment they do not otherwise control. MITRE ATT&CK tracks this dual nature as **T1219, Remote Access Tools**, which sits on the **Command and Control tactic (TA0011)**, because once the tool is running and connected, it gives an outside operator a real-time channel to type commands and see the screen, and there is nothing about the network traffic itself that marks it as hostile. T1219 has three sub-techniques: **T1219.001, IDE Tunneling** (abusing a development tool's own tunneling feature), **T1219.002, Remote Desktop Software** (the GUI remote-control products this room focuses on), and **T1219.003, Remote Access Hardware** (physical KVM-over-IP (Keyboard, Video, Mouse over Internet Protocol) devices). Everything in this room is about T1219.002: how it lands on a host, what it looks like in the logs, and how an analyst tells a legitimate support session from an intrusion when both use the exact same class of software.",
       checkpoint: {
-        question: "Which MITRE ATT&CK tactic does T1219 (Remote Access Software) belong to, and why?",
+        question: "Which MITRE ATT&CK tactic does T1219 (Remote Access Tools) belong to, and why?",
         options: [
           "Command and Control (TA0011): once the tool is connected, it gives an outside operator a live, interactive channel into the environment",
           "Persistence, because RMM software, once installed, is designed specifically to survive a reboot and cannot be used for anything else",
@@ -158,7 +158,7 @@ const rmmAbuseRoom = {
       type: "question" as const,
       id: "rmm-q1",
       question:
-        "Per this room's reading, what is the single biggest practical advantage a signed, legitimate RMM tool gives an attacker over building custom command-and-control malware?",
+        "Per this room's reading, which statement sums up the practical advantages a signed, legitimate RMM tool gives an attacker over building custom command-and-control malware?",
       options: [
         "RMM binaries are exempt from EDR inspection by default, because vendors pre-allowlist remote-support software to avoid breaking IT workflows",
         "It arrives vendor-signed, blends into outbound traffic over the vendor's own infrastructure, and needs no custom development to give full control",
@@ -280,7 +280,7 @@ const rmmAbuseRoom = {
       type: "question" as const,
       id: "rmm-q3",
       question:
-        "An EDR alert fires for a process named AnyDesk.exe running interactively (not as a service) from C:\\Users\\<user>\\Downloads\\AnyDesk.exe, on a host where the organization's sanctioned RMM tool is ScreenConnect, installed under Program Files and running as a SYSTEM service. Which detail from this room's reading is the strongest standalone indicator of concern?",
+        "An EDR alert fires for a process named AnyDesk.exe running interactively (not as a service) from C:\\Users\\<user>\\Downloads\\AnyDesk.exe, on a host where the organization's sanctioned RMM tool is ScreenConnect, installed under Program Files and running as a SYSTEM service. Which of these best explains, by this room's reading, why the alert deserves concern?",
       options: [
         "The process name AnyDesk.exe, since AnyDesk appears in CISA advisories and is therefore malicious wherever it runs",
         "A tool other than the licensed ScreenConnect, running interactively from Downloads instead of as a managed service under Program Files",
@@ -354,7 +354,7 @@ const rmmAbuseRoom = {
         "**1. Identify the product, version, and process path.** A managed install directory running as a SYSTEM service versus a portable executable launched by a user account is informative before anything else is even checked.\n\n" +
         "**2. Check it against the allowlist.** Is this the organization's sanctioned tool at all.\n\n" +
         "**3. Identify the operating account.** A named IT technician with a documented support role, or an ordinary end user or service account with no such history.\n\n" +
-        "**4. Check the ITSM ticketing system** for a matching, currently open or recently closed ticket referencing this exact session.\n\n" +
+        "**4. Check the ITSM ticketing system** for a matching, currently open or recently closed ticket referencing this exact session, using the product, account and time you established in the earlier steps.\n\n" +
         "**5. Check the destination domain or IP** the tool connected to against the known relay-domain families for major RMM vendors, and against threat intelligence: a brand-new, rarely seen destination is a stronger signal than an established vendor relay that thousands of legitimate customers also use.\n\n" +
         "**6. Walk the host's process tree** for anything spawned by or alongside the RMM session: discovery commands such as whoami, net group \"Domain Admins\", or nltest, credential-access tooling, or lateral-movement utilities such as PsExec, are the sign that a session has moved from merely 'looking' to actively acting, exactly as this platform's Discovery room teaches for reconnaissance generally.\n\n" +
         "**7. Reach and record a verdict.** Confirmed IT activity closes clean with the ticket referenced. Anything else escalates to containment: isolating the host to sever the live session, resetting the targeted account's credentials, removing the unauthorized tool, and hunting for whatever it may have staged.",
@@ -385,7 +385,7 @@ const rmmAbuseRoom = {
       id: "rmm-o1",
       heading: "Order the Investigation Steps for an Unrecognized RMM Alert",
       instructions:
-        "Place these seven steps of this room's investigation workflow in the order an analyst actually performs them, from the moment an 'unrecognized remote-access tool' alert fires to reaching a final verdict.",
+        "Place these seven steps in the order this room's investigation workflow numbers them, from the moment an 'unrecognized remote-access tool' alert fires to reaching a final verdict. In a live case some checks can run side by side; this task asks for the workflow's own sequence.",
       items: [
         { id: "step-identify", text: "Identify exactly which RMM product and version this is, and its process path (managed install directory + SYSTEM service, versus a portable executable run by a user)" },
         { id: "step-allowlist", text: "Check the tool against the organization's sanctioned-RMM allowlist" },
@@ -407,7 +407,7 @@ const rmmAbuseRoom = {
       id: "rmm-la1",
       heading: "Investigate: An Unsanctioned TeamViewer Session on WKS-CF-118",
       context:
-        "Cascadia Freight's only licensed remote-support tool is ConnectWise ScreenConnect, run as a ConnectWise-hosted cloud instance at cascadia.hostedrmm.com and operated only by two named IT technician accounts. The proxy record below shows outbound traffic from an Accounts Receivable workstation. The IT service-management system shows no ticket referencing any session on this host today.",
+        "Cascadia Freight's only licensed remote-support tool is ConnectWise ScreenConnect, run as a ConnectWise-hosted cloud instance at cascadia.hostedrmm.com and operated only by two named IT technician accounts. The proxy record below shows outbound traffic from an Accounts Receivable workstation.",
       event: teamViewerProxyEvent,
       questions: [
         {

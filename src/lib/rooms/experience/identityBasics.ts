@@ -12,7 +12,7 @@ import type { RoomExperience } from "./types";
 // at another tenant, not ac1's verified helpdesk case, the account sort explains
 // how to recognise each type, not why attackers want service accounts (q3), and
 // the 4625 burst alert uses other accounts and addresses, never la1's
-// b.osei, SRV-FILE03 or 185.220.101.47 (la1, f1).
+// b.osei, SRV-FILE03 or 203.0.113.47 (la1, f1).
 
 export const IDENTITY_BASICS: RoomExperience = {
   roomId: "identity-basics",

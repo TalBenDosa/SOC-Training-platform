@@ -12,7 +12,7 @@ import type { BriefingLab, RoomExperience } from "./types";
 // Lab data differs from the graded tasks: a spray (many accounts, one try each), never a burst
 // on one account. The second factor is SMS, never an approved or denied push. The persistence
 // is an API token and a weakened policy rule, never a group self-add. Hosting network is
-// Northpier Hosting Ltd on 203.0.113.58, never Alexhost or 185.220.101.44. The rate-limit lab
+// Northpier Hosting Ltd on 203.0.113.58, never Tarnava Hosting or 198.51.100.44. The rate-limit lab
 // counts locked accounts, not a confirmed password. Nobody is named n.abara, c.lee or j.ortiz.
 
 type Portal = Extract<BriefingLab, { kind: "portal" }>;

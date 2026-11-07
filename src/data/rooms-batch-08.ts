@@ -34,7 +34,7 @@ const threatIntelligence = {
       type: "reading" as const,
       id: "threat-intel-r1",
       heading: "What Is Cyber Threat Intelligence, And Why Is 'Intelligence' Different From 'Information'?",
-      content: `Every day your company's firewall blocks thousands of connections, your antivirus scans millions of files, and your SIEM generates hundreds of alerts. All of that is **information**: raw facts sitting in a database. By itself, raw information is not very useful. You cannot act on "connection blocked from 185.220.101.45" unless you know: *Who owns that IP? Is it linked to a known attacker? Which companies have they targeted? What do they do after they get in?*
+      content: `Every day your company's firewall blocks thousands of connections, your antivirus scans millions of files, and your SIEM generates hundreds of alerts. All of that is **information**: raw facts sitting in a database. By itself, raw information is not very useful. You cannot act on "connection blocked from 198.51.100.45" unless you know: *Who owns that IP? Is it linked to a known attacker? Which companies have they targeted? What do they do after they get in?*
 
 When you take raw information, apply **analysis**, add **context**, and produce something an analyst can act on: that is **intelligence**. The difference is the same as the difference between a weather sensor reading "wind speed: 120 km/h" and a meteorologist telling you "Hurricane Helene will make landfall in Miami on Thursday. Evacuate coastal zones now." The sensor gives information. The meteorologist gives intelligence.
 
@@ -56,7 +56,7 @@ Information about specific attacker **campaigns**, ongoing attack operations wit
 Details about attacker **TTPs** (Tactics, Techniques, and Procedures): the specific methods attackers use step by step. This maps directly to the MITRE ATT&CK framework. Example: "APT29 uses spear-phishing with malicious attachments (T1566.001), then executes a PowerShell downloader (T1059.001), establishes persistence via scheduled tasks (T1053.005), and exfiltrates data over HTTPS to Dropbox (T1567.002)." Aimed at security engineers and detection teams who write SIEM rules and EDR detections.
 
 **4. Technical Intelligence**
-The lowest-level, most concrete type: actual **Indicators of Compromise (IOCs)**. IP addresses, domain names, file hashes, email addresses, URLs. These are machine-readable and feed directly into firewalls, SIEMs, and endpoint tools as block rules. Example: "Block outbound connections to 185.220.101.45 and DNS queries for sunburst.evildomain.com." Technical intelligence has a short shelf life. Attackers rotate IPs and domains quickly.
+The lowest-level, most concrete type: actual **Indicators of Compromise (IOCs)**. IP addresses, domain names, file hashes, email addresses, URLs. These are machine-readable and feed directly into firewalls, SIEMs, and endpoint tools as block rules. Example: "Block outbound connections to 198.51.100.45 and DNS queries for sunburst.evildomain.com." Technical intelligence has a short shelf life. Attackers rotate IPs and domains quickly.
 
 ---
 
@@ -135,7 +135,7 @@ The same threat actor often has different names from different security companie
 **CrowdStrike** names APTs by animal + nationality:
 - **BEAR** = Russia (Fancy Bear = APT28, Cozy Bear = APT29)
 - **PANDA** = China (Gothic Panda, Stone Panda)
-- **KITTEN** = Iran (Charming Kitten, Phosphorus)
+- **KITTEN** = Iran (Charming Kitten, Static Kitten)
 - **CHOLLIMA** = North Korea (Labyrinth Chollima = Lazarus Group)
 
 **Mandiant/Google** (formerly FireEye) created the numbered **APT##** designations: **APT28** (Russian GRU), **APT29** (Russian SVR), **APT41** (Chinese dual espionage/crime group), **APT34** (Iranian MOIS). It also uses UNC groups for uncategorised clusters and FIN groups like **FIN7** (cybercriminal), **FIN11** (ransomware).
@@ -167,7 +167,7 @@ The same threat actor often has different names from different security companie
 
 **STIX/TAXII** are the standard formats for sharing CTI:
 - **STIX** (Structured Threat Information Expression): A JSON-based language for describing threat actors, campaigns, TTPs, IOCs, and relationships between them
-- **TAXII** (Trusted Automated eXchange of Indicator Information): The protocol used to transfer STIX data between organisations, like HTTP is for web browsing, TAXII is for threat intel
+- **TAXII** (Trusted Automated eXchange of Intelligence Information): The protocol used to transfer STIX data between organisations, like HTTP is for web browsing, TAXII is for threat intel
 
 Together, STIX/TAXII enable automated, machine-readable threat intelligence sharing between platforms, so an IOC discovered by one organisation can be automatically imported into another organisation's SIEM within minutes.`,
       checkpoint: {
@@ -276,7 +276,7 @@ This is why tactical intelligence (TTPs) has longer shelf life than technical in
 
 When a SOC analyst opens a high-severity alert, the first question is "is this real?" CTI enrichment dramatically speeds up that determination. A good SIEM/SOAR platform will automatically query threat intel platforms when an alert fires and attach context:
 
-- "Source IP 185.220.101.45, known C2 for APT29, first seen 2024-12-13, associated with SolarWinds SUNBURST campaign, confidence: HIGH, source: CISA joint cybersecurity advisory (via AIS)"
+- "Source IP 198.51.100.45, known C2 for APT29, first seen 2020-12-13, associated with SolarWinds SUNBURST campaign, confidence: HIGH, source: CISA joint cybersecurity advisory (via AIS)"
 
 That context transforms a vague "suspicious outbound connection" alert into a confirmed, high-priority incident requiring immediate containment.
 
@@ -319,29 +319,29 @@ This is called the **detect → learn → improve** loop, and CTI is the fuel th
         severity: "critical",
         hostname: "CORP-DC01",
         src_ip: "10.0.1.55",
-        dst_ip: "185.220.101.45",
+        dst_ip: "198.51.100.45",
         description: "Outbound connection matched CISA AIS threat intel feed: APT29 C2 infrastructure",
         mitre_technique: "T1071.001",
         raw: {
           "rule.name": "CISA AIS IOC Match",
           "rule.level": "13",
-          "data.indicator": "185.220.101.45",
+          "data.indicator": "198.51.100.45",
           "data.indicator_type": "ip",
           "data.confidence": "high",
           "data.source": "CISA Automated Indicator Sharing (AIS)",
           "data.campaign": "APT29 SolarWinds",
           "data.actor": "Cozy Bear",
-          "data.first_seen": "2024-12-13",
+          "data.first_seen": "2020-12-13",
           "data.tlp": "CLEAR",
           "data.description": "C2 server associated with SolarWinds SUNBURST supply chain compromise",
           "matched.srcip": "10.0.1.55",
-          "matched.dstip": "185.220.101.45",
+          "matched.dstip": "198.51.100.45",
           "matched.hostname": "CORP-DC01",
         },
       } satisfies TelemetryEvent,
       questions: [
         {
-          question: "CORP-DC01 (10.0.1.55) is the company's domain controller, and the alert shows it connecting OUT to 185.220.101.45. Using the alert and the firewall records described above, what is the most accurate assessment?",
+          question: "CORP-DC01 (10.0.1.55) is the company's domain controller, and the alert shows it connecting OUT to 198.51.100.45. Using the alert and the firewall records described above, what is the most accurate assessment?",
           options: [
             "Benign True Positive: domain controllers routinely reach the internet for Windows updates",
             "Low priority: TLP:CLEAR marks the indicator as public, so it is probably stale",
@@ -358,7 +358,7 @@ This is called the **detect → learn → improve** loop, and CTI is the fuel th
             "Reset the krbtgt password twice right away, then block the IP at the firewall",
             "Take a full disk image of CORP-DC01 first, before any containment step begins",
             "Contain CORP-DC01's C2 path, coordinated with the AD owner, and escalate to IR now",
-            "Block 185.220.101.45 at the perimeter firewall and close the alert as contained",
+            "Block 198.51.100.45 at the perimeter firewall and close the alert as contained",
           ],
           answer: 2,
           explanation: "The first job is to cut the active C2 channel and get IR involved, because a nation-state actor on a domain controller is an incident, not a ticket. On a DC, containment needs care: fully isolating the only domain controller can break authentication across the domain, so coordinate with the AD owner and IR, and if full isolation is not possible, contain the C2 path with firewall rules first. Resetting krbtgt is an eradication step: done before scoping, it alerts the actor and does not stop the beacon. A full disk image is valuable evidence, but taking it before containment leaves the C2 session open for hours. Blocking only the one IP and closing the alert ignores everything the actor may already have done on the DC, and they can switch to a new C2 address.",
@@ -401,7 +401,7 @@ const osintFundamentals = {
       type: "reading" as const,
       id: "osint-r1",
       heading: "What Is OSINT and Why Do SOC Analysts Need It?",
-      content: `Imagine you receive an alert: your company's laptop "LAPTOP-JSMITH" just made an outbound connection to an IP address you have never seen before, 185.220.101.47. Is this harmless? Is this the laptop downloading a Windows update? Or is it a compromised machine calling home to an attacker's server?
+      content: `Imagine you receive an alert: your company's laptop "LAPTOP-JSMITH" just made an outbound connection to an IP address you have never seen before, 198.51.100.47. Is this harmless? Is this the laptop downloading a Windows update? Or is it a compromised machine calling home to an attacker's server?
 
 To answer that question, you need to investigate the IP address. And you need to do it quickly, without alerting the attacker that you noticed. This is where **OSINT** comes in.
 
@@ -445,7 +445,7 @@ OSINT investigations typically target one or more of these categories:
 
 For SOC analysts, infrastructure OSINT is the most frequently used category: you are mostly investigating IPs, domains, and attacker server infrastructure.`,
       checkpoint: {
-        question: "For the LAPTOP-JSMITH alert, you look up which hosting provider owns 185.220.101.47, which ports it exposes, and which TLS certificate it presents. Which OSINT category is that work?",
+        question: "For the LAPTOP-JSMITH alert, you look up which hosting provider owns 198.51.100.47, which ports it exposes, and which TLS certificate it presents. Which OSINT category is that work?",
         options: [
           "Organisation OSINT",
           "Infrastructure OSINT",
@@ -477,7 +477,9 @@ Think of it like a map of every "open door" on the internet. If a company accide
 - Identify attacker infrastructure: Find other IPs with the same TLS certificate, same banner text, or same open port combination. These are likely part of the same attacker-controlled network
 - Pivot from one IOC to many: If you know one C2 IP, Shodan can reveal 20 more on the same ASN
 
-Key Shodan fields: \`org\` (organisation/ISP), \`asn\`, \`os\` (operating system detected), \`ssl.cert.subject.cn\` (certificate common name), \`port\`, \`hostnames\`.
+Key Shodan fields: \`org\` (organisation/ISP), \`asn\`, \`os\` (operating system detected), \`ssl.cert.subject.cn\` (certificate common name), \`port\`, \`hostnames\`, \`tags\`.
+
+Shodan also labels some results with \`tags\`, and the \`tor\` tag means the service is a Tor relay. Tor is a volunteer-run network that hides where traffic comes from by passing it through a chain of servers called relays. Onion services, the hidden .onion sites, are a different thing: they can be reached only through the Tor network, not at a public address over ordinary HTTPS. A corporate laptop rarely has a business reason to contact a relay, so that contact suggests someone or something is deliberately hiding traffic.
 
 ---
 
@@ -670,12 +672,12 @@ Only after exhausting passive research would an analyst consider any active step
         severity: "high",
         hostname: "LAPTOP-JSMITH",
         src_ip: "10.0.1.55",
-        dst_ip: "185.220.101.47",
+        dst_ip: "198.51.100.47",
         description: "Outbound HTTPS connection: destination enriched with Shodan OSINT data",
         mitre_technique: "T1090.003",
         raw: {
           "data.srcip": "10.0.1.55",
-          "data.dstip": "185.220.101.47",
+          "data.dstip": "198.51.100.47",
           "data.dstport": "443",
           "data.proto": "TCP",
           "data.bytes_sent": "4096",
@@ -683,32 +685,32 @@ Only after exhausting passive research would an analyst consider any active step
           "data.action": "allow",
           "data.hostname": "LAPTOP-JSMITH",
           "shodan.os": "Linux",
-          "shodan.org": "Stiftung Erneuerbare Freiheit",
+          "shodan.org": "Example Relay Foundation",
           "shodan.tags": ["tor"],
           "shodan.open_ports": ["80", "443", "8080"],
-          "shodan.ssl_subject": "CN=*.onion-router.net",
+          "shodan.ssl_subject": "CN=*.onion-router.example",
         },
       } satisfies TelemetryEvent,
       questions: [
         {
-          question: "Read the Shodan enrichment fields. What kind of server is at 185.220.101.47, and what does that tell you about the laptop's traffic?",
+          question: "Read the Shodan enrichment fields. What kind of server is at 198.51.100.47, and what does that tell you about the laptop's traffic?",
           options: [
             "An ordinary Linux web host (ports 80/443/8080): routine browsing, little to investigate",
             "A Tor relay: a corporate laptop talking to Tor suggests traffic being deliberately hidden",
-            "A Tor onion service: the *.onion-router.net certificate shows it hosts a .onion website",
+            "A Tor onion service: the *.onion-router.example certificate shows it hosts a .onion website",
             "A privacy-VPN gateway run by a foundation: the user is probably on a personal VPN",
           ],
           answer: 1,
-          explanation: "Shodan tags the IP as “tor”, and the network owner (shodan.org) is Stiftung Erneuerbare Freiheit, a foundation that runs Tor relays. A corporate laptop has no business reason to talk to Tor infrastructure: either the user is bypassing monitoring, or malware is using Tor to hide its C2. Both need investigation. To confirm the IP is an exit relay, the authoritative check is the Tor Project's own exit list or its ExoneraTor lookup. Reading only os and open_ports, as in the first option, ignores the tor tag. The certificate name does not make it an onion service: onion services are reached inside the Tor network, not at a public IP over plain HTTPS, and *.onion-router.net is the relay's own certificate. Nothing in the fields says VPN, guessing from a foundation's name instead of from the tag is a misreading.",
+          explanation: "Shodan tags the IP as “tor”, and the network owner (shodan.org) is Example Relay Foundation, a foundation that runs Tor relays. A corporate laptop has no business reason to talk to Tor infrastructure: either the user is bypassing monitoring, or malware is using Tor to hide its C2. Both need investigation. To confirm the IP is an exit relay, the authoritative check is the Tor Project's own exit list or its ExoneraTor lookup. Reading only os and open_ports, as in the first option, ignores the tor tag. The certificate name does not make it an onion service: onion services are reached inside the Tor network, not at a public IP over plain HTTPS, and *.onion-router.example is the relay's own certificate. Nothing in the fields says VPN, guessing from a foundation's name instead of from the tag is a misreading.",
           xp: 50,
         },
         {
-          question: "Shodan says Tor. You want more context on 185.220.101.47 before deciding how far to take the investigation, without tipping anyone off. Which next step fits the room's passive-first approach?",
+          question: "Shodan says Tor. You want more context on 198.51.100.47 before deciding how far to take the investigation, without tipping anyone off. Which next step fits the room's passive-first approach?",
           options: [
-            "Port-scan 185.220.101.47 from the SOC subnet to confirm which Tor ports are open",
+            "Port-scan 198.51.100.47 from the SOC subnet to confirm which Tor ports are open",
             "Treat shodan.org as proof the IP is the Tor Project's own server and stop the OSINT",
             "Check VirusTotal and ThreatFox for the IP before anything touches it directly",
-            "Run a Public URLScan of https://185.220.101.47 to see what the server serves",
+            "Run a Public URLScan of https://198.51.100.47 to see what the server serves",
           ],
           answer: 2,
           explanation: "VirusTotal and ThreatFox/Abuse.ch are passive: they return what others have already recorded about the IP (vendor flags, related files and URLs, C2 tracking) without sending it a packet. That is the room's order of work, with active steps only after passive sources are exhausted. A port scan is active OSINT: your SOC subnet would appear in the relay operator's logs, and Shodan already lists the open ports. The org field names the organisation that holds the IP block: here a foundation that runs Tor relays, not the Tor Project, which writes the software while independent operators run the relays, so it proves nothing about the server on its own. A URLScan is active by proxy, and a Public scan publishes your interest for anyone to see.",
@@ -722,7 +724,7 @@ Only after exhausting passive research would an analyst consider any active step
       type: "flag" as const,
       id: "osint-flag1",
       prompt: `You want to run a certificate pivot on the server in the log above, searching Censys for other servers that present the same TLS certificate name. Find the certificate in the Shodan enrichment and enter the domain you would search for, without the "CN=" prefix and without the "*." wildcard.`,
-      answer: "onion-router.net",
+      answer: "onion-router.example",
       hint: "Only one shodan.* field describes the server's TLS certificate, and its value is written in certificate-subject format (attribute=value).",
       xp: 60,
     },
@@ -879,6 +881,8 @@ Identification is about answering three questions as fast as possible:
 
 **1. Is this actually an incident?**
 Confirm the alert is a True Positive. Look at the evidence: logs, EDR telemetry, network captures. Has an attacker definitely gained access, or is this a false alarm?
+
+Check where a suspicious process runs from, not only its name. The genuine svchost.exe (the Windows Service Host) runs from C:\\Windows\\System32, so a file with that name in C:\\Windows\\Temp or under AppData is a classic sign of masquerading: malware named after a Windows process so it blends into the process list.
 
 **2. How did it happen?**
 What was the initial attack vector? Phishing email? Exploited VPN vulnerability? Brute-forced credentials? Understanding the entry point is critical because you need to close it during eradication.
@@ -1060,7 +1064,7 @@ Break chain of custody, and the evidence may be inadmissible in court.`,
         "The Schema Admin account",
       ],
       answer: 2,
-      explanation: "The KRBTGT account is the Kerberos Ticket Granting Ticket service account. Its password is used to sign all Kerberos tickets in the domain. If an attacker has domain admin access, they can create 'Golden Tickets': forged Kerberos tickets signed with the KRBTGT hash that allow indefinite access. Resetting the KRBTGT password (twice, due to Active Directory replication) invalidates ALL existing Kerberos tickets across the domain, forcing re-authentication. This is a mandatory step after any domain controller compromise.",
+      explanation: "The KRBTGT account is the Kerberos Ticket Granting Ticket service account. Its password is used to sign all Kerberos tickets in the domain. If an attacker has domain admin access, they can create 'Golden Tickets': forged Kerberos tickets signed with the KRBTGT hash that allow indefinite access. The account keeps its previous password as valid, so tickets signed with the old key survive a single reset. Resetting the KRBTGT password twice, with a wait between the two resets, is what invalidates ALL existing Kerberos tickets across the domain and forces re-authentication. This is a mandatory step after any domain controller compromise.",
       xp: 35,
     },
 
@@ -1136,7 +1140,7 @@ Break chain of custody, and the evidence may be inadmissible in court.`,
             "C:\\Windows\\Temp\\ is write-protected, so malware cannot normally place files there",
           ],
           answer: 1,
-          explanation: "The legitimate Windows svchost.exe (Service Host) ALWAYS runs from C:\\Windows\\System32\\. Malware authors frequently copy their malicious executable into C:\\Windows\\Temp\\ and name it 'svchost.exe' to blend in with normal process lists. This is called Masquerading (MITRE T1036.005: Match Legitimate Name or Location). Note it is the opposite of living-off-the-land, which abuses the genuine built-in binaries; here a malicious file merely wears a system name. Any svchost.exe running from Temp, AppData, or any path other than System32 is almost certainly malicious. The EDR caught this exact pattern.",
+          explanation: "The legitimate Windows svchost.exe (Service Host) ALWAYS runs from C:\\Windows\\System32\\. Malware authors frequently copy their malicious executable into C:\\Windows\\Temp\\ and name it 'svchost.exe' to blend in with normal process lists. This is called Masquerading (MITRE T1036.005: Match Legitimate Resource Name or Location). Note it is the opposite of living-off-the-land, which abuses the genuine built-in binaries; here a malicious file merely wears a system name. Any svchost.exe running from Temp, AppData, or any path other than System32 is almost certainly malicious. The EDR caught this exact pattern.",
           xp: 50,
         },
         {
@@ -1195,6 +1199,8 @@ This creates two failure modes:
 - **Analysis paralysis**: Analysts spend too long on each alert and the queue never clears
 
 Good triage is fast but rigorous. A skilled Tier-1 analyst should be able to triage most alerts in 3-10 minutes. Genuinely complex alerts get escalated to Tier-2 for deeper investigation.
+
+Volume can also land on one machine. When a large cluster of alerts points at a single host, do not start at the top of the list: open two or three as a sample, then pivot, meaning search the SIEM across everything for that host over the last few days. That shows whether one noisy rule is repeating or several different alert types are building into an attack, and only that answer tells you how to handle the rest.
 
 ---
 

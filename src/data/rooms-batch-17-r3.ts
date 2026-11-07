@@ -22,23 +22,23 @@ const tlsBeaconEvent: TelemetryEvent = {
   severity: "high",
   hostname: "WKS-MKT09.solvix.local",
   src_ip: "10.40.8.44",
-  dst_ip: "146.70.87.201",
+  dst_ip: "198.51.100.201",
   dst_port: 443,
   protocol: "tcp",
-  network: { domain: "cdn-assets-static.net" },
+  network: { domain: "cdn-assets-static.example" },
   description:
-    "WKS-MKT09 has established 96 short TLS sessions to 146.70.87.201 over the past 96 minutes, each carrying a nearly identical byte count in both directions; the session below is one representative sample",
+    "WKS-MKT09 has established 96 short TLS sessions to 198.51.100.201 over the past 96 minutes, each carrying a nearly identical byte count in both directions; the session below is one representative sample",
   raw: {
     "id.orig_h": "10.40.8.44",
-    "id.resp_h": "146.70.87.201",
+    "id.resp_h": "198.51.100.201",
     "id.resp_p": 443,
     "ssl.version": "TLSv12",
     "ssl.cipher": "TLS_RSA_WITH_AES_128_CBC_SHA",
-    "ssl.server_name": "cdn-assets-static.net",
+    "ssl.server_name": "cdn-assets-static.example",
     "ssl.ja3": "3f1c9a77d2b04e58a61e0c4d9b27f805",
     "ssl.ja3s": "7e7558f4374aed341ef2d452af381db7",
-    "ssl.issuer": "CN=cdn-assets-static.net",
-    "ssl.subject": "CN=cdn-assets-static.net",
+    "ssl.issuer": "CN=cdn-assets-static.example",
+    "ssl.subject": "CN=cdn-assets-static.example",
     "ssl.validation_status": "self signed certificate",
     duration: 0.891,
     orig_bytes: 216,
@@ -56,20 +56,20 @@ const certInvestigationEvent: TelemetryEvent = {
   severity: "medium",
   hostname: "SRV-BUILD04.solvix.local",
   src_ip: "10.40.2.77",
-  dst_ip: "185.183.96.14",
+  dst_ip: "198.51.100.14",
   dst_port: 8443,
   protocol: "tcp",
-  network: { domain: "ci-artifact-sync.io" },
+  network: { domain: "ci-artifact-sync.example" },
   description:
-    "SRV-BUILD04, a CI/CD build server, connected once to 185.183.96.14 on TCP/8443; this is the first connection ever recorded to this destination from any host on the 10.40.2.0/24 build segment",
+    "SRV-BUILD04, a CI/CD build server, connected once to 198.51.100.14 on TCP/8443; this is the first connection ever recorded to this destination from any host on the 10.40.2.0/24 build segment",
   raw: {
     "id.orig_h": "10.40.2.77",
-    "id.resp_h": "185.183.96.14",
+    "id.resp_h": "198.51.100.14",
     "id.resp_p": 8443,
     "ssl.version": "TLSv12",
-    "ssl.server_name": "ci-artifact-sync.io",
-    "ssl.subject": "CN=ci-artifact-sync.io",
-    "ssl.issuer": "CN=ci-artifact-sync.io",
+    "ssl.server_name": "ci-artifact-sync.example",
+    "ssl.subject": "CN=ci-artifact-sync.example",
+    "ssl.issuer": "CN=ci-artifact-sync.example",
     "ssl.cert_serial": "01",
     "ssl.not_valid_before": "2026-04-04T08:00:00Z",
     "ssl.not_valid_after": "2027-04-04T08:00:00Z",
@@ -211,14 +211,14 @@ const tlsRoom = {
         "Certificate:\n" +
         "    Data:\n" +
         "        Serial Number: 01 (0x1)\n" +
-        "        Issuer: CN = ci-artifact-sync.io\n" +
+        "        Issuer: CN = ci-artifact-sync.example\n" +
         "        Validity\n" +
         "            Not Before: Apr  4 08:00:00 2026 GMT\n" +
         "            Not After : Apr  4 08:00:00 2027 GMT\n" +
-        "        Subject: CN = ci-artifact-sync.io\n" +
+        "        Subject: CN = ci-artifact-sync.example\n" +
         "        X509v3 extensions:\n" +
         "            X509v3 Subject Alternative Name:\n" +
-        "                DNS:ci-artifact-sync.io\n" +
+        "                DNS:ci-artifact-sync.example\n" +
         "=======================================================\n" +
         "Issuer == Subject  ->  SELF-SIGNED\n" +
         "Issued ~25 hours before this connection was observed\n" +
@@ -367,7 +367,7 @@ const tlsRoom = {
       id: "tls-la2",
       heading: "A CI/CD Build Server's First-Ever Connection to a New Destination",
       context:
-        "SRV-BUILD04 runs the company's CI/CD pipeline and normally only talks to a small, well-documented set of package registries, artifact repositories, and internal services. destination_hosts_seen_before_today confirms 185.183.96.14 has never been contacted from the 10.40.2.0/24 build segment before. Review the session record below.",
+        "SRV-BUILD04 runs the company's CI/CD pipeline and normally only talks to a small, well-documented set of package registries, artifact repositories, and internal services. destination_hosts_seen_before_today confirms 198.51.100.14 has never been contacted from the 10.40.2.0/24 build segment before. Review the session record below.",
       event: certInvestigationEvent,
       questions: [
         {
@@ -386,26 +386,26 @@ const tlsRoom = {
         },
         {
           question:
-            "The record carries a passive JA3 for SRV-BUILD04's ClientHello but no JARM. Given that this is the FIRST connection ever observed to 185.183.96.14, why is running a JARM scan the more useful next pivot?",
+            "The record carries a passive JA3 for SRV-BUILD04's ClientHello but no JARM. Given that this is the FIRST connection ever observed to 198.51.100.14, why is running a JARM scan the more useful next pivot?",
           options: [
             "Zeek derives JARM from the ServerHello, so it will appear in the record once a second session is captured",
-            "JARM is active: you can probe 185.183.96.14 now and compare the result with published C2 server JARMs",
+            "JARM is active: you can probe 198.51.100.14 now and compare the result with published C2 server JARMs",
             "JA3 describes the server's TLS stack, so on its own it cannot say whether the destination is C2 infrastructure",
             "JARM sorts the cipher list before hashing, so it survives the randomisation that breaks JA3 matching on browsers",
           ],
           answer: 1,
           explanation:
-            "This is the distinction from Reading 3: JA3 is passive and only describes the CLIENT side of the session you already captured, here, the build server's TLS library. JARM is active: you probe 185.183.96.14 yourself, now, and compare the result with published JARM signatures for C2 team servers, without waiting for more traffic. “Zeek derives JARM from the ServerHello” is wrong. JARM needs ten crafted probes, so no passive sensor produces it however many sessions it sees; the server-side passive fingerprint is JA3S. “JA3 describes the server's TLS stack” swaps JA3 and JA3S. “JARM sorts the cipher list before hashing” describes JA4, not JARM.",
+            "This is the distinction from Reading 3: JA3 is passive and only describes the CLIENT side of the session you already captured, here, the build server's TLS library. JARM is active: you probe 198.51.100.14 yourself, now, and compare the result with published JARM signatures for C2 team servers, without waiting for more traffic. “Zeek derives JARM from the ServerHello” is wrong. JARM needs ten crafted probes, so no passive sensor produces it however many sessions it sees; the server-side passive fingerprint is JA3S. “JA3 describes the server's TLS stack” swaps JA3 and JA3S. “JARM sorts the cipher list before hashing” describes JA4, not JARM.",
           xp: 25,
         },
         {
           question:
             "What is the appropriate response, balancing the genuine risk signals against the fact that CI/CD systems do sometimes legitimately need to reach new third-party services (e.g. a newly adopted build dependency or artifact mirror)?",
           options: [
-            "Block 185.183.96.14 and rebuild SRV-BUILD04 now: a first-ever destination with a day-old self-signed cert is enough",
+            "Block 198.51.100.14 and rebuild SRV-BUILD04 now: a first-ever destination with a day-old self-signed cert is enough",
             "Allow it for now, since build servers add new dependencies all the time, and raise it at the next change-board review",
             "JARM-scan it and check threat intel, check pipeline changes for a new dependency, and escalate if nothing explains it",
-            "Ask the build team whether they recognise ci-artifact-sync.io, add it to the allowlist if they do, and close the alert",
+            "Ask the build team whether they recognise ci-artifact-sync.example, add it to the allowlist if they do, and close the alert",
           ],
           answer: 2,
           explanation:
@@ -435,7 +435,11 @@ const tlsRoom = {
         `**SNI/domain-to-hosting mismatch**\n\n` +
         `A destination IP hosted on infrastructure with no coherent relationship to the SNI hostname being claimed (a residential/consumer ISP IP range presenting itself as a legitimate corporate SaaS product's SNI, for example) is a strong red flag that requires no decryption at all to observe, just correlating the connection's destination IP against IP/ASN reputation and ownership data alongside the SNI value from the handshake.\n\n` +
         `**The case only gets strong in combination**\n\n` +
-        `Any one of these signals alone regularly has an innocent explanation. A case worth escalating combines several: a rare, first-seen destination + a self-signed, recently-issued certificate + a JA3 that doesn't match any recognized legitimate browser/library + sessions repeating at a tight, jitter-consistent interval + near-identical byte counts every time. That combination, entirely visible from metadata, is what a mature detection pipeline (or an experienced analyst working a queue) is actually built to surface.`,
+        `Any one of these signals alone regularly has an innocent explanation. A case worth escalating combines several: a rare, first-seen destination + a self-signed, recently-issued certificate + a JA3 that doesn't match any recognized legitimate browser/library + sessions repeating at a tight, jitter-consistent interval + near-identical byte counts every time. That combination, entirely visible from metadata, is what a mature detection pipeline (or an experienced analyst working a queue) is actually built to surface.\n\n` +
+        `**From a metadata case to the endpoint**\n\n` +
+        `Metadata can tell you a session looks like C2 but not what produced it. Once several signals line up, pivot to endpoint telemetry (EDR, endpoint detection and response, the agent that records what runs on a host) to find the program that owns those sessions, and compare its JA3/JA3S with known toolkit fingerprints. Blocking the destination alone leaves the implant on the host, and a user's word cannot show what a program is doing.\n\n` +
+        `**When the signals have an innocent explanation**\n\n` +
+        `When a rule correctly sees what it looks for, such as a real self-signed certificate, and context shows the activity is legitimate (an old certificate, a well-known destination, an IT confirmation), the verdict is a benign true positive: the detection worked and the use is explained. It is not a false positive, because nothing misfired.`,
       codeExample:
         "METADATA-ONLY C2-IN-TLS DETECTION CHECKLIST\n" +
         "=======================================================\n" +
@@ -463,16 +467,16 @@ const tlsRoom = {
       type: "question" as const,
       id: "tls-q2",
       question:
-        "While triaging outbound TLS from a workstation, you have four separate findings. Judge each one on its own, with no other context. Based on this room's readings, which is the WEAKEST standalone evidence of malicious activity?",
+        "While triaging outbound TLS from a workstation, you have four separate findings. Judge each one on its own, without combining them. Based on this room's readings, which is the WEAKEST standalone evidence of malicious activity?",
       options: [
         "The destination server presents a self-signed certificate (its issue date is not known)",
         "The client's JA3 matches a documented fingerprint of a known C2 framework's default, unmodified configuration",
         "The SNI claims a well-known corporate SaaS product, but the destination IP sits in a residential ISP range",
-        "Every session to the destination carries a near-identical byte count, session after session",
+        "Every session to the destination, which matches no known update, telemetry or health-check service, carries a near-identical byte count",
       ],
       answer: 0,
       explanation:
-        "A self-signed certificate by itself is routine on legitimate internal tools, lab environments and IoT/embedded management interfaces, so on its own it is weak evidence. It only becomes a strong signal when combined with something else, such as being issued in the last day or two (Reading 2's 'substantially stronger combined signal'). The other three are each described in the detection reading as strong on their own: a JA3 match against a known C2 framework's default configuration is high-confidence evidence; an SNI that claims a corporate SaaS product from a residential ISP address is a strong red flag needing no decryption; and near-identical byte counts across sessions are a strong shape-based beacon signal. Even so, the case only becomes escalation-worthy in combination, timing, byte consistency, certificate anomaly, fingerprint and destination rarity together.",
+        "A self-signed certificate by itself is routine on legitimate internal tools, lab environments and IoT/embedded management interfaces, so on its own it is weak evidence. It only becomes a strong signal when combined with something else, such as being issued in the last day or two (Reading 2's 'substantially stronger combined signal'). The other three are each described in the detection reading as strong on their own: a JA3 match against a known C2 framework's default configuration is high-confidence evidence; an SNI that claims a corporate SaaS product from a residential ISP address is a strong red flag needing no decryption; and near-identical byte counts across sessions, to a destination that no known polling service explains, are a strong shape-based beacon signal. Even so, the case only becomes escalation-worthy in combination, timing, byte consistency, certificate anomaly, fingerprint and destination rarity together.",
       xp: 25,
     },
 
@@ -482,12 +486,12 @@ const tlsRoom = {
       id: "tls-la1",
       heading: "Investigating a Repeating TLS Session Pattern",
       context:
-        "WKS-MKT09 belongs to a member of the marketing team whose normal daily traffic is almost entirely to well-known SaaS marketing/analytics platforms. A network anomaly rule flagged repeated sessions to 146.70.87.201, an IP with no prior history on this network before today: 96 sessions over 96 minutes, averaging one every 60.4 seconds with a standard deviation of only 5.1 seconds, and the bytes sent per session vary by a standard deviation of just 4.2 bytes. Review the representative session record below.",
+        "WKS-MKT09 belongs to a member of the marketing team whose normal daily traffic is almost entirely to well-known SaaS marketing/analytics platforms. A network anomaly rule flagged repeated sessions to 198.51.100.201, an IP with no prior history on this network before today: 96 sessions over 96 minutes, averaging one every 60.4 seconds with a standard deviation of only 5.1 seconds, and the bytes sent per session vary by a standard deviation of just 4.2 bytes. Review the representative session record below.",
       event: tlsBeaconEvent,
       questions: [
         {
           question:
-            "The raw record shows ssl.validation_status: 'self signed certificate' with ssl.issuer and ssl.subject both 'CN=cdn-assets-static.net'. Combined with the 96-sessions-in-96-minutes timing pattern stated above, what does this combination suggest?",
+            "The raw record shows ssl.validation_status: 'self signed certificate' with ssl.issuer and ssl.subject both 'CN=cdn-assets-static.example'. Combined with the 96-sessions-in-96-minutes timing pattern stated above, what does this combination suggest?",
           options: [
             "Routine CDN asset loading: pages refresh assets on a timer, and CDN edge nodes often present self-signed certificates",
             "A likely beacon: a self-signed cert under a generic CDN-style name, plus a ~60 s interval with only a 5.1 s spread",
@@ -517,7 +521,7 @@ const tlsRoom = {
           question:
             "Given everything observed, what is the correct next step?",
           options: [
-            "Block 146.70.87.201 at the perimeter and close the case, since the combined signals already confirm C2",
+            "Block 198.51.100.201 at the perimeter and close the case, since the combined signals already confirm C2",
             "Find the owning process via EDR on WKS-MKT09 and check the JA3/JA3S against known toolkits before deciding",
             "Ask the marketing user whether they installed a new tool, and close the finding if they confirm they did",
             "Collect another 24 hours of sessions so the interval statistics are more reliable before taking any action",
@@ -548,16 +552,16 @@ const tlsRoom = {
       heading: "Write It Yourself: Surface Beacon-Shaped TLS Sessions in KQL",
       language: "kql",
       context: KQL_PRIMER +
-        "Using the pattern confirmed in Log Analysis 1 (96 sessions to one destination, tight interval clustering, and a byte-count standard deviation of 4.2), write the KQL that flags the session-count and byte-consistency parts of that pattern across the whole network, so candidates surface without inspecting any single session first. Choose thresholds that would still catch the Log Analysis 1 host. (Interval clustering needs a separate time-delta step and is not part of this query.)",
+        "Using the pattern confirmed in Log Analysis 1 (96 sessions to one destination, tight interval clustering, and a byte-count standard deviation of 4.2), write the KQL that flags the session-count and byte-consistency parts of that pattern across the whole network, so candidates surface without inspecting any single session first. Choose thresholds that would still catch the Log Analysis 1 host, with a session floor of at least 10 and a byte-count stdev ceiling of at most 20 so the hunt stays selective. (Interval clustering needs a separate time-delta step and is not part of this query.)",
       template:
         "NetworkSessionEvents\n| where DestinationPort == {{port}}\n| summarize SessionCount = count(), AvgBytesOut = avg(BytesSent), StdevBytesOut = stdev(BytesSent) by SourceIp, DestinationIp, JA3Hash\n| where SessionCount > {{threshold}}\n| where StdevBytesOut < {{stdevlimit}}",
       blanks: [
         { id: "port", answers: ["443"], placeholder: "standard HTTPS port" },
-        { id: "threshold", answers: ["10", "12", "15", "20", "24", "25", "30", "40", "48", "50", "60", "70", "75", "80", "90"], placeholder: "minimum session count to consider a repeating pattern" },
-        { id: "stdevlimit", answers: ["5", "6", "7", "8", "9", "10", "12", "15", "20"], placeholder: "byte-count standard deviation ceiling (low = suspiciously consistent)" },
+        { id: "threshold", answers: ["10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "60", "61", "62", "63", "64", "65", "66", "67", "68", "69", "70", "71", "72", "73", "74", "75", "76", "77", "78", "79", "80", "81", "82", "83", "84", "85", "86", "87", "88", "89", "90", "91", "92", "93", "94", "95"], placeholder: "minimum session count to consider a repeating pattern" },
+        { id: "stdevlimit", answers: ["5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20"], placeholder: "byte-count standard deviation ceiling (low = suspiciously consistent)" },
       ],
       explanation:
-        "This mirrors exactly the two signals you evaluated in Log Analysis 1: a high SessionCount to the same destination/JA3 pair, combined with a LOW standard deviation in bytes sent per session. Any session-count floor from 10 up to 90 and any stdev ceiling from 5 to 20 is accepted: each still catches the 96-session, 4.2-byte-stdev host, while a floor of 96 or more, or a ceiling of 4 or less, would miss it. Ordinary browsing produces high variance in request sizes; a beacon's repeated, near-identical check-in produces the opposite: many sessions, tightly clustered byte counts. Grouping by JA3Hash alongside source/destination also lets this same query catch the case where a beacon rotates its destination IP or domain but keeps using the same underlying TLS library/configuration.",
+        "This mirrors exactly the two signals you evaluated in Log Analysis 1: a high SessionCount to the same destination/JA3 pair, combined with a LOW standard deviation in bytes sent per session. Any session-count floor from 10 up to 95 and any stdev ceiling from 5 to 20 is accepted: each still catches the 96-session, 4.2-byte-stdev host, while a floor of 96 or more, or a ceiling of 4 or less, would miss it. Ordinary browsing produces high variance in request sizes; a beacon's repeated, near-identical check-in produces the opposite: many sessions, tightly clustered byte counts. Grouping by SourceIp, DestinationIp and JA3Hash measures one host's sessions to one destination with one TLS fingerprint. That also marks this query's limit: a beacon that rotates its destination IP splits across several rows and each row's count drops, so catching rotation takes a second query that leaves DestinationIp out of the grouping.",
       xp: 35,
     },
 
@@ -691,7 +695,7 @@ const tlsRoom = {
       explanation:
         "Every individual element here (self-signed certificate, unrecognized JA3) is exactly the kind of raw signal that this room teaches you to weigh, but the surrounding context resolves it clearly as a benign true positive (the rule correctly saw a real self-signed certificate and an unlisted JA3, on traffic that is legitimate): it_verify_result is confirmed by IT (a legitimate management appliance with a documented, unrotated vendor-default certificate), the certificate is nearly 5,832 hours (about 8 months) old, not recently issued, and destination_hosts_seen_before_today is 244, meaning this is a well-established, frequently-used internal destination, not a rare, first-seen one. Many internal appliances and management interfaces (backup servers, hypervisor management, network gear web UIs) ship with self-signed certificates by default and are never issued a proper internal-CA certificate: this is common, if not ideal, practice, and does not by itself indicate compromise. Close it citing the IT confirmation and the nightly backup schedule; it is not a false positive, since the detection matched exactly what it looks for, and calling it a misfire invites loosening the rule instead of adding a narrow, owned exclusion for this one appliance.",
       fp_trap:
-        "A self-signed certificate plus an unfamiliar JA3 is exactly the combination Reading 3 and Reading 4 taught you to weigh as suspicious, but those readings were explicit that these signals build a case only in combination with rarity, recency, and lack of business justification. Here, the certificate is old (not recently issued), the destination has been contacted 244 times before (not rare or first-seen), and IT has explicitly confirmed the appliance's identity and purpose. Escalating purely because a system triggers two individually-suspicious-sounding facts, without checking their actual values (age, rarity) or available IT verification, is exactly the kind of alert fatigue trap that erodes trust in a detection program over time. Not every self-signed certificate is a C2 beacon: most, in most networks, are boring internal appliances that were never properly issued a real certificate.",
+        "A self-signed certificate plus an unfamiliar JA3 is exactly the combination Reading 3 and Reading 4 taught you to weigh as suspicious, but those readings were explicit that these signals build a case only in combination with rarity, recency, and lack of business justification. Here, the certificate is old (not recently issued), the destination has been seen from 244 hosts (not rare or first-seen), and IT has explicitly confirmed the appliance's identity and purpose. Escalating purely because a system triggers two individually-suspicious-sounding facts, without checking their actual values (age, rarity) or available IT verification, is exactly the kind of alert fatigue trap that erodes trust in a detection program over time. Not every self-signed certificate is a C2 beacon: most, in most networks, are boring internal appliances that were never properly issued a real certificate.",
       xp: 30,
     },
 

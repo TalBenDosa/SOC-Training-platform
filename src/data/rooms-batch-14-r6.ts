@@ -22,7 +22,7 @@ const bruteForceRawEvent: TelemetryEvent = {
   severity: "high",
   hostname: "DC01.nexacorp.com",
   user_email: "svc-backup@nexacorp.com",
-  src_ip: "185.220.101.47",
+  src_ip: "203.0.113.47",
   description: "23 failed logon attempts against the svc-backup service account in six minutes, all from a single external IP",
   // Many passwords against ONE account = T1110.001 (Password Guessing).
   // T1110.003 (Spraying) is the inverse shape — one password across many
@@ -36,7 +36,7 @@ const bruteForceRawEvent: TelemetryEvent = {
     "winlog.event_data.Status": "0xC000006D",
     "winlog.event_data.SubStatus": "0xC000006A",
     "winlog.event_data.LogonType": "3",
-    "winlog.event_data.IpAddress": "185.220.101.47",
+    "winlog.event_data.IpAddress": "203.0.113.47",
     "winlog.event_data.WorkstationName": "-",
     "winlog.event_data.FailureReason": "%%2313",
   },
@@ -52,7 +52,7 @@ const bruteForceEnrichedEvent: TelemetryEvent = {
   severity: "critical",
   hostname: "DC01.nexacorp.com",
   user_email: "svc-backup@nexacorp.com",
-  src_ip: "185.220.101.47",
+  src_ip: "203.0.113.47",
   description: "Playbook 'Brute Force - Auto Containment' auto-enriched the alert: source IP has no legitimate business reason to authenticate, is TOR-associated, and the target is a privileged service account",
   // Same incident as bruteForceRawEvent above — keep the technique identical.
   mitre_technique: "T1110.001",
@@ -90,8 +90,8 @@ const overAutomationEvent: TelemetryEvent = {
   severity: "medium",
   hostname: "HD-API-01.nexacorp.com",
   user_email: "helpdesk-integration@nexacorp.com",
-  src_ip: "52.14.88.201",
-  description: "The latest of 23 failed logons against the helpdesk-integration account over 40 minutes, all from 52.14.88.201; the brute-force playbook recommends blocking the source IP",
+  src_ip: "203.0.113.201",
+  description: "The latest of 23 failed logons against the helpdesk-integration account over 40 minutes, all from 203.0.113.201; the brute-force playbook recommends blocking the source IP",
   mitre_technique: "T1110",
   mitre_tactic: "Credential Access",
   raw: {
@@ -101,7 +101,7 @@ const overAutomationEvent: TelemetryEvent = {
     "winlog.event_data.Status": "0xC000006D",
     "winlog.event_data.SubStatus": "0xC000006A",
     "winlog.event_data.LogonType": "3",
-    "winlog.event_data.IpAddress": "52.14.88.201",
+    "winlog.event_data.IpAddress": "203.0.113.201",
     "winlog.event_data.WorkstationName": "-",
     "winlog.event_data.FailureReason": "%%2313",
   },
@@ -196,7 +196,7 @@ const soarRoom = {
         "Enrichment is the process of automatically gathering extra context about an alert so a human analyst does not have to go look it up manually, one tool at a time. When a raw alert arrives, it usually contains bare facts: an IP address, a username, a file hash, a hostname. Those facts are nearly meaningless on their own: an analyst's job is to figure out what they MEAN, and that requires context from other systems. A SOAR playbook automates exactly that lookup work:\n\n" +
         "**IP reputation lookup**: is this source IP known-malicious, a TOR exit node, a cloud provider IP, or an IP with no history at all? (Queried against threat intel feeds like VirusTotal, AbuseIPDB, or a commercial feed.)\n\n" +
         "**File hash reputation lookup**: has this exact file hash been seen before, and is it flagged as malware by other engines? (Queried against VirusTotal, internal EDR history, or a malware sandbox.)\n\n" +
-        "**User/account lookup**: who is this user, what is their department and role, are they a privileged or service account, and where do they normally log in from? (Queried against Active Directory / Entra ID / the HR system.)\n\n" +
+        "**User/account lookup**: who is this user, what is their department and role, are they a privileged or service account, and where do they normally log in from? (Queried against Active Directory / Entra ID / the HR system.) A service account is one that software, not a person, signs in with from a stored credential, so failed logons against it cannot be a mistyped password, and these accounts often hold broad standing privileges that make a compromise costly.\n\n" +
         "**Geo-IP lookup**: what country and city does this IP resolve to, and does that match where this user is expected to be?\n\n" +
         "**Asset owner lookup**: which team owns the affected server or workstation, and how critical is it? (Queried against a CMDB, configuration management database, or asset inventory.)\n\n" +
         "Each of these lookups might take a human analyst two to five minutes of clicking through separate consoles. A playbook does all of them in parallel, in seconds, and drops the results directly into the alert, so by the time a human even opens the ticket, the boring lookup work is already done and the analyst can go straight to the judgment call: is this actually bad?\n\n" +
@@ -205,7 +205,7 @@ const soarRoom = {
       codeExample:
         "ENRICHMENT PLAYBOOK: WHAT GETS AUTO-LOOKED-UP\n" +
         "==================================================\n" +
-        "  Raw alert arrives:  src_ip=185.220.101.47, user=svc-backup\n\n" +
+        "  Raw alert arrives:  src_ip=203.0.113.47, user=svc-backup\n\n" +
         "  Playbook runs IN PARALLEL:\n" +
         "    -> IP reputation lookup      (VirusTotal / AbuseIPDB)\n" +
         "    -> Geo-IP lookup             (country / city / ASN)\n" +
@@ -392,7 +392,7 @@ const soarRoom = {
             "Looking only at this raw alert, which piece of context that a human analyst would normally need is NOT yet present, and would require manual lookup (or automated enrichment) to answer?",
           options: [
             "Why the logons failed, nothing in the raw event says whether the password was wrong or the account was locked",
-            "Whether 185.220.101.47 has a malicious reputation, and whether it has ever contacted this environment before",
+            "Whether 203.0.113.47 has a malicious reputation, and whether it has ever contacted this environment before",
             "How the logons were attempted: the raw event does not show whether they were network or interactive logons",
             "Which domain the targeted account belongs to: the raw event names the user but not the user's domain"
           ],
@@ -403,7 +403,7 @@ const soarRoom = {
         },
         {
           question:
-            "The target account is svc-backup: a service account, not a named human. Why does that fact alone raise the priority of this alert, using the WHO framework from earlier training?",
+            "The target account is svc-backup: a service account, not a named human. Why does that fact alone raise the priority of this alert?",
           options: [
             "Service accounts are exempt from lockout, so an attacker can keep guessing against one with no limit at all",
             "No human types a service account's password, so “user mistyped it” is off the table, and its rights are broad",
@@ -412,7 +412,7 @@ const soarRoom = {
           ],
           answer: 1,
           explanation:
-            "Service accounts are high-value targets because they often carry broad, standing privileges, and nobody is supposed to type their password by hand. They authenticate from stored credentials in an automated process. Repeated failures against one lose the easy “the user fat-fingered it” explanation a human account has, which is the WHO-based context that raises priority. “Exempt from lockout” is a misconception: lockout policy applies to service accounts too (which is exactly why locking one out can break production). “Excluded from MFA … MFA was bypassed” confuses two things: a wrong-password failure means the attempt never got past the password at all. “Only ever recorded as 4624” is false: failed logons by any account, service or human, produce 4625.",
+            "Service accounts are high-value targets because they often carry broad, standing privileges, and nobody is supposed to type their password by hand. They authenticate from stored credentials in an automated process. Repeated failures against one lose the easy “the user fat-fingered it” explanation a human account has, which is the context that raises priority. “Exempt from lockout” is a misconception: lockout policy applies to service accounts too (which is exactly why locking one out can break production). “Excluded from MFA … MFA was bypassed” confuses two things: a wrong-password failure means the attempt never got past the password at all. “Only ever recorded as 4624” is false: failed logons by any account, service or human, produce 4625.",
           xp: 35,
         },
       ],
@@ -473,7 +473,7 @@ const soarRoom = {
         "**MTTR (Mean Time To Respond/Resolve)**: the average time from when an alert fires to when the appropriate response action is complete. If enrichment and initial containment that used to take an analyst fifteen minutes of manual work now happens in under sixty seconds automatically, MTTR for that alert category drops dramatically, often the single most visible, most reportable SOAR win.\n\n" +
         "**Analyst time saved / alerts auto-handled**: how many alerts per week are now closed, escalated, or enriched without requiring a human to manually perform each lookup step? This is usually expressed as hours of analyst time reclaimed per week, and it is the number that justifies the tool's cost to leadership, freeing analysts to spend that reclaimed time on genuine investigation, threat hunting, and the ambiguous cases that actually need a human brain.\n\n" +
         "**The Real Risk: Over-Automation**\n\n" +
-        "Every one of these benefits comes with a matching risk, and it is the single most important caution in this entire room: **a playbook is only as good as the confidence of the enrichment feeding it, and confidence is never 100%.** A playbook that auto-blocks any IP with more than 20 failed logins in ten minutes sounds reasonable, until that exact pattern shows up from a legitimate SaaS integration partner whose credentials just got rotated and whose connector hasn't been updated yet. If that IP gets auto-blocked with no human approval gate, you have just broken a real business integration, potentially causing an outage, based entirely on a rule that could not tell the difference between an attacker guessing passwords and a broken but legitimate service losing its credential. This is exactly why the approval-gate design from the previous reading is not optional caution. It is the difference between a SOAR platform that makes your SOC faster and one that occasionally becomes its own incident.",
+        "Every one of these benefits comes with a matching risk, and it is the single most important caution in this entire room: **a playbook is only as good as the confidence of the enrichment feeding it, and confidence is never 100%.** A playbook that auto-blocks any IP with more than 20 failed logins in ten minutes sounds reasonable, until that exact pattern shows up from a legitimate SaaS integration partner whose credentials just got rotated and whose connector hasn't been updated yet. If that IP gets auto-blocked with no human approval gate, you have just broken a real business integration, potentially causing an outage, based entirely on a rule that could not tell the difference between an attacker guessing passwords and a broken but legitimate service losing its credential. The verdict on a case like that is a benign true positive with a harmless cause: the logons really failed and the rule counted them correctly. A false positive would mean the rule fired on something that never happened. This is exactly why the approval-gate design from the previous reading is not optional caution. It is the difference between a SOAR platform that makes your SOC faster and one that occasionally becomes its own incident.",
       codeExample:
         "SOAR VALUE METRICS: WHAT LEADERSHIP ACTUALLY WANTS TO SEE\n" +
         "==============================================================\n" +
@@ -498,13 +498,13 @@ const soarRoom = {
       id: "soar-ac1",
       heading: "Verdict: Should the Playbook Auto-Block This IP?",
       scenario:
-        "The 'Brute Force - Auto Containment v3' playbook flags 23 failed logons against the shared helpdesk-integration account over 40 minutes, all from 52.14.88.201 at a steady interval of roughly 100 seconds, and recommends an automatic IP block. Its enrichment panel shows: VirusTotal 0/89 malicious, no tags; asset inventory, 52.14.88.201 is an AWS Elastic IP registered to Zendesk's outbound integration servers (vendor integration ticket VEND-2291); user context, helpdesk-integration is used only by the Zendesk connector. The change calendar lists CHG-30117: helpdesk-integration password rotated by IT yesterday at 16:00. Review the raw event alongside this context and decide: is this an attack the playbook should be allowed to contain, or something else?",
+        "The 'Brute Force - Auto Containment v3' playbook flags 23 failed logons against the shared helpdesk-integration account over 40 minutes, all from 203.0.113.201 at a steady interval of roughly 100 seconds, and recommends an automatic IP block. The rule behind the playbook counts failed logons against one account from one source; it says nothing about intent. Its enrichment panel shows: VirusTotal 0/89 malicious, no tags; asset inventory, 203.0.113.201 is registered to TicketHarbor's outbound integration servers (vendor integration ticket VEND-2291); user context, helpdesk-integration is used only by the TicketHarbor connector. The change calendar lists CHG-30117: helpdesk-integration password rotated by IT today at 08:20. Review the raw event alongside this context and decide: is this an attack the playbook should be allowed to contain, or something else?",
       event: overAutomationEvent,
       correct_verdict: "benign_true_positive" as const,
       explanation:
-        "This is a benign true positive, and it is the exact over-automation trap this room warns about: the brute-force detection fired correctly on 23 real failed logons, but their cause is legitimate, a documented integration still holding its old password after a ticketed rotation. The enrichment itself, if actually read rather than rubber-stamped, tells the real story: the IP reputation score is 0/89 malicious with no threat tags at all, nothing here looks like attacker infrastructure. The asset inventory places 52.14.88.201 as a documented AWS Elastic IP belonging to Zendesk's outbound integration (vendor ticket VEND-2291), and the account is used only by that connector. The change calendar supplies the cause: IT rotated the helpdesk-integration password yesterday, and a connector still holding the old password fails on every scheduled attempt, which matches the raw event's SubStatus 0xC000006A (wrong password) and the steady ~100-second rhythm from one stable IP, a machine retry loop rather than the bursty pattern of someone guessing. Auto-blocking this IP would sever a legitimate, documented business integration and likely trigger a helpdesk outage: a self-inflicted incident caused by trusting the playbook's raw pattern match instead of reading the enrichment it already provided. Close it citing VEND-2291 and CHG-30117 and have the connector's credential updated; it is not a false positive, because the rule saw exactly the failure pattern it targets, and calling it a misfire would invite loosening a brute-force rule that is working.",
+        "This is a benign true positive, and it is the exact over-automation trap this room warns about: the brute-force detection fired correctly on 23 real failed logons, but their cause is legitimate, a documented integration still holding its old password after a ticketed rotation. The enrichment itself, if actually read rather than rubber-stamped, tells the real story: the IP reputation score is 0/89 malicious with no threat tags at all, nothing here looks like attacker infrastructure. The asset inventory places 203.0.113.201 as a documented address belonging to TicketHarbor's outbound integration (vendor ticket VEND-2291), and the account is used only by that connector. The change calendar supplies the cause: IT rotated the helpdesk-integration password at 08:20 today, minutes before the first failure, and a connector still holding the old password fails on every scheduled attempt, which matches the raw event's SubStatus 0xC000006A (wrong password) and the steady ~100-second rhythm from one stable IP, a machine retry loop rather than the bursty pattern of someone guessing. Auto-blocking this IP would sever a legitimate, documented business integration and likely trigger a helpdesk outage: a self-inflicted incident caused by trusting the playbook's raw pattern match instead of reading the enrichment it already provided. Close it citing VEND-2291 and CHG-30117 and have the connector's credential updated; it is not a false positive, because the rule saw exactly the failure pattern it targets, and calling it a misfire would invite loosening a brute-force rule that is working.",
       fp_trap:
-        "The scary-looking surface pattern ('23 failed logins, playbook recommends auto-block') is designed to tempt you into rubber-stamping the recommended containment action without reading the enrichment fields the playbook already gathered. This is precisely the over-automation risk from the reading: a detection rule that is accurate most of the time will still occasionally flag a legitimate, documented, business-critical source, and if a human (or a fully automated rule with no approval gate) approves the block reflexively instead of checking the IP reputation score (0/89, no tags), the asset inventory (a known Zendesk integration IP) and the change calendar (a password rotation the day before), you cause exactly the kind of self-inflicted outage this room warns about.",
+        "The scary-looking surface pattern ('23 failed logins, playbook recommends auto-block') is designed to tempt you into rubber-stamping the recommended containment action without reading the enrichment fields the playbook already gathered. This is precisely the over-automation risk from the reading: a detection rule that is accurate most of the time will still occasionally flag a legitimate, documented, business-critical source, and if a human (or a fully automated rule with no approval gate) approves the block reflexively instead of checking the IP reputation score (0/89, no tags), the asset inventory (a known TicketHarbor integration IP) and the change calendar (a password rotation minutes before the failures began), you cause exactly the kind of self-inflicted outage this room warns about.",
       xp: 40,
     },
 
@@ -513,7 +513,7 @@ const soarRoom = {
       type: "flag" as const,
       id: "soar-flag1",
       prompt:
-        "You are rejecting the playbook's recommended block on 52.14.88.201 and must cite, in the case record, the ticket that explains WHY the helpdesk-integration failures started. Two tickets appear in that triage's context. Enter the one that explains the cause of the failures, exactly as written.",
+        "You are rejecting the playbook's recommended block on 203.0.113.201 and must cite, in the case record, the ticket that explains WHY the helpdesk-integration failures started. Two tickets appear in that triage's context. Enter the one that explains the cause of the failures, exactly as written.",
       answer: "CHG-30117",
       hint: "One ticket tells you who owns the IP; the other tells you what changed shortly before the failures began.",
       xp: 30,

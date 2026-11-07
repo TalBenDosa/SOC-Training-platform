@@ -21,8 +21,7 @@ import type { RoomExperience } from "./types";
 // (q3, r5 checkpoint). The sequence climbs a cloud account in five steps, not a host in six (o1).
 // The boss queue is scanners, CI and a misfired string match, never a nightly audit account on
 // an audit server (ac1). Labs never ask the m1 pairs; a primer shows them in passing.
-// disc-r3's reading says Get-ADUser and Get-ADGroupMember use LDAP. They go over ADWS, TCP 9389, so
-// the labs say that on purpose; the reading is logged, and fixing it needs a new narration recording.
+// disc-r3's reading and these labs agree: Get-ADUser and Get-ADGroupMember go over ADWS, TCP 9389.
 
 const S = "C:\\Windows\\System32\\";
 const CMD = `${S}cmd.exe`;

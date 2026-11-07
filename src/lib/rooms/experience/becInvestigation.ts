@@ -13,7 +13,7 @@ import type { RoomExperience } from "./types";
 // Task order: the room's own, unchanged. No flag says "Log Analysis N".
 //
 // Lab data differs from the graded tasks. The lab mailbox is a project manager's, not an accounts
-// payable lead's. The session came from an infostealer on a site laptop, not an AiTM page
+// payable lead's. The session came from an infostealer on a site laptop, not malware on the AP lead's own laptop
 // (o1, la1). Pittsburgh to Frankfurt, 27 minutes apart, not Denver to Lagos in nine (la1). The
 // rule is called zz, keys on a sender and uses Conversation History, 20 minutes after the sign-in;
 // the graded rule's name, folder, keywords and nine-minute gap appear nowhere (la2, f1). The

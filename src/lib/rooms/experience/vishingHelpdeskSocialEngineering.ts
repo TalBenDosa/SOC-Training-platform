@@ -31,9 +31,9 @@ import type { RoomExperience } from "./types";
 // replacement bank card, a bank's call, a VPN rule and a smoke alarm.
 // The Case Files table names real companies from the room's own readings. That is teaching
 // text, not console chrome, and m1 needs it.
-// la1 and ac1 raw events pair Reset password (by admin) with loggedByService "Core Directory",
-// and la1's explanation leans on it. Microsoft's audit reference lists that activity under
-// Self-service Password Management. The labs show neither value. Graded data left as it is.
+// la1 and ac1 raw events pair Reset password (by admin) with loggedByService
+// "Self-service Password Management", the service Microsoft's audit reference lists that
+// activity under. The labs do not show this value.
 
 export const VISHING_HELPDESK_SOCIAL_ENGINEERING: RoomExperience = {
   roomId: "vishing-helpdesk-social-engineering",
@@ -270,7 +270,7 @@ export const VISHING_HELPDESK_SOCIAL_ENGINEERING: RoomExperience = {
         columns: ["Case", "When", "Who took the call", "Before the call", "What the call got", "After"],
         rows: [
           ["Twilio", "Jun 2022", "An employee", "Nothing reported", "Working credentials, from a caller posing as IT", "About 12 hours of access to customer contact data"],
-          ["Cisco", "Aug 2022", "An employee", "Password synced to a personal Google account, which fell first", "One approved MFA push, after push spam and calls posing as trusted organisations", "Intrusion stopped short of the most sensitive systems"],
+          ["Cisco", "May 2022", "An employee", "Password synced to a personal Google account, which fell first", "One approved MFA push, after push spam and calls posing as trusted organisations", "Intrusion stopped short of the most sensitive systems"],
           ["Retool", "Aug 2023", "An employee", "A texted fake portal took a password and an MFA code", "One more MFA code, in a voice cloned to resemble a real colleague who knew the office", "Attacker registered their own MFA method, reached 27 cloud customers"],
           ["MGM Resorts", "Sep 2023", "IT help desk", "An employee found on LinkedIn", "Credentials reset after a call of about ten minutes, on checks that relied on KBA", "Into the Okta identity environment, then wider IT, about ten days offline"],
           ["Caesars Entertainment", "Sep 2023", "IT help-desk vendor", "In some accounts, a SIM swap", "Passwords or MFA tokens reset on high-value SSO accounts", "Broad access across connected applications"],

@@ -210,7 +210,7 @@ Next, the people who attack these systems, and how they do it.`,
 
 **Types of Attacks**
 
-- **Phishing**: A fake email designed to trick you into clicking a malicious link or revealing your password. Like a fake letter from your bank asking you to "verify your account."
+- **Phishing**: A fake email designed to trick you into clicking a malicious link or revealing your password. Like a fake letter from your bank asking you to "verify your account." Phishing links often lead to a **look-alike domain**: a web address the attacker owns that mixes a real company's name with extra words, sometimes under a country ending such as .ru (Russia). Compare the whole domain with the company's real one instead of trusting a familiar word inside it.
 - **Ransomware**: Malware that encrypts (locks) your files and demands a ransom to unlock them. Colonial Pipeline paid $4.4 million in Bitcoin to get their systems back.
 - **DDoS (Distributed Denial of Service)**: Flooding a server with millions of fake requests until it crashes, like thousands of prank callers jamming a phone line so real customers cannot get through.
 - **Man-in-the-Middle (MitM)**: An attacker secretly positions themselves between two communicating parties and intercepts or alters the messages. Like a dishonest postal worker reading and resealing your letters.
@@ -410,7 +410,7 @@ const socStructureEvent: TelemetryEvent = {
   description: "Multiple failed login attempts detected: possible brute-force",
   mitre_technique: "T1110",
   mitre_tactic: "Credential Access",
-  src_ip: "185.220.101.47",
+  src_ip: "203.0.113.47",
   // ONE authentic 4625, and nothing else. An earlier version of this event also
   // carried FailureCount / FailuresPerMinute / AlertThreshold / GeoLocation_ISP /
   // PreviousFailures — none of which Windows writes. A single 4625 knows only
@@ -443,12 +443,12 @@ const socStructureEvent: TelemetryEvent = {
     "winlog.event_data.KeyLength": "0",
     "winlog.event_data.ProcessId": "0x0",
     "winlog.event_data.ProcessName": "-",
-    "winlog.event_data.IpAddress": "185.220.101.47",
+    "winlog.event_data.IpAddress": "203.0.113.47",
     "winlog.event_data.IpPort": "54312",
     "event.code": "4625",
     "event.action": "logon-failed",
     "event.outcome": "failure",
-    "source.ip": "185.220.101.47",
+    "source.ip": "203.0.113.47",
     "user.name": "jsmith",
     "user.domain": "GLOBALBANK",
   },
@@ -640,7 +640,7 @@ This handoff process is critical. Poor handoffs have allowed attackers to operat
       type: "question" as const,
       id: "soc-struct-q3",
       question:
-        "A SOC is investigating a confirmed ransomware outbreak. The malware has spread to 12 workstations and the attacker's tools are still running. Which tier of analyst is best suited to lead this response, and why?",
+        "A confirmed ransomware outbreak has spread to 12 workstations and the attacker's tools are still running. Tier 1 has escalated the case. Who picks it up next to work out the scope and contain it, and why?",
       options: [
         "Tier 1: they receive every alert first and own the case end to end",
         "Tier 2: they take escalated incidents, scope them and contain them",
@@ -649,7 +649,7 @@ This handoff process is critical. Poor handoffs have allowed attackers to operat
       ],
       answer: 1,
       explanation:
-        "A confirmed, active, multi-system ransomware outbreak is a serious incident requiring deep investigation: this is Tier-2 territory. T2 analysts perform deep-dive investigations, determine scope (how many systems are affected), and implement containment (e.g., isolating infected machines from the network). The SIEM detects; it does not remediate. The SOC Manager oversees team operations but does not personally handle every investigation. If the attack is extremely sophisticated (e.g., nation-state level), T2 would escalate to T3.",
+        "A confirmed outbreak escalated from Tier 1 is Tier-2 work: T2 analysts receive escalations, perform deep-dive investigations, determine scope (how many systems are affected), and implement containment (e.g., isolating infected machines from the network). Tier 1 has already handed the case on, so it does not own it end to end. The SIEM detects; it does not remediate. The SOC Manager oversees team operations but does not personally handle every investigation. If the incident grows into a major, complex one, T3 can lead the response and Incident Response Specialists are called in.",
       xp: 25,
     },
 
@@ -681,8 +681,13 @@ A SOAR platform automates repetitive tasks in the SOC. Instead of an analyst man
 
 Popular SOAR products: **Palo Alto XSOAR**, **Splunk SOAR**, **Microsoft Sentinel's automation rules**.
 
+**Firewall and IPS**
+A **firewall** sits at the boundary between parts of a network and decides which connections may pass. An **IPS (Intrusion Prevention System)** looks inside the traffic and tries to stop attacks it recognises. Both also send logs to the SIEM showing who talked to whom.
+
 **TIP: Threat Intelligence Platform**
 A TIP aggregates intelligence from multiple sources about known malicious actors, IP addresses, domains, and malware. When an analyst sees a suspicious IP address, they "look it up" in the TIP to see if it has been linked to known attacks.
+
+A lookup may label an address as a **Tor exit node**. Tor is a network that relays traffic through several computers so the real sender cannot be seen, and the exit node is the last of them, the address the destination sees. Tor has lawful privacy uses, but repeated failed logons arriving through it point away from a normal employee and towards someone deliberately hiding who they are.
 
 Popular TIP products: **MISP**, **ThreatConnect**, **Recorded Future**, **Mandiant Advantage**.
 
@@ -763,7 +768,7 @@ That entire sequence (from first email to automated response) might happen in un
       id: "soc-struct-la1",
       heading: "T1 Analyst Scenario: Reviewing an Authentication Alert",
       context:
-        "You are a Tier-1 SOC analyst at GlobalBank. It is 3:47 AM and your SIEM has fired an alert.\n\n**What the SIEM console tells you:** the rule 'Repeated Authentication Failure: Single Account' correlated **47 of these failures in 2 minutes 33 seconds** (about 18 per minute), all against the same account from the same address, and fired because the rule's threshold is 10 per minute. Its threat-intelligence enrichment flags the source address **185.220.101.47 as a Tor exit node in Amsterdam**.\n\n**What the log itself tells you:** the single Windows Security event below, one of those 47, from the Domain Controller (DC01-CORP), the central server that manages all user logins.\n\nNotice the split before you start: the raw event knows nothing about the other 46 failures and has never heard of Tor. Counting and enrichment are the SIEM's job. Triage this as if it were live.",
+        "You are a Tier-1 SOC analyst at GlobalBank. It is 3:47 AM and your SIEM has fired an alert.\n\n**What the SIEM console tells you:** the rule 'Repeated Authentication Failure: Single Account' correlated **47 of these failures in 2 minutes 33 seconds** (about 18 per minute), all against the same account from the same address, and fired because the rule's threshold is 10 per minute. Its threat-intelligence enrichment flags the source address **203.0.113.47 as a Tor exit node in Amsterdam**.\n\n**What the log itself tells you:** the single Windows Security event below, one of those 47, from the Domain Controller (DC01-CORP), the central server that manages all user logins.\n\nNotice the split before you start: the raw event knows nothing about the other 46 failures and has never heard of Tor. Counting and enrichment are the SIEM's job. Triage this as if it were live.",
       event: socStructureEvent,
       questions: [
         {
@@ -782,7 +787,7 @@ That entire sequence (from first email to automated response) might happen in un
         },
         {
           question:
-            "The log's IpAddress field shows '185.220.101.47'. The SIEM's threat-intelligence enrichment identifies that address as a Tor exit node in Amsterdam. What does this tell you, and how should it affect your triage decision?",
+            "The log's IpAddress field shows '203.0.113.47'. The SIEM's threat-intelligence enrichment identifies that address as a Tor exit node in Amsterdam. What does this tell you, and how should it affect your triage decision?",
           options: [
             "Tor exits carry a lot of benign traffic, so the enrichment should not change the verdict",
             "Tor hides the true source, so the failures likely come from an attacker: raise suspicion",
@@ -791,7 +796,7 @@ That entire sequence (from first email to automated response) might happen in un
           ],
           answer: 1,
           explanation:
-            "The Tor (The Onion Router) network is commonly used by attackers to anonymise their traffic and hide their true location. While Tor has legitimate uses (journalists, activists), seeing a Tor exit node as the source of 47 failed login attempts against a bank's domain controller at 3:47 AM is a very strong indicator of a malicious attack, not legitimate employee access. This finding would significantly raise the severity of your triage assessment.\n\nAnd again, watch which system knew what. Windows wrote down an IP address; it has no idea what Tor is and never will. Turning '185.220.101.47' into 'Tor exit node, Amsterdam' is enrichment: the SIEM looking that address up against threat-intelligence and geolocation feeds. Two of the strongest signals in this alert, the count and the Tor attribution, are both things the log did not contain.",
+            "The Tor (The Onion Router) network is commonly used by attackers to anonymise their traffic and hide their true location. While Tor has legitimate uses (journalists, activists), seeing a Tor exit node as the source of 47 failed login attempts against a bank's domain controller at 3:47 AM is a very strong indicator of a malicious attack, not legitimate employee access. This finding would significantly raise the severity of your triage assessment.\n\nAnd again, watch which system knew what. Windows wrote down an IP address; it has no idea what Tor is and never will. Turning '203.0.113.47' into 'Tor exit node, Amsterdam' is enrichment: the SIEM looking that address up against threat-intelligence and geolocation feeds. Two of the strongest signals in this alert, the count and the Tor attribution, are both things the log did not contain.",
           xp: 25,
         },
       ],
@@ -1513,6 +1518,8 @@ Suppose a Microsoft Entra ID (formerly Azure AD) alert is mapped to **T1110.003:
 - **Sub-technique:** T1110.003: Password Spraying
 
 What is Password Spraying? Instead of trying many passwords against one account (which would lock it out), the attacker tries *one common password* against *many accounts*. This evades account lockout policies. In sign-in logs this shows up as one source failing against many different accounts within a few minutes: classic spray behaviour.
+
+Two sign-in log fields show what sent those requests. **UserAgent** names the software behind a request: web browsers send a long string that begins Mozilla/5.0, while a programming library usually sends its own name and version. **IsInteractive** false marks a sign-in that a client program performed, with no person entering anything at a sign-in prompt.
 
 ATT&CK's mitigation guidance for T1110.003 includes:
 - Implement **Multi-Factor Authentication (MFA)**, even if the password is stolen, the attacker cannot log in without the second factor

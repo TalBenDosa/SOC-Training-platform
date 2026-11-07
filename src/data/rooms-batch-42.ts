@@ -47,7 +47,7 @@ const localAdminEnumEvent: TelemetryEvent = {
     "winlog.event_data.TargetDomainName": "Builtin",
     "winlog.event_data.TargetSid": "S-1-5-32-544",
     "winlog.event_data.CallerProcessId": "0x1a04",
-    "winlog.event_data.CallerProcessName": "C:\\Windows\\System32\\net.exe",
+    "winlog.event_data.CallerProcessName": "C:\\Windows\\System32\\net1.exe",
     "winlog.event_id": 4799,
   },
 };
@@ -65,7 +65,7 @@ const cloudDescribeEvent: TelemetryEvent = {
   severity: "medium",
   mitre_technique: "T1580",
   mitre_tactic: "Discovery",
-  src_ip: "45.148.10.62",
+  src_ip: "203.0.113.62",
   description:
     "The first EC2 DescribeInstances call in a sequence of Describe/List API calls made by the lambda-reporting-role IAM role overnight.",
   raw: {
@@ -76,7 +76,7 @@ const cloudDescribeEvent: TelemetryEvent = {
     "aws.cloudtrail.userIdentity.arn":
       "arn:aws:sts::719400852261:assumed-role/lambda-reporting-role/cost-report-generator",
     "aws.cloudtrail.userIdentity.accountId": "719400852261",
-    "aws.cloudtrail.sourceIPAddress": "45.148.10.62",
+    "aws.cloudtrail.sourceIPAddress": "203.0.113.62",
     "aws.cloudtrail.userAgent": "aws-cli/2.15.2 Python/3.11.6 Linux/6.1.0",
     "aws.cloudtrail.requestParameters": {},
     "aws.cloudtrail.responseElements": null,
@@ -117,7 +117,7 @@ const nightlyAuditEvent: TelemetryEvent = {
     "svc-itaudit executed 'net user /domain' on SRV-ITAUDIT01 at 03:00:11, launched by powershell.exe.",
   it_verify_result: "confirmed",
   it_verify_message:
-    "IT confirms Scheduled Task 'Nightly-AD-Account-Audit' on SRV-ITAUDIT01 runs this exact command every night at 03:00 as part of the quarterly access-review process; svc-itaudit has no interactive logon capability and only ever runs from this one server.",
+    "IT confirms Scheduled Task 'Nightly-AD-Account-Audit' on SRV-ITAUDIT01 runs this exact command every night at 03:00 as part of the ongoing access-review process; svc-itaudit has no interactive logon capability and only ever runs from this one server.",
   raw: {
     "event.code": "1",
     "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
@@ -189,9 +189,9 @@ const discoveryEnumerationRoom = {
         "On Windows the toolkit is entirely built-in: whoami and whoami /groups (who is this account, what groups does it belong to), query user / quser (who else is logged on right now), net user with no target (every LOCAL account on the machine), and net config workstation (basic host identity). Two related commands go one step further and actually generate a Windows Security event: net user <accountname> (list one account's local group memberships) and net localgroup administrators (who is a local admin on THIS box).\n\n**Precise attribution matters here.** These commands share the 'host-level discovery' idea but MITRE gives them distinct IDs: whoami, query user / quser and net config workstation are T1033 (System Owner/User Discovery); net user with no /domain flag (listing local accounts) is T1087.001 (Account Discovery: Local Account); and net localgroup / the Event 4799 that follows is T1069.001 (Permission Groups Discovery: Local Groups). T1033 is the umbrella an analyst reaches for first, but naming the exact sub-technique is the precision this room trains.\n\n" +
         "**Event ID 4798 -- \"A user's local group membership was enumerated.\"** Fires when a process reads which local groups a specific target account belongs to. Key fields: SubjectUserName/SubjectDomainName (who ran the query), TargetUserName/TargetSid (whose memberships were read), and CallerProcessName (the full path of the executable that made the call).\n\n" +
         "**Event ID 4799 -- \"A security-enabled local group membership was enumerated.\"** Fires when a process reads who is a member of a specific local group. Same shape, but here TargetUserName/TargetDomainName/TargetSid identify which group was read (for example Administrators in the Builtin domain), not a user.\n\n" +
-        "Neither event is inherently suspicious -- both are logged constantly by ordinary admin tools such as mmc.exe (Microsoft Management Console) and dsa.msc (Active Directory Users and Computers). The tell is the **CallerProcessName**: a 4799 whose caller is net.exe, cmd.exe, or powershell.exe -- command-line tools, not an admin console -- especially minutes after a suspicious phishing click, is a materially different story than the same event fired by mmc.exe from an IT administrator's known workstation.",
+        "Neither event is inherently suspicious -- both are logged constantly by ordinary admin tools such as mmc.exe (Microsoft Management Console) and dsa.msc (Active Directory Users and Computers). The tell is the **CallerProcessName**: a 4799 whose caller is net1.exe (the helper program net.exe starts to do the work, so it is the name a net localgroup command leaves behind), cmd.exe, or powershell.exe -- command-line tools, not an admin console -- especially minutes after a suspicious phishing click, is a materially different story than the same event fired by mmc.exe from an IT administrator's known workstation.",
       codeExample:
-        "EventID: 4799\nSubjectUserName: j.ramos\nSubjectDomainName: CONTOSO\nTargetUserName: Administrators\nTargetDomainName: Builtin\nTargetSid: S-1-5-32-544\nCallerProcessId: 0x1a04\nCallerProcessName: C:\\Windows\\System32\\net.exe",
+        "EventID: 4799\nSubjectUserName: j.ramos\nSubjectDomainName: CONTOSO\nTargetUserName: Administrators\nTargetDomainName: Builtin\nTargetSid: S-1-5-32-544\nCallerProcessId: 0x1a04\nCallerProcessName: C:\\Windows\\System32\\net1.exe",
       checkpoint: {
         question: "An attacker on a workstation runs net localgroup administrators, and Event 4799 records it. Which ATT&CK technique ID is the precise attribution for this command?",
         options: [
@@ -233,7 +233,7 @@ const discoveryEnumerationRoom = {
         "Once an attacker knows what ONE host looks like, the next question scales up: what does the whole domain look like, and who actually holds power? This is genuinely different reconnaissance -- instead of reading the local SAM database on one machine, these commands ask a Domain Controller.\n\n" +
         "**T1087.002 -- Domain Account Discovery** (a sub-technique of T1087) is enumerating every account in the domain. MITRE's real-world tooling list: net user /domain and net group /domain, PowerShell's Get-ADUser and Get-ADGroupMember, dsquery, and offensive tools including AdFind, BloodHound, and CrackMapExec.\n\n" +
         "**T1069.002 -- Permission Groups Discovery: Domain Groups** (a sub-technique of T1069) is the companion technique aimed at privileged groups specifically -- finding out who is a Domain Admin. Representative commands: net group /domain and net group \"domain admins\" /domain, dsquery, Get-ADGroup, or a direct LDAP query.\n\n" +
-        "Note the boundary from the previous reading: net localgroup administrators (no /domain flag) reads THIS machine's local SAM database and produces Event 4799 on that machine. net group /domain (and net user /domain) instead asks a Domain Controller remotely over SAMR -- the Security Account Manager Remote protocol, an RPC interface reached through the \\PIPE\\samr named pipe over SMB (port 445) -- not over LDAP, so the telemetry differs too: on the DC it shows up as SAM-object access (Event 4661, when SAM auditing is enabled) and as Microsoft Defender for Identity's 'User and group membership reconnaissance (SAMR)' detection. LDAP is what PowerShell's Get-ADUser/Get-ADGroupMember, AdFind and SharpHound use instead, and LDAP enumeration is seen through LDAP query volume (DC Event 1644 when expensive-search logging is on) and MDI's LDAP reconnaissance detections. The Active Directory room covers LDAP/BloodHound enumeration in depth (Event 4662, ACL abuse, SharpHound/PowerView at scale). This room does not re-teach that ground; the point here is recognizing where the boundary sits.\n\n" +
+        "Note the boundary from the previous reading: net localgroup administrators (no /domain flag) reads THIS machine's local SAM database and produces Event 4799 on that machine. net group /domain (and net user /domain) instead asks a Domain Controller remotely over SAMR -- the Security Account Manager Remote protocol, an RPC interface reached through the \\PIPE\\samr named pipe over SMB (port 445) -- not over LDAP, so the telemetry differs too: on the DC it shows up as SAM-object access (Event 4661, when SAM auditing is enabled) and as Microsoft Defender for Identity's 'User and group membership reconnaissance (SAMR)' detection. AdFind and SharpHound use LDAP instead, while PowerShell's Get-ADUser/Get-ADGroupMember go through Active Directory Web Services (ADWS), a web service on the DC that listens on TCP 9389 and queries the directory for them. LDAP enumeration is seen through LDAP query volume (DC Event 1644 when expensive-search logging is on) and MDI's LDAP reconnaissance detections. The Active Directory room covers LDAP/BloodHound enumeration in depth (Event 4662, ACL abuse, SharpHound/PowerView at scale). This room does not re-teach that ground; the point here is recognizing where the boundary sits.\n\n" +
         "MITRE's own detection guidance for T1087.002 is precise: watch for domain-account enumeration commands (net.exe, PowerShell, WMI, or LDAP queries) run **from non-domain-controller or non-admin endpoints**. The trigger isn't the command -- it's the combination of the command with an unexpected source. A single query from an unusual workstation is a lead, not a verdict; what raises confidence sharply is BREADTH -- the same source querying dozens or hundreds of accounts, or every privileged group in sequence, within a tight window.",
       checkpoint: {
         question: "Per MITRE's own detection guidance for T1087.002, what is the primary tell that separates an attacker's domain enumeration from routine IT activity?",
@@ -294,13 +294,13 @@ const discoveryEnumerationRoom = {
             "What single field in this event is the strongest indicator that this enumeration was NOT performed through a normal administrative tool?",
           options: [
             "TargetDomainName, since the value Builtin shows the query reached the domain rather than this host",
-            "CallerProcessName, showing net.exe rather than an administrative console such as mmc.exe",
+            "CallerProcessName, showing net1.exe rather than an administrative console such as mmc.exe",
             "SubjectLogonId, since 0x8a3f21 ties the query to a remote session rather than the console",
             "SubjectUserName, since a standard user like j.ramos cannot read the Administrators group",
           ],
           answer: 1,
           explanation:
-            "CallerProcessName recording net.exe -- a command-line tool -- rather than the expected admin console mmc.exe is exactly the tell this room's reading teaches. “TargetDomainName … Builtin” misreads the field: Builtin is the name for the machine's own built-in local groups, which is why this is local, not domain, enumeration. “SubjectLogonId … remote session” over-reads a value: a logon ID is a session handle you use to join this event to its 4624, and on its own it says nothing about the logon type. “A standard user cannot read the Administrators group” is false. Ordinary users can enumerate local group membership, which is exactly why this event appears under j.ramos's name.",
+            "CallerProcessName recording net1.exe -- the helper net.exe starts, a command-line tool -- rather than the expected admin console mmc.exe is exactly the tell this room's reading teaches. “TargetDomainName … Builtin” misreads the field: Builtin is the name for the machine's own built-in local groups, which is why this is local, not domain, enumeration. “SubjectLogonId … remote session” over-reads a value: a logon ID is a session handle you use to join this event to its 4624, and on its own it says nothing about the logon type. “A standard user cannot read the Administrators group” is false. Ordinary users can enumerate local group membership, which is exactly why this event appears under j.ramos's name.",
           xp: 15,
         },
         {
@@ -331,6 +331,7 @@ const discoveryEnumerationRoom = {
         "**T1526 -- Cloud Service Discovery** maps higher-level services and identity configuration: applications registered in the tenant, management groups, policy definitions, OAuth app registrations, through Microsoft Graph and Azure Resource Manager APIs. MITRE names Stormspotter (Azure resource-graph enumeration), ROADTools (discovers Azure AD applications and service principals), and AADInternals (Office 365/OpenID enumeration).\n\n" +
         "**T1619 -- Cloud Storage Object Discovery** is narrower still: not 'does this bucket exist' but 'what objects are actually inside it.' Defining calls: AWS S3's ListObjectsV2 and Azure's List Blobs. This is the step that turns a discovered bucket into a worthwhile exfiltration target.\n\n" +
         "A single CloudTrail record for one of these calls is completely unremarkable on its own -- Terraform, cost dashboards, and CI/CD pipelines call DescribeInstances constantly, and readOnly: true confirms nothing was changed. What turns it into a Discovery-tactic finding is the SAME identity making dozens of Describe*/List* calls across multiple services within minutes, especially from a role that has never previously called half of them.\n\n" +
+        "The identity fields need the same care. In a CloudTrail record, userIdentity shows which credentials were presented, not who is holding them. Type AssumedRole only means temporary role credentials were used, and the session name at the end of the ARN was set when those credentials were issued, so it stays the same wherever they are used. Whoever holds them can call AWS from any machine until they expire, which is why you compare userAgent (the client software) and sourceIPAddress (where the call came from) with how that role normally runs.\n\n" +
         "AWS GuardDuty ships purpose-built findings for exactly this: **Discovery:S3/MaliciousIPCaller** (an S3 ListObjectsV2-family call from a known-malicious IP), **Discovery:IAMUser/AnomalousBehavior** (behavioral anomaly on enumeration-style API usage), and **Recon:IAMUser/MaliciousIPCaller** (account-level reconnaissance from a threat-listed IP).",
       checkpoint: {
         question: "What is the actual difference between T1580 and T1619, per this reading?",
@@ -534,7 +535,7 @@ const discoveryEnumerationRoom = {
       id: "disc-f1", logTask: "disc-la2",
       prompt:
         "In the overnight API burst you investigated, the role's temporary credentials were used from somewhere its scheduled Lambda never runs. Enter the source IP address you would block and pivot on across CloudTrail to find everything else those credentials touched.",
-      answer: "45.148.10.62",
+      answer: "203.0.113.62",
       hint: "CloudTrail records where each API call came from, separately from the identity that made it.",
       xp: 15,
     },

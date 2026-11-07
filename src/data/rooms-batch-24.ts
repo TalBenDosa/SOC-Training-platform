@@ -64,7 +64,7 @@ const sprayEvent: TelemetryEvent = {
   event_type: "auth_failure",
   severity: "high",
   hostname: "DC01.vantree.local",
-  src_ip: "185.220.101.47",
+  src_ip: "203.0.113.47",
   authentication: { method: "NTLM", result: "Failure", logon_type: 3 },
   description:
     "DC01 recorded a failed network logon against account k.mensah; this is one of 142 distinct accounts that recorded similarly low attempt counts from the same source IP within a 20-minute window.",
@@ -75,7 +75,7 @@ const sprayEvent: TelemetryEvent = {
     "winlog.event_data.TargetUserName": "k.mensah",
     "winlog.event_data.TargetDomainName": "VANTREE",
     "winlog.event_data.WorkstationName": "-",
-    "winlog.event_data.IpAddress": "185.220.101.47",
+    "winlog.event_data.IpAddress": "203.0.113.47",
     "winlog.event_data.IpPort": "0",
     "winlog.event_data.LogonType": "3",
     "winlog.event_data.Status": "0xC000006D",
@@ -185,7 +185,13 @@ const credentialAttacksRoom: Room = {
         `**One event is one data point, not a verdict**\n\n` +
         `A single 4625 tells you almost nothing on its own. Plenty of legitimate activity produces one. What answers Reading 1's three questions is the AGGREGATE your SIEM builds by grouping many of these events along two different axes. Group by TargetUserName and count attempts: a huge count against one value is the brute-force shape. Group by source (IpAddress, or WorkstationName if IP rotates) and count DISTINCT values of TargetUserName touched: a huge distinct-account count from one source, each with only a handful of attempts, is the spray shape. This is the exact discrimination this room's two log-analysis exercises are built to test, and it is worth internalizing now, because 'raw count of 4625 events' alone, without knowing which axis it was grouped on, tells you nothing about which of the two attacks you are looking at.\n\n` +
         `**What doesn't fit this pattern at all**\n\n` +
-        `Credential stuffing shows the same TargetUserName/IpAddress fields, but the source axis looks different: attempts arrive from many different, often geographically scattered IpAddress values rather than one steady source, frequently with only a single attempt per account, because the attacker already has a real password for that account from a prior breach and isn't guessing at all. Credential dumping, as covered in Reading 1, will never appear in a 4625 aggregate in the first place; if you go looking for it in authentication logs you are looking in the wrong log source entirely. That story lives in process-access telemetry on the host where memory was read, not here.`,
+        `Credential stuffing shows the same TargetUserName/IpAddress fields, but the source axis looks different: attempts arrive from many different, often geographically scattered IpAddress values rather than one steady source, frequently with only a single attempt per account, because the attacker already has a real password for that account from a prior breach and isn't guessing at all. Credential dumping, as covered in Reading 1, will never appear in a 4625 aggregate in the first place; if you go looking for it in authentication logs you are looking in the wrong log source entirely. That story lives in process-access telemetry on the host where memory was read, not here.\n\n` +
+        `**Once you have named the shape**\n\n` +
+        `Naming the shape does not finish the job, because the next question is whether a guess landed. Event ID 4624 records a successful logon, so search the whole aggregate for a 4624 from the same source: the single 4625 in front of you cannot show that the rest of the burst failed. Block or rate-limit the source while you look, and ask the account owner whether there is a mundane cause, such as a forgotten password. If a long run against one account never flips to the locked-out Status, find out why. A fine-grained password policy (a rule that gives one set of accounts its own settings) can raise an account's lockout threshold above the domain's, and a threshold of 0 means the account never locks at all, so nothing stops the guessing until someone steps in.\n\n` +
+        `A spray needs the same search across every targeted account. Seeing no lockouts proves nothing, because a spray is built to avoid them. Any account with a 4624 from that source is compromised, however few attempts it took.\n\n` +
+        `When a spray does land, the trail tends to run in one order: the failures, then a 4624 from the same source, then a working session under that account, often from a different source. From there the attacker uses the account to list groups and file shares and learn what it can reach, and only then goes to a sensitive server that listing turned up, one the account has no history with.\n\n` +
+        `**When the failures are real but harmless**\n\n` +
+        `Before you call a repeated-failure burst an attack, compare its sources with your own assets and change records. Failures from your own known servers, clustered just after a ticketed password rotation, are real events with an authorized cause: each host keeps trying the old password until it picks up the new one. That is a benign true positive. The rule did its job on real failures and the ticket is your reason for closing, so you do not escalate it. It is not a false positive, which would mean the rule misfired, so you do not weaken the rule either.`,
       codeExample:
         "4625 STATUS / SUBSTATUS -- WHAT EACH ONE MEANS\n" +
         "=======================================================\n" +
@@ -243,7 +249,7 @@ const credentialAttacksRoom: Room = {
       id: "cred-la1",
       heading: "A Burst Against One Account",
       context:
-        "Vantree's SIEM flagged unusual 4625 volume overnight. In the six minutes before this representative record, DC01 logged 47 failed logon attempts against a single account, all from the same source IP and workstation name, with no other accounts appearing in the same burst.",
+        "Vantree's SIEM flagged unusual 4625 volume overnight. In the six minutes before this representative record, DC01 logged 47 failed logon attempts against a single account, all from the same source IP and workstation name, with no other accounts appearing in the same burst. Vantree's domain policy locks an account after 4 failed attempts.",
       event: bruteForceEvent,
       questions: [
         {
@@ -262,16 +268,16 @@ const credentialAttacksRoom: Room = {
         },
         {
           question:
-            "SubStatus stays 0xC000006A (wrong password) for all 47 attempts, and the Status never switches to 0xC0000234 (locked out). What does that specifically tell you, and why might it matter for how urgently this needs a response?",
+            "SubStatus stays 0xC000006A (wrong password) for all 47 attempts, and the Status never switches to 0xC0000234 (locked out), at a company whose domain policy locks accounts after 4 attempts. What does that specifically tell you, and why might it matter for how urgently this needs a response?",
           options: [
             "It means the lockout policy must be disabled domain-wide, since any enabled policy would have forced a lockout code well before 47 attempts against a single account",
-            "The lockout threshold has not been crossed despite 47 attempts. Either the account has an unusually high threshold or an exemption, or the limit simply has not been reached yet and the attack is still live",
+            "d.solano is not under the 4-attempt policy. Its own higher threshold or an exemption means nothing is stopping the guesses, and the attack can still land",
             "It means d.solano's password was correct all along, since a wrong password across 47 tries would otherwise have switched the code to 0xC0000234 well before now",
             "The persistent 0xC000006A means the attacker is enumerating usernames rather than guessing passwords, so lockout never triggers because no real account is being targeted",
           ],
           answer: 1,
           explanation:
-            "SubStatus 0xC000006A means the password was wrong on that specific attempt; the fact that the event never flips to Status 0xC0000234 (locked out) after 47 tries is itself informative. Either d.solano's account is exempt from the org's normal lockout policy (worth checking) or the threshold simply hasn't been reached yet, meaning the attack is still actively running and could still land a correct guess. The missing lockout code does not mean the logons were never evaluated, 0xC000006A is precisely the result of evaluating the password and finding it wrong. Nor does a disabled policy automatically follow: an unusually high threshold or a per-account exemption produces the same absence of lockouts. And 0xC000006A reports a wrong password, not a correct one and not username enumeration, which would log 0xC0000064 instead.",
+            "SubStatus 0xC000006A means the password was wrong on that specific attempt; the fact that the event never flips to Status 0xC0000234 (locked out) after 47 tries, at a company whose policy locks at 4, is itself informative. d.solano must sit outside that policy, for example under a fine-grained policy with a much higher threshold or a threshold of 0 (worth checking), so nothing is stopping the run and it could still land a correct guess. The missing lockout code does not mean the logons were never evaluated, 0xC000006A is precisely the result of evaluating the password and finding it wrong. Nor is lockout off for the whole domain: Vantree's 4-attempt policy still stands, and one account's missing lock code tells you about that account. And 0xC000006A reports a wrong password, not a correct one and not username enumeration, which would log 0xC0000064 instead.",
           xp: 25,
         },
         {
@@ -294,12 +300,12 @@ const credentialAttacksRoom: Room = {
       id: "cred-la2",
       heading: "Low-and-Slow Across Many Accounts",
       context:
-        "A separate SIEM correlation flagged a different pattern the same week: 142 distinct accounts each recorded 2-3 failed 4625 attempts, all from the single source IP 185.220.101.47, spread across a 20-minute window. The highest per-account attempt count observed anywhere in the burst was 3: one below Vantree's 4-attempt lockout policy. Review the representative record below, for one of the 142 targeted accounts.",
+        "A separate SIEM correlation flagged a different pattern the same week: 142 distinct accounts each recorded 2-3 failed 4625 attempts, all from the single source IP 203.0.113.47, spread across a 20-minute window. The highest per-account attempt count observed anywhere in the burst was 3: one below Vantree's 4-attempt lockout policy. Review the representative record below, for one of the 142 targeted accounts.",
       event: sprayEvent,
       questions: [
         {
           question:
-            "TargetUserName here is k.mensah, one of 142 distinct accounts touched from the same 185.220.101.47 in 20 minutes, with a maximum of 3 attempts against any single account. How does this differ from the shape you read in Log Analysis 1, and what does it indicate?",
+            "TargetUserName here is k.mensah, one of 142 distinct accounts touched from the same 203.0.113.47 in 20 minutes, with a maximum of 3 attempts against any single account. How does this differ from the shape you read in Log Analysis 1, and what does it indicate?",
           options: [
             "It's the same shape as Log Analysis 1, just against a different account. This is brute forcing (T1110.001)",
             "It's the inverse shape: one steady source spread thin across many distinct accounts, each safely under the lockout threshold. This is password spraying (T1110.003)",
@@ -329,8 +335,8 @@ const credentialAttacksRoom: Room = {
           question: "What is the correct response, given this is a spray rather than a brute-force burst?",
           options: [
             "Reset only k.mensah's password, since that's the account shown in this record, and treat the other 141 accounts referenced in the SIEM correlation as a separate matter for whichever analyst happens to pick up that ticket next",
-            "Block/rate-limit 185.220.101.47 at the perimeter, search specifically for any 4624 SUCCESS from that same source (a spray's entire goal is finding the one account with a weak or reused password), and treat any account with a matching success as compromised regardless of how few attempts it took",
-            "Block 185.220.101.47 and close the case, since none of the 142 accounts locked out, which means the spray never landed and did no damage",
+            "Block/rate-limit 203.0.113.47 at the perimeter, search specifically for any 4624 SUCCESS from that same source (a spray's entire goal is finding the one account with a weak or reused password), and treat any account with a matching success as compromised regardless of how few attempts it took",
+            "Block 203.0.113.47 and close the case, since none of the 142 accounts locked out, which means the spray never landed and did no damage",
             "Reset the passwords of all 142 targeted accounts and close, since those are exactly the accounts the spray touched and no others could be at risk",
           ],
           answer: 1,
@@ -389,11 +395,11 @@ const credentialAttacksRoom: Room = {
         { id: "success", text: "One targeted account records a successful 4624 logon from that same source IP" },
         { id: "session", text: "A new interactive session under that account is established from a second, previously unseen source" },
         { id: "recon", text: "The compromised account is used to enumerate group memberships and file shares it has never accessed before" },
-        { id: "access", text: "The account authenticates to a sensitive file server it has no prior 90-day access history with" },
+        { id: "access", text: "Using what that enumeration revealed, the account authenticates to a sensitive file server it has no prior 90-day access history with" },
       ],
       correct_order: ["failures", "success", "session", "recon", "access"],
       explanation:
-        "This is the full arc a successful spray follows: the failure sweep is the attacker searching for one weak or reused password across many accounts; the single 4624 success is the moment the spray finds its target; the follow-on session from a different source is the attacker actually logging in as that account to operate; and the recon and sensitive-access steps are what a compromised account gets used for once the attacker has it, exactly why Log Analysis 2's response called for hunting a 4624 success from the spray's source IP rather than stopping at 'no accounts were locked out.'",
+        "This is the full arc a successful spray follows: the failure sweep is the attacker searching for one weak or reused password across many accounts; the single 4624 success is the moment the spray finds its target; the follow-on session from a different source is the attacker actually logging in as that account to operate; and the recon and sensitive-access steps are what a compromised account gets used for once the attacker has it, with the enumeration first because that is what points the account at the file server, exactly why Log Analysis 2's response called for hunting a 4624 success from the spray's source IP rather than stopping at 'no accounts were locked out.'",
       xp: 35,
     },
     {
@@ -402,17 +408,17 @@ const credentialAttacksRoom: Room = {
       heading: "Write It Yourself: Detect a Password Spray in KQL",
       language: "kql",
       context: KQL_PRIMER +
-        "Using the pattern confirmed in Log Analysis 2 (one source, many distinct targeted accounts, low attempts each) write the KQL a detection engineer would deploy to catch a spray, where raw failure COUNT alone would miss it.",
+        "Using the pattern confirmed in Log Analysis 2 (one source, many distinct targeted accounts, low attempts each) write the KQL a detection engineer would deploy to catch a spray, where raw failure COUNT alone would miss it. Use a 1-hour window, and set the bar at Vantree's baseline: over the last 90 days, no legitimate source touched more than 10 distinct accounts in an hour.",
       template:
         "SecurityEvent\n| where EventID == {{eventid}}\n| where TimeGenerated > ago({{window}})\n| summarize DistinctAccounts = dcount({{accountfield}}), TotalFailures = count() by IpAddress\n| where DistinctAccounts > {{threshold}}",
       blanks: [
         { id: "eventid", answers: ["4625"], placeholder: "failed logon Event ID" },
-        { id: "window", answers: ["20m", "30m", "45m", "1h", "60m", "90m", "2h", "15m"], placeholder: "aggregation window" },
+        { id: "window", answers: ["1h", "60m", "60min", "3600s"], placeholder: "aggregation window (given above)" },
         { id: "accountfield", answers: ["TargetAccount", "Account", "TargetUserName"], placeholder: "field holding the targeted account name" },
-        { id: "threshold", answers: ["5", "8", "10", "15", "20", "25", "30", "40", "50", "100"], placeholder: "minimum distinct-account count to consider suspicious" },
+        { id: "threshold", answers: ["10"], placeholder: "distinct-account baseline (given above)" },
       ],
       explanation:
-        "This mirrors the discrimination from Reading 2 and Log Analysis 2: filtering to 4625 and counting distinct targeted accounts per source is what actually catches a spray, because TotalFailures alone (a low number, by design) would never trip a volume-based alert tuned for brute forcing, the whole point of spraying is staying under exactly that kind of threshold on any single account, so the detection has to key on account BREADTH, not attempt count.",
+        "This mirrors the discrimination from Reading 2 and Log Analysis 2: filtering to 4625 and counting distinct targeted accounts per source is what actually catches a spray, because TotalFailures alone (a low number, by design) would never trip a volume-based alert tuned for brute forcing, the whole point of spraying is staying under exactly that kind of threshold on any single account, so the detection has to key on account BREADTH, not attempt count. The bar comes from your own estate: `DistinctAccounts > 10` fires only on a source that goes past what any legitimate source at Vantree reached in an hour.",
       xp: 35,
     },
   ],
@@ -455,7 +461,7 @@ const kestrelServiceEvent: TelemetryEvent = {
   id: "evt-lat-la2-001",
   ts: "2026-07-02T02:20:11.000Z",
   source: "windows_security",
-  vendor: "Windows Security",
+  vendor: "Service Control Manager",
   event_type: "service_install",
   severity: "high",
   hostname: "SRV-FIL02.kestrel.local",
@@ -479,15 +485,13 @@ const jumpHostEvent: TelemetryEvent = {
   id: "evt-lat-ac1-001",
   ts: "2026-07-03T11:20:09.000Z",
   source: "windows_security",
-  vendor: "Windows Security",
+  vendor: "Service Control Manager",
   event_type: "service_install",
   severity: "low",
   hostname: "SRV-APP11.kestrel.local",
-  src_ip: "10.60.1.9",
   it_verify_result: "confirmed",
   it_verify_message:
     "JMP-ITSUPPORT01 is the documented IT administrative jump host. Change ticket CHG-61840 covers a scheduled monitoring-agent redeployment to SRV-APP11 during this window.",
-  authentication: { method: "NTLM", result: "Success", logon_type: 3 },
   description: "SRV-APP11 recorded a network logon from JMP-ITSUPPORT01 as sysmgr_svc at 11:20 on a weekday, followed by a new service installation.",
   raw: {
     "event.code": "7045",
@@ -524,6 +528,8 @@ const lateralMovementRoom: Room = {
         `When an attacker moves from host A to host B, host A's logs show the outbound side (a process reaching out, a session being initiated) while host B's logs show the inbound side: an authentication event, then whatever the attacker did once inside. Neither host, on its own, tells the full story. Host B in particular cannot tell you where its visitor's credentials actually came from; a network logon (LogonType 3, authenticated via NTLM's NtLmSsp mechanism) looks identical whether it originated from a legitimate remote-administration tool running on an approved jump host, or from an attacker who stole those exact credentials on a completely different, already-compromised machine ten minutes earlier. Settling which one you're looking at requires evidence that doesn't live in that one 4624 record at all: the source host's own history, a change ticket, or what happens immediately afterward.\n\n` +
         `**The chain you'll reconstruct in this room**\n\n` +
         `A realistic movement chain looks like this: a workstation is compromised first (through phishing, an exposed service, or stolen credentials); from there, the attacker authenticates outward to a first server, using the stolen account's genuine privileges to write to an administrative share and install a service; that new service becomes their execution point on the first server, from which they pivot again, often within minutes, to a second server, repeating the pattern. Each hop leaves its own, independently incomplete set of artefacts, and SIEM ingestion delay means those artefacts frequently do not arrive in your queue in the order they actually happened. Reconstructing the true order, from timestamps rather than arrival order or which alert fired loudest, is exactly what this room's ordering exercise will ask you to do. Timestamps need care too: one host's forwarder may stamp events in UTC while another sends local time with an offset, so convert every timestamp to UTC before comparing records across hosts.\n\n` +
+        `**Each method leaves its own trace**\n\n` +
+        `This room's chain moves over SMB, but knowing all four common methods tells you which log to open. SMB with administrative shares is the pattern above: access to ADMIN$ and to IPC$, the hidden share that carries named pipes (channels programs use to talk to each other), including the svcctl pipe that reaches the Service Control Manager, then a new-service Event ID 7045 naming the service and its ImagePath. RDP is a 4624 with LogonType 10 and a full graphical session, with no pipe or service involved. WMI opens with a connection to TCP/135 and then a dynamic high port, and its work appears as a new process whose parent is WmiPrvSE.exe, with no new service. WinRM, the transport behind PowerShell Remoting, is an HTTP or HTTPS session on TCP 5985 or 5986, and anything it starts runs under wsmprovhost.exe.\n\n` +
         `**Reading this room's evidence**\n\n` +
         `Throughout this room, you'll be handed individual, independently-real log records (a 4624, a 7045, a process event) the same way a real investigation hands them to you: one host, one log source, one moment at a time. Nothing in any single record will tell you 'this is the second hop of an attack.' That conclusion only exists once you've placed each record next to the others by host, account, and time, exactly the discipline the rest of this room drills.`,
       diagram:
@@ -563,8 +569,11 @@ const lateralMovementRoom: Room = {
         `It's tempting to treat 'this account installed a service remotely' as proof of a powerful, domain-wide compromise. It isn't, automatically. Local administrator rights on a specific server can come from many places that have nothing to do with Domain Admins membership: a GPO Restricted Groups policy that grants a helpdesk or support-tooling service account local admin across every workstation and server in scope (common, and often broader than anyone remembers authorizing); a one-off addition to a single server's local Administrators group that was never cleaned up after a project ended; or, yes, genuine compromise of a Domain Admin account. The service installation you're looking at proves the acting account held local admin on that specific target. It does not, by itself, tell you why, or whether that grant was ever meant to be used from where it was just used.\n\n` +
         `**What this means for reading the room's evidence**\n\n` +
         `When you see a service successfully installed via ADMIN$/svcctl in this room's log-analysis tasks, you already know one thing for certain without needing it stated anywhere: the acting account held local admin on that target host at that moment, the action could not have succeeded otherwise. What you don't automatically know is whether that account's use, from that source, at that time, was authorized. Those are two separate questions, and conflating them is a common analyst error in both directions: dismissing a legitimate privilege as suspicious just because it's broad, or dismissing a suspicious USE of a legitimate privilege as fine just because the account technically had the right to do it. This room's log-analysis and analyst-choice tasks are built specifically to make you hold both facts at once: the account really can do this, and that still doesn't answer whether this specific instance should have happened.\n\n` +
+        `**A default name worth knowing**\n\n` +
+        `The service you will most often meet in this position is PsExec's. PsExec is a Microsoft Sysinternals tool for running programs on remote machines, and unless told otherwise it registers a service called PSEXESVC that runs PSEXESVC.exe. Its -r switch changes the service name, yet many real intrusions leave it as shipped, because renaming is one more step for someone working fast. So learning default footprints like this one pays off: a default is obvious once you know it and invisible until you do. The name says nothing about legitimacy, though, because administrators use the same tool.\n\n` +
         `**The check that actually answers the second question**\n\n` +
-        `Since the privilege itself won't tell you, the discriminator has to come from elsewhere: does the source host have any history of being used for administration (a jump host, a management console) or is this its first appearance in that role? Is there a change ticket or an open support session covering this timeframe? Is the timing consistent with the account's normal operating pattern (business hours, a known maintenance window) or a clear outlier? None of these live in the 4624 or the 7045. They live in context you have to go get, which is exactly the 'one extra piece of evidence' this room's first log-analysis task asks you to name.`,
+        `Since the privilege itself won't tell you, the discriminator has to come from elsewhere: does the source host have any history of being used for administration (a jump host, a management console) or is this its first appearance in that role? Is there a change ticket or an open support session covering this timeframe? Is the timing consistent with the account's normal operating pattern (business hours, a known maintenance window) or a clear outlier? None of these live in the 4624 or the 7045. They live in context you have to go get, which is exactly the 'one extra piece of evidence' this room's first log-analysis task asks you to name.\n\n` +
+        `When those answers come back clean, the verdict has a name. A rule that correctly caught real remote administration, where the source and a change ticket show it was authorized, is a benign true positive: the detection did its job, and the ticket is your justification for closing it. It is not a false positive, which would mean the rule misfired on something that never happened.`,
       codeExample:
         "WHAT ADMIN$/SVCCTL SUCCESS PROVES -- AND DOESN'T\n" +
         "=======================================================\n" +
@@ -731,7 +740,7 @@ const lateralMovementRoom: Room = {
       explanation:
         "The mechanism is identical to Log Analysis 1/2 (an NTLM network logon by sysmgr_svc followed by a new service) which is exactly why context, not the mechanism, decides this verdict. Here, the source is the documented jump host (not an unexplained workstation like WKS-SALES14), the timing matches business hours and an open, specific change ticket, and the installed service (KestrelMonitorAgent, running from a known internal deployment path) matches the ticket's stated purpose rather than a generic remote-execution tool's default footprint. It is a benign true positive: the rule correctly caught a real IPC$/svcctl access and service installation, and the change ticket is the justification for closing it; it is not a false positive, since the rule did exactly its job and calling it a misfire invites weakening a lateral-movement detection you need.",
       fp_trap:
-        "IPC$/svcctl access followed by a 7045 is precisely the pattern this room just taught you to treat seriously, and reflexively escalating every instance of it, without checking source and ticket, would flag Kestrel's own routine administration constantly. The differentiators are exactly the ones Reading 2 named: a verified jump host instead of an unexplained peer host, a specific matching change ticket instead of no record at all, and an installed service that identifies itself as a known internal tool instead of a generic default like PSEXESVC. The service name is only corroboration, since an attacker can name a service anything: the source host and the ticket are what decide it. Skipping that check and escalating purely on 'ADMIN$ + svcctl + 7045' is the same over-alerting failure the credential-attacks room warns about with RC4 tickets: a real signal, checked without its context, becomes noise.",
+        "IPC$/svcctl access followed by a 7045 is precisely the pattern this room just taught you to treat seriously, and reflexively escalating every instance of it, without checking source and ticket, would flag Kestrel's own routine administration constantly. The differentiators are exactly the ones Reading 2 named: a verified jump host instead of an unexplained peer host, a specific matching change ticket instead of no record at all, and an installed service that identifies itself as a known internal tool instead of a generic default like PSEXESVC. The service name is only corroboration, since an attacker can name a service anything: the source host and the ticket are what decide it. Skipping that check and escalating purely on 'ADMIN$ + svcctl + 7045' is the same over-alerting failure the credential-attacks room warns about: a real signal, checked without its context, becomes noise.",
       xp: 30,
     },
     {
@@ -753,7 +762,7 @@ const lateralMovementRoom: Room = {
       type: "ordering",
       id: "lat-o1",
       heading: "Reconstruct the Chain Across Three Hosts, By Timestamp",
-      instructions: "Your SIEM received these six records out of arrival order, and Kestrel's forwarders don't stamp time the same way: SRV-FIL02 sends UTC, while WKS-SALES14 and SRV-APP09 send local time with an offset. Arrange the records in the order they actually happened.",
+      instructions: "Your SIEM received these six records out of event order, and Kestrel's forwarders don't stamp time the same way: SRV-FIL02 sends UTC, while WKS-SALES14 and SRV-APP09 send local time with an offset. Arrange the records in the order they actually happened.",
       items: [
         { id: "wks-logon", text: "WKS-SALES14, 05:14 local (UTC+03:00), sysmgr_svc's credentials are used to open a session on this sales workstation, which has never initiated administrative activity before" },
         { id: "fil-4624", text: "SRV-FIL02, 02:19:44 UTC: a network logon (LogonType 3, NtLmSsp) from WKS-SALES14 authenticates as sysmgr_svc" },
@@ -969,7 +978,9 @@ const webAttacksRoom: Room = {
         `**The field most analysts skip past: response size**\n\n` +
         `sc-bytes (the size of the response body) is easy to ignore, but for exactly this scenario it's often the field that turns a hunch into a finding. A search endpoint that normally returns a few kilobytes for a real search term returning tens of kilobytes for a query-string payload containing UNION SELECT is a strong sign the injected query executed and returned far more data than a normal search result ever would: a classic signature of a successful UNION-based extraction. Reading a wall of access-log lines well means scanning past the sea of matching 500s and 403s for the outlier: a 200, especially paired with an outlier response size, sitting inside a burst that otherwise looks like nothing but failure.\n\n` +
         `**One line is one request, not a verdict**\n\n` +
-        `As with the authentication logs elsewhere on this platform, a single access-log line rarely proves anything on its own: a normal user occasionally gets a 500 from an unrelated bug, and a single 200 among many requests could be entirely unrelated traffic that happened to land in the same window. What actually builds a finding is the same discipline as always: look at the line in the context of the burst it belongs to, and let the status code and response size, not the query string alone, tell you whether an attempt worked.`,
+        `As with the authentication logs elsewhere on this platform, a single access-log line rarely proves anything on its own: a normal user occasionally gets a 500 from an unrelated bug, and a single 200 among many requests could be entirely unrelated traffic that happened to land in the same window. What actually builds a finding is the same discipline as always: look at the line in the context of the burst it belongs to, and let the status code and response size, not the query string alone, tell you whether an attempt worked.\n\n` +
+        `**When the evidence says it worked**\n\n` +
+        `Once status and response size show that an injection executed, handle it as a confirmed breach, not an attempt. The web log shows that a lot of data came back, but not which rows, so go to the database's own audit log (a record the database keeps of the statements run against it, where auditing is turned on) to establish what was actually read, and contain the source at the same time. Code fixes and mass password resets come after that, once you know the scope.`,
       codeExample:
         "HTTP STATUS CODES -- READ AS OUTCOME, NOT INTENT\n" +
         "=======================================================\n" +
@@ -1064,11 +1075,17 @@ const webAttacksRoom: Room = {
       content:
         `Modern web applications almost never sit directly on the internet. A request from a real client typically passes through a WAF (Web Application Firewall), then a load balancer, before it ever reaches the web server itself, and each hop in that path can rewrite what the NEXT hop believes about who's actually asking.\n\n` +
         `**Where the true client IP actually lives**\n\n` +
-        `A WAF, sitting closest to the internet-facing edge, is usually the last point in the chain that ever sees the real client's raw TCP connection: its own log's client-IP field (for example AWS WAF's httpRequest.clientIp) reflects the actual internet-facing source. Everything downstream of the WAF, though, sees a re-established connection: the load balancer opens its OWN connection to the web server, using its own address, and unless the environment is specifically configured to forward and log the original client's address (via an X-Forwarded-For header the web server is set up to capture), the web server's own access log will show the load balancer's internal IP in its client-IP field, every single time, for every single request, regardless of who actually sent it.\n\n` +
+        `A WAF, sitting closest to the internet-facing edge, inspects the request as it arrived from the real client: its own log's client-IP field (for example AWS WAF's httpRequest.clientIp) reflects the actual internet-facing source. The web server, though, sees a re-established connection: the load balancer opens its OWN connection to the web server, using its own address, and unless the environment is specifically configured to forward and log the original client's address (via an X-Forwarded-For header the web server is set up to capture), the web server's own access log will show the load balancer's internal IP in its client-IP field, every single time, for every single request, regardless of who actually sent it.\n\n` +
+        `An AWS WAF record also names the resource that handed it the request. httpSourceName gives the resource type, for example ALB for an Application Load Balancer, and httpSourceId gives that resource's identifier, which for a load balancer has three parts separated by slashes: app, then the load balancer's own name, then a unique ID.\n\n` +
         `**What this means for attribution**\n\n` +
-        `If you only ever pull the web server's own access log, every request, legitimate and malicious alike, appears to originate from the same handful of internal load-balancer addresses. Trying to build a block list, or even just answer 'who sent this,' from that field alone is not just incomplete, it's actively misleading: you'd be looking at your own infrastructure's address, not the attacker's. The WAF record for the exact same request is the only place the real source survives, which is why confirming attribution always means pulling both records (matched by the request's URI, method, and a timestamp close enough to be the same event) and reading the WAF's client-IP field as authoritative for 'who,' while the web server's record remains authoritative for exactly what request the application itself processed and how it responded.\n\n` +
+        `If you only ever pull the web server's own access log, every request, legitimate and malicious alike, appears to originate from the same handful of internal load-balancer addresses. Trying to build a block list, or even just answer 'who sent this,' from that field alone is not just incomplete, it's actively misleading: you'd be looking at your own infrastructure's address, not the attacker's. Between these two records, the WAF's is where the real source survives (an Application Load Balancer's own access logs record the client address too, but they are off by default), which is why confirming attribution always means pulling both records (matched by the request's URI, method, and a timestamp close enough to be the same event) and reading the WAF's client-IP field as authoritative for 'who,' while the web server's record remains authoritative for exactly what request the application itself processed and how it responded.\n\n` +
         `**Matching two records that don't share an ID**\n\n` +
-        `Different vendors' logs almost never share a common request identifier you can join on directly. In practice, matching a WAF record to its corresponding web-server record means lining up the URI and query string, the HTTP method, and a timestamp within a second or two of each other, close enough, combined, to be confident they describe the same request, even though neither log was designed with the other in mind. This is exactly the correlation exercise the next log-analysis task in this room asks you to perform by hand.`,
+        `Different vendors' logs almost never share a common request identifier you can join on directly. In practice, matching a WAF record to its corresponding web-server record means lining up the URI and query string, the HTTP method, and a timestamp within a second or two of each other, close enough, combined, to be confident they describe the same request, even though neither log was designed with the other in mind. This is exactly the correlation exercise the next log-analysis task in this room asks you to perform by hand.\n\n` +
+        `**Scanner or attacker?**\n\n` +
+        `Authorized vulnerability scanners send real attack payloads, so a blocked scan and blocked attacker probing can look identical line by line. Judge a burst by its context instead. Does the traffic keep to one unchanging address, or move around a range? Does the client announce itself as a scanning product, or look like a browser or a script? Does an approved change record cover that window? An authorized scan passes all three checks, and attacker probing usually fails them.\n\n` +
+        `**After the injection: the web shell stage**\n\n` +
+        `An injection that reveals enough can lead to something worse: a web shell, a script file the attacker plants inside the site so they can run commands through it later. Getting the file in often starts with a large POST request, because a WAF reads only the first part of a request body (AWS WAF on a load balancer inspects the first 8 KB), so a body bigger than that limit can pass unless the WAF is set to block oversize requests. The IIS worker process, w3wp.exe, then writes the new file to disk, and when the attacker calls that file, w3wp.exe starts a command shell.\n\n` +
+        `A web worker has no normal reason to start other programs, so detections watch w3wp.exe for children such as the shells cmd.exe and powershell.exe, the script hosts cscript.exe and wscript.exe, and built-in Windows tools that attackers repurpose, known as living-off-the-land binaries, such as mshta.exe and certutil.exe.`,
       diagram:
         "flowchart LR\n" +
         "  C[Client: true source IP] --> W[WAF: sees the real client IP]\n" +
@@ -1109,7 +1126,7 @@ const webAttacksRoom: Room = {
           ],
           answer: 0,
           explanation:
-            "This is Reading 2's core mechanism: the WAF records the real client's address, while everything downstream (the load balancer, then IIS) sees a re-established connection using the load balancer's own address, Orbitline's ALB, as the WAF record's httpSourceName/httpSourceId show. IIS does log the TCP peer, but that peer is the ALB, not the sender. 10.12.4.9 is in Orbitline's own internal range (the same 10.12.4.x subnet as the web server, sIP 10.12.4.30): an attacker's private NAT address would never appear in your logs. And AWS WAF's httpRequest.clientIp is the connecting client's address as seen at the edge, not a value read from a header.",
+            "This is Reading 2's core mechanism: the WAF records the real client's address, while IIS sees a re-established connection using the load balancer's own address, Orbitline's ALB, as the WAF record's httpSourceName/httpSourceId show. IIS does log the TCP peer, but that peer is the ALB, not the sender. 10.12.4.9 is in Orbitline's own internal range (the same 10.12.4.x subnet as the web server, sIP 10.12.4.30): an attacker's private NAT address would never appear in your logs. And AWS WAF's httpRequest.clientIp is the connecting client's address as seen at the edge, not a value read from a header.",
           xp: 25,
         },
         {
@@ -1129,13 +1146,13 @@ const webAttacksRoom: Room = {
           question: "Both records now confirm 91.203.44.187 as the true source of the successful injection from Log Analysis 1. What should the analyst do with this IP specifically?",
           options: [
             "Add it to IIS IP Address and Domain Restrictions on WEB-ORB03, since IIS is the server that processed the injected query",
-            "Block it at the WAF, the one layer that sees this address, and search WAF logs for the same clientIp across the incident window",
+            "Block it at the WAF, the layer that can match this address before IIS, and search WAF logs for the same clientIp across the incident window",
             "Block it at the WAF and close the case, since the confirmed request is the full extent of what this address sent to Orbitline",
             "Search the IIS logs for cIP 91.203.44.187 to find its other requests, then decide at which layer the block should be applied",
           ],
           answer: 1,
           explanation:
-            "Since the web server never sees the real client address, blocking has to happen at the WAF: the only point in the chain that can match on 91.203.44.187, and the same clientIp should be searched across the broader window to find this actor's other requests. An IIS IP restriction would never match: IIS only ever sees 10.12.4.9. Blocking and closing skips scoping: this address sent a 40-request burst, and possibly more outside it. And searching IIS logs for 91.203.44.187 returns nothing for the same reason, so the scoping search has to run on the WAF logs.",
+            "Since the web server never sees the real client address, blocking has to happen at the WAF: the layer in this chain that can match on 91.203.44.187 and stop the request before it reaches the application, and the same clientIp should be searched across the broader window to find this actor's other requests. An IIS IP restriction would never match: IIS only ever sees 10.12.4.9. Blocking and closing skips scoping: this address sent a 40-request burst, and possibly more outside it. And searching IIS logs for 91.203.44.187 returns nothing for the same reason, so the scoping search has to run on the WAF logs.",
           xp: 30,
         },
       ],

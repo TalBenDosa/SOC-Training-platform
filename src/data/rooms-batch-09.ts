@@ -52,7 +52,7 @@ Every reactive investigation should follow a disciplined six-phase lifecycle. Sk
 
 **Phase 3: Collect.** Pull the relevant logs. This means the alert itself plus surrounding context: the host's process logs, the user's authentication history, related network traffic, and any endpoint telemetry. Use your SIEM to gather these. Important: collect *before* evidence is overwritten, logs rotate, and memory is lost when a machine reboots.
 
-**Phase 4: Analyze.** Go through the data methodically. Build a timeline (more on this below). Look for patterns. Ask: does what I see match a known attack technique? Are there anomalies (events that should not be there, or absences) events that should be there but are missing?
+**Phase 4: Analyze.** Go through the data methodically. Build a timeline (more on this below). Look for patterns. Ask: does what I see match a known attack technique? Are there anomalies (events that should not be there, or events that should be there but are missing)?
 
 **Phase 5: Conclude.** Form a verdict: true positive, false positive, or inconclusive. If it is a true positive, determine what the attacker did, which systems are affected, and what data may have been accessed.
 
@@ -112,7 +112,7 @@ Consider this analogy: if you investigate a car accident by looking at individua
 
 Every system records timestamps, but not all in the same time zone. Your SIEM might ingest logs in UTC. The endpoint itself might be in Eastern Time (UTC-5). The email server might be in Pacific Time (UTC-8). If you do not normalize everything to **UTC** before building your timeline, events will appear in the wrong order and your investigation will be wrong.
 
-Rule: always work in UTC. When you pull events from your SIEM, confirm it is showing UTC. Windows Event Log records store TimeCreated in UTC; it is the Event Viewer display that converts them to the viewer's local time, so check which view you are reading. Text logs are the usual local-time trap: many application logs, some syslog sources and IIS logs in the older IIS/NCSA formats (W3C-format IIS logs are UTC) write in the server's local zone without an offset, convert those. Most SIEM platforms (Microsoft Sentinel, Splunk, Elastic) normalize to UTC automatically, but always verify.
+Rule: always work in UTC. When you pull events from your SIEM, confirm it is showing UTC. Windows Event Log records store TimeCreated in UTC; it is the Event Viewer display that converts them to the viewer's local time, so check which view you are reading. Text logs are the usual local-time trap: many application logs, some syslog sources and IIS logs in the older IIS format (W3C-format IIS logs are UTC) write in the server's local zone without an offset, convert those. Most SIEM platforms (Microsoft Sentinel, Splunk, Elastic) normalize to UTC automatically, but always verify.
 
 **Evidence Pivoting**
 
@@ -171,16 +171,16 @@ Tools that help: Microsoft Sentinel's Investigation Graph (automatically draws e
     {
       type: "question" as const,
       id: "inv-method-q3",
-      question: "You merge three sources into one UTC timeline: Security events read from an exported EVTX file, an IIS log in the older NCSA format from a server set to UTC+2, and Sentinel query results. Which one most likely needs manual conversion?",
+      question: "You merge three sources into one UTC timeline: Security events read from an exported EVTX file, a web server log in the older IIS log format from a server set to UTC+2, and Sentinel query results. Which one most likely needs manual conversion?",
       options: [
         "The EVTX events, because Windows stores event times in the host's local zone",
-        "The NCSA-format IIS log, because it is written in local time with no offset",
+        "The IIS-format log, because it is written in local time with no offset",
         "The Sentinel results, because a SIEM keeps each event in its source's zone",
         "All three equally, because every source logs in its own host's local time zone",
       ],
       answer: 1,
       explanation:
-        "Older IIS/NCSA-format logs are written in the server's local time without an offset, so these UTC+2 entries must be shifted by two hours before they are ordered. “The EVTX events” is a common trap: EVTX stores TimeCreated in UTC, and only the Event Viewer display converts it to local time. “The Sentinel results” is wrong because Sentinel, like most SIEMs, normalises event times to UTC (still worth confirming, but not the source that needs conversion). “All three equally” ignores that two of the three are already UTC.",
+        "Older IIS-format logs are written in the server's local time without an offset, so these UTC+2 entries must be shifted by two hours before they are ordered. “The EVTX events” is a common trap: EVTX stores TimeCreated in UTC, and only the Event Viewer display converts it to local time. “The Sentinel results” is wrong because Sentinel, like most SIEMs, normalises event times to UTC (still worth confirming, but not the source that needs conversion). “All three equally” ignores that two of the three are already UTC.",
       xp: 30,
     },
 
@@ -512,7 +512,7 @@ This last step is crucial: threat hunting improves your detection capability ove
 
 LSASS (Local Security Authority Subsystem Service) is the Windows process that holds password hashes and Kerberos tickets in memory. Attackers dump LSASS to steal credentials. Signs to hunt for:
 - Any process opening a handle to lsass.exe with PROCESS_VM_READ (0x10) access rights
-- rundll32.exe loading comsvcs.dll with the MiniDump argument (a built-in LOLBin technique)
+- rundll32.exe loading comsvcs.dll with the MiniDump argument (a built-in LOLBin technique). The command line has a fixed shape: MiniDump, then the process ID (PID, the number Windows gave the target process, which attackers look up first, for example with tasklist), then the output file name, then the word full for a complete dump
 - procdump.exe, mimikatz.exe, or lsassy.py in your process logs
 - Output files named lsass.dmp, lsass.zip, or similar in user temp directories
 
@@ -607,7 +607,7 @@ The key insight: the platform does not matter as much as the hypothesis and the 
       type: "log_analysis" as const,
       id: "threat-hunt-la1",
       heading: "Hunting for LSASS Memory Dump: comsvcs.dll Technique",
-      context: `You are running a threat hunt for T1003.001 (OS Credential Dumping via LSASS) across your EDR telemetry. Your hunt hypothesis is: "An attacker targeting credential theft will use rundll32.exe to load comsvcs.dll and call its MiniDump export to dump LSASS memory." You have executed a KQL query against your Falcon EDR data and received the following hit. This is a real technique used in the wild: comsvcs.dll is a legitimate Windows DLL that has a MiniDump function built in. Attackers abuse it because rundll32.exe is a trusted system binary, making it harder for security tools to block.`,
+      context: `You are running a threat hunt for T1003.001 (OS Credential Dumping via LSASS) across your EDR telemetry. Your hunt hypothesis is: "An attacker targeting credential theft will use rundll32.exe to load comsvcs.dll and call its MiniDump export to dump LSASS memory." You have run a CrowdStrike Query Language (CQL) search against your Falcon EDR data and received the following hit. This is a real technique used in the wild: comsvcs.dll is a legitimate Windows DLL that has a MiniDump function built in. Attackers abuse it because rundll32.exe is a trusted system binary, making it harder for security tools to block.`,
       event: {
         id: "threat-hunt-la1-evt-001",
         ts: "2025-06-24T09:44:18.000Z",
@@ -1088,7 +1088,7 @@ Every email contains **headers**: metadata fields that document the email's orig
 
 SPF answers the question: **"Is this mail server authorised to send email for this domain?"**
 
-A domain owner publishes an SPF record as a DNS TXT record that lists all the mail servers (IPs or hostnames) that are allowed to send email on behalf of that domain. When a receiving mail server gets an email claiming to be from corp.com, it checks the SPF record for corp.com and verifies that the sending server's IP is on the list.
+A domain owner publishes an SPF record as a DNS TXT record that lists all the mail servers (IPs or hostnames) that are allowed to send email on behalf of that domain. When a receiving mail server gets an email whose Return-Path domain is corp.com (Authentication-Results shows this as smtp.mailfrom=corp.com), it checks the SPF record for corp.com and verifies that the sending server's IP is on the list.
 
 Example SPF record: \`v=spf1 include:_spf.google.com include:mail.corp.com ip4:203.0.113.42 ~all\`
 
@@ -1139,7 +1139,7 @@ DMARC also adds **alignment checking**: the From domain must match the Return-Pa
 **The Big Picture: How These Work Together**
 
 If a phishing email claims to be from ceo@corp.com:
-1. SPF checks if the sending IP is in corp.com's SPF record. If the attacker sends from their own server: **SPF fail**.
+1. If the Return-Path also says corp.com, SPF checks if the sending IP is in corp.com's SPF record. If the attacker sends from their own server: **SPF fail**.
 2. DKIM checks if the email is signed with corp.com's private key. The attacker does not have corp.com's key: **DKIM none or fail**.
 3. DMARC sees both checks failed and applies the policy. If corp.com has p=reject: **email blocked**.
 
@@ -1178,7 +1178,7 @@ If corp.com has no DMARC policy, the email still reaches the inbox even with SPF
     {
       type: "question" as const,
       id: "email-sec-q2",
-      question: "An email shows 'From: CEO John Smith <ceo@corp.com>' but the Authentication-Results header shows 'spf=fail'. What does this most likely mean?",
+      question: "An email shows 'From: CEO John Smith <ceo@corp.com>' but the Authentication-Results header shows 'spf=fail smtp.mailfrom=corp.com'. What does this most likely mean?",
       options: [
         "The CEO's real mailbox was taken over, so reset the CEO's password first",
         "The sending server is not authorised for corp.com, which suggests spoofing",
@@ -1299,7 +1299,7 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
         event_type: "email_received",
         severity: "high",
         user_email: "finance@corp.com",
-        src_ip: "185.220.101.45",
+        src_ip: "203.0.113.45",
         description: "Inbound email to finance@corp.com reported by the recipient",
         mitre_technique: "T1566.001 - Phishing: Spearphishing Attachment",
         raw: {
@@ -1308,10 +1308,10 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
           "email.to": "finance@corp.com",
           "email.subject": "URGENT: Approve Wire Transfer $250,000",
           "email.message_id": "<abc@mail-out.corp-secure.com>",
-          "email.x_originating_ip": "185.220.101.45",
+          "email.x_originating_ip": "203.0.113.45",
           "email.authentication_results":
             "spf=pass smtp.mailfrom=corp-secure.com; dkim=none; dmarc=none header.from=corp-secure.com",
-          "email.received_from": "mail-out.corp-secure.com [185.220.101.45]",
+          "email.received_from": "mail-out.corp-secure.com [203.0.113.45]",
           "email.attachment": "invoice_approval.html",
           "email.header_from": "CEO John Smith <ceo@corp-secure.com>",
         },

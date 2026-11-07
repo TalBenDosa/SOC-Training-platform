@@ -7,7 +7,7 @@ import type { RoomExperience } from "./types";
 // New task order (the room lists every reading first, so it does not group):
 //   ioc-r1, ioc-q1, ioc-q5 | ioc-r2, ioc-q3 | ioc-r3, ioc-q2, ioc-q4 | ioc-la1, ioc-flag1
 //
-// Kestrel Vale Insurance (fictional), not the graded tasks' corp.com records.
+// Kestrel Vale Insurance (fictional), not the graded tasks' corp.example records.
 // Signature mechanic: the Pivot Board, a trace lab that starts from one quarantined hash and
 // pivots across enrichment sources (sandbox report, passive DNS, WHOIS, scan index, IP
 // reputation, communicating files), each step a source table, backed by "tip" evidence screens.

@@ -183,7 +183,7 @@ When you open a detection, these fields are critical for analysis:
 - **CommandLine:** The exact command that ran. If it contains Base64-encoded text ('-EncodedCommand') or unusual paths (C:\\\\Windows\\\\Temp), be suspicious.
 - **SHA256HashData:** The cryptographic fingerprint of any file involved. You can paste this into VirusTotal to see if it's known malware.
 - **LocalIP / ExternalIP:** The IP addresses of the endpoint and any remote connection
-- **UserName:** Which user account was running the process (SYSTEM? A service account? A regular employee?)
+- **UserName:** Which user account was running the process (SYSTEM? A service account? A regular employee?). A service account is an account that software runs under rather than a person. Attackers like these accounts because they often hold broad rights, run around the clock and draw little scrutiny, so a long-established account doing something outside its normal job points to abuse, not safety.
 - **ContextBaseFileName / ContextProcessId:** The process in whose context the event happened: the process that performed the action (for a process-creation event, that is the process that launched the new one)
 - **ParentBaseFileName / ParentProcessId:** The direct parent of the process the event is about
 
@@ -266,6 +266,8 @@ RTR uses CrowdStrike-built commands (not standard cmd/bash) with tab-completion 
 All RTR sessions are logged and audited, so there's a full record of what actions the analyst took.
 
 **Network Containment ("Contain host")** is Falcon's main isolation action: the host is cut off from every network connection except its link to the Falcon cloud, so the attacker loses access while you keep investigating it through RTR, but containing a server such as a Domain Controller also cuts off everyone who depends on it, so for critical servers it is a business decision as well as a technical one.
+
+Before you kill a process, think about what dies with it. Code that lives only in memory, such as code injected into another process, is lost unless you capture memory first. A file the process already wrote to disk, such as a memory dump, survives the kill and can still be retrieved.
 
 **Common Attack Scenarios Detected by CrowdStrike**
 
@@ -428,16 +430,16 @@ After compromising one machine, attackers move to others. A common tool is **PsE
         },
         {
           question:
-            "The dump file is being written to 'C:\\Windows\\Temp\\lsass.dmp'. As the responding SOC analyst, what is your FIRST priority action?",
+            "The dump file is being written to 'C:\\Windows\\Temp\\lsass.dmp'. As the responding SOC analyst, what should your first response be?",
           options: [
             "Email svc-backup's owner to reset its password and ask whether a backup job was running",
             "Reboot SRV-DC01 to end the dumping process and clear any credentials held in memory",
-            "Kill the process via RTR, pull lsass.dmp as evidence, then contain the host per the DC plan",
+            "Use RTR to stop the dump and retrieve lsass.dmp, and start containment under the DC plan",
             "Delete lsass.dmp from the disk via RTR so the stolen hashes cannot leave, then close the alert",
           ],
           answer: 2,
           explanation:
-            "The priority is to stop the dumping while keeping the evidence. RTR lets you kill the rundll32.exe process, retrieve the .dmp file (to see exactly what was captured), and then network-contain the host so the credentials cannot leave, on a Domain Controller that decision follows the agreed plan because containment cuts off everyone who depends on it. 'Email the owner' is too slow and the reset alone does not stop an attack in progress. 'Reboot' destroys volatile memory evidence and does nothing about persistence or credentials already copied. 'Delete lsass.dmp and close' destroys the evidence and assumes the file has not already been copied off the host.",
+            "The priority is to stop the dumping while keeping the evidence. RTR lets you end the rundll32.exe process and retrieve the .dmp file (to see exactly what was captured), and network containment stops the credentials leaving while RTR keeps working. On a Domain Controller the agreed plan sets when and how you contain, because containment cuts off everyone who depends on it. Ending the process loses little here because the evidence is the dump file on disk; when the evidence lives only in a process's memory, as with injected code, you capture memory before you kill it. 'Email the owner' is too slow and the reset alone does not stop an attack in progress. 'Reboot' destroys volatile memory evidence and does nothing about persistence or credentials already copied. 'Delete lsass.dmp and close' destroys the evidence and assumes the file has not already been copied off the host.",
           xp: 50,
         },
       ],
@@ -716,6 +718,8 @@ SentinelOne's Behavioral AI detects ransomware through characteristic patterns:
 - **File entropy increase:** Legitimate files have predictable patterns. Encrypted files have very high entropy (randomness). SentinelOne monitors file entropy as a detection signal.
 - **Shadow copy deletion:** Ransomware immediately tries to delete Windows shadow copies (backup snapshots) to prevent recovery. Commands like \`vssadmin delete shadows\` or \`wmic shadowcopy delete\` are automatically flagged.
 
+**Borrowed names:** Malware often takes the name of a trusted program, a trick ATT&CK calls Masquerading, so judge an unfamiliar executable by its digital signature (the publisher's cryptographic proof of who built the file) and by whether it sits in that vendor's usual install folder. A real updater carries its vendor's signature and lives in the vendor's own folder; Chrome's, for example, sits under a Google folder such as Google\\Update. The name alone proves nothing. A Temp folder (the per-user scratch space for short-lived files) alone proves nothing either, because real installers unpack there briefly. And ordinary user rights are no comfort: they are enough to encrypt that user's documents and the network shares they can reach.
+
 When ransomware is detected, SentinelOne can automatically kill the process AND trigger a Rollback, restoring encrypted files from pre-attack snapshots, often within minutes.
 
 **Key Detection Scenario 2: Cobalt Strike Beacons**
@@ -937,6 +941,8 @@ You don't need to be a software engineer or reverse engineer to benefit from bas
 - **Detection rule creation:** Once you understand what malware does, you can write YARA rules (pattern-matching rules) or SIEM detection rules to catch it, or similar malware, across your organisation.
 - **Threat actor attribution:** The techniques a malware sample uses, the infrastructure it connects to, and its code structure often reveal *who* wrote it and *what campaign* it belongs to.
 
+One triage habit to build early: a quarantine does not end a case. When antivirus quarantines a file, it moves that one copy somewhere it cannot run. It does not undo anything the file did before detection, it does not isolate the machine from the network (that is a separate action), and it does not tell you whether other machines received the same file. Treat a quarantine as a reason to keep investigating.
+
 **Types of Malware**
 
 Before analysing malware, it helps to know the major categories:
@@ -1038,7 +1044,7 @@ When you need deeper analysis beyond what an online sandbox provides:
       type: "question",
       id: "malware-q4",
       question:
-        "A finance user forwards a suspicious .xlsx that may be a real client spreadsheet with a macro added. You need to see what the macro does when it runs. What is the right approach?",
+        "A finance user forwards a suspicious .xlsm that may be a real client spreadsheet with a macro added. You need to see what the macro does when it runs. What is the right approach?",
       options: [
         "Upload it to ANY.RUN's free tier: interactive analysis is fastest and stays private",
         "Detonate it in a private or on-premises sandbox, since public ones share uploads",
@@ -1071,11 +1077,13 @@ Why do hashes matter? Once you have a SHA-256 hash, you can:
 - Search **MalwareBazaar** (a free public repository) for samples with the same hash
 - Share the hash with other organisations as an IOC. Anyone who finds the same hash knows they have the same malware
 
+A VirusTotal score counts only the engines that flagged the file. A result such as 0/72 means the file was scanned and no engine flagged it, not that the file is safe: a new or tailored sample can get past every engine, so a suspicious file with no detections still needs its behaviour examined.
+
 **Step 2: Strings Extraction**
 
 Binary programs (.exe files) are mostly machine code that humans can't read. But embedded within that machine code are **strings**: sequences of human-readable text that the program uses. Extracting strings from a malware sample can be incredibly revealing:
 
-- **URLs:** \`http://185.220.101.45/update/check.php\`: the attacker's command-and-control server
+- **URLs:** \`http://198.51.100.45/update/check.php\`: the attacker's command-and-control server
 - **Domain names:** \`c2server.evildomain.ru\`: another C2 indicator
 - **Registry paths:** \`HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\`: the malware is establishing persistence
 - **Function names:** \`CreateRemoteThread, VirtualAllocEx\`: signs of process injection
@@ -1088,7 +1096,7 @@ Tools: **strings** (Linux command), **BinText** (Windows GUI), **FLOSS** (FireEy
 Most Windows malware is in **PE (Portable Executable)** format: the standard format for .exe and .dll files on Windows. The PE format has a specific structure with sections and headers that reveal a lot about the program's capabilities.
 
 **PEStudio** is the go-to free tool for PE analysis. It shows:
-- **File metadata:** Compilation timestamp (when was the malware compiled?), original file name, version info, digital signature (is it signed? By whom?)
+- **File metadata:** Compilation timestamp (when was the malware compiled?), original file name, version info, digital signature (is it signed? By whom?). Version info is text inside the file that can include the publisher's name in a CompanyName field. Commercial software normally fills it in, so a blank value is weak evidence alone but counts when other signs agree. It is separate from the digital signature, which must be checked on its own.
 - **Sections:** PE files are divided into sections. \`.text\` contains executable code. \`.data\` contains global variables. \`.rsrc\` contains resources (icons, strings, embedded files). If \`.text\` is unusually large or has a very high entropy (randomness), the malware may be packed/obfuscated.
 - **Imports:** A list of Windows API functions the program calls. This tells you what the malware can *do*:
   - Imports **WinINet.dll** functions (InternetOpen, InternetConnect) → makes HTTP connections → probably communicates with a C2 server
@@ -1391,9 +1399,9 @@ IOCs are the raw material of threat intelligence. A SOC analyst uses them to:
 IOCs come in several varieties, each describing a different aspect of an attack:
 
 - **File Hashes (MD5, SHA-1, SHA-256):** The cryptographic fingerprint of a specific malware file. Hash: \`5a6b7c8d9e0f1a2b...\`
-- **IP Addresses:** The internet address of an attacker's server. Example: \`185.220.101.45\`
+- **IP Addresses:** The internet address of an attacker's server. Example: \`203.0.113.77\`
 - **Domain Names:** The website address associated with attack infrastructure. Example: \`evil-c2.onion-router.cc\`
-- **URLs:** Specific web addresses used in attacks. Example: \`http://185.220.101.45/payload/stage2.bin\`
+- **URLs:** Specific web addresses used in attacks. Example: \`http://203.0.113.77/payload/stage2.bin\`
 - **Email Addresses:** Attacker contact addresses used in phishing campaigns
 - **Registry Keys:** Windows registry modifications associated with malware persistence. Example: \`HKCU\\Software\\Microsoft\\Windows\\Run\\svchost32\`
 - **File Names and Paths:** Specific filenames malware creates or uses. Example: \`C:\\Windows\\Temp\\lsass.dmp\`
@@ -1509,10 +1517,13 @@ AbuseIPDB is a community-powered database where security professionals report IP
 
 An IP with 3,847 reports and 95% confidence (like the one in the log analysis below) has seen a lot of abuse, but read the context before you conclude anything. On a dedicated server those reports point at the attacker. On a shared relay such as a Tor exit node or another anonymiser, the reports describe other users of that relay, not the one you are investigating.
 
+Tor is an anonymity network that passes traffic through three volunteer-run relays in turn: guard, middle and exit. A device using Tor opens outbound connections to a relay, so an internal host connecting out to a Tor relay address points to Tor software on that host, whereas a Tor exit address arriving inbound as the source means someone is using Tor to reach you.
+
 **Shodan (shodan.io): The Search Engine for Connected Devices**
 
 Shodan continuously scans the entire internet and indexes information about every publicly accessible device: what ports are open, what services are running, what software versions are installed. For threat intelligence:
 - Look up an IP to see what services it's running. A suspicious IP running Cobalt Strike's default port (50050) is a strong indicator of C2 infrastructure.
+- Read common ports with care: almost every organisation must allow outbound port 443 for HTTPS, so attackers often run command-and-control (C2) traffic over it to blend in with normal web browsing, and the port alone tells you little about what the traffic is.
 - Search for specific service banners to find all instances of a particular C2 framework's default configuration
 - Identify the hosting provider (ASN) of an IP: Tor exit nodes, bulletproof hosting providers, or anonymisation services are frequently used by attackers
 
@@ -1681,22 +1692,22 @@ Before adding an IOC to your blocklist, ask:
         event_type: "threat_intel_match",
         severity: "high",
         hostname: "LAPTOP-JSMITH",
-        user_email: "j.smith@corp.com",
+        user_email: "j.smith@corp.example",
         src_ip: "10.0.1.55",
-        dst_ip: "185.220.101.45",
+        dst_ip: "198.51.100.45",
         dst_port: 443,
         protocol: "tcp",
         mitre_technique: "T1090.003",
         mitre_tactic: "Command and Control",
         description:
-          "Outbound connection from LAPTOP-JSMITH to IP 185.220.101.45 matched threat intelligence feed. IP classified as Tor Exit Node with 3,847 abuse reports. Connection on port 443.",
+          "Outbound connection from LAPTOP-JSMITH to IP 198.51.100.45 matched threat intelligence feed. IP classified as Tor relay with 3,847 abuse reports. Connection on port 443.",
         raw: {
           "data.srcip": "10.0.1.55",
-          "data.dstip": "185.220.101.45",
+          "data.dstip": "198.51.100.45",
           "data.dstport": "443",
           "data.proto": "tcp",
-          "threat_intel.indicator": "185.220.101.45",
-          "threat_intel.category": "Tor Exit Node",
+          "threat_intel.indicator": "198.51.100.45",
+          "threat_intel.category": "Tor Relay",
           "threat_intel.confidence": "95",
           "threat_intel.source": "AbuseIPDB",
           "threat_intel.report_count": "3847",
@@ -1717,7 +1728,7 @@ Before adding an IOC to your blocklist, ask:
           ],
           answer: 1,
           explanation:
-            "Tor routes traffic through three encrypted relays (guard (entry), middle and exit) so a Tor client inside your company connects OUT to its guard relay, and monitoring sees traffic to Tor relay IPs, never to the final server. An outbound connection from LAPTOP-JSMITH to a known Tor relay therefore suggests a Tor client on the laptop (many relays flagged as exits also act as guards; the flag tells you the IP is part of Tor). The opposite direction (an exit-node IP as the SOURCE of inbound traffic) would mean someone using Tor to reach your systems. On the laptop, the cause could be malware hiding its C2 or an employee bypassing web filters; both need investigation. 'A commercial VPN for home access' is wrong. Tor is not a corporate VPN, and this traffic leaves the laptop rather than coming in. 'The match proves infection' confuses Tor with the threat feed that labelled it; a Tor connection alone does not tell you whether malware or a person started it. 'Microsoft 365 traffic' is invented. Microsoft services do not route through Tor.",
+            "Tor routes traffic through three encrypted relays (guard (entry), middle and exit) so a Tor client inside your company connects OUT to its guard relay, and monitoring sees traffic to Tor relay IPs, never to the final server. An outbound connection from LAPTOP-JSMITH to a known Tor relay therefore suggests a Tor client on the laptop. The opposite direction (an exit-node IP as the SOURCE of inbound traffic) would mean someone using Tor to reach your systems. On the laptop, the cause could be malware hiding its C2 or an employee bypassing web filters; both need investigation. 'A commercial VPN for home access' is wrong. Tor is not a corporate VPN, and this traffic leaves the laptop rather than coming in. 'The match proves infection' confuses Tor with the threat feed that labelled it; a Tor connection alone does not tell you whether malware or a person started it. 'Microsoft 365 traffic' is invented. Microsoft services do not route through Tor.",
           xp: 50,
         },
         {

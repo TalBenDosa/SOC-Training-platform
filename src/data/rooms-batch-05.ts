@@ -355,13 +355,13 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
         "An analyst notices that a password spray detection rule fires 200 times per day, mostly for individual users who forgot their passwords on Monday mornings. Which change is the BEST way to tune the rule and reduce these false positives without losing coverage of real spray attacks?",
       options: [
         "Suppress the rule on Monday mornings, when forgotten-password failures naturally peak after the weekend",
-        "Count distinct accounts failing per source IP (e.g. 10+ users in 5 minutes) and exclude only known corporate/VPN egress ranges",
+        "Count distinct accounts failing per source IP (e.g. 10+ users in 5 minutes) instead of failures per account",
         "Exclude every account that has already triggered this alert, so repeat alerts on those accounts stop firing",
         "Lower the per-account failure threshold from 10 down to 5 so the rule reacts sooner to each account",
       ],
       answer: 1,
       explanation:
-        "A password spray is one password tried against MANY accounts from the same source, so the rule should count distinct accounts per source IP. A single user mistyping their password on Monday morning is not spraying, requiring many distinct accounts removes that noise while still catching the real attack, and a narrow exception for known-good egress IPs handles shared-NAT office traffic. Suppressing the rule on Monday mornings blinds the SOC exactly when a Monday-morning spray would land, so that option trades noise for a coverage gap. Excluding every account that has already triggered the alert removes precisely the victims an attacker is targeting, so repeat attempts against them would go unseen. Lowering the per-account threshold from 10 to 5 makes the rule fire on even more forgetful users, increasing noise rather than reducing it.",
+        "A password spray is one password tried against MANY accounts from the same source, so the rule should count distinct accounts per source IP. A single user mistyping their password on Monday morning is not spraying, requiring many distinct accounts removes that noise while still catching the real attack. Suppressing the rule on Monday mornings blinds the SOC exactly when a Monday-morning spray would land, so that option trades noise for a coverage gap. Excluding every account that has already triggered the alert removes precisely the victims an attacker is targeting, so repeat attempts against them would go unseen. Lowering the per-account threshold from 10 to 5 makes the rule fire on even more forgetful users, increasing noise rather than reducing it.",
       xp: 30,
     },
 
@@ -555,7 +555,7 @@ Developed by ArcSight (HP), now the dominant standard for security appliances. C
 \`CEF:Version|Device Vendor|Device Product|Device Version|Device Event Class ID|Name|Severity|Extension\`
 
 Real example from a Palo Alto firewall:
-\`CEF:0|Palo Alto Networks|PAN-OS|10.1|threat|general|7|rt=2025-06-24T14:32:11Z src=185.220.101.45 dst=10.0.1.50 spt=54321 dpt=22 proto=TCP act=block cs1=block-ssh-brute cs1Label=RuleName\`
+\`CEF:0|Palo Alto Networks|PAN-OS|10.1|threat|general|7|rt=2025-06-24T14:32:11Z src=203.0.113.45 dst=10.0.1.50 spt=54321 dpt=22 proto=TCP act=block cs1=block-ssh-brute cs1Label=RuleName\`
 
 Breaking it down:
 - \`CEF:0\`: CEF format version 0
@@ -568,6 +568,8 @@ Breaking it down:
 - Extension fields: \`rt\` (receive time), \`src\` (source IP), \`dst\` (destination IP), \`spt\` (source port), \`dpt\` (destination port), \`proto\` (protocol), \`act\` (action), \`cs1\` (custom string 1 = rule name)
 
 CEF has a fixed set of standard fields plus custom extension fields (cs1-cs6, cn1-cn3, etc.). The \`cs1Label\` field tells you what \`cs1\` means.
+
+The \`dpt\` field names the destination port, and well-known ports reveal the service being targeted: 22 is SSH, 25 is SMTP, 53 is DNS, 80 is HTTP, 443 is HTTPS and 3389 is RDP (Remote Desktop).
 
 ---
 
@@ -717,7 +719,7 @@ Here's a real-world headache for every SOC engineer: you have three security pro
 - Elastic Common Schema (ECS): \`source.ip\`
 - AWS CloudTrail: \`sourceIPAddress\`
 
-If you want to search across all these sources at once (e.g., "find all events from IP 185.220.101.45"), you'd need to remember every vendor's field name. That's impossibly complex.
+If you want to search across all these sources at once (e.g., "find all events from IP 203.0.113.45"), you'd need to remember every vendor's field name. That's impossibly complex.
 
 **Normalization** solves this by mapping all these vendor-specific field names to a common schema. Popular schemas include:
 - **Elastic Common Schema (ECS)**: used in Elasticsearch/Kibana
@@ -835,12 +837,12 @@ If the test event appears: integration is working. If not: check the agent statu
         event_type: "edr_alert" as const,
         severity: "high" as const,
         hostname: "palo-alto-01",
-        src_ip: "185.220.101.45",
+        src_ip: "203.0.113.45",
         dst_ip: "10.0.1.50",
         description: "SSH brute force blocked by firewall: CEF format log",
         raw: {
           message:
-            "CEF:0|Palo Alto Networks|PAN-OS|10.1|threat|general|7|rt=2025-06-24T14:32:11Z src=185.220.101.45 dst=10.0.1.50 spt=54321 dpt=22 proto=TCP act=block cs1=block-ssh-brute cs1Label=RuleName",
+            "CEF:0|Palo Alto Networks|PAN-OS|10.1|threat|general|7|rt=2025-06-24T14:32:11Z src=203.0.113.45 dst=10.0.1.50 spt=54321 dpt=22 proto=TCP act=block cs1=block-ssh-brute cs1Label=RuleName",
           "log.source": "syslog",
           "syslog.hostname": "palo-alto-01",
           "log.format": "CEF",
@@ -861,11 +863,11 @@ If the test event appears: integration is working. If not: check the agent statu
             "The attacker successfully authenticated over SSH, because act=block only means the event was written to the log, not that the connection was stopped",
             "The firewall blocked one inbound SSH attempt (external src to dpt=22 on 10.0.1.50); to call it a brute force you would corroborate the volume of similar blocked attempts from that source over time",
             "The internal host 10.0.1.50 is compromised, because a connection reached it on destination port 22 from an external address",
-            "This is outbound command-and-control from 10.0.1.50 to 185.220.101.45 over port 22, because the internal host initiated the session",
+            "This is outbound command-and-control from 10.0.1.50 to 203.0.113.45 over port 22, because the internal host initiated the session",
           ],
           answer: 1,
           explanation:
-            "The fields show an external source (185.220.101.45) reaching dpt=22 on internal 10.0.1.50, with act=block, so one inbound SSH attempt was stopped: a single blocked packet is evidence of an attempt, not yet a confirmed brute force despite the rule name, which many identical attempts over time would establish. act=block means the firewall denied the connection, so the claim that it only logged and the attacker got in is wrong. Receiving one blocked attempt does not make the target compromised, so that conclusion overreaches. The source IP is the external address and the destination is internal, so reading it as outbound C2 reverses the direction.",
+            "The fields show an external source (203.0.113.45) reaching dpt=22 on internal 10.0.1.50, with act=block, so one inbound SSH attempt was stopped: a single blocked packet is evidence of an attempt, not yet a confirmed brute force despite the rule name, which many identical attempts over time would establish. act=block means the firewall denied the connection, so the claim that it only logged and the attacker got in is wrong. Receiving one blocked attempt does not make the target compromised, so that conclusion overreaches. The source IP is the external address and the destination is internal, so reading it as outbound C2 reverses the direction.",
           xp: 40,
         },
         {
@@ -890,7 +892,7 @@ If the test event appears: integration is working. If not: check the agent statu
       type: "flag" as const,
       id: "log-src-flag1",
       prompt:
-        "Parse the CEF message below. The firewall blocked a connection to a destination port on the internal server. Name the application-layer service that listens on that destination port by default: the service the external source was trying to reach.\n\n`CEF:0|Palo Alto Networks|PAN-OS|10.1|threat|general|7|rt=2025-06-24T14:32:11Z src=185.220.101.45 dst=10.0.1.50 spt=54321 dpt=22 proto=TCP act=block cs1=block-ssh-brute cs1Label=RuleName`\n\nEnter the service name.",
+        "Parse the CEF message below. The firewall blocked a connection to a destination port on the internal server. Name the application-layer service that listens on that destination port by default: the service the external source was trying to reach.\n\n`CEF:0|Palo Alto Networks|PAN-OS|10.1|threat|general|7|rt=2025-06-24T14:32:11Z src=203.0.113.45 dst=10.0.1.50 spt=54321 dpt=22 proto=TCP act=block cs1=block-ssh-brute cs1Label=RuleName`\n\nEnter the service name.",
       answer: "SSH",
       hint: "First locate the destination port in the extension, then recall which well-known service listens on that port by default. The answer is a protocol, not a number.",
       xp: 50,
@@ -1243,7 +1245,7 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
         event_type: "account_modify" as const,
         severity: "high" as const,
         user_email: "j.chen@corp.com",
-        src_ip: "185.220.101.45",
+        src_ip: "203.0.113.45",
         description:
           "New inbox forwarding rule created: mail being forwarded to external address with deletion of originals",
         mitre_technique: "T1114.003",
@@ -1258,7 +1260,7 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
           "data.office365.UserType": "0",
           "data.office365.Version": "1",
           "data.office365.Workload": "Exchange",
-          "data.office365.ClientIP": "185.220.101.45",
+          "data.office365.ClientIP": "203.0.113.45",
           "data.office365.ObjectId": "corp.com/Users/j.chen\\Archive",
           "data.office365.UserId": "j.chen@corp.com",
           "data.office365.OrganizationName": "corp.com",
@@ -1295,7 +1297,7 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
         },
         {
           question:
-            "The source IP 185.220.101.45 is from Moscow, Russia. The user j.chen@corp.com is a Finance Manager who works in New York. What should the SOC analyst do FIRST?",
+            "The source IP 203.0.113.45 is from Moscow, Russia. The user j.chen@corp.com is a Finance Manager who works in New York. What should the SOC analyst do FIRST?",
           options: [
             "Wait 24 hours and watch for a wire-transfer attempt before any containment",
             "Email j.chen at the corp.com address to ask whether they created the rule, and wait for a reply",
@@ -1673,6 +1675,8 @@ Rather than stealing passwords, sophisticated attackers steal the OAuth access t
 
 **5. Impossible Travel (Indicator, not attack)**
 When sign-in logs show authentication from two locations too far apart to travel between in the time elapsed. Strong indicator of account compromise, or legitimate VPN use (false positive).
+
+A failed sign-in from a suspicious location does not close the case. Entra reports an unknown account with a different code (50034), so error 50126 means someone outside is trying a real username. Look for successful sign-ins by that account in other services, and reset the password as a precaution.
 
 ---
 

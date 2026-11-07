@@ -21,7 +21,7 @@ import type { RoomExperience } from "./types";
 // logTask k8s-la1. Its prompt does not say "Log Analysis N". Boss: la1 + f1.
 //
 // Lab data differs from the graded tasks: no ci-deploy-token, no kube-system, no
-// svc-monitoring-backup, no 185.220.101.47, no prod-checkout, no d.abrams, no apt-get. The node
+// svc-monitoring-backup, no 203.0.113.47, no prod-checkout, no d.abrams, no apt-get. The node
 // route starts from an application's own ServiceAccount (subtitle-upload) and a namespaced Role,
 // never a CI identity. The escape pod reuses the team's own image, so its image check passes and
 // the other three fail (la1 has an outside image). The change queue (q2) runs on Deployments,

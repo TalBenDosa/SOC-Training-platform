@@ -15,7 +15,7 @@
  * Design constraint honoured throughout: no raw log field states a verdict.
  * The scheduled-task record in the log_analysis task carries only real
  * Windows Security (Event ID 4698) fields; the suspicion is carried by
- * observable facts (a standard user's SID as the task author, a Hidden
+ * observable facts (an individual user's SID as the task author, a Hidden
  * window flag, a world-writable staging folder, an off-hours trigger time)
  * — never by a field or value that announces itself as malicious.
  */
@@ -236,14 +236,14 @@ const powershellForSocRoom: Room = {
           question:
             "Which interpretation of this record best justifies flagging the task for follow-up?",
           options: [
-            "Several details together: hidden PowerShell running a script from C:\\Users\\Public, a standard-user author, a 23:47 trigger",
+            "Several details together: hidden PowerShell running a script from C:\\Users\\Public, an individual user as author, a 23:47 trigger",
             "Event 4698 itself, because Windows writes it only for tasks created outside Group Policy or Intune deployments",
             "The HighestAvailable run level, because it makes the task run with SYSTEM rights whoever registered it",
             "Nothing yet: a WindowsUpdate folder plus HighestAvailable is how endpoint-management tools deploy maintenance tasks",
           ],
           answer: 0,
           explanation:
-            "No single field proves anything here; the combination does. The action starts PowerShell with a hidden window, it runs a script from C:\\Users\\Public (a folder any user can write to), the author is a standard user's SID rather than SYSTEM or an admin, and the trigger is 23:47. The WindowsUpdate folder adds weight as a supporting indicator: a user-authored task filed under \\Microsoft\\Windows\\ is a known masquerading pattern (T1036.004), though the folder alone proves nothing. “Windows writes it only for tasks created outside Group Policy or Intune” is wrong: 4698 is logged for every task registration, legitimate or not, so it is not a verdict. “SYSTEM rights whoever registered it” misreads HighestAvailable: it requests the highest privileges available to the task's own principal, which for a standard user is still a standard token. “How endpoint-management tools deploy maintenance tasks” is the competing benign story, but management tools register tasks as SYSTEM or a service account, not under an individual user's SID, and they do not run scripts out of a public folder.",
+            "No single field proves anything here; the combination does. The action starts PowerShell with a hidden window, it runs a script from C:\\Users\\Public (a folder any user can write to), the author is an individual user's SID rather than SYSTEM or a service account, and the trigger is 23:47. The WindowsUpdate folder adds weight as a supporting indicator: a user-authored task filed under \\Microsoft\\Windows\\ is a known masquerading pattern (T1036.004), though the folder alone proves nothing. “Windows writes it only for tasks created outside Group Policy or Intune” is wrong: 4698 is logged for every task registration, legitimate or not, so it is not a verdict. “SYSTEM rights whoever registered it” misreads HighestAvailable: it requests the highest privileges available to the task's own principal, which for a user who is not an administrator is still a standard token (the SID alone does not show whether j.alvarez is an administrator, so check group membership separately). “How endpoint-management tools deploy maintenance tasks” is the competing benign story, but management tools register tasks as SYSTEM or a service account, not under an individual user's SID, and they do not run scripts out of a public folder.",
           xp: 25,
         },
         {

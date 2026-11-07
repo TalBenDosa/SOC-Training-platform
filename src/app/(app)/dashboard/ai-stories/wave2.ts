@@ -301,7 +301,7 @@ function buildGeminiDriveSweep(): TelemetryEvent[] {
     oktaMfa({ id: "aigds2", ts: "2026-09-25T06:49:51.307Z", companyId: cx, user, srcIp: vpn, result: "denied", userAgent: chrome, severity: "medium",
       geo: { country: vpnGeo.country, city: vpnGeo.city, latitude: vpnGeo.lat, longitude: vpnGeo.lon }, isProxy: true, asOrg,
       mitre: "T1621", tactic: "Credential Access",
-      description: "Okta: an Okta Verify push for s.amir was rejected on the phone (USER_REJECTED_PUSH). The sign-in that requested it came from 138.199.59.21 (Warsaw, Datacamp Limited, a hosting network used by commercial VPN services) and had passed the password step, 18 minutes after s.amir's own office sign-in." }),
+      description: "Okta: an Okta Verify push for s.amir was rejected on the phone (user.mfa.okta_verify.deny_push). The sign-in that requested it came from 138.199.59.21 (Warsaw, Datacamp Limited, a hosting network used by commercial VPN services) and had passed the password step, 18 minutes after s.amir's own office sign-in." }),
     oktaMfa({ id: "aigds3", ts: "2026-09-25T06:52:07.596Z", companyId: cx, user, srcIp: vpn, result: "approved", userAgent: chrome, severity: "medium",
       geo: { country: vpnGeo.country, city: vpnGeo.city, latitude: vpnGeo.lat, longitude: vpnGeo.lon }, isProxy: true, asOrg,
       mitre: "T1621", tactic: "Credential Access",

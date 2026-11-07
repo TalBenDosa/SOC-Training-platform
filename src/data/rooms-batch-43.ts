@@ -34,7 +34,7 @@ const secretsManagerAbuseEvent: TelemetryEvent = {
   vendor: "AWS CloudTrail",
   event_type: "cloud_api_call",
   severity: "critical",
-  src_ip: "154.16.88.203",
+  src_ip: "203.0.113.203",
   mitre_technique: "T1555.006",
   mitre_tactic: "Credential Access",
   description:
@@ -47,7 +47,7 @@ const secretsManagerAbuseEvent: TelemetryEvent = {
     "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::719044852201:assumed-role/lambda-report-generator/brightloop-report-generator",
     "aws.cloudtrail.userIdentity.accountId": "719044852201",
     "aws.cloudtrail.userIdentity.principalId": "AROAEXAMPLE123:brightloop-report-generator",
-    "aws.cloudtrail.sourceIPAddress": "154.16.88.203",
+    "aws.cloudtrail.sourceIPAddress": "203.0.113.203",
     "aws.cloudtrail.userAgent": "aws-cli/2.15.10 Python/3.11.6 Linux/6.1.0",
     "aws.cloudtrail.requestParameters.secretId": "arn:aws:secretsmanager:eu-west-1:719044852201:secret:prod/finance-db/creds-Ab3xQ9",
     "aws.cloudtrail.responseElements": null,
@@ -112,7 +112,7 @@ const rotationJobEvent: TelemetryEvent = {
   severity: "medium",
   mitre_tactic: "Credential Access",
   description:
-    "The secrets-rotation-lambda role called Secrets Manager BatchGetSecretValue against 42 secret ARNs in a single request during its nightly scheduled run.",
+    "The secrets-rotation-lambda role called Secrets Manager BatchGetSecretValue with a tag filter during its nightly scheduled run. One call returns at most 20 secrets, so the run paged through 42 secrets in three requests; this record is the first.",
   raw: {
     "aws.cloudtrail.eventName": "BatchGetSecretValue",
     "aws.cloudtrail.eventSource": "secretsmanager.amazonaws.com",
@@ -185,7 +185,7 @@ export const roomsBatch43 = [
         id: "uc-r2",
         heading: "T1552.001 / T1552.006: Credentials in Files and Group Policy Preferences",
         content:
-          `**Credentials In Files (T1552.001)** covers plaintext secrets left in application configs (.env, appsettings.json, web.config), automation definitions (Ansible vars, Jenkinsfiles, .gitlab-ci.yml), shell history (.bash_history), and source code itself. An attacker with any foothold searches for these the same way you would:\n\n` +
+          `**Credentials In Files (T1552.001)** covers plaintext secrets left in application configs (.env, appsettings.json, web.config), automation definitions (Ansible vars, Jenkinsfiles, .gitlab-ci.yml), and source code itself. Its close sibling, Shell History (T1552.003), covers passwords typed on a command line and saved in a shell's history file (.bash_history). An attacker with any foothold searches for these the same way you would:\n\n` +
           "```\ngrep -RIl \"password\" --include=*.{env,yml,json,conf,ps1,sh} /home /var/www\nfindstr /S /I /M \"password\" *.txt *.xml *.ini *.config\n```\n\n" +
           `**Group Policy Preferences (T1552.006)** is a specific, historically devastating case of this same family. Windows once let administrators push local-account passwords to many machines via GPP settings (Groups.xml, ScheduledTasks.xml), 'encrypting' the password with AES-256. The catch: Microsoft published that AES key in its own documentation. Any domain user (SYSVOL is readable domain-wide by design) can decrypt a cpassword value with tools like Get-GPPPassword or gpp-decrypt:\n\n` +
           "```\nfindstr /S /I cpassword \\\\corp.local\\SYSVOL\\corp.local\\Policies\\*.xml\ngpp-decrypt <captured-cpassword-ciphertext>\n```\n\n" +
@@ -224,7 +224,7 @@ export const roomsBatch43 = [
           `**Recognizable extensions**: .key, .pem (generic PEM key), .ppk (PuTTY), .p12/.pfx (PKCS#12 bundle, often password-protected), .pgp/.gpg/.asc (GPG/PGP). SSH keys live at ~/.ssh/id_rsa or id_ed25519 by convention on Linux/macOS, and the equivalent path on Windows once OpenSSH tooling is installed. Cloud CLI credential files (~/.aws/credentials) are a close cousin: plaintext long-lived access keys, functionally identical in impact to a stolen private key.\n\n` +
           "```\nfind / -type f \\( -name \"*.pem\" -o -name \"id_rsa\" -o -name \"*.ppk\" \\) 2>/dev/null\nGet-ChildItem C:\\Users -Recurse -Include *.pem,*.ppk,*.key -ErrorAction SilentlyContinue\n```\n\n" +
           `**The one real mitigation**: a passphrase-protected key still requires the attacker to succeed at an offline crack (ssh2john + Hashcat/John) before it becomes usable, exactly the same offline-cracking workflow covered in the credential-attacks-practice room, just applied to a key file instead of a password hash. This converts an instantly-usable stolen credential into one requiring successful cracking first, buying real time for detection and rotation.\n\n` +
-          `**The single highest-fidelity detection signature in this entire room**: the literal string -----BEGIN RSA PRIVATE KEY----- (or its EC/OPENSSH/PGP equivalents) appearing anywhere it should not, in a Git commit, an outbound upload, or an email. On the host itself, a process other than ssh, scp, or a recognized backup tool reading id_rsa or a .pem file is a strong behavioral tell.`,
+          `**The single highest-fidelity detection signature in this entire room**: the literal string -----BEGIN RSA PRIVATE KEY----- (or its EC/OPENSSH/PGP equivalents) appearing anywhere it should not, in a Git commit, an outbound upload, or an email. High fidelity means a match is rarely noise. That header is a fixed label that only private-key content carries, while certificates and certificate requests use their own labels (BEGIN CERTIFICATE, BEGIN CERTIFICATE REQUEST). It shows key-shaped content and nothing more: sample keys in documentation and test fixtures carry it too, and it says nothing about who made the key or whether it was ever used. On the host itself, a process other than ssh, scp, or a recognized backup tool reading id_rsa or a .pem file is a strong behavioral tell.`,
         checkpoint: {
           question: "Why does a passphrase on a stolen private key matter, if the attacker already has the file itself?",
           options: [
@@ -245,13 +245,13 @@ export const roomsBatch43 = [
           "A DLP rule flags an outbound file upload containing the literal string '-----BEGIN OPENSSH PRIVATE KEY-----'. Why is this specific string such a high-fidelity detection signature?",
         options: [
           "The header also appears in ordinary PEM certificate and CSR files that teams upload constantly, so it fires on routine traffic",
-          "It is a fixed marker that appears only in genuine private-key files, so a match is a rare, near-certain positive",
+          "It is a fixed marker that only private-key content carries, so a match is rarely noise and almost always means key material",
           "It is produced mainly by attacker tooling rather than by legitimate admins, so a single match conclusively proves a compromise",
           "The header is written to a file only after the key has been used to authenticate, so a match means the key is already in active use",
         ],
         answer: 1,
         explanation:
-          "The PEM header format is a fixed, standardized marker specific to private-key material -- public certificates and CSRs use different BEGIN CERTIFICATE / BEGIN CERTIFICATE REQUEST headers -- so a match is a rare, high-confidence signal rather than noise. It says nothing about who created the file (legitimate developers generate real keys constantly) and nothing about whether the key was ever actually used to authenticate -- the header exists from the moment the key is generated. It only confirms key material is present in the outbound content.",
+          "The PEM header format is a fixed, standardized marker specific to private-key material -- public certificates and CSRs use different BEGIN CERTIFICATE / BEGIN CERTIFICATE REQUEST headers -- so a match is a rare, high-confidence signal rather than noise. It says nothing about who created the file (legitimate developers generate real keys constantly) and nothing about whether the key was ever actually used to authenticate -- the header exists from the moment the key is generated. It only confirms key-shaped content is present in the upload: sample keys in documentation and test fixtures carry the same header, so you still check whether the key is real.",
         xp: 25,
       },
       {
@@ -292,6 +292,7 @@ export const roomsBatch43 = [
           "```\naws secretsmanager get-secret-value --secret-id prod/db/creds\naws secretsmanager batch-get-secret-value --secret-id-list prod/db/creds prod/api/key\naz keyvault secret show --name ExamplePassword --vault-name prod-vault --query value\ngcloud secrets versions access latest --secret=my-db-password\n```\n\n" +
           `**T1555.006** is simply using one of these calls with a compromised or over-permissioned identity. MITRE ATT&CK documents the state-sponsored group HAFNIUM moving laterally from on-premises systems specifically to reach Azure Key Vault secrets this way. None of these calls work without an identity already permitted to make them, which leads to a closely related, distinct technique: **Unsecured Credentials: Cloud Instance Metadata API (T1552.005)**. A process running on a cloud compute instance can query a link-local endpoint (169.254.169.254 on AWS) and receive that instance's own temporary IAM role credentials directly: no GetSecretValue call, no CloudTrail Secrets Manager entry at all, because the metadata service is not a logged AWS management-plane API. This exact mechanism drove the 2019 Capital One breach: an SSRF flaw in a misconfigured WAF let an attacker make the WAF's own EC2 instance query its metadata endpoint on the attacker's behalf, handing over its IAM role's credentials and, from there, over 100 million customers' records in S3, the incident that led directly to AWS building IMDSv2.\n\n` +
           `**Detection**: for T1555.006, CloudTrail (eventSource secretsmanager.amazonaws.com), Azure Key Vault diagnostic logs (operationName SecretGet), or GCP Secret Manager audit logs, watching for an identity requesting secrets it has never touched before, from an atypical source. For T1552.005 the metadata call itself is unlogged, so you detect its CONSEQUENCES instead: GuardDuty's InstanceCredentialExfiltration findings (OutsideAWS when instance-role credentials are used from an external IP, InsideAWS when used from another account), IMDSv1 usage metrics that reveal instances still allowing the token-less v1 endpoint, and a web-app or WAF process making an outbound request to 169.254.169.254, the SSRF-to-metadata pattern behind the Capital One breach. The absence of a matching secrets-manager trail for a credential clearly in active use is a supporting clue, not the primary signal.\n\n` +
+          `**Reading the CloudTrail record.** Three fields carry most of the story. userAgent names the client that made the call. A Lambda function's own calls normally come from inside AWS and carry an SDK agent such as Boto3 with an AWS_Lambda exec-env tag, so the same role showing a hand-run aws-cli agent from an address outside AWS means its temporary credentials were copied out and are being used from somewhere else. errorCode is filled in with the reason when a call fails, so an empty one means the call succeeded. responseElements stays null on a read-only call such as GetSecretValue, and AWS never writes the secret value into the log: the record proves the secret was retrieved without showing what it was.\n\n` +
           `**Why naive volume thresholds fail here**: CI/CD pipelines, autoscaling fleets, and rotation jobs all legitimately call these APIs in bursts. The professional approach baselines by identity-and-secretId PAIR: a given role normally reads the same one or two secrets repeatedly for months; a request for a secret it has never touched before is the real signal, not raw call count.`,
         codeExample:
           "T1552.005 LEAVES NO SECRETS-MANAGER TRAIL AT ALL:\n" +
@@ -309,7 +310,7 @@ export const roomsBatch43 = [
         questions: [
           {
             question:
-              "The event shows userAgent 'aws-cli/2.15.10 Python/3.11.6 Linux/6.1.0' calling from sourceIPAddress 154.16.88.203, which is not an AWS-owned IP range. Why does this combination matter, given the identity is a Lambda execution role?",
+              "The event shows userAgent 'aws-cli/2.15.10 Python/3.11.6 Linux/6.1.0' calling from sourceIPAddress 203.0.113.203, which is not an AWS-owned IP range. Why does this combination matter, given the identity is a Lambda execution role?",
             options: [
               "A Lambda can make outbound calls through a NAT gateway, so an external source IP is expected and the aws-cli user agent is just the runtime's default SDK",
               "A Lambda's own SDK calls come from AWS's internal network with an SDK user agent: a locally-run aws-cli from an external, non-AWS IP means the role's temporary credentials were exported and are being replayed from attacker infrastructure",
@@ -362,6 +363,7 @@ export const roomsBatch43 = [
           `**3. Honeytoken / canary secrets.** Seed a file, a private key, and a cloud secret that no legitimate process should EVER read into every store type this room covers. Any access to one is an unambiguous, high-confidence alert, not a probabilistic heuristic.\n\n` +
           `**4. Baseline WHO reads WHAT before writing any volume threshold.** As Reading 5 and the log-analysis task demonstrated, legitimate automation (CI/CD, autoscaling, rotation jobs) generates bursts that a naive count-based rule cannot distinguish from an attacker. Identity-and-resource PAIR baselining is the professional answer.\n\n` +
           `**5. Rotate on ANY confirmed exposure.** Never just delete the file, revoke the one session, or remove the one copy found. You can never be certain how many times a credential was already read before discovery. Rotation is the only remediation that actually closes the exposure.\n\n` +
+          `**Naming the verdict.** When an alert correctly describes activity that really happened, and an approved ticket or known schedule makes it legitimate, the verdict is a benign true positive: you close it and cite the ticket. A false positive is different: the rule misfired on something it was never meant to catch, and the fix is tuning the rule.\n\n` +
           `The next task puts practice 4 directly to the test: a real cloud event that LOOKS exactly like the attack you just investigated, but is actually a confirmed, scheduled, legitimate job.`,
       },
       {
@@ -416,7 +418,7 @@ export const roomsBatch43 = [
         heading: "Match Each Technique to What It Actually Exposes",
         instructions: "Match each ATT&CK technique ID to the credential-store artifact and mechanism it describes.",
         pairs: [
-          { id: "t1552001", left: "T1552.001, Unsecured Credentials: Credentials In Files", right: "Plaintext secrets in .env/config files, source code, or shell history, found with grep/findstr searches" },
+          { id: "t1552001", left: "T1552.001, Unsecured Credentials: Credentials In Files", right: "Plaintext secrets in .env/config files, automation definitions or source code, found with grep/findstr searches" },
           { id: "t1552006", left: "T1552.006, Unsecured Credentials: Group Policy Preferences", right: "A cpassword value in a SYSVOL XML file, 'encrypted' with an AES key Microsoft made public" },
           { id: "t1552004", left: "T1552.004, Unsecured Credentials: Private Keys", right: "An unprotected SSH/TLS/GPG key file granting immediate access with no further guessing needed" },
           { id: "t1552005", left: "T1552.005, Unsecured Credentials: Cloud Instance Metadata API", right: "Temporary IAM role credentials from a link-local endpoint on the instance itself, never logged as a CloudTrail API call" },

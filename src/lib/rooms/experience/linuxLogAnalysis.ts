@@ -8,7 +8,7 @@ import type { RoomExperience } from "./types";
 // file sort places events, it doesn't compare auth.log with audit.log (q1);
 // the journalctl drill uses -u cron, -b, -p and _COMM, never --since/--until
 // for sshd (q2); the SSH console is lastb, last and authorized_keys on
-// another host and IP, never la1's 185.220.101.45 (la1, flag1); the cron
+// another host and IP, never la1's 203.0.113.45 (la1, flag1); the cron
 // console never reads auditd auid/euid (q3); the rush cards show an auid
 // and a gap in auth.log with other values than q3 and q4.
 export const LINUX_LOG_ANALYSIS: RoomExperience = {

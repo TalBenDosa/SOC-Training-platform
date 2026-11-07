@@ -47,7 +47,7 @@ const kerberoastEvent: TelemetryEvent = {
     "event.code": "4769",
     "winlog.channel": "Security",
     "winlog.computer_name": "DC02.meridian.local",
-    "winlog.event_data.TargetUserName": "k.alvarez",
+    "winlog.event_data.TargetUserName": "k.alvarez@MERIDIAN.LOCAL",
     "winlog.event_data.TargetDomainName": "MERIDIAN.LOCAL",
     // ServiceName on a real 4769 is the ACCOUNT that owns the requested SPN
     // (HTTPRpt/rpt04.meridian.local is registered to svc_reporting), not the
@@ -56,8 +56,8 @@ const kerberoastEvent: TelemetryEvent = {
     "winlog.event_data.TicketEncryptionType": "0x17",
     "winlog.event_data.TicketOptions": "0x40810000",
     "winlog.event_data.Status": "0x0",
-    "winlog.event_data.IpAddress": "10.55.14.203",
-    "winlog.event_data.IpPort": "0",
+    "winlog.event_data.IpAddress": "::ffff:10.55.14.203",
+    "winlog.event_data.IpPort": "49822",
     "winlog.event_id": 4769,
   },
 };
@@ -81,8 +81,8 @@ const asrepRoastEvent: TelemetryEvent = {
     "winlog.event_data.TicketEncryptionType": "0x17",
     "winlog.event_data.PreAuthType": "0",
     "winlog.event_data.Status": "0x0",
-    "winlog.event_data.IpAddress": "10.55.2.211",
-    "winlog.event_data.IpPort": "0",
+    "winlog.event_data.IpAddress": "::ffff:10.55.2.211",
+    "winlog.event_data.IpPort": "51344",
     "winlog.event_id": 4768,
   },
 };
@@ -104,7 +104,7 @@ const rc4LegacyBackupEvent: TelemetryEvent = {
     "event.code": "4769",
     "winlog.channel": "Security",
     "winlog.computer_name": "DC01.meridian.local",
-    "winlog.event_data.TargetUserName": "svc_nasbackup",
+    "winlog.event_data.TargetUserName": "svc_nasbackup@MERIDIAN.LOCAL",
     "winlog.event_data.TargetDomainName": "MERIDIAN.LOCAL",
     // cifs/nas02.meridian.local is registered to the appliance's computer
     // account, so a real 4769 records that account (NAS02$) as ServiceName.
@@ -112,8 +112,8 @@ const rc4LegacyBackupEvent: TelemetryEvent = {
     "winlog.event_data.TicketEncryptionType": "0x17",
     "winlog.event_data.TicketOptions": "0x40810000",
     "winlog.event_data.Status": "0x0",
-    "winlog.event_data.IpAddress": "10.55.2.44",
-    "winlog.event_data.IpPort": "0",
+    "winlog.event_data.IpAddress": "::ffff:10.55.2.44",
+    "winlog.event_data.IpPort": "50217",
     "winlog.event_id": 4769,
   },
 };
@@ -181,6 +181,7 @@ const kerberosRoom: Room = {
         `A TGT (Ticket Granting Ticket) is issued once per logon session by the AS-REQ/AS-REP pair and is reusable: the client presents it repeatedly to request tickets for as many different services as it needs, without re-entering credentials, until the TGT expires (10 hours by default). A TGS (Ticket Granting Service ticket, often just called a "service ticket") is issued per service, one TGS-REQ/TGS-REP pair for each distinct SPN the client wants to reach.\n\n` +
         `**The Event IDs, and who logs them**\n\n` +
         `Every one of these authentication events is logged on the Domain Controller performing the KDC role, because the KDC is the only party that ever sees the AS-REQ/AS-REP and TGS-REQ/TGS-REP messages. Event 4768 is logged for every AS-REQ/AS-REP pair: a TGT being issued. Event 4769 is logged for every TGS-REQ/TGS-REP pair: a service ticket being issued, and this is the event Kerberoasting produces. Event 4771 is logged when Kerberos pre-authentication fails (wrong password on an AS-REQ), the Kerberos equivalent of a failed logon. Event 4776 is a different protocol entirely. It is logged when a Domain Controller validates NTLM credentials, not Kerberos ones, and its appearance where Kerberos was expected is itself a signal covered later in this room.\n\n` +
+        `On a 4769, TargetUserName is the account that requested the ticket, written in user@REALM form (for example j.doe@CORP.EXAMPLE), while a 4768 shows the bare account name. IpAddress on both events is where the request came from, usually an IPv4 address in mapped form such as ::ffff:10.0.0.12, where the real address is the part after ::ffff:.\n\n` +
         `**What the target service host logs, and does not**\n\n` +
         `The service the client is actually trying to reach (a file server, a SQL server, a web application) does not independently verify a TGS against the KDC at all. It trusts its own successful decryption of the ticket using its own account's key. What it does log, once the AP-REQ is validated, is a normal Windows logon event, most commonly Event 4624 with AuthenticationPackageName: Kerberos and a LogonType matching how the client connected (3 for a network logon, 10 for RDP, and so on). That 4624 on the target server tells you a session was established; it tells you nothing at all about how the ticket that authorized it was obtained, for that, you always have to go back to the Domain Controller's 4768/4769 pair.`,
       codeExample:
@@ -243,7 +244,7 @@ const kerberosRoom: Room = {
         `**Why RC4 specifically matters for offline cracking**\n\n` +
         `A TGS is encrypted with a key derived from the target service account's password. If an attacker captures that ticket, they can attempt to crack it offline, guessing passwords until one produces a key that correctly decrypts the ticket. AES256's key derivation involves substantially more computational work per guess than RC4-HMAC's, whose key is derived far more directly from the account's NTLM hash. In practice this means an RC4-encrypted ticket can be cracked orders of magnitude faster than the same password protected by AES256, which is precisely why every mainstream Kerberoasting tool explicitly requests RC4 tickets when it can, rather than accepting whatever a domain controller would offer by default.\n\n` +
         `**Reading the field as a downgrade, not a default**\n\n` +
-        `Each account has an msDS-SupportedEncryptionTypes attribute controlling which encryption types the KDC will issue for it. The client lists the encryption types it supports in its request, but the KDC picks the service ticket's type from what the TARGET service account supports (that attribute, and whether AES keys exist for the account), not from the requester's preference alone. That is why a Kerberoasting tool's request for RC4 only succeeds against accounts that still allow RC4, and also why RC4 can appear for perfectly ordinary reasons: a legacy service account with the attribute unset, or an old appliance that only implements RC4, produces 0x17 tickets every day with no attacker involved. In an environment where every service account is configured for AES only, a 0x17 ticket is unusual and worth a look, but treat it as a supporting signal, not proof. The decisive Kerberoasting tell is the shape of the activity: one account requesting tickets for many distinct SPNs in a short burst. The next reading gives you the mechanism that makes requesting a ticket for any service at all so easy in the first place.`,
+        `Each account has an msDS-SupportedEncryptionTypes attribute controlling which encryption types the KDC will issue for it. The client lists the encryption types it supports in its request, but the KDC picks the service ticket's type from what the TARGET service account supports (that attribute, and whether AES keys exist for the account), not from the requester's preference alone. That is why a Kerberoasting tool's request for RC4 only succeeds against accounts that still allow RC4, and also why RC4 can appear for perfectly ordinary reasons: an old appliance that only implements RC4, for example, can produce 0x17 tickets every day with no attacker involved. An account with the attribute unset follows the domain's default instead, and that default changed: on domain controllers carrying Microsoft's updates from April 2026 an unset account gets AES only, unless an administrator explicitly set a different default, while older domain controllers still allow RC4 for it. In an environment where every service account is configured for AES only, a 0x17 ticket is unusual and worth a look, but treat it as a supporting signal, not proof. The decisive Kerberoasting tell is the shape of the activity: one account requesting tickets for many distinct SPNs in a short burst. The next reading gives you the mechanism that makes requesting a ticket for any service at all so easy in the first place.`,
       codeExample:
         "KERBEROS TICKET ENCRYPTION TYPES\n" +
         "=======================================================\n" +
@@ -330,7 +331,9 @@ const kerberosRoom: Room = {
         `**AS-REP Roasting (T1558.004), attacking the AS-REP, before pre-auth even happens**\n\n` +
         `Recall from Reading 1 that pre-authentication means proving you know the account's password before the KDC will issue an AS-REP at all: the client encrypts a timestamp with a key derived from the password, and the KDC only replies if it decrypts correctly. Some accounts have the "Do not require Kerberos preauthentication" flag set (DONT_REQ_PREAUTH), sometimes deliberately, for compatibility with older Kerberos implementations that don't support pre-auth, but often as an overlooked misconfiguration. For those accounts, the KDC will hand back an AS-REP (including the encrypted portion an attacker can crack offline to recover the password) to anyone who simply asks for a TGT by username, with no proof of any password at all. This requires zero valid domain credentials: an unauthenticated attacker who only knows (or guesses, by enumerating usernames) that an account exists and has this flag set can pull a crackable AS-REP. It produces a single 4768, with PreAuthType: 0 (normal successful pre-authenticated logons show PreAuthType: 2), no 4771 failure ever appears, because pre-authentication was never attempted, not attempted and failed.\n\n` +
         `**The precondition is the fastest way to tell them apart**\n\n` +
-        `If you're looking at a 4769 for a service account's SPN, you're looking at Kerberoasting, and the attacker already had valid domain credentials of some kind. If you're looking at a 4768 with PreAuthType: 0 and no prior successful authentication from that source, you're looking at AS-REP roasting, and the attacker may not have needed any valid credentials at all, which makes it, if anything, the more dangerous of the two to leave unaddressed.`,
+        `One 4769 for a service account's SPN proves nothing, because every ordinary use of that service logs one. Kerberoasting shows in the shape: one account pulling tickets for many distinct SPNs in a tight burst, and whoever did that already had valid domain credentials of some kind. If you're looking at a 4768 with PreAuthType: 0 and no prior successful authentication from that source, you're looking at AS-REP roasting, and the attacker may not have needed any valid credentials at all, which makes it, if anything, the more dangerous of the two to leave unaddressed.\n\n` +
+        `**What to do once you are sure**\n\nFor confirmed Kerberoasting, the secret at risk belongs to the service accounts behind the requested SPNs, not to the requester, so change those passwords before offline cracking can finish. The requesting account still counts as compromised, so look for the tool on the requesting host, and restrict those service accounts to AES through msDS-SupportedEncryptionTypes so RC4 tickets stop being available.\n\n` +
+        `For AS-REP roasting, assume the crackable material has already left and that you will never see the cracking happen. Change that account's password even after you fix the flag, because the fix only stops the next request. Disable the account if nothing still uses it, and search the directory for other accounts carrying DONT_REQ_PREAUTH. Neither attack exposes krbtgt, so resetting krbtgt does nothing for either one.`,
       codeExample:
         "KERBEROASTING vs AS-REP ROASTING -- SIDE BY SIDE\n" +
         "=======================================================\n" +
@@ -371,7 +374,7 @@ const kerberosRoom: Room = {
       questions: [
         {
           question:
-            "TargetUserName (the requesting account on a 4769) is 'k.alvarez', TicketEncryptionType is 0x17 (RC4), Status is 0x0 (success), and per the SIEM correlation noted above this account requested 59 distinct SPNs in the preceding three minutes. What does this combination indicate?",
+            "TargetUserName (the requesting account on a 4769) is 'k.alvarez@MERIDIAN.LOCAL', TicketEncryptionType is 0x17 (RC4), Status is 0x0 (success), and per the SIEM correlation noted above this account requested 59 distinct SPNs in the preceding three minutes. What does this combination indicate?",
           options: [
             "Overpass-the-hash: an RC4 ticket in an AES domain shows k.alvarez's NTLM hash was used to log on",
             "Kerberoasting: one account pulled RC4 service tickets for 59 SPNs it has no business need for",
@@ -417,7 +420,7 @@ const kerberosRoom: Room = {
       type: "flag",
       id: "krb-f1",
       prompt:
-        "In Log Analysis 1, the roasting tool ran on whichever client sent the TGS-REQs, not on DC02. Enter the IP address of the host you would pivot to next to find that tool.",
+        "In Log Analysis 1, the roasting tool ran on whichever client sent the TGS-REQs, not on DC02. Enter the IPv4 address of the host you would pivot to next to find that tool.",
       answer: "10.55.14.203",
       hint: "One field in the 4769 records where the request came from. The DC's own name is not it.",
       xp: 25,
@@ -624,7 +627,7 @@ const uacConsentEvent: TelemetryEvent = {
     path: "C:\\Users\\r.chukwu\\Downloads\\MeridianExpenseInstaller.exe",
     parent_name: "explorer.exe",
     parent_pid: 3312,
-    cmdline: "\"C:\\Users\\r.chukwu\\Downloads\\MeridianExpenseInstaller.exe\" /S",
+    cmdline: "\"C:\\Users\\r.chukwu\\Downloads\\MeridianExpenseInstaller.exe\"",
     user: "MERIDIAN\\r.chukwu",
     integrity: "high",
   },
@@ -632,16 +635,16 @@ const uacConsentEvent: TelemetryEvent = {
     "MeridianExpenseInstaller.exe was created at High integrity with the user's explorer.exe as its parent; Sysmon on the same host recorded consent.exe (parent svchost.exe, the AppInfo service) starting in this user's session four seconds earlier.",
   it_verify_result: "confirmed",
   it_verify_message:
-    "SCCM deployment record DPL-4471 confirms MeridianExpenseInstaller.exe was pushed to this host today as part of the approved finance-tool rollout.",
+    "Deployment record DPL-4471 confirms IT asked finance staff to download MeridianExpenseInstaller.exe from the internal software portal today and run it themselves, approving the UAC prompt, as part of the approved finance-tool rollout.",
   raw: {
     "winlog.event_id": 1,
     "winlog.provider_name": "Microsoft-Windows-Sysmon",
     "winlog.event_data.Image": "C:\\Users\\r.chukwu\\Downloads\\MeridianExpenseInstaller.exe",
-    "winlog.event_data.CommandLine": "\"C:\\Users\\r.chukwu\\Downloads\\MeridianExpenseInstaller.exe\" /S",
+    "winlog.event_data.CommandLine": "\"C:\\Users\\r.chukwu\\Downloads\\MeridianExpenseInstaller.exe\"",
     "winlog.event_data.ParentImage": "C:\\Windows\\explorer.exe",
     "winlog.event_data.IntegrityLevel": "High",
     "winlog.event_data.User": "MERIDIAN\\r.chukwu",
-    "winlog.event_data.Hashes": "SHA256=91AE7C40B6F1D82A5E3C9F0847B2D6A1E4C8F35907A2B6D1E4F8C0A3B5D7E2C1",
+    "winlog.event_data.Hashes": "SHA256=91ae7c40b6f1d82a5e3c9f0847b2d6a1e4c8f35907a2b6d1e4f8c0a3b5d7e2c1",
     "winlog.event_data.Signed": "true",
     "winlog.event_data.Signature": "Meridian Trust IT Deployment CA",
   },
@@ -752,7 +755,8 @@ const privescRoom: Room = {
         `**The mechanism**\n\n` +
         `fodhelper.exe, when it runs, internally checks a registry key under the current user's own hive, HKCU\\Software\\Classes\\ms-settings\\Shell\\Open\\command, to determine how to open the ms-settings handler, and it does so without validating that this particular path is a protected, trusted location. Because HKCU is the user's own per-user hive, a completely unprivileged, Medium-integrity process can write to it freely: no admin rights, no special privilege, just an ordinary registry write. An attacker sets that key's default value to an arbitrary command, then simply launches fodhelper.exe. fodhelper silently auto-elevates to High integrity as designed, internally invokes the ms-settings handler, reads the hijacked key the attacker planted, and executes the attacker's command: now running at High integrity, with no consent prompt ever shown.\n\n` +
         `**What this looks like in Sysmon**\n\n` +
-        `The registry write is captured by Sysmon Event ID 13 (RegistryEvent: value set), showing the TargetObject as the hijacked ms-settings command path. The payoff is captured by Sysmon Event ID 1 (process creation): fodhelper.exe appears as the parent of whatever command the attacker planted, and critically, that child process shows IntegrityLevel: High even though fodhelper's own launcher (almost always explorer.exe, at Medium integrity for this admin's ordinary desktop session) never went through an elevation prompt. The strongest corroborating evidence is the Sysmon Event 13 write itself, to ...\\ms-settings\\Shell\\Open\\command, usually together with an empty DelegateExecute value under the same key, which fodhelper needs before it will honour the planted command, followed seconds later by fodhelper.exe parenting a High-integrity child. A supporting negative: no consent.exe process started at that moment. To read that correctly, know how a NORMAL elevation looks: the AppInfo service (hosted in svchost.exe) launches consent.exe only to draw the prompt; once the user approves, AppInfo itself creates the elevated process and re-parents it to the requester, so in Sysmon the elevated process shows its requester (usually explorer.exe) as ParentImage, never consent.exe. You therefore look for consent.exe as a separate process (child of svchost.exe) starting in the same session at the same moment, not in the elevated process's parent chain.`,
+        `The registry write is captured by Sysmon Event ID 13 (RegistryEvent: value set), showing the TargetObject as the hijacked ms-settings command path. The payoff is captured by Sysmon Event ID 1 (process creation): fodhelper.exe appears as the parent of whatever command the attacker planted, and critically, that child process shows IntegrityLevel: High even though fodhelper's own launcher (almost always explorer.exe, at Medium integrity for this admin's ordinary desktop session) never went through an elevation prompt. The strongest corroborating evidence is the Sysmon Event 13 write itself, to ...\\ms-settings\\Shell\\Open\\command, usually together with an empty DelegateExecute value under the same key, which fodhelper needs before it will honour the planted command, followed seconds later by fodhelper.exe parenting a High-integrity child. A supporting negative: no consent.exe process started at that moment. To read that correctly, know how a NORMAL elevation looks: the AppInfo service (hosted in svchost.exe) launches consent.exe only to draw the prompt; once the user approves, AppInfo itself creates the elevated process and re-parents it to the requester, so in Sysmon the elevated process shows its requester (usually explorer.exe) as ParentImage, never consent.exe. You therefore look for consent.exe as a separate process (child of svchost.exe) starting in the same session at the same moment, not in the elevated process's parent chain.\n\n` +
+        `**Responding to a confirmed bypass**\n\nStop the process tree and remove the planted registry value, but do not stop there: deleting the value does nothing about what already ran at High integrity. Use Sysmon process ancestry to trace everything the elevated process did before you rebuild anything, because a rebuild destroys that evidence. Then ask why the account held the local admin rights the bypass depends on, since removing those rights closes this route.`,
       codeExample:
         "THE FODHELPER UAC BYPASS, STEP BY STEP\n" +
         "=======================================================\n" +
@@ -909,7 +913,8 @@ const privescRoom: Room = {
         `**Weak service permissions**\n\n` +
         `Separately, a service's own configuration (its registry entry under HKLM\\SYSTEM\\CurrentControlSet\\Services) or the binary it points to can simply have overly permissive access control lists, allowing a low-privileged user to reconfigure the service's ImagePath directly, or overwrite the target binary on disk, without needing to exploit any path-parsing quirk at all. Either misconfiguration produces the same outcome: the next time a SYSTEM-run service starts, it executes attacker-controlled code.\n\n` +
         `**What "the parent is Medium, the child is High" actually proves**\n\n` +
-        `Across every technique in this room, the single fastest triage signal in a process tree is a jump in integrity level between a parent and its child that doesn't have an obvious, expected explanation. A completely ordinary elevation (a user deliberately running an installer as administrator) is accompanied by a consent.exe process (launched by the AppInfo service, svchost.exe) in the same session at the same moment, while the elevated process itself shows its requester, usually explorer.exe, as its parent; IT or deployment records typically corroborate it (as in the analyst_choice task ahead). An elevation with no consent.exe, no deployment record, and no auto-elevate binary that would explain it on its own is the pattern worth escalating every time: something made that jump happen without going through the path Windows normally requires, and your job is to work out which of the techniques in this room did it.`,
+        `Across every technique in this room, the single fastest triage signal in a process tree is a jump in integrity level between a parent and its child that doesn't have an obvious, expected explanation. A completely ordinary elevation (a user deliberately running an installer as administrator) is accompanied by a consent.exe process (launched by the AppInfo service, svchost.exe) in the same session at the same moment, while the elevated process itself shows its requester, usually explorer.exe, as its parent; IT or deployment records typically corroborate it (as in the analyst_choice task ahead). An elevation with no consent.exe, no deployment record, and no auto-elevate binary that would explain it on its own is the pattern worth escalating every time: something made that jump happen without going through the path Windows normally requires, and your job is to work out which of the techniques in this room did it.\n\n` +
+        `When a rule correctly catches a real integrity jump that turns out to be authorized, the rule did its job, so the case closes as a benign true positive, citing the record that authorizes it. A false positive is kept for a rule that misfired on something that did not happen.`,
       codeExample:
         "UNQUOTED SERVICE PATH -- HOW WINDOWS RESOLVES IT\n" +
         "=======================================================\n" +
@@ -975,7 +980,7 @@ const privescRoom: Room = {
       event: uacConsentEvent,
       correct_verdict: "benign_true_positive",
       explanation:
-        "The parent is the user's own explorer.exe: exactly what a normal UAC elevation looks like, because the AppInfo service creates the elevated process and re-parents it to whoever requested elevation. The corroborating UAC evidence is the consent.exe process (launched by svchost.exe/AppInfo) that started in the same session four seconds earlier: that is the prompt being drawn and accepted, which is exactly what a fodhelper-style bypass specifically lacks, there, the parent would be an auto-elevate binary and no consent.exe would appear. The binary is signed by Meridian Trust's own deployment CA, and an SCCM deployment record independently confirms this exact installer was scheduled to this host today as part of an approved rollout. A Medium-to-High integrity jump alone is not suspicious. It's the expected shape of any legitimate elevation; what makes it benign here is the consent.exe prompt at the same moment, an ordinary explorer.exe parent, and independent deployment corroboration. That makes it a benign true positive: the detection correctly caught a real Medium-to-High integrity jump, and the approved SCCM rollout is the justification for closing it; it is not a false positive, because the rule did its job and calling it a misfire would invite weakening it.",
+        "The parent is the user's own explorer.exe: exactly what a normal UAC elevation looks like, because the AppInfo service creates the elevated process and re-parents it to whoever requested elevation. The corroborating UAC evidence is the consent.exe process (launched by svchost.exe/AppInfo) that started in the same session four seconds earlier: that is the prompt being drawn and accepted, which is exactly what a fodhelper-style bypass specifically lacks, there, the parent would be an auto-elevate binary and no consent.exe would appear. The binary is signed by Meridian Trust's own deployment CA, and a deployment record independently confirms IT asked finance staff to run this exact installer today as part of an approved rollout. A Medium-to-High integrity jump alone is not suspicious. It's the expected shape of any legitimate elevation; what makes it benign here is the consent.exe prompt at the same moment, an ordinary explorer.exe parent, and independent deployment corroboration. That makes it a benign true positive: the detection correctly caught a real Medium-to-High integrity jump, and the approved rollout is the justification for closing it; it is not a false positive, because the rule did its job and calling it a misfire would invite weakening it.",
       fp_trap:
         "Reading 5 taught 'an unexplained integrity jump is the fastest triage signal,' which makes it tempting to treat every Medium-to-High jump as worth escalating on sight. But this jump is explained: a consent.exe prompt was launched in the same session seconds before (the UAC bypass techniques in this room specifically avoid triggering consent.exe) and the parent is the user's ordinary explorer.exe, not an auto-elevate binary, the binary is signed by an internal CA, and a deployment ticket independently corroborates it. Escalating this as an incident because 'integrity went up' without checking for a matching consent.exe first is exactly the shortcut this room is trying to train out of you.",
       xp: 30,

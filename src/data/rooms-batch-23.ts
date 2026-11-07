@@ -469,6 +469,8 @@ Because it terminates and re-issues the connection as a reverse proxy, a WAF doe
 
 But "the WAF didn't block it" is not the same as "the request was safe," and this is the single most important nuance in this reading. Managed rule groups (bundled rulesets for common attack classes like SQL injection) only inspect a request body up to a configured size limit (commonly a default of around 8KB for many cloud WAF services) because fully parsing an unbounded body against every rule on every request would be prohibitively expensive at scale. What happens to the rest of a larger body is governed by an oversize-handling setting: it can be configured to treat anything past the limit as an automatic match (safe but can cause false blocks on legitimate large payloads), a guaranteed non-match, or simply continue without evaluating the excess at all. When oversize handling is left on the permissive "continue" behavior, a request body padded past the inspection limit, with a real, valid-looking payload up front and the malicious injection placed later in the body, can sail through as an ALLOW with the SQL injection rule group reporting no match whatsoever, not because the payload wasn't malicious, but because the rule group never got to look at it. This is exactly the platform's own SQL injection scenario callout: a WAF BLOCK verdict is reassuring, but an ALLOW is not proof of a clean request, and an oversized body is one of the most common, least obvious ways a ruleset gets bypassed.
 
+An AWS WAF log records the verdict and the request headers, not the body. So when a request went past the inspection limit, look for the uninspected part in whatever the application itself logged, if it logged the body at all, and then check how the oversize setting is configured, because a verdict on bytes nobody read settles nothing.
+
 When a WAF does detect a match, its action is genuinely inline and preventive. It can block the request, respond with a CAPTCHA challenge, or simply log and continue (a "count" mode commonly used while tuning a new rule before enforcing it). Its characteristic false positive is a legitimate request that happens to contain a substring resembling an attack pattern: a customer support form where a user pastes a snippet of SQL-like text describing their own problem, or a search field containing punctuation that coincidentally matches part of an XSS signature.`,
       codeExample:
         "AWS WAF LOG -- BLOCKED REQUEST (normal-size body, rule matched)\n" +
@@ -520,13 +522,13 @@ When a WAF does detect a match, its action is genuinely inline and preventive. I
             "clientIp is 154.16.88.203 (a Romanian IP with no prior history against this endpoint) and the User-Agent is 'python-requests/2.31.0': a generic HTTP scripting library, not a browser. Combined with the oversized body, what should an analyst do next?",
           options: [
             "Close it: the managed SQLi rule group evaluated the request and allowed it",
-            "Pull the full body from origin logs and review the oversize-handling setting",
+            "Look for the body in the application's own logs and review the oversize-handling setting",
             "Add a geo-block for Romania, since the source country explains the risk",
             "Block the python-requests User-Agent at the WAF to stop scripted clients",
           ],
           answer: 1,
           explanation:
-            "None of the signals (a new foreign IP, a scripting-library User-Agent, an oversized body) proves malice alone, but together they justify looking at what the WAF never inspected: pull the full body from origin or access logging, and review whether oversize handling should be tightened. “Close it: the rule group evaluated the request and allowed it” ignores that it evaluated only the first part of the body. “Add a geo-block for Romania” is disproportionate after one request and does nothing about the inspection gap for other sources. “Block the python-requests User-Agent” is trivially bypassed, because the client sets that header itself, and it would also break legitimate API scripts.",
+            "None of the signals (a new foreign IP, a scripting-library User-Agent, an oversized body) proves malice alone, but together they justify looking at what the WAF never inspected: look for the body in whatever the application itself logged, since the WAF log does not store it, and review whether oversize handling should be tightened. “Close it: the rule group evaluated the request and allowed it” ignores that it evaluated only the first part of the body. “Add a geo-block for Romania” is disproportionate after one request and does nothing about the inspection gap for other sources. “Block the python-requests User-Agent” is trivially bypassed, because the client sets that header itself, and it would also break legitimate API scripts.",
           xp: 25,
         },
         {
@@ -713,7 +715,7 @@ Identity Protection tools (like Azure AD/Entra Identity Protection) and CASB (Cl
         "riskEventType:      unfamiliarFeatures\n" +
         "riskLevel:          medium\n" +
         "riskState:          atRisk\n" +
-        "ipAddress:          185.220.101.47\n" +
+        "ipAddress:          203.0.113.47\n" +
         "location:           Bucharest, Romania\n" +
         "userPrincipalName:  m.oduya@meridian-corp.com\n" +
         "correlationId:      7e3f1a92-8c4d-4b7e-9a1f-2d6c8e4a7f3b\n" +

@@ -9,7 +9,7 @@ const createSaKeyEvent: TelemetryEvent = {
   event_type: "cloud_api_call",
   severity: "critical",
   user_email: "web-frontend@nexacorp-prod.iam.gserviceaccount.com",
-  src_ip: "185.220.101.47",
+  src_ip: "203.0.113.47",
   geo: { country: "Netherlands", city: "Amsterdam" },
   description: "A new user-managed JSON private key was minted for the svc-data service account from an unfamiliar external IP, minutes before svc-data escalated itself to Owner",
   mitre_technique: "T1098.001",
@@ -17,15 +17,16 @@ const createSaKeyEvent: TelemetryEvent = {
   raw: {
     "gcp.audit.method_name": "google.iam.admin.v1.CreateServiceAccountKey",
     "gcp.audit.service_name": "iam.googleapis.com",
-    "gcp.audit.resource_name": "projects/nexacorp-prod/serviceAccounts/svc-data@nexacorp.iam.gserviceaccount.com",
+    "gcp.audit.resource_name": "projects/-/serviceAccounts/104857392016482750113",
     "gcp.audit.authentication_info.principal_email": "web-frontend@nexacorp-prod.iam.gserviceaccount.com",
-    "gcp.audit.request_metadata.caller_ip": "185.220.101.47",
+    "gcp.audit.request_metadata.caller_ip": "203.0.113.47",
     "gcp.audit.request_metadata.caller_supplied_user_agent": "google-api-python-client/2.86.0",
     "gcp.audit.status.code": 0,
     "gcp.audit.status.message": "",
+    "gcp.audit.request.name": "projects/-/serviceAccounts/svc-data@nexacorp-prod.iam.gserviceaccount.com",
     "gcp.audit.request.private_key_type": "TYPE_GOOGLE_CREDENTIALS_FILE",
     "gcp.audit.request.key_algorithm": "KEY_ALG_RSA_2048",
-    "gcp.audit.response.name": "projects/nexacorp-prod/serviceAccounts/svc-data@nexacorp.iam.gserviceaccount.com/keys/8f3a1c9d2e4b7f60",
+    "gcp.audit.response.name": "projects/nexacorp-prod/serviceAccounts/svc-data@nexacorp-prod.iam.gserviceaccount.com/keys/8f3a1c9d2e4b7f60",
     "gcp.audit.response.key_id": "8f3a1c9d2e4b7f60",
     "gcp.audit.response.key_type": "USER_MANAGED",
     "cloud.account.id": "nexacorp-prod",
@@ -41,35 +42,55 @@ const setIamPolicyEvent: TelemetryEvent = {
   vendor: "GCP Cloud Audit Logs",
   event_type: "cloud_role_change",
   severity: "critical",
-  user_email: "svc-data@nexacorp.iam.gserviceaccount.com",
-  src_ip: "185.220.101.47",
+  user_email: "svc-data@nexacorp-prod.iam.gserviceaccount.com",
+  src_ip: "203.0.113.47",
   geo: { country: "Netherlands", city: "Amsterdam" },
-  description: "A low-privilege service account granted itself the Owner role on the entire production project via SetIamPolicy, moments after being used from an unfamiliar external IP",
+  description: "A service account meant only for BigQuery reads granted itself the Owner role on the entire production project via SetIamPolicy, moments after being used from an unfamiliar external IP",
   mitre_technique: "T1078.004",
   mitre_tactic: "Privilege Escalation",
   raw: {
     "gcp.audit.method_name": "SetIamPolicy",
     "gcp.audit.service_name": "cloudresourcemanager.googleapis.com",
     "gcp.audit.resource_name": "projects/nexacorp-prod",
-    "gcp.audit.authentication_info.principal_email": "svc-data@nexacorp.iam.gserviceaccount.com",
-    "gcp.audit.request_metadata.caller_ip": "185.220.101.47",
+    "gcp.audit.authentication_info.principal_email": "svc-data@nexacorp-prod.iam.gserviceaccount.com",
+    "gcp.audit.request_metadata.caller_ip": "203.0.113.47",
     "gcp.audit.request_metadata.caller_supplied_user_agent": "google-api-python-client/2.86.0",
     "gcp.audit.status.code": 0,
     "gcp.audit.status.message": "",
     "gcp.audit.request.policy.bindings": [
       {
+        "role": "roles/bigquery.dataViewer",
+        "members": ["serviceAccount:svc-data@nexacorp-prod.iam.gserviceaccount.com"],
+      },
+      {
+        "role": "roles/editor",
+        "members": ["serviceAccount:svc-data@nexacorp-prod.iam.gserviceaccount.com"],
+      },
+      {
         "role": "roles/owner",
-        "members": ["serviceAccount:svc-data@nexacorp.iam.gserviceaccount.com"],
+        "members": ["serviceAccount:svc-data@nexacorp-prod.iam.gserviceaccount.com"],
+      },
+      {
+        "role": "roles/resourcemanager.projectIamAdmin",
+        "members": ["serviceAccount:svc-data@nexacorp-prod.iam.gserviceaccount.com"],
       },
     ],
     "gcp.audit.response.bindings": [
       {
-        "role": "roles/owner",
-        "members": ["serviceAccount:svc-data@nexacorp.iam.gserviceaccount.com"],
+        "role": "roles/bigquery.dataViewer",
+        "members": ["serviceAccount:svc-data@nexacorp-prod.iam.gserviceaccount.com"],
       },
       {
         "role": "roles/editor",
-        "members": ["serviceAccount:svc-data@nexacorp.iam.gserviceaccount.com"],
+        "members": ["serviceAccount:svc-data@nexacorp-prod.iam.gserviceaccount.com"],
+      },
+      {
+        "role": "roles/owner",
+        "members": ["serviceAccount:svc-data@nexacorp-prod.iam.gserviceaccount.com"],
+      },
+      {
+        "role": "roles/resourcemanager.projectIamAdmin",
+        "members": ["serviceAccount:svc-data@nexacorp-prod.iam.gserviceaccount.com"],
       },
     ],
     "gcp.project.id": "nexacorp-prod",
@@ -123,7 +144,7 @@ const benignServiceAccountEvent: TelemetryEvent = {
   vendor: "GCP Cloud Audit Logs",
   event_type: "cloud_api_call",
   severity: "low",
-  user_email: "svc-cicd@nexacorp.iam.gserviceaccount.com",
+  user_email: "svc-cicd@nexacorp-prod.iam.gserviceaccount.com",
   src_ip: "10.128.0.14",
   hostname: "gke-nexacorp-prod-pool-1-a3f9",
   description: "The svc-cicd service account listed Compute Engine instances in the nexacorp-prod project",
@@ -131,7 +152,7 @@ const benignServiceAccountEvent: TelemetryEvent = {
     "gcp.audit.method_name": "compute.instances.list",
     "gcp.audit.service_name": "compute.googleapis.com",
     "gcp.audit.resource_name": "projects/nexacorp-prod",
-    "gcp.audit.authentication_info.principal_email": "svc-cicd@nexacorp.iam.gserviceaccount.com",
+    "gcp.audit.authentication_info.principal_email": "svc-cicd@nexacorp-prod.iam.gserviceaccount.com",
     "gcp.audit.request_metadata.caller_ip": "10.128.0.14",
     "gcp.audit.request_metadata.caller_supplied_user_agent": "google-cloud-sdk gcloud/462.0.1",
     "gcp.audit.status.code": 0,
@@ -152,8 +173,8 @@ const metadataKeyTheftEvent: TelemetryEvent = {
   vendor: "GCP Cloud Audit Logs",
   event_type: "cloud_api_call",
   severity: "critical",
-  user_email: "svc-data@nexacorp.iam.gserviceaccount.com",
-  src_ip: "185.220.101.47",
+  user_email: "svc-data@nexacorp-prod.iam.gserviceaccount.com",
+  src_ip: "203.0.113.47",
   geo: { country: "Netherlands", city: "Amsterdam" },
   description: "A new, unauthorized JSON key was created for the svc-data service account minutes before it was used from an external IP address to escalate privileges",
   mitre_technique: "T1552.005",
@@ -161,9 +182,9 @@ const metadataKeyTheftEvent: TelemetryEvent = {
   raw: {
     "gcp.audit.method_name": "google.iam.admin.v1.CreateServiceAccountKey",
     "gcp.audit.service_name": "iam.googleapis.com",
-    "gcp.audit.resource_name": "projects/nexacorp-prod/serviceAccounts/svc-data@nexacorp.iam.gserviceaccount.com/keys/8f3a1c9d2e4b7f60",
+    "gcp.audit.resource_name": "projects/-/serviceAccounts/104857392016482750113",
     "gcp.audit.authentication_info.principal_email": "web-frontend@nexacorp-prod.iam.gserviceaccount.com",
-    "gcp.audit.request_metadata.caller_ip": "185.220.101.47",
+    "gcp.audit.request_metadata.caller_ip": "203.0.113.47",
     "gcp.audit.request_metadata.caller_supplied_user_agent": "google-api-python-client/2.86.0",
     "gcp.audit.status.code": 0,
     "gcp.audit.status.message": "",
@@ -203,7 +224,7 @@ const gcpRoom = {
         `- **Compute Engine**: GCP's virtual machine service, the equivalent of AWS EC2. Compute Engine instances ("VMs") run applications exactly like a physical server would.\n\n` +
         `- **Cloud Storage**: GCP's object storage service, the equivalent of AWS S3. Data is organized into **buckets**, which can be configured private or, dangerously, public to the entire internet.\n\n` +
         `- **VPC (Virtual Private Cloud)**: GCP also uses the name VPC for its private, isolated network layer, just like AWS. A GCP VPC has subnets and firewall rules that control which traffic is allowed in and out, similar to AWS Security Groups.\n\n` +
-        `Just as with AWS, the SOC analyst's core job in GCP is to read the audit trail of **API calls**. Every action taken against a GCP project, from creating a virtual machine to changing a permission to downloading a file, and to recognize what's normal versus what's an attack in progress.`,
+        `Just as with AWS, the SOC analyst's core job in GCP is to read the audit trail of **API calls**, every action taken against a GCP project, from creating a virtual machine to changing a permission to downloading a file, and to recognize what's normal versus what's an attack in progress.`,
       codeExample:
         "GCP <-> AWS TERMINOLOGY CHEAT SHEET\n" +
         "=======================================================\n" +
@@ -256,7 +277,7 @@ const gcpRoom = {
         `**Members, Roles, and Bindings**\n\n` +
         `A **member** (also called a principal) is any identity that can be granted access: a human Google account (like j.smith@nexacorp.com), a **service account**, a Google group, or even the special values allUsers (literally everyone on the internet, authenticated or not) and allAuthenticatedUsers (anyone with any Google account). A **role** is a named collection of **permissions**, for example, roles/storage.objectViewer bundles the permission to read objects in a bucket. GCP has three tiers of roles: **basic roles** (Owner, Editor, Viewer: broad, legacy, and dangerous if overused), **predefined roles** (narrower, service-specific, Google-curated, like roles/storage.objectViewer), and **custom roles** (an organization defines its own exact permission set). A **binding** connects a member to a role on a specific resource. This pairing (member + role + resource) is the fundamental unit you will see inside an IAM policy and inside audit logs, most importantly in the method call SetIamPolicy.\n\n` +
         `**Service Accounts: GCP's Non-Human Identity**\n\n` +
-        `A **service account** is a special kind of account intended for applications and virtual machines rather than people. It has its own email-like identity (always ending in .iam.gserviceaccount.com) and its own set of granted permissions. This is GCP's closest analog to an AWS IAM role, but with one critical difference: a service account is a **persistent identity**, not something temporarily "assumed." A service account can authenticate in two ways: (1) by being **attached to a resource** (like a Compute Engine VM), in which case the VM can request short-lived credentials from the metadata server, similar to how an EC2 instance profile works; or (2) via a **service account key**, a long-lived JSON credential file that can be downloaded and used from absolutely anywhere on the internet, with no expiration unless manually revoked. This second option is functionally identical in risk to a leaked AWS IAM user access key: if a service account key JSON file is exposed (committed to a public code repository, left in a container image, emailed insecurely), an attacker can use it indefinitely until someone notices and deletes it.\n\n` +
+        `A **service account** is a special kind of account intended for applications and virtual machines rather than people. It has its own email-like identity (usually ending in .iam.gserviceaccount.com) and its own set of granted permissions. This is GCP's closest analog to an AWS IAM role, but with one critical difference: a service account is a **persistent identity**, not something temporarily "assumed." A service account can authenticate in two ways: (1) by being **attached to a resource** (like a Compute Engine VM), in which case the VM can request short-lived credentials from the metadata server, similar to how an EC2 instance profile works; or (2) via a **service account key**, a long-lived JSON credential file that can be downloaded and used from absolutely anywhere on the internet, with no expiration unless manually revoked. This second option is functionally identical in risk to a leaked AWS IAM user access key: if a service account key JSON file is exposed (committed to a public code repository, left in a container image, emailed insecurely), an attacker can use it indefinitely until someone notices and deletes it.\n\n` +
         `**Why Over-Privileged Service Accounts Are GCP's #1 Real-World Risk**\n\n` +
         `In practice, the single most common GCP misconfiguration security teams find is a service account granted the basic **Editor** or even **Owner** role at the project level (far more access than the application actually needs) simply because it was the fastest way to make something work during development, and nobody ever narrowed it down afterward. Because service accounts don't have the same "this is clearly a human, and humans get MFA-prompted" visibility that user accounts do, over-privileged service accounts often go unnoticed for a very long time, making them an extremely attractive target: compromise one, and you may inherit sweeping project-wide permissions with a single stolen credential.`,
       codeExample:
@@ -267,7 +288,7 @@ const gcpRoom = {
         "    {\n" +
         "      \"role\": \"roles/storage.objectViewer\",\n" +
         "      \"members\": [\n" +
-        "        \"serviceAccount:svc-data@nexacorp.iam.gserviceaccount.com\"\n" +
+        "        \"serviceAccount:svc-data@nexacorp-prod.iam.gserviceaccount.com\"\n" +
         "      ]\n" +
         "    }\n" +
         "  ]\n" +
@@ -332,9 +353,9 @@ const gcpRoom = {
         "     \"cloudresourcemanager.googleapis.com\",\n" +
         "  \"gcp.audit.resource_name\": \"projects/nexacorp-prod\",\n" +
         "  \"gcp.audit.authentication_info.principal_email\":\n" +
-        "     \"svc-data@nexacorp.iam.gserviceaccount.com\",\n" +
+        "     \"svc-data@nexacorp-prod.iam.gserviceaccount.com\",\n" +
         "  \"gcp.audit.request_metadata.caller_ip\":\n" +
-        "     \"185.220.101.47\",\n" +
+        "     \"203.0.113.47\",\n" +
         "  \"gcp.audit.log_type\": \"ADMIN_ACTIVITY\"\n" +
         "}\n" +
         "=======================================================",
@@ -381,7 +402,7 @@ const gcpRoom = {
         `**3. Public Cloud Storage Buckets**: a bucket's IAM policy grants roles/storage.objectViewer (or broader) to the special member allUsers or allAuthenticatedUsers, making some or all objects readable by anyone on the internet, no credentials required. Exactly like AWS S3 misconfigurations, this is one of the most common and most damaging real-world cloud data breaches, and because it's a permission on the bucket itself, it can generate no meaningful alert unless the org specifically checks for public bindings (SCC has a dedicated finding, Public bucket ACL, for exactly this).\n\n` +
         `**4. IAM Privilege Escalation via SetIamPolicy**: an identity that has permission to modify a resource's IAM policy (even if it does not itself hold that role) can call SetIamPolicy to grant itself (or any other identity it controls) a far more powerful role, such as roles/owner. This is GCP's direct equivalent of AWS's iam:PutRolePolicy / CreatePolicyVersion privilege-escalation pattern: the attacker never needed "grant myself Owner" permission directly, only the narrower "modify this resource's IAM bindings" permission (resourcemanager.projects.setIamPolicy), which is often overlooked when scoping custom roles.\n\n` +
         `**5. Metadata-Server Credential Theft**: every Compute Engine VM can reach the same special, non-routable address used by AWS EC2, 169.254.169.254, called the **metadata server**. Applications use it to retrieve instance information, including the live, short-lived access token for the VM's attached service account. If an attacker can trigger an unintended outbound request to this address from a vulnerable application (again, most commonly via SSRF, Server-Side Request Forgery), they can steal the service account's active token and use it from anywhere, exactly as with AWS IMDS. GCP's metadata server requires a specific header (Metadata-Flavor: Google) on every request, which raises the bar slightly compared to older AWS IMDSv1, but a vulnerable app that blindly proxies attacker-controlled requests can still be tricked into adding it.\n\n` +
-        `**6. Crypto-Mining on Compute Engine**: following any of the credential-theft patterns above, a very common next step is launching a large number of powerful (often GPU-accelerated) Compute Engine VMs, frequently in a region the victim organization doesn't normally use, to run cryptocurrency-mining software at the victim's expense. This maps to Security Command Center's Malware: Cryptomining Detected finding and, just like on AWS, is often first noticed via an unexpected billing spike rather than a security alert.\n\n` +
+        `**6. Crypto-Mining on Compute Engine**: following any of the credential-theft patterns above, a very common next step is launching a large number of powerful (often GPU-accelerated) Compute Engine VMs, frequently in a region the victim organization doesn't normally use, to run cryptocurrency-mining software at the victim's expense. This maps to Security Command Center's Malware: Cryptomining Bad Domain and Malware: Cryptomining Bad IP findings, raised when a lookup of, or connection to, a domain or IP known for mining is seen, and, just like on AWS, is often first noticed via an unexpected billing spike rather than a security alert.\n\n` +
         `Notice the common thread: attacks 2, 4, 5, and 6 very often chain together in a single incident, a stolen key or stolen metadata-server token (2 or 5) is used to escalate privileges (4), and the newly-gained access is then used to spin up mining infrastructure (6) or exfiltrate data from a bucket (3). This exact chain is what you will investigate in the two log-analysis exercises later in this room.`,
       codeExample:
         "SIX COMMON GCP ATTACKS -- QUICK REFERENCE\n" +
@@ -505,12 +526,12 @@ const gcpRoom = {
       id: "gcp-la1",
       heading: "Investigating an IAM Privilege Escalation via SetIamPolicy",
       context:
-        "You are a SOC analyst at NexaCorp. Security Command Center raised a finding overnight for an anomalous IAM change in the nexacorp-prod project. The service account in question, svc-data, is normally used only by an internal ETL (data pipeline) job and needs nothing beyond roles/bigquery.dataViewer, though a project-IAM-admin grant (roles/resourcemanager.projectIamAdmin) left over from an old migration was never removed. Six minutes earlier, a suspicious CreateServiceAccountKey event had also fired for the same service account (you will examine that event later in this room). Review the Cloud Audit Log entry below, generated at 02:47 UTC.",
+        "You are a SOC analyst at NexaCorp. Security Command Center raised a finding overnight for an anomalous IAM change in the nexacorp-prod project. The service account in question, svc-data, is normally used only by an internal ETL (data pipeline) job and needs nothing beyond roles/bigquery.dataViewer, though two grants left over from an old migration were never removed: roles/resourcemanager.projectIamAdmin (project IAM admin) and roles/editor. Six minutes earlier, a suspicious CreateServiceAccountKey event had also fired for the same service account (you will examine that event later in this room). SetIamPolicy replaces a project's whole policy, so the request and the response list every binding, old and new. Review the Cloud Audit Log entry below, generated at 02:47 UTC.",
       event: setIamPolicyEvent,
       questions: [
         {
           question:
-            "The event shows gcp.audit.method_name 'SetIamPolicy' targeting resource_name 'projects/nexacorp-prod', called by principal_email svc-data@nexacorp.iam.gserviceaccount.com from caller_ip 185.220.101.47 (an external Tor exit node). The response.bindings show the service account now holds BOTH roles/owner AND roles/editor. Why is this combination especially alarming?",
+            "The event shows gcp.audit.method_name 'SetIamPolicy' targeting resource_name 'projects/nexacorp-prod', called by principal_email svc-data@nexacorp-prod.iam.gserviceaccount.com from caller_ip 203.0.113.47 (an external Tor exit node). The response.bindings show the service account now holds roles/owner on top of its leftover grants, including roles/editor. Why is this change especially alarming?",
           options: [
             "roles/editor is the bigger worry, because Editor can rewrite IAM policy while Owner mainly adds billing control",
             "svc-data, meant only for BigQuery reads, granted itself roles/owner: full control, including changing IAM itself",
@@ -519,12 +540,12 @@ const gcpRoom = {
           ],
           answer: 1,
           explanation:
-            "roles/owner is GCP's most powerful basic role: every permission in the project, including modifying IAM policy itself, deleting resources and managing billing. A service account that should only read BigQuery data now holding roles/owner is a textbook privilege-escalation outcome: the attacker used SetIamPolicy to give themselves, via this account, unrestricted control of nexacorp-prod. “Editor is the bigger worry” reverses the two roles. Owner is the one that can change IAM; Editor cannot. “It fits an ETL deploy” rationalises the change; the context says the ETL job needs nothing beyond bigquery.dataViewer (the leftover IAM-admin grant is what made the self-grant possible, not a reason for it), and the call came from a Tor exit node. “The impact stays inside BigQuery” is wrong: a binding on projects/nexacorp-prod applies to every service in the project, whatever the job normally calls.",
+            "roles/owner is GCP's most powerful basic role: every permission in the project, including modifying IAM policy itself, deleting resources and managing billing. A service account that should only read BigQuery data now holding roles/owner is a textbook privilege-escalation outcome: the attacker used SetIamPolicy to give themselves, via this account, unrestricted control of nexacorp-prod. The roles/editor binding is a leftover, not part of this call: it appears because the response carries the whole policy. “Editor is the bigger worry” reverses the two roles. Owner is the one that can change IAM; Editor cannot. “It fits an ETL deploy” rationalises the change; the context says the ETL job needs nothing beyond bigquery.dataViewer (the leftover IAM-admin grant is what made the self-grant possible, not a reason for it), and the call came from a Tor exit node. “The impact stays inside BigQuery” is wrong: a binding on projects/nexacorp-prod applies to every service in the project, whatever the job normally calls.",
           xp: 25,
         },
         {
           question:
-            "The caller_ip is 185.220.101.47, a known Tor exit node, and gcp.audit.status.code is 0 with an empty status.message. What does this combination confirm about the outcome of the request?",
+            "The caller_ip is 203.0.113.47, a known Tor exit node, and gcp.audit.status.code is 0 with an empty status.message. What does this combination confirm about the outcome of the request?",
           options: [
             "status.code 0 means IAM never evaluated the request, so the escalation is still unconfirmed",
             "status.code 0 with no message means the call succeeded: the escalation took effect",
@@ -540,14 +561,14 @@ const gcpRoom = {
           question:
             "Given this is a confirmed successful privilege escalation to roles/owner from an external Tor IP, what should the analyst's immediate response be?",
           options: [
-            "Block 185.220.101.47 at the VPC firewall and close it, since every malicious call so far came from that one IP",
-            "Remove the owner/editor bindings, disable svc-data's unauthorized keys, then scope everything done since 02:47",
+            "Block 203.0.113.47 at the VPC firewall and close it, since every malicious call so far came from that one IP",
+            "Disable svc-data's unauthorized key, strip its elevated bindings, then scope everything done since the key appeared",
             "Delete the svc-data service account at once, which also reverses the changes it made while compromised",
             "Pull svc-data's full audit history first, then remove the bindings once the scope of the attack is clear",
           ],
           answer: 1,
           explanation:
-            "A confirmed escalation to project-wide Owner requires containment first: remove the malicious IAM bindings (IAM changes take effect right away), find and disable any unauthorized service-account keys created around the same time, then pull the full audit history for this identity and IP from the escalation onward to see everything done with Owner access, and re-scope the account to its original narrow role. “Block the IP … and close” fails twice: a VPC firewall does not govern calls to Google's public APIs, and the attacker can switch exit nodes or use the minted key from anywhere. “Delete the svc-data service account” does not undo anything it already did and destroys the identity you need to investigate. “Pull the full history first” is the right work at the wrong time: the attacker keeps Owner for as long as the scoping takes.",
+            "A confirmed escalation to project-wide Owner requires containment first: disable the unauthorized service-account key created six minutes earlier and any others from around that time, remove every elevated binding (roles/owner first, then roles/editor and the project-IAM-admin grant, or the account could simply grant itself Owner again), then pull the full audit history for this identity and IP from the key's creation onward to see everything done with that access, and re-scope the account to its original narrow role. “Block the IP … and close” fails twice: a VPC firewall does not govern calls to Google's public APIs, and the attacker can switch exit nodes or use the minted key from anywhere. “Delete the svc-data service account” does not undo anything it already did and destroys the identity you need to investigate. “Pull the full history first” is the right work at the wrong time: the attacker keeps Owner for as long as the scoping takes.",
           xp: 30,
         },
       ],
@@ -668,7 +689,7 @@ const gcpRoom = {
         "SELECT ts, method_name, service_name, caller_ip,\n" +
         "       principal_email, status_code\n" +
         "FROM gcp_audit_logs\n" +
-        "WHERE caller_ip = '185.220.101.47'\n" +
+        "WHERE caller_ip = '203.0.113.47'\n" +
         "  AND ts BETWEEN '2026-05-19T00:00:00Z'\n" +
         "             AND '2026-05-19T12:00:00Z'\n" +
         "ORDER BY ts ASC;\n" +
@@ -706,7 +727,7 @@ const gcpRoom = {
           ],
           answer: 1,
           explanation:
-            "CreateServiceAccountKey with status.code 0 succeeded, and a USER_MANAGED key is a downloadable JSON credential with no automatic expiry that authenticates from anywhere. Google discourages user-managed keys precisely because they become long-lived, portable secrets: exactly what an attacker wants for persistence (T1098.001). Minting this key minutes before the Owner escalation is the attacker establishing a foothold that outlives the current session; response.key_id identifies the credential to hunt for and revoke. “Routine rotation” does not fit the evidence: a scheduled rotation would come from the expected automation at its usual time and place, not from an unfamiliar external IP at 02:41. “Only work from inside the project's VPC” is false. That portability is the whole risk. “Activated by SetIamPolicy” confuses two things: a key authenticates as its service account immediately, while SetIamPolicy changes what that account is allowed to do. Note also that the caller in principal_email is not the account named in resource_name. Read both fields before the next task.",
+            "CreateServiceAccountKey with status.code 0 succeeded, and a USER_MANAGED key is a downloadable JSON credential with no automatic expiry that authenticates from anywhere. Google discourages user-managed keys precisely because they become long-lived, portable secrets: exactly what an attacker wants for persistence (T1098.001). Minting this key minutes before the Owner escalation is the attacker establishing a foothold that outlives the current session; response.key_id identifies the credential to hunt for and revoke. “Routine rotation” does not fit the evidence: a scheduled rotation would come from the expected automation at its usual time and place, not from an unfamiliar external IP at 02:41. “Only work from inside the project's VPC” is false. That portability is the whole risk. “Activated by SetIamPolicy” confuses two things: a key authenticates as its service account immediately, while SetIamPolicy changes what that account is allowed to do. Note also that the caller in principal_email is not the account named in request.name. Read both fields before the next task.",
           xp: 25,
         },
       ],
@@ -731,14 +752,14 @@ const gcpRoom = {
       content:
         `The event referenced in the flag question above is the missing link that ties the whole incident timeline together: how did the attacker first get a foothold that let them later call SetIamPolicy from an external Tor IP?\n\n` +
         `**Reconstructing the Attack Chain**\n\n` +
-        `Look closely at the CreateServiceAccountKey event: it was called by web-frontend@nexacorp-prod.iam.gserviceaccount.com, NOT by svc-data itself, but its target resource_name is a key belonging to svc-data. This is the signature of a classic **lateral privilege chain**: the attacker first compromised a public-facing web application (likely via an SSRF vulnerability reaching the Compute Engine metadata server, exactly as described in the earlier reading on metadata-server credential theft, stealing the web-frontend service account's live token). That web-frontend service account, in turn, had been over-permissioned with iam.serviceAccountKeys.create rights on OTHER service accounts in the project: a common but dangerous misconfiguration. Using that stolen token, the attacker minted a brand-new, long-lived JSON key (key_id 8f3a1c9d2e4b7f60) for the far more powerful svc-data service account. From that point forward, the attacker no longer needed the original stolen web-frontend token at all. They now held a standalone, indefinitely-valid credential for svc-data, which is exactly what was used minutes later, from an external Tor IP, to call SetIamPolicy and self-grant roles/owner.\n\n` +
+        `Look closely at the CreateServiceAccountKey event: it was called by web-frontend@nexacorp-prod.iam.gserviceaccount.com, NOT by svc-data itself, but the key it created belongs to svc-data. The entry's resource_name holds only the target account's numeric ID, so read request.name to see which account the key is for. This is the signature of a classic **lateral privilege chain**: the attacker first compromised a public-facing web application (likely via an SSRF vulnerability reaching the Compute Engine metadata server, exactly as described in the earlier reading on metadata-server credential theft, stealing the web-frontend service account's live token). That web-frontend service account, in turn, had been over-permissioned with iam.serviceAccountKeys.create rights on OTHER service accounts in the project: a common but dangerous misconfiguration. Using that stolen token, the attacker minted a brand-new, long-lived JSON key (key_id 8f3a1c9d2e4b7f60) for the far more powerful svc-data service account. From that point forward, the attacker no longer needed the original stolen web-frontend token at all. They now held a standalone, indefinitely-valid credential for svc-data, which is exactly what was used minutes later, from an external Tor IP, to call SetIamPolicy and self-grant roles/owner.\n\n` +
         `**Why This Pattern Is So Dangerous**\n\n` +
         `This chain: compromise a low-value, internet-facing identity via SSRF, then use a narrow-but-overlooked permission (iam.serviceAccountKeys.create) to mint a fresh credential for a higher-value identity. This lets an attacker "cash out" a temporary metadata-server foothold into a permanent, portable credential that works from anywhere, indefinitely. This is precisely why iam.serviceAccountKeys.create should be treated as a highly sensitive permission and restricted to only the humans and automation that genuinely need to mint keys, and why any CreateServiceAccountKey event targeting a DIFFERENT service account than the one making the call deserves immediate scrutiny.\n\n` +
         `**Defensive Best Practices Every SOC Should Verify**\n\n` +
         `- Disable service-account key creation at the organization level wherever possible (an Organization Policy constraint, iam.disableServiceAccountKeyCreation), forcing workloads to use attached, short-lived credentials instead\n` +
         `- Alert immediately and unconditionally on CreateServiceAccountKey, SetIamPolicy grants of roles/owner or roles/editor, and any SetIamPolicy that binds allUsers or allAuthenticatedUsers to a bucket\n` +
         `- Enable Data Access audit logging on Cloud Storage and other sensitive services, not just the always-on Admin Activity logs, and enable Cloud Storage usage logs on sensitive buckets, since audit logs never record anonymous reads of public objects\n` +
-        `- Enable Security Command Center Premium, including its Public bucket ACL and Anomalous IAM Grant findings\n` +
+        `- Enable Security Command Center Premium, including its Public bucket ACL and Persistence: IAM Anomalous Grant findings\n` +
         `- Regularly review which service accounts hold basic roles (Owner/Editor) and replace them with narrowly-scoped predefined or custom roles`,
       codeExample:
         "FULL ATTACK CHAIN: SSRF -> STOLEN TOKEN -> NEW KEY -> PRIVESC\n" +

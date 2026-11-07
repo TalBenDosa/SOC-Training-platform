@@ -19,7 +19,7 @@ import type { BriefingLab, RoomExperience } from "./types";
 // Game mix: codebreak + pathway + spotdiff. No terminal.
 // Lab data differs from the graded tasks: a customs broker's bank change, never a CFO wire or a
 // payroll deposit; the wire session has two RCPT TO and a pasted chain from ops@hostline.example at
-// 198.51.100.44, never bounce-8841 at 154.16.88.201 (r1, la1, f1); the mismatch sheet is five
+// 198.51.100.44, never bounce-8841 at 203.0.113.201 (r1, la1, f1); the mismatch sheet is five
 // supplier messages, and its Return-Path example is a mail vendor (q1); the worked chain has five
 // lines with a boundary at inbound1 (q3); SPF is evaluated by CIDR and qualifier, and the lookup
 // count reaches 11 for one vendor, never 12 for two (r4 checkpoint); the DMARC sheet carries p=none,

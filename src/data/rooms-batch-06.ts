@@ -364,7 +364,7 @@ const sharepointTeamsMonitoring: Room = {
   id: "sharepoint-teams-monitoring",
   title: "SharePoint & Teams Security Monitoring",
   description:
-    "Discover how attackers exploit Microsoft's collaboration tools to steal data, conduct phishing via Teams chat, and abuse external sharing. Learn to detect bulk exfiltration, insider threats, and guest-account abuse.",
+    "Discover how attackers exploit Microsoft's collaboration tools to steal data, conduct phishing via Teams chat, and abuse external sharing. Learn to detect bulk data theft, insider threats, and guest-account abuse.",
   difficulty: "intermediate",
   category: "Cloud Security",
   estimatedMinutes: 40,
@@ -412,15 +412,17 @@ Every action in SharePoint is logged in the Microsoft 365 Unified Audit Log (sea
 | \`AnonymousLinkUsed\` | An "Anyone" link was used to access a file |
 | \`SensitiveFileRead\` | A file classified as sensitive (by DLP) was accessed |
 
-**Bulk Downloads: The Classic Data Exfiltration Pattern**
+**Bulk Downloads: The Classic Data Theft Pattern**
 
-A disgruntled or compromised user exfiltrating data from SharePoint will typically download hundreds or thousands of files in a short time window. Normal user behaviour might be 5–20 file downloads per day. Downloading 500+ files in a single session is highly anomalous.
+A disgruntled or compromised user stealing data from SharePoint will typically download hundreds or thousands of files in a short time window. Normal user behaviour might be 5 to 20 file downloads per day. Downloading 500+ files in a single session is highly anomalous.
 
 Microsoft Purview (formerly Compliance Center) can generate alerts when bulk download activity is detected. When you see a \`FileDownloaded\` event storm from a single user, check:
 - Is this user leaving the company soon? (Departing employees are a common insider threat vector)
 - Are the files from sensitive sites (Finance, HR, Legal, Engineering)?
 - What is the user's normal download baseline?
 - Is the client IP internal or external?
+
+Be precise about what a download proves. It only moves files from SharePoint onto a device, which MITRE ATT&CK (the public catalogue of attacker behaviour) files under the Collection tactic: gathering data the attacker wants, here as technique T1213.002. It counts as Exfiltration, the tactic for stealing data out of the organisation, only once you have evidence of that next step, such as a USB copy, an upload to personal cloud storage or a large outbound email.
 
 **Tenant-Level External Sharing Controls**
 
@@ -1187,7 +1189,7 @@ Every onboarded device has a **Timeline** view (Device page → Timeline tab). T
 MDE Live Response provides a remote interactive shell to any onboarded endpoint, including one that MDE has network-isolated (isolation keeps the device's connection to the Defender service open). From security.microsoft.com, analysts can:
 - Browse the file system
 - Collect specific files for analysis
-- Run investigative commands (\`tasklist\`, \`netstat\`, \`dir\`)
+- Run investigative commands (\`processes\`, \`connections\`, \`dir\`)
 - Upload and execute response scripts
 - Collect memory dumps
 

@@ -156,7 +156,7 @@ Every log entry typically contains:
 
 Logs come in many different formats depending on the vendor and application. The most common ones you will see in a SOC are:
 
-- **Plain-text Syslog**: the oldest and most widespread format. A single line per event, human-readable but inconsistently structured. Example: \`Jun 24 14:32:11 fw01 kernel: DROP IN=eth0 SRC=185.220.101.45 DST=10.0.0.5\`
+- **Plain-text Syslog**: the oldest and most widespread format. A single line per event, human-readable but inconsistently structured. Example: \`Jun 24 14:32:11 fw01 kernel: DROP IN=eth0 SRC=203.0.113.45 DST=10.0.0.5\`
 - **Structured JSON**: modern applications write logs as JSON objects with named fields. Easy for machines to parse. Example: \`{"timestamp":"2025-06-24T14:32:11Z","user":"j.smith","action":"login","result":"success"}\`
 - **CEF (Common Event Format)**: a standard created by ArcSight/Micro Focus, widely used by security appliances. Looks like: \`CEF:0|Palo Alto|PAN-OS|10.1|TRAFFIC|Traffic log|3|src=10.1.1.5 dst=8.8.8.8\`
 - **LEEF (Log Event Extended Format)**: similar to CEF, created by IBM QRadar. Used by many network appliances.
@@ -319,6 +319,8 @@ This is called **log tampering** or **log clearing**. On Windows systems, the Se
 - **Event ID 104**: A non-Security event log (System, Application, etc.) was cleared. This record is written to the System channel.
 
 The 1102 record also carries a **SubjectLogonId**: a hex number that identifies the exact logon session of the account that cleared the log. Searching other events for that same value (starting with the 4624 logon that opened the session) shows what the account did in that one session, not everything it has ever done.
+
+A cleared log is itself an alarm. Unless an approved change explains it, pass it at once to Tier 2 (the senior analysts who take over deeper investigations) or IR (the incident response team) rather than waiting for more signs. This matters most on a domain controller, the server that manages every account in the domain.
 
 On Linux, attackers may delete or modify files in /var/log/, for example, deleting /var/log/auth.log to remove SSH login records, or editing /var/log/wtmp to remove evidence of their session.
 
@@ -543,6 +545,7 @@ Fire when a specific sequence of events occurs within a time window, even across
 - Example: Reconnaissance scan detected (IDS) → authentication failure (Windows) → successful login (Windows) → large file copy to external IP (DLP) within 2 hours = potential intrusion-to-exfiltration chain.
 - Use case: kill chain detection, detecting attackers who move slowly between stages.
 - This is where SIEM truly outshines simple log search: no single tool can see the full chain.
+- In triage: after any burst of failed logins, the question that sets the severity is whether a guess worked, so look for a success on one of the targeted accounts after the failures began.
 
 **4. Statistical anomaly / ML-based rules**
 Fire when behaviour deviates significantly from a learned baseline.
@@ -599,6 +602,10 @@ The MITRE ATT&CK framework is a knowledge base of adversary tactics and techniqu
 **False Positive (FP)**: The alert fired BUT the rule misfired: it matched something it was never meant to catch, so the behavior it describes did not happen. Example: The "password spray" rule counts failures per source IP, and Monday-morning typos from 12 different employees all reach the domain controller through one shared office NAT address, so ordinary mistakes by 12 people look like one source spraying. No spray happened at all. The fix is to correct the rule's logic.
 
 **False Negative (FN)**: The alert did NOT fire but there WAS a real attack. These are the most dangerous outcome. You are being attacked and do not know it. Example: An attacker performs a "low and slow" password spray, trying only 2 attempts per account over 8 hours to stay below your threshold. The SIEM never alerts. The attack succeeds silently.
+
+**Context changes your confidence:**
+
+SIEMs often enrich an alert with context about its source, such as country, provider or reputation. A Tor exit node, for example, is the last relay of the Tor anonymity network: the service being reached sees that relay's address instead of the real sender's, and ordinary staff rarely sign in through one. Treat context like this as evidence that shifts your confidence in a verdict, and weigh it together with the event pattern rather than on its own.
 
 **Why balance matters:**
 
@@ -690,7 +697,7 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
         source: "siem",
         event_type: "ids_signature",
         severity: "high",
-        src_ip: "185.220.101.45",
+        src_ip: "203.0.113.45",
         description:
           "Correlation rule fired: multiple failed authentications targeting multiple accounts from single source",
         mitre_technique: "T1110.003",
@@ -702,7 +709,7 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
             "Multiple failed logins from single source in 60 seconds",
           "agent.name": "siem-collector-01",
           "decoder.name": "correlation",
-          "data.srcip": "185.220.101.45",
+          "data.srcip": "203.0.113.45",
           "data.failed_count": "47",
           "data.target_accounts": "12",
           "data.timewindow": "60s",
@@ -935,7 +942,7 @@ This full pipeline typically completes in under 5 seconds from event generation 
 
 When a raw log message arrives at the Wazuh Manager, it looks something like this:
 
-\`Jun 24 14:32:11 srv01 sshd[2341]: Failed password for invalid user admin from 185.220.101.45 port 54321 ssh2\`
+\`Jun 24 14:32:11 srv01 sshd[2341]: Failed password for invalid user admin from 203.0.113.45 port 54321 ssh2\`
 
 This is just a string of text. The Wazuh Manager needs to extract meaning from it, who was the user? what IP? what action? That is the job of a **decoder**.
 
@@ -946,7 +953,7 @@ A decoder is an XML file that uses:
 
 After decoding, Wazuh has structured fields like:
 - \`data.srcuser = admin\`
-- \`data.srcip = 185.220.101.45\`
+- \`data.srcip = 203.0.113.45\`
 - \`data.program_name = sshd\`
 - \`data.srcport = 54321\` (the SSH client's source port: the "port 54321" in the sshd message)
 
@@ -968,10 +975,10 @@ Once a log is decoded into structured fields, the rule engine evaluates every ac
 | Level | Range | Meaning |
 |-------|-------|---------|
 | Ignored | 0 | No alert generated. Used to suppress noise. |
-| Low informational | 1–3 | System events with no security relevance. |
-| Low | 4–6 | Minor events worth logging but not alerting on. |
-| Medium | 7–11 | Events that should be investigated. |
-| High | 12–14 | Serious security events requiring prompt attention. |
+| Low informational | 1 to 3 | System events with no security relevance. |
+| Low | 4 to 6 | Minor events. They alert by default, and many sites tune them out. |
+| Medium | 7 to 11 | Events that should be investigated. |
+| High | 12 to 14 | Serious security events requiring prompt attention. |
 | Critical | 15 | Maximum severity: immediate response required. |
 
 By default, Wazuh writes an alert for any rule that fires at **level 3 or above**: this is the \`log_alert_level\` setting in \`ossec.conf\` (its default value is 3, *not* 7). Events below that level are still decoded and matched, and can be sent to the archives, but they fall below the default alerting threshold and so do not appear as alerts in the dashboard. Many teams raise \`log_alert_level\` (to 5, 7, or higher) to cut noise, but that is a tuning choice each site makes, not the out-of-the-box default.
@@ -1018,7 +1025,7 @@ For example:
         ],
         answer: 0,
         explanation:
-          "By default `log_alert_level` in `ossec.conf` is 3, so a level-4 rule produces a visible alert, which is why the lab install shows it. When it disappears on one site, that site has raised the threshold (to 5, 7 or higher) to cut noise. The Low band (4–6) is above the default threshold of 3, so the default does alert on it. 7 is a common tuned value, not the default, assuming otherwise is a frequent mistake. Frequency only applies to rules built with frequency/timeframe, and would behave the same on the lab install.",
+          "By default `log_alert_level` in `ossec.conf` is 3, so a level-4 rule produces a visible alert, which is why the lab install shows it. When it disappears on one site, that site has raised the threshold (to 5, 7 or higher) to cut noise. The Low band (4 to 6) is above the default threshold of 3, so the default does alert on it. 7 is a common tuned value, not the default, assuming otherwise is a frequent mistake. Frequency only applies to rules built with frequency/timeframe, and would behave the same on the lab install.",
       },
     } satisfies ReadingTask,
 
@@ -1513,6 +1520,10 @@ Each incident has:
 - **Comments**: analyst investigation notes
 - **Tasks**: checklist items for the investigation workflow
 
+**Deciding the Verdict**
+
+An analytics rule measures the shape of activity, not its intent, so before you decide, check who owns the source and whether a change record covers that time. A true positive is real malicious activity. When the rule fired correctly on real activity that a change record authorizes, the verdict is a benign true positive (Sentinel's close dialog calls it Benign Positive): nothing misfired, so you close it citing that record and do not weaken the rule. A false positive means the rule matched something it never should have.
+
 **SOAR Playbooks: Automated Response**
 
 Sentinel's SOAR capability uses **Azure Logic Apps** as playbooks. A playbook is a workflow automation that can be triggered automatically when an incident is created.
@@ -1565,7 +1576,7 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
         severity: "medium",
         hostname: "CORP-WS-042",
         user_email: "j.smith@corp.com",
-        src_ip: "185.220.101.45",
+        src_ip: "203.0.113.45",
         description:
           "Windows Security Event 4625: failed network logon for account j.smith",
         mitre_technique: "T1110.001",
@@ -1575,7 +1586,7 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
           EventSourceName: "Microsoft-Windows-Security-Auditing",
           Account: "j.smith",
           AccountDomain: "CORP",
-          IpAddress: "185.220.101.45",
+          IpAddress: "203.0.113.45",
           LogonType: "3",
           SubStatus: "0xC000006A",
           WorkstationName: "DESKTOP-7GQK21",
@@ -1587,7 +1598,7 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
       questions: [
         {
           question:
-            "You want every other failed Windows logon from 185.220.101.45 across all servers and workstations, not just this one. Which table do you query?",
+            "You want every other failed Windows logon from 203.0.113.45 across all servers and workstations, not just this one. Which table do you query?",
           options: ["SigninLogs", "AuditLogs", "SecurityEvent", "OfficeActivity"],
           answer: 2,
           explanation:
@@ -1619,7 +1630,7 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
           ],
           answer: 2,
           explanation:
-            "LogonType 3 is a network logon, such as SMB access to a share. Coming from 185.220.101.45, it means an external host could reach a network service on this workstation: an exposure worth raising in its own right. A person at the keyboard logs LogonType 2, a service starting logs LogonType 5, and cached offline logons use LogonType 11. (A full RDP session is LogonType 10; only RDP's Network Level Authentication pre-check appears as type 3.)",
+            "LogonType 3 is a network logon, such as SMB access to a share. Coming from 203.0.113.45, it means an external host could reach a network service on this workstation: an exposure worth raising in its own right. A person at the keyboard logs LogonType 2, a service starting logs LogonType 5, and cached offline logons use LogonType 11. (A full RDP session is LogonType 10; only RDP's Network Level Authentication pre-check appears as type 3.)",
           xp: 25,
         },
       ],
@@ -1659,7 +1670,7 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
       type: "question",
       id: "sentinel-q3",
       question:
-        "A SOC analyst wants to see the top 5 user accounts with the most failed logins in the past 24 hours in Sentinel. Which KQL query is correct?",
+        "A SOC analyst wants to see the top 5 user accounts with the most failed Windows logons in the past 24 hours in Sentinel. Which KQL query is correct?",
       options: [
         "SecurityEvent | where EventID == 4625 | where TimeGenerated > ago(24h) | summarize FailCount = count() by Account | top 5 by FailCount",
         "SecurityEvent | where EventID == 4625 | where TimeGenerated > ago(24h) | summarize count() by Account | top 5 by Account",
@@ -1668,7 +1679,7 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
       ],
       answer: 0,
       explanation:
-        "The correct query filters SecurityEvent to 4625, scopes to 24 hours, counts failures per Account, then takes the top 5 by that count. 'top 5 by Account' sorts by the account name, not by how many failures it has. Grouping by Computer answers a different question, which hosts saw the most failures. The SigninLogs query reads Entra ID sign-ins, not Windows failed logons (4625 lives in SecurityEvent), and that table has no Account column.",
+        "The correct query filters SecurityEvent to 4625, scopes to 24 hours, counts failures per Account, then takes the top 5 by that count. 'top 5 by Account' sorts by the account name, not by how many failures it has. Grouping by Computer answers a different question, which hosts saw the most failures. The SigninLogs query reads Entra ID sign-ins, not Windows failed logons (4625 lives in SecurityEvent).",
       xp: 25,
     } satisfies QuestionTask,
 

@@ -233,7 +233,7 @@ export interface QueryFillTask {
   type: "query_fill";
   id: string;
   heading: string;
-  language: "kql" | "spl" | "powershell";
+  language: "kql" | "spl" | "powershell" | "sigma" | "yara";
   context: string;          // the investigative question the query answers
   template: string;         // e.g. "SecurityEvent\n| where EventID == {{eventid}}\n| where TargetAccount == {{account}}"
   blanks: { id: string; answers: string[]; placeholder?: string }[];

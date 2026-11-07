@@ -8,8 +8,7 @@ import type { RoomExperience } from "./types";
 // Signature mechanics: a Defender-style portal with a playable attack story and pending
 // remediation approvals, and the Query Ladder, a KQL console where every result is computed.
 // Game mix: deduce + duel + hunt + intercept + portal + rush.
-// Live Response in the portal uses the real commands (connections, processes). Reading r1 lists
-// tasklist and netstat there, which is wrong; fixing it needs a new narration recording.
+// Live Response in the portal uses the real commands (connections, processes), as reading r1 does.
 // Lab data differs from the graded tasks: the incident has 9 alerts and 2 devices (q3 has 12
 // and 4); the unmanaged-host move is LDAP recon, never Kerberos tickets (q1); Live Response
 // runs a command, never collects a file (r1 checkpoint); the anatomy is PsExec without -s by a

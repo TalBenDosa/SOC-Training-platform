@@ -127,7 +127,7 @@ const inv7ScopeEvent: TelemetryEvent = {
 
 // ---------------------------------------------------------------------------
 // Event 3 — Collection artefact on the second host: an archive utility,
-// invoked from a PowerShell child process, staging finance export files.
+// launched from PowerShell, staging finance export files.
 // ---------------------------------------------------------------------------
 
 const inv7CollectionEvent: TelemetryEvent = {
@@ -148,18 +148,20 @@ const inv7CollectionEvent: TelemetryEvent = {
     extension: "rar",
   },
   description:
-    "Microsoft Defender for Endpoint recorded a new archive file created on FIN-DB02 under CASTLETON\\d.reyes's session, written by a PowerShell child process invoking a compression utility against a folder of finance export files.",
+    "Microsoft Defender for Endpoint recorded a new archive file created on FIN-DB02 under CASTLETON\\d.reyes's session, written by a compression utility launched from PowerShell against a folder of finance export files.",
   raw: {
     "DeviceName": "FIN-DB02",
     "ActionType": "FileCreated",
     "FileName": "AP_Reconciliation_Q3.rar",
-    "FolderPath": "C:\\ProgramData\\Intel\\Logs\\",
+    "FolderPath": "C:\\ProgramData\\Intel\\Logs\\AP_Reconciliation_Q3.rar",
     "SHA256": "c2a97e4f1b6d8a3c5e0f9b7d4a1c6e8f3b5d7a9c1e4f6b8d0a2c5e7f9b1d3a6c",
     "FileSize": 184320411,
-    "InitiatingProcessFileName": "powershell.exe",
-    "InitiatingProcessCommandLine": "powershell.exe -nop -w hidden -Command \"& 'C:\\ProgramData\\Intel\\rar.exe' a -r C:\\ProgramData\\Intel\\Logs\\AP_Reconciliation_Q3.rar D:\\Finance\\AP_Exports\\*.csv\"",
-    "AccountDomain": "CASTLETON",
-    "AccountName": "d.reyes",
+    "InitiatingProcessFileName": "rar.exe",
+    "InitiatingProcessFolderPath": "C:\\ProgramData\\Intel\\rar.exe",
+    "InitiatingProcessCommandLine": "rar.exe a -r C:\\ProgramData\\Intel\\Logs\\AP_Reconciliation_Q3.rar D:\\Finance\\AP_Exports\\*.csv",
+    "InitiatingProcessParentFileName": "powershell.exe",
+    "InitiatingProcessAccountDomain": "CASTLETON",
+    "InitiatingProcessAccountName": "d.reyes",
     "ReportId": 84391,
   },
 };
@@ -187,6 +189,7 @@ const investigateAlertRoom: Room = {
         `**Why the first 15 minutes disproportionately matter.** Step 1 and the start of Step 2 happen fast, under pressure, often before you have full context, and whatever you get wrong there tends to compound. Validate an artefact as real without checking, and you burn hours investigating nothing. Scope too narrowly at the start, and you close a ticket while the actual intrusion is still running one host over. This is not a reason to rush; it is the opposite. It is the reason the early steps are the ones most worth doing carefully rather than the ones to get through quickly so the "real" work can start.\n\n` +
         `**A fact worth sitting with before you begin: identity is involved in the overwhelming majority of investigations.** Industry incident data puts identity, a compromised credential, an abused session, a privileged account used somewhere it shouldn't be, in roughly nine out of every ten investigations that go anywhere past the first alert. That is not a coincidence of any one environment; it is a structural fact about how modern intrusions work, because identity is the boundary every other lateral step has to cross. It is why Step 2 in this room is built entirely around pivoting on identity, and why the case running through this room does exactly that.\n\n` +
         `**One metric worth knowing by name: MTTI.** Mean Time to Investigate (sometimes Mean Time to Identify) measures the interval from when an alert fires to when an analyst has a validated understanding of what happened. It is not the same measure as time-to-detect or time-to-contain, and SOCs that only track those two can look fast on paper while investigations quietly drag. A workflow with clear, named steps is what makes MTTI something you can actually improve. You cannot shorten a step you never named.\n\n` +
+        `**Reading the record Step 1 starts from.** A Microsoft Defender for Endpoint process-creation record describes two processes. Plain fields such as FileName, FolderPath and ProcessCommandLine belong to the new process, and every field beginning InitiatingProcess belongs to its parent, the process that started it. The parent check in Step 1 asks whether that parent has any reason to start that child. A document editor exists to display and edit documents, so an Office program starting PowerShell is out of character, and it usually means a macro ran: a small program stored inside a document. A .docm file is a macro-enabled Word document. PowerShell's flags matter too: -w hidden is short for -WindowStyle Hidden, which shows no window, and -enc is short for -EncodedCommand, which takes the command as base64 text so it cannot be read at a glance.\n\n` +
         `The case in this room starts with one PowerShell process on one finance workstation. By the end you will have followed it through all seven steps and made a call a shift lead would actually have to make.`,
       codeExample:
         "THE 7-STEP ANALYST INVESTIGATION WORKFLOW\n" +
@@ -296,7 +299,7 @@ const investigateAlertRoom: Room = {
       id: "inv7-o1",
       heading: "Put the 7 Steps in Their Working Order",
       instructions:
-        "Arrange these seven investigation activities in the order the workflow actually runs them. Think about which steps depend on evidence that an earlier step produces.",
+        "Arrange these seven investigation activities in the numbered order Reading 1 gives the workflow. Think about which steps depend on evidence that an earlier step produces.",
       items: [
         { id: "collect", text: "Gather evidence in order of volatility, before anything changes state, preserving chain of custody" },
         { id: "document", text: "Write contemporaneous notes as you go: timestamps, hashes, what was checked and by whom" },
@@ -308,7 +311,7 @@ const investigateAlertRoom: Room = {
       ],
       correct_order: ["validate", "scope", "collect", "timeline", "rootcause", "document", "report"],
       explanation:
-        "Validate comes first because every later step is wasted effort if the triggering record itself is a duplicate or artefact. Scope comes next because it tells you what to even go collect. You cannot preserve evidence from systems you don't yet know are involved. Collection follows, and it has to happen before you change anything, because containment and remediation actions destroy the very evidence you need for the next two steps. Reconstructing the timeline needs the collected evidence to merge into a narrative, and mapping to ATT&CK and root cause needs that narrative to classify behaviours in their actual sequence. Documentation is listed as its own step here for clarity, but in real practice it runs continuously alongside every step before it: the ordering still holds because the finished, coherent write-up depends on everything that came before it being done. Reporting and hand-off comes last because it is the package built from everything the previous six steps produced.",
+        "Validate comes first because every later step is wasted effort if the triggering record itself is a duplicate or artefact. Scope comes next because it tells you what to even go collect. You cannot preserve evidence from systems you don't yet know are involved. Collection follows, and it has to happen before you change anything, because containment and remediation actions destroy the very evidence you need for the next two steps. Reconstructing the timeline needs the collected evidence to merge into a narrative, and mapping to ATT&CK and root cause needs that narrative to classify behaviours in their actual sequence. Document is Step 6 in the workflow's numbering. In practice the notes run alongside every step before it, and the room names it separately so it doesn't get skipped. Reporting and hand-off comes last because it is the package built from everything the previous six steps produced.",
       xp: 35,
     },
     // -----------------------------------------------------------------------
@@ -319,6 +322,7 @@ const investigateAlertRoom: Room = {
       content:
         `Scoping asks three plain questions, and they only sound simple: which accounts authenticated to the affected host? Which other systems did those accounts touch? What data lives in the places they touched? Every other step in this room either feeds the answer to those questions or acts on it, which is why scope is not a single box to tick once and move past. You scope with whatever evidence Step 1 gave you, collect more evidence in Step 3, and that new evidence very often changes the answer, which means you scope again. A workflow diagram that draws scope as one box in a straight line is lying about how investigations actually feel: scope is a loop you keep re-entering until the evidence stops expanding it.\n\n` +
         `**The one technique that matters most here: pivot on the artefact, not on the person.** When a ticket names a user, the natural instinct is to query everything by that username, every sign-in that user made, every host that user touched. That query can only ever confirm what you already suspected, because it can only ever return records about that one user. To actually test whether the problem is bigger than one account, you have to pivot the other way: take an observable property of the suspicious activity itself (a source IP, an authenticating workstation, a process hash, a destination host) and ask who else, across the whole environment, shares that same property in the same window. Querying by person asks how bad is it for them. Querying by artefact asks how big is it. Only the second question can surface an account nobody has flagged yet.\n\n` +
+        `**Reading the logons a pivot returns.** In the Windows Security log a successful logon is event ID 4624 and a failed one is 4625, so a pivot on a workstation starts from those records. Computer is the machine being logged on to, and WorkstationName is the machine the logon came from. LogonType says how it happened: 2 is someone at the console, 3 is a network logon from another machine, and 5 is a service starting. AuthenticationPackageName names the authentication method, and NTLM, an older Windows method, is still common. Neither value proves misuse alone. The useful test is a baseline: compare this logon with where this account has normally connected from and to.\n\n` +
         `**Scope answers "how far," and it has three dimensions worth separating in your notes.** Account scope: every identity that was used, misused, or reachable from the point of compromise, not just the one the ticket named. Host scope: every system the activity actually touched, reachable by pivoting on source IPs, logon records, and process lineage rather than assuming the blast radius stopped where the alert fired. Data scope: what, specifically, lived on the systems in the host-scope list, because "we touched a file server" and "we touched the file server holding unencrypted policyholder records" are two entirely different incidents that happen to look identical at the network layer.\n\n` +
         `**Why scoping too early is a common and expensive mistake.** An analyst under time pressure often stops scoping the moment they have "enough" to act (one compromised account, one obviously-affected host) and moves to containment. If a second host or a second account is still sitting unexamined at that point, containing the first one does not stop the intrusion; it just makes the analyst feel finished. The evidence you have not yet looked for is not evidence that it doesn't exist.\n\n` +
         `**A closing caution.** Scope is bounded by what you actually searched, not by what exists. If your pivot covered a six-hour window and one source system, say exactly that in your notes: "no further accounts found in this window, from this source" is a true and useful statement; "only one account is affected" is a claim you have not actually earned yet. That distinction becomes very important again in Step 6.`,
@@ -473,7 +477,7 @@ const investigateAlertRoom: Room = {
       heading: "Step 4: Reconstruct the Timeline; Step 5, Map to ATT&CK and Find Root Cause",
       content:
         `**Step 4: the super-timeline.** Every source you collected in Step 3 records its own version of events in its own format, at its own timestamp precision, in its own timezone convention if you're not careful. EDR shows process creation. Windows Security shows logons. A firewall or NDR platform shows connections. Identity logs show sign-ins and session activity. None of these sources tells the whole story alone, and reading them one at a time, in isolation, is how an analyst misses the fact that a lateral logon happened 52 minutes after a suspicious process on the same host. Each individual record looks unremarkable enough by itself. A super-timeline is simply the discipline of merging every source into one chronological sequence, normalised to a single timezone, so the story reads the way it actually happened rather than the way each individual tool happened to log it. This is mechanical, sometimes tedious work, and it is also where most of the actual insight in an investigation comes from: the pattern is very often invisible until the sources sit next to each other in time order.\n\n` +
-        `**Step 5, first half: map to MITRE ATT&CK.** Once you have a timeline, classify each distinct behaviour by tactic and technique. This case, reconstructed, maps cleanly: T1059.001 (Command and Scripting Interpreter: PowerShell) for the Execution stage, T1021.002 (Remote Services: SMB/Windows Admin Shares) for the Lateral Movement stage, and T1560.001 (Archive Collected Data via Utility) for the Collection stage. This is not a labelling exercise for its own sake: a technique name is a shared, precise vocabulary that lets you communicate exactly what happened to another analyst, a threat intel team, or a report reader without re-explaining the mechanics from scratch every time, and it lets you check this specific intrusion against what's typically known to follow those techniques (what usually comes after T1560.001 staging, for instance, is exfiltration).\n\n` +
+        `**Step 5, first half: map to MITRE ATT&CK.** Once you have a timeline, classify each distinct behaviour by tactic and technique. This case, reconstructed, maps cleanly: T1059.001 (Command and Scripting Interpreter: PowerShell) for the Execution stage, T1021.002 (Remote Services: SMB/Windows Admin Shares) for the Lateral Movement stage, and T1560.001 (Archive Collected Data: Archive via Utility) for the Collection stage. This is not a labelling exercise for its own sake: a technique name is a shared, precise vocabulary that lets you communicate exactly what happened to another analyst, a threat intel team, or a report reader without re-explaining the mechanics from scratch every time, and it lets you check this specific intrusion against what's typically known to follow those techniques (what usually comes after T1560.001 staging, for instance, is exfiltration).\n\n` +
         `**Step 5, second half: root cause, using "5 Whys."** ATT&CK mapping tells you what happened. Root cause asks why it was possible at all, and the discipline for getting past a shallow answer is to keep asking why, typically five times, until you land on something you could actually fix. "A user opened a malicious document" is where most analysts stop, and it is almost never the root cause: it describes the trigger, not the failure. Why did opening it lead to code execution? Because the macro was allowed to run. Why was it allowed to run? Because macro execution from internet-sourced documents wasn't blocked by policy on this workstation. Why not? Because that control exists for other business units but was never extended to Finance. Why not? Because the control rollout tracked departments requesting it, not risk exposure. That is a root cause you can actually act on (a policy gap with a specific, nameable owner) and it is nothing like "a user clicked something they shouldn't have," which blames the trigger and leaves the actual control gap sitting there for the next person to click into.\n\n` +
         `**Why this order (timeline, then classification, then root cause) and not some other order.** You cannot meaningfully classify a behaviour you haven't placed in its correct sequence relative to everything else (was this lateral movement enabling the collection, or unrelated background activity?), and you cannot ask a useful "why" about root cause until you know precisely what happened and in what order. Each half of Step 5 depends on the timeline Step 4 just built.`,
       checkpoint: {
@@ -562,7 +566,7 @@ const investigateAlertRoom: Room = {
       id: "inv7-ac1",
       heading: "The Call: True Positive, or Escalate?",
       scenario:
-        "16:05. Your timeline now reads: 14:12, macro-spawned PowerShell on WKS-FIN07 under j.alvarez; 15:04, d.reyes authenticates onto FIN-DB02 from that same workstation, a logon pattern that account has never shown before; 15:41, the record below, a PowerShell child process on FIN-DB02, under d.reyes's session, invoking a compression utility against a folder of Accounts Payable export files, producing a multi-hundred-megabyte archive in a non-standard system folder. You have validated, scoped twice, and collected evidence in order at each stage. A directory lookup confirmed d.reyes is a Finance-DB-Admins member. Your SOC's runbook: classify as escalate when a finding meets any Step 7 escalation criterion (data that may trigger breach notification, a privileged or executive account, or activity that has reached staging or exfiltration); true_positive is for confirmed incidents Tier 1 can contain and close. The shift lead is reachable, but the classification is yours to make first.",
+        "16:05. Your timeline now reads: 14:12, macro-spawned PowerShell on WKS-FIN07 under j.alvarez; 15:04, d.reyes authenticates onto FIN-DB02 from that same workstation, a logon pattern that account has never shown before; 15:41, the record below, a compression utility launched from PowerShell on FIN-DB02, under d.reyes's session, run against a folder of Accounts Payable export files, producing a 184 MB archive in a non-standard system folder. You have validated, scoped twice, and collected evidence in order at each stage. A directory lookup confirmed d.reyes is a Finance-DB-Admins member. Your SOC's runbook: classify as escalate when a finding meets any Step 7 escalation criterion (data that may trigger breach notification, a privileged or executive account, or activity that has reached staging or exfiltration); true_positive is for confirmed incidents Tier 1 can contain and close. The shift lead is reachable, but the classification is yours to make first.",
       event: inv7CollectionEvent,
       correct_verdict: "escalate",
       explanation:
@@ -576,10 +580,10 @@ const investigateAlertRoom: Room = {
       type: "question",
       id: "inv7-q3",
       question:
-        "The archive-creation record shows a PowerShell process invoking a compression utility against a folder of export files, producing a single large archive. Which ATT&CK tactic and technique does this specific behaviour map to?",
+        "The archive-creation record shows a compression utility launched from PowerShell against a folder of export files, producing a single large archive. Which ATT&CK tactic and technique does this specific behaviour map to?",
       options: [
         "Tactic: Exfiltration; Technique: T1041 (Exfiltration Over C2 Channel), compressing the files is the first stage of the C2 transfer, so the data has already left",
-        "Tactic: Collection; Technique: T1560.001 (Archive Collected Data via Utility). Files are gathered and compressed into one package, preparing for removal rather than being removed",
+        "Tactic: Collection; Technique: T1560.001 (Archive Collected Data: Archive via Utility). Files are gathered and compressed into one package, preparing for removal rather than being removed",
         "Tactic: Discovery; Technique: T1083 (File and Directory Discovery), enumerating a folder of export files, with no evidence yet that any content was read or copied",
         "Tactic: Stealth; Technique: T1027 (Obfuscated Files or Information), packing the files into an archive hides their content from DLP and content inspection",
       ],
@@ -630,14 +634,14 @@ const docScheduledTaskEvent: TelemetryEvent = {
   raw: {
     "DeviceName": "AP-SRV14",
     "ActionType": "ScheduledTaskCreated",
-    "TaskName": "OneDriveSyncHelper",
+    "AdditionalFields": "{\"TaskName\":\"OneDriveSyncHelper\"}",
     "InitiatingProcessFileName": "schtasks.exe",
     "InitiatingProcessCommandLine": "schtasks.exe /create /tn \"OneDriveSyncHelper\" /tr \"C:\\ProgramData\\OneDriveSyncHelper\\sync.exe\" /sc onlogon /ru SYSTEM /rl HIGHEST",
     "InitiatingProcessAccountName": "svc-report",
     "InitiatingProcessAccountDomain": "SOLSTICE",
     "AccountSid": "S-1-5-21-3982104477-2847710093-1038822615-2201",
     "FileName": "sync.exe",
-    "FolderPath": "C:\\ProgramData\\OneDriveSyncHelper\\",
+    "FolderPath": "C:\\ProgramData\\OneDriveSyncHelper\\sync.exe",
     "SHA256": "d4b8f61a2e9c5073b6a1d8f4c2e7b905a3f6c8d1b4e7a9c2f5d8b1e4a7c9f0d2",
     "ReportId": 51027,
   },
@@ -655,23 +659,23 @@ const docLegitimateAdminEvent: TelemetryEvent = {
   vendor: "Microsoft Entra ID",
   event_type: "auth_success",
   severity: "medium",
-  user_email: "d.whitfield@solstice-actuarial.com",
-  src_ip: "203.14.88.9",
+  user_email: "d.whitfield@solstice-actuarial.example",
+  src_ip: "203.0.113.9",
   authentication: { method: "Password", result: "Success" },
   it_verify_result: "confirmed",
   it_verify_message:
     "Change ticket CHG-2291 authorises d.whitfield (IT infrastructure) to perform a scheduled patch deployment against AP-SRV14 and two other servers between 01:30 and 04:00 on 2026-06-03. IPAddress matches the corporate VPN's registered static address.",
   description:
-    "Entra ID recorded an interactive sign-in for d.whitfield@solstice-actuarial.com during the overnight maintenance window associated with change ticket CHG-2291.",
+    "Entra ID recorded an interactive sign-in for d.whitfield@solstice-actuarial.example during the overnight maintenance window associated with change ticket CHG-2291.",
   raw: {
     "OperationName": "Sign-in activity",
     "Category": "SignInLogs",
     "ResultType": "0",
-    "UserPrincipalName": "d.whitfield@solstice-actuarial.com",
+    "UserPrincipalName": "d.whitfield@solstice-actuarial.example",
     "UserDisplayName": "Derek Whitfield",
     "AppDisplayName": "Azure Portal",
-    "IPAddress": "203.14.88.9",
-    "AutonomousSystemNumber": 14618,
+    "IPAddress": "203.0.113.9",
+    "AutonomousSystemNumber": 64500,
     "LocationDetails.city": "Columbus",
     "LocationDetails.countryOrRegion": "US",
     "ConditionalAccessStatus": "success",
@@ -738,8 +742,8 @@ const writingIncidentReportRoom: Room = {
         `**Incident Overview.** A concise, plain-but-complete description of the chain of events (a few paragraphs, not a page) that a technical reader can absorb in under a minute before diving into detail: how it was initially detected, the general shape of what happened, and where things currently stand. Think of it as the bridge between the summary above and the full detail below.\n\n` +
         `**Affected Systems & Data.** A specific inventory: which hosts, which accounts, which applications, and, critically, which categories of data were reachable from those systems. This section is what a privacy or legal reviewer usually goes to directly, because it is what determines notification obligations, and it needs to be exact rather than approximate ("the AP-SRV14 export share, containing vendor payment records for Q2" rather than "some finance files").\n\n` +
         `**Evidence Sources & Analysis.** What you actually looked at, and how you reached each conclusion, which log sources, which queries, which tools, and the reasoning connecting evidence to finding. This is the methodology section, and its purpose is reproducibility: another analyst should be able to follow your exact path and reach the same conclusion.\n\n` +
-        `**IOCs (Indicators of Compromise: the specific, observable artefacts an attacker leaves behind, such as an IP address, a file hash, or a domain, that another defender can search their own environment for).** A discrete, extractable list (IP addresses, file names and paths, file hashes, scheduled task names, domains, URLs) formatted so another defender or an automated tool can search on it directly, without needing to read prose to find the values. This section lives or dies on precision: an IOC list with an approximate or paraphrased value is close to useless for anyone trying to actually hunt on it.\n\n` +
         `**Technical Timeline.** Covered in full in Reading 3: a chronological, per-event account with formal timestamps, from initial compromise through containment, eradication and recovery.\n\n` +
+        `**IOCs (Indicators of Compromise: the specific, observable artefacts an attacker leaves behind, such as an IP address, a file hash, or a domain, that another defender can search their own environment for).** A discrete, extractable list (IP addresses, file names and paths, file hashes, scheduled task names, domains, URLs) formatted so another defender or an automated tool can search on it directly, without needing to read prose to find the values. This section lives or dies on precision: an IOC list with an approximate or paraphrased value is close to useless for anyone trying to actually hunt on it.\n\n` +
         `**Root Cause.** Covered in full in Reading 5: the specific control gap or configuration weakness that allowed the intrusion to succeed, not a restatement of what the attacker did.\n\n` +
         `**Recommendations.** Concrete, assigned, verifiable corrective actions tied directly to the root cause identified above, not a generic list of best practices that would apply to any organisation regardless of what actually happened here.\n\n` +
         `**Why this fixed structure matters more than it seems to.** A reader under time pressure (and every reader of an incident report is under time pressure) needs to be able to jump straight to the section relevant to their question. A regulator's counsel wants Affected Systems & Data. A remediation engineer wants the Timeline and Evidence Sources. A CISO preparing a board update wants the Executive Summary and Recommendations. A rigid, named structure is what makes that possible; a report that wanders through these ideas in whatever order occurred to the writer forces every reader to hunt.`,
@@ -846,13 +850,13 @@ const writingIncidentReportRoom: Room = {
             "Which single field in this record is the correct IOC value to list under 'scheduled task names' in the IOCs section?",
           options: [
             "InitiatingProcessAccountName, since svc-report is the account that performed the action",
-            "TaskName, exactly as recorded, OneDriveSyncHelper, since this is the specific, directly searchable value another defender would query their own environment's task scheduler for",
+            "TaskName inside AdditionalFields, exactly as recorded, OneDriveSyncHelper, since this is the specific, directly searchable value another defender would query their own environment's task scheduler for",
             "InitiatingProcessCommandLine in full, since the entire command line is what should be pasted into the IOC list as a single entry",
             "ReportId, since it uniquely identifies this specific detection record",
           ],
           answer: 1,
           explanation:
-            "TaskName is the precise, directly searchable value this IOC category calls for. Another SOC could search their own tenant for a scheduled task with this exact name. InitiatingProcessAccountName belongs in the Evidence Sources & Analysis narrative (which account performed the action) rather than the IOC list itself, which is reserved for atomic, searchable indicators. The full command line contains useful context but is not itself the kind of atomic value an IOC list is built from: the task name and the file hash extracted from within it are. ReportId is an internal record identifier local to this one detection tool and has no meaning to search for elsewhere.",
+            "TaskName, which Defender stores inside the AdditionalFields JSON, is the precise, directly searchable value this IOC category calls for. Another SOC could search their own tenant for a scheduled task with this exact name. InitiatingProcessAccountName belongs in the Evidence Sources & Analysis narrative (which account performed the action) rather than the IOC list itself, which is reserved for atomic, searchable indicators. The full command line contains useful context but is not itself the kind of atomic value an IOC list is built from: the task name and the file hash extracted from within it are. ReportId is an internal record identifier local to this one detection tool and has no meaning to search for elsewhere.",
           xp: 25,
         },
         {
@@ -891,7 +895,7 @@ const writingIncidentReportRoom: Room = {
       id: "doc-f1",
       event: docScheduledTaskEvent, // show the scheduled-task log this IOC flag reads
       prompt:
-        "You are finalising the IOCs section. What is the exact scheduled task name that should be listed, taken directly from the TaskName field in the raw log?",
+        "You are finalising the IOCs section. What is the exact scheduled task name that should be listed, taken directly from the TaskName value inside AdditionalFields in the raw log?",
       answer: "OneDriveSyncHelper",
       xp: 20,
     },
@@ -1047,7 +1051,7 @@ const writingIncidentReportRoom: Room = {
       id: "doc-wr1",
       heading: "Write It Yourself: Executive Summary and Root Cause",
       context:
-        "Every reading in this room has been building toward this. You have the full Solstice Actuarial case: a scheduled task named OneDriveSyncHelper, created on AP-SRV14 under the svc-report service account, running a binary with SYSTEM privileges at every logon, and a second, verified-benign sign-in you correctly kept out of the report. Now write the two sections a reader is guaranteed to actually read: the Executive Summary and the Root Cause.",
+        "Every reading in this room has been building toward this. You have the full Solstice Actuarial case: a scheduled task named OneDriveSyncHelper, created on AP-SRV14 under the svc-report service account, running a binary with SYSTEM privileges at every logon, and a second, verified-benign sign-in you correctly kept out of the report. AP-SRV14 hosts Accounts Payable processing tools. It has been isolated, and no data loss has been confirmed as of this writing. Now write the two sections a reader is guaranteed to actually read: the Executive Summary and the Root Cause.",
       prompt:
         "In your own words, write (1) a 3-6 sentence Executive Summary in plain business/risk language (no ATT&CK IDs, no field names) stating what happened, current status, and impact, and (2) a Root Cause statement that names the actual control gap, not a restatement of what the attacker did and not \"human error.\"",
       rubricHints: [
@@ -1055,7 +1059,8 @@ const writingIncidentReportRoom: Room = {
         "The Executive Summary states scope, current status, and impact in business terms",
         "The Root Cause names a specific, fixable control gap. Think about what let this succeed (a privilege level, a missing detection), not just what the attacker did",
         "The Root Cause avoids vague causes like \"human error\" or \"an attacker created a scheduled task\"",
-        "At least one real, specific fact from the case is cited to ground the writing: a hostname, account, task name, or hash, exactly as it appeared in the evidence",
+        "At least two real, specific facts from the case are cited to ground the writing: a hostname, account, task name, or hash, exactly as it appeared in the evidence",
+        "The automatic score counts only your length and the exact case values you cite. The other points are the standard a human reviewer would hold this writing to",
       ],
       referenceIocs: ["AP-SRV14", "OneDriveSyncHelper", "svc-report", "d4b8f61a2e9c5073b6a1d8f4c2e7b905a3f6c8d1b4e7a9c2f5d8b1e4a7c9f0d2"],
       minWords: 60,

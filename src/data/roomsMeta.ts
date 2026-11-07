@@ -1361,7 +1361,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "sharepoint-teams-monitoring",
     "title": "SharePoint & Teams Security Monitoring",
-    "description": "Discover how attackers exploit Microsoft's collaboration tools to steal data, conduct phishing via Teams chat, and abuse external sharing. Learn to detect bulk exfiltration, insider threats, and guest-account abuse.",
+    "description": "Discover how attackers exploit Microsoft's collaboration tools to steal data, conduct phishing via Teams chat, and abuse external sharing. Learn to detect bulk data theft, insider threats, and guest-account abuse.",
     "difficulty": "intermediate",
     "category": "Cloud Security",
     "estimatedMinutes": 40,
@@ -7136,7 +7136,7 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "bec-la2",
         "type": "log_analysis",
         "xp": 95,
-        "mitreTechnique": "T1114.003"
+        "mitreTechnique": "T1564.008"
       },
       {
         "id": "bec-m1",
@@ -8255,7 +8255,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "rmm-abuse-remote-access-tools",
     "title": "RMM Abuse & Remote Access Tools: When the Legitimate Tool Is the Attack",
-    "description": "Remote Monitoring and Management (RMM) software (AnyDesk, TeamViewer, ConnectWise ScreenConnect, Atera, Splashtop, and Windows' own built-in Quick Assist) is exactly what IT help desks use every day, and exactly what attackers increasingly ride into a network as MITRE ATT&CK technique T1219 (Remote Access Software, Command and Control tactic). Learn how a signed, legitimate binary becomes an intrusion channel, two real documented case studies (Storm-1811/Quick Assist/Black Basta and the CVE-2024-1709 ConnectWise ScreenConnect authentication bypass), and the allowlist discipline that is the only detection strategy that actually works against this technique.",
+    "description": "Remote Monitoring and Management (RMM) software (AnyDesk, TeamViewer, ConnectWise ScreenConnect, Atera, Splashtop, and Windows' own built-in Quick Assist) is exactly what IT help desks use every day, and exactly what attackers increasingly ride into a network as MITRE ATT&CK technique T1219 (Remote Access Tools, Command and Control tactic). Learn how a signed, legitimate binary becomes an intrusion channel, two real documented case studies (Storm-1811/Quick Assist/Black Basta and the CVE-2024-1709 ConnectWise ScreenConnect authentication bypass), and the allowlist discipline that is the only detection strategy that actually works against this technique.",
     "difficulty": "intermediate",
     "category": "Threat Detection",
     "estimatedMinutes": 65,

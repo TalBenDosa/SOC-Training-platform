@@ -36,7 +36,7 @@
  * for Endpoint (the corporate origin host).
  *
  * MITRE ATT&CK for ICS: T0886 (Remote Services, the corporate host reaching the
- * OT segment), T0846 (Remote System Discovery, the address sweep), T0855
+ * OT segment), T0846 (Remote System Discovery, the address sweep), T1692.001
  * (Unauthorized Command Message, the write function code), T0836 (Modify
  * Parameter, the register value change).
  *
@@ -346,12 +346,12 @@ export function buildOtNetworkAnomalyScenario(scenarioId = "ot-network-anomaly-2
     // ─────────────────────────────────────────────────────────────────────
     zeekConn({
       id: "evt_ot_03e_write_session", at: 3 * MIN, srcPort: 49802, dst: plc1, uid: "CZk9mD2xQ4rT7vN1ay", cid: cid.write, bytes: 1021, packets: 18, orig: 478, resp: 543, duration: 21.4,
-      severity: "critical", mitre: "T0855", tactic: "Impair Process Control",
+      severity: "critical", mitre: "T1692.001", tactic: "Impair Process Control",
       description: `${attackerIp} opened a new Modbus/TCP session to ${plc1.ip}:502 at 22:13 that stayed open for about twenty-one seconds.`,
     }),
     mdeNetwork({
       companyId: cx, id: "evt_ot_03f_origin_connect", ts: T(3 * MIN - 100), host: origin.hostname, user: origin.user, srcIp: attackerIp, incidentId: INCIDENT,
-      remoteIp: plc1.ip, remotePort: 502, initiatingProcess: "python.exe", severity: "high", mitre: "T0855", tactic: "Impair Process Control",
+      remoteIp: plc1.ip, remotePort: 502, initiatingProcess: "python.exe", severity: "high", mitre: "T1692.001", tactic: "Impair Process Control",
       description: `python.exe on ${origin.hostname} connected again to ${plc1.ip}:502.`,
     }),
     zeekModbus({
@@ -366,7 +366,7 @@ export function buildOtNetworkAnomalyScenario(scenarioId = "ot-network-anomaly-2
     }),
     zeekModbus({
       id: "evt_ot_05_modbus_write_multiple", ts: T(3 * MIN + 20 * SEC), srcPort: 49802, dst: plc1, uid: "CZk9mD2xQ4rT7vN1ay", cid: cid.write, tid: 2,
-      func: "WRITE_MULTIPLE_REGISTERS", rr: "REQUEST", address: 9, quantity: 4, values: "0,0,1,0", severity: "critical", mitre: "T0855", tactic: "Impair Process Control",
+      func: "WRITE_MULTIPLE_REGISTERS", rr: "REQUEST", address: 9, quantity: 4, values: "0,0,1,0", severity: "critical", mitre: "T1692.001", tactic: "Impair Process Control",
       description: `Twenty seconds later Zeek decoded a Modbus WRITE_MULTIPLE_REGISTERS (function code 16) from ${attackerIp} to ${plc1.host} (${plc1.ip}): unit 1, four holding registers from offset 9 (40010) written in one command message.`,
     }),
     zeekModbus({
@@ -393,7 +393,7 @@ export function buildOtNetworkAnomalyScenario(scenarioId = "ot-network-anomaly-2
       dst_port: 502,
       protocol: "tcp",
       severity: "critical",
-      mitre_technique: "T0855",
+      mitre_technique: "T1692.001",
       mitre_tactic: "Impair Process Control",
       incident_id: INCIDENT,
       is_detection: true,
@@ -422,7 +422,7 @@ export function buildOtNetworkAnomalyScenario(scenarioId = "ot-network-anomaly-2
             "modbus_function": "6 write_single_register / 16 write_multiple_registers",
             "affected_product": "Programmable_Logic_Controller",
             "mitre_tactic_id": "TA0106",
-            "mitre_technique_id": "T0855",
+            "mitre_technique_id": "T1692.001",
           },
         },
       },
@@ -590,7 +590,7 @@ Because there is no agent on the PLC, containment is an OT problem, not a workst
     learning_objectives: [
       "Investigate an OT/ICS incident whose plant side has network-only telemetry (Corelight/Zeek connection and Modbus decode, Suricata ICS signatures) because there are no endpoint agents on controllers, and pivot to the corporate origin host and the boundary firewall",
       "Recognise an IT→OT crossing as the origin: a corporate-VLAN host speaking an industrial protocol to controllers it has no history with (T0886)",
-      "Read a Modbus decode to tell a register WRITE (function 6/16) apart from read-only polling (READ_HOLDING_REGISTERS), and treat a write to a controller as impact (T0836/T0855)",
+      "Read a Modbus decode to tell a register WRITE (function 6/16) apart from read-only polling (READ_HOLDING_REGISTERS), and treat a write to a controller as impact (T0836/T1692.001)",
       "Distinguish the authorized engineering station's legitimate polling from a foreign host's traffic using source identity and function code, not the protocol or port",
       "Scope OT containment appropriately, cut the crossing at the IT/OT boundary, isolate the corporate origin host, and involve process engineers to verify and revert controller values, rather than applying workstation-style isolation to a PLC",
     ],
@@ -605,7 +605,7 @@ Because there is no agent on the PLC, containment is an OT problem, not a workst
       { ts: T(52 * SEC), phase: "Discovery", action: "Suricata ICS signature fires on Modbus enumeration from a non-engineering source" },
       { ts: T(2 * MIN + 30 * SEC), phase: "Collection", action: `${attackerIp} reads register 40008 (offset 7) on ${plc1.host}: 1500, the before-value (T0801)` },
       { ts: T(3 * MIN), phase: "Impair Process Control", action: `Modbus WRITE_SINGLE_REGISTER (fc 6) ${attackerIp} → ${plc1.ip} register 40008 set to 0 (T0836)` },
-      { ts: T(3 * MIN + 20 * SEC), phase: "Impair Process Control", action: `Modbus WRITE_MULTIPLE_REGISTERS (fc 16) ${attackerIp} → ${plc1.ip} block @40010 (T0855)` },
+      { ts: T(3 * MIN + 20 * SEC), phase: "Impair Process Control", action: `Modbus WRITE_MULTIPLE_REGISTERS (fc 16) ${attackerIp} → ${plc1.ip} block @40010 (T1692.001)` },
       { ts: T(3 * MIN + 30 * SEC), phase: "Detection", action: "Suricata raises the high-severity ICS detection on the write function code from outside the engineering block" },
     ],
     questions,

@@ -65,7 +65,7 @@ const acEncodedPowerShellEvent: TelemetryEvent = {
     "winlog.event_data.CommandLine": "powershell -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQA",
     "winlog.event_data.User": "MERIDIAN\\p.doran",
     "winlog.event_data.IntegrityLevel": "Medium",
-    "winlog.event_data.Hashes": "SHA256=91E3E6A6C4B4E5D3F2A0C9B8E7D6F5A4C3B2A1908F7E6D5C4B3A2918070605040",
+    "winlog.event_data.Hashes": "SHA256=91e3e6a6c4b4e5d3f2a0c9b8e7d6f5a4c3b2a1908f7e6d5c4b3a291807060504",
     "event.action": "process-create",
   },
 };
@@ -99,7 +99,7 @@ const lsassSigmaAlertEvent: TelemetryEvent = {
     "crowdstrike.SeverityName": "Critical",
     "crowdstrike.Tactic": "Credential Access",
     "crowdstrike.Technique": "OS Credential Dumping",
-    "crowdstrike.PatternDispositionDescription": "Detected, no action taken",
+    "crowdstrike.PatternDispositionDescription": "Detection, standard detection.",
     "crowdstrike.ContextBaseFileName": "explorer.exe",
     "crowdstrike.ParentBaseFileName": "explorer.exe",
     "crowdstrike.FileName": "SysHealthMon.exe",
@@ -159,6 +159,7 @@ const sigmaYaraRuleAuthoringRoom = {
       content:
         "Detection Engineering Fundamentals showed CommandLine|contains with a list of values and explained that Sigma evaluates a list under one field as OR, matching if the field contains any one of the listed items. That much is already familiar. What it did not cover is the modifier that flips that default, the modifiers that anchor a match instead of searching anywhere in a string, the regex escape hatch, and the way a condition can combine more than one named block at once, all four of which come up constantly the moment a rule needs to describe more than one simple pattern.\n\n" +
         "Start with the AND-versus-OR distinction, because it is the single most common way a new rule ends up looser than its author intended. CommandLine|contains|all: ['-nop', '-enc'] only matches when both substrings appear somewhere in the same command line, genuinely different from a plain |contains list, which matches on any one item alone. Writing |contains with a list when the actual intent was 'both of these together' silently turns a tight rule into a much looser one, because it will now also fire on command lines that only happen to contain one of the two.\n\n" +
+        "Those two strings are real PowerShell flags. -nop is short for -NoProfile, which skips loading the user's PowerShell profile, and -enc is short for -EncodedCommand, which runs a base64-encoded command and so hides the script from a casual reader. Encoded PowerShell has legitimate uses in management tooling, but when the parent process is an Office application opening a macro document there is almost no legitimate explanation, and the alert should be escalated.\n\n" +
         "Image|startswith and Image|endswith anchor a match to one specific end of a field's value, instead of searching for the substring anywhere inside it. Image|endswith: '\\regsvr32.exe' matches any path ending in that string regardless of install directory: deliberately loose about where the binary lives, deliberately strict about what the binary actually is. Anchoring matters because an unanchored |contains: 'regsvr32' would also match a completely unrelated file simply named something like regsvr32_wrapper_notes.txt, or a command line that merely mentions the word inside a passed argument or comment.\n\n" +
         "CommandLine|re: applies a full regular expression, the modifier reserved for anything the simpler ones cannot express precisely enough, a specific numeric pattern, an argument that has to appear in a particular position, several optional variants at once. It is also, exactly like YARA's regex strings covered later in this room, the modifier most likely to run slowly or match far more than intended if written carelessly; reach for the simpler modifiers first and treat |re as the tool for when they genuinely cannot do the job.\n\n" +
         "Finally, a condition is not limited to one named block. Real techniques often have more than one tool that can carry them out: regsvr32.exe and rundll32.exe are both LOLBins abused for similar scriptlet-execution purposes. Writing separate named blocks, selection_regsvr32 and selection_rundll32 as shown below, then combining them with 1 of selection_* (matching if any block whose name starts with selection matches) lets one rule cover every known tool variant of the same technique instead of either missing half of them or cramming incompatible logic into a single unreadable block. Reading 3 builds an entire rule around exactly this same shape, for a different technique: vssadmin.exe versus wmic.exe, both deleting the same shadow copies. all of them, by contrast, requires every defined block to match at once: the tightest possible combination, reserved for the rarer case where several distinct signals all have to be present together.",
@@ -174,7 +175,7 @@ const sigmaYaraRuleAuthoringRoom = {
         "author: SOC Detection Engineering\n" +
         "date: 2026/02/25\n" +
         "tags:\n" +
-        "  - attack.defense_evasion\n" +
+        "  - attack.stealth\n" +
         "  - attack.t1218.010\n" +
         "  - attack.t1218.011\n" +
         "logsource:\n" +
@@ -237,7 +238,8 @@ const sigmaYaraRuleAuthoringRoom = {
         "Step three is drafting the selection. A first attempt might be a single loose match: CommandLine|contains: 'delete shadows', but this is already wrong in two different directions at once. It is too narrow in one direction, because it misses wmic's entirely different phrasing. And it is too broad in another, separately, because a bare string search with no anchor on the binary itself could in principle match a log line, a ticket comment, or a script filename containing that same phrase for an unrelated reason. The fix is two named selection blocks, one per tool. selection_vssadmin requires Image|endswith: '\\vssadmin.exe' together with CommandLine|contains|all: ['delete', 'shadows'], both words must appear, in any order, which survives minor phrasing differences while still anchoring to the real binary. selection_wmic requires Image|endswith: '\\wmic.exe' together with CommandLine|contains: 'shadowcopy delete' as one combined phrase, since that is how the wmic alias syntax is actually invoked.\n\n" +
         "Step four is the condition: selection_vssadmin or selection_wmic, either tool tripping the pattern is enough on its own to fire the rule; there is no reason to require both in the same event, since a single execution only ever uses one of them.\n\n" +
         "Step five is falsepositives, and honesty here matters more than completeness: backup software performing scheduled shadow-copy cleanup as part of its own retention policy, and IT administrators manually freeing disk space on a documented change ticket, are the two realistic sources of legitimate matches, writing this list down is what lets a future analyst triage a hit in thirty seconds instead of re-deriving the same reasoning from scratch. (Sigma calls this field falsepositives, but in verdict terms both entries are benign true positives: the rule correctly sees a real shadow-copy deletion, and the retention policy or the change ticket is what makes it authorized. Closing one of these cites that justification; it does not mean the rule misfired.)\n\n" +
-        "Step six is level and tags: level: high, because a confirmed shadow-copy deletion this close to encryption has essentially no benign majority-case even though the legitimate matches above (benign true positives, in verdict terms) are real and worth checking first; tags: attack.impact and attack.t1490 map the rule directly to its ATT&CK technique, which is what lets a coverage report later confirm this technique is actually detected rather than just documented as a gap.",
+        "Step six is level and tags: level: high, because a confirmed shadow-copy deletion this close to encryption has essentially no benign majority-case even though the legitimate matches above (benign true positives, in verdict terms) are real and worth checking first; tags: attack.impact and attack.t1490 map the rule directly to its ATT&CK technique, which is what lets a coverage report later confirm this technique is actually detected rather than just documented as a gap.\n\n" +
+        "Once a rule like this is live, the analyst's side matters too. When a high or critical rule fires and its filter did not suppress the event, treat it as a likely real attack until shown otherwise. An EDR disposition that records detection without any action means the activity was seen, not stopped, so escalate and contain. Memory can be read and sent out without a file ever reaching disk, so do not wait for a dump file, and a user's word cannot settle a critical alert.",
       codeExample:
         "title: Shadow Copy Deletion via vssadmin or wmic\n" +
         "id: 4b6a1f2e-9c3d-4a7b-8e21-6f0a9d3c5b17\n" +
@@ -288,7 +290,7 @@ const sigmaYaraRuleAuthoringRoom = {
       type: "query_fill" as const,
       id: "sigyara-qf1",
       heading: "Write It Yourself: Complete the Selection Block for Shadow Copy Deletion",
-      language: "kql" as const,
+      language: "sigma" as const,
       context:
         "The snippet below is Sigma YAML. Reading 3 built the vssadmin branch of the shadow-copy-deletion rule step by step. Reproduce its selection_vssadmin block from memory: the field that identifies the binary itself, the modifier that requires every listed word to be present, and the condition value that fires on this block alone.",
       template:
@@ -325,7 +327,7 @@ const sigmaYaraRuleAuthoringRoom = {
         "| where FolderPath endswith @'\\vssadmin.exe'\n" +
         "| where ProcessCommandLine has 'delete' and ProcessCommandLine has 'shadows'\n\n" +
         "Compiles to Splunk SPL:\n" +
-        "index=main sourcetype=WinEventLog:Sysmon EventCode=1 Image=\"*\\vssadmin.exe\" CommandLine=\"*delete*\" CommandLine=\"*shadows*\"",
+        "index=main sourcetype=WinEventLog:Sysmon EventCode=1 Image=\"*\\\\vssadmin.exe\" CommandLine=\"*delete*\" CommandLine=\"*shadows*\"",
       diagram:
         "flowchart LR\n" +
         "  A[Sigma rule YAML] --> B[pySigma parser]\n" +
@@ -388,8 +390,8 @@ const sigmaYaraRuleAuthoringRoom = {
       content:
         "Malware Analysis Fundamentals already covered YARA's three-part shape (meta, strings, condition) and its three string types: plain text, hex bytes, and regular expressions, plus the basic condition operators at 0, 1 of (...), and and. This reading picks up exactly where that one left off: the modifiers and operators that turn a rule from roughly right into something a hunt team would actually trust in production.\n\n" +
         "Hex strings support wildcarding, not just fixed byte sequences. { 4D 5A } matches only those exact two bytes back to back, fine for a header that never varies, but real binary structures often have a gap between two fixed landmarks that shifts slightly between compiler versions or build configurations of the same tool. { 40 00 00 00 [4-8] 50 45 00 00 } matches the first four bytes, then any 4 to 8 unknown bytes, then the second four bytes: the bracketed range is YARA's wildcard-gap syntax, and it is what lets a hex pattern survive small structural differences between build variants of the same underlying tool without becoming a full regular expression.\n\n" +
-        "String modifiers add one more useful constraint beyond the ascii/wide/nocase trio already covered: fullword requires the match not be embedded inside a larger word, $s = 'admin' fullword would match a standalone argument like -admin but not the substring buried inside administrator, which matters enormously for short, common strings that would otherwise match constantly inside unrelated longer words. Combining modifiers is normal: ascii wide nocase on one string means match both the single-byte and UTF-16 encodings, case-insensitively, in one declaration instead of three.\n\n" +
-        "The condition section has more built-in power than and, or, and N of (...). filesize, compared against a size like 150KB or 2MB, bounds a rule to a realistic range for the artifact being hunted, cheaply eliminating an enormous amount of unrelated content before YARA even bothers evaluating a single string pattern, which matters both for accuracy and for how long a large-scale scan actually takes to run. #string_name counts how many times that string occurs in the file: a single incidental appearance of a common function call reads very differently from the same call repeated dozens of times inside an obfuscation loop, and #a > 5 captures exactly that distinction where 1 of ($a) alone cannot. @string_name[1] gives the byte offset of a string's first occurrence, which lets a condition anchor a match to a specific location the way $mz at 0 requires the MZ header to sit at the very first byte of the file: exactly where a genuine executable's header belongs, and nowhere a webshell's decoy content would put it.\n\n" +
+        "String modifiers add one more useful constraint beyond the ascii/wide/nocase trio already covered: fullword requires the match not be embedded inside a larger word, $s = \"admin\" fullword would match a standalone argument like -admin but not the substring buried inside administrator, which matters enormously for short, common strings that would otherwise match constantly inside unrelated longer words. Combining modifiers is normal: ascii wide nocase on one string means match both the single-byte and UTF-16 encodings, case-insensitively, in one declaration instead of three.\n\n" +
+        "The condition section has more built-in power than and, or, and N of (...). filesize, compared against a size like 150KB or 2MB, bounds a rule to a realistic range for the artifact being hunted, so a file outside that range cannot match no matter what strings it holds. YARA searches for all of a rule's strings first and evaluates the condition afterwards, so filesize removes unwanted matches rather than scan work: putting it first in the condition only saves evaluating the rest of the condition. #string_name counts how many times that string occurs in the file: a single incidental appearance of a common function call reads very differently from the same call repeated dozens of times inside an obfuscation loop, and #a > 5 captures exactly that distinction where 1 of ($a) alone cannot. @string_name[1] gives the byte offset of a string's first occurrence, which lets a condition anchor a match to a specific location the way $mz at 0 requires the MZ header to sit at the very first byte of the file: exactly where a genuine executable's header belongs, and nowhere a webshell's decoy content would put it.\n\n" +
         "None of these operators replaces good string selection; they sharpen it. A hex wildcard gap still needs two genuinely meaningful fixed landmarks on either side of it. A count threshold still needs a string worth counting in the first place. The skill this room is actually building (picking signals that are individually common but collectively rare) is exactly the same skill Malware Analysis Fundamentals introduced; these operators are simply sharper tools for expressing it precisely.",
       codeExample:
         "rule Suspicious_Binary_Structure_And_RawIP_Callback\n" +
@@ -423,7 +425,7 @@ const sigmaYaraRuleAuthoringRoom = {
       id: "sigyara-r6",
       heading: "Writing a YARA Rule Step by Step: A PHP Webshell Family",
       content:
-        "The same six-step discipline Reading 3 used for Sigma applies just as directly to YARA, now aimed at a file-hunting problem instead of a log-search one: a compromised web application server needs a rule that catches single-file PHP webshells dropped after an initial-access exploit, without also flagging the thousands of legitimate PHP files already living on that same server.\n\n" +
+        "The same step-by-step discipline Reading 3 used for Sigma applies just as directly to YARA, now aimed at a file-hunting problem instead of a log-search one: a compromised web application server needs a rule that catches single-file PHP webshells dropped after an initial-access exploit, without also flagging the thousands of legitimate PHP files already living on that same server.\n\n" +
         "Step one, the hypothesis: a webshell's entire purpose is letting an attacker send commands to a compromised server and have them executed, so nearly every variant shares the same underlying shape: take input from an HTTP request, decode it if it was obfuscated to dodge simple text search, and hand it to eval() or an equivalent execution function. The specific obfuscation wrapper changes constantly (base64, gzinflate-then-base64, rot13, XOR with a hardcoded key); the underlying shape barely does.\n\n" +
         "Step two, drafting the strings, is where the specific-versus-brittle tradeoff has to be made explicit. The most brittle possible rule hardcodes one exact byte-for-byte sample: matching the literal full obfuscated payload string from the one webshell already found in the incident. It will never fire on the next sample, because the next attacker (or the same one, on the next compromised server) will vary a single byte of the encoded blob and invalidate the exact match completely. A rule that specific is really just a hash lookup wearing a YARA rule's clothing. The opposite mistake (a single common string like eval(base64_decode( with no other condition) is exactly the trap this room's own broad-vs-narrow question walks through: any framework, plugin, or license-checking library that happens to call the same two functions together for entirely unrelated reasons will match too, and a rule that fires on hundreds of legitimate files gets disabled by an exhausted analyst within a week.\n\n" +
         "The workable middle ground layers several individually-common, jointly-rare signals: the PHP open tag itself ($php_tag), one of the known obfuscation wrappers ($eval_b64 or $eval_gz, 1 of them, since a given sample will only use one), and one of the superglobal input sources an attacker actually needs to receive their command through ($post_in or $req_in, again 1 of them). None of these three signals is remotely rare by itself. All three appearing together, inside a file also small enough to be a single-purpose dropped script rather than an entire application (filesize < 150KB), essentially never happens by coincidence in ordinary application code.\n\n" +
@@ -467,7 +469,7 @@ const sigmaYaraRuleAuthoringRoom = {
       type: "query_fill" as const,
       id: "sigyara-qf3",
       heading: "Write It Yourself: Complete the Webshell YARA Condition",
-      language: "powershell" as const,
+      language: "yara" as const,
       context:
         "The snippet below is the condition section of a YARA rule. Reading 6 built a PHP webshell rule around three joined signals: the PHP open tag, one of two decode-and-eval wrappers, and one of two superglobal input sources, plus a file-size ceiling. Complete the final condition block from memory using the string names already defined in Reading 6's strings section.",
       template:
@@ -512,7 +514,7 @@ const sigmaYaraRuleAuthoringRoom = {
         { id: "oneof", left: "Sigma: 1 of selection_*", right: "Matches if any one of several named blocks whose names share that prefix matches. Useful when one technique has multiple tool variants" },
         { id: "allof", left: "Sigma: all of them", right: "Requires every named detection block in the rule to match simultaneously" },
         { id: "yaramods", left: "YARA: nocase / fullword / wide", right: "String modifiers: case-insensitive matching, whole-word-only matching, and matching the UTF-16 encoding Windows binaries commonly use internally" },
-        { id: "filesize", left: "YARA: filesize < 150KB", right: "Bounds the rule to a realistic size range for the artifact being hunted, cheaply eliminating unrelated content before string matching even runs" },
+        { id: "filesize", left: "YARA: filesize < 150KB", right: "Bounds the rule to a realistic size range for the artifact being hunted, so a file outside it cannot match whatever strings it holds" },
         { id: "count", left: "YARA: #string_name", right: "Counts how many times a given string occurs in the file. Distinguishes a one-off legitimate call from the same call repeated inside an obfuscation loop" },
         { id: "offset", left: "YARA: @string_name[1] / string at 0", right: "Gives the byte offset of a string's occurrence, letting a condition anchor a match to a specific location such as the very start of the file" },
       ],
@@ -577,7 +579,7 @@ const sigmaYaraRuleAuthoringRoom = {
           xp: 35,
         },
         {
-          question: "crowdstrike.CallStackModuleNames again lists dbghelp.dll among the loaded modules. A colleague proposes tightening the rule's condition to also require dbghelp.dll appear in CallStackModuleNames before firing at all. Based on this room's tuning principles, what is the risk in that specific change?",
+          question: "crowdstrike.CallStackModuleNames lists dbghelp.dll among the loaded modules. A colleague proposes tightening the rule's condition to also require dbghelp.dll appear in CallStackModuleNames before firing at all. Based on this room's tuning principles, what is the risk in that specific change?",
           options: [
             "Little risk: LSASS dumpers all load dbghelp.dll, so the extra requirement would change almost nothing",
             "Too narrow: dumpers that read LSASS without dbghelp.dll would slip past despite a matching access mask",
@@ -590,16 +592,16 @@ const sigmaYaraRuleAuthoringRoom = {
           xp: 35,
         },
         {
-          question: "crowdstrike.PatternDispositionDescription reads 'Detected, no action taken', the rule's level is critical, and this workstation belongs to a claims-processing employee at a healthcare company with access to patient records. Selection matched, filter did not suppress it. What should the analyst do next?",
+          question: "crowdstrike.PatternDispositionDescription reads 'Detection, standard detection.', the rule's level is critical, and this workstation belongs to a claims-processing employee at a healthcare company with access to patient records. Selection matched, filter did not suppress it. What should the analyst do next?",
           options: [
-            "Close it as informational, since 'Detected, no action taken' means Falcon judged the access harmless",
+            "Close it as informational, since 'Detection, standard detection.' means Falcon judged the access harmless",
             "Escalate as a likely true positive and move to containment: the access was observed, not blocked",
             "Hold containment until a dump file is found on disk, since LSASS access alone doesn't prove theft",
             "Ask n.brandt whether they installed SysHealthMon.exe, and decide on containment from their answer",
           ],
           answer: 1,
           explanation:
-            "Selection matched, the filter (which covers the documented AV self-scan benign true positives) didn't suppress it, Falcon only observed the access, and the host can reach patient records, so escalate, contain, and treat credentials cached on it as exposed. “'Detected, no action taken' means Falcon judged the access harmless” misreads the disposition: it means the access was allowed to happen. “Hold containment until a dump file is found” waits on evidence that may never exist. Memory can be read and sent off without a file ever touching disk. “Ask n.brandt” lets an unverified user statement decide a critical credential-access alert, and alerts whoever controls the account if it is compromised.",
+            "Selection matched, the filter (which covers the documented AV self-scan benign true positives) didn't suppress it, Falcon only observed the access, and the host can reach patient records, so escalate, contain, and treat credentials cached on it as exposed. “'Detection, standard detection.' means Falcon judged the access harmless” misreads the disposition: it means the access was allowed to happen. “Hold containment until a dump file is found” waits on evidence that may never exist. Memory can be read and sent off without a file ever touching disk. “Ask n.brandt” lets an unverified user statement decide a critical credential-access alert, and alerts whoever controls the account if it is compromised.",
           xp: 40,
         },
       ],
