@@ -19,7 +19,7 @@ import { EntityBook, entitiesColumn, isPrivateIp } from "./entities";
 import { buildHunting } from "./hunting";
 import { logKey, mapRow, type MapContext } from "./mapRow";
 import { evaluatePart, NOISE_RULES, noiseAnalyticsRules } from "./noise";
-import { alertDescription, buildRules, groupFilter, kstr, plain, ruleSeverity, tacticName, tacticsOf, useCasesInStack, type CompiledRule } from "./rules";
+import { alertDescription, buildRules, groupFilter, kstr, plain, ruleSeverity, tacticName, tacticsOf, stackUseCases, type CompiledRule } from "./rules";
 import { emptyTable, TABLE_NAMES } from "./tables";
 import type { SentinelAlert, SentinelEntity, SentinelIncident, SentinelSeverity, SentinelWorkspace } from "./types";
 
@@ -308,7 +308,7 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
     });
   }
 
-  const inStack = useCasesInStack(companyId, stack);
+  const inStack = stackUseCases(companyId, stack);
   const bySource = new Map<SourceId, number[]>();
   logs.forEach((l, i) => { bySource.set(l.sourceId, [...(bySource.get(l.sourceId) ?? []), i]); });
   const logsBySource = new Map([...bySource].map(([s, idx]) => [s, idx.map(i => logs[i])]));

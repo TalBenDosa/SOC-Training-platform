@@ -14,7 +14,7 @@ import { teamLoad } from "@/lib/team/load";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { mapRow, specFor } from "./mapRow";
 import { NOISE_RULES } from "./noise";
-import { compileUseCase, useCasesInStack } from "./rules";
+import { compileUseCase, stackUseCases } from "./rules";
 import { emptyTable, TABLE_NAMES } from "./tables";
 
 const roster = [{ role: "t1" }, { role: "t1" }, { role: "t2" }, { role: "t3" }, { role: "mgr" }];
@@ -116,7 +116,7 @@ describe("analytics rules against their use cases", () => {
     it(`${company} ${JSON.stringify(stack)}: the same rows`, () => {
       const c = corpus(company, stack);
       const env = { tables: c.tables, now: NOW };
-      for (const { uc, compiled } of useCasesInStack(company, stack)) {
+      for (const { uc, compiled } of stackUseCases(company, stack)) {
         const candidates = c.logs.filter(l => inKinds(uc, l));
         const expected = candidates.filter(l => matches(l.record, uc.match));
         const got: KqlRow[] = [];

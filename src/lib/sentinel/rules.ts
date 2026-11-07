@@ -8,7 +8,7 @@
  * A threshold rule is written the way a real scheduled rule is: a plain summarize. The window is the
  * rule's lookback, which the scheduler applies as the query's time range.
  */
-import { NATIVE_SOURCES, stackFor, useCasesFor, type Stack } from "@/lib/logs/native";
+import { NATIVE_SOURCES, stackFor, useCasesFor as casesForSource, type Stack } from "@/lib/logs/native";
 import type { Condition, SourceId, UseCase } from "@/lib/logs/native/types";
 import { tacticById, techniqueById } from "@/lib/mitre/attack";
 import { fieldOn, specFor, type FieldRef, type Spec } from "./mapRow";
@@ -262,11 +262,11 @@ function fromUseCase(uc: UseCase, c: CompiledRule): AnalyticsRule {
 const ALWAYS: SourceId[] = ["windows_security", "sysmon", "linux_auditd", "aws_cloudtrail", "aws_guardduty", "aws_vpcflow", "azure_activity", "gcp_audit", "m365"];
 
 /** The use cases that could fire under a stack: their source is in the stack and a real table holds them. */
-export function useCasesInStack(companyId: string, stack?: Stack): { uc: UseCase; compiled: CompiledRule }[] {
+export function stackUseCases(companyId: string, stack?: Stack): { uc: UseCase; compiled: CompiledRule }[] {
   const eff = stackFor(companyId, stack);
   const sources = new Set<SourceId>([...ALWAYS, ...(Object.values(eff) as SourceId[])]);
   const out: { uc: UseCase; compiled: CompiledRule }[] = [];
-  for (const uc of useCasesFor()) {
+  for (const uc of casesForSource()) {
     if (!sources.has(uc.sourceId)) continue;
     const c = compileUseCase(uc, eff.cloud);
     if (c) out.push({ uc, compiled: c });
@@ -275,5 +275,5 @@ export function useCasesInStack(companyId: string, stack?: Stack): { uc: UseCase
 }
 
 export function buildRules(companyId: string, stack?: Stack): AnalyticsRule[] {
-  return useCasesInStack(companyId, stack).map(x => fromUseCase(x.uc, x.compiled));
+  return stackUseCases(companyId, stack).map(x => fromUseCase(x.uc, x.compiled));
 }
