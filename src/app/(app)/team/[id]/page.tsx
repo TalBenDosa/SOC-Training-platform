@@ -1063,7 +1063,7 @@ export default function TeamRoomPage() {
   // can open. They light up the "Investigate in EDR" button above the feed with a count, and a
   // NEW one pops a short corner notice (like the single-user dashboard's EDR button). An alert is
   // what the analyst's own EDR would raise, so this leaks no verdict.
-  const sentinelIncidents = useSentinelIncidents(isSentinel && phase !== "lobby", feed, session);
+  const sentinelIncidents = useSentinelIncidents(isSentinel && phase !== "lobby", feed, events, session);
   sentinelIncidentFor.current = host => (host ? sentinelIncidents.find(i => i.hosts.includes(hostKey(host))) : sentinelIncidents[sentinelIncidents.length - 1])?.id;
   const edrAlerts = useMemo(() => isSentinel ? sentinelIncidents.map(i => ({ seq: i.number, host: i.title, title: i.title })) : feed.flatMap(e => {
     const p = e.payload as { source?: unknown; is_detection?: unknown; event_type?: unknown; hostname?: unknown; description?: unknown };

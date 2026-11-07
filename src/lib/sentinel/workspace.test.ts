@@ -10,7 +10,7 @@ import { teamLoad } from "@/lib/team/load";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { EntityBook } from "./entities";
 import { columnType, TABLE_NAMES, TABLE_SCHEMAS } from "./tables";
-import { buildWorkspace, isProductDetection, type SentinelWorkspaceBuild } from "./workspace";
+import { buildWorkspace, isProductDetection, type SentinelWorkspaceBuild, warrantsInvestigation } from "./workspace";
 
 const COMPANIES = ["nexacorp", "medcore", "rocketstack", "globallogis", "quantumbank"];
 const DIFFS = ["easy", "medium", "hard"] as const;
@@ -160,9 +160,10 @@ describe("the existence of an incident does not reveal the attack", () => {
     for (const [tac, t] of Object.entries(tactics)) if (t.attack >= 5) expect(t.benign, tac).toBeGreaterThan(0);
   });
 
-  it("most attack stories raise an incident", () => {
+  // The rest reach Sentinel when an analyst escalates them, tested below.
+  it("most attack stories raise an incident on their own", () => {
     console.log(`[coverage] ${covered}/${stories}`);
-    expect(covered / stories).toBeGreaterThan(0.9);
+    expect(covered / stories).toBeGreaterThan(0.85);
   });
 
   it("every story in the pools raises an incident", () => {
@@ -306,6 +307,40 @@ describe("alerts and incidents", () => {
     const ws = buildWorkspace(events, { companyId: "nexacorp" });
     const ids = new Set(ws.rules.map(r => r.id));
     for (const a of ws.alerts) if (a.ruleId) expect(ids.has(a.ruleId), a.ruleId).toBe(true);
+  });
+});
+
+describe("incidents are for deep investigation", () => {
+  it("opens one for linked alerts, or a serious alert with activity around it, and not for a lone alert", () => {
+    expect(warrantsInvestigation(2, "Low", 0)).toBe(true);
+    expect(warrantsInvestigation(1, "High", 3)).toBe(true);
+    expect(warrantsInvestigation(1, "High", 2)).toBe(false);
+    expect(warrantsInvestigation(1, "Medium", 40)).toBe(false);
+    expect(warrantsInvestigation(1, "Low", 40)).toBe(false);
+    expect(warrantsInvestigation(1, "Low", 0, ["CommandAndControl"])).toBe(true);
+  });
+
+  it("an alert that opens no incident stays in SecurityAlert for KQL", () => {
+    const { events } = session("nexacorp", "hard", "deep-1");
+    const ws = buildWorkspace(events, { companyId: "nexacorp" });
+    const inIncident = new Set(ws.incidents.flatMap(i => i.alertIds));
+    expect(ws.alerts.some(a => !inIncident.has(a.id))).toBe(true);
+    expect(ws.tables.SecurityAlert.rows.length).toBe(ws.alerts.length);
+    expect(ws.tables.SecurityIncident.rows.length).toBe(ws.incidents.length);
+  });
+
+  it("an escalated log opens an incident even when no rule raised it", () => {
+    const { events } = session("nexacorp", "hard", "deep-2");
+    const plain = buildWorkspace(events, { companyId: "nexacorp" });
+    const raised = new Set(Object.values(plain.alertEventIds).flat());
+    const quiet = events.find(e => !raised.has(e.id) && plain.tables.DeviceProcessEvents.rows.length > 0);
+    expect(quiet).toBeTruthy();
+    const ws = buildWorkspace(events, { companyId: "nexacorp", escalated: [{ eventId: quiet!.id, summary: "Tier-1 wants a second look" }] });
+    const opened = ws.incidents.find(i => i.alertIds.some(a => (ws.alertEventIds[a] ?? []).includes(quiet!.id)));
+    expect(opened).toBeTruthy();
+    expect(ws.alerts.some(a => a.description === "Tier-1 wants a second look")).toBe(true);
+    // Everything that was there before keeps its number.
+    for (const i of plain.incidents) expect(ws.incidents.find(x => x.id === i.id)?.number ?? i.number).toBe(i.number);
   });
 });
 

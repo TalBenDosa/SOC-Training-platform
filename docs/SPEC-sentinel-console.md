@@ -31,6 +31,7 @@ Contract: `src/lib/kql/types.ts`, `src/lib/sentinel/types.ts`.
 - The workspace holds only what has reached the feed so far. A query can never see the future of the exercise.
 - No answer data, ever: the input is the public payload. The console never reads session_injects.
 - An incident must not mean "this is the attack". Benign activity raises incidents too, as real rules do.
+- Sentinel is for deep investigation (owner, 2026-11-07). An incident opens only for linked alerts, for one high-severity alert with activity around it, for command-and-control or impact alerts, or when an analyst escalates a log. Any other alert stays a SecurityAlert row. Every released log stays queryable in KQL.
 - Every table and column exists in the real product. Sources: Azure Monitor table reference, Defender XDR advanced hunting schema.
 - Documentation IPs and fictional names only, as everywhere on the platform. No Microsoft logo or trademarked icon. The word Sentinel is used because the owner asked for it by name.
 - English UI, no em dashes.

@@ -1,4 +1,5 @@
 import type { Stack } from "@/lib/logs/native/stack";
+import type { Ev } from "@/lib/team/types";
 
 /**
  * Where a Team Training session investigates: the EDR console, or Microsoft Sentinel.
@@ -18,6 +19,14 @@ export function sanitizeConsole(input: unknown): InvestigationConsole {
 /** The session's console (team_sessions.config.console). Every session made before this feature reads as "edr". */
 export function consoleFromConfig(config: unknown): InvestigationConsole {
   return sanitizeConsole((config as { console?: unknown } | null)?.console);
+}
+
+/** What analysts escalated, for the workspace: each opens a Sentinel incident. */
+export function escalatedCases(events: Ev[]): { eventId: string; summary?: string }[] {
+  return events.filter(e => e.type === "escalation.requested").map(e => {
+    const p = e.payload as { event_id?: unknown; summary?: unknown };
+    return { eventId: String(p.event_id ?? ""), summary: typeof p.summary === "string" ? p.summary : undefined };
+  }).filter(c => c.eventId);
 }
 
 /**

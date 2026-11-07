@@ -9,12 +9,13 @@ import { useTeamIsolation } from "@/lib/team/useTeamIsolation";
 import { friendlyActionError } from "@/lib/team/format";
 import { buildWorkspace } from "@/lib/sentinel/workspace";
 import { foldIncidentState } from "@/lib/sentinel/state";
+import { escalatedCases } from "@/lib/team/investigationConsole";
 import type { IncidentState, SentinelActions, SentinelBookmark, SentinelWorkspace } from "@/lib/sentinel/types";
 
 /** How often the console reads the session log. The team room's own reconcile uses the same pace. */
 export const SENTINEL_POLL_MS = 6_000;
 
-const LOG_TYPES = ["feed.event", "session.ended", "sentinel.incident_updated", "sentinel.comment_added", "sentinel.bookmark_added", "sentinel.task_set"];
+const LOG_TYPES = ["feed.event", "session.ended", "escalation.requested", "sentinel.incident_updated", "sentinel.comment_added", "sentinel.bookmark_added", "sentinel.task_set"];
 /** Fewer rows per read than the log can hold, so a long shift pages in rather than timing out. */
 const PAGE = 500;
 
@@ -84,11 +85,12 @@ export function useTeamSentinel(sessionId: string | null, role: string | null): 
   const companyId = session?.company_id;
   const feed = useMemo(() => events.filter(e => e.type === "feed.event"), [events]);
 
+  const escalationKey = JSON.stringify(escalatedCases(events));
   const workspace = useMemo(() => {
     if (!companyId) return null;
     const evs = feed.map(e => { const t = e.payload as unknown as TelemetryEvent; return e.occurred_at ? withRebasedTime(t, e.occurred_at) : t; });
-    return buildWorkspace(evs, { companyId, stack: JSON.parse(stackKey) as Stack, identity: domain && netbios ? { domain, netbios } : undefined, orgName: org });
-  }, [feed, companyId, stackKey, domain, netbios, org]);
+    return buildWorkspace(evs, { companyId, stack: JSON.parse(stackKey) as Stack, identity: domain && netbios ? { domain, netbios } : undefined, orgName: org, escalated: JSON.parse(escalationKey) });
+  }, [feed, companyId, stackKey, domain, netbios, org, escalationKey]);
 
   const log = useMemo(() => events.filter(e => e.type.startsWith("sentinel."))
     .map(e => ({ type: e.type, actor_name: nameOf(e.actor_id), payload: e.payload as unknown, occurred_at: e.occurred_at ?? "" })), [events, nameOf]);

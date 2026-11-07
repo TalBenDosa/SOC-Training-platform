@@ -29,6 +29,8 @@ export interface BuildOptions {
   identity?: NativeIdentity;
   /** The organization shown in the workspace name. */
   orgName?: string;
+  /** Cases an analyst escalated: each opens an incident, whatever the rules made of it. */
+  escalated?: { eventId: string; summary?: string }[];
 }
 
 /** What the build left out, for the report and the console's Data connectors view. */
@@ -186,6 +188,23 @@ function alertRow(a: Pending, entities: SentinelEntity[], tenantId: string, orgI
 const GROUP_WINDOW_MS = 5 * 3_600_000;
 /** A scheduled rule's run: the default five minutes. */
 const RULE_RUN_MS = 300_000;
+/** Below this many logs around its host or account, a single alert leaves nothing to investigate. */
+export const MIN_INVESTIGATION_LOGS = 3;
+const ALWAYS_REVIEWED = new Set(["CommandAndControl", "Impact"]);
+
+/**
+ * Sentinel is where the team investigates in depth (Tal, 2026-11-07), so an incident opens only when
+ * there is something to work: several alerts tied to one another, or one high-severity alert with
+ * activity around it to pull on, or one alert of a kind a SOC never leaves alone (command and control,
+ * impact). An analyst's escalation always opens one. Anything else stays a
+ * SecurityAlert row, which KQL can still reach. The test reads only what a real rule sees, never
+ * whether the activity is an attack.
+ */
+export function warrantsInvestigation(alertCount: number, severity: SentinelSeverity, logsAround: number, tactics: string[] = []): boolean {
+  if (alertCount >= 2 || tactics.some(t => ALWAYS_REVIEWED.has(t))) return true;
+  return severity === "High" && logsAround >= MIN_INVESTIGATION_LOGS;
+}
+
 const NUMBER_BASE = (companyId: string) => seededInt(`${companyId}:incident-base`, 2100, 8900);
 
 /** Entities that tie alerts together: people, machines, outside addresses, outside domains. An internal IP is shared infrastructure. */
@@ -370,6 +389,23 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
     }
   });
 
+  // An escalated log that no rule raised still reaches the team as an alert of its own.
+  const escalated = new Map((opts.escalated ?? []).map(c => [c.eventId, c.summary]));
+  const raisedEvents = new Set(pending.flatMap(p => p.entries.map(e => e.ev.id)));
+  for (const e of entries) {
+    if (!escalated.has(e.ev.id) || raisedEvents.has(e.ev.id)) continue;
+    const id = seededUuid(`${orgId}:escalated:${e.ev.id}`);
+    const ms = Date.parse(e.ev.ts);
+    const techniques = e.ev.mitre_technique ? [e.ev.mitre_technique] : [];
+    pending.push({
+      order: e.index * 1000 + 999, entries: [e], firstMs: ms, lastMs: ms, provider: SCHEDULED.provider,
+      alert: {
+        id, name: plain(`Escalated for investigation: ${e.ev.description ?? e.ev.event_type}`), severity: toSeverity(e.ev.severity), product: SCHEDULED.product,
+        description: plain(escalated.get(e.ev.id) || e.ev.description || "Escalated by an analyst."), time: e.ev.ts, tactics: tacticsOf(techniques), techniques, query: rowQuery(e, id),
+      },
+    });
+  }
+
   pending.sort((a, b) => a.order - b.order);
 
   // ── Entities and incidents ──────────────────────────────────────────────
@@ -381,12 +417,27 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
   });
   const alertOf = new Map(pending.map((p, i) => [p, alerts[i]]));
 
+  // Logs per host and per account, for how much there is to pull on around an alert.
+  const logsOf = new Map<string, number>();
+  for (const e of events) {
+    for (const k of [e.hostname, e.user?.email ?? e.user_email]) if (k) logsOf.set(k.toLowerCase(), (logsOf.get(k.toLowerCase()) ?? 0) + 1);
+  }
+
   const base = NUMBER_BASE(companyId);
-  const incidents: SentinelIncident[] = groupAlerts(pending, entities).map((b, i) => {
+  const incidents: SentinelIncident[] = [];
+  const numbers = new Set<number>();
+  groupAlerts(pending, entities).forEach(b => {
     const members = b.members.map(m => alertOf.get(m)!);
     const ids = [...new Set(members.flatMap(a => a.entityIds))];
     const ents = ids.map(id => entities[id]).filter(Boolean);
     const severity = members.reduce<SentinelSeverity>((s, a) => (SEV_RANK[a.severity] > SEV_RANK[s] ? a.severity : s), "Informational");
+    const logsAround = Math.max(0, ...ents.filter(e => e.kind === "host" || e.kind === "account").map(e => logsOf.get(e.name.toLowerCase()) ?? 0));
+    const wasEscalated = b.members.some(m => m.entries.some(e => escalated.has(e.ev.id)));
+    if (!wasEscalated && !warrantsInvestigation(members.length, severity, logsAround, [...new Set(members.flatMap(a => a.tactics))])) return;
+    // Numbered from the feed position of its first alert, so nothing that arrives later renumbers it.
+    let number = base + Math.floor(b.members[0].order / 1000);
+    while (numbers.has(number)) number++;
+    numbers.add(number);
     const title = incidentTitle(members, ents);
     const products = [...new Set(members.map(a => a.product))];
     const techniques = [...new Set(members.flatMap(a => a.techniques))];
@@ -396,7 +447,7 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
     const eventIds = new Set(b.members.flatMap(m => m.entries.map(e => e.ev.id)));
     const distinctQueries = [...new Set(members.map(a => a.query))];
     const incident: SentinelIncident = {
-      number: base + i, id: seededUuid(`${orgId}:incident:${members[0].id}`), title, severity, created, lastUpdate, alertIds: members.map(a => a.id), entityIds: ids, tactics, techniques, products,
+      number, id: seededUuid(`${orgId}:incident:${members[0].id}`), title, severity, created, lastUpdate, alertIds: members.map(a => a.id), entityIds: ids, tactics, techniques, products,
       description: members.length === 1 ? members[0].description : `${members.length} alerts from ${products.length} ${products.length === 1 ? "product" : "products"} share ${ents.slice(0, 3).map(e => e.name).join(", ")}.`,
       eventCount: eventIds.size,
       eventsQuery: distinctQueries.length === 1 ? distinctQueries[0] : `union\n${distinctQueries.map(q => `(${q.replace(/\n/g, "\n  ")})`).join(",\n")}`,
@@ -409,7 +460,7 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
       IncidentUrl: `https://portal.azure.com/#asset/Microsoft_Azure_Security_Insights/Incident/subscriptions/${seededUuid(`${orgId}:sub`)}/resourceGroups/rg-${orgId}-sentinel/providers/Microsoft.OperationalInsights/workspaces/${orgId}-sentinel-prod/providers/Microsoft.SecurityInsights/Incidents/${incident.id}`,
       SourceSystem: "Azure",
     });
-    return incident;
+    incidents.push(incident);
   });
 
   const alertEventIds = Object.fromEntries(pending.map((p, i) => [alerts[i].id, p.entries.map(e => e.ev.id)]));
