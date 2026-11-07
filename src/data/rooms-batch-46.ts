@@ -112,7 +112,7 @@ const sgOpenEvent: TelemetryEvent = {
   "severity": "critical",
   "src_ip": "203.0.113.147",
   "geo": { "country": "Netherlands", "city": "Amsterdam" },
-  "description": "The security group attached to NexaCorp's production database subnet received a new inbound rule sixteen minutes after the ec2-webapp-role identity was last seen making an IAM policy change, opening TCP port 3389 to the full 0.0.0.0/0 address range.",
+  "description": "The security group attached to NexaCorp's production database subnet received a new inbound rule.",
   "mitre_technique": "T1686.001",
   "mitre_tactic": "Defense Impairment",
   "raw": {
@@ -362,11 +362,11 @@ const cloudAttackerDefenseEvasionRoom = {
       "type": "ordering" as const,
       "id": "cad-o1",
       "heading": "Order the Chain: Inside a Compromised Tenant",
-      "instructions": "Place these five stages of this room's attacker chain in the order a real intrusion typically performs them, from gaining a more privileged identity to locking legitimate administrators out.",
+      "instructions": "Place these five stages of this room's attacker chain in the order a real intrusion typically performs them.",
       "items": [
         {
           "id": "step-privesc",
-          "text": "Exploit a vulnerability in a workload or container runtime to escape to the host and gain a more privileged cloud identity than the one the attacker started with (T1068 exploit, T1611 Escape to Host, Privilege Escalation)"
+          "text": "Exploit a vulnerability in a workload or container runtime to escape to the host and take over the cloud identity there (T1068 exploit, T1611 Escape to Host, Privilege Escalation)"
         },
         {
           "id": "step-firewall",
@@ -374,15 +374,15 @@ const cloudAttackerDefenseEvasionRoom = {
         },
         {
           "id": "step-instance",
-          "text": "Launch a new compute instance, attached to the newly-opened security group, that answers only to the attacker (T1578.002, Defense Impairment)"
+          "text": "Launch a new compute instance that answers only to the attacker (T1578.002, Defense Impairment)"
         },
         {
           "id": "step-snapshot",
-          "text": "Once that independent instance is running, create a snapshot of a valuable volume and share it directly to an attacker-controlled AWS account (T1578.001 Defense Impairment, then T1537 Exfiltration)"
+          "text": "Create a snapshot of a valuable volume and share it directly to an attacker-controlled AWS account (T1578.001 Defense Impairment, then T1537 Exfiltration)"
         },
         {
           "id": "step-lockout",
-          "text": "Remove every legitimate administrator's account access, ending the intrusion destructively (T1531, Impact)"
+          "text": "Remove every legitimate administrator's account access (T1531, Impact)"
         }
       ],
       "correct_order": [
@@ -392,7 +392,7 @@ const cloudAttackerDefenseEvasionRoom = {
         "step-snapshot",
         "step-lockout"
       ],
-      "explanation": "This is the typical order this room's reading on putting the chain together walked (typical, not a rigid law: a snapshot can be shared without any new instance, so the item text here fixes the instance first): privilege escalation (T1068, with the breakout itself T1611) is what typically hands the attacker enough permission to touch security groups and IAM at all; opening the firewall (T1686.001) removes the network obstacle standing between the attacker's own infrastructure and the tenant; launching an independent instance (T1578.002) gives the attacker infrastructure that answers only to them, attached to the group just opened; creating and sharing a snapshot (T1578.001, then T1537) moves valuable data out without crossing a monitored perimeter; and removing administrator access (T1531) is the final, most visible act, reserved for the end of an intrusion because it is the step guaranteed to be noticed immediately and to end the organisation's own ability to respond to everything that came before it.",
+      "explanation": "This is the typical order this room's reading on putting the chain together walked (typical, not a rigid law: a real intrusion can skip or reorder steps, but this is the sequence that reading gives): privilege escalation (T1068, with the breakout itself T1611) is what typically hands the attacker enough permission to touch security groups and IAM at all; opening the firewall (T1686.001) removes the network obstacle standing between the attacker's own infrastructure and the tenant; launching an independent instance (T1578.002) gives the attacker infrastructure that answers only to them, attached to the group just opened; creating and sharing a snapshot (T1578.001, then T1537) moves valuable data out without crossing a monitored perimeter; and removing administrator access (T1531) is the final, most visible act, reserved for the end of an intrusion because it is the step guaranteed to be noticed immediately and to end the organisation's own ability to respond to everything that came before it.",
       "xp": 25
     },
     {
@@ -417,7 +417,7 @@ const cloudAttackerDefenseEvasionRoom = {
       "type": "log_analysis" as const,
       "id": "cad-la1",
       "heading": "Investigate: A Security Group Opened to the Entire Internet",
-      "context": "You are triaging NexaCorp's CloudTrail stream. Earlier this shift, the ec2-webapp-role identity: the same role compromised via stolen EC2 Instance Metadata Service credentials and used to attach a new, highly permissive IAM policy version to itself, made another API call, this time against EC2 rather than IAM. The event below is that call.",
+      "context": "You are triaging NexaCorp's CloudTrail stream. Your shift log already holds one open item: at 02:31 UTC the ec2-webapp-role identity, compromised via stolen EC2 Instance Metadata Service credentials, attached a new, highly permissive IAM policy version to itself. The event below reached the stream next.",
       "event": sgOpenEvent,
       "questions": [
         {
@@ -436,12 +436,12 @@ const cloudAttackerDefenseEvasionRoom = {
           "question": "Given this room's investigation workflow, what is the strongest reason to treat this specific event as connected to a larger incident rather than an isolated security-group change?",
           "options": [
             "The call came from aws-cli rather than Terraform, the tool this organisation uses for infrastructure changes",
-            "The same ec2-webapp-role session was already tied to an unexplained IAM policy change minutes earlier",
+            "The same ec2-webapp-role identity had already changed its own IAM policy minutes earlier",
             "Port 3389 on a database subnet's group has no business reason, which marks the change as part of an attack",
             "It landed at 02:47 UTC, outside business hours, when no engineer would normally be changing groups"
           ],
           "answer": 1,
-          "explanation": "The room's chain reading is built on this correlation: a security-group change (T1686.001) means most when you know what the same identity did just before it, and the context says this ec2-webapp-role session had already attached a new, highly permissive policy version to itself. That link (same identity, minutes apart) is concrete evidence of one intrusion, not a property of this event alone. “aws-cli rather than Terraform” treats the client tool as evidence, but engineers still use the CLI alongside infrastructure-as-code; the room's detection-craft reading treats the identity, documentation, consistency and scope as the deciding checks, not the client tool. “Port 3389 … has no business reason” overclaims: RDP is common in legitimate administration, which is exactly why attackers target it. “Outside business hours” is weak on its own: global teams, on-call engineers and automation all work at 02:47 UTC.",
+          "explanation": "The room's chain reading is built on this correlation: a security-group change (T1686.001) means most when you know what the same identity did just before it, and the shift log says this ec2-webapp-role identity had already attached a new, highly permissive policy version to itself. That link (same identity, minutes apart) is concrete evidence of one intrusion, not a property of this event alone. “aws-cli rather than Terraform” treats the client tool as evidence, but engineers still use the CLI alongside infrastructure-as-code; the room's detection-craft reading treats the identity, documentation, consistency and scope as the deciding checks, not the client tool. “Port 3389 … has no business reason” overclaims: RDP is common in legitimate administration, which is exactly why attackers target it. “Outside business hours” is weak on its own: global teams, on-call engineers and automation all work at 02:47 UTC.",
           "xp": 20
         }
       ]

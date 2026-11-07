@@ -189,32 +189,32 @@ const rooms = [
         type: "matching" as const,
         id: "ucd-m1",
         heading: "Match the Observable Behavior to its ATT&CK Technique",
-        instructions: "A well-built use case starts with an observable behavior and maps it to an ATT&CK technique. Match each detection observable on the left to the correct ATT&CK technique ID and name on the right.",
+        instructions: "A well-built use case starts with an observable behavior and maps it to an ATT&CK technique. Match each detection observable on the left to the correct ATT&CK technique ID on the right.",
         pairs: [
           {
             id: "ps_enc",
             left: "PowerShell launched with Base64 argument (-enc or -EncodedCommand)",
-            right: "T1027.010, Obfuscated Files or Information: Command Obfuscation",
+            right: "T1027.010",
           },
           {
             id: "lsass",
             left: "Process opening a full-access handle to LSASS.exe memory (GrantedAccess 0x1FFFFF = PROCESS_ALL_ACCESS)",
-            right: "T1003.001, OS Credential Dumping: LSASS Memory",
+            right: "T1003.001",
           },
           {
             id: "spray",
             left: "Single password attempted against 50+ different accounts within 10 minutes",
-            right: "T1110.003, Brute Force: Password Spraying",
+            right: "T1110.003",
           },
           {
             id: "sched",
             left: "New scheduled task created with action path inside %TEMP% or %APPDATA%",
-            right: "T1053.005, Scheduled Task/Job: Scheduled Task",
+            right: "T1053.005",
           },
           {
             id: "beacon",
             left: "Outbound HTTPS to same destination every 4-5 minutes with tiny payload size",
-            right: "T1071.001, Application Layer Protocol: Web Protocols (C2)",
+            right: "T1071.001",
           },
         ],
         explanation: "Mapping observables to ATT&CK techniques is the foundation of use case development. A good use case starts with 'what can I actually see in logs?' and maps that observable to ATT&CK. This matters because: (1) it tells you whether you have log coverage for that technique; (2) it enables MITRE ATT&CK Navigator heatmaps showing your detection gaps; (3) it provides standardized language for reporting across teams. The mapping is not always 1:1: some techniques (like T1059 Command and Scripting Interpreter) appear in dozens of use cases depending on the specific command interpreter used. The encoded-PowerShell observable is an example: the obfuscation itself maps to T1027.010, while the same use case (UC-ENDPOINT-0089 in the log analysis) is also tagged T1059.001 for the PowerShell execution it rides on, both tags are correct.",
@@ -444,16 +444,16 @@ const rooms = [
           `2. **Technical Appendix**: Full details for security staff, timeline, IOCs, forensic findings, log evidence.\n\n` +
           `The cardinal rule: **never bury the key finding.** Put the most important information first. An executive who reads only the first paragraph should still understand the severity of the situation.`,
         checkpoint: {
-          question: "According to the reading, what does MTTD (Mean Time to Detect) measure?",
+          question: "According to the reading, what does MTTD measure?",
           options: [
-            "How long from when an alert is detected until the incident is fully contained",
-            "How long, on average, from when an attack begins until the SOC detects it",
-            "How many alerts the SIEM generates per day",
-            "The percentage of alerts that turn out to be false positives",
+            "The average time from an alert firing to an analyst first opening it",
+            "The average time from an attack beginning to the SOC spotting it",
+            "The average time from detection to the first containment action",
+            "The average time from detection to the incident being fully closed",
           ],
           answer: 1,
           explanation:
-            "MTTD measures the time from when an attack actually begins until the SOC detects it. MTTR (Mean Time to Respond) is the separate metric covering the time from detection to the first containment action.",
+            "MTTD, Mean Time to Detect, measures the time from when an attack actually begins until the SOC detects it. MTTR covers what comes after detection: the first containment action, or full closure under the Mean Time to Resolve definition. The gap between an alert firing and an analyst opening it is a different measure again, because it starts at the alert, not at the attack.",
         },
       },
       // ── Question 3 ────────────────────────────────────────────────────────
@@ -1033,16 +1033,16 @@ const rooms = [
         type: "question",
         id: "esc-q1",
         question:
-          "A Tier 1 analyst receives an alert about a single failed login attempt on a user account. The analyst checks the playbook: this is a known false positive pattern during the company's morning VPN authentication (many users retry once if they mistype their password). What should the analyst do?",
+          "A Tier 1 analyst receives an alert about a single failed login attempt on a user account at 08:05. The playbook for this alert says that during the morning VPN rush many users mistype a password and retry once, and the log shows this user's retry succeeded. What should the analyst do?",
         options: [
           "Escalate to Tier 2, since any failed login could be the first event of a brute-force attack",
           "Escalate to Tier 3 for a forensic check that rules out account takeover before closure",
-          "Document that it matches the playbook's known pattern and close it as a false positive",
+          "Note the playbook match in the ticket and close the alert yourself",
           "Ask the user to confirm the attempt was theirs, and keep the ticket open until they reply",
         ],
         answer: 2,
         explanation:
-          "A single failed login that matches a false-positive pattern documented in the playbook is a “when NOT to escalate” case: Tier 1 documents the match and closes it. Escalating to Tier 2 on a single failure is over-escalation; a brute-force pattern would show many failures, not one retry. Tier 3 handles major incidents and hunting, not routine triage. Contacting the user adds delay and an open ticket for a pattern the playbook already explains.",
+          "A single failed login that matches a pattern the playbook already explains is a “when NOT to escalate” case: Tier 1 documents the match and closes it. Escalating to Tier 2 on a single failure is over-escalation; a brute-force pattern would show many failures, not one retry. Tier 3 handles major incidents and hunting, not routine triage. Contacting the user adds delay and an open ticket for a pattern the playbook already explains.",
         xp: 15,
       },
       // ── Reading 2 ─────────────────────────────────────────────────────────
@@ -1084,11 +1084,11 @@ const rooms = [
           `**Escalation Bridges for Major Incidents**\n\n` +
           `For P1 incidents affecting many systems, an **escalation bridge** (a conference call or video meeting with all stakeholders) may be established. All relevant parties join: the SOC Tier 2/3 lead, the client's security team, IT operations, and sometimes legal and executive stakeholders. The bridge allows real-time coordination during the chaos of a major incident. Think of it as a war room: everyone in the same (virtual) room, working the problem together.`,
         checkpoint: {
-          question: "According to the reading, what is the correct action when you are uncertain about an alert but have not yet completed the investigation steps in your playbook?",
+          question: "Ten minutes into a playbook, you are unsure about an alert and would feel safer if Tier 2 took it. According to the reading, what should you do?",
           options: [
-            "Escalate to Tier 2 right away, since an uncertain alert is safer in more experienced hands",
+            "Escalate now, since an uncertain alert is safer in more experienced hands",
             "Close it as benign with a short note, since an unconfirmed alert does not justify a ticket",
-            "Work through the playbook's investigation steps first, then decide whether to escalate",
+            "Finish the remaining steps yourself, then decide from what they show",
             "Hand it to the next shift with your notes, so a fresh analyst can take a look at it",
           ],
           answer: 2,
@@ -1237,8 +1237,8 @@ const rooms = [
       {
         type: "analyst_choice" as const,
         id: "esc-ac1",
-        heading: "Verdict: Handle It Yourself or Escalate to Tier 2?",
-        scenario: "02:30 AM. You are a Tier-1 analyst on night shift. You confirmed active ransomware on 12 hosts at 02:22. File encryption is in progress. You have opened the incident ticket and matched the IOCs in threat intel. The EDR's automatic prevention policy has isolated 7 of the 12 hosts; 5 are still connected, and 3 more hosts just started showing the same pattern. The C2 address is still reachable. You are the only analyst on shift. Your Tier-2 on-call is reachable, but calling now means waking them at 2:30 AM; the day shift starts at 07:00. What is your verdict?",
+        heading: "Verdict: The 02:30 Night-Shift Case",
+        scenario: "02:30 AM. You are a Tier-1 analyst on night shift and the only analyst on duty. You have opened the incident ticket for this case and matched the IOCs in threat intel. The EDR's automatic prevention policy is acting on affected hosts, and the SOAR record below shows where things stand. Calling your Tier-2 on-call now would mean waking them at 2:30 AM; the day shift starts at 07:00. Read the record. What is your verdict?",
         event: {
           id: "evt-esc-ac-001",
           ts: "2026-06-21T02:30:44.000Z",
@@ -1248,7 +1248,7 @@ const rooms = [
           severity: "critical" as const,
           hostname: "SOAR-CONSOLE-01",
           user_email: "night-analyst@mssp.com",
-          description: "Active ransomware spreading: 12 confirmed hosts, 3 new, T1 solo analyst at 2:30 AM",
+          description: "SOAR incident record for the night-shift case, status at 02:30",
           mitre_technique: "T1486",
           mitre_tactic: "Impact",
           raw: {

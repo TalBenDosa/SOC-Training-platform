@@ -313,37 +313,37 @@ const tcpipDeepDiveRoom = {
       type: "matching" as const,
       id: "tcpip-m1",
       heading: "Match Each Scan Technique to Its Flag Pattern and Signature",
-      instructions: "Match each scan/probe technique to the flags it sends and what makes it recognizable in a flow log.",
+      instructions: "Match each scan/probe technique to what it sends and what makes it recognizable in a flow log.",
       pairs: [
         {
           id: "syn",
           left: "SYN scan (nmap -sS, half-open)",
-          right: "Sends only SYN, never completes the handshake; open replies SYN-ACK, closed replies RST,ACK, filtered gets no reply at all",
+          right: "Opens a handshake, then aborts with RST as soon as an open port answers, so the application never logs a session",
         },
         {
           id: "null",
           left: "NULL scan",
-          right: "Sends a segment with no flags set at all; relies on the RFC 793 quirk where an open port stays silent and a closed port replies RST",
+          right: "Every flag bit in the header is zero; relies on the RFC 793 quirk where an open port stays silent and a closed port replies RST",
         },
         {
           id: "fin",
           left: "FIN scan",
-          right: "Sends only the FIN flag with no prior SYN: a 'close' for a connection that was never opened; same silence-vs-RST logic as NULL",
+          right: "One flag that normally ends a session, sent with nothing opened before it; silence suggests open, RST suggests closed",
         },
         {
           id: "xmas",
           left: "XMAS scan",
-          right: "Sends FIN, PSH, and URG together ('lit up like a Christmas tree'); same underlying RFC 793 quirk as NULL and FIN scans",
+          right: "FIN, PSH and URG set in one segment; same RFC 793 silence-versus-RST logic, in a combination no real application sends",
         },
         {
           id: "ack",
           left: "ACK scan",
-          right: "Sends only ACK with no prior SYN; cannot determine open vs. closed, but maps which ports a stateful firewall's rules actually let through",
+          right: "Cannot tell open from closed; a reply of RST or silence shows which ports a stateful firewall lets through",
         },
         {
           id: "connect",
           left: "Full connect scan (nmap -sT)",
-          right: "Completes the entire real three-way handshake before closing; slower and more visible at the application layer, but needs no raw-socket privileges to run",
+          right: "Finishes every step of the handshake before closing; slower and louder in application logs, but needs no raw-socket privileges",
         },
       ],
       explanation:
@@ -733,7 +733,7 @@ const tcpipDeepDiveRoom = {
       heading: "Write It Yourself: Detect a Port Sweep in KQL",
       language: "kql",
       context: KQL_PRIMER +
-        "Using the pattern from Log Analysis 1 (one source touching many destination ports on one target, mostly ending in S0/no reply, within a short window), write the KQL that would surface this pattern across your whole network flow table, the way a detection engineer would before shipping it as a scheduled analytics rule. List the conn_state value(s) that mean the handshake never completed (S0 must be included; REJ and RSTOS0 are optional extras), pick a short time window (30 seconds to 10 minutes), and set a distinct-port threshold between 20 and 500, rounded to a multiple of 5.",
+        "Using the pattern from Log Analysis 1 (one source touching many destination ports on one target, most attempts never answered, within a short window), write the KQL that would surface this pattern across your whole network flow table, the way a detection engineer would before shipping it as a scheduled analytics rule. List the conn_state value for an attempt that got no reply (you may add the other values that show a handshake never completed), pick a short time window (30 seconds to 10 minutes), and set a distinct-port threshold between 20 and 500, rounded to a multiple of 5.",
       template:
         "NetworkFlowEvents\n| where ConnectionState in ({{states}})\n| summarize DistinctPorts = dcount(DestinationPort) by SourceIp, DestinationIp, bin(TimeGenerated, {{window}})\n| where DistinctPorts > {{threshold}}",
       blanks: [
@@ -760,7 +760,7 @@ const tcpipDeepDiveRoom = {
         vendor: "Corelight (Zeek)",
         event_type: "net_connection",
         severity: "low",
-        hostname: "LB-HEALTHCHECK",
+        hostname: "DMZ-LB-02",
         src_ip: "10.40.9.5",
         dst_ip: "10.40.5.21",
         dst_port: 443,
@@ -789,7 +789,7 @@ const tcpipDeepDiveRoom = {
       explanation:
         "This pattern is characteristic of an application load balancer's active health-check probe, not a scan. Every session completes a genuine, full three-way handshake and a real (if small) TLS-capable data exchange with each backend web server before closing: a scanner does not bother completing a real TLS-capable exchange with every target it touches. The RST-based teardown (conn_state RSTO) instead of a FIN is simply the load balancer's health-check client choosing to abort quickly after collecting the response it needed, rather than performing a full graceful close: a common, deliberate optimization in load-balancer health-check implementations, not a sign of malicious tooling. The fixed ~15-second recurrence across exactly the six known backend servers in the web farm (not a broad, expanding, or random set of hosts) is exactly the fingerprint of scheduled infrastructure monitoring. The rule was built to find scans and this traffic is not a scan, so the rule matched something it was not built to catch: a false positive. A benign true positive would need the rule to have caught a real scan that turned out to be authorised.",
       fp_trap:
-        "It's tempting to treat 'repeated RST-based connection teardowns at a fixed interval, hitting multiple hosts' as inherently scan-like or beacon-like, because both scans and beacons also produce repeating, small, regular connections. Session completeness alone does not separate them: a scan usually never completes the handshake, but an HTTPS C2 beacon DOES complete a full TLS session on every check-in, with the same small, regular shape seen here. The real discriminators are direction and destinations: a beacon calls OUT from an internal host to an external server, while here the source is the load balancer's health-check host (LB-HEALTHCHECK), the traffic is internal-to-internal, and the destinations are exactly the six known backend servers of the web farm it fronts. A known infrastructure source polling exactly its own backend pool on a fixed schedule is the signature of legitimate infrastructure monitoring, not reconnaissance or C2. Escalating this indiscriminately just because of the RST-based close and fixed timing produces exactly the kind of alert fatigue that causes real anomalies to get lost in the noise.",
+        "It's tempting to treat 'repeated RST-based connection teardowns at a fixed interval, hitting multiple hosts' as inherently scan-like or beacon-like, because both scans and beacons also produce repeating, small, regular connections. Session completeness alone does not separate them: a scan usually never completes the handshake, but an HTTPS C2 beacon DOES complete a full TLS session on every check-in, with the same small, regular shape seen here. The real discriminators are direction and destinations: a beacon calls OUT from an internal host to an external server, while here the source is a load balancer (DMZ-LB-02) running health checks, the traffic is internal-to-internal, and the destinations are exactly the six known backend servers of the web farm it fronts. A known infrastructure source polling exactly its own backend pool on a fixed schedule is the signature of legitimate infrastructure monitoring, not reconnaissance or C2. Escalating this indiscriminately just because of the RST-based close and fixed timing produces exactly the kind of alert fatigue that causes real anomalies to get lost in the noise.",
       xp: 30,
     },
 

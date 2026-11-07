@@ -266,14 +266,14 @@ const playbookExecutionRoom: Room = {
       checkpoint: {
         question: "Per Reading 1, what is the one thing a playbook cannot know when it's written?",
         options: [
-          "Which specific analyst on the current shift roster will ultimately be assigned to pick up and work the ticket once it is opened",
-          "Whether the situation actually in front of the analyst matches the assumption the playbook was written against",
-          "The exact local time zone in which the incident will actually be detected and subsequently opened as a ticket",
-          "Precisely how many individual numbered steps the finished procedure document should end up containing",
+          "What evidence to collect at each step, because that depends on the incident in hand",
+          "Whether the incident in front of the analyst fits the assumption behind it",
+          "What order to run the steps in, because the right order changes with each incident",
+          "Which record fields prove a sign-in happened, because those differ per incident",
         ],
         answer: 1,
         explanation:
-          "A playbook is written against an assumed situation before any specific incident occurs -- IR-014 assumes a single compromised account. It cannot know whether the incident actually in front of the analyst still matches that assumption; only the analyst, by checking, can determine that.",
+          "A playbook is written against an assumed situation before any specific incident occurs: IR-014 assumes a single compromised account. It cannot know whether the incident actually in front of the analyst still matches that assumption; only the analyst, by checking, can determine that. Order and evidence are exactly what a playbook does set down, and Reading 1 names the outcome fields that prove a sign-in happened.",
       },
     },
     // -----------------------------------------------------------------------
@@ -609,9 +609,9 @@ const playbookExecutionRoom: Room = {
       type: "flag",
       id: "pbk-f1",
       prompt:
-        "The single strongest piece of evidence in this room is the network identifier shared by all three sign-ins: the value that is identical across the a.brennan, t.okafor and m.devlin records and shows they came from one place. Enter the Autonomous System Number exactly as it appears in the AutonomousSystemNumber field.",
+        "The single strongest piece of evidence in this room is shared by all three sign-ins, a.brennan, t.okafor and m.devlin. One shared value is the exact address; another is the number of the whole network that address belongs to. Enter the network's number exactly as logged.",
       answer: "64506",
-      hint: "Open any of the three sign-in records and look for the AutonomousSystemNumber field, directly below IPAddress. It is the same number in all three: that is the point.",
+      hint: "Open any of the three sign-in records. An address has dots in it; the value you want is a plain number that sits beside it and is the same in all three.",
       xp: 25,
     },
   ],

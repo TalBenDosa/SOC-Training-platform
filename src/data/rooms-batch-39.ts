@@ -306,7 +306,7 @@ const esxiVirtualizationSecurityRoom = {
       id: "esxf-f1",
       event: permissionGrantEvent, // show the vcsa-04 permission-grant log this flag reads
       prompt:
-        "The danger in the vcsa-04 permission grant is its scope. To search vCenter for every other permission ever attached to that same inventory object, you would pivot on the object's managed-object reference (moref), vCenter's internal ID for it. Enter that moref.",
+        "The danger in the vcsa-04 permission grant is its scope. To search vCenter for every other permission ever attached to that same inventory object, you would pivot on vCenter's internal ID for the object rather than its display name. Enter that ID.",
       answer: "group-d1",
       hint: "A permission is attached to an entity; the principal is who receives it.",
       xp: 20,
@@ -344,7 +344,7 @@ const esxiVirtualizationSecurityRoom = {
     {
       type: "log_analysis" as const,
       id: "esxf-la2",
-      heading: "SSH, Off by Default, Suddenly On",
+      heading: "SSH Enabled on esx-prod-07",
       context:
         "Three minutes after the permission grant investigated above, the following event appeared in esx-prod-07's own host log.",
       event: sshEnabledEvent,
@@ -365,7 +365,7 @@ const esxiVirtualizationSecurityRoom = {
         },
         {
           question:
-            "Given that ESXi ships with SSH disabled by default, why does esx.audit.ssh.enabled carry such high confidence as a detection signal on its own, even before checking who triggered it?",
+            "Why does esx.audit.ssh.enabled carry such high confidence as a detection signal on its own, even before checking who triggered it?",
           options: [
             "SSH is off by default and hardening keeps it off outside planned work, so any enablement is a departure from the host's normal state",
             "Administrators manage hosts through vCenter rather than SSH, so an enablement is itself evidence that an unauthorised party is involved",

@@ -455,10 +455,10 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
       question:
         "A rule flags one source IP that tried a single common password against 60 different user accounts in ten minutes, hitting each account only once. Which MITRE ATT&CK sub-technique best matches this, and what sets it apart from its neighbours?",
       options: [
-        "T1110.001, Password Guessing: many candidate passwords aimed at one targeted account",
-        "T1110.004, Credential Stuffing: username and password pairs from prior breaches replayed",
-        "T1110.003, Password Spraying: one shared password spread across many accounts to dodge lockout",
-        "T1078, Valid Accounts: signing in with credentials the attacker already legitimately holds",
+        "T1110.001, Password Guessing: depth on a single target, trying password after password",
+        "T1110.004, Credential Stuffing: known pairs from earlier breaches replayed at the login",
+        "T1110.003, Password Spraying: breadth over depth, so no one account reaches its lockout",
+        "T1078, Valid Accounts: sign-ins with working credentials the attacker already holds",
       ],
       answer: 2,
       explanation:
@@ -891,8 +891,9 @@ If the test event appears: integration is working. If not: check the agent statu
     {
       type: "flag" as const,
       id: "log-src-flag1",
+      event: null,
       prompt:
-        "Parse the CEF message below. The firewall blocked a connection to a destination port on the internal server. Name the application-layer service that listens on that destination port by default: the service the external source was trying to reach.\n\n`CEF:0|Palo Alto Networks|PAN-OS|10.1|threat|general|7|rt=2025-06-24T14:32:11Z src=203.0.113.45 dst=10.0.1.50 spt=54321 dpt=22 proto=TCP act=block cs1=block-ssh-brute cs1Label=RuleName`\n\nEnter the service name.",
+        "Parse the CEF message below, a later record from the same firewall. It blocked a connection to a destination port on the internal server. Name the application-layer service that listens on that destination port by default: the service the external source was trying to reach.\n\n`CEF:0|Palo Alto Networks|PAN-OS|10.1|threat|general|7|rt=2025-06-24T14:41:52Z src=203.0.113.45 dst=10.0.1.50 spt=54388 dpt=22 proto=TCP act=block cs1=inbound-default-deny cs1Label=RuleName`\n\nEnter the service name.",
       answer: "SSH",
       hint: "First locate the destination port in the extension, then recall which well-known service listens on that port by default. The answer is a protocol, not a number.",
       xp: 50,
@@ -1218,16 +1219,16 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
       type: "question" as const,
       id: "m365-sec-q3",
       question:
-        "A SOC analyst is investigating a suspected account compromise. Which M365 audit log operation would help them determine if the attacker accessed thousands of emails to gather intelligence after the compromise?",
+        "A SOC analyst is investigating a suspected account compromise. Which M365 audit log operation would help them determine if the attacker read through thousands of emails to gather intelligence after the compromise?",
       options: [
-        "New-InboxRule: shows inbox rules the attacker created",
-        "MailItemsAccessed: records every mail item access, revealing mass email reading activity",
-        "FileDownloaded: shows files the attacker downloaded from SharePoint",
-        "Add member to role: shows privilege escalation",
+        "New-InboxRule: shows the rules a mailbox uses to filter and forward its mail",
+        "MailItemsAccessed: shows a client reaching mail, so an unusual volume stands out",
+        "Set-Mailbox: shows forwarding set at the mailbox level, copying mail outside",
+        "FileDownloaded: shows items pulled down from SharePoint and OneDrive",
       ],
       answer: 1,
       explanation:
-        "MailItemsAccessed records every access to mail items, including by REST API clients (which attackers often use to programmatically read email). Normally, a human reads maybe 50-100 emails per day. If MailItemsAccessed shows thousands of emails accessed within an hour by an API client from an unusual IP address, that's a strong indicator that an attacker is programmatically dumping the mailbox for intelligence. Note that since Microsoft's 2023 logging expansion, MailItemsAccessed is part of Audit (Standard) and is on by default for users with an E3/E5 license, but verify it per tenant before relying on it.",
+        "MailItemsAccessed records every access to mail items, including by REST API clients (which attackers often use to programmatically read email). Normally, a human reads maybe 50-100 emails per day. If MailItemsAccessed shows thousands of emails accessed within an hour by an API client from an unusual IP address, that's a strong indicator that an attacker is programmatically dumping the mailbox for intelligence. Note that since Microsoft's 2023 logging expansion, MailItemsAccessed is part of Audit (Standard) and is on by default for users with an E3/E5 license, but verify it per tenant before relying on it. New-InboxRule and Set-Mailbox record how mail is redirected, not what was read, and FileDownloaded covers SharePoint and OneDrive files, not mail.",
       xp: 30,
     },
 
@@ -1247,7 +1248,7 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
         user_email: "j.chen@corp.com",
         src_ip: "203.0.113.45",
         description:
-          "New inbox forwarding rule created: mail being forwarded to external address with deletion of originals",
+          "New inbox rule created on the j.chen@corp.com mailbox",
         mitre_technique: "T1114.003",
         vendor: "Microsoft 365 Unified Audit Log",
         raw: {
@@ -1285,14 +1286,14 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
           question:
             "This audit log shows a New-InboxRule was created by j.chen@corp.com. What two parameters make this rule particularly dangerous from a BEC perspective?",
           options: [
-            "The rule name is 'Archive' and the workload is Exchange",
-            "ForwardTo is an external ProtonMail address AND DeleteMessage is True. Mail silently leaves and vanishes",
-            "The IP address is unusual and the operation happened in the middle of the night",
-            "StopProcessingRules is True and the rule applies only to the Inbox folder",
+            "ForwardTo an outside ProtonMail address, and Force set to False",
+            "ForwardTo an outside ProtonMail address, and DeleteMessage set to True",
+            "DeleteMessage set to True, and the plain rule Name 'Archive'",
+            "AlwaysDeleteOutlookRulesBlob set to False, and Force set to False",
           ],
           answer: 1,
           explanation:
-            "The two most dangerous parameters are (1) ForwardTo: d.morrison1988@protonmail.com, a ProtonMail address (anonymous, external) suggests attacker control rather than legitimate business forwarding, and (2) DeleteMessage: True, the rule deletes the original email after forwarding, meaning the account owner won't see duplicates in their inbox and may not notice the compromise. Together, these create a silent interception of all incoming email. The unusual IP and timing are additional suspicious indicators but are secondary to the rule parameters themselves.",
+            "The two most dangerous parameters are (1) ForwardTo: d.morrison1988@protonmail.com, a ProtonMail address (anonymous, external) suggests attacker control rather than legitimate business forwarding, and (2) DeleteMessage: True, the rule deletes the original email after forwarding, meaning the account owner won't see duplicates in their inbox and may not notice the compromise. Together, these create a silent interception of all incoming email. Force and AlwaysDeleteOutlookRulesBlob only hide warning messages, and here both are False, so neither adds risk. A bland Name such as 'Archive' helps a rule go unnoticed, but it moves no mail. The unusual IP and timing are additional suspicious indicators but are secondary to the rule parameters themselves.",
           xp: 40,
         },
         {
@@ -1744,7 +1745,7 @@ A failed sign-in from a suspicious location does not close the case. Entra repor
     {
       type: "log_analysis" as const,
       id: "entra-la1",
-      heading: "Analyze This Entra ID Sign-In Log: Impossible Travel Alert",
+      heading: "Analyze This Entra ID Sign-In Log: High-Risk Failed Sign-In",
       context:
         "Entra ID Protection flagged this sign-in as High risk (the risk score lives in the Entra sign-in log, separate from this O365 audit record). This is the failed sign-in record for ceo@corp.com. For context, the same account had a successful, routine sign-in from New York, NY at 07:55 UTC, about 38 minutes before the event below. Examine the record and answer the investigation questions.",
       event: {
@@ -1783,12 +1784,12 @@ A failed sign-in from a suspicious location does not close the case. Entra repor
       questions: [
         {
           question:
-            "Compare the location and timing of this sign-in with the earlier one noted in the context. Which Entra ID Protection risk detection type do those two events, taken together, most directly indicate?",
+            "Read this sign-in alongside the earlier one noted in the context. Which Entra ID Protection risk detection type do those two events, taken together, most directly indicate?",
           options: [
-            "Leaked credentials: Microsoft matched this username and password against a known breach corpus or dark-web paste",
-            "Anonymous IP: the sign-in originates from a known Tor exit node or a public anonymization proxy service",
-            "Impossible travel: a New York sign-in then a Shanghai one 38 minutes later is too far apart to be the same traveller",
-            "Malware-linked IP: the source address appears on a threat-intelligence botnet command-and-control blocklist",
+            "Leaked credentials: Microsoft matched this username and password to a known breach",
+            "Anonymous IP: the source is a known Tor exit node or a public anonymizing proxy",
+            "Impossible travel: the gap between the two sign-ins rules out one person making both",
+            "Malware-linked IP: the source address is on a list of known botnet infrastructure",
           ],
           answer: 2,
           explanation:

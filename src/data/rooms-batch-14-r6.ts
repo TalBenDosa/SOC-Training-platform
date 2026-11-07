@@ -174,14 +174,14 @@ const soarRoom = {
       question:
         "Using the smoke detector / sprinkler analogy from this room, which statement correctly describes the relationship between a SIEM and a SOAR platform?",
       options: [
-        "SOAR supersedes the SIEM: once playbooks run, log correlation and alerting are redundant because the playbook logic performs the detection itself",
-        "The SIEM detects and raises the alert (the smoke detector); SOAR coordinates the workflow and response actions (the sprinkler and the fire-department call): complementary tools",
-        "SOAR is a dashboard layer over the SIEM's alerts that adds case views and reporting, but has no orchestration or response capability of its own",
-        "The SIEM mainly serves compliance reporting and audit retention, while SOAR performs the live correlation that decides which events become alerts"
+        "SOAR replaces the SIEM: the sprinkler does its own sensing, so log correlation is redundant once playbooks run",
+        "SOAR extends the SIEM: the detector still does the detecting, and the sprinkler acts on the alert it raises",
+        "SOAR is a second detector: a dashboard over the SIEM's alerts, with no means of taking action of its own",
+        "The roles run the other way: the SIEM is the sprinkler that acts, and SOAR is the detector that raises alerts"
       ],
       answer: 1,
       explanation:
-        "SIEM and SOAR play complementary, not competing, roles. The SIEM ingests and correlates logs to decide something is worth looking at (detection). SOAR takes what the SIEM found and automatically enriches it, coordinates a workflow across multiple tools, and can take response actions, with approval gates for anything high-risk. Neither tool replaces the other.",
+        "SIEM and SOAR play complementary, not competing, roles. The SIEM is the smoke detector: it ingests and correlates logs to decide something is worth looking at, so it is not replaced and the roles do not swap. SOAR is the sprinkler plus the call to the fire department: it takes what the SIEM found, enriches it, coordinates a workflow across multiple tools, and takes response actions, with approval gates for anything high-risk, so it is far more than a dashboard.",
       xp: 30,
     },
 
@@ -355,22 +355,22 @@ const soarRoom = {
         {
           id: "disable",
           left: "Disable user account",
-          right: "The identity provider flips the account to disabled, blocking new sign-ins. Sessions already issued need a separate revoke",
+          right: "The identity provider refuses new sign-ins for that identity. Sessions already issued need a separate revoke",
         },
         {
           id: "block",
           left: "Block IP address",
-          right: "The firewall or WAF adds a deny rule for a specific source IP, stopping further traffic from that address",
+          right: "The firewall or WAF adds a rule that stops further traffic from one specific source",
         },
         {
           id: "approval_gate",
           left: "Human approval gate",
-          right: "The playbook drafts a recommended high-impact action and pauses, waiting for a human analyst to click approve before the action actually executes",
+          right: "The playbook drafts a recommended high-impact action, then stops and waits for an analyst to say yes before anything executes",
         },
         {
           id: "case_mgmt",
           left: "Case management / ticketing integration",
-          right: "Every playbook run creates or updates an auditable case record and a matching ticket, capturing what fired, what was found, and who approved what",
+          right: "Every playbook run leaves an auditable history of each step, its results, and the people who signed off",
         },
       ],
       explanation:

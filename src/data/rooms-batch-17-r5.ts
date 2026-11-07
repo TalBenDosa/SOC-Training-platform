@@ -570,30 +570,30 @@ const emailRoom = {
       type: "flag" as const,
       id: "email-f1",
       prompt:
-        "In Log Analysis 1's Received chain, find the EARLIEST hop of the spoofed CFO message. What hostname did the connecting server claim for itself in that hop? Enter the full hostname.",
-      answer: "mail-relay-09.sv-notify-relay.example",
-      hint: "Work out which Received header was written first, then find the name that comes right after “from” in it: the self-announced name, not the receiving server.",
+        "In Log Analysis 1's Received chain, find the EARLIEST hop of the spoofed CFO message. Which server received the message at that hop and wrote that header? Enter the full hostname.",
+      answer: "sv-notify-relay.example",
+      hint: "Work out which Received header was written first. You want the server that wrote it, not the name the connecting side announced.",
       xp: 25,
     },
     // ── Query Fill: KQL against EmailEvents for domain/alignment mismatch ────
     {
       type: "query_fill" as const,
       id: "email-qf1",
-      heading: "Write It Yourself: Surface DMARC-Failing Mail Impersonating Internal Domains in KQL",
+      heading: "Write It Yourself: Surface Mail Impersonating Internal Domains in KQL",
       language: "kql",
       context: KQL_PRIMER +
-        "Note on this table: Defender XDR's EmailEvents has no separate SPF/DKIM/DMARC columns. All the verdicts live in one string column, AuthenticationDetails, holding JSON such as {\"SPF\":\"fail\",\"DKIM\":\"none\",\"DMARC\":\"fail\",\"CompAuth\":\"fail\"}. You unpack it with `extend AD = parse_json(AuthenticationDetails)` and then read each verdict as `tostring(AD.SPF)`, `tostring(AD.DKIM)` and so on (the values are lowercase: pass, fail, none…).\n\n" +
-        "Using the pattern from Log Analysis 1 (a message whose header From claims an internal solvix.example identity but fails SPF and DMARC), write the KQL a detection engineer would deploy to catch messages exactly like it.",
+        "Note on this table: Defender XDR's EmailEvents keeps two sender domains in separate columns: SenderFromDomain, the domain the recipient sees in their mail client, and SenderMailFromDomain, the domain SPF evaluates. It has no separate SPF/DKIM/DMARC columns. All the verdicts live in one string column, AuthenticationDetails, holding JSON such as {\"SPF\":\"fail\",\"DKIM\":\"none\",\"DMARC\":\"fail\",\"CompAuth\":\"fail\"}. You unpack it with `extend AD = parse_json(AuthenticationDetails)` and then read each verdict as `tostring(AD.SPF)`, `tostring(AD.DKIM)` and so on (the values are lowercase: pass, fail, none…).\n\n" +
+        "Using the pattern from Log Analysis 1 (a message whose header From claims an internal solvix.example identity but fails authentication), write the KQL a detection engineer would deploy to catch messages exactly like it.",
       template:
-        "EmailEvents\n| where SenderFromDomain =~ \"{{domain}}\"\n| extend AD = parse_json(AuthenticationDetails)\n| where tostring(AD.SPF) =~ \"{{spfresult}}\" or tostring(AD.DMARC) =~ \"{{dmarcresult}}\"\n| where tostring(AD.DKIM) !~ \"{{dkimresult}}\"",
+        "EmailEvents\n| where {{fromcolumn}} =~ \"solvix.example\"\n| extend AD = parse_json(AuthenticationDetails)\n| where tostring(AD.SPF) =~ \"{{spfresult}}\" or tostring(AD.{{alignverdict}}) =~ \"fail\"\n| where tostring(AD.DKIM) !~ \"{{dkimresult}}\"",
       blanks: [
-        { id: "domain", answers: ["solvix.example", "SOLVIX.EXAMPLE", "Solvix.example"], placeholder: "internal domain being impersonated" },
-        { id: "spfresult", answers: ["Fail", "fail", "FAIL"], placeholder: "SPF outcome to flag" },
-        { id: "dmarcresult", answers: ["Fail", "fail", "FAIL"], placeholder: "DMARC outcome to flag" },
-        { id: "dkimresult", answers: ["Pass", "pass", "PASS"], placeholder: "DKIM outcome that would clear the message" },
+        { id: "fromcolumn", answers: ["SenderFromDomain"], placeholder: "column to filter on" },
+        { id: "spfresult", answers: ["Fail", "fail", "FAIL"], placeholder: "SPF value seen in Log Analysis 1" },
+        { id: "alignverdict", answers: ["DMARC"], placeholder: "verdict that checks alignment with From" },
+        { id: "dkimresult", answers: ["Pass", "pass", "PASS"], placeholder: "DKIM value to exclude" },
       ],
       explanation:
-        "This mirrors exactly the case you investigated in Log Analysis 1: filter to messages whose header From claims your own protected internal domain, unpack the AuthenticationDetails JSON column (EmailEvents stores every SPF/DKIM/DMARC/CompAuth verdict there rather than in separate columns), then flag any that failed SPF or DMARC and did NOT independently pass DKIM either, since a genuine internal message would be expected to pass at least one of SPF or DKIM aligned to that domain. A message claiming to be from solvix.example that fails all three is exactly the spoofing pattern this query is designed to surface for review.",
+        "This mirrors exactly the case you investigated in Log Analysis 1. SenderFromDomain holds the header From domain, the one the recipient sees. SenderMailFromDomain holds the envelope sender's domain, which in Log Analysis 1 was sv-notify-relay.example, so filtering on it would never have found this message. The query then unpacks the AuthenticationDetails JSON column (EmailEvents stores every SPF/DKIM/DMARC/CompAuth verdict there rather than in separate columns) and flags anything that failed SPF or DMARC, the verdict that requires a pass aligned with the header From. Finally it drops messages that passed DKIM, since a genuine internal message would be expected to pass at least one of SPF or DKIM aligned to that domain. Log Analysis 1's message had spf=fail, dkim=none and dmarc=fail, so it is kept: exactly the spoofing pattern this query is designed to surface for review.",
       xp: 35,
     },
 

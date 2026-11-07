@@ -628,7 +628,7 @@ const webApplicationSecurityRoom: Room = {
       type: "question",
       id: "webapp-q3",
       question:
-        "A Larkfield customer, still logged into the support portal in one browser tab, opens a link in another tab to an unrelated raffle site. Moments later your WAF log shows a POST to /account/change-email arriving at the portal with a Referer header of https://win-a-prize.example/enter.html, and the portal's application log records that the request carried the customer's genuine, valid session but not the anti-CSRF token the change-email form normally includes. What does this pattern indicate, and how does it differ from an IDOR or a stored-XSS attack?",
+        "A Larkfield customer, still logged into the support portal in one browser tab, opens a link in another tab to an unrelated raffle site. Moments later your WAF log shows a POST to /account/change-email arriving at the portal with a Referer header of https://win-a-prize.example/enter.html, and the portal's application log records that the request carried the customer's genuine, valid session but not the random token the change-email form normally carries in a hidden field. What does this pattern indicate, and how does it differ from an IDOR or a stored-XSS attack?",
       options: [
         "Stored XSS: a script injected into the portal ran in the victim's browser, read the session cookie and forged the change-email request from inside Larkfield's own origin",
         "CSRF: the raffle page auto-submitted a hidden form, and the browser attached the victim's cookie by itself, so no script ever ran on Larkfield's site",

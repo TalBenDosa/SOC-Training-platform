@@ -847,14 +847,14 @@ const gcpRoom = {
         question:
           "You've confirmed a GCP service account key was stolen and used to call SetIamPolicy. What is the correct FIRST containment action, and why?",
         options: [
-          "Delete the service account entirely, so the attacker loses access immediately and permanently",
-          "Disable the specific compromised key with gcloud iam service-accounts keys disable, preserving it for evidence rather than deleting it outright",
-          "Wait until the full attack timeline is reconstructed before taking any action, to avoid tipping off the attacker",
-          "Rotate every service account key in the project at once, without first identifying which one was actually compromised",
+          "Delete the stolen key outright, so it can never authenticate again",
+          "Disable the stolen key, so it stops working but stays available to the investigation",
+          "Snapshot the project's disks, so evidence is safe before any credential changes",
+          "Rotate every key in the project at once, so no stolen key can be missed",
         ],
         answer: 1,
         explanation:
-          "Disabling the specific compromised key stops it from authenticating immediately while preserving it for the investigation. You can still list it, timestamp it, and tie it to specific malicious API calls in your incident report. Deleting the key or the whole service account is irreversible: it cannot be undone if a legitimate workload depended on it, and the key is no longer listable for inspection. Waiting for a full timeline leaves an active, working credential in the attacker's hands during containment, which defeats the purpose of containment. Rotating every key in the project at once is disruptive, breaks unrelated legitimate workloads, and isn't targeted at the actual compromised credential.",
+          "Disabling the specific compromised key stops it from authenticating immediately while preserving it for the investigation. You can still list it, timestamp it, and tie it to specific malicious API calls in your incident report. Deleting the key is irreversible: it cannot be undone if a legitimate workload depended on it, and the key is no longer listable for inspection. Snapshotting disks preserves evidence, but this room's order puts that after disabling and isolating: while you copy disks, the stolen key still works. Rotating every key in the project at once is disruptive, breaks unrelated legitimate workloads, and isn't targeted at the actual compromised credential.",
       },
     },
   ],

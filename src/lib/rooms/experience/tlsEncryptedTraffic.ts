@@ -22,7 +22,7 @@ import type { BriefingLab, RoomExperience } from "./types";
 // (r2 checkpoint, la2); the first-contact queue is a gateway, a jump host and a reporting server on
 // 9443 and 443, never a build server on 8443 (la2); the laptop's beacon is five minutes on
 // sync.ledgerfont.example at 203.0.113.118, never a 60-second one on 198.51.100.201, and negotiates
-// ECDHE AES-256-GCM, never RSA AES-128-CBC (la1, f1); the rule drill uses port 9443, a floor of 200
+// ECDHE AES-256-GCM, never RSA AES-128-CBC (la1); the rule drill uses port 9443, a floor of 200
 // and a ceiling of 40, outside every graded blank (qf1); the failing app is tokenvault.exe in a
 // treasury team and it shows why one failing app differs from a dead proxy CA (q3); the boss
 // drill's benign case is a sanctioned scanner touching an expired certificate in its booked window,

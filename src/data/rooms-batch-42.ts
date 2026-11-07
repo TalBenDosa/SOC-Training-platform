@@ -534,9 +534,9 @@ const discoveryEnumerationRoom = {
       type: "flag" as const,
       id: "disc-f1", logTask: "disc-la2",
       prompt:
-        "In the overnight API burst you investigated, the role's temporary credentials were used from somewhere its scheduled Lambda never runs. Enter the source IP address you would block and pivot on across CloudTrail to find everything else those credentials touched.",
-      answer: "203.0.113.62",
-      hint: "CloudTrail records where each API call came from, separately from the identity that made it.",
+        "In the overnight API burst you investigated, the role's temporary credentials were used from somewhere its scheduled Lambda never runs. Their session name stays the same wherever they are used. Enter that session name: pivoting on it across CloudTrail, not only on the source IP, shows whether those credentials were used from anywhere else.",
+      answer: "cost-report-generator",
+      hint: "An assumed-role ARN ends with the role name and then one more value, set when the credentials were issued.",
       xp: 15,
     },
   ],

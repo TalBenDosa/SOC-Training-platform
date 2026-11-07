@@ -32,7 +32,6 @@ const plinkReverseTunnelEvent: TelemetryEvent = {
     integrity: "medium",
   },
   dst_ip: "203.0.113.11",
-  dst_port: 443,
   protocol: "tcp",
   description:
     "SRV-APP12 spawned plink.exe, the PuTTY command-line SSH client, from a user Temp folder with a remote port-forward command line",

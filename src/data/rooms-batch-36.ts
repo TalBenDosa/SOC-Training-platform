@@ -265,14 +265,14 @@ const macosSecurityFundamentalsRoom = {
       checkpoint: {
         question: "A downloaded app is validly signed with a real Developer ID certificate but was never submitted for notarization. What does Gatekeeper do with it?",
         options: [
-          "It is treated identically to a Developer-ID-signed AND notarized app, since any valid Developer ID signature is enough on its own",
-          "It typically requires the user to explicitly override a warning before it will run, since notarization -- Apple's own malware scan -- is a separate step a valid signature alone does not satisfy",
-          "Gatekeeper always blocks it outright with no way for the user to proceed",
-          "The com.apple.quarantine attribute is automatically removed the moment a valid Developer ID signature is detected",
+          "It opens the app with no prompt, because a valid Developer ID signature is all Gatekeeper needs",
+          "It shows a warning the user must override, because notarization is a step beyond signing",
+          "It refuses to run the app, and the user has no way past the block on that Mac",
+          "It submits the app to Apple's scan at first launch and opens it once the scan comes back clean",
         ],
         answer: 1,
         explanation:
-          "Notarization is an additional step beyond signing -- Apple's own scan of the submitted app. A validly signed but non-notarized app sits in the middle tier: not silently trusted like a notarized app, not outright blocked like an unsigned one, but requiring the user to override a friction warning.",
+          "Notarization is an additional step beyond signing: the developer submits the app to Apple's automated scan before shipping it, and Gatekeeper does not do this at launch. A validly signed but non-notarized app sits in the middle tier: it does not open silently the way a notarized app does, and it is not a dead end, because the user can still override the warning and run it.",
       },
     },
     // ── Reading 4: code signing states ───────────────────────────────────────
@@ -346,30 +346,30 @@ const macosSecurityFundamentalsRoom = {
       questions: [
         {
           question:
-            "process.parent.code_signature for BatteryBoost Pro reads exists: true but trusted: false, with subject_name '-' and no certificate error -- an ad-hoc signature. Based on Reading 4, what does that tell you about this app's provenance?",
+            "process.parent.code_signature for BatteryBoost Pro reads exists: true but trusted: false, with subject_name '-' and no certificate error. Based on Reading 4, what does that tell you about this app's provenance?",
           options: [
-            "The app carries no real developer identity at all -- it is technically signed because macOS requires it, but the signature makes zero attribution claim and carries none of Apple's trust",
-            "The app was built by Apple itself and shipped as part of the operating system",
-            "The app's signature was revoked by Apple after being reported for abuse",
-            "Ad-hoc signing is simply an older, now-deprecated signing format with no bearing on trust one way or another",
+            "Developer ID signed, not yet notarized: a real developer built it and Apple has not scanned it",
+            "Revoked: Apple pulled its trust from a real developer's certificate after reports of abuse",
+            "Ad-hoc signed: it is signed only because macOS requires it, and no developer is named",
+            "Unsigned: the app carries no signature at all, which is why the subject name is a dash",
           ],
-          answer: 0,
+          answer: 2,
           explanation:
-            "Reading 4 covered exactly this state: ad-hoc signing satisfies macOS's technical requirement that every executable be signed, without asserting any real identity -- a subject name of a single dash means no developer or company is named at all. This is the overwhelmingly common state for malware distributed outside official channels. It is not an Apple-built binary, not a revoked-then-abused certificate (which would show a 'revoked' status, not 'adhoc'), and ad-hoc signing is not an obsolete format -- it is very much still relevant to trust today.",
+            "Reading 4 covered exactly this state: exists true and trusted false, with a subject name of a single dash and no certificate error, is an ad-hoc signature. It satisfies macOS's technical requirement that every executable be signed without asserting any real identity, and it is the overwhelmingly common state for malware distributed outside official channels. A Developer ID signature would carry a subject name identifying the developer. A revoked one would also name a real developer and carry a status error such as errSecCertificateRevoked. And an unsigned file would show exists: false, not true.",
           xp: 25,
         },
         {
           question:
-            "The osascript process itself shows code_signature.trusted: true with subject_name 'Software Signing'. Why doesn't that valid signature make this event benign?",
+            "The osascript process itself shows code_signature.trusted: true with subject_name 'Software Signing'. What does that valid signature tell you about this event?",
           options: [
-            "osascript and other Apple system binaries are validly signed on every invocation regardless of intent -- the signal is the ad-hoc parent and the credential-prompt command line, not osascript's signature",
-            "It does make the event benign -- a valid Apple signature on the running process is sufficient on its own to clear it without checking the parent or command line",
-            "The valid signature means Apple vetted this specific osascript invocation, so the command it was told to run was effectively pre-approved",
-            "osascript's valid signature extends to the script it executes, so a signed osascript cannot be carrying an attacker-supplied command",
+            "This copy of osascript was replaced, because 'Software Signing' is not a subject name Apple uses",
+            "Only that Apple built the binary, so the parent and command line have to carry the verdict",
+            "Apple has vetted BatteryBoost Pro too, since osascript only accepts commands from trusted parents",
+            "Apple checked the script in the command line, so the text it runs is known to be safe",
           ],
-          answer: 0,
+          answer: 1,
           explanation:
-            "osascript is a real, Apple-signed binary that will show 'valid' on every single invocation, whatever it was told to do -- Reading 4 named this exact trap. The signal that actually matters here is everything around the signature: an ad-hoc-signed parent process launched seconds earlier from a mounted disk image, spawning osascript with a command line that renders a credential-style prompt. Treating a valid Apple signature as enough to clear the event is precisely the reasoning error the reading warned against. Apple signs the osascript binary, not the AppleScript it is handed at runtime, so the signature does not mean the invocation was vetted or pre-approved. And that same signature does not extend to the script osascript executes -- a validly signed osascript runs whatever command line it is given, attacker-supplied or not, which is exactly why the command line, not the signature, carries the signal.",
+            "osascript is a real, Apple-signed binary that shows a trusted signature on every single invocation, whatever it was told to do: Reading 4 named this exact trap. The signature says Apple built the binary and nothing more, so the signal is everything around it: an ad-hoc-signed parent launched seconds earlier from a mounted disk image, spawning osascript with a command line that renders a credential-style prompt. 'Software Signing' is the subject name Reading 4 gives for Apple's own system binaries, so it is no sign of tampering. osascript does not vouch for its parent: BatteryBoost Pro's own fields show trusted: false. And Apple signs the osascript binary, not the AppleScript it is handed at runtime, so a validly signed osascript runs whatever command line it is given, attacker-supplied or not.",
           xp: 25,
         },
         {
@@ -402,14 +402,14 @@ const macosSecurityFundamentalsRoom = {
       checkpoint: {
         question: "Why is a phished macOS login password specifically valuable to an attacker, beyond simply letting them log in as the user?",
         options: [
-          "It has no special value beyond login access -- the Keychain uses a completely separate, unrelated password",
-          "By default, the login password is also what unlocks the user's login Keychain, so capturing it opens the door to every credential stored inside that Keychain as well",
-          "It automatically grants root privilege on the machine the moment it is captured",
-          "It disables Gatekeeper and code-signing checks system-wide once known",
+          "It matches the Keychain password only on Macs where the user chose to set the two alike",
+          "By default it also unlocks the login Keychain, so the credentials stored there open up",
+          "It decrypts Chrome's saved passwords directly, since Chrome uses it as its encryption key",
+          "It switches off Gatekeeper and code-signature checks as soon as it is known",
         ],
         answer: 1,
         explanation:
-          "The login Keychain is unlocked with the same password as the macOS login account by default. That's the whole reason a fake osascript password prompt is worth running before reaching for the Keychain -- one captured password unlocks a second, richer store.",
+          "The login Keychain is unlocked with the same password as the macOS login account by default, with no setup by the user. That's the whole reason a fake osascript password prompt is worth running before reaching for the Keychain: one captured password unlocks a second, richer store. Chrome's saved passwords are protected by a separate Safe Storage key kept inside the Keychain, not by the login password itself, so the Keychain is the step in between. And knowing the password does not by itself switch off Gatekeeper or code-signature checks.",
       },
     },
     // ── Reading 7: TCC ────────────────────────────────────────────────────────
@@ -436,44 +436,44 @@ const macosSecurityFundamentalsRoom = {
       questions: [
         {
           question:
-            "The process running sqlite3 in this event is 'root', and its parent is 'sh'. Given what Reading 2 taught about .pkg installers, where did this root shell most plausibly come from?",
+            "The process running sqlite3 in this event is 'root', and its parent is 'sh'. Based on Reading 2, where did this root shell most plausibly come from?",
           options: [
-            "SafeClean Utility's .pkg installer ran a preinstall or postinstall script, which macOS executes with root privilege as part of the install process itself",
-            "Lior must have manually opened Terminal and typed sudo before running this command herself",
-            "Falcon's own agent process launched this shell to perform a routine self-check of the privacy database",
-            "The parent 'sh' points to a scheduled cron job, since cron always runs its commands through a root shell on macOS",
+            "A privilege-escalation exploit inside the .pkg, since an installer only runs with the user's rights",
+            "A LaunchDaemon the .pkg dropped, which launchd started as root after the next reboot",
+            "A sudo command Lior typed in Terminal while she waited for the installer to finish",
+            "A preinstall or postinstall script in the .pkg, which macOS runs as root during the install",
           ],
-          answer: 0,
+          answer: 3,
           explanation:
-            "Reading 2 covered exactly this mechanism: installing a .pkg is itself a root-level operation, and its preinstall/postinstall scripts inherit that root privilege automatically -- no separate exploit or manual sudo needed. Nothing in the event suggests Lior opened Terminal and typed sudo herself, Falcon's agent does not spawn arbitrary shells against the privacy database, and there is no cron schedule in evidence -- a cron job would show a cron/launchd ancestry and a recurring cadence, neither of which appears here, whereas a .pkg install script fires once, during the install, which is exactly what the timeline shows.",
+            "Reading 2 covered exactly this mechanism: installing a .pkg is itself a root-level operation, and its preinstall/postinstall scripts inherit that root privilege automatically, so no separate exploit is needed. The event fired while the install was still running, so nothing was waiting for a reboot. And nothing in the event or the context suggests Lior opened Terminal and typed sudo, whereas a .pkg install script fires once, during the install, which is exactly what the timeline shows.",
           xp: 25,
         },
         {
           question:
             "The command inserts a row for kTCCServiceScreenCapture keyed to the com.safeclean.util bundle. Based on what TCC controls, what did this operation actually accomplish?",
           options: [
-            "It granted the SafeClean Utility app Screen Recording permission by writing the approval directly into the privacy database, without the user ever seeing or clicking a consent prompt",
-            "It permanently disabled Screen Recording for every application on the Mac, including legitimate ones",
-            "It only logged that Screen Recording had been requested; a separate step is still required before the permission actually takes effect",
-            "It reset all of the user's existing TCC permissions back to their default, unconfigured state",
+            "It gave SafeClean Full Disk Access, the grant this system-wide database is known for",
+            "It gave SafeClean Screen Recording permission, with no consent prompt ever shown",
+            "It queued a consent prompt, so Lior will be asked about Screen Recording at next launch",
+            "It reset SafeClean's permissions to unconfigured, the job tccutil does for administrators",
           ],
-          answer: 0,
+          answer: 1,
           explanation:
-            "TCC.db is where macOS stores exactly this kind of approval -- a row granting a specific bundle identifier a specific protected permission. Normally that row only appears after the user clicks Allow on a system consent prompt. Because this write came from a root process on a Mac with SIP disabled (see the TCC reading for why both matter), the row was inserted directly, and the app is now treated as approved for Screen Recording with no prompt ever shown. It disabled nothing globally, the row's presence is not a mere log entry pending a further step, and nothing here resets any other bundle's existing permissions.",
+            "TCC.db is where macOS stores exactly this kind of approval: a row tying a specific service identifier to a specific bundle identifier. Normally that row only appears after the user clicks Allow on a system consent prompt. Because this write came from a root process on a Mac with SIP disabled (see the TCC reading for why both matter), the row was inserted directly, and the app is now treated as approved for Screen Recording with no prompt ever shown. kTCCServiceScreenCapture names Screen Recording, not Full Disk Access: each service has its own identifier. The row is the approval itself, so there is no prompt still to come. And inserting an allow-row is the opposite of tccutil resetting a grant to unconfigured.",
           xp: 25,
         },
         {
           question:
             "Given everything in this event, what is the most important next investigative step?",
           options: [
-            "Check whether the com.safeclean.util bundle has been granted any OTHER protected TCC permissions the same way, and whether it has begun using Screen Recording to capture anything",
-            "Reset the user's macOS login password immediately, since a TCC.db write implies the password itself has been compromised",
-            "Assume the alert is a false positive, since sqlite3 is a legitimate, Apple-signed system tool",
-            "Take no further action, since Falcon only logged the file write and did not report the process as blocked",
+            "Reset Lior's login password, since a TCC.db write shows her password was phished",
+            "Reset the app's permissions with tccutil, then close the case as remediated",
+            "Check what else com.safeclean.util was granted this way, and whether it is recording yet",
+            "Confirm sqlite3's Apple signature, then close the event as routine system activity",
           ],
-          answer: 0,
+          answer: 2,
           explanation:
-            "A self-granted permission is a means to an end, not the end itself -- the natural next question is what the app does with that access, and whether it quietly granted itself others (Full Disk Access, Accessibility, Camera/Microphone) the same way. There is no evidence here of a compromised password, so resetting it misses the point -- TCC.db and login credentials are unrelated stores. sqlite3 being a legitimate, signed tool is exactly the living-off-the-land pattern Reading 4 warned against reasoning from the tool's own signature. And 'not blocked' describes Falcon's disposition on this one event, not whether the underlying activity needs a response.",
+            "A self-granted permission is a means to an end, not the end itself: the natural next question is what the app does with that access, and whether it quietly granted itself others (Full Disk Access, Accessibility, Camera/Microphone) the same way. There is no evidence here of a compromised password, and TCC.db and login credentials are unrelated stores, so a reset misses the point. Resetting the grant with tccutil and closing removes one row without ever finding out what else the app was given or has already captured. And sqlite3 being a legitimate, signed tool is exactly the living-off-the-land pattern: Reading 4 warned against reasoning from a tool's own signature.",
           xp: 30,
         },
       ],
@@ -515,14 +515,14 @@ const macosSecurityFundamentalsRoom = {
       checkpoint: {
         question: "An investigation finds a new plist file in /Library/LaunchDaemons pointing at an ad-hoc-signed binary. What does the LOCATION alone already prove about how it got there?",
         options: [
-          "Nothing -- any logged-in user can write into /Library/LaunchDaemons without special privilege",
-          "Whatever created it was already running with root privilege, since /Library/LaunchDaemons is not writable by an ordinary user account",
-          "It proves the binary itself is definitely malicious, regardless of any other evidence",
-          "It proves the item only runs when that specific user is logged in, exactly like a LaunchAgent",
+          "Any logged-in user could have placed it, since launchd reads that folder for every account",
+          "Whatever created it was already running as root, as an ordinary account cannot write there",
+          "The item runs only while the user who created it is logged in, the same as a LaunchAgent",
+          "The binary it points to is malware, because legitimate software avoids that folder",
         ],
         answer: 1,
         explanation:
-          "Writing into /Library/LaunchDaemons requires root -- ordinary user accounts cannot write there. So finding a new file in that specific directory is itself proof that whatever placed it already had root, before this persistence step happened at all.",
+          "Writing into /Library/LaunchDaemons requires root: ordinary user accounts cannot write there. So finding a new file in that specific directory is itself proof that whatever placed it already had root, before this persistence step happened at all. A LaunchDaemon runs as root at boot and is not tied to any logged-in user, which is the opposite of a LaunchAgent. And the location says who could have written the file, not whether it is malicious: that takes the target binary's signature and what it does.",
       },
     },
     // ── Question 4 ───────────────────────────────────────────────────────────

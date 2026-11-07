@@ -47,6 +47,7 @@ const kerberoastEvent: TelemetryEvent = {
     "event.code": "4769",
     "winlog.channel": "Security",
     "winlog.computer_name": "DC02.meridian.local",
+    "host.ip": "10.55.0.12",
     "winlog.event_data.TargetUserName": "k.alvarez@MERIDIAN.LOCAL",
     "winlog.event_data.TargetDomainName": "MERIDIAN.LOCAL",
     // ServiceName on a real 4769 is the ACCOUNT that owns the requested SPN
@@ -422,7 +423,7 @@ const kerberosRoom: Room = {
       prompt:
         "In Log Analysis 1, the roasting tool ran on whichever client sent the TGS-REQs, not on DC02. Enter the IPv4 address of the host you would pivot to next to find that tool.",
       answer: "10.55.14.203",
-      hint: "One field in the 4769 records where the request came from. The DC's own name is not it.",
+      hint: "One field in the 4769 records where the request came from. The DC's own address is not it.",
       xp: 25,
     },
     {
@@ -1026,16 +1027,16 @@ const privescRoom: Room = {
       heading: "Write It Yourself: Hunt for fodhelper-Style UAC Bypasses",
       language: "kql",
       context: KQL_PRIMER +
-        "Using the pattern from Log Analysis 1 (an auto-elevate binary as parent, a High-integrity child, no consent.exe prompt at that moment), write the KQL that would surface candidate UAC bypasses across the fleet. The join pairs each candidate with any UAC-prompt process on the same device; the summarize then keeps only candidates with NO such prompt within 60 seconds, excluding a whole device just because it once showed a UAC prompt would hide real bypasses.",
+        "Using the pattern from Log Analysis 1, write the KQL that would surface candidate UAC bypasses across the fleet. The join pairs each candidate with any UAC-prompt process on the same device, and the summarize counts how many of those prompts fall within 60 seconds of the candidate. Excluding a whole device just because it once showed a UAC prompt would hide real bypasses.",
       template:
-        "DeviceProcessEvents\n| where InitiatingProcessFileName in~ (\"{{binary1}}\", \"computerdefaults.exe\", \"eventvwr.exe\", \"sdclt.exe\")\n| where ProcessIntegrityLevel =~ \"{{level}}\"\n| where InitiatingProcessAccountName !contains \"SYSTEM\"\n| join kind=leftouter (DeviceProcessEvents | where FileName =~ \"{{consentproc}}\" | project DeviceId, PromptTime = Timestamp) on DeviceId\n| summarize PromptsNearby = countif(isnotempty(PromptTime) and abs(datetime_diff('second', Timestamp, PromptTime)) <= 60) by DeviceId, ReportId, Timestamp, FileName, ProcessCommandLine, InitiatingProcessFileName\n| where PromptsNearby == 0",
+        "DeviceProcessEvents\n| where InitiatingProcessFileName in~ (\"fodhelper.exe\", \"computerdefaults.exe\", \"eventvwr.exe\", \"sdclt.exe\")\n| where ProcessIntegrityLevel =~ \"{{level}}\"\n| where InitiatingProcessAccountName !contains \"SYSTEM\"\n| join kind=leftouter (DeviceProcessEvents | where FileName =~ \"{{consentproc}}\" | project DeviceId, PromptTime = Timestamp) on DeviceId\n| summarize PromptsNearby = countif(isnotempty(PromptTime) and abs(datetime_diff('second', Timestamp, PromptTime)) <= 60) by DeviceId, ReportId, Timestamp, FileName, ProcessCommandLine, InitiatingProcessFileName\n| where PromptsNearby == {{nearby}}",
       blanks: [
-        { id: "binary1", answers: ["fodhelper.exe", "FodHelper.exe"], placeholder: "auto-elevate binary from this room's example" },
         { id: "level", answers: ["High", "high", "HIGH"], placeholder: "integrity level the child process shows" },
         { id: "consentproc", answers: ["consent.exe"], placeholder: "process that appears during a normal UAC prompt" },
+        { id: "nearby", answers: ["0"], placeholder: "prompts near a bypass candidate" },
       ],
       explanation:
-        "This mirrors the exact detection logic from Log Analysis 1: filter to the known auto-elevate binaries acting as a parent process, require the resulting child to be High integrity, and drop any candidate that had a consent.exe process start on the same device within 60 seconds, since a UAC prompt at that moment is the signature of a normal, expected elevation rather than a bypass. Correlating by device AND time matters: consent.exe is never the elevated process's parent (AppInfo re-parents the elevated process to the requester), and a device-wide exclusion would suppress every bypass on any machine that had ever shown a UAC prompt.",
+        "This mirrors the exact detection logic from Log Analysis 1: filter to the known auto-elevate binaries acting as a parent process, require the resulting child to be High integrity, and drop any candidate that had a consent.exe process start on the same device within 60 seconds, since a UAC prompt at that moment is the signature of a normal, expected elevation rather than a bypass. That is why the last line keeps PromptsNearby == 0. Correlating by device AND time matters: consent.exe is never the elevated process's parent (AppInfo re-parents the elevated process to the requester), and a device-wide exclusion would suppress every bypass on any machine that had ever shown a UAC prompt.",
       xp: 35,
     },
   ],
@@ -1094,10 +1095,10 @@ const legitUpdaterAutorunEvent: TelemetryEvent = {
     integrity: "system",
   },
   description:
-    "MeridianVPNClient.exe set a value under HKLM Run during its post-install configuration step; the binary is signed and matches the version deployed via this week's approved rollout.",
+    "MeridianVPNClient.exe set a value under HKLM Run.",
   it_verify_result: "confirmed",
   it_verify_message:
-    "SCCM deployment record DPL-4502 confirms MeridianVPNClient v11.2 was pushed to this host today, and its documented install behavior registers an HKLM Run entry to launch the connection-status tray icon at login.",
+    "SCCM deployment record DPL-4502 confirms MeridianVPNClient v11.2 was pushed to this host today, that its binaries carry the vendor's valid signature, and that its documented install behavior registers an HKLM Run entry to launch the connection-status tray icon at login.",
   raw: {
     "winlog.event_id": 13,
     "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -1490,7 +1491,7 @@ const persistenceRoom: Room = {
       event: legitUpdaterAutorunEvent,
       correct_verdict: "benign_true_positive",
       explanation:
-        "The registry write was made by MeridianVPNClient.exe itself, running as SYSTEM the way an SCCM-pushed installer does, during its own documented post-install configuration step. The endpoint record notes the binary is signed and matches the deployed version, and an SCCM deployment record (DPL-4502) independently confirms this exact software and version was pushed to this host today. The Details value points to vpntray.exe inside the same Program Files installation directory as the parent binary, not an unusual or unexpected location. Any of these facts alone would be worth checking; together, they describe exactly the kind of legitimate, ordinary software autorun Reading 1 described as the majority case for Run key writes. It is a benign true positive: the rule correctly caught a real HKLM Run key write, and the approved SCCM rollout is the justification for closing it; it is not a false positive, since the rule did exactly its job and calling it a misfire would invite weakening a persistence detection you need.",
+        "The registry write was made by MeridianVPNClient.exe itself, running as SYSTEM the way an SCCM-pushed installer does, during its own documented post-install configuration step. An SCCM deployment record (DPL-4502) independently confirms this exact software and version was pushed to this host today, and that its binaries are signed. The Details value points to vpntray.exe inside the same Program Files installation directory as the parent binary, not an unusual or unexpected location. Any of these facts alone would be worth checking; together, they describe exactly the kind of legitimate, ordinary software autorun Reading 1 described as the majority case for Run key writes. It is a benign true positive: the rule correctly caught a real HKLM Run key write, and the approved SCCM rollout is the justification for closing it; it is not a false positive, since the rule did exactly its job and calling it a misfire would invite weakening a persistence detection you need.",
       fp_trap:
         "A Run key write matches the shape of T1547.001 persistence closely enough that it's tempting to treat every instance as suspicious, especially right after other alerts on the same host. But the differentiators taught throughout this room (a signed binary, a path inside the expected Program Files installation folder rather than a temp or public directory, and independent corroboration from a deployment record) are exactly what should separate this from a genuine finding. Escalating every Run key write without checking those three things first would generate far more noise than any SOC can sustainably triage, which is the over-alerting failure mode this room is explicitly trying to train against.",
       xp: 30,
@@ -1501,12 +1502,12 @@ const persistenceRoom: Room = {
       heading: "Match Each Persistence Mechanism to Its Detection Source",
       instructions: "Match each persistence mechanism to the log source or artifact that reveals it.",
       pairs: [
-        { id: "runkey", left: "HKCU/HKLM Run or RunOnce key value set", right: "T1547.001, Sysmon Event 13 (RegistryEvent: value set), TargetObject under CurrentVersion\\Run" },
-        { id: "task", left: "Scheduled task registered with /ru SYSTEM", right: "T1053.005: Windows Event ID 4698 (Scheduled Task Created)" },
-        { id: "service", left: "New service installed, auto-start, running as LocalSystem", right: "T1543.003: Windows Event ID 7045 (Service Installed)" },
-        { id: "bits", left: "BITS job configured with a NotifyCmdLine", right: "T1197: Bits-Client/Operational Event 3 (job created), plus bitsadmin /list /allusers /verbose to see the NotifyCmdLine" },
-        { id: "wmi", left: "__EventFilter/__EventConsumer/__FilterToConsumerBinding created in the WMI repository", right: "WMI event subscription persistence: Sysmon Events 19/20/21, missed by sweeps of Run keys, tasks and services" },
-        { id: "oauth", left: "New OAuth app granted delegated mailbox permissions on a compromised account", right: "T1671 (Cloud Application Integration): survives a password reset because it doesn't depend on the account's password" },
+        { id: "runkey", left: "HKCU/HKLM Run or RunOnce key value set", right: "Sysmon Event 13, with TargetObject showing the path and Details the program launched" },
+        { id: "task", left: "Scheduled task registered with /ru SYSTEM", right: "Windows Event ID 4698" },
+        { id: "service", left: "New service installed, auto-start, running as LocalSystem", right: "Windows Event ID 7045" },
+        { id: "bits", left: "BITS job configured with a NotifyCmdLine", right: "Event ID 3 in a client Operational log, plus a verbose all-users listing of transfers" },
+        { id: "wmi", left: "__EventFilter/__EventConsumer/__FilterToConsumerBinding created in the WMI repository", right: "Sysmon Events 19, 20 and 21, missed by sweeps of Run keys, tasks and services" },
+        { id: "oauth", left: "New OAuth app granted delegated mailbox permissions on a compromised account", right: "A review of recent consents in the tenant, since a password reset alone changes nothing here" },
       ],
       explanation:
         "Each pairing reflects a distinct mechanism and its specific detection source from this room: registry-based persistence shows up in Sysmon 13, task/service persistence show up in their own dedicated Windows Event IDs (4698/7045), BITS and WMI persistence deliberately avoid all of the 'usual' locations, and cloud/OAuth persistence is identity-side rather than endpoint-side entirely, which is exactly why it survives a password reset.",

@@ -595,16 +595,16 @@ const winProtoRoom = {
         },
         {
           question:
-            "47 requests covering 44 distinct service accounts is nearly one request per service. Why is this aggregate a stronger signal than the single request shown in the raw event?",
+            "47 requests covering 44 distinct service accounts is nearly one request per service. What does this aggregate show that the single request in the raw event cannot?",
           options: [
-            "It isn't: one RC4 ticket for a SQL service is already proof of roasting on its own",
+            "That the cracking worked: repeated requests show the offline attack is already paying off",
             "One ticket for a service you use is normal; 44 different services in two minutes is harvesting",
-            "It shows m.reyes is a service account, since only service accounts request many tickets at once",
-            "It fits a user opening an intranet portal, which fetches tickets for every backend at once",
+            "That m.reyes is a service account, since only service accounts request many tickets at once",
+            "That a user opened an intranet portal, which fetches tickets for every backend at once",
           ],
           answer: 1,
           explanation:
-            "A single service-ticket request is everyday Kerberos; tickets for 44 different service accounts in two minutes has no normal user explanation and matches a tool working through a list of roastable SPNs, likely from the LDAP servicePrincipalName=* query. “It isn't…” over-reads one event: a single RC4 ticket can come from a legacy service account. “It shows m.reyes is a service account…” is contradicted by the context: m.reyes is a regular user. “It fits a user opening an intranet portal…” is the benign hypothesis that fails: the portal’s server fetches tickets for its backends, not the user’s workstation, and not dozens within two minutes.",
+            "A single service-ticket request is everyday Kerberos; tickets for 44 different service accounts in two minutes has no normal user explanation and matches a tool working through a list of roastable SPNs, likely from the LDAP servicePrincipalName=* query. “That the cracking worked…” misreads the log: cracking happens offline with no further Kerberos traffic, so these requests show only that tickets were collected. “That m.reyes is a service account…” is contradicted by the context: m.reyes is a regular user. “That a user opened an intranet portal…” is the benign hypothesis that fails: the portal’s server fetches tickets for its backends, not the user’s workstation, and not dozens within two minutes.",
           xp: 25,
         },
         {

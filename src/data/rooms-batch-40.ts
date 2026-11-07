@@ -54,7 +54,7 @@ const shadowAiPasteEvent: TelemetryEvent = {
     status: 200,
   },
   description:
-    "Purview Endpoint DLP recorded a 'Paste to supported browsers' event on LT-ENG-0472: p.nandakumar pasted content classified by the Source Code trainable classifier into chat.openai.com, a domain in the built-in Generative AI Websites sensitive service domain group.",
+    "Purview Endpoint DLP raised a DlpRuleMatch incident on LT-ENG-0472 for user p.nandakumar.",
   raw: {
     "data.office365.Operation": "DlpRuleMatch",
     "data.office365.Workload": "Endpoint",
@@ -269,10 +269,10 @@ const aiAttacksTasks = [
       question:
         "You need to write a detection-engineering ticket referencing the correct framework IDs for a prompt injection finding. Which pairing is correct?",
       options: [
-        "OWASP LLM01:2025 (Prompt Injection) and MITRE ATT&CK T1190 (Exploit Public-Facing Application)",
-        "OWASP LLM01:2025 (Prompt Injection) and MITRE ATLAS AML.T0051 (LLM Prompt Injection)",
-        "OWASP LLM04:2025 (Data and Model Poisoning) and MITRE ATLAS AML.T0020 (Poison Training Data)",
-        "OWASP LLM02:2025 (Sensitive Information Disclosure) and MITRE ATLAS AML.T0024 (Exfiltration via AI Inference API)",
+        "OWASP LLM01:2025 and MITRE ATT&CK T1190",
+        "OWASP LLM01:2025 and MITRE ATLAS AML.T0051",
+        "OWASP LLM04:2025 and MITRE ATLAS AML.T0020",
+        "OWASP LLM02:2025 and MITRE ATLAS AML.T0024",
       ],
       answer: 1,
       explanation:
@@ -619,10 +619,10 @@ const aiAttacksTasks = [
       instructions:
         "A finance employee reports a suspicious high-pressure video call requesting an urgent wire transfer, matching the pattern from this room's Arup case study. The transfer has NOT yet been sent. Put the analyst's/organization's response steps in the correct order.",
       items: [
-        { id: "i1", text: "Instruct the employee to take no action on the request and send no funds, keeping the meeting link and caller number they received" },
-        { id: "i2", text: "Independently verify the requester's identity via a pre-established, out-of-band channel (callback to a known number, or a pre-agreed codeword), never a contact method supplied during the suspicious call itself" },
-        { id: "i3", text: "Once verification fails or cannot be completed, collect and package the evidence: call recording/screenshots, the originating number or meeting link, and any precursor email" },
-        { id: "i4", text: "With the evidence packaged, treat it as a confirmed fraud attempt: block the requested payment, alert finance leadership and the bank if any funds were already partially processed, and open a formal incident" },
+        { id: "i1", text: "Tell the employee to take no action on the request and send no funds, and to keep the meeting link and caller number they received" },
+        { id: "i2", text: "Verify the requester's identity through a pre-established, out-of-band channel (callback to a known number, or a pre-agreed codeword), never a contact method supplied during the call" },
+        { id: "i3", text: "Collect the evidence: call recording or screenshots, the originating number or meeting link, and any precursor email" },
+        { id: "i4", text: "Treat it as a fraud attempt: block the requested payment, alert finance leadership and the bank if any funds were processed, and open a formal incident" },
         { id: "i5", text: "Document the incident and brief staff on the specific pretext used, without shaming the reporting employee, to raise pattern-recognition for future attempts" },
       ],
       correct_order: ["i1", "i2", "i3", "i4", "i5"],
@@ -657,16 +657,16 @@ const aiAttacksTasks = [
       type: "question" as const,
       id: "aisoc-q6",
       question:
-        "Your mail gateway flags an email as suspicious: it has flawless grammar and a highly convincing, contextually appropriate tone referencing an actual ongoing project, but it fails DKIM/DMARC alignment and originates from a domain registered four days ago. A junior analyst argues it is probably legitimate 'because it reads too well to be phishing.' Based on this room's reading, what is the correct response?",
+        "Your mail gateway flags an email with flawless grammar and a natural tone that references a real ongoing project. It fails DKIM/DMARC alignment and comes from a domain registered four days ago. Based on this room's reading, which signal should carry the most weight in your verdict?",
       options: [
-        "Agree: the project-specific detail suggests a genuine sender with real context, so the authentication failure is likely a forwarding artifact",
-        "Disagree: content quality no longer proves legitimacy; the authentication failure and the four-day-old domain are the stronger signals",
-        "Ignore the DKIM/DMARC failure as a probable sender-side configuration issue, and judge the message on its content and project reference alone",
-        "Escalate only if the email explicitly requests a wire transfer; otherwise treat it as benign regardless of the authentication result",
+        "The project reference: real context suggests a genuine sender, so the DMARC failure is likely a forwarding artifact",
+        "The domain age and authentication failure: polished content no longer signals a genuine sender",
+        "The flawless grammar: it proves AI authorship, and AI authorship alone makes the message malicious",
+        "The requested action: without a wire-transfer request the message stays benign whatever authentication says",
       ],
       answer: 1,
       explanation:
-        "This room's reading makes the point directly: generative AI has decoupled writing quality from legitimacy, so a junior analyst's old heuristic ('bad grammar = phishing') is now actively unreliable and dangerous to rely on. The technical authentication failure (DKIM/DMARC) and the four-day-old domain are objective, AI-resistant signals that should carry MORE analytical weight now, not less. Dismissing an authentication failure as 'probably a config issue' without verification is exactly the kind of reflexive excuse that lets a well-crafted attack through, and gating escalation only on 'requests a wire transfer' ignores every other BEC/credential-theft pattern that does not ask for money directly.",
+        "This room's reading makes the point directly: generative AI has decoupled writing quality from legitimacy, so writing quality or a convincing project detail no longer tells you who sent a message. The technical authentication failure (DKIM/DMARC) and the four-day-old domain are objective signals a writer cannot polish, and they should carry MORE analytical weight now, not less. Explaining the failure away as a forwarding artifact because the text sounds right is exactly how a well-crafted attack gets through. Flawless grammar proves nothing in the other direction either: plenty of legitimate mail is flawless, and AI authorship alone is not malice. Gating the verdict on a wire-transfer request ignores every other BEC and credential-theft pattern that does not ask for money directly.",
       xp: 15,
     },
 
@@ -763,14 +763,14 @@ const aiAttacksTasks = [
         {
           question: "What specific endpoint action triggered this DLP incident, and to which category of destination?",
           options: [
-            "A file upload to OneDrive, flagged by the SharePoint online DLP connector rule",
-            "A 'paste to supported browser' action into a domain in the Generative AI Websites domain group",
-            "An email sent with a source-code file attached, going to an external recipient",
-            "A USB removable-media copy of a file classified as Source Code",
+            "An upload of the reconcile.py file to a domain in the Generative AI Websites group",
+            "A paste into a supported browser, to a domain in the Generative AI Websites group",
+            "A paste into a supported browser, to a domain in a personal cloud storage group",
+            "A copy of reconcile.py to the clipboard, with no external destination involved",
           ],
           answer: 1,
           explanation:
-            "The raw event's event.action is PasteToSupportedBrowser, the policy and rule names point at Generative AI Websites, and the matched condition's value is the destination domain chat.openai.com. There is no attachment, no USB field, and Workload is Endpoint, not SharePoint or Exchange.",
+            "The raw event's event.action is PasteToSupportedBrowser, so this was neither a file upload nor a clipboard copy, even though ObjectId shows the file path the content came from. The policy and rule names point at Generative AI Websites, and the matched condition's value is the destination domain chat.openai.com, an AI chat site rather than cloud storage.",
           xp: 15,
         },
         {

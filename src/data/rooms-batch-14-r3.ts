@@ -249,7 +249,7 @@ const passwordResetAbuseEvent: TelemetryEvent = {
   event_type: "http_request",
   severity: "medium",
   src_ip: "45.142.212.61",
-  description: "212 sequential requests to the password-reset endpoint using an incrementing list of email addresses, each returning a different response time",
+  description: "Burst of POST requests to the password-reset endpoint from one source IP, all answered with HTTP 200",
   mitre_technique: "T1589.002",
   mitre_tactic: "Reconnaissance",
   network: {

@@ -279,6 +279,7 @@ A good case ticket contains:
         vendor: "Windows Security",
         raw: {
           "event.code": "4624",
+          "host.ip": "10.0.20.12",
           "winlog.event_data.TargetUserName": "svc-backup",
           "winlog.event_data.LogonType": "3",
           "winlog.event_data.IpAddress": "10.0.1.45",
@@ -488,16 +489,16 @@ This last step is crucial: threat hunting improves your detection capability ove
     {
       type: "question" as const,
       id: "threat-hunt-q2",
-      question: "Last month you blocked the IPs, domains and file hashes from a threat report on an intrusion group. This month the same group returns with new servers and a recompiled loader, but still dumps LSASS with rundll32.exe and comsvcs.dll. Which hunt is most likely to find them, and why?",
+      question: "Last month you blocked the IPs, domains and file hashes from a threat report on an intrusion group. The same report says the group dumps LSASS with rundll32.exe and comsvcs.dll. This month you suspect the group is back, and you have time for one hunt. Which is most likely to find them, and why?",
       options: [
         "A hunt for last month's IPs, domains and hashes, since groups tend to reuse their infrastructure",
         "A hunt for rundll32.exe loading comsvcs.dll MiniDump, since that behaviour is costly to change",
         "A hunt for newly registered domains, since fresh infrastructure is the trace a returning group leaves",
-        "A hunt for the new loader's hash once a vendor publishes it, since hashes are the most precise match",
+        "A hunt for any new loader's hash once a vendor publishes it, since hashes are the most precise match",
       ],
       answer: 1,
       explanation:
-        "This is the Pyramid of Pain in practice: the group changed what is cheap to change (IPs, domains, hashes) and kept what is expensive (the technique), so a hunt for the comsvcs.dll MiniDump behaviour still finds them. “A hunt for last month's IPs, domains and hashes…” targets exactly the indicators they replaced. “A hunt for newly registered domains…” is a useful lead in general, but it is broad and noisy and finds no specific trace of this group. “A hunt for the new loader's hash once a vendor publishes it…” waits for someone else to catch the sample first and fails again at the next recompile.",
+        "This is the Pyramid of Pain in practice: a group can swap what is cheap to change (IPs, domains, hashes) in minutes, while the technique is expensive to change, so a hunt for the comsvcs.dll MiniDump behaviour is the one that still finds them. “A hunt for last month's IPs, domains and hashes…” targets exactly the indicators a blocked group replaces first. “A hunt for newly registered domains…” is a useful lead in general, but it is broad and noisy and finds no specific trace of this group. “A hunt for any new loader's hash once a vendor publishes it…” waits for someone else to catch the sample first and fails again at the next recompile.",
       xp: 30,
     },
 
@@ -1310,7 +1311,7 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
           "email.message_id": "<abc@mail-out.corp-secure.com>",
           "email.x_originating_ip": "203.0.113.45",
           "email.authentication_results":
-            "spf=pass smtp.mailfrom=corp-secure.com; dkim=none; dmarc=none header.from=corp-secure.com",
+            "spf=pass smtp.mailfrom=bounces.corp-secure.com; dkim=none; dmarc=none header.from=corp-secure.com",
           "email.received_from": "mail-out.corp-secure.com [203.0.113.45]",
           "email.attachment": "invoice_approval.html",
           "email.header_from": "CEO John Smith <ceo@corp-secure.com>",
@@ -1327,7 +1328,7 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
           ],
           answer: 1,
           explanation:
-            "The From address uses corp-secure.com, a lookalike of corp.com, and replies go to a free Gmail address. Both show the sender is not corp.com's CEO. SPF passed only because SPF was checked for corp-secure.com, a domain the attacker controls. “The spf=fail and dkim=none results” misreads the log: SPF says pass. “The external X-Originating-IP and the urgent subject line” are worth noting, but an external IP and urgency say nothing about which domain sent the mail. “The .html attachment and the $250,000 amount” are risk factors for the payload and the impact, not evidence of the sender's identity.",
+            "The From address uses corp-secure.com, a lookalike of corp.com, and replies go to a free Gmail address. Both show the sender is not corp.com's CEO. SPF passed only because SPF was checked for bounces.corp-secure.com, a domain the attacker controls. “The spf=fail and dkim=none results” misreads the log: SPF says pass. “The external X-Originating-IP and the urgent subject line” are worth noting, but an external IP and urgency say nothing about which domain sent the mail. “The .html attachment and the $250,000 amount” are risk factors for the payload and the impact, not evidence of the sender's identity.",
           xp: 35,
         },
         {
@@ -1351,7 +1352,7 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
       type: "flag" as const,
       id: "email-sec-flag1",
       prompt: `In the email log above, SPF returned pass. For which domain was SPF actually checked? Enter the domain only.`,
-      answer: "corp-secure.com",
+      answer: "bounces.corp-secure.com",
       hint: "SPF does not check the visible From. Recall which sender address it uses, then find that value in the authentication results.",
       xp: 40,
     },

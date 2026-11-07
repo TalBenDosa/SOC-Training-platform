@@ -280,6 +280,8 @@ When a SOC analyst opens a high-severity alert, the first question is "is this r
 
 That context transforms a vague "suspicious outbound connection" alert into a confirmed, high-priority incident requiring immediate containment.
 
+On a domain controller, containment takes care. The first move is to cut the C2 path and escalate to the incident response (IR) team, working with the owner of Active Directory, because fully isolating a domain controller can break sign-ins across the domain. If full isolation is not possible, firewall rules can cut the C2 path first. Blocking one IP and closing the alert is not enough, because the actor can move to a new address and may already have acted on the server. Other steps wait until the channel is cut: a full disk image preserves evidence but can take hours, and resetting the password of krbtgt, the account behind Kerberos tickets, is a large, domain-wide recovery step that comes later and does not stop the beacon.
+
 ---
 
 **Feeding CTI Back Into Detection Engineering**
@@ -362,7 +364,7 @@ This is called the **detect → learn → improve** loop, and CTI is the fuel th
             "Block 198.51.100.45 at the perimeter firewall and close the alert as contained",
           ],
           answer: 2,
-          explanation: "The first job is to cut the active C2 channel and get IR involved, because a nation-state actor on a domain controller is an incident, not a ticket. On a DC, containment needs care: fully isolating the only domain controller can break authentication across the domain, so coordinate with the AD owner and IR, and if full isolation is not possible, contain the C2 path with firewall rules first. Resetting krbtgt is an eradication step: done before scoping, it alerts the actor and does not stop the beacon. A full disk image is valuable evidence, but taking it before containment leaves the C2 session open for hours. Blocking only the one IP and closing the alert ignores everything the actor may already have done on the DC, and they can switch to a new C2 address.",
+          explanation: "The first job is to cut the active C2 channel and get IR involved, because a nation-state actor on a domain controller is an incident, not a ticket. On a DC, containment needs care: fully isolating the only domain controller can break authentication across the domain, so coordinate with the AD owner and IR, and if full isolation is not possible, contain the C2 path with firewall rules first. Resetting krbtgt is a later, domain-wide recovery step, and it does not stop the beacon. A full disk image is valuable evidence, but taking it before containment leaves the C2 session open for hours. Blocking only the one IP and closing the alert ignores everything the actor may already have done on the DC, and they can switch to a new C2 address.",
           xp: 50,
         },
       ],
@@ -544,12 +546,12 @@ A curated, constantly updated directory of OSINT tools organised by category. Wh
     {
       type: "question" as const,
       id: "osint-q2",
-      question: "You discover that a malicious domain used in a phishing attack has a TLS certificate with `CN=login.secure-banking-portal.net`. You search Censys for other IPs using this same certificate CN. What is this investigation technique called?",
+      question: "A phishing server presents the common name `CN=login.secure-banking-portal.net`. You search Censys for every other IP presenting that name. What is this investigation technique called?",
       options: [
-        "Passive DNS pivoting, tracing which domains resolved to that same IP over time",
-        "Certificate pivoting, finding other servers that present the same TLS certificate",
-        "WHOIS pivoting, finding other domains registered with the same contact email",
-        "Active scanning, probing the attacker's IP range to enumerate its other servers",
+        "Passive DNS pivoting",
+        "Certificate pivoting",
+        "WHOIS pivoting",
+        "Active scanning",
       ],
       answer: 1,
       explanation: "Searching Censys for other IPs that present the same certificate CN is certificate pivoting: attackers often reuse one certificate across their servers, so a single phishing domain can reveal the wider infrastructure. Passive DNS pivoting is a different, also valid technique, but it starts from an IP's resolution history, not from a certificate attribute. WHOIS pivoting starts from shared registration details such as a contact email, as in the Maltego example. Nothing here is active: Censys has already scanned and indexed the certificates, so your search sends no packets to the attacker.",
@@ -946,13 +948,13 @@ While technical teams are containing the incident, the communications lead must 
       checkpoint: {
         question: "According to the reading, what is the critical rule about evidence preservation when responding to a compromised system?",
         options: [
-          "Power off the machine immediately to stop the attack",
-          "Never power off or reimage before capturing memory (RAM): isolate instead, since powering off destroys volatile evidence",
-          "Wait for legal approval before touching the machine at all",
-          "Reimage the system immediately to restore service",
+          "Capture memory before anything else, even if that delays isolating a host that is actively spreading",
+          "Never power off or reimage a host before memory (RAM) is captured; isolating it keeps RAM intact",
+          "Power off the host first to stop the attack, then image its disk, which holds the same evidence as RAM",
+          "Never isolate a host before memory (RAM) is captured, because cutting its network access clears RAM",
         ],
         answer: 1,
-        explanation: "Turning off the machine first destroys volatile RAM, running processes, open connections, and decryption keys. EDR network isolation does not: the host stays powered on. So the order is: isolate (immediately if the attack is spreading), capture memory, then network state and processes, and only then consider powering down or reimaging.",
+        explanation: "Turning off the machine first destroys volatile RAM, running processes, open connections, and decryption keys, which the disk does not hold. EDR network isolation does not destroy them: the host stays powered on, so isolation costs no volatile evidence, and while an attack is spreading it comes before the memory capture. So the order is: isolate (immediately if the attack is spreading), capture memory, then network state and processes, and only then consider powering down or reimaging.",
       },
     },
 
@@ -1113,7 +1115,7 @@ Break chain of custody, and the evidence may be inadmissible in court.`,
         event_type: "edr_alert",
         severity: "critical",
         hostname: "SRV-FILE01",
-        description: "Active ransomware detected: LockBit 3.0, network shares affected",
+        description: "Active ransomware detected: LockBit 3.0",
         mitre_technique: "T1486",
         raw: {
           "s1.threatName": "Ransom.LockBit3.0",
@@ -1133,27 +1135,27 @@ Break chain of custody, and the evidence may be inadmissible in court.`,
       } satisfies TelemetryEvent,
       questions: [
         {
-          question: "The ransomware process is `svchost.exe` in `C:\\Windows\\Temp\\`. Why is this location a critical red flag, even though `svchost.exe` is a legitimate Windows process?",
+          question: "Read `s1.processName` together with `s1.processPath`. What should you conclude about this `svchost.exe`?",
           options: [
-            "svchost.exe routinely runs from C:\\Windows\\Temp\\ during Windows Update cycles",
-            "Legitimate svchost.exe runs from C:\\Windows\\System32\\; one in Temp is almost certainly malware masquerading under that name",
-            "Only the process name matters when judging legitimacy; the file path is irrelevant",
-            "C:\\Windows\\Temp\\ is write-protected, so malware cannot normally place files there",
+            "It is the genuine Service Host, which runs from C:\\Windows\\Temp\\ during Windows Update cycles",
+            "It is almost certainly malware masquerading as a Windows process; the genuine file sits in System32",
+            "It is the genuine Service Host, because the name matches and a path says nothing about a process",
+            "It is a genuine system file, because only Windows itself can write to C:\\Windows\\Temp\\",
           ],
           answer: 1,
-          explanation: "The legitimate Windows svchost.exe (Service Host) ALWAYS runs from C:\\Windows\\System32\\. Malware authors frequently copy their malicious executable into C:\\Windows\\Temp\\ and name it 'svchost.exe' to blend in with normal process lists. This is called Masquerading (MITRE T1036.005: Match Legitimate Resource Name or Location). Note it is the opposite of living-off-the-land, which abuses the genuine built-in binaries; here a malicious file merely wears a system name. Any svchost.exe running from Temp, AppData, or any path other than System32 is almost certainly malicious. The EDR caught this exact pattern.",
+          explanation: "The legitimate Windows svchost.exe (Service Host) ALWAYS runs from C:\\Windows\\System32\\. Malware authors frequently copy their malicious executable into C:\\Windows\\Temp\\ and name it 'svchost.exe' to blend in with normal process lists. This is called Masquerading (MITRE T1036.005: Match Legitimate Resource Name or Location). Note it is the opposite of living-off-the-land, which abuses the genuine built-in binaries; here a malicious file merely wears a system name. Any svchost.exe running from Temp, AppData, or any path other than System32 is almost certainly malicious. The path is the evidence here, not the name: Windows Update does not move this file, and C:\\Windows\\Temp\\ is a place malware can write to. The EDR caught this exact pattern.",
           xp: 50,
         },
         {
-          question: "The alert shows `s1.affectedVolumes: C:\\, D:\\, \\\\SRV-NAS01\\shared` and `s1.networkShares_accessed: 3`. What does this tell you about the scope of this incident?",
+          question: "Read `s1.affectedVolumes` and `s1.networkShares_accessed`. What is the scope of this incident, and what must containment cover?",
           options: [
-            "Activity is confined to SRV-FILE01's C: drive; the D: drive and share fields are informational",
-            "Ransomware hit both local drives and is encrypting a network share (SRV-NAS01): a multi-system P1; contain SRV-FILE01 and SRV-NAS01",
-            "The shares were only enumerated and never encrypted, so no further containment is needed",
-            "This is normal file-server activity: servers routinely enumerate and access network shares",
+            "One system: C:\\, D:\\ and the share are all volumes of SRV-FILE01, so containing it is enough",
+            "At least two systems: SRV-FILE01's local drives and a share on SRV-NAS01, so contain both",
+            "One system, no spread: the shares were only listed, not encrypted, so the NAS needs no containment",
+            "Exactly three systems: s1.networkShares_accessed is 3 and counts hosts, so three servers need containing",
           ],
           answer: 1,
-          explanation: "The ransomware has already encrypted files on C:\\ and D:\\ (SRV-FILE01's local drives) AND is reaching across the network to encrypt \\\\SRV-NAS01\\shared: a NAS (Network Attached Storage) device. This means at minimum TWO servers are affected. The `s1.fileCount_renamed: 15847` shows that 15,847 files have already been renamed with the .lockbit extension: encryption is well underway. This is a P1 multi-system incident. Both SRV-FILE01 and SRV-NAS01 must be immediately isolated.",
+          explanation: "The ransomware has already encrypted files on C:\\ and D:\\ (SRV-FILE01's local drives) AND is reaching across the network to encrypt \\\\SRV-NAS01\\shared: a NAS (Network Attached Storage) device. This means at minimum TWO servers are affected. The `s1.fileCount_renamed: 15847` shows that 15,847 files have already been renamed with the .lockbit extension: encryption is well underway. This is a P1 multi-system incident. Both SRV-FILE01 and SRV-NAS01 must be immediately isolated. Note that `s1.networkShares_accessed` counts shares, not hosts, so it is the share path that names the second system.",
           xp: 50,
         },
       ],

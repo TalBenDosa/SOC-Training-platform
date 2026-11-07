@@ -168,7 +168,7 @@ export const MITRE_ATTACK: RoomExperience = {
           { key: "ProcessCommandLine", value: "rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump 712 C:\\Windows\\Temp\\d.bin full", label: "Evidence", note: "The behaviour that earned the mapping." },
           { key: "ServiceSource", value: "Microsoft Defender for Endpoint" },
         ],
-        summary: "Tactic, technique, sub-technique and the evidence behind them. In the graded alert the mapping sits in mitre_technique and mitre_tactic: check that the evidence actually fits it.",
+        summary: "Tactic, technique, sub-technique and the evidence behind them. In the graded alert nobody hands you the mapping: work it out from the evidence.",
       },
     ],
   },

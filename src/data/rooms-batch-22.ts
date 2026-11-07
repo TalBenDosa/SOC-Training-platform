@@ -176,16 +176,16 @@ const malwareTypesRoom: Room = {
       type: "question",
       id: "malware-q1",
       question:
-        "An EDR alert reports a worm-style outbreak beginning to spread machine-to-machine across an unpatched subnet with no user interaction required, at the same moment a phishing-based trojan is reported on a single user's laptop elsewhere in the company. Both are rated the same severity by the product. Why does the worm typically demand faster action?",
+        "An EDR alert reports a worm on one host of an unpatched subnet, at the same moment a phishing-based trojan is reported on a single user's laptop elsewhere in the company. Both are rated the same severity by the product. Why does the worm typically demand faster action?",
       options: [
-        "It doesn't: both are malware-present events at the same product severity, and reachable-host count should not change urgency",
-        "The worm spreads to every reachable unpatched host with no user action, so scope grows during triage; the trojan is limited by who opens the email",
-        "The trojan does: a disguised, hidden threat is harder to remediate than a visibly propagating worm, so it needs the faster response",
-        "The trojan does: the worm's code is about propagation, while the trojan has already executed a payload and caused more damage",
+        "Worms carry a more destructive payload than trojans, so each infected host costs more to recover",
+        "It spreads on its own to every reachable unpatched host, so the scope grows while you triage",
+        "It attaches to files that people share, so each colleague who opens one adds another victim",
+        "It gives a live attacker hands-on control of the host, which a trojan's payload cannot do",
       ],
       answer: 1,
       explanation:
-        "The propagation axis from Reading 1 is exactly the point: a worm's self-propagation means the population of infected hosts can grow with no further human action at all, so every minute of delay has a multiplying effect that a trojan (bottlenecked by how many individual people choose to open a file) simply doesn't have. Disguise doesn't make a trojan automatically 'worse' than a worm, and worms absolutely execute payloads (WannaCry's worm-style spread carried a ransomware payload). Propagation speed and payload capability are separate questions.",
+        "The propagation axis from Reading 1 is exactly the point: a worm's self-propagation means the population of infected hosts can grow with no further human action at all, so every minute of delay has a multiplying effect that a trojan (bottlenecked by how many individual people choose to open a file) simply doesn't have. The word worm says how it moves, not what its payload does, so a more destructive payload or hands-on control is not what sets it apart: WannaCry's worm-style spread carried a ransomware payload, and propagation and payload are separate questions. Attaching to a file that a person must run describes a virus, not a worm.",
       xp: 20,
     },
     {
@@ -641,16 +641,16 @@ const assetContextRoom: Room = {
         "  D --> D1[Escalate immediately -- identity infrastructure for the whole domain]",
       diagramCaption: "Same alert text, three different assets, three different responses",
       checkpoint: {
-        question: "Per Reading 1, what determines the correct response to an alert -- the alert text alone, or the asset behind it?",
+        question: "Per Reading 1, one detection rule fires three times with identical alert text. What should set the response to each firing?",
         options: [
-          "The alert text alone -- identical alerts should always get identical responses, since the detection rule that generated them already accounts for every asset it could possibly fire against",
-          "The asset behind it -- the same detection rule firing on a lab VM, a workstation, and a domain controller warrants three different responses",
-          "Only the product's assigned severity field matters, regardless of the asset, since that score is calculated using the asset's criticality tier as one of its core inputs already",
-          "Only the time of day the alert fired matters, since a failed-logon burst at 2 AM always indicates compromise while the identical pattern during business hours never does, regardless of which host it targets",
+          "The alert's severity field, because the product has already scored how bad each firing is",
+          "The asset each firing landed on, because the alert never says what is behind the door",
+          "The technique the rule maps to, because that decides which response procedure applies",
+          "The detection logic, because a well-tuned rule already allows for every host it can fire on",
         ],
         answer: 1,
         explanation:
-          "The alert text and even the technical severity can be identical across three assets, yet the correct response differs completely because what's 'behind the door' -- the asset itself -- is what actually determines the risk.",
+          "The alert text and even the technical severity can be identical across three assets, yet the correct response differs completely, because what's 'behind the door', the asset itself, is what actually determines the risk. The severity field, the mapped technique and the rule's logic all describe the alert, which Reading 1 calls only half the picture.",
       },
     },
     {
@@ -733,14 +733,14 @@ const assetContextRoom: Room = {
       question:
         "An attacker gains full control of a hypervisor hosting 40 virtual machines, including three domain controllers and the ticketing system's database server. Why does compromising the hypervisor represent a larger blast radius than compromising any single one of those 40 VMs individually?",
       options: [
-        "It doesn't: a hypervisor is another server on the network, with no more reach into its guests than they have into each other",
-        "The hypervisor sits beneath every guest OS and its controls, so one compromise can reach all 40 VMs at once however well-defended each guest is",
-        "It matters mainly for the three domain controllers: the other guests are shielded from the hypervisor by their own endpoint agents",
-        "It is lower impact: the VMs hold the applications and data, and the layer underneath has little value to an attacker",
+        "It keeps its own master copy of the data inside all 40 VMs, which makes it the richest single store to steal from",
+        "It sits beneath every guest OS and its security tooling, so one compromise can reach all 40 VMs at once",
+        "It issues the authentication tickets all 40 VMs trust, so an attacker can impersonate any user on any of them",
+        "It is the trusted hop administrators use to reach the VMs, so compromising it bypasses the segmentation around them",
       ],
       answer: 1,
       explanation:
-        "This is the force-multiplier point from Reading 3: the hypervisor's position underneath every guest VM's own security stack means one compromise there can reach all 40 VMs at once, bypassing whatever protections exist inside each individual guest. A hypervisor is very much not 'just one more server' given what it hosts, VM-level protections don't make the hypervisor itself less critical, and compromising the hypervisor once is exactly what makes it faster and more efficient for an attacker than attacking 40 VMs individually.",
+        "This is the force-multiplier point from Reading 3: the hypervisor's position underneath every guest VM's own security stack means one compromise there can reach all 40 VMs at once, bypassing whatever protections exist inside each individual guest. The other reasons belong to other assets: Reading 2 says a hypervisor holds no data of its own, it is a domain controller's KDC that issues authentication tickets, and the trusted hop around segmentation is a jump host.",
       xp: 20,
     },
     {
@@ -772,42 +772,42 @@ const assetContextRoom: Room = {
           question:
             "This burst is targeting DC02, a domain controller, directly over the network, attempting 14 different accounts in two minutes. Why does the target being a domain controller change the priority of this alert compared to the exact same signature landing on a single ordinary application server?",
           options: [
-            "It doesn't: a failed logon burst is scored identically regardless of which host receives it, since the detection rule's own severity field is calculated purely from the attempt count and time window, independent of the target",
-            "A domain controller is the identity authority for the entire domain (Reading 3's blast radius point); if this spray succeeds against even one of the 14 accounts, or if it's reconnaissance ahead of a more targeted attempt, the consequences extend to every resource across the domain that trusts that authentication, not just one server's worth of data",
-            "Domain controllers cannot receive network logon attempts at all, so this must be a logging error, since all authentication against a DC is required to occur over Kerberos rather than NTLM's network logon type",
-            "LogonType 3 only ever applies to low-criticality systems, so this confirms the target has low criticality, since domain controllers and other identity infrastructure exclusively use interactive or RemoteInteractive logon types",
+            "The rule scores a domain controller higher, so the severity field alone moves this alert up the queue",
+            "It is the identity authority: one guessed password here can reach everything in the domain that trusts it",
+            "It stores the company's most sensitive files, so the burst is an attempt to reach that data directly",
+            "It faces the open internet, so exposure rather than what it controls is what raises the priority",
           ],
           answer: 1,
           explanation:
-            "This is blast radius applied directly: a domain controller's compromise (or even one successfully guessed credential from a spray against it) has consequences reaching the whole domain, unlike an ordinary application server. Domain controllers absolutely receive network logons routinely. LogonType 3 (network) is completely normal for many legitimate purposes and says nothing about the target's criticality on its own; it's the target host that determines that here.",
+            "This is blast radius applied directly: a domain controller's compromise, or even one successfully guessed credential from a spray against it, has consequences reaching the whole domain, unlike an ordinary application server. The product's severity field cannot measure that, which is why the analyst adds it. Reading 2 says a domain controller does not necessarily hold your most sensitive files: what matters is what it controls. Exposure is not the reason either, because the source, 10.10.44.187, is an internal address.",
           xp: 25,
         },
         {
           question:
-            "If this identical 14-account, two-minute failed-logon burst had instead landed on an isolated lab VM used only for occasional testing, with no production data and no trust relationship to the domain, how should the response differ?",
+            "If this identical 14-account, two-minute failed-logon burst had instead landed on the isolated lab VM from Reading 1, how should the response differ?",
           options: [
-            "It shouldn't differ at all: the same log pattern always demands the same response regardless of the asset behind it, since a detection rule's own logic already accounts for whatever asset eventually triggers it",
-            "The technical signature is identical, but the priority is much lower: a compromise of that VM has almost nowhere to go from there, so logging and monitoring is a reasonable response, unlike the domain controller case where the same pattern justifies immediate escalation",
-            "It should be escalated even faster than the domain controller case, since isolated lab VMs are always the highest-priority asset type by definition, precisely because their isolation makes any anomaly on them inherently suspicious",
-            "No response is needed in either case, since failed logons are a routine part of daily operations everywhere, and identity infrastructure receives so much authentication traffic that a spray pattern is statistically indistinguishable from normal noise",
+            "It should not: 14 accounts in two minutes is a spray, so escalate at once as you would for DC02",
+            "Priority drops: a glance and a log entry fit, since a compromise there has almost nowhere to go",
+            "Handle it as the finance workstation: check for lockout, contact the user, watch for a success",
+            "Close it with no record: lab VM alerts are test noise, so they need no entry in the queue or log",
           ],
           answer: 1,
           explanation:
-            "This is Reading 1's exact idea in practice: identical alert text, different asset, different correct response, a compromise of an isolated, low-value VM simply doesn't reach anything further, so the same signature that demands immediate escalation on a DC can reasonably be logged and monitored on a genuinely isolated lab box. Isolated VMs are not automatically higher priority than anything else, and failed logons on identity infrastructure are never something to ignore outright.",
+            "This is Reading 1's exact idea in practice: identical alert text, different asset, different correct response. A compromise of an isolated, low-value VM doesn't reach anything further, so the same signature that demands immediate escalation on a domain controller is worth a glance and a log entry on a genuinely isolated lab box. The workstation steps belong to a production machine with a real user behind it, and closing with no record skips the log entry Reading 1 still asks for.",
           xp: 25,
         },
         {
           question:
             "What is the correct immediate response to the DC02 burst as described?",
           options: [
-            "No action: 4625 (failed logon) events are routine and this volume is within normal limits for a domain controller, which regularly absorbs far higher failure counts from ordinary password-expiry noise across the whole organization",
-            "Isolate or contain the internal source host (DESKTOP-4LK92P, 10.10.44.187), check whether any of the 14 attempted accounts show a subsequent successful logon (Event 4624) from the same or a related source, and escalate given that the target is identity infrastructure for the whole domain",
-            "Immediately and permanently disable all 14 targeted accounts without further investigation, since any account named in a burst against identity infrastructure must be treated as already compromised regardless of outcome",
-            "Wait for an account-lockout notification from one of the affected accounts before taking any action, since a lockout event is the only reliable confirmation that a burst against a domain controller was ever real",
+            "Block 10.10.44.187 at the edge firewall, reset the 14 passwords, and close the case once that is done",
+            "Contain the source host, check the 14 accounts for a later successful logon (Event 4624), and escalate",
+            "Disable all 14 accounts at once, since any account named in the burst counts as already compromised",
+            "Log it and watch for a follow-up success, since a failed logon changes nothing until one attempt works",
           ],
           answer: 1,
           explanation:
-            "This combines containment (the source is an internal workstation, so an edge block would do nothing; isolate it and investigate it) with the most important follow-up check (did any attempt actually succeed) and reflects the escalation this asset's blast radius demands. This volume against a domain controller is not routine, permanently disabling 14 accounts without investigation risks disrupting legitimate service accounts among them, and waiting for a lockout notification means waiting for a symptom instead of acting on the alert already in hand.",
+            "This combines containment (the source is an internal workstation, so an edge block would do nothing; isolate it and investigate it) with the most important follow-up check (did any attempt actually succeed) and reflects the escalation this asset's blast radius demands. Disabling 14 accounts without investigation risks disrupting legitimate service accounts among them. Logging and watching is the lab VM response: Reading 1 says this pattern on a domain controller is an immediate escalation.",
           xp: 30,
         },
       ],
@@ -816,9 +816,9 @@ const assetContextRoom: Room = {
       type: "flag",
       id: "asset-f1",
       prompt:
-        "Look at Log Analysis 1, the failed-logon burst against DC02. How many distinct accounts were targeted from the same source IP in the two-minute window described? Enter the exact number.",
-      answer: "14",
-      hint: "It's stated in the log analysis task's description field.",
+        "Look at Log Analysis 1, the failed-logon burst against DC02. Containment applies to the machine the attempts came from, not to the asset under attack. Enter that machine's name exactly as logged.",
+      answer: "DESKTOP-4LK92P",
+      hint: "The log names two machines: the one that recorded the failed logon and the one that sent the attempt.",
       xp: 25,
     },
     {
@@ -861,14 +861,14 @@ const assetContextRoom: Room = {
       checkpoint: {
         question: "Per Reading 5, what is the difference between severity and priority?",
         options: [
-          "They are the same thing, just different names for the same score, and any organization drawing a distinction between them is simply introducing unnecessary process overhead into triage",
-          "Severity is a technical, product-calculated property of the finding itself; priority is the analyst's own judgment about response order, built by adding business context on top of severity",
-          "Priority is always calculated automatically by the SIEM, while severity requires manual analyst review, meaning the two roles are reversed from how the product and the analyst actually contribute to a triage decision",
-          "Severity only applies to malware alerts; priority only applies to authentication alerts, since each concept was originally designed for one specific alert category and was never meant to generalize across others",
+          "Severity is the analyst's judgment of business impact; priority is the score the product calculates",
+          "Severity is the product's technical score; priority is the analyst's order, with business context added",
+          "Severity is the product's score; priority is that same score after the SIEM adjusts it for asset tier",
+          "Severity reflects how critical the asset is; priority reflects how long the alert has been waiting",
         ],
         answer: 1,
         explanation:
-          "A product can only measure what it can technically observe; it cannot know what's launching this week or whose account this is. Priority is the analyst folding that business context on top of the product's severity label.",
+          "A product can only measure what it can technically observe; it cannot know what's launching this week or whose account this is. Priority is the analyst folding that business context on top of the product's severity label, not a score the SIEM adjusts and not a measure of how long an alert has waited.",
       },
     },
     {
@@ -898,14 +898,14 @@ const assetContextRoom: Room = {
       checkpoint: {
         question: "When an analyst finds a hostname with no CMDB record, what does Reading 6 say the correct instinct is?",
         options: [
-          "Deprioritize it -- if it's not in the inventory, it's probably not important, since anything genuinely worth tracking would have been entered into the CMDB by whichever team stood it up",
-          "Treat it as an open question and chase it (DNS/DHCP records, cloud console, ask the infrastructure team) rather than skip it -- an unrecognized asset could be shadow IT or attacker infrastructure chosen precisely because it wouldn't show up in a normal check",
-          "Automatically escalate it as a confirmed incident with no further investigation needed, since an unrecognized hostname appearing in the logs is, on its own, definitive proof of unauthorized or malicious infrastructure",
-          "Ignore it, since CMDBs are always accurate in a well-run organization, and any hostname missing from it is far more likely to be a display glitch in the SIEM than a real, unaccounted-for asset",
+          "Deprioritize it until a record appears, since assets that matter get entered by the team that built them",
+          "Chase it through DNS, DHCP, the cloud console and the infrastructure team, as an open finding",
+          "Escalate it as a confirmed incident straight away, since a missing record proves the host is unauthorized",
+          "File a request to add it to the CMDB and move on, since missing records are a known paperwork gap",
         ],
         answer: 1,
         explanation:
-          "A missing CMDB record is a known, common limitation, not evidence of unimportance -- the correct response is more scrutiny of the unknown, since an unrecognized host could be exactly the kind of infrastructure an attacker would choose for that reason.",
+          "A missing CMDB record is a known, common limitation, not evidence of unimportance and not proof of anything malicious. The correct response is more scrutiny of the unknown, since an unrecognized host could be a forgotten test box or exactly the kind of infrastructure an attacker would choose for that reason.",
       },
     },
     {

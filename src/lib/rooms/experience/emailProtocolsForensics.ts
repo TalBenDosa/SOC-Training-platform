@@ -798,7 +798,7 @@ export const EMAIL_PROTOCOLS_FORENSICS: RoomExperience = {
         kind: "worksheet",
         title: "What Would This KQL Return?",
         prompt: "Ikaika Moretti wants the forged-sender pattern as a detection, not as a Tuesday memory. Before you write a rule, work out by hand what a filter keeps from these five rows, including your own mail.",
-        caption: "EmailEvents | where SenderFromDomain =~ \"saffronroad.example\" | extend AD = parse_json(AuthenticationDetails)",
+        caption: "EmailEvents, five rows whose From address claims saffronroad.example | extend AD = parse_json(AuthenticationDetails)",
         columns: ["Row", "SenderMailFromDomain", "AuthenticationDetails", "DeliveryAction"],
         rows: [
           ["1", "saffronroad.example", "{\"SPF\":\"pass\",\"DKIM\":\"pass\",\"DMARC\":\"pass\",\"CompAuth\":\"pass\"}", "Delivered"],

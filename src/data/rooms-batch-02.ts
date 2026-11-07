@@ -432,12 +432,12 @@ When you're investigating a security incident, these networking concepts form yo
         type: "question" as const,
         id: "net-fund-q3",
         question:
-          "Which OSI layer handles logical IP addressing and routing packets across multiple networks?",
+          "Which OSI layer handles logical addressing and chooses the path that takes data from one LAN to a destination anywhere in the world?",
         options: [
-          "Layer 2: Data Link (MAC addresses and switches)",
-          "Layer 3: Network (IP addresses and routers)",
-          "Layer 4: Transport (TCP/UDP and ports)",
-          "Layer 7: Application (HTTP, DNS, SMTP)",
+          "Layer 2: Data Link",
+          "Layer 3: Network",
+          "Layer 4: Transport",
+          "Layer 7: Application",
         ],
         answer: 1,
         explanation:
@@ -503,7 +503,7 @@ When you're investigating a security incident, these networking concepts form yo
             options: [
               "Source spoofing: the attacker forged 10.5.12.47 and the firewall recorded the true address as 203.0.113.15",
               "The workstation has two network interfaces, and the firewall logged both of its addresses",
-              "NAT: the private source 10.5.12.47 was translated to the public 203.0.113.15 on the way out",
+              "The firewall replaced the private source 10.5.12.47 with the public 203.0.113.15 on the way out",
               "The NAT table ran out of ports, so the mapping failed and the connection was blocked",
             ],
             answer: 2,
@@ -845,22 +845,22 @@ These questions form the foundation of network-based threat investigation.`,
         type: "question" as const,
         id: "net-prot-q1",
         question:
-          "An attacker compromises a web server and wants to exfiltrate data without being detected by the firewall, which allows only port 53, 80, and 443 outbound. Which technique would most likely succeed?",
+          "An attacker compromises a web server and wants to exfiltrate data without being detected by the firewall, which allows only ports 53, 80 and 443 outbound. Each option below uses its protocol's standard port. Which technique would most likely succeed?",
         options: [
-          "FTP in passive mode on port 21: the data channel bypasses port filters",
-          "DNS tunneling over port 53: queries can carry encoded data",
-          "SSH on port 22: encrypted sessions hide the payload from the firewall",
-          "SMB on port 445: file-share traffic is built to move bulk data",
+          "FTP in passive mode: the data channel bypasses port filters",
+          "DNS tunneling: queries can carry data encoded in their names",
+          "SSH session: encrypted traffic hides the payload from the firewall",
+          "SMB file copy: file-share traffic is built to move bulk data",
         ],
         answer: 1,
         explanation:
-          "DNS tunneling through port 53 is the correct answer. DNS is allowed almost everywhere because blocking it would break internet connectivity. Tools like dnscat2 and iodine encode data inside DNS query subdomains. Each DNS query can carry ~200 bytes of data: slow, but effective for stealing credentials or configuration files. This is why SOC teams monitor for unusual DNS query patterns and high-entropy domain names.",
+          "DNS tunneling through port 53 is the correct answer: FTP (21), SSH (22) and SMB (445) all use ports this firewall blocks. DNS is allowed almost everywhere because blocking it would break internet connectivity. Tools like dnscat2 and iodine encode data inside DNS query subdomains. Each DNS query can carry ~200 bytes of data: slow, but effective for stealing credentials or configuration files. This is why SOC teams monitor for unusual DNS query patterns and high-entropy domain names.",
         xp: 15,
       },
       {
         type: "log_analysis" as const,
         id: "net-prot-la1",
-        heading: "Suspicious DNS Query: DGA Malware Detection",
+        heading: "Suspicious DNS Query: What Is This Workstation Doing?",
         context:
           "Your SIEM has flagged a DNS query from a workstation. The company's internal DNS server is 10.0.0.53. Analyze the event.",
         event: {
@@ -1341,9 +1341,9 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
         type: "flag" as const,
         id: "fw-f1",
         prompt:
-          "Based on the port scan event above, was the sensor working as an IDS or as an IPS when it saw this scan? Answer IDS or IPS.",
-        answer: "IDS",
-        hint: "Find alert.action: what the sensor did with the scan traffic, and whether that stopped anything.",
+          "In the port scan event above: an IPS would have stopped this traffic, while an IDS only reports it. Which value shows what this sensor did with the scan? Enter it exactly as logged.",
+        answer: "allowed",
+        hint: "Look in the alert block for the field that records what the sensor did with the traffic.",
         xp: 25,
       },
     ],
@@ -1672,7 +1672,7 @@ For SOC analysts: Windows Defender generates security event logs (Event ID 1116 
         type: "question" as const,
         id: "win-fund-q1",
         question:
-          "A SOC analyst notices that lsass.exe is running from C:\\Users\\attacker\\AppData\\Temp\\lsass.exe instead of C:\\Windows\\System32\\lsass.exe. What does this most likely indicate?",
+          "A SOC analyst notices that lsass.exe is running from C:\\Users\\jdoe\\AppData\\Local\\Temp\\lsass.exe instead of C:\\Windows\\System32\\lsass.exe. What does this most likely indicate?",
         options: [
           "A Windows Update staging copy: update installers briefly unpack system binaries into user Temp folders",
           "A masquerading binary: the genuine lsass.exe only ever runs from C:\\Windows\\System32\\",
@@ -1758,7 +1758,7 @@ This is exactly why the indicators from the previous reading matter as much as t
         id: "win-fund-la1",
         heading: "Suspicious PowerShell Execution: Encoded Command Alert",
         context:
-          "Windows Defender for Endpoint (MDE / Microsoft Defender for Endpoint) has flagged a suspicious process creation event on a workstation. The alert was triggered by PowerShell executing an encoded command shortly after a user opened an email attachment (a .docm file: a macro-enabled Word document). The parent process (winword.exe, Microsoft Word) spawning PowerShell is highly suspicious.",
+          "Windows Defender for Endpoint (MDE / Microsoft Defender for Endpoint) has flagged a suspicious process creation event on a workstation. The alert was triggered by PowerShell executing an encoded command shortly after a user opened an email attachment (a .docm Word file).",
         event: {
           id: "evt-ps-001",
           ts: "2025-11-20T10:14:22Z",
@@ -1768,7 +1768,7 @@ This is exactly why the indicators from the previous reading matter as much as t
           hostname: "CORP-WS-0203",
           user_email: "jdoe@company.com",
           description:
-            "Microsoft Word spawned PowerShell with Base64-encoded command: likely malicious Office macro executing payload",
+            "Microsoft Word spawned PowerShell with Base64-encoded command",
           mitre_technique: "T1059.001 - Command and Scripting Interpreter: PowerShell",
           process: {
             name: "powershell.exe",
@@ -1800,7 +1800,7 @@ This is exactly why the indicators from the previous reading matter as much as t
             options: [
               "Word launches PowerShell whenever a document uses Office add-ins, so this tree is expected",
               "PowerShell started by a user application is only suspicious when it runs elevated",
-              "A document editor spawning a scripting engine suggests a malicious macro ran a command: a common phishing technique",
+              "A document editor spawning a script engine suggests a malicious macro ran a command",
               "It only becomes suspicious if PowerShell spawns a further child; one level of nesting is acceptable",
             ],
             answer: 2,
@@ -1828,9 +1828,9 @@ This is exactly why the indicators from the previous reading matter as much as t
         type: "flag" as const,
         id: "win-fund-f1",
         prompt:
-          "In the PowerShell alert above, what is the name of the parent process that spawned the suspicious PowerShell? Enter only the executable name (e.g., 'notepad.exe').",
-        answer: "winword.exe",
-        hint: "Look at the process.parent.name field in the raw log data. It is the Microsoft Word executable.",
+          "In the PowerShell alert above, what is the PID of the parent process that spawned PowerShell? Enter the number only.",
+        answer: "4892",
+        hint: "PowerShell's own PID is not the one you want. Find the parent's in the raw log data.",
         xp: 25,
       },
     ],

@@ -60,7 +60,7 @@ const megaUploadEvent: TelemetryEvent = {
   "dst_ip": "31.216.148.28",
   "dst_port": 443,
   "protocol": "tcp",
-  "description": "FortiGate logged an allowed outbound HTTPS session from WKS-LAW-214 to mega.nz at 23:41, roughly two hours after normal business hours ended, carrying a large volume of outbound data with very little returned.",
+  "description": "FortiGate logged an allowed outbound HTTPS session from WKS-LAW-214 to mega.nz at 23:41, roughly two hours after normal business hours ended.",
   "raw": {
     "data.type": "traffic",
     "data.subtype": "forward",
@@ -110,9 +110,9 @@ const veeamBackupEvent: TelemetryEvent = {
   "dst_ip": "20.150.66.201",
   "dst_port": 443,
   "protocol": "tcp",
-  "description": "FortiGate logged an allowed outbound HTTPS session from the backup server BKP-VEEAM-01 to the organisation's own Azure Blob Storage account at 02:00, carrying a large nightly volume, matching the identical time and destination seen on this host for the past six months.",
+  "description": "FortiGate logged an allowed outbound HTTPS session from the backup server BKP-VEEAM-01 at 02:00.",
   "it_verify_result": "confirmed",
-  "it_verify_message": "IT confirms BKP-VEEAM-01 runs the organisation's Veeam Backup and Replication job under change ticket CHG-2026-1187, executed by the dedicated service account svc-veeam-backup, targeting meridianlawbackups.blob.core.windows.net: the firm's own Azure Blob Storage backup container, not a third-party or personal destination. The job has run at 02:00 nightly, at a consistent volume, for the past six months with no exceptions.",
+  "it_verify_message": "IT confirms BKP-VEEAM-01 runs the organisation's Veeam Backup and Replication job under change ticket CHG-2026-1187, as the service account svc-veeam-backup, writing to meridianlawbackups.blob.core.windows.net, the firm's own Azure Blob Storage backup container. The job has run at 02:00 nightly, at a consistent volume, for the past six months.",
   "raw": {
     "data.type": "traffic",
     "data.subtype": "forward",
@@ -228,7 +228,7 @@ const dataStagingExfilRoom = {
     {
       "type": "question" as const,
       "id": "dsx-q2",
-      "question": "A colleague argues: 'The moment the attacker password-protects and compresses the staged files with WinRAR, that IS the exfiltration step. That's clearly the theft.' What is wrong with this claim, and what tactic does T1560.001 (Archive via Utility) actually belong to per MITRE ATT&CK?",
+      "question": "A colleague argues: 'The moment the attacker password-protects and compresses the staged files with WinRAR, that IS the exfiltration step.' Is the colleague right, and which tactic does T1560.001 (Archive via Utility) belong to per MITRE ATT&CK?",
       "options": [
         "The colleague is wrong: T1560.001 is Collection (TA0009), because packaging leaves the data on the host; Exfiltration begins only when data is moved off it",
         "The colleague is right: T1560.001 becomes Exfiltration (TA0010) once the archive is encrypted, since encryption is where data stops being inspectable",
@@ -348,23 +348,23 @@ const dataStagingExfilRoom = {
       "type": "ordering" as const,
       "id": "dsx-o1",
       "heading": "Order the Chain: Collection to Exfiltration",
-      "instructions": "Place these four stages of this room's ATT&CK chain in the order a real intrusion actually performs them, from first reaching the data to finally moving it off the host.",
+      "instructions": "Place these four stages of this room's ATT&CK chain in the order a real intrusion actually performs them.",
       "items": [
         {
           "id": "step-share",
-          "text": "Read files from the network share the compromised account can legitimately reach (T1039, Collection)"
+          "text": "Read files from a network share the compromised account can legitimately reach (T1039, Collection)"
         },
         {
           "id": "step-stage",
-          "text": "Consolidate the interesting files into one local folder on the compromised host (T1074.001, Collection)"
+          "text": "Copy chosen files into one central folder on a compromised host (T1074.001, Collection)"
         },
         {
           "id": "step-archive",
-          "text": "Compress and typically password-protect the staged files with an archive utility (T1560.001, Collection)"
+          "text": "Compress and typically password-protect a set of files with an archive utility (T1560.001, Collection)"
         },
         {
           "id": "step-channel",
-          "text": "Move the packaged archive off the host, over USB, to cloud storage, or via an alternative protocol (T1052.001 / T1567.002 / T1048, Exfiltration)"
+          "text": "Send a file off the host over USB, to cloud storage, or via an alternative protocol (T1052.001 / T1567.002 / T1048, Exfiltration)"
         }
       ],
       "correct_order": [
@@ -412,7 +412,7 @@ const dataStagingExfilRoom = {
           "question": "Which pair of fields shows that this session is a bulk upload rather than ordinary encrypted web browsing?",
           "options": [
             "data.app (MEGA) and data.dstcountry (New Zealand): a personal cloud service hosted abroad",
-            "data.sentbyte and data.rcvdbyte: about 760 MB sent against about 13.5 MB received",
+            "data.sentbyte (796305664) and data.rcvdbyte (14162388): bytes in each direction",
             "data.duration (187) and data.apprisk (elevated): a long session to a risky application",
             "data.service (HTTPS) and data.dstport (443): encrypted traffic on the standard web port"
           ],
@@ -441,7 +441,7 @@ const dataStagingExfilRoom = {
       "scenario": "A separate alert fires the same week for another large outbound HTTPS session: this time from the backup server BKP-VEEAM-01, at 02:00, carrying roughly 11.6GB. The underlying detection rule matches any session exceeding 500MB sent, with no allowance for account type, destination, or historical baseline.",
       "event": veeamBackupEvent,
       "correct_verdict": "benign_true_positive",
-      "explanation": "Every discriminator the Legitimate-Backup Trap reading names checks out as legitimate: a dedicated service account (svc-veeam-backup, never a human's own login), a documented change ticket (CHG-2026-1187), six months of an identical recurring schedule at 02:00, and a sanctioned first-party destination, the organisation's OWN Azure Blob Storage container, not an unrelated personal or consumer service. The it_verify_message confirms every one of these facts directly from IT. This is the legitimate-backup shape this room warned about: it looks structurally identical to the attack chain, and the four context checks, not the volume, are what separate it. That makes this a benign true positive: the rule correctly caught a real large outbound transfer, and change ticket CHG-2026-1187 for the nightly backup is the justification you cite when closing it. It is not a false positive, because nothing misfired, and that label would invite raising the threshold until real exfiltration slips under it; the right refinement is a narrow, owned exclusion for this account and destination.",
+      "explanation": "Every discriminator the Legitimate-Backup Trap reading names checks out as legitimate: a dedicated service account (svc-veeam-backup, never a human's own login), a documented change ticket (CHG-2026-1187), six months of an identical recurring schedule at 02:00, and a sanctioned first-party destination, the organisation's OWN Azure Blob Storage container, not an unrelated personal or consumer service. IT's answer confirms these facts directly. This is the legitimate-backup shape this room warned about: it looks structurally identical to the attack chain, and the four context checks, not the volume, are what separate it. That makes this a benign true positive: the rule correctly caught a real large outbound transfer, and change ticket CHG-2026-1187 for the nightly backup is the justification you cite when closing it. It is not a false positive, because nothing misfired, and that label would invite raising the threshold until real exfiltration slips under it; the right refinement is a narrow, owned exclusion for this account and destination.",
       "fp_trap": "The raw byte count here (roughly 11.6GB) is actually LARGER than the malicious mega.nz upload in this room's log_analysis task: if volume alone decided the verdict, this would look like the more serious case. Escalating purely on transfer size, without checking the account type, the destination, and the historical baseline this room's investigation workflow calls for, is exactly the flood of reflexive escalations that trains a SOC to stop trusting its own large-transfer alerts.",
       "xp": 25
     },

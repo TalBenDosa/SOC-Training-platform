@@ -745,7 +745,7 @@ const nacMasterclass = {
       type: "flag" as const,
       id: "nac-f1",
       prompt:
-        "In ISE, an authorization RULE holds the conditions a request must match, and the authorization PROFILE is the result that rule returns to the switch (VLAN, ACL, redirect). In the quarantine event, which authorization rule did this endpoint match? Enter the rule name exactly as logged.",
+        "In the quarantine event, ISE returned one result to the switch, and one policy entry's conditions decided that result. Enter the name of the entry whose conditions this endpoint matched, exactly as logged.",
       answer: "Posture-NonCompliant",
       hint: "Two cisco.ise.* fields describe the authorization step: one names the policy match, the other names what was sent to the switch.",
       xp: 30,

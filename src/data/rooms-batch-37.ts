@@ -220,7 +220,8 @@ const oktaIdentityFundamentalsRoom = {
         "**isp and domain.** These carry closely related information (the resolved internet service provider name and reverse-DNS domain for the source address) useful for confirming or refining what asOrg already suggests.\n\n" +
         "**isProxy.** A boolean flag indicating whether Okta's own network intelligence believes the request passed through a known proxy or anonymisation service. It's a useful corroborating signal, but a false value doesn't clear an attempt on its own. Plenty of legitimate residential proxies and lesser-known VPN providers won't be flagged, and plenty of ordinary corporate egress setups can occasionally trip it.\n\n" +
         "**Reading securityContext alongside client.geographicalContext.** The two are related but distinct: geographicalContext is Okta's IP-based geolocation guess (country, city), while securityContext describes the network infrastructure itself. A sign-in from the right country but the wrong kind of network (a hosting ASN instead of a residential ISP, sitting in the same city an employee happens to live in) is still worth flagging. Geography alone is a weak signal on its own, precisely because IP geolocation can be imprecise and VPN exit nodes can land anywhere.\n\n" +
-        "**Why this matters even when a sign-in ultimately fails.** securityContext doesn't require a successful login to be useful. A burst of failures worth investigating at all should have its source infrastructure checked immediately, before spending time on the outcome.reason detail from the previous reading, because a hosting-ASN source on a failing burst already tells an analyst this almost certainly isn't the account's own user mistyping their password.",
+        "**Why this matters even when a sign-in ultimately fails.** securityContext doesn't require a successful login to be useful. A burst of failures worth investigating at all should have its source infrastructure checked immediately, before spending time on the outcome.reason detail from the previous reading, because a hosting-ASN source on a failing burst already tells an analyst this almost certainly isn't the account's own user mistyping their password.\n\n" +
+        "**Where this check fits in a triage.** Work a flagged burst in the same order every time. Start here, on securityContext, to learn what kind of network is behind it. Then read outcome.result and outcome.reason across the whole burst for any reason that differs from the rest, and check the MFA events that follow to see how far the sign-in really got. Next pivot on the account and the source IP to find any other System Log events in that window, such as group, policy or admin changes. Those results let you scope the impact: whether a password was confirmed, a privilege changed or a session created. Full containment comes after that, built on everything you found, although changing a confirmed password never waits for it.",
     },
     // ── Reading 5: factor enrollment ─────────────────────────────────────────
     {
@@ -424,14 +425,14 @@ const oktaIdentityFundamentalsRoom = {
           question:
             "What is the correct combined containment scope now that both events are read together?",
           options: [
-            "Reset the password, revoke sessions, remove Okta-Admins and the stale admin role, then audit",
-            "Reset the password and revoke sessions; the Okta-Admins removal can wait for access review",
-            "Remove the Okta-Admins membership; once it is reverted the password reset is not urgent",
-            "Reset MFA so the approved push stops working, and leave the group for its owner to review",
+            "Reset the password, revoke sessions, remove Okta-Admins, block the IP, then audit",
+            "Reset the password, block the IP, remove Okta-Admins and the stale role, then audit",
+            "Reset the password, revoke sessions, remove Okta-Admins and the stale role, then audit",
+            "Revoke sessions, block the IP, remove Okta-Admins and the stale role, then audit",
           ],
-          answer: 0,
+          answer: 2,
           explanation:
-            "The findings compound: the password is known to an outside party, that party holds a live session (the push was approved), and it used that session -- with a stale Super Administrator role already in hand -- to add the account to Okta-Admins, a second route to admin that would survive removal of the direct role. Contain all of it together: reset the password, revoke sessions, remove the Okta-Admins membership and the leftover Super Administrator role, then audit what the elevated access was used for. 'The group removal can wait' leaves admin rights in place even after the reset. 'Revert the group, the password can wait' leaves a known password live. 'Reset MFA' does not end the existing session or the known password, and leaving the group untouched keeps the escalation in place.",
+            "The findings compound: the password is known to an outside party, that party holds a live session (the push was approved), and it used that session, with a stale Super Administrator role already in hand, to add the account to Okta-Admins, a second route to admin that would survive removal of the direct role. Every foothold goes in the same step: reset the password, revoke sessions, remove the Okta-Admins membership and the leftover Super Administrator role, then audit what the elevated access was used for. Blocking 198.51.100.44 is a reasonable extra, but it never replaces one of those steps. Leave the stale role and the account still holds admin rights after the group is gone. Skip revoking sessions and the live session stays open. Skip the password reset and a known password keeps working from any other address.",
           xp: 30,
         },
       ],

@@ -191,11 +191,11 @@ const powershellForSocRoom: Room = {
       type: "question",
       id: "ps-soc-q3",
       question:
-        "EDR flags a workstation for an established outbound connection to an unfamiliar external IP on port 4444, but the alert doesn't name which local process owns that connection. Which cmdlet lets you look up the live TCP connection and pull the owning process ID, so you can pivot that ID into Get-Process for the executable details?",
-      options: ["Get-NetTCPConnection", "Get-NetIPAddress", "Get-NetFirewallRule", "Get-DnsClientCache"],
-      answer: 0,
+        "EDR flags a workstation sending traffic to an unfamiliar external IP on port 4444, but the alert doesn't name the local process behind it. Which cmdlet shows that remote address and port next to the PID that owns them, so you can pivot that PID into Get-Process for the executable details?",
+      options: ["Get-NetFirewallRule", "Get-NetTCPConnection", "Get-Process", "Get-NetIPAddress"],
+      answer: 1,
       explanation:
-        "Get-NetTCPConnection lists live TCP connections, including an OwningProcess property that holds the PID responsible for each one: exactly what's needed to pivot from 'a suspicious connection exists' to 'here is the process ID, now look up the executable with Get-Process -Id.' Get-NetIPAddress shows the host's own interface addresses, Get-NetFirewallRule lists firewall policy rather than live sessions, and Get-DnsClientCache shows recently resolved names. None of them expose a live connection's owning process.",
+        "Get-NetTCPConnection lists live TCP connections with their remote address, remote port and an OwningProcess property that holds the PID responsible for each one: exactly what's needed to pivot from 'a suspicious connection exists' to 'here is the process ID, now look up the executable with Get-Process -Id.' Get-Process lists processes and their PIDs but not the remote address or port each one is talking to, which is why it is the second step rather than the first. Get-NetIPAddress shows the host's own interface addresses, and Get-NetFirewallRule lists firewall policy rather than live sessions. None of them tie a live connection to its owning process.",
       xp: 25,
     },
 
@@ -290,37 +290,37 @@ const powershellForSocRoom: Room = {
         {
           id: "pair-process",
           left: "Get-Process",
-          right: "List every running process (name, PID, CPU, memory) to spot something that doesn't belong right now",
+          right: "See what is executing on the host right now, with PID, CPU time and memory for each entry",
         },
         {
           id: "pair-service",
           left: "Get-Service",
-          right: "Confirm a security service hasn't been disabled, or spot an unfamiliar service that has appeared",
+          right: "Confirm the EDR sensor or Windows Defender is still running and was not disabled",
         },
         {
           id: "pair-winevent",
           left: "Get-WinEvent",
-          right: "Query the Windows Event Log directly (for example, every Event ID 4625 in the last hour) without opening Event Viewer",
+          right: "Pull every failed logon from the last hour, filtered at the source, without opening a viewer",
         },
         {
           id: "pair-childitem",
           left: "Get-ChildItem",
-          right: "List files in a directory such as %TEMP% or %APPDATA% to check for a dropped payload",
+          right: "Check what has been dropped into %TEMP%, %APPDATA% or C:\\Users\\Public",
         },
         {
           id: "pair-nettcp",
           left: "Get-NetTCPConnection",
-          right: "List live TCP connections and their OwningProcess, to trace a suspicious outbound connection back to a PID",
+          right: "Go from an alert on an unfamiliar outbound IP to the PID holding that session open",
         },
         {
           id: "pair-schtask",
           left: "Get-ScheduledTask",
-          right: "List scheduled tasks on the host, to find a persistence mechanism registered outside normal change control",
+          right: "Find persistence that fires at logon or on a timer and survives a reboot, with its author",
         },
         {
           id: "pair-localgroup",
           left: "Get-LocalGroupMember",
-          right: "List members of a local group such as Administrators, to confirm who currently has that level of access",
+          right: "Check that a workstation's Administrators match what IT change control has on record",
         },
       ],
       explanation:
