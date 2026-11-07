@@ -3,6 +3,8 @@ export interface RosterMember { user_id: string; role: string; status: string; n
 // schema_version ≥ 2: server-side lifecycle/presence, answer key off the wire (migration 0071).
 // stack: the security products the session runs on — only the categories that differ from the company (QA L3).
 export interface SessionMeta { id: string; company_id: string; difficulty: string; status: string; org_id: string; schema_version?: number; stack?: Record<string, string>;
+  /** Where the team investigates (config.console). Absent on an EDR session read from an older server. */
+  console?: "edr" | "sentinel";
   /** The organization the exercise runs as (its English name = domain); null on Live-SOC-company sessions. */
   tenant?: { name: string; domain: string; netbios: string; brand: string } | null;
   env?: { platforms: string[]; industry: string } | null;

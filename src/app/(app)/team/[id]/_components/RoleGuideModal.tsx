@@ -47,7 +47,7 @@ export function roleDirective(role: string | null | undefined): string {
     default: return "Watch the shared feed.";
   }
 }
-export function RoleGuideModal({ role, onClose, onStartTour }: { role: string | null; onClose: () => void; onStartTour?: () => void }) {
+export function RoleGuideModal({ role, onClose, onStartTour, isSentinel = false }: { role: string | null; onClose: () => void; onStartTour?: () => void; isSentinel?: boolean }) {
   const g = ROLE_GUIDE[role ?? ""] ?? ROLE_GUIDE.instructor;
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(true, dialogRef, { onEscape: onClose });
@@ -61,7 +61,7 @@ export function RoleGuideModal({ role, onClose, onStartTour }: { role: string | 
         <p className="mt-2 text-sm text-slate-200">{g.mission}</p>
         <div className="mt-4">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-cyber-300">What you do</p>
-          <ol className="mt-1 list-decimal space-y-1 pl-5 text-sm text-slate-300">{g.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
+          <ol className="mt-1 list-decimal space-y-1 pl-5 text-sm text-slate-300">{g.steps.map((s, i) => <li key={i}>{isSentinel ? s.replace(/the EDR console/g, "Sentinel") : s}</li>)}</ol>
         </div>
         <div className="mt-3 rounded-lg border border-border bg-bg px-3 py-2">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Hand-off</p>

@@ -1,4 +1,5 @@
 "use client";
+import { sentinelActivity } from "@/lib/team/report/sentinelActivity";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { setTotalXp } from "@/lib/storage/progress";
@@ -834,6 +835,11 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
               <Line label="Acknowledged" value={String(u.acks)} />
               <Line label="Containment" value={`${u.contReq} req · ${u.contDecided} dec`} />
               <Line label="Role actions" value={String(u.roleActions)} />
+              {(() => {
+                const attack = new Set(revealed.filter(e => { const v = (e.payload as { expected_verdict?: unknown }).expected_verdict; return e.type === "feed.event" && (v === "tp" || v === "escalate"); }).map(e => String((e.payload as { id?: unknown }).id)));
+                const a = sentinelActivity(events, u.user_id, attack);
+                return a && <Line label="Sentinel" value={`${a.queriesOk}/${a.queries} queries · ${a.bookmarks} bookmarks · ${a.closed} closed${a.judged ? ` · ${a.judgedRight}/${a.judged} classified right` : ""}`} />;
+              })()}
             </div>
             <ReportedTable items={u.reported ?? []} met={u.slaMet ?? 0} total={u.slaTotal ?? 0} pct={u.slaPct ?? null} />
             {(u.isolations?.length ?? 0) > 0 && (

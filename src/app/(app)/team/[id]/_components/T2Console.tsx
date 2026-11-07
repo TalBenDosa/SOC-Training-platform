@@ -25,7 +25,7 @@ export const CONTAINMENT_TYPES: [string, string][] = [["isolate_host", "Isolate 
 export const containmentVerb = (t?: string) => (t === "disable_account" ? "Disable" : t === "block_indicator" ? "Block" : "Isolate");
 const EMPTY_REP = { summary: "", findings: "", verdict: "true_positive", recommendation: "", incident: "" };
 
-export function T2Console({ hasTier3 = true, canEdr, sessionId, role, meId, escalations, escState, reportedIds, reportByEid, elevatedIds, containments, scope, scopes, incidents, incidentOf, nameOf, act, actR, onEdr, onPivot, pauses = [], personOf, addedByCase }: {
+export function T2Console({ hasTier3 = true, consoleName = "EDR", canEdr, sessionId, role, meId, escalations, escState, reportedIds, reportByEid, elevatedIds, containments, scope, scopes, incidents, incidentOf, nameOf, act, actR, onEdr, onPivot, pauses = [], personOf, addedByCase }: {
   sessionId: string; role: string; meId: string;
   /** A Tier-3 analyst is in the room (no Tier-3: no "Escalate to Tier-3", the request would reach nobody). */
   hasTier3?: boolean;
@@ -36,6 +36,8 @@ export function T2Console({ hasTier3 = true, canEdr, sessionId, role, meId, esca
   scope: ScopeState; scopes: Map<string, ScopeSnapshot>; incidents: string[]; incidentOf: Map<string, string>;
   nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; actR: ActR; onEdr?: (description?: string, host?: string) => void;
   /** Whether the EDR console has endpoint telemetry for this host (no host: for the escalated cases). */
+  /** Where this session investigates: "EDR" or "Sentinel". */
+  consoleName?: string;
   canEdr?: (host?: string) => boolean;
   /** Logs Tier-1 added to each case from the queue, keyed by the case's event_id. */
   addedByCase?: Map<string, { eid: string; by: string | null; label: string; at: string | null }[]>;
@@ -138,7 +140,7 @@ export function T2Console({ hasTier3 = true, canEdr, sessionId, role, meId, esca
           </h3>
           <div className="flex items-center gap-2">
             {nextUnacked && <Button variant="outline" size="sm" disabled={busy != null} onClick={takeNextCase}>Take next case</Button>}
-            {onEdr && (canEdr?.() ?? true) && <Button variant="outline" size="sm" onClick={() => onEdr()}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in EDR</Button>}
+            {onEdr && (canEdr?.() ?? true) && <Button variant="outline" size="sm" onClick={() => onEdr()}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in {consoleName}</Button>}
           </div>
         </div>
         {!inboxOpen ? <p className="mt-2 text-[11px] text-slate-500">{escalations.length} case(s) waiting — expand to review. Your focus is hunting &amp; scope below; a case you take here you can also report and close.</p>
@@ -209,7 +211,7 @@ export function T2Console({ hasTier3 = true, canEdr, sessionId, role, meId, esca
                   </p>
                   {p.recommend_isolation && p.hostname && (
                     <p className="mt-1 inline-flex items-center gap-1 rounded border border-severity-high/50 bg-severity-high/10 px-1.5 py-0.5 text-[10px] font-semibold text-severity-high">
-                      Tier-1 recommends isolating <bdi className="font-mono">{p.hostname}</bdi>: your decision, in EDR
+                      Tier-1 recommends isolating <bdi className="font-mono">{p.hostname}</bdi>: your decision, in {consoleName}
                     </p>
                   )}
                   {isBounced && st?.bounceReason && <p className="mt-1 text-[10px] text-neon-amber">↩ bounced to Tier-1: {st.bounceReason}</p>}
@@ -268,8 +270,8 @@ export function T2Console({ hasTier3 = true, canEdr, sessionId, role, meId, esca
                     return (
                       <div className="mt-2 flex items-center gap-2 rounded-lg border border-cyber-500/40 bg-cyber-500/[0.08] px-2.5 py-1.5">
                         <span className="text-sm leading-none">🖥</span>
-                        <span className="min-w-0 flex-1 text-[11px] text-cyber-200">Endpoint activity on this host — investigate it in EDR before you decide.</span>
-                        <Button variant="primary" size="sm" className="shrink-0" onClick={() => onEdr(asStr(p.summary) || asStr(p.what) || "Escalated incident", sn?.hostname)}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in EDR</Button>
+                        <span className="min-w-0 flex-1 text-[11px] text-cyber-200">Activity on this host: investigate it in {consoleName} before you decide.</span>
+                        <Button variant="primary" size="sm" className="shrink-0" onClick={() => onEdr(asStr(p.summary) || asStr(p.what) || "Escalated incident", sn?.hostname)}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in {consoleName}</Button>
                       </div>
                     );
                   })()}

@@ -14,7 +14,7 @@ import { edrFacts, threadOf, withThread } from "./sources/edr-normalize";
 import { procPid, threadEndpointStory, hostKey } from "./sources/_proc-identity";
 import { threadIdentityContext } from "./sources/_identity-common";
 import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
-import { COMPANY_STACKS, sourceFor, categoryOf, rewriteProductText, PRODUCT_LABEL, coherentStack, PRODUCT_LOCKS, M365_CLIENT_TEXT, M365_CLIENT_RECORD, MS_LOGIN_RECORD, STACK_CHOICES, type Stack, type StackCategory } from "./stack";
+import { COMPANY_STACKS, sourceFor, productSourceFor, withoutDetectionFeed, categoryOf, rewriteProductText, PRODUCT_LABEL, coherentStack, PRODUCT_LOCKS, M365_CLIENT_TEXT, M365_CLIENT_RECORD, MS_LOGIN_RECORD, STACK_CHOICES, type Stack, type StackCategory } from "./stack";
 
 import { source as anyconnect } from "./sources/anyconnect";
 import { source as aws_cloudtrail } from "./sources/aws_cloudtrail";
@@ -39,6 +39,7 @@ import { source as k8s_audit } from "./sources/k8s_audit";
 import { source as linux_auditd } from "./sources/linux_auditd";
 import { source as m365 } from "./sources/m365";
 import { source as mde } from "./sources/mde";
+import { source as ms_graph } from "./sources/ms_graph";
 import { source as okta } from "./sources/okta";
 import { source as paloalto } from "./sources/paloalto";
 import { source as proofpoint } from "./sources/proofpoint";
@@ -61,7 +62,7 @@ export const NATIVE_SOURCES: Partial<Record<SourceId, NativeSource>> = {
   cloudflare_access, crowdstrike, defender_o365, entra, fortigate, fortigate_sslvpn, gcp_audit, globalprotect,
   google_workspace, infoblox, k8s_audit, linux_auditd, m365, mde, okta, paloalto, proofpoint, sentinelone,
   servicenow, sophos, sysmon, windows_dns, zscaler_zia, zscaler_zpa,
-  cyberark, windows_security, workday,
+  cyberark, windows_security, workday, ms_graph,
   aws_waf, azure_waf, iis, nginx,
 };
 
@@ -84,6 +85,17 @@ export function nativize(ev: TelemetryEvent, companyId: string, stack?: Stack, i
   try { return mod.fromTelemetry(ev, makeCtx(companyId, identity ?? {})); } catch { return null; }
 }
 
+/**
+ * The Microsoft Graph alert (alerts_v2, as the SIEM indexes it) of a feed event under `stack`, for
+ * src/lib/sentinel to add next to the event's Defender record; null when the event is not a product
+ * detection of a Microsoft product under that stack. Pass the workspace's own stack: the function
+ * needs no detection_feed key. Input: the public payload. The alert's times follow `ev.ts`.
+ */
+export function graphAlertFor(ev: TelemetryEvent, companyId: string, stack?: Stack, identity?: NativeIdentity): NativeLog | null {
+  const log = nativize(authoredOf(ev), companyId, { ...(stack ?? {}), detection_feed: "ms_graph" }, identity);
+  return log?.sourceId === "ms_graph" ? log : null;
+}
+
 /** Use cases for one source, or every source. */
 export function useCasesFor(sourceId?: SourceId): UseCase[] {
   if (sourceId) return NATIVE_SOURCES[sourceId]?.useCases ?? [];
@@ -92,7 +104,7 @@ export function useCasesFor(sourceId?: SourceId): UseCase[] {
 
 export type { NativeLog, NativeSource, SourceId, UseCase } from "./types";
 export type { Stack } from "./stack";
-export { STACK_CHOICES, PRODUCT_LABEL, sanitizeStack, COMPANY_STACKS } from "./stack";
+export { STACK_CHOICES, PRODUCT_LABEL, sanitizeStack, COMPANY_STACKS, withoutDetectionFeed } from "./stack";
 
 /** nativize + the product display name, for the feed UI (NativeLogContext). */
 export function nativeView(ev: TelemetryEvent, companyId: string, stack?: Stack, identity?: NativeIdentity): { log: NativeLog; product: string; related?: NativeLog[] } | null {
@@ -146,16 +158,16 @@ function lockedOut(base: TelemetryEvent, id: string | null): boolean {
  */
 export function storyHonoursLocks(events: TelemetryEvent[], companyId: string, stack?: Stack): boolean {
   const eff = stackFor(companyId, stack);
-  return events.every(e => { const base = authoredOf(e); return !lockedOut(base, sourceFor(base, eff)); });
+  return events.every(e => { const base = authoredOf(e); return !lockedOut(base, productSourceFor(base, eff)); });
 }
 
 export function fitsStack(ev: TelemetryEvent, companyId: string, stack?: Stack): boolean {
   const base = authoredOf(ev);
   const eff = stackFor(companyId, stack);
   const cat = categoryOf(base);
-  const id = sourceFor(base, eff);
+  const id = productSourceFor(base, eff);
   if (lockedOut(base, id)) return false;
-  const log = id && NATIVE_SOURCES[id] ? nativize(base, companyId, stack) : undefined;
+  const log = id && NATIVE_SOURCES[id] ? nativize(base, companyId, stack && withoutDetectionFeed(stack)) : undefined;
   if (log === null) return false;
   if (eff.collab === "google_workspace" && cat && CLIENT_SIDE.has(cat)) {
     if (M365_CLIENT_TEXT.test(base.description ?? "")) return false;
@@ -176,7 +188,7 @@ export function storyFitsOrg(events: TelemetryEvent[], companyId: string, stack?
   const eff = stackFor(companyId, stack);
   return events.every(e => {
     const base = authoredOf(e);
-    const id = sourceFor(base, eff);
+    const id = productSourceFor(base, eff);
     if (lockedOut(base, id)) return false;
     if (!id || id === sourceFor(base, {})) return true;
     return fitsStack(e, companyId, stack);
@@ -257,7 +269,7 @@ function applyStackLabels(ev: TelemetryEvent, companyId: string, stack?: Stack):
   if (!cat || cat === "cloud" || cat === "k8s" || cat === "onprem_ad" || cat === "host_telemetry" || cat === "linux" || cat === "itsm" || cat === "pam") {
     return description === ev.description ? ev : { ...ev, description };
   }
-  const id = sourceFor(base, eff);
+  const id = productSourceFor(base, eff);
   if (!id) return description === ev.description ? ev : { ...ev, description };
   const product = PRODUCT_LABEL[id];
   const next: StackedEvent = {

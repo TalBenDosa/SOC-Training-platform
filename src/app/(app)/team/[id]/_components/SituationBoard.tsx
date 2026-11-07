@@ -20,7 +20,7 @@ export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online,
   }, [liveFeed]);
   const bySource = useMemo(() => {
     const m = new Map<string, number>();
-    for (const e of liveFeed) { const s = e.source || "other"; m.set(s, (m.get(s) ?? 0) + 1); }
+    for (const e of liveFeed) { const s = e.feed_source ?? (e.source || "other"); m.set(s, (m.get(s) ?? 0) + 1); }
     return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
   }, [liveFeed]);
   const feedById = useMemo(() => new Map(feed.map(e => [String((e.payload as { id?: string }).id ?? e.seq), e.payload as Record<string, unknown>])), [feed]);

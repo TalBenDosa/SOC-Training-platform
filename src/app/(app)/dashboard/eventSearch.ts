@@ -23,7 +23,7 @@ import type { LiveEvent } from "./useLiveEvents";
 
 // `field:value` search keys → how to read that one field off an event.
 const FIELD_ACCESSORS: Record<string, (ev: LiveEvent) => string | undefined> = {
-  source:   (ev) => ev.source,
+  source:   (ev) => ev.feed_source ?? ev.source,
   host:     (ev) => ev.hostname,
   hostname: (ev) => ev.hostname,
   user:     (ev) => ev.user_email ?? ev.user?.email,
@@ -49,7 +49,7 @@ function flatten(ev: LiveEvent): string {
   const cached = flatCache.get(ev);
   if (cached !== undefined) return cached;
   const parts: (string | undefined)[] = [
-    ev.displayDescription, ev.description, ev.source, ev.hostname,
+    ev.displayDescription, ev.description, ev.feed_source ?? ev.source, ev.hostname,
     ev.user_email, ev.user?.email, ev.user?.full_name,
     ev.src_ip, ev.dst_ip, ev.ruleId, ev.mitre_technique, ev.mitre_tactic,
     ev.vendor, ev.event_type,

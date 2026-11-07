@@ -11,5 +11,7 @@ export interface EdrPivot {
   /** The EDR console has endpoint telemetry for this log's host. */
   canOpen: (ev: TelemetryEvent) => boolean;
   open: (ev: TelemetryEvent) => void;
+  /** Sentinel holds every source: the pivot is offered on any log with a host, not only endpoint logs. */
+  consoleName?: string;
 }
 export const EdrPivotContext = createContext<EdrPivot | null>(null);

@@ -46,13 +46,15 @@ import { teamLoad, withShiftMinutes, type Difficulty } from "@/lib/team/load";
 import { loadWithPlan } from "@/lib/team/attackPlan";
 import { activeClaims, escalationStates, containmentRequests, scopeByIncident, latestScope, incidentLabels, incidentByEvent, openLoadByUser, isolationState } from "@/lib/team/projections";
 import { pausedSpans } from "@/lib/team/pauses";
-import { PRODUCT_LABEL, STACK_CHOICES } from "@/lib/logs/native/stack";
+import { feedSourceOf, PRODUCT_LABEL, STACK_CHOICES, type Stack } from "@/lib/logs/native/stack";
 import { INDUSTRY_CHOICES, PLATFORM_CHOICES } from "@/lib/team/environment";
 import { advanceWatermark } from "@/lib/team/eventLog";
 import { ROLE_LABEL } from "./_components/shared";
 import { roleDirective, RoleGuideModal } from "./_components/RoleGuideModal";
 import { GuidedTour } from "./_components/GuidedTour";
-import { tourFor } from "./_components/teamTours";
+import { tourFor, forSentinel } from "./_components/teamTours";
+import { useSentinelIncidents } from "@/lib/team/useSentinelIncidents";
+import { showSentinelWindow, siemWindowName } from "@/lib/team/twoWindows";
 import { SharedCase } from "./_components/SharedCase";
 import { T1Console } from "./_components/T1Console";
 import { T2Console } from "./_components/T2Console";
@@ -164,6 +166,8 @@ export default function TeamRoomPage() {
   const [t3Sent, setT3Sent] = useState<string | null>(null);
   useEffect(() => { if (!t3Sent) return; const t = setTimeout(() => setT3Sent(null), 7000); return () => clearTimeout(t); }, [t3Sent]);
   const [t3EdrHost, setT3EdrHost] = useState("");
+  // Read by openEdr, which is declared before the incident list exists.
+  const sentinelIncidentFor = useRef<(host?: string) => string | undefined>(() => undefined);
   // SOC Manager menu: the situation board, the raw logs (to back up the analysts), every
   // escalation, the stakeholder report and the stakeholder window.
   const [mgrView, setMgrView] = useState<"board" | "logs" | "escalations" | "stakeholders" | "reporting">("board");
@@ -864,7 +868,7 @@ export default function TeamRoomPage() {
       withMedium: queueWithMedium,
     };
   }, [alertQueue, claimByEid, events, escalatedIds, bouncedPending, dispositions, queueWithMedium, nameOf, me?.id, attached]);
-  const activity = useMemo(() => events.filter(e => ["escalation.requested", "escalation.acknowledged", "escalation.bounced", "escalation.resolved", "elevation.requested", "containment.requested", "containment.approved", "containment.denied", "containment.executed", "edr.host_isolated", "edr.host_released", "disposition.set", "hunt.logged", "rule.published", "intel.published", "handover.noted", "decision.logged", "sitrep.sent", "report.submitted", "evidence.pinned", "case.status_set", "case.assigned", "scope.set", "scope.confirmed", "staff.inject", "ticket.answered"].includes(e.type)), [events]);
+  const activity = useMemo(() => events.filter(e => ["sentinel.incident_updated", "sentinel.bookmark_added", "escalation.requested", "escalation.acknowledged", "escalation.bounced", "escalation.resolved", "elevation.requested", "containment.requested", "containment.approved", "containment.denied", "containment.executed", "edr.host_isolated", "edr.host_released", "disposition.set", "hunt.logged", "rule.published", "intel.published", "handover.noted", "decision.logged", "sitrep.sent", "report.submitted", "evidence.pinned", "case.status_set", "case.assigned", "scope.set", "scope.confirmed", "staff.inject", "ticket.answered"].includes(e.type)), [events]);
   // The team feed rendered with the REAL dashboard EventFeed — enrich each shared
   // event into a LiveEvent so it looks and behaves exactly like the single-player
   // Live SOC dashboard (rule levels, source badges, raw formatting, threat-intel).
@@ -892,14 +896,21 @@ export default function TeamRoomPage() {
   // P5-23: a log's enriched row never changes once it has arrived, so it is built
   // ONCE per seq and reused. Rebuilding all 120 rows on every session event gave
   // them new identities, which defeated the memoised (animated) feed rows.
-  const liveCacheRef = useRef(new Map<number, LiveEvent>());
+  const liveCacheRef = useRef({ key: "", rows: new Map<number, LiveEvent>() });
+  // A detection the session's SIEM reads from Microsoft Graph says so on its row. EDR sessions: no key, same rows.
+  const feedCompany = session?.company_id ?? "";
+  const feedStackJson = JSON.stringify(session?.stack ?? {});
   const toLiveCached = useCallback((e: Ev): LiveEvent => {
-    const hit = liveCacheRef.current.get(e.seq);
+    const key = `${feedCompany}|${feedStackJson}`;
+    if (liveCacheRef.current.key !== key) liveCacheRef.current = { key, rows: new Map() };
+    const hit = liveCacheRef.current.rows.get(e.seq);
     if (hit) return hit;
     const built = toLive(e);
-    liveCacheRef.current.set(e.seq, built);
-    return built;
-  }, [toLive]);
+    const feedSource = feedSourceOf(built, feedCompany, JSON.parse(feedStackJson) as Stack);
+    const row = feedSource ? { ...built, feed_source: feedSource } : built;
+    liveCacheRef.current.rows.set(e.seq, row);
+    return row;
+  }, [toLive, feedCompany, feedStackJson]);
   const liveFeed = useMemo<LiveEvent[]>(() => feed.slice(-120).map(toLiveCached), [feed, toLiveCached]);
   // "Needs triage" view: the queue's logs, most urgent first, rendered as ordinary SIEM rows.
   const triageFeed = useMemo<LiveEvent[]>(() => orderedQueue.map(q => toLiveCached(q.e)), [orderedQueue, toLiveCached]);
@@ -991,7 +1002,7 @@ export default function TeamRoomPage() {
     setPulledNote(`Pulled #${next.e.seq} for you — it's claimed while you work it.`);
   }, [orderedQueue, claimByEid, me]);
   // Distinct sources present in the feed → populate the G-04 source filter.
-  const feedSources = useMemo(() => [...new Set(liveFeed.map(e => e.source).filter(Boolean))].sort(), [liveFeed]);
+  const feedSources = useMemo(() => [...new Set(liveFeed.map(e => e.feed_source ?? e.source).filter(Boolean))].sort(), [liveFeed]);
 
   // G-05: "Investigate in EDR" — reconstruct the SAME attack from the team feed's
   // endpoint telemetry (reusing the single-player builder) and deep-link into the
@@ -1002,6 +1013,8 @@ export default function TeamRoomPage() {
   // only for those. A case on a host the scenario has no EDR for (a DC seen only through its
   // Security log) used to show the button and answer with an error (Tal, 2026-10-08).
   const endpointEvs = useMemo(() => feed.filter(e => { const s = (e.payload as { source?: unknown }).source; return s === "edr" || s === "sysmon" || s === "windows_security" || s === "linux_audit"; }), [feed]);
+  const isSentinel = session?.console === "sentinel";
+  const consoleName = isSentinel ? "Sentinel" : "EDR";
   const edrHosts = useMemo(() => {
     const evs = endpointEvs.map(e => e.payload as unknown as TelemetryEvent);
     const candidates = [...new Set(endpointEvs
@@ -1011,11 +1024,23 @@ export default function TeamRoomPage() {
     return new Set(candidates.filter(h => buildTeamEdrCases(evs, { sessionId: id, hosts: [h] }).length > 0).map(hostKey));
   }, [endpointEvs, id]);
   const canEdr = useCallback((host?: string) => {
+    if (isSentinel) return feed.length > 0;   // Sentinel holds every source, not only endpoints
     if (host) return edrHosts.has(hostKey(host));
     const escHosts = escalations.map(e => asStr((e.payload as { snapshot?: { hostname?: unknown } }).snapshot?.hostname)).filter(Boolean);
     return escHosts.length ? escHosts.some(h => edrHosts.has(hostKey(h))) : edrHosts.size > 0;
-  }, [edrHosts, escalations]);
+  }, [edrHosts, escalations, isSentinel, feed.length]);
+  // This tab is the session's SIEM window: Sentinel's link back brings it forward.
+  useEffect(() => { if (isSentinel) window.name = siemWindowName(id); }, [isSentinel, id]);
+  const openSentinel = useCallback((target?: { host?: string; incident?: string }) => {
+    const q = new URLSearchParams({ team: id, u: me?.id ?? "anon" });
+    if (me?.role) q.set("r", me.role);
+    if (target?.host) q.set("host", target.host);
+    if (target?.incident) q.set("incident", target.incident);
+    if (!showSentinelWindow(id, `/sentinel?${q}`, target)) { setEdrNote("Pop-up blocked: allow pop-ups for this site, then open Sentinel again."); return; }
+    setEdrNote(null);
+  }, [id, me?.id, me?.role]);
   const openEdr = useCallback((description?: string, host?: string) => {
+    if (isSentinel) { openSentinel({ host, incident: sentinelIncidentFor.current(host) }); return; }
     try {
       // Same re-timing as the feed rows, so EDR shows the times the team saw.
       const evs = feed.map(e => { const t = e.payload as unknown as TelemetryEvent; return e.occurred_at ? withRebasedTime(t, e.occurred_at) : t; });
@@ -1040,18 +1065,20 @@ export default function TeamRoomPage() {
       try { w.opener = null; } catch { /* cross-origin guard — nothing to cut */ }
       setEdrNote(null);
     } catch { setEdrNote("Couldn't open the EDR console for this incident."); }
-  }, [feed, escalations, id, me?.id, me?.role, iocTruth]);
+  }, [feed, escalations, id, me?.id, me?.role, iocTruth, isSentinel, openSentinel]);
 
   // EDR alerts in the team feed (Tal, 2026-10-09): endpoint detections on hosts the EDR console
   // can open. They light up the "Investigate in EDR" button above the feed with a count, and a
   // NEW one pops a short corner notice (like the single-user dashboard's EDR button). An alert is
   // what the analyst's own EDR would raise, so this leaks no verdict.
-  const edrAlerts = useMemo(() => feed.flatMap(e => {
+  const sentinelIncidents = useSentinelIncidents(isSentinel && phase !== "lobby", feed, events, session);
+  sentinelIncidentFor.current = host => (host ? sentinelIncidents.find(i => i.hosts.includes(hostKey(host))) : sentinelIncidents[sentinelIncidents.length - 1])?.id;
+  const edrAlerts = useMemo(() => isSentinel ? sentinelIncidents.map(i => ({ seq: i.number, host: i.title, title: i.title })) : feed.flatMap(e => {
     const p = e.payload as { source?: unknown; is_detection?: unknown; event_type?: unknown; hostname?: unknown; description?: unknown };
     const host = asStr(p.hostname);
     const isAlert = p.source === "edr" && (p.is_detection === true || /alert|detection|quarantine/.test(asStr(p.event_type)));
     return isAlert && host && edrHosts.has(hostKey(host)) ? [{ seq: e.seq, host, title: asStr(p.description) || "Endpoint detection" }] : [];
-  }), [feed, edrHosts]);
+  }), [feed, edrHosts, isSentinel, sentinelIncidents]);
   const edrSeen = useRef<number | null>(null);
   const [edrToast, setEdrToast] = useState<{ seq: number; host: string; title: string } | null>(null);
 
@@ -1077,9 +1104,10 @@ export default function TeamRoomPage() {
     return () => clearTimeout(t);
   }, [edrToast]);
   const edrPivot = useMemo<EdrPivot>(() => ({
-    canOpen: ev => !!ev.hostname && edrHosts.has(hostKey(ev.hostname)),
+    canOpen: ev => !!ev.hostname && (isSentinel || edrHosts.has(hostKey(ev.hostname))),
     open: ev => openEdr(asStr(ev.description) || "Endpoint alert", ev.hostname),
-  }), [edrHosts, openEdr]);
+    consoleName: isSentinel ? consoleName : undefined,
+  }), [edrHosts, openEdr, isSentinel, consoleName]);
 
 
   // The shift's load for the team currently in the lobby — the same numbers /start
@@ -1159,15 +1187,15 @@ export default function TeamRoomPage() {
             <div className="flex items-start gap-2.5">
               <Cpu className="mt-0.5 h-4 w-4 shrink-0 text-cyber-300" aria-hidden />
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold uppercase tracking-wider text-cyber-300">New EDR alert</p>
-                <p className="mt-0.5 text-sm text-slate-200"><bdi className="font-mono">{edrToast.host}</bdi></p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-cyber-300">{isSentinel ? "New Sentinel incident" : "New EDR alert"}</p>
+                {!isSentinel && <p className="mt-0.5 text-sm text-slate-200"><bdi className="font-mono">{edrToast.host}</bdi></p>}
                 <p className="mt-0.5 line-clamp-2 text-[11px] text-slate-400">{edrToast.title}</p>
                 <div className="mt-2 flex gap-2">
-                  <Button size="sm" onClick={() => { openEdr(edrToast.title, edrToast.host); setEdrToast(null); }}>Investigate in EDR</Button>
+                  <Button size="sm" onClick={() => { if (isSentinel) openSentinel({ incident: sentinelIncidents.find(i => i.number === edrToast.seq)?.id }); else openEdr(edrToast.title, edrToast.host); setEdrToast(null); }}>Investigate in {consoleName}</Button>
                   <Button size="sm" variant="outline" onClick={() => setEdrToast(null)}>Later</Button>
                 </div>
               </div>
-              <button type="button" onClick={() => setEdrToast(null)} aria-label="Dismiss the EDR alert" className="rounded text-slate-400 hover:text-white"><X className="h-3.5 w-3.5" /></button>
+              <button type="button" onClick={() => setEdrToast(null)} aria-label={`Dismiss the ${consoleName} notice`} className="rounded text-slate-400 hover:text-white"><X className="h-3.5 w-3.5" /></button>
             </div>
           </div>
         )}
@@ -1191,9 +1219,9 @@ export default function TeamRoomPage() {
           </div>
         )}
 
-        {showGuide && me && <RoleGuideModal role={me.role} onClose={() => setShowGuide(false)}
+        {showGuide && me && <RoleGuideModal role={me.role} isSentinel={isSentinel} onClose={() => setShowGuide(false)}
           onStartTour={phase === "running" && tourFor(me.role, setMgrView) ? () => { setShowGuide(false); setTourOn(true); } : undefined} />}
-        {tourOn && me && (() => { const t = tourFor(me.role, setMgrView); return t ? <GuidedTour title={t.title} steps={t.steps} onClose={() => { setTourOn(false); try { localStorage.setItem(`team-tour-seen-${me.role}`, "1"); } catch { /* storage blocked */ } }} /> : null; })()}
+        {tourOn && me && (() => { const t = tourFor(me.role, setMgrView); return t ? <GuidedTour title={t.title} steps={isSentinel ? forSentinel(t.steps) : t.steps} onClose={() => { setTourOn(false); try { localStorage.setItem(`team-tour-seen-${me.role}`, "1"); } catch { /* storage blocked */ } }} /> : null; })()}
 
         {/* Who-just-left popups — every member sees them when a teammate drops. */}
         {leftNotices.length > 0 && (
@@ -1528,14 +1556,14 @@ export default function TeamRoomPage() {
                             ))}
                           </div>
                           <div className="ml-auto flex flex-wrap items-center gap-1.5">
-                            <div className="flex items-center gap-1 rounded-md border border-border px-1.5 py-1" data-tour="t3-edr">
+                            {isSentinel ? <button type="button" data-tour="t3-edr" onClick={() => openSentinel()} className="rounded-md border border-cyber-500/50 bg-cyber-500/10 px-3 py-1.5 text-xs font-semibold text-cyber-200 hover:bg-cyber-500/20">Open Sentinel</button> : <div className="flex items-center gap-1 rounded-md border border-border px-1.5 py-1" data-tour="t3-edr">
                               <Cpu className="h-3.5 w-3.5 text-cyber-300" aria-hidden />
                               <label className="sr-only" htmlFor="t3-edr-host">Host to open in EDR</label>
                               <select id="t3-edr-host" value={edrPick} onChange={e => setT3EdrHost(e.target.value)} disabled={!edrChoices.length} className="max-w-[10rem] bg-transparent font-mono text-[11px] text-slate-200 focus:outline-none">
                                 {edrChoices.length ? edrChoices.map(h => <option key={h} value={h} className="bg-bg">{h}</option>) : <option>no EDR host yet</option>}
                               </select>
                               <button type="button" disabled={!edrPick} onClick={() => openEdr(undefined, edrPick)} className="rounded px-2 py-0.5 text-xs font-semibold text-cyber-200 hover:bg-cyber-500/10 disabled:opacity-50">Open EDR</button>
-                            </div>
+                            </div>}
                             <button type="button" data-tour="t3-report" onClick={() => setT3ReportOpen(true)} className="rounded-md border border-neon-purple/50 bg-neon-purple/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-neon-purple/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400">Report to SOC Manager</button>
                           </div>
                         </nav>
@@ -1599,17 +1627,17 @@ export default function TeamRoomPage() {
                       const last = edrAlerts[edrAlerts.length - 1];
                       return (
                         <div data-tour="edr-button" className="flex items-center gap-2">
-                          <button type="button" disabled={!last} onClick={() => last && openEdr(last.title, last.host)}
-                            title={last ? `Latest EDR alert: ${last.title} (${last.host})` : "No endpoint alerts yet: this lights up when an EDR alert reaches the feed"}
+                          <button type="button" disabled={!isSentinel && !last} onClick={() => { if (isSentinel) openSentinel({ incident: sentinelIncidents.find(i => i.number === last?.seq)?.id }); else if (last) openEdr(last.title, last.host); }}
+                            title={isSentinel ? (last ? `Latest incident: ${last.title}` : "Open Sentinel. No incidents yet.") : last ? `Latest EDR alert: ${last.title} (${last.host})` : "No endpoint alerts yet: this lights up when an EDR alert reaches the feed"}
                             className={`relative flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-xs font-semibold transition ${last ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-200 hover:bg-cyber-500/20" : "cursor-not-allowed border-border bg-bg text-slate-500"}`}>
-                            <Cpu className="h-3.5 w-3.5" aria-hidden /> Investigate in EDR
+                            <Cpu className="h-3.5 w-3.5" aria-hidden /> Investigate in {consoleName}
                             {edrAlerts.length > 0 && (
                               <span className="absolute -right-2 -top-2 flex h-5 min-w-[1.25rem] animate-pulse items-center justify-center rounded-full bg-severity-critical px-1 text-[10px] font-bold text-white shadow ring-2 ring-bg-elevated">
-                                {edrAlerts.length}<span className="sr-only"> endpoint alert{edrAlerts.length > 1 ? "s" : ""}</span>
+                                {edrAlerts.length}<span className="sr-only"> {isSentinel ? "incident" : "endpoint alert"}{edrAlerts.length > 1 ? "s" : ""}</span>
                               </span>
                             )}
                           </button>
-                          {last && <span className="min-w-0 truncate text-[11px] text-slate-400">Latest: <bdi className="font-mono text-slate-300">{last.host}</bdi></span>}
+                          {last && !isSentinel && <span className="min-w-0 truncate text-[11px] text-slate-400">Latest: <bdi className="font-mono text-slate-300">{last.host}</bdi></span>}
                         </div>
                       );
                     })()}
@@ -1645,8 +1673,8 @@ export default function TeamRoomPage() {
                 {["t1", "t2", "t3", "de", "ti"].includes(me.role ?? "") && phase === "running" && <ActionInbox events={events} me={me} roster={roster} act={act} />}
                 {me.role === "t1" && <div data-tour="t1-console"><T1Console sessionId={id} feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} actR={actR} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} /></div>}
                 {/* B12: Tier-3's dominant surface is HUNTING — render it above the (secondary) inbox. */}
-                {me.role === "t3" && <div data-tour="hunt-console"><HuntConsole platforms={session?.env?.platforms ?? []} canEdr={canEdr} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} /></div>}
-                {(me.role === "t2" || me.role === "t3") && <div data-tour="t2-console"><T2Console hasTier3={roster.some(m => m.role === "t3" && m.status !== "left")} personOf={personOf} canEdr={canEdr} sessionId={id} role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} addedByCase={addedByCase} /></div>}
+                {me.role === "t3" && <div data-tour="hunt-console"><HuntConsole consoleName={consoleName} platforms={session?.env?.platforms ?? []} canEdr={canEdr} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} /></div>}
+                {(me.role === "t2" || me.role === "t3") && <div data-tour="t2-console"><T2Console consoleName={consoleName} hasTier3={roster.some(m => m.role === "t3" && m.status !== "left")} personOf={personOf} canEdr={canEdr} sessionId={id} role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} addedByCase={addedByCase} /></div>}
                 {/* SOC Manager now holds the coordinator authority (approve containment,
                     decision log, SITREP) as well as shift management. 'lead'/'de' branches
                     stay for backward-compatibility with older sessions; 'ti' is a live seat. */}

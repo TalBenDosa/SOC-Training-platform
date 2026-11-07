@@ -11,7 +11,14 @@ export type StackCategory =
   | "edr" | "firewall" | "vpn" | "proxy" | "dns" | "idp" | "onprem_ad" | "collab"
   | "email_security" | "cloud" | "k8s" | "pam" | "host_telemetry" | "linux" | "itsm" | "waf" | "web_server";
 
-export type Stack = Partial<Record<StackCategory, SourceId>>;
+export type Stack = Partial<Record<StackCategory, SourceId>> & {
+  /**
+   * Where the session's SIEM reads product detections from. Not a category and never a
+   * choice in the picker: stackForConsole sets it for a session that runs on Sentinel.
+   * Absent on an EDR session and on every older session.
+   */
+  detection_feed?: "ms_graph";
+};
 
 /** Default stacks for the five built-in companies (from companyProfilesMeta architecture). */
 export const COMPANY_STACKS: Record<string, Stack> = {
@@ -84,10 +91,97 @@ export function categoryOf(ev: TelemetryEvent): StackCategory | null {
 }
 
 /**
- * The native source that renders `ev` under `stack`. Cloud is per-provider: an AWS
- * event stays AWS even on an Azure-first stack (GuardDuty findings → aws_guardduty).
+ * The native source that renders `ev` under `stack`: the event's product (productSourceFor),
+ * except that a session reading its detections from Microsoft Graph shows a product detection
+ * of a Microsoft product as its Graph alert. Raw logs keep their own format.
  */
 export function sourceFor(ev: TelemetryEvent, stack: Stack): SourceId | null {
+  if (stack.detection_feed === "ms_graph" && microsoftProductOf(ev, stack)) return "ms_graph";
+  return productSourceFor(ev, stack);
+}
+
+/** The stack without its detection feed: what picks the products, labels the rows and fits the stories. */
+export function withoutDetectionFeed(stack: Stack): Stack {
+  const { detection_feed: _feed, ...products } = stack;
+  void _feed;
+  return products;
+}
+
+const ALERT_EVENT_TYPES = new Set(["edr_alert", "av_detection", "av_quarantine", "av_blocked", "dlp_alert", "dlp_block"]);
+
+/**
+ * Did a product raise this event as an alert? The test the Sentinel workspace raises a
+ * SecurityAlert on (src/lib/sentinel/workspace.ts isProductDetection): is_detection, an alert
+ * event type, a SIEM row that names its alert, or a Defender for Cloud alert. It reads the
+ * public payload only, so a false-positive detection and an attack detection pass alike.
+ */
+export function isProductDetection(ev: TelemetryEvent): boolean {
+  if (ev.is_detection || ALERT_EVENT_TYPES.has(ev.event_type)) return true;
+  const r = (ev.raw ?? {}) as Record<string, unknown>;
+  if (ev.source === "siem" && typeof r["AlertName"] === "string" && r["AlertName"]) return true;
+  return productSourceFor(ev, {}) === "azure_activity" && !!(r["azure.alert.alertType"] || r["azure.alert.displayName"]);
+}
+
+/** The Microsoft security products that publish to the Graph alerts_v2 API. */
+export type MicrosoftProduct = "defender_endpoint" | "entra_id_protection" | "defender_office" | "defender_cloud_apps"
+  | "defender_identity" | "defender_cloud" | "purview_dlp" | "insider_risk" | "sentinel" | "defender_xdr";
+
+/** A SecurityAlert row's ProductName column, old and current spellings: the product that raised the alert, whoever forwarded it. */
+const NAMED_PRODUCT: Record<string, MicrosoftProduct> = {
+  "Microsoft Defender Advanced Threat Protection": "defender_endpoint", "Microsoft Defender for Endpoint": "defender_endpoint",
+  "Azure Active Directory Identity Protection": "entra_id_protection", "Microsoft Entra ID Protection": "entra_id_protection",
+  "Office 365 Advanced Threat Protection": "defender_office", "Microsoft Defender for Office 365": "defender_office",
+  "Microsoft Cloud App Security": "defender_cloud_apps", "Microsoft Defender for Cloud Apps": "defender_cloud_apps",
+  "Azure Advanced Threat Protection": "defender_identity", "Microsoft Defender for Identity": "defender_identity",
+  "Azure Security Center": "defender_cloud", "Microsoft Defender for Cloud": "defender_cloud",
+  "Microsoft Data Loss Prevention": "purview_dlp",
+  "Azure Sentinel": "sentinel", "Microsoft Sentinel": "sentinel",
+};
+
+/**
+ * The Microsoft product that raises this detection under `stack`, or null when it is not a
+ * product detection or the product is not Microsoft's (Okta, Proofpoint, a firewall). A product
+ * the event names wins; otherwise the session's product for its category decides, so a
+ * CrowdStrike-authored detection shown as Defender for Endpoint is Defender's alert.
+ */
+export function microsoftProductOf(ev: TelemetryEvent, stack: Stack): MicrosoftProduct | null {
+  if (!isProductDetection(ev)) return null;
+  const named = NAMED_PRODUCT[String((ev.raw ?? {})["ProductName"] ?? "")];
+  if (named) return named;
+  if (has(ev, "defender for identity")) return "defender_identity";
+  if (has(ev, "defender for cloud apps")) return "defender_cloud_apps";
+  if (has(ev, "defender for cloud")) return "defender_cloud";
+  if (has(ev, "insider risk")) return "insider_risk";
+  if (has(ev, "microsoft graph security")) return "defender_xdr";
+  if (has(ev, "microsoft sentinel")) return "sentinel";
+  if (ev.source === "dlp") return has(ev, "purview") ? "purview_dlp" : null;
+  switch (productSourceFor(ev, stack)) {
+    case "mde": return "defender_endpoint";
+    case "entra": return "entra_id_protection";
+    case "defender_o365": return "defender_office";
+    // Microsoft 365 raises no alert of its own: its audit activity alerts through Defender for Cloud Apps.
+    case "m365": return ev.source === "gws" ? null : "defender_cloud_apps";
+    default: return null;
+  }
+}
+
+/**
+ * The source a session's SIEM feed shows this row under, when that is not the row's own
+ * source: "ms_graph" for a detection read from Graph. A display fact, computed on the client:
+ * the public payload keeps its source and vendor, so the alert queue, timing and scoring never see it.
+ */
+export function feedSourceOf(ev: TelemetryEvent, companyId: string, stack?: Stack): "ms_graph" | null {
+  if (stack?.detection_feed !== "ms_graph") return null;
+  const e = ev as TelemetryEvent & { _authored_source?: string; _authored_vendor?: string };
+  const authored = { ...ev, source: (e._authored_source ?? ev.source) as TelemetryEvent["source"], vendor: e._authored_vendor ?? ev.vendor };
+  return sourceFor(authored, coherentStack({ ...(COMPANY_STACKS[companyId] ?? {}), ...stack })) === "ms_graph" ? "ms_graph" : null;
+}
+
+/**
+ * The product's own source for `ev`. Cloud is per-provider: an AWS event stays AWS even on an
+ * Azure-first stack (GuardDuty findings → aws_guardduty).
+ */
+export function productSourceFor(ev: TelemetryEvent, stack: Stack): SourceId | null {
   // Microsoft Purview DLP exists only in Microsoft 365: its rule matches are Unified Audit Log records
   // (DLP.All) whatever the session's other products. Other DLP events keep the legacy view.
   if (ev.source === "dlp") return purviewRuleMatch(ev) ? "m365" : null;
@@ -153,6 +247,7 @@ export const PRODUCT_LABEL: Partial<Record<SourceId, string>> = {
   defender_o365: "Microsoft Defender for Office 365", proofpoint: "Proofpoint TAP",
   windows_dns: "Windows DNS", infoblox: "Infoblox", zscaler_zia: "Zscaler Internet Access",
   aws_waf: "AWS WAF", azure_waf: "Azure WAF", iis: "Microsoft IIS", nginx: "nginx",
+  ms_graph: "Microsoft Graph Security",
 };
 
 /** The categories a trainer can switch, with the products the platform renders natively. */
@@ -182,6 +277,39 @@ export function coherentStack(s: Stack): Stack {
   return s.collab === "google_workspace" && s.email_security === "defender_o365" ? { ...s, email_security: "proofpoint" } : s;
 }
 
+/**
+ * Remote access products that exist only on their vendor's own firewall: GlobalProtect is a PAN-OS
+ * feature and FortiGate SSL VPN a FortiOS one. AnyConnect needs a Cisco head-end, which a Check Point
+ * site can run beside its perimeter firewall, as MedCore does. ZPA and Cloudflare Access need none.
+ */
+const VPN_NEEDS_FIREWALL: Partial<Record<SourceId, { firewalls: SourceId[]; native: boolean }>> = {
+  globalprotect: { firewalls: ["paloalto"], native: true },
+  fortigate_sslvpn: { firewalls: ["fortigate"], native: true },
+  anyconnect: { firewalls: ["cisco_ftd", "cisco_asa", "checkpoint"], native: false },
+};
+
+/** Whether this remote access product can run with this firewall. */
+export function vpnFitsFirewall(vpn: SourceId | undefined, firewall: SourceId | undefined): boolean {
+  const need = vpn ? VPN_NEEDS_FIREWALL[vpn] : undefined;
+  return !need || !firewall || need.firewalls.includes(firewall);
+}
+
+/** The remote access product a firewall brings with it, for when the one chosen no longer fits. */
+const FIREWALL_VPN: Partial<Record<SourceId, SourceId>> = {
+  paloalto: "globalprotect", fortigate: "fortigate_sslvpn", cisco_ftd: "anyconnect", cisco_asa: "anyconnect", checkpoint: "anyconnect",
+};
+
+/**
+ * Settles a firewall and a remote access product that cannot run together. The category the
+ * person just changed wins, and the other one follows it. With no change named, as on the
+ * server, the firewall wins. Existing sessions never pass through here: only a new choice does.
+ */
+export function withFittingRemoteAccess(s: Stack, changed?: StackCategory): Stack {
+  if (vpnFitsFirewall(s.vpn, s.firewall)) return s;
+  if (changed === "vpn" && s.vpn) return { ...s, firewall: VPN_NEEDS_FIREWALL[s.vpn]?.firewalls[0] };
+  return { ...s, vpn: s.firewall ? FIREWALL_VPN[s.firewall] : s.vpn };
+}
+
 export function sanitizeStack(input: unknown): Stack {
   const out: Stack = {};
   if (!input || typeof input !== "object") return out;
@@ -189,6 +317,7 @@ export function sanitizeStack(input: unknown): Stack {
     const v = (input as Record<string, unknown>)[c.category];
     if (typeof v === "string" && (c.options as string[]).includes(v)) out[c.category] = v as SourceId;
   }
+  if ((input as Record<string, unknown>).detection_feed === "ms_graph") out.detection_feed = "ms_graph";
   return out;
 }
 

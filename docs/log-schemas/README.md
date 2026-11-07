@@ -13,12 +13,14 @@ no Wazuh `data.*` envelope) is applied on top.
   syslog, Windows Event Log XML, Sysmon, auditd) are shown as a FLAT JSON object whose keys are the
   vendor's own field names, unchanged (plus the original raw line where useful).
 - One vendor per category in a session; a log never carries a field from another vendor.
+- One exception to the envelope rule: [siem-ms-graph-alerts](siem-ms-graph-alerts.md) is the SIEM's own copy of
+  a product alert, so it keeps the `data.ms-graph.*` shape the integration indexes. Sentinel sessions only.
 
 Each card: official sources (URLs), native format + delivery path, core field reference (type,
 meaning, allowed values), realistic JSON samples for the SOC-relevant event types, investigation
 notes (what an analyst pivots on), and common mistakes / fields that do NOT exist.
 
-## Index (33 cards, 243 JSON samples — all parse; researched 2026-10-01)
+## Index (34 cards, 249 JSON samples — all parse; researched 2026-10-01)
 
 | Category | Cards |
 |---|---|
@@ -31,6 +33,7 @@ notes (what an analyst pivots on), and common mistakes / fields that do NOT exis
 | Web tier | [waf-aws](waf-aws.md) · [waf-azure](waf-azure.md) · [web-iis](web-iis.md) · [web-nginx](web-nginx.md) |
 | Proxy / DNS | [proxy-zscaler-zia](proxy-zscaler-zia.md) · [dns-windows](dns-windows.md) · [dns-infoblox](dns-infoblox.md) |
 | Host / ITSM | [host-sysmon](host-sysmon.md) · [host-linux-auditd](host-linux-auditd.md) · [itsm-servicenow](itsm-servicenow.md) |
+| SIEM ingestion | [siem-ms-graph-alerts](siem-ms-graph-alerts.md) |
 
 Items a source did not confirm are marked **UNVERIFIED** inside each card; they must be resolved or
 avoided before an emitter relies on them.

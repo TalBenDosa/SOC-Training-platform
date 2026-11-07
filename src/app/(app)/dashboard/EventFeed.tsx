@@ -60,6 +60,7 @@ const SOURCE_COLORS: Record<string, string> = {
   iam:              "bg-neon-amber/20 text-neon-amber border-neon-amber/30",
   siem:             "bg-slate-400/20 text-slate-300 border-slate-400/30",
   soar:             "bg-slate-400/20 text-slate-300 border-slate-400/30",
+  ms_graph:         "bg-neon-blue/20 text-neon-blue border-neon-blue/30",
 };
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -83,6 +84,7 @@ const SOURCE_LABEL: Record<string, string> = {
   iam:              "IAM",
   siem:             "SIEM",
   soar:             "SOAR",
+  ms_graph:         "Microsoft Graph Security",
 };
 
 /** Derive the cloudtrail badge label from vendor field (AWS vs Azure vs generic). */
@@ -592,7 +594,7 @@ export function DetailPanelBody({
   const teamVerify = useContext(ItVerifyContext);
   const escalateCopy = useContext(EscalateCopyContext);
   const edrPivot = useContext(EdrPivotContext);
-  const canEdrPivot = !!edrPivot && (event.source === "edr" || event.source === "sysmon") && edrPivot.canOpen(event);
+  const canEdrPivot = !!edrPivot && (!!edrPivot.consoleName || event.source === "edr" || event.source === "sysmon") && edrPivot.canOpen(event);
   const hasItVerify = teamVerify ? !!event.it_check : itVerifyApplies(event);
   const tool = hasItVerify ? remoteToolOf(event) : null;
   const [itAnswer, setItAnswer] = useState<ItVerifyAnswer | null>(null);
@@ -645,6 +647,8 @@ export function DetailPanelBody({
   // fields (no ECS helper rows), exactly as its record carries them.
   const detailedFields: [string, string][] = nativeView ? nativeRows(nativeView.log.record) : legacyFieldRows(event);
   const NATIVE_DOMAIN_KEY = /(domain|hostname|host|query_?name|qname|url|fqdn|server_?name|appdomain)$/i;
+  // A Graph alert's portal links and the tenant's own DNS domain are not indicators.
+  const NOT_AN_INDICATOR = /^(alertWebUrl|incidentWebUrl|dnsDomain)$/;
 
   return (
     <div className="bg-bg-elevated">
@@ -659,8 +663,8 @@ export function DetailPanelBody({
             className="flex w-full items-center justify-between gap-3 rounded-lg border border-cyber-500/50 bg-cyber-500/10 px-4 py-2.5 text-left transition-colors hover:bg-cyber-500/20"
           >
             <span className="flex flex-col">
-              <span className="text-sm font-semibold text-cyber-200">Investigate this host in EDR</span>
-              <span className="text-[11px] text-cyber-300/70">Process tree, network and file activity on {event.hostname}</span>
+              <span className="text-sm font-semibold text-cyber-200">Investigate this host in {edrPivot!.consoleName ?? "EDR"}</span>
+              <span className="text-[11px] text-cyber-300/70">{edrPivot!.consoleName ? `Incidents, entities and logs for ${event.hostname}` : `Process tree, network and file activity on ${event.hostname}`}</span>
             </span>
             <Cpu className="h-4 w-4 shrink-0 text-cyber-300" aria-hidden />
           </button>
@@ -879,7 +883,7 @@ export function DetailPanelBody({
                   const showHash   = isSha256Field(nativeView ? leaf.replace(/\[\d+\]$/, "") : k, v) || (!!nativeView && /^[a-f0-9]{64}$/i.test(v) && /sha|hash|digest/i.test(k));
                   const showIp     = nativeView ? isPublicIp(v) : isIpCheckField(k, v);
                   const showDomain = nativeView
-                    ? NATIVE_DOMAIN_KEY.test(leaf.replace(/\[\d+\]$/, "")) && /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(v.replace(/^https?:\/\//, "").split("/")[0]) && !isPublicIp(v)
+                    ? NATIVE_DOMAIN_KEY.test(leaf.replace(/\[\d+\]$/, "")) && !NOT_AN_INDICATOR.test(leaf) && /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(v.replace(/^https?:\/\//, "").split("/")[0]) && !isPublicIp(v)
                     : isDomainCheckField(k, v);
                   const hasBtn     = showHash || showIp || showDomain;
 
@@ -1216,7 +1220,7 @@ const EventRow = memo(function EventRow({
         <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-400 truncate">{timeStr}</td>
         <td className="py-2.5 pr-3 font-mono text-xs text-slate-200 truncate" title={event.hostname ?? undefined}>{event.hostname ?? "—"}</td>
         <td className="py-2.5 pr-3 overflow-hidden">
-          <LogSourceCard source={event.source} vendor={event.vendor} />
+          <LogSourceCard source={event.feed_source ?? event.source} vendor={event.vendor} />
         </td>
         <td className="py-2 pr-3 text-xs text-slate-300 overflow-hidden">
           <div className="flex items-start gap-1.5">
@@ -1446,7 +1450,7 @@ export function EventFeed({
         if (severityFilter === "medium" && (lvl < 7 || lvl > 9)) return false;
         if (severityFilter === "high"   && lvl < 10)             return false;
       }
-      if (sourceFilter !== "all" && ev.source         !== sourceFilter)   return false;
+      if (sourceFilter !== "all" && (ev.feed_source ?? ev.source) !== sourceFilter) return false;
       if (userFilter  !== "all"  && ev.user_email     !== userFilter)     return false;
       if (hostFilter  !== "all"  && ev.hostname       !== hostFilter)     return false;
       if (ipFilter    !== "all"  && ev.src_ip         !== ipFilter)       return false;

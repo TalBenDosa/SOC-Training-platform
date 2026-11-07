@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { ChevronDown, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { STACK_CHOICES, PRODUCT_LABEL, COMPANY_STACKS, coherentStack, type Stack } from "@/lib/logs/native/stack";
+import { STACK_CHOICES, PRODUCT_LABEL, COMPANY_STACKS, coherentStack, vpnFitsFirewall, withFittingRemoteAccess, type Stack } from "@/lib/logs/native/stack";
 import { lsGet, lsSet } from "@/lib/storage/safeStorage";
 
 const storeKey = (companyId: string) => `soc_stack_${companyId}`;
@@ -38,7 +38,7 @@ export function stackDelta(companyId: string, stack: Stack): Stack {
  */
 export function nextStack(companyId: string, merged: Stack, category: (typeof STACK_CHOICES)[number]["category"], value: string, forcedMail: boolean): { stack: Stack; forcedMail: boolean } {
   const base = COMPANY_STACKS[companyId] ?? {};
-  let next = coherentStack({ ...merged, [category]: (value || undefined) as Stack[typeof category] });
+  let next = withFittingRemoteAccess(coherentStack({ ...merged, [category]: (value || undefined) as Stack[typeof category] }), category);
   let forced = category === "email_security" ? false : forcedMail;
   if (category === "collab") {
     if (next.collab === "google_workspace" && merged.email_security !== next.email_security) forced = true;
@@ -47,8 +47,10 @@ export function nextStack(companyId: string, merged: Stack, category: (typeof ST
   return { stack: stackDelta(companyId, next), forcedMail: forced };
 }
 
-export function StackPicker({ companyId, value, onChange, defaultOpen = false, idPrefix = "stack" }: {
+export function StackPicker({ companyId, value, onChange, defaultOpen = false, idPrefix = "stack", locked = {} }: {
   companyId: string; value: Stack; onChange: (s: Stack) => void; defaultOpen?: boolean; idPrefix?: string;
+  /** Categories another choice has fixed, with the reason shown under them. */
+  locked?: Partial<Record<(typeof STACK_CHOICES)[number]["category"], string>>;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [forcedMail, setForcedMail] = useState(false);
@@ -82,9 +84,9 @@ export function StackPicker({ companyId, value, onChange, defaultOpen = false, i
               <div key={c.category}>
                 <div className="flex items-center gap-3">
                   <label htmlFor={id} className="w-36 shrink-0 text-xs text-slate-400">{c.label}</label>
-                  <select id={id} value={current}
+                  <select id={id} value={current} disabled={!!locked[c.category]}
                     onChange={e => { const r = nextStack(companyId, merged, c.category, e.target.value, forcedMail); setForcedMail(r.forcedMail); onChange(r.stack); }}
-                    className="h-8 min-w-0 flex-1 rounded-md border border-border bg-bg-elevated px-2 text-xs text-slate-200 focus:border-cyber-500/50 focus:outline-none">
+                    className="h-8 min-w-0 flex-1 rounded-md border border-border bg-bg-elevated px-2 text-xs text-slate-200 focus:border-cyber-500/50 focus:outline-none disabled:opacity-70">
                     {!current && <option value="">— not in this environment —</option>}
                     {c.options.map(o => (
                       <option key={o} value={o} disabled={googleMail && o === "defender_o365"}>{PRODUCT_LABEL[o]}{base[c.category] === o ? " (company default)" : ""}{googleMail && o === "defender_o365" ? " — needs Microsoft 365" : ""}</option>
@@ -93,6 +95,14 @@ export function StackPicker({ companyId, value, onChange, defaultOpen = false, i
                 </div>
                 {c.note && current && (current === "sophos" || current === "zscaler_zpa" || current === "cloudflare_access" || current === "google_workspace") && (
                   <p className="ml-[9.75rem] mt-1 text-[10px] leading-relaxed text-slate-500">{c.note}</p>
+                )}
+                {locked[c.category] && <p className="ml-[9.75rem] mt-1 text-[10px] leading-relaxed text-slate-500">{locked[c.category]}</p>}
+                {c.category === "vpn" && !vpnFitsFirewall(base.vpn, merged.firewall) && current !== base.vpn && (
+                  <p className="ml-[9.75rem] mt-1 text-[10px] leading-relaxed text-slate-500">Follows the firewall: this remote access product runs on it.</p>
+                )}
+                {locked[c.category] && <p className="ml-[9.75rem] mt-1 text-[10px] leading-relaxed text-slate-500">{locked[c.category]}</p>}
+                {c.category === "vpn" && !vpnFitsFirewall(base.vpn, merged.firewall) && current !== base.vpn && (
+                  <p className="ml-[9.75rem] mt-1 text-[10px] leading-relaxed text-slate-500">Follows the firewall: this remote access product runs on it.</p>
                 )}
                 {c.category === "email_security" && googleMail && (
                   <p className="ml-[9.75rem] mt-1 text-[10px] leading-relaxed text-slate-500">Defender for Office 365 only filters Exchange Online mail — a Google Workspace tenant&apos;s mail runs through Proofpoint.</p>

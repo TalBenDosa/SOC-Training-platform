@@ -19,6 +19,8 @@ export interface LiveEvent extends TelemetryEvent {
   ruleLevel: number;                                    // 3-15 Wazuh-style (see LEVEL_BANDS)
   ruleId: string;                                       // RULE_XXXX
   displayDescription: string;                           // human-readable
+  /** The source a team session's SIEM shows this row under when it is not event.source (stack.ts feedSourceOf). */
+  feed_source?: string;
 }
 
 // ─── Classification helpers ───────────────────────────────────────────────────
