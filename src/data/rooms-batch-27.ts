@@ -404,9 +404,9 @@ const remoteEmailCollectionRoom = {
       id: "remc-f1",
       event: remcMailAccessEvent, // show the r.iversen mailbox log this flag reads
       prompt:
-        "Containment for r.iversen's mailbox includes blocking, and pivoting on, the network origin of the session that bound the 24 messages. Using the record shown, enter that address exactly.",
-      answer: "203.0.113.211",
-      hint: "You want where the request came from, not which mailbox it touched or which session it belonged to.",
+        "To rebuild the whole chain on r.iversen's mailbox, from the sign-in through each mail access to any inbox rule, you pull every Unified Audit Log record from that one login. Enter the value in this record that ties them together, exactly as written.",
+      answer: "f4a29c6e8b1d47f0a3c5e9b2d6f18a74",
+      hint: "Several long IDs sit in this record. Not the one for the mailbox or the tenant: you want the one that follows a single login across record types.",
       xp: 20,
     },
     // ── Question 4 (applied — tokens survive password reset) ────────────────
@@ -485,7 +485,7 @@ const devregLegitimateRegistrationEvent: TelemetryEvent = {
   it_verify_message:
     "Helpdesk ticket HD-51142: p.oduya reported her phone was replaced under the corporate device-upgrade program and called in to confirm the correct steps for re-registering Microsoft Authenticator on the new device.",
   description:
-    "A second Microsoft Authenticator registration was added on p.oduya's account from the corporate network during business hours.",
+    "A second Microsoft Authenticator registration was added on p.oduya's account.",
   raw: {
     "azure.auditlogs.category": "AuditLogs",
     "azure.auditlogs.operationName": "User registered security info",
@@ -750,7 +750,7 @@ const deviceRegistrationPersistenceRoom = {
       id: "devreg-ac1",
       heading: "Verdict: A Second Authenticator on p.oduya's Account",
       scenario:
-        "p.oduya@nexacorp.com's account shows a 'User registered security info' record, self-service, adding a second PhoneAppNotification method. Structurally this looks like the log analysis case you just worked through: same operation name, same self-service actor/target match. For reference, 82.80.14.6 is NexaCorp's Tel Aviv office egress, which p.oduya uses daily, and her sign-in log shows no risky sign-in that day. Review the record and the IT verification note under it before deciding.",
+        "p.oduya@nexacorp.com's account shows a 'User registered security info' record, self-service, adding a second PhoneAppNotification method. Structurally this looks like the log analysis case you just worked through: same operation name, same self-service actor/target match. For reference, NexaCorp's Tel Aviv office egress is 82.80.14.6, and every sign-in on her account that day shows riskLevelDuringSignIn none with MFA completed by a fresh push approval. Review the record and the IT verification note under it before deciding.",
       event: devregLegitimateRegistrationEvent,
       correct_verdict: "benign_true_positive",
       explanation:
@@ -800,9 +800,9 @@ const deviceRegistrationPersistenceRoom = {
       id: "devreg-f1",
       event: devregRogueRegistrationEvent, // show the m.delgado account log this flag reads
       prompt:
-        "To find every other session the attacker ran against m.delgado, you will pivot in SigninLogs on the network address of the session that registered the rogue Authenticator. Using the record shown, enter that address exactly.",
-      answer: "91.132.139.204",
-      hint: "You want where the registering session came from, not the account it acted on or the ID that groups its audit records.",
+        "One registration writes more than one audit record. Using the record shown, enter the ID you would search to group the records of this one action, rather than everything the account has ever done.",
+      answer: "8b05d7c4-1a69-4e38-9f27-c40e6b91a53d",
+      hint: "Two long IDs appear in this record. One belongs to the account itself; you want the other.",
       xp: 20,
     },
     // ── Question 4 (applied — why this technique matters more broadly) ─────

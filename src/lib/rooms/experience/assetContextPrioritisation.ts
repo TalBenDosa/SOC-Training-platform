@@ -92,7 +92,7 @@ export const ASSET_CONTEXT_PRIORITISATION: RoomExperience = {
     "asset-q2": { name: "Jonas Mbeki", role: "SOC Manager", line: "Walk me through what that takeover means." },
     "asset-m1": { name: "Jonas Mbeki", role: "SOC Manager", line: "The board wants the blast map explained, box by box." },
     "asset-la1": { name: "Jonas Mbeki", role: "SOC Manager", line: "Read the record before anyone picks up a phone." },
-    "asset-f1": { name: "Jonas Mbeki", role: "SOC Manager", line: "I need the number for the ticket." },
+    "asset-f1": { name: "Jonas Mbeki", role: "SOC Manager", line: "I need that machine's name for the ticket." },
     "asset-q3": { name: "Jonas Mbeki", role: "SOC Manager", line: "The patch team is asking about those two servers." },
     "asset-ac1": { name: "Jonas Mbeki", role: "SOC Manager", line: "Same rule, new host. What goes on the ticket?" },
     "asset-o1": { name: "Jonas Mbeki", role: "SOC Manager", line: "One analyst, a full queue, and the whole company watching. Your order." },

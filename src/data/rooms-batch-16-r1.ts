@@ -81,7 +81,7 @@ const automationServicePrincipalEvent: TelemetryEvent = {
   user_email: "sp-nightly-backup@nexacorp.onmicrosoft.com",
   src_ip: "198.51.100.27",
   hostname: "aut-nexacorp-runbook-worker",
-  description: "A registered service principal used by the nightly backup Automation Runbook listed storage account keys as part of a scheduled, ticketed backup job",
+  description: "Service principal sp-nightly-backup listed the storage account keys of nexacorpbackupsa",
   raw: {
     "azure.activitylogs.operationName": "MICROSOFT.STORAGE/STORAGEACCOUNTS/LISTKEYS/ACTION",
     "azure.activitylogs.resourceProviderValue": "Microsoft.Storage",
@@ -611,7 +611,7 @@ const azureSecurityRoom = {
       id: "azure-ac1",
       heading: "Verdict: Is This Service Principal's Storage Key Listing Suspicious?",
       scenario:
-        "A SIEM correlation rule flagged a 'listKeys' action against a production storage account, since storage account keys grant full read/write access to all data in the account. The event below occurred at 06:00 UTC, performed by service principal 'sp-nightly-backup', from 198.51.100.27, the documented outbound (egress) address of NexaCorp's Azure automation worker. Checking the change calendar, you find standing change CHG0041823 covering the nightly backup automation for nexacorpbackupsa, scheduled to run daily at 06:00 UTC. Is this event suspicious?",
+        "A SIEM correlation rule flagged a 'listKeys' action against a production storage account, since storage account keys grant full read/write access to all data in the account. Two records are open beside the alert. NexaCorp's asset register lists 198.51.100.27 as the outbound (egress) address of its Azure automation worker. The change calendar holds standing change CHG0041823, for the nightly backup automation on nexacorpbackupsa, daily at 06:00 UTC. Compare the event below with those records. Is this event suspicious?",
       event: automationServicePrincipalEvent,
       correct_verdict: "benign_true_positive",
       explanation:
@@ -686,7 +686,7 @@ const azureSecurityRoom = {
         `**Step 4: Pivot and Correlate Across Log Layers**\n\n` +
         `Because Azure splits logging across the Activity Log (control-plane), resource diagnostic logs (data-plane detail), and NSG Flow Logs (network-layer), a single attacker action often only becomes fully clear when you correlate all three: an Activity Log entry might show an NSG rule was CHANGED, while NSG Flow Logs show whether that new rule was actually EXPLOITED with real traffic. Pivot on the same azure.activitylogs.caller and azure.activitylogs.callerIpAddress across a wide time window (hours to days) to reconstruct the full attack sequence: initial access (how the identity/credential was obtained), reconnaissance (broad read-only listing calls), privilege escalation or lateral movement (role assignment changes, NSG rule changes, Run Command executions), and the actual objective (secret theft, data exfiltration, or resource abuse).\n\n` +
         `**Step 5: Weigh Severity by Role Scope and Action Sensitivity, Not Just Identity Type**\n\n` +
-        `As shown in the automation service-principal benign-true-positive exercise (the rule caught a real listKeys call, and the approved standing change made it authorized), the same kind of sensitive action (like listing storage keys) can be entirely routine or a serious compromise depending on context. Always weigh: does the identity's assigned RBAC role match the narrow scope needed for this specific action (like the automation-specific Storage Account Key Operator Service Role), or does it hold broad Contributor/Owner permissions far beyond what the action requires? Does the timing match an established, recurring pattern, or is it a one-off deviation? A fast mental checklist (WHO, WHERE, WHAT, OUTCOME, PATTERN) triages the overwhelming majority of Azure Activity Log alerts within the first few minutes, the same way it does for CloudTrail or GCP Cloud Audit Logs.`,
+        `The same kind of sensitive action (like listing storage keys) can be entirely routine or a serious compromise depending on context. When a rule caught a real action and an approved change made it authorized, the verdict is a benign true positive; when the action the rule claims never happened, it is a false positive. Always weigh: does the identity's assigned RBAC role match the narrow scope needed for this specific action (like the automation-specific Storage Account Key Operator Service Role), or does it hold broad Contributor/Owner permissions far beyond what the action requires? Does the timing match an established, recurring pattern, or is it a one-off deviation? A fast mental checklist (WHO, WHERE, WHAT, OUTCOME, PATTERN) triages the overwhelming majority of Azure Activity Log alerts within the first few minutes, the same way it does for CloudTrail or GCP Cloud Audit Logs.`,
       codeExample:
         "AZURE ACTIVITY LOG TRIAGE CHECKLIST\n" +
         "=======================================================\n" +

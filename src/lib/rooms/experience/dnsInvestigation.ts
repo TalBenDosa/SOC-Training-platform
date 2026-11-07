@@ -74,7 +74,7 @@ export const DNS_INVESTIGATION: RoomExperience = {
     "dns-q3": { name: "Nasrin Tehrani", role: "Threat Hunter", line: "One name, a new address every 90 seconds, all home broadband. Name it." },
     "dns-q2": { name: "Nasrin Tehrani", role: "Threat Hunter", line: "RuntimeBroker.exe from AppData making hundreds of lookups. Why does the path matter?" },
     "dns-la1": { name: "Nasrin Tehrani", role: "Threat Hunter", line: "A storm from an HR workstation. Read the Sysmon event." },
-    "dns-ac1": { name: "Nasrin Tehrani", role: "Threat Hunter", line: "Long subdomains, steady traffic. Tunnel or CDN?" },
+    "dns-ac1": { name: "Nasrin Tehrani", role: "Threat Hunter", line: "Random-looking subdomains, heavy traffic. What does the evidence support?" },
   },
   briefings: {
     // ── Reading 1: the resolver ──

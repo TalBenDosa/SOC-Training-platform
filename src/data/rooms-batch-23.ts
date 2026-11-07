@@ -727,14 +727,14 @@ Identity Protection tools (like Azure AD/Entra Identity Protection) and CASB (Cl
       checkpoint: {
         question: "What is the characteristic false positive for Identity Protection/CASB tools, per the NDR, DLP, and Identity Protection/CASB reading?",
         options: [
-          "A newly deployed internal monitoring service whose regular polling interval statistically resembles a command-and-control beacon pattern",
-          "An 'impossible travel' false alarm caused by an employee connecting through a corporate VPN exit node in a different country",
-          "A DLP policy blocking a payroll export to an approved third-party provider that matches a sensitive-data pattern",
-          "A WAF blocking a legitimate customer support form submission that happens to contain SQL-like text",
+          "A token-reuse alert on an account whose session an attacker stole and replayed",
+          "An impossible-travel alert on an employee signing in through a VPN exit abroad",
+          "A consent alert on an admin approving a vetted company app for mailbox access",
+          "A missed sign-in risk inside a SaaS app that the CASB was never integrated with",
         ],
         answer: 1,
         explanation:
-          "The NDR, DLP, and Identity Protection/CASB reading names this directly: a VPN exit node in a different country can make a sign-in look geographically impossible compared to the user's last known location, even though no actual travel happened -- this is the identity-layer tool's characteristic false positive, distinct from NDR's beacon-lookalike, WAF's content-based false positive, or DLP's approved-payroll-export benign true positive.",
+          "The reading names this directly: an employee connecting through a corporate VPN exit node in a different country produces a sign-in that looks geographically impossible, though no travel happened. That alarm is false. The stolen-token alert is a real attack the tool caught correctly, so it is a true positive. The admin's consent alert correctly reports real, authorized activity, which makes it a benign true positive, not a false alarm. A sign-in risk in an app the CASB isn't integrated with is the tool's blind spot: a miss, not a false alarm.",
       },
     },
 

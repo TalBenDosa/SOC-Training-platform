@@ -1032,16 +1032,16 @@ const rooms = [
         type: "question",
         id: "dns-q2",
         question:
-          "Sysmon Event ID 22 shows process C:\\Users\\frank\\AppData\\Roaming\\RuntimeBroker.exe making hundreds of DNS queries. RuntimeBroker.exe is a legitimate Windows process, but it normally lives in C:\\Windows\\System32\\. What technique does this most likely represent?",
+          "Sysmon Event ID 22 shows process C:\\Users\\frank\\AppData\\Roaming\\RuntimeBroker.exe making hundreds of DNS queries. RuntimeBroker.exe is the name of a standard Windows process. What technique does this most likely represent?",
         options: [
           "A per-user app in AppData that ships its own helper with the same name",
-          "Masquerading: malware using a Windows process name from a wrong folder",
           "A Windows servicing change that relocated the binary into the profile",
-          "DLL side-loading: a bad DLL loaded by the genuine RuntimeBroker.exe",
+          "Masquerading: malware running under the name of a trusted program",
+          "Typosquatting: a lookalike name chosen to fool people into trusting it",
         ],
-        answer: 1,
+        answer: 2,
         explanation:
-          "A Windows system binary name running from a user's AppData folder is the masquerading red flag the workflow teaches: the name is chosen to blend into process lists, and the location gives it away. Per-user apps do install into AppData, but they use their own names, not the name of a core Windows process. Windows servicing replaces system binaries inside C:\\Windows, it does not move them into a user profile. DLL side-loading would show the genuine RuntimeBroker.exe in System32 loading an odd DLL. Here the executable itself is in the wrong place.",
+          "A Windows system binary name running from a user's AppData folder is the masquerading red flag the workflow teaches: the real RuntimeBroker.exe lives in C:\\Windows\\System32\\, the name is chosen to blend into process lists, and the location gives it away. Per-user apps do install into AppData, but they use their own names, not the name of a core Windows process. Windows servicing replaces system binaries inside C:\\Windows, it does not move them into a user profile. Typosquatting is about registered domain names that look almost like trusted ones: nothing here is a domain, and the file name is spelled exactly right.",
         xp: 20,
       },
 

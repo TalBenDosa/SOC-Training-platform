@@ -148,7 +148,7 @@ Breaking this down:
 - **spf=fail**: The sending IP (185.234.5.6) is NOT in corp.com's SPF record. This IP is not authorised.
 - **dkim=none**: No DKIM signature was present at all. Legitimate email from Microsoft 365 always has DKIM.
 - **dmarc=fail**: Because both SPF and DKIM failed, DMARC also fails.
-- **action=none**: The DMARC policy is \`p=none\`, so the email was delivered anyway (just monitored).
+- **action=none**: The DMARC policy is \`p=none\`, so the email was delivered anyway (just monitored). That policy is the one published by the domain in the visible From: header, not by the company receiving the mail, so an attacker who owns the sending domain sets it themselves.
 
 **Key insight for analysts**: An email with \`dmarc=fail action=none\` was delivered to the inbox despite failing authentication. This is a critical finding, especially if the "From:" domain appears to be a trusted organisation like your CEO's company.
 
@@ -253,12 +253,12 @@ Forwarding does not even need a rule: an attacker with admin rights, or a user i
     {
       type: "question",
       id: "exch-sec-q2",
-      question: "A finance employee reports receiving an urgent email from the CEO asking for a $200,000 wire transfer. The email passed SPF and DKIM. However, you notice the sender domain in the email is `c0rp.com` (with a zero) not `corp.com`. What attack technique is this?",
+      question: "A finance employee reports receiving an urgent email from the CEO asking for a $200,000 wire transfer. The email passed SPF and DKIM, and its From: address is `ceo@c0rp.com`. Your company's domain is `corp.com`. What attack technique is this?",
       options: [
-        "Exact-domain spoofing: a forged corp.com From: address that SPF did not catch",
-        "Lookalike domain: the attacker registered c0rp.com and authenticated it",
+        "Exact-domain spoofing: a forged From: address that SPF failed to catch",
+        "Typosquatting: the attacker registered their own domain and authenticated it",
         "Account takeover: the CEO's real mailbox was compromised and used to send it",
-        "Display-name spoofing: the display name says CEO; the domain is unrelated"
+        "Display-name spoofing: only the name shown was faked, on an unrelated domain"
       ],
       answer: 1,
       explanation: "This is a **lookalike (typosquatted) domain**. The attacker registered `c0rp.com` and published SPF and DKIM for it, so authentication passes: the checks prove the mail really came from c0rp.com. DMARC is evaluated for the From domain, c0rp.com, which the attacker controls, so corp.com's own DMARC policy plays no part. Only lookalike/impersonation protection (MDO anti-phishing) or a careful look at the P2 sender domain catches it. Exact-domain spoofing would show corp.com in From:, and SPF would then fail. A taken-over CEO mailbox would send from the real corp.com address. Display-name spoofing pairs a CEO display name with an unrelated domain; here the domain itself imitates corp.com.",
@@ -893,16 +893,16 @@ EDR detects threats *after* they start. **Endpoint hardening** reduces the attac
 - **BitLocker**: Full-disk encryption so stolen laptops don't expose data.
 - **Patch management**: Keep the OS and applications updated to close known vulnerabilities.`,
       checkpoint: {
-        question: "According to the reading, what does 'Network Isolation (Host Isolation)' do when an analyst triggers it from the EDR console?",
+        question: "An analyst triggers Host Isolation on a laptop from the EDR console. With no exceptions configured, what can that laptop still talk to?",
         options: [
-          "It permanently deletes the endpoint's data",
-          "It cuts the endpoint off from the network except for the EDR management channel",
-          "It only blocks outbound email from the endpoint",
-          "It uninstalls the EDR agent from the endpoint",
+          "Internal servers, but nothing on the internet",
+          "The EDR management channel, and nothing else",
+          "The internet, but no other internal hosts",
+          "Nothing at all, not even the EDR platform",
         ],
         answer: 1,
         explanation:
-          "Host Isolation cuts the machine off from talking to anything else on the network, even internal servers, while keeping the EDR management channel alive, so analysts can still investigate and remediate remotely.",
+          "Host Isolation cuts the machine off from everything on the network, even internal servers, and the internet goes with it. Only the EDR management channel stays alive, because analysts still have to investigate and remediate remotely. Cutting that channel too would leave nobody able to reach the device without touching it.",
       },
     } satisfies ReadingTask,
 

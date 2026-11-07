@@ -17,9 +17,10 @@ import type { RoomExperience } from "./types";
 // DLP upload with an OPENSSH header (q2). The Keychain lab is a process trail on a designer's Mac,
 // and it never asks why theft comes second (q3). The cloud labs use Parameter Store and an EC2
 // role, never GetSecretValue, a Lambda role, or a report generator (la1, ac1). The verdict queue
-// has a scale-out, a build runner, a list call and a canary, never a rotation job (ac1). The filter
-// lab reads a ListSecrets name filter, never a tag filter (f1). The locked-file records are an ESE
-// database on a track-access server read by esentutl, never ntds.dit, ntdsutil or a DC (la2, q4);
+// has a scale-out, a build runner, a list call and a canary, never a rotation job (ac1). The client
+// lab reads a Java SDK string on a ListSecrets call, never the Python record (f1). The
+// locked-file records are an ESE database on a track-access server read by esentutl, never
+// ntds.dit, ntdsutil or a DC (la2, q4);
 // ntds.dit and ntdsutil appear only as labelled facts in a primer and the sweep report.
 // The chain lab starts from a share, never a public commit (o1).
 
@@ -557,7 +558,7 @@ export const UNSECURED_CREDENTIALS_PRACTICE: RoomExperience = {
           "userIdentity.type: AssumedRole",
           "userIdentity.arn: arn:aws:sts::111122223333:assumed-role/or-ticket-web-role/i-0f3a91c7d2b64e015",
           "sourceIPAddress: 10.60.4.21",
-          "userAgent: Boto3/1.34.0 md/Botocore#1.34.0 Python/3.12.1 Linux/6.1.0",
+          "userAgent: Boto3/1.33.13 md/Botocore#1.33.13 Python/3.12.1 Linux/6.1.0",
           "requestParameters.name: /ticketing/web/session-key",
           "requestID: 6c1d0e52-7f3a-4e19-b1c7-2d94a60f8e13",
           "errorCode: (empty)",
@@ -690,7 +691,7 @@ export const UNSECURED_CREDENTIALS_PRACTICE: RoomExperience = {
         alerts: [
           {
             id: "a1", time: "Mon 08:05", severity: "Medium", rule: "Parameter read burst", entity: "or-ticket-web-role",
-            fields: [{ k: "eventName", v: "GetParameter" }, { k: "calls", v: "40 in 3 minutes" }, { k: "name", v: "/ticketing/web/session-key" }, { k: "sourceIPAddress", v: "40 addresses in 10.60.4.0/24" }, { k: "userAgent", v: "Boto3/1.34.0 ... Linux/6.1.0" }],
+            fields: [{ k: "eventName", v: "GetParameter" }, { k: "calls", v: "40 in 3 minutes" }, { k: "name", v: "/ticketing/web/session-key" }, { k: "sourceIPAddress", v: "40 addresses in 10.60.4.0/24" }, { k: "userAgent", v: "Boto3/1.33.13 ... Linux/6.1.0" }],
             context: "Auto Scaling history shows 40 instances launched at 08:03 for the Monday peak. This role has read this one parameter at every boot since 2025.",
             answer: "btp", why: "The rule did what it should: there really was a burst. The burst is a scale-out, with the same identity, parameter and subnet as ever, and the scaling record matches the minute.",
           },
@@ -708,7 +709,7 @@ export const UNSECURED_CREDENTIALS_PRACTICE: RoomExperience = {
           },
           {
             id: "a4", time: "Wed 03:41", severity: "Critical", rule: "Canary parameter touched", entity: "or-fare-batch-role",
-            fields: [{ k: "eventName", v: "GetParameter" }, { k: "calls", v: "1" }, { k: "name", v: "/canary/ticketing-admin" }, { k: "sourceIPAddress", v: "10.60.6.12" }, { k: "userAgent", v: "Boto3/1.34.0 ..." }],
+            fields: [{ k: "eventName", v: "GetParameter" }, { k: "calls", v: "1" }, { k: "name", v: "/canary/ticketing-admin" }, { k: "sourceIPAddress", v: "10.60.6.12" }, { k: "userAgent", v: "Boto3/1.33.13 ..." }],
             context: "This parameter was planted in 2025, and nothing in the estate is configured to use it.",
             answer: "tp", why: "A canary has no honest reader, so inside address and familiar client don't matter. One call is enough to act on.",
           },
@@ -884,17 +885,17 @@ export const UNSECURED_CREDENTIALS_PRACTICE: RoomExperience = {
     "uc-f1": [
       {
         kind: "anatomy",
-        title: "Read a Filter Inside a Request",
-        prompt: "After the incident, Oakmere's audit role listed every fare secret so that each one could be rotated. Requests like this carry their own detail as JSON. Read how a filter is written, so that you can pull the exact value out of one.",
+        title: "Read the Client Inside a Record",
+        prompt: "After the incident, Oakmere's audit role listed every fare secret so that each one could be rotated. A CloudTrail record names the client behind each call in one string. Read how that string is built, so that you can pull one exact part out of it.",
         source: "CloudTrail record · or-audit-role · Thursday 10:02",
         fields: [
           { key: "eventName", value: "ListSecrets", label: "The call", note: "Lists secrets and their metadata, with no values." },
           { key: "eventSource", value: "secretsmanager.amazonaws.com" },
           { key: "userIdentity.type", value: "AssumedRole" },
-          { key: "requestParameters.filters", value: "[{\"Key\":\"name\",\"Values\":[\"fares/\"]}]", label: "The filter", note: "A list of filters. Key says which attribute is being tested. Values holds what that attribute has to match, exactly as the caller wrote it." },
+          { key: "userAgent", value: "aws-sdk-java/2.25.40 Linux/6.1.0 OpenJDK_64-Bit_Server_VM/17.0.10 Java/17.0.10", label: "The client", note: "A run of name/version pairs, separated by spaces. Each pair describes one layer of the software that made the call." },
           { key: "errorCode", value: "(empty)" },
         ],
-        summary: "Read it from the outside in: square brackets for the list, curly braces for one filter, then the two parts. Key is the kind of test, and Values is the content. Here the test is on the name, and the value is fares/. When a question asks for the value, copy what's inside Values character for character.",
+        summary: "Read it left to right, one pair at a time. Here aws-sdk-java/2.25.40 is the AWS library the code called, the next pair is the operating system, and the last two are the Java runtime. The same string tells you whether the caller was an SDK or a hand-run tool such as aws-cli. When a question asks for one part, copy that pair character for character.",
       },
     ],
   },

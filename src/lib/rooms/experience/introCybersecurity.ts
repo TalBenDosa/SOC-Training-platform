@@ -11,7 +11,7 @@ import type { RoomExperience } from "./types";
 // records system (q1), no poisoned software update (q2), no bank email (q3),
 // a USB worm whose removal failed rather than a quarantined web download (la1),
 // a parcel text message rather than a bank email in the attack gallery (q3),
-// and the career wall leaves out the entry-level role (q4).
+// and the career wall leaves out why the SOC role is called the gateway (q4).
 export const INTRO_CYBERSECURITY: RoomExperience = {
   roomId: "intro-cybersecurity",
   codename: "Operation First Look",
@@ -99,7 +99,7 @@ export const INTRO_CYBERSECURITY: RoomExperience = {
     "intro-cyber-q4": {
       name: "Daniel Brooks",
       role: "Director, Northport SOC Academy",
-      line: "Good work today. Before I sign your badge: where does a career like yours usually start?",
+      line: "Good work today. Before I sign your badge: why does this course call your role the gateway?",
     },
   },
   briefings: {

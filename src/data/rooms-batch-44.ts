@@ -127,10 +127,10 @@ const rmmAbuseRoom = {
       checkpoint: {
         question: "Which MITRE ATT&CK tactic does T1219 (Remote Access Tools) belong to, and why?",
         options: [
-          "Command and Control (TA0011): once the tool is connected, it gives an outside operator a live, interactive channel into the environment",
-          "Persistence, because RMM software, once installed, is designed specifically to survive a reboot and cannot be used for anything else",
-          "Discovery, because attackers primarily use RMM tools to run whoami and net commands, with no interactive control involved",
-          "Initial Access, because installing an RMM client is, by ATT&CK's own definition, always the very first step of any intrusion",
+          "Command and Control (TA0011): a connected client gives an outside operator a live channel",
+          "Persistence (TA0003): the client is installed to survive reboots and keep the foothold open",
+          "Discovery (TA0007): operators mainly use the client to run whoami and net commands",
+          "Initial Access (TA0001): installing the client is how an intruder first enters the network",
         ],
         answer: 0,
         explanation: "T1219 sits on Command and Control (TA0011) because its defining behavior is giving an outside operator a live interactive session into the environment. That is what a command-and-control channel is. Persistence is a separate tactic for surviving reboots/logoffs, which an RMM client may incidentally provide but is not what earns it its own technique ID. Discovery describes reconnaissance commands, which typically happen THROUGH an RMM session rather than being what the technique itself describes. RMM is one of many possible initial-access vectors' follow-on tooling, not a required first step of every intrusion.",
@@ -184,13 +184,13 @@ const rmmAbuseRoom = {
       checkpoint: {
         question: "What is the key structural difference between Pattern A (callback vishing) and Pattern C (attacking the RMM console)?",
         options: [
-          "Pattern A relies on a phone call that talks one employee into installing the tool themselves; Pattern C instead exploits a flaw in the RMM server software directly, needing no victim at all",
-          "There is no real structural difference between the two patterns at all. Both invariably rely on the exact same fake-CAPTCHA verification web page to succeed against a victim",
-          "Pattern A only ever targets employees working from home, while Pattern C, according to CISA's advisory, only ever targets large government agencies directly",
-          "Pattern C can only succeed if the attacker already holds a valid domain administrator credential before the underlying vulnerability can be exploited in any way",
+          "Pattern A talks one employee into running the tool; Pattern C exploits a flaw in the RMM server software",
+          "Pattern A has a user paste a command from a fake CAPTCHA; Pattern C exploits a flaw in the RMM server software",
+          "Pattern A exploits a flaw in the RMM server software; Pattern C talks one employee into running the tool",
+          "Pattern A talks one employee into running the tool; Pattern C talks an MSP technician into sharing the console",
         ],
         answer: 0,
-        explanation: "Pattern A is social engineering aimed at one employee, who installs the tool themselves after being talked into it by phone. Pattern C instead exploits the RMM server's own software flaw, requiring no victim interaction and giving access to every endpoint the compromised server manages: a fleet-wide outcome from a single exploited server. Pattern A does not depend on a fake CAPTCHA page (that is Pattern B, ClickFix). Neither pattern is restricted to a specific victim category by the advisory, and the CVE-2024-1709 case study covered later shows the exploit itself requires no prior credentials. That is the entire point of an authentication-bypass vulnerability.",
+        explanation: "Pattern A is social engineering aimed at one employee, who installs the tool themselves after being talked into it by phone. Pattern C instead exploits the RMM server's own software flaw, requiring no victim interaction and giving access to every endpoint the compromised server manages: a fleet-wide outcome from a single exploited server. A pasted command from a fake CAPTCHA is Pattern B (ClickFix), not Pattern A. Swapping the two descriptions reverses the patterns. And Pattern C talks nobody into anything: it attacks the software, which is why the reading contrasts it with tricking a person.",
       },
       xp: 5,
     },
@@ -237,15 +237,15 @@ const rmmAbuseRoom = {
         "**CISA (the Cybersecurity and Infrastructure Security Agency)** added CVE-2024-1709 to its **Known Exploited Vulnerabilities (KEV) catalog**, which under **Binding Operational Directive 22-01** gave U.S. federal civilian agencies a mandatory remediation deadline of 29 February 2024: an unusually short window that reflected how actively the flaw was already being exploited in the wild. Metasploit (a widely used penetration-testing framework) shipped a working, unauthenticated remote-code-execution module for it within days of disclosure.\n\n" +
         "Observed post-exploitation activity included ransomware built from a leaked LockBit 3.0 builder, Cobalt Strike beacons (a commercial penetration-testing tool frequently abused as real C2 infrastructure), information-stealing malware, and, notably for this room's subject, attackers using the compromised console's own trusted access to push out entirely DIFFERENT RMM tools, including malicious AnyDesk and SimpleHelp installers, as their own follow-on access mechanism.",
       checkpoint: {
-        question: "Why did CVE-2024-1709 pose a bigger single-incident risk than a typical vishing case targeting one employee?",
+        question: "Why did CVE-2024-1709 pose a bigger single-incident risk than a typical vishing case?",
         options: [
-          "It compromised the RMM server/console directly, giving fleet-wide access to every endpoint that server managed, rather than access to just one machine",
-          "It only affected home users running the free consumer edition of ConnectWise ScreenConnect, which made it a low-priority issue for businesses",
-          "It required physical access to the server's hardware, so remote exploitation was never actually possible for any attacker",
-          "CISA determined the vulnerability could never be exploited without a valid administrator password already in hand",
+          "It gave control of the RMM console, and so of every endpoint that server managed",
+          "It exposed technicians' saved passwords, so attackers could sign in as each one",
+          "It let a Metasploit module spread by itself from one managed endpoint to the next",
+          "It left ConnectWise's cloud instances unpatched, since only customers could apply the fix",
         ],
         answer: 0,
-        explanation: "The critical distinction is scope: exploiting the server's own authentication bypass gave an attacker admin control over the console that manages every endpoint it oversees, a fleet-wide outcome from one exploited server, unlike a vishing call that compromises one employee's machine. ScreenConnect is a business/MSP product, not a consumer freeware tool with a separate low-priority edition. The vulnerability was remotely, unauthenticatedly exploitable. That is precisely what CVSS 10.0 and an unauthenticated Metasploit module mean, and CISA's KEV listing with a short mandatory deadline reflects active remote exploitation, not a requirement for prior credentials.",
+        explanation: "The critical distinction is scope: exploiting the server's own authentication bypass gave an attacker admin control over the console that manages every endpoint it oversees, a fleet-wide outcome from one exploited server, unlike a vishing call that compromises one employee's machine. The flaw let an attacker create a brand-new administrator account, so no technician's saved password was involved. Metasploit shipped an exploit module for the server, not something that spreads by itself between endpoints. And ConnectWise automatically remediated its own cloud-hosted instances on 19 February 2024; only self-hosted deployments needed manual patching.",
       },
       xp: 5,
     },
@@ -282,14 +282,14 @@ const rmmAbuseRoom = {
       question:
         "An EDR alert fires for a process named AnyDesk.exe running interactively (not as a service) from C:\\Users\\<user>\\Downloads\\AnyDesk.exe, on a host where the organization's sanctioned RMM tool is ScreenConnect, installed under Program Files and running as a SYSTEM service. Which of these best explains, by this room's reading, why the alert deserves concern?",
       options: [
-        "The process name AnyDesk.exe, since AnyDesk appears in CISA advisories and is therefore malicious wherever it runs",
-        "A tool other than the licensed ScreenConnect, running interactively from Downloads instead of as a managed service under Program Files",
-        "The Downloads path alone, since any executable launched from a user profile folder is malicious regardless of product",
-        "A valid AnyDesk Software GmbH signature on the binary, which confirms the session is authorized and needs no further checks",
+        "Its name: AnyDesk is listed in CISA's Scattered Spider advisory, so its presence is the abuse signal",
+        "Its identity and launch: not the licensed tool, and user-run from Downloads, not a managed service",
+        "Its signature: a valid AnyDesk Software GmbH certificate on a Downloads file points to a forged binary",
+        "Its firewall path: with no inbound rule open, the client must be slipping past the firewall",
       ],
       answer: 1,
       explanation:
-        "This combines two of the five concrete signals directly: tool-identity mismatch (AnyDesk versus the organization's actual sanctioned ScreenConnect) and install-location mismatch (an interactive user-run copy from Downloads versus a managed SYSTEM service under Program Files). The tool name alone is not a verdict. AnyDesk is a legitimate product used by countless organizations, and appearing in an advisory does not make every instance malicious. A Downloads path on its own is only one weak signal, and the strongest indicator is the combination of mismatches. A valid vendor signature, as reading r1 establishes, says the file is authentic. It says nothing about whether running it here is authorized.",
+        "This combines two of the five concrete signals directly: tool-identity mismatch (AnyDesk versus the organization's actual sanctioned ScreenConnect) and install-location mismatch (an interactive user-run copy from Downloads versus a managed SYSTEM service under Program Files). The tool name alone is not a verdict. AnyDesk is a legitimate product used by countless organizations, and appearing in an advisory does not make every instance malicious. A valid vendor signature, as reading r1 establishes, says the file is authentic, so it is no sign of forgery. And needing no inbound firewall rule is how these tools normally work: the client dials out to a vendor relay.",
       xp: 20,
     },
 
@@ -333,13 +333,13 @@ const rmmAbuseRoom = {
       checkpoint: {
         question: "Why does trying to blocklist 'remote access software' as a whole category fail as a detection strategy, per this reading?",
         options: [
-          "Because that exact category of software is what the organization's own IT help desk legitimately relies on every day, making a category-wide block impossible to operate without breaking real support work",
-          "Because remote access software is not capable of being detected by any modern EDR or proxy product currently on the market",
-          "Because MITRE ATT&CK does not formally classify remote access software abuse as a real technique, so no detection rule can reference it",
-          "Because every remote access product changes its process name and network signature on a randomized daily schedule, defeating any static rule",
+          "It would also block the tools the organization's own IT help desk depends on",
+          "RMM sessions are encrypted, so proxies cannot tell which product a session belongs to",
+          "A valid vendor code signature overrides block rules on managed endpoints",
+          "Attackers switch RMM products faster than a category block can keep up",
         ],
         answer: 0,
-        explanation: "The reading's core point is that a whole-category block is unworkable precisely because IT's own legitimate daily use of this exact category of software would be blocked along with any attacker's use of it: the allowlist (specific product + account + install pattern) is what actually distinguishes abuse. EDR and proxy tools absolutely can and do detect this traffic, as this room's own log-analysis task shows. T1219 is a real, documented ATT&CK technique. And legitimate RMM products do not randomize their process names or network signatures daily: their traffic is recognizable, which is exactly why the allowlist approach works.",
+        explanation: "The reading's core point is that a whole-category block is unworkable precisely because IT's own legitimate daily use of this exact category of software would be blocked along with any attacker's use of it: the allowlist (specific product + account + install pattern) is what actually distinguishes abuse. Encryption does not hide the product: this room's own proxy record names it in zscaler.appname. A valid signature says a file is genuine; it does not override a block rule. And a category block by definition covers every product in the category, so switching products would not escape it.",
       },
       xp: 5,
     },
@@ -405,7 +405,7 @@ const rmmAbuseRoom = {
     {
       type: "log_analysis" as const,
       id: "rmm-la1",
-      heading: "Investigate: An Unsanctioned TeamViewer Session on WKS-CF-118",
+      heading: "Investigate: A Proxy Record From WKS-CF-118",
       context:
         "Cascadia Freight's only licensed remote-support tool is ConnectWise ScreenConnect, run as a ConnectWise-hosted cloud instance at cascadia.hostedrmm.com and operated only by two named IT technician accounts. The proxy record below shows outbound traffic from an Accounts Receivable workstation.",
       event: teamViewerProxyEvent,
@@ -414,10 +414,10 @@ const rmmAbuseRoom = {
           question:
             "Given Cascadia Freight's allowlist (ScreenConnect only, two named technician accounts), which single field in this record is the clearest tool-identity mismatch?",
           options: [
-            "zscaler.action, reading \"Allowed\", showing the proxy permitted the connection, which tells you the session went through but not which product it was",
-            "zscaler.appname, reading \"TeamViewer\": a product that is not Cascadia Freight's sanctioned RMM tool at all, per the allowlist in the context",
-            "zscaler.destport, reading \"5938\", TeamViewer's documented port, which helps confirm the app but is not itself the identity field",
-            "zscaler.urlcategory, reading \"Remote Access Tools\": the correct category, but one that also covers the sanctioned ScreenConnect traffic",
+            "zscaler.action, reading \"Allowed\"",
+            "zscaler.appname, reading \"TeamViewer\"",
+            "zscaler.destport, reading \"5938\"",
+            "zscaler.urlcategory, reading \"Remote Access Tools\"",
           ],
           answer: 1,
           explanation:
@@ -428,10 +428,10 @@ const rmmAbuseRoom = {
           question:
             "Following this room's allowlist-based detection discipline, what is the single most important record to check next before reaching a verdict?",
           options: [
-            "Whether TeamViewer's code signature is valid: a valid signature confirms the binary is authentic, not that its use here was authorized",
-            "Whether the session used an encrypted transport, but both legitimate and malicious RMM sessions are routinely encrypted",
-            "Whether Cascadia Freight's ITSM ticketing system has any ticket referencing this exact session, user, and time window",
-            "Whether the destination IP resolves to a residential ISP: a signal for other techniques, not for an allowlist verdict",
+            "Whether the TeamViewer binary on WKS-CF-118 has a valid code signature",
+            "Whether the session used an encrypted transport such as TLS",
+            "Whether ITSM holds a ticket for this exact session, user and time",
+            "Whether the destination IP resolves to a residential ISP range",
           ],
           answer: 2,
           explanation:

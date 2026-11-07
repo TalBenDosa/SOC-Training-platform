@@ -9,7 +9,7 @@ const dnsExfilEvent: TelemetryEvent = {
   severity: "high",
   hostname: "WS-FINANCE-011",
   user_email: "m.cohen@nexacorp.com",
-  description: "Abnormally long DNS query from finance workstation - possible DNS tunneling exfiltration",
+  description: "Abnormally long DNS query from finance workstation",
   mitre_technique: "T1048.003",
   mitre_tactic: "Exfiltration",
   process: { name: "cmd.exe", pid: 7412, path: "C:\\Windows\\System32\\cmd.exe", parent_name: "explorer.exe", parent_pid: 3888, user: "NEXACORP\\m.cohen" },
@@ -714,16 +714,16 @@ const protocolsMasterclass = {
       type: "question" as const,
       id: "proto-q3",
       question:
-        "Port 445 is blocked on your perimeter firewall. An attacker has already gained access to a workstation inside the network. What risk does port 445 STILL pose INTERNALLY?",
+        "Port 445 is blocked on your perimeter firewall. An attacker has already gained access to a workstation inside the network. What can they still do over port 445?",
       options: [
-        "Minimal risk: the perimeter block makes SMB unreachable to anything inside the network as well",
-        "Internal SMB on port 445 enables lateral movement between workstations, spreading ransomware and enabling credential relay",
-        "Limited risk: port 445 carries file and printer sharing, which cannot be used to execute code or move laterally",
-        "The risk appears once the attacker opens port 445 on the perimeter firewall, since SMB abuse needs inbound internet access",
+        "Send LDAP queries to domain controllers to map Active Directory",
+        "Move to other workstations over SMB, the way ransomware spreads",
+        "Open Remote Desktop sessions on servers across the network",
+        "Pull user mailboxes from the mail server over POP3 or IMAP",
       ],
       answer: 1,
       explanation:
-        "Blocking port 445 at the perimeter only prevents EXTERNAL attacks. Once an attacker is inside the network, internal port 445 (SMB) traffic is often unrestricted, enabling lateral movement between workstations, ransomware propagation, and NTLM relay attacks. WannaCry and NotPetya spread entirely over internal networks using SMB. Perimeter blocks did nothing to stop internal propagation. Network segmentation (blocking workstation-to-workstation SMB with firewall rules or host-based firewalls) is required to limit this risk.",
+        "Blocking port 445 at the perimeter only prevents EXTERNAL attacks. Once an attacker is inside the network, internal port 445 (SMB) traffic is often unrestricted, enabling lateral movement between workstations, ransomware propagation, and NTLM relay attacks. WannaCry and NotPetya spread entirely over internal networks using SMB. Perimeter blocks did nothing to stop internal propagation. Network segmentation (blocking workstation-to-workstation SMB with firewall rules or host-based firewalls) is required to limit this risk. The other options name other ports: LDAP uses 389 and 636, RDP uses 3389, and POP3 and IMAP use 110 and 143.",
       xp: 20,
     },
     // ── Reading 10 ────────────────────────────────────────────────────────────

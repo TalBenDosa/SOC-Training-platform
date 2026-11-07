@@ -515,10 +515,10 @@ const commodityInitialAccessRoom = {
       instructions: "Match each technique covered in this room to the MITRE ATT&CK ID and the artefact that identifies it.",
       pairs: [
         { id: "clickfix", left: "ClickFix / Fake CAPTCHA", right: "T1204.004 -- explorer.exe spawns a command interpreter directly, with no antecedent file download at all" },
-        { id: "clipper", left: "Clipboard Clipper", right: "T1115 -- a background process silently substitutes copied cryptocurrency wallet addresses before the paste completes" },
-        { id: "seo", left: "SEO-Poisoned / Malvertised Installer", right: "T1608.006 (T1583.008 when the slot is paid for) -- a manipulated or sponsored search result leads to a fake installer whose only real job is fetching a second-stage payload" },
-        { id: "iso", left: "ISO / Mark-of-the-Web Smuggling", right: "T1553.005 -- a shortcut inside a mounted container runs with no SmartScreen prompt at all" },
-        { id: "miner", left: "Drive-by Browser Cryptomining", right: "T1496 -- a browser's own renderer process opens a long-lived tunnel to a mining relay" },
+        { id: "clipper", left: "Clipboard Clipper", right: "T1115 -- a hidden listener replaces a payment destination the moment it matches a known pattern, with no visible symptom" },
+        { id: "seo", left: "SEO-Poisoned / Malvertised Installer", right: "T1608.006 (T1583.008 for paid placement) -- a lookalike domain ranks first, and its download exists only to fetch a second stage" },
+        { id: "iso", left: "ISO / Mark-of-the-Web Smuggling", right: "T1553.005 -- a shortcut on a brand-new drive letter runs with no SmartScreen prompt at all" },
+        { id: "miner", left: "Drive-by Browser Cryptomining", right: "T1496 -- one renderer process burns CPU while a WebSocket stays open to a Stratum relay" },
       ],
       explanation:
         "Notice what all five have in common: none of them require a malicious document macro, and two of the five -- ClickFix and the browser miner -- begin without any downloaded file on disk before the first suspicious activity. That's exactly why file-download-focused controls, on their own, aren't enough to catch any of them.",

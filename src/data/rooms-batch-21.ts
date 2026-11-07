@@ -237,13 +237,13 @@ const logEntryAnatomyRoom: Room = {
       type: "matching",
       id: "loganat-m1",
       heading: "Match Each Sample to Its Log Format",
-      instructions: "Match each short log sample to the format it is written in.",
+      instructions: "Match each short log sample to the description of the format it is written in.",
       pairs: [
-        { id: "syslog", left: "Priority code, no-year date, hostname, process[pid]: free-text message", right: "Plain syslog (RFC 3164-style)" },
-        { id: "kv", left: "srcip=10.10.4.55 dstport=443 action=deny policyid=12", right: "Key=value: self-describing pairs, common on Fortinet/Check Point" },
-        { id: "json", left: "A field named winlog.event_data.TargetUserName inside nested braces", right: "JSON: nested objects; dots in a field name represent nesting" },
-        { id: "csv", left: "A #Fields header line naming columns, followed by rows of space-separated values", right: "CSV/W3C: a column's meaning depends entirely on the header line" },
-        { id: "cef", left: "CEF:0|Fortinet|FortiGate|7.0|0000000013|Traffic Deny|5|src=10.10.4.55 dst=203.0.113.55", right: "CEF: a SIEM-normalised format vendors emit so one parser works across products" },
+        { id: "syslog", left: "<38>Jun 24 14:32:11 web-02 sshd[2210]: Accepted password for m.ross", right: "A short fixed prefix, then a sentence the process wrote itself" },
+        { id: "kv", left: "srcip=10.10.4.55 dstport=443 action=deny policyid=12", right: "Every fact carries its own short label, in plain readable text" },
+        { id: "json", left: "{\"winlog\":{\"event_data\":{\"TargetUserName\":\"admin\"}}}", right: "Objects inside objects, where a dotted field name is a path" },
+        { id: "csv", left: "#Fields: date time c-ip sc-status (first line), then 2026-06-24 14:32:11 203.0.113.55 200", right: "Plain values whose meaning depends on their column position" },
+        { id: "cef", left: "CEF:0|Fortinet|FortiGate|7.0|0000000013|Traffic Deny|5|src=10.10.4.55 dst=203.0.113.55", right: "A shape a SIEM vendor defined so one parser works across products" },
       ],
       explanation:
         "Each sample carries a distinct, recognisable shape: syslog's priority-code-plus-free-text, key=value's field=value pairs, JSON's nested braces and dotted paths, CSV/W3C's header-defines-the-columns rule, and CEF's fixed pipe-delimited header in front of key=value extensions. Recognising the shape is the first step to knowing where to look for the five-question fields inside it.",
@@ -399,44 +399,44 @@ const logEntryAnatomyRoom: Room = {
       questions: [
         {
           question:
-            "Using the five-question frame, which of WHEN, WHERE, and WHAT can you answer directly from this record, and which of the five questions has no field at all in this log format?",
+            "Using the five-question frame, which of the five questions can this record answer directly, and which have no field at all?",
           options: [
-            "You can answer WHEN (ts), WHERE (id.orig_h / id.resp_h), and WHAT (proto and id.resp_p show a TCP connection to port 3389); there is no WHO field at all. Zeek's connection log records network activity, not identity, and there's no HOW CONFIDENT/severity field either, since conn.log summarises connections rather than rating them",
-            "You can answer all five questions directly from this single record, including WHO, because the uid field is Zeek's way of recording the specific human username that initiated the connection, in the same way TargetUserName does in a Windows event",
-            "This record only ever answers the WHEN question. None of the remaining id.orig_h, id.resp_h, proto, or duration fields map onto any of the other four questions in the five-question frame at all",
-            "WHERE cannot be determined from this record at all, because Zeek's conn.log format is documented as never recording IP addresses, capturing only hostnames and fully-qualified domain names instead",
+            "WHEN, WHERE and WHAT are answered; WHO and HOW CONFIDENT have no field",
+            "All five are answered: uid is the username and conn_state is the severity",
+            "WHEN, WHO and WHAT are answered; WHERE has no field, as Zeek omits IP addresses",
+            "WHEN, WHERE and HOW CONFIDENT are answered; WHAT and WHO have no field",
           ],
           answer: 0,
           explanation:
-            "uid in Zeek is a unique connection (flow) identifier (like a case number for this specific network session) not a username; that's exactly the look-alike field name trap Reading 6 warned about. Zeek's conn.log genuinely has no identity field and no severity field; that absence isn't a mistake, it's a property of this data source, which the next question builds on. WHERE is very much answerable: id.orig_h and id.resp_h are IP addresses, not hostnames.",
+            "The record has ts (WHEN), id.orig_h and id.resp_h (WHERE: these are IP addresses) and proto with id.resp_p (WHAT: a TCP connection to port 3389). It has no identity field and no rating. uid is Zeek's unique ID for this connection, like a case number, not a username. conn_state describes how the TCP session behaved, not a severity. That absence isn't a mistake: conn.log summarises connections rather than rating them, and a network sensor sees traffic, not accounts, which the next questions build on.",
           xp: 20,
         },
         {
           question:
-            "duration is 812.334 seconds, orig_bytes is 48210, resp_bytes is 991823, and conn_state is SF. Zeek's documentation defines SF as a connection that completed a normal TCP handshake and closed normally, as opposed to S0 (a connection attempt with no reply at all). What does this combination tell you about the WHAT of this record?",
+            "conn_state is SF, which Zeek's documentation defines as a connection that was set up and closed normally. duration is 812.334 seconds, orig_bytes is 48210 and resp_bytes is 991823 (orig is the side that opened the connection, resp the side that answered). What does this record show?",
           options: [
-            "The connection was actually rejected outright by the destination host, meaning the TCP handshake never fully completed and no data of any kind was ever exchanged between the two endpoints",
-            "A sustained (over 13-minute), fully-established TCP session to port 3389 (the standard port for Remote Desktop Protocol) exchanged data in both directions and ended normally: a real, completed session, not a blocked or failed attempt",
-            "The conn_state value of SF is Zeek's own built-in verdict field, and it specifically means the sensor itself has flagged this exact connection as malicious based on its behaviour",
-            "The large byte counts recorded here strongly indicate this must actually have been a file download of some kind, a use of port 3389 that is entirely unrelated to its normal, documented purpose",
+            "A 13-minute session in which 10.40.6.118 sent far more data than it received",
+            "A 13-minute session in which 10.40.2.15 sent far more data than it received",
+            "A 13-minute session that closed normally, so an account logged on to 10.40.2.15",
+            "A 13-minute session that Zeek judged safe, because SF is its verdict on traffic",
           ],
           answer: 1,
           explanation:
-            "SF specifically means a normal, complete handshake-and-close: the opposite of a failed or blocked attempt, which would show as S0 or REJ. This is real session activity to TCP/3389, registered for RDP, with meaningful data flowing both directions over a long duration. conn_state is a protocol-state field describing how the TCP session behaved, not a verdict field. Zeek does not label sessions malicious in conn.log, exactly the point of the previous question.",
+            "orig_bytes is what the originator sent and resp_bytes is what the responder sent, so 10.40.2.15 (id.resp_h) sent 991823 bytes and 10.40.6.118 (id.orig_h) sent 48210: reading them the other way round is the easy mistake. SF means a real session that was set up and closed normally, the opposite of a failed or blocked attempt, which would show as S0 or REJ. That still does not show a logon: conn.log has no identity field, so it cannot say that any account signed in. And conn_state describes how the TCP session behaved. It is not a verdict: Zeek does not label sessions safe or malicious in conn.log.",
           xp: 20,
         },
         {
           question:
-            "This record shows a real, completed 13-minute connection to TCP/3389 with substantial two-way data transfer between two internal hosts. Before concluding anything about whether this was legitimate remote administration or something else, what is essential that this record cannot tell you, and where would you look for it?",
+            "This record shows a real, completed 13-minute connection with substantial two-way data transfer between two internal hosts. Before concluding anything about whether this was legitimate remote administration or something else, what is essential that this record cannot tell you, and where would you look for it?",
           options: [
-            "Nothing further is actually needed here: the connection details captured in this single Zeek record are entirely sufficient on their own to close this out as purely informational with no further review",
-            "This record has no identity field at all, so you cannot tell WHO used this connection; you would need to correlate the timestamp and the two IP addresses against an authentication log (for example, a Windows Security 4624 logon on the destination host) to find out which account, if any, actually logged on during this window",
-            "You would simply need to re-run this exact same Zeek query again but with a longer overall time range selected, since the missing identity information is purely a matter of the search window being too narrow",
-            "Zeek connection logs always include the associated human username in a separate, dedicated field called owner, and that field is what should be queried instead of looking anywhere else",
+            "How serious it was: read the severity rating conn.log keeps against this uid",
+            "Which account was used: match the time and IPs to an authentication log on the destination host",
+            "Which account was used: rerun this Zeek search over a longer window until a username appears",
+            "What was done in the session: read the packet contents stored in this Zeek record",
           ],
           answer: 1,
           explanation:
-            "This is the absence-of-evidence lesson from Reading 8 applied directly: the gap here is not a logging failure, it's a structural property of what a network sensor can see at all, it observes traffic, not identities. The correct move is to correlate against a log source that does carry identity, such as an authentication log on the destination host, for the matching time window, not to guess. There is no owner field in Zeek's conn.log, and expanding the time range does not manufacture a field that was never captured.",
+            "This is the absence-of-evidence lesson from Reading 8 applied directly: the gap here is not a logging failure, it's a structural property of what a network sensor can see at all. It observes traffic, not identities. The correct move is to correlate against a log source that does carry identity, such as a Windows Security 4624 logon on the destination host, for the matching time window, not to guess. Expanding the time range does not manufacture a field that was never captured. conn.log holds no severity rating, and it summarises connections rather than storing packet contents.",
           xp: 25,
         },
       ],
@@ -448,7 +448,7 @@ const logEntryAnatomyRoom: Room = {
       prompt:
         "In the log_analysis task, what TCP destination port did the Zeek connection record use? Enter the number only.",
       answer: "3389",
-      hint: "It's the id.resp_p field, and it's the standard port for Remote Desktop Protocol.",
+      hint: "Destination, not source: which side answered the connection?",
       xp: 15,
     },
   ],
@@ -608,11 +608,11 @@ const identityBasicsRoom: Room = {
       heading: "Match Each Stolen Credential to What the Attacker Gains",
       instructions: "Match each stolen credential type to what it actually gives an attacker.",
       pairs: [
-        { id: "password", left: "Attacker steals the plaintext password", right: "Full account takeover on any system trusting that password; the password should be rotated everywhere it was reused" },
-        { id: "hash", left: "Attacker steals the password HASH (not the password itself)", right: "In some protocols (e.g. NTLM), the attacker can authenticate directly using the hash (pass-the-hash), without ever learning the plaintext password" },
-        { id: "token", left: "Attacker steals a session token/cookie after MFA already succeeded", right: "Attacker gets an already-authenticated session, bypassing MFA entirely; resetting the password alone will not remove this access" },
-        { id: "apikey", left: "Attacker steals a long-lived API key issued to a service account", right: "Attacker gets programmatic access with whatever privileges the key holds, often with no MFA and no expiry to force re-authentication" },
-        { id: "cert", left: "Attacker steals a client certificate used for authentication", right: "Attacker can authenticate as the certificate's subject anywhere that certificate is trusted, until it is explicitly revoked" },
+        { id: "password", left: "Attacker steals the plaintext password", right: "Full account takeover wherever that secret is accepted, so it must be changed everywhere it was reused" },
+        { id: "hash", left: "Attacker steals the password HASH (not the password itself)", right: "In older protocols such as NTLM, direct sign-in as the user with nothing to crack first" },
+        { id: "token", left: "Attacker steals a session token/cookie after MFA already succeeded", right: "Instant entry as the logged-in user, no second factor asked, and a reset alone will not end it" },
+        { id: "apikey", left: "Attacker steals a long-lived API key issued to a service account", right: "Scripted access with whatever rights were granted, and no person likely to notice the theft" },
+        { id: "cert", left: "Attacker steals a client certificate used for authentication", right: "Sign-in as the named holder on any system that trusts the issuer, using the matching private key" },
       ],
       explanation:
         "Each of these follows directly from Reading 3's core point: a credential is anything the system accepts as proof of identity, and what an attacker gains depends entirely on which form they stole and how that specific protocol validates it, a hash, a token, a key, and a certificate each behave differently once stolen, even though all four are 'just' credentials in the broad sense.",

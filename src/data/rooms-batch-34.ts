@@ -276,14 +276,14 @@ const becInvestigationRoom = {
       checkpoint: {
         question: "Per Reading 3, what is the practical difference between incomingTokenType 'refreshToken' and 'primaryRefreshToken' (PRT)?",
         options: [
-          "There is no real difference: both values mean exactly the same thing under a different label",
-          "refreshToken means a fresh password-plus-MFA login just occurred; primaryRefreshToken means the sign-in failed",
-          "refreshToken is consistent with a replayed stolen browser session; primaryRefreshToken is device-bound, so the attacker holds device-level secrets: a materially more invasive compromise",
-          "primaryRefreshToken only appears on failed sign-ins, so it can be safely ignored when reviewing successful authentications",
+          "refreshToken points to a fresh sign-in with a live MFA prompt; primaryRefreshToken points to a replayed browser session",
+          "refreshToken is what AiTM kits leave behind; primaryRefreshToken is what infostealer cookie theft leaves behind",
+          "refreshToken fits a replayed browser session; primaryRefreshToken is device-bound, so device-level secrets are held",
+          "refreshToken means device-level secrets are held; primaryRefreshToken is the weaker signal, a stolen browser cookie",
         ],
         answer: 2,
         explanation:
-          "As Reading 3 covered, a refreshToken is consistent with ordinary stolen-session replay (AiTM, infostealer cookies). A primaryRefreshToken is device-bound and requires the attacker to hold device-level secrets, not just a browser cookie -- a stronger, rarer, and more serious signal.",
+          "A refreshToken is consistent with stolen-session replay, and Reading 3 says AiTM kits and infostealer cookie theft both produce it, so it does not separate those two methods. A value of none, not refreshToken, marks ordinary fresh authentication. A primaryRefreshToken is device-bound and requires the attacker to hold device-level secrets, not just a browser cookie, which makes it the stronger, rarer and more serious signal, not the weaker one.",
       },
     },
     // ── Log Analysis 1: the replayed sign-in ─────────────────────────────────
@@ -344,10 +344,10 @@ const becInvestigationRoom = {
       type: "question" as const,
       id: "bec-q2",
       question:
-        "You want to find every other action the attacker took within this same authenticated session, not just this one sign-in record. Based on Reading 3, which identifier should you pivot on, and why?",
+        "You want the other records linked to this replayed sign-in, not just the audit records of one action. Based on Reading 3, which identifier should you pivot on, and why?",
       options: [
-        "correlationId, because it groups every record Entra ID produced across the whole tenant that day",
-        "sessionId, because it ties together every event within one continuous authenticated session, linking the replayed sign-in to the actions taken under it",
+        "correlationId, because it carries over to every action that follows from one stolen sign-in",
+        "sessionId, because it links every event of one continuous session, across separate actions",
         "riskLevelDuringSignIn, because filtering on the same risk score surfaces the attacker's other steps",
         "the source IP on its own, because every attacker action shares one address, so no identifier is needed",
       ],
@@ -428,16 +428,16 @@ const becInvestigationRoom = {
         },
         {
           question:
-            "Unlike the ForwardTo/DeleteMessage pattern from remote-email-collection, this rule never sends any mail outside Meridian's tenant and never deletes anything. Based on Reading 4, why is it still dangerous enough to justify the same urgency?",
+            "Unlike the ForwardTo/DeleteMessage pattern from remote-email-collection, this rule never sends any mail outside Meridian's tenant and never deletes anything. Based on Reading 4, what does it buy the attacker in a wire-fraud case?",
           options: [
-            "It isn't really dangerous: since nothing leaves the tenant or is deleted, it is a low-priority finding",
-            "It suppresses the real vendor's own replies from reaching the owner, in wire fraud, exactly the 'we never changed our bank details' correction that would otherwise stop the fraud",
-            "It is dangerous only because the suppressed mail can never be recovered once moved into RSS Feeds",
-            "It is dangerous because StopProcessingRules disables the mailbox's spam filtering entirely",
+            "It hides the fraudulent reply from the rest of the finance team, so nobody questions the new bank details",
+            "It keeps the real vendor's replies from the mailbox owner, so a query about bank details is never acted on",
+            "It destroys the vendor's replies once they land in RSS Feeds, so a later investigation cannot recover them",
+            "It makes StopProcessingRules switch off spam filtering, so the fraudulent message reaches the inbox unchecked",
           ],
           answer: 1,
           explanation:
-            "Reading 4's central point: in wire fraud the single most dangerous incoming message is the real vendor's correcting reply, and a rule that quietly buries exactly that reply (no unread badge, no forwarding to investigate) is arguably more purpose-built for the fraud than a ForwardTo rule, even though nothing leaves the tenant. Calling it low-priority ignores that effect. The mail is not destroyed; it sits in RSS Feeds and is fully recoverable. And StopProcessingRules only stops later inbox rules from running on the message, it does not turn off spam filtering.",
+            "Reading 4's central point: in wire fraud the biggest risk to the attacker is not the target noticing the fraudulent message, it is the real vendor writing back, and this rule quietly buries exactly that reply with no unread badge and no forwarding to investigate. It acts on incoming mail in p.nair's mailbox, so it does nothing to hide her apparent reply from the finance team. The mail is not destroyed: it sits in RSS Feeds and is fully recoverable. And StopProcessingRules only stops other inbox rules from running on the message, it does not turn off spam filtering.",
           xp: 35,
         },
       ],
@@ -587,9 +587,9 @@ const becInvestigationRoom = {
       // which carries a different ClientIP and acts as a decoy.
       event: becInboxRuleEvent,
       prompt:
-        "Attackers often give a concealment rule a near-invisible name so it is easy to overlook in a mailbox's rule list. In the New-InboxRule finding that conceals Cascade Fabrication's replies, what exact value was set for the rule's Name parameter?",
-      answer: ".",
-      hint: "In the raw block, find the Parameters entry whose Name is 'Name' and read its Value: it is a single, easily-missed character.",
+        "Your team adds a second inbox rule on p.nair's mailbox, ordered after the concealment rule, to flag messages mentioning cascadefab.com. It never fires on those messages. Using the New-InboxRule finding, enter the name of the parameter that explains why.",
+      answer: "StopProcessingRules",
+      hint: "Most of these parameters act on the message itself.",
       xp: 20,
     },
   ],

@@ -104,7 +104,7 @@ const inv7ScopeEvent: TelemetryEvent = {
   mitre_tactic: "Lateral Movement",
   authentication: { method: "NTLM", result: "Success", logon_type: 3 },
   description:
-    "The Security event log on FIN-DB02 recorded EventID 4624 for CASTLETON\\d.reyes, a network logon originating from WKS-FIN07, 52 minutes after the PowerShell process on that same workstation.",
+    "The Security event log on FIN-DB02 recorded EventID 4624 for CASTLETON\\d.reyes, 52 minutes after the PowerShell process ran on WKS-FIN07.",
   raw: {
     "EventID": "4624",
     "Computer": "FIN-DB02.castleton.local",
@@ -721,14 +721,14 @@ const writingIncidentReportRoom: Room = {
       checkpoint: {
         question: "Per Reading 1, why is one report with an executive summary at the top usually preferred over two entirely separate documents?",
         options: [
-          "Separate documents are harder to store on a shared drive, since most document-management systems only version-control a single file at a time",
-          "Splitting into separate documents invites drift -- the executive version can quietly diverge from the technical version over revisions, which nobody notices until they're compared line by line later",
-          "Executives are legally required to read the full technical report, so producing a separate summary document would fail to satisfy that requirement",
-          "Two documents take longer to write than one, since the writer has to format and proofread each file separately before either can be circulated",
+          "Leadership needs the same technical detail as the responders, so both should read one text",
+          "Separate documents can drift apart over revisions, and nobody notices until they are compared",
+          "One file lets the summary be a condensed copy of the technical section, saving writing time",
+          "Every reader must go past the summary, so the detail has to sit directly beneath it",
         ],
         answer: 1,
         explanation:
-          "The risk named in Reading 1 is drift between two separately-maintained versions of the same incident. One document with an executive summary on top and technical detail below lets each audience stop where they need to, with no risk of the two versions disagreeing.",
+          "The risk named in Reading 1 is drift between two separately-maintained versions of the same incident. One document with an executive summary on top and technical detail below lets each audience stop where they need to, with no risk of the two versions disagreeing. Leadership does not need the technical detail, anyone can stop after the summary, and a condensed copy of the technical section is the trap Reading 1 warns about, not a benefit.",
       },
     },
     // -----------------------------------------------------------------------
@@ -877,14 +877,14 @@ const writingIncidentReportRoom: Room = {
           question:
             "Drafting the technical timeline entry for this event, which of the following is written correctly per this room's standard?",
           options: [
-            "'Late one night, something suspicious happened on the AP server involving a task'. Vague phrasing chosen deliberately, on the reasoning that fewer specific claims means fewer things a reviewer could later dispute",
-            "'2026-06-02T23:14:08 UTC: A scheduled task named OneDriveSyncHelper was created on AP-SRV14 under the svc-report account, configured to run a binary from ProgramData at every logon with SYSTEM privileges, an established persistence mechanism (T1053.005) surviving reboot or credential rotation'",
-            "'This is definitely the attacker's primary backdoor and the most important finding in the entire case': strong, decisive language chosen for maximum clarity and impact on the reader",
-            "The event should be left out of the timeline entirely and only listed in the IOCs section, since the file hash by itself already captures everything a reviewer would need to know about this finding",
+            "'Around 23:14 on 2 June: A scheduled task named OneDriveSyncHelper was created on AP-SRV14 under the svc-report account, set to run a ProgramData binary at every logon as SYSTEM, persistence (T1053.005) that survives a reboot'",
+            "'2026-06-02T23:14:08 UTC: A scheduled task named OneDriveSyncHelper was created on AP-SRV14 under the svc-report account, set to run a ProgramData binary at every logon as SYSTEM, persistence (T1053.005) that survives a reboot'",
+            "'2026-06-02T23:14:08 UTC: A suspicious task was created on an Accounts Payable server under a service account, set to run a program at logon with high privileges, persistence (T1053.005) that survives a reboot'",
+            "'2026-06-02T23:14:08 UTC: A scheduled task named OneDriveSyncHelper was created on AP-SRV14 under the svc-report account, set to run a ProgramData binary at every logon as SYSTEM, named by the attacker to pass as OneDrive and fool the SOC'",
           ],
           answer: 1,
           explanation:
-            "This is the exact shape Reading 3 modelled: a formal, unambiguous timestamp, the specific observed facts (task name, account, privilege level, execution trigger), and one grounded sentence of interpretation tied to what it means, not speculation, just consequence. The vague version fails the formal-timestamp and specific-facts requirements entirely. The dramatic version oversteps what the evidence actually supports: 'definitely the primary backdoor' and 'most important finding' are judgements the evidence doesn't establish and that a defensible report should not assert past what's shown. And the IOC list is a distilled reference extracted from findings like this one. It is not a substitute for describing the finding itself in the timeline, where the full context belongs.",
+            "This is the shape Reading 3 modelled: a formal timestamp with full date, time and timezone, the specific observed facts (task name, host, account, privilege level, execution trigger), and a grounded statement of consequence. 'Around 23:14 on 2 June' has no year and no timezone, so a later reader cannot cross-reference it against other systems. 'A suspicious task' on 'an Accounts Payable server' drops the exact task name, host and account, so the entry can no longer be checked. 'Named by the attacker to pass as OneDrive' keeps the facts but ends on a guess about intent: Reading 3 asks for consequence, not speculation, and the evidence does not show why the name was chosen.",
           xp: 30,
         },
       ],
@@ -895,8 +895,9 @@ const writingIncidentReportRoom: Room = {
       id: "doc-f1",
       event: docScheduledTaskEvent, // show the scheduled-task log this IOC flag reads
       prompt:
-        "You are finalising the IOCs section. What is the exact scheduled task name that should be listed, taken directly from the TaskName value inside AdditionalFields in the raw log?",
-      answer: "OneDriveSyncHelper",
+        "You are finalising the IOCs section, and the binary this scheduled task runs needs its own line. Applying this room's rule for file IOCs, what exact value do you list? Enter it as recorded in the log.",
+      answer: "C:\\ProgramData\\OneDriveSyncHelper\\sync.exe",
+      hint: "The same file name in a legitimate location and a suspicious one are different findings.",
       xp: 20,
     },
     // -----------------------------------------------------------------------
@@ -1018,14 +1019,14 @@ const writingIncidentReportRoom: Room = {
       checkpoint: {
         question: "Why does Reading 5 single out 'human error' as a failure mode for a root cause statement, alongside vague restatements of the attack?",
         options: [
-          "Because human error is never actually a factor in real intrusions, so citing it as a cause is factually incorrect in every case, not just an unhelpfully vague one",
-          "Because it sounds like an explanation but names no specific, correctable gap, and tends to unfairly concentrate blame on an individual for a failure that was actually organisational",
-          "Because 'human error' is a term reserved exclusively for safety incidents, not security incidents, and using it here is simply the wrong vocabulary for this document type",
-          "Because naming human error always triggers a legal disclosure requirement that the SOC would rather avoid creating in the first place",
+          "It restates what the attacker did, so it simply repeats the Technical Timeline",
+          "It names no correctable gap and pins an organisational failure on one person",
+          "It blames one person when the report should assign the fault to a whole team",
+          "It is too brief: a root cause has to run to several paragraphs to be usable",
         ],
         answer: 1,
         explanation:
-          "'Human error' sounds like a cause but isn't actionable -- it names no specific fixable gap, and it shifts blame onto an individual for something a missing organizational control should have stopped regardless of which person triggered it.",
+          "'Human error' sounds like a cause but isn't actionable: it names no specific fixable gap, and it shifts blame onto an individual for something a missing organizational control should have stopped regardless of which person triggered it. Restating the attack is the other failure mode, not this one. Moving the blame to a team still names no control to fix. And length is not the test: Root Cause is usually one of the shortest sections.",
       },
     },
     // -----------------------------------------------------------------------

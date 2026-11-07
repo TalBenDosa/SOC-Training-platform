@@ -150,7 +150,7 @@ export const CREDENTIAL_ATTACKS_PRACTICE: RoomExperience = {
     "cred-m1": { name: "Ewan Tshabalala", role: "Detection Analyst", line: "Put a name to each pattern. Leave the rule titles out of it." },
     "cred-la1": { name: "Ewan Tshabalala", role: "Detection Analyst", line: "One record on the screen. Read what sits behind it." },
     "cred-la2": { name: "Ewan Tshabalala", role: "Detection Analyst", line: "Another day, another record. Same discipline." },
-    "cred-f1": { name: "Ewan Tshabalala", role: "Detection Analyst", line: "I only need one number from that record." },
+    "cred-f1": { name: "Ewan Tshabalala", role: "Detection Analyst", line: "I only need one code from that record." },
     "cred-q2": { name: "Ewan Tshabalala", role: "Detection Analyst", line: "Two findings landed together. Tell me which is which." },
     "cred-ac1": { name: "Ewan Tshabalala", role: "Detection Analyst", line: "The rule fired. What goes on the ticket?" },
     "cred-o1": { name: "Ewan Tshabalala", role: "Detection Analyst", line: "Walk me through how it plays out, start to finish." },

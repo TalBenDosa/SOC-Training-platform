@@ -32,7 +32,7 @@ const oauthConsentEvent: TelemetryEvent = {
   src_ip: "198.51.100.61",
   geo: { country: "United States", city: "Chicago" },
   description:
-    "A token audit 'authorize' event recorded k.stensrud@medcorehealth.example granting a third-party app named FormFlow Sync the scopes for full Calendar and full Drive access, with an offline refresh token issued.",
+    "A token audit 'authorize' event recorded k.stensrud@medcorehealth.example granting scopes to a third-party app named FormFlow Sync.",
   raw: {
     "gws.event.type": "token",
     "gws.event.name": "authorize",
@@ -82,7 +82,7 @@ const driveDownloadBurstEvent: TelemetryEvent = {
     size: 5_812_224,
   },
   description:
-    "The Drive audit recorded 340 download operations under k.stensrud's account within eleven minutes, attributed to the FormFlow Sync token, from a hosting-provider IP in the Netherlands.",
+    "The Drive audit recorded 340 download operations under k.stensrud's account within eleven minutes.",
   raw: {
     "gws.event.type": "access",
     "gws.event.name": "download",
@@ -329,7 +329,7 @@ const googleWorkspaceSecurityRoom = {
       questions: [
         {
           question:
-            "gws.drive.originating_app_id is 719402883561, which the SIEM export resolves to FormFlow Sync in gws.access.via_oauth_app, and source.ip is 203.0.113.14 (Amsterdam), not k.stensrud's own device or location. What does that combination establish?",
+            "Read gws.drive.originating_app_id, gws.access.via_oauth_app and source.ip in this event, and compare them with the consent event. What does that combination establish?",
           options: [
             "The app's servers used the grant's token; her own browser was not involved",
             "She was travelling and downloaded the files herself from a hotel network",
@@ -338,7 +338,7 @@ const googleWorkspaceSecurityRoom = {
           ],
           answer: 0,
           explanation:
-            "originating_app_id is the project number of the app that acted, the same digits that open the consent grant's client_id, and the IP belongs to a hosting provider rather than her device: the app's backend is using its token. If she had downloaded the files herself while travelling, the events would not point at a third-party app. A stolen session cookie replays her browser session, which would not point at one either. And Google-side caching is not logged as hundreds of downloads by a third-party app.",
+            "originating_app_id is the project number of the app that acted, the same digits that open the consent grant's client_id, and the source is an Amsterdam address rather than the Chicago one she consented from: the app's backend is using its token. If she had downloaded the files herself while travelling, the events would not point at a third-party app. A stolen session cookie replays her browser session, which would not point at one either. And Google-side caching is not logged as hundreds of downloads by a third-party app.",
           xp: 25,
         },
         {

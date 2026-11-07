@@ -789,7 +789,7 @@ SentinelOne detects Cobalt Strike through:
         mitre_technique: "T1486",
         mitre_tactic: "Impact",
         description:
-          "SentinelOne detected LockBit 3 ransomware actively encrypting files. 15,847 files renamed with .lockbit extension. Rollback snapshots available. Automatic quarantine applied.",
+          "SentinelOne detected LockBit 3 ransomware actively encrypting files on LAPTOP-JSMITH.",
         process: {
           name: "chrome_update.exe",
           pid: 7291,
@@ -861,12 +861,12 @@ SentinelOne detects Cobalt Strike through:
         },
         {
           question:
-            "You need to see how chrome_update.exe got onto the laptop and everything it did afterwards, as one chain. Which value from this detection do you pivot on?",
+            "You need to see how chrome_update.exe got onto the laptop and everything it did afterwards. Which value from this detection do you pivot on?",
           options: [
-            "'Trojan.Ransom.LockBit3': the threat name groups this whole attack together",
-            "'0x1A2B3C4D': the ID shared by every event in this one attack chain",
-            "'j.smith': the username returns every event tied to that user's account",
-            "The SHA-256: the file hash returns every event involving this attack",
+            "s1.threatName = Trojan.Ransom.LockBit3",
+            "s1.storylineId = 0x1A2B3C4D",
+            "s1.userName = j.smith",
+            "s1.sha256 = a9d6850fd4a3c9d1...",
           ],
           answer: 1,
           explanation:
@@ -881,9 +881,9 @@ SentinelOne detects Cobalt Strike through:
       type: "flag",
       id: "s1-flag1",
       prompt:
-        "For the impact section of the incident report you need the scale of the damage on LAPTOP-JSMITH. From the SentinelOne detection above, enter the number of files the ransomware renamed (digits only, no commas).",
+        "For the impact section of the incident report you need the scale of the damage on LAPTOP-JSMITH. From the SentinelOne detection above, enter the number of files it hit (digits only, no commas).",
       answer: "15847",
-      hint: "The agent counts the files it saw being renamed during the attack.",
+      hint: "Reading 3 says what ransomware does to the name of each file it locks. Find the agent's count of that action.",
       xp: 40,
     },
 
@@ -1433,16 +1433,16 @@ At the **very top** (hardest to change, maximum pain):
 
 IOCs have a shelf-life. A domain used for a phishing campaign last month may be abandoned today and reassigned to a legitimate website. An IP address used by a threat actor last week might now belong to an innocent cloud customer. Always note the **first seen / last seen** dates on any IOC, and treat stale IOCs (older than 3-6 months) with appropriate scepticism.`,
       checkpoint: {
-        question: "Your EDR team adds a rule that flags any variant of Mimikatz by characteristics of the tool itself, rather than by the hash of one build. On the Pyramid of Pain, which level is this detection?",
+        question: "Your EDR team replaces a rule that matched the hash of one Mimikatz build with a rule that catches any build of Mimikatz, even a freshly recompiled one. On the Pyramid of Pain, which level is the new detection?",
         options: [
           "Hash values (Trivial)",
           "Network/Host artefacts (Annoying)",
-          "Domain names (Simple)",
+          "TTPs (top of the pyramid)",
           "Tools (Challenging)",
         ],
         answer: 3,
         explanation:
-          "Detecting the tool itself (any variant, not one build) sits at the Tools level: to evade it the attacker must find or build a different tool and learn it. Hash values would be blocking one specific build, which a recompile defeats. Network/Host artefacts are traces such as a URI path, User-Agent or registry key that the tool leaves behind; this rule targets the tool, not its traces. Domain names are attacker infrastructure and have nothing to do with recognising a program on an endpoint. Only TTPs, the attacker's way of operating, sit higher than Tools.",
+          "Catching any build of a program, not one hash of it, sits at the Tools level: to evade it the attacker must find or build a different tool and learn it. Hash values would be blocking one specific build, which a recompile defeats. Network/Host artefacts are traces such as a URI path, User-Agent or registry key that the tool leaves behind; this rule targets the program, not its traces. TTPs sit above Tools, but they describe the attacker's way of operating, such as a chain of behaviours; this rule recognises one program, so swapping it for another program escapes the rule.",
       },
     },
 
@@ -1768,7 +1768,7 @@ Before adding an IOC to your blocklist, ask:
       type: "flag",
       id: "ioc-flag1",
       prompt:
-        "To pull the laptop's DHCP and proxy records for the time of the alert, you need its internal address. From the threat-intelligence alert above, enter the IP address of the host that started this connection.",
+        "The network team will trace this connection back through the DHCP and proxy records. From the threat-intelligence alert above, enter the IP address of the side that opened the connection.",
       answer: "10.0.1.55",
       hint: "The record has two addresses. Work out which side opened the connection.",
       xp: 40,

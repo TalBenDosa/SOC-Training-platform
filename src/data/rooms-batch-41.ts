@@ -36,10 +36,10 @@ const singleDeniedPushEvent: TelemetryEvent = {
   src_ip: "70.114.22.89",
   geo: { country: "United States", city: "Denver" },
   description:
-    "r.aldana denied one Okta Verify push at 09:14:02 local time, then approved a second push 41 seconds later from the same device and IP address, completing a normal morning sign-in.",
+    "r.aldana denied one Okta Verify push at 09:14:02 local time, then approved a second push 41 seconds later from the same device and IP address.",
   it_verify_result: "confirmed",
   it_verify_message:
-    "r.aldana confirmed by phone: opened the wrong notification first (a calendar reminder was on top) and dismissed it before re-approving the real Okta prompt. Device and network match her registered laptop and home ISP.",
+    "r.aldana confirmed by phone that she was signing in at the time. She says a calendar reminder was on top of her notifications when she tapped the first push. Device and network match her registered devices and home ISP.",
   raw: {
     "okta.eventType": "user.mfa.okta_verify.deny_push",
     "okta.outcome.result": "FAILURE",
@@ -162,15 +162,15 @@ const mfaSessionTokenAttacksRoom = {
         "  D --> H[Forge a SAML assertion\\noffline with a stolen key\\nT1606.002]\n",
       diagramCaption: "Two structurally different ways every technique in this room defeats MFA",
       checkpoint: {
-        question: "What single property of MFA does every technique in this room actually exploit?",
+        question: "What single weakness do all of the techniques in this room actually exploit?",
         options: [
-          "MFA is checked once at login and its result is trusted for everything issued afterward -- nothing re-verifies MFA on later requests",
-          "MFA is only available on mobile devices, so desktop logins are never protected by it",
-          "MFA requires an internet connection, so offline attacks always succeed automatically",
-          "MFA is disabled by default on every enterprise identity provider",
+          "Push approvals can be repeated until a tired user finally taps Approve",
+          "Session cookies are bearer credentials that a proxy can copy in transit",
+          "MFA is checked once at login, and whatever it issues is trusted from then on",
+          "The second factor is a short code, so it can be guessed with enough tries",
         ],
-        answer: 0,
-        explanation: "This is the throughline of the whole room: MFA is a one-time gate. Once passed, whatever artifact gets issued (session cookie, access token, SAML assertion) is trusted on its own from then on, with no re-check of MFA. Every technique that follows attacks that trust in a different way.",
+        answer: 2,
+        explanation: "This is the throughline of the whole room: MFA is a one-time gate. Once passed, whatever artifact gets issued (session cookie, access token, SAML assertion) is trusted on its own from then on, with no re-check of MFA. Every technique that follows attacks that trust in a different way. Repeated pushes are real, but they describe one technique, T1621. Copying a session cookie also describes one technique, T1539, and stolen OAuth tokens and forged SAML assertions involve no cookie at all. Guessing the second factor is not one of the five: none of them cracks or guesses anything.",
       },
       xp: 5,
     },
@@ -273,13 +273,13 @@ const mfaSessionTokenAttacksRoom = {
       checkpoint: {
         question: "Why is a 'none' riskLevelDuringSignIn on the replayed sign-in specifically dangerous to trust?",
         options: [
-          "It genuinely isn't dangerous at all -- a 'none' risk level always and reliably means the sign-in in question is completely safe",
-          "The risk engine evaluates the token's own claims, which already assert MFA was satisfied, so it often does not flag the token as stolen -- a clean score is not proof of a clean sign-in here",
-          "riskLevelDuringSignIn is a fully deprecated field and is no longer populated by Entra ID on any sign-in record at all",
-          "A 'none' risk level is a value that only ever appears on sign-ins originating from outside the signed-in user's own home country",
+          "'none' means Identity Protection is off here, so no scoring took place",
+          "The token is valid and claims MFA passed, so the engine often sees no risk",
+          "The field rates the user's overall history, not this specific sign-in",
+          "The attacker edits a risk claim in the cookie before replaying it to Entra",
         ],
         answer: 1,
-        explanation: "This is the specific trap the reading calls out: the risk engine and Conditional Access both trust the token's claims, and a stolen token still carries a genuine 'MFA satisfied' claim. That is exactly why the sessionId correlation, not the risk score, is the primary evidence for session replay.",
+        explanation: "This is the specific trap the reading calls out: the risk engine and Conditional Access both see a technically valid token that still carries a genuine 'MFA satisfied' claim. That is exactly why the sessionId correlation, not the risk score, is the primary evidence for session replay. A sign-in that is not enabled for Identity Protection reads 'hidden', not 'none'. riskLevelDuringSignIn rates this sign-in, not the user's history. And the attacker does not alter the stolen cookie at all: it is presented exactly as it was issued, which is why the service accepts it.",
       },
       xp: 5,
     },
@@ -295,30 +295,30 @@ const mfaSessionTokenAttacksRoom = {
       questions: [
         {
           question:
-            "Comparing this event to the interactive sign-in described above, which single fact proves this is the same session being replayed rather than a second legitimate logon?",
+            "Comparing this event to the interactive sign-in described above, which single fact proves this is a replay of her first sign-in rather than a second legitimate logon?",
           options: [
-            "The appDisplayName field happens to read 'Microsoft Office' identically on both of the two separate sign-in records",
-            "The sessionId is identical across both sign-ins despite a completely different IP address, ASN, and browser fingerprint each time",
-            "The resultType field reads the value '0' on both sign-in records, which simply means each one individually succeeded",
-            "The conditionalAccessStatus field happens to read 'success' consistently on both of the two sign-in records",
+            "The location moved from Chicago to Amsterdam in only eleven minutes",
+            "The identical sessionId, now on a new ASN and with a blank device ID",
+            "isInteractive changed from true on her sign-in to false on this one",
+            "deviceDetail.isCompliant was true on her laptop and is false on this one",
           ],
           answer: 1,
           explanation:
-            "A sessionId comes from one interactive sign-in and is carried by the tokens issued from it -- two sign-ins carrying the identical value from a different IP, ASN and browser, with a blank device ID on the second, cannot be two separate legitimate logons, only one artifact used twice. appDisplayName being shared just means both used the same application, which many unrelated logins do. resultType '0' and conditionalAccessStatus 'success' both just mean 'this sign-in succeeded' -- they say nothing about whether it was a fresh authentication or a replay, which is exactly the trap this room's reading warned about.",
+            "A sessionId is created by one interactive sign-in and carried by every sign-in that session produces, so the identical value on a new ASN with a blank device ID cannot be a second legitimate logon: it is one artifact used twice. The move from Chicago to Amsterdam is supporting evidence only: the reading calls geography fragile, because a VPN produces the same kind of change. isInteractive false only says no user interacted with this sign-in, which is also true of a genuine session's background token refreshes. isCompliant false is corroboration too: it describes an unmanaged device, not whether this is her session.",
           xp: 15,
         },
         {
           question:
             "This event's riskLevelDuringSignIn reads 'none' and conditionalAccessStatus reads 'success'. What should the analyst conclude from that pair of fields alone?",
           options: [
-            "The sign-in is definitely benign, since both signals are green and Entra's risk engine would have flagged anything genuinely malicious",
-            "Conditional Access failed to apply any policy at all to this sign-in, which is itself the security gap that needs fixing",
-            "Nothing conclusive either way -- the risk engine and Conditional Access both evaluate the token's own claims, which already assert MFA was satisfied, so a clean score here is expected for a replayed token and does not clear it",
-            "riskLevelDuringSignIn only populates for sign-ins originating outside the tenant's home country, so this field should be disregarded entirely",
+            "The sign-in is clean: both signals are green, and Entra would have flagged theft",
+            "Conditional Access applied no policy here, and that gap is the real finding",
+            "Nothing either way: a replayed token still claims MFA, so green is expected",
+            "Replay is proven: green fields on a foreign sign-in point straight to a stolen token",
           ],
           answer: 2,
           explanation:
-            "This is the central trap taught in this room: both fields evaluate the SIGNED TOKEN's claims, and a replayed token still carries a genuine MFA-satisfied claim from the original login. Neither field reliably tells you the token itself was stolen, so a clean pair is no clearance. Calling the sign-in definitely benign repeats exactly the mistake the room warns against. Saying Conditional Access applied no policy is factually wrong -- conditionalAccessStatus: success means a policy DID evaluate and pass, not that none applied. The claim that riskLevelDuringSignIn only populates for foreign sign-ins is not how the field behaves; it is populated on domestic sign-ins too.",
+            "This is the central trap taught in this room: both fields evaluate a token that still carries a genuine MFA-satisfied claim from the original login. Neither field reliably tells you the token was stolen, so a clean pair is no clearance, and it is no proof either. Calling the sign-in clean repeats exactly the mistake the room warns against. Saying Conditional Access applied no policy is factually wrong: conditionalAccessStatus success means a policy DID evaluate and pass, and a sign-in with no policy reads notApplied. Calling replay proven from these two fields swings too far the other way: ordinary sign-ins read none and success as well, so the proof has to come from the sessionId correlation.",
           xp: 15,
         },
       ],
@@ -440,7 +440,7 @@ const mfaSessionTokenAttacksRoom = {
       id: "mfast-ac1",
       heading: "Triage: One Denied Push at 9:14 AM",
       scenario:
-        "An alert fires on a single denied Okta Verify push for r.aldana, Senior Claims Adjuster at Castellan Risk Partners. The alert rule watches for any MFA denial. Checking the account's recent history shows only this one denial, followed 41 seconds later by an approved push from the same IP address and the same registered device, at a normal mid-morning hour local to the user.",
+        "An alert fires on a single denied Okta Verify push for r.aldana, Senior Claims Adjuster at Castellan Risk Partners. The alert rule watches for any MFA denial. Checking the account's recent history shows only this one denial, followed 41 seconds later by an approved push from the same IP address and the same registered device, at 09:14 local to the user.",
       event: singleDeniedPushEvent,
       correct_verdict: "benign_true_positive",
       explanation:

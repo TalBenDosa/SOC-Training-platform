@@ -286,7 +286,7 @@ const otIcsSecurityRoom = {
         "protocol": "tcp",
         "severity": "critical",
         "edr_scope": "non_edr",
-        "description": "Zeek decoded a Modbus WRITE_MULTIPLE_REGISTERS (function code 16) session from 10.50.12.77 -- an address on the corporate/contractor VLAN -- to plc-dose-03 (172.20.5.40), the controller that sets chemical-dosing pump speed on Line 3 at Meridian Water Treatment Plant 3. This source has no prior Modbus history with this controller.",
+        "description": "Zeek decoded a Modbus WRITE_MULTIPLE_REGISTERS (function code 16) session from 10.50.12.77 to plc-dose-03 (172.20.5.40), the controller that sets chemical-dosing pump speed on Line 3 at Meridian Water Treatment Plant 3.",
         "raw": {
           "event.dataset": "corelight.modbus",
           "event.module": "corelight",
@@ -328,7 +328,7 @@ const otIcsSecurityRoom = {
         {
           "question": "What single fact about the source 10.50.12.77 should make an analyst treat this event as suspicious rather than routine engineering traffic, independent of the function code involved?",
           "options": [
-            "It is outside the 172.20.5.0/24 engineering range and has no Modbus history with plc-dose-03",
+            "It sits outside the 172.20.5.0/24 engineering range, and this is its first such session",
             "It used an ephemeral source port (51290) instead of port 502 on its own side of the session",
             "The session lasted 0.021 seconds, too short for a genuine engineering change",
             "It is a private 10.x address, which suggests the source was spoofed from outside"

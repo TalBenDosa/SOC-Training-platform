@@ -158,7 +158,7 @@ export const REMOTE_EMAIL_COLLECTION: RoomExperience = {
     "remc-ac1": { name: "Hamid Nyberg", role: "Mail Forensics Analyst", line: "One record, one ticket reference. Your verdict." },
     "remc-q3": { name: "Hamid Nyberg", role: "Mail Forensics Analyst", line: "The queue is long. What does this one deserve?" },
     "remc-qf1": { name: "Hamid Nyberg", role: "Mail Forensics Analyst", line: "Detection engineering wants this written down so it runs daily." },
-    "remc-f1": { name: "Hamid Nyberg", role: "Mail Forensics Analyst", line: "The network team is waiting on one value." },
+    "remc-f1": { name: "Hamid Nyberg", role: "Mail Forensics Analyst", line: "I need one value to pull the whole chain." },
     "remc-q4": { name: "Hamid Nyberg", role: "Mail Forensics Analyst", line: "Someone asks what the reset actually did. Answer carefully." },
   },
   briefings: {

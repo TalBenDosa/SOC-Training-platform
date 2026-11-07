@@ -97,7 +97,7 @@ const rcloneExfilEvent: TelemetryEvent = {
   it_verify_message:
     "No change ticket found authorizing a data transfer from SRV-FILES-04 tonight. The file server's only documented backup tool is the nightly Veeam Agent job, which runs under svc-veeam-backup and writes to the on-premises backup appliance, not to any cloud remote.",
   description:
-    "A file-transfer utility ran on the Finance file server two hours after the credential-access finding on WKS-IT-0417, using the account that workstation's cached token belonged to.",
+    "A file-transfer utility ran on the Finance file server two hours after the credential-access finding on WKS-IT-0417.",
   process: {
     name: "rclone.exe",
     pid: 3312,
@@ -410,7 +410,7 @@ const ransomwareLifecycleRoom = {
         },
         {
           question:
-            "crowdstrike.CommandLine sends the memory dump to C:\\ProgramData\\Adobe\\ARM\\wer4A21.tmp -- a folder and naming style that resemble Adobe's updater and Windows crash-report artifacts. Why would an affiliate choose this location and name for the dump file?",
+            "crowdstrike.CommandLine sends the memory dump to C:\\ProgramData\\Adobe\\ARM\\wer4A21.tmp. Why would an affiliate choose this location and name for the dump file?",
           options: [
             "Because ProgramData is writable without admin rights, so it was simply the first place j.reyes's token could write the file",
             "To blend in: a wer-named .tmp in an Adobe updater folder looks like routine crash output to anyone skimming the directory",
@@ -424,7 +424,7 @@ const ransomwareLifecycleRoom = {
         },
         {
           question:
-            "crowdstrike.PatternDispositionDescription reads \"Detection, standard detection.\" meaning Falcon only observed this LSASS access rather than stopping it. Given everything in this finding -- the LOLBin technique, the masquerading dump path, and j.reyes's indirect Domain Admin rights -- what should the analyst do immediately?",
+            "crowdstrike.PatternDispositionDescription reads \"Detection, standard detection.\" meaning Falcon only observed this LSASS access rather than stopping it. Given everything in this finding -- the LOLBin technique, the dump path, and j.reyes's indirect Domain Admin rights -- what should the analyst do immediately?",
           options: [
             "Isolate and reimage WKS-IT-0417, since the dump file and the affiliate's foothold both live on that one workstation",
             "Isolate the host, escalate now, and treat all that j.reyes's token can reach as compromised: scope it and begin rotation",
@@ -639,15 +639,15 @@ const ransomwareLifecycleRoom = {
       heading: "Match the Ransomware Lifecycle Stage to Its MITRE ATT&CK Technique",
       instructions: "Match each observed behavior from this room's case to the specific MITRE ATT&CK technique it represents.",
       pairs: [
-        { id: "phish", left: "Phishing email delivers the first-stage loader", right: "T1566 -- Phishing" },
-        { id: "edge", left: "Affiliate exploits an unpatched, internet-facing VPN appliance", right: "T1190 -- Exploit Public-Facing Application" },
-        { id: "sched", left: "Scheduled task re-launches the payload after reboot, and later fires the encryptor fleet-wide", right: "T1053.005 -- Scheduled Task" },
-        { id: "lsass", left: "rundll32.exe + comsvcs.dll dumps lsass.exe's memory on one workstation", right: "T1003.001 -- LSASS Memory" },
+        { id: "phish", left: "A weaponized attachment delivers the first-stage loader", right: "T1566 -- Phishing" },
+        { id: "edge", left: "Affiliate abuses an unpatched bug in a VPN appliance reachable from the internet", right: "T1190 -- Exploit Public-Facing Application" },
+        { id: "sched", left: "A schtasks.exe entry re-launches the payload after reboot, and later fires the encryptor fleet-wide", right: "T1053.005 -- Scheduled Task" },
+        { id: "lsass", left: "rundll32.exe + comsvcs.dll writes a full MiniDump of PID 668 on one workstation", right: "T1003.001 -- LSASS Memory" },
         { id: "dcsync", left: "An account that already holds replication rights asks a Domain Controller to replicate every password hash at once", right: "T1003.006 -- DCSync" },
         { id: "psexec", left: "PsExec pushes access to additional hosts using a stolen credential", right: "T1021.002 -- SMB/Windows Admin Shares" },
         { id: "vss", left: "vssadmin deletes every shadow copy on a host before encryption starts", right: "T1490 -- Inhibit System Recovery" },
-        { id: "clearlog", left: "Windows Security event log is cleared just before encryption", right: "T1685.005 -- Clear Windows Event Logs" },
-        { id: "exfil", left: "Bulk data is copied to a cloud remote using rclone before the ransom note ever appears", right: "T1567.002 -- Exfiltration to Cloud Storage" },
+        { id: "clearlog", left: "wevtutil cl Security runs just before encryption", right: "T1685.005 -- Clear Windows Event Logs" },
+        { id: "exfil", left: "rclone pushes bulk data to a remote before the ransom note ever appears", right: "T1567.002 -- Exfiltration to Cloud Storage" },
       ],
       explanation:
         "Notice how many different ATT&CK tactics one ransomware intrusion touches -- Initial Access, Persistence, Credential Access, Lateral Movement, Defense Impairment, and Exfiltration all show up before Impact ever fires. This is exactly why treating ransomware as 'one detection at the encryption stage' misses the five or six earlier chances a SOC actually had to stop it.",

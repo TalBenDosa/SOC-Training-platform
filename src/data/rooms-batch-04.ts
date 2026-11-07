@@ -164,11 +164,16 @@ Logs come in many different formats depending on the vendor and application. The
 The key challenge is that every vendor uses a slightly different format. A firewall from Palo Alto logs in a different structure than a firewall from Fortinet. A Windows login event looks nothing like a Linux SSH login. This is why **log normalisation** exists. We will cover that next.`,
       checkpoint: {
         question:
-          "A firewall forwards lines that begin CEF:0|Fortinet|FortiGate| followed by more pipe-separated header fields and then key=value pairs such as src=10.1.1.5. Which log format is the collector receiving?",
-        options: ["CEF (Common Event Format)", "LEEF (Log Event Extended Format)", "Plain-text syslog (RFC 3164)", "ECS (Elastic Common Schema)"],
+          "A firewall forwards lines that begin CEF:0|Fortinet|FortiGate| followed by more pipe-separated header fields and then key=value pairs such as src=10.1.1.5. What do you know about the format of these lines?",
+        options: [
+          "A standard from ArcSight/Micro Focus, widely used by security appliances",
+          "A format from IBM QRadar, used by many network appliances",
+          "The oldest format: human-readable but inconsistently structured text",
+          "A modern application format that writes JSON objects with named fields",
+        ],
         answer: 0,
         explanation:
-          "The CEF:0| prefix, followed by pipe-separated vendor, product and version fields and then key=value extensions, is the ArcSight/Micro Focus Common Event Format. LEEF is IBM QRadar's similar format, but its lines begin LEEF:, not CEF:. Plain-text syslog has no fixed pipe-separated header (a CEF line often travels inside a syslog message, but the payload format is still CEF). ECS is a normalisation schema applied after collection, not a format a firewall sends.",
+          "The CEF:0| prefix, followed by pipe-separated vendor, product and version fields and then key=value extensions, is the Common Event Format, a standard created by ArcSight/Micro Focus. LEEF is IBM QRadar's similar format, but its lines begin LEEF:, not CEF:. Plain-text syslog has no fixed pipe-separated header (a CEF line often travels inside a syslog message, but the payload format is still CEF). JSON logs are objects in braces with named fields, with no pipe-separated header.",
       },
     } satisfies ReadingTask,
 
@@ -673,14 +678,14 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
       question:
         "An attacker successfully steals credentials and accesses your VPN, but the SIEM never fires an alert because the login looked legitimate. What type of detection outcome is this?",
       options: [
-        "True Positive: the attacker was eventually found",
-        "False Positive: the login looked fine but was not",
-        "False Negative: a real attack produced no alert",
-        "True Negative: the rule behaved as designed for a valid login",
+        "True Positive",
+        "False Positive",
+        "False Negative",
+        "True Negative",
       ],
       answer: 2,
       explanation:
-        "This is a False Negative: the most dangerous outcome in security operations. A True Positive needs an alert to have fired, however the attack was later found. A False Positive is an alert that fired with no real attack behind it because the rule misfired: the reverse case. 'The rule behaved as designed' does not make it a True Negative, because a real attack did happen. The attack was real, but the SIEM failed to detect it. False negatives occur when detection rules are too conservative, attacker techniques are unknown, or the attacker used legitimate credentials that mimic normal user behaviour. Reducing false negatives requires adding behavioural detection rules (UEBA) on top of signature-based rules.",
+        "This is a False Negative: the most dangerous outcome in security operations. A True Positive needs an alert to have fired, however the attack was later found. A False Positive is an alert that fired with no real attack behind it because the rule misfired: the reverse case. A rule behaving as designed does not make it a True Negative, because a real attack did happen. The attack was real, but the SIEM failed to detect it. False negatives occur when detection rules are too conservative, attacker techniques are unknown, or the attacker used legitimate credentials that mimic normal user behaviour. Reducing false negatives requires adding behavioural detection rules (UEBA) on top of signature-based rules.",
       xp: 20,
     } satisfies QuestionTask,
 

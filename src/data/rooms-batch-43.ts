@@ -112,7 +112,7 @@ const rotationJobEvent: TelemetryEvent = {
   severity: "medium",
   mitre_tactic: "Credential Access",
   description:
-    "The secrets-rotation-lambda role called Secrets Manager BatchGetSecretValue with a tag filter during its nightly scheduled run. One call returns at most 20 secrets, so the run paged through 42 secrets in three requests; this record is the first.",
+    "The secrets-rotation-lambda role called Secrets Manager BatchGetSecretValue with a tag filter. One call returns at most 20 secrets, so the caller paged through 42 secrets in three requests; this record is the first.",
   raw: {
     "aws.cloudtrail.eventName": "BatchGetSecretValue",
     "aws.cloudtrail.eventSource": "secretsmanager.amazonaws.com",
@@ -170,12 +170,12 @@ export const roomsBatch43 = [
         checkpoint: {
           question: "What is the key structural difference between T1003 (OS Credential Dumping) and the T1552/T1555 techniques this room covers?",
           options: [
-            "T1003 targets Windows hosts while T1552/T1555 target cloud services, so the two families never overlap in one environment",
-            "T1003 actively reads a store the OS locks down; T1552/T1555 find a secret already reachable, or reach a vault through its own legitimate access path, leaving much thinner traces",
-            "T1552/T1555 need domain-admin rights, whereas T1003 can be run by any unprivileged user, so privilege level is what separates them",
-            "The three are the same activity; MITRE just assigns different IDs, so the distinction does not change how you investigate",
+            "T1003 targets Windows hosts while T1552/T1555 target cloud services, so the families never overlap",
+            "The three are the same activity under different IDs, so the distinction changes nothing in an investigation",
+            "T1003 reads a store the OS locks down; T1552/T1555 find a reachable secret or use a vault's own access path",
+            "T1552/T1555 need domain-admin rights, while any unprivileged user can run T1003, so privilege separates them",
           ],
-          answer: 1,
+          answer: 2,
           explanation:
             "T1003 breaks into a genuinely protected store (LSASS memory, a locked NTDS.dit) and leaves a distinctive pattern, while T1552/T1555 reach something already exposed or use a documented access path, which is why this room is about telling normal access from abnormal, not spotting the access itself. Both families appear on-prem and in cloud, so environment does not separate them. Privilege is not the divider either: T1552.001 can be found by a low-privilege foothold, while NTDS.dit dumping needs high privilege. And the IDs reflect genuinely different mechanisms and different telemetry, which is exactly what changes the investigation.",
         },
@@ -228,14 +228,14 @@ export const roomsBatch43 = [
         checkpoint: {
           question: "Why does a passphrase on a stolen private key matter, if the attacker already has the file itself?",
           options: [
-            "It doesn't matter at all: SSH authenticates purely on file possession alone, regardless of whether any passphrase was ever set on that particular key file to begin with",
-            "The passphrase encrypts the key material itself, so the attacker must still recover it (typically via ssh2john plus offline cracking) before the key becomes usable, turning an instant credential into one requiring successful cracking first",
-            "The passphrase is only ever checked by the destination SSH server during the handshake, never by the client application holding the key file locally on disk",
-            "A passphrase prevents the key file from ever being copied off the original machine in the first place, regardless of what access level an attacker might otherwise have",
+            "The key itself is encrypted, so the attacker must crack the passphrase before it works",
+            "None: SSH authenticates on possession of the file, whether or not a passphrase was set",
+            "The destination server checks the passphrase at login and can refuse the stolen key",
+            "A passphrase stops the key file being copied off the host, whatever access the attacker has",
           ],
-          answer: 1,
+          answer: 0,
           explanation:
-            "A passphrase-protected private key file is still encrypted at rest -- the client must decrypt it locally with the correct passphrase before it can be used to authenticate anywhere, which is why a stolen protected key still requires an offline cracking step, unlike an unprotected key which is instantly usable the moment it is stolen.",
+            "A passphrase-protected private key file is still encrypted at rest: the client must decrypt it locally with the correct passphrase before it can be used to authenticate anywhere. That is why a stolen protected key still requires an offline cracking step, unlike an unprotected key, which is instantly usable the moment it is stolen. Possession of the file is not enough for a protected key, the destination server never sees the passphrase, and a passphrase does nothing to stop the file being copied.",
         },
       },
       {
@@ -312,26 +312,26 @@ export const roomsBatch43 = [
             question:
               "The event shows userAgent 'aws-cli/2.15.10 Python/3.11.6 Linux/6.1.0' calling from sourceIPAddress 203.0.113.203, which is not an AWS-owned IP range. Why does this combination matter, given the identity is a Lambda execution role?",
             options: [
-              "A Lambda can make outbound calls through a NAT gateway, so an external source IP is expected and the aws-cli user agent is just the runtime's default SDK",
-              "A Lambda's own SDK calls come from AWS's internal network with an SDK user agent: a locally-run aws-cli from an external, non-AWS IP means the role's temporary credentials were exported and are being replayed from attacker infrastructure",
-              "The two fields describe the caller's environment but not its trust, so the verdict should rest on whether errorCode is empty instead",
-              "The source IP matters but the user agent does not, since an attacker can forge the user-agent string while the IP is authoritative",
+              "Nothing unusual: a Lambda behind a NAT gateway shows an outside IP and the CLI agent",
+              "Altered function code is shelling out to aws-cli from inside the Lambda's own runtime",
+              "The role's temporary credentials were copied out and are in use from outside AWS",
+              "The fields describe the caller's environment, not its trust, so errorCode decides it",
             ],
-            answer: 1,
+            answer: 2,
             explanation:
-              "Lambda's managed runtime calls AWS APIs through its own SDK from AWS's internal network, not a hand-installed aws-cli binary from a hosting IP, so that mismatch is direct evidence the role's temporary credentials were exfiltrated and are being replayed from outside AWS. Lambda has no instance metadata service: its role credentials sit in the function's environment variables (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN), so they are stolen via code injection, an exposed environment or /proc dump, or a leaked log, not the IMDS theft (T1552.005) you would expect against an EC2 instance. A NAT-gateway does not change the user agent to aws-cli, and a Lambda still presents its SDK agent, so the 'expected external IP' reading does not hold. The empty errorCode only confirms the call succeeded; it does not tell you who made it. And while a user agent can be forged, here it actively corroborates exfiltration rather than being irrelevant.",
+              "Lambda's managed runtime calls AWS APIs through its own SDK from AWS's internal network, not a hand-installed aws-cli binary from a hosting IP, so that mismatch is direct evidence the role's temporary credentials were exfiltrated and are being replayed from outside AWS. Lambda has no instance metadata service: its role credentials sit in the function's environment variables (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN), so they are stolen via code injection, an exposed environment or /proc dump, or a leaked log, not the IMDS theft (T1552.005) you would expect against an EC2 instance. A NAT gateway does not change the user agent to aws-cli, and a Lambda still presents its SDK agent, so the 'expected external IP' reading does not hold. Altered code running inside the function would still call from inside AWS, not from 203.0.113.203. The empty errorCode only confirms the call succeeded; it does not tell you who made it.",
             xp: 25,
           },
           {
             question:
-              "This role has never touched the 7 secret ARNs it requested in this 10-minute window, versus its normal single-secret pattern. Applying the identity-and-secretId baseline principle from the reading, how should this be scored?",
+              "This role has never touched the 7 secret ARNs it requested in this 10-minute window, versus its normal single-secret pattern. Applying the baseline principle from the reading, how should this be scored?",
             options: [
-              "As low priority: seven calls in ten minutes is a small volume next to what a large-scale attacker sweep would generate",
-              "As a high-confidence indicator: the NEW pairing (this identity reading secrets it never has before) is the signal the baseline catches, regardless of raw count",
-              "As expected automation: a Lambda role reading several secrets at once matches normal CI/CD and rotation bursts",
-              "As unscoreable without the literal secret values each call returned, which CloudTrail deliberately does not record",
+              "As high confidence: new identity-and-secret pairs are the signal, not the number of calls",
+              "As low priority: seven calls in ten minutes is tiny next to a large-scale attacker sweep",
+              "As expected automation: reading several secrets at once matches CI/CD and rotation bursts",
+              "As unscoreable without the secret values returned, which CloudTrail deliberately omits",
             ],
-            answer: 1,
+            answer: 0,
             explanation:
               "The reading's detection principle is to baseline which identity normally reads which secret and treat a new pairing as the signal, not the raw volume. Seven calls is small in absolute terms, but seven NEW secrets for a role that read exactly one for eight months is a severe deviation. It is not routine automation: this role's established pattern is a single secret per invocation, not a multi-secret batch. And the verdict does not need the secret values: the anomalous access pattern is enough, and successful retrieval already means those secrets must be treated as compromised.",
             xp: 25,
@@ -340,14 +340,14 @@ export const roomsBatch43 = [
             question:
               "responseElements is null and errorCode is empty in this record. What does that combination tell the analyst, and what does it NOT tell them?",
             options: [
-              "The call failed, since CloudTrail would populate errorCode with the failure reason whenever a Secrets Manager call does not succeed",
-              "The call succeeded (empty errorCode = no failure), but AWS never logs the secret VALUE in responseElements for GetSecretValue, so you can confirm retrieval but not see the literal secret from the log",
-              "The null responseElements means the call was throttled, so the secret was not actually returned on this attempt",
-              "The secret had already been rotated out from under the caller, since a current secret would populate responseElements with its value",
+              "The call failed: a null responseElements means no secret came back to the caller",
+              "The call was throttled, so nothing was returned and the exposure is unconfirmed",
+              "The call succeeded, and the value it returned sits in a linked CloudTrail data event",
+              "The call succeeded, and the log proves retrieval without ever showing the secret",
             ],
-            answer: 1,
+            answer: 3,
             explanation:
-              "An empty errorCode means the call succeeded (CloudTrail records events after AWS evaluates them) and AWS deliberately omits the secret value from GetSecretValue entries, so you confirm access succeeded (and must treat the secret as compromised) without seeing the literal value. A real failure, including throttling, would appear as a populated errorCode, not a null responseElements. And nothing here shows the secret was rotated or invalid; that would require checking Secrets Manager's own state, not this log line.",
+              "An empty errorCode means the call succeeded (CloudTrail records events after AWS evaluates them), so you confirm access and must treat the secret as compromised. responseElements is null on any read-only call, so a null value does not mean failure, and a real failure, including throttling, would appear as a populated errorCode. AWS deliberately leaves the secret value out of GetSecretValue entries and never writes it into the log at all, so there is no linked record to read it from.",
             xp: 25,
           },
         ],
@@ -364,12 +364,12 @@ export const roomsBatch43 = [
           `**4. Baseline WHO reads WHAT before writing any volume threshold.** As Reading 5 and the log-analysis task demonstrated, legitimate automation (CI/CD, autoscaling, rotation jobs) generates bursts that a naive count-based rule cannot distinguish from an attacker. Identity-and-resource PAIR baselining is the professional answer.\n\n` +
           `**5. Rotate on ANY confirmed exposure.** Never just delete the file, revoke the one session, or remove the one copy found. You can never be certain how many times a credential was already read before discovery. Rotation is the only remediation that actually closes the exposure.\n\n` +
           `**Naming the verdict.** When an alert correctly describes activity that really happened, and an approved ticket or known schedule makes it legitimate, the verdict is a benign true positive: you close it and cite the ticket. A false positive is different: the rule misfired on something it was never meant to catch, and the fix is tuning the rule.\n\n` +
-          `The next task puts practice 4 directly to the test: a real cloud event that LOOKS exactly like the attack you just investigated, but is actually a confirmed, scheduled, legitimate job.`,
+          `The next task puts practice 4 directly to the test: a real cloud event that LOOKS exactly like the attack you just investigated. Check it before you call it.`,
       },
       {
         type: "analyst_choice",
         id: "uc-ac1",
-        heading: "Verdict: A Nightly Secrets-Rotation Job",
+        heading: "Verdict: 42 Secrets Read at 03:00",
         scenario:
           "BrightLoop's change management system shows an open, approved change ticket (CHG-4471) authorizing the 'secrets-rotation-lambda' role to run an automated secrets rotation every night at 03:00 UTC. Review the CloudTrail record below and decide whether it matches that authorized job or is an attacker reusing the same shape: check the identity, source, call, and timing against the ticket yourself.",
         event: rotationJobEvent,
@@ -418,28 +418,28 @@ export const roomsBatch43 = [
         heading: "Match Each Technique to What It Actually Exposes",
         instructions: "Match each ATT&CK technique ID to the credential-store artifact and mechanism it describes.",
         pairs: [
-          { id: "t1552001", left: "T1552.001, Unsecured Credentials: Credentials In Files", right: "Plaintext secrets in .env/config files, automation definitions or source code, found with grep/findstr searches" },
-          { id: "t1552006", left: "T1552.006, Unsecured Credentials: Group Policy Preferences", right: "A cpassword value in a SYSVOL XML file, 'encrypted' with an AES key Microsoft made public" },
-          { id: "t1552004", left: "T1552.004, Unsecured Credentials: Private Keys", right: "An unprotected SSH/TLS/GPG key file granting immediate access with no further guessing needed" },
-          { id: "t1552005", left: "T1552.005, Unsecured Credentials: Cloud Instance Metadata API", right: "Temporary IAM role credentials from a link-local endpoint on the instance itself, never logged as a CloudTrail API call" },
-          { id: "t1555001", left: "T1555.001, Credentials from Password Stores: Keychain", right: "macOS's login-keychain vault, unlocked with the account's own login password by default" },
-          { id: "t1555006", left: "T1555.006, Credentials from Password Stores: Cloud Secrets Management Stores", right: "A direct API call such as GetSecretValue or az keyvault secret show against a cloud-native secrets vault" },
+          { id: "t1552001", left: "T1552.001", right: "Plaintext secrets in .env/config files, automation definitions or source code, found with grep/findstr searches" },
+          { id: "t1552006", left: "T1552.006", right: "A cpassword value in a SYSVOL XML file, 'encrypted' with an AES key Microsoft made public" },
+          { id: "t1552004", left: "T1552.004", right: "An unprotected SSH/TLS/GPG key file granting immediate access with no further guessing needed" },
+          { id: "t1552005", left: "T1552.005", right: "Temporary IAM role credentials from a link-local endpoint on the instance itself, never logged as a CloudTrail API call" },
+          { id: "t1555001", left: "T1555.001", right: "macOS's login-keychain vault, unlocked with the account's own login password by default" },
+          { id: "t1555006", left: "T1555.006", right: "A direct API call such as GetSecretValue or az keyvault secret show against a cloud-native secrets vault" },
         ],
         explanation:
-          "Each pairing comes straight from this room's readings: T1552.001/.006 are variations on files holding plaintext or trivially-decryptable secrets; T1552.004/.005 both hand over immediately-usable credentials with no guessing needed, one from a stolen file and one from an unlogged local API; T1555.001/.006 both reach a purpose-built vault, one via a local OS mechanism and one via a cloud-native service API.",
+          "Each pairing comes straight from this room's readings: T1552.001 (Credentials In Files) and T1552.006 (Group Policy Preferences) are variations on files holding plaintext or trivially-decryptable secrets; T1552.004 (Private Keys) and T1552.005 (Cloud Instance Metadata API) both hand over immediately-usable credentials with no guessing needed, one from a stolen file and one from an unlogged local API; T1555.001 (Keychain) and T1555.006 (Cloud Secrets Management Stores) both reach a purpose-built vault, one via a local OS mechanism and one via a cloud-native service API.",
         xp: 40,
       },
       {
         type: "ordering",
         id: "uc-o1",
-        heading: "Order the Chain: From One Leaked Key to a Full Cloud Secrets Sweep",
-        instructions: "Arrange these events in the order a real intrusion chains this room's techniques together, from initial exposure to full impact.",
+        heading: "Order the Chain: How One Exposure Feeds the Next",
+        instructions: "Arrange these events in the order a real intrusion chains this room's techniques together.",
         items: [
-          { id: "commit", text: "A developer accidentally commits a .pem private key to a public GitHub repository (T1552.004)" },
-          { id: "scrape", text: "An automated credential-scraping bot clones the repository and extracts the key within minutes of the commit" },
-          { id: "ssh", text: "The attacker uses the stolen key to SSH directly into the production host it was provisioned to access" },
-          { id: "hunt", text: "Once on the host, the attacker searches the local filesystem for further unsecured credentials, finding a plaintext ~/.aws/credentials file (T1552.001)" },
-          { id: "sweep", text: "The attacker uses those newly found AWS credentials to call GetSecretValue against the organization's Secrets Manager, sweeping additional production secrets (T1555.006)" },
+          { id: "commit", text: "A developer commits a .pem private key to a public GitHub repository (T1552.004)" },
+          { id: "scrape", text: "A credential-scraping bot clones a public repository and extracts a private key from it" },
+          { id: "ssh", text: "An attacker opens an SSH session to a production host, authenticating with a private key" },
+          { id: "hunt", text: "An attacker searches a host's filesystem and finds a plaintext ~/.aws/credentials file (T1552.001)" },
+          { id: "sweep", text: "An attacker calls GetSecretValue with AWS credentials, collecting production secrets (T1555.006)" },
         ],
         correct_order: ["commit", "scrape", "ssh", "hunt", "sweep"],
         explanation:
@@ -458,12 +458,12 @@ export const roomsBatch43 = [
             question:
               "ObjectName here is \\Device\\HarddiskVolumeShadowCopy3\\Windows\\NTDS\\ntds.dit rather than the live C:\\Windows\\NTDS\\ntds.dit path. What does that specific path format indicate?",
             options: [
-              "That the read came from a mounted backup image, so this is routine restore testing rather than live-file access",
-              "That the file was reached through a Volume Shadow Copy snapshot: the workaround the common NTDS.dit file-copy methods (vssadmin, diskshadow, ntdsutil's IFM feature) rely on, since the live file is locked while AD DS runs",
-              "That Windows redirected the read to a snapshot automatically because the live ntds.dit was busy at that moment",
-              "That the path points to a replicated copy on another Domain Controller, so this read happened off-box",
+              "A Volume Shadow Copy was used to get around the lock on the live ntds.dit",
+              "A mounted backup image was read, which points to routine restore testing",
+              "Windows redirected the read to a shadow copy by itself because the file was busy",
+              "The path points to a replicated copy on another DC, so this read was off-box",
             ],
-            answer: 1,
+            answer: 0,
             explanation:
               "The live ntds.dit is locked for exclusive AD DS use, so the common file-copy methods route through a VSS snapshot to get a readable copy. This device-path ObjectName is the artifact that workaround leaves behind. It is not a backup image being restored (DC02 has no backup job; backups run from DC01 against the live path), and Windows does not silently reroute a locked read to a snapshot on its own: a tool has to create the shadow copy. Nor is it a replica on another DC: the hostname is DC02 and the path is a local shadow-copy device. Keep the converse in mind: raw-volume readers and DCSync obtain the same secrets without any shadow-copy access, so the absence of this artifact does not rule NTDS theft out.",
             xp: 25,
@@ -472,12 +472,12 @@ export const roomsBatch43 = [
             question:
               "ProcessName is ntdsutil.exe and AccessList shows %%4416. What does %%4416 mean, and what does the combination suggest?",
             options: [
-              "%%4416 means the access was denied before any data was read, so ntdsutil.exe's presence here is inconsequential",
-              "%%4416 is the untranslated code for ReadData (or ListDirectory): a plain file read. With ntdsutil.exe (whose Install-From-Media feature exports NTDS.dit) reading via a shadow-copy path, this fits an extraction attempt, not replication",
-              "%%4416 is WriteData, so the file was being written: a routine AD DS database maintenance operation, not a read",
-              "%%4416 is the code for a handle being closed, so this just records ntdsutil.exe releasing the file after normal use",
+              "%%4416 means access was denied before any read, so ntdsutil.exe is inconsequential",
+              "%%4416 is WriteData, so this is routine AD DS database maintenance, not a read",
+              "%%4416 marks a handle being closed, so this just records ntdsutil.exe finishing",
+              "%%4416 is ReadData, a file read: with ntdsutil.exe it fits an extraction attempt",
             ],
-            answer: 1,
+            answer: 3,
             explanation:
               "AccessList records the right exercised, and 4663 logs only successful uses of a right (there is no failure variant), so %%4416 / ReadData confirms a completed read, not a denial. With ntdsutil.exe, a documented NTDS.dit export tool, reading through a shadow-copy path, this matches an extraction pattern. %%4416 is ReadData, not WriteData, so it is not a database write, and a handle-close is a separate event (4658), not this code.",
             xp: 25,
@@ -486,12 +486,12 @@ export const roomsBatch43 = [
             question:
               "The account performing this access, t.okafor-adm, is a domain admin rather than an unprivileged user. Does that change how this event should be triaged?",
             options: [
-              "Yes: a domain admin is authorized on a DC, so admin-initiated access to ntds.dit should be closed as expected activity",
-              "No: a legitimate privilege level does not make the action legitimate; NTDS.dit extraction requires exactly domain-admin rights, and with no backup job or change ticket to explain ntdsutil against a shadow copy at 2 AM, a compromised admin account raises the stakes",
-              "Yes: admins regularly run ntdsutil for AD maintenance, so this matches their normal duties and needs no further review",
-              "No, but only because the access is off-hours; the same action during business hours by this admin would be routine and benign",
+              "Yes: a domain admin is authorized on a DC, so this can close as expected activity",
+              "Yes: admins run ntdsutil for AD maintenance, so this fits their normal duties",
+              "No: any account doing this needs scrutiny, and no job or ticket explains this one",
+              "No, the off-hours timing is the issue; in business hours this would be routine",
             ],
-            answer: 1,
+            answer: 2,
             explanation:
               "Privilege is a precondition for this attack, not evidence against it: NTDS.dit extraction needs exactly the access a domain admin has, so seeing this pattern under a privileged account is more consequential if that account is compromised, not reassuring. Being authorized on a DC does not make a 2 AM shadow-copy read of ntds.dit expected. Routine ntdsutil maintenance does not read the database through a shadow-copy device path, and there is no backup job or ticket here. And the concern is the unexplained extraction pattern itself, not merely the hour: the same action in business hours, still with no ticket, would be just as suspicious.",
             xp: 25,
@@ -503,9 +503,9 @@ export const roomsBatch43 = [
         id: "uc-f1",
         event: rotationJobEvent,
         prompt:
-          "In the nightly rotation job you triaged (the analyst_choice CloudTrail record), the role selects which secrets to read by filtering on a single tag. Read the record's request parameters: what is the exact tag-key VALUE the job filters on?",
-        answer: "auto-rotate",
-        hint: "Look in the record's filters request parameter for a tag-key filter, and read the value it matches on.",
+          "Reading 5 says one CloudTrail field names the client behind a call. In the nightly rotation record you triaged, which AWS SDK made the call? Enter its name and version exactly as recorded, in the form Name/1.2.3.",
+        answer: "Boto3/1.34.0",
+        hint: "That field lists several name/version pairs. Only one is the AWS library the code called: the others describe the language, the operating system and the runtime environment.",
         xp: 20,
       },
     ],

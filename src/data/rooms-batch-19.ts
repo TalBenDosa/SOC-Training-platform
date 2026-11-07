@@ -323,7 +323,7 @@ const vulnerabilityManagementRoom = {
       id: "vm-la1",
       heading: "One Finding, Two Severity Numbers",
       context:
-        "Solvix's Tenable.io tenant is configured to display severity based on VPR (Tenable's own Vulnerability Priority Rating, a proprietary 0–10 score that folds in threat intelligence, not just CVSS) rather than raw CVSS. For comparison, the same scan run also flagged CVE-2025-40021 on ACCT-INTERNAL-07: CVSS 8.8 (High), a local privilege-escalation flaw reachable only from a single finance-team jump host on an isolated VLAN, no public exploit code, and not listed in CISA KEV. Review the finding below and decide how the two should actually be prioritized against each other.",
+        "Solvix's Tenable.io tenant is configured to display severity based on VPR (Tenable's own Vulnerability Priority Rating, a proprietary 0 to 10 score that folds in threat intelligence, not just CVSS) rather than raw CVSS. For comparison, the same scan run also flagged CVE-2025-40021 on ACCT-INTERNAL-07: CVSS 8.8 (High), a local privilege-escalation flaw reachable only from a single finance-team jump host on an isolated VLAN, no public exploit code, and not listed in CISA KEV. Review the finding below and decide how the two should actually be prioritized against each other.",
       event: vulnScanEvent,
       questions: [
         {
@@ -342,30 +342,30 @@ const vulnerabilityManagementRoom = {
         },
         {
           question:
-            "Comparing this finding (CVSS 6.1, VPR 9.3, internet-facing) against CVE-2025-40021 described in the context (CVSS 8.8, internal-only, isolated VLAN, not in KEV, no public exploit), which should be remediated first?",
+            "Comparing this finding against CVE-2025-40021 described in the context, which should be remediated first?",
           options: [
-            "CVE-2025-40021, because 8.8 is a higher CVSS score than 6.1, and CVSS base score alone should always determine remediation order regardless of exploitation evidence or exposure",
-            "This finding (CVE-2025-31337), because it combines a confirmed CISA KEV listing, a near-certain EPSS score, and internet exposure: exactly the pattern from the worked example in Reading 3 where the lower CVSS finding is the real emergency",
-            "Neither: both should wait for the next standard patch cycle since neither one crosses the Critical CVSS band (9.0-10.0), and only Critical-rated findings ever justify working outside the normal cycle",
-            "CVE-2025-40021, because internal systems are always a bigger insider-threat risk than internet-facing ones, since a malicious insider already has network access that an external attacker would first have to obtain",
+            "CVE-2025-40021: its 8.8 outranks 6.1, and the CVSS base score measures the technical impact",
+            "CVE-2025-31337: it is confirmed exploited, near-certain on EPSS and reachable from the internet",
+            "Neither yet: both wait for the normal cycle, as neither reaches the Critical CVSS band of 9.0 to 10.0",
+            "CVE-2025-40021: it sits on a finance system, so its asset value outweighs the portal finding",
           ],
           answer: 1,
           explanation:
-            "This is the exact pattern taught in Reading 3: the lower CVSS finding, when it is KEV-confirmed, has a near-certain EPSS score, and sits on an internet-facing asset, outranks a higher-CVSS finding that is internal-only, reachable only from a single jump host on an isolated VLAN and needing an authenticated local user, has no public exploit, and isn't in KEV. CVE-2025-40021 still needs scheduling, it isn't dismissed, but it is not this week's fire the way CVE-2025-31337 is.",
+            "This is the exact pattern taught in Reading 3: the lower CVSS finding, when it is KEV-confirmed, has a near-certain EPSS score, and sits on an internet-facing asset, outranks a higher-CVSS finding that is internal-only, reachable only from a single jump host on an isolated VLAN and needing an authenticated local user, has no public exploit, and isn't in KEV. A higher base score says how bad the flaw is if exploited, not whether anyone is exploiting it, and the finance application's value does not change how hard it is to reach. The KEV due date also rules out waiting for a normal cycle. CVE-2025-40021 still needs scheduling, it isn't dismissed, but it is not this week's fire the way CVE-2025-31337 is.",
           xp: 35,
         },
         {
           question:
             "tenable.scan_type on this finding is 'authenticated'. If this same host had only ever been scanned unauthenticated, what is the most accurate statement about what you might have missed?",
           options: [
-            "Nothing: authenticated and unauthenticated scans always return identical results for web application findings, since a reflected XSS on a login page is externally visible either way and credentials never change what a web application scanner can detect",
-            "An unauthenticated scan could still surface an externally-visible reflected XSS finding like this one since it's detectable from outside, but you would have far less confidence in banner-based findings on the same host and would miss any vulnerability only visible by inspecting installed packages and patch levels directly",
-            "Unauthenticated scans are always more accurate because they see the system the way a real attacker does, and authenticated scanning is prone to false positives since logged-in access changes how the application actually behaves",
-            "Authenticated and unauthenticated scans differ only in scan speed, never in what they can detect, so switching between the two methods is purely a matter of how quickly you need the report back",
+            "The XSS itself: web flaws on a login page show up only to a scanner logged in to the host",
+            "Flaws seen only from inside, such as missing patches; the XSS itself could still show up",
+            "Open ports and service banners: those come only from a logged-in scan, not from outside probing",
+            "Firewall rules that shouldn't be open: those show up only to a scanner holding credentials",
           ],
           answer: 1,
           explanation:
-            "As covered in Reading 4, a reflected XSS like this one is externally reachable and detectable without credentials, so an unauthenticated scan could plausibly still find it. But unauthenticated scanning generally produces less reliable findings for anything based on version-banner inference (exactly the false-positive pattern in this room's analyst-choice task), and it structurally cannot see internal package/patch state the way an authenticated scan can, so relying on unauthenticated-only scanning would leave real gaps in coverage beyond just this one finding.",
+            "As covered in Reading 4, a reflected XSS like this one is externally reachable and detectable without credentials, so an unauthenticated scan could plausibly still find it. But it generally produces less reliable findings for anything based on version-banner inference (exactly the false-positive pattern in this room's analyst-choice task), and it structurally cannot see internal package and patch state the way an authenticated scan can. Open ports and service banners are exactly what an unauthenticated scan probes, and a firewall rule that shouldn't be open is the kind of thing an external vantage point reveals and an authenticated scan can miss.",
           xp: 25,
         },
       ],
@@ -380,9 +380,9 @@ const vulnerabilityManagementRoom = {
       // tenable.epss_score is 0.02 — a decoy that doesn't match the answer (0.94).
       event: vulnScanEvent,
       prompt:
-        "Look at the Log Analysis finding on portal-web03. What is the exact value of the tenable.epss_score field in the raw log? Enter it exactly as shown (a decimal, not a percentage).",
+        "Look at the Log Analysis finding on portal-web03. Which value in the raw log is the probability that this CVE will be exploited in the wild in the next 30 days? Enter it exactly as shown (a decimal, not a percentage).",
       answer: "0.94",
-      hint: "Look inside the raw block of the portal-web03 finding (the nightly authenticated scan, not the api-gw02 verdict scenario) for the field named tenable.epss_score.",
+      hint: "Two raw fields come from the same scoring system: one is a probability, the other a percentile ranking against every other scored CVE.",
       xp: 25,
     },
     // ── Reading 5: false positive confirmation, remediation options, boundary ──
@@ -568,7 +568,7 @@ const shadowCopyEvent: TelemetryEvent = {
     integrity: "system",
   },
   description:
-    "vssadmin.exe deleted the oldest shadow copy on volume D: of FS-BACKUP-02 as part of the nightly retention job, launched from the Veeam agent service.",
+    "vssadmin.exe deleted a shadow copy on volume D: of FS-BACKUP-02.",
   raw: {
     "crowdstrike.event_simpleName": "ProcessRollup2",
     "crowdstrike.aid": "cd1a749d4825cf5d8b479232b4b8154d",

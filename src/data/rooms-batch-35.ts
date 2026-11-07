@@ -429,7 +429,7 @@ const sigmaYaraRuleAuthoringRoom = {
         "Step one, the hypothesis: a webshell's entire purpose is letting an attacker send commands to a compromised server and have them executed, so nearly every variant shares the same underlying shape: take input from an HTTP request, decode it if it was obfuscated to dodge simple text search, and hand it to eval() or an equivalent execution function. The specific obfuscation wrapper changes constantly (base64, gzinflate-then-base64, rot13, XOR with a hardcoded key); the underlying shape barely does.\n\n" +
         "Step two, drafting the strings, is where the specific-versus-brittle tradeoff has to be made explicit. The most brittle possible rule hardcodes one exact byte-for-byte sample: matching the literal full obfuscated payload string from the one webshell already found in the incident. It will never fire on the next sample, because the next attacker (or the same one, on the next compromised server) will vary a single byte of the encoded blob and invalidate the exact match completely. A rule that specific is really just a hash lookup wearing a YARA rule's clothing. The opposite mistake (a single common string like eval(base64_decode( with no other condition) is exactly the trap this room's own broad-vs-narrow question walks through: any framework, plugin, or license-checking library that happens to call the same two functions together for entirely unrelated reasons will match too, and a rule that fires on hundreds of legitimate files gets disabled by an exhausted analyst within a week.\n\n" +
         "The workable middle ground layers several individually-common, jointly-rare signals: the PHP open tag itself ($php_tag), one of the known obfuscation wrappers ($eval_b64 or $eval_gz, 1 of them, since a given sample will only use one), and one of the superglobal input sources an attacker actually needs to receive their command through ($post_in or $req_in, again 1 of them). None of these three signals is remotely rare by itself. All three appearing together, inside a file also small enough to be a single-purpose dropped script rather than an entire application (filesize < 150KB), essentially never happens by coincidence in ordinary application code.\n\n" +
-        "Step three is testing, and for YARA specifically this means two different corpora: run the draft rule against a known-malicious sample set to confirm it still matches the real thing, and, just as importantly, run it against a large known-benign sample set (the organization's own legitimate PHP codebase is ideal) to measure the real-world false-positive rate before the rule goes anywhere near a live alerting pipeline. Many YARA-capable platforms and threat-intel services support retrohunting: running a brand-new rule retroactively against files collected over the past days or weeks, which surfaces both the false-positive rate and any already-present, previously-undetected match, before the rule is trusted for the future.",
+        "Step three is testing, and for YARA specifically this means two different corpora: run the draft rule against a known-malicious sample set to confirm it still matches the real thing, and, just as importantly, run it against a large known-benign sample set (the organization's own legitimate PHP codebase is ideal) to measure the real-world false-positive rate before the rule goes anywhere near a live alerting pipeline. Many YARA-capable platforms and threat-intel services support retrohunting: running a brand-new rule retroactively against files collected over the past days or weeks, which surfaces both the false-positive rate and any already-present, previously-undetected match, before the rule is trusted for the future.\n\nPut the two walkthroughs side by side and one tuning loop appears, whichever language you write in. State the attacker technique in plain language. Write a first draft from the most obvious single indicator. Check whether that indicator is too broad or too narrow. Add a second, independent indicator, so several individually common signals must appear together. Anchor the rule to the smallest realistic scope, such as a file-size ceiling, one binary or one log source. Test it against a known-malicious sample and a known-benign corpus. Document the legitimate matches the test really found, in the falsepositives field or the meta notes. Last, assign the severity or level and hand the rule off.",
       codeExample:
         "rule Webshell_PHP_Obfuscated_Eval_Backdoor\n" +
         "{\n" +
@@ -529,14 +529,14 @@ const sigmaYaraRuleAuthoringRoom = {
       heading: "Order the Steps of Tuning a Single Rule's Detection Logic",
       instructions: "This is not the organizational rollout lifecycle (alert-only, promote, retire) covered elsewhere. It is the narrower loop of shaping one rule's own logic from a technique into something tuned, the way Readings 3 and 6 each did. Put these steps in order.",
       items: [
-        { id: "state", text: "State the specific attacker technique this rule needs to catch, in plain language, before writing any syntax" },
+        { id: "state", text: "State the specific attacker technique this rule needs to catch, in plain language" },
         { id: "draft", text: "Write a first draft using the most obvious single indicator you can think of" },
-        { id: "check", text: "Check whether that single indicator is too broad (matches unrelated legitimate activity) or too narrow (only matches one historical sample)" },
+        { id: "check", text: "Check whether the indicator is too broad (matches unrelated legitimate activity) or too narrow (only matches one historical sample)" },
         { id: "corroborate", text: "Add a second, independent indicator so the rule requires several individually-common signals together, rather than relying on one alone" },
-        { id: "anchor", text: "Once the second indicator is in, anchor the combined rule to the smallest realistic scope available (a file-size ceiling, a specific binary, a specific log source) to cut unrelated matches cheaply" },
-        { id: "test", text: "Test the draft against both a known-malicious sample or event and a known-benign corpus, not just one or the other" },
+        { id: "anchor", text: "Anchor the rule to the smallest realistic scope available (a file-size ceiling, a specific binary, a specific log source) to cut unrelated matches cheaply" },
+        { id: "test", text: "Test the rule against both a known-malicious sample or event and a known-benign corpus, not just one or the other" },
         { id: "document", text: "Document the legitimate matches actually found (false positives and benign true positives) as the rule's falsepositives or meta notes, not a guess" },
-        { id: "assign", text: "Only then assign the rule its severity or level field and hand it off for deployment" },
+        { id: "assign", text: "Assign the rule its severity or level field and hand it off for deployment" },
       ],
       correct_order: ["state", "draft", "check", "corroborate", "anchor", "test", "document", "assign"],
       explanation:
@@ -566,16 +566,16 @@ const sigmaYaraRuleAuthoringRoom = {
           xp: 30,
         },
         {
-          question: "crowdstrike.FilePath reads C:\\Users\\n.brandt\\AppData\\Roaming\\SysHealthMon\\SysHealthMon.exe. Given the rule's filter block, does the filter suppress this alert?",
+          question: "The filter block did not suppress this alert. Which version of this event would it have suppressed?",
           options: [
-            "Yes: AppData sits inside the user's own profile, a location the filter treats as trusted",
-            "No: the path is neither of the two named sensor binaries, so the filter doesn't match and the alert fires",
-            "Yes: SysHealthMon.exe reads like monitoring software, the kind of tool the filter exists to exclude",
-            "No, but only because Sigma filters can reference the Image field alone, never a file path",
+            "The binary moved to C:\\Program Files\\SysHealthMon\\, a folder standard users cannot write to",
+            "The binary running from the exact path of Microsoft Defender's MsMpEng.exe",
+            "The binary renamed MsMpEng.exe and left in its AppData folder",
+            "The binary left in AppData but carrying a valid publisher signature",
           ],
           answer: 1,
           explanation:
-            "The filter excludes exactly two named binaries, and a user-writable AppData path is neither, so the filter block does not match and the alert stands. “AppData ... a location the filter treats as trusted” invents a scope the filter doesn't have, and user-writable folders are where dropped tools live. “Reads like monitoring software” is the trap this room keeps warning about: filters match field values, not how plausible a filename sounds. “No, but only because Sigma filters can reference the Image field alone” gets the outcome right for a false reason: filters can use any field the logsource provides.",
+            "The filter compares one field, the file path, against two exact values, so only an event whose path equals one of them is excluded. A safer-looking folder such as Program Files is still not a path the filter names. Renaming the binary MsMpEng.exe changes the file name but not the folder, and the filter compares the full path, which is what stops a dropped tool hiding behind a trusted name. A publisher signature is not part of the comparison either: this filter checks a path and nothing else.",
           xp: 35,
         },
         {

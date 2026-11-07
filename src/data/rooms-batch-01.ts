@@ -379,16 +379,16 @@ You are about to join one of the most in-demand, dynamic, and impactful professi
       type: "question" as const,
       id: "intro-cyber-q4",
       question:
-        "The global shortage of cybersecurity professionals has been estimated in recent years at several million unfilled jobs. Which entry-level role is considered the most common starting point for a cybersecurity career?",
+        "This course calls the SOC Analyst role the gateway into cybersecurity. What earns it that name?",
       options: [
-        "Penetration Tester: ethical hackers who attack systems to find weaknesses",
-        "SOC Analyst: monitors alerts and investigates suspicious events in a Security Operations Center",
-        "Security Engineer: builds and maintains security infrastructure",
-        "CISO (Chief Information Security Officer): leads the entire security strategy",
+        "It hands out the certification other security teams ask for before hiring",
+        "Its daily work with real attacks and tools feeds most other security careers",
+        "It moves analysts into other security teams automatically after a set term",
+        "It sits above the other security teams, so analysts pick where to go next",
       ],
       answer: 1,
       explanation:
-        "The SOC (Security Operations Center) Analyst is the most common entry-level cybersecurity role. SOC Analysts monitor security tools, triage alerts, and investigate incidents. The role provides exposure to real attacks and real tools, which is why most other cybersecurity careers build on SOC experience. CISO is a senior executive role, not entry-level. Penetration testing and security engineering typically require more experience.",
+        "The SOC Analyst role is the most common entry point because it gives exposure to real attacks, real tools and real investigation skills, and most other cybersecurity careers draw on that experience. The reading gives that as the reason. It names no certification, no automatic move to another team and no authority over the other teams.",
       xp: 15,
     },
   ],
@@ -407,7 +407,7 @@ const socStructureEvent: TelemetryEvent = {
   severity: "medium",
   hostname: "DC01-CORP",
   user_email: "jsmith@globalbank.com",
-  description: "Multiple failed login attempts detected: possible brute-force",
+  description: "Windows Security failed logon event for jsmith on DC01-CORP",
   mitre_technique: "T1110",
   mitre_tactic: "Credential Access",
   src_ip: "203.0.113.47",
@@ -750,10 +750,10 @@ That entire sequence (from first email to automated response) might happen in un
       question:
         "Which SOC tool would an analyst use to automatically look up a suspicious IP address in threat intelligence databases, quarantine a device, and open a ticket, all without manually clicking through each step?",
       options: [
-        "SIEM (Security Information and Event Management). It collects and correlates logs",
-        "EDR (Endpoint Detection and Response): it monitors processes on individual devices",
-        "SOAR (Security Orchestration, Automation, and Response). It automates repetitive response tasks via playbooks",
-        "TIP (Threat Intelligence Platform): it stores intelligence about known malicious actors",
+        "SIEM",
+        "EDR",
+        "SOAR",
+        "TIP",
       ],
       answer: 2,
       explanation:
@@ -1219,7 +1219,7 @@ const mitreAttackEvent: TelemetryEvent = {
   severity: "high",
   hostname: "ENTRA-CLOUD",
   user_email: "admin.service@fintech-global.com",
-  description: "Password spray attack detected: single password tried against many accounts",
+  description: "Entra ID alert: failed sign-ins from one source address across several accounts",
   mitre_technique: "T1110.003",
   mitre_tactic: "Credential Access",
   src_ip: "5.188.206.201",
@@ -1581,7 +1581,7 @@ This is the ATT&CK framework in action: observation → identification → detec
             "The UserAgent field shows 'python-requests/2.31.0' and IsInteractive is false. What do these fields tell you about the nature of this attack?",
           options: [
             "A developer is testing the login API from a company-managed device running Python tools",
-            "The attempts are automated: a Python script is driving the spray, not a person typing",
+            "The attempts are automated: a Python script is sending them, not a person typing",
             "A browser extension spoofed the user agent, so the client type cannot be determined",
             "The 'python-requests' agent is typical of an authorised pen test, so it is expected activity",
           ],
@@ -1592,12 +1592,12 @@ This is the ATT&CK framework in action: observation → identification → detec
         },
         {
           question:
-            "According to ATT&CK's mitigation guidance for T1110.003, which control stops a correctly guessed password from being enough to sign in?",
+            "According to ATT&CK's mitigation guidance for this sub-technique, which control stops a correctly guessed password from being enough to sign in?",
           options: [
             "A stronger password policy requiring 12+ characters. Longer passwords are harder to guess",
             "Multi-Factor Authentication (MFA): requires a second verification step beyond just the password",
             "Account lockout after 5 failed attempts: would have locked the 8 accounts being targeted",
-            "Blocking the Python-requests user agent at the firewall: prevents automated spraying tools",
+            "Blocking the Python-requests user agent at the firewall: prevents automated login tools",
           ],
           answer: 1,
           explanation:

@@ -348,44 +348,44 @@ const encodingRoom: Room = {
       questions: [
         {
           question:
-            "You submit this file's SHA256 (6fd13927...e4ac) to threat intelligence via the platform's Check Hash feature and get back 'No match found.' Given what Reading 3 taught about how a hash identifies data, what should you conclude?",
+            "You submit this file's SHA256 (6fd13927...e4ac) to threat intelligence via the platform's Check Hash feature and get back 'No match found.' Given how a hash identifies data, what should you conclude?",
           options: [
-            "'No match' is not proof of safety. It only means this exact byte sequence has never been catalogued as malicious before, which is exactly what you'd expect from a freshly compiled or slightly modified payload with no reputation history yet; further behavioral analysis is still warranted",
-            "'No match' definitively proves the file is completely benign and safe to execute, since every malicious file in existence is always catalogued by threat intelligence vendors well before it is ever used in a real-world attack",
-            "The hash lookup mechanism itself must have technically failed and returned an empty result, since any legitimately computed hash of a genuinely new file should always still return a match against something in the database",
-            "This can only mean the file was hashed with the wrong algorithm entirely, since a correctly hashed file should always have prior threat intelligence coverage regardless of how new or obscure the sample is",
+            "Safe to close: a threat feed this large would already list the file if it were malicious",
+            "Safe to close: a variant of known malware would have come back as a partial match",
+            "Still unknown: the lookup covers these exact bytes, and a fresh build has no history yet",
+            "Still open: shorter hashes such as MD5 tolerate small changes, so try this file's MD5 next",
           ],
-          answer: 0,
+          answer: 2,
           explanation:
-            "This is the limit from Reading 3's determinism property working against the defender: a hash identifies one exact byte sequence, and any attacker who recompiles or even slightly modifies a payload gets a brand-new hash with zero history anywhere. 'Not found' simply means nobody has seen and catalogued this exact file before. It says nothing about behavior, and it is one of the most common junior-analyst mistakes to read it as a clean bill of health.",
+            "A hash identifies one exact byte sequence, and any attacker who recompiles or even slightly modifies a payload gets a brand-new hash with zero history anywhere. 'No match' simply means nobody has catalogued this exact file before. It says nothing about behavior, and it is one of the most common junior-analyst mistakes to read it as a clean bill of health. A feed lists only what has been seen, so its size does not help against a fresh build. There is no partial match either: the avalanche effect means a hash can only say identical or not identical, and that is as true of MD5 as of SHA256, so the MD5 will not catch a variant.",
           xp: 25,
         },
         {
           question:
-            "This file's SHA256 is a full 64 hex characters, the same length it would be whether the file were 4 KB or 400 MB. Why does this fixed-length property matter operationally for a SOC storing and searching millions of file hashes in a threat intel feed?",
+            "This file's SHA256 is 64 hex characters, the same length it would be whether the file were 4 KB or 400 MB. Why does that fixed length matter to a threat intelligence feed?",
           options: [
-            "It makes storage and lookups cheap and predictable at scale: a database of a hundred million hashes takes a small, fixed, indexable amount of space, nowhere close to what storing a hundred million actual files would cost",
-            "It means larger source files are always considered inherently more suspicious than smaller ones during triage, since a longer hash digest is assumed to represent more densely compressed underlying file data",
-            "It has no operational relevance to a SOC analyst at all. Hash output length is purely a cosmetic detail of the algorithm's design, chosen arbitrarily and unrelated to anything an investigation would use",
-            "It means the hash reveals the original file's exact byte size, since the digest's fixed length is understood to scale proportionally with however large or small the input file actually is",
+            "A tampered file would come out at a different length, so a feed can catch changed samples",
+            "Entries stay small and easy to index, so a feed can hold far more samples than it could files",
+            "A feed can rate how close two files are by counting the characters their digests share",
+            "The 64 characters hold enough data for a feed to rebuild the original file when needed",
           ],
-          answer: 0,
+          answer: 1,
           explanation:
-            "Reading 3 covers this directly: fixed output length is exactly what makes hash-based threat intel and file catalogs practical at scale, you're storing and searching a predictable 64-character string, never the file itself. The digest length never changes regardless of input size, so it reveals nothing at all about how large the original file was, and file size has no bearing on how 'suspicious' a hash is.",
+            "Reading 3 covers this directly: fixed output length is exactly what makes hash-based threat intel and file catalogs practical at scale, you're storing and searching a predictable 64-character string, never the file itself. A tampered file still produces 64 characters, so length catches nothing: only comparing the hash values does. Two digests can't be compared for closeness, because the avalanche effect leaves similar files with unrelated hashes. And a hash throws information away on purpose, so no file can ever be rebuilt from one.",
           xp: 25,
         },
         {
           question:
-            "A colleague says: 'I renamed this file from Q3_Invoice_Adjustment.exe to update.exe in the EDR console, and the SHA256 stayed exactly the same, so the hash must not actually factor in the filename at all.' Are they reasoning correctly, and what does this tell you about what a hash actually identifies?",
+            "A colleague copies this file to a lab host, renames the copy update.exe and hashes it. The SHA256 is identical to the one in this event. What does that tell you about hash-based detection?",
           options: [
-            "They're reasoning correctly: a hash is computed purely from a file's byte content, never its filename, path, or other metadata; that's precisely why renaming a malicious file is a useless evasion technique against hash-based detection, and also why hash-based matching is powerful regardless of how many times a sample gets renamed across different victims",
-            "They're wrong to trust this match: filenames, full file paths, and other filesystem metadata are always folded into the hash calculation, so renaming a malicious file from one host to another should have produced a completely different SHA256 digest each time it ran",
-            "The hash only appears to stay the same because most EDR consoles cache the first-observed hash value for a given file and simply fail to recompute or refresh that value automatically after the file is renamed on disk",
-            "This can only be explained by an extremely rare hash collision, where two completely different files coincidentally produce the exact same SHA256 digest purely by chance during the renaming and rescanning process",
+            "The two names collided, the SHA-256 weakness that makes hash IOCs unreliable on their own",
+            "Both hosts used the same salt, so the rename was hidden; a different salt would reveal it",
+            "SHA-256 samples only the start of a file, so edits further in would leave it unchanged too",
+            "A rename does not dodge a hash IOC, since only the file's bytes go into the calculation",
           ],
-          answer: 0,
+          answer: 3,
           explanation:
-            "The colleague is right, and this is a genuinely useful thing to know: a cryptographic hash is a function of the file's actual bytes, full stop, no filename, timestamp, or path is ever part of the input. That's exactly why hash-based IOC matching still works when the same malware sample gets renamed differently on every victim machine, and it's not a caching artifact or a coincidental collision. It's the hash function correctly doing the one thing it's defined to do.",
+            "The bytes did not change, so the SHA256 did not change: a cryptographic hash is a function of the file's actual bytes, full stop, and no filename or path is part of the input. That's exactly why hash-based IOC matching still works when the same malware sample gets renamed differently on every victim machine. This is not a collision: a collision is two different inputs sharing a hash, these are the same bytes, and SHA-256 has no practical collisions. Salts belong to password storage, and file hashing uses none, which is why the same file gives the same hash on every machine. And a hash covers every byte: change one bit anywhere and the digest changes completely.",
           xp: 30,
         },
       ],
@@ -408,12 +408,12 @@ const encodingRoom: Room = {
       heading: "Match the Question to the Right Operation, and Kill the Two Big Misconceptions",
       instructions: "Match each question or claim to the operation (encoding, encryption, or hashing) it correctly describes.",
       pairs: [
-        { id: "reversible-no-key", left: "Is it reversible without any secret key at all?", right: "Encoding: yes, anyone can reverse it with the same public rule; it was never designed to hide anything" },
-        { id: "reversible-with-key", left: "Is it reversible only by someone holding the correct secret?", right: "Encryption: yes, that is the entire point of a key; without it the ciphertext is not practically recoverable" },
-        { id: "reversible-never", left: "Is it reversible at all, even by someone with a key?", right: "Hashing: no, there is no key and no reverse function; the only way 'back' is guessing an input and hashing it again to check" },
-        { id: "fixed-length", left: "Does the output length stay the same no matter how large the input is?", right: "Hashing, always a fixed length (SHA-256 is always 256 bits / 64 hex characters), which is exactly why it's cheap to store and search at scale" },
-        { id: "myth-base64", left: "'This PowerShell command is Base64: it must be encrypted, so I can't read it without a password'", right: "False: Base64 is encoding, not encryption; anyone can decode it instantly with no key, password, or cracking involved" },
-        { id: "myth-hashed-password", left: "'The database stores hashed passwords, so the passwords are encrypted'", right: "False, hashing is one-way with no key and no decrypt function; 'hashed' and 'encrypted' are two different, non-interchangeable operations with different guarantees" },
+        { id: "reversible-no-key", left: "Is it reversible without any secret key at all?", right: "Encoding: yes, a published rule undoes it for everybody, and it was never meant to conceal anything" },
+        { id: "reversible-with-key", left: "Is it reversible only by someone holding the correct secret?", right: "Encryption: yes, that is the purpose of a key, and the ciphertext stays unreadable to everybody else" },
+        { id: "reversible-never", left: "Is it reversible at all, even by someone with a key?", right: "Hashing: no, information is discarded on purpose, so you can only guess a value and compare the result" },
+        { id: "fixed-length", left: "Does the output length stay the same no matter how large the input is?", right: "Hashing: yes, SHA-256 gives 64 hex characters for one byte or a disk image, keeping catalogs cheap to search" },
+        { id: "myth-base64", left: "'This PowerShell command is Base64: it must be encrypted, so I can't read it without a password'", right: "False: this is a published format rather than a lock, and one click in a decoder shows the script" },
+        { id: "myth-hashed-password", left: "'The database stores hashed passwords, so the passwords are encrypted'", right: "False: that operation is one-way and has no key, so nothing can be unlocked; the two terms are not interchangeable" },
       ],
       explanation:
         "The first four pairings are the core distinction from Reading 1 applied directly: reversibility without a key, reversibility with a key, and no reversibility at all, plus the fixed-length property unique to hashing. The last two are the exact misconceptions this room exists to close. 'encoded' and 'encrypted' get used interchangeably in casual speech, but they describe operations with completely different security guarantees, and confusing them leads to both overestimating how hidden an encoded payload is and underestimating what a stolen hash database actually exposes.",
@@ -657,16 +657,16 @@ const timelineRoom: Room = {
         "  BEFORE -.->|\"check NTP sync status, correct for skew\"| AFTER",
       diagramCaption: "Same three events -- wrong order until clock skew is accounted for",
       checkpoint: {
-        question: "What is the standard fix for clock drift between devices, described in Reading 3?",
+        question: "A firewall turns out to be three minutes fast. Per Reading 3, what normally keeps a device from drifting like this?",
         options: [
-          "NTP (Network Time Protocol), which keeps devices synced to a trusted time server",
-          "Manually resetting every device's clock once a week",
-          "Always trusting the Domain Controller's clock over any other source",
-          "Converting every timestamp to Windows FILETIME",
+          "UTC storage: converting timestamps to one zone brings the device clocks back in line",
+          "NTP: the device checks in with a trusted time server and adjusts its own clock",
+          "Hardware replacement: a clock that drifts is a failed part, so the unit is swapped",
+          "Skew correction: analysts offset each timestamp, which resets the device's clock",
         ],
-        answer: 0,
+        answer: 1,
         explanation:
-          "NTP is the standard fix: devices periodically check in with a trusted time server and adjust their own clock to match, keeping drift down to a fraction of a second under normal conditions.",
+          "NTP is the standard fix: devices periodically check in with a trusted time server and adjust their own clock to match, keeping drift down to a fraction of a second under normal conditions. Converting to UTC only changes how a timestamp is expressed, so a clock that has drifted is still wrong afterwards. Drift is ordinary behavior for an unmanaged hardware clock, not a fault. And offsetting timestamps during analysis repairs your timeline, not the device.",
       },
     },
     {
@@ -741,16 +741,16 @@ const timelineRoom: Room = {
         },
         {
           question:
-            "A firewall log entry, expressed entirely in the same local zone (EDT, no conversion needed), shows an outbound connection from 10.40.2.18 at 19:02:00 that same day. Relative to the PowerShell launch in this event, did that outbound connection happen before or after?",
+            "A firewall log entry, stamped in local EDT, shows an outbound connection from 10.40.2.18 at 19:02:00 on June 11. The firewall and the EDR are both in NTP sync. Relative to the PowerShell launch in this event, did that outbound connection happen before or after?",
           options: [
-            "After: the PowerShell launch normalizes to 18:47:14 EDT, and 19:02:00 EDT is roughly 15 minutes later, so the outbound connection follows the process launch and is worth investigating as a possible next step in the same sequence",
-            "Before: since 19:02:00 uses fewer leading digits than 18:47:14 when compared as a raw numeric string, it should always be treated as the earlier of the two timestamps regardless of context",
-            "There's no way to meaningfully compare the two timestamps at all, since they were produced by two completely different systems (EDR telemetry and firewall session logs) that have nothing in common",
-            "They're effectively simultaneous events, since both times round to roughly 7 PM local time, and a fifteen-minute difference is well within the normal margin of error for any cross-system timeline",
+            "Before: 22:47:14 is later on the clock than 19:02:00, so no conversion is needed",
+            "Before: EDT runs ahead of UTC, so the launch falls at 02:47:14 EDT the next day",
+            "After: the launch converts to 18:47:14 EDT, about 15 minutes before the connection",
+            "Unknown: a gap this small sits inside the normal drift between two log sources",
           ],
-          answer: 0,
+          answer: 2,
           explanation:
-            "Once the PowerShell launch is correctly normalized to 18:47:14 EDT, comparing it against the firewall's already-local 19:02:00 is a straightforward ~15-minute gap, with the outbound connection coming after: exactly the kind of causal ordering a timeline is built to support. Comparing timestamps as raw text strings is not a valid method; different source systems absolutely can be compared once both are expressed in the same zone (that's the entire purpose of normalization); and 15 minutes is a meaningful gap for sequencing an investigation, not close enough to call simultaneous.",
+            "ContextTimeStamp is 22:47:14 UTC and EDT is UTC-4, so the PowerShell launch is 18:47:14 EDT. Against the firewall's 19:02:00 EDT that is a gap of about 15 minutes, with the outbound connection coming after: exactly the kind of causal ordering a timeline is built to support. Comparing 22:47:14 with 19:02:00 directly mixes two zones, which is the mistake normalization exists to stop. EDT is behind UTC, not ahead, so you subtract four hours rather than add them. And with both sources in NTP sync, drift is a fraction of a second, far too small to blur a 15-minute gap.",
           xp: 30,
         },
       ],

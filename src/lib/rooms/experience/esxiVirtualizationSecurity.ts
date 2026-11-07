@@ -209,7 +209,7 @@ export const ESXI_VIRTUALIZATION_SECURITY: RoomExperience = {
     },
     {
       id: "default",
-      label: "Off by Default",
+      label: "The Host's Own Log",
       topic: "vobd.log and esx.audit events · matching host records to vCenter",
       tagline: "One alarm, two logs",
       building: "lab",

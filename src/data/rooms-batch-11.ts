@@ -160,6 +160,7 @@ const rooms = [
             "event.code": "4625",
             "winlog.channel": "Security",
             "winlog.computer_name": "DC01.corp.internal",
+            "host.ip": "10.20.1.10",
             "winlog.event_data.TargetUserName": "j.morrison",
             "winlog.event_data.TargetDomainName": "CORP",
             "winlog.event_data.IpAddress": "203.0.113.45",
@@ -1045,6 +1046,7 @@ const rooms = [
             "auth.failure_count": 94,
             "auth.success_count": 3,
             "auth.timespan_minutes": 8,
+            "auth.failure_status": "0xC000006D",
             "auth.failure_substatus": "0xC000006A",
             "auth.logon_type": 3,
             "auth.auth_package": "NTLM",
@@ -1106,7 +1108,7 @@ const rooms = [
         prompt:
           "Before writing the containment note, you confirm that the attacker was trying real usernames with wrong passwords, rather than guessing at accounts that don't exist. Find the status code in the Spray-then-Success alert that proves this, and enter it exactly.",
         answer: "0xC000006A",
-        hint: "The reading's password-spray filter condition pairs Event 4625 with one specific sub-status value. The correlated alert carries the same value for its failures.",
+        hint: "The reading's password-spray filter condition names the exact code. The correlated alert carries the same value for its failures.",
         xp: 40,
       },
       // ── Query Fill: compile the Sigma rule to SPL ────────────────

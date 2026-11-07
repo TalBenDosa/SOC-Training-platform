@@ -103,7 +103,7 @@ export const EDR_DETECTION_INVESTIGATION: RoomExperience = {
     "edr-la1": { name: "Mateusz Oyelaran", role: "EDR Engineer", line: "Read the record, not the title on it." },
     "edr-q3": { name: "Mateusz Oyelaran", role: "EDR Engineer", line: "These are somebody else's triage notes. What do you make of them?" },
     "edr-ac1": { name: "Mateusz Oyelaran", role: "EDR Engineer", line: "The deployment team is on the line. Your call." },
-    "edr-f1": { name: "Mateusz Oyelaran", role: "EDR Engineer", line: "I need one name for the rotation ticket." },
+    "edr-f1": { name: "Mateusz Oyelaran", role: "EDR Engineer", line: "I need one ID for the hunt ticket." },
     "edr-q4": { name: "Mateusz Oyelaran", role: "EDR Engineer", line: "The verdict is in. What happens to that host right now?" },
     "edr-q5": { name: "Mateusz Oyelaran", role: "EDR Engineer", line: "The pager has gone off again. What am I looking at?" },
     "edr-qf1": { name: "Mateusz Oyelaran", role: "EDR Engineer", line: "One more question for the fleet. Write this one yourself." },
