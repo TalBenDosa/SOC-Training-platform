@@ -7,7 +7,7 @@
  * Input is the public payload only. Deterministic and append-stable: alerts are processed in arrival
  * order, so events added later never change an earlier incident's id, number or first alert.
  */
-import { authoredOf, NATIVE_SOURCES, nativeView, stackFor, type NativeIdentity, type Stack } from "@/lib/logs/native";
+import { authoredOf, graphAlertFor, NATIVE_SOURCES, nativeView, stackFor, withoutDetectionFeed, type NativeIdentity, type Stack } from "@/lib/logs/native";
 import { makeCtx, seededInt, seededUuid } from "@/lib/logs/native/ctx";
 import { runUseCase } from "@/lib/logs/native/engine";
 import type { NativeLog, SourceId, UseCase } from "@/lib/logs/native/types";
@@ -15,13 +15,16 @@ import type { KqlRow, KqlTable } from "@/lib/kql/types";
 import { techniqueById } from "@/lib/mitre/attack";
 import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import type { TelemetryEvent } from "@/lib/sim/types";
-import { EntityBook, entitiesColumn, isPrivateIp } from "./entities";
+import { EntityBook, entitiesColumn, graphEntitiesColumn, isPrivateIp } from "./entities";
 import { buildHunting } from "./hunting";
+import { addBaseline } from "./baseline";
+import { alignNames, buildDirectory, hostKeyOf, type Directory } from "./directory";
+import { fallbackRow, identityColumns, noteAddress, reconcileRow } from "./fallback";
 import { logKey, mapRow, type MapContext } from "./mapRow";
 import { evaluatePart, NOISE_RULES, noiseAnalyticsRules } from "./noise";
 import { alertDescription, buildRules, groupFilter, kstr, plain, ruleSeverity, tacticName, tacticsOf, stackUseCases, type CompiledRule } from "./rules";
 import { emptyTable, TABLE_NAMES } from "./tables";
-import type { SentinelAlert, SentinelEntity, SentinelIncident, SentinelSeverity, SentinelWorkspace } from "./types";
+import type { GraphAlertDetails, SentinelAlert, SentinelEntity, SentinelIncident, SentinelSeverity, SentinelWorkspace } from "./types";
 
 export interface BuildOptions {
   companyId: string;
@@ -31,6 +34,8 @@ export interface BuildOptions {
   orgName?: string;
   /** Cases an analyst escalated: each opens an incident, whatever the rules made of it. */
   escalated?: { eventId: string; summary?: string }[];
+  /** Off for a caller that needs incidents only (the team room). Default on. */
+  baseline?: boolean;
 }
 
 /** What the build left out, for the report and the console's Data connectors view. */
@@ -169,6 +174,7 @@ const FEED_ALERT_COLUMNS = ["AlertType", "VendorOriginalId", "ProductComponentNa
 
 function alertRow(a: Pending, entities: SentinelEntity[], tenantId: string, orgId: string): KqlRow {
   const al = a.alert;
+  const g = al.graph;
   const ev = a.entries[0].ev;
   const feed: KqlRow = {};
   if (!al.ruleId) for (const c of FEED_ALERT_COLUMNS) { const v = raw(ev, c); if (v) feed[c] = v; }
@@ -177,8 +183,13 @@ function alertRow(a: Pending, entities: SentinelEntity[], tenantId: string, orgI
     TimeGenerated: al.time, Type: "SecurityAlert", TenantId: tenantId, SystemAlertId: al.id, AlertName: al.name, DisplayName: al.name, AlertSeverity: al.severity, Description: al.description,
     ProductName: al.product, ProviderName: a.provider, VendorName: "Microsoft", VendorOriginalId: seededUuid(`${orgId}:vendor:${al.id}`), AlertType: al.ruleId ? `${orgId}_${al.ruleId}` : al.name.replace(/\s+/g, ""),
     Status: "New", ConfidenceLevel: "Unknown", StartTime: isoMs(a.firstMs), EndTime: isoMs(a.lastMs), ProcessingEndTime: al.time, IsIncident: false, CompromisedEntity: compromised,
-    Tactics: al.tactics.join(","), Techniques: JSON.stringify(al.techniques), Entities: entitiesColumn(entities), ExtendedProperties: JSON.stringify({ "Analytic Rule Ids": al.ruleId ? [al.ruleId] : [] }),
+    Tactics: al.tactics.join(","), Techniques: JSON.stringify(al.techniques), Entities: g ? graphEntitiesColumn(g.evidence) : entitiesColumn(entities),
+    ExtendedProperties: JSON.stringify({
+      "Analytic Rule Ids": al.ruleId ? [al.ruleId] : [],
+      ...(g ? { "Graph Alert Id": g.id, "Graph Incident Id": g.incidentId, ServiceSource: g.serviceSource, DetectionSource: g.detectionSource, DetectorId: g.detectorId, Category: g.category, Classification: g.classification, Determination: g.determination } : {}),
+    }),
     SourceSystem: "Detection", WorkspaceSubscriptionId: seededUuid(`${orgId}:sub`), WorkspaceResourceGroup: `rg-${orgId}-sentinel`, ...feed,
+    ...(g ? { VendorOriginalId: g.id, AlertLink: g.alertWebUrl, RemediationSteps: g.recommendedActions, ProductComponentName: g.detectionSource } : {}),
   };
 }
 
@@ -257,14 +268,49 @@ function groupAlerts(pending: Pending[], book: Record<string, SentinelEntity>): 
   return incidents;
 }
 
+/**
+ * Rendering an event is deterministic, and the console rebuilds every 6 seconds from the same events:
+ * a session renders each event once.
+ */
+interface Rendered { view: ReturnType<typeof nativeView>; graph?: GraphAlertDetails }
+const RENDERS = new Map<string, Map<string, Rendered>>();
+function renderMemo(session: string): Map<string, Rendered> {
+  let m = RENDERS.get(session);
+  if (m) { RENDERS.delete(session); RENDERS.set(session, m); return m; }
+  m = new Map();
+  RENDERS.set(session, m);
+  if (RENDERS.size > 4) RENDERS.delete(RENDERS.keys().next().value as string);
+  return m;
+}
+
 export interface SentinelWorkspaceBuild extends SentinelWorkspace {
   coverage: WorkspaceCoverage;
   /** SystemAlertId -> ids of the feed events behind the alert. */
   alertEventIds: Record<string, string[]>;
+  /** Feed event id -> the rows that hold it. */
+  eventRows: Record<string, { table: string; row: KqlRow }[]>;
+  /** The session's people and hosts, when the baseline is on. */
+  directory?: Directory;
+  /** Background and inventory rows in the tables. */
+  baselineRows: number;
 }
 
 export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): SentinelWorkspaceBuild {
-  const { companyId, stack, identity } = opts;
+  const { companyId, identity } = opts;
+  // The logs render as their own products. A Microsoft detection gets its Graph alert on top: the
+  // Defender records and AlertEvidence stay.
+  const stack = opts.stack && withoutDetectionFeed(opts.stack);
+  const memo = renderMemo(JSON.stringify([companyId, stack ?? {}, identity ?? null]));
+  const rendered = (ev: TelemetryEvent): Rendered => {
+    const key = `${ev.id}|${ev.ts}`;
+    let r = memo.get(key);
+    if (!r) {
+      const graph = graphAlertFor(ev, companyId, stack, identity);
+      r = { view: nativeView(ev, companyId, stack, identity), graph: graph ? ((graph.record as { data: Record<string, unknown> }).data["ms-graph"] as GraphAlertDetails) : undefined };
+      memo.set(key, r);
+    }
+    return r;
+  };
   const nativeCtx = makeCtx(companyId, identity ?? {});
   const eff = stackFor(companyId, stack);
   const tenantId = nativeCtx.tenant.azureTenantId;
@@ -278,6 +324,7 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
 
   const book = new EntityBook(COMPANY_ASSETS[companyId]?.roster);
   const entries: Entry[] = [];
+  const eventRows: SentinelWorkspaceBuild["eventRows"] = {};
   const logs: NativeLog[] = [];
   /** logs[i] -> its entry. */
   const logEntry: Entry[] = [];
@@ -289,11 +336,12 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
     if (!m) { bump(coverage.noTable, logKey(log)); return null; }
     tables[m.table].rows.push(m.row);
     coverage.rows++;
+    (eventRows[ev.id] ??= []).push(m);
     return m;
   };
 
   events.forEach((ev, index) => {
-    const view = nativeView(ev, companyId, stack, identity);
+    const { view } = rendered(ev);
     const entry: Entry = { index, ev, entityIds: [] };
     if (view) {
       entry.log = view.log;
@@ -318,10 +366,12 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
     const techniques = e.ev.mitre_technique ? [e.ev.mitre_technique] : splitList(raw(e.ev, "Techniques"));
     const tactics = e.ev.mitre_tactic ? [tacticName(e.ev.mitre_tactic)] : splitList(raw(e.ev, "Tactics"));
     const ms = Date.parse(e.ev.ts);
+    const { graph } = rendered(e.ev);
     pending.push({
       order: e.index * 1000, entries: [e], firstMs: ms, lastMs: ms, provider,
       alert: {
-        id, name: plain(detectionName(e.ev, e.log)), severity: toSeverity(raw(e.ev, "AlertSeverity") ?? e.ev.severity), product,
+        ...(graph ? { graph } : {}),
+        id, name: plain(graph?.title ?? detectionName(e.ev, e.log)), severity: toSeverity(graph?.severity ?? raw(e.ev, "AlertSeverity") ?? e.ev.severity), product,
         description: plain(raw(e.ev, "Description") ?? e.ev.description ?? ""), time: e.ev.ts, tactics: tactics.length ? tactics : tacticsOf(techniques), techniques, query: rowQuery(e, id),
       },
     });
@@ -329,7 +379,10 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
 
   const inStack = stackUseCases(companyId, stack);
   const bySource = new Map<SourceId, number[]>();
-  logs.forEach((l, i) => { bySource.set(l.sourceId, [...(bySource.get(l.sourceId) ?? []), i]); });
+  logs.forEach((l, i) => {
+    const list = bySource.get(l.sourceId);
+    if (list) list.push(i); else bySource.set(l.sourceId, [i]);
+  });
   const logsBySource = new Map([...bySource].map(([s, idx]) => [s, idx.map(i => logs[i])]));
   const entryBySource = new Map([...bySource].map(([s, idx]) => [s, idx.map(i => logEntry[i])]));
 
@@ -465,8 +518,66 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
 
   const alertEventIds = Object.fromEntries(pending.map((p, i) => [alerts[i].id, p.entries.map(e => e.ev.id)]));
   const now = events.reduce((m, e) => { const t = Date.parse(e.ts); return t > m ? t : m; }, 0);
+
+  // ── The rest of the workspace ───────────────────────────────────────────
+  // Everything below comes after the rules: none of it can raise an alert.
+
+  // Graph alerts, as a Logic App or connector ingestion would land them: no built-in table holds alerts_v2.
+  for (const a of alerts) {
+    const g = a.graph;
+    if (!g) continue;
+    tables.GraphSecurityAlerts_CL.rows.push({
+      TimeGenerated: a.time, Type: "GraphSecurityAlerts_CL", TenantId: tenantId, id: g.id, providerAlertId: g.providerAlertId, incidentId: g.incidentId, title: g.title, description: g.description, severity: g.severity, status: g.status,
+      classification: g.classification, determination: g.determination, serviceSource: g.serviceSource, detectionSource: g.detectionSource, productName: g.productName, detectorId: g.detectorId, category: g.category,
+      ...(g.threatDisplayName ? { threatDisplayName: g.threatDisplayName } : {}), mitreTechniques: g.mitreTechniques, evidence: g.evidence, alertWebUrl: g.alertWebUrl, incidentWebUrl: g.incidentWebUrl, createdDateTime: g.createdDateTime,
+      lastUpdateDateTime: g.lastUpdateDateTime, firstActivityDateTime: g.firstActivityDateTime, lastActivityDateTime: g.lastActivityDateTime,
+    });
+  }
+
+  // A detection with no log of its own lives in SecurityAlert.
+  pending.forEach((p, i) => {
+    if (alerts[i].ruleId || p.entries.length !== 1) return;
+    const id = p.entries[0].ev.id;
+    if (!eventRows[id]) (eventRows[id] ??= []).push({ table: "SecurityAlert", row: tables.SecurityAlert.rows[i] });
+  });
+  for (const e of entries) {
+    if (eventRows[e.ev.id]) continue;
+    const { table, row } = fallbackRow(e.ev, nativeCtx, e.log?.record, e.log?.sourceId);
+    tables[table].rows.push(row);
+    coverage.rows++;
+    eventRows[e.ev.id] = [{ table, row }];
+  }
+  for (const e of entries) for (const m of eventRows[e.ev.id] ?? []) if (m.table !== "SecurityAlert") reconcileRow(m.table, m.row, e.ev);
+
+  let baselineRows = 0;
+  let directory: Directory | undefined;
+  if (opts.baseline !== false && events.length) {
+    directory = buildDirectory(events, id => (eventRows[id] ?? []).map(x => x.row), companyId, nativeCtx, identity);
+    alignNames(directory, tables);
+    // An address that only a row with no IP column knows is still found by a search.
+    const hostAddresses = new Set([...directory.hosts.values()].flatMap(h => [h.ip, ...h.otherIps]));
+    for (const e of entries) {
+      for (const ip of [e.ev.src_ip, e.ev.dst_ip]) {
+        if (!ip || hostAddresses.has(ip)) continue;
+        for (const m of (eventRows[e.ev.id] ?? []).slice(0, 1)) if (!identityColumns(m.table)?.ip) noteAddress(m.table, m.row, ip);
+      }
+    }
+    for (const e of Object.values(entities)) {
+      if (e.kind === "account") {
+        const p = directory.people.get(e.name.toLowerCase());
+        if (p) e.info = { ...e.info, ...(p.department && !e.info.Department ? { Department: p.department } : {}), ...(p.title && !e.info.Title ? { Title: p.title } : {}), "Usual host": p.host };
+      } else if (e.kind === "host") {
+        const h = directory.hosts.get(hostKeyOf(e.name));
+        if (h) e.info = { ...e.info, IP: h.ip, ...(e.info.OS ? {} : { OS: h.os }) };
+      }
+    }
+    const hostLastSeen = new Map<string, number>();
+    for (const e of events) if (e.hostname) hostLastSeen.set(hostKeyOf(e.hostname), Math.max(hostLastSeen.get(hostKeyOf(e.hostname)) ?? 0, Date.parse(e.ts)));
+    baselineRows = addBaseline(tables, { companyId, stack, identity, orgName: opts.orgName, tenantId, anchorMs: Date.parse(events[0].ts), clockMs: now, directory, hostLastSeen });
+  }
+
   return {
     name: `${orgId}-sentinel-prod`, tables, alerts, incidents, entities,
-    rules: [...buildRules(companyId, stack), ...noiseAnalyticsRules()], hunting: buildHunting(), now: new Date(now || 0).toISOString(), coverage, alertEventIds,
+    rules: [...buildRules(companyId, stack), ...noiseAnalyticsRules()], hunting: buildHunting(), now: new Date(now || 0).toISOString(), coverage, alertEventIds, eventRows, directory, baselineRows,
   };
 }

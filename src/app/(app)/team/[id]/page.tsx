@@ -46,7 +46,7 @@ import { teamLoad, withShiftMinutes, type Difficulty } from "@/lib/team/load";
 import { loadWithPlan } from "@/lib/team/attackPlan";
 import { activeClaims, escalationStates, containmentRequests, scopeByIncident, latestScope, incidentLabels, incidentByEvent, openLoadByUser, isolationState } from "@/lib/team/projections";
 import { pausedSpans } from "@/lib/team/pauses";
-import { PRODUCT_LABEL, STACK_CHOICES } from "@/lib/logs/native/stack";
+import { feedSourceOf, PRODUCT_LABEL, STACK_CHOICES, type Stack } from "@/lib/logs/native/stack";
 import { INDUSTRY_CHOICES, PLATFORM_CHOICES } from "@/lib/team/environment";
 import { advanceWatermark } from "@/lib/team/eventLog";
 import { ROLE_LABEL } from "./_components/shared";
@@ -896,14 +896,21 @@ export default function TeamRoomPage() {
   // P5-23: a log's enriched row never changes once it has arrived, so it is built
   // ONCE per seq and reused. Rebuilding all 120 rows on every session event gave
   // them new identities, which defeated the memoised (animated) feed rows.
-  const liveCacheRef = useRef(new Map<number, LiveEvent>());
+  const liveCacheRef = useRef({ key: "", rows: new Map<number, LiveEvent>() });
+  // A detection the session's SIEM reads from Microsoft Graph says so on its row. EDR sessions: no key, same rows.
+  const feedCompany = session?.company_id ?? "";
+  const feedStackJson = JSON.stringify(session?.stack ?? {});
   const toLiveCached = useCallback((e: Ev): LiveEvent => {
-    const hit = liveCacheRef.current.get(e.seq);
+    const key = `${feedCompany}|${feedStackJson}`;
+    if (liveCacheRef.current.key !== key) liveCacheRef.current = { key, rows: new Map() };
+    const hit = liveCacheRef.current.rows.get(e.seq);
     if (hit) return hit;
     const built = toLive(e);
-    liveCacheRef.current.set(e.seq, built);
-    return built;
-  }, [toLive]);
+    const feedSource = feedSourceOf(built, feedCompany, JSON.parse(feedStackJson) as Stack);
+    const row = feedSource ? { ...built, feed_source: feedSource } : built;
+    liveCacheRef.current.rows.set(e.seq, row);
+    return row;
+  }, [toLive, feedCompany, feedStackJson]);
   const liveFeed = useMemo<LiveEvent[]>(() => feed.slice(-120).map(toLiveCached), [feed, toLiveCached]);
   // "Needs triage" view: the queue's logs, most urgent first, rendered as ordinary SIEM rows.
   const triageFeed = useMemo<LiveEvent[]>(() => orderedQueue.map(q => toLiveCached(q.e)), [orderedQueue, toLiveCached]);
@@ -995,7 +1002,7 @@ export default function TeamRoomPage() {
     setPulledNote(`Pulled #${next.e.seq} for you — it's claimed while you work it.`);
   }, [orderedQueue, claimByEid, me]);
   // Distinct sources present in the feed → populate the G-04 source filter.
-  const feedSources = useMemo(() => [...new Set(liveFeed.map(e => e.source).filter(Boolean))].sort(), [liveFeed]);
+  const feedSources = useMemo(() => [...new Set(liveFeed.map(e => e.feed_source ?? e.source).filter(Boolean))].sort(), [liveFeed]);
 
   // G-05: "Investigate in EDR" — reconstruct the SAME attack from the team feed's
   // endpoint telemetry (reusing the single-player builder) and deep-link into the

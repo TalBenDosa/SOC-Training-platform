@@ -335,6 +335,210 @@ const SCHEMAS: Record<string, Compact> = {
     int: "impostorScore malwareScore messageSize phishScore spamScore",
     datetime: "messageTime TimeGenerated",
   },
+  // Microsoft Graph Security alerts_v2, as a Logic App or connector ingestion lands them: no built-in table holds them
+  GraphSecurityAlerts_CL: {
+    datetime: "TimeGenerated createdDateTime lastUpdateDateTime firstActivityDateTime lastActivityDateTime",
+    string: "Type TenantId id providerAlertId incidentId title description severity status classification determination serviceSource detectionSource productName detectorId category threatDisplayName alertWebUrl incidentWebUrl",
+    dynamic: "mitreTechniques evidence",
+  },
+  // AWS S3 connector
+  AWSCloudWatch: {
+    datetime: "ExtractedTime TimeGenerated",
+    string: "Message SourceSystem TenantId Type",
+  },
+  // Custom log, table named by the Zscaler Private Access connector. Columns are this workspace's (a text-log table has no published schema)
+  ZPA_CL: {
+    datetime: "TimeGenerated",
+    string: "Type TenantId SourceSystem EventVendor EventProduct EventType EventMessage EventSeverity DvcHostname ActorUsername SrcIpAddr DstIpAddr Url",
+    int: "SrcPortNumber DstPortNumber",
+    dynamic: "RawData",
+  },
+  // Custom log, table named by the Thinkst Canary connector. Columns are this workspace's
+  ThinkstCanaryIncidents_CL: {
+    datetime: "TimeGenerated",
+    string: "Type TenantId SourceSystem EventVendor EventProduct EventType EventMessage EventSeverity DvcHostname ActorUsername SrcIpAddr DstIpAddr Url",
+    int: "SrcPortNumber DstPortNumber",
+    dynamic: "RawData",
+  },
+  // Custom log, table named by the F5 BIG-IP connector. Columns are this workspace's
+  F5Telemetry_ASM_CL: {
+    datetime: "TimeGenerated",
+    string: "Type TenantId SourceSystem EventVendor EventProduct EventType EventMessage EventSeverity DvcHostname ActorUsername SrcIpAddr DstIpAddr Url",
+    int: "SrcPortNumber DstPortNumber",
+    dynamic: "RawData",
+  },
+  // Custom log, table named by the GitHub connector. Columns are this workspace's
+  GitHubAdvancedSecurityAlerts_CL: {
+    datetime: "TimeGenerated",
+    string: "Type TenantId SourceSystem EventVendor EventProduct EventType EventMessage EventSeverity DvcHostname ActorUsername SrcIpAddr DstIpAddr Url",
+    int: "SrcPortNumber DstPortNumber",
+    dynamic: "RawData",
+  },
+  // Custom log, table named by the ClaudeCompliance connector. Columns are this workspace's
+  BV_ClaudeCompliance_ComplianceActivities_CL: {
+    datetime: "TimeGenerated",
+    string: "Type TenantId SourceSystem EventVendor EventProduct EventType EventMessage EventSeverity DvcHostname ActorUsername SrcIpAddr DstIpAddr Url",
+    int: "SrcPortNumber DstPortNumber",
+    dynamic: "RawData",
+  },
+  // Custom log for a Logic App ingestion: no connector carries tickets. Name and columns are this workspace's
+  ServiceNow_CL: {
+    datetime: "TimeGenerated",
+    string: "Type TenantId SourceSystem EventVendor EventProduct EventType EventMessage EventSeverity DvcHostname ActorUsername SrcIpAddr DstIpAddr Url",
+    int: "SrcPortNumber DstPortNumber",
+    dynamic: "RawData",
+  },
+  // Custom log: no connector. Name and columns are this workspace's
+  EpiqEMRAudit_CL: {
+    datetime: "TimeGenerated",
+    string: "Type TenantId SourceSystem EventVendor EventProduct EventType EventMessage EventSeverity DvcHostname ActorUsername SrcIpAddr DstIpAddr Url",
+    int: "SrcPortNumber DstPortNumber",
+    dynamic: "RawData",
+  },
+  // Custom log for the Windows DHCP server log. Name and columns are this workspace's
+  DHCP_CL: {
+    datetime: "TimeGenerated",
+    string: "Type TenantId SourceSystem EventVendor EventProduct EventType EventMessage EventSeverity DvcHostname ActorUsername SrcIpAddr DstIpAddr Url",
+    int: "SrcPortNumber DstPortNumber",
+    dynamic: "RawData",
+  },
+  // Custom log: no connector. Name and columns are this workspace's
+  Exabeam_CL: {
+    datetime: "TimeGenerated",
+    string: "Type TenantId SourceSystem EventVendor EventProduct EventType EventMessage EventSeverity DvcHostname ActorUsername SrcIpAddr DstIpAddr Url",
+    int: "SrcPortNumber DstPortNumber",
+    dynamic: "RawData",
+  },
+  // Custom log: no connector. Name and columns are this workspace's
+  Securonix_CL: {
+    datetime: "TimeGenerated",
+    string: "Type TenantId SourceSystem EventVendor EventProduct EventType EventMessage EventSeverity DvcHostname ActorUsername SrcIpAddr DstIpAddr Url",
+    int: "SrcPortNumber DstPortNumber",
+    dynamic: "RawData",
+  },
+  // Custom log for any other product a Logic App forwards. Name and columns are this workspace's
+  ThirdPartyLogs_CL: {
+    datetime: "TimeGenerated",
+    string: "Type TenantId SourceSystem EventVendor EventProduct EventType EventMessage EventSeverity DvcHostname ActorUsername SrcIpAddr DstIpAddr Url",
+    int: "SrcPortNumber DstPortNumber",
+    dynamic: "RawData",
+  },
+  // Sentinel UEBA identity inventory
+  IdentityInfo: {
+    string: "AccountCloudSID AccountDisplayName AccountDomain AccountName AccountObjectId AccountSID AccountTenantId AccountUPN Applications BlastRadius ChangeSource City CompanyName Country Department EmployeeId GivenName JobTitle MailAddress Manager OnPremisesDistinguishedName OnPremisesExtensionAttributes Phone RiskLevel RiskLevelDetails RiskState SAMAccountName SourceSystem State StreetAddress Surname Tags TenantId Type UACFlags UserState UserType",
+    datetime: "AccountCreationTime DeletedDateTime LastSeenDate TimeGenerated UserStateChangedOn",
+    dynamic: "AdditionalMailAddresses AssignedRoles EntityRiskScore ExtensionProperty GroupMembership RelatedAccounts ServicePrincipals UserAccountControl",
+    int: "InvestigationPriority InvestigationPriorityPercentile",
+    bool: "IsAccountEnabled IsMFARegistered IsServiceAccount",
+  },
+  // Defender for Endpoint inventory
+  DeviceInfo: {
+    string: "AadDeviceId AssetValue AwsResourceName AzureResourceId AzureVmId AzureVmSubscriptionId ClientVersion CloudPlatforms ConnectivityType DeviceCategory DeviceDynamicTags DeviceId DeviceManualTags DeviceName DeviceObjectId DeviceSubtype DeviceType ExclusionReason ExposureLevel GcpFullResourceName HardwareUuid HostDeviceId JoinType MachineGroup MergedDeviceIds MergedToDeviceId MitigationStatus Model OnboardingStatus OSArchitecture OsBuildRevision OSDistribution OSPlatform OSVersion OSVersionInfo PublicIP RegistryDeviceTag RestrictedDeviceSecurityOperations SensorHealthState SourceSystem TenantId Type Vendor",
+    dynamic: "AdditionalFields LoggedOnUsers",
+    bool: "IsAzureADJoined IsExcluded IsInternetFacing IsTransient",
+    long: "OSBuild ReportId",
+    datetime: "TimeGenerated Timestamp",
+  },
+  // Defender for Endpoint inventory
+  DeviceNetworkInfo: {
+    dynamic: "ConnectedNetworks DefaultGateways DnsAddresses IPAddresses",
+    string: "DeviceId DeviceName IPv4Dhcp IPv6Dhcp MacAddress MachineGroup NetworkAdapterName NetworkAdapterStatus NetworkAdapterType NetworkAdapterVendor SourceSystem TenantId TunnelType Type",
+    long: "ReportId",
+    datetime: "TimeGenerated Timestamp",
+  },
+  // Sentinel UEBA
+  BehaviorAnalytics: {
+    string: "ActionType ActivityType ActorName ActorPrincipalName DestinationDevice DestinationIPAddress DestinationIPLocation Device EventProductVersion EventSource EventVendor NativeTableName SourceDevice SourceIPAddress SourceIPLocation SourceRecordId SourceSystem TargetName TargetPrincipalName TenantId Type UserName UserPrincipalName",
+    dynamic: "ActivityInsights DevicesInsights UsersInsights",
+    int: "InvestigationPriority",
+    datetime: "TimeGenerated TimeProcessed",
+  },
+  // Workday connector
+  ASimAuditEventLogs: {
+    string: "ActingAppId ActingApplicationEntityKey ActingAppName ActingAppType ActingOriginalAppType ActorOriginalUserType ActorScope ActorScopeId ActorSessionId ActorUserAadId ActorUserEntityKey ActorUserId ActorUserIdType ActorUsername ActorUsernameType ActorUserSid ActorUserType DvcAction DvcDescription DvcDomain DvcDomainType DvcEntityKey DvcFQDN DvcHostname DvcId DvcIdType DvcInterface DvcIpAddr DvcMacAddr DvcOriginalAction DvcOs DvcOsVersion DvcScope DvcScopeId DvcZone EventMessage EventOriginalResultDetails EventOriginalSeverity EventOriginalSubType EventOriginalType EventOriginalUid EventOwner EventProduct EventProductVersion EventReportUrl EventResult EventResultDetails EventSchemaVersion EventSeverity EventSubType EventType EventVendor HttpUserAgent NewValue Object ObjectId ObjectType OldValue Operation OriginalObjectType RuleName SourceSystem SrcDescription SrcDeviceType SrcDomain SrcDomainType SrcDvcId SrcDvcIdType SrcDvcScope SrcDvcScopeId SrcFQDN SrcGeoCity SrcGeoCountry SrcGeoRegion SrcHostname SrcIpAddr SrcOriginalRiskLevel SrcSystemEntityKey TargetAppId TargetApplicationEntityKey TargetAppName TargetAppType TargetDescription TargetDeviceType TargetDomain TargetDomainType TargetDvcId TargetDvcIdType TargetDvcOs TargetDvcScope TargetDvcScopeId TargetFQDN TargetGeoCity TargetGeoCountry TargetGeoRegion TargetHostname TargetIpAddr TargetOriginalAppType TargetOriginalRiskLevel TargetSystemEntityKey TargetUrl TenantId ThreatCategory ThreatField ThreatId ThreatIpAddr ThreatName ThreatOriginalConfidence ThreatOriginalRiskLevel Type ValueType",
+    dynamic: "ActorUserAdditionalIds AdditionalEntities AdditionalFields",
+    int: "EventCount RuleNumber SrcPortNumber SrcRiskLevel TargetPortNumber TargetRiskLevel ThreatConfidence ThreatRiskLevel",
+    datetime: "EventEndTime EventStartTime ThreatFirstReportedTime ThreatLastReportedTime TimeGenerated",
+    real: "SrcGeoLatitude SrcGeoLongitude TargetGeoLatitude TargetGeoLongitude",
+    bool: "ThreatIsActive",
+  },
+  // Defender for Cloud Apps
+  CloudAppEvents: {
+    string: "AccountDisplayName AccountId AccountObjectId AccountType ActionType ActivityType Application AuditSource City CountryCode DeviceType IPAddress IPCategory ISP OAuthAppId ObjectId ObjectName ObjectType OSPlatform ReportId SourceSystem TenantId Type UserAgent",
+    dynamic: "ActivityObjects AdditionalFields IPTags LastSeenForUser RawEventData SessionData UncommonForUser UserAgentTags",
+    int: "AppInstanceId ApplicationId",
+    bool: "IsAdminOperation IsAnonymousProxy IsExternalUser IsImpersonated",
+    datetime: "TimeGenerated Timestamp",
+  },
+  // Azure resource diagnostics (Azure SQL audit, Azure OpenAI, Front Door)
+  AzureDiagnostics: {
+    string: "action_id_s action_name_s action_s AdditionalFields AdHocOrScheduledJob_s application_name_s avg_cpu_percent_s avg_mean_time_s backendHostname_s Caller_s callerId_s CallerIPAddress calls_s Category client_ip_s clientInfo_s clientIP_s clientIp_s clientIpAddress_s code_s collectionName_s conditions_destinationIP_s conditions_destinationPortRange_s conditions_None_s conditions_protocols_s conditions_sourceIP_s conditions_sourcePortRange_s CorrelationId database_name_s database_principal_name_s DatabaseName_s db_id_s direction_s ElasticPoolName_s Environment_s error_code_s error_message_s errorLevel_s event_class_s event_s event_subclass_s EventName_s host_s httpMethod_s httpStatusCode_s httpVersion_s id_s identity_claim_ipaddr_s instanceId_s ip_s is_column_permission_s JobDurationInSecs_s JobFailureCode_s jobId_s JobOperation_s JobOperationSubType_s JobStartDateTime_s JobStatus_s Level LogicalServerName_s macAddress_s max_time_s mean_time_s Message min_time_s msg_s object_name_s OperationName OperationVersion partitionKey_s policy_s policyMode_s primaryIPv4Address_s properties_s properties_sku_Family_s properties_sku_Name_s query_hash_s query_plan_hash_s querytext_s Region_s requestCharge_s requestQuery_s requestResourceId_s requestResourceType_s requestUri_s reserved_storage_mb_s Resource resource_actionName_s resource_location_s resource_originRunId_s resource_resourceGroupName_s resource_runId_s resource_triggerName_s resource_workflowName_s ResourceGroup ResourceProvider ResourceType resultCode_s ResultDescription resultDescription_ChildJobs_s resultDescription_ErrorJobs_s resultMessage_s ResultSignature ResultType rootCauseAnalysis_s routingRuleName_s ruleName_s RunbookName_s RunOn_s schema_name_s server_principal_sid_s Type TenantId SourceSystem",
+    guid: "ActivityId_g identity_claim_appid_g JobId_g JobUniqueId_g properties_tenantId_g resource_subscriptionId_g resource_workflowId_g sequence_group_id_g",
+    real: "audit_schema_version_d clientPort_d count_executions_d cpu_time_d dop_d duration_d duration_milliseconds_d execution_type_d executionInfo_exitCode_d httpStatus_d httpStatusCode_d interval_end_time_d interval_start_time_d log_bytes_used_d logical_io_reads_d logical_io_writes_d matchedConnections_d max_cpu_time_d max_dop_d max_duration_d max_log_bytes_used_d max_logical_io_reads_d max_logical_io_writes_d max_num_physical_io_reads_d max_physical_io_reads_d max_query_max_used_memory_d max_rowcount_d num_physical_io_reads_d object_id_d physical_io_reads_d plan_id_d priority_d query_id_d query_max_used_memory_d query_time_d receivedBytes_d response_rows_d rowcount_d sentBytes_d sequence_number_d session_id_d",
+    long: "DurationMs",
+    datetime: "endTime_t event_time_t executionInfo_endTime_t executionInfo_startTime_t TimeGenerated",
+    bool: "isAccessPolicyMatch_b properties_enabledForDeployment_b properties_enabledForDiskEncryption_b properties_enabledForTemplateDeployment_b",
+  },
+  // Application Gateway WAF
+  AGWFirewallLogs: {
+    string: "Action ClientIp DetailedData DetailedMessage FileDetails Hostname InstanceId LineDetails Message OperationName ParanoiaLevel PolicyId PolicyScope PolicyScopeName RequestUri RuleId RuleSetType RuleSetVersion Site SourceSystem TenantId TransactionId Type",
+    int: "ClientPort",
+    datetime: "TimeGenerated",
+  },
+  // Azure Storage
+  StorageBlobLogs: {
+    string: "AccessTier AccountName AuthenticationHash AuthenticationType CallerIpAddress Category ClientRequestId ConditionsUsed CopyDestinationArmId CorrelationId DestinationUri EncryptionKeyTypeOfBlob Etag Location MetricResponseType ObjectKey OperationName OperationVersion Protocol ReferrerHeader RehydratePriority RequesterAppId RequesterAudience RequesterObjectId RequesterTenantId RequesterTokenIssuer RequesterUpn RequestMd5 RequestRegion ResponseMd5 SasExpiryStatus SchemaVersion ServiceType SourceAccessTier SourceSystem SourceUri StatusCode StatusText TenantId TlsVersion TrafficClassification Type Uri UserAgentHeader",
+    dynamic: "AuthorizationDetails",
+    long: "ContentLengthHeader RequestBodySize RequestHeaderSize ResponseBodySize ResponseHeaderSize",
+    real: "DurationMs ServerLatencyMs",
+    datetime: "LastModifiedTime TimeGenerated",
+    int: "OperationCount",
+  },
+  // Microsoft Graph activity
+  MicrosoftGraphActivityLogs: {
+    string: "AadTenantId ApiVersion AppId ATContent ATContentH ATContentP ClientRequestId ConditionalAccessStatus DeviceId IdentityProvider IPAddress Location OperationId RequestId RequestMethod RequestUri Roles Scopes ServicePrincipalId SessionId SignInActivityId SourceSystem TenantId Type UniqueTokenId UserAgent UserId Wids",
+    int: "ClientAuthMethod DurationMs ResponseSizeBytes ResponseStatusCode",
+    datetime: "TimeGenerated TokenIssuedAt",
+  },
+  // IIS logs
+  W3CIISLog: {
+    string: "AzureDeploymentID cIP Computer Confidence csCookie csHost csMethod csReferer csUriQuery csUriStem csUserAgent csUserName csVersion Description FirstReportedDateTime IndicatorThreatType IsActive LastReportedDateTime MaliciousIP ManagementGroupName RemoteIPCountry Role RoleInstance scStatus scSubStatus scWin32Status sIP SourceSystem sSiteName StorageAccount TLPLevel Type TenantId",
+    long: "csBytes scBytes TimeTaken",
+    real: "RemoteIPLatitude RemoteIPLongitude",
+    int: "Severity sPort",
+    datetime: "TimeGenerated",
+  },
+  // AWS S3 connector
+  AWSWAF: {
+    string: "Action Args ClientIp Country FormatVersion HttpMethod HttpSourceId HttpSourceName HttpVersion Ja3Fingerprint RequestId RuleGroupId SourceSystem TenantId TerminatingRuleId TerminatingRuleType Type Uri WebAclId",
+    dynamic: "CaptchaResponse ChallengeResponse ExcludedRules Headers HttpRequest Labels NonTerminatingMatchingRules OversizeFields RateBasedRuleList RequestHeadersInserted RuleGroupList TerminatingRule TerminatingRuleMatchDetails",
+    int: "ResponseCodeSent",
+    datetime: "TimeGenerated",
+  },
+  // Google Security Command Center connector
+  GoogleCloudSCC: {
+    dynamic: "Findings FindingsResource SourceProperties",
+    string: "SourceSystem TenantId Type",
+    datetime: "TimeGenerated",
+  },
+  // EKS codeless connector
+  AWSEKSLogs_CL: {
+    datetime: "TimeGenerated",
+    string: "AwsAccountId Region ClusterName Verb User UserAgent ObjectRef Stage AuthDecision Type TenantId",
+    dynamic: "SourceIPs RawEvent",
+    int: "ResponseCode",
+  },
+  // Cloudflare codeless connector (the columns this workspace fills, of 495)
+  CloudflareV2_CL: {
+    datetime: "TimeGenerated",
+    string: "Email RuleID Action RayID ClientCountry ClientIP ClientRequestHost ClientRequestMethod ClientRequestUserAgent Source ClientRequestURI ZoneName Type TenantId",
+    int: "EdgeResponseStatus",
+  },
+  // GitHub codeless connector (the columns this workspace fills, of 481)
+  GitHubAuditLogsV2_CL: {
+    datetime: "TimeGenerated",
+    string: "Org Action Repo Actor User OperationType ActorIp UserAgent Email CountryCode Type TenantId",
+  },
 };
 
 function expand(c: Compact): KqlColumn[] {
@@ -349,6 +553,9 @@ function expand(c: Compact): KqlColumn[] {
 export const TABLE_SCHEMAS: Record<string, KqlColumn[]> = Object.fromEntries(Object.entries(SCHEMAS).map(([n, c]) => [n, expand(c)]));
 
 export const TABLE_NAMES: string[] = Object.keys(SCHEMAS);
+
+/** Custom-log tables of this workspace: the ones with no published column list. */
+export const CUSTOM_LOG_TABLES = new Set<string>(["ZPA_CL","ThinkstCanaryIncidents_CL","F5Telemetry_ASM_CL","GitHubAdvancedSecurityAlerts_CL","BV_ClaudeCompliance_ComplianceActivities_CL","ServiceNow_CL","EpiqEMRAudit_CL","DHCP_CL","Exabeam_CL","Securonix_CL","ThirdPartyLogs_CL"]);
 
 const COLUMN_TYPES = new Map(Object.entries(TABLE_SCHEMAS).map(([n, cols]) => [n, new Map(cols.map(c => [c.name, c.type]))]));
 

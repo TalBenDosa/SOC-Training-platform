@@ -21,6 +21,35 @@ export interface SentinelEntity {
   info: Record<string, string>;
 }
 
+/** A Microsoft detection as Microsoft Graph Security reports it (alerts_v2). */
+export interface GraphAlertDetails {
+  id: string;
+  providerAlertId: string;
+  incidentId: string;
+  title: string;
+  severity: string;
+  status: string;
+  classification: string;
+  determination: string;
+  serviceSource: string;
+  detectionSource: string;
+  productName?: string;
+  detectorId: string;
+  category: string;
+  description: string;
+  recommendedActions?: string;
+  threatDisplayName?: string | null;
+  threatFamilyName?: string | null;
+  mitreTechniques: string[];
+  alertWebUrl: string;
+  incidentWebUrl: string;
+  createdDateTime: string;
+  lastUpdateDateTime: string;
+  firstActivityDateTime: string;
+  lastActivityDateTime: string;
+  evidence: Record<string, unknown>[];
+}
+
 export interface SentinelAlert {
   /** SystemAlertId of the SecurityAlert row. */
   id: string;
@@ -37,6 +66,8 @@ export interface SentinelAlert {
   ruleId?: string;
   /** KQL that returns the events behind this alert. Opens in the Logs panel. */
   query: string;
+  /** The Graph alert of a Microsoft detection, in a session that reads detections from Graph. */
+  graph?: GraphAlertDetails;
 }
 
 export interface SentinelIncident {

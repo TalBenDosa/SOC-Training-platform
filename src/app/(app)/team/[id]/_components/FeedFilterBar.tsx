@@ -27,7 +27,7 @@ export function FeedFilterBar({
       <select aria-label="Source filter" value={source} onChange={e => setSource(e.target.value)}
         className="rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 focus:outline-none">
         <option value="all">All sources</option>
-        {sources.map(s => <option key={s} value={s}>{s}</option>)}
+        {sources.map(s => <option key={s} value={s}>{s === "ms_graph" ? "Microsoft Graph Security" : s}</option>)}
       </select>
       <div className="relative min-w-[120px] flex-1">
         <input aria-label="Search feed" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search feed… (host:… user:…)"

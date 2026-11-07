@@ -19,6 +19,8 @@ const STACKS: Stack[] = [
   { edr: "sentinelone", firewall: "checkpoint", email_security: "proofpoint" },
   { edr: "sophos", firewall: "cisco_ftd", vpn: "cloudflare_access" },
   { edr: "mde", firewall: "paloalto", idp: "entra", collab: "m365", email_security: "defender_o365" },
+  // A Sentinel session: Microsoft detections render as their Graph alert (ms_graph).
+  { edr: "mde", firewall: "paloalto", idp: "entra", collab: "m365", email_security: "defender_o365", detection_feed: "ms_graph" },
 ];
 
 describe("no authored conclusion in what the analyst sees before reporting", () => {
@@ -38,7 +40,7 @@ describe("no authored conclusion in what the analyst sees before reporting", () 
       }
     }
     expect([...leaks].slice(0, 20)).toEqual([]);
-    // Brute-force scan over every attack event × 5 companies × 5 stacks; the realistic
+    // Brute-force scan over every attack event × 5 companies × 6 stacks; the realistic
     // (richer) native records make each JSON.stringify heavier, so this guard needs more
     // than the default 20s under full-suite load. The assertion itself passes well within it.
   }, 60_000);

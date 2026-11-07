@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import type { TelemetryEvent } from "@/lib/sim/types";
-import type { Stack } from "@/lib/logs/native/stack";
+import { withoutDetectionFeed, type Stack } from "@/lib/logs/native/stack";
 import type { Ev, Me, RosterMember, SessionMeta } from "@/lib/team/types";
 import { useTeamIsolation } from "@/lib/team/useTeamIsolation";
 import { friendlyActionError } from "@/lib/team/format";
@@ -80,7 +80,8 @@ export function useTeamSentinel(sessionId: string | null, role: string | null): 
   }, [sessionId, loadSession, pull]);
 
   const nameOf = useCallback((id: string | null) => roster.find(m => m.user_id === id)?.name ?? "Analyst", [roster]);
-  const stackKey = JSON.stringify(session?.stack ?? {});
+  // The workspace reads each log's own record (the Defender row, not its Graph alert).
+  const stackKey = JSON.stringify(withoutDetectionFeed((session?.stack ?? {}) as Stack));
   const domain = session?.tenant?.domain, netbios = session?.tenant?.netbios, org = session?.tenant?.name;
   const companyId = session?.company_id;
   const feed = useMemo(() => events.filter(e => e.type === "feed.event"), [events]);

@@ -180,3 +180,24 @@ export function entitiesColumn(entities: SentinelEntity[]): string {
     }
   }));
 }
+
+/** Graph evidence as the Entities column of the SecurityAlert row: one entity per evidence entry. */
+export function graphEntitiesColumn(evidence: Record<string, unknown>[]): string {
+  const out: Record<string, unknown>[] = [];
+  evidence.forEach((e, i) => {
+    const base = { $id: String(i + 2) };
+    const kind = String(e["@odata.type"] ?? "").split(".").pop();
+    const account = e.userAccount as { accountName?: string; userPrincipalName?: string } | undefined;
+    switch (kind) {
+      case "deviceEvidence": out.push({ ...base, Type: "host", HostName: e.hostName ?? e.deviceDnsName }); break;
+      case "userEvidence": { const [name, suffix] = String(account?.userPrincipalName ?? account?.accountName ?? "").split("@"); out.push({ ...base, Type: "account", Name: name, UPNSuffix: suffix }); break; }
+      case "mailboxEvidence": out.push({ ...base, Type: "mailbox", MailboxPrimaryAddress: e.primaryAddress }); break;
+      case "ipEvidence": out.push({ ...base, Type: "ip", Address: e.ipAddress }); break;
+      case "urlEvidence": out.push({ ...base, Type: "url", Url: e.url }); break;
+      case "fileEvidence": out.push({ ...base, Type: "file", Name: (e.fileDetails as { fileName?: string } | undefined)?.fileName }); break;
+      case "processEvidence": out.push({ ...base, Type: "process", CommandLine: e.processCommandLine, ProcessId: e.processId }); break;
+      default: out.push({ ...base, Type: kind ?? "unknown" });
+    }
+  });
+  return JSON.stringify(out);
+}

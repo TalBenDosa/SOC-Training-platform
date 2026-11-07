@@ -147,9 +147,9 @@ export const NOISE_RULES: NoiseRule[] = [
     description: "A service account signed in. Attackers prefer accounts nobody watches; automation signs in the same way.",
     falsePositives: ["Scheduled jobs and integrations"],
     parts: [
-      { table: "SigninLogs", where: `UserPrincipalName startswith "svc"`, test: r => has(r.UserPrincipalName, /^svc/i) },
-      { table: "SecurityEvent", where: `EventID == 4624 and TargetUserName startswith "svc"`, test: r => r.EventID === 4624 && has(r.TargetUserName, /^svc/i) },
-      { table: "OktaV2_CL", where: `OriginalActorAlternateId startswith "svc"`, test: r => has(r.OriginalActorAlternateId, /^svc/i) },
+      { table: "SigninLogs", where: `UserPrincipalName startswith "svc" and IsInteractive == true`, test: r => has(r.UserPrincipalName, /^svc/i) && r.IsInteractive === true },
+      { table: "SecurityEvent", where: `EventID == 4624 and TargetUserName startswith "svc" and LogonType != 5`, test: r => r.EventID === 4624 && has(r.TargetUserName, /^svc/i) && r.LogonType !== 5 },
+      { table: "OktaV2_CL", where: `OriginalActorAlternateId startswith "svc" and EventOriginalType != "app.oauth2.as.token.grant"`, test: r => has(r.OriginalActorAlternateId, /^svc/i) && r.EventOriginalType !== "app.oauth2.as.token.grant" },
       { table: "AWSCloudTrail", where: `EventName == "AssumeRole"`, test: r => r.EventName === "AssumeRole" },
     ],
   },

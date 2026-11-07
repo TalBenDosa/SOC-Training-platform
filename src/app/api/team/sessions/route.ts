@@ -7,7 +7,8 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
 import { resolveTeamStory, teamStoryFilter } from "@/lib/team/buildTimeline";
 import { sanitizeStack } from "@/lib/logs/native";
-import { sanitizeConsole, stackForConsole } from "@/lib/team/investigationConsole";
+import { envForConsole, sanitizeConsole, stackForConsole } from "@/lib/team/investigationConsole";
+import { COMPANY_STACKS, coherentStack, withFittingRemoteAccess } from "@/lib/logs/native/stack";
 import { sanitizeEnv } from "@/lib/team/environment";
 import { sanitizeShiftMinutes } from "@/lib/team/load";
 import { sanitizeAttackPlan, pinnedIds } from "@/lib/team/attackPlan";
@@ -62,9 +63,12 @@ export async function POST(req: Request) {
   // Security products the session runs on (spec §3) — only categories that differ from the company.
   // Where the team investigates. Sentinel reads the Defender tables, so it fixes the endpoint product.
   const investigationConsole = sanitizeConsole(body.console);
-  const stack = stackForConsole(sanitizeStack(body.stack), investigationConsole);
+  const asked = stackForConsole(sanitizeStack(body.stack), investigationConsole);
+  // Products that cannot run together never reach a session, whatever the client sent.
+  const settled = withFittingRemoteAccess(coherentStack({ ...(COMPANY_STACKS[company_id] ?? {}), ...asked }));
+  const stack = { ...asked, ...(settled.vpn !== (COMPANY_STACKS[company_id] ?? {}).vpn ? { vpn: settled.vpn } : {}), ...(settled.email_security !== (COMPANY_STACKS[company_id] ?? {}).email_security ? { email_security: settled.email_security } : {}) } as typeof asked;
   // A named organization's environment: the platforms it runs and its industry (which stories fit).
-  const env = tenant ? sanitizeEnv(body.env) : null;
+  const env = envForConsole(tenant ? sanitizeEnv(body.env) : null, investigationConsole);
   // The shift length the instructor picked (20 / 30 / 45 min); the timeline is built to fit it.
   const shift_min = sanitizeShiftMinutes(body.shift_min);
   const fits = pinnedIds(plan).length ? teamStoryFilter(company_id, stack, env) : null;

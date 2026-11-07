@@ -19,7 +19,7 @@ import { DEFAULT_ENV, type TeamEnv } from "@/lib/team/environment";
 import { teamLoad, SHIFT_CHOICES } from "@/lib/team/load";
 import { MAX_ATTACKS } from "@/lib/team/attackPlan";
 import type { Stack } from "@/lib/logs/native/stack";
-import { CONSOLE_CHOICES, stackForConsole, type InvestigationConsole } from "@/lib/team/investigationConsole";
+import { CONSOLE_CHOICES, envForConsole, stackForConsole, type InvestigationConsole } from "@/lib/team/investigationConsole";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Topbar } from "@/components/nav/Topbar";
@@ -105,7 +105,8 @@ export default function TeamIndexPage() {
   const chosenStack = stackForConsole(stack, investigationConsole);
   const stackParam = JSON.stringify(stackDelta(company, chosenStack));
   const [env, setEnv] = useState<TeamEnv>({ ...DEFAULT_ENV, platforms: [...DEFAULT_ENV.platforms] });
-  const envParam = JSON.stringify(env);
+  const chosenEnv = envForConsole(env, investigationConsole);
+  const envParam = JSON.stringify(chosenEnv);
   const [roster, setRoster] = useState<Candidate[] | null>(null);   // null = not loaded yet
   const [rosterError, setRosterError] = useState<string | null>(null);
   const [org, setOrg] = useState<OrgInfo | null>(null);
@@ -227,7 +228,7 @@ export default function TeamIndexPage() {
     setCreating(true); setError(null);
     const res = await fetch("/api/team/sessions", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tenant_name: tenant.name, difficulty, invites, env, stack: stackDelta(company, chosenStack), console: investigationConsole,
+      body: JSON.stringify({ tenant_name: tenant.name, difficulty, invites, env: chosenEnv, stack: stackDelta(company, chosenStack), console: investigationConsole,
         // Slots 2–3 untouched → the count stays automatic (sized by whoever is in the lobby at start).
         attack_count: touched[1] || touched[2] ? active.length : null, scenario_ids: active.map(id => id || null), bonus_attack: bonusAttack, shift_min: shiftMin }),
     }).catch(() => null);
@@ -328,7 +329,7 @@ export default function TeamIndexPage() {
               </p>
             </fieldset>
             <div className="mt-3 space-y-2">
-              <EnvironmentPicker value={env} onChange={setEnv} storyCount={storylines?.length ?? null} idPrefix="team-env" />
+              <EnvironmentPicker value={chosenEnv} onChange={setEnv} storyCount={storylines?.length ?? null} idPrefix="team-env" />
               <fieldset className="rounded-lg border border-border bg-bg p-3">
                 <legend className="px-1 text-sm font-semibold text-white">Investigate in</legend>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -339,9 +340,10 @@ export default function TeamIndexPage() {
                     </label>
                   ))}
                 </div>
-                {investigationConsole === "sentinel" && <p className="mt-2 text-[11px] text-slate-500">Sentinel reads endpoint activity from Microsoft Defender for Endpoint, so this session uses it as the EDR.</p>}
+                {investigationConsole === "sentinel" && <p className="mt-2 text-[11px] text-slate-500">Sentinel reads endpoint activity from Microsoft Defender for Endpoint, so this session uses it as the EDR. Its workspace lives in Azure, so the organization has an Azure subscription.</p>}
               </fieldset>
-              <StackPicker companyId={company} value={chosenStack} onChange={setStack} idPrefix="team-stack" />
+              <StackPicker companyId={company} value={chosenStack} onChange={setStack} idPrefix="team-stack"
+                locked={investigationConsole === "sentinel" ? { edr: "Fixed by Microsoft Sentinel: it reads endpoint activity from Defender for Endpoint." } : {}} />
             </div>
             {storyNote && <p role="status" className="mt-1.5 rounded-lg border border-neon-amber/30 bg-neon-amber/[0.06] px-3 py-1.5 text-[11px] text-neon-amber">{storyNote}</p>}
             <p className="mt-1.5 text-[11px] text-slate-500">

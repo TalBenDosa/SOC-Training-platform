@@ -6,7 +6,7 @@ import {
   Bookmark, Briefcase, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, Clock, Filter, Info, Lightbulb,
   ListTree, MessageSquareText, RefreshCw, Search, ShieldAlert, ShieldPlus, Target, TerminalSquare, Workflow, X,
 } from "lucide-react";
-import type { EntityKind, SentinelAlert, SentinelBookmark, SentinelEntity, SentinelIncident } from "@/lib/sentinel/types";
+import type { EntityKind, SentinelAlert, SentinelBookmark, SentinelEntity, SentinelIncident , GraphAlertDetails } from "@/lib/sentinel/types";
 import { useSentinel } from "./context";
 import { EntityInfoCard, EntityInsightsCard, EntityTimelineCard, InsightCard } from "./EntityCards";
 import { insightsForIncident, runQuery } from "./engine";
@@ -142,7 +142,33 @@ function AlertDetails({ alert, left, arrow, onClose, onEntity }: { alert: Sentin
         <div><div className="st-k">Start time</div>{fromRow("StartTime")}</div>
         <div><div className="st-k">End time</div>{fromRow("EndTime")}</div>
       </div>
+      {alert.graph && <GraphFields graph={alert.graph} />}
     </Flyout>
+  );
+}
+
+/** The alert as Microsoft Graph Security reports it, with a way into its row in Logs. */
+function GraphFields({ graph }: { graph: GraphAlertDetails }) {
+  const { openLogs } = useSentinel();
+  return (
+    <div className="st-field">
+      <div className="k">Microsoft Graph alert</div>
+      <div className="st-2col st-field">
+        <div style={{ minWidth: 0 }}><div className="st-k">Graph alert ID</div>
+          <button type="button" className="st-link st-ellipsis" style={{ display: "block", maxWidth: "100%" }} title={graph.id} onClick={() => openLogs({ query: `GraphSecurityAlerts_CL\n| where id == "${graph.id}"`, run: true })}>{graph.id}</button>
+        </div>
+        <div><div className="st-k">Status</div>{graph.status}</div>
+      </div>
+      <div className="st-2col st-field">
+        <div><div className="st-k">Service source</div>{graph.serviceSource}</div>
+        <div><div className="st-k">Detection source</div>{graph.detectionSource}</div>
+      </div>
+      <div className="st-2col st-field">
+        <div><div className="st-k">Category</div>{graph.category || "-"}</div>
+        <div><div className="st-k">Classification</div>{graph.classification}</div>
+      </div>
+      {graph.recommendedActions && <div className="st-field"><div className="k">Recommended actions</div><div className="v">{graph.recommendedActions}</div></div>}
+    </div>
   );
 }
 

@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import type { TelemetryEvent } from "@/lib/sim/types";
-import type { Stack } from "@/lib/logs/native/stack";
+import { withoutDetectionFeed, type Stack } from "@/lib/logs/native/stack";
 import type { Ev, SessionMeta } from "@/lib/team/types";
 import { hostKey } from "@/lib/team/format";
 import { escalatedCases } from "@/lib/team/investigationConsole";
@@ -23,14 +23,15 @@ export function useSentinelIncidents(enabled: boolean, feed: Ev[], events: Ev[],
     return () => { alive = false; };
   }, [enabled, mod]);
 
-  const stackKey = JSON.stringify(session?.stack ?? {});
+  // The workspace reads each log's own record (the Defender row, not its Graph alert).
+  const stackKey = JSON.stringify(withoutDetectionFeed((session?.stack ?? {}) as Stack));
   const escalationKey = JSON.stringify(enabled ? escalatedCases(events) : []);
   const companyId = session?.company_id;
   const domain = session?.tenant?.domain, netbios = session?.tenant?.netbios, org = session?.tenant?.name;
   return useMemo(() => {
     if (!enabled || !mod || !companyId) return [];
     const evs = feed.map(e => { const t = e.payload as unknown as TelemetryEvent; return e.occurred_at ? withRebasedTime(t, e.occurred_at) : t; });
-    const ws = mod.buildWorkspace(evs, { companyId, stack: JSON.parse(stackKey) as Stack, identity: domain && netbios ? { domain, netbios } : undefined, orgName: org, escalated: JSON.parse(escalationKey) });
+    const ws = mod.buildWorkspace(evs, { companyId, stack: JSON.parse(stackKey) as Stack, identity: domain && netbios ? { domain, netbios } : undefined, orgName: org, escalated: JSON.parse(escalationKey), baseline: false });
     return ws.incidents.map(i => ({
       id: i.id, number: i.number, title: i.title,
       hosts: i.entityIds.map(x => ws.entities[x]).filter(x => x?.kind === "host").map(x => hostKey(x.name)),

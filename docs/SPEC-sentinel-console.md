@@ -26,6 +26,10 @@ session_events -> folded into IncidentState, shared by the team -> after-action 
 
 Contract: `src/lib/kql/types.ts`, `src/lib/sentinel/types.ts`.
 
+## Graph alerts in the SIEM feed
+
+A Sentinel session's stack carries `detection_feed: "ms_graph"` (set by `stackForConsole`, kept by `sanitizeStack`, no choice in the picker). In the feed, a product detection of a Microsoft product then renders as its Microsoft Graph Security alert (`src/lib/logs/native/sources/ms_graph.ts`, card `docs/log-schemas/siem-ms-graph-alerts.md`) and its row says Microsoft Graph Security. Raw logs keep their format. The public payload does not change: no new events, same queue, timing and scoring. The workspace reads each log's own record, so the hooks in `src/lib/team` pass it the stack without the key; `graphAlertFor(ev, companyId, stack, identity)` in `src/lib/logs/native` gives it the Graph alert of an event.
+
 ## Rules
 
 - The workspace holds only what has reached the feed so far. A query can never see the future of the exercise.

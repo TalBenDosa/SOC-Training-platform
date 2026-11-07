@@ -147,6 +147,13 @@ export const LOG_SOURCE_GUIDE: Record<string, LogSourceEntry> = {
     keyFields: ["rule.name", "alert.severity", "entities", "mitre.technique"],
     redFlag: "A correlation alert firing is the START of triage, not the verdict — always pivot to the raw source logs it fired on",
   },
+  ms_graph: {
+    label: "Microsoft Graph Security: product alerts in the SIEM",
+    vendors: "Defender for Endpoint, Office 365, Cloud Apps, Identity, Entra ID Protection, Purview DLP, Sentinel",
+    whatMonitors: ["Alerts each Microsoft product raised", "The product and detection technology behind the alert", "The entities the alert names as evidence", "The incident the portal filed it under"],
+    keyFields: ["data.ms-graph.title", "data.ms-graph.serviceSource", "data.ms-graph.detectionSource", "data.ms-graph.evidence"],
+    redFlag: "An alert that is new and unclassified is a question, not a verdict: open the raw logs of its evidence before you judge it",
+  },
   soar: {
     label: "SOAR — Automation & Response",
     vendors: "Palo Alto XSOAR, Splunk SOAR, Microsoft Sentinel playbooks",
