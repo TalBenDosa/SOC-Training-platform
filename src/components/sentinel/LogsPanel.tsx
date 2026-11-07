@@ -1,14 +1,14 @@
 "use client";
 // One component for the Logs blade and for the panel inside an incident.
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as RKeyboardEvent } from "react";
-import { BarChart2, ChevronDown, ChevronsRight, Database, Download, FileQuestion, Play, Plus, TriangleAlert, X } from "lucide-react";
+import { ArrowRightFromLine, BarChart2, ChevronDown, ChevronsDown, ChevronsRight, ChevronsUp, Database, FileQuestion, FileText, ListChecks, Play, Plus, TriangleAlert, X } from "lucide-react";
 import type { KqlColumn } from "@/lib/kql/types";
 import { useSentinel, type LogsRequest } from "./context";
 import { runQuery, setsTimeRange } from "./engine";
 import { isoToLocalInput, localInputToDate, queryBlockAt, TIME_RANGES, whereClause, type RangeKey } from "./helpers";
 import { KqlEditor, type EditorHandle } from "./KqlEditor";
 import { ResultsArea, type Outcome, type ResultsHandle } from "./ResultsArea";
-import { SchemaPane } from "./SchemaPane";
+import { SchemaPane, type SchemaTab } from "./SchemaPane";
 import { ButtonMenu, Empty, Popover } from "./ui";
 
 interface TabState { id: number; title: string; query: string; runKey: number }
@@ -26,7 +26,7 @@ function TimeRangePicker({ value, custom, setInQuery, onChange }: {
   const valid = !!draft.from && !!draft.to && draft.from <= draft.to;
   return (
     <>
-      <button ref={btn} type="button" className="st-pill" style={{ background: "#fff", border: "1px solid #8a8886", height: 26 }} aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+      <button ref={btn} type="button" className="st-timepill" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(o => !o)}>
         Time range : <b>{label}</b>
       </button>
       {open && (
@@ -59,9 +59,9 @@ function TimeRangePicker({ value, custom, setInQuery, onChange }: {
   );
 }
 
-function QueryPane({ tab, active, panel, incidentId, schemaOpen, setSchemaOpen, onQuery, workspaceName }: {
+function QueryPane({ tab, active, panel, incidentId, schemaOpen, setSchemaOpen, schemaTab, setSchemaTab, onQuery, workspaceName }: {
   tab: TabState; active: boolean; panel: boolean; incidentId?: string; schemaOpen: boolean; setSchemaOpen: (b: boolean) => void;
-  onQuery: (id: number, q: string) => void; workspaceName: string;
+  schemaTab: SchemaTab; setSchemaTab: (t: SchemaTab) => void; onQuery: (id: number, q: string) => void; workspaceName: string;
 }) {
   const { ws, tables, actions } = useSentinel();
   const editor = useRef<EditorHandle>(null);
@@ -70,7 +70,8 @@ function QueryPane({ tab, active, panel, incidentId, schemaOpen, setSchemaOpen, 
   const [custom, setCustom] = useState(() => ({ from: isoToLocalInput(new Date(Date.parse(ws.now) - 86_400_000).toISOString()), to: isoToLocalInput(ws.now) }));
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [running, setRunning] = useState(false);
-  const [height, setHeight] = useState(panel ? 170 : 210);
+  const OPEN_HEIGHT = panel ? 180 : 210;
+  const [height, setHeight] = useState(OPEN_HEIGHT);
   const seq = useRef(0);
   const timer = useRef<number | undefined>(undefined);
   const query = tab.query;
@@ -163,26 +164,29 @@ function QueryPane({ tab, active, panel, incidentId, schemaOpen, setSchemaOpen, 
   return (
     <div className="st-grow" hidden={!active} style={active ? { display: "flex", flexDirection: "column", minHeight: 0 } : undefined}>
       <div className="st-logbar">
-        <span className="st-row" style={{ minWidth: 0 }}><Database size={14} color="#0078d4" aria-hidden /><span className="st-ellipsis" style={{ maxWidth: 220 }}>{workspaceName}</span></span>
-        <span className="st-cmdsep" aria-hidden />
-        <button type="button" className="st-btn primary" disabled={!query.trim() || running} onClick={run} title="Run (Shift+Enter)"><Play size={13} aria-hidden />Run</button>
+        <span className="st-logbar-ws"><Database size={16} color="#0078d4" aria-hidden /><span className="st-ellipsis">{workspaceName}</span></span>
+        <button type="button" className="st-btn primary st-runbtn" disabled={!query.trim() || running} onClick={run} title="Run (Shift+Enter)"><Play size={13} aria-hidden />Run</button>
         <TimeRangePicker value={rangeKey} custom={custom} setInQuery={setInQuery}
           onChange={(k, c) => { setRangeKey(k); if (c) setCustom(c); }} />
-        <span className="st-cmdsep" aria-hidden />
-        {ok ? (
-          <ButtonMenu label="Export" className="st-cmd" items={[
-            { label: "CSV (displayed columns)", onSelect: () => results.current?.exportCsv(false) },
-            { label: "CSV (all columns)", onSelect: () => results.current?.exportCsv(true) },
-          ]}><Download size={14} aria-hidden />Export<ChevronDown size={12} aria-hidden /></ButtonMenu>
-        ) : <button type="button" className="st-cmd" disabled title="Run a query first"><Download size={14} aria-hidden />Export</button>}
+        {!panel && (
+          <>
+            <span className="st-cmdsep" aria-hidden />
+            {ok ? (
+              <ButtonMenu label="Export" className="st-cmd" items={[
+                { label: "CSV (displayed columns)", onSelect: () => results.current?.exportCsv(false) },
+                { label: "CSV (all columns)", onSelect: () => results.current?.exportCsv(true) },
+              ]}><ArrowRightFromLine size={14} aria-hidden />Export<ChevronDown size={12} aria-hidden /></ButtonMenu>
+            ) : <button type="button" className="st-cmd" disabled title="Run a query first"><ArrowRightFromLine size={14} aria-hidden />Export</button>}
+          </>
+        )}
       </div>
       <div className="st-logs-main">
         {active && (schemaOpen
-          ? <SchemaPane onInsert={t => editor.current?.insert(t)} onLoad={load} onPreview={preview} onCollapse={() => setSchemaOpen(false)} />
+          ? <SchemaPane tab={schemaTab} onTab={setSchemaTab} onInsert={t => editor.current?.insert(t)} onLoad={load} onPreview={preview} onCollapse={() => setSchemaOpen(false)} />
           : (
             <div className="st-schema-collapsed">
               <button type="button" className="st-icon-btn" aria-label="Expand schema pane" title="Expand" onClick={() => setSchemaOpen(true)}><ChevronsRight size={15} aria-hidden /></button>
-              <span aria-hidden>Schema</span>
+              <span aria-hidden>Schema and Filter</span>
             </div>
           ))}
         <div className="st-logs-right">
@@ -193,11 +197,15 @@ function QueryPane({ tab, active, panel, incidentId, schemaOpen, setSchemaOpen, 
               <span>Query could not be parsed at line {error.line}, column {error.column}: {error.message}</span>
             </div>
           )}
+          <div className="st-editor-collapse">
+            <button type="button" className="st-icon-btn" style={{ width: 20, height: 20 }} aria-label={height <= 80 ? "Expand editor" : "Collapse editor"} aria-expanded={height > 80}
+              onClick={() => setHeight(h => (h <= 80 ? OPEN_HEIGHT : 80))}>{height <= 80 ? <ChevronsDown size={14} aria-hidden /> : <ChevronsUp size={14} aria-hidden />}</button>
+          </div>
           <div className="st-resize" role="separator" aria-orientation="horizontal" aria-label="Resize editor" aria-valuenow={height} aria-valuemin={80} aria-valuemax={520} tabIndex={0}
             onPointerDown={onResizeDown} onKeyDown={onResizeKey} />
           {running && !outcome && <Empty title="Running..."><span className="st-spinner" aria-hidden /></Empty>}
           {outcome?.result.ok && (
-            <ResultsArea key={outcome.id} ref={results} outcome={outcome} incidentId={incidentId} onFilter={onFilter} />
+            <ResultsArea key={outcome.id} ref={results} outcome={outcome} incidentId={incidentId} onFilter={onFilter} panel={panel} />
           )}
           {!running && !outcome && <Empty icon={<BarChart2 size={32} aria-hidden />} title="Get started">Write a query in the editor, or double-click a table, then select Run.</Empty>}
           {!running && outcome && !outcome.result.ok && <Empty icon={<FileQuestion size={32} aria-hidden />} title="The query failed">Fix the query above and run it again.</Empty>}
@@ -219,6 +227,7 @@ export function LogsPanel({ mode, request, incidentId }: {
   const [tabs, setTabs] = useState<TabState[]>(() => [{ id: 1, title: "New Query 1", query: request?.query ?? "", runKey: request?.run ? request.key : 0 }]);
   const [activeId, setActiveId] = useState(1);
   const [schemaOpen, setSchemaOpen] = useState(!panel);
+  const [schemaTab, setSchemaTab] = useState<SchemaTab>("tables");
   const seenRequest = useRef(request?.key ?? 0);
 
   const addTab = useCallback((query = "", runKey = 0) => {
@@ -254,18 +263,25 @@ export function LogsPanel({ mode, request, incidentId }: {
 
   return (
     <div className="st-logs">
-      <div className="st-qtabs" role="tablist" aria-label="Queries">
-        {tabs.map(t => (
-          <div key={t.id} className="st-qtab" data-active={t.id === activeId}>
-            <button type="button" role="tab" aria-selected={t.id === activeId} onClick={() => setActiveId(t.id)}>{t.title}{t.query.trim() ? " *" : ""}</button>
-            <button type="button" className="st-icon-btn" style={{ width: 20, height: 20 }} aria-label={`Close ${t.title}`} onClick={() => closeTab(t.id)}><X size={12} aria-hidden /></button>
+      {/* The panel inside an incident holds one query, as in the product. */}
+      {!panel && (
+        <div className="st-qtabs">
+          <div role="tablist" aria-label="Queries" style={{ display: "flex", alignItems: "stretch" }}>
+            {tabs.map(t => (
+              <div key={t.id} className="st-qtab" data-active={t.id === activeId}>
+                <button type="button" role="tab" aria-selected={t.id === activeId} onClick={() => setActiveId(t.id)}><FileText size={14} color="#0078d4" aria-hidden />{t.title}{t.query.trim() ? " *" : ""}</button>
+                <button type="button" className="st-icon-btn" style={{ width: 20, height: 20 }} aria-label={`Close ${t.title}`} onClick={() => closeTab(t.id)}><X size={12} aria-hidden /></button>
+              </div>
+            ))}
           </div>
-        ))}
-        <button type="button" className="st-icon-btn" style={{ alignSelf: "center", marginLeft: 4 }} aria-label="New Query" title="New Query" onClick={() => addTab()}><Plus size={16} aria-hidden /></button>
-      </div>
+          <button type="button" className="st-icon-btn" style={{ alignSelf: "center", marginLeft: 4 }} aria-label="New Query" title="New Query" onClick={() => addTab()}><Plus size={16} aria-hidden /></button>
+          <span className="st-grow" />
+          <button type="button" className="st-cmd" onClick={() => { setSchemaOpen(true); setSchemaTab("queries"); }}><ListChecks size={14} aria-hidden />Example queries</button>
+        </div>
+      )}
       {tabs.map(t => (
         <QueryPane key={t.id} tab={t} active={t.id === activeId} panel={panel} incidentId={incidentId}
-          schemaOpen={schemaOpen} setSchemaOpen={setSchemaOpen} onQuery={onQuery} workspaceName={ws.name} />
+          schemaOpen={schemaOpen} setSchemaOpen={setSchemaOpen} schemaTab={schemaTab} setSchemaTab={setSchemaTab} onQuery={onQuery} workspaceName={ws.name} />
       ))}
     </div>
   );

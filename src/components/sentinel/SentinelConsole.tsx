@@ -2,12 +2,12 @@
 import "./sentinel.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity, ChevronsLeft, ChevronsRight, Crosshair, Eye, Fingerprint, FolderOpen, Gauge, Lock, Radar, Search, ShieldCheck, TerminalSquare, Workflow, X,
+  Activity, Briefcase, ChevronsLeft, ChevronsRight, Crosshair, Eye, Fingerprint, Gauge, Lock, Radar, Search, ShieldCheck, TerminalSquare, Workflow, X,
 } from "lucide-react";
 import type { IncidentState, SentinelActions, SentinelBookmark, SentinelEntity, SentinelWorkspace } from "@/lib/sentinel/types";
 import { SentinelProvider, type LogsRequest, type PlaybookRequest, type PlaybookRun, type Screen, type SentinelCtx } from "./context";
 import { setCompletionTables } from "./engine";
-import { allBookmarks, bookmarkTable, defaultState, tiComment, tidyWorkspace } from "./helpers";
+import { allBookmarks, bookmarkTable, defaultState, KIND_LABEL, tiComment, tidyWorkspace } from "./helpers";
 import { IncidentDetails } from "./IncidentDetails";
 import { PlaybookPanel } from "./IncidentPanes";
 import { IncidentsPage } from "./IncidentsPage";
@@ -15,7 +15,7 @@ import { InvestigationGraph } from "./InvestigationGraph";
 import { LogsPanel } from "./LogsPanel";
 import { OverviewPage } from "./OverviewPage";
 import { AnalyticsPage, AutomationPage, EntityBehaviorPage, HuntingPage, SearchPage, ThreatIntelPage } from "./SimplePages";
-import { BladeTitle, SlidePanel } from "./ui";
+import { BladeHeader, SlidePanel } from "./ui";
 
 export interface SentinelConsoleProps {
   workspace: SentinelWorkspace;
@@ -23,10 +23,14 @@ export interface SentinelConsoleProps {
   actions: SentinelActions;
   onRefresh: () => void;
   ended: boolean;
-  /** Where "Back to team room" goes. */
+  /** Where the SIEM window link goes when no window is open. */
   backHref?: string;
   /** Deep link from the team room: opens this incident, or this host's entity page. */
   initial?: { incidentId?: string; host?: string };
+  /** Bumped when the SIEM window sends the analyst to something. Same shape as initial. */
+  goTo?: { incidentId?: string; host?: string; nonce: number };
+  /** Brings the SIEM window forward instead of leaving this one. */
+  onBack?: () => void;
 }
 
 const NAV: { group: string; items: { id: Screen; label: string; icon: typeof Gauge }[] }[] = [
@@ -36,7 +40,7 @@ const NAV: { group: string; items: { id: Screen; label: string; icon: typeof Gau
     { id: "search", label: "Search", icon: Search },
   ] },
   { group: "Threat management", items: [
-    { id: "incidents", label: "Incidents", icon: FolderOpen },
+    { id: "incidents", label: "Incidents", icon: Briefcase },
     { id: "hunting", label: "Hunting", icon: Crosshair },
     { id: "entity", label: "Entity behavior", icon: Fingerprint },
     { id: "ti", label: "Threat intelligence", icon: ShieldCheck },
@@ -50,9 +54,13 @@ const NAV: { group: string; items: { id: Screen; label: string; icon: typeof Gau
 /** Focus goes back to what opened a blade, once that is visible again. */
 const refocus = (el: HTMLElement | null) => window.setTimeout(() => { if (el?.isConnected) el.focus({ preventScroll: true }); }, 0);
 
+const SCREEN_TITLE: Record<Screen, string> = {
+  overview: "Overview", logs: "Logs", search: "Search", incidents: "Incidents", hunting: "Hunting", entity: "Entity behavior", ti: "Threat intelligence", analytics: "Analytics", automation: "Automation",
+};
+
 interface Toast { id: number; kind: "incident" | "error" | "info"; title: string; body?: string; incidentId?: string; severity?: string }
 
-export function SentinelConsole({ workspace: source, states, actions, onRefresh, ended, backHref = "/team", initial }: SentinelConsoleProps) {
+export function SentinelConsole({ workspace: source, states, actions, onRefresh, ended, backHref = "/team", initial, goTo, onBack }: SentinelConsoleProps) {
   const workspace = useMemo(() => tidyWorkspace(source), [source]);
   const [screen, setScreen] = useState<Screen>("incidents");
   const [navCollapsed, setNavCollapsed] = useState(false);
@@ -180,6 +188,18 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
     }
   }, [initial, workspace, openIncident, openEntity]);
 
+  // The SIEM window sent the analyst here. What they have open stays: only the view moves.
+  useEffect(() => {
+    if (!goTo) return;
+    const inc = goTo.incidentId ? workspace.incidents.find(i => i.id === goTo.incidentId) : undefined;
+    if (inc) { openIncident(inc.id); return; }
+    const host = goTo.host?.toLowerCase();
+    const entity = host ? Object.values(workspace.entities).find(e => e.kind === "host" && e.name.toLowerCase() === host) : undefined;
+    if (entity) openEntity(entity.id);
+    // Only a new request moves the view, never a workspace refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goTo?.nonce]);
+
   const addToTi = useCallback((entity: SentinelEntity, id: string) => {
     void actions.addComment(id, tiComment(entity)).then(err => {
       report(err);
@@ -220,6 +240,8 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
   const investigated = investigateId ? workspace.incidents.find(i => i.id === investigateId) : undefined;
   const nq = navQ.trim().toLowerCase();
   const covered = !!incident || !!investigated;
+  const focused = screen === "entity" && entityFocus ? workspace.entities[entityFocus] : undefined;
+  const ScreenIcon = focused ? Fingerprint : (NAV.flatMap(g => g.items).find(i => i.id === screen)?.icon ?? Gauge);
 
   return (
     <SentinelProvider value={ctx}>
@@ -230,10 +252,16 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
           <span className="st-ellipsis" data-testid="workspace-name">{workspace.name}</span>
           <span className="st-grow" />
           <span className="st-ellipsis">{actions.me.name}{actions.me.role ? ` (${actions.me.role})` : ""}</span>
-          <a href={backHref}>Back to team room</a>
+          <a href={backHref} onClick={e => { if (onBack) { e.preventDefault(); onBack(); } }}>SIEM window</a>
         </header>
         {ended && <div className="st-ended" role="status"><Lock size={13} aria-hidden />The exercise has ended. This workspace is read-only: queries still run, changes are off.</div>}
         <div className="st-shell">
+          {!covered && (
+            <BladeHeader icon={<ScreenIcon size={30} color="#0078d4" fill={ScreenIcon === Briefcase ? "#c7e0f4" : "none"} aria-hidden />} {...(focused
+              ? { strong: focused.name, sub: KIND_LABEL[focused.kind], crumbs: [{ label: "Home" }, { label: "Sentinel | Entity behavior", onClick: () => setEntityFocus(null) }] }
+              : { strong: "Sentinel", light: SCREEN_TITLE[screen], sub: `Selected workspace: '${workspace.name}'`, crumbs: [{ label: "Home" }, { label: "Sentinel" }] })} />
+          )}
+          <div className="st-body">
           <nav className={`st-nav${navCollapsed ? " collapsed" : ""}`} aria-label="Sentinel menu" hidden={covered}>
             <div className="st-nav-top">
               {!navCollapsed && (
@@ -250,7 +278,7 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
               if (!items.length) return null;
               return (
                 <div key={g.group}>
-                  {!navCollapsed && <div className="st-nav-group">{g.group}</div>}
+                  {!navCollapsed && <div className="st-nav-group"><span>{g.group}</span></div>}
                   {items.map(i => (
                     <button key={i.id} type="button" className="st-nav-item" title={i.label} aria-label={navCollapsed ? i.label : undefined} aria-current={screen === i.id ? "page" : undefined} onClick={() => go(i.id)}>
                       <i.icon size={15} aria-hidden />{!navCollapsed && i.label}
@@ -271,16 +299,16 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
             {screen === "automation" && <AutomationPage />}
             {logsMounted && (
               <div className="st-page" hidden={screen !== "logs"} style={screen === "logs" ? undefined : { display: "none" }}>
-                <BladeTitle title="Sentinel | Logs" sub={`Selected workspace: '${workspace.name}'`} crumbs={[{ label: "Home" }, { label: "Sentinel" }]} />
                 <LogsPanel mode="workspace" request={logsRequest} />
               </div>
             )}
           </main>
+          </div>
           {incident && <IncidentDetails key={`incident-${incident.id}`} incident={incident} focusEntity={focusEntity} onClose={closeIncident} hidden={!!investigated} />}
           {investigated && <InvestigationGraph key={`investigate-${investigated.id}`} incident={investigated} onClose={closeInvestigation} />}
           {logsOverlay && (
-            <SlidePanel title="Logs" subtitle={workspace.name} width="min(1180px, 94%)" noBody onClose={() => setLogsOverlay(null)}
-              icon={<TerminalSquare size={22} color="#0078d4" aria-hidden />}
+            <SlidePanel title="Logs" subtitle={workspace.name} width="min(1130px, 80%)" noBody onClose={() => setLogsOverlay(null)}
+              icon={<TerminalSquare size={28} color="#0078d4" aria-hidden />}
               footer={<button type="button" className="st-btn primary" onClick={() => setLogsOverlay(null)}>Done</button>}>
               <LogsPanel key={logsOverlay.key} mode="panel" request={logsOverlay} incidentId={logsOverlay.incidentId ?? investigateId ?? incidentId ?? undefined} />
             </SlidePanel>

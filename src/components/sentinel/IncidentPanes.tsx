@@ -1,10 +1,10 @@
 "use client";
 // The slide-overs of an incident: Tasks, Activity log, and the playbook runner.
 import { useMemo, useRef, useState } from "react";
-import { ClipboardList, MessageSquare, Pencil, Play, Plus, Workflow } from "lucide-react";
+import { ClipboardList, MessageSquare, Pencil, Play, Plus, UserRound, Workflow } from "lucide-react";
 import type { SentinelIncident } from "@/lib/sentinel/types";
 import { useSentinel, type PlaybookRun } from "./context";
-import { commentText, entitiesOf, fmtDateTime } from "./helpers";
+import { activityTitle, commentText, entitiesOf, fmtShortTime } from "./helpers";
 import { Empty, Select, SlidePanel } from "./ui";
 
 export function TasksPane({ incident, onClose }: { incident: SentinelIncident; onClose: () => void }) {
@@ -53,7 +53,6 @@ export function TasksPane({ incident, onClose }: { incident: SentinelIncident; o
 
 type Filter = "All" | "Activities" | "Comments";
 const FILTERS: { value: Filter; label: Filter }[] = [{ value: "All", label: "All" }, { value: "Activities", label: "Activities" }, { value: "Comments", label: "Comments" }];
-const initials = (n: string) => n.split(/\s+/).map(p => p[0]).slice(0, 2).join("").toUpperCase();
 
 export function ActivityPane({ incident, onClose }: { incident: SentinelIncident; onClose: () => void }) {
   const { stateOf, actions, ended, report } = useSentinel();
@@ -66,7 +65,8 @@ export function ActivityPane({ incident, onClose }: { incident: SentinelIncident
   const items = useMemo(() => {
     const out = [
       ...(filter === "Activities" ? [] : state.comments.map(c => ({ key: c.id, at: c.at, comment: true, who: c.author, text: c.text }))),
-      ...(filter === "Comments" ? [] : state.activity.map((a, i) => ({ key: `a${i}`, at: a.at, comment: false, who: a.actor, text: a.text }))),
+      // A comment is its own entry here, so the "Comment added" line would only repeat it.
+      ...(filter === "Comments" ? [] : state.activity.filter(a => a.text !== "Comment added").map((a, i) => ({ key: `a${i}`, at: a.at, comment: false, who: a.actor, text: a.text }))),
     ];
     return out.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
   }, [state.comments, state.activity, filter]);
@@ -84,7 +84,7 @@ export function ActivityPane({ incident, onClose }: { incident: SentinelIncident
   };
 
   return (
-    <SlidePanel title="Incident activity log" onClose={onClose} width={560} noBody>
+    <SlidePanel title="Incident activity log" onClose={onClose} width={680} noBody>
       <div style={{ padding: "0 16px 10px" }}>
         <Select label="Activity logs content" value={filter} options={FILTERS} onChange={setFilter} className="st-pill">
           Activity logs content : <b>{filter}</b>
@@ -94,25 +94,28 @@ export function ActivityPane({ incident, onClose }: { incident: SentinelIncident
         {items.length === 0 && <Empty icon={<MessageSquare size={26} aria-hidden />} title="Nothing logged yet" />}
         {items.map(i => (
           <div key={i.key} className={`st-activity-card${i.comment ? " comment" : ""}`}>
-            <span className={`who${i.comment ? " person" : ""}`} aria-hidden>{i.comment ? initials(i.who) : <Pencil size={13} />}</span>
+            <span className={`who${i.comment ? " person" : ""}`} aria-hidden>{i.comment ? <UserRound size={18} /> : <Pencil size={14} />}</span>
             <div className="body">
-              <div><strong>{i.comment ? i.who : "Incident was changed"}</strong> <span className="st-small st-muted">{fmtDateTime(i.at)}</span></div>
-              <div className="st-small" style={{ marginTop: 2 }}>{i.comment ? commentText(i.text) : `${i.text} (${i.who})`}</div>
+              <div className="t"><strong>{i.comment ? i.who : activityTitle(i.text)}</strong> <span className="when">{fmtShortTime(i.at)}</span></div>
+              <div className="d">{i.comment ? commentText(i.text) : <>{i.text} by <em>{i.who}</em></>}</div>
             </div>
           </div>
         ))}
       </div>
       {!ended && (
-        <div style={{ padding: "10px 16px", borderTop: "1px solid var(--st-border)" }}>
+        <div className="st-comment-box">
           {atLimit
             ? <div className="st-msg warn">This incident has reached the limit of 100 comments.</div>
             : (
-              <label><span className="st-sr">Write a comment</span>
-                <textarea ref={box} data-autofocus className="st-input st-textarea" rows={3} maxLength={4000} value={text} placeholder="Write a comment..." onChange={e => setText(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); void send(); } }} />
-              </label>
+              <div className="row">
+                <span className="who person" aria-hidden><UserRound size={18} /></span>
+                <label className="st-grow"><span className="st-sr">Write a comment</span>
+                  <textarea ref={box} data-autofocus className="st-input st-textarea" rows={4} maxLength={4000} value={text} placeholder="Write a comment..." onChange={e => setText(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); void send(); } }} />
+                </label>
+              </div>
             )}
-          <div className="st-row" style={{ justifyContent: "flex-end", marginTop: 8 }}>
+          <div className="st-row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
             <button type="button" className="st-btn" onClick={onClose}>Close</button>
             <button type="button" className="st-btn primary" disabled={!text.trim() || busy || atLimit} onClick={() => void send()}>Comment</button>
           </div>

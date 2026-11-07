@@ -54,6 +54,7 @@ import { roleDirective, RoleGuideModal } from "./_components/RoleGuideModal";
 import { GuidedTour } from "./_components/GuidedTour";
 import { tourFor, forSentinel } from "./_components/teamTours";
 import { useSentinelIncidents } from "@/lib/team/useSentinelIncidents";
+import { showSentinelWindow, siemWindowName } from "@/lib/team/twoWindows";
 import { SharedCase } from "./_components/SharedCase";
 import { T1Console } from "./_components/T1Console";
 import { T2Console } from "./_components/T2Console";
@@ -1021,14 +1022,14 @@ export default function TeamRoomPage() {
     const escHosts = escalations.map(e => asStr((e.payload as { snapshot?: { hostname?: unknown } }).snapshot?.hostname)).filter(Boolean);
     return escHosts.length ? escHosts.some(h => edrHosts.has(hostKey(h))) : edrHosts.size > 0;
   }, [edrHosts, escalations, isSentinel, feed.length]);
+  // This tab is the session's SIEM window: Sentinel's link back brings it forward.
+  useEffect(() => { if (isSentinel) window.name = siemWindowName(id); }, [isSentinel, id]);
   const openSentinel = useCallback((target?: { host?: string; incident?: string }) => {
     const q = new URLSearchParams({ team: id, u: me?.id ?? "anon" });
     if (me?.role) q.set("r", me.role);
     if (target?.host) q.set("host", target.host);
     if (target?.incident) q.set("incident", target.incident);
-    const w = window.open(`/sentinel?${q}`, "_blank");
-    if (!w) { setEdrNote("Pop-up blocked: allow pop-ups for this site, then open Sentinel again."); return; }
-    try { w.opener = null; } catch { /* cross-origin guard: nothing to cut */ }
+    if (!showSentinelWindow(id, `/sentinel?${q}`, target)) { setEdrNote("Pop-up blocked: allow pop-ups for this site, then open Sentinel again."); return; }
     setEdrNote(null);
   }, [id, me?.id, me?.role]);
   const openEdr = useCallback((description?: string, host?: string) => {

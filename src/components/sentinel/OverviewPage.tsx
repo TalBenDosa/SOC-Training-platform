@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { useSentinel } from "./context";
 import { fmtCount, fmtDateTime, SEVERITIES, STATUSES } from "./helpers";
 import { ChartView } from "./ChartView";
-import { BladeTitle, Empty, Severity, StatusIcon } from "./ui";
+import { Empty, Severity, StatusIcon } from "./ui";
 import { BarChart2 } from "lucide-react";
 import type { KqlColumn, KqlRow } from "@/lib/kql/types";
 
@@ -48,7 +48,6 @@ export function OverviewPage() {
 
   return (
     <div className="st-page">
-      <BladeTitle title="Sentinel | Overview" sub={`Selected workspace: '${ws.name}'`} crumbs={[{ label: "Home" }, { label: "Sentinel" }]} />
       <div className="st-page-scroll">
         <div className="st-ov">
           <div className="st-ov-top">
@@ -75,7 +74,7 @@ export function OverviewPage() {
             <section className="st-tile" aria-label="Incidents by status">
               <h3>Incidents by status</h3>
               {STATUSES.map(s => (
-                <div key={s} className="st-sevbar-row" style={{ gridTemplateColumns: "76px 1fr 30px", fontSize: 12, color: "var(--st-text)", marginBottom: 6 }}>
+                <div key={s} className="st-statusbar-row">
                   <span className="st-row" style={{ gap: 4 }}><StatusIcon status={s} size={12} />{s}</span>
                   <span className="st-sevbar-track"><span className="st-sevbar-fill" style={{ display: "block", background: "var(--st-accent)", width: `${(byStatus[s] / maxStatus) * 100}%` }} /></span>
                   <span>{byStatus[s]}</span>

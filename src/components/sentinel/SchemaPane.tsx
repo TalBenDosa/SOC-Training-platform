@@ -1,9 +1,16 @@
 "use client";
 import { memo, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, ChevronsLeft, FileCode2, Play, Search, Table2 } from "lucide-react";
+import { ChevronsLeft, FileCode2, Play, Search, Table2 } from "lucide-react";
 import type { KqlColumn, KqlTable } from "@/lib/kql/types";
 import { useSentinel } from "./context";
-import { Tabs } from "./ui";
+import { Select, Tabs } from "./ui";
+
+export type SchemaTab = "tables" | "queries";
+const GROUPS = [{ value: "solution", label: "Solution" }, { value: "none", label: "None" }] as const;
+type GroupBy = (typeof GROUPS)[number]["value"];
+
+/** The filled triangle the schema tree uses. */
+const Caret = ({ open }: { open: boolean }) => <i className={`st-caret${open ? " open" : ""}`} aria-hidden />;
 
 const TYPE_GLYPH: Record<KqlColumn["type"], string> = { string: "t", int: "#", long: "#", real: "#", bool: "b", datetime: "d", timespan: "s", dynamic: "{}", guid: "g" };
 
@@ -28,7 +35,7 @@ const TableNode = memo(function TableNode({ table, onInsert, onPreview, filter }
       <div className="st-schema-row">
         <button type="button" className="st-row" style={{ gap: 4, flex: "1 1 auto", minWidth: 0 }} aria-expanded={showColumns} aria-label={`${table.name}, table, ${table.rows.length} rows. Press Enter to insert, Space to expand.`}
           title="Click to expand, double-click to insert" onClick={() => setOpen(o => !o)} {...activates(() => onInsert(table.name))}>
-          {showColumns ? <ChevronDown size={12} aria-hidden /> : <ChevronRight size={12} aria-hidden />}
+          <Caret open={showColumns} />
           <Table2 size={13} aria-hidden color="#605e5c" />
           <span className="st-ellipsis">{table.name}</span>
         </button>
@@ -53,11 +60,11 @@ const TableNode = memo(function TableNode({ table, onInsert, onPreview, filter }
   );
 });
 
-export function SchemaPane({ onInsert, onLoad, onPreview, onCollapse }: {
-  onInsert: (text: string) => void; onLoad: (query: string) => void; onPreview: (table: string) => void; onCollapse: () => void;
+export function SchemaPane({ tab, onTab, onInsert, onLoad, onPreview, onCollapse }: {
+  tab: SchemaTab; onTab: (t: SchemaTab) => void; onInsert: (text: string) => void; onLoad: (query: string) => void; onPreview: (table: string) => void; onCollapse: () => void;
 }) {
   const { tables, ws } = useSentinel();
-  const [tab, setTab] = useState<"tables" | "queries">("tables");
+  const [groupBy, setGroupBy] = useState<GroupBy>("solution");
   const [q, setQ] = useState("");
   const [closed, setClosed] = useState<Set<string>>(() => new Set());
   const [showEmpty, setShowEmpty] = useState(false);
@@ -68,11 +75,11 @@ export function SchemaPane({ onInsert, onLoad, onPreview, onCollapse }: {
     for (const t of Object.values(tables)) {
       if (!showEmpty && !t.rows.length) continue;
       if (s && !t.name.toLowerCase().includes(s) && !t.columns.some(c => c.name.toLowerCase().includes(s))) continue;
-      const g = groupOf(t.name);
+      const g = groupBy === "solution" ? groupOf(t.name) : "Tables";
       map.set(g, [...(map.get(g) ?? []), t]);
     }
     return [...map].sort((a, b) => a[0].localeCompare(b[0])).map(([name, list]) => ({ name, list: list.sort((x, y) => x.name.localeCompare(y.name)) }));
-  }, [tables, s, showEmpty]);
+  }, [tables, s, showEmpty, groupBy]);
   const emptyCount = useMemo(() => Object.values(tables).filter(t => !t.rows.length).length, [tables]);
 
   const queryGroups = useMemo(() => {
@@ -88,7 +95,7 @@ export function SchemaPane({ onInsert, onLoad, onPreview, onCollapse }: {
   return (
     <aside className="st-schema" aria-label="Schema">
       <div className="st-row" style={{ padding: "2px 8px 0 12px" }}>
-        <Tabs label="Schema" value={tab} onChange={setTab} tabs={[{ value: "tables", label: "Tables" }, { value: "queries", label: "Queries" }]} />
+        <Tabs label="Schema" value={tab} onChange={onTab} tabs={[{ value: "tables", label: "Tables" }, { value: "queries", label: "Queries" }]} />
         <span className="st-grow" />
         <button type="button" className="st-icon-btn" aria-label="Collapse schema pane" title="Collapse" onClick={onCollapse}><ChevronsLeft size={15} aria-hidden /></button>
       </div>
@@ -97,11 +104,16 @@ export function SchemaPane({ onInsert, onLoad, onPreview, onCollapse }: {
           <input className="st-input" value={q} onChange={e => setQ(e.target.value)} placeholder="Search" />
         </label>
       </div>
+      {tab === "tables" && (
+        <div className="st-groupby"><strong>Group by:</strong>
+          <Select label="Group by" value={groupBy} options={[...GROUPS]} onChange={setGroupBy} className="st-link">{GROUPS.find(g => g.value === groupBy)?.label}</Select>
+        </div>
+      )}
       <div className="st-schema-list">
         {tab === "tables" && groups.map(g => (
           <div key={g.name}>
             <button type="button" className="st-schema-group" aria-expanded={!closed.has(g.name)} onClick={() => toggleGroup(g.name)}>
-              {closed.has(g.name) ? <ChevronRight size={12} aria-hidden /> : <ChevronDown size={12} aria-hidden />}{g.name}
+              <Caret open={!closed.has(g.name)} />{g.name}
             </button>
             {!closed.has(g.name) && <ul>{g.list.map(t => <TableNode key={t.name} table={t} onInsert={onInsert} onPreview={onPreview} filter={s} />)}</ul>}
           </div>
@@ -115,7 +127,7 @@ export function SchemaPane({ onInsert, onLoad, onPreview, onCollapse }: {
         {tab === "queries" && queryGroups.map(g => (
           <div key={g.name}>
             <button type="button" className="st-schema-group" aria-expanded={!closed.has(g.name)} onClick={() => toggleGroup(g.name)}>
-              {closed.has(g.name) ? <ChevronRight size={12} aria-hidden /> : <ChevronDown size={12} aria-hidden />}{g.name}
+              <Caret open={!closed.has(g.name)} />{g.name}
             </button>
             {!closed.has(g.name) && (
               <ul>

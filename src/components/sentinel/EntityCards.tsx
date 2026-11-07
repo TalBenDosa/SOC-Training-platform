@@ -1,12 +1,12 @@
 "use client";
 // Info, Timeline and Insights of an entity: incident Entities tab, Entity behavior page, graph rail.
 import { memo, useMemo, useState } from "react";
-import { Activity, Bookmark, ChevronDown, ChevronRight, Clock, Lightbulb, ShieldAlert } from "lucide-react";
+import { Activity, Bookmark, ChevronDown, ChevronUp, Clock, Lightbulb, ShieldAlert } from "lucide-react";
 import type { EntityInsight, SentinelEntity, SentinelIncident } from "@/lib/sentinel/types";
 import { useSentinel } from "./context";
 import { insightsForEntity } from "./engine";
-import { entityActivity, fmtClock, fmtCount, fmtDateTime, fmtMonthDay, kqlString } from "./helpers";
-import { Empty } from "./ui";
+import { entityActivity, fmtClock, fmtCount, fmtDateTime, fmtMonthDay, fmtShortTime, kqlString } from "./helpers";
+import { Empty, InfoMark } from "./ui";
 
 export function InsightCard({ insight, range, defaultOpen = true }: { insight: EntityInsight; range?: string; defaultOpen?: boolean }) {
   const { openLogs } = useSentinel();
@@ -15,8 +15,9 @@ export function InsightCard({ insight, range, defaultOpen = true }: { insight: E
   return (
     <section className="st-insight">
       <button type="button" className="st-insight-head" aria-expanded={open} onClick={() => setOpen(o => !o)}>
-        {open ? <ChevronDown size={13} color="#0078d4" aria-hidden /> : <ChevronRight size={13} color="#0078d4" aria-hidden />}
-        <span className="st-ellipsis">{insight.title}</span>
+        {open ? <ChevronUp size={16} color="#0078d4" aria-hidden /> : <ChevronDown size={16} color="#0078d4" aria-hidden />}
+        <span className="st-ellipsis st-grow">{insight.title}</span>
+        <InfoMark title={insight.description} />
       </button>
       {open && (
         <>
@@ -35,24 +36,26 @@ export function InsightCard({ insight, range, defaultOpen = true }: { insight: E
   );
 }
 
+const HEADING: Partial<Record<SentinelEntity["kind"], string>> = { ip: "Geolocation information", account: "Account information", host: "Host information" };
+
 export const EntityInfoCard = memo(function EntityInfoCard({ entity }: { entity: SentinelEntity }) {
   const { ws, openLogs } = useSentinel();
   const activity = useMemo(() => entityActivity(entity, ws), [entity, ws]);
   const facts = Object.entries(entity.info);
   return (
-    <div>
-      <h4 style={{ fontSize: 14, marginBottom: 6 }}>Information</h4>
+    <div className="st-infocard">
+      <h4>{HEADING[entity.kind] ?? "Information"} <InfoMark title="What the workspace knows about this entity." /></h4>
       {facts.length === 0 && <p className="st-muted st-small">No identifying facts recorded.</p>}
-      <div className="st-2col" style={{ gap: "8px 12px" }}>
+      <div className="st-2col">
         {facts.map(([k, v]) => <div key={k} style={{ minWidth: 0 }}><div className="st-k">{k}</div><div style={{ wordBreak: "break-word" }}>{/^\d{4}-\d{2}-\d{2}T/.test(v) ? fmtDateTime(v) : v || "-"}</div></div>)}
       </div>
-      <hr style={{ border: 0, borderTop: "1px solid var(--st-border)", margin: "12px 0" }} />
-      <h4 style={{ fontSize: 14, marginBottom: 6 }}>Log Activity</h4>
-      <div className="st-2col" style={{ gap: "8px 12px" }}>
+      <hr />
+      <h4>Log Activity <InfoMark title="Where this entity appears in the workspace." /></h4>
+      <div className="st-2col">
         <div><div className="st-k">First Seen</div>{fmtDateTime(activity.firstSeen)}</div>
         <div><div className="st-k">Last Seen</div>{fmtDateTime(activity.lastSeen)}</div>
       </div>
-      <div className="st-k" style={{ marginTop: 8 }}>Data Sources</div>
+      <div className="st-k" style={{ marginTop: 10 }}>Data Sources</div>
       {activity.tables.length === 0 && <div>-</div>}
       <ul>
         {activity.tables.slice(0, 8).map(t => (
@@ -62,6 +65,17 @@ export const EntityInfoCard = memo(function EntityInfoCard({ entity }: { entity:
           </li>
         ))}
       </ul>
+      {entity.kind !== "host" && (
+        <>
+          <hr />
+          <h4>Logged Hosts <InfoMark title="Hosts this entity appears on in the logs." /></h4>
+          <div className="st-3col"><div className="st-k">Host name</div><div className="st-k">First seen</div><div className="st-k">Last seen</div></div>
+          {activity.hosts.length === 0 && <div className="st-3col"><div>-</div><div>-</div><div>-</div></div>}
+          {activity.hosts.slice(0, 8).map(h => (
+            <div key={h.name} className="st-3col"><div className="st-ellipsis" title={h.name}>{h.name}</div><div>{fmtShortTime(h.first)}</div><div>{fmtShortTime(h.last)}</div></div>
+          ))}
+        </>
+      )}
     </div>
   );
 });
@@ -75,7 +89,7 @@ export const EntityTimelineCard = memo(function EntityTimelineCard({ entity, inc
     const out: TimelineRow[] = [];
     for (const a of ws.alerts) {
       if (!a.entityIds.includes(entity.id)) continue;
-      out.push({ key: a.id, at: a.time, title: a.name, sub: `${a.severity} | ${a.product}`, icon: !incident || inIncident.has(a.id) ? "alert" : "foreign", sev: a.severity, query: a.query });
+      out.push({ key: a.id, at: a.time, title: a.name, sub: `Detected by ${a.product}`, icon: !incident || inIncident.has(a.id) ? "alert" : "foreign", sev: a.severity, query: a.query });
     }
     for (const b of bookmarks) {
       if (b.entityIds.includes(entity.id)) out.push({ key: b.id, at: b.at, title: b.name, sub: `Bookmark by ${b.author}`, icon: "bookmark", query: b.query });
@@ -91,15 +105,17 @@ export const EntityTimelineCard = memo(function EntityTimelineCard({ entity, inc
       {rows.map(r => (
         <li key={r.key}>
           <button type="button" className="st-tl-item" style={{ gridTemplateColumns: "50px 24px 1fr" }} title={r.title} onClick={() => openLogs({ query: r.query, run: true })}>
-            <span className="st-tl-date">{fmtMonthDay(r.at)}<br />{fmtClock(r.at)}</span>
-            <span className="st-tl-rail"><span className="st-tl-dot" style={r.icon === "foreign" ? { color: "#a19f9d" } : undefined}>
-              {r.icon === "bookmark" ? <Bookmark size={12} aria-hidden /> : r.icon === "activity" ? <Activity size={12} aria-hidden /> : <ShieldAlert size={12} aria-hidden />}
+            <span className="st-tl-date"><b>{fmtMonthDay(r.at)}</b><br />{fmtClock(r.at)}</span>
+            <span className="st-tl-rail"><span className="st-tl-dot foreign-ok">
+              {r.icon === "bookmark" ? <Bookmark size={13} color="#0078d4" fill="#0078d4" aria-hidden />
+                : r.icon === "activity" ? <Activity size={13} color="#605e5c" aria-hidden />
+                  : <ShieldAlert size={14} color="#fff" fill={r.icon === "foreign" ? "#a19f9d" : "#0078d4"} aria-hidden />}
             </span></span>
             <span className="st-tl-main">
               {r.sev && <i className={`st-band ${r.sev}${r.icon === "foreign" ? " dotted" : ""}`} aria-hidden />}
-              <span style={{ minWidth: 0 }}>
+              <span style={{ minWidth: 0, display: "block", width: "100%" }}>
                 <span className="st-tl-title st-ellipsis" style={{ display: "block", fontWeight: r.icon === "activity" ? 400 : 600 }}>{r.title}</span>
-                <span className="st-small st-muted st-ellipsis" style={{ display: "block" }}>{r.sub}</span>
+                <span className="st-tl-meta">{r.sev && <span>{r.sev}</span>}<span className="st-ellipsis">{r.sub}</span></span>
               </span>
             </span>
           </button>

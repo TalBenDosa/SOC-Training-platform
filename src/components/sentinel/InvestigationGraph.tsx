@@ -1,24 +1,29 @@
 "use client";
-// The investigation graph: alerts and entities on a pannable canvas. Layout is deterministic, so
-// every viewer sees the same picture. Exploration queries run through KQL and hang off a hub node.
+// The investigation graph, as in investigation-map.png and related-alerts.png. An alert runs one trunk
+// to a junction that branches to its entities, with an activity dot that opens its events. Exploration
+// queries run through KQL and hang off a hub with an X. Layout is deterministic: every viewer sees the same picture.
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Bookmark, Briefcase, ChevronsRight, Clock, Info, Lightbulb, ListTree, Maximize, Minus, Plus, Redo2, Search, ShieldAlert, Undo2, Users, X,
+  Activity, Bookmark, Briefcase, ChevronDown, ChevronUp, ChevronsRight, CircleHelp, CircleUserRound, Clock, Info, Lightbulb, ListTree, Maximize, Minus, Plus, Redo2, Search, ShieldAlert, Undo2, Users, X,
 } from "lucide-react";
 import type { EntityKind, SentinelAlert, SentinelEntity, SentinelIncident, SentinelSeverity } from "@/lib/sentinel/types";
 import { useSentinel } from "./context";
 import { EntityInfoCard, EntityInsightsCard, InsightCard } from "./EntityCards";
 import { insightsForIncident, runQuery } from "./engine";
 import { alertsOf, entitiesOf, explorationsFor, fmtClock, fmtDateTime, fmtMonthDay, KIND_LABEL, type Exploration } from "./helpers";
-import { Crumbs, EntityIcon, entityIcon, Tabs } from "./ui";
+import { Crumbs, EntityIcon, entityIcon, StatusIcon, Tabs } from "./ui";
 
-const SEV_STROKE: Record<SentinelSeverity, string> = { High: "#d13438", Medium: "#ff8c00", Low: "#c8a600", Informational: "#8a8886" };
+const SEV_STROKE: Record<SentinelSeverity, string> = { High: "#a4262c", Medium: "#ff8c00", Low: "#c8a600", Informational: "#8a8886" };
+const DARK = "#323130";
 
 type GNode =
   | { id: string; type: "entity"; entity: SentinelEntity; x: number; y: number }
-  | { id: string; type: "alert"; alert: SentinelAlert; x: number; y: number };
-interface Hub { id: string; parent: string; x: number; y: number; children: string[]; label: string }
-interface Expansion { id: string; parent: string; label: string; items: ({ kind: "alert"; alert: SentinelAlert } | { kind: "entity"; entity: SentinelEntity })[] }
+  | { id: string; type: "alert"; alert: SentinelAlert; more: SentinelAlert[]; x: number; y: number };
+interface Hub { id: string; parent: string; x: number; y: number; children: string[]; label: string; query: string }
+type Item = { kind: "alert"; alert: SentinelAlert } | { kind: "entity"; entity: SentinelEntity };
+interface Expansion { id: string; parent: string; label: string; query: string; items: Item[] }
+interface ExplorationRun { ex: Exploration; rows: Record<string, unknown>[]; count: number; fresh: Item[] }
+type RailTab = "timeline" | "info" | "entities" | "insights" | "help";
 
 /** Alerts on an inner ring, entities evenly round an outer one, ordered by where their alerts sit, so
  * nothing overlaps and links cross as little as a ring allows. Pure and deterministic. */
@@ -44,31 +49,34 @@ function baseLayout(alerts: SentinelAlert[], entities: SentinelEntity[]): Map<st
 
 function truncate(s: string, n: number) { return s.length > n ? `${s.slice(0, n - 1)}...` : s; }
 
-const GraphNode = memo(function GraphNode({ node, selected, dim, onSelect, onHover, onLeave }: {
-  node: GNode; selected: boolean; dim: boolean; onSelect: (id: string) => void; onHover: (id: string) => void; onLeave: () => void;
+const GraphNode = memo(function GraphNode({ node, selected, hovered, dim, onSelect, onHover, onLeave }: {
+  node: GNode; selected: boolean; hovered: boolean; dim: boolean; onSelect: (id: string) => void; onHover: (id: string) => void; onLeave: () => void;
 }) {
-  const label = node.type === "alert" ? node.alert.name : node.entity.name;
-  const aria = node.type === "alert" ? `Alert ${label}, ${node.alert.severity} severity` : `${KIND_LABEL[node.entity.kind]} ${label}`;
-  const Icon = node.type === "entity" ? entityIcon(node.entity.kind) : ShieldAlert;
+  const isAlert = node.type === "alert";
+  const name = isAlert ? node.alert.name : node.entity.name;
+  const label = isAlert && node.more.length ? `+ ${node.more.length + 1} ${name}` : name;
+  const aria = isAlert ? `Alert ${label}, ${node.alert.severity} severity` : `${KIND_LABEL[node.entity.kind]} ${label}`;
+  const Icon = isAlert ? ShieldAlert : entityIcon(node.entity.kind);
+  const blue = selected || hovered;
   return (
     <g className={`st-gnode${dim ? " dim" : ""}`} transform={`translate(${node.x},${node.y})`} tabIndex={0} role="button" aria-label={aria} aria-pressed={selected}
       data-node={node.id} onClick={e => { e.stopPropagation(); onSelect(node.id); }}
       onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onSelect(node.id); } }}
       onMouseEnter={() => onHover(node.id)} onMouseLeave={onLeave} onFocus={() => onHover(node.id)} onBlur={onLeave} onPointerDown={e => e.stopPropagation()}>
-      {node.type === "alert" ? (
+      {isAlert ? (
         <>
+          {node.more.length > 0 && <circle cx={7} cy={-5} r={29} fill="#f3f2f1" stroke={SEV_STROKE[node.alert.severity]} strokeWidth={3} />}
           <circle className="st-gfocus" r={29} fill="#f3f2f1" stroke={SEV_STROKE[node.alert.severity]} strokeWidth={3} />
-          <circle r={24} fill="#323130" />
-          <Icon x={-11} y={-11} width={22} height={22} color="#fff" aria-hidden />
+          <circle r={24} fill={selected ? "#3b78d8" : DARK} />
+          <Icon x={-12} y={-12} width={24} height={24} color="#fff" aria-hidden />
         </>
       ) : (
         <>
-          <circle className="st-gfocus" r={20} fill="#fff" stroke={selected ? "#0078d4" : "#c8c6c4"} strokeWidth={selected ? 2 : 1} />
-          <Icon x={-9} y={-9} width={18} height={18} color="#323130" aria-hidden />
+          <circle className="st-gfocus" r={22} fill={blue ? "#3b78d8" : "#fff"} stroke={blue ? "#3b78d8" : "#c8c6c4"} />
+          <Icon x={-10} y={-10} width={20} height={20} color={blue ? "#fff" : DARK} aria-hidden />
         </>
       )}
-      {selected && node.type === "alert" && <circle r={33} fill="none" stroke="#0078d4" strokeWidth={2} />}
-      <text y={node.type === "alert" ? 44 : 34} textAnchor="middle"><title>{label}</title>{truncate(label, 22)}</text>
+      <text y={isAlert ? 46 : 38} textAnchor="middle"><title>{label}</title>{truncate(label, 20)}</text>
     </g>
   );
 });
@@ -76,11 +84,12 @@ const GraphNode = memo(function GraphNode({ node, selected, dim, onSelect, onHov
 function curve(x1: number, y1: number, x2: number, y2: number, bend = .14) {
   const mx = (x1 + x2) / 2; const my = (y1 + y2) / 2;
   const dx = x2 - x1; const dy = y2 - y1;
-  return `M${x1},${y1}Q${mx - dy * bend},${my + dx * bend} ${x2},${y2}`;
+  const qx = mx - dy * bend; const qy = my + dx * bend;
+  return { d: `M${x1},${y1}Q${qx},${qy} ${x2},${y2}`, mid: { x: .25 * x1 + .5 * qx + .25 * x2, y: .25 * y1 + .5 * qy + .25 * y2 } };
 }
 
-function resolve(ws: ReturnType<typeof useSentinel>["ws"], exploration: Exploration, rows: Record<string, unknown>[], exclude: string): Expansion["items"] {
-  const out: Expansion["items"] = [];
+function resolve(ws: ReturnType<typeof useSentinel>["ws"], exploration: Exploration, rows: Record<string, unknown>[], exclude: string): Item[] {
+  const out: Item[] = [];
   const seen = new Set<string>([exclude]);
   for (const p of exploration.pick) {
     for (const r of rows) {
@@ -98,17 +107,32 @@ function resolve(ws: ReturnType<typeof useSentinel>["ws"], exploration: Explorat
         seen.add(id);
         out.push({ kind: "entity", entity: ws.entities[id] ?? { id, kind: p.kind as EntityKind, name, info: { Source: exploration.label } } });
       }
-      if (out.length >= 12) return out;
     }
   }
   return out;
 }
 
-type RailTab = "timeline" | "info" | "entities" | "insights";
-interface ExplorationRun { ex: Exploration; rows: Record<string, unknown>[]; count: number; fresh: Expansion["items"] }
+/** Results with one name collapse: the first stands alone, the rest stack as "+ 41 name". */
+function stackItems(items: Item[]): { item: Item; more: SentinelAlert[] }[] {
+  const byName = new Map<string, SentinelAlert[]>();
+  for (const it of items) if (it.kind === "alert") byName.set(it.alert.name, [...(byName.get(it.alert.name) ?? []), it.alert]);
+  const out: { item: Item; more: SentinelAlert[] }[] = [];
+  for (const it of items) {
+    if (it.kind === "entity") { out.push({ item: it, more: [] }); continue; }
+    const same = byName.get(it.alert.name) as SentinelAlert[];
+    if (same[0] === it.alert) out.push({ item: it, more: [] });
+    else if (same[1] === it.alert) out.push({ item: it, more: same.slice(2) });
+  }
+  return out.slice(0, 12);
+}
+
+const iconFor = (ex: Exploration) => {
+  const k = ex.pick[0]?.kind;
+  return !k || k === "alert" ? ShieldAlert : entityIcon(k);
+};
 
 export function InvestigationGraph({ incident, onClose }: { incident: SentinelIncident; onClose: () => void }) {
-  const { ws, tables, stateOf, openLogs, go, actions } = useSentinel();
+  const { ws, tables, stateOf, openLogs, openEntity, go, actions } = useSentinel();
   const state = stateOf(incident.id);
   const alerts = useMemo(() => alertsOf(incident, ws).sort((a, b) => Date.parse(a.time) - Date.parse(b.time)), [incident, ws]);
   const entities = useMemo(() => entitiesOf(incident, ws), [incident, ws]);
@@ -124,6 +148,8 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
   const [size, setSize] = useState({ w: 900, h: 520 });
   const [rail, setRail] = useState<RailTab | null>("timeline");
   const [entityQ, setEntityQ] = useState("");
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [stripOpen, setStripOpen] = useState(false);
   const canvas = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<number | undefined>(undefined);
   const dragged = useRef(false);
@@ -139,30 +165,34 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
   const graph = useMemo(() => {
     const pos = baseLayout(alerts, entities);
     const nodes = new Map<string, GNode>();
-    for (const a of alerts) { const p = pos.get(a.id) as { x: number; y: number }; nodes.set(a.id, { id: a.id, type: "alert", alert: a, ...p }); }
-    for (const e of entities) { const p = pos.get(e.id) as { x: number; y: number }; nodes.set(e.id, { id: e.id, type: "entity", entity: e, ...p }); }
+    const ids = new Set<string>();
+    for (const a of alerts) { const p = pos.get(a.id) as { x: number; y: number }; nodes.set(a.id, { id: a.id, type: "alert", alert: a, more: [], ...p }); ids.add(a.id); }
+    for (const e of entities) { const p = pos.get(e.id) as { x: number; y: number }; nodes.set(e.id, { id: e.id, type: "entity", entity: e, ...p }); ids.add(e.id); }
     const hubs: Hub[] = [];
     for (const ex of expansions) {
       const parent = nodes.get(ex.parent);
       if (!parent) continue;
       const d = Math.hypot(parent.x, parent.y) || 1;
       const ux = parent.x / d || 1; const uy = parent.y / d;
-      const hub: Hub = { id: ex.id, parent: ex.parent, x: parent.x + ux * 100, y: parent.y + uy * 100, children: [], label: ex.label };
+      const hub: Hub = { id: ex.id, parent: ex.parent, x: parent.x + ux * 120, y: parent.y + uy * 120, children: [], label: ex.label, query: ex.query };
       const base = Math.atan2(uy, ux);
-      const count = ex.items.length;
-      ex.items.forEach((it, i) => {
-        const id = it.kind === "alert" ? it.alert.id : it.entity.id;
+      const list = stackItems(ex.items);
+      const count = list.length;
+      list.forEach(({ item, more }, i) => {
+        const id = item.kind === "alert" ? item.alert.id : item.entity.id;
         hub.children.push(id);
+        ids.add(id);
+        more.forEach(m => ids.add(m.id));
         if (nodes.has(id)) return;
-        const spread = Math.min(Math.PI * 1.1, count * .42);
+        const spread = Math.min(Math.PI * 1.1, count * .5);
         const t = base + (count === 1 ? 0 : (i / (count - 1) - .5) * spread);
-        const r = 84 + (i % 2) * 20;
+        const r = 110 + (i % 2) * 24;
         const x = hub.x + Math.cos(t) * r; const y = hub.y + Math.sin(t) * r;
-        nodes.set(id, it.kind === "alert" ? { id, type: "alert", alert: it.alert, x, y } : { id, type: "entity", entity: it.entity, x, y });
+        nodes.set(id, item.kind === "alert" ? { id, type: "alert", alert: item.alert, more, x, y } : { id, type: "entity", entity: item.entity, x, y });
       });
       hubs.push(hub);
     }
-    return { nodes, hubs };
+    return { nodes, hubs, ids };
   }, [alerts, entities, expansions]);
 
   const neighbours = useMemo(() => {
@@ -172,9 +202,17 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
     for (const h of graph.hubs) for (const c of h.children) link(h.parent, c);
     return m;
   }, [alerts, graph.hubs]);
-  const lit = highlight ?? (hover ? neighbours.get(hover) ?? null : null);
+  const focus = hover ?? selected;
+  const lit = highlight ?? (focus ? neighbours.get(focus) ?? new Set([focus]) : null);
 
-  const baseEdges = useMemo(() => alerts.flatMap(a => a.entityIds.filter(id => graph.nodes.has(id)).map(id => ({ from: a.id, to: id, sev: a.severity }))), [alerts, graph.nodes]);
+  const trunks = useMemo(() => alerts.flatMap(alert => {
+    const from = graph.nodes.get(alert.id);
+    const targets = alert.entityIds.map(id => graph.nodes.get(id)).filter((n): n is GNode => !!n);
+    if (!from || !targets.length) return [];
+    const cx = targets.reduce((n, t) => n + t.x, 0) / targets.length; const cy = targets.reduce((n, t) => n + t.y, 0) / targets.length;
+    const j = targets.length === 1 ? { x: targets[0].x, y: targets[0].y } : { x: from.x + (cx - from.x) * .55, y: from.y + (cy - from.y) * .55 };
+    return [{ alert, from, j, targets, trunk: curve(from.x, from.y, j.x, j.y, .14) }];
+  }), [alerts, graph.nodes]);
 
   const explorationsOf = useCallback((id: string | null): ExplorationRun[] => {
     const node = id ? graph.nodes.get(id) : undefined;
@@ -183,14 +221,14 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
       const r = runQuery(ex.query, tables, ws.now);
       const rows = r.ok ? r.rows : [];
       // What is already on the graph stays where it is: a question only adds what is new.
-      const fresh = resolve(ws, ex, rows, node.id).filter(it => !graph.nodes.has(it.kind === "alert" ? it.alert.id : it.entity.id));
+      const fresh = resolve(ws, ex, rows, node.id).filter(it => !graph.ids.has(it.kind === "alert" ? it.alert.id : it.entity.id));
       return { ex, rows, count: rows.length, fresh };
     });
-  }, [graph.nodes, ws, tables]);
+  }, [graph.nodes, graph.ids, ws, tables]);
   const hoverRuns = useMemo(() => explorationsOf(hover), [explorationsOf, hover]);
   const selectedRuns = useMemo(() => explorationsOf(selected), [explorationsOf, selected]);
 
-  const onHover = useCallback((id: string) => { window.clearTimeout(hoverTimer.current); setHover(id); }, []);
+  const onHover = useCallback((id: string) => { window.clearTimeout(hoverTimer.current); setHover(h => { if (h !== id) setMoreOpen(false); return id; }); }, []);
   const onLeave = useCallback(() => { hoverTimer.current = window.setTimeout(() => setHover(null), 260); }, []);
   const holdHover = () => window.clearTimeout(hoverTimer.current);
   const onSelect = useCallback((id: string) => { setSelected(id); setRail("info"); }, []);
@@ -198,9 +236,23 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
   const explore = (nodeId: string, entry: ExplorationRun) => {
     try { actions.queryRan({ query: entry.ex.query, ok: true, rows: entry.count, incidentId: incident.id }); } catch { /* telemetry never blocks */ }
     if (!entry.fresh.length) return;
-    setExpansions(list => [...list, { id: `${nodeId}|${entry.ex.id}`, parent: nodeId, label: entry.ex.label, items: entry.fresh }]);
+    setExpansions(list => [...list, { id: `${nodeId}|${entry.ex.id}`, parent: nodeId, label: entry.ex.label, query: entry.ex.query, items: entry.fresh }]);
     setUndone([]);
     setHover(null);
+  };
+  /** The X on a hub takes its results off the graph, with anything that hung off them. */
+  const removeHub = (hub: Hub) => {
+    setExpansions(list => {
+      const gone = new Set(hub.children);
+      const keep: Expansion[] = [];
+      for (const e of list) {
+        if (e.id === hub.id) continue;
+        if (gone.has(e.parent)) { for (const it of e.items) gone.add(it.kind === "alert" ? it.alert.id : it.entity.id); continue; }
+        keep.push(e);
+      }
+      return keep;
+    });
+    setUndone([]);
   };
   const undo = () => setExpansions(l => { const last = l[l.length - 1]; if (last) setUndone(u => [...u, last]); return l.slice(0, -1); });
   const redo = () => setUndone(u => { const last = u[u.length - 1]; if (last) setExpansions(l => [...l, last]); return u.slice(0, -1); });
@@ -245,23 +297,23 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
 
   const cx = size.w / 2 + view.x; const cy = size.h / 2 + view.y;
   const hoverNode = hover ? graph.nodes.get(hover) : undefined;
-  const pop = hoverNode ? {
-    left: Math.max(4, Math.min(size.w - 256, cx + hoverNode.x * view.k + 30)),
-    top: Math.max(4, Math.min(size.h - 150, cy + hoverNode.y * view.k - 20)),
-  } : null;
+  const at = hoverNode ? { x: cx + hoverNode.x * view.k, y: cy + hoverNode.y * view.k } : null;
+  const arcR = 22 * view.k + 24;
+  const flip = !!at && at.x + arcR + 340 > size.w;
+  const panelTop = at ? Math.max(4 - at.y, Math.min(-52, size.h - at.y - 210)) : 0;
 
   const selectedNode = selected ? graph.nodes.get(selected) : undefined;
+  const logs = (query: string) => openLogs({ query, run: true, incidentId: incident.id });
 
-  const renderRuns = (nodeId: string, runs: ExplorationRun[]) => runs.map(entry => (
+  const renderRun = (nodeId: string, entry: ExplorationRun) => (
     <div key={entry.ex.id} className="q">
       <button type="button" disabled={!entry.fresh.length} onClick={() => explore(nodeId, entry)}
-        title={entry.count === 0 ? "No results" : entry.fresh.length ? entry.ex.label : "Everything this query found is already on the graph"}
-        style={entry.fresh.length ? undefined : { color: "#797775" }}>
+        title={entry.count === 0 ? "No results" : entry.fresh.length ? entry.ex.label : "Everything this query found is already on the graph"}>
         {entry.ex.label} ({entry.count})
       </button>
-      <button type="button" className="st-link" aria-label={`Events for ${entry.ex.label}`} onClick={() => openLogs({ query: entry.ex.query, run: true, incidentId: incident.id })}>Events &gt;</button>
+      <button type="button" className="st-link" aria-label={`Events for ${entry.ex.label}`} onClick={() => logs(entry.ex.query)}>Events&gt;</button>
     </div>
-  ));
+  );
 
   /* time strip */
   const span = useMemo(() => {
@@ -271,52 +323,52 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
     const pad = Math.max(60_000, (b - a) * .06);
     return { from: a - pad, to: b + pad };
   }, [alerts, state.bookmarks]);
-  const stripPos = (iso: string) => (span ? ((Date.parse(iso) - span.from) / (span.to - span.from)) * 100 : 0);
+  const stripPos = useCallback((iso: string) => (span ? ((Date.parse(iso) - span.from) / (span.to - span.from)) * 100 : 0), [span]);
   // Alerts raised together would sit on one spot and hide each other: they stack up instead.
   const stripLevel = useMemo(() => {
     const levels = new Map<string, number>();
     const placed: { at: number; level: number }[] = [];
     for (const a of alerts) {
-      const at = stripPos(a.time);
-      const taken = new Set(placed.filter(p => Math.abs(p.at - at) < 1.2).map(p => p.level));
+      const pos = stripPos(a.time);
+      const taken = new Set(placed.filter(p => Math.abs(p.at - pos) < 1.2).map(p => p.level));
       let level = 0;
       while (taken.has(level)) level += 1;
-      placed.push({ at, level });
+      placed.push({ at: pos, level });
       levels.set(a.id, level);
     }
     return levels;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [alerts, span]);
+  }, [alerts, stripPos]);
   const nodeList = useMemo(() => [...graph.nodes.values()].filter((n): n is Extract<GNode, { type: "entity" }> => n.type === "entity"), [graph.nodes]);
   const shownEntities = nodeList.filter(n => !entityQ.trim() || n.entity.name.toLowerCase().includes(entityQ.trim().toLowerCase()));
 
   const tabs: { value: RailTab; label: React.ReactNode }[] = [
-    { value: "timeline", label: <><ListTree size={18} color="#0078d4" aria-hidden />Timeline</> },
-    { value: "info", label: <><Info size={18} color="#0078d4" aria-hidden />Info</> },
-    { value: "entities", label: <><Users size={18} color="#0078d4" aria-hidden />Entities</> },
-    { value: "insights", label: <><Lightbulb size={18} color="#0078d4" aria-hidden />Insights</> },
+    { value: "timeline", label: <><ListTree size={22} aria-hidden />Timeline</> },
+    { value: "info", label: <><Info size={22} aria-hidden />Info</> },
+    { value: "entities", label: <><Users size={22} aria-hidden />Entities</> },
+    { value: "insights", label: <><Lightbulb size={22} aria-hidden />Insights</> },
+    { value: "help", label: <><CircleHelp size={22} aria-hidden />Help</> },
   ];
-
-  const region = useRef<HTMLDivElement>(null);
-  useEffect(() => { region.current?.focus({ preventScroll: true }); }, []);
+  const RAIL_ICON: Record<RailTab, typeof ListTree> = { timeline: ListTree, info: Info, entities: Users, insights: Lightbulb, help: CircleHelp };
+  const RailIcon = rail ? RAIL_ICON[rail] : ListTree;
+  const timelineFocus = rail === "timeline" && selectedNode?.type === "alert" ? selectedNode.alert : null;
 
   return (
-    <div ref={region} tabIndex={-1} className="st-inv" role="region" aria-label="Investigation">
-      <Crumbs items={[{ label: "Home", onClick: () => { onClose(); go("overview"); } }, { label: "Sentinel", onClick: onClose }, { label: `Incident ${incident.number}`, onClick: onClose }]} />
+    <div ref={useFocusOnMount()} tabIndex={-1} className="st-inv" role="region" aria-label="Investigation">
+      <Crumbs trailing items={[{ label: "Home", onClick: () => { onClose(); go("overview"); } }, { label: "Sentinel", onClick: onClose }, { label: "Incident", onClick: onClose }]} />
       <div className="st-inc-head" style={{ alignItems: "center" }}>
-        <h1 className="st-grow">Investigation</h1>
+        <h1 className="st-grow st-inv-title">Investigation</h1>
         <button type="button" className="st-icon-btn" aria-label="Close investigation" onClick={onClose}><X size={18} aria-hidden /></button>
       </div>
-      <div className="st-cmdbar" role="toolbar" aria-label="Investigation commands" style={{ paddingLeft: 8 }}>
-        <button type="button" className="st-cmd" disabled={!expansions.length} onClick={undo}><Undo2 size={14} aria-hidden />Undo</button>
-        <button type="button" className="st-cmd" disabled={!undone.length} onClick={redo}><Redo2 size={14} aria-hidden />Redo</button>
+      <div className="st-cmdbar st-inv-cmd" role="toolbar" aria-label="Investigation commands">
+        <button type="button" className="st-cmd" disabled={!expansions.length} onClick={undo}><Undo2 size={15} aria-hidden />Undo</button>
+        <button type="button" className="st-cmd" disabled={!undone.length} onClick={redo}><Redo2 size={15} aria-hidden />Redo</button>
       </div>
       <div className="st-inv-summary">
-        <div style={{ minWidth: 0 }}><b><Briefcase size={16} color="#0078d4" aria-hidden /><span className="st-ellipsis" style={{ maxWidth: 360 }}>{incident.title}</span></b><span>Incident</span></div>
-        <div><b><i className={`st-band ${state.severity}`} style={{ height: 18 }} aria-hidden />{state.severity}</b><span>Severity</span></div>
-        <div><b>{state.status}</b><span>Status</span></div>
-        <div><b>{state.owner ?? "Unassigned"}</b><span>Owner</span></div>
-        <div><b><Clock size={15} color="#0078d4" aria-hidden />{fmtDateTime(incident.lastUpdate)}</b><span>Last incident update time</span></div>
+        <div style={{ minWidth: 0 }}><b><Briefcase size={22} color="#0078d4" fill="#c7e0f4" aria-hidden /><span className="st-ellipsis" style={{ maxWidth: 380 }} title={incident.title}>{incident.title}</span></b><span>Incident</span></div>
+        <div><b><i className={`st-band ${state.severity}`} style={{ height: 22, width: 5 }} aria-hidden />{state.severity}</b><span>Severity</span></div>
+        <div><b><StatusIcon status={state.status} size={20} />{state.status}</b><span>Status</span></div>
+        <div><b><CircleUserRound size={20} color="#0078d4" aria-hidden />{state.owner ?? "Unassigned"}</b><span>Owner</span></div>
+        <div><b><Clock size={20} color="#0078d4" aria-hidden />{fmtDateTime(incident.lastUpdate)}</b><span>Last incident update time</span></div>
       </div>
       <div className="st-inv-main">
         <div ref={canvas} className={`st-canvas${panning ? " panning" : ""}`} tabIndex={0} role="group"
@@ -325,99 +377,158 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
           onClick={() => { if (!dragged.current) setSelected(null); }}>
           <svg aria-hidden={false}>
             <defs>
-              <marker id="st-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#323130" /></marker>
+              <marker id="st-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1,1L9,5L1,9" fill="none" stroke="#000" strokeWidth="1.8" /></marker>
             </defs>
             <g transform={`translate(${cx},${cy}) scale(${view.k})`}>
-              {baseEdges.map(e => {
-                const a = graph.nodes.get(e.from); const b = graph.nodes.get(e.to);
-                if (!a || !b) return null;
-                const on = !lit || (lit.has(e.from) && lit.has(e.to));
-                return <path key={`${e.from}-${e.to}`} d={curve(a.x, a.y, b.x, b.y, .08)} fill="none" stroke={SEV_STROKE[e.sev]} strokeWidth={lit && on ? 2.5 : 1.75} opacity={on ? 1 : .12} />;
+              {trunks.map(t => {
+                const on = !lit || lit.has(t.alert.id);
+                const color = SEV_STROKE[t.alert.severity];
+                return (
+                  <g key={t.alert.id} opacity={on ? 1 : .14}>
+                    <path d={t.trunk.d} fill="none" stroke={color} strokeWidth={2.5} />
+                    {t.targets.length > 1 && t.targets.map(n => {
+                      const branchOn = !lit || lit.has(n.id);
+                      return <path key={n.id} d={curve(t.j.x, t.j.y, n.x, n.y, .16).d} fill="none" stroke={color} strokeWidth={2.5} opacity={branchOn ? 1 : .2} />;
+                    })}
+                    <g className="st-gdot" transform={`translate(${t.trunk.mid.x},${t.trunk.mid.y})`} tabIndex={0} role="button" aria-label={`Events for ${t.alert.name}`} data-events={t.alert.id}
+                      onClick={e => { e.stopPropagation(); logs(t.alert.query); }} onPointerDown={e => e.stopPropagation()}
+                      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); logs(t.alert.query); } }}>
+                      <circle r={9} fill={DARK} /><Activity x={-6} y={-6} width={12} height={12} color="#fff" aria-hidden />
+                    </g>
+                  </g>
+                );
               })}
               {graph.hubs.map(h => {
                 const p = graph.nodes.get(h.parent);
                 if (!p) return null;
+                const link = curve(p.x, p.y, h.x, h.y, .16);
                 return (
                   <g key={h.id} data-testid="graph-hub">
-                    <path d={curve(p.x, p.y, h.x, h.y, .1)} fill="none" stroke="#323130" strokeWidth={1.5} />
+                    <path d={link.d} fill="none" stroke="#000" strokeWidth={2.5} />
+                    <g className="st-gdot" transform={`translate(${link.mid.x},${link.mid.y})`} tabIndex={0} role="button" aria-label={`Events for ${h.label}`}
+                      onClick={e => { e.stopPropagation(); logs(h.query); }} onPointerDown={e => e.stopPropagation()}
+                      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); logs(h.query); } }}>
+                      <circle r={9} fill={DARK} /><Activity x={-6} y={-6} width={12} height={12} color="#fff" aria-hidden />
+                    </g>
                     {h.children.map(c => {
                       const n = graph.nodes.get(c);
                       if (!n) return null;
                       const d = Math.hypot(n.x - h.x, n.y - h.y) || 1;
-                      const end = { x: n.x - ((n.x - h.x) / d) * 24, y: n.y - ((n.y - h.y) / d) * 24 };
-                      return <path key={c} data-testid="graph-dotted" d={curve(h.x, h.y, end.x, end.y, .1)} fill="none" stroke="#323130" strokeWidth={1.5} strokeDasharray="2 4" markerEnd="url(#st-arrow)" />;
+                      const gap = n.type === "alert" ? 33 : 25;
+                      const end = { x: n.x - ((n.x - h.x) / d) * gap, y: n.y - ((n.y - h.y) / d) * gap };
+                      return <path key={c} data-testid="graph-link" d={curve(h.x, h.y, end.x, end.y, .18).d} fill="none" stroke="#000" strokeWidth={2.5} markerEnd="url(#st-arrow)" />;
                     })}
-                    <circle cx={h.x} cy={h.y} r={5} fill="#323130"><title>{h.label}</title></circle>
+                    <g className="st-gdot" transform={`translate(${h.x},${h.y})`} tabIndex={0} role="button" aria-label={`Remove ${h.label}`} data-hub={h.id}
+                      onClick={e => { e.stopPropagation(); removeHub(h); }} onPointerDown={e => e.stopPropagation()}
+                      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); removeHub(h); } }}>
+                      <circle r={8} fill={DARK} /><X x={-6} y={-6} width={12} height={12} color="#fff" strokeWidth={3} aria-hidden />
+                      <title>{h.label}</title>
+                    </g>
                   </g>
                 );
               })}
               {[...graph.nodes.values()].map(n => (
-                <GraphNode key={n.id} node={n} selected={n.id === selected} dim={!!lit && !lit.has(n.id)} onSelect={onSelect} onHover={onHover} onLeave={onLeave} />
+                <GraphNode key={n.id} node={n} selected={n.id === selected} hovered={n.id === hover} dim={!!lit && !lit.has(n.id)} onSelect={onSelect} onHover={onHover} onLeave={onLeave} />
               ))}
             </g>
           </svg>
           <div className="st-zoom" onPointerDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
             <button type="button" aria-label="Fit graph" title="Fit" onClick={fit}><Maximize size={15} aria-hidden /></button>
-            <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => zoom(1.2)}><Plus size={15} aria-hidden /></button>
-            <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => zoom(1 / 1.2)}><Minus size={15} aria-hidden /></button>
+            <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => zoom(1.2)}><Plus size={18} aria-hidden /></button>
+            <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => zoom(1 / 1.2)}><Minus size={18} aria-hidden /></button>
           </div>
-          {hoverNode && pop && (
-            <div className="st-explore" style={pop} onMouseEnter={holdHover} onMouseLeave={onLeave} onPointerDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} role="group" aria-label="Exploration queries">
-              <header>{hoverNode.type === "alert" ? "Alert" : "Exploration queries"}</header>
-              {hoverNode.type === "alert" ? (
-                <div className="q">
-                  <span className="st-grow st-ellipsis" title={hoverNode.alert.name}>{hoverNode.alert.name}</span>
-                  <button type="button" className="st-link" onClick={() => openLogs({ query: hoverNode.alert.query, run: true, incidentId: incident.id })}>Events &gt;</button>
-                </div>
-              ) : renderRuns(hoverNode.id, hoverRuns)}
+          {span && (
+            <button type="button" className="st-relevents" aria-expanded={stripOpen} onPointerDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setStripOpen(o => !o); }}>
+              {stripOpen ? <ChevronDown size={14} aria-hidden /> : <ChevronUp size={14} aria-hidden />}View related events
+            </button>
+          )}
+          {hoverNode && at && (
+            <div className="st-explore-at" style={{ left: at.x, top: at.y }} onMouseEnter={holdHover} onMouseLeave={onLeave} onPointerDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+              {hoverNode.type === "entity" && hoverRuns.length > 0 && (
+                <svg className="st-arc" width={(arcR + 22) * 2} height={(arcR + 22) * 2} style={{ left: -(arcR + 22), top: -(arcR + 22), transform: flip ? "scaleX(-1)" : undefined }} aria-hidden>
+                  <g transform={`translate(${arcR + 22},${arcR + 22})`}>
+                    <path d={`M${Math.cos(-1.15) * arcR},${Math.sin(-1.15) * arcR}A${arcR},${arcR} 0 0 1 ${Math.cos(1.3) * arcR},${Math.sin(1.3) * arcR}`} fill="none" stroke={DARK} strokeWidth={26} strokeLinecap="round" />
+                    {hoverRuns.slice(0, 3).map((r, i) => {
+                      const a = -.8 + i * .75; const I = iconFor(r.ex);
+                      return <I key={r.ex.id} x={Math.cos(a) * arcR - 8} y={Math.sin(a) * arcR - 8} width={16} height={16} color={r.count ? "#fff" : "#a19f9d"} />;
+                    })}
+                    <Plus x={Math.cos(1.3) * arcR - 8} y={Math.sin(1.3) * arcR - 8} width={16} height={16} color="#fff" />
+                  </g>
+                </svg>
+              )}
+              <div className="st-explore" style={{ top: panelTop, ...(flip ? { right: arcR + 18 } : { left: arcR + 18 }) }} role="group" aria-label="Exploration queries">
+                {hoverNode.type === "alert" ? (
+                  <div className="q">
+                    <span className="st-grow st-ellipsis" title={hoverNode.alert.name}>{hoverNode.alert.name}</span>
+                    <button type="button" className="st-link" aria-label={`Events for ${hoverNode.alert.name}`} onClick={() => logs(hoverNode.alert.query)}>Events&gt;</button>
+                  </div>
+                ) : (
+                  <>
+                    {hoverRuns.slice(0, 3).map(r => renderRun(hoverNode.id, r))}
+                    {hoverRuns.length > 3 && (
+                      <>
+                        <button type="button" className="st-explore-more" aria-expanded={moreOpen} onClick={() => setMoreOpen(o => !o)}>More<ChevronDown size={14} aria-hidden /></button>
+                        {moreOpen && hoverRuns.slice(3).map(r => renderRun(hoverNode.id, r))}
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           )}
         </div>
         {rail && (
           <aside className="st-railpane" aria-label={rail}>
-            <div className="st-railpane-head">
-              <span className="st-grow" style={{ textTransform: "capitalize" }}>{rail}</span>
-              <button type="button" className="st-icon-btn" aria-label="Collapse side pane" onClick={() => setRail(null)}><ChevronsRight size={15} aria-hidden /></button>
-            </div>
+            {timelineFocus ? (
+              <div className={`st-railpane-head sev ${timelineFocus.severity}`}><ShieldAlert size={22} aria-hidden /><span className="st-ellipsis st-grow" title={timelineFocus.name}>{timelineFocus.name}</span></div>
+            ) : (
+              <div className="st-railpane-head"><RailIcon size={26} aria-hidden /><span className="st-grow" style={{ textTransform: "capitalize" }}>{rail}</span></div>
+            )}
+            <button type="button" className="st-icon-btn corner" aria-label="Collapse side pane" onClick={() => setRail(null)}><ChevronsRight size={13} aria-hidden /></button>
             <div className="st-railpane-body">
               {rail === "timeline" && (
-                <>
+                <ol className="st-rtl">
                   {alerts.map(a => (
-                    <button key={a.id} type="button" className={`st-railcard ${a.severity}`} onClick={() => onSelect(a.id)}
-                      onMouseEnter={() => setHighlight(new Set([a.id, ...a.entityIds]))} onMouseLeave={() => setHighlight(null)}>
-                      <span className="st-row" style={{ fontWeight: 600 }}><ShieldAlert size={13} aria-hidden /><span className="st-ellipsis">{a.name}</span></span>
-                      <span className="st-small st-muted" style={{ display: "block" }}>{fmtDateTime(a.time)}</span>
-                      <span className="st-small st-ellipsis" style={{ display: "block" }}>{a.description}</span>
-                    </button>
+                    <li key={a.id}>
+                      <button type="button" className={`st-railcard ${a.severity}${selected === a.id ? " on" : ""}`} onClick={() => setSelected(s => (s === a.id ? null : a.id))}
+                        onMouseEnter={() => setHighlight(neighbours.get(a.id) ?? new Set([a.id]))} onMouseLeave={() => setHighlight(null)}>
+                        <span className="st-row" style={{ fontWeight: 600, fontSize: 14 }}><ShieldAlert size={15} aria-hidden /><span className="st-ellipsis">{a.name}</span></span>
+                        <span className="st-small st-muted" style={{ display: "block", marginTop: 2 }}>{fmtDateTime(a.time)}</span>
+                        <span className="st-small st-muted st-ellipsis" style={{ display: "block", marginTop: 2 }}>{a.description}</span>
+                      </button>
+                    </li>
                   ))}
                   {state.bookmarks.map(b => (
-                    <button key={b.id} type="button" className="st-railcard" onClick={() => openLogs({ query: b.query, run: true, incidentId: incident.id })}>
-                      <span className="st-row" style={{ fontWeight: 600 }}><Bookmark size={13} aria-hidden /><span className="st-ellipsis">{b.name}</span></span>
-                      <span className="st-small st-muted" style={{ display: "block" }}>{fmtDateTime(b.at)}, {b.author}</span>
-                    </button>
+                    <li key={b.id}>
+                      <button type="button" className="st-railcard" onClick={() => logs(b.query)}>
+                        <span className="st-row" style={{ fontWeight: 600, fontSize: 14 }}><Bookmark size={15} aria-hidden /><span className="st-ellipsis">{b.name}</span></span>
+                        <span className="st-small st-muted" style={{ display: "block", marginTop: 2 }}>{fmtDateTime(b.at)}, {b.author}</span>
+                      </button>
+                    </li>
                   ))}
-                </>
+                </ol>
               )}
               {rail === "info" && (
                 selectedNode?.type === "entity" ? (
                   <>
-                    <div className="st-row" style={{ marginBottom: 8 }}><EntityIcon kind={selectedNode.entity.kind} /><div><strong>{selectedNode.entity.name}</strong><div className="st-small st-muted">{KIND_LABEL[selectedNode.entity.kind]}</div></div></div>
+                    <div className="st-row" style={{ marginBottom: 10 }}><EntityIcon kind={selectedNode.entity.kind} size={28} /><strong style={{ fontSize: 16 }} className="st-ellipsis">{selectedNode.entity.name}</strong></div>
                     {selectedRuns.length > 0 && (
                       <div className="st-explore-rail">
                         <div className="st-k" style={{ marginBottom: 2 }}>Exploration queries</div>
-                        {renderRuns(selectedNode.id, selectedRuns)}
+                        {selectedRuns.map(r => renderRun(selectedNode.id, r))}
                       </div>
                     )}
                     <EntityInfoCard entity={selectedNode.entity} />
                   </>
                 ) : selectedNode?.type === "alert" ? (
                   <>
-                    <div className="st-row" style={{ alignItems: "stretch" }}><i className={`st-band ${selectedNode.alert.severity}`} aria-hidden /><strong>{selectedNode.alert.name}</strong></div>
+                    <div className="st-row" style={{ alignItems: "stretch" }}><i className={`st-band ${selectedNode.alert.severity}`} aria-hidden /><strong style={{ fontSize: 16 }}>{selectedNode.alert.name}</strong></div>
+                    {selectedNode.more.length > 0 && <p className="st-small st-muted">And {selectedNode.more.length} more alerts with this name.</p>}
                     <div className="st-field"><div className="k">Description</div><div className="v">{selectedNode.alert.description || "--"}</div></div>
                     <div className="st-field"><div className="k">Product name</div><div className="v">{selectedNode.alert.product}</div></div>
                     <div className="st-field"><div className="k">Time generated</div><div className="v">{fmtDateTime(selectedNode.alert.time)}</div></div>
                     <div className="st-field"><div className="k">Tactics</div><div className="v">{selectedNode.alert.tactics.join(", ") || "--"}</div></div>
-                    <button type="button" className="st-link" style={{ marginTop: 8 }} onClick={() => openLogs({ query: selectedNode.alert.query, run: true, incidentId: incident.id })}>Events &gt;</button>
+                    <button type="button" className="st-link" style={{ marginTop: 8 }} aria-label={`Events for ${selectedNode.alert.name}`} onClick={() => logs(selectedNode.alert.query)}>Events&gt;</button>
                   </>
                 ) : (
                   <>
@@ -437,7 +548,7 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
                     {shownEntities.map(n => (
                       <li key={n.id}>
                         <button type="button" className="st-entity-row" onClick={() => onSelect(n.id)} onMouseEnter={() => setHighlight(new Set([n.id]))} onMouseLeave={() => setHighlight(null)}>
-                          <EntityIcon kind={n.entity.kind} size={12} /><span className="st-ellipsis st-grow">{n.entity.name}</span><span className="st-small st-muted">{KIND_LABEL[n.entity.kind]}</span>
+                          <EntityIcon kind={n.entity.kind} size={18} /><span className="st-ellipsis st-grow">{n.entity.name}</span><span className="st-small st-muted">{KIND_LABEL[n.entity.kind]}</span>
                         </button>
                       </li>
                     ))}
@@ -449,23 +560,33 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
                   ? <EntityInsightsCard entity={selectedNode.entity} />
                   : insights.map(i => <InsightCard key={i.title} insight={i} />)
               )}
+              {rail === "help" && (
+                <ul className="st-bullets st-stack" style={{ gap: 8 }}>
+                  <li>Select an entity or alert to read about it in Info.</li>
+                  <li>Hover an entity for its exploration queries. Select one to add its results to the graph, or Events&gt; to read the rows in Logs.</li>
+                  <li>The dot on a link opens the events behind it. The X on a junction removes what that query added.</li>
+                  <li>Drag the canvas to pan. Use the buttons or the wheel to zoom.</li>
+                </ul>
+              )}
             </div>
+            {rail === "info" && selectedNode?.type === "entity" && ws.entities[selectedNode.entity.id] && (
+              <div className="st-preview-foot"><button type="button" className="st-btn primary" onClick={() => openEntity(selectedNode.entity.id)}>View full details</button></div>
+            )}
           </aside>
         )}
         <Tabs label="Investigation side pane" value={rail ?? ("" as RailTab)} onChange={setRail} className="st-rail" tabClass="" tabs={tabs} />
       </div>
-      {span && (
+      {span && stripOpen && (
         <div className="st-strip" aria-label="Timeline strip">
-          <div className="st-small st-muted">Timeline</div>
           <div className="st-strip-track">
             {alerts.map(a => (
               <button key={a.id} type="button" className="st-strip-dot" style={{ left: `${stripPos(a.time)}%`, bottom: 2 + (stripLevel.get(a.id) ?? 0) * 13, background: SEV_STROKE[a.severity] }} aria-label={`${a.name}, ${fmtDateTime(a.time)}`} title={`${a.name}, ${fmtClock(a.time)}`}
-                onMouseEnter={() => setHighlight(new Set([a.id, ...a.entityIds]))} onMouseLeave={() => setHighlight(null)} onFocus={() => setHighlight(new Set([a.id, ...a.entityIds]))} onBlur={() => setHighlight(null)}
+                onMouseEnter={() => setHighlight(neighbours.get(a.id) ?? new Set([a.id]))} onMouseLeave={() => setHighlight(null)} onFocus={() => setHighlight(neighbours.get(a.id) ?? new Set([a.id]))} onBlur={() => setHighlight(null)}
                 onClick={() => onSelect(a.id)} />
             ))}
             {state.bookmarks.map(b => (
               <button key={b.id} type="button" className="st-strip-dot bookmark" style={{ left: `${stripPos(b.at)}%`, background: "#0078d4" }} aria-label={`Bookmark ${b.name}, ${fmtDateTime(b.at)}`} title={b.name}
-                onClick={() => openLogs({ query: b.query, run: true, incidentId: incident.id })} />
+                onClick={() => logs(b.query)} />
             ))}
           </div>
           <div className="st-strip-axis" aria-hidden>
@@ -477,4 +598,10 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
       )}
     </div>
   );
+}
+
+function useFocusOnMount() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { ref.current?.focus({ preventScroll: true }); }, []);
+  return ref;
 }

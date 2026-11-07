@@ -1,15 +1,15 @@
 "use client";
 import { forwardRef, memo, useCallback, useId, useImperativeHandle, useMemo, useRef, useState, type KeyboardEvent as RKeyboardEvent } from "react";
 import {
-  BookmarkPlus, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsLeft, ChevronsRight, Columns3, Copy, Filter, Search, Timer,
+  BookmarkPlus, ChevronDown, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, ChevronUp, Clock, Columns3, Copy, Filter, MoreHorizontal, Search, Timer,
 } from "lucide-react";
 import type { KqlColumn, KqlResult, KqlRow } from "@/lib/kql/types";
 import { ChartView, kindFromResult } from "./ChartView";
 import { BookmarkDialog } from "./BookmarkDialog";
 import { useSentinel } from "./context";
 import { fmtValue } from "./engine";
-import { fmtCount, fmtDuration, toCsv } from "./helpers";
-import { Popover, Tabs } from "./ui";
+import { fmtCount, fmtDuration, fmtElapsed, toCsv } from "./helpers";
+import { ColumnsButton, Popover, Tabs } from "./ui";
 
 export interface Outcome {
   id: number;
@@ -101,44 +101,26 @@ function FilterPopover({ col, anchor, value, onApply, onClose }: { col: KqlColum
   );
 }
 
-function ColumnsMenu({ columns, hidden, onToggle }: { columns: KqlColumn[]; hidden: Set<string>; onToggle: (name: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const btn = useRef<HTMLButtonElement>(null);
-  const close = useCallback(() => setOpen(false), []);
-  return (
-    <>
-      <button ref={btn} type="button" className="st-cmd" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(o => !o)}>
-        <Columns3 size={14} aria-hidden />Columns<ChevronDown size={12} aria-hidden />
-      </button>
-      {open && (
-        <Popover anchor={btn.current} onClose={close} width={240} role="group" label="Columns">
-          {columns.map(c => (
-            <label key={c.name} className="st-opt st-check">
-              <input type="checkbox" checked={!hidden.has(c.name)} onChange={() => onToggle(c.name)} />
-              <span className="st-ellipsis">{c.name}</span>
-            </label>
-          ))}
-        </Popover>
-      )}
-    </>
-  );
-}
-
-const Row = memo(function Row({ row, index, cols, selected, expanded, activeCol, onToggleSelect, onToggleExpand, onFocusCell, onCopy, fmt }: {
-  row: KqlRow; index: number; cols: KqlColumn[]; selected: boolean; expanded: boolean; activeCol: number | null;
+const Row = memo(function Row({ row, index, cols, selected, expanded, activeCol, checkFirst, onToggleSelect, onToggleExpand, onFocusCell, onCopy, fmt }: {
+  row: KqlRow; index: number; cols: KqlColumn[]; selected: boolean; expanded: boolean; activeCol: number | null; checkFirst: boolean;
   onToggleSelect: (i: number) => void; onToggleExpand: (i: number) => void; onFocusCell: (i: number, c: number) => void;
   onCopy: (s: string) => void; fmt: (v: unknown, c: KqlColumn) => string;
 }) {
+  const expandCell = (
+    <td className="narrow" role="gridcell">
+      <button type="button" tabIndex={-1} className="st-icon-btn" style={{ width: 20, height: 20 }} aria-label={expanded ? "Collapse row" : "Expand row"} onClick={() => onToggleExpand(index)}>
+        {expanded ? <ChevronDown size={13} aria-hidden /> : <ChevronRight size={13} aria-hidden />}
+      </button>
+    </td>
+  );
+  const checkCell = (
+    <td className="narrow" role="gridcell">
+      <input type="checkbox" tabIndex={-1} aria-label="Select row" checked={selected} onChange={() => onToggleSelect(index)} style={{ margin: 0, accentColor: "var(--st-accent)" }} />
+    </td>
+  );
   return (
     <tr className={selected ? "selected" : undefined} aria-expanded={expanded} aria-selected={selected} data-row={index}>
-      <td className="narrow" role="gridcell">
-        <button type="button" tabIndex={-1} className="st-icon-btn" style={{ width: 20, height: 20 }} aria-label={expanded ? "Collapse row" : "Expand row"} onClick={() => onToggleExpand(index)}>
-          {expanded ? <ChevronDown size={13} aria-hidden /> : <ChevronRight size={13} aria-hidden />}
-        </button>
-      </td>
-      <td className="narrow" role="gridcell">
-        <input type="checkbox" tabIndex={-1} aria-label="Select row" checked={selected} onChange={() => onToggleSelect(index)} style={{ margin: 0, accentColor: "var(--st-accent)" }} />
-      </td>
+      {checkFirst ? <>{checkCell}{expandCell}</> : <>{expandCell}{checkCell}</>}
       {cols.map((c, i) => {
         const text = fmt(row[c.name], c);
         return (
@@ -184,8 +166,8 @@ function ExpandedRow({ row, span, columns, onFilter, onCopy, fmt }: {
 
 export interface ResultsHandle { exportCsv: (all: boolean) => void }
 
-export const ResultsArea = forwardRef<ResultsHandle, { outcome: Outcome; incidentId?: string; onFilter: (c: KqlColumn, v: unknown, exclude: boolean) => void }>(
-function ResultsArea({ outcome, incidentId, onFilter }, ref) {
+export const ResultsArea = forwardRef<ResultsHandle, { outcome: Outcome; incidentId?: string; panel?: boolean; onFilter: (c: KqlColumn, v: unknown, exclude: boolean) => void }>(
+function ResultsArea({ outcome, incidentId, panel = false, onFilter }, ref) {
   const { ended } = useSentinel();
   const result = outcome.result as Ok;
   const { rows } = result;
@@ -208,6 +190,7 @@ function ResultsArea({ outcome, incidentId, onFilter }, ref) {
   const [active, setActive] = useState({ row: 0, col: 0 });
   const [note, setNote] = useState("");
   const [bookmarking, setBookmarking] = useState(false);
+  const [searching, setSearching] = useState(false);
   const body = useRef<HTMLTableSectionElement>(null);
   const helpId = useId();
 
@@ -289,6 +272,15 @@ function ResultsArea({ outcome, incidentId, onFilter }, ref) {
   const to = Math.min(order.length, (safePage + 1) * pageSize);
   const selectedRows = useMemo(() => [...selected].sort((a, b) => a - b).map(i => rows[i]), [selected, rows]);
   const firstActive = pageIdx.includes(active.row) ? active.row : pageIdx[0];
+  const expandHead = <th className="narrow" scope="col"><span className="st-sr">Expand</span></th>;
+  const checkHead = (
+    <th className="narrow" scope="col">
+      <input type="checkbox" aria-label="Select all rows" checked={allShownSelected} onChange={toggleAll} style={{ margin: 0, accentColor: "var(--st-accent)" }} />
+    </th>
+  );
+  const toggleColumn = (n: string) => setHidden(h => { const x = new Set(h); if (x.has(n)) x.delete(n); else x.add(n); return x; });
+  const columnList = columns.map(c => ({ key: c.name, label: c.name }));
+  const columnsButton = <ColumnsButton columns={columnList} hidden={hidden} onToggle={toggleColumn}><Columns3 size={14} aria-hidden />Columns<ChevronDown size={12} aria-hidden /></ColumnsButton>;
 
   return (
     <div className="st-results">
@@ -296,43 +288,55 @@ function ResultsArea({ outcome, incidentId, onFilter }, ref) {
         <Tabs label="Results view" value={view} onChange={setView} className="st-tabs" tabClass="st-tab"
           tabs={[{ value: "results", label: "Results" }, { value: "chart", label: "Chart" }]} />
         <span className="st-cmdsep" aria-hidden />
-        <ColumnsMenu columns={columns} hidden={hidden} onToggle={n => setHidden(h => { const x = new Set(h); if (x.has(n)) x.delete(n); else x.add(n); return x; })} />
+        {!panel && columnsButton}
         {!ended && (
           <button type="button" className="st-cmd" disabled={selected.size === 0} onClick={() => setBookmarking(true)}>
             <BookmarkPlus size={14} aria-hidden />Add bookmark{selected.size > 0 ? ` (${selected.size})` : ""}
           </button>
         )}
-        <span className="st-small st-muted">Display time (UTC+00:00)</span>
+        {!panel && <><span className="st-cmdsep" aria-hidden /><span className="st-row" style={{ gap: 6 }}><Clock size={14} color="#0078d4" aria-hidden />Display time (UTC+00:00)</span></>}
         <span className="st-grow" />
         <span role="status" aria-live="polite" className="st-small st-muted">{note}</span>
-        <label className="st-search" style={{ width: 170 }}>
-          <Search size={14} aria-hidden /><span className="st-sr">Search results</span>
-          <input className="st-input" style={{ height: 24 }} value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} placeholder="Search" />
-        </label>
+        {searching || search ? (
+          <label className="st-search" style={{ width: 170 }}>
+            <Search size={14} aria-hidden /><span className="st-sr">Search results</span>
+            <input className="st-input" autoFocus style={{ height: 24 }} value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} onBlur={() => setSearching(false)} placeholder="Search" />
+          </label>
+        ) : <button type="button" className="st-icon-btn" aria-label="Search results" onClick={() => setSearching(true)}><Search size={15} color="#0078d4" aria-hidden /></button>}
       </div>
-      <div className="st-results-status" role="status">
-        <span><b>Completed.</b> Showing results from {outcome.phrase}.</span>
-        {result.truncated && <span className="st-msg warn" style={{ padding: "1px 6px" }}>Partial result: limited to {fmtCount(rows.length)} records.</span>}
-        {result.warnings.map(w => <span key={w} className="st-msg warn" style={{ padding: "1px 6px" }}>{w}</span>)}
-        <span className="st-grow" />
-        <span className="st-row st-muted" style={{ gap: 4 }}><Timer size={13} aria-hidden />{fmtDuration(outcome.ms)}</span>
-        <span className="st-muted">{fmtCount(rows.length)} records</span>
-      </div>
+      {panel ? (
+        <>
+          <span className="st-sr" role="status">Completed. Showing results from {outcome.phrase}. {fmtCount(rows.length)} records.</span>
+          {(result.truncated || result.warnings.length > 0) && (
+            <div className="st-results-status">
+              {result.truncated && <span className="st-msg warn" style={{ padding: "1px 6px" }}>Partial result: limited to {fmtCount(rows.length)} records.</span>}
+              {result.warnings.map(w => <span key={w} className="st-msg warn" style={{ padding: "1px 6px" }}>{w}</span>)}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="st-results-status" role="status">
+          <span><b>Completed.</b> Showing results from {outcome.phrase}.</span>
+          {result.truncated && <span className="st-msg warn" style={{ padding: "1px 6px" }}>Partial result: limited to {fmtCount(rows.length)} records.</span>}
+          {result.warnings.map(w => <span key={w} className="st-msg warn" style={{ padding: "1px 6px" }}>{w}</span>)}
+          <span className="st-grow" />
+          <span className="st-row st-muted" style={{ gap: 4 }}><Timer size={13} aria-hidden />{fmtDuration(outcome.ms)}</span>
+          <span className="st-muted">{fmtCount(rows.length)} records</span>
+        </div>
+      )}
       {view === "chart" ? (
         <ChartView columns={columns} rows={rows} initial={kindFromResult(result.chart)} />
       ) : (
         <>
           <span id={helpId} className="st-sr">Arrow keys move between cells. Enter expands a row, Space selects it, Ctrl+C copies the cell, Page Up and Page Down change page.</span>
+          <div className="st-grid-row">
           <div className="st-grid-wrap">
             <table className="st-grid" role="grid" aria-label="Query results" aria-rowcount={order.length + 1}
               aria-describedby={helpId}
               onKeyDown={onGridKey}>
               <thead>
                 <tr>
-                  <th className="narrow" scope="col"><span className="st-sr">Expand</span></th>
-                  <th className="narrow" scope="col">
-                    <input type="checkbox" aria-label="Select all rows" checked={allShownSelected} onChange={toggleAll} style={{ margin: 0, accentColor: "var(--st-accent)" }} />
-                  </th>
+                  {panel ? <>{checkHead}{expandHead}</> : <>{expandHead}{checkHead}</>}
                   {visible.map(c => {
                     const on = sort?.col === c.name;
                     return (
@@ -345,7 +349,7 @@ function ResultsArea({ outcome, incidentId, onFilter }, ref) {
                           </button>
                           <button type="button" className="st-colfilter" aria-label={`Filter ${c.name}`} data-on={!!filters[c.name]} title="Filter"
                             onClick={e => setFilterAt({ col: c, anchor: e.currentTarget })}>
-                            <Filter size={12} aria-hidden fill={filters[c.name] ? "currentColor" : "none"} />
+                            {panel && !filters[c.name] ? <MoreHorizontal size={13} aria-hidden /> : <Filter size={12} aria-hidden fill={filters[c.name] ? "currentColor" : "none"} />}
                           </button>
                         </span>
                       </th>
@@ -356,7 +360,7 @@ function ResultsArea({ outcome, incidentId, onFilter }, ref) {
               <tbody ref={body}>
                 {pageIdx.flatMap(i => {
                   const out = [
-                    <Row key={i} row={rows[i]} index={i} cols={visible} selected={selected.has(i)} expanded={expanded.has(i)}
+                    <Row key={i} row={rows[i]} index={i} cols={visible} selected={selected.has(i)} expanded={expanded.has(i)} checkFirst={panel}
                       activeCol={i === firstActive ? (i === active.row ? active.col : 0) : null}
                       onToggleSelect={toggleSelect} onToggleExpand={toggleExpand} onFocusCell={onFocusCell} onCopy={onCopy} fmt={fmt} />,
                   ];
@@ -367,23 +371,44 @@ function ResultsArea({ outcome, incidentId, onFilter }, ref) {
               </tbody>
             </table>
           </div>
-          <div className="st-grid-foot">
-            <button type="button" className="st-icon-btn" aria-label="First page" disabled={safePage === 0} onClick={() => setPage(0)}><ChevronsLeft size={14} aria-hidden /></button>
-            <button type="button" className="st-icon-btn" aria-label="Previous page" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}><ChevronLeft size={14} aria-hidden /></button>
-            <label className="st-row" style={{ gap: 4 }}>Page
-              <input className="st-input" type="number" min={1} max={pages} value={safePage + 1} aria-label="Page number"
-                onChange={e => { const n = Number(e.target.value); if (n >= 1 && n <= pages) setPage(n - 1); }} />
-            </label>
-            <span>of {pages}</span>
-            <button type="button" className="st-icon-btn" aria-label="Next page" disabled={safePage >= pages - 1} onClick={() => setPage(safePage + 1)}><ChevronRight size={14} aria-hidden /></button>
-            <button type="button" className="st-icon-btn" aria-label="Last page" disabled={safePage >= pages - 1} onClick={() => setPage(pages - 1)}><ChevronsRight size={14} aria-hidden /></button>
-            <select className="st-input" aria-label="Items per page" value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(0); }}>
-              {[50, 100, 150, 200].map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
-            <span>items per page</span>
-            <span className="st-grow" />
-            <span>{from} - {to} of {fmtCount(order.length)}</span>
+          {panel && (
+            <div className="st-col-rail">
+              <ColumnsButton columns={columnList} hidden={hidden} onToggle={toggleColumn} className="st-col-tab"><Columns3 size={14} aria-hidden /><span>Columns</span></ColumnsButton>
+            </div>
+          )}
           </div>
+          {panel ? (
+            <div className="st-grid-foot">
+              <span>{fmtElapsed(outcome.ms)}</span>
+              <span className="st-row" style={{ gap: 6, marginLeft: 18 }}>Display time (UTC+00:00)</span>
+              <span className="st-grow" />
+              {pages > 1 && (
+                <>
+                  <button type="button" className="st-icon-btn" aria-label="Previous page" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}><ChevronLeft size={14} aria-hidden /></button>
+                  <button type="button" className="st-icon-btn" aria-label="Next page" disabled={safePage >= pages - 1} onClick={() => setPage(safePage + 1)}><ChevronRight size={14} aria-hidden /></button>
+                </>
+              )}
+              <span className="st-cmdsep" aria-hidden />
+              <span>{from} - {to} of {fmtCount(order.length)}</span>
+            </div>
+          ) : (
+            <div className="st-grid-foot center">
+              <button type="button" className="st-icon-btn" aria-label="First page" disabled={safePage === 0} onClick={() => setPage(0)}><ChevronFirst size={15} aria-hidden /></button>
+              <button type="button" className="st-icon-btn" aria-label="Previous page" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}><ChevronLeft size={15} aria-hidden /></button>
+              <label className="st-row" style={{ gap: 6 }}>Page
+                <input className="st-input" type="number" min={1} max={pages} value={safePage + 1} aria-label="Page number"
+                  onChange={e => { const n = Number(e.target.value); if (n >= 1 && n <= pages) setPage(n - 1); }} />
+              </label>
+              <span>of {pages}</span>
+              <button type="button" className="st-icon-btn" aria-label="Next page" disabled={safePage >= pages - 1} onClick={() => setPage(safePage + 1)}><ChevronRight size={15} aria-hidden /></button>
+              <button type="button" className="st-icon-btn" aria-label="Last page" disabled={safePage >= pages - 1} onClick={() => setPage(pages - 1)}><ChevronLast size={15} aria-hidden /></button>
+              <select className="st-input" aria-label="Items per page" value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(0); }}>
+                {[50, 100, 150, 200].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+              <span>items per page</span>
+              <span className="st-sr">{from} - {to} of {fmtCount(order.length)}</span>
+            </div>
+          )}
         </>
       )}
       {filterAt && (

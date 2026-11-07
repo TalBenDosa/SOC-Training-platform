@@ -1,9 +1,10 @@
 "use client";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTeamSentinel } from "@/lib/team/useTeamSentinel";
 import { SentinelConsole } from "@/components/sentinel/SentinelConsole";
+import { sentinelChannelName, sentinelWindowName, showSiemWindow, type SentinelTarget } from "@/lib/team/twoWindows";
 
 const UUID = /^[0-9a-fA-F-]{36}$/;
 
@@ -20,12 +21,24 @@ export default function SentinelPage() {
   const role = r && /^[a-z0-9]{1,16}$/.test(r) ? r : null;
   const { workspace, states, actions, loading, error, ended, refresh } = useTeamSentinel(team, role);
   const initial = useMemo(() => ({ incidentId: params.get("incident") ?? undefined, host: params.get("host") ?? undefined }), [params]);
+  const [goTo, setGoTo] = useState<{ incidentId?: string; host?: string; nonce: number } | undefined>();
+
+  // This tab is the session's Sentinel window, and the SIEM window can send the analyst to an incident.
+  useEffect(() => {
+    if (!team) return;
+    window.name = sentinelWindowName(team);
+    try {
+      const ch = new BroadcastChannel(sentinelChannelName(team));
+      ch.onmessage = (e: MessageEvent<SentinelTarget>) => setGoTo(g => ({ incidentId: e.data.incident, host: e.data.host, nonce: (g?.nonce ?? 0) + 1 }));
+      return () => ch.close();
+    } catch { return; }
+  }, [team]);
 
   if (!team) return <Notice title="Sentinel opens from a team exercise" text="Open it from the team room of a session that runs on Sentinel." />;
   if (loading) return <Notice title="Connecting to the workspace" text="Reading the session's logs." />;
   if (!workspace || !actions) return <Notice title="This workspace could not be opened" text={error ?? "Reload the page, or go back to the team room."} team={team} />;
 
-  return <SentinelConsole workspace={workspace} states={states} actions={actions} onRefresh={refresh} ended={ended} backHref={`/team/${team}`} initial={initial} />;
+  return <SentinelConsole workspace={workspace} states={states} actions={actions} onRefresh={refresh} ended={ended} backHref={`/team/${team}`} initial={initial} goTo={goTo} onBack={() => showSiemWindow(team, `/team/${team}`)} />;
 }
 
 function Notice({ title, text, team }: { title: string; text: string; team?: string }) {

@@ -71,7 +71,7 @@ describe("shell", () => {
     expect(all(".st-nav-item").map(b => b.textContent)).toEqual(["Overview", "Logs", "Search", "Incidents", "Hunting", "Entity behavior", "Threat intelligence", "Analytics", "Automation"]);
     expect(all(".st-nav-group").map(b => b.textContent)).toEqual(["General", "Threat management", "Configuration"]);
     expect(text()).toContain("contoso-sentinel-prod");
-    expect(q<HTMLAnchorElement>(".st-topbar a")!.textContent).toBe("Back to team room");
+    expect(q<HTMLAnchorElement>(".st-topbar a")!.textContent).toBe("SIEM window");
   });
 
   it("every screen renders, every control has a name, no em dash in the text", async () => {
@@ -113,21 +113,23 @@ describe("incidents grid", () => {
 
   it("sorts by a column and filters by the search box", () => {
     mount();
-    const numbers = () => incidentRows().map(r => r.querySelectorAll("td")[1].textContent);
+    const numbers = () => incidentRows().map(r => r.querySelectorAll("td")[2].textContent);
     expect(numbers()).toEqual(["102", "101"]);
-    press(/^Incident number/);
-    press(/^Incident number/);
+    press(/^Incident ID/);
+    press(/^Incident ID/);
     expect(numbers()).toEqual(["101", "102"]);
     setValue(q<HTMLInputElement>('input[placeholder^="Search by ID"]')!, "service");
     expect(numbers()).toEqual(["102"]);
   });
 
-  it("opens the preview, and changing the owner there writes through the actions", () => {
+  it("opens the preview, and changing the owner there writes through the actions", async () => {
     const { calls } = mount();
     click(incidentRows().find(r => r.textContent?.includes("Initial access"))!);
     expect(text()).toContain("View full details");
     press(/^Owner: Unassigned/);
     press("Dana Lead");
+    expect(calls.find(c => c.fn === "updateIncident"), "nothing changes before Apply").toBeUndefined();
+    await act(async () => { button("Apply").click(); });
     expect(calls.find(c => c.fn === "updateIncident")?.args).toEqual(["inc-101", { owner: "Dana Lead" }]);
   });
 
@@ -171,7 +173,7 @@ describe("incident details", () => {
     expect(text()).toContain("Incident ID 101");
     for (const label of ["Refresh", "Logs", "Tasks", "Activity log", "Investigate", "Incident actions", "Overview", "Entities"]) expect(button(label)).toBeTruthy();
     for (const label of ["Workspace name", "Description", "Alert product names", "Evidence", "Last update time", "Creation time", "Tactics and techniques"]) expect(text()).toContain(label);
-    expect(all(".st-widget h3").map(h => h.textContent)).toEqual(["Incident timeline", "Entities", "Top insights", "Similar incidents "]);
+    expect(all(".st-widget h3").map(h => h.textContent?.trim())).toEqual(["Incident timeline", "Entities", "Top insights", "Similar incidents"]);
   });
 
   it("Evidence opens the Logs panel on its query, already run, and Done closes it", async () => {
@@ -199,18 +201,17 @@ describe("incident details", () => {
     expect(gridRows()).toHaveLength(2);
   });
 
-  it("closing needs a classification from the five real values, and reopen works", () => {
+  it("closing happens in the Status list: a classification from the five real values, and reopen works", async () => {
     const { calls, rerender, base } = mount();
     openDetails();
     press(/^Status: New/);
     press("Closed");
-    const dialog = q('[role=dialog][aria-label="Close incident"]')!;
-    const select = dialog.querySelector("select") as HTMLSelectElement;
-    expect([...select.options].map(o => o.value).filter(Boolean)).toEqual(CLASSIFICATIONS);
     expect(button("Apply").disabled).toBe(true);
-    setValue(select, CLASSIFICATIONS[1]);
-    setValue(dialog.querySelector("textarea") as HTMLTextAreaElement, "Admin was patching");
-    press("Apply");
+    press(/^Classification/);
+    expect(all('[aria-label="Classification"] [role=option]').map(o => o.textContent)).toEqual(CLASSIFICATIONS);
+    press(CLASSIFICATIONS[1]);
+    setValue(q<HTMLTextAreaElement>('textarea[placeholder="Comment"]')!, "Admin was patching");
+    await act(async () => { button("Apply").click(); });
     expect(calls.find(c => c.fn === "updateIncident")?.args).toEqual(["inc-101", { status: "Closed", classification: CLASSIFICATIONS[1], closingComment: "Admin was patching" }]);
 
     const states = new Map(base.states);
@@ -218,7 +219,52 @@ describe("incident details", () => {
     rerender({ states });
     press(/^Status: Closed/);
     press("Active");
+    await act(async () => { button("Apply").click(); });
     expect(calls.filter(c => c.fn === "updateIncident").at(-1)?.args).toEqual(["inc-101", { status: "Active" }]);
+  });
+
+  it("Severity lists lowest first, Cancel writes nothing, and the panel collapses to three glyphs", async () => {
+    const { calls } = mount();
+    openDetails();
+    press(/^Severity: High/);
+    expect(all('[aria-label="Severity"] [role=option]').map(o => o.textContent)).toEqual(["Informational", "Low", "Medium", "High"]);
+    press("Medium");
+    press("Cancel");
+    expect(calls.find(c => c.fn === "updateIncident")).toBeUndefined();
+    press("Collapse details panel");
+    expect(q(".st-fieldbar.collapsed")).toBeTruthy();
+    expect(() => button("Investigate")).toThrow();
+    press(/^Severity: High/);
+    expect(q('[role=dialog][aria-label="Severity"]')).toBeTruthy();
+  });
+
+  it("lists one line per tactic, in words, each opening its techniques", () => {
+    mount();
+    openDetails();
+    expect(all(".st-inc-left .st-tactic").map(b => b.textContent)).toEqual(["Initial Access (1)", "Execution (1)"]);
+    click(all(".st-inc-left .st-tactic")[1]);
+    expect(q(".st-inc-left")?.textContent).toContain("T1204.002");
+  });
+
+  it("alert details open in a flyout beside the timeline and close with their X", () => {
+    mount();
+    openDetails();
+    press(/^Unfamiliar sign-in properties/);
+    const fly = q('.st-flyout')!;
+    for (const label of ["Description", "Severity", "Status", "Events", "Product name", "Entities (2)", "Tactics and techniques", "System alert ID", "Rule name", "Last update time", "Start time", "End time"]) expect(fly.textContent).toContain(label);
+    expect(fly.textContent).toContain("Sign-ins from a rare location");
+    press("Close alert details");
+    expect(q(".st-flyout")).toBeNull();
+  });
+
+  it("Similar incidents gives the reason, and the info button lists the common items", () => {
+    const shared: SentinelIncident = { ...INCIDENTS[1], id: "inc-103", number: 103, title: "Shares an entity", entityIds: ["host:fin-lt-042"], alertIds: [] };
+    mount({ workspace: fixtureWorkspace({ incidents: [...INCIDENTS, shared] }) });
+    openDetails();
+    expect(q(".st-similar")?.textContent).toContain("Similar entities");
+    expect(all(".st-similar thead th").map(t => t.textContent)).toEqual(["Severity", "Incident ID", "Title", "Last update time", "Status", "Similarity reason", "Owner"]);
+    press(/^Similar entities: show the common items/);
+    expect(q('[role=dialog][aria-label="Similar entities"]')?.textContent).toContain("203.0.113.50");
   });
 
   it("Tasks and Activity log are live, and a comment goes through the actions", async () => {
@@ -244,7 +290,7 @@ describe("incident details", () => {
     mount();
     openDetails();
     press("Actions for FIN-LT-042");
-    expect(all("[role=menuitem]").map(i => i.textContent)).toEqual(["Run playbook"]);
+    expect(all("[role=menuitem]").map(i => i.textContent)).toEqual(["Run playbook (Preview)"]);
     key(q("[role=menu]")!, "Escape");
     press("Actions for 203.0.113.50");
     expect(all("[role=menuitem]").map(i => i.textContent)).toEqual(["Add to TI"]);
@@ -266,6 +312,53 @@ describe("incident details", () => {
     const row = q('table[aria-label="Threat indicators"] tbody tr')!;
     expect(row.textContent).toContain("203.0.113.50");
     expect(row.textContent).toContain("Tal Analyst");
+  });
+});
+
+describe("incidents grid controls", () => {
+  it("has the portal's filter row: More reveals Product name and Owner", () => {
+    mount();
+    expect(text()).toContain("More (2)");
+    expect(text()).not.toContain("Product name :");
+    press("More (2)");
+    expect(text()).toContain("Product name :");
+    expect(text()).toContain("Owner :");
+  });
+
+  it("Actions applies to the ticked incidents", async () => {
+    const { calls } = mount();
+    expect(button("Actions").disabled).toBe(true);
+    click(q<HTMLInputElement>('input[aria-label="Select incident 101"]')!);
+    click(q<HTMLInputElement>('input[aria-label="Select incident 102"]')!);
+    press("Actions");
+    setValue(q<HTMLSelectElement>('[role=dialog] select')!, "Low");
+    await act(async () => { button("Apply").click(); });
+    expect(calls.filter(c => c.fn === "updateIncident").map(c => c.args)).toEqual([["inc-101", { severity: "Low" }], ["inc-102", { severity: "Low" }]]);
+  });
+
+  it("Columns hides a column, and the time range filters by creation", () => {
+    mount();
+    press("Columns");
+    click(all<HTMLInputElement>('[aria-label="Columns"] input')[0]);
+    expect(all('table[aria-label="Incidents"] th').map(t => t.textContent)).not.toContain("Incident ID");
+    expect(incidentRows()).toHaveLength(2);
+  });
+
+  it("with Auto-refresh off the list holds until Refresh", () => {
+    const m = mount();
+    click(q('[role=switch]')!);
+    const arrived: SentinelIncident = { ...INCIDENTS[1], id: "inc-103", number: 103, title: "A late arrival" };
+    m.rerender({ workspace: fixtureWorkspace({ incidents: [...INCIDENTS, arrived] }) });
+    expect(incidentRows()).toHaveLength(2);
+    press("Refresh");
+    expect(incidentRows()).toHaveLength(3);
+  });
+
+  it("the pager is always there, as the grid draws it", () => {
+    mount();
+    expect(button("< Previous").disabled).toBe(true);
+    expect(button("Next >").disabled).toBe(true);
+    expect(q(".st-pager")?.textContent).toContain("1 - 2");
   });
 });
 
@@ -386,6 +479,30 @@ describe("logs", () => {
     expect(editor().value).toBe("IPAddress");
   });
 
+  it("the panel inside an incident is one query, with Schema and Filter collapsed", async () => {
+    mount();
+    openDetails();
+    press("Alerts, 2");
+    await settle();
+    expect(q(".st-qtabs")).toBeNull();
+    expect(text()).toContain("Schema and Filter");
+    expect(q(".st-col-rail")).toBeTruthy();
+    expect(() => button("Export")).toThrow();
+    press("Expand schema pane");
+    expect(text()).toContain("Group by:");
+  });
+
+  it("Example queries opens the Queries tab, and the editor collapses", () => {
+    mount();
+    nav("Logs");
+    press("Example queries");
+    expect(text()).toContain("Failed sign-ins by account");
+    press("Collapse editor");
+    expect(q<HTMLElement>(".st-editor")!.style.height).toBe("80px");
+    press("Expand editor");
+    expect(q<HTMLElement>(".st-editor")!.style.height).toBe("210px");
+  });
+
   it("opens several queries in tabs", async () => {
     mount();
     await runInLogs("SigninLogs");
@@ -479,7 +596,7 @@ describe("search, hunting, analytics, automation", () => {
 });
 
 describe("investigation graph", () => {
-  it("shows alerts and entities, and an exploration query adds nodes with a dotted link", async () => {
+  it("shows alerts and entities, and an exploration query adds nodes behind a hub", async () => {
     mount();
     openDetails();
     press("Investigate");
@@ -487,14 +604,37 @@ describe("investigation graph", () => {
     expect(nodes()).toHaveLength(6);
     const account = q('[data-node="account:jdoe@contoso.example"]')!;
     act(() => { account.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); });
-    expect(text()).toContain("Exploration queries");
+    expect(q(".st-explore")).toBeTruthy();
     press(/^Sign-ins for account \(60\)/);
-    expect(all("[data-testid=graph-dotted]").length).toBeGreaterThan(0);
+    expect(all("[data-testid=graph-link]").length).toBeGreaterThan(0);
     expect(q('[data-node="ip:198.51.100.7"]')).toBeTruthy();
     press("Undo");
     expect(q('[data-node="ip:198.51.100.7"]')).toBeNull();
     press("Redo");
     expect(q('[data-node="ip:198.51.100.7"]')).toBeTruthy();
+    act(() => { q("[data-hub]")!.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+    expect(q('[data-node="ip:198.51.100.7"]'), "the X on the hub removes what it added").toBeNull();
+  });
+
+  it("each alert runs one trunk with an events dot, and it opens the events", async () => {
+    mount();
+    openDetails();
+    press("Investigate");
+    const dot = q('[data-events="aaaaaaaa-0002"]')!;
+    act(() => { dot.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+    await settle();
+    expect(editor().value).toContain("DeviceProcessEvents");
+  });
+
+  it("the time strip opens from View related events, and Help works", () => {
+    mount();
+    openDetails();
+    press("Investigate");
+    expect(q(".st-strip")).toBeNull();
+    press("View related events");
+    expect(q(".st-strip")).toBeTruthy();
+    press("Help");
+    expect(q(".st-railpane")?.textContent).toContain("exploration queries");
   });
 
   it("a question whose answers are all on the graph cannot add anything", () => {
@@ -503,7 +643,7 @@ describe("investigation graph", () => {
     press("Investigate");
     act(() => { q('[data-node="account:jdoe@contoso.example"]')!.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); });
     expect(button(/^Related alerts \(2\)/).disabled).toBe(true);
-    expect(all("[data-testid=graph-dotted]")).toHaveLength(0);
+    expect(all("[data-testid=graph-link]")).toHaveLength(0);
   });
 
   it("the Info rail offers the same questions, for keyboard users", () => {
@@ -511,7 +651,7 @@ describe("investigation graph", () => {
     openDetails();
     press("Investigate");
     act(() => { q('[data-node="host:fin-lt-042"]')!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); });
-    expect(q(".st-explore-rail")?.textContent).toContain("Processes on host");
+    expect(q(".st-explore-rail")?.textContent).toContain("Processes running on Host");
   });
 
   it("Events opens the raw query in Logs", async () => {
@@ -519,7 +659,7 @@ describe("investigation graph", () => {
     openDetails();
     press("Investigate");
     act(() => { q('[data-node="host:fin-lt-042"]')!.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); });
-    press("Events for Processes on host");
+    press("Events for Processes running on Host");
     await settle();
     expect(editor().value).toContain("DeviceProcessEvents");
     expect(gridRows()).toHaveLength(2);

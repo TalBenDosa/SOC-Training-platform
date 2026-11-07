@@ -8,9 +8,7 @@ import { EntityInfoCard, EntityInsightsCard, EntityTimelineCard } from "./Entity
 import { runQuery } from "./engine";
 import { fmtCount, fmtDateTime, KIND_LABEL, kqlString, SEV_RANK, tiIndicators } from "./helpers";
 import { hostIsolated, PLAYBOOKS, RunResult } from "./IncidentPanes";
-import { BladeTitle, Empty, EntityIcon, rowKeys, Severity, SortTh, Tabs, type SortState } from "./ui";
-
-const home = [{ label: "Home" }, { label: "Sentinel" }];
+import { Empty, EntityIcon, rowKeys, Severity, SortTh, Tabs, type SortState } from "./ui";
 
 function Pre({ text }: { text: string }) {
   return <pre className="st-mono st-small" style={{ margin: "4px 0 0", padding: 8, background: "var(--st-canvas)", border: "1px solid var(--st-border)", whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 240, overflow: "auto" }}>{text}</pre>;
@@ -19,7 +17,7 @@ function Pre({ text }: { text: string }) {
 /* ---------------------------------------------- search -------------------------------------------- */
 
 export function SearchPage() {
-  const { ws, tables, openLogs } = useSentinel();
+  const { tables, openLogs } = useSentinel();
   const [term, setTerm] = useState("");
   const [recent, setRecent] = useState<string[]>([]);
   const [scope, setScope] = useState("");
@@ -33,7 +31,6 @@ export function SearchPage() {
   };
   return (
     <div className="st-page">
-      <BladeTitle title="Sentinel | Search" sub={`Selected workspace: '${ws.name}'`} crumbs={home} />
       <div style={{ padding: "8px 16px", maxWidth: 720 }}>
         <form className="st-row" onSubmit={e => { e.preventDefault(); go(term); }}>
           <label className="st-search st-grow"><Search size={14} aria-hidden /><span className="st-sr">Search across tables</span>
@@ -176,11 +173,10 @@ function HuntingBookmarks() {
 }
 
 export function HuntingPage() {
-  const { ws, bookmarks } = useSentinel();
+  const { bookmarks } = useSentinel();
   const [tab, setTab] = useState<"queries" | "bookmarks">("queries");
   return (
     <div className="st-page">
-      <BladeTitle title="Sentinel | Hunting" sub={`Selected workspace: '${ws.name}'`} crumbs={home} />
       <div style={{ padding: "0 16px 6px" }}>
         <Tabs label="Hunting" value={tab} onChange={setTab} tabs={[{ value: "queries", label: "Queries" }, { value: "bookmarks", label: `Bookmarks (${bookmarks.length})` }]} />
       </div>
@@ -207,8 +203,6 @@ export function EntityBehaviorPage({ focus, onFocus }: { focus: string | null; o
   const entity: SentinelEntity | null = (focus && ws.entities[focus]) || null;
   return (
     <div className="st-page">
-      <BladeTitle title={entity ? entity.name : "Sentinel | Entity behavior"} sub={entity ? KIND_LABEL[entity.kind] : `Selected workspace: '${ws.name}'`}
-        crumbs={entity ? [{ label: "Home" }, { label: "Sentinel | Entity behavior", onClick: () => onFocus(null) }, { label: entity.name }] : home} />
       {entity ? (
         <div className="st-entity-page">
           <section className="st-widget" aria-label="Info"><h3><EntityIcon kind={entity.kind} size={13} />{entity.name}</h3><div className="st-wscroll"><EntityInfoCard entity={entity} /></div></section>
@@ -247,7 +241,6 @@ export function ThreatIntelPage() {
   const list = useMemo(() => tiIndicators(states), [states]);
   return (
     <div className="st-page">
-      <BladeTitle title="Sentinel | Threat intelligence" sub={`Selected workspace: '${ws.name}'`} crumbs={home} />
       {list.length === 0
         ? <Empty icon={<ShieldCheck size={28} aria-hidden />} title="No indicators yet">Choose Add to TI on an IP, domain, URL or file entity of an incident.</Empty>
         : (
@@ -297,7 +290,6 @@ export function AnalyticsPage() {
   const sel = ws.rules.find(r => r.id === selected) ?? null;
   return (
     <div className="st-page">
-      <BladeTitle title="Sentinel | Analytics" sub={`Selected workspace: '${ws.name}'`} crumbs={home} />
       <div className="st-kpis"><div className="st-kpi"><b>{ws.rules.length}</b><span>Active rules</span></div><div className="st-kpi"><b>{fmtCount(ws.alerts.length)}</b><span>Alerts raised</span></div></div>
       <div style={{ padding: "0 16px 6px" }}><Tabs label="Analytics" value="active" onChange={() => undefined} tabs={[{ value: "active", label: "Active rules" }]} /></div>
       <div className="st-split">
@@ -363,7 +355,6 @@ export function AutomationPage() {
   };
   return (
     <div className="st-page">
-      <BladeTitle title="Sentinel | Automation" sub={`Selected workspace: '${ws.name}'`} crumbs={home} />
       <div className="st-page-scroll" style={{ padding: "0 16px 16px" }}>
         <div style={{ marginBottom: 6 }}><Tabs label="Automation" value="playbooks" onChange={() => undefined} tabs={[{ value: "playbooks", label: "Active playbooks" }]} /></div>
         {hosts.length === 0

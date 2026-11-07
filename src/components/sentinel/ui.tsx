@@ -6,8 +6,8 @@ import {
   type CSSProperties, type KeyboardEvent as RKeyboardEvent, type ReactNode,
 } from "react";
 import {
-  AppWindow, Box, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp,
-  Cloud, Cpu, FileText, Globe, KeyRound, Link2, Loader, Mail, Monitor, MoreHorizontal, RefreshCw, Search, User, X,
+  AppWindow, ArrowDown, ArrowUp, ArrowUpDown, Box, CheckCircle2, ChevronDown, ChevronRight, Info,
+  Cloud, Cpu, FileText, Globe, KeyRound, Link2, Loader, CircleAlert, Mail, Monitor, MoreHorizontal, RefreshCw, Search, User, X,
 } from "lucide-react";
 import type { EntityKind, IncidentStatus, SentinelSeverity } from "@/lib/sentinel/types";
 
@@ -15,9 +15,9 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:n
 
 /* ---------------------------------------------- popover ------------------------------------------- */
 
-export function Popover({ anchor, onClose, children, width, align = "left", role, label, style }: {
+export function Popover({ anchor, onClose, children, width, align = "left", side = "below", keepOnTab, role, label, style }: {
   anchor: HTMLElement | null; onClose: () => void; children: ReactNode; width?: number; align?: "left" | "right";
-  role?: string; label?: string; style?: CSSProperties;
+  side?: "below" | "right"; keepOnTab?: boolean; role?: string; label?: string; style?: CSSProperties;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<CSSProperties>({ top: 0, left: 0, visibility: "hidden" });
@@ -32,11 +32,12 @@ export function Popover({ anchor, onClose, children, width, align = "left", role
     left = Math.max(4, Math.min(left, vw - b.width - 4));
     let top = a.bottom + 2;
     if (top + b.height > vh - 4) top = Math.max(4, a.top - b.height - 2);
+    if (side === "right") { left = Math.min(a.right + 8, vw - b.width - 4); top = Math.max(4, Math.min(a.top, vh - b.height - 4)); }
     setPos({ top, left, visibility: "visible" });
     // Selected option first, then the first control, so arrow keys work at once.
     const first = el.querySelector<HTMLElement>('[aria-selected="true"],[aria-checked="true"]') ?? el.querySelector<HTMLElement>(`input,textarea,select,[role="option"],[role="menuitem"],${FOCUSABLE}`);
     first?.focus({ preventScroll: true });
-  }, [anchor, align]);
+  }, [anchor, align, side]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -59,7 +60,7 @@ export function Popover({ anchor, onClose, children, width, align = "left", role
     else if (e.key === "ArrowUp") { e.preventDefault(); items[(at - 1 + items.length) % items.length].focus(); }
     else if (e.key === "Home") { e.preventDefault(); items[0].focus(); }
     else if (e.key === "End") { e.preventDefault(); items[items.length - 1].focus(); }
-    else if (e.key === "Tab") { onClose(); }
+    else if (e.key === "Tab" && !keepOnTab) { onClose(); }
   };
 
   return (
@@ -309,26 +310,77 @@ export function Empty({ icon, title, children }: { icon?: ReactNode; title: stri
 
 /* ------------------------------------------- blade chrome ----------------------------------------- */
 
-export function Crumbs({ items }: { items: { label: string; onClick?: () => void }[] }) {
+export function Crumbs({ items, trailing }: { items: { label: string; onClick?: () => void }[]; trailing?: boolean }) {
   return (
     <nav className="st-crumb" aria-label="Breadcrumb">
       {items.map((c, i) => (
         <span key={c.label} className="st-row" style={{ gap: 4 }}>
           {c.onClick ? <button type="button" onClick={c.onClick}>{c.label}</button> : <span>{c.label}</span>}
-          {i < items.length - 1 && <ChevronRight size={12} aria-hidden />}
+          {(trailing || i < items.length - 1) && <ChevronRight size={12} aria-hidden />}
         </span>
       ))}
     </nav>
   );
 }
 
-export function BladeTitle({ title, sub, crumbs }: { title: string; sub: string; crumbs: { label: string; onClick?: () => void }[] }) {
+/** Spans the whole blade, above the left menu: "Sentinel | Incidents", as the portal draws it. */
+export function BladeHeader({ icon, strong, light, sub, crumbs }: {
+  icon: ReactNode; strong: string; light?: string; sub: string; crumbs: { label: string; onClick?: () => void }[];
+}) {
+  return (
+    <header className="st-blade-head">
+      <Crumbs items={crumbs} />
+      <div className="st-blade-title">
+        {icon}
+        <div>
+          <h1><span className="s">{strong}</span>{light && <span className="l"> | {light}</span>}</h1>
+          <div className="sub">{sub}</div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+export function Switch({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button type="button" role="switch" aria-checked={checked} className="st-switch" onClick={() => onChange(!checked)}>
+      <span className="track" aria-hidden><span className="thumb" /></span>{label}
+    </button>
+  );
+}
+
+/** A dropdown of checkboxes for choosing columns: the grid and Logs. */
+export function ColumnsButton({ columns, hidden, onToggle, className = "st-cmd", children, side }: {
+  columns: { key: string; label: string }[]; hidden: Set<string>; onToggle: (key: string) => void; className?: string; children: ReactNode; side?: "below" | "right";
+}) {
+  const [open, setOpen] = useState(false);
+  const btn = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), []);
   return (
     <>
-      <Crumbs items={crumbs} />
-      <div className="st-blade-title"><div><h1>{title}</h1><div className="sub">{sub}</div></div></div>
+      <button ref={btn} type="button" className={className} aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(o => !o)}>{children}</button>
+      {open && (
+        <Popover anchor={btn.current} onClose={close} width={240} role="group" label="Columns" align="right" side={side === "right" ? "below" : side}>
+          {columns.map(c => (
+            <label key={c.key} className="st-opt st-check">
+              <input type="checkbox" checked={!hidden.has(c.key)} onChange={() => onToggle(c.key)} />
+              <span className="st-ellipsis">{c.label}</span>
+            </label>
+          ))}
+        </Popover>
+      )}
     </>
   );
+}
+
+export function InfoMark({ title }: { title: string }) {
+  return <span title={title} className="st-infomark" aria-hidden><Info size={12} /></span>;
+}
+
+/** The round glyph the flyout and the collapsed panel put beside a severity. */
+export function SevGlyph({ value, size = 14 }: { value: SentinelSeverity; size?: number }) {
+  const c = value === "High" ? "#d13438" : value === "Medium" ? "#ff8c00" : value === "Low" ? "#c8a600" : "#8a8886";
+  return <CircleAlert size={size} color="#fff" fill={c} aria-hidden />;
 }
 
 /* ----------------------------------------- sortable tables ---------------------------------------- */
@@ -344,18 +396,18 @@ export function SortTh<K extends string>({ k, sort, onSort, children, style }: {
     <th scope="col" style={style} aria-sort={on ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
       <button type="button" className="st-sort" onClick={() => onSort({ key: k, dir: on && sort.dir === "desc" ? "asc" : "desc" })}>
         <span className="st-ellipsis">{children}</span>
-        {on && (sort.dir === "asc" ? <ChevronUp size={12} aria-hidden /> : <ChevronDown size={12} aria-hidden />)}
+        {on ? (sort.dir === "asc" ? <ArrowUp size={12} aria-hidden /> : <ArrowDown size={12} aria-hidden />) : <ArrowUpDown size={12} color="#605e5c" aria-hidden />}
       </button>
     </th>
   );
 }
 
-export function SimplePager({ page, pages, from, to, total, onPage }: { page: number; pages: number; from: number; to: number; total: number; onPage: (p: number) => void }) {
+export function SimplePager({ page, pages, from, to, onPage }: { page: number; pages: number; from: number; to: number; onPage: (p: number) => void }) {
   return (
     <div className="st-pager">
-      <button type="button" className="st-cmd" disabled={page <= 0} onClick={() => onPage(page - 1)}><ChevronLeft size={14} aria-hidden />Previous</button>
-      <span>{total ? `${from} - ${to} of ${total}` : "No results"}</span>
-      <button type="button" className="st-cmd" disabled={page >= pages - 1} onClick={() => onPage(page + 1)}>Next<ChevronRight size={14} aria-hidden /></button>
+      <button type="button" className="st-pagebtn" disabled={page <= 0} onClick={() => onPage(page - 1)}>&lt; Previous</button>
+      <span>{from} - {to}</span>
+      <button type="button" className="st-pagebtn" disabled={page >= pages - 1} onClick={() => onPage(page + 1)}>Next &gt;</button>
     </div>
   );
 }

@@ -65,6 +65,35 @@ export function fmtDuration(ms: number): string {
   const s = Math.max(0, ms) / 1000;
   return `${pad(Math.floor(s / 60))}:${pad(Math.floor(s % 60))}.${pad(Math.floor((s % 1) * 1000), 3)}`;
 }
+/** 12/26/22, 01:38 PM: the grid, the preview and the activity log. */
+export function fmtShortTime(iso: string | number | Date | null | undefined): string {
+  if (iso == null || iso === "") return "-";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  const h = d.getUTCHours();
+  return `${pad(d.getUTCMonth() + 1)}/${pad(d.getUTCDate())}/${pad(d.getUTCFullYear() % 100)}, ${pad(h % 12 || 12)}:${pad(d.getUTCMinutes())} ${h < 12 ? "AM" : "PM"}`;
+}
+/** 1/12/2023, 03:27 PM: Similar incidents and the alert flyout. */
+export function fmtMediumTime(iso: string | number | Date | null | undefined): string {
+  if (iso == null || iso === "") return "-";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  const h = d.getUTCHours();
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}, ${pad(h % 12 || 12)}:${pad(d.getUTCMinutes())} ${h < 12 ? "AM" : "PM"}`;
+}
+/** 2s 567ms, as the Logs panel footer shows a run. */
+export function fmtElapsed(ms: number): string {
+  const whole = Math.max(0, Math.round(ms));
+  return whole < 1000 ? `${whole}ms` : `${Math.floor(whole / 1000)}s ${whole % 1000}ms`;
+}
+/** 1.2K: the KPI tiles. */
+export function fmtCompact(n: number): string {
+  return n >= 1000 ? `${+(n / 1000).toFixed(1)}K` : String(n);
+}
+/** CommandAndControl reads as Command and Control. */
+export function tacticLabel(t: string): string {
+  return t.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/\bAnd\b/g, "and");
+}
 export function fmtCount(n: number): string {
   return n.toLocaleString("en-US");
 }
@@ -164,7 +193,7 @@ export function bookmarksQuery(incident: SentinelIncident): string {
   return `HuntingBookmark\n| where IncidentInfo has ${kqlString(incident.id)}\n| project TimeGenerated, BookmarkName, Notes, QueryText, CreatedBy, Entities`;
 }
 
-export interface SimilarIncident { incident: SentinelIncident; reason: string; common: string[]; score: number }
+export interface SimilarIncident { incident: SentinelIncident; reason: string; common: string[]; entities: SentinelEntity[]; rules: string[]; score: number }
 
 /** Up to 20 other incidents, ranked by shared entities and shared detections. */
 export function similarIncidents(incident: SentinelIncident, ws: SentinelWorkspace): SimilarIncident[] {
@@ -178,14 +207,10 @@ export function similarIncidents(incident: SentinelIncident, ws: SentinelWorkspa
     const rules = [...new Set(alertsOf(other, ws).map(a => a.ruleId ?? a.name))].filter(r => myRules.has(r));
     const sameTitle = other.title === incident.title;
     if (!shared.length && !rules.length && !sameTitle) continue;
-    const reasons: string[] = [];
-    if (shared.length) reasons.push(shared.length === 1 ? "Entity" : `Entities (${shared.length})`);
-    if (rules.length || sameTitle) reasons.push("Rule name");
-    const common = [
-      ...shared.map(e => ws.entities[e]?.name ?? e),
-      ...rules.map(r => ws.rules.find(x => x.id === r)?.name ?? r),
-    ];
-    out.push({ incident: other, reason: reasons.join(", "), common, score: shared.length * 2 + rules.length * 3 + (sameTitle ? 1 : 0) });
+    const entities = shared.map(e => ws.entities[e]).filter((e): e is SentinelEntity => !!e);
+    const ruleNames = rules.map(r => ws.rules.find(x => x.id === r)?.name ?? r);
+    const common = [...entities.map(e => e.name), ...ruleNames];
+    out.push({ incident: other, reason: shared.length ? "Similar entities" : "Same rule name", common, entities, rules: ruleNames, score: shared.length * 2 + rules.length * 3 + (sameTitle ? 1 : 0) });
   }
   return out.sort((a, b) => b.score - a.score || Date.parse(b.incident.lastUpdate) - Date.parse(a.incident.lastUpdate)).slice(0, 20);
 }
@@ -283,7 +308,10 @@ export function entitiesFromRows(rows: KqlRow[], ws: SentinelWorkspace): Sentine
 
 const NOT_ACTIVITY = new Set(["SecurityAlert", "SecurityIncident", "AlertInfo", "AlertEvidence"]);
 
+export interface LoggedHost { name: string; first: string; last: string }
+
 export interface EntityActivity {
+  hosts: LoggedHost[];
   firstSeen: string | null;
   lastSeen: string | null;
   tables: { name: string; count: number }[];
@@ -297,6 +325,7 @@ export function entityActivity(entity: SentinelEntity, ws: SentinelWorkspace): E
   const tables: EntityActivity["tables"] = [];
   const recent: EntityActivity["recent"] = [];
   let first = Infinity; let last = -Infinity;
+  const hosts = new Map<string, { first: number; last: number }>();
   for (const t of Object.values(ws.tables)) {
     if (NOT_ACTIVITY.has(t.name)) continue;
     let count = 0;
@@ -310,12 +339,18 @@ export function entityActivity(entity: SentinelEntity, ws: SentinelWorkspace): E
       const ts = Date.parse(String(row.TimeGenerated ?? ""));
       if (Number.isNaN(ts)) continue;
       first = Math.min(first, ts); last = Math.max(last, ts);
+      const host = row.DeviceName ?? row.Computer;
+      if (typeof host === "string" && host && entity.name.toLowerCase() !== host.toLowerCase()) {
+        const seen = hosts.get(host);
+        hosts.set(host, seen ? { first: Math.min(seen.first, ts), last: Math.max(seen.last, ts) } : { first: ts, last: ts });
+      }
       recent.push({ time: String(row.TimeGenerated), table: t.name, text: summarizeRow(row) });
     }
     if (count) tables.push({ name: t.name, count });
   }
   recent.sort((a, b) => Date.parse(b.time) - Date.parse(a.time));
   return {
+    hosts: [...hosts].map(([name, h]) => ({ name, first: new Date(h.first).toISOString(), last: new Date(h.last).toISOString() })).sort((a, b) => a.name.localeCompare(b.name)),
     firstSeen: Number.isFinite(first) ? new Date(first).toISOString() : null,
     lastSeen: Number.isFinite(last) ? new Date(last).toISOString() : null,
     tables: tables.sort((a, b) => b.count - a.count),
@@ -396,7 +431,7 @@ export function explorationsFor(entity: SentinelEntity, ws: SentinelWorkspace): 
   if (entity.kind === "host") {
     return [
       ...related,
-      ...answer(ws, "processes", "Processes on host", [
+      ...answer(ws, "processes", "Processes running on Host", [
         {
           table: "DeviceProcessEvents", needs: ["DeviceName", "FileName"],
           query: `DeviceProcessEvents\n| where DeviceName has ${n}\n| project TimeGenerated, DeviceName, AccountName, FileName, ProcessCommandLine\n| sort by TimeGenerated desc`,
@@ -438,6 +473,23 @@ export function explorationsFor(entity: SentinelEntity, ws: SentinelWorkspace): 
     ];
   }
   return related;
+}
+
+/** The heading the activity log gives an entry. */
+export function activityTitle(text: string): string {
+  if (/^Status changed/.test(text)) return "Incident status was changed";
+  if (/^Severity changed/.test(text)) return "Incident severity was changed";
+  if (/^Incident (assigned|unassigned)/.test(text)) return "Incident owner was changed";
+  if (/^Classification set/.test(text)) return "Incident classification was changed";
+  if (/^Incident created/.test(text)) return "Incident was created";
+  if (/^Bookmark/.test(text)) return "Bookmark was added";
+  if (/^Task/.test(text)) return "Incident task was changed";
+  return "Incident was changed";
+}
+
+/** The SecurityAlert row behind an alert: what the flyout reads beyond the alert object. */
+export function alertRecord(ws: SentinelWorkspace, id: string): KqlRow | undefined {
+  return ws.tables.SecurityAlert?.rows.find(r => r.SystemAlertId === id);
 }
 
 /** What Add to TI and Run playbook may do on this entity. */
