@@ -359,7 +359,7 @@ const vulnerabilityManagementRoom = {
             "tenable.scan_type on this finding is 'authenticated'. If this same host had only ever been scanned unauthenticated, what is the most accurate statement about what you might have missed?",
           options: [
             "The XSS itself: web flaws on a login page show up only to a scanner logged in to the host",
-            "Flaws seen only from inside, such as patches that change no banner; the XSS could still show up",
+            "Flaws seen only from inside, such as missing patches; the XSS itself could still show up",
             "Open ports and service banners: those come only from a logged-in scan, not from outside probing",
             "Firewall rules that shouldn't be open: those show up only to a scanner holding credentials",
           ],

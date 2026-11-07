@@ -471,9 +471,9 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
       type: "flag" as const,
       id: "det-rules-flag1",
       prompt:
-        "You are tuning a detection rule for PowerShell downloads that keeps firing on the patch server's known-good nightly job. Reading [3] gives a two-word term for the configuration you add so a specific known-good pattern no longer triggers the alert. Enter that two-word term.",
+        "You are tuning a detection rule for PowerShell downloads that keeps firing on the patch server's known-good nightly job. Reading [3], Step 2, keeps a rule's user, IP, hostname and URL exclusions together in one place. What is that place called? Enter the two-word term.",
       answer: "exception list",
-      hint: "Reading [3]'s tuning methodology, Step 2, names it: the thing you add to a rule to say 'I already know this activity and it is safe.' Two words.",
+      hint: "Reading [3]'s tuning methodology names it in the heading of Step 2. Two words.",
       xp: 50,
     },
   ],
@@ -1248,7 +1248,7 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
         user_email: "j.chen@corp.com",
         src_ip: "203.0.113.45",
         description:
-          "New inbox rule created on the j.chen@corp.com mailbox",
+          "New inbox rule created on this mailbox",
         mitre_technique: "T1114.003",
         vendor: "Microsoft 365 Unified Audit Log",
         raw: {

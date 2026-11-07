@@ -154,7 +154,7 @@ export const WINDOWS_EVENT_LOGS: RoomExperience = {
           { key: "SubjectUserName", value: "MB-WEB-02$ (IIS APPPOOL\\OnlineBanking)", label: "Who", note: "The application pool's identity: the web app itself." },
           { key: "NewProcessName", value: "C:\\Windows\\System32\\cmd.exe", label: "What started" },
           { key: "ParentProcessName", value: "C:\\Windows\\System32\\inetsrv\\w3wp.exe", label: "Parent", note: "The IIS worker process. A web server starting a shell is the textbook web-shell sign." },
-          { key: "CommandLine", value: "cmd.exe /c whoami /all & net group \"domain admins\" /domain", label: "Command line", note: "Only recorded if a second audit policy setting is enabled. Turn it on." },
+          { key: "CommandLine", value: "cmd.exe /c whoami /all & net group \"domain admins\" /domain", label: "Command line", note: "Only recorded if a second Group Policy setting is enabled. Turn it on." },
           { key: "TokenElevationType", value: "%%1936 (TokenElevationTypeDefault)", label: "Elevation", note: "Default: full token, no UAC split. Typical of service accounts." },
           { key: "MandatoryLabel", value: "S-1-16-12288 (High)", label: "Integrity" },
         ],

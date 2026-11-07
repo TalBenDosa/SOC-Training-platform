@@ -485,7 +485,7 @@ const edrDetectionInvestigationRoom = {
       id: "edr-f1",
       event: lsassAccessEvent, // show the WKS-FIN-0231 log this flag reads
       prompt:
-        "Before you scope the fleet, you want every behavior Falcon tied to the same process tree as this detection on WKS-FIN-0231, not just this one record. Enter the value you would pull them by, exactly as it appears in the raw event.",
+        "Before you scope the fleet, you want every behavior Falcon grouped with this detection on WKS-FIN-0231, not just this one record. Enter the value you would pull them by, exactly as it appears in the raw event.",
       answer: "aggind:9f2ab6c4de3f4a1c8b7e2d5f0a9c3b6e:2670376644",
       hint: "Two long IDs in the raw event start with the same sensor portion. One names this single detection; the other is the grouping from the sibling-alerts reading.",
       xp: 20,

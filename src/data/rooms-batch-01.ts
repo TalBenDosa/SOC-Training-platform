@@ -381,14 +381,14 @@ You are about to join one of the most in-demand, dynamic, and impactful professi
       question:
         "This course calls the SOC Analyst role the gateway into cybersecurity. What earns it that name?",
       options: [
-        "Its analysts build the SIEM and firewalls that every other team relies on",
+        "It hands out the certification other security teams ask for before hiring",
         "Its daily work with real attacks and tools feeds most other security careers",
-        "Its analysts test the company's defences by attacking its systems first",
-        "Its analysts set the policies and regulations that other teams must follow",
+        "It moves analysts into other security teams automatically after a set term",
+        "It sits above the other security teams, so analysts pick where to go next",
       ],
       answer: 1,
       explanation:
-        "The SOC Analyst role is the most common entry point because it gives exposure to real attacks, real tools and real investigation skills, and most other cybersecurity careers draw on that experience. The other three describe different jobs: building the SIEM and firewalls is a Security Engineer's work, attacking the company's own systems is a Penetration Tester's, and making sure the organisation follows laws, regulations and policies is a GRC Analyst's.",
+        "The SOC Analyst role is the most common entry point because it gives exposure to real attacks, real tools and real investigation skills, and most other cybersecurity careers draw on that experience. The reading gives that as the reason. It names no certification, no automatic move to another team and no authority over the other teams.",
       xp: 15,
     },
   ],
@@ -1597,7 +1597,7 @@ This is the ATT&CK framework in action: observation → identification → detec
             "A stronger password policy requiring 12+ characters. Longer passwords are harder to guess",
             "Multi-Factor Authentication (MFA): requires a second verification step beyond just the password",
             "Account lockout after 5 failed attempts: would have locked the 8 accounts being targeted",
-            "Blocking the Python-requests user agent at the firewall: prevents automated spraying tools",
+            "Blocking the Python-requests user agent at the firewall: prevents automated login tools",
           ],
           answer: 1,
           explanation:

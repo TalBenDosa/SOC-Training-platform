@@ -11,7 +11,7 @@ export const STUDY_POINTERS: Record<string, string> = {
   "aisoc-q7": "aisoc-r12",
   "alert-triage-q2": "alert-triage-r3",
   "asset-ac1": "asset-r7",
-  "asset-f1": "asset-r1",
+  "asset-f1": "asset-r3",
   "aws-ac1": "aws-r5",
   "aws-f1": "aws-r2",
   "aws-r1": "aws-r2",

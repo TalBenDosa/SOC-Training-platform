@@ -755,7 +755,7 @@ const aiAttacksTasks = [
     {
       type: "log_analysis" as const,
       id: "aisoc-la1",
-      heading: "Investigate: A Purview Endpoint DLP Alert on an AI Website Paste",
+      heading: "Investigate: A Purview Endpoint DLP Alert on LT-ENG-0472",
       context:
         "Your DLP console shows a new incident from Microsoft Purview Endpoint DLP. Review the raw event below and answer the questions that follow.",
       event: shadowAiPasteEvent,

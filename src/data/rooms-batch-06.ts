@@ -893,7 +893,7 @@ EDR detects threats *after* they start. **Endpoint hardening** reduces the attac
 - **BitLocker**: Full-disk encryption so stolen laptops don't expose data.
 - **Patch management**: Keep the OS and applications updated to close known vulnerabilities.`,
       checkpoint: {
-        question: "An analyst triggers Host Isolation on a laptop from the EDR console. What can that laptop still talk to?",
+        question: "An analyst triggers Host Isolation on a laptop from the EDR console. With no exceptions configured, what can that laptop still talk to?",
         options: [
           "Internal servers, but nothing on the internet",
           "The EDR management channel, and nothing else",

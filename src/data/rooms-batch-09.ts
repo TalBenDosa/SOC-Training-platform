@@ -279,7 +279,7 @@ A good case ticket contains:
         vendor: "Windows Security",
         raw: {
           "event.code": "4624",
-          "host.ip": "10.0.20.12",
+          "host.ip": ["10.0.20.12"],
           "winlog.event_data.TargetUserName": "svc-backup",
           "winlog.event_data.LogonType": "3",
           "winlog.event_data.IpAddress": "10.0.1.45",

@@ -1798,14 +1798,14 @@ This is exactly why the indicators from the previous reading matter as much as t
             question:
               "The parent process is winword.exe and the child process is powershell.exe. Why is this parent-child relationship suspicious?",
             options: [
-              "Word launches PowerShell whenever a document uses Office add-ins, so this tree is expected",
+              "PowerShell's -NoProfile flag alone marks this tree as malicious, whatever started it",
               "PowerShell started by a user application is only suspicious when it runs elevated",
               "A document editor spawning a script engine suggests a malicious macro ran a command",
               "It only becomes suspicious if PowerShell spawns a further child; one level of nesting is acceptable",
             ],
             answer: 2,
             explanation:
-              "winword.exe → powershell.exe is one of the most well-known malicious process relationships in Windows security. Legitimate Microsoft Word does not need to spawn PowerShell under normal operation. This strongly indicates a malicious macro embedded in the Word document ran when the user opened the file (or enabled macros). The macro then invoked PowerShell to download and execute additional malware. This is the 'phishing → malicious document → macro → PowerShell → payload download' attack chain, responsible for a massive proportion of malware infections.",
+              "winword.exe → powershell.exe is one of the most well-known malicious process relationships in Windows security. Legitimate Microsoft Word does not need to spawn PowerShell under normal operation. This strongly indicates a malicious macro embedded in the Word document ran when the user opened the file (or enabled macros). The macro then invoked PowerShell to download and execute additional malware. This is the 'phishing → malicious document → macro → PowerShell → payload download' attack chain, responsible for a massive proportion of malware infections. -NoProfile only skips the PowerShell profile, and it says nothing about which process started PowerShell.",
             xp: 20,
           },
           {

@@ -21,7 +21,7 @@ export const WINDOWS_FUNDAMENTALS: RoomExperience = {
     "Accounts, folders, registry, services, processes. Every one of them can hide an intruder.",
     "Clean this host, and you will know Windows the way attackers do.",
   ],
-  mission: "Investigate a live Windows workstation from its own consoles: audit accounts and UAC, hunt persistence in the registry and services, triage processes, decode an obfuscated command, and work the macro alert.",
+  mission: "Investigate a live Windows workstation from its own consoles: audit accounts and UAC, hunt persistence in the registry and services, triage processes, decode an obfuscated command, and work the Word and PowerShell alert.",
   estimate: "~50 min",
   look: { primary: "#3b9eff", secondary: "#a78bfa", warn: "#f43f5e" },
   scene: "hostcore",
@@ -69,7 +69,7 @@ export const WINDOWS_FUNDAMENTALS: RoomExperience = {
     },
     {
       id: "macro",
-      label: "The Macro Alert",
+      label: "The PowerShell Alert",
       topic: "Reading a process-creation alert: parent, child, command line",
       tagline: "The EDR fires on a document that opened something it never should",
       building: "ticket",

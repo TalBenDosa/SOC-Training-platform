@@ -1016,7 +1016,7 @@ const linuxLogAnalysis: Room = {
       ],
       answer: 0,
       explanation:
-        "The '-u ssh' flag filters by unit (ssh.service on Debian and Ubuntu; RHEL calls the unit sshd), and '--since' and '--until' set both ends of the time range in 'YYYY-MM-DD HH:MM:SS' format, so together they return every SSH service entry in exactly that window. Without '-u ssh', the same range returns every service's logs, not just SSH's. Adding '-p err' keeps only error-level and above, so ordinary entries such as accepted and failed logins disappear. '-n 50' with no '--until' shows only the most recent 50 entries and is not bounded at 06:00.",
+        "The '-u ssh' flag filters by unit (ssh.service on Debian and Ubuntu; RHEL calls the unit sshd), and '--since' and '--until' set both ends of the time range in 'YYYY-MM-DD HH:MM:SS' format, so together they return every SSH service entry in exactly that window. Without '-u ssh', the same range returns every service's logs, not just SSH's. Adding '-p err' keeps only error-level and above, so ordinary entries such as accepted and failed logins disappear. '-n 50' caps the output at 50 entries, and with no '--until' the window is not bounded at 06:00.",
       xp: 25,
     } satisfies QuestionTask,
 

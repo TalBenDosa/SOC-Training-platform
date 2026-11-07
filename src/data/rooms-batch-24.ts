@@ -328,7 +328,7 @@ const credentialAttacksRoom: Room = {
           ],
           answer: 1,
           explanation:
-            "Staying one attempt below the lockout threshold, consistently, across 142 different accounts, is not incidental. It's the defining discipline of a password spray, deliberately trading depth (many guesses against one account) for breadth (a few guesses against many accounts) specifically to avoid triggering lockout-based alerting. The consistency is the tell, so dismissing it as whatever the tool happened to queue misses the deliberate restraint. The policy did not stop anything: it locks at 4, so an account at 3 has not reached its limit. And lockout acts on accounts, not source IPs, which is why Log Analysis 1 could put 47 attempts from one source through this same DC.",
+            "Staying one attempt below the lockout threshold, consistently, across 142 different accounts, is not incidental. It's the defining discipline of a password spray, deliberately trading depth (many guesses against one account) for breadth (a few guesses against many accounts) specifically to avoid triggering lockout-based alerting. The consistency is the tell, so dismissing it as whatever the tool happened to queue misses the deliberate restraint. The policy did not stop anything: it locks at 4, so an account at 3 has not reached its limit. And lockout acts on accounts, not source IPs, so nothing in this policy would refuse an address after three failures.",
           xp: 25,
         },
         {
@@ -445,7 +445,7 @@ const kestrelLogonEvent: TelemetryEvent = {
     "event.code": "4624",
     "winlog.channel": "Security",
     "winlog.computer_name": "SRV-FIL02.kestrel.local",
-    "host.ip": "10.60.2.31",
+    "host.ip": ["10.60.2.31"],
     "winlog.event_data.TargetUserName": "sysmgr_svc",
     "winlog.event_data.TargetDomainName": "KESTREL",
     "winlog.event_data.LogonType": "3",

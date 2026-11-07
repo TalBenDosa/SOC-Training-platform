@@ -150,7 +150,7 @@ export const MACOS_SECURITY_FUNDAMENTALS: RoomExperience = {
         seconds: 11,
         items: [
           { id: "i1", text: "Meetly.app", sub: "quarantine: Chrome · spctl: accepted, source=Notarized Developer ID", bad: false, why: "Downloaded by a browser, quarantined, notarized by Apple and signed with a Developer ID. Every check passes." },
-          { id: "i2", text: "RenderBoost.app", sub: "quarantine: Safari · spctl: rejected, source=Unnotarized Developer ID", bad: true, why: "A valid Developer ID signature, but Apple never notarized it. Gatekeeper refuses it on first launch, and so should you." },
+          { id: "i2", text: "RenderBoost.app", sub: "quarantine: Safari · spctl: rejected, source=Unnotarized Developer ID", bad: true, why: "A valid Developer ID signature, but Apple never notarized it. Gatekeeper rejects it on first launch and the user would have to override that, so do not allow it." },
           { id: "i3", text: "TabOrganiser (installed from the Mac App Store)", sub: "spctl: accepted, source=Mac App Store", bad: false, why: "App Store apps are reviewed and signed by Apple. Source=Mac App Store is the strongest voucher on the list." },
           { id: "i4", text: "FontMender (command-line tool from a chat link)", sub: "quarantine: Slack · codesign: Signature=adhoc, TeamIdentifier=not set", bad: true, why: "Ad-hoc satisfies 'must be signed' while naming nobody. With no team behind it, nothing vouches for it." },
           { id: "i5", text: "Pixel Foundry Studio.app", sub: "quarantine: Safari · spctl: rejected, CSSMERR_TP_CERT_REVOKED", bad: true, why: "The Developer ID certificate was revoked, usually after abuse. A signature from a revoked certificate counts for nothing." },

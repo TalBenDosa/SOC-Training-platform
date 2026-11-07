@@ -427,7 +427,7 @@ const logEntryAnatomyRoom: Room = {
         },
         {
           question:
-            "This record shows a real, completed 13-minute connection to TCP/3389 with substantial two-way data transfer between two internal hosts. Before concluding anything about whether this was legitimate remote administration or something else, what is essential that this record cannot tell you, and where would you look for it?",
+            "This record shows a real, completed 13-minute connection with substantial two-way data transfer between two internal hosts. Before concluding anything about whether this was legitimate remote administration or something else, what is essential that this record cannot tell you, and where would you look for it?",
           options: [
             "How serious it was: read the severity rating conn.log keeps against this uid",
             "Which account was used: match the time and IPs to an authentication log on the destination host",
@@ -448,7 +448,7 @@ const logEntryAnatomyRoom: Room = {
       prompt:
         "In the log_analysis task, what TCP destination port did the Zeek connection record use? Enter the number only.",
       answer: "3389",
-      hint: "It's the id.resp_p field, and it's the standard port for Remote Desktop Protocol.",
+      hint: "Destination, not source: which side answered the connection?",
       xp: 15,
     },
   ],

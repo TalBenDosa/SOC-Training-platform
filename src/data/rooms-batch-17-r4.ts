@@ -598,7 +598,7 @@ const winProtoRoom = {
             "47 requests covering 44 distinct service accounts is nearly one request per service. What does this aggregate show that the single request in the raw event cannot?",
           options: [
             "That the cracking worked: repeated requests show the offline attack is already paying off",
-            "One ticket for a service you use is normal; 44 different services in two minutes is harvesting",
+            "That tickets are being harvested: one for a service you use is normal, dozens in two minutes is not",
             "That m.reyes is a service account, since only service accounts request many tickets at once",
             "That a user opened an intranet portal, which fetches tickets for every backend at once",
           ],

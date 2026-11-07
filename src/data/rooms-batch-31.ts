@@ -191,7 +191,7 @@ const powershellForSocRoom: Room = {
       type: "question",
       id: "ps-soc-q3",
       question:
-        "EDR flags a workstation sending traffic to an unfamiliar external IP on port 4444, but the alert doesn't name the local process behind it. Which cmdlet shows that remote address and port next to the PID that owns them, so you can pivot that PID into Get-Process for the executable details?",
+        "EDR flags a workstation sending traffic to an unfamiliar external IP on port 4444, but the alert doesn't name the local process behind it. Which cmdlet shows that remote address and port next to the PID that owns them, so you can pivot that PID to the executable behind it?",
       options: ["Get-NetFirewallRule", "Get-NetTCPConnection", "Get-Process", "Get-NetIPAddress"],
       answer: 1,
       explanation:

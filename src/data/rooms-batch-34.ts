@@ -344,10 +344,10 @@ const becInvestigationRoom = {
       type: "question" as const,
       id: "bec-q2",
       question:
-        "You want to find every other action the attacker took after this replayed sign-in, not just the records of this one sign-in. Based on Reading 3, which identifier should you pivot on, and why?",
+        "You want the other records linked to this replayed sign-in, not just the audit records of one action. Based on Reading 3, which identifier should you pivot on, and why?",
       options: [
         "correlationId, because it carries over to every action that follows from one stolen sign-in",
-        "sessionId, because it links every event of one continuous sign-in, across separate actions",
+        "sessionId, because it links every event of one continuous session, across separate actions",
         "riskLevelDuringSignIn, because filtering on the same risk score surfaces the attacker's other steps",
         "the source IP on its own, because every attacker action shares one address, so no identifier is needed",
       ],
@@ -589,7 +589,7 @@ const becInvestigationRoom = {
       prompt:
         "Your team adds a second inbox rule on p.nair's mailbox, ordered after the concealment rule, to flag messages mentioning cascadefab.com. It never fires on those messages. Using the New-InboxRule finding, enter the name of the parameter that explains why.",
       answer: "StopProcessingRules",
-      hint: "Most of these parameters act on the message itself. Look for the one that decides what happens to the rest of the rule list.",
+      hint: "Most of these parameters act on the message itself.",
       xp: 20,
     },
   ],

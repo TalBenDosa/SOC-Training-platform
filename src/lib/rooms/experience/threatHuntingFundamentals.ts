@@ -79,7 +79,7 @@ export const THREAT_HUNTING_FUNDAMENTALS: RoomExperience = {
   ],
   personas: {
     "threat-hunt-q1": { name: "Theresa Mwangi", role: "Threat Hunt Lead", line: "The board likes that chart. What do I say to them?" },
-    "threat-hunt-q2": { name: "Theresa Mwangi", role: "Threat Hunt Lead", line: "Same group, new kit. Where do you look?" },
+    "threat-hunt-q2": { name: "Theresa Mwangi", role: "Threat Hunt Lead", line: "They may be back, and you get one hunt. Where do you look?" },
     "threat-hunt-q4": { name: "Theresa Mwangi", role: "Threat Hunt Lead", line: "The counts are in. Which line do you start on?" },
     "threat-hunt-q5": { name: "Theresa Mwangi", role: "Threat Hunt Lead", line: "Four hosts, one hour. Which one do we open?" },
     "threat-hunt-q3": { name: "Theresa Mwangi", role: "Threat Hunt Lead", line: "It's real, and the machine is still on. What happens now?" },

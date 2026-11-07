@@ -505,7 +505,7 @@ export const roomsBatch43 = [
         prompt:
           "Reading 5 says one CloudTrail field names the client behind a call. In the nightly rotation record you triaged, which AWS SDK made the call? Enter its name and version exactly as recorded, in the form Name/1.2.3.",
         answer: "Boto3/1.34.0",
-        hint: "That field lists several name/version pairs. Only one is the AWS library the code called: the others are the language and the operating system.",
+        hint: "That field lists several name/version pairs. Only one is the AWS library the code called: the others describe the language, the operating system and the runtime environment.",
         xp: 20,
       },
     ],

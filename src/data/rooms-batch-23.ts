@@ -729,12 +729,12 @@ Identity Protection tools (like Azure AD/Entra Identity Protection) and CASB (Cl
         options: [
           "A token-reuse alert on an account whose session an attacker stole and replayed",
           "An impossible-travel alert on an employee signing in through a VPN exit abroad",
-          "A consent alert on a user who was tricked into giving a malicious app mailbox access",
+          "A consent alert on an admin approving a vetted company app for mailbox access",
           "A missed sign-in risk inside a SaaS app that the CASB was never integrated with",
         ],
         answer: 1,
         explanation:
-          "The reading names this directly: an employee connecting through a corporate VPN exit node in a different country produces a sign-in that looks geographically impossible, though no travel happened. That alarm is false. The stolen-token and malicious-consent alerts are real attacks the tool caught correctly, so they are true positives. A sign-in risk in an app the CASB isn't integrated with is the tool's blind spot: a miss, not a false alarm.",
+          "The reading names this directly: an employee connecting through a corporate VPN exit node in a different country produces a sign-in that looks geographically impossible, though no travel happened. That alarm is false. The stolen-token alert is a real attack the tool caught correctly, so it is a true positive. The admin's consent alert correctly reports real, authorized activity, which makes it a benign true positive, not a false alarm. A sign-in risk in an app the CASB isn't integrated with is the tool's blind spot: a miss, not a false alarm.",
       },
     },
 

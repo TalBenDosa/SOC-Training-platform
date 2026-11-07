@@ -426,13 +426,13 @@ const oktaIdentityFundamentalsRoom = {
             "What is the correct combined containment scope now that both events are read together?",
           options: [
             "Reset the password, revoke sessions, remove Okta-Admins, block the IP, then audit",
-            "Reset the password, block the IP, remove Okta-Admins and the stale role, then audit",
+            "Reset the password, notify her manager, remove Okta-Admins and the stale role, then audit",
             "Reset the password, revoke sessions, remove Okta-Admins and the stale role, then audit",
-            "Revoke sessions, block the IP, remove Okta-Admins and the stale role, then audit",
+            "Revoke sessions, reset her MFA, remove Okta-Admins and the stale role, then audit",
           ],
           answer: 2,
           explanation:
-            "The findings compound: the password is known to an outside party, that party holds a live session (the push was approved), and it used that session, with a stale Super Administrator role already in hand, to add the account to Okta-Admins, a second route to admin that would survive removal of the direct role. Every foothold goes in the same step: reset the password, revoke sessions, remove the Okta-Admins membership and the leftover Super Administrator role, then audit what the elevated access was used for. Blocking 198.51.100.44 is a reasonable extra, but it never replaces one of those steps. Leave the stale role and the account still holds admin rights after the group is gone. Skip revoking sessions and the live session stays open. Skip the password reset and a known password keeps working from any other address.",
+            "The findings compound: the password is known to an outside party, that party holds a live session (the push was approved), and it used that session, with a stale Super Administrator role already in hand, to add the account to Okta-Admins, a second route to admin that would survive removal of the direct role. Every foothold goes in the same step: reset the password, revoke sessions, remove the Okta-Admins membership and the leftover Super Administrator role, then audit what the elevated access was used for. Blocking 198.51.100.44, resetting her MFA and telling her manager are reasonable extras, but none of them replaces one of those steps. Leave the stale role and the account still holds admin rights after the group is gone. Skip revoking sessions and the live session stays open. Skip the password reset and a known password keeps working from any other address.",
           xp: 30,
         },
       ],

@@ -405,7 +405,7 @@ const rmmAbuseRoom = {
     {
       type: "log_analysis" as const,
       id: "rmm-la1",
-      heading: "Investigate: An Unsanctioned TeamViewer Session on WKS-CF-118",
+      heading: "Investigate: A Proxy Record From WKS-CF-118",
       context:
         "Cascadia Freight's only licensed remote-support tool is ConnectWise ScreenConnect, run as a ConnectWise-hosted cloud instance at cascadia.hostedrmm.com and operated only by two named IT technician accounts. The proxy record below shows outbound traffic from an Accounts Receivable workstation.",
       event: teamViewerProxyEvent,

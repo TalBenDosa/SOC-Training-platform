@@ -646,11 +646,11 @@ const assetContextRoom: Room = {
           "The alert's severity field, because the product has already scored how bad each firing is",
           "The asset each firing landed on, because the alert never says what is behind the door",
           "The technique the rule maps to, because that decides which response procedure applies",
-          "The detection logic, because a well-tuned rule already allows for every host it can fire on",
+          "The order they arrived in, because the queue is worked from the oldest alert down",
         ],
         answer: 1,
         explanation:
-          "The alert text and even the technical severity can be identical across three assets, yet the correct response differs completely, because what's 'behind the door', the asset itself, is what actually determines the risk. The severity field, the mapped technique and the rule's logic all describe the alert, which Reading 1 calls only half the picture.",
+          "The alert text and even the technical severity can be identical across three assets, yet the correct response differs completely, because what's 'behind the door', the asset itself, is what actually determines the risk. The severity field and the mapped technique describe the alert, which Reading 1 calls only half the picture, and arrival order says nothing about what is at risk.",
       },
     },
     {
@@ -736,11 +736,11 @@ const assetContextRoom: Room = {
         "It keeps its own master copy of the data inside all 40 VMs, which makes it the richest single store to steal from",
         "It sits beneath every guest OS and its security tooling, so one compromise can reach all 40 VMs at once",
         "It issues the authentication tickets all 40 VMs trust, so an attacker can impersonate any user on any of them",
-        "It is the trusted hop administrators use to reach the VMs, so compromising it bypasses the segmentation around them",
+        "It is the build source all 40 VMs trust, so a compromise can ship malicious code into every one of them",
       ],
       answer: 1,
       explanation:
-        "This is the force-multiplier point from Reading 3: the hypervisor's position underneath every guest VM's own security stack means one compromise there can reach all 40 VMs at once, bypassing whatever protections exist inside each individual guest. The other reasons belong to other assets: Reading 2 says a hypervisor holds no data of its own, it is a domain controller's KDC that issues authentication tickets, and the trusted hop around segmentation is a jump host.",
+        "This is the force-multiplier point from Reading 3: the hypervisor's position underneath every guest VM's own security stack means one compromise there can reach all 40 VMs at once, bypassing whatever protections exist inside each individual guest. The other reasons belong to other assets: Reading 2 says a hypervisor holds no data of its own, it is a domain controller's KDC that issues authentication tickets, and shipping code into everything that trusts its builds is a CI/CD pipeline server's reach.",
       xp: 20,
     },
     {
@@ -773,7 +773,7 @@ const assetContextRoom: Room = {
             "This burst is targeting DC02, a domain controller, directly over the network, attempting 14 different accounts in two minutes. Why does the target being a domain controller change the priority of this alert compared to the exact same signature landing on a single ordinary application server?",
           options: [
             "The rule scores a domain controller higher, so the severity field alone moves this alert up the queue",
-            "It is the identity authority: one guessed password here can reach everything in the domain that trusts it",
+            "It is the identity authority: a password guessed here is valid across the whole domain that trusts it",
             "It stores the company's most sensitive files, so the burst is an attempt to reach that data directly",
             "It faces the open internet, so exposure rather than what it controls is what raises the priority",
           ],

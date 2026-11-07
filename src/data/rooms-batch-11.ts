@@ -1108,7 +1108,7 @@ const rooms = [
         prompt:
           "Before writing the containment note, you confirm that the attacker was trying real usernames with wrong passwords, rather than guessing at accounts that don't exist. Find the status code in the Spray-then-Success alert that proves this, and enter it exactly.",
         answer: "0xC000006A",
-        hint: "The reading's password-spray filter condition pairs Event 4625 with one specific sub-status value. The correlated alert carries the same value for its failures.",
+        hint: "The reading's password-spray filter condition names the exact code. The correlated alert carries the same value for its failures.",
         xp: 40,
       },
       // ── Query Fill: compile the Sigma rule to SPL ────────────────

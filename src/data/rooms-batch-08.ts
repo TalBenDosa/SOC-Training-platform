@@ -280,7 +280,7 @@ When a SOC analyst opens a high-severity alert, the first question is "is this r
 
 That context transforms a vague "suspicious outbound connection" alert into a confirmed, high-priority incident requiring immediate containment.
 
-On a domain controller, containment takes care. The first move is to cut the C2 path and escalate to the incident response (IR) team, working with the owner of Active Directory, because fully isolating a domain controller can break sign-ins across the domain. If full isolation is not possible, firewall rules can cut the C2 path first. Blocking one IP and closing the alert is not enough, because the actor can move to a new address and may already have acted on the server. Other steps wait until the channel is cut: a full disk image preserves evidence but can take hours, and resetting the password of krbtgt, the account behind Kerberos tickets, is a large, domain-wide recovery step that comes later and does not stop the beacon.
+On a domain controller, containment takes care. The first move is to cut the C2 path and escalate to the incident response (IR) team, working with the owner of Active Directory, because fully isolating the only domain controller can break sign-ins across the domain. If full isolation is not possible, firewall rules can cut the C2 path first. Blocking one IP and closing the alert is not enough, because the actor can move to a new address and may already have acted on the server. Other steps wait until the channel is cut: a full disk image preserves evidence but can take hours, and resetting the password of krbtgt, the account behind Kerberos tickets, is a large, domain-wide recovery step that comes later and does not stop the beacon.
 
 ---
 
@@ -1137,13 +1137,13 @@ Break chain of custody, and the evidence may be inadmissible in court.`,
         {
           question: "Read `s1.processName` together with `s1.processPath`. What should you conclude about this `svchost.exe`?",
           options: [
-            "It is the genuine Service Host, which runs from C:\\Windows\\Temp\\ during Windows Update cycles",
+            "It is the genuine Service Host, which the attacker is abusing as a built-in tool from Temp",
             "It is almost certainly malware masquerading as a Windows process; the genuine file sits in System32",
             "It is the genuine Service Host, because the name matches and a path says nothing about a process",
-            "It is a genuine system file, because only Windows itself can write to C:\\Windows\\Temp\\",
+            "It is a genuine Windows file that ransomware infected in place, so restore it from a clean copy",
           ],
           answer: 1,
-          explanation: "The legitimate Windows svchost.exe (Service Host) ALWAYS runs from C:\\Windows\\System32\\. Malware authors frequently copy their malicious executable into C:\\Windows\\Temp\\ and name it 'svchost.exe' to blend in with normal process lists. This is called Masquerading (MITRE T1036.005: Match Legitimate Resource Name or Location). Note it is the opposite of living-off-the-land, which abuses the genuine built-in binaries; here a malicious file merely wears a system name. Any svchost.exe running from Temp, AppData, or any path other than System32 is almost certainly malicious. The path is the evidence here, not the name: Windows Update does not move this file, and C:\\Windows\\Temp\\ is a place malware can write to. The EDR caught this exact pattern.",
+          explanation: "The legitimate Windows svchost.exe (Service Host) ALWAYS runs from C:\\Windows\\System32\\. Malware authors frequently copy their malicious executable into C:\\Windows\\Temp\\ and name it 'svchost.exe' to blend in with normal process lists. This is called Masquerading (MITRE T1036.005: Match Legitimate Resource Name or Location). Note it is the opposite of living-off-the-land, which abuses the genuine built-in binaries; here a malicious file merely wears a system name. Any svchost.exe running from Temp, AppData, or any path other than System32 is almost certainly malicious. The path is the evidence here, not the name: a genuine file abused as a built-in tool, or infected in place, would still sit in System32, not in Temp. The EDR caught this exact pattern.",
           xp: 50,
         },
         {
