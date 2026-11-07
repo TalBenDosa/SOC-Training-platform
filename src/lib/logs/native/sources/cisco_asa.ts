@@ -58,16 +58,16 @@ function render(f: FwFacts, ctx: NativeCtx): { num: string; text: string } | nul
   }
   if (f.proto !== "tcp") return null;
   const id = sessionNumber(f, ctx, 100000000, 999999999);
-  // Mapped (post-NAT) address of the inside host for outbound PAT; inbound shows real = mapped (no DNAT modelled).
+  // Mapped (post-NAT) address of the inside host for outbound PAT; inbound shows real = mapped unless the story publishes the server (natDst).
   const srcMapped = isSnat(f) ? `${egressIp(ctx)}/${natPort(f, ctx)}` : `${f.src}/${f.sport}`;
   if (f.startOnly) {
-    if (f.dir === "inbound") return { num: "302013", text: `Built inbound TCP connection ${id} for ${ii}:${f.src}/${f.sport} (${f.src}/${f.sport}) to ${oi}:${f.dst}/${f.dport} (${f.dst}/${f.dport})` };
+    if (f.dir === "inbound") return { num: "302013", text: `Built inbound TCP connection ${id} for ${ii}:${f.src}/${f.sport} (${f.src}/${f.sport}) to ${oi}:${f.natDst ?? f.dst}/${f.dport} (${f.dst}/${f.dport})` };
     return { num: "302013", text: `Built outbound TCP connection ${id} for ${oi}:${f.dst}/${f.dport} (${f.dst}/${f.dport}) to ${ii}:${f.src}/${f.sport} (${srcMapped})` };
   }
   const total = f.bytesOut + f.bytesIn; // 302014 reports the sum of both directions
   const dur = hmsDuration(f.elapsed);
   const from = f.dir === "inbound" ? "outside" : "inside";
-  if (f.dir === "inbound") return { num: "302014", text: `Teardown TCP connection ${id} for ${ii}:${f.src}/${f.sport} to ${oi}:${f.dst}/${f.dport} duration ${dur} bytes ${total} ${teardownReason(f)} from ${from}` };
+  if (f.dir === "inbound") return { num: "302014", text: `Teardown TCP connection ${id} for ${ii}:${f.src}/${f.sport} to ${oi}:${f.natDst ?? f.dst}/${f.dport} duration ${dur} bytes ${total} ${teardownReason(f)} from ${from}` };
   return { num: "302014", text: `Teardown TCP connection ${id} for ${oi}:${f.dst}/${f.dport} to ${ii}:${f.src}/${f.sport} duration ${dur} bytes ${total} ${teardownReason(f)} from ${from}` };
 }
 

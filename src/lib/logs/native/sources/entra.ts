@@ -256,7 +256,8 @@ function renderSignIn(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, upn: strin
   // A Primary Refresh Token only exists on an Entra-joined / registered device signing in through
   // the OS broker; a browser on an unmanaged device presents none (a replayed cookie included).
   const tokenRaw = rawStr(ev, "azure.signinlogs.properties.incomingTokenType") ?? "none";
-  const incomingTokenType = /primaryRefreshToken/i.test(tokenRaw) && (!deviceDetail.isManaged || !deviceDetail.deviceId) ? "none" : tokenRaw;
+  // A registered device is not a managed one: the device id is what a PRT needs.
+  const incomingTokenType = /primaryRefreshToken/i.test(tokenRaw) && !deviceDetail.deviceId ? "none" : tokenRaw;
   const rawNetLoc = rawAny(ev, "azure.signinlogs.properties.networkLocationDetails");
   const id = rawStr(ev, "azure.signinlogs.properties.id") ?? graphId(ctx, `${ev.id}:signin`);
   const record: Record<string, unknown> = {
@@ -443,6 +444,30 @@ function rawModified(ev: TelemetryEvent): Record<string, unknown>[] {
   return out;
 }
 
+/**
+ * Device registration flow: Register device (Device Registration Service), then Add registered owner to
+ * device (Core Directory), one correlationId across them. Operation names as read by Elastic's Entra
+ * device registration rules; the additional details hold the device facts and the user agent.
+ */
+const DEVICE_OPS: Record<string, { category: string; service: string; operationType: string }> = {
+  "Register device": { category: "Device", service: "Device Registration Service", operationType: "Add" },
+  "Add registered owner to device": { category: "Device", service: "Core Directory", operationType: "Assign" },
+};
+function deviceAudit(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts): NativeLog | null {
+  const spec = DEVICE_OPS[rawStr(ev, "azure.auditlogs.operationName") ?? ""];
+  const actor = rawStr(ev, "azure.auditlogs.properties.initiatedBy.user.userPrincipalName");
+  if (!spec || !actor) return null;
+  const device = rawStr(ev, "azure.auditlogs.properties.targetResources[1].displayName") ?? "Unknown device";
+  const details: [string, string][] = [["Device Id", "azure.auditlogs.properties.additionalDetails.Device Id"], ["Device OS", "azure.auditlogs.properties.additionalDetails.Device OS"], ["Device Trust Type", "azure.auditlogs.properties.additionalDetails.Device Trust Type"], ["User-Agent", "azure.auditlogs.properties.additionalDetails.User-Agent"]];
+  const additional = details.flatMap(([key, field]) => { const value = rawStr(ev, field); return value ? [{ key, value }] : []; });
+  return renderAudit(ev, ctx, f, {
+    activity: rawStr(ev, "azure.auditlogs.operationName")!, ...spec,
+    initiator: { upn: actor, ip: rawStr(ev, "azure.auditlogs.properties.initiatedBy.user.ipAddress") ?? f.ip },
+    targets: [{ id: ctx.uuid(`${ctx.companyId}:device:${device}`), displayName: device, type: "Device", modifiedProperties: [] }],
+    ...(additional.length ? { additional } : {}),
+  });
+}
+
 function auditFor(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts): NativeLog | null {
   const actor = f.email ? (f.email.includes("@") ? f.email : `${f.email}@${ctx.domain}`) : undefined;
   const ip = rawStr(ev, "azure.auditlogs.properties.initiatedBy.user.ipAddress", "data.office365.ActorIpAddress", "data.office365.ClientIP") ?? f.ip;
@@ -577,6 +602,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   if (/cyberark|beyondtrust|delinea|thycotic/i.test(ev.vendor ?? "")) return null;
   const f = identityFacts(ev);
   if (!f) return null;
+  if (DEVICE_OPS[rawStr(ev, "azure.auditlogs.operationName") ?? ""]) return deviceAudit(ev, ctx, f);
   switch (f.action) {
     case "signin": case "mfa": {
       const upn = upnOf(ev, ctx, f);

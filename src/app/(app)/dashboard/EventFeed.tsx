@@ -55,6 +55,7 @@ const SOURCE_COLORS: Record<string, string> = {
   linux_audit:      "bg-cyber-500/20 text-cyber-300 border-cyber-500/30",
   email_gateway:    "bg-neon-purple/20 text-neon-purple border-neon-purple/30",
   waf:              "bg-neon-amber/20 text-neon-amber border-neon-amber/30",
+  web_server:       "bg-neon-amber/20 text-neon-amber border-neon-amber/30",
   db_monitor:       "bg-neon-green/20 text-neon-green border-neon-green/30",
   iam:              "bg-neon-amber/20 text-neon-amber border-neon-amber/30",
   siem:             "bg-slate-400/20 text-slate-300 border-slate-400/30",
@@ -78,6 +79,7 @@ const SOURCE_LABEL: Record<string, string> = {
   linux_audit:      "Linux auditd",
   email_gateway:    "Email Gateway",
   waf:              "WAF",
+  web_server:       "Web",
   db_monitor:       "Database (DAM)",
   iam:              "IAM",
   siem:             "SIEM",
@@ -331,7 +333,7 @@ function RawLogView({ event, native }: { event: LiveEvent; native?: NativeView |
   const rawLog = native
     ? native.log.rawLine
       ? { format: `${native.product} — native ${native.log.format.toUpperCase()}`, text: native.log.rawLine, lang: (native.log.format === "xml" ? "xml" : "syslog") as "xml" | "syslog" }
-      : { format: `${native.product} — native JSON`, text: JSON.stringify(native.log.record, null, 2), lang: "json" as const }
+      : { format: `${native.product} — native JSON`, text: [native.log, ...(native.related ?? [])].map(l => JSON.stringify(l.record, null, 2)).join("\n"), lang: "json" as const }
     : toRawLog(event);
 
   function handleCopy() {

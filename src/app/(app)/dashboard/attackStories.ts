@@ -88,7 +88,8 @@ import { edgeVpnCveExploitScenarioEvents }        from "@/lib/sim/scenario-packs
 import { exfilFirstExtortionScenarioEvents }      from "@/lib/sim/scenario-packs/exfilFirstExtortion.events";
 import { helpdeskMfaResetScenarioEvents }         from "@/lib/sim/scenario-packs/helpdeskMfaReset.events";
 import { COMPANY_ATTACKS, ROCKETSTACK_CRED_STUFFING_CHAIN } from "@/lib/sim/companyProfiles";
-import { COMPANY_PROFILES, COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
+import { COMPANY_PROFILES, COMPANY_ASSETS, type SeatRole } from "@/lib/sim/companyProfilesMeta";
+import type { AiStoryDef } from "./ai-stories/wave2";
 import { AI_CORE_STORIES } from "./ai-stories/core";
 import { AI_EXTRA_STORIES } from "./ai-stories/extra";
 import { AI_WAVE2_STORIES } from "./ai-stories/wave2";
@@ -98,7 +99,12 @@ import { AI_WAVE3_A_STORIES } from "./ai-stories/wave3-a";
 import { AI_WAVE3_B_STORIES } from "./ai-stories/wave3-b";
 import { AI_WAVE3_C_STORIES } from "./ai-stories/wave3-c";
 import { AI_WAVE3_D_STORIES } from "./ai-stories/wave3-d";
+import { AI_WAVE4_A_STORIES } from "./ai-stories/wave4-a";
+import { AI_WAVE4_B_STORIES } from "./ai-stories/wave4-b";
+import { CORE_STORIES } from "./core-stories";
 import { aiLlmJackingScenarioEvents } from "@/lib/sim/scenario-packs/aiLlmJacking.events";
+import { WEB_ENTRY_STORIES } from "./web-stories/entry";
+import { WEB_ADVANCED_STORIES } from "./web-stories/advanced";
 import { lateralMovementPthScenarioEvents }        from "@/lib/sim/scenario-packs/lateralMovementPth.events";
 import { goldenSamlScenarioEvents }                from "@/lib/sim/scenario-packs/goldenSaml.events";
 import { windowsPrivescTokenScenarioEvents }       from "@/lib/sim/scenario-packs/windowsPrivescToken.events";
@@ -133,6 +139,16 @@ export interface AttackStory {
   mitre: string[];
   /** Explicit company allowlist. Omitted = decided by the source-fit rule. */
   companies?: string[];
+  /** Runs in Team Training only: the single-player dashboard never picks it. */
+  teamOnly?: boolean;
+  /** The single-player dashboard keeps this company lock when Team Training no longer has one. */
+  soloCompanies?: string[];
+  /** The job the story's main person must hold: instantiateStory draws them, and their machine, from the company's seats. */
+  seat?: SeatRole;
+  /** The story brings its own servers (an AI worker, a build agent): they keep their authored name under the company's prefix, never landing on a DC, file server, backup, PACS or SQL host. */
+  ownServers?: boolean;
+  /** The authored office egress: it and its place become the company's own, so a cloud record and the EDR's external address agree. */
+  officeEgress?: string;
   complexity: StoryComplexity;
 }
 
@@ -914,7 +930,7 @@ const QB_ADVANCED_STORIES: AttackStory[] = [
 ];
 
 const RS_ADVANCED_STORIES: AttackStory[] = [
-  story("rs-cicd-pipeline-poisoning", { title: "CI/CD Pipeline Poisoning — Self-Hosted GitHub Actions Runner", events: RS_CICD_PIPELINE_POISONING }, "advanced", ["rocketstack"]),
+  { ...story("rs-cicd-pipeline-poisoning", { title: "CI/CD Pipeline Poisoning — Self-Hosted GitHub Actions Runner", events: RS_CICD_PIPELINE_POISONING }, "advanced", ["rocketstack"]), seat: "developer" },
   story("rs-terraform-iac-backdoor", { title: "IaC Backdoor — Poisoned Terraform Trust Policy", events: RS_TERRAFORM_IAC_BACKDOOR }, "advanced", ["rocketstack"]),
   story("rs-oauth-consent-chaining", { title: "SaaS OAuth Consent-Chaining → AWS Federation Abuse", events: RS_OAUTH_CONSENT_CHAINING }, "advanced", ["rocketstack"]),
 ];
@@ -923,18 +939,34 @@ const RS_ADVANCED_STORIES: AttackStory[] = [
 // Insider use of enterprise AI, AI-assisted social engineering, Copilot abuse and
 // stolen AI-service credentials, spread across foundation/core/advanced so analysts
 // meet them as ordinary incidents (research: research/ai-attacks-soc/).
+/** An AI story: `teamOnly` and `soloCompanies` carry over, so widening a story for Team Training leaves single-player as it was. */
+const aiStory = (d: AiStoryDef): AttackStory => ({
+  ...story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies),
+  ...(d.teamOnly ? { teamOnly: true } : {}),
+  ...(d.soloCompanies ? { soloCompanies: d.soloCompanies } : {}),
+  ...(d.seat ? { seat: d.seat } : {}),
+  ...(d.ownServers ? { ownServers: true } : {}),
+  ...(d.officeEgress ? { officeEgress: d.officeEgress } : {}),
+});
 const AI_STORIES: AttackStory[] = [
-  ...AI_FOUNDATION_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
-  ...AI_CORE_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
-  ...AI_EXTRA_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
-  ...AI_WAVE2_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
-  ...AI_ADVANCED_A_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
-  ...AI_WAVE3_A_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
-  ...AI_WAVE3_B_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
-  ...AI_WAVE3_C_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
-  ...AI_WAVE3_D_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
+  ...AI_FOUNDATION_STORIES.map(aiStory),
+  ...AI_CORE_STORIES.map(aiStory),
+  ...AI_EXTRA_STORIES.map(aiStory),
+  ...AI_WAVE2_STORIES.map(aiStory),
+  ...AI_ADVANCED_A_STORIES.map(aiStory),
+  ...AI_WAVE3_A_STORIES.map(aiStory),
+  ...AI_WAVE3_B_STORIES.map(aiStory),
+  ...AI_WAVE3_C_STORIES.map(aiStory),
+  ...AI_WAVE3_D_STORIES.map(aiStory),
+  ...AI_WAVE4_A_STORIES.map(aiStory),
+  ...AI_WAVE4_B_STORIES.map(aiStory),
   story("ai-llmjacking-bedrock", { title: "Stolen CI Key Used for Bedrock Inference (LLMjacking)", events: aiLlmJackingScenarioEvents().events }, "advanced", ["quantumbank"]),
 ];
+
+// ── Web application attacks: Team Training only ─────────────────────────────────
+// No company lock: the source-fit rule decides (a story needing CloudTrail runs where CloudTrail is).
+const WEB_STORIES: AttackStory[] = [...WEB_ENTRY_STORIES, ...WEB_ADVANCED_STORIES]
+  .map(d => ({ ...story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies), teamOnly: true, ...(d.seat ? { seat: d.seat } : {}) }));
 
 /**
  * No cryptocurrency incidents (Tal, 2026-10-02): mining / cryptojacking / wallet clippers are
@@ -943,6 +975,24 @@ const AI_STORIES: AttackStory[] = [
 const EXCLUDED_STORIES = new Set(["bundled-cryptominer", "drive-by-browser-miner", "clipboard-clipper", "rocketstack-chain-c",
   "ai-bedrock-key-abuse"]); // same incident as ai-llmjacking-bedrock (leaked CI AKIA → Sysdig Bedrock sequence), which is the fuller story
 
+/**
+ * Companies Team Training gains for a story whose systems they also run. The single-player dashboard
+ * keeps the original list (soloCompanies). Stories stay put where a company lacks the system (AD, Linux,
+ * GitHub, Azure) or the story is about one industry's systems.
+ */
+const TEAM_WIDER: Record<string, string[]> = {
+  "aws-key-leak-s3-exfil": ["globallogis", "quantumbank"],           // AWS + GitHub
+  "rs-cicd-pipeline-poisoning": ["globallogis", "quantumbank"],      // AWS + GitHub
+  "rs-terraform-iac-backdoor": ["globallogis", "quantumbank"],       // AWS + GitHub
+  "exfil-first-extortion": ["quantumbank"],                          // Microsoft 365 with Purview
+  "infostealer-session-theft": ["quantumbank"],                      // Microsoft 365 session replay
+  "nexacorp-chain-a": ["medcore"],                                   // Microsoft 365 + Azure Key Vault
+  "nexacorp-chain-b": ["medcore", "globallogis", "quantumbank"],     // Microsoft 365 mailbox
+  "nexacorp-chain-c": ["globallogis", "quantumbank"],                // Microsoft 365 + endpoint
+  "nexacorp-chain-d": ["medcore", "globallogis"],                    // Active Directory
+  "globallogis-chain-d": ["rocketstack"],                            // internet-facing Linux server
+};
+
 export const ATTACK_STORIES: AttackStory[] = [
   ...GENERIC_STORIES,
   ...COMPANY_CHAIN_STORIES,
@@ -950,7 +1000,13 @@ export const ATTACK_STORIES: AttackStory[] = [
   ...QB_ADVANCED_STORIES,
   ...RS_ADVANCED_STORIES,
   ...AI_STORIES,
-].filter(s => !EXCLUDED_STORIES.has(s.id));
+  ...WEB_STORIES,
+  // Team Training only: the single-player dashboard never picks these (pickStoryForCompany).
+  ...CORE_STORIES.map(d => ({ ...story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies), teamOnly: true, ...(d.seat ? { seat: d.seat } : {}) })),
+].filter(s => !EXCLUDED_STORIES.has(s.id)).map(s => {
+  const more = TEAM_WIDER[s.id];
+  return more && s.companies ? { ...s, companies: [...s.companies, ...more], soloCompanies: s.companies } : s;
+});
 
 // ── Company fit ───────────────────────────────────────────────────────────────
 
@@ -977,6 +1033,7 @@ const SOURCE_ALIASES: Record<string, string[]> = {
   email_gateway:    ["o365", "gws"],
   sharepoint:       ["o365"],                   // SharePoint/OneDrive audit arrives through the M365 unified audit log
   waf:              ["firewall", "cloudtrail"],  // WAF is an edge/firewall-class device
+  web_server:       ["firewall", "edr"],         // every estate runs web servers behind its edge
   db_monitor:       ["edr", "cloudtrail"],       // database activity monitoring
   cloud_azure:      ["o365", "cloudtrail"],
   vcs:              ["cloudtrail"],              // GitHub/source-control audit trail, alongside the cloud estate it deploys into
@@ -1015,23 +1072,29 @@ const COMPLEXITY_FOR_DIFFICULTY: Record<"easy" | "medium" | "hard", StoryComplex
   hard:   ["advanced"],
 };
 
-export function storiesForCompany(companyId: string, difficulty?: "easy" | "medium" | "hard"): AttackStory[] {
+/**
+ * `solo` is the single-player dashboard's pool: Team Training's extra stories are out from the start, not
+ * filtered afterwards, because the size thresholds below choose what a thin pool broadens to. Filtering
+ * later would leave them counted, and QuantumBank's Hard would stop reaching its core stories.
+ */
+export function storiesForCompany(companyId: string, difficulty?: "easy" | "medium" | "hard", solo = false): AttackStory[] {
+  const pool = solo ? ATTACK_STORIES.filter(s => !s.teamOnly && (!s.soloCompanies || s.soloCompanies.includes(companyId))) : ATTACK_STORIES;
   const sources = companySources(companyId);
   const explicit = (s: AttackStory) => s.companies ? s.companies.includes(companyId) : null;
 
   const pick = (allowedComplexity: StoryComplexity[] | null): AttackStory[] => {
     const complexityOk = (s: AttackStory) => !allowedComplexity || allowedComplexity.includes(s.complexity);
     // Strict pass: every event's source is available
-    const strict = ATTACK_STORIES.filter(s => { if (!complexityOk(s)) return false; const e = explicit(s); return e !== null ? e : sourceFitRatio(s, sources) === 1; });
+    const strict = pool.filter(s => { if (!complexityOk(s)) return false; const e = explicit(s); return e !== null ? e : sourceFitRatio(s, sources) === 1; });
     if (strict.length >= 4) return strict;
     // Relaxed pass: ≥80% of events fit (keeps enough variety for Okta-only shops)
-    const relaxed = ATTACK_STORIES.filter(s => { if (!complexityOk(s)) return false; const e = explicit(s); return e !== null ? e : sourceFitRatio(s, sources) >= 0.8; });
+    const relaxed = pool.filter(s => { if (!complexityOk(s)) return false; const e = explicit(s); return e !== null ? e : sourceFitRatio(s, sources) >= 0.8; });
     if (relaxed.length >= 3) return relaxed;
     // Fallback within the requested complexity tier: never leave a company without attacks
-    const withinComplexity = ATTACK_STORIES.filter(s => complexityOk(s) && explicit(s) !== false);
+    const withinComplexity = pool.filter(s => complexityOk(s) && explicit(s) !== false);
     if (withinComplexity.length > 0) return withinComplexity;
     // Last resort: ignore the tier rather than showing no attack.
-    return ATTACK_STORIES.filter(s => explicit(s) !== false);
+    return pool.filter(s => explicit(s) !== false);
   };
 
   let result = pick(difficulty ? COMPLEXITY_FOR_DIFFICULTY[difficulty] : null);
@@ -1065,7 +1128,8 @@ function pushRecent(id: string) {
  * unfiltered candidates are used so a session never runs without an attack.
  */
 export function pickStoryForCompany(companyId: string, difficulty?: "easy" | "medium" | "hard", accept?: (s: AttackStory) => boolean): AttackStory {
-  const all = storiesForCompany(companyId, difficulty);
+  // The single-player dashboard. Team Training reads its pool through storiesForCompany directly.
+  const all = storiesForCompany(companyId, difficulty, true);
   const fitting = accept ? all.filter(accept) : all;
   const candidates = fitting.length ? fitting : all;
   const recent = readRecent();
@@ -1088,7 +1152,12 @@ export function pickStoryForCompany(companyId: string, difficulty?: "easy" | "me
 
 // Non-human accounts never become a story's victim (a badge reader reading phish mail,
 // "cyberark.svc" browsing to a fake update page).
-const SERVICE_ACCOUNT = /^(svc[-._]|ci-|admin@|noreply|system@)|[-._]svc@|(^|[-._])(service|device|badge|printer|scanner|kiosk|backup|sync|bot|replication|repl|deploy|monitor|monitoring|daemon|automation|scan|sql|dc|krbtgt|healthcheck)([-._@]|$)/i;
+// Nor do role and decoy mailboxes: a canary account in use changes the whole analysis, and a
+// shared desk or DBA mailbox has no person behind a display name.
+const SERVICE_ACCOUNT = /^(svc[-._]|ci-|admin@|noreply|system@|security-admin@)|[-._]svc@|(^|[-._])(service|device|badge|printer|scanner|kiosk|backup|sync|bot|replication|repl|deploy|monitor|monitoring|daemon|automation|scan|sql|dc|krbtgt|healthcheck|canary|honeytoken|dba|helpdesk|desk\d*|shift)([-._@]|$)/i;
+
+/** The account every story's CloudTrail rows are authored under (the emitter's default): each company reads its own. */
+const AUTHORED_AWS_ACCOUNT = "418772153604";
 
 // Department words authored next to a host ("the HR workstation WS-HR-1142"): after a
 // host swap they must still describe the host named — "developer workstation WS-MKT-3301"
@@ -1118,6 +1187,7 @@ function otherTenantPairs(companyId: string, others: string[] = Object.keys(COMP
     if (other === companyId || !COMPANY_ASSETS[other]) continue;
     const o = { brand: brandOf(other), stem: stemOf(other), domain: COMPANY_ASSETS[other].domain, netbios: COMPANY_ASSETS[other].netbios };
     pairs.push(
+      [`DC=${o.domain.split(".").join(",DC=")}`, `DC=${me.domain.split(".").join(",DC=")}`],
       [o.domain, me.domain],
       [`${o.stem}.sharepoint.com`, `${me.stem}.sharepoint.com`],
       [`${o.stem}-my.sharepoint.com`, `${me.stem}-my.sharepoint.com`],
@@ -1134,6 +1204,7 @@ function otherTenantPairs(companyId: string, others: string[] = Object.keys(COMP
       [ot.tenant.azureTenantId, mt.tenant.azureTenantId],
       [ot.tenant.azureSubscriptionId, mt.tenant.azureSubscriptionId],
       [ot.tenant.azureSubscriptionId.toUpperCase(), mt.tenant.azureSubscriptionId.toUpperCase()],
+      [ot.tenant.awsAccountId, mt.tenant.awsAccountId],
       [testNetIp(ot, `${other}:egress`), testNetIp(mt, `${companyId}:egress`)],
     );
   }
@@ -1241,7 +1312,7 @@ const S1_EVENT_TYPE: Record<string, string> = {
   net_connection: "IP Connect", av_detection: "Threats", detection: "Threats",
 };
 const SOPHOS_EVENT_TYPE: Record<string, string> = {
-  process_create: "Process", file_create: "File",
+  process_create: "Process", file_create: "File", file_modify: "File",
   net_connection: "Network", av_detection: "Malware", detection: "Malware",
 };
 function edrAction(e: TelemetryEvent): string {
@@ -1288,7 +1359,8 @@ function reshapeEdrRaw(e: TelemetryEvent, target: EdrNs): Record<string, unknown
     // "Benign" on a story's malicious PowerShell told the analyst the answer (wrongly).
   } else if (target === "sophos") {
     block["sophos.event_type"] = SOPHOS_EVENT_TYPE[et] ?? (isDetection ? "Malware" : "Event");
-    block["sophos.detection_name"] = isDetection ? (String(src["threat.name"] ?? "") || "Troj/Agent-A") : "none";
+    // A file-change alert names no malware: a fixed family name would read as an antivirus verdict.
+    block["sophos.detection_name"] = isDetection ? (String(src["threat.name"] ?? "") || (/^file_/.test(et) ? "none" : "Troj/Agent-A")) : "none";
     if (isDetection) block["sophos.action"] = edrAction(e);
   } else {
     // Authentic Microsoft Defender Advanced-Hunting columns.
@@ -1427,8 +1499,16 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   }
   const IT_TITLE = /admin|engineer|devops|it\b|sysadmin|infrastructure|sre|security|network|platform|operations/i;
   const itRoster = roster.filter(u => IT_TITLE.test(titleOf.get(u) ?? "") || /(^|[-._])(admin|it|ops)([-._@]|$)/i.test(u));
-  const candidates = adminStory && itRoster.length ? itRoster : roster;
-  const replacement = candidates.length ? candidates[Math.floor(rnd() * candidates.length)] : undefined;
+  const allCandidates = adminStory && itRoster.length ? itRoster : roster;
+  // Never someone the story already names as a second person: the victim would mail themselves.
+  const others = new Set(s.events.map(e => e.user_email?.split("@")[0]).filter(u => u && u !== victim?.split("@")[0]));
+  const fresh = allCandidates.filter(c => !others.has(c.split("@")[0]));
+  const candidates = fresh.length ? fresh : allCandidates;
+  // A story that needs a job draws the person from that job's seats, with the machine they sit at.
+  const seats = (s.seat && assets?.seats?.[s.seat]) || [];
+  const draw = rnd();
+  const seat = seats.length ? seats[Math.floor(draw * seats.length)] : undefined;
+  const replacement = seat ? `${seat.user}@${assets!.domain}` : candidates.length ? candidates[Math.floor(draw * candidates.length)] : undefined;
   if (victim && replacement && victim !== replacement) {
     const on = victim.split("@")[0], nn = replacement.split("@")[0];
     pairs.push([victim, replacement], [on, nn], [on.replace(/\./g, ""), nn.replace(/\./g, "")]);
@@ -1455,7 +1535,24 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   // (mostly NexaCorp), and its brand in a lure, its look-alike domain (nexacorp-portal.ru),
   // its SharePoint tenant, its realm in a VPN group all leaked into another tenant's feed.
   // A look-alike domain must impersonate the company actually under attack.
-  if (companyId && COMPANY_ASSETS[companyId]) pairs.push(...otherTenantPairs(companyId));
+  if (companyId && COMPANY_ASSETS[companyId]) {
+    pairs.push(...otherTenantPairs(companyId), [AUTHORED_AWS_ACCOUNT, makeCtx(companyId).tenant.awsAccountId]);
+    // A person from another company's roster (a second identity in a story written for that
+    // company) becomes a person of this company: only the victim swap above used to rename anyone.
+    const own = new Set(COMPANY_ASSETS[companyId].roster.map(r => r.name));
+    const foreign = new Set(Object.entries(COMPANY_ASSETS).filter(([c]) => c !== companyId).flatMap(([, a]) => a.roster.map(r => r.name)));
+    const taken = new Set([replacement?.split("@")[0]]);
+    for (const e of s.events) {
+      const local = e.user_email?.split("@")[0];
+      if (!local || e.user_email === victim || own.has(local) || !foreign.has(local) || SERVICE_ACCOUNT.test(e.user_email!) || taken.has(local)) continue;
+      taken.add(local);
+      const free = COMPANY_ASSETS[companyId].roster.map(r => r.name).filter(n => !taken.has(n));
+      if (!free.length) continue;
+      const name = free[Math.abs(local.length * 31 + local.charCodeAt(0)) % free.length];
+      taken.add(name);
+      pairs.push([e.user_email!, `${name}@${COMPANY_ASSETS[companyId].domain}`], [local, name]);
+    }
+  }
 
   // Story hostnames → the company's asset pool, ROLE-AWARE (P0-4, 2026-09-27 live
   // playtest). The old pick hashed every story host into the whole registry, so a
@@ -1473,7 +1570,8 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   const storyHosts = [...new Set(s.events.map(e => e.hostname).filter((h): h is string => !!h && !h.includes(".")))];
   const hostMap = new Map<string, string>();
   const hostHash = (h: string) => { let x = 2166136261; for (let i = 0; i < h.length; i++) { x ^= h.charCodeAt(i); x = Math.imul(x, 16777619); } return Math.abs(x); };
-  const isDcHost = (h: string) => (assets && h === assets.dc) || /(^|[^a-z0-9])dc[-_]?\d*([^a-z]|$)/i.test(h);
+  const isDcName = (h: string) => /(^|[^a-z0-9])dc[-_]?\d*([^a-z]|$)/i.test(h);
+  const isDcHost = (h: string) => (assets && h === assets.dc) || isDcName(h);
   // A machine the story shows running Linux (auditd, unix paths) is a server, never a workstation.
   // A Mac also runs /usr/bin binaries (osascript, curl) — a host any row shows as macOS is a laptop, not a server.
   const macHosts = new Set(s.events.filter(e => e.hostname && (/darwin|^mac/i.test(String(e.raw?.["host.os.family"] ?? e.raw?.["crowdstrike.event_platform"] ?? "")) || /^\/(Applications|Users|Volumes|System|Library)\//.test(e.process?.path ?? e.file?.path ?? ""))).map(e => e.hostname!));
@@ -1514,7 +1612,9 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   }
   storyHosts.forEach((h) => {
     let t: string | undefined;
-    if (isDcHost(h)) {
+    if (s.ownServers && isServerHost(h)) {
+      t = assets?.serverPrefix ? h.replace(/^SRV-NXC(?=-)/, assets.serverPrefix) : h;
+    } else if (isDcHost(h)) {
       // The company's primary DC first (it is where the feed's own domain events live).
       t = dcTargets.find(c => !used.has(c)) ?? dcTargets[0];
     } else if (isServerHost(h)) {
@@ -1530,7 +1630,12 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
       };
       const sameRole = serverTargets.filter(c => fits(c) && role && serverRole(c) === role);
       t = pickFrom(sameRole, h) ?? (role && KEEP_IF_ABSENT.has(role) ? h : undefined) ?? pickFrom(serverTargets.filter(fits), h)
-        ?? pickFrom(serverTargets, h) ?? pickFrom(workstationTargets.length ? [] : registryHostPool, h, true);
+        ?? pickFrom(serverTargets, h)
+        // A company with no directory: the server its registry lists in that slot is an ordinary server.
+        ?? pickFrom(dcTargets.filter(c => !isDcName(c)), h)
+        ?? pickFrom(workstationTargets.length ? [] : registryHostPool, h, true);
+    } else if (seat && victim && storyHostUsers.get(h)?.has(victim)) {
+      t = seat.host;
     } else {
       const users = storyHostUsers.get(h);
       const victimHost = !!(victim && users?.has(victim));
@@ -1545,12 +1650,17 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
     if (t !== h) { hostMap.set(h, t); pairs.push([h, t]); }
   });
 
+  // The office network as cloud and SaaS logs see it, and where it is: the company's own, the same address its EDR prints.
+  const office = s.officeEgress && assets?.office;
+  if (office && office.ip !== s.officeEgress) pairs.push([s.officeEgress!, office.ip], ["United Kingdom", office.country], ["London", office.city]);
+
   // Story INTERNAL IPs → the company's own subnet (R-01). Only RFC1918 addresses are
   // remapped — a public C2/attacker IP is company-agnostic and must stay identical so
   // threat-intel pivots still work. Each distinct private IP keeps its last octet and
   // takes the company's /24, so the host's IP correlates with the feed and two events
   // on the same source IP still share one address in the console.
   const ipMap = new Map<string, string>();
+  if (office && office.ip !== s.officeEgress) ipMap.set(s.officeEgress!, office.ip);
   if (assets) {
     const isPrivate = (ip: string) => /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(ip);
     // A company host's own address — the one its noise in the feed already shows (most
@@ -1561,7 +1671,7 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
     const inbound = (e: TelemetryEvent) => (e.network as { direction?: string } | undefined)?.direction === "inbound" || /inbound/i.test(String(e.raw?.["network.direction"] ?? ""));
     const poolCounts = new Map<string, Map<string, number>>();
     for (const e of companyPool) {
-      if (!e.hostname || !e.src_ip || !isPrivate(e.src_ip) || !HOSTISH.has(e.source) || inbound(e)) continue;
+      if (!e.hostname || !e.src_ip || !isPrivate(e.src_ip) || !HOSTISH.has(e.source) || inbound(e) || isPeerAddressedRecord(e)) continue;
       const m = poolCounts.get(e.hostname) ?? new Map<string, number>();
       m.set(e.src_ip, (m.get(e.src_ip) ?? 0) + 1); poolCounts.set(e.hostname, m);
     }
@@ -1579,7 +1689,8 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
       return ip;
     };
     for (const e of s.events) {
-      if (!e.hostname || !e.src_ip || !isPrivate(e.src_ip) || !HOSTISH.has(e.source) || inbound(e) || ipMap.has(e.src_ip)) continue;
+      // A logon or share record's IpAddress is the client, never the computer that logged it.
+      if (!e.hostname || !e.src_ip || !isPrivate(e.src_ip) || !HOSTISH.has(e.source) || inbound(e) || isPeerAddressedRecord(e) || ipMap.has(e.src_ip)) continue;
       const target = hostMap.get(e.hostname) ?? e.hostname;
       const t = canonicalIp(target);
       ipMap.set(e.src_ip, t);
@@ -1654,6 +1765,9 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
       if (cl.includes(nl) || nl.includes(cl)) continue;   // never rewrite the company's own product
       pairs.push([nm, companyEdr]);
     }
+    // ...but a registry key or install folder keeps its name: it is Windows, not the product. The
+    // marker is restored last (shortest pair) so no product pair can reach the path in between.
+    if (!/defender/i.test(companyEdr)) pairs.push(["\\Windows Defender", "\\Windows\u0001"], ["\u0001", " Defender"]);
   }
 
   const clean = pairs.filter(([f, t]) => f && t && f !== t).sort((a, b) => b[0].length - a[0].length);
@@ -1689,6 +1803,7 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
       cloud: rep(e.cloud),
       user: rep(e.user),
       raw: rep(e.raw),
+      ...(office && e.geo ? { geo: rep(e.geo) } : {}),
     };
     // Reshape a foreign-EDR raw block into the company's own vendor convention.
     if (adapted.source === "edr" && targetNs && edrNsOfKeys(adapted.raw) && edrNsOfKeys(adapted.raw) !== targetNs) {

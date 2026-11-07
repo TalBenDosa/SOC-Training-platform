@@ -467,6 +467,7 @@ export function identityFacts(ev: TelemetryEvent): IdFacts | null {
   if (lop.startsWith("change user password")) return base("password_change", ok, { nativeName: "Change user password" });
   if (lop.startsWith("invite external user")) return base("guest_invite", ok, { nativeName: "Invite external user", targetEmail: rawStr(ev, "data.office365.Target[0].ID") });
   if (lop === "set user risk level") return base("risk_change", ok);
+  if (lop === "register device" || lop === "add registered owner to device") return base("directory_read", ok, { nativeName: op });
   if (lop === "user registered security info") return base("factor_enroll", ok, { nativeName: "User registered security info", mfaMethod: registeredMethodOf(ev) ?? mfaMethodOf(ev) ?? "push" });
   if (lop === "admin deleted security info" || (lop === "update user" && /StrongAuthentication/i.test(JSON.stringify(ev.raw ?? {})))) {
     return base("factor_reset", ok, { nativeName: op, targetEmail: rawStr(ev, "azure.auditlogs.properties.targetResources[0].userPrincipalName")?.toLowerCase() ?? email,

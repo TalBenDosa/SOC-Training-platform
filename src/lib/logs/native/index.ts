@@ -52,6 +52,10 @@ import { source as windows_security } from "./sources/windows_security";
 import { source as zscaler_zia } from "./sources/zscaler_zia";
 import { source as zscaler_zpa } from "./sources/zscaler_zpa";
 import { source as workday } from "./sources/workday";
+import { source as aws_waf } from "./sources/aws_waf";
+import { source as azure_waf } from "./sources/azure_waf";
+import { source as iis } from "./sources/iis";
+import { source as nginx } from "./sources/nginx";
 
 export const NATIVE_SOURCES: Partial<Record<SourceId, NativeSource>> = {
   anyconnect, aws_cloudtrail, aws_guardduty, aws_vpcflow, azure_activity, checkpoint, cisco_asa, cisco_ftd,
@@ -59,6 +63,7 @@ export const NATIVE_SOURCES: Partial<Record<SourceId, NativeSource>> = {
   google_workspace, infoblox, k8s_audit, linux_auditd, m365, mde, okta, paloalto, proofpoint, sentinelone,
   servicenow, sophos, sysmon, windows_dns, zscaler_zia, zscaler_zpa,
   cyberark, windows_security, workday, ms_graph,
+  aws_waf, azure_waf, iis, nginx,
 };
 
 export function stackFor(companyId: string, override?: Stack): Stack {
@@ -102,11 +107,16 @@ export type { Stack } from "./stack";
 export { STACK_CHOICES, PRODUCT_LABEL, sanitizeStack, COMPANY_STACKS, withoutDetectionFeed } from "./stack";
 
 /** nativize + the product display name, for the feed UI (NativeLogContext). */
-export function nativeView(ev: TelemetryEvent, companyId: string, stack?: Stack, identity?: NativeIdentity): { log: NativeLog; product: string } | null {
+export function nativeView(ev: TelemetryEvent, companyId: string, stack?: Stack, identity?: NativeIdentity): { log: NativeLog; product: string; related?: NativeLog[] } | null {
   // A stacked event renders through its authored source/vendor (the converter path the corpus gate tests).
-  const log = nativize(authoredOf(ev), companyId, stack, identity);
+  const authored = authoredOf(ev);
+  const log = nativize(authored, companyId, stack, identity);
   if (!log) return null;
-  return { log, product: NATIVE_SOURCES[log.sourceId]?.schema.product ?? log.sourceId };
+  // An Application Gateway block is two rows on one transactionId: the rule that scored and the 949110
+  // row that blocked. The feed prints the second under the first, or "did it get through" has no answer.
+  let related: NativeLog[] = [];
+  if (log.sourceId === "azure_waf") { try { related = NATIVE_SOURCES.azure_waf?.companions?.(authored, makeCtx(companyId, identity ?? {})) ?? []; } catch { related = []; } }
+  return { log, product: NATIVE_SOURCES[log.sourceId]?.schema.product ?? log.sourceId, ...(related.length ? { related } : {}) };
 }
 
 // ── Stack application (vendor choice) ────────────────────────────────────────
@@ -207,7 +217,7 @@ export function applyStack(ev: TelemetryEvent, companyId: string, stack?: Stack)
 }
 
 const PID_SOURCES = new Set(["edr", "sysmon", "av", "windows_security", "linux_audit"]);
-function withCanonicalPids(ev: TelemetryEvent, companyId: string): TelemetryEvent {
+export function withCanonicalPids(ev: TelemetryEvent, companyId: string): TelemetryEvent {
   if (!PID_SOURCES.has(ev.source)) return ev;
   let pids: { pid?: number; parentPid?: number };
   try { pids = canonicalPids(ev, companyId); } catch { return ev; }
@@ -223,7 +233,13 @@ function withCanonicalPids(ev: TelemetryEvent, companyId: string): TelemetryEven
     return d === ev.description ? ev : { ...ev, description: d };
   }
   const oldPid = ev.process.pid, oldParent = ev.process.parent_pid;
-  if ((pid === undefined || pid === oldPid) && (parentPid === undefined || parentPid === oldParent)) return ev;
+  // The record follows the row: a client re-times the row and has no incident id, so the instance key it
+  // would derive names another pid. The two numbers are stamped where the record's renderer reads them.
+  const thread = threadOf(ev);
+  const pinned = withThread(ev, { ...thread,
+    ...(pid !== undefined ? { proc: { ...thread?.proc, shownPid: pid } } : {}),
+    ...(parentPid !== undefined ? { parent: { ...thread?.parent, shownPid: parentPid } } : {}) });
+  if ((pid === undefined || pid === oldPid) && (parentPid === undefined || parentPid === oldParent)) return pinned;
   let description = ev.description;
   const swap = (from: number | undefined, to: number | undefined) => {
     if (description && from !== undefined && to !== undefined && from !== to) {
@@ -232,7 +248,7 @@ function withCanonicalPids(ev: TelemetryEvent, companyId: string): TelemetryEven
   };
   swap(oldPid, pid); swap(oldParent, parentPid);
   return {
-    ...ev,
+    ...pinned,
     description,
     process: { ...ev.process, ...(pid !== undefined ? { pid } : {}), ...(parentPid !== undefined ? { parent_pid: parentPid } : {}) },
   };

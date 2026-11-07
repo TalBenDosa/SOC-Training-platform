@@ -39,7 +39,7 @@ function stableHash(s: string): number {
 type FirewallKind = "fortigate" | "panos" | "checkpoint" | "cisco" | "generic";
 
 /** Appliance sources that *may* emit syslog — final call still depends on vendor. */
-const APPLIANCE_SOURCES = new Set(["firewall", "vpn", "ids", "proxy", "nac", "dhcp", "waf", "dns"]);
+const APPLIANCE_SOURCES = new Set(["firewall", "vpn", "ids", "proxy", "nac", "dhcp", "waf", "web_server", "dns"]);
 
 /** Vendors that are cloud services — these ship JSON, never syslog. */
 const CLOUD_LOG_VENDORS = [

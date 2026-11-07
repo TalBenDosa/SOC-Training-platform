@@ -361,7 +361,7 @@ export function companionLogs(ev: TelemetryEvent, ctx: NativeCtx): NativeLog[] {
   m.f.urls.forEach(url => {
     let host = "";
     try { host = new URL(url).hostname; } catch { /* keep empty */ }
-    wrap("EmailUrlInfo", { Timestamp: m.ts, NetworkMessageId: m.nmid, Url: url, UrlDomain: host, UrlLocation: "Body", UrlChainId: "", UrlChainPosition: 0, ReportId: m.reportId });
+    wrap("EmailUrlInfo", { Timestamp: m.ts, NetworkMessageId: m.nmid, Url: url, UrlDomain: host, UrlLocation: rs(raw, "UrlLocation") ?? "Body", UrlChainId: "", UrlChainPosition: 0, ReportId: m.reportId });
   });
   const malware = m.threats.includes("Malware") && !deliveredClean(ev, m);
   for (const a of m.f.attachments) {

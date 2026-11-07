@@ -137,6 +137,9 @@ function connection(f: FwFacts, ctx: NativeCtx): Rec {
   if (!f.blocked && isSnat(f)) {
     r.NAT_InitiatorIP = egressIp(ctx); r.NAT_InitiatorPort = String(natPort(f, ctx));
     r.NAT_ResponderIP = f.dst; r.NAT_ResponderPort = String(f.dport);
+  } else if (!f.blocked && f.natDst) {
+    r.NAT_InitiatorIP = f.src; r.NAT_InitiatorPort = String(f.sport);
+    r.NAT_ResponderIP = f.natDst; r.NAT_ResponderPort = String(f.dport);
   }
   if (end && r.ApplicationProtocol) r.ClientAppDetector = "AppID";
   return r;

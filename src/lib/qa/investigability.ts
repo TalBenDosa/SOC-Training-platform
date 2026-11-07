@@ -18,6 +18,8 @@ import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
 import { applyStack, nativeView } from "@/lib/logs/native";
 import { normalizeHostIps } from "@/lib/sim/hostIdentity";
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { makeCtx } from "@/lib/logs/native/ctx";
+import { testNetIp } from "@/lib/logs/native/sources/remote-access-shared";
 
 const COMPANY = "nexacorp";
 const POOL = normalizeHostIps(BENIGN_EVENTS);
@@ -30,6 +32,8 @@ const PRIVATE = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|169\.254\.|0\
 /** Services every story may legitimately show (public resolvers, Microsoft / Google / AWS front doors). */
 // 217.177.80.10 is the scenario company's own NAT egress (what SaaS, the proxy and Okta see for the
 // office): a user clicking a lure from the office carries it, but it is not attacker infrastructure.
+// The company office's own public (documentation) address: the victim side, never attacker infrastructure.
+const OFFICE_DOC_EGRESS = testNetIp(makeCtx(COMPANY), `${COMPANY}:egress`);
 const SHARED_SERVICES = /^(217\.177\.80\.10$|8\.8\.8\.8|8\.8\.4\.4|1\.1\.1\.1|9\.9\.9\.9|13\.107\.|20\.190\.|40\.126\.|52\.(9[6-9]|1[01]\d)\.|142\.250\.|172\.217\.)/;
 
 export interface StoryRender { story: AttackStory; events: TelemetryEvent[]; records: unknown[] }
@@ -61,7 +65,7 @@ function decodedCommands(cmd: string): string {
 /** Attacker public IPs per story (src/dst on attack rows, internal and shared services excluded). */
 function attackerIps(r: StoryRender): Set<string> {
   const ips = new Set<string>();
-  for (const e of r.events) if (isAttackRow(e)) for (const ip of [e.src_ip, e.dst_ip]) if (ip && /^\d+\.\d+\.\d+\.\d+$/.test(ip) && !PRIVATE.test(ip) && !SHARED_SERVICES.test(ip)) ips.add(ip);
+  for (const e of r.events) if (isAttackRow(e)) for (const ip of [e.src_ip, e.dst_ip]) if (ip && /^\d+\.\d+\.\d+\.\d+$/.test(ip) && !PRIVATE.test(ip) && !SHARED_SERVICES.test(ip) && ip !== OFFICE_DOC_EGRESS) ips.add(ip);
   return ips;
 }
 

@@ -25,7 +25,7 @@ describe("named organization: the feed only carries what the admin chose", { tim
   it("no Azure and only non-Microsoft products: no Microsoft cloud or unchosen tool in the feed", () => {
     const stack: Stack = { edr: "crowdstrike", firewall: "fortigate", vpn: "zscaler_zpa", idp: "okta", collab: "google_workspace", email_security: "proofpoint", dns: "infoblox" };
     const vendors = vendorsOf({ platforms: ["aws"], industry: "general" }, stack);
-    const allowed = /^(CrowdStrike Falcon|Fortinet FortiGate|Zscaler Private Access|Okta|Google Workspace|Proofpoint TAP|Infoblox|AWS CloudTrail|AWS CloudWatch|AWS GuardDuty|Windows Security|Microsoft Sysmon|Windows DHCP Server|ServiceNow ITSM)$/;
+    const allowed = /^(CrowdStrike Falcon|Fortinet FortiGate|Zscaler Private Access|Okta|Google Workspace|Proofpoint TAP|Infoblox|AWS CloudTrail|AWS CloudWatch|AWS GuardDuty|Windows Security|Microsoft Sysmon|Windows DHCP Server|Microsoft IIS|ServiceNow ITSM)$/;
     expect(vendors.filter(v => !allowed.test(v))).toEqual([]);
   });
 

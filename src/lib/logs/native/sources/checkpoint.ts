@@ -106,6 +106,7 @@ function conn(f: FwFacts, r: Rec, withZones = true): void {
   if (f.user && f.dir !== "inbound") r.src_user_name = f.user.sam;
 }
 function xlate(f: FwFacts, ctx: NativeCtx, r: Rec, full = true): void {
+  if (f.natDst) { r.xlatesrc = "0.0.0.0"; r.xlatesport = "0"; r.xlatedst = f.natDst; r.xlatedport = String(f.dport); return; }
   if (!isSnat(f)) return;
   r.xlatesrc = egressIp(ctx); r.xlatesport = String(natPort(f, ctx));
   if (full) { r.xlatedst = "0.0.0.0"; r.xlatedport = "0"; }

@@ -81,6 +81,13 @@ const kinds: Record<string, KindSchema> = {
   "4663": kOpt(["SubjectUserSid", "SubjectUserName", "SubjectDomainName", "SubjectLogonId", "ObjectServer", "ObjectType", "ObjectName", "HandleId", "AccessList", "AccessMask", "ProcessId", "ProcessName"], ["ResourceAttributes"]),
   "4698": kOpt(["SubjectUserSid", "SubjectUserName", "SubjectDomainName", "SubjectLogonId", "TaskName", "TaskContent"], ["ClientProcessStartKey", "ClientProcessId", "ParentProcessId", "RpcCallClientLocality", "FQDN"]),
   "6416": k("SubjectUserSid", "SubjectUserName", "SubjectDomainName", "SubjectLogonId", "DeviceId", "DeviceDescription", "ClassId", "ClassName", "VendorIds", "CompatibleIds", "LocationInformation"),
+  // AD CS, on the issuing CA (subcategory Certification Services). Not in the card: the fields are the ones the
+  // Windows event message prints (Request ID, Requester, Attributes; 4887 adds Disposition, SKI, Subject). The
+  // EventData spelling follows detection content that reads these records (Splunk ESC1 analytics: RequestId, Attributes).
+  "4886": k("RequestId", "Requester", "Attributes"),
+  "4887": k("RequestId", "Requester", "Attributes", "Disposition", "SubjectKeyIdentifier", "Subject"),
+  // Directory object created: Microsoft's event 5137 XML (an ADIDNS record is a new dnsNode object).
+  "5137": k("OpCorrelationID", "AppCorrelationID", "SubjectUserSid", "SubjectUserName", "SubjectDomainName", "SubjectLogonId", "DSName", "DSType", "ObjectDN", "ObjectGUID", "ObjectClass"),
 };
 
 export function kindOf(record: Record<string, unknown>): string | null {
@@ -434,6 +441,20 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       };
       break;
     }
+    case "4886": case "4887": {
+      // Written by the CA itself; the requester's own logon is not on this record.
+      data = {
+        RequestId: ed("RequestId") ?? String(ctx.int(`${ev.id}:reqid`, 1000, 90000)),
+        Requester: ed("Requester") ?? `${netbios}\${targetSam ?? "-"}`,
+        Attributes: ed("Attributes") ?? "",
+        ...(id === "4887" ? {
+          Disposition: ed("Disposition") ?? "3",
+          SubjectKeyIdentifier: ed("SubjectKeyIdentifier") ?? ctx.hex(`${ev.id}:ski`, 40),
+          Subject: ed("Subject") ?? `CN=${targetSam ?? "-"}`,
+        } : {}),
+      };
+      break;
+    }
     case "4769": {
       const status = (ed("Status") ?? "0x0").toLowerCase();
       keywords = keyw(status === "0x0");
@@ -502,6 +523,23 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         Properties: ed("Properties") ?? "%%7688",
         AdditionalInfo: ed("AdditionalInfo") ?? (ldap ? `LDAP filter: ${ldap}` : "-"),
         AdditionalInfo2: ed("AdditionalInfo2") ?? "",
+      };
+      break;
+    }
+    case "5137": {
+      const subj = samOf(ed("SubjectUserName")) ?? samOf(r("user.name")) ?? "-";
+      data = {
+        OpCorrelationID: ed("OpCorrelationID") ?? curly(ctx.uuid(`${ev.id}:opcorr`)),
+        AppCorrelationID: ed("AppCorrelationID") ?? "-",
+        SubjectUserSid: ed("SubjectUserSid") ?? userSid(ctx, subj),
+        SubjectUserName: ed("SubjectUserName") ?? subj,
+        SubjectDomainName: ed("SubjectDomainName") ?? netbios,
+        SubjectLogonId: ed("SubjectLogonId") ?? logonId(ctx, hostShort, subj),
+        DSName: ed("DSName") ?? domain,
+        DSType: ed("DSType") ?? "%%14676",
+        ObjectDN: ed("ObjectDN") ?? "-",
+        ObjectGUID: ed("ObjectGUID") ?? curly(ctx.uuid(`${ev.id}:objguid`)),
+        ObjectClass: ed("ObjectClass") ?? "-",
       };
       break;
     }
@@ -686,6 +724,7 @@ const REQUIRED_FIELDS: Record<string, string[]> = {
   "4740": ["TargetUserName"],
   "4662": ["ObjectName"],
   "5136": ["ObjectDN"],
+  "5137": ["ObjectDN"],
   "4720": ["TargetUserName"],
   "4722": ["TargetUserName"], "4723": ["TargetUserName"], "4724": ["TargetUserName"],
   "4725": ["TargetUserName"], "4726": ["TargetUserName"], "4738": ["TargetUserName"], "4767": ["TargetUserName"],

@@ -76,7 +76,7 @@ function head(f: FwFacts, ctx: NativeCtx, type: "TRAFFIC" | "THREAT", subtype: s
   const natted = !firstPacketDrop && !(type === "TRAFFIC" && f.blocked);
   if (natted) {
     r.natsrc = isSnat(f) ? egressIp(ctx) : "0.0.0.0";
-    r.natdst = isSnat(f) ? f.dst : "0.0.0.0";
+    r.natdst = f.natDst ?? (isSnat(f) ? f.dst : "0.0.0.0");
   }
   r.rule = f.rule;
   // User-ID realm = the tenant's own NetBIOS domain, whatever domain the story was written with.

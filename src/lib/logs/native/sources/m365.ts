@@ -83,8 +83,9 @@ const schema: SourceSchema = {
     SharePointSharingOperation: k([...SP_BASE, "TargetUserOrGroupName", "TargetUserOrGroupType", "EventData", "UniqueSharingId"]),
     AzureActiveDirectory: k(AAD),
     AzureActiveDirectoryStsLogon: k([...AAD, "ApplicationId", "DeviceProperties", "DeviceProperties[].Name", "DeviceProperties[].Value", "ErrorCode", "LogonError"]),
-    // Common schema only — the card documents Workload "MicrosoftTeams" but not the Teams-specific columns.
-    MicrosoftTeams: k([]),
+    // Common schema, plus what a ChatCreated record carries: Microsoft's Storm-1811 hunting query reads these
+    // from the audit record (CommunicationType, Members[].DisplayName/UPN, ParticipantInfo.HasForeignTenantUsers).
+    MicrosoftTeams: k(["ChatThreadId", "CommunicationType", "Members", "ParticipantInfo"]),
     // Purview DLP rule match (ComplianceDLPSharePoint 11 / ComplianceDLPExchange 13 / DLPEndpoint 63).
     DlpRuleMatch: DLP_KIND,
   },
@@ -113,7 +114,7 @@ const AAD_DIR = new Set([
   "Add member to role.", "Consent to application.", "Add OAuth2PermissionGrant.", "Add service principal.", "Update user.",
   "Reset user password.", "Change user password.", "Add application.", "Invite external user.", "Update conditional access policy.",
 ]);
-const TEAMS = new Set(["MessageSent", "MessageCreatedHasLink", "TeamsSessionStarted"]);
+const TEAMS = new Set(["MessageSent", "MessageCreatedHasLink", "TeamsSessionStarted", "ChatCreated"]);
 
 const ACTION_MAP: Record<string, string> = {
   filedownloaded: "FileDownloaded", fileaccessed: "FileAccessed", "bulk-download": "FileDownloaded", mailitemsaccessed: "MailItemsAccessed",
@@ -308,7 +309,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   // Exchange token context (RT 1 / 2 / 50)
   const exoToken = (mailbox: string) => ({
     AppId: rs(raw, "AppId", "application.id") ?? "00000002-0000-0ff1-ce00-000000000000",
-    ClientAppId: "",
+    ClientAppId: rs(raw, "ClientAppId") ?? "",
     ExternalAccess: false,
     OrganizationName: orgName(ctx, mailbox),
     OriginatingServer: originatingServer(ctx, mailbox),
@@ -349,7 +350,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
 
   // ── Mailbox records (RT 2 / 50) ──
   const mailboxCommon = (mailbox: string) => {
-    const appId = rs(raw, "application.id");
+    const appId = rs(raw, "application.id", "ClientAppId");
     const ctxObj: Record<string, unknown> = {
       // The Entra session this token belongs to (the sign-in's sessionId) and when it was issued
       // (the sign-in — threadIdentityContext — never before it).
@@ -645,6 +646,10 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     const rec: Record<string, unknown> = head(25, "MicrosoftTeams", "Succeeded");
     if (ip) rec.ClientIP = ip;
     rec.UserId = actor;
+    for (const f of ["ChatThreadId", "CommunicationType", "Members", "ParticipantInfo"]) {
+      const v = (ev.raw ?? {})[`data.office365.${f}`];
+      if (v !== undefined) rec[f] = v;
+    }
     return out("MicrosoftTeams", rec);
   }
 

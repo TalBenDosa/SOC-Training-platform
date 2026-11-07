@@ -172,6 +172,11 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     ?? rs(ev.raw, "aws.cloudtrail.requestParameters.bucketName", "s3.bucket", "aws.s3.bucket.name") ?? ev.cloud?.resource;
   if (resourceType === "AccessKey") {
     resource.accessKeyDetails = accessKeyDetailsOf(ev, ctx, acct, type);
+    // AI Protection findings name the models invoked / the guardrail that intervened (authored as JSON).
+    for (const k of ["modelDetails", "bedrockGuardrailDetails"]) {
+      const v = G(ev, `resource.${k}`);
+      if (v) resource[k] = JSON.parse(v);
+    }
   } else if (resourceType === "Instance") {
     const iid = G(ev, "resource.instanceDetails.instanceId") ?? ("i-" + ctx.hex(entitySeed(ctx, "gdinst", ev.hostname ?? ev.id), 17));
     const privIp = ev.src_ip && isPrivateIp(ev.src_ip) ? ev.src_ip : ev.dst_ip && isPrivateIp(ev.dst_ip) ? ev.dst_ip : "10.0.3.47";

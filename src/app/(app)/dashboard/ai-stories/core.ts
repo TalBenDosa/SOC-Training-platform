@@ -39,6 +39,7 @@ export interface AiStoryDef {
   title: string;
   complexity: "foundation" | "core" | "advanced";
   companies: string[];
+  soloCompanies?: string[];
   events: TelemetryEvent[];
 }
 
@@ -896,14 +897,14 @@ export const AI_CORE_STORIES: AiStoryDef[] = [
     id: "ai-claude-enterprise-departure",
     title: "Departing Employee — Sales Files Consolidated in Claude Enterprise, Then Copied to USB",
     complexity: "core",
-    companies: ["nexacorp", "medcore", "globallogis"],
+    companies: ["nexacorp", "medcore", "globallogis", "quantumbank"], soloCompanies: ["nexacorp", "medcore", "globallogis"],
     events: buildClaudeDeparture(),
   },
   {
     id: "ai-copilot-oversharing-probe",
     title: "Copilot Oversharing Probe — Jailbreak Prompts Pulling HR, IT and Finance Files",
     complexity: "core",
-    companies: ["nexacorp", "medcore", "globallogis"],
+    companies: ["nexacorp", "medcore", "globallogis", "quantumbank"], soloCompanies: ["nexacorp", "medcore", "globallogis"],
     events: buildCopilotProbe(),
   },
 ];

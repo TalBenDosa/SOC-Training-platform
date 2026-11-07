@@ -2,6 +2,7 @@ import "server-only";
 import { buildTeamTimeline } from "./buildTimeline";
 import { WORK, type TeamLoad } from "./load";
 import { measureWorkload, type WorkloadPreview } from "./workloadPreview";
+import type { VarietyRecord } from "./variety";
 
 /** The Tier-1 load a fitted exercise aims for (the rest of the 80% utilization is the margin). */
 export const TIER1_TARGET = 0.9;
@@ -20,9 +21,12 @@ export function buildFittedTimeline(args: {
   companyId: BuildArgs[0]; difficulty: BuildArgs[1]; seed: BuildArgs[2]; slots: BuildArgs[3];
   load: TeamLoad; stack?: BuildArgs[5]; tenant?: BuildArgs[6]; env?: BuildArgs[7]; opts?: BuildArgs[8];
   roster: { role: string; status?: string }[];
-}): { timeline: ReturnType<typeof buildTeamTimeline>; load: TeamLoad; workload: WorkloadPreview } {
+}): { timeline: ReturnType<typeof buildTeamTimeline>; load: TeamLoad; workload: WorkloadPreview; variety: VarietyRecord | null } {
   let load = args.load;
-  const build = (l: TeamLoad) => buildTeamTimeline(args.companyId, args.difficulty, args.seed, args.slots, l, args.stack ?? {}, args.tenant ?? null, args.env ?? null, args.opts ?? {});
+  // What the LAST build drew (variety.ts): the start route stores it for the organization's memory.
+  let variety: VarietyRecord | null = null;
+  const build = (l: TeamLoad) => buildTeamTimeline(args.companyId, args.difficulty, args.seed, args.slots, l, args.stack ?? {}, args.tenant ?? null, args.env ?? null,
+    { ...(args.opts ?? {}), onVariety: r => { variety = r; args.opts?.onVariety?.(r); } });
   let timeline = build(load);
   let workload = measureWorkload(timeline, load, args.roster);
   for (let round = 0; round < MAX_ROUNDS && (workload.tier1.pct ?? 0) > TIER1_TARGET && load.noiseCount > 0; round++) {
@@ -40,5 +44,5 @@ export function buildFittedTimeline(args: {
     timeline = build(load);
     workload = measureWorkload(timeline, load, args.roster);
   }
-  return { timeline, load, workload };
+  return { timeline, load, workload, variety };
 }

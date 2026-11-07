@@ -13,7 +13,7 @@
  *       OWASP LLM Top 10 (2025): LLM01 Prompt Injection, LLM03 Supply Chain. MCP tool
  *       poisoning (Invariant Labs, Apr 2025). MITRE ATLAS tool/agent abuse.
  *
- *  2. ai-malicious-model-pickle  (advanced, rocketstack; MedCore runs no Linux servers) — a data scientist
+ *  2. ai-malicious-model-pickle  (advanced, rocketstack and globallogis, the estates with Linux servers) — a data scientist
  *     downloads a model file from a public model hub and loads it in a Jupyter
  *     environment on a Linux ML server. Loading the pickle-based file runs embedded code
  *     that opens an outbound connection and installs a cron persistence entry. Linux
@@ -404,11 +404,11 @@ export const AI_WAVE3_C_STORIES: AiStoryDef[] = [
   {
     id: "ai-mcp-tool-poisoning",
     title: "Poisoned MCP Tool Makes an AI Coding Agent Leak AWS Keys, Then S3 Is Copied from a Hosting Provider",
-    complexity: "advanced", companies: ["rocketstack"], events: buildMcpToolPoisoning(),
+    complexity: "advanced", companies: ["rocketstack"], seat: "developer", events: buildMcpToolPoisoning(),
   },
   {
     id: "ai-malicious-model-pickle",
     title: "Malicious Model File Runs Code on Load: Shell, Callback and Cron Persistence on an ML Server",
-    complexity: "advanced", companies: ["rocketstack"], events: buildMaliciousModelPickle(),
+    complexity: "advanced", companies: ["rocketstack", "globallogis"], soloCompanies: ["rocketstack"], events: buildMaliciousModelPickle(),
   },
 ];

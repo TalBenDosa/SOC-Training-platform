@@ -465,6 +465,10 @@ the call was proxied by a service like CloudFormation; here the attacker called 
 
 ---
 
+### AI Protection findings
+
+`Impact:IAMUser/AnomalousModelInvocation`, `Impact:IAMUser/CostHarvesting` and `Impact:IAMUser/PromptInjection.Direct`, all default severity Low, resource type `AccessKey`. The first two carry `resource.modelDetails[].modelId`. The third carries `resource.bedrockGuardrailDetails` with `guardrails[].{arn,version}`, `guardrailAction` (`GUARDRAIL_INTERVENED`), `guardrailSource` (`INPUT` or `OUTPUT`), `contentPolicyFilters[].{type,confidence,action}` and `sensitiveInformationFilters[].{type,action}`. A filter action of `NONE` means the guardrail only reported. Source: docs.aws.amazon.com/guardduty/latest/ug/findings-ai-protection.html.
+
 ## 5. Investigation notes
 
 - **GuardDuty is a signal, CloudTrail is the evidence.** Pivot from a finding to the raw calls via:

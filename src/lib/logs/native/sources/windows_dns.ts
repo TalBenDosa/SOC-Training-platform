@@ -38,7 +38,7 @@ const kinds: Record<string, KindSchema> = {
     optional: [...RAW],
   },
   // Audit: record created (admin) / via dynamic update. Data Name spellings are UNVERIFIED on the card
-  // (positional templates) — kept for card-sample validation only; the converter never emits audit events.
+  // (positional templates); Microsoft template gives an address on 519 only.
   "515": { required: [...SYSTEM, "Type", "NAME", "TTL", "RDATA", "Zone"], optional: [...RAW, "BufferSize", "ZoneScope", "VirtualizationID"] },
   "519": { required: [...SYSTEM, "Type", "NAME", "TTL", "RDATA", "Zone", "Source"], optional: [...RAW, "BufferSize", "ZoneScope", "VirtualizationID"] },
   // Debug log (dns.log) row — keys are the file header's column names.
@@ -70,11 +70,34 @@ function isoTicks(ts: string): string {
 }
 const FLAGS_RESPONSE: Record<string, number> = { NOERROR: 0x8180, FORMERR: 0x8181, SERVFAIL: 0x8182, NXDOMAIN: 0x8183, NOTIMP: 0x8184, REFUSED: 0x8185 };
 
+/** DNS Server audit channel: 515 a record created by an administrator or an LDAP write, 519 by a dynamic update (card table). */
+function auditRecord(ev: TelemetryEvent, ctx: NativeCtx, clientIp: string): NativeLog | null {
+  const raw = (ev.raw ?? {}) as Record<string, unknown>;
+  const id = String(raw["winlog.event_id"] ?? "");
+  if (id !== "515" && id !== "519") return null;
+  const get = (k: string) => (raw[`winlog.event_data.${k}`] === undefined ? undefined : String(raw[`winlog.event_data.${k}`]));
+  const timeMs = Date.parse(ev.ts);
+  const record: Record<string, unknown> = {
+    ProviderName: "Microsoft-Windows-DNSServer", EventID: Number(id), Version: 0, Level: 4, Task: 5, Opcode: 0, Keywords: "0x4000000000020000",
+    TimeCreated: isoTicks(ev.ts), EventRecordID: 80_000_000 + ctx.int(`${ev.id}:rec`, 0, 9_999_999),
+    ProcessID: ctx.int(`${ctx.companyId}:dns.exe:pid`, 1800, 3400), ThreadID: ctx.int(`${ev.id}:tid`, 2000, 6000),
+    Channel: "Microsoft-Windows-DNSServer/Audit", Computer: ev.hostname ? `${ev.hostname.split(".")[0]}.${ctx.domain}` : serverName(ctx), UserID: "S-1-5-18",
+    Type: get("Type") ?? "1", NAME: get("NAME") ?? "", TTL: get("TTL") ?? "600", RDATA: get("RDATA") ?? "", Zone: get("Zone") ?? ctx.domain,
+    ...(id === "519" ? { Source: get("Source") ?? clientIp } : {}),
+  };
+  // The event as Event Viewer's XML view shows it: System block, then one Data element per name.
+  const data = ["Type", "NAME", "TTL", "RDATA", "Zone", ...(id === "519" ? ["Source"] : [])].map(k => `<Data Name="${k}">${record[k]}</Data>`).join("");
+  const rawLine = `<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><Provider Name="Microsoft-Windows-DNSServer" Guid="{EB79061A-A566-4698-9119-3ED2807060E7}"/><EventID>${id}</EventID><Version>0</Version><Level>4</Level><Task>5</Task><Opcode>0</Opcode><Keywords>0x4000000000020000</Keywords><TimeCreated SystemTime="${record.TimeCreated}"/><EventRecordID>${record.EventRecordID}</EventRecordID><Execution ProcessID="${record.ProcessID}" ThreadID="${record.ThreadID}"/><Channel>${record.Channel}</Channel><Computer>${record.Computer}</Computer><Security UserID="${record.UserID}"/></System><EventData>${data}</EventData></Event>`;
+  return { sourceId: "windows_dns", kind: id, format: "xml", record, rawLine, timeMs };
+}
+
 function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const f = dnsFacts(ev);
   if (!f) return null;
   const timeMs = Date.parse(ev.ts);
   const qtype = QTYPE_NUM[f.qtype];
+  const audit = auditRecord(ev, ctx, f.clientIp);
+  if (audit) return audit;
   const xid = ctx.int(`${ev.id}:xid`, 1, 65535);
   const port = f.clientPort ?? ctx.int(`${ev.id}:sport`, 49152, 65535);
   const iface = serverIpFor(f, ctx);

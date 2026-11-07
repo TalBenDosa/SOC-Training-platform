@@ -156,7 +156,7 @@ export function ingestionDelayMs(source: string): number {
   switch (source) {
     case "edr": case "sysmon": case "av":                         return r(5_000, 20_000);
     case "firewall": case "proxy": case "dns": case "ids":
-    case "waf": case "vpn": case "nac": case "dhcp":              return r(10_000, 60_000);
+    case "waf": case "web_server": case "vpn": case "nac": case "dhcp":              return r(10_000, 60_000);
     case "siem": case "ueba": case "soar": case "threat_intel":   return r(30_000, 120_000);
     default:                                                      return r(15_000, 60_000);
   }
@@ -319,7 +319,7 @@ export function injectAdvancedFidelityNoise(raw: Record<string, unknown>, event:
     return;
   }
 
-  if (["firewall", "vpn", "proxy", "ids", "waf", "nac", "dhcp", "dns"].includes(src)) {
+  if (["firewall", "vpn", "proxy", "ids", "waf", "web_server", "nac", "dhcp", "dns"].includes(src)) {
     set("session.id", String((stableHash("sess" + id) % 90_000_000) + 10_000_000));
     set("policy.id", String((stableHash("pol" + id) % 900) + 100));
     set("rule.uuid", `${stableHex(id, 8)}-${stableHex("a" + id, 4)}-${stableHex("b" + id, 4)}`);

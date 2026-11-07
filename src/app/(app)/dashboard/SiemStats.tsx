@@ -9,7 +9,7 @@ const SOURCE_LABEL: Record<string, string> = {
   okta: "Okta", firewall: "FW", dns: "DNS", vpn: "VPN",
   cloudtrail: "Cloud", proxy: "Proxy",
   windows_security: "WinSec", linux_audit: "auditd", email_gateway: "Email GW",
-  waf: "WAF", db_monitor: "DAM", iam: "IAM", siem: "SIEM", soar: "SOAR",
+  waf: "WAF", web_server: "Web", db_monitor: "DAM", iam: "IAM", siem: "SIEM", soar: "SOAR",
 };
 
 function mode<T>(arr: T[]): T | undefined {

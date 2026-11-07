@@ -15,7 +15,8 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 
 /** A session as the DB holds it: public feed rows (with inject_id) + the staff-only answers. */
 function session(company: string, difficulty: "easy" | "medium" | "hard", seed: string) {
-  const tl = buildTeamTimeline(company, difficulty, seed, null, teamLoad(difficulty, [{ role: "t1" }, { role: "t3" }]));
+  // The second-implant twist (the kind with a C2 address); the twist kind rotates per session (msel.ts).
+  const tl = buildTeamTimeline(company, difficulty, seed, null, teamLoad(difficulty, [{ role: "t1" }, { role: "t3" }]), {}, null, null, { force: { twist: "second_implant" } });
   const feed = tl.map((t, i) => ({ t, i })).filter(x => x.t.channel === "feed");
   const events: Ev[] = feed.map(({ t, i }, k) => ({ seq: k + 1, type: "feed.event", actor_id: null, role: null, payload: { ...t.body, inject_id: `inj-${i}` }, occurred_at: undefined }));
   const injects = feed.map(({ t, i }) => ({ id: `inj-${i}`, channel: "feed", expected_action: t.answer ?? null }));

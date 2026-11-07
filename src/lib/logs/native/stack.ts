@@ -9,7 +9,7 @@ import type { SourceId } from "./types";
 
 export type StackCategory =
   | "edr" | "firewall" | "vpn" | "proxy" | "dns" | "idp" | "onprem_ad" | "collab"
-  | "email_security" | "cloud" | "k8s" | "pam" | "host_telemetry" | "linux" | "itsm";
+  | "email_security" | "cloud" | "k8s" | "pam" | "host_telemetry" | "linux" | "itsm" | "waf" | "web_server";
 
 export type Stack = Partial<Record<StackCategory, SourceId>> & {
   /**
@@ -23,15 +23,20 @@ export type Stack = Partial<Record<StackCategory, SourceId>> & {
 /** Default stacks for the five built-in companies (from companyProfilesMeta architecture). */
 export const COMPANY_STACKS: Record<string, Stack> = {
   nexacorp: { edr: "mde", firewall: "paloalto", vpn: "globalprotect", idp: "entra", onprem_ad: "windows_security",
-    collab: "m365", email_security: "defender_o365", dns: "windows_dns", cloud: "azure_activity", host_telemetry: "sysmon", itsm: "servicenow" },
+    collab: "m365", email_security: "defender_o365", dns: "windows_dns", cloud: "azure_activity", host_telemetry: "sysmon", itsm: "servicenow",
+    waf: "azure_waf", web_server: "iis" },
   rocketstack: { edr: "crowdstrike", firewall: "fortigate", vpn: "cloudflare_access", idp: "okta", collab: "google_workspace",
-    cloud: "aws_cloudtrail", k8s: "k8s_audit", linux: "linux_auditd", itsm: "servicenow" },
+    cloud: "aws_cloudtrail", k8s: "k8s_audit", linux: "linux_auditd", itsm: "servicenow",
+    waf: "aws_waf", web_server: "nginx" },
   medcore: { edr: "sentinelone", firewall: "checkpoint", vpn: "anyconnect", idp: "entra", onprem_ad: "windows_security",
-    collab: "m365", email_security: "defender_o365", dns: "infoblox", cloud: "azure_activity", itsm: "servicenow" },
+    collab: "m365", email_security: "defender_o365", dns: "infoblox", cloud: "azure_activity", itsm: "servicenow",
+    waf: "azure_waf", web_server: "iis" },
   globallogis: { edr: "sophos", firewall: "cisco_ftd", vpn: "anyconnect", idp: "entra", onprem_ad: "windows_security",
-    collab: "m365", email_security: "defender_o365", cloud: "aws_cloudtrail", host_telemetry: "sysmon", linux: "linux_auditd", itsm: "servicenow" },
+    collab: "m365", email_security: "defender_o365", cloud: "aws_cloudtrail", host_telemetry: "sysmon", linux: "linux_auditd", itsm: "servicenow",
+    waf: "aws_waf", web_server: "nginx" },
   quantumbank: { edr: "crowdstrike", firewall: "paloalto", vpn: "zscaler_zpa", proxy: "zscaler_zia", idp: "okta",
-    collab: "m365", email_security: "proofpoint", cloud: "aws_cloudtrail", pam: "cyberark", itsm: "servicenow" },
+    collab: "m365", email_security: "proofpoint", cloud: "aws_cloudtrail", pam: "cyberark", itsm: "servicenow",
+    waf: "aws_waf", web_server: "nginx" },
 };
 
 const has = (ev: TelemetryEvent, ...needles: string[]) => {
@@ -41,8 +46,8 @@ const has = (ev: TelemetryEvent, ...needles: string[]) => {
 
 /**
  * Which stack category an event belongs to, or null when no native module covers
- * it yet (WAF, DLP, UEBA, DB monitoring, virtualization, VCS, HR … keep their
- * legacy rendering until cards exist for them).
+ * it yet (DLP, UEBA, DB monitoring, virtualization, VCS, HR, and WAF events written
+ * for a named product keep their legacy rendering until cards exist for them).
  */
 export function categoryOf(ev: TelemetryEvent): StackCategory | null {
   switch (ev.source as string) {
@@ -69,6 +74,11 @@ export function categoryOf(ev: TelemetryEvent): StackCategory | null {
     }
     case "gws": return "collab";
     case "email_gateway": return "email_security";
+    // A WAF event authored for the session's WAF (WEB_WAF_VENDOR). One authored for a named
+    // product (AWS WAF, Imperva ...) keeps its legacy view, as every story written before the
+    // native modules does.
+    case "waf": return has(ev, "web application firewall") ? "waf" : null;
+    case "web_server": return "web_server";
     case "cloudtrail": case "cloud_azure": case "cloud_gcp":
       if (has(ev, "entra", "azure active directory", "azure ad")) return "idp";
       return "cloud";
@@ -186,6 +196,10 @@ export function productSourceFor(ev: TelemetryEvent, stack: Stack): SourceId | n
     return "azure_activity";
   }
   if (cat === "onprem_ad") return "windows_security";
+  // A story that shows the server's own process tree is bound to that OS, so the access log stays
+  // that server's (nginx in front of php-fpm is not an IIS log). Only an unbound one follows the stack.
+  if (cat === "web_server" && has(ev, "iis")) return "iis";
+  if (cat === "web_server" && has(ev, "nginx")) return "nginx";
   return stack[cat] ?? nativeDefault(ev, cat);
 }
 
@@ -215,6 +229,8 @@ function nativeDefault(ev: TelemetryEvent, cat: StackCategory): SourceId | null 
     case "host_telemetry": return "sysmon";
     case "linux": return "linux_auditd";
     case "itsm": return "servicenow";
+    case "waf": return "aws_waf";
+    case "web_server": return "nginx";
     default: return null;
   }
 }
@@ -230,6 +246,7 @@ export const PRODUCT_LABEL: Partial<Record<SourceId, string>> = {
   m365: "Microsoft 365", google_workspace: "Google Workspace",
   defender_o365: "Microsoft Defender for Office 365", proofpoint: "Proofpoint TAP",
   windows_dns: "Windows DNS", infoblox: "Infoblox", zscaler_zia: "Zscaler Internet Access",
+  aws_waf: "AWS WAF", azure_waf: "Azure WAF", iis: "Microsoft IIS", nginx: "nginx",
   ms_graph: "Microsoft Graph Security",
 };
 
@@ -245,6 +262,10 @@ export const STACK_CHOICES: { category: StackCategory; label: string; options: S
     note: "Google Workspace has no equivalent for Exchange inbox rules or mailbox delegation — those attacks are not picked." },
   { category: "email_security", label: "Email security", options: ["defender_o365", "proofpoint"] },
   { category: "dns", label: "DNS", options: ["windows_dns", "infoblox"] },
+  { category: "waf", label: "Web application firewall", options: ["azure_waf", "aws_waf"],
+    note: "A WAF comes with its cloud: Azure WAF needs Azure subscriptions, AWS WAF needs AWS, or web attacks are not picked for a named organization." },
+  { category: "web_server", label: "Web server", options: ["iis", "nginx"],
+    note: "Attacks that show the server's own processes keep the web server they were written on." },
 ];
 
 /** Keep only known categories / products (client input is never trusted). */

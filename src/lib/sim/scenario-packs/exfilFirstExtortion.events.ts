@@ -186,7 +186,7 @@ export function exfilFirstExtortionScenarioEvents() {
         "data.office365.UserId": victim.email,
         "data.office365.ObjectId": `${CACHE}\\Shares\\ClientRecords\\Q3_Client_Holdings_Export.xlsx`,
         "data.office365.IncidentId": "5192044",
-        "data.office365.PolicyDetails.PolicyName": "NexaCorp — Client Data: Restricted App Access",
+        "data.office365.PolicyDetails.PolicyName": "NexaCorp Client Data: Restricted App Access",
         "data.office365.PolicyDetails.Rules.RuleName": "Audit unallowed app activity on labeled client files",
         "data.office365.PolicyDetails.Rules.RuleMode": "Enforce",
         "data.office365.PolicyDetails.Rules.Severity": "High",

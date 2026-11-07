@@ -14,6 +14,7 @@ export const STORY_CATEGORIES = [
   { id: "insider", label: "Insider threat" },
   { id: "cloud", label: "Cloud, DevOps & supply chain" },
   { id: "exploit", label: "Server & edge exploitation" },
+  { id: "web", label: "Web application attacks" },
   { id: "fraud", label: "Financial fraud" },
   { id: "ai", label: "AI & LLM attacks" },
   { id: "other", label: "Other" },
@@ -61,8 +62,19 @@ const BY_ID: Record<string, StoryCategory> = {
   "qb-swift-wire-fraud": "fraud", "qb-fraud-monitoring-tampering": "fraud", "qb-cyberark-mule-payout": "fraud",
 };
 
+/** The core catalog (src/app/(app)/dashboard/core-stories), by area. */
+const CORE: Record<string, StoryCategory> = {
+  "core-device-code-phish": "identity", "core-teams-helpdesk-vishing": "identity", "core-qr-code-phish": "identity",
+  "core-adcs-esc1": "ad", "core-shadow-credentials": "ad", "core-gpo-scheduled-task": "ad", "core-adidns-wildcard": "ad",
+  "core-byovd-edr-killer": "endpoint", "core-dll-sideload": "endpoint", "core-rmm-first-stage": "endpoint", "core-wmi-remote-exec": "ad",
+  "core-s3-ssec-extortion": "ransomware", "core-azure-cloud-extortion": "ransomware", "core-ebs-snapshot-share": "cloud",
+  "core-ide-extension-theft": "cloud", "core-thread-hijack-smuggling": "phishing",
+};
+
 export function storyCategory(storyId: string): StoryCategory {
+  if (CORE[storyId]) return CORE[storyId];
   if (storyId.startsWith("ai-")) return "ai";
+  if (storyId.startsWith("web-")) return "web";
   return BY_ID[storyId] ?? "other";
 }
 

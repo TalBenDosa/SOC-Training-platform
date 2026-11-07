@@ -126,6 +126,13 @@ export const LOG_SOURCE_GUIDE: Record<string, LogSourceEntry> = {
     keyFields: ["url.path", "http.request.method", "waf.rule.id", "action_result"],
     redFlag: "SQL-injection strings in a query parameter that return 200 instead of being blocked — the WAF was in detect-only mode",
   },
+  web_server: {
+    label: "Web server access log",
+    vendors: "Microsoft IIS, nginx",
+    whatMonitors: ["Every request the origin answered", "Status and response size", "The real client behind the load balancer", "Scripts and paths that were reached"],
+    keyFields: ["cs-uri-stem / request", "sc-status / status", "sc-bytes / body_bytes_sent", "X-Forwarded-For"],
+    redFlag: "A request that matched a WAF rule, or a script in an upload folder, answered 200 with a size unlike the page normal response",
+  },
   db_monitor: {
     label: "DAM — Database Activity Monitoring",
     vendors: "IBM Guardium, Imperva DAM, native SQL/Oracle/PostgreSQL audit",

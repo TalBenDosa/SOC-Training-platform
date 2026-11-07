@@ -15,10 +15,10 @@
  *     one user's Explorer never parents another user's process, or the same user's next-day work;
  *   - everything else: one per host + incident when the event belongs to one (a clipper that runs for
  *     two days before the alert is still ONE process), else one per host + day.
- * Known trade-off: two instances of the same image on one host on one day collapse into one id
- * (one corpus story runs powershell.exe twice from cmd.exe); every reference stays self-consistent.
- * The exception is an image the story shows as its own parent (powershell.exe → powershell.exe):
- * the story pass gives the child a distinct `inst` so no process is ever listed as its own parent.
+ * Two instances of one image on a host stay apart when a story says so: the story pass gives each a
+ * distinct `inst` when its process rows carry different authored pids (four cmd.exe under WmiPrvSE,
+ * Quick Assist for two users), or when an image is shown as its own parent (powershell.exe →
+ * powershell.exe), so no process is ever listed as its own parent.
  *
  * Windows pids / tids are multiples of 4 (the kernel allocates handle-table indexes in steps of 4);
  * Linux / macOS pids are plain integers.
@@ -34,7 +34,7 @@ export interface ProcScope { host: string; os: Os; timeMs: number; user?: string
  * Whatever an event says about a process. `inst` tells apart two instances of one image that the
  * story shows as parent and child (powershell.exe spawning powershell.exe) — see {@link threadEndpointStory}.
  */
-export interface ProcRef { name?: string; path?: string; cmdline?: string; inst?: string; pid?: number }
+export interface ProcRef { name?: string; path?: string; cmdline?: string; inst?: string; pid?: number; /** The pid the row already shows (process.pid): a record prints that number. */ shownPid?: number }
 
 /** An authored OS pid worth printing (a positive integer). */
 const authoredPid = (ctx: NativeCtx, p: ProcRef): number | undefined =>
@@ -88,6 +88,8 @@ export const win4 = (n: number) => Math.max(4, n - (n % 4));
 export function procPid(ctx: NativeCtx, s: ProcScope, p: ProcRef): number | undefined {
   const key = procKey(ctx, s, p);
   if (!key) return undefined;
+  // The session fixed this process's pid when it built the row: a row re-timed on a client keeps it.
+  if (p.shownPid !== undefined) return p.shownPid;
   // A standalone scenario: the pid its author gave the process (the number its EDR console prints).
   const ap = authoredPid(ctx, p);
   if (ap !== undefined) return ap;
@@ -273,6 +275,9 @@ const URL_KEY = /^(pan\.url|url\.full|url\.original|data\.url|request\.url|http\
 const REFERRER_KEY = /^(pan\.referer|http\.request\.referrer|url\.referrer|referer|referrer|data\.referralurl)$/i;
 const BROWSER = /^(chrome|msedge|firefox|iexplore|brave|opera|outlook)\.exe$/;
 
+/** Rows of corpus stories whose process numbering the instance split cannot follow (see threadEndpointStory). */
+const UNSPLIT_STORY_ROWS = new Set(["k8s_01c_container_shell", "evt_dc_02_mimidetect", "evt_04d_nltest"]);
+
 /**
  * One story, one set of endpoint identities. Rendering is per event, but the story knows what one row
  * cannot: the hash of the binary a child row names only as its parent, the folder of an installer a
@@ -303,6 +308,51 @@ export function threadEndpointStory(events: TelemetryEvent[]): TelemetryEvent[] 
   for (const v of vs) {
     const n = lc(v.proc.name);
     if (n && n === lc(v.parent.name) && v.proc.pid !== undefined && v.parent.pid !== undefined && v.proc.pid !== v.parent.pid) instTag.set(`${v.host}|${n}|${v.proc.pid}`, `i${v.proc.pid}`);
+  }
+  // Process rows of one image with different authored pids are different processes (singletons stay one).
+  const pidsOf = new Map<string, Set<number>>();
+  for (const v of vs) {
+    const n = lc(v.proc.name);
+    if (v.f.kind !== "process" || !n || v.proc.pid === undefined || SINGLETON.has(n) || SESSION.has(n)) continue;
+    pidsOf.set(`${v.host}|${n}`, (pidsOf.get(`${v.host}|${n}`) ?? new Set<number>()).add(v.proc.pid));
+  }
+  // A reference by path alone names the image too.
+  const nm = (p: PView) => lc(p.name ?? baseOf(p.path));
+  const known = (p: PView) => p.pid !== undefined && p.pid > 0;
+  const parentPidOf = new Map<string, number>();
+  const rowPids = new Map<string, Set<number>>();
+  for (const v of vs) if (v.f.kind === "process" && known(v.proc)) {
+    if (known(v.parent)) parentPidOf.set(`${v.host}|${nm(v.proc)}|${v.proc.pid}`, v.parent.pid!);
+    rowPids.set(`${v.host}|${nm(v.proc)}`, (rowPids.get(`${v.host}|${nm(v.proc)}`) ?? new Set<number>()).add(v.proc.pid!));
+  }
+  // A row naming the image with no pid (an alert, a DNS or file action): the instance running then, the
+  // latest one started on that host at or before the row, else the first.
+  const runAt = (v: View, n: string) => {
+    const runs = vs.filter(x => x.f.kind === "process" && x.host === v.host && nm(x.proc) === n && known(x.proc));
+    return (runs.filter(x => x.t <= v.t).pop() ?? runs[0])?.proc.pid;
+  };
+  // A row naming the image as a parent with no pid (a detection's chain): the child's own process row says which.
+  const parentAt = (v: View) => {
+    const only = rowPids.get(`${v.host}|${nm(v.proc)}`);
+    const own = known(v.proc) ? v.proc.pid : v.f.kind !== "process" && only?.size === 1 ? [...only][0] : undefined;
+    return own === undefined ? undefined : parentPidOf.get(`${v.host}|${nm(v.proc)}|${own}`);
+  };
+  // Only where every reference resolves to one of those rows; a story that gives a parent or an alert a
+  // number of its own, or a parent nothing resolves, keeps one instance, as before.
+  const consistent = (key: string, pids: Set<number>) => vs.every(v => {
+    const procOk = `${v.host}|${nm(v.proc)}` !== key || (known(v.proc) ? pids.has(v.proc.pid!) : v.f.kind !== "process");
+    const pp = !nm(v.parent) || `${v.host}|${nm(v.parent)}` !== key ? undefined : known(v.parent) ? v.parent.pid : parentAt(v);
+    return procOk && (pp === undefined ? !nm(v.parent) || `${v.host}|${nm(v.parent)}` !== key ? true : false : pids.has(pp));
+  });
+  const split = new Set<string>();
+  // Three older corpus stories (k8s-pod-escape, dcsync, ransomware) number their processes in a way the
+  // split cannot follow and keep one instance per image until their numbering is audited.
+  const numbered = !events.some(e => UNSPLIT_STORY_ROWS.has(e.id));
+  for (const [key, pids] of pidsOf) if (numbered && pids.size > 1 && consistent(key, pids)) { split.add(key); for (const pid of pids) instTag.set(`${key}|${pid}`, `i${pid}`); }
+  for (const v of vs) {
+    const pk = `${v.host}|${nm(v.proc)}`, ak = `${v.host}|${nm(v.parent)}`;
+    if (split.has(ak) && !known(v.parent)) { const pid = parentAt(v); if (pid !== undefined) v.parent = { ...v.parent, pid }; }
+    if (split.has(pk) && !known(v.proc) && v.f.kind !== "process") { const pid = runAt(v, nm(v.proc)); if (pid !== undefined) v.proc = { ...v.proc, pid }; }
   }
   const instOf = (h: string, p: PView) => (p.name && p.pid !== undefined ? instTag.get(`${h}|${lc(p.name)}|${p.pid}`) : undefined);
 

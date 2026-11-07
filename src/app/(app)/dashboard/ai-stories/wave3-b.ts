@@ -559,7 +559,7 @@ export const AI_WAVE3_B_STORIES: AiStoryDef[] = [
     id: "ai-stored-injection-copilot-kb",
     title: "Poisoned Knowledge-Base Page Makes Copilot Hand Back a Changed Vendor Account",
     complexity: "core",
-    companies: ["nexacorp", "quantumbank"],
+    companies: ["nexacorp", "medcore", "globallogis", "quantumbank"], soloCompanies: ["nexacorp", "quantumbank"], seat: "finance",
     events: buildStoredInjectionCopilotKb(),
   },
 ];

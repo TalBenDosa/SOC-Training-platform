@@ -23,6 +23,8 @@ export type LogSource =
   // surface in an investigation — HR lifecycle events, source-control /
   // CI audit trails, hypervisor management planes, infra monitoring)
   | "hr" | "vcs" | "virtualization" | "infra_monitor"
+  // Web tier: an origin web server's access log (IIS, nginx)
+  | "web_server"
   // Legacy
   | "k8s_audit";
 

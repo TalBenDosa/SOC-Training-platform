@@ -12,6 +12,7 @@ import { teamQuotaFor, quotaExhausted, quotaMessage } from "@/lib/team/quota";
 import { sanitizeStack } from "@/lib/logs/native/stack";
 import { contactLine } from "@/lib/brand/brand";
 import { brandForOrg, featuresForOrg } from "@/lib/brand/server";
+import { HISTORY_SESSIONS, historyFromConfigs, type VarietyRecord } from "@/lib/team/variety";
 
 /**
  * Start a team session — staff only, own org, LOBBY only (a paused session is
@@ -27,6 +28,11 @@ import { brandForOrg, featuresForOrg } from "@/lib/brand/server";
  * v2 = server-side presence/lifecycle, click telemetry off the log, and the
  * answer key kept OFF the wire: each inject's public `body` is what players
  * receive; the ground truth goes to the staff-only `expected_action` column.
+ *
+ * Memory across exercises (2026-11-07, variety.ts): the build reads what the organization's last
+ * HISTORY_SESSIONS started sessions drew (config.variety) and ranks the catalogue so it does not
+ * repeat them; what this session drew is stored in config.variety, server side. config is never
+ * sent to players (the session GET strips it; 0105 revokes the column from client roles).
  */
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -102,17 +108,26 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     // QA L7: a build failure is a clear, retryable error — the session stays in the lobby.
     // Built, measured and fitted to the team's real work (fitTimeline.ts): the noise is trimmed and
     // the feed spaced out until Tier-1 has time to read, triage and escalate well.
+    // The organization's recent exercises, newest first: their variants wait their turn. A failed read
+    // is not fatal (the exercise still varies by its own seed); it is logged.
+    const { data: past, error: pastErr } = await admin.from("team_sessions").select("id, config, started_at")
+      .eq("org_id", sess.org_id).not("started_at", "is", null).order("started_at", { ascending: false }).limit(HISTORY_SESSIONS + 1);
+    if (pastErr) console.error("[team start] history:", pastErr.message);
+    const history = historyFromConfigs((Array.isArray(past) ? past : []).filter(r => r.id !== id).map(r => r.config));
     let timeline: ReturnType<typeof buildTeamTimeline>;
     let load = plannedLoad;
-    try { ({ timeline, load } = buildFittedTimeline({ companyId: sess.company_id, difficulty: sess.difficulty, seed: sess.seed, slots: plan.slots, load: plannedLoad, stack, tenant: tenantFromConfig(sess.config), env, opts: { bonus: plan.bonus }, roster: members ?? [] })); }
+    let variety: VarietyRecord | null = null;
+    try { ({ timeline, load, variety } = buildFittedTimeline({ companyId: sess.company_id, difficulty: sess.difficulty, seed: sess.seed, slots: plan.slots, load: plannedLoad, stack, tenant: tenantFromConfig(sess.config), env, opts: { bonus: plan.bonus, history }, roster: members ?? [] })); }
     catch (e) {
       console.error("[team start] timeline build:", e instanceof Error ? e.message : String(e));
       return NextResponse.json({ error: "Couldn't build the exercise feed for this company and difficulty — nothing was started. Try again, or create the session with another storyline." }, { status: 500 });
     }
     if (!timeline.length) return NextResponse.json({ error: "Couldn't build the exercise feed — nothing was started. Try again." }, { status: 500 });
     // The fitted pace is stored on the session so the DB refill (replenish_feed, 0081) keeps it.
+    // …with what this session drew (staff-only memory for the next exercises).
+    const config = { ...((sess.config as Record<string, unknown> | null) ?? {}), ...(variety ? { variety } : {}) };
     const { error: paceErr } = await admin.from("team_sessions")
-      .update({ feed_gap_ms: load.baseGapMs, feed_jitter_ms: load.jitterMs }).eq("id", id).eq("status", "lobby");
+      .update({ feed_gap_ms: load.baseGapMs, feed_jitter_ms: load.jitterMs, config }).eq("id", id).eq("status", "lobby");
     if (paceErr) { console.error("[team start] set pace:", paceErr.message); return NextResponse.json({ error: "Couldn't start the session." }, { status: 500 }); }
     if (timeline.length) {
       const rows = timeline.map(t => ({ due_offset_ms: t.due_offset_ms, channel: t.channel, body: t.body, expected_action: t.answer ?? null }));

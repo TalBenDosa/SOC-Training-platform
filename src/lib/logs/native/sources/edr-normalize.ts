@@ -18,7 +18,7 @@ export type EdrKind = "process" | "network" | "dns" | "file" | "registry" | "log
  * account the process runs as when the story says so and it differs from the event's user (a
  * parent's own row ran as SYSTEM, the child as the user).
  */
-export interface EdrProc { name?: string; path?: string; pid?: number; cmdline?: string; sha256?: string; md5?: string; integrity?: string; signed?: boolean; inst?: string; user?: string; startMs?: number }
+export interface EdrProc { name?: string; path?: string; pid?: number; cmdline?: string; sha256?: string; md5?: string; integrity?: string; signed?: boolean; inst?: string; user?: string; startMs?: number; shownPid?: number }
 
 /**
  * Facts one event cannot know on its own but the STORY does (filled by the story pass in
@@ -28,7 +28,7 @@ export interface EdrProc { name?: string; path?: string; pid?: number; cmdline?:
  * names none, the user's authored SID and logon id, and a download's origin URL. Rendering stays
  * per event; these keep every record of one story pivotable on the same values.
  */
-export interface ThreadProc { name?: string; path?: string; sha256?: string; md5?: string; inst?: string; integrity?: string; user?: string; cmdline?: string; pid?: number; /** When the process started: the time of its own process row in the story. */ startMs?: number }
+export interface ThreadProc { name?: string; path?: string; sha256?: string; md5?: string; inst?: string; integrity?: string; user?: string; cmdline?: string; pid?: number; /** When the process started: the time of its own process row in the story. */ startMs?: number; /** The pid the session printed on the row (process.pid). */ shownPid?: number }
 export interface EndpointThread {
   proc?: ThreadProc;
   parent?: ThreadProc;
@@ -110,7 +110,7 @@ const joinPath = (folder: unknown, file: unknown): string | undefined => {
   const d = str(folder); const f = str(file);
   if (!d) return undefined;
   if (!f || d.toLowerCase().endsWith(`\\${f.toLowerCase()}`) || d.toLowerCase().endsWith(`/${f.toLowerCase()}`) || d.toLowerCase() === f.toLowerCase()) return d;
-  return `${d.replace(/[\\/]$/, "")}\\${f}`;
+  return `${d.replace(/[\\/]$/, "")}${d.startsWith("/") ? "/" : "\\"}${f}`;
 };
 const isPrivateIp = (ip?: string) => !!ip && /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|169\.254\.|fd|fe80)/i.test(ip);
 const dirName = (p?: string) => (p && /[\\/]/.test(p) ? p.replace(/[\\/][^\\/]+$/, "") : undefined);
@@ -249,7 +249,7 @@ export function edrFacts(ev: TelemetryEvent): EdrFacts {
     sha256: first(r["process.parent.hash.sha256"], kind === "process" ? r["InitiatingProcessSHA256"] : undefined),
     md5: first(r["process.parent.hash.md5"], kind === "process" ? r["InitiatingProcessMD5"] : undefined),
   };
-  const filePath = first(ev.file?.path, r["file.path"], joinPath(r["usb.destination"], r["file.name"]), r["crowdstrike.FilePath"] && r["crowdstrike.FileName"] && kind !== "process" ? `${String(r["crowdstrike.FilePath"]).replace(/[\\/]$/, "")}\\${r["crowdstrike.FileName"]}` : r["crowdstrike.TargetFileName"], kind === "file" ? joinPath(r["FolderPath"], r["FileName"]) : undefined);
+  const filePath = first(ev.file?.path, r["file.path"], joinPath(r["usb.destination"], r["file.name"]), r["crowdstrike.FilePath"] && r["crowdstrike.FileName"] && kind !== "process" ? `${String(r["crowdstrike.FilePath"]).replace(/[\\/]$/, "")}${String(r["crowdstrike.FilePath"]).startsWith("/") ? "/" : "\\"}${r["crowdstrike.FileName"]}` : r["crowdstrike.TargetFileName"], kind === "file" ? joinPath(r["FolderPath"], r["FileName"]) : undefined);
   // Direction: an authored inbound connection has a PUBLIC source and the host as
   // destination (RDP from the internet). Read it as remote = source, local = host.
   const srcIp = first(ev.src_ip, r["source.ip"]);
@@ -324,7 +324,7 @@ function applyThread(f: EdrFacts, t: EndpointThread | undefined): EdrFacts {
   const merge = (p: EdrProc, s?: ThreadProc): EdrProc => (!s ? p : {
     ...p,
     path: s.path ?? p.path, sha256: s.sha256 ?? p.sha256, md5: s.md5 ?? p.md5, inst: s.inst ?? p.inst,
-    cmdline: p.cmdline ?? s.cmdline, integrity: p.integrity ?? s.integrity, user: p.user ?? s.user, startMs: p.startMs ?? s.startMs,
+    cmdline: p.cmdline ?? s.cmdline, integrity: p.integrity ?? s.integrity, user: p.user ?? s.user, startMs: p.startMs ?? s.startMs, shownPid: s.shownPid ?? p.shownPid,
   });
   const tu = !f.user && !f.userEmail && t.user ? splitUser(t.user) : undefined;
   return {
