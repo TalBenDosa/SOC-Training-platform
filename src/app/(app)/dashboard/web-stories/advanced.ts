@@ -23,11 +23,12 @@ import { panWeb } from "@/lib/sim/emitters/paloalto";
 import { wafRequest, webAccess, type WebSite } from "@/lib/sim/emitters/web";
 import { makeSha256 } from "@/lib/sim/iocs";
 import { makeCtx } from "@/lib/logs/native/ctx";
-import { asUser, clock, ticket, type WebStoryDef } from "./entry";
+import { asUser, bytesText, clock, ticket, type WebStoryDef } from "./entry";
 
 const IA = "Initial Access", CRED = "Credential Access", EXEC = "Execution", PERSIST = "Persistence", C2 = "Command and Control", COLLECT = "Collection", DISC = "Discovery", IMPACT = "Impact", EXFIL = "Exfiltration";
 const CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 const SCANNER = "Mozilla/5.0 (compatible; ASV-Scanner/9.6; +https://scanner.example/about)";
+const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Mobile/15E148 Safari/604.1";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // 1. SSRF to the cloud metadata service
@@ -77,12 +78,12 @@ function viewState(): TelemetryEvent[] {
       fpExplanation: "A partner saving a long order form: an ordinary page of the application, its large hidden fields are normal for it, and nothing follows on the host.", description: "WAF rule evaluated a large request body" }),
     webAccess(w, { id: "web_vs_002", ts: T(8), srcIp: "198.51.100.141", method: "POST", path: "/Orders/Edit.aspx", sent: 21408, bytes: 41290, ua: CHROME, isBaseline: true, description: "Web server answered a form post" }),
     wafRequest(w, { id: "web_vs_004", ts: T(71), srcIp: atk, method: "POST", path: "/Login.aspx", action: "count", rule: "size_body", ua, sent: 12884, bytes: 412, severity: "low", mitre: "T1190", tactic: IA, description: "WAF rule evaluated a large request body" }),
-    webAccess(w, { id: "web_vs_005", ts: T(71), srcIp: atk, method: "POST", path: "/Login.aspx", sent: 12884, bytes: 412, ua, mitre: "T1190", tactic: IA, description: "Web server answered a form post" }),
-    webAccess(w, { id: "web_vs_007", ts: T(73), srcIp: atk, method: "POST", path: "/Login.aspx", sent: 2240, bytes: 318, ua, mitre: "T1505.003", tactic: PERSIST, description: "Web server answered a form post" }),
+    webAccess(w, { id: "web_vs_005", ts: T(71), srcIp: atk, method: "POST", path: "/Login.aspx", sent: 12884, bytes: 412, ua, mitre: "T1190", tactic: IA, description: "Web server answered a form post (12,884 bytes in, 412 bytes out)" }),
+    webAccess(w, { id: "web_vs_007", ts: T(73), srcIp: atk, method: "POST", path: "/Login.aspx", sent: 2240, bytes: 318, ua, mitre: "T1505.003", tactic: PERSIST, description: "Web server answered a form post (2,240 bytes in, 318 bytes out)" }),
     cmd("web_vs_008", 73.1, 7044, "cmd.exe /c whoami", { isDetection: true, mitre: "T1059.003", tactic: EXEC, severity: "high" }),
     cmd("web_vs_009", 74, 7112, "cmd.exe /c ipconfig /all", { mitre: "T1016", tactic: DISC, severity: "medium" }),
     cmd("web_vs_010", 76, 7188, "cmd.exe /c type C:\\inetpub\\partners\\web.config", { mitre: "T1552.001", tactic: CRED, severity: "medium" }),
-    webAccess(w, { id: "web_vs_011", ts: T(76), srcIp: atk, method: "POST", path: "/Login.aspx", sent: 2312, bytes: 6840, ua, mitre: "T1552.001", tactic: CRED, description: "Web server answered a form post" }),
+    webAccess(w, { id: "web_vs_011", ts: T(76), srcIp: atk, method: "POST", path: "/Login.aspx", sent: 2312, bytes: 6840, ua, mitre: "T1552.001", tactic: CRED, description: "Web server answered a form post (2,312 bytes in, 6,840 bytes out)" }),
     asUser(csNetwork({ id: "web_vs_012", ts: T(79), ...host, remoteIp: c2, remotePort: 443, application: "tls", processName: "w3wp.exe", processPath: "C:\\Windows\\System32\\inetsrv\\w3wp.exe", cmdline: "w3wp.exe -ap Partners", pid: 6128, mitre: "T1071.001", tactic: C2, severity: "medium", description: `Outbound connection from ${w.host}` }), POOL.runAsUser),
   ];
 }
@@ -141,7 +142,7 @@ function xxeSkimmer(): TelemetryEvent[] {
     webAccess(w, { id: "web_xx_006", ts: T(91), srcIp: atk, path: "/rest/V1/store/storeConfigs", bytes: 2204, ua, mitre: "T1078", tactic: IA, description: "Store API answered an admin request" }),
     webAccess(w, { id: "web_xx_007", ts: T(93), srcIp: atk, path: "/rest/V1/customers/search", query: "searchCriteria%5BpageSize%5D=200", bytes: 7214880, ua, mitre: "T1213", tactic: COLLECT, severity: "medium", description: "Store API answered an admin request" }),
     webAccess(w, { id: "web_xx_008", ts: T(97), srcIp: atk, method: "PUT", path: "/rest/V1/cmsBlock/41", bytes: 1840, sent: 3122, ua, mitre: "T1565.001", tactic: IMPACT, severity: "medium", description: "Store API answered a content change" }),
-    webAccess(w, { id: "web_xx_009", ts: T(104), srcIp: "198.51.100.19", path: "/checkout", bytes: 64112, ua: CHROME, isBaseline: true, description: "Store answered a checkout page" }),
+    webAccess(w, { id: "web_xx_009", ts: T(104), srcIp: "198.51.100.26", path: "/checkout", bytes: 64112, ua: IPHONE, isBaseline: true, description: "Store answered a checkout page" }),
     { ...ticket({ id: "web_xx_010", ts: T(640), table: "incident", number: "INC0092017", state: "New", severity: "medium", shortDescription: "Card issuer reports fraud on cards used at the online store", description: "ServiceNow incident INC0092017 (New): card issuer fraud report for the online store" }), is_baseline: undefined, mitre_technique: "T1056.003", mitre_tactic: COLLECT },
   ];
 }
@@ -166,7 +167,7 @@ function checkoutSkimmer(): TelemetryEvent[] {
     wafRequest(w, { id: "web_sk_005", ts: T(211), srcIp: atk, method: "POST", path: "/admin/theme/assets", query: "file=js/checkout.min.js", action: "count", rule: "size_body", ua, sent: 50377, bytes: 244, severity: "low", mitre: "T1565.001", tactic: IMPACT, description: "WAF rule evaluated a large request body" }),
     webAccess(w, { id: "web_sk_006", ts: T(211), srcIp: atk, method: "POST", path: "/admin/theme/assets", query: "file=js/checkout.min.js", bytes: 244, sent: 50377, ua, mitre: "T1565.001", tactic: IMPACT, description: "Payment site answered a theme file save" }),
     csFile({ id: "web_sk_007", ts: T(211), ...host, path, action: "file_modify", size: 50377, sha256: makeSha256("checkout_418_changed"), actorProcess: "php-fpm8.2", actorPath: "/usr/sbin/php-fpm8.2", actorPid: 14022, runAsUser: "www-data", severity: "high", isDetection: true, mitre: "T1565.001", tactic: IMPACT, description: `File changed under the web root on ${w.host}` }),
-    size("web_sk_008", 214, 50377, { mitre: "T1056.003", tactic: COLLECT }),
+    size("web_sk_008", 225.9, 50377, { srcIp: "198.51.100.21", ua: CHROME, mitre: "T1056.003", tactic: COLLECT }),
     webAccess(w, { id: "web_sk_009", ts: T(226), srcIp: "198.51.100.21", method: "POST", path: "/csp-report", status: 204, bytes: 0, sent: 781, ua: CHROME, referer: "https://pay.nexacorp.com/checkout", mitre: "T1056.003", tactic: COLLECT, description: "Payment site answered a browser policy report" }),
     { ...ticket({ id: "web_sk_010", ts: T(1320), table: "incident", number: "INC0092144", state: "New", severity: "medium", shortDescription: "Customers report card fraud after paying on the website", description: "ServiceNow incident INC0092144 (New): customers report card fraud after paying online" }), is_baseline: undefined, mitre_technique: "T1056.003", mitre_tactic: COLLECT },
   ];
@@ -183,7 +184,7 @@ function mftShell(): TelemetryEvent[] {
   const root = "C:\\MOVEitTransfer\\wwwroot", pool = "IIS APPPOOL\\moveitdmz pool", W3WP = "C:\\Windows\\System32\\inetsrv\\w3wp.exe";
   const worker = { actorProcess: "w3wp.exe", actorPath: W3WP, actorPid: 4716, runAsUser: pool };
   const page = (id: string, min: number, status: number, bytes: number, mitre: string, tactic: string, severity: "medium" | "high") =>
-    webAccess(w, { id, ts: T(min), srcIp: atk, path: "/human2.aspx", status, bytes, ua, mitre, tactic, severity, description: "File transfer site answered a page request" });
+    webAccess(w, { id, ts: T(min), srcIp: atk, path: "/human2.aspx", status, bytes, ua, mitre, tactic, severity, description: `File transfer site answered a page request (status ${status}, ${bytesText(bytes)} bytes out)` });
   return [
     ticket({ id: "web_mf_012", ts: T(0), table: "change_request", number: "CHG0044402", state: "Implement", severity: "informational",
       shortDescription: "File transfer server hotfix, installer run by the platform team", description: "ServiceNow change CHG0044402 (Implement): file transfer server hotfix" }),

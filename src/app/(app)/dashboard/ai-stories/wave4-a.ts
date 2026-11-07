@@ -270,9 +270,11 @@ function buildHubModelLoad(): TelemetryEvent[] {
       id: "ai4md01b", ts: "2026-10-21T08:24:38.000Z", pid: 5712, processName: "cmd.exe", processPath: CMD, parentName: "python.exe", parentPid: kernelPid, cmdline: "cmd.exe /c nvidia-smi.exe --query-gpu=memory.used --format=csv",
       severity: "low", description: `python.exe (the Jupyter kernel) started cmd.exe /c nvidia-smi.exe --query-gpu=memory.used --format=csv.`,
     }), "The notebook polling GPU memory through a shell, a fixed query it runs all day."),
-    benign(csDetection({
-      companyId: CX, id: "ai4md02", ts: "2026-10-21T08:24:40.000Z", host: DEV.host, srcIp: DEV.ip, user: DEV.user, pid: 5712, parentPid: kernelPid, processName: "cmd.exe", processPath: CMD, parentName: "python.exe",
-      threatName: rule, technique: "Command and Scripting Interpreter", tactic: "Execution", mitre: "T1059.003", cmdline: "cmd.exe /c nvidia-smi.exe --query-gpu=memory.used --format=csv", action: "detected", severity: "low", eventType: "edr_alert",
+    // A behavioural detection on the shell the kernel started: it names cmd.exe, a clean Windows image, and no payload
+    // hash. The bad file in this storyline is the model in the cache (ai4md05), not the process the rule fired on.
+    benign(csAlert({
+      companyId: CX, id: "ai4md02", ts: "2026-10-21T08:24:40.000Z", host: DEV.host, srcIp: DEV.ip, user: DEV.user, pid: 5712, processName: "cmd.exe", processPath: CMD, parentPath: python,
+      threatName: rule, technique: "Command and Scripting Interpreter", tactic: "Execution", mitre: "T1059.003", cmdline: "cmd.exe /c nvidia-smi.exe --query-gpu=memory.used --format=csv", action: "detected", severity: "low",
       description: `Endpoint alert "${rule}" on ${DEV.host}: python.exe started cmd.exe /c nvidia-smi.exe --query-gpu=memory.used --format=csv. Detect only.`,
     }), "Same rule, innocent cause: the notebook polling GPU memory. A fixed query, a signed NVIDIA tool, and no network activity from the kernel around it."),
 
@@ -298,9 +300,9 @@ function buildHubModelLoad(): TelemetryEvent[] {
       id: "ai4md08", ts: "2026-10-21T09:17:12.000Z", pid: 6020, processName: "cmd.exe", processPath: CMD, parentName: "python.exe", parentPid: kernelPid, cmdline: "cmd.exe /c whoami /all",
       severity: "high", mitre: "T1033", tactic: "Discovery", description: `python.exe (the same kernel) started cmd.exe /c whoami /all.`,
     }),
-    csDetection({
-      companyId: CX, id: "ai4md09", ts: "2026-10-21T09:17:15.000Z", host: DEV.host, srcIp: DEV.ip, user: DEV.user, pid: 6020, parentPid: kernelPid, processName: "cmd.exe", processPath: CMD, parentName: "python.exe",
-      threatName: rule, technique: "Command and Scripting Interpreter", tactic: "Execution", mitre: "T1059.003", cmdline: "cmd.exe /c whoami /all", action: "detected", severity: "high", eventType: "edr_alert",
+    csAlert({
+      companyId: CX, id: "ai4md09", ts: "2026-10-21T09:17:15.000Z", host: DEV.host, srcIp: DEV.ip, user: DEV.user, pid: 6020, processName: "cmd.exe", processPath: CMD, parentPath: python,
+      threatName: rule, technique: "Command and Scripting Interpreter", tactic: "Execution", mitre: "T1059.003", cmdline: "cmd.exe /c whoami /all", action: "detected", severity: "high",
       description: `Endpoint alert "${rule}" on ${DEV.host}: python.exe started cmd.exe /c whoami /all. Detect only.`,
     }),
     proc(dev, {
@@ -637,8 +639,8 @@ function buildRulesFileTamper(): TelemetryEvent[] {
       severity: "informational", description: `git.exe updated .github\\copilot-instructions.md in portal-api on ${DEV.host}, 1,612 bytes.`,
     }), "A reviewed edit to the team's assistant guidance: a few lines more, delivered by an ordinary pull."),
     proc(dev, {
-      id: "ai4rf02", ts: "2026-10-28T09:05:12.000Z", pid: 5504, processName: "git.exe", processPath: GIT, parentName: "Code.exe", cmdline: "git.exe pull origin main", severity: "low", mitre: "T1195.002", tactic: "Initial Access",
-      description: `git.exe pull origin main in portal-api on ${DEV.host}.`,
+      id: "ai4rf02", ts: "2026-10-28T09:05:12.000Z", pid: 5504, processName: "git.exe", processPath: GIT, parentName: "Code.exe", cmdline: "git.exe pull --rebase origin main", severity: "low", mitre: "T1195.002", tactic: "Initial Access",
+      description: `git.exe pull --rebase origin main in portal-api on ${DEV.host}.`,
     }),
     fileRow(dev, {
       id: "ai4rf03", ts: "2026-10-28T09:05:13.000Z", path: rules, size: 9844, action: "file_modify", sha256: null, actorProcess: "git.exe", actorPath: GIT, actorPid: 5504,

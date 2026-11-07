@@ -157,7 +157,7 @@ function teamsHelpdeskVishing(): TelemetryEvent[] {
     lookalike(csProcess({
       ...cs, id: "ctv01", ts: T(45), processName: "QuickAssist.exe", pid: 6120, processPath: qa, cmdline: `"${qa}"`, parentName: "explorer.exe", parentPid: 3480,
       sha256: qaHash, signed: true, signatureSubject: "Microsoft Corporation", severity: "medium",
-      description: "QuickAssist.exe started on WS-ACC-4477 from explorer.exe for h.novak.",
+      description: "QuickAssist.exe (pid 6120) started on WS-ACC-4477 from explorer.exe for h.novak.",
     }), "Incident INC0048812 in ServiceNow covers this session: the user called the Service Desk about a printer, and the technician on the ticket used Quick Assist with them. No chat from an outside tenant and no download follows."),
     { ...sentinelAlert({
       companyId: cx, id: "ctv02", ts: T(3600), user: v, srcIp: "198.51.100.204", alertName: "Inbound mail volume far above baseline for one recipient", severity: "medium",
@@ -181,7 +181,7 @@ function teamsHelpdeskVishing(): TelemetryEvent[] {
     csProcess({
       ...cs, id: "ctv05", ts: T(4561), processName: "QuickAssist.exe", pid: 7204, processPath: qa, cmdline: `"${qa}"`, parentName: "explorer.exe", parentPid: 3480,
       sha256: qaHash, signed: true, signatureSubject: "Microsoft Corporation", severity: "medium", mitre: "T1219.002", tactic: "Command and Control",
-      description: "QuickAssist.exe started on WS-ACC-4477 from explorer.exe for h.novak.",
+      description: "QuickAssist.exe (pid 7204) started on WS-ACC-4477 from explorer.exe for h.novak.",
     }),
     csDns({
       ...cs, id: "ctv06", ts: T(4563), domain: "remoteassistance.support.services.microsoft.com", resolvedIp: "203.0.113.215", processName: "QuickAssist.exe", processPath: qa, pid: 7204,

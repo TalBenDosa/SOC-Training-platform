@@ -88,7 +88,9 @@ export function platformsOfEvent(ev: TelemetryEvent): Platform[] {
     // Microsoft Sentinel (and its UEBA) runs on Log Analytics in an Azure subscription.
     case "siem": return /guardduty|aws/.test(v(ev)) ? ["aws"] : /sentinel|defender for cloud|azure/.test(v(ev)) ? ["azure"] : [];
     case "ueba": return /sentinel|azure/.test(v(ev)) ? ["azure"] : [];
-    case "waf": return /aws/.test(v(ev)) ? ["aws"] : [];
+    case "waf": return /aws/.test(v(ev)) ? ["aws"] : /azure/.test(v(ev)) ? ["azure"] : [];
+    // IIS runs on the Windows servers every organization has; nginx needs Linux servers.
+    case "web_server": return /nginx/.test(v(ev)) ? ["linux"] : [];
     default: return [];
   }
 }

@@ -33,7 +33,10 @@ import { normalizeHostIps } from "@/lib/sim/hostIdentity";
 import { applyTenant, type Tenant } from "./tenant";
 import { mitreVisible } from "@/lib/sim/mitreVisible";
 import { describeEvent } from "@/lib/sim/describeEvent";
-import { fpAlerts } from "./fpAlerts";
+import { fpAlerts, type FpOut } from "./fpAlerts";
+import { itsmNoise, ticketRecord } from "./itsmNoise";
+import { buildDecoy, buildTwist, fwFlavour, pickInjectTexts, type InjectText } from "./msel";
+import { emptyHistory, streamOf, type VarietyHistory, type VarietyRecord } from "./variety";
 import { webNoise } from "./webNoise";
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
 import { applyStack, fitsStack, stackFor, storyFitsOrg, storyFitsStack, storyHonoursLocks, withCanonicalPids } from "@/lib/logs/native";
@@ -52,8 +55,8 @@ export const BONUS_HOLD_MS = 1_000_000_000_000_000;
 
 /** Share of the visible feed that is ordinary traffic before the first attack row. */
 const WARMUP_MIN = 0.10;
-/** Logs behind the MSEL injects, added after placement: the twist's DNS/firewall/EDR rows + the false lead's ticket and two uploads. */
-const MSEL_SUPPORT_ROWS = 6;
+/** Logs behind the MSEL injects, added after placement: the twist's two or three rows + the decoy's ticket, earlier batch and two uploads. */
+const MSEL_SUPPORT_ROWS = 7;
 
 export type TeamVerdict = "tp" | "escalate" | "benign" | "fp";
 /** Where a feed log came from — lets the report / instructor tell story steps from noise. */
@@ -191,81 +194,7 @@ export function scrubClockPhrases(desc: string): string {
 
 // ── Supporting telemetry for scripted injects / ITSM context ─────────────────
 
-const C2_POOL = [
-  { domain: "cdn-edge-metrics.com", ip: "45.61.137.212" },
-  { domain: "update-telemetry-cloud.net", ip: "194.87.31.14" },
-  { domain: "static-content-sync.io", ip: "91.215.85.140" },
-  { domain: "api-cloudsync-status.com", ip: "185.225.74.59" },
-  { domain: "img-cdn-delivery.net", ip: "193.42.33.18" },
-];
-const SAAS_POOL = [
-  { domain: "api2.amplitude.com", ip: "54.187.102.33", app: "Amplitude", appId: "amplitude" },
-  { domain: "api-eu.mixpanel.com", ip: "35.186.241.51", app: "Mixpanel", appId: "mixpanel" },
-  { domain: "heapanalytics.com", ip: "34.120.183.62", app: "Heap", appId: "heap-analytics" },
-];
-
-type FwFlavour = "pan" | "forti" | "checkpoint" | "cisco";
-function fwFlavour(firewall: string): { flavour: FwFlavour; vendor: string } {
-  const f = firewall.toLowerCase();
-  if (f.includes("forti")) return { flavour: "forti", vendor: "Fortinet FortiGate" };
-  if (f.includes("check point") || f.includes("checkpoint")) return { flavour: "checkpoint", vendor: "Check Point NGFW" };
-  if (f.includes("cisco")) return { flavour: "cisco", vendor: "Cisco Firepower" };
-  return { flavour: "pan", vendor: "Palo Alto Networks PAN-OS" };
-}
-
-interface FwConn { srcIp: string; dstIp: string; domain: string; url: string; category: string; app: string; bytesOut: number; bytesIn: number; sessions?: number }
-function firewallRaw(flavour: FwFlavour, c: FwConn): Record<string, unknown> {
-  if (flavour === "forti") return {
-    "data.type": "utm", "data.subtype": "webfilter", "data.level": "notice", "data.action": "passthrough",
-    "data.srcip": c.srcIp, "data.dstip": c.dstIp, "data.dstport": "443", "data.service": "HTTPS",
-    "data.hostname": c.domain, "data.url": c.url, "data.catdesc": c.category, "data.app": c.app,
-    "data.sentbyte": String(c.bytesOut), "data.rcvdbyte": String(c.bytesIn),
-    ...(c.sessions ? { "data.countweb": String(c.sessions) } : {}),
-    "firewall.action": "allow", "action_result": "allowed",
-  };
-  if (flavour === "checkpoint") return {
-    "action": "Accept", "layer_name": "Application & URL Filtering", "src": c.srcIp, "dst": c.dstIp,
-    "service": "443", "service_id": "https", "proto": "6", "resource": c.url, "app_category": c.category,
-    "appi_name": c.app, "bytes_out": String(c.bytesOut), "bytes_in": String(c.bytesIn),
-    "ProductName": "URL Filtering", "action_result": "allowed",
-  };
-  if (flavour === "cisco") return {
-    "cisco.ftd.action": "Allow", "cisco.ftd.url": c.url, "cisco.ftd.url_category": c.category,
-    "cisco.ftd.application": c.app, "source.ip": c.srcIp, "destination.ip": c.dstIp, "destination.port": "443",
-    "network.bytes_out": String(c.bytesOut), "network.bytes_in": String(c.bytesIn), "action_result": "allowed",
-  };
-  return {
-    "url.domain": c.domain, "url.full": c.url, "pan.url.category": c.category, "pan.app": c.app,
-    "pan.action": "allow", "pan.rule": "ALLOW-WEB-OUT", "source.ip": c.srcIp, "destination.ip": c.dstIp,
-    "destination.port": "443", "pan.bytes_sent": String(c.bytesOut), "pan.bytes_received": String(c.bytesIn),
-    ...(c.sessions ? { "pan.repeatcnt": String(c.sessions) } : {}),
-    "event.action": "allow", "action_result": "allowed",
-  };
-}
-
-interface ProcCtx { path: string; cmdline: string; parent: string; account?: string }
-function edrConnRaw(edrVendor: string, host: string, proc: string, pid: number, localIp: string, dstIp: string, domain: string, ctx?: ProcCtx): Record<string, unknown> {
-  const v = edrVendor.toLowerCase();
-  // The process context is the evidence on a LOLBin beacon: rundll32.exe itself is a
-  // signed Microsoft binary (its hash looks up clean) — the DLL on its command line,
-  // launched from a user-writable folder, is what's malicious.
-  const neutral = {
-    "process.name": proc, "process.pid": String(pid), "destination.ip": dstIp, "destination.port": "443", "destination.domain": domain, "source.ip": localIp,
-    ...(ctx ? { "process.executable": ctx.path, "process.command_line": ctx.cmdline, "process.parent.name": ctx.parent } : {}),
-  };
-  if (v.includes("crowdstrike") || v.includes("falcon")) return { "crowdstrike.event_simpleName": "NetworkConnectIP4", "crowdstrike.ComputerName": host, "crowdstrike.RemoteAddressIP4": dstIp, "crowdstrike.RemotePort": "443", "crowdstrike.LocalAddressIP4": localIp, ...(ctx ? { "crowdstrike.CommandLine": ctx.cmdline, "crowdstrike.ParentBaseFileName": ctx.parent } : {}), ...neutral };
-  if (v.includes("sentinelone")) return { "s1.eventType": "IP Connect", "s1.agent.computerName": host, ...(ctx ? { "s1.src.process.cmdline": ctx.cmdline, "s1.src.process.parent.name": ctx.parent } : {}), ...neutral };
-  if (v.includes("sophos")) return { "sophos.event_type": "Network", ...neutral };
-  return {
-    "ActionType": "ConnectionSuccess", "DeviceName": host.toLowerCase(), "RemoteIP": dstIp, "RemotePort": "443", "RemoteUrl": domain, "LocalIP": localIp,
-    "InitiatingProcessFileName": proc, "InitiatingProcessId": String(pid),
-    ...(ctx ? {
-      "InitiatingProcessFolderPath": ctx.path.replace(/\\[^\\]+$/, ""), "InitiatingProcessCommandLine": ctx.cmdline,
-      "InitiatingProcessParentFileName": ctx.parent, ...(ctx.account ? { "InitiatingProcessAccountName": ctx.account } : {}),
-    } : {}),
-    ...neutral,
-  };
-}
+// Firewall / EDR record shapes, decoys, twists and inject texts live in msel.ts (rotated per session).
 
 const TICKET_RE = /\b(CHG-?\d[\d-]*|INC-?\d+|RITM\d+|ONB-\d+|NXC-\d+|NX-\d+|REQ-?\d+)\b/;
 /**
@@ -284,6 +213,8 @@ function approvalSummaryOf(ev: TelemetryEvent): string {
 }
 
 function itsmRecordFor(ev: TelemetryEvent, companyId: string): TelemetryEvent | null {
+  // A benign-positive alert brings its own ticket (or none): fpAlerts.ts / ticketRecord.
+  if (String(ev.id ?? "").startsWith("fpa_")) return null;
   // Scenario review 2026-10-01, fix 5: an FP decoy whose explanation rests on an
   // APPROVAL ("approved … ticket RS-4401") was unanswerable — the approval never
   // appeared in the feed, so the analyst who escalated a USB copy / mail forward
@@ -318,7 +249,19 @@ function itsmRecordFor(ev: TelemetryEvent, companyId: string): TelemetryEvent | 
 
 // ── The builder ──────────────────────────────────────────────────────────────
 
-interface Placed { ev: TelemetryEvent; origin: FeedOrigin; verdict: TeamVerdict; incident?: string; supports?: string; held?: boolean; autoContained?: boolean; /** The attack's name, for the report (staff-side answer key only). */ attack?: string }
+interface Placed { ev: TelemetryEvent; origin: FeedOrigin; verdict: TeamVerdict; incident?: string; supports?: string; held?: boolean; autoContained?: boolean; /** The attack's name, for the report (staff-side answer key only). */ attack?: string;
+  /** An ITSM row: the change window in minutes, around `ticketFor`'s time (or the row's own when none). */ window?: [number, number]; ticketFor?: Placed }
+
+/**
+ * Variety controls for one build (variety.ts): `history` = how recently each catalogue item ran in
+ * this organization's previous sessions; `force` = test hooks; `onVariety` receives what the build
+ * drew (the start route stores it, staff-only, for the next session).
+ */
+export interface VarietyOpts {
+  history?: VarietyHistory;
+  force?: { makers?: string[]; decoy?: string; twist?: string; miss?: boolean; ticket?: string };
+  onVariety?: (r: VarietyRecord) => void;
+}
 
 /** Build the ordered, time-stamped feed for a session. */
 /**
@@ -483,7 +426,9 @@ export function teamStoryFilter(companyId: string, stack: Stack = {}, env: TeamE
  * from the Tier-1 count, attack count from the team size. Omitted → the fixed,
  * difficulty-only load of before (existing seeds replay exactly).
  */
-export function buildTeamTimeline(companyId: string, difficulty: "easy" | "medium" | "hard", seed: string, storyId?: string | null | (string | null)[], load: TeamLoad = legacyLoad(difficulty), stack: Stack = {}, tenant: Tenant | null = null, envIn: TeamEnv | null = null, opts: { bonus?: boolean } = {}): TimelineEntry[] {
+export function buildTeamTimeline(companyId: string, difficulty: "easy" | "medium" | "hard", seed: string, storyId?: string | null | (string | null)[], load: TeamLoad = legacyLoad(difficulty), stack: Stack = {}, tenant: Tenant | null = null, envIn: TeamEnv | null = null, opts: { bonus?: boolean } & VarietyOpts = {}): TimelineEntry[] {
+  const history = opts.history ?? emptyHistory();
+  const record: VarietyRecord = { v: 1, makers: [], decoy: null, twist: null, injects: [], stories: [] };
   // A named organization always has an environment (the default one when none was stored).
   const env = envIn ?? (tenant ? DEFAULT_ENV : null);
   const rnd = mulberry32(hashSeed(`${companyId}:${difficulty}:${seed}`));
@@ -512,7 +457,12 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     const fit = storyPool.filter(accept);
     // A named organization never falls back to a story outside what the admin chose: with too few
     // fitting stories a slot repeats a pick (then dropped as a duplicate) rather than leak one.
-    return pick(fit.length ? fit : env ? storyPool.filter(storyFits) : storyPool, pickRnd);
+    const from = fit.length ? fit : env ? storyPool.filter(storyFits) : storyPool;
+    // Memory across exercises: a storyline this organization ran in its last sessions waits its turn
+    // (the least recently run tier only; with no history every story is in it, so seeds replay as before).
+    const ago = (s: AttackStory) => history.stories[s.id] ?? Infinity;
+    const best = Math.max(...from.map(ago));
+    return pick(from.filter(s => ago(s) === best), pickRnd);
   };
   // Concurrent incidents hit different people (a team never works two attacks on one victim).
   const victimOf = (evs: TelemetryEvent[]) => evs.find(e => e.user_email && isMalicious(classifyStoryEvent(e)))?.user_email;
@@ -615,13 +565,29 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // Enough continuous noise to span the shift at this team's pace (load.ts), so the
   // DB refill rarely has to recycle logs.
   // Benign-positive alerts (fpAlerts.ts) at the same rate as the attacks' alerts, so a high-severity
-  // alert is not an answer — each provable from its approved ticket in the feed. They count toward
-  // the shift's row budget, so the noise sample shrinks by their number and the shift length holds.
+  // alert is not an answer: each provable from the evidence in the feed (a ticket, the device, the
+  // destination). They count toward the shift's row budget, so the noise sample shrinks by their
+  // number and the shift length holds.
   const attackAlerts = [...attack1, ...attack2, ...attack3].filter(p => isMalicious(p.verdict) && isAlertRow(p.ev)).length;
   // Each FP alert comes from a product the session runs: Sentinel analytics only when the
-  // organization runs Azure, the EDR / identity alerts only when the chosen product records them.
-  const fpRows = fpAlerts(assets, companyId, Math.max(2, Math.min(6, attackAlerts + (rnd() < 0.5 ? 1 : 0))), rnd, new Date(TEAM_TIME_BASE_MS).toISOString(),
-    { siem: !env || env.platforms.includes("azure"), fits: e => (stacked || !!env ? fitsStack(e, companyId, stack) : true) });
+  // organization runs Sentinel (Azure, or a Live-SOC company on Entra / Azure), the EDR / identity
+  // alerts only when the chosen product records them. Own stream: the main draws stay as they were.
+  const fpN = Math.max(2, Math.min(6, attackAlerts + (rnd() < 0.5 ? 1 : 0)));
+  const frnd = streamOf(`${companyId}:${difficulty}:${seed}`, "fp-alerts");
+  const resolved = stackFor(companyId, stack);
+  const attackHosts = new Set([...attack1, ...attack2, ...attack3, ...bonusAttack, ...poolAttacks.flat()].map(p => p.ev.hostname).filter((h): h is string => !!h));
+  const sessionIps = new Set(attackIps);
+  // One alert in some medium / hard sessions carries a ticket that does NOT cover it (another host,
+  // another scope, a closed window): a ticket nearby is evidence to read, not the answer.
+  const miss = difficulty !== "easy" && (opts.force?.miss ?? frnd() < 0.35);
+  const fpOut: FpOut[] = fpAlerts(assets, companyId, fpN, frnd, new Date(TEAM_TIME_BASE_MS).toISOString(), {
+    siem: env ? env.platforms.includes("azure") : (resolved.cloud === "azure_activity" || resolved.idp === "entra"),
+    fits: e => (!env || (storyEventChosen(e, env, stack, companyId) && orgRunsSource(e, env, stack, companyId))) && fitsStack(e, companyId, stack),
+    stack: resolved, platforms: env?.platforms ?? [], seen: history.makers, force: opts.force?.makers, miss,
+    avoid: { users: new Set([...compromised, ...takenVictims]), hosts: attackHosts, ips: sessionIps },
+  });
+  record.makers = fpOut.map(f => f.makerId);
+  const fpRows = fpOut.flatMap(f => f.rows);
   // Keep the shift at its intended length: the storylines now carry their initial-access and
   // first-alert rows, so the real attack-row count runs over load.ts's estimate (≈10/story, 2/pool).
   // Trim the noise by that overflow and by the FP alerts, so total rows ≈ the planned budget.
@@ -646,7 +612,23 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
       noise[Math.floor(rnd() * noise.length) % Math.max(noise.length, 1)] = { ev, origin: "noise", verdict: classifyPoolEvent(ev) };
     }
   }
-  for (const ev of fpRows) noise.splice(Math.floor(noise.length * (0.12 + rnd() * 0.84)), 0, { ev, origin: "noise", verdict: "fp" });
+  // Each maker's rows land together (a lockout right after its VPN failures) at a seeded point of the
+  // WHOLE feed (placed after the attack bands; spliced into the noise they all fell into the warm-up
+  // whenever long storylines left little noise). A ticket that does not cover its alert makes that
+  // alert an incident of its own (escalate). Its ticket (if any) is placed later, at a seeded
+  // distance before or after it.
+  const linkedTickets: { alert: Placed; spec: NonNullable<FpOut["ticket"]> }[] = [];
+  const fpGroups: { placed: Placed[]; frac: number }[] = [];
+  for (const f of fpOut) {
+    const alertEv = f.rows[f.rows.length - 1];
+    const placed: Placed[] = f.rows.map(ev => f.verdict === "escalate" && ev === alertEv
+      ? { ev, origin: "pool_attack" as const, verdict: "escalate" as const, incident: `solo:${ev.id}`, attack: `Activity outside its approval: ${(ev.description ?? "").slice(0, 70)}` }
+      : { ev, origin: "noise" as const, verdict: f.verdict === "escalate" ? "benign" as const : "fp" as const });
+    // (an escalate alert never opens the shift: the warm-up stays ordinary traffic)
+    const frac = 0.12 + rnd() * 0.84;
+    fpGroups.push({ placed, frac: f.verdict === "escalate" ? Math.max(0.3, frac) : frac });
+    if (f.ticket) linkedTickets.push({ alert: placed[placed.length - 1], spec: f.ticket });
+  }
 
   const storyCount = attack1.length + attack2.length + attack3.length;
   const poolCount = poolAttacks.reduce((n, g) => n + g.length, 0);
@@ -662,8 +644,14 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // The warm-up holds on the feed the team SEES: ITSM approvals and the MSEL's supporting logs
   // join after placement and lengthen it, so the floor under every attack row counts them too
   // (placing at 10% of the pre-insert rows let some story mixes open inside the first tenth).
-  const itsmRows = [...noise, ...attack1, ...attack2, ...attack3, ...poolAttacks.flat()].filter(p => itsmRecordFor(p.ev, companyId)).length;
-  const lateRows = itsmRows + (difficulty !== "easy" ? MSEL_SUPPORT_ROWS : 0);
+  // ITSM noise (itsmNoise.ts): unrelated tickets, some of them right before attack rows, so "a ticket
+  // just fired" marks nothing. Its own stream.
+  const trnd = streamOf(`${companyId}:${difficulty}:${seed}`, "itsm");
+  const noiseTickets = itsmNoise(assets, companyId, assets ? 3 + Math.floor(trnd() * 3) + linkedTickets.length : 0, trnd, new Date(TEAM_TIME_BASE_MS).toISOString(),
+    { users: new Set([...compromised, ...takenVictims]), hosts: attackHosts })
+    .filter(x => !env || storyEventChosen(x.ev, env, stack, companyId));
+  const itsmRows = [...noise, ...attack1, ...attack2, ...attack3, ...poolAttacks.flat()].filter(p => itsmRecordFor(p.ev, companyId)).length + linkedTickets.length + noiseTickets.length;
+  const lateRows = itsmRows + fpRows.length + (difficulty !== "easy" ? MSEL_SUPPORT_ROWS : 0);
   const leadMin = Math.min(total - 1, Math.ceil(WARMUP_MIN * (total + lateRows)));
   const posToAttack = new Map<number, Placed>();
   // Every attack row first gets the position its band wants; the positions are then handed out
@@ -746,16 +734,34 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     else if (bi < noise.length) ordered.push(noise[bi++]);
   }
   while (bi < noise.length) ordered.push(noise[bi++]);
+  for (const g of fpGroups) ordered.splice(Math.floor(ordered.length * g.frac), 0, ...g.placed);
 
-  // Approved-ticket context: an ITSM record lands a few logs before the change it approves.
-  // Collect first, splice after (highest position first): splicing while walking the
-  // array shifted neighbours and skipped the log just before each confirmed change.
-  const itsmInserts: { at: number; rec: TelemetryEvent }[] = [];
+  // Ticket context (expert review 2026-11-07: an approved ticket right before every FP alert, and never
+  // before an attack, was itself the answer). A ticket that explains an alert still lands BEFORE it
+  // (the approval exists when the work starts, so the analyst can prove the false positive), but at
+  // a seeded distance: long before (a change approved earlier in the day) or just before. Unrelated
+  // tickets land everywhere, including just before the opening of attacks, and several makers have
+  // no ticket at all. Collect first, splice after (highest position first).
+  const itsmInserts: { at: number; p: Placed }[] = [];
+  const ticketAt = (i: number) => (trnd() < 0.45 ? Math.max(0, i - 8 - Math.floor(trnd() * 24)) : Math.max(0, i - 1 - Math.floor(trnd() * 3)));
+  const indexOf = new Map<Placed, number>(ordered.map((p, i) => [p, i]));
   for (let i = 0; i < ordered.length; i++) {
     const rec = itsmRecordFor(ordered[i].ev, companyId);
-    if (rec) itsmInserts.push({ at: Math.max(0, i - 1 - Math.floor(rnd() * 3)), rec });
+    if (rec) itsmInserts.push({ at: ticketAt(i), p: { ev: rec, origin: "itsm", verdict: "benign" } });
   }
-  for (const { at, rec } of itsmInserts.sort((a, b) => b.at - a.at)) ordered.splice(at, 0, { ev: rec, origin: "itsm", verdict: "benign" });
+  linkedTickets.forEach(({ alert, spec }, k) => {
+    const i = indexOf.get(alert);
+    if (i === undefined) return;
+    itsmInserts.push({ at: ticketAt(i), p: { ev: ticketRecord(spec, companyId, `itsm_fp_${k}`, new Date(TEAM_TIME_BASE_MS).toISOString()), origin: "itsm", verdict: "benign", window: spec.window, ticketFor: alert } });
+  });
+  // The opening of each planned attack: an unrelated ticket sits right before most of them.
+  const openings = [attack1, attack2, attack3].map(a => a.find(p => isMalicious(p.verdict))).map(p => (p ? indexOf.get(p) : undefined)).filter((i): i is number => i !== undefined);
+  noiseTickets.forEach(({ ev, window }, k) => {
+    const near = k < openings.length && trnd() < 0.75 ? openings[k] : undefined;
+    const at = near !== undefined ? Math.max(0, near - 1 - Math.floor(trnd() * 2)) : Math.floor(ordered.length * (0.03 + trnd() * 0.94));
+    itsmInserts.push({ at, p: { ev, origin: "itsm", verdict: "benign", window } });
+  });
+  for (const { at, p } of itsmInserts.sort((a, b) => b.at - a.at)) ordered.splice(at, 0, p);
 
   // Cadence from the team's load (load.ts): base gap + uniform jitter.
   let t = 2000;
@@ -785,24 +791,45 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     if (e.source === "waf") last.set(key, { at: timed[k].at, n: k });
   }
   const span = timed.length ? timed[timed.length - 1].at : 0;
+  // A change ticket's window, now that times are final: minutes around the alert it covers (or around
+  // the record itself). Written relative to the record's own time, since the public row is re-timed
+  // by its own offset (toPublicEntry) and every raw timestamp moves with it.
+  const atOfPlaced = new Map<Placed, number>(timed.map(x => [x.p, x.at]));
+  for (const x of timed) {
+    const w = x.p.window;
+    if (!w || x.p.ev.raw?.["servicenow.table"] !== "change_request") continue;
+    const anchor = (x.p.ticketFor && atOfPlaced.get(x.p.ticketFor)) ?? x.at;
+    const iso = (min: number) => new Date(TEAM_TIME_BASE_MS + anchor - x.at + min * 60_000).toISOString().replace(/\.\d{3}Z$/, "Z");
+    x.p = { ...x.p, ev: { ...x.p.ev, raw: { ...x.p.ev.raw, "servicenow.start_date": iso(w[0]), "servicenow.end_date": iso(w[1]) } } };
+  }
 
   // ── MSEL — scripted injects timed against the shift ───────────────────────────
   // Each inject is EVALUABLE (expected_response + linked_objective). Skipped on easy.
   // Injects are placed in the window that OPENS at the first attack log and runs to the end of the
   // shift — a "CISO wants a status on the suspicious activity" request can't fire before any attack
   // exists (diagnostic P1). `at(f)` interpolates f across [firstAttack, span].
+  // 2026-11-07: every inject text, the decoy's kind and the twist's kind rotate (msel.ts), least
+  // recently used first for the organization (variety.ts); their slots jitter a little per session.
   const mselOn = difficulty !== "easy" && span > 0;
   const firstAttackAt = Math.min(span, ...timed.filter(x => isMalicious(x.p.verdict)).map(x => x.at));
   const mselStart = Number.isFinite(firstAttackAt) ? Math.min(firstAttackAt + 30000, span) : 0;
   const at = (f: number) => Math.floor(mselStart + (span - mselStart) * f);
+  const vrnd = streamOf(`${companyId}:${difficulty}:${seed}`, "variety-msel");
+  const texts = pickInjectTexts(vrnd, history.injects);
+  const jit = () => (vrnd() - 0.5) * 0.08;
+  const injectBody = (id: string, kind: string, t: InjectText) => ({ id, kind, text: t.text, expected_response: t.expected_response, linked_objective: t.linked_objective, ...(t.expected_decision ? { expected_decision: t.expected_decision } : {}) });
   // Management pressure (CISO / Legal / execs) is no longer scripted on the clock: the SOC-Manager
   // director (src/lib/team/manager) raises it as a decision card when the session makes it true.
+  // The decoy and twist texts are filled in below, once their kinds are drawn (or the inject dropped).
+  const placeholder: InjectText = { key: "", text: "", expected_response: "", linked_objective: "" };
   const msel: TimelineEntry[] = !mselOn ? [] : [
-    { due_offset_ms: at(0.45), channel: "inject", body: { id: "msel_false_lead", kind: "false_lead", text: "Marketing's manager messages the SOC: their newly-approved SaaS analytics tool 'looks like data exfil' in the firewall logs — large outbound transfers to an unfamiliar cloud domain. Is this a real incident?", expected_response: "Recognise it as a sanctioned/benign tool: verify it's on the approved list, confirm the destination is the vendor's, and do NOT over-escalate. A decoy — discrimination, not detection.", linked_objective: "accuracy · discrimination (reject false leads)" } },
-    { due_offset_ms: at(0.55), channel: "inject", body: { id: "msel_2", kind: "ticket", text: "A user in Finance says someone from 'IT support' phoned asking them to read back an MFA code to 'verify their account'. How should this be handled?", expected_response: "Tier-1 answers the help-desk ticket: never read back an MFA code, verify the caller through a known channel, and report it as a social-engineering attempt.", expected_decision: "rejected", linked_objective: "accuracy · help-desk handling" } },
-    { due_offset_ms: at(0.68), channel: "inject", body: { id: "msel_twist", kind: "twist", text: "EDR update: a host you already worked is now beaconing to a NEW C2 domain — the picture just changed. Re-scope the incident and confirm your containment still holds.", expected_response: "Adapt: re-open/re-scope the case (set a new scope, or re-escalate) rather than treating it as closed — the incident evolved.", linked_objective: "adaptability · re-scope on new evidence" } },
-    { due_offset_ms: at(0.78), channel: "inject", body: { id: "msel_4", kind: "announcement", text: "Reminder: log every containment decision with its rationale — this incident will be reviewed after the shift.", expected_response: "Informational — no direct response required; decisions should carry a logged rationale.", linked_objective: "—" } },
+    { due_offset_ms: at(0.45 + jit()), channel: "inject", body: injectBody("msel_false_lead", "false_lead", placeholder) },
+    { due_offset_ms: at(0.55 + jit()), channel: "inject", body: injectBody("msel_2", "ticket", texts.ticket) },
+    { due_offset_ms: at(0.68 + jit()), channel: "inject", body: injectBody("msel_twist", "twist", placeholder) },
+    { due_offset_ms: at(0.8 + jit()), channel: "inject", body: injectBody("msel_4", "announcement", texts.announcement) },
   ];
+  if (mselOn) record.injects.push(texts.ticket.key, texts.announcement.key);
+  const dropInject = (id: string) => { const k = msel.findIndex(e => (e.body as { id?: string }).id === id); if (k >= 0) msel.splice(k, 1); };
 
   // ── Telemetry behind the scripted injects (playtest P1: the twist had no logs and
   // the false lead pointed at firewall logs that didn't exist) ───────────────────
@@ -816,8 +843,9 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     const subnet = assets?.subnet ?? "10.10.20";
     const baseTs = new Date(TEAM_TIME_BASE_MS).toISOString();
 
-    // Twist: a host from the running (primary) attack story beacons to a NEW C2 domain.
-    const twistAt = at(0.68);
+    // Twist: something new on the running (primary) attack story's ground.
+    const twistInject = msel.find(e => (e.body as { id?: string }).id === "msel_twist");
+    const twistAt = twistInject?.due_offset_ms ?? at(0.68);
     // "A host you already worked": prefer hosts whose malicious story logs reached the
     // feed BEFORE the twist lands.
     const seenBefore = new Set(timed.filter(x => x.at < twistAt).map(x => x.p));
@@ -850,107 +878,62 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
       ?? [...hostCount.keys()][0]
       ?? assets?.hosts.find(h => /^(WS|LT|LAP|WKS)/i.test(h)) ?? assets?.hosts[0] ?? "WS-UNKNOWN";
     const hostEv = twistStory.find(p => p.ev.hostname === host && p.ev.src_ip && /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(p.ev.src_ip));
-    const ipDraw = mrnd(), pidDraw = mrnd();   // drawn unconditionally → the stream stays seed-only
+    const ipDraw = mrnd();   // drawn unconditionally → the stream stays seed-only
     const hostIp = hostEv?.ev.src_ip ?? `${subnet}.${60 + Math.floor(ipDraw * 120)}`;
     const hostUser = twistStory.find(p => p.ev.hostname === host && p.ev.user_email)?.ev.user_email ?? (host === victimDevice ? victim : undefined);
     const procEv = [...twistStory].reverse().find(p => p.ev.hostname === host && p.ev.process?.name && isMalicious(p.verdict));
-    const proc = procEv?.ev.process?.name ?? "rundll32.exe";
-    const pid = procEv?.ev.process?.pid ?? 5000 + Math.floor(pidDraw * 3000);
-    const c2 = pick(C2_POOL, mrnd);
     const incident = twistStory[0]?.incident;
-    // The beacon's process context (its own seed stream — the draws above stay as they were).
-    const dllName = `${["msupd", "wincfg", "cache", "svcmgr"][hashSeed(`${seed}:twist-dll`) % 4]}${(hashSeed(`${seed}:twist-dll#`) % 900) + 100}.dll`;
-    const userDir = hostUser ? hostUser.split("@")[0] : "Public";
-    const procCtx: ProcCtx = proc.toLowerCase() === "rundll32.exe"
-      ? { path: "C:\\Windows\\System32\\rundll32.exe", cmdline: `"C:\\Windows\\System32\\rundll32.exe" C:\\Users\\${userDir}\\AppData\\Local\\Temp\\${dllName},DllRegisterServer`, parent: "explorer.exe", account: hostUser?.split("@")[0] }
-      : { path: procEv?.ev.process?.path ?? `C:\\Users\\${userDir}\\AppData\\Local\\Temp\\${proc}`, cmdline: procEv?.ev.process?.cmdline ?? proc, parent: procEv?.ev.process?.parent_name ?? "explorer.exe", account: hostUser?.split("@")[0] };
-    // The inject's wording must match where the twist actually landed.
-    const twistInject = msel.find(e => (e.body as { id?: string }).id === "msel_twist");
-    if (twistInject && !seenHost) {
-      const who = victim ? victim.split("@")[0] : null;
-      (twistInject.body as { text: string }).text = `EDR update: ${host}${who ? ` — ${who}'s own device —` : ""} has started beaconing to a NEW C2 domain. The compromise may have reached the endpoint: re-scope the incident to include this host and confirm your containment still holds.`;
+    // The host's OS, from the story's own records of it: a Linux web server or a Mac laptop never
+    // gets a rundll32 beacon or a Run key.
+    const onHostEvs = [...attack1, ...attack2, ...attack3].filter(p => p.ev.hostname === host).map(p => p.ev);
+    const paths = onHostEvs.flatMap(e => [e.process?.path, e.file?.path]).filter((x): x is string => !!x);
+    const hostOs: "windows" | "linux" | "mac" = paths.some(x => x.startsWith("/Users/")) || /macbook|mbp/i.test(host) ? "mac"
+      : paths.some(x => x.startsWith("/")) || onHostEvs.some(e => e.source === "linux_audit" || e.source === "k8s_audit" || e.source === "web_server") ? "linux" : "windows";
+    const usedHosts = new Set<string>([...attackHosts, ...fpOut.map(f => f.host).filter((h): h is string => !!h), host]);
+    const usedUsers = new Set<string>([...compromised, ...takenVictims, ...fpOut.map(f => f.person).filter((u): u is string => !!u)]);
+    const twist = twistInject ? buildTwist({
+      rnd: vrnd, baseTs, assets, stack: resolved, host, hostIp, hostUser, victim, seenHost,
+      proc: procEv?.ev.process ? { name: procEv.ev.process.name, pid: procEv.ev.process.pid, path: procEv.ev.process.path, cmdline: procEv.ev.process.cmdline, parent: procEv.ev.process.parent_name } : undefined,
+      edr: edr ?? "Microsoft Defender for Endpoint", fw, useSysmon, ips: new Set(sessionIps), domains: new Set(), usedHosts, os: hostOs,
+    }, history, opts.force?.twist) : null;
+    if (!twist) dropInject("msel_twist");
+    else {
+      record.twist = twist.kind;
+      record.injects.push(twist.inject.key);
+      Object.assign(twistInject!.body, { text: twist.inject.text, expected_response: twist.inject.expected_response, linked_objective: twist.inject.linked_objective });
+      // Cause before effect (expert review P0-4): the twist fires only after every log the story
+      // put on that host (or, for a host-less story, the whole story) has reached the feed: a
+      // NEW beacon never appears before the payload it comes from. The inject moves with it.
+      const atOf = new Map<Placed, number>(timed.map(x => [x.p, x.at]));
+      const onHost = twistStory.filter(p => p.ev.hostname === host);
+      const doneAt = Math.max(0, ...(onHost.length ? onHost : twistStory).map(p => atOf.get(p) ?? 0));
+      const twistFire = Math.min(Math.floor(span * 0.95), Math.max(twistAt, doneAt + 60000));
+      twistInject!.due_offset_ms = twistFire;
+      const tw = (k: number) => twistFire + 20000 + k * 45000 + Math.floor(mrnd() * 8000);
+      twist.rows.forEach((ev, k) => support.push({ p: { ev, origin: "inject_support", verdict: "tp", incident, supports: "msel_twist" }, at: tw(k) }));
     }
-    // Cause before effect (expert review P0-4): the twist fires only after every log the story
-    // put on that host (or, for a host-less story, the whole story) has reached the feed — a
-    // NEW beacon never appears before the payload it comes from. The inject moves with it.
-    const atOf = new Map<Placed, number>(timed.map(x => [x.p, x.at]));
-    const onHost = twistStory.filter(p => p.ev.hostname === host);
-    const doneAt = Math.max(0, ...(onHost.length ? onHost : twistStory).map(p => atOf.get(p) ?? 0));
-    const twistFire = Math.min(Math.floor(span * 0.95), Math.max(twistAt, doneAt + 60000));
-    if (twistInject) twistInject.due_offset_ms = twistFire;
-    const tw = (k: number) => twistFire + 20000 + k * 45000 + Math.floor(mrnd() * 8000);
-    const twistEvents: TelemetryEvent[] = [
-      useSysmon ? {
-        id: "msel_twist_dns", ts: baseTs, source: "sysmon", vendor: "Microsoft Sysmon", event_type: "dns_query", severity: "low",
-        hostname: host, user_email: hostUser, src_ip: hostIp, dns: { query: c2.domain, query_type: "A", response: c2.ip, rcode: "NOERROR" },
-        description: `${host} looked up ${c2.domain}`,
-        raw: { "event.code": "22", "winlog.provider_name": "Microsoft-Windows-Sysmon", "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-          "winlog.computer_name": host, "winlog.event_data.QueryName": c2.domain, "winlog.event_data.QueryStatus": "0",
-          "winlog.event_data.QueryResults": `::ffff:${c2.ip};`, "winlog.event_data.Image": `C:\\Windows\\System32\\${proc}` },
-      } : {
-        id: "msel_twist_dns", ts: baseTs, source: "dns", vendor: "Infoblox DNS", event_type: "dns_query", severity: "low",
-        hostname: host, src_ip: hostIp, network: { domain: c2.domain }, dns: { query: c2.domain, query_type: "A", response: c2.ip, rcode: "NOERROR" },
-        description: `${host} looked up ${c2.domain}`,
-        raw: { "dns.question.name": c2.domain, "dns.question.type": "A", "dns.response_code": "NOERROR", "dns.answers.data": c2.ip, "dns.answers.ttl": "300", "client.ip": hostIp },
-      },
-      {
-        id: "msel_twist_fw", ts: baseTs, source: "firewall", vendor: fw.vendor, event_type: "net_connection", severity: "medium",
-        hostname: host, src_ip: hostIp, dst_ip: c2.ip, dst_port: 443, protocol: "tcp",
-        network: { url: `https://${c2.domain}/api/v2/status`, domain: c2.domain, method: "POST", bytes_out: 2140, bytes_in: 612 },
-        description: `Outbound HTTPS from ${host} to ${c2.domain}`,
-        raw: firewallRaw(fw.flavour, { srcIp: hostIp, dstIp: c2.ip, domain: c2.domain, url: `https://${c2.domain}/api/v2/status`, category: "newly-registered-domain", app: "ssl", bytesOut: 2140, bytesIn: 612, sessions: 14 }),
-      },
-      {
-        id: "msel_twist_edr", ts: baseTs, source: "edr", vendor: edr ?? "Microsoft Defender for Endpoint", event_type: "net_connection", severity: "medium",
-        hostname: host, user_email: hostUser, src_ip: hostIp, dst_ip: c2.ip, dst_port: 443, protocol: "tcp",
-        process: { name: proc, pid, path: procCtx.path, cmdline: procCtx.cmdline, parent_name: procCtx.parent, ...(hostUser ? { user: hostUser.split("@")[0] } : {}) },
-        description: `${proc} on ${host} connected to ${c2.ip}:443`,
-        raw: edrConnRaw(edr ?? "", host, proc, pid, hostIp, c2.ip, c2.domain, procCtx),
-      },
-    ];
-    twistEvents.forEach((ev, k) => support.push({ p: { ev, origin: "inject_support", verdict: "tp", incident, supports: "msel_twist" }, at: tw(k) }));
 
-    // False lead: the Marketing SaaS tool's large uploads really are in the firewall
-    // log — to the vendor's own ingestion endpoint, behind an approved request.
-    const saas = pick(SAAS_POOL, mrnd);
-    const mktHosts = (assets?.hosts ?? []).filter(h => /MKT|MARKET/i.test(h));
-    const wsHosts = (assets?.hosts ?? []).filter(h => h !== assets?.dc && h !== assets?.fileServer && h !== host);
-    const hostDraw = mrnd();
-    const mktHost = mktHosts[0] ?? (wsHosts.length ? wsHosts[Math.floor(hostDraw * wsHosts.length)] : host);
-    const mktUser = assets?.roster.find(r => /market/i.test(r.title));
-    const mktEmail = mktUser && assets ? `${mktUser.name}@${assets.domain}` : undefined;
-    const mktIp = `${subnet}.${30 + Math.floor(mrnd() * 20)}`;
-    const leadAt = at(0.45);
-    const fpWhy = `Sanctioned SaaS: ${saas.app} is Marketing's newly approved analytics tool (see the approved ServiceNow request); the large batched uploads go to the vendor's own ingestion endpoint (${saas.domain}). Expected traffic — not exfiltration.`;
-    const bigUp = (bytes: number): FwConn => ({ srcIp: mktIp, dstIp: saas.ip, domain: saas.domain, url: `https://${saas.domain}/batch`, category: "business-and-economy", app: saas.appId, bytesOut: bytes, bytesIn: Math.floor(bytes / 900) });
-    const leadEvents: { ev: TelemetryEvent; at: number }[] = [
-      {
-        at: Math.max(2000, at(0.22)),
-        ev: serviceNowRecord({
-          companyId, id: "msel_false_lead_itsm", ts: baseTs, table: "sc_req_item", number: `RITM00${93000 + Math.floor(mrnd() * 900)}`,
-          state: "Closed Complete", shortDescription: `Software request — ${saas.app} product analytics for Marketing`, severity: "informational",
-          extra: { "servicenow.approval": "Approved", "servicenow.approved_by": "IT Security", "servicenow.assignment_group": "Service Desk", ...(mktEmail ? { "servicenow.requested_for": mktEmail } : {}) },
-          description: `ServiceNow request approved: ${saas.app} product analytics for Marketing (vendor endpoint ${saas.domain})`,
-        } as Parameters<typeof serviceNowRecord>[0]),
-      },
-      {
-        at: leadAt - 60000 - Math.floor(mrnd() * 20000),
-        ev: { id: "msel_false_lead_fw1", ts: baseTs, source: "firewall", vendor: fw.vendor, event_type: "net_connection", severity: "medium",
-          hostname: mktHost, user_email: mktEmail, src_ip: mktIp, dst_ip: saas.ip, dst_port: 443, protocol: "tcp",
-          network: { url: `https://${saas.domain}/batch`, domain: saas.domain, method: "POST", bytes_out: 1_874_310_144 },
-          description: `Large outbound HTTPS upload from ${mktHost} to ${saas.domain}`, fp_explanation: fpWhy,
-          raw: firewallRaw(fw.flavour, bigUp(1_874_310_144)) },
-      },
-      {
-        at: leadAt + 25000 + Math.floor(mrnd() * 20000),
-        ev: { id: "msel_false_lead_fw2", ts: baseTs, source: "firewall", vendor: fw.vendor, event_type: "net_connection", severity: "medium",
-          hostname: mktHost, user_email: mktEmail, src_ip: mktIp, dst_ip: saas.ip, dst_port: 443, protocol: "tcp",
-          network: { url: `https://${saas.domain}/batch`, domain: saas.domain, method: "POST", bytes_out: 2_311_582_720 },
-          description: `Large outbound HTTPS upload from ${mktHost} to ${saas.domain}`, fp_explanation: fpWhy,
-          raw: firewallRaw(fw.flavour, bigUp(2_311_582_720)) },
-      },
-    ];
-    leadEvents.forEach(({ ev, at: a }, k) => support.push({ p: { ev, origin: "inject_support", verdict: k === 0 ? "benign" : "fp", supports: "msel_false_lead" }, at: a }));
+    // False lead: a large upload that is sanctioned business; its kind, reporter, host, destination
+    // and volume differ per session, and the host sent a smaller batch the same way earlier.
+    const leadInject = msel.find(e => (e.body as { id?: string }).id === "msel_false_lead");
+    const decoy = leadInject && assets ? buildDecoy({ assets, companyId, rnd: vrnd, fw, usedUsers, usedHosts, ips: new Set(sessionIps), baseTs }, history, opts.force?.decoy) : null;
+    if (!decoy) dropInject("msel_false_lead");
+    else {
+      record.decoy = decoy.kind;
+      record.injects.push(decoy.inject.key);
+      Object.assign(leadInject!.body, { text: decoy.inject.text, expected_response: decoy.inject.expected_response, linked_objective: decoy.inject.linked_objective });
+      const leadAt = leadInject!.due_offset_ms;
+      const when = { baseline: () => Math.max(2000, at(0.02 + mrnd() * 0.2)), before: () => leadAt - 60000 - Math.floor(mrnd() * 90000), after: () => leadAt + 25000 + Math.floor(mrnd() * 40000) };
+      decoy.rows.forEach(({ ev, when: w }) => support.push({ p: { ev, origin: "inject_support", verdict: w === "baseline" ? "benign" : "fp", supports: "msel_false_lead" }, at: Math.max(2000, when[w]()) }));
+      // Its approval: early in the shift or shortly before the transfers. A change window covers the transfers.
+      const tAt = mrnd() < 0.5 ? Math.max(2000, at(0.05 + mrnd() * 0.2)) : Math.max(2000, leadAt - 240000 - Math.floor(mrnd() * 240000));
+      const tEv = ticketRecord(decoy.ticket, companyId, "msel_false_lead_itsm", baseTs);
+      if (decoy.ticket.window && decoy.ticket.table === "change_request") {
+        const iso = (min: number) => new Date(TEAM_TIME_BASE_MS + leadAt - tAt + min * 60_000).toISOString().replace(/\.\d{3}Z$/, "Z");
+        tEv.raw = { ...tEv.raw, "servicenow.start_date": iso(decoy.ticket.window[0]), "servicenow.end_date": iso(decoy.ticket.window[1]) };
+      }
+      support.push({ p: { ev: tEv, origin: "inject_support", verdict: "benign", supports: "msel_false_lead" }, at: tAt });
+    }
   }
 
   // The held bonus story: its own pace (relative offsets), parked past any shift until released.
@@ -999,6 +982,9 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // the after-action report. The same tier is stamped on EVERY log, and ids are
   // opaque and seed-stable.
   const tier = difficulty === "easy" ? "foundation" : difficulty === "hard" ? "advanced" : "core";
+  // What this build drew, for the organization's memory (staff-only; never on a public body).
+  record.stories = [story1, story2, story3, story4].filter((x): x is Story => !!x).map(x => x.id);
+  opts.onVariety?.(record);
   const all = [...feed, ...msel];
   const out = all
     .map((entry, i) => toPublicEntry(entry, i, seed, tier, companyId))
