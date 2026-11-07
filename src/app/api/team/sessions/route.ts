@@ -7,6 +7,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
 import { resolveTeamStory, teamStoryFilter } from "@/lib/team/buildTimeline";
 import { sanitizeStack } from "@/lib/logs/native";
+import { sanitizeConsole, stackForConsole } from "@/lib/team/investigationConsole";
 import { sanitizeEnv } from "@/lib/team/environment";
 import { sanitizeShiftMinutes } from "@/lib/team/load";
 import { sanitizeAttackPlan, pinnedIds } from "@/lib/team/attackPlan";
@@ -59,7 +60,9 @@ export async function POST(req: Request) {
   const plan = sanitizeAttackPlan(body);
   const scenario_id = pinnedIds(plan)[0] ?? null;   // older readers see the first chosen storyline
   // Security products the session runs on (spec §3) — only categories that differ from the company.
-  const stack = sanitizeStack(body.stack);
+  // Where the team investigates. Sentinel reads the Defender tables, so it fixes the endpoint product.
+  const investigationConsole = sanitizeConsole(body.console);
+  const stack = stackForConsole(sanitizeStack(body.stack), investigationConsole);
   // A named organization's environment: the platforms it runs and its industry (which stories fit).
   const env = tenant ? sanitizeEnv(body.env) : null;
   // The shift length the instructor picked (20 / 30 / 45 min); the timeline is built to fit it.
@@ -114,7 +117,7 @@ export async function POST(req: Request) {
 
   const { data: sess, error } = await admin
     .from("team_sessions")
-    .insert({ org_id: orgId, created_by: user.id, company_id, difficulty, format, scenario_id, schema_version: 2, config: { ...(Object.keys(stack).length ? { stack } : {}), ...(tenant ? { tenant: { name: tenant.name } } : {}), ...(env ? { env } : {}), ...(shift_min ? { shift_min } : {}), attacks: plan } })   // new sessions are v2 from birth (0071)
+    .insert({ org_id: orgId, created_by: user.id, company_id, difficulty, format, scenario_id, schema_version: 2, config: { ...(Object.keys(stack).length ? { stack } : {}), ...(investigationConsole === "sentinel" ? { console: investigationConsole } : {}), ...(tenant ? { tenant: { name: tenant.name } } : {}), ...(env ? { env } : {}), ...(shift_min ? { shift_min } : {}), attacks: plan } })   // new sessions are v2 from birth (0071)
     .select("id").single();
   if (error || !sess) {
     if (error) console.error("[team create] session insert:", error.message);   // no raw DB text to the client (S12)

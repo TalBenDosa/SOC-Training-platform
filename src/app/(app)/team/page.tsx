@@ -19,6 +19,7 @@ import { DEFAULT_ENV, type TeamEnv } from "@/lib/team/environment";
 import { teamLoad, SHIFT_CHOICES } from "@/lib/team/load";
 import { MAX_ATTACKS } from "@/lib/team/attackPlan";
 import type { Stack } from "@/lib/logs/native/stack";
+import { CONSOLE_CHOICES, stackForConsole, type InvestigationConsole } from "@/lib/team/investigationConsole";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Topbar } from "@/components/nav/Topbar";
@@ -100,7 +101,9 @@ export default function TeamIndexPage() {
   const [storyNote, setStoryNote] = useState<string | null>(null);
   // Security products the session runs on (spec §3); empty = the company's own.
   const [stack, setStack] = useState<Stack>({});
-  const stackParam = JSON.stringify(stackDelta(company, stack));
+  const [investigationConsole, setInvestigationConsole] = useState<InvestigationConsole>("edr");
+  const chosenStack = stackForConsole(stack, investigationConsole);
+  const stackParam = JSON.stringify(stackDelta(company, chosenStack));
   const [env, setEnv] = useState<TeamEnv>({ ...DEFAULT_ENV, platforms: [...DEFAULT_ENV.platforms] });
   const envParam = JSON.stringify(env);
   const [roster, setRoster] = useState<Candidate[] | null>(null);   // null = not loaded yet
@@ -224,7 +227,7 @@ export default function TeamIndexPage() {
     setCreating(true); setError(null);
     const res = await fetch("/api/team/sessions", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tenant_name: tenant.name, difficulty, invites, env, stack: stackDelta(company, stack),
+      body: JSON.stringify({ tenant_name: tenant.name, difficulty, invites, env, stack: stackDelta(company, chosenStack), console: investigationConsole,
         // Slots 2–3 untouched → the count stays automatic (sized by whoever is in the lobby at start).
         attack_count: touched[1] || touched[2] ? active.length : null, scenario_ids: active.map(id => id || null), bonus_attack: bonusAttack, shift_min: shiftMin }),
     }).catch(() => null);
@@ -326,7 +329,19 @@ export default function TeamIndexPage() {
             </fieldset>
             <div className="mt-3 space-y-2">
               <EnvironmentPicker value={env} onChange={setEnv} storyCount={storylines?.length ?? null} idPrefix="team-env" />
-              <StackPicker companyId={company} value={stack} onChange={setStack} idPrefix="team-stack" />
+              <fieldset className="rounded-lg border border-border bg-bg p-3">
+                <legend className="px-1 text-sm font-semibold text-white">Investigate in</legend>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {CONSOLE_CHOICES.map(c => (
+                    <label key={c.id} className={`flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 text-xs transition ${investigationConsole === c.id ? "border-cyber-500/60 bg-cyber-500/10" : "border-border hover:border-cyber-500/40"}`}>
+                      <input type="radio" name="team-console" value={c.id} checked={investigationConsole === c.id} onChange={() => setInvestigationConsole(c.id)} className="mt-0.5 accent-cyber-400" />
+                      <span><span className="block font-semibold text-slate-100">{c.label}</span><span className="text-[11px] text-slate-400">{c.hint}</span></span>
+                    </label>
+                  ))}
+                </div>
+                {investigationConsole === "sentinel" && <p className="mt-2 text-[11px] text-slate-500">Sentinel reads endpoint activity from Microsoft Defender for Endpoint, so this session uses it as the EDR.</p>}
+              </fieldset>
+              <StackPicker companyId={company} value={chosenStack} onChange={setStack} idPrefix="team-stack" />
             </div>
             {storyNote && <p role="status" className="mt-1.5 rounded-lg border border-neon-amber/30 bg-neon-amber/[0.06] px-3 py-1.5 text-[11px] text-neon-amber">{storyNote}</p>}
             <p className="mt-1.5 text-[11px] text-slate-500">

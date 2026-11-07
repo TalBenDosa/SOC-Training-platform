@@ -23,7 +23,7 @@ export function trojanizedInstallerKeyloggerScenarioEvents() {
   const victim = { email: "y.karni@nexacorp.com", name: "Yael Karni", sam: "y.karni" };
 
   const downloadSite = "pdf-tools-free.io";
-  const downloadIp = "172.67.201.18";
+  const downloadIp = "198.51.100.67";
   const c2 = "stat-collect-eu.com";
   const c2Ip = "85.209.11.37";     // this story's own collection host
 

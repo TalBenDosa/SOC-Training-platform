@@ -590,7 +590,7 @@ export function DetailPanelBody({
   const teamVerify = useContext(ItVerifyContext);
   const escalateCopy = useContext(EscalateCopyContext);
   const edrPivot = useContext(EdrPivotContext);
-  const canEdrPivot = !!edrPivot && (event.source === "edr" || event.source === "sysmon") && edrPivot.canOpen(event);
+  const canEdrPivot = !!edrPivot && (!!edrPivot.consoleName || event.source === "edr" || event.source === "sysmon") && edrPivot.canOpen(event);
   const hasItVerify = teamVerify ? !!event.it_check : itVerifyApplies(event);
   const tool = hasItVerify ? remoteToolOf(event) : null;
   const [itAnswer, setItAnswer] = useState<ItVerifyAnswer | null>(null);
@@ -657,8 +657,8 @@ export function DetailPanelBody({
             className="flex w-full items-center justify-between gap-3 rounded-lg border border-cyber-500/50 bg-cyber-500/10 px-4 py-2.5 text-left transition-colors hover:bg-cyber-500/20"
           >
             <span className="flex flex-col">
-              <span className="text-sm font-semibold text-cyber-200">Investigate this host in EDR</span>
-              <span className="text-[11px] text-cyber-300/70">Process tree, network and file activity on {event.hostname}</span>
+              <span className="text-sm font-semibold text-cyber-200">Investigate this host in {edrPivot!.consoleName ?? "EDR"}</span>
+              <span className="text-[11px] text-cyber-300/70">{edrPivot!.consoleName ? `Incidents, entities and logs for ${event.hostname}` : `Process tree, network and file activity on ${event.hostname}`}</span>
             </span>
             <Cpu className="h-4 w-4 shrink-0 text-cyber-300" aria-hidden />
           </button>

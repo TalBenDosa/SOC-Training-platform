@@ -13,10 +13,12 @@ import { ScopeConsole } from "./ScopeConsole";
 import { huntProblems, starterHypotheses } from "@/lib/team/huntQuality";
 
 // ── T3 threat-hunt console ───────────────────────────────────────────────────
-export function HuntConsole({ canEdr, scope, scopes, incidents = [], incidentOf, elevations, elevAcked, nameOf, act, onEdr, onPivot, platforms = [] }: {
+export function HuntConsole({ consoleName = "EDR", canEdr, scope, scopes, incidents = [], incidentOf, elevations, elevAcked, nameOf, act, onEdr, onPivot, platforms = [] }: {
   scope: ScopeState; scopes?: Map<string, ScopeSnapshot>; incidents?: string[]; incidentOf?: Map<string, string>;
   elevations: Ev[]; elevAcked: Set<string>; nameOf: (u: string | null) => string;
   act: (t: string, p: Record<string, unknown>) => Promise<boolean>; onEdr?: (description?: string, host?: string) => void;
+  /** Where this session investigates: "EDR" or "Sentinel". */
+  consoleName?: string;
   canEdr?: (host?: string) => boolean;
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
   /** Platforms the organization runs: tailors the starter hypotheses. */
@@ -86,7 +88,7 @@ export function HuntConsole({ canEdr, scope, scopes, incidents = [], incidentOf,
       <Card>
         <div className="flex items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldAlert className="h-4 w-4 text-cyber-300" /> Threat hunt (Tier-3)</h3>
-          {onEdr && (canEdr?.() ?? true) && <Button variant="outline" size="sm" onClick={() => onEdr()}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in EDR</Button>}
+          {onEdr && (canEdr?.() ?? true) && <Button variant="outline" size="sm" onClick={() => onEdr()}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in {consoleName}</Button>}
         </div>
         <p className="mt-1 text-[11px] text-slate-400">Beyond the queue: form a hypothesis, hunt the feed, record what you found. Don&apos;t wait for an elevation: start from one of these.</p>
         <div className="mt-1.5 flex flex-wrap gap-1">

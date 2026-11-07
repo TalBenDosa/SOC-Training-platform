@@ -1,4 +1,5 @@
 "use client";
+import { sentinelActivity } from "@/lib/team/report/sentinelActivity";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { setTotalXp } from "@/lib/storage/progress";
@@ -834,6 +835,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
               <Line label="Acknowledged" value={String(u.acks)} />
               <Line label="Containment" value={`${u.contReq} req · ${u.contDecided} dec`} />
               <Line label="Role actions" value={String(u.roleActions)} />
+              {(() => { const a = sentinelActivity(events, u.user_id); return a && <Line label="Sentinel" value={`${a.queriesOk}/${a.queries} queries · ${a.bookmarks} bookmarks · ${a.closed} closed`} />; })()}
             </div>
             <ReportedTable items={u.reported ?? []} met={u.slaMet ?? 0} total={u.slaTotal ?? 0} pct={u.slaPct ?? null} />
             {(u.isolations?.length ?? 0) > 0 && (

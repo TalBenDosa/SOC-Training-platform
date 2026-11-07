@@ -5,6 +5,17 @@
  */
 import type { TourStep } from "./GuidedTour";
 
+/** A Sentinel session: the same button, but it opens Sentinel. */
+const SENTINEL_STEP: Record<string, { title: string; body: string; action: string }> = {
+  "edr-button": { title: "Investigate in Sentinel", body: "Detections raise incidents in Sentinel. This button shows how many are open. Open it to read the incident timeline, the entities and the top insights, and to query the logs with KQL.", action: "Click Investigate in Sentinel." },
+  "t3-edr": { title: "Open Sentinel", body: "Open Sentinel for the whole workspace: incidents, Logs with KQL, Hunting and the investigation graph.", action: "Click Open Sentinel." },
+};
+
+/** The tour with its console steps rewritten for a Sentinel session. */
+export function forSentinel(steps: TourStep[]): TourStep[] {
+  return steps.map(s => s.target && SENTINEL_STEP[s.target] ? { ...s, ...SENTINEL_STEP[s.target] } : s);
+}
+
 type MgrView = "board" | "logs" | "escalations" | "stakeholders" | "reporting";
 
 const common = {
