@@ -1,5 +1,13 @@
 # Problems found in readings and graded tasks while building rooms 58+
 
+**Status, 2026-11-07:** stage 1 of the content fix handled every item below. Each was checked against a primary source, fixed or rejected, and independently reviewed. Open items:
+
+- The live-feed simulator (9 files under `src/lib/sim`) still uses the Falcon strings `Detection, No Action` and `Detection, Process Killed`. Rooms now use the real strings.
+- `cc-log-1` keeps `event_type: edr_alert`: the event type list has no SOAR value.
+- `lat-la2` keeps `source: windows_security` on 7045 records: the source list has no System channel value.
+- Real Tor addresses are gone from rooms, but remain in the dashboard, lessons, simulator and tests. Other real public addresses (mfa-session-token-attacks, protocols-masterclass) and `corp.com` (malware-analysis-fundamentals, sentinelone) remain in rooms.
+- `device-registration-persistence` shows MethodType by name, where Graph shows a number. Reading r2 states the simplification.
+
 Builders and reviewers may not change these: a reading edit disables its recorded narration, and a graded task needs a decision. Each line needs Tal's approval.
 
 | Room | Task | Problem | Fix |
