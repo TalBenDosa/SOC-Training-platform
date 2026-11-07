@@ -10,12 +10,13 @@ import { friendlyActionError } from "@/lib/team/format";
 import { buildWorkspace } from "@/lib/sentinel/workspace";
 import { foldIncidentState } from "@/lib/sentinel/state";
 import { escalatedCases } from "@/lib/team/investigationConsole";
-import type { IncidentState, SentinelActions, SentinelBookmark, SentinelWorkspace } from "@/lib/sentinel/types";
+import { ISOLATION_REQUEST_TYPES, isolationRequests } from "@/lib/team/isolationApproval";
+import type { IncidentState, SentinelActions, SentinelBookmark, SentinelIsolationRequest, SentinelWorkspace } from "@/lib/sentinel/types";
 
 /** How often the console reads the session log. The team room's own reconcile uses the same pace. */
 export const SENTINEL_POLL_MS = 6_000;
 
-const LOG_TYPES = ["feed.event", "session.ended", "session.paused", "session.resumed", "escalation.requested", "escalation.acknowledged", "sentinel.incident_updated", "sentinel.comment_added", "sentinel.bookmark_added", "sentinel.task_set"];
+const LOG_TYPES = ["feed.event", "session.ended", "session.paused", "session.resumed", "escalation.requested", "escalation.acknowledged", "sentinel.incident_updated", "sentinel.comment_added", "sentinel.bookmark_added", "sentinel.task_set", ...ISOLATION_REQUEST_TYPES];
 /** Fewer rows per read than the log can hold, so a long shift pages in rather than timing out. */
 const PAGE = 500;
 
@@ -127,6 +128,16 @@ export function useTeamSentinel(sessionId: string | null, role: string | null): 
 
   const isolatedHosts = useMemo(() => new Set([...(isolation?.state.values() ?? [])].filter(h => h.isolated).map(h => h.host.toLowerCase())), [isolation?.state]);
   const setIsolated = isolation?.set;
+  // Isolation requests and their answers (2026-11-07), read with the rest of the log so a run in the
+  // playbook history moves from "waiting" to approved or denied on the next poll.
+  const requestIso = isolation?.request;
+  const approverFor = isolation?.approverFor;
+  const isoRequests = useMemo<SentinelIsolationRequest[]>(() => isolationRequests(events).map(r => ({
+    seq: r.seq, host: r.host, state: r.state, requestedBy: nameOf(r.requestedBy), mine: !!me && r.requestedBy === me.id,
+    reason: r.reason, incident: r.incident, at: r.at,
+    approver: r.state === "pending" ? (approverFor ? approverFor(r.requestedBy) : "the senior on shift") : nameOf(r.answeredBy),
+    answeredAt: r.answeredAt, denyReason: r.denyReason,
+  })), [events, nameOf, me, approverFor]);
 
   const actions = useMemo<SentinelActions | null>(() => {
     if (!me || !setIsolated) return null;
@@ -136,6 +147,11 @@ export function useTeamSentinel(sessionId: string | null, role: string | null): 
       canContain: isolation?.canContain ?? false,
       isolatedHosts,
       setIsolated,
+      ...(requestIso ? {
+        requestIsolation: async (host: string, reason: string, incidentTitle?: string) => { const err = await requestIso(host, reason, incidentTitle); void pull(); return err; },
+        isolationRequests: isoRequests,
+        isolationApprover: approverFor ? approverFor(me.id) : undefined,
+      } : {}),
       updateIncident: async (incident_id, patch) => {
         // The events behind the incident travel with it, so the report can judge a closing classification.
         const inc = workspace?.incidents.find(i => i.id === incident_id);
@@ -153,7 +169,7 @@ export function useTeamSentinel(sessionId: string | null, role: string | null): 
       setTask: (incident_id, title, done) => send("sentinel.task_set", { incident_id, title, done }),
       queryRan: q => { void send("sentinel.query_run", { query: q.query.slice(0, 2000), ok: q.ok, rows: q.rows, incident_id: q.incidentId ?? null }); },
     };
-  }, [me, roster, nameOf, send, setIsolated, isolatedHosts, isolation?.canContain, workspace, events]);
+  }, [me, roster, nameOf, send, setIsolated, isolatedHosts, isolation?.canContain, workspace, events, requestIso, isoRequests, approverFor, pull]);
 
   const looseBookmarks = useMemo<SentinelBookmark[]>(() => events.filter(e => e.type === "sentinel.bookmark_added" && !(e.payload as { incidentId?: unknown }).incidentId).map(e => {
     const b = e.payload as unknown as Partial<SentinelBookmark>;

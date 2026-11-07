@@ -28,7 +28,7 @@ export function SitrepConsole({ events, nameOf, act }: { events: Ev[]; nameOf: (
           {sitreps.slice().reverse().map(e => { const p = e.payload as { situation?: string; status?: string }; return (
             <div key={e.seq} className="rounded border border-border/60 bg-bg px-2 py-1 text-xs">
               <p className="text-slate-200">{asStr(p.situation)}</p>
-              <p className="text-[10px] text-slate-500">status: {asStr(p.status)} · <bdi>{nameOf(e.actor_id)}</bdi></p>
+              <p className="text-[11px] text-slate-500">status: {asStr(p.status)} · <bdi>{nameOf(e.actor_id)}</bdi></p>
             </div>
           ); })}
         </div>
@@ -47,7 +47,7 @@ export function SitrepConsole({ events, nameOf, act }: { events: Ev[]; nameOf: (
         <label className="block text-[11px] font-semibold text-slate-300">4. Next steps
           <input value={f.next} onChange={e => setF(s => ({ ...s, next: e.target.value }))} placeholder="4. Next steps" className="mt-1 w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/60" />
         </label>
-        {!canSend && <p className="text-[10px] text-slate-500">Answer all four.</p>}
+        {!canSend && <p className="text-[11px] text-slate-500">Answer all four.</p>}
         <Button variant="outline" size="sm" disabled={busy || !canSend} onClick={send}>Send SITREP</Button>
       </div>
     </Card>

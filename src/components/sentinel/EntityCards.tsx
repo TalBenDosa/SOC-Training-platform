@@ -7,6 +7,19 @@ import { useSentinel } from "./context";
 import { insightsForEntity } from "./engine";
 import { entityActivity, fmtClock, fmtCount, fmtDateTime, fmtMonthDay, fmtShortTime, kqlString } from "./helpers";
 import { Empty, InfoMark } from "./ui";
+import { deviceState } from "./IncidentPanes";
+
+/** A device's isolation, in every entity pane (2026-11-07: isolating goes through an approval). */
+function DeviceStateLine({ host }: { host: string }) {
+  const { actions } = useSentinel();
+  const st = deviceState(actions, host);
+  return (
+    <div className="st-row" style={{ marginTop: 10, alignItems: "flex-start" }}>
+      <span className="st-k" style={{ flex: "none" }}>Network state</span>
+      <span className={`st-devstate${st.isolated ? " isolated" : st.pending ? " pending" : ""}`}>{st.label}</span>
+    </div>
+  );
+}
 
 export function InsightCard({ insight, range, defaultOpen = true }: { insight: EntityInsight; range?: string; defaultOpen?: boolean }) {
   const { openLogs } = useSentinel();
@@ -49,6 +62,7 @@ export const EntityInfoCard = memo(function EntityInfoCard({ entity }: { entity:
       <div className="st-2col">
         {facts.map(([k, v]) => <div key={k} style={{ minWidth: 0 }}><div className="st-k">{k}</div><div style={{ wordBreak: "break-word" }}>{/^\d{4}-\d{2}-\d{2}T/.test(v) ? fmtDateTime(v) : v || "-"}</div></div>)}
       </div>
+      {entity.kind === "host" && <DeviceStateLine host={entity.name} />}
       <hr />
       <h4>Log Activity <InfoMark title="Where this entity appears in the workspace." /></h4>
       <div className="st-2col">

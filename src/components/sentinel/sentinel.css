@@ -2,9 +2,11 @@
    Everything is scoped to .st-root and uses these variables only, so no theme crosses over. */
 .st-root {
   --st-accent: #0078d4; --st-accent-hover: #106ebe; --st-accent-soft: #deecf9; --st-accent-faint: #eff6fc;
-  --st-text: #323130; --st-text-2: #605e5c; --st-text-3: #797775;
+  --st-text: #323130; --st-text-2: #605e5c; --st-text-3: #6e6c6a;
   --st-border: #edebe9; --st-border-2: #c8c6c4; --st-hover: #f3f2f1; --st-selected: #edebe9; --st-surface: #ffffff; --st-canvas: #faf9f8;
   --st-high: #d13438; --st-medium: #ff8c00; --st-low: #fce100; --st-info: #a19f9d;
+  /* The Low yellow is ~1.3:1 on white: every Low band carries this outline (4.6:1, WCAG 1.4.11). */
+  --st-low-edge: #8a7400;
   --st-ok: #107c10; --st-err: #a4262c; --st-err-bg: #fde7e9; --st-warn-bg: #fff4ce; --st-ok-bg: #dff6dd;
   --st-mono: Consolas, "Cascadia Mono", Menlo, Monaco, "Courier New", monospace;
   position: fixed; inset: 0; z-index: 9000; display: flex; flex-direction: column; overflow: hidden;
@@ -84,7 +86,8 @@
 .st-band { width: 4px; align-self: stretch; flex: none; background: var(--st-info); }
 .st-band.High { background: var(--st-high); } .st-band.Medium { background: var(--st-medium); } .st-band.Low { background: var(--st-low); } .st-band.Informational { background: var(--st-info); }
 .st-band.dotted { background: none !important; border-left: 3px dotted var(--st-info); }
-.st-band.dotted.High { border-left-color: var(--st-high); } .st-band.dotted.Medium { border-left-color: var(--st-medium); } .st-band.dotted.Low { border-left-color: var(--st-low); }
+.st-band.dotted.High { border-left-color: var(--st-high); } .st-band.dotted.Medium { border-left-color: var(--st-medium); } .st-band.dotted.Low { border-left-color: var(--st-low-edge); }
+.st-band.Low:not(.dotted), .st-cellband.Low { box-shadow: inset 0 0 0 1px var(--st-low-edge); }
 .st-popover { position: fixed; z-index: 9500; background: #fff; color: var(--st-text); border-radius: 2px; box-shadow: 0 6px 14px rgba(0,0,0,.18), 0 1px 3px rgba(0,0,0,.12); min-width: 140px; max-height: min(420px, 70vh); overflow: auto; font-size: 13px; }
 .st-opt { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 32px; padding: 4px 12px; cursor: pointer; }
 .st-opt:hover, .st-opt:focus-visible { background: var(--st-hover); outline-offset: -2px; }
@@ -125,7 +128,7 @@
 .st-blade-title h1 .l { font-weight: 300; }
 .st-blade-title .sub { font-size: 12px; color: var(--st-text-2); }
 .st-blade-body { flex: 1 1 auto; min-height: 0; display: flex; min-width: 0; position: relative; }
-.st-nav { flex: none; width: 250px; display: flex; flex-direction: column; padding: 8px 0; overflow: auto; }
+.st-nav { flex: none; width: clamp(200px, 17vw, 250px); display: flex; flex-direction: column; padding: 8px 0; overflow: auto; }
 .st-nav.collapsed { width: 44px; }
 .st-nav-top { display: flex; align-items: center; gap: 8px; padding: 0 12px 4px 20px; }
 .st-nav-group { padding: 14px 20px 0; font-weight: 600; font-size: 13px; color: var(--st-text); }
@@ -135,9 +138,13 @@
 .st-nav-item svg.lucide { color: var(--st-accent); }
 .st-nav-item:hover { background: var(--st-hover); }
 .st-nav-item[aria-current="page"] { background: var(--st-selected); font-weight: 600; }
+.st-nav-item { position: relative; }
+.st-nav-badge { margin-left: auto; min-width: 20px; height: 18px; padding: 0 6px; border-radius: 9px; background: var(--st-accent); color: #fff; font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; }
+.st-nav-badge.dot { position: absolute; top: 2px; right: 2px; min-width: 16px; height: 16px; padding: 0 4px; line-height: 16px; font-size: 11px; }
 .st-page { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .st-page-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; }
 .st-toasts { position: absolute; top: 8px; right: 12px; z-index: 400; display: flex; flex-direction: column; gap: 6px; width: 320px; max-width: calc(100% - 24px); }
+.st-toast-region { display: flex; flex-direction: column; gap: 6px; }
 .st-toast { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; background: #fff; border-left: 4px solid var(--st-accent); box-shadow: 0 6px 14px rgba(0,0,0,.2); font-size: 12px; animation: st-slide .16s ease-out; }
 .st-toast.err { border-left-color: var(--st-err); }
 .st-toast.High { border-left-color: var(--st-high); } .st-toast.Medium { border-left-color: var(--st-medium); } .st-toast.Low { border-left-color: var(--st-low); } .st-toast.Informational { border-left-color: var(--st-info); }
@@ -172,7 +179,7 @@
 .st-switch .thumb { position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: #605e5c; transition: left .1s; }
 .st-switch[aria-checked="true"] .track { background: var(--st-accent); border-color: var(--st-accent); }
 .st-switch[aria-checked="true"] .thumb { left: 23px; background: #fff; }
-.st-new-mark { display: inline-flex; align-items: center; height: 15px; padding: 0 5px; border-radius: 2px; background: var(--st-accent); color: #fff; font-size: 10px; font-weight: 600; flex: none; }
+.st-new-mark { display: inline-flex; align-items: center; height: 16px; padding: 0 5px; border-radius: 2px; background: var(--st-accent); color: #fff; font-size: 11px; font-weight: 600; flex: none; }
 .st-igrid { margin-left: 20px; width: calc(100% - 20px); }
 .st-igrid th, .st-igrid td { font-size: 13px; }
 .st-tick { width: 32px !important; padding: 0 4px !important; }
@@ -185,7 +192,7 @@
 .st-pagebtn:disabled { border-color: #c8c6c4 !important; background: #f3f2f1 !important; color: #a19f9d; }
 .st-split { flex: 1 1 auto; display: flex; min-height: 0; min-width: 0; }
 .st-split-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
-.st-preview { position: relative; flex: none; width: 400px; max-width: 45%; border-left: 1px solid var(--st-border); display: flex; flex-direction: column; min-height: 0; background: #fff; box-shadow: -3px 0 6px -2px rgba(0,0,0,.12); }
+.st-preview { position: relative; flex: none; width: clamp(320px, 30vw, 400px); max-width: 45%; border-left: 1px solid var(--st-border); display: flex; flex-direction: column; min-height: 0; background: #fff; box-shadow: -3px 0 6px -2px rgba(0,0,0,.12); }
 .st-preview-head { position: relative; flex: none; padding: 14px 16px 12px; display: flex; gap: 10px; align-items: center; }
 .st-preview-head .edge { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
 .st-icon-btn.corner { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; }
@@ -206,7 +213,7 @@
 .st-inc-head h1 { font-size: 24px; line-height: 1.25; font-weight: 600; }
 .st-inv-title { font-weight: 400 !important; }
 .st-inc-body { flex: 1 1 auto; min-height: 0; display: flex; border-top: 1px solid var(--st-border); }
-.st-inc-left { flex: none; width: 460px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--st-border); box-shadow: 2px 0 4px -3px rgba(0,0,0,.14); }
+.st-inc-left { flex: none; width: clamp(340px, 34vw, 460px); display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--st-border); box-shadow: 2px 0 4px -3px rgba(0,0,0,.14); }
 .st-inc-left.collapsed { width: 72px; }
 .st-fieldbar { flex: none; display: flex; align-items: stretch; border-bottom: 1px solid var(--st-border); position: relative; }
 .st-fieldbar.collapsed { flex-direction: column; border-bottom: 0; padding-top: 22px; }
@@ -316,7 +323,7 @@
 .st-timepill:hover { background: var(--st-hover) !important; }
 .st-timepill b { font-weight: 600; }
 .st-logs-main { flex: 1 1 auto; min-height: 0; display: flex; }
-.st-schema { flex: none; width: 290px; display: flex; flex-direction: column; border-right: 1px solid var(--st-border); min-height: 0; }
+.st-schema { flex: none; width: clamp(220px, 20vw, 290px); display: flex; flex-direction: column; border-right: 1px solid var(--st-border); min-height: 0; }
 .st-groupby { display: flex; align-items: center; gap: 6px; padding: 2px 12px 6px; font-size: 13px; }
 .st-groupby strong { font-weight: 600; }
 .st-caret { flex: none; width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 5px solid var(--st-text); margin: 0 3px 0 2px; }
@@ -444,7 +451,7 @@
 .st-rail button { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 0 8px; font-size: 13px; border-bottom: 1px solid var(--st-border); color: var(--st-text); }
 .st-rail button:hover { background: var(--st-hover); }
 .st-rail button[aria-selected="true"] { box-shadow: inset -4px 0 0 #3b78d8; }
-.st-railpane { position: relative; flex: none; width: 330px; max-width: 45%; margin-top: 12px; background: #fff; display: flex; flex-direction: column; min-height: 0; }
+.st-railpane { position: relative; flex: none; width: clamp(280px, 26vw, 330px); max-width: 45%; margin-top: 12px; background: #fff; display: flex; flex-direction: column; min-height: 0; }
 .st-railpane-head { flex: none; display: flex; align-items: center; gap: 10px; padding: 16px 28px 14px 16px; border-bottom: 1px solid var(--st-border-2); font-size: 20px; font-weight: 400; }
 .st-railpane-head.sev { font-size: 17px; border-left: 5px solid var(--st-info); }
 .st-railpane-head.High { border-left-color: var(--st-high); } .st-railpane-head.Medium { border-left-color: var(--st-medium); } .st-railpane-head.Low { border-left-color: var(--st-low); }
@@ -515,3 +522,11 @@
 .st-flyout .body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 16px 16px 28px; }
 .st-flyout .st-field:first-child { margin-top: 8px; }
 .st-flyout .st-field { margin-top: 16px; }
+
+/* a device's network state in entity panes; the run results of the playbook history */
+.st-devstate { display: inline-block; padding: 1px 6px; border-radius: 2px; background: var(--st-hover); color: var(--st-text); font-size: 12px; }
+.st-devstate.isolated { background: var(--st-err-bg); color: #4a1012; font-weight: 600; }
+.st-devstate.pending { background: var(--st-warn-bg); color: #4a3b00; }
+.st-run-waiting { color: #4a3b00; background: var(--st-warn-bg); padding: 1px 6px; border-radius: 2px; }
+.st-run-approved, .st-run-succeeded { color: var(--st-ok); font-weight: 600; }
+.st-run-denied, .st-run-refused { color: var(--st-err); font-weight: 600; }

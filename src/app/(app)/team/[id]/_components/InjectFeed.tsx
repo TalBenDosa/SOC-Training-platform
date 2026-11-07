@@ -67,7 +67,7 @@ export function InjectFeed({ sessionId, events, me, nameOf, act, hasManager = tr
     <Card className="border-cyber-500/30">
       <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Siren className="h-4 w-4 text-cyber-300" aria-hidden="true" /> Injects & help-desk</h3>
       {/* Scenario review fix 6: who acts on what was never said. */}
-      <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+      <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
         <b className="text-neon-amber">Help-desk tickets</b> are answered by <b className="text-slate-300">Tier-1</b>.{" "}
         <b className="text-neon-purple">Management requests</b> are answered by the <b className="text-slate-300">SOC Manager</b> with a SITREP{hasManager ? "" : " (no Manager on this team: Tier-2 answers them)"}.{" "}
         <b className="text-slate-300">Updates</b> need a call from every analyst: not an incident, real, or a change to our case. Answer them in <b className="text-neon-amber">Action required</b> at the top of your console.
@@ -88,10 +88,10 @@ export function InjectFeed({ sessionId, events, me, nameOf, act, hasManager = tr
             const done = !!p.inject_id && decided.has(p.inject_id);
             return (
               <div key={e.seq} className="rounded-lg border border-neon-purple/30 bg-neon-purple/[0.05] px-2 py-1.5 text-xs">
-                <p className="text-slate-200"><span className="mr-1 font-mono text-[9px] uppercase text-slate-400">{injectLabel("decision", false)}</span><b className="text-slate-100"><bdi>{asStr(dp.from?.name)}</bdi></b>{asStr(dp.from?.role) && <span className="text-slate-400"> ({asStr(dp.from?.role)})</span>}: <bdi>{asStr(p.text)}</bdi></p>
-                {done ? <p className="mt-0.5 text-[10px] text-neon-green">✓ the SOC Manager decided</p>
+                <p className="text-slate-200"><span className="mr-1 font-mono text-[11px] uppercase text-slate-400">{injectLabel("decision", false)}</span><b className="text-slate-100"><bdi>{asStr(dp.from?.name)}</bdi></b>{asStr(dp.from?.role) && <span className="text-slate-400"> ({asStr(dp.from?.role)})</span>}: <bdi>{asStr(p.text)}</bdi></p>
+                {done ? <p className="mt-0.5 text-[11px] text-neon-green">✓ the SOC Manager decided</p>
                   : isMgr ? <Button variant="outline" size="sm" className="mt-1.5" onClick={() => document.querySelector("[data-command-desk]")?.scrollIntoView({ behavior: "smooth", block: "start" })}>Decide on the Command desk</Button>
-                    : <p className="mt-0.5 text-[10px] text-neon-purple">The SOC Manager is deciding. Keep your case notes current: they decide from what you write.</p>}
+                    : <p className="mt-0.5 text-[11px] text-neon-purple">The SOC Manager is deciding. Keep your case notes current: they decide from what you write.</p>}
               </div>
             );
           }
@@ -99,25 +99,25 @@ export function InjectFeed({ sessionId, events, me, nameOf, act, hasManager = tr
           const reply = isMgmt ? sitreps.find(s => s.seq > e.seq) : undefined;
           return (
             <div key={e.seq} className={`rounded-lg border px-2 py-1.5 text-xs ${isTicket ? "border-neon-amber/30 bg-neon-amber/[0.05]" : isMgmt ? "border-neon-purple/30 bg-neon-purple/[0.05]" : "border-border bg-bg"}`}>
-              <p className="text-slate-200"><span className="mr-1 font-mono text-[9px] uppercase text-slate-400">{injectLabel(kind, !!me.is_staff)}</span><bdi>{asStr(p.text)}</bdi></p>
-              {isTicket && done && <p className="mt-0.5 text-[10px] text-neon-green">✓ answered by Tier-1</p>}
-              {isTicket && !done && <p className="mt-0.5 text-[10px] text-neon-amber">{isT1 ? "Waiting for your answer in Action required." : "Waiting for Tier-1 to answer it."}</p>}
+              <p className="text-slate-200"><span className="mr-1 font-mono text-[11px] uppercase text-slate-400">{injectLabel(kind, !!me.is_staff)}</span><bdi>{asStr(p.text)}</bdi></p>
+              {isTicket && done && <p className="mt-0.5 text-[11px] text-neon-green">✓ answered by Tier-1</p>}
+              {isTicket && !done && <p className="mt-0.5 text-[11px] text-neon-amber">{isT1 ? "Waiting for your answer in Action required." : "Waiting for Tier-1 to answer it."}</p>}
               {myResponses.length > 0 && (
                 <ul className="mt-0.5 space-y-0.5">
                   {myResponses.map(r => { const rp = r.payload as { decision?: unknown; note?: unknown }; return (
-                    <li key={r.seq} className="text-[10px] text-slate-400"><bdi className="text-slate-300">{nameOf(r.actor_id)}</bdi>: {DECISION_LABEL[asStr(rp.decision)] ?? asStr(rp.decision)}{asStr(rp.note) && <> · <bdi>{asStr(rp.note)}</bdi></>}</li>
+                    <li key={r.seq} className="text-[11px] text-slate-400"><bdi className="text-slate-300">{nameOf(r.actor_id)}</bdi>: {DECISION_LABEL[asStr(rp.decision)] ?? asStr(rp.decision)}{asStr(rp.note) && <> · <bdi>{asStr(rp.note)}</bdi></>}</li>
                   ); })}
                 </ul>
               )}
-              {isMgmt && (reply || myResponses.length > 0) && <p className="mt-0.5 text-[10px] text-neon-green">✓ {reply ? <>SITREP sent by <bdi>{nameOf(reply.actor_id)}</bdi></> : "status sent"}</p>}
+              {isMgmt && (reply || myResponses.length > 0) && <p className="mt-0.5 text-[11px] text-neon-green">✓ {reply ? <>SITREP sent by <bdi>{nameOf(reply.actor_id)}</bdi></> : "status sent"}</p>}
               {isMgmt && !reply && isMgr && (
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] text-neon-purple">Yours to answer, send a SITREP within ~15 min.</span>
+                  <span className="text-[11px] text-neon-purple">Yours to answer, send a SITREP within ~15 min.</span>
                   <Button variant="outline" size="sm" onClick={() => (onWriteSitrep ? onWriteSitrep() : document.getElementById("team-sitrep")?.scrollIntoView({ behavior: "smooth", block: "center" }))}>Write SITREP</Button>
                 </div>
               )}
               {isMgmt && !reply && !myResponses.length && !isMgr && (
-                <p className="mt-0.5 text-[10px] text-neon-purple">
+                <p className="mt-0.5 text-[11px] text-neon-purple">
                   {hasManager ? "Waiting for the SOC Manager's SITREP, keep the case notes current so they can report accurately." : "No SOC Manager on this team: Tier-2 answers it from Action required."}
                 </p>
               )}

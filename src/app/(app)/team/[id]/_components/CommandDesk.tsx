@@ -128,7 +128,7 @@ function IncidentControl({ declared, severity, act, confirmed }: { declared: boo
   if (!declared) return (
     <div className="mt-2 space-y-1.5 rounded-lg border border-border bg-bg px-2.5 py-2">
       <p className="text-[11px] text-slate-300">Not declared. Declare once Tier-2 / Tier-3 confirm an escalation is real; you can change the severity later.</p>
-      {!confirmed && <p className="text-[10px] text-slate-500">Nothing confirmed by Tier-2 / Tier-3 yet.</p>}
+      {!confirmed && <p className="text-[11px] text-slate-500">Nothing confirmed by Tier-2 / Tier-3 yet.</p>}
       {pick}
       <p className="text-[11px] text-slate-400">{sev == null ? "Pick the severity that matches the impact." : SEVERITY.find(s => s.v === sev)?.hint}</p>
       <Button variant="primary" size="sm" disabled={busy || sev == null} onClick={declare}><Megaphone className="mr-1 h-3.5 w-3.5" aria-hidden /> Declare incident</Button>
@@ -161,7 +161,7 @@ function IndicatorStrip({ ind }: { ind: Indicators }) {
   return (
     <div className="mt-2 grid grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))] gap-x-3 gap-y-1" aria-label="Impact indicators">
       {(Object.keys(IND_LABEL) as (keyof Indicators)[]).map(k => (
-        <div key={k} className="flex items-center justify-between gap-1.5 text-[10px]">
+        <div key={k} className="flex items-center justify-between gap-1.5 text-[11px]">
           <span className="min-w-0 truncate text-slate-400">{IND_LABEL[k]}</span>
           <span className="flex gap-0.5" aria-label={`${ind[k]} of 5`}>
             {[0, 1, 2, 3, 4].map(i => <span key={i} className={`h-1.5 w-3 rounded-sm ${i < ind[k] ? (ind[k] <= 1 ? "bg-severity-critical" : ind[k] <= 2 ? "bg-neon-amber" : "bg-neon-green") : "bg-slate-700"}`} />)}
@@ -242,16 +242,16 @@ function PastCard({ p, answer, fb }: { p: CardBody; answer?: Ev; fb?: Feedback }
       <summary className="flex cursor-pointer items-center gap-2">
         <span className="font-semibold text-slate-200"><bdi>{asStr(p.from?.name)}</bdi></span>
         <span className="min-w-0 flex-1 truncate text-slate-400"><bdi>{asStr(p.text)}</bdi></span>
-        {!answer ? <span className="rounded border border-severity-critical/40 px-1.5 text-[10px] text-severity-critical">no decision</span>
-          : rank ? <span className={`rounded border px-1.5 text-[10px] ${RANK_STYLE[rank]}`}>{RANK_LABEL[rank]}</span>
-            : <span className="text-[10px] text-slate-500">decided</span>}
+        {!answer ? <span className="rounded border border-severity-critical/40 px-1.5 text-[11px] text-severity-critical">no decision</span>
+          : rank ? <span className={`rounded border px-1.5 text-[11px] ${RANK_STYLE[rank]}`}>{RANK_LABEL[rank]}</span>
+            : <span className="text-[11px] text-slate-500">decided</span>}
       </summary>
       <div className="mt-1.5 space-y-1 border-t border-border/60 pt-1.5">
         {chosen ? <p className="text-slate-300">You chose: <b className="text-slate-100">{label(chosen)}</b>{fb?.notes?.[chosen] && <span className="text-slate-400"> {fb.notes[chosen]}</span>}</p>
           : <p className="text-severity-critical">No decision was made in time.</p>}
         {fb?.best && fb.best !== chosen && <p className="text-slate-300">Best: <b className="text-neon-green">{label(fb.best)}</b>{fb.notes?.[fb.best] && <span className="text-slate-400"> {fb.notes[fb.best]}</span>}</p>}
-        {fb?.objective && <p className="text-[10px] text-slate-500">What this tests: {fb.objective}</p>}
-        {fb?.delta && fmtDelta(fb.delta) && <p className="text-[10px] text-slate-400">Impact: {fmtDelta(fb.delta)}</p>}
+        {fb?.objective && <p className="text-[11px] text-slate-500">What this tests: {fb.objective}</p>}
+        {fb?.delta && fmtDelta(fb.delta) && <p className="text-[11px] text-slate-400">Impact: {fmtDelta(fb.delta)}</p>}
       </div>
     </details>
   );

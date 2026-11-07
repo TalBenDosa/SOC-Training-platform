@@ -48,8 +48,8 @@ export function LeadConsole({ events, nameOf, act, parts = ["queue", "approvals"
               {waiting.slice(0, 6).map(w => (
                 <div key={w.seq} className="flex items-center gap-2 rounded border border-border/60 bg-bg px-2 py-1 text-[11px]">
                   <span className="min-w-0 flex-1 truncate text-slate-300">{w.label}</span>
-                  {w.sev && <span className="shrink-0 rounded border border-border px-1 py-0.5 font-mono text-[9px] uppercase text-slate-400">{w.sev}</span>}
-                  <span className={`shrink-0 rounded border px-1 py-0.5 font-mono text-[9px] font-bold ${(w.sev === "high" || w.sev === "critical") && w.mins >= 5 ? "border-neon-amber/50 bg-neon-amber/10 text-neon-amber" : "border-border text-slate-400"}`}>⏱ {w.mins}m</span>
+                  {w.sev && <span className="shrink-0 rounded border border-border px-1 py-0.5 font-mono text-[11px] uppercase text-slate-400">{w.sev}</span>}
+                  <span className={`shrink-0 rounded border px-1 py-0.5 font-mono text-[11px] font-bold ${(w.sev === "high" || w.sev === "critical") && w.mins >= 5 ? "border-neon-amber/50 bg-neon-amber/10 text-neon-amber" : "border-border text-slate-400"}`}>⏱ {w.mins}m</span>
                 </div>
               ))}
             </div>
@@ -78,20 +78,20 @@ export function LeadConsole({ events, nameOf, act, parts = ["queue", "approvals"
               const sc = (asStr(p.incident) && scopes.get(asStr(p.incident))) || latestScope;
               return (
                 <div key={e.seq} className="rounded-lg border border-border bg-bg px-3 py-2">
-                  <p className="text-sm text-slate-200">{containmentVerb(asStr(p.containment_type))} <b className="text-white">{asStr(p.target) || "-"}</b>{asStr(p.incident) && <span className="ml-1.5 rounded border border-cyber-500/40 bg-cyber-500/10 px-1 py-0.5 font-mono text-[9px] text-cyber-300">{asStr(p.incident)}</span>}</p>
+                  <p className="text-sm text-slate-200">{containmentVerb(asStr(p.containment_type))} <b className="text-white">{asStr(p.target) || "-"}</b>{asStr(p.incident) && <span className="ml-1.5 rounded border border-cyber-500/40 bg-cyber-500/10 px-1 py-0.5 font-mono text-[11px] text-cyber-300">{asStr(p.incident)}</span>}</p>
                   <p className="mt-0.5 text-[11px] text-slate-400">{asStr(p.reason)} · requested by <bdi>{nameOf(e.actor_id)}</bdi></p>
                   {deskCall && <p className="mt-1 rounded border border-neon-purple/30 bg-neon-purple/[0.06] px-2 py-1 text-[11px] text-slate-200">Your desk decision on this request: <bdi>{deskCall.replace(/\.$/, "")}</bdi>. Approve or deny accordingly.</p>}
                   {events.filter(x => x.type === "containment.advised" && Number((x.payload as { request_seq?: unknown }).request_seq) === e.seq).map(x => {
                     const ap = x.payload as { stance?: unknown; reason?: unknown };
                     return <p key={x.seq} className={`mt-0.5 text-[11px] ${ap.stance === "object" ? "text-neon-amber" : "text-neon-green"}`}><bdi>{nameOf(x.actor_id)}</bdi> {ap.stance === "object" ? "objects" : "supports"}{asStr(ap.reason) ? <>: &quot;{asStr(ap.reason)}&quot;</> : null}</p>;
                   })}
-                  {prior.length > 0 && <p className="mt-0.5 text-[10px] text-slate-500">request #{prior.length + 1} on this case, before: {prior.map(x => `${asStr((x.request.payload as { target?: string }).target) || "?"} (${x.status}${x.decisionReason ? `: ${x.decisionReason}` : ""})`).join(" · ")}</p>}
+                  {prior.length > 0 && <p className="mt-0.5 text-[11px] text-slate-500">request #{prior.length + 1} on this case, before: {prior.map(x => `${asStr((x.request.payload as { target?: string }).target) || "?"} (${x.status}${x.decisionReason ? `: ${x.decisionReason}` : ""})`).join(" · ")}</p>}
                   {/* B10: business-impact so approve/deny is a real risk trade-off */}
                   {(crit || asStr(p.blast_radius) || asStr(p.business_owner)) && (
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {crit && <span className={`rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase ${crit === "crown_jewel" ? "border-severity-high/50 bg-severity-high/10 text-severity-high" : "border-border text-slate-400"}`}>{crit.replace("_", "-")}</span>}
-                      {asStr(p.blast_radius) && <span className="rounded border border-neon-amber/40 bg-neon-amber/10 px-1.5 py-0.5 text-[9px] text-neon-amber">if isolated: {asStr(p.blast_radius)}</span>}
-                      {asStr(p.business_owner) && <span className="rounded border border-border px-1.5 py-0.5 text-[9px] text-slate-400">{asStr(p.business_owner)}</span>}
+                      {crit && <span className={`rounded border px-1.5 py-0.5 text-[11px] font-bold uppercase ${crit === "crown_jewel" ? "border-severity-high/50 bg-severity-high/10 text-severity-high" : "border-border text-slate-400"}`}>{crit.replace("_", "-")}</span>}
+                      {asStr(p.blast_radius) && <span className="rounded border border-neon-amber/40 bg-neon-amber/10 px-1.5 py-0.5 text-[11px] text-neon-amber">if isolated: {asStr(p.blast_radius)}</span>}
+                      {asStr(p.business_owner) && <span className="rounded border border-border px-1.5 py-0.5 text-[11px] text-slate-400">{asStr(p.business_owner)}</span>}
                     </div>
                   )}
                   {/* A1: T2's determination + recommendation + scope, so this isn't a blind approval */}
@@ -99,16 +99,16 @@ export function LeadConsole({ events, nameOf, act, parts = ["queue", "approvals"
                     <div className="mt-1.5 rounded border border-cyber-500/25 bg-cyber-500/[0.05] px-2 py-1.5 text-[11px]">
                       <p className="text-slate-300"><span className="font-semibold text-cyber-200">T2 determination:</span> {asStr(r.verdict).replace("_", " ") || "-"}</p>
                       {asStr(r.recommendation) && <p className="mt-0.5 text-slate-300"><span className="text-slate-500">recommends:</span> {asStr(r.recommendation)}</p>}
-                      {sc && <p className="mt-0.5 font-mono text-[10px] text-slate-500">scope: {sc.hosts.length}h · {sc.users.length}u · {sc.techniques.length}t{sc.hosts.length || sc.users.length ? `, ${[...sc.hosts, ...sc.users].join(", ")}` : ""}</p>}
+                      {sc && <p className="mt-0.5 font-mono text-[11px] text-slate-500">scope: {sc.hosts.length}h · {sc.users.length}u · {sc.techniques.length}t{sc.hosts.length || sc.users.length ? `, ${[...sc.hosts, ...sc.users].join(", ")}` : ""}</p>}
                     </div>
-                  ) : <p className="mt-1 text-[10px] text-neon-amber">⚠ No incident report filed for this case yet, ask Tier-2 to file it before you approve.</p>; })()}
+                  ) : <p className="mt-1 text-[11px] text-neon-amber">⚠ No incident report filed for this case yet, ask Tier-2 to file it before you approve.</p>; })()}
                   {/* Decision rationale — optional to Approve (fast confident call), required to Deny */}
                   <input aria-label="Decision rationale" value={note} onChange={ev => setNotes(n => ({ ...n, [e.seq]: ev.target.value }))} placeholder="Decision rationale, business impact / why (required to deny; say what to target instead)" className="mt-2 w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                   <div className="mt-2 flex gap-1.5">
                     <Button variant="primary" size="sm" disabled={b} onClick={async () => { setBusy(e.seq + ""); await act("containment.approved", { event_id: eid, request_seq: e.seq, target: asStr(p.target) || undefined, reason: note.trim() || undefined }); setBusy(null); }}><Check className="mr-1 h-3.5 w-3.5" /> Approve</Button>
                     <Button variant="outline" size="sm" disabled={b || !note.trim()} onClick={async () => { setBusy(e.seq + ""); await act("containment.denied", { event_id: eid, request_seq: e.seq, target: asStr(p.target) || undefined, reason: note.trim() }); setBusy(null); }}>Deny</Button>
                   </div>
-                  <p className="mt-1 text-[10px] text-slate-500">Wrong target? Deny with the reason, Tier-2 can send a new request for the right asset.</p>
+                  <p className="mt-1 text-[11px] text-slate-500">Wrong target? Deny with the reason, Tier-2 can send a new request for the right asset.</p>
                 </div>
               );
             })}

@@ -52,14 +52,21 @@ describe("ActionInbox", () => {
     return el.textContent ?? "";
   };
 
-  it("Tier-1 gets the ticket and the update, each needing a written answer", () => {
+  it("Tier-1 gets the ticket and the update, each folded to one line and needing a written answer", () => {
     const text = mount({ id: "u1", is_staff: false, role: "t1" });
     expect(text).toMatch(/Action required\s*2/);
-    expect(text).toContain("Refuse & report to security");
-    expect(text).toContain("Not an incident");
-    const buttons = [...el!.querySelectorAll("button")];
-    expect(buttons.length).toBeGreaterThan(0);
-    expect(buttons.every(b => b.disabled)).toBe(true);   // no answer before the note is written
+    // 2026-11 review: each item folds to one line until Answer opens it.
+    const answers = [...el!.querySelectorAll("button")].filter(b => b.textContent === "Answer");
+    expect(answers).toHaveLength(2);
+    act(() => { answers[0].click(); });
+    const first = el!.textContent ?? "";
+    act(() => { ([...el!.querySelectorAll("button")].find(b => b.textContent === "Answer") as HTMLButtonElement).click(); });
+    const second = el!.textContent ?? "";
+    expect(first + second).toContain("Refuse & report to security");
+    expect(first + second).toContain("Not an incident");
+    const decide = [...el!.querySelectorAll("button")].filter(b => /Refuse|Handle|Not an incident|Real incident|Needs/.test(b.textContent ?? ""));
+    expect(decide.length).toBeGreaterThan(0);
+    expect(decide.every(b => b.disabled)).toBe(true);   // no answer before the note is written
   });
 
   it("Tier-2 gets the update only; nothing once answered", () => {

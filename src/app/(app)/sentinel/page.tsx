@@ -41,7 +41,7 @@ export default function SentinelPage() {
   if (loading) return <Notice title="Connecting to the workspace" text="Reading the session's logs." />;
   if (!workspace || !actions) return <Notice title="This workspace could not be opened" text={error ?? "Reload the page, or go back to the team room."} team={team} />;
 
-  return <SentinelConsole workspace={workspace} states={states} actions={actions} onRefresh={refresh} ended={ended} backHref={`/team/${team}`} initial={initial} goTo={goTo} onBack={() => showSiemWindow(team, `/team/${team}`)} paused={paused} savedBookmarks={looseBookmarks} />;
+  return <SentinelConsole workspace={workspace} states={states} actions={actions} onRefresh={refresh} ended={ended} backHref={`/team/${team}`} initial={initial} goTo={goTo} onBack={() => showSiemWindow(team, `/team/${team}`)} paused={paused} savedBookmarks={looseBookmarks} sessionKey={team} />;
 }
 
 function Notice({ title, text, team }: { title: string; text: string; team?: string }) {

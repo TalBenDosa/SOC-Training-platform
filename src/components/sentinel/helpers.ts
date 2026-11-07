@@ -16,6 +16,15 @@ export const CLASSIFICATIONS: ClosingClassification[] = [
   "False Positive - incorrect data",
   "Undetermined",
 ];
+/** The team seat in words for the top bar ("Tier-2", not "t2"). */
+const ROLE_WORDS: Record<string, string> = {
+  t1: "Tier-1", t2: "Tier-2", t3: "Tier-3", mgr: "SOC Manager", lead: "Incident Lead", de: "Detection Engineer", ti: "Threat Intel", instructor: "Instructor", observer: "Observer",
+};
+export function roleLabel(role: string | null | undefined): string {
+  if (!role) return "";
+  return ROLE_WORDS[role] ?? role;
+}
+
 export const KIND_LABEL: Record<EntityKind, string> = {
   account: "Account", host: "Host", ip: "IP", file: "File", process: "Process", url: "URL", domain: "DNS",
   mailbox: "Mailbox", cloudapp: "Cloud application", azureresource: "Azure resource", registry: "Registry key",

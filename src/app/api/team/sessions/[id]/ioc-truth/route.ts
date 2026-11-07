@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { pageAll } from "@/lib/team/report/serverReport";
-import { buildTeamIocTruth, parseIocQuery, answerIocQuery } from "@/lib/team/iocTruth";
+import { buildTeamIocTruth, parseIocQuery, answerIocQuery, rowsOnHosts } from "@/lib/team/iocTruth";
 import { activeSeat } from "@/lib/team/membership";
 import type { Ev } from "@/lib/team/types";
 
@@ -22,6 +22,10 @@ import type { Ev } from "@/lib/team/types";
  * occur in a fired log the caller has OPENED (click telemetry) or that the team
  * escalated are answered. Staff (who hold the answer key anyway) may ask about any
  * fired log. Keys stay digests of (type, value).
+ *
+ * 2026-11 review: file HASHES are also answered for every fired row on a host the caller
+ * has in hand (a row opened or escalated on it, or an isolation asked for / done on it), so
+ * the hash the EDR console lists for a process reads the same as in the threat-intel drawer.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -59,6 +63,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const truth = buildTeamIocTruth(events, injects);
 
     let inHand = events;
+    let hashRows: Ev[] = [];
     if (!iAmStaff) {
       const opened = await pageAll<{ event_id: string | null }>((from, to) => admin.from("session_clicks")
         .select("event_id").eq("session_id", id).eq("user_id", user.id).order("id").range(from, to));
@@ -69,8 +74,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         ...escalated.map(e => String(e.payload?.event_id ?? "")).filter(Boolean),
       ]);
       inHand = events.filter(e => ids.has(String((e.payload as { id?: unknown }).id ?? "")));
+      const isoHosts = await pageAll<{ payload: { host?: unknown } | null }>((from, to) => admin.from("session_events")
+        .select("payload").eq("session_id", id).in("type", ["isolation.requested", "edr.host_isolated"]).order("seq").range(from, to));
+      hashRows = rowsOnHosts(events, inHand, isoHosts.map(e => String(e.payload?.host ?? "")).filter(Boolean));
     }
-    return NextResponse.json(answerIocQuery(truth, query, inHand), { headers: { "Cache-Control": "private, no-store" } });
+    return NextResponse.json(answerIocQuery(truth, query, inHand, hashRows), { headers: { "Cache-Control": "private, no-store" } });
   } catch (e) {
     console.error("[team/ioc-truth] failed:", (e as Error).message);
     return NextResponse.json({ error: "Couldn't load threat intel — please try again." }, { status: 500 });

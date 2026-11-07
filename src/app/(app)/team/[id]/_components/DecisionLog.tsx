@@ -48,7 +48,7 @@ export function DecisionLog({ events, nameOf, act }: { events: Ev[]; nameOf: (u:
         <div className="mt-2 max-h-48 space-y-1 overflow-y-auto">
           {entries.slice().reverse().map(x => (
             <div key={x.seq} className="rounded border border-border/60 bg-bg px-2 py-1 text-xs">
-              <p className="text-slate-200"><span className="mr-1 rounded border border-border px-1 font-mono text-[10px] uppercase text-slate-400">{SOURCE_LABEL[x.source]}</span><bdi>{x.what}</bdi></p>
+              <p className="text-slate-200"><span className="mr-1 rounded border border-border px-1 font-mono text-[11px] uppercase text-slate-400">{SOURCE_LABEL[x.source]}</span><bdi>{x.what}</bdi></p>
               <p className={`text-[11px] ${x.why ? "text-slate-400" : "text-neon-amber"}`}>{x.why ? <>why: <bdi>{x.why}</bdi></> : "no reason recorded"} · <bdi>{nameOf(x.by)}</bdi></p>
             </div>
           ))}

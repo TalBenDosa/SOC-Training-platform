@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { Gavel, AlertOctagon, ChevronDown } from "lucide-react";
 import type { ManagerReview, CommandPillar, DecisionRow, TimelineMark, QuestionRow, ReportRow } from "@/lib/team/report/managerReview";
 import { THIN_REASON_PENALTY } from "@/lib/team/manager/reasonPenalty";
+import { fmtDur } from "./debriefStory";
 
 /**
  * Command Review: the SOC Manager's end-of-shift report (PLAN §10א). The manager and staff
@@ -22,16 +23,18 @@ const LEVEL_LABEL: Record<string, string> = { command_ready: "Ready to command",
 const LEVEL_TONE: Record<string, string> = { command_ready: "text-neon-green", proficient: "text-cyber-200", developing: "text-neon-amber", needs_coaching: "text-severity-critical" };
 const LANE_LABEL: Record<TimelineMark["lane"], string> = { attacker: "Attacker", manager: "You", pressure: "Pressure" };
 const IND_LABEL = { continuity: "Business continuity", trust: "Stakeholder trust", capacity: "Team capacity", regulatory: "Regulatory exposure" } as const;
-const fmt = (s: number | null) => (s == null ? "-" : `${Math.floor(s / 60)}:${String(Math.round(s) % 60).padStart(2, "0")}`);
+/** The report's one duration format (review 2026-11): 40s, 3m 20s. */
+const fmt = (s: number | null) => fmtDur(s);
 
-export function CommandReview({ review, xp }: { review: ManagerReview; xp?: number }) {
+/** `bare`: no card and no title, for a folded section of the report that already names it. */
+export function CommandReview({ review, xp, bare = false }: { review: ManagerReview; xp?: number; bare?: boolean }) {
   const r = review;
   return (
-    <Card className="border-neon-purple/40">
+    <Card className={bare ? "border-0 bg-transparent backdrop-blur-none" : "border-neon-purple/40"} padded={!bare}>
       <div className="flex flex-wrap items-baseline gap-2">
-        <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Gavel className="h-4 w-4 text-neon-purple" aria-hidden /> Command Review</h3>
+        {!bare && <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Gavel className="h-4 w-4 text-neon-purple" aria-hidden /> Command Review</h3>}
         <span className="text-[11px] text-slate-400"><bdi>{r.managerName}</bdi> · SOC Manager</span>
-        {typeof xp === "number" && <span className="ml-auto rounded border border-neon-green/40 bg-neon-green/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-neon-green" title="XP added to the account for this shift">+{xp} XP</span>}
+        {typeof xp === "number" && <span className="ml-auto rounded border border-neon-green/40 bg-neon-green/10 px-1.5 py-0.5 font-mono text-[11px] font-bold text-neon-green" title="XP added to the account for this shift">+{xp} XP</span>}
       </div>
       {r.redacted ? (
         <p className="mt-1 text-[11px] text-slate-400">How the incident was commanded: what the attacker did, what the manager decided, and the pressure from outside. The manager&apos;s grades are theirs to share.</p>
@@ -42,7 +45,7 @@ export function CommandReview({ review, xp }: { review: ManagerReview; xp?: numb
         <div className="mt-3 space-y-1.5 rounded-lg border border-severity-critical/50 bg-severity-critical/10 p-2.5">
           {r.criticalErrors.map((c, i) => (
             <p key={i} className="flex gap-2 text-xs text-slate-200"><AlertOctagon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-severity-critical" aria-hidden />
-              <span><b className="text-severity-critical">{c.label}</b>{c.atS != null && <span className="font-mono text-[10px] text-slate-400"> at {fmt(c.atS)}</span>}. {c.detail}</span></p>
+              <span><b className="text-severity-critical">{c.label}</b>{c.atS != null && <span className="font-mono text-[11px] text-slate-400"> at {fmt(c.atS)}</span>}. {c.detail}</span></p>
           ))}
           <p className="text-[11px] text-slate-300">These are the key lessons of the shift. Each one caps the score at 69, because in a real organisation it alone would do serious damage; talk them through in the debrief.</p>
         </div>
@@ -100,12 +103,12 @@ function Pillar({ p }: { p: CommandPillar }) {
     <div className="rounded-lg border border-border bg-bg px-2.5 py-2">
       <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} className="flex w-full items-center gap-2 rounded text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400">
         <span className="flex-1 text-xs font-semibold text-slate-200">{p.label} <span className="font-normal text-slate-400">{Math.round(p.weight * 100)}%</span></span>
-        <span className="font-mono text-sm font-bold text-slate-100">{p.score ?? "-"}<span className="text-[10px] font-normal text-slate-400">{p.score != null ? "/100" : ""}</span></span>
+        <span className="font-mono text-sm font-bold text-slate-100">{p.score ?? "-"}<span className="text-[11px] font-normal text-slate-400">{p.score != null ? "/100" : ""}</span></span>
         <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
       </button>
       {!open && p.cells.some(c => c.score != null) && <button type="button" onClick={() => setOpen(true)} className="mt-1 text-[11px] text-cyber-300 underline-offset-2 hover:underline">See what made this score</button>}
       <div className="mt-1 h-1.5 w-full rounded bg-slate-700" aria-hidden><div className="h-1.5 rounded bg-neon-purple" style={{ width: `${p.score ?? 0}%` }} /></div>
-      {p.score == null && <p className="mt-1 text-[10px] text-slate-500">Not enough evidence to score this part.</p>}
+      {p.score == null && <p className="mt-1 text-[11px] text-slate-500">Not enough evidence to score this part.</p>}
       {open && (
         <ul className="mt-2 space-y-1">
           {p.cells.map(c => (
@@ -130,7 +133,7 @@ function Timeline({ marks, endS, gaps }: { marks: TimelineMark[]; endS: number; 
       <div className="mt-1.5 space-y-1.5">
         {lanes.map(l => (
           <div key={l} className="flex items-center gap-2">
-            <span className="w-16 shrink-0 text-[10px] text-slate-400">{LANE_LABEL[l]}</span>
+            <span className="w-16 shrink-0 text-[11px] text-slate-400">{LANE_LABEL[l]}</span>
             <div className="relative h-5 flex-1 rounded bg-bg-elevated">
               {marks.filter(m => m.lane === l).map((m, i) => (
                 <span key={i} title={`${fmt(m.t)} · ${m.label}`} style={{ left: `calc(${(m.t / span) * 100}% - 4px)` }}
@@ -139,10 +142,10 @@ function Timeline({ marks, endS, gaps }: { marks: TimelineMark[]; endS: number; 
             </div>
           </div>
         ))}
-        <div className="flex justify-between pl-[4.5rem] font-mono text-[9px] text-slate-500"><span>0:00</span><span>{fmt(span)}</span></div>
+        <div className="flex justify-between pl-[4.5rem] font-mono text-[11px] text-slate-500"><span>0s</span><span>{fmt(span)}</span></div>
       </div>
       <details className="mt-1">
-        <summary className="cursor-pointer text-[10px] text-cyber-300">Every moment ({marks.length})</summary>
+        <summary className="cursor-pointer text-[11px] text-cyber-300">Every moment ({marks.length})</summary>
         <ul className="mt-1 max-h-48 space-y-0.5 overflow-y-auto text-[11px]">
           {marks.map((m, i) => <li key={i} className="text-slate-300"><span className="font-mono text-slate-500">{fmt(m.t)}</span> <span className="text-slate-400">{LANE_LABEL[m.lane]}:</span> {m.label}</li>)}
         </ul>
@@ -160,12 +163,12 @@ function Decisions({ rows, redacted }: { rows: DecisionRow[]; redacted: boolean 
         {rows.map(d => (
           <details key={d.injectId} className="rounded-lg border border-border bg-bg px-2.5 py-1.5 text-xs">
             <summary className="flex cursor-pointer flex-wrap items-center gap-2">
-              <span className="font-mono text-[10px] text-slate-500">{fmt(d.firedS)}</span>
+              <span className="font-mono text-[11px] text-slate-500">{fmt(d.firedS)}</span>
               <span className="font-semibold text-slate-200"><bdi>{d.from.name}</bdi> <span className="font-normal text-slate-500">{d.from.role}</span></span>
               <span className="min-w-0 flex-1 truncate text-slate-400"><bdi>{d.text}</bdi></span>
-              {d.state === "expired" ? <span className="rounded border border-severity-critical/40 px-1.5 text-[10px] text-severity-critical">no decision</span>
-                : !redacted && d.rank ? <span className={`rounded border px-1.5 text-[10px] ${RANK_STYLE[d.rank]}`}>{RANK_LABEL[d.rank]} · {d.score}/12</span> : null}
-              {d.state === "late" && <span className="text-[10px] text-neon-amber">late</span>}
+              {d.state === "expired" ? <span className="rounded border border-severity-critical/40 px-1.5 text-[11px] text-severity-critical">no decision</span>
+                : !redacted && d.rank ? <span className={`rounded border px-1.5 text-[11px] ${RANK_STYLE[d.rank]}`}>{RANK_LABEL[d.rank]} · {d.score}/12</span> : null}
+              {d.state === "late" && <span className="text-[11px] text-neon-amber">late</span>}
             </summary>
             <div className="mt-1.5 space-y-1 border-t border-border/60 pt-1.5">
               <p className="text-slate-300"><bdi>{d.text}</bdi></p>
@@ -178,13 +181,13 @@ function Decisions({ rows, redacted }: { rows: DecisionRow[]; redacted: boolean 
               <ul className="space-y-0.5">
                 {d.options.map(o => (
                   <li key={o.id} className={`rounded px-1.5 py-1 text-[11px] ${o.id === d.option ? "bg-bg-elevated" : ""}`}>
-                    {!redacted && o.rank && <span className={`mr-1 rounded border px-1 text-[9px] ${RANK_STYLE[o.rank]}`}>{RANK_LABEL[o.rank]}</span>}
+                    {!redacted && o.rank && <span className={`mr-1 rounded border px-1 text-[11px] ${RANK_STYLE[o.rank]}`}>{RANK_LABEL[o.rank]}</span>}
                     <span className="text-slate-200">{o.label}</span>
                     {o.note && <span className="text-slate-500"> {o.note}</span>}
                   </li>
                 ))}
               </ul>
-              {d.objective && <p className="text-[10px] text-slate-500">What this tests: {d.objective}</p>}
+              {d.objective && <p className="text-[11px] text-slate-500">What this tests: {d.objective}</p>}
             </div>
           </details>
         ))}
@@ -229,7 +232,7 @@ function Calibration({ r }: { r: ManagerReview }) {
               </div>
             ))}
           </div>
-          <p className="mt-1 text-[10px] text-slate-500">Each starts at 3; every decision (or silence) moved them.</p>
+          <p className="mt-1 text-[11px] text-slate-500">Each starts at 3; every decision (or silence) moved them.</p>
         </div>
       )}
     </div>
@@ -253,18 +256,18 @@ function Questions({ rows, redacted }: { rows: QuestionRow[]; redacted: boolean 
         {rows.map(q => (
           <details key={q.injectId} className="rounded-lg border border-border bg-bg px-2.5 py-1.5 text-xs">
             <summary className="flex cursor-pointer flex-wrap items-center gap-2">
-              <span className="font-mono text-[10px] text-slate-500">{fmt(q.askedS)}</span>
+              <span className="font-mono text-[11px] text-slate-500">{fmt(q.askedS)}</span>
               <span className="font-semibold text-slate-200"><bdi>{q.from.name}</bdi> <span className="font-normal text-slate-500">{q.from.role}</span></span>
               <span className="min-w-0 flex-1 truncate text-slate-400"><bdi>{q.text}</bdi></span>
-              {q.state === "expired" ? <span className="rounded border border-severity-critical/40 px-1.5 text-[10px] text-severity-critical">no answer</span>
-                : !redacted ? <span className={`rounded border px-1.5 text-[10px] ${q.score >= 8 ? RANK_STYLE.great : q.score >= 4 ? RANK_STYLE.okay : RANK_STYLE.weak}`}>{q.score}/12</span> : null}
-              {q.state === "late" && <span className="text-[10px] text-neon-amber">late</span>}
+              {q.state === "expired" ? <span className="rounded border border-severity-critical/40 px-1.5 text-[11px] text-severity-critical">no answer</span>
+                : !redacted ? <span className={`rounded border px-1.5 text-[11px] ${q.score >= 8 ? RANK_STYLE.great : q.score >= 4 ? RANK_STYLE.okay : RANK_STYLE.weak}`}>{q.score}/12</span> : null}
+              {q.state === "late" && <span className="text-[11px] text-neon-amber">late</span>}
             </summary>
             <div className="mt-1.5 space-y-1 border-t border-border/60 pt-1.5">
               <p className="text-slate-300"><bdi>{q.text}</bdi></p>
               {q.reply ? <p className="text-slate-100">Answer{q.repliedInS != null ? ` (after ${fmt(q.repliedInS)})` : ""}: <bdi>{q.reply}</bdi></p> : <p className="text-severity-critical">Nobody answered before the deadline.</p>}
               {!redacted && q.checks.map(c => <p key={c.id} className={`text-[11px] ${c.ok ? "text-neon-green" : "text-neon-amber"}`}>{c.ok ? "✓" : "✗"} {c.label}</p>)}
-              {q.model && <p className="text-[10px] text-slate-500">A strong answer: {q.model}</p>}
+              {q.model && <p className="text-[11px] text-slate-500">A strong answer: {q.model}</p>}
             </div>
           </details>
         ))}
@@ -281,10 +284,10 @@ function Reports({ rows, redacted }: { rows: ReportRow[]; redacted: boolean }) {
       <ul className="mt-1.5 space-y-1 text-xs">
         {rows.map((x, i) => (
           <li key={i} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-bg px-2.5 py-1.5">
-            <span className="font-mono text-[10px] text-slate-500">{fmt(x.atS)}</span>
+            <span className="font-mono text-[11px] text-slate-500">{fmt(x.atS)}</span>
             <span className="text-slate-200"><bdi>{x.title || "Incident report"}</bdi></span>
             <span className="text-slate-500">to {AUD[x.audience] ?? x.audience} · {x.status} · data: {x.dataImpact.replace("_", " ")}</span>
-            {!redacted && <span className="ml-auto text-[10px] text-slate-400">{x.completeness}% complete{x.promiseKept === true ? " · next update kept" : x.promiseKept === false ? " · next update missed" : ""}</span>}
+            {!redacted && <span className="ml-auto text-[11px] text-slate-400">{x.completeness}% complete{x.promiseKept === true ? " · next update kept" : x.promiseKept === false ? " · next update missed" : ""}</span>}
           </li>
         ))}
       </ul>

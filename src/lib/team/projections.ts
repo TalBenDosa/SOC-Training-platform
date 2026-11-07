@@ -211,3 +211,71 @@ export function takeoverAllowed(o: { myRole: string; ownerRole: string | null; e
   if (o.myRole === "t2" && o.ownerRole === "t3") return o.elevated && !quiet ? { ok: false, reason: "Tier-3 is hunting this elevated case. Work with them in the chat instead of taking it back." } : { ok: true };
   return quiet ? { ok: true } : { ok: false, reason: "The owner is still working it. A backup takes over only after 5 quiet minutes, or when they ask for help." };
 }
+
+// ── Shift clock (0104) ─────────────────────────────────────────────────────────
+/** The session row fields the clock reads (team_sessions). */
+export interface ClockSessionRow {
+  status?: string | null; started_at?: string | null; ended_at?: string | null;
+  paused_at?: string | null; paused_ms?: number | string | null; end_at?: string | null;
+}
+/** Server-kept shift clock for the room's shift timer. All times are ISO strings or ms. */
+export interface SessionClock {
+  started_at: string | null;
+  /** Planned shift length in ACTIVE (running) time, ms; null when unknown. */
+  planned_ms: number | null;
+  /** Paused time so far: closed pauses plus the open one up to now (or the end). */
+  paused_ms: number;
+  /** Running time so far (wall clock from start, minus paused_ms). */
+  active_ms: number;
+  /** Start of the pause in progress, or null. */
+  paused_at: string | null;
+  /** Scheduled end ("Shift ends in 2 minutes"), or null. Wall-clock time kept by the server. */
+  end_at: string | null;
+  ended_at: string | null;
+  server_now: string;
+}
+const msOf = (s: string | null | undefined): number | null => { if (!s) return null; const t = Date.parse(s); return Number.isFinite(t) ? t : null; };
+/** Build the shift clock from the session row; `shiftMin` is the planned length in minutes. */
+export function sessionClock(sess: ClockSessionRow, shiftMin: number | null, nowMs: number): SessionClock {
+  const start = msOf(sess.started_at);
+  const ended = msOf(sess.ended_at);
+  const pausedAt = sess.status === "paused" ? msOf(sess.paused_at) : null;
+  const until = ended ?? nowMs;
+  const stored = Number(sess.paused_ms ?? 0) || 0;
+  const paused = stored + (pausedAt != null ? Math.max(0, until - pausedAt) : 0);
+  const active = start == null ? 0 : Math.max(0, until - start - paused);
+  return {
+    started_at: sess.started_at ?? null,
+    planned_ms: shiftMin ? shiftMin * 60_000 : null,
+    paused_ms: paused, active_ms: active,
+    paused_at: pausedAt != null ? new Date(pausedAt).toISOString() : null,
+    end_at: sess.end_at && !ended ? sess.end_at : null,
+    ended_at: sess.ended_at ?? null,
+    server_now: new Date(nowMs).toISOString(),
+  };
+}
+
+/** The latest open presence notices (0104 `presence.notice`), by kind: raised and not cleared since. */
+export function openPresenceNotices(events: Ev[]): { kind: string; detail: string | null; missing: string[]; seq: number }[] {
+  const open = new Map<string, { kind: string; detail: string | null; missing: string[]; seq: number }>();
+  for (const e of [...events].sort((a, b) => a.seq - b.seq)) {
+    if (e.type !== "presence.notice") continue;
+    const p = (e.payload ?? {}) as { kind?: unknown; state?: unknown; detail?: unknown; missing?: unknown };
+    const kind = String(p.kind ?? ""); if (!kind) continue;
+    if (p.state === "cleared") open.delete(kind);
+    else open.set(kind, { kind, detail: p.detail != null ? String(p.detail) : null, missing: Array.isArray(p.missing) ? p.missing.map(String) : [], seq: e.seq });
+  }
+  return [...open.values()];
+}
+
+/** The pending scheduled end (0104), from the log: the latest end_scheduled not cancelled since, or null. */
+export function scheduledEnd(events: Ev[]): { endsAt: string; by: string | null; seq: number } | null {
+  let cur: { endsAt: string; by: string | null; seq: number } | null = null;
+  for (const e of [...events].sort((a, b) => a.seq - b.seq)) {
+    if (e.type === "session.end_scheduled") {
+      const p = (e.payload ?? {}) as { ends_at?: unknown; by?: unknown };
+      if (p.ends_at) cur = { endsAt: String(p.ends_at), by: p.by != null ? String(p.by) : null, seq: e.seq };
+    } else if (e.type === "session.end_cancelled" || e.type === "session.ended") cur = null;
+  }
+  return cur;
+}

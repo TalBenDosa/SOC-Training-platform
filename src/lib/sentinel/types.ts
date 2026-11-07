@@ -158,6 +158,23 @@ export interface SentinelBookmark {
 }
 
 /** The console's outward actions. The team room gives a real implementation; tests give a fake. */
+/** One request to isolate a device, with its answer (isolation needs the senior on shift's approval, 2026-11-07). */
+export interface SentinelIsolationRequest {
+  seq: number;
+  host: string;
+  state: "pending" | "approved" | "denied";
+  /** Display name of who asked, and whether it was the viewer. */
+  requestedBy: string;
+  mine: boolean;
+  reason: string;
+  incident: string | null;
+  at: string | null;
+  /** Pending: who answers it now ("Dana (SOC Manager)"). Answered: who answered. */
+  approver: string;
+  answeredAt: string | null;
+  denyReason: string | null;
+}
+
 export interface SentinelActions {
   /** Display name of the viewer and of everyone who can own an incident. */
   me: { id: string; name: string; role: string | null };
@@ -166,6 +183,13 @@ export interface SentinelActions {
   canContain: boolean;
   isolatedHosts: Set<string>;
   setIsolated: (host: string, isolated: boolean, incidentTitle?: string) => Promise<string | null>;
+  /** In a team session isolating needs approval: this sends the request (the server isolates on approval).
+   *  Absent outside a team session, where setIsolated isolates directly. */
+  requestIsolation?: (host: string, reason: string, incidentTitle?: string) => Promise<string | null>;
+  /** Every isolation request of the session with its answer, oldest first. */
+  isolationRequests?: SentinelIsolationRequest[];
+  /** Who would answer the viewer's request right now ("Dana (SOC Manager)"). */
+  isolationApprover?: string;
   updateIncident: (incidentId: string, patch: Partial<Pick<IncidentState, "status" | "owner" | "severity" | "classification" | "closingComment">>) => Promise<string | null>;
   addComment: (incidentId: string, text: string) => Promise<string | null>;
   addBookmark: (b: Omit<SentinelBookmark, "id" | "author" | "at">) => Promise<string | null>;

@@ -65,8 +65,8 @@ export function InstructorPanel({ sessionId, roster, online, events, act, isStaf
           <div key={m.user_id} className="flex items-center gap-2 text-xs">
             <span className={`h-1.5 w-1.5 rounded-full ${online.has(m.user_id) ? "bg-neon-green" : "bg-slate-600"}`} aria-hidden="true" /><span className="sr-only">{online.has(m.user_id) ? "online" : "offline"}</span>
             <bdi className="text-slate-300">{m.name}</bdi>
-            <span className="font-mono text-[10px] text-slate-500">{ROLE_LABEL[m.role] ?? m.role}</span>
-            {m.lapsed && <span className="text-[10px] text-severity-high" title="Their access to your organisation has expired — they can't act.">access expired</span>}
+            <span className="font-mono text-[11px] text-slate-500">{ROLE_LABEL[m.role] ?? m.role}</span>
+            {m.lapsed && <span className="text-[11px] text-severity-high" title="Their access to your organisation has expired: they can't act.">access expired</span>}
             {isStaff && <span className="ml-auto"><RemoveMemberButton sessionId={sessionId} userId={m.user_id} name={m.name} onError={onError} /></span>}
           </div>
         ))}
@@ -83,7 +83,7 @@ export function InstructorPanel({ sessionId, roster, online, events, act, isStaf
           <option value="false_lead">false lead (a decoy to reject)</option>
         </select>
         <textarea aria-label="Inject text" value={inj.text} onChange={e => setInj(s => ({ ...s, text: e.target.value }))} placeholder="Inject text (e.g. 'User in Finance says a vendor called asking for an MFA code')" rows={2} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-        {inj.kind !== "announcement" && <input aria-label="Expected response (staff-only answer key)" value={inj.expected} onChange={e => setInj(s => ({ ...s, expected: e.target.value }))} placeholder="Expected response (staff-only answer key — shown in the review)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />}
+        {inj.kind !== "announcement" && <input aria-label="Expected response (staff-only answer key)" value={inj.expected} onChange={e => setInj(s => ({ ...s, expected: e.target.value }))} placeholder="Expected response (staff-only answer key: shown in the review)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />}
         <Button variant="primary" size="sm" disabled={busy || !inj.text.trim()} onClick={post}>Send inject</Button>
         </>}
       </div>

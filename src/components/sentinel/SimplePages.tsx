@@ -7,7 +7,7 @@ import { useSentinel } from "./context";
 import { EntityInfoCard, EntityInsightsCard, EntityTimelineCard } from "./EntityCards";
 import { runQuery } from "./engine";
 import { fmtCount, fmtDateTime, KIND_LABEL, kqlString, SEV_RANK, tiIndicators } from "./helpers";
-import { hostIsolated, PLAYBOOKS, RunResult } from "./IncidentPanes";
+import { deviceOption, deviceState, IsolationReason, PLAYBOOKS, PlaybookHistory, RunResult } from "./IncidentPanes";
 import { Empty, EntityIcon, rowKeys, Severity, SortTh, Tabs, type SortState } from "./ui";
 
 function Pre({ text }: { text: string }) {
@@ -346,12 +346,19 @@ export function AutomationPage() {
   const hosts = useMemo(() => [...new Set(Object.values(ws.entities).filter(e => e.kind === "host").map(e => e.name))].sort((a, b) => a.localeCompare(b)), [ws.entities]);
   const [target, setTarget] = useState("");
   const [busy, setBusy] = useState(false);
+  const [reason, setReason] = useState("");
+  const [reasonErr, setReasonErr] = useState<string | null>(null);
+  const asks = !!actions.requestIsolation;
   const host = target || hosts[0] || "";
+  const state = host ? deviceState(actions, host) : null;
   const last = runs[0];
   const run = async (name: "Isolate device" | "Release device") => {
-    setBusy(true);
-    await runPlaybook(name, host);
+    // In a team session "Isolate device" asks the senior on shift (2026-11-07), with a reason.
+    if (name === "Isolate device" && asks && !reason.trim()) { setReasonErr("Say in a few words why this device should be isolated."); return; }
+    setBusy(true); setReasonErr(null);
+    const r = await runPlaybook(name, host, undefined, reason.trim());
     setBusy(false);
+    if (r.ok && name === "Isolate device") setReason("");
   };
   return (
     <div className="st-page">
@@ -363,32 +370,28 @@ export function AutomationPage() {
             <>
               <label className="st-row" style={{ margin: "8px 0", maxWidth: 420 }}>
                 <span style={{ flex: "none", fontWeight: 600, fontSize: 12 }}>Device</span>
-                <select className="st-input" value={host} onChange={e => setTarget(e.target.value)}>{hosts.map(h => <option key={h} value={h}>{h}</option>)}</select>
-                <span className="st-small st-muted" style={{ flex: "none" }}>{hostIsolated(actions.isolatedHosts, host) ? "Isolated" : "Not isolated"}</span>
+                <select className="st-input" value={host} onChange={e => setTarget(e.target.value)}>{hosts.map(h => <option key={h} value={h}>{deviceOption(actions, h)}</option>)}</select>
               </label>
+              {state && <p className="st-small st-muted" role="status" style={{ margin: "0 0 8px" }}>Current state: {state.label}</p>}
+              {asks && <div style={{ maxWidth: 520, marginBottom: 8 }}><IsolationReason id="auto-reason" value={reason} onChange={v => { setReason(v); if (reasonErr) setReasonErr(null); }} error={reasonErr} /></div>}
               {last && <div style={{ margin: "8px 0", maxWidth: 720 }}><RunResult run={last} /></div>}
               <table className="st-table" aria-label="Playbooks" style={{ maxWidth: 900 }}>
-                <thead><tr><th scope="col" style={{ width: 170 }}>Name</th><th scope="col">Description</th><th scope="col" style={{ width: 80 }}>Status</th><th scope="col" style={{ width: 150 }}>Trigger kind</th><th scope="col" style={{ width: 90 }}><span className="st-sr">Run</span></th></tr></thead>
+                <thead><tr><th scope="col" style={{ width: 170 }}>Name</th><th scope="col">Description</th><th scope="col" style={{ width: 80 }}>Status</th><th scope="col" style={{ width: 150 }}>Trigger kind</th><th scope="col" style={{ width: 116 }}><span className="st-sr">Run</span></th></tr></thead>
                 <tbody>
                   {PLAYBOOKS.map(p => (
                     <tr key={p.name}>
                       <td><strong>{p.name}</strong></td><td title={p.description}>{p.description}</td><td>Enabled</td><td>Entity</td>
-                      <td><button type="button" className="st-btn" disabled={ended || busy || !host} onClick={() => void run(p.name)}><Play size={12} aria-hidden />Run</button></td>
+                      <td><button type="button" className="st-btn" disabled={ended || busy || !host || (p.name === "Isolate device" && !!(state?.isolated || state?.pending))} aria-label={p.name === "Isolate device" && asks ? "Request isolation" : `Run ${p.name}`} onClick={() => void run(p.name)}><Play size={12} aria-hidden />{p.name === "Isolate device" && asks ? "Request" : "Run"}</button></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </>
           )}
-        {runs.length > 0 && (
+        {(runs.length > 0 || (actions.isolationRequests ?? []).some(r => r.mine)) && (
           <div style={{ marginTop: 18 }}>
             <h3 style={{ fontSize: 13, marginBottom: 4 }}>Runs in this session</h3>
-            <table className="st-table" aria-label="Playbook runs" style={{ maxWidth: 900 }}>
-              <thead><tr><th scope="col" style={{ width: 170 }}>Time</th><th scope="col" style={{ width: 130 }}>Playbook</th><th scope="col" style={{ width: 150 }}>Device</th><th scope="col" style={{ width: 90 }}>Result</th><th scope="col">Details</th></tr></thead>
-              <tbody>
-                {runs.map(r => <tr key={r.id}><td>{fmtDateTime(r.at)}</td><td>{r.playbook}</td><td>{r.host}</td><td>{r.ok ? "Succeeded" : "Refused"}</td><td title={r.message}>{r.message}</td></tr>)}
-              </tbody>
-            </table>
+            <PlaybookHistory runs={runs} actions={actions} />
           </div>
         )}
       </div>

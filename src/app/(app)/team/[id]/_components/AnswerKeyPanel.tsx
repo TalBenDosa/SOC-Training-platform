@@ -99,7 +99,7 @@ export function AnswerKeyPanel({ sessionId, events, nameOf }: { sessionId: strin
       <button onClick={() => setOpen(o => !o)} aria-expanded={open} className="flex w-full items-center gap-2 text-left">
         <ChevronDown aria-hidden="true" className={`h-4 w-4 text-slate-400 transition-transform ${open ? "" : "-rotate-90"}`} />
         <h3 className="flex items-center gap-2 text-sm font-bold text-white"><KeyRound className="h-4 w-4 text-neon-amber" /> Answer key vs team</h3>
-        <span className="ml-auto rounded border border-neon-amber/40 px-1 py-0.5 text-[9px] font-bold uppercase text-neon-amber">staff only</span>
+        <span className="ml-auto rounded border border-neon-amber/40 px-1 py-0.5 text-[11px] font-bold uppercase text-neon-amber">staff only</span>
       </button>
       {open && (
         err ? <p className="mt-2 text-xs text-severity-high">{err}</p>
@@ -116,12 +116,12 @@ export function AnswerKeyPanel({ sessionId, events, nameOf }: { sessionId: strin
                     <div key={inc} className="rounded-lg border border-border bg-bg px-2 py-1.5">
                       <div className="flex items-center gap-2 text-[11px]">
                         <span className="min-w-0 flex-1 truncate font-mono text-slate-300">{inc.startsWith("solo:") ? "standalone attack" : inc}</span>
-                        <span className={`shrink-0 rounded border px-1 py-0.5 text-[9px] font-bold uppercase ${caught ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : "border-severity-high/40 bg-severity-high/10 text-severity-high"}`}>{caught ? "escalated" : "not escalated"}</span>
-                        <span className="shrink-0 font-mono text-[10px] text-slate-500">{attacks.filter(s => s.escalated).length}/{attacks.length} steps</span>
+                        <span className={`shrink-0 rounded border px-1 py-0.5 text-[11px] font-bold uppercase ${caught ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : "border-severity-high/40 bg-severity-high/10 text-severity-high"}`}>{caught ? "escalated" : "not escalated"}</span>
+                        <span className="shrink-0 font-mono text-[11px] text-slate-500">{attacks.filter(s => s.escalated).length}/{attacks.length} steps</span>
                       </div>
                       <div className="mt-1 space-y-0.5">
                         {steps.map(s => (
-                          <div key={s.seq} className="flex items-center gap-1.5 text-[10px]">
+                          <div key={s.seq} className="flex items-center gap-1.5 text-[11px]">
                             <span className="shrink-0 font-mono text-slate-500">#{s.seq}</span>
                             <span className={`shrink-0 rounded px-1 font-mono uppercase ${s.control ? "bg-white/5 text-slate-400" : "bg-severity-high/15 text-severity-high"}`}>{s.control ? `control·${s.expected}` : s.expected}</span>
                             <span className="min-w-0 flex-1 truncate text-slate-300" title={s.desc}>{s.desc}</span>
@@ -141,7 +141,7 @@ export function AnswerKeyPanel({ sessionId, events, nameOf }: { sessionId: strin
             <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Injects ({view.injects.filter(i => i.fired != null).length}/{view.injects.length} fired)</p>
             <div className="mt-1 space-y-1">
               {view.injects.map(i => (
-                <div key={i.id} className={`rounded border px-2 py-1 text-[10px] ${i.status === "pending" ? "border-border/50 text-slate-500" : "border-border bg-bg text-slate-300"}`}>
+                <div key={i.id} className={`rounded border px-2 py-1 text-[11px] ${i.status === "pending" ? "border-border/50 text-slate-500" : "border-border bg-bg text-slate-300"}`}>
                   <p><span className="mr-1 font-mono uppercase text-neon-amber">{i.kind.replace("_", " ")}</span>{i.status === "pending" ? `due at ${mmss(i.due)} (shift clock)` : i.status === "fired" ? `fired #${i.fired}` : i.status} {i.answer && <span className="ml-1 text-cyber-300">· {i.answer}</span>}</p>
                   {i.text && <p className="mt-0.5 truncate text-slate-400" title={i.text}>{i.text}</p>}
                   {i.expected && <p className="mt-0.5 text-slate-500">expected: {i.expected}</p>}

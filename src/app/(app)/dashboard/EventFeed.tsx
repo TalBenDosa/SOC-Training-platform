@@ -1146,8 +1146,10 @@ function SocMethodologyBanner() {
 // ─── Event row ────────────────────────────────────────────────────────────────
 
 const EventRow = memo(function EventRow({
-  event, isNew, onThreatQuery, onXp, onRowOpened, onPivot, onAddIoc, onEscalate, onCloseAlert, onAddToCase, rowStatus,
+  event, isNew, onThreatQuery, onXp, onRowOpened, onPivot, onAddIoc, onEscalate, onCloseAlert, onAddToCase, rowStatus, openNonce,
 }: {
+  /** Team Tier-1 "Take next alert": a new value opens this row and scrolls it into view. */
+  openNonce?: number;
   event: LiveEvent;
   isNew: boolean;
   onThreatQuery: (q: ThreatQuery) => void;
@@ -1182,6 +1184,15 @@ const EventRow = memo(function EventRow({
     }
     setExpanded(v => !v);
   }
+  // Opened from outside (Take next alert): open once per new nonce, never close an open row.
+  const rowRef = useRef<HTMLTableRowElement>(null);
+  useEffect(() => {
+    if (openNonce == null) return;
+    if (!expanded) toggleExpanded();
+    const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    requestAnimationFrame(() => rowRef.current?.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs per request only
+  }, [openNonce]);
 
   const timeStr = event.ts
     ? new Date(event.ts).toLocaleTimeString("en-GB", { hour12: false })
@@ -1191,6 +1202,7 @@ const EventRow = memo(function EventRow({
   return (
     <>
       <motion.tr
+        ref={rowRef}
         layout
         initial={isNew ? { opacity: 0, y: -8 } : false}
         animate={{ opacity: 1, y: 0 }}
@@ -1403,6 +1415,8 @@ export interface EventFeedProps {
   emptyMessage?: string;
   /** false = keep the caller's order and hide the Newest / Oldest toggle (a priority-ordered queue). */
   sortable?: boolean;
+  /** Team Tier-1: open this log's row (a new nonce opens it again), e.g. after "Take next alert". */
+  openEvent?: { id: string; nonce: number } | null;
 }
 
 /** Newest-first or oldest-first by event time; the choice is remembered in this browser. */
@@ -1421,7 +1435,7 @@ export function EventFeed({
   events, newIds = new Set(),
   severityFilter, sourceFilter, search,
   userFilter = "all", hostFilter = "all", ipFilter = "all", mitreFilter = "all",
-  onXp, onRowOpened, onPivot, onAddIoc, onEscalate, onCloseAlert, onAddToCase, rowStatus, emptyMessage, sortable = true,
+  onXp, onRowOpened, onPivot, onAddIoc, onEscalate, onCloseAlert, onAddToCase, rowStatus, emptyMessage, sortable = true, openEvent,
 }: EventFeedProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   // Log order (Tal, 2026-10-18: newest logs on top, or switch to oldest first).
@@ -1561,6 +1575,7 @@ export function EventFeed({
                   onCloseAlert={onCloseAlert}
                   onAddToCase={onAddToCase}
                   rowStatus={rowStatus}
+                  openNonce={openEvent && openEvent.id === ev.id ? openEvent.nonce : undefined}
                 />
               ))}
             </AnimatePresence>

@@ -29,6 +29,12 @@ const CARD_W = 340;
 type Rect = { top: number; left: number; width: number; height: number };
 const same = (a: Rect | null, b: Rect | null) => !!a && !!b && Math.abs(a.top - b.top) < 1 && Math.abs(a.left - b.left) < 1 && Math.abs(a.width - b.width) < 1 && Math.abs(a.height - b.height) < 1;
 
+/** What the tour costs, said honestly on the button that starts it (about 15 seconds a step). */
+export function tourLength(steps: TourStep[]): string {
+  const min = Math.max(1, Math.round((steps.length * 15) / 60));
+  return `${steps.length} steps, about ${min} min`;
+}
+
 export function GuidedTour({ steps, title, onClose }: { steps: TourStep[]; title: string; onClose: () => void }) {
   const [i, setI] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
@@ -57,6 +63,9 @@ export function GuidedTour({ steps, title, onClose }: { steps: TourStep[]; title
   useEffect(() => {
     let raf = 0;
     let prev: Rect | null = null;
+    // A new step starts with no spotlight: the last step's hole used to stay on screen when this
+    // step's element was missing (prev and next both null, so it was never cleared).
+    setRect(null);
     const tick = () => {
       setVp(v => (v.w === window.innerWidth && v.h === window.innerHeight ? v : { w: window.innerWidth, h: window.innerHeight }));
       const h = cardRef.current?.offsetHeight;
@@ -128,7 +137,7 @@ export function GuidedTour({ steps, title, onClose }: { steps: TourStep[]; title
       <div ref={cardRef} role="dialog" aria-modal="true" aria-labelledby="tour-step-title" aria-describedby="tour-step-body" tabIndex={-1}
         className="absolute rounded-xl border border-neon-purple/50 bg-bg-elevated p-4 shadow-2xl outline-none" style={cardStyle}>
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-neon-purple">{title} · {i + 1} / {steps.length}</span>
+          <span className="font-mono text-[11px] uppercase tracking-wider text-neon-purple">{title} · {i + 1} / {steps.length}</span>
           <button type="button" onClick={onClose} aria-label="Close the tour" className="ml-auto rounded p-1 text-slate-400 hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400"><X className="h-4 w-4" /></button>
         </div>
         <h2 id="tour-step-title" className="mt-1 text-sm font-bold text-white">{step.title}</h2>

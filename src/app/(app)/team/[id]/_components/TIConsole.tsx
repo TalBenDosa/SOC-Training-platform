@@ -82,7 +82,7 @@ export function TIConsole({ events, feed, nameOf, act }: { events: Ev[]; feed: E
             {cases.map(e => { const eid = String((e.payload as { event_id?: string }).event_id); return <option key={e.seq} value={eid}>enriching: {caseLabel(eid).slice(0, 70) || `case #${e.seq}`}</option>; })}
           </select>
           <input aria-label="IOC" aria-invalid={!iocOk} value={f.ioc} onChange={e => setF(s => ({ ...s, ioc: e.target.value }))} placeholder="IOC (domain / IP / hash — verified against the feed)" className={`w-full rounded-lg border bg-bg px-2 py-1.5 font-mono text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none ${iocOk ? "border-border" : "border-severity-high/60"}`} />
-          {!iocOk && <p className="text-[10px] text-severity-high">That isn&apos;t an indicator shape (hash / IP / domain / email / hostname).</p>}
+          {!iocOk && <p className="text-[11px] text-severity-high">That isn&apos;t an indicator shape (hash / IP / domain / email / hostname).</p>}
           <input aria-label="Actor, campaign or malware family" value={f.actor} onChange={e => setF(s => ({ ...s, actor: e.target.value }))} placeholder="Actor / campaign / malware family (if known — don't over-attribute)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
           <input aria-label="Technique or TTP" value={f.technique} onChange={e => setF(s => ({ ...s, technique: e.target.value }))} placeholder="Technique / TTP (e.g. T1189 drive-by)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
           <input aria-label="Next expected step" value={f.next_expected} onChange={e => setF(s => ({ ...s, next_expected: e.target.value }))} placeholder="Next expected step (predict)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
@@ -92,7 +92,7 @@ export function TIConsole({ events, feed, nameOf, act }: { events: Ev[]; feed: E
             <select aria-label="Confidence" value={f.confidence} onChange={e => setF(s => ({ ...s, confidence: e.target.value }))} className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none"><option value="0.5">conf: low</option><option value="0.7">conf: med</option><option value="0.9">conf: high</option></select>
           </div>
           <Button variant="primary" size="sm" disabled={!canPublish} onClick={publish}>Publish intel</Button>
-          {!canPublish && !busy && <p className="text-[10px] text-slate-500">Needs an actor or technique and a recommended action.</p>}
+          {!canPublish && !busy && <p className="text-[11px] text-slate-500">Needs an actor or technique and a recommended action.</p>}
         </div>
       </Card>
       <Card>
@@ -106,13 +106,13 @@ export function TIConsole({ events, feed, nameOf, act }: { events: Ev[]; feed: E
               return (
                 <div key={l.value} className="rounded-lg border border-border bg-bg px-2 py-1.5 text-xs">
                   <p className="break-all font-mono text-[11px] text-slate-200"><span className="text-slate-500">{l.type}:</span>{l.value}</p>
-                  <p className="mt-0.5 text-[10px] text-slate-500">{l.refs.slice(0, 3).map(r => `${r.kind} by ${nameOf(r.by)} — ${r.label.slice(0, 50)}`).join(" · ")}{l.refs.length > 3 ? ` · +${l.refs.length - 3}` : ""}</p>
-                  <p className={`mt-0.5 text-[10px] ${h.n > 1 ? "text-neon-green" : "text-neon-amber"}`}>
+                  <p className="mt-0.5 text-[11px] text-slate-500">{l.refs.slice(0, 3).map(r => `${r.kind} by ${nameOf(r.by)} — ${r.label.slice(0, 50)}`).join(" · ")}{l.refs.length > 3 ? ` · +${l.refs.length - 3}` : ""}</p>
+                  <p className={`mt-0.5 text-[11px] ${h.n > 1 ? "text-neon-green" : "text-neon-amber"}`}>
                     {h.n === 0 ? "not seen in the feed — analyst-supplied only; corroborate before publishing" : `seen in ${h.n} feed log${h.n > 1 ? "s" : ""}`}{h.sources.length ? ` · ${h.sources.slice(0, 4).join(", ")}` : ""}{h.hosts.length ? ` · hosts: ${h.hosts.slice(0, 3).join(", ")}` : ""}
                   </p>
                   <div className="mt-1 flex gap-3">
-                    <button onClick={() => setF(s => ({ ...s, ioc: l.value, event_id: s.event_id || l.refs.find(r => r.eid)?.eid || "" }))} className="text-[10px] text-cyber-300 underline-offset-2 hover:underline">enrich this IOC →</button>
-                    {canLookup && <button onClick={() => lookup(l.value, l.type, h.first)} className="inline-flex items-center gap-0.5 text-[10px] text-cyber-300 underline-offset-2 hover:underline"><Search className="h-3 w-3" aria-hidden="true" /> reputation lookup</button>}
+                    <button onClick={() => setF(s => ({ ...s, ioc: l.value, event_id: s.event_id || l.refs.find(r => r.eid)?.eid || "" }))} className="text-[11px] text-cyber-300 underline-offset-2 hover:underline">enrich this IOC →</button>
+                    {canLookup && <button onClick={() => lookup(l.value, l.type, h.first)} className="inline-flex items-center gap-0.5 text-[11px] text-cyber-300 underline-offset-2 hover:underline"><Search className="h-3 w-3" aria-hidden="true" /> reputation lookup</button>}
                   </div>
                 </div>
               );

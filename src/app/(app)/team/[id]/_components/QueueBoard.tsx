@@ -46,9 +46,9 @@ export function QueueBoard({ q }: { q: QueueStats }) {
           const Icon = t.icon;
           return (
             <div key={t.key} className="rounded-md border border-border/70 bg-bg px-2.5 py-1.5" title={t.tip}>
-              <p className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-400"><Icon className="h-3 w-3" aria-hidden />{t.label}</p>
+              <p className="flex items-center gap-1 text-[11px] uppercase tracking-wider text-slate-400"><Icon className="h-3 w-3" aria-hidden />{t.label}</p>
               <p className={cn("font-mono text-lg font-bold leading-tight", t.tone)}>{t.value}</p>
-              <p className="truncate text-[10px] text-slate-500" title={t.sub}>{t.sub}</p>
+              <p className="truncate text-[11px] text-slate-500" title={t.sub}>{t.sub}</p>
             </div>
           );
         })}

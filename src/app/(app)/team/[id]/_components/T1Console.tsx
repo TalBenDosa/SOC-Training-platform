@@ -7,7 +7,8 @@ import { ArrowUpRight, ShieldAlert, X } from "lucide-react";
 import type { Ev, Ioc } from "@/lib/team/types";
 import { asStr, detectIocType, isValidIoc, IOC_HELP, type ActR } from "@/lib/team/format";
 import { useServerNow } from "@/lib/team/clock";
-import { activeClaims } from "@/lib/team/projections";
+import { activeClaims, escalationStates } from "@/lib/team/projections";
+import { useDraft, clearDraft } from "./drafts";
 import { attachedLogs, hostKeyOf, openCasesByHost } from "@/lib/team/hostCases";
 import { relatedLogs, entityLabel } from "@/lib/team/correlate";
 import { rationaleProblem } from "@/lib/team/escalationCheck";
@@ -59,6 +60,9 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
   }, [sel]);
   const [iocText, setIocText] = useState("");
   const [busy, setBusy] = useState(false);
+  // The escalation in progress survives the end of the shift (shown with the player's card).
+  useDraft(sessionId, meId, sel ? `t1-escalation-${sel}` : null, `Escalation you were writing on log ${sel}`,
+    [form.summary && `Summary: ${form.summary}`, form.observations && `Observations: ${form.observations}`, form.assessment && `Assessment: ${form.assessment}`, iocDraft.length ? `Indicators: ${iocDraft.map(i => i.value).join(", ")}` : ""].filter(Boolean).join("\n"));
   const selDisp = sel ? dispositions.get(sel) : undefined;
   // The alert queue is no longer a card here: it is the "Needs triage" view of the
   // SIEM table itself (page.tsx + src/lib/team/alertQueue.ts), with SLA age badges on
@@ -129,7 +133,7 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
           </div>
           {confirmTake === sel && (
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <span className="text-slate-300">Take it over? Agree it in the war room first — they&apos;ll see it moved to you.</span>
+              <span className="text-slate-300">Take it over? Agree it in the war room first: they&apos;ll see it moved to you.</span>
               <Button variant="primary" size="sm" disabled={busy} onClick={() => claim(true)}>Confirm take-over</Button>
               <Button variant="outline" size="sm" onClick={() => setConfirmTake(null)}>Cancel</Button>
             </div>
@@ -254,7 +258,7 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
     if (res.code === "claim_held") setHeldFor(sel);
     if (ok) await act("alert.released", { event_id: sel }); // escalated → hand off the claim (the load replay reads the release)
     setBusy(false);
-    if (ok) { drafts.current.delete(sel); draftSel.current = ""; setForm(EMPTY_FORM); setIocDraft([]); shots.clear(); setSel(""); setReportOpen(false); }
+    if (ok) { clearDraft(sessionId, meId, `t1-escalation-${sel}`); drafts.current.delete(sel); draftSel.current = ""; setForm(EMPTY_FORM); setIocDraft([]); shots.clear(); setSel(""); setReportOpen(false); }
   }
   // The selected log's payload — powers the modal's log-summary header + the escalate snapshot.
   const selRaw = sel ? feed.find(e => String((e.payload as { id?: string }).id ?? e.seq) === sel) : undefined;
@@ -271,10 +275,22 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
   const selAttached = useMemo(() => (sel ? attachedLogs(events).has(sel) : false), [events, sel]);
   const [caseBusy, setCaseBusy] = useState(false);
   const [caseErr, setCaseErr] = useState<string | null>(null);
-  async function addToCase() {
-    if (!sel || !hostCase) return;
+  // Every case still open (not resolved or bounced), for the "already handled" exit: a log that
+  // belongs to an attack the team already works goes into that case, not into a new escalation.
+  const openCases = useMemo(() => {
+    const st = escalationStates(events);
+    return [...st.entries()].filter(([eid, x]) => x.rounds > 0 && !x.resolved && !x.bounced && eid !== sel).map(([eid, x]) => {
+      const p = x.request.payload as { summary?: unknown; what?: unknown; hostname?: unknown; snapshot?: { hostname?: unknown } };
+      return { eid, label: (asStr(p.summary) || asStr(p.what) || `case on log ${eid}`).slice(0, 120), host: asStr(p.hostname) || asStr(p.snapshot?.hostname), owner: x.owner };
+    });
+  }, [events, sel]);
+  const [pickCase, setPickCase] = useState("");
+  useEffect(() => { setPickCase(""); setCaseErr(null); }, [sel]);
+  async function addToCase(target?: { eid: string; host: string }) {
+    const c = target ?? (hostCase ? { eid: hostCase.caseEid, host: hostCase.host } : null);
+    if (!sel || !c) return;
     setCaseBusy(true); setCaseErr(null);
-    const r = await actR("evidence.pinned", { event_id: sel, case_event_id: hostCase.caseEid, host: hostCase.host, label: selDesc.slice(0, 140), summary: selDesc.slice(0, 140), attached: true });
+    const r = await actR("evidence.pinned", { event_id: sel, case_event_id: c.eid, host: c.host || selHost || undefined, label: selDesc.slice(0, 140), summary: selDesc.slice(0, 140), attached: true });
     if (r.ok) { await act("alert.released", { event_id: sel }); setReportOpen(false); }
     else setCaseErr(r.message ?? "Couldn't add it to the case. Try again.");
     setCaseBusy(false);
@@ -286,9 +302,9 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
     <Card className="border-neon-amber/30 bg-neon-amber/[0.04]">
       <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldAlert className="h-4 w-4 text-neon-amber" /> Tier-1 triage and escalation</h3>
       <ol className="mt-2 grid gap-1 text-[11px] text-slate-300">
-        <li><span className="mr-1 rounded bg-cyber-500/20 px-1.5 font-bold text-cyber-300">1</span><b>Take</b> an alert: <span className="text-slate-400">&quot;Take next alert&quot; above the feed, or pick one below. It shows as &quot;Investigating · your name&quot; to the team.</span></li>
-        <li><span className="mr-1 rounded bg-cyber-500/20 px-1.5 font-bold text-cyber-300">2</span><b>Investigate</b>: <span className="text-slate-400">open the log, pivot on the host / user, check the IOC, open EDR.</span></li>
-        <li><span className="mr-1 rounded bg-cyber-500/20 px-1.5 font-bold text-cyber-300">3</span><b>Close</b> it (not an attack) <b>or escalate</b> it to Tier-2 (attack, or not sure).</li>
+        <li><span className="mr-1 rounded bg-cyber-500/20 px-1.5 font-bold text-cyber-300">1</span><b>Take</b> an alert: <span className="text-slate-400">Take next alert above the feed opens the most urgent log and claims it for you.</span></li>
+        <li><span className="mr-1 rounded bg-cyber-500/20 px-1.5 font-bold text-cyber-300">2</span><b>Investigate</b>: <span className="text-slate-400">read the log, pivot on the host or user, check the indicators, open EDR.</span></li>
+        <li><span className="mr-1 rounded bg-cyber-500/20 px-1.5 font-bold text-cyber-300">3</span><b>Close</b> it, <b>escalate</b> it to Tier-2, or <b>add it</b> to a case that already covers it.</li>
       </ol>
 
       {/* T1-7: my escalations + status tracking (sent/ack/bounced/resolved) */}
@@ -297,8 +313,8 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
           <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">My escalations ({myEsc.length})</p>
           {myEsc.slice().reverse().slice(0, 6).map(e => (
             <div key={e.seq} className="flex items-center gap-2 rounded border border-border/60 bg-bg px-2 py-1 text-[11px]">
-              <span className="min-w-0 flex-1 truncate text-slate-300">{e.label}{e.status === "bounced" && e.reason ? ` — ${e.reason}` : ""}</span>
-              <span className={`shrink-0 rounded border px-1 py-0.5 text-[9px] font-bold uppercase ${e.status === "resolved" ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : e.status === "bounced" ? "border-neon-amber/40 bg-neon-amber/10 text-neon-amber" : e.status === "acknowledged" ? "border-cyber-500/40 bg-cyber-500/10 text-cyber-300" : "border-border text-slate-400"}`}>{e.status}</span>
+              <span className="min-w-0 flex-1 truncate text-slate-300">{e.label}{e.status === "bounced" && e.reason ? `: ${e.reason}` : ""}</span>
+              <span className={`shrink-0 rounded border px-1 py-0.5 text-[11px] font-bold uppercase ${e.status === "resolved" ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : e.status === "bounced" ? "border-neon-amber/40 bg-neon-amber/10 text-neon-amber" : e.status === "acknowledged" ? "border-cyber-500/40 bg-cyber-500/10 text-cyber-300" : "border-border text-slate-400"}`}>{e.status}</span>
             </div>
           ))}
         </div>
@@ -307,7 +323,7 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
       <label className="mt-3 block text-xs">
         <span className="mb-1 block uppercase tracking-wider text-slate-400">Your alert</span>
         <select value={sel} onChange={e => setSel(e.target.value)} className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 focus:border-cyber-500/50 focus:outline-none">
-          <option value="">— select an event —</option>
+          <option value="">Select an event</option>
           {options.map(o => <option key={o.id} value={o.id}>{o.label}{dispositions.get(o.id) ? ` · ${dispositions.get(o.id)}` : ""}</option>)}
         </select>
       </label>
@@ -332,7 +348,7 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
               const d = dispositions.get(r.eid);
               return (
                 <li key={r.eid}>
-                  <button type="button" onClick={() => setSel(r.eid)} className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-[10px] hover:bg-white/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyber-400/60">
+                  <button type="button" onClick={() => setSel(r.eid)} className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-[11px] hover:bg-white/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyber-400/60">
                     <span className="shrink-0 font-mono text-slate-500">#{r.e.seq}</span>
                     <span className="shrink-0 font-mono uppercase text-slate-400">{asStr(rp.severity) || "info"}</span>
                     <span className="min-w-0 flex-1 truncate text-slate-300">{asStr(rp.description) || asStr(rp.event_type)}</span>
@@ -361,7 +377,7 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
               <Button variant="outline" size="sm" disabled={!sel || busy || !readEnough} onClick={() => disp("false_positive")} title="The rule fired, but it is not malicious">Close as false positive</Button>
               <Button variant="outline" size="sm" disabled={!sel || busy || !readEnough} onClick={() => disp("benign")} title="Expected, normal activity">Close as benign</Button>
             </div>
-            {sel && !readEnough && <p className="mt-1 text-[10px] text-slate-500">Read the log first: closing unlocks in a few seconds.</p>}
+            {sel && !readEnough && <p className="mt-1 text-[11px] text-slate-400">Read the log first: closing unlocks in a few seconds.</p>}
           </div>
           <div className="rounded-lg border border-amber-500/40 bg-amber-500/[0.06] p-2.5">
             <p className="text-xs font-semibold text-amber-200">Attack, or not sure? Escalate to Tier-2</p>
@@ -374,7 +390,24 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
               <ArrowUpRight className="mr-1.5 h-4 w-4" /> Write escalation report{sel ? ` · #${selRaw?.seq}` : ""}
             </Button>
           </div>
-          {!sel && <p className="text-[10px] text-slate-500">Take an alert first (&quot;Take next alert&quot;, the feed, or the list above).</p>}
+          <div className="rounded-lg border border-cyber-500/40 bg-cyber-500/[0.05] p-2.5">
+            <p className="text-xs font-semibold text-cyber-100">Already handled? Add it to an open case</p>
+            <p className="mt-0.5 text-[11px] text-slate-400">Part of an attack the team already works, or the host already has a case: it goes to that case owner as evidence, with no new escalation.</p>
+            {selAttached ? <p className="mt-1.5 text-[11px] text-neon-green">Added to a case. Take the next alert.</p>
+              : openCases.length === 0 ? <p className="mt-1.5 text-[11px] text-slate-400">No case is open yet.</p> : (
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                <label htmlFor="t1-pick-case" className="sr-only">Open case</label>
+                <select id="t1-pick-case" value={pickCase || (hostCase?.caseEid ?? "")} onChange={e => setPickCase(e.target.value)} disabled={!sel}
+                  className="min-w-0 flex-1 rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 focus:border-cyber-500/50 focus:outline-none disabled:opacity-50">
+                  <option value="">Choose the case</option>
+                  {openCases.map(c => <option key={c.eid} value={c.eid}>{c.host ? `${c.host}: ` : ""}{c.label}{c.owner ? ` (${c.owner === meId ? "you" : nameOf(c.owner)})` : ""}</option>)}
+                </select>
+                <Button variant="outline" size="sm" disabled={!sel || caseBusy || !(pickCase || hostCase?.caseEid)} onClick={() => { const c = openCases.find(x => x.eid === (pickCase || hostCase?.caseEid)); if (c) void addToCase({ eid: c.eid, host: c.host }); }}>Add to case</Button>
+              </div>
+            )}
+            {caseErr && !reportOpen && <p role="alert" className="mt-1 text-[11px] text-neon-amber">{caseErr}</p>}
+          </div>
+          {!sel && <p className="text-[11px] text-slate-400">Take an alert first: Take next alert, a row in the feed, or the list above.</p>}
         </div>
       )}
     </Card>
@@ -390,9 +423,9 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
 
           {/* Which log you're reporting on — pulled straight from the flagged event */}
           <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] px-3 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-300/80">Flagged log · #{selRaw?.seq}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-300/80">Flagged log · #{selRaw?.seq}</p>
             <p className="mt-0.5 text-sm text-slate-200">{selDesc}</p>
-            <div className="mt-1 flex flex-wrap gap-1.5 text-[10px]">
+            <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]">
               {selSev && <span className="rounded border border-border bg-bg px-1.5 py-0.5 font-mono text-slate-300">severity: {selSev}</span>}
               {selSource && <span className="rounded border border-border bg-bg px-1.5 py-0.5 font-mono text-slate-300">{selSource}</span>}
               {selHost && <span className="rounded border border-border bg-bg px-1.5 py-0.5 font-mono text-slate-300">host: {selHost}</span>}
@@ -408,7 +441,7 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
               <p className="text-xs font-semibold text-cyber-100"><bdi className="font-mono">{hostCase.host}</bdi> already has an open case{hostCase.owner ? <> with <bdi>{hostCase.owner === meId ? "you" : nameOf(hostCase.owner)}</bdi></> : " waiting for Tier-2"}</p>
               <p className="mt-0.5 text-[11px] text-cyber-300/80">Case: <bdi>{hostCase.label}</bdi>. If this log is part of the same attack, add it to that case. Escalate only if it is a different incident.</p>
               {selAttached ? <p className="mt-1 text-[11px] text-neon-green">Already added to the case.</p> : (
-                <Button variant="outline" size="sm" className="mt-1.5" disabled={caseBusy} onClick={addToCase}>Add to the case instead</Button>
+                <Button variant="outline" size="sm" className="mt-1.5" disabled={caseBusy} onClick={() => addToCase()}>Add to the case instead</Button>
               )}
               {caseErr && <p role="alert" className="mt-1 text-[11px] text-neon-amber">{caseErr}</p>}
             </div>
@@ -431,25 +464,25 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
           </div>
 
           <div className="mt-3 space-y-2">
-            {isLowConf && <p className="rounded border border-neon-amber/30 bg-neon-amber/[0.06] px-2 py-1 text-[11px] text-neon-amber">Low-confidence lead — sending to Tier-2 for a second look.</p>}
-            <input aria-label="Summary" value={form.summary} onChange={e => setForm(f => ({ ...f, summary: e.target.value }))} placeholder="Summary — one line: what happened + on what" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-            <textarea aria-label="Observations" value={form.observations} onChange={e => setForm(f => ({ ...f, observations: e.target.value }))} onPaste={shots.onPaste} placeholder="Observations — the process/sequence/evidence (paste a screenshot with Ctrl+V)" rows={3} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+            {isLowConf && <p className="rounded border border-neon-amber/30 bg-neon-amber/[0.06] px-2 py-1 text-[11px] text-neon-amber">Low-confidence lead: sending to Tier-2 for a second look.</p>}
+            <input aria-label="Summary" value={form.summary} onChange={e => setForm(f => ({ ...f, summary: e.target.value }))} placeholder="Summary: one line, what happened and on what" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+            <textarea aria-label="Observations" value={form.observations} onChange={e => setForm(f => ({ ...f, observations: e.target.value }))} onPaste={shots.onPaste} placeholder="Observations: the process, sequence and evidence (paste a screenshot with Ctrl+V)" rows={3} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
             {/* Screenshots as evidence: paste into Observations, drop here, or use the button (up to 3). */}
             <div className="rounded-lg border border-dashed border-border bg-bg px-2 py-1.5" {...shots.dropProps}>
               <div className="flex items-center gap-2">
                 <AttachImageButton onPick={f => void shots.add(f)} label="Attach a screenshot to the escalation" />
-                <p className="text-[10px] text-slate-400">Screenshots (optional, up to 3): paste, drop, or attach. Tier-2 sees them on the ticket.</p>
+                <p className="text-[11px] text-slate-400">Screenshots (optional, up to 3): paste, drop, or attach. Tier-2 sees them on the ticket.</p>
               </div>
               {shots.items.length > 0 && <div className="mt-1.5"><PendingImages items={shots.items} onRemove={shots.remove} /></div>}
-              {shots.error && <p role="alert" className="mt-1 text-[10px] text-severity-high">{shots.error}</p>}
+              {shots.error && <p role="alert" className="mt-1 text-[11px] text-severity-high">{shots.error}</p>}
             </div>
             {/* T1-5: IOCs — pre-seeded from the flagged log; click "+IOC" on raw fields, or type here */}
             <div className="rounded-lg border border-border bg-bg px-2 py-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Indicators (IOCs) — click ＋IOC on the log&apos;s fields, or add below</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Indicators (IOCs): click ＋IOC on the log&apos;s fields, or add below</p>
               {iocDraft.length > 0 && (
                 <div className="mt-1 flex flex-wrap gap-1">
                   {iocDraft.map(i => (
-                    <span key={i.value} className="inline-flex items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 font-mono text-[10px] text-cyber-300">
+                    <span key={i.value} className="inline-flex items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 font-mono text-[11px] text-cyber-300">
                       <span className="text-slate-500">{i.type}:</span>{i.value}
                       <button onClick={() => setIocDraft(d => d.filter(x => x.value !== i.value))} aria-label={`Remove IOC ${i.value}`} className="text-slate-400 hover:text-white"><X className="h-3 w-3" aria-hidden="true" /></button>
                     </span>
@@ -460,9 +493,9 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
                 <input aria-label="Add an IOC" value={iocText} onChange={e => setIocText(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addIoc(iocText, "manual"); setIocText(""); } }} placeholder="add an IOC (ip / domain / hash / user)…" className="flex-1 rounded border border-border bg-bg px-2 py-1 font-mono text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                 <Button variant="outline" size="sm" onClick={() => { addIoc(iocText, "manual"); setIocText(""); }}>Add</Button>
               </div>
-              {iocErr && <p className="mt-1 text-[10px] text-severity-high">{iocErr}</p>}
+              {iocErr && <p className="mt-1 text-[11px] text-severity-high">{iocErr}</p>}
             </div>
-            <input aria-label="Assessment" value={form.assessment} onChange={e => setForm(f => ({ ...f, assessment: e.target.value }))} placeholder="Assessment — what you think this is" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+            <input aria-label="Assessment" value={form.assessment} onChange={e => setForm(f => ({ ...f, assessment: e.target.value }))} placeholder="Assessment: what you think this is" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
             <div className="flex gap-2">
               <select aria-label="Severity" value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))} className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">{SEVERITIES.map(s => <option key={s} value={s}>severity: {s}</option>)}</select>
               <select aria-label="Requested action" value={form.requested_action} onChange={e => setForm(f => ({ ...f, requested_action: e.target.value }))} className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">{REQUESTED_ACTIONS.map(a => <option key={a} value={a}>action: {a}</option>)}</select>
@@ -471,12 +504,12 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
               <label className="flex items-start gap-2 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200">
                 <input type="checkbox" id="t1-recommend-isolation" checked={!!form.recommend_isolation} onChange={e => setForm(f => ({ ...f, recommend_isolation: e.target.checked }))} className="mt-0.5" />
                 <span>Recommend isolating <bdi className="font-mono">{asStr(selP?.hostname)}</bdi>
-                  <span className="block text-[10px] text-slate-500">Isolation is the senior analyst&apos;s decision (Tier-2 / Tier-3). Your recommendation goes with the escalation.</span>
+                  <span className="block text-[11px] text-slate-500">Isolation is the senior analyst&apos;s decision (Tier-2 / Tier-3). Your recommendation goes with the escalation.</span>
                 </span>
               </label>
             )}
             {/* T1-6: advisory checklist, ✓/○ per item; escalation is never blocked by it */}
-            <div className="text-[10px] leading-relaxed text-slate-500">
+            <div className="text-[11px] leading-relaxed text-slate-500">
               {allSet ? (
                 <span className="font-semibold text-neon-green">✓ all set: a complete escalation</span>
               ) : (

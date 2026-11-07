@@ -52,7 +52,7 @@ function OriginalLog({ snap }: { snap: Record<string, unknown> }) {
         {rows.map(([k, v]) => <Fragment key={k}><dt className="text-slate-500">{k}</dt><dd className="break-all font-mono text-slate-200"><bdi>{v}</bdi></dd></Fragment>)}
       </dl>
       {snap.raw != null && (
-        <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-bg-elevated p-1.5 font-mono text-[10px] text-slate-400">{typeof snap.raw === "string" ? snap.raw : JSON.stringify(snap.raw, null, 2)}</pre>
+        <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-bg-elevated p-1.5 font-mono text-[11px] text-slate-400">{typeof snap.raw === "string" ? snap.raw : JSON.stringify(snap.raw, null, 2)}</pre>
       )}
     </details>
   );
@@ -103,7 +103,7 @@ export function EscalationsPanel({ events, nameOf, onAddToReport, sessionId }: {
     <Card>
       <div className="flex items-center gap-2">
         <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Siren className="h-4 w-4 text-neon-amber" aria-hidden /> All escalations ({items.length})</h3>
-        {waiting > 0 && <span className="rounded-full bg-neon-amber/15 px-2 font-mono text-[10px] text-neon-amber">{waiting} waiting</span>}
+        {waiting > 0 && <span className="rounded-full bg-neon-amber/15 px-2 font-mono text-[11px] text-neon-amber">{waiting} waiting</span>}
       </div>
       <p className="mt-1 text-[11px] text-slate-400">Everything the team raised: escalations to Tier-2, elevations to Tier-3 and containment requests. Open one to read the analyst&apos;s own words, then translate it for the business.</p>
       {items.length === 0 && <p className="mt-3 text-xs text-slate-500">No escalations yet. They appear here the moment an analyst raises one.</p>}
@@ -121,11 +121,11 @@ export function EscalationsPanel({ events, nameOf, onAddToReport, sessionId }: {
                 <I className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-xs text-slate-100"><bdi>{it.summary}</bdi></span>
-                  <span className="block text-[10px] text-slate-500">
+                  <span className="block text-[11px] text-slate-500">
                     <bdi>{nameOf(it.by)}</bdi> ({ROLE[it.byRole ?? ""] ?? "analyst"}){it.host && <> · <bdi className="font-mono">{it.host}</bdi></>}{it.at && <> · {fmtAgo(now - Date.parse(it.at))}</>}{it.owner && <> · owner <bdi>{nameOf(it.owner)}</bdi></>}
                   </span>
                 </span>
-                <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase ${statusTone(it.status)}`}>{it.status}</span>
+                <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[11px] font-semibold uppercase ${statusTone(it.status)}`}>{it.status}</span>
               </button>
               {isOpen && (
                 <div className="space-y-1.5 border-t border-border/60 px-2.5 py-2 text-[11px]">
@@ -148,7 +148,7 @@ export function EscalationsPanel({ events, nameOf, onAddToReport, sessionId }: {
                         {p.recommend_isolation === true && asStr(p.hostname) && <Field label="Isolation"><b className="text-severity-high">Tier-1 recommends isolating <bdi className="font-mono">{asStr(p.hostname)}</bdi></b> (the senior analyst decides)</Field>}
                         <Field label="Confidence">{p.low_confidence ? "low: a lead sent for a second look" : conf != null ? `${conf}%` : ""}</Field>
                         <Field label="Affected">{[asStr(p.hostname), asStr(p.entity) !== asStr(p.hostname) ? asStr(p.entity) : ""].filter(Boolean).join(" · ")}</Field>
-                        {iocs.length > 0 && <Field label={`IOCs (${iocs.length})`}><span className="inline-flex flex-wrap gap-1">{iocs.map((i, k) => <span key={k} className="rounded border border-border px-1 font-mono text-[10px] text-slate-200"><bdi>{asStr(i.type) ? `${asStr(i.type)}: ` : ""}{asStr(i.value)}</bdi></span>)}</span></Field>}
+                        {iocs.length > 0 && <Field label={`IOCs (${iocs.length})`}><span className="inline-flex flex-wrap gap-1">{iocs.map((i, k) => <span key={k} className="rounded border border-border px-1 font-mono text-[11px] text-slate-200"><bdi>{asStr(i.type) ? `${asStr(i.type)}: ` : ""}{asStr(i.value)}</bdi></span>)}</span></Field>}
                         {shots.length > 0 && sessionId && <div className="flex flex-wrap gap-1.5">{shots.map((img, k) => <TeamImageThumb key={img.path} sessionId={sessionId} image={img} alt={`Screenshot ${k + 1} with this escalation`} className="max-h-24" />)}</div>}
                         {snap && <OriginalLog snap={snap} />}
                         {(added.get(eid)?.length ?? 0) > 0 && <Field label={`Logs Tier-1 added to this case (${added.get(eid)!.length})`}>{added.get(eid)!.map(a => a.label).join(" · ")}</Field>}
@@ -164,7 +164,7 @@ export function EscalationsPanel({ events, nameOf, onAddToReport, sessionId }: {
                       <Field label="Tier-2 findings"><bdi>{asStr(p.t2_findings)}</bdi></Field>
                       <Field label="Tier-2 recommendation"><bdi>{asStr(p.t2_recommendation)}</bdi></Field>
                       <Field label="Severity">{asStr(p.severity)}</Field>
-                      {Array.isArray(p.iocs) && (p.iocs as unknown[]).length > 0 && <Field label="IOCs"><span className="font-mono text-[10px]">{(p.iocs as { type?: unknown; value?: unknown }[]).map(i => asStr(i.value)).join(", ")}</span></Field>}
+                      {Array.isArray(p.iocs) && (p.iocs as unknown[]).length > 0 && <Field label="IOCs"><span className="font-mono text-[11px]">{(p.iocs as { type?: unknown; value?: unknown }[]).map(i => asStr(i.value)).join(", ")}</span></Field>}
                     </>
                   )}
                   {it.kind === "containment" && (

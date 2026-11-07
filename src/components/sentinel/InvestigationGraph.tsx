@@ -13,7 +13,7 @@ import { insightsForIncident, runQuery } from "./engine";
 import { alertsOf, entitiesOf, explorationsFor, fmtClock, fmtDateTime, fmtMonthDay, KIND_LABEL, type Exploration } from "./helpers";
 import { Crumbs, EntityIcon, entityIcon, StatusIcon, Tabs } from "./ui";
 
-const SEV_STROKE: Record<SentinelSeverity, string> = { High: "#a4262c", Medium: "#ff8c00", Low: "#c8a600", Informational: "#8a8886" };
+const SEV_STROKE: Record<SentinelSeverity, string> = { High: "#a4262c", Medium: "#ff8c00", Low: "#8a7400", Informational: "#8a8886" };
 const DARK = "#323130";
 
 type GNode =

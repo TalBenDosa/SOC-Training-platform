@@ -7,7 +7,9 @@ import {
 import type { IncidentState, SentinelActions, SentinelBookmark, SentinelEntity, SentinelWorkspace } from "@/lib/sentinel/types";
 import { SentinelProvider, type LogsRequest, type PlaybookRequest, type PlaybookRun, type Screen, type SentinelCtx } from "./context";
 import { setCompletionTables } from "./engine";
-import { allBookmarks, bookmarkTable, defaultState, KIND_LABEL, tiComment, tidyWorkspace } from "./helpers";
+import { allBookmarks, bookmarkTable, defaultState, KIND_LABEL, roleLabel, tiComment, tidyWorkspace } from "./helpers";
+import { markOpened, useOpenedIncidents } from "@/lib/sentinel/openedIncidents";
+import { TeamWindowStrip } from "@/components/team/TeamWindowStrip";
 import { IncidentDetails } from "./IncidentDetails";
 import { PlaybookPanel } from "./IncidentPanes";
 import { IncidentsPage } from "./IncidentsPage";
@@ -35,6 +37,8 @@ export interface SentinelConsoleProps {
   paused?: boolean;
   /** Bookmarks with no incident, from the session log. */
   savedBookmarks?: SentinelBookmark[];
+  /** The team session: remembers which incidents this browser opened (the unopened badge), across tabs. */
+  sessionKey?: string;
 }
 
 const NAV: { group: string; items: { id: Screen; label: string; icon: typeof Gauge }[] }[] = [
@@ -64,7 +68,7 @@ const SCREEN_TITLE: Record<Screen, string> = {
 
 interface Toast { id: number; kind: "incident" | "error" | "info"; title: string; body?: string; incidentId?: string; severity?: string }
 
-export function SentinelConsole({ workspace: source, states, actions, onRefresh, ended, backHref = "/team", initial, goTo, onBack, paused = false, savedBookmarks = [] }: SentinelConsoleProps) {
+export function SentinelConsole({ workspace: source, states, actions, onRefresh, ended, backHref = "/team", initial, goTo, onBack, paused = false, savedBookmarks = [], sessionKey }: SentinelConsoleProps) {
   const workspace = useMemo(() => tidyWorkspace(source), [source]);
   const [screen, setScreen] = useState<Screen>("incidents");
   const [navCollapsed, setNavCollapsed] = useState(false);
@@ -81,6 +85,9 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [runs, setRuns] = useState<PlaybookRun[]>([]);
   const [looseBookmarks, setLooseBookmarks] = useState<SentinelBookmark[]>([]);
+  // Incidents this viewer opened (review 2026-11: the menu badge counts the unopened ones).
+  const openedStored = useOpenedIncidents(sessionKey);
+  const [openedHere, setOpenedHere] = useState<Set<string>>(() => new Set());
   const logsKey = useRef(0);
   const toastId = useRef(0);
   const knownIds = useRef<Set<string> | null>(null);
@@ -149,9 +156,11 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
     setInvestigateId(null);
     setFocusEntity(opts?.entityId);
     setIncidentId(id);
+    setOpenedHere(o => (o.has(id) ? o : new Set([...o, id])));
+    markOpened(sessionKey, id);
     setFresh(f => { if (!f.has(id)) return f; const n = new Set(f); n.delete(id); return n; });
     setToasts(list => list.filter(t => t.incidentId !== id));
-  }, []);
+  }, [sessionKey]);
   const openInvestigation = useCallback((id: string) => {
     backFromGraph.current = document.activeElement as HTMLElement | null;
     setInvestigateId(id);
@@ -211,13 +220,17 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
     });
   }, [actions, pushToast, report]);
 
-  const runPlaybook = useCallback<SentinelCtx["runPlaybook"]>(async (playbookName, host, incidentTitle) => {
+  const runPlaybook = useCallback<SentinelCtx["runPlaybook"]>(async (playbookName, host, incidentTitle, reason) => {
     let err: string | null;
-    try { err = await actions.setIsolated(host, playbookName === "Isolate device", incidentTitle); }
+    // In a team session isolating needs the senior on shift's approval (2026-11-07): the playbook
+    // sends the request, and the run waits for the answer.
+    const asks = playbookName === "Isolate device" && !!actions.requestIsolation;
+    try { err = asks ? await actions.requestIsolation!(host, reason ?? "", incidentTitle) : await actions.setIsolated(host, playbookName === "Isolate device", incidentTitle); }
     catch (e) { err = e instanceof Error ? e.message : "The playbook could not run."; }
     const run: PlaybookRun = {
       id: `${Date.now()}-${Math.random()}`, at: workspace.now, playbook: playbookName, host, by: actions.me.name, ok: !err,
-      message: err ?? `${playbookName} succeeded on ${host}.`,
+      pending: asks && !err,
+      message: err ?? (asks ? `Request sent. Waiting for approval from ${actions.isolationApprover ?? "the senior on shift"}.` : `${playbookName} succeeded on ${host}.`),
     };
     setRuns(r => [run, ...r].slice(0, 30));
     return run;
@@ -243,6 +256,7 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
   const incident = incidentId ? workspace.incidents.find(i => i.id === incidentId) : undefined;
   const investigated = investigateId ? workspace.incidents.find(i => i.id === investigateId) : undefined;
   const nq = navQ.trim().toLowerCase();
+  const unopened = workspace.incidents.filter(i => !openedStored.has(i.id) && !openedHere.has(i.id) && stateOf(i.id).status !== "Closed").length;
   const covered = !!incident || !!investigated;
   const focused = screen === "entity" && entityFocus ? workspace.entities[entityFocus] : undefined;
   const ScreenIcon = focused ? Fingerprint : (NAV.flatMap(g => g.items).find(i => i.id === screen)?.icon ?? Gauge);
@@ -255,9 +269,12 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
           <span aria-hidden>|</span>
           <span className="st-ellipsis" data-testid="workspace-name">{workspace.name}</span>
           <span className="st-grow" />
-          <span className="st-ellipsis">{actions.me.name}{actions.me.role ? ` (${actions.me.role})` : ""}</span>
-          <a href={backHref} onClick={e => { if (onBack) { e.preventDefault(); onBack(); } }}>SIEM window</a>
+          <span className="st-ellipsis">{actions.me.name}{roleLabel(actions.me.role) ? ` (${roleLabel(actions.me.role)})` : ""}</span>
+          {/* Two windows: this brings the team room tab forward when it is open, and opens it otherwise. */}
+          <a href={backHref} onClick={e => { if (onBack) { e.preventDefault(); onBack(); } }}>Back to team room</a>
         </header>
+        {/* The team room's waiting work, linked back to the SIEM window (UX agent: this strip only). */}
+        {sessionKey && !ended && <TeamWindowStrip sessionId={sessionKey} />}
         {paused && !ended && <div className="st-ended" role="status"><Lock size={13} aria-hidden />The shift is paused. New logs and changes wait until it resumes: queries still run.</div>}
         {ended && <div className="st-ended" role="status"><Lock size={13} aria-hidden />The exercise has ended. This workspace is read-only: queries still run, changes are off.</div>}
         <div className="st-shell">
@@ -284,11 +301,16 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
               return (
                 <div key={g.group}>
                   {!navCollapsed && <div className="st-nav-group"><span>{g.group}</span></div>}
-                  {items.map(i => (
-                    <button key={i.id} type="button" className="st-nav-item" title={i.label} aria-label={navCollapsed ? i.label : undefined} aria-current={screen === i.id ? "page" : undefined} onClick={() => go(i.id)}>
-                      <i.icon size={15} aria-hidden />{!navCollapsed && i.label}
-                    </button>
-                  ))}
+                  {items.map(i => {
+                    const badge = i.id === "incidents" ? unopened : 0;
+                    const name = badge ? `${i.label}, ${badge} unopened` : i.label;
+                    return (
+                      <button key={i.id} type="button" className="st-nav-item" title={name} aria-label={navCollapsed || badge ? name : undefined} aria-current={screen === i.id ? "page" : undefined} onClick={() => go(i.id)}>
+                        <i.icon size={15} aria-hidden />{!navCollapsed && i.label}
+                        {badge > 0 && <span className={`st-nav-badge${navCollapsed ? " dot" : ""}`} aria-hidden>{badge > 99 ? "99+" : badge}</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               );
             })}
@@ -319,22 +341,33 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
             </SlidePanel>
           )}
           {playbook && <PlaybookPanel incidentId={playbook.incidentId} host={playbook.host} onClose={() => setPlaybook(null)} />}
-          <div className="st-toasts" aria-live="polite">
-            {toasts.map(t => (
-              <div key={t.id} className={`st-toast ${t.kind === "error" ? "err" : t.severity ?? ""}`} role={t.kind === "error" ? "alert" : "status"}>
+          {/* Two live regions that are always in the page (a region added together with its message is often
+              not read): new incidents and notes are polite, refusals assertive. */}
+          <div className="st-toasts">
+            <div className="st-toast-region" aria-live="assertive" aria-relevant="additions">
+              {toasts.filter(t => t.kind === "error").map(t => <ToastView key={t.id} t={t} onOpen={openIncident} onDismiss={() => setToasts(l => l.filter(x => x.id !== t.id))} />)}
+            </div>
+            <div className="st-toast-region" aria-live="polite" aria-relevant="additions">
+              {toasts.filter(t => t.kind !== "error").map(t => <ToastView key={t.id} t={t} onOpen={openIncident} onDismiss={() => setToasts(l => l.filter(x => x.id !== t.id))} />)}
+            </div>
+          </div>
+        </div>
+      </div>
+    </SentinelProvider>
+  );
+}
+
+function ToastView({ t, onOpen, onDismiss }: { t: Toast; onOpen: (id: string) => void; onDismiss: () => void }) {
+  return (
+              <div className={`st-toast ${t.kind === "error" ? "err" : t.severity ?? ""}`}>
                 {t.incidentId && <Radar size={14} color="#0078d4" aria-hidden />}
                 {t.kind === "info" && <Eye size={14} color="#0078d4" aria-hidden />}
                 <div className="st-grow">
                   <strong>{t.title}</strong>
                   {t.body && <div className="st-ellipsis" title={t.body} style={{ whiteSpace: t.kind === "error" ? "normal" : undefined }}>{t.body}</div>}
-                  {t.incidentId && <button type="button" className="st-link" onClick={() => openIncident(t.incidentId as string)}>Open incident</button>}
+                  {t.incidentId && <button type="button" className="st-link" onClick={() => onOpen(t.incidentId as string)}>Open incident</button>}
                 </div>
-                <button type="button" className="st-icon-btn" style={{ width: 20, height: 20 }} aria-label="Dismiss notification" onClick={() => setToasts(l => l.filter(x => x.id !== t.id))}><X size={12} aria-hidden /></button>
+                <button type="button" className="st-icon-btn" style={{ width: 24, height: 24 }} aria-label="Dismiss notification" onClick={onDismiss}><X size={12} aria-hidden /></button>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </SentinelProvider>
   );
 }

@@ -4,6 +4,7 @@ import { asStr, hostKey } from "@/lib/team/format";
 import { pausedSpans, activeMs, addActive } from "@/lib/team/pauses";
 import { computeManagerReview } from "./managerReview";
 import { computeForensicReview, type UserForensics } from "./forensicReview";
+import { isolationRequests } from "@/lib/team/isolationApproval";
 
 // ── After-action report — derived entirely from the event log (isomorphic: no React,
 // no server-only imports, so the server computes it once and the client can re-run it).
@@ -20,7 +21,7 @@ import { computeForensicReview, type UserForensics } from "./forensicReview";
 // control at 3–7 direct reports — beyond 7 a single coordinator loses oversight.
 export const OVERLOAD_CASES = 3;
 /** Bumped whenever the report's shape/semantics change (cached reports older than this are stale). */
-export const REPORT_VERSION = 6;   // 3: per-event SLA, misses, team triage metrics · 4: EDR host isolation judged · 5: SOC-Manager Command Review · 6: 2026-10-18 measurement fixes (fair share, walked-past per incident, Tier-1-only disposition measures, read-first, inject answers)
+export const REPORT_VERSION = 7;   // 7: 2026-11 review (self-opened cases, ghosts, containment per incident, shift truth, isolation requests) · 3: per-event SLA, misses, team triage metrics · 4: EDR host isolation judged · 5: SOC-Manager Command Review · 6: 2026-10-18 measurement fixes (fair share, walked-past per incident, Tier-1-only disposition measures, read-first, inject answers)
 /**
  * The Action-required box (inject answers) shipped after the four Team Training exercises of
  * 2026-10-08..17. Sessions that started earlier had no way to answer an update or a management
@@ -97,7 +98,7 @@ const sevRank = (s: string) => SEV_RANK[s.toLowerCase().trim()] ?? 0;
 const slaForSev = (s: string) => SLA_SEC[s.toLowerCase().trim()] ?? 1800;
 /** A catch is "caught well" only at or above these; "partial" needs one of them. */
 const SCOPE_GOOD = 60, SCOPE_PARTIAL = 40;
-export type IncidentGrade = "missed" | "noticed" | "partial" | "caught_well";
+export type IncidentGrade = "missed" | "noticed" | "partial" | "caught_well" | "not_reached";
 /** Something that happened this close to the end of the shift is not judged as a miss (Sdema review 2026-10-25). */
 export const END_GRACE_MS = 5 * 60_000;
 /** Triage SLA per severity — the same table the live alert queue uses (minutes). */
@@ -124,6 +125,8 @@ export interface ReportedItem {
   truth: "attack" | "related" | "benign";
   /** Escalations only: what Tier-2 did with it. */
   outcome?: "resolved" | "acknowledged" | "bounced" | "open";
+  /** Escalations only: opened and acknowledged by the same person (no hand-off, no SLA judgement). */
+  selfOpened?: boolean;
   verdict?: string;
 }
 /** A log worth talking about in the debrief (a miss / a false alarm). */
@@ -148,6 +151,8 @@ export interface MissedAttack {
 /** One EDR network isolation (0082), judged against the answer key. */
 export interface IsolationItem {
   host: string; by: string | null; atS: number | null;
+  /** 0104: the request behind the isolation, and who approved it after how long (running time). */
+  requestedS?: number | null; approvedBy?: string | null; approvalDelayS?: number | null;
   /** When the host was released again (by anyone), if it was. */
   releasedS: number | null;
   /** compromised = the host carried at least one real attack log; clean = it never did. */
@@ -200,6 +205,10 @@ export interface UserReport {
 }
 export interface IncidentReport {
   id: string; label: string; attackEvents: number;
+  /** 0104: the incident's attack hosts and how many of them were isolated (contained = all of them). */
+  hostsTotal?: number; hostsIsolated?: number;
+  /** 0104: the shift ended before any of its alert rows fired (not judged as missed). */
+  notReached?: boolean;
   /** The attack's name (storyline title, or the first log of a standalone attack). */
   name?: string;
   /** MTTR for this incident: first log to contained (isolation / executed containment / case resolved). */
@@ -219,7 +228,50 @@ export interface InjectResult {
   evaluable: boolean; note?: string;
 }
 
-const ROLE_ACTION_TYPES = new Set(["inject.responded", "hunt.logged", "rule.published", "rule.tuned", "intel.published", "handover.noted", "decision.logged", "evidence.pinned", "case.status_set", "case.assigned", "note.added", "containment.executed", "scope.set", "scope.confirmed", "sitrep.sent", "ticket.answered", "escalation.resolved", "elevation.requested", "report.submitted", "decision.answered", "incident.declared", "incident.severity_changed", "stakeholder.replied", "stakeholder.report_sent", "containment.advised"]);
+/** 0104: one isolation request (isolation.requested), its answer and whether isolating that host was right. */
+export interface IsolationRequestItem {
+  host: string; requestedBy: string | null; requestedS: number | null; reason: string;
+  state: "pending" | "approved" | "denied";
+  answeredBy: string | null; answeredS: number | null;
+  /** Request to answer, running time (pending: to the end of the shift). */
+  delayS: number | null;
+  verdict: "compromised" | "clean";
+  /** Asking to isolate a compromised host is right; a clean one is a needless outage. */
+  requestRight: boolean;
+  /** The approver's call: approving a compromised host or denying a clean one. Null while pending. */
+  answerRight: boolean | null;
+}
+/** 0104: what the server planned vs what fired (built by serverReport from session_injects). */
+export interface ShiftPlanRow {
+  incident: string | null; attack: boolean; name?: string;
+  status: "fired" | "skipped" | "pending"; skipReason: string | null;
+  /** Seeded at the start (false = recycled noise added during the shift). */
+  planned: boolean;
+}
+export interface ShiftPlan { plannedMs: number | null; rows: ShiftPlanRow[] }
+/** 0104: the shift's truth for the top of the report. */
+export interface ShiftTruth {
+  plannedMs: number | null; ranMs: number; endedEarly: boolean; endReason: string | null;
+  plannedRows: number; firedRows: number; unfiredRows: number; unfiredAttackRows: number;
+  /** Feed rows the server held back because their host was isolated. */
+  preventedByIsolation: number;
+  /** Attacks with no row fired at all, and attacks stopped before any alert row fired. */
+  attacksNeverStarted: { id: string; name: string }[];
+  attacksNotReached: { id: string; name: string; firedRows: number; unfiredRows: number }[];
+}
+export interface PauseSummary { totalS: number; count: number; list: { atS: number | null; durationS: number; reason: string; by: string | null }[] }
+export interface HotWash {
+  rows: { tS: number; track: "attack" | "response"; label: string; who: string | null }[];
+  moments: { tS: number; title: string; note: string; who: string | null }[];
+  firstAttackS: number | null; firstEscalationS: number | null; dwellS: number | null;
+  contained: boolean; containedS: number | null; denied: boolean;
+}
+export interface HandoffChain {
+  eid: string; title: string; status: "closed" | "open" | "dropped"; selfOpened: boolean;
+  steps: { type: string; who: string | null; atS: number | null; dS: number | null }[];
+}
+
+const ROLE_ACTION_TYPES = new Set(["inject.responded", "hunt.logged", "rule.published", "rule.tuned", "intel.published", "handover.noted", "decision.logged", "evidence.pinned", "case.status_set", "case.assigned", "note.added", "containment.executed", "scope.set", "scope.confirmed", "sitrep.sent", "ticket.answered", "escalation.resolved", "elevation.requested", "report.submitted", "decision.answered", "incident.declared", "incident.severity_changed", "stakeholder.replied", "stakeholder.report_sent", "containment.advised", "isolation.requested", "isolation.approved", "isolation.denied"]);
 
 // ── small helpers ──────────────────────────────────────────────────────────────
 const eidOf = (e: Ev) => { const v = (e.payload as { event_id?: unknown } | null)?.event_id; return v == null ? "" : String(v); };
@@ -402,6 +454,8 @@ interface RubricCtx {
   attackHandling: number | null; benignAcc: number | null; escCount: number; reportCount: number; isoCount: number; contReqCount: number;
   /** Tier-1 isolation recommendations (Tal, 2026-10-27): the host carried real attack activity. */
   isoRecN: number; isoRecRight: number;
+  /** 0104: isolation requests this approver answered with a judgeable call, and the right ones. */
+  isoAnswerN: number; isoAnswerRight: number;
 }
 /** Tier-3 forensic cells: added only when the analyst did forensic work (a hunt-only Tier-3 is not penalised). */
 function forensicCells(f: UserForensics | null): RubricCell[] {
@@ -419,6 +473,11 @@ function updatesCell(c: RubricCtx): RubricCell {
   return { label: "Updates judged right", score: c.updatesPct == null ? null : bandHigh(c.updatesPct, 100, 66, 33), target: "100%",
     value: c.updatesPct == null ? undefined : `${c.updatesAnswered} of ${c.updatesTotal}`,
     note: "a decoy is not an incident, a twist changes the case" };
+}
+function isolationAnswerCell(c: RubricCtx): RubricCell[] {
+  if (!c.isoAnswerN) return [];
+  return [{ label: "Isolation approvals right", score: bandHigh(Math.round((c.isoAnswerRight / c.isoAnswerN) * 100), 100, 75, 50), value: `${c.isoAnswerRight} of ${c.isoAnswerN}`, target: "100%",
+    note: "isolation requests you answered: approving a host with real attack activity, or denying a clean one, is right" }];
 }
 function isolationCell(c: RubricCtx): RubricCell {
   return { label: "Host isolation accuracy", score: c.isoPct == null ? null : bandHigh(c.isoPct, 100, 75, 50), value: c.isoPct == null ? undefined : `${c.isoPct}% of ${c.isoCount} host${c.isoCount === 1 ? "" : "s"}`, target: "100%",
@@ -463,9 +522,9 @@ function roleRubric(c: RubricCtx): RubricCell[] {
       { label: "Time to acknowledge", score: c.ackLatencyMin == null ? null : bandLow(c.ackLatencyMin, 2, 5, 10), value: c.ackLatencyMin == null ? undefined : `${fmtMin(c.ackLatencyMin)} (median)`, target: "≤ 2 min",
         note: "a Tier-1 escalation → a Tier-2/3 picking it up; one nobody picked up counts until the end of the shift" },
       { label: "Time to contain", score: c.containMin == null ? null : bandLow(c.containMin, 5, 10, 20), value: timeVal(c.containMin, c.containN, "cases"), target: "≤ 5 min",
-        note: "your acknowledgment of an attack case → your containment (host isolated in EDR or containment requested); a case on an attacked host nobody contained counts until the end of the shift" },
+        note: "from when the case reached you (you opened one of its attack logs, or picked up or opened the case) → your containment (isolation requested or containment requested); a case on an attacked host nobody contained counts until the end of the shift" },
       { label: "Time to report", score: c.reportMin == null ? null : bandLow(c.reportMin, 10, 20, 30), value: timeVal(c.reportMin, c.reportN, "cases"), target: "≤ 10 min",
-        note: "your acknowledgment of a case → your incident report on it" },
+        note: "from when the case reached you → your incident report on it" },
       isolationCell(c),
       { label: "Scope coverage", score: c.scopeSetDims >= 3 ? 12 : c.scopeSetDims >= 2 ? 8 : c.scopeSetDims >= 1 ? 4 : null, value: c.scopeSetDims ? `${c.scopeSetDims} of 3` : undefined, target: "3 of 3", note: "hosts, users and techniques set in your scope" },
       { label: "Containment with a reason", score: c.contReason == null ? null : bandHigh(c.contReason, 90, 60, 30), value: c.contReason == null ? undefined : `${c.contReason}% of ${c.contReqCount}`, target: "≥ 90%", note: "containment requests that say why" },
@@ -486,12 +545,14 @@ function roleRubric(c: RubricCtx): RubricCell[] {
       isolationCell(c),
       updatesCell(c),
       ...forensicCells(c.forensic),
+      ...isolationAnswerCell(c),
     ];
     case "lead":
     // In the 4-role model the SOC Manager IS the incident coordinator.
     case "mgr": return [
       { label: "Time to organise the team", score: c.caseOwnedMin == null ? null : bandLow(c.caseOwnedMin, 3, 8, 15), value: c.caseOwnedMin == null ? undefined : fmtMin(c.caseOwnedMin), target: "≤ 3 min", note: "shift start → the first case assigned to an owner" },
-      { label: "Time to approve containment", score: c.approvalLatencyMin == null ? null : bandLow(c.approvalLatencyMin, 3, 7, 12), value: c.approvalLatencyMin == null ? undefined : `${fmtMin(c.approvalLatencyMin)} (median)`, target: "≤ 3 min", note: "a containment request → your approval" },
+      { label: "Time to approve containment", score: c.approvalLatencyMin == null ? null : bandLow(c.approvalLatencyMin, 3, 7, 12), value: c.approvalLatencyMin == null ? undefined : `${fmtMin(c.approvalLatencyMin)} (median)`, target: "≤ 3 min", note: "a containment or isolation request → your answer" },
+      ...isolationAnswerCell(c),
       { label: "Decisions with a rationale", score: c.decisionCount === 0 ? null : c.decisionRationaleRate == null ? 4 : bandHigh(c.decisionRationaleRate, 90, 60, 30), value: c.decisionCount ? `${c.decisionRationaleRate ?? 0}% of ${c.decisionCount}` : undefined, target: "≥ 90%" },
       { label: "SITREPs sent", score: c.sitrepCount === 0 ? null : bandHigh(c.sitrepCount, 3, 2, 1), value: c.sitrepCount ? String(c.sitrepCount) : undefined, target: "≥ 3" },
       ...(c.role === "mgr" ? [{ label: "Overload rebalanced", score: c.loadBalanceRate == null ? null : bandHigh(c.loadBalanceRate, 100, 50, 1), value: pctVal(c.loadBalanceRate), target: "100%", note: `analysts who stayed overloaded for ≥${OVERLOAD_MIN_MS / 1000}s that you nudged so the team rebalanced` }] : []),
@@ -511,7 +572,29 @@ function roleRubric(c: RubricCtx): RubricCell[] {
   }
 }
 
-export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { sessionId?: string; publicEvents?: Ev[] | null } = {}) {
+/** A feed row only the server writes about an isolation (0104): telemetry, never graded. */
+const isStatusRow = (e: Ev) => (e.payload as { kind?: unknown } | null)?.kind === "containment_status";
+/** An alert row: a vendor detection, not raw telemetry (0104: an attack stopped before one fired is "not reached"). */
+export function isAlertRow(p: Record<string, unknown>): boolean {
+  if (p.is_detection === true) return true;
+  const et = asStr(p.event_type).toLowerCase();
+  if (/alert|detection|anomaly|signature|incident/.test(et)) return true;
+  return /^alert:/i.test(asStr(p.description).trim());
+}
+/**
+ * A seat that never played (0104): removed before the shift started, or left without
+ * one recorded action. It is not scored and not shown as a player.
+ */
+export function isGhostMember(m: RosterMember, events: Ev[]): boolean {
+  if (m.status !== "left") return false;
+  const started = events.find(e => e.type === "session.started");
+  const removed = events.filter(e => e.type === "member.removed" && String((e.payload as { user_id?: unknown }).user_id ?? "") === m.user_id);
+  if (started && removed.some(e => e.seq < started.seq)) return true;
+  const LOBBY = new Set(["member.ready", "member.unready", "event.opened"]);
+  return !events.some(e => e.actor_id === m.user_id && !LOBBY.has(e.type));
+}
+
+export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { sessionId?: string; publicEvents?: Ev[] | null; plan?: ShiftPlan | null } = {}) {
   // A JSON-null payload on any single event must not crash the whole report — one bad row
   // would otherwise make GET /report a permanent 500 and block XP (Phase 9 P9-04).
   const events: Ev[] = rawEvents.map(e => (e.payload == null ? { ...e, payload: {} } : e));
@@ -524,7 +607,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
   const spans = pausedSpans(events);
   const runMs = (a: number, b: number) => activeMs(a, b, spans);
   const relS = (t: number | null) => (t == null || !Number.isFinite(t) ? null : Math.max(0, Math.round(runMs(startedMs, t) / 1000)));
-  const feed = events.filter(e => e.type === "feed.event");
+  const feed = events.filter(e => e.type === "feed.event" && !isStatusRow(e));
   const fid = (e: Ev) => String((e.payload as { id?: string }).id ?? e.seq);
 
   // ── Ground truth (contract 1). A missing verdict ⇒ benign; a malicious event without
@@ -597,7 +680,16 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
   const escTimes = timesByEid("escalation.requested");
   // A case a Tier-2 / Tier-3 opened themselves (0092): they acknowledge it the same moment, so
   // it is no hand-off, and it must not count toward acknowledge latency / team MTTA.
+  // 0104: also any escalation acknowledged by the person who opened it (8 of 9 in the 2026-11 review):
+  // it is no hand-off for loop closure, SLA, acknowledgement rate or overload.
   const selfOpened = new Set(escReq.filter(e => e.role === "t2" || e.role === "t3").map(eidOf));
+  {
+    const requester = new Map<string, string>();
+    for (const e of events) {
+      if (e.type === "escalation.requested") requester.set(eidOf(e), e.actor_id ?? "");
+      else if (e.type === "escalation.acknowledged" && e.actor_id && requester.get(eidOf(e)) === e.actor_id) selfOpened.add(eidOf(e));
+    }
+  }
   const contTimes = timesByEid("containment.requested");
   const reqBefore = (m: Map<string, number[]>, eid: string, t: number): number | null => {
     const ts = m.get(eid); if (!ts?.length) return null;
@@ -628,7 +720,6 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
   }
   /** A malicious log is "surfaced" when the team escalated it or gave it a TP/suspicious verdict. */
   const flaggedAttack = (eid: string) => escalatedAttack.has(eid) || markedAttack.has(eid);
-  const executedEids = new Set(events.filter(e => e.type === "containment.executed").map(eidOf));
 
   // ── v4: EDR host isolation (0082). A host is COMPROMISED when it carried at least one
   // real attack log; isolating it is right, isolating a clean host is a needless outage.
@@ -652,8 +743,14 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     const host = isoHost(e); const k = hostKey(host);
     const release = isoEvents.slice(i + 1).find(x => x.type === "edr.host_released" && hostKey(isoHost(x)) === k);
     const atk = attackHosts.get(k); const at = tsOf(e);
+    // 0104: the request this isolation came from (payload.request_seq), and its approver.
+    const ip = e.payload as { request_seq?: unknown; approved_by?: unknown };
+    const reqEv = ip.request_seq != null ? events.find(x => x.type === "isolation.requested" && x.seq === Number(ip.request_seq)) : undefined;
+    const reqAt = reqEv ? tsOf(reqEv) : null;
     isoItems.push({
       host, by: e.actor_id, atS: relS(at), releasedS: release ? relS(tsOf(release)) : null,
+      ...(reqEv ? { requestedS: relS(reqAt), approvedBy: ip.approved_by != null ? String(ip.approved_by) : null,
+        approvalDelayS: reqAt != null && at != null ? Math.max(0, Math.round(runMs(reqAt, at) / 1000)) : null } : {}),
       verdict: atk ? "compromised" : "clean", correct: !!atk,
       timeToIsolateS: atk && atk.first != null && at != null ? Math.max(0, Math.round(runMs(atk.first, at) / 1000)) : null,
     });
@@ -661,7 +758,6 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
   /** First isolation per host (by anyone) — the team view; a re-isolation after a release isn't a new decision. */
   const isoFirstByHost = new Map<string, IsolationItem>();
   for (const it of isoItems) if (!isoFirstByHost.has(hostKey(it.host))) isoFirstByHost.set(hostKey(it.host), it);
-  const isolatedIncidents = new Set([...isoFirstByHost.keys()].flatMap(k => [...(attackHosts.get(k)?.incidents ?? [])]));
   // When an incident's host was first isolated (a correct EDR isolation is a detection and a
   // handling action in its own right: Sdema review 2026-10-25, two correctly isolated incidents
   // were graded "missed" because nobody had also escalated a log).
@@ -672,6 +768,26 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     if (!atk || at == null) continue;
     for (const inc of atk.incidents) { const cur = isolatedAtByIncident.get(inc); if (cur == null || at < cur) isolatedAtByIncident.set(inc, at); }
   }
+  // 0104: an incident is CONTAINED by isolation only when every one of its attack hosts was
+  // isolated (one isolated host of a two-host attack is not containment). Time = the last of them.
+  const incidentHosts = new Map<string, Set<string>>();
+  for (const [k, h] of attackHosts) for (const inc of h.incidents) { if (!incidentHosts.has(inc)) incidentHosts.set(inc, new Set()); incidentHosts.get(inc)!.add(k); }
+  const firstIsoAt = new Map<string, number>();
+  for (const e of isoEvents) { if (e.type !== "edr.host_isolated") continue; const k = hostKey(isoHost(e)); const at = tsOf(e); if (at != null && !firstIsoAt.has(k)) firstIsoAt.set(k, at); }
+  const allIsolatedAt = (inc: string): number | null => {
+    const hs = incidentHosts.get(inc); if (!hs || hs.size === 0) return null;
+    let last = -Infinity; for (const k of hs) { const t = firstIsoAt.get(k); if (t == null) return null; last = Math.max(last, t); }
+    return Number.isFinite(last) ? last : null;
+  };
+  // Hand-off escalations of attack logs (0104: a self-opened case is no hand-off for the SLA).
+  const handOffAttack = new Map<string, number>();
+  for (const e of [...escReq.filter(x => !selfOpened.has(eidOf(x))), ...attachReq]) { const eid = eidOf(e); if (!attackIds.has(eid)) continue; const t = tsOf(e) ?? Infinity; if (!handOffAttack.has(eid) || t < handOffAttack.get(eid)!) handOffAttack.set(eid, t); }
+  // 0104: attacks the shift ended before (no alert row fired, planned rows never fired).
+  const planRows = opts.plan?.rows ?? [];
+  const unfiredByIncident = new Map<string, number>();
+  for (const r of planRows) if (r.attack && r.incident && r.status !== "fired" && (r.skipReason == null || r.skipReason === "shift_ended")) unfiredByIncident.set(r.incident, (unfiredByIncident.get(r.incident) ?? 0) + 1);
+  const alertFiredByIncident = new Set<string>();
+  for (const fe of feed) { const tr = truth.get(fid(fe)); if (tr?.isAttack && tr.incident && isAlertRow(fe.payload as Record<string, unknown>)) alertFiredByIncident.add(tr.incident); }
   // The shift's last moment (latest event or the end), needed before endTs is derived below.
   const shiftEndMs = events.reduce((m, e) => Math.max(m, e.occurred_at ? Date.parse(e.occurred_at) : 0), startedMs);
   const incidentList: IncidentReport[] = [...incidents.values()].map(inc => {
@@ -687,7 +803,12 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     // time alone would charge the analyst's report-writing time against the SLA (Phase 9 P9-02).
     const detTs = [escTs, markTs, isoTs].filter((t): t is number => t != null && Number.isFinite(t))
       .reduce<number | null>((a, b) => (a == null || b < a ? b : a), null);
-    const contained = [...executedEids].some(eid => incidentOfEid(eid) === inc.id) || isolatedIncidents.has(inc.id);
+    const allIsoTs = allIsolatedAt(inc.id);
+    const execTs = events.filter(e => e.type === "containment.executed" && incidentOfEid(eidOf(e)) === inc.id).map(tsOf).filter((x): x is number => x != null);
+    const contained = execTs.length > 0 || allIsoTs != null;
+    const hostsTotal = incidentHosts.get(inc.id)?.size ?? 0;
+    const hostsIsolated = [...(incidentHosts.get(inc.id) ?? [])].filter(k => firstIsoAt.has(k)).length;
+    const notReached = !detected && unfiredByIncident.has(inc.id) && !alertFiredByIncident.has(inc.id);
     const detS = detTs != null ? relS(detTs) : null;
     const dwellS = detTs != null && inc.firstSeen != null ? Math.max(0, Math.round(runMs(inc.firstSeen, detTs) / 1000)) : null;
 
@@ -719,12 +840,15 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     // SLA (Tal, 2026-10-26): an incident that needs escalation reaches Tier-2 (escalated, or its host
     // isolated) within ESCALATION_SLA_SEC of its first alert. A mark alone does not meet it; an incident
     // that surfaced in the last SLA window and was not reached yet is not judged.
-    const reachTs = [escTs, isoTs].filter((t): t is number => t != null).reduce<number | null>((a, b) => (a == null || b < a ? b : a), null);
+    const handTs = minOf(handOffAttack);
+    const reachTs = [handTs, isoTs].filter((t): t is number => t != null).reduce<number | null>((a, b) => (a == null || b < a ? b : a), null);
     const slaDwellS = reachTs != null && slaAnchor != null ? Math.max(0, Math.round(runMs(slaAnchor, reachTs) / 1000)) : null;
     const slaOpen = slaAnchor != null && runMs(slaAnchor, shiftEndMs) < slaSec * 1000;
-    const slaMet = slaDwellS != null ? slaDwellS <= slaSec : slaOpen ? null : false;
+    // 0104: reached only through a case its own analyst opened = no hand-off to judge (neither met nor missed).
+    const selfOnly = reachTs == null && escTs != null;
+    const slaMet = notReached || selfOnly ? null : slaDwellS != null ? slaDwellS <= slaSec : slaOpen ? null : false;
     // MTTR: from the first log to the incident contained (isolation, executed containment, or its case resolved).
-    const containTs = [isoTs,
+    const containTs = [allIsoTs,
       ...events.filter(e => (e.type === "containment.executed" || e.type === "escalation.resolved") && incidentOfEid(eidOf(e)) === inc.id).map(tsOf)]
       .filter((t): t is number => t != null).reduce<number | null>((a, b) => (a == null || b < a ? b : a), null);
     const respondS = containTs != null && inc.firstSeen != null ? Math.max(0, Math.round(runMs(inc.firstSeen, containTs) / 1000)) : null;
@@ -736,19 +860,21 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     // no scoping and no containment could follow. A verdict alone caps the grade.
     const handlingScore = !detected ? 0
       : Math.min(reached ? 100 : 55, Math.round(40 + 20 * timeliness + 25 * (coverage / 100) + 15 * verdictQ));
-    const grade: IncidentGrade = !detected ? "missed"
+    const grade: IncidentGrade = notReached ? "not_reached" : !detected ? "missed"
       : (reached && slaMet === true && coverage >= SCOPE_GOOD && verdictQ >= 1) ? "caught_well"
         : (coverage >= SCOPE_PARTIAL || slaMet === true || verdictQ >= 0.5) ? "partial"
           : "noticed";
 
     return {
       id: inc.id, label: inc.label.slice(0, 140), name: inc.name || undefined, attackEvents: inc.attackEids.length, detected, escalated, contained,
+      hostsTotal, hostsIsolated, ...(notReached ? { notReached: true } : {}),
       firstSeenS: relS(inc.firstSeen), detectS: detS, dwellS, respondS,
       scopeCoverage, hostCoverage, techCoverage, maxSeverity, slaSec, slaMet, handlingScore, grade,
     };
   }).sort((a, b) => (a.firstSeenS ?? 0) - (b.firstSeenS ?? 0));
   const incidentsDetected = incidentList.filter(i => i.detected).length;
-  const incidentRecall = pct(incidentsDetected, incidentList.length);
+  const notReachedIds = new Set(incidentList.filter(i => i.notReached).map(i => i.id));
+  const incidentRecall = pct(incidentsDetected, incidentList.length - notReachedIds.size);
   // Graded "good catch" tallies for the team headline.
   const incidentsCaughtWell = incidentList.filter(i => i.grade === "caught_well").length;
   const incidentsPartial = incidentList.filter(i => i.grade === "partial").length;
@@ -779,7 +905,9 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     return vals.length ? Math.round((vals.reduce((s, n) => s + n, 0) / vals.length) * 100) : null;
   };
 
-  const players = roster.filter(r => r.role !== "instructor" && r.role !== "observer");
+  // 0104: a seat removed before the start, or that left with no action, is not a player (ghost).
+  const ghosts = new Set(roster.filter(r => isGhostMember(r, events)).map(r => r.user_id));
+  const players = roster.filter(r => r.role !== "instructor" && r.role !== "observer" && !ghosts.has(r.user_id));
 
   // ── Work-division / backup metrics (one ordered pass over the log) ────────────
   // Reconstructs each analyst's live load to detect: (a) T1 take-overs — credited ONLY
@@ -826,6 +954,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       staleClaim.delete(eid);
     } else if (e.type === "escalation.acknowledged") {
       const eid = eidOf(e); const who = e.actor_id ?? ""; if (!eid) continue;
+      if (selfOpened.has(eid)) continue;   // 0104: a case you opened yourself is no hand-off and no overload
       // Explicit backup take-over (0073 `takeover: true`) moves the case — same rule
       // as the live board's openLoadByUser; a plain second ack no longer happens.
       const prevOwner = caseOwner.get(eid);
@@ -969,6 +1098,18 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     const a = ts.length ? Math.min(...ts) : inc.firstSeen; if (a != null) incAnchor.set(inc.id, a);
   }
   const incHasHost = new Set([...attackHosts.values()].flatMap(h => [...h.incidents]));
+  // 0104: every isolation request, its answer and the delay, judged by the isolation rule.
+  const isoRequests: IsolationRequestItem[] = isolationRequests(events).map(r => {
+    const at = r.at ? Date.parse(r.at) : null; const ans = r.answeredAt ? Date.parse(r.answeredAt) : null;
+    const compromised = attackHosts.has(hostKey(r.host));
+    return {
+      host: r.host, requestedBy: r.requestedBy, requestedS: relS(at), reason: r.reason.slice(0, 300), state: r.state,
+      answeredBy: r.answeredBy, answeredS: relS(ans),
+      delayS: at == null ? null : Math.max(0, Math.round(runMs(at, ans ?? endTs) / 1000)),
+      verdict: compromised ? "compromised" : "clean", requestRight: compromised,
+      answerRight: r.state === "pending" ? null : r.state === "approved" ? compromised : !compromised,
+    };
+  });
   const incContained = new Set(incidentList.filter(i => i.contained).map(i => i.id));
   const perUser: UserReport[] = players.map(m => {
     const mine = events.filter(e => e.actor_id === m.user_id);
@@ -1091,7 +1232,8 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     const contribution = Math.min(100, opened * 3 + distinctDisp * 6 + esc.length * 15 + acks * 10 + myContReq.length * 15 + contDecided * 20 + roleActions * 15);
 
     const escPrecision = esc.length ? precisionOf(esc) : null;
-    const escAckRate = esc.length ? pct(esc.filter(e => { const id = eidOf(e); return escAckedIds.has(id) || escBouncedIds.has(id); }).length, esc.length) : null;
+    const handEsc = esc.filter(e => !selfOpened.has(eidOf(e)));
+    const escAckRate = handEsc.length ? pct(handEsc.filter(e => { const id = eidOf(e); return escAckedIds.has(id) || escBouncedIds.has(id); }).length, handEsc.length) : null;
     const triageMin = median(disp.map(d => {
       const eid = eidOf(d); const sev = feedSev.get(eid); if (sev !== "high" && sev !== "critical") return null;
       const ft = feedTs.get(eid); const dt = tsOf(d);
@@ -1108,10 +1250,11 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
         .map(([, ts]) => ts[0]).filter(t => !tooLate(t)).map(t => runMs(t, endTs) / 60000)
       : [];
     const ackLatencyMin = median([...ackedWaits, ...unpickedWaits]);
-    const approvalLatencyMin = median(mine.filter(e => e.type === "containment.approved").map(e => {
+    const myIsoAnswers = isoRequests.filter(r => r.answeredBy === m.user_id);
+    const approvalLatencyMin = median([...mine.filter(e => e.type === "containment.approved").map(e => {
       const at = tsOf(e); if (at == null) return null; const rt = reqBefore(contTimes, eidOf(e), at);
       return rt != null ? runMs(rt, at) / 60000 : null;
-    }).filter((x): x is number => x != null && x >= 0));
+    }), ...myIsoAnswers.map(r => (r.delayS != null ? r.delayS / 60 : null))].filter((x): x is number => x != null && x >= 0));
 
     // T3 hunts.
     const hunts = mine.filter(e => e.type === "hunt.logged");
@@ -1210,8 +1353,8 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       const responseS = arr != null ? Math.max(0, Math.round(runMs(arr, t) / 1000)) : null;
       return {
         label: labelOf(eid), severity: sev, kind, arrivedS: relS(arr), actedS: relS(t), responseS, slaS,
-        withinSla: responseS == null ? null : responseS <= slaS, truth: truthClass(eid),
-        ...(kind === "escalation" ? { outcome: escOutcome(eid) } : {}), ...(verdict ? { verdict } : {}),
+        withinSla: responseS == null || (kind === "escalation" && selfOpened.has(eid)) ? null : responseS <= slaS, truth: truthClass(eid),
+        ...(kind === "escalation" ? { outcome: escOutcome(eid), ...(selfOpened.has(eid) ? { selfOpened: true } : {}) } : {}), ...(verdict ? { verdict } : {}),
       };
     };
     const reportedAll = [
@@ -1245,20 +1388,29 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     // Tier-2 contain / report: per attack case this analyst acknowledged.
     const myAck = new Map<string, number>();
     for (const e of mine) if (e.type === "escalation.acknowledged") firstAt(myAck, incidentOfEid(eidOf(e)), tsOf(e));
+    // 0104: a case you opened yourself is yours from that moment too.
+    for (const e of esc) if (selfOpened.has(eidOf(e))) firstAt(myAck, incidentOfEid(eidOf(e)), tsOf(e));
     const myContainAt = new Map<string, number>();
     for (const e of mine) {
       if (e.type === "containment.requested") firstAt(myContainAt, incidentOfEid(eidOf(e)), tsOf(e));
-      else if (e.type === "edr.host_isolated") for (const inc of attackHosts.get(hostKey(isoHost(e)))?.incidents ?? []) firstAt(myContainAt, inc, tsOf(e));
+      else if (e.type === "edr.host_isolated" || e.type === "isolation.requested") for (const inc of attackHosts.get(hostKey(isoHost(e)))?.incidents ?? []) firstAt(myContainAt, inc, tsOf(e));
     }
+    // When each case REACHED this analyst (0104): the first of their opening one of its attack logs,
+    // acknowledging or opening the case, or acting on it. A late self-acknowledgement no longer
+    // restarts the clock (review: "Time to contain 0s" for a host isolated 1:40 before the ack).
+    const myReach = new Map<string, number>(myAck);
+    for (const e of openedEvents) if (attackIds.has(eidOf(e))) firstAt(myReach, incidentOfEid(eidOf(e)), tsOf(e));
+    for (const [inc, ct] of myContainAt) if (myAck.has(inc)) firstAt(myReach, inc, ct);
     const myReportAt = new Map<string, number>();
     for (const e of mine) if (e.type === "report.submitted") firstAt(myReportAt, incidentOfEid(eidOf(e)), tsOf(e));
-    const containTimes = m.role === "t2" ? [...myAck].map(([inc, at]) => {
+    const containTimes = m.role === "t2" ? [...myAck].map(([inc]) => {
+      const at = myReach.get(inc)!;
       const ct = myContainAt.get(inc);
       if (ct != null) return Math.max(0, runMs(at, ct)) / 60000;
       // Nobody contained an attack case on a real host: the wait runs to the end of the shift.
       return incHasHost.has(inc) && !incContained.has(inc) && !tooLate(at) ? runMs(at, endTs) / 60000 : null;
     }).filter((x): x is number => x != null) : [];
-    const reportTimes = m.role === "t2" ? [...myAck].map(([inc, at]) => { const rt = myReportAt.get(inc); return rt != null && rt >= at ? runMs(at, rt) / 60000 : null; }).filter((x): x is number => x != null) : [];
+    const reportTimes = m.role === "t2" ? [...myAck].map(([inc]) => { const at = myReach.get(inc)!; const rt = myReportAt.get(inc); return rt != null && rt >= at ? runMs(at, rt) / 60000 : null; }).filter((x): x is number => x != null) : [];
 
     // Tier-1 isolation recommendations, one per host (Tal, 2026-10-27).
     const isoRecs = [...new Set(esc.filter(e => (e.payload as { recommend_isolation?: unknown }).recommend_isolation === true).map(e => asStr((e.payload as { hostname?: unknown }).hostname).trim()).filter(Boolean))];
@@ -1266,8 +1418,13 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     // ── v4: hosts this analyst isolated (first isolation per host), judged.
     const myIso: IsolationItem[] = [];
     for (const it of isoItems) if (it.by === m.user_id && !myIso.some(x => hostKey(x.host) === hostKey(it.host))) myIso.push(it);
-    const isoCorrect = myIso.filter(x => x.correct).length;
-    const isoPct = pct(isoCorrect, myIso.length);
+    // 0104: a request is the analyst's decision, approved or not: judged by the same rule.
+    const myIsoHosts = new Map<string, boolean>(myIso.map(x => [hostKey(x.host), x.correct]));
+    for (const r of isoRequests) if (r.requestedBy === m.user_id && !myIsoHosts.has(hostKey(r.host))) myIsoHosts.set(hostKey(r.host), r.requestRight);
+    const isoCorrect = [...myIsoHosts.values()].filter(Boolean).length;
+    const isoPct = pct(isoCorrect, myIsoHosts.size);
+    const isoAnswerN = myIsoAnswers.filter(r => r.answerRight != null).length;
+    const isoAnswerRight = myIsoAnswers.filter(r => r.answerRight === true).length;
 
     const rubric = roleRubric({
       role: m.role, dispAcc, dispNoAttack, attackNotHandedOff, loadSharePct, loadHandled, loadFair, escAckRate, escPrecision, escQuality, triageMin, dwellTooShort, ackLatencyMin, approvalLatencyMin,
@@ -1285,7 +1442,8 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       escalateMin: isT1 ? median(escalateTimes) : null, escalateN: escalateTimes.length,
       containMin: median(containTimes), containN: containTimes.length, reportMin: median(reportTimes), reportN: reportTimes.length,
       isoRecN: isoRecs.length, isoRecRight: isoRecs.filter(h => attackHosts.has(hostKey(h))).length,
-      attackHandling, benignAcc, escCount: esc.length, reportCount: reports.length, isoCount: myIso.length, contReqCount: myContReq.length,
+      attackHandling, benignAcc, escCount: esc.length, reportCount: reports.length, isoCount: myIsoHosts.size, contReqCount: myContReq.length,
+      isoAnswerN, isoAnswerRight,
     });
     const measuredCells = rubric.filter(c => c.score != null).length;
     return {
@@ -1315,9 +1473,10 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
   // MTTD is measured from the first attack log reaching the feed, not from shift start — a warm-up
   // of benign traffic before the attack must not be charged to the team (diagnostic P1).
   const firstAttackFeedMs = Math.min(...[...attackIds].map(id => feedTs.get(id)).filter((t): t is number => t != null), Infinity);
-  const timeToDetectS = Number.isFinite(firstDetect)
-    ? (Number.isFinite(firstAttackFeedMs) ? Math.max(0, Math.round(runMs(firstAttackFeedMs, firstDetect) / 1000)) : relS(firstDetect))
-    : null;
+  // 0104: never spans two attacks. The median over incidents of each one's own first log → its own detection.
+  void firstAttackFeedMs;
+  const timeToDetectS = incMttdS != null ? Math.round(incMttdS)
+    : Number.isFinite(firstDetect) && !incidentList.length ? relS(firstDetect) : null;
   // Team disposition accuracy over DISTINCT logs (latest verdict, suspicious = partial).
   const teamLatestVerdict = new Map<string, string>();
   for (const d of dispEvents) teamLatestVerdict.set(eidOf(d), verdictOf(d));
@@ -1326,7 +1485,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
 
   // Handoff loop closure: an escalated log is CLOSED once a Tier-2 acknowledged, bounced
   // (an explicit answer back to T1) or resolved it. Set-based, junk ids excluded.
-  const escEidSet = new Set(escReq.map(eidOf).filter(validEid));
+  const escEidSet = new Set(escReq.map(eidOf).filter(eid => validEid(eid) && !selfOpened.has(eid)));
   const loopClosurePct = pct([...escEidSet].filter(id => escAckedIds.has(id) || escBouncedIds.has(id) || escResolvedIds.has(id)).length, escEidSet.size);
 
   // MTTR: median Δ(FIRST escalation → escalation.resolved) per resolved log.
@@ -1452,11 +1611,11 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
   // Attack logs nobody touched — the team's blind spots. An incident may still have been
   // caught through another of its logs; the note says so.
   const incidentDetected = new Map(incidentList.map(i => [i.id, i.detected] as const));
-  const missedAttackLogs = attackList.filter(eid => !firstTriage.has(eid))
+  const missedAttackLogs = attackList.filter(eid => !firstTriage.has(eid) && !notReachedIds.has(truth.get(eid)?.incident ?? ""))
     .sort((a, b) => (feedTs.get(a) ?? 0) - (feedTs.get(b) ?? 0))
     .map(eid => { const inc = truth.get(eid)?.incident; const caught = inc ? incidentDetected.get(inc) : false; return missItem(eid, caught ? "its incident was caught through another log" : "its incident was not caught"); });
   // The same blind spots per attack (Tal, 2026-10-27): only attacks nobody caught, each by its main log.
-  const missedAttacks: MissedAttack[] = [...incidents.values()].filter(inc => incidentDetected.get(inc.id) === false).map(inc => {
+  const missedAttacks: MissedAttack[] = [...incidents.values()].filter(inc => incidentDetected.get(inc.id) === false && !notReachedIds.has(inc.id)).map(inc => {
     const main = inc.attackEids.reduce((best, e) => {
       const d = sevRank(sevOf(e)) - sevRank(sevOf(best));
       return d > 0 || (d === 0 && (feedTs.get(e) ?? Infinity) < (feedTs.get(best) ?? Infinity)) ? e : best;
@@ -1501,9 +1660,15 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     // ── "Good catch" grading (per incident, built from several logs) ──
     incidentsCaughtWell, incidentsPartial, incidentsNoticed, incidentsMissed,
     avgScopeCoverage, avgHandlingScore,
-    escalations: escReq.length, acknowledged: events.filter(e => e.type === "escalation.acknowledged").length,
-    containmentReq: events.filter(e => e.type === "containment.requested").length,
-    contained: events.filter(e => e.type === "containment.approved").length,
+    // 0104: acknowledged counts hand-offs only; a case opened and acknowledged by the same person is self-opened.
+    escalations: escReq.length, acknowledged: events.filter(e => e.type === "escalation.acknowledged" && !selfOpened.has(eidOf(e))).length,
+    selfOpened: new Set(escReq.map(eidOf).filter(eid => selfOpened.has(eid))).size,
+    containmentReq: events.filter(e => e.type === "containment.requested").length + isoRequests.length,
+    // 0104: incidents contained (every attack host isolated, or a containment executed), of those that reached the feed.
+    contained: incidentList.filter(i => i.contained).length,
+    containedOf: incidentList.filter(i => !i.notReached).length,
+    containmentApproved: events.filter(e => e.type === "containment.approved").length + isoRequests.filter(r => r.state === "approved").length,
+    isolationRequests: isoRequests.slice(0, 20),
     executed: execEvents.length, mttcS: mttcS != null ? Math.round(mttcS) : null,
     dispTotal: dispDistinct, dispAcc: dispDistinct ? Math.round((teamCredit / dispDistinct) * 100) : null,
     loopClosure: loopClosurePct,
@@ -1540,6 +1705,95 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       .sort((a, b) => (a[1].first ?? 0) - (b[1].first ?? 0))
       .map(([, h]): MissedHost => ({ host: h.host, attackLogs: h.logs, firstAttackS: relS(h.first) })).slice(0, 10),
   };
+  // ── 0104: the shift's truth, the pauses and the timelines, all on running time ──
+  const pauseList = spans.map(sp => {
+    const ev = events.find(e => e.type === "session.paused" && tsOf(e) === sp.start);
+    const pl = (ev?.payload ?? {}) as { reason?: unknown; by?: unknown };
+    return { atS: relS(sp.start), durationS: Math.round((sp.end - sp.start) / 1000), reason: asStr(pl.reason) || "manual", by: pl.by != null ? String(pl.by) : null };
+  });
+  const pauses: PauseSummary = { totalS: pauseList.reduce((s, x) => s + x.durationS, 0), count: pauseList.length, list: pauseList.slice(0, 20) };
+  const endReason = asStr((ended?.payload as { reason?: unknown } | undefined)?.reason) || null;
+  const ranMs = Math.max(0, runMs(startedMs, endTs));
+  const plan = opts.plan ?? null;
+  const plannedRowsAll = (plan?.rows ?? []).filter(r => r.planned);
+  const incName = (id: string) => (incidents.get(id)?.name || plan?.rows.find(r => r.incident === id && r.name)?.name || id).slice(0, 140);
+  const firedByInc = new Map<string, number>(); const unfiredByInc = new Map<string, number>();
+  for (const r of plannedRowsAll) {
+    if (!r.attack || !r.incident) continue;
+    if (r.status === "fired") firedByInc.set(r.incident, (firedByInc.get(r.incident) ?? 0) + 1);
+    else if (r.skipReason == null || r.skipReason === "shift_ended") unfiredByInc.set(r.incident, (unfiredByInc.get(r.incident) ?? 0) + 1);
+  }
+  const shift: ShiftTruth | null = plan ? {
+    plannedMs: plan.plannedMs, ranMs,
+    endedEarly: plan.plannedMs != null && ranMs < plan.plannedMs - 60_000,
+    endReason,
+    plannedRows: plannedRowsAll.length,
+    firedRows: plannedRowsAll.filter(r => r.status === "fired").length,
+    unfiredRows: plannedRowsAll.filter(r => r.status !== "fired" && (r.skipReason == null || r.skipReason === "shift_ended")).length,
+    unfiredAttackRows: plannedRowsAll.filter(r => r.attack && r.status !== "fired" && (r.skipReason == null || r.skipReason === "shift_ended")).length,
+    preventedByIsolation: (plan.rows ?? []).filter(r => (r.skipReason ?? "").startsWith("isolated:")).length,
+    attacksNeverStarted: [...unfiredByInc.keys()].filter(id => !firedByInc.has(id) && !incidents.has(id)).map(id => ({ id, name: incName(id) })),
+    attacksNotReached: incidentList.filter(i => i.notReached).map(i => ({ id: i.id, name: incName(i.id), firedRows: firedByInc.get(i.id) ?? i.attackEvents, unfiredRows: unfiredByInc.get(i.id) ?? 0 })),
+  } : null;
+
+  // Hot-wash (pause-aware): attack activity vs the team's response. An EDR isolation is containment.
+  const HOT_LABEL: Record<string, string> = {
+    "escalation.requested": "escalated", "escalation.acknowledged": "acknowledged", "escalation.bounced": "bounced back",
+    "elevation.requested": "elevated to Tier-3", "containment.requested": "requested containment", "containment.approved": "approved containment",
+    "containment.denied": "denied containment", "containment.executed": "executed containment", "isolation.requested": "asked to isolate a host",
+    "isolation.approved": "approved an isolation", "isolation.denied": "denied an isolation", "edr.host_isolated": "host isolated in EDR",
+    "edr.host_released": "host released", "decision.logged": "logged a decision", "sitrep.sent": "sent a SITREP", "scope.confirmed": "confirmed scope",
+    "report.submitted": "filed an incident report", "incident.declared": "declared an incident",
+  };
+  const hotRows: HotWash["rows"] = [];
+  for (const e of events) {
+    const at = relS(tsOf(e)); if (at == null) continue;
+    if (e.type === "feed.event" && !isStatusRow(e) && attackIds.has(fid(e))) hotRows.push({ tS: at, track: "attack", label: (truth.get(fid(e))?.label ?? "attack activity").slice(0, 140), who: null });
+    else if (HOT_LABEL[e.type] && (e.actor_id || e.type === "edr.host_isolated")) {
+      const host = e.type.startsWith("edr.") || e.type.startsWith("isolation.") ? asStr((e.payload as { host?: unknown }).host) : "";
+      hotRows.push({ tS: at, track: "response", label: host ? `${HOT_LABEL[e.type]}: ${host}` : HOT_LABEL[e.type], who: e.actor_id });
+    }
+  }
+  hotRows.sort((a, b) => a.tS - b.tS);
+  const firstEscEv = events.find(e => e.type === "escalation.requested");
+  const firstAttackS = Number.isFinite(firstAttackFeedMs) ? relS(firstAttackFeedMs) : null;
+  const firstContain = events.find(e => e.type === "edr.host_isolated" || e.type === "containment.executed");
+  const firstIsoReq = events.find(e => e.type === "isolation.requested");
+  const firstDecision = events.find(e => e.type === "containment.approved" || e.type === "containment.denied" || e.type === "isolation.approved" || e.type === "isolation.denied");
+  const moments: HotWash["moments"] = [];
+  const firstEscS = firstEscEv ? relS(tsOf(firstEscEv)) : null;
+  if (firstEscEv && firstEscS != null) moments.push({ tS: firstEscS, title: selfOpened.has(eidOf(firstEscEv)) ? "First case opened (self-opened)" : "First escalation", note: firstAttackS != null && firstEscS >= firstAttackS ? `${fmtMin((firstEscS - firstAttackS) / 60)} after the first attack log reached the feed.` : "", who: firstEscEv.actor_id });
+  if (firstIsoReq) moments.push({ tS: relS(tsOf(firstIsoReq)) ?? 0, title: "Isolation requested", note: asStr((firstIsoReq.payload as { host?: unknown }).host), who: firstIsoReq.actor_id });
+  if (firstDecision) moments.push({ tS: relS(tsOf(firstDecision)) ?? 0, title: /approved/.test(firstDecision.type) ? (firstDecision.type.startsWith("isolation") ? "Isolation approved" : "Containment approved") : (firstDecision.type.startsWith("isolation") ? "Isolation denied" : "Containment denied"), note: "", who: firstDecision.actor_id });
+  if (firstContain) moments.push({ tS: relS(tsOf(firstContain)) ?? 0, title: "Host isolated", note: asStr((firstContain.payload as { host?: unknown }).host), who: firstContain.actor_id });
+  moments.sort((a, b) => a.tS - b.tS);
+  const hotWash: HotWash = {
+    rows: hotRows.slice(0, 200), moments,
+    firstAttackS, firstEscalationS: firstEscS,
+    dwellS: firstAttackS != null && firstEscS != null && firstEscS >= firstAttackS ? firstEscS - firstAttackS : null,
+    contained: !!firstContain, containedS: firstContain ? relS(tsOf(firstContain)) : null,
+    denied: !firstContain && events.some(e => e.type === "containment.denied" || e.type === "isolation.denied"),
+  };
+
+  // Hand-off chains per escalated log, with pause-aware hop delays.
+  const HOP = new Set(["escalation.requested", "escalation.acknowledged", "escalation.bounced", "elevation.requested", "elevation.acknowledged",
+    "containment.requested", "containment.approved", "containment.denied", "containment.executed", "escalation.resolved"]);
+  const chainsByEid = new Map<string, Ev[]>();
+  for (const e of events) { if (!HOP.has(e.type)) continue; const eid = eidOf(e); if (!validEid(eid)) continue; if (!chainsByEid.has(eid)) chainsByEid.set(eid, []); chainsByEid.get(eid)!.push(e); }
+  const handoffChains: HandoffChain[] = [];
+  for (const [eid, hops] of chainsByEid) {
+    const start = hops.find(h => h.type === "escalation.requested"); if (!start) continue;
+    const sorted = [...hops].sort((a, b) => a.seq - b.seq);
+    const acked = sorted.some(h => h.type === "escalation.acknowledged");
+    const closed = sorted.some(h => h.type === "escalation.resolved" || h.type === "containment.executed" || h.type === "escalation.bounced");
+    let prev = tsOf(start);
+    const steps = sorted.map(h => { const at = tsOf(h); const dS = prev != null && at != null ? Math.max(0, Math.round(runMs(prev, at) / 1000)) : null; prev = at ?? prev; return { type: h.type, who: h.actor_id, atS: relS(at), dS }; });
+    const sp = start.payload as { summary?: unknown; what?: unknown };
+    handoffChains.push({ eid, title: (asStr(sp.summary) || asStr(sp.what) || "escalated case").slice(0, 140), status: closed ? "closed" : !acked ? "dropped" : "open", selfOpened: selfOpened.has(eid), steps });
+  }
+  handoffChains.sort((a, b) => (a.status === "dropped" ? 0 : 1) - (b.status === "dropped" ? 0 : 1) || b.steps.length - a.steps.length);
+  const teamOut = { ...team, pauses, shift, hotWash, handoffChains: handoffChains.slice(0, 12), ghosts: ghosts.size };
+
   // SOC Manager: a separate Command Review (decision quality, stakeholders, reporting), not the analyst card.
   const isolatedAt = new Map<string, number>();
   for (const e of isoEvents) {
@@ -1548,10 +1802,10 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     if (t != null && !isolatedAt.has(k)) isolatedAt.set(k, t);
   }
   const managerReview = computeManagerReview({
-    events, roster, startedMs, endMs: endTs, runMs, relS,
+    events, roster: roster.filter(r => !ghosts.has(r.user_id)), startedMs, endMs: endTs, runMs, relS,
     truthOf: eid => truth.get(eid),
     incidents: incidentList.map(i => ({ id: i.id, maxSeverity: i.maxSeverity, known: i.escalated || i.contained })),
     avgHandlingScore, handoffLatS, isolatedAt, hostKey, loadBalanceRate,
   });
-  return { team, perUser, managerReview };
+  return { team: teamOut, perUser, managerReview };
 }

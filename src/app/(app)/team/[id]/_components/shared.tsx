@@ -26,5 +26,12 @@ export function enrichSnapshot(snap: Record<string, unknown> | undefined): LiveE
 // Triage SLA by severity — defined once with the alert queue.
 export { slaMinFor } from "@/lib/team/alertQueue";
 export function Metric({ label, value, tone }: { label: string; value: string; tone?: "good" | "warn" }) {
-  return <div className="rounded-lg border border-border bg-bg px-3 py-2"><p className="text-[10px] uppercase tracking-wider text-slate-400">{label}</p><p className={`mt-0.5 font-mono text-lg font-bold ${tone === "good" ? "text-neon-green" : tone === "warn" ? "text-neon-amber" : "text-white"}`}>{value}</p></div>;
+  return <div className="rounded-lg border border-border bg-bg px-3 py-2"><p className="text-[11px] uppercase tracking-wider text-slate-400">{label}</p><p className={`mt-0.5 font-mono text-lg font-bold ${tone === "good" ? "text-neon-green" : tone === "warn" ? "text-neon-amber" : "text-white"}`}>{value}</p></div>;
 }
+
+/**
+ * The ONE containment rule (2026-11 review: lobby, guide, tour and console each said it differently;
+ * owner 2026-11-07: isolating needs the senior on shift). Every surface quotes this text.
+ */
+export const CONTAINMENT_RULE = "Contain only what your filed report and scope support, and only with approval: the senior on shift (the SOC Manager, otherwise a Tier-3, otherwise the instructor) approves before a host is isolated or an account is disabled.";
+export const CONTAINMENT_RULE_SHORT = "Report and scope first, then the senior on shift approves the containment.";

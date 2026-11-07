@@ -21,7 +21,7 @@ export function FeedFilterBar({
       <div className="flex items-center gap-1" role="group" aria-label="Severity filter">
         {SEV.map(s => (
           <button key={s.k} onClick={() => setSeverity(s.k)} aria-pressed={severity === s.k}
-            className={`rounded px-2 py-0.5 text-[10px] font-semibold transition ${severity === s.k ? "border border-cyber-500/40 bg-cyber-500/20 text-cyber-300" : "border border-transparent text-slate-400 hover:text-slate-200"}`}>{s.label}</button>
+            className={`rounded px-2 py-0.5 text-[11px] font-semibold transition ${severity === s.k ? "border border-cyber-500/40 bg-cyber-500/20 text-cyber-300" : "border border-transparent text-slate-400 hover:text-slate-200"}`}>{s.label}</button>
         ))}
       </div>
       <select aria-label="Source filter" value={source} onChange={e => setSource(e.target.value)}
@@ -35,7 +35,7 @@ export function FeedFilterBar({
       </div>
       {activePivots.map(([field, value, setter]) => (
         <button key={field} onClick={() => setter("all")} title="Clear this filter" aria-label={`Clear filter ${field}: ${value}`}
-          className="flex items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 text-[10px] font-mono text-cyber-300 hover:bg-cyber-500/20">
+          className="flex items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 text-[11px] font-mono text-cyber-300 hover:bg-cyber-500/20">
           {field}:{value} <X className="h-3 w-3" aria-hidden="true" />
         </button>
       ))}

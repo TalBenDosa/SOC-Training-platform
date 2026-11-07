@@ -37,7 +37,7 @@ export function MgrConsole({ roster, events, act }: { roster: RosterMember[]; ev
       <div className="mt-2 space-y-1">
         {workload.map(w => (
           <div key={w.user_id} className="flex items-center justify-between text-xs">
-            <span className="text-slate-300"><bdi>{w.name}</bdi> <span className="font-mono text-[10px] text-slate-500">{ROLE_LABEL[w.role] ?? w.role}</span></span>
+            <span className="text-slate-300"><bdi>{w.name}</bdi> <span className="font-mono text-[11px] text-slate-500">{ROLE_LABEL[w.role] ?? w.role}</span></span>
             <span className="font-mono text-slate-400"><b className={w.open >= 3 ? "text-neon-amber" : "text-slate-300"}>{w.open} open</b> · <span className="text-slate-500">{w.actions} actions</span></span>
           </div>
         ))}

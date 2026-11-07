@@ -6,7 +6,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { SentinelConsole, type SentinelConsoleProps } from "./SentinelConsole";
 import { fakeActions, fixtureState, fixtureWorkspace, INCIDENTS } from "./fixture";
 import { CLASSIFICATIONS, explorationsFor, queryBlockAt, toCsv, whereClause } from "./helpers";
-import type { IncidentState, SentinelIncident } from "@/lib/sentinel/types";
+import type { IncidentState, SentinelActions, SentinelIncident } from "@/lib/sentinel/types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -54,7 +54,9 @@ function setValue(e: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
 const key = (e: Element, k: string, init: KeyboardEventInit = {}) => act(() => { e.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...init })); });
 const settle = () => act(async () => { await new Promise(r => setTimeout(r, 8)); });
 
-const nav = (name: string) => click(all<HTMLButtonElement>(".st-nav-item").find(b => b.textContent === name)!);
+/** A menu item's label without its unopened-incidents badge. */
+const navLabel = (b: Element) => [...b.childNodes].filter(n => !(n instanceof Element && n.classList.contains("st-nav-badge"))).map(n => n.textContent).join("");
+const nav = (name: string) => click(all<HTMLButtonElement>(".st-nav-item").find(b => navLabel(b) === name)!);
 const editor = () => q<HTMLTextAreaElement>("[data-testid=kql-input]")!;
 async function runInLogs(query: string) {
   nav("Logs");
@@ -68,10 +70,64 @@ const incidentRows = () => all('table[aria-label="Incidents"] tbody tr');
 describe("shell", () => {
   it("has the requested menu and nothing else", () => {
     mount();
-    expect(all(".st-nav-item").map(b => b.textContent)).toEqual(["Overview", "Logs", "Search", "Incidents", "Hunting", "Entity behavior", "Threat intelligence", "Analytics", "Automation"]);
+    expect(all(".st-nav-item").map(navLabel)).toEqual(["Overview", "Logs", "Search", "Incidents", "Hunting", "Entity behavior", "Threat intelligence", "Analytics", "Automation"]);
     expect(all(".st-nav-group").map(b => b.textContent)).toEqual(["General", "Threat management", "Configuration"]);
     expect(text()).toContain("contoso-sentinel-prod");
-    expect(q<HTMLAnchorElement>(".st-topbar a")!.textContent).toBe("SIEM window");
+    // Review 2026-11: the seat in words, and the link says where it goes (it keeps the two-window behaviour).
+    expect(q<HTMLAnchorElement>(".st-topbar a")!.textContent).toBe("Back to team room");
+    expect(q(".st-topbar")!.textContent).toContain("Tal Analyst (Tier-2)");
+    expect(q(".st-topbar")!.textContent).not.toContain("(t2)");
+  });
+
+  it("Back to team room brings the team room forward when a window handler is given", () => {
+    const onBack = vi.fn();
+    mount({ onBack, backHref: "/team/s1" });
+    const a = q<HTMLAnchorElement>(".st-topbar a")!;
+    expect(a.getAttribute("href")).toBe("/team/s1");
+    click(a);
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it("the Incidents badge counts the incidents this viewer has not opened, and remembers them per session", () => {
+    try { window.localStorage.clear(); } catch { /* none */ }
+    mount({ sessionKey: "sess-1" });
+    const badge = () => q(".st-nav-badge")?.textContent ?? null;
+    const open = INCIDENTS.length;
+    expect(badge()).toBe(String(open));
+    expect(all(".st-nav-item").find(b => navLabel(b) === "Incidents")!.getAttribute("aria-label")).toBe(`Incidents, ${open} unopened`);
+    click(incidentRows()[0]);
+    press("View full details");
+    press("Close incident");
+    expect(badge()).toBe(String(open - 1));
+    // a new mount of the same session (a reload) still knows it was opened
+    act(() => root?.unmount()); el?.remove();
+    mount({ sessionKey: "sess-1" });
+    expect(badge()).toBe(String(open - 1));
+  });
+
+  it("new incidents are announced politely and refusals assertively, from regions already in the page", async () => {
+    const m = mount();
+    const polite = q('.st-toasts [aria-live="polite"]');
+    const assertive = q('.st-toasts [aria-live="assertive"]');
+    expect(polite).not.toBeNull();
+    expect(assertive).not.toBeNull();
+    const arrived: SentinelIncident = { ...INCIDENTS[1], id: "inc-104", number: 104, title: "Another arrival" };
+    m.rerender({ workspace: fixtureWorkspace({ incidents: [...INCIDENTS, arrived] }) });
+    expect(polite!.textContent).toContain("Another arrival");
+    expect(polite!.querySelector("[role=alert],[role=status]")).toBeNull();
+    expect(assertive!.textContent).toBe("");
+  });
+
+  it("the Low band and the faint text meet WCAG AA against white", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const css = fs.readFileSync(path.join(__dirname, "sentinel.css"), "utf8");
+    const hex = (name: string) => css.match(new RegExp(`--${name}:\\s*(#[0-9a-f]{6})`, "i"))![1];
+    const lum = (h: string) => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+    const onWhite = (h: string) => 1.05 / (lum(h) + 0.05);
+    expect(onWhite(hex("st-text-3"))).toBeGreaterThanOrEqual(4.5);
+    expect(onWhite(hex("st-low-edge"))).toBeGreaterThanOrEqual(3);
+    expect(css).toMatch(/\.st-band\.Low:not\(\.dotted\), \.st-cellband\.Low \{ box-shadow: inset 0 0 0 1px var\(--st-low-edge\)/);
   });
 
   it("every screen renders, every control has a name, no em dash in the text", async () => {
@@ -500,7 +556,8 @@ describe("logs", () => {
     press("Collapse editor");
     expect(q<HTMLElement>(".st-editor")!.style.height).toBe("80px");
     press("Expand editor");
-    expect(q<HTMLElement>(".st-editor")!.style.height).toBe("210px");
+    // The editor opens at a fifth of the screen height (110 to 210 px), so a 720 px screen keeps room for results.
+    expect(q<HTMLElement>(".st-editor")!.style.height).toBe(`${Math.round(Math.min(210, Math.max(110, window.innerHeight * 0.2)))}px`);
   });
 
   it("opens several queries in tabs", async () => {
@@ -584,6 +641,44 @@ describe("search, hunting, analytics, automation", () => {
     await act(async () => { all<HTMLButtonElement>('table[aria-label="Playbooks"] button')[0].click(); });
     expect(text()).toContain(refusal);
     expect(text()).toContain("Refused");
+  });
+
+  it("Isolate device sends a request for approval with a reason, and the history follows the answer", async () => {
+    const sent: unknown[][] = [];
+    const base = { requestIsolation: async (...a: unknown[]) => { sent.push(a); return null; }, isolationApprover: "Dana (SOC Manager)", isolationRequests: [] as NonNullable<SentinelActions["isolationRequests"]> };
+    const { actions } = fakeActions(base);
+    const m = mount({ actions });
+    nav("Automation");
+    const isolate = () => all<HTMLButtonElement>('table[aria-label="Playbooks"] button')[0];
+    expect(isolate().textContent).toBe("Request");
+    // no reason: nothing is sent, and the field says why
+    await act(async () => { isolate().click(); });
+    expect(sent).toHaveLength(0);
+    expect(text()).toContain("Say in a few words why this device should be isolated.");
+    setValue(q<HTMLTextAreaElement>("#auto-reason")!, "Beacon to a known C2 from this laptop");
+    await act(async () => { isolate().click(); });
+    expect(sent).toHaveLength(1);
+    expect(sent[0][1]).toBe("Beacon to a known C2 from this laptop");
+    expect(text()).toContain("Waiting for approval from Dana (SOC Manager)");
+    const host = String(sent[0][0]);
+    const req = { seq: 9, host, state: "pending" as const, requestedBy: "Tal Analyst", mine: true, reason: "Beacon to a known C2 from this laptop", incident: null, at: new Date().toISOString(), approver: "Dana (SOC Manager)", answeredAt: null, denyReason: null };
+    m.rerender({ actions: { ...actions, isolationRequests: [req] } });
+    expect(text()).toContain("Waiting");
+    expect(isolate().disabled).toBe(true);
+    expect(q<HTMLSelectElement>("select")!.selectedOptions[0].textContent).toBe(`${host} (isolation requested)`);
+    m.rerender({ actions: { ...actions, isolationRequests: [{ ...req, state: "denied", approver: "Dana", denyReason: "Scope it first" }] } });
+    expect(text()).toContain("Denied by Dana: Scope it first");
+    m.rerender({ actions: { ...actions, isolatedHosts: new Set([host]), isolationRequests: [{ ...req, seq: 10, state: "approved", approver: "Dana" }] } });
+    expect(text()).toContain("Approved by Dana. The device is isolated.");
+    expect(q<HTMLSelectElement>("select")!.selectedOptions[0].textContent).toBe(`${host} (isolated)`);
+  });
+
+  it("an isolated device shows as isolated in its entity pane", () => {
+    const { actions } = fakeActions({ isolatedHosts: new Set(["FIN-LT-042"]) });
+    mount({ actions });
+    nav("Entity behavior");
+    click(all('table[aria-label="Entities"] tbody tr').find(r => r.textContent?.includes("FIN-LT-042"))!);
+    expect(q(".st-devstate")?.textContent).toBe("Isolated");
   });
 
   it("Entity behavior opens an entity page with Info, Timeline and Insights", () => {

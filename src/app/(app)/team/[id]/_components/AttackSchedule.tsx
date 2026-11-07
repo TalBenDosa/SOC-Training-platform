@@ -45,7 +45,7 @@ export function AttackSchedule({ sessionId, onError }: { sessionId: string; onEr
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Timer className="h-4 w-4 text-cyber-300" aria-hidden="true" /> Attacks still to come</h3>
         <span className="font-mono text-[11px] text-slate-400">shift clock {mmss(now)}</span>
-        <span className="ml-auto rounded border border-neon-amber/40 px-1 py-0.5 text-[9px] font-bold uppercase text-neon-amber">staff only</span>
+        <span className="ml-auto rounded border border-neon-amber/40 px-1 py-0.5 text-[11px] font-bold uppercase text-neon-amber">staff only</span>
       </div>
       {data.pending.length === 0 ? <p className="mt-2 text-xs text-slate-400">Every attack has reached the feed.</p> : (
         <>
@@ -64,7 +64,7 @@ export function AttackSchedule({ sessionId, onError }: { sessionId: string; onEr
               </li>
             ))}
           </ul>
-          <p className="mt-1.5 text-[10px] text-slate-500">&quot;Now&quot; starts that attack in about five seconds, at its own pace.</p>
+          <p className="mt-1.5 text-[11px] text-slate-500">&quot;Now&quot; starts that attack in about five seconds, at its own pace.</p>
         </>
       )}
     </Card>

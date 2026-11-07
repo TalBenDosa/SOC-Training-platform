@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, FileText, MessagesSquare, Send } from "lucide-r
 import type { Me, Ev } from "@/lib/team/types";
 import { asStr } from "@/lib/team/format";
 import { ROLE_LABEL } from "./shared";
+import { chatReadKey, visibleMessages } from "@/lib/team/teamWindowCounts";
 import { AttachImageButton, PendingImages, TeamImageThumb, imagesOf, uploadTeamImage, useImageAttachments } from "./teamImages";
 
 // Server cap on one chat message (team_validate_action, 0073).
@@ -37,7 +38,8 @@ export function WarRoom({ sessionId, events, me, nameOf, act, onOpenLog }: { ses
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const att = useImageAttachments(1);
-  const msgs = useMemo(() => events.filter(e => e.type === "message.sent"), [events]);
+  // A coach message from the instructor shows only to its addressee and staff (not private in the database).
+  const msgs = useMemo(() => visibleMessages(events, me.id, me.is_staff), [events, me.id, me.is_staff]);
   const fromOthers = useMemo(() => msgs.filter(e => e.actor_id !== me.id).length, [msgs, me.id]);
   const [seen, setSeen] = useState(fromOthers);
   const unread = Math.max(0, fromOthers - seen);
@@ -60,6 +62,14 @@ export function WarRoom({ sessionId, events, me, nameOf, act, onOpenLog }: { ses
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [msgs.length, open]);
+  // What this player has seen, for the unread count in their Sentinel window (same browser).
+  useEffect(() => {
+    if (!open || !last) return;
+    const mark = () => { if (document.visibilityState === "visible") { try { localStorage.setItem(chatReadKey(sessionId, me.id), String(last.seq)); } catch { /* storage blocked */ } } };
+    mark();
+    document.addEventListener("visibilitychange", mark);
+    return () => document.removeEventListener("visibilitychange", mark);
+  }, [open, last, sessionId, me.id]);
   // The message list is a polite live log, switched on only after the chat history
   // has loaded — so screen readers hear NEW messages, not the whole backlog.
   const [liveLog, setLiveLog] = useState(false);
@@ -90,10 +100,10 @@ export function WarRoom({ sessionId, events, me, nameOf, act, onOpenLog }: { ses
           <MessagesSquare className="h-4 w-4 shrink-0 text-cyber-300" aria-hidden="true" />
           <h3 id="team-chat-heading" className="shrink-0 text-sm font-bold text-white">Team chat</h3>
           {unread > 0 && (
-            <span className="shrink-0 rounded-full bg-cyber-500 px-1.5 py-px text-[10px] font-bold text-on-accent">{unread} new</span>
+            <span className="shrink-0 rounded-full bg-cyber-500 px-1.5 py-px text-[11px] font-bold text-on-accent">{unread} new</span>
           )}
           {open
-            ? <span className="ml-auto truncate text-[10px] text-slate-500">Everyone on the team sees this · {msgs.length} {msgs.length === 1 ? "message" : "messages"}</span>
+            ? <span className="ml-auto truncate text-[11px] text-slate-500">Everyone on the team sees this · {msgs.length} {msgs.length === 1 ? "message" : "messages"}</span>
             : <span className="ml-1 min-w-0 flex-1 truncate text-[11px] text-slate-400">{last ? <><bdi className="text-slate-300">{last.actor_id === me.id ? "You" : nameOf(last.actor_id)}:</bdi> <span dir="auto">{lastText}</span></> : "No messages yet"}</span>}
           {open ? <ChevronUp className="ml-1 h-4 w-4 shrink-0 text-slate-400" aria-hidden /> : <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-slate-400" aria-hidden />}
           <span className="sr-only">{open ? "Collapse the team chat" : "Open the team chat"}</span>
@@ -116,16 +126,17 @@ export function WarRoom({ sessionId, events, me, nameOf, act, onOpenLog }: { ses
             return (
               <div key={e.seq} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[85%] rounded-lg px-2.5 py-1.5 ${fromInstructor ? "border border-neon-amber/50 bg-neon-amber/[0.08]" : mine ? "bg-cyber-500/15 border border-cyber-500/30" : "bg-bg-elevated border border-border/60"}`}>
-                  <p className="mb-0.5 flex flex-wrap items-center gap-x-1.5 text-[10px]">
+                  <p className="mb-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px]">
                     <bdi className="font-semibold text-slate-200">{mine ? "You" : nameOf(e.actor_id)}</bdi>
                     {role && <span className="text-cyber-300/80">{role}</span>}
                     <span className="text-slate-500">{timeOf(e.occurred_at)}</span>
+                    {(p as { kind?: unknown }).kind === "coach" && <span className="rounded border border-neon-amber/40 px-1 text-neon-amber">coach note, shown only to {(p as { to?: unknown }).to === me.id ? "you" : nameOf(asStr((p as { to?: unknown }).to))}</span>}
                   </p>
                   {img && <div className="mt-0.5"><TeamImageThumb sessionId={sessionId} image={img} alt={caption || `Screenshot shared by ${who}`} /></div>}
                   {(!img || caption) && <p dir="auto" className={`whitespace-pre-wrap break-words text-xs text-slate-200 ${img ? "mt-1" : ""}`}>{text}</p>}
                   {ref && (
                     <button type="button" onClick={() => onOpenLog?.(ref.eid, ref.label)} disabled={!onOpenLog}
-                      className="mt-1 flex max-w-full items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 text-left text-[10px] text-cyber-200 hover:bg-cyber-500/20 disabled:cursor-default">
+                      className="mt-1 flex max-w-full items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 text-left text-[11px] text-cyber-200 hover:bg-cyber-500/20 disabled:cursor-default">
                       <FileText className="h-3 w-3 shrink-0" aria-hidden /><span className="truncate">{ref.seq ? `#${ref.seq} · ` : ""}{ref.label || "shared log"}</span><span className="shrink-0 text-cyber-300">show in feed</span>
                     </button>
                   )}
@@ -163,12 +174,12 @@ export function WarRoom({ sessionId, events, me, nameOf, act, onOpenLog }: { ses
           <p className="text-[11px] text-slate-500">Observers can read the chat but not post.</p>
         )}
         {msg.trim().length > MAX_MESSAGE - 300 && (
-          <p className={`mt-1 text-[10px] ${msg.trim().length > MAX_MESSAGE ? "text-severity-high" : "text-slate-500"}`}>
-            {msg.trim().length}/{MAX_MESSAGE} characters in one message{msg.trim().length > MAX_MESSAGE ? " — split it into two messages" : ""}
+          <p className={`mt-1 text-[11px] ${msg.trim().length > MAX_MESSAGE ? "text-severity-high" : "text-slate-500"}`}>
+            {msg.trim().length}/{MAX_MESSAGE} characters in one message{msg.trim().length > MAX_MESSAGE ? ": split it into two messages" : ""}
           </p>
         )}
-        {failed && <p className="mt-1 text-[10px] text-severity-high">The message wasn&apos;t sent. Check your connection and press Send again.</p>}
-        {att.error && <p role="alert" className="mt-1 text-[10px] text-severity-high">{att.error}</p>}
+        {failed && <p className="mt-1 text-[11px] text-severity-high">The message wasn&apos;t sent. Check your connection and press Send again.</p>}
+        {att.error && <p role="alert" className="mt-1 text-[11px] text-severity-high">{att.error}</p>}
         </div>
       </div>
     </Card>

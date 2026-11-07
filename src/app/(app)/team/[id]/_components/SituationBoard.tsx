@@ -75,14 +75,14 @@ export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online,
           <span title="The escalation that has waited longest for a Tier-2 analyst"><Metric label="Oldest waiting" value={team.oldestUnacked == null ? "-" : `${team.oldestUnacked}m`} tone={team.oldestUnacked != null && team.oldestUnacked >= 5 ? "warn" : undefined} /></span>
         </div>
         <div className="mt-3">
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Team &amp; load</p>
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Team &amp; load</p>
           <div className="grid gap-x-6 gap-y-1 xl:grid-cols-2">
             {team.players.length === 0 ? <span className="text-[11px] text-slate-500">no analysts assigned</span> : team.players.map(m => { const load = team.loadByUser.get(m.user_id) ?? 0; const on = online.has(m.user_id); return (
               <div key={m.user_id} className="flex items-center gap-2 text-[11px]">
                 <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${on ? "bg-neon-green" : "bg-slate-600"}`} title={on ? "online" : "offline"} />
                 <bdi className="min-w-0 flex-1 truncate text-slate-300">{m.name}</bdi>
-                <span className="shrink-0 font-mono text-[9px] uppercase text-slate-500">{ROLE_LABEL[m.role] ?? m.role}</span>
-                <span className={`shrink-0 rounded border px-1 py-0.5 font-mono text-[9px] ${load >= 3 ? "border-neon-amber/50 bg-neon-amber/10 text-neon-amber" : "border-border text-slate-400"}`}>{load} open</span>
+                <span className="shrink-0 font-mono text-[11px] uppercase text-slate-500">{ROLE_LABEL[m.role] ?? m.role}</span>
+                <span className={`shrink-0 rounded border px-1 py-0.5 font-mono text-[11px] ${load >= 3 ? "border-neon-amber/50 bg-neon-amber/10 text-neon-amber" : "border-border text-slate-400"}`}>{load} open</span>
               </div>
             ); })}
           </div>
@@ -96,10 +96,10 @@ export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online,
           <Metric label="Low" value={String(pulse.low)} />
         </div>
         <div className="mt-3">
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Top sources</p>
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Top sources</p>
           <div className="flex flex-wrap gap-1">
             {bySource.length === 0 ? <span className="text-[11px] text-slate-400">none yet</span> : bySource.map(([s, n]) => (
-              <span key={s} className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-slate-300">{s} · {n}</span>
+              <span key={s} className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[11px] text-slate-300">{s} · {n}</span>
             ))}
           </div>
         </div>
@@ -113,8 +113,8 @@ export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online,
           <div className="mt-2 space-y-1.5">
             {overloaded.map(m => (
               <div key={m.user_id} className="flex items-center gap-2 rounded border border-neon-amber/30 bg-neon-amber/[0.06] px-2 py-1.5 text-[11px]">
-                <span className="min-w-0 flex-1 truncate text-slate-200"><bdi>{m.name}</bdi> <span className="font-mono text-[9px] uppercase text-slate-500">{ROLE_LABEL[m.role] ?? m.role}</span></span>
-                <span className="shrink-0 rounded border border-neon-amber/50 bg-neon-amber/10 px-1 py-0.5 font-mono text-[9px] font-bold text-neon-amber">{m.load} open</span>
+                <span className="min-w-0 flex-1 truncate text-slate-200"><bdi>{m.name}</bdi> <span className="font-mono text-[11px] uppercase text-slate-500">{ROLE_LABEL[m.role] ?? m.role}</span></span>
+                <span className="shrink-0 rounded border border-neon-amber/50 bg-neon-amber/10 px-1 py-0.5 font-mono text-[11px] font-bold text-neon-amber">{m.load} open</span>
                 <Button variant="outline" size="sm" className="ml-1" disabled={nudgeBusy === m.user_id} onClick={() => nudge(m.user_id, m.load)}>{nudgedTargets.has(m.user_id) ? "Nudge again" : "Nudge"}</Button>
               </div>
             ))}
@@ -123,7 +123,7 @@ export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online,
       )}
       <Card>
         <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldOff className="h-4 w-4 text-neon-green" /> Contained hosts
-          <span className="ml-auto font-mono text-[10px] font-normal text-slate-400">{contained.filter(c => c.isolated).length} isolated now</span></h3>
+          <span className="ml-auto font-mono text-[11px] font-normal text-slate-400">{contained.filter(c => c.isolated).length} isolated now</span></h3>
         {contained.length === 0 ? <p className="mt-2 text-xs text-slate-400">No host has been isolated from the EDR console yet.</p> : (
           <div className="mt-2 space-y-1.5">
             {contained.map(c => {
@@ -132,7 +132,7 @@ export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online,
                 <div key={c.host} className="flex items-center gap-2 rounded border border-border/60 bg-bg px-2 py-1.5 text-xs">
                   <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${c.isolated ? "bg-neon-green" : "bg-slate-500"}`} aria-hidden />
                   <bdi className="min-w-0 flex-1 truncate font-mono text-slate-200">{c.host}</bdi>
-                  <span className="shrink-0 text-[10px] text-slate-400">{c.isolated ? "isolated" : "released"} by <bdi>{nameOf(c.by)}</bdi>{mins != null ? `, ${mins}m ago` : ""}</span>
+                  <span className="shrink-0 text-[11px] text-slate-400">{c.isolated ? "isolated" : "released"} by <bdi>{nameOf(c.by)}</bdi>{mins != null ? `, ${mins}m ago` : ""}</span>
                 </div>
               );
             })}
@@ -141,7 +141,7 @@ export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online,
       </Card>
       <Card>
         <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ArrowUpRight className="h-4 w-4 text-neon-amber" /> Escalations
-          <span className="ml-auto font-mono text-[10px] font-normal text-slate-400">{team.openCount} waiting · {escs.filter(e => { const st = escStates.get(String((e.payload as { event_id?: string }).event_id)); return st?.acked && !st.resolved && !st.bounced; }).length} in progress{team.bounced ? ` · ${team.bounced} bounced` : ""}</span></h3>
+          <span className="ml-auto font-mono text-[11px] font-normal text-slate-400">{team.openCount} waiting · {escs.filter(e => { const st = escStates.get(String((e.payload as { event_id?: string }).event_id)); return st?.acked && !st.resolved && !st.bounced; }).length} in progress{team.bounced ? ` · ${team.bounced} bounced` : ""}</span></h3>
         {escs.length === 0 ? <p className="mt-2 text-xs text-slate-400">No escalations from Tier-1 yet.</p> : (
           <div className="mt-2 space-y-1.5">
             {escs.filter(e => { const st = escStates.get(String((e.payload as { event_id?: string }).event_id)); return !!st && isOpenEscalation(st); })
@@ -153,8 +153,8 @@ export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online,
                   <div key={e.seq} className="flex items-center gap-2 rounded border border-border/60 bg-bg px-2 py-1.5 text-xs">
                     <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${sevColor(fe?.severity)}`} aria-hidden />
                     <span className="min-w-0 flex-1 truncate text-slate-300"><bdi>{asStr(p.summary) || asStr(p.what) || "escalation"}</bdi>{fe?.hostname ? ` · ${fe.hostname}` : ""}</span>
-                    <span className="shrink-0 font-mono text-[10px] text-slate-400"><bdi>{nameOf(e.actor_id)}</bdi></span>
-                    <span className={`shrink-0 rounded border px-1 py-0.5 font-mono text-[10px] ${mins >= 5 ? "border-neon-amber/50 bg-neon-amber/10 text-neon-amber" : "border-border text-slate-400"}`}>waiting {mins}m</span>
+                    <span className="shrink-0 font-mono text-[11px] text-slate-400"><bdi>{nameOf(e.actor_id)}</bdi></span>
+                    <span className={`shrink-0 rounded border px-1 py-0.5 font-mono text-[11px] ${mins >= 5 ? "border-neon-amber/50 bg-neon-amber/10 text-neon-amber" : "border-border text-slate-400"}`}>waiting {mins}m</span>
                   </div>
                 );
               })}

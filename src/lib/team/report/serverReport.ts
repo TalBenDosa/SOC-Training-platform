@@ -15,7 +15,8 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Ev, RosterMember } from "@/lib/team/types";
-import { computeReport } from "./computeReport";
+import { computeReport, type ShiftPlan, type ShiftPlanRow } from "./computeReport";
+import { sanitizeShiftMinutes, teamLoad } from "@/lib/team/load";
 
 export type AnswerMap = Record<string, Record<string, unknown>>;
 export type ServerReport = ReturnType<typeof computeReport> & { answers: AnswerMap };
@@ -24,7 +25,8 @@ export type ServerReport = ReturnType<typeof computeReport> & { answers: AnswerM
 // backs) are needed to SCORE the shift; original_id / expected_decision let a curveball be
 // matched to its supporting telemetry and a help-desk ticket be judged on its decision.
 // All are reveal-safe once the session has ended (the report is only served then).
-const FEED_ANSWER_KEYS = ["expected_verdict", "fp_explanation", "incident_id", "supports_inject", "mitre_technique", "mitre_tactic"] as const;
+// attack_name: the storyline's title, so the report names an attack (review 2026-11: an attack was named by its first log line).
+const FEED_ANSWER_KEYS = ["expected_verdict", "fp_explanation", "incident_id", "supports_inject", "mitre_technique", "mitre_tactic", "attack_name"] as const;
 const INJECT_ANSWER_KEYS = ["kind", "expected_response", "linked_objective", "original_id", "expected_decision"] as const;
 // A SOC-Manager decision card's grading (ranks, notes, indicator deltas, critical options) — the
 // Command Review needs all of it, and it is only served after the session ended.
@@ -65,6 +67,35 @@ export function mergeAnswers(events: Ev[], answers: AnswerMap): Ev[] {
 
 /** One player's reads of one log (0088 team_session_click_totals): opens, longest and total dwell. */
 export interface ClickTotal { user_id: string; event_id: string | null; opens: number; max_dwell_ms: number; sum_dwell_ms: number; first_at: string }
+
+/** One session_injects row as the plan needs it (0104). */
+export interface PlanInjectRow {
+  channel: string | null; status: string; skip_reason?: string | null; created_at?: string | null;
+  expected_action: unknown;
+}
+/**
+ * What the server planned vs what fired (0104): feed rows seeded at the start (recycled noise
+ * added during the shift is not "planned"), with each attack row's incident, so the report can
+ * say how many planned rows and attacks never fired and how many rows an isolation held back.
+ */
+export function buildShiftPlan(rows: PlanInjectRow[], startedAt: string | null, plannedMs: number | null): ShiftPlan {
+  const start = startedAt ? Date.parse(startedAt) : NaN;
+  const out: ShiftPlanRow[] = [];
+  for (const r of rows) {
+    if (r.channel === "inject") continue;
+    const a = (r.expected_action ?? {}) as { expected_verdict?: unknown; incident_id?: unknown; attack_name?: unknown };
+    const created = r.created_at ? Date.parse(r.created_at) : NaN;
+    const attack = a.expected_verdict === "tp" || a.expected_verdict === "escalate";
+    out.push({
+      incident: typeof a.incident_id === "string" ? a.incident_id : null, attack,
+      ...(typeof a.attack_name === "string" && a.attack_name ? { name: a.attack_name } : {}),
+      status: r.status === "fired" ? "fired" : r.status === "pending" ? "pending" : "skipped",
+      skipReason: r.skip_reason ?? null,
+      planned: !Number.isFinite(start) || !Number.isFinite(created) || created <= start + 60_000,
+    });
+  }
+  return { plannedMs, rows: out };
+}
 
 /**
  * Click totals → the click rows computeReport reads. It counts DISTINCT logs opened and
@@ -116,8 +147,10 @@ async function loadClicks(admin: SupabaseClient, sessionId: string) {
 export async function buildServerReport(admin: SupabaseClient, sessionId: string): Promise<ServerReport> {
   const events = await pageAll<Ev>((from, to) => admin.from("session_events")
     .select("seq, type, actor_id, role, payload, occurred_at").eq("session_id", sessionId).order("seq").range(from, to));
-  const injects = await pageAll<{ id: string; channel: string | null; expected_action: unknown }>((from, to) => admin.from("session_injects")
-    .select("id, channel, expected_action").eq("session_id", sessionId).order("id").range(from, to));
+  const injects = await pageAll<{ id: string; channel: string | null; expected_action: unknown; status: string; skip_reason: string | null; created_at: string | null }>((from, to) => admin.from("session_injects")
+    .select("id, channel, expected_action, status, skip_reason, created_at").eq("session_id", sessionId).order("id").range(from, to));
+  // The planned length and the start, for the shift truth (0104). Best effort: no row, no plan length.
+  const { data: sessRow } = await admin.from("team_sessions").select("started_at, difficulty, config").eq("id", sessionId).maybeSingle();
   const clicks = await loadClicks(admin, sessionId);
 
   // Roster incl. members who LEFT — their actions still count in the debrief.
@@ -138,5 +171,9 @@ export async function buildServerReport(admin: SupabaseClient, sessionId: string
   const answers = publicAnswers(injects);
   const maxSeq = events.reduce((m, e) => Math.max(m, e.seq), 0);
   const revealed = [...mergeAnswers(events, answers), ...clicksAsEvents(clicks, maxSeq)];
-  return { ...computeReport(revealed, roster, { sessionId, publicEvents: events }), answers };
+  const cfg = ((sessRow as { config?: { shift_min?: unknown } } | null)?.config ?? {}) as { shift_min?: unknown };
+  const shiftMin = sanitizeShiftMinutes(cfg.shift_min)
+    ?? (sessRow ? teamLoad((sessRow as { difficulty: "easy" | "medium" | "hard" }).difficulty, mem).shiftMin : null);
+  const plan = buildShiftPlan(injects, (sessRow as { started_at?: string | null } | null)?.started_at ?? null, shiftMin ? shiftMin * 60_000 : null);
+  return { ...computeReport(revealed, roster, { sessionId, publicEvents: events, plan }), answers };
 }

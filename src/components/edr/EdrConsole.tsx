@@ -204,15 +204,30 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
   const [isoBusy, setIsoBusy] = useState(false);
   const [isoErr, setIsoErr] = useState<string | null>(null);
   const canContain = !teamIsolation || teamIsolation.canContain;
+  // Team session (owner, 2026-11-07): isolating needs the senior on shift's approval. The analyst
+  // sends a request with a short reason; the server isolates the host when it is approved.
+  const isoReq = teamIsolation?.requests?.get(inv.host.name.toLowerCase()) ?? null;
+  const isoPending = isoReq?.state === "pending";
+  const [askOpen, setAskOpen] = useState(false);
+  const [askReason, setAskReason] = useState("");
   const isolate = (next: boolean) => {
     if (teamIsolation) {
       if (!canContain) { setIsoErr("Isolation is the senior analyst's call (Tier-2 / Tier-3). Escalate this host from the feed and tick \"Recommend isolating\" in the escalation."); return; }
       if (isoBusy) return;
+      if (next) { if (!isoPending) setAskOpen(true); return; }   // isolate: ask first
       setIsoBusy(true); setIsoErr(null);
-      void teamIsolation.set(inv.host.name, next, inv.title).then(err => { setIsoBusy(false); setIsoErr(err); });
+      void teamIsolation.set(inv.host.name, false, inv.title).then(err => { setIsoBusy(false); setIsoErr(err); });
       return;
     }
     setLocalIsolated(next); setContained(inv.host.name, next);
+  };
+  const sendIsolationRequest = () => {
+    if (!teamIsolation || isoBusy || !askReason.trim()) return;
+    setIsoBusy(true); setIsoErr(null);
+    void teamIsolation.request(inv.host.name, askReason.trim(), inv.title).then(err => {
+      setIsoBusy(false); setIsoErr(err);
+      if (!err) { setAskOpen(false); setAskReason(""); }
+    });
   };
   const [hashResult, setHashResult] = useState<Record<number, { label: string; bad: boolean }>>({});
   const [decided, setDecided] = useState<null | { correct: boolean }>(null);
@@ -346,12 +361,39 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
               {inv.host.name}
             </span>
           </div>
-          <div className="flex flex-col items-end gap-1">
-            <Button variant={isolated ? "outline" : "primary"} size="sm" disabled={isoBusy || !canContain} onClick={() => isolate(!isolated)}
-              title={canContain ? undefined : "Tier-1 investigates; Tier-2 / Tier-3 decide on isolation"}>
-              <MonitorX className="mr-1.5 h-4 w-4" /> {isoBusy ? "Saving…" : isolated ? "Host isolated ✓ (release)" : "Isolate host"}
-            </Button>
-            {teamIsolation && !isoErr && <span className="text-[10px] text-slate-500">{canContain ? "Recorded for the team: reviewed in the after-action report." : "Tier-1: investigate here, then escalate and recommend isolation. The senior analyst (Tier-2 / Tier-3) decides."}</span>}
+          <div className="flex max-w-sm flex-col items-end gap-1">
+            {teamIsolation && isoPending && !isolated ? (
+              <Button variant="outline" size="sm" disabled title="The senior on shift answers the request">
+                <MonitorX className="mr-1.5 h-4 w-4" /> Waiting for approval from {teamIsolation.approverFor(isoReq?.requestedBy ?? null)}
+              </Button>
+            ) : (
+              <Button variant={isolated ? "outline" : "primary"} size="sm" disabled={isoBusy || !canContain || askOpen} onClick={() => isolate(!isolated)}
+                title={canContain ? undefined : "Tier-1 investigates; Tier-2 / Tier-3 decide on isolation"}>
+                <MonitorX className="mr-1.5 h-4 w-4" /> {isoBusy ? "Saving…" : isolated ? "Host isolated ✓ (release)" : teamIsolation ? "Request isolation" : "Isolate host"}
+              </Button>
+            )}
+            {teamIsolation && askOpen && !isolated && (
+              <div className="w-80 max-w-full rounded-lg border border-neon-amber/40 bg-bg-elevated p-2.5 text-left">
+                <label htmlFor="edr-iso-reason" className="text-[11px] font-semibold text-slate-200">Why isolate <bdi className="font-mono">{inv.host.name}</bdi>?</label>
+                <p className="mt-0.5 text-[11px] text-slate-400">{teamIsolation.approverFor(null)} approves or denies. The host is isolated when they approve.</p>
+                <textarea id="edr-iso-reason" value={askReason} onChange={e => setAskReason(e.target.value)} rows={2} maxLength={500} dir="auto" autoFocus
+                  placeholder="The evidence, in one line (for example: reverse shell to 104.248.93.41:4444 from node.exe)"
+                  className="mt-1.5 w-full resize-y rounded border border-border bg-bg px-2 py-1 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50" />
+                <div className="mt-1.5 flex justify-end gap-1.5">
+                  <Button variant="outline" size="sm" onClick={() => { setAskOpen(false); setIsoErr(null); }}>Cancel</Button>
+                  <Button variant="primary" size="sm" disabled={isoBusy || !askReason.trim()} onClick={sendIsolationRequest}>{isoBusy ? "Sending…" : "Send request"}</Button>
+                </div>
+              </div>
+            )}
+            {teamIsolation && isoReq && !isoPending && !askOpen && (
+              <span role="status" className={`max-w-xs text-right text-[11px] ${isoReq.state === "approved" ? "text-neon-green" : "text-neon-amber"}`}>
+                {isoReq.state === "approved"
+                  ? <>Isolation approved by <bdi>{teamIsolation.nameOf(isoReq.answeredBy)}</bdi>.</>
+                  : <>Isolation denied by <bdi>{teamIsolation.nameOf(isoReq.answeredBy)}</bdi>{isoReq.denyReason ? <>: <bdi>{isoReq.denyReason}</bdi></> : "."}</>}
+              </span>
+            )}
+            {teamIsolation && isoPending && !isolated && <span className="max-w-xs text-right text-[11px] text-slate-400">Your reason: <bdi>{isoReq?.reason}</bdi></span>}
+            {teamIsolation && !isoErr && !askOpen && !isoReq && <span className="text-[11px] text-slate-400">{canContain ? "Isolation needs the approval of the senior on shift. Recorded for the after-action report." : "Tier-1: investigate here, then escalate and recommend isolation. The senior analyst (Tier-2 / Tier-3) decides."}</span>}
             {isoErr && <span role="alert" className="max-w-xs text-right text-[11px] text-neon-amber">{isoErr}</span>}
           </div>
         </div>

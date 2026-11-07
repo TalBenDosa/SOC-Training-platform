@@ -36,3 +36,36 @@ export async function teamTransition(
   }
   return { result: (data ?? { ok: false }) as TransitionResult };
 }
+
+/** How long "End shift" waits by default: the team is told "Shift ends in 2 minutes" (0104). */
+export const END_NOTICE_MS = 120_000;
+
+/**
+ * Schedule the end of a running / paused shift (0104 team_schedule_end): the server
+ * stores end_at, appends `session.end_scheduled` { ends_at, by, delay_ms }, and its
+ * lifecycle tick ends the session at that time. Scheduling again while one is pending
+ * returns the existing end time (noop).
+ */
+export async function teamScheduleEnd(sessionId: string, by: string | null, delayMs = END_NOTICE_MS):
+  Promise<{ result: { ok: boolean; noop?: boolean; ends_at?: string; status?: string; error?: string } } | { error: string }> {
+  const admin = getSupabaseAdminClient();
+  if (!admin) return { error: "Server not configured." };
+  const { data, error } = await admin.rpc("team_schedule_end", { p_session: sessionId, p_by: by, p_delay_ms: delayMs });
+  if (error) {
+    console.error("[team_schedule_end]", sessionId, error.message);
+    return { error: "Couldn't schedule the end. Please try again." };
+  }
+  return { result: (data ?? { ok: false }) as { ok: boolean; noop?: boolean; ends_at?: string } };
+}
+
+/** Cancel a scheduled end (0104 team_cancel_end): appends `session.end_cancelled`. */
+export async function teamCancelEnd(sessionId: string, by: string | null): Promise<{ result: { ok: boolean; noop?: boolean } } | { error: string }> {
+  const admin = getSupabaseAdminClient();
+  if (!admin) return { error: "Server not configured." };
+  const { data, error } = await admin.rpc("team_cancel_end", { p_session: sessionId, p_by: by });
+  if (error) {
+    console.error("[team_cancel_end]", sessionId, error.message);
+    return { error: "Couldn't cancel the end. Please try again." };
+  }
+  return { result: (data ?? { ok: false }) as { ok: boolean; noop?: boolean } };
+}

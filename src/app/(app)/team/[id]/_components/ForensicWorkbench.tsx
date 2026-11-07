@@ -134,7 +134,7 @@ export function ForensicWorkbench({ sessionId, feed, events, meId, nameOf, act, 
               <button key={h} type="button" role="tab" aria-selected={cur === h} onClick={() => { setHost(h); setSelEv(null); }}
                 className={`rounded-lg border px-2.5 py-1.5 text-left text-xs transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400 ${cur === h ? "border-cyber-500/60 bg-cyber-500/10 text-white" : "border-border text-slate-300 hover:border-slate-500"}`}>
                 <span className="block font-mono font-semibold">{h}</span>
-                <span className="block text-[10px] text-slate-400">{s.isolatedAtMs ? "isolated" : "online"} · {n} evidence{by.length ? ` · ${by.join(", ")}` : ""}</span>
+                <span className="block text-[11px] text-slate-400">{s.isolatedAtMs ? "isolated" : "online"} · {n} evidence{by.length ? ` · ${by.join(", ")}` : ""}</span>
               </button>
             );
           })}
@@ -146,8 +146,8 @@ export function ForensicWorkbench({ sessionId, feed, events, meId, nameOf, act, 
           <Card>
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-sm font-bold text-white">{cur}</span>
-              <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold ${st.isolatedAtMs ? "border-neon-amber/50 text-neon-amber" : "border-neon-green/40 text-neon-green"}`}>{st.isolatedAtMs ? `ISOLATED since ${hhmm(st.isolatedAtMs)}` : "ONLINE"}</span>
-              <span className="text-[10px] text-slate-400">{hasEdr ? "EDR telemetry: yes" : "EDR telemetry: none (event logs only)"}</span>
+              <span className={`rounded border px-1.5 py-0.5 text-[11px] font-semibold ${st.isolatedAtMs ? "border-neon-amber/50 text-neon-amber" : "border-neon-green/40 text-neon-green"}`}>{st.isolatedAtMs ? `ISOLATED since ${hhmm(st.isolatedAtMs)}` : "ONLINE"}</span>
+              <span className="text-[11px] text-slate-400">{hasEdr ? "EDR telemetry: yes" : "EDR telemetry: none (event logs only)"}</span>
               {onEdr && hasEdr && <button type="button" onClick={() => onEdr(cur)} className="ml-auto text-[11px] text-cyber-300 underline-offset-2 hover:underline">Open in EDR (RTR shell)</button>}
             </div>
             <p className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Collect</p>
@@ -173,7 +173,7 @@ export function ForensicWorkbench({ sessionId, feed, events, meId, nameOf, act, 
                   <li key={x.id}>
                     <button type="button" disabled={!ready} onClick={() => setSelEv(x.id)} className={`w-full rounded border px-2 py-1 text-left text-[11px] ${shownEv?.id === x.id ? "border-cyber-500/60 bg-cyber-500/10" : "border-border"} disabled:cursor-wait`}>
                       <span className="font-mono font-semibold text-slate-100">{x.id}</span> <span className="text-slate-400">{x.kind === "memory" ? "memory" : "triage"} · snapshot {hhmm(x.at)}</span>
-                      <span className="block text-[10px] text-slate-400">by <bdi>{nameOf(x.by)}</bdi>{ready ? " · ready" : ` · collecting ${pct}%`}</span>
+                      <span className="block text-[11px] text-slate-400">by <bdi>{nameOf(x.by)}</bdi>{ready ? " · ready" : ` · collecting ${pct}%`}</span>
                       {!ready && <span className="mt-1 block h-1 rounded bg-slate-700"><span className="block h-1 rounded bg-cyber-400" style={{ width: `${pct}%` }} /></span>}
                     </button>
                   </li>
@@ -264,7 +264,7 @@ export function ForensicWorkbench({ sessionId, feed, events, meId, nameOf, act, 
               <ChoiceGroup legend="Confidence" hideLegend={false} size="xs" tone="cyan" value={conf} onChange={setConf}
                 options={[{ value: "low", label: "Low" }, { value: "moderate", label: "Moderate" }, { value: "high", label: "High" }]} />
               <Button variant="primary" size="sm" disabled={!summary.trim() || !conf || (fk === "host_status" && !status)} onClick={publish}>Publish finding</Button>
-              <p className="text-[10px] text-slate-400">Shared with the team and shown to the SOC Manager. After the shift every finding is checked against what really happened: it counts fully only when a row you cite shows it. For a C2 finding, name the IP or domain.</p>
+              <p className="text-[11px] text-slate-400">Shared with the team and shown to the SOC Manager. After the shift every finding is checked against what really happened: it counts fully only when a row you cite shows it. For a C2 finding, name the IP or domain.</p>
             </div>
           </Card>
         </div>
@@ -295,9 +295,9 @@ export function FindingsBoard({ events, nameOf, compact = false }: { events: Ev[
           const ev = Array.isArray(p.evidence_text) ? (p.evidence_text as unknown[]).map(asStr) : [];
           return (
             <li key={f.seq} className="rounded-lg border border-border bg-bg px-2.5 py-1.5 text-xs">
-              <p className="text-slate-100"><span className="mr-1 rounded border border-border px-1 font-mono text-[10px] uppercase text-slate-400">{KIND_LABEL[asStr(p.kind)] ?? asStr(p.kind)}</span><span className="font-mono text-slate-300">{asStr(p.host)}</span> <bdi>{asStr(p.summary)}</bdi></p>
+              <p className="text-slate-100"><span className="mr-1 rounded border border-border px-1 font-mono text-[11px] uppercase text-slate-400">{KIND_LABEL[asStr(p.kind)] ?? asStr(p.kind)}</span><span className="font-mono text-slate-300">{asStr(p.host)}</span> <bdi>{asStr(p.summary)}</bdi></p>
               <p className="text-[11px] text-slate-400">{asStr(p.confidence)} confidence · {ev.length ? `${ev.length} evidence row${ev.length > 1 ? "s" : ""}` : "no evidence cited"} · <bdi>{nameOf(f.actor_id)}</bdi>{f.occurred_at ? ` · ${hhmm(Date.parse(f.occurred_at))}` : ""}</p>
-              {!compact && ev.length > 0 && <ul className="mt-1 space-y-0.5 font-mono text-[10px] text-slate-400">{ev.map((t, i) => <li key={i}>{t}</li>)}</ul>}
+              {!compact && ev.length > 0 && <ul className="mt-1 space-y-0.5 font-mono text-[11px] text-slate-400">{ev.map((t, i) => <li key={i}>{t}</li>)}</ul>}
             </li>
           );
         })}

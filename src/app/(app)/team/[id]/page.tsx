@@ -29,7 +29,7 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { buildTeamEdrCases } from "@/lib/edr/teamCases";
 import { useTeamIocTruth } from "@/lib/team/useTeamIocTruth";
 import { IocTruthContext } from "@/components/threat-intel/iocTruthContext";
-import { Loader2, AlertTriangle, CheckCircle2, Circle, Radio, Play, ShieldCheck, ArrowLeft, Users, Siren, X, UserMinus, PauseCircle, LogOut, Cpu } from "lucide-react";
+import { Loader2, AlertTriangle, CheckCircle2, Circle, Radio, Play, ShieldCheck, ArrowLeft, Users, UserMinus, PauseCircle, LogOut, Cpu } from "lucide-react";
 import type { RosterMember, SessionMeta, Me, Ev, Ioc } from "@/lib/team/types";
 import { asStr, detectIocType, friendlyActionError, hashString, actionErrorCode, hostKey, type ActOutcome, type ActionErrorCode } from "@/lib/team/format";
 import { deriveReadyMap } from "@/lib/team/lobbyReady";
@@ -49,13 +49,22 @@ import { pausedSpans } from "@/lib/team/pauses";
 import { feedSourceOf, PRODUCT_LABEL, STACK_CHOICES, type Stack } from "@/lib/logs/native/stack";
 import { INDUSTRY_CHOICES, PLATFORM_CHOICES } from "@/lib/team/environment";
 import { advanceWatermark } from "@/lib/team/eventLog";
-import { ROLE_LABEL } from "./_components/shared";
+import { ROLE_LABEL, CONTAINMENT_RULE } from "./_components/shared";
 import { roleDirective, RoleGuideModal } from "./_components/RoleGuideModal";
-import { GuidedTour } from "./_components/GuidedTour";
+import { GuidedTour, tourLength } from "./_components/GuidedTour";
 import { tourFor, forSentinel } from "./_components/teamTours";
 import { useSentinelIncidents } from "@/lib/team/useSentinelIncidents";
 import { showSentinelWindow, siemWindowName } from "@/lib/team/twoWindows";
-import { SharedCase } from "./_components/SharedCase";
+import { SharedCase, caseHeadline } from "./_components/SharedCase";
+import { ShiftBar, ShiftClockView, EndCountdown, type BarNotice } from "./_components/ShiftBar";
+import { openPresenceNotices, openEndRequest, shiftClock } from "./_components/shiftClock";
+import { SeatBoard, TeamLine } from "./_components/SeatBoard";
+import { IsolationApprovals, isolationRequestsForMe } from "./_components/IsolationApprovals";
+import { useDrafts, saveDraft } from "./_components/drafts";
+import { waitingCounts, titleWithCount } from "@/lib/team/teamWindowCounts";
+import { isolationRequests } from "@/lib/team/isolationApproval";
+import { latestRequestByHost, requestIsolation, approverNames } from "@/lib/team/useIsolationRequest";
+import { actionInbox } from "@/lib/team/actionInbox";
 import { T1Console } from "./_components/T1Console";
 import { T2Console } from "./_components/T2Console";
 import { LeadConsole } from "./_components/LeadConsole";
@@ -80,7 +89,7 @@ import { FeedFilterBar } from "./_components/FeedFilterBar";
 import { SituationBoard } from "./_components/SituationBoard";
 import { SecondaryPanels } from "./_components/SecondaryPanels";
 import { WarRoom } from "./_components/WarRoom";
-import { QueueBoard, type QueueStats } from "./_components/QueueBoard";
+import type { QueueStats } from "./_components/QueueBoard";
 import { TeamIntel } from "./_components/TeamIntel";
 import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
 
@@ -134,18 +143,15 @@ export default function TeamRoomPage() {
   // DB-persisted pause (survives reload, shows as 'paused' in the list). Distinct
   // from the presence-derived halt, which is what DRIVES the auto pause/resume.
   const [paused, setPaused] = useState(false);
-  const [pausedReason, setPausedReason] = useState<string | null>(null);
-  const [pausedDetail, setPausedDetail] = useState<string | null>(null);
-  const [haltConfirmed, setHaltConfirmed] = useState(false); // coverage broken past the debounce
+  const [, setPausedReason] = useState<string | null>(null);   // kept for the lifecycle reconcile
+  const [, setPausedDetail] = useState<string | null>(null);
+  const [haltConfirmed, setHaltConfirmed] = useState(false); // coverage broken past the debounce (a notice only)
   const haltTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevOnlineRef = useRef<Set<string>>(new Set());
-  const ownerGoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const autoEndFiredRef = useRef(false);
   // Realtime-health signals so the DB reconcile pull only runs when realtime is
   // down/silent (scale: the pull is otherwise O(online users) queries forever).
   const lastRealtimeAtRef = useRef(0);
   const channelHealthyRef = useRef(false);
-  const autoPauseBusyRef = useRef(false);
   const countdownIvRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // G-04 feed filters (surfaced controls + click-to-pivot state).
   const [fSeverity, setFSeverity] = useState<"all" | "low" | "medium" | "high">("all");
@@ -159,7 +165,25 @@ export default function TeamRoomPage() {
   // Lifted here so the 🚩 button on a LOG (feed DetailPanel) can drive T1Console's report.
   const [t1Sel, setT1Sel] = useState<string>("");
   // Tier-1 queue = a VIEW of the SIEM table ("Needs triage"), not a separate card.
-  const [feedView, setFeedView] = useState<"all" | "triage">("all");
+  // 2026-11 review: Tier-1 sat on one row for 9 minutes and the queue was likely unused, so Tier-1 starts in it.
+  const [feedView, setFeedView] = useState<"all" | "triage">("triage");
+  // "Take next alert" opens the log's row in the feed (a new nonce opens it again).
+  const [openFeed, setOpenFeed] = useState<{ id: string; nonce: number } | null>(null);
+  // The shift bar: the Shared case opens under it; notices a player dismissed stay dismissed.
+  const [caseOpen, setCaseOpen] = useState(false);
+  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
+  const dismiss = useCallback((k: string) => setDismissed(s => new Set(s).add(k)), []);
+  const [hostsOpen, setHostsOpen] = useState(false);
+  // Ending: staff choose "in 2 minutes" (default) or "now"; a trainee Manager asks the instructor.
+  const [endAsk, setEndAsk] = useState<{ warn: string } | null>(null);
+  const [endNote, setEndNote] = useState<string | null>(null);
+  // Lobby: the briefing is open on the first visit, folded after; a pop-up test for the Sentinel window.
+  const [briefOpen, setBriefOpen] = useState(true);
+  const [popupTest, setPopupTest] = useState<null | "ok" | "blocked">(null);
+  // Heights of the sticky Topbar and shift bar, so the sticky columns sit under them.
+  const [topH, setTopH] = useState(68);
+  const [barH, setBarH] = useState(0);
+  const barRef = useRef<HTMLDivElement>(null);
   // Tier-3: most of the work is forensics, so the workbench is the default; the live feed is one tab away.
   const [t3View, setT3View] = useState<"workbench" | "feed" | "timeline" | "intel" | "attack">("workbench");
   const [t3ReportOpen, setT3ReportOpen] = useState(false);
@@ -246,7 +270,7 @@ export default function TeamRoomPage() {
       const sentAt = Date.now();
       // P5-07: a network drop used to throw here and leave "Loading…" forever.
       const res = await fetch(`/api/team/sessions/${id}`).catch(() => null);
-      if (!res) { if (!cancelled) { setError("Couldn't reach the server — check your connection and reload."); setLoading(false); } return; }
+      if (!res) { if (!cancelled) { setError("Couldn't reach the server: check your connection and reload."); setLoading(false); } return; }
       calibrateFromDateHeader(res.headers.get("date"), sentAt, Date.now());   // C5: server clock offset
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -298,7 +322,7 @@ export default function TeamRoomPage() {
     try {
       const key = `team-guide-seen-${me.role}`;
       if (!localStorage.getItem(key)) { setShowGuide(true); localStorage.setItem(key, "1"); }
-    } catch { /* private mode — just skip the auto-popup */ }
+    } catch { /* private mode: just skip the auto-popup */ }
   }, [phase, me?.role]);
 
   // ── event log sync: initial load + gap-filling reconcile, in EVERY phase ──
@@ -433,7 +457,7 @@ export default function TeamRoomPage() {
   const actR = useCallback(async (type: string, payload: Record<string, unknown>, opts?: { handled?: ActionErrorCode[] }): Promise<ActOutcome> => {
     const sb = getSupabaseBrowserClient();
     const quiet = type === "event.opened";               // click telemetry never raises a banner
-    if (!sb) { if (!quiet) showError("Not connected — reload the page."); return { ok: false, code: null }; }
+    if (!sb) { if (!quiet) showError("Not connected: reload the page."); return { ok: false, code: null }; }
     const sig = `${type}:${hashString(JSON.stringify(payload ?? {}))}`;
     const now = Date.now();
     const last = lastIntentRef.current;
@@ -467,7 +491,7 @@ export default function TeamRoomPage() {
   }
   // P5-07: a rejected fetch (network drop) used to skip setBusy(false) and leave
   // Start / End / Pause disabled for the rest of a live exercise.
-  const NET_ERR = "Couldn't reach the server — check your connection and try again.";
+  const NET_ERR = "Couldn't reach the server: check your connection and try again.";
   async function start() {
     setBusy(true); setError(null);
     const res = await fetch(`/api/team/sessions/${id}/start`, { method: "POST" }).catch(() => null);
@@ -477,21 +501,33 @@ export default function TeamRoomPage() {
     if (!res.ok) { setError(data?.error ?? "Could not start."); return; }
     setNote("Exercise starting…"); startCountdown();
   }
+  // End (2026-11 review: End threw everyone into the review mid-sentence). The server ends the shift
+  // two minutes after "scheduled" so everyone can send what they are writing; "now" skips the wait;
+  // "cancel" stops a scheduled end. A trainee SOC Manager asks the instructor first when one is online.
+  async function postEnd(mode: "scheduled" | "now" | "cancel") {
+    setBusy(true); setError(null);
+    const res = await fetch(`/api/team/sessions/${id}/end`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode }) }).catch(() => null);
+    setBusy(false);
+    if (!res) { setError(NET_ERR); return false; }
+    if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Could not end the shift."); return false; }
+    if (mode === "now") setPhase("ended");
+    return true;
+  }
   async function end() {
+    if (phase === "lobby") { if (confirm("Close this session for the whole team? It cannot be reopened.")) await postEnd("now"); return; }
+    if (me?.role === "mgr" && !me.is_staff && instructor && online.has(instructor.user_id)) {
+      const ok = await act("message.sent", { text: "The SOC Manager asks to end the shift.", kind: "end_request" });
+      if (ok) setEndNote("You asked the instructor to end the shift. The shift goes on until they decide.");
+      return;
+    }
     // Staff see what ending skips: planned attacks that never reached the feed (2026-10-18 review).
     let warn = "";
     if (me?.is_staff) {
       const sch = await fetch(`/api/team/sessions/${id}/schedule`).then(r => (r.ok ? r.json() : null)).catch(() => null) as { pending?: { kind: string }[] } | null;
       const planned = (sch?.pending ?? []).filter(p => p.kind === "planned").length;
-      if (planned > 0) warn = `\n\n${planned} planned attack${planned === 1 ? " has" : "s have"} not started yet and won't be part of the review. Use "Attacks still to come" → Now to release ${planned === 1 ? "it" : "them"} first.`;
+      if (planned > 0) warn = `${planned} planned attack${planned === 1 ? " has" : "s have"} not started yet and won't be part of the review. Use "Attacks still to come", then Now, to release ${planned === 1 ? "it" : "them"} first.`;
     }
-    if (!confirm(`End the session for the whole team and open the Shift review?${warn}`)) return;
-    setBusy(true); setError(null);
-    const res = await fetch(`/api/team/sessions/${id}/end`, { method: "POST" }).catch(() => null);
-    setBusy(false);
-    if (!res) { setError(NET_ERR); return; }
-    if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Could not end."); return; }
-    setPhase("ended");
+    setEndAsk({ warn });
   }
   async function pauseSession(p: boolean) {
     setBusy(true); setError(null);
@@ -552,12 +588,8 @@ export default function TeamRoomPage() {
 
   // ── Session-lifecycle: presence-based coverage & auto-close ──────────────────
   const instructor = useMemo(() => roster.find(r => r.role === "instructor") ?? null, [roster]);
-  // A content signature of who's online (presence hands us a NEW Set each sync even
-  // when membership is unchanged) — used as a stable effect dep so timers aren't
-  // reset on every heartbeat (C8).
-  const onlineSig = useMemo(() => [...online].sort().join(","), [online]);
-  // Core relay = Tier-1 (triage) → Tier-2 (investigate). If a core role is
-  // ASSIGNED to the team but has nobody online, the shift can't run → halt.
+  // Core relay = Tier-1 (triage) → Tier-2 (investigate). A core role ASSIGNED to the team with nobody
+  // online is shown as a notice in the shift bar (nothing pauses any more, 2026-11).
   const CORE_ROLES: ("t1" | "t2")[] = ["t1", "t2"];
   // Don't evaluate coverage until presence has synced me in — otherwise the empty
   // initial online-set would false-trigger a halt the instant the run begins.
@@ -573,17 +605,12 @@ export default function TeamRoomPage() {
           ? `No ${uncoveredCore.map(r => ROLE_LABEL[r]).join(" and no ")} online right now.`
           : null)
     : null;
-  // The halt overlay shows when the DB says paused OR coverage has been broken past
-  // the debounce (C7) — so a quick refresh of the only Tier-N doesn't flash a
-  // team-wide halt. A DB pause still shows instantly.
-  // v2: only a DB pause (decided server-side) blocks the room; the local presence
-  // view is shown as a soft warning instead. v1 keeps the client-debounced halt.
-  const haltActive = phase === "running" && (paused || (!v2 && haltConfirmed));
-  const haltMessage = paused
-    ? (pausedReason === "manual" ? "Paused by the instructor."
-      : pausedReason === "owner_left" ? (pausedDetail || "The instructor dropped out of the live room.")
-      : (pausedDetail || "Not enough of the team is online right now."))
-    : (haltReason ?? "");
+  // 2026-11: automatic pauses are gone (the server refuses any pause reason but "manual"). The
+  // overlay shows only when the session is really paused by a person; who is missing is a
+  // non-blocking notice in the shift bar (presence.notice from the server, or this browser's view).
+  const haltActive = phase === "running" && paused;
+  const pausedBy = useMemo(() => { let ev: Ev | null = null; for (const e of events) if (e.type === "session.paused") ev = e; return ev?.actor_id ?? null; }, [events]);
+  const haltMessage = paused ? (pausedBy ? `Paused by ${roster.find(r => r.user_id === pausedBy)?.name ?? "the instructor"}.` : "The shift is paused.") : "";
   // The halt overlay is a blocking alert dialog: move focus into it when it appears
   // (no trap — it may coexist with another modal's trap; aria-modal hides the rest).
   const haltRef = useRef<HTMLDivElement>(null);
@@ -621,27 +648,6 @@ export default function TeamRoomPage() {
   // when the halt clears, drop any staff "dismiss" of the overlay.
   useEffect(() => { if (!haltActive) setHaltDismissed(false); }, [haltActive]);
 
-  // Auto pause/resume to the DB: one elected online client mirrors the presence
-  // halt into a persisted 'paused' status (reason "coverage") and resumes it when
-  // coverage returns. A manual pause (reason "manual") is left for a human resume.
-  useEffect(() => {
-    if (v2) return;   // v2: the server lifecycle tick decides — no elected browser
-    if (phase !== "running" || !me || !presenceReady || autoPauseBusyRef.current) return;
-    const elected = roster.filter(r => online.has(r.user_id)).map(r => r.user_id).sort()[0];
-    if (elected !== me.id) return;
-    // The server builds the halt text from these role codes (a member can't push
-    // free text to the whole room).
-    const call = async (p: boolean) => {
-      autoPauseBusyRef.current = true;
-      try { await fetch(`/api/team/sessions/${id}/pause`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paused: p, reason: "coverage", missing: uncoveredCore, everyone: !anyPlayerOnline }) }); }
-      catch { /* transient — the next presence sync retries */ }
-      finally { autoPauseBusyRef.current = false; }
-    };
-    if (haltConfirmed && !paused) call(true);
-    else if (!haltReason && paused && pausedReason === "coverage") call(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [v2, phase, me, presenceReady, roster, online, haltReason, haltConfirmed, paused, pausedReason, id]);
-
   // C1: reconcile lifecycle from the event log so a missed broadcast can't strand a
   // client on the wrong screen. The 6s reconcile pull merges the session.* event;
   // this then corrects phase/paused/reason to match the latest lifecycle event.
@@ -661,41 +667,6 @@ export default function TeamRoomPage() {
       if (phase === "lobby" && countdown === null) setPhase("running");
     }
   }, [events, phase, paused, countdown]);
-
-  // Owner (instructor) left the live room → PAUSE after a short grace (never end —
-  // ending is irreversible, and a backgrounded tab / flaky socket can fake an
-  // absence). When the instructor is back, the elected client resumes it.
-  useEffect(() => {
-    if (v2 || phase !== "running" || !instructor || !me) {   // v2: decided server-side from heartbeats
-      if (ownerGoneTimer.current) { clearTimeout(ownerGoneTimer.current); ownerGoneTimer.current = null; }
-      return;
-    }
-    const electedPlayer = () => roster.filter(r => r.role !== "instructor" && r.role !== "observer" && online.has(r.user_id)).map(r => r.user_id).sort()[0];
-    if (online.has(instructor.user_id)) { // owner present — cancel any pending pause, lift an owner-left pause
-      if (ownerGoneTimer.current) { clearTimeout(ownerGoneTimer.current); ownerGoneTimer.current = null; }
-      autoEndFiredRef.current = false;
-      if (paused && pausedReason === "owner_left" && electedPlayer() === me.id && !autoPauseBusyRef.current) {
-        autoPauseBusyRef.current = true;
-        fetch(`/api/team/sessions/${id}/pause`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paused: false, reason: "owner_left" }) })
-          .catch(() => {}).finally(() => { autoPauseBusyRef.current = false; });
-      }
-      return;
-    }
-    if (ownerGoneTimer.current || autoEndFiredRef.current) return;
-    ownerGoneTimer.current = setTimeout(async () => {
-      ownerGoneTimer.current = null;
-      if (autoEndFiredRef.current || online.has(instructor.user_id)) return;
-      // elect the lowest online player id so exactly one client fires the pause.
-      const elected = electedPlayer();
-      if (!elected || elected !== me.id) return;
-      autoEndFiredRef.current = true;
-      await fetch(`/api/team/sessions/${id}/pause`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paused: true, reason: "owner_left" }) }).catch(() => {});
-    }, 30000);
-    return () => { if (ownerGoneTimer.current) { clearTimeout(ownerGoneTimer.current); ownerGoneTimer.current = null; } };
-    // onlineSig (not the online Set) keeps the 30s timer from resetting on every
-    // presence heartbeat — it re-runs only when membership actually changes (C8).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [v2, phase, instructor, onlineSig, me, roster, id, paused, pausedReason]);
 
   const feed = useMemo(() => events.filter(e => e.type === "feed.event"), [events]);
   // A player's seat and last action (Tier-2/3 takeover rule).
@@ -732,21 +703,28 @@ export default function TeamRoomPage() {
   // answer key, and a nudge timed to one log would point at it). v1 legacy sessions
   // still carry the key in their payloads, so they keep the old client-side rule.
   const nowTick = useServerNow(15_000);
-  // Page title counts what waits for the SOC Manager, so it shows in a background tab too.
-  const baseTitle = useRef<string | null>(null);
+  // The tab title counts what waits for THIS player, for every role, so it shows in a background tab
+  // and next to the Sentinel window (which counts the same way, teamWindowCounts.ts).
+  const myWaiting = useMemo(() => {
+    if (!me || phase !== "running") return 0;
+    const members = roster.map(m => ({ user_id: m.user_id, role: m.role, status: m.status, active: online.has(m.user_id) }));
+    const w = waitingCounts(events, { meId: me.id, role: me.role, isStaff: me.is_staff, members, chatReadSeq: Number.MAX_SAFE_INTEGER });
+    let n = w.approvals + actionInbox(events, { id: me.id, role: me.role }, roster).length;
+    if (me.role === "t2" || me.role === "t3") n += w.escalations + w.approved;
+    if (me.role === "mgr" || me.role === "lead") n += openDecisionCards(events, nowTick) + openStakeholderQuestions(events, nowTick) + waitingEscalations(events) - pendingApprovals(events);
+    if (me.is_staff && openEndRequest(events)) n += 1;
+    return Math.max(0, n);
+  }, [me, phase, roster, online, events, nowTick]);
   useEffect(() => {
-    if (!isCoordSeat) return;
-    if (baseTitle.current == null) baseTitle.current = document.title.replace(/^\(\d+\)\s*/, "");
-    const n = phase === "running" ? openDecisionCards(events, nowTick) + openStakeholderQuestions(events, nowTick) + pendingApprovals(events) : 0;
-    document.title = n > 0 ? `(${n}) ${baseTitle.current}` : baseTitle.current;
-    return () => { if (baseTitle.current) document.title = baseTitle.current; };
-  }, [events, nowTick, isCoordSeat, phase]);
+    document.title = titleWithCount(document.title, myWaiting);
+    return () => { document.title = titleWithCount(document.title, 0); };
+  }, [myWaiting]);
   const guidingNudge = useMemo((): string | null => {
     if (events.some(e => e.type === "escalation.requested")) return null;
     if (v2) {
       let hint: Ev | null = null;
       for (const e of events) if (e.type === "hint.nudge") hint = e;
-      return hint ? (asStr((hint.payload as { text?: unknown }).text) || "Nobody has escalated anything yet — re-check the high-severity logs.") : null;
+      return hint ? (asStr((hint.payload as { text?: unknown }).text) || "Nobody has escalated anything yet: re-check the high-severity logs.") : null;
     }
     const firstAttack = feed.find(e => { const v = (e.payload as { expected_verdict?: string }).expected_verdict; return v === "tp" || v === "escalate"; });
     if (!firstAttack?.occurred_at) return null;
@@ -817,6 +795,10 @@ export default function TeamRoomPage() {
   // Hosts already isolated from the EDR console: a Tier-1 row on one says so (Sdema review
   // 2026-10-25: Tier-1 spent ten minutes escalating a host Tier-2 had already isolated).
   const isoByHost = useMemo(() => isolationState(events), [events]);
+  // The latest isolation request per host (owner, 2026-11-07: isolating needs the senior on shift).
+  const isoRequestByHost = useMemo(() => latestRequestByHost(isolationRequests(events)), [events]);
+  // Cases with evidence pinned to them: the case stepper's Investigate step is done.
+  const pinnedIds = useMemo(() => new Set(events.filter(e => e.type === "evidence.pinned").map(e => String((e.payload as { case_event_id?: unknown; event_id?: unknown }).case_event_id ?? (e.payload as { event_id?: unknown }).event_id))), [events]);
   const hostByEid = useMemo(() => new Map(feed.map(e => [feedEventId(e), String((e.payload as { hostname?: unknown }).hostname ?? "").trim().toLowerCase()])), [feed]);
   // The queue by host and case (Sdema review 2026-10-25): a host nobody has touched goes on top,
   // a host already in a case or isolated goes last and its alerts are added to that case.
@@ -994,13 +976,19 @@ export default function TeamRoomPage() {
     if (me?.role === "t1") setT1Sel(eid);
     document.querySelector("[data-tour=feed]")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [me?.role]);
+  // 2026-11 review: "Take next alert" opened the escalation form before the log was read. It now
+  // claims the alert and opens its log in the feed (Needs triage view); the console follows it.
+  const takeAlert = useCallback((next: { eid: string; e: Ev } | null, label: string) => {
+    if (!next) { setPulledNote("Nothing unclaimed right now: every open alert is being worked."); return; }
+    setT1Sel(next.eid); setFeedView("triage"); setT1ReportOpen(false);
+    setOpenFeed(o => ({ id: toLiveCached(next.e).id, nonce: (o?.nonce ?? 0) + 1 }));
+    void actR("alert.claimed", { event_id: next.eid }, { handled: ["claim_held"] });
+    setPulledNote(`${label} #${next.e.seq}: its log is open below and claimed for you.`);
+  }, [toLiveCached, actR]);
   const takeNextAlert = useCallback(() => {
     // Host order: a host nobody has touched first, a host already in a case last.
-    const next = me ? nextAlertFor(orderedQueue, claimByEid, me.id) : null;
-    if (!next) { setPulledNote("Nothing unclaimed right now — every open alert is being worked."); return; }
-    setT1Sel(next.eid); setT1ReportOpen(true);
-    setPulledNote(`Pulled #${next.e.seq} for you — it's claimed while you work it.`);
-  }, [orderedQueue, claimByEid, me]);
+    takeAlert(me ? nextAlertFor(orderedQueue, claimByEid, me.id) : null, "Took");
+  }, [orderedQueue, claimByEid, me, takeAlert]);
   // Distinct sources present in the feed → populate the G-04 source filter.
   const feedSources = useMemo(() => [...new Set(liveFeed.map(e => e.feed_source ?? e.source).filter(Boolean))].sort(), [liveFeed]);
 
@@ -1050,8 +1038,8 @@ export default function TeamRoomPage() {
       const cases = buildTeamEdrCases(evs, { sessionId: id, hosts, description, iocTruth });
       if (!cases.length) {
         setEdrNote(host
-          ? `No endpoint (EDR/Sysmon) telemetry for ${host} in this shift yet — nothing to open in the EDR console.`
-          : "No endpoint (EDR/Sysmon) telemetry in this incident yet — nothing to open in the EDR console.");
+          ? `No endpoint (EDR/Sysmon) telemetry for ${host} in this shift yet: nothing to open in the EDR console.`
+          : "No endpoint (EDR/Sysmon) telemetry in this incident yet: nothing to open in the EDR console.");
         return;
       }
       // B8: per-analyst key + ?u= so a second analyst opening EDR doesn't clobber the
@@ -1061,8 +1049,8 @@ export default function TeamRoomPage() {
       // NOT the "noopener" feature: with it window.open() returns null even when the tab
       // DID open, which showed a false "Pop-up blocked". Cut the opener link by hand.
       const w = window.open(`/edr?case=live&team=${id}&u=${encodeURIComponent(uid)}${me?.role ? `&r=${encodeURIComponent(me.role)}` : ""}`, "_blank");
-      if (!w) { setEdrNote("Pop-up blocked — allow pop-ups for this site, then click “Investigate in EDR” again."); return; }
-      try { w.opener = null; } catch { /* cross-origin guard — nothing to cut */ }
+      if (!w) { setEdrNote("Pop-up blocked: allow pop-ups for this site, then click “Investigate in EDR” again."); return; }
+      try { w.opener = null; } catch { /* cross-origin guard: nothing to cut */ }
       setEdrNote(null);
     } catch { setEdrNote("Couldn't open the EDR console for this incident."); }
   }, [feed, escalations, id, me?.id, me?.role, iocTruth, isSentinel, openSentinel]);
@@ -1156,12 +1144,53 @@ export default function TeamRoomPage() {
     [nativeMod, companyForNative, stackKey, tenantDomain, tenantRealm],
   );
 
+  // The sticky Topbar's and shift bar's heights: the sticky columns sit right under them.
+  useEffect(() => {
+    if (phase !== "running") return;
+    const head = document.querySelector<HTMLElement>("header.sticky");
+    const ro = new ResizeObserver(() => { setTopH(Math.round(head?.getBoundingClientRect().height ?? 68)); setBarH(Math.round(barRef.current?.getBoundingClientRect().height ?? 0)); });
+    if (head) ro.observe(head);
+    if (barRef.current) ro.observe(barRef.current);
+    return () => ro.disconnect();
+  }, [phase, loading]);
+  // The briefing is open on the first visit to this lobby, folded afterwards.
+  useEffect(() => {
+    try { const k = `team-briefing-seen-${id}`; if (localStorage.getItem(k)) setBriefOpen(false); else localStorage.setItem(k, "1"); } catch { /* storage blocked: keep it open */ }
+  }, [id]);
+  // The stakeholder report in progress is kept as a draft too (shown with the player's card at the end).
+  useEffect(() => {
+    if (!me?.id) return;
+    const text = reportDraft ? Object.entries(reportDraft).filter(([, v]) => typeof v === "string" && v.trim()).map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`).join("\n") : "";
+    const t = setTimeout(() => saveDraft(id, me.id, "stakeholder-report", "Stakeholder report you were writing", text), 600);
+    return () => clearTimeout(t);
+  }, [reportDraft, id, me?.id]);
+  const myDrafts = useDrafts(id, me?.id);
+
   if (loading) return <div className="flex items-center gap-2 p-6 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>;
   if (removed) return (
     <div className="p-6"><div className="flex items-start gap-2 rounded-lg border border-neon-amber/40 bg-neon-amber/[0.08] px-4 py-3 text-sm text-neon-amber"><UserMinus className="mt-0.5 h-4 w-4 shrink-0" />
-      <span>{removed} Anything you did before that still counts in the shift review. Ask your instructor if this was a mistake — they can add you back.</span></div>
+      <span>{removed} Anything you did before that still counts in the shift review. Ask your instructor if this was a mistake: they can add you back.</span></div>
       <Link href="/team" className="mt-3 inline-flex items-center gap-1 text-sm text-cyber-300"><ArrowLeft className="h-4 w-4" /> Back to team training</Link></div>
   );
+  // Endpoint alerts and the investigation console, for the analysts (muted until an EDR alert arrives).
+  const edrButton = me && (me.role === "t1" || me.role === "t2" || me.role === "t3") ? (() => {
+                      const last = edrAlerts[edrAlerts.length - 1];
+                      return (
+                        <div data-tour="edr-button" className="flex shrink-0 items-center gap-2">
+                          <button type="button" disabled={!isSentinel && !last} onClick={() => { if (isSentinel) openSentinel({ incident: sentinelIncidents.find(i => i.number === last?.seq)?.id }); else if (last) openEdr(last.title, last.host); }}
+                            title={isSentinel ? (last ? `Latest incident: ${last.title}` : "Open Sentinel. No incidents yet.") : last ? `Latest EDR alert: ${last.title} (${last.host})` : "No endpoint alerts yet: this lights up when an EDR alert reaches the feed"}
+                            className={`relative flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50 ${last || isSentinel ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-200 hover:bg-cyber-500/20" : "cursor-not-allowed border-border bg-bg text-slate-400"}`}>
+                            <Cpu className="h-3.5 w-3.5" aria-hidden /> Investigate in {consoleName}
+                            {edrAlerts.length > 0 && (
+                              <span className="absolute -right-2 -top-2 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-severity-critical px-1 text-[11px] font-bold text-white shadow ring-2 ring-bg-elevated">
+                                {edrAlerts.length}<span className="sr-only"> {isSentinel ? "incident" : "endpoint alert"}{edrAlerts.length > 1 ? "s" : ""}</span>
+                              </span>
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })() : null;
+
   if (error && !session) return (
     <div className="p-6"><div className="flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high"><AlertTriangle className="h-4 w-4" />{error}</div>
       <Link href="/team" className="mt-3 inline-flex items-center gap-1 text-sm text-cyber-300"><ArrowLeft className="h-4 w-4" /> Back</Link></div>
@@ -1174,41 +1203,16 @@ export default function TeamRoomPage() {
     <EdrPivotContext.Provider value={me?.role === "t1" || me?.role === "t2" || me?.role === "t3" ? edrPivot : null}>
     <NativeLogProvider value={nativeRender}>
     <div>
+      {/* 2026-11 review: the global "Report a problem" pill covered answer fields. In the room it shrinks to
+          a small icon in the corner; the side column keeps room under its last input (pb-14). */}
+      {phase !== "ended" && <style>{`button.fixed[aria-label="Report a problem"]{bottom:.5rem;right:.5rem;padding:.4rem;opacity:.8}button.fixed[aria-label="Report a problem"] span{display:none}`}</style>}
       <Topbar title={phase === "running" ? "Live team exercise" : phase === "ended" ? "Shift review" : "Team lobby"} subtitle={session ? `${session.tenant?.name ?? session.company_id} · ${session.difficulty}` : ""} />
       {/* Running: use the WHOLE screen width (a customer saw the centre column clipped
-          with a sideways scroll on a laptop) — no max-width cap, slimmer side padding. */}
-      <div className={`mx-auto ${phase === "running" ? "w-full max-w-none px-4 xl:px-6" : "container max-w-[1100px] px-6"} py-6 space-y-5`}>
-        <Link href="/team" className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-white"><ArrowLeft className="h-3.5 w-3.5" /> Team training</Link>
-        {error && <div className="flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high"><AlertTriangle className="h-4 w-4" />{error}</div>}
+          with a sideways scroll on a laptop): no max-width cap, slimmer side padding. */}
+      <div className={`mx-auto ${phase === "running" ? "w-full max-w-none px-4 xl:px-6" : "container max-w-[1100px] px-6"} ${phase === "running" ? "py-3 space-y-3" : "py-6 space-y-5"}`}>
+        {phase !== "running" && <Link href="/team" className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-white"><ArrowLeft className="h-3.5 w-3.5" /> Team training</Link>}
+        {error && <div role="alert" className="flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-2 text-sm text-severity-high"><AlertTriangle className="h-4 w-4" />{error}</div>}
         {note && phase !== "running" && <div className="rounded-lg border border-neon-green/30 bg-neon-green/10 px-4 py-3 text-sm text-neon-green">{note}</div>}
-        {/* B8: EDR feedback shows in ANY phase (a pop-up-blocked click mid-shift must not be silent) */}
-        {edrToast && phase === "running" && (me?.role === "t1" || me?.role === "t2" || me?.role === "t3") && (
-          <div role="status" className="fixed bottom-20 right-4 z-50 w-[22rem] max-w-[calc(100vw-2rem)] rounded-lg border border-cyber-500/50 bg-bg-elevated px-4 py-3 shadow-2xl">
-            <div className="flex items-start gap-2.5">
-              <Cpu className="mt-0.5 h-4 w-4 shrink-0 text-cyber-300" aria-hidden />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold uppercase tracking-wider text-cyber-300">{isSentinel ? "New Sentinel incident" : "New EDR alert"}</p>
-                {!isSentinel && <p className="mt-0.5 text-sm text-slate-200"><bdi className="font-mono">{edrToast.host}</bdi></p>}
-                <p className="mt-0.5 line-clamp-2 text-[11px] text-slate-400">{edrToast.title}</p>
-                <div className="mt-2 flex gap-2">
-                  <Button size="sm" onClick={() => { if (isSentinel) openSentinel({ incident: sentinelIncidents.find(i => i.number === edrToast.seq)?.id }); else openEdr(edrToast.title, edrToast.host); setEdrToast(null); }}>Investigate in {consoleName}</Button>
-                  <Button size="sm" variant="outline" onClick={() => setEdrToast(null)}>Later</Button>
-                </div>
-              </div>
-              <button type="button" onClick={() => setEdrToast(null)} aria-label={`Dismiss the ${consoleName} notice`} className="rounded text-slate-400 hover:text-white"><X className="h-3.5 w-3.5" /></button>
-            </div>
-          </div>
-        )}
-        {mgrNotice && (me?.role === "mgr" || me?.role === "lead") && (
-          <div role="status" className="fixed right-4 top-4 z-50 flex max-w-sm items-center gap-2 rounded-lg border border-neon-purple/60 bg-bg-elevated px-3 py-2.5 text-sm text-slate-100 shadow-2xl">
-            <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-neon-purple motion-reduce:animate-none" aria-hidden />
-            <span className="min-w-0 flex-1"><bdi>{mgrNotice.text}</bdi></span>
-            <Button variant="outline" size="sm" onClick={() => { if (mgrNotice.go === "desk") document.querySelector("[data-command-desk]")?.scrollIntoView({ behavior: "smooth", block: "start" }); else setMgrView(mgrNotice.go); setMgrNotice(null); }}>Open</Button>
-            <button onClick={() => setMgrNotice(null)} aria-label="Dismiss" className="rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button>
-          </div>
-        )}
-        {t3Sent && <div role="status" className="fixed bottom-4 right-4 z-50 flex max-w-md items-center gap-2 rounded-lg border border-neon-green/50 bg-bg-elevated px-4 py-3 text-sm text-neon-green shadow-2xl"><CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />{t3Sent}<button onClick={() => setT3Sent(null)} aria-label="Dismiss" className="ml-auto rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button></div>}
-        {edrNote && <div role="alert" className="fixed bottom-4 right-4 z-50 flex max-w-md items-center gap-2 rounded-lg border border-neon-amber/50 bg-bg-elevated px-4 py-3 text-sm text-neon-amber shadow-2xl"><AlertTriangle className="h-4 w-4 shrink-0" />{edrNote}<button onClick={() => setEdrNote(null)} aria-label="Dismiss" className="ml-auto rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button></div>}
 
         {/* 3-2-1 countdown: one assertive announcement per number. The region stays
             mounted so the first number ("3") is announced too; the big visual is hidden from AT. */}
@@ -1219,78 +1223,50 @@ export default function TeamRoomPage() {
           </div>
         )}
 
-        {showGuide && me && <RoleGuideModal role={me.role} isSentinel={isSentinel} onClose={() => setShowGuide(false)}
-          onStartTour={phase === "running" && tourFor(me.role, setMgrView) ? () => { setShowGuide(false); setTourOn(true); } : undefined} />}
-        {tourOn && me && (() => { const t = tourFor(me.role, setMgrView); return t ? <GuidedTour title={t.title} steps={isSentinel ? forSentinel(t.steps) : t.steps} onClose={() => { setTourOn(false); try { localStorage.setItem(`team-tour-seen-${me.role}`, "1"); } catch { /* storage blocked */ } }} /> : null; })()}
+        {showGuide && me && (() => { const t = tourFor(me.role, setMgrView); return <RoleGuideModal role={me.role} isSentinel={isSentinel} onClose={() => setShowGuide(false)}
+          tourLabel={t ? tourLength(t.steps) : undefined}
+          onStartTour={(phase === "running" || phase === "lobby") && t ? () => { setShowGuide(false); setTourOn(true); } : undefined} />; })()}
+        {tourOn && me && (() => {
+          const t = tourFor(me.role, setMgrView);
+          if (!t) return null;
+          // In the lobby the screen is not there yet: every step shows as a centred card that says so.
+          const steps = (isSentinel ? forSentinel(t.steps) : t.steps).map(st => (phase === "lobby" && st.target ? { ...st, absent: "You will see this on your screen once the shift starts." } : st));
+          return <GuidedTour title={t.title} steps={steps} onClose={() => { setTourOn(false); try { localStorage.setItem(`team-tour-seen-${me.role}`, "1"); } catch { /* storage blocked */ } }} />;
+        })()}
 
-        {/* Who-just-left popups — every member sees them when a teammate drops. */}
-        {leftNotices.length > 0 && (
-          <div className="fixed right-4 top-20 z-50 flex w-72 flex-col gap-2">
-            {leftNotices.map(n => (
-              <div key={n.key} className="flex items-start gap-2 rounded-lg border border-neon-amber/40 bg-bg-elevated px-3 py-2 shadow-lg">
-                <UserMinus className="mt-0.5 h-4 w-4 shrink-0 text-neon-amber" aria-hidden="true" />
-                <p className="text-[12px] text-slate-200"><b><bdi>{n.name}</bdi></b> <span className="text-slate-400">({n.role})</span> left the session.</p>
-                <button onClick={() => setLeftNotices(ns => ns.filter(x => x.key !== n.key))} aria-label="Dismiss notice" className="ml-auto shrink-0 rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Training halted — a core role has nobody online. Blocks play until the
-            team is back (auto-clears), or staff/Manager reassign / end. */}
+        {/* Paused by a person (the only pause left, 2026-11): blocks play until resumed. */}
         {haltActive && !haltDismissed && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-6">
             <div ref={haltRef} role="alertdialog" aria-modal="true" aria-labelledby="team-halt-title" aria-describedby="team-halt-msg" tabIndex={-1} className="max-w-md rounded-xl border border-neon-amber/40 bg-bg-elevated p-6 text-center shadow-2xl">
               <PauseCircle className="mx-auto h-10 w-10 text-neon-amber" aria-hidden="true" />
               <h3 id="team-halt-title" className="mt-3 text-lg font-bold text-white">Training paused</h3>
               <p id="team-halt-msg" className="mt-1 text-sm text-neon-amber">{haltMessage}</p>
-              <p className="mt-2 text-[12px] text-slate-400">{pausedReason === "manual"
-                ? "The instructor paused the shift. It stays paused until they resume it."
-                : pausedReason === "owner_left"
-                  ? `Nothing is lost — the shift resumes automatically when the instructor is back${canRunSession ? ", or you can resume / end it now." : "."}`
-                  : `The shift can't run without the core team. It resumes automatically the moment they're back${canRunSession ? ", or you can reassign the role / end the session." : "."}`}</p>
+              <p className="mt-2 text-xs text-slate-400">The shift clock is stopped and nothing is lost. It stays paused until it is resumed.</p>
               {canRunSession && (
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setHaltDismissed(true)}>Manage (reassign)</Button>
-                  {paused && <Button variant="outline" size="sm" disabled={busy} onClick={() => pauseSession(false)}>Resume now</Button>}
-                  <Button variant="primary" size="sm" disabled={busy} onClick={end}><LogOut className="mr-1 h-3.5 w-3.5" /> End session</Button>
+                  {me?.is_staff && <Button variant="outline" size="sm" onClick={() => setHaltDismissed(true)}>Manage (reassign)</Button>}
+                  <Button variant="primary" size="sm" disabled={busy} onClick={() => pauseSession(false)}>Resume</Button>
+                  <Button variant="outline" size="sm" disabled={busy} onClick={end}><LogOut className="mr-1 h-3.5 w-3.5" /> End shift</Button>
                 </div>
               )}
             </div>
           </div>
         )}
-        {haltActive && haltDismissed && (
-          <div className="flex items-center gap-2 rounded-lg border border-neon-amber/40 bg-neon-amber/[0.08] px-3 py-2 text-sm text-neon-amber">
-            <PauseCircle className="h-4 w-4 shrink-0" /> Paused — {haltMessage} Reassign the seat below, or resume from the header.
-          </div>
-        )}
 
-        {/* Work-division: coordinator's rebalance nudge — task-focused, no public
-            call-out of the overloaded person (no-fault framing, U6); the Manager's
-            Situation Board keeps the per-name detail. */}
-        {phase === "running" && activeNudge && (() => {
-          const p = activeNudge.payload as { target?: string; load?: number };
-          const targetRole = roster.find(r => r.user_id === p.target)?.role;
-          const queue = targetRole === "t1" ? "The Tier-1 alert queue" : targetRole === "t2" || targetRole === "t3" ? "The investigation queue" : "A teammate's queue";
-          // T1-B playtest: the overloaded analyst got the same "if you're light…" line as
-          // everyone else. They get a personal, actionable one (live load, else the nudge's).
-          const mine = !!me && p.target === me.id;
-          const myLoad = mine ? (openLoadByUser(events, nowTick).get(me!.id) ?? (typeof p.load === "number" ? p.load : 0)) : 0;
-          return (
-            <div role="status" className="flex items-center gap-2 rounded-lg border border-cyber-500/40 bg-cyber-500/[0.08] px-3 py-2 text-sm text-cyber-200">
-              <Siren className="h-4 w-4 shrink-0 text-cyber-300" /> {mine
-                ? <span><b>You&apos;re carrying {myLoad > 0 ? myLoad : "several"} open case{myLoad === 1 ? "" : "s"}</b> — <bdi>{nameOf(activeNudge.actor_id)}</bdi> asks you to hand one off or release a claim you&apos;re not actively working.</span>
-                : <span><b>{queue}</b> is backing up — <bdi>{nameOf(activeNudge.actor_id)}</bdi> asks the team to rebalance. If you&apos;re light, take the next case.</span>}
-              <button onClick={() => setDismissedNudgeSeq(activeNudge.seq ?? 0)} aria-label="Dismiss rebalance request" className="ml-auto shrink-0 rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button>
+        {/* End the shift: in two minutes (default, so everyone can send their work) or now. */}
+        {endAsk && (
+          <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/70 px-4" onClick={() => setEndAsk(null)}>
+            <div role="dialog" aria-modal="true" aria-labelledby="end-ask-title" className="w-full max-w-md rounded-xl border border-border bg-bg-elevated p-5 shadow-2xl" onClick={e => e.stopPropagation()}
+              onKeyDown={e => { if (e.key === "Escape") setEndAsk(null); }}>
+              <h2 id="end-ask-title" className="text-base font-bold text-white">End the shift for the whole team?</h2>
+              <p className="mt-1.5 text-sm text-slate-300">Everyone sees a two-minute warning to send what they are writing. Anything unsent is kept as a draft and shown with each player&apos;s card in the review.</p>
+              {endAsk.warn && <p className="mt-2 rounded border border-neon-amber/40 bg-neon-amber/[0.07] px-2 py-1.5 text-xs text-neon-amber">{endAsk.warn}</p>}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button variant="primary" size="sm" autoFocus disabled={busy} onClick={async () => { if (await postEnd("scheduled")) setEndAsk(null); }}>End in 2 minutes</Button>
+                <Button variant="outline" size="sm" disabled={busy} onClick={async () => { if (await postEnd("now")) setEndAsk(null); }}>End now</Button>
+                <Button variant="outline" size="sm" className="ml-auto" onClick={() => setEndAsk(null)}>Cancel</Button>
+              </div>
             </div>
-          );
-        })()}
-
-        {/* v2: coverage is decided server-side (heartbeats); show what this browser
-            sees as a soft heads-up instead of blocking the room. */}
-        {v2 && phase === "running" && !paused && haltReason && (
-          <div role="status" className="flex items-center gap-2 rounded-lg border border-neon-amber/30 bg-neon-amber/[0.06] px-3 py-2 text-xs text-neon-amber">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> {haltReason} If they don&apos;t reconnect within a couple of minutes the shift pauses automatically — nothing is lost.
           </div>
         )}
 
@@ -1299,28 +1275,46 @@ export default function TeamRoomPage() {
           <>
             {/* E-21 (QA phase 7): the lobby had no connection indicator — a dropped
                 socket looked like "nobody else is ready". */}
-            <div className="flex items-center gap-2 text-xs" aria-live="polite">
-              {socketLive && !beatUnstable
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span aria-live="polite">{socketLive && !beatUnstable
                 ? <span className="inline-flex items-center gap-1.5 text-neon-green"><Radio className="h-3.5 w-3.5" /> Connected to the lobby</span>
-                : <span className="inline-flex items-center gap-1.5 text-neon-amber"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Reconnecting — ready states may be out of date</span>}
+                : <span className="inline-flex items-center gap-1.5 text-neon-amber"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Reconnecting: ready states may be out of date</span>}</span>
+              {/* The role guide and the tour are here before the shift, not only once it runs. */}
+              {me?.role && <Button variant="outline" size="sm" className="ml-auto" onClick={() => setShowGuide(true)}>Role guide and tour</Button>}
             </div>
-            {/* Mission briefing — objectives + how you're scored, up front (no spoilers) */}
+            {/* Mission briefing: objectives and how you are scored, up front (no spoilers). Open on the
+                first visit, folded after, so the roster and the ready button are not pushed down. */}
             <Card className="border-cyber-500/30">
-              <h2 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldCheck className="h-4 w-4 text-cyber-300" /> Shift briefing</h2>
-              <p className="mt-1 text-xs text-slate-400">A live SOC shift on a shared feed — expect a mix of noise and real activity. ~{lobbyLoad?.shiftMin ?? 30} min of live telemetry, then work the case to closure. Work as one team, tier to tier.</p>
-              <p className="mt-1 text-[11px] text-slate-500"><span className="font-semibold text-slate-400">Security products:</span> {stackLine ? `${stackLine} — the rest are the company's own.` : "the company's own."}</p>
-              {envLine && <p className="mt-0.5 text-[11px] text-slate-500"><span className="font-semibold text-slate-400">Environment:</span> {envLine}</p>}
-              <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                {[["Keep the queue clean", "triage every alert — disposition it, don't let it pile up"],
-                  ["Escalate with evidence", "hand off with a clear report + indicators, not a hunch"],
-                  ["Contain the right asset", "scope it, get approval, isolate — no over-reaction"]].map(([t, d]) => (
-                  <div key={t} className="rounded-lg border border-border bg-bg px-2.5 py-2">
-                    <p className="text-[11px] font-semibold text-cyber-200">{t}</p>
-                    <p className="mt-0.5 text-[10px] text-slate-500">{d}</p>
+              <details open={briefOpen} onToggle={e => setBriefOpen((e.currentTarget as HTMLDetailsElement).open)}>
+                <summary className="flex cursor-pointer items-center gap-2 rounded text-sm font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50">
+                  <ShieldCheck className="h-4 w-4 text-cyber-300" aria-hidden /> Shift briefing
+                  <span className="text-xs font-normal text-slate-400">{briefOpen ? "" : "(open to read again)"}</span>
+                </summary>
+                <p className="mt-2 text-sm text-slate-300">A live SOC shift on a shared feed: expect a mix of noise and real activity. About {lobbyLoad?.shiftMin ?? 30} minutes of live telemetry; work the cases to closure. Work as one team, tier to tier.</p>
+                {isSentinel && (
+                  <div className="mt-2 rounded-lg border border-cyber-500/40 bg-cyber-500/[0.06] px-3 py-2 text-xs text-slate-200">
+                    <p><b className="text-white">Two windows.</b> This shift investigates in Microsoft Sentinel, in a second browser window. This team room stays your SIEM window: the alert queue, the cases and the team chat. Investigate in Sentinel opens that second window, or brings it forward. Allow pop-ups for this site before the shift starts.</p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={() => { const w = window.open("about:blank", "team-popup-test", "width=360,height=200"); if (!w) setPopupTest("blocked"); else { try { w.close(); } catch { /* already closed */ } setPopupTest("ok"); } }}>Test pop-ups</Button>
+                      {popupTest && <span role="status" className={popupTest === "ok" ? "text-neon-green" : "text-neon-amber"}>{popupTest === "ok" ? "Pop-ups work: Sentinel will open." : "Pop-ups are blocked: allow them for this site in the address bar, then test again."}</span>}
+                    </div>
                   </div>
-                ))}
-              </div>
-              <p className="mt-2 text-[10px] text-slate-500">Scored per role on a visible 0/4/8/12 rubric across the same three dimensions you&apos;re briefed on — <b className="text-slate-400">accuracy</b> · <b className="text-slate-400">timeliness</b> · <b className="text-slate-400">coordination</b>. No hidden scoring, and it&apos;s no-fault: catching and fixing your own mistake scores <b className="text-slate-400">for</b> you.</p>
+                )}
+                <p className="mt-2 text-xs text-slate-400"><span className="font-semibold text-slate-300">Security products:</span> {stackLine ? `${stackLine}; the rest are the company's own.` : "the company's own."}</p>
+                {envLine && <p className="mt-0.5 text-xs text-slate-400"><span className="font-semibold text-slate-300">Environment:</span> {envLine}</p>}
+                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                  {[["Keep the queue clean", "judge every alert: close the noise, do not let it pile up"],
+                    ["Escalate with evidence", "hand off with a clear report and the indicators, not a hunch"],
+                    ["Contain the right asset", "report and scope first, then ask; the senior on shift approves"]].map(([t, d]) => (
+                    <div key={t} className="rounded-lg border border-border bg-bg px-2.5 py-2">
+                      <p className="text-xs font-semibold text-cyber-200">{t}</p>
+                      <p className="mt-0.5 text-xs text-slate-400">{d}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-slate-300"><b className="text-slate-200">The containment rule:</b> {CONTAINMENT_RULE}</p>
+                <p className="mt-2 text-xs text-slate-400">Scored per role on a visible 0/4/8/12 rubric across the same three dimensions: <b className="text-slate-300">accuracy</b>, <b className="text-slate-300">timeliness</b> and <b className="text-slate-300">coordination</b>. No hidden scoring, and it is no-fault: catching and fixing your own mistake scores <b className="text-slate-300">for</b> you.</p>
+              </details>
             </Card>
             <Card>
               <div className="flex items-center justify-between">
@@ -1333,12 +1327,12 @@ export default function TeamRoomPage() {
                   return (
                     <div key={m.user_id} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${rdy ? "border-neon-green/30 bg-neon-green/[0.05]" : "border-border"}`}>
                       <span className={`h-2 w-2 shrink-0 rounded-full ${isOn ? "bg-neon-green" : "bg-slate-600"}`} title={isOn ? "connected" : "not connected"} aria-hidden="true" />
-                      <span className="min-w-0 flex-1 truncate text-sm text-slate-200"><span className="sr-only">{isOn ? "Connected: " : "Not connected: "}</span><bdi>{m.name}</bdi>{isMe && <span className="ml-1 text-[11px] text-cyber-300">(you)</span>}
-                        <span className="ml-2 rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-slate-400">{ROLE_LABEL[m.role] ?? m.role}</span></span>
-                      {m.role === "instructor" ? <span className="inline-flex items-center gap-1 text-[11px] text-neon-amber"><ShieldCheck className="h-3.5 w-3.5" /> runs it</span>
-                        : rdy ? <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-neon-green"><CheckCircle2 className="h-3.5 w-3.5" /> ready</span>
-                        : m.lapsed ? <span className="inline-flex items-center gap-1 text-[11px] text-severity-high" title="Their access to your organisation has expired — they can't mark ready."><AlertTriangle className="h-3.5 w-3.5" /> access expired</span>
-                        : <span className="inline-flex items-center gap-1 text-[11px] text-slate-500"><Circle className="h-3.5 w-3.5" /> not ready</span>}
+                      <span className="min-w-0 flex-1 truncate text-sm text-slate-200"><span className="sr-only">{isOn ? "Connected: " : "Not connected: "}</span><bdi>{m.name}</bdi>{isMe && <span className="ml-1 text-xs text-cyber-300">(you)</span>}
+                        <span className="ml-2 rounded border border-border px-1.5 py-0.5 font-mono text-[11px] text-slate-400">{ROLE_LABEL[m.role] ?? m.role}</span></span>
+                      {m.role === "instructor" ? <span className="inline-flex items-center gap-1 text-xs text-neon-amber"><ShieldCheck className="h-3.5 w-3.5" /> runs it</span>
+                        : rdy ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-neon-green"><CheckCircle2 className="h-3.5 w-3.5" /> ready</span>
+                        : m.lapsed ? <span className="inline-flex items-center gap-1 text-xs text-severity-high" title="Their access to your organisation has expired: they can't mark ready."><AlertTriangle className="h-3.5 w-3.5" /> access expired</span>
+                        : <span className="inline-flex items-center gap-1 text-xs text-slate-400"><Circle className="h-3.5 w-3.5" /> not ready</span>}
                       {me?.is_staff && m.role !== "instructor" && !isMe && <RemoveMemberButton sessionId={id} userId={m.user_id} name={m.name} onError={showError} />}
                     </div>
                   );
@@ -1347,54 +1341,53 @@ export default function TeamRoomPage() {
             </Card>
 
             {/* Shift load, sized to this team (load.ts). Pace for everyone; the attack
-                count only for staff — telling analysts how many attacks to find is a hint. */}
+                count only for staff: telling analysts how many attacks to find is a hint. */}
             {lobbyLoad && (
               <Card>
                 <h2 className="flex items-center gap-2 text-sm font-bold text-white"><Radio className="h-4 w-4 text-cyber-300" /> Shift pace</h2>
                 <p className="mt-1 text-xs text-slate-400">
-                  About <b className="text-slate-200">{lobbyLoad.logsPerMin} logs per minute</b> for {lobbyLoad.triageAnalysts === 1 ? "one Tier-1 analyst" : `${lobbyLoad.triageAnalysts} Tier-1 analysts`} over ~{lobbyLoad.shiftMin} minutes. The pace leaves time to read each log, triage the alerts and write a good escalation (planned Tier-1 workload {Math.round(lobbyLoad.workload * 100)}%). Adding a Tier-1 analyst raises the pace; the whole team&apos;s size sets how much is going on.
+                  About <b className="text-slate-200">{lobbyLoad.logsPerMin} logs per minute</b> for {lobbyLoad.triageAnalysts === 1 ? "one Tier-1 analyst" : `${lobbyLoad.triageAnalysts} Tier-1 analysts`} over about {lobbyLoad.shiftMin} minutes. The pace leaves time to read each log, triage the alerts and write a good escalation (planned Tier-1 workload {Math.round(lobbyLoad.workload * 100)}%). Adding a Tier-1 analyst raises the pace; the whole team&apos;s size sets how much is going on.
                 </p>
                 {me?.is_staff && <WorkloadCheck preview={wl?.preview ?? null} alternatives={wl?.alternatives ?? []} loading={wlLoading} confirmed={wlConfirmed} onConfirm={setWlConfirmed} />}
                 {me?.is_staff && (
-                  <p className="mt-2 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-[11px] text-slate-400">
-                    <span className="font-semibold text-slate-300">Staff only:</span> {lobbyLoad.players} player{lobbyLoad.players === 1 ? "" : "s"} → {lobbyLoad.stories} concurrent attack stor{lobbyLoad.stories === 1 ? "y" : "ies"}{session?.attack_plan?.count ? " (your choice)" : ""}{chosenAttacks ? ` — ${chosenAttacks} chosen, ${Math.max(0, lobbyLoad.stories - chosenAttacks)} random` : ""}{session?.attack_plan?.bonus !== false ? " (+1 bonus attack once all are caught)" : ""} + {lobbyLoad.poolAttacks} standalone attack{lobbyLoad.poolAttacks === 1 ? "" : "s"} on {session?.difficulty}. Final numbers are fixed when you start.
+                  <p className="mt-2 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-xs text-slate-400">
+                    <span className="font-semibold text-slate-300">Staff only:</span> {lobbyLoad.players} player{lobbyLoad.players === 1 ? "" : "s"}: {lobbyLoad.stories} concurrent attack stor{lobbyLoad.stories === 1 ? "y" : "ies"}{session?.attack_plan?.count ? " (your choice)" : ""}{chosenAttacks ? `, ${chosenAttacks} chosen, ${Math.max(0, lobbyLoad.stories - chosenAttacks)} random` : ""}{session?.attack_plan?.bonus !== false ? " (+1 bonus attack once all are caught)" : ""}, plus {lobbyLoad.poolAttacks} standalone attack{lobbyLoad.poolAttacks === 1 ? "" : "s"} on {session?.difficulty}. Final numbers are fixed when you start.
                   </p>
                 )}
               </Card>
             )}
 
-            {iAmPlayer && (
-              <Card>
-                <p className="text-sm text-slate-300">You&apos;re assigned <b className="text-white">{ROLE_LABEL[me!.role!] ?? me!.role}</b>. Marking ready confirms the rules of engagement (fight the problem, not the scenario · no-fault · your actions are measured for learning).</p>
-                <div className="mt-3">
-                  {iAmReady
-                    ? <Button variant="outline" size="sm" disabled={busy} onClick={() => setReady(false)}>{busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />} I&apos;m ready — undo</Button>
-                    : <Button variant="primary" size="sm" disabled={busy} onClick={() => setReady(true)}>{busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />} I&apos;m ready</Button>}
-                </div>
-              </Card>
-            )}
-
             {me?.is_staff && (
               <Card className="border-cyber-500/30">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-bold text-white">Start the exercise</p>
-                    <p className="text-xs text-slate-400">{allReady ? "All players are ready." : "Locked until every player marks ready — remove a no-show from the roster to start without them."}</p>
-                    {lapsedPlayers.length > 0 && (
-                      <p className="mt-1 flex items-center gap-1 text-xs text-severity-high"><AlertTriangle className="h-3.5 w-3.5" /> <bdi>{lapsedPlayers.map(p => p.name).join(", ")}</bdi> can&apos;t mark ready — access to your organisation has expired. Remove {lapsedPlayers.length === 1 ? "them" : "them all"} to start.</p>
-                    )}
-                    {!hasManager && (
-                      <p className="mt-1 flex items-center gap-1 text-xs text-neon-amber"><AlertTriangle className="h-3.5 w-3.5" /> No SOC Manager or Lead on this team — CISO / Legal / exec requests will go unanswered. Add one below.</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                  <Button variant="primary" size="sm" disabled={busy || !allReady || wlBlocksStart} title={wlBlocksStart ? "The workload check says this is more than the team can do: confirm it in Shift pace, or change the plan" : undefined} onClick={start}>{busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Play className="mr-1.5 h-4 w-4" />} Confirm &amp; start</Button>
-                  <Button variant="outline" size="sm" disabled={busy} onClick={end}>Close session</Button>
-                </div>
-                </div>
+                <p className="text-sm font-bold text-white">Team set-up</p>
+                {lapsedPlayers.length > 0 && (
+                  <p className="mt-1 flex items-center gap-1 text-xs text-severity-high"><AlertTriangle className="h-3.5 w-3.5" /> <bdi>{lapsedPlayers.map(p => p.name).join(", ")}</bdi> can&apos;t mark ready: access to your organisation has expired. Remove {lapsedPlayers.length === 1 ? "them" : "them all"} to start.</p>
+                )}
+                {!hasManager && (
+                  <p className="mt-1 flex items-center gap-1 text-xs text-neon-amber"><AlertTriangle className="h-3.5 w-3.5" /> No SOC Manager or Lead on this team: CISO, Legal and executive requests will go unanswered, and a Tier-3 or you approve isolations. Add one below.</p>
+                )}
                 {/* Grow the team before (or during) the shift — add a member to a role */}
                 <AddMemberPanel sessionId={id} roster={roster} />
               </Card>
+            )}
+
+            {/* Ready and Start stay in reach (2026-11 review: both were below the fold at 1280x720). */}
+            {(iAmPlayer || me?.is_staff) && (
+              <div className="sticky bottom-0 z-20 -mx-6 border-t border-border bg-bg-elevated/95 px-6 py-3 backdrop-blur sm:pr-48">
+                <div className="flex flex-wrap items-center gap-3">
+                  {iAmPlayer && (<>
+                    <p className="min-w-0 flex-1 text-sm text-slate-300">You are <b className="text-white">{ROLE_LABEL[me!.role!] ?? me!.role}</b>. Marking ready confirms the rules of engagement: fight the problem, not the scenario; no-fault; your actions are measured for learning.</p>
+                    {iAmReady
+                      ? <Button variant="outline" size="sm" disabled={busy} onClick={() => setReady(false)}>{busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />} I&apos;m ready (undo)</Button>
+                      : <Button variant="primary" size="sm" disabled={busy} onClick={() => setReady(true)}>{busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />} I&apos;m ready</Button>}
+                  </>)}
+                  {me?.is_staff && (<>
+                    <p className="min-w-0 flex-1 text-sm text-slate-300">{allReady ? "All players are ready." : `${players.filter(p => readyMap[p.user_id]).length} of ${players.length} ready. Start unlocks when every player is ready; remove a no-show to start without them.`}</p>
+                    <Button variant="primary" size="sm" disabled={busy || !allReady || wlBlocksStart} title={wlBlocksStart ? "The workload check says this is more than the team can do: confirm it in Shift pace, or change the plan" : undefined} onClick={start}>{busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Play className="mr-1.5 h-4 w-4" />} Confirm &amp; start</Button>
+                    <Button variant="outline" size="sm" disabled={busy} onClick={end}>Close session</Button>
+                  </>)}
+                </div>
+              </div>
             )}
           </>
         )}
@@ -1402,43 +1395,94 @@ export default function TeamRoomPage() {
         {/* ── RUNNING ── */}
         {phase === "running" && me && (
           <>
-            <div data-tour="status" className="flex items-center gap-2 text-sm">
-              {/* C6: real connection state, not a permanent "Live" */}
-              {socketLive && pullHealthy
-                ? <span className="inline-flex items-center gap-1.5 text-neon-green"><Radio className="h-4 w-4 animate-pulse" /> Live — same feed for the whole team</span>
-                : socketLive
-                  ? <span className="inline-flex items-center gap-1.5 text-neon-amber" title="Realtime is up but the catch-up sync is failing — some logs may arrive late."><AlertTriangle className="h-4 w-4" /> Degraded — syncing</span>
-                  : <span className="inline-flex items-center gap-1.5 text-neon-amber" title="Reconnecting to the live room — missed logs are fetched automatically."><Loader2 className="h-4 w-4 animate-spin" /> Reconnecting…</span>}
-              {beatUnstable && (
-                <span className="inline-flex items-center gap-1 rounded border border-neon-amber/40 bg-neon-amber/10 px-1.5 py-0.5 text-[11px] text-neon-amber" title="Your presence pings aren't reaching the server. If this lasts ~2 minutes the shift may pause for coverage.">
-                  <AlertTriangle className="h-3 w-3" /> Connection unstable
-                </span>
-              )}
-              <span className="ml-auto font-mono text-xs text-slate-500">{online.size} online · {feed.length} logs · you: {ROLE_LABEL[me.role ?? ""] ?? "observer"}</span>
-              <span data-tour="guide-button"><Button variant="outline" size="sm" onClick={() => setShowGuide(true)}>? Guide</Button></span>
-              {canRunSession && (paused
-                ? <Button variant="outline" size="sm" disabled={busy} onClick={() => pauseSession(false)}>Resume</Button>
-                : <Button variant="outline" size="sm" disabled={busy} onClick={() => pauseSession(true)}><PauseCircle className="mr-1 h-3.5 w-3.5" /> Pause</Button>)}
-              {canRunSession && <Button variant="outline" size="sm" disabled={busy} onClick={end}>End session</Button>}
-            </div>
+            {(() => {
+              // ── The shift bar: one compact sticky bar (status, clock, role, queue, controls), the team
+              // line, and every notice docked as one line (2026-11 review: banners, toasts and tiles
+              // stacked over the feed and covered inputs).
+              const startedAtIso = (session as { started_at?: string | null } | null)?.started_at ?? null;
+              const clockMeta = (session as { clock?: { planned_ms?: number } } | null)?.clock;
+              const plannedMs = typeof clockMeta?.planned_ms === "number" ? clockMeta.planned_ms : ((session?.shift_min ?? lobbyLoad?.shiftMin ?? 30) * 60_000);
+              const clk = shiftClock(events, { startedAt: startedAtIso, plannedMs, now: nowTick });
+              const head = caseHeadline(events, feed);
+              const isPlayer = me.role !== "instructor" && me.role !== "observer";
+              const notices: BarNotice[] = [];
+              const btn = (label: string, onClick: () => void, primary = false) => <Button key={label} size="sm" variant={primary ? "primary" : "outline"} className="h-7 px-2 text-xs" onClick={onClick}>{label}</Button>;
+              if (clk.endsAt) notices.push({ key: "end", tone: "warn", urgent: true,
+                text: <>The shift ends in <EndCountdown endsAt={clk.endsAt} />. Send what you are writing now: anything unsent is kept as a draft and shown with your card in the review.</>,
+                actions: canRunSession ? btn("Cancel the end", () => { void postEnd("cancel"); }) : undefined });
+              else if (clk.overtime && !dismissed.has("overtime")) notices.push({ key: "overtime", tone: "info", text: "The planned shift time is reached. Finish what you are working on: the shift ends when the instructor ends it.", onDismiss: () => dismiss("overtime") });
+              const endReq = me.is_staff ? openEndRequest(events) : null;
+              if (endReq && !dismissed.has(`endreq-${endReq.seq}`)) notices.push({ key: `endreq-${endReq.seq}`, tone: "warn", urgent: true,
+                text: <><bdi>{nameOf(endReq.actor_id)}</bdi> (SOC Manager) asks to end the shift.</>,
+                actions: <>{btn("End in 2 minutes", () => { void postEnd("scheduled"); }, true)}{btn("Not yet", () => { dismiss(`endreq-${endReq.seq}`); void act("message.sent", { text: "The instructor asks to keep the shift going for now.", kind: "end_request_declined" }); })}</> });
+              if (endNote) notices.push({ key: "endnote", tone: "good", text: endNote, onDismiss: () => setEndNote(null) });
+              const isoForMe = isolationRequestsForMe(events, roster, online, me.id);
+              if (isoForMe.length) notices.push({ key: "iso", tone: "alert", urgent: true,
+                text: isoForMe.length === 1 ? <><bdi>{nameOf(isoForMe[0].requestedBy)}</bdi> wants to isolate <b className="font-mono"><bdi>{isoForMe[0].host}</bdi></b>: your approval.</> : `${isoForMe.length} isolation requests wait for your approval.`,
+                actions: btn("Answer", () => document.querySelector("[data-tour=isolation-approvals]")?.scrollIntoView({ behavior: "smooth", block: "center" }), true) });
+              const coach = [...events].reverse().find(e => e.type === "message.sent" && (e.payload as { kind?: unknown; to?: unknown }).kind === "coach" && (e.payload as { to?: unknown }).to === me.id);
+              if (coach && !dismissed.has(`coach-${coach.seq}`)) notices.push({ key: `coach-${coach.seq}`, tone: "warn", text: <><b>Coach:</b> <bdi>{asStr((coach.payload as { text?: unknown }).text)}</bdi> <span className="text-slate-400">(only you see this)</span></>, onDismiss: () => dismiss(`coach-${coach.seq}`) });
+              // Who is missing: the server's notice (it replaced the automatic pauses), else this browser's view.
+              const pres = openPresenceNotices(events);
+              for (const n of pres) if (!dismissed.has(`pres-${n.seq}`)) notices.push({ key: `pres-${n.seq}`, tone: "warn", onDismiss: () => dismiss(`pres-${n.seq}`),
+                text: n.kind === "owner_left" ? "The instructor dropped out of the live room. The shift goes on."
+                  : n.kind === "everyone_left" ? "No player is online. The shift goes on."
+                  : `${n.missing.length ? `No ${n.missing.map(r => ROLE_LABEL[r] ?? r).join(" and no ")} online` : (n.detail || "Part of the team is offline")}. The shift goes on: cover their work.` });
+              if (!pres.length && haltConfirmed && haltReason) notices.push({ key: "halt", tone: "warn", text: `${haltReason} The shift goes on.` });
+              if (paused && haltDismissed) notices.push({ key: "paused", tone: "warn", text: `${haltMessage} Reassign the seat below, then resume.`, actions: canRunSession ? btn("Resume", () => { void pauseSession(false); }, true) : undefined });
+              if (guidingNudge && isPlayer && !dismissed.has(`nudge-${guidingNudge}`)) notices.push({ key: "nudge", tone: "warn", text: <><b>Heads up:</b> {guidingNudge}</>, onDismiss: () => dismiss(`nudge-${guidingNudge}`) });
+              if (activeNudge) {
+                const pl = activeNudge.payload as { target?: string; load?: number };
+                const targetRole = roster.find(r => r.user_id === pl.target)?.role;
+                const queue = targetRole === "t1" ? "The Tier-1 alert queue" : targetRole === "t2" || targetRole === "t3" ? "The investigation queue" : "A teammate's queue";
+                const mine = pl.target === me.id;
+                const myLoad = mine ? (openLoadByUser(events, nowTick).get(me.id) ?? (typeof pl.load === "number" ? pl.load : 0)) : 0;
+                notices.push({ key: "rebalance", tone: "info", onDismiss: () => setDismissedNudgeSeq(activeNudge.seq ?? 0),
+                  text: mine ? <><b>You carry {myLoad > 0 ? myLoad : "several"} open case{myLoad === 1 ? "" : "s"}</b>: <bdi>{nameOf(activeNudge.actor_id)}</bdi> asks you to hand one off or release a claim you are not working.</>
+                    : <><b>{queue}</b> is backing up: <bdi>{nameOf(activeNudge.actor_id)}</bdi> asks the team to rebalance. If you are light, take the next case.</> });
+              }
+              if (me.role === "t1" && openTickets > 0) notices.push({ key: "ticket", tone: "warn", text: openTickets === 1 ? "A help-desk ticket is waiting for you: Tier-1 answers these." : `${openTickets} help-desk tickets are waiting for you: Tier-1 answers these.`,
+                actions: btn("Answer now", () => document.querySelector("[data-tour=action-inbox]")?.scrollIntoView({ behavior: "smooth", block: "start" })) });
+              if (edrToast && (me.role === "t1" || me.role === "t2" || me.role === "t3")) notices.push({ key: `edr-${edrToast.seq}`, tone: "info", onDismiss: () => setEdrToast(null),
+                text: <><b>{isSentinel ? "New Sentinel incident" : "New EDR alert"}</b>{!isSentinel && <> on <bdi className="font-mono">{edrToast.host}</bdi></>}: <bdi>{edrToast.title}</bdi></>,
+                actions: btn(`Investigate in ${consoleName}`, () => { if (isSentinel) openSentinel({ incident: sentinelIncidents.find(i => i.number === edrToast.seq)?.id }); else openEdr(edrToast.title, edrToast.host); setEdrToast(null); }, true) });
+              if (mgrNotice && (me.role === "mgr" || me.role === "lead")) notices.push({ key: "mgr", tone: "info", onDismiss: () => setMgrNotice(null), text: <bdi>{mgrNotice.text}</bdi>,
+                actions: btn("Open", () => { if (mgrNotice.go === "desk") document.querySelector("[data-command-desk]")?.scrollIntoView({ behavior: "smooth", block: "start" }); else setMgrView(mgrNotice.go); setMgrNotice(null); }) });
+              if (t3Sent) notices.push({ key: "t3sent", tone: "good", text: t3Sent, onDismiss: () => setT3Sent(null) });
+              if (edrNote) notices.push({ key: "edrnote", tone: "warn", text: edrNote, onDismiss: () => setEdrNote(null), urgent: true });
+              for (const n of leftNotices) notices.push({ key: n.key, tone: "warn", text: <><b><bdi>{n.name}</bdi></b> ({n.role}) left the session.</>, onDismiss: () => setLeftNotices(ns => ns.filter(x => x.key !== n.key)) });
+              const startedMs = startedAtIso ? Date.parse(startedAtIso) : null;
+              return (
+                <ShiftBar ref={barRef} top={topH}
+                  status={socketLive && pullHealthy
+                    ? <span className="inline-flex items-center gap-1 text-neon-green"><Radio className="h-3.5 w-3.5 animate-pulse motion-reduce:animate-none" aria-hidden /> Live</span>
+                    : socketLive
+                      ? <span className="inline-flex items-center gap-1 text-neon-amber" title="Realtime is up but the catch-up sync is failing: some logs may arrive late."><AlertTriangle className="h-3.5 w-3.5" aria-hidden /> Syncing</span>
+                      : <span className="inline-flex items-center gap-1 text-neon-amber" title="Reconnecting to the live room: missed logs are fetched automatically."><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Reconnecting</span>}
+                  clock={<><ShiftClockView events={events} startedAt={startedAtIso} plannedMs={plannedMs} />{beatUnstable && <span className="rounded border border-neon-amber/40 px-1 text-[11px] text-neon-amber" title="Your presence pings are not reaching the server.">Connection unstable</span>}</>}
+                  role={<span className="rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase text-cyber-300">{ROLE_LABEL[me.role ?? ""] ?? (me.is_staff ? "Instructor" : "Observer")}</span>}
+                  stats={<span data-tour="queue-board" className="text-[11px] text-slate-400" title="The SOC queue: alerts waiting with nobody on them, past their triage SLA, escalated and open, closed by Tier-1">
+                    <b className="text-slate-200">{queueStats.inQueue}</b> waiting{queueStats.oldestMins ? ` (oldest ${queueStats.oldestMins}m)` : ""} · <b className={queueStats.breached ? "text-severity-high" : "text-slate-200"}>{queueStats.breached}</b> past SLA · <b className="text-neon-amber">{queueStats.escalatedOpen}</b> escalated · <b className="text-neon-green">{queueStats.closed}</b> closed</span>}
+                  controls={<>
+                    <span data-tour="shared-case"><Button size="sm" variant="outline" className="h-7 px-2 text-xs" aria-expanded={caseOpen} aria-controls="shared-case-panel" onClick={() => setCaseOpen(o => !o)}>
+                      Shared case <span className={`ml-1 rounded px-1 font-mono text-[11px] uppercase ${head.status === "closed" ? "text-neon-green" : "text-neon-amber"}`}>{head.status}</span>{head.isolated ? <span className="ml-1 text-[11px] text-neon-green">{head.isolated} isolated</span> : null}
+                    </Button></span>
+                    <span data-tour="guide-button"><Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setShowGuide(true)}>Guide</Button></span>
+                    {canRunSession && (paused
+                      ? <Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={busy} onClick={() => pauseSession(false)}>Resume</Button>
+                      : <Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={busy} onClick={() => pauseSession(true)}><PauseCircle className="mr-1 h-3.5 w-3.5" aria-hidden /> Pause</Button>)}
+                    {canRunSession && !clk.endsAt && <Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={busy} onClick={end}>{me.role === "mgr" && !me.is_staff && instructor && online.has(instructor.user_id) ? "Ask to end" : "End shift"}</Button>}
+                  </>}
+                  team={<div className="flex flex-wrap items-center gap-x-4 gap-y-0.5">
+                    <p data-tour="role-banner" className="min-w-0 truncate text-[11px] text-slate-300" title={roleDirective(me.role)}>{roleDirective(me.role)}</p>
+                    <TeamLine events={events} roster={roster} online={online} now={nowTick} startedAt={startedMs} meId={me.id} />
+                  </div>}
+                  notices={notices} />
+              );
+            })()}
 
-            {/* Always-visible "what do I do now" directive for the player's role */}
-            <div data-tour="role-banner" className={`flex items-start gap-2 rounded-lg border border-cyber-500/30 bg-cyber-500/[0.06] px-3 py-2 text-sm ${me.role === "mgr" || me.role === "lead" ? "hidden" : ""}`}>
-              <span className="shrink-0 rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-cyber-300">{ROLE_LABEL[me.role ?? ""] ?? "observer"}</span>
-              <span className="text-slate-200">{roleDirective(me.role)}</span>
-              <button onClick={() => setShowGuide(true)} className="ml-auto shrink-0 rounded text-[11px] text-cyber-300 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50">how my role works →</button>
-            </div>
-
-            {/* Silent-failure nudge (F6): attack active, nobody escalated yet */}
-            {guidingNudge && me.role !== "instructor" && me.role !== "observer" && (
-              <div role="status" className="flex items-start gap-2 rounded-lg border border-neon-amber/40 bg-neon-amber/[0.08] px-3 py-2 text-sm">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-neon-amber" />
-                <span className="text-neon-amber"><b>Heads up —</b> {guidingNudge}</span>
-              </div>
-            )}
-
-            {/* Shared case — the team's single shared truth; collapsible summary bar (G-02) */}
-            <div data-tour="shared-case"><SharedCase events={events} feed={feed} roster={roster} me={me} act={act} nameOf={nameOf} /></div>
+            {/* Shared case: opens under the shift bar from its button (G-02). */}
+            <div id="shared-case-panel"><SharedCase events={events} feed={feed} roster={roster} me={me} act={act} nameOf={nameOf} barless open={caseOpen} onOpenChange={setCaseOpen} /></div>
 
             {(me.role === "lead" || me.role === "mgr") && (() => {
               const waitingEsc = waitingEscalations(events);
@@ -1471,13 +1515,13 @@ export default function TeamRoomPage() {
                 </button>
               );
               return (
-                <nav data-tour="mgr-menu" aria-label="SOC Manager menu" className="sticky top-2 z-20 flex flex-wrap items-center gap-1 rounded-lg border border-border bg-bg-elevated/95 p-1 backdrop-blur">
+                <nav data-tour="mgr-menu" aria-label="SOC Manager menu" className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-bg-elevated/95 p-1">
                   <div role="tablist" aria-label="Manager views" className="flex flex-wrap gap-1" onKeyDown={onTabKey}>
                     {VIEWS.map(t => (
                       <button key={t.v} id={`mgr-tab-${t.v}`} type="button" role="tab" aria-selected={mgrView === t.v} aria-controls="mgr-panel" tabIndex={mgrView === t.v ? 0 : -1} onClick={() => setMgrView(t.v)}
                         className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400 ${mgrView === t.v ? "border border-neon-purple/50 bg-neon-purple/15 text-white" : "border border-transparent text-slate-400 hover:text-slate-200"}`}>
                         {t.label}
-                        {t.badge ? <span className={`rounded-full px-1.5 font-mono text-[10px] ${t.tone === "purple" ? "bg-neon-purple/30 text-white" : "bg-neon-amber/20 text-neon-amber"}`} aria-hidden>{t.badge}</span> : null}
+                        {t.badge ? <span className={`rounded-full px-1.5 font-mono text-[11px] ${t.tone === "purple" ? "bg-neon-purple/30 text-white" : "bg-neon-amber/20 text-neon-amber"}`} aria-hidden>{t.badge}</span> : null}
                         {t.badge ? <span className="sr-only">, {t.sr}</span> : null}
                       </button>
                     ))}
@@ -1498,22 +1542,23 @@ export default function TeamRoomPage() {
             })()}
 
             {/* Running layout: wide page, and Tier-2/3 — whose work is reading escalated
-                logs and writing reports in the role column — get an even split instead
+                logs and writing reports in the role column: get an even split instead
                 of a narrow side rail. The left column is sticky so the feed and the team
                 chat stay in view while the role column scrolls (no empty half-page). */}
-            <div className={`grid gap-4 ${me.role === "t3" && t3View !== "feed" ? "lg:grid-cols-[minmax(0,1.7fr)_minmax(340px,1fr)]" : me.role === "t2" || me.role === "t3" ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(360px,32%)]"}`}>
+            {/* 2026-11 review: Tier-2 and Tier-3 get 60/40 (feed / console), not 50/50. */}
+            <div style={{ "--col-top": `${topH + barH + 8}px` } as React.CSSProperties}
+              className={`grid gap-4 ${me.role === "t3" && t3View !== "feed" ? "lg:grid-cols-[minmax(0,1.7fr)_minmax(340px,1fr)]" : me.role === "t2" || me.role === "t3" ? "lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(360px,32%)]"}`}>
               {/* Left column: raw feed for analysts; a summaries-only Situation Board
-                  for the coordinator SEAT (Lead/Mgr) — §3.7 keeps coordinators OUT of
+                  for the coordinator SEAT (Lead/Mgr): §3.7 keeps coordinators OUT of
                   raw (G-08). Decided by the seat, not org rights (U9): a Manager who
                   also has instructor rights still commands from summaries. The
                   instructor seat (role "instructor") keeps the raw feed for oversight. */}
               {/* overflow-x-hidden: overflow-y:auto alone silently turns X into a scroll
                   container too, which is how the feed ended up clipped + sideways-scrolled. */}
               <div data-tour={me.role === "lead" || me.role === "mgr" ? "mgr-view" : undefined}
-                {...(me.role === "lead" || me.role === "mgr" ? { id: "mgr-panel", role: "tabpanel", "aria-labelledby": `mgr-tab-${mgrView}` } : {})} className="min-w-0 space-y-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
+                {...(me.role === "lead" || me.role === "mgr" ? { id: "mgr-panel", role: "tabpanel", "aria-labelledby": `mgr-tab-${mgrView}` } : {})} className="min-w-0 space-y-3 lg:sticky lg:top-[var(--col-top)] lg:max-h-[calc(100vh_-_var(--col-top)_-_0.5rem)] lg:self-start lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
                 {(me.role === "lead" || me.role === "mgr") && mgrView === "board" ? (
                   <>
-                    <QueueBoard q={queueStats} />
                     <SituationBoard liveFeed={liveFeed} events={events} feed={feed} nameOf={nameOf} roster={roster} online={online} act={act} onOpenEscalations={() => setMgrView("escalations")} />
                     <ForensicReportsCard events={events} nameOf={nameOf} />
                     {events.some(e => e.type === "forensic.finding") && <FindingsBoard events={events} nameOf={nameOf} compact />}
@@ -1578,20 +1623,11 @@ export default function TeamRoomPage() {
                     ) : me.role === "t3" && t3View === "attack" ? (
                       <AttackLookup />
                     ) : (<>
-                    <QueueBoard q={queueStats} />
                     {(me.role === "lead" || me.role === "mgr") && (
                       <p className="rounded-lg border border-border bg-bg-elevated/40 px-3 py-2 text-[11px] text-slate-400">The raw logs, read-only, so you can back up your analysts and check what they report. Triage and escalation stay with the analysts.</p>
                     )}
-                    {/* Scenario review fix 6: a help-desk ticket is Tier-1's to answer — say so where Tier-1 looks. */}
-                    {me.role === "t1" && openTickets > 0 && (
-                      <button type="button" onClick={() => document.getElementById("team-injects")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                        className="flex w-full items-center gap-2 rounded-lg border border-neon-amber/50 bg-neon-amber/10 px-3 py-2 text-left text-sm font-semibold text-neon-amber transition hover:bg-neon-amber/15">
-                        <span aria-hidden>📞</span>
-                        <span className="flex-1">{openTickets === 1 ? "A help-desk ticket is waiting for you" : `${openTickets} help-desk tickets are waiting for you`} — Tier-1 answers these.</span>
-                        <span className="text-xs underline">Answer now</span>
-                      </button>
-                    )}
                     {/* Tier-1: the alert queue is a view of this SIEM, not a separate panel */}
+
                     {me.role === "t1" && (
                       <div data-tour="siem-view" className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-bg-elevated/40 px-2 py-1.5">
                         <div role="tablist" aria-label="SIEM view" className="flex gap-1">
@@ -1602,56 +1638,45 @@ export default function TeamRoomPage() {
                           <button role="tab" aria-selected={feedView === "triage"} onClick={() => setFeedView("triage")}
                             className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-[11px] font-semibold transition ${feedView === "triage" ? "border border-cyber-500/40 bg-cyber-500/15 text-cyber-300" : "border border-transparent text-slate-400 hover:text-slate-200"}`}>
                             Needs triage
-                            <span className={`rounded-full px-1.5 font-mono text-[10px] ${alertQueue.some(q => q.orphan) ? "bg-severity-high/20 text-severity-high" : "bg-slate-700/60 text-slate-200"}`}>{alertQueue.length}</span>
+                            <span className={`rounded-full px-1.5 font-mono text-[11px] ${alertQueue.some(q => q.orphan) ? "bg-severity-high/20 text-severity-high" : "bg-slate-700/60 text-slate-200"}`}>{alertQueue.length}</span>
                           </button>
                         </div>
-                        <label className="flex items-center gap-1 text-[10px] text-slate-400" title="Early signs of an attack often arrive as medium — include them in Needs triage">
+                        <label className="flex items-center gap-1 text-[11px] text-slate-400" title="Early signs of an attack often arrive as medium: include them in Needs triage">
                           <input type="checkbox" checked={queueWithMedium} onChange={e => setQueueWithMedium(e.target.checked)} className="h-3 w-3" /> include medium
                         </label>
                         {alertQueue.some(q => q.linked) && (
-                          <span className="text-[10px] text-cyber-300" title="Logs of any severity about a host, user or address the team already escalated">
+                          <span className="text-[11px] text-cyber-300" title="Logs of any severity about a host, user or address the team already escalated">
                             {alertQueue.filter(q => q.linked).length} linked to escalated alerts
                           </span>
                         )}
                         {pulledNote && <span role="status" className="text-[11px] text-neon-green">{pulledNote}</span>}
-                        <Button variant="outline" size="sm" className="ml-auto" disabled={alertQueue.length === 0} onClick={takeNextAlert}>Take next alert</Button>
+                        <span className="ml-auto flex items-center gap-2">
+                          {hostGroups.length > 0 && feedView === "triage" && <Button variant="outline" size="sm" className="h-7 px-2 text-xs" aria-expanded={hostsOpen} onClick={() => setHostsOpen(o => !o)}>By host ({hostGroups.length})</Button>}
+                          {edrButton}
+                          <Button variant="primary" size="sm" className="h-7 px-2.5 text-xs" disabled={alertQueue.length === 0} onClick={takeNextAlert}>Take next alert</Button>
+                        </span>
                       </div>
                     )}
-                    {me.role === "t1" && feedView === "triage" && hostGroups.length > 0 && (
+                    {me.role === "t1" && feedView === "triage" && hostsOpen && hostGroups.length > 0 && (
                       <TriageHosts groups={hostGroups} nameOf={nameOf} meId={me.id} claims={claimByEid} activeHost={fHost}
                         onShowHost={h => setFHost(fHost === h ? "all" : h)} onAddToCase={addToCase}
-                        onTakeHost={g => { const n = nextAlertFor(g.items, claimByEid, me.id); if (n) { setT1Sel(n.eid); setT1ReportOpen(true); setPulledNote(`Pulled #${n.e.seq} on ${g.host} for you.`); } }} />
+                        onTakeHost={g => takeAlert(nextAlertFor(g.items, claimByEid, me.id), `Took (${g.host})`)} />
                     )}
-                    {/* Endpoint alerts → EDR, for the analysts (muted until an EDR alert arrives). */}
-                    {(me.role === "t1" || me.role === "t2" || me.role === "t3") && (() => {
-                      const last = edrAlerts[edrAlerts.length - 1];
-                      return (
-                        <div data-tour="edr-button" className="flex items-center gap-2">
-                          <button type="button" disabled={!isSentinel && !last} onClick={() => { if (isSentinel) openSentinel({ incident: sentinelIncidents.find(i => i.number === last?.seq)?.id }); else if (last) openEdr(last.title, last.host); }}
-                            title={isSentinel ? (last ? `Latest incident: ${last.title}` : "Open Sentinel. No incidents yet.") : last ? `Latest EDR alert: ${last.title} (${last.host})` : "No endpoint alerts yet: this lights up when an EDR alert reaches the feed"}
-                            className={`relative flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-xs font-semibold transition ${last ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-200 hover:bg-cyber-500/20" : "cursor-not-allowed border-border bg-bg text-slate-500"}`}>
-                            <Cpu className="h-3.5 w-3.5" aria-hidden /> Investigate in {consoleName}
-                            {edrAlerts.length > 0 && (
-                              <span className="absolute -right-2 -top-2 flex h-5 min-w-[1.25rem] animate-pulse items-center justify-center rounded-full bg-severity-critical px-1 text-[10px] font-bold text-white shadow ring-2 ring-bg-elevated">
-                                {edrAlerts.length}<span className="sr-only"> {isSentinel ? "incident" : "endpoint alert"}{edrAlerts.length > 1 ? "s" : ""}</span>
-                              </span>
-                            )}
-                          </button>
-                          {last && !isSentinel && <span className="min-w-0 truncate text-[11px] text-slate-400">Latest: <bdi className="font-mono text-slate-300">{last.host}</bdi></span>}
-                        </div>
-                      );
-                    })()}
                     {/* G-04: surfaced feed filters + active click-to-pivot chips */}
-                    <div data-tour="filters"><FeedFilterBar
+                    <div className="flex flex-wrap items-center gap-2">
+                    {me.role !== "t1" && edrButton}
+                    <div data-tour="filters" className="min-w-0 flex-1"><FeedFilterBar
                       severity={fSeverity} setSeverity={setFSeverity}
                       source={fSource} setSource={setFSource} sources={feedSources}
                       search={fSearch} setSearch={setFSearch}
                       pivots={[["user", fUser, setFUser], ["host", fHost, setFHost], ["ip", fIp, setFIp]]}
                     /></div>
+                    </div>
                     <div data-tour="feed"><EventFeed
                       events={me.role === "t1" && feedView === "triage" ? triageFeed : liveFeed}
                       sortable={!(me.role === "t1" && feedView === "triage")}
-                      emptyMessage={me.role === "t1" && feedView === "triage" ? `Nothing needs triage — every ${queueWithMedium ? "medium+" : "high/critical"} alert has a disposition. Keep watching All events.` : "Waiting for the first logs…"}
+                      openEvent={me.role === "t1" ? openFeed : null}
+                      emptyMessage={me.role === "t1" && feedView === "triage" ? `Nothing needs triage: every ${queueWithMedium ? "medium or higher" : "high or critical"} alert has a call. Keep watching All events.` : "Waiting for the first logs…"}
                       severityFilter={fSeverity} sourceFilter={fSource} search={fSearch}
                       userFilter={fUser} hostFilter={fHost} ipFilter={fIp}
                       // I5: only the CLOSE carries the dwell the AAR uses — the open event was pure overhead.
@@ -1668,13 +1693,17 @@ export default function TeamRoomPage() {
                 )}
               </div>
               {/* YOUR ROLE — the dominant role panel(s), then secondary panels tabbed (G-03) */}
-              <div className={`min-w-0 space-y-4 ${me.role === "lead" || me.role === "mgr" ? "order-first lg:order-none lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto lg:pr-1" : ""}`}>
+              <div className={`min-w-0 space-y-4 pb-14 ${me.role === "lead" || me.role === "mgr" ? "order-first lg:order-none lg:sticky lg:top-[var(--col-top)] lg:max-h-[calc(100vh_-_var(--col-top)_-_0.5rem)] lg:self-start lg:overflow-y-auto lg:pr-1" : ""}`}>
                 {/* Injects waiting for THIS player's answer, above the console (2026-10-18 review: none were handled). */}
-                {["t1", "t2", "t3", "de", "ti"].includes(me.role ?? "") && phase === "running" && <ActionInbox events={events} me={me} roster={roster} act={act} />}
+                {/* Isolation requests waiting for THIS viewer's answer: in the page flow at the side, never over the feed. */}
+                <IsolationApprovals sessionId={id} events={events} roster={roster} online={online} me={me} nameOf={nameOf} onError={showError} />
+                {["t1", "t2", "t3", "de", "ti"].includes(me.role ?? "") && phase === "running" && <ActionInbox events={events} me={me} roster={roster} act={act} sessionId={id} />}
                 {me.role === "t1" && <div data-tour="t1-console"><T1Console sessionId={id} feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} actR={actR} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} /></div>}
                 {/* B12: Tier-3's dominant surface is HUNTING — render it above the (secondary) inbox. */}
                 {me.role === "t3" && <div data-tour="hunt-console"><HuntConsole consoleName={consoleName} platforms={session?.env?.platforms ?? []} canEdr={canEdr} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} /></div>}
-                {(me.role === "t2" || me.role === "t3") && <div data-tour="t2-console"><T2Console consoleName={consoleName} hasTier3={roster.some(m => m.role === "t3" && m.status !== "left")} personOf={personOf} canEdr={canEdr} sessionId={id} role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} addedByCase={addedByCase} /></div>}
+                {(me.role === "t2" || me.role === "t3") && <div data-tour="t2-console"><T2Console consoleName={consoleName} hasTier3={roster.some(m => m.role === "t3" && m.status !== "left")} personOf={personOf} canEdr={canEdr} sessionId={id} role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} addedByCase={addedByCase}
+                  pinnedIds={pinnedIds} isolation={isoByHost} isoRequests={isoRequestByHost} approverFor={rid => approverNames(roster, rid, online)}
+                  onRequestIsolation={(host, reason, incident) => requestIsolation(id, { host, reason, incident })} /></div>}
                 {/* SOC Manager now holds the coordinator authority (approve containment,
                     decision log, SITREP) as well as shift management. 'lead'/'de' branches
                     stay for backward-compatibility with older sessions; 'ti' is a live seat. */}
@@ -1686,6 +1715,7 @@ export default function TeamRoomPage() {
                 {me.role === "ti" && <TIConsole events={events} feed={feed} nameOf={nameOf} act={act} />}
                 {/* QA L4: another instructor of the org (staff, no seat in this session) gets the panel too — every
                     staff tool except the inject composer, which posts as the session's instructor seat. */}
+                {(me.role === "instructor" || (me.is_staff && !me.role)) && <SeatBoard events={events} roster={roster} online={online} now={nowTick} startedAt={(session as { started_at?: string | null } | null)?.started_at ? Date.parse((session as { started_at?: string }).started_at!) : null} act={act} nameOf={nameOf} />}
                 {(me.role === "instructor" || (me.is_staff && !me.role)) && <div data-tour="instructor-panel"><InstructorPanel sessionId={id} roster={roster} online={online} events={events} act={act} isStaff={!!me.is_staff} nameOf={nameOf} canInject={me.role === "instructor"} onError={showError} /></div>}
                 {/* The team chat sits with the role panels, never under the feed: a chat under the
                     log list covered the log being read (Tal, 2026-10-08). It folds to one line. */}
@@ -1704,6 +1734,20 @@ export default function TeamRoomPage() {
         {phase === "ended" && me && (
           <>
             {endReason === "owner_left" && <div className="flex items-center gap-2 rounded-lg border border-neon-amber/40 bg-neon-amber/[0.08] px-4 py-3 text-sm text-neon-amber"><LogOut className="h-4 w-4 shrink-0" /> The session owner (instructor) left the live room, so the session was closed automatically.</div>}
+            {myDrafts.length > 0 && (
+              <Card className="border-neon-amber/40">
+                <h2 className="text-sm font-bold text-white">Your unsent drafts ({myDrafts.length})</h2>
+                <p className="mt-0.5 text-xs text-slate-400">What you were writing when the shift ended. Kept in this browser only, for your debrief: it was not sent to the team and is not scored.</p>
+                <ul className="mt-2 space-y-2">
+                  {myDrafts.map(d => (
+                    <li key={d.key} className="rounded-lg border border-border bg-bg px-3 py-2">
+                      <p className="text-xs font-semibold text-slate-200"><bdi>{d.label}</bdi></p>
+                      <p dir="auto" className="mt-1 whitespace-pre-wrap break-words text-xs text-slate-300">{d.text}</p>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
             <TeamReport sessionId={id} events={events} roster={roster} me={me} />
           </>
         )}
@@ -1715,11 +1759,11 @@ export default function TeamRoomPage() {
       {reportSeed && (me?.role === "mgr" || me?.role === "lead") && (
         <StakeholderReportModal events={events} seed={reportSeed} onClose={() => setReportSeed(null)} act={act}
           draft={reportDraft} onDraft={setReportDraft}
-          onSent={msg => { setReportDraft(null); setMgrNotice({ text: msg, go: "stakeholders" }); }}
+          onSent={msg => { setReportDraft(null); if (me?.id) saveDraft(id, me.id, "stakeholder-report", "", ""); setMgrNotice({ text: msg, go: "stakeholders" }); }}
           severity={(() => { const e = [...events].reverse().find(x => x.type === "incident.declared" || x.type === "incident.severity_changed"); return e ? Number((e.payload as { severity?: unknown }).severity) : null; })()} />
       )}
       {caseLog && (me?.role === "t2" || me?.role === "t3") && (
-        <OpenCaseModal log={caseLog} role={me.role} onClose={() => setCaseLog(null)} act={act} actR={actR} />
+        <OpenCaseModal log={caseLog} role={me.role} onClose={() => setCaseLog(null)} act={act} actR={actR} sessionId={id} meId={me.id} />
       )}
     </NativeLogProvider>
     </EdrPivotContext.Provider>

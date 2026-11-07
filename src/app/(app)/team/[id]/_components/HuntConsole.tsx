@@ -55,17 +55,17 @@ export function HuntConsole({ consoleName = "EDR", canEdr, scope, scopes, incide
               return (
                 <div key={e.seq} className="rounded-lg border border-border bg-bg px-3 py-2">
                   <p className="text-sm text-slate-200">{asStr(p.summary) || "elevated case"}</p>
-                  <p className="mt-0.5 font-mono text-[10px] text-slate-500">from <bdi>{nameOf(e.actor_id)}</bdi> · sev {asStr(p.severity) || "—"}{asStr(p.hostname) ? ` · ${asStr(p.hostname)}` : ""}</p>
+                  <p className="mt-0.5 font-mono text-[11px] text-slate-500">from <bdi>{nameOf(e.actor_id)}</bdi> · sev {asStr(p.severity) || "—"}{asStr(p.hostname) ? ` · ${asStr(p.hostname)}` : ""}</p>
                   {/* A2: the T2 hunt-ask + filed findings so the hunter starts from context, not the raw alert */}
                   {asStr(p.hunt_ask) && (
                     <div className="mt-1.5 rounded border border-neon-purple/30 bg-neon-purple/[0.06] px-2 py-1">
-                      <p className="text-[9px] font-semibold uppercase tracking-wider text-neon-purple">Tier-2 asks you to hunt</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-neon-purple">Tier-2 asks you to hunt</p>
                       <p className="mt-0.5 text-[11px] text-slate-200">{asStr(p.hunt_ask)}</p>
                     </div>
                   )}
                   {(asStr(p.t2_findings) || asStr(p.t2_verdict) || asStr(p.t2_recommendation)) && (
                     <div className="mt-1 rounded border border-border/50 bg-bg-elevated/30 px-2 py-1 text-[11px]">
-                      <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Tier-2 investigation</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Tier-2 investigation</p>
                       {asStr(p.t2_verdict) && <p className="mt-0.5 text-slate-400">verdict: {asStr(p.t2_verdict).replace("_", " ")}</p>}
                       {asStr(p.t2_findings) && <p className="mt-0.5 text-slate-300">{asStr(p.t2_findings)}</p>}
                       {asStr(p.t2_recommendation) && <p className="mt-0.5 text-cyber-200">▶ recommended: {asStr(p.t2_recommendation)}</p>}
@@ -94,7 +94,7 @@ export function HuntConsole({ consoleName = "EDR", canEdr, scope, scopes, incide
         <div className="mt-1.5 flex flex-wrap gap-1">
           {starters.map(st => (
             <button key={st.hypothesis} type="button" onClick={() => setF(s => ({ ...s, hypothesis: st.hypothesis, technique: s.technique || st.technique }))}
-              className="rounded border border-border bg-bg px-1.5 py-0.5 text-left text-[10px] text-slate-300 hover:border-cyber-500/50 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyber-400/60"
+              className="rounded border border-border bg-bg px-1.5 py-0.5 text-left text-[11px] text-slate-300 hover:border-cyber-500/50 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyber-400/60"
               title={`${st.technique}: start a hunt from this hypothesis`}>{st.hypothesis}</button>
           ))}
         </div>
@@ -118,8 +118,8 @@ export function HuntConsole({ consoleName = "EDR", canEdr, scope, scopes, incide
               <option value="inconclusive">inconclusive</option>
             </select>
           </div>
-          <p className="text-[10px] text-slate-500">Scored on substance: a hypothesis that names real entities, a finding that cites the evidence, a valid in-case technique, and a clear conclusion — a disproved (refuted) hypothesis with evidence counts fully. Findings land in the Shared Case for the whole team.</p>
-          {problems.length > 0 && (f.hypothesis.trim() || f.finding.trim()) && <p className="text-[10px] text-neon-amber">{problems[0]}</p>}
+          <p className="text-[11px] text-slate-500">Scored on substance: a hypothesis that names real entities, a finding that cites the evidence, a valid in-case technique, and a clear conclusion — a disproved (refuted) hypothesis with evidence counts fully. Findings land in the Shared Case for the whole team.</p>
+          {problems.length > 0 && (f.hypothesis.trim() || f.finding.trim()) && <p className="text-[11px] text-neon-amber">{problems[0]}</p>}
           <Button variant="primary" size="sm" disabled={busy || problems.length > 0} onClick={log}>Log hunt finding</Button>
         </div>
       </Card>

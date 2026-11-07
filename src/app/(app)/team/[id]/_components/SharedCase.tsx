@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { ShieldCheck, FolderOpen, ChevronDown, Crosshair } from "lucide-react";
 import type { RosterMember, Me, Ev } from "@/lib/team/types";
 import { sevColor, asStr } from "@/lib/team/format";
-import { containmentRequests, escalationStates, incidentByEvent, scopeByIncident, type ScopeSnapshot } from "@/lib/team/projections";
+import { containmentRequests, escalationStates, incidentByEvent, isolationState, scopeByIncident, type ScopeSnapshot } from "@/lib/team/projections";
 import { ROLE_LABEL } from "./shared";
 import { containmentVerb } from "./T2Console";
 import { useNewItemsAnnouncement, LiveRegion, clip } from "./useLiveAnnounce";
@@ -18,10 +18,34 @@ function sevRank(s?: string) { return s === "critical" ? 4 : s === "high" ? 3 : 
 // action names (report / containment / hunt / scope `incident`); an unlabelled log is
 // its own incident (the escalation's root event) — old sessions still render.
 interface IncidentGroup { key: string; name: string; labelled: boolean; escs: Ev[]; reports: Ev[]; hunts: Ev[]; scope: ScopeSnapshot | null; maxSev: string }
-export function SharedCase({ events, feed, roster, me, act, nameOf }: { events: Ev[]; feed: Ev[]; roster: RosterMember[]; me: Me; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; nameOf: (u: string | null) => string }) {
+/** The case's headline for the shift bar: status, severity and owner (same rules as the panel). */
+export function caseHeadline(events: Ev[], feed: Ev[]): { status: string; severity: string; owner: string | null; cases: number; isolated: number } {
+  const st = escalationStates(events);
+  const escs = [...st.values()].filter(s => s.rounds > 0);
+  const statusEvt = [...events].reverse().find(e => e.type === "case.status_set");
+  const ownerEvt = [...events].reverse().find(e => e.type === "case.assigned");
+  const sevOf = new Map(feed.map(e => [String((e.payload as { id?: string }).id ?? e.seq), asStr((e.payload as { severity?: unknown }).severity)]));
+  let maxSev = "low";
+  for (const x of escs) { const v = sevOf.get(String((x.request.payload as { event_id?: string }).event_id)); if (v && sevRank(v) > sevRank(maxSev)) maxSev = v; }
+  return {
+    status: (statusEvt?.payload as { status?: string })?.status ?? (escs.length ? "investigating" : "new"),
+    severity: (statusEvt?.payload as { severity?: string })?.severity ?? maxSev,
+    owner: (ownerEvt?.payload as { owner?: string })?.owner ?? null,
+    cases: escs.length,
+    isolated: [...isolationState(events).values()].filter(h => h.isolated).length,
+  };
+}
+
+export function SharedCase({ events, feed, roster, me, act, nameOf, open: openProp, onOpenChange, barless = false }: { events: Ev[]; feed: Ev[]; roster: RosterMember[]; me: Me; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; nameOf: (u: string | null) => string;
+  /** Controlled open state: the shift bar holds the Shared case button (2026-11 review: one bar, not a stack). */
+  open?: boolean; onOpenChange?: (open: boolean) => void;
+  /** No summary bar of its own: the panel shows only while open. */
+  barless?: boolean }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(false); // G-02: collapsed to a summary bar by default
+  const [openLocal, setOpenLocal] = useState(false); // G-02: collapsed to a summary bar by default
+  const open = openProp ?? openLocal;
+  const setOpen = (f: (o: boolean) => boolean) => { const n = f(open); if (onOpenChange) onOpenChange(n); else setOpenLocal(n); };
   const feedById = useMemo(() => new Map(feed.map(e => [String((e.payload as { id?: string }).id ?? e.seq), e.payload as Record<string, unknown>])), [feed]);
   const escStates = useMemo(() => escalationStates(events), [events]);
   const escs = useMemo(() => [...escStates.values()].filter(s => s.rounds > 0).map(s => s.request).sort((a, b) => a.seq - b.seq), [escStates]);
@@ -60,6 +84,8 @@ export function SharedCase({ events, feed, roster, me, act, nameOf }: { events: 
   const scopeLabel = explicitScope ? (scopeConfirmed ? "confirmed by Tier-3" : "proposed") : "auto-derived";
   // G-09: executed containments (shared containment state / real MTTC).
   const executed = useMemo(() => events.filter(e => e.type === "containment.executed"), [events]);
+  // Hosts isolated in the EDR right now (an approved isolation request): shown wherever hosts appear.
+  const isolatedNow = useMemo(() => [...isolationState(events).values()].filter(h => h.isolated), [events]);
 
   // ── incidents ──
   const groups = useMemo(() => {
@@ -113,37 +139,45 @@ export function SharedCase({ events, feed, roster, me, act, nameOf }: { events: 
 
   const huntRow = (h: Ev) => { const p = h.payload as { hypothesis?: string; finding?: string; technique?: string; conclusion?: string }; const c = asStr(p.conclusion); return (
     <div key={h.seq} className="rounded border border-neon-purple/25 bg-neon-purple/[0.05] px-2 py-1 text-[11px]">
-      <p className="text-slate-200"><Crosshair className="mr-1 inline h-3 w-3 text-neon-purple" />{asStr(p.hypothesis)} <span className={`ml-1 rounded border px-1 py-px text-[9px] font-bold uppercase ${c === "confirmed" ? "border-severity-high/40 text-severity-high" : c === "refuted" ? "border-neon-green/40 text-neon-green" : "border-border text-slate-400"}`}>{c || "logged"}</span>{asStr(p.technique) && <span className="ml-1 font-mono text-[10px] text-cyber-300">{asStr(p.technique)}</span>}</p>
+      <p className="text-slate-200"><Crosshair className="mr-1 inline h-3 w-3 text-neon-purple" />{asStr(p.hypothesis)} <span className={`ml-1 rounded border px-1 py-px text-[11px] font-bold uppercase ${c === "confirmed" ? "border-severity-high/40 text-severity-high" : c === "refuted" ? "border-neon-green/40 text-neon-green" : "border-border text-slate-400"}`}>{c || "logged"}</span>{asStr(p.technique) && <span className="ml-1 font-mono text-[11px] text-cyber-300">{asStr(p.technique)}</span>}</p>
       {asStr(p.finding) && <p className="mt-0.5 text-slate-400">{asStr(p.finding)}</p>}
-      <p className="font-mono text-[10px] text-slate-500"><bdi>{nameOf(h.actor_id)}</bdi></p>
+      <p className="font-mono text-[11px] text-slate-500"><bdi>{nameOf(h.actor_id)}</bdi></p>
     </div>
   ); };
 
+  if (barless && !open) return <LiveRegion message={announcement} />;
   return (
     <Card>
       <LiveRegion message={announcement} />
+      {barless && (
+        <div className="flex items-center gap-2">
+          <h2 className="flex items-center gap-2 text-sm font-bold text-white"><FolderOpen className="h-4 w-4 text-cyber-300" aria-hidden /> Shared case</h2>
+          <span className="ml-auto text-[11px] text-slate-400">owner: <bdi className="text-slate-200">{ownerId ? nameOf(ownerId) : "unassigned"}</bdi></span>
+          <Button variant="outline" size="sm" onClick={() => setOpen(() => false)}>Close</Button>
+        </div>
+      )}
       {/* G-02: thin collapsible summary bar — status·sev·owner·scope·evidence — the
           feed stays the team's primary truth; the case opens to full detail on click */}
-      <button onClick={() => setOpen(o => !o)} aria-expanded={open} className="flex w-full flex-wrap items-center gap-2 text-left">
+      {!barless && <button onClick={() => setOpen(o => !o)} aria-expanded={open} className="flex w-full flex-wrap items-center gap-2 text-left">
         <ChevronDown aria-hidden="true" className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? "" : "-rotate-90"}`} />
         <h2 className="flex items-center gap-2 text-sm font-bold text-white"><FolderOpen className="h-4 w-4 text-cyber-300" /> Shared case</h2>
-        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${status === "closed" ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : status === "contained" || status === "eradicated" ? "border-cyber-500/40 bg-cyber-500/10 text-cyber-300" : "border-neon-amber/40 bg-neon-amber/10 text-neon-amber"}`}>{status}</span>
-        <span className={`rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase ${sevRank(severity) >= 3 ? "border-severity-high/40 bg-severity-high/10 text-severity-high" : "border-border text-slate-400"}`}>sev {severity}</span>
-        <span className="hidden font-mono text-[10px] text-slate-500 sm:inline">{groups.list.length} incident{groups.list.length === 1 ? "" : "s"} · {dispHosts.length}h · {dispUsers.length}u · {dispTechs.length}t · {escs.length} ev{hunts.length ? ` · ${hunts.length} hunt` : ""}{executed.length ? ` · ${executed.length} contained` : ""}</span>
+        <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider ${status === "closed" ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : status === "contained" || status === "eradicated" ? "border-cyber-500/40 bg-cyber-500/10 text-cyber-300" : "border-neon-amber/40 bg-neon-amber/10 text-neon-amber"}`}>{status}</span>
+        <span className={`rounded border px-1.5 py-0.5 text-[11px] font-bold uppercase ${sevRank(severity) >= 3 ? "border-severity-high/40 bg-severity-high/10 text-severity-high" : "border-border text-slate-400"}`}>sev {severity}</span>
+        <span className="hidden font-mono text-[11px] text-slate-500 sm:inline">{groups.list.length} incident{groups.list.length === 1 ? "" : "s"} · {dispHosts.length}h · {dispUsers.length}u · {dispTechs.length}t · {escs.length} ev{hunts.length ? ` · ${hunts.length} hunt` : ""}{executed.length ? ` · ${executed.length} contained` : ""}</span>
         <span className="ml-auto text-[11px] text-slate-400">owner: <bdi className="text-slate-200">{ownerId ? nameOf(ownerId) : "unassigned"}</bdi></span>
-      </button>
+      </button>}
 
       {open && (<>
       {/* Plain explanation — the case was opaque to new players (feedback) */}
       <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
-        The team&apos;s <b className="text-slate-300">single source of truth</b> — it builds itself from what Tier-1 escalates. Related cases group into <b className="text-slate-300">incidents</b> by the incident label on a report, scope, containment or hunt. Move the <b className="text-slate-300">status</b> as the shift progresses (new → investigating → contained → closed); the SOC Manager assigns an <b className="text-slate-300">owner</b>.
+        The team&apos;s <b className="text-slate-300">single source of truth</b>: it builds itself from what Tier-1 escalates. Related cases group into <b className="text-slate-300">incidents</b> by the incident label on a report, scope, containment or hunt. Move the <b className="text-slate-300">status</b> as the shift progresses (new → investigating → contained → closed); the SOC Manager assigns an <b className="text-slate-300">owner</b>.
       </p>
       {/* lifecycle stepper */}
       <div className="mt-3 flex flex-wrap items-center gap-1">
         {CASE_STATUSES.map(s => (
           <button key={s} aria-pressed={s === status} disabled={!canStatus || busy || s === status}
             onClick={async () => { setBusy(true); await act("case.status_set", { status: s, severity }); setBusy(false); }}
-            className={`rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition ${s === status ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-300" : canStatus ? "border-border text-slate-400 hover:text-white" : "border-border/50 text-slate-500"}`}>{s}</button>
+            className={`rounded-md border px-2 py-1 text-[11px] font-semibold uppercase tracking-wider transition ${s === status ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-300" : canStatus ? "border-border text-slate-400 hover:text-white" : "border-border/50 text-slate-500"}`}>{s}</button>
         ))}
       </div>
       {canAssign && (
@@ -159,13 +193,19 @@ export function SharedCase({ events, feed, roster, me, act, nameOf }: { events: 
       {/* scope — explicit shift-wide T2/T3 scope when set (G-10), else auto-derived from escalations */}
       <div className="mt-3 flex items-center justify-between">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Scope{scopes.size > 1 || (scopes.size === 1 && !scopes.has("")) ? " (shift-wide)" : ""}</p>
-        <span className={`rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase ${scopeConfirmed ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : explicitScope ? "border-cyber-500/40 bg-cyber-500/10 text-cyber-300" : "border-border text-slate-500"}`}>{scopeLabel}</span>
+        <span className={`rounded border px-1.5 py-0.5 text-[11px] font-bold uppercase ${scopeConfirmed ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : explicitScope ? "border-cyber-500/40 bg-cyber-500/10 text-cyber-300" : "border-border text-slate-500"}`}>{scopeLabel}</span>
       </div>
       <div className="mt-1 grid gap-2 sm:grid-cols-3">
-        <ScopeBox label="Hosts" items={dispHosts} />
+        <ScopeBox label="Hosts" items={dispHosts.map(h => (isolatedNow.some(x => x.host.toLowerCase() === h.toLowerCase()) ? `${h} (isolated)` : h))} />
         <ScopeBox label="Users" items={dispUsers} />
         <ScopeBox label="Techniques" items={dispTechs} accent />
       </div>
+      {isolatedNow.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 rounded border border-neon-green/30 bg-neon-green/[0.06] px-2 py-1 text-[11px] text-neon-green">
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden /> Isolated now:
+          {isolatedNow.map(h => <span key={h.host} className="font-mono"><bdi>{h.host}</bdi> <span className="text-slate-400">({nameOf(h.by)})</span></span>)}
+        </div>
+      )}
       {executed.length > 0 && (
         <div className="mt-2 flex items-center gap-2 rounded border border-neon-green/30 bg-neon-green/[0.06] px-2 py-1 text-[11px] text-neon-green">
           <ShieldCheck className="h-3.5 w-3.5 shrink-0" /> Contained: {executed.map(e => asStr((e.payload as { target?: string }).target)).filter(Boolean).join(", ") || `${executed.length} target(s)`}
@@ -175,16 +215,16 @@ export function SharedCase({ events, feed, roster, me, act, nameOf }: { events: 
       {/* incidents — evidence (escalations), determinations, hunt findings and containment per incident */}
       <div className="mt-3">
         <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Incidents ({groups.list.length})</p>
-        {groups.list.length === 0 ? <p className="text-xs text-slate-500">No escalations yet — when Tier-1 escalates a log, it lands here as case evidence, and the scope above fills in.</p> : (
+        {groups.list.length === 0 ? <p className="text-xs text-slate-500">No escalations yet: when Tier-1 escalates a log, it lands here as case evidence, and the scope above fills in.</p> : (
           <div className="space-y-2">
             {groups.list.map(g => (
               <div key={g.key} className="rounded-lg border border-border bg-bg px-2.5 py-2">
                 <div className="flex items-center gap-2">
                   <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${sevColor(g.maxSev)}`} />
                   <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-200">{g.labelled ? g.name : `Case: ${g.name}`}</span>
-                  <span className="shrink-0 font-mono text-[10px] text-slate-500">{g.escs.length} ev{g.reports.length ? ` · ${g.reports.length} report` : ""}{g.hunts.length ? ` · ${g.hunts.length} hunt` : ""}</span>
+                  <span className="shrink-0 font-mono text-[11px] text-slate-500">{g.escs.length} ev{g.reports.length ? ` · ${g.reports.length} report` : ""}{g.hunts.length ? ` · ${g.hunts.length} hunt` : ""}</span>
                 </div>
-                {g.scope && <p className="mt-0.5 font-mono text-[10px] text-slate-500">scope {g.scope.confirmed ? "✓ confirmed" : "proposed"}: {[...g.scope.hosts, ...g.scope.users, ...g.scope.techniques].join(", ") || "—"}</p>}
+                {g.scope && <p className="mt-0.5 font-mono text-[11px] text-slate-500">scope {g.scope.confirmed ? "✓ confirmed" : "proposed"}: {[...g.scope.hosts, ...g.scope.users, ...g.scope.techniques].join(", ") || "none"}</p>}
                 {g.escs.length > 0 && (
                   <div className="mt-1 space-y-0.5">
                     {g.escs.map(e => { const p = e.payload as { what?: string; summary?: string; event_id?: string }; const eid = String(p.event_id); const st = escStates.get(eid); const fe = feedById.get(eid) as { severity?: string } | undefined; const cont = contByEid.get(eid) ?? []; return (
@@ -192,10 +232,10 @@ export function SharedCase({ events, feed, roster, me, act, nameOf }: { events: 
                         <div className="flex items-center gap-2">
                           <span className={`h-1 w-1 shrink-0 rounded-full ${sevColor(fe?.severity)}`} />
                           <span className="min-w-0 flex-1 truncate text-slate-300">{asStr(p.summary) || asStr(p.what) || "escalation"}</span>
-                          <span className="shrink-0 font-mono text-[10px] text-slate-500"><bdi>{nameOf(e.actor_id)}</bdi>{st?.owner ? <> → <bdi>{nameOf(st.owner)}</bdi></> : ""}</span>
-                          <span className="shrink-0 font-mono text-[9px] uppercase text-slate-500">{st?.resolved ? "resolved" : st?.bounced ? "bounced" : st?.acked ? "taken" : "open"}</span>
+                          <span className="shrink-0 font-mono text-[11px] text-slate-500"><bdi>{nameOf(e.actor_id)}</bdi>{st?.owner ? <> → <bdi>{nameOf(st.owner)}</bdi></> : ""}</span>
+                          <span className="shrink-0 font-mono text-[11px] uppercase text-slate-500">{st?.resolved ? "resolved" : st?.bounced ? "bounced" : st?.acked ? "taken" : "open"}</span>
                         </div>
-                        {cont.map(r => <p key={r.seq} className={`ml-3 text-[10px] ${r.status === "denied" ? "text-severity-high" : r.status === "executed" ? "text-neon-green" : "text-cyber-300"}`}>{containmentVerb(asStr((r.request.payload as { containment_type?: string }).containment_type))} {asStr((r.request.payload as { target?: string }).target)} — {r.status}</p>)}
+                        {cont.map(r => <p key={r.seq} className={`ml-3 text-[11px] ${r.status === "denied" ? "text-severity-high" : r.status === "executed" ? "text-neon-green" : "text-cyber-300"}`}>{containmentVerb(asStr((r.request.payload as { containment_type?: string }).containment_type))} {asStr((r.request.payload as { target?: string }).target)}: {r.status}</p>)}
                       </div>
                     ); })}
                   </div>
@@ -204,9 +244,9 @@ export function SharedCase({ events, feed, roster, me, act, nameOf }: { events: 
                 {g.reports.map(e => { const p = e.payload as { verdict?: string; summary?: string; recommendation?: string }; const v = asStr(p.verdict); return (
                   <div key={e.seq} className="mt-1 rounded border border-cyber-500/25 bg-cyber-500/[0.05] px-2 py-1 text-[11px]">
                     <div className="flex items-center gap-2">
-                      {v && <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase ${v === "true_positive" || v === "escalate" ? "border-severity-high/40 bg-severity-high/10 text-severity-high" : "border-border text-slate-400"}`}>{v.replace("_", " ")}</span>}
+                      {v && <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[11px] font-bold uppercase ${v === "true_positive" || v === "escalate" ? "border-severity-high/40 bg-severity-high/10 text-severity-high" : "border-border text-slate-400"}`}>{v.replace("_", " ")}</span>}
                       <span className="min-w-0 flex-1 truncate text-slate-200">{asStr(p.summary) || "incident report"}</span>
-                      <span className="shrink-0 font-mono text-[10px] text-slate-500"><bdi>{nameOf(e.actor_id)}</bdi></span>
+                      <span className="shrink-0 font-mono text-[11px] text-slate-500"><bdi>{nameOf(e.actor_id)}</bdi></span>
                     </div>
                     {asStr(p.recommendation) && <p className="mt-0.5 text-cyber-200"><span className="text-slate-500">▶ recommends:</span> {asStr(p.recommendation)}</p>}
                   </div>
@@ -220,7 +260,7 @@ export function SharedCase({ events, feed, roster, me, act, nameOf }: { events: 
       </div>
       {groups.loose.length > 0 && (
         <div className="mt-3">
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Hunt findings — not linked to a case ({groups.loose.length})</p>
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Hunt findings: not linked to a case ({groups.loose.length})</p>
           <div className="space-y-1">{groups.loose.slice().reverse().map(huntRow)}</div>
         </div>
       )}
@@ -245,9 +285,9 @@ export function SharedCase({ events, feed, roster, me, act, nameOf }: { events: 
 function ScopeBox({ label, items, accent }: { label: string; items: string[]; accent?: boolean }) {
   return (
     <div className="rounded-lg border border-border bg-bg px-2 py-1.5">
-      <p className="text-[10px] uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="text-[11px] uppercase tracking-wider text-slate-400">{label}</p>
       {items.length === 0 ? <p className="text-[11px] text-slate-500">—</p> : (
-        <div className="mt-1 flex flex-wrap gap-1">{items.slice(0, 8).map(i => <span key={i} className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${accent ? "bg-cyber-500/10 text-cyber-300" : "bg-white/5 text-slate-300"}`}>{i}</span>)}{items.length > 8 && <span className="text-[10px] text-slate-500">+{items.length - 8}</span>}</div>
+        <div className="mt-1 flex flex-wrap gap-1">{items.slice(0, 8).map(i => <span key={i} className={`rounded px-1.5 py-0.5 font-mono text-[11px] ${accent ? "bg-cyber-500/10 text-cyber-300" : "bg-white/5 text-slate-300"}`}>{i}</span>)}{items.length > 8 && <span className="text-[11px] text-slate-500">+{items.length - 8}</span>}</div>
       )}
     </div>
   );

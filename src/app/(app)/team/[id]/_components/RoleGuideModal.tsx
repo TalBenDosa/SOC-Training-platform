@@ -2,52 +2,52 @@
 import { useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
-import { ROLE_LABEL } from "./shared";
+import { ROLE_LABEL, CONTAINMENT_RULE } from "./shared";
 
-// How a real SOC ticket flows tier-to-tier (grounded in the SOC operations
-// research + docs/SPEC-team-roles-playbook.md). Shown in the first-use guide.
-const OVERALL_FLOW = "A real incident moves tier to tier, investigated deeper at each hop: Tier-1 triages the alert queue and escalates the real ones with evidence → Tier-2 acknowledges, investigates in depth and asks for containment → Tier-3 hunts deeper and confirms scope → the SOC Manager approves containment, records decisions & SITREPs, and drives the case to closure. Everyone works one Shared Case.";
+// How a real SOC ticket flows tier to tier (docs/SPEC-team-roles-playbook.md), in the words of the
+// screens as they are today (2026-11 review: the old cards named raw event types and old buttons).
+const OVERALL_FLOW = "Tier-1 works the Needs triage queue and escalates the real alerts with evidence. Tier-2 takes the case, investigates, files the report, sets the scope and asks for containment. Tier-3 hunts deeper, collects forensics and confirms the scope. The SOC Manager declares the incident, approves containment and keeps management informed. Everyone works one Shared case.";
 interface RoleGuide { mission: string; steps: string[]; flow: string; measured: string[] }
 const ROLE_GUIDE: Record<string, RoleGuide> = {
-  t1: { mission: "You're the front line: triage every alert fast and pass the real ones up with evidence.",
-    steps: ["Watch the Live SIEM feed; click a log to read its raw detail.", "Set a disposition on each in your console: True Positive / False Positive / Benign.", "For anything real, fill the Escalate-to-Tier-2 form (what you saw · why it's suspicious · impact · confidence) and send it.", "📌 Pin the key logs to the Shared Case."],
-    flow: "IN: raw alerts from the feed.  OUT: escalate to Tier-2 (escalation.requested).", measured: ["Disposition accuracy vs ground truth", "Escalation completeness & correctness", "Time to triage"] },
-  t2: { mission: "You take Tier-1's escalations and run them to ground.",
-    steps: ["Open 'Escalations for you' and Acknowledge each (so T1 knows it's owned).", "Investigate: pivot in the feed, open the EDR console, build the timeline, pin evidence.", "Set the case scope; keep the Shared Case status current.", "When containment is needed, send a Containment request to the SOC Manager."],
-    flow: "IN: escalation.requested from T1.  OUT: containment.requested to the SOC Manager; loop in T3 for deep hunts.", measured: ["Acknowledge latency", "Scope accuracy", "Quality & timing of the containment request"] },
-  t3: { mission: "Senior investigator & threat hunter: go deeper than the queue.",
-    steps: ["Take the hardest escalations from the inbox.", "Form a hypothesis and hunt the feed for related activity.", "Log your hunt findings (hypothesis → evidence → MITRE technique).", "Confirm the real scope and advise Tier-2."],
-    flow: "IN: hard cases from T2.  OUT: findings & confirmed scope to the SOC Manager, guidance to T2.", measured: ["Hunt findings yield", "Scope / attribution accuracy", "Depth of investigation"] },
-  lead: { mission: "Incident Commander: coordinate, decide, own the case. You don't investigate yourself.",
-    steps: ["Watch the Shared Case and the team's requests.", "Approve or deny Containment requests (with a reason).", "Advance the case status and assign the owner.", "Drive the case toward Contained → Closed."],
-    flow: "IN: containment.requested from T2/T3.  OUT: approve/deny + case decisions.", measured: ["Decision speed & correctness", "Case progression", "Coordination"] },
-  de: { mission: "Detection Engineer: close detection gaps live.",
-    steps: ["Follow what the team is chasing.", "Write a rule (name + keyword): it back-tests against the live feed instantly.", "Publish rules that catch the attack technique.", "Tune to cut noise."],
-    flow: "You support the whole team by turning findings into detections (rule.published).", measured: ["Rule matches (verifiable)", "False-positive rate", "Time to publish"] },
-  ti: { mission: "Threat Intel: turn indicators into context and prediction.",
-    steps: ["Follow the incident's indicators.", "Publish an intel note: actor/technique · confidence · recommended action · next expected step.", "Tell the team what to block and what's coming."],
-    flow: "You support T1/T2/Lead with actionable intel (intel.published → Team intel card).", measured: ["Actionable notes", "Attribution accuracy", "Predicting the next step"] },
-  mgr: { mission: "SOC Manager: you command the incident. You manage the team, handle the stakeholders, and keep management informed. You don't investigate yourself.",
-    steps: ["Declare the incident and its severity as soon as the first real escalation lands; change it when the picture changes.", "Decide the requests on your Command desk (CISO, Legal, the business, your own analysts) before the deadline, and say how sure you are.", "Approve or deny containment requests (weigh the business impact), and give every case an owner.", "Answer stakeholders in the Stakeholders window and send the incident report from the menu; follow every escalation under Escalations, and open Logs to back up an analyst.", "Send a SITREP at a steady rhythm; at shift end, sign the passdown."],
-    flow: "IN: escalations, containment requests and stakeholder pressure.  OUT: declarations, decisions, SITREPs and the passdown.", measured: ["Team & incident 35%", "Stakeholders 25%", "Reporting to management 25%", "Team outcome 15%"] },
-  instructor: { mission: "You run the exercise: monitor every role, then end it to reveal the report.",
-    steps: ["Watch the roster and Team activity.", "Let the incident unfold; the feed streams to everyone live.", "Click 'End session' to close the shift and open the Shift review."],
-    flow: "You control the session; the players work their roles.", measured: ["-"] },
+  t1: { mission: "You are the front line: judge every alert in your queue, close the noise, and pass the real ones to Tier-2 with evidence.",
+    steps: ["You start on Needs triage: the alerts nobody has judged yet. Click Take next alert: the log opens in the feed and is claimed for you.", "Read the log. Pivot on the host, user or address to see what else happened around it.", "Not an attack: Close as false positive or Close as benign, with a short note.", "Attack, or not sure: mark it True positive or Suspicious, then Write escalation report with the indicators (+IOC) and send it to Tier-2.", "Already handled: if the host or the attack already has a case, choose Add to a case instead of escalating it again."],
+    flow: "In: the alert queue. Out: escalation reports to Tier-2, and logs added to open cases.", measured: ["Correct calls on the alerts you judged", "Complete escalations: summary, evidence, indicators", "Time from an alert arriving to your call"] },
+  t2: { mission: "You take Tier-1's escalations and run each case to the end.",
+    steps: ["Take next case (or Acknowledge one) under Escalations for you. You can also open a case yourself on a log you found: it is marked as self-opened.", "Each case you own shows its steps: Investigate, Report, Scope, Contain, Resolve. The highlighted button is the next thing to do.", "Investigate in the feed and in the EDR console, file the report, then set the scope: every host and user involved.", "Contain: ask for it with a reason. The senior on shift approves before anything is isolated.", "Resolve the case when it is contained or proved harmless."],
+    flow: "In: escalations from Tier-1. Out: reports, scope and containment requests; deep hunts to Tier-3.", measured: ["Time to take a case", "Report and scope quality", "Containment that matches the evidence"] },
+  t3: { mission: "Senior investigator and threat hunter: go deeper than the queue.",
+    steps: ["Start in the Forensic workbench: collect memory or a triage package from a host in play before anything is killed or isolated.", "Take the hunts Tier-2 elevates to you, and log each finding with its evidence and ATT&CK technique.", "Confirm the scope when you know which hosts and users are really involved.", "Send the SOC Manager a forensic report: what you established and whether it is safe to contain.", "When no SOC Manager is online, you approve the isolation requests of the others."],
+    flow: "In: elevations and hard cases. Out: findings, a confirmed scope and forensic reports.", measured: ["Findings backed by evidence", "Scope accuracy", "Evidence collected before containment"] },
+  lead: { mission: "Incident Commander: coordinate, decide, own the case. You do not investigate yourself.",
+    steps: ["Watch the Shared case and the team's requests.", "Approve or deny containment and isolation requests, with a reason.", "Move the case status and give it an owner.", "Drive the case to contained, then closed."],
+    flow: "In: containment and isolation requests. Out: decisions and case status.", measured: ["Decision speed and quality", "Case progression", "Coordination"] },
+  de: { mission: "Detection Engineer: close detection gaps while the shift runs.",
+    steps: ["Follow what the team is chasing.", "Write a rule (name and keyword): it is tested against the live feed at once.", "Publish rules that catch the attack technique.", "Tune them to cut noise."],
+    flow: "You turn the team's findings into published detections.", measured: ["Rules that match", "False-positive rate", "Time to publish"] },
+  ti: { mission: "Threat Intel: turn indicators into context and a prediction.",
+    steps: ["Follow the incident's indicators.", "Publish an intel note: actor or technique, confidence, the action you recommend, and the next expected step.", "Tell the team what to block and what is coming."],
+    flow: "Your notes reach the whole team in the Team intel card.", measured: ["Actionable notes", "Attribution accuracy", "Predicting the next step"] },
+  mgr: { mission: "SOC Manager: you command the incident. You manage the team, handle the stakeholders and keep management informed. You do not investigate yourself.",
+    steps: ["Declare the incident and its severity on your Command desk as soon as the first real escalation lands.", "Decide the cards on your Command desk before their deadline, and say how sure you are.", "Approve or deny isolation and containment requests: they wait for you at the side of your screen.", "Watch the team line: an idle seat is flagged. Give every case an owner.", "Answer stakeholders, send the incident report and SITREPs, and sign the passdown at the end."],
+    flow: "In: escalations, containment and isolation requests, stakeholder questions. Out: declarations, decisions, SITREPs and the passdown.", measured: ["Team and incident 35%", "Stakeholders 25%", "Reporting to management 25%", "Team outcome 15%"] },
+  instructor: { mission: "You run the exercise: watch every seat, help a stuck player, and end the shift.",
+    steps: ["The Seats board shows each player's last action, idle minutes and open load. Send a coach message to one seat when it is stuck.", "Add pressure with an inject when you want, or release a planned attack now.", "You approve isolation requests when no SOC Manager or Tier-3 is online.", "End the shift: it ends two minutes later so everyone can send their work. End now skips the wait."],
+    flow: "You control the session; the players work their roles.", measured: ["Not scored"] },
 };
 export function roleDirective(role: string | null | undefined): string {
   switch (role) {
-    case "t1": return "Triage the feed: set a disposition on each log, and escalate anything real to Tier-2.";
-    case "t2": return "Work your escalation inbox: acknowledge, investigate, then request containment from the SOC Manager.";
-    case "t3": return "Hunt deeper: take hard cases, log findings, confirm scope.";
-    case "lead": return "Command the incident: approve/deny containment and drive the case status.";
-    case "de": return "Write & publish detection rules that catch the attack (they back-test live).";
+    case "t1": return "Work your Needs triage queue: Take next alert, read the log, then close it or escalate it to Tier-2.";
+    case "t2": return "Take a case and follow its steps: investigate, report, scope, contain, resolve.";
+    case "t3": return "Collect forensics first, hunt what Tier-2 elevates, then confirm the scope.";
+    case "lead": return "Command the incident: approve or deny containment and drive the case status.";
+    case "de": return "Write and publish detection rules that catch the attack (they test against the live feed).";
     case "ti": return "Publish intel: actor, technique, and the next expected step.";
-    case "mgr": return "Declare the incident, decide the requests on your Command desk, approve containment, and keep management informed with SITREPs.";
-    case "instructor": return "Monitor all roles; end the exercise to reveal the report.";
+    case "mgr": return "Declare the incident, decide your Command desk, approve containment, and keep management informed.";
+    case "instructor": return "Watch the seats, coach a stuck player, end the shift when it is time.";
     default: return "Watch the shared feed.";
   }
 }
-export function RoleGuideModal({ role, onClose, onStartTour, isSentinel = false }: { role: string | null; onClose: () => void; onStartTour?: () => void; isSentinel?: boolean }) {
+export function RoleGuideModal({ role, onClose, onStartTour, isSentinel = false, tourLabel }: { role: string | null; onClose: () => void; onStartTour?: () => void; isSentinel?: boolean; /** e.g. "12 steps, about 3 min": the tour button says what it costs. */ tourLabel?: string }) {
   const g = ROLE_GUIDE[role ?? ""] ?? ROLE_GUIDE.instructor;
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(true, dialogRef, { onEscape: onClose });
@@ -56,7 +56,7 @@ export function RoleGuideModal({ role, onClose, onStartTour, isSentinel = false 
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="role-guide-title" tabIndex={-1} className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-bg-elevated p-5" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 id="role-guide-title" className="text-base font-bold text-white">Your role: {ROLE_LABEL[role ?? ""] ?? "Observer"}</h2>
-          <button onClick={onClose} aria-label="Close" className="text-xl leading-none text-slate-400 hover:text-white">&times;</button>
+          <button onClick={onClose} aria-label="Close" className="rounded text-xl leading-none text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50">&times;</button>
         </div>
         <p className="mt-2 text-sm text-slate-200">{g.mission}</p>
         <div className="mt-4">
@@ -74,10 +74,11 @@ export function RoleGuideModal({ role, onClose, onStartTour, isSentinel = false 
         <div className="mt-4 rounded-lg border border-cyber-500/30 bg-cyber-500/[0.06] px-3 py-2">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-cyber-300">How the team works together</p>
           <p className="mt-0.5 text-xs text-slate-300">{OVERALL_FLOW}</p>
+          <p className="mt-1.5 text-xs text-slate-300"><b className="text-slate-200">The containment rule:</b> {CONTAINMENT_RULE}</p>
         </div>
         {onStartTour ? (
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <Button variant="primary" size="sm" className="flex-1" onClick={onStartTour}>Start the guided tour (2 min)</Button>
+            <Button variant="primary" size="sm" className="flex-1" onClick={onStartTour}>Start the guided tour{tourLabel ? ` (${tourLabel})` : ""}</Button>
             <Button variant="outline" size="sm" onClick={onClose}>Not now</Button>
           </div>
         ) : <Button variant="primary" size="sm" className="mt-4 w-full" onClick={onClose}>Got it</Button>}

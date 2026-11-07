@@ -15,7 +15,11 @@ export interface LogsRequest {
   incidentId?: string;
 }
 export interface PlaybookRequest { incidentId?: string; host?: string }
-export interface PlaybookRun { id: string; at: string; playbook: string; host: string; ok: boolean; message: string; by: string }
+export interface PlaybookRun {
+  id: string; at: string; playbook: string; host: string; ok: boolean; message: string; by: string;
+  /** "Isolate device" in a team session sends a request for approval: the run stays pending until it is answered. */
+  pending?: boolean;
+}
 
 export interface SentinelCtx {
   ws: SentinelWorkspace;
@@ -40,7 +44,8 @@ export interface SentinelCtx {
   addToTi: (entity: SentinelEntity, incidentId: string) => void;
   /** The team event log folds bookmarks per incident, so one without an incident is kept here. */
   saveBookmark: SentinelActions["addBookmark"];
-  runPlaybook: (playbook: "Isolate device" | "Release device", host: string, incidentTitle?: string) => Promise<PlaybookRun>;
+  /** `reason` goes with an isolation request to the approver (team sessions). */
+  runPlaybook: (playbook: "Isolate device" | "Release device", host: string, incidentTitle?: string, reason?: string) => Promise<PlaybookRun>;
   refresh: () => void;
 }
 

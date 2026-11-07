@@ -291,15 +291,15 @@ export function ForensicReportsCard({ events, nameOf }: { events: Ev[]; nameOf: 
           return (
             <li key={r.seq} className="rounded-lg border border-border bg-bg px-2.5 py-2 text-xs">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded border border-cyber-500/40 px-1.5 font-mono text-[10px] uppercase text-cyber-200">{KIND_LABEL[asStr(p.kind)] ?? asStr(p.kind)}</span>
-                <span className={`rounded border px-1.5 text-[10px] ${tone(asStr(p.readiness))}`}>{p.readiness === "ready" ? "ready to contain" : p.readiness === "not_ready" ? "not ready to contain" : "readiness unknown"}</span>
-                <span className="ml-auto text-[10px] text-slate-400"><bdi>{nameOf(r.actor_id)}</bdi>{r.occurred_at ? ` · ${new Date(r.occurred_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</span>
+                <span className="rounded border border-cyber-500/40 px-1.5 font-mono text-[11px] uppercase text-cyber-200">{KIND_LABEL[asStr(p.kind)] ?? asStr(p.kind)}</span>
+                <span className={`rounded border px-1.5 text-[11px] ${tone(asStr(p.readiness))}`}>{p.readiness === "ready" ? "ready to contain" : p.readiness === "not_ready" ? "not ready to contain" : "readiness unknown"}</span>
+                <span className="ml-auto text-[11px] text-slate-400"><bdi>{nameOf(r.actor_id)}</bdi>{r.occurred_at ? ` · ${new Date(r.occurred_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</span>
               </div>
               <p className="mt-1 text-slate-100"><bdi>{asStr(p.summary)}</bdi></p>
               {asStr(p.readiness_reason) && <p className="text-[11px] text-slate-400">Why: <bdi>{asStr(p.readiness_reason)}</bdi></p>}
               {asStr(p.asks) && <p className="text-[11px] text-neon-purple">Needs from you: <bdi>{asStr(p.asks)}</bdi></p>}
-              {hosts.length > 0 && <p className="mt-1 flex flex-wrap gap-1">{hosts.map(h => <span key={h.host} className="rounded border border-border px-1.5 font-mono text-[10px] text-slate-300">{h.host}{h.status ? `: ${h.status.replace("_", " ")}` : ""}</span>)}</p>}
-              <p className="text-[10px] text-slate-500">{att} finding{att === 1 ? "" : "s"} attached{nextMin > 0 ? ` · next update in ${nextMin} min` : ""}</p>
+              {hosts.length > 0 && <p className="mt-1 flex flex-wrap gap-1">{hosts.map(h => <span key={h.host} className="rounded border border-border px-1.5 font-mono text-[11px] text-slate-300">{h.host}{h.status ? `: ${h.status.replace("_", " ")}` : ""}</span>)}</p>}
+              <p className="text-[11px] text-slate-500">{att} finding{att === 1 ? "" : "s"} attached{nextMin > 0 ? ` · next update in ${nextMin} min` : ""}</p>
             </li>
           );
         })}

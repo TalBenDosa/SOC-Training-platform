@@ -98,12 +98,14 @@ describe("TeamReport (shift review) — v3 sections", () => {
     });
     await act(async () => { await new Promise(r => setTimeout(r, 0)); });
     const text = container.textContent ?? "";
-    expect(text).toContain("Host isolation in EDR");
+    // Review 2026-11: Sentinel sessions isolate too, so the section is just "Host isolation".
+    expect(text).toContain("Host isolation");
+    expect(text).not.toContain("Host isolation in EDR");
     expect(text).toContain("1/2 right calls");
     expect(text).toContain("✓ right call");
     expect(text).toContain("isolated 3m 00s after its first attack log");
     expect(text).toContain("✗ wrong call");
-    expect(text).toContain("clean — no attack activity on this host");
+    expect(text).toContain("clean: no attack activity on this host");
     expect(text).toContain("Hosts you isolated");          // Omer's card
   });
 
@@ -148,5 +150,115 @@ describe("TeamReport (shift review) — v3 sections", () => {
       expect(calls).toBe(2);
       expect(container.textContent).toContain("Attack logs within SLA");
     } finally { vi.useRealTimers(); }
+  });
+  async function render(events: Ev[], body: Record<string, unknown>, me: { id: string; is_staff: boolean; role: string | null }, r: RosterMember[] = roster) {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => body })));
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => { root!.render(React.createElement(TeamReport, { sessionId: "s1", events, roster: r, me })); });
+    await act(async () => { await new Promise(res => setTimeout(res, 0)); });
+    return container;
+  }
+
+  it("review 2026-11: a player sees their own card first, with one score, a strength, a fix, a practice room and XP", async () => {
+    const events = shift();
+    const report = computeReport(events, roster);
+    const mine = report.perUser.filter(u => u.user_id === "a").map(u => ({ ...u, falseNegatives: u.falseNegatives.map(m => ({ ...m, practice: { id: "room-7", title: "Mailbox rules" } })) }));
+    const c = await render(events, { team: report.team, perUser: mine, answers: {}, seesAll: false, xp: { a: 42 } }, { id: "a", is_staff: false, role: "t1" });
+    const text = c.textContent ?? "";
+    expect(text).toContain("Your shift");
+    expect(text.indexOf("Your shift")).toBeLessThan(text.indexOf("Shift review: the team"));
+    expect(text.indexOf("Shift review: the team")).toBeLessThan(text.indexOf("Hot-wash"));
+    expect(text.indexOf("Hot-wash")).toBeLessThan(text.indexOf("The detail"));
+    expect(text).toContain("Strength");
+    expect(text).toContain("One thing to fix");
+    expect(text).toContain("An attack you called benign: Forwarding rule to external mailbox");
+    expect(c.querySelector('a[href="/rooms/room-7"]')?.textContent).toBe("Mailbox rules");
+    expect(text).toContain("+42 XP");
+    // one score per card: the role score, never a second "contribution" number
+    expect(text).not.toMatch(/contribution/i);
+    // a player sees no other card and no debrief mode
+    expect(text).not.toContain("Each player");
+    expect([...c.querySelectorAll("button")].some(b => /Debrief mode/.test(b.textContent ?? ""))).toBe(false);
+    // plain labels, the acronym only in the tooltip
+    expect(text).toContain("Time to detect (median)");
+    expect(text).toContain("Escalations answered");
+    expect(text).not.toMatch(/MTTD|MTTR|MTTC|Handoff loop closure|Curveballs \(MSEL\)/);
+    expect(c.querySelector('[title^="MTTD"]')).not.toBeNull();
+    // never raw seconds
+    expect(text).not.toMatch(/\b\d{3,}s\b/);
+    // the detail is folded
+    expect(c.querySelectorAll("details").length).toBeGreaterThan(2);
+    expect([...c.querySelectorAll("details")].every(d => !d.open)).toBe(true);
+  });
+
+  it("review 2026-11: staff see each player, and the debrief mode shows the story without a score or a name", async () => {
+    const events = shift();
+    events.splice(1, 0, { seq: 0, type: "feed.event", actor_id: null, role: null, payload: { id: "atk5", expected_verdict: "tp", incident_id: "inc-A", severity: "high", hostname: "WS-12", mitre_tactic: "Execution", description: "Beacon process on WS-12" }, occurred_at: at(5) });
+    events.forEach((e, i) => { e.seq = i + 1; if (e.type === "escalation.requested") e.role = "t1"; if (e.type === "escalation.acknowledged") e.role = "t2"; });
+    const report = computeReport(events, roster);
+    const c = await render(events, { team: report.team, perUser: report.perUser, answers: {}, seesAll: true }, { id: "x", is_staff: true, role: "instructor" });
+    expect(c.textContent).toContain("Each player");
+    const btn = [...c.querySelectorAll("button")].find(b => /Debrief mode/.test(b.textContent ?? ""))!;
+    await act(async () => { btn.click(); });
+    const d = c.querySelector("[data-testid=debrief-mode]")!;
+    expect(d).not.toBeNull();
+    const text = d.textContent ?? "";
+    expect(text).toContain("Shift debrief");
+    expect(text).toContain("What happened, and when");
+    expect(text).toContain("Patient zero: WS-12");
+    expect(text).toContain("Execution");
+    expect(text).toContain("What the team saw");
+    expect(text).toContain("What the team missed");
+    expect(text).toContain("What should have happened");
+    expect(text).toContain("What we would do differently");
+    // people show by role; no individual score
+    expect(text).toContain("Tier-1 Triage");
+    expect(text).not.toMatch(/Dana|Omer/);
+    expect(text).not.toMatch(/\/100|Role score|XP/);
+    // back to the report
+    const back = [...d.querySelectorAll("button")].find(b => b.textContent === "Back to the report")!;
+    await act(async () => { back.click(); });
+    expect(c.querySelector("[data-testid=debrief-mode]")).toBeNull();
+    expect(c.textContent).toContain("Shift review: the team");
+  });
+
+  it("review 2026-11: the trainee SOC Manager still sees every teammate's card (owner decision pending)", async () => {
+    const events = shift();
+    const mgrRoster: RosterMember[] = [...roster, { user_id: "m", role: "mgr", status: "ready", name: "Noa", handle: null }];
+    const report = computeReport(events, mgrRoster);
+    const c = await render(events, { team: report.team, perUser: report.perUser, managerReview: report.managerReview, answers: {}, seesAll: true }, { id: "m", is_staff: false, role: "mgr" }, mgrRoster);
+    const text = c.textContent ?? "";
+    expect(text).toContain("Your shift");
+    expect(text).toContain("Command Review score");
+    expect(text).toContain("Each player");
+    expect(text).toContain("Dana");
+    expect(text).toContain("Omer");
+  });
+  it("review 2026-11: shows the shift's truth, the pauses, self-opened cases and isolation requests from the server report", async () => {
+    const events = shift();
+    const end = events.pop()!;
+    const add = (type: string, actor: string | null, sec: number, payload: Record<string, unknown> = {}) =>
+      events.push({ seq: events.length + 1, type, actor_id: actor, role: null, payload, occurred_at: at(sec) });
+    add("session.paused", null, 200, { reason: "owner_left" });
+    add("session.resumed", null, 260);
+    add("escalation.requested", "b", 300, { event_id: "atk4", summary: "usb copy" });
+    add("escalation.acknowledged", "b", 305, { event_id: "atk4" });
+    add("isolation.requested", "b", 320, { host: "WS-HR-07", reason: "USB mass copy" });
+    add("isolation.denied", "a", 340, { request_seq: events.length, reason: "Scope it first" });
+    events.push({ ...end, seq: events.length + 1 });
+    const report = computeReport(events, roster);
+    const team = { ...report.team, shift: { plannedMs: 1_800_000, ranMs: 600_000, endedEarly: true, endReason: "manual", plannedRows: 10, firedRows: 6, unfiredRows: 4, unfiredAttackRows: 2, preventedByIsolation: 1, attacksNeverStarted: [{ id: "inc-Z", name: "Cloud key theft" }], attacksNotReached: [] } };
+    const c = await render(events, { team, perUser: report.perUser, answers: {}, seesAll: true }, { id: "x", is_staff: true, role: "instructor" });
+    const text = c.textContent ?? "";
+    expect(text).toContain("The shift ran 10m 00s of 30m 00s planned, ended early.");
+    expect(text).toContain("not judged: Cloud key theft");
+    expect(text).toContain("1 log never arrived because its host was isolated.");
+    expect(text).toMatch(/Paused 1 time, 1m 00s in all/);
+    expect(text).toContain("self-opened");
+    expect(text).toContain("Isolation requests (1)");
+    expect(text).toContain("Asked by Omer: USB mass copy");
+    expect(text).not.toContain("in EDR");
   });
 });

@@ -15,7 +15,7 @@ export function SecondaryPanels({ activity, nameOf }: { activity: Ev[]; nameOf: 
       <button onClick={() => setOpen(o => !o)} aria-expanded={open} className="flex w-full items-center gap-2 text-left">
         <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${open ? "" : "-rotate-90"}`} />
         <span className="text-sm font-bold text-white">Team activity</span>
-        <span className="ml-auto text-[10px] text-slate-500">{activity.length} actions</span>
+        <span className="ml-auto text-[11px] text-slate-500">{activity.length} actions</span>
       </button>
       {open && <div className="mt-3"><ActivityLog activity={activity} nameOf={nameOf} /></div>}
     </Card>

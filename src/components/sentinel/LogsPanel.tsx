@@ -70,7 +70,11 @@ function QueryPane({ tab, active, panel, incidentId, schemaOpen, setSchemaOpen, 
   const [custom, setCustom] = useState(() => ({ from: isoToLocalInput(new Date(Date.parse(ws.now) - 86_400_000).toISOString()), to: isoToLocalInput(ws.now) }));
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [running, setRunning] = useState(false);
-  const OPEN_HEIGHT = panel ? 180 : 210;
+  // A short screen (1280x720) keeps room for the results: the editor opens at a fifth of the height.
+  const OPEN_HEIGHT = useMemo(() => {
+    const max = panel ? 180 : 210;
+    return typeof window === "undefined" ? max : Math.round(Math.min(max, Math.max(110, window.innerHeight * 0.2)));
+  }, [panel]);
   const [height, setHeight] = useState(OPEN_HEIGHT);
   const seq = useRef(0);
   const timer = useRef<number | undefined>(undefined);

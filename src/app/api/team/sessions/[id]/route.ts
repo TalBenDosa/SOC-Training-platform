@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { tenantFromConfig } from "@/lib/team/tenant";
 import { envFromConfig } from "@/lib/team/environment";
 import { planFromConfig } from "@/lib/team/attackPlan";
-import { sanitizeShiftMinutes } from "@/lib/team/load";
+import { sanitizeShiftMinutes, teamLoad } from "@/lib/team/load";
 import { sanitizeStack } from "@/lib/logs/native/stack";
 import { consoleFromConfig } from "@/lib/team/investigationConsole";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { ISOLATION_ACTIVE_WINDOW_MS } from "@/lib/team/isolationApproval";
+import { sessionClock } from "@/lib/team/projections";
 
 /**
  * One team session + its roster (Phase 0.3) — for the lobby / exercise room.
@@ -19,6 +21,10 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
  * the session meta. Their own after-action card stays readable via /report. Staff
  * also see which members' access to the organisation has expired (`lapsed`): such an
  * invitee can never mark ready, so the lobby offers to remove them.
+ *
+ * 0104: every roster row carries `active` (heartbeat in the last 120 s, the same rule
+ * the database uses to pick the isolation approver), and the session carries `clock`
+ * (server-kept shift start, planned length, paused time, scheduled end, end).
  */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -34,7 +40,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // PostgREST embed can't resolve — fetch members and profiles separately, merge.
   const { data: mem } = await admin
     .from("team_session_members")
-    .select("user_id, role, status, ready_at")
+    .select("user_id, role, status, ready_at, last_seen_at")
     .eq("session_id", id);
 
   const myRow = (mem ?? []).find(m => m.user_id === user.id);
@@ -62,10 +68,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     lapsedIds = new Set(ids.filter(u => !okIds.has(u)));
   }
 
+  const nowMs = Date.now();
+  const staffSeen = Date.parse(String((sess as { staff_seen_at?: string | null }).staff_seen_at ?? "")) || 0;
   const roster = (mem ?? []).map(m => {
     const p = pmap.get(m.user_id);
+    const seen = Math.max(Date.parse(String((m as { last_seen_at?: string | null }).last_seen_at ?? "")) || 0, m.role === "instructor" ? staffSeen : 0);
     return {
       user_id: m.user_id, role: m.role, status: m.status, ready_at: m.ready_at,
+      active: m.status !== "left" && seen > 0 && nowMs - seen <= ISOLATION_ACTIVE_WINDOW_MS,
       name: p?.display_name || p?.handle || m.user_id.slice(0, 8),
       handle: p?.handle ?? null,
       ...(lapsedIds && m.role !== "instructor" && m.status !== "left" ? { lapsed: lapsedIds.has(m.user_id) } : {}),
@@ -96,7 +106,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     session: { ...sessionOut, pause_reason, pause_detail, stack: sanitizeStack((sess as { config?: { stack?: unknown } }).config?.stack), console: consoleFromConfig((sess as { config?: unknown }).config), tenant: tenantFromConfig((sess as { config?: unknown }).config), env: envFromConfig((sess as { config?: unknown }).config),
       // Staff only: the attack plan (count + chosen storylines) — players never learn it.
       ...(iAmStaff ? { attack_plan: planFromConfig((sess as { config?: unknown }).config, (sess as { scenario_id?: string | null }).scenario_id) } : {}),
-      shift_min: sanitizeShiftMinutes(((sess as { config?: { shift_min?: unknown } }).config ?? {}).shift_min) },
+      shift_min: sanitizeShiftMinutes(((sess as { config?: { shift_min?: unknown } }).config ?? {}).shift_min),
+      // The planned length: the instructor's choice, else the size the server built the shift for.
+      clock: sessionClock(sess as Parameters<typeof sessionClock>[0],
+        sanitizeShiftMinutes(((sess as { config?: { shift_min?: unknown } }).config ?? {}).shift_min)
+          ?? teamLoad((sess as { difficulty: "easy" | "medium" | "hard" }).difficulty, mem ?? []).shiftMin, nowMs) },
     roster,
     me: { id: user.id, is_staff: iAmStaff, role: iAmMember ? (myRow?.role ?? null) : null },
   });

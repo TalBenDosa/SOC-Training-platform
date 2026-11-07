@@ -31,7 +31,7 @@ export function TriageHosts({ groups, nameOf, meId, claims, activeHost, onShowHo
   const who = (u: string | null) => (u === meId ? "you" : nameOf(u));
   return (
     <div data-tour="triage-hosts" className="rounded-lg border border-border bg-bg-elevated/40 p-2">
-      <p className="mb-1.5 flex items-center gap-1.5 px-1 text-[10px] uppercase tracking-wider text-slate-400">
+      <p className="mb-1.5 flex items-center gap-1.5 px-1 text-[11px] uppercase tracking-wider text-slate-400">
         <Monitor className="h-3 w-3" aria-hidden /> By host · new hosts first, hosts already in a case last
       </p>
       <ul className="space-y-1">
@@ -47,12 +47,12 @@ export function TriageHosts({ groups, nameOf, meId, claims, activeHost, onShowHo
                 <bdi>{g.host}</bdi>
               </button>
               <span className="text-slate-400">{g.items.length} waiting</span>
-              {g.maxSeverity && <span className={cn("rounded border px-1 text-[9px] font-bold uppercase", SEV_CLS[g.maxSeverity] ?? "border-border text-slate-400")}>{g.maxSeverity}</span>}
-              <span className={cn("font-mono text-[10px]", g.orphans ? "text-severity-high" : "text-slate-500")}>oldest {g.oldestMins}m{g.orphans ? ` · ${g.orphans} past SLA, nobody on them` : ""}</span>
-              {g.fresh && <span className="flex items-center gap-1 rounded border border-severity-high/50 px-1 text-[9px] font-bold uppercase text-severity-high" title="Nobody has escalated, judged or isolated anything on this host yet: this may be a new incident"><Sparkles className="h-3 w-3" aria-hidden />New host</span>}
-              {g.isolated && <span className="flex items-center gap-1 rounded border border-neon-green/40 bg-neon-green/10 px-1 text-[9px] font-semibold text-neon-green"><ShieldCheck className="h-3 w-3" aria-hidden />Isolated · <bdi>{who(g.isolated.by)}</bdi>{g.isolated.at ? ` ${g.isolated.at.slice(11, 16)}` : ""}</span>}
+              {g.maxSeverity && <span className={cn("rounded border px-1 text-[11px] font-bold uppercase", SEV_CLS[g.maxSeverity] ?? "border-border text-slate-400")}>{g.maxSeverity}</span>}
+              <span className={cn("font-mono text-[11px]", g.orphans ? "text-severity-high" : "text-slate-500")}>oldest {g.oldestMins}m{g.orphans ? ` · ${g.orphans} past SLA, nobody on them` : ""}</span>
+              {g.fresh && <span className="flex items-center gap-1 rounded border border-severity-high/50 px-1 text-[11px] font-bold uppercase text-severity-high" title="Nobody has escalated, judged or isolated anything on this host yet: this may be a new incident"><Sparkles className="h-3 w-3" aria-hidden />New host</span>}
+              {g.isolated && <span className="flex items-center gap-1 rounded border border-neon-green/40 bg-neon-green/10 px-1 text-[11px] font-semibold text-neon-green"><ShieldCheck className="h-3 w-3" aria-hidden />Isolated · <bdi>{who(g.isolated.by)}</bdi>{g.isolated.at ? ` ${g.isolated.at.slice(11, 16)}` : ""}</span>}
               {g.case && (
-                <span className="flex min-w-0 items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/10 px-1 text-[9px] font-semibold text-cyber-200" title={g.case.label}>
+                <span className="flex min-w-0 items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/10 px-1 text-[11px] font-semibold text-cyber-200" title={g.case.label}>
                   <FolderOpen className="h-3 w-3 shrink-0" aria-hidden />{g.case.owner ? <>Case open · <bdi>{who(g.case.owner)}</bdi></> : "Escalated, waiting for Tier-2"}
                 </span>
               )}
@@ -71,7 +71,7 @@ export function TriageHosts({ groups, nameOf, meId, claims, activeHost, onShowHo
                   </button>
                 )}
               </span>
-              {note?.key === g.key && <span role="status" className={cn("basis-full text-[10px]", note.ok ? "text-neon-green" : "text-neon-amber")}>{note.text}</span>}
+              {note?.key === g.key && <span role="status" className={cn("basis-full text-[11px]", note.ok ? "text-neon-green" : "text-neon-amber")}>{note.text}</span>}
             </li>
           );
         })}

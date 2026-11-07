@@ -62,7 +62,7 @@ export function StakeholderWindow({ sessionId, events, act, declared }: { sessio
       <Card className="border-neon-purple/30">
         <div className="flex items-center gap-2">
           <h3 className="flex items-center gap-2 text-sm font-bold text-white"><MessagesSquare className="h-4 w-4 text-neon-purple" aria-hidden /> Stakeholders</h3>
-          {open > 0 && <span className="rounded-full bg-neon-purple/20 px-2 font-mono text-[10px] text-neon-purple">{open} waiting</span>}
+          {open > 0 && <span className="rounded-full bg-neon-purple/20 px-2 font-mono text-[11px] text-neon-purple">{open} waiting</span>}
         </div>
         {asked.length === 0 && <p className="mt-1 text-[11px] text-slate-400">Quiet for now. Questions arrive as the incident develops: answer with what is confirmed, what is not, and when the next update comes.</p>}
         <div className="mt-2 space-y-2">
@@ -77,7 +77,7 @@ export function StakeholderWindow({ sessionId, events, act, declared }: { sessio
             return (
               <div key={e.seq} className="space-y-1.5">
                 <div className="rounded-lg rounded-tl-none border border-border bg-bg px-2.5 py-2">
-                  <div className="flex items-center gap-2 text-[10px]">
+                  <div className="flex items-center gap-2 text-[11px]">
                     <b className="text-slate-200"><bdi>{asStr(p.from?.name)}</bdi></b><span className="text-slate-500">{asStr(p.from?.role)}</span>
                     {!r && phase !== "closed" && <span className={`ml-auto flex items-center gap-1 font-mono ${late || left <= 30 ? "text-severity-critical" : "text-neon-amber"}`}><Clock className="h-3 w-3" aria-hidden />{late && <span className="font-sans font-semibold">Late · </span>}{Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}</span>}
                     {!r && phase === "closed" && <span className="ml-auto text-severity-critical">no answer</span>}
@@ -89,11 +89,11 @@ export function StakeholderWindow({ sessionId, events, act, declared }: { sessio
                     <bdi>{asStr((r.payload as { text?: unknown }).text)}</bdi>
                     {f?.state === "answered" && f.checks && (
                       <div className="mt-1.5 space-y-0.5 border-t border-neon-purple/20 pt-1.5">
-                        {f.late && <p className="text-[10px] text-neon-amber">Answered after the deadline.</p>}
+                        {f.late && <p className="text-[11px] text-neon-amber">Answered after the deadline.</p>}
                         {f.checks.map(c => (
-                          <p key={c.id} className={`flex items-center gap-1 text-[10px] ${c.ok ? "text-neon-green" : "text-neon-amber"}`}>{c.ok ? <Check className="h-3 w-3" aria-hidden /> : <X className="h-3 w-3" aria-hidden />}{c.label}</p>
+                          <p key={c.id} className={`flex items-center gap-1 text-[11px] ${c.ok ? "text-neon-green" : "text-neon-amber"}`}>{c.ok ? <Check className="h-3 w-3" aria-hidden /> : <X className="h-3 w-3" aria-hidden />}{c.label}</p>
                         ))}
-                        {f.model && f.checks.some(c => !c.ok) && <p className="text-[10px] text-slate-400">A strong answer: {f.model}</p>}
+                        {f.model && f.checks.some(c => !c.ok) && <p className="text-[11px] text-slate-400">A strong answer: {f.model}</p>}
                       </div>
                     )}
                   </div>

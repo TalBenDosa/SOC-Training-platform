@@ -42,16 +42,16 @@ export function DEConsole({ liveFeed, events, act }: { liveFeed: LiveEvent[]; ev
       <div className="mt-2 space-y-2">
         <input aria-label="Rule name" value={f.name} onChange={e => setF(s => ({ ...s, name: e.target.value }))} placeholder="Rule name" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
         <input aria-label="Rule predicate" value={f.keyword} onChange={e => setF(s => ({ ...s, keyword: e.target.value }))} placeholder="Predicate (e.g. source:edr mitre:T1059, host:FIN-WS-07, PuTTY)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 font-mono text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-        <p className="text-[10px] text-slate-500">fields: source · host · user · ip · mitre · rule · vendor · event · severity — AND-ed</p>
+        <p className="text-[11px] text-slate-500">fields: source · host · user · ip · mitre · rule · vendor · event · severity — AND-ed</p>
         {f.keyword.trim() && (
           <div className={`rounded border px-2 py-1 text-[11px] ${matched.length > 0 ? "border-neon-green/30 bg-neon-green/[0.05] text-neon-green" : "border-border text-slate-500"}`}>
             back-test: {matched.length} match{matched.length === 1 ? "" : "es"}
-            {matched.length > 0 && <div className="mt-1 space-y-0.5">{matched.slice(0, 3).map(e => <p key={e.id} className="truncate font-mono text-[10px] text-slate-400">{e.source} · {asStr(e.displayDescription) || asStr(e.description) || e.event_type}</p>)}</div>}
+            {matched.length > 0 && <div className="mt-1 space-y-0.5">{matched.slice(0, 3).map(e => <p key={e.id} className="truncate font-mono text-[11px] text-slate-400">{e.source} · {asStr(e.displayDescription) || asStr(e.description) || e.event_type}</p>)}</div>}
           </div>
         )}
         <Button variant="primary" size="sm" disabled={busy || !f.name.trim() || !f.keyword.trim()} onClick={publish}>Publish rule</Button>
       </div>
-      {published.length > 0 && <div className="mt-3 border-t border-border/50 pt-2 space-y-1">{published.map(r => { const p = r.payload as { name?: string; matched?: number; keyword?: string }; return <p key={r.seq} className="truncate text-[11px] text-slate-400"><span className="text-slate-200">{asStr(p.name)}</span> <span className="font-mono text-[10px]">{asStr(p.keyword)}</span> · {p.matched ?? 0} matched</p>; })}</div>}
+      {published.length > 0 && <div className="mt-3 border-t border-border/50 pt-2 space-y-1">{published.map(r => { const p = r.payload as { name?: string; matched?: number; keyword?: string }; return <p key={r.seq} className="truncate text-[11px] text-slate-400"><span className="text-slate-200">{asStr(p.name)}</span> <span className="font-mono text-[11px]">{asStr(p.keyword)}</span> · {p.matched ?? 0} matched</p>; })}</div>}
       {/* Tune a rule — add an exclusion to cut false positives (rule.tuned) */}
       {published.length > 0 && (
         <div className="mt-2 space-y-1.5 border-t border-border/50 pt-2">
