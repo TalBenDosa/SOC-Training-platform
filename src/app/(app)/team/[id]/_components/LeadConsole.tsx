@@ -8,12 +8,14 @@ import { asStr } from "@/lib/team/format";
 import { SitrepConsole } from "./SitrepConsole";
 import { DecisionLog } from "./DecisionLog";
 import { useServerNow } from "@/lib/team/clock";
-import { containmentRequests, escalationStates, isOpenEscalation, scopeByIncident, latestScope as latestScopeOf } from "@/lib/team/projections";
+import { containmentRequests, escalationStates, isOpenEscalation } from "@/lib/team/projections";
 import { containmentVerb } from "./T2Console";
+import { containmentHandoff } from "@/lib/team/handoff";
+import { HandoffDetail } from "./HandoffDetail";
 
 // ── Lead console: containment requests → approve / deny ──────────────────────
 export type LeadPart = "queue" | "approvals" | "log" | "sitrep";
-export function LeadConsole({ events, nameOf, act, parts = ["queue", "approvals", "log", "sitrep"] }: { events: Ev[]; nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; parts?: LeadPart[] }) {
+export function LeadConsole({ events, nameOf, act, parts = ["queue", "approvals", "log", "sitrep"], sessionId }: { events: Ev[]; nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; parts?: LeadPart[]; sessionId?: string }) {
   const show = (p: LeadPart) => parts.includes(p);
   const [busy, setBusy] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({}); // per-request decision rationale (keyed by request seq)
@@ -25,8 +27,6 @@ export function LeadConsole({ events, nameOf, act, parts = ["queue", "approvals"
   // Manager approves containment WITH the justification, not blind.
   const now = useServerNow(15_000);   // C5: backlog ages on the server clock
   const reportByEid = useMemo(() => { const m = new Map<string, { verdict?: string; recommendation?: string; findings?: string; summary?: string }>(); for (const e of events) if (e.type === "report.submitted") m.set(String((e.payload as { event_id?: string }).event_id), e.payload as { verdict?: string; recommendation?: string; findings?: string; summary?: string }); return m; }, [events]);
-  const scopes = useMemo(() => scopeByIncident(events), [events]);
-  const latestScope = useMemo(() => latestScopeOf(events), [events]);
   // Oversight queue: escalations still waiting for a Tier-2 to pick up (not taken,
   // not bounced back, not resolved) — so the Manager sees the backlog from the first
   // minute and can chase it, instead of only getting work once a containment request lands.
@@ -72,36 +72,17 @@ export function LeadConsole({ events, nameOf, act, parts = ["queue", "approvals"
                 const a = events.find(x => x.type === "decision.answered" && asStr((x.payload as { inject_id?: unknown }).inject_id) === asStr(cp.inject_id));
                 return a ? (cp.options?.find(o => o.id === asStr((a.payload as { option?: unknown }).option))?.label ?? "decided") : "pending on your Command desk";
               })();
-              const crit = asStr(p.asset_criticality);
               // Earlier requests on the same case (e.g. a denied wrong target) — context for this one.
               const prior = allReqs.filter(x => x.eid === eid && x.seq < r.seq);
-              const sc = (asStr(p.incident) && scopes.get(asStr(p.incident))) || latestScope;
               return (
                 <div key={e.seq} className="rounded-lg border border-border bg-bg px-3 py-2">
                   <p className="text-sm text-slate-200">{containmentVerb(asStr(p.containment_type))} <b className="text-white">{asStr(p.target) || "-"}</b>{asStr(p.incident) && <span className="ml-1.5 rounded border border-cyber-500/40 bg-cyber-500/10 px-1 py-0.5 font-mono text-[11px] text-cyber-300">{asStr(p.incident)}</span>}</p>
-                  <p className="mt-0.5 text-[11px] text-slate-400">{asStr(p.reason)} · requested by <bdi>{nameOf(e.actor_id)}</bdi></p>
                   {deskCall && <p className="mt-1 rounded border border-neon-purple/30 bg-neon-purple/[0.06] px-2 py-1 text-[11px] text-slate-200">Your desk decision on this request: <bdi>{deskCall.replace(/\.$/, "")}</bdi>. Approve or deny accordingly.</p>}
-                  {events.filter(x => x.type === "containment.advised" && Number((x.payload as { request_seq?: unknown }).request_seq) === e.seq).map(x => {
-                    const ap = x.payload as { stance?: unknown; reason?: unknown };
-                    return <p key={x.seq} className={`mt-0.5 text-[11px] ${ap.stance === "object" ? "text-neon-amber" : "text-neon-green"}`}><bdi>{nameOf(x.actor_id)}</bdi> {ap.stance === "object" ? "objects" : "supports"}{asStr(ap.reason) ? <>: &quot;{asStr(ap.reason)}&quot;</> : null}</p>;
-                  })}
-                  {prior.length > 0 && <p className="mt-0.5 text-[11px] text-slate-500">request #{prior.length + 1} on this case, before: {prior.map(x => `${asStr((x.request.payload as { target?: string }).target) || "?"} (${x.status}${x.decisionReason ? `: ${x.decisionReason}` : ""})`).join(" · ")}</p>}
-                  {/* B10: business-impact so approve/deny is a real risk trade-off */}
-                  {(crit || asStr(p.blast_radius) || asStr(p.business_owner)) && (
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {crit && <span className={`rounded border px-1.5 py-0.5 text-[11px] font-bold uppercase ${crit === "crown_jewel" ? "border-severity-high/50 bg-severity-high/10 text-severity-high" : "border-border text-slate-400"}`}>{crit.replace("_", "-")}</span>}
-                      {asStr(p.blast_radius) && <span className="rounded border border-neon-amber/40 bg-neon-amber/10 px-1.5 py-0.5 text-[11px] text-neon-amber">if isolated: {asStr(p.blast_radius)}</span>}
-                      {asStr(p.business_owner) && <span className="rounded border border-border px-1.5 py-0.5 text-[11px] text-slate-400">{asStr(p.business_owner)}</span>}
-                    </div>
-                  )}
-                  {/* A1: T2's determination + recommendation + scope, so this isn't a blind approval */}
-                  {(() => { const r = reportByEid.get(eid); return r ? (
-                    <div className="mt-1.5 rounded border border-cyber-500/25 bg-cyber-500/[0.05] px-2 py-1.5 text-[11px]">
-                      <p className="text-slate-300"><span className="font-semibold text-cyber-200">T2 determination:</span> {asStr(r.verdict).replace("_", " ") || "-"}</p>
-                      {asStr(r.recommendation) && <p className="mt-0.5 text-slate-300"><span className="text-slate-500">recommends:</span> {asStr(r.recommendation)}</p>}
-                      {sc && <p className="mt-0.5 font-mono text-[11px] text-slate-500">scope: {sc.hosts.length}h · {sc.users.length}u · {sc.techniques.length}t{sc.hosts.length || sc.users.length ? `, ${[...sc.hosts, ...sc.users].join(", ")}` : ""}</p>}
-                    </div>
-                  ) : <p className="mt-1 text-[11px] text-neon-amber">⚠ No incident report filed for this case yet, ask Tier-2 to file it before you approve.</p>; })()}
+                  {prior.length > 0 && <p className="mt-0.5 text-[11px] text-slate-400">request #{prior.length + 1} on this case, before: {prior.map(x => `${asStr((x.request.payload as { target?: string }).target) || "?"} (${x.status}${x.decisionReason ? `: ${x.decisionReason}` : ""})`).join(" · ")}</p>}
+                  {/* The full request and the case behind it, open (owner, 2026-11-08): why, the trade-off, teammates'
+                      views, the Tier-1 escalation and the Tier-2 report with its scope. */}
+                  <div className="mt-1.5"><HandoffDetail handoff={containmentHandoff(r, events, { nameOf })} sessionId={sessionId} hideSummary openRelated /></div>
+                  {!reportByEid.get(eid) && <p className="mt-1 text-[11px] text-neon-amber">⚠ No incident report filed for this case yet, ask Tier-2 to file it before you approve.</p>}
                   {/* Decision rationale — optional to Approve (fast confident call), required to Deny */}
                   <input aria-label="Decision rationale" value={note} onChange={ev => setNotes(n => ({ ...n, [e.seq]: ev.target.value }))} placeholder="Decision rationale, business impact / why (required to deny; say what to target instead)" className="mt-2 w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                   <div className="mt-2 flex gap-1.5">

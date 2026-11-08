@@ -533,7 +533,7 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
                 ) : (
                   <>
                     <strong>{incident.title}</strong>
-                    <p className="st-small st-muted" style={{ marginTop: 4 }}>{incident.description || "Select a node on the graph to see its details."}</p>
+                    <p className="st-small st-muted" style={{ marginTop: 4, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{incident.description || "Select a node on the graph to see its details."}</p>
                     <div className="st-field"><div className="k">Alerts</div><div className="v">{alerts.length}</div></div>
                     <div className="st-field"><div className="k">Entities</div><div className="v">{entities.length}</div></div>
                   </>

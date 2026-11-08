@@ -25,6 +25,7 @@ import { evaluatePart, NOISE_RULES, noiseAnalyticsRules } from "./noise";
 import { alertDescription, buildRules, groupFilter, kstr, plain, ruleSeverity, tacticName, tacticsOf, stackUseCases, type CompiledRule } from "./rules";
 import { emptyTable, TABLE_NAMES } from "./tables";
 import type { GraphAlertDetails, SentinelAlert, SentinelEntity, SentinelIncident, SentinelSeverity, SentinelWorkspace } from "./types";
+import { handoffText, type Handoff } from "@/lib/team/handoff";
 
 export interface BuildOptions {
   companyId: string;
@@ -32,8 +33,9 @@ export interface BuildOptions {
   identity?: NativeIdentity;
   /** The organization shown in the workspace name. */
   orgName?: string;
-  /** Cases an analyst escalated: each opens an incident, whatever the rules made of it. */
-  escalated?: { eventId: string; summary?: string }[];
+  /** Cases an analyst escalated: each opens an incident, whatever the rules made of it, and carries
+   *  the analyst's report (title, description, first comment) and indicators (entities). */
+  escalated?: { eventId: string; summary?: string; handoff?: Handoff }[];
   /** Off for a caller that needs incidents only (the team room). Default on. */
   baseline?: boolean;
 }
@@ -344,6 +346,10 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
     return m;
   };
 
+  // What analysts escalated, by feed event: the summary and the whole hand-off.
+  const escalated = new Map((opts.escalated ?? []).map(c => [c.eventId, c.summary]));
+  const handoffOf = new Map((opts.escalated ?? []).filter(c => c.handoff).map(c => [c.eventId, c.handoff as Handoff]));
+
   events.forEach((ev, index) => {
     const { view } = rendered(ev);
     const entry: Entry = { index, ev, entityIds: [] };
@@ -357,6 +363,12 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
       bump(coverage.noNativeRecord, `${ev.source} / ${ev.vendor ?? "?"}`);
     }
     entry.entityIds = book.add(ev, entry.log, entry.row);
+    // The analyst's indicators on an escalated log are entities of every alert that holds it.
+    const h = handoffOf.get(ev.id);
+    if (h) {
+      const ms = Date.parse(ev.ts);
+      for (const i of h.iocs) { const id = book.addIndicator(i.type, i.value, ms); if (id && !entry.entityIds.includes(id)) entry.entityIds.push(id); }
+    }
     entries.push(entry);
   });
 
@@ -447,19 +459,21 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
     }
   });
 
-  // An escalated log that no rule raised still reaches the team as an alert of its own.
-  const escalated = new Map((opts.escalated ?? []).map(c => [c.eventId, c.summary]));
+  // An escalated log that no rule raised still reaches the team as an alert of its own, named by the
+  // analyst's own summary and described by their report (owner, 2026-11-08: no generic prefix).
   const raisedEvents = new Set(pending.flatMap(p => p.entries.map(e => e.ev.id)));
+  const escalatedAlertIds = new Set<string>();
   for (const e of entries) {
     if (!escalated.has(e.ev.id) || raisedEvents.has(e.ev.id)) continue;
     const id = seededUuid(`${orgId}:escalated:${e.ev.id}`);
+    escalatedAlertIds.add(id);
     const ms = Date.parse(e.ev.ts);
     const techniques = e.ev.mitre_technique ? [e.ev.mitre_technique] : [];
     pending.push({
       order: e.index * 1000 + 999, entries: [e], firstMs: ms, lastMs: ms, raised: e.ev.ts, provider: SCHEDULED.provider,
       alert: {
-        id, name: plain(`Escalated for investigation: ${e.ev.description ?? e.ev.event_type}`), severity: toSeverity(e.ev.severity), product: SCHEDULED.product,
-        description: plain(escalated.get(e.ev.id) || e.ev.description || "Escalated by an analyst."), time: e.ev.ts, tactics: tacticsOf(techniques), techniques, query: rowQuery(e, id),
+        id, name: plain(handoffOf.get(e.ev.id)?.summary || escalated.get(e.ev.id) || `Escalated for investigation: ${e.ev.description ?? e.ev.event_type}`), severity: toSeverity(e.ev.severity), product: SCHEDULED.product,
+        description: plain(handoffOf.has(e.ev.id) ? handoffText(handoffOf.get(e.ev.id)!) : escalated.get(e.ev.id) || e.ev.description || "Escalated by an analyst."), time: e.ev.ts, tactics: tacticsOf(techniques), techniques, query: rowQuery(e, id),
       },
     });
   }
@@ -507,9 +521,15 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
     const lastUpdate = members[members.length - 1].time;
     const eventIds = new Set(b.members.flatMap(m => m.entries.map(e => e.ev.id)));
     const distinctQueries = [...new Set(members.map(a => a.query))];
+    // The analysts' reports on the logs behind it, oldest first: the incident opens with them.
+    const handoffs = [...eventIds].map(id => handoffOf.get(id)).filter((x): x is Handoff => !!x).sort((a, b) => Date.parse(a.at ?? "") - Date.parse(b.at ?? ""));
+    const detection = members.length === 1 ? members[0].description : `${members.length} alerts from ${products.length} ${products.length === 1 ? "product" : "products"} share ${ents.slice(0, 3).map(e => e.name).join(", ")}.`;
+    // Opened by the escalation alone: the analyst's report is the whole description.
+    const onlyEscalated = handoffs.length > 0 && members.every(a => escalatedAlertIds.has(a.id));
     const incident: SentinelIncident = {
       number, id: seededUuid(`${orgId}:incident:${members[0].id}`), title, severity, created, lastUpdate, alertIds: members.map(a => a.id), entityIds: ids, tactics, techniques, products,
-      description: members.length === 1 ? members[0].description : `${members.length} alerts from ${products.length} ${products.length === 1 ? "product" : "products"} share ${ents.slice(0, 3).map(e => e.name).join(", ")}.`,
+      description: handoffs.length ? [...handoffs.map(h => plain(handoffText(h))), ...(onlyEscalated ? [] : [`Detection: ${detection}`])].join("\n\n") : detection,
+      ...(handoffs.length ? { handoffs, ...(onlyEscalated ? {} : { detectionDescription: detection }) } : {}),
       eventCount: eventIds.size,
       eventsQuery: distinctQueries.length === 1 ? distinctQueries[0] : `union\n${distinctQueries.map(q => `(${q.replace(/\n/g, "\n  ")})`).join(",\n")}`,
     };

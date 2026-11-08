@@ -11,6 +11,7 @@ import {
   alertsQuery, bookmarksQuery, CLASSIFICATIONS, entitiesOf, fmtCompact, fmtShortTime, SEV_RANK, SEVERITIES, STATUSES, tacticLabel,
 } from "./helpers";
 import { FieldBar } from "./IncidentFields";
+import { IncidentDescription } from "./IncidentDescription";
 import {
   ButtonMenu, ColumnsButton, Empty, EntityIcon, FilterPill, rowKeys, Select, SimplePager, SlidePanel, SortTh, StatusIcon, Switch, type SortState,
 } from "./ui";
@@ -80,14 +81,14 @@ export function IncidentPreview({ incident, onClose }: { incident: SentinelIncid
         <i className={`st-band ${state.severity} edge`} aria-hidden />
         <Briefcase size={24} color="#0078d4" fill="#c7e0f4" aria-hidden />
         <div className="st-grow" style={{ minWidth: 0 }}>
-          <h2 title={incident.title}>{incident.title}</h2>
+          <h2 className="st-wrap" title={incident.title}>{incident.title}</h2>
           <div className="st-small" style={{ fontWeight: 600 }}>Incident ID: {incident.number}</div>
         </div>
         <button type="button" className="st-icon-btn corner" aria-label="Close preview" onClick={onClose}><ChevronsRight size={13} aria-hidden /></button>
       </div>
       <FieldBar incident={incident} state={state} order={["owner", "status", "severity"]} />
       <div className="st-preview-body">
-        <div className="st-field"><div className="k">Description</div><div className="v">{incident.description || "--"}</div></div>
+        <IncidentDescription incident={incident} />
         <div className="st-field"><div className="k">Alert product names</div>
           <ul className="st-bullets">{incident.products.map(p => <li key={p}>{p}</li>)}</ul>
         </div>

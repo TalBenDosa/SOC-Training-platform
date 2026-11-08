@@ -3,6 +3,7 @@
  * incident's handling lives in the workspace itself: every member folds the same events, so everyone
  * sees the same status, owner, comments, bookmarks and tasks.
  */
+import { handoffText } from "@/lib/team/handoff";
 import type { ClosingClassification, IncidentState, IncidentStatus, SentinelBookmark, SentinelIncident, SentinelSeverity } from "./types";
 
 export interface IncidentLogEvent { type: string; actor_name?: string; payload: unknown; occurred_at: string }
@@ -29,6 +30,13 @@ export function foldIncidentState(events: IncidentLogEvent[], incident: Sentinel
     tasks: DEFAULT_TASKS.map(title => ({ id: taskId(title), title, done: false })),
     activity: [{ at: incident.created, actor: SYSTEM_ACTOR, text: "Incident created" }],
   };
+  // An escalated incident opens with the analyst's report as its first comment (owner, 2026-11-08),
+  // written by the analyst who escalated, so the activity log reads like a real hand-off.
+  (incident.handoffs ?? []).forEach((h, i) => {
+    const at = h.at ?? incident.created;
+    state.comments.push({ id: `handoff-${i}`, author: h.from, text: handoffText(h), at });
+    state.activity.push({ at, actor: h.from, text: `Escalated by ${h.from} (${h.fromRole})` });
+  });
   const ordered = events.map((e, i) => ({ e, i })).sort((a, b) => Date.parse(a.e.occurred_at) - Date.parse(b.e.occurred_at) || a.i - b.i).map(x => x.e);
   ordered.forEach((ev, i) => {
     const actor = ev.actor_name ?? "Unknown";

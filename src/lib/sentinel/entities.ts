@@ -142,6 +142,28 @@ export class EntityBook {
     return [...new Set(ids)];
   }
 
+  /**
+   * An indicator an analyst wrote on an escalation, as the entity it names (an IP, a domain, a URL,
+   * an account, a host, a file by its hash or path, a registry key). Null for what no entity holds
+   * (a command line, a process image). Facts say it came from the analyst.
+   */
+  addIndicator(type: string, value: string, ms: number): string | null {
+    const v = value.trim();
+    if (!v) return null;
+    const by = { "Named in escalation": "Yes" };
+    switch (type) {
+      case "ip": { const ip = v.split(":")[0]; return IPV4.test(ip) ? this.touch("ip", ip, ms, { Address: ip, Scope: isPrivateIp(ip) ? "Internal" : "External", ...by }) : null; }
+      case "domain": return this.touch("domain", v.replace(/\.$/, "").toLowerCase(), ms, { Domain: v.replace(/\.$/, ""), ...by });
+      case "url": return this.touch("url", v, ms, { URL: v, ...by });
+      case "email": return NON_USERS.test(v) ? null : this.touch("account", v.toLowerCase(), ms, { UPN: v.toLowerCase(), ...by });
+      case "host": return this.touch("host", shortHost(v), ms, { "Host name": v, ...by });
+      case "sha256": case "sha1": case "md5": return this.touch("file", v.toLowerCase(), ms, { [type.toUpperCase()]: v.toLowerCase(), ...by });
+      case "file_path": return this.touch("file", v.split(/[\\/]/).pop() || v, ms, { Path: v, ...by });
+      case "registry": return this.touch("registry", v, ms, { Key: v, ...by });
+      default: return null;
+    }
+  }
+
   /** The finished entities named by these ids, with "Last seen" filled in. */
   resolve(ids: Iterable<string>): Record<string, SentinelEntity> {
     const out: Record<string, SentinelEntity> = {};

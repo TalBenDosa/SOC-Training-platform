@@ -6,6 +6,8 @@ import type { Ev, Me, RosterMember } from "@/lib/team/types";
 import { canApproveIsolation, isolationRequests, type ApproverMember, type IsolationRequest } from "@/lib/team/isolationApproval";
 import { answerIsolation } from "@/lib/team/useIsolationRequest";
 import { ROLE_LABEL } from "./shared";
+import { isolationHandoff } from "@/lib/team/handoff";
+import { HandoffDetail } from "./HandoffDetail";
 
 /**
  * Isolation requests waiting for THIS viewer's approval (owner, 2026-11-07: "a pop-up at the side,
@@ -41,13 +43,15 @@ export function IsolationApprovals({ sessionId, events, roster, online, me, name
         const role = r.requesterRole ? ROLE_LABEL[r.requesterRole] ?? r.requesterRole : "";
         const id = `iso-deny-${r.seq}`;
         return (
-          <div key={r.seq} role="alert" className="rounded-lg border border-neon-amber/60 bg-neon-amber/[0.07] px-3 py-2.5 text-xs">
-            <p className="flex items-start gap-2 text-slate-100">
+          <div key={r.seq} className="rounded-lg border border-neon-amber/60 bg-neon-amber/[0.07] px-3 py-2.5 text-xs">
+            {/* Only the headline is announced: the full request below is read on demand. */}
+            <p role="alert" className="flex items-start gap-2 text-slate-100">
               <MonitorX className="mt-0.5 h-4 w-4 shrink-0 text-neon-amber" aria-hidden />
               <span><b><bdi>{nameOf(r.requestedBy)}</bdi></b>{role ? ` (${role})` : ""} wants to isolate <b className="font-mono"><bdi>{r.host}</bdi></b>.</span>
             </p>
-            <p className="mt-1 text-slate-300"><span className="text-slate-400">Reason:</span> <bdi>{r.reason || "none given"}</bdi></p>
-            {r.incident && <p className="mt-0.5 text-slate-300"><span className="text-slate-400">Incident:</span> <bdi>{r.incident}</bdi></p>}
+            {/* The whole request and the case behind it, open (owner, 2026-11-08): the reason, the incident,
+                the Tier-1 escalation with its indicators and log, and the Tier-2 report. */}
+            <div className="mt-1.5"><HandoffDetail handoff={isolationHandoff(r, events, { nameOf })} sessionId={sessionId} hideSummary openRelated /></div>
             <p className="mt-1 text-[11px] text-slate-400">Isolating cuts the host off the network: it stops the attacker, and the user loses the machine until it is released.</p>
             {denying === r.seq ? (
               <div className="mt-2 space-y-1.5">

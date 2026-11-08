@@ -1,13 +1,13 @@
 "use client";
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Siren, ShieldAlert, ArrowUpRight, FilePlus2 } from "lucide-react";
 import type { Ev } from "@/lib/team/types";
 import { asStr } from "@/lib/team/format";
 import { escalationStates, containmentRequests } from "@/lib/team/projections";
 import { useServerNow } from "@/lib/team/clock";
-import { TeamImageThumb, imagesOf } from "./teamImages";
-import { attachedByCase } from "@/lib/team/hostCases";
+import { containmentHandoff, elevationHandoff, escalationHandoff, reportHandoff, verdictLabel } from "@/lib/team/handoff";
+import { HandoffDetail } from "./HandoffDetail";
 
 /**
  * Every escalation in the shift, for the SOC Manager: Tier-1 → Tier-2 escalations, Tier-2 →
@@ -24,52 +24,18 @@ export interface EscalationItem {
   by: string | null; byRole: string | null; host: string; summary: string; status: string; owner: string | null;
 }
 
-const VERDICT: Record<string, string> = { true_positive: "true positive", suspicious: "suspicious", benign: "benign", false_positive: "false positive", escalate: "escalate" };
-const verdictText = (v: unknown) => VERDICT[asStr(v)] ?? asStr(v).replace(/_/g, " ");
-
-/** One labelled line of the investigation; nothing is rendered for an empty value. */
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  if (children == null || children === "" || children === false) return null;
-  return <p className="text-slate-300"><span className="text-slate-500">{label}: </span>{children}</p>;
-}
-
-/** The fields of the log the analyst escalated, as they saw it. */
-function OriginalLog({ snap }: { snap: Record<string, unknown> }) {
-  const proc = (snap.process ?? {}) as { name?: unknown; cmdline?: unknown };
-  const file = (snap.file ?? {}) as { path?: unknown; sha256?: unknown };
-  const rows: [string, string][] = ([
-    ["Source", [asStr(snap.vendor), asStr(snap.source)].filter(Boolean).join(" · ")],
-    ["Time", asStr(snap.ts).replace("T", " ").slice(0, 19)], ["Event", asStr(snap.event_type)], ["Severity", asStr(snap.severity)], ["Host", asStr(snap.hostname)],
-    ["User", asStr(snap.user_email) || asStr((snap.user as { email?: unknown } | undefined)?.email)],
-    ["Source IP", asStr(snap.src_ip)], ["Destination IP", asStr(snap.dst_ip)],
-    ["Process", asStr(proc.name)], ["Command line", asStr(proc.cmdline)], ["File", asStr(file.path)], ["SHA256", asStr(file.sha256)],
-    ["Description", asStr(snap.description)],
-  ] as [string, string][]).filter(([, v]) => v);
-  return (
-    <details className="rounded border border-border/60 px-2 py-1">
-      <summary className="cursor-pointer text-slate-400">The original log</summary>
-      <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5">
-        {rows.map(([k, v]) => <Fragment key={k}><dt className="text-slate-500">{k}</dt><dd className="break-all font-mono text-slate-200"><bdi>{v}</bdi></dd></Fragment>)}
-      </dl>
-      {snap.raw != null && (
-        <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-bg-elevated p-1.5 font-mono text-[11px] text-slate-400">{typeof snap.raw === "string" ? snap.raw : JSON.stringify(snap.raw, null, 2)}</pre>
-      )}
-    </details>
-  );
-}
+const verdictText = verdictLabel;
 
 export function EscalationsPanel({ events, nameOf, onAddToReport, sessionId }: { events: Ev[]; nameOf: (u: string | null) => string; onAddToReport: (host: string, line: string) => void; sessionId?: string }) {
   const now = useServerNow(15_000);
-  const [open, setOpen] = useState<string | null>(null);
+  // A request still waiting opens at once (owner, 2026-11-08); a click folds or unfolds any row.
+  const [toggled, setToggled] = useState<Set<string>>(() => new Set());
   const feedById = useMemo(() => new Map(events.filter(e => e.type === "feed.event").map(e => [asStr((e.payload as { id?: unknown }).id), e.payload as Record<string, unknown>])), [events]);
   const states = useMemo(() => escalationStates(events), [events]);
   const conts = useMemo(() => containmentRequests(events), [events]);
   const reports = useMemo(() => events.filter(e => e.type === "report.submitted"), [events]);
-  const advice = useMemo(() => events.filter(e => e.type === "containment.advised"), [events]);
   // Tier-1's own determination on the log (the latest verdict) and any bounce back from Tier-2.
   const verdictByEid = useMemo(() => { const m = new Map<string, Ev>(); for (const e of events) if (e.type === "disposition.set") m.set(asStr((e.payload as { event_id?: unknown }).event_id), e); return m; }, [events]);
-  const bounces = useMemo(() => events.filter(e => e.type === "escalation.bounced"), [events]);
-  const added = useMemo(() => attachedByCase(events), [events]);
 
   const items: (EscalationItem & { ev: Ev })[] = [];
   for (const st of states.values()) {
@@ -89,7 +55,7 @@ export function EscalationsPanel({ events, nameOf, onAddToReport, sessionId }: {
   for (const c of conts) {
     const p = c.request.payload as { target?: string; containment_type?: string; reason?: string };
     items.push({ ev: c.request, key: `c:${c.seq}`, kind: "containment", seq: c.seq, at: c.request.occurred_at ?? null, by: c.request.actor_id, byRole: c.request.role, host: asStr(p.target),
-      summary: `${asStr(p.containment_type) || "isolate"} ${asStr(p.target)}${asStr(p.reason) ? `: ${asStr(p.reason)}` : ""}`, status: c.status === "pending" ? "waiting for your approval" : c.status, owner: c.decidedBy });
+      summary: `${asStr(p.containment_type).replace(/_/g, " ") || "isolate host"} ${asStr(p.target)}`, status: c.status === "pending" ? "waiting for your approval" : c.status, owner: c.decidedBy });
   }
   items.sort((a, b) => b.seq - a.seq);
   const waiting = waitingEscalations(events);
@@ -105,7 +71,7 @@ export function EscalationsPanel({ events, nameOf, onAddToReport, sessionId }: {
         <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Siren className="h-4 w-4 text-neon-amber" aria-hidden /> All escalations ({items.length})</h3>
         {waiting > 0 && <span className="rounded-full bg-neon-amber/15 px-2 font-mono text-[11px] text-neon-amber">{waiting} waiting</span>}
       </div>
-      <p className="mt-1 text-[11px] text-slate-400">Everything the team raised: escalations to Tier-2, elevations to Tier-3 and containment requests. Open one to read the analyst&apos;s own words, then translate it for the business.</p>
+      <p className="mt-1 text-[11px] text-slate-400">Everything the team raised: escalations to Tier-2, elevations to Tier-3 and containment requests. A request still waiting opens with the analyst&apos;s full report; open any other to read it, then translate it for the business.</p>
       {items.length === 0 && <p className="mt-3 text-xs text-slate-500">No escalations yet. They appear here the moment an analyst raises one.</p>}
       <ul className="mt-2 space-y-1.5">
         {items.map(it => {
@@ -113,15 +79,19 @@ export function EscalationsPanel({ events, nameOf, onAddToReport, sessionId }: {
           const p = it.ev.payload as Record<string, unknown>;
           const eid = asStr(p.event_id);
           const rep = reports.filter(r => asStr((r.payload as { event_id?: unknown }).event_id) === eid).pop();
-          const adv = it.kind === "containment" ? advice.filter(a => Number((a.payload as { request_seq?: unknown }).request_seq) === it.seq) : [];
-          const isOpen = open === it.key;
+          const isOpen = it.status.startsWith("waiting") !== toggled.has(it.key);
+          const flip = () => setToggled(t => { const n = new Set(t); if (n.has(it.key)) n.delete(it.key); else n.add(it.key); return n; });
+          const cont = it.kind === "containment" ? conts.find(c => c.seq === it.seq) : undefined;
+          const handoff = !isOpen ? null : it.kind === "escalation" ? escalationHandoff(it.ev, events, { nameOf })
+            : it.kind === "elevation" ? elevationHandoff(it.ev, events, { nameOf })
+              : cont ? containmentHandoff(cont, events, { nameOf, related: true }) : null;
           return (
             <li key={it.key} className="rounded-lg border border-border bg-bg">
-              <button type="button" onClick={() => setOpen(isOpen ? null : it.key)} aria-expanded={isOpen} className="flex w-full items-start gap-2 px-2.5 py-2 text-left">
+              <button type="button" onClick={flip} aria-expanded={isOpen} className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/60">
                 <I className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs text-slate-100"><bdi>{it.summary}</bdi></span>
-                  <span className="block text-[11px] text-slate-500">
+                  <span className="block whitespace-pre-wrap break-words text-xs font-semibold text-slate-100"><bdi>{it.summary}</bdi></span>
+                  <span className="block text-[11px] text-slate-400">
                     <bdi>{nameOf(it.by)}</bdi> ({ROLE[it.byRole ?? ""] ?? "analyst"}){it.host && <> · <bdi className="font-mono">{it.host}</bdi></>}{it.at && <> · {fmtAgo(now - Date.parse(it.at))}</>}{it.owner && <> · owner <bdi>{nameOf(it.owner)}</bdi></>}
                   </span>
                 </span>
@@ -129,74 +99,20 @@ export function EscalationsPanel({ events, nameOf, onAddToReport, sessionId }: {
               </button>
               {isOpen && (
                 <div className="space-y-1.5 border-t border-border/60 px-2.5 py-2 text-[11px]">
-                  {/* Every investigation parameter the analyst sent (Tal, 2026-10-27: the manager saw only a short line). */}
-                  {it.kind === "escalation" && (() => {
-                    const disp = verdictByEid.get(eid);
-                    const dp = (disp?.payload ?? {}) as { verdict?: unknown; note?: unknown };
-                    const iocs = Array.isArray(p.iocs) ? (p.iocs as { type?: unknown; value?: unknown }[]) : [];
-                    const shots = imagesOf(p.images);
-                    const snap = (p.snapshot && typeof p.snapshot === "object" ? p.snapshot : null) as Record<string, unknown> | null;
-                    const conf = typeof p.confidence === "number" ? Math.round((p.confidence as number) * 100) : null;
-                    return (
-                      <>
-                        <Field label="Summary"><bdi>{asStr(p.summary) || asStr(p.what)}</bdi></Field>
-                        {disp && <Field label={`Tier-1 determination (${nameOf(disp.actor_id)})`}><b className="text-slate-100">{verdictText(dp.verdict)}</b>{asStr(dp.note) && <>: <bdi>{asStr(dp.note)}</bdi></>}</Field>}
-                        <Field label="What the analyst saw"><bdi>{asStr(p.observations) || asStr(p.why)}</bdi></Field>
-                        <Field label="Assessment"><bdi>{asStr(p.assessment)}</bdi></Field>
-                        <Field label="Severity given">{asStr(p.severity)}</Field>
-                        <Field label="Requested action">{asStr(p.requested_action).replace(/[-_]/g, " ")}</Field>
-                        {p.recommend_isolation === true && asStr(p.hostname) && <Field label="Isolation"><b className="text-severity-high">Tier-1 recommends isolating <bdi className="font-mono">{asStr(p.hostname)}</bdi></b> (the senior analyst decides)</Field>}
-                        <Field label="Confidence">{p.low_confidence ? "low: a lead sent for a second look" : conf != null ? `${conf}%` : ""}</Field>
-                        <Field label="Affected">{[asStr(p.hostname), asStr(p.entity) !== asStr(p.hostname) ? asStr(p.entity) : ""].filter(Boolean).join(" · ")}</Field>
-                        {iocs.length > 0 && <Field label={`IOCs (${iocs.length})`}><span className="inline-flex flex-wrap gap-1">{iocs.map((i, k) => <span key={k} className="rounded border border-border px-1 font-mono text-[11px] text-slate-200"><bdi>{asStr(i.type) ? `${asStr(i.type)}: ` : ""}{asStr(i.value)}</bdi></span>)}</span></Field>}
-                        {shots.length > 0 && sessionId && <div className="flex flex-wrap gap-1.5">{shots.map((img, k) => <TeamImageThumb key={img.path} sessionId={sessionId} image={img} alt={`Screenshot ${k + 1} with this escalation`} className="max-h-24" />)}</div>}
-                        {snap && <OriginalLog snap={snap} />}
-                        {(added.get(eid)?.length ?? 0) > 0 && <Field label={`Logs Tier-1 added to this case (${added.get(eid)!.length})`}>{added.get(eid)!.map(a => a.label).join(" · ")}</Field>}
-                        {bounces.filter(b => asStr((b.payload as { event_id?: unknown }).event_id) === eid).map(b => <Field key={b.seq} label={`Bounced back by ${nameOf(b.actor_id)}`}><bdi>{asStr((b.payload as { reason?: unknown }).reason)}</bdi></Field>)}
-                      </>
-                    );
-                  })()}
-                  {it.kind === "elevation" && (
-                    <>
-                      <Field label="Summary"><bdi>{asStr(p.summary)}</bdi></Field>
-                      <Field label="What Tier-3 is asked to hunt"><bdi>{asStr(p.hunt_ask)}</bdi></Field>
-                      <Field label="Tier-2 verdict">{p.t2_verdict ? verdictText(p.t2_verdict) : ""}</Field>
-                      <Field label="Tier-2 findings"><bdi>{asStr(p.t2_findings)}</bdi></Field>
-                      <Field label="Tier-2 recommendation"><bdi>{asStr(p.t2_recommendation)}</bdi></Field>
-                      <Field label="Severity">{asStr(p.severity)}</Field>
-                      {Array.isArray(p.iocs) && (p.iocs as unknown[]).length > 0 && <Field label="IOCs"><span className="font-mono text-[11px]">{(p.iocs as { type?: unknown; value?: unknown }[]).map(i => asStr(i.value)).join(", ")}</span></Field>}
-                    </>
+                  {/* Every parameter the analyst sent, through the one hand-off renderer (Tal, 2026-10-27 and
+                      2026-11-08: the manager saw only a short line). */}
+                  {handoff && <HandoffDetail handoff={handoff} sessionId={sessionId} hideSummary />}
+                  {rep && it.kind !== "containment" && (
+                    <div className="rounded border border-cyber-500/30 bg-cyber-500/[0.04] px-2 py-1.5">
+                      <HandoffDetail handoff={reportHandoff(rep, events, { nameOf })} sessionId={sessionId} />
+                    </div>
                   )}
-                  {it.kind === "containment" && (
-                    <>
-                      <Field label="Action">{`${asStr(p.containment_type).replace(/_/g, " ") || "isolate host"} on ${asStr(p.target)}`}</Field>
-                      <Field label="Why"><bdi>{asStr(p.reason)}</bdi></Field>
-                      <Field label="Asset criticality">{asStr(p.asset_criticality)}</Field>
-                      <Field label="Blast radius (who is affected)"><bdi>{asStr(p.blast_radius)}</bdi></Field>
-                      <Field label="Business owner"><bdi>{asStr(p.business_owner)}</bdi></Field>
-                      <Field label="Incident"><bdi>{asStr(p.incident)}</bdi></Field>
-                    </>
-                  )}
-                  {rep && (() => {
-                    const rp = rep.payload as { verdict?: unknown; summary?: unknown; findings?: unknown; recommendation?: unknown; incident?: unknown };
-                    return (
-                      <div className="rounded border border-cyber-500/30 bg-cyber-500/[0.04] px-2 py-1.5">
-                        <p className="font-semibold text-cyber-200">Tier-2 report ({nameOf(rep.actor_id)})</p>
-                        <Field label="Verdict"><b className="text-slate-100">{verdictText(rp.verdict)}</b></Field>
-                        <Field label="Summary"><bdi>{asStr(rp.summary)}</bdi></Field>
-                        <Field label="Findings"><bdi>{asStr(rp.findings)}</bdi></Field>
-                        <Field label="Recommendation"><bdi>{asStr(rp.recommendation)}</bdi></Field>
-                        <Field label="Incident"><bdi>{asStr(rp.incident)}</bdi></Field>
-                      </div>
-                    );
-                  })()}
-                  {adv.map(a => <p key={a.seq} className={(a.payload as { stance?: unknown }).stance === "object" ? "text-neon-amber" : "text-neon-green"}><bdi>{nameOf(a.actor_id)}</bdi> ({ROLE[a.role ?? ""] ?? "analyst"}) {(a.payload as { stance?: unknown }).stance === "object" ? "objects" : "supports"}{asStr((a.payload as { reason?: unknown }).reason) && <>: &quot;{asStr((a.payload as { reason?: unknown }).reason)}&quot;</>}</p>)}
                   {it.kind === "containment" && it.status.startsWith("waiting") && <p className="text-neon-amber">Approve or deny it in Containment approvals, at the top of this view.</p>}
                   <button type="button" onClick={() => {
                     const t1 = verdictByEid.get(eid); const t2 = rep ? (rep.payload as { verdict?: unknown }).verdict : null;
                     const calls = [t1 ? `Tier-1: ${verdictText((t1.payload as { verdict?: unknown }).verdict)}` : "", t2 ? `Tier-2: ${verdictText(t2)}` : ""].filter(Boolean).join("; ");
                     onAddToReport(it.host, calls ? `${it.summary} (${calls})` : it.summary);
-                  }} className="flex items-center gap-1 text-cyber-300 hover:underline"><FilePlus2 className="h-3.5 w-3.5" aria-hidden /> Add to the stakeholder report</button>
+                  }} className="flex items-center gap-1 rounded text-cyber-300 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/60"><FilePlus2 className="h-3.5 w-3.5" aria-hidden /> Add to the stakeholder report</button>
                 </div>
               )}
             </li>

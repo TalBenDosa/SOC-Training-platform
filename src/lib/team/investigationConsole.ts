@@ -1,6 +1,7 @@
 import { withoutDetectionFeed, type Stack } from "@/lib/logs/native/stack";
 import type { Ev } from "@/lib/team/types";
 import type { TeamEnv } from "@/lib/team/environment";
+import { escalationHandoff, type Handoff, type NameOf } from "@/lib/team/handoff";
 
 /**
  * Where a Team Training session investigates: the EDR console, or Microsoft Sentinel.
@@ -28,12 +29,23 @@ export function envForConsole<E extends TeamEnv | null>(env: E, console: Investi
   return { ...env, platforms: ["azure", ...env.platforms] };
 }
 
-/** What analysts escalated, for the workspace: each opens a Sentinel incident. */
-export function escalatedCases(events: Ev[]): { eventId: string; summary?: string }[] {
-  return events.filter(e => e.type === "escalation.requested").map(e => {
-    const p = e.payload as { event_id?: unknown; summary?: unknown };
-    return { eventId: String(p.event_id ?? ""), summary: typeof p.summary === "string" ? p.summary : undefined };
-  }).filter(c => c.eventId);
+/**
+ * What analysts escalated, for the workspace: each opens a Sentinel incident, and carries the
+ * analyst's whole report (owner, 2026-11-08): the incident's title is their summary, its
+ * description and first comment are their report, and their indicators become entities.
+ * The latest round of a re-escalated log wins. No raw block: the incident's own events hold it.
+ */
+export function escalatedCases(events: Ev[], nameOf?: NameOf): { eventId: string; summary?: string; handoff?: Handoff }[] {
+  const latest = new Map<string, Ev>();
+  for (const e of events) {
+    if (e.type !== "escalation.requested") continue;
+    const id = String((e.payload as { event_id?: unknown }).event_id ?? "");
+    if (id) latest.set(id, e);
+  }
+  return [...latest.entries()].map(([eventId, e]) => {
+    const p = e.payload as { summary?: unknown };
+    return { eventId, summary: typeof p.summary === "string" ? p.summary : undefined, handoff: escalationHandoff(e, events, { nameOf, raw: false, related: false }) };
+  });
 }
 
 /**

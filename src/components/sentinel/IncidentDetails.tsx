@@ -14,6 +14,7 @@ import {
   alertRecord, alertsOf, canAddToTi, canRunPlaybook, entitiesOf, fmtClock, fmtDateTime, fmtMediumTime, fmtMonthDay, KIND_LABEL, SEVERITIES, similarIncidents, tacticLabel, type SimilarIncident,
 } from "./helpers";
 import { FieldBar } from "./IncidentFields";
+import { IncidentDescription } from "./IncidentDescription";
 import { ActivityPane, TasksPane } from "./IncidentPanes";
 import { Evidence, TasksSummary } from "./IncidentsPage";
 import { ButtonMenu, Crumbs, Empty, EntityIcon, InfoMark, MoreMenu, Popover, Select, SevGlyph, StatusIcon, Tabs, type MenuItem } from "./ui";
@@ -510,7 +511,7 @@ export function IncidentDetails({ incident, focusEntity, onClose, hidden }: { in
       <Crumbs trailing items={[{ label: "Home", onClick: () => { onClose(); go("overview"); } }, { label: "Sentinel | Incidents", onClick: onClose }]} />
       <div className="st-inc-head">
         <Briefcase size={30} color="#0078d4" fill="#c7e0f4" aria-hidden style={{ marginTop: 3 }} />
-        <div className="st-grow" style={{ minWidth: 0 }}><h1 className="st-ellipsis" title={incident.title}>{incident.title}</h1><div className="st-small">Incident ID {incident.number}</div></div>
+        <div className="st-grow" style={{ minWidth: 0 }}><h1 className="st-wrap" title={incident.title}>{incident.title}</h1><div className="st-small">Incident ID {incident.number}</div></div>
         <button type="button" className="st-icon-btn" aria-label="Close incident" onClick={onClose}><X size={18} aria-hidden /></button>
       </div>
       <div className="st-cmdbar" role="toolbar" aria-label="Incident commands" style={{ paddingLeft: 8 }}>
@@ -527,7 +528,7 @@ export function IncidentDetails({ incident, focusEntity, onClose, hidden }: { in
             <>
               <div className="st-inc-scroll">
                 <div className="st-field"><div className="k">Workspace name</div><div className="v">{ws.name}</div></div>
-                <div className="st-field"><div className="k">Description</div><div className="v">{incident.description || "--"}</div></div>
+                <IncidentDescription incident={incident} />
                 <div className="st-field"><div className="k">Alert product names</div>
                   <ul className="st-bullets">{incident.products.map(p => <li key={p}>{p}</li>)}</ul>
                 </div>

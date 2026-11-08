@@ -16,7 +16,8 @@ import type { IncidentState, SentinelActions, SentinelBookmark, SentinelIsolatio
 /** How often the console reads the session log. The team room's own reconcile uses the same pace. */
 export const SENTINEL_POLL_MS = 6_000;
 
-const LOG_TYPES = ["feed.event", "session.ended", "session.paused", "session.resumed", "escalation.requested", "escalation.acknowledged", "sentinel.incident_updated", "sentinel.comment_added", "sentinel.bookmark_added", "sentinel.task_set", ...ISOLATION_REQUEST_TYPES];
+// escalation.bounced, disposition.set and evidence.pinned complete the analyst's hand-off on an escalated incident.
+const LOG_TYPES = ["feed.event", "session.ended", "session.paused", "session.resumed", "escalation.requested", "escalation.acknowledged", "escalation.bounced", "disposition.set", "evidence.pinned", "sentinel.incident_updated", "sentinel.comment_added", "sentinel.bookmark_added", "sentinel.task_set", ...ISOLATION_REQUEST_TYPES];
 /** Fewer rows per read than the log can hold, so a long shift pages in rather than timing out. */
 const PAGE = 500;
 
@@ -101,7 +102,7 @@ export function useTeamSentinel(sessionId: string | null, role: string | null): 
   const companyId = session?.company_id;
   const feed = useMemo(() => events.filter(e => e.type === "feed.event"), [events]);
 
-  const escalationKey = JSON.stringify(escalatedCases(events));
+  const escalationKey = useMemo(() => JSON.stringify(escalatedCases(events, nameOf)), [events, nameOf]);
   const workspace = useMemo(() => {
     if (!companyId) return null;
     const evs = feed.map(e => { const t = e.payload as unknown as TelemetryEvent; return e.occurred_at ? withRebasedTime(t, e.occurred_at) : t; });

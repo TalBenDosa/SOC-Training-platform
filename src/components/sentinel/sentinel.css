@@ -530,3 +530,24 @@
 .st-run-waiting { color: #4a3b00; background: var(--st-warn-bg); padding: 1px 6px; border-radius: 2px; }
 .st-run-approved, .st-run-succeeded { color: var(--st-ok); font-weight: 600; }
 .st-run-denied, .st-run-refused { color: var(--st-err); font-weight: 600; }
+
+/* Hand-offs (owner, 2026-11-08): an escalated incident opens with the analyst's report. Titles wrap, never truncate. */
+.st-root .st-wrap { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; overflow-wrap: anywhere; }
+.st-ho-wrap + .st-ho-wrap { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--st-border); }
+.st-ho { display: grid; gap: 6px; font-size: 13px; color: var(--st-text); min-width: 0; }
+.st-ho-meta { font-size: 12px; color: var(--st-text-2); }
+.st-ho-summary { font-weight: 600; white-space: pre-wrap; overflow-wrap: anywhere; }
+.st-ho-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.st-ho-chip { font-size: 12px; padding: 1px 8px; border-radius: 10px; background: var(--st-accent-faint); border: 1px solid var(--st-border-2); }
+.st-ho-k { font-size: 12px; font-weight: 600; color: var(--st-text); }
+.st-ho-text { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+.st-ho-muted { font-size: 12px; font-style: italic; color: var(--st-text-2); }
+.st-ho-ioc { font-family: var(--st-mono); font-size: 12px; padding: 1px 6px; border: 1px solid var(--st-border-2); border-radius: 2px; background: var(--st-surface); overflow-wrap: anywhere; }
+.st-ho-dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; margin: 0; font-size: 12px; }
+.st-ho-dl dd { margin: 0; }
+.st-ho-dd { font-family: var(--st-mono); overflow-wrap: anywhere; }
+.st-ho-box { border: 1px solid var(--st-border); border-radius: 2px; padding: 6px 8px; background: var(--st-canvas); display: grid; gap: 4px; }
+.st-ho-btn { font-size: 12px; justify-self: start; }
+.st-ho-sum { font-size: 12px; }
+.st-ho-raw { margin: 4px 0 0; max-height: 12rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--st-mono); font-size: 12px; background: var(--st-surface); border: 1px solid var(--st-border); padding: 4px 6px; }
+.st-ho-note { font-size: 12px; }

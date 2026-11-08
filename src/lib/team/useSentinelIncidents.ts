@@ -25,7 +25,7 @@ export function useSentinelIncidents(enabled: boolean, feed: Ev[], events: Ev[],
 
   // The workspace reads each log's own record (the Defender row, not its Graph alert).
   const stackKey = JSON.stringify(withoutDetectionFeed((session?.stack ?? {}) as Stack));
-  const escalationKey = JSON.stringify(enabled ? escalatedCases(events) : []);
+  const escalationKey = useMemo(() => JSON.stringify(enabled ? escalatedCases(events) : []), [enabled, events]);
   const companyId = session?.company_id;
   const domain = session?.tenant?.domain, netbios = session?.tenant?.netbios, org = session?.tenant?.name;
   return useMemo(() => {

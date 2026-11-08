@@ -13,6 +13,7 @@ import { attachedLogs, hostKeyOf, openCasesByHost } from "@/lib/team/hostCases";
 import { relatedLogs, entityLabel } from "@/lib/team/correlate";
 import { rationaleProblem } from "@/lib/team/escalationCheck";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
+import { escalationSnapshot } from "@/lib/team/handoff";
 
 // ── T1 console: pick a log → disposition + structured escalation report ───────
 const REQUESTED_ACTIONS = ["investigate", "contain", "monitor", "escalate-to-mgr"];
@@ -228,13 +229,9 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
     // Carry the FULL original log with the escalation so Tier-2 investigates the
     // real event (all raw fields), not just T1's words — and independent of feed state.
     const full = feed.find(e => String((e.payload as { id?: string }).id ?? e.seq) === sel)?.payload as Record<string, unknown> | undefined;
-    // L8: the escalation payload is capped at 16 KiB server-side — trim an oversized
+    // L8: the escalation payload is capped at 16 KiB server-side: trim an oversized
     // raw block (Tier-2 still has the complete log in the shared feed).
-    let snapshot = full;
-    if (full && JSON.stringify(full).length > 8000) {
-      const rawText = JSON.stringify(full.raw ?? "");
-      snapshot = { ...full, raw: rawText.length > 4000 ? `${rawText.slice(0, 4000)}…` : full.raw, snapshot_truncated: true };
-    }
+    const snapshot = escalationSnapshot(full);
     let images: TeamImage[] = [];
     if (shots.items.length) {
       try { images = await Promise.all(shots.items.map(it => uploadTeamImage(sessionId, it))); }
@@ -249,6 +246,9 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
       iocs: iocDraft, requested_action: form.requested_action, severity: form.severity,
       confidence: isLowConf ? 0.3 : 0.7, low_confidence: isLowConf || undefined,
       hostname: asStr(fe?.hostname) || undefined, entity, snapshot,
+      // The sender's own call and the affected user travel with the report, so every receiver
+      // (Tier-2, the Manager, Sentinel) opens it with the disposition and the user, not only the host.
+      disposition: selDisp || undefined, user_email: asStr(fe?.user_email) || asStr(fe?.user?.email) || undefined,
       // Isolation is the senior analyst's call (Tal, 2026-10-27): Tier-1 can only recommend it.
       ...(form.recommend_isolation && asStr(fe?.hostname) ? { recommend_isolation: true } : {}),
       ...(images.length ? { images } : {}),
@@ -313,7 +313,7 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
           <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">My escalations ({myEsc.length})</p>
           {myEsc.slice().reverse().slice(0, 6).map(e => (
             <div key={e.seq} className="flex items-center gap-2 rounded border border-border/60 bg-bg px-2 py-1 text-[11px]">
-              <span className="min-w-0 flex-1 truncate text-slate-300">{e.label}{e.status === "bounced" && e.reason ? `: ${e.reason}` : ""}</span>
+              <span className={`min-w-0 flex-1 text-slate-300 ${e.status === "bounced" && e.reason ? "whitespace-pre-wrap break-words" : "truncate"}`}><bdi>{e.label}</bdi>{e.status === "bounced" && e.reason ? <>: <span className="text-neon-amber">bounced back: <bdi>{e.reason}</bdi></span></> : ""}</span>
               <span className={`shrink-0 rounded border px-1 py-0.5 text-[11px] font-bold uppercase ${e.status === "resolved" ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : e.status === "bounced" ? "border-neon-amber/40 bg-neon-amber/10 text-neon-amber" : e.status === "acknowledged" ? "border-cyber-500/40 bg-cyber-500/10 text-cyber-300" : "border-border text-slate-400"}`}>{e.status}</span>
             </div>
           ))}

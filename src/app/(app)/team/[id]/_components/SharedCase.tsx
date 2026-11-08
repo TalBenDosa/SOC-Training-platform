@@ -9,6 +9,8 @@ import { containmentRequests, escalationStates, incidentByEvent, isolationState,
 import { ROLE_LABEL } from "./shared";
 import { containmentVerb } from "./T2Console";
 import { useNewItemsAnnouncement, LiveRegion, clip } from "./useLiveAnnounce";
+import { escalationHandoff, reportHandoff } from "@/lib/team/handoff";
+import { HandoffDetail } from "./HandoffDetail";
 
 // ── Shared Case panel (§5.1) — the one artifact the whole team works ──────────
 const CASE_STATUSES = ["new", "triaged", "investigating", "contained", "eradicated", "closed"];
@@ -36,14 +38,18 @@ export function caseHeadline(events: Ev[], feed: Ev[]): { status: string; severi
   };
 }
 
-export function SharedCase({ events, feed, roster, me, act, nameOf, open: openProp, onOpenChange, barless = false }: { events: Ev[]; feed: Ev[]; roster: RosterMember[]; me: Me; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; nameOf: (u: string | null) => string;
+export function SharedCase({ events, feed, roster, me, act, nameOf, open: openProp, onOpenChange, barless = false, sessionId }: { events: Ev[]; feed: Ev[]; roster: RosterMember[]; me: Me; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; nameOf: (u: string | null) => string;
   /** Controlled open state: the shift bar holds the Shared case button (2026-11 review: one bar, not a stack). */
   open?: boolean; onOpenChange?: (open: boolean) => void;
   /** No summary bar of its own: the panel shows only while open. */
-  barless?: boolean }) {
+  barless?: boolean;
+  /** For the screenshots that travel with an escalation. */
+  sessionId?: string }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [openLocal, setOpenLocal] = useState(false); // G-02: collapsed to a summary bar by default
+  // An open case shows the analyst's full report at once (owner, 2026-11-08); a closed one folds. A click flips either.
+  const [flipped, setFlipped] = useState<Set<string>>(() => new Set());
   const open = openProp ?? openLocal;
   const setOpen = (f: (o: boolean) => boolean) => { const n = f(open); if (onOpenChange) onOpenChange(n); else setOpenLocal(n); };
   const feedById = useMemo(() => new Map(feed.map(e => [String((e.payload as { id?: string }).id ?? e.seq), e.payload as Record<string, unknown>])), [feed]);
@@ -221,36 +227,38 @@ export function SharedCase({ events, feed, roster, me, act, nameOf, open: openPr
               <div key={g.key} className="rounded-lg border border-border bg-bg px-2.5 py-2">
                 <div className="flex items-center gap-2">
                   <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${sevColor(g.maxSev)}`} />
-                  <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-200">{g.labelled ? g.name : `Case: ${g.name}`}</span>
+                  <span className="min-w-0 flex-1 whitespace-pre-wrap break-words text-xs font-semibold text-slate-200"><bdi>{g.labelled ? g.name : `Case: ${g.name}`}</bdi></span>
                   <span className="shrink-0 font-mono text-[11px] text-slate-500">{g.escs.length} ev{g.reports.length ? ` · ${g.reports.length} report` : ""}{g.hunts.length ? ` · ${g.hunts.length} hunt` : ""}</span>
                 </div>
                 {g.scope && <p className="mt-0.5 font-mono text-[11px] text-slate-500">scope {g.scope.confirmed ? "✓ confirmed" : "proposed"}: {[...g.scope.hosts, ...g.scope.users, ...g.scope.techniques].join(", ") || "none"}</p>}
                 {g.escs.length > 0 && (
                   <div className="mt-1 space-y-0.5">
-                    {g.escs.map(e => { const p = e.payload as { what?: string; summary?: string; event_id?: string }; const eid = String(p.event_id); const st = escStates.get(eid); const fe = feedById.get(eid) as { severity?: string } | undefined; const cont = contByEid.get(eid) ?? []; return (
+                    {g.escs.map(e => { const p = e.payload as { what?: string; summary?: string; event_id?: string }; const eid = String(p.event_id); const st = escStates.get(eid); const fe = feedById.get(eid) as { severity?: string } | undefined; const cont = contByEid.get(eid) ?? [];
+                      const closed = !!st?.resolved || !!st?.bounced;
+                      const full = closed === flipped.has(eid);
+                      const detailId = `case-esc-${e.seq}`;
+                      return (
                       <div key={e.seq} className="text-[11px]">
-                        <div className="flex items-center gap-2">
-                          <span className={`h-1 w-1 shrink-0 rounded-full ${sevColor(fe?.severity)}`} />
-                          <span className="min-w-0 flex-1 truncate text-slate-300">{asStr(p.summary) || asStr(p.what) || "escalation"}</span>
-                          <span className="shrink-0 font-mono text-[11px] text-slate-500"><bdi>{nameOf(e.actor_id)}</bdi>{st?.owner ? <> → <bdi>{nameOf(st.owner)}</bdi></> : ""}</span>
-                          <span className="shrink-0 font-mono text-[11px] uppercase text-slate-500">{st?.resolved ? "resolved" : st?.bounced ? "bounced" : st?.acked ? "taken" : "open"}</span>
+                        <div className="flex items-start gap-2">
+                          <span className={`mt-1.5 h-1 w-1 shrink-0 rounded-full ${sevColor(fe?.severity)}`} />
+                          <span className="min-w-0 flex-1 whitespace-pre-wrap break-words text-slate-200" data-handoff-summary><bdi>{asStr(p.summary) || asStr(p.what) || "escalation"}</bdi></span>
+                          <span className="shrink-0 font-mono text-[11px] text-slate-400"><bdi>{nameOf(e.actor_id)}</bdi>{st?.owner ? <> → <bdi>{nameOf(st.owner)}</bdi></> : ""}</span>
+                          <span className="shrink-0 font-mono text-[11px] uppercase text-slate-400">{st?.resolved ? "resolved" : st?.bounced ? "bounced" : st?.acked ? "taken" : "open"}</span>
+                          <button type="button" aria-expanded={full} aria-controls={detailId} onClick={() => setFlipped(f => { const n = new Set(f); if (n.has(eid)) n.delete(eid); else n.add(eid); return n; })}
+                            className="shrink-0 rounded px-1 text-[11px] text-cyber-300 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/60">{full ? "Fold" : "Full report"}</button>
                         </div>
+                        {full && <div id={detailId} className="ml-3 mt-1 rounded border border-border/60 bg-bg-elevated/20 px-2 py-1.5"><HandoffDetail handoff={escalationHandoff(e, events, { nameOf })} sessionId={sessionId} hideSummary /></div>}
                         {cont.map(r => <p key={r.seq} className={`ml-3 text-[11px] ${r.status === "denied" ? "text-severity-high" : r.status === "executed" ? "text-neon-green" : "text-cyber-300"}`}>{containmentVerb(asStr((r.request.payload as { containment_type?: string }).containment_type))} {asStr((r.request.payload as { target?: string }).target)}: {r.status}</p>)}
                       </div>
                     ); })}
                   </div>
                 )}
-                {/* A1: Tier-2/3 determinations & handover reports — read live by T3 and the Manager */}
-                {g.reports.map(e => { const p = e.payload as { verdict?: string; summary?: string; recommendation?: string }; const v = asStr(p.verdict); return (
-                  <div key={e.seq} className="mt-1 rounded border border-cyber-500/25 bg-cyber-500/[0.05] px-2 py-1 text-[11px]">
-                    <div className="flex items-center gap-2">
-                      {v && <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[11px] font-bold uppercase ${v === "true_positive" || v === "escalate" ? "border-severity-high/40 bg-severity-high/10 text-severity-high" : "border-border text-slate-400"}`}>{v.replace("_", " ")}</span>}
-                      <span className="min-w-0 flex-1 truncate text-slate-200">{asStr(p.summary) || "incident report"}</span>
-                      <span className="shrink-0 font-mono text-[11px] text-slate-500"><bdi>{nameOf(e.actor_id)}</bdi></span>
-                    </div>
-                    {asStr(p.recommendation) && <p className="mt-0.5 text-cyber-200"><span className="text-slate-500">▶ recommends:</span> {asStr(p.recommendation)}</p>}
+                {/* A1: Tier-2/3 determinations & handover reports, in full, read live by T3 and the Manager */}
+                {g.reports.map(e => (
+                  <div key={e.seq} className="mt-1 rounded border border-cyber-500/25 bg-cyber-500/[0.05] px-2 py-1.5 text-[11px]">
+                    <HandoffDetail handoff={reportHandoff(e, events, { nameOf })} sessionId={sessionId} />
                   </div>
-                ); })}
+                ))}
                 {/* T3 playtest: hunt findings now reach the team, per incident */}
                 {g.hunts.length > 0 && <div className="mt-1 space-y-1">{g.hunts.map(huntRow)}</div>}
               </div>
@@ -286,7 +294,7 @@ function ScopeBox({ label, items, accent }: { label: string; items: string[]; ac
   return (
     <div className="rounded-lg border border-border bg-bg px-2 py-1.5">
       <p className="text-[11px] uppercase tracking-wider text-slate-400">{label}</p>
-      {items.length === 0 ? <p className="text-[11px] text-slate-500">—</p> : (
+      {items.length === 0 ? <p className="text-[11px] text-slate-400">none</p> : (
         <div className="mt-1 flex flex-wrap gap-1">{items.slice(0, 8).map(i => <span key={i} className={`rounded px-1.5 py-0.5 font-mono text-[11px] ${accent ? "bg-cyber-500/10 text-cyber-300" : "bg-white/5 text-slate-300"}`}>{i}</span>)}{items.length > 8 && <span className="text-[11px] text-slate-500">+{items.length - 8}</span>}</div>
       )}
     </div>

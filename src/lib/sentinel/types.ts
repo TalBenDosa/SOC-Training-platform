@@ -1,4 +1,5 @@
 import type { KqlTable } from "@/lib/kql/types";
+import type { Handoff } from "@/lib/team/handoff";
 
 export type SentinelSeverity = "High" | "Medium" | "Low" | "Informational";
 export type IncidentStatus = "New" | "Active" | "Closed";
@@ -89,6 +90,10 @@ export interface SentinelIncident {
   eventCount: number;
   /** KQL that lists those events. */
   eventsQuery: string;
+  /** What the analysts reported when they escalated the logs behind it (owner, 2026-11-08): it opens with this. */
+  handoffs?: Handoff[];
+  /** With handoffs: what the detection itself says (the description then leads with the analyst's report). */
+  detectionDescription?: string;
 }
 
 export interface AnalyticsRule {

@@ -1490,7 +1490,7 @@ export default function TeamRoomPage() {
             })()}
 
             {/* Shared case: opens under the shift bar from its button (G-02). */}
-            <div id="shared-case-panel"><SharedCase events={events} feed={feed} roster={roster} me={me} act={act} nameOf={nameOf} barless open={caseOpen} onOpenChange={setCaseOpen} /></div>
+            <div id="shared-case-panel"><SharedCase sessionId={id} events={events} feed={feed} roster={roster} me={me} act={act} nameOf={nameOf} barless open={caseOpen} onOpenChange={setCaseOpen} /></div>
 
             {(me.role === "lead" || me.role === "mgr") && (() => {
               const waitingEsc = waitingEscalations(events);
@@ -1577,7 +1577,7 @@ export default function TeamRoomPage() {
                   </>
                 ) : (me.role === "lead" || me.role === "mgr") && mgrView === "escalations" ? (
                   <>
-                    <LeadConsole events={events} nameOf={nameOf} act={act} parts={["approvals"]} />
+                    <LeadConsole sessionId={id} events={events} nameOf={nameOf} act={act} parts={["approvals"]} />
                     <EscalationsPanel sessionId={id} events={events} nameOf={nameOf} onAddToReport={(host, line) => setReportSeed({ hosts: host ? [host] : [], lines: [line] })} />
                   </>
                 ) : (me.role === "lead" || me.role === "mgr") && mgrView === "stakeholders" ? (
@@ -1708,10 +1708,10 @@ export default function TeamRoomPage() {
                 {["t1", "t2", "t3", "de", "ti"].includes(me.role ?? "") && phase === "running" && <ActionInbox events={events} me={me} roster={roster} act={act} sessionId={id} />}
                 {me.role === "t1" && <div data-tour="t1-console"><T1Console sessionId={id} feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} actR={actR} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} /></div>}
                 {/* B12: Tier-3's dominant surface is HUNTING — render it above the (secondary) inbox. */}
-                {me.role === "t3" && <div data-tour="hunt-console"><HuntConsole consoleName={consoleName} platforms={session?.env?.platforms ?? []} canEdr={canEdr} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} /></div>}
-                {(me.role === "t2" || me.role === "t3") && <div data-tour="t2-console"><T2Console consoleName={consoleName} hasTier3={roster.some(m => m.role === "t3" && m.status !== "left")} personOf={personOf} canEdr={canEdr} sessionId={id} role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} addedByCase={addedByCase}
+                {me.role === "t3" && <div data-tour="hunt-console"><HuntConsole events={events} sessionId={id} consoleName={consoleName} platforms={session?.env?.platforms ?? []} canEdr={canEdr} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} /></div>}
+                {(me.role === "t2" || me.role === "t3") && <div data-tour="t2-console"><T2Console events={events} consoleName={consoleName} hasTier3={roster.some(m => m.role === "t3" && m.status !== "left")} personOf={personOf} canEdr={canEdr} sessionId={id} role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} addedByCase={addedByCase}
                   pinnedIds={pinnedIds} isolation={isoByHost} isoRequests={isoRequestByHost} approverFor={rid => approverNames(roster, rid, online)}
-                  onRequestIsolation={(host, reason, incident) => requestIsolation(id, { host, reason, incident })} /></div>}
+                  onRequestIsolation={(host, reason, incident, caseId) => requestIsolation(id, { host, reason, incident, case: caseId })} /></div>}
                 {/* SOC Manager now holds the coordinator authority (approve containment,
                     decision log, SITREP) as well as shift management. 'lead'/'de' branches
                     stay for backward-compatibility with older sessions; 'ti' is a live seat. */}

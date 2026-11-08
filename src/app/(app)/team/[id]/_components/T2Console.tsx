@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
-import { TeamImageThumb, imagesOf } from "./teamImages";
+import { HandoffDetail } from "./HandoffDetail";
+import { escalationHandoff, type Handoff } from "@/lib/team/handoff";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -28,8 +29,10 @@ export const CONTAINMENT_TYPES: [string, string][] = [["isolate_host", "Isolate 
 export const containmentVerb = (t?: string) => (t === "disable_account" ? "Disable" : t === "block_indicator" ? "Block" : "Isolate");
 const EMPTY_REP = { summary: "", findings: "", verdict: "true_positive", recommendation: "", incident: "" };
 
-export function T2Console({ hasTier3 = true, consoleName = "EDR", canEdr, sessionId, role, meId, escalations, escState, reportedIds, reportByEid, elevatedIds, containments, scope, scopes, incidents, incidentOf, nameOf, act, actR, onEdr, onPivot, pauses = [], personOf, addedByCase, pinnedIds, isolation, isoRequests, approverFor, onRequestIsolation }: {
+export function T2Console({ events, hasTier3 = true, consoleName = "EDR", canEdr, sessionId, role, meId, escalations, escState, reportedIds, reportByEid, elevatedIds, containments, scope, scopes, incidents, incidentOf, nameOf, act, actR, onEdr, onPivot, pauses = [], personOf, pinnedIds, isolation, isoRequests, approverFor, onRequestIsolation }: {
   sessionId: string; role: string; meId: string;
+  /** The room's whole event log: each case card shows the full hand-off (disposition, bounces, logs added). */
+  events?: Ev[];
   /** A Tier-3 analyst is in the room (no Tier-3: no "Escalate to Tier-3", the request would reach nobody). */
   hasTier3?: boolean;
   /** The CURRENT round of every escalated log (one row per log). */
@@ -42,7 +45,7 @@ export function T2Console({ hasTier3 = true, consoleName = "EDR", canEdr, sessio
   /** Where this session investigates: "EDR" or "Sentinel". */
   consoleName?: string;
   canEdr?: (host?: string) => boolean;
-  /** Logs Tier-1 added to each case from the queue, keyed by the case's event_id. */
+  /** Logs Tier-1 added to each case from the queue, keyed by the case's event_id. The card now reads them from `events` (the hand-off). */
   addedByCase?: Map<string, { eid: string; by: string | null; label: string; at: string | null }[]>;
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
   /** Paused spans of the session (pausedSpans) — waits and SLA badges skip them. */
@@ -57,13 +60,13 @@ export function T2Console({ hasTier3 = true, consoleName = "EDR", canEdr, sessio
   /** Who answers an isolation request from this requester right now. */
   approverFor?: (requesterId: string | null) => string;
   /** Ask the senior on shift to isolate a host (owner, 2026-11-07); resolves to an error, or null. */
-  onRequestIsolation?: (host: string, reason: string, incident?: string) => Promise<string | null>;
+  onRequestIsolation?: (host: string, reason: string, incident?: string, caseId?: string) => Promise<string | null>;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [openLog, setOpenLog] = useState<number | null>(null); // which escalation's full log is expanded
   // The escalated log opened full-screen — the inbox column is too narrow to read a
   // real log comfortably, so Tier-2 can lift it into a wide reading view.
-  const [fullLog, setFullLog] = useState<{ title: string; from: string; notes: string; snap: NonNullable<ReturnType<typeof enrichSnapshot>> } | null>(null);
+  const [fullLog, setFullLog] = useState<{ title: string; from: string; handoff: Handoff; snap: NonNullable<ReturnType<typeof enrichSnapshot>> } | null>(null);
   const [bouncingId, setBouncingId] = useState<string | null>(null); // eid being bounced (shows reason input)
   const [bounceReason, setBounceReason] = useState(BOUNCE_REASONS[0]);
   const [bounceMsg, setBounceMsg] = useState("");
@@ -178,10 +181,11 @@ export function T2Console({ hasTier3 = true, consoleName = "EDR", canEdr, sessio
               const myReqs = containments.filter(r => r.eid === eid);
               const lastReq = myReqs[myReqs.length - 1];
               const inc = incidentOf.get(eid);
+              const handoff = escalationHandoff(e, events ?? escalations, { nameOf });
               return (
                 <div key={e.seq} className="rounded-lg border border-border bg-bg px-3 py-2">
                   <div className="flex items-start gap-2">
-                    <p className="min-w-0 flex-1 text-sm text-slate-200">{asStr(p.summary) || asStr(p.what)}</p>
+                    <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-sm font-semibold text-slate-100" data-handoff-summary><bdi>{asStr(p.summary) || asStr(p.what)}</bdi></p>
                     {inc && <span className="shrink-0 rounded border border-cyber-500/40 bg-cyber-500/10 px-1 py-0.5 font-mono text-xs text-cyber-300" title="incident">{inc}</span>}
                     {p.low_confidence && <span className="shrink-0 rounded border border-neon-amber/40 bg-neon-amber/10 px-1 py-0.5 text-[11px] font-bold uppercase text-neon-amber">low-conf</span>}
                     {(st?.rounds ?? 1) > 1 && <span className="shrink-0 rounded border border-border px-1 py-0.5 text-[11px] font-bold uppercase text-slate-400" title="escalated again after a bounce/resolve">re-escalated</span>}
@@ -189,53 +193,24 @@ export function T2Console({ hasTier3 = true, consoleName = "EDR", canEdr, sessio
                     {isResolved ? <span className="shrink-0 rounded border border-neon-green/40 bg-neon-green/10 px-1 py-0.5 text-[11px] font-bold uppercase text-neon-green">resolved</span>
                       : isBounced ? <span className="shrink-0 rounded border border-neon-amber/40 bg-neon-amber/10 px-1 py-0.5 text-[11px] font-bold uppercase text-neon-amber">bounced</span> : null}
                   </div>
-                  {/* The ticket carries T1's initial investigation — the label makes the
-                      bundle explicit (investigation + indicators + the log below). */}
-                  {(asStr(p.observations) || asStr(p.why) || asStr(p.assessment)) && (
-                    <div className="mt-1 rounded border border-border/50 bg-bg-elevated/30 px-2 py-1">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Tier-1 initial investigation</p>
-                      <p className="mt-0.5 text-xs text-slate-300">{asStr(p.observations) || asStr(p.why)}</p>
-                      {asStr(p.assessment) && <p className="mt-0.5 text-xs text-slate-400">Assessment: {asStr(p.assessment)}</p>}
-                    </div>
-                  )}
-                  {imagesOf(p.images).length > 0 && (
-                    <div className="mt-1">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Screenshots ({imagesOf(p.images).length})</p>
-                      <div className="mt-0.5 flex flex-wrap gap-1.5">
-                        {imagesOf(p.images).map((img, i) => <TeamImageThumb key={img.path} sessionId={sessionId} image={img} alt={`Tier-1 screenshot ${i + 1} for this escalation`} className="max-h-28" />)}
-                      </div>
-                    </div>
-                  )}
-                  {iocs.length > 0 && (
-                    <div className="mt-1">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Indicators ({iocs.length})</p>
-                      <div className="mt-0.5 flex flex-wrap gap-1">{iocs.slice(0, 8).map(i => <span key={i.value} className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-xs text-slate-300"><span className="text-slate-500">{i.type}:</span>{i.value}</span>)}</div>
-                    </div>
-                  )}
-                  {(addedByCase?.get(eid)?.length ?? 0) > 0 && (
-                    <div className="mt-1 rounded border border-cyber-500/30 bg-cyber-500/[0.04] px-2 py-1">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-cyber-300">Added to this case by Tier-1 ({addedByCase!.get(eid)!.length})</p>
-                      <ul className="mt-0.5 space-y-0.5">{addedByCase!.get(eid)!.map(a => <li key={a.eid} className="text-xs text-slate-300"><bdi>{a.label}</bdi> <span className="font-mono text-xs text-slate-500">· {nameOf(a.by)}{a.at ? ` ${a.at.slice(11, 16)}` : ""}</span></li>)}</ul>
-                    </div>
-                  )}
-                  <p className="mt-1 flex flex-wrap items-center gap-1.5 font-mono text-xs text-slate-500">
-                    <span>{selfOpened ? "opened by" : "from"} {nameOf(e.actor_id)} · sev {asStr(p.severity) || asStr(p.impact) || "unset"} · conf {p.confidence}{p.requested_action ? ` · asks: ${p.requested_action}` : ""}</span>
-                    {!isAck && !isBounced && !isResolved && e.occurred_at && (() => {
-                      const mins = Math.max(0, Math.floor(waitedMs(e.occurred_at) / 60000));
-                      const breached = mins >= slaMinFor(asStr(p.severity) || "medium"); // SLA by severity
-                      return <span className={`rounded border px-1 py-px font-bold ${breached ? "border-severity-high/60 bg-severity-high/15 text-severity-high" : "border-border text-slate-400"}`}>⏱ waiting {mins}m{breached ? " · SLA" : ""}</span>;
-                    })()}
-                  </p>
+                  {/* The full hand-off, at once (owner, 2026-11-08): who sent it, their calls, reasoning,
+                      every indicator, the affected host and user, the log's key fields, screenshots,
+                      bounces and logs added later. Same renderer and order as every other receiver. */}
+                  <div className="mt-1.5"><HandoffDetail handoff={handoff} sessionId={sessionId} hideSummary /></div>
+                  {!isAck && !isBounced && !isResolved && e.occurred_at && (() => {
+                    const mins = Math.max(0, Math.floor(waitedMs(e.occurred_at) / 60000));
+                    const breached = mins >= slaMinFor(asStr(p.severity) || "medium"); // SLA by severity
+                    return <p className="mt-1"><span className={`rounded border px-1 py-px font-mono text-xs font-bold ${breached ? "border-severity-high/60 bg-severity-high/15 text-severity-high" : "border-border text-slate-400"}`}>⏱ waiting {mins}m{breached ? " · SLA" : ""}</span></p>;
+                  })()}
                   {p.recommend_isolation && p.hostname && (
                     <p className="mt-1 inline-flex items-center gap-1 rounded border border-severity-high/50 bg-severity-high/10 px-1.5 py-0.5 text-xs font-semibold text-severity-high">
                       Tier-1 recommends isolating <bdi className="font-mono">{p.hostname}</bdi>: your decision, in {consoleName}
                     </p>
                   )}
-                  {isBounced && st?.bounceReason && <p className="mt-1 text-xs text-neon-amber">↩ bounced to Tier-1: {st.bounceReason}</p>}
                   {/* Open the FULL original log T1 flagged — investigate the real event, not just the words */}
                   {snap && (
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <button onClick={() => setFullLog({ title: asStr(p.summary) || asStr(p.what) || "Escalated log", from: nameOf(e.actor_id), notes: asStr(p.observations) || asStr(p.why), snap })}
+                      <button onClick={() => setFullLog({ title: asStr(p.summary) || asStr(p.what) || "Escalated log", from: nameOf(e.actor_id), handoff, snap })}
                         className="flex items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/10 px-2 py-0.5 text-xs font-semibold text-cyber-300 hover:bg-cyber-500/20">
                         <Maximize2 className="h-3 w-3" /> Read the log full-screen
                       </button>
@@ -443,7 +418,7 @@ export function T2Console({ hasTier3 = true, consoleName = "EDR", canEdr, sessio
                           if (contForm.type === "isolate_host" && onRequestIsolation) {
                             const crit = contForm.criticality === "crown_jewel" ? "crown-jewel asset" : contForm.criticality === "low" ? "low-criticality asset" : "standard asset";
                             const reason = [asStr(p.summary) || asStr(p.what), `What breaks: ${contForm.blast.trim()}`, crit, contForm.owner.trim() && `Owner: ${contForm.owner.trim()}`].filter(Boolean).join(". ");
-                            const err = await onRequestIsolation(contForm.target.trim(), reason, contForm.incident.trim() || inc || undefined);
+                            const err = await onRequestIsolation(contForm.target.trim(), reason, contForm.incident.trim() || inc || undefined, eid);
                             setBusy(null);
                             if (err) setContErr(err); else setContainingId(null);
                             return;
@@ -548,7 +523,7 @@ export function T2Console({ hasTier3 = true, consoleName = "EDR", canEdr, sessio
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Escalated by {fullLog.from}</p>
                 <h2 id={`${uid}-fulllog-title`} className="break-words text-sm font-bold text-white">{fullLog.title}</h2>
-                {fullLog.notes && <p className="mt-1 whitespace-pre-wrap break-words text-xs text-slate-400">{fullLog.notes}</p>}
+                <div className="mt-1.5"><HandoffDetail handoff={fullLog.handoff} sessionId={sessionId} hideSummary hideLogs /></div>
               </div>
               <button onClick={() => setFullLog(null)} aria-label="Close" className="rounded p-1 text-slate-400 hover:bg-bg-elevated hover:text-white"><X className="h-5 w-5" aria-hidden="true" /></button>
             </div>

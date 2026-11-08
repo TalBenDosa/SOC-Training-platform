@@ -6,6 +6,7 @@ import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { asStr, detectIocType, isValidIoc, IOC_HELP, type ActR } from "@/lib/team/format";
 import type { Ev, Ioc } from "@/lib/team/types";
 import { useDraft, clearDraft } from "./drafts";
+import { escalationSnapshot } from "@/lib/team/handoff";
 
 const SEVERITIES = ["low", "medium", "high", "critical"] as const;
 
@@ -62,6 +63,9 @@ export function OpenCaseModal({ log, role, onClose, act, actR, sessionId, meId }
       iocs, requested_action: "investigate", severity, confidence: 0.7,
       hostname: host || undefined, entity: host || user || "the affected asset",
       opened_by: role, what: summary.trim(), why: observations.trim(),
+      // The log travels with the case like a Tier-1 escalation, so every receiver (the Manager, the
+      // Shared case, Sentinel) opens it with the log's key fields, not only the opener's words.
+      snapshot: escalationSnapshot(log.payload), user_email: user || undefined,
     });
     if (res.ok) await act("escalation.acknowledged", { event_id: eventId });
     setBusy(false);
