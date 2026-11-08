@@ -994,6 +994,14 @@ const TEAM_WIDER: Record<string, string[]> = {
   "globallogis-chain-d": ["rocketstack"],                            // internet-facing Linux server
 };
 
+/**
+ * Stories whose servers keep their authored role and name in every company (AttackStory.ownServers): the
+ * company's server prefix replaces NexaCorp's. nexacorp-chain-d sprays an internet-published Remote Desktop
+ * server; no company lists one, and mapping it onto another server put a Windows RDS host on a Linux CI
+ * runner (Sdema review 2026-11-08).
+ */
+const OWN_SERVERS = new Set(["nexacorp-chain-d"]);
+
 export const ATTACK_STORIES: AttackStory[] = [
   ...GENERIC_STORIES,
   ...COMPANY_CHAIN_STORIES,
@@ -1006,7 +1014,8 @@ export const ATTACK_STORIES: AttackStory[] = [
   ...CORE_STORIES.map(d => ({ ...story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies), teamOnly: true, ...(d.seat ? { seat: d.seat } : {}) })),
 ].filter(s => !EXCLUDED_STORIES.has(s.id)).map(s => {
   const more = TEAM_WIDER[s.id];
-  return more && s.companies ? { ...s, companies: [...s.companies, ...more], soloCompanies: s.companies } : s;
+  const own = OWN_SERVERS.has(s.id) ? { ...s, ownServers: true } : s;
+  return more && own.companies ? { ...own, companies: [...own.companies, ...more], soloCompanies: own.companies } : own;
 });
 
 // ── Company fit ───────────────────────────────────────────────────────────────

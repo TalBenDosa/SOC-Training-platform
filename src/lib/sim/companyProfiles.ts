@@ -3022,7 +3022,7 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
   {
     id: "nx_d1", ts: "2026-05-10T17:00:00.000Z", source: "firewall", event_type: "net_connection",
     severity: "low", vendor: "Palo Alto Networks PAN-OS",
-    hostname: "SRV-NXC-RDS01.nexacorp.com", src_ip: "185.220.101.45", dst_ip: "198.51.100.161", dst_port: 3389, protocol: "tcp", geo: { country: "Netherlands" },
+    hostname: "SRV-NXC-RDS01", src_ip: "185.220.101.45", dst_ip: "198.51.100.161", dst_port: 3389, protocol: "tcp", geo: { country: "Netherlands" },
     description: "PAN-OS allowed an RDP session from 185.220.101.45 to the published Remote Desktop server SRV-NXC-RDS01 (198.51.100.161:3389, translated to 10.10.20.31) under rule INBOUND-RDS01-RDP; the session closed after 1 second",
     mitre_technique: "T1133", mitre_tactic: "Initial Access",
     raw: { "pan.type": "TRAFFIC", "pan.subtype": "end", "pan.action": "allow", "pan.app": "ms-rdp", "pan.rule": "INBOUND-RDS01-RDP",
@@ -3034,7 +3034,7 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
   {
     id: "nx_d2", ts: "2026-05-10T17:00:51.000Z", source: "firewall", event_type: "ids_signature",
     severity: "high", vendor: "Palo Alto Networks PAN-OS",
-    hostname: "SRV-NXC-RDS01.nexacorp.com", src_ip: "185.220.101.45", dst_ip: "198.51.100.161", dst_port: 3389, protocol: "tcp", geo: { country: "Netherlands" },
+    hostname: "SRV-NXC-RDS01", src_ip: "185.220.101.45", dst_ip: "198.51.100.161", dst_port: 3389, protocol: "tcp", geo: { country: "Netherlands" },
     description: "PAN-OS threat log: MS-RDP Brute Force Attempt (40021) from 185.220.101.45 to 198.51.100.161:3389 (SRV-NXC-RDS01), action alert: the session was not blocked",
     mitre_technique: "T1110.003", mitre_tactic: "Credential Access",
     raw: { "pan.type": "THREAT", "pan.subtype": "vulnerability", "pan.threat_id": "40021", "pan.threat_name": "MS-RDP Brute Force Attempt",
@@ -3077,7 +3077,7 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
   {
     id: "nx_d4", ts: "2026-05-10T17:06:40.000Z", source: "ad", event_type: "auth_failure",
     severity: "medium", vendor: "Windows Security",
-    hostname: "SRV-NXC-RDS01.nexacorp.com", src_ip: "185.220.101.45",
+    hostname: "SRV-NXC-RDS01", src_ip: "185.220.101.45",
     description: "SRV-NXC-RDS01 refused a network logon (type 3, NTLM) for j.chen from 185.220.101.45, workstation WIN-3VQ8KD2RLMP: Status 0xC0000234, the account is locked out",
     mitre_technique: "T1110.003", mitre_tactic: "Credential Access",
     raw: { "event.code": "4625", "winlog.channel": "Security", "winlog.computer_name": "SRV-NXC-RDS01.nexacorp.com",
@@ -3093,7 +3093,7 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
   {
     id: "nx_d5", ts: "2026-05-10T17:08:12.000Z", source: "ad", event_type: "auth_success",
     severity: "high", vendor: "Windows Security",
-    hostname: "SRV-NXC-RDS01.nexacorp.com", src_ip: "185.220.101.45",
+    hostname: "SRV-NXC-RDS01", src_ip: "185.220.101.45",
     description: "Remote Desktop logon (type 10) to SRV-NXC-RDS01 as m.torres from 185.220.101.45, workstation WIN-3VQ8KD2RLMP: the password the spray guessed for m.torres opened a desktop session on the published server",
     mitre_technique: "T1078.002", mitre_tactic: "Initial Access",
     raw: { "event.code": "4624", "winlog.channel": "Security", "winlog.computer_name": "SRV-NXC-RDS01.nexacorp.com",
