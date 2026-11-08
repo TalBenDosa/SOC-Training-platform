@@ -47,7 +47,7 @@ import { entraSignIn } from "@/lib/sim/emitters/entra";
 import { azureActivity, azureOpenAiRequest, defenderAiAlert, type AzureAiResource } from "@/lib/sim/emitters/azureAi";
 import type { AiStoryDef } from "./wave2";
 import { githubAudit } from "@/lib/sim/emitters/github";
-import { CX, DEV, OFFICE_EGRESS, PUBLISHED_IP, SUB, benign, conn, dnsRow, fileRow, inbound, netRow, proc, published, sentinel, snowTransaction, ticket, web, withIncident } from "./wave4-shared";
+import { authoredFor, CX, DEV, OFFICE_EGRESS, PUBLISHED_IP, SUB, benign, conn, dnsRow, fileRow, inbound, netRow, proc, published, sentinel, snowTransaction, ticket, web, withIncident } from "./wave4-shared";
 
 type Cloud = "aws" | "azure";
 
@@ -807,16 +807,16 @@ const EVERY = ["nexacorp", "medcore", "globallogis", "quantumbank", "rocketstack
 const DEV_SHOPS = ["nexacorp", "globallogis", "quantumbank", "rocketstack"];
 
 const STORIES: AiStoryDef[] = [
-  { id: "ai-agent-skill-host-cloud-aws", title: "Coding Agent Skill from a Public Marketplace, Followed by AWS Key Use from a Hosting Provider", complexity: "advanced", companies: AWS_SHOPS, seat: "developer", events: buildAgentSkill("aws") },
+  { id: "ai-agent-skill-host-cloud-aws", title: "Coding Agent Skill from a Public Marketplace, Followed by AWS Key Use from a Hosting Provider", complexity: "advanced", companies: AWS_SHOPS, seat: "developer", events: authoredFor("rocketstack", buildAgentSkill("aws")) },
   { id: "ai-agent-skill-host-cloud-azure", title: "Coding Agent Skill from a Public Marketplace, Followed by Azure Token Use from a Hosting Provider", complexity: "advanced", companies: ["nexacorp"], seat: "developer", events: buildAgentSkill("azure") },
   { id: "ai-hub-model-load-workstation", title: "Public Hub Model Loaded in a Notebook, Followed by Kernel Shell Activity", complexity: "core", companies: DEV_SHOPS, seat: "developer", events: buildHubModelLoad() },
   { id: "ai-ticket-triage-agent-injection", title: "AI Ticket Triage Worker Reads Beyond the Ticket and Reaches an External Domain", complexity: "core", companies: EVERY, ownServers: true, events: buildTicketAgentInjection() },
   { id: "ai-mcp-server-update-drift", title: "Approved MCP Mail Connector Updates and Gains a New Mail Recipient", complexity: "core", companies: ["nexacorp", "globallogis"], seat: "developer", events: buildMcpUpdateDrift("mail") },
-  { id: "ai-mcp-server-update-drift-api", title: "Approved MCP Mail Connector Updates and Starts Calling a New Domain", complexity: "core", companies: ["rocketstack", "quantumbank"], seat: "developer", events: buildMcpUpdateDrift("https") },
+  { id: "ai-mcp-server-update-drift-api", title: "Approved MCP Mail Connector Updates and Starts Calling a New Domain", complexity: "core", companies: ["rocketstack", "quantumbank"], seat: "developer", events: authoredFor("rocketstack", buildMcpUpdateDrift("https")) },
   { id: "ai-exposed-inference-endpoint", title: "AI Inference Port on an Internal Server Reached from the Internet", complexity: "foundation", companies: EVERY, seat: "it", ownServers: true, events: buildExposedInference() },
   { id: "ai-exposed-vector-store", title: "Pilot Vector Store Server Sends Gigabytes to a Public Address", complexity: "foundation", companies: EVERY, seat: "it", ownServers: true, events: buildExposedVectorStore() },
   { id: "ai-agent-rules-file-tamper", title: "Assistant Rules File Grows After a Pull, Then a Build Reaches a New Domain", complexity: "core", companies: DEV_SHOPS, seat: "developer", ownServers: true, events: buildRulesFileTamper() },
-  { id: "ai-assistant-commit-key-leak-aws", title: "Coding Agent Pushes to a Public Repository, Then an AWS Key Is Used from Outside", complexity: "advanced", companies: AWS_SHOPS, seat: "developer", ownServers: true, officeEgress: OFFICE_EGRESS, events: buildCommitKeyLeak("aws") },
+  { id: "ai-assistant-commit-key-leak-aws", title: "Coding Agent Pushes to a Public Repository, Then an AWS Key Is Used from Outside", complexity: "advanced", companies: AWS_SHOPS, seat: "developer", ownServers: true, officeEgress: OFFICE_EGRESS, events: authoredFor("rocketstack", buildCommitKeyLeak("aws")) },
   { id: "ai-assistant-commit-key-leak-azure", title: "Coding Agent Pushes to a Public Repository, Then an Azure AI Key Is Used from Outside", complexity: "advanced", companies: ["nexacorp"], seat: "developer", events: buildCommitKeyLeak("azure") },
 ];
 

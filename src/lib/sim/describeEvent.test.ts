@@ -12,6 +12,7 @@ vi.mock("server-only", () => ({}));
 import { SCENARIOS } from "./scenarios";
 import { describeEvent, describeEventForRow } from "./describeEvent";
 import type { TelemetryEvent } from "./types";
+import { AI_WAVE3_B_STORIES } from "@/app/(app)/dashboard/ai-stories/wave3-b";
 
 type Built = { slug: string; events: TelemetryEvent[] };
 const built: Built[] = (SCENARIOS as unknown as { slug: string; build?: () => { events?: TelemetryEvent[] }; events?: TelemetryEvent[] }[])
@@ -68,6 +69,25 @@ describe("the team row line names what the record names", () => {
     expect(team({ source: "o365", vendor: "Microsoft Entra ID", event_type: "account_modify", user_email: "y.mendes@sdemagroup.com",
       raw: { ...raw, "azure.auditlogs.operationName": "Change user password", "azure.auditlogs.properties.initiatedBy.user.userPrincipalName": "y.mendes@sdemagroup.com" } }))
       .toBe("y.mendes changed their password");
+  });
+
+  it("an API Management gateway row reads the Prompt Shields verdict from the logged backend response, never as browsing", () => {
+    // The RAG story's Prompt Shields rows (ai-stories/wave3-b.ts shieldPromptCall).
+    let seen = 0;
+    for (const s of AI_WAVE3_B_STORIES) for (const e of s.events) {
+      if (e.raw?.Type !== "ApiManagementGatewayLogs") continue;
+      seen++;
+      const line = describeEvent(e, { preferFields: true, fieldsOnly: true });
+      expect(line).not.toMatch(/browsed/);
+      expect(line).toMatch(/^Prompt Shields \(shieldPrompt\): userPromptAnalysis attackDetected false; documentsAnalysis attackDetected (true|false), assist-support-chat$/);
+    }
+    expect(seen).toBeGreaterThan(0);
+    const raw = { Type: "ApiManagementGatewayLogs", ApimSubscriptionId: "assist-support-chat", OperationId: "shieldPrompt", ResponseCode: 200,
+      BackendResponseBody: "{\"userPromptAnalysis\":{\"attackDetected\":false},\"documentsAnalysis\":[{\"attackDetected\":true}]}" };
+    expect(team({ source: "cloud_azure", vendor: "Azure API Management", event_type: "http_request", raw }))
+      .toBe("Prompt Shields (shieldPrompt): userPromptAnalysis attackDetected false; documentsAnalysis attackDetected true, assist-support-chat");
+    expect(team({ source: "cloud_azure", vendor: "Azure API Management", event_type: "http_request", raw: { ...raw, OperationId: "chatCompletions", ApiId: "openai", Method: "POST" } }))
+      .toBe("API Management POST openai/chatCompletions for assist-support-chat: HTTP 200");
   });
 
   it("a mail row names its sender and recipient", () => {

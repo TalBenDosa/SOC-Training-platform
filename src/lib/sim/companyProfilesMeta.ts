@@ -227,7 +227,7 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
       it: [{ user: "l.ferreira", host: "WS-OPS-2214" }],
     },
     serverPrefix: "SRV-NXC",
-    office: { ip: "217.177.80.10", country: "United Kingdom", city: "London" },
+    office: { ip: "192.0.2.150", country: "United Kingdom", city: "London" },
   },
   rocketstack: {
     hosts: ["LAP-007", "LAP-012", "LAP-003", "SRV-PROD-001", "macbook-ops-03",

@@ -3,7 +3,8 @@
  *
  * Every wave-4 story is authored on the NexaCorp identity (the same one every other shared
  * story uses): instantiateStory re-homes people, domain, hosts, subnet and tenant ids onto the
- * company a session runs on, so one authored chain reads as native on all of them.
+ * company a session runs on, so one authored chain reads as native on all of them. A story NexaCorp
+ * never runs (the AWS shops' chains) is moved onto the first company that runs it (authoredFor).
  *
  * A chain that needs a job names it on the story (`seat`): instantiateStory then draws the person
  * and their machine from the company's seats, and a company with no such seat does not list the
@@ -18,13 +19,14 @@ import { sentinelAlert, type SentinelAlertOpts } from "@/lib/sim/emitters/sentin
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
 import { azureActivity, type AzureActivityOpts, type AzureAiResource } from "@/lib/sim/emitters/azureAi";
 import { makeCtx } from "@/lib/logs/native/ctx";
+import { COMPANY_ASSETS, COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
 import { makeSha256 } from "@/lib/sim/iocs";
 
 export const CX = "nexacorp";
 export const DEV = { user: "k.ops@nexacorp.com", bare: "k.ops", host: "WS-ENG-2093", ip: "10.10.20.93" };
 export const SUB = makeCtx(CX).tenant.azureSubscriptionId;
 /** The authored office's NAT egress; a story's `officeEgress` makes it each company's own, with its place. */
-export const OFFICE_EGRESS = "217.177.80.10";
+export const OFFICE_EGRESS = "192.0.2.150";
 /** The public address a company publishes a server on: a documentation address, never a real one. */
 export const PUBLISHED_IP = "203.0.113.20";
 
@@ -41,6 +43,29 @@ export function benign(e: TelemetryEvent, why: string): TelemetryEvent {
 export function withIncident(events: TelemetryEvent[], incident: string): TelemetryEvent[] {
   for (const e of events) e.incident_id = incident;
   return events;
+}
+
+/**
+ * A chain the template company never runs (an AWS shop's story, listed only for companies other
+ * than NexaCorp) is authored on the first company that runs it: the NexaCorp identity the helpers
+ * write (mail domain, realm, brand, the name stem in tenant and bucket names) becomes that company's.
+ * instantiateStory re-homes it onto the session's company as it does every story; the authored data
+ * never names a company the story is not listed for (validate:feed TENANT_PURITY).
+ */
+export function authoredFor(companyId: string, events: TelemetryEvent[]): TelemetryEvent[] {
+  const from = COMPANY_ASSETS[CX], to = COMPANY_ASSETS[companyId];
+  const brandOf = (id: string) => (COMPANY_PROFILES.find(c => c.id === id)?.name ?? id).split(/\s+/)[0];
+  const stem = (a: typeof from) => a.domain.split(".")[0];
+  const pairs: [string, string][] = [
+    [from.domain, to.domain], [from.netbios, to.netbios], [brandOf(CX), brandOf(companyId)], [stem(from), stem(to)],
+  ];
+  const swap = (v: unknown): unknown => {
+    if (typeof v === "string") return pairs.reduce((acc, [f, t]) => acc.split(f).join(t), v);
+    if (Array.isArray(v)) return v.map(swap);
+    if (v && typeof v === "object") return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, swap(x)]));
+    return v;
+  };
+  return events.map(e => swap(e) as TelemetryEvent);
 }
 
 /** Process telemetry on one host. Pins the pid so a tree stays linked across rows. */

@@ -32,8 +32,12 @@ describe("story re-homing keeps non-people as they are", () => {
   it("the RAG chat's anonymous session user stays the chat user, never an employee", () => {
     const story = ATTACK_STORIES.find(s => s.id === "ai-rag-chatbot-document-injection")!;
     for (const seed of [0.01, 0.3, 0.6, 0.99]) {
+      // The story names the chat end user (a session id, no "@") in the Defender for Cloud AI alert's
+      // end-user context since the RAG story's XDR rework (eb9f8b68): it survives instantiation as written.
       const evs = instantiateStory(story, pool, "Microsoft Defender for Endpoint", "nexacorp", () => seed).events;
-      expect(evs.some(e => e.user_email === "assist-enduser-7731")).toBe(true);
+      const authored = JSON.stringify(story.events).match(/assist-enduser-\d+/)?.[0];
+      expect(authored).toBeTruthy();
+      expect(JSON.stringify(evs)).toContain(authored!);
     }
   });
   it("no story's victim is re-homed onto a non-human account, and a non-human account is never renamed to a person", () => {

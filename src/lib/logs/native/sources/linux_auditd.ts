@@ -208,7 +208,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     const ouid = ag("file.ouid") ?? uid;
     const ogid = ag("file.ogid") ?? ag("gid") ?? ouid;
     const objtype = ag("file.nametype") ?? (ev.event_type === "file_delete" ? "DELETE" : ev.event_type === "file_create" || ev.event_type === "linux_cron" ? "CREATE" : "NORMAL");
-    const inode = String(ctx.int(`${ctx.companyId}:${host}:inode:${name}`, 100_000, 9_999_999));
+    const inode = ag("file.inode") ?? String(ctx.int(`${ctx.companyId}:${host}:inode:${name}`, 100_000, 9_999_999));
     const key = ag("key");
     const record = { ...head("PATH"), item: "0", name, inode, dev: "fd:00", mode, ouid, ogid, rdev: "00:00", objtype, ...(key ? { key } : {}) };
     const nm = needsHex(name) ? toHex(name) : q(name);
@@ -280,7 +280,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     const fm = ag("file.mode") ?? r("file.mode");
     const mode = fm ? (fm.length <= 4 ? `0100${fm.replace(/^0/, "").padStart(3, "0")}` : fm) : "0100755";
     const ouid = ag("file.ouid") ?? "0", ogid = ag("file.ogid") ?? "0";
-    const inode = String(ctx.int(`${ctx.companyId}:${host}:inode:${pathName}`, 100_000, 9_999_999));
+    const inode = (ag("file.name") === pathName ? ag("file.inode") : undefined) ?? String(ctx.int(`${ctx.companyId}:${host}:inode:${pathName}`, 100_000, 9_999_999));
     group.push(line("PATH", `item=0 name=${needsHex(pathName) ? toHex(pathName) : q(pathName)} inode=${inode} dev=fd:00 mode=${mode} ouid=${ouid} ogid=${ogid} rdev=00:00 objtype=NORMAL`));
   }
   const ex = needsHex(exe) ? toHex(exe) : q(exe);

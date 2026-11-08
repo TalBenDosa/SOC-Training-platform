@@ -33,7 +33,7 @@ import { entraSignIn } from "@/lib/sim/emitters/entra";
 import { m365Operation } from "@/lib/sim/emitters/m365";
 import { azureOpenAiRequest, defenderAiAlert, type AzureAiResource } from "@/lib/sim/emitters/azureAi";
 import type { AiStoryDef } from "./wave2";
-import { CX, DEV, OFFICE_EGRESS, SUB, apimGateway, appServiceHttp, azureOp, bedrockInvocation, benign, dnsRow, frontDoor, inbound, proc, sentinel, ticket, web, withIncident } from "./wave4-shared";
+import { authoredFor, CX, DEV, OFFICE_EGRESS, SUB, apimGateway, appServiceHttp, azureOp, bedrockInvocation, benign, dnsRow, frontDoor, inbound, proc, sentinel, ticket, web, withIncident } from "./wave4-shared";
 
 const dev = { host: DEV.host, ip: DEV.ip, user: DEV.user };
 const home = `C:\\Users\\${DEV.bare}`;
@@ -576,13 +576,13 @@ const AZURE_SHOPS = ["nexacorp", "medcore"];
 
 const STORIES: AiStoryDef[] = [
   { id: "ai-portal-assistant-injection-azure", title: "Self-Service Portal Assistant Session Raises AI Alerts and Returns a Very Large Response", complexity: "core", companies: AZURE_SHOPS, events: buildPortalInjectionAzure() },
-  { id: "ai-portal-assistant-injection-aws", title: "Customer Portal Assistant Guardrail Reports While a Role Scans the Orders Table", complexity: "core", companies: AWS_SHOPS, seat: "it", ownServers: true, events: buildPortalInjectionAws() },
-  { id: "ai-agent-prod-delete-aws", title: "Production Database Deleted Through a Coding Agent's AWS Role During a Change Freeze", complexity: "core", companies: AWS_SHOPS, seat: "developer", officeEgress: OFFICE_EGRESS, events: buildAgentDeleteAws() },
+  { id: "ai-portal-assistant-injection-aws", title: "Customer Portal Assistant Guardrail Reports While a Role Scans the Orders Table", complexity: "core", companies: AWS_SHOPS, seat: "it", ownServers: true, events: authoredFor("rocketstack", buildPortalInjectionAws()) },
+  { id: "ai-agent-prod-delete-aws", title: "Production Database Deleted Through a Coding Agent's AWS Role During a Change Freeze", complexity: "core", companies: AWS_SHOPS, seat: "developer", officeEgress: OFFICE_EGRESS, events: authoredFor("rocketstack", buildAgentDeleteAws()) },
   { id: "ai-agent-prod-delete-azure", title: "Production Database Deleted Through a Coding Agent's Azure Account During a Change Freeze", complexity: "core", companies: ["nexacorp"], seat: "developer", officeEgress: OFFICE_EGRESS, events: buildAgentDeleteAzure() },
   { id: "ai-model-extraction-azure", title: "Sustained Query Stream on a Proprietary Azure OpenAI Model Under a Partner Key", complexity: "core", companies: AZURE_SHOPS, seat: "it", events: buildExtractionAzure() },
-  { id: "ai-model-extraction-aws", title: "Sustained Query Stream on a Proprietary Bedrock Model Under a Partner Key", complexity: "core", companies: AWS_SHOPS, seat: "it", events: buildExtractionAws() },
+  { id: "ai-model-extraction-aws", title: "Sustained Query Stream on a Proprietary Bedrock Model Under a Partner Key", complexity: "core", companies: AWS_SHOPS, seat: "it", events: authoredFor("rocketstack", buildExtractionAws()) },
   { id: "ai-rag-source-poisoning-azure", title: "Knowledge Library Page Edited in a Risky Session, Then the Assistant Shares a Flagged URL", complexity: "advanced", companies: AZURE_SHOPS, seat: "finance", officeEgress: OFFICE_EGRESS, events: buildRagPoisoning() },
-  { id: "ai-training-data-poisoning-aws", title: "Training Dataset Overwritten Before a Fine-Tuning Job, Then an Account Stops Being Flagged", complexity: "advanced", companies: AWS_SHOPS, seat: "developer", officeEgress: OFFICE_EGRESS, events: buildTrainingPoisoning() },
+  { id: "ai-training-data-poisoning-aws", title: "Training Dataset Overwritten Before a Fine-Tuning Job, Then an Account Stops Being Flagged", complexity: "advanced", companies: AWS_SHOPS, seat: "developer", officeEgress: OFFICE_EGRESS, events: authoredFor("rocketstack", buildTrainingPoisoning()) },
 ];
 
 /** Team Training only: these chains stay out of the single-player dashboard. */

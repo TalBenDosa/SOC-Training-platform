@@ -11,6 +11,7 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
+import { makeCtx } from "@/lib/logs/native/ctx";
 import { csAlert, csDns, csFile, csProcess } from "@/lib/sim/emitters/crowdstrike";
 import { panConnection, panWeb } from "@/lib/sim/emitters/paloalto";
 import { sentinelAlert } from "@/lib/sim/emitters/sentinel";
@@ -19,6 +20,7 @@ import { winRecord } from "./ad";
 import { MAIL_GATEWAY_COMPANIES, clock, incident, lookalike, type CoreStoryDef } from "./_kit";
 
 const cx = "nexacorp";
+const uuidOf = (seed: string) => makeCtx(cx).uuid(seed);
 const ms = "Microsoft Corporation";
 const PS = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
 const psHash = makeSha256("windows_powershell_v1_signed_microsoft");
@@ -95,15 +97,33 @@ function threadHijack(): TelemetryEvent[] {
   const htmlHash = makeSha256("core-thread-hijack-html"), zipHash = makeSha256("core-thread-hijack-zip"), jsHash = makeSha256("core-thread-hijack-js");
   const wscript = "C:\\Windows\\System32\\wscript.exe", wsHash = makeSha256("windows_wscript_exe_signed_microsoft");
   const c2 = "statement-archive-cdn.example", c2Ip = "203.0.113.214";
-  const mail = (o: { id: string; ts: string; subject: string; msgId: string; senderIp: string; file?: { name: string; ext: string; sha256: string; size: number }; severity: TelemetryEvent["severity"]; description: string; mitre?: string; tactic?: string }): TelemetryEvent => ({
+  const mail = (o: { id: string; ts: string; subject: string; msgId: string; senderIp: string; file?: { name: string; ext: string; sha256: string; size: number }; severity: TelemetryEvent["severity"]; description: string; mitre?: string; tactic?: string }): TelemetryEvent => {
+  const part = (seed: string, disposition: string, filename: string, contentType: string, sha256: string, sandboxStatus: string | null) =>
+    ({ disposition, filename, contentType, oContentType: contentType, md5: makeSha256(`pp:md5:${seed}`).slice(0, 32), sha256, sandboxStatus });
+  const parts = [
+    part(`${o.msgId}:txt`, "inline", "text.txt", "text/plain", makeSha256(`pp:body:${o.msgId}:txt`), null),
+    part(`${o.msgId}:html`, "inline", "text.html", "text/html", makeSha256(`pp:body:${o.msgId}:html`), null),
+    ...(o.file ? [part(`${o.msgId}:${o.file.name}`, "attached", o.file.name, "text/html", o.file.sha256, "unsupported")] : []),
+  ];
+  return ({
     id: o.id, ts: o.ts, source: "email_gateway", vendor: "Proofpoint", event_type: "email_received", severity: o.severity, user_email: email, src_ip: o.senderIp, description: o.description,
     ...(o.file ? { file: { name: o.file.name, path: o.file.name, sha256: o.file.sha256, size: o.file.size, extension: o.file.ext } } : {}),
     ...(o.mitre ? { mitre_technique: o.mitre } : {}), ...(o.tactic ? { mitre_tactic: o.tactic } : {}),
     raw: {
       "pps.QID": `3Fa${o.msgId.slice(1, 7)}`, "pps.messageID": o.msgId, "pps.sender": supplier, "pps.headerFrom": `"Brightline Supply Accounts" <${supplier}>`, "pps.recipient": email, "pps.subject": o.subject, "pps.senderIP": o.senderIp,
       "pps.spf": "pass", "pps.dkim": "pass", "pps.dmarc": "pass", "pps.phishScore": 9, "pps.spamScore": 4, "pps.policyRoutes": ["default_inbound"], "pps.action": "delivered",
+      // The rest of the TAP message record, written for every message (docs/log-schemas/email-proofpoint.md 3.1):
+      // the body parts first, then any attachment; the decoy and the attack differ only in values.
+      "pps.GUID": makeSha256(`pp:guid:${o.msgId}`).slice(0, 32), "pps.id": uuidOf(`pp:id:${o.msgId}`), "pps.cluster": `${cx}_hosted`,
+      "pps.messageTime": o.ts, "pps.messageSize": (o.file?.size ?? 0) + 6_214, "pps.xmailer": "Microsoft Outlook 16.0",
+      "pps.fromAddress": [supplier], "pps.toAddresses": [email], "pps.ccAddresses": [], "pps.headerReplyTo": null, "pps.replyToAddress": [],
+      "pps.malwareScore": 0, "pps.impostorScore": 0, "pps.completelyRewritten": false,
+      "pps.modulesRun": ["access", "av", "zerohour", "spf", "dkimv", "spam", "dmarc", "pdr", ...(o.file ? ["sandbox"] : []), "urldefense"],
+      "pps.quarantineFolder": null, "pps.quarantineRule": null,
+      "pps.messageParts": parts,
     },
   });
+  };
   return incident("inc:core-thread-hijack:1", [
     lookalike(csProcess({
       ...c, id: "cth01", ts: T(0), processName: "msedge.exe", pid: 6910, processPath: edge, cmdline: `"${edge}" --single-argument ${dl}\\Benefits_Guide_2026.html`, parentName: "explorer.exe", parentPid: 3120, sha256: edgeHash, signed: true, signatureSubject: ms, severity: "low",

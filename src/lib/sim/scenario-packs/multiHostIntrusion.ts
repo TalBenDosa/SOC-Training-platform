@@ -342,7 +342,7 @@ export function buildMultiHostIntrusionScenario(
       id: "evt_mhi_ws0b_lure_click", ts: T(-8 * SEC), incidentId: INC_WS,
       user: victim.email, userTitle: "Accounts Payable Clerk", qid: "5C81D3A790", sender: "accounts@supplier-invoices-nexa.com",
       messageId: "<9e17b3d2-61c4-4f08-a2d5-0b7c3e49a118@supplier-invoices-nexa.com>",
-      url: lureUrl, domain: "supplier-invoices-nexa.com", clickIp: "217.177.80.10", userAgent: chromeUa,
+      url: lureUrl, domain: "supplier-invoices-nexa.com", clickIp: "192.0.2.150", userAgent: chromeUa,
       description: "URL Defense recorded n.harel following the rewritten link from the Invoice Q3-4471 mail; click status permitted.",
     }),
     csDns({

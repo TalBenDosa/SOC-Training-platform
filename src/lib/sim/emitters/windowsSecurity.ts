@@ -298,7 +298,8 @@ export function winSpecialPrivileges(o: WinSpecialPrivsOpts): TelemetryEvent {
       "winlog.computer_name": fqdnOf(o),
       "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
       ...(o.recordId ? { "winlog.record_id": o.recordId } : {}),
-      "winlog.event_data.SubjectUserSid": o.targetSid ?? NO_SID,
+      // The new logon's own account: 4672 never carries the NULL SID as its subject.
+      "winlog.event_data.SubjectUserSid": o.targetSid ?? domainSidFor(o.companyId, o.targetUser),
       "winlog.event_data.SubjectUserName": o.targetUser,
       "winlog.event_data.SubjectDomainName": nb,
       ...(o.logonId ? { "winlog.event_data.SubjectLogonId": o.logonId } : {}),

@@ -382,7 +382,7 @@ export function sysmonPipe(o: SysmonPipeOpts): TelemetryEvent {
       "winlog.event_data.ProcessId": String(pid),
       "winlog.event_data.PipeName": o.pipeName,
       "winlog.event_data.Image": o.image,
-      "winlog.event_data.User": o.runAsUser ?? "NT AUTHORITY\SYSTEM",
+      "winlog.event_data.User": o.runAsUser ?? "NT AUTHORITY\\SYSTEM",
       "event.code": "18",
       "event.category": "process",
       "event.action": "pipe-connected",

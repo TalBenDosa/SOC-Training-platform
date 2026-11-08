@@ -433,7 +433,7 @@ function buildVoiceReset(): TelemetryEvent[] {
       extra: {
         ...snowRow("2026-09-22T09:41:05.276Z"),
         "servicenow.urgency": "1 - High", "servicenow.impact": "1 - High", "servicenow.assigned_to": AGENT,
-        "servicenow.work_notes": "d.cohen phoned the desk from the office extension: no call was made this morning, no phone was lost, the laptop has been in use throughout. Desk lead replayed the recording of the call that opened this ticket: the voice is indistinguishable from d.cohen's on first listen but speech cadence is unnaturally uniform, there is no room noise, and the caller declined a call-back. Suspected synthetic (AI-cloned) voice used to impersonate d.cohen. Security operations notified.",
+        "servicenow.work_notes": "At 09:38 d.cohen phoned the desk from the office extension: no call was made this morning, no phone was lost, the laptop has been in use throughout. Desk lead replayed the recording of the 08:31 call that opened this ticket: the voice is indistinguishable from d.cohen's on first listen but speech cadence is unnaturally uniform, there is no room noise, and the caller declined a call-back. Suspected synthetic (AI-cloned) voice used to impersonate d.cohen. Security operations notified.",
         "servicenow.priority": "1 - Critical", "servicenow.assignment_group": "IT Service Desk",
         "servicenow.sys_updated_on": "2026-09-22 09:41:05", "servicenow.sys_updated_by": "s.reinhardt@nexacorp.com",
       },

@@ -17,7 +17,7 @@ export function phishingToExfilEvents() {
   const MIN = 60_000;
 
   const victim   = { hostname: "WS-FIN-2847", email: "j.smith@nexacorp.com",   ip: "10.10.20.14" };
-  const egress   = "217.177.80.10"; // the company's NAT egress (what Okta and AWS see for the office)
+  const egress   = "192.0.2.150"; // the company's NAT egress (what Okta and AWS see for the office)
   const c2Domain = "cdn-update-fb76.xyz";
   const c2Ip     = "185.134.140.139";
   // Story-specific infrastructure (not shared with bec / oauth).
@@ -570,7 +570,7 @@ export function becScenarioEvents() {
   const attackerIp  = "77.83.247.146";
   const sprayIp     = "158.131.159.30";
   const adfsIp      = "10.10.1.15";
-  const egress      = "217.177.80.10"; // the company's NAT egress
+  const egress      = "192.0.2.150"; // the company's NAT egress
   const tenant      = "3f7e2a1b-9c8d-4e5f-6a7b-8c9d0e1f2a3b";
   const attackerUa  = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
   const officeUa    = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
@@ -1737,7 +1737,7 @@ export function oauthScenarioEvents() {
   const appId      = "24502ac4-7a64-456b-af01-2f4f281e8608";
   const spId       = "9972c140-7a9c-440f-a59a-c898b5ff33cf";
   const tenant     = "3f7e2a1b-9c8d-4e5f-6a7b-8c9d0e1f2a3b";
-  const egress     = "217.177.80.10";
+  const egress     = "192.0.2.150";
   const appName    = "MicrosoftSecurityUpdate";
   const winUa      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
   const macUa      = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15";
@@ -4353,28 +4353,28 @@ export function mfaFatigueScenarioEvents() {
     // ── Baseline: the standing privilege that makes the later admin actions possible, and what a normal sign-in looks like ──
     {
       id: "mfa_00a_baseline_okta_role", ts: "2026-03-12T09:14:00.000Z", source: "okta", vendor: "Okta", event_type: "role_assignment", severity: "informational",
-      is_baseline: true, expected_verdict: "informational", hostname: IDP, user_email: "it.admin@nexacorp.com", src_ip: "217.177.80.10",
+      is_baseline: true, expected_verdict: "informational", hostname: IDP, user_email: "it.admin@nexacorp.com", src_ip: "192.0.2.150",
       description: "it.admin granted the Org Administrator role to j.chen in Okta when she joined the IT systems team.",
       raw: {
         "okta.eventType": "user.account.privilege.grant", "okta.outcome.result": "SUCCESS", "okta.actor.alternateId": "it.admin@nexacorp.com", "okta.actor.displayName": "IT Admin",
-        "okta.target.alternateId": EMAIL, "okta.target.displayName": "Org Administrator", "okta.client.ipAddress": "217.177.80.10",
+        "okta.target.alternateId": EMAIL, "okta.target.displayName": "Org Administrator", "okta.client.ipAddress": "192.0.2.150",
       },
     },
     {
       id: "mfa_00b_baseline_entra_role", ts: "2026-03-12T09:16:00.000Z", source: "o365", vendor: "Microsoft Entra ID", event_type: "role_assignment", severity: "informational",
-      is_baseline: true, expected_verdict: "informational", hostname: "aad.nexacorp.com", user_email: "it.admin@nexacorp.com", src_ip: "217.177.80.10",
+      is_baseline: true, expected_verdict: "informational", hostname: "aad.nexacorp.com", user_email: "it.admin@nexacorp.com", src_ip: "192.0.2.150",
       description: "it.admin added j.chen to the Conditional Access Administrator role in Entra ID.",
       raw: {
-        "data.office365.Operation": "Add member to role.", "data.office365.UserId": "it.admin@nexacorp.com", "data.office365.ActorIpAddress": "217.177.80.10",
+        "data.office365.Operation": "Add member to role.", "data.office365.UserId": "it.admin@nexacorp.com", "data.office365.ActorIpAddress": "192.0.2.150",
         "azure.role.name": "Conditional Access Administrator", "azure.target.upn": EMAIL, "azure.actor.upn": "it.admin@nexacorp.com", "data.office365.ResultStatus": "Success",
       },
     },
     {
       id: "mfa_00c_baseline_signin", ts: "2026-06-12T08:41:00.000Z", source: "okta", vendor: "Okta", event_type: "auth_success", severity: "informational",
-      is_baseline: true, expected_verdict: "informational", hostname: IDP, user_email: EMAIL, src_ip: "217.177.80.10",
+      is_baseline: true, expected_verdict: "informational", hostname: IDP, user_email: EMAIL, src_ip: "192.0.2.150",
       description: "j.chen's usual Okta sign-in on Friday morning from the London office, Chrome on Windows.",
       raw: {
-        "okta.eventType": "user.session.start", "okta.outcome.result": "SUCCESS", "okta.actor.displayName": "Jennifer Chen", "okta.client.ipAddress": "217.177.80.10",
+        "okta.eventType": "user.session.start", "okta.outcome.result": "SUCCESS", "okta.actor.displayName": "Jennifer Chen", "okta.client.ipAddress": "192.0.2.150",
         "okta.client.userAgent.rawUserAgent": CHROME,
       },
     },
@@ -6926,7 +6926,7 @@ export function phishingMalwareScenarioEvents() {
   const MIN = 60_000;
 
   const victim = { hostname: "WS-HR-1182", email: "r.avraham@nexacorp.com", ip: "10.10.40.63" };
-  const egress = "217.177.80.10"; // the company's NAT egress (what SaaS and the proxy see)
+  const egress = "192.0.2.150"; // the company's NAT egress (what SaaS and the proxy see)
   const c2Domain = "shiptrack-updates-net.xyz";
   // Story-specific infrastructure (no other storyline uses these addresses).
   const c2Ip = "194.26.135.88";

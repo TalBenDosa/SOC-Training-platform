@@ -8,6 +8,7 @@
  * answer-bearing out of this file: every visitor can read it.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { auditdRaw, type AuditdEventOpts } from "@/lib/sim/emitters/auditd";
 
 /** Telemetry half of the linuxPrivescSuid scenario: the events and the story title, no answer key. */
 export function linuxPrivescSuidScenarioEvents() {
@@ -63,30 +64,34 @@ export function linuxPrivescSuidScenarioEvents() {
   const WWW = { auid: "4294967295", uid: "33", gid: "33", euid: "33", egid: "33", ses: "4294967295", tty: "(none)", cwd: "/var/www/html" } as const;
   const ROOT_EUID = { euid: "0", suid: "0", fsuid: "0", egid: "33", fsgid: "33" } as const;
 
-  const syscallRaw = (o: {
-    syscall: "59" | "257"; pid: number; ppid: number; comm: string; exe: string; key: string; exit?: string; root?: boolean;
-    extra?: Record<string, string>;
-  }): Record<string, string> => ({
-    "data.audit.type": "SYSCALL",
-    "data.audit.arch": "c000003e",
-    "data.audit.syscall": o.syscall,
-    "data.audit.success": "yes",
-    "data.audit.exit": o.exit ?? "0",
-    "data.audit.ppid": String(o.ppid),
-    "data.audit.pid": String(o.pid),
-    "data.audit.auid": WWW.auid,
-    "data.audit.uid": WWW.uid,
-    "data.audit.gid": WWW.gid,
-    "data.audit.euid": o.root ? ROOT_EUID.euid : WWW.euid,
-    "data.audit.egid": WWW.egid,
-    ...(o.root ? { "data.audit.suid": ROOT_EUID.suid, "data.audit.fsuid": ROOT_EUID.fsuid, "data.audit.fsgid": ROOT_EUID.fsgid } : {}),
-    "data.audit.tty": WWW.tty,
-    "data.audit.ses": WWW.ses,
-    "data.audit.comm": o.comm,
-    "data.audit.exe": o.exe,
-    "data.audit.key": o.key,
-    ...(o.extra ?? {}),
-  });
+  // The audit events of the intrusion, one per audit(epoch:serial) stamp. Wazuh merges an event's
+  // records (SYSCALL + CWD + EXECVE + PATH) into one alert, so the SYSCALL row, its EXECVE row and its
+  // PATH row below each carry the event's merged fields (sim/emitters/auditd); data.audit.type names
+  // the record a row stands for.
+  type AuditEv = Omit<AuditdEventOpts, "type" | "auid" | "uid" | "gid" | "tty" | "ses" | "cwd"> & { root?: boolean };
+  const AUDIT: Record<string, AuditEv> = {
+    sh: { serial: 4468, syscall: "59", pid: SHELL_PID, ppid: WORKER.pid, comm: "sh", exe: "/usr/bin/dash", key: "exec-tracking", argv: ["sh", "-i"] },
+    id: { serial: 4471, syscall: "59", pid: 40318, ppid: SHELL_PID, comm: "id", exe: "/usr/bin/id", key: "exec-tracking", argv: ["id"] },
+    find: { serial: 4502, syscall: "59", pid: 40361, ppid: SHELL_PID, comm: "find", exe: "/usr/bin/find", key: "exec-tracking", argv: ["find", "/", "-perm", "-4000", "-type", "f"] },
+    exploit: { serial: 4519, syscall: "59", pid: 40377, ppid: SHELL_PID, comm: "find", exe: "/usr/bin/find", key: "privilege-escalation", root: true,
+      argv: ["find", ".", "-exec", "/bin/sh", "-p", ";", "-quit"],
+      file: { name: suidBinary, inode: 1835237, mode: "0104755", ouid: "0", ogid: "0", nametype: "NORMAL" } },
+    shadow: { serial: 4533, syscall: "257", exit: "3", pid: 40402, ppid: ROOT_SHELL_PID, comm: "cat", exe: "/usr/bin/cat", key: "sensitive-file-read", root: true,
+      file: { name: "/etc/shadow", inode: 1049003, mode: "0100640", ouid: "0", ogid: "42", nametype: "NORMAL" } },
+    useradd: { serial: 4561, syscall: "59", pid: 40455, ppid: ROOT_SHELL_PID, comm: "useradd", exe: "/usr/sbin/useradd", key: "identity-change", root: true,
+      argv: ["useradd", "-o", "-u", "0", "-g", "0", "-m", "-s", "/bin/bash", backdoorUser] },
+    passwd: { serial: 4566, syscall: "257", exit: "5", pid: 40455, ppid: ROOT_SHELL_PID, comm: "useradd", exe: "/usr/sbin/useradd", key: "identity-change", root: true,
+      file: { name: "/etc/passwd", inode: 1048981, mode: "0100644", ouid: "0", ogid: "0", nametype: "NORMAL" } },
+    authkeys: { serial: 4590, syscall: "257", exit: "3", pid: ROOT_SHELL_PID, ppid: 40377, comm: "sh", exe: "/usr/bin/dash", key: "ssh-keys", root: true,
+      file: { name: "/home/sysupdate/.ssh/authorized_keys", inode: 2359319, mode: "0100600", ouid: "0", ogid: "0", nametype: "CREATE" } },
+  };
+  const auditRaw = (ev: keyof typeof AUDIT, type: AuditdEventOpts["type"]): Record<string, string> => {
+    const { root, ...e } = AUDIT[ev];
+    return auditdRaw({
+      ...e, type, auid: WWW.auid, uid: WWW.uid, gid: WWW.gid, tty: WWW.tty, ses: WWW.ses, cwd: WWW.cwd,
+      ...(root ? { euid: ROOT_EUID.euid, suid: ROOT_EUID.suid, fsuid: ROOT_EUID.fsuid, egid: ROOT_EUID.egid, fsgid: ROOT_EUID.fsgid } : {}),
+    });
+  };
 
   const events: TelemetryEvent[] = [
     // ── 1. BENIGN DISCRIMINATOR — the sanctioned road to root ────────────────
@@ -158,10 +163,7 @@ export function linuxPrivescSuidScenarioEvents() {
         cmdline: "sh -i",
         user: "www-data",
       },
-      raw: {
-        "data.audit.type": "EXECVE",
-        "data.audit.execve.a0": "sh",
-      },
+      raw: auditRaw("sh", "EXECVE"),
     },
 
     // ── 2. Foothold discovery — who am I ─────────────────────────────────────
@@ -179,7 +181,7 @@ export function linuxPrivescSuidScenarioEvents() {
       mitre_tactic: "Discovery",
       description:
         "A shell running as www-data on web-app-07 executed `id`. The SYSCALL record shows uid=33 euid=33 and, tellingly, auid=4294967295 — the process belongs to no login session.",
-      raw: syscallRaw({ syscall: "59", pid: 40318, ppid: SHELL_PID, comm: "id", exe: "/usr/bin/id", key: "exec-tracking" }),
+      raw: auditRaw("id", "SYSCALL"),
     },
     {
       id: "lpe_02b_id_execve",
@@ -193,7 +195,7 @@ export function linuxPrivescSuidScenarioEvents() {
       severity: "low",
       description: "The EXECVE record of the same audit event: argc=1, a0=id.",
       process: { name: "id", pid: 40318, path: "/usr/bin/id", parent_name: "sh", parent_pid: SHELL_PID, cmdline: "id", user: "www-data" },
-      raw: { "data.audit.type": "EXECVE", "data.audit.execve.a0": "id" },
+      raw: auditRaw("id", "EXECVE"),
     },
 
     // ── 3. THE PRIVILEGE BOUNDARY — sudo is not available ────────────────────
@@ -251,7 +253,7 @@ export function linuxPrivescSuidScenarioEvents() {
       mitre_tactic: "Discovery",
       description:
         "www-data enumerated setuid binaries with `find / -perm -4000 -type f`. The output included /usr/bin/find itself, which is not SUID on a stock Ubuntu install.",
-      raw: syscallRaw({ syscall: "59", pid: 40361, ppid: SHELL_PID, comm: "find", exe: "/usr/bin/find", key: "exec-tracking" }),
+      raw: auditRaw("find", "SYSCALL"),
     },
     {
       id: "lpe_04b_suid_enum_execve",
@@ -265,7 +267,7 @@ export function linuxPrivescSuidScenarioEvents() {
       severity: "low",
       description: "The EXECVE record of the same audit event: find / -perm -4000 -type f.",
       process: { name: "find", pid: 40361, path: "/usr/bin/find", parent_name: "sh", parent_pid: SHELL_PID, cmdline: "find / -perm -4000 -type f", user: "www-data" },
-      raw: { "data.audit.type": "EXECVE" },
+      raw: auditRaw("find", "EXECVE"),
     },
 
     // ── 5. THE EXPLOIT — SUID find spawns a root shell ───────────────────────
@@ -283,7 +285,7 @@ export function linuxPrivescSuidScenarioEvents() {
       mitre_tactic: "Privilege Escalation",
       description:
         "www-data ran `find . -exec /bin/sh -p \\; -quit` from /var/www/html. Because /usr/bin/find carries mode 04755, the execve runs with euid=0 — the SYSCALL shows uid=33 but euid=0, the moment privilege is gained.",
-      raw: syscallRaw({ syscall: "59", pid: 40377, ppid: SHELL_PID, comm: "find", exe: "/usr/bin/find", key: "privilege-escalation", root: true }),
+      raw: auditRaw("exploit", "SYSCALL"),
     },
     {
       id: "lpe_05b_suid_exploit_execve",
@@ -297,7 +299,7 @@ export function linuxPrivescSuidScenarioEvents() {
       severity: "high",
       description: "The EXECVE record of the same audit event: find . -exec /bin/sh -p ; -quit.",
       process: { name: "find", pid: 40377, path: "/usr/bin/find", parent_name: "sh", parent_pid: SHELL_PID, cmdline: "find . -exec /bin/sh -p ';' -quit", user: "www-data" },
-      raw: { "data.audit.type": "EXECVE" },
+      raw: auditRaw("exploit", "EXECVE"),
     },
     {
       id: "lpe_05c_suid_exploit_path",
@@ -312,15 +314,7 @@ export function linuxPrivescSuidScenarioEvents() {
       description: "The PATH record of the same audit event: /usr/bin/find, mode 0104755, owner root.",
       process: { name: "find", pid: 40377, path: "/usr/bin/find", parent_name: "sh", parent_pid: SHELL_PID, user: "www-data" },
       file: { name: "find", path: suidBinary },
-      raw: {
-        "data.audit.type": "PATH",
-        "data.audit.file.name": suidBinary,
-        "data.audit.file.mode": "0104755",
-        "data.audit.file.ouid": "0",
-        "data.audit.file.ogid": "0",
-        "data.audit.file.nametype": "NORMAL",
-        "data.audit.key": "privilege-escalation",
-      },
+      raw: auditRaw("exploit", "PATH"),
     },
 
     // ── 6. THE EDR DETECTION — Falcon flags the euid transition ──────────────
@@ -395,7 +389,7 @@ export function linuxPrivescSuidScenarioEvents() {
       mitre_tactic: "Credential Access",
       description:
         "From the root shell, `cat /etc/shadow` opened the password-hash file. The SYSCALL is openat (257) with uid=33 euid=0 — a file mode 0640 root:shadow, unreadable to www-data, is read successfully.",
-      raw: syscallRaw({ syscall: "257", pid: 40402, ppid: ROOT_SHELL_PID, comm: "cat", exe: "/usr/bin/cat", key: "sensitive-file-read", exit: "3", root: true }),
+      raw: auditRaw("shadow", "SYSCALL"),
     },
     {
       id: "lpe_07b_read_shadow_path",
@@ -410,15 +404,7 @@ export function linuxPrivescSuidScenarioEvents() {
       description: "The PATH record of the same audit event: /etc/shadow, mode 0100640, owner root, group 42.",
       process: { name: "cat", pid: 40402, path: "/usr/bin/cat", parent_name: "sh", parent_pid: ROOT_SHELL_PID, cmdline: "cat /etc/shadow", user: "www-data" },
       file: { name: "shadow", path: "/etc/shadow" },
-      raw: {
-        "data.audit.type": "PATH",
-        "data.audit.file.name": "/etc/shadow",
-        "data.audit.file.mode": "0100640",
-        "data.audit.file.ouid": "0",
-        "data.audit.file.ogid": "42",
-        "data.audit.file.nametype": "NORMAL",
-        "data.audit.key": "sensitive-file-read",
-      },
+      raw: auditRaw("shadow", "PATH"),
     },
 
     // ── 8. ROOT ACTION #2 — create a uid-0 backdoor account ──────────────────
@@ -436,7 +422,7 @@ export function linuxPrivescSuidScenarioEvents() {
       mitre_tactic: "Persistence",
       description:
         "The root shell ran useradd to create the account sysupdate with uid 0 and gid 0, a second root-equivalent identity, with a home directory. The SYSCALL shows uid=33 euid=0 executing /usr/sbin/useradd.",
-      raw: syscallRaw({ syscall: "59", pid: 40455, ppid: ROOT_SHELL_PID, comm: "useradd", exe: "/usr/sbin/useradd", key: "identity-change", root: true }),
+      raw: auditRaw("useradd", "SYSCALL"),
     },
     {
       id: "lpe_08b_backdoor_user_execve",
@@ -450,7 +436,7 @@ export function linuxPrivescSuidScenarioEvents() {
       severity: "high",
       description: "The EXECVE record of the same audit event: useradd -o -u 0 -g 0 -m -s /bin/bash sysupdate.",
       process: { name: "useradd", pid: 40455, path: "/usr/sbin/useradd", parent_name: "sh", parent_pid: ROOT_SHELL_PID, cmdline: "useradd -o -u 0 -g 0 -m -s /bin/bash sysupdate", user: "www-data" },
-      raw: { "data.audit.type": "EXECVE" },
+      raw: auditRaw("useradd", "EXECVE"),
     },
     {
       id: "lpe_08c_passwd_written",
@@ -465,15 +451,7 @@ export function linuxPrivescSuidScenarioEvents() {
       description: "useradd rewrote /etc/passwd one second after it started.",
       process: { name: "useradd", pid: 40455, path: "/usr/sbin/useradd", parent_name: "sh", parent_pid: ROOT_SHELL_PID, user: "www-data" },
       file: { name: "passwd", path: "/etc/passwd" },
-      raw: {
-        "data.audit.type": "PATH",
-        "data.audit.file.name": "/etc/passwd",
-        "data.audit.file.mode": "0100644",
-        "data.audit.file.ouid": "0",
-        "data.audit.file.ogid": "0",
-        "data.audit.file.nametype": "NORMAL",
-        "data.audit.key": "identity-change",
-      },
+      raw: auditRaw("passwd", "PATH"),
     },
 
     // ── 8d. The attacker's key is planted for the new account ────────────────
@@ -490,7 +468,7 @@ export function linuxPrivescSuidScenarioEvents() {
       mitre_technique: "T1098.004",
       mitre_tactic: "Persistence",
       description: "The root shell (pid 40378) opened /home/sysupdate/.ssh/authorized_keys for writing at 13:54:00, the shell itself performs the redirection, so there is no separate process.",
-      raw: syscallRaw({ syscall: "257", pid: ROOT_SHELL_PID, ppid: 40377, comm: "sh", exe: "/usr/bin/dash", key: "ssh-keys", exit: "3", root: true }),
+      raw: auditRaw("authkeys", "SYSCALL"),
     },
     {
       id: "lpe_08e_authorized_keys_path",
@@ -505,15 +483,7 @@ export function linuxPrivescSuidScenarioEvents() {
       description: "The PATH record of the same audit event: /home/sysupdate/.ssh/authorized_keys, created, mode 0100600.",
       process: { name: "sh", pid: ROOT_SHELL_PID, path: "/usr/bin/dash", parent_name: "find", parent_pid: 40377, user: "www-data" },
       file: { name: "authorized_keys", path: "/home/sysupdate/.ssh/authorized_keys" },
-      raw: {
-        "data.audit.type": "PATH",
-        "data.audit.file.name": "/home/sysupdate/.ssh/authorized_keys",
-        "data.audit.file.mode": "0100600",
-        "data.audit.file.ouid": "0",
-        "data.audit.file.ogid": "0",
-        "data.audit.file.nametype": "CREATE",
-        "data.audit.key": "ssh-keys",
-      },
+      raw: auditRaw("authkeys", "PATH"),
     },
 
     // ── 9. THE PAYOFF — remote login as the backdoor account ─────────────────

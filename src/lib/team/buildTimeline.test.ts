@@ -150,16 +150,21 @@ describe("buildTeamTimeline — answer key (contract 1)", () => {
 describe("buildTeamTimeline — scripted injects are backed by telemetry", () => {
   it.each(["s", "bec9df68", "seed-2"])("seed %s: twist beacons + false-lead transfers exist, deterministic from the seed", (seed) => {
     const tl = buildTeamTimeline("nexacorp", "medium", seed);
-    const twist = tl.find(e => e.answer?.original_id === "msel_twist")!;
+    const twist = tl.find(e => e.answer?.original_id === "msel_twist");
     const lead = tl.find(e => e.answer?.original_id === "msel_false_lead")!;
     const beacons = tl.filter(e => e.answer?.supports_inject === "msel_twist");
-    expect(beacons.length).toBeGreaterThanOrEqual(2);
-    for (const b of beacons) {
+    // A twist follows from what its story achieved (msel.ts twistGround): a story that gives it no cause on
+    // a host or an account (bec9df68: a Copilot oversharing probe, then an MCP connector change) drops the
+    // inject, and then no twist row may reach the feed either.
+    if (!twist) expect(beacons).toEqual([]);
+    else expect(beacons.length).toBeGreaterThanOrEqual(2);
+    if (twist) for (const b of beacons) {
       expect(b.channel).toBe("feed");
       expect(b.answer?.expected_verdict).toBe("tp");
       expect(b.due_offset_ms).toBeGreaterThan(twist.due_offset_ms);
     }
     // the beacon belongs to a running attack story's incident, on a host that story used
+    if (twist) {
     const inc = beacons[0].answer?.incident_id;
     expect(new Set(beacons.map(b => b.answer?.incident_id)).size).toBe(1);
     const storyLogs = tl.filter(e => e.answer?.origin === "story" && e.answer?.incident_id === inc);
@@ -167,6 +172,7 @@ describe("buildTeamTimeline — scripted injects are backed by telemetry", () =>
     // (an identity-only story pair has no endpoint to beacon from — then only the incident link holds)
     const storyHasHost = tl.some(e => e.answer?.origin === "story" && e.body.hostname && ["tp", "escalate"].includes(String(e.answer?.expected_verdict)));
     if (storyHasHost) expect(storyLogs.map(e => e.body.hostname)).toContain(beacons[0].body.hostname);
+    }
 
     const saas = tl.filter(e => e.answer?.supports_inject === "msel_false_lead");
     expect(saas.filter(e => e.body.source === "firewall").length).toBeGreaterThanOrEqual(2);
@@ -176,6 +182,14 @@ describe("buildTeamTimeline — scripted injects are backed by telemetry", () =>
     // placement is a pure function of the seed (story choice aside)
     const again = buildTeamTimeline("nexacorp", "medium", seed).filter(e => e.answer?.supports_inject === "msel_false_lead");
     expect(again.map(e => e.body.description)).toEqual(saas.map(e => e.body.description));
+  });
+});
+
+describe("buildTeamTimeline: a grounded twist reaches the feed", () => {
+  it.each(["s", "seed-2"])("seed %s draws a twist with its rows", (seed) => {
+    const tl = buildTeamTimeline("nexacorp", "medium", seed);
+    expect(tl.find(e => e.answer?.original_id === "msel_twist")).toBeTruthy();
+    expect(tl.filter(e => e.answer?.supports_inject === "msel_twist").length).toBeGreaterThanOrEqual(2);
   });
 });
 

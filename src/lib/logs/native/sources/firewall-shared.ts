@@ -15,6 +15,7 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeCtx } from "../types";
+import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 
 export type Sev = "informational" | "low" | "medium" | "high" | "critical";
 export type Dir = "outbound" | "inbound" | "internal";
@@ -119,8 +120,12 @@ const CO_PREFIX: Record<string, string> = { nexacorp: "10.10", rocketstack: "172
 const PUB_FIRST = [62, 77, 82, 109, 145, 176, 212, 213, 217];
 const EXT_FIRST = [23, 34, 45, 46, 51, 64, 66, 81, 89, 94, 103, 104, 107, 141, 146, 149, 151, 159, 162, 167, 178, 188, 193, 194, 195, 198, 199, 206, 209];
 
-/** The company's SNAT / hide-NAT egress address (stable per company). */
+/** The company's SNAT / hide-NAT egress address (stable per company): the office address the company
+ *  profile publishes (companyProfilesMeta office.ip), so the firewall, the SaaS sign-ins and the stories
+ *  name one egress. A company without one gets a stable derived address. */
 export function egressIp(ctx: NativeCtx): string {
+  const office = COMPANY_ASSETS[ctx.companyId]?.office?.ip;
+  if (office) return office;
   const k = `${ctx.companyId}:egress`;
   return `${PUB_FIRST[ctx.int(k, 0, PUB_FIRST.length - 1)]}.${ctx.int(k + "b", 1, 254)}.${ctx.int(k + "c", 1, 254)}.10`;
 }

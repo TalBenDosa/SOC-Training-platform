@@ -45,6 +45,7 @@ import { m365Operation } from "@/lib/sim/emitters/m365";
 import { azureOpenAiRequest, type AzureAiResource, type GeoLite } from "@/lib/sim/emitters/azureAi";
 import { makeSha256 } from "@/lib/sim/iocs";
 import { makeCtx } from "@/lib/logs/native/ctx";
+import { OFFICE_EGRESS } from "./wave4-shared";
 
 // ── small deterministic helpers (self-contained; no shared-file edits) ──────────
 const guid = (seed: string): string => {
@@ -413,7 +414,7 @@ const KB_PAGE_REL = "SitePages/Vendor-Payment-Instructions.aspx";
 const FINANCE_USER = "r.avraham@nexacorp.com";        // asks Copilot, starts the payment change
 const FINANCE_USER2 = "j.chen@nexacorp.com";          // a second finance user Copilot also answers
 const COMPROMISED = "m.levi@nexacorp.com";            // the account used to edit the KB page
-const OFFICE_IP = "198.51.100.8";                      // NexaCorp London office egress
+const OFFICE_IP = OFFICE_EGRESS;                       // NexaCorp London office egress (the one office address, companyProfilesMeta)
 const OFFICE_GEO = { country: "United Kingdom", iso: "GB", city: "London", lat: 51.5074, lon: -0.1278 };
 const ATTACKER_IP = "198.51.100.66";                  // hosting / VPN address the compromised sign-in came from
 const ATTACKER_GEO = { country: "Germany", iso: "DE", city: "Falkenstein", lat: 50.4779, lon: 12.3713 };
@@ -533,7 +534,7 @@ function buildStoredInjectionCopilotKb(): TelemetryEvent[] {
       riskLevel: "none", conditionalAccess: "success",
       geo: { country: OFFICE_GEO.country, city: OFFICE_GEO.city, latitude: OFFICE_GEO.lat, longitude: OFFICE_GEO.lon },
       severity: "informational", isInteractive: true,
-      description: "Entra sign-in for r.avraham to the Microsoft 365 home at 10:04 from the London office 198.51.100.8 on a managed, compliant device. The account's normal start of day.",
+      description: "Entra sign-in for r.avraham to the Microsoft 365 home at 10:04 from the London office 192.0.2.150 on a managed, compliant device. The account's normal start of day.",
     }),
 
     // 5. THE POISONED ANSWER: Copilot answers the finance user and cites the edited KB page.
@@ -631,6 +632,7 @@ export const AI_WAVE3_B_STORIES: AiStoryDef[] = [
     title: "Poisoned Knowledge-Base Page Makes Copilot Hand Back a Changed Vendor Account",
     complexity: "core",
     companies: ["nexacorp", "medcore", "globallogis", "quantumbank"], soloCompanies: ["nexacorp", "quantumbank"], seat: "finance",
+    officeEgress: OFFICE_EGRESS,
     events: buildStoredInjectionCopilotKb(),
   },
 ];

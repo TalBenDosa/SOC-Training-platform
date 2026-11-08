@@ -51,6 +51,31 @@ function safe(line: string, plain: string): string {
 const shortUser = (u: string) => u.split("\\").pop()!.split("@")[0];
 
 /**
+ * An Azure API Management gateway row (ApiManagementGatewayLogs): the operation the gateway proxied
+ * for which subscription, and its status. A Content Safety Prompt Shields call (text:shieldPrompt) is
+ * read from the logged backend response: each analysis and its attackDetected value, as the service
+ * returned them, with no wording of ours.
+ */
+function apimLine(e: TelemetryEvent): string {
+  const raw = e.raw ?? {};
+  const sub = rawStr(raw, "ApimSubscriptionId");
+  const op = rawStr(raw, "OperationId");
+  const status = raw.ResponseCode ?? raw.BackendResponseCode;
+  if (op === "shieldPrompt") {
+    let parsed: { userPromptAnalysis?: { attackDetected?: unknown }; documentsAnalysis?: { attackDetected?: unknown }[] } | null = null;
+    try { parsed = JSON.parse(rawStr(raw, "BackendResponseBody")); } catch { parsed = null; }
+    const parts: string[] = [];
+    if (parsed?.userPromptAnalysis && "attackDetected" in parsed.userPromptAnalysis) parts.push(`userPromptAnalysis attackDetected ${String(parsed.userPromptAnalysis.attackDetected)}`);
+    const docs = Array.isArray(parsed?.documentsAnalysis) ? parsed!.documentsAnalysis! : [];
+    if (docs.length) parts.push(`documentsAnalysis attackDetected ${docs.map(d => String(d?.attackDetected)).join(", ")}`);
+    if (parts.length) return `Prompt Shields (shieldPrompt): ${parts.join("; ")}${sub ? `, ${sub}` : ""}`;
+    return `Prompt Shields (shieldPrompt) call through API Management${sub ? `, ${sub}` : ""}${status !== undefined ? `: HTTP ${status}` : ""}`;
+  }
+  const api = rawStr(raw, "ApiId");
+  return `API Management ${rawStr(raw, "Method") || "request"} ${[api, op].filter(Boolean).join("/") || "to an API"}${sub ? ` for ${sub}` : ""}${status !== undefined ? `: HTTP ${status}` : ""}`;
+}
+
+/**
  * A directory change names who did it and to whom (Entra AuditLogs initiatedBy / targetResources):
  * "z.yilmaz reset the password of y.mendes", never "y.mendes performed Reset password" (review
  * 2026-11-08: Tier-1 read the help desk agent's change as the account owner's own action).
@@ -349,6 +374,8 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
     case "http_request":
       // A server's own access log: the request it answered, not someone browsing.
       if (event.source === "web_server") return `${n?.method ?? "GET"} ${String(event.raw?.["url.path"] ?? "/")} on ${n?.domain ?? "web server"} answered ${n?.status ?? 200}`;
+      // An API gateway's own log (Azure API Management): the API operation it proxied, never browsing.
+      if (rawStr(event.raw, "Type") === "ApiManagementGatewayLogs") return apimLine(event);
       return `${who} browsed to ${n?.domain || hostOf(n?.url) || hostOf(rawStr(event.raw, "zscaler.url", "data.http.url")) || rawStr(event.raw, "zscaler.hostname", "url.domain") || event.dst_ip || "a website"}`;
     case "http_blocked":
       return `Web request blocked for ${who}`;

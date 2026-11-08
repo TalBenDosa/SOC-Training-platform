@@ -87,7 +87,7 @@ export function buildInsiderDlpUsbCloudScenario(
   const personalCloud = "www.dropbox.com";
   const dropboxIp = "162.125.248.18";
   // NexaCorp's public egress NAT address (the address the proxy sees the laptop behind).
-  const egressIp = "217.177.80.10";
+  const egressIp = "192.0.2.150";
 
   // The two marquee sensitive files, cited verbatim across the chain.
   const file1 = "Client_Master_Book_2026.xlsx";

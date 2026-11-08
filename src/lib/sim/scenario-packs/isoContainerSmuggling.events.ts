@@ -63,7 +63,7 @@ export function isoContainerSmugglingScenarioEvents() {
       id: "evt_ics_00b_lure_click", ts: T(-92_000), incidentId: INCIDENT,
       user: victim.email, userTitle: "Accounts Payable Clerk", qid: "7D13E0A4B2", sender: "billing@invoice-doc-share.net",
       messageId: "<5b2f71c0-9ad4-4e63-b1f7-3c0a18e2d654@invoice-doc-share.net>",
-      url: lureUrl, domain: shareSite, clickIp: "217.177.80.10",
+      url: lureUrl, domain: shareSite, clickIp: "192.0.2.150",
       userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
       description: "URL Defense recorded n.katz following the rewritten link from the Overdue invoice 84421 mail; click status permitted.",
     }),
