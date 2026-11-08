@@ -406,8 +406,12 @@ function renderAudit(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, s: AuditSpe
   const prefix = s.service === "Authentication Methods" ? "AuthMethods" : s.service === "Conditional Access" ? "IPCGraph" : s.service === "Invited Users" ? "B2B" : "Directory";
   const id = rawStr(ev, "azure.auditlogs.properties.id") ?? `${prefix}_${corr}_${b62(ctx, `${ev.id}:aid`, 5).toUpperCase()}_${ctx.int(`${ev.id}:aid#`, 172000000, 179999999)}`;
   const ok = f.success;
+  // Entra is SaaS: an admin working inside the office reaches it from the company's NAT egress, so a
+  // directory change made from the LAN records that public address (as the sign-in does), never the
+  // workstation's private IP.
+  const initIp = s.initiator && "upn" in s.initiator ? s.initiator.ip ?? "" : "";
   const initiatedBy = s.initiator === null ? { app: null, user: null } :
-    "upn" in s.initiator ? { app: null, user: { id: userId(ctx, s.initiator.upn), displayName: null, userPrincipalName: s.initiator.upn, ipAddress: s.initiator.ip ?? "" } } :
+    "upn" in s.initiator ? { app: null, user: { id: userId(ctx, s.initiator.upn), displayName: null, userPrincipalName: s.initiator.upn, ipAddress: isPrivateIp(initIp) ? egressIp(ctx) : initIp } } :
       { app: { appId: ctx.uuid(`${ctx.companyId}:entra-app:${s.initiator.app}`), displayName: s.initiator.app, servicePrincipalId: ctx.uuid(`${ctx.companyId}:entra-sp:${s.initiator.app}`), servicePrincipalName: null }, user: null };
   const record: Record<string, unknown> = {
     id,

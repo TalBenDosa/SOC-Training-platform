@@ -192,6 +192,8 @@ function defaultUa(ctx: NativeCtx, user: string): string {
     : `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v}.0.0.0 Safari/537.36`;
 }
 function geoResidency(ctx: NativeCtx): string {
+  // SharePoint data-location code of the tenant's default geo: a London tenant is provisioned in the UK geo (GBR).
+  if (ctx.companyId === "nexacorp") return "GBR";
   return ["medcore", "globallogis", "quantumbank"].includes(ctx.companyId) ? "EUR" : "NAM";
 }
 
