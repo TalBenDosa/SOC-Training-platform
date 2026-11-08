@@ -54,7 +54,7 @@ import { roleDirective, RoleGuideModal } from "./_components/RoleGuideModal";
 import { GuidedTour, tourLength } from "./_components/GuidedTour";
 import { tourFor, forSentinel } from "./_components/teamTours";
 import { useSentinelIncidents } from "@/lib/team/useSentinelIncidents";
-import { showSentinelWindow, siemWindowName } from "@/lib/team/twoWindows";
+import { sentinelWindowName, showSentinelWindow, siemWindowName } from "@/lib/team/twoWindows";
 import { SharedCase, caseHeadline } from "./_components/SharedCase";
 import { ShiftBar, ShiftClockView, EndCountdown, type BarNotice } from "./_components/ShiftBar";
 import { openPresenceNotices, openEndRequest, shiftClock } from "./_components/shiftClock";
@@ -114,7 +114,9 @@ export default function TeamRoomPage() {
   // QA M1: the server says I was removed from this session (403 { removed }) — the room is closed to me.
   const [removed, setRemoved] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const [edrNote, setEdrNote] = useState<string | null>(null); // B8: EDR open feedback (shown in any phase, incl. running)
+  const [edrNote, setEdrNote] = useState<string | null>(null);
+  // A blocked pop-up: the notice offers a plain link to the same named window (a link click is never blocked).
+  const [blockedSentinelUrl, setBlockedSentinelUrl] = useState<string | null>(null); // B8: EDR open feedback (shown in any phase, incl. running)
 
   const [online, setOnline] = useState<Set<string>>(new Set());
   // Lobby readiness is DERIVED from the server's event log (+ the roster status at load) — see
@@ -1027,7 +1029,8 @@ export default function TeamRoomPage() {
     if (me?.role) q.set("r", me.role);
     if (target?.host) q.set("host", target.host);
     if (target?.incident) q.set("incident", target.incident);
-    if (!showSentinelWindow(id, `/sentinel?${q}`, target)) { setEdrNote("Pop-up blocked: allow pop-ups for this site, then open Sentinel again."); return; }
+    if (!showSentinelWindow(id, `/sentinel?${q}`, target)) { setBlockedSentinelUrl(`/sentinel?${q}`); setEdrNote("This browser blocked the Sentinel window. Open it with the link, or allow pop-ups for this site."); return; }
+    setBlockedSentinelUrl(null);
     setEdrNote(null);
   }, [id, me?.id, me?.role]);
   const openEdr = useCallback((description?: string, host?: string) => {
@@ -1452,7 +1455,9 @@ export default function TeamRoomPage() {
               if (mgrNotice && (me.role === "mgr" || me.role === "lead")) notices.push({ key: "mgr", tone: "info", onDismiss: () => setMgrNotice(null), text: <bdi>{mgrNotice.text}</bdi>,
                 actions: btn("Open", () => { if (mgrNotice.go === "desk") document.querySelector("[data-command-desk]")?.scrollIntoView({ behavior: "smooth", block: "start" }); else setMgrView(mgrNotice.go); setMgrNotice(null); }) });
               if (t3Sent) notices.push({ key: "t3sent", tone: "good", text: t3Sent, onDismiss: () => setT3Sent(null) });
-              if (edrNote) notices.push({ key: "edrnote", tone: "warn", text: edrNote, onDismiss: () => setEdrNote(null), urgent: true });
+              if (edrNote) notices.push({ key: "edrnote", tone: "warn", text: edrNote, onDismiss: () => { setEdrNote(null); setBlockedSentinelUrl(null); }, urgent: true,
+                actions: blockedSentinelUrl ? <a key="open-sentinel" href={blockedSentinelUrl} target={sentinelWindowName(id)} rel="opener" onClick={() => { setEdrNote(null); setBlockedSentinelUrl(null); }}
+                  className="inline-flex h-7 items-center rounded-md bg-cyber-500 px-2 text-xs font-semibold text-slate-950 hover:bg-cyber-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyber-300">Open Sentinel</a> : undefined });
               for (const n of leftNotices) notices.push({ key: n.key, tone: "warn", text: <><b><bdi>{n.name}</bdi></b> ({n.role}) left the session.</>, onDismiss: () => setLeftNotices(ns => ns.filter(x => x.key !== n.key)) });
               const startedMs = startedAtIso ? Date.parse(startedAtIso) : null;
               return (
