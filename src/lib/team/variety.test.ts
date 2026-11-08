@@ -267,7 +267,8 @@ describe("no answer in the shape", () => {
       const victims = new Set(tl.filter(e => ["tp", "escalate"].includes(String(ans(e).expected_verdict)) && ans(e).origin === "story").map(e => e.body.user_email).filter(Boolean));
       for (const e of tl) {
         const id = origId(e);
-        const group = id.startsWith("fpa_") ? id.replace(/^fpa_(vpnfail|lockout)_/, "fpa_lock_").replace(/_\d+$/, "") : id.startsWith("msel_false_lead") ? "lead" : null;
+        // A maker's evidence rows (fpa_<maker>ev_<n>_<k>) belong to its alert (fpa_<maker>_<n>).
+        const group = id.startsWith("fpa_") ? id.replace(/^fpa_(vpnfail|lockout)_/, "fpa_lock_").replace(/^fpa_([a-z]+)ev_(\d+)_\d+/, "fpa_$1_$2").replace(/_\d+$/, "") : id.startsWith("msel_false_lead") ? "lead" : null;
         if (!group || ans(e).expected_verdict === "benign" && group !== "lead") continue;
         const u = e.body.user_email as string | undefined;
         if (!u || id === "msel_false_lead_itsm") continue;

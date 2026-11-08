@@ -6,6 +6,7 @@
  * Real tables come from the Azure Monitor reference and the Azure-Sentinel connector files. Custom-log
  * tables are declared in tables.ts, which says which names no connector confirms.
  */
+import { deviceKey } from "@/lib/logs/native/sources/mde";
 import type { KqlRow } from "@/lib/kql/types";
 import type { NativeCtx } from "@/lib/logs/native/types";
 import type { TelemetryEvent } from "@/lib/sim/types";
@@ -164,7 +165,7 @@ export function fallbackRow(ev: TelemetryEvent, ctx: NativeCtx, record?: Record<
     }
     case "edr":
       return build("DeviceEvents", ev, tenantId, {
-        Timestamp: ev.ts, DeviceId: ctx.hex(`${ctx.companyId}:${(ev.hostname ?? "").toLowerCase()}`, 40), DeviceName: ev.hostname, ActionType: "SensitiveFileRead", FileName: ev.file?.name, FolderPath: ev.file?.path, SHA256: ev.file?.sha256,
+        Timestamp: ev.ts, DeviceId: ctx.hex(`${ctx.companyId}:${deviceKey(ev.hostname ?? "")}`, 40), DeviceName: ev.hostname, ActionType: "SensitiveFileRead", FileName: ev.file?.name, FolderPath: ev.file?.path, SHA256: ev.file?.sha256,
         AccountName: user?.split("@")[0].split("\\").pop(), AccountUpn: user?.includes("@") ? user : undefined, LocalIP: ev.src_ip, RemoteIP: ev.dst_ip, InitiatingProcessFileName: ev.process?.name, InitiatingProcessCommandLine: ev.process?.cmdline, InitiatingProcessId: ev.process?.pid, SourceSystem: "Azure",
       });
     case "windows_security": case "ad":

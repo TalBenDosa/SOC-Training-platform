@@ -13,6 +13,7 @@
  *  - It raises nothing: rows are added after the rules have run.
  *  - Times depend on the session's start and the entity alone: every poll gives the same rows.
  */
+import { deviceKey } from "@/lib/logs/native/sources/mde";
 import { nativeView, stackFor, type NativeIdentity, type Stack } from "@/lib/logs/native";
 import { makeCtx } from "@/lib/logs/native/ctx";
 import { COMPANY_HQ, countryInfo, entraObjectId } from "@/lib/logs/native/sources/_identity-common";
@@ -389,7 +390,7 @@ const DEVICE_OS: Record<HostOs, { platform: string; version: string; type: strin
 };
 
 export function deviceIdOf(ctx: NativeCtx, companyId: string, name: string): string {
-  return ctx.hex(`${companyId}:${name.toLowerCase()}`, 40);
+  return ctx.hex(`${companyId}:${deviceKey(name)}`, 40);
 }
 
 function identityRow(s: Session, p: Person, at: number): KqlRow {

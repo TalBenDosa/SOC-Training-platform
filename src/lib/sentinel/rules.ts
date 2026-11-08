@@ -30,10 +30,31 @@ const re2 = (pattern: string) => pattern.replace(/\\u([0-9a-fA-F]{4})/g, "\\x{$1
  * Keeps the pattern's meaning for one element without expanding the array in every rule.
  */
 function textRegex(ref: FieldRef, path: string, pattern: string): string {
-  const start = pattern.startsWith("^"), end = pattern.endsWith("$") && !pattern.endsWith("\\$");
-  const core = pattern.slice(start ? 1 : 0, end ? -1 : undefined);
   const open = path.endsWith("[]") ? '"' : `"${ref.key}":"`;
-  return `${open}${start ? "" : String.raw`(?:[^"\\]|\\.)*`}(?:${core})${end ? '"' : ""}`;
+  // Anchors belong to their own alternative (^a$|b): each one binds to the JSON value on its own.
+  const alternatives = topLevelAlternatives(pattern).map(alt => {
+    const start = alt.startsWith("^"), end = alt.endsWith("$") && !alt.endsWith("\\$");
+    const core = alt.slice(start ? 1 : 0, end ? -1 : undefined);
+    return `${open}${start ? "" : String.raw`(?:[^"\\]|\\.)*`}(?:${core})${end ? '"' : ""}`;
+  });
+  return alternatives.length === 1 ? alternatives[0] : `(?:${alternatives.join("|")})`;
+}
+
+/** The pattern split at its top-level `|` (outside groups, classes and escapes). */
+function topLevelAlternatives(pattern: string): string[] {
+  const out: string[] = [];
+  let depth = 0, inClass = false, from = 0;
+  for (let i = 0; i < pattern.length; i++) {
+    const ch = pattern[i];
+    if (ch === "\\") { i++; continue; }
+    if (inClass) { if (ch === "]") inClass = false; continue; }
+    if (ch === "[") inClass = true;
+    else if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    else if (ch === "|" && depth === 0) { out.push(pattern.slice(from, i)); from = i + 1; }
+  }
+  out.push(pattern.slice(from));
+  return out;
 }
 
 function isNum(v: unknown): boolean { return typeof v === "number" || (typeof v === "string" && v.trim() !== "" && !Number.isNaN(Number(v))); }

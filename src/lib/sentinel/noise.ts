@@ -53,6 +53,40 @@ const processParts = (kqlRegex: string, re: RegExp): NoisePart[] => [
   { table: "SecurityEvent", where: `EventID == 4688 and NewProcessName matches regex @"${kqlRegex}"`, test: r => r.EventID === 4688 && has(r.NewProcessName, re) },
 ];
 
+type ProcField = "image" | "cmd" | "parent";
+/** Where each table keeps the process path, its command line and its parent. */
+const PROC_COLUMN: Record<"DeviceProcessEvents" | "ASimProcessEventLogs" | "SecurityEvent", Record<ProcField, string>> = {
+  DeviceProcessEvents: { image: "FolderPath", cmd: "ProcessCommandLine", parent: "InitiatingProcessFileName" },
+  ASimProcessEventLogs: { image: "TargetProcessName", cmd: "TargetProcessCommandLine", parent: "ActingProcessName" },
+  SecurityEvent: { image: "NewProcessName", cmd: "CommandLine", parent: "ParentProcessName" },
+};
+const SYSMON_FIELD: Record<ProcField, string> = { image: "Image", cmd: "CommandLine", parent: "ParentImage" };
+
+/**
+ * A process-start rule on one field of the process (its path, its command line or its parent), on every
+ * table process telemetry lands in. The pattern is case-insensitive on both sides and holds no quote.
+ * Sysmon's KQL reads the field as the XML holds it, so the row test does too.
+ */
+const processFieldParts = (field: ProcField, pattern: string): NoisePart[] => {
+  const re = new RegExp(pattern, "i"), kql = `@"(?i)${pattern}"`;
+  const col = (t: keyof typeof PROC_COLUMN) => PROC_COLUMN[t][field];
+  return [
+    { table: "DeviceProcessEvents", where: `${col("DeviceProcessEvents")} matches regex ${kql}`, test: r => has(r[col("DeviceProcessEvents")], re) },
+    { table: "ASimProcessEventLogs", where: `${col("ASimProcessEventLogs")} matches regex ${kql}`, test: r => has(r[col("ASimProcessEventLogs")], re) },
+    { table: "Event", where: `${SYSMON_PROCESS} and ${sysmonData(SYSMON_FIELD[field])} matches regex ${kql}`, test: r => isSysmonProcess(r) && re.test(sysmonValue(r, SYSMON_FIELD[field])) },
+    { table: "SecurityEvent", where: `EventID == 4688 and ${col("SecurityEvent")} matches regex ${kql}`, test: r => r.EventID === 4688 && has(r[col("SecurityEvent")], re) },
+  ];
+};
+
+/** The service a remote-execution tool installs on its target runs the command (PsExec, PAExec, PDQ Deploy, RemCom, CSExec). */
+const DEPLOY_SERVICE = String.raw`(^|\\)(psexesvc|paexec(-[\w.]+)?|pdqdeployrunner(-\d+)?|remcomsvc|csexecsvc)\.exe$`;
+const POLICY_BYPASS = String.raw`-(ep|ex|exec|executionpolicy)\s+bypass\b`;
+const REMOTE_COMMAND = String.raw`invoke-command\s+-computername|enter-pssession|new-pssession|\bwinrs(\.exe)?\s+-r:|\bwmic(\.exe)?\s+/node:`;
+const OFFENSIVE_TOOLS = String.raw`(^|[\\/])(rubeus|sharphound|certify|seatbelt|mimikatz|sharpup|lazagne|kerbrute|winpeas\w*)(\.exe)?$`;
+const SCANNER_TOOLS = String.raw`(^|[\\/])(advanced_ip_scanner|advanced_port_scanner|ipscan|nmap|masscan|netscan)(\.exe)?$`;
+const PACKET_CAPTURE = String.raw`\b(dumpcap|tshark|windump|tcpdump)(\.exe)?\x22?\s|\bpktmon(\.exe)?\s+start\b|\bnetsh(\.exe)?\s+trace\s+start\b`;
+const CLOUD_SYNC = String.raw`\brclone(\.exe)?\x22?\s+(copy|copyto|sync|move)\b|\bmega-(put|sync)\b`;
+
 export const NOISE_RULES: NoiseRule[] = [
   {
     id: "noise.signin_failures", name: "Repeated sign-in failures for one account", severity: "Medium", tactics: ["CredentialAccess"], techniques: ["T1110"],
@@ -163,6 +197,50 @@ export const NOISE_RULES: NoiseRule[] = [
       { table: "OktaV2_CL", where: `EventOriginalType == "user.mfa.factor.deactivate"`, test: r => r.EventOriginalType === "user.mfa.factor.deactivate" },
       { table: "GCPAuditLogs", where: `MethodName == "storage.buckets.update"`, test: r => r.MethodName === "storage.buckets.update" },
     ],
+  },
+  // Endpoint process rules over the EDR and Windows tables, the kind SOCs import from the content hub
+  // and Sigma. Each one fires on the tool, never on who ran it.
+  {
+    id: "noise.deploy_service_exec", name: "Command run by a remote execution service", severity: "Medium", tactics: ["LateralMovement", "Execution"], techniques: ["T1569.002"],
+    description: "A process started under the service a remote execution tool installs on its target (PsExec, PAExec, PDQ Deploy, RemCom). Software deployment and lateral movement both arrive this way.",
+    falsePositives: ["Software deployment from the IT console", "Administrators running PsExec"],
+    parts: processFieldParts("parent", DEPLOY_SERVICE),
+  },
+  {
+    id: "noise.ps_policy_bypass", name: "PowerShell started with the execution policy bypassed", severity: "Medium", tactics: ["Execution"], techniques: ["T1059.001"],
+    description: "A command line set the PowerShell execution policy to Bypass. Management agents start their scripts this way, and so do droppers.",
+    falsePositives: ["Configuration Manager and Intune scripts", "Vendor installers"],
+    parts: processFieldParts("cmd", POLICY_BYPASS),
+  },
+  {
+    id: "noise.remote_command", name: "Command sent to another host over WinRM or WMI", severity: "Medium", tactics: ["LateralMovement", "Execution"], techniques: ["T1021.006", "T1047"],
+    description: "A command line ran a command on another computer through PowerShell remoting, winrs or WMI.",
+    falsePositives: ["Server administration and patching scripts"],
+    parts: processFieldParts("cmd", REMOTE_COMMAND),
+  },
+  {
+    id: "noise.offensive_tool", name: "Known offensive security tool executed", severity: "High", tactics: ["CredentialAccess", "Discovery"], techniques: ["T1558.003", "T1087.002", "T1649", "T1082", "T1003.001"],
+    description: "A process carries the name of a public red-team or credential tool (Rubeus, SharpHound, Certify, Seatbelt, Mimikatz and similar).",
+    falsePositives: ["A penetration test in its rules of engagement"],
+    parts: processFieldParts("image", OFFENSIVE_TOOLS),
+  },
+  {
+    id: "noise.network_scanner", name: "Network scanner run on an endpoint", severity: "Low", tactics: ["Discovery"], techniques: ["T1046"],
+    description: "A network or port scanner ran on a computer (Advanced IP Scanner, Angry IP Scanner, Nmap and similar). Administrators and ransomware operators use the same tools.",
+    falsePositives: ["IT staff troubleshooting the network"],
+    parts: processFieldParts("image", SCANNER_TOOLS),
+  },
+  {
+    id: "noise.packet_capture", name: "Packet capture started on an endpoint", severity: "Low", tactics: ["Discovery", "CredentialAccess"], techniques: ["T1040"],
+    description: "A command line started a packet capture (dumpcap, tshark, tcpdump, pktmon or netsh trace).",
+    falsePositives: ["Developers and network engineers debugging a connection"],
+    parts: processFieldParts("cmd", PACKET_CAPTURE),
+  },
+  {
+    id: "noise.cloud_sync_tool", name: "Data copied to a cloud remote with rclone or MEGAcmd", severity: "High", tactics: ["Exfiltration"], techniques: ["T1567.002"],
+    description: "A command line copied or synced files to a cloud storage remote with rclone or the MEGA command-line client.",
+    falsePositives: ["An engineer's own backup to an approved storage account"],
+    parts: processFieldParts("cmd", CLOUD_SYNC),
   },
 ];
 

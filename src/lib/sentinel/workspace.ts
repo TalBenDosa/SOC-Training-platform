@@ -141,7 +141,11 @@ const splitList = (s: string | undefined): string[] => {
 
 // ── Alerts ───────────────────────────────────────────────────────────────────
 
-interface Pending { alert: Omit<SentinelAlert, "entityIds">; order: number; entries: Entry[]; firstMs: number; lastMs: number; provider: string; displayEntity?: string }
+/**
+ * `raised`: when the alert first reached the workspace. A scheduled rule's run that takes in a later
+ * hit updates the alert (its EndTime and TimeGenerated move on), never the moment it was raised.
+ */
+interface Pending { alert: Omit<SentinelAlert, "entityIds">; order: number; entries: Entry[]; firstMs: number; lastMs: number; raised: string; provider: string; displayEntity?: string }
 
 const isoMs = (ms: number) => new Date(ms).toISOString();
 const between = (a: number, b: number) => `| where TimeGenerated between (datetime(${isoMs(a)}) .. datetime(${isoMs(b)}))`;
@@ -368,7 +372,7 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
     const ms = Date.parse(e.ev.ts);
     const { graph } = rendered(e.ev);
     pending.push({
-      order: e.index * 1000, entries: [e], firstMs: ms, lastMs: ms, provider,
+      order: e.index * 1000, entries: [e], firstMs: ms, lastMs: ms, raised: e.ev.ts, provider,
       alert: {
         ...(graph ? { graph } : {}),
         id, name: plain(graph?.title ?? detectionName(e.ev, e.log)), severity: toSeverity(graph?.severity ?? raw(e.ev, "AlertSeverity") ?? e.ev.severity), product,
@@ -404,7 +408,8 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
       return;
     }
     const id = seededUuid(`${orgId}:rule:${ruleId}:${ev.id}`);
-    const p: Pending = { order: lastEntry.index * 1000 + slot, entries: hitEntries, firstMs, lastMs, provider: SCHEDULED.provider, alert: make(id, hitEntries, firstMs, lastMs) };
+    const alert = make(id, hitEntries, firstMs, lastMs);
+    const p: Pending = { order: lastEntry.index * 1000 + slot, entries: hitEntries, firstMs, lastMs, raised: alert.time, provider: SCHEDULED.provider, alert };
     runs.set(key, p);
     pending.push(p);
   };
@@ -451,7 +456,7 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
     const ms = Date.parse(e.ev.ts);
     const techniques = e.ev.mitre_technique ? [e.ev.mitre_technique] : [];
     pending.push({
-      order: e.index * 1000 + 999, entries: [e], firstMs: ms, lastMs: ms, provider: SCHEDULED.provider,
+      order: e.index * 1000 + 999, entries: [e], firstMs: ms, lastMs: ms, raised: e.ev.ts, provider: SCHEDULED.provider,
       alert: {
         id, name: plain(`Escalated for investigation: ${e.ev.description ?? e.ev.event_type}`), severity: toSeverity(e.ev.severity), product: SCHEDULED.product,
         description: plain(escalated.get(e.ev.id) || e.ev.description || "Escalated by an analyst."), time: e.ev.ts, tactics: tacticsOf(techniques), techniques, query: rowQuery(e, id),
@@ -470,10 +475,11 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
   });
   const alertOf = new Map(pending.map((p, i) => [p, alerts[i]]));
 
-  // Logs per host and per account, for how much there is to pull on around an alert.
+  // Logs per host and per account, for how much there is to pull on around an alert. A host entity is
+  // named by its short name (web-01 for web-01.example.org), so its logs count under that name.
   const logsOf = new Map<string, number>();
   for (const e of events) {
-    for (const k of [e.hostname, e.user?.email ?? e.user_email]) if (k) logsOf.set(k.toLowerCase(), (logsOf.get(k.toLowerCase()) ?? 0) + 1);
+    for (const k of [e.hostname?.split(".")[0], e.user?.email ?? e.user_email]) if (k) logsOf.set(k.toLowerCase(), (logsOf.get(k.toLowerCase()) ?? 0) + 1);
   }
 
   const base = NUMBER_BASE(companyId);
@@ -495,7 +501,9 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
     const products = [...new Set(members.map(a => a.product))];
     const techniques = [...new Set(members.flatMap(a => a.techniques))];
     const tactics = [...new Set(members.flatMap(a => a.tactics))];
-    const created = members[0].time;
+    // Created when its first alert was raised: a later hit that joins that alert's rule run moves the
+    // alert's end, not the incident's birth.
+    const created = b.first.raised;
     const lastUpdate = members[members.length - 1].time;
     const eventIds = new Set(b.members.flatMap(m => m.entries.map(e => e.ev.id)));
     const distinctQueries = [...new Set(members.map(a => a.query))];

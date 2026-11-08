@@ -1095,7 +1095,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     dst_ip: "52.96.12.14", dst_port: 443,
     description: "Outbound HTTPS connection from WS-MED-045 to emr-api.epiqsystems.com — allowed",
     network: { domain: "emr-api.epiqsystems.com", bytes_out: 8200, bytes_in: 1400 },
-    raw: { "s1.eventType": "IP Connect", "action_result": "allowed" }
+    raw: { "s1.eventType": "IP Connect", "action_result": "allowed", "process.name": "Epiq.EMR.exe" }
   },
   {
     id: "mc_s1_009", ts: "2026-05-10T11:20:00.000Z",

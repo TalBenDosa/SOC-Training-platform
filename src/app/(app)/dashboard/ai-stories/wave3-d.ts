@@ -373,7 +373,7 @@ function buildBrowserAgentPromptHijack(): TelemetryEvent[] {
     mdeDns({
       companyId: cx, id: "aiba2", ts: "2026-10-01T11:06:38.000Z", host, srcIp: hostIp, user,
       domain: "reviews.supplier-insights.example", resolvedIp: "203.0.113.90", severity: "low",
-      mitre: "T1566.002", tactic: "Initial Access",
+      mitre: "T1566.002", tactic: "Initial Access", initiatingProcess: "chrome.exe",
       description: "Defender for Endpoint DNS: WS-MKT-3301 resolved reviews.supplier-insights.example during the agent session at 11:06.",
     }),
     panWeb({

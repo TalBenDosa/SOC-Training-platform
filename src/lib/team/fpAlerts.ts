@@ -120,9 +120,13 @@ function edrDetection(o: { id: string; ts: string; host: string; userEmail?: str
   } as TelemetryEvent;
 }
 
-/** An Entra ID interactive sign-in (the shape the travel alert always used; relabelled in an Okta shop). */
+/**
+ * An Entra ID interactive sign-in (the shape the travel alert always used; relabelled in an Okta shop).
+ * The alert is Entra ID Protection's, so the sign-in carries the risk detection that raised it, as the
+ * real SigninLogs row does (riskLevelDuringSignIn, riskEventTypes_v2, riskState).
+ */
 function entraSignIn(o: { id: string; ts: string; user: string; ip: string; city: string; country: string; lat: number; lon: number;
-  description: string; fp: string }): TelemetryEvent {
+  description: string; fp: string; risk: { level: "low" | "medium"; detection: "unfamiliarFeatures" | "anonymizedIPAddress" } }): TelemetryEvent {
   return {
     id: o.id, ts: o.ts, source: "o365", event_type: "auth_success", severity: "medium", vendor: "Microsoft Entra ID",
     user_email: o.user, src_ip: o.ip, is_detection: true, expected_verdict: "fp", fp_explanation: o.fp, description: o.description,
@@ -131,6 +135,8 @@ function entraSignIn(o: { id: string; ts: string; user: string; ip: string; city
       "data.office365.AzureActiveDirectoryEventType": "AccountLogon", "data.office365.UserId": o.user,
       "data.office365.ActorIpAddress": o.ip, "data.office365.ClientIP": o.ip, "data.office365.ResultStatus": "Succeeded",
       "GeoLocation.country_name": o.country, "GeoLocation.city_name": o.city, "GeoLocation.location.lat": o.lat, "GeoLocation.location.lon": o.lon,
+      "azure.signinlogs.properties.riskLevelDuringSignIn": o.risk.level, "azure.signinlogs.properties.riskEventTypes_v2": [o.risk.detection],
+      "azure.signinlogs.properties.riskState": "atRisk",
       action_result: "allowed",
     },
   } as TelemetryEvent;
@@ -157,6 +163,13 @@ const RELAY_EGRESS: [string, string, number, number][] = [
   ["Amsterdam", "Netherlands", 52.3676, 4.9041], ["Paris", "France", 48.8566, 2.3522], ["Brussels", "Belgium", 50.8503, 4.3517],
 ];
 const PHONES = ["iPhone 15", "iPhone 16 Pro", "Pixel 9", "Galaxy S24", "Galaxy A55", "iPhone 14"];
+/** Mail clients that keep retrying a saved password: the client app and user agent Entra ID records for each. */
+const MAIL_CLIENTS: Record<string, { clientApp: string; ua: string }> = {
+  "iOS Mail (Exchange ActiveSync)": { clientApp: "Exchange ActiveSync", ua: "iOS/18.1.1 (22B91) dataaccessd/1.0" },
+  "Outlook for Android": { clientApp: "Mobile Apps and Desktop clients", ua: "Outlook-Android/2.0" },
+  "Samsung Email": { clientApp: "Exchange ActiveSync", ua: "Android-SAMSUNG-SM-S921B/101.50101" },
+  "Outlook for Mac": { clientApp: "Mobile Apps and Desktop clients", ua: "MacOutlook/16.90.24101716 (Intelx64 Mac OS X 15.1 (Build 24B83))" },
+};
 
 const MAKERS: Maker[] = [
   // ── An authorised vulnerability scan, raised by the SIEM's internal port-scan analytic on the scanner's own asset.
@@ -242,7 +255,7 @@ const MAKERS: Maker[] = [
     const p = c.person();
     if (!p) return null;
     const [city, country, lat, lon] = pickOf(CITIES, c.rnd), ip = docIp(c.rnd, c.ips), t = num("RITM", c);
-    const ev = entraSignIn({ id: `fpa_travel_${c.n}`, ts: c.ts, user: p.email, ip, city, country, lat, lon,
+    const ev = entraSignIn({ id: `fpa_travel_${c.n}`, ts: c.ts, user: p.email, ip, city, country, lat, lon, risk: { level: "medium", detection: "unfamiliarFeatures" },
       description: `${p.email} signed in from ${city}, ${country} (${ip}), first sign-in from this country`,
       fp: `${p.name} is on approved business travel to ${city} (travel request ${t}); the sign-in is from the managed laptop ${p.host} with MFA.` });
     return { makerId: "travel", kind: "travel", verdict: "fp", rows: [ev], person: p.email,
@@ -254,7 +267,9 @@ const MAKERS: Maker[] = [
     if (!p) return null;
     const relay = c.rnd() < 0.5, ip = docIp(c.rnd, c.ips);
     const [vendor, city, country, lat, lon] = relay ? ["iCloud Private Relay", ...pickOf(RELAY_EGRESS, c.rnd)] as [string, string, string, number, number] : pickOf(PROXY_NODES, c.rnd);
+    // Apple's relay egress is on the anonymizer lists Identity Protection uses; a gateway node is just a new place.
     const ev = entraSignIn({ id: `fpa_egress_${c.n}`, ts: c.ts, user: p.email, ip, city, country, lat, lon,
+      risk: relay ? { level: "medium", detection: "anonymizedIPAddress" } : { level: "low", detection: "unfamiliarFeatures" },
       description: `${p.email} signed in from ${city}, ${country} (${ip}), an unfamiliar location for this account`,
       fp: relay
         ? `${p.name} reads mail on a company-enrolled iPhone with iCloud Private Relay on; Apple's relay egress in ${city} is the address, the device is compliant and MFA was satisfied. Benign, no ticket needed.`
@@ -268,6 +283,7 @@ const MAKERS: Maker[] = [
     const phone = pickOf(PHONES, c.rnd), ip = docIp(c.rnd, c.ips), office = c.assets.office;
     const t = num("INC", c);
     const ev = entraSignIn({ id: `fpa_phone_${c.n}`, ts: c.ts, user: p.email, ip, city: office?.city ?? "London", country: office?.country ?? "United Kingdom", lat: 0, lon: 0,
+      risk: { level: "low", detection: "unfamiliarFeatures" },
       description: `${p.email} signed in from a device never seen for this account (${phone})`,
       fp: `${p.name} replaced their phone; the help desk re-registered the authenticator under incident ${t} and the first sign-in from the new ${phone} followed. Same city, MFA satisfied.` });
     return { makerId: "new_phone", kind: "new_device", verdict: "fp", rows: [ev], person: p.email,
@@ -278,12 +294,23 @@ const MAKERS: Maker[] = [
   { id: "stale_mail_app", kind: "mfa_noise", siemOnly: true, make: c => {
     const p = c.person();
     if (!p) return null;
-    const app = pickOf(["iOS Mail (Exchange ActiveSync)", "Outlook for Android", "Samsung Email", "Outlook for Mac"], c.rnd), fails = intIn(14, 60, c.rnd);
-    const ev = sentinelAlert({ id: `fpa_stale_${c.n}`, ts: c.ts, name: pickOf(["Repeated failed sign-ins for one account", "Many failed sign-ins for one user"], c.rnd), severity: "medium",
-      user: p.email, ip: `${c.assets.subnet}.${intIn(100, 199, c.rnd)}`,
+    const app = pickOf(Object.keys(MAIL_CLIENTS), c.rnd), fails = intIn(14, 60, c.rnd);
+    const name = pickOf(["Repeated failed sign-ins for one account", "Many failed sign-ins for one user"], c.rnd), ip = `${c.assets.subnet}.${intIn(100, 199, c.rnd)}`;
+    const ev = sentinelAlert({ id: `fpa_stale_${c.n}`, ts: c.ts, name, severity: "medium", user: p.email, ip,
       props: { "Failed sign-ins": String(fails), "ResultType": "50126", "Client app": app, "Distinct IPs": "1", "Query Period": "01:00:00" },
       fp: `${p.name} changed their password this morning; ${app} on their own phone kept retrying the old one over the office Wi-Fi. One source, one known device, no success.`, mitre: "T1110.001", tactic: "CredentialAccess" });
-    return { makerId: "stale_mail_app", kind: "mfa_noise", verdict: "fp", rows: [ev], person: p.email,
+    // The analytic counts sign-in rows: the latest of them reach the feed with it, as SigninLogs holds them.
+    const client = MAIL_CLIENTS[app];
+    const tries = [0, 1].map(k => ({
+      id: `fpa_staleev_${c.n}_${k}`, ts: c.ts, source: "o365", event_type: "auth_failure", severity: "low", vendor: "Microsoft Entra ID",
+      user_email: p.email, src_ip: ip, network: { user_agent: client.ua }, expected_verdict: "fp",
+      fp_explanation: `${app} on ${p.name}'s own phone retrying the password from before this morning's change.`,
+      description: `${p.email} failed to sign in: wrong password`,
+      raw: { "data.office365.Operation": "UserLoginFailed", "data.office365.Workload": "AzureActiveDirectory", "data.office365.AzureActiveDirectoryEventType": "AccountLogon",
+        "data.office365.UserId": p.email, "data.office365.ActorIpAddress": ip, "data.office365.ClientIP": ip, "data.office365.ResultStatus": "Failed",
+        "data.office365.ErrorNumber": "50126", "data.office365.LogonError": "InvalidUserNameOrPassword", "azure.signinlogs.properties.clientAppUsed": client.clientApp, action_result: "blocked" },
+    }) as TelemetryEvent);
+    return { makerId: "stale_mail_app", kind: "mfa_noise", verdict: "fp", rows: [...tries, ev], person: p.email,
       ticket: c.rnd() < 0.6 ? { table: "incident", number: num("INC", c), state: "In Progress", short: "Phone keeps asking for the password after a reset", requestedFor: p.email, group: "Service Desk" } : undefined };
   } },
   // ── A VPN client with a saved stale password locks the account (the VPN failures, then Security 4740).
@@ -445,10 +472,23 @@ const MAKERS: Maker[] = [
     const p = c.person(IT_RE) ?? c.person();
     if (!p) return null;
     const n = intIn(60, 420, c.rnd), site = pickOf(["Projects-Archive", "Operations", "Legacy-Finance", "Policies"], c.rnd), t = num("CHG", c);
+    const siteUrl = `https://${c.assets.domain.split(".")[0]}.sharepoint.com/sites/${site}`;
     const ev = sentinelAlert({ id: `fpa_massdl_${c.n}`, ts: c.ts, name: "Mass download by a single user", severity: "medium", user: p.email, mcas: true,
-      props: { "Downloads": String(n), "Site": `https://${c.assets.domain.split(".")[0]}.sharepoint.com/sites/${site}`, "Window": "1 minute", "Client": "SharePoint Migration Tool" },
+      props: { "Downloads": String(n), "Site": siteUrl, "Window": "1 minute", "Client": "SharePoint Migration Tool" },
       fp: `${p.name} is moving the ${site} site with the SharePoint Migration Tool under change ${t}; the burst is the tool's sync.`, mitre: "T1530", tactic: "Collection" });
-    return { makerId: "mass_download", kind: "mass_download", verdict: "fp", rows: [ev], person: p.email,
+    // Defender for Cloud Apps counts the SharePoint audit rows; the latest of them reach the feed with its alert.
+    const ip = `${c.assets.subnet}.${intIn(20, 199, c.rnd)}`;
+    const downloads = [0, 1].map(k => {
+      const file = `${pickOf(["Budget", "Minutes", "Inventory", "Contracts", "Schedule", "Report"], c.rnd)}_${intIn(2019, 2025, c.rnd)}_${intIn(10, 99, c.rnd)}.${pickOf(["xlsx", "docx", "pdf", "pptx"], c.rnd)}`;
+      return {
+        id: `fpa_massdlev_${c.n}_${k}`, ts: c.ts, source: "o365", event_type: "sharepoint_access", severity: "informational", vendor: "Microsoft 365 Unified Audit Log",
+        user_email: p.email, src_ip: ip, expected_verdict: "fp", fp_explanation: `Part of the SharePoint Migration Tool sync of ${site} under change ${t}.`,
+        description: `${p.email} downloaded ${file} from SharePoint /sites/${site}`,
+        raw: { "data.office365.Operation": "FileDownloaded", "data.office365.Workload": "SharePoint", "data.office365.UserId": p.email, "data.office365.ClientIP": ip,
+          "data.office365.SiteUrl": `${siteUrl}/`, "data.office365.SourceFileName": file, "data.office365.ObjectId": `${siteUrl}/Shared Documents/${file}`, action_result: "allowed" },
+      } as TelemetryEvent;
+    });
+    return { makerId: "mass_download", kind: "mass_download", verdict: "fp", rows: [...downloads, ev], person: p.email,
       ticket: { table: "change_request", number: t, state: "Implement", short: `Migrate the SharePoint site ${site}`, ci: site, assignedTo: p.email, group: "Collaboration Services", window: [-intIn(60, 240, c.rnd), intIn(120, 480, c.rnd)] } };
   } },
   // ── A rotated service-account password still cached in a scheduled task on one server (SIEM analytic).
@@ -459,7 +499,21 @@ const MAKERS: Maker[] = [
     const ev = sentinelAlert({ id: `fpa_svccred_${c.n}`, ts: c.ts, name: "Repeated failed logons for one account on one host", severity: "medium", host: server, user: mail(c.assets, svc),
       props: { "Failed logons": String(fails), "Event ID": "4625", "Status": "0xC000006A", "Logon type": "4", "Query Period": "01:00:00" },
       fp: `${svc}'s password was rotated under change ${t}; a scheduled task on ${server} still runs with the old one (logon type 4, batch). One host, one account.`, mitre: "T1110", tactic: "CredentialAccess" });
-    return { makerId: "stale_service_cred", kind: "svc_cred", verdict: "fp", rows: [ev], host: server,
+    // The 4625 events the analytic counts: the latest of them reach the feed with it.
+    const logons = [0, 1].map(k => ({
+      id: `fpa_svccredev_${c.n}_${k}`, ts: c.ts, source: "ad", vendor: "Windows Security", event_type: "auth_failure", severity: "low",
+      hostname: server, user_email: mail(c.assets, svc), expected_verdict: "fp",
+      fp_explanation: `The scheduled task on ${server} still runs as ${svc} with the password from before change ${t}.`,
+      description: `${server} rejected a batch logon for ${svc}`,
+      raw: { "winlog.event_id": "4625", "winlog.channel": "Security", "winlog.provider_name": "Microsoft-Windows-Security-Auditing", "winlog.computer_name": server,
+        "winlog.event_data.SubjectUserSid": "S-1-5-18", "winlog.event_data.SubjectUserName": `${server}$`, "winlog.event_data.SubjectDomainName": c.assets.netbios,
+        "winlog.event_data.TargetUserName": svc, "winlog.event_data.TargetDomainName": c.assets.netbios, "winlog.event_data.LogonType": "4",
+        "winlog.event_data.Status": "0xC000006D", "winlog.event_data.SubStatus": "0xC000006A", "winlog.event_data.FailureReason": "%%2313",
+        "winlog.event_data.LogonProcessName": "Advapi", "winlog.event_data.AuthenticationPackageName": "Negotiate", "winlog.event_data.WorkstationName": server,
+        "winlog.event_data.ProcessName": "C:\\Windows\\System32\\svchost.exe", "winlog.event_data.IpAddress": "-", "winlog.event_data.IpPort": "-",
+        "event.code": "4625", "event.action": "logon-failed", "event.outcome": "failure", action_result: "blocked" },
+    }) as TelemetryEvent);
+    return { makerId: "stale_service_cred", kind: "svc_cred", verdict: "fp", rows: [...logons, ev], host: server,
       ticket: { table: "change_request", number: t, state: "Review", short: `Rotate the password of ${svc}`, ci: svc, group: "Identity and Access", window: [-intIn(300, 900, c.rnd), -intIn(60, 240, c.rnd)] } };
   } },
   // ── IT pulls a package from its internal repository with a built-in downloader (certutil, bitsadmin or curl).

@@ -124,10 +124,12 @@ describe("mde — corpus conversion", () => {
 
   it("same host → same DeviceId; InitiatingProcess* on child rows describes the same process as its ProcessCreated row", () => {
     const byHost = new Map<string, Set<string>>();
-    for (const { log } of converted) if (log && props(log).DeviceId) {
+    // One device per tenant: the same host name in two companies is two machines.
+    for (const { c, log } of converted) if (log && props(log).DeviceId) {
       const p = props(log);
-      const s = byHost.get(String(p.DeviceName).toLowerCase()) ?? new Set();
-      s.add(String(p.DeviceId)); byHost.set(String(p.DeviceName).toLowerCase(), s);
+      const key = `${c.companyId}:${String(p.DeviceName).toLowerCase()}`;
+      const s = byHost.get(key) ?? new Set();
+      s.add(String(p.DeviceId)); byHost.set(key, s);
     }
     for (const [h, ids] of byHost) expect(ids.size, h).toBe(1);
 

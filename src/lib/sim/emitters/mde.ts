@@ -257,6 +257,8 @@ export interface MdeDnsOpts extends Ctx {
   severity?: Severity;
   isDetection?: boolean;
   description?: string;
+  /** The process that made the lookup (DeviceNetworkEvents always names it). */
+  initiatingProcess?: string;
 }
 export function mdeDns(o: MdeDnsOpts): TelemetryEvent {
   const r = resolve(o);
@@ -275,6 +277,7 @@ export function mdeDns(o: MdeDnsOpts): TelemetryEvent {
       "dns.question.name": o.domain,
       "dns.question.type": o.qtype ?? "A",
       ...(o.resolvedIp ? { "dns.resolved_ip": o.resolvedIp } : {}),
+      ...(o.initiatingProcess ? { "InitiatingProcessFileName": o.initiatingProcess } : {}),
     },
   };
 }

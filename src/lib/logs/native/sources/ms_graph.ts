@@ -18,6 +18,7 @@
  * Ids: an alert keeps the AlertId of the Defender AlertEvidence row of the same event (same seeds),
  * so the two records join. Device, user and process ids are the ones the other Microsoft records print.
  */
+import { deviceKey } from "./mde";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { techniqueById } from "@/lib/mitre/attack";
 import { microsoftProductOf, type MicrosoftProduct, type Stack } from "../stack";
@@ -263,7 +264,7 @@ function evidenceOf(ev: TelemetryEvent, ctx: NativeCtx, f: EdrFacts, product: Mi
   const out: Record<string, unknown>[] = [];
   const { account, runAs } = accountsOf(ev, ctx, f);
   const host = f.host;
-  const mdeDeviceId = host ? ctx.hex(`${ctx.companyId}:${host.toLowerCase()}`, 40) : null;
+  const mdeDeviceId = host ? ctx.hex(`${ctx.companyId}:${deviceKey(host)}`, 40) : null;
   // What the product did: stated alike for a true alert and a false one.
   const action = effectiveAction(ev, f);
   const detectionStatus = action === "detected" ? "detected" : "blocked";

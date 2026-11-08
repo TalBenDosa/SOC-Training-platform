@@ -51,6 +51,12 @@ const ENV_OPT = ["Tenant", "_TimeReceivedBySvc"];
 const P = (xs: string[]) => xs.map(x => `properties.${x}`);
 
 const DEVICE_REQ = ["Timestamp", "DeviceId", "DeviceName", "ActionType", "ReportId", "MachineGroup"];
+
+/** One device, one DeviceId: the short and the fully qualified name ("web-01" / "web-01.corp.io") are the same machine. */
+export function deviceKey(name: string): string {
+  const n = name.toLowerCase();
+  return /^\d+\.\d+\.\d+\.\d+$/.test(n) ? n : n.split(".")[0];
+}
 const VERSION_INFO = ["CompanyName", "ProductName", "ProductVersion", "InternalFileName", "OriginalFileName", "FileDescription"];
 const INITIATING = [
   "FileName", "FolderPath", "CommandLine", "Id", "CreationTime", "SHA1", "SHA256", "MD5", "FileSize",
@@ -287,7 +293,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const ts = isoFrac(f.timeMs, 7, ctx, seed("ts"));
   const base = {
     Timestamp: ts,
-    DeviceId: ctx.hex(`${ctx.companyId}:${host.toLowerCase()}`, 40),
+    DeviceId: ctx.hex(`${ctx.companyId}:${deviceKey(host)}`, 40),
     DeviceName: host,
   };
   const tail = {
@@ -774,7 +780,7 @@ function companions(ev: TelemetryEvent, ctx: NativeCtx): NativeLog[] {
   const seed = (p: string) => `${ev.id}:mde:task:${p}`;
   const u = who(ctx, f, host);
   const scope: ProcScope = { host, os: f.os, timeMs: f.timeMs, user: u.name ?? undefined, incident: ev.incident_id };
-  const base = { Timestamp: isoFrac(f.timeMs + 180, 7, ctx, seed("ts")), DeviceId: ctx.hex(`${ctx.companyId}:${host.toLowerCase()}`, 40), DeviceName: host };
+  const base = { Timestamp: isoFrac(f.timeMs + 180, 7, ctx, seed("ts")), DeviceId: ctx.hex(`${ctx.companyId}:${deviceKey(host)}`, 40), DeviceName: host };
   const tail = { ReportId: ctx.int(seed("report"), 1_000, 999_999), AppGuardContainerId: null, MachineGroup: machineGroup(host, f.os) };
   return [{
     sourceId: "mde", kind: "DeviceEvents", format: "json", timeMs: f.timeMs,
