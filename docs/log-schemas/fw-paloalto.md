@@ -92,6 +92,9 @@ Scope: TRAFFIC, THREAT (incl. subtype `url` = URL Filtering log, `spyware`, `vul
 
 Threat-ID ranges (documented): 8000–8099 scan · 8500–8599 flood · 9999 URL filtering · 10000–19999 spyware phone-home · 20000–29999 spyware download · 30000–44999 vulnerability · 52000–52999 file type · 60000–69999 data filtering. Newer content uses additional (larger) ID ranges — the `Name(ID)` format is constant.
 
+**Brute-force and reconnaissance signatures (this platform renders PAN-OS's own):** a brute-force threat on a protocol PAN-OS has a parent signature for is printed with that signature, whatever generic name the story used: `MS-RDP Brute Force Attempt(40021)` (child 33020, RDP connect; default trigger 8 in 100 s from one source to one destination), `SSH User Authentication Brute-force Attempt(40015)` (child 31914, 20 in 60 s), `SMB: User Password Brute-force Attempt(40004)`, `FTP: Login Brute-force Attempt(40001)` (names from Threat Vault and LIVEcommunity; the 40001 / 40004 wording is not confirmed against Threat Vault). `thr_category` is `brute-force`; the action is whatever the Vulnerability Protection profile sets (`alert` lets the attempts continue, `block-ip` is Palo Alto's recommendation). Zone Protection reconnaissance is a THREAT with `subtype scan`: `TCP Port Scan(8001)`, `Host Sweep(8002)`, `UDP Port Scan(8003)`, `app not-applicable`, no NAT, `sessionid 0`, `thr_category scan`.
+A published server can be authored with the public address as `dst` and the server in `pan.natdst`: the record keeps `dst` = public VIP and `natdst` = the server.
+
 ## 4. Realistic samples
 
 Scenario thread (fictitious): workstation `10.20.14.37` (`WS-FIN-0142`, user `acme\dlevi`) behind SNAT `203.0.113.10`; DMZ app server `10.30.1.15` published as `203.0.113.25`. External IPs are from RFC 5737 documentation ranges; domains are invented. Every raw line below has the full positional width of the PAN-OS 11.x format (117 TRAFFIC / 123 THREAT columns, validated).

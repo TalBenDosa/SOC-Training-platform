@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { source, kindOf } from "./windows_security";
 import { corpusFor } from "../testing/corpus";
+import { makeCtx } from "../ctx";
+import type { TelemetryEvent } from "@/lib/sim/types";
 import { runUseCase } from "../engine";
 import { sampleLogs, violationsOf, convertAll, contains, flatSamples, isNoise, type Converted } from "./_dnsHostItsm.testkit";
 
@@ -137,5 +139,71 @@ describe("windows_security — use cases", () => {
         expect(report[uc.id].noise / Math.max(noise.length, 1), `${uc.id} noise rate`).toBeLessThan(0.02);
       }
     }
+  });
+});
+
+// Sdema review 2026-11-08 (K5, K2): the spray a lockout row closes is in the record set, at its real pace.
+describe("windows_security: the authentication burst a story row carries", () => {
+  const ctx = makeCtx("nexacorp");
+  const users = ["j.chen", "r.avraham", "m.levi", "d.cohen", "s.patel", "a.kaplan", "l.ferreira", "t.harris", "m.torres"];
+  const attempts = [
+    ...users.map((u, i) => ({ at: -150 + i * 7, user: `${u}@nexacorp.com` })),
+    ...users.map((u, i) => ({ at: -76 + i * 7, user: `${u}@nexacorp.com`, ...(u === "m.torres" ? { status: "0x0" } : {}) })),
+    { at: -0.4, user: "j.chen@nexacorp.com" },
+  ];
+  const lockout = {
+    id: "burst-4740", ts: "2026-05-10T17:02:30.000Z", source: "ad", vendor: "Windows Security", event_type: "account_lockout", hostname: "SRV-NXC-DC01",
+    raw: { "event.code": "4740", "winlog.event_data.TargetUserName": "j.chen", "winlog.event_data.CallerComputerName": "WIN-3VQ8KD2RLMP" },
+    _burst: { host: "SRV-NXC-RDS01", dc: true, ip: "185.220.101.45", workstation: "WIN-3VQ8KD2RLMP", attempts },
+  } as unknown as TelemetryEvent;
+  const rows = source.companions!(lockout, ctx).map(l => l.record as Record<string, unknown>);
+  const own = source.fromTelemetry(lockout, ctx)!.record as Record<string, unknown>;
+  it("one 4625 per failed guess on the RDS host with every field an analyst proves a spray from", () => {
+    const fails = rows.filter(r => r.EventID === 4625);
+    expect(fails).toHaveLength(18);
+    expect(new Set(fails.map(r => r.TargetUserName)).size).toBe(9);
+    for (const r of fails) expect(r).toMatchObject({ Computer: "SRV-NXC-RDS01.nexacorp.com", Status: "0xc000006d", SubStatus: "0xc000006a", FailureReason: "%%2313",
+      LogonType: "3", LogonProcessName: "NtLmSsp ", AuthenticationPackageName: "NTLM", WorkstationName: "WIN-3VQ8KD2RLMP", IpAddress: "185.220.101.45", IpPort: "0", TargetDomainName: "NEXACORP" });
+    const span = (Date.parse(String(fails.at(-1)!.TimeCreated)) - Date.parse(String(fails[0].TimeCreated))) / 1000;
+    expect(span).toBeGreaterThan(120);
+    expect(span).toBeLessThanOrEqual(180);
+  });
+  it("the DC validated every attempt (4776), the success is a 4624 type 3, and the lockout follows the third j.chen failure", () => {
+    const dc = rows.filter(r => r.EventID === 4776);
+    expect(dc).toHaveLength(19);
+    expect(dc.every(r => r.Computer === "SRV-NXC-DC01.nexacorp.com" && r.Workstation === "WIN-3VQ8KD2RLMP")).toBe(true);
+    expect(rows.filter(r => r.EventID === 4624)).toEqual([expect.objectContaining({ TargetUserName: "m.torres", LogonType: "3", IpAddress: "185.220.101.45" })]);
+    const chen = rows.filter(r => r.EventID === 4625 && r.TargetUserName === "j.chen");
+    expect(chen).toHaveLength(3);
+    expect(Date.parse(String(own.TimeCreated))).toBeGreaterThan(Date.parse(String(chen[2].TimeCreated)));
+    expect(own).toMatchObject({ EventID: 4740, TargetUserName: "j.chen", TargetDomainName: "WIN-3VQ8KD2RLMP" });
+    // Record ids climb on each host, and the DC's run ends below the 4740's own.
+    const ids = dc.map(r => Number(r.EventRecordID));
+    expect(ids).toEqual([...ids].sort((a, b) => a - b));
+    expect(ids.at(-1)!).toBeLessThan(Number(own.EventRecordID));
+  });
+  it("a row with no burst has no companions", () => {
+    expect(source.companions!({ ...lockout, _burst: undefined } as unknown as TelemetryEvent, ctx)).toEqual([]);
+  });
+});
+
+describe("windows_security: renderer defaults an analyst would catch", () => {
+  const ctx = makeCtx("nexacorp");
+  const ev = (id: string, raw: Record<string, unknown>, extra: Partial<TelemetryEvent> = {}) =>
+    source.fromTelemetry({ id, ts: "2026-05-10T09:00:00.000Z", source: "ad", vendor: "Windows Security", event_type: "auth_failure", hostname: "SRV-NXC-FS01", ...extra, raw } as TelemetryEvent, ctx)!.record as Record<string, unknown>;
+  it("a batch-logon 4625 made by the computer has SubjectLogonId 0x3e7 and its caller's pid", () => {
+    const r = ev("d1", { "event.code": "4625", "winlog.event_data.TargetUserName": "svc-report", "winlog.event_data.LogonType": "4",
+      "winlog.event_data.SubjectUserSid": "S-1-5-18", "winlog.event_data.SubjectUserName": "SRV-NXC-FS01$", "winlog.event_data.ProcessName": "C:\\Windows\\System32\\svchost.exe" });
+    expect(r.SubjectLogonId).toBe("0x3e7");
+    expect(r.ProcessId).not.toBe("0x0");
+  });
+  it("a foreign domain SID is re-homed onto the organization's domain (RID kept)", () => {
+    const r = ev("d2", { "event.code": "4720", "winlog.event_data.TargetUserName": "svc-backup2", "winlog.event_data.TargetSid": "S-1-5-21-1111111111-2222222222-3333333333-1353" }, { event_type: "account_create" });
+    expect(r.TargetSid).toBe("S-1-5-21-3421479547-3897544621-1789562108-1353");
+  });
+  it("a Remote Desktop 4624 is made by winlogon.exe, and WorkstationName is never an FQDN", () => {
+    const r = ev("d3", { "event.code": "4624", "winlog.event_data.TargetUserName": "administrator", "winlog.event_data.LogonType": "10", "winlog.event_data.WorkstationName": "SRV-NXC-DC01.nexacorp.com", "winlog.event_data.IpAddress": "10.10.20.150" }, { event_type: "auth_success" });
+    expect(r.ProcessName).toBe("C:\\Windows\\System32\\winlogon.exe");
+    expect(r.WorkstationName).toBe("SRV-NXC-DC01");
   });
 });
