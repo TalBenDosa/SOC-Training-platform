@@ -14,9 +14,10 @@ import type { Ev } from "./types";
 import type { TelemetryEvent } from "@/lib/sim/types";
 
 /** A session as the DB holds it: public feed rows (with inject_id) + the staff-only answers. */
-function session(company: string, difficulty: "easy" | "medium" | "hard", seed: string) {
-  // The second-implant twist (the kind with a C2 address); the twist kind rotates per session (msel.ts).
-  const tl = buildTeamTimeline(company, difficulty, seed, null, teamLoad(difficulty, [{ role: "t1" }, { role: "t3" }]), {}, null, null, { force: { twist: "second_implant" } });
+function session(company: string, difficulty: "easy" | "medium" | "hard", seed: string, story: string | null = null) {
+  // The second-implant twist (the kind with a C2 address); the twist kind rotates per session (msel.ts), and since
+  // review 2026-11-08 (K4) an implant needs a story that ran code on the host, so the C2 test names one.
+  const tl = buildTeamTimeline(company, difficulty, seed, story, teamLoad(difficulty, [{ role: "t1" }, { role: "t3" }]), {}, null, null, { force: { twist: "second_implant" } });
   const feed = tl.map((t, i) => ({ t, i })).filter(x => x.t.channel === "feed");
   const events: Ev[] = feed.map(({ t, i }, k) => ({ seq: k + 1, type: "feed.event", actor_id: null, role: null, payload: { ...t.body, inject_id: `inj-${i}` }, occurred_at: undefined }));
   const injects = feed.map(({ t, i }) => ({ id: `inj-${i}`, channel: "feed", expected_action: t.answer ?? null }));
@@ -25,7 +26,7 @@ function session(company: string, difficulty: "easy" | "medium" | "hard", seed: 
 
 describe("buildTeamIocTruth", () => {
   it("the twist's C2 address and every attack log's external IOCs look up as bad — clean without the truth", () => {
-    const { feed, events, injects } = session("nexacorp", "medium", "e90b31d5");
+    const { feed, events, injects } = session("nexacorp", "medium", "e90b31d5", "tech-support-scam");
     const truth = buildTeamIocTruth(events, injects);
     const c2 = feed.find(x => (x.t.answer as { original_id?: string } | undefined)?.original_id?.startsWith("msel_twist_edr"))?.t.body as TelemetryEvent | undefined;
     expect(c2?.dst_ip).toBeTruthy();
@@ -75,7 +76,7 @@ describe("buildTeamIocTruth", () => {
 
 describe("answerIocQuery (QA M4 — no whole-feed oracle)", () => {
   it("answers only the asked IOCs that occur in the logs in hand; the rest come back refused", () => {
-    const { feed, events, injects } = session("nexacorp", "medium", "e90b31d5");
+    const { feed, events, injects } = session("nexacorp", "medium", "e90b31d5", "tech-support-scam");
     const truth = buildTeamIocTruth(events, injects);
     const attack = feed.map((x, k) => ({ x, ev: events[k] }))
       .filter(({ x }) => ["tp", "escalate"].includes(String((x.t.answer as { expected_verdict?: string })?.expected_verdict)))

@@ -495,6 +495,13 @@ Elastic raw sample shows; keep it minimal.)
   *Collect investigation package*, *Live response*, *Stop and quarantine file*; AIR = *Automated investigation*.
   Incidents group alerts (Incident ID is numeric; it is not a column of AlertInfo).
 
+- **In this platform's feed** (review 2026-11-08): one process has one pid everywhere. A session numbers each
+  process once (its instance: host, image, incident) and prints that number on the row's `process.pid`, on its own
+  `ProcessId` and on every child's / action's `InitiatingProcessId`; the legacy raw block of an authored row carries no
+  second copy that could disagree. Benign-positive alerts and the exercise twists are built by the same emitters as
+  the attack stories (a full DeviceProcessEvents row, then the alert on it), so a decoy is told apart by its values,
+  never by having fewer columns.
+
 ---
 
 ## 6. Common mistakes / fields that do NOT exist

@@ -170,7 +170,6 @@ export function mdeProcess(o: MdeProcessOpts): TelemetryEvent {
   const pid = o.pid ?? pidFrom(o.id);
   const ppid = o.parentPid ?? pidFrom(`${o.id}:parent`);
   const path = o.processPath ?? `C:\\Windows\\System32\\${o.processName}`;
-  const folder = path.slice(0, path.lastIndexOf("\\")) || path;
   const a = acct(o.companyId, r.bareUser);
   return {
     id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: "process_create",
@@ -185,11 +184,13 @@ export function mdeProcess(o: MdeProcessOpts): TelemetryEvent {
       "AccountName": o.accountName ?? a.AccountName,
       "AccountDomain": o.accountDomain ?? a.AccountDomain,
       "FileName": o.processName,
-      "FolderPath": folder,
+      // FolderPath is the full image path, file name included (card §6).
+      "FolderPath": path,
       "ProcessCommandLine": o.cmdline,
-      "ProcessId": String(pid),
+      // ProcessId / InitiatingProcessId are not copied into the raw block: the pids live on `process`, and a
+      // session re-numbers every process to its one canonical pid (native/index canonicalPids), which a raw
+      // copy would contradict (the review saw raw ProcessId 7770 next to process.pid 1156).
       "InitiatingProcessFileName": o.parentName ?? "",
-      "InitiatingProcessId": String(ppid),
       ...(o.sha256 ? { "SHA256": o.sha256, "process.hash.sha256": o.sha256 } : {}),
       ...ecsCodeSignature("process", o.signed === undefined ? undefined : o.signed ? "trusted" : "unsigned"),
       ...(o.integrity ? { "process.integrity_level": o.integrity.toLowerCase() } : {}),
@@ -301,7 +302,6 @@ export interface MdeFileOpts extends Ctx {
 export function mdeFile(o: MdeFileOpts): TelemetryEvent {
   const r = resolve(o);
   const name = o.path.split(/[\\/]/).pop() ?? o.path;
-  const folder = o.path.slice(0, o.path.lastIndexOf("\\")) || o.path;
   const sha256 = o.sha256 === null ? undefined : (o.sha256 ?? makeSha256(`file:${o.path}`));
   const ACTION: Record<NonNullable<MdeFileOpts["action"]>, string> = {
     file_create: "FileCreated", file_modify: "FileModified", file_delete: "FileDeleted",
@@ -317,7 +317,7 @@ export function mdeFile(o: MdeFileOpts): TelemetryEvent {
       "ActionType": ACTION[o.action ?? "file_create"],
       "DeviceName": r.host,
       "FileName": name,
-      "FolderPath": folder,
+      "FolderPath": o.path,
       ...(o.size ? { "FileSize": String(o.size) } : {}),
       ...(sha256 ? { "SHA256": sha256, "file.hash.sha256": sha256 } : {}),
       ...(o.initiatingProcess ? { "InitiatingProcessFileName": o.initiatingProcess } : {}),

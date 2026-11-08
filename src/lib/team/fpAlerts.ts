@@ -24,11 +24,23 @@
  * (relabelled to Okta in an Okta shop); SIEM analytics only when the organization runs Sentinel
  * (`siem`); the rest only when the resolved stack has the product (`fits` per maker), and the
  * caller drops anything the chosen product has no record for (fitsStack).
+ *
+ * 2026-11-08 (Sdema review K2 / K8): every row is built by the emitter the attack stories use
+ * (sim/emitters mde / entra / sentinel / windowsSecurity), so a decoy has an attack's columns and is
+ * told apart only by its values: an EDR detection is the full DeviceProcessEvents row and then the
+ * Defender alert on it; a sign-in carries its device and its MFA step; a Sentinel alert is a full
+ * SecurityAlert of the event type the attacks' analytics use (decoyShape.test.ts holds the parity).
  */
-import type { TelemetryEvent } from "@/lib/sim/types";
+import type { TelemetryEvent, EventType } from "@/lib/sim/types";
 import type { CompanyAssets, RosterUser } from "@/lib/sim/companyProfilesMeta";
 import type { Stack } from "@/lib/logs/native/stack";
 import { intIn, pickOf, rankByHistory, shuffled, docIp } from "./variety";
+import { mdeProcess, mdeAlert } from "@/lib/sim/emitters/mde";
+import { entraSignIn as entraEmit } from "@/lib/sim/emitters/entra";
+import { sentinelAlert as sentinelEmit } from "@/lib/sim/emitters/sentinel";
+import { winFailedLogon } from "@/lib/sim/emitters/windowsSecurity";
+import { makeCtx } from "@/lib/logs/native/ctx";
+import { hashString } from "@/lib/sim/rng";
 
 /** A ServiceNow record the timeline places near the alert it explains (or fails to explain). */
 export interface TicketSpec {
@@ -90,57 +102,161 @@ const ITGROUPS = ["Service Desk", "Windows Server Team", "End User Computing", "
 const IT_RE = /\bit\b|devops|admin|infra|sre|security|systems|network|support/i;
 const DEV_RE = /develop|engineer|devops|sre|backend|frontend|quant/i;
 
-/** A Microsoft Sentinel analytics alert (SecurityAlert schema). */
-function sentinelAlert(o: { id: string; ts: string; name: string; severity: "high" | "medium"; host?: string; user?: string; ip?: string;
-  props: Record<string, string>; fp: string; mitre?: string; mcas?: boolean; tactic?: string }): TelemetryEvent {
-  const raw: Record<string, unknown> = { AlertName: o.name, ProductName: o.mcas ? "Microsoft Cloud App Security" : "Azure Sentinel", ProviderName: o.mcas ? "MCAS" : "ASI Scheduled Alerts",
-    AlertSeverity: o.severity === "high" ? "High" : "Medium", Status: "New", TimeGenerated: o.ts, "event.action": "alert",
-    ...(o.tactic ? { Tactics: o.tactic } : {}), ...(o.host ? { CompromisedEntity: o.host } : {}) };
-  if (o.host) raw["Entities.Host.HostName"] = o.host;
-  if (o.user) { const [n, d] = o.user.split("@"); raw["Entities.Account.Name"] = n; raw["Entities.Account.UPNSuffix"] = d; }
-  if (o.ip) raw["Entities.IP.Address"] = o.ip;
-  for (const [k, v] of Object.entries(o.props)) raw[`ExtendedProperties.${k}`] = v;
-  return {
-    id: o.id, ts: o.ts, source: "siem", vendor: "Microsoft Sentinel", event_type: "risk_score_change", severity: o.severity,
-    is_detection: true, expected_verdict: "fp", fp_explanation: o.fp, ...(o.mitre ? { mitre_technique: o.mitre } : {}),
-    ...(o.host ? { hostname: o.host } : {}), ...(o.user ? { user_email: o.user } : {}), ...(o.ip ? { src_ip: o.ip } : {}),
-    description: `Sentinel raised "${o.name}"`, raw,
-  } as TelemetryEvent;
-}
-
-/** An EDR detection, authored as Defender for Endpoint and relabelled to the session's EDR. */
-function edrDetection(o: { id: string; ts: string; host: string; userEmail?: string; severity: "high" | "medium" | "low";
-  process: NonNullable<TelemetryEvent["process"]>; category: string; description: string; fp: string; mitre: string; extra?: Record<string, unknown> }): TelemetryEvent {
-  return {
-    id: o.id, ts: o.ts, source: "edr", event_type: "process_create", severity: o.severity, vendor: "Microsoft Defender for Endpoint",
-    hostname: o.host, ...(o.userEmail ? { user_email: o.userEmail } : {}), is_detection: true,
-    expected_verdict: "fp", fp_explanation: o.fp, mitre_technique: o.mitre, description: o.description,
-    process: o.process,
-    raw: { Category: o.category, action_result: "allowed", "process.name": o.process.name, ...(o.extra ?? {}) },
-  } as TelemetryEvent;
-}
-
 /**
- * An Entra ID interactive sign-in (the shape the travel alert always used; relabelled in an Okta shop).
- * The alert is Entra ID Protection's, so the sign-in carries the risk detection that raised it, as the
- * real SigninLogs row does (riskLevelDuringSignIn, riskEventTypes_v2, riskState).
+ * A Microsoft Sentinel analytics alert (SecurityAlert), built by the same emitter the stories' alerts use
+ * (sim/emitters/sentinel), so a decoy alert and an attack alert carry the same columns: TenantId,
+ * SystemAlertId, StartTime / EndTime, Tactics, Techniques, typed Entities. The event type is the one the
+ * attack alerts use for the same kind of analytic (behaviour over sign-ins, files or mail: ueba_anomaly;
+ * an Azure control-plane analytic: cloud_api_call), never a type only decoys carry.
  */
-function entraSignIn(o: { id: string; ts: string; user: string; ip: string; city: string; country: string; lat: number; lon: number;
-  description: string; fp: string; risk: { level: "low" | "medium"; detection: "unfamiliarFeatures" | "anonymizedIPAddress" } }): TelemetryEvent {
-  return {
-    id: o.id, ts: o.ts, source: "o365", event_type: "auth_success", severity: "medium", vendor: "Microsoft Entra ID",
-    user_email: o.user, src_ip: o.ip, is_detection: true, expected_verdict: "fp", fp_explanation: o.fp, description: o.description,
-    raw: {
-      "data.office365.Operation": "UserLoggedIn", "data.office365.Workload": "AzureActiveDirectory",
-      "data.office365.AzureActiveDirectoryEventType": "AccountLogon", "data.office365.UserId": o.user,
-      "data.office365.ActorIpAddress": o.ip, "data.office365.ClientIP": o.ip, "data.office365.ResultStatus": "Succeeded",
-      "GeoLocation.country_name": o.country, "GeoLocation.city_name": o.city, "GeoLocation.location.lat": o.lat, "GeoLocation.location.lon": o.lon,
-      "azure.signinlogs.properties.riskLevelDuringSignIn": o.risk.level, "azure.signinlogs.properties.riskEventTypes_v2": [o.risk.detection],
-      "azure.signinlogs.properties.riskState": "atRisk",
-      action_result: "allowed",
-    },
-  } as TelemetryEvent;
+function sentinelAlert(c: Ctx, o: { id: string; name: string; severity: "high" | "medium"; host?: string; user?: string; ip?: string;
+  props: Record<string, string>; fp: string; mitre?: string; mcas?: boolean; tactic?: string; detail?: string; eventType?: EventType }): TelemetryEvent {
+  const ev = sentinelEmit({
+    id: o.id, ts: c.ts, companyId: c.companyId, host: o.host, user: o.user ?? null, srcIp: o.ip,
+    alertName: o.name, severity: o.severity, eventType: o.eventType ?? "ueba_anomaly", mitre: o.mitre, tactic: o.tactic,
+    ...(o.detail ? { detail: o.detail } : {}),
+    ...(o.mcas ? { productName: "Microsoft Cloud App Security", providerName: "MCAS" } : {}),
+    tenantId: makeCtx(c.companyId).tenant.azureTenantId,
+    extendedProperties: o.props,
+  });
+  return { ...ev, is_detection: true, expected_verdict: "fp", fp_explanation: o.fp, description: `Sentinel raised "${o.name}"` } as TelemetryEvent;
 }
+
+/** A process an EDR maker shows: its image, command line, parent and the account it runs as. */
+interface EdrProcSpec {
+  name: string; path?: string; cmdline: string; parent: string; parentPath?: string;
+  /** "system": a service / agent process (NT AUTHORITY\SYSTEM); else the person's own account. */
+  system?: boolean; integrity?: "Medium" | "High" | "System"; signed?: boolean; sha256?: string;
+}
+/**
+ * An EDR detection as Defender for Endpoint writes it, relabelled to the session's EDR: the process's
+ * DeviceProcessEvents row (sim/emitters/mde mdeProcess, every column a story's process row has) and then
+ * the alert on it (mdeAlert, with the same process as its evidence). The alert is the maker's last row.
+ * The process row is ordinary telemetry (no verdict field of its own): the alert is what the analyst triages.
+ */
+function edrDetection(c: Ctx, o: { tag: string; host: string; userEmail?: string; severity: "high" | "medium" | "low";
+  proc: EdrProcSpec; alertTitle: string; category: string; description: string; fp: string; mitre: string; techniqueName?: string;
+  file?: { size?: number } }): TelemetryEvent[] {
+  const pid = 4 * intIn(300, 4000, c.rnd), ppid = 4 * intIn(150, 2900, c.rnd);
+  const path = o.proc.path ?? `C:\\Windows\\System32\\${o.proc.name}`;
+  const sys = !!o.proc.system;
+  const user = sys ? null : o.userEmail;
+  // A signed vendor binary carries the fleet's own hash for its path (the native renderer derives it, the same on
+  // every host); only an unsigned, one-off build gets a hash of its own.
+  const sha256 = o.proc.signed === false ? o.proc.sha256 ?? sha256Of(`${c.companyId}:${o.host}:${path.toLowerCase()}`) : undefined;
+  const runAs = sys ? "NT AUTHORITY\\SYSTEM" : undefined;
+  const parentPath = o.proc.parentPath ?? parentPathOf(o.proc.parent);
+  const procEv = mdeProcess({
+    id: `fpa_${o.tag}ev_${c.n}_0`, ts: c.ts, companyId: c.companyId, host: o.host, user,
+    processName: o.proc.name, processPath: path, cmdline: o.proc.cmdline, parentName: o.proc.parent, pid, parentPid: ppid,
+    sha256, signed: o.proc.signed ?? true, integrity: o.proc.integrity ?? (sys ? "System" : "Medium"),
+    ...(sys ? { runAsUser: runAs, accountName: "system", accountDomain: "nt authority" } : {}),
+    extra: { InitiatingProcessFolderPath: parentPath },
+    severity: "low", description: `${o.proc.parent} started ${o.proc.name} on ${o.host}`,
+  });
+  delete (procEv as Partial<TelemetryEvent>).is_detection;
+  const process: NonNullable<TelemetryEvent["process"]> = { ...procEv.process! };
+  const alert = mdeAlert({
+    id: `fpa_${o.tag}_${c.n}`, ts: c.ts, companyId: c.companyId, host: o.host, user,
+    alertTitle: o.alertTitle, category: o.category, detectionSource: "EDR", evidenceRole: "Impacted", mitre: o.mitre,
+    ...(o.techniqueName ? { techniqueName: o.techniqueName } : {}),
+    mdeIncidentId: String(intIn(4000, 9800, c.rnd)), severity: o.severity, ...(sha256 ? { sha256 } : {}),
+    extra: {
+      "process.name": o.proc.name, "process.executable": path, "process.command_line": o.proc.cmdline,
+      "process.parent.name": o.proc.parent, ...(sha256 ? { "process.hash.sha256": sha256 } : {}),
+      ...(o.file?.size ? { "file.size": o.file.size } : {}),
+      "action_result": "detected",
+    },
+    description: o.description,
+  });
+  if (sys) { alert.raw!["AccountName"] = "system"; alert.raw!["AccountDomain"] = "nt authority"; }
+  return [procEv, { ...alert, process, src_ip: procEv.src_ip, expected_verdict: "fp", fp_explanation: o.fp } as TelemetryEvent];
+}
+const PARENT_PATH: Record<string, string> = {
+  "explorer.exe": "C:\\Windows\\explorer.exe", "services.exe": "C:\\Windows\\System32\\services.exe", "svchost.exe": "C:\\Windows\\System32\\svchost.exe",
+  "cmd.exe": "C:\\Windows\\System32\\cmd.exe", "powershell.exe": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+  "WindowsTerminal.exe": "C:\\Program Files\\WindowsApps\\Microsoft.WindowsTerminal_1.21.3231.0_x64__8wekyb3d8bbwe\\WindowsTerminal.exe",
+  "CcmExec.exe": "C:\\Windows\\CCM\\CcmExec.exe", "AgentExecutor.exe": "C:\\Program Files (x86)\\Microsoft Intune Management Extension\\AgentExecutor.exe",
+  "PDQDeployRunner-1.exe": "C:\\Windows\\AdminArsenal\\PDQDeployRunner\\service-1\\PDQDeployRunner-1.exe",
+  "Wireshark.exe": "C:\\Program Files\\Wireshark\\Wireshark.exe", "devenv.exe": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\Common7\\IDE\\devenv.exe",
+  "dotnet.exe": "C:\\Program Files\\dotnet\\dotnet.exe", "Code.exe": "C:\\Program Files\\Microsoft VS Code\\Code.exe",
+};
+const parentPathOf = (name: string) => PARENT_PATH[name] ?? `C:\\Windows\\System32\\${name}`;
+const sha256Of = (seed: string) => {
+  let out = "";
+  for (let i = 0; out.length < 64; i++) out += (hashString(`${seed}:${i}`) >>> 0).toString(16).padStart(8, "0");
+  return out.slice(0, 64);
+};
+
+/** The device a person signs in from, as Entra ID records it (deviceDetail). */
+interface SignInDevice { name: string; os: string; browser: string; trustType: "Azure AD joined" | "Hybrid Azure AD joined" | "Azure AD registered"; compliant: boolean; managed: boolean }
+/**
+ * An Entra ID sign-in (relabelled in an Okta shop), built by the stories' emitter (sim/emitters/entra):
+ * the full SigninLogs row with the device (deviceDetail), the authentication steps (authenticationDetails),
+ * the Conditional Access result and, for an Identity Protection alert, the risk detection that raised it.
+ * The device and the MFA step are what prove or disprove a sign-in, so every decoy sign-in carries them.
+ */
+function entraSignIn(c: Ctx, o: { id: string; user: string; ip: string; city: string; country: string; lat?: number; lon?: number;
+  description: string; fp: string; device: SignInDevice | null; mfa: "push" | "sms" | "token" | null; result?: "success" | "failure";
+  errorCode?: string; app?: string; clientApp?: string; ua?: string; risk?: { level: "low" | "medium"; detection: "unfamiliarFeatures" | "anonymizedIPAddress" };
+  detection?: boolean; severity?: "low" | "medium" }): TelemetryEvent {
+  const ok = (o.result ?? "success") === "success";
+  const step = (offsetMs: number) => new Date(Date.parse(c.ts) - offsetMs).toISOString();
+  const steps: Record<string, unknown>[] = [{
+    authenticationStepDateTime: step(o.mfa ? 18_000 : 0), authenticationMethod: "Password", authenticationMethodDetail: "Password in the cloud",
+    succeeded: ok, authenticationStepResultDetail: ok ? "Correct password" : "Invalid username or password or Invalid on-premise username or password.",
+    authenticationStepRequirement: "Primary authentication",
+  }];
+  if (ok && o.mfa) steps.push({
+    authenticationStepDateTime: step(0),
+    authenticationMethod: o.mfa === "token" ? "Previously satisfied" : o.mfa === "sms" ? "Text message" : "Mobile app notification",
+    authenticationMethodDetail: o.mfa === "token" ? null : o.mfa === "sms" ? "Phone number" : "Microsoft Authenticator",
+    succeeded: true, authenticationStepResultDetail: o.mfa === "token" ? "MFA requirement satisfied by claim in the token" : "MFA successfully completed",
+    authenticationStepRequirement: "Multifactor authentication",
+  });
+  const dev = o.device;
+  const app = o.app ?? "Office 365 Exchange Online";
+  const geo = o.lat !== undefined ? { lat: o.lat, lon: o.lon! } : CITY_GEO[o.city];
+  // deviceDetail.operatingSystem / browser are Entra's parse of the user agent, present with or without a registered device.
+  const mobile = /iOS|Android/i.test(o.ua ?? "");
+  const ev = entraEmit({
+    id: o.id, ts: c.ts, companyId: c.companyId, user: o.user, srcIp: o.ip, result: o.result ?? "success", errorCode: o.errorCode,
+    app, appId: APP_ID[app], resource: APP_RESOURCE[app] ?? app, mfa: !!o.mfa && ok, isInteractive: true,
+    asn: 64496 + (hashString(`${c.companyId}:asn:${o.ip}`) % 16),
+    managed: dev?.managed ?? false, compliant: dev?.compliant ?? false,
+    ...(dev ? { deviceId: makeCtx(c.companyId).uuid(`${c.companyId}:entra-device:${dev.name}`), deviceName: dev.name, os: dev.os, browser: dev.browser, trustType: dev.trustType }
+      : { os: mobile ? (/iOS/i.test(o.ua ?? "") ? "Ios" : "Android") : "Windows 10", browser: mobile ? "Mobile App" : "Edge 141.0.0" }),
+    ...(o.ua ? { userAgent: o.ua } : {}),
+    riskLevel: o.risk?.level ?? "none", riskEventTypes: o.risk ? [o.risk.detection] : [], riskDetail: "none",
+    conditionalAccess: ok ? "success" : "notApplicable",
+    sessionId: makeCtx(c.companyId).uuid(`${o.id}:session`),
+    incomingTokenType: "none",
+    geo: { city: o.city, country: o.country, ...(geo ? { latitude: geo.lat, longitude: geo.lon } : {}) },
+    severity: o.severity ?? (ok ? "medium" : "low"),
+    extra: {
+      "azure.signinlogs.properties.authenticationDetails": steps,
+      ...(o.clientApp ? { "azure.signinlogs.properties.clientAppUsed": o.clientApp } : {}),
+    },
+    description: o.description,
+  });
+  return { ...ev, ...(o.detection ? { is_detection: true } : {}), expected_verdict: "fp", fp_explanation: o.fp } as TelemetryEvent;
+}
+
+/** First-party application ids Entra ID records (appId) and the resource each one signs in to. */
+const APP_ID: Record<string, string> = {
+  "Office 365 Exchange Online": "00000002-0000-0ff1-ce00-000000000000", "Microsoft Teams": "1fec8e78-bce4-4aaf-ab1b-5451cc387264",
+  "Office 365 SharePoint Online": "00000003-0000-0ff1-ce00-000000000000",
+};
+const APP_RESOURCE: Record<string, string> = { "Microsoft Teams": "Microsoft Graph" };
+/** Coordinates of the cities a decoy sign-in or an office egress resolves to. */
+const CITY_GEO: Record<string, { lat: number; lon: number }> = {
+  London: { lat: 51.5074, lon: -0.1278 }, "Tel Aviv": { lat: 32.0853, lon: 34.7818 }, Amsterdam: { lat: 52.3676, lon: 4.9041 },
+  "Frankfurt am Main": { lat: 50.1109, lon: 8.6821 }, Zurich: { lat: 47.3769, lon: 8.5417 },
+};
+/** A Windows browser user agent (Entra parses deviceDetail.operatingSystem / browser from it). */
+const EDGE_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0";
+const managedLaptop = (host: string, hybrid: boolean): SignInDevice =>
+  ({ name: host, os: "Windows 11", browser: "Edge 141.0.0", trustType: hybrid ? "Hybrid Azure AD joined" : "Azure AD joined", compliant: true, managed: true });
 
 /** escalate instead of FP: the ticket the analyst finds does not cover what happened. */
 function asMiss(ev: TelemetryEvent, message: string): void {
@@ -176,7 +292,9 @@ const MAKERS: Maker[] = [
   { id: "scan_sentinel", kind: "scan", siemOnly: true, make: c => {
     const s = c.scanner, t = num("CHG", c);
     const ports = intIn(600, 4200, c.rnd), hosts = intIn(30, 160, c.rnd), mins = pickOf([15, 30, 59], c.rnd);
-    const ev = sentinelAlert({ id: `fpa_scan_${c.n}`, ts: c.ts, name: pickOf(["Port scan from an internal host", "Internal host scanning many ports"], c.rnd), severity: "high", host: s.host, ip: s.ip,
+    const ev = sentinelAlert(c, { id: `fpa_scan_${c.n}`, name: pickOf(["Port scan from an internal host", "Internal host scanning many ports"], c.rnd), severity: "high", host: s.host, ip: s.ip,
+      user: mail(c.assets, s.account),
+      detail: "One internal source connected to many ports on many hosts inside the query period.",
       props: { "Distinct Ports": String(ports), "Distinct Hosts": String(hosts), "Query Period": `00:${String(mins).padStart(2, "0")}:00`, "Scanner Account": s.account },
       fp: `Authorised ${s.product} scan from the registered scanner ${s.host} (${s.ip}), the standard change ${t} for the scan window.`, mitre: "T1046", tactic: "Discovery" });
     return { makerId: "scan_sentinel", kind: "scan", verdict: "fp", rows: [ev], host: s.host,
@@ -186,13 +304,13 @@ const MAKERS: Maker[] = [
   { id: "scan_firewall", kind: "scan", make: c => {
     const s = c.scanner, t = num("CHG", c);
     const dst = `${c.assets.subnet}.${intIn(2, 230, c.rnd)}`;
-    const sig = pickOf([["SCAN-TCP-Port-Scan", "TCP port scan"], ["SCAN-Host-Sweep", "Host sweep"], ["SCAN-UDP-Port-Scan", "UDP port scan"]] as const, c.rnd);
+    const sig = pickOf([["TCP Port Scan", "TCP port scan", "8001"], ["Host Sweep", "Host sweep", "8002"], ["UDP Port Scan", "UDP port scan", "8003"]] as const, c.rnd);
     const ev = {
       id: `fpa_scanfw_${c.n}`, ts: c.ts, source: "firewall", vendor: "Palo Alto Networks PAN-OS", event_type: "ids_signature", severity: "medium", is_detection: true,
       hostname: s.host, src_ip: s.ip, dst_ip: dst, dst_port: pickOf([22, 135, 443, 445, 3389, 8080], c.rnd), expected_verdict: "fp", mitre_technique: "T1046",
       fp_explanation: `${s.host} (${s.ip}) is the registered ${s.product} scanner; its scan window is the standard change ${t}.`,
       description: `${sig[1]} from ${s.ip} toward ${dst}`,
-      raw: { "event.action": "ids_alert", "event.outcome": "success", "source.ip": s.ip, "destination.ip": dst, "ids.signature_id": `SID:${intIn(40001, 40099, c.rnd)}`,
+      raw: { "event.action": "ids_alert", "event.outcome": "success", "source.ip": s.ip, "destination.ip": dst, "ids.signature_id": sig[2],
         "ids.signature_name": sig[0], "ids.category": "network-scan", "ids.severity": "medium", action_result: "alert", "session.blocked": "false" },
     } as TelemetryEvent;
     return { makerId: "scan_firewall", kind: "scan", verdict: "fp", rows: [ev], host: s.host,
@@ -211,25 +329,26 @@ const MAKERS: Maker[] = [
       { what: "update the backup agent", cmd: `msiexec /i \\\\${c.assets.fileServer}\\Deploy\\agent-${intIn(10, 19, c.rnd)}.${intIn(0, 9, c.rnd)}.msi /qn` },
     ], c.rnd);
     const tool = pickOf(["psexec", "psremoting", "wmi", "winrs"] as const, c.rnd);
-    const pid = intIn(2000, 9000, c.rnd), ppid = intIn(1000, 9000, c.rnd);
-    const proc: NonNullable<TelemetryEvent["process"]> = tool === "psexec"
-      ? { name: pickOf(["PsExec.exe", "PsExec64.exe"], c.rnd), pid, parent_name: "cmd.exe", parent_pid: ppid, user: admin.name,
-          cmdline: `PsExec64.exe -accepteula \\\\${target} ${pickOf(["-s ", "-h ", ""], c.rnd)}cmd /c "${task.cmd}"` }
+    const psx = pickOf(["PsExec.exe", "PsExec64.exe"], c.rnd);
+    const proc: EdrProcSpec = tool === "psexec"
+      ? { name: psx, path: `C:\\Tools\\SysinternalsSuite\\${psx}`, parent: "cmd.exe", integrity: "High",
+          cmdline: `${psx} -accepteula \\\\${target} ${pickOf(["-s ", "-h ", ""], c.rnd)}cmd /c "${task.cmd}"` }
       : tool === "psremoting"
-        ? { name: "powershell.exe", pid, parent_name: pickOf(["explorer.exe", "WindowsTerminal.exe"], c.rnd), parent_pid: ppid, user: admin.name,
+        ? { name: "powershell.exe", path: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", parent: pickOf(["explorer.exe", "WindowsTerminal.exe"], c.rnd), integrity: "High",
             cmdline: `powershell.exe -NoProfile -Command "Invoke-Command -ComputerName ${target} -ScriptBlock { cmd /c '${task.cmd}' }"` }
         : tool === "wmi"
-          ? { name: "WMIC.exe", pid, parent_name: "cmd.exe", parent_pid: ppid, user: admin.name, cmdline: `wmic /node:"${target}" process call create "cmd.exe /c ${task.cmd}"` }
-          : { name: "winrs.exe", pid, parent_name: "cmd.exe", parent_pid: ppid, user: admin.name, cmdline: `winrs -r:${target} cmd /c "${task.cmd}"` };
-    if (tool === "psexec") proc.cmdline = proc.cmdline!.replace(/^PsExec64\.exe/, proc.name);
+          ? { name: "WMIC.exe", path: "C:\\Windows\\System32\\wbem\\WMIC.exe", parent: "cmd.exe", integrity: "High", cmdline: `wmic /node:"${target}" process call create "cmd.exe /c ${task.cmd}"` }
+          : { name: "winrs.exe", parent: "cmd.exe", integrity: "High", cmdline: `winrs -r:${target} cmd /c "${task.cmd}"` };
     const label = { psexec: "PsExec", psremoting: "PowerShell remoting", wmi: "WMI", winrs: "WinRM (winrs)" }[tool];
     const missHost = c.miss ? c.server() : null;
-    const ev = edrDetection({ id: `fpa_remote_${c.n}`, ts: c.ts, host: admin.host, userEmail: admin.email, severity: "high",
-      category: "LateralMovement", mitre: tool === "psexec" ? "T1569.002" : tool === "wmi" ? "T1047" : "T1021.006", process: proc,
+    const rows = edrDetection(c, { tag: "remote", host: admin.host, userEmail: admin.email, severity: "high", proc,
+      alertTitle: tool === "psremoting" ? "Suspicious PowerShell command line" : tool === "wmi" ? "Suspicious WMI process creation" : "Suspicious remote activity",
+      category: tool === "psremoting" || tool === "wmi" ? "Execution" : "LateralMovement", mitre: tool === "psexec" ? "T1569.002" : tool === "wmi" ? "T1047" : "T1021.006",
       description: `${proc.name} on ${admin.host} ran a command on ${target} (${label})`,
       fp: `IT administrator ${admin.name} used ${label} to ${task.what} on ${target} under change ${t}.` });
+    const ev = rows[rows.length - 1];
     if (missHost) asMiss(ev, `IT says change ${t} covers ${missHost} only. Nobody approved remote work on ${target}; ${admin.name} has to explain it.`);
-    return { makerId: "remote_admin", kind: "remote_admin", verdict: missHost ? "escalate" : "fp", rows: [ev], person: admin.email, host: admin.host,
+    return { makerId: "remote_admin", kind: "remote_admin", verdict: missHost ? "escalate" : "fp", rows, person: admin.email, host: admin.host,
       ticket: { table: "change_request", number: t, state: "Implement", short: `${task.what[0].toUpperCase()}${task.what.slice(1)} on ${missHost ?? target}`, ci: missHost ?? target, assignedTo: admin.email, group: pickOf(ITGROUPS, c.rnd), window: [-intIn(15, 60, c.rnd), intIn(45, 180, c.rnd)] } };
   } },
   // ── A management agent runs its script with the execution policy bypassed (Configuration Manager, Intune or PDQ Deploy).
@@ -242,12 +361,12 @@ const MAKERS: Maker[] = [
       { parent: "PDQDeployRunner-1.exe", name: "cmd.exe", cmd: `cmd.exe /c "C:\\Windows\\AdminArsenal\\PDQDeployRunner\\service-1\\exec\\${pickOf(["Install", "Remediate", "Inventory"], c.rnd)}-${intIn(100, 999, c.rnd)}.bat"`, label: "PDQ Deploy" },
     ], c.rnd);
     const t = num("CHG", c);
-    const ev = edrDetection({ id: `fpa_mgmt_${c.n}`, ts: c.ts, host, severity: pickOf(["high", "medium"] as const, c.rnd), category: "SuspiciousScriptExecution", mitre: "T1059.001",
-      process: { name: agent.name, pid: intIn(2000, 9000, c.rnd), parent_name: agent.parent, parent_pid: intIn(1000, 4000, c.rnd), user: "SYSTEM", cmdline: agent.cmd },
+    const rows = edrDetection(c, { tag: "mgmt", host, severity: pickOf(["high", "medium"] as const, c.rnd), mitre: agent.name === "cmd.exe" ? "T1059.003" : "T1059.001",
+      alertTitle: agent.name === "cmd.exe" ? "Suspicious behavior by cmd.exe was observed" : "Suspicious PowerShell command line", category: "Execution",
+      proc: { name: agent.name, path: agent.name === "cmd.exe" ? "C:\\Windows\\System32\\cmd.exe" : "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", parent: agent.parent, system: true, cmdline: agent.cmd },
       description: `${agent.name} launched by ${agent.parent} on ${host} with the execution policy bypassed`,
-      fp: `${agent.label} deployment by IT under change ${t}; the script is the package the agent pulled from its own distribution point.`,
-      extra: { "process.code_signature.trusted": true } });
-    return { makerId: "mgmt_script", kind: "mgmt_script", verdict: "fp", rows: [ev], host,
+      fp: `${agent.label} deployment by IT under change ${t}; the script is the package the agent pulled from its own distribution point.` });
+    return { makerId: "mgmt_script", kind: "mgmt_script", verdict: "fp", rows, host,
       ticket: { table: "change_request", number: t, state: pickOf(["Implement", "Scheduled"], c.rnd), short: `${agent.label} deployment wave ${intIn(1, 6, c.rnd)} to workstations`, group: "End User Computing", window: [-intIn(60, 300, c.rnd), intIn(120, 600, c.rnd)] } };
   } },
   // ── Approved business travel: a sign-in from abroad, MFA satisfied.
@@ -255,9 +374,10 @@ const MAKERS: Maker[] = [
     const p = c.person();
     if (!p) return null;
     const [city, country, lat, lon] = pickOf(CITIES, c.rnd), ip = docIp(c.rnd, c.ips), t = num("RITM", c);
-    const ev = entraSignIn({ id: `fpa_travel_${c.n}`, ts: c.ts, user: p.email, ip, city, country, lat, lon, risk: { level: "medium", detection: "unfamiliarFeatures" },
+    const ev = entraSignIn(c, { id: `fpa_travel_${c.n}`, user: p.email, ip, city, country, lat, lon, risk: { level: "medium", detection: "unfamiliarFeatures" }, detection: true,
+      device: managedLaptop(p.host, c.rnd() < 0.5), mfa: "push", app: pickOf(["Office 365 Exchange Online", "Microsoft Teams", "Office 365 SharePoint Online"], c.rnd), ua: EDGE_UA,
       description: `${p.email} signed in from ${city}, ${country} (${ip}), first sign-in from this country`,
-      fp: `${p.name} is on approved business travel to ${city} (travel request ${t}); the sign-in is from the managed laptop ${p.host} with MFA.` });
+      fp: `${p.name} is on approved business travel to ${city} (travel request ${t}); the sign-in is from the managed, compliant laptop ${p.host} and passed MFA in the Authenticator app.` });
     return { makerId: "travel", kind: "travel", verdict: "fp", rows: [ev], person: p.email,
       ticket: { table: "sc_req_item", number: t, state: "Closed Complete", short: `Business travel to ${city}: laptop roaming approved`, requestedFor: p.email, group: "Travel Desk" } };
   } },
@@ -268,8 +388,10 @@ const MAKERS: Maker[] = [
     const relay = c.rnd() < 0.5, ip = docIp(c.rnd, c.ips);
     const [vendor, city, country, lat, lon] = relay ? ["iCloud Private Relay", ...pickOf(RELAY_EGRESS, c.rnd)] as [string, string, string, number, number] : pickOf(PROXY_NODES, c.rnd);
     // Apple's relay egress is on the anonymizer lists Identity Protection uses; a gateway node is just a new place.
-    const ev = entraSignIn({ id: `fpa_egress_${c.n}`, ts: c.ts, user: p.email, ip, city, country, lat, lon,
+    const ev = entraSignIn(c, { id: `fpa_egress_${c.n}`, user: p.email, ip, city, country, lat, lon, detection: true,
       risk: relay ? { level: "medium", detection: "anonymizedIPAddress" } : { level: "low", detection: "unfamiliarFeatures" },
+      device: relay ? { name: "iPhone", os: "Ios 18.1.1", browser: "Mobile Safari", trustType: "Azure AD registered", compliant: true, managed: true } : managedLaptop(p.host, c.rnd() < 0.5),
+      mfa: relay ? "token" : "push", ...(relay ? { clientApp: "Mobile Apps and Desktop clients", ua: "Outlook-iOS/2.0" } : { ua: EDGE_UA }),
       description: `${p.email} signed in from ${city}, ${country} (${ip}), an unfamiliar location for this account`,
       fp: relay
         ? `${p.name} reads mail on a company-enrolled iPhone with iCloud Private Relay on; Apple's relay egress in ${city} is the address, the device is compliant and MFA was satisfied. Benign, no ticket needed.`
@@ -280,10 +402,13 @@ const MAKERS: Maker[] = [
   { id: "new_phone", kind: "new_device", make: c => {
     const p = c.person();
     if (!p) return null;
-    const phone = pickOf(PHONES, c.rnd), ip = docIp(c.rnd, c.ips), office = c.assets.office;
+    // The new phone signs in over its mobile carrier in the user's own city.
+    const phone = pickOf(PHONES, c.rnd), office = c.assets.office, ip = docIp(c.rnd, c.ips);
     const t = num("INC", c);
-    const ev = entraSignIn({ id: `fpa_phone_${c.n}`, ts: c.ts, user: p.email, ip, city: office?.city ?? "London", country: office?.country ?? "United Kingdom", lat: 0, lon: 0,
-      risk: { level: "low", detection: "unfamiliarFeatures" },
+    const ios = phone.startsWith("iPhone");
+    const ev = entraSignIn(c, { id: `fpa_phone_${c.n}`, user: p.email, ip, city: office?.city ?? "London", country: office?.country ?? "United Kingdom", detection: true,
+      risk: { level: "low", detection: "unfamiliarFeatures" }, mfa: "push", clientApp: "Mobile Apps and Desktop clients", ua: ios ? "Outlook-iOS/2.0" : "Outlook-Android/2.0",
+      device: { name: phone, os: ios ? "Ios 18.1.1" : "Android 15", browser: ios ? "Mobile Safari" : "Chrome Mobile", trustType: "Azure AD registered", compliant: true, managed: true },
       description: `${p.email} signed in from a device never seen for this account (${phone})`,
       fp: `${p.name} replaced their phone; the help desk re-registered the authenticator under incident ${t} and the first sign-in from the new ${phone} followed. Same city, MFA satisfied.` });
     return { makerId: "new_phone", kind: "new_device", verdict: "fp", rows: [ev], person: p.email,
@@ -295,21 +420,20 @@ const MAKERS: Maker[] = [
     const p = c.person();
     if (!p) return null;
     const app = pickOf(Object.keys(MAIL_CLIENTS), c.rnd), fails = intIn(14, 60, c.rnd);
-    const name = pickOf(["Repeated failed sign-ins for one account", "Many failed sign-ins for one user"], c.rnd), ip = `${c.assets.subnet}.${intIn(100, 199, c.rnd)}`;
-    const ev = sentinelAlert({ id: `fpa_stale_${c.n}`, ts: c.ts, name, severity: "medium", user: p.email, ip,
+    const name = pickOf(["Repeated failed sign-ins for one account", "Many failed sign-ins for one user"], c.rnd), ip = docIp(c.rnd, c.ips);
+    const ev = sentinelAlert(c, { id: `fpa_stale_${c.n}`, name, severity: "medium", user: p.email, ip,
+      detail: "One account failed to sign in many times in the query period.",
       props: { "Failed sign-ins": String(fails), "ResultType": "50126", "Client app": app, "Distinct IPs": "1", "Query Period": "01:00:00" },
-      fp: `${p.name} changed their password this morning; ${app} on their own phone kept retrying the old one over the office Wi-Fi. One source, one known device, no success.`, mitre: "T1110.001", tactic: "CredentialAccess" });
+      fp: `${p.name} changed their password this morning; ${app} on their own phone kept retrying the old one from the phone's mobile connection. One source, one known device, no success.`, mitre: "T1110.001", tactic: "CredentialAccess" });
     // The analytic counts sign-in rows: the latest of them reach the feed with it, as SigninLogs holds them.
     const client = MAIL_CLIENTS[app];
-    const tries = [0, 1].map(k => ({
-      id: `fpa_staleev_${c.n}_${k}`, ts: c.ts, source: "o365", event_type: "auth_failure", severity: "low", vendor: "Microsoft Entra ID",
-      user_email: p.email, src_ip: ip, network: { user_agent: client.ua }, expected_verdict: "fp",
-      fp_explanation: `${app} on ${p.name}'s own phone retrying the password from before this morning's change.`,
-      description: `${p.email} failed to sign in: wrong password`,
-      raw: { "data.office365.Operation": "UserLoginFailed", "data.office365.Workload": "AzureActiveDirectory", "data.office365.AzureActiveDirectoryEventType": "AccountLogon",
-        "data.office365.UserId": p.email, "data.office365.ActorIpAddress": ip, "data.office365.ClientIP": ip, "data.office365.ResultStatus": "Failed",
-        "data.office365.ErrorNumber": "50126", "data.office365.LogonError": "InvalidUserNameOrPassword", "azure.signinlogs.properties.clientAppUsed": client.clientApp, action_result: "blocked" },
-    }) as TelemetryEvent);
+    const tries = [0, 1].map(k => {
+      const e = entraSignIn(c, { id: `fpa_staleev_${c.n}_${k}`, user: p.email, ip, city: c.assets.office?.city ?? "London", country: c.assets.office?.country ?? "United Kingdom",
+        result: "failure", errorCode: "50126", device: null, mfa: null, clientApp: client.clientApp, ua: client.ua, severity: "low",
+        description: `${p.email} failed to sign in: wrong password`,
+        fp: `${app} on ${p.name}'s own phone retrying the password from before this morning's change.` });
+      return { ...e, network: { user_agent: client.ua } } as TelemetryEvent;
+    });
     return { makerId: "stale_mail_app", kind: "mfa_noise", verdict: "fp", rows: [...tries, ev], person: p.email,
       ticket: c.rnd() < 0.6 ? { table: "incident", number: num("INC", c), state: "In Progress", short: "Phone keeps asking for the password after a reset", requestedFor: p.email, group: "Service Desk" } : undefined };
   } },
@@ -360,7 +484,7 @@ const MAKERS: Maker[] = [
     const svc = c.assets.serviceAccounts.find(s => /backup/.test(s)) ?? "svc-backup";
     const product = pickOf([["Veeam Agent", "VeeamAgent.exe"], ["Commvault", "CVD.exe"], ["Veritas NetBackup", "bpbkar32.exe"], ["Azure Backup (MARS)", "cbengine.exe"]] as const, c.rnd);
     const files = intIn(9000, 64000, c.rnd), mins = pickOf([30, 60, 120], c.rnd), t = num("CHG", c);
-    const ev = sentinelAlert({ id: `fpa_backup_${c.n}`, ts: c.ts, name: pickOf(["Mass file access by a single account", "Unusual volume of file reads"], c.rnd), severity: "high", host: c.assets.fileServer, user: mail(c.assets, svc),
+    const ev = sentinelAlert(c, { id: `fpa_backup_${c.n}`, name: pickOf(["Mass file access by a single account", "Unusual volume of file reads"], c.rnd), severity: "high", host: c.assets.fileServer, user: mail(c.assets, svc),
       props: { "Files Accessed": String(files), "Window": `${mins} minutes`, "Account": svc, "Process": product[1] },
       fp: `${product[0]} job of ${c.assets.fileServer} by ${svc}, the standing change ${t}; the volume matches the share's size.` });
     return { makerId: "backup_read", kind: "backup", verdict: "fp", rows: [ev], host: c.assets.fileServer,
@@ -373,18 +497,20 @@ const MAKERS: Maker[] = [
     const firm = pickOf([["Halcyon Assurance", "hal"], ["Northpoint Offensive", "npo"], ["Greyfield Security", "gfs"]] as const, c.rnd);
     const acct = `pt-${firm[1]}${intIn(1, 4, c.rnd)}`, t = num("CHG", c), dir = `C:\\PT\\${firm[1]}-${intIn(10, 99, c.rnd)}`;
     const tool = pickOf([
-      { name: "Rubeus.exe", cmd: `${dir}\\Rubeus.exe kerberoast /outfile:${dir}\\hashes.txt`, mitre: "T1558.003", what: "Kerberoasting" },
-      { name: "SharpHound.exe", cmd: `${dir}\\SharpHound.exe -c All --zipfilename ${firm[1]}_${intIn(100, 999, c.rnd)}.zip`, mitre: "T1087.002", what: "AD collection" },
-      { name: "Certify.exe", cmd: `${dir}\\Certify.exe find /vulnerable`, mitre: "T1649", what: "certificate template enumeration" },
-      { name: "Seatbelt.exe", cmd: `${dir}\\Seatbelt.exe -group=user`, mitre: "T1082", what: "host survey" },
+      { name: "Rubeus.exe", cmd: `${dir}\\Rubeus.exe kerberoast /outfile:${dir}\\hashes.txt`, mitre: "T1558.003", what: "Kerberoasting", threat: "HackTool:MSIL/Rubeus", category: "CredentialAccess" },
+      { name: "SharpHound.exe", cmd: `${dir}\\SharpHound.exe -c All --zipfilename ${firm[1]}_${intIn(100, 999, c.rnd)}.zip`, mitre: "T1087.002", what: "AD collection", threat: "HackTool:MSIL/SharpHound", category: "Discovery" },
+      { name: "Certify.exe", cmd: `${dir}\\Certify.exe find /vulnerable`, mitre: "T1649", what: "certificate template enumeration", threat: "HackTool:MSIL/Certify", category: "CredentialAccess" },
+      { name: "Seatbelt.exe", cmd: `${dir}\\Seatbelt.exe -group=user`, mitre: "T1082", what: "host survey", threat: "HackTool:MSIL/Seatbelt", category: "Discovery" },
     ], c.rnd);
     const missHost = c.miss ? c.workstation() : null;
-    const ev = edrDetection({ id: `fpa_redteam_${c.n}`, ts: c.ts, host, userEmail: mail(c.assets, acct), severity: "high", category: "CredentialAccess", mitre: tool.mitre,
-      process: { name: tool.name, pid: intIn(2000, 9000, c.rnd), parent_name: "powershell.exe", parent_pid: intIn(1000, 9000, c.rnd), user: acct, cmdline: tool.cmd, path: `${dir}\\${tool.name}` },
+    const rows = edrDetection(c, { tag: "redteam", host, userEmail: mail(c.assets, acct), severity: "high", category: tool.category, mitre: tool.mitre,
+      alertTitle: tool.threat,
+      proc: { name: tool.name, path: `${dir}\\${tool.name}`, parent: "powershell.exe", cmdline: tool.cmd, signed: false },
       description: `${tool.name} ran on ${host} as ${acct}`,
       fp: `${firm[0]} is running the authorised internal penetration test (change ${t}) from ${host} with the test account ${acct}; ${tool.what} is in the rules of engagement.` });
+    const ev = rows[rows.length - 1];
     if (missHost) asMiss(ev, `The test under ${t} is scoped to ${missHost}. ${host} is not in the rules of engagement, so this run is outside the approval.`);
-    return { makerId: "redteam_tool", kind: "redteam", verdict: missHost ? "escalate" : "fp", rows: [ev], host,
+    return { makerId: "redteam_tool", kind: "redteam", verdict: missHost ? "escalate" : "fp", rows, host,
       ticket: { table: "change_request", number: t, state: "Implement", short: `Internal penetration test by ${firm[0]}: test host ${missHost ?? host}`, ci: missHost ?? host, requestedFor: mail(c.assets, acct), group: "Security Operations", window: [-intIn(120, 600, c.rnd), intIn(240, 900, c.rnd)] } };
   } },
   // ── A potentially-unwanted-application verdict on an admin's network tool.
@@ -398,12 +524,12 @@ const MAKERS: Maker[] = [
       { exe: "advanced_port_scanner.exe", dir: "C:\\Program Files (x86)\\Advanced Port Scanner", label: "Advanced Port Scanner" },
     ], c.rnd);
     const path = `${tool.dir}\\${tool.exe}`;
-    const ev = edrDetection({ id: `fpa_pua_${c.n}`, ts: c.ts, host: p.host, userEmail: p.email, severity: "medium", category: "UnwantedSoftware", mitre: "T1046",
-      process: { name: tool.exe, pid: intIn(2000, 9000, c.rnd), parent_name: "explorer.exe", parent_pid: intIn(1000, 9000, c.rnd), user: p.name, path, cmdline: `"${path}"` },
+    const rows = edrDetection(c, { tag: "pua", host: p.host, userEmail: p.email, severity: "medium", category: "UnwantedSoftware", mitre: "T1046",
+      alertTitle: `'${tool.label}' unwanted software was detected`,
+      proc: { name: tool.exe, path, parent: "explorer.exe", cmdline: `"${path}"` },
       description: `Potentially unwanted application ${tool.exe} ran on ${p.host}`,
-      fp: `${tool.label} is on IT's approved tool list; ${p.name} used it to find a printer that dropped off the network. The binary is the vendor's signed release.`,
-      extra: { "process.code_signature.trusted": true } });
-    return { makerId: "pua_admin_tool", kind: "pua", verdict: "fp", rows: [ev], person: p.email, host: p.host,
+      fp: `${tool.label} is on IT's approved tool list; ${p.name} used it to find a printer that dropped off the network. The binary is the vendor's signed release.` });
+    return { makerId: "pua_admin_tool", kind: "pua", verdict: "fp", rows, person: p.email, host: p.host,
       ticket: c.rnd() < 0.5 ? { table: "incident", number: num("INC", c), state: "In Progress", short: `Printer on floor ${intIn(1, 6, c.rnd)} not reachable`, requestedFor: p.email, assignedTo: p.email, group: "Service Desk" } : undefined };
   } },
   // ── A developer's packet capture.
@@ -411,16 +537,17 @@ const MAKERS: Maker[] = [
     const p = c.person(DEV_RE);
     if (!p) return null;
     const tool = pickOf([
-      { name: "dumpcap.exe", parent: "Wireshark.exe", cmd: `"C:\\Program Files\\Wireshark\\dumpcap.exe" -i ${intIn(1, 4, c.rnd)} -w C:\\Users\\${p.name}\\captures\\tls-${intIn(100, 999, c.rnd)}.pcapng` },
-      { name: "tshark.exe", parent: "powershell.exe", cmd: `"C:\\Program Files\\Wireshark\\tshark.exe" -i Ethernet -f "port 443" -a duration:${pickOf([60, 120, 300], c.rnd)} -w api-${intIn(100, 999, c.rnd)}.pcapng` },
-      { name: "pktmon.exe", parent: "cmd.exe", cmd: `pktmon start --capture --comp nics --pkt-size 0 --file-name C:\\Temp\\pktmon-${intIn(100, 999, c.rnd)}.etl` },
-      { name: "netsh.exe", parent: "cmd.exe", cmd: `netsh trace start capture=yes tracefile=C:\\Temp\\trace-${intIn(100, 999, c.rnd)}.etl maxsize=${pickOf([256, 512], c.rnd)}` },
+      { name: "dumpcap.exe", path: "C:\\Program Files\\Wireshark\\dumpcap.exe", parent: "Wireshark.exe", cmd: `"C:\\Program Files\\Wireshark\\dumpcap.exe" -i ${intIn(1, 4, c.rnd)} -w C:\\Users\\${p.name}\\captures\\tls-${intIn(100, 999, c.rnd)}.pcapng` },
+      { name: "tshark.exe", path: "C:\\Program Files\\Wireshark\\tshark.exe", parent: "powershell.exe", cmd: `"C:\\Program Files\\Wireshark\\tshark.exe" -i Ethernet -f "port 443" -a duration:${pickOf([60, 120, 300], c.rnd)} -w api-${intIn(100, 999, c.rnd)}.pcapng` },
+      { name: "pktmon.exe", path: "C:\\Windows\\System32\\PktMon.exe", parent: "cmd.exe", cmd: `pktmon start --capture --comp nics --pkt-size 0 --file-name C:\\Temp\\pktmon-${intIn(100, 999, c.rnd)}.etl` },
+      { name: "netsh.exe", path: "C:\\Windows\\System32\\netsh.exe", parent: "cmd.exe", cmd: `netsh trace start capture=yes tracefile=C:\\Temp\\trace-${intIn(100, 999, c.rnd)}.etl maxsize=${pickOf([256, 512], c.rnd)}` },
     ], c.rnd);
-    const ev = edrDetection({ id: `fpa_pcap_${c.n}`, ts: c.ts, host: p.host, userEmail: p.email, severity: "medium", category: "Discovery", mitre: "T1040",
-      process: { name: tool.name, pid: intIn(2000, 9000, c.rnd), parent_name: tool.parent, parent_pid: intIn(1000, 9000, c.rnd), user: p.name, cmdline: tool.cmd },
+    const rows = edrDetection(c, { tag: "pcap", host: p.host, userEmail: p.email, severity: "medium", category: "Discovery", mitre: "T1040",
+      alertTitle: "Suspicious network sniffing activity",
+      proc: { name: tool.name, path: tool.path, parent: tool.parent, cmdline: tool.cmd, integrity: "High" },
       description: `Network capture started by ${tool.name} on ${p.host}`,
       fp: `${p.name} is debugging a TLS handshake to the staging API; packet capture on their own laptop is allowed for developers and the capture stays on it.` });
-    return { makerId: "pcap_dev", kind: "sniffing", verdict: "fp", rows: [ev], person: p.email, host: p.host };
+    return { makerId: "pcap_dev", kind: "sniffing", verdict: "fp", rows, person: p.email, host: p.host };
   } },
   // ── A cloud admin's mass permission change under a ticket (Azure: a SIEM analytic over the Activity log).
   { id: "cloud_perm_azure", kind: "cloud_perm", siemOnly: true, canMiss: true, fits: c => c.platforms.has("azure") || c.stack.cloud === "azure_activity", make: c => {
@@ -429,7 +556,7 @@ const MAKERS: Maker[] = [
     const t = num("CHG", c), n = intIn(12, 48, c.rnd), rg = pickOf(["rg-data-platform", "rg-shared-services", "rg-analytics", "rg-web-prod"], c.rnd);
     const role = pickOf(["Reader", "Storage Blob Data Reader", "Contributor", "Monitoring Reader"], c.rnd);
     const otherRg = c.miss ? pickOf(["rg-finance-prod", "rg-identity", "rg-keyvault-prod"], c.rnd) : null;
-    const ev = sentinelAlert({ id: `fpa_azperm_${c.n}`, ts: c.ts, name: "Mass Azure RBAC role assignments by one user", severity: "medium", user: p.email,
+    const ev = sentinelAlert(c, { id: `fpa_azperm_${c.n}`, name: "Mass Azure RBAC role assignments by one user", severity: "medium", user: p.email, eventType: "cloud_api_call",
       props: { "Role assignments": String(n), "Role": role, "Scope": rg, "Operation": "Microsoft.Authorization/roleAssignments/write" },
       fp: `${p.name} is moving the ${rg} team to group-based access under change ${t}; ${n} ${role} assignments, all inside the approved scope.`, mitre: "T1098", tactic: "Persistence" });
     if (otherRg) asMiss(ev, `Change ${t} approves role changes in ${otherRg}. Nothing approves ${role} grants in ${rg}.`);
@@ -462,7 +589,7 @@ const MAKERS: Maker[] = [
   { id: "delegate_forward", kind: "mail_rule", siemOnly: true, fits: c => c.stack.collab === "m365", make: c => {
     const p = c.person(), d = c.person();
     if (!p || !d) return null;
-    const ev = sentinelAlert({ id: `fpa_fwd_${c.n}`, ts: c.ts, name: pickOf(["New inbox rule forwarding mail", "Mail forwarding rule created"], c.rnd), severity: "medium", user: p.email,
+    const ev = sentinelAlert(c, { id: `fpa_fwd_${c.n}`, name: pickOf(["New inbox rule forwarding mail", "Mail forwarding rule created"], c.rnd), severity: "medium", user: p.email,
       props: { "Operation": "New-InboxRule", "ForwardTo": d.email, "Rule name": pickOf(["Leave cover", "OOO to delegate", "Holiday cover"], c.rnd), "Client": "Outlook" },
       fp: `${p.name} is on leave and forwards to their internal delegate ${d.name}, in the company's own domain, set from Outlook on the managed laptop.`, mitre: "T1114.003", tactic: "Collection" });
     return { makerId: "delegate_forward", kind: "mail_rule", verdict: "fp", rows: [ev], person: p.email };
@@ -473,7 +600,7 @@ const MAKERS: Maker[] = [
     if (!p) return null;
     const n = intIn(60, 420, c.rnd), site = pickOf(["Projects-Archive", "Operations", "Legacy-Finance", "Policies"], c.rnd), t = num("CHG", c);
     const siteUrl = `https://${c.assets.domain.split(".")[0]}.sharepoint.com/sites/${site}`;
-    const ev = sentinelAlert({ id: `fpa_massdl_${c.n}`, ts: c.ts, name: "Mass download by a single user", severity: "medium", user: p.email, mcas: true,
+    const ev = sentinelAlert(c, { id: `fpa_massdl_${c.n}`, name: "Mass download by a single user", severity: "medium", user: p.email, mcas: true,
       props: { "Downloads": String(n), "Site": siteUrl, "Window": "1 minute", "Client": "SharePoint Migration Tool" },
       fp: `${p.name} is moving the ${site} site with the SharePoint Migration Tool under change ${t}; the burst is the tool's sync.`, mitre: "T1530", tactic: "Collection" });
     // Defender for Cloud Apps counts the SharePoint audit rows; the latest of them reach the feed with its alert.
@@ -496,23 +623,24 @@ const MAKERS: Maker[] = [
     const server = c.server();
     if (!server) return null;
     const svc = pickOf(c.assets.serviceAccounts.filter(s => !/backup|scan/.test(s)).concat(["svc-report"]), c.rnd), fails = intIn(40, 300, c.rnd), t = num("CHG", c);
-    const ev = sentinelAlert({ id: `fpa_svccred_${c.n}`, ts: c.ts, name: "Repeated failed logons for one account on one host", severity: "medium", host: server, user: mail(c.assets, svc),
+    const ev = sentinelAlert(c, { id: `fpa_svccred_${c.n}`, name: "Repeated failed logons for one account on one host", severity: "medium", host: server, user: mail(c.assets, svc),
       props: { "Failed logons": String(fails), "Event ID": "4625", "Status": "0xC000006A", "Logon type": "4", "Query Period": "01:00:00" },
       fp: `${svc}'s password was rotated under change ${t}; a scheduled task on ${server} still runs with the old one (logon type 4, batch). One host, one account.`, mitre: "T1110", tactic: "CredentialAccess" });
     // The 4625 events the analytic counts: the latest of them reach the feed with it.
-    const logons = [0, 1].map(k => ({
-      id: `fpa_svccredev_${c.n}_${k}`, ts: c.ts, source: "ad", vendor: "Windows Security", event_type: "auth_failure", severity: "low",
-      hostname: server, user_email: mail(c.assets, svc), expected_verdict: "fp",
-      fp_explanation: `The scheduled task on ${server} still runs as ${svc} with the password from before change ${t}.`,
-      description: `${server} rejected a batch logon for ${svc}`,
-      raw: { "winlog.event_id": "4625", "winlog.channel": "Security", "winlog.provider_name": "Microsoft-Windows-Security-Auditing", "winlog.computer_name": server,
+    const logons = [0, 1].map(k => {
+      const e = winFailedLogon({ id: `fpa_svccredev_${c.n}_${k}`, ts: c.ts, companyId: c.companyId, host: server, targetUser: svc, userEmail: mail(c.assets, svc),
+        subStatus: "0xC000006A", logonType: 4, authPackage: "Negotiate", workstation: server, severity: "low",
+        description: `${server} rejected a batch logon for ${svc}` });
+      // A batch logon is requested by the Task Scheduler on the server itself: the machine account is the
+      // subject, Advapi the logon process, svchost the caller, and there is no network source.
+      const raw = e.raw as Record<string, unknown>;
+      Object.assign(raw, {
         "winlog.event_data.SubjectUserSid": "S-1-5-18", "winlog.event_data.SubjectUserName": `${server}$`, "winlog.event_data.SubjectDomainName": c.assets.netbios,
-        "winlog.event_data.TargetUserName": svc, "winlog.event_data.TargetDomainName": c.assets.netbios, "winlog.event_data.LogonType": "4",
-        "winlog.event_data.Status": "0xC000006D", "winlog.event_data.SubStatus": "0xC000006A", "winlog.event_data.FailureReason": "%%2313",
-        "winlog.event_data.LogonProcessName": "Advapi", "winlog.event_data.AuthenticationPackageName": "Negotiate", "winlog.event_data.WorkstationName": server,
-        "winlog.event_data.ProcessName": "C:\\Windows\\System32\\svchost.exe", "winlog.event_data.IpAddress": "-", "winlog.event_data.IpPort": "-",
-        "event.code": "4625", "event.action": "logon-failed", "event.outcome": "failure", action_result: "blocked" },
-    }) as TelemetryEvent);
+        "winlog.event_data.LogonProcessName": "Advapi  ", "winlog.event_data.ProcessName": "C:\\Windows\\System32\\svchost.exe",
+        "winlog.event_data.IpAddress": "-", "winlog.event_data.IpPort": "-",
+      });
+      return { ...e, expected_verdict: "fp", fp_explanation: `The scheduled task on ${server} still runs as ${svc} with the password from before change ${t}.` } as TelemetryEvent;
+    });
     return { makerId: "stale_service_cred", kind: "svc_cred", verdict: "fp", rows: [...logons, ev], host: server,
       ticket: { table: "change_request", number: t, state: "Review", short: `Rotate the password of ${svc}`, ci: svc, group: "Identity and Access", window: [-intIn(300, 900, c.rnd), -intIn(60, 240, c.rnd)] } };
   } },
@@ -527,11 +655,12 @@ const MAKERS: Maker[] = [
       { name: "bitsadmin.exe", cmd: `bitsadmin /transfer it${intIn(10, 99, c.rnd)} /download /priority normal ${repo}/${file} C:\\Temp\\${file}` },
       { name: "curl.exe", cmd: `curl.exe -o C:\\Temp\\${file} ${repo}/${file}` },
     ], c.rnd);
-    const ev = edrDetection({ id: `fpa_lolbin_${c.n}`, ts: c.ts, host: p.host, userEmail: p.email, severity: "medium", category: "SuspiciousDownload", mitre: "T1105",
-      process: { name: tool.name, pid: intIn(2000, 9000, c.rnd), parent_name: "cmd.exe", parent_pid: intIn(1000, 9000, c.rnd), user: p.name, cmdline: tool.cmd },
+    const rows = edrDetection(c, { tag: "lolbin", host: p.host, userEmail: p.email, severity: "medium", category: "CommandAndControl", mitre: "T1105",
+      alertTitle: "Suspicious file download",
+      proc: { name: tool.name, parent: "cmd.exe", cmdline: tool.cmd },
       description: `${tool.name} downloaded a file on ${p.host}`,
       fp: `${p.name} pulled ${file} from IT's own internal repository on ${c.assets.fileServer}; the source is internal and the file is the published package.` });
-    return { makerId: "lolbin_download", kind: "lolbin", verdict: "fp", rows: [ev], person: p.email, host: p.host };
+    return { makerId: "lolbin_download", kind: "lolbin", verdict: "fp", rows, person: p.email, host: p.host };
   } },
   // ── The help desk's licensed remote-support tool on a user's laptop.
   { id: "remote_support", kind: "remote_support", make: c => {
@@ -543,11 +672,12 @@ const MAKERS: Maker[] = [
       { name: "SRService.exe", path: "C:\\Program Files (x86)\\Splashtop\\Splashtop Remote\\Server\\SRService.exe", label: "Splashtop" },
     ], c.rnd);
     const t = num("INC", c);
-    const ev = edrDetection({ id: `fpa_rmm_${c.n}`, ts: c.ts, host: p.host, userEmail: p.email, severity: "medium", category: "RemoteAccessSoftware", mitre: "T1219",
-      process: { name: tool.name, pid: intIn(2000, 9000, c.rnd), parent_name: "services.exe", parent_pid: intIn(600, 900, c.rnd), user: "SYSTEM", path: tool.path, cmdline: `"${tool.path}"` },
+    const rows = edrDetection(c, { tag: "rmm", host: p.host, userEmail: p.email, severity: "medium", category: "CommandAndControl", mitre: "T1219",
+      alertTitle: "Remote access software was started",
+      proc: { name: tool.name, path: tool.path, parent: "services.exe", system: true, cmdline: `"${tool.path}"` },
       description: `${tool.label} remote session on ${p.host}`,
       fp: `The service desk's licensed ${tool.label} is the company's remote-support tool; ${agent.name} connected to fix ${p.name}'s Outlook crash under incident ${t}.` });
-    return { makerId: "remote_support", kind: "remote_support", verdict: "fp", rows: [ev], person: p.email, host: p.host,
+    return { makerId: "remote_support", kind: "remote_support", verdict: "fp", rows, person: p.email, host: p.host,
       ticket: { table: "incident", number: t, state: "In Progress", short: "Outlook crashes when opening a shared calendar", requestedFor: p.email, assignedTo: agent.email, group: "Service Desk" } };
   } },
   // ── A freshly compiled, unsigned build run from a developer's workspace (low-prevalence binary).
@@ -556,12 +686,13 @@ const MAKERS: Maker[] = [
     if (!p) return null;
     const app = pickOf(["invoice-sync", "ledger-cli", "route-planner", "report-gen", "api-mock"], c.rnd);
     const path = `C:\\Users\\${p.name}\\source\\repos\\${app}\\bin\\${pickOf(["Debug", "Release"], c.rnd)}\\net8.0\\${app}.exe`;
-    const ev = edrDetection({ id: `fpa_build_${c.n}`, ts: c.ts, host: p.host, userEmail: p.email, severity: "medium", category: "LowPrevalenceExecutable", mitre: "T1204.002",
-      process: { name: `${app}.exe`, pid: intIn(2000, 9000, c.rnd), parent_name: pickOf(["devenv.exe", "dotnet.exe", "Code.exe"], c.rnd), parent_pid: intIn(1000, 9000, c.rnd), user: p.name, path, cmdline: `"${path}" --env staging` },
+    const parent = pickOf(["devenv.exe", "dotnet.exe", "Code.exe"], c.rnd);
+    const rows = edrDetection(c, { tag: "build", host: p.host, userEmail: p.email, severity: "medium", category: "Execution", mitre: "T1204.002",
+      alertTitle: "Unsigned low-prevalence executable was run",
+      proc: { name: `${app}.exe`, path, parent, cmdline: `"${path}" --env staging`, signed: false }, file: { size: sizeOf(1, 9, c) },
       description: `Unsigned, first-seen executable ${app}.exe ran on ${p.host}`,
-      fp: `${p.name} built ${app} locally from the team's repository and ran it against staging; an unsigned build seen once is expected on a developer laptop.`,
-      extra: { "process.code_signature.exists": false, "file.size": String(sizeOf(1, 9, c)) } });
-    return { makerId: "dev_build", kind: "unsigned_build", verdict: "fp", rows: [ev], person: p.email, host: p.host };
+      fp: `${p.name} built ${app} locally from the team's repository and ran it against staging; an unsigned build seen once is expected on a developer laptop.` });
+    return { makerId: "dev_build", kind: "unsigned_build", verdict: "fp", rows, person: p.email, host: p.host };
   } },
 ];
 
