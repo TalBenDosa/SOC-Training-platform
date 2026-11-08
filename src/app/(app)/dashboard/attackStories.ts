@@ -40,6 +40,7 @@ import {
 // auditd where there are Linux servers, AiTM/AD attacks at the M365/AD shops.
 import { esxiRansomwareScenarioEvents }        from "@/lib/sim/scenario-packs/esxiRansomware.events";
 import { lsReadJson, lsSet, isStringArray } from "@/lib/storage/safeStorage";
+import { isNonHumanAccount, isRehomeablePerson } from "@/lib/sim/nonHuman";
 import { companyNetbios as companyNetbiosOf, makeCtx } from "@/lib/logs/native/ctx";
 import { testNetIp } from "@/lib/logs/native/sources/remote-access-shared";
 import { edrFacts, stashThread } from "@/lib/logs/native/sources/edr-normalize";
@@ -1151,10 +1152,12 @@ export function pickStoryForCompany(companyId: string, difficulty?: "easy" | "me
 // ── Victim variation ──────────────────────────────────────────────────────────
 
 // Non-human accounts never become a story's victim (a badge reader reading phish mail,
-// "cyberark.svc" browsing to a fake update page).
-// Nor do role and decoy mailboxes: a canary account in use changes the whole analysis, and a
-// shared desk or DBA mailbox has no person behind a display name.
-const SERVICE_ACCOUNT = /^(svc[-._]|ci-|admin@|noreply|system@|security-admin@)|[-._]svc@|(^|[-._])(service|device|badge|printer|scanner|kiosk|backup|sync|bot|replication|repl|deploy|monitor|monitoring|daemon|automation|scan|sql|dc|krbtgt|healthcheck|canary|honeytoken|dba|helpdesk|desk\d*|shift)([-._@]|$)/i;
+// "cyberark.svc" browsing to a fake update page), nor do role and decoy mailboxes: a canary
+// account in use changes the whole analysis, and a shared desk or DBA mailbox has no person
+// behind a display name. One rule with the named-organization swap (team/tenant.ts): it.admin
+// was a service account there and a victim here (Sdema review K7). A user without "@" (an
+// anonymous chat session id) is not a person of the company and is never re-homed
+// (isNonHumanAccount / isRehomeablePerson, src/lib/sim/nonHuman.ts).
 
 /** The account every story's CloudTrail rows are authored under (the emitter's default): each company reads its own. */
 const AUTHORED_AWS_ACCOUNT = "418772153604";
@@ -1462,7 +1465,7 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   const domainCount = new Map<string, number>();
   for (const e of companyPool) {
     const u = e.user_email;
-    if (u && !SERVICE_ACCOUNT.test(u) && !rSeen.has(u)) { rSeen.add(u); roster.push(u); }
+    if (isRehomeablePerson(u) && !rSeen.has(u)) { rSeen.add(u); roster.push(u); }
     if (u && u.includes("@")) { const d = u.split("@")[1]; domainCount.set(d, (domainCount.get(d) ?? 0) + 1); }
     const h = e.hostname;
     if (h && !hSeen.has(h)) { hSeen.add(h); hostPool.push(h); }
@@ -1486,7 +1489,7 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   // dotted name, squashed name). Longest-first so the email is replaced before the
   // bare username substring.
   const counts = new Map<string, number>();
-  for (const e of s.events) if (e.user_email && !SERVICE_ACCOUNT.test(e.user_email)) counts.set(e.user_email, (counts.get(e.user_email) ?? 0) + 1);
+  for (const e of s.events) if (isRehomeablePerson(e.user_email)) counts.set(e.user_email, (counts.get(e.user_email) ?? 0) + 1);
   const victim = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   // Role-aware: when the victim does admin work (SSH / sudo / Linux servers, an admin
   // account), the replacement is someone whose job is IT — not a truck driver.
@@ -1544,7 +1547,7 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
     const taken = new Set([replacement?.split("@")[0]]);
     for (const e of s.events) {
       const local = e.user_email?.split("@")[0];
-      if (!local || e.user_email === victim || own.has(local) || !foreign.has(local) || SERVICE_ACCOUNT.test(e.user_email!) || taken.has(local)) continue;
+      if (!local || e.user_email === victim || own.has(local) || !foreign.has(local) || !isRehomeablePerson(e.user_email) || taken.has(local)) continue;
       taken.add(local);
       const free = COMPANY_ASSETS[companyId].roster.map(r => r.name).filter(n => !taken.has(n));
       if (!free.length) continue;
@@ -1587,7 +1590,7 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   // off another employee's workstation.
   const ownerCount = new Map<string, Map<string, number>>();
   for (const e of companyPool) {
-    if (!e.hostname || !e.user_email || SERVICE_ACCOUNT.test(e.user_email)) continue;
+    if (!e.hostname || !e.user_email || isNonHumanAccount(e.user_email)) continue;
     const m = ownerCount.get(e.hostname) ?? new Map<string, number>();
     m.set(e.user_email, (m.get(e.user_email) ?? 0) + 1);
     ownerCount.set(e.hostname, m);

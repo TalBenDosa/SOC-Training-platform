@@ -14,6 +14,7 @@
  * realm through tenantIdentity().
  */
 import { COMPANY_ASSETS, COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
+import { isNonHumanAccount } from "@/lib/sim/nonHuman";
 import type { TimelineEntry } from "./buildTimeline";
 
 /** The environment a named-organization exercise is built on (Live SOC companies are untouched). */
@@ -104,8 +105,9 @@ export function deptOf(title?: string): Dept {
 function hash32(s: string): number { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 function rng(seed: string) { let x = hash32(seed) || 1; return () => { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; return (x >>> 0) / 4294967296; }; }
 
-// Accounts that are not people keep their (generic) name — only their domain changes.
-const NON_HUMAN = /^(svc[-._]|ci-|noreply|system|admin@|it\.admin|helpdesk|dba|soc|security|backup|scanner|printer|device|kiosk)|(^|[-._])(service|svc|replication|deploy|monitor|daemon|automation|bot|sync|scan|sql|dc)([-._@]|$)/i;
+// Accounts that are not people keep their (generic) name: only their domain changes. The same
+// rule the story re-homing uses (src/lib/sim/nonHuman.ts), so one account is never a person to one
+// and a service account to the other.
 
 export interface TenantPerson { email: string; local: string; name: string; title: string }
 
@@ -120,7 +122,7 @@ export function tenantRoster(templateUsers: { email: string; title?: string }[],
   for (const u of [...templateUsers].sort((a, b) => a.email.localeCompare(b.email))) {
     if (out.has(u.email)) continue;
     const local0 = u.email.split("@")[0];
-    if (NON_HUMAN.test(local0) || NON_HUMAN.test(u.email)) {
+    if (isNonHumanAccount(u.email)) {
       out.set(u.email, { email: `${local0}@${tenant.domain}`, local: local0, name: local0, title: u.title ?? "" });
       continue;
     }
