@@ -117,7 +117,7 @@ Entra exposes the same events through three delivery paths:
 | `activityDateTime` | DateTimeOffset | UTC. |
 | `loggedByService` | string | `Core Directory`, `Authentication Methods`, `Self-service Password Management`, `PIM`, `Invited Users`, `B2C`, … |
 | `operationType` | string | `Add`, `Assign`, `Update`, `Unassign`, `Delete`. |
-| `initiatedBy.user.{id,displayName,userPrincipalName,ipAddress}` | object | Present when a user acted. `ipAddress` = the client IP. |
+| `initiatedBy.user.{id,displayName,userPrincipalName,ipAddress}` | object | Present when a user acted. `ipAddress` = the client IP as Entra sees it: an admin working from the office LAN appears with the company's public NAT egress (the same address its office sign-ins carry), never a private RFC 1918 address. |
 | `initiatedBy.app.{appId,displayName,servicePrincipalId,servicePrincipalName}` | object | Present when an app/SP acted. The other branch is `null`. |
 | `targetResources[]` | array | `id`, `displayName`, `type` (`User`, `Group`, `Device`, `Directory`, `ServicePrincipal`, `Application`, `Role`, `Policy`, `Other`), `userPrincipalName`, `groupType`, `modifiedProperties[]`. |
 | `targetResources[].modifiedProperties[]` | array | `displayName`, `oldValue`, `newValue`. Values are **JSON-encoded strings** (e.g. `"\"Global Administrator\""`). |
@@ -905,6 +905,10 @@ Shared values: tenant `7c1e5b9a-3f4d-4e2a-9b8c-2d6f0a1e4b37`. Victim Dana Levi `
 ---
 
 ## 6. Common mistakes / non-existent fields / Graph vs Azure Monitor
+
+- `Reset password (by admin)` is a Self-service Password Management activity (`loggedByService: "Self-service Password Management"`, Microsoft Learn, SSPR reporting); the Core Directory activity for an admin portal reset is `Reset user password`. Do not label one with the other's service.
+- One identity, one id: `userId` (signIn), `initiatedBy.user.id` and `targetResources[].id` (directoryAudit), the UAL `TokenObjectId` / `ActorContextId` and Defender `SenderObjectId` / `RecipientObjectId` are the same Entra object id for one UPN (platform: `entraObjectId`, seeded from the company and the UPN). One tenant id (`ctx.tenant.azureTenantId`) in every Microsoft record of a company.
+- Every sign-in `id` / `correlationId` is a random-looking GUID; never a fixed suffix shared by all records.
 
 **Do NOT use these (they are not in the native Graph object):**
 - `resultType`, `resultDescription`, `resultSignature`, `callerIpAddress`, `durationMs`, `identity`, `Level`, `category: "SignInLogs"`, `operationName: "Sign-in activity"`, `properties{}`. These belong to the Azure Monitor envelope.

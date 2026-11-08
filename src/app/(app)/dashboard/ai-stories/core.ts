@@ -33,6 +33,8 @@ import { m365Operation } from "@/lib/sim/emitters/m365";
 import { csFile } from "@/lib/sim/emitters/crowdstrike";
 import { claudeActivity, type ClaudeActivityType } from "@/lib/sim/emitters/claudeEnterprise";
 import { sentinelAlert } from "@/lib/sim/emitters/sentinel";
+import { makeCtx } from "@/lib/logs/native/ctx";
+import { egressIp } from "@/lib/logs/native/sources/firewall-shared";
 
 export interface AiStoryDef {
   id: string;
@@ -80,7 +82,9 @@ const EDGE_UA =
 const CHROME_WIN_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36";
 
-const OFFICE_IP = "82.132.31.8";   // corporate office egress
+/** The NexaCorp office NAT egress: the address the native Entra / UAL renderers give every sign-in made
+ *  from the office LAN, so the story's office rows and the session's other office rows share one IP. */
+const OFFICE_IP = egressIp(makeCtx("nexacorp"));
 const OFFICE_GEO = { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 };
 
 /** Deterministic lowercase hex of a given length (stable across rebuilds). */
@@ -105,7 +109,7 @@ function guid(seed: string): string {
 
 /** The NexaCorp Microsoft 365 tenant — the id the native Entra / UAL / Defender records carry for
  *  nexacorp (instantiateStory re-keys it to each company's tenant). */
-const TENANT_ID = "74155343-f751-4c49-b96d-3af1878a608c";
+const TENANT_ID = makeCtx("nexacorp").tenant.azureTenantId;
 
 /** Milliseconds after an event's ts at which the SIEM ingested it (event.created). */
 const ingested = (ts: string, ms: number): string => new Date(Date.parse(ts) + ms).toISOString();
@@ -155,6 +159,11 @@ const auditEnvelope = (id: string, corr: string, ua: string): Record<string, unk
   "azure.auditlogs.properties.additionalDetails[0].value": ua,
 });
 
+/** The shared geo fields (GeoLocation.*) the feed and the threat-intel pivot read for a client IP. */
+const geoRaw = (g: { country: string; city: string; latitude: number; longitude: number }): Record<string, string | number> => ({
+  "GeoLocation.country_name": g.country, "GeoLocation.city_name": g.city, "GeoLocation.latitude": g.latitude, "GeoLocation.longitude": g.longitude,
+});
+
 const pwMfa = (t: string, mfaOk = true) => [
   { authenticationStepDateTime: t, authenticationMethod: "Password", authenticationMethodDetail: "Password in the cloud", succeeded: true, authenticationStepResultDetail: "Correct password", authenticationStepRequirement: "Primary authentication" },
   mfaOk
@@ -168,17 +177,22 @@ const pwMfa = (t: string, mfaOk = true) => [
 
 function buildVoiceReset(): TelemetryEvent[] {
   const cx = "nexacorp" as const;
+  // No authored object / device ids: the renderers derive the user's Entra object id from the UPN and
+  // the device id from the host (entraObjectId, entra-device), so every record of the session (and of a
+  // named-organization exercise, whose UPNs are rewritten after the build) carries one id per identity.
   const VICTIM = "d.cohen@nexacorp.com";
-  const VICTIM_ID = "4b7d1e92-6a35-4c08-9f2e-8d1a5c7b3e60";
-  const DEVICE_ID = "7e31c4a8-5d92-4f10-a6b3-c08e91d2f457";
   const LAPTOP = "WS-HR-1182";
   const AGENT = "j.oduya@nexacorp.com";
-  const AGENT_ID = "c9e21f57-3d84-4a06-b7e5-12f8a0d94c63";
-  const AGENT_IP = "10.60.4.18";
-  const NEW_IP = "80.94.95.118";   // 80.94.* resolves to Bucharest, Romania (shared geo table)
+  // The help desk works in the office: Entra records its changes from the office egress, as it records
+  // the account owner's own office sign-ins (review 2026-11-08: an internal address read as the IOC).
+  const AGENT_IP = OFFICE_IP;
+  const NEW_IP = "192.0.2.118";   // documentation address, placed in Bucharest, Romania by NEW_GEO
+  const NEW_GEO = { country: "Romania", city: "Bucharest", latitude: 44.4, longitude: 26.1 };
   const TICKET = "INC0051764";
-  const T_SHORT = "Locked out after phone replacement — urgent MFA reset needed before 09:00 leadership review";
-  const T_DESC = "Caller reports being locked out after replacing a mobile phone and asks for an urgent reset of the password and Microsoft Authenticator so the account can be used before a 09:00 leadership review. Desk agent noted the caller's voice was recognised.";
+  // No clock times in the ticket's own text: the feed re-times every row, and a time written into a
+  // free-text field cannot move with it.
+  const T_SHORT = "Locked out after phone replacement, urgent MFA reset needed before this morning's leadership review";
+  const T_DESC = "Caller reports being locked out after replacing a mobile phone and asks for an urgent reset of the password and Microsoft Authenticator so the account can be used before this morning's leadership review. Desk agent noted the caller's voice was recognised.";
   // Fields every ServiceNow incident row carries whatever the update was, plus the Elastic
   // ServiceNow integration's event envelope (event.module / dataset / provider).
   const snowRow = (ts: string) => ({
@@ -190,13 +204,13 @@ function buildVoiceReset(): TelemetryEvent[] {
   });
 
   return [
-    // 1. Baseline — the account's normal pattern.
+    // 1. Baseline: the account's normal pattern.
     {
       ...entraSignIn({
-        companyId: cx, id: "aihvr1", ts: "2026-09-22T07:58:31.402Z", srcIp: OFFICE_IP, user: VICTIM, userId: VICTIM_ID,
+        companyId: cx, id: "aihvr1", ts: "2026-09-22T07:58:31.402Z", srcIp: OFFICE_IP, user: VICTIM,
         correlationId: "0e9b4d27-83c1-4a56-b2f0-6d1a95c73e48", sessionId: "d8a41f63-2b70-4e95-9c1d-5a37e0b82f14",
         app: "Microsoft Teams", appId: "1fec8e78-bce4-4aaf-ab1b-5451cc387264", resource: "Microsoft Graph", mfa: true, isInteractive: true,
-        managed: true, compliant: true, deviceId: DEVICE_ID, deviceName: LAPTOP, os: "Windows 11", browser: "Edge 151.0.0", trustType: "Azure AD joined",
+        managed: true, compliant: true, deviceName: LAPTOP, os: "Windows 11", browser: "Edge 151.0.0", trustType: "Azure AD joined",
         userAgent: EDGE_UA, asn: 2856, tokenIssuerType: "AzureAD", incomingTokenType: "none", riskLevel: "none", riskDetail: "none",
         riskEventTypes: [], conditionalAccess: "success", geo: OFFICE_GEO, severity: "informational",
         extra: { "azure.signinlogs.properties.authenticationDetails": pwMfa("2026-09-22T07:58:31.402Z") },
@@ -207,7 +221,7 @@ function buildVoiceReset(): TelemetryEvent[] {
       expected_verdict: "informational",
     },
 
-    // 2. The call — a routine-looking MFA-reset ticket opened by phone.
+    // 2. The call: a routine-looking MFA-reset ticket opened by phone.
     serviceNowRecord({
       companyId: cx, id: "aihvr2", ts: "2026-09-22T08:34:09.771Z", table: "incident", number: TICKET, state: "New",
       shortDescription: T_SHORT,
@@ -225,14 +239,14 @@ function buildVoiceReset(): TelemetryEvent[] {
     // 3. The account owner is demonstrably at their desk while the call is open.
     {
       ...entraSignIn({
-        companyId: cx, id: "aihvr3", ts: "2026-09-22T08:39:47.208Z", srcIp: OFFICE_IP, user: VICTIM, userId: VICTIM_ID,
+        companyId: cx, id: "aihvr3", ts: "2026-09-22T08:39:47.208Z", srcIp: OFFICE_IP, user: VICTIM,
         correlationId: "5c2f8a10-9d47-4b63-8e15-a0d3b76c4f92", sessionId: "d8a41f63-2b70-4e95-9c1d-5a37e0b82f14",
         app: "SharePoint Online", appId: "00000003-0000-0ff1-ce00-000000000000", resource: "Office 365 SharePoint Online", mfa: true, isInteractive: true,
-        managed: true, compliant: true, deviceId: DEVICE_ID, deviceName: LAPTOP, os: "Windows 11", browser: "Edge 151.0.0", trustType: "Azure AD joined",
+        managed: true, compliant: true, deviceName: LAPTOP, os: "Windows 11", browser: "Edge 151.0.0", trustType: "Azure AD joined",
         userAgent: EDGE_UA, asn: 2856, tokenIssuerType: "AzureAD", incomingTokenType: "none", riskLevel: "none", riskDetail: "none",
         riskEventTypes: [], conditionalAccess: "success", geo: OFFICE_GEO, severity: "informational",
         extra: { "azure.signinlogs.properties.authenticationDetails": pwMfa("2026-09-22T08:39:47.208Z") },
-        description: "d.cohen signed in to SharePoint Online at 08:39 from the same office address and the same compliant laptop, MFA by Authenticator push — under six minutes after the help desk ticket was opened in this account's name and while that ticket was still open.",
+        description: "d.cohen signed in to SharePoint Online at 08:39 from the same office address and the same compliant laptop, MFA by Authenticator push, under six minutes after the help desk ticket was opened in this account's name and while that ticket was still open.",
       }),
       hostname: LAPTOP,
       expected_verdict: "informational",
@@ -242,12 +256,12 @@ function buildVoiceReset(): TelemetryEvent[] {
     {
     it_context: { result: "unverified", message: "The help desk did this under ticket INC0051764, after a phone call in the account owner's voice. The caller was not called back on the number on file as the reset procedure requires, and the account owner says they never phoned the help desk." },
     ...entraAudit({
-      companyId: cx, id: "aihvr5", ts: "2026-09-22T08:47:58.615Z", operationName: "Reset password (by admin)", loggedByService: "Core Directory",
+      companyId: cx, id: "aihvr5", ts: "2026-09-22T08:47:58.615Z", operationName: "Reset password (by admin)", loggedByService: "Self-service Password Management",
       result: "success", correlationId: "a7e63d02-4b91-4c58-8f27-d15b0c9e3a64",
-      initiatedByUpn: AGENT, initiatedById: AGENT_ID, initiatedByIp: AGENT_IP, initiatedByRoles: ["Authentication Administrator"],
-      targetUpn: VICTIM, targetId: VICTIM_ID, mitre: "T1098", tactic: "Persistence", severity: "medium",
+      initiatedByUpn: AGENT, initiatedByIp: AGENT_IP, initiatedByRoles: ["Authentication Administrator"],
+      targetUpn: VICTIM, mitre: "T1098", tactic: "Persistence", severity: "medium",
       extra: auditEnvelope("aihvr5", "a7e63d02-4b91-4c58-8f27-d15b0c9e3a64", EDGE_UA),
-      description: "j.oduya, holding the Authentication Administrator role and working from the internal help desk network, reset the password of d.cohen's account at 08:47 while INC0051764 was open.",
+      description: "j.oduya, holding the Authentication Administrator role and working from the office (the corporate egress address), reset the password of d.cohen's account at 08:47 while INC0051764 was open.",
     }),
     },
 
@@ -257,8 +271,8 @@ function buildVoiceReset(): TelemetryEvent[] {
     ...entraAudit({
       companyId: cx, id: "aihvr6", ts: "2026-09-22T08:48:31.097Z", operationName: "Admin deleted security info", loggedByService: "Authentication Methods",
       result: "success", correlationId: "3d90b8f5-71a2-4e64-9b08-c62e4a17d5f3",
-      initiatedByUpn: AGENT, initiatedById: AGENT_ID, initiatedByIp: AGENT_IP, initiatedByRoles: ["Authentication Administrator"],
-      targetUpn: VICTIM, targetId: VICTIM_ID, mitre: "T1556.006", tactic: "Defense Impairment", severity: "high",
+      initiatedByUpn: AGENT, initiatedByIp: AGENT_IP, initiatedByRoles: ["Authentication Administrator"],
+      targetUpn: VICTIM, mitre: "T1556.006", tactic: "Defense Impairment", severity: "high",
       extra: {
         ...auditEnvelope("aihvr6", "3d90b8f5-71a2-4e64-9b08-c62e4a17d5f3", EDGE_UA),
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].displayName": "StrongAuthenticationMethod",
@@ -269,7 +283,7 @@ function buildVoiceReset(): TelemetryEvent[] {
     }),
     },
 
-    // 7. Ticket resolved after the reset and the wipe — verification was a voice match and an employee id.
+    // 7. Ticket resolved after the reset and the wipe: verification was a voice match and an employee id.
     serviceNowRecord({
       companyId: cx, id: "aihvr4", ts: "2026-09-22T08:49:20.334Z", table: "incident", number: TICKET, state: "Resolved",
       shortDescription: T_SHORT,
@@ -290,15 +304,15 @@ function buildVoiceReset(): TelemetryEvent[] {
     entraAudit({
       companyId: cx, id: "aihvr13", ts: "2026-09-22T08:51:31.420Z", operationName: "Change user password", loggedByService: "Core Directory",
       result: "success", correlationId: "b4106e9a-2f75-4d38-a1c3-7e58d09f6b21",
-      initiatedByUpn: VICTIM, initiatedById: VICTIM_ID, initiatedByIp: NEW_IP, initiatedByRoles: [],
-      targetUpn: VICTIM, targetId: VICTIM_ID, mitre: "T1098", tactic: "Persistence", severity: "medium",
-      extra: auditEnvelope("aihvr13", "b4106e9a-2f75-4d38-a1c3-7e58d09f6b21", CHROME_WIN_UA),
-      description: "d.cohen's account changed its own password from 80.94.95.118 at 08:51, two and a half minutes after the help desk set a temporary one: the forced change at first sign-in, made from an address none of this morning's office sessions used.",
+      initiatedByUpn: VICTIM, initiatedByIp: NEW_IP, initiatedByRoles: [],
+      targetUpn: VICTIM, mitre: "T1098", tactic: "Persistence", severity: "medium", geo: NEW_GEO,
+      extra: { ...auditEnvelope("aihvr13", "b4106e9a-2f75-4d38-a1c3-7e58d09f6b21", CHROME_WIN_UA), ...geoRaw(NEW_GEO) },
+      description: "d.cohen's account changed its own password from 192.0.2.118 at 08:51, two and a half minutes after the help desk set a temporary one: the forced change at first sign-in, made from an address none of this morning's office sessions used.",
     }),
 
     // 9. The same sign-in is interrupted: the account must enroll MFA.
     entraSignIn({
-      companyId: cx, id: "aihvr7", ts: "2026-09-22T08:51:44.904Z", srcIp: NEW_IP, user: VICTIM, userId: VICTIM_ID,
+      companyId: cx, id: "aihvr7", ts: "2026-09-22T08:51:44.904Z", srcIp: NEW_IP, user: VICTIM, geo: NEW_GEO,
       correlationId: "b4106e9a-2f75-4d38-a1c3-7e58d09f6b21", sessionId: "6f2a9c84-0d13-4b7e-85a6-e3c17d40b592",
       app: "Microsoft Office", appId: "d3590ed6-52b3-4102-aeff-aad2292ab01c", resource: "Microsoft Graph", result: "failure", errorCode: "50072", mfa: true, isInteractive: true,
       managed: false, compliant: false, deviceId: "", os: "Windows 10", browser: "Chrome 151.0.0", userAgent: CHROME_WIN_UA, asn: 9009,
@@ -308,44 +322,43 @@ function buildVoiceReset(): TelemetryEvent[] {
         "azure.signinlogs.resultDescription": "User needs to enroll for second factor authentication (interrupt)",
         "azure.signinlogs.properties.authenticationDetails": pwMfa("2026-09-22T08:51:44.904Z", false),
       },
-      description: "The sign-in from 80.94.95.118 (Bucharest, Romania; same correlation id as the password change) passed the password step and was interrupted with error 50072: the account has no second factor and must enroll one. The device is an unmanaged Windows 10 machine running Chrome.",
+      description: "The sign-in from 192.0.2.118 (Bucharest, Romania; same correlation id as the password change) passed the password step and was interrupted with error 50072: the account has no second factor and must enroll one. The device is an unmanaged Windows 10 machine running Chrome.",
     }),
 
     // 10. New Authenticator registered from the same unseen address (T1098.005).
     entraAudit({
       companyId: cx, id: "aihvr8", ts: "2026-09-22T08:53:40.119Z", operationName: "User registered security info", loggedByService: "Authentication Methods",
       result: "success", resultReason: "User registered security info: Microsoft Authenticator app", correlationId: "e58c2b07-9a14-4f63-b0d5-18a7c36e4d90",
-      initiatedByUpn: VICTIM, initiatedById: VICTIM_ID, initiatedByIp: NEW_IP, initiatedByRoles: [],
-      targetUpn: VICTIM, targetId: VICTIM_ID, mitre: "T1098.005", tactic: "Persistence", severity: "high",
+      initiatedByUpn: VICTIM, initiatedByIp: NEW_IP, initiatedByRoles: [],
+      targetUpn: VICTIM, mitre: "T1098.005", tactic: "Persistence", severity: "high", geo: NEW_GEO,
       extra: {
         ...auditEnvelope("aihvr8", "e58c2b07-9a14-4f63-b0d5-18a7c36e4d90", CHROME_WIN_UA),
-        "GeoLocation.country_name": "Romania",
-        "GeoLocation.city_name": "Bucharest",
-        "GeoLocation.latitude": 44.4,
-        "GeoLocation.longitude": 26.1,
+        ...geoRaw(NEW_GEO),
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].displayName": "StrongAuthenticationMethod",
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].oldValue": "[]",
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].newValue": "[{\"MethodType\":\"PhoneAppNotification\",\"Default\":true}]",
       },
-      description: "A new Microsoft Authenticator app was registered as d.cohen's security info from 80.94.95.118, the same Romanian address, five minutes after the methods were wiped. The initiating identity is d.cohen's own, but the IP matches none of the office-address sessions on the account earlier this morning.",
+      description: "A new Microsoft Authenticator app was registered as d.cohen's security info from 192.0.2.118, the same Romanian address, five minutes after the methods were wiped. The initiating identity is d.cohen's own, but the IP matches none of the office-address sessions on the account earlier this morning.",
     }),
 
     // 11. MFA genuinely satisfied on the newly enrolled method (T1078.004).
     entraSignIn({
-      companyId: cx, id: "aihvr9", ts: "2026-09-22T08:56:12.560Z", srcIp: NEW_IP, user: VICTIM, userId: VICTIM_ID,
+      companyId: cx, id: "aihvr9", ts: "2026-09-22T08:56:12.560Z", srcIp: NEW_IP, user: VICTIM, geo: NEW_GEO,
       correlationId: "91d7f3a6-c082-4b59-8e14-5f60a2d8b73c", sessionId: "6f2a9c84-0d13-4b7e-85a6-e3c17d40b592",
       app: "Office 365 Exchange Online", appId: "00000002-0000-0ff1-ce00-000000000000", resource: "Office 365 Exchange Online", mfa: true, isInteractive: true,
       managed: false, compliant: false, deviceId: "", os: "Windows 10", browser: "Chrome 151.0.0", userAgent: CHROME_WIN_UA, asn: 9009,
       tokenIssuerType: "AzureAD", incomingTokenType: "none", riskLevel: "none", riskDetail: "none", riskEventTypes: [], conditionalAccess: "success",
       severity: "critical", mitre: "T1078.004", tactic: "Initial Access",
       extra: { "azure.signinlogs.properties.authenticationDetails": pwMfa("2026-09-22T08:56:12.560Z") },
-      description: "d.cohen's account signed in to Exchange Online at 08:56 from 80.94.95.118 on the unmanaged Windows 10 / Chrome device. Password and MFA both completed, Conditional Access succeeded and Entra sign-in risk is none — the newly registered Authenticator satisfied the second factor.",
+      description: "d.cohen's account signed in to Exchange Online at 08:56 from 192.0.2.118 on the unmanaged Windows 10 / Chrome device. Password and MFA both completed, Conditional Access succeeded and Entra sign-in risk is none: the newly registered Authenticator satisfied the second factor.",
     }),
 
-    // 12. The correlation rule fires on the wipe → re-register → sign-in sequence — the first alert.
+    // 12. The correlation rule fires on the wipe → re-register → sign-in sequence: the first alert.
     {
       ...noHost(sentinelAlert({
         companyId: cx, id: "aihvr12", ts: "2026-09-22T08:58:42.000Z", user: VICTIM, srcIp: NEW_IP,
+        // The workspace's tenant is the Entra tenant every Microsoft record of the company names.
+        tenantId: TENANT_ID,
         alertName: "Authentication methods reset by admin, then registered from a new IP",
         ruleId: "3c1d7e52-9a84-4f06-b2d1-6e8a0f5c7b39",
         detail: "An admin deleted a user's registered authentication methods and, within 30 minutes, new security info was registered and used to sign in from an IP address not seen for that user in 14 days.",
@@ -362,7 +375,7 @@ function buildVoiceReset(): TelemetryEvent[] {
           IPSeenForUserLast14d: "false",
           DeviceCompliant: "false",
         },
-        description: "Microsoft Sentinel raised \"Authentication methods reset by admin, then registered from a new IP\" for d.cohen at 08:58: methods deleted by j.oduya at 08:48, Authenticator registered from 80.94.95.118 (Romania) at 08:53 and used for an Exchange Online sign-in from the same IP at 08:56, on a non-compliant device.",
+        description: "Microsoft Sentinel raised \"Authentication methods reset by admin, then registered from a new IP\" for d.cohen at 08:58: methods deleted by j.oduya at 08:48, Authenticator registered from 192.0.2.118 (Romania) at 08:53 and used for an Exchange Online sign-in from the same IP at 08:56, on a non-compliant device.",
       })),
       is_detection: true,
       edr_scope: "non_edr" as const,
@@ -380,9 +393,9 @@ function buildVoiceReset(): TelemetryEvent[] {
           OriginatingServer: "LO2P265MB4471 (15.20.7182.019)",
         },
         mitre: "T1114.003", tactic: "Collection", severity: "high",
-        description: "From 80.94.95.118 a new inbox rule was created in d.cohen's mailbox that forwards messages with offer, salary or payroll in the subject to an external Proton Mail address and marks them read, seven minutes after the new-device sign-in.",
+        description: "From 192.0.2.118 a new inbox rule was created in d.cohen's mailbox that forwards messages with offer, salary or payroll in the subject to an external Proton Mail address and marks them read, seven minutes after the new-device sign-in.",
       }),
-      geo: { country: "Romania", city: "Bucharest", latitude: 44.4, longitude: 26.1 },
+      geo: NEW_GEO,
     },
 
     // 14. The rule acts: a matching message leaves for the external address.
@@ -420,11 +433,11 @@ function buildVoiceReset(): TelemetryEvent[] {
       extra: {
         ...snowRow("2026-09-22T09:41:05.276Z"),
         "servicenow.urgency": "1 - High", "servicenow.impact": "1 - High", "servicenow.assigned_to": AGENT,
-        "servicenow.work_notes": "09:38 — d.cohen phoned the desk from the office extension: no call was made this morning, no phone was lost, the laptop has been in use throughout. Desk lead replayed the 08:31 call recording: the voice is indistinguishable from d.cohen's on first listen but speech cadence is unnaturally uniform, there is no room noise, and the caller declined a call-back. Suspected synthetic (AI-cloned) voice used to impersonate d.cohen. Security operations notified.",
+        "servicenow.work_notes": "d.cohen phoned the desk from the office extension: no call was made this morning, no phone was lost, the laptop has been in use throughout. Desk lead replayed the recording of the call that opened this ticket: the voice is indistinguishable from d.cohen's on first listen but speech cadence is unnaturally uniform, there is no room noise, and the caller declined a call-back. Suspected synthetic (AI-cloned) voice used to impersonate d.cohen. Security operations notified.",
         "servicenow.priority": "1 - Critical", "servicenow.assignment_group": "IT Service Desk",
         "servicenow.sys_updated_on": "2026-09-22 09:41:05", "servicenow.sys_updated_by": "s.reinhardt@nexacorp.com",
       },
-      description: "A work note was added to INC0051764 at 09:41: d.cohen phoned the desk to say no call was made and no phone was lost, and the desk lead's replay of the 08:31 recording describes a voice indistinguishable from d.cohen's but with unnaturally uniform cadence, no room noise and a refused call-back. The note records a suspected synthetic voice.",
+      description: "A work note was added to INC0051764 at 09:41: d.cohen phoned the desk to say no call was made and no phone was lost, and the desk lead's replay of the call that opened the ticket describes a voice indistinguishable from d.cohen's but with unnaturally uniform cadence, no room noise and a refused call-back. The note records a suspected synthetic voice.",
     }),
   ];
 }

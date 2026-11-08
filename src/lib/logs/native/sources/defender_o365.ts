@@ -23,6 +23,7 @@ import {
   aadObjectId, domainOf, emailFacts, entitySeed, isThreatMail, iso7, rs, syntheticMessageId, userEmail, type EmailFacts, type Raw,
 } from "./collab-email-shared";
 import { egressIp } from "./firewall-shared";
+import { nameFromLogin } from "./_identity-common";
 
 // ── Schema ───────────────────────────────────────────────────────────────────
 
@@ -270,7 +271,10 @@ function emailEventsRow(ev: TelemetryEvent, ctx: NativeCtx, m: Msg): Record<stri
   // An allow can only deliver normal-confidence phish (high-confidence phish is always quarantined).
   if (phish) conf.Phish = rs(raw, "PhishConfidenceLevel") && !/none/i.test(rs(raw, "PhishConfidenceLevel")!) ? rs(raw, "PhishConfidenceLevel")! : action === "Delivered" ? "Normal" : "High";
   if (!malware) conf.Spam = scl ?? (threats.includes("Spam") ? "5" : "1");
-  const internalSender = domainOf(f.from) === domainOf(user);
+  // Inside the tenant = the tenant's own mail domain: an outbound message has an internal sender
+  // (object id, display name) and an external recipient (no object id in this directory).
+  const inTenant = (addr?: string) => !!addr && (domainOf(addr) ?? "").toLowerCase() === ctx.domain.toLowerCase();
+  const internalSender = domainOf(f.from) === domainOf(user) || inTenant(f.from);
   const size = f.sizeBytes ?? (f.attachments.reduce((n, a) => n + (a.size ?? 0), 0) + ctx.int(`${ev.id}:sz`, 3500, 60000));
   const row: Record<string, unknown> = {
     Timestamp: m.ts,
@@ -278,14 +282,14 @@ function emailEventsRow(ev: TelemetryEvent, ctx: NativeCtx, m: Msg): Record<stri
     InternetMessageId: m.imid,
     SenderMailFromAddress: f.mailFrom ?? f.from ?? "",
     SenderFromAddress: f.from ?? "",
-    SenderDisplayName: f.fromDisplay ?? "",
+    SenderDisplayName: f.fromDisplay ?? (inTenant(f.from) ? nameFromLogin(f.from!) : ""),
     SenderObjectId: internalSender && f.from ? aadObjectId(ctx, f.from) : "",
     SenderMailFromDomain: domainOf(f.mailFrom ?? f.from) ?? "",
     SenderFromDomain: domainOf(f.from) ?? "",
     SenderIPv4: senderIpv4(ctx, f, internalSender),
     SenderIPv6: f.senderIp && f.senderIp.includes(":") ? f.senderIp : "",
     RecipientEmailAddress: user,
-    RecipientObjectId: aadObjectId(ctx, user),
+    RecipientObjectId: f.direction === "Outbound" && !inTenant(user) ? "" : aadObjectId(ctx, user),
     Subject: f.subject ?? "",
     EmailClusterId: 3019480000000 + ctx.int(entitySeed(ctx, "cluster", `${f.from ?? ""}|${f.subject ?? ""}`), 1, 9_999_999),
     EmailDirection: f.direction,

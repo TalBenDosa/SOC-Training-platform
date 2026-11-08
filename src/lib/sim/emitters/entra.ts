@@ -22,15 +22,29 @@ const VENDOR = "Microsoft Entra ID";
 
 interface EntraGeo { country?: string; city?: string; latitude?: number; longitude?: number; countryCode?: string }
 
-// Entra sign-in failure result codes (resultType) → human resultDescription.
+// Entra sign-in failure result codes (resultType) → resultDescription, worded as the native
+// renderer's status.failureReason (src/lib/logs/native/sources/entra.ts STATUS) so the SIEM row and
+// the record it came from read the same.
 const ERROR_DESC: Record<string, string> = {
   "50126": "Error validating credentials due to invalid username or password.",
   "50074": "Strong Authentication is required.",
-  "50053": "Account is locked because the user tried to sign in too many times with an incorrect ID or password.",
+  "50076": "Due to a configuration change made by your administrator, or because you moved to a new location, you must use multi-factor authentication to access the resource.",
+  "50072": "User needs to enroll for second factor authentication (interrupt)",
+  "500121": "Authentication failed during strong authentication request.",
+  "50053": "Account is locked because user tried to sign in too many times with an incorrect user ID or password.",
   "50055": "The password is expired.",
-  "53003": "Access has been blocked by Conditional Access policies.",
+  "50057": "User account is disabled.",
+  "50034": "The user account does not exist in the directory.",
+  "53003": "Access has been blocked by Conditional Access policies. The access policy does not allow token issuance.",
   "50158": "External security challenge was not satisfied.",
 };
+
+/** Deterministic version-4-shaped GUID for a seed: every id a sign-in carries looks like the real one. */
+function guidOf(seed: string): string {
+  let h = "";
+  for (let i = 0; h.length < 32; i++) h += hashString(`${i}|${seed}`).toString(16).padStart(8, "0");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-${"89ab"[parseInt(h[16], 16) & 3]}${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
 
 // Rough ISO-2 for the countries the fabric/KNOWN_GEO use (display only).
 const ISO2: Record<string, string> = {
@@ -96,8 +110,9 @@ export function entraSignIn(o: EntraSignInOpts): TelemetryEvent {
   const errorCode = success ? "0" : (o.errorCode ?? "50126");
   const app = o.app ?? "Office 365 Exchange Online";
   const authReq = o.mfa ? "multiFactorAuthentication" : "singleFactorAuthentication";
-  const corr = o.correlationId ?? `${hashString(`corr:${o.id}`).toString(16).padStart(8, "0")}-0000-0000-0000-000000000000`;
-  const signInId = `${hashString(`sid:${o.id}`).toString(16).padStart(8, "0")}-1111-2222-3333-444455556666`;
+  // Real-shaped ids (review 2026-11-08: every sign-in id used to end -1111-2222-3333-444455556666).
+  const corr = o.correlationId ?? guidOf(`entra:corr:${o.id}`);
+  const signInId = guidOf(`entra:signin:${o.id}`);
   const ecsOutcome = success ? "success" : "failure";
   return {
     id: o.id, ts: o.ts, source: "o365", vendor: VENDOR,
@@ -116,7 +131,9 @@ export function entraSignIn(o: EntraSignInOpts): TelemetryEvent {
       "azure.signinlogs.properties.correlationId": corr,
       "azure.signinlogs.properties.createdDateTime": o.ts,
       "azure.signinlogs.properties.userPrincipalName": email,
-      "azure.signinlogs.properties.userDisplayName": o.displayName ?? r.bareUser,
+      // The display name is the person's name; with none authored the renderer derives it from the UPN
+      // (the same name the audit records give), never the bare login.
+      ...(o.displayName ? { "azure.signinlogs.properties.userDisplayName": o.displayName } : {}),
       ...(o.userId ? { "azure.signinlogs.properties.userId": o.userId } : {}),
       "azure.signinlogs.properties.appDisplayName": app,
       ...(o.appId ? { "azure.signinlogs.properties.appId": o.appId } : {}),

@@ -50,4 +50,16 @@ describe("Microsoft Entra ID emitter", () => {
     const b = entraSignIn({ id: "z", ts: T(9), companyId: "nexacorp", user: "d.harel@nexacorp.com", srcIp: "207.154.10.9" });
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
+
+  it("gives every sign-in its own real-shaped id and correlation id (review 2026-11-08)", () => {
+    const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+    const ids = ["p", "q", "r"].map(id => entraSignIn({ id, ts: T(9), companyId: "nexacorp", user: "d.harel@nexacorp.com", srcIp: "207.154.10.9" }));
+    for (const e of ids) {
+      expect(String(e.raw?.["azure.signinlogs.properties.id"])).toMatch(GUID);
+      expect(String(e.raw?.["azure.signinlogs.properties.correlationId"])).toMatch(GUID);
+    }
+    expect(new Set(ids.map(e => String(e.raw?.["azure.signinlogs.properties.id"]).slice(-12))).size).toBe(3);
+    // No authored display name: the renderer derives the person's name, never the bare login.
+    expect(ids[0].raw?.["azure.signinlogs.properties.userDisplayName"]).toBeUndefined();
+  });
 });

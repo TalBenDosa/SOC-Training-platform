@@ -45,3 +45,50 @@ describe("scenario log descriptions (Live-SOC style)", () => {
     expect(r).toEqual({ user: "j.chen", title: undefined, action: "Received an email" });
   });
 });
+
+/**
+ * Review 2026-11-08 (Sdema exercise, K3): the row line named the wrong actor ("y.mendes performed
+ * Reset password (by admin)" for the help desk agent's change), hid detections ("g.rossi browsed to
+ * a website" for a Prompt Shields DocumentAttack, "203.0.113.47 made a cloud API call" for a Defender
+ * for Cloud alert) and gave no sender for an outbound mail ("System sent an email").
+ */
+describe("the team row line names what the record names", () => {
+  const team = (e: Partial<TelemetryEvent>) => describeEvent({ id: "x", ts: "2026-01-01T08:00:00Z", ...e } as TelemetryEvent, { preferFields: true, fieldsOnly: true });
+
+  it("a directory change names its actor and its target", () => {
+    const raw = {
+      "azure.auditlogs.operationName": "Reset password (by admin)",
+      "azure.auditlogs.properties.initiatedBy.user.userPrincipalName": "z.yilmaz@sdemagroup.com",
+      "azure.auditlogs.properties.targetResources[0].userPrincipalName": "y.mendes@sdemagroup.com",
+    };
+    expect(team({ source: "o365", vendor: "Microsoft Entra ID", event_type: "account_modify", user_email: "y.mendes@sdemagroup.com", raw }))
+      .toBe("z.yilmaz reset the password of y.mendes");
+    expect(team({ source: "o365", vendor: "Microsoft Entra ID", event_type: "account_modify", user_email: "y.mendes@sdemagroup.com",
+      raw: { ...raw, "azure.auditlogs.operationName": "Admin deleted security info" } })).toBe("z.yilmaz deleted the security info of y.mendes");
+    expect(team({ source: "o365", vendor: "Microsoft Entra ID", event_type: "account_modify", user_email: "y.mendes@sdemagroup.com",
+      raw: { ...raw, "azure.auditlogs.operationName": "Change user password", "azure.auditlogs.properties.initiatedBy.user.userPrincipalName": "y.mendes@sdemagroup.com" } }))
+      .toBe("y.mendes changed their password");
+  });
+
+  it("a mail row names its sender and recipient", () => {
+    expect(team({ source: "email_gateway", vendor: "Microsoft Defender for Office 365", event_type: "email_sent",
+      raw: { "email.from.address": "y.mendes@sdemagroup.com", "email.to.address": "archive@proton.me" } })).toBe("y.mendes sent an email to archive@proton.me");
+    expect(team({ source: "email_gateway", event_type: "email_received", user_email: "j.chen@nexacorp.com", raw: { "email.from.address": "billing@vendor.example" } }))
+      .toBe("j.chen received an email from billing@vendor.example");
+  });
+
+  it("detections read as detections, with the product's own name", () => {
+    expect(team({ source: "siem", vendor: "Azure AI Content Safety", event_type: "http_request", is_detection: true, user_email: "g.rossi@sdemagroup.com",
+      raw: { "promptshields.attack_type": "DocumentAttack", "promptshields.classification": "AttackDetected", "gateway.application": "assist-support-chat" } }))
+      .toBe("Prompt Shields: DocumentAttack, AttackDetected (g.rossi, assist-support-chat)");
+    expect(team({ source: "cloud_azure", vendor: "Microsoft Defender for Cloud", event_type: "cloud_api_call", is_detection: true, src_ip: "203.0.113.47",
+      raw: { "azure.alert.displayName": "ASCII Smuggling prompt injection detected" } })).toBe("Alert: ASCII Smuggling prompt injection detected");
+    expect(team({ source: "firewall", vendor: "Palo Alto Networks", event_type: "ids_blocked", src_ip: "185.220.101.45", dst_ip: "10.10.20.2", dst_port: 445,
+      raw: { "panw.threatid": "40001", "panw.category": "brute-force" } })).toBe("Threat ID 40001, brute-force from 185.220.101.45 to 10.10.20.2:445");
+  });
+
+  it("a mail or alert value that states the conclusion falls back to the plain line", () => {
+    expect(team({ source: "email_gateway", event_type: "email_received", user_email: "j.chen@nexacorp.com", raw: { "email.from.address": "ransomware@x.example" } }))
+      .toBe("j.chen received an email");
+  });
+});
