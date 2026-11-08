@@ -28,7 +28,7 @@ import { instantiateStory, storiesForCompany, storiesForTier, rehomeEvents, type
 import { DEFAULT_ENV, envAllowsStory, envHasPlatforms, platformsOfEvent, type TeamEnv } from "./environment";
 import { legacyLoad, type TeamLoad } from "./load";
 import { COMPANY_PROFILES, COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
-import { withRebasedTime } from "@/lib/sim/rebaseTime";
+import { mapTimeString, storyTimeMap, withMappedTime, withRebasedTime, type TimeMap } from "@/lib/sim/rebaseTime";
 import { normalizeHostIps } from "@/lib/sim/hostIdentity";
 import { applyTenant, type Tenant } from "./tenant";
 import { mitreVisible } from "@/lib/sim/mitreVisible";
@@ -41,6 +41,7 @@ import { webNoise } from "./webNoise";
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
 import { applyStack, fitsStack, stackFor, storyFitsOrg, storyFitsStack, storyHonoursLocks, withCanonicalPids } from "@/lib/logs/native";
 import { categoryOf, PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
+import { storyThemes, type StoryCategory } from "./storyCategory";
 
 // channel "feed" → promoted as a feed.event (a log); "inject" → a staff.inject
 // (an MSEL curveball: management pressure, a help-desk ticket, an announcement).
@@ -57,6 +58,10 @@ export const BONUS_HOLD_MS = 1_000_000_000_000_000;
 const WARMUP_MIN = 0.10;
 /** Logs behind the MSEL injects, added after placement: the twist's two or three rows + the decoy's ticket, earlier batch and two uploads. */
 const MSEL_SUPPORT_ROWS = 7;
+/** Ordinary telemetry (benign pool rows) per attack row in the feed: the floor no load trims below. */
+export const ORDINARY_PER_ATTACK_ROW = 2;
+/** Share of the feed ServiceNow records may take (approvals that prove a decoy first, unrelated tickets after). */
+export const ITSM_SHARE = 0.08;
 
 export type TeamVerdict = "tp" | "escalate" | "benign" | "fp";
 /** Where a feed log came from — lets the report / instructor tell story steps from noise. */
@@ -87,6 +92,12 @@ function sampleN<T>(arr: T[], n: number, rnd: () => number): T[] {
   return a.slice(0, Math.min(n, a.length));
 }
 const pick = <T,>(arr: T[], rnd: () => number): T => arr[Math.floor(rnd() * arr.length) % arr.length];
+/** Rows in authored time order, stable (left as they are when a ts does not parse). */
+function byAuthoredTime<T extends { ts?: string }>(evs: T[]): T[] {
+  const t = evs.map(e => Date.parse(e.ts ?? ""));
+  if (t.some(x => !Number.isFinite(x))) return evs;
+  return evs.map((e, i) => ({ e, i })).sort((a, b) => t[a.i] - t[b.i] || a.i - b.i).map(x => x.e);
+}
 
 // ── Noise hygiene ────────────────────────────────────────────────────────────
 const PERSONAL_MAIL = /@(gmail|googlemail|yahoo|outlook|hotmail|live|proton|protonmail|icloud|gmx)\.(com|me|de|net|ch)\b/i;
@@ -469,7 +480,8 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   const takenVictims = new Set<string>();
   // A named organization's incidents are never named after the demo company a story was written for.
   const DEMO_COMPANY = /nexacorp|rocketstack|medcore|globallogis|quantumbank/gi;
-  const buildStory = (avoid0: (string | undefined)[] = [], forced?: AttackStory | null, keepOff?: { hosts: Set<string>; users: Set<string> }): Story | null => {
+  // `themes`: categories the pick must stay out of (the bonus never repeats a planned attack's kind).
+  const buildStory = (avoid0: (string | undefined)[] = [], forced?: AttackStory | null, keepOff?: { hosts: Set<string>; users: Set<string> }, themes?: Set<StoryCategory>): Story | null => {
     const avoid = [...avoid0];
     const maxAttempts = stacked || env ? 20 : 6;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -477,7 +489,9 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
         // Chosen products: only stories they can show whole. The company's own: none
         // written about another vendor's artifacts (PRODUCT_LOCKS). Same predicate the
         // builder / create / start routes use for a pinned storyline (teamStoryFilter).
-        const story = forced ?? pickStory(s => !avoid.includes(s.id) && storyFits(s));
+        const offTheme = (s: AttackStory) => !themes || !storyThemes(s.id).some(t => themes.has(t));
+        const story = forced ?? pickStory(s => !avoid.includes(s.id) && storyFits(s) && offTheme(s));
+        if (!forced && !offTheme(story)) return null;        // none left outside those themes: the caller decides
         if (!forced && avoid.includes(story.id)) continue;   // server-side there is no anti-repeat memory
         const events0 = instantiateStory(story, companyPool, edr, companyId, pickRnd).events ?? [];
         if (events0.length === 0) return null;
@@ -503,7 +517,9 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // a prioritisation call for the Manager. One story keeps a small team single-threaded.
   const story2 = load.stories >= 2 ? buildStory([...pinnedIdsAll, story1?.id], forcedAt(1)) : null;
   const story3 = load.stories >= 3 ? buildStory([...pinnedIdsAll, story1?.id, story2?.id], forcedAt(2)) : null;
-  const storyPlaced = (s: Story | null): Placed[] => (s?.events ?? []).map(ev => ({ ev, origin: "story" as const, verdict: classifyStoryEvent(ev), incident: s!.incident, attack: s!.name }));
+  // A story's rows reach the feed in their authored order of time (a few stories list a row out of
+  // order): the story's time map (storyTimeMap) is monotone only when the feed order follows the clock.
+  const storyPlaced = (s: Story | null): Placed[] => byAuthoredTime(s?.events ?? []).map(ev => ({ ev, origin: "story" as const, verdict: classifyStoryEvent(ev), incident: s!.incident, attack: s!.name }));
   const distinct = (s: Story | null, n: number, others: (Story | null)[]): Story | null =>
     s && others.some(o => o?.incident === s.incident) ? { ...s, incident: `${s.incident}#${n}` } : s;
   const attack1 = storyPlaced(story1);
@@ -513,7 +529,11 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // the team has caught every planned attack — then released into the live feed.
   const planned = [story1, story2, story3].flatMap(st => st?.events ?? []);
   const keepOff = { hosts: new Set(planned.map(e => e.hostname).filter((h): h is string => !!h)), users: new Set(planned.map(e => e.user_email).filter((u): u is string => !!u)) };
-  const story4 = opts.bonus ? buildStory([...pinnedIdsAll, story1?.id, story2?.id, story3?.id], null, keepOff) : null;
+  // It is another KIND of attack (Sdema review K10: a help-desk reset twice in one exercise): no category
+  // a planned story belongs to (storyThemes), unless no fitting story is left outside them.
+  const plannedThemes = new Set([story1, story2, story3].flatMap(st => (st ? storyThemes(st.id) : [])));
+  const bonusAvoid = [...pinnedIdsAll, story1?.id, story2?.id, story3?.id];
+  const story4 = opts.bonus ? (buildStory(bonusAvoid, null, keepOff, plannedThemes) ?? buildStory(bonusAvoid, null, keepOff)) : null;
   const bonusAttack = storyPlaced(distinct(story4, 4, [story1, story2, story3])).map(p => ({ ...p, held: true }));
 
   // Identities an incident has touched — their ordinary logins must not sit in the
@@ -546,7 +566,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // A lone blocked attempt (WAF / IPS / proxy block) is a true positive the controls already stopped;
   // it keeps its own incident (the team confirms it) but is tagged auto_contained so the report does
   // not count it as a missed incident when nobody escalates it (expert review P0-6).
-  const poolAttacks: Placed[][] = chosenGroups.map(key => { const g = groups.get(key) ?? []; const lone = g.length === 1 && isBlockedAttempt(g[0]);
+  const poolAttacks: Placed[][] = chosenGroups.map(key => { const g = byAuthoredTime(groups.get(key) ?? []); const lone = g.length === 1 && isBlockedAttempt(g[0]);
     // A standalone attack is named by its first malicious log (it has no storyline title).
     const name = (g.find(e => isMalicious(classifyPoolEvent(e)))?.description ?? "Standalone attack").replace(/\s+/g, " ").slice(0, 90);
     return g.map(ev => ({ ev, origin: "pool_attack" as const, verdict: classifyPoolEvent(ev), incident: key, autoContained: lone, attack: name })); });
@@ -593,8 +613,14 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // Trim the noise by that overflow and by the FP alerts, so total rows ≈ the planned budget.
   const attackRowsReal = attack1.length + attack2.length + attack3.length + poolAttacks.reduce((n, g) => n + g.length, 0);
   const attackRowsEst = load.stories * 10 + load.poolAttacks * 2;
+  // Never below the floor (Sdema review K1: one ordinary log in fifty once the fitter had thinned the
+  // noise for a small team, so the feed itself said "attack"): ordinary telemetry (benign pool rows,
+  // not the decoys) stays at ORDINARY_PER_ATTACK_ROW times the attack rows, whatever the load asks.
+  // (An alert outside its approval is an incident too: it counts as an attack row.)
+  const ordinaryFloor = ORDINARY_PER_ATTACK_ROW * (attackRowsReal + fpOut.filter(f => f.verdict === "escalate").length);
   const benignN = Math.max(0, load.noiseCount - fpRows.length - Math.max(0, attackRowsReal - attackRowsEst));
-  const noise: Placed[] = sampleN(noiseCandidates, benignN, rnd).map(ev => ({ ev, origin: "noise" as const, verdict: classifyPoolEvent(ev) }));
+  const shuffled = sampleN(noiseCandidates, noiseCandidates.length, rnd);   // the same draws sampleN(…, benignN) made
+  const noise: Placed[] = shuffled.slice(0, benignN).map(ev => ({ ev, origin: "noise" as const, verdict: classifyPoolEvent(ev) }));
   // Ordinary web traffic: web logs that exist only inside a web story name the story. Its own stream,
   // and it takes the place of pool rows, so the shift's length and every other draw stay as they were.
   if (assets && noise.length > 0) {
@@ -610,6 +636,16 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     if (noise.some(n => platformsOfEvent(n.ev).includes(p))) continue;
     for (const ev of sampleN(noiseCandidates.filter(e => platformsOfEvent(e).includes(p)), 3, rnd)) {
       noise[Math.floor(rnd() * noise.length) % Math.max(noise.length, 1)] = { ev, origin: "noise", verdict: classifyPoolEvent(ev) };
+    }
+  }
+  // The floor, once web and platform rows have taken their slots: top up with further ordinary pool rows.
+  {
+    const inFeed = new Set(noise.map(n => n.ev));
+    let ordinary = noise.filter(n => n.verdict === "benign").length;
+    for (let k = benignN; k < shuffled.length && ordinary < ordinaryFloor; k++) {
+      const ev = shuffled[k];
+      if (inFeed.has(ev) || classifyPoolEvent(ev) !== "benign") continue;
+      noise.push({ ev, origin: "noise", verdict: "benign" }); inFeed.add(ev); ordinary++;
     }
   }
   // Each maker's rows land together (a lockout right after its VPN failures) at a seeded point of the
@@ -647,10 +683,17 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // ITSM noise (itsmNoise.ts): unrelated tickets, some of them right before attack rows, so "a ticket
   // just fired" marks nothing. Its own stream.
   const trnd = streamOf(`${companyId}:${difficulty}:${seed}`, "itsm");
-  const noiseTickets = itsmNoise(assets, companyId, assets ? 3 + Math.floor(trnd() * 3) + linkedTickets.length : 0, trnd, new Date(TEAM_TIME_BASE_MS).toISOString(),
+  const noiseTickets0 = itsmNoise(assets, companyId, assets ? 3 + Math.floor(trnd() * 3) + linkedTickets.length : 0, trnd, new Date(TEAM_TIME_BASE_MS).toISOString(),
     { users: new Set([...compromised, ...takenVictims]), hosts: attackHosts })
     .filter(x => !env || storyEventChosen(x.ev, env, stack, companyId));
-  const itsmRows = [...noise, ...attack1, ...attack2, ...attack3, ...poolAttacks.flat()].filter(p => itsmRecordFor(p.ev, companyId)).length + linkedTickets.length + noiseTickets.length;
+  // ServiceNow keeps to about ITSM_SHARE of the feed (Sdema review K1: a quarter of the feed was
+  // tickets). The approvals that prove a decoy stay; unrelated tickets fill what is left, never fewer
+  // than two, so a ticket is still no tell.
+  const evidenceTickets = [...noise, ...attack1, ...attack2, ...attack3, ...poolAttacks.flat()].filter(p => itsmRecordFor(p.ev, companyId)).length + linkedTickets.length;
+  const otherRows = total + fpRows.length + (difficulty !== "easy" ? MSEL_SUPPORT_ROWS : 0);
+  const itsmBudget = Math.round((ITSM_SHARE * otherRows) / (1 - ITSM_SHARE));
+  const noiseTickets = noiseTickets0.slice(0, Math.max(Math.min(2, noiseTickets0.length), itsmBudget - evidenceTickets));
+  const itsmRows = evidenceTickets + noiseTickets.length;
   const lateRows = itsmRows + fpRows.length + (difficulty !== "easy" ? MSEL_SUPPORT_ROWS : 0);
   const leadMin = Math.min(total - 1, Math.ceil(WARMUP_MIN * (total + lateRows)));
   const posToAttack = new Map<number, Placed>();
@@ -957,6 +1000,18 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     const to = (e.source === "waf" || e.source === "web_server") && e.src_ip ? movedIps.get(`${merged[i].p.incident ?? ""}|${e.src_ip}`) : undefined;
     return to ? { ...e, src_ip: to, raw: e.raw ? Object.fromEntries(Object.entries(e.raw).map(([k, v]) => [k, v === e.src_ip ? to : v])) : e.raw } : e;
   });
+  // One time map per attack story (and per standalone pool incident): authored time → shift time,
+  // anchored on the times its rows are shown at. Every time inside the story's rows goes through it
+  // (toPublicEntry), so a field naming another row's time lands on that row (K6, Sdema review).
+  const shownMs = (m: { p: Placed; at: number }) => TEAM_TIME_BASE_MS + (m.at >= BONUS_HOLD_MS ? m.at - BONUS_HOLD_MS : m.at);
+  const groupOf = (p: Placed) => (p.origin === "story" || p.origin === "pool_attack") && p.incident ? `${p.held ? "bonus" : "feed"}|${p.incident}` : undefined;
+  const groupRows = new Map<string, { authoredMs: number; shownMs: number }[]>();
+  for (const m of merged) {
+    const g = groupOf(m.p);
+    if (g) (groupRows.get(g) ?? groupRows.set(g, []).get(g)!).push({ authoredMs: Date.parse(m.p.ev.ts), shownMs: shownMs(m) });
+  }
+  const groupMaps = new Map<string, StoryClock>([...groupRows].map(([g, rows]) => [g, { map: storyTimeMap(rows), firstMs: Math.min(...rows.map(r => r.shownMs)) }]));
+  const clocks: (StoryClock | undefined)[] = merged.map(m => { const g = groupOf(m.p); return g ? groupMaps.get(g) : undefined; });
   const feed: TimelineEntry[] = merged.map(({ p, at: due }, i) => {
     // Every log — story, pool, noise, ITSM, inject support — labelled for the session's products.
     const ev = applyStack(sessionEvs[i], companyId, stack);
@@ -991,7 +1046,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   opts.onVariety?.(record);
   const all = [...feed, ...msel];
   const out = all
-    .map((entry, i) => toPublicEntry(entry, i, seed, tier, companyId))
+    .map((entry, i) => toPublicEntry(entry, i, seed, tier, companyId, clocks[i]))
     .sort((a, b) => a.due_offset_ms - b.due_offset_ms);
   // A named organization (the instructor's own): its people, domain and brand everywhere.
   return tenant ? applyTenant(out, companyId, tenant, seed) : out;
@@ -1039,25 +1094,6 @@ function strip(obj: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined && v !== null));
 }
 
-// RFC 2822 dates (email Received headers) are not ISO, so withRebasedTime leaves
-// them on the authored June date — shift them by the same delta as the event.
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const RFC2822_RE = /\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), (\d{1,2}) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{4}) (\d{2}):(\d{2}):(\d{2}) \+0000\b/g;
-function shiftRfc2822(value: unknown, deltaMs: number): unknown {
-  if (typeof value === "string") {
-    return value.replace(RFC2822_RE, (_m, d, mon, y, hh, mm, ss) => {
-      const ms = Date.UTC(Number(y), MONTHS.indexOf(mon), Number(d), Number(hh), Number(mm), Number(ss)) + deltaMs;
-      const n = new Date(ms);
-      const p2 = (x: number) => String(x).padStart(2, "0");
-      return `${DAYS[n.getUTCDay()]}, ${p2(n.getUTCDate())} ${MONTHS[n.getUTCMonth()]} ${n.getUTCFullYear()} ${p2(n.getUTCHours())}:${p2(n.getUTCMinutes())}:${p2(n.getUTCSeconds())} +0000`;
-    });
-  }
-  if (Array.isArray(value)) return value.map(v => shiftRfc2822(v, deltaMs));
-  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, shiftRfc2822(v, deltaMs)]));
-  return value;
-}
-
 /** ATT&CK metadata a reshape leaves in a raw block: on a row no product tags, it is the technique by another name. */
 const RAW_TECHNIQUE_KEYS = ["threat.technique.id", "threat.technique.subtechnique.id", "mde.AlertTitle"];
 
@@ -1076,15 +1112,37 @@ function withPublicPids(ev: Record<string, unknown>, companyId: string): Record<
 }
 
 /** Endpoint facts carry a process's start time: it moves with the row, or the authored date marks an attack row. */
-function shiftEndpointTimes(rest: Record<string, unknown>, deltaMs: number): Record<string, unknown> {
+function mapEndpointTimes(rest: Record<string, unknown>, f: TimeMap): Record<string, unknown> {
   const t = rest._endpoint as Record<string, { startMs?: number } | undefined> | undefined;
   if (!t) return rest;
   const moved = Object.fromEntries(Object.entries(t).map(([k, v]) =>
-    [k, v && typeof v === "object" && typeof v.startMs === "number" ? { ...v, startMs: v.startMs + deltaMs } : v]));
+    [k, v && typeof v === "object" && typeof v.startMs === "number" ? { ...v, startMs: f(v.startMs) } : v]));
   return { ...rest, _endpoint: moved };
 }
 
-function toPublicEntry(entry: TimelineEntry, i: number, seed: string, tier: string, companyId: string): TimelineEntry {
+/** A story's time map and the time its first row is shown at (toPublicEntry). */
+interface StoryClock { map: TimeMap; firstMs: number }
+/**
+ * An alert's matched-events window. A window the author left to the emitter's default (the alert time
+ * minus some minutes) can open before the story's first row once the story is squeezed: it never opens
+ * before the incident's first row reaches the feed.
+ */
+const ALERT_WINDOW_KEY = /(?:^|\.)(?:StartTime|EndTime|startTimeUtc|endTimeUtc|firstActivityDateTime|lastActivityDateTime)$/;
+function clampAlertWindow(raw: Record<string, unknown> | undefined, firstMs: number): Record<string, unknown> | undefined {
+  if (!raw) return raw;
+  let changed = false;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (typeof v === "string" && ALERT_WINDOW_KEY.test(k)) {
+      const n = mapTimeString(v, ms => Math.max(ms, firstMs));
+      if (n !== v) changed = true;
+      out[k] = n;
+    } else out[k] = v;
+  }
+  return changed ? out : raw;
+}
+
+function toPublicEntry(entry: TimelineEntry, i: number, seed: string, tier: string, companyId: string, clock?: StoryClock): TimelineEntry {
   const body = entry.body as Record<string, unknown>;
   if (entry.channel === "inject") {
     const { kind, expected_response, linked_objective, expected_decision, id, ...rest } = body;
@@ -1104,10 +1162,16 @@ function toPublicEntry(entry: TimelineEntry, i: number, seed: string, tier: stri
   const offset = entry.due_offset_ms >= BONUS_HOLD_MS ? entry.due_offset_ms - BONUS_HOLD_MS : entry.due_offset_ms;
   const newTs = new Date(TEAM_TIME_BASE_MS + offset).toISOString();
   const oldMs = typeof rest.ts === "string" ? Date.parse(rest.ts) : NaN;
-  const withMail = Number.isFinite(oldMs) && rest.raw
-    ? { ...shiftEndpointTimes(rest, Date.parse(newTs) - oldMs), raw: shiftRfc2822(rest.raw, Date.parse(newTs) - oldMs) as Record<string, unknown> }
-    : rest;
-  const retimed = withPublicPids(withRebasedTime(withMail as { ts?: string; raw?: Record<string, unknown> }, newTs) as Record<string, unknown>, companyId);
+  // A story row: every time inside it through the story's one map (an alert's window, a ticket's
+  // opened_at, a clock in a work note land on the rows they name). Any other row: its own delta.
+  const newMs = Date.parse(newTs);
+  const f: TimeMap | undefined = !Number.isFinite(oldMs) ? undefined
+    : clock ? (ms => (ms === oldMs ? newMs : clock.map(ms))) : (ms => ms + newMs - oldMs);
+  const withEndpoint = f ? mapEndpointTimes(rest, f) : rest;
+  const moved = (clock ? withMappedTime(withEndpoint as { ts?: string; raw?: Record<string, unknown> }, newTs, clock.map)
+    : withRebasedTime(withEndpoint as { ts?: string; raw?: Record<string, unknown> }, newTs)) as Record<string, unknown>;
+  const windowed = clock && moved.raw ? { ...moved, raw: clampAlertWindow(moved.raw as Record<string, unknown>, clock.firstMs) } : moved;
+  const retimed = withPublicPids(windowed, companyId);
   // QA H1: a technique on a raw log, and empty structured fields, marked attack rows apart
   // from noise for anyone reading the payload — the technique moves to the answer key
   // (the report joins it back), empty structures are dropped.

@@ -78,6 +78,33 @@ export function storyCategory(storyId: string): StoryCategory {
   return BY_ID[storyId] ?? "other";
 }
 
+/**
+ * The attack an AI or web story is a variant of, when that is another category: an AI voice-clone
+ * help-desk reset is still a help-desk account takeover. The bonus attack never repeats a theme of
+ * a planned one (Sdema review K10: a help-desk reset twice in one exercise).
+ */
+const ALSO: Record<string, StoryCategory> = {
+  "ai-helpdesk-voice-reset": "identity", "ai-claude-compliance-key-harvest": "identity", "ai-gemini-drive-sweep": "identity",
+  "ai-deepfake-exec-call-payment-fraud": "bec", "ai-browser-agent-prompt-hijack": "bec", "ai-stored-injection-copilot-kb": "bec",
+  "ai-svg-invoice-lure": "phishing",
+  "ai-chat-harvest-extension": "endpoint", "ai-hub-model-load-workstation": "endpoint",
+  "ai-claude-enterprise-departure": "insider", "ai-shadow-chat-upload": "insider",
+  "ai-llmjacking-bedrock": "cloud", "ai-aoai-key-capacity-abuse": "cloud", "ai-mcp-tool-poisoning": "cloud", "ai-agentic-intrusion-tempo": "cloud",
+  "ai-assistant-commit-key-leak-aws": "cloud", "ai-assistant-commit-key-leak-azure": "cloud", "ai-agent-skill-host-cloud-aws": "cloud",
+  "ai-agent-skill-host-cloud-azure": "cloud", "ai-claude-shared-secret": "cloud", "ai-agent-prod-delete-aws": "cloud", "ai-agent-prod-delete-azure": "cloud",
+  "ai-training-data-poisoning-aws": "cloud", "ai-agent-rules-file-tamper": "cloud",
+  "ai-exposed-inference-endpoint": "exploit", "ai-exposed-vector-store": "exploit", "ai-malicious-model-pickle": "exploit",
+  "web-cred-stuffing-portal": "identity", "web-mft-sqli-shell": "exploit", "web-template-injection-wiki": "exploit", "web-viewstate-machinekey": "exploit",
+  "web-ssrf-cloud-metadata": "cloud", "web-upload-webshell": "exploit",
+};
+
+/** Every category a story belongs to: its own, and the attack it is a variant of. */
+export function storyThemes(storyId: string): StoryCategory[] {
+  const c = storyCategory(storyId);
+  const also = ALSO[storyId];
+  return also && also !== c ? [c, also] : [c];
+}
+
 /** Groups a picker list by category, in STORY_CATEGORIES order, dropping empty groups. */
 export function groupByCategory<T extends { category: StoryCategory }>(items: T[]): { id: StoryCategory; label: string; items: T[] }[] {
   return STORY_CATEGORIES
