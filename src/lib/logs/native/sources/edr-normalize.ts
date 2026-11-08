@@ -422,4 +422,35 @@ export function schtasksTask(f: EdrFacts): TaskFacts | null {
   };
 }
 
+/** Raw keys that copy the acting process's pid / its parent's pid, in every legacy vocabulary the corpus uses. */
+const RAW_PID_KEYS = ["process.pid", "crowdstrike.RawProcessId", "s1.srcProcPid", "winlog.event_data.ProcessId", "winlog.event_data.SourceProcessId", "winlog.event_data.NewProcessId"];
+const RAW_PARENT_KEYS = ["process.parent.pid", "winlog.event_data.ParentProcessId"];
+/**
+ * One pid per process across the row: when a session re-numbers a process (native/index canonicalPids),
+ * every raw copy of the old number follows, so the raw block, `process` and the native record agree
+ * (review 2026-11-08: raw ProcessId 7770 next to process.pid 1156 on one 7z.exe row). A process row's
+ * own ProcessId and its creator's InitiatingProcessId; on any other row InitiatingProcessId is the actor.
+ * Only keys that held the OLD number change (a raw value naming another process is left alone).
+ */
+export function syncRawPids(ev: TelemetryEvent, from: { pid?: number; parentPid?: number }, to: { pid?: number; parentPid?: number }): TelemetryEvent {
+  if (!ev.raw) return ev;
+  const kind = kindOf(ev, ev.raw as Record<string, unknown>).kind;
+  const own = [...RAW_PID_KEYS, kind === "process" ? "ProcessId" : "InitiatingProcessId"];
+  const par = [...RAW_PARENT_KEYS, ...(kind === "process" ? ["InitiatingProcessId"] : ["InitiatingProcessParentId"])];
+  const raw = { ...(ev.raw as Record<string, unknown>) };
+  let changed = false;
+  const swap = (keys: string[], a?: number, b?: number) => {
+    if (a === undefined || b === undefined || a === b) return;
+    for (const k of keys) {
+      const v = raw[k];
+      if (v === undefined || v === null || Number(v) !== a) continue;
+      raw[k] = typeof v === "number" ? b : /^0x/i.test(String(v)) ? `0x${b.toString(16)}` : String(b);
+      changed = true;
+    }
+  };
+  swap(own, from.pid, to.pid);
+  swap(par, from.parentPid, to.parentPid);
+  return changed ? { ...ev, raw } : ev;
+}
+
 export { baseName, dirName };
