@@ -1628,7 +1628,10 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
         const cRole = serverRole(c);
         return !SPECIALISED.has(cRole ?? "") || cRole === role;
       };
-      const sameRole = serverTargets.filter(c => fits(c) && role && serverRole(c) === role);
+      // A role the endpoint registry may lack (an AD FS farm) is looked up in the company's
+      // infrastructure too, so the story lands on the company's own server, not a generic name.
+      const infraServers = (assets?.infra ?? []).filter(c => !c.includes("."));
+      const sameRole = [...serverTargets, ...infraServers].filter(c => fits(c) && role && serverRole(c) === role);
       t = pickFrom(sameRole, h) ?? (role && KEEP_IF_ABSENT.has(role) ? h : undefined) ?? pickFrom(serverTargets.filter(fits), h)
         ?? pickFrom(serverTargets, h)
         // A company with no directory: the server its registry lists in that slot is an ordinary server.
@@ -1682,6 +1685,10 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
     const canonicalIp = (host: string): string => {
       const known = hostIp.get(host);
       if (known) return known;
+      // An EC2 private DNS name (ip-10-0-14-73.eu-west-1.compute.internal) IS its address:
+      // keep the two together, never renumber the node onto the office /24.
+      const ec2 = /^ip-(\d{1,3})-(\d{1,3})-(\d{1,3})-(\d{1,3})\.[a-z0-9.-]+\.internal$/i.exec(host);
+      if (ec2) { const ip = ec2.slice(1, 5).join("."); hostIp.set(host, ip); taken.set(ip, host); return ip; }
       const n = Number(/(\d+)(?!.*\d)/.exec(host)?.[1] ?? NaN);
       const byName = Number.isFinite(n) && n >= 2 && n <= 254 ? `${assets.subnet}.${n}` : undefined;
       const ip = byName && !taken.has(byName) ? byName : free(hostHash(host));

@@ -186,6 +186,14 @@ export interface CompanyAssets {
   serverPrefix?: string;
   /** The office network as the outside sees it: the address its firewalls NAT to (firewall-shared egressIp), and where it is. */
   office?:    { ip: string; country: string; city: string };
+  /**
+   * Machines the company runs that are not endpoints: hypervisors, vCenter, the internet-facing
+   * VPN appliance, Kubernetes worker nodes, the AD FS farm. A story that brings this infrastructure
+   * names them (instantiateStory keeps or maps onto these names), and they count as the company's
+   * own assets in the adaptation gate. Endpoint pickers (fabric, Team noise, workstation swaps)
+   * never draw from this list, so a phishing victim never lands on an ESXi host.
+   */
+  infra?:     string[];
 }
 
 // The per-company asset fabric (R-01 + emitter layer). One source of truth for the
@@ -228,6 +236,8 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
     },
     serverPrefix: "SRV-NXC",
     office: { ip: "217.177.80.10", country: "United Kingdom", city: "London" },
+    infra: ["vcsa-01.nexacorp.local", "esx-prod-03.nexacorp.local", "esx-prod-04.nexacorp.local", "esx-prod-05.nexacorp.local",
+            "FGT-VPN-01.nexacorp.com"],
   },
   rocketstack: {
     hosts: ["LAP-007", "LAP-012", "LAP-003", "SRV-PROD-001", "macbook-ops-03",
@@ -247,6 +257,8 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
     },
     serverPrefix: "SRV-PROD",
     office: { ip: "62.221.124.10", country: "Israel", city: "Tel Aviv" },
+    // The production EKS worker node (VPC 10.0.0.0/16, eu-west-1): its private DNS name carries its address.
+    infra: ["ip-10-0-14-73.eu-west-1.compute.internal"],
   },
   medcore: {
     hosts: ["WS-MED-022", "WS-MED-045", "WS-MED-067", "WS-NURS-033", "WS-NURS-044",
@@ -267,6 +279,9 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
     },
     serverPrefix: "SRV-MEDCORE",
     office: { ip: "62.19.176.10", country: "Netherlands", city: "Amsterdam" },
+    // vSphere cluster (internal AD DNS zone medcore.local), the internet-facing SSL-VPN gateway, and the AD FS farm for M365 sign-in.
+    infra: ["vcsa-01.medcore.local", "esx-prod-03.medcore.local", "esx-prod-04.medcore.local", "esx-prod-05.medcore.local",
+            "FGT-VPN-01.medcorehealth.org", "SRV-MEDCORE-ADFS01"],
   },
   globallogis: {
     hosts: ["SRV-GL-ERP01", "SRV-GL-WMS01", "WS-LOG-045", "WS-LOG-088", "WH-TERM-012",
@@ -286,6 +301,9 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
     },
     serverPrefix: "SRV-GL",
     office: { ip: "82.219.122.10", country: "Germany", city: "Frankfurt am Main" },
+    // vSphere cluster (internal AD DNS zone globallogis.local), the internet-facing SSL-VPN gateway, and the AD FS farm for M365 sign-in.
+    infra: ["vcsa-01.globallogis.local", "esx-prod-03.globallogis.local", "esx-prod-04.globallogis.local", "esx-prod-05.globallogis.local",
+            "FGT-VPN-01.globallogis.de", "SRV-GL-ADFS01"],
   },
   quantumbank: {
     hosts: ["WKS-QB-012", "WKS-QB-020", "WKS-QB-033", "WKS-QB-055", "WKS-QB-077",
