@@ -79,19 +79,19 @@ describe("the twist", () => {
     expect(cmds.size).toBeGreaterThan(4);   // the loader line differs session to session
   });
 
-  it("a spray that never got in: no implant, persistence, backdoor account or remote session; the spray resumes from a new exit node", () => {
+  // nexacorp-chain-d (Sdema review K5) now gets in: m.torres's password works (4624 type 3 on the RDS host)
+  // and a Remote Desktop session follows. Nothing ran there, so no implant, persistence or backdoor account;
+  // a logon that worked carries a remote session or the reuse of that account. The spray that never gets in
+  // (spray_resumes) is covered on its own rows below: no authored story is made only of failures any more.
+  it("a spray that got in with a password: no implant, persistence or backdoor account; a twist that follows from the logon", () => {
     for (const seed of ["sdema-1", "sdema-a", "sdema-b", "sdema-c"]) {
-      for (const k of ["second_implant", "new_persistence", "new_account", "new_remote_session", "credential_reuse"]) {
+      for (const k of ["second_implant", "new_persistence", "new_account"]) {
         expect(twistOf(tl(seed, SPRAY_STORY, k)).inject, `${seed} ${k}`).toBeUndefined();
       }
-      const t = tl(seed, SPRAY_STORY);
-      const { inject, rows } = twistOf(t);
+      const { inject, rows } = twistOf(tl(seed, SPRAY_STORY));
       expect(inject, seed).toBeTruthy();
-      expect(rows.length).toBeGreaterThanOrEqual(3);
-      expect(rows.every(r => /^(auth_failure|auth_success)$/.test(String(r.body.event_type)))).toBe(true);
-      const ip = String(rows[0].body.src_ip);
-      expect(ip).toMatch(/^(192\.0\.2|198\.51\.100|203\.0\.113)\./);
-      expect(String(inject!.body.text)).toContain(ip);
+      expect(rows.length).toBeGreaterThanOrEqual(2);
+      expect(JSON.stringify(rows)).not.toMatch(/rundll32|regsvr32|CurrentVersion\\\\Run/i);
     }
   });
 
@@ -116,7 +116,8 @@ describe("the twist", () => {
         break;
       }
     }
-    expect([...built].sort()).toEqual([...TWIST_KINDS].sort());
+    // spray_resumes needs a story made only of failures; none is authored now (checked on its own rows below).
+    expect([...built].sort()).toEqual(TWIST_KINDS.filter(k => k !== "spray_resumes").sort());
   });
 });
 

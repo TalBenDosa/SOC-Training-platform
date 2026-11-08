@@ -147,14 +147,25 @@ function mapStrings(value: unknown, f: (s: string) => string): unknown {
   return value;
 }
 
-function deepReplace(value: unknown, pairs: [string, string][]): unknown {
-  if (typeof value === "string") {
-    let s = value;
-    for (const [f, t] of pairs) if (f && s.includes(f)) s = s.split(f).join(t);
-    return s;
-  }
-  if (Array.isArray(value)) return value.map(v => deepReplace(v, pairs));
-  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, deepReplace(v, pairs)]));
+/**
+ * Every pair replaced in ONE pass, longest match first. Replacing pair after pair chained them: when a
+ * person's new name is another template person's old name (j.chen becomes a.kaplan, and the template's
+ * own a.kaplan becomes t.silva), j.chen ended up as t.silva and two people merged into one (Sdema
+ * review 2026-11-08: the locked account was not among the sprayed ones).
+ */
+function replacer(pairs: [string, string][]): (s: string) => string {
+  const live = pairs.filter(([f]) => !!f);
+  if (!live.length) return s => s;
+  const to = new Map(live.map(([f, t]) => [f, t] as const));
+  const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp([...to.keys()].sort((x, y) => y.length - x.length).map(esc).join("|"), "g");
+  return s => s.replace(re, m => to.get(m) ?? m);
+}
+
+function deepReplace(value: unknown, rep: (s: string) => string): unknown {
+  if (typeof value === "string") return rep(value);
+  if (Array.isArray(value)) return value.map(v => deepReplace(v, rep));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, deepReplace(v, rep)]));
   return value;
 }
 
@@ -231,8 +242,9 @@ export function applyTenant(entries: TimelineEntry[], templateId: string, tenant
   }
   const clean = pairs.filter(([f, t]) => f && f !== t).sort((a, b) => b[0].length - a[0].length);
   const words = firstNames.filter(([f, t]) => f !== t).map(([f, t]) => [new RegExp(`(?<![A-Za-z])${f}(?![A-Za-z])`, "g"), t] as const);
+  const rep = replacer(clean);
   const swap = (v: unknown): unknown => {
-    let out = deepReplace(v, clean);
+    let out = deepReplace(v, rep);
     if (words.length) out = mapStrings(out, s => words.reduce((acc, [re, t]) => acc.replace(re, t), s));
     return out;
   };

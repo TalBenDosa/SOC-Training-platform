@@ -81,6 +81,8 @@ interface Ctx {
   server: () => string | null;
   ips: Set<string>;
   scanner: { host: string; ip: string; product: string; account: string };
+  /** An account the attacks use (a victim, a sprayed or abused account): never the subject of a decoy. */
+  attackUser: (account: string) => boolean;
 }
 interface Maker {
   id: string;
@@ -622,7 +624,8 @@ const MAKERS: Maker[] = [
   { id: "stale_service_cred", kind: "svc_cred", siemOnly: true, fits: c => !!c.stack.onprem_ad, make: c => {
     const server = c.server();
     if (!server) return null;
-    const svc = pickOf(c.assets.serviceAccounts.filter(s => !/backup|scan/.test(s)).concat(["svc-report"]), c.rnd), fails = intIn(40, 300, c.rnd), t = num("CHG", c);
+    const svcPool = c.assets.serviceAccounts.filter(s => !/backup|scan/.test(s) && !c.attackUser(s));
+    const svc = pickOf(svcPool.length ? svcPool : ["svc-report"], c.rnd), fails = intIn(40, 300, c.rnd), t = num("CHG", c);
     const ev = sentinelAlert(c, { id: `fpa_svccred_${c.n}`, name: "Repeated failed logons for one account on one host", severity: "medium", host: server, user: mail(c.assets, svc),
       props: { "Failed logons": String(fails), "Event ID": "4625", "Status": "0xC000006A", "Logon type": "4", "Query Period": "01:00:00" },
       fp: `${svc}'s password was rotated under change ${t}; a scheduled task on ${server} still runs with the old one (logon type 4, batch). One host, one account.`, mitre: "T1110", tactic: "CredentialAccess" });
@@ -743,7 +746,8 @@ export function fpAlerts(assets: CompanyAssets | undefined, companyId: string, c
   const sp = pickOf(SCAN_PRODUCTS, rnd);
   const prefix = assets.serverPrefix ?? "SRV";
   const scanner = { host: `${prefix}-${sp.host}0${intIn(1, 3, rnd)}`, ip: `${assets.subnet}.${intIn(240, 252, rnd)}`, product: sp.product, account: sp.account };
-  const base = { assets, companyId, rnd, ts, stack: opts.stack ?? {}, siem, platforms: new Set(opts.platforms ?? []), ips, scanner,
+  const attackUser = (a: string) => avoidUsers.has(a) || avoidUsers.has(mail(assets, a.replace(/@.*$/, "")));
+  const base = { assets, companyId, rnd, ts, stack: opts.stack ?? {}, siem, platforms: new Set(opts.platforms ?? []), ips, scanner, attackUser,
     person, workstation: () => take(freeHost(wsPool)), server: () => take(freeHost(srvPool)) };
 
   const eligible = MAKERS.filter(m => (siem || !m.siemOnly) && (!m.fits || m.fits({ ...base, n: 0, miss: false })));

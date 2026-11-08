@@ -31,7 +31,7 @@ const SEEDS = ["sdema-1", "sdema-a", "sdema-b", "sdema-c", "s5", "s6", "s7", "s8
  *  - cloud_azure|cloud_api_call: an Azure Activity noise row of the pool against the AI stories' Azure
  *    OpenAI rows (Azure owner).
  */
-const ELSEWHERE = new Set(["ad|auth_failure", "soar|policy_modification", "cloud_azure|cloud_api_call"]);
+const ELSEWHERE = new Set(["cloud_azure|cloud_api_call"]);
 
 describe("decoys have the shape of attacks", () => {
   it("within each (source, event_type), attack and non-attack rows differ in mean raw key count by less than 30%", () => {

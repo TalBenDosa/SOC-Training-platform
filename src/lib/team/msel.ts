@@ -350,13 +350,13 @@ export function twistGround(c: TwistCtx): TwistGround {
 
 const user0 = (e?: string) => (e ? e.split("@")[0] : undefined);
 /**
- * An attacker address for a twist: a documentation address from 198.51.100.0/24 or 203.0.113.0/24. 192.0.2.0/24
- * stands for the ordinary outside world in the XDR baseline (sentinel/baseline.ts OUTSIDE), so an attacker there
- * could read as everyday traffic.
+ * An attacker address for a twist: a documentation address from 198.51.100.0/24. 192.0.2.0/24 stands for the
+ * ordinary outside world in the XDR baseline (sentinel/baseline.ts OUTSIDE), so an attacker there could read as
+ * everyday traffic; 203.0.113.0/24 maps to one country in the geo table (variety.ts DOC_NETS).
  */
 function attackerIp(c: TwistCtx): string {
   for (let k = 0; k < 200; k++) {
-    const ip = `${pickOf(["198.51.100", "203.0.113"], c.rnd)}.${intIn(10, 250, c.rnd)}`;
+    const ip = `198.51.100.${intIn(10, 250, c.rnd)}`;
     if (!c.ips.has(ip)) { c.ips.add(ip); return ip; }
   }
   return docIp(c.rnd, c.ips);

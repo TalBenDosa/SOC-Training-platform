@@ -917,7 +917,12 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
       ?? assets?.hosts.find(h => /^(WS|LT|LAP|WKS)/i.test(h)) ?? assets?.hosts[0] ?? "WS-UNKNOWN";
     const hostEv = twistStory.find(p => p.ev.hostname === host && p.ev.src_ip && /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(p.ev.src_ip));
     const ipDraw = mrnd();   // drawn unconditionally → the stream stays seed-only
-    const hostIp = hostEv?.ev.src_ip ?? `${subnet}.${60 + Math.floor(ipDraw * 120)}`;
+    // The host's own address from the story: a row it sent, else a row it received (a published server
+    // is the firewall's NAT destination), else a fresh one on the subnet.
+    const priv = (ip: unknown): ip is string => typeof ip === "string" && /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(ip);
+    const recvIp = twistStory.map(p => p.ev).find(e => e.hostname === host && priv(e.dst_ip))?.dst_ip
+      ?? twistStory.map(p => (p.ev.raw as Record<string, unknown> | undefined)?.["pan.natdst"]).find(priv);
+    const hostIp = hostEv?.ev.src_ip ?? recvIp ?? `${subnet}.${60 + Math.floor(ipDraw * 120)}`;
     const hostUser = twistStory.find(p => p.ev.hostname === host && p.ev.user_email)?.ev.user_email ?? (host === victimDevice ? victim : undefined);
     const procEv = [...twistStory].reverse().find(p => p.ev.hostname === host && p.ev.process?.name && isMalicious(p.verdict));
     const incident = twistStory[0]?.incident;
