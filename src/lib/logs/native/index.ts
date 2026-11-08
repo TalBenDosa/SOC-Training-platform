@@ -10,7 +10,7 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeLog, NativeSource, SourceId, UseCase } from "./types";
 import { makeCtx } from "./ctx";
-import { edrFacts, threadOf, withThread } from "./sources/edr-normalize";
+import { edrFacts, syncRawPids, threadOf, withThread } from "./sources/edr-normalize";
 import { procPid, threadEndpointStory, hostKey } from "./sources/_proc-identity";
 import { threadIdentityContext } from "./sources/_identity-common";
 import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
@@ -247,11 +247,12 @@ export function withCanonicalPids(ev: TelemetryEvent, companyId: string): Teleme
     }
   };
   swap(oldPid, pid); swap(oldParent, parentPid);
-  return {
+  // The raw block quotes the same numbers (ProcessId, InitiatingProcessId, ...): it follows the record too.
+  return syncRawPids({
     ...pinned,
     description,
     process: { ...ev.process, ...(pid !== undefined ? { pid } : {}), ...(parentPid !== undefined ? { parent_pid: parentPid } : {}) },
-  };
+  }, { pid: oldPid, parentPid: oldParent }, { pid, parentPid });
 }
 
 function applyStackLabels(ev: TelemetryEvent, companyId: string, stack?: Stack): TelemetryEvent {

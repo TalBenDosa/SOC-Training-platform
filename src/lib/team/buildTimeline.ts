@@ -38,7 +38,6 @@ import { itsmNoise, ticketRecord } from "./itsmNoise";
 import { buildDecoy, buildTwist, fwFlavour, pickInjectTexts, type InjectText } from "./msel";
 import { emptyHistory, streamOf, type VarietyHistory, type VarietyRecord } from "./variety";
 import { webNoise } from "./webNoise";
-import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
 import { applyStack, fitsStack, stackFor, storyFitsOrg, storyFitsStack, storyHonoursLocks, withCanonicalPids } from "@/lib/logs/native";
 import { categoryOf, PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 import { storyThemes, type StoryCategory } from "./storyCategory";
@@ -236,12 +235,9 @@ function itsmRecordFor(ev: TelemetryEvent, companyId: string): TelemetryEvent | 
     const ref = approvalRefOf(ev.fp_explanation);
     if (!ref) return null;
     const summary = approvalSummaryOf(ev);
-    return serviceNowRecord({
-      companyId, id: `itsm_${ev.id}`, ts: ev.ts, table: "sc_req_item", number: ref,
-      state: "Approved", shortDescription: summary, severity: "informational",
-      extra: { "servicenow.approval": "Approved", ...(ev.user_email ? { "servicenow.requested_for": ev.user_email } : {}) },
-      description: `ServiceNow request ${ref} (approved): ${summary}`,
-    } as Parameters<typeof serviceNowRecord>[0]);
+    // The same ServiceNow shape as every other ticket (itsmNoise.ts ticketRecord). An approved request
+    // item is in Work in Progress (approval "Approved"): "Approved" is not a request-item state.
+    return ticketRecord({ table: "sc_req_item", number: ref, state: "Work in Progress", short: summary, ...(ev.user_email ? { requestedFor: ev.user_email } : {}) }, companyId, `itsm_${ev.id}`, ev.ts);
   }
   // A ticket format the IT message uses (CHG / INC / RITM …), else any approval
   // reference it or the explanation cites (e.g. an access request AR-QB-0302).
@@ -249,13 +245,8 @@ function itsmRecordFor(ev: TelemetryEvent, companyId: string): TelemetryEvent | 
   if (!number) return null;
   const table = /^INC/.test(number) ? "incident" : /^RITM|^REQ|^ONB/.test(number) ? "sc_req_item" : "change_request";
   const summary = (ev.description ?? "").replace(/\s+—.*$/, "");
-  const rec = serviceNowRecord({
-    companyId, id: `itsm_${ev.id}`, ts: ev.ts, table, number,
-    state: table === "incident" ? "Resolved" : "Implement", shortDescription: summary, severity: "informational",
-    extra: { "servicenow.approval": "Approved", ...(ev.user_email ? { "servicenow.requested_for": ev.user_email } : {}) },
-    description: `ServiceNow ${table === "incident" ? "incident" : table === "sc_req_item" ? "request" : "change"} ${number} (approved): ${summary}`,
-  } as Parameters<typeof serviceNowRecord>[0]);
-  return rec;
+  const state = table === "incident" ? "Resolved" : table === "sc_req_item" ? "Work in Progress" : "Implement";
+  return ticketRecord({ table, number, state, short: summary, ...(ev.user_email ? { requestedFor: ev.user_email } : {}) }, companyId, `itsm_${ev.id}`, ev.ts);
 }
 
 // ── The builder ──────────────────────────────────────────────────────────────
@@ -942,6 +933,8 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
       rnd: vrnd, baseTs, assets, stack: resolved, host, hostIp, hostUser, victim, seenHost,
       proc: procEv?.ev.process ? { name: procEv.ev.process.name, pid: procEv.ev.process.pid, path: procEv.ev.process.path, cmdline: procEv.ev.process.cmdline, parent: procEv.ev.process.parent_name } : undefined,
       edr: edr ?? "Microsoft Defender for Endpoint", fw, useSysmon, ips: new Set(sessionIps), domains: new Set(), usedHosts, os: hostOs,
+      // What the attack achieved (msel.ts twistGround): a twist needs a cause on its host.
+      companyId, story: twistStory.filter(p => isMalicious(p.verdict)).map(p => p.ev),
     }, history, opts.force?.twist) : null;
     if (!twist) dropInject("msel_twist");
     else {
