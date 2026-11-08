@@ -66,6 +66,64 @@ function eventRow(ev: TelemetryEvent, tenantId: string, source: string, log: str
   });
 }
 
+/** The columns a record states that the table really has, coerced to the column's type. */
+function ownColumns(table: string, ev: TelemetryEvent): KqlRow {
+  const out: KqlRow = {};
+  for (const [k, v] of Object.entries((ev.raw ?? {}) as Record<string, unknown>)) {
+    const t = columnType(table, k);
+    if (!t || k === "TimeGenerated" || k === "Type" || k === "TenantId" || v === undefined || v === null || v === "") continue;
+    if (t === "dynamic") {
+      if (typeof v !== "string") out[k] = v;
+      else { try { out[k] = JSON.parse(v) as unknown; } catch { out[k] = v; } }
+    } else if (t === "string") out[k] = typeof v === "object" ? JSON.stringify(v) : String(v);
+    else if (t === "bool") out[k] = v === true || v === "true";
+    else if (t === "datetime") out[k] = String(v);
+    else { const n = num(v); if (n !== undefined) out[k] = n; }
+  }
+  return out;
+}
+
+/** .NET ticks (100 ns since 0001-01-01), the unit of requestTime / responseTime in the Azure OpenAI record. */
+const ticks = (iso: unknown): string | undefined => {
+  const ms = typeof iso === "string" ? Date.parse(iso) : NaN;
+  return Number.isFinite(ms) ? (BigInt(ms) * 10_000n + 621_355_968_000_000_000n).toString() : undefined;
+};
+
+/**
+ * An Azure OpenAI resource log (category RequestResponse) as AzureDiagnostics holds it: the header
+ * columns of the Azure Monitor resource-log schema, and the record's `properties` as the JSON string
+ * properties_s (apiName, requestTime / responseTime in .NET ticks, requestLength / responseLength in
+ * bytes, objectId, streamType, model deployment, model and version). No prompt or completion text and
+ * no token counts: the RequestResponse record has none (learn.microsoft.com azure/foundry/openai
+ * monitor-openai; sample record in the Elastic Azure OpenAI integration).
+ */
+function openAiRow(ev: TelemetryEvent, tenantId: string): { table: string; row: KqlRow } {
+  const p = (k: string) => (ev.raw as Record<string, unknown> | undefined)?.[`azure.open_ai.properties.${k}`];
+  const str = (k: string) => { const v = p(k); return v === undefined || v === null || v === "" ? undefined : String(v); };
+  const region = r(ev, "azure.open_ai.location", "cloud.region");
+  const parts: string[] = [];
+  const put = (k: string, v: string | number | undefined, bare = false) => { if (v !== undefined && v !== "") parts.push(`"${k}":${bare || typeof v === "number" ? v : JSON.stringify(v)}`); };
+  put("apiName", str("api_name"));
+  put("requestTime", ticks(p("request_time")), true);
+  put("requestLength", num(p("request_length")));
+  put("responseTime", ticks(p("response_time")), true);
+  put("responseLength", num(p("response_length")));
+  put("objectId", str("object_id") ?? "");
+  if (!parts.some(x => x.startsWith('"objectId"'))) parts.push('"objectId":""');
+  put("streamType", str("stream_type"));
+  put("modelDeploymentName", str("model_deployment_name"));
+  put("modelName", str("model_name"));
+  put("modelVersion", str("model_version"));
+  const rid = r(ev, "azure.resource.id");
+  return build("AzureDiagnostics", ev, tenantId, {
+    Category: r(ev, "azure.open_ai.category") ?? "RequestResponse", OperationName: r(ev, "azure.open_ai.operation_name") ?? ev.cloud?.api_call, ResultSignature: r(ev, "azure.open_ai.result_signature"),
+    DurationMs: num(r(ev, "azure.open_ai.duration_ms")), CallerIPAddress: r(ev, "azure.open_ai.caller_ip_address") ?? ev.src_ip, CorrelationId: r(ev, "azure.open_ai.correlation_id"),
+    event_s: r(ev, "azure.open_ai.event") ?? "ShoeboxCallResult", location_s: region, Tenant_s: region, properties_s: `{${parts.join(",")}}`,
+    Resource: (r(ev, "azure.resource.name") ?? rid?.split("/").pop() ?? ev.hostname)?.toUpperCase(), ResourceGroup: (r(ev, "azure.resource.group") ?? rid?.split("/")[4])?.toUpperCase(),
+    SubscriptionId: (r(ev, "azure.subscription_id") ?? rid?.split("/")[2])?.toLowerCase(), ResourceId: rid?.toUpperCase(), ResourceProvider: "MICROSOFT.COGNITIVESERVICES", ResourceType: "ACCOUNTS", SourceSystem: "Azure",
+  });
+}
+
 /** The row of a feed event the native layer could not place. Always returns one. */
 export function fallbackRow(ev: TelemetryEvent, ctx: NativeCtx, record?: Record<string, unknown>, sourceId?: string): { table: string; row: KqlRow } {
   const tenantId = ctx.tenant.azureTenantId;
@@ -141,15 +199,24 @@ export function fallbackRow(ev: TelemetryEvent, ctx: NativeCtx, record?: Record<
     case "cloud_gcp":
       return build("GoogleCloudSCC", ev, tenantId, { Findings: { ...(ev.raw ?? {}), hostname: ev.hostname, sourceIp: ev.src_ip, user }, FindingsResource: { name: ev.cloud?.resource ?? ev.hostname }, SourceProperties: { description: ev.description }, SourceSystem: "Azure" });
     case "cloud_azure":
-      if (/blob/i.test(v)) {
-        return build("StorageBlobLogs", ev, tenantId, { AccountName: r(ev, "AccountName") ?? ev.hostname, CallerIpAddress: ev.src_ip, Category: r(ev, "Category") ?? "StorageRead", OperationName: r(ev, "OperationName"), ObjectKey: r(ev, "ObjectKey"), Uri: r(ev, "Uri"), UserAgentHeader: r(ev, "UserAgentHeader"), AuthenticationType: r(ev, "AuthenticationType"), RequesterUpn: user, SourceSystem: "Azure" });
+      if (/blob/i.test(v) || r(ev, "Type") === "StorageBlobLogs") {
+        // The record is the StorageBlobLogs row itself: every column it states lands as written
+        // (CallerIpAddress keeps its port, StatusCode stays a string, AuthorizationDetails stays a list).
+        return build("StorageBlobLogs", ev, tenantId, {
+          AccountName: ev.hostname, CallerIpAddress: ev.src_ip, Category: "StorageRead", RequesterUpn: user?.includes("@") ? user : undefined,
+          ...ownColumns("StorageBlobLogs", ev), SourceSystem: "Azure",
+        });
       }
+      if (/api management/i.test(v) || r(ev, "Type") === "ApiManagementGatewayLogs") {
+        return build("ApiManagementGatewayLogs", ev, tenantId, { Category: "GatewayLogs", OperationName: "Microsoft.ApiManagement/GatewayLogs", CallerIpAddress: ev.src_ip, ...ownColumns("ApiManagementGatewayLogs", ev), SourceSystem: "Azure" });
+      }
+      if (/azure openai/i.test(v) || r(ev, "azure.open_ai.category")) return openAiRow(ev, tenantId);
       if (/graph/i.test(v)) {
         return build("MicrosoftGraphActivityLogs", ev, tenantId, { IPAddress: ev.src_ip, UserId: user, RequestUri: r(ev, "requestUri") ?? ev.network?.url, RequestMethod: ev.network?.method, ResponseStatusCode: ev.network?.status, UserAgent: ev.network?.user_agent, DeviceId: ev.hostname, SourceSystem: "Azure" });
       }
       return build("AzureDiagnostics", ev, tenantId, {
-        Category: r(ev, "azure.open_ai.category") ?? "Audit", OperationName: r(ev, "azure.open_ai.operation_name") ?? ev.cloud?.api_call, ResourceProvider: "MICROSOFT.COGNITIVESERVICES", Resource: ev.hostname ?? ev.cloud?.resource, CallerIPAddress: ev.src_ip ?? r(ev, "azure.open_ai.caller_ip_address"),
-        Caller_s: user, Message: ev.description, SourceSystem: "Azure",
+        Category: "Audit", OperationName: ev.cloud?.api_call, ResourceProvider: "MICROSOFT.COGNITIVESERVICES", Resource: (r(ev, "azure.resource.name") ?? ev.hostname ?? ev.cloud?.resource)?.toUpperCase(), ResourceId: r(ev, "azure.resource.id"),
+        CallerIPAddress: ev.src_ip, Caller_s: user, Message: ev.description, SourceSystem: "Azure",
       });
     case "siem": {
       if (r(ev, "Type") === "W3CIISLog") {
@@ -160,7 +227,10 @@ export function fallbackRow(ev: TelemetryEvent, ctx: NativeCtx, record?: Record<
       }
       if (/anthropic/i.test(v)) return custom(ev, "BV_ClaudeCompliance_ComplianceActivities_CL", tenantId);
       if (/canary/i.test(v)) return custom(ev, "ThinkstCanaryIncidents_CL", tenantId);
-      if (/content safety/i.test(v)) return build("AzureDiagnostics", ev, tenantId, { Category: "Audit", OperationName: ev.event_type, ResourceProvider: "MICROSOFT.COGNITIVESERVICES", Resource: ev.hostname, CallerIPAddress: ev.src_ip, Caller_s: user, Message: ev.description, SourceSystem: "Azure" });
+      // A Prompt Shields verdict is not a resource-log record: Azure AI Content Safety writes request
+      // metadata (and RAI metrics), never the per-request result. A gateway that logs the model's
+      // response (API Management) is where a verdict lands; anything else is the app's own custom log.
+      if (/content safety|prompt shields/i.test(v)) return custom(ev, "ThirdPartyLogs_CL", tenantId, record);
       break;
     }
     case "edr":
@@ -224,6 +294,7 @@ export const IDENTITY_COLUMNS: Record<string, { user?: string[]; host?: string[]
   AWSWAF: { ip: ["ClientIp"] },
   AGWFirewallLogs: { host: ["Hostname"], ip: ["ClientIp"] },
   AzureDiagnostics: { user: ["Caller_s"], host: ["Resource"], ip: ["CallerIPAddress"] },
+  ApiManagementGatewayLogs: { user: ["UserId"], ip: ["CallerIpAddress"] },
   W3CIISLog: { user: ["csUserName"], host: ["Computer"], ip: ["cIP", "sIP"] },
   StorageBlobLogs: { user: ["RequesterUpn"], ip: ["CallerIpAddress"] },
   CloudAppEvents: { user: ["AccountDisplayName"], ip: ["IPAddress"] },

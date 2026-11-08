@@ -51,7 +51,7 @@ describe("hunting queries", () => {
       const table = h.dataSources[0];
       const filters = [...h.query.matchAll(/\b([A-Za-z][A-Za-z0-9_]*)\s+(?:==|!=|=~|has|has_any|contains|in~?|startswith|>=|>)\s/g)].map(m => m[1]);
       for (const c of filters) {
-        if (["and", "or", "where", "Failures", "Successes", "Accounts", "Ports", "Hosts", "CountryCount", "Length"].includes(c)) continue;
+        if (["and", "or", "where", "Failures", "Successes", "Accounts", "Ports", "Hosts", "CountryCount", "Length", "Ratio"].includes(c)) continue;
         if (!columnType(table, c)) problems.push(`${h.id}: ${table}.${c}`);
       }
     }

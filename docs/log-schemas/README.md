@@ -28,12 +28,12 @@ notes (what an analyst pivots on), and common mistakes / fields that do NOT exis
 | Firewall | [fw-paloalto](fw-paloalto.md) · [fw-fortigate](fw-fortigate.md) · [fw-checkpoint](fw-checkpoint.md) · [fw-cisco](fw-cisco.md) |
 | Identity | [idp-entra-id](idp-entra-id.md) · [idp-okta](idp-okta.md) · [windows-security](windows-security.md) · [pam-cyberark](pam-cyberark.md) |
 | Email & collaboration | [collab-m365](collab-m365.md) · [collab-google-workspace](collab-google-workspace.md) · [email-defender-o365](email-defender-o365.md) · [email-proofpoint](email-proofpoint.md) |
-| Cloud | [cloud-aws-cloudtrail](cloud-aws-cloudtrail.md) · [cloud-aws-guardduty](cloud-aws-guardduty.md) · [cloud-aws-vpc-flow](cloud-aws-vpc-flow.md) · [cloud-azure-activity](cloud-azure-activity.md) · [cloud-gcp-audit](cloud-gcp-audit.md) · [k8s-audit](k8s-audit.md) |
+| Cloud | [cloud-aws-cloudtrail](cloud-aws-cloudtrail.md) · [cloud-aws-guardduty](cloud-aws-guardduty.md) · [cloud-aws-vpc-flow](cloud-aws-vpc-flow.md) · [cloud-azure-activity](cloud-azure-activity.md) · [cloud-azure-ai-storage](cloud-azure-ai-storage.md) · [cloud-gcp-audit](cloud-gcp-audit.md) · [k8s-audit](k8s-audit.md) |
 | Remote access | [vpn-globalprotect](vpn-globalprotect.md) · [vpn-cisco-anyconnect](vpn-cisco-anyconnect.md) · [vpn-fortigate-sslvpn](vpn-fortigate-sslvpn.md) · [ztna-zscaler-zpa](ztna-zscaler-zpa.md) · [ztna-cloudflare-access](ztna-cloudflare-access.md) |
 | Web tier | [waf-aws](waf-aws.md) · [waf-azure](waf-azure.md) · [web-iis](web-iis.md) · [web-nginx](web-nginx.md) |
 | Proxy / DNS | [proxy-zscaler-zia](proxy-zscaler-zia.md) · [dns-windows](dns-windows.md) · [dns-infoblox](dns-infoblox.md) |
 | Host / ITSM | [host-sysmon](host-sysmon.md) · [host-linux-auditd](host-linux-auditd.md) · [itsm-servicenow](itsm-servicenow.md) |
-| SIEM ingestion | [siem-ms-graph-alerts](siem-ms-graph-alerts.md) |
+| SIEM ingestion | [siem-ms-graph-alerts](siem-ms-graph-alerts.md) · [siem-sentinel-securityalert](siem-sentinel-securityalert.md) |
 
 Items a source did not confirm are marked **UNVERIFIED** inside each card; they must be resolved or
 avoided before an emitter relies on them.

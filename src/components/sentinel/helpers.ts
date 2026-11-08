@@ -396,6 +396,14 @@ function answer(ws: SentinelWorkspace, id: string, label: string, sources: Sourc
   return best ? [{ id, label, query: best.query, pick: best.pick }] : [];
 }
 
+/**
+ * The evidence tables an entity reaches (Sdema review I3): each is its own question, offered only when
+ * the table holds rows, so the graph never lists a pivot that cannot return anything.
+ */
+function evidence(ws: SentinelWorkspace, id: string, label: string, s: Source): Exploration[] {
+  return has(ws, s.table, ...s.needs) && (ws.tables[s.table]?.rows.length ?? 0) > 0 ? [{ id, label, query: s.query, pick: s.pick }] : [];
+}
+
 /** user@corp and CORP\\user are both `user` in the tables that keep the bare account name. */
 function accountShort(name: string): string {
   return name.split("@")[0].split("\\").pop() as string;
@@ -435,6 +443,21 @@ export function explorationsFor(entity: SentinelEntity, ws: SentinelWorkspace): 
         query: `DeviceProcessEvents\n| where AccountName has ${short}\n| summarize Processes = count() by DeviceName\n| sort by Processes desc`,
         pick: [{ col: "DeviceName", kind: "host" }],
       }]),
+      ...evidence(ws, "account-windows", "Windows security events of account", {
+        table: "SecurityEvent", needs: ["TargetUserName", "SubjectUserName", "EventID"],
+        query: `SecurityEvent\n| where TargetUserName has ${short} or SubjectUserName has ${short}\n| project TimeGenerated, EventID, Activity, Computer, SubjectUserName, TargetUserName, IpAddress, LogonType, Status\n| sort by TimeGenerated desc`,
+        pick: [{ col: "Computer", kind: "host" }, { col: "IpAddress", kind: "ip" }],
+      }),
+      ...evidence(ws, "account-audit", "Directory changes by or to account", {
+        table: "AuditLogs", needs: ["InitiatedBy", "TargetResources", "OperationName"],
+        query: `AuditLogs\n| where tostring(InitiatedBy) has ${short} or tostring(TargetResources) has ${short}\n| project TimeGenerated, OperationName, Result, InitiatedBy, TargetResources\n| sort by TimeGenerated desc`,
+        pick: [],
+      }),
+      ...evidence(ws, "account-office", "Mailbox and file activity of account", {
+        table: "OfficeActivity", needs: ["UserId", "Operation", "ClientIP"],
+        query: `OfficeActivity\n| where UserId has ${short}\n| project TimeGenerated, UserId, Operation, OfficeWorkload, ClientIP, OfficeObjectId\n| sort by TimeGenerated desc`,
+        pick: [{ col: "ClientIP", kind: "ip" }],
+      }),
     ];
   }
   if (entity.kind === "host") {
@@ -479,6 +502,57 @@ export function explorationsFor(entity: SentinelEntity, ws: SentinelWorkspace): 
         query: `SigninLogs\n| where IPAddress == ${n}\n| project TimeGenerated, UserPrincipalName, IPAddress, AppDisplayName, ResultType\n| sort by TimeGenerated desc`,
         pick: [{ col: "UserPrincipalName", kind: "account" }],
       }]),
+      ...evidence(ws, "ip-windows-logons", "Windows logons from IP", {
+        table: "SecurityEvent", needs: ["IpAddress", "Computer", "EventID"],
+        query: `SecurityEvent\n| where IpAddress == ${n}\n| project TimeGenerated, EventID, Computer, TargetUserName, LogonType, IpAddress, Status, SubStatus\n| sort by TimeGenerated desc`,
+        pick: [{ col: "Computer", kind: "host" }, { col: "TargetUserName", kind: "account" }],
+      }),
+      ...evidence(ws, "ip-audit", "Directory changes from IP", {
+        table: "AuditLogs", needs: ["InitiatedBy", "OperationName"],
+        query: `AuditLogs\n| where tostring(InitiatedBy) has ${n}\n| project TimeGenerated, OperationName, Result, InitiatedBy, TargetResources\n| sort by TimeGenerated desc`,
+        pick: [],
+      }),
+      ...evidence(ws, "ip-office", "Mailbox and file activity from IP", {
+        table: "OfficeActivity", needs: ["ClientIP", "UserId"],
+        query: `OfficeActivity\n| where ClientIP has ${n}\n| project TimeGenerated, UserId, Operation, OfficeWorkload, ClientIP, OfficeObjectId\n| sort by TimeGenerated desc`,
+        pick: [{ col: "UserId", kind: "account" }],
+      }),
+      ...evidence(ws, "ip-storage", "Storage requests from IP", {
+        table: "StorageBlobLogs", needs: ["CallerIpAddress", "OperationName"],
+        query: `StorageBlobLogs\n| where CallerIpAddress has ${n}\n| project TimeGenerated, AccountName, OperationName, StatusCode, AuthenticationType, ObjectKey, RequesterObjectId, CallerIpAddress, UserAgentHeader\n| sort by TimeGenerated desc`,
+        pick: [],
+      }),
+      ...evidence(ws, "ip-azure-diag", "Azure resource requests from IP", {
+        table: "AzureDiagnostics", needs: ["CallerIPAddress", "Resource"],
+        query: `AzureDiagnostics\n| where CallerIPAddress has ${n}\n| project TimeGenerated, Resource, Category, OperationName, ResultSignature, DurationMs, properties_s\n| sort by TimeGenerated desc`,
+        pick: [],
+      }),
+      ...evidence(ws, "ip-apim", "API gateway calls from IP", {
+        table: "ApiManagementGatewayLogs", needs: ["CallerIpAddress", "Url"],
+        query: `ApiManagementGatewayLogs\n| where CallerIpAddress == ${n}\n| project TimeGenerated, Method, Url, ResponseCode, ResponseSize, TotalTime, BackendUrl\n| sort by TimeGenerated desc`,
+        pick: [],
+      }),
+    ];
+  }
+  if (entity.kind === "azureresource") {
+    const res = kqlString(entity.name.replace(/\/+$/, "").split("/").pop() ?? entity.name);
+    return [
+      ...related,
+      ...evidence(ws, "resource-diag", "Resource logs of Azure resource", {
+        table: "AzureDiagnostics", needs: ["Resource", "Category", "OperationName"],
+        query: `AzureDiagnostics\n| where Resource =~ ${res}\n| project TimeGenerated, Category, OperationName, ResultSignature, DurationMs, CallerIPAddress, properties_s\n| sort by TimeGenerated desc`,
+        pick: [],
+      }),
+      ...evidence(ws, "resource-storage", "Requests to storage account", {
+        table: "StorageBlobLogs", needs: ["AccountName", "CallerIpAddress"],
+        query: `StorageBlobLogs\n| where AccountName =~ ${res}\n| extend ClientIp = extract(@"^([^:]+)", 1, CallerIpAddress)\n| project TimeGenerated, OperationName, StatusCode, AuthenticationType, ClientIp, RequesterObjectId, ObjectKey\n| sort by TimeGenerated desc`,
+        pick: [{ col: "ClientIp", kind: "ip" }],
+      }),
+      ...evidence(ws, "resource-apim", "Gateway calls to Azure resource", {
+        table: "ApiManagementGatewayLogs", needs: ["BackendUrl", "CallerIpAddress"],
+        query: `ApiManagementGatewayLogs\n| where BackendUrl has ${res}\n| project TimeGenerated, CallerIpAddress, Method, Url, ResponseCode, ResponseSize, TotalTime\n| sort by TimeGenerated desc`,
+        pick: [{ col: "CallerIpAddress", kind: "ip" }],
+      }),
     ];
   }
   return related;

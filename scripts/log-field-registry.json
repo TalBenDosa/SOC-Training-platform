@@ -1564,6 +1564,8 @@
         "RequesterObjectId",
         "RequesterTenantId",
         "RequesterAppId",
+        "RequesterAudience",
+        "RequesterTokenIssuer",
         "RequesterUpn",
         "Uri",
         "ObjectKey",
@@ -12628,7 +12630,7 @@
     },
     "azure-api-management": {
       "label": "Azure API Management gateway logs",
-      "note": "Columns of the ApiManagementGatewayLogs table: learn.microsoft.com/azure/azure-monitor/reference/tables/apimanagementgatewaylogs (checked 2026-11-07).",
+      "note": "Columns of the ApiManagementGatewayLogs table: learn.microsoft.com/azure/azure-monitor/reference/tables/apimanagementgatewaylogs (checked 2026-11-07, 2026-11-08). BackendResponseBody is logged when the diagnostic setting logs backend response payloads (e.g. a Content Safety text:shieldPrompt response).",
       "aliases": [
         "Azure API Management"
       ],
@@ -12649,7 +12651,10 @@
         "ResponseSize",
         "TotalTime",
         "CorrelationId",
-        "Region"
+        "Region",
+        "BackendUrl",
+        "BackendTime",
+        "BackendResponseBody"
       ],
       "prefixes": []
     },

@@ -45,21 +45,43 @@ describe("AI stories wave3-B", () => {
   it("RAG: the uploaded blob, the grounding document and the Defender alert line up", () => {
     const upload = ev("ai-rag-chatbot-document-injection", "airag2");
     expect(raw(upload, "OperationName")).toBe("PutBlob");
-    expect(raw(upload, "AuthenticationType")).toBe("SAS");
+    expect(raw(upload, "AuthenticationType")).toBe("DelegationSas");
+    // the user delegation SAS was signed with the key the app's managed identity requested just before
+    const key = ev("ai-rag-chatbot-document-injection", "airag1b");
+    expect(raw(key, "OperationName")).toBe("GetUserDelegationKey");
+    expect(raw(key, "AuthenticationType")).toBe("OAuth");
+    expect(raw(upload, "RequesterObjectId")).toBe(raw(key, "RequesterObjectId"));
+    expect(t(key)).toBeLessThan(t(upload));
     expect(upload.file?.name).toBe("acme-vendor-quote-2026.pdf");
     // the app's managed-identity read (GetBlob) names the same ObjectKey as the upload
     const read = ev("ai-rag-chatbot-document-injection", "airag6");
     expect(raw(read, "OperationName")).toBe("GetBlob");
     expect(raw(read, "ObjectKey")).toBe(raw(upload, "ObjectKey"));
-    // the document-attack signal is a Prompt Shields DocumentAttack (indirect injection)
+    // the document-attack signal is the Prompt Shields response the gateway logged (Content Safety's
+    // own resource log carries no verdict), and the same check on an ordinary day said false
     const ps = ev("ai-rag-chatbot-document-injection", "airag5");
-    expect(raw(ps, "promptshields.attack_type")).toBe("DocumentAttack");
-    expect(ps.is_detection).toBe(true);
+    expect(raw(ps, "Type")).toBe("ApiManagementGatewayLogs");
+    expect(JSON.parse(String(raw(ps, "BackendResponseBody")))).toEqual({ userPromptAnalysis: { attackDetected: false }, documentsAnalysis: [{ attackDetected: true }] });
+    const base = ev("ai-rag-chatbot-document-injection", "airag1c");
+    expect(JSON.parse(String(raw(base, "BackendResponseBody"))).documentsAnalysis[0].attackDetected).toBe(false);
+    expect(Object.keys(base.raw ?? {}).sort()).toEqual(Object.keys(ps.raw ?? {}).sort());
+    // the anonymous chat names no employee
+    for (const e of story("ai-rag-chatbot-document-injection").events) expect(e.user_email ?? "", e.id).not.toMatch(/@/);
     // the Defender for Cloud alert is the real AI.Azure_ASCIISmuggling name
     const dfc = ev("ai-rag-chatbot-document-injection", "airag7");
     expect(raw(dfc, "azure.alert.alertType")).toBe("AI.Azure_ASCIISmuggling");
     expect(raw(dfc, "azure.alert.displayName")).toBe("ASCII Smuggling prompt injection detected");
     expect(dfc.severity).toBe("high");
+  });
+
+  it("RAG: each alert's time span is the span of the rows it covers", () => {
+    const sid = "ai-rag-chatbot-document-injection";
+    const sent = ev(sid, "airag9"), dfc = ev(sid, "airag7");
+    expect(raw(sent, "StartTime")).toBe(ev(sid, "airag2").ts);
+    expect(raw(sent, "EndTime")).toBe(ev(sid, "airag8").ts);
+    expect(raw(dfc, "azure.alert.endTimeUtc")).toBe(ev(sid, "airag8").ts);
+    expect(t(dfc)).toBeGreaterThan(t(ev(sid, "airag8")));
+    expect(Date.parse(String(raw(dfc, "azure.alert.startTimeUtc")))).toBe(t(ev(sid, "airag4")) - Number(raw(ev(sid, "airag4"), "azure.open_ai.duration_ms")));
   });
 
   it("RAG: the poisoned completions are far larger than the baseline response", () => {

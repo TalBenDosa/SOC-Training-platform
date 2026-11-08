@@ -259,6 +259,33 @@ const QUERIES: Record<string, Q> = {
 | summarize Reads = count(), Vaults = make_set(ResourceId, 5) by Caller, CallerIpAddress
 | sort by Reads desc`,
   },
+  "cloud-azure-openai-oversized-completions": {
+    name: "Azure OpenAI completions far larger than the deployment's usual size",
+    description: "Each completion against the median response size of its own deployment. A RAG answer several times its usual size can carry text the model was told to fetch: read the grounding document and the caller.",
+    tactics: ["Collection", "Exfiltration"], techniques: ["T1213", "T1567"], tables: ["AzureDiagnostics"],
+    query: `let calls = AzureDiagnostics
+| where Category == "RequestResponse" and ResourceProvider == "MICROSOFT.COGNITIVESERVICES"
+| extend Props = parse_json(properties_s)
+| extend Deployment = tostring(Props.modelDeploymentName), ResponseBytes = tolong(Props.responseLength), RequestBytes = tolong(Props.requestLength);
+let usual = calls
+| summarize UsualBytes = percentile(ResponseBytes, 50), Calls = count() by Resource, Deployment;
+calls
+| join kind=inner usual on Resource, Deployment
+| extend Ratio = round(todouble(ResponseBytes) / UsualBytes, 1)
+| where Ratio >= 3
+| project TimeGenerated, Resource, Deployment, OperationName, ResponseBytes, UsualBytes, Ratio, RequestBytes, DurationMs, CallerIPAddress, Calls
+| sort by Ratio desc`,
+  },
+  "cloud-azure-storage-outside-uploads": {
+    name: "Blob writes with a shared access signature",
+    description: "Who wrote into storage with a SAS, from which address, and with which signing identity (a user delegation SAS names the identity that requested its key).",
+    tactics: ["InitialAccess", "Impact"], techniques: ["T1565.001"], tables: ["StorageBlobLogs"],
+    query: `StorageBlobLogs
+| where Category == "StorageWrite" and AuthenticationType in ("SAS", "DelegationSas")
+| extend ClientIp = extract(@"^([^:]+)", 1, CallerIpAddress)
+| summarize Writes = count(), Bytes = sum(RequestBodySize), Objects = make_set(ObjectKey, 10), FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated) by AccountName, ClientIp, AuthenticationType, RequesterObjectId
+| sort by FirstSeen asc`,
+  },
   "cloud-gcp-iam": {
     name: "GCP IAM policy and key changes", description: "Policy bindings set and service account keys created.",
     tactics: ["Persistence"], techniques: ["T1098.001"], tables: ["GCPAuditLogs"],
