@@ -2,7 +2,7 @@
 import "./sentinel.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowLeft, Biohazard, Bot, Braces, Database, Eye, LayoutDashboard, Lock, PanelLeftClose, PanelLeftOpen, ScanEye, ScanSearch, Search, Siren, Target, UserSearch, X, Zap,
+  Activity, Briefcase, ChevronsLeft, ChevronsRight, Crosshair, Eye, Fingerprint, Gauge, Lock, Radar, Search, ShieldCheck, TerminalSquare, Workflow, X,
 } from "lucide-react";
 import type { IncidentState, SentinelActions, SentinelBookmark, SentinelEntity, SentinelWorkspace } from "@/lib/sentinel/types";
 import { SentinelProvider, type LogsRequest, type PlaybookRequest, type PlaybookRun, type Screen, type SentinelCtx } from "./context";
@@ -18,7 +18,7 @@ import { InvestigationGraph } from "./InvestigationGraph";
 import { LogsPanel } from "./LogsPanel";
 import { OverviewPage } from "./OverviewPage";
 import { AnalyticsPage, AutomationPage, EntityBehaviorPage, HuntingPage, SearchPage, ThreatIntelPage } from "./SimplePages";
-import { PageHeader, SlidePanel } from "./ui";
+import { BladeHeader, SlidePanel } from "./ui";
 
 export interface SentinelConsoleProps {
   workspace: SentinelWorkspace;
@@ -42,22 +42,21 @@ export interface SentinelConsoleProps {
   sessionKey?: string;
 }
 
-/** XDR's own menu: investigation work first, then context, then the workspace's setup. */
-const NAV: { group: string; items: { id: Screen; label: string; icon: typeof Siren }[] }[] = [
-  { group: "Investigate", items: [
-    { id: "incidents", label: "Incidents", icon: Siren },
-    { id: "logs", label: "Logs", icon: Braces },
-    { id: "hunting", label: "Hunting", icon: Target },
-    { id: "search", label: "Search", icon: ScanSearch },
+const NAV: { group: string; items: { id: Screen; label: string; icon: typeof Gauge }[] }[] = [
+  { group: "General", items: [
+    { id: "overview", label: "Overview", icon: Gauge },
+    { id: "logs", label: "Logs", icon: TerminalSquare },
+    { id: "search", label: "Search", icon: Search },
   ] },
-  { group: "Context", items: [
-    { id: "entity", label: "Entity behavior", icon: UserSearch },
-    { id: "ti", label: "Threat intelligence", icon: Biohazard },
+  { group: "Threat management", items: [
+    { id: "incidents", label: "Incidents", icon: Briefcase },
+    { id: "hunting", label: "Hunting", icon: Crosshair },
+    { id: "entity", label: "Entity behavior", icon: Fingerprint },
+    { id: "ti", label: "Threat intelligence", icon: ShieldCheck },
   ] },
-  { group: "Workspace", items: [
-    { id: "overview", label: "Overview", icon: LayoutDashboard },
-    { id: "analytics", label: "Analytics", icon: Zap },
-    { id: "automation", label: "Automation", icon: Bot },
+  { group: "Configuration", items: [
+    { id: "analytics", label: "Analytics", icon: Activity },
+    { id: "automation", label: "Automation", icon: Workflow },
   ] },
 ];
 
@@ -67,20 +66,6 @@ const refocus = (el: HTMLElement | null) => window.setTimeout(() => { if (el?.is
 const SCREEN_TITLE: Record<Screen, string> = {
   overview: "Overview", logs: "Logs", search: "Search", incidents: "Incidents", hunting: "Hunting", entity: "Entity behavior", ti: "Threat intelligence", analytics: "Analytics", automation: "Automation",
 };
-/** One line under each page title: what the page is for. */
-const SCREEN_HINT: Record<Screen, string> = {
-  overview: "The workspace at a glance: incidents, alerts and data.",
-  logs: "Query every table of the workspace with KQL.",
-  search: "Look for one term across the tables.",
-  incidents: "What the analytics raised: triage, assign, investigate and close.",
-  hunting: "Run hunting queries and keep what you find as bookmarks.",
-  entity: "Accounts, hosts and addresses, and what each of them did.",
-  ti: "Indicators of compromise the team added.",
-  analytics: "The rules that raise alerts in this workspace.",
-  automation: "Playbooks the team can run, and their runs.",
-};
-
-const initials = (name: string) => name.split(/[\s._@-]+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
 
 interface Toast { id: number; kind: "incident" | "error" | "info"; title: string; body?: string; incidentId?: string; severity?: string }
 
@@ -279,37 +264,30 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
   const unopened = workspace.incidents.filter(i => !openedStored.has(i.id) && !openedHere.has(i.id) && stateOf(i.id).status !== "Closed").length;
   const covered = !!incident || !!investigated;
   const focused = screen === "entity" && entityFocus ? workspace.entities[entityFocus] : undefined;
-  const ScreenIcon = focused ? UserSearch : (NAV.flatMap(g => g.items).find(i => i.id === screen)?.icon ?? LayoutDashboard);
-  const seat = `${actions.me.name}${roleLabel(actions.me.role) ? ` (${roleLabel(actions.me.role)})` : ""}`;
+  const ScreenIcon = focused ? Fingerprint : (NAV.flatMap(g => g.items).find(i => i.id === screen)?.icon ?? Gauge);
 
   return (
     <SentinelProvider value={ctx}>
       <div ref={rootRef} className="st-root" data-testid="sentinel-root">
         <header className="st-topbar">
-          <span className="xd-brand">
-            <span className="xd-mark" aria-hidden><ScanEye size={16} /></span>
-            <strong className="xd-word">XDR</strong>
-            <span className="xd-tag">Investigation console</span>
-          </span>
-          <span className="xd-chip" title={`Workspace: ${workspace.name}`}>
-            <Database size={13} aria-hidden /><span className="st-sr">Workspace: </span>
-            <span className="st-ellipsis" data-testid="workspace-name">{workspace.name}</span>
-          </span>
-          {sessionKey && (
-            <span className={`xd-chip xd-shift ${ended ? "ended" : paused ? "paused" : "live"}`}>
-              <i aria-hidden />Team session: {ended ? "ended" : paused ? "paused" : "on shift"}
-            </span>
-          )}
+          <strong>XDR</strong>
+          <span aria-hidden>|</span>
+          <span className="st-ellipsis" data-testid="workspace-name">{workspace.name}</span>
           <span className="st-grow" />
-          <span className="xd-user"><span className="xd-avatar" aria-hidden>{initials(actions.me.name)}</span><span className="st-ellipsis">{seat}</span></span>
+          <span className="st-ellipsis">{actions.me.name}{roleLabel(actions.me.role) ? ` (${roleLabel(actions.me.role)})` : ""}</span>
           {/* Two windows: this brings the team room tab forward when it is open, and opens it otherwise. */}
-          <a className="xd-back" href={backHref} onClick={e => { if (onBack) { e.preventDefault(); onBack(); } }}><ArrowLeft size={14} aria-hidden />Back to team room</a>
+          <a href={backHref} onClick={e => { if (onBack) { e.preventDefault(); onBack(); } }}>Back to team room</a>
         </header>
         {/* The team room's waiting work, linked back to the SIEM window (UX agent: this strip only). */}
         {sessionKey && !ended && <TeamWindowStrip sessionId={sessionKey} />}
         {paused && !ended && <div className="st-ended" role="status"><Lock size={13} aria-hidden />The shift is paused. New logs and changes wait until it resumes: queries still run.</div>}
         {ended && <div className="st-ended" role="status"><Lock size={13} aria-hidden />The exercise has ended. This workspace is read-only: queries still run, changes are off.</div>}
         <div className="st-shell">
+          {!covered && (
+            <BladeHeader icon={<ScreenIcon size={30} color="#0078d4" fill={ScreenIcon === Briefcase ? "#c7e0f4" : "none"} aria-hidden />} {...(focused
+              ? { strong: focused.name, sub: KIND_LABEL[focused.kind], crumbs: [{ label: "Home" }, { label: "XDR | Entity behavior", onClick: () => setEntityFocus(null) }] }
+              : { strong: "XDR", light: SCREEN_TITLE[screen], sub: `Selected workspace: '${workspace.name}'`, crumbs: [{ label: "Home" }, { label: "XDR" }] })} />
+          )}
           <div className="st-body">
           <nav className={`st-nav${navCollapsed ? " collapsed" : ""}`} aria-label="XDR menu" hidden={covered}>
             <div className="st-nav-top">
@@ -319,7 +297,7 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
                 </label>
               )}
               <button type="button" className="st-icon-btn" aria-label={navCollapsed ? "Expand menu" : "Collapse menu"} aria-expanded={!navCollapsed} onClick={() => setNavCollapsed(c => !c)}>
-                {navCollapsed ? <PanelLeftOpen size={15} aria-hidden /> : <PanelLeftClose size={15} aria-hidden />}
+                {navCollapsed ? <ChevronsRight size={15} aria-hidden /> : <ChevronsLeft size={15} aria-hidden />}
               </button>
             </div>
             {NAV.map(g => {
@@ -343,9 +321,6 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
             })}
           </nav>
           <main className="st-blade" hidden={covered}>
-            <PageHeader icon={<ScreenIcon size={18} aria-hidden />} {...(focused
-              ? { title: focused.name, sub: KIND_LABEL[focused.kind], back: { label: "All entities", onClick: () => setEntityFocus(null) } }
-              : { title: SCREEN_TITLE[screen], sub: SCREEN_HINT[screen] })} />
             {screen === "overview" && <OverviewPage />}
             {screen === "search" && <SearchPage />}
             {screen === "incidents" && <IncidentsPage />}
@@ -365,7 +340,7 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
           {investigated && <InvestigationGraph key={`investigate-${investigated.id}`} incident={investigated} onClose={closeInvestigation} />}
           {logsOverlay && (
             <SlidePanel title="Logs" subtitle={workspace.name} width="min(1130px, 80%)" noBody onClose={() => setLogsOverlay(null)}
-              icon={<Braces size={22} color="var(--st-accent)" aria-hidden />}
+              icon={<TerminalSquare size={28} color="#0078d4" aria-hidden />}
               footer={<button type="button" className="st-btn primary" onClick={() => setLogsOverlay(null)}>Done</button>}>
               <LogsPanel key={logsOverlay.key} mode="panel" request={logsOverlay} incidentId={logsOverlay.incidentId ?? investigateId ?? incidentId ?? undefined} />
             </SlidePanel>
@@ -390,8 +365,8 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
 function ToastView({ t, onOpen, onDismiss }: { t: Toast; onOpen: (id: string) => void; onDismiss: () => void }) {
   return (
               <div className={`st-toast ${t.kind === "error" ? "err" : t.severity ?? ""}`}>
-                {t.incidentId && <Siren size={14} color="var(--st-accent)" aria-hidden />}
-                {t.kind === "info" && <Eye size={14} color="var(--st-accent)" aria-hidden />}
+                {t.incidentId && <Radar size={14} color="#0078d4" aria-hidden />}
+                {t.kind === "info" && <Eye size={14} color="#0078d4" aria-hidden />}
                 <div className="st-grow">
                   <strong>{t.title}</strong>
                   {t.body && <div className="st-ellipsis" title={t.body} style={{ whiteSpace: t.kind === "error" ? "normal" : undefined }}>{t.body}</div>}

@@ -3,7 +3,7 @@
 // filter pills, the Auto-refresh switch, a grid with selection, and the details pane.
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity, Bookmark, Siren, CalendarClock, ChevronDown, ChevronUp, ChevronsRight, Columns3, FolderOpen, Loader, RefreshCw, Search, ShieldAlert, SlidersHorizontal,
+  Activity, Bookmark, Briefcase, CalendarClock, ChevronDown, ChevronUp, ChevronsRight, Columns3, FolderOpen, Loader, RefreshCw, Search, ShieldAlert, SlidersHorizontal,
 } from "lucide-react";
 import type { ClosingClassification, IncidentState, IncidentStatus, SentinelIncident, SentinelSeverity } from "@/lib/sentinel/types";
 import { useSentinel } from "./context";
@@ -13,8 +13,9 @@ import {
 import { FieldBar } from "./IncidentFields";
 import { IncidentDescription } from "./IncidentDescription";
 import {
-  ButtonMenu, ColumnsButton, Empty, EntityIcon, FilterPill, rowKeys, Select, SimplePager, SlidePanel, SortTh, StatusIcon, Switch, type SortState,
+  ButtonMenu, ColumnsButton, Empty, FilterPill, rowKeys, Select, SimplePager, SlidePanel, SortTh, StatusIcon, Switch, type SortState,
 } from "./ui";
+import { EntityTile } from "./XdrParts";
 
 type SortKey = "severity" | "number" | "title" | "alerts" | "products" | "created" | "lastUpdate" | "owner" | "status" | "tactics";
 const PAGE = 50;
@@ -55,13 +56,13 @@ export function Evidence({ incident, state, linkLabels }: { incident: SentinelIn
   return (
     <div className="st-ev">
       <button type="button" onClick={() => openLogs({ query: incident.eventsQuery, run: true })} aria-label={`Events, ${incident.eventCount}`}>
-        <b><Activity size={18} color="var(--st-accent)" aria-hidden />{incident.eventCount}</b><span className={label}>Events</span>
+        <b><Activity size={18} color="#0078d4" aria-hidden />{incident.eventCount}</b><span className={label}>Events</span>
       </button>
       <button type="button" onClick={() => openLogs({ query: alertsQuery(incident), run: true })} aria-label={`Alerts, ${incident.alertIds.length}`}>
-        <b><ShieldAlert size={18} color="var(--st-accent)" aria-hidden />{incident.alertIds.length}</b><span className={label}>Alerts</span>
+        <b><ShieldAlert size={18} color="#fff" fill="#0078d4" aria-hidden />{incident.alertIds.length}</b><span className={label}>Alerts</span>
       </button>
       <button type="button" onClick={() => openLogs({ query: bookmarksQuery(incident), run: true })} aria-label={`Bookmarks, ${state.bookmarks.length}`}>
-        <b><Bookmark size={18} color="var(--st-accent)" aria-hidden />{state.bookmarks.length}</b><span className={label}>Bookmarks</span>
+        <b><Bookmark size={18} color="#0078d4" fill="#0078d4" aria-hidden />{state.bookmarks.length}</b><span className={label}>Bookmarks</span>
       </button>
     </div>
   );
@@ -91,7 +92,7 @@ export function IncidentPreview({ incident, onClose }: { incident: SentinelIncid
     <aside className="st-preview" aria-label={`Incident ${incident.number} preview`}>
       <div className="st-preview-head">
         <i className={`st-band ${state.severity} edge`} aria-hidden />
-        <Siren size={24} color="var(--st-accent)" aria-hidden />
+        <Briefcase size={24} color="#0078d4" fill="#c7e0f4" aria-hidden />
         <div className="st-grow" style={{ minWidth: 0 }}>
           <h2 className="st-wrap" title={incident.title}>{incident.title}</h2>
           <div className="st-small" style={{ fontWeight: 600 }}>Incident ID: {incident.number}</div>
@@ -103,7 +104,7 @@ export function IncidentPreview({ incident, onClose }: { incident: SentinelIncid
       <div className="st-preview-body">
         <IncidentDescription incident={incident} />
         <div className="st-field"><div className="k">Alert product names</div>
-          <ul className="st-bullets">{incident.products.map(p => <li key={p}>{p}</li>)}</ul>
+          <ul className="xd-ac-chips wrap" style={{ marginTop: 4 }}>{incident.products.map(p => <li key={p} className="xd-chip prod">{p}</li>)}</ul>
         </div>
         <TasksSummary state={state} onOpen={() => openIncident(incident.id)} />
         <div className="st-field"><div className="k">Evidence</div><Evidence incident={incident} state={state} linkLabels /></div>
@@ -115,8 +116,8 @@ export function IncidentPreview({ incident, onClose }: { incident: SentinelIncid
           <ul>
             {entities.slice(0, 4).map(e => (
               <li key={e.id}>
-                <button type="button" className="st-link st-row" style={{ gap: 6, maxWidth: "100%" }} title={e.name} onClick={() => openIncident(incident.id, { entityId: e.id })}>
-                  <EntityIcon kind={e.kind} size={14} /><span className="st-ellipsis">{e.name}</span>
+                <button type="button" className="st-link st-row xd-elink" style={{ gap: 8, maxWidth: "100%" }} title={e.name} onClick={() => openIncident(incident.id, { entityId: e.id })}>
+                  <EntityTile kind={e.kind} size={20} /><span className="st-ellipsis">{e.name}</span>
                 </button>
               </li>
             ))}
@@ -327,9 +328,9 @@ export function IncidentsPage() {
         </ColumnsButton>
       </div>
       <div className="st-kpis">
-        <div className="st-kpi"><b><Siren size={22} color="var(--st-accent)" aria-hidden />{fmtCompact(counts.open)}</b><span>Open incidents</span></div>
-        <div className="st-kpi"><b><Loader size={22} color="var(--st-accent)" aria-hidden />{fmtCompact(counts.new)}</b><span>New incidents</span></div>
-        <div className="st-kpi"><b><RefreshCw size={22} color="var(--st-accent)" aria-hidden />{fmtCompact(counts.active)}</b><span>Active incidents</span></div>
+        <div className="st-kpi"><b><Briefcase size={22} color="#0078d4" fill="#c7e0f4" aria-hidden />{fmtCompact(counts.open)}</b><span>Open incidents</span></div>
+        <div className="st-kpi"><b><Loader size={22} color="#0078d4" aria-hidden />{fmtCompact(counts.new)}</b><span>New incidents</span></div>
+        <div className="st-kpi"><b><RefreshCw size={22} color="#0078d4" aria-hidden />{fmtCompact(counts.active)}</b><span>Active incidents</span></div>
         <div className="st-sevbar">
           <strong>Open incidents by severity</strong>
           <div className="bar" aria-hidden>

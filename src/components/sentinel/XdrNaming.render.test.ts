@@ -84,7 +84,11 @@ describe("an XDR exercise: every screen of the console", () => {
 
   /** What a person reads or hears: the text, and the names, titles and placeholders of controls. */
   function seen(): string {
-    const parts = [el!.textContent ?? ""];
+    // One line per text node: textContent glues neighbours ("Microsoft Sentinel" + "IdentityInfo"),
+    // which would hide a heading behind the word boundary the scan relies on.
+    const parts: string[] = [];
+    const walk = document.createTreeWalker(el!, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) if (n.textContent?.trim()) parts.push(n.textContent);
     for (const n of el!.querySelectorAll("[aria-label],[title],[placeholder],[alt]")) {
       for (const a of ["aria-label", "title", "placeholder", "alt"]) { const v = n.getAttribute(a); if (v) parts.push(v); }
     }
@@ -139,7 +143,7 @@ describe("an XDR exercise: every screen of the console", () => {
       expectNoSentinel(`incident ${i} graph`);
       click(btn("Close investigation"));
       click(btn("Entities"));
-      const first = el!.querySelector(".st-entities-list tbody tr");
+      const first = el!.querySelector(".st-entities-list .xd-erow-main");
       if (first) click(first);
       expectNoSentinel(`incident ${i} entities`);
       click(btn("Close incident"));

@@ -1,12 +1,13 @@
 "use client";
 // Info, Timeline and Insights of an entity: incident Entities tab, Entity behavior page, graph rail.
 import { memo, useMemo, useState } from "react";
-import { Activity, Bookmark, ChevronDown, ChevronUp, Clock, Lightbulb, ShieldAlert } from "lucide-react";
-import type { EntityInsight, SentinelEntity, SentinelIncident } from "@/lib/sentinel/types";
+import { Activity, Bookmark, ChevronDown, ChevronUp, Clock, Lightbulb } from "lucide-react";
+import type { EntityInsight, SentinelEntity, SentinelIncident, SentinelSeverity as SentinelAlertSeverity } from "@/lib/sentinel/types";
 import { useSentinel } from "./context";
 import { insightsForEntity } from "./engine";
 import { entityActivity, fmtClock, fmtCount, fmtDateTime, fmtMonthDay, fmtShortTime, kqlString } from "./helpers";
 import { Empty, InfoMark } from "./ui";
+import { Kv, PaneSection, ProductChip, SevChip } from "./XdrParts";
 import { deviceState } from "./IncidentPanes";
 
 /** A device's isolation, in every entity pane (2026-11-07: isolating goes through an approval). */
@@ -14,10 +15,7 @@ function DeviceStateLine({ host }: { host: string }) {
   const { actions } = useSentinel();
   const st = deviceState(actions, host);
   return (
-    <div className="st-row" style={{ marginTop: 10, alignItems: "flex-start" }}>
-      <span className="st-k" style={{ flex: "none" }}>Network state</span>
-      <span className={`st-devstate${st.isolated ? " isolated" : st.pending ? " pending" : ""}`}>{st.label}</span>
-    </div>
+    <Kv k="Network state"><span className={`st-devstate${st.isolated ? " isolated" : st.pending ? " pending" : ""}`}>{st.label}</span></Kv>
   );
 }
 
@@ -28,7 +26,7 @@ export function InsightCard({ insight, range, defaultOpen = true }: { insight: E
   return (
     <section className="st-insight">
       <button type="button" className="st-insight-head" aria-expanded={open} onClick={() => setOpen(o => !o)}>
-        {open ? <ChevronUp size={16} color="var(--st-accent)" aria-hidden /> : <ChevronDown size={16} color="var(--st-accent)" aria-hidden />}
+        {open ? <ChevronUp size={16} color="#0078d4" aria-hidden /> : <ChevronDown size={16} color="#0078d4" aria-hidden />}
         <span className="st-ellipsis st-grow">{insight.title}</span>
         <InfoMark title={insight.description} />
       </button>
@@ -49,46 +47,69 @@ export function InsightCard({ insight, range, defaultOpen = true }: { insight: E
   );
 }
 
-const HEADING: Partial<Record<SentinelEntity["kind"], string>> = { ip: "Geolocation information", account: "Account information", host: "Host information" };
+const HEADING: Partial<Record<SentinelEntity["kind"], string>> = { ip: "Identity and location", account: "Identity", host: "Identity" };
 
+/**
+ * What the workspace knows about an entity, in labelled sections: Identity (its facts), Activity
+ * (first and last seen, the tables it appears in), Related alerts and, for all but hosts, the hosts it
+ * was logged on. XDR's own layout: key-value rows under small section headers.
+ */
 export const EntityInfoCard = memo(function EntityInfoCard({ entity }: { entity: SentinelEntity }) {
   const { ws, openLogs } = useSentinel();
   const activity = useMemo(() => entityActivity(entity, ws), [entity, ws]);
+  const related = useMemo(() => ws.alerts.filter(a => a.entityIds.includes(entity.id)).sort((a, b) => Date.parse(b.time) - Date.parse(a.time)), [ws.alerts, entity.id]);
   const facts = Object.entries(entity.info);
+  const top = Math.max(1, ...activity.tables.map(t => t.count));
   return (
-    <div className="st-infocard">
-      <h4>{HEADING[entity.kind] ?? "Information"} <InfoMark title="What the workspace knows about this entity." /></h4>
-      {facts.length === 0 && <p className="st-muted st-small">No identifying facts recorded.</p>}
-      <div className="st-2col">
-        {facts.map(([k, v]) => <div key={k} style={{ minWidth: 0 }}><div className="st-k">{k}</div><div style={{ wordBreak: "break-word" }}>{/^\d{4}-\d{2}-\d{2}T/.test(v) ? fmtDateTime(v) : v || "-"}</div></div>)}
-      </div>
-      {entity.kind === "host" && <DeviceStateLine host={entity.name} />}
-      <hr />
-      <h4>Log Activity <InfoMark title="Where this entity appears in the workspace." /></h4>
-      <div className="st-2col">
-        <div><div className="st-k">First Seen</div>{fmtDateTime(activity.firstSeen)}</div>
-        <div><div className="st-k">Last Seen</div>{fmtDateTime(activity.lastSeen)}</div>
-      </div>
-      <div className="st-k" style={{ marginTop: 10 }}>Data Sources</div>
-      {activity.tables.length === 0 && <div>-</div>}
-      <ul>
-        {activity.tables.slice(0, 8).map(t => (
-          <li key={t.name} className="st-row" style={{ justifyContent: "space-between" }}>
-            <button type="button" className="st-link" onClick={() => openLogs({ query: `${t.name}\n| search ${kqlString(entity.name)}`, run: true })}>{t.name}</button>
-            <span className="st-muted st-small">{fmtCount(t.count)}</span>
-          </li>
-        ))}
-      </ul>
-      {entity.kind !== "host" && (
-        <>
-          <hr />
-          <h4>Logged Hosts <InfoMark title="Hosts this entity appears on in the logs." /></h4>
-          <div className="st-3col"><div className="st-k">Host name</div><div className="st-k">First seen</div><div className="st-k">Last seen</div></div>
-          {activity.hosts.length === 0 && <div className="st-3col"><div>-</div><div>-</div><div>-</div></div>}
-          {activity.hosts.slice(0, 8).map(h => (
-            <div key={h.name} className="st-3col"><div className="st-ellipsis" title={h.name}>{h.name}</div><div>{fmtShortTime(h.first)}</div><div>{fmtShortTime(h.last)}</div></div>
+    <div className="st-infocard xd-infocard">
+      <PaneSection title={HEADING[entity.kind] ?? "Identity"} aside={<InfoMark title="What the workspace knows about this entity." />}>
+        {facts.length === 0 && <p className="st-muted st-small">No identifying facts recorded.</p>}
+        {facts.map(([k, v]) => <Kv key={k} k={k}>{/^\d{4}-\d{2}-\d{2}T/.test(v) ? fmtDateTime(v) : v || "-"}</Kv>)}
+        {entity.kind === "host" && <DeviceStateLine host={entity.name} />}
+      </PaneSection>
+      <PaneSection title="Activity" aside={<InfoMark title="Where this entity appears in the workspace." />}>
+        <Kv k="First seen">{fmtDateTime(activity.firstSeen)}</Kv>
+        <Kv k="Last seen">{fmtDateTime(activity.lastSeen)}</Kv>
+        <div className="xd-k" style={{ margin: "8px 0 4px" }}>Data sources</div>
+        {activity.tables.length === 0 && <div>-</div>}
+        <ul className="xd-sources">
+          {activity.tables.slice(0, 8).map(t => (
+            <li key={t.name}>
+              <button type="button" className="st-link st-ellipsis" onClick={() => openLogs({ query: `${t.name}\n| search ${kqlString(entity.name)}`, run: true })}>{t.name}</button>
+              <span className="xd-bar" aria-hidden><i style={{ width: `${Math.max(4, (t.count / top) * 100)}%` }} /></span>
+              <span className="st-muted st-small xd-num">{fmtCount(t.count)}</span>
+            </li>
           ))}
-        </>
+        </ul>
+      </PaneSection>
+      <PaneSection title={`Related alerts (${related.length})`}>
+        {related.length === 0 && <p className="st-muted st-small">No alert names this entity.</p>}
+        <ul className="xd-mini-alerts">
+          {related.slice(0, 6).map(a => (
+            <li key={a.id}>
+              <button type="button" className={`xd-alert-card mini ${a.severity}`} onClick={() => openLogs({ query: a.query, run: true })}>
+                <span className="xd-ac-top">
+                  <span className="xd-ac-title st-ellipsis" title={a.name}>{a.name}</span>
+                  <time className="xd-ac-time" dateTime={a.time}>{fmtMonthDay(a.time)}, {fmtClock(a.time)}</time>
+                </span>
+                <span className="xd-ac-chips"><SevChip value={a.severity} /><ProductChip product={a.product} /></span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </PaneSection>
+      {entity.kind !== "host" && (
+        <PaneSection title="Logged hosts" aside={<InfoMark title="Hosts this entity appears on in the logs." />}>
+          <table className="st-mini xd-hosts">
+            <thead><tr><th scope="col">Host name</th><th scope="col">First seen</th><th scope="col">Last seen</th></tr></thead>
+            <tbody>
+              {activity.hosts.length === 0 && <tr><td>-</td><td>-</td><td>-</td></tr>}
+              {activity.hosts.slice(0, 8).map(h => (
+                <tr key={h.name}><td title={h.name}>{h.name}</td><td>{fmtShortTime(h.first)}</td><td>{fmtShortTime(h.last)}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </PaneSection>
       )}
     </div>
   );
@@ -115,22 +136,20 @@ export const EntityTimelineCard = memo(function EntityTimelineCard({ entity, inc
   }, [ws, entity, incident, bookmarks]);
   if (!rows.length) return <Empty icon={<Clock size={22} aria-hidden />} title="No activity in this time frame" />;
   return (
-    <ul className="st-tl">
+    <ul className="xd-tl">
       {rows.map(r => (
-        <li key={r.key}>
-          <button type="button" className="st-tl-item" style={{ gridTemplateColumns: "50px 24px 1fr" }} title={r.title} onClick={() => openLogs({ query: r.query, run: true })}>
-            <span className="st-tl-date"><b>{fmtMonthDay(r.at)}</b><br />{fmtClock(r.at)}</span>
-            <span className="st-tl-rail"><span className="st-tl-dot foreign-ok">
-              {r.icon === "bookmark" ? <Bookmark size={13} color="var(--st-accent)" aria-hidden />
-                : r.icon === "activity" ? <Activity size={13} color="var(--st-text-2)" aria-hidden />
-                  : <ShieldAlert size={14} color={r.icon === "foreign" ? "var(--st-text-3)" : "var(--st-accent)"} aria-hidden />}
-            </span></span>
-            <span className="st-tl-main">
-              {r.sev && <i className={`st-band ${r.sev}${r.icon === "foreign" ? " dotted" : ""}`} aria-hidden />}
-              <span style={{ minWidth: 0, display: "block", width: "100%" }}>
-                <span className="st-tl-title st-ellipsis" style={{ display: "block", fontWeight: r.icon === "activity" ? 400 : 600 }}>{r.title}</span>
-                <span className="st-tl-meta">{r.sev && <span>{r.sev}</span>}<span className="st-ellipsis">{r.sub}</span></span>
-              </span>
+        <li key={r.key} className="xd-tl-item">
+          <button type="button" className={`xd-alert-card mini ${r.sev ?? (r.icon === "bookmark" ? "bm" : "act")}${r.icon === "foreign" ? " foreign" : ""}`} title={r.title} onClick={() => openLogs({ query: r.query, run: true })}>
+            <span className="xd-ac-top">
+              <span className="xd-ac-title st-ellipsis" style={{ fontWeight: r.icon === "activity" ? 400 : 600 }}>{r.title}</span>
+              <time className="xd-ac-time" dateTime={r.at}>{fmtMonthDay(r.at)}, {fmtClock(r.at)}</time>
+            </span>
+            <span className="xd-ac-chips">
+              {r.sev ? <SevChip value={r.sev as SentinelAlertSeverity} />
+                : r.icon === "bookmark" ? <span className="xd-chip bm"><Bookmark size={11} aria-hidden />Bookmark</span>
+                  : <span className="xd-chip prod"><Activity size={11} aria-hidden />Activity</span>}
+              <span className="xd-chip prod st-ellipsis">{r.sub}</span>
+              {r.icon === "foreign" && <span className="xd-chip prod">Other incident</span>}
             </span>
           </button>
         </li>

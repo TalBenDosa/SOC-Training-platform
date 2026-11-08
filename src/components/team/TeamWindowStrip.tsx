@@ -67,24 +67,23 @@ export function TeamWindowStrip({ sessionId }: { sessionId: string }) {
   if (!counts) return null;
   const back = () => showSiemWindow(sessionId, `/team/${sessionId}`);
   const items: { n: number; one: string; many: string; tone: string }[] = [
-    // XDR's own palette (the console's tokens, sentinel.css), with fallbacks outside it.
-    { n: counts.escalations, one: "escalation waiting", many: "escalations waiting", tone: "var(--st-medium, #ffb020)" },
-    { n: counts.unreadChat, one: "unread chat message", many: "unread chat messages", tone: "var(--st-accent, #22d3ee)" },
-    { n: counts.approved, one: "containment approved: carry it out", many: "containments approved: carry them out", tone: "var(--st-ok, #34d399)" },
-    { n: counts.approvals, one: "request waits for your approval", many: "requests wait for your approval", tone: "var(--st-high, #ff4d6d)" },
+    { n: counts.escalations, one: "escalation waiting", many: "escalations waiting", tone: "#ffb900" },
+    { n: counts.unreadChat, one: "unread chat message", many: "unread chat messages", tone: "#0078d4" },
+    { n: counts.approved, one: "containment approved: carry it out", many: "containments approved: carry them out", tone: "#107c10" },
+    { n: counts.approvals, one: "request waits for your approval", many: "requests wait for your approval", tone: "#d13438" },
   ];
   return (
     <nav aria-label="Team room" data-testid="team-window-strip"
-      style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "4px 14px", padding: "5px 14px", fontSize: 12, lineHeight: "18px", borderBottom: "1px solid var(--st-border, #1f2a40)", background: "var(--st-canvas, #080d1a)", color: "var(--st-text, #e6edf7)" }}>
-      <span style={{ fontWeight: 700, fontFamily: "var(--st-mono, monospace)", fontSize: 10.5, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--st-text-3, #8d9db3)" }}>Team room</span>
-      {total === 0 ? <span style={{ color: "var(--st-text-2, #aab8cc)" }}>Nothing waiting for you there.</span> : items.filter(i => i.n > 0).map(i => (
+      style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "4px 14px", padding: "3px 12px", fontSize: 12, lineHeight: "18px", borderBottom: "1px solid #e1dfdd", background: "#faf9f8", color: "#323130" }}>
+      <span style={{ fontWeight: 600 }}>Team room</span>
+      {total === 0 ? <span style={{ color: "#605e5c" }}>Nothing waiting for you there.</span> : items.filter(i => i.n > 0).map(i => (
         <button key={i.one} type="button" onClick={back}
-          style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "none", border: 0, padding: 0, cursor: "pointer", color: "var(--st-accent, #22d3ee)", textDecoration: "underline", font: "inherit" }}>
+          style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "none", border: 0, padding: 0, cursor: "pointer", color: "#0f6cbd", textDecoration: "underline", font: "inherit" }}>
           <span aria-hidden style={{ width: 7, height: 7, borderRadius: 999, background: i.tone, display: "inline-block" }} />
           {i.n} {i.n === 1 ? i.one : i.many}
         </button>
       ))}
-      <span style={{ marginLeft: "auto", color: "var(--st-text-3, #8d9db3)" }}>Each link opens the team room window.</span>
+      <span style={{ marginLeft: "auto", color: "#605e5c" }}>Each link opens the team room window.</span>
     </nav>
   );
 }

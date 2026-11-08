@@ -71,14 +71,14 @@ const incidentRows = () => all('table[aria-label="Incidents"] tbody tr');
 describe("shell", () => {
   it("has the requested menu and nothing else", () => {
     mount();
-    // XDR's own menu (owner, 2026-11-08): investigation first, its own groups, not the portal's.
-    expect(all(".st-nav-item").map(navLabel)).toEqual(["Incidents", "Logs", "Hunting", "Search", "Entity behavior", "Threat intelligence", "Overview", "Analytics", "Automation"]);
-    expect(all(".st-nav-group").map(b => b.textContent)).toEqual(["Investigate", "Context", "Workspace"]);
-    expect(q("nav.st-nav")!.getAttribute("aria-label")).toBe("XDR menu");
-    expect(q(".st-topbar .xd-word")!.textContent).toBe("XDR");
+    expect(all(".st-nav-item").map(navLabel)).toEqual(["Overview", "Logs", "Search", "Incidents", "Hunting", "Entity behavior", "Threat intelligence", "Analytics", "Automation"]);
+    expect(all(".st-nav-group").map(b => b.textContent)).toEqual(["General", "Threat management", "Configuration"]);
+    // The original layout, named XDR (owner, 2026-11-08): wordmark, "XDR | Incidents", Home > XDR.
     expect(q("[data-testid=workspace-name]")!.textContent).toBe("contoso-xdr-prod");
-    expect(text()).not.toContain("Selected workspace");
-    expect(q(".st-blade-head h1")!.textContent).toBe("Incidents");
+    expect(q(".st-topbar strong")!.textContent).toBe("XDR");
+    expect(q("nav.st-nav")!.getAttribute("aria-label")).toBe("XDR menu");
+    expect(q(".st-blade-head h1")!.textContent).toBe("XDR | Incidents");
+    expect(all(".st-blade-head .st-crumb > span").map(s => s.textContent)).toEqual(["Home", "XDR"]);
     // Review 2026-11: the seat in words, and the link says where it goes (it keeps the two-window behaviour).
     expect(q<HTMLAnchorElement>(".st-topbar a")!.textContent).toBe("Back to team room");
     expect(q(".st-topbar")!.textContent).toContain("Tal Analyst (Tier-2)");
@@ -130,24 +130,22 @@ describe("shell", () => {
     expect(assertive!.textContent).toBe("");
   });
 
-  it("text and severity colours meet WCAG AA on every dark surface, in the app's fonts, not the portal's", async () => {
+  it("the Low band and the faint text meet WCAG AA against white", async () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
     const css = fs.readFileSync(path.join(__dirname, "sentinel.css"), "utf8");
     const hex = (name: string) => css.match(new RegExp(`--${name}:\\s*(#[0-9a-f]{6})`, "i"))![1];
     const lum = (h: string) => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+    const onWhite = (h: string) => 1.05 / (lum(h) + 0.05);
+    expect(onWhite(hex("st-text-3"))).toBeGreaterThanOrEqual(4.5);
+    expect(onWhite(hex("st-low-edge"))).toBeGreaterThanOrEqual(3);
+    expect(css).toMatch(/\.st-band\.Low:not\(\.dotted\), \.st-cellband\.Low \{ box-shadow: inset 0 0 0 1px var\(--st-low-edge\)/);
+    // XDR's chips and tiles: every ink on its own background, AA for small text.
     const ratio = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
-    for (const bg of ["st-surface", "st-surface-2", "st-canvas", "st-hover"]) {
-      for (const fg of ["st-text", "st-text-2", "st-text-3", "st-high", "st-medium", "st-low", "st-info", "st-ok"]) {
-        expect(ratio(hex(fg), hex(bg)), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
-      }
+    for (const [ink, bg] of [["xd-high-ink", "xd-high-bg"], ["xd-med-ink", "xd-med-bg"], ["xd-low-ink", "xd-low-bg"], ["xd-info-ink", "xd-info-bg"], ["xd-tac-ink", "xd-tac-bg"],
+      ["xd-t-blue", "xd-t-blue-bg"], ["xd-t-teal", "xd-t-teal-bg"], ["xd-t-plum", "xd-t-plum-bg"], ["xd-t-amber", "xd-t-amber-bg"], ["st-text-2", "xd-info-bg"]]) {
+      expect(ratio(hex(ink), hex(bg)), `${ink} on ${bg}`).toBeGreaterThanOrEqual(4.5);
     }
-    // Not the Azure portal: no Segoe UI, no Fluent blue, a dark scheme.
-    expect(css).not.toMatch(/Segoe|#0078d4|#106ebe|#deecf9/i);
-    expect(css).toMatch(/color-scheme: dark/);
-    // Severity is never colour alone: the word is always written next to the band.
-    mount();
-    for (const s of all(".st-sev")) expect(s.textContent).toMatch(/^(High|Medium|Low|Informational)$/);
   });
 
   it("every screen renders, every control has a name, no em dash in the text", async () => {
@@ -732,7 +730,8 @@ describe("search, hunting, analytics, automation", () => {
     nav("Entity behavior");
     click(all('table[aria-label="Entities"] tbody tr').find(r => r.textContent?.includes("FIN-LT-042"))!);
     expect(all(".st-entity-page .st-widget h3").map(h => h.textContent)).toEqual(["FIN-LT-042", "Timeline", "Insights"]);
-    expect(text()).toContain("Log Activity");
+    // XDR's labelled sections, not the portal's cards (owner, 2026-11-08).
+    expect(all(".st-entity-page .xd-psec-head").map(h => h.textContent)).toEqual(["Identity", "Activity", "Related alerts (1)"]);
   });
 });
 
@@ -828,6 +827,70 @@ describe("investigation graph", () => {
         }
       }
     }
+  });
+});
+
+describe("XDR's own alerts, entities and graph", () => {
+  it("an alert in the timeline is a card: severity stripe, time on the right, severity, product and tactic chips, key entities", () => {
+    mount();
+    openDetails();
+    const card = all(".xd-tl .xd-alert-card").find(c => c.textContent?.startsWith("Suspicious process launched"))!;
+    expect(card.classList.contains("Medium")).toBe(true);
+    expect(card.querySelector(".xd-ac-top time")).toBeTruthy();
+    expect([...card.querySelectorAll(".xd-ac-chips .xd-chip")].map(c => c.textContent)).toEqual(["Medium", "Microsoft Defender for Endpoint", "Execution"]);
+    expect([...card.querySelectorAll(".xd-echip")].map(c => c.textContent)).toEqual(["jdoe@contoso.example", "FIN-LT-042", "+1"]);
+    // no portal timeline: no date column, no rail dot
+    expect(q(".st-tl-rail, .st-tl-date, .st-tl-dot")).toBeNull();
+  });
+
+  it("the alert flyout is sectioned, with entity chips that open the entity", () => {
+    mount();
+    openDetails();
+    press(/^Unfamiliar sign-in properties/);
+    const fly = q(".st-flyout")!;
+    expect(fly.classList.contains("High")).toBe(true);
+    expect([...fly.querySelectorAll(".xd-psec-head")].map(h => h.textContent)).toEqual(["Description", "Detection", "Entities (2)", "Tactics and techniques", "Timing"]);
+    click(fly.querySelector<HTMLButtonElement>(".xd-echip-btn")!);
+    expect(q('[aria-label="jdoe@contoso.example details"]')).toBeTruthy();
+  });
+
+  it("entities are grouped by type, with a count per type and an alert badge per entity", () => {
+    mount();
+    openDetails();
+    const widget = q('section.st-widget[aria-label="Entities"]')!;
+    expect([...widget.querySelectorAll(".xd-egroup-head")].map(h => h.textContent)).toEqual(["Accounts1", "Hosts1", "IP addresses1", "Files1"]);
+    const jdoe = [...widget.querySelectorAll(".xd-erow")].find(r => r.textContent?.includes("jdoe@contoso.example"))!;
+    expect(jdoe.querySelector(".xd-etile")).toBeTruthy();
+    expect(jdoe.querySelector(".xd-ebadge")!.textContent).toBe("2 alerts");
+    press("Entities");
+    click(all<HTMLButtonElement>(".st-entities-list .xd-erow-main").find(b => b.textContent?.includes("FIN-LT-042"))!);
+    const pane = q('[aria-label="FIN-LT-042 details"]')!;
+    expect(pane.querySelector("h2")!.textContent).toBe("FIN-LT-042");
+    expect([...pane.querySelectorAll(".xd-psec-head")].map(h => h.textContent)).toEqual(["Identity", "Activity", "Related alerts (1)"]);
+    expect(pane.querySelector(".st-card-tabs")).toBeNull();
+  });
+
+  it("the graph draws alerts as striped cards and entities as tiles, with right-angled links, a legend and tabs on top of the side pane", () => {
+    mount();
+    openDetails();
+    press("Investigate");
+    const alert = q('[data-node="aaaaaaaa-0001"]')!;
+    expect(alert.querySelector("circle")).toBeNull();
+    expect(alert.querySelectorAll("rect").length).toBeGreaterThanOrEqual(2);
+    expect(alert.textContent).toContain("High alert");
+    const host = q('[data-node="host:fin-lt-042"]')!;
+    expect(host.querySelector("circle")).toBeNull();
+    expect(host.textContent).toContain("FIN-LT-042");
+    expect(host.textContent).toContain("Host");
+    expect(all(".xd-edge").length).toBeGreaterThan(0);
+    for (const e of all(".xd-edge")) expect(e.getAttribute("d")).toMatch(/^M[^Q]*V/);
+    expect(q(".xd-legend")?.textContent).toContain("Alert");
+    expect(q(".st-railpane .xd-side-tabs [role=tab]")).toBeTruthy();
+    expect(q(".st-rail")).toBeNull();
+    press("Collapse side pane");
+    expect(q(".st-railpane")).toBeNull();
+    press("Open side pane");
+    expect(q(".st-railpane")).toBeTruthy();
   });
 });
 

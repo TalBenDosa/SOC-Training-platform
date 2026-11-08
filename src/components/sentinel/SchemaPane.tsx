@@ -36,7 +36,7 @@ const TableNode = memo(function TableNode({ table, onInsert, onPreview, filter }
         <button type="button" className="st-row" style={{ gap: 4, flex: "1 1 auto", minWidth: 0 }} aria-expanded={showColumns} aria-label={`${table.name}, table, ${table.rows.length} rows. Press Enter to insert, Space to expand.`}
           title="Click to expand, double-click to insert" onClick={() => setOpen(o => !o)} {...activates(() => onInsert(table.name))}>
           <Caret open={showColumns} />
-          <Table2 size={13} aria-hidden color="var(--st-text-2)" />
+          <Table2 size={13} aria-hidden color="#605e5c" />
           <span className="st-ellipsis">{table.name}</span>
         </button>
         <span className="actions">
@@ -136,7 +136,7 @@ export function SchemaPane({ tab, onTab, onInsert, onLoad, onPreview, onCollapse
                     <div className="st-schema-row">
                       <button type="button" className="st-row" style={{ gap: 6, flex: "1 1 auto", minWidth: 0 }} title="Double-click to load to editor"
                         aria-label={`${item.name}. Press Enter to load to editor.`} {...activates(() => onLoad(item.query))}>
-                        <FileCode2 size={13} aria-hidden color="var(--st-text-2)" /><span className="st-ellipsis">{item.name}</span>
+                        <FileCode2 size={13} aria-hidden color="#605e5c" /><span className="st-ellipsis">{item.name}</span>
                       </button>
                       <span className="actions"><button type="button" className="st-link st-small" onClick={() => onLoad(item.query)}>Load to editor</button></span>
                     </div>

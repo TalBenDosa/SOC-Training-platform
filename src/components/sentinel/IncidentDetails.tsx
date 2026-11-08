@@ -3,7 +3,7 @@
 // Overview and Entities tabs, four widgets. Alert details open in a flyout beside the timeline.
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  Bookmark, Siren, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, Clock, Filter, Info, Lightbulb,
+  Bookmark, Briefcase, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, Clock, Filter, Info, Lightbulb,
   ListTree, MessageSquareText, RefreshCw, Search, ShieldAlert, ShieldPlus, Target, TerminalSquare, Workflow, X,
 } from "lucide-react";
 import type { EntityKind, SentinelAlert, SentinelBookmark, SentinelEntity, SentinelIncident , GraphAlertDetails } from "@/lib/sentinel/types";
@@ -11,13 +11,14 @@ import { useSentinel } from "./context";
 import { EntityInfoCard, EntityInsightsCard, EntityTimelineCard, InsightCard } from "./EntityCards";
 import { insightsForIncident, runQuery } from "./engine";
 import {
-  alertRecord, alertsOf, canAddToTi, canRunPlaybook, entitiesOf, fmtClock, fmtDateTime, fmtMediumTime, fmtMonthDay, KIND_LABEL, SEVERITIES, similarIncidents, tacticLabel, type SimilarIncident,
+  alertRecord, alertsOf, canAddToTi, canRunPlaybook, entitiesOf, fmtDateTime, fmtMediumTime, KIND_LABEL, SEVERITIES, similarIncidents, tacticLabel, type SimilarIncident,
 } from "./helpers";
 import { FieldBar } from "./IncidentFields";
 import { IncidentDescription } from "./IncidentDescription";
 import { ActivityPane, TasksPane } from "./IncidentPanes";
 import { EscalationTag, Evidence, TasksSummary } from "./IncidentsPage";
-import { ButtonMenu, Crumbs, Empty, EntityIcon, InfoMark, MoreMenu, Popover, Select, SevGlyph, StatusIcon, Tabs, type MenuItem } from "./ui";
+import { ButtonMenu, Crumbs, Empty, EntityIcon, InfoMark, MoreMenu, Popover, Select, StatusIcon, Tabs, type MenuItem } from "./ui";
+import { AlertCardBody, AlertTile, BookmarkCardBody, EntityChip, EntityGroups, EntityTile, Kv, PaneSection, ProductChip, SevChip, useAlertCounts } from "./XdrParts";
 
 /* ---------------------------------------------- tactics ------------------------------------------- */
 
@@ -37,8 +38,8 @@ function TacticsTree({ alerts }: { alerts: SentinelAlert[] }) {
         return (
           <li key={tactic}>
             <button type="button" className="st-tactic" aria-expanded={on} onClick={() => setOpen(o => { const n = new Set(o); if (n.has(tactic)) n.delete(tactic); else n.add(tactic); return n; })}>
-              {on ? <ChevronDown size={16} color="var(--st-accent)" aria-hidden /> : <ChevronRight size={16} color="var(--st-accent)" aria-hidden />}
-              <Target size={14} color="var(--st-accent)" aria-hidden /><span>{tacticLabel(tactic)} ({techniques.length})</span>
+              {on ? <ChevronDown size={16} color="#0078d4" aria-hidden /> : <ChevronRight size={16} color="#0078d4" aria-hidden />}
+              <Target size={14} color="#0078d4" aria-hidden /><span>{tacticLabel(tactic)} ({techniques.length})</span>
             </button>
             {on && <ul className="st-small st-muted" style={{ paddingLeft: 42 }}>{techniques.map(t => <li key={t}>{t}</li>)}</ul>}
           </li>
@@ -50,6 +51,7 @@ function TacticsTree({ alerts }: { alerts: SentinelAlert[] }) {
 
 /* ---------------------------------------------- timeline ------------------------------------------ */
 
+const NONE: SentinelEntity[] = [];
 type TLItem = { type: "Alert"; at: string; alert: SentinelAlert } | { type: "Bookmark"; at: string; bookmark: SentinelBookmark };
 const itemId = (i: TLItem) => (i.type === "Alert" ? i.alert.id : i.bookmark.id);
 
@@ -84,8 +86,8 @@ function TimelineFilter({ tactics, sev, setSev, tac, setTac, type, setType }: {
   );
 }
 
-function Flyout({ title, icon, left, arrow, onClose, closeLabel, children }: {
-  title: string; icon: React.ReactNode; left: number; arrow: number; onClose: () => void; closeLabel: string; children: React.ReactNode;
+function Flyout({ title, icon, left, arrow, onClose, closeLabel, stripe, children }: {
+  title: string; icon: React.ReactNode; left: number; arrow: number; onClose: () => void; closeLabel: string; stripe?: string; children: React.ReactNode;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
   const back = useRef<HTMLElement | null>(null);
@@ -95,11 +97,11 @@ function Flyout({ title, icon, left, arrow, onClose, closeLabel, children }: {
     return () => { back.current?.focus?.({ preventScroll: true }); };
   }, []);
   return (
-    <aside className="st-flyout" style={{ left }} aria-label={title} onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
+    <aside className={`st-flyout xd-flyout ${stripe ?? "bm"}`} style={{ left }} aria-label={title} onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
       <i className="arrow" style={{ top: arrow }} aria-hidden />
       <div className="head">
         {icon}<h3 className="st-grow">{title}</h3>
-        <button ref={ref} type="button" className="st-icon-btn" aria-label={closeLabel} onClick={onClose}><X size={16} color="var(--st-accent)" aria-hidden /></button>
+        <button ref={ref} type="button" className="st-icon-btn" aria-label={closeLabel} onClick={onClose}><X size={16} color="#0078d4" aria-hidden /></button>
       </div>
       <div className="body">{children}</div>
     </aside>
@@ -115,34 +117,32 @@ function AlertDetails({ alert, left, arrow, onClose, onEntity }: { alert: Sentin
   const fromRow = (c: string) => (row?.[c] ? fmtMediumTime(row[c] as string) : fmtMediumTime(alert.time));
   const status = typeof row?.Status === "string" ? row.Status : "New";
   return (
-    <Flyout title={alert.name} icon={<ShieldAlert size={18} color="var(--st-accent)" aria-hidden />} left={left} arrow={arrow} onClose={onClose} closeLabel="Close alert details">
-      {alert.description && <div className="st-field"><div className="k">Description</div><div className="v">{alert.description}</div></div>}
-      <div className="st-2col st-field">
-        <div><div className="st-k">Severity</div><span className="st-row" style={{ gap: 4 }}><SevGlyph value={alert.severity} />{alert.severity}</span></div>
-        <div><div className="st-k">Status</div><span className="st-row" style={{ gap: 4 }}><StatusIcon status={status === "Resolved" ? "Closed" : "New"} />{status}</span></div>
+    <Flyout title={alert.name} icon={<AlertTile severity={alert.severity} />} left={left} arrow={arrow} onClose={onClose} closeLabel="Close alert details" stripe={alert.severity}>
+      <div className="xd-ac-chips" style={{ marginTop: 2 }}>
+        <SevChip value={alert.severity} /><ProductChip product={alert.product} />
       </div>
-      <div className="st-2col st-field">
-        <div><div className="st-k">Events</div>{events ?? "N/A"}</div>
-        <div><div className="st-k">Product name</div>{alert.product}</div>
-      </div>
-      <div className="st-field"><div className="k">Entities ({entities.length})</div>
-        <ul>{entities.map(e => <li key={e.id}><button type="button" className="st-link st-row" style={{ gap: 6, maxWidth: "100%" }} onClick={() => onEntity(e.id)}><EntityIcon kind={e.kind} size={14} /><span className="st-ellipsis">{e.name}</span></button></li>)}</ul>
-      </div>
-      <div className="st-field"><div className="k">Tactics and techniques</div><TacticsTree alerts={[alert]} /></div>
-      <div className="st-2col st-field">
-        <div style={{ minWidth: 0 }}><div className="st-k">System alert ID</div>
-          <button type="button" className="st-link st-ellipsis" style={{ display: "block", maxWidth: "100%" }} title={alert.id} onClick={() => openLogs({ query: alert.query, run: true })}>{alert.id}</button>
+      {alert.description && <PaneSection title="Description"><p className="xd-prose">{alert.description}</p></PaneSection>}
+      <PaneSection title="Detection">
+        <Kv k="Severity"><span className="st-row" style={{ gap: 6 }}><i className={`xd-dot ${alert.severity}`} aria-hidden />{alert.severity}</span></Kv>
+        <Kv k="Status"><span className="st-row" style={{ gap: 4 }}><StatusIcon status={status === "Resolved" ? "Closed" : "New"} />{status}</span></Kv>
+        <Kv k="Events">{events ?? "N/A"}</Kv>
+        <Kv k="Product name">{alert.product}</Kv>
+        <Kv k="Rule name">{rule?.name ?? "-"}</Kv>
+        <Kv k="System alert ID">
+          <button type="button" className="st-link st-ellipsis st-mono st-small" style={{ display: "block", maxWidth: "100%" }} title={alert.id} onClick={() => openLogs({ query: alert.query, run: true })}>{alert.id}</button>
+        </Kv>
+      </PaneSection>
+      <PaneSection title={`Entities (${entities.length})`}>
+        <div className="xd-ac-ents wrap">
+          {entities.map(e => <button key={e.id} type="button" className="xd-echip-btn" onClick={() => onEntity(e.id)}><EntityChip entity={e} /></button>)}
         </div>
-        <div><div className="st-k">Rule name</div>{rule?.name ?? "-"}</div>
-      </div>
-      <div className="st-2col st-field">
-        <div><div className="st-k">Last update time</div>{fromRow("ProcessingEndTime")}</div>
-        <div />
-      </div>
-      <div className="st-2col st-field">
-        <div><div className="st-k">Start time</div>{fromRow("StartTime")}</div>
-        <div><div className="st-k">End time</div>{fromRow("EndTime")}</div>
-      </div>
+      </PaneSection>
+      <PaneSection title="Tactics and techniques"><TacticsTree alerts={[alert]} /></PaneSection>
+      <PaneSection title="Timing">
+        <Kv k="Start time">{fromRow("StartTime")}</Kv>
+        <Kv k="End time">{fromRow("EndTime")}</Kv>
+        <Kv k="Last update time">{fromRow("ProcessingEndTime")}</Kv>
+      </PaneSection>
       {alert.graph && <GraphFields graph={alert.graph} />}
     </Flyout>
   );
@@ -177,7 +177,7 @@ function BookmarkDetails({ bookmark, left, arrow, onClose, onEntity }: { bookmar
   const { ws, openLogs } = useSentinel();
   const entities = bookmark.entityIds.map(id => ws.entities[id]).filter(Boolean);
   return (
-    <Flyout title={bookmark.name} icon={<Bookmark size={18} color="var(--st-accent)" aria-hidden />} left={left} arrow={arrow} onClose={onClose} closeLabel="Close bookmark details">
+    <Flyout title={bookmark.name} icon={<span className="xd-atile bm" style={{ width: 30, height: 30 }} aria-hidden><Bookmark size={16} /></span>} left={left} arrow={arrow} onClose={onClose} closeLabel="Close bookmark details">
       <div className="st-2col st-field">
         <div><div className="st-k">Created by</div>{bookmark.author}</div>
         <div><div className="st-k">Created time</div>{fmtMediumTime(bookmark.at)}</div>
@@ -200,39 +200,24 @@ function BookmarkDetails({ bookmark, left, arrow, onClose, onEntity }: { bookmar
   );
 }
 
-const TimelineRow = memo(function TimelineRow({ item, active, onOpen, onLogs }: { item: TLItem; active: boolean; onOpen: (i: TLItem, row: HTMLElement) => void; onLogs: (q: string) => void }) {
+const TimelineRow = memo(function TimelineRow({ item, active, entities, onOpen, onLogs }: { item: TLItem; active: boolean; entities: SentinelEntity[]; onOpen: (i: TLItem, row: HTMLElement) => void; onLogs: (q: string) => void }) {
   const alert = item.type === "Alert" ? item.alert : null;
   const bookmark = item.type === "Bookmark" ? item.bookmark : null;
   const query = alert?.query ?? bookmark?.query ?? "";
   return (
-    <li className={`st-tl-item${active ? " active" : ""}`}>
-      <span className="st-tl-date" style={{ gridColumn: 1 }}><b>{fmtMonthDay(item.at)}</b><br />{fmtClock(item.at)}</span>
-      <span className="st-tl-rail"><span className="st-tl-dot">{alert ? <ShieldAlert size={14} color="var(--st-accent)" aria-hidden /> : <Bookmark size={13} color="var(--st-accent)" aria-hidden />}</span></span>
-      <button type="button" className="st-tl-main" onClick={e => onOpen(item, e.currentTarget)}>
-        {alert && <i className={`st-band ${alert.severity}`} aria-hidden />}
-        {bookmark && <i className="st-band" style={{ background: "var(--st-accent)" }} aria-hidden />}
-        <span style={{ minWidth: 0, display: "block", width: "100%" }}>
-          <span className="st-tl-title st-ellipsis" style={{ display: "block" }} title={alert?.name ?? bookmark?.name}>{alert?.name ?? bookmark?.name}</span>
-          <span className="st-tl-meta">
-            {alert
-              ? <>
-                  <span className="sev" title={alert.severity}>{alert.severity}</span>
-                  <span className="st-ellipsis det" title={`Detected by ${alert.product}`}>Detected by {alert.product}</span>
-                  {alert.tactics.length > 0 && <span className="tac" title={alert.tactics.map(tacticLabel).join(", ")}>Tactics:<Target size={13} color="var(--st-accent)" aria-hidden /></span>}
-                </>
-              : <><span>Bookmark</span><span className="st-ellipsis">Created by {bookmark?.author}</span></>}
-          </span>
-        </span>
+    <li className={`xd-tl-item${active ? " active" : ""}`}>
+      <button type="button" className={`xd-alert-card ${alert ? alert.severity : "bm"}`} aria-current={active ? "true" : undefined} onClick={e => onOpen(item, e.currentTarget)}>
+        {alert ? <AlertCardBody alert={alert} entities={entities} maxEntities={2} /> : bookmark && <BookmarkCardBody name={bookmark.name} at={bookmark.at} author={bookmark.author} />}
       </button>
-      <span style={{ display: "flex", alignItems: "center" }}>
-        <MoreMenu label={`Actions for ${alert?.name ?? bookmark?.name}`} items={[{ label: "Open in Logs", icon: <TerminalSquare size={14} color="var(--st-accent)" aria-hidden />, onSelect: () => onLogs(query) }]} />
+      <span className="xd-tl-menu">
+        <MoreMenu label={`Actions for ${alert?.name ?? bookmark?.name}`} items={[{ label: "Open in Logs", icon: <TerminalSquare size={14} color="#0078d4" aria-hidden />, onSelect: () => onLogs(query) }]} />
       </span>
     </li>
   );
 });
 
 function TimelineWidget({ incident, alerts, onEntity }: { incident: SentinelIncident; alerts: SentinelAlert[]; onEntity: (id: string) => void }) {
-  const { stateOf, openLogs } = useSentinel();
+  const { ws, stateOf, openLogs } = useSentinel();
   const state = stateOf(incident.id);
   const [q, setQ] = useState("");
   const [sev, setSev] = useState<string[]>([]);
@@ -256,6 +241,7 @@ function TimelineWidget({ incident, alerts, onEntity }: { incident: SentinelInci
       .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
   }, [alerts, state.bookmarks, q, sev, tac, type]);
   const onLogs = useCallback((query: string) => openLogs({ query, run: true }), [openLogs]);
+  const byAlert = useMemo(() => new Map(alerts.map(a => [a.id, a.entityIds.map(id => ws.entities[id]).filter(Boolean)])), [alerts, ws.entities]);
   const onOpen = useCallback((item: TLItem, row: HTMLElement) => {
     const host = section.current?.closest(".st-inc-main") as HTMLElement | null;
     const top = host ? row.getBoundingClientRect().top - host.getBoundingClientRect().top : 40;
@@ -274,8 +260,8 @@ function TimelineWidget({ incident, alerts, onEntity }: { incident: SentinelInci
         <input className="st-input" value={q} onChange={e => setQ(e.target.value)} placeholder="Search" />
       </label>
       <div style={{ marginTop: 8 }}><TimelineFilter tactics={tactics} sev={sev} setSev={setSev} tac={tac} setTac={setTac} type={type} setType={setType} /></div>
-      <ul className="st-wscroll st-tl">
-        {items.map(i => <TimelineRow key={itemId(i)} item={i} active={!!open && itemId(open.item) === itemId(i)} onOpen={onOpen} onLogs={onLogs} />)}
+      <ul className="st-wscroll xd-tl">
+        {items.map(i => <TimelineRow key={itemId(i)} item={i} active={!!open && itemId(open.item) === itemId(i)} entities={i.type === "Alert" ? byAlert.get(i.alert.id) ?? NONE : NONE} onOpen={onOpen} onLogs={onLogs} />)}
         {items.length === 0 && <li className="st-muted st-small" style={{ padding: 12 }}>No item matches.</li>}
       </ul>
       {open?.item.type === "Alert" && <AlertDetails key={open.item.alert.id} alert={open.item.alert} left={left} arrow={open.arrow} onClose={close} onEntity={onEntity} />}
@@ -291,8 +277,8 @@ function useEntityActions(incident: SentinelIncident) {
   return useCallback((e: SentinelEntity): MenuItem[] => {
     if (ended) return [];
     const items: MenuItem[] = [];
-    if (canAddToTi(e)) items.push({ label: "Add to TI", icon: <ShieldPlus size={14} color="var(--st-accent)" aria-hidden />, onSelect: () => addToTi(e, incident.id) });
-    if (canRunPlaybook(e)) items.push({ label: "Run playbook (Preview)", icon: <Workflow size={14} color="var(--st-accent)" aria-hidden />, onSelect: () => openPlaybook({ incidentId: incident.id, host: e.name }) });
+    if (canAddToTi(e)) items.push({ label: "Add to TI", icon: <ShieldPlus size={14} color="#0078d4" aria-hidden />, onSelect: () => addToTi(e, incident.id) });
+    if (canRunPlaybook(e)) items.push({ label: "Run playbook (Preview)", icon: <Workflow size={14} color="#0078d4" aria-hidden />, onSelect: () => openPlaybook({ incidentId: incident.id, host: e.name }) });
     return items;
   }, [addToTi, ended, incident.id, openPlaybook]);
 }
@@ -302,10 +288,11 @@ function kindOptions(entities: SentinelEntity[]) {
   return [{ value: "All", label: "All" }, ...kinds.map(k => ({ value: k, label: KIND_LABEL[k] }))] as { value: EntityKind | "All"; label: string }[];
 }
 
-function EntitiesWidget({ incident, entities, onSelect }: { incident: SentinelIncident; entities: SentinelEntity[]; onSelect: (id: string) => void }) {
+function EntitiesWidget({ incident, entities, alerts, onSelect }: { incident: SentinelIncident; entities: SentinelEntity[]; alerts: SentinelAlert[]; onSelect: (id: string) => void }) {
   const [q, setQ] = useState("");
   const [kind, setKind] = useState<EntityKind | "All">("All");
   const menu = useEntityActions(incident);
+  const counts = useAlertCounts(alerts);
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase();
     return entities.filter(e => (kind === "All" || e.kind === kind) && (!s || e.name.toLowerCase().includes(s)));
@@ -319,18 +306,9 @@ function EntitiesWidget({ incident, entities, onSelect }: { incident: SentinelIn
         </label>
         <Select label="Type" value={kind} options={kindOptions(entities)} onChange={setKind} className="st-pill">Type : <b>{kind === "All" ? "All" : KIND_LABEL[kind]}</b></Select>
       </div>
-      <ul className="st-wscroll">
-        {shown.map(e => (
-          <li key={e.id} className="st-entity-row">
-            <button type="button" className="st-row st-grow" style={{ minWidth: 0, gap: 10 }} onClick={() => onSelect(e.id)}>
-              <EntityIcon kind={e.kind} size={24} />
-              <span style={{ minWidth: 0 }}><span className="st-ellipsis" style={{ display: "block", fontWeight: 600 }} title={e.name}>{e.name}</span><span className="st-small">{KIND_LABEL[e.kind]}</span></span>
-            </button>
-            <MoreMenu label={`Actions for ${e.name}`} items={menu(e)} />
-          </li>
-        ))}
-        {shown.length === 0 && <li className="st-muted st-small" style={{ padding: 12 }}>No entity matches.</li>}
-      </ul>
+      <div className="st-wscroll" style={{ marginTop: 6 }}>
+        <EntityGroups entities={shown} counts={counts} onSelect={onSelect} menu={menu} />
+      </div>
     </section>
   );
 }
@@ -349,7 +327,7 @@ function SimilarityInfo({ s }: { s: SimilarIncident }) {
             <strong>{s.reason}</strong>
             <ul className="st-stack" style={{ gap: 6 }}>
               {s.entities.map(e => <li key={e.id} className="st-row"><EntityIcon kind={e.kind} size={16} /><span className="st-ellipsis" title={e.name}>{e.name}</span></li>)}
-              {s.rules.map(r => <li key={r} className="st-row"><ShieldAlert size={16} color="var(--st-accent)" aria-hidden /><span className="st-ellipsis" title={r}>{r}</span></li>)}
+              {s.rules.map(r => <li key={r} className="st-row"><ShieldAlert size={16} color="#0078d4" aria-hidden /><span className="st-ellipsis" title={r}>{r}</span></li>)}
             </ul>
           </div>
         </Popover>
@@ -418,18 +396,20 @@ function InsightsWidget({ incident }: { incident: SentinelIncident }) {
 
 /* --------------------------------------------- entities tab --------------------------------------- */
 
-function EntitiesTab({ incident, entities, selected, onSelect }: { incident: SentinelIncident; entities: SentinelEntity[]; selected: string | null; onSelect: (id: string | null) => void }) {
+function EntitiesTab({ incident, entities, alerts, selected, onSelect }: { incident: SentinelIncident; entities: SentinelEntity[]; alerts: SentinelAlert[]; selected: string | null; onSelect: (id: string | null) => void }) {
   const { openEntity } = useSentinel();
   const [q, setQ] = useState("");
   const [kind, setKind] = useState<EntityKind | "All">("All");
   const [card, setCard] = useState<"info" | "timeline" | "insights">("info");
   const menu = useEntityActions(incident);
+  const counts = useAlertCounts(alerts);
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase();
     return entities.filter(e => (kind === "All" || e.kind === kind) && (!s || e.name.toLowerCase().includes(s)));
   }, [entities, q, kind]);
   const entity = entities.find(e => e.id === selected) ?? null;
   const actions = entity ? menu(entity) : [];
+  const n = entity ? counts.get(entity.id) ?? 0 : 0;
   return (
     <div className="st-entities-tab">
       <div className="st-entities-list">
@@ -438,37 +418,32 @@ function EntitiesTab({ incident, entities, selected, onSelect }: { incident: Sen
             <input className="st-input" value={q} onChange={e => setQ(e.target.value)} placeholder="Search" />
           </label>
           <Select label="Type" value={kind} options={kindOptions(entities)} onChange={setKind} className="st-pill">Type : <b>{kind === "All" ? "All" : KIND_LABEL[kind]}</b></Select>
+          <span className="st-grow" />
+          <span className="st-small st-muted">{shown.length} of {entities.length}</span>
         </div>
-        <div className="st-wscroll">
-          <table className="st-table">
-            <thead><tr><th scope="col">Name</th><th scope="col" style={{ width: 150 }}>Type</th><th scope="col" style={{ width: 36 }}><span className="st-sr">Actions</span></th></tr></thead>
-            <tbody>
-              {shown.map(e => (
-                <tr key={e.id} className={e.id === selected ? "selected" : undefined} tabIndex={0} aria-current={e.id === selected ? "true" : undefined}
-                  onClick={() => onSelect(e.id)} onKeyDown={ev => { if (ev.key === "Enter" && ev.target === ev.currentTarget) onSelect(e.id); }}>
-                  <td title={e.name}><button type="button" className="st-link" onClick={ev => { ev.stopPropagation(); openEntity(e.id); }}>{e.name}</button></td>
-                  <td><span className="st-row"><EntityIcon kind={e.kind} size={16} />{KIND_LABEL[e.kind]}</span></td>
-                  <td style={{ padding: 0 }}><MoreMenu label={`Actions for ${e.name}`} items={menu(e)} /></td>
-                </tr>
-              ))}
-              {shown.length === 0 && <tr><td colSpan={3} className="st-muted">No entity matches.</td></tr>}
-            </tbody>
-          </table>
+        <div className="st-wscroll" style={{ marginTop: 8 }}>
+          <EntityGroups entities={shown} counts={counts} selected={selected} onSelect={onSelect} menu={menu} />
         </div>
       </div>
       {entity && (
-        <aside className="st-entity-pane" aria-label={`${entity.name} details`}>
-          <div className="st-preview-head">
-            <EntityIcon kind={entity.kind} size={30} />
-            <div className="st-grow" style={{ minWidth: 0 }}><h2 title={entity.name}>{entity.name}</h2><div className="st-small">{KIND_LABEL[entity.kind]}</div></div>
-            <button type="button" className="st-icon-btn corner" aria-label="Close entity pane" onClick={() => onSelect(null)}><ChevronsRight size={13} aria-hidden /></button>
+        <aside className="st-entity-pane xd-entity-pane" aria-label={`${entity.name} details`}>
+          <div className="xd-ep-head">
+            <EntityTile kind={entity.kind} size={40} />
+            <div className="st-grow" style={{ minWidth: 0 }}>
+              <h2 className="st-ellipsis" title={entity.name}>{entity.name}</h2>
+              <div className="xd-ac-chips" style={{ marginTop: 4 }}>
+                <span className="xd-chip prod">{KIND_LABEL[entity.kind]}</span>
+                <span className="xd-chip tac">{n} {n === 1 ? "alert" : "alerts"} in this incident</span>
+              </div>
+            </div>
+            <button type="button" className="st-icon-btn" aria-label="Close entity pane" onClick={() => onSelect(null)}><X size={15} aria-hidden /></button>
           </div>
-          <Tabs label="Entity cards" value={card} onChange={setCard} className="st-card-tabs" tabClass="st-card-tab" tabs={[
-            { value: "info", label: <><Info size={18} aria-hidden />Info</> },
-            { value: "timeline", label: <><ListTree size={18} aria-hidden />Timeline</> },
-            { value: "insights", label: <><Lightbulb size={18} color="var(--st-purple)" aria-hidden />Insights</> },
+          <Tabs label="Entity cards" value={card} onChange={setCard} className="st-tabs xd-ep-tabs" tabs={[
+            { value: "info", label: <><Info size={14} aria-hidden />Info</> },
+            { value: "timeline", label: <><ListTree size={14} aria-hidden />Timeline</> },
+            { value: "insights", label: <><Lightbulb size={14} aria-hidden />Insights</> },
           ]} />
-          <div className="st-preview-body" style={{ paddingTop: 12 }}>
+          <div className="st-preview-body" style={{ paddingTop: 4 }}>
             {card === "info" && <EntityInfoCard entity={entity} />}
             {card === "timeline" && <EntityTimelineCard entity={entity} incident={incident} />}
             {card === "insights" && <EntityInsightsCard entity={entity} />}
@@ -488,7 +463,7 @@ function EntitiesTab({ incident, entities, selected, onSelect }: { incident: Sen
 /* ------------------------------------------------ page -------------------------------------------- */
 
 export function IncidentDetails({ incident, focusEntity, onClose, hidden }: { incident: SentinelIncident; focusEntity?: string; onClose: () => void; hidden?: boolean }) {
-  const { ws, stateOf, openLogs, openInvestigation, openPlaybook, refresh, ended } = useSentinel();
+  const { ws, stateOf, openLogs, openInvestigation, openPlaybook, refresh, ended, go } = useSentinel();
   const state = stateOf(incident.id);
   const [tab, setTab] = useState<"overview" | "entities">(focusEntity ? "entities" : "overview");
   const [selected, setSelected] = useState<string | null>(focusEntity ?? null);
@@ -508,9 +483,9 @@ export function IncidentDetails({ incident, focusEntity, onClose, hidden }: { in
 
   return (
     <div ref={region} tabIndex={-1} className="st-inc" role="region" aria-label={`Incident ${incident.number}`} hidden={hidden}>
-      <Crumbs items={[{ label: "Incidents", onClick: onClose }, { label: `Incident ${incident.number}` }]} />
+      <Crumbs trailing items={[{ label: "Home", onClick: () => { onClose(); go("overview"); } }, { label: "XDR | Incidents", onClick: onClose }]} />
       <div className="st-inc-head">
-        <span className="xd-tile lg" aria-hidden><Siren size={20} /></span>
+        <Briefcase size={30} color="#0078d4" fill="#c7e0f4" aria-hidden style={{ marginTop: 3 }} />
         <div className="st-grow" style={{ minWidth: 0 }}><h1 className="st-wrap" title={incident.title}>{incident.title}</h1><div className="st-small">Incident ID {incident.number}</div><EscalationTag incident={incident} /></div>
         <button type="button" className="st-icon-btn" aria-label="Close incident" onClick={onClose}><X size={18} aria-hidden /></button>
       </div>
@@ -530,7 +505,7 @@ export function IncidentDetails({ incident, focusEntity, onClose, hidden }: { in
                 <div className="st-field"><div className="k">Workspace name</div><div className="v">{ws.name}</div></div>
                 <IncidentDescription incident={incident} />
                 <div className="st-field"><div className="k">Alert product names</div>
-                  <ul className="st-bullets">{incident.products.map(p => <li key={p}>{p}</li>)}</ul>
+                  <ul className="xd-ac-chips wrap" style={{ marginTop: 4 }}>{incident.products.map(p => <li key={p} className="xd-chip prod">{p}</li>)}</ul>
                 </div>
                 <TasksSummary state={state} onOpen={() => setPane("tasks")} />
                 <div className="st-field"><div className="k">Evidence</div><Evidence incident={incident} state={state} /></div>
@@ -547,7 +522,7 @@ export function IncidentDetails({ incident, focusEntity, onClose, hidden }: { in
                 <div className="st-field"><div className="k">Entities ({entities.length})</div>
                   <ul>
                     {entities.slice(0, 4).map(e => (
-                      <li key={e.id}><button type="button" className="st-link st-row" style={{ gap: 6, maxWidth: "100%" }} title={e.name} onClick={() => showEntity(e.id)}><EntityIcon kind={e.kind} size={14} /><span className="st-ellipsis">{e.name}</span></button></li>
+                      <li key={e.id}><button type="button" className="st-link st-row xd-elink" style={{ gap: 8, maxWidth: "100%" }} title={e.name} onClick={() => showEntity(e.id)}><EntityTile kind={e.kind} size={20} /><span className="st-ellipsis">{e.name}</span></button></li>
                     ))}
                   </ul>
                   {entities.length > 0 && <button type="button" className="st-link" onClick={() => setTab("entities")}>View all &gt;</button>}
@@ -565,7 +540,7 @@ export function IncidentDetails({ incident, focusEntity, onClose, hidden }: { in
             <Tabs label="Incident views" value={tab} onChange={setTab} tabs={[{ value: "overview", label: "Overview" }, { value: "entities", label: "Entities" }]} />
             {!ended && (
               <ButtonMenu label="Incident actions" className="st-btn primary" align="right"
-                items={[{ label: "Run playbook (Preview)", icon: <Workflow size={14} color="var(--st-accent)" aria-hidden />, onSelect: () => openPlaybook({ incidentId: incident.id }) }]}>
+                items={[{ label: "Run playbook (Preview)", icon: <Workflow size={14} color="#0078d4" aria-hidden />, onSelect: () => openPlaybook({ incidentId: incident.id }) }]}>
                 Incident actions<ChevronDown size={12} aria-hidden />
               </ButtonMenu>
             )}
@@ -573,12 +548,12 @@ export function IncidentDetails({ incident, focusEntity, onClose, hidden }: { in
           {tab === "overview" ? (
             <div className="st-widgets" role="tabpanel" aria-label="Overview">
               <TimelineWidget incident={incident} alerts={alerts} onEntity={showEntity} />
-              <EntitiesWidget incident={incident} entities={entities} onSelect={showEntity} />
+              <EntitiesWidget incident={incident} entities={entities} alerts={alerts} onSelect={showEntity} />
               <InsightsWidget incident={incident} />
               <SimilarWidget incident={incident} />
             </div>
           ) : (
-            <EntitiesTab incident={incident} entities={entities} selected={selected} onSelect={setSelected} />
+            <EntitiesTab incident={incident} entities={entities} alerts={alerts} selected={selected} onSelect={setSelected} />
           )}
         </div>
       </div>

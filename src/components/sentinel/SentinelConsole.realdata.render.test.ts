@@ -102,7 +102,7 @@ describe("the console on real data", () => {
       expect(el!.querySelectorAll("[data-node]").length).toBeGreaterThan(0);
       click(btn("Close investigation"));
       click(btn("Entities"));
-      const first = el!.querySelector(".st-entities-list tbody tr");
+      const first = el!.querySelector(".st-entities-list .xd-erow-main");
       if (first) click(first);
       click(btn("Close incident"));
     }
