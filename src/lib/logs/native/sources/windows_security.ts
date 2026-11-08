@@ -101,6 +101,8 @@ export function kindOf(record: Record<string, unknown>): string | null {
 const str = (v: unknown): string | undefined =>
   v === undefined || v === null || v === "" ? undefined : Array.isArray(v) ? (v.length ? v.map(String).join(", ") : undefined) : String(v);
 const short = (h: string) => h.split(".")[0];
+/** WorkstationName / Workstation is the NetBIOS name the client sends: never a DNS FQDN (an IP stays as written). */
+const netbiosName = (v?: string) => (v && /^[A-Za-z][A-Za-z0-9-]*\./.test(v) ? short(v) : v);
 const isPrivate = (ip: string) => /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|::ffff:(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)|127\.|::1\b|fe80:)/i.test(ip);
 
 /** One stable S-1-5-21 domain identifier per company. */
@@ -115,6 +117,17 @@ function userSid(ctx: NativeCtx, sam: string | undefined): string {
   if (SYSTEM_SIDS[lc]) return SYSTEM_SIDS[lc];
   // The endpoint renderers' formula (one SID per user across EDR, Sysmon and the Security log).
   return accountSid(ctx, lc);
+}
+/**
+ * An authored domain SID re-homed onto the organization's domain: the account keeps its RID, the
+ * domain part becomes this organization's one (a row written with another, invented domain
+ * identifier read as a second domain next to every other record of the same tenant).
+ */
+function homeSid(ctx: NativeCtx, sid: string | undefined): string | undefined {
+  const m = sid ? /^S-1-5-21-(\d+-\d+-\d+)-(\d+)$/.exec(sid) : null;
+  if (!m) return sid;
+  const dom = domainId(ctx);
+  return m[1] === dom ? sid : `S-1-5-21-${dom}-${m[2]}`;
 }
 /** A well-known privileged-group SID by name, else a stable domain group SID. */
 function groupSid(ctx: NativeCtx, name: string | undefined): string {
@@ -146,7 +159,8 @@ function timeCreated(ms: number): string {
 function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const raw = ev.raw ?? {};
   const r = (key: string) => str(raw[key]);
-  const ed = (name: string) => r(`winlog.event_data.${name}`);
+  // A *Sid field (never SidHistory: that one names another domain on purpose) is re-homed.
+  const ed = (name: string) => (/Sid$/.test(name) ? homeSid(ctx, r(`winlog.event_data.${name}`)) : r(`winlog.event_data.${name}`));
 
   const id = r("winlog.event_id") ?? r("event.code");
   if (!id || !kinds[id]) return null;
@@ -199,6 +213,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       const network = lt === "3";
       const logonProc = ed("LogonProcessName") ?? (authPkg === "Kerberos" ? "Kerberos" : authPkg === "NTLM" ? "NtLmSsp " : network ? "Kerberos" : "User32 ");
       const interactive = lt === "2" || lt === "7" || lt === "10" || lt === "11";
+      const winlogon = lt === "2" || lt === "10" || lt === "11";
       data = {
         SubjectUserSid: network ? (ed("SubjectUserSid") ?? "S-1-0-0") : subjectSid,
         SubjectUserName: network ? (ed("SubjectUserName") ?? "-") : subjectName,
@@ -211,15 +226,16 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         LogonType: lt,
         LogonProcessName: logonProc,
         AuthenticationPackageName: authPkg,
-        WorkstationName: ed("WorkstationName") ?? (interactive ? hostShort : "-"),
+        WorkstationName: netbiosName(ed("WorkstationName")) ?? (interactive ? hostShort : "-"),
         LogonGuid: ed("LogonGuid") ?? (authPkg === "NTLM" ? "{00000000-0000-0000-0000-000000000000}" : curly(logonGuid(ctx, hostShort, targetSam ?? "-"))),
         TransmittedServices: ed("TransmittedServices") ?? "-",
         LmPackageName: ed("LmPackageName") ?? (authPkg === "NTLM" ? "NTLM V2" : "-"),
         KeyLength: ed("KeyLength") ?? (authPkg === "NTLM" ? "128" : "0"),
         // A service logon (type 5) is made by the Service Control Manager: services.exe, the same pid the
         // host's EDR / Sysmon records give it.
-        ProcessId: ed("ProcessId") ?? (interactive ? "0x1f0" : lt === "5" ? `0x${(procPid(ctx, { host: hostShort, os: "Win", timeMs }, { name: "services.exe" }) ?? 720).toString(16)}` : "0x0"),
-        ProcessName: ed("ProcessName") ?? (interactive ? "C:\\Windows\\System32\\svchost.exe" : lt === "5" ? "C:\\Windows\\System32\\services.exe" : "-"),
+        // A console / Remote Desktop / cached logon (2, 10, 11) is made by winlogon.exe.
+        ProcessId: ed("ProcessId") ?? (winlogon ? `0x${(procPid(ctx, { host: hostShort, os: "Win", timeMs }, { name: "winlogon.exe" }) ?? 0x2a4).toString(16)}` : interactive ? "0x1f0" : lt === "5" ? `0x${(procPid(ctx, { host: hostShort, os: "Win", timeMs }, { name: "services.exe" }) ?? 720).toString(16)}` : "0x0"),
+        ProcessName: ed("ProcessName") ?? (winlogon ? "C:\\Windows\\System32\\winlogon.exe" : interactive ? "C:\\Windows\\System32\\svchost.exe" : lt === "5" ? "C:\\Windows\\System32\\services.exe" : "-"),
         IpAddress: ed("IpAddress") ?? srcIp ?? "-",
         IpPort: ed("IpPort") ?? (srcIp ? ephemeral(ctx, `${ev.id}:ip`) : "0"),
         ImpersonationLevel: ed("ImpersonationLevel") ?? "%%1833",
@@ -240,7 +256,9 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         SubjectUserSid: ed("SubjectUserSid") ?? "S-1-0-0",
         SubjectUserName: ed("SubjectUserName") ?? "-",
         SubjectDomainName: ed("SubjectDomainName") ?? "-",
-        SubjectLogonId: ed("SubjectLogonId") ?? "0x0",
+        // A local attempt (batch, service, interactive) is made by the computer's own SYSTEM session:
+        // Subject HOST$ with Logon ID 0x3e7. Only a network attempt has the NULL subject and 0x0.
+        SubjectLogonId: ed("SubjectLogonId") ?? (ed("SubjectUserSid") === "S-1-5-18" || /\$$/.test(ed("SubjectUserName") ?? "") ? "0x3e7" : "0x0"),
         TargetUserSid: "S-1-0-0",
         TargetUserName: targetSam ?? "-",
         TargetDomainName: targetDomain,
@@ -250,11 +268,14 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         LogonType: lt,
         LogonProcessName: ed("LogonProcessName") ?? "NtLmSsp ",
         AuthenticationPackageName: authPkg,
-        WorkstationName: ed("WorkstationName") ?? "-",
+        WorkstationName: netbiosName(ed("WorkstationName")) ?? "-",
         TransmittedServices: ed("TransmittedServices") ?? "-",
         LmPackageName: ed("LmPackageName") ?? "-",
         KeyLength: ed("KeyLength") ?? "0",
-        ProcessId: ed("ProcessId") ?? "0x0",
+        // The caller process: when the row names its image, the pid the host's own records give it.
+        ProcessId: ed("ProcessId") ?? (ed("ProcessName") && ed("ProcessName") !== "-"
+          ? `0x${(procPid(ctx, { host: hostShort, os: "Win", timeMs }, { name: ed("ProcessName")!.split("\\").pop()!, path: ed("ProcessName") }) ?? 1180).toString(16)}`
+          : "0x0"),
         ProcessName: ed("ProcessName") ?? "-",
         IpAddress: ed("IpAddress") ?? srcIp ?? "-",
         IpPort: ed("IpPort") ?? (srcIp ? ephemeral(ctx, `${ev.id}:ip`) : "0"),
@@ -406,7 +427,10 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     case "4740": {
       // The caller COMPUTER name sits in TargetDomainName (card §3.2) — carry the authored
       // CallerComputerName / source there (there is NO CallerComputerName field).
-      const caller = ed("CallerComputerName") ?? (srcIp ? `\\\\${srcIp}` : ed("TargetDomainName") ?? "-");
+      // An authored TargetDomainName that is not the domain itself already IS the caller.
+      const tdn = ed("TargetDomainName");
+      const tdnIsCaller = !!tdn && ![netbios, domain, "-"].some(d => d.toUpperCase() === tdn.toUpperCase());
+      const caller = ed("CallerComputerName") ?? (tdnIsCaller ? tdn : undefined) ?? (srcIp ? `\\\\${srcIp}` : tdn ?? "-");
       const tgt = targetSam ?? "-";
       data = {
         TargetUserName: tgt,
@@ -500,7 +524,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       data = {
         PackageName: ed("PackageName") ?? "MICROSOFT_AUTHENTICATION_PACKAGE_V1_0",
         TargetUserName: targetSam ?? "-",
-        Workstation: ed("Workstation") ?? r("destination.hostname") ?? hostShort,
+        Workstation: netbiosName(ed("Workstation") ?? r("destination.hostname")) ?? hostShort,
         Status: status,
       };
       break;
@@ -863,7 +887,86 @@ const useCases: UseCase[] = [
   },
 ];
 
+// ── companions: the authentication burst a story row closes ──────────────────
+
+/**
+ * A burst of failed logons a story attaches to the one row the feed shows of it (`_burst` on the event:
+ * a password spray's 4740 lockout). The feed re-times each row onto its own slot, so the attempts ride
+ * on that row, timed relative to it (`at`, seconds, negative = before), and the investigation tables
+ * hold the whole burst at its real pace. Each attempt is the 4625 the member server `host` logged
+ * (network logon, NTLM, the client's WorkstationName and address) and, with `dc`, the 4776 credential
+ * validation the row's own host (the domain controller) logged for it. `user` is the account
+ * (sAMAccountName or UPN: the UPN keeps a re-homed organization's people the same as everywhere else).
+ * `status` defaults to a bad password (0xC000006D / 0xC000006A); 0xC0000234 is a locked account and
+ * 0x0 the guess that worked (a 4624 network logon instead of the 4625).
+ * The burst names no domain or DC by name: the row's host and the rendering identity give them, so a
+ * story moved to another organization keeps one DC and one domain.
+ */
+export interface AuthBurst {
+  host?: string; dc?: boolean; ip: string; workstation?: string;
+  attempts: { at: number; user: string; status?: string; subStatus?: string }[];
+}
+const burstOf = (ev: TelemetryEvent): AuthBurst | undefined => (ev as TelemetryEvent & { _burst?: AuthBurst })._burst;
+
+/** EventRecordID, as fromTelemetry derives it for a row with none authored. */
+const recordIdOf = (ctx: NativeCtx, host: string, id: string) => ctx.int(`${ctx.companyId}:${short(host).toLowerCase()}:winsec:rec:${id}`, 1_000_000, 90_000_000);
+
+function companions(ev: TelemetryEvent, ctx: NativeCtx): NativeLog[] {
+  const b = burstOf(ev);
+  const t0 = Date.parse(ev.ts);
+  if (!b?.attempts?.length || !Number.isFinite(t0)) return [];
+  const attempts = [...b.attempts].sort((x, y) => x.at - y.at);
+  // Record ids climb on each host (other events in between): the DC's run ends below the row's own id
+  // when the row was written there, the member server's run starts at its own stable base.
+  const step = (seed: string) => ctx.int(seed, 3, 41);
+  const span = attempts.length * 41;
+  const dc = b.dc ? ev.hostname : undefined;
+  let dcRec = dc ? Math.max(1_000, recordIdOf(ctx, dc, ev.id) - 1 - span) : 0;
+  // The member server's run starts low in the id range, so a later row of the same story on that
+  // server (its own id drawn from the full range) almost always reads as written after the burst.
+  let hostRec = b.host ? ctx.int(`${ctx.companyId}:${short(b.host).toLowerCase()}:winsec:burst`, 1_000_000, 1_400_000) : 0;
+  const out: NativeLog[] = [];
+  attempts.forEach((a, i) => {
+    const sam = a.user.split("@")[0].split("\\").pop()!;
+    const ms = t0 + Math.round(a.at * 1000);
+    const status = (a.status ?? "0xC000006D").toUpperCase().replace(/^0X/, "0x");
+    const ok = status === "0x0";
+    const locked = status.toLowerCase() === "0xc0000234";
+    const sub = locked ? "0x0" : (a.subStatus ?? "0xC000006A");
+    const base = { source: "ad" as const, vendor: "Windows Security", event_type: ok ? "auth_success" as const : "auth_failure" as const, src_ip: b.ip };
+    if (dc) {
+      dcRec += step(`${ev.id}:burst:${i}:dcstep`);
+      const v = fromTelemetry({ ...base, id: `${ev.id}:burst:${i}:4776`, ts: new Date(ms - 40).toISOString(), hostname: dc,
+        raw: { "event.code": "4776", "winlog.record_id": String(dcRec), "winlog.event_data.TargetUserName": sam,
+          "winlog.event_data.Workstation": b.workstation ?? "-", "winlog.event_data.Status": ok || locked ? status : sub } } as TelemetryEvent, ctx);
+      if (v) out.push(v);
+    }
+    if (b.host && ok) {
+      // The guess that worked: the NLA network logon (type 3) the RDP session is then built on.
+      hostRec += step(`${ev.id}:burst:${i}:hoststep`);
+      const v = fromTelemetry({ ...base, id: `${ev.id}:burst:${i}:4624`, ts: new Date(ms).toISOString(), hostname: b.host,
+        raw: { "event.code": "4624", "winlog.record_id": String(hostRec),
+          "winlog.event_data.TargetUserName": sam, "winlog.event_data.TargetDomainName": ctx.netbios,
+          "winlog.event_data.TargetLogonId": `0x${ctx.hex(`${ev.id}:burst:${i}:luid`, 6).toUpperCase()}`,
+          "winlog.event_data.LogonType": "3", "winlog.event_data.LogonProcessName": "NtLmSsp ", "winlog.event_data.AuthenticationPackageName": "NTLM",
+          "winlog.event_data.WorkstationName": b.workstation ?? "-", "winlog.event_data.IpAddress": b.ip, "winlog.event_data.IpPort": "0" } } as TelemetryEvent, ctx);
+      if (v) out.push(v);
+    } else if (b.host) {
+      hostRec += step(`${ev.id}:burst:${i}:hoststep`);
+      const v = fromTelemetry({ ...base, id: `${ev.id}:burst:${i}:4625`, ts: new Date(ms).toISOString(), hostname: b.host,
+        raw: { "event.code": "4625", "winlog.record_id": String(hostRec),
+          "winlog.event_data.TargetUserName": sam, "winlog.event_data.TargetDomainName": ctx.netbios,
+          "winlog.event_data.Status": status, "winlog.event_data.SubStatus": sub, "winlog.event_data.FailureReason": locked ? "%%2307" : "%%2313",
+          "winlog.event_data.LogonType": "3", "winlog.event_data.LogonProcessName": "NtLmSsp ", "winlog.event_data.AuthenticationPackageName": "NTLM",
+          "winlog.event_data.WorkstationName": b.workstation ?? "-", "winlog.event_data.IpAddress": b.ip, "winlog.event_data.IpPort": "0" } } as TelemetryEvent, ctx);
+      if (v) out.push(v);
+    }
+  });
+  return out;
+}
+
 export const source: NativeSource = {
+  companions,
   schema: {
     sourceId: "windows_security", category: "onprem_ad", card: "windows-security.md", product: "Windows Security",
     format: "json", vendorMatch: ["windows security", "windows terminalservices", "microsoft-windows-security", "active directory"], telemetrySources: ["ad", "windows_security"], kinds,
