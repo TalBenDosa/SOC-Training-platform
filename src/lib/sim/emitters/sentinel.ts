@@ -14,6 +14,8 @@ import type { TelemetryEvent, Severity, EventType, ExpectedVerdict } from "../ty
 import { resolve, SEV_NAME, type Ctx } from "./_core";
 import { ecsTechnique } from "@/lib/logs/ecsFields";
 import { netbiosUser } from "../fabric";
+import { makeCtx } from "@/lib/logs/native/ctx";
+import { entraObjectId } from "@/lib/logs/native/sources/_identity-common";
 
 const VENDOR = "Microsoft Sentinel";
 
@@ -31,6 +33,37 @@ function guidFrom(seed: string): string {
   return `${s.slice(0, 8)}-${s.slice(8, 12)}-4${s.slice(13, 16)}-a${s.slice(17, 20)}-${s.slice(20, 32)}`;
 }
 const alertTypeSlug = (name: string) => name.replace(/[^A-Za-z0-9]+/g, "") || "CustomAlert";
+
+/**
+ * The tenant and the Entra object id of an identity, as every Microsoft record of the company names
+ * them (Entra sign-ins and audits, the UAL, Defender): one tenant id and one object id per person, from
+ * the shared native context, never a value of this emitter's own.
+ */
+const tenantOf = (companyId?: string) => makeCtx(companyId ?? "nexacorp").tenant.azureTenantId;
+const aadUserIdOf = (companyId: string | undefined, upn: string) => entraObjectId(makeCtx(companyId ?? "nexacorp"), upn);
+
+/**
+ * Where a SecurityAlert comes from. Each kind writes the ProductName / ProviderName /
+ * ProductComponentName its source writes:
+ *  - scheduled: a Sentinel scheduled analytics rule (Azure Sentinel / ASI Scheduled Alerts / Scheduled Alerts)
+ *  - nrt: a near-real-time analytics rule (Azure Sentinel / ASI Scheduled Alerts)
+ *  - mcas: Defender for Cloud Apps (Microsoft Cloud App Security / MCAS)
+ *  - mde: Defender for Endpoint (Microsoft Defender Advanced Threat Protection / MDATP)
+ * The event_type follows what the analytic watched (sign-ins, files, mail, cloud control plane, network),
+ * the same way for an attack and for a benign alert: never a value that only one of them uses.
+ */
+export type SentinelAlertKind = "scheduled" | "nrt" | "mcas" | "mde";
+const KIND_SOURCE: Record<SentinelAlertKind, { product: string; provider: string; component?: string }> = {
+  scheduled: { product: "Azure Sentinel", provider: "ASI Scheduled Alerts", component: "Scheduled Alerts" },
+  nrt: { product: "Azure Sentinel", provider: "ASI Scheduled Alerts" },
+  mcas: { product: "Microsoft Cloud App Security", provider: "MCAS" },
+  mde: { product: "Microsoft Defender Advanced Threat Protection", provider: "MDATP" },
+};
+/** What a rule watched, as the feed's event_type: one vocabulary for attack and benign alerts. */
+export const SENTINEL_SUBJECT_EVENT: Record<string, EventType> = {
+  identity: "ueba_anomaly", signin: "auth_failure", file: "file_access", mail: "email_received", cloud: "cloud_api_call",
+  network: "ids_signature", process: "process_create", threat_intel: "threat_intel_match",
+};
 
 /**
  * SecurityAlert.Tactics uses Sentinel's own tactic enum (PascalCase, no spaces). ATT&CK v19's Stealth
@@ -87,7 +120,11 @@ export interface SentinelAlertOpts extends Ctx {
   ruleId?: string;
   detail?: string;                 // alert.description
   severity?: Severity;
-  eventType?: EventType;       // default "ueba_anomaly"
+  eventType?: EventType;       // default: from `subject`, else "ueba_anomaly"
+  /** What the analytic watched (SENTINEL_SUBJECT_EVENT): sets the event_type when eventType is not given. */
+  subject?: keyof typeof SENTINEL_SUBJECT_EVENT;
+  /** Where the alert comes from (KIND_SOURCE). Default: scheduled, or mde when `mde` is given. */
+  alertKind?: SentinelAlertKind;
   mitre?: string;
   tactic?: string;
   fullName?: string;           // user.full_name
@@ -129,27 +166,27 @@ export function sentinelAlert(o: SentinelAlertOpts): TelemetryEvent {
   const ext: Record<string, string | string[] | number> = {};
   for (const [k, v] of Object.entries(o.extendedProperties ?? {})) ext[`ExtendedProperties.${k}`] = v;
 
-  const fromMde = !!o.mde;
-  const product = o.productName ?? (fromMde ? "Microsoft Defender Advanced Threat Protection" : "Azure Sentinel");
-  const provider = o.providerName ?? (fromMde ? "MDATP" : "ASI Scheduled Alerts");
+  const kind = KIND_SOURCE[o.alertKind ?? (o.mde ? "mde" : "scheduled")];
+  const product = o.productName ?? kind.product;
+  const provider = o.providerName ?? kind.provider;
   const domain = r.email?.includes("@") ? r.email.split("@")[1] : undefined;
   const sam = r.bareUser && r.bareUser !== "-" ? r.bareUser : undefined;
   // SecurityAlert Entities — the real array-of-typed-objects shape (host / account / ip).
   const entities = o.entities ?? [
     ...(r.host ? [{ "$id": "1", Type: "host", HostName: r.host, ...(domain ? { DnsDomain: domain, FQDN: `${r.host}.${domain}` } : {}) }] : []),
-    ...(sam ? [{ "$id": "2", Type: "account", Name: sam, ...(domain ? { UPNSuffix: domain } : {}), ...(r.email ? { AadUserId: guidFrom(r.email) } : {}) }] : []),
+    ...(sam ? [{ "$id": "2", Type: "account", Name: sam, ...(domain ? { UPNSuffix: domain } : {}), ...(r.email ? { AadUserId: aadUserIdOf(o.companyId, r.email) } : {}) }] : []),
     ...(r.srcIp ? [{ "$id": "3", Type: "ip", Address: r.srcIp }] : []),
   ];
 
   return {
-    id: o.id, ts: o.ts, source: "siem", vendor: VENDOR, event_type: o.eventType ?? "ueba_anomaly",
+    id: o.id, ts: o.ts, source: "siem", vendor: VENDOR, event_type: o.eventType ?? (o.subject ? SENTINEL_SUBJECT_EVENT[o.subject] : "ueba_anomaly"),
     severity: sev, ...(r.host ? { hostname: r.host } : {}), ...(r.srcIp ? { src_ip: r.srcIp } : {}), user_email: r.email,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
     description: o.description ?? `${VENDOR} raised ${o.alertName}${r.host ? ` on ${r.host}` : r.email ? ` for ${r.email}` : ""}`,
     raw: {
       // ── Microsoft Sentinel SecurityAlert schema ──
       "TimeGenerated": o.ts,
-      "TenantId": o.tenantId ?? guidFrom(`${o.companyId}:tenant`),
+      "TenantId": o.tenantId ?? tenantOf(o.companyId),
       "DisplayName": o.alertName,
       "AlertName": o.alertName,
       "AlertSeverity": SEV_NAME[sev],
@@ -157,7 +194,7 @@ export function sentinelAlert(o: SentinelAlertOpts): TelemetryEvent {
       "ProviderName": provider,
       "VendorName": o.vendorName ?? "Microsoft",
       "ProductName": product,
-      "DetectionProductName": product,
+      ...(kind.component && !o.productName ? { "ProductComponentName": kind.component } : {}),
       "AlertType": o.alertType ?? alertTypeSlug(o.alertName),
       "VendorOriginalId": guidFrom(`${o.id}:vendor`),
       "SystemAlertId": guidFrom(`${o.id}:system`),

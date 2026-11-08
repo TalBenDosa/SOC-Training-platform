@@ -479,6 +479,44 @@ export function addBaseline(tables: Record<string, KqlTable>, input: BaselineInp
     for (const k of Object.keys(row)) if (row[k] === undefined) delete row[k];
     add("DeviceInfo", row);
   }
+  for (const row of modelDeploymentHistory(tables, at)) add("AzureDiagnostics", row);
   return added;
+}
+
+/**
+ * A model deployment the feed shows in use served the same app all week: its RequestResponse records,
+ * business hours, with the request and response sizes that app ordinarily sends and gets back. Without
+ * them "is 15 KB unusual for this deployment?" has no answer (Sdema review I2). Built from the feed's
+ * own record of the deployment (header, caller, API version), so only the times, sizes and ids differ.
+ */
+function modelDeploymentHistory(tables: Record<string, KqlTable>, at: number): KqlRow[] {
+  const seen = new Map<string, KqlRow>();
+  for (const row of tables.AzureDiagnostics?.rows ?? []) {
+    if (row.Category !== "RequestResponse" || row.ResourceProvider !== "MICROSOFT.COGNITIVESERVICES" || typeof row.properties_s !== "string") continue;
+    let p: Record<string, unknown>;
+    try { p = JSON.parse(row.properties_s) as Record<string, unknown>; } catch { continue; }
+    const key = `${row.Resource}|${p.modelDeploymentName}`;
+    if (!seen.has(key) && String(row.ResultSignature) === "200") seen.set(key, row);
+  }
+  const out: KqlRow[] = [];
+  const TICKS0 = BigInt("621355968000000000");
+  const ticksAt = (ms: number) => (BigInt(ms) * BigInt(10_000) + TICKS0).toString();
+  for (const [key, tpl] of seen) {
+    const p = JSON.parse(String(tpl.properties_s)) as Record<string, unknown>;
+    for (let d = HISTORY_DAYS; d >= 1; d--) {
+      const day = Math.floor((at - d * DAY) / DAY) * DAY;
+      const calls = 4 + (fnv(`${key}:${d}`) % 5);
+      for (let i = 0; i < calls; i++) {
+        const h = fnv(`${key}:${d}:${i}`);
+        const ms = day + (8 + (h % 10)) * HOUR + (h % 3_571) * 1_000;
+        if (ms >= at) continue;
+        const dur = 900 + (h % 1_900);
+        const props: Record<string, unknown> = { ...p, requestTime: ticksAt(ms - dur), requestLength: 2_200 + (h % 2_100), responseTime: ticksAt(ms), responseLength: 900 + ((h >>> 8) % 1_400) };
+        const json = `{${Object.entries(props).map(([k, v]) => `"${k}":${k === "requestTime" || k === "responseTime" || typeof v === "number" ? v : JSON.stringify(v)}`).join(",")}}`;
+        out.push({ ...tpl, TimeGenerated: iso(ms), DurationMs: dur, CorrelationId: uuid(`aoai:${key}:${d}:${i}`), properties_s: json });
+      }
+    }
+  }
+  return out;
 }
 

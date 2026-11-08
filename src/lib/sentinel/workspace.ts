@@ -10,7 +10,8 @@
 import { authoredOf, graphAlertFor, NATIVE_SOURCES, nativeView, stackFor, withoutDetectionFeed, type NativeIdentity, type Stack } from "@/lib/logs/native";
 import { makeCtx, seededInt, seededUuid } from "@/lib/logs/native/ctx";
 import { runUseCase } from "@/lib/logs/native/engine";
-import type { NativeLog, SourceId, UseCase } from "@/lib/logs/native/types";
+import type { NativeCtx, NativeLog, SourceId, UseCase } from "@/lib/logs/native/types";
+import { entraObjectId } from "@/lib/logs/native/sources/_identity-common";
 import type { KqlRow, KqlTable } from "@/lib/kql/types";
 import { techniqueById } from "@/lib/mitre/attack";
 import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
@@ -24,6 +25,7 @@ import { logKey, mapRow, type MapContext } from "./mapRow";
 import { evaluatePart, NOISE_RULES, noiseAnalyticsRules } from "./noise";
 import { alertDescription, buildRules, groupFilter, kstr, plain, ruleSeverity, tacticName, tacticsOf, stackUseCases, type CompiledRule } from "./rules";
 import { emptyTable, TABLE_NAMES } from "./tables";
+import { evidenceFor, feedEntities, feedExtendedProperties, needlesOf, type Needle } from "./evidence";
 import type { GraphAlertDetails, SentinelAlert, SentinelEntity, SentinelIncident, SentinelSeverity, SentinelWorkspace } from "./types";
 import { handoffText, type Handoff } from "@/lib/team/handoff";
 import { mentionsConsole, XDR_ACTOR, XDR_PRODUCT, XDR_PROVIDER, xdrValue } from "./xdrBrand";
@@ -167,11 +169,33 @@ const HOST_COLUMN: Record<string, string> = {
 /** KQL for the single row behind a product detection. */
 function rowQuery(e: Entry, alertId: string): string {
   if (!e.table || !e.row) return `SecurityAlert\n| where SystemAlertId == ${kstr(alertId)}`;
-  const ms = Date.parse(String(e.row.TimeGenerated));
-  const hostCol = HOST_COLUMN[e.table];
-  const host = hostCol ? e.row[hostCol] : undefined;
-  return [e.table, between(ms, ms), ...(typeof host === "string" ? [`| where ${hostCol} == ${kstr(host)}`] : [])].join("\n");
+  return tableRowQuery(e.table, e.row);
 }
+function tableRowQuery(table: string, row: KqlRow): string {
+  const ms = Date.parse(String(row.TimeGenerated));
+  const hostCol = HOST_COLUMN[table];
+  const host = hostCol ? row[hostCol] : undefined;
+  return [table, between(ms, ms), ...(typeof host === "string" ? [`| where ${hostCol} == ${kstr(host)}`] : [])].join("\n");
+}
+
+/** Graph evidence types (the Graph alert and its SecurityAlert row name the same ones). */
+const GRAPH_TYPES = new Set(["host", "account", "ip", "url", "mailbox", "file", "process"]);
+/** A Graph alert's entities, plus what the product names that Graph evidence has no type for (an Azure resource). */
+function withOwn(graphColumn: string, own: Record<string, unknown>[] | undefined): string {
+  const extra = (own ?? []).filter(e => !GRAPH_TYPES.has(String(e.Type).toLowerCase()));
+  if (!extra.length) return graphColumn;
+  const list = JSON.parse(graphColumn) as Record<string, unknown>[];
+  return JSON.stringify([...list, ...extra.map((e, i) => ({ ...e, $id: String(list.length + i + 2) }))]);
+}
+
+/** How far back an alert with no log of its own looks for its evidence: the span its record states, else an hour. */
+function lookbackMs(ev: TelemetryEvent): number {
+  const start = raw(ev, "StartTime") ?? raw(ev, "azure.alert.startTimeUtc");
+  const span = start ? Date.parse(ev.ts) - Date.parse(start) : NaN;
+  return Number.isFinite(span) && span > 0 ? Math.min(Math.max(span + 60_000, 10 * 60_000), 24 * 3_600_000) : 3_600_000;
+}
+
+const NEEDLE_KIND: Partial<Record<SentinelEntity["kind"], Needle["kind"]>> = { ip: "ip", account: "account", host: "host", azureresource: "azureresource", file: "file" };
 
 function ruleAlertQuery(c: CompiledRule, uc: UseCase, entries: Entry[], firstMs: number, lastMs: number, groupKey?: string): string {
   const tables = new Set(entries.map(e => e.table));
@@ -182,19 +206,31 @@ function ruleAlertQuery(c: CompiledRule, uc: UseCase, entries: Entry[], firstMs:
 /** SecurityAlert fields a feed row already states: KQL shows the feed's value. */
 const FEED_ALERT_COLUMNS = ["AlertType", "VendorOriginalId", "ProductComponentName", "ConfidenceLevel", "RemediationSteps", "ExtendedLinks", "AlertLink"];
 
-function alertRow(a: Pending, entities: SentinelEntity[], tenantId: string, orgId: string): KqlRow {
+function alertRow(a: Pending, entities: SentinelEntity[], tenantId: string, orgId: string, ctx: NativeCtx): KqlRow {
   const al = a.alert;
   const g = al.graph;
   const ev = a.entries[0].ev;
   const feed: KqlRow = {};
   if (!al.ruleId) for (const c of FEED_ALERT_COLUMNS) { const v = raw(ev, c); if (v) feed[c] = v; }
-  const compromised = entities.find(e => e.kind === "host")?.name ?? entities.find(e => e.kind === "account")?.name ?? "";
+  // Defender for Cloud names its alert type and its own alert id (AI.Azure_ASCIISmuggling, systemAlertId).
+  if (!al.ruleId && raw(ev, "azure.alert.alertType")) feed.AlertType = raw(ev, "azure.alert.alertType")!;
+  // A product's alert in the feed states its own entities and extended properties: they are the evidence
+  // the analyst reads in the alert (the scanner account and host count of a port-scan analytic, the
+  // deployment and grounding document of an AI alert), so the row carries them as the product wrote them.
+  const own = !al.ruleId && isProductDetection(ev, a.entries[0].log);
+  // An account entity's AadUserId is the person's Entra object id, the one their sign-ins and audits carry.
+  const ownEntities = own ? feedEntities(ev.raw as Record<string, unknown> | undefined)?.map(e => (String(e.Type).toLowerCase() === "account" && typeof e.Name === "string" && typeof e.UPNSuffix === "string"
+    ? { ...e, AadUserId: entraObjectId(ctx, `${e.Name}@${e.UPNSuffix}`) } : e)) : undefined;
+  const ownProps = own ? feedExtendedProperties(ev.raw as Record<string, unknown> | undefined) : {};
+  const compromised = (own ? raw(ev, "CompromisedEntity") ?? raw(ev, "azure.alert.compromisedEntity") : undefined)
+    ?? entities.find(e => e.kind === "host")?.name ?? entities.find(e => e.kind === "account")?.name ?? "";
   return {
     TimeGenerated: al.time, Type: "SecurityAlert", TenantId: tenantId, SystemAlertId: al.id, AlertName: al.name, DisplayName: al.name, AlertSeverity: al.severity, Description: al.description,
     ProductName: al.product, ProviderName: a.provider, VendorName: al.product === XDR_PRODUCT ? XDR_ACTOR : "Microsoft", VendorOriginalId: seededUuid(`${orgId}:vendor:${al.id}`), AlertType: al.ruleId ? `${orgId}_${al.ruleId}` : al.name.replace(/\s+/g, ""),
     Status: "New", ConfidenceLevel: "Unknown", StartTime: isoMs(a.firstMs), EndTime: isoMs(a.lastMs), ProcessingEndTime: al.time, IsIncident: false, CompromisedEntity: compromised,
-    Tactics: al.tactics.join(","), Techniques: JSON.stringify(al.techniques), Entities: g ? graphEntitiesColumn(g.evidence) : entitiesColumn(entities),
+    Tactics: al.tactics.join(","), Techniques: JSON.stringify(al.techniques), Entities: g ? withOwn(graphEntitiesColumn(g.evidence), ownEntities) : ownEntities ? JSON.stringify(ownEntities) : entitiesColumn(entities),
     ExtendedProperties: JSON.stringify({
+      ...ownProps,
       "Analytic Rule Ids": al.ruleId ? [al.ruleId] : [],
       ...(g ? { "Graph Alert Id": g.id, "Graph Incident Id": g.incidentId, ServiceSource: g.serviceSource, DetectionSource: g.detectionSource, DetectorId: g.detectorId, Category: g.category, Classification: g.classification, Determination: g.determination } : {}),
     }),
@@ -392,7 +428,7 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
       alert: {
         ...(graph ? { graph } : {}),
         id, name: plain(graph?.title ?? detectionName(e.ev, e.log)), severity: toSeverity(graph?.severity ?? raw(e.ev, "AlertSeverity") ?? e.ev.severity), product,
-        description: plain(raw(e.ev, "Description") ?? e.ev.description ?? ""), time: e.ev.ts, tactics: tactics.length ? tactics : tacticsOf(techniques), techniques, query: rowQuery(e, id),
+        description: plain(raw(e.ev, "Description") ?? raw(e.ev, "azure.alert.description") ?? e.ev.description ?? ""), time: e.ev.ts, tactics: tactics.length ? tactics : tacticsOf(techniques), techniques, query: rowQuery(e, id),
       },
     });
   }
@@ -489,7 +525,7 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
   const entities = book.resolve(used);
   const alerts: SentinelAlert[] = pending.map(p => ({ ...p.alert, entityIds: [...new Set(p.entries.flatMap(e => e.entityIds))] }));
   pending.forEach((p, i) => {
-    tables.SecurityAlert.rows.push(alertRow(p, alerts[i].entityIds.map(id => entities[id]).filter(Boolean), tenantId, orgId));
+    tables.SecurityAlert.rows.push(alertRow(p, alerts[i].entityIds.map(id => entities[id]).filter(Boolean), tenantId, orgId, nativeCtx));
   });
   const alertOf = new Map(pending.map((p, i) => [p, alerts[i]]));
 
@@ -582,6 +618,49 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
     eventRows[e.ev.id] = [{ table, row }];
   }
   for (const e of entries) for (const m of eventRows[e.ev.id] ?? []) if (m.table !== "SecurityAlert") reconcileRow(m.table, m.row, e.ev);
+
+  // Before the baseline: the background week never changes an alert (correlation.test).
+  // An alert with no log of its own (a SIEM correlation, a Defender for Cloud alert, an analytic the feed
+  // carries as an alert) opens on its evidence: the rows naming its entities inside its lookback. Its
+  // StartTime / EndTime are the first and last of them, never the alert's own time (Sdema review I1).
+  // An escalated log that the native layer could not place opens on its own row.
+  const shiftStartMs = events.reduce((m, ev) => Math.min(m, Date.parse(ev.ts) || m), Number.POSITIVE_INFINITY);
+  pending.forEach((p, i) => {
+    const al = alerts[i];
+    if (al.ruleId || p.entries.length !== 1) return;
+    const e = p.entries[0];
+    if (e.table && e.row) return;
+    const ownRow = (eventRows[e.ev.id] ?? []).find(m => m.table !== "SecurityAlert");
+    if (ownRow) { al.query = tableRowQuery(ownRow.table, ownRow.row); return; }
+    const rawRec = e.ev.raw as Record<string, unknown> | undefined;
+    const needles: Needle[] = [
+      ...needlesOf(feedEntities(rawRec) ?? []),
+      ...al.entityIds.map(id => entities[id]).filter(Boolean).flatMap(en => (NEEDLE_KIND[en.kind] ? [{ kind: NEEDLE_KIND[en.kind]!, value: en.name }] : [])),
+    ];
+    // The feed is the whole story: the week of baseline before the shift is not this alert's evidence.
+    const to = Date.parse(e.ev.ts);
+    const found = evidenceFor(tables, needles, Math.max(to - lookbackMs(e.ev), shiftStartMs - 60_000), to);
+    if (!found.query) return;
+    al.query = found.query;
+    const row = tables.SecurityAlert.rows[i];
+    if (!row || row.SystemAlertId !== al.id) return;
+    // The span the product wrote, when it lies inside the shift and before the alert; else the span of the
+    // evidence: from the first row naming the alert's own subjects (address, account, host, file), to the last.
+    const start = raw(e.ev, "StartTime") ?? raw(e.ev, "azure.alert.startTimeUtc"), end = raw(e.ev, "EndTime") ?? raw(e.ev, "azure.alert.endTimeUtc");
+    const s0 = start ? Date.parse(start) : NaN, e0 = end ? Date.parse(end) : NaN;
+    if (Number.isFinite(s0) && Number.isFinite(e0) && s0 >= shiftStartMs - 60_000 && s0 <= e0 && e0 <= to) {
+      row.StartTime = isoMs(s0);
+      row.EndTime = isoMs(e0);
+    } else if (found.firstMs !== undefined && found.lastMs !== undefined) {
+      row.StartTime = isoMs(found.firstSpecificMs ?? found.firstMs);
+      row.EndTime = isoMs(found.lastMs);
+    }
+  });
+  const queryOf = new Map(alerts.map(a => [a.id, a.query]));
+  for (const inc of incidents) {
+    const qs = [...new Set(inc.alertIds.map(id => queryOf.get(id)).filter((q): q is string => !!q))];
+    if (qs.length) inc.eventsQuery = qs.length === 1 ? qs[0] : `union\n${qs.map(q => `(${q.replace(/\n/g, "\n  ")})`).join(",\n")}`;
+  }
 
   let baselineRows = 0;
   let directory: Directory | undefined;

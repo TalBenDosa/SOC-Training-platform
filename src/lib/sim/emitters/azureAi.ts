@@ -81,6 +81,8 @@ export interface AzureOpenAiRequestOpts extends Common {
   responseLength: number;
   stream?: boolean;
   apiVersion?: string;            // default 2025-01-01-preview
+  /** Entra object id of the caller when it signs in with Entra ID (a managed identity); empty with an API key. */
+  objectId?: string;
 }
 
 export function azureOpenAiRequest(o: AzureOpenAiRequestOpts): TelemetryEvent {
@@ -109,6 +111,7 @@ export function azureOpenAiRequest(o: AzureOpenAiRequestOpts): TelemetryEvent {
       "azure.open_ai.properties.request_length": o.requestLength,
       "azure.open_ai.properties.response_time": o.ts,
       "azure.open_ai.properties.response_length": o.responseLength,
+      ...(o.objectId ? { "azure.open_ai.properties.object_id": o.objectId } : {}),
       "azure.open_ai.properties.model_deployment_name": o.deployment,
       "azure.open_ai.properties.model_name": o.model ?? "gpt-4o",
       "azure.open_ai.properties.model_version": o.modelVersion ?? "2024-11-20",

@@ -135,6 +135,12 @@ export class EntityBook {
       const azure = ev.source === "cloud_azure" || /^\/subscriptions\//i.test(ev.cloud.resource);
       ids.push(this.touch(azure ? "azureresource" : "cloudapp", ev.cloud.resource, ms, { Service: ev.cloud.service, Region: ev.cloud.region, Provider: ev.cloud.provider }));
     }
+    // An Azure resource the record names by its ARM id (an Azure OpenAI account, a storage account).
+    const rec = ev.raw as Record<string, unknown> | undefined;
+    const arm = typeof rec?.["azure.resource.id"] === "string" ? String(rec["azure.resource.id"]) : typeof rec?._ResourceId === "string" ? String(rec._ResourceId).replace(/\/(blobServices|fileServices|queueServices|tableServices)\/default$/i, "") : undefined;
+    if (arm && /^\/subscriptions\/[^/]+\/resourcegroups\/[^/]+\/providers\//i.test(arm)) {
+      ids.push(this.touch("azureresource", arm, ms, { "Resource name": arm.split("/").pop(), "Resource type": arm.split("/").slice(6, 8).join("/") }));
+    }
     if (ev.registry?.path || ev.registry?.key) {
       const key = (ev.registry.path ?? ev.registry.key)!;
       ids.push(this.touch("registry", key, ms, { Key: key, Value: ev.registry.value }));
