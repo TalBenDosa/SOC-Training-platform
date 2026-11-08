@@ -17,12 +17,23 @@ import { intIn, pickOf, shuffled } from "./variety";
 /** A ServiceNow record for a ticket spec. `window` (change requests) is filled in later by the timeline, once times are final. */
 export function ticketRecord(spec: TicketSpec, companyId: string, id: string, ts: string): TelemetryEvent {
   const approved = spec.table !== "incident";
+  // Still waiting for its approver: a request in Pending, a change in Assess / Authorize.
+  const awaiting = /^(pending|assess|authorize|new)$/i.test(spec.state);
   const kind = spec.table === "incident" ? "incident" : spec.table === "sc_req_item" ? "request" : "change";
+  // When the ticket was opened: now for a new one, earlier the further along it is. The value is
+  // relative to the record's own time, which the timeline shifts together with every other
+  // date-time in the record, so the two stay in step.
+  const opened = snowTime(Date.parse(ts) - openedMinutesAgo(spec) * 60_000);
+  const isIncident = spec.table === "incident";
   return serviceNowRecord({
     companyId, id, ts, table: spec.table, number: spec.number, state: spec.state, shortDescription: spec.short, severity: "informational",
+    // An incident names its caller (caller_id), a request item its requested_for, a change its requester.
+    ...(isIncident && spec.requestedFor ? { callerId: spec.requestedFor } : {}),
     extra: {
-      ...(approved ? { "servicenow.approval": "Approved" } : {}),
-      ...(spec.requestedFor ? { "servicenow.requested_for": spec.requestedFor } : {}),
+      "servicenow.opened_at": opened, "servicenow.sys_created_on": opened, "servicenow.sys_updated_on": snowTime(Date.parse(ts)),
+      ...(approved ? { "servicenow.approval": awaiting ? "Requested" : "Approved" } : {}),
+      ...(spec.requestedFor && !isIncident ? { "servicenow.requested_for": spec.requestedFor } : {}),
+      ...(spec.table === "change_request" && spec.assignedTo?.includes("@") ? { "servicenow.requested_by": spec.assignedTo } : {}),
       ...(spec.ci ? { "servicenow.cmdb_ci": spec.ci } : {}),
       ...(spec.assignedTo ? { "servicenow.assigned_to": spec.assignedTo } : {}),
       ...(spec.group ? { "servicenow.assignment_group": spec.group } : {}),
@@ -31,6 +42,21 @@ export function ticketRecord(spec: TicketSpec, companyId: string, id: string, ts
     },
     description: `ServiceNow ${kind} ${spec.number} (${spec.state}): ${spec.short}`,
   } as Parameters<typeof serviceNowRecord>[0]);
+}
+
+/** ServiceNow's stored date-time format (UTC, "YYYY-MM-DD HH:MM:SS"). */
+const snowTime = (ms: number) => new Date(ms).toISOString().slice(0, 19).replace("T", " ");
+
+/** Minutes between opening a ticket and this record of it, stable per ticket number. */
+function openedMinutesAgo(spec: TicketSpec): number {
+  let h = 2166136261;
+  for (let i = 0; i < spec.number.length; i++) { h ^= spec.number.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const r = (h >>> 0) / 4294967296;
+  const st = spec.state.toLowerCase();
+  if (spec.table === "change_request") return Math.round(1440 + r * 5 * 1440);   // raised 1-6 days before
+  if (/^(new|open)$/.test(st)) return 0;
+  if (/closed|resolved|complete/.test(st)) return Math.round(90 + r * 1300);     // worked for hours
+  return Math.round(15 + r * 300);                                                // in progress / pending
 }
 
 const isServer = (h: string) => /^(SRV|SVR|DC)-|-SRV-|prod-srv|-DC\d/i.test(h);

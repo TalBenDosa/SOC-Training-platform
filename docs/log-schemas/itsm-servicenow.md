@@ -217,3 +217,5 @@ Platform representation: **the Table API response object exactly as returned** â
 - `work_notes`/`comments` come back empty from the Table API; journal text lives in `sys_journal_field`.
 - `sys_created_by` / `sys_updated_by` are plain user_name strings, not references.
 - No `severity` on incident OOB in the SOC sense (the OOB `severity` field exists but is rarely used; prioritisation is `priority`).
+
+**Platform note (2026-11-08).** Every record carries the fields a real record of its table always has, whatever the update was: `priority` / `impact` / `urgency`, `opened_by`, `opened_at` / `sys_created_on`, `sys_updated_on`; an incident also `caller_id`, `category` and `contact_type`; a change `requested_by` and `risk`; a requested item `requested_for` (src/lib/sim/emitters/servicenow.ts `recordDefaults`, src/lib/team/itsmNoise.ts). A background ticket and a ticket in an attack story therefore have the same shape. One ticket keeps one `number`, one `sys_id` (derived from the number) and one `opened_at` across all its rows; no clock time is written into free text (short description, work notes), because the feed re-times the rows.
