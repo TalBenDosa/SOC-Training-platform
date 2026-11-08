@@ -44,6 +44,23 @@ const APP_META: Record<string, [string, string, string, string, string, string]>
   "web-browsing": ["internet-utility", "general-internet", "browser-based", "4", "used-by-malware,able-to-transfer-file,has-known-vulnerability,tunnel-other-application,pervasive-use", "no"],
   mega: ["file-sharing", "general-internet", "browser-based", "4", "able-to-transfer-file,has-known-vulnerability,tunnel-other-application,prone-to-misuse,is-saas", "yes"],
 };
+/**
+ * PAN-OS brute-force parent signatures by App-ID protocol (Threat Vault; each fires when its child
+ * signature repeats past the trigger condition, e.g. 40021 = 8 RDP connects (33020) in 100 s from one
+ * source to one destination, 40015 = 20 SSH logins (31914) in 60 s).
+ */
+const PAN_BRUTE_FORCE: Record<string, [string, string]> = {
+  rdp: ["MS-RDP Brute Force Attempt", "40021"],
+  ssh: ["SSH User Authentication Brute-force Attempt", "40015"],
+  smb: ["SMB: User Password Brute-force Attempt", "40004"],
+  ftp: ["FTP: Login Brute-force Attempt", "40001"],
+};
+/** Zone Protection reconnaissance events (THREAT subtype scan). */
+const PAN_SCANS: [RegExp, string, string][] = [
+  [/udp/i, "UDP Port Scan", "8003"],
+  [/sweep/i, "Host Sweep", "8002"],
+  [/port.?scan|tcp/i, "TCP Port Scan", "8001"],
+];
 const PAN_THREAT_ACTIONS = new Set(["alert", "allow", "deny", "drop", "reset-client", "reset-server", "reset-both", "block-url", "block-ip", "sinkhole", "block-continue", "continue", "block-override", "override", "random-drop"]);
 const RISKY_CATS = new Set(["newly-registered-domain", "unknown", "malware", "command-and-control", "phishing", "dynamic-dns", "grayware", "high-risk"]);
 const isWeb = (p: number) => [80, 443, 8080, 8443].includes(p);
@@ -76,7 +93,7 @@ function head(f: FwFacts, ctx: NativeCtx, type: "TRAFFIC" | "THREAT", subtype: s
   const natted = !firstPacketDrop && !(type === "TRAFFIC" && f.blocked);
   if (natted) {
     r.natsrc = isSnat(f) ? egressIp(ctx) : "0.0.0.0";
-    r.natdst = f.natDst ?? (isSnat(f) ? f.dst : "0.0.0.0");
+    r.natdst = f.panNatDst ?? (isSnat(f) ? f.dst : "0.0.0.0");
   }
   r.rule = f.rule;
   // User-ID realm = the tenant's own NetBIOS domain, whatever domain the story was written with.
@@ -152,14 +169,20 @@ function threat(f: FwFacts, ctx: NativeCtx): Record<string, string> {
   const raw = (f.ev.raw ?? {}) as Record<string, unknown>;
   let subtype: string, misc: string | undefined, threatid: string, severity: string, thr: string, action: string;
   const authoredAct = String(raw["pan.action"] ?? raw["event.action"] ?? "").toLowerCase();
+  let zoneScan = false;
   if (f.cls === "threat" && f.threat) {
     const t = f.threat;
-    subtype = t.kind === "c2" ? "spyware" : "vulnerability";
-    misc = f.urlNoScheme ?? (f.domain ? `${f.domain}/` : undefined);
-    const id = t.id ?? String(t.kind === "c2" ? threatNumber(t.name, ctx, 86000, 86999) : threatNumber(t.name, ctx, 30000, 44999));
-    threatid = `${t.name}(${id})`;
+    // PAN-OS's own signature when the story names the attack generically: a brute force on a protocol
+    // PAN-OS has a brute-force signature for, a scan its Zone Protection reports (subtype scan).
+    const brute = t.kind === "bruteforce" ? PAN_BRUTE_FORCE[f.app] : undefined;
+    const scan = t.kind === "scan" ? PAN_SCANS.find(([re]) => re.test(t.name)) : undefined;
+    zoneScan = !!scan;
+    subtype = scan ? "scan" : t.kind === "c2" ? "spyware" : "vulnerability";
+    misc = scan ? undefined : f.urlNoScheme ?? (f.domain ? `${f.domain}/` : undefined);
+    const [name, id] = brute ?? (scan ? [scan[1], scan[2]] : [t.name, t.id ?? String(t.kind === "c2" ? threatNumber(t.name, ctx, 86000, 86999) : threatNumber(t.name, ctx, 30000, 44999))]);
+    threatid = `${name}(${id})`;
     severity = t.severity;
-    thr = t.kind === "c2" ? (/dns|tunnel/i.test(`${t.name} ${t.catRaw ?? ""}`) ? "dns-c2" : "command-and-control") : t.kind === "bruteforce" ? "brute-force" : t.kind === "scan" ? "info-leak" : t.kind === "sqli" ? "sql-injection" : "code-execution";
+    thr = scan ? "scan" : t.kind === "c2" ? (/dns|tunnel/i.test(`${t.name} ${t.catRaw ?? ""}`) ? "dns-c2" : "command-and-control") : t.kind === "bruteforce" ? "brute-force" : t.kind === "scan" ? "info-leak" : t.kind === "sqli" ? "sql-injection" : "code-execution";
     action = f.blocked ? (PAN_THREAT_ACTIONS.has(authoredAct) && authoredAct !== "alert" && authoredAct !== "allow" ? authoredAct : "reset-both") : "alert";
   } else if (f.cls === "file" && f.file) {
     subtype = "file";
@@ -177,10 +200,12 @@ function threat(f: FwFacts, ctx: NativeCtx): Record<string, string> {
     action = f.blocked ? "block-url" : PAN_THREAT_ACTIONS.has(authoredAct) && ["alert", "continue", "override"].includes(authoredAct) ? authoredAct : "alert";
   }
   const r = head(f, ctx, "THREAT", subtype);
+  // Zone Protection counts packets at the ingress zone, before App-ID, NAT or a session: no app, no translation.
+  if (zoneScan) { r.app = "not-applicable"; r.natsrc = "0.0.0.0"; r.natdst = "0.0.0.0"; r.natsport = "0"; r.natdport = "0"; r.sessionid = "0"; if (threatid.startsWith("UDP ")) r.proto = "udp"; }
   r.action = action;
   if (misc) r.misc = misc;
   r.threatid = threatid;
-  const cat = isWeb(f.dport) || f.categoryPanRaw || f.cls === "url" ? panCategory(f) : "any";
+  const cat = !zoneScan && (isWeb(f.dport) || f.categoryPanRaw || f.cls === "url") ? panCategory(f) : "any";
   r.category = cat;
   r.severity = severity;
   r.direction = subtype === "file" && f.dir !== "inbound" && f.method !== "PUT" && f.method !== "POST" ? "server-to-client" : "client-to-server";

@@ -28,6 +28,8 @@ export interface FwFacts {
   companyId: string;
   /** Destination NAT of a published service: `dst` is the public address, this is the private server behind it. */
   natDst?: string;
+  /** PAN-OS natdst: natDst, or the server an event authored with the public address translates to (pan.natdst). */
+  panNatDst?: string;
   /** True when the authoring vendor is this module's own product. */
   native: boolean;
   cls: FwClass;
@@ -484,12 +486,15 @@ export function extractFacts(ev: TelemetryEvent, ctx: NativeCtx, vendorMatch: st
   const ind = `${rawGet(raw, "threat.indicator") ?? ""} ${rawGet(raw, "threat.category") ?? ""}`;
   if (!siCategory && /tor/i.test(ind) && blocked) siCategory = "Tor_exit_node";
   // A published service: the event keeps the server's own address, the record shows the public one with the server as the translation.
+  // Or the event already names the public address (what every firewall's record shows) and only the
+  // translation names the server.
   const natAuthored = dir === "inbound" ? rawGet(raw, "pan.natdst") : undefined;
   const published = natAuthored && isPrivate(natAuthored) && isPrivate(dst) ? rawGet(raw, "pan.dst") : undefined;
   const natDst = published ? natAuthored : undefined;
+  const panNatDst = natDst ?? (natAuthored && isPrivate(natAuthored) && !isPrivate(dst) ? natAuthored : undefined);
 
   return {
-    ev, timeMs, companyId: ctx.companyId, natDst, native, cls, dir, src, dst: published ?? dst, sport, dport, proto,
+    ev, timeMs, companyId: ctx.companyId, natDst, panNatDst, native, cls, dir, src, dst: published ?? dst, sport, dport, proto,
     protoNum: proto === "udp" ? 17 : proto === "icmp" ? 1 : 6,
     blocked, startOnly, detectOnly: cls === "threat" && !blocked,
     app, domain, url, urlNoScheme, path, method, userAgent, referer, category, categoryPanRaw,

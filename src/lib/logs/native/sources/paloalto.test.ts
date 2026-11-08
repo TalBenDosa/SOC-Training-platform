@@ -84,3 +84,26 @@ runFirewallSuite({
     return [...beacons, ...scan, allowed];
   },
 });
+
+// Sdema review 2026-11-08 (K5): a story's generic brute-force / scan names render as PAN-OS's own
+// signatures, and a published server keeps its public VIP in dst with the server in natdst.
+describe("paloalto: PAN-OS signatures for generic threats", () => {
+  const ctx = makeCtx("nexacorp");
+  const base = { id: "pan-sig", ts: "2026-05-10T17:00:51.000Z", source: "firewall" as const, vendor: "Palo Alto Networks PAN-OS", severity: "high" as const };
+  it("an RDP brute force is MS-RDP Brute Force Attempt(40021); an SMB one 40004, never the FTP 40001", () => {
+    const rdp = source.fromTelemetry({ ...base, event_type: "ids_signature", src_ip: "185.220.101.45", dst_ip: "198.51.100.161", dst_port: 3389,
+      raw: { "pan.threat_name": "Brute Force Login Attempt", "pan.threat_category": "brute-force", "pan.app": "ms-rdp", "pan.action": "alert", "pan.natdst": "10.10.20.31" } }, ctx)!;
+    expect(rdp.record).toMatchObject({ type: "THREAT", subtype: "vulnerability", threatid: "MS-RDP Brute Force Attempt(40021)", thr_category: "brute-force",
+      action: "alert", dst: "198.51.100.161", natdst: "10.10.20.31", natsrc: "0.0.0.0", from: "untrust" });
+    const smb = source.fromTelemetry({ ...base, id: "pan-sig-smb", event_type: "ids_blocked", src_ip: "203.0.113.9", dst_ip: "198.51.100.162", dst_port: 445,
+      raw: { "pan.threat_id": "40001", "pan.threat_name": "SMB-BruteForce", "pan.action": "block-ip" } }, ctx)!;
+    expect(smb.record.threatid).toBe("SMB: User Password Brute-force Attempt(40004)");
+  });
+  it("a scan is a Zone Protection THREAT/scan: TCP Port Scan(8001) / Host Sweep(8002) / UDP Port Scan(8003), no app, no NAT", () => {
+    const mk = (name: string) => source.fromTelemetry({ ...base, id: `scan-${name}`, event_type: "ids_signature", severity: "medium", src_ip: "10.10.20.243", dst_ip: "10.10.20.179", dst_port: 445,
+      raw: { "ids.signature_name": name, "ids.signature_id": "SID:40014", "ids.category": "network-scan" } }, ctx)!.record;
+    expect(mk("SCAN-TCP-Port-Scan")).toMatchObject({ subtype: "scan", threatid: "TCP Port Scan(8001)", app: "not-applicable", natsrc: "0.0.0.0", natdst: "0.0.0.0", sessionid: "0", thr_category: "scan", proto: "tcp" });
+    expect(mk("SCAN-Host-Sweep").threatid).toBe("Host Sweep(8002)");
+    expect(mk("SCAN-UDP-Port-Scan")).toMatchObject({ threatid: "UDP Port Scan(8003)", proto: "udp" });
+  });
+});
