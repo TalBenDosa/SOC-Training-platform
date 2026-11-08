@@ -2,7 +2,7 @@
 import "./sentinel.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity, Briefcase, ChevronsLeft, ChevronsRight, Crosshair, Eye, Fingerprint, Gauge, Lock, Radar, Search, ShieldCheck, TerminalSquare, Workflow, X,
+  BellRing, Bot, ChartSpline, Eye, LayoutDashboard, Lock, PanelLeftClose, PanelLeftOpen, Radar, Rss, ScrollText, Search, ShieldHalf, Siren, TextSearch, UserRoundSearch, X,
 } from "lucide-react";
 import type { IncidentState, SentinelActions, SentinelBookmark, SentinelEntity, SentinelWorkspace } from "@/lib/sentinel/types";
 import { SentinelProvider, type LogsRequest, type PlaybookRequest, type PlaybookRun, type Screen, type SentinelCtx } from "./context";
@@ -42,21 +42,21 @@ export interface SentinelConsoleProps {
   sessionKey?: string;
 }
 
-const NAV: { group: string; items: { id: Screen; label: string; icon: typeof Gauge }[] }[] = [
+const NAV: { group: string; items: { id: Screen; label: string; icon: typeof Siren }[] }[] = [
   { group: "General", items: [
-    { id: "overview", label: "Overview", icon: Gauge },
-    { id: "logs", label: "Logs", icon: TerminalSquare },
-    { id: "search", label: "Search", icon: Search },
+    { id: "overview", label: "Overview", icon: LayoutDashboard },
+    { id: "logs", label: "Logs", icon: ScrollText },
+    { id: "search", label: "Search", icon: TextSearch },
   ] },
   { group: "Threat management", items: [
-    { id: "incidents", label: "Incidents", icon: Briefcase },
-    { id: "hunting", label: "Hunting", icon: Crosshair },
-    { id: "entity", label: "Entity behavior", icon: Fingerprint },
-    { id: "ti", label: "Threat intelligence", icon: ShieldCheck },
+    { id: "incidents", label: "Incidents", icon: Siren },
+    { id: "hunting", label: "Hunting", icon: Radar },
+    { id: "entity", label: "Entity behavior", icon: UserRoundSearch },
+    { id: "ti", label: "Threat intelligence", icon: Rss },
   ] },
   { group: "Configuration", items: [
-    { id: "analytics", label: "Analytics", icon: Activity },
-    { id: "automation", label: "Automation", icon: Workflow },
+    { id: "analytics", label: "Analytics", icon: ChartSpline },
+    { id: "automation", label: "Automation", icon: Bot },
   ] },
 ];
 
@@ -264,13 +264,13 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
   const unopened = workspace.incidents.filter(i => !openedStored.has(i.id) && !openedHere.has(i.id) && stateOf(i.id).status !== "Closed").length;
   const covered = !!incident || !!investigated;
   const focused = screen === "entity" && entityFocus ? workspace.entities[entityFocus] : undefined;
-  const ScreenIcon = focused ? Fingerprint : (NAV.flatMap(g => g.items).find(i => i.id === screen)?.icon ?? Gauge);
+  const ScreenIcon = focused ? UserRoundSearch : (NAV.flatMap(g => g.items).find(i => i.id === screen)?.icon ?? LayoutDashboard);
 
   return (
     <SentinelProvider value={ctx}>
       <div ref={rootRef} className="st-root" data-testid="sentinel-root">
         <header className="st-topbar">
-          <strong>XDR</strong>
+          <span className="xd-mark" aria-hidden><ShieldHalf size={15} /></span><strong>XDR</strong>
           <span aria-hidden>|</span>
           <span className="st-ellipsis" data-testid="workspace-name">{workspace.name}</span>
           <span className="st-grow" />
@@ -284,7 +284,7 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
         {ended && <div className="st-ended" role="status"><Lock size={13} aria-hidden />The exercise has ended. This workspace is read-only: queries still run, changes are off.</div>}
         <div className="st-shell">
           {!covered && (
-            <BladeHeader icon={<ScreenIcon size={30} color="#0078d4" fill={ScreenIcon === Briefcase ? "#c7e0f4" : "none"} aria-hidden />} {...(focused
+            <BladeHeader icon={<span className="xd-head-tile" aria-hidden><ScreenIcon size={22} /></span>} {...(focused
               ? { strong: focused.name, sub: KIND_LABEL[focused.kind], crumbs: [{ label: "Home" }, { label: "XDR | Entity behavior", onClick: () => setEntityFocus(null) }] }
               : { strong: "XDR", light: SCREEN_TITLE[screen], sub: `Selected workspace: '${workspace.name}'`, crumbs: [{ label: "Home" }, { label: "XDR" }] })} />
           )}
@@ -297,7 +297,7 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
                 </label>
               )}
               <button type="button" className="st-icon-btn" aria-label={navCollapsed ? "Expand menu" : "Collapse menu"} aria-expanded={!navCollapsed} onClick={() => setNavCollapsed(c => !c)}>
-                {navCollapsed ? <ChevronsRight size={15} aria-hidden /> : <ChevronsLeft size={15} aria-hidden />}
+                {navCollapsed ? <PanelLeftOpen size={15} aria-hidden /> : <PanelLeftClose size={15} aria-hidden />}
               </button>
             </div>
             {NAV.map(g => {
@@ -340,7 +340,7 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
           {investigated && <InvestigationGraph key={`investigate-${investigated.id}`} incident={investigated} onClose={closeInvestigation} />}
           {logsOverlay && (
             <SlidePanel title="Logs" subtitle={workspace.name} width="min(1130px, 80%)" noBody onClose={() => setLogsOverlay(null)}
-              icon={<TerminalSquare size={28} color="#0078d4" aria-hidden />}
+              icon={<span className="xd-head-tile" aria-hidden><ScrollText size={20} /></span>}
               footer={<button type="button" className="st-btn primary" onClick={() => setLogsOverlay(null)}>Done</button>}>
               <LogsPanel key={logsOverlay.key} mode="panel" request={logsOverlay} incidentId={logsOverlay.incidentId ?? investigateId ?? incidentId ?? undefined} />
             </SlidePanel>
@@ -365,8 +365,8 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
 function ToastView({ t, onOpen, onDismiss }: { t: Toast; onOpen: (id: string) => void; onDismiss: () => void }) {
   return (
               <div className={`st-toast ${t.kind === "error" ? "err" : t.severity ?? ""}`}>
-                {t.incidentId && <Radar size={14} color="#0078d4" aria-hidden />}
-                {t.kind === "info" && <Eye size={14} color="#0078d4" aria-hidden />}
+                {t.incidentId && <BellRing size={14} color="#6d28d9" aria-hidden />}
+                {t.kind === "info" && <Eye size={14} color="#6d28d9" aria-hidden />}
                 <div className="st-grow">
                   <strong>{t.title}</strong>
                   {t.body && <div className="st-ellipsis" title={t.body} style={{ whiteSpace: t.kind === "error" ? "normal" : undefined }}>{t.body}</div>}

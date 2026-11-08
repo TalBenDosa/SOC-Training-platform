@@ -1,7 +1,7 @@
 "use client";
 import { forwardRef, memo, useCallback, useId, useImperativeHandle, useMemo, useRef, useState, type KeyboardEvent as RKeyboardEvent } from "react";
 import {
-  BookmarkPlus, ChevronDown, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, ChevronUp, Clock, Columns3, Copy, Filter, MoreHorizontal, Search, Timer,
+  BookmarkPlus, ChevronDown, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, ChevronUp, Clock3, Copy, Filter, MoreHorizontal, Search, Table2, Timer,
 } from "lucide-react";
 import type { KqlColumn, KqlResult, KqlRow } from "@/lib/kql/types";
 import { ChartView, kindFromResult } from "./ChartView";
@@ -10,6 +10,12 @@ import { useSentinel } from "./context";
 import { fmtValue } from "./engine";
 import { fmtCount, fmtDuration, fmtElapsed, toCsv } from "./helpers";
 import { ColumnsButton, Popover, Tabs } from "./ui";
+import { SevChip } from "./XdrParts";
+import type { SentinelSeverity } from "@/lib/sentinel/types";
+
+/** A severity column's value is drawn as its coloured pill, as everywhere else in XDR. */
+const SEV_VALUE = new Set(["High", "Medium", "Low", "Informational"]);
+const isSevColumn = (name: string) => /severity$/i.test(name);
 
 export interface Outcome {
   id: number;
@@ -125,7 +131,7 @@ const Row = memo(function Row({ row, index, cols, selected, expanded, activeCol,
         const text = fmt(row[c.name], c);
         return (
           <td key={c.name} role="gridcell" tabIndex={activeCol === i ? 0 : -1} data-col={i} title={text} onFocus={() => onFocusCell(index, i)}>
-            {text}
+            {isSevColumn(c.name) && SEV_VALUE.has(text) ? <SevChip value={text as SentinelSeverity} /> : text}
             {text !== "" && (
               <button type="button" tabIndex={-1} className="st-copy" aria-label={`Copy ${c.name}`} onClick={e => { e.stopPropagation(); onCopy(text); }}>
                 <Copy size={12} aria-hidden />
@@ -280,7 +286,7 @@ function ResultsArea({ outcome, incidentId, panel = false, onFilter }, ref) {
   );
   const toggleColumn = (n: string) => setHidden(h => { const x = new Set(h); if (x.has(n)) x.delete(n); else x.add(n); return x; });
   const columnList = columns.map(c => ({ key: c.name, label: c.name }));
-  const columnsButton = <ColumnsButton columns={columnList} hidden={hidden} onToggle={toggleColumn}><Columns3 size={14} aria-hidden />Columns<ChevronDown size={12} aria-hidden /></ColumnsButton>;
+  const columnsButton = <ColumnsButton columns={columnList} hidden={hidden} onToggle={toggleColumn}><Table2 size={14} aria-hidden />Columns<ChevronDown size={12} aria-hidden /></ColumnsButton>;
 
   return (
     <div className="st-results">
@@ -294,7 +300,7 @@ function ResultsArea({ outcome, incidentId, panel = false, onFilter }, ref) {
             <BookmarkPlus size={14} aria-hidden />Add bookmark{selected.size > 0 ? ` (${selected.size})` : ""}
           </button>
         )}
-        {!panel && <><span className="st-cmdsep" aria-hidden /><span className="st-row" style={{ gap: 6 }}><Clock size={14} color="#0078d4" aria-hidden />Display time (UTC+00:00)</span></>}
+        {!panel && <><span className="st-cmdsep" aria-hidden /><span className="st-row" style={{ gap: 6 }}><Clock3 size={14} color="#6d28d9" aria-hidden />Display time (UTC+00:00)</span></>}
         <span className="st-grow" />
         <span role="status" aria-live="polite" className="st-small st-muted">{note}</span>
         {searching || search ? (
@@ -302,7 +308,7 @@ function ResultsArea({ outcome, incidentId, panel = false, onFilter }, ref) {
             <Search size={14} aria-hidden /><span className="st-sr">Search results</span>
             <input className="st-input" autoFocus style={{ height: 24 }} value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} onBlur={() => setSearching(false)} placeholder="Search" />
           </label>
-        ) : <button type="button" className="st-icon-btn" aria-label="Search results" onClick={() => setSearching(true)}><Search size={15} color="#0078d4" aria-hidden /></button>}
+        ) : <button type="button" className="st-icon-btn" aria-label="Search results" onClick={() => setSearching(true)}><Search size={15} color="#6d28d9" aria-hidden /></button>}
       </div>
       {panel ? (
         <>
@@ -373,7 +379,7 @@ function ResultsArea({ outcome, incidentId, panel = false, onFilter }, ref) {
           </div>
           {panel && (
             <div className="st-col-rail">
-              <ColumnsButton columns={columnList} hidden={hidden} onToggle={toggleColumn} className="st-col-tab"><Columns3 size={14} aria-hidden /><span>Columns</span></ColumnsButton>
+              <ColumnsButton columns={columnList} hidden={hidden} onToggle={toggleColumn} className="st-col-tab"><Table2 size={14} aria-hidden /><span>Columns</span></ColumnsButton>
             </div>
           )}
           </div>

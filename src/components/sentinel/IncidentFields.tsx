@@ -3,7 +3,7 @@
 // product each opens a list with Apply and Cancel, nothing changes until Apply, and closing an
 // incident happens inside the Status list.
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, CircleUserRound, Search } from "lucide-react";
+import { ChevronDown, UserRound, Search } from "lucide-react";
 import type { ClosingClassification, IncidentState, IncidentStatus, SentinelIncident, SentinelSeverity } from "@/lib/sentinel/types";
 import { useSentinel } from "./context";
 import { CLASSIFICATIONS, STATUSES } from "./helpers";
@@ -115,7 +115,7 @@ function OwnerPicker({ incident, state, anchor, side, onClose }: PickerProps) {
       <div className="st-pick-group">Users</div>
       <div role="listbox" aria-label="Owner" className="st-pick-people">
         <button type="button" role="option" aria-selected={pick === null} tabIndex={-1} className="st-person" onClick={() => setPick(null)}>
-          <span className="face plain"><CircleUserRound size={20} aria-hidden /></span><span>Unassign Incident</span>
+          <span className="face plain"><UserRound size={20} aria-hidden /></span><span>Unassign Incident</span>
         </button>
         <button type="button" role="option" aria-label={`Assign to me, ${me}`} aria-selected={pick === me} tabIndex={-1} className="st-person" onClick={() => setPick(me)}>
           <span className="face grey">{initials(me)}</span><span><span className="d">Assign to me</span><span className="d sub">{me}</span></span>
@@ -145,7 +145,7 @@ export function FieldBar({ incident, state, order, collapsed, tail }: {
   const value: Record<Field, string> = { severity: state.severity, status: state.status, owner };
   const label: Record<Field, string> = { severity: "Severity", status: "Status", owner: "Owner" };
   const glyph = (f: Field, size: number) => (f === "status" ? <StatusIcon status={state.status} size={size} />
-    : f === "owner" ? <CircleUserRound size={size} color="#0078d4" aria-hidden />
+    : f === "owner" ? <UserRound size={size} color="#6d28d9" aria-hidden />
       : collapsed ? <SevGlyph value={state.severity} size={size} /> : null);
   const props: PickerProps | null = open ? { incident, state, anchor: open.anchor, side: collapsed ? "right" : "below", onClose: close } : null;
   return (

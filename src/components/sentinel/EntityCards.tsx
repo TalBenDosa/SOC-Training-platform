@@ -19,30 +19,35 @@ function DeviceStateLine({ host }: { host: string }) {
   );
 }
 
-export function InsightCard({ insight, range, defaultOpen = true }: { insight: EntityInsight; range?: string; defaultOpen?: boolean }) {
+/** What an insight found: its time range, description, a few rows and the way into Logs. */
+export function InsightResults({ insight, range }: { insight: EntityInsight; range?: string }) {
   const { openLogs } = useSentinel();
-  const [open, setOpen] = useState(defaultOpen);
   const { columns, rows } = insight.preview;
+  return (
+    <>
+      {range && <div className="st-small st-muted" style={{ marginTop: 2 }}>{range}</div>}
+      <p className="st-small st-muted" style={{ marginTop: 2 }}>{insight.description}</p>
+      {rows.length > 0 && (
+        <table className="st-mini">
+          <thead><tr>{columns.map(c => <th key={c} scope="col" title={c}>{c}</th>)}</tr></thead>
+          <tbody>{rows.slice(0, 5).map((r, i) => <tr key={i}>{r.map((v, j) => <td key={j} title={v}>{v}</td>)}</tr>)}</tbody>
+        </table>
+      )}
+      <button type="button" className="st-link st-small" style={{ marginTop: 6 }} onClick={() => openLogs({ query: insight.query, run: true })}>See results &gt;</button>
+    </>
+  );
+}
+
+export function InsightCard({ insight, range, defaultOpen = true }: { insight: EntityInsight; range?: string; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <section className="st-insight">
       <button type="button" className="st-insight-head" aria-expanded={open} onClick={() => setOpen(o => !o)}>
-        {open ? <ChevronUp size={16} color="#0078d4" aria-hidden /> : <ChevronDown size={16} color="#0078d4" aria-hidden />}
+        {open ? <ChevronUp size={16} color="#6d28d9" aria-hidden /> : <ChevronDown size={16} color="#6d28d9" aria-hidden />}
         <span className="st-ellipsis st-grow">{insight.title}</span>
         <InfoMark title={insight.description} />
       </button>
-      {open && (
-        <>
-          {range && <div className="st-small st-muted" style={{ marginTop: 2 }}>{range}</div>}
-          <p className="st-small st-muted" style={{ marginTop: 2 }}>{insight.description}</p>
-          {rows.length > 0 && (
-            <table className="st-mini">
-              <thead><tr>{columns.map(c => <th key={c} scope="col" title={c}>{c}</th>)}</tr></thead>
-              <tbody>{rows.slice(0, 5).map((r, i) => <tr key={i}>{r.map((v, j) => <td key={j} title={v}>{v}</td>)}</tr>)}</tbody>
-            </table>
-          )}
-          <button type="button" className="st-link st-small" style={{ marginTop: 6 }} onClick={() => openLogs({ query: insight.query, run: true })}>See results &gt;</button>
-        </>
-      )}
+      {open && <InsightResults insight={insight} range={range} />}
     </section>
   );
 }

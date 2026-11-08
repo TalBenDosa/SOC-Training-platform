@@ -3,7 +3,7 @@
 // filter pills, the Auto-refresh switch, a grid with selection, and the details pane.
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity, Bookmark, Briefcase, CalendarClock, ChevronDown, ChevronUp, ChevronsRight, Columns3, FolderOpen, Loader, RefreshCw, Search, ShieldAlert, SlidersHorizontal,
+  BellRing, BookMarked, ChevronDown, ChevronUp, ChevronsRight, CircleDot, Clock3, FolderOpen, Hourglass, ListChecks, RotateCw, Rows3, Search, Siren, Table2,
 } from "lucide-react";
 import type { ClosingClassification, IncidentState, IncidentStatus, SentinelIncident, SentinelSeverity } from "@/lib/sentinel/types";
 import { useSentinel } from "./context";
@@ -15,7 +15,7 @@ import { IncidentDescription } from "./IncidentDescription";
 import {
   ButtonMenu, ColumnsButton, Empty, FilterPill, rowKeys, Select, SimplePager, SlidePanel, SortTh, StatusIcon, Switch, type SortState,
 } from "./ui";
-import { EntityTile } from "./XdrParts";
+import { EntityTile, SevChip } from "./XdrParts";
 
 type SortKey = "severity" | "number" | "title" | "alerts" | "products" | "created" | "lastUpdate" | "owner" | "status" | "tactics";
 const PAGE = 50;
@@ -56,13 +56,13 @@ export function Evidence({ incident, state, linkLabels }: { incident: SentinelIn
   return (
     <div className="st-ev">
       <button type="button" onClick={() => openLogs({ query: incident.eventsQuery, run: true })} aria-label={`Events, ${incident.eventCount}`}>
-        <b><Activity size={18} color="#0078d4" aria-hidden />{incident.eventCount}</b><span className={label}>Events</span>
+        <b><Rows3 size={18} color="#6d28d9" aria-hidden />{incident.eventCount}</b><span className={label}>Events</span>
       </button>
       <button type="button" onClick={() => openLogs({ query: alertsQuery(incident), run: true })} aria-label={`Alerts, ${incident.alertIds.length}`}>
-        <b><ShieldAlert size={18} color="#fff" fill="#0078d4" aria-hidden />{incident.alertIds.length}</b><span className={label}>Alerts</span>
+        <b><BellRing size={18} color="#6d28d9" aria-hidden />{incident.alertIds.length}</b><span className={label}>Alerts</span>
       </button>
       <button type="button" onClick={() => openLogs({ query: bookmarksQuery(incident), run: true })} aria-label={`Bookmarks, ${state.bookmarks.length}`}>
-        <b><Bookmark size={18} color="#0078d4" fill="#0078d4" aria-hidden />{state.bookmarks.length}</b><span className={label}>Bookmarks</span>
+        <b><BookMarked size={18} color="#6d28d9" aria-hidden />{state.bookmarks.length}</b><span className={label}>Bookmarks</span>
       </button>
     </div>
   );
@@ -92,7 +92,7 @@ export function IncidentPreview({ incident, onClose }: { incident: SentinelIncid
     <aside className="st-preview" aria-label={`Incident ${incident.number} preview`}>
       <div className="st-preview-head">
         <i className={`st-band ${state.severity} edge`} aria-hidden />
-        <Briefcase size={24} color="#0078d4" fill="#c7e0f4" aria-hidden />
+        <span className="xd-head-tile sm" aria-hidden><Siren size={16} /></span>
         <div className="st-grow" style={{ minWidth: 0 }}>
           <h2 className="st-wrap" title={incident.title}>{incident.title}</h2>
           <div className="st-small" style={{ fontWeight: 600 }}>Incident ID: {incident.number}</div>
@@ -210,7 +210,7 @@ const IncidentRow = memo(function IncidentRow({ incident, state, selected, ticke
           <input type="checkbox" aria-label={`Select incident ${incident.number}`} checked={ticked} onChange={() => onTick(incident.id)} />
         </td>
       )}
-      <td className="st-sevcell"><i className={`st-cellband ${state.severity}`} aria-hidden />{state.severity}</td>
+      <td className="st-sevcell"><i className={`st-cellband ${state.severity}`} aria-hidden /><SevChip value={state.severity} /></td>
       {show("number") && <td>{incident.number}</td>}
       <td title={esc ? `${incident.title}\n${esc.tag}${esc.summary ? `: ${esc.summary}` : ""}` : incident.title}>
         <span className="st-row" style={{ gap: 6 }}>
@@ -317,20 +317,20 @@ export function IncidentsPage() {
   return (
     <div className="st-page">
       <div className="st-cmdbar st-cmdbar-line" role="toolbar" aria-label="Incidents commands">
-        <button type="button" className="st-cmd" onClick={onRefresh}><RefreshCw size={14} aria-hidden />Refresh</button>
+        <button type="button" className="st-cmd" onClick={onRefresh}><RotateCw size={14} aria-hidden />Refresh</button>
         <Select label="Time range" value={range} options={RANGES} onChange={setRange} className="st-cmd">
-          <CalendarClock size={14} aria-hidden />{RANGES.find(r => r.value === range)?.label}<ChevronDown size={12} aria-hidden />
+          <Clock3 size={14} aria-hidden />{RANGES.find(r => r.value === range)?.label}<ChevronDown size={12} aria-hidden />
         </Select>
-        {!ended && <button type="button" className="st-cmd" disabled={ticked.size === 0} onClick={() => setBulk(true)}><SlidersHorizontal size={14} aria-hidden />Actions</button>}
+        {!ended && <button type="button" className="st-cmd" disabled={ticked.size === 0} onClick={() => setBulk(true)}><ListChecks size={14} aria-hidden />Actions</button>}
         <ColumnsButton columns={COLUMNS.filter(c => !c.always).map(c => ({ key: c.key, label: c.label }))} hidden={hidden}
           onToggle={k => setHidden(h => { const n = new Set(h); if (n.has(k)) n.delete(k); else n.add(k); return n; })}>
-          <Columns3 size={14} aria-hidden />Columns
+          <Table2 size={14} aria-hidden />Columns
         </ColumnsButton>
       </div>
       <div className="st-kpis">
-        <div className="st-kpi"><b><Briefcase size={22} color="#0078d4" fill="#c7e0f4" aria-hidden />{fmtCompact(counts.open)}</b><span>Open incidents</span></div>
-        <div className="st-kpi"><b><Loader size={22} color="#0078d4" aria-hidden />{fmtCompact(counts.new)}</b><span>New incidents</span></div>
-        <div className="st-kpi"><b><RefreshCw size={22} color="#0078d4" aria-hidden />{fmtCompact(counts.active)}</b><span>Active incidents</span></div>
+        <div className="st-kpi"><b><span className="xd-kpi-ico" aria-hidden><Siren size={18} /></span>{fmtCompact(counts.open)}</b><span>Open incidents</span></div>
+        <div className="st-kpi"><b><span className="xd-kpi-ico" aria-hidden><CircleDot size={18} /></span>{fmtCompact(counts.new)}</b><span>New incidents</span></div>
+        <div className="st-kpi"><b><span className="xd-kpi-ico" aria-hidden><Hourglass size={18} /></span>{fmtCompact(counts.active)}</b><span>Active incidents</span></div>
         <div className="st-sevbar">
           <strong>Open incidents by severity</strong>
           <div className="bar" aria-hidden>

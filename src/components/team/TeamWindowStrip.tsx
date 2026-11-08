@@ -68,7 +68,7 @@ export function TeamWindowStrip({ sessionId }: { sessionId: string }) {
   const back = () => showSiemWindow(sessionId, `/team/${sessionId}`);
   const items: { n: number; one: string; many: string; tone: string }[] = [
     { n: counts.escalations, one: "escalation waiting", many: "escalations waiting", tone: "#ffb900" },
-    { n: counts.unreadChat, one: "unread chat message", many: "unread chat messages", tone: "#0078d4" },
+    { n: counts.unreadChat, one: "unread chat message", many: "unread chat messages", tone: "#6d28d9" },
     { n: counts.approved, one: "containment approved: carry it out", many: "containments approved: carry them out", tone: "#107c10" },
     { n: counts.approvals, one: "request waits for your approval", many: "requests wait for your approval", tone: "#d13438" },
   ];
@@ -78,7 +78,7 @@ export function TeamWindowStrip({ sessionId }: { sessionId: string }) {
       <span style={{ fontWeight: 600 }}>Team room</span>
       {total === 0 ? <span style={{ color: "#605e5c" }}>Nothing waiting for you there.</span> : items.filter(i => i.n > 0).map(i => (
         <button key={i.one} type="button" onClick={back}
-          style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "none", border: 0, padding: 0, cursor: "pointer", color: "#0f6cbd", textDecoration: "underline", font: "inherit" }}>
+          style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "none", border: 0, padding: 0, cursor: "pointer", color: "#6d28d9", textDecoration: "underline", font: "inherit" }}>
           <span aria-hidden style={{ width: 7, height: 7, borderRadius: 999, background: i.tone, display: "inline-block" }} />
           {i.n} {i.n === 1 ? i.one : i.many}
         </button>

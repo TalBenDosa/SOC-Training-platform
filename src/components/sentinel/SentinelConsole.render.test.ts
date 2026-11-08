@@ -138,12 +138,21 @@ describe("shell", () => {
     const lum = (h: string) => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
     const onWhite = (h: string) => 1.05 / (lum(h) + 0.05);
     expect(onWhite(hex("st-text-3"))).toBeGreaterThanOrEqual(4.5);
+    // white text on the accent (primary buttons, badges) and on the top bar
+    expect(onWhite(hex("st-accent"))).toBeGreaterThanOrEqual(4.5);
+    expect(onWhite(hex("st-bar"))).toBeGreaterThanOrEqual(4.5);
+    // Inter and JetBrains Mono, no Segoe UI and no Azure blue left
+    expect(css).toMatch(/font-family: var\(--font-inter\)/);
+    expect(css).toMatch(/--st-mono: var\(--font-jetbrains\)/);
+    expect(css).not.toMatch(/Segoe UI|#0078d4/i);
     expect(onWhite(hex("st-low-edge"))).toBeGreaterThanOrEqual(3);
     expect(css).toMatch(/\.st-band\.Low:not\(\.dotted\), \.st-cellband\.Low \{ box-shadow: inset 0 0 0 1px var\(--st-low-edge\)/);
     // XDR's chips and tiles: every ink on its own background, AA for small text.
     const ratio = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
     for (const [ink, bg] of [["xd-high-ink", "xd-high-bg"], ["xd-med-ink", "xd-med-bg"], ["xd-low-ink", "xd-low-bg"], ["xd-info-ink", "xd-info-bg"], ["xd-tac-ink", "xd-tac-bg"],
-      ["xd-t-blue", "xd-t-blue-bg"], ["xd-t-teal", "xd-t-teal-bg"], ["xd-t-plum", "xd-t-plum-bg"], ["xd-t-amber", "xd-t-amber-bg"], ["st-text-2", "xd-info-bg"]]) {
+      ["xd-t-blue", "xd-t-blue-bg"], ["xd-t-teal", "xd-t-teal-bg"], ["xd-t-plum", "xd-t-plum-bg"], ["xd-t-amber", "xd-t-amber-bg"], ["st-text-2", "xd-info-bg"],
+      // the violet accent (owner, 2026-11-08): links, the nav's current item, soft tiles and the top bar
+      ["st-accent", "st-accent-faint"], ["st-accent", "st-accent-soft"], ["st-accent-ink", "st-accent-faint"], ["st-accent-hover", "st-accent-soft"]]) {
       expect(ratio(hex(ink), hex(bg)), `${ink} on ${bg}`).toBeGreaterThanOrEqual(4.5);
     }
   });
@@ -839,8 +848,36 @@ describe("XDR's own alerts, entities and graph", () => {
     expect(card.querySelector(".xd-ac-top time")).toBeTruthy();
     expect([...card.querySelectorAll(".xd-ac-chips .xd-chip")].map(c => c.textContent)).toEqual(["Medium", "Microsoft Defender for Endpoint", "Execution"]);
     expect([...card.querySelectorAll(".xd-echip")].map(c => c.textContent)).toEqual(["jdoe@contoso.example", "FIN-LT-042", "+1"]);
-    // no portal timeline: no date column, no rail dot
+    // no portal timeline (no date column), but XDR's own: one vertical line with a severity dot per item
     expect(q(".st-tl-rail, .st-tl-date, .st-tl-dot")).toBeNull();
+    expect(card.closest(".xd-tl-item")!.querySelector(".xd-vrail .xd-vdot.Medium")).toBeTruthy();
+    expect(card.closest(".xd-tl")!.classList.contains("vt")).toBe(true);
+  });
+
+  it("severity is a coloured pill in the incidents grid and the results grid", async () => {
+    mount();
+    const pill = incidentRows()[0].querySelector(".st-sevcell .xd-chip.sev")!;
+    expect(pill).toBeTruthy();
+    expect(pill.classList.contains(pill.textContent!)).toBe(true);
+    await runInLogs("SecurityAlert | project AlertName, AlertSeverity");
+    const cells = gridRows().map(r => r.querySelector(".xd-chip.sev")?.textContent);
+    expect(cells.length).toBeGreaterThan(0);
+    for (const c of cells) expect(["High", "Medium", "Low", "Informational"]).toContain(c);
+  });
+
+  it("Top insights is a short icon list, and a row opens that insight's results", async () => {
+    mount();
+    openDetails();
+    const widget = q('section.st-widget[aria-label="Top insights"]')!;
+    const rows = [...widget.querySelectorAll<HTMLButtonElement>(".xd-ins-row")];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const r of rows) { expect(r.querySelector(".xd-ins-ico svg")).toBeTruthy(); expect(r.getAttribute("aria-expanded")).toBe("false"); }
+    expect(widget.querySelector(".st-mini")).toBeNull();
+    click(rows[0]);
+    expect(rows[0].getAttribute("aria-expanded")).toBe("true");
+    press("See results >");
+    await settle();
+    expect(gridRows().length).toBeGreaterThan(0);
   });
 
   it("the alert flyout is sectioned, with entity chips that open the entity", () => {

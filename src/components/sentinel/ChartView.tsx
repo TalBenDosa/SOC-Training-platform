@@ -7,7 +7,7 @@ import type { KqlChart, KqlColumn, KqlRow } from "@/lib/kql/types";
 import { fmtDateTime, fmtCount } from "./helpers";
 import { Empty, Select } from "./ui";
 
-export const SERIES = ["#0078d4", "#c77700", "#00a3a0", "#7a5fc0", "#c8507f", "#4f8a10"];
+export const SERIES = ["#6d28d9", "#c77700", "#00a3a0", "#2f6fb5", "#c8507f", "#4f8a10"];
 const OTHER = "#8a8886";
 const GRID = "#edebe9";
 

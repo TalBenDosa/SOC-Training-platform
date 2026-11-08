@@ -6,7 +6,7 @@
 // X and a labelled link. Layout is deterministic: every viewer sees the same picture.
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity, Bookmark, Briefcase, ChevronDown, ChevronUp, CircleUserRound, Clock, Maximize, Minus, PanelRightClose, PanelRightOpen, Plus, Redo2, Search, ShieldAlert, Undo2, X,
+  Activity, Bookmark, Siren, ChevronDown, ChevronUp, UserRound, Clock3, Maximize, Minus, PanelRightClose, PanelRightOpen, Plus, Redo2, Search, ShieldAlert, Undo2, X,
 } from "lucide-react";
 import type { EntityKind, SentinelAlert, SentinelEntity, SentinelIncident, SentinelSeverity } from "@/lib/sentinel/types";
 import { useSentinel } from "./context";
@@ -21,8 +21,8 @@ const SEV_STROKE: Record<SentinelSeverity, string> = { High: "#c50f1f", Medium: 
 const ENT = { w: 172, h: 40 };
 const ALR = { w: 204, h: 50 };
 const half = (n: GNode) => (n.type === "alert" ? ALR : ENT);
-const EDGE = "#8a8886";
-const EDGE_LIT = "#0078d4";
+const EDGE = "#8b5cf6";
+const EDGE_LIT = "#6d28d9";
 
 type GNode =
   | { id: string; type: "entity"; entity: SentinelEntity; x: number; y: number }
@@ -404,11 +404,11 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
         <button type="button" className="st-cmd" disabled={!undone.length} onClick={redo}><Redo2 size={15} aria-hidden />Redo</button>
       </div>
       <div className="st-inv-summary">
-        <div style={{ minWidth: 0 }}><b><Briefcase size={22} color="#0078d4" fill="#c7e0f4" aria-hidden /><span className="st-ellipsis" style={{ maxWidth: 380 }} title={incident.title}>{incident.title}</span></b><span>Incident</span></div>
+        <div style={{ minWidth: 0 }}><b><Siren size={20} color="#6d28d9" aria-hidden /><span className="st-ellipsis" style={{ maxWidth: 380 }} title={incident.title}>{incident.title}</span></b><span>Incident</span></div>
         <div><b><i className={`st-band ${state.severity}`} style={{ height: 22, width: 5 }} aria-hidden />{state.severity}</b><span>Severity</span></div>
         <div><b><StatusIcon status={state.status} size={20} />{state.status}</b><span>Status</span></div>
-        <div><b><CircleUserRound size={20} color="#0078d4" aria-hidden />{state.owner ?? "Unassigned"}</b><span>Owner</span></div>
-        <div><b><Clock size={20} color="#0078d4" aria-hidden />{fmtDateTime(incident.lastUpdate)}</b><span>Last incident update time</span></div>
+        <div><b><UserRound size={20} color="#6d28d9" aria-hidden />{state.owner ?? "Unassigned"}</b><span>Owner</span></div>
+        <div><b><Clock3 size={20} color="#6d28d9" aria-hidden />{fmtDateTime(incident.lastUpdate)}</b><span>Last incident update time</span></div>
       </div>
       <div className="st-inv-main">
         <div ref={canvas} className={`st-canvas${panning ? " panning" : ""}`} tabIndex={0} role="group"
@@ -620,7 +620,7 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
                 onClick={() => onSelect(a.id)} />
             ))}
             {state.bookmarks.map(b => (
-              <button key={b.id} type="button" className="st-strip-dot bookmark" style={{ left: `${stripPos(b.at)}%`, background: "#0078d4" }} aria-label={`Bookmark ${b.name}, ${fmtDateTime(b.at)}`} title={b.name}
+              <button key={b.id} type="button" className="st-strip-dot bookmark" style={{ left: `${stripPos(b.at)}%`, background: "#6d28d9" }} aria-label={`Bookmark ${b.name}, ${fmtDateTime(b.at)}`} title={b.name}
                 onClick={() => logs(b.query)} />
             ))}
           </div>

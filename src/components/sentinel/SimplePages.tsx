@@ -1,7 +1,7 @@
 "use client";
 // Search, Hunting, Entity behavior, Threat intelligence, Analytics and Automation.
 import { useCallback, useMemo, useState } from "react";
-import { Bookmark, Crosshair, Fingerprint, Play, Search, ShieldCheck, Workflow, X } from "lucide-react";
+import { Bookmark, Radar, UserRoundSearch, Play, Search, Rss, Bot, X } from "lucide-react";
 import type { AnalyticsRule, HuntingQuery, SentinelBookmark, SentinelEntity } from "@/lib/sentinel/types";
 import { useSentinel } from "./context";
 import { EntityInfoCard, EntityInsightsCard, EntityTimelineCard } from "./EntityCards";
@@ -101,7 +101,7 @@ function HuntingQueries() {
               ))}
             </tbody>
           </table>
-          {shown.length === 0 && <Empty icon={<Crosshair size={28} aria-hidden />} title="No queries match" />}
+          {shown.length === 0 && <Empty icon={<Radar size={28} aria-hidden />} title="No queries match" />}
         </div>
       </div>
       {sel && (
@@ -214,7 +214,7 @@ export function EntityBehaviorPage({ focus, onFocus }: { focus: string | null; o
           <label className="st-search" style={{ maxWidth: 420 }}><Search size={14} aria-hidden /><span className="st-sr">Search entities</span>
             <input className="st-input" value={q} onChange={e => setQ(e.target.value)} placeholder="Search for an account, a host, an IP or any entity" />
           </label>
-          {list.length === 0 && <Empty icon={<Fingerprint size={28} aria-hidden />} title={Object.keys(ws.entities).length ? "No entity matches" : "No entities yet"} />}
+          {list.length === 0 && <Empty icon={<UserRoundSearch size={28} aria-hidden />} title={Object.keys(ws.entities).length ? "No entity matches" : "No entities yet"} />}
           {list.length > 0 && (
             <table className="st-table" aria-label="Entities" style={{ marginTop: 10, maxWidth: 760 }}>
               <thead><tr><th scope="col">Name</th><th scope="col" style={{ width: 160 }}>Type</th><th scope="col" style={{ width: 80 }}>Alerts</th></tr></thead>
@@ -242,7 +242,7 @@ export function ThreatIntelPage() {
   return (
     <div className="st-page">
       {list.length === 0
-        ? <Empty icon={<ShieldCheck size={28} aria-hidden />} title="No indicators yet">Choose Add to TI on an IP, domain, URL or file entity of an incident.</Empty>
+        ? <Empty icon={<Rss size={28} aria-hidden />} title="No indicators yet">Choose Add to TI on an IP, domain, URL or file entity of an incident.</Empty>
         : (
           <div className="st-page-scroll" style={{ padding: "0 16px 16px" }}>
             <table className="st-table" aria-label="Threat indicators" style={{ minWidth: 640 }}>
@@ -365,7 +365,7 @@ export function AutomationPage() {
       <div className="st-page-scroll" style={{ padding: "0 16px 16px" }}>
         <div style={{ marginBottom: 6 }}><Tabs label="Automation" value="playbooks" onChange={() => undefined} tabs={[{ value: "playbooks", label: "Active playbooks" }]} /></div>
         {hosts.length === 0
-          ? <Empty icon={<Workflow size={28} aria-hidden />} title="No device to act on yet">Playbooks here act on devices. Devices appear once they are seen in the logs.</Empty>
+          ? <Empty icon={<Bot size={28} aria-hidden />} title="No device to act on yet">Playbooks here act on devices. Devices appear once they are seen in the logs.</Empty>
           : (
             <>
               <label className="st-row" style={{ margin: "8px 0", maxWidth: 420 }}>

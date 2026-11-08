@@ -6,8 +6,8 @@ import {
   type CSSProperties, type KeyboardEvent as RKeyboardEvent, type ReactNode,
 } from "react";
 import {
-  AppWindow, ArrowDown, ArrowUp, ArrowUpDown, Box, CheckCircle2, ChevronDown, ChevronRight, Info,
-  Cloud, Cpu, FileText, Globe, KeyRound, Link2, Loader, CircleAlert, Mail, Monitor, MoreHorizontal, RefreshCw, Search, User, X,
+  AppWindow, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, CircleAlert, CircleCheckBig, CircleDot, CloudCog, Container, Earth, FileCode2,
+  Hourglass, Inbox, Info, KeySquare, Laptop, Link, MemoryStick, MoreHorizontal, Network, Search, UserRound, X,
 } from "lucide-react";
 import type { EntityKind, IncidentStatus, SentinelSeverity } from "@/lib/sentinel/types";
 
@@ -288,9 +288,10 @@ export function Severity({ value, dotted }: { value: SentinelSeverity; dotted?: 
   return <span className="st-sev"><i className={`st-band ${value}${dotted ? " dotted" : ""}`} aria-hidden />{value}</span>;
 }
 
-const KIND_ICON: Record<EntityKind, typeof User> = {
-  account: User, host: Monitor, ip: Globe, file: FileText, process: Cpu, url: Link2, domain: Globe, mailbox: Mail,
-  cloudapp: Cloud, azureresource: Box, registry: KeyRound,
+// XDR's own symbols (owner, 2026-11-08: not the portal's set).
+const KIND_ICON: Record<EntityKind, typeof UserRound> = {
+  account: UserRound, host: Laptop, ip: Network, file: FileCode2, process: MemoryStick, url: Link, domain: Earth, mailbox: Inbox,
+  cloudapp: CloudCog, azureresource: Container, registry: KeySquare,
 };
 export const entityIcon = (kind: EntityKind) => KIND_ICON[kind] ?? AppWindow;
 export function EntityIcon({ kind, size = 14 }: { kind: EntityKind; size?: number }) {
@@ -299,9 +300,9 @@ export function EntityIcon({ kind, size = 14 }: { kind: EntityKind; size?: numbe
 }
 
 export function StatusIcon({ status, size = 14 }: { status: IncidentStatus; size?: number }) {
-  if (status === "New") return <Loader size={size} color="#0078d4" aria-hidden />;
-  if (status === "Active") return <RefreshCw size={size} color="#0078d4" aria-hidden />;
-  return <CheckCircle2 size={size} color="#107c10" aria-hidden />;
+  if (status === "New") return <CircleDot size={size} color="#6d28d9" aria-hidden />;
+  if (status === "Active") return <Hourglass size={size} color="#6d28d9" aria-hidden />;
+  return <CircleCheckBig size={size} color="#107c10" aria-hidden />;
 }
 
 export function Empty({ icon, title, children }: { icon?: ReactNode; title: string; children?: ReactNode }) {

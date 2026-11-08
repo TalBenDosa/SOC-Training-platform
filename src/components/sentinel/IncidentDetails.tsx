@@ -3,12 +3,12 @@
 // Overview and Entities tabs, four widgets. Alert details open in a flyout beside the timeline.
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  Bookmark, Briefcase, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, Clock, Filter, Info, Lightbulb,
-  ListTree, MessageSquareText, RefreshCw, Search, ShieldAlert, ShieldPlus, Target, TerminalSquare, Workflow, X,
+  BellRing, Bookmark, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Clock3, Filter, History, Info, KeySquare, Lightbulb,
+  ListTodo, ListTree, LogIn, MemoryStick, Network, RotateCw, ScrollText, Search, ShieldAlert, ShieldPlus, Siren, Target, Bot, X,
 } from "lucide-react";
-import type { EntityKind, SentinelAlert, SentinelBookmark, SentinelEntity, SentinelIncident , GraphAlertDetails } from "@/lib/sentinel/types";
+import type { EntityInsight, EntityKind, SentinelAlert, SentinelBookmark, SentinelEntity, SentinelIncident, GraphAlertDetails } from "@/lib/sentinel/types";
 import { useSentinel } from "./context";
-import { EntityInfoCard, EntityInsightsCard, EntityTimelineCard, InsightCard } from "./EntityCards";
+import { EntityInfoCard, EntityInsightsCard, EntityTimelineCard, InsightResults } from "./EntityCards";
 import { insightsForIncident, runQuery } from "./engine";
 import {
   alertRecord, alertsOf, canAddToTi, canRunPlaybook, entitiesOf, fmtDateTime, fmtMediumTime, KIND_LABEL, SEVERITIES, similarIncidents, tacticLabel, type SimilarIncident,
@@ -38,8 +38,8 @@ function TacticsTree({ alerts }: { alerts: SentinelAlert[] }) {
         return (
           <li key={tactic}>
             <button type="button" className="st-tactic" aria-expanded={on} onClick={() => setOpen(o => { const n = new Set(o); if (n.has(tactic)) n.delete(tactic); else n.add(tactic); return n; })}>
-              {on ? <ChevronDown size={16} color="#0078d4" aria-hidden /> : <ChevronRight size={16} color="#0078d4" aria-hidden />}
-              <Target size={14} color="#0078d4" aria-hidden /><span>{tacticLabel(tactic)} ({techniques.length})</span>
+              {on ? <ChevronDown size={16} color="#6d28d9" aria-hidden /> : <ChevronRight size={16} color="#6d28d9" aria-hidden />}
+              <Target size={14} color="#6d28d9" aria-hidden /><span>{tacticLabel(tactic)} ({techniques.length})</span>
             </button>
             {on && <ul className="st-small st-muted" style={{ paddingLeft: 42 }}>{techniques.map(t => <li key={t}>{t}</li>)}</ul>}
           </li>
@@ -101,7 +101,7 @@ function Flyout({ title, icon, left, arrow, onClose, closeLabel, stripe, childre
       <i className="arrow" style={{ top: arrow }} aria-hidden />
       <div className="head">
         {icon}<h3 className="st-grow">{title}</h3>
-        <button ref={ref} type="button" className="st-icon-btn" aria-label={closeLabel} onClick={onClose}><X size={16} color="#0078d4" aria-hidden /></button>
+        <button ref={ref} type="button" className="st-icon-btn" aria-label={closeLabel} onClick={onClose}><X size={16} color="#6d28d9" aria-hidden /></button>
       </div>
       <div className="body">{children}</div>
     </aside>
@@ -205,12 +205,13 @@ const TimelineRow = memo(function TimelineRow({ item, active, entities, onOpen, 
   const bookmark = item.type === "Bookmark" ? item.bookmark : null;
   const query = alert?.query ?? bookmark?.query ?? "";
   return (
-    <li className={`xd-tl-item${active ? " active" : ""}`}>
-      <button type="button" className={`xd-alert-card ${alert ? alert.severity : "bm"}`} aria-current={active ? "true" : undefined} onClick={e => onOpen(item, e.currentTarget)}>
+    <li className={`xd-tl-item vt${active ? " active" : ""}`}>
+      <span className="xd-vrail" aria-hidden><i className={`xd-vdot ${alert ? alert.severity : "bm"}`} /></span>
+      <button type="button" className={`xd-alert-card vt ${alert ? alert.severity : "bm"}`} aria-current={active ? "true" : undefined} onClick={e => onOpen(item, e.currentTarget)}>
         {alert ? <AlertCardBody alert={alert} entities={entities} maxEntities={2} /> : bookmark && <BookmarkCardBody name={bookmark.name} at={bookmark.at} author={bookmark.author} />}
       </button>
       <span className="xd-tl-menu">
-        <MoreMenu label={`Actions for ${alert?.name ?? bookmark?.name}`} items={[{ label: "Open in Logs", icon: <TerminalSquare size={14} color="#0078d4" aria-hidden />, onSelect: () => onLogs(query) }]} />
+        <MoreMenu label={`Actions for ${alert?.name ?? bookmark?.name}`} items={[{ label: "Open in Logs", icon: <ScrollText size={14} color="#6d28d9" aria-hidden />, onSelect: () => onLogs(query) }]} />
       </span>
     </li>
   );
@@ -260,7 +261,7 @@ function TimelineWidget({ incident, alerts, onEntity }: { incident: SentinelInci
         <input className="st-input" value={q} onChange={e => setQ(e.target.value)} placeholder="Search" />
       </label>
       <div style={{ marginTop: 8 }}><TimelineFilter tactics={tactics} sev={sev} setSev={setSev} tac={tac} setTac={setTac} type={type} setType={setType} /></div>
-      <ul className="st-wscroll xd-tl">
+      <ul className="st-wscroll xd-tl vt">
         {items.map(i => <TimelineRow key={itemId(i)} item={i} active={!!open && itemId(open.item) === itemId(i)} entities={i.type === "Alert" ? byAlert.get(i.alert.id) ?? NONE : NONE} onOpen={onOpen} onLogs={onLogs} />)}
         {items.length === 0 && <li className="st-muted st-small" style={{ padding: 12 }}>No item matches.</li>}
       </ul>
@@ -277,8 +278,8 @@ function useEntityActions(incident: SentinelIncident) {
   return useCallback((e: SentinelEntity): MenuItem[] => {
     if (ended) return [];
     const items: MenuItem[] = [];
-    if (canAddToTi(e)) items.push({ label: "Add to TI", icon: <ShieldPlus size={14} color="#0078d4" aria-hidden />, onSelect: () => addToTi(e, incident.id) });
-    if (canRunPlaybook(e)) items.push({ label: "Run playbook (Preview)", icon: <Workflow size={14} color="#0078d4" aria-hidden />, onSelect: () => openPlaybook({ incidentId: incident.id, host: e.name }) });
+    if (canAddToTi(e)) items.push({ label: "Add to TI", icon: <ShieldPlus size={14} color="#6d28d9" aria-hidden />, onSelect: () => addToTi(e, incident.id) });
+    if (canRunPlaybook(e)) items.push({ label: "Run playbook (Preview)", icon: <Bot size={14} color="#6d28d9" aria-hidden />, onSelect: () => openPlaybook({ incidentId: incident.id, host: e.name }) });
     return items;
   }, [addToTi, ended, incident.id, openPlaybook]);
 }
@@ -327,7 +328,7 @@ function SimilarityInfo({ s }: { s: SimilarIncident }) {
             <strong>{s.reason}</strong>
             <ul className="st-stack" style={{ gap: 6 }}>
               {s.entities.map(e => <li key={e.id} className="st-row"><EntityIcon kind={e.kind} size={16} /><span className="st-ellipsis" title={e.name}>{e.name}</span></li>)}
-              {s.rules.map(r => <li key={r} className="st-row"><ShieldAlert size={16} color="#0078d4" aria-hidden /><span className="st-ellipsis" title={r}>{r}</span></li>)}
+              {s.rules.map(r => <li key={r} className="st-row"><ShieldAlert size={16} color="#6d28d9" aria-hidden /><span className="st-ellipsis" title={r}>{r}</span></li>)}
             </ul>
           </div>
         </Popover>
@@ -355,7 +356,7 @@ function SimilarWidget({ incident }: { incident: SentinelIncident }) {
                 const status = st.status === "Closed" && st.classification ? `Closed - ${st.classification}` : st.status;
                 return (
                   <tr key={s.incident.id}>
-                    <td className="st-sevcell"><i className={`st-cellband ${st.severity}`} aria-hidden />{st.severity}</td>
+                    <td className="st-sevcell"><i className={`st-cellband ${st.severity}`} aria-hidden /><SevChip value={st.severity} /></td>
                     <td><button type="button" className="st-link" onClick={() => openIncident(s.incident.id)}>{s.incident.number}</button></td>
                     <td title={s.incident.title}>{s.incident.title}</td>
                     <td>{fmtMediumTime(s.incident.lastUpdate)}</td>
@@ -373,6 +374,17 @@ function SimilarWidget({ incident }: { incident: SentinelIncident }) {
   );
 }
 
+/** The symbol and tint of an insight in the short list: alerts red, sign-ins amber, the rest violet. */
+function insightLook(i: EntityInsight): { Icon: typeof Lightbulb; tone: string } {
+  const t = i.title.toLowerCase();
+  if (t.startsWith("alerts")) return { Icon: BellRing, tone: "hi" };
+  if (t.includes("sign-in")) return { Icon: LogIn, tone: "md" };
+  if (t.includes("logon")) return { Icon: KeySquare, tone: "ac" };
+  if (t.includes("process")) return { Icon: MemoryStick, tone: "ac" };
+  if (t.includes("network") || t.includes("connection")) return { Icon: Network, tone: "ac" };
+  return { Icon: Lightbulb, tone: "ac" };
+}
+
 function InsightsWidget({ incident }: { incident: SentinelIncident }) {
   const { ws } = useSentinel();
   const insights = useMemo(() => insightsForIncident(incident, ws), [incident, ws]);
@@ -382,12 +394,28 @@ function InsightsWidget({ incident }: { incident: SentinelIncident }) {
   }, [incident, ws]);
   const last = useMemo(() => Date.parse(incident.lastUpdate), [incident]);
   const range = `${fmtDateTime(first - 86_400_000)} - ${fmtDateTime(last)}`;
+  const [open, setOpen] = useState<string | null>(null);
   return (
     <section className="st-widget tall" aria-label="Top insights">
       <h3>Top insights</h3>
-      <div className="st-small st-muted st-row" style={{ gap: 4 }}><Clock size={13} aria-hidden />Last 24 hours before the first alert<InfoMark title="From 24 hours before the earliest alert until the latest alert." /></div>
+      <div className="st-small st-muted st-row" style={{ gap: 4 }}><Clock3 size={13} aria-hidden />Last 24 hours before the first alert<InfoMark title="From 24 hours before the earliest alert until the latest alert." /></div>
       <div className="st-wscroll">
-        {insights.map(i => <InsightCard key={i.title} insight={i} range={range} />)}
+        <ul className="xd-ins">
+          {insights.map(i => {
+            const { Icon, tone } = insightLook(i);
+            const on = open === i.title;
+            return (
+              <li key={i.title} className={on ? "on" : undefined}>
+                <button type="button" className="xd-ins-row" aria-expanded={on} title={i.description} onClick={() => setOpen(o => (o === i.title ? null : i.title))}>
+                  <span className={`xd-ins-ico ${tone}`} aria-hidden><Icon size={15} /></span>
+                  <span className="xd-ins-t st-grow">{i.title}</span>
+                  {on ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
+                </button>
+                {on && <div className="xd-ins-body"><InsightResults insight={i} range={range} /></div>}
+              </li>
+            );
+          })}
+        </ul>
         {insights.length === 0 && <Empty icon={<Lightbulb size={22} aria-hidden />} title="No insights yet" />}
       </div>
     </section>
@@ -485,16 +513,16 @@ export function IncidentDetails({ incident, focusEntity, onClose, hidden }: { in
     <div ref={region} tabIndex={-1} className="st-inc" role="region" aria-label={`Incident ${incident.number}`} hidden={hidden}>
       <Crumbs trailing items={[{ label: "Home", onClick: () => { onClose(); go("overview"); } }, { label: "XDR | Incidents", onClick: onClose }]} />
       <div className="st-inc-head">
-        <Briefcase size={30} color="#0078d4" fill="#c7e0f4" aria-hidden style={{ marginTop: 3 }} />
+        <span className="xd-head-tile" aria-hidden style={{ marginTop: 3 }}><Siren size={20} /></span>
         <div className="st-grow" style={{ minWidth: 0 }}><h1 className="st-wrap" title={incident.title}>{incident.title}</h1><div className="st-small">Incident ID {incident.number}</div><EscalationTag incident={incident} /></div>
         <button type="button" className="st-icon-btn" aria-label="Close incident" onClick={onClose}><X size={18} aria-hidden /></button>
       </div>
       <div className="st-cmdbar" role="toolbar" aria-label="Incident commands" style={{ paddingLeft: 8 }}>
-        <button type="button" className="st-cmd" onClick={refresh}><RefreshCw size={15} aria-hidden />Refresh</button>
+        <button type="button" className="st-cmd" onClick={refresh}><RotateCw size={15} aria-hidden />Refresh</button>
         <span className="st-cmdsep" aria-hidden />
-        <button type="button" className="st-cmd" onClick={() => openLogs({ query: "" })}><TerminalSquare size={15} aria-hidden />Logs</button>
-        <button type="button" className="st-cmd" onClick={() => setPane("tasks")}><ClipboardList size={15} aria-hidden />Tasks</button>
-        <button type="button" className="st-cmd" onClick={() => setPane("activity")}><MessageSquareText size={15} aria-hidden />Activity log</button>
+        <button type="button" className="st-cmd" onClick={() => openLogs({ query: "" })}><ScrollText size={15} aria-hidden />Logs</button>
+        <button type="button" className="st-cmd" onClick={() => setPane("tasks")}><ListTodo size={15} aria-hidden />Tasks</button>
+        <button type="button" className="st-cmd" onClick={() => setPane("activity")}><History size={15} aria-hidden />Activity log</button>
       </div>
       <div className="st-inc-body">
         <aside className={`st-inc-left${collapsed ? " collapsed" : ""}`} aria-label="Incident details">
@@ -540,7 +568,7 @@ export function IncidentDetails({ incident, focusEntity, onClose, hidden }: { in
             <Tabs label="Incident views" value={tab} onChange={setTab} tabs={[{ value: "overview", label: "Overview" }, { value: "entities", label: "Entities" }]} />
             {!ended && (
               <ButtonMenu label="Incident actions" className="st-btn primary" align="right"
-                items={[{ label: "Run playbook (Preview)", icon: <Workflow size={14} color="#0078d4" aria-hidden />, onSelect: () => openPlaybook({ incidentId: incident.id }) }]}>
+                items={[{ label: "Run playbook (Preview)", icon: <Bot size={14} color="#6d28d9" aria-hidden />, onSelect: () => openPlaybook({ incidentId: incident.id }) }]}>
                 Incident actions<ChevronDown size={12} aria-hidden />
               </ButtonMenu>
             )}

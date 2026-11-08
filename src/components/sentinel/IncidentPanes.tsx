@@ -1,7 +1,7 @@
 "use client";
 // The slide-overs of an incident: Tasks, Activity log, and the playbook runner.
 import { useMemo, useRef, useState } from "react";
-import { ClipboardList, MessageSquare, Pencil, Play, Plus, UserRound, Workflow } from "lucide-react";
+import { ListTodo, History, Pencil, Play, Plus, UserRound, Bot } from "lucide-react";
 import type { SentinelActions, SentinelIncident, SentinelIsolationRequest } from "@/lib/sentinel/types";
 import { useSentinel, type PlaybookRun } from "./context";
 import { activityTitle, commentText, entitiesOf, fmtDateTime, fmtShortTime } from "./helpers";
@@ -35,7 +35,7 @@ export function TasksPane({ incident, onClose }: { incident: SentinelIncident; o
           <button type="submit" className="st-btn" disabled={!title.trim() || busy}><Plus size={14} aria-hidden />Add task</button>
         </form>
       )}
-      {state.tasks.length === 0 && <Empty icon={<ClipboardList size={26} aria-hidden />} title="No tasks yet">Tasks you add are shared with the team.</Empty>}
+      {state.tasks.length === 0 && <Empty icon={<ListTodo size={26} aria-hidden />} title="No tasks yet">Tasks you add are shared with the team.</Empty>}
       <ul>
         {state.tasks.map(t => (
           <li key={t.id} className="st-entity-row">
@@ -92,7 +92,7 @@ export function ActivityPane({ incident, onClose }: { incident: SentinelIncident
         </Select>
       </div>
       <div className="st-panel-body" aria-live="polite">
-        {items.length === 0 && <Empty icon={<MessageSquare size={26} aria-hidden />} title="Nothing logged yet" />}
+        {items.length === 0 && <Empty icon={<History size={26} aria-hidden />} title="Nothing logged yet" />}
         {items.map(i => (
           <div key={i.key} className={`st-activity-card${i.comment ? " comment" : ""}`}>
             <span className={`who${i.comment ? " person" : ""}`} aria-hidden>{i.comment ? <UserRound size={18} /> : <Pencil size={14} />}</span>
@@ -254,10 +254,10 @@ export function PlaybookPanel({ incidentId, host, onClose }: { incidentId?: stri
     if (r.ok && name === "Isolate device") setReason("");
   };
   return (
-    <SlidePanel title="Run playbook" subtitle={incident ? `On incident ${incident.number}` : "On a device"} icon={<Workflow size={20} color="#0078d4" aria-hidden />} onClose={onClose} width={460}
+    <SlidePanel title="Run playbook" subtitle={incident ? `On incident ${incident.number}` : "On a device"} icon={<Bot size={20} color="#6d28d9" aria-hidden />} onClose={onClose} width={460}
       footer={<button type="button" className="st-btn" onClick={onClose}>Close</button>}>
       {hosts.length === 0 && !host
-        ? <Empty icon={<Workflow size={26} aria-hidden />} title="No playbook applies">This incident has no device entity, and every playbook here acts on a device.</Empty>
+        ? <Empty icon={<Bot size={26} aria-hidden />} title="No playbook applies">This incident has no device entity, and every playbook here acts on a device.</Empty>
         : (
           <div className="st-stack">
             {host
