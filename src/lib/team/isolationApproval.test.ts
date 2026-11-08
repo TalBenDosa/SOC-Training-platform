@@ -1,31 +1,42 @@
 import { describe, it, expect } from "vitest";
-import { isolationApprovers, canApproveIsolation, isolationRequests, pendingIsolationRequests, type ApproverMember } from "./isolationApproval";
+import { isolationApprovers, canApproveIsolation, seniorTier, isolationRequests, pendingIsolationRequests, type ApproverMember } from "./isolationApproval";
 import { sessionClock, openPresenceNotices, scheduledEnd } from "./projections";
 import type { Ev } from "./types";
 
 const m = (user_id: string, role: string, active = true, status = "active"): ApproverMember => ({ user_id, role, active, status });
 
-describe("isolation approver rule (same as team_isolation_can_approve, 0104)", () => {
-  it("an active SOC Manager or Lead approves first", () => {
+describe("isolation approver rule (same as team_isolation_can_approve, 0107)", () => {
+  it("a SOC Manager on shift approves; the exercise admin may always answer too", () => {
     const team = [m("t2", "t2"), m("t3", "t3"), m("mgr", "mgr"), m("ins", "instructor")];
-    expect(isolationApprovers(team, "t2")).toMatchObject({ tier: "mgr", userIds: ["mgr"], staffIds: ["ins"] });
+    expect(seniorTier(team)).toBe("mgr");
+    expect(isolationApprovers(team, "t2")).toMatchObject({ tier: "mgr", userIds: ["mgr"], selfApproves: false, staffIds: ["ins"] });
     expect(canApproveIsolation(team, "t2", "t3")).toBe(false);
+    expect(canApproveIsolation(team, "t2", "ins")).toBe(true);
     expect(canApproveIsolation(team, "t2", "mgr")).toBe(true);
+    // A Tier-3 request waits for the Manager too.
+    expect(isolationApprovers(team, "t3")).toMatchObject({ tier: "mgr", userIds: ["mgr"], selfApproves: false });
+    expect(canApproveIsolation(team, "t3", "t3")).toBe(false);
   });
-  it("no active Manager: a Tier-3 who is not the requester", () => {
+  it("a Lead counts as the Manager rung", () => {
+    expect(isolationApprovers([m("t3", "t3"), m("lead", "lead")], "t3")).toMatchObject({ tier: "mgr", userIds: ["lead"], selfApproves: false });
+  });
+  it("no active Manager: the Tier-3 is the shift senior, and their own request is approved at once", () => {
     const team = [m("t2", "t2"), m("t3a", "t3"), m("t3b", "t3"), m("mgr", "mgr", false), m("ins", "instructor")];
-    expect(isolationApprovers(team, "t3a")).toMatchObject({ tier: "t3", userIds: ["t3b"] });
-    expect(canApproveIsolation(team, "t3a", "t3a")).toBe(false);
-    expect(canApproveIsolation(team, "t3a", "t3b")).toBe(true);
+    expect(seniorTier(team)).toBe("t3");
+    expect(isolationApprovers(team, "t2")).toMatchObject({ tier: "t3", userIds: ["t3a", "t3b"], selfApproves: false });
+    expect(canApproveIsolation(team, "t2", "ins")).toBe(true);
+    expect(isolationApprovers(team, "t3a")).toMatchObject({ tier: "t3", userIds: ["t3b"], selfApproves: true });
+    expect(canApproveIsolation(team, "t3a", "t3a")).toBe(true);
   });
-  it("otherwise staff; staff may always answer; nobody approves their own request", () => {
+  it("nobody senior on shift: the exercise admin is the fallback; a Tier-2 never approves", () => {
     const team = [m("t2", "t2"), m("t3", "t3", true, "left"), m("ins", "instructor", false)];
-    expect(isolationApprovers(team, "t2")).toMatchObject({ tier: "staff", userIds: ["ins"] });
-    expect(canApproveIsolation([m("t2", "t2"), m("mgr", "mgr"), m("ins", "instructor")], "t2", "ins")).toBe(true);
+    expect(isolationApprovers(team, "t2")).toMatchObject({ tier: "staff", userIds: ["ins"], selfApproves: false });
+    expect(canApproveIsolation(team, "t2", "ins")).toBe(true);
     expect(canApproveIsolation(team, "t2", "t2")).toBe(false);
   });
-  it("the acting Manager counts as active even with a stale heartbeat", () => {
+  it("the person acting counts as active even with a stale heartbeat", () => {
     expect(canApproveIsolation([m("t2", "t2"), m("mgr", "mgr", false), m("t3", "t3")], "t2", "mgr")).toBe(true);
+    expect(canApproveIsolation([m("t2", "t2"), m("t3", "t3", false), m("ins", "instructor")], "t2", "t3")).toBe(true);
   });
 });
 

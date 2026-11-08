@@ -5,7 +5,7 @@ import type { Ev, RosterMember } from "@/lib/team/types";
 import { EDR_ISOLATION_TYPES } from "@/lib/team/projections";
 import { friendlyActionError } from "@/lib/team/format";
 import {
-  ISOLATION_REASON_MAX, ISOLATION_REQUEST_TYPES, NO_APPROVER, approverLabel, isolationApprovers, isolationRequests,
+  ISOLATION_REASON_MAX, ISOLATION_REQUEST_TYPES, NO_APPROVER, SELF_APPROVER, approverLabel, isolationApprovers, isolationRequests,
   type ApproverMember, type IsolationRequest,
 } from "@/lib/team/isolationApproval";
 
@@ -67,6 +67,8 @@ export function latestRequestByHost(requests: IsolationRequest[]): Map<string, I
 export function approverNames(roster: (RosterMember & { active?: boolean })[], requesterId: string | null, online?: Set<string>): string {
   const members: ApproverMember[] = roster.map(m => ({ user_id: m.user_id, role: m.role, status: m.status, active: online ? online.has(m.user_id) : m.active ?? true }));
   const a = isolationApprovers(members, requesterId);
+  // The requester is the senior on shift (0107): the server approves their request at once.
+  if (a.selfApproves) return SELF_APPROVER;
   // Nobody but the requester could answer it: say so, never name the requester (or a seat nobody holds).
   if (!a.userIds.length) return NO_APPROVER;
   const names = a.userIds.map(u => roster.find(m => m.user_id === u)?.name).filter(Boolean) as string[];
@@ -81,6 +83,8 @@ export interface IsolationRequests {
   byHost: Map<string, IsolationRequest>;
   /** The roster (names for requester and approver), when the hook loaded it. */
   roster: (RosterMember & { active?: boolean })[];
+  /** The signed-in user, from the session API (null until loaded). */
+  meId: string | null;
   request: (input: IsolationRequestInput) => Promise<string | null>;
   answer: (requestSeq: number, approve: boolean, reason?: string) => Promise<string | null>;
   refresh: () => Promise<void>;
@@ -97,6 +101,7 @@ export const ISOLATION_REQUEST_POLL_MS = 8_000;
 export function useIsolationRequest(sessionId: string | null, events?: Ev[]): IsolationRequests | null {
   const [polled, setPolled] = useState<Ev[]>([]);
   const [roster, setRoster] = useState<(RosterMember & { active?: boolean })[]>([]);
+  const [meId, setMeId] = useState<string | null>(null);
   const own = !events;
 
   const refresh = useCallback(async () => {
@@ -111,7 +116,7 @@ export function useIsolationRequest(sessionId: string | null, events?: Ev[]): Is
   useEffect(() => {
     if (!sessionId) return;
     let alive = true;
-    fetch(`/api/team/sessions/${sessionId}`).then(r => (r.ok ? r.json() : null)).then(d => { if (alive && Array.isArray(d?.roster)) setRoster(d.roster); }).catch(() => {});
+    fetch(`/api/team/sessions/${sessionId}`).then(r => (r.ok ? r.json() : null)).then(d => { if (!alive) return; if (Array.isArray(d?.roster)) setRoster(d.roster); if (typeof d?.me?.id === "string") setMeId(d.me.id); }).catch(() => {});
     if (!own) return () => { alive = false; };
     void refresh();
     const iv = setInterval(() => { void refresh(); }, ISOLATION_REQUEST_POLL_MS);
@@ -136,5 +141,5 @@ export function useIsolationRequest(sessionId: string | null, events?: Ev[]): Is
     return err;
   }, [sessionId, refresh]);
 
-  return sessionId ? { requests, byHost, roster, request, answer, refresh } : null;
+  return sessionId ? { requests, byHost, roster, meId, request, answer, refresh } : null;
 }

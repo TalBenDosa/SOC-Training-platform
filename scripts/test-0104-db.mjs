@@ -159,14 +159,19 @@ group("4. isolation needs the shift senior");
   const again = await act(s, t3, "isolation.requested", { host: "WS-ACC-4477", reason: "again" });
   check("requesting an isolated host is refused", /already_isolated/.test(again.err ?? ""), again.err ?? "accepted");
 
-  // Manager offline → Tier-3 (not the requester) approves; the requesting Tier-3 cannot.
+  // Manager offline: the Tier-3 is the senior on shift. 0107: their own request is approved at once.
   await q(`update public.team_session_members set last_seen_at = now() - interval '10 minutes' where session_id=$1 and role='mgr'`, [s]);
   const r2 = await act(s, t3, "isolation.requested", { host: "WS-HR-1182", reason: "keylogger helper" });
-  const selfT3 = await act(s, t3, "isolation.approved", { request_seq: r2.seq });
-  check("a Tier-3 requester cannot approve their own request", /not_approver/.test(selfT3.err ?? ""), selfT3.err ?? "accepted");
-  const den = await act(s, ins, "isolation.denied", { request_seq: r2.seq, reason: "wait for memory capture" });
-  check("staff may always answer (override): deny", den.err === null, den.err ?? "");
-  check("a denial isolates nothing", (await evs(s, "edr.host_isolated")).length === 1);
+  const auto = (await evs(s, "isolation.approved")).find(e => e.payload.request_seq === r2.seq);
+  check("0107: the senior Tier-3's own request is approved at once", r2.err === null && auto?.actor_id === t3 && auto?.payload.auto === "shift_senior", r2.err ?? JSON.stringify(auto?.payload));
+  check("0107: and the host is isolated", (await evs(s, "edr.host_isolated")).length === 2);
+  const r2b = await act(s, t2, "isolation.requested", { host: "WS-HR-1183", reason: "same keylogger" });
+  const den = await act(s, t3, "isolation.denied", { request_seq: r2b.seq, reason: "wait for memory capture" });
+  check("the senior Tier-3 denies", den.err === null, den.err ?? "");
+  const r2c = await act(s, t2, "isolation.requested", { host: "WS-HR-1184", reason: "same keylogger" });
+  const insDen = await act(s, ins, "isolation.denied", { request_seq: r2c.seq, reason: "x" });
+  check("staff may always answer (override): deny", insDen.err === null, insDen.err ?? "");
+  check("a denial isolates nothing", (await evs(s, "edr.host_isolated")).length === 2);
 
   // Release stays direct, by the Manager too, and posts a status row.
   const rel = await act(s, mgr, "edr.host_released", { host: "WS-ACC-4477" });
@@ -176,9 +181,9 @@ group("4. isolation needs the shift senior");
 
   // Approver tiers with no Manager seated.
   const s3 = await newSession([[t2, "t2"], [t3, "t3"], [t3b, "t3"], [ins, "instructor"]]);
-  const r3 = await act(s3, t3, "isolation.requested", { host: "SRV-DB-01", reason: "beacon" });
+  const r3 = await act(s3, t2, "isolation.requested", { host: "SRV-DB-01", reason: "beacon" });
   const byT3b = await act(s3, t3b, "isolation.approved", { request_seq: r3.seq });
-  check("no Manager: another active Tier-3 approves", byT3b.err === null, byT3b.err ?? "");
+  check("no Manager: an active Tier-3 approves", byT3b.err === null, byT3b.err ?? "");
   const s4 = await newSession([[t2, "t2"], [ins, "instructor"]]);
   const r4 = await act(s4, t2, "isolation.requested", { host: "SRV-DB-02", reason: "beacon" });
   const byIns = await act(s4, ins, "isolation.approved", { request_seq: r4.seq });

@@ -26,7 +26,7 @@ import { sampleFromPath, peInfo, stringsOutput, flossOutput, capaOutput, candida
 import { isLinuxHost } from "@/lib/edr/hostBaseline";
 import { isContained, setContained } from "@/lib/edr/containment";
 import type { TeamIsolation } from "@/lib/team/useTeamIsolation";
-import { NO_APPROVER, NO_APPROVER_HELP, isNoApprover, waitingForApproval } from "@/lib/team/isolationApproval";
+import { NO_APPROVER, NO_APPROVER_HELP, SELF_APPROVER_LINE, isNoApprover, isSelfApprover, waitingForApproval } from "@/lib/team/isolationApproval";
 import { alertKey, readAckedAlerts, unacknowledged, writeAckedAlerts } from "@/lib/edr/alerts";
 import type { EdrDetection } from "@/lib/edr/investigations";
 
@@ -376,7 +376,7 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
             {teamIsolation && askOpen && !isolated && (
               <div className="w-80 max-w-full rounded-lg border border-neon-amber/40 bg-bg-elevated p-2.5 text-left">
                 <label htmlFor="edr-iso-reason" className="text-[11px] font-semibold text-slate-200">Why isolate <bdi className="font-mono">{inv.host.name}</bdi>?</label>
-                <p className="mt-0.5 text-[11px] text-slate-400">{isNoApprover(teamIsolation.approverFor(null)) ? `${NO_APPROVER}. ${NO_APPROVER_HELP}` : `${teamIsolation.approverFor(null)} approves or denies. The host is isolated when they approve.`}</p>
+                <p className="mt-0.5 text-[11px] text-slate-400">{(() => { const who = teamIsolation.approverFor(teamIsolation.meId); return isSelfApprover(who) ? SELF_APPROVER_LINE : isNoApprover(who) ? `${NO_APPROVER}. ${NO_APPROVER_HELP}` : `${who} approves or denies. The host is isolated when they approve.`; })()}</p>
                 <textarea id="edr-iso-reason" value={askReason} onChange={e => setAskReason(e.target.value)} rows={2} maxLength={500} dir="auto" autoFocus
                   placeholder="The evidence, in one line (for example: reverse shell to 104.248.93.41:4444 from node.exe)"
                   className="mt-1.5 w-full resize-y rounded border border-border bg-bg px-2 py-1 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50" />

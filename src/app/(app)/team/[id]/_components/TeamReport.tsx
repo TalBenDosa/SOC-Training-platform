@@ -431,7 +431,9 @@ function IsolationRequestList({ items, nameOf }: { items: IsoRequestItem[]; name
             </div>
             <p className="mt-0.5 text-[11px] text-slate-400">
               Asked by <bdi>{nameOf(r.requestedBy)}</bdi>: <bdi className="text-slate-300">{r.reason || "no reason given"}</bdi>
-              {r.answeredBy ? <> · {r.state} by <bdi>{nameOf(r.answeredBy)}</bdi>{r.delayS != null ? ` after ${dur(r.delayS)}` : ""}</> : r.delayS != null ? ` · waited ${dur(r.delayS)}` : ""}
+              {r.answeredBy && r.answeredBy === r.requestedBy && r.state === "approved"
+                ? " · isolated on their own authority as the senior on shift"
+                : r.answeredBy ? <> · {r.state} by <bdi>{nameOf(r.answeredBy)}</bdi>{r.delayS != null ? ` after ${dur(r.delayS)}` : ""}</> : r.delayS != null ? ` · waited ${dur(r.delayS)}` : ""}
             </p>
             <p className={`text-[11px] ${r.requestRight ? "text-neon-green" : "text-severity-high"}`}>
               {r.verdict === "compromised" ? "The host was compromised: right to ask." : "The host was clean: isolating it would cut a user off for nothing."}

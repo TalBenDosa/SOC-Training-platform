@@ -26,7 +26,7 @@ describe("EdrConsole — team isolation", () => {
   const isolateBtn = () => [...el!.querySelectorAll("button")].find(b => /Request isolation|Host isolated|Waiting for approval/.test(b.textContent ?? ""))!;
   const team = (over: Partial<TeamIsolation> = {}): TeamIsolation => ({
     state: new Map(), set: vi.fn(async () => null), request: vi.fn(async () => null), requests: new Map(),
-    approverFor: () => "Dana (SOC Manager)", nameOf: u => (u === "mgr-1" ? "Dana" : "a teammate"), canContain: true, ...over,
+    approverFor: () => "Dana (SOC Manager)", meId: null, nameOf: u => (u === "mgr-1" ? "Dana" : "a teammate"), canContain: true, ...over,
   });
   const req = (state: IsolationRequest["state"], extra: Partial<IsolationRequest> = {}): IsolationRequest => ({
     seq: 5, host: inv.host.name, requestedBy: "me", requesterRole: "t2", reason: "reverse shell", incident: null, at: null,

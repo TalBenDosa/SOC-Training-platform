@@ -23,6 +23,8 @@ export interface TeamIsolation {
   approverFor: (requesterId: string | null) => string;
   /** A display name for a member of the session. */
   nameOf: (userId: string | null) => string;
+  /** The signed-in user (null until the roster loads): "who approves MY request". */
+  meId: string | null;
   /** Isolation is Tier-2 / Tier-3's call (the DB gate, 0082); Tier-1 investigates and escalates. */
   canContain: boolean;
   /** Put an RTR kill / get / memdump on the session record (0095). */
@@ -95,5 +97,5 @@ export function useTeamIsolation(sessionId: string | null, role: string | null =
   const nameOf = useCallback((u: string | null) => (u ? roster?.find(m => m.user_id === u)?.name ?? "a teammate" : "the system"), [roster]);
 
   // Unknown role (an older link without &r=) keeps the button; the server still decides.
-  return sessionId ? { state, set, request, requests: iso?.byHost ?? new Map(), approverFor, nameOf, recordRtr, canContain: role === null || role === "t2" || role === "t3" } : null;
+  return sessionId ? { state, set, request, requests: iso?.byHost ?? new Map(), approverFor, nameOf, meId: iso?.meId ?? null, recordRtr, canContain: role === null || role === "t2" || role === "t3" } : null;
 }

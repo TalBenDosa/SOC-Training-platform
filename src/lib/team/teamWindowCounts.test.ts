@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 import type { Ev } from "./types";
 import { titleWithCount, visibleMessages, waitingCounts } from "./teamWindowCounts";
 import { isolationError, latestRequestByHost, approverNames } from "./useIsolationRequest";
-import { NO_APPROVER, isolationRequests } from "./isolationApproval";
+import { NO_APPROVER, SELF_APPROVER, isolationRequests } from "./isolationApproval";
 
 let seq = 0;
 const ev = (type: string, payload: Record<string, unknown>, actor: string | null, role: string | null = null): Ev => ({ seq: ++seq, type, actor_id: actor, role, payload, occurred_at: "2026-11-07T10:00:00Z" });
@@ -80,5 +80,9 @@ describe("isolation request helpers", () => {
     expect(approverNames(roster, "t2", new Set(["t2"]))).toBe(NO_APPROVER);
     // The exercise admin in the instructor seat is the fallback approver.
     expect(approverNames([...roster, { user_id: "ins", role: "instructor", status: "active", name: "Tal", handle: null }], "t2", new Set(["t2"]))).toBe("Tal (exercise admin)");
+    // 0107: a Tier-3 with no Manager on shift is the senior: their own request is approved at once.
+    const split = [{ user_id: "t3", role: "t3", status: "active", name: "Dana", handle: null }, { user_id: "t2", role: "t2", status: "active", name: "Avi", handle: null }];
+    expect(approverNames(split, "t3", new Set(["t3", "t2"]))).toBe(SELF_APPROVER);
+    expect(approverNames(split, "t2", new Set(["t3", "t2"]))).toBe("Dana (Tier-3)");
   });
 });
