@@ -728,7 +728,11 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
 
   const ordered: Placed[] = [];
   let bi = 0;
-  for (let pos = 0; pos < total; pos++) {
+  // A dense band (a small team: the fitter cut the noise to a few rows) can be handed positions past
+  // the canvas edge. Walk to the last one, never just `total`: rows past the edge used to vanish
+  // silently, the voice-clone takeover lost its impact rows (Sdema review, 2026-11-08).
+  const lastPos = Math.max(total - 1, ...posToAttack.keys());
+  for (let pos = 0; pos <= lastPos; pos++) {
     const atk = posToAttack.get(pos);
     if (atk) ordered.push(atk);
     else if (bi < noise.length) ordered.push(noise[bi++]);
