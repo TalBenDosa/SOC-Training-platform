@@ -1,6 +1,7 @@
 "use client";
-// The incident details page, laid out as incident-details-overview.png: toolbar, left details panel,
-// Overview and Entities tabs, four widgets. Alert details open in a flyout beside the timeline.
+// The incident page: a path back to the queue, toolbar, left details panel, Summary and Entities tabs,
+// four cards (alert timeline, entities, quick findings, related incidents). Alert details open in a
+// flyout beside the timeline.
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   BellRing, Bookmark, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Clock3, Filter, History, Info, KeySquare, Lightbulb,
@@ -71,7 +72,7 @@ function TimelineFilter({ tactics, sev, setSev, tac, setTac, type, setType }: {
   const count = sev.length + tac.length + type.length;
   return (
     <>
-      <button ref={btn} type="button" className="st-pill" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+      <button ref={btn} type="button" className="st-pill xd-fchip" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(o => !o)}>
         <Filter size={13} aria-hidden />{count ? `Filters (${count})` : "Add filter"}
       </button>
       {open && (
@@ -148,7 +149,7 @@ function AlertDetails({ alert, left, arrow, onClose, onEntity }: { alert: Sentin
   );
 }
 
-/** The alert as Microsoft Graph Security reports it, with a way into its row in Logs. */
+/** The alert as Microsoft Graph Security reports it, with a way into its row in Query. */
 function GraphFields({ graph }: { graph: GraphAlertDetails }) {
   const { openLogs } = useSentinel();
   return (
@@ -195,7 +196,7 @@ function BookmarkDetails({ bookmark, left, arrow, onClose, onEntity }: { bookmar
         </div>
       </div>
       <div className="st-field"><div className="k">Bookmark ID</div><div className="v st-mono st-small">{bookmark.id}</div></div>
-      <button type="button" className="st-link" style={{ marginTop: 10 }} onClick={() => openLogs({ query: bookmark.query, run: true })}>View bookmark logs</button>
+      <button type="button" className="st-link" style={{ marginTop: 10 }} onClick={() => openLogs({ query: bookmark.query, run: true })}>Open in Query</button>
     </Flyout>
   );
 }
@@ -211,7 +212,7 @@ const TimelineRow = memo(function TimelineRow({ item, active, entities, onOpen, 
         {alert ? <AlertCardBody alert={alert} entities={entities} maxEntities={2} /> : bookmark && <BookmarkCardBody name={bookmark.name} at={bookmark.at} author={bookmark.author} />}
       </button>
       <span className="xd-tl-menu">
-        <MoreMenu label={`Actions for ${alert?.name ?? bookmark?.name}`} items={[{ label: "Open in Logs", icon: <ScrollText size={14} color="#6d28d9" aria-hidden />, onSelect: () => onLogs(query) }]} />
+        <MoreMenu label={`Actions for ${alert?.name ?? bookmark?.name}`} items={[{ label: "Open in Query", icon: <ScrollText size={14} color="#6d28d9" aria-hidden />, onSelect: () => onLogs(query) }]} />
       </span>
     </li>
   );
@@ -255,8 +256,8 @@ function TimelineWidget({ incident, alerts, onEntity }: { incident: SentinelInci
   }, [open]);
   const close = useCallback(() => setOpen(null), []);
   return (
-    <section ref={section} className="st-widget" aria-label="Incident timeline">
-      <h3>Incident timeline</h3>
+    <section ref={section} className="st-widget" aria-label="Alert timeline">
+      <h3>Alert timeline</h3>
       <label className="st-search"><Search size={14} aria-hidden /><span className="st-sr">Search timeline</span>
         <input className="st-input" value={q} onChange={e => setQ(e.target.value)} placeholder="Search" />
       </label>
@@ -278,8 +279,8 @@ function useEntityActions(incident: SentinelIncident) {
   return useCallback((e: SentinelEntity): MenuItem[] => {
     if (ended) return [];
     const items: MenuItem[] = [];
-    if (canAddToTi(e)) items.push({ label: "Add to TI", icon: <ShieldPlus size={14} color="#6d28d9" aria-hidden />, onSelect: () => addToTi(e, incident.id) });
-    if (canRunPlaybook(e)) items.push({ label: "Run playbook (Preview)", icon: <Bot size={14} color="#6d28d9" aria-hidden />, onSelect: () => openPlaybook({ incidentId: incident.id, host: e.name }) });
+    if (canAddToTi(e)) items.push({ label: "Add to Intel", icon: <ShieldPlus size={14} color="#6d28d9" aria-hidden />, onSelect: () => addToTi(e, incident.id) });
+    if (canRunPlaybook(e)) items.push({ label: "Run action", icon: <Bot size={14} color="#6d28d9" aria-hidden />, onSelect: () => openPlaybook({ incidentId: incident.id, host: e.name }) });
     return items;
   }, [addToTi, ended, incident.id, openPlaybook]);
 }
@@ -305,7 +306,7 @@ function EntitiesWidget({ incident, entities, alerts, onSelect }: { incident: Se
         <label className="st-search st-grow"><Search size={14} aria-hidden /><span className="st-sr">Search entities</span>
           <input className="st-input" value={q} onChange={e => setQ(e.target.value)} placeholder="Search" />
         </label>
-        <Select label="Type" value={kind} options={kindOptions(entities)} onChange={setKind} className="st-pill">Type : <b>{kind === "All" ? "All" : KIND_LABEL[kind]}</b></Select>
+        <Select label="Type" value={kind} options={kindOptions(entities)} onChange={setKind} className="st-pill xd-fchip"><span className="lab">Type</span><b>{kind === "All" ? "All" : KIND_LABEL[kind]}</b><ChevronDown size={12} aria-hidden /></Select>
       </div>
       <div className="st-wscroll" style={{ marginTop: 6 }}>
         <EntityGroups entities={shown} counts={counts} onSelect={onSelect} menu={menu} />
@@ -314,7 +315,7 @@ function EntitiesWidget({ incident, entities, alerts, onSelect }: { incident: Se
   );
 }
 
-/** The info button in Similarity reason: the common items, in a card beside the row. */
+/** The info button in "Why related": the common items, in a card beside the row. */
 function SimilarityInfo({ s }: { s: SimilarIncident }) {
   const [open, setOpen] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
@@ -341,14 +342,14 @@ function SimilarWidget({ incident }: { incident: SentinelIncident }) {
   const { ws, stateOf, openIncident } = useSentinel();
   const similar = useMemo(() => similarIncidents(incident, ws), [incident, ws]);
   return (
-    <section className="st-widget span2" aria-label="Similar incidents">
-      <h3>Similar incidents <InfoMark title="Up to 20 incidents that most closely resemble this one." /></h3>
-      {similar.length === 0 ? <p className="st-muted st-small">No similar incidents in this workspace.</p> : (
+    <section className="st-widget span2" aria-label="Related incidents">
+      <h3>Related incidents <InfoMark title="Up to 20 incidents that share entities or rules with this one." /></h3>
+      {similar.length === 0 ? <p className="st-muted st-small">No related incidents in this workspace.</p> : (
         <div className="st-wscroll">
-          <table className="st-table st-similar">
+          <table className="st-table st-similar xd-grid">
             <thead><tr>
-              <th scope="col" style={{ width: 96 }}>Severity</th><th scope="col" style={{ width: 84 }}>Incident ID</th><th scope="col">Title</th>
-              <th scope="col" style={{ width: 150 }}>Last update time</th><th scope="col" style={{ width: 100 }}>Status</th><th scope="col" style={{ width: 140 }}>Similarity reason</th><th scope="col" style={{ width: 100 }}>Owner</th>
+              <th scope="col" style={{ width: 104 }}>Severity</th><th scope="col" style={{ width: 64 }}>ID</th><th scope="col">Title</th>
+              <th scope="col" style={{ width: 150 }}>Updated</th><th scope="col" style={{ width: 100 }}>Status</th><th scope="col" style={{ width: 150 }}>Why related</th><th scope="col" style={{ width: 100 }}>Owner</th>
             </tr></thead>
             <tbody>
               {similar.map(s => {
@@ -356,8 +357,8 @@ function SimilarWidget({ incident }: { incident: SentinelIncident }) {
                 const status = st.status === "Closed" && st.classification ? `Closed - ${st.classification}` : st.status;
                 return (
                   <tr key={s.incident.id}>
-                    <td className="st-sevcell"><i className={`st-cellband ${st.severity}`} aria-hidden /><SevChip value={st.severity} /></td>
-                    <td><button type="button" className="st-link" onClick={() => openIncident(s.incident.id)}>{s.incident.number}</button></td>
+                    <td className="st-sevcell"><SevChip value={st.severity} /></td>
+                    <td className="xd-num-cell"><button type="button" className="st-link" onClick={() => openIncident(s.incident.id)}>{s.incident.number}</button></td>
                     <td title={s.incident.title}>{s.incident.title}</td>
                     <td>{fmtMediumTime(s.incident.lastUpdate)}</td>
                     <td title={status}>{status}</td>
@@ -396,8 +397,8 @@ function InsightsWidget({ incident }: { incident: SentinelIncident }) {
   const range = `${fmtDateTime(first - 86_400_000)} - ${fmtDateTime(last)}`;
   const [open, setOpen] = useState<string | null>(null);
   return (
-    <section className="st-widget tall" aria-label="Top insights">
-      <h3>Top insights</h3>
+    <section className="st-widget tall" aria-label="Quick findings">
+      <h3>Quick findings</h3>
       <div className="st-small st-muted st-row" style={{ gap: 4 }}><Clock3 size={13} aria-hidden />Last 24 hours before the first alert<InfoMark title="From 24 hours before the earliest alert until the latest alert." /></div>
       <div className="st-wscroll">
         <ul className="xd-ins">
@@ -416,7 +417,7 @@ function InsightsWidget({ incident }: { incident: SentinelIncident }) {
             );
           })}
         </ul>
-        {insights.length === 0 && <Empty icon={<Lightbulb size={22} aria-hidden />} title="No insights yet" />}
+        {insights.length === 0 && <Empty icon={<Lightbulb size={22} aria-hidden />} title="No findings yet" />}
       </div>
     </section>
   );
@@ -445,7 +446,7 @@ function EntitiesTab({ incident, entities, alerts, selected, onSelect }: { incid
           <label className="st-search st-grow" style={{ maxWidth: 280 }}><Search size={14} aria-hidden /><span className="st-sr">Search entities</span>
             <input className="st-input" value={q} onChange={e => setQ(e.target.value)} placeholder="Search" />
           </label>
-          <Select label="Type" value={kind} options={kindOptions(entities)} onChange={setKind} className="st-pill">Type : <b>{kind === "All" ? "All" : KIND_LABEL[kind]}</b></Select>
+          <Select label="Type" value={kind} options={kindOptions(entities)} onChange={setKind} className="st-pill xd-fchip"><span className="lab">Type</span><b>{kind === "All" ? "All" : KIND_LABEL[kind]}</b><ChevronDown size={12} aria-hidden /></Select>
           <span className="st-grow" />
           <span className="st-small st-muted">{shown.length} of {entities.length}</span>
         </div>
@@ -477,7 +478,7 @@ function EntitiesTab({ incident, entities, alerts, selected, onSelect }: { incid
             {card === "insights" && <EntityInsightsCard entity={entity} />}
           </div>
           <div className="st-preview-foot">
-            <button type="button" className="st-btn primary" onClick={() => openEntity(entity.id)}>View full details</button>
+            <button type="button" className="st-btn primary" onClick={() => openEntity(entity.id)}>Open entity page</button>
             {actions.length === 1
               ? <button type="button" className="st-btn" onClick={actions[0].onSelect}>{actions[0].label}</button>
               : <ButtonMenu label="Entity actions" className="st-btn" items={actions}>Entity actions<ChevronDown size={12} aria-hidden /></ButtonMenu>}
@@ -511,18 +512,18 @@ export function IncidentDetails({ incident, focusEntity, onClose, hidden }: { in
 
   return (
     <div ref={region} tabIndex={-1} className="st-inc" role="region" aria-label={`Incident ${incident.number}`} hidden={hidden}>
-      <Crumbs trailing items={[{ label: "Home", onClick: () => { onClose(); go("overview"); } }, { label: "XDR | Incidents", onClick: onClose }]} />
+      <Crumbs items={[{ label: "Home", onClick: () => { onClose(); go("overview"); } }, { label: "Incidents", onClick: onClose }, { label: `#${incident.number}` }]} />
       <div className="st-inc-head">
         <span className="xd-head-tile" aria-hidden style={{ marginTop: 3 }}><Siren size={20} /></span>
-        <div className="st-grow" style={{ minWidth: 0 }}><h1 className="st-wrap" title={incident.title}>{incident.title}</h1><div className="st-small">Incident ID {incident.number}</div><EscalationTag incident={incident} /></div>
+        <div className="st-grow" style={{ minWidth: 0 }}><h1 className="st-wrap" title={incident.title}>{incident.title}</h1><div className="st-small xd-inc-sub">Incident #{incident.number}</div><EscalationTag incident={incident} /></div>
         <button type="button" className="st-icon-btn" aria-label="Close incident" onClick={onClose}><X size={18} aria-hidden /></button>
       </div>
       <div className="st-cmdbar" role="toolbar" aria-label="Incident commands" style={{ paddingLeft: 8 }}>
         <button type="button" className="st-cmd" onClick={refresh}><RotateCw size={15} aria-hidden />Refresh</button>
         <span className="st-cmdsep" aria-hidden />
-        <button type="button" className="st-cmd" onClick={() => openLogs({ query: "" })}><ScrollText size={15} aria-hidden />Logs</button>
+        <button type="button" className="st-cmd" onClick={() => openLogs({ query: "" })}><ScrollText size={15} aria-hidden />Query</button>
         <button type="button" className="st-cmd" onClick={() => setPane("tasks")}><ListTodo size={15} aria-hidden />Tasks</button>
-        <button type="button" className="st-cmd" onClick={() => setPane("activity")}><History size={15} aria-hidden />Activity log</button>
+        <button type="button" className="st-cmd" onClick={() => setPane("activity")}><History size={15} aria-hidden />Case history</button>
       </div>
       <div className="st-inc-body">
         <aside className={`st-inc-left${collapsed ? " collapsed" : ""}`} aria-label="Incident details">
@@ -530,16 +531,16 @@ export function IncidentDetails({ incident, focusEntity, onClose, hidden }: { in
           {!collapsed && (
             <>
               <div className="st-inc-scroll">
-                <div className="st-field"><div className="k">Workspace name</div><div className="v">{ws.name}</div></div>
+                <div className="st-field"><div className="k">Workspace</div><div className="v">{ws.name}</div></div>
                 <IncidentDescription incident={incident} />
-                <div className="st-field"><div className="k">Alert product names</div>
+                <div className="st-field"><div className="k">Sources</div>
                   <ul className="xd-ac-chips wrap" style={{ marginTop: 4 }}>{incident.products.map(p => <li key={p} className="xd-chip prod">{p}</li>)}</ul>
                 </div>
                 <TasksSummary state={state} onOpen={() => setPane("tasks")} />
-                <div className="st-field"><div className="k">Evidence</div><Evidence incident={incident} state={state} /></div>
+                <div className="st-field"><div className="k">Linked data</div><Evidence incident={incident} state={state} /></div>
                 <div className="st-2col st-field">
-                  <div><div className="st-k">Last update time</div>{fmtDateTime(incident.lastUpdate)}</div>
-                  <div><div className="st-k">Creation time</div>{fmtDateTime(incident.created)}</div>
+                  <div><div className="st-k">Updated</div>{fmtDateTime(incident.lastUpdate)}</div>
+                  <div><div className="st-k">Created</div>{fmtDateTime(incident.created)}</div>
                 </div>
                 {state.status === "Closed" && (
                   <div className="st-field"><div className="k">Closing classification</div>
@@ -553,7 +554,7 @@ export function IncidentDetails({ incident, focusEntity, onClose, hidden }: { in
                       <li key={e.id}><button type="button" className="st-link st-row xd-elink" style={{ gap: 8, maxWidth: "100%" }} title={e.name} onClick={() => showEntity(e.id)}><EntityTile kind={e.kind} size={20} /><span className="st-ellipsis">{e.name}</span></button></li>
                     ))}
                   </ul>
-                  {entities.length > 0 && <button type="button" className="st-link" onClick={() => setTab("entities")}>View all &gt;</button>}
+                  {entities.length > 0 && <button type="button" className="st-link" onClick={() => setTab("entities")}>All entities</button>}
                 </div>
                 <div className="st-field"><div className="k">Tactics and techniques</div><TacticsTree alerts={alerts} /></div>
               </div>
@@ -565,16 +566,16 @@ export function IncidentDetails({ incident, focusEntity, onClose, hidden }: { in
         </aside>
         <div className="st-inc-main">
           <div className="st-inc-tabs">
-            <Tabs label="Incident views" value={tab} onChange={setTab} tabs={[{ value: "overview", label: "Overview" }, { value: "entities", label: "Entities" }]} />
+            <Tabs label="Incident views" value={tab} onChange={setTab} className="st-tabs xd-seg" tabClass="st-tab xd-seg-btn" tabs={[{ value: "overview", label: "Summary" }, { value: "entities", label: "Entities" }]} />
             {!ended && (
-              <ButtonMenu label="Incident actions" className="st-btn primary" align="right"
-                items={[{ label: "Run playbook (Preview)", icon: <Bot size={14} color="#6d28d9" aria-hidden />, onSelect: () => openPlaybook({ incidentId: incident.id }) }]}>
-                Incident actions<ChevronDown size={12} aria-hidden />
+              <ButtonMenu label="Respond" className="st-btn primary" align="right"
+                items={[{ label: "Run action", icon: <Bot size={14} color="#6d28d9" aria-hidden />, onSelect: () => openPlaybook({ incidentId: incident.id }) }]}>
+                Respond<ChevronDown size={12} aria-hidden />
               </ButtonMenu>
             )}
           </div>
           {tab === "overview" ? (
-            <div className="st-widgets" role="tabpanel" aria-label="Overview">
+            <div className="st-widgets" role="tabpanel" aria-label="Summary">
               <TimelineWidget incident={incident} alerts={alerts} onEntity={showEntity} />
               <EntitiesWidget incident={incident} entities={entities} alerts={alerts} onSelect={showEntity} />
               <InsightsWidget incident={incident} />

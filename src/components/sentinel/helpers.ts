@@ -90,7 +90,7 @@ export function fmtMediumTime(iso: string | number | Date | null | undefined): s
   const h = d.getUTCHours();
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}, ${pad(h % 12 || 12)}:${pad(d.getUTCMinutes())} ${h < 12 ? "AM" : "PM"}`;
 }
-/** 2s 567ms, as the Logs panel footer shows a run. */
+/** 2s 567ms, as the Query panel footer shows a run. */
 export function fmtElapsed(ms: number): string {
   const whole = Math.max(0, Math.round(ms));
   return whole < 1000 ? `${whole}ms` : `${Math.floor(whole / 1000)}s ${whole % 1000}ms`;
@@ -219,7 +219,7 @@ export function similarIncidents(incident: SentinelIncident, ws: SentinelWorkspa
     const entities = shared.map(e => ws.entities[e]).filter((e): e is SentinelEntity => !!e);
     const ruleNames = rules.map(r => ws.rules.find(x => x.id === r)?.name ?? r);
     const common = [...entities.map(e => e.name), ...ruleNames];
-    out.push({ incident: other, reason: shared.length ? "Similar entities" : "Same rule name", common, entities, rules: ruleNames, score: shared.length * 2 + rules.length * 3 + (sameTitle ? 1 : 0) });
+    out.push({ incident: other, reason: shared.length ? "Shared entities" : "Same rule", common, entities, rules: ruleNames, score: shared.length * 2 + rules.length * 3 + (sameTitle ? 1 : 0) });
   }
   return out.sort((a, b) => b.score - a.score || Date.parse(b.incident.lastUpdate) - Date.parse(a.incident.lastUpdate)).slice(0, 20);
 }
@@ -484,17 +484,17 @@ export function explorationsFor(entity: SentinelEntity, ws: SentinelWorkspace): 
   return related;
 }
 
-/** The heading the activity log gives an entry. */
+/** The heading the case history gives an entry. */
 export function activityTitle(text: string): string {
-  if (/^Status changed/.test(text)) return "Incident status was changed";
-  if (/^Severity changed/.test(text)) return "Incident severity was changed";
-  if (/^Incident (assigned|unassigned)/.test(text)) return "Incident owner was changed";
-  if (/^Classification set/.test(text)) return "Incident classification was changed";
-  if (/^Incident created/.test(text)) return "Incident was created";
-  if (/^Bookmark/.test(text)) return "Bookmark was added";
-  if (/^Task/.test(text)) return "Incident task was changed";
-  if (/^(Escalated|Case opened)/.test(text)) return "Incident was escalated";
-  return "Incident was changed";
+  if (/^Status changed/.test(text)) return "Status changed";
+  if (/^Severity changed/.test(text)) return "Severity changed";
+  if (/^Incident (assigned|unassigned)/.test(text)) return "Owner changed";
+  if (/^Classification set/.test(text)) return "Classification set";
+  if (/^Incident created/.test(text)) return "Incident opened";
+  if (/^Bookmark/.test(text)) return "Bookmark added";
+  if (/^Task/.test(text)) return "Task updated";
+  if (/^(Escalated|Case opened)/.test(text)) return "Escalated";
+  return "Incident updated";
 }
 
 /** The SecurityAlert row behind an alert: what the flyout reads beyond the alert object. */

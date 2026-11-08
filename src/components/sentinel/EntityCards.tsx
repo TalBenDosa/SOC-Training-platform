@@ -19,7 +19,7 @@ function DeviceStateLine({ host }: { host: string }) {
   );
 }
 
-/** What an insight found: its time range, description, a few rows and the way into Logs. */
+/** What an insight found: its time range, description, a few rows and the way into Query. */
 export function InsightResults({ insight, range }: { insight: EntityInsight; range?: string }) {
   const { openLogs } = useSentinel();
   const { columns, rows } = insight.preview;

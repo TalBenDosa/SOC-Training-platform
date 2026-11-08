@@ -60,7 +60,7 @@ const navLabel = (b: Element) => [...b.childNodes].filter(n => !(n instanceof El
 const nav = (name: string) => click(all<HTMLButtonElement>(".st-nav-item").find(b => navLabel(b) === name)!);
 const editor = () => q<HTMLTextAreaElement>("[data-testid=kql-input]")!;
 async function runInLogs(query: string) {
-  nav("Logs");
+  nav("Query");
   setValue(editor(), query, query.length);
   press("Run");
   await settle();
@@ -71,14 +71,19 @@ const incidentRows = () => all('table[aria-label="Incidents"] tbody tr');
 describe("shell", () => {
   it("has the requested menu and nothing else", () => {
     mount();
-    expect(all(".st-nav-item").map(navLabel)).toEqual(["Overview", "Logs", "Search", "Incidents", "Hunting", "Entity behavior", "Threat intelligence", "Analytics", "Automation"]);
-    expect(all(".st-nav-group").map(b => b.textContent)).toEqual(["General", "Threat management", "Configuration"]);
-    // The original layout, named XDR (owner, 2026-11-08): wordmark, "XDR | Incidents", Home > XDR.
+    // XDR's own menu and words (owner, 2026-11-08, v4): not the portal's groups and blade names.
+    expect(all(".st-nav-item").map(navLabel)).toEqual(["Home", "Query", "Search", "Incidents", "Hunts", "Entities", "Intel", "Detections", "Playbooks"]);
+    expect(all(".st-nav-group").map(b => b.textContent)).toEqual(["Workspace", "Investigate", "Operate"]);
     expect(q("[data-testid=workspace-name]")!.textContent).toBe("contoso-xdr-prod");
     expect(q(".st-topbar strong")!.textContent).toBe("XDR");
     expect(q("nav.st-nav")!.getAttribute("aria-label")).toBe("XDR menu");
-    expect(q(".st-blade-head h1")!.textContent).toBe("XDR | Incidents");
-    expect(all(".st-blade-head .st-crumb > span").map(s => s.textContent)).toEqual(["Home", "XDR"]);
+    // The page header: the group as an eyebrow, the page name, the workspace as a chip. No "XDR | Incidents",
+    // no "Selected workspace", no Home > XDR path.
+    expect(q(".st-blade-head h1")!.textContent).toBe("Incidents");
+    expect(q(".st-blade-head .xd-eyebrow")!.textContent).toBe("Investigate");
+    expect(q(".st-blade-head .xd-ws")!.textContent).toContain("contoso-xdr-prod");
+    expect(q(".st-blade-head .st-crumb")).toBeNull();
+    expect(text()).not.toContain("Selected workspace");
     // Review 2026-11: the seat in words, and the link says where it goes (it keeps the two-window behaviour).
     expect(q<HTMLAnchorElement>(".st-topbar a")!.textContent).toBe("Back to team room");
     expect(q(".st-topbar")!.textContent).toContain("Tal Analyst (Tier-2)");
@@ -103,7 +108,7 @@ describe("shell", () => {
     const item = () => all(".st-nav-item").find(b => navLabel(b) === "Incidents")!;
     expect(item().getAttribute("aria-label")).toBe(`Incidents: ${open} not opened yet, of ${open} open`);
     click(incidentRows()[0]);
-    press("View full details");
+    press("Open incident page");
     press("Close incident");
     expect(badge()).toBe(String(open - 1));
     // The badge's meaning is in its name and tooltip, next to the open total the page shows
@@ -141,10 +146,17 @@ describe("shell", () => {
     // white text on the accent (primary buttons, badges) and on the top bar
     expect(onWhite(hex("st-accent"))).toBeGreaterThanOrEqual(4.5);
     expect(onWhite(hex("st-bar"))).toBeGreaterThanOrEqual(4.5);
-    // Inter and JetBrains Mono, no Segoe UI and no Azure blue left
-    expect(css).toMatch(/font-family: var\(--font-inter\)/);
-    expect(css).toMatch(/--st-mono: var\(--font-jetbrains\)/);
-    expect(css).not.toMatch(/Segoe UI|#0078d4/i);
+    // XDR's own type (v4): Manrope and IBM Plex Mono, no Segoe UI, no Inter-only look, no Azure blue,
+    // and none of Fluent's warm greys.
+    expect(css).toMatch(/--st-sans: var\(--font-xdr-sans\), "Manrope"/);
+    expect(css).toMatch(/--st-mono: var\(--font-xdr-mono\), "IBM Plex Mono"/);
+    expect(css).toMatch(/font-family: var\(--st-sans\)/);
+    expect(css).not.toMatch(/Segoe UI|#0078d4|--font-inter|"Inter"|JetBrains/i);
+    expect(css).not.toMatch(/#323130|#605e5c|#edebe9|#faf9f8|#c8c6c4/i);
+    const layout = fs.readFileSync(path.join(__dirname, "../../app/(app)/xdr/layout.tsx"), "utf8");
+    expect(layout).toMatch(/Manrope\(/);
+    expect(layout).toMatch(/IBM_Plex_Mono\(/);
+    expect(layout).toMatch(/--font-xdr-sans/);
     expect(onWhite(hex("st-low-edge"))).toBeGreaterThanOrEqual(3);
     expect(css).toMatch(/\.st-band\.Low:not\(\.dotted\), \.st-cellband\.Low \{ box-shadow: inset 0 0 0 1px var\(--st-low-edge\)/);
     // XDR's chips and tiles: every ink on its own background, AA for small text.
@@ -152,14 +164,16 @@ describe("shell", () => {
     for (const [ink, bg] of [["xd-high-ink", "xd-high-bg"], ["xd-med-ink", "xd-med-bg"], ["xd-low-ink", "xd-low-bg"], ["xd-info-ink", "xd-info-bg"], ["xd-tac-ink", "xd-tac-bg"],
       ["xd-t-blue", "xd-t-blue-bg"], ["xd-t-teal", "xd-t-teal-bg"], ["xd-t-plum", "xd-t-plum-bg"], ["xd-t-amber", "xd-t-amber-bg"], ["st-text-2", "xd-info-bg"],
       // the violet accent (owner, 2026-11-08): links, the nav's current item, soft tiles and the top bar
-      ["st-accent", "st-accent-faint"], ["st-accent", "st-accent-soft"], ["st-accent-ink", "st-accent-faint"], ["st-accent-hover", "st-accent-soft"]]) {
+      ["st-accent", "st-accent-faint"], ["st-accent", "st-accent-soft"], ["st-accent-ink", "st-accent-faint"], ["st-accent-hover", "st-accent-soft"],
+      // v4: grid header labels, the menu and data sources on the canvas, code blocks
+      ["st-text-2", "xd-grid-head"], ["st-accent-ink", "xd-grid-head"], ["st-text-2", "st-canvas"], ["st-text-2", "xd-zebra"], ["st-accent-ink", "st-accent-soft"], ["xd-code-ink", "xd-code-bg"]]) {
       expect(ratio(hex(ink), hex(bg)), `${ink} on ${bg}`).toBeGreaterThanOrEqual(4.5);
     }
   });
 
   it("every screen renders, every control has a name, no em dash in the text", async () => {
     mount();
-    for (const s of ["Overview", "Logs", "Search", "Incidents", "Hunting", "Entity behavior", "Threat intelligence", "Analytics", "Automation"]) {
+    for (const s of ["Home", "Query", "Search", "Incidents", "Hunts", "Entities", "Intel", "Detections", "Playbooks"]) {
       nav(s);
       await settle();
       for (const b of all("button")) expect((b.getAttribute("aria-label") ?? b.textContent ?? "").trim(), b.outerHTML.slice(0, 120)).not.toBe("");
@@ -189,17 +203,17 @@ describe("incidents grid", () => {
     mount({ states: statesFor({ "inc-102": { status: "Closed" } }) });
     expect(incidentRows()).toHaveLength(1);
     const kpi = all(".st-kpi").map(k => k.textContent);
-    expect(kpi[0]).toBe("1Open incidents");
-    expect(kpi[1]).toBe("1New incidents");
-    expect(kpi[2]).toBe("0Active incidents");
+    expect(kpi[0]).toBe("Open incidents1");
+    expect(kpi[1]).toBe("New1");
+    expect(kpi[2]).toBe("Active0");
   });
 
   it("sorts by a column and filters by the search box", () => {
     mount();
     const numbers = () => incidentRows().map(r => r.querySelectorAll("td")[2].textContent);
     expect(numbers()).toEqual(["102", "101"]);
-    press(/^Incident ID/);
-    press(/^Incident ID/);
+    press("ID");
+    press("ID");
     expect(numbers()).toEqual(["101", "102"]);
     setValue(q<HTMLInputElement>('input[placeholder^="Search by ID"]')!, "service");
     expect(numbers()).toEqual(["102"]);
@@ -208,7 +222,7 @@ describe("incidents grid", () => {
   it("opens the preview, and changing the owner there writes through the actions", async () => {
     const { calls } = mount();
     click(incidentRows().find(r => r.textContent?.includes("Initial access"))!);
-    expect(text()).toContain("View full details");
+    expect(text()).toContain("Open incident page");
     press(/^Owner: Unassigned/);
     press("Dana Lead");
     expect(calls.find(c => c.fn === "updateIncident"), "nothing changes before Apply").toBeUndefined();
@@ -225,7 +239,7 @@ describe("incidents grid", () => {
     expect(q(".st-new-mark")?.textContent).toBe("New");
     expect(q(".st-toast")?.textContent).toContain("A late arrival");
     press("Open incident");
-    expect(text()).toContain("Incident ID 103");
+    expect(text()).toContain("Incident #103");
     expect(q(".st-toast")).toBeNull();
     press("Close incident");
     expect(q(".st-new-mark")).toBeNull();
@@ -234,46 +248,51 @@ describe("incidents grid", () => {
 
 function openDetails(name = "Initial access") {
   click(incidentRows().find(r => r.textContent?.includes(name))!);
-  press("View full details");
+  press("Open incident page");
 }
 
 describe("incident details", () => {
   it("moves focus into the blade, and back to what opened it", async () => {
     mount();
     click(incidentRows().find(r => r.textContent?.includes("Initial access"))!);
-    const opener = button("View full details");
+    const opener = button("Open incident page");
     opener.focus();
     act(() => { opener.click(); });
     expect(document.activeElement?.className).toBe("st-inc");
     press("Close incident");
     await settle();
-    expect(document.activeElement?.textContent).toBe("View full details");
+    expect(document.activeElement?.textContent).toBe("Open incident page");
   });
 
   it("lays out the left panel, toolbar and four widgets", () => {
     mount();
     openDetails();
-    expect(text()).toContain("Incident ID 101");
-    for (const label of ["Refresh", "Logs", "Tasks", "Activity log", "Investigate", "Incident actions", "Overview", "Entities"]) expect(button(label)).toBeTruthy();
-    for (const label of ["Workspace name", "Description", "Alert product names", "Evidence", "Last update time", "Creation time", "Tactics and techniques"]) expect(text()).toContain(label);
-    expect(all(".st-widget h3").map(h => h.textContent?.trim())).toEqual(["Incident timeline", "Entities", "Top insights", "Similar incidents"]);
+    expect(text()).toContain("Incident #101");
+    for (const label of ["Refresh", "Query", "Tasks", "Case history", "Investigate", "Respond", "Summary", "Entities"]) expect(button(label)).toBeTruthy();
+    for (const label of ["Workspace", "Description", "Sources", "Linked data", "Updated", "Created", "Tactics and techniques"]) expect(text()).toContain(label);
+    expect(all(".st-widget h3").map(h => h.textContent?.trim())).toEqual(["Alert timeline", "Entities", "Quick findings", "Related incidents"]);
+    // the path back: Home / Incidents / #101
+    expect(all(".st-inc .st-crumb > span").map(s => s.textContent?.replace("/", ""))).toEqual(["Home", "Incidents", "#101"]);
+    // linked data as three small cards
+    expect(all(".st-inc-left .xd-linkcard").map(c => c.getAttribute("aria-label")?.replace(/\d+$/, "n"))).toEqual(["Events, n", "Alerts, n", "Bookmarks, n"]);
+    expect(button("Alerts, 2")).toBeTruthy();
   });
 
-  it("Evidence opens the Logs panel on its query, already run, and Done closes it", async () => {
+  it("Linked data opens the Query panel on its query, already run, and Done closes it", async () => {
     const { calls } = mount();
     openDetails();
     press("Alerts, 2");
     await settle();
-    expect(q('[role=dialog][aria-labelledby]')?.textContent).toContain("Logs");
+    expect(q('[role=dialog][aria-labelledby] h2')?.textContent).toBe("Query");
     expect(editor().value).toContain("SystemAlertId in");
-    expect(text()).toContain("Completed. Showing results from the last 24 hours.");
+    expect(text()).toContain("Query complete: 2 rows from the last 24 hours.");
     expect(gridRows()).toHaveLength(2);
     expect(calls.find(c => c.fn === "queryRan")).toBeTruthy();
     press("Done");
     expect(q("[data-testid=kql-input]")).toBeNull();
   });
 
-  it("a timeline item shows the alert details, and the System alert ID goes to Logs", async () => {
+  it("a timeline item shows the alert details, and the System alert ID goes to Query", async () => {
     mount();
     openDetails();
     press(/^Suspicious process launched/);
@@ -340,20 +359,21 @@ describe("incident details", () => {
     expect(q(".st-flyout")).toBeNull();
   });
 
-  it("Similar incidents gives the reason, and the info button lists the common items", () => {
+  it("Related incidents gives the reason, and the info button lists the common items", () => {
     const shared: SentinelIncident = { ...INCIDENTS[1], id: "inc-103", number: 103, title: "Shares an entity", entityIds: ["host:fin-lt-042"], alertIds: [] };
     mount({ workspace: fixtureWorkspace({ incidents: [...INCIDENTS, shared] }) });
     openDetails();
-    expect(q(".st-similar")?.textContent).toContain("Similar entities");
-    expect(all(".st-similar thead th").map(t => t.textContent)).toEqual(["Severity", "Incident ID", "Title", "Last update time", "Status", "Similarity reason", "Owner"]);
-    press(/^Similar entities: show the common items/);
-    expect(q('[role=dialog][aria-label="Similar entities"]')?.textContent).toContain("203.0.113.50");
+    expect(q(".st-similar")?.textContent).toContain("Shared entities");
+    expect(all(".st-similar thead th").map(t => t.textContent)).toEqual(["Severity", "ID", "Title", "Updated", "Status", "Why related", "Owner"]);
+    press(/^Shared entities: show the common items/);
+    expect(q('[role=dialog][aria-label="Shared entities"]')?.textContent).toContain("203.0.113.50");
   });
 
-  it("Tasks and Activity log are live, and a comment goes through the actions", async () => {
+  it("Tasks and Case history are live, and a comment goes through the actions", async () => {
     const { calls, rerender, base } = mount();
     openDetails();
-    press("Activity log");
+    press("Case history");
+    expect(all('[aria-label="Show in case history"] button').map(b => b.textContent)).toEqual(["Everything", "Changes", "Comments"]);
     const box = q<HTMLTextAreaElement>('textarea[placeholder="Write a comment..."]')!;
     setValue(box, "Checked the sign-in");
     await act(async () => { button("Comment").click(); });
@@ -362,7 +382,10 @@ describe("incident details", () => {
     states.set("inc-101", fixtureState({ comments: [{ id: "c1", author: "Dana Lead", text: "Seen, thanks", at: "2026-01-01T09:00:00.000Z" }] }));
     rerender({ states });
     expect(text()).toContain("Seen, thanks");
-    press("Close Incident activity log");
+    press("Comments");
+    expect(button("Comments").getAttribute("aria-pressed")).toBe("true");
+    expect(text()).toContain("Seen, thanks");
+    press("Close Case history");
 
     press("Tasks");
     click(q<HTMLInputElement>('[role=dialog] input[type=checkbox]')!);
@@ -373,25 +396,25 @@ describe("incident details", () => {
     mount();
     openDetails();
     press("Actions for FIN-LT-042");
-    expect(all("[role=menuitem]").map(i => i.textContent)).toEqual(["Run playbook (Preview)"]);
+    expect(all("[role=menuitem]").map(i => i.textContent)).toEqual(["Run action"]);
     key(q("[role=menu]")!, "Escape");
     press("Actions for 203.0.113.50");
-    expect(all("[role=menuitem]").map(i => i.textContent)).toEqual(["Add to TI"]);
+    expect(all("[role=menuitem]").map(i => i.textContent)).toEqual(["Add to Intel"]);
     key(q("[role=menu]")!, "Escape");
     expect(el!.querySelector('[aria-label="Actions for jdoe@contoso.example"]')).toBeNull();
   });
 
-  it("Add to TI lands on the Threat intelligence screen", async () => {
+  it("Add to Intel lands on the Intel screen", async () => {
     const { calls, rerender, base } = mount();
     openDetails();
     press("Actions for 203.0.113.50");
-    await act(async () => { button("Add to TI").click(); });
+    await act(async () => { button("Add to Intel").click(); });
     const comment = calls.find(c => c.fn === "addComment")!.args as [string, string];
     const states = new Map(base.states);
     states.set("inc-101", fixtureState({ comments: [{ id: "c1", author: "Tal Analyst", text: comment[1], at: "2026-01-01T09:00:00.000Z" }] }));
     rerender({ states });
     press("Close incident");
-    nav("Threat intelligence");
+    nav("Intel");
     const row = q('table[aria-label="Threat indicators"] tbody tr')!;
     expect(row.textContent).toContain("203.0.113.50");
     expect(row.textContent).toContain("Tal Analyst");
@@ -399,13 +422,15 @@ describe("incident details", () => {
 });
 
 describe("incidents grid controls", () => {
-  it("has the portal's filter row: More reveals Product name and Owner", () => {
+  it("filters are chips: More filters reveals Source and Owner", () => {
     mount();
-    expect(text()).toContain("More (2)");
-    expect(text()).not.toContain("Product name :");
-    press("More (2)");
-    expect(text()).toContain("Product name :");
-    expect(text()).toContain("Owner :");
+    expect(button("Severity: All").classList.contains("xd-fchip")).toBe(true);
+    expect(button("Status: 2 selected")).toBeTruthy();
+    expect(() => button("Source: All")).toThrow();
+    press("More filters (2)");
+    expect(button("Source: All")).toBeTruthy();
+    expect(button("Owner: All")).toBeTruthy();
+    expect(button("Fewer filters")).toBeTruthy();
   });
 
   it("Actions applies to the ticked incidents", async () => {
@@ -423,7 +448,7 @@ describe("incidents grid controls", () => {
     mount();
     press("Columns");
     click(all<HTMLInputElement>('[aria-label="Columns"] input')[0]);
-    expect(all('table[aria-label="Incidents"] th').map(t => t.textContent)).not.toContain("Incident ID");
+    expect(all('table[aria-label="Incidents"] th').map(t => t.textContent)).not.toContain("ID");
     expect(incidentRows()).toHaveLength(2);
   });
 
@@ -437,34 +462,56 @@ describe("incidents grid controls", () => {
     expect(incidentRows()).toHaveLength(3);
   });
 
-  it("the pager is always there, as the grid draws it", () => {
+  it("the pager is always there: Showing 1 to 2 of 2, with icon buttons", () => {
     mount();
-    expect(button("< Previous").disabled).toBe(true);
-    expect(button("Next >").disabled).toBe(true);
-    expect(q(".st-pager")?.textContent).toContain("1 - 2");
+    expect(button("Previous page").disabled).toBe(true);
+    expect(button("Next page").disabled).toBe(true);
+    expect(q(".st-pager")?.textContent).toContain("Showing 1 to 2 of 2");
+    expect(() => button("< Previous")).toThrow();
+  });
+
+  it("XDR's grid: a small caps header bar without a sort glyph on every column, and a left accent", async () => {
+    mount();
+    const grid = q('table[aria-label="Incidents"]')!;
+    expect(grid.classList.contains("xd-grid")).toBe(true);
+    const sorted = all('table[aria-label="Incidents"] th[aria-sort]').filter(t => t.getAttribute("aria-sort") !== "none");
+    expect(sorted.map(t => t.textContent)).toEqual(["Created"]);
+    expect(sorted[0].hasAttribute("data-sorted")).toBe(true);
+    expect(all('table[aria-label="Incidents"] th[data-sorted]')).toHaveLength(1);
+    // no portal cell band beside the severity: the pill alone
+    expect(q(".st-igrid .st-cellband")).toBeNull();
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const css = fs.readFileSync(path.join(__dirname, "sentinel.css"), "utf8");
+    expect(css).toMatch(/\.xd-grid th \{[^}]*text-transform: uppercase/);
+    expect(css).toMatch(/\.xd-grid tbody tr:nth-child\(even\) td \{ background: var\(--xd-zebra\)/);
+    expect(css).toMatch(/tr:hover td:first-child[^{]*\{ box-shadow: inset 3px 0 0 var\(--st-accent\)/);
   });
 });
 
 describe("logs", () => {
   it("runs on Shift+Enter and reports status, row count and UTC", async () => {
     mount();
-    nav("Logs");
+    nav("Query");
     setValue(editor(), "SigninLogs", 10);
     key(editor(), "Enter", { shiftKey: true });
     await settle();
-    expect(text()).toContain("Completed. Showing results from the last 24 hours.");
-    expect(text()).toContain("120 records");
-    expect(text()).toContain("Display time (UTC+00:00)");
-    expect(text()).toContain("TimeGenerated [UTC]");
+    expect(text()).toContain("Query complete");
+    expect(text()).toContain("Results from the last 24 hours.");
+    expect(text()).toContain("120 rows");
+    expect(text()).toContain("Times in UTC");
+    const tg = all("table[role=grid] th").find(t => t.querySelector(".xd-colname")?.textContent === "TimeGenerated")!;
+    expect(tg.querySelector(".xd-utc")?.textContent).toBe("UTC");
+    expect(text()).not.toMatch(/Completed\.|Display time|\[UTC\]/);
   });
 
   it("pages at 50 and moves between pages", async () => {
     mount();
     await runInLogs("SigninLogs");
     expect(gridRows()).toHaveLength(50);
-    expect(text()).toContain("1 - 50 of 120");
+    expect(text()).toContain("Showing 1 to 50 of 120");
     press("Next page");
-    expect(text()).toContain("51 - 100 of 120");
+    expect(text()).toContain("Showing 51 to 100 of 120");
     press("Last page");
     expect(gridRows()).toHaveLength(20);
   });
@@ -485,7 +532,7 @@ describe("logs", () => {
 
   it("Set in query replaces the picker when the query filters on TimeGenerated", () => {
     mount();
-    nav("Logs");
+    nav("Query");
     setValue(editor(), "SigninLogs | where TimeGenerated > ago(1h)");
     expect(text()).toContain("Set in query");
   });
@@ -534,7 +581,7 @@ describe("logs", () => {
 
   it("autocompletes: Tab accepts, Esc closes", () => {
     mount();
-    nav("Logs");
+    nav("Query");
     setValue(editor(), "Sign", 4);
     expect(q(".st-ac-opt")?.textContent).toContain("SigninLogs");
     key(editor(), "Tab");
@@ -546,39 +593,52 @@ describe("logs", () => {
 
   it("colours tokens from the tokenizer", () => {
     mount();
-    nav("Logs");
+    nav("Query");
     setValue(editor(), 'SigninLogs | where X == "y"');
     const layer = q("[data-testid=kql-highlight]")!;
     expect(layer.textContent).toContain('SigninLogs | where X == "y"');
     expect(layer.querySelector(".st-tok-string")?.textContent).toBe('"y"');
   });
 
-  it("the schema pane expands a table, and a double-click inserts", () => {
+  it("the data sources pane groups tables by source with counts, expands a table, and a double-click inserts", () => {
     mount();
-    nav("Logs");
+    nav("Query");
+    expect(all('[role=tab]').filter(t => t.closest(".st-schema")).map(t => t.textContent)).toEqual(["Data sources", "Saved queries"]);
+    const heads = all(".xd-src-head").map(h => h.querySelector(".st-grow")?.textContent);
+    expect(heads).toContain("Identity");
+    expect(heads).toContain("Endpoints");
+    for (const h of all(".xd-src-head")) { expect(h.querySelector(".xd-src-ico svg")).toBeTruthy(); expect(h.querySelector(".xd-count")?.textContent).toMatch(/^\d+$/); }
+    const signin = button(/^SigninLogs, table/);
+    expect(signin.querySelector(".xd-tname")?.textContent).toBe("SigninLogs");
+    expect(signin.querySelector(".xd-rows")?.textContent).toBe("120");
+    expect(text()).not.toContain("Group by");
+    press("A to Z");
+    expect(all(".xd-src-head").map(h => h.querySelector(".st-grow")?.textContent)).toEqual(["All data sources"]);
+    press("By source");
     press(/^SigninLogs, table/);
-    expect(text()).toContain("UserPrincipalName (string)");
+    expect(button(/^UserPrincipalName, string/).querySelector(".xd-typebadge")?.textContent).toBe("str");
     act(() => { button(/^IPAddress, string/).dispatchEvent(new MouseEvent("dblclick", { bubbles: true })); });
     expect(editor().value).toBe("IPAddress");
   });
 
-  it("the panel inside an incident is one query, with Schema and Filter collapsed", async () => {
+  it("the panel inside an incident is one query, with the data sources pane collapsed", async () => {
     mount();
     openDetails();
     press("Alerts, 2");
     await settle();
     expect(q(".st-qtabs")).toBeNull();
-    expect(text()).toContain("Schema and Filter");
+    expect(text()).toContain("Data sources");
     expect(q(".st-col-rail")).toBeTruthy();
     expect(() => button("Export")).toThrow();
-    press("Expand schema pane");
-    expect(text()).toContain("Group by:");
+    press("Expand data sources pane");
+    expect(text()).toContain("By source");
   });
 
-  it("Example queries opens the Queries tab, and the editor collapses", () => {
+  it("Browse saved queries opens the Saved queries tab, and the editor collapses", () => {
     mount();
-    nav("Logs");
-    press("Example queries");
+    nav("Query");
+    press("Browse saved queries");
+    expect(all(".xd-src-head").map(h => h.querySelector(".st-grow")?.textContent)).toEqual(["Hunts", "Detection rules"]);
     expect(text()).toContain("Failed sign-ins by account");
     press("Collapse editor");
     expect(q<HTMLElement>(".st-editor")!.style.height).toBe("80px");
@@ -590,7 +650,8 @@ describe("logs", () => {
   it("opens several queries in tabs", async () => {
     mount();
     await runInLogs("SigninLogs");
-    press("New Query");
+    expect(all(".st-qtab [role=tab]")[0].textContent).toBe("Query 1 (edited)");
+    press("New query tab");
     expect(all(".st-qtab")).toHaveLength(2);
     expect(all("[data-testid=kql-input]").filter(e => !e.closest("[hidden]"))[0]).toHaveProperty("value", "");
   });
@@ -611,7 +672,7 @@ describe("logs", () => {
   it("Add bookmark maps entities from the rows and adds to the current incident", async () => {
     const { calls } = mount();
     openDetails();
-    press("Logs");
+    press("Query");
     setValue(editor(), "DeviceProcessEvents", 19);
     press("Run");
     await settle();
@@ -628,44 +689,48 @@ describe("logs", () => {
 });
 
 describe("search, hunting, analytics, automation", () => {
-  it("Search runs a search statement in Logs", async () => {
+  it("Search runs a search statement in Query", async () => {
     mount();
     nav("Search");
     setValue(q<HTMLInputElement>('input[placeholder^="Search for an IP"]')!, "invoice.exe");
     click(q<HTMLButtonElement>("form button[type=submit]")!);
     await settle();
     expect(editor().value).toBe('search "invoice.exe"');
-    expect(text()).toContain("Completed.");
+    expect(text()).toContain("Query complete");
   });
 
-  it("Hunting runs a query, shows the count, and views results in Logs", async () => {
+  it("Hunts runs a hunt, shows the hits, and opens the results in Query", async () => {
     mount();
-    nav("Hunting");
-    click(q('table[aria-label="Hunting queries"] tbody tr')!);
-    press("Run query");
-    expect(q('table[aria-label="Hunting queries"] tbody tr')!.querySelectorAll("td")[1].textContent).toBe("1");
-    press("View results");
+    nav("Hunts");
+    expect(all('[aria-label="Hunts view"] button').map(b => b.textContent)).toEqual(["Hunt queries (1)", "Bookmarks (0)"]);
+    click(q('table[aria-label="Hunt queries"] tbody tr')!);
+    press("Run hunt");
+    expect(q('table[aria-label="Hunt queries"] tbody tr')!.querySelectorAll("td")[1].textContent).toBe("1");
+    press("Open in Query");
     await settle();
     expect(editor().value).toContain("summarize Failures");
   });
 
-  it("Analytics shows the rule and opens its query", async () => {
+  it("Detections shows the rule and opens its query", async () => {
     mount();
-    nav("Analytics");
-    click(q('table[aria-label="Active rules"] tbody tr')!);
-    expect(text()).toContain("Run query every");
-    expect(text()).toContain("Lookup data from the last");
-    press("Open in Logs");
+    nav("Detections");
+    expect(all(".xd-kpi > span").map(s => s.textContent)).toEqual(["Detection rules", "Rules that fired", "Alerts raised"]);
+    expect(text()).not.toContain("Active rules");
+    click(q('table[aria-label="Detection rules"] tbody tr')!);
+    expect(text()).toContain("Runs every");
+    expect(text()).toContain("Looks back over");
+    press("Open in Query");
     await settle();
     expect(gridRows().length).toBeGreaterThan(0);
   });
 
-  it("Automation works and shows the server's refusal", async () => {
+  it("Playbooks works and shows the server's refusal", async () => {
     const refusal = "Isolation is a Tier-2 / Tier-3 action.";
     const { actions } = fakeActions({ canContain: false, setIsolated: async () => refusal });
     mount({ actions });
-    nav("Automation");
-    await act(async () => { all<HTMLButtonElement>('table[aria-label="Playbooks"] button')[0].click(); });
+    nav("Playbooks");
+    expect(all('ul[aria-label="Playbooks"] .xd-pb-card strong').map(s => s.textContent)).toEqual(["Isolate device", "Release device"]);
+    await act(async () => { all<HTMLButtonElement>('[aria-label="Playbooks"] button')[0].click(); });
     expect(text()).toContain(refusal);
     expect(text()).toContain("Refused");
   });
@@ -676,7 +741,8 @@ describe("search, hunting, analytics, automation", () => {
     const m = mount({ actions });
     openDetails();
     press("Actions for FIN-LT-042");
-    press("Run playbook (Preview)");
+    press("Run action");
+    expect(q("[role=dialog] h2")?.textContent).toBe("Run action");
     setValue(q<HTMLTextAreaElement>("#pb-reason")!, "Beacon to a known C2 from this laptop");
     await act(async () => { button("Request isolation").click(); });
     expect(sent).toHaveLength(1);
@@ -701,8 +767,8 @@ describe("search, hunting, analytics, automation", () => {
     const base = { requestIsolation: async (...a: unknown[]) => { sent.push(a); return null; }, isolationApprover: "Dana (SOC Manager)", isolationRequests: [] as NonNullable<SentinelActions["isolationRequests"]> };
     const { actions } = fakeActions(base);
     const m = mount({ actions });
-    nav("Automation");
-    const isolate = () => all<HTMLButtonElement>('table[aria-label="Playbooks"] button')[0];
+    nav("Playbooks");
+    const isolate = () => all<HTMLButtonElement>('[aria-label="Playbooks"] button')[0];
     expect(isolate().textContent).toBe("Request");
     // no reason: nothing is sent, and the field says why
     await act(async () => { isolate().click(); });
@@ -729,18 +795,27 @@ describe("search, hunting, analytics, automation", () => {
   it("an isolated device shows as isolated in its entity pane", () => {
     const { actions } = fakeActions({ isolatedHosts: new Set(["FIN-LT-042"]) });
     mount({ actions });
-    nav("Entity behavior");
+    nav("Entities");
     click(all('table[aria-label="Entities"] tbody tr').find(r => r.textContent?.includes("FIN-LT-042"))!);
     expect(q(".st-devstate")?.textContent).toBe("Isolated");
   });
 
-  it("Entity behavior opens an entity page with Info, Timeline and Insights", () => {
+  it("Entities filters by type and opens an entity page with Info, Timeline and Insights", () => {
     mount();
-    nav("Entity behavior");
+    nav("Entities");
+    const names = () => all('table[aria-label="Entities"] tbody tr').map(r => r.textContent ?? "");
+    press("Devices");
+    expect(names().length).toBeGreaterThan(0);
+    for (const n of names()) expect(n).not.toContain("jdoe@contoso.example");
+    press("All");
+    expect(q(".st-blade-head h1")!.textContent).toBe("Entities");
     click(all('table[aria-label="Entities"] tbody tr').find(r => r.textContent?.includes("FIN-LT-042"))!);
     expect(all(".st-entity-page .st-widget h3").map(h => h.textContent)).toEqual(["FIN-LT-042", "Timeline", "Insights"]);
     // XDR's labelled sections, not the portal's cards (owner, 2026-11-08).
     expect(all(".st-entity-page .xd-psec-head").map(h => h.textContent)).toEqual(["Identity", "Activity", "Related alerts (1)"]);
+    expect(q(".st-blade-head h1")!.textContent).toBe("FIN-LT-042");
+    press("Entities");
+    expect(q(".st-blade-head h1")!.textContent).toBe("Entities");
   });
 });
 
@@ -803,7 +878,7 @@ describe("investigation graph", () => {
     expect(q(".st-explore-rail")?.textContent).toContain("Processes running on Host");
   });
 
-  it("Events opens the raw query in Logs", async () => {
+  it("Events opens the raw query in Query", async () => {
     mount();
     openDetails();
     press("Investigate");
@@ -865,10 +940,10 @@ describe("XDR's own alerts, entities and graph", () => {
     for (const c of cells) expect(["High", "Medium", "Low", "Informational"]).toContain(c);
   });
 
-  it("Top insights is a short icon list, and a row opens that insight's results", async () => {
+  it("Quick findings is a short icon list, and a row opens that finding's results", async () => {
     mount();
     openDetails();
-    const widget = q('section.st-widget[aria-label="Top insights"]')!;
+    const widget = q('section.st-widget[aria-label="Quick findings"]')!;
     const rows = [...widget.querySelectorAll<HTMLButtonElement>(".xd-ins-row")];
     expect(rows.length).toBeGreaterThan(0);
     for (const r of rows) { expect(r.querySelector(".xd-ins-ico svg")).toBeTruthy(); expect(r.getAttribute("aria-expanded")).toBe("false"); }
@@ -935,7 +1010,7 @@ describe("panels", () => {
   it("Escape closes the top panel only, wherever focus is", async () => {
     mount();
     openDetails();
-    press("Logs");
+    press("Query");
     setValue(editor(), "SigninLogs", 10);
     press("Run");
     await settle();
@@ -951,7 +1026,7 @@ describe("panels", () => {
   it("Escape in the editor stays in the editor", () => {
     mount();
     openDetails();
-    press("Logs");
+    press("Query");
     key(editor(), "Escape");
     expect(q("[data-testid=kql-input]")).toBeTruthy();
   });
@@ -965,10 +1040,10 @@ describe("a finished exercise", () => {
     expect(button(/^Status: New/).disabled).toBe(true);
     expect(button(/^Owner: Unassigned/).disabled).toBe(true);
     expect(() => button("Incident actions")).toThrow();
-    press("Activity log");
+    press("Case history");
     expect(q('textarea[placeholder="Write a comment..."]')).toBeNull();
-    press("Close Incident activity log");
-    press("Logs");
+    press("Close Case history");
+    press("Query");
     setValue(editor(), "SigninLogs", 10);
     press("Run");
     await settle();
@@ -981,9 +1056,9 @@ describe("deep link", () => {
   it("opens the incident the team room named, once it arrives", () => {
     const empty = fixtureWorkspace({ incidents: [] });
     const m = mount({ workspace: empty, initial: { incidentId: "inc-101" } });
-    expect(text()).not.toContain("Incident ID 101");
+    expect(text()).not.toContain("Incident #101");
     m.rerender({ workspace: fixtureWorkspace() });
-    expect(text()).toContain("Incident ID 101");
+    expect(text()).toContain("Incident #101");
   });
 });
 

@@ -74,16 +74,16 @@ export function TeamWindowStrip({ sessionId }: { sessionId: string }) {
   ];
   return (
     <nav aria-label="Team room" data-testid="team-window-strip"
-      style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "4px 14px", padding: "3px 12px", fontSize: 12, lineHeight: "18px", borderBottom: "1px solid #e1dfdd", background: "#faf9f8", color: "#323130" }}>
-      <span style={{ fontWeight: 600 }}>Team room</span>
-      {total === 0 ? <span style={{ color: "#605e5c" }}>Nothing waiting for you there.</span> : items.filter(i => i.n > 0).map(i => (
+      style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "4px 14px", padding: "3px 12px", fontSize: 12, lineHeight: "18px", borderBottom: "1px solid var(--st-border, #e6e6ef)", background: "var(--st-canvas, #f8f8fb)", color: "var(--st-text, #1f2335)" }}>
+      <span style={{ fontWeight: 700 }}>Team room</span>
+      {total === 0 ? <span style={{ color: "var(--st-text-2, #545a70)" }}>Nothing waiting for you there.</span> : items.filter(i => i.n > 0).map(i => (
         <button key={i.one} type="button" onClick={back}
-          style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "none", border: 0, padding: 0, cursor: "pointer", color: "#6d28d9", textDecoration: "underline", font: "inherit" }}>
+          style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "none", border: 0, padding: 0, cursor: "pointer", color: "var(--st-accent, #6d28d9)", textDecoration: "underline", font: "inherit" }}>
           <span aria-hidden style={{ width: 7, height: 7, borderRadius: 999, background: i.tone, display: "inline-block" }} />
           {i.n} {i.n === 1 ? i.one : i.many}
         </button>
       ))}
-      <span style={{ marginLeft: "auto", color: "#605e5c" }}>Each link opens the team room window.</span>
+      <span style={{ marginLeft: "auto", color: "var(--st-text-2, #545a70)" }}>Each link opens the team room window.</span>
     </nav>
   );
 }

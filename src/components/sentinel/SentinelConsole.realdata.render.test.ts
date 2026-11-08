@@ -96,7 +96,7 @@ describe("the console on real data", () => {
     expect(rows()).toHaveLength(ws.incidents.length);
     for (let i = 0; i < ws.incidents.length; i++) {
       click(rows()[i]);
-      click(btn("View full details"));
+      click(btn("Open incident page"));
       expect(el!.querySelectorAll(".st-widget").length).toBe(4);
       click(btn("Investigate"));
       expect(el!.querySelectorAll("[data-node]").length).toBeGreaterThan(0);

@@ -1,7 +1,7 @@
 "use client";
 import { forwardRef, memo, useCallback, useId, useImperativeHandle, useMemo, useRef, useState, type KeyboardEvent as RKeyboardEvent } from "react";
 import {
-  BookmarkPlus, ChevronDown, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, ChevronUp, Clock3, Copy, Filter, MoreHorizontal, Search, Table2, Timer,
+  BookmarkPlus, ChevronDown, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, ChevronUp, CircleCheck, Clock3, Copy, Filter, Search, Table2, Timer,
 } from "lucide-react";
 import type { KqlColumn, KqlResult, KqlRow } from "@/lib/kql/types";
 import { ChartView, kindFromResult } from "./ChartView";
@@ -177,7 +177,7 @@ function ResultsArea({ outcome, incidentId, panel = false, onFilter }, ref) {
   const { ended } = useSentinel();
   const result = outcome.result as Ok;
   const { rows } = result;
-  // A query that shapes its columns keeps its order. Otherwise TimeGenerated leads, as in the portal.
+  // A query that shapes its columns keeps its order. Otherwise TimeGenerated leads.
   const columns = useMemo(() => {
     const shaped = /\b(project|summarize|distinct|make-series|evaluate)\b/.test(outcome.query);
     if (shaped) return result.columns;
@@ -291,7 +291,7 @@ function ResultsArea({ outcome, incidentId, panel = false, onFilter }, ref) {
   return (
     <div className="st-results">
       <div className="st-results-bar">
-        <Tabs label="Results view" value={view} onChange={setView} className="st-tabs" tabClass="st-tab"
+        <Tabs label="Results view" value={view} onChange={setView} className="st-tabs xd-seg" tabClass="st-tab xd-seg-btn"
           tabs={[{ value: "results", label: "Results" }, { value: "chart", label: "Chart" }]} />
         <span className="st-cmdsep" aria-hidden />
         {!panel && columnsButton}
@@ -300,7 +300,7 @@ function ResultsArea({ outcome, incidentId, panel = false, onFilter }, ref) {
             <BookmarkPlus size={14} aria-hidden />Add bookmark{selected.size > 0 ? ` (${selected.size})` : ""}
           </button>
         )}
-        {!panel && <><span className="st-cmdsep" aria-hidden /><span className="st-row" style={{ gap: 6 }}><Clock3 size={14} color="#6d28d9" aria-hidden />Display time (UTC+00:00)</span></>}
+        {!panel && <><span className="st-cmdsep" aria-hidden /><span className="st-row st-small st-muted" style={{ gap: 6 }}><Clock3 size={13} aria-hidden />Times in UTC</span></>}
         <span className="st-grow" />
         <span role="status" aria-live="polite" className="st-small st-muted">{note}</span>
         {searching || search ? (
@@ -312,7 +312,7 @@ function ResultsArea({ outcome, incidentId, panel = false, onFilter }, ref) {
       </div>
       {panel ? (
         <>
-          <span className="st-sr" role="status">Completed. Showing results from {outcome.phrase}. {fmtCount(rows.length)} records.</span>
+          <span className="st-sr" role="status">Query complete: {fmtCount(rows.length)} rows from {outcome.phrase}.</span>
           {(result.truncated || result.warnings.length > 0) && (
             <div className="st-results-status">
               {result.truncated && <span className="st-msg warn" style={{ padding: "1px 6px" }}>Partial result: limited to {fmtCount(rows.length)} records.</span>}
@@ -321,13 +321,14 @@ function ResultsArea({ outcome, incidentId, panel = false, onFilter }, ref) {
           )}
         </>
       ) : (
-        <div className="st-results-status" role="status">
-          <span><b>Completed.</b> Showing results from {outcome.phrase}.</span>
+        <div className="st-results-status xd-rstatus" role="status">
+          <span className="xd-done"><CircleCheck size={13} aria-hidden />Query complete</span>
+          <span>Results from {outcome.phrase}.</span>
           {result.truncated && <span className="st-msg warn" style={{ padding: "1px 6px" }}>Partial result: limited to {fmtCount(rows.length)} records.</span>}
           {result.warnings.map(w => <span key={w} className="st-msg warn" style={{ padding: "1px 6px" }}>{w}</span>)}
           <span className="st-grow" />
           <span className="st-row st-muted" style={{ gap: 4 }}><Timer size={13} aria-hidden />{fmtDuration(outcome.ms)}</span>
-          <span className="st-muted">{fmtCount(rows.length)} records</span>
+          <span className="xd-rcount">{fmtCount(rows.length)} rows</span>
         </div>
       )}
       {view === "chart" ? (
@@ -337,7 +338,7 @@ function ResultsArea({ outcome, incidentId, panel = false, onFilter }, ref) {
           <span id={helpId} className="st-sr">Arrow keys move between cells. Enter expands a row, Space selects it, Ctrl+C copies the cell, Page Up and Page Down change page.</span>
           <div className="st-grid-row">
           <div className="st-grid-wrap">
-            <table className="st-grid" role="grid" aria-label="Query results" aria-rowcount={order.length + 1}
+            <table className="st-grid xd-rgrid" role="grid" aria-label="Query results" aria-rowcount={order.length + 1}
               aria-describedby={helpId}
               onKeyDown={onGridKey}>
               <thead>
@@ -346,16 +347,16 @@ function ResultsArea({ outcome, incidentId, panel = false, onFilter }, ref) {
                   {visible.map(c => {
                     const on = sort?.col === c.name;
                     return (
-                      <th key={c.name} scope="col" aria-sort={on ? (sort!.dir === 1 ? "ascending" : "descending") : "none"}>
+                      <th key={c.name} scope="col" aria-sort={on ? (sort!.dir === 1 ? "ascending" : "descending") : "none"} data-sorted={on || undefined}>
                         <span className="st-colhead">
                           <button type="button" className="st-sort" title={`${c.name} (${c.type})`}
                             onClick={() => { setPage(0); setSort(on ? (sort!.dir === -1 ? { col: c.name, dir: 1 } : null) : { col: c.name, dir: -1 }); }}>
-                            <span>{c.name}{c.type === "datetime" ? " [UTC]" : ""}</span>
+                            <span className="xd-colname">{c.name}</span>{c.type === "datetime" && <span className="xd-utc">UTC</span>}
                             {on && (sort!.dir === 1 ? <ChevronUp size={12} aria-hidden /> : <ChevronDown size={12} aria-hidden />)}
                           </button>
                           <button type="button" className="st-colfilter" aria-label={`Filter ${c.name}`} data-on={!!filters[c.name]} title="Filter"
                             onClick={e => setFilterAt({ col: c, anchor: e.currentTarget })}>
-                            {panel && !filters[c.name] ? <MoreHorizontal size={13} aria-hidden /> : <Filter size={12} aria-hidden fill={filters[c.name] ? "currentColor" : "none"} />}
+                            <Filter size={12} aria-hidden fill={filters[c.name] ? "currentColor" : "none"} />
                           </button>
                         </span>
                       </th>
@@ -373,7 +374,7 @@ function ResultsArea({ outcome, incidentId, panel = false, onFilter }, ref) {
                   if (expanded.has(i)) out.push(<ExpandedRow key={`x${i}`} row={rows[i]} span={span} columns={columns} onFilter={onFilter} onCopy={onCopy} fmt={fmt} />);
                   return out;
                 })}
-                {pageIdx.length === 0 && <tr><td colSpan={span} style={{ textAlign: "center", height: 64 }} className="st-muted">No results found from {outcome.phrase}.</td></tr>}
+                {pageIdx.length === 0 && <tr><td colSpan={span} style={{ textAlign: "center", height: 64 }} className="st-muted">No rows from {outcome.phrase}.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -384,35 +385,37 @@ function ResultsArea({ outcome, incidentId, panel = false, onFilter }, ref) {
           )}
           </div>
           {panel ? (
-            <div className="st-grid-foot">
-              <span>{fmtElapsed(outcome.ms)}</span>
-              <span className="st-row" style={{ gap: 6, marginLeft: 18 }}>Display time (UTC+00:00)</span>
+            <div className="st-grid-foot xd-pager">
+              <span>{fmtElapsed(outcome.ms)} · Times in UTC</span>
               <span className="st-grow" />
+              <span>Showing <b>{from}</b> to <b>{to}</b> of <b>{fmtCount(order.length)}</b></span>
               {pages > 1 && (
-                <>
-                  <button type="button" className="st-icon-btn" aria-label="Previous page" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}><ChevronLeft size={14} aria-hidden /></button>
-                  <button type="button" className="st-icon-btn" aria-label="Next page" disabled={safePage >= pages - 1} onClick={() => setPage(safePage + 1)}><ChevronRight size={14} aria-hidden /></button>
-                </>
+                <span className="xd-pager-btns">
+                  <button type="button" className="xd-pgbtn" aria-label="Previous page" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}><ChevronLeft size={14} aria-hidden /></button>
+                  <button type="button" className="xd-pgbtn" aria-label="Next page" disabled={safePage >= pages - 1} onClick={() => setPage(safePage + 1)}><ChevronRight size={14} aria-hidden /></button>
+                </span>
               )}
-              <span className="st-cmdsep" aria-hidden />
-              <span>{from} - {to} of {fmtCount(order.length)}</span>
             </div>
           ) : (
-            <div className="st-grid-foot center">
-              <button type="button" className="st-icon-btn" aria-label="First page" disabled={safePage === 0} onClick={() => setPage(0)}><ChevronFirst size={15} aria-hidden /></button>
-              <button type="button" className="st-icon-btn" aria-label="Previous page" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}><ChevronLeft size={15} aria-hidden /></button>
-              <label className="st-row" style={{ gap: 6 }}>Page
-                <input className="st-input" type="number" min={1} max={pages} value={safePage + 1} aria-label="Page number"
-                  onChange={e => { const n = Number(e.target.value); if (n >= 1 && n <= pages) setPage(n - 1); }} />
+            <div className="st-grid-foot xd-pager">
+              <span>Showing <b>{from}</b> to <b>{to}</b> of <b>{fmtCount(order.length)}</b></span>
+              <span className="st-grow" />
+              <label className="st-row" style={{ gap: 6 }}><span aria-hidden>Rows per page</span>
+                <select className="st-input" aria-label="Rows per page" value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(0); }}>
+                  {[50, 100, 150, 200].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
               </label>
-              <span>of {pages}</span>
-              <button type="button" className="st-icon-btn" aria-label="Next page" disabled={safePage >= pages - 1} onClick={() => setPage(safePage + 1)}><ChevronRight size={15} aria-hidden /></button>
-              <button type="button" className="st-icon-btn" aria-label="Last page" disabled={safePage >= pages - 1} onClick={() => setPage(pages - 1)}><ChevronLast size={15} aria-hidden /></button>
-              <select className="st-input" aria-label="Items per page" value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(0); }}>
-                {[50, 100, 150, 200].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-              <span>items per page</span>
-              <span className="st-sr">{from} - {to} of {fmtCount(order.length)}</span>
+              <span className="xd-pager-btns">
+                <button type="button" className="xd-pgbtn" aria-label="First page" disabled={safePage === 0} onClick={() => setPage(0)}><ChevronFirst size={15} aria-hidden /></button>
+                <button type="button" className="xd-pgbtn" aria-label="Previous page" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}><ChevronLeft size={15} aria-hidden /></button>
+                <label className="xd-pgnum"><span className="st-sr">Page number</span>
+                  <input className="st-input" type="number" min={1} max={pages} value={safePage + 1}
+                    onChange={e => { const n = Number(e.target.value); if (n >= 1 && n <= pages) setPage(n - 1); }} />
+                  <span aria-hidden> / {pages}</span>
+                </label>
+                <button type="button" className="xd-pgbtn" aria-label="Next page" disabled={safePage >= pages - 1} onClick={() => setPage(safePage + 1)}><ChevronRight size={15} aria-hidden /></button>
+                <button type="button" className="xd-pgbtn" aria-label="Last page" disabled={safePage >= pages - 1} onClick={() => setPage(pages - 1)}><ChevronLast size={15} aria-hidden /></button>
+              </span>
             </div>
           )}
         </>

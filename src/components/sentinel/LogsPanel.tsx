@@ -1,7 +1,7 @@
 "use client";
-// One component for the Logs blade and for the panel inside an incident.
+// One component for the Query lab and for the Query panel inside an incident.
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as RKeyboardEvent } from "react";
-import { ArrowRightFromLine, BarChart2, ChevronDown, ChevronsDown, ChevronsRight, ChevronsUp, Server, FileQuestion, FileCode2, BookOpenText, Play, Plus, TriangleAlert, X } from "lucide-react";
+import { ArrowRightFromLine, BarChart2, ChevronDown, ChevronsDown, ChevronsRight, ChevronsUp, Clock3, Database, FileQuestion, FileCode2, BookOpenText, Play, Plus, TriangleAlert, X } from "lucide-react";
 import type { KqlColumn } from "@/lib/kql/types";
 import { useSentinel, type LogsRequest } from "./context";
 import { runQuery, setsTimeRange } from "./engine";
@@ -26,8 +26,8 @@ function TimeRangePicker({ value, custom, setInQuery, onChange }: {
   const valid = !!draft.from && !!draft.to && draft.from <= draft.to;
   return (
     <>
-      <button ref={btn} type="button" className="st-timepill" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(o => !o)}>
-        Time range : <b>{label}</b>
+      <button ref={btn} type="button" className="st-timepill xd-timebtn" aria-haspopup="true" aria-expanded={open} aria-label={`Time range: ${label}`} onClick={() => setOpen(o => !o)}>
+        <Clock3 size={14} aria-hidden /><b>{label}</b><ChevronDown size={12} aria-hidden />
       </button>
       {open && (
         <Popover anchor={btn.current} onClose={close} width={250} role="group" label="Time range">
@@ -168,7 +168,7 @@ function QueryPane({ tab, active, panel, incidentId, schemaOpen, setSchemaOpen, 
   return (
     <div className="st-grow" hidden={!active} style={active ? { display: "flex", flexDirection: "column", minHeight: 0 } : undefined}>
       <div className="st-logbar">
-        <span className="st-logbar-ws"><Server size={16} color="#6d28d9" aria-hidden /><span className="st-ellipsis">{workspaceName}</span></span>
+        <span className="st-logbar-ws xd-ws" title={`Workspace: ${workspaceName}`}><Database size={13} aria-hidden /><span className="st-sr">Workspace: </span><span className="st-ellipsis">{workspaceName}</span></span>
         <button type="button" className="st-btn primary st-runbtn" disabled={!query.trim() || running} onClick={run} title="Run (Shift+Enter)"><Play size={13} aria-hidden />Run</button>
         <TimeRangePicker value={rangeKey} custom={custom} setInQuery={setInQuery}
           onChange={(k, c) => { setRangeKey(k); if (c) setCustom(c); }} />
@@ -189,8 +189,8 @@ function QueryPane({ tab, active, panel, incidentId, schemaOpen, setSchemaOpen, 
           ? <SchemaPane tab={schemaTab} onTab={setSchemaTab} onInsert={t => editor.current?.insert(t)} onLoad={load} onPreview={preview} onCollapse={() => setSchemaOpen(false)} />
           : (
             <div className="st-schema-collapsed">
-              <button type="button" className="st-icon-btn" aria-label="Expand schema pane" title="Expand" onClick={() => setSchemaOpen(true)}><ChevronsRight size={15} aria-hidden /></button>
-              <span aria-hidden>Schema and Filter</span>
+              <button type="button" className="st-icon-btn" aria-label="Expand data sources pane" title="Expand" onClick={() => setSchemaOpen(true)}><ChevronsRight size={15} aria-hidden /></button>
+              <span aria-hidden>Data sources</span>
             </div>
           ))}
         <div className="st-logs-right">
@@ -211,7 +211,7 @@ function QueryPane({ tab, active, panel, incidentId, schemaOpen, setSchemaOpen, 
           {outcome?.result.ok && (
             <ResultsArea key={outcome.id} ref={results} outcome={outcome} incidentId={incidentId} onFilter={onFilter} panel={panel} />
           )}
-          {!running && !outcome && <Empty icon={<BarChart2 size={32} aria-hidden />} title="Get started">Write a query in the editor, or double-click a table, then select Run.</Empty>}
+          {!running && !outcome && <Empty icon={<BarChart2 size={32} aria-hidden />} title="Ready for a query">Write KQL in the editor, or double-click a data source table, then select Run.</Empty>}
           {!running && outcome && !outcome.result.ok && <Empty icon={<FileQuestion size={32} aria-hidden />} title="The query failed">Fix the query above and run it again.</Empty>}
         </div>
       </div>
@@ -228,7 +228,7 @@ export function LogsPanel({ mode, request, incidentId }: {
   const { ws } = useSentinel();
   const panel = mode === "panel";
   const counter = useRef(1);
-  const [tabs, setTabs] = useState<TabState[]>(() => [{ id: 1, title: "New Query 1", query: request?.query ?? "", runKey: request?.run ? request.key : 0 }]);
+  const [tabs, setTabs] = useState<TabState[]>(() => [{ id: 1, title: "Query 1", query: request?.query ?? "", runKey: request?.run ? request.key : 0 }]);
   const [activeId, setActiveId] = useState(1);
   const [schemaOpen, setSchemaOpen] = useState(!panel);
   const [schemaTab, setSchemaTab] = useState<SchemaTab>("tables");
@@ -237,7 +237,7 @@ export function LogsPanel({ mode, request, incidentId }: {
   const addTab = useCallback((query = "", runKey = 0) => {
     counter.current += 1;
     const id = counter.current;
-    setTabs(t => [...t, { id, title: `New Query ${id}`, query, runKey }]);
+    setTabs(t => [...t, { id, title: `Query ${id}`, query, runKey }]);
     setActiveId(id);
   }, []);
 
@@ -261,7 +261,7 @@ export function LogsPanel({ mode, request, incidentId }: {
       }
       counter.current += 1;
       setActiveId(counter.current);
-      return [{ id: counter.current, title: `New Query ${counter.current}`, query: "", runKey: 0 }];
+      return [{ id: counter.current, title: `Query ${counter.current}`, query: "", runKey: 0 }];
     });
   };
 
@@ -269,18 +269,18 @@ export function LogsPanel({ mode, request, incidentId }: {
     <div className="st-logs">
       {/* The panel inside an incident holds one query, as in the product. */}
       {!panel && (
-        <div className="st-qtabs">
-          <div role="tablist" aria-label="Queries" style={{ display: "flex", alignItems: "stretch" }}>
+        <div className="st-qtabs xd-qtabs">
+          <div role="tablist" aria-label="Open queries" style={{ display: "flex", alignItems: "center", gap: 4 }}>
             {tabs.map(t => (
-              <div key={t.id} className="st-qtab" data-active={t.id === activeId}>
-                <button type="button" role="tab" aria-selected={t.id === activeId} onClick={() => setActiveId(t.id)}><FileCode2 size={14} color="#6d28d9" aria-hidden />{t.title}{t.query.trim() ? " *" : ""}</button>
+              <div key={t.id} className="st-qtab xd-qtab" data-active={t.id === activeId}>
+                <button type="button" role="tab" aria-selected={t.id === activeId} onClick={() => setActiveId(t.id)}><FileCode2 size={13} aria-hidden />{t.title}{t.query.trim() && <><i className="xd-dirty" aria-hidden /><span className="st-sr"> (edited)</span></>}</button>
                 <button type="button" className="st-icon-btn" style={{ width: 20, height: 20 }} aria-label={`Close ${t.title}`} onClick={() => closeTab(t.id)}><X size={12} aria-hidden /></button>
               </div>
             ))}
           </div>
-          <button type="button" className="st-icon-btn" style={{ alignSelf: "center", marginLeft: 4 }} aria-label="New Query" title="New Query" onClick={() => addTab()}><Plus size={16} aria-hidden /></button>
+          <button type="button" className="st-icon-btn" style={{ alignSelf: "center", marginLeft: 4 }} aria-label="New query tab" title="New query tab" onClick={() => addTab()}><Plus size={16} aria-hidden /></button>
           <span className="st-grow" />
-          <button type="button" className="st-cmd" onClick={() => { setSchemaOpen(true); setSchemaTab("queries"); }}><BookOpenText size={14} aria-hidden />Example queries</button>
+          <button type="button" className="st-cmd" onClick={() => { setSchemaOpen(true); setSchemaTab("queries"); }}><BookOpenText size={14} aria-hidden />Browse saved queries</button>
         </div>
       )}
       {tabs.map(t => (

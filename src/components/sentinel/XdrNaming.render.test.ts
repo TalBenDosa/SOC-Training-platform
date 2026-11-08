@@ -2,6 +2,8 @@
 // present itself as Microsoft Sentinel. Every screen of the console is rendered on a real XDR
 // exercise and scanned, text and accessible names alike, for "Sentinel" naming this console.
 // "SentinelOne" (an EDR vendor) and KQL table names such as SentinelHealth are data and pass.
+// v4 (owner, 2026-11-08): the console does not use the portal's labels either (Activity log, Top
+// insights, Threat management, Configuration, a Tables tab and the rest of PORTAL_LABELS).
 import { describe, it, expect, afterEach, vi } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -21,6 +23,15 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push() {}, replace() {},
 
 /** "Sentinel" as a word of its own: not SentinelOne, SentinelHealth or microsoftSentinel. */
 const NAMES_SENTINEL = /(?<![A-Za-z])Sentinel(?![A-Za-z])/;
+
+/** The portal's own labels, as a whole text line or accessible name: XDR says these its own way. */
+const PORTAL_LABELS = [
+  "Activity log", "Incident activity log", "Close Incident activity log", "Activity logs content", "Top insights", "Similar incidents", "Incident timeline",
+  "General", "Threat management", "Configuration", "Overview", "Logs", "Entity behavior", "Threat intelligence", "Analytics", "Automation", "Hunting",
+  "Tables", "Queries", "Group by:", "Schema and Filter", "Example queries", "Run playbook", "Run playbook (Preview)", "View full details", "Incident actions",
+  "Alert product names", "Evidence", "Last update time", "Creation time", "Similarity reason", "Display time (UTC+00:00)", "Active rules", "Active playbooks",
+  "< Previous", "Next >", "Add to TI", "XDR | Incidents",
+];
 
 const ROSTER = [{ role: "t1" }, { role: "t1" }, { role: "t2" }, { role: "t3" }, { role: "mgr" }];
 function xdrExercise(company: string, seed: string) {
@@ -95,8 +106,19 @@ describe("an XDR exercise: every screen of the console", () => {
     return parts.join("\n");
   }
   function expectNoSentinel(where: string) {
-    const hit = seen().split("\n").find(l => NAMES_SENTINEL.test(l));
+    const lines = seen().split("\n");
+    const hit = lines.find(l => NAMES_SENTINEL.test(l));
     expect(hit ? hit.slice(0, 200) : null, where).toBeNull();
+    // The console's own chrome (controls, headings, labels and names), not the data it shows: a
+    // department may well be called "General".
+    const chrome: string[] = [];
+    for (const n of el!.querySelectorAll("button, [role=tab], h1, h2, h3, h4, th, label, .st-nav-group, .xd-eyebrow, .st-field > .k, .st-k, .xd-psec-head, .st-results-status")) chrome.push((n.textContent ?? "").trim());
+    for (const n of el!.querySelectorAll("[aria-label],[title],[placeholder]")) for (const a of ["aria-label", "title", "placeholder"]) { const v = n.getAttribute(a); if (v) chrome.push(v.trim()); }
+    const label = chrome.find(l => PORTAL_LABELS.includes(l) || /^(Completed\.|Selected workspace|New Query \d)/.test(l));
+    expect(label ?? null, `${where}: a portal label`).toBeNull();
+    // no tab named Tables anywhere
+    const tabs = [...el!.querySelectorAll("[role=tab]")].map(t => (t.textContent ?? "").trim());
+    expect(tabs, where).not.toContain("Tables");
   }
 
   it("says XDR, never Sentinel", async () => {
@@ -110,13 +132,13 @@ describe("an XDR exercise: every screen of the console", () => {
     const settle = () => act(async () => { await new Promise(r => setTimeout(r, 8)); });
 
     expect(el!.querySelector(".st-topbar")!.textContent).toContain("XDR");
-    for (const s of ["Incidents", "Logs", "Hunting", "Search", "Entity behavior", "Threat intelligence", "Overview", "Analytics", "Automation"]) {
+    for (const s of ["Incidents", "Query", "Hunts", "Search", "Entities", "Intel", "Home", "Detections", "Playbooks"]) {
       navTo(s);
       await settle();
       expectNoSentinel(s);
     }
     // The tables an analyst queries about alerts and incidents, with their product columns.
-    navTo("Logs");
+    navTo("Query");
     for (const q of ["SecurityAlert | take 200", "SecurityIncident | take 50"]) {
       const ed = el!.querySelector<HTMLTextAreaElement>("[data-testid=kql-input]")!;
       act(() => {
@@ -134,11 +156,11 @@ describe("an XDR exercise: every screen of the console", () => {
     for (let i = 0; i < rows().length; i++) {
       click(rows()[i]);
       expectNoSentinel(`incident ${i} preview`);
-      click(btn("View full details"));
+      click(btn("Open incident page"));
       expectNoSentinel(`incident ${i}`);
-      click(btn("Activity log"));
-      expectNoSentinel(`incident ${i} activity`);
-      click(btn("Close Incident activity log"));
+      click(btn("Case history"));
+      expectNoSentinel(`incident ${i} case history`);
+      click(btn("Close Case history"));
       click(btn("Investigate"));
       expectNoSentinel(`incident ${i} graph`);
       click(btn("Close investigation"));

@@ -6,7 +6,7 @@ import {
   type CSSProperties, type KeyboardEvent as RKeyboardEvent, type ReactNode,
 } from "react";
 import {
-  AppWindow, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, CircleAlert, CircleCheckBig, CircleDot, CloudCog, Container, Earth, FileCode2,
+  AppWindow, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleAlert, CircleCheckBig, CircleDot, CloudCog, Container, Database, Earth, FileCode2,
   Hourglass, Inbox, Info, KeySquare, Laptop, Link, MemoryStick, MoreHorizontal, Network, Search, UserRound, X,
 } from "lucide-react";
 import type { EntityKind, IncidentStatus, SentinelSeverity } from "@/lib/sentinel/types";
@@ -122,7 +122,7 @@ export function Select<T extends string>({ label, value, valueLabel, options, on
   );
 }
 
-/** "Severity : All" pill over a list of checkboxes. An empty selection means all, as in the portal. */
+/** A filter chip, "Severity  All", over a list of checkboxes. An empty selection means all. */
 export function FilterPill({ label, options, selected, onChange }: {
   label: string; options: string[]; selected: string[]; onChange: (v: string[]) => void;
 }) {
@@ -133,8 +133,8 @@ export function FilterPill({ label, options, selected, onChange }: {
   const toggle = (v: string) => onChange(selected.includes(v) ? selected.filter(x => x !== v) : [...selected, v]);
   return (
     <>
-      <button ref={btn} type="button" className="st-pill" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(o => !o)}>
-        {label} : <b>{summary}</b>
+      <button ref={btn} type="button" className="st-pill xd-fchip" aria-haspopup="true" aria-expanded={open} aria-label={`${label}: ${summary}`} onClick={() => setOpen(o => !o)}>
+        <span className="lab">{label}</span><b>{summary}</b><ChevronDown size={12} aria-hidden />
       </button>
       {open && (
         <Popover anchor={btn.current} onClose={close} width={240} label={`${label} filter`} role="group">
@@ -311,33 +311,37 @@ export function Empty({ icon, title, children }: { icon?: ReactNode; title: stri
 
 /* ------------------------------------------- blade chrome ----------------------------------------- */
 
+/** A path of places, "Incidents / #8758", with slashes between them. */
 export function Crumbs({ items, trailing }: { items: { label: string; onClick?: () => void }[]; trailing?: boolean }) {
   return (
-    <nav className="st-crumb" aria-label="Breadcrumb">
+    <nav className="st-crumb xd-path" aria-label="Breadcrumb">
       {items.map((c, i) => (
-        <span key={c.label} className="st-row" style={{ gap: 4 }}>
+        <span key={c.label} className="st-row" style={{ gap: 6 }}>
           {c.onClick ? <button type="button" onClick={c.onClick}>{c.label}</button> : <span>{c.label}</span>}
-          {(trailing || i < items.length - 1) && <ChevronRight size={12} aria-hidden />}
+          {(trailing || i < items.length - 1) && <span className="sep" aria-hidden>/</span>}
         </span>
       ))}
     </nav>
   );
 }
 
-/** Spans the whole blade, above the left menu: "XDR | Incidents". */
-export function BladeHeader({ icon, strong, light, sub, crumbs }: {
-  icon: ReactNode; strong: string; light?: string; sub: string; crumbs: { label: string; onClick?: () => void }[];
+/**
+ * XDR's page header (owner, 2026-11-08): the menu group as a small caps eyebrow, the page name, and
+ * the workspace as a chip on the right. No portal title with a vertical bar, no "Selected workspace".
+ */
+export function PageHeader({ icon, eyebrow, title, workspace, back }: {
+  icon: ReactNode; eyebrow: string; title: string; workspace: string; back?: { label: string; onClick: () => void };
 }) {
   return (
-    <header className="st-blade-head">
-      <Crumbs items={crumbs} />
-      <div className="st-blade-title">
-        {icon}
-        <div>
-          <h1><span className="s">{strong}</span>{light && <span className="l"> | {light}</span>}</h1>
-          <div className="sub">{sub}</div>
+    <header className="st-blade-head xd-head">
+      {icon}
+      <div className="st-grow" style={{ minWidth: 0 }}>
+        <div className="xd-eyebrow">
+          {back && <><button type="button" className="st-link" onClick={back.onClick}>{back.label}</button><span aria-hidden> / </span></>}{eyebrow}
         </div>
+        <h1 className="st-ellipsis" title={title}>{title}</h1>
       </div>
+      <span className="xd-ws" title={`Workspace: ${workspace}`}><Database size={13} aria-hidden /><span className="st-sr">Workspace: </span><span className="st-ellipsis">{workspace}</span></span>
     </header>
   );
 }
@@ -389,26 +393,34 @@ export function SevGlyph({ value, size = 14 }: { value: SentinelSeverity; size?:
 export type SortDir = "asc" | "desc";
 export interface SortState<K extends string> { key: K; dir: SortDir }
 
+/**
+ * A sortable column head in XDR's grid: a small caps label, and a chevron that shows on the sorted
+ * column only (no up-and-down glyph on every column). The order itself is in aria-sort.
+ */
 export function SortTh<K extends string>({ k, sort, onSort, children, style }: {
   k: K; sort: SortState<K>; onSort: (s: SortState<K>) => void; children: ReactNode; style?: CSSProperties;
 }) {
   const on = sort.key === k;
   return (
-    <th scope="col" style={style} aria-sort={on ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+    <th scope="col" style={style} aria-sort={on ? (sort.dir === "asc" ? "ascending" : "descending") : "none"} data-sorted={on || undefined}>
       <button type="button" className="st-sort" onClick={() => onSort({ key: k, dir: on && sort.dir === "desc" ? "asc" : "desc" })}>
         <span className="st-ellipsis">{children}</span>
-        {on ? (sort.dir === "asc" ? <ArrowUp size={12} aria-hidden /> : <ArrowDown size={12} aria-hidden />) : <ArrowUpDown size={12} color="#605e5c" aria-hidden />}
+        <span className="xd-sortmark" aria-hidden>{on && sort.dir === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />}</span>
       </button>
     </th>
   );
 }
 
-export function SimplePager({ page, pages, from, to, onPage }: { page: number; pages: number; from: number; to: number; onPage: (p: number) => void }) {
+/** "Showing 1 to 4 of 4", with previous and next as icon buttons. */
+export function SimplePager({ page, pages, from, to, total, onPage }: { page: number; pages: number; from: number; to: number; total: number; onPage: (p: number) => void }) {
   return (
-    <div className="st-pager">
-      <button type="button" className="st-pagebtn" disabled={page <= 0} onClick={() => onPage(page - 1)}>&lt; Previous</button>
-      <span>{from} - {to}</span>
-      <button type="button" className="st-pagebtn" disabled={page >= pages - 1} onClick={() => onPage(page + 1)}>Next &gt;</button>
+    <div className="st-pager xd-pager">
+      <span className="st-grow">{total ? <>Showing <b>{from}</b> to <b>{to}</b> of <b>{total}</b></> : "Nothing to show"}</span>
+      <span className="xd-pager-btns">
+        <button type="button" className="xd-pgbtn" aria-label="Previous page" disabled={page <= 0} onClick={() => onPage(page - 1)}><ChevronLeft size={15} aria-hidden /></button>
+        <span className="xd-pgnum" aria-hidden>{page + 1} / {Math.max(1, pages)}</span>
+        <button type="button" className="xd-pgbtn" aria-label="Next page" disabled={page >= pages - 1} onClick={() => onPage(page + 1)}><ChevronRight size={15} aria-hidden /></button>
+      </span>
     </div>
   );
 }

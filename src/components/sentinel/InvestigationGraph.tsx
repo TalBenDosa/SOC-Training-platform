@@ -394,7 +394,7 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
 
   return (
     <div ref={useFocusOnMount()} tabIndex={-1} className="st-inv" role="region" aria-label="Investigation">
-      <Crumbs trailing items={[{ label: "Home", onClick: () => { onClose(); go("overview"); } }, { label: "XDR", onClick: onClose }, { label: "Incident", onClick: onClose }]} />
+      <Crumbs items={[{ label: "Home", onClick: () => { onClose(); go("overview"); } }, { label: `Incident #${incident.number}`, onClick: onClose }, { label: "Investigation" }]} />
       <div className="st-inc-head" style={{ alignItems: "center" }}>
         <h1 className="st-grow st-inv-title">Investigation</h1>
         <button type="button" className="st-icon-btn" aria-label="Close investigation" onClick={onClose}><X size={18} aria-hidden /></button>
@@ -408,7 +408,7 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
         <div><b><i className={`st-band ${state.severity}`} style={{ height: 22, width: 5 }} aria-hidden />{state.severity}</b><span>Severity</span></div>
         <div><b><StatusIcon status={state.status} size={20} />{state.status}</b><span>Status</span></div>
         <div><b><UserRound size={20} color="#6d28d9" aria-hidden />{state.owner ?? "Unassigned"}</b><span>Owner</span></div>
-        <div><b><Clock3 size={20} color="#6d28d9" aria-hidden />{fmtDateTime(incident.lastUpdate)}</b><span>Last incident update time</span></div>
+        <div><b><Clock3 size={20} color="#6d28d9" aria-hidden />{fmtDateTime(incident.lastUpdate)}</b><span>Updated</span></div>
       </div>
       <div className="st-inv-main">
         <div ref={canvas} className={`st-canvas${panning ? " panning" : ""}`} tabIndex={0} role="group"
@@ -597,14 +597,14 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
               {rail === "help" && (
                 <ul className="st-bullets st-stack" style={{ gap: 8 }}>
                   <li>Select an entity or alert to read about it in Info.</li>
-                  <li>Hover an entity for its exploration queries. Select one to add its results to the graph, or Events&gt; to read the rows in Logs.</li>
+                  <li>Hover an entity for its exploration queries. Select one to add its results to the graph, or Events&gt; to read the rows in Query.</li>
                   <li>The Events chip beside an alert, or on a question&apos;s link, opens the rows behind it. The X on a junction removes what that question added.</li>
                   <li>Drag the canvas to pan. Use the zoom buttons or the wheel to zoom.</li>
                 </ul>
               )}
             </div>
             {rail === "info" && selectedNode?.type === "entity" && ws.entities[selectedNode.entity.id] && (
-              <div className="st-preview-foot"><button type="button" className="st-btn primary" onClick={() => openEntity(selectedNode.entity.id)}>View full details</button></div>
+              <div className="st-preview-foot"><button type="button" className="st-btn primary" onClick={() => openEntity(selectedNode.entity.id)}>Open entity page</button></div>
             )}
           </aside>
         ) : (

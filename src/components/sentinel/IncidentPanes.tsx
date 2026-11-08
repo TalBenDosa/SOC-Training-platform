@@ -1,11 +1,11 @@
 "use client";
-// The slide-overs of an incident: Tasks, Activity log, and the playbook runner.
+// The slide-overs of an incident: Tasks, Case history, and Run action (the playbook runner).
 import { useMemo, useRef, useState } from "react";
 import { ListTodo, History, Pencil, Play, Plus, UserRound, Bot } from "lucide-react";
 import type { SentinelActions, SentinelIncident, SentinelIsolationRequest } from "@/lib/sentinel/types";
 import { useSentinel, type PlaybookRun } from "./context";
 import { activityTitle, commentText, entitiesOf, fmtDateTime, fmtShortTime } from "./helpers";
-import { Empty, Select, SlidePanel } from "./ui";
+import { Empty, SlidePanel } from "./ui";
 import { NO_APPROVER, isNoApprover, waitingForApproval } from "@/lib/team/isolationApproval";
 
 export function TasksPane({ incident, onClose }: { incident: SentinelIncident; onClose: () => void }) {
@@ -53,7 +53,7 @@ export function TasksPane({ incident, onClose }: { incident: SentinelIncident; o
 }
 
 type Filter = "All" | "Activities" | "Comments";
-const FILTERS: { value: Filter; label: Filter }[] = [{ value: "All", label: "All" }, { value: "Activities", label: "Activities" }, { value: "Comments", label: "Comments" }];
+const FILTERS: { value: Filter; label: string }[] = [{ value: "All", label: "Everything" }, { value: "Activities", label: "Changes" }, { value: "Comments", label: "Comments" }];
 
 export function ActivityPane({ incident, onClose }: { incident: SentinelIncident; onClose: () => void }) {
   const { stateOf, actions, ended, report } = useSentinel();
@@ -85,14 +85,16 @@ export function ActivityPane({ incident, onClose }: { incident: SentinelIncident
   };
 
   return (
-    <SlidePanel title="Incident activity log" onClose={onClose} width={680} noBody>
+    <SlidePanel title="Case history" subtitle={`Incident #${incident.number}`} icon={<span className="xd-head-tile sm" aria-hidden><History size={16} /></span>} onClose={onClose} width={680} noBody>
       <div style={{ padding: "0 16px 10px" }}>
-        <Select label="Activity logs content" value={filter} options={FILTERS} onChange={setFilter} className="st-pill">
-          Activity logs content : <b>{filter}</b>
-        </Select>
+        <div className="xd-seg" role="group" aria-label="Show in case history">
+          {FILTERS.map(f => (
+            <button key={f.value} type="button" aria-pressed={filter === f.value} className="xd-seg-btn" onClick={() => setFilter(f.value)}>{f.label}</button>
+          ))}
+        </div>
       </div>
       <div className="st-panel-body" aria-live="polite">
-        {items.length === 0 && <Empty icon={<History size={26} aria-hidden />} title="Nothing logged yet" />}
+        {items.length === 0 && <Empty icon={<History size={26} aria-hidden />} title="Nothing recorded yet" />}
         {items.map(i => (
           <div key={i.key} className={`st-activity-card${i.comment ? " comment" : ""}`}>
             <span className={`who${i.comment ? " person" : ""}`} aria-hidden>{i.comment ? <UserRound size={18} /> : <Pencil size={14} />}</span>
@@ -215,7 +217,7 @@ export function PlaybookHistory({ runs, actions, maxWidth = 900, compact = false
     );
   }
   return (
-    <table className="st-table st-runs-table" aria-label="Playbook runs" style={{ maxWidth }}>
+    <table className="st-table st-runs-table xd-grid" aria-label="Playbook runs" style={{ maxWidth }}>
       <colgroup><col style={{ width: 170 }} /><col style={{ width: 120 }} /><col style={{ width: 140 }} /><col style={{ width: 96 }} /><col /></colgroup>
       <thead><tr><th scope="col">Time</th><th scope="col">Playbook</th><th scope="col">Device</th><th scope="col">Result</th><th scope="col">Details</th></tr></thead>
       <tbody>
@@ -231,7 +233,7 @@ export function PlaybookHistory({ runs, actions, maxWidth = 900, compact = false
   );
 }
 
-/** Playbooks work on devices, so the panel asks for one unless the caller already chose it. */
+/** Run action: playbooks work on devices, so the panel asks for one unless the caller already chose it. */
 export function PlaybookPanel({ incidentId, host, onClose }: { incidentId?: string; host?: string; onClose: () => void }) {
   const { ws, actions, runPlaybook, runs, ended } = useSentinel();
   const incident = ws.incidents.find(i => i.id === incidentId);
@@ -254,10 +256,10 @@ export function PlaybookPanel({ incidentId, host, onClose }: { incidentId?: stri
     if (r.ok && name === "Isolate device") setReason("");
   };
   return (
-    <SlidePanel title="Run playbook" subtitle={incident ? `On incident ${incident.number}` : "On a device"} icon={<Bot size={20} color="#6d28d9" aria-hidden />} onClose={onClose} width={460}
+    <SlidePanel title="Run action" subtitle={incident ? `On incident #${incident.number}` : "On a device"} icon={<span className="xd-head-tile sm" aria-hidden><Bot size={16} /></span>} onClose={onClose} width={460}
       footer={<button type="button" className="st-btn" onClick={onClose}>Close</button>}>
       {hosts.length === 0 && !host
-        ? <Empty icon={<Bot size={26} aria-hidden />} title="No playbook applies">This incident has no device entity, and every playbook here acts on a device.</Empty>
+        ? <Empty icon={<Bot size={26} aria-hidden />} title="No action applies">This incident has no device entity, and every playbook here acts on a device.</Empty>
         : (
           <div className="st-stack">
             {host
@@ -270,17 +272,15 @@ export function PlaybookPanel({ incidentId, host, onClose }: { incidentId?: stri
             {state && <p className="st-small st-muted" role="status">Current state: {state.label}</p>}
             {asks && <IsolationReason id="pb-reason" value={reason} onChange={v => { setReason(v); if (reasonErr) setReasonErr(null); }} error={reasonErr} />}
             {result && <RunResult run={result} />}
-            <table className="st-table">
-              <thead><tr><th scope="col">Playbook</th><th scope="col" style={{ width: 116 }}><span className="st-sr">Run</span></th></tr></thead>
-              <tbody>
-                {PLAYBOOKS.map(p => (
-                  <tr key={p.name}>
-                    <td style={{ whiteSpace: "normal", height: 44 }}><strong>{p.name}</strong><div className="st-muted">{p.description}</div></td>
-                    <td><button type="button" className="st-btn" disabled={ended || !target || busy !== null || (p.name === "Isolate device" && !!(state?.isolated || state?.pending))} aria-label={p.name === "Isolate device" && asks ? "Request isolation" : `Run ${p.name}`} onClick={() => void run(p.name)}><Play size={12} aria-hidden />{p.name === "Isolate device" && asks ? "Request" : "Run"}</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ul className="xd-pb-cards compact" aria-label="Playbooks">
+              {PLAYBOOKS.map(p => (
+                <li key={p.name} className="xd-pb-card">
+                  <span className="xd-pb-ico" aria-hidden><Bot size={15} /></span>
+                  <div className="st-grow" style={{ minWidth: 0 }}><strong>{p.name}</strong><div className="st-small st-muted">{p.description}</div></div>
+                  <button type="button" className="st-btn" disabled={ended || !target || busy !== null || (p.name === "Isolate device" && !!(state?.isolated || state?.pending))} aria-label={p.name === "Isolate device" && asks ? "Request isolation" : `Run ${p.name}`} onClick={() => void run(p.name)}><Play size={12} aria-hidden />{p.name === "Isolate device" && asks ? "Request" : "Run"}</button>
+                </li>
+              ))}
+            </ul>
             {target && <PlaybookHistory runs={runs.filter(r => r.host.toLowerCase() === target.toLowerCase())} actions={{ ...actions, isolationRequests: (actions.isolationRequests ?? []).filter(r => r.host.toLowerCase() === target.toLowerCase()) }} compact />}
           </div>
         )}

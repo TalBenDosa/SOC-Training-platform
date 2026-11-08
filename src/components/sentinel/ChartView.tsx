@@ -276,7 +276,7 @@ export function ChartView({ columns, rows, initial, compact: bare }: { columns: 
       {!bare && (
         <div className="st-row" style={{ marginBottom: 4 }}>
           <span className="st-small st-muted">Chart type</span>
-          <Select label="Chart type" className="st-pill" value={kind} options={KIND_OPTS} onChange={setKind} />
+          <Select label="Chart type" className="st-pill xd-fchip" value={kind} options={KIND_OPTS} onChange={setKind} />
           <div className="st-legend" style={{ marginLeft: 12 }}>
             {model.series.length > 1 && model.series.map(s => <span key={s.name}><i style={{ background: s.color }} />{s.name}</span>)}
           </div>

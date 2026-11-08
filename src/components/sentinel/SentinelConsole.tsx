@@ -18,7 +18,7 @@ import { InvestigationGraph } from "./InvestigationGraph";
 import { LogsPanel } from "./LogsPanel";
 import { OverviewPage } from "./OverviewPage";
 import { AnalyticsPage, AutomationPage, EntityBehaviorPage, HuntingPage, SearchPage, ThreatIntelPage } from "./SimplePages";
-import { BladeHeader, SlidePanel } from "./ui";
+import { PageHeader, SlidePanel } from "./ui";
 
 export interface SentinelConsoleProps {
   workspace: SentinelWorkspace;
@@ -42,21 +42,23 @@ export interface SentinelConsoleProps {
   sessionKey?: string;
 }
 
+// XDR's own menu and words (owner, 2026-11-08): familiar to an analyst, not the portal's groups and
+// blade names. Screen ids, routes and event types keep their old names.
 const NAV: { group: string; items: { id: Screen; label: string; icon: typeof Siren }[] }[] = [
-  { group: "General", items: [
-    { id: "overview", label: "Overview", icon: LayoutDashboard },
-    { id: "logs", label: "Logs", icon: ScrollText },
+  { group: "Workspace", items: [
+    { id: "overview", label: "Home", icon: LayoutDashboard },
+    { id: "logs", label: "Query", icon: ScrollText },
     { id: "search", label: "Search", icon: TextSearch },
   ] },
-  { group: "Threat management", items: [
+  { group: "Investigate", items: [
     { id: "incidents", label: "Incidents", icon: Siren },
-    { id: "hunting", label: "Hunting", icon: Radar },
-    { id: "entity", label: "Entity behavior", icon: UserRoundSearch },
-    { id: "ti", label: "Threat intelligence", icon: Rss },
+    { id: "hunting", label: "Hunts", icon: Radar },
+    { id: "entity", label: "Entities", icon: UserRoundSearch },
+    { id: "ti", label: "Intel", icon: Rss },
   ] },
-  { group: "Configuration", items: [
-    { id: "analytics", label: "Analytics", icon: ChartSpline },
-    { id: "automation", label: "Automation", icon: Bot },
+  { group: "Operate", items: [
+    { id: "analytics", label: "Detections", icon: ChartSpline },
+    { id: "automation", label: "Playbooks", icon: Bot },
   ] },
 ];
 
@@ -64,8 +66,9 @@ const NAV: { group: string; items: { id: Screen; label: string; icon: typeof Sir
 const refocus = (el: HTMLElement | null) => window.setTimeout(() => { if (el?.isConnected) el.focus({ preventScroll: true }); }, 0);
 
 const SCREEN_TITLE: Record<Screen, string> = {
-  overview: "Overview", logs: "Logs", search: "Search", incidents: "Incidents", hunting: "Hunting", entity: "Entity behavior", ti: "Threat intelligence", analytics: "Analytics", automation: "Automation",
+  overview: "Workspace home", logs: "Query lab", search: "Search", incidents: "Incidents", hunting: "Hunts", entity: "Entities", ti: "Intel", analytics: "Detections", automation: "Playbooks",
 };
+const SCREEN_GROUP = Object.fromEntries(NAV.flatMap(g => g.items.map(i => [i.id, g.group]))) as Record<Screen, string>;
 
 interface Toast { id: number; kind: "incident" | "error" | "info"; title: string; body?: string; incidentId?: string; severity?: string }
 
@@ -217,7 +220,7 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
   const addToTi = useCallback((entity: SentinelEntity, id: string) => {
     void actions.addComment(id, tiComment(entity)).then(err => {
       report(err);
-      if (!err) pushToast({ kind: "info", title: "Added to threat intelligence", body: entity.name });
+      if (!err) pushToast({ kind: "info", title: "Added to Intel", body: entity.name });
     });
   }, [actions, pushToast, report]);
 
@@ -284,9 +287,9 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
         {ended && <div className="st-ended" role="status"><Lock size={13} aria-hidden />The exercise has ended. This workspace is read-only: queries still run, changes are off.</div>}
         <div className="st-shell">
           {!covered && (
-            <BladeHeader icon={<span className="xd-head-tile" aria-hidden><ScreenIcon size={22} /></span>} {...(focused
-              ? { strong: focused.name, sub: KIND_LABEL[focused.kind], crumbs: [{ label: "Home" }, { label: "XDR | Entity behavior", onClick: () => setEntityFocus(null) }] }
-              : { strong: "XDR", light: SCREEN_TITLE[screen], sub: `Selected workspace: '${workspace.name}'`, crumbs: [{ label: "Home" }, { label: "XDR" }] })} />
+            <PageHeader icon={<span className="xd-head-tile" aria-hidden><ScreenIcon size={20} /></span>} workspace={workspace.name} {...(focused
+              ? { title: focused.name, eyebrow: KIND_LABEL[focused.kind], back: { label: "Entities", onClick: () => setEntityFocus(null) } }
+              : { title: SCREEN_TITLE[screen], eyebrow: SCREEN_GROUP[screen] })} />
           )}
           <div className="st-body">
           <nav className={`st-nav${navCollapsed ? " collapsed" : ""}`} aria-label="XDR menu" hidden={covered}>
@@ -339,7 +342,7 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
           {incident && <IncidentDetails key={`incident-${incident.id}`} incident={incident} focusEntity={focusEntity} onClose={closeIncident} hidden={!!investigated} />}
           {investigated && <InvestigationGraph key={`investigate-${investigated.id}`} incident={investigated} onClose={closeInvestigation} />}
           {logsOverlay && (
-            <SlidePanel title="Logs" subtitle={workspace.name} width="min(1130px, 80%)" noBody onClose={() => setLogsOverlay(null)}
+            <SlidePanel title="Query" subtitle={workspace.name} width="min(1130px, 80%)" noBody onClose={() => setLogsOverlay(null)}
               icon={<span className="xd-head-tile" aria-hidden><ScrollText size={20} /></span>}
               footer={<button type="button" className="st-btn primary" onClick={() => setLogsOverlay(null)}>Done</button>}>
               <LogsPanel key={logsOverlay.key} mode="panel" request={logsOverlay} incidentId={logsOverlay.incidentId ?? investigateId ?? incidentId ?? undefined} />

@@ -1,10 +1,14 @@
 "use client";
+// Workspace home (owner, 2026-11-08: XDR's own home, not the portal's overview blade): stat cards
+// with an icon each, quick ways in, the activity chart, the incidents that need attention as cards,
+// and the status mix as one segmented bar.
 import { useMemo } from "react";
+import { ArrowRight, BarChart2, Bell, ChartSpline, Radar, Rows3, ScrollText, Siren, TriangleAlert } from "lucide-react";
 import { useSentinel } from "./context";
 import { fmtCount, fmtDateTime, SEVERITIES, STATUSES } from "./helpers";
 import { ChartView } from "./ChartView";
-import { Empty, Severity, StatusIcon } from "./ui";
-import { BarChart2 } from "lucide-react";
+import { Empty, StatusIcon } from "./ui";
+import { SevChip } from "./XdrParts";
 import type { KqlColumn, KqlRow } from "@/lib/kql/types";
 
 const BUCKETS = 24;
@@ -37,71 +41,92 @@ function useTimeSeries(): { events: Series; alerts: Series; totalEvents: number 
   }, [ws]);
 }
 
+const STATUS_TONE: Record<string, string> = { New: "var(--st-accent)", Active: "#c4b5fd", Closed: "#8fbf8f" };
+
 export function OverviewPage() {
   const { ws, stateOf, openIncident, go } = useSentinel();
   const { events, alerts, totalEvents } = useTimeSeries();
   const states = useMemo(() => ws.incidents.map(i => stateOf(i.id)), [ws.incidents, stateOf]);
   const byStatus = useMemo(() => Object.fromEntries(STATUSES.map(s => [s, states.filter(x => x.status === s).length])) as Record<string, number>, [states]);
   const bySeverity = useMemo(() => SEVERITIES.map(s => ({ s, n: states.filter(x => x.status !== "Closed" && x.severity === s).length })), [states]);
-  const recent = useMemo(() => [...ws.incidents].sort((a, b) => Date.parse(b.lastUpdate) - Date.parse(a.lastUpdate)).slice(0, 6), [ws.incidents]);
-  const maxStatus = Math.max(1, ...STATUSES.map(s => byStatus[s]));
+  // Needs attention: open incidents, highest severity first, then the latest update.
+  const attention = useMemo(() => [...ws.incidents]
+    .map(i => ({ i, st: stateOf(i.id) }))
+    .filter(x => x.st.status !== "Closed")
+    .sort((a, b) => SEVERITIES.indexOf(a.st.severity) - SEVERITIES.indexOf(b.st.severity) || Date.parse(b.i.lastUpdate) - Date.parse(a.i.lastUpdate))
+    .slice(0, 5), [ws.incidents, stateOf]);
+  const totalStatus = Math.max(1, STATUSES.reduce((n, s) => n + byStatus[s], 0));
+  const open = byStatus.New + byStatus.Active;
+
+  const stats = [
+    { k: "Events", v: fmtCount(totalEvents), Icon: Rows3 },
+    { k: "Alerts", v: fmtCount(ws.alerts.length), Icon: Bell },
+    { k: "Incidents", v: fmtCount(ws.incidents.length), Icon: Siren },
+    { k: "Open incidents", v: fmtCount(open), Icon: TriangleAlert },
+    { k: "Detection rules", v: fmtCount(ws.rules.length), Icon: ChartSpline },
+  ];
+  const jumps = [
+    { label: "Work the incident queue", Icon: Siren, to: "incidents" as const },
+    { label: "Write a KQL query", Icon: ScrollText, to: "logs" as const },
+    { label: "Run the hunts", Icon: Radar, to: "hunting" as const },
+  ];
 
   return (
     <div className="st-page">
       <div className="st-page-scroll">
-        <div className="st-ov">
-          <div className="st-ov-top">
-            <div className="cell"><b>{fmtCount(totalEvents)}</b><span>Events</span></div>
-            <div className="cell"><b>{fmtCount(ws.alerts.length)}</b><span>Alerts</span></div>
-            <div className="cell"><b>{fmtCount(ws.incidents.length)}</b><span>Incidents</span></div>
-            <div className="cell"><b>{fmtCount(byStatus.New + byStatus.Active)}</b><span>Open incidents</span></div>
-            <div className="cell"><b>{fmtCount(ws.rules.length)}</b><span>Active rules</span></div>
-          </div>
-          <section className="st-tile" aria-label="Events and alerts over time">
-            <h3>Events and alerts over time</h3>
+        <div className="xd-home">
+          <ul className="xd-home-stats" aria-label="Workspace at a glance">
+            {stats.map(({ k, v, Icon }) => (
+              <li key={k} className="xd-stat"><span className="xd-kpi-ico" aria-hidden><Icon size={15} /></span><span className="k">{k}</span><b>{v}</b></li>
+            ))}
+          </ul>
+          <nav className="xd-jumps" aria-label="Quick ways in">
+            {jumps.map(({ label, Icon, to }) => (
+              <button key={to} type="button" className="xd-jump" onClick={() => go(to)}><Icon size={15} aria-hidden /><span className="st-grow">{label}</span><ArrowRight size={14} aria-hidden /></button>
+            ))}
+          </nav>
+          <section className="xd-card xd-home-chart" aria-label="Activity over time">
+            <h3 className="xd-card-title">Activity over time</h3>
             {events.rows.length === 0 && alerts.rows.length === 0
               ? <Empty icon={<BarChart2 size={28} aria-hidden />} title="No events yet" />
               : (
                 <>
-                  <div className="st-small st-muted">Events</div>
-                  <div style={{ height: 170, display: "flex" }}><ChartView compact columns={events.columns} rows={events.rows} initial="timechart" /></div>
-                  <div className="st-small st-muted" style={{ marginTop: 6 }}>Alerts</div>
-                  <div style={{ height: 150, display: "flex" }}><ChartView compact columns={alerts.columns} rows={alerts.rows} initial="timechart" /></div>
+                  <div className="xd-eyebrow">Events</div>
+                  <div style={{ height: 160, display: "flex" }}><ChartView compact columns={events.columns} rows={events.rows} initial="timechart" /></div>
+                  <div className="xd-eyebrow" style={{ marginTop: 8 }}>Alerts</div>
+                  <div style={{ height: 140, display: "flex" }}><ChartView compact columns={alerts.columns} rows={alerts.rows} initial="timechart" /></div>
                 </>
               )}
           </section>
-          <div className="st-stack" style={{ gap: 12 }}>
-            <section className="st-tile" aria-label="Incidents by status">
-              <h3>Incidents by status</h3>
-              {STATUSES.map(s => (
-                <div key={s} className="st-statusbar-row">
-                  <span className="st-row" style={{ gap: 4 }}><StatusIcon status={s} size={12} />{s}</span>
-                  <span className="st-sevbar-track"><span className="st-sevbar-fill" style={{ display: "block", background: "var(--st-accent)", width: `${(byStatus[s] / maxStatus) * 100}%` }} /></span>
-                  <span>{byStatus[s]}</span>
-                </div>
-              ))}
-              <div className="st-row" style={{ flexWrap: "wrap", gap: "4px 14px", marginTop: 8 }}>
-                {bySeverity.map(({ s, n }) => <span key={s} className="st-small"><Severity value={s} /> {n}</span>)}
-              </div>
-            </section>
-            <section className="st-tile" aria-label="Recent incidents" style={{ flex: "1 1 auto" }}>
-              <h3>Recent incidents</h3>
-              {recent.length === 0 && <p className="st-muted st-small">No incidents yet.</p>}
-              <ul>
-                {recent.map(i => {
-                  const st = stateOf(i.id);
-                  return (
-                    <li key={i.id} className="st-entity-row">
-                      <i className={`st-band ${st.severity}`} style={{ height: 30 }} aria-hidden />
-                      <button type="button" className="st-grow" onClick={() => openIncident(i.id)} title={i.title}>
-                        <span className="st-link st-ellipsis" style={{ display: "block" }}>{i.title}</span>
-                        <span className="st-small st-muted">{i.number} | {st.status} | {fmtDateTime(i.lastUpdate)}</span>
-                      </button>
-                    </li>
-                  );
-                })}
+          <div className="xd-home-side">
+            <section className="xd-card" aria-label="Needs attention">
+              <h3 className="xd-card-title">Needs attention <span className="xd-count">{open}</span></h3>
+              {attention.length === 0 && <p className="st-muted st-small">Nothing open. New incidents show here first.</p>}
+              <ul className="xd-attn">
+                {attention.map(({ i, st }) => (
+                  <li key={i.id}>
+                    <button type="button" className={`xd-attn-card ${st.severity}`} onClick={() => openIncident(i.id)} title={i.title}>
+                      <span className="xd-attn-top"><SevChip value={st.severity} /><span className="xd-attn-id">#{i.number}</span><span className="st-grow" /><span className={`xd-status ${st.status}`}><StatusIcon status={st.status} size={12} />{st.status}</span></span>
+                      <span className="xd-attn-title st-ellipsis">{i.title}</span>
+                      <span className="st-small st-muted">Updated {fmtDateTime(i.lastUpdate)}</span>
+                    </button>
+                  </li>
+                ))}
               </ul>
-              {recent.length > 0 && <button type="button" className="st-link st-small" style={{ marginTop: 6 }} onClick={() => go("incidents")}>View all incidents &gt;</button>}
+              {ws.incidents.length > 0 && <button type="button" className="st-link st-small" style={{ marginTop: 8 }} onClick={() => go("incidents")}>Open the incident queue</button>}
+            </section>
+            <section className="xd-card" aria-label="Incidents by status">
+              <h3 className="xd-card-title">Incidents by status</h3>
+              <div className="xd-mixbar" aria-hidden>
+                {STATUSES.map(s => byStatus[s] > 0 && <i key={s} style={{ flexGrow: byStatus[s] / totalStatus, background: STATUS_TONE[s] }} />)}
+              </div>
+              <ul className="xd-mixlegend">
+                {STATUSES.map(s => <li key={s}><span className="st-row" style={{ gap: 5 }}><StatusIcon status={s} size={12} />{s}</span><b>{byStatus[s]}</b></li>)}
+              </ul>
+              <div className="xd-eyebrow" style={{ marginTop: 10 }}>Open by severity</div>
+              <ul className="xd-mixlegend">
+                {bySeverity.map(({ s, n }) => <li key={s}><span className="st-row" style={{ gap: 6 }}><i className={`xd-dot ${s}`} aria-hidden />{s}</span><b>{n}</b></li>)}
+              </ul>
             </section>
           </div>
         </div>

@@ -8,8 +8,8 @@ import { CONTAINMENT_RULE } from "./shared";
 
 /** An XDR session (config value "sentinel"): the same button, but it opens the XDR console. */
 const SENTINEL_STEP: Record<string, { title: string; body: string; action: string }> = {
-  "edr-button": { title: "Investigate in XDR", body: "Detections raise incidents in XDR, the investigation console. This button shows how many are open. Open it to read the incident timeline, the entities and the top insights, and to query the logs with KQL.", action: "Click Investigate in XDR." },
-  "t3-edr": { title: "Open XDR", body: "Open XDR for the whole workspace: incidents, Logs with KQL, Hunting and the investigation graph.", action: "Click Open XDR." },
+  "edr-button": { title: "Investigate in XDR", body: "Detections raise incidents in XDR, the investigation console. This button shows how many are open. Open it to read the alert timeline, the entities and the quick findings, and to query the logs with KQL in the Query lab.", action: "Click Investigate in XDR." },
+  "t3-edr": { title: "Open XDR", body: "Open XDR for the whole workspace: incidents, the Query lab with KQL, Hunts and the investigation graph.", action: "Click Open XDR." },
 };
 
 /** The tour with its console steps rewritten for an XDR session. */

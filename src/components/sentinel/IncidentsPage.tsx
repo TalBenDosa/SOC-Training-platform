@@ -1,9 +1,9 @@
 "use client";
-// The Incidents blade, as in incident-grid.png: command bar, KPI strip with the severity bar, search and
-// filter pills, the Auto-refresh switch, a grid with selection, and the details pane.
+// The incidents queue, XDR's way: count cards and the severity mix, search, filter chips and tools
+// in one row, the grid with selection, and the preview pane.
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  BellRing, BookMarked, ChevronDown, ChevronUp, ChevronsRight, CircleDot, Clock3, FolderOpen, Hourglass, ListChecks, RotateCw, Rows3, Search, Siren, Table2,
+  BellRing, BookMarked, ChevronDown, ChevronUp, CircleDot, Clock3, FolderOpen, Hourglass, ListChecks, RotateCw, Rows3, Search, Siren, Table2, X,
 } from "lucide-react";
 import type { ClosingClassification, IncidentState, IncidentStatus, SentinelIncident, SentinelSeverity } from "@/lib/sentinel/types";
 import { useSentinel } from "./context";
@@ -25,15 +25,15 @@ const RANGES = [
   { value: "168", label: "Last 7 days" }, { value: "720", label: "Last 30 days" },
 ];
 const COLUMNS: { key: SortKey; label: string; width: number; always?: boolean }[] = [
-  { key: "severity", label: "Severity", width: 124, always: true },
-  { key: "number", label: "Incident ID", width: 104 },
-  { key: "title", label: "Title", width: 250, always: true },
-  { key: "alerts", label: "Alerts", width: 84 },
-  { key: "products", label: "Product names", width: 150 },
-  { key: "created", label: "Created time", width: 140 },
-  { key: "lastUpdate", label: "Last update time", width: 150 },
+  { key: "severity", label: "Severity", width: 118, always: true },
+  { key: "number", label: "ID", width: 76 },
+  { key: "title", label: "Title", width: 270, always: true },
+  { key: "alerts", label: "Alerts", width: 88 },
+  { key: "products", label: "Sources", width: 150 },
+  { key: "created", label: "Created", width: 140 },
+  { key: "lastUpdate", label: "Updated", width: 140 },
   { key: "owner", label: "Owner", width: 120 },
-  { key: "status", label: "Status", width: 84 },
+  { key: "status", label: "Status", width: 96 },
   { key: "tactics", label: "Tactics", width: 170 },
 ];
 
@@ -49,21 +49,23 @@ export function EscalationTag({ incident }: { incident: SentinelIncident }) {
   );
 }
 
-/** Evidence, as the details panel and the preview draw it. */
-export function Evidence({ incident, state, linkLabels }: { incident: SentinelIncident; state: IncidentState; linkLabels?: boolean }) {
+/** Linked data: the events, alerts and bookmarks of an incident, each a small card that opens its rows in Query. */
+export function Evidence({ incident, state }: { incident: SentinelIncident; state: IncidentState; linkLabels?: boolean }) {
   const { openLogs } = useSentinel();
-  const label = linkLabels ? "st-link" : undefined;
+  const cards = [
+    { k: "Events", n: incident.eventCount, Icon: Rows3, query: incident.eventsQuery },
+    { k: "Alerts", n: incident.alertIds.length, Icon: BellRing, query: alertsQuery(incident) },
+    { k: "Bookmarks", n: state.bookmarks.length, Icon: BookMarked, query: bookmarksQuery(incident) },
+  ];
   return (
-    <div className="st-ev">
-      <button type="button" onClick={() => openLogs({ query: incident.eventsQuery, run: true })} aria-label={`Events, ${incident.eventCount}`}>
-        <b><Rows3 size={18} color="#6d28d9" aria-hidden />{incident.eventCount}</b><span className={label}>Events</span>
-      </button>
-      <button type="button" onClick={() => openLogs({ query: alertsQuery(incident), run: true })} aria-label={`Alerts, ${incident.alertIds.length}`}>
-        <b><BellRing size={18} color="#6d28d9" aria-hidden />{incident.alertIds.length}</b><span className={label}>Alerts</span>
-      </button>
-      <button type="button" onClick={() => openLogs({ query: bookmarksQuery(incident), run: true })} aria-label={`Bookmarks, ${state.bookmarks.length}`}>
-        <b><BookMarked size={18} color="#6d28d9" aria-hidden />{state.bookmarks.length}</b><span className={label}>Bookmarks</span>
-      </button>
+    <div className="st-ev xd-linked">
+      {cards.map(({ k, n, Icon, query }) => (
+        <button key={k} type="button" className="xd-linkcard" onClick={() => openLogs({ query, run: true })} aria-label={`${k}, ${n}`}>
+          <span className="xd-linkcard-ico" aria-hidden><Icon size={14} /></span>
+          <span className="xd-linkcard-k">{k}</span>
+          <b>{n}</b>
+        </button>
+      ))}
     </div>
   );
 }
@@ -75,7 +77,7 @@ export function TasksSummary({ state, onOpen }: { state: IncidentState; onOpen: 
     <div className="st-field"><div className="k">Tasks</div>
       <div className="st-progress" aria-hidden><i style={{ width: `${(done / state.tasks.length) * 100}%` }} /></div>
       <span className="st-small">{done}/{state.tasks.length} completed. </span>
-      <button type="button" className="st-link st-small" onClick={onOpen}>View full details</button>
+      <button type="button" className="st-link st-small" onClick={onOpen}>Open tasks</button>
     </div>
   );
 }
@@ -86,31 +88,29 @@ export function IncidentPreview({ incident, onClose }: { incident: SentinelIncid
   const entities = useMemo(() => entitiesOf(incident, ws), [incident, ws]);
   const items = [
     { label: "Investigate", onSelect: () => openInvestigation(incident.id) },
-    ...(ended ? [] : [{ label: "Run playbook", onSelect: () => openPlaybook({ incidentId: incident.id }) }]),
+    ...(ended ? [] : [{ label: "Run action", onSelect: () => openPlaybook({ incidentId: incident.id }) }]),
   ];
   return (
-    <aside className="st-preview" aria-label={`Incident ${incident.number} preview`}>
-      <div className="st-preview-head">
-        <i className={`st-band ${state.severity} edge`} aria-hidden />
-        <span className="xd-head-tile sm" aria-hidden><Siren size={16} /></span>
+    <aside className="st-preview xd-preview" aria-label={`Incident ${incident.number} preview`}>
+      <div className={`st-preview-head xd-preview-head ${state.severity}`}>
         <div className="st-grow" style={{ minWidth: 0 }}>
+          <div className="xd-eyebrow">Incident #{incident.number}</div>
           <h2 className="st-wrap" title={incident.title}>{incident.title}</h2>
-          <div className="st-small" style={{ fontWeight: 600 }}>Incident ID: {incident.number}</div>
           <EscalationTag incident={incident} />
         </div>
-        <button type="button" className="st-icon-btn corner" aria-label="Close preview" onClick={onClose}><ChevronsRight size={13} aria-hidden /></button>
+        <button type="button" className="st-icon-btn" aria-label="Close preview" onClick={onClose}><X size={15} aria-hidden /></button>
       </div>
       <FieldBar incident={incident} state={state} order={["owner", "status", "severity"]} />
       <div className="st-preview-body">
         <IncidentDescription incident={incident} />
-        <div className="st-field"><div className="k">Alert product names</div>
+        <div className="st-field"><div className="k">Sources</div>
           <ul className="xd-ac-chips wrap" style={{ marginTop: 4 }}>{incident.products.map(p => <li key={p} className="xd-chip prod">{p}</li>)}</ul>
         </div>
         <TasksSummary state={state} onOpen={() => openIncident(incident.id)} />
-        <div className="st-field"><div className="k">Evidence</div><Evidence incident={incident} state={state} linkLabels /></div>
+        <div className="st-field"><div className="k">Linked data</div><Evidence incident={incident} state={state} /></div>
         <div className="st-2col st-field">
-          <div><div className="st-k">Last update time</div>{fmtShortTime(incident.lastUpdate)}</div>
-          <div><div className="st-k">Creation time</div>{fmtShortTime(incident.created)}</div>
+          <div><div className="st-k">Updated</div>{fmtShortTime(incident.lastUpdate)}</div>
+          <div><div className="st-k">Created</div>{fmtShortTime(incident.created)}</div>
         </div>
         <div className="st-field"><div className="k">Entities ({entities.length})</div>
           <ul>
@@ -122,11 +122,11 @@ export function IncidentPreview({ incident, onClose }: { incident: SentinelIncid
               </li>
             ))}
           </ul>
-          {entities.length > 0 && <button type="button" className="st-link" onClick={() => openIncident(incident.id, { entityId: entities[0].id })}>View full details &gt;</button>}
+          {entities.length > 0 && <button type="button" className="st-link" onClick={() => openIncident(incident.id, { entityId: entities[0].id })}>All entities</button>}
         </div>
       </div>
       <div className="st-preview-foot">
-        <button type="button" className="st-btn primary" onClick={() => openIncident(incident.id)}>View full details</button>
+        <button type="button" className="st-btn primary" onClick={() => openIncident(incident.id)}>Open incident page</button>
         <ButtonMenu label="Actions" className="st-btn" items={items}>Actions<ChevronDown size={12} aria-hidden /></ButtonMenu>
       </div>
     </aside>
@@ -210,11 +210,11 @@ const IncidentRow = memo(function IncidentRow({ incident, state, selected, ticke
           <input type="checkbox" aria-label={`Select incident ${incident.number}`} checked={ticked} onChange={() => onTick(incident.id)} />
         </td>
       )}
-      <td className="st-sevcell"><i className={`st-cellband ${state.severity}`} aria-hidden /><SevChip value={state.severity} /></td>
-      {show("number") && <td>{incident.number}</td>}
+      <td className="st-sevcell"><SevChip value={state.severity} /></td>
+      {show("number") && <td className="xd-num-cell">{incident.number}</td>}
       <td title={esc ? `${incident.title}\n${esc.tag}${esc.summary ? `: ${esc.summary}` : ""}` : incident.title}>
         <span className="st-row" style={{ gap: 6 }}>
-          {isNew && <span className="st-new-mark">New</span>}<span className="st-ellipsis">{incident.title}</span>
+          {isNew && <span className="st-new-mark">New</span>}<span className="st-ellipsis xd-cell-title">{incident.title}</span>
         </span>
         {/* Escalated: the rule's title stays, the tag and the analyst's own summary sit under it. */}
         {esc && (
@@ -228,7 +228,7 @@ const IncidentRow = memo(function IncidentRow({ incident, state, selected, ticke
       {show("created") && <td>{fmtShortTime(incident.created)}</td>}
       {show("lastUpdate") && <td>{fmtShortTime(incident.lastUpdate)}</td>}
       {show("owner") && <td title={state.owner ?? "Unassigned"}>{state.owner ?? "Unassigned"}</td>}
-      {show("status") && <td><span className="st-row" style={{ gap: 4 }}><StatusIcon status={state.status} size={12} />{state.status}</span></td>}
+      {show("status") && <td><span className={`xd-status ${state.status}`}><StatusIcon status={state.status} size={12} />{state.status}</span></td>}
       {show("tactics") && <td title={incident.tactics.map(tacticLabel).join(", ")}>{incident.tactics.map(tacticLabel).join(", ")}</td>}
     </tr>
   );
@@ -316,49 +316,52 @@ export function IncidentsPage() {
 
   return (
     <div className="st-page">
-      <div className="st-cmdbar st-cmdbar-line" role="toolbar" aria-label="Incidents commands">
-        <button type="button" className="st-cmd" onClick={onRefresh}><RotateCw size={14} aria-hidden />Refresh</button>
-        <Select label="Time range" value={range} options={RANGES} onChange={setRange} className="st-cmd">
-          <Clock3 size={14} aria-hidden />{RANGES.find(r => r.value === range)?.label}<ChevronDown size={12} aria-hidden />
-        </Select>
-        {!ended && <button type="button" className="st-cmd" disabled={ticked.size === 0} onClick={() => setBulk(true)}><ListChecks size={14} aria-hidden />Actions</button>}
-        <ColumnsButton columns={COLUMNS.filter(c => !c.always).map(c => ({ key: c.key, label: c.label }))} hidden={hidden}
-          onToggle={k => setHidden(h => { const n = new Set(h); if (n.has(k)) n.delete(k); else n.add(k); return n; })}>
-          <Table2 size={14} aria-hidden />Columns
-        </ColumnsButton>
-      </div>
-      <div className="st-kpis">
-        <div className="st-kpi"><b><span className="xd-kpi-ico" aria-hidden><Siren size={18} /></span>{fmtCompact(counts.open)}</b><span>Open incidents</span></div>
-        <div className="st-kpi"><b><span className="xd-kpi-ico" aria-hidden><CircleDot size={18} /></span>{fmtCompact(counts.new)}</b><span>New incidents</span></div>
-        <div className="st-kpi"><b><span className="xd-kpi-ico" aria-hidden><Hourglass size={18} /></span>{fmtCompact(counts.active)}</b><span>Active incidents</span></div>
-        <div className="st-sevbar">
-          <strong>Open incidents by severity</strong>
+      {/* XDR's queue head (owner, 2026-11-08): four count cards, label over number, and the severity mix
+          as one segmented bar with chips; the commands sit beside the search, not in a portal command bar. */}
+      <div className="xd-kpis">
+        <div className="st-kpi xd-kpi"><span>Open incidents</span><b><span className="xd-kpi-ico" aria-hidden><Siren size={15} /></span>{fmtCompact(counts.open)}</b></div>
+        <div className="st-kpi xd-kpi"><span>New</span><b><span className="xd-kpi-ico" aria-hidden><CircleDot size={15} /></span>{fmtCompact(counts.new)}</b></div>
+        <div className="st-kpi xd-kpi"><span>Active</span><b><span className="xd-kpi-ico" aria-hidden><Hourglass size={15} /></span>{fmtCompact(counts.active)}</b></div>
+        <div className="xd-kpi xd-sevmix">
+          <span>Open by severity</span>
           <div className="bar" aria-hidden>
-            {SEVERITIES.map(s => counts.bySev[s] > 0 && <i key={s} className={`st-band ${s}`} style={{ width: `${(counts.bySev[s] / sevTotal) * 100}%` }} />)}
+            {SEVERITIES.map(s => counts.bySev[s] > 0 && <i key={s} className={`xd-mixseg ${s}`} style={{ flexGrow: counts.bySev[s] / sevTotal }} />)}
           </div>
-          <div className="legend">
-            {SEVERITIES.map(s => <span key={s}><i className={`st-band ${s}`} aria-hidden />{s} ({counts.bySev[s]})</span>)}
-          </div>
+          <ul className="legend">
+            {SEVERITIES.map(s => <li key={s}><i className={`xd-dot ${s}`} aria-hidden />{s} <b>{counts.bySev[s]}</b></li>)}
+          </ul>
         </div>
       </div>
       <div className="st-split">
         <div className="st-split-main">
-          <div className="st-filters">
-            <label className="st-search" style={{ width: 300 }}><Search size={14} aria-hidden /><span className="st-sr">Search incidents</span>
+          <div className="st-filters xd-filters">
+            <label className="st-search" style={{ width: 280 }}><Search size={14} aria-hidden /><span className="st-sr">Search incidents</span>
               <input className="st-input" value={q} onChange={e => setQ(e.target.value)} placeholder="Search by ID, title, tags, owner or product" />
             </label>
-            <span className="st-cmdsep" aria-hidden />
             <FilterPill label="Severity" options={SEVERITIES} selected={sev} onChange={setSev} />
             <FilterPill label="Status" options={STATUSES} selected={status} onChange={setStatus} />
-            {more && <FilterPill label="Product name" options={productOptions} selected={products} onChange={setProducts} />}
+            {more && <FilterPill label="Source" options={productOptions} selected={products} onChange={setProducts} />}
             {more && <FilterPill label="Owner" options={ownerOptions} selected={owners} onChange={setOwners} />}
             <button type="button" className="st-link st-morebtn" aria-expanded={more} onClick={() => setMore(m => !m)}>
-              {more ? <ChevronUp size={13} aria-hidden /> : <ChevronDown size={13} aria-hidden />}{more ? "Less" : "More (2)"}
+              {more ? <ChevronUp size={13} aria-hidden /> : <ChevronDown size={13} aria-hidden />}{more ? "Fewer filters" : "More filters (2)"}
             </button>
+            <span className="st-grow" />
+            <div className="xd-tools" role="toolbar" aria-label="Incidents commands">
+              <Switch label="Live updates" checked={autoRefresh} onChange={onAuto} />
+              <span className="st-cmdsep" aria-hidden />
+              <button type="button" className="st-cmd" onClick={onRefresh}><RotateCw size={14} aria-hidden />Refresh</button>
+              <Select label="Time range" value={range} options={RANGES} onChange={setRange} className="st-cmd">
+                <Clock3 size={14} aria-hidden />{RANGES.find(r => r.value === range)?.label}<ChevronDown size={12} aria-hidden />
+              </Select>
+              {!ended && <button type="button" className="st-cmd" disabled={ticked.size === 0} onClick={() => setBulk(true)}><ListChecks size={14} aria-hidden />Actions</button>}
+              <ColumnsButton columns={COLUMNS.filter(c => !c.always).map(c => ({ key: c.key, label: c.label }))} hidden={hidden}
+                onToggle={k => setHidden(h => { const n = new Set(h); if (n.has(k)) n.delete(k); else n.add(k); return n; })}>
+                <Table2 size={14} aria-hidden />Columns
+              </ColumnsButton>
+            </div>
           </div>
-          <div className="st-autorefresh"><Switch label="Auto-refresh incidents" checked={autoRefresh} onChange={onAuto} /></div>
-          <div className="st-page-scroll">
-            <table className="st-table st-igrid" aria-label="Incidents" style={{ minWidth: columns.reduce((n, c) => n + c.width, ended ? 0 : 32) }}>
+          <div className="st-page-scroll xd-gridwrap">
+            <table className="st-table st-igrid xd-grid" aria-label="Incidents" style={{ minWidth: columns.reduce((n, c) => n + c.width, ended ? 0 : 36) }}>
               <thead><tr>
                 {!ended && (
                   <th scope="col" className="st-tick">
@@ -377,11 +380,11 @@ export function IncidentsPage() {
             </table>
             {shown.length === 0 && (
               <Empty icon={<FolderOpen size={30} aria-hidden />} title={incidents.length ? "No incident matches the filters" : "No incidents yet"}>
-                {incidents.length ? "Change the filters or the search text." : "Incidents appear here as analytics rules fire."}
+                {incidents.length ? "Change the filters or the search text." : "Incidents appear here as detections fire."}
               </Empty>
             )}
           </div>
-          <SimplePager page={safePage} pages={pages} from={shown.length ? safePage * PAGE + 1 : 0} to={Math.min(shown.length, (safePage + 1) * PAGE)} onPage={setPage} />
+          <SimplePager page={safePage} pages={pages} from={shown.length ? safePage * PAGE + 1 : 0} to={Math.min(shown.length, (safePage + 1) * PAGE)} total={shown.length} onPage={setPage} />
         </div>
         {selected && <IncidentPreview incident={selected} onClose={() => setSelectedId(null)} />}
       </div>
