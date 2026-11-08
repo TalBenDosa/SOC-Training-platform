@@ -20,6 +20,7 @@ import { teamLoad } from "./load";
 import { FP_MAKERS } from "./fpAlerts";
 import { DECOY_KINDS, TWIST_KINDS, INJECT_TEXT_KEYS } from "./msel";
 import { historyFromConfigs, isDocIp, type VarietyRecord } from "./variety";
+import { ATTACK_STORIES } from "@/app/(app)/dashboard/attackStories";
 import { mitreVisible } from "@/lib/sim/mitreVisible";
 import { nativeView, NATIVE_SOURCES } from "@/lib/logs/native";
 import { validateNative } from "@/lib/logs/native/validate";
@@ -28,11 +29,13 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 
 const roster = [{ role: "t1" }, { role: "t1" }, { role: "t2" }, { role: "t3" }, { role: "mgr" }];
 type Diff = "easy" | "medium" | "hard";
-function build(company: string, seed: string, opts: VarietyOpts = {}, stack: Stack = {}, diff: Diff = "medium") {
+function build(company: string, seed: string, opts: VarietyOpts = {}, stack: Stack = {}, diff: Diff = "medium", storyId: string | null = null) {
   let rec: VarietyRecord | null = null;
-  const tl = buildTeamTimeline(company, diff, seed, null, teamLoad(diff, roster), stack, null, null, { ...opts, onVariety: r => { rec = r; } });
+  const tl = buildTeamTimeline(company, diff, seed, storyId, teamLoad(diff, roster), stack, null, null, { ...opts, onVariety: r => { rec = r; } });
   return { tl, rec: rec! as VarietyRecord };
 }
+/** Stories that carry each twist ground: code ran on a workstation, a cloud sign-in worked, a spray never got in. */
+const TWIST_STORIES = ["tech-support-scam", ATTACK_STORIES.find(s => s.events.some(e => e.id === "evt_imp_01_baseline"))!.id, "nexacorp-chain-d"];
 const ans = (e: TimelineEntry) => (e.answer ?? {}) as Record<string, unknown>;
 const origId = (e: TimelineEntry) => String(ans(e).original_id ?? "");
 
@@ -200,7 +203,13 @@ describe("every variant passes the public-payload leak checks and the native log
         problems.push(...checkPublic(tl, company, stack, e => origId(e).startsWith("msel_false_lead")).map(p => `${company} ${d}: ${p}`));
       }
       for (const k of TWIST_KINDS) {
-        const { tl, rec } = build(company, `leak-t-${k}`, { force: { twist: k } }, stack);
+        // A twist kind follows from what the story achieved (msel.ts twistGround, review 2026-11-08 K4): when the
+        // session's own story cannot carry it, the kind runs on a story that can (code ran, a sign-in worked, a spray failed).
+        let { tl, rec } = build(company, `leak-t-${k}`, { force: { twist: k } }, stack);
+        for (const story of TWIST_STORIES) {
+          if (rec.twist === k) break;
+          ({ tl, rec } = build(company, `leak-t-${k}`, { force: { twist: k } }, stack, "medium", story));
+        }
         if (rec.twist !== k) continue;
         twists.add(k);
         problems.push(...checkPublic(tl, company, stack, e => origId(e).startsWith("msel_twist")).map(p => `${company} ${k}: ${p}`));

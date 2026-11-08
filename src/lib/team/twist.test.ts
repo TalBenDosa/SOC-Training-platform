@@ -5,73 +5,160 @@
  * says so; and the beacon log carries its process context (the DLL on rundll32's
  * command line is the evidence: rundll32 itself is a clean Microsoft binary).
  *
- * 2026-11-07: the twist rotates among five kinds (msel.ts); the beacon tests force the
- * second-implant kind, and every kind is checked for its own coherent rows and text.
+ * 2026-11-07: the twist rotates among several kinds (msel.ts); every kind is checked for its own
+ * coherent rows and text.
+ *
+ * 2026-11-08 (Sdema review K4, "the twist has no cause"): a C2 implant or a new admin account landed on
+ * the DC after a spray that never got in. Each twist kind now follows from what the story ACHIEVED: an
+ * implant, persistence, a backdoor account or a remote session only where code ran (or an account logged
+ * on), credential reuse only after a sign-in worked, and a story of failures only gets the spray resuming.
+ * The account-takeover test used to force a beacon onto the victim's laptop; a cloud takeover runs no code
+ * there, so that twist is now dropped for it and the takeover gets the credential-reuse twist instead.
  */
 import { describe, it, expect, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { buildTeamTimeline } from "./buildTimeline";
 import { teamLoad } from "./load";
-import { TWIST_KINDS } from "./msel";
+import { TWIST_KINDS, buildTwist, twistGround, type TwistCtx } from "./msel";
 import { ATTACK_STORIES } from "@/app/(app)/dashboard/attackStories";
+import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
+import type { TelemetryEvent } from "@/lib/sim/types";
 
 const impId = ATTACK_STORIES.find(s => s.events.some(e => e.id === "evt_imp_01_baseline"))!.id;
+const EXEC_STORY = "tech-support-scam";
+const SPRAY_STORY = "nexacorp-chain-d";
 const tl = (seed: string, storyId?: string, twist?: string) => buildTeamTimeline("nexacorp", "medium", seed, storyId ?? null, teamLoad("medium", [{ role: "t1" }, { role: "t3" }]), {}, null, null, twist ? { force: { twist } } : {});
 const twistOf = (t: ReturnType<typeof tl>) => ({
   inject: t.find(e => (e.answer as { original_id?: string } | undefined)?.original_id === "msel_twist"),
   edr: t.find(e => String((e.answer as { original_id?: string } | undefined)?.original_id ?? "").startsWith("msel_twist_edr")),
   rows: t.filter(e => (e.answer as { supports_inject?: string } | undefined)?.supports_inject === "msel_twist"),
 });
+const idOf = (e: { answer?: unknown }) => String((e.answer as { original_id?: string } | undefined)?.original_id ?? "");
+const lcg = (seed: number) => { let x = seed; return () => ((x = (x * 16807) % 2147483647) / 2147483647); };
 
 describe("the twist", () => {
-  it("an account-takeover story: the twist lands on the victim's own device, and the inject says so", () => {
+  it("an account-takeover story: no implant on a device nothing ran on; the stolen account is reused, and the inject names it", () => {
     for (const seed of ["e90b31d5", "a", "b"]) {
-      const t = tl(seed, impId, "second_implant");
-      const { inject, edr } = twistOf(t);
+      expect(twistOf(tl(seed, impId, "second_implant")).inject, "a beacon with no cause").toBeUndefined();
+      expect(twistOf(tl(seed, impId, "new_persistence")).inject, "persistence with no cause").toBeUndefined();
+      const t = tl(seed, impId, "credential_reuse");
+      const { inject, rows } = twistOf(t);
       expect(inject).toBeTruthy();
-      const host = String(edr!.body.hostname);
-      const victim = String(edr!.body.user_email ?? "");
+      const victim = String(rows[0].body.user_email ?? "");
       expect(victim).toMatch(/@/);
-      const text = String(inject!.body.text);
-      expect(text).toContain(host);
-      expect(text).toContain(`${victim.split("@")[0]}'s own device`);
-      // the device really is the victim's: a story log of theirs names it
-      const named = t.some(e => e.channel === "feed" && e.body.user_email === victim && JSON.stringify(e.body).includes(host) && e !== edr);
-      expect(named).toBe(true);
+      expect(String(inject!.body.text)).toContain(victim.split("@")[0]);
+      // the account really is the story's victim: a story log of theirs names it
+      expect(t.some(e => e.channel === "feed" && e.body.user_email === victim && !idOf(e).startsWith("msel_"))).toBe(true);
     }
   });
 
-  it("the beacon log names its loader and payload, from a user-writable folder or ProgramData", () => {
+  it("the beacon log names its loader and payload, from a real user profile, ProgramData or Windows\\Temp; a DLL it loads was written first", () => {
     const cmds = new Set<string>();
-    for (const seed of ["e90b31d5", "s1", "s2", "s3", "s4", "s5"]) {
-      const { edr } = twistOf(tl(seed, impId, "second_implant"));
+    for (const seed of ["e90b31d5", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11"]) {
+      const t = tl(seed, EXEC_STORY, "second_implant");
+      const { edr, rows } = twistOf(t);
       const raw = edr!.body.raw as Record<string, string>;
       const cmd = raw["InitiatingProcessCommandLine"] ?? raw["process.command_line"];
-      expect(cmd).toMatch(/(\\AppData\\(Local|Roaming)\\|\\ProgramData\\)/);
+      // The payload: the DLL on a loader's command line, else the image itself (the story's own process).
+      const where = `${raw["process.executable"] ?? ""} ${cmd}`;
+      expect(where).toMatch(/(\\Users\\[^\\]+\\(AppData\\(Local|Roaming)|Downloads)\\|\\ProgramData\\|\\Windows\\Temp\\)/);
+      expect(where).not.toMatch(/\\Users\\Public\\/i);
+      const dll = /\s"?([A-Z]:\\[^",]+\.dll)/i.exec(cmd)?.[1];
       if (/rundll32/.test(cmd)) expect(cmd).toMatch(/\.dll,\w+$/);
+      if (dll) {
+        const drop = rows.find(r => idOf(r).startsWith("msel_twist_drop"));
+        expect(drop, `${seed}: no file row for ${dll}`).toBeTruthy();
+        expect((drop!.body.file as { path?: string }).path).toBe(dll);
+        expect(drop!.due_offset_ms).toBeLessThan(edr!.due_offset_ms);
+      }
+      // one pid per process: no raw copy contradicts the row's process.pid
+      const pid = (edr!.body.process as { pid?: number }).pid;
+      for (const k of ["process.pid", "InitiatingProcessId", "ProcessId"]) if (raw[k] !== undefined) expect(Number(raw[k])).toBe(pid);
       cmds.add(cmd);
     }
     expect(cmds.size).toBeGreaterThan(4);   // the loader line differs session to session
   });
 
-  it("every kind: rows backing it, one incident, after the inject, text names the ground it lands on", () => {
-    let built = 0;
-    for (const kind of TWIST_KINDS) {
-      const t = tl("kinds-1", undefined, kind);
-      const { inject, rows } = twistOf(t);
-      if (!inject) continue;   // a kind this incident cannot carry is dropped, never faked
-      built++;
-      expect(rows.length).toBeGreaterThanOrEqual(2);
-      expect(new Set(rows.map(r => r.answer?.incident_id)).size).toBe(1);
-      for (const r of rows) {
-        expect(r.answer?.expected_verdict).toBe("tp");
-        expect(r.due_offset_ms).toBeGreaterThan(inject.due_offset_ms);
+  it("a spray that never got in: no implant, persistence, backdoor account or remote session; the spray resumes from a new exit node", () => {
+    for (const seed of ["sdema-1", "sdema-a", "sdema-b", "sdema-c"]) {
+      for (const k of ["second_implant", "new_persistence", "new_account", "new_remote_session", "credential_reuse"]) {
+        expect(twistOf(tl(seed, SPRAY_STORY, k)).inject, `${seed} ${k}`).toBeUndefined();
       }
-      const text = String(inject.body.text);
-      expect(text).not.toMatch(/\{\w+\}/);
-      const named = rows.some(r => [r.body.hostname, r.body.user_email, r.body.dst_ip].some(v => typeof v === "string" && (text.includes(v) || text.includes(v.split("@")[0]))));
-      expect(named, `${kind}: ${text}`).toBe(true);
+      const t = tl(seed, SPRAY_STORY);
+      const { inject, rows } = twistOf(t);
+      expect(inject, seed).toBeTruthy();
+      expect(rows.length).toBeGreaterThanOrEqual(3);
+      expect(rows.every(r => /^(auth_failure|auth_success)$/.test(String(r.body.event_type)))).toBe(true);
+      const ip = String(rows[0].body.src_ip);
+      expect(ip).toMatch(/^(192\.0\.2|198\.51\.100|203\.0\.113)\./);
+      expect(String(inject!.body.text)).toContain(ip);
     }
-    expect(built).toBeGreaterThanOrEqual(4);
+  });
+
+  it("every kind: rows backing it, one incident, after the inject, text names the ground it lands on", () => {
+    const built = new Set<string>();
+    for (const kind of TWIST_KINDS) {
+      for (const story of [undefined, EXEC_STORY, impId, SPRAY_STORY]) {
+        const t = tl("kinds-1", story, kind);
+        const { inject, rows } = twistOf(t);
+        if (!inject) continue;   // a kind this incident cannot carry is dropped, never faked
+        built.add(kind);
+        expect(rows.length).toBeGreaterThanOrEqual(2);
+        expect(new Set(rows.map(r => r.answer?.incident_id)).size).toBe(1);
+        for (const r of rows) {
+          expect(r.answer?.expected_verdict).toBe("tp");
+          expect(r.due_offset_ms).toBeGreaterThan(inject.due_offset_ms);
+        }
+        const text = String(inject.body.text);
+        expect(text).not.toMatch(/\{\w+\}/);
+        const named = rows.some(r => [r.body.hostname, r.body.user_email, r.body.dst_ip].some(v => typeof v === "string" && (text.includes(v) || text.includes(v.split("@")[0]))));
+        expect(named, `${kind}: ${text}`).toBe(true);
+        break;
+      }
+    }
+    expect([...built].sort()).toEqual([...TWIST_KINDS].sort());
+  });
+});
+
+describe("the twist follows from the story's own rows", () => {
+  const a = COMPANY_ASSETS.nexacorp;
+  const base = (over: Partial<TwistCtx>): TwistCtx => ({
+    rnd: lcg(7), baseTs: "2026-01-01T08:00:00.000Z", assets: a, stack: { onprem_ad: "ad" } as never,
+    host: a.dc, hostIp: `${a.subnet}.5`, seenHost: true, edr: "Microsoft Defender for Endpoint", fw: { flavour: "pan", vendor: "Palo Alto Networks PAN-OS" },
+    useSysmon: false, ips: new Set(), domains: new Set(), usedHosts: new Set(), os: "windows", companyId: "nexacorp", ...over,
+  });
+  const fail = (user: string, k: number): TelemetryEvent => ({ id: `f${k}`, ts: "2026-01-01T07:50:00.000Z", source: "ad", vendor: "Windows Security", event_type: "auth_failure",
+    hostname: a.dc, src_ip: "185.220.101.45", raw: { "winlog.event_data.TargetUserName": user } } as TelemetryEvent);
+  const spray = ["r.avraham", "m.levi", "d.cohen", "j.chen"].map(fail);
+
+  it("failures only: only the spray resumes, its new wave tries the story's own accounts, and a hit is one of them", () => {
+    const g = twistGround(base({ story: spray }));
+    expect(g).toMatchObject({ exec: false, logon: false, signin: false, failedOnly: true, sprayIp: "185.220.101.45" });
+    expect(g.sprayed).toEqual(["r.avraham", "m.levi", "d.cohen", "j.chen"].map(u => `${u}@${a.domain}`));
+    for (const k of TWIST_KINDS.filter(k => k !== "spray_resumes")) expect(buildTwist(base({ story: spray }), { twists: {}, injects: {} }, k), k).toBeNull();
+    let hits = 0;
+    for (let s = 1; s < 12; s++) {
+      const tw = buildTwist(base({ story: spray, rnd: lcg(s * 7919) }), { twists: {}, injects: {} })!;
+      expect(tw.kind).toBe("spray_resumes");
+      const hit = tw.rows.find(r => r.event_type === "auth_success");
+      if (hit) { hits++; expect(g.sprayed).toContain(hit.user_email); }
+      for (const r of tw.rows) expect(r.src_ip).not.toBe("185.220.101.45");
+    }
+    expect(hits).toBeGreaterThan(0);
+  });
+
+  it("a server nobody works at: no Explorer parent, no profile folder, no Run key", () => {
+    const story = [{ id: "p1", ts: "2026-01-01T07:50:00.000Z", source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create", hostname: a.fileServer,
+      process: { name: "svchelper.exe", pid: 4412, path: "C:\\ProgramData\\svchelper.exe" } } as TelemetryEvent];
+    for (let s = 1; s < 30; s++) {
+      for (const k of ["second_implant", "new_persistence"]) {
+        const tw = buildTwist(base({ host: a.fileServer, story, rnd: lcg(s * 104729) }), { twists: {}, injects: {} }, k)!;
+        expect(tw, k).toBeTruthy();
+        const text = JSON.stringify(tw.rows);
+        expect(text).not.toMatch(/explorer\.exe/i);
+        expect(text).not.toMatch(/\\\\Users\\\\/);
+        expect(text).not.toMatch(/CurrentVersion\\\\Run/);
+      }
+    }
   });
 });
