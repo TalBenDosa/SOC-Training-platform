@@ -31,13 +31,15 @@ describe("HandoffDetail", () => {
     const events = sampleEvents();
     await mount(React.createElement(HandoffDetail, { handoff: escalationHandoff(events[3], events, { nameOf }) }));
     const t = text();
-    const order = ["Escalation from Dana (Tier-1)", SUMMARY, "Verdict: true positive", "Severity: high", "Asks: contain", "Confidence: 70%",
+    const order = ["Escalation from Dana (Tier-1)", SUMMARY, "Verdict: true positive", "Severity: high", "Asks: contain",
       "Observations", "IEX download cradle", "Assessment", "Indicators (10)", "185.220.101.10", "Host", "WS-FIN-2847", "User", "r.cohen@nexacorp.com",
       "Escalated log", "Command line", "powershell -enc SQBFAFgA", "Log added by Dana", "Beacon to 185.220.101.4"];
     let pos = -1;
     for (const s of order) { const i = t.indexOf(s, pos + 1); expect(i, s).toBeGreaterThan(pos); pos = i; }
     expect(t).not.toContain("THE ANSWER");
     expect(t).not.toContain("—");
+    // A default the form sent is not shown as the analyst's call (2026-11-08 review).
+    expect(t).not.toContain("Confidence");
     // The summary is never cut: it is in the DOM whole, and wraps.
     const sum = el!.querySelector("[data-handoff-summary]")!;
     expect(sum.textContent).toBe(SUMMARY);

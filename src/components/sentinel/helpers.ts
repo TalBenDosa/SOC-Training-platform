@@ -493,6 +493,7 @@ export function activityTitle(text: string): string {
   if (/^Incident created/.test(text)) return "Incident was created";
   if (/^Bookmark/.test(text)) return "Bookmark was added";
   if (/^Task/.test(text)) return "Incident task was changed";
+  if (/^(Escalated|Case opened)/.test(text)) return "Incident was escalated";
   return "Incident was changed";
 }
 
@@ -504,3 +505,18 @@ export function alertRecord(ws: SentinelWorkspace, id: string): KqlRow | undefin
 /** What Add to TI and Run playbook may do on this entity. */
 export const canAddToTi = (e: SentinelEntity) => TI_KINDS.includes(e.kind);
 export const canRunPlaybook = (e: SentinelEntity) => PLAYBOOK_KINDS.includes(e.kind);
+
+/**
+ * An escalated incident keeps its rule's title, as in real Sentinel, and carries a tag naming who
+ * escalated it with their own summary under the title (2026-11-08 review: an escalated log a rule
+ * had already raised looked like any other rule incident). Null for an incident nobody escalated.
+ */
+export function escalationInfo(incident: Pick<SentinelIncident, "title" | "handoffs">): { tag: string; by: string[]; summary: string } | null {
+  const hs = incident.handoffs ?? [];
+  if (!hs.length) return null;
+  const by = [...new Set(hs.map(h => h.from))];
+  const tag = `Escalated by ${by.length > 2 ? `${by.slice(0, 2).join(", ")} and ${by.length - 2} more` : by.join(" and ")}`;
+  const first = hs[0].summary.trim();
+  const summary = first && first !== incident.title.trim() ? `${first}${hs.length > 1 ? ` (and ${hs.length - 1} more)` : ""}` : hs.length > 1 ? `${hs.length} escalations` : "";
+  return { tag, by, summary };
+}

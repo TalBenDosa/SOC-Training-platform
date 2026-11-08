@@ -8,7 +8,7 @@ import {
 import type { ClosingClassification, IncidentState, IncidentStatus, SentinelIncident, SentinelSeverity } from "@/lib/sentinel/types";
 import { useSentinel } from "./context";
 import {
-  alertsQuery, bookmarksQuery, CLASSIFICATIONS, entitiesOf, fmtCompact, fmtShortTime, SEV_RANK, SEVERITIES, STATUSES, tacticLabel,
+  alertsQuery, bookmarksQuery, CLASSIFICATIONS, entitiesOf, escalationInfo, fmtCompact, fmtShortTime, SEV_RANK, SEVERITIES, STATUSES, tacticLabel,
 } from "./helpers";
 import { FieldBar } from "./IncidentFields";
 import { IncidentDescription } from "./IncidentDescription";
@@ -35,6 +35,18 @@ const COLUMNS: { key: SortKey; label: string; width: number; always?: boolean }[
   { key: "status", label: "Status", width: 84 },
   { key: "tactics", label: "Tactics", width: 170 },
 ];
+
+/** The escalation tag and the analyst's summary, under an incident's title (preview and incident page). */
+export function EscalationTag({ incident }: { incident: SentinelIncident }) {
+  const esc = escalationInfo(incident);
+  if (!esc) return null;
+  return (
+    <div className="st-inc-esc" data-escalated>
+      <span className="st-esc-tag" title={esc.tag}>{esc.tag}</span>
+      {esc.summary && <span className="st-esc-sub"><bdi>{esc.summary}</bdi></span>}
+    </div>
+  );
+}
 
 /** Evidence, as the details panel and the preview draw it. */
 export function Evidence({ incident, state, linkLabels }: { incident: SentinelIncident; state: IncidentState; linkLabels?: boolean }) {
@@ -83,6 +95,7 @@ export function IncidentPreview({ incident, onClose }: { incident: SentinelIncid
         <div className="st-grow" style={{ minWidth: 0 }}>
           <h2 className="st-wrap" title={incident.title}>{incident.title}</h2>
           <div className="st-small" style={{ fontWeight: 600 }}>Incident ID: {incident.number}</div>
+          <EscalationTag incident={incident} />
         </div>
         <button type="button" className="st-icon-btn corner" aria-label="Close preview" onClick={onClose}><ChevronsRight size={13} aria-hidden /></button>
       </div>
@@ -188,6 +201,7 @@ const IncidentRow = memo(function IncidentRow({ incident, state, selected, ticke
   onSelect: (id: string) => void; onTick: (id: string) => void;
 }) {
   const show = (k: SortKey) => !hidden.has(k);
+  const esc = escalationInfo(incident);
   return (
     <tr className={selected ? "selected" : undefined} tabIndex={0} aria-current={selected ? "true" : undefined} onClick={() => onSelect(incident.id)} onKeyDown={rowKeys(() => onSelect(incident.id))}>
       {tickable && (
@@ -197,10 +211,16 @@ const IncidentRow = memo(function IncidentRow({ incident, state, selected, ticke
       )}
       <td className="st-sevcell"><i className={`st-cellband ${state.severity}`} aria-hidden />{state.severity}</td>
       {show("number") && <td>{incident.number}</td>}
-      <td title={incident.title}>
+      <td title={esc ? `${incident.title}\n${esc.tag}${esc.summary ? `: ${esc.summary}` : ""}` : incident.title}>
         <span className="st-row" style={{ gap: 6 }}>
           {isNew && <span className="st-new-mark">New</span>}<span className="st-ellipsis">{incident.title}</span>
         </span>
+        {/* Escalated: the rule's title stays, the tag and the analyst's own summary sit under it. */}
+        {esc && (
+          <span className="st-row" style={{ gap: 6, marginTop: 2 }} data-escalated>
+            <span className="st-esc-tag">{esc.tag}</span>{esc.summary && <span className="st-esc-sub" style={{ minWidth: 0 }}><bdi>{esc.summary}</bdi></span>}
+          </span>
+        )}
       </td>
       {show("alerts") && <td>{incident.alertIds.length}</td>}
       {show("products") && <td title={incident.products.join(", ")}>{incident.products.join(", ")}</td>}
@@ -260,7 +280,7 @@ export function IncidentsPage() {
       && (!status.length || status.includes(st.status))
       && (!products.length || i.products.some(p => products.includes(p)))
       && (!owners.length || owners.includes(st.owner ?? "Unassigned"))
-      && (!s || `${i.number} ${i.title} ${st.owner ?? ""} ${i.products.join(" ")}`.toLowerCase().includes(s)));
+      && (!s || `${i.number} ${i.title} ${st.owner ?? ""} ${i.products.join(" ")} ${(() => { const e = escalationInfo(i); return e ? `${e.tag} ${e.summary}` : ""; })()}`.toLowerCase().includes(s)));
     const dir = sort.dir === "asc" ? 1 : -1;
     const val = (r: (typeof rows)[number]): string | number => {
       switch (sort.key) {

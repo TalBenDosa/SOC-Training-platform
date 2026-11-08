@@ -6,6 +6,7 @@ import type { SentinelActions, SentinelIncident, SentinelIsolationRequest } from
 import { useSentinel, type PlaybookRun } from "./context";
 import { activityTitle, commentText, entitiesOf, fmtDateTime, fmtShortTime } from "./helpers";
 import { Empty, Select, SlidePanel } from "./ui";
+import { NO_APPROVER, isNoApprover, waitingForApproval } from "@/lib/team/isolationApproval";
 
 export function TasksPane({ incident, onClose }: { incident: SentinelIncident; onClose: () => void }) {
   const { stateOf, actions, ended, report } = useSentinel();
@@ -145,7 +146,7 @@ export function deviceState(actions: SentinelActions, host: string): DeviceState
   const last = mine.length ? mine[mine.length - 1] : null;
   const pending = last && last.state === "pending" ? last : null;
   if (isolated) return { isolated, pending: null, last, label: "Isolated", short: "isolated" };
-  if (pending) return { isolated, pending, last, label: `Isolation requested, waiting for approval from ${pending.approver}`, short: "isolation requested" };
+  if (pending) return { isolated, pending, last, label: isNoApprover(pending.approver) ? `Isolation requested. ${NO_APPROVER}` : `Isolation requested, waiting for approval from ${pending.approver}`, short: isNoApprover(pending.approver) ? "no approver on shift" : "isolation requested" };
   if (last?.state === "denied") return { isolated, pending: null, last, label: `Not isolated. The last request was denied by ${last.approver}${last.denyReason ? `: ${last.denyReason}` : ""}`, short: "not isolated" };
   return { isolated, pending: null, last, label: "Not isolated", short: "not isolated" };
 }
@@ -173,8 +174,12 @@ export function IsolationReason({ value, onChange, id, error }: { value: string;
   );
 }
 
-/** Playbook runs in this session: the viewer's isolation requests with their answer, and releases. */
-export function PlaybookHistory({ runs, actions, maxWidth = 900 }: { runs: PlaybookRun[]; actions: SentinelActions; maxWidth?: number }) {
+/**
+ * Playbook runs in this session: the viewer's isolation requests with their answer, and releases.
+ * In a side panel (`compact`) each run is a short stacked entry, so nothing is clipped at the panel's
+ * width and no long detail stretches a table row (2026-11-08 review: "Wai..." and an empty gap).
+ */
+export function PlaybookHistory({ runs, actions, maxWidth = 900, compact = false }: { runs: PlaybookRun[]; actions: SentinelActions; maxWidth?: number; compact?: boolean }) {
   const requests = (actions.isolationRequests ?? []).filter(r => r.mine);
   // A request just sent shows from the run until the session log brings it back.
   const shown = runs.filter(r => !(r.pending && requests.some(q => q.host.toLowerCase() === r.host.toLowerCase() && (!q.at || Date.parse(q.at) >= Date.parse(r.at) - 60_000))));
@@ -184,21 +189,41 @@ export function PlaybookHistory({ runs, actions, maxWidth = 900 }: { runs: Playb
     ...requests.map(q => ({
       key: `req-${q.seq}`, at: q.at ?? "", playbook: "Isolate device", host: q.host,
       result: q.state === "pending" ? "Waiting" : q.state === "approved" ? "Approved" : "Denied",
-      detail: q.state === "pending" ? `Waiting for approval from ${q.approver}. Reason: ${q.reason}`
+      detail: q.state === "pending" ? `${waitingForApproval(q.approver, { requester: q.mine }).replace(/([^.])$/, "$1.")} Reason: ${q.reason}`
         : q.state === "approved" ? `Approved by ${q.approver}. The device is isolated.`
         : `Denied by ${q.approver}${q.denyReason ? `: ${q.denyReason}` : "."}`,
     })),
   ].sort((a, b) => Date.parse(b.at || "0") - Date.parse(a.at || "0"));
   if (!rows.length) return null;
+  if (compact) {
+    return (
+      <div className="st-runs">
+        <h3 className="st-label" id="pb-runs-h">Runs in this session</h3>
+        <ul aria-labelledby="pb-runs-h">
+          {rows.map(r => (
+            <li key={r.key} className="st-run">
+              <div className="st-run-head">
+                <strong>{r.playbook}</strong>
+                <span className={`st-run-${r.result.toLowerCase()}`}>{r.result}</span>
+              </div>
+              <div className="st-small st-muted">{r.at ? fmtDateTime(r.at) : "-"} · <bdi>{r.host}</bdi></div>
+              <div className="st-run-detail">{r.detail}</div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
   return (
-    <table className="st-table" aria-label="Playbook runs" style={{ maxWidth }}>
-      <thead><tr><th scope="col" style={{ width: 150 }}>Time</th><th scope="col" style={{ width: 120 }}>Playbook</th><th scope="col" style={{ width: 140 }}>Device</th><th scope="col" style={{ width: 90 }}>Result</th><th scope="col">Details</th></tr></thead>
+    <table className="st-table st-runs-table" aria-label="Playbook runs" style={{ maxWidth }}>
+      <colgroup><col style={{ width: 170 }} /><col style={{ width: 120 }} /><col style={{ width: 140 }} /><col style={{ width: 96 }} /><col /></colgroup>
+      <thead><tr><th scope="col">Time</th><th scope="col">Playbook</th><th scope="col">Device</th><th scope="col">Result</th><th scope="col">Details</th></tr></thead>
       <tbody>
         {rows.map(r => (
           <tr key={r.key}>
             <td>{r.at ? fmtDateTime(r.at) : "-"}</td><td>{r.playbook}</td><td className="st-ellipsis" title={r.host}>{r.host}</td>
             <td><span className={`st-run-${r.result.toLowerCase()}`}>{r.result}</span></td>
-            <td style={{ whiteSpace: "normal" }}>{r.detail}</td>
+            <td className="st-run-detail">{r.detail}</td>
           </tr>
         ))}
       </tbody>
@@ -256,7 +281,7 @@ export function PlaybookPanel({ incidentId, host, onClose }: { incidentId?: stri
                 ))}
               </tbody>
             </table>
-            {target && <PlaybookHistory runs={runs.filter(r => r.host.toLowerCase() === target.toLowerCase())} actions={{ ...actions, isolationRequests: (actions.isolationRequests ?? []).filter(r => r.host.toLowerCase() === target.toLowerCase()) }} maxWidth={430} />}
+            {target && <PlaybookHistory runs={runs.filter(r => r.host.toLowerCase() === target.toLowerCase())} actions={{ ...actions, isolationRequests: (actions.isolationRequests ?? []).filter(r => r.host.toLowerCase() === target.toLowerCase()) }} compact />}
           </div>
         )}
     </SlidePanel>

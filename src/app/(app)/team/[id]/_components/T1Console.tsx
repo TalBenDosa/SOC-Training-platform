@@ -244,8 +244,12 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
       event_id: sel, summary: form.summary.trim() || `Escalated for a second look: ${asStr((full as { description?: unknown } | undefined)?.description) || asStr((full as { event_type?: unknown } | undefined)?.event_type) || "this log"} (${entity})`,
       observations: form.observations, assessment: form.assessment,
       iocs: iocDraft, requested_action: form.requested_action, severity: form.severity,
-      confidence: isLowConf ? 0.3 : 0.7, low_confidence: isLowConf || undefined,
+      // No confidence number: the form has no confidence picker, so a number would be a default
+      // presented as the analyst's call (2026-11-08 review). "Suspicious" is the analyst's own call.
+      low_confidence: isLowConf || undefined,
       hostname: asStr(fe?.hostname) || undefined, entity, snapshot,
+      // When the row was released in the feed: the time the analyst saw, which the hand-off shows.
+      log_time: feed.find(e => String((e.payload as { id?: string }).id ?? e.seq) === sel)?.occurred_at || undefined,
       // The sender's own call and the affected user travel with the report, so every receiver
       // (Tier-2, the Manager, Sentinel) opens it with the disposition and the user, not only the host.
       disposition: selDisp || undefined, user_email: asStr(fe?.user_email) || asStr(fe?.user?.email) || undefined,
@@ -480,14 +484,16 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
             <div className="rounded-lg border border-border bg-bg px-2 py-1.5">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Indicators (IOCs): click ＋IOC on the log&apos;s fields, or add below</p>
               {iocDraft.length > 0 && (
-                <div className="mt-1 flex flex-wrap gap-1">
+                <ul className="mt-1 flex min-w-0 flex-wrap gap-1" aria-label="Indicators in this escalation">
                   {iocDraft.map(i => (
-                    <span key={i.value} className="inline-flex items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 font-mono text-[11px] text-cyber-300">
-                      <span className="text-slate-500">{i.type}:</span>{i.value}
-                      <button onClick={() => setIocDraft(d => d.filter(x => x.value !== i.value))} aria-label={`Remove IOC ${i.value}`} className="text-slate-400 hover:text-white"><X className="h-3 w-3" aria-hidden="true" /></button>
-                    </span>
+                    // A long value (a sha256) breaks inside the chip, so the chip never overflows the
+                    // modal and its remove button stays visible and reachable (2026-11-08 review).
+                    <li key={i.value} data-ioc-chip className="flex min-w-0 max-w-full items-start gap-1 rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 font-mono text-[11px] text-cyber-300">
+                      <span className="min-w-0 break-all"><span className="text-slate-400">{i.type}: </span><bdi>{i.value}</bdi></span>
+                      <button type="button" onClick={() => setIocDraft(d => d.filter(x => x.value !== i.value))} aria-label={`Remove IOC ${i.value}`} title="Remove" className="shrink-0 rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/60"><X className="h-3.5 w-3.5" aria-hidden="true" /></button>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
               <div className="mt-1 flex gap-1.5">
                 <input aria-label="Add an IOC" value={iocText} onChange={e => setIocText(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addIoc(iocText, "manual"); setIocText(""); } }} placeholder="add an IOC (ip / domain / hash / user)…" className="flex-1 rounded border border-border bg-bg px-2 py-1 font-mono text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />

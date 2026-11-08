@@ -41,17 +41,22 @@ export function ScopeConsole({ scope, scopes, incidents = [], mode, act }: { sco
   return (
     <Card>
       <h3 className="flex items-center gap-2 text-sm font-bold text-white"><FolderOpen className="h-4 w-4 text-cyber-300" /> Incident scope</h3>
-      <p className="mt-0.5 text-[11px] text-slate-400">{mode === "set" ? "Define what's in play — hosts, users, techniques. Tier-3 confirms it." : "Review Tier-2's scope, amend if needed, then confirm the final scope."} Several incidents at once? Give each its own label.</p>
+      <p className="mt-0.5 text-[11px] text-slate-400">{mode === "set" ? "Define what's in play: hosts, users, techniques. Tier-3 confirms it." : "Review Tier-2's scope, amend if needed, then confirm the final scope."} Several incidents at once? Give each its own label.</p>
       <div className="mt-2 flex items-center gap-1.5">
-        <input aria-label="Incident label (optional)" value={incident} onChange={e => setIncident(e.target.value)} list="scope-incidents" placeholder="Incident label (optional — blank = shift-wide scope)" className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+        {/* A long incident title ends in an ellipsis in the box, with the whole title in its tooltip and
+            on the line below (2026-11-08 review: the box cut the title mid-word). */}
+        <input aria-label="Incident label (optional)" value={incident} onChange={e => setIncident(e.target.value)} list="scope-incidents" title={incident || undefined}
+          aria-describedby={inc ? "scope-incident-full" : undefined}
+          placeholder="Incident label (optional: blank = shift-wide scope)" className="min-w-0 flex-1 text-ellipsis rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-400 focus:border-cyber-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50" />
         <datalist id="scope-incidents">{incidents.map(i => <option key={i} value={i} />)}</datalist>
       </div>
+      {inc && <p id="scope-incident-full" data-scope-incident className="mt-1 whitespace-normal break-words text-[11px] text-slate-300">Scope for: <bdi className="font-semibold">{inc}</bdi></p>}
       {incidents.length > 0 && (
-        <div className="mt-1 flex flex-wrap gap-1">
-          {["", ...incidents].map(i => <button key={i || "_all"} aria-pressed={inc === i} onClick={() => setIncident(i)} className={`rounded border px-1.5 py-0.5 font-mono text-[11px] ${inc === i ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-300" : "border-border text-slate-400 hover:text-white"}`}>{i || "shift-wide"}</button>)}
+        <div className="mt-1 flex min-w-0 flex-wrap gap-1">
+          {["", ...incidents].map(i => <button type="button" key={i || "_all"} aria-pressed={inc === i} title={i || "The shift-wide scope"} onClick={() => setIncident(i)} className={`min-w-0 max-w-full truncate rounded border px-1.5 py-0.5 font-mono text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50 ${inc === i ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-300" : "border-border text-slate-400 hover:text-white"}`}>{i || "shift-wide"}</button>)}
         </div>
       )}
-      {cur && <p className="mt-1 text-[11px] font-mono text-slate-500">current{inc ? ` (${inc})` : ""}: {cur.hosts.length}h · {cur.users.length}u · {cur.techniques.length}t {cur.confirmed ? "· ✓ confirmed" : "· proposed"}</p>}
+      {cur && <p className="mt-1 break-words text-[11px] font-mono text-slate-400">current: {cur.hosts.length}h · {cur.users.length}u · {cur.techniques.length}t {cur.confirmed ? "· ✓ confirmed" : "· proposed"}</p>}
       <div className="mt-2 space-y-1.5">
         <input aria-label="Hosts (comma-separated)" value={hosts} onChange={e => setHosts(e.target.value)} placeholder="hosts (comma-separated)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
         <input aria-label="Users (comma-separated)" value={users} onChange={e => setUsers(e.target.value)} placeholder="users" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />

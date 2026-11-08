@@ -60,12 +60,13 @@ export function OpenCaseModal({ log, role, onClose, act, actR, sessionId, meId }
     const host = asStr(p.hostname), user = asStr(p.user_email);
     const res = await actR("escalation.requested", {
       event_id: eventId, summary: summary.trim(), observations: observations.trim(), assessment: "",
-      iocs, requested_action: "investigate", severity, confidence: 0.7,
+      iocs, requested_action: "investigate", severity,
       hostname: host || undefined, entity: host || user || "the affected asset",
       opened_by: role, what: summary.trim(), why: observations.trim(),
       // The log travels with the case like a Tier-1 escalation, so every receiver (the Manager, the
       // Shared case, Sentinel) opens it with the log's key fields, not only the opener's words.
       snapshot: escalationSnapshot(log.payload), user_email: user || undefined,
+      log_time: log.occurred_at || undefined,
     });
     if (res.ok) await act("escalation.acknowledged", { event_id: eventId });
     setBusy(false);

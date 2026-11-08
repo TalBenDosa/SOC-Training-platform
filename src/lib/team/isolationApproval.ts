@@ -72,6 +72,23 @@ export function canApproveIsolation(members: ApproverMember[], requesterId: stri
   return a.userIds.includes(userId) || a.staffIds.includes(userId);
 }
 
+/**
+ * Nobody seated can approve: the only possible approver is the requester (an exercise admin playing
+ * Tier-2 with no Manager, Lead, other Tier-3 or admin in the instructor seat). The request waits for
+ * an exercise admin, and the requester is told so rather than "waiting for approval from" themselves.
+ * Nobody approves their own request, here or in the database (team_isolation_can_approve).
+ */
+export const NO_APPROVER = "No approver on shift: an exercise admin must approve";
+/** What the requester can do about it. */
+export const NO_APPROVER_HELP = "Nobody seated in this session can approve your request, and you cannot approve your own. Ask an exercise admin to take the instructor seat, or to seat a SOC Manager, Lead or Tier-3.";
+export const isNoApprover = (approver: string | null | undefined) => (approver ?? "").startsWith(NO_APPROVER);
+
+/** "Waiting for approval from X", or the no-approver line when nobody but the requester could approve. */
+export function waitingForApproval(approver: string, opts: { requester?: boolean } = {}): string {
+  if (isNoApprover(approver)) return `${NO_APPROVER}.${opts.requester ? ` ${NO_APPROVER_HELP}` : ""}`;
+  return `Waiting for approval from ${approver}`;
+}
+
 /** A short label for the approver's rung, for the requester's "waiting for ..." line. */
 export function approverLabel(tier: ApproverTier): string {
   return tier === "mgr" ? "the SOC Manager" : tier === "t3" ? "Tier-3" : "the exercise admin";

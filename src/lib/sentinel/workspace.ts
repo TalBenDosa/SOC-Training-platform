@@ -535,7 +535,9 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
     };
     tables.SecurityIncident.rows.push({
       TimeGenerated: lastUpdate, Type: "SecurityIncident", TenantId: tenantId, IncidentName: incident.id, IncidentNumber: incident.number, Title: title, Description: incident.description, Severity: severity, Status: "New",
-      CreatedTime: created, LastModifiedTime: lastUpdate, FirstActivityTime: created, LastActivityTime: lastUpdate, FirstModifiedTime: created, AlertIds: incident.alertIds, BookmarkIds: [], Comments: [], Tasks: [], Labels: [],
+      CreatedTime: created, LastModifiedTime: lastUpdate, FirstActivityTime: created, LastActivityTime: lastUpdate, FirstModifiedTime: created, AlertIds: incident.alertIds, BookmarkIds: [], Comments: [], Tasks: [],
+      // An escalated incident keeps its rule's title and carries a tag (owner review 2026-11-08), as a real SOC's automation tags it.
+      Labels: [...new Set(handoffs.map(h => h.from))].map(name => ({ labelName: `Escalated by ${name}`, labelType: "AutoAssigned" })),
       Owner: { objectId: null, email: null, assignedTo: null, userPrincipalName: null }, ProviderName: "Azure Sentinel", ProviderIncidentId: String(incident.number), ModifiedBy: "Microsoft Sentinel",
       RelatedAnalyticRuleIds: [...new Set(members.map(a => a.ruleId).filter(Boolean))], AdditionalData: { alertsCount: members.length, bookmarksCount: 0, commentsCount: 0, alertProductNames: products, tactics, techniques },
       IncidentUrl: `https://portal.azure.com/#asset/Microsoft_Azure_Security_Insights/Incident/subscriptions/${seededUuid(`${orgId}:sub`)}/resourceGroups/rg-${orgId}-sentinel/providers/Microsoft.OperationalInsights/workspaces/${orgId}-sentinel-prod/providers/Microsoft.SecurityInsights/Incidents/${incident.id}`,

@@ -13,6 +13,7 @@
  */
 import type { Ev } from "./types";
 import { asStr } from "./format";
+import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { escalationStates, scopeByIncident, type ContainmentRequest } from "./projections";
 import type { IsolationRequest } from "./isolationApproval";
 
@@ -95,6 +96,21 @@ function rawText(raw: unknown, cap = 4000): string {
   return t.length > cap ? `${t.slice(0, cap)}…` : t;
 }
 
+/**
+ * The log as the feed showed it: re-timed to when the row was released in this session (raw
+ * timestamps moved by the same delta, as the feed does), so the hand-off's "Time" is the time the
+ * feed showed, not the time authored in the template (2026-11-08 review: a January process time).
+ */
+export function asReleased(snap: Record<string, unknown> | null | undefined, releasedAt: string | null | undefined): Record<string, unknown> | null {
+  if (!snap || typeof snap !== "object") return null;
+  const at = s(releasedAt);
+  if (!at || !Number.isFinite(Date.parse(at))) return snap;
+  const ts = typeof snap.ts === "string" && Number.isFinite(Date.parse(snap.ts)) ? snap.ts : undefined;
+  const raw = snap.raw && typeof snap.raw === "object" && !Array.isArray(snap.raw) ? snap.raw as Record<string, unknown> : undefined;
+  const moved = withRebasedTime({ ts, raw }, at);
+  return { ...snap, ts: moved.ts, ...(raw ? { raw: moved.raw } : {}) };
+}
+
 /** The key fields of a log, from the feed payload (or the snapshot that travelled with a hand-off). */
 export function handoffLog(snap: Record<string, unknown> | null | undefined, opts: { raw?: boolean; seq?: number; addedBy?: string } = {}): HandoffLog | null {
   if (!snap || typeof snap !== "object") return null;
@@ -169,8 +185,10 @@ export function escalationHandoff(req: Ev, events: Ev[], opts: HandoffOptions = 
   const eid = eidOf(req);
   const snap = (p.snapshot && typeof p.snapshot === "object" ? p.snapshot : null) as Record<string, unknown> | null;
   const feed = feedIndex(events);
-  const fromFeed = feed.get(eid)?.payload as Record<string, unknown> | undefined;
-  const logPayload = snap ?? fromFeed ?? null;
+  const feedRow = feed.get(eid);
+  const fromFeed = feedRow?.payload as Record<string, unknown> | undefined;
+  // Timed as the feed showed the row: its release in this session, else the time sent with the request.
+  const logPayload = asReleased(snap ?? fromFeed ?? null, feedRow?.occurred_at || s(p.log_time));
   const user = logPayload?.user as { email?: unknown } | undefined;
   // The sender's disposition: carried on the request since 2026-11-08, else their latest call before sending.
   let verdict = s(p.disposition);
@@ -180,7 +198,9 @@ export function escalationHandoff(req: Ev, events: Ev[], opts: HandoffOptions = 
       if (e.type === "disposition.set" && eidOf(e) === eid) verdict = s((e.payload as { verdict?: unknown }).verdict);
     }
   }
-  const conf = typeof p.confidence === "number" ? `${Math.round((p.confidence as number) * 100)}%` : "";
+  // Confidence shows only when the analyst set it (confidence_set): the escalation form has no
+  // confidence picker, and a number it sent was its own default, not the analyst's call.
+  const conf = p.confidence_set === true && typeof p.confidence === "number" ? `${Math.round((p.confidence as number) * 100)}%` : "";
   const host = s(p.hostname) || s(logPayload?.hostname);
   const userName = s(p.user_email) || s(logPayload?.user_email) || s(user?.email);
   const entity = s(p.entity);
@@ -189,7 +209,7 @@ export function escalationHandoff(req: Ev, events: Ev[], opts: HandoffOptions = 
     ["Isolation", p.recommend_isolation === true && host ? `Recommends isolating ${host}. The senior analyst decides.` : ""],
   ]);
   const logs: HandoffLog[] = [];
-  const main = handoffLog(logPayload, { raw: opts.raw, seq: feed.get(eid)?.seq });
+  const main = handoffLog(logPayload, { raw: opts.raw, seq: feedRow?.seq });
   if (main) logs.push(main);
   const notes: HandoffNote[] = [];
   const seenAdded = new Set<string>();
@@ -209,7 +229,7 @@ export function escalationHandoff(req: Ev, events: Ev[], opts: HandoffOptions = 
         // A log added to this case from the queue: it travels with the case, fields and all.
         seenAdded.add(logEid);
         const f = feed.get(logEid);
-        const added = handoffLog(f?.payload as Record<string, unknown> | undefined, { raw: opts.raw, seq: f?.seq, addedBy: nameOf(e.actor_id) });
+        const added = handoffLog(asReleased(f?.payload as Record<string, unknown> | undefined, f?.occurred_at), { raw: opts.raw, seq: f?.seq, addedBy: nameOf(e.actor_id) });
         if (added) logs.push(added);
         else notes.push({ label: "Log added to the case", by: nameOf(e.actor_id), at: e.occurred_at ?? null, text: s(ep.label) || s(ep.summary) || logEid });
       } else if (!caseEid && logEid === eid && e.seq > req.seq) {
@@ -286,7 +306,8 @@ export function elevationHandoff(ev: Ev, events: Ev[], opts: HandoffOptions = {}
   const nameOf = opts.nameOf ?? defaultName;
   const p = (ev.payload ?? {}) as Record<string, unknown>;
   const eid = eidOf(ev);
-  const snap = (p.snapshot && typeof p.snapshot === "object" ? p.snapshot : null) as Record<string, unknown> | null;
+  const rawSnap = (p.snapshot && typeof p.snapshot === "object" ? p.snapshot : null) as Record<string, unknown> | null;
+  const snap = asReleased(rawSnap, feedIndex(events).get(eid)?.occurred_at || s(p.log_time));
   const log = handoffLog(snap, { raw: opts.raw });
   const host = s(p.hostname) || s(snap?.hostname);
   const entity = s(p.entity);

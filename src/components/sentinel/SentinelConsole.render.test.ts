@@ -7,6 +7,7 @@ import { SentinelConsole, type SentinelConsoleProps } from "./SentinelConsole";
 import { fakeActions, fixtureState, fixtureWorkspace, INCIDENTS } from "./fixture";
 import { CLASSIFICATIONS, explorationsFor, queryBlockAt, toCsv, whereClause } from "./helpers";
 import type { IncidentState, SentinelActions, SentinelIncident } from "@/lib/sentinel/types";
+import { NO_APPROVER } from "@/lib/team/isolationApproval";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -94,11 +95,17 @@ describe("shell", () => {
     const badge = () => q(".st-nav-badge")?.textContent ?? null;
     const open = INCIDENTS.length;
     expect(badge()).toBe(String(open));
-    expect(all(".st-nav-item").find(b => navLabel(b) === "Incidents")!.getAttribute("aria-label")).toBe(`Incidents, ${open} unopened`);
+    const item = () => all(".st-nav-item").find(b => navLabel(b) === "Incidents")!;
+    expect(item().getAttribute("aria-label")).toBe(`Incidents: ${open} not opened yet, of ${open} open`);
     click(incidentRows()[0]);
     press("View full details");
     press("Close incident");
     expect(badge()).toBe(String(open - 1));
+    // The badge's meaning is in its name and tooltip, next to the open total the page shows
+    // (2026-11-08 review: "Incidents 4" beside five open incidents read as a wrong count).
+    expect(item().getAttribute("aria-label")).toBe(`Incidents: ${open - 1} not opened yet, of ${open} open`);
+    expect(item().getAttribute("title")).toBe(`Incidents: ${open - 1} not opened yet, of ${open} open`);
+    expect(q(".st-kpi")!.textContent).toContain(String(open));
     // a new mount of the same session (a reload) still knows it was opened
     act(() => root?.unmount()); el?.remove();
     mount({ sessionKey: "sess-1" });
@@ -641,6 +648,32 @@ describe("search, hunting, analytics, automation", () => {
     await act(async () => { all<HTMLButtonElement>('table[aria-label="Playbooks"] button')[0].click(); });
     expect(text()).toContain(refusal);
     expect(text()).toContain("Refused");
+  });
+
+  it("with nobody to approve, the requester is told so, and the panel's run history is a stacked list", async () => {
+    const sent: unknown[][] = [];
+    const { actions } = fakeActions({ requestIsolation: async (...a: unknown[]) => { sent.push(a); return null; }, isolationApprover: NO_APPROVER, isolationRequests: [] });
+    const m = mount({ actions });
+    openDetails();
+    press("Actions for FIN-LT-042");
+    press("Run playbook (Preview)");
+    setValue(q<HTMLTextAreaElement>("#pb-reason")!, "Beacon to a known C2 from this laptop");
+    await act(async () => { button("Request isolation").click(); });
+    expect(sent).toHaveLength(1);
+    expect(text()).toContain("Request sent. No approver on shift: an exercise admin must approve.");
+    expect(text()).toContain("you cannot approve your own");
+    expect(text()).not.toMatch(/Waiting for approval from/);
+    const req = { seq: 9, host: "FIN-LT-042", state: "pending" as const, requestedBy: "Tal Analyst", mine: true, reason: "Beacon to a known C2 from this laptop", incident: null, at: new Date().toISOString(), approver: NO_APPROVER, answeredAt: null, denyReason: null };
+    m.rerender({ actions: { ...actions, isolationRequests: [req] } });
+    expect(text()).toContain("Current state: Isolation requested. No approver on shift: an exercise admin must approve");
+    // In the side panel the history is a list: no table to clip the Result column (2026-11-08 review).
+    const panel = q("[role=dialog]")!;
+    expect(panel.querySelector('table[aria-label="Playbook runs"]')).toBeNull();
+    const runs = [...panel.querySelectorAll(".st-runs li")];
+    expect(runs).toHaveLength(1);
+    expect(runs[0].querySelector(".st-run-waiting")!.textContent).toBe("Waiting");
+    expect(runs[0].textContent).toContain("FIN-LT-042");
+    expect(runs[0].querySelector(".st-run-detail")!.textContent).toContain("No approver on shift");
   });
 
   it("Isolate device sends a request for approval with a reason, and the history follows the answer", async () => {

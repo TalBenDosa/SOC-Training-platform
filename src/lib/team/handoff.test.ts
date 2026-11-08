@@ -18,7 +18,8 @@ describe("escalationHandoff", () => {
     expect(h.verdict).toBe("true positive");
     expect(h.severity).toBe("high");
     expect(h.action).toBe("contain");
-    expect(h.confidence).toBe("70%");
+    // The form sent 0.7 as its own default: not the analyst's call, so not shown (2026-11-08 review).
+    expect(h.confidence).toBeUndefined();
     expect(h.reasoning).toContain("IEX download cradle");
     expect(h.sections).toContainEqual(["Assessment", "Macro dropper with C2"]);
     expect(h.sections.find(([k]) => k === "Isolation")?.[1]).toContain("WS-FIN-2847");
@@ -51,6 +52,47 @@ describe("escalationHandoff", () => {
     expect(t).toContain("Observations: WINWORD.EXE spawned");
     expect(t).toContain("Indicators (10): ip: 185.220.101.1");
     expect(t).not.toContain("—");
+  });
+});
+
+describe("what the receiver sees is what the sender saw (2026-11-08 review)", () => {
+  // The feed row was released at 10:46:48 in this session; its payload still carries the template's time.
+  const released = "2026-11-08T10:46:48.000Z";
+  const authored = "2026-01-01T08:03:51Z";
+  const withTimes = (): Ev[] => sampleEvents().map(e => (e.seq === 1
+    ? { ...e, occurred_at: released, payload: { ...log, ts: authored, raw: { CommandLine: "powershell -enc SQBFAFgA", UtcTime: "2026-01-01 08:03:51" } } }
+    : e.seq === 4 ? { ...e, payload: { ...e.payload, snapshot: { ...log, ts: authored } } } : e));
+
+  it("the linked log's Time is the row's event time in this session, not the authored process time", () => {
+    const events = withTimes();
+    const h = escalationHandoff(events[3], events, { nameOf });
+    expect(h.logs[0].fields).toContainEqual(["Time", "2026-11-08 10:46:48"]);
+    expect(JSON.stringify(h.logs[0].fields)).not.toContain("2026-01-01");
+    expect(handoffText(h)).toContain("(WS-FIN-2847, r.cohen@nexacorp.com, 2026-11-08 10:46:48)");
+  });
+
+  it("uses the release time sent with the request when the feed row is out of view", () => {
+    const events = withTimes();
+    const req: Ev = { ...events[3], payload: { ...events[3].payload, log_time: released } };
+    const h = escalationHandoff(req, [req], { nameOf });
+    expect(h.logs[0].fields).toContainEqual(["Time", "2026-11-08 10:46:48"]);
+  });
+
+  it("an elevation's log carries the same event time", () => {
+    const events = withTimes();
+    const elev: Ev = { ...events[8], payload: { ...events[8].payload, snapshot: { ...log, ts: authored } } };
+    const h = elevationHandoff(elev, [...events.slice(0, 8), elev], { nameOf });
+    expect(h.logs[0].fields).toContainEqual(["Time", "2026-11-08 10:46:48"]);
+  });
+
+  it("shows confidence only when the analyst set it", () => {
+    const events = sampleEvents();
+    expect(escalationHandoff(events[3], events, { nameOf }).confidence).toBeUndefined();
+    expect(handoffText(escalationHandoff(events[3], events, { nameOf }))).not.toContain("Confidence");
+    const set: Ev = { ...events[3], payload: { ...events[3].payload, confidence: 0.9, confidence_set: true } };
+    expect(escalationHandoff(set, events, { nameOf }).confidence).toBe("90%");
+    const low: Ev = { ...events[3], payload: { ...events[3].payload, confidence: undefined, low_confidence: true } };
+    expect(escalationHandoff(low, events, { nameOf }).confidence).toBe("low: a lead sent for a second look");
   });
 });
 

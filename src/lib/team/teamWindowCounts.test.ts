@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 import type { Ev } from "./types";
 import { titleWithCount, visibleMessages, waitingCounts } from "./teamWindowCounts";
 import { isolationError, latestRequestByHost, approverNames } from "./useIsolationRequest";
-import { isolationRequests } from "./isolationApproval";
+import { NO_APPROVER, isolationRequests } from "./isolationApproval";
 
 let seq = 0;
 const ev = (type: string, payload: Record<string, unknown>, actor: string | null, role: string | null = null): Ev => ({ seq: ++seq, type, actor_id: actor, role, payload, occurred_at: "2026-11-07T10:00:00Z" });
@@ -76,6 +76,9 @@ describe("isolation request helpers", () => {
     expect(latest.state).toBe("pending");
     const roster = [{ user_id: "mgr", role: "mgr", status: "active", name: "Noa", handle: null }, { user_id: "t2", role: "t2", status: "active", name: "Avi", handle: null }];
     expect(approverNames(roster, "t2", new Set(["mgr", "t2"]))).toBe("Noa (SOC Manager)");
-    expect(approverNames(roster, "t2", new Set(["t2"]))).toBe("the exercise admin");   // nobody senior online
+    // Nobody senior online and no instructor seat: nobody but the requester could approve it.
+    expect(approverNames(roster, "t2", new Set(["t2"]))).toBe(NO_APPROVER);
+    // The exercise admin in the instructor seat is the fallback approver.
+    expect(approverNames([...roster, { user_id: "ins", role: "instructor", status: "active", name: "Tal", handle: null }], "t2", new Set(["t2"]))).toBe("Tal (exercise admin)");
   });
 });

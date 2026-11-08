@@ -16,7 +16,7 @@ import {
 import { FieldBar } from "./IncidentFields";
 import { IncidentDescription } from "./IncidentDescription";
 import { ActivityPane, TasksPane } from "./IncidentPanes";
-import { Evidence, TasksSummary } from "./IncidentsPage";
+import { EscalationTag, Evidence, TasksSummary } from "./IncidentsPage";
 import { ButtonMenu, Crumbs, Empty, EntityIcon, InfoMark, MoreMenu, Popover, Select, SevGlyph, StatusIcon, Tabs, type MenuItem } from "./ui";
 
 /* ---------------------------------------------- tactics ------------------------------------------- */
@@ -511,7 +511,7 @@ export function IncidentDetails({ incident, focusEntity, onClose, hidden }: { in
       <Crumbs trailing items={[{ label: "Home", onClick: () => { onClose(); go("overview"); } }, { label: "Sentinel | Incidents", onClick: onClose }]} />
       <div className="st-inc-head">
         <Briefcase size={30} color="#0078d4" fill="#c7e0f4" aria-hidden style={{ marginTop: 3 }} />
-        <div className="st-grow" style={{ minWidth: 0 }}><h1 className="st-wrap" title={incident.title}>{incident.title}</h1><div className="st-small">Incident ID {incident.number}</div></div>
+        <div className="st-grow" style={{ minWidth: 0 }}><h1 className="st-wrap" title={incident.title}>{incident.title}</h1><div className="st-small">Incident ID {incident.number}</div><EscalationTag incident={incident} /></div>
         <button type="button" className="st-icon-btn" aria-label="Close incident" onClick={onClose}><X size={18} aria-hidden /></button>
       </div>
       <div className="st-cmdbar" role="toolbar" aria-label="Incident commands" style={{ paddingLeft: 8 }}>

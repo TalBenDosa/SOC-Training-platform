@@ -35,7 +35,8 @@ export function foldIncidentState(events: IncidentLogEvent[], incident: Sentinel
   (incident.handoffs ?? []).forEach((h, i) => {
     const at = h.at ?? incident.created;
     state.comments.push({ id: `handoff-${i}`, author: h.from, text: handoffText(h), at });
-    state.activity.push({ at, actor: h.from, text: `Escalated by ${h.from} (${h.fromRole})` });
+    // The card adds "by <actor>": the text names only the seat, so the name shows once (2026-11-08 review).
+    state.activity.push({ at, actor: h.from, text: h.kind === "self_opened" ? `Case opened (${h.fromRole})` : `Escalated (${h.fromRole})` });
   });
   const ordered = events.map((e, i) => ({ e, i })).sort((a, b) => Date.parse(a.e.occurred_at) - Date.parse(b.e.occurred_at) || a.i - b.i).map(x => x.e);
   ordered.forEach((ev, i) => {

@@ -551,3 +551,18 @@
 .st-ho-sum { font-size: 12px; }
 .st-ho-raw { margin: 4px 0 0; max-height: 12rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--st-mono); font-size: 12px; background: var(--st-surface); border: 1px solid var(--st-border); padding: 4px 6px; }
 .st-ho-note { font-size: 12px; }
+/* Playbook runs: stacked in a side panel, a table on the Automation page (2026-11-08 review: clipped
+   Result column and an empty gap above the row at 1280 and 1440). */
+.st-runs { min-width: 0; }
+.st-runs ul { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--st-border-2); }
+.st-run { display: grid; gap: 2px; padding: 8px 0; border-bottom: 1px solid var(--st-border); min-width: 0; }
+.st-run-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.st-run-head > span { flex: none; }
+.st-run-detail { white-space: normal; overflow-wrap: anywhere; font-size: 12px; }
+.st-runs-table td { vertical-align: top; padding-top: 7px; padding-bottom: 7px; height: auto; }
+.st-runs-table td.st-run-detail { white-space: normal; overflow: visible; text-overflow: clip; }
+/* An escalated incident: the tag and the analyst's summary under the rule's title. */
+.st-esc-tag { display: inline-flex; align-items: center; flex: none; max-width: 100%; padding: 0 6px; height: 20px; border-radius: 2px; background: #fde7e9; color: #8a1c22; border: 1px solid #f1bbbc; font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-esc-sub { display: block; font-size: 12px; color: var(--st-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-inc-esc { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; min-width: 0; }
+.st-inc-esc .st-esc-sub { white-space: normal; overflow-wrap: anywhere; font-size: 13px; }

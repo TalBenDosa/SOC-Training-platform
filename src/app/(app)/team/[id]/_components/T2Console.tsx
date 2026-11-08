@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
 import { HandoffDetail } from "./HandoffDetail";
-import { escalationHandoff, type Handoff } from "@/lib/team/handoff";
+import { asReleased, escalationHandoff, type Handoff } from "@/lib/team/handoff";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -14,7 +14,7 @@ import type { ContainmentRequest, EscalationState, ScopeSnapshot } from "@/lib/t
 import { takeoverAllowed } from "@/lib/team/projections";
 import { enrichSnapshot, slaMinFor, CONTAINMENT_RULE, CONTAINMENT_RULE_SHORT } from "./shared";
 import type { HostIsolation } from "@/lib/team/projections";
-import type { IsolationRequest } from "@/lib/team/isolationApproval";
+import { NO_APPROVER, NO_APPROVER_HELP, isNoApprover, type IsolationRequest } from "@/lib/team/isolationApproval";
 import { useDraft, clearDraft } from "./drafts";
 import { ScopeConsole } from "./ScopeConsole";
 import { useServerNow } from "@/lib/team/clock";
@@ -40,7 +40,7 @@ export function T2Console({ events, hasTier3 = true, consoleName = "EDR", canEdr
   reportedIds: Set<string>; reportByEid: Map<string, { verdict?: string; findings?: string; recommendation?: string; summary?: string }>; elevatedIds: Set<string>;
   containments: ContainmentRequest[];
   scope: ScopeState; scopes: Map<string, ScopeSnapshot>; incidents: string[]; incidentOf: Map<string, string>;
-  nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; actR: ActR; onEdr?: (description?: string, host?: string) => void;
+  nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; actR: ActR; onEdr?: (description?: string, host?: string, caseEid?: string) => void;
   /** Whether the EDR console has endpoint telemetry for this host (no host: for the escalated cases). */
   /** Where this session investigates: "EDR" or "Sentinel". */
   consoleName?: string;
@@ -121,12 +121,13 @@ export function T2Console({ events, hasTier3 = true, consoleName = "EDR", canEdr
   // QA M3: an escalation's wait / SLA counts running time only (paused spans skipped).
   const waitedMs = (iso: string) => activeMs(Date.parse(iso), now, pauses);
   const prioKey = (e: Ev) => {
-    const p = e.payload as { event_id?: string; severity?: string; confidence?: number; requested_action?: string };
+    const p = e.payload as { event_id?: string; severity?: string; confidence?: number; low_confidence?: boolean; requested_action?: string };
     const st = stOf(String(p.event_id));
     const open = !!st && !st.acked && !st.bounced && !st.resolved;
     const sev = asStr(p.severity) || "medium";
     const wait = e.occurred_at ? Math.max(0, waitedMs(e.occurred_at) / 60000) : 0;
-    const conf = typeof p.confidence === "number" ? p.confidence : 0.5;
+    // A lead Tier-1 marked suspicious weighs less; no number is sent any more (it was a default).
+    const conf = typeof p.confidence === "number" ? p.confidence : p.low_confidence ? 0.3 : 0.7;
     const contain = p.requested_action === "contain" ? 1.5 : 1;
     return { open, score: (SEV_RANK[sev] ?? 2) * (1 + wait / 5) * (0.5 + conf) * contain };
   };
@@ -143,6 +144,15 @@ export function T2Console({ events, hasTier3 = true, consoleName = "EDR", canEdr
   // Assisted pull: the most urgent case nobody has taken yet.
   const nextUnacked = prioritized.find(e => { const st = stOf(eidOf(e)); return !!st && !st.acked && !st.bounced && !st.resolved; }) || null;
   async function takeNextCase() { if (nextUnacked) await ack(eidOf(nextUnacked)); }
+  // The header's "Investigate in ...": the case this analyst works (the one picked for the report,
+  // else their first open case) opens its own incident; with no case of their own, the list.
+  const workCase = selCase;
+  const openWorkCase = () => {
+    if (!onEdr) return;
+    if (!workCase) { onEdr(); return; }
+    const wp = workCase.payload as { summary?: string; what?: string; hostname?: string; snapshot?: { hostname?: unknown } };
+    onEdr(asStr(wp.summary) || asStr(wp.what) || "Escalated incident", asStr(wp.hostname) || asStr(wp.snapshot?.hostname) || undefined, eidOf(workCase));
+  };
   const fullLogRef = useRef<HTMLDivElement>(null);
   // Trap focus in the full-screen log; hand off while the threat-intel drawer is on top of it.
   useFocusTrap(!!fullLog && !threatQuery, fullLogRef, { onEscape: () => setFullLog(null) });
@@ -159,7 +169,7 @@ export function T2Console({ events, hasTier3 = true, consoleName = "EDR", canEdr
           </h3>
           <div className="flex items-center gap-2">
             {nextUnacked && <Button variant="outline" size="sm" disabled={busy != null} onClick={takeNextCase}>Take next case</Button>}
-            {onEdr && (canEdr?.() ?? true) && <Button variant="outline" size="sm" onClick={() => onEdr()}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in {consoleName}</Button>}
+            {onEdr && (canEdr?.() ?? true) && <Button variant="outline" size="sm" data-investigate-header title={workCase ? `Open the incident of your case: ${asStr((workCase.payload as { summary?: string }).summary) || "your case"}` : `Open the ${consoleName === "Sentinel" ? "incident list" : "console"}`} onClick={openWorkCase}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in {consoleName}</Button>}
           </div>
         </div>
         {!inboxOpen ? <p className="mt-2 text-xs text-slate-500">{escalations.length} case(s) waiting: expand to review. Your focus is hunting &amp; scope below; a case you take here you can also report and close.</p>
@@ -172,7 +182,9 @@ export function T2Console({ events, hasTier3 = true, consoleName = "EDR", canEdr
               const isAck = !!st?.acked; const isBounced = !!st?.bounced; const isResolved = !!st?.resolved; const mine = isMine(eid);
               const b = busy === e.seq + "" || busy === "ack" + eid;
               const iocs = Array.isArray(p.iocs) ? p.iocs : [];
-              const snap = enrichSnapshot(p.snapshot); const isOpen = openLog === e.seq;
+              // The log as the feed showed it: timed to its release in this session, like the hand-off's "Time".
+              const releasedAt = (events ?? []).find(x => x.type === "feed.event" && String((x.payload as { id?: unknown }).id ?? x.seq) === eid)?.occurred_at || asStr((p as { log_time?: unknown }).log_time);
+              const snap = enrichSnapshot(asReleased(p.snapshot, releasedAt) ?? undefined); const isOpen = openLog === e.seq;
               const so = (p.snapshot ?? {}) as { hostname?: unknown; user_email?: unknown; user?: { email?: unknown }; src_ip?: unknown };
               // Containment target: PREFILLED from the log, but editable (P0-4) — quick picks
               // from the log's own entities and the working scope.
@@ -182,6 +194,9 @@ export function T2Console({ events, hasTier3 = true, consoleName = "EDR", canEdr
               const lastReq = myReqs[myReqs.length - 1];
               const inc = incidentOf.get(eid);
               const handoff = escalationHandoff(e, events ?? escalations, { nameOf });
+              const cardHost = (asStr(p.hostname) || asStr(so.hostname)).toLowerCase();
+              const cardIso = cardHost ? isoRequests?.get(cardHost) : undefined;
+              const cardIsolated = cardHost ? !!isolation?.get(cardHost)?.isolated : false;
               return (
                 <div key={e.seq} className="rounded-lg border border-border bg-bg px-3 py-2">
                   <div className="flex items-start gap-2">
@@ -202,7 +217,8 @@ export function T2Console({ events, hasTier3 = true, consoleName = "EDR", canEdr
                     const breached = mins >= slaMinFor(asStr(p.severity) || "medium"); // SLA by severity
                     return <p className="mt-1"><span className={`rounded border px-1 py-px font-mono text-xs font-bold ${breached ? "border-severity-high/60 bg-severity-high/15 text-severity-high" : "border-border text-slate-400"}`}>⏱ waiting {mins}m{breached ? " · SLA" : ""}</span></p>;
                   })()}
-                  {p.recommend_isolation && p.hostname && (
+                  {/* Once a request exists (or the host is isolated) its state replaces the recommendation. */}
+                  {p.recommend_isolation && p.hostname && !cardIso && !cardIsolated && (
                     <p className="mt-1 inline-flex items-center gap-1 rounded border border-severity-high/50 bg-severity-high/10 px-1.5 py-0.5 text-xs font-semibold text-severity-high">
                       Tier-1 recommends isolating <bdi className="font-mono">{p.hostname}</bdi>: your decision, in {consoleName}
                     </p>
@@ -261,9 +277,9 @@ export function T2Console({ events, hasTier3 = true, consoleName = "EDR", canEdr
                     ) : null;
                     return null;   // the case stepper's Investigate step carries the button
                   })()}
-                  {(() => { const h = (asStr(p.hostname) || asStr(so.hostname)).toLowerCase(); const r = h ? isoRequests?.get(h) : undefined; return r && (
-                    <p className={`mt-1.5 text-xs ${r.state === "denied" ? "text-severity-high" : r.state === "approved" ? "text-neon-green" : "text-cyber-300"}`}>
-                      <ShieldAlert className="mr-1 inline h-3 w-3" aria-hidden />Isolate <b className="font-mono"><bdi>{r.host}</bdi></b>: {r.state === "pending" ? `waiting for approval from ${approverFor?.(r.requestedBy) ?? "the senior on shift"}` : r.state === "approved" ? `approved by ${nameOf(r.answeredBy)}, host isolated` : `denied by ${nameOf(r.answeredBy)}${r.denyReason ? `: ${r.denyReason}` : ""}`}
+                  {(() => { const r = cardIso; if (!r) return null; const who = approverFor?.(r.requestedBy) ?? "the senior on shift"; const none = r.state === "pending" && isNoApprover(who); return (
+                    <p data-isolation-state className={`mt-1.5 text-xs ${r.state === "denied" || none ? "text-severity-high" : r.state === "approved" ? "text-neon-green" : "text-cyber-300"}`}>
+                      <ShieldAlert className="mr-1 inline h-3 w-3" aria-hidden />Isolate <b className="font-mono"><bdi>{r.host}</bdi></b>: {r.state === "pending" ? (none ? `${NO_APPROVER}. ${r.requestedBy === meId ? NO_APPROVER_HELP : ""}`.trim() : `waiting for approval from ${who}`) : r.state === "approved" ? `approved by ${nameOf(r.answeredBy)}, host isolated` : `denied by ${nameOf(r.answeredBy)}${r.denyReason ? `: ${r.denyReason}` : ""}`}
                     </p>
                   ); })()}
                   {/* Containment history on this case — a denial shows WHY, and a new request can follow */}
@@ -301,7 +317,7 @@ export function T2Console({ events, hasTier3 = true, consoleName = "EDR", canEdr
                     const steps: { name: string; state: "done" | "current" | "locked"; doneText?: string; lockedText: string; primary?: React.ReactNode }[] = [
                       { name: "Investigate", state: done[0] ? "done" : cur === 0 ? "current" : "locked", doneText: reported ? "done" : "evidence pinned", lockedText: "",
                         primary: hasEndpoint
-                          ? <><Button variant="primary" size="sm" onClick={() => onEdr!(asStr(p.summary) || asStr(p.what) || "Escalated incident", host || undefined)}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in {consoleName}</Button><Button variant="outline" size="sm" disabled={b} onClick={pin}>Pin the key evidence</Button></>
+                          ? <><Button variant="primary" size="sm" onClick={() => onEdr!(asStr(p.summary) || asStr(p.what) || "Escalated incident", host || undefined, eid)}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in {consoleName}</Button><Button variant="outline" size="sm" disabled={b} onClick={pin}>Pin the key evidence</Button></>
                           : <Button variant="primary" size="sm" disabled={b} onClick={pin}>Pin the key evidence</Button> },
                       { name: "Report", state: done[1] ? "done" : cur === 1 ? "current" : "locked", doneText: "filed", lockedText: "after you investigate (or write it now)",
                         primary: <Button variant="primary" size="sm" onClick={writeReport}><FileText className="mr-1 h-3.5 w-3.5" /> Write report</Button> },
@@ -309,7 +325,9 @@ export function T2Console({ events, hasTier3 = true, consoleName = "EDR", canEdr
                         primary: <Button variant="primary" size="sm" onClick={goScope}>Set the scope</Button> },
                       { name: "Contain", state: done[3] ? "done" : cur === 3 ? "current" : "locked", doneText: harmless && !contained ? "not needed (harmless)" : "contained", lockedText: "after the report and the scope",
                         primary: isoReq?.state === "pending" && !hostIso?.isolated
-                          ? <span className="text-xs text-cyber-300">Isolation of <bdi className="font-mono">{isoReq.host}</bdi> is waiting for approval from {approverFor?.(isoReq.requestedBy) ?? "the senior on shift"}.</span>
+                          ? (isNoApprover(approverFor?.(isoReq.requestedBy) ?? "")
+                            ? <span className="text-xs text-severity-high">Isolation of <bdi className="font-mono">{isoReq.host}</bdi>: {NO_APPROVER}.</span>
+                            : <span className="text-xs text-cyber-300">Isolation of <bdi className="font-mono">{isoReq.host}</bdi> is waiting for approval from {approverFor?.(isoReq.requestedBy) ?? "the senior on shift"}.</span>)
                           : approved
                             ? <Button variant="primary" size="sm" disabled={b} onClick={async () => { const rp = approved.request.payload as { target?: string; containment_type?: string }; setBusy("x" + approved.seq); await act("containment.executed", { event_id: approved.eid, target: rp.target, containment_type: rp.containment_type, request_seq: approved.seq }); setBusy(null); }}><ShieldAlert className="mr-1 h-3.5 w-3.5" /> Execute: {containmentVerb(asStr((approved.request.payload as { containment_type?: string }).containment_type))} {asStr((approved.request.payload as { target?: string }).target)}</Button>
                             : pendingReq

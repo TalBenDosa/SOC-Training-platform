@@ -12,6 +12,9 @@ import { buildWorkspace } from "@/lib/sentinel/workspace";
 import { foldIncidentState } from "@/lib/sentinel/state";
 import { escalatedCases } from "@/lib/team/investigationConsole";
 import { IncidentDescription } from "./IncidentDescription";
+import { SentinelConsole } from "./SentinelConsole";
+import { fakeActions } from "./fixture";
+import { escalationInfo } from "./helpers";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -60,7 +63,9 @@ describe("Sentinel: an escalated incident", () => {
     const st = foldIncidentState([], inc);
     expect(st.comments[0]).toMatchObject({ author: "Dana" });
     expect(st.comments[0].text).toContain(OBS);
-    expect(st.activity.some(a => a.text === "Escalated by Dana (Tier-1)")).toBe(true);
+    // One "by": the activity card adds "by Dana" to this text (2026-11-08 review: "by Dana (Tier-1) by Dana").
+    expect(st.activity.some(a => a.text === "Escalated (Tier-1)" && a.actor === "Dana")).toBe(true);
+    expect(st.activity.some(a => /Escalated by/.test(a.text))).toBe(false);
     // The KQL table says the same.
     const row = ws.tables.SecurityIncident.rows.find(r => r.IncidentName === inc.id)!;
     expect(row.Title).toBe(SUMMARY);
@@ -87,6 +92,41 @@ describe("Sentinel: an escalated incident", () => {
     expect(inc2.description.startsWith("Escalation from Dana (Tier-1)")).toBe(true);
     expect(inc2.description).toContain(`Detection: ${before.description}`);
     expect(inc2.detectionDescription).toBe(before.description);
+  });
+
+  it("a rule-raised incident that was escalated keeps its number and title, and is tagged as escalated in the list and on its page", async () => {
+    const loud = events.find(e => raised.has(e.id) && plain.incidents.some(i => i.alertIds.some(a => (plain.alertEventIds[a] ?? []).includes(e.id))))!;
+    const ws2 = buildWorkspace(events, { companyId: "nexacorp", escalated: escalatedCases(escalate(loud, 2000), nameOf) });
+    const inc2 = ws2.incidents.find(i => i.alertIds.some(a => (ws2.alertEventIds[a] ?? []).includes(loud.id)))!;
+    const before = plain.incidents.find(i => i.id === inc2.id)!;
+    expect(inc2.number).toBe(before.number);
+    expect(inc2.title).toBe(before.title);
+    expect(escalationInfo(inc2)).toEqual({ tag: "Escalated by Dana", by: ["Dana"], summary: SUMMARY });
+    // The KQL row carries the tag too (SecurityIncident.Labels).
+    const row = ws2.tables.SecurityIncident.rows.find(r => r.IncidentName === inc2.id)!;
+    expect(row.Labels).toEqual([{ labelName: "Escalated by Dana", labelType: "AutoAssigned" }]);
+    // An incident nobody escalated has no tag.
+    const other = ws2.incidents.find(i => !i.handoffs?.length);
+    if (other) expect(escalationInfo(other)).toBeNull();
+
+    el = document.createElement("div"); document.body.appendChild(el); root = createRoot(el);
+    const props = { workspace: ws2, states: new Map(), actions: fakeActions().actions, onRefresh: () => {}, ended: false };
+    await act(async () => root!.render(React.createElement(SentinelConsole, props)));
+    const navItem = [...el.querySelectorAll<HTMLButtonElement>(".st-nav-item")].find(b => (b.textContent ?? "").startsWith("Incidents"))!;
+    await act(async () => { navItem.click(); });
+    const rowEl = [...el.querySelectorAll('table[aria-label="Incidents"] tbody tr')].find(r => r.textContent?.includes(String(inc2.number)))!;
+    expect(rowEl.textContent).toContain(before.title);
+    const tag = rowEl.querySelector("[data-escalated]")!;
+    expect(tag.textContent).toContain("Escalated by Dana");
+    expect(tag.textContent).toContain(SUMMARY);
+    // The incident page: the rule's title, then the tag and the summary, then the report first in the description.
+    act(() => root!.unmount()); root = createRoot(el);
+    await act(async () => root!.render(React.createElement(SentinelConsole, { ...props, initial: { incidentId: inc2.id } })));
+    const page = el.querySelector<HTMLElement>(".st-inc:not([hidden])")!;
+    expect(page.querySelector("h1")!.textContent).toBe(before.title);
+    expect(page.querySelector(".st-inc-head [data-escalated]")!.textContent).toContain("Escalated by Dana");
+    const desc = page.querySelector("[data-testid=incident-handoff]")!;
+    expect(desc.textContent).toContain(SUMMARY);
   });
 
   it("the incident page opens with the structured report", async () => {

@@ -10,6 +10,7 @@ import { setCompletionTables } from "./engine";
 import { allBookmarks, bookmarkTable, defaultState, KIND_LABEL, roleLabel, tiComment, tidyWorkspace } from "./helpers";
 import { markOpened, useOpenedIncidents } from "@/lib/sentinel/openedIncidents";
 import { TeamWindowStrip } from "@/components/team/TeamWindowStrip";
+import { waitingForApproval } from "@/lib/team/isolationApproval";
 import { IncidentDetails } from "./IncidentDetails";
 import { PlaybookPanel } from "./IncidentPanes";
 import { IncidentsPage } from "./IncidentsPage";
@@ -230,7 +231,7 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
     const run: PlaybookRun = {
       id: `${Date.now()}-${Math.random()}`, at: workspace.now, playbook: playbookName, host, by: actions.me.name, ok: !err,
       pending: asks && !err,
-      message: err ?? (asks ? `Request sent. Waiting for approval from ${actions.isolationApprover ?? "the senior on shift"}.` : `${playbookName} succeeded on ${host}.`),
+      message: err ?? (asks ? `Request sent. ${waitingForApproval(actions.isolationApprover ?? "the senior on shift", { requester: true }).replace(/([^.])$/, "$1.")}` : `${playbookName} succeeded on ${host}.`),
     };
     setRuns(r => [run, ...r].slice(0, 30));
     return run;
@@ -256,6 +257,10 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
   const incident = incidentId ? workspace.incidents.find(i => i.id === incidentId) : undefined;
   const investigated = investigateId ? workspace.incidents.find(i => i.id === investigateId) : undefined;
   const nq = navQ.trim().toLowerCase();
+  // The menu badge counts the open incidents this viewer has not opened yet, like an unread count;
+  // its tooltip and name say so, next to the open total the Incidents page shows (2026-11-08 review:
+  // "Incidents 4" beside a list of 5 open read as a wrong count).
+  const openCount = workspace.incidents.filter(i => stateOf(i.id).status !== "Closed").length;
   const unopened = workspace.incidents.filter(i => !openedStored.has(i.id) && !openedHere.has(i.id) && stateOf(i.id).status !== "Closed").length;
   const covered = !!incident || !!investigated;
   const focused = screen === "entity" && entityFocus ? workspace.entities[entityFocus] : undefined;
@@ -303,7 +308,7 @@ export function SentinelConsole({ workspace: source, states, actions, onRefresh,
                   {!navCollapsed && <div className="st-nav-group"><span>{g.group}</span></div>}
                   {items.map(i => {
                     const badge = i.id === "incidents" ? unopened : 0;
-                    const name = badge ? `${i.label}, ${badge} unopened` : i.label;
+                    const name = badge ? `${i.label}: ${badge} not opened yet, of ${openCount} open` : i.label;
                     return (
                       <button key={i.id} type="button" className="st-nav-item" title={name} aria-label={navCollapsed || badge ? name : undefined} aria-current={screen === i.id ? "page" : undefined} onClick={() => go(i.id)}>
                         <i.icon size={15} aria-hidden />{!navCollapsed && i.label}

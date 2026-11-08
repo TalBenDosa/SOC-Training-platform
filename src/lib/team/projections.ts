@@ -109,6 +109,24 @@ export interface ContainmentRequest {
   seq: number; eid: string; request: Ev; status: ContainmentStatus;
   decidedBy: string | null; decisionReason: string; executedBy: string | null;
 }
+/**
+ * The case an analyst is working: of the open cases they own (acknowledged or taken over, not
+ * resolved or bounced), the one they took last. Null when they own none. What the team room's
+ * "Investigate in Sentinel" opens (2026-11-08 review: it opened whichever incident came last).
+ */
+export function workingCaseEid(events: Ev[], userId: string | null | undefined): string | null {
+  if (!userId) return null;
+  const states = escalationStates(events);
+  let best: { eid: string; seq: number } | null = null;
+  for (const e of events) {
+    if (e.type !== "escalation.acknowledged" || e.actor_id !== userId) continue;
+    const st = states.get(eidOf(e));
+    if (!st || st.owner !== userId || st.resolved || st.bounced || st.rounds === 0) continue;
+    if (!best || e.seq > best.seq) best = { eid: st.eid, seq: e.seq };
+  }
+  return best?.eid ?? null;
+}
+
 export function containmentRequests(events: Ev[]): ContainmentRequest[] {
   const out: ContainmentRequest[] = [];
   const latestOf = (eid: string, want: ContainmentStatus) => {

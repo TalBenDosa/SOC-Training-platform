@@ -44,7 +44,7 @@ import { attachedByCase, attachedLogs, flattenGroups, groupQueueByHost, hostKeyO
 import { TriageHosts } from "./_components/TriageHosts";
 import { teamLoad, withShiftMinutes, type Difficulty } from "@/lib/team/load";
 import { loadWithPlan } from "@/lib/team/attackPlan";
-import { activeClaims, escalationStates, containmentRequests, scopeByIncident, latestScope, incidentLabels, incidentByEvent, openLoadByUser, isolationState } from "@/lib/team/projections";
+import { activeClaims, escalationStates, workingCaseEid, containmentRequests, scopeByIncident, latestScope, incidentLabels, incidentByEvent, openLoadByUser, isolationState } from "@/lib/team/projections";
 import { pausedSpans } from "@/lib/team/pauses";
 import { feedSourceOf, PRODUCT_LABEL, STACK_CHOICES, type Stack } from "@/lib/logs/native/stack";
 import { INDUSTRY_CHOICES, PLATFORM_CHOICES } from "@/lib/team/environment";
@@ -53,7 +53,7 @@ import { ROLE_LABEL, CONTAINMENT_RULE } from "./_components/shared";
 import { roleDirective, RoleGuideModal } from "./_components/RoleGuideModal";
 import { GuidedTour, tourLength } from "./_components/GuidedTour";
 import { tourFor, forSentinel } from "./_components/teamTours";
-import { useSentinelIncidents } from "@/lib/team/useSentinelIncidents";
+import { incidentForCase, useSentinelIncidents } from "@/lib/team/useSentinelIncidents";
 import { sentinelWindowName, showSentinelWindow, siemWindowName } from "@/lib/team/twoWindows";
 import { SharedCase, caseHeadline } from "./_components/SharedCase";
 import { ShiftBar, ShiftClockView, EndCountdown, type BarNotice } from "./_components/ShiftBar";
@@ -194,7 +194,7 @@ export default function TeamRoomPage() {
   useEffect(() => { if (!t3Sent) return; const t = setTimeout(() => setT3Sent(null), 7000); return () => clearTimeout(t); }, [t3Sent]);
   const [t3EdrHost, setT3EdrHost] = useState("");
   // Read by openEdr, which is declared before the incident list exists.
-  const sentinelIncidentFor = useRef<(host?: string) => string | undefined>(() => undefined);
+  const sentinelIncidentFor = useRef<(host?: string, caseEid?: string) => string | undefined>(() => undefined);
   // SOC Manager menu: the situation board, the raw logs (to back up the analysts), every
   // escalation, the stakeholder report and the stakeholder window.
   const [mgrView, setMgrView] = useState<"board" | "logs" | "escalations" | "stakeholders" | "reporting">("board");
@@ -1033,8 +1033,8 @@ export default function TeamRoomPage() {
     setBlockedSentinelUrl(null);
     setEdrNote(null);
   }, [id, me?.id, me?.role]);
-  const openEdr = useCallback((description?: string, host?: string) => {
-    if (isSentinel) { openSentinel({ host, incident: sentinelIncidentFor.current(host) }); return; }
+  const openEdr = useCallback((description?: string, host?: string, caseEid?: string) => {
+    if (isSentinel) { openSentinel({ host, incident: sentinelIncidentFor.current(host, caseEid) }); return; }
     try {
       // Same re-timing as the feed rows, so EDR shows the times the team saw.
       const evs = feed.map(e => { const t = e.payload as unknown as TelemetryEvent; return e.occurred_at ? withRebasedTime(t, e.occurred_at) : t; });
@@ -1066,7 +1066,7 @@ export default function TeamRoomPage() {
   // NEW one pops a short corner notice (like the single-user dashboard's EDR button). An alert is
   // what the analyst's own EDR would raise, so this leaks no verdict.
   const sentinelIncidents = useSentinelIncidents(isSentinel && phase !== "lobby", feed, events, session);
-  sentinelIncidentFor.current = host => (host ? sentinelIncidents.find(i => i.hosts.includes(hostKey(host))) : sentinelIncidents[sentinelIncidents.length - 1])?.id;
+  sentinelIncidentFor.current = (host, caseEid) => incidentForCase(sentinelIncidents, { eventId: caseEid, host });
   const edrAlerts = useMemo(() => isSentinel ? sentinelIncidents.map(i => ({ seq: i.number, host: i.title, title: i.title })) : feed.flatMap(e => {
     const p = e.payload as { source?: unknown; is_detection?: unknown; event_type?: unknown; hostname?: unknown; description?: unknown };
     const host = asStr(p.hostname);
@@ -1181,10 +1181,16 @@ export default function TeamRoomPage() {
   // Endpoint alerts and the investigation console, for the analysts (muted until an EDR alert arrives).
   const edrButton = me && (me.role === "t1" || me.role === "t2" || me.role === "t3") ? (() => {
                       const last = edrAlerts[edrAlerts.length - 1];
+                      // Sentinel: the case this analyst works opens its own incident; with no case of
+                      // their own, the incident list (2026-11-08 review: it opened the latest incident).
+                      const workEid = isSentinel ? workingCaseEid(events, me.id) : null;
+                      const workReq = workEid ? escStates.get(workEid)?.request : undefined;
+                      const workSummary = workReq ? asStr((workReq.payload as { summary?: unknown }).summary) || asStr((workReq.payload as { what?: unknown }).what) : "";
+                      const workHost = workReq ? asStr((workReq.payload as { hostname?: unknown }).hostname) || asStr((workReq.payload as { snapshot?: { hostname?: unknown } }).snapshot?.hostname) : "";
                       return (
                         <div data-tour="edr-button" className="flex shrink-0 items-center gap-2">
-                          <button type="button" disabled={!isSentinel && !last} onClick={() => { if (isSentinel) openSentinel({ incident: sentinelIncidents.find(i => i.number === last?.seq)?.id }); else if (last) openEdr(last.title, last.host); }}
-                            title={isSentinel ? (last ? `Latest incident: ${last.title}` : "Open Sentinel. No incidents yet.") : last ? `Latest EDR alert: ${last.title} (${last.host})` : "No endpoint alerts yet: this lights up when an EDR alert reaches the feed"}
+                          <button type="button" data-investigate-header disabled={!isSentinel && !last} onClick={() => { if (isSentinel) openSentinel(workEid ? { host: workHost || undefined, incident: incidentForCase(sentinelIncidents, { eventId: workEid, host: workHost || undefined }) } : undefined); else if (last) openEdr(last.title, last.host); }}
+                            title={isSentinel ? (workEid ? `Open the incident of your case: ${workSummary || "your case"}` : sentinelIncidents.length ? "Open the incident list" : "Open Sentinel. No incidents yet.") : last ? `Latest EDR alert: ${last.title} (${last.host})` : "No endpoint alerts yet: this lights up when an EDR alert reaches the feed"}
                             className={`relative flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50 ${last || isSentinel ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-200 hover:bg-cyber-500/20" : "cursor-not-allowed border-border bg-bg text-slate-400"}`}>
                             <Cpu className="h-3.5 w-3.5" aria-hidden /> Investigate in {consoleName}
                             {edrAlerts.length > 0 && (
