@@ -341,7 +341,7 @@ function buildRagDocumentInjection(): TelemetryEvent[] {
       description: "The assistant app read acme-vendor-quote-2026.pdf again from its managed identity (GetBlob, HTTP 200) while serving a new session, the same ObjectKey the earlier Prompt Shields check flagged.",
     }),
 
-    // 8. THE SAME SEQUENCE, LARGER — the uploader's own session pulls the document; the response balloons.
+    // 8. THE SAME SEQUENCE, LARGER: the uploader's own session pulls the document; the response balloons.
     azureOpenAiRequest({
       ...req, id: "airag8", ts: lastBig, status: 200,
       durationMs: 11240, requestLength: 4600, responseLength: 15240, stream: true, severity: "high",
