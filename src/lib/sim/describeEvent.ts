@@ -37,7 +37,45 @@ function operationOf(e: TelemetryEvent): string {
   return rawStr(e.raw, "aws.cloudtrail.eventName", "data.office365.Operation", "azure.auditlogs.operationName",
     "azure.operation.name", "azure.activitylogs.operationName", "gcp.audit.method_name", "protoPayload.methodName",
     "okta.eventType", "github.action", "github.audit.action", "gws.event.name", "google_workspace.event.name",
-    "intune.activityType", "vsphere.event.eventTypeId", "aws.guardduty.service.action.awsApiCallAction.api");
+    "intune.activityType", "vsphere.event.eventTypeId", "aws.guardduty.service.action.awsApiCallAction.api",
+    // Azure OpenAI request logs and Azure Storage (StorageBlobLogs) name the operation too.
+    "azure.open_ai.operation_name", "OperationName");
+}
+
+/** A line built from field values, unless a value would state the conclusion (an alert name, a mail
+ *  address): then the plainer line, so the row never gives the verdict away. */
+function safe(line: string, plain: string): string {
+  return ROW_CONCLUSION.test(line) && !ROW_CONCLUSION.test(plain) ? plain : line;
+}
+
+const shortUser = (u: string) => u.split("\\").pop()!.split("@")[0];
+
+/**
+ * A directory change names who did it and to whom (Entra AuditLogs initiatedBy / targetResources):
+ * "z.yilmaz reset the password of y.mendes", never "y.mendes performed Reset password" (review
+ * 2026-11-08: Tier-1 read the help desk agent's change as the account owner's own action).
+ */
+function auditLine(e: TelemetryEvent, op: string): string | null {
+  const actor0 = rawStr(e.raw, "azure.auditlogs.properties.initiatedBy.user.userPrincipalName", "azure.auditlogs.properties.initiatedBy.app.displayName");
+  if (!actor0 || !op) return null;
+  const target0 = rawStr(e.raw, "azure.auditlogs.properties.targetResources[0].userPrincipalName", "azure.auditlogs.properties.targetResources[0].displayName");
+  const actor = shortUser(actor0);
+  const target = target0 ? shortUser(target0) : "";
+  const self = !target || target.toLowerCase() === actor.toLowerCase();
+  const o = op.toLowerCase();
+  if (/^reset (user )?password/.test(o)) return self ? `${actor} reset their password` : `${actor} reset the password of ${target}`;
+  if (/deleted security info/.test(o)) return self ? `${actor} deleted their security info` : `${actor} deleted the security info of ${target}`;
+  if (/registered security info/.test(o)) return self ? `${actor} registered security info` : `${actor} registered security info for ${target}`;
+  if (/^change (user )?password/.test(o)) return self ? `${actor} changed their password` : `${actor} changed the password of ${target}`;
+  return self ? `${actor} performed ${op}` : `${actor} performed ${op} on ${target}`;
+}
+
+/** Sender / recipient of a mail record (ECS email.*, Defender EmailEvents, the UAL mail fields). */
+function mailParties(e: TelemetryEvent): { from: string; to: string } {
+  return {
+    from: rawStr(e.raw, "email.from.address", "SenderFromAddress", "data.office365.Sender", "email.sender.address", "data.office365.P1Sender", "SenderMailFromAddress"),
+    to: rawStr(e.raw, "email.to.address", "RecipientEmailAddress", "data.office365.Recipients"),
+  };
 }
 
 const baseName = (p?: string) => (p ? p.split(/[\\/]/).filter(Boolean).pop() ?? p : "");
@@ -81,8 +119,19 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
   // The scenario page too (preferFields): GuardDuty / SCC / Suricata / Sentinel rows used to
   // show a generic "System called ..." line instead of the product's finding name.
   const alertName = rawStr(event.raw, "AlertName", "alert.name", "crowdstrike.DetectName", "threat.name", "ThreatName", "data.ms-graph.title",
+    "azure.alert.displayName", "AlertDisplayName",
     "aws.guardduty.type", "gcp.scc.finding.category", "finding.category", "suricata.eve.alert.signature", "alert.signature", "signature",
     "cloudwatch.alarm.name");
+  // Azure AI Content Safety Prompt Shields: the shield, the attack type and the classification it
+  // returned are the observable (it is not a web visit, review 2026-11-08).
+  const shieldType = rawStr(event.raw, "promptshields.attack_type");
+  if (shieldType) {
+    const cls = rawStr(event.raw, "promptshields.classification");
+    const app = rawStr(event.raw, "gateway.application");
+    const u = event.user_email ?? rawStr(event.raw, "gateway.user_id");
+    const where = [u ? shortUser(u) : "", app].filter(Boolean).join(", ");
+    return `Prompt Shields: ${shieldType}${cls ? `, ${cls}` : ""}${where ? ` (${where})` : ""}`;
+  }
   // A row line never states the conclusion: a finding named for its tactic ("Exfiltration:S3/...",
   // "Ransomware.MedLock") keeps that name in the record and the row falls back to the neutral line.
   const namesConclusion = !opts.fieldsOnly && ROW_CONCLUSION.test(alertName);
@@ -127,13 +176,19 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
   const cloudActor = rawStr(event.raw, "aws.cloudtrail.userIdentity.userName", "aws.cloudtrail.user_identity.user_name",
     "userIdentity.userName", "gcp.audit.authentication_info.principal_email", "protoPayload.authenticationInfo.principalEmail",
     "azure.activitylogs.identity.claims_initiated_by_user.name", "azure.caller", "okta.actor.alternateId", "github.actor");
+  // The account a host or app log names (auditd / sshd / sudo user, an AI gateway's end user).
+  const rawUser = rawStr(event.raw, "sudo.user", "sshd.user", "user.name", "gateway.user_id");
   const who  = email ? email.split("@")[0]
                : event.process?.user ? event.process.user.split("\\").pop()!
                : cloudActor ? cloudActor.split("/").pop()!.split("@")[0]
+               : rawUser ? shortUser(rawUser)
                : event.hostname ?? event.src_ip ?? "System";
+  const namedActor = !!(email || event.process?.user || cloudActor || rawUser);
   const fileName = event.file?.name || baseName(event.file?.path)
-    || baseName(rawStr(event.raw, "file.name", "crowdstrike.FileName", "data.office365.SourceFileName"));
+    || baseName(rawStr(event.raw, "file.name", "crowdstrike.FileName", "data.office365.SourceFileName", "file.path"));
   const op = operationOf(event);
+  const audit = auditLine(event, op);
+  if (audit) return audit;
 
   // A service-desk record (ServiceNow): the ticket's own number, state and summary
   // are the observable — not a generic "policy modified".
@@ -163,7 +218,7 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
       return `${p?.name ?? "A process"} opened a handle to ${target ? baseName(target) : "another process"}${host}`;
     }
     case "file_delete":
-      return `File deleted${host}`;
+      return `File deleted${fileName ? `: ${fileName}` : ""}${host}`;
     case "net_connection":
       return `${event.hostname || who} connected to ${dest || "an external host"}`;
     case "net_blocked":
@@ -172,8 +227,11 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
       return `${event.hostname || who} looked up ${dnsQuery || n?.domain || "a domain"}`;
     case "auth_success":
       return `${who} logged in${host}`;
-    case "auth_failure":
-      return `${who} failed to log in${host}`;
+    case "auth_failure": {
+      // An identity provider's own result code is part of the record ("error 50126", "error 50072").
+      const code = rawStr(event.raw, "azure.signinlogs.properties.status.errorCode", "azure.signinlogs.resultType", "data.office365.ErrorNumber");
+      return `${who} failed to log in${host}${code && code !== "0" ? ` (error ${code})` : ""}`;
+    }
     case "mfa_challenge":
     case "mfa_push_sent":
       return `${who} received a two-factor auth challenge`;
@@ -197,13 +255,21 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
       return `Group membership changed${host}`;
     case "privilege_escalation":
       return `${who} gained elevated privileges${host}`;
-    case "cloud_api_call":
+    case "cloud_api_call": {
+      if (op && namedActor) return `${who} called ${op}`;
+      // A service's own request log names no caller: the resource (and model deployment) that served it.
+      const res = rawStr(event.raw, "azure.resource.name", "gcp.resource.name");
+      const dep = rawStr(event.raw, "azure.open_ai.properties.model_deployment_name");
+      if (op && res && !event.src_ip) return `${op} request to ${res}${dep ? ` (${dep})` : ""}`;
       return op ? `${who} called ${op}` : `${who} made a cloud API call`;
+    }
     case "cloud_storage_access": {
-      const bkt = rawStr(event.raw, "aws.cloudtrail.requestParameters.bucketName", "azure.resource.name", "gcp.resource.name");
-      const key = rawStr(event.raw, "aws.cloudtrail.requestParameters.key");
+      const bkt = rawStr(event.raw, "aws.cloudtrail.requestParameters.bucketName", "AccountName", "azure.resource.name", "gcp.resource.name");
+      // StorageBlobLogs ObjectKey is "/<account>/<container>/<blob>" (quoted in the export).
+      const objectKey = rawStr(event.raw, "ObjectKey").replace(/^"|"$/g, "").split("/").filter(Boolean).slice(1).join("/");
+      const key = rawStr(event.raw, "aws.cloudtrail.requestParameters.key") || objectKey;
       const tgt = [bkt, key].filter(Boolean).join("/");
-      return `${who} ${op || "accessed"} ${tgt || "cloud storage"}`;
+      return op ? `${who} called ${op} on ${tgt || "cloud storage"}` : `${who} accessed ${tgt || "cloud storage"}`;
     }
     case "role_assignment": {
       const role = rawStr(event.raw, "iam.role.name", "vsphere.event.permission.roleName");
@@ -216,18 +282,27 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
     case "av_blocked":
     case "edr_alert":
       return `Threat detected on ${event.hostname || "endpoint"}`;
-    case "email_received":
-      return `${who} received an email`;
+    case "email_received": {
+      const { from } = mailParties(event);
+      return safe(`${who} received an email${from ? ` from ${from}` : ""}`, `${who} received an email`);
+    }
     case "email_clicked":
       return `${who} clicked a link in an email`;
-    case "email_sent":
-      return `${who} sent an email`;
+    case "email_sent": {
+      // The sender is the mailbox the record names (an outbound EmailEvents row has no internal user column).
+      const { from, to } = mailParties(event);
+      const sender = email ? who : from ? shortUser(from) : who;
+      return safe(`${sender} sent an email${to ? ` to ${to}` : ""}`, `${sender} sent an email`);
+    }
     case "email_blocked":
-    case "email_quarantined":
-      return `Suspicious email blocked for ${who}`;
+    case "email_quarantined": {
+      const { from } = mailParties(event);
+      const verb = event.event_type === "email_quarantined" ? "quarantined" : "blocked";
+      return safe(`Email to ${who}${from ? ` from ${from}` : ""} ${verb}`, `Email to ${who} ${verb}`);
+    }
     case "sharepoint_access":
     case "sharepoint_download":
-      return `${who} accessed a file in SharePoint`;
+      return `${who} accessed ${fileName || "a file"} in SharePoint${op ? ` (${op})` : ""}`;
     case "teams_message":
       return `${who} sent a Teams message`;
     case "scheduled_task":
@@ -246,12 +321,20 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
     case "dlp_block":
       return `Data policy alert for ${who}`;
     case "ids_signature":
-    case "ids_blocked":
-      return `Intrusion detection alert${host}`;
+    case "ids_blocked": {
+      // The firewall's threat entry: its threat name / id and category (PAN-OS threatid, category).
+      const tName = rawStr(event.raw, "pan.threat_name", "panw.threat_name", "threat.name", "ids.signature_name");
+      const tId = rawStr(event.raw, "pan.threat_id", "panw.threatid", "ids.signature_id").replace(/^SID:/i, "");
+      const tCat = rawStr(event.raw, "pan.threat_category", "panw.category", "ids.category");
+      if (!tName && !tId) return `Intrusion detection alert${host}`;
+      const label = tName ? `${tName}${tId ? ` (${tId})` : ""}` : `ID ${tId}`;
+      const route = event.src_ip && event.dst_ip ? ` from ${event.src_ip} to ${event.dst_ip}${event.dst_port ? `:${event.dst_port}` : ""}` : host;
+      return safe(`Threat ${label}${tCat ? `, ${tCat}` : ""}${route}`, `Intrusion detection alert${host}`);
+    }
     case "waf_allow":
       return `Web request to ${n?.domain || "server"}`;
     case "waf_block":
-      return `Web attack blocked${host}`;
+      return `Web request blocked by the WAF${host}`;
     case "db_query":
       return `${who} ran a database query`;
     case "db_auth":
@@ -272,6 +355,8 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
     case "mfa_disabled":
       return `MFA removed from account for ${who}`;
     case "policy_modification":
+      // An Exchange / PowerShell cmdlet (New-InboxRule, Set-Mailbox) is a command the account ran.
+      if (/^[A-Z][a-z]+-[A-Za-z]+$/.test(op)) return `${who} ran ${op}`;
       return op ? `${who} changed a policy (${op})` : `Security policy modified${host}`;
     case "privileged_operation":
       return `Privileged operation performed by ${who}${host}`;
@@ -298,7 +383,7 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
     case "k8s_rbac":
       return `Kubernetes RBAC role binding changed${host}`;
     case "linux_execve":
-      return `${who} ran ${p?.name ?? "a command"}${host}`;
+      return `${who} ran ${p?.name ?? (rawStr(event.raw, "process.name", "audit.comm", "auditd.log.comm") || "a command")}${host}`;
     case "linux_cron":
       return `Cron schedule changed${host}`;
     case "linux_priv_change":
