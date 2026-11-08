@@ -5,7 +5,7 @@ import type { Ev, RosterMember } from "@/lib/team/types";
 import { EDR_ISOLATION_TYPES } from "@/lib/team/projections";
 import { friendlyActionError } from "@/lib/team/format";
 import {
-  ISOLATION_REASON_MAX, ISOLATION_REQUEST_TYPES, NO_APPROVER, SELF_APPROVER, approverLabel, isolationApprovers, isolationRequests,
+  ISOLATION_REASON_MAX, ISOLATION_REQUEST_TYPES, NO_APPROVER, SELF_APPROVER, SELF_APPROVER_ADMIN, approverLabel, isolationApprovers, isolationRequests,
   type ApproverMember, type IsolationRequest,
 } from "@/lib/team/isolationApproval";
 
@@ -68,7 +68,7 @@ export function approverNames(roster: (RosterMember & { active?: boolean })[], r
   const members: ApproverMember[] = roster.map(m => ({ user_id: m.user_id, role: m.role, status: m.status, active: online ? online.has(m.user_id) : m.active ?? true }));
   const a = isolationApprovers(members, requesterId);
   // The requester is the senior on shift (0107): the server approves their request at once.
-  if (a.selfApproves) return SELF_APPROVER;
+  if (a.selfApproves) return roster.find(m => m.user_id === requesterId)?.role === "instructor" ? SELF_APPROVER_ADMIN : SELF_APPROVER;
   // Nobody but the requester could answer it: say so, never name the requester (or a seat nobody holds).
   if (!a.userIds.length) return NO_APPROVER;
   const names = a.userIds.map(u => roster.find(m => m.user_id === u)?.name).filter(Boolean) as string[];

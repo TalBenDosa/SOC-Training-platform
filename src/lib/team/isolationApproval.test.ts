@@ -34,6 +34,12 @@ describe("isolation approver rule (same as team_isolation_can_approve, 0107)", (
     expect(canApproveIsolation(team, "t2", "ins")).toBe(true);
     expect(canApproveIsolation(team, "t2", "t2")).toBe(false);
   });
+  it("0108: the exercise admin approves their own request (they may isolate themselves)", () => {
+    const team = [m("t2", "t2"), m("t3", "t3"), m("mgr", "mgr"), m("ins", "instructor")];
+    expect(isolationApprovers(team, "ins")).toMatchObject({ tier: "mgr", selfApproves: true });
+    expect(canApproveIsolation(team, "ins", "ins")).toBe(true);
+    expect(canApproveIsolation(team, "t2", "t2")).toBe(false);
+  });
   it("the person acting counts as active even with a stale heartbeat", () => {
     expect(canApproveIsolation([m("t2", "t2"), m("mgr", "mgr", false), m("t3", "t3")], "t2", "mgr")).toBe(true);
     expect(canApproveIsolation([m("t2", "t2"), m("t3", "t3", false), m("ins", "instructor")], "t2", "t3")).toBe(true);

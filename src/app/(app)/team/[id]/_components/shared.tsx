@@ -33,5 +33,5 @@ export function Metric({ label, value, tone }: { label: string; value: string; t
  * The ONE containment rule (2026-11 review: lobby, guide, tour and console each said it differently;
  * owner 2026-11-07: isolating needs the senior on shift). Every surface quotes this text.
  */
-export const CONTAINMENT_RULE = "Contain only what your filed report and scope support, and only with approval: the senior on shift (the SOC Manager when one is on shift, otherwise the Tier-3, otherwise the exercise admin) approves before a host is isolated or an account is disabled.";
+export const CONTAINMENT_RULE = "Contain only what your filed report and scope support, and only with approval: the senior on shift (the SOC Manager when one is on shift, otherwise the Tier-3, otherwise the exercise admin) approves before a host is isolated or an account is disabled. The exercise admin may approve at any time.";
 export const CONTAINMENT_RULE_SHORT = "Report and scope first, then the senior on shift approves the containment.";

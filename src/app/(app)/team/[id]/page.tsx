@@ -60,7 +60,7 @@ import { SharedCase, caseHeadline } from "./_components/SharedCase";
 import { ShiftBar, ShiftClockView, EndCountdown, type BarNotice } from "./_components/ShiftBar";
 import { openPresenceNotices, openEndRequest, shiftClock } from "./_components/shiftClock";
 import { SeatBoard, TeamLine } from "./_components/SeatBoard";
-import { IsolationApprovals, isolationRequestsForMe } from "./_components/IsolationApprovals";
+import { IsolationApprovals, isolationRequestsForMe, canAnswerFor } from "./_components/IsolationApprovals";
 import { useDrafts, saveDraft } from "./_components/drafts";
 import { waitingCounts, titleWithCount } from "@/lib/team/teamWindowCounts";
 import { isolationRequests } from "@/lib/team/isolationApproval";
@@ -1721,6 +1721,11 @@ export default function TeamRoomPage() {
                 {/* Injects waiting for THIS player's answer, above the console (2026-10-18 review: none were handled). */}
                 {/* Isolation requests waiting for THIS viewer's answer: in the page flow at the side, never over the feed. */}
                 <IsolationApprovals sessionId={id} events={events} roster={roster} online={online} me={me} nameOf={nameOf} onError={showError} />
+                {/* 0108: account containment waiting for THIS viewer, when they are the senior on shift (a Tier-3 with no
+                    Manager) or the exercise admin. The Manager / Lead answers in their own Escalations view. */}
+                {(me.role === "t3" || me.role === "instructor") && phase === "running" && (
+                  <LeadConsole sessionId={id} events={events} nameOf={nameOf} act={act} parts={["approvals"]} canAnswer={canAnswerFor(roster, online, me.id)} hideWhenEmpty />
+                )}
                 {["t1", "t2", "t3", "de", "ti"].includes(me.role ?? "") && phase === "running" && <ActionInbox events={events} me={me} roster={roster} act={act} sessionId={id} />}
                 {me.role === "t1" && <div data-tour="t1-console"><T1Console sessionId={id} feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} actR={actR} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} /></div>}
                 {/* B12: Tier-3's dominant surface is HUNTING — render it above the (secondary) inbox. */}

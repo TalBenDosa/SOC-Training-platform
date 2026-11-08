@@ -15,14 +15,20 @@ import { HandoffDetail } from "./HandoffDetail";
 
 // ── Lead console: containment requests → approve / deny ──────────────────────
 export type LeadPart = "queue" | "approvals" | "log" | "sitrep";
-export function LeadConsole({ events, nameOf, act, parts = ["queue", "approvals", "log", "sitrep"], sessionId }: { events: Ev[]; nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; parts?: LeadPart[]; sessionId?: string }) {
+export function LeadConsole({ events, nameOf, act, parts = ["queue", "approvals", "log", "sitrep"], sessionId, canAnswer, hideWhenEmpty = false }: {
+  events: Ev[]; nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; parts?: LeadPart[]; sessionId?: string;
+  /** 0108: only the requests THIS viewer may answer (the senior on shift, or the exercise admin). */
+  canAnswer?: (requesterId: string | null) => boolean;
+  /** Render nothing when no request waits (a Tier-3 or the exercise admin, outside the Manager's view). */
+  hideWhenEmpty?: boolean;
+}) {
   const show = (p: LeadPart) => parts.includes(p);
   const [busy, setBusy] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({}); // per-request decision rationale (keyed by request seq)
   // P0-4: every pending REQUEST, keyed by its seq — a new request after a denial is
   // its own row (it used to vanish because the log's event_id was already "decided").
   const allReqs = useMemo(() => containmentRequests(events), [events]);
-  const pending = allReqs.filter(r => r.status === "pending");
+  const pending = allReqs.filter(r => r.status === "pending" && (!canAnswer || canAnswer(r.request.actor_id)));
   // A1: T2's determination/recommendation per case + the working scope, so the
   // Manager approves containment WITH the justification, not blind.
   const now = useServerNow(15_000);   // C5: backlog ages on the server clock
@@ -34,6 +40,7 @@ export function LeadConsole({ events, nameOf, act, parts = ["queue", "approvals"
   const waiting = [...escStates.values()].filter(s => s.rounds > 0 && isOpenEscalation(s)).map(s => s.request)
     .map(e => { const p = e.payload as { event_id?: string; summary?: string; what?: string; severity?: string }; const mins = e.occurred_at ? Math.max(0, Math.floor((now - Date.parse(e.occurred_at)) / 60000)) : 0; return { seq: e.seq, label: asStr(p.summary) || asStr(p.what) || "escalation", sev: asStr(p.severity), mins }; })
     .sort((a, b) => b.mins - a.mins);
+  if (hideWhenEmpty && pending.length === 0 && parts.every(p => p === "approvals")) return null;
   return (
     <div className="space-y-4">
       {/* Manager oversight — the queue state at a glance (no raw feed) */}

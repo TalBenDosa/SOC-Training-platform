@@ -287,7 +287,7 @@ export function T2Console({ events, hasTier3 = true, consoleName = "EDR", canEdr
                     <div className="mt-1.5 space-y-0.5">
                       {myReqs.map(r => { const rp = r.request.payload as { target?: string; containment_type?: string }; return (
                         <p key={r.seq} className={`text-xs ${r.status === "denied" ? "text-severity-high" : r.status === "executed" ? "text-neon-green" : "text-cyber-300"}`}>
-                          <ShieldAlert className="mr-1 inline h-3 w-3" />{containmentVerb(asStr(rp.containment_type))} <b>{asStr(rp.target) || "target"}</b>: {r.status === "pending" ? "waiting for the Manager" : r.status === "approved" ? "approved: execute below" : r.status === "executed" ? "executed" : `denied${r.decidedBy ? ` by ${nameOf(r.decidedBy)}` : ""}${r.decisionReason ? `: ${r.decisionReason}` : ""}`}
+                          <ShieldAlert className="mr-1 inline h-3 w-3" />{containmentVerb(asStr(rp.containment_type))} <b>{asStr(rp.target) || "target"}</b>: {r.status === "pending" ? "waiting for the senior on shift" : r.status === "approved" ? "approved: execute below" : r.status === "executed" ? "executed" : `denied${r.decidedBy ? ` by ${nameOf(r.decidedBy)}` : ""}${r.decisionReason ? `: ${r.decisionReason}` : ""}`}
                         </p>
                       ); })}
                     </div>

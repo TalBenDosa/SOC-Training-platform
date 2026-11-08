@@ -21,6 +21,12 @@ export function isolationRequestsForMe(events: Ev[], roster: RosterMember[], onl
   return isolationRequests(events).filter(r => r.state === "pending" && canApproveIsolation(members, r.requestedBy, meId));
 }
 
+/** May THIS viewer answer a request (isolation or account containment) by `requesterId` right now? 0108. */
+export function canAnswerFor(roster: RosterMember[], online: Set<string>, meId: string | undefined) {
+  const members: ApproverMember[] = roster.map(m => ({ user_id: m.user_id, role: m.role, status: m.status, active: online.has(m.user_id) }));
+  return (requesterId: string | null) => !!meId && requesterId !== meId && canApproveIsolation(members, requesterId, meId);
+}
+
 export function IsolationApprovals({ sessionId, events, roster, online, me, nameOf, onError }: {
   sessionId: string; events: Ev[]; roster: RosterMember[]; online: Set<string>; me: Me;
   nameOf: (u: string | null) => string; onError?: (msg: string) => void;

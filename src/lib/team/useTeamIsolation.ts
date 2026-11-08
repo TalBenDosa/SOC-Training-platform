@@ -97,5 +97,5 @@ export function useTeamIsolation(sessionId: string | null, role: string | null =
   const nameOf = useCallback((u: string | null) => (u ? roster?.find(m => m.user_id === u)?.name ?? "a teammate" : "the system"), [roster]);
 
   // Unknown role (an older link without &r=) keeps the button; the server still decides.
-  return sessionId ? { state, set, request, requests: iso?.byHost ?? new Map(), approverFor, nameOf, meId: iso?.meId ?? null, recordRtr, canContain: role === null || role === "t2" || role === "t3" } : null;
+  return sessionId ? { state, set, request, requests: iso?.byHost ?? new Map(), approverFor, nameOf, meId: iso?.meId ?? null, recordRtr, canContain: role === null || role === "t2" || role === "t3" || role === "instructor" } : null;
 }

@@ -10,6 +10,8 @@ import { AddMemberPanel } from "./AddMemberPanel";
 import { AnswerKeyPanel } from "./AnswerKeyPanel";
 import { AttackSchedule } from "./AttackSchedule";
 import { RemoveMemberButton } from "./RemoveMemberButton";
+import { requestIsolation } from "@/lib/team/useIsolationRequest";
+import { isolationState } from "@/lib/team/projections";
 
 /** Roles the reassign control offers (the route also accepts lead/de — legacy seats). Observer parks a seat without dropping the member (QA L8). */
 export const REASSIGN_ROLES = ["t1", "t2", "t3", "mgr", "ti", "observer"] as const;
@@ -47,6 +49,22 @@ export function InstructorPanel({ sessionId, roster, online, events, act, isStaf
     } finally {
       setRaBusy(false);
     }
+  }
+  // 0108 (owner, 2026-11-08): the exercise admin may isolate a host themselves. It goes through
+  // the same isolation request as everyone, and the server approves the admin's own request at once.
+  const [iso, setIso] = useState({ host: "", reason: "" });
+  const [isoBusy, setIsoBusy] = useState(false);
+  const [isoMsg, setIsoMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const isolatedNow = [...isolationState(events).values()].filter(h => h.isolated).length;
+  async function isolateHost() {
+    const host = iso.host.trim();
+    if (!host || !iso.reason.trim()) return;
+    setIsoBusy(true); setIsoMsg(null);
+    const err = await requestIsolation(sessionId, { host, reason: iso.reason });
+    setIsoBusy(false);
+    if (err) { setIsoMsg({ ok: false, text: err }); return; }
+    setIsoMsg({ ok: true, text: `${host} is isolated. The team sees it in the EDR console and the review.` });
+    setIso({ host: "", reason: "" });
   }
   async function post() {
     if (!inj.text.trim()) return;
@@ -87,6 +105,16 @@ export function InstructorPanel({ sessionId, roster, online, events, act, isStaf
         <Button variant="primary" size="sm" disabled={busy || !inj.text.trim()} onClick={post}>Send inject</Button>
         </>}
       </div>
+
+      {/* 0108: the exercise admin isolates a host directly (approved at once) */}
+      {canInject && <div className="mt-3 space-y-1.5 border-t border-border/50 pt-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Isolate a host ({isolatedNow} isolated now)</p>
+        <p className="text-[11px] text-slate-500">You may isolate any host yourself. You also approve or deny every isolation and containment request, whoever is on shift.</p>
+        <input id="admin-iso-host" aria-label="Host to isolate" value={iso.host} onChange={e => setIso(s => ({ ...s, host: e.target.value }))} placeholder="Host name (for example WS-FIN-2847)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 font-mono text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+        <input id="admin-iso-reason" aria-label="Why isolate it" value={iso.reason} onChange={e => setIso(s => ({ ...s, reason: e.target.value }))} maxLength={500} dir="auto" placeholder="Why (shown to the team and in the review)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+        <Button variant="outline" size="sm" disabled={isoBusy || !iso.host.trim() || !iso.reason.trim()} onClick={isolateHost}>{isoBusy ? "Isolating…" : "Isolate host"}</Button>
+        {isoMsg && <p role={isoMsg.ok ? "status" : "alert"} className={`text-[11px] ${isoMsg.ok ? "text-neon-green" : "text-severity-high"}`}>{isoMsg.text}</p>}
+      </div>}
 
       {/* F7: reassign a role — recover a dropped Tier-3 / Manager so the relay continues */}
       <div className="mt-3 space-y-1.5 border-t border-border/50 pt-2">

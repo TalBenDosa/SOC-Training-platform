@@ -18,7 +18,9 @@ import type { Ev } from "./types";
  *   2. Otherwise a seated, active Tier-3 (the shift senior in a role split).
  *   3. Otherwise the exercise admin in the instructor seat.
  * The exercise admin may do everything (owner, 2026-11-08): they may always approve or deny,
- * whoever is on shift. A requester who is themselves the senior on shift (a Tier-3 with no
+ * whoever is on shift, and may isolate a host themselves (their request is approved at once,
+ * owner 2026-11-08, migration 0108). The same rule answers account containment requests
+ * (containment.approved / denied, 0108). A requester who is themselves the senior on shift (a Tier-3 with no
  * active Manager) isolates on their own authority: the server approves the request at once.
  *
  * "Active" on the server = heartbeat in the last ISOLATION_ACTIVE_WINDOW_MS (the roster
@@ -77,7 +79,7 @@ export function isolationApprovers(members: ApproverMember[], requesterId: strin
   const userIds = members.filter(m => seated(m) && inTier(tier, m.role) && (tier === "staff" || m.active) && m.user_id !== requesterId).map(m => m.user_id);
   // Requesting is acting: the requester counts as active when we ask whether they are the senior.
   const me = requesterId ? members.find(m => m.user_id === requesterId && seated(m)) : undefined;
-  const selfApproves = !!me && me.role !== "instructor" && inTier(seniorTier(markActive(members, requesterId)), me.role);
+  const selfApproves = !!me && (me.role === "instructor" || inTier(seniorTier(markActive(members, requesterId)), me.role));
   const staffIds = members.filter(m => seated(m) && m.role === "instructor" && m.user_id !== requesterId).map(m => m.user_id);
   return { tier, userIds, selfApproves, staffIds };
 }
@@ -101,15 +103,16 @@ export const NO_APPROVER = "No approver on shift: an exercise admin must approve
 export const NO_APPROVER_HELP = "Nobody seated in this session can approve your request, and you cannot approve your own. Ask an exercise admin to take the instructor seat, or to seat a SOC Manager, Lead or Tier-3.";
 export const isNoApprover = (approver: string | null | undefined) => (approver ?? "").startsWith(NO_APPROVER);
 
-/** The requester is the senior on shift: no one else approves, the server isolates at once. */
+/** The requester may approve their own request (senior on shift, or the exercise admin): the server isolates at once. */
 export const SELF_APPROVER = "You, as the senior on shift";
-export const isSelfApprover = (approver: string | null | undefined) => (approver ?? "").startsWith(SELF_APPROVER);
-export const SELF_APPROVER_LINE = "You are the senior on shift: the host is isolated as soon as you send the request.";
+export const SELF_APPROVER_ADMIN = "You, as the exercise admin";
+export const isSelfApprover = (approver: string | null | undefined) => (approver ?? "").startsWith("You, as ");
+export const SELF_APPROVER_LINE = "You approve your own request: the host is isolated as soon as you send it.";
 
 /** "Waiting for approval from X", or the no-approver line when nobody but the requester could approve. */
 export function waitingForApproval(approver: string, opts: { requester?: boolean } = {}): string {
   if (isNoApprover(approver)) return `${NO_APPROVER}.${opts.requester ? ` ${NO_APPROVER_HELP}` : ""}`;
-  if (isSelfApprover(approver)) return opts.requester ? "You are the senior on shift, so it is approved at once." : "Waiting for the senior on shift";
+  if (isSelfApprover(approver)) return opts.requester ? "You approve your own request, so it is approved at once." : "Waiting for the senior on shift";
   return `Waiting for approval from ${approver}`;
 }
 
