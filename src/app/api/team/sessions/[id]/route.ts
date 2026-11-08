@@ -9,10 +9,12 @@ import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ISOLATION_ACTIVE_WINDOW_MS } from "@/lib/team/isolationApproval";
 import { sessionClock } from "@/lib/team/projections";
+import { isTeamAdmin } from "@/lib/team/teamAdmin";
 
 /**
  * One team session + its roster (Phase 0.3) — for the lobby / exercise room.
- * Readable by a member of the session OR staff of the session's org. Authorised
+ * Readable by a member of the session OR a team admin of the session's org (isTeamAdmin:
+ * org_admin or the platform owner; an org instructor reads only a session they are seated in). Authorised
  * here; DB RLS (0049) is the second gate. The reporter's identity is limited to
  * handle/display_name — no emails leak to peers.
  *
@@ -45,10 +47,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const myRow = (mem ?? []).find(m => m.user_id === user.id);
   const iAmMember = !!myRow && myRow.status !== "left";
-  const iAmStaff = user.isPlatformAdmin ||
-    ((user.orgRole === "org_admin" || user.orgRole === "instructor") && user.orgId === sess.org_id);
+  const iAmStaff = isTeamAdmin(user, sess.org_id);
   if (!iAmMember && !iAmStaff) {
-    if (myRow) return NextResponse.json({ error: "You were removed from this session by the instructor.", removed: true }, { status: 403 });
+    if (myRow) return NextResponse.json({ error: "You were removed from this session by the exercise admin.", removed: true }, { status: 403 });
     return NextResponse.json({ error: "Not your session." }, { status: 403 });
   }
 
@@ -107,11 +108,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       // Staff only: the attack plan (count + chosen storylines) — players never learn it.
       ...(iAmStaff ? { attack_plan: planFromConfig((sess as { config?: unknown }).config, (sess as { scenario_id?: string | null }).scenario_id) } : {}),
       shift_min: sanitizeShiftMinutes(((sess as { config?: { shift_min?: unknown } }).config ?? {}).shift_min),
-      // The planned length: the instructor's choice, else the size the server built the shift for.
+      // The planned length: the exercise admin's choice, else the size the server built the shift for.
       clock: sessionClock(sess as Parameters<typeof sessionClock>[0],
         sanitizeShiftMinutes(((sess as { config?: { shift_min?: unknown } }).config ?? {}).shift_min)
           ?? teamLoad((sess as { difficulty: "easy" | "medium" | "hard" }).difficulty, mem ?? []).shiftMin, nowMs) },
     roster,
-    me: { id: user.id, is_staff: iAmStaff, role: iAmMember ? (myRow?.role ?? null) : null },
+    // The "instructor" seat runs the room: only a team admin uses it. A legacy seat held by
+    // someone who is no longer one (an org instructor, a demoted admin) reads as an observer.
+    me: { id: user.id, is_staff: iAmStaff, role: iAmMember ? (myRow?.role === "instructor" && !iAmStaff ? "observer" : (myRow?.role ?? null)) : null },
   });
 }

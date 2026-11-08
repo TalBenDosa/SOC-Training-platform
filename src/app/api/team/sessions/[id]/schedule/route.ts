@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireOrgStaff } from "@/lib/auth/apiGuard";
+import { requireTeamAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/logAudit";
 import { pendingAttacks, releasePlan, shiftElapsedMs, type PendingRow } from "@/lib/team/schedule";
@@ -11,7 +11,7 @@ import { pendingAttacks, releasePlan, shiftElapsedMs, type PendingRow } from "@/
  * so it starts in a few seconds (2026-10-18 review: chosen attacks arrived after the session ended).
  */
 async function load(id: string) {
-  const gate = await requireOrgStaff("team.session.schedule");
+  const gate = await requireTeamAdmin("team.session.schedule");
   if ("error" in gate) return { error: gate.error } as const;
   const admin = getSupabaseAdminClient();
   if (!admin) return { error: NextResponse.json({ error: "Server not configured." }, { status: 503 }) } as const;

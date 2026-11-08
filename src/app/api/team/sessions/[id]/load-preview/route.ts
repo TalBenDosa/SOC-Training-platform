@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { tenantFromConfig } from "@/lib/team/tenant";
 import { envFromConfig } from "@/lib/team/environment";
 import { planFromConfig, loadWithPlan, attackCount, type AttackPlan } from "@/lib/team/attackPlan";
-import { requireOrgStaff } from "@/lib/auth/apiGuard";
+import { requireTeamAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildFittedTimeline } from "@/lib/team/fitTimeline";
 import { teamLoad, withShiftMinutes, sanitizeShiftMinutes, SHIFT_CHOICES } from "@/lib/team/load";
@@ -14,13 +14,13 @@ import { sanitizeStack } from "@/lib/logs/native/stack";
  *
  * Builds the exercise exactly as /start would (same plan, roster, shift, products, seed) WITHOUT
  * saving anything, and measures the work it asks of each tier (workloadPreview.ts). When it is
- * more than the team can do, it also measures the alternatives the instructor can pick: one
+ * more than the team can do, it also measures the alternatives the exercise admin can pick: one
  * storyline fewer, a longer shift, one more Tier-1 analyst (Tal, 2026-10-25: "I don't want a
  * negative overload like the first exercise").
  */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const gate = await requireOrgStaff("team.session.start");
+  const gate = await requireTeamAdmin("team.session.start");
   if ("error" in gate) return gate.error;
   const { user } = gate;
   const admin = getSupabaseAdminClient();

@@ -92,6 +92,7 @@ import { WarRoom } from "./_components/WarRoom";
 import type { QueueStats } from "./_components/QueueBoard";
 import { TeamIntel } from "./_components/TeamIntel";
 import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
+import { teamRoomGate } from "../_lib/gating";
 
 const OPEN_CASE_COPY = { title: "Open a case on this log", hint: "You found it: start the case yourself and own it" };
 
@@ -174,7 +175,7 @@ export default function TeamRoomPage() {
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   const dismiss = useCallback((k: string) => setDismissed(s => new Set(s).add(k)), []);
   const [hostsOpen, setHostsOpen] = useState(false);
-  // Ending: staff choose "in 2 minutes" (default) or "now"; a trainee Manager asks the instructor.
+  // Ending: the exercise admin chooses "in 2 minutes" (default) or "now"; a trainee Manager asks the exercise admin.
   const [endAsk, setEndAsk] = useState<{ warn: string } | null>(null);
   const [endNote, setEndNote] = useState<string | null>(null);
   // Lobby: the briefing is open on the first visit, folded after; a pop-up test for the Sentinel window.
@@ -503,7 +504,7 @@ export default function TeamRoomPage() {
   }
   // End (2026-11 review: End threw everyone into the review mid-sentence). The server ends the shift
   // two minutes after "scheduled" so everyone can send what they are writing; "now" skips the wait;
-  // "cancel" stops a scheduled end. A trainee SOC Manager asks the instructor first when one is online.
+  // "cancel" stops a scheduled end. A trainee SOC Manager asks the exercise admin first when one is online.
   async function postEnd(mode: "scheduled" | "now" | "cancel") {
     setBusy(true); setError(null);
     const res = await fetch(`/api/team/sessions/${id}/end`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode }) }).catch(() => null);
@@ -517,7 +518,7 @@ export default function TeamRoomPage() {
     if (phase === "lobby") { if (confirm("Close this session for the whole team? It cannot be reopened.")) await postEnd("now"); return; }
     if (me?.role === "mgr" && !me.is_staff && instructor && online.has(instructor.user_id)) {
       const ok = await act("message.sent", { text: "The SOC Manager asks to end the shift.", kind: "end_request" });
-      if (ok) setEndNote("You asked the instructor to end the shift. The shift goes on until they decide.");
+      if (ok) setEndNote("You asked the exercise admin to end the shift. The shift goes on until they decide.");
       return;
     }
     // Staff see what ending skips: planned attacks that never reached the feed (2026-10-18 review).
@@ -548,7 +549,9 @@ export default function TeamRoomPage() {
   const hasManager = roster.some(r => (r.role === "mgr" || r.role === "lead") && r.status !== "left");
   const iAmPlayer = !!(me && me.role && me.role !== "instructor" && me.role !== "observer");
   const iAmReady = !!(me && readyMap[me.id]);
-  const canRunSession = !!(me && (me.is_staff || me.role === "mgr")); // who may end/manage
+  // Who may run what (owner decision 2026-11): is_staff is a team admin of this org (server-decided).
+  const gate = teamRoomGate(me);
+  const canRunSession = gate.canRunShift; // who may pause / end
   // QA M1 (staff view): invitees whose access to the organisation expired can never mark ready.
   const lapsedPlayers = players.filter(p => p.lapsed);
   // QA L3: the products the session runs on (the categories changed from the company's own).
@@ -610,7 +613,7 @@ export default function TeamRoomPage() {
   // non-blocking notice in the shift bar (presence.notice from the server, or this browser's view).
   const haltActive = phase === "running" && paused;
   const pausedBy = useMemo(() => { let ev: Ev | null = null; for (const e of events) if (e.type === "session.paused") ev = e; return ev?.actor_id ?? null; }, [events]);
-  const haltMessage = paused ? (pausedBy ? `Paused by ${roster.find(r => r.user_id === pausedBy)?.name ?? "the instructor"}.` : "The shift is paused.") : "";
+  const haltMessage = paused ? (pausedBy ? `Paused by ${roster.find(r => r.user_id === pausedBy)?.name ?? "the exercise admin"}.` : "The shift is paused.") : "";
   // The halt overlay is a blocking alert dialog: move focus into it when it appears
   // (no trap — it may coexist with another modal's trap; aria-modal hides the rest).
   const haltRef = useRef<HTMLDivElement>(null);
@@ -1169,7 +1172,7 @@ export default function TeamRoomPage() {
   if (loading) return <div className="flex items-center gap-2 p-6 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>;
   if (removed) return (
     <div className="p-6"><div className="flex items-start gap-2 rounded-lg border border-neon-amber/40 bg-neon-amber/[0.08] px-4 py-3 text-sm text-neon-amber"><UserMinus className="mt-0.5 h-4 w-4 shrink-0" />
-      <span>{removed} Anything you did before that still counts in the shift review. Ask your instructor if this was a mistake: they can add you back.</span></div>
+      <span>{removed} Anything you did before that still counts in the shift review. Ask the exercise admin if this was a mistake: they can add you back.</span></div>
       <Link href="/team" className="mt-3 inline-flex items-center gap-1 text-sm text-cyber-300"><ArrowLeft className="h-4 w-4" /> Back to team training</Link></div>
   );
   // Endpoint alerts and the investigation console, for the analysts (muted until an EDR alert arrives).
@@ -1410,11 +1413,11 @@ export default function TeamRoomPage() {
               if (clk.endsAt) notices.push({ key: "end", tone: "warn", urgent: true,
                 text: <>The shift ends in <EndCountdown endsAt={clk.endsAt} />. Send what you are writing now: anything unsent is kept as a draft and shown with your card in the review.</>,
                 actions: canRunSession ? btn("Cancel the end", () => { void postEnd("cancel"); }) : undefined });
-              else if (clk.overtime && !dismissed.has("overtime")) notices.push({ key: "overtime", tone: "info", text: "The planned shift time is reached. Finish what you are working on: the shift ends when the instructor ends it.", onDismiss: () => dismiss("overtime") });
+              else if (clk.overtime && !dismissed.has("overtime")) notices.push({ key: "overtime", tone: "info", text: "The planned shift time is reached. Finish what you are working on: the shift ends when the exercise admin ends it.", onDismiss: () => dismiss("overtime") });
               const endReq = me.is_staff ? openEndRequest(events) : null;
               if (endReq && !dismissed.has(`endreq-${endReq.seq}`)) notices.push({ key: `endreq-${endReq.seq}`, tone: "warn", urgent: true,
                 text: <><bdi>{nameOf(endReq.actor_id)}</bdi> (SOC Manager) asks to end the shift.</>,
-                actions: <>{btn("End in 2 minutes", () => { void postEnd("scheduled"); }, true)}{btn("Not yet", () => { dismiss(`endreq-${endReq.seq}`); void act("message.sent", { text: "The instructor asks to keep the shift going for now.", kind: "end_request_declined" }); })}</> });
+                actions: <>{btn("End in 2 minutes", () => { void postEnd("scheduled"); }, true)}{btn("Not yet", () => { dismiss(`endreq-${endReq.seq}`); void act("message.sent", { text: "The exercise admin asks to keep the shift going for now.", kind: "end_request_declined" }); })}</> });
               if (endNote) notices.push({ key: "endnote", tone: "good", text: endNote, onDismiss: () => setEndNote(null) });
               const isoForMe = isolationRequestsForMe(events, roster, online, me.id);
               if (isoForMe.length) notices.push({ key: "iso", tone: "alert", urgent: true,
@@ -1425,7 +1428,7 @@ export default function TeamRoomPage() {
               // Who is missing: the server's notice (it replaced the automatic pauses), else this browser's view.
               const pres = openPresenceNotices(events);
               for (const n of pres) if (!dismissed.has(`pres-${n.seq}`)) notices.push({ key: `pres-${n.seq}`, tone: "warn", onDismiss: () => dismiss(`pres-${n.seq}`),
-                text: n.kind === "owner_left" ? "The instructor dropped out of the live room. The shift goes on."
+                text: n.kind === "owner_left" ? "The exercise admin dropped out of the live room. The shift goes on."
                   : n.kind === "everyone_left" ? "No player is online. The shift goes on."
                   : `${n.missing.length ? `No ${n.missing.map(r => ROLE_LABEL[r] ?? r).join(" and no ")} online` : (n.detail || "Part of the team is offline")}. The shift goes on: cover their work.` });
               if (!pres.length && haltConfirmed && haltReason) notices.push({ key: "halt", tone: "warn", text: `${haltReason} The shift goes on.` });
@@ -1460,7 +1463,7 @@ export default function TeamRoomPage() {
                       ? <span className="inline-flex items-center gap-1 text-neon-amber" title="Realtime is up but the catch-up sync is failing: some logs may arrive late."><AlertTriangle className="h-3.5 w-3.5" aria-hidden /> Syncing</span>
                       : <span className="inline-flex items-center gap-1 text-neon-amber" title="Reconnecting to the live room: missed logs are fetched automatically."><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Reconnecting</span>}
                   clock={<><ShiftClockView events={events} startedAt={startedAtIso} plannedMs={plannedMs} />{beatUnstable && <span className="rounded border border-neon-amber/40 px-1 text-[11px] text-neon-amber" title="Your presence pings are not reaching the server.">Connection unstable</span>}</>}
-                  role={<span className="rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase text-cyber-300">{ROLE_LABEL[me.role ?? ""] ?? (me.is_staff ? "Instructor" : "Observer")}</span>}
+                  role={<span className="rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase text-cyber-300">{ROLE_LABEL[me.role ?? ""] ?? (me.is_staff ? "Exercise admin" : "Observer")}</span>}
                   stats={<span data-tour="queue-board" className="text-[11px] text-slate-400" title="The SOC queue: alerts waiting with nobody on them, past their triage SLA, escalated and open, closed by Tier-1">
                     <b className="text-slate-200">{queueStats.inQueue}</b> waiting{queueStats.oldestMins ? ` (oldest ${queueStats.oldestMins}m)` : ""} · <b className={queueStats.breached ? "text-severity-high" : "text-slate-200"}>{queueStats.breached}</b> past SLA · <b className="text-neon-amber">{queueStats.escalatedOpen}</b> escalated · <b className="text-neon-green">{queueStats.closed}</b> closed</span>}
                   controls={<>
@@ -1713,10 +1716,10 @@ export default function TeamRoomPage() {
                 {/* The manager's consoles live behind the menu (one view at a time, no visual overload). */}
                 {me.role === "de" && <DEConsole liveFeed={liveFeed} events={events} act={act} />}
                 {me.role === "ti" && <TIConsole events={events} feed={feed} nameOf={nameOf} act={act} />}
-                {/* QA L4: another instructor of the org (staff, no seat in this session) gets the panel too — every
-                    staff tool except the inject composer, which posts as the session's instructor seat. */}
-                {(me.role === "instructor" || (me.is_staff && !me.role)) && <SeatBoard events={events} roster={roster} online={online} now={nowTick} startedAt={(session as { started_at?: string | null } | null)?.started_at ? Date.parse((session as { started_at?: string }).started_at!) : null} act={act} nameOf={nameOf} />}
-                {(me.role === "instructor" || (me.is_staff && !me.role)) && <div data-tour="instructor-panel"><InstructorPanel sessionId={id} roster={roster} online={online} events={events} act={act} isStaff={!!me.is_staff} nameOf={nameOf} canInject={me.role === "instructor"} onError={showError} /></div>}
+                {/* QA L4 + owner decision 2026-11: a team admin in the instructor seat, or one with no seat in
+                    this session, gets the Seats board and the panel; injects only from the instructor seat. */}
+                {gate.runsRoom && <SeatBoard events={events} roster={roster} online={online} now={nowTick} startedAt={(session as { started_at?: string | null } | null)?.started_at ? Date.parse((session as { started_at?: string }).started_at!) : null} act={act} nameOf={nameOf} />}
+                {gate.runsRoom && <div data-tour="instructor-panel"><InstructorPanel sessionId={id} roster={roster} online={online} events={events} act={act} isStaff={gate.admin} nameOf={nameOf} canInject={gate.canInject} onError={showError} /></div>}
                 {/* The team chat sits with the role panels, never under the feed: a chat under the
                     log list covered the log being read (Tal, 2026-10-08). It folds to one line. */}
                 <div data-tour="chat"><WarRoom sessionId={id} events={events} me={me} nameOf={nameOf} act={act} onOpenLog={openSharedLog} /></div>
@@ -1733,7 +1736,7 @@ export default function TeamRoomPage() {
 
         {phase === "ended" && me && (
           <>
-            {endReason === "owner_left" && <div className="flex items-center gap-2 rounded-lg border border-neon-amber/40 bg-neon-amber/[0.08] px-4 py-3 text-sm text-neon-amber"><LogOut className="h-4 w-4 shrink-0" /> The session owner (instructor) left the live room, so the session was closed automatically.</div>}
+            {endReason === "owner_left" && <div className="flex items-center gap-2 rounded-lg border border-neon-amber/40 bg-neon-amber/[0.08] px-4 py-3 text-sm text-neon-amber"><LogOut className="h-4 w-4 shrink-0" /> The exercise admin left the live room, so the session was closed automatically.</div>}
             {myDrafts.length > 0 && (
               <Card className="border-neon-amber/40">
                 <h2 className="text-sm font-bold text-white">Your unsent drafts ({myDrafts.length})</h2>

@@ -26,6 +26,7 @@ import { getValidatedAuth } from "@/lib/auth/validatedUser";
 import { logAudit } from "@/lib/audit/logAudit";
 import { decodeOrgClaim } from "@/lib/auth/orgClaim";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isTeamAdmin, TEAM_ADMIN_ONLY } from "@/lib/team/teamAdmin";
 
 export interface AuthedUser {
   id: string;
@@ -176,12 +177,12 @@ export async function requireOrgAdmin(action?: string): Promise<Gate> {
 }
 
 /**
- * Gate an org-STAFF action (session-runner): org_admin OR instructor of their own
- * org, plus platform super-admin. Used where an instructor is meant to run a team
- * exercise (start / reassign / add members) — requireOrgAdmin fail-closed and
- * excluded instructors, which the rest of the team feature treats as staff. Audited.
+ * Gate a TEAM TRAINING admin action (create / start / reassign / seat / schedule a
+ * team exercise): an org_admin of their own org, or the platform super-admin
+ * (isTeamAdmin, owner decision 2026-11). The org role `instructor` is refused.
+ * Team routes only: assignments and media keep their own gates. Audited.
  */
-export async function requireOrgStaff(action?: string): Promise<Gate> {
+export async function requireTeamAdmin(action?: string): Promise<Gate> {
   const user = await getAuthedUser();
   if (!user) {
     return { error: NextResponse.json({ error: "Authentication required." }, { status: 401 }) };
@@ -189,10 +190,9 @@ export async function requireOrgStaff(action?: string): Promise<Gate> {
   if (user.orgActive === false && !user.isPlatformAdmin) {
     return { error: NextResponse.json({ error: "Your college's licence isn't active. Contact your administrator." }, { status: 403 }) };
   }
-  const ok = user.isPlatformAdmin || ((user.orgRole === "org_admin" || user.orgRole === "instructor") && !!user.orgId);
-  if (!ok) {
+  if (!isTeamAdmin(user, user.orgId)) {
     if (action) await logAudit({ actorId: user.id, action: `${action}.denied`, metadata: { orgRole: user.orgRole } });
-    return { error: NextResponse.json({ error: "Instructor or organisation-admin access required." }, { status: 403 }) };
+    return { error: NextResponse.json({ error: TEAM_ADMIN_ONLY }, { status: 403 }) };
   }
   if (action) await logAudit({ actorId: user.id, action, metadata: { orgId: user.orgId } });
   return { user };

@@ -7,8 +7,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fakeAdmin, user, type Op, type Result } from "../_testing/fakeAdmin";
 
 vi.mock("server-only", () => ({}));
-const state = { fits: true, ops: [] as Op[], rosterError: null as Result["error"] };
-vi.mock("@/lib/auth/apiGuard", () => ({ requireOrgStaff: vi.fn(async () => ({ user: user() })), getAuthedUser: vi.fn(async () => user()) }));
+const state = { fits: true, ops: [] as Op[], rosterError: null as Result["error"], viewer: user() };
+vi.mock("@/lib/auth/apiGuard", () => ({ requireTeamAdmin: vi.fn(async () => ({ user: user() })), getAuthedUser: vi.fn(async () => state.viewer) }));
 vi.mock("@/lib/team/buildTimeline", () => ({
   resolveTeamStory: vi.fn((_c: string, _d: string, id: string | null) => (id === "known" ? { id, events: [] } : null)),
   teamStoryFilter: vi.fn(() => () => state.fits),
@@ -19,15 +19,20 @@ const handler = (op: Op): Result => {
   if (op.table === "org_members") return { data: [{ user_id: A }, { user_id: B }] };
   if (op.table === "team_sessions" && op.action === "insert") return { data: { id: "s-new" } };
   if (op.table === "team_session_members" && op.action === "insert") return { error: state.rosterError };
+  // GET: my memberships, the org's sessions (team admin) or my sessions by id (everyone else).
+  if (op.table === "team_session_members" && op.filters.some(f => f[1] === "user_id")) return { data: [{ session_id: "s-legacy", role: "instructor", status: "active" }, { session_id: "s-play", role: "t1", status: "active" }] };
+  if (op.table === "team_session_members") return { data: [] };
+  if (op.table === "team_sessions" && op.filters.some(f => f[0] === "eq" && f[1] === "org_id")) return { data: [{ id: "s-other", org_id: "org1", seed: "S" }, { id: "s-legacy", org_id: "org1", seed: "S" }, { id: "s-play", org_id: "org1", seed: "S" }] };
+  if (op.table === "team_sessions" && op.filters.some(f => f[0] === "in" && f[1] === "id")) return { data: [{ id: "s-legacy", org_id: "org1", seed: "S" }, { id: "s-play", org_id: "org1", seed: "S" }] };
   return { data: null };
 };
 vi.mock("@/lib/supabase/admin", () => ({ getSupabaseAdminClient: () => fakeAdmin(handler).client }));
 
-const { POST } = await import("./route");
+const { POST, GET } = await import("./route");
 const create = (body: Record<string, unknown>) => POST(new Request("https://x", { method: "POST", body: JSON.stringify({ company_id: "nexacorp", difficulty: "medium", ...body }) }));
 const rosterRows = () => state.ops.find(o => o.table === "team_session_members" && o.action === "insert")?.payload as { user_id: string; role: string }[];
 
-beforeEach(() => { state.fits = true; state.ops = []; state.rosterError = null; });
+beforeEach(() => { state.fits = true; state.ops = []; state.rosterError = null; state.viewer = user(); });
 
 describe("POST /api/team/sessions", () => {
   it("a named organization: English-only, validated on the server, stored on the template environment", async () => {
@@ -86,3 +91,26 @@ describe("POST /api/team/sessions", () => {
     expect(state.ops.some(o => o.table === "team_sessions" && o.action === "delete")).toBe(true);
   });
 });
+
+describe("GET /api/team/sessions: owner decision 2026-11", () => {
+  type Row = { id: string; my_role: string | null; seed?: string };
+  const list = async () => (await (await GET()).json()) as { sessions: Row[]; is_staff: boolean };
+
+  it("an org admin lists every session of the org, with the staff fields", async () => {
+    const body = await list();
+    expect(body.is_staff).toBe(true);
+    expect(body.sessions.map(s => s.id)).toEqual(["s-other", "s-legacy", "s-play"]);
+    expect(body.sessions[0].seed).toBe("S");
+    expect(body.sessions.find(s => s.id === "s-legacy")?.my_role).toBe("instructor");
+  });
+
+  it("an org instructor lists only the sessions they are seated in, redacted, a legacy instructor seat shown as observer", async () => {
+    state.viewer = user({ orgRole: "instructor" });
+    const body = await list();
+    expect(body.is_staff).toBe(false);
+    expect(body.sessions.map(s => s.id)).toEqual(["s-legacy", "s-play"]);
+    expect(body.sessions.every(s => s.seed === undefined)).toBe(true);
+    expect(Object.fromEntries(body.sessions.map(s => [s.id, s.my_role]))).toEqual({ "s-legacy": "observer", "s-play": "t1" });
+  });
+});
+

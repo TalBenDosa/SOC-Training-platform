@@ -3,6 +3,8 @@ import { source, kindOf } from "./proofpoint";
 import { validateNative } from "../validate";
 import { cardSamples, corpus } from "../testing/corpus";
 import type { NativeLog } from "../types";
+import type { TelemetryEvent } from "@/lib/sim/types";
+import { emailFacts } from "./collab-email-shared";
 import { convertAll, hasMailVerdict, highFired, hitCounts, isNativeVendor, isPlanted, present, strings } from "./collab-email-testkit";
 
 const schema = source.schema;
@@ -37,7 +39,12 @@ describe("proofpoint — card samples", () => {
 describe("proofpoint — corpus conversion", () => {
   it("validates; native 100 %; Defender-authored threats rendered, clean mail null", () => {
     for (const c of all) if (c.log) expect(validateNative(c.log, schema), c.ce.ev.id).toEqual([]);
-    const native = converted.filter(c => isNativeVendor(source, c.ce.ev));
+    // Native rows TAP SIEM reports on: inbound threat mail. A clean delivery authored as a
+    // benign control (expected fp / baseline) or an internal message never has a TAP record.
+    const inTapScope = (ev: TelemetryEvent) => !(ev.expected_verdict === "fp" || ev.is_baseline) && emailFacts(ev).direction === "Inbound";
+    const native = converted.filter(c => isNativeVendor(source, c.ce.ev) && inTapScope(c.ce.ev));
+    const outOfScope = converted.filter(c => isNativeVendor(source, c.ce.ev) && !inTapScope(c.ce.ev));
+    for (const c of outOfScope) expect(c.log, `${c.ce.ev.id} has no TAP record`).toBeNull();
     const cross = all.filter(c => !isNativeVendor(source, c.ce.ev));
     console.log(`[proofpoint] native ${native.filter(c => c.log).length}/${native.length}; cross-vendor (Defender/UAL-authored mail) ${cross.filter(c => c.log).length}/${cross.length}`);
     console.log(`[proofpoint] cross-vendor nulls (no TAP threat event / outbound / post-delivery): ${cross.filter(c => !c.log).map(c => c.ce.ev.id).join(", ")}`);

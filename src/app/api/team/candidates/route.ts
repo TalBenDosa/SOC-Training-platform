@@ -1,7 +1,7 @@
 import { quotaOf } from "@/lib/team/quota";
 import { NextResponse } from "next/server";
 import { asObject } from "@/lib/http/body";
-import { requireOrgStaff } from "@/lib/auth/apiGuard";
+import { requireTeamAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isRootOrg, ROOT_ENVIRONMENT_LABEL } from "@/lib/org/rootEnvironment";
 import { liveAffiliationFilter } from "@/lib/team/membership";
@@ -17,10 +17,10 @@ import { liveAffiliationFilter } from "@/lib/team/membership";
  * switcher (which restamps the JWT org); the response names the org so the
  * builder can say where it's inviting from.
  *
- * Same gate as creating a session (org staff: org_admin, instructor or platform admin) — this endpoint must
+ * Same gate as creating a session (a team admin: org_admin of the org, or the platform owner): this endpoint must
  * not widen who can enumerate an org's members. Platform super-admins are
  * invisible to per-org views (as in /api/org/members) and the caller is omitted
- * (they join as the instructor). Members whose affiliation has EXPIRED are not
+ * (they take the instructor seat). Members whose affiliation has EXPIRED are not
  * candidates either (QA M1): they couldn't mark ready and would wedge Start.
  *
  *  GET  — { org: { id, name, is_root }, members: [{ user_id, display_name, handle, role }] }
@@ -31,7 +31,7 @@ import { liveAffiliationFilter } from "@/lib/team/membership";
  */
 
 async function gate() {
-  const g = await requireOrgStaff("team.candidates");
+  const g = await requireTeamAdmin("team.candidates");
   if ("error" in g) return { error: g.error } as const;
   const orgId = g.user.orgId;
   if (!orgId) return { error: NextResponse.json({ error: "No organisation in session." }, { status: 400 }) } as const;

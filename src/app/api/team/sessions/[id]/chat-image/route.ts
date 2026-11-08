@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { activeSeat } from "@/lib/team/membership";
+import { isTeamAdmin } from "@/lib/team/teamAdmin";
 
 /**
  * Team chat images (screenshots shared in the war room).
@@ -98,8 +99,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   const sess = await sessionOf(admin, id);
   if (!sess) return NextResponse.json({ error: "Not found." }, { status: 404 });
-  const iAmStaff = user.isPlatformAdmin ||
-    ((user.orgRole === "org_admin" || user.orgRole === "instructor") && user.orgId === sess.org_id);
+  const iAmStaff = isTeamAdmin(user, sess.org_id);
   if (!iAmStaff) {
     const { data: mem } = await admin.from("team_session_members").select("role").eq("session_id", id).eq("user_id", user.id).maybeSingle();
     if (!mem) return NextResponse.json({ error: "Not your session." }, { status: 403 });

@@ -32,7 +32,7 @@ vi.mock("@/lib/supabase/admin", () => ({
   }),
 }));
 
-const { getAuthedUser, requireOrgAdmin, requireOrgStaff, requireSuperAdmin } = await import("./apiGuard");
+const { getAuthedUser, requireOrgAdmin, requireTeamAdmin, requireSuperAdmin } = await import("./apiGuard");
 
 beforeEach(() => {
   st.claims = { org_id: "org1", org_name: "College", org_role: "org_admin", is_platform_admin: false, org_active: true };
@@ -56,7 +56,17 @@ describe("API gates read privilege from the DB", () => {
 
   it("a deactivated member is refused", async () => {
     st.member = { ...st.member!, status: "removed" };
-    expect("error" in (await requireOrgStaff())).toBe(true);
+    expect("error" in (await requireTeamAdmin())).toBe(true);
+  });
+
+  it("team training: an org admin passes requireTeamAdmin, an org instructor is refused (owner decision 2026-11)", async () => {
+    expect("user" in (await requireTeamAdmin())).toBe(true);
+    st.member = { ...st.member!, role: "instructor" };
+    const g = await requireTeamAdmin();
+    expect("error" in g && g.error.status).toBe(403);
+    if ("error" in g) expect((await g.error.json()).error).toMatch(/organization admin/);
+    st.profile = { role: "analyst", is_platform_admin: true };
+    expect("user" in (await requireTeamAdmin())).toBe(true);   // the platform owner always runs it
   });
 
   it("a DEMOTED admin gets the DB role, not the token's", async () => {
@@ -78,7 +88,7 @@ describe("API gates read privilege from the DB", () => {
     ["expired by date", { status: "active", expires_at: "2020-01-01T00:00:00Z" }],
   ])("a %s college's staff are refused with the licence message", async (_l, org) => {
     st.member = { ...st.member!, organizations: org };
-    const g = await requireOrgStaff();
+    const g = await requireTeamAdmin();
     expect("error" in g).toBe(true);
     if ("error" in g) { expect(g.error.status).toBe(403); expect((await g.error.json()).error).toMatch(/licence/); }
   });

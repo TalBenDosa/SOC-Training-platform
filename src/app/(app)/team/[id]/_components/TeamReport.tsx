@@ -770,13 +770,15 @@ function StoryCard({ s, inc }: { s: AttackStory; inc?: IncidentReport }) {
 /**
  * The after-action report. v2+ (and legacy) sessions are scored SERVER-SIDE from the
  * full log with the answer key joined back (audit A1/S4): everyone sees the same
- * numbers, and a non-staff viewer only ever receives their own card (S9). The live
+ * numbers, and anyone but a team admin only ever receives their own card (S9). The live
  * room never had the answer key; it is revealed here, after the shift, to rebuild
  * the hot-wash and handoff ladder.
  *
  * Order (review 2026-11): you first (one card per player), then the team headline, the hot-wash,
- * and the detail folded by section. Staff can switch to the debrief mode for a shared screen.
- * The SOC Manager (a trainee) still sees every teammate's card, as before: an owner decision.
+ * and the detail folded by section. The exercise admin can switch to the debrief mode for a shared screen.
+ * Owner decision 2026-11: only a team admin (`seesAll`: an org_admin of the session's org, or the
+ * platform owner) sees "Each player" and exports the CSV. The trainee SOC Manager sees their own
+ * card and the team-level numbers, like any player.
  */
 /** Quiet retries while another request builds the report (~30 s at 2 s apart). */
 export const REPORT_BUILD_RETRIES = 15;
@@ -837,7 +839,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
   const { team, perUser } = report;
   const managerReview = (report.managerReview ?? null) as ManagerReview | null;
   const mgrGraded = !!managerReview && !managerReview.redacted;
-  // The server already limited this to my card unless I'm staff / the Manager. The Manager's
+  // The server already limited this to my card unless I'm a team admin. The Manager's
   // own work is graded in the Command Review, so their generic card steps aside for it.
   const visible = mgrGraded ? perUser.filter(u => u.user_id !== managerReview!.managerId) : perUser;
 
@@ -941,7 +943,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
           <h2 className="text-base font-bold text-white">Shift review: the team</h2>
           <span className="ml-auto flex flex-wrap gap-2">
             {me.is_staff && <Button ref={debriefBtn} variant="primary" size="sm" onClick={() => setDebrief(true)}><Presentation className="mr-1.5 h-4 w-4" aria-hidden />Debrief mode</Button>}
-            {me.is_staff && seesAll && <Button variant="outline" size="sm" onClick={exportCsv}>Export CSV</Button>}
+            {seesAll && <Button variant="outline" size="sm" onClick={exportCsv}>Export CSV</Button>}
           </span>
         </div>
         <p className="mt-0.5 text-xs text-slate-400">A no-fault learning debrief: surfacing and fixing a mistake scores <b className="text-slate-300">for</b> you, not against. Start with the hot-wash below; the numbers support the conversation.</p>

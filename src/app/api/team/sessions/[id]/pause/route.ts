@@ -4,6 +4,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { teamTransition } from "@/lib/team/transition";
 import { logAudit } from "@/lib/audit/logAudit";
 import { activeSeat } from "@/lib/team/membership";
+import { isTeamAdmin } from "@/lib/team/teamAdmin";
 
 /**
  * Pause / resume a team session: a MANUAL human call only, by staff of the org or the
@@ -41,8 +42,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { data: sess } = await admin.from("team_sessions").select("org_id, status").eq("id", id).maybeSingle();
   if (!sess) return NextResponse.json({ error: "Session not found." }, { status: 404 });
 
-  const isStaff = user.isPlatformAdmin ||
-    ((user.orgRole === "org_admin" || user.orgRole === "instructor") && user.orgId === sess.org_id);
+  const isStaff = isTeamAdmin(user, sess.org_id);
   let isManager = false;
   if (!isStaff) {
     const seat = await activeSeat(admin, id, sess.org_id, user.id);   // lapsed affiliation ⇒ no seat
@@ -50,7 +50,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     isManager = seat.role === "mgr";
   }
   if (!isStaff && !isManager) {
-    return NextResponse.json({ error: "Only the instructor or the SOC Manager can pause or resume the session." }, { status: 403 });
+    return NextResponse.json({ error: "Only the exercise admin or the SOC Manager can pause or resume the session." }, { status: 403 });
   }
   if (["ended", "debriefed"].includes(sess.status)) return NextResponse.json({ error: "This session is closed." }, { status: 409 });
 

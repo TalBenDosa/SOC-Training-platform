@@ -224,17 +224,40 @@ describe("TeamReport (shift review) — v3 sections", () => {
     expect(c.textContent).toContain("Shift review: the team");
   });
 
-  it("review 2026-11: the trainee SOC Manager still sees every teammate's card (owner decision pending)", async () => {
+  it("owner decision 2026-11: the trainee SOC Manager sees their own card and the team numbers, no teammate's card, no CSV", async () => {
     const events = shift();
     const mgrRoster: RosterMember[] = [...roster, { user_id: "m", role: "mgr", status: "ready", name: "Noa", handle: null }];
     const report = computeReport(events, mgrRoster);
-    const c = await render(events, { team: report.team, perUser: report.perUser, managerReview: report.managerReview, answers: {}, seesAll: true }, { id: "m", is_staff: false, role: "mgr" }, mgrRoster);
+    // The route now sends the Manager only their own card (seesAll false), the Command Review whole.
+    const c = await render(events, { team: report.team, perUser: report.perUser.filter(u => u.user_id === "m"), managerReview: report.managerReview, answers: {}, seesAll: false }, { id: "m", is_staff: false, role: "mgr" }, mgrRoster);
     const text = c.textContent ?? "";
     expect(text).toContain("Your shift");
     expect(text).toContain("Command Review score");
-    expect(text).toContain("Each player");
-    expect(text).toContain("Dana");
-    expect(text).toContain("Omer");
+    expect(text).toContain("Shift review: the team");
+    expect(text).not.toContain("Each player");
+    expect(c.querySelector("#rep-each")).toBeNull();
+    const buttons = [...c.querySelectorAll("button")].map(b => b.textContent ?? "");
+    expect(buttons.some(t => /Export CSV/.test(t))).toBe(false);
+    expect(buttons.some(t => /Debrief mode/.test(t))).toBe(false);
+  });
+
+  it("owner decision 2026-11: a team admin sees each player and can export the CSV", async () => {
+    const events = shift();
+    const report = computeReport(events, roster);
+    const c = await render(events, { team: report.team, perUser: report.perUser, answers: {}, seesAll: true }, { id: "x", is_staff: true, role: "instructor" });
+    expect(c.textContent).toContain("Each player");
+    const buttons = [...c.querySelectorAll("button")].map(b => b.textContent ?? "");
+    expect(buttons.some(t => /Export CSV/.test(t))).toBe(true);
+    expect(buttons.some(t => /Debrief mode/.test(t))).toBe(true);
+  });
+
+  it("owner decision 2026-11: without seesAll there is no Each player and no CSV, whatever else the payload carries", async () => {
+    const events = shift();
+    const report = computeReport(events, roster);
+    // An org instructor seated as t1: a player's view.
+    const c = await render(events, { team: report.team, perUser: report.perUser, answers: {}, seesAll: false }, { id: "a", is_staff: false, role: "t1" });
+    expect(c.textContent).not.toContain("Each player");
+    expect([...c.querySelectorAll("button")].some(b => /Export CSV/.test(b.textContent ?? ""))).toBe(false);
   });
   it("review 2026-11: shows the shift's truth, the pauses, self-opened cases and isolation requests from the server report", async () => {
     const events = shift();

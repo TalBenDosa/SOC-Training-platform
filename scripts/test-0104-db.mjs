@@ -19,6 +19,8 @@ await q(`insert into public.organizations (id,name,slug,seat_limit,status,starts
 await q(`insert into public.org_codes (org_id, code, expires_at) values ($1,'CODE0104', now() + interval '1 day')`, [org]);
 const signup = async email => { const id = randomUUID(); await q(`insert into auth.users (id,email,raw_user_meta_data) values ($1,$2,$3)`, [id, email, JSON.stringify({ org_code: "CODE0104" })]); return id; };
 const [t1, t2, t3, t3b, mgr, ins] = [await signup("t1@x.test"), await signup("t2@x.test"), await signup("t3@x.test"), await signup("t3b@x.test"), await signup("mgr@x.test"), await signup("ins@x.test")];
+// 0106: the instructor seat is held only by an organization admin (or the platform owner).
+await q(`update public.org_members set role = 'org_admin' where org_id = $1 and user_id = $2`, [org, ins]);
 
 async function newSession(seats, extra = "") {
   const id = randomUUID();

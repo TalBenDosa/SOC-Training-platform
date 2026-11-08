@@ -6,7 +6,7 @@ import { asStr } from "@/lib/team/format";
 export const ROLE_LABEL: Record<string, string> = {
   t1: "Tier-1 Triage", t2: "Tier-2 Investigator", t3: "Tier-3 / Threat Hunter",
   lead: "Incident Lead", de: "Detection Engineer", ti: "Threat Intel", mgr: "SOC Manager",
-  instructor: "Instructor", observer: "Observer",
+  instructor: "Exercise admin", observer: "Observer",
 };
 /** Enrich an escalation's event snapshot into a LiveEvent so Tier-2 can open the
  * FULL original log (raw fields, MITRE, pivot) — defensive like the team feed. */
@@ -33,5 +33,5 @@ export function Metric({ label, value, tone }: { label: string; value: string; t
  * The ONE containment rule (2026-11 review: lobby, guide, tour and console each said it differently;
  * owner 2026-11-07: isolating needs the senior on shift). Every surface quotes this text.
  */
-export const CONTAINMENT_RULE = "Contain only what your filed report and scope support, and only with approval: the senior on shift (the SOC Manager, otherwise a Tier-3, otherwise the instructor) approves before a host is isolated or an account is disabled.";
+export const CONTAINMENT_RULE = "Contain only what your filed report and scope support, and only with approval: the senior on shift (the SOC Manager, otherwise a Tier-3, otherwise the exercise admin) approves before a host is isolated or an account is disabled.";
 export const CONTAINMENT_RULE_SHORT = "Report and scope first, then the senior on shift approves the containment.";

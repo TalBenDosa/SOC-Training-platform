@@ -1,8 +1,10 @@
 "use client";
 /**
- * Team-SOC training — index (Phase 0.3). Staff see the Session Builder (pick a
+ * Team-SOC training, index (Phase 0.3). A team admin (an org_admin, or the platform
+ * owner; owner decision 2026-11) sees the Session Builder (pick a
  * company + difficulty + optional storyline, invite org members with roles);
- * everyone sees the sessions they belong to and can enter the lobby. The exercise
+ * everyone sees the sessions they belong to and can enter the lobby. An org instructor
+ * sees only the sessions they are seated in, and a line saying the admin runs exercises. The exercise
  * itself lives at /team/[id].
  *
  * Exercise-report #18: the builder now says exactly why "Create & open lobby" is
@@ -34,6 +36,7 @@ import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
 import { Users, Plus, Loader2, AlertTriangle, ChevronRight, Radio, Search, Building2 } from "lucide-react";
 import { groupByCategory, type StoryCategory } from "@/lib/team/storyCategory";
 import { builderStatus, filterCandidates, looksLikeEmail, MAX_INVITES, type Candidate } from "./_lib/builder";
+import { teamIndexGate } from "./_lib/gating";
 
 type Diff = "easy" | "medium" | "hard";
 // Team role set: T1, T2 and T3 take MANY players; the SOC Manager is single-seat.
@@ -65,11 +68,10 @@ export default function TeamIndexPage() {
   usePageTitle("Team training");
   const brand = useBrand();
   const router = useRouter();
-  const { isPlatformAdmin, orgRole, orgName } = useOrgContext();
-  const isStaff = isPlatformAdmin || orgRole === "org_admin" || orgRole === "instructor";
-  // Org admins, instructors and platform admins can open a lobby
-  // (POST /api/team/sessions → requireOrgStaff), so every staff role gets the builder.
-  const canCreate = isStaff;
+  const { isPlatformAdmin, orgRole, orgName, orgId } = useOrgContext();
+  // Only a team admin (org_admin of this org, or the platform owner) opens a lobby
+  // (POST /api/team/sessions → requireTeamAdmin), so only they get the builder.
+  const { canCreate, adminOnlyNote, emptyText } = teamIndexGate({ isPlatformAdmin, orgRole, orgId });
 
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -251,6 +253,12 @@ export default function TeamIndexPage() {
           </div>
         )}
 
+
+        {adminOnlyNote && (
+          <Card>
+            <p className="flex items-center gap-2 text-sm text-slate-300"><Users className="h-4 w-4 shrink-0 text-cyber-300" aria-hidden />{adminOnlyNote}</p>
+          </Card>
+        )}
 
         {canCreate && (
           <Card>
@@ -438,7 +446,7 @@ export default function TeamIndexPage() {
               </Button>
               {/* #18: say exactly why the button is disabled and what to do. */}
               <span id="team-create-hint" role="status" className={`min-w-0 flex-1 text-xs ${status.canCreate ? "text-slate-500" : "text-neon-amber"}`}>
-                {status.blocker ?? `${roleCounts.map(r => `${r.n}× ${r.label}`).join(" · ")}. You'll run it as instructor; each invitee clicks Ready in the lobby, then you press Start.`}
+                {status.blocker ?? `${roleCounts.map(r => `${r.n}× ${r.label}`).join(" · ")}. You'll run it as the exercise admin; each invitee clicks Ready in the lobby, then you press Start.`}
               </span>
             </div>
           </Card>
@@ -451,7 +459,7 @@ export default function TeamIndexPage() {
           {loading ? (
             <div className="flex items-center gap-2 px-4 pb-4 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
           ) : sessions.length === 0 ? (
-            <p className="px-4 pb-4 text-sm text-slate-400">No team sessions yet.{isStaff ? " Create one above." : " You'll see exercises here once your instructor invites you."}</p>
+            <p className="px-4 pb-4 text-sm text-slate-400">{emptyText}</p>
           ) : (
             <div className="divide-y divide-border/60">
               {sessions.map(s => {
@@ -468,7 +476,7 @@ export default function TeamIndexPage() {
                       <p className="font-mono text-[11px] text-slate-500">
                         {s.difficulty} · {s.ready_count}/{s.player_count} ready
                         {s.my_role && s.my_role !== "instructor" && <span className="ml-1 text-cyber-300">· you: {s.my_role}</span>}
-                        {s.my_role === "instructor" && <span className="ml-1 text-neon-amber">· you: instructor</span>}
+                        {s.my_role === "instructor" && <span className="ml-1 text-neon-amber">· you run it</span>}
                       </p>
                     </div>
                     {closed

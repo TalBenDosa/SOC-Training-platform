@@ -93,16 +93,16 @@ export function mgrTour(setView: (v: MgrView) => void): TourStep[] {
     { target: "mgr-view", title: "Stakeholders", body: "From the declaration on, the CISO, the CEO's office, Legal, the head of an affected department and Communications ask you here: where are we, how long, is data affected, when is my system back. Answer in your own words: what is confirmed, what is not known yet, and when the next update comes. Checks on your answer appear right after.", action: "Type your answer under the question and click Reply. Write incident report opens the report.", before: view("stakeholders") },
     { target: "report-button", title: "The report to stakeholders", body: "A structured incident report in business language: what happened, the business impact, affected systems, personal data (no evidence so far / suspected / confirmed), actions taken, what is known and not yet known, what you need from them, and when the next update comes. Keep the update time you promise.", action: "Click Report to stakeholders, fill it in and click Send report." },
     { target: "mgr-view", title: "Reporting", body: "SITREPs to management (what is happening, actions taken, status, next steps), your decision log with the reason for each decision, and the shift management panel with each analyst's load and the passdown at the end of the shift.", action: "Fill the four SITREP questions and click Send SITREP. Log decisions with their rationale.", before: view("reporting") },
-    { target: "status", title: "Running the shift", body: "You can pause the shift and end it. When the instructor is online, End asks them first. The shift then ends two minutes later, so everyone can send what they are writing, and the shift review opens for everyone, including your Command Review.", action: "Pause or End shift, in the shift bar.", before: view("board") },
+    { target: "status", title: "Running the shift", body: "You can pause the shift and end it. When the exercise admin is online, End asks them first. The shift then ends two minutes later, so everyone can send what they are writing, and the shift review opens for everyone, including your Command Review.", action: "Pause or End shift, in the shift bar.", before: view("board") },
     common.chat,
     common.guide,
   ];
 }
 
 export const INSTRUCTOR_TOUR: TourStep[] = [
-  { title: "Welcome, instructor", body: "You run the exercise: watch every seat, help a stuck player, add pressure when you want, and end the shift to open the review." },
+  { title: "Welcome, exercise admin", body: "You run the exercise: watch every seat, help a stuck player, add pressure when you want, and end the shift to open the review." },
   { target: "seat-board", title: "Seats", body: "Each player's last action, how many minutes they have been idle, and their open load. An idle seat is flagged. Coach sends a short message only that player sees on their screen.", action: "Click Coach on a seat, write one line and send it." },
-  { target: "instructor-panel", title: "Instructor tools", body: "The attack schedule, the live answer key (staff only), a composer for your own injects, and reassigning a member to another role.", action: "Write an inject, choose its type and click Send inject. Use Reassign to move a member." },
+  { target: "instructor-panel", title: "Exercise admin tools", body: "The attack schedule, the live answer key (staff only), a composer for your own injects, and reassigning a member to another role.", action: "Write an inject, choose its type and click Send inject. Use Reassign to move a member." },
   { target: "feed", title: "The live feed", body: "The same feed the analysts see, so you can follow the incident as it develops." },
   { target: "status", title: "Pause and end", body: "Pause stops the clock for everyone. End shift ends it two minutes later, so everyone can send their work; End now skips the wait.", action: "Pause or End shift, in the shift bar." },
   common.chat,
@@ -114,7 +114,7 @@ export function tourFor(role: string | null | undefined, setMgrView: (v: MgrView
     case "t2": return { title: "Tier-2 tour", steps: T2_TOUR };
     case "t3": return { title: "Tier-3 tour", steps: T3_TOUR };
     case "mgr": case "lead": return { title: "SOC Manager tour", steps: mgrTour(setMgrView) };
-    case "instructor": return { title: "Instructor tour", steps: INSTRUCTOR_TOUR };
+    case "instructor": return { title: "Exercise admin tour", steps: INSTRUCTOR_TOUR };
     default: return null;
   }
 }

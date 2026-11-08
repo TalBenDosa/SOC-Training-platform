@@ -15,7 +15,7 @@ import type { Ev } from "./types";
  *
  *   1. A seated, active SOC Manager or Lead.
  *   2. Otherwise a seated, active Tier-3 who is not the requester.
- *   3. Otherwise staff (the session's instructor seat).
+ *   3. Otherwise the exercise admin (the session's instructor seat, held only by a team admin).
  *   Staff may always approve or deny as an override, so a request can never wedge.
  *   Nobody approves their own request.
  *
@@ -74,7 +74,7 @@ export function canApproveIsolation(members: ApproverMember[], requesterId: stri
 
 /** A short label for the approver's rung, for the requester's "waiting for ..." line. */
 export function approverLabel(tier: ApproverTier): string {
-  return tier === "mgr" ? "the SOC Manager" : tier === "t3" ? "Tier-3" : "the instructor";
+  return tier === "mgr" ? "the SOC Manager" : tier === "t3" ? "Tier-3" : "the exercise admin";
 }
 
 export interface IsolationRequest {

@@ -5,6 +5,7 @@ import { pageAll } from "@/lib/team/report/serverReport";
 import { buildTeamIocTruth, parseIocQuery, answerIocQuery, rowsOnHosts } from "@/lib/team/iocTruth";
 import { activeSeat } from "@/lib/team/membership";
 import type { Ev } from "@/lib/team/types";
+import { isTeamAdmin } from "@/lib/team/teamAdmin";
 
 /**
  * POST /api/team/sessions/[id]/ioc-truth  { iocs: [{ type, value }] } — threat-intel
@@ -36,8 +37,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const { data: sess } = await admin.from("team_sessions").select("id, org_id").eq("id", id).maybeSingle();
   if (!sess) return NextResponse.json({ error: "Session not found." }, { status: 404 });
-  const iAmStaff = user.isPlatformAdmin ||
-    ((user.orgRole === "org_admin" || user.orgRole === "instructor") && user.orgId === sess.org_id);
+  const iAmStaff = isTeamAdmin(user, sess.org_id);
   if (!iAmStaff && !(await activeSeat(admin, id, sess.org_id, user.id))) {
     return NextResponse.json({ error: "Not your session." }, { status: 403 });
   }

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { tenantFromConfig } from "@/lib/team/tenant";
 import { envFromConfig } from "@/lib/team/environment";
 import { planFromConfig, pinnedIds, loadWithPlan } from "@/lib/team/attackPlan";
-import { requireOrgStaff } from "@/lib/auth/apiGuard";
+import { requireTeamAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildTeamTimeline, resolveTeamStory, teamStoryFilter } from "@/lib/team/buildTimeline";
 import { buildFittedTimeline } from "@/lib/team/fitTimeline";
@@ -36,7 +36,7 @@ import { HISTORY_SESSIONS, historyFromConfigs, type VarietyRecord } from "@/lib/
  */
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const gate = await requireOrgStaff("team.session.start");
+  const gate = await requireTeamAdmin("team.session.start");
   if ("error" in gate) return gate.error;
   const { user } = gate;
   const admin = getSupabaseAdminClient();
@@ -86,9 +86,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     // Size the shift to the team in the room (load.ts): log pace from the Tier-1
     // count, attack count from the team size. The pace is stored on the session so
     // the DB refill (replenish_feed, 0081) keeps it instead of bursting.
-    // The instructor's attack plan sets the concurrent attack count (else the team's size does).
+    // The exercise admin's attack plan sets the concurrent attack count (else the team's size does).
     const plan = planFromConfig(sess.config, sess.scenario_id);
-    // …over the shift length the instructor picked (config.shift_min; older sessions: the difficulty default).
+    // …over the shift length the exercise admin picked (config.shift_min; older sessions: the difficulty default).
     const shiftMin = sanitizeShiftMinutes((sess.config as { shift_min?: unknown } | null)?.shift_min);
     const plannedLoad = loadWithPlan(withShiftMinutes(teamLoad(sess.difficulty, members ?? []), shiftMin), plan);
     // scenario_id = the storyline staff picked in the builder (null → random pick).

@@ -144,7 +144,9 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     put("type", choice(sn("type")));
     const risk = sn("risk");
     put("risk", risk ? (/^\d$/.test(risk) ? risk : RISK[risk.toLowerCase()] ?? "3") : undefined);
-    put("requested_by", sn("requested_by") ? ref(ctx, "sys_user", sn("requested_by")!) : undefined);
+    // The person a change row is about is its requester (as caller_id is for an incident).
+    const requester = sn("requested_by") ?? ev.user_email;
+    put("requested_by", requester ? ref(ctx, "sys_user", requester) : undefined);
     put("start_date", sn("start_date") ? snowTime(sn("start_date")!) : undefined);
     put("end_date", sn("end_date") ? snowTime(sn("end_date")!) : undefined);
   } else {

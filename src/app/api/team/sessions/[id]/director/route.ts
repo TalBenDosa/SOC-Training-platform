@@ -6,6 +6,7 @@ import { buildMgrState } from "@/lib/team/manager/state";
 import { pickCard, materialize } from "@/lib/team/manager/director";
 import { pickQuestion, materializeQuestion } from "@/lib/team/manager/questions";
 import { loadSession, loadRoster, loadTeamEvents, loadReferencedFeed, criticalHostsOf } from "@/lib/team/manager/server";
+import { isTeamAdmin } from "@/lib/team/teamAdmin";
 
 /**
  * POST /api/team/sessions/[id]/director - the SOC-Manager incident director.
@@ -26,7 +27,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   const sess = await loadSession(admin, id);
   if (!sess) return NextResponse.json({ error: "Session not found." }, { status: 404 });
-  const iAmStaff = user.isPlatformAdmin || ((user.orgRole === "org_admin" || user.orgRole === "instructor") && user.orgId === sess.org_id);
+  const iAmStaff = isTeamAdmin(user, sess.org_id);
   if (!iAmStaff && !(await activeSeat(admin, id, sess.org_id, user.id))) {
     return NextResponse.json({ error: "Not your session." }, { status: 403 });
   }

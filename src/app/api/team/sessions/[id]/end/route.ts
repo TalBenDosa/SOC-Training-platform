@@ -5,12 +5,13 @@ import { teamTransition, teamScheduleEnd, teamCancelEnd, END_NOTICE_MS } from "@
 import { logAudit } from "@/lib/audit/logAudit";
 import { activeSeat } from "@/lib/team/membership";
 import { awardTeamXpOnce } from "@/lib/team/awardTeamXp";
+import { isTeamAdmin } from "@/lib/team/teamAdmin";
 
 /**
- * End a team exercise. Staff of the session's org (platform admin / org_admin /
- * instructor) or the session's SOC Manager only — ending is irreversible, so it is
- * never driven by an automatic client signal (an instructor who drops out PAUSES
- * the session instead; see the 0071 lifecycle tick).
+ * End a team exercise. A team admin of the session's org (org_admin, or the platform
+ * owner; isTeamAdmin) or the session's SOC Manager only. Ending is irreversible, so it is
+ * never driven by an automatic client signal (an exercise admin who drops out
+ * raises a notice instead; see the 0104 lifecycle tick).
  *
  * `team_transition` flips the status, stamps ended_at, marks pending injects
  * 'skipped' and appends session.ended in ONE transaction (audit I3/I2), and the
@@ -45,14 +46,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { data: sess } = await admin.from("team_sessions").select("org_id, status").eq("id", id).maybeSingle();
   if (!sess) return NextResponse.json({ error: "Session not found." }, { status: 404 });
 
-  const isStaff = user.isPlatformAdmin ||
-    ((user.orgRole === "org_admin" || user.orgRole === "instructor") && user.orgId === sess.org_id);
+  const isStaff = isTeamAdmin(user, sess.org_id);
   let isManager = false;
   if (!isStaff) {
     const seat = await activeSeat(admin, id, sess.org_id, user.id);   // lapsed affiliation ⇒ no seat
     isManager = seat?.role === "mgr";
   }
-  if (!isStaff && !isManager) return NextResponse.json({ error: "Only the instructor or the SOC Manager can end the session." }, { status: 403 });
+  if (!isStaff && !isManager) return NextResponse.json({ error: "Only the exercise admin or the SOC Manager can end the session." }, { status: 403 });
 
   if (["ended", "debriefed"].includes(sess.status)) return NextResponse.json({ ok: true, mode, already: true });
 

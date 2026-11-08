@@ -15,7 +15,7 @@ import { RemoveMemberButton } from "./RemoveMemberButton";
 export const REASSIGN_ROLES = ["t1", "t2", "t3", "mgr", "ti", "observer"] as const;
 
 // canInject: only the session's own instructor SEAT posts injects (staff.inject is an
-// action of that seat); another instructor of the org gets every other tool (QA L4).
+// action of that seat); another team admin of the org gets every other tool (QA L4).
 export function InstructorPanel({ sessionId, roster, online, events, act, isStaff, nameOf, canInject = true, onError }: { sessionId: string; roster: RosterMember[]; online: Set<string>; events: Ev[]; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; isStaff: boolean; nameOf: (u: string | null) => string; canInject?: boolean; onError?: (msg: string) => void }) {
   // G-14: inject-composer — the instructor injects an announcement or a help-desk
   // ticket mid-exercise (staff.inject). Tickets land in Tier-1's queue to answer.
@@ -59,7 +59,7 @@ export function InstructorPanel({ sessionId, roster, online, events, act, isStaf
     {isStaff && <AttackSchedule sessionId={sessionId} onError={onError} />}
     {isStaff && <AnswerKeyPanel sessionId={sessionId} events={events} nameOf={nameOf} />}
     <Card>
-      <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldCheck className="h-4 w-4 text-cyber-300" /> Instructor view</h3>
+      <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldCheck className="h-4 w-4 text-cyber-300" /> Exercise admin view</h3>
       <div className="mt-2 space-y-1">
         {members.map(m => (
           <div key={m.user_id} className="flex items-center gap-2 text-xs">
@@ -73,7 +73,7 @@ export function InstructorPanel({ sessionId, roster, online, events, act, isStaf
       </div>
       <div className="mt-3 space-y-1.5 border-t border-border/50 pt-2">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Inject ({injects.length} sent)</p>
-        {!canInject && <p className="text-[11px] text-slate-500">Injects are sent from the session owner&apos;s instructor seat.</p>}
+        {!canInject && <p className="text-[11px] text-slate-500">Injects are sent from the exercise admin&apos;s own seat in this session.</p>}
         {canInject && <>
         <select aria-label="Inject type" value={inj.kind} onChange={e => setInj(s => ({ ...s, kind: e.target.value }))} className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">
           <option value="announcement">announcement (all roles)</option>

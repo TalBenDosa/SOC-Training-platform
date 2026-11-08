@@ -76,6 +76,6 @@ describe("isolation request helpers", () => {
     expect(latest.state).toBe("pending");
     const roster = [{ user_id: "mgr", role: "mgr", status: "active", name: "Noa", handle: null }, { user_id: "t2", role: "t2", status: "active", name: "Avi", handle: null }];
     expect(approverNames(roster, "t2", new Set(["mgr", "t2"]))).toBe("Noa (SOC Manager)");
-    expect(approverNames(roster, "t2", new Set(["t2"]))).toBe("the instructor");   // nobody senior online
+    expect(approverNames(roster, "t2", new Set(["t2"]))).toBe("the exercise admin");   // nobody senior online
   });
 });

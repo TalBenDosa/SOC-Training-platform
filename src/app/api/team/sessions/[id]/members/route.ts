@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { asObject } from "@/lib/http/body";
-import { requireOrgStaff } from "@/lib/auth/apiGuard";
+import { requireTeamAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { appendSystemEvent } from "@/lib/team/appendSystemEvent";
 import { liveAffiliationFilter } from "@/lib/team/membership";
@@ -10,7 +10,7 @@ import { MAX_ROSTER, SINGLE_SEAT, rosterConflict } from "@/lib/team/roster";
  * Roster management for an existing team session (staff only, own org).
  *
  *  POST   — add a member to a role (or change the role of someone already on the
- *           roster). Lets an instructor grow / backfill the team while it's live.
+ *           roster). Lets the exercise admin grow / backfill the team while it's live.
  *  DELETE — remove a member (they become `left`: no more reads, writes or seat).
  *
  * Every change emits a system `member.added | member.role_changed | member.removed`
@@ -33,7 +33,7 @@ async function loadSession(id: string, orgId: string | null, isPlatformAdmin: bo
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const gate = await requireOrgStaff("team.session.member.add");
+  const gate = await requireTeamAdmin("team.session.member.add");
   if ("error" in gate) return gate.error;
   const { user } = gate;
 
@@ -91,7 +91,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const gate = await requireOrgStaff("team.session.member.remove");
+  const gate = await requireTeamAdmin("team.session.member.remove");
   if ("error" in gate) return gate.error;
   const { user } = gate;
 

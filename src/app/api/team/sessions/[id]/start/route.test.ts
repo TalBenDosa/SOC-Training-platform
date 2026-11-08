@@ -19,7 +19,7 @@ const state = {
   updates: [] as Record<string, unknown>[],
   history: undefined as unknown,
 };
-vi.mock("@/lib/auth/apiGuard", () => ({ requireOrgStaff: vi.fn(async () => ({ user: user() })) }));
+vi.mock("@/lib/auth/apiGuard", () => ({ requireTeamAdmin: vi.fn(async () => ({ user: user() })) }));
 vi.mock("@/lib/team/buildTimeline", () => ({
   resolveTeamStory: vi.fn((_c: string, _d: string, id: string | null) => (id ? { id, events: [] } : null)),
   teamStoryFilter: vi.fn(() => () => state.fits),

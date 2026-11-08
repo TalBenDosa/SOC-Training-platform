@@ -48,6 +48,6 @@ export function fakeAdmin(handler: (op: Op) => Result, rpc: (name: string, args:
   return { client, ops, rpcs };
 }
 
-/** A staff / player user as getAuthedUser returns it. */
+/** A user as getAuthedUser returns it; the default is a team admin (org_admin of org1). */
 export const user = (over: Partial<{ id: string; orgId: string | null; orgRole: string | null; isPlatformAdmin: boolean; orgActive: boolean }> = {}) =>
-  ({ id: "u-staff", orgId: "org1", orgRole: "instructor", isPlatformAdmin: false, orgActive: true, ...over });
+  ({ id: "u-staff", orgId: "org1", orgRole: "org_admin", isPlatformAdmin: false, orgActive: true, ...over });

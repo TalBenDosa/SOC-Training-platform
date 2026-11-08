@@ -13,7 +13,7 @@ const state = {
 };
 vi.mock("@/lib/auth/apiGuard", () => ({
   getAuthedUser: vi.fn(async () => state.user),
-  requireOrgStaff: vi.fn(async () => (state.user ? { user: state.user } : { error: NextResponse.json({}, { status: 401 }) })),
+  requireTeamAdmin: vi.fn(async () => (state.user ? { user: state.user } : { error: NextResponse.json({}, { status: 401 }) })),
 }));
 vi.mock("@/lib/supabase/admin", () => ({ getSupabaseAdminClient: () => fakeAdmin(op => state.handler(op)).client }));
 
@@ -86,3 +86,32 @@ describe("GET /api/team/sessions/[id]", () => {
     expect(eqOf(om!, "org_id")).toBe("org1");
   });
 });
+
+describe("GET /api/team/sessions/[id]: owner decision 2026-11 (team admin only)", () => {
+  it("an org instructor who is not seated cannot read the session", async () => {
+    state.user = user({ id: "ins", orgRole: "instructor" });
+    expect((await call()).status).toBe(403);
+  });
+
+  it("an org instructor seated as t1 reads it as a player: no answer key, no staff flag", async () => {
+    state.user = user({ id: "p1", orgRole: "instructor" });
+    const body = await (await call()).json();
+    expect(body.me).toMatchObject({ id: "p1", role: "t1", is_staff: false });
+    expect(body.session.seed).toBeUndefined();
+    expect(body.session.attack_plan).toBeUndefined();
+  });
+
+  it("an org instructor holding a legacy instructor seat reads as an observer, without the answer key", async () => {
+    state.user = user({ id: "u-staff", orgRole: "instructor" });
+    const body = await (await call()).json();
+    expect(body.me).toMatchObject({ id: "u-staff", role: "observer", is_staff: false });
+    expect(body.session.seed).toBeUndefined();
+  });
+
+  it("the org admin in the instructor seat keeps the seat and the staff view", async () => {
+    const body = await (await call()).json();
+    expect(body.me).toMatchObject({ id: "u-staff", role: "instructor", is_staff: true });
+    expect(body.session.seed).toBe("SECRET");
+  });
+});
+

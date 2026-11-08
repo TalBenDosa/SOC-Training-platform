@@ -7,6 +7,7 @@ import { loadSession, loadTeamEvents, loadDecisionInjects, loadQuestionInjects }
 import { checkReply } from "@/lib/team/manager/questions";
 import { requestPhase, answeredLate } from "@/lib/team/manager/timing";
 import { pausedSpans } from "@/lib/team/pauses";
+import { isTeamAdmin } from "@/lib/team/teamAdmin";
 
 /**
  * GET /api/team/sessions/[id]/manager - the SOC Manager's view of his own decisions.
@@ -26,7 +27,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const sess = await loadSession(admin, id);
   if (!sess) return NextResponse.json({ error: "Session not found." }, { status: 404 });
-  const iAmStaff = user.isPlatformAdmin || ((user.orgRole === "org_admin" || user.orgRole === "instructor") && user.orgId === sess.org_id);
+  const iAmStaff = isTeamAdmin(user, sess.org_id);
   if (!iAmStaff) {
     const seat = await activeSeat(admin, id, sess.org_id, user.id);
     if (!seat || (seat.role !== "mgr" && seat.role !== "lead")) return NextResponse.json({ error: "Only the SOC Manager can read this." }, { status: 403 });

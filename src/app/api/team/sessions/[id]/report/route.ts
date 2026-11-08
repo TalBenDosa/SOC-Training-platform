@@ -4,16 +4,24 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { ServerReport } from "@/lib/team/report/serverReport";
 import { redactManagerReview } from "@/lib/team/report/managerReview";
 import { loadOrBuildReport, awardTeamXpOnce, awardedTeamXp, xpFromReport, ReportBuildingError } from "@/lib/team/awardTeamXp";
+import { isTeamAdmin } from "@/lib/team/teamAdmin";
 
 /**
  * GET /api/team/sessions/[id]/report — the server-authoritative after-action report.
  *
  * Only once the session has ENDED (the answer key is revealed at debrief, never
- * live). Readable by staff of the session's org or any member — including one who
+ * live). Readable by a team admin of the session's org or any member, including one who
  * left, so they still see their own card. Computed once from the full log (with
  * the staff-only answers joined back) and cached in team_session_reports, so every
  * viewer sees the same numbers and a whole class opening the AAR at once costs one
- * computation. Non-staff, non-Manager viewers receive ONLY their own card (S9).
+ * computation.
+ *
+ * Who sees what (owner decision 2026-11): only a team admin (isTeamAdmin: an org_admin of
+ * the session's org, or the platform owner) sees everyone's card and XP (`seesAll`, which
+ * also gates the CSV export). Everyone else, the trainee SOC Manager and an org instructor
+ * seated as a player included, receives ONLY their own card and XP plus the team-level
+ * numbers (S9). The Command Review is whole for a team admin and for the Manager it is
+ * about; everyone else, the Lead included, gets it redacted.
  *
  * QA M5: the build is single-flight (a lease — only one request builds, the rest wait
  * for the cached row, else answer 503 `building` and the client retries), and a missing
@@ -31,10 +39,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { data: sess } = await admin.from("team_sessions").select("id, org_id, status").eq("id", id).maybeSingle();
   if (!sess) return NextResponse.json({ error: "Session not found." }, { status: 404 });
 
-  const iAmStaff = user.isPlatformAdmin ||
-    ((user.orgRole === "org_admin" || user.orgRole === "instructor") && user.orgId === sess.org_id);
+  const iAmTeamAdmin = isTeamAdmin(user, sess.org_id);
   const { data: mem } = await admin.from("team_session_members").select("role").eq("session_id", id).eq("user_id", user.id).maybeSingle();
-  if (!iAmStaff && !mem) return NextResponse.json({ error: "Not your session." }, { status: 403 });
+  if (!iAmTeamAdmin && !mem) return NextResponse.json({ error: "Not your session." }, { status: 403 });
   if (!["ended", "debriefed"].includes(sess.status)) {
     return NextResponse.json({ error: "The after-action report is available once the session ends." }, { status: 409 });
   }
@@ -71,14 +78,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // still pending the stored total is stale — send none, the counter keeps its value.
   const { data: me } = pending ? { data: null } : await admin.from("profiles").select("xp").eq("id", user.id).maybeSingle();
 
-  const seesAll = iAmStaff || mem?.role === "mgr";
+  const seesAll = iAmTeamAdmin;
   const xpShown = xp ? (seesAll ? xp : (user.id in xp ? { [user.id]: xp[user.id] } : {})) : {};
   return NextResponse.json({
     team: report.team,
     perUser: seesAll ? report.perUser : report.perUser.filter(u => u.user_id === user.id),
-    // Command Review: the manager and staff get it whole; the rest of the team sees the
-    // command timeline and what was decided, without the manager's grades.
-    managerReview: report.managerReview == null ? null : seesAll || mem?.role === "lead" ? report.managerReview : redactManagerReview(report.managerReview),
+    // Command Review: a team admin and the Manager it is about get it whole; the rest of the
+    // team (the Lead included) sees the command timeline and what was decided, without the grades.
+    managerReview: report.managerReview == null ? null
+      : iAmTeamAdmin || (mem?.role === "mgr" && report.managerReview.managerId === user.id) ? report.managerReview
+      : redactManagerReview(report.managerReview),
     answers: report.answers,
     xp: xpShown,
     myTotalXp: typeof me?.xp === "number" ? me.xp : null,

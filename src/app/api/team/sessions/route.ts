@@ -2,7 +2,8 @@ import { teamQuotaFor, quotaExhausted, quotaMessage } from "@/lib/team/quota";
 import { NextResponse } from "next/server";
 import { parseTenant, tenantFromConfig, TENANT_TEMPLATE, type Tenant } from "@/lib/team/tenant";
 import { asObject } from "@/lib/http/body";
-import { getAuthedUser, requireOrgStaff } from "@/lib/auth/apiGuard";
+import { getAuthedUser, requireTeamAdmin } from "@/lib/auth/apiGuard";
+import { isTeamAdmin } from "@/lib/team/teamAdmin";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
 import { resolveTeamStory, teamStoryFilter } from "@/lib/team/buildTimeline";
@@ -18,10 +19,12 @@ import { contactLine } from "@/lib/brand/brand";
 import { brandForOrg, featuresForOrg } from "@/lib/brand/server";
 
 /**
- * Team-SOC sessions (Phase 0.3). Create = org_admin/instructor only, and always
+ * Team-SOC sessions (Phase 0.3). Create = team admin only (an org_admin of the caller's
+ * org, or the platform owner; the org role instructor no longer creates), and always
  * pinned to the caller's OWN org (org id from the JWT, never the body); invitees
  * must be active members of that same org. List = every session I'm a member of,
- * plus (for staff) every session in my org. Reads/writes use the service-role
+ * plus (for a team admin) every session in my org. An org instructor lists only the
+ * sessions they are seated in. Reads/writes use the service-role
  * client but are authorised here; the DB RLS (0049) is the second gate.
  */
 
@@ -32,7 +35,7 @@ const COMPANY_IDS = new Set(COMPANY_PROFILES.map(c => c.id));
 
 // ── POST — create a session + invite members ────────────────────────────────
 export async function POST(req: Request) {
-  const gate = await requireOrgStaff("team.session.create");
+  const gate = await requireTeamAdmin("team.session.create");
   if ("error" in gate) return gate.error;
   const { user } = gate;
   const orgId = user.orgId;
@@ -43,7 +46,7 @@ export async function POST(req: Request) {
   let body: Record<string, unknown>;
   try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
 
-  // The exercise runs as the instructor's own organization (English name = its domain) on the
+  // The exercise runs as the admin's own organization (English name = its domain) on the
   // template environment; without a name, a Live-SOC company as before (older clients).
   let tenant: Tenant | null = null;
   if (body.tenant_name !== undefined) {
@@ -69,7 +72,7 @@ export async function POST(req: Request) {
   const stack = { ...asked, ...(settled.vpn !== (COMPANY_STACKS[company_id] ?? {}).vpn ? { vpn: settled.vpn } : {}), ...(settled.email_security !== (COMPANY_STACKS[company_id] ?? {}).email_security ? { email_security: settled.email_security } : {}) } as typeof asked;
   // A named organization's environment: the platforms it runs and its industry (which stories fit).
   const env = envForConsole(tenant ? sanitizeEnv(body.env) : null, investigationConsole);
-  // The shift length the instructor picked (20 / 30 / 45 min); the timeline is built to fit it.
+  // The shift length the exercise admin picked (20 / 30 / 45 min); the timeline is built to fit it.
   const shift_min = sanitizeShiftMinutes(body.shift_min);
   const fits = pinnedIds(plan).length ? teamStoryFilter(company_id, stack, env) : null;
   for (const sid of pinnedIds(plan)) {
@@ -128,7 +131,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Could not create the session." }, { status: 500 });
   }
 
-  // Creator joins as instructor (runs it, excluded from the ready-check); invitees
+  // Creator (a team admin) takes the "instructor" seat (runs it, excluded from the ready-check); invitees
   // join as their assigned role, status 'invited' until they click ready.
   const rows = [{ session_id: sess.id, user_id: user.id, role: "instructor", status: "active", invited_by: user.id }];
   for (const i of invites) {
@@ -149,14 +152,14 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true, id: sess.id });
 }
 
-// ── GET — sessions I can see (my memberships; staff also see their org's) ────
+// ── GET: sessions I can see (my memberships; a team admin also sees the org's) ──
 export async function GET() {
   const user = await getAuthedUser();
   if (!user) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   const admin = getSupabaseAdminClient();
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
-  const staff = user.isPlatformAdmin || user.orgRole === "org_admin" || user.orgRole === "instructor";
+  const staff = isTeamAdmin(user, user.orgId);
 
   const { data: myMem } = await admin.from("team_session_members")
     .select("session_id, role, status").eq("user_id", user.id);
@@ -183,6 +186,10 @@ export async function GET() {
     counts.set(m.session_id, c);
   }
 
+  // The "instructor" seat runs the room: only a team admin may use it. A legacy seat held
+  // by someone who is no longer one (an org instructor, a demoted admin) reads as an observer.
+  const seatRole = (r: string | null, orgId: unknown) => (r === "instructor" && !isTeamAdmin(user, String(orgId ?? "")) ? "observer" : r);
+
   // Never ship the grading answer-key (seed → deterministic timeline + verdicts)
   // or other spoiler fields to a non-staff member.
   const redact = (row: Record<string, unknown>) => {
@@ -195,7 +202,7 @@ export async function GET() {
     sessions: sessions.map(s => ({
       ...redact(s),
       tenant_name: tenantFromConfig((s as { config?: unknown }).config)?.name ?? null,
-      my_role: mine.get(s.id as string)?.role ?? null,
+      my_role: seatRole(mine.get(s.id as string)?.role ?? null, s.org_id),
       player_count: counts.get(s.id as string)?.players ?? 0,
       ready_count: counts.get(s.id as string)?.ready ?? 0,
     })),

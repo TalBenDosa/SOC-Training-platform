@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { asObject } from "@/lib/http/body";
-import { requireOrgStaff } from "@/lib/auth/apiGuard";
+import { requireTeamAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { appendSystemEvent } from "@/lib/team/appendSystemEvent";
 import { SINGLE_SEAT, rosterConflict } from "@/lib/team/roster";
@@ -8,9 +8,9 @@ import { SINGLE_SEAT, rosterConflict } from "@/lib/team/roster";
 /**
  * Reassign a member's role in a live session (F7 — resilience to disconnects).
  * When the single-seat holder (the SOC Manager) drops, the relay stalls; the
- * instructor hands the vacant seat to another member so the exercise keeps moving.
+ * exercise admin hands the vacant seat to another member so the exercise keeps moving.
  *
- * Staff-only, own org, open sessions only. The session owner (instructor row) is
+ * Team admin only (isTeamAdmin), own org, open sessions only. The session owner (instructor row) is
  * never a target, and 'instructor' is never granted (it carries staff.inject).
  * Emits `member.role_changed` so every client refreshes its roster live — before
  * this the UI had to say "ask them to refresh" (audit C3).
@@ -19,7 +19,7 @@ const PLAY_ROLES = new Set(["t1", "t2", "t3", "mgr", "lead", "de", "ti", "observ
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const gate = await requireOrgStaff("team.session.reassign");
+  const gate = await requireTeamAdmin("team.session.reassign");
   if ("error" in gate) return gate.error;
   const { user } = gate;
 

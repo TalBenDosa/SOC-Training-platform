@@ -33,6 +33,9 @@ const ROLE_GUIDE: Record<string, RoleGuide> = {
   instructor: { mission: "You run the exercise: watch every seat, help a stuck player, and end the shift.",
     steps: ["The Seats board shows each player's last action, idle minutes and open load. Send a coach message to one seat when it is stuck.", "Add pressure with an inject when you want, or release a planned attack now.", "You approve isolation requests when no SOC Manager or Tier-3 is online.", "End the shift: it ends two minutes later so everyone can send their work. End now skips the wait."],
     flow: "You control the session; the players work their roles.", measured: ["Not scored"] },
+  observer: { mission: "Observer: you watch the exercise. The exercise admin runs it.",
+    steps: ["Follow the shared feed and the team chat.", "You take no actions in the exercise."],
+    flow: "You watch; the players work their roles.", measured: ["Not scored"] },
 };
 export function roleDirective(role: string | null | undefined): string {
   switch (role) {

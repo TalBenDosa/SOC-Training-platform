@@ -96,9 +96,11 @@ describe("servicenow — conversion", () => {
         if (email && k in r) expect((r[k] as { value: string }).value, `${ev.id} ${k}`).toBe(sysId(ctx, "sys_user", email));
       }
       if (ev.user_email) expect(contains(r, sysId(ctx, "sys_user", ev.user_email)) || contains(r, ev.user_email.split("@")[0]), `${ev.id} user`).toBe(true);
-      const prev = byNumber.get(String(r.number));
-      if (prev) expect(r.sys_id).toBe(prev);
-      byNumber.set(String(r.number), String(r.sys_id));
+      // A ticket number is unique per instance: the same number in two companies is two tickets.
+      const key = `${c.companyId}:${String(r.sys_class_name)}:${String(r.number)}`;
+      const prev = byNumber.get(key);
+      if (prev) expect(r.sys_id, key).toBe(prev);
+      byNumber.set(key, String(r.sys_id));
     }
   });
   it("non-ServiceNow SOAR events render as null", () => {
