@@ -21,7 +21,7 @@ export function HuntConsole({ events, sessionId, consoleName = "EDR", canEdr, sc
   scope: ScopeState; scopes?: Map<string, ScopeSnapshot>; incidents?: string[]; incidentOf?: Map<string, string>;
   elevations: Ev[]; elevAcked: Set<string>; nameOf: (u: string | null) => string;
   act: (t: string, p: Record<string, unknown>) => Promise<boolean>; onEdr?: (description?: string, host?: string) => void;
-  /** Where this session investigates: "EDR" or "Sentinel". */
+  /** Where this session investigates: "EDR" or "XDR". */
   consoleName?: string;
   canEdr?: (host?: string) => boolean;
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;

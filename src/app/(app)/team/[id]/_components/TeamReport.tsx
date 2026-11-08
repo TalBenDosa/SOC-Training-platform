@@ -80,7 +80,7 @@ export function hotWash(events: Ev[], who: (e: Ev) => string): HotWashData {
 /** The server's hot-wash (0104: on running time, pauses cut out) in the shape the cards draw. */
 type ServerHotWash = { rows: { tS: number; track: "attack" | "response"; label: string; who: string | null }[]; moments: { tS: number; title: string; note: string; who: string | null }[]; firstAttackS: number | null; firstEscalationS: number | null; dwellS: number | null; contained: boolean; containedS: number | null; denied: boolean };
 export function hotWashFromServer(h: ServerHotWash, who: (actorId: string | null) => string): HotWashData {
-  // The report calls a host isolation what it is, wherever it was done (EDR or Sentinel).
+  // The report calls a host isolation what it is, wherever it was done (EDR or XDR).
   const clean = (l: string) => l.replace(/ in EDR\b/g, "");
   const rows = h.rows.map(r => ({ t: r.tS, track: r.track, label: clean(r.label), who: r.track === "response" ? who(r.who) : undefined }));
   const moments = h.moments.map(m => ({ t: dur(m.tS), title: clean(m.title), note: ((n: string) => (n ? n.replace(/\.?$/, ".") : ""))([m.who ? `By ${who(m.who)}` : "", clean(m.note)].filter(Boolean).join(". ")) }));
@@ -1096,7 +1096,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
           </Fold>
         )}
 
-        {/* v4: host isolation: was each isolation the right call? (EDR or Sentinel) */}
+        {/* v4: host isolation: was each isolation the right call? (EDR or XDR) */}
         {(isoTotal > 0 || (team.hostsLeftOnline?.length ?? 0) > 0 || isoRequests.length > 0) && (
           <Fold title="Host isolation" icon={icon(MonitorX)} tone={isoTotal > 0 && (team.isoCorrect ?? 0) < isoTotal ? "bad" : undefined}
             status={isoTotal > 0 || isoRequests.length === 0 ? `${team.isoCorrect}/${isoTotal} right calls${team.mttiS != null ? ` · median time to isolate ${dur(team.mttiS)}` : ""}` : `${isoRequests.length} request${isoRequests.length === 1 ? "" : "s"}, ${team.hostsLeftOnline?.length ?? 0} compromised host${(team.hostsLeftOnline?.length ?? 0) === 1 ? "" : "s"} left online`}>
@@ -1226,7 +1226,7 @@ function PlayerCard({ u, xp, events, revealed }: { u: UserReport; xp?: number; e
         <Line label="Acknowledged" value={String(u.acks)} />
         <Line label="Containment" value={`${u.contReq} requested · ${u.contDecided} decided`} />
         <Line label="Role actions" value={String(u.roleActions)} />
-        {sentinel && <Line label="Sentinel" value={`${sentinel.queriesOk}/${sentinel.queries} queries · ${sentinel.bookmarks} bookmarks · ${sentinel.closed} closed${sentinel.judged ? ` · ${sentinel.judgedRight}/${sentinel.judged} classified right` : ""}`} />}
+        {sentinel && <Line label="XDR" value={`${sentinel.queriesOk}/${sentinel.queries} queries · ${sentinel.bookmarks} bookmarks · ${sentinel.closed} closed${sentinel.judged ? ` · ${sentinel.judgedRight}/${sentinel.judged} classified right` : ""}`} />}
       </div>
       <ReportedTable items={u.reported ?? []} met={u.slaMet ?? 0} total={u.slaTotal ?? 0} pct={u.slaPct ?? null} />
       {(u.isolations?.length ?? 0) > 0 && (

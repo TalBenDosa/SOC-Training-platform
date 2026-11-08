@@ -348,10 +348,10 @@ export default function TeamIndexPage() {
                     </label>
                   ))}
                 </div>
-                {investigationConsole === "sentinel" && <p className="mt-2 text-[11px] text-slate-500">Sentinel reads endpoint activity from Microsoft Defender for Endpoint, so this session uses it as the EDR. Its workspace lives in Azure, so the organization has an Azure subscription.</p>}
+                {investigationConsole === "sentinel" && <p className="mt-2 text-[11px] text-slate-500">XDR reads endpoint activity from Microsoft Defender for Endpoint, so this session uses it as the EDR. The organization also runs Azure, so its cloud activity reaches XDR too.</p>}
               </fieldset>
               <StackPicker companyId={company} value={chosenStack} onChange={setStack} idPrefix="team-stack"
-                locked={investigationConsole === "sentinel" ? { edr: "Fixed by Microsoft Sentinel: it reads endpoint activity from Defender for Endpoint." } : {}} />
+                locked={investigationConsole === "sentinel" ? { edr: "Fixed by XDR: it reads endpoint activity from Defender for Endpoint." } : {}} />
             </div>
             {storyNote && <p role="status" className="mt-1.5 rounded-lg border border-neon-amber/30 bg-neon-amber/[0.06] px-3 py-1.5 text-[11px] text-neon-amber">{storyNote}</p>}
             <p className="mt-1.5 text-[11px] text-slate-500">

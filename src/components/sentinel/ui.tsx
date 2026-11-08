@@ -6,7 +6,7 @@ import {
   type CSSProperties, type KeyboardEvent as RKeyboardEvent, type ReactNode,
 } from "react";
 import {
-  AppWindow, ArrowDown, ArrowUp, ArrowUpDown, Box, CheckCircle2, ChevronDown, ChevronRight, Info,
+  AppWindow, ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, Box, CheckCircle2, ChevronDown, Info,
   Cloud, Cpu, FileText, Globe, KeyRound, Link2, Loader, CircleAlert, Mail, Monitor, MoreHorizontal, RefreshCw, Search, User, X,
 } from "lucide-react";
 import type { EntityKind, IncidentStatus, SentinelSeverity } from "@/lib/sentinel/types";
@@ -122,7 +122,7 @@ export function Select<T extends string>({ label, value, valueLabel, options, on
   );
 }
 
-/** "Severity : All" pill over a list of checkboxes. An empty selection means all, as in the portal. */
+/** "Severity : All" pill over a list of checkboxes. An empty selection means all. */
 export function FilterPill({ label, options, selected, onChange }: {
   label: string; options: string[]; selected: string[]; onChange: (v: string[]) => void;
 }) {
@@ -299,41 +299,47 @@ export function EntityIcon({ kind, size = 14 }: { kind: EntityKind; size?: numbe
 }
 
 export function StatusIcon({ status, size = 14 }: { status: IncidentStatus; size?: number }) {
-  if (status === "New") return <Loader size={size} color="#0078d4" aria-hidden />;
-  if (status === "Active") return <RefreshCw size={size} color="#0078d4" aria-hidden />;
-  return <CheckCircle2 size={size} color="#107c10" aria-hidden />;
+  if (status === "New") return <Loader size={size} color="var(--st-accent)" aria-hidden />;
+  if (status === "Active") return <RefreshCw size={size} color="var(--st-medium)" aria-hidden />;
+  return <CheckCircle2 size={size} color="var(--st-ok)" aria-hidden />;
 }
 
 export function Empty({ icon, title, children }: { icon?: ReactNode; title: string; children?: ReactNode }) {
   return <div className="st-empty">{icon}<strong>{title}</strong>{children && <div className="st-small">{children}</div>}</div>;
 }
 
-/* ------------------------------------------- blade chrome ----------------------------------------- */
+/* --------------------------------------------- page chrome ---------------------------------------- */
 
-export function Crumbs({ items, trailing }: { items: { label: string; onClick?: () => void }[]; trailing?: boolean }) {
+/**
+ * Where a full-page view sits, XDR style: a back button to the list it came from, then the path
+ * with slashes. The first item with a click handler is the way back.
+ */
+export function Crumbs({ items }: { items: { label: string; onClick?: () => void }[] }) {
+  const [first, ...rest] = items;
   return (
-    <nav className="st-crumb" aria-label="Breadcrumb">
-      {items.map((c, i) => (
-        <span key={c.label} className="st-row" style={{ gap: 4 }}>
-          {c.onClick ? <button type="button" onClick={c.onClick}>{c.label}</button> : <span>{c.label}</span>}
-          {(trailing || i < items.length - 1) && <ChevronRight size={12} aria-hidden />}
+    <nav className="st-crumb" aria-label="Location">
+      {first.onClick
+        ? <button type="button" className="xd-backbtn" onClick={first.onClick}><ArrowLeft size={13} aria-hidden />{first.label}</button>
+        : <span>{first.label}</span>}
+      {rest.map(c => (
+        <span key={c.label} className="st-row" style={{ gap: 6 }}>
+          <span className="xd-slash" aria-hidden>/</span>
+          {c.onClick ? <button type="button" className="st-link" onClick={c.onClick}>{c.label}</button> : <span aria-current="page">{c.label}</span>}
         </span>
       ))}
     </nav>
   );
 }
 
-/** Spans the whole blade, above the left menu: "Sentinel | Incidents", as the portal draws it. */
-export function BladeHeader({ icon, strong, light, sub, crumbs }: {
-  icon: ReactNode; strong: string; light?: string; sub: string; crumbs: { label: string; onClick?: () => void }[];
-}) {
+/** The title of a menu page, inside the page beside the menu: icon tile, title, one line on what it is for. */
+export function PageHeader({ icon, title, sub, back }: { icon: ReactNode; title: string; sub: string; back?: { label: string; onClick: () => void } }) {
   return (
     <header className="st-blade-head">
-      <Crumbs items={crumbs} />
+      {back && <Crumbs items={[back, { label: title }]} />}
       <div className="st-blade-title">
-        {icon}
-        <div>
-          <h1><span className="s">{strong}</span>{light && <span className="l"> | {light}</span>}</h1>
+        <span className="xd-tile" aria-hidden>{icon}</span>
+        <div style={{ minWidth: 0 }}>
+          <h1 className="st-ellipsis">{title}</h1>
           <div className="sub">{sub}</div>
         </div>
       </div>
@@ -379,8 +385,8 @@ export function InfoMark({ title }: { title: string }) {
 
 /** The round glyph the flyout and the collapsed panel put beside a severity. */
 export function SevGlyph({ value, size = 14 }: { value: SentinelSeverity; size?: number }) {
-  const c = value === "High" ? "#d13438" : value === "Medium" ? "#ff8c00" : value === "Low" ? "#c8a600" : "#8a8886";
-  return <CircleAlert size={size} color="#fff" fill={c} aria-hidden />;
+  const c = value === "High" ? "var(--st-high)" : value === "Medium" ? "var(--st-medium)" : value === "Low" ? "var(--st-low)" : "var(--st-info)";
+  return <CircleAlert size={size} color={c} aria-hidden />;
 }
 
 /* ----------------------------------------- sortable tables ---------------------------------------- */
@@ -396,7 +402,7 @@ export function SortTh<K extends string>({ k, sort, onSort, children, style }: {
     <th scope="col" style={style} aria-sort={on ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
       <button type="button" className="st-sort" onClick={() => onSort({ key: k, dir: on && sort.dir === "desc" ? "asc" : "desc" })}>
         <span className="st-ellipsis">{children}</span>
-        {on ? (sort.dir === "asc" ? <ArrowUp size={12} aria-hidden /> : <ArrowDown size={12} aria-hidden />) : <ArrowUpDown size={12} color="#605e5c" aria-hidden />}
+        {on ? (sort.dir === "asc" ? <ArrowUp size={12} aria-hidden /> : <ArrowDown size={12} aria-hidden />) : <ArrowUpDown size={12} color="var(--st-text-3)" aria-hidden />}
       </button>
     </th>
   );

@@ -28,7 +28,7 @@ export function InsightCard({ insight, range, defaultOpen = true }: { insight: E
   return (
     <section className="st-insight">
       <button type="button" className="st-insight-head" aria-expanded={open} onClick={() => setOpen(o => !o)}>
-        {open ? <ChevronUp size={16} color="#0078d4" aria-hidden /> : <ChevronDown size={16} color="#0078d4" aria-hidden />}
+        {open ? <ChevronUp size={16} color="var(--st-accent)" aria-hidden /> : <ChevronDown size={16} color="var(--st-accent)" aria-hidden />}
         <span className="st-ellipsis st-grow">{insight.title}</span>
         <InfoMark title={insight.description} />
       </button>
@@ -121,9 +121,9 @@ export const EntityTimelineCard = memo(function EntityTimelineCard({ entity, inc
           <button type="button" className="st-tl-item" style={{ gridTemplateColumns: "50px 24px 1fr" }} title={r.title} onClick={() => openLogs({ query: r.query, run: true })}>
             <span className="st-tl-date"><b>{fmtMonthDay(r.at)}</b><br />{fmtClock(r.at)}</span>
             <span className="st-tl-rail"><span className="st-tl-dot foreign-ok">
-              {r.icon === "bookmark" ? <Bookmark size={13} color="#0078d4" fill="#0078d4" aria-hidden />
-                : r.icon === "activity" ? <Activity size={13} color="#605e5c" aria-hidden />
-                  : <ShieldAlert size={14} color="#fff" fill={r.icon === "foreign" ? "#a19f9d" : "#0078d4"} aria-hidden />}
+              {r.icon === "bookmark" ? <Bookmark size={13} color="var(--st-accent)" aria-hidden />
+                : r.icon === "activity" ? <Activity size={13} color="var(--st-text-2)" aria-hidden />
+                  : <ShieldAlert size={14} color={r.icon === "foreign" ? "var(--st-text-3)" : "var(--st-accent)"} aria-hidden />}
             </span></span>
             <span className="st-tl-main">
               {r.sev && <i className={`st-band ${r.sev}${r.icon === "foreign" ? " dotted" : ""}`} aria-hidden />}

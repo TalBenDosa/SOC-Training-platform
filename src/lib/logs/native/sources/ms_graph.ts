@@ -129,9 +129,12 @@ const PRODUCTS: Record<MicrosoftProduct, Product> = {
     description: "Microsoft Purview Insider Risk Management raised this alert on user activity.",
     recommendedActions: "Review the user's activity and the policy that matched it.",
   },
+  // The SIEM analytics of a session that reads Graph (an XDR session, the only one with
+  // detection_feed) are XDR's own rules, not a Microsoft service: Graph's serviceSource for a
+  // source outside its enum is "unknown" (owner, 2026-11-08: nothing presents XDR as Sentinel).
   sentinel: {
-    serviceSource: "microsoftSentinel", detectionSource: "scheduledAlerts", productName: "Microsoft Sentinel",
-    description: "A Microsoft Sentinel analytics rule raised this alert.",
+    serviceSource: "unknown", detectionSource: "scheduledAlerts", productName: "XDR Analytics",
+    description: "An XDR analytics rule raised this alert.",
     recommendedActions: "Review the events the rule matched and the entities they name.",
   },
   defender_xdr: {

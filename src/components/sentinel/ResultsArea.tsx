@@ -294,7 +294,7 @@ function ResultsArea({ outcome, incidentId, panel = false, onFilter }, ref) {
             <BookmarkPlus size={14} aria-hidden />Add bookmark{selected.size > 0 ? ` (${selected.size})` : ""}
           </button>
         )}
-        {!panel && <><span className="st-cmdsep" aria-hidden /><span className="st-row" style={{ gap: 6 }}><Clock size={14} color="#0078d4" aria-hidden />Display time (UTC+00:00)</span></>}
+        {!panel && <><span className="st-cmdsep" aria-hidden /><span className="st-row" style={{ gap: 6 }}><Clock size={14} color="var(--st-accent)" aria-hidden />Display time (UTC+00:00)</span></>}
         <span className="st-grow" />
         <span role="status" aria-live="polite" className="st-small st-muted">{note}</span>
         {searching || search ? (
@@ -302,7 +302,7 @@ function ResultsArea({ outcome, incidentId, panel = false, onFilter }, ref) {
             <Search size={14} aria-hidden /><span className="st-sr">Search results</span>
             <input className="st-input" autoFocus style={{ height: 24 }} value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} onBlur={() => setSearching(false)} placeholder="Search" />
           </label>
-        ) : <button type="button" className="st-icon-btn" aria-label="Search results" onClick={() => setSearching(true)}><Search size={15} color="#0078d4" aria-hidden /></button>}
+        ) : <button type="button" className="st-icon-btn" aria-label="Search results" onClick={() => setSearching(true)}><Search size={15} color="var(--st-accent)" aria-hidden /></button>}
       </div>
       {panel ? (
         <>

@@ -71,9 +71,14 @@ const incidentRows = () => all('table[aria-label="Incidents"] tbody tr');
 describe("shell", () => {
   it("has the requested menu and nothing else", () => {
     mount();
-    expect(all(".st-nav-item").map(navLabel)).toEqual(["Overview", "Logs", "Search", "Incidents", "Hunting", "Entity behavior", "Threat intelligence", "Analytics", "Automation"]);
-    expect(all(".st-nav-group").map(b => b.textContent)).toEqual(["General", "Threat management", "Configuration"]);
-    expect(text()).toContain("contoso-sentinel-prod");
+    // XDR's own menu (owner, 2026-11-08): investigation first, its own groups, not the portal's.
+    expect(all(".st-nav-item").map(navLabel)).toEqual(["Incidents", "Logs", "Hunting", "Search", "Entity behavior", "Threat intelligence", "Overview", "Analytics", "Automation"]);
+    expect(all(".st-nav-group").map(b => b.textContent)).toEqual(["Investigate", "Context", "Workspace"]);
+    expect(q("nav.st-nav")!.getAttribute("aria-label")).toBe("XDR menu");
+    expect(q(".st-topbar .xd-word")!.textContent).toBe("XDR");
+    expect(q("[data-testid=workspace-name]")!.textContent).toBe("contoso-xdr-prod");
+    expect(text()).not.toContain("Selected workspace");
+    expect(q(".st-blade-head h1")!.textContent).toBe("Incidents");
     // Review 2026-11: the seat in words, and the link says where it goes (it keeps the two-window behaviour).
     expect(q<HTMLAnchorElement>(".st-topbar a")!.textContent).toBe("Back to team room");
     expect(q(".st-topbar")!.textContent).toContain("Tal Analyst (Tier-2)");
@@ -125,16 +130,24 @@ describe("shell", () => {
     expect(assertive!.textContent).toBe("");
   });
 
-  it("the Low band and the faint text meet WCAG AA against white", async () => {
+  it("text and severity colours meet WCAG AA on every dark surface, in the app's fonts, not the portal's", async () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
     const css = fs.readFileSync(path.join(__dirname, "sentinel.css"), "utf8");
     const hex = (name: string) => css.match(new RegExp(`--${name}:\\s*(#[0-9a-f]{6})`, "i"))![1];
     const lum = (h: string) => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
-    const onWhite = (h: string) => 1.05 / (lum(h) + 0.05);
-    expect(onWhite(hex("st-text-3"))).toBeGreaterThanOrEqual(4.5);
-    expect(onWhite(hex("st-low-edge"))).toBeGreaterThanOrEqual(3);
-    expect(css).toMatch(/\.st-band\.Low:not\(\.dotted\), \.st-cellband\.Low \{ box-shadow: inset 0 0 0 1px var\(--st-low-edge\)/);
+    const ratio = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+    for (const bg of ["st-surface", "st-surface-2", "st-canvas", "st-hover"]) {
+      for (const fg of ["st-text", "st-text-2", "st-text-3", "st-high", "st-medium", "st-low", "st-info", "st-ok"]) {
+        expect(ratio(hex(fg), hex(bg)), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+    // Not the Azure portal: no Segoe UI, no Fluent blue, a dark scheme.
+    expect(css).not.toMatch(/Segoe|#0078d4|#106ebe|#deecf9/i);
+    expect(css).toMatch(/color-scheme: dark/);
+    // Severity is never colour alone: the word is always written next to the band.
+    mount();
+    for (const s of all(".st-sev")) expect(s.textContent).toMatch(/^(High|Medium|Low|Informational)$/);
   });
 
   it("every screen renders, every control has a name, no em dash in the text", async () => {

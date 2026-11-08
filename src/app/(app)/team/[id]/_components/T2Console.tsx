@@ -42,7 +42,7 @@ export function T2Console({ events, hasTier3 = true, consoleName = "EDR", canEdr
   scope: ScopeState; scopes: Map<string, ScopeSnapshot>; incidents: string[]; incidentOf: Map<string, string>;
   nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; actR: ActR; onEdr?: (description?: string, host?: string, caseEid?: string) => void;
   /** Whether the EDR console has endpoint telemetry for this host (no host: for the escalated cases). */
-  /** Where this session investigates: "EDR" or "Sentinel". */
+  /** Where this session investigates: "EDR" or "XDR". */
   consoleName?: string;
   canEdr?: (host?: string) => boolean;
   /** Logs Tier-1 added to each case from the queue, keyed by the case's event_id. The card now reads them from `events` (the hand-off). */
@@ -169,7 +169,7 @@ export function T2Console({ events, hasTier3 = true, consoleName = "EDR", canEdr
           </h3>
           <div className="flex items-center gap-2">
             {nextUnacked && <Button variant="outline" size="sm" disabled={busy != null} onClick={takeNextCase}>Take next case</Button>}
-            {onEdr && (canEdr?.() ?? true) && <Button variant="outline" size="sm" data-investigate-header title={workCase ? `Open the incident of your case: ${asStr((workCase.payload as { summary?: string }).summary) || "your case"}` : `Open the ${consoleName === "Sentinel" ? "incident list" : "console"}`} onClick={openWorkCase}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in {consoleName}</Button>}
+            {onEdr && (canEdr?.() ?? true) && <Button variant="outline" size="sm" data-investigate-header title={workCase ? `Open the incident of your case: ${asStr((workCase.payload as { summary?: string }).summary) || "your case"}` : `Open the ${consoleName === "XDR" ? "incident list" : "console"}`} onClick={openWorkCase}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in {consoleName}</Button>}
           </div>
         </div>
         {!inboxOpen ? <p className="mt-2 text-xs text-slate-500">{escalations.length} case(s) waiting: expand to review. Your focus is hunting &amp; scope below; a case you take here you can also report and close.</p>

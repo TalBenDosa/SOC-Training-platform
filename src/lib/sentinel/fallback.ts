@@ -88,7 +88,7 @@ export function fallbackRow(ev: TelemetryEvent, ctx: NativeCtx, record?: Record<
   }
   switch (ev.source as string) {
     case "ueba":
-      if (/sentinel/i.test(v)) {
+      if (/sentinel|xdr/i.test(v)) {
         return build("BehaviorAnalytics", ev, tenantId, {
           UserPrincipalName: user, UserName: user?.split("@")[0], SourceIPAddress: ev.src_ip, SourceDevice: ev.hostname, DestinationIPAddress: ev.dst_ip, ActivityType: r(ev, "ueba.anomaly_type"), ActionType: ev.event_type,
           EventSource: "SecurityAlert", EventVendor: "Microsoft", InvestigationPriority: num(r(ev, "ueba.risk_score", "ueba.investigation_priority")), ActivityInsights: ev.raw ?? {}, SourceRecordId: ev.id, TimeProcessed: ev.ts, SourceSystem: "Azure",

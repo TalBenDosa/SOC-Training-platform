@@ -6,13 +6,13 @@
 import type { TourStep } from "./GuidedTour";
 import { CONTAINMENT_RULE } from "./shared";
 
-/** A Sentinel session: the same button, but it opens Sentinel. */
+/** An XDR session (config value "sentinel"): the same button, but it opens the XDR console. */
 const SENTINEL_STEP: Record<string, { title: string; body: string; action: string }> = {
-  "edr-button": { title: "Investigate in Sentinel", body: "Detections raise incidents in Sentinel. This button shows how many are open. Open it to read the incident timeline, the entities and the top insights, and to query the logs with KQL.", action: "Click Investigate in Sentinel." },
-  "t3-edr": { title: "Open Sentinel", body: "Open Sentinel for the whole workspace: incidents, Logs with KQL, Hunting and the investigation graph.", action: "Click Open Sentinel." },
+  "edr-button": { title: "Investigate in XDR", body: "Detections raise incidents in XDR, the investigation console. This button shows how many are open. Open it to read the incident timeline, the entities and the top insights, and to query the logs with KQL.", action: "Click Investigate in XDR." },
+  "t3-edr": { title: "Open XDR", body: "Open XDR for the whole workspace: incidents, Logs with KQL, Hunting and the investigation graph.", action: "Click Open XDR." },
 };
 
-/** The tour with its console steps rewritten for a Sentinel session. */
+/** The tour with its console steps rewritten for an XDR session. */
 export function forSentinel(steps: TourStep[]): TourStep[] {
   return steps.map(s => s.target && SENTINEL_STEP[s.target] ? { ...s, ...SENTINEL_STEP[s.target] } : s);
 }

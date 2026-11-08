@@ -1,4 +1,4 @@
-// A Sentinel incident opened from an escalation opens with the analyst's report (owner, 2026-11-08):
+// An XDR incident opened from an escalation opens with the analyst's report (owner, 2026-11-08):
 // the title is their own summary (no generic prefix), the description and the first comment are
 // their report, and their indicators are entities of the incident. Built from a real team timeline.
 import { describe, it, expect, afterEach } from "vitest";
@@ -41,7 +41,7 @@ function escalate(ev: TelemetryEvent, seq: number): Ev[] {
 let root: Root | null = null; let el: HTMLDivElement | null = null;
 afterEach(() => { act(() => root?.unmount()); el?.remove(); root = null; el = null; });
 
-describe("Sentinel: an escalated incident", () => {
+describe("XDR: an escalated incident", () => {
   const plain = buildWorkspace(events, { companyId: "nexacorp" });
   const raised = new Set(Object.values(plain.alertEventIds).flat());
   const quiet = events.find(e => !raised.has(e.id))!;

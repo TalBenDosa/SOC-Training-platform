@@ -57,7 +57,7 @@ describe("rows", () => {
       }
       expect([...new Set(problems)].slice(0, 20)).toEqual([]);
       expect(ws.coverage.rows).toBeGreaterThan(20);
-      expect(ws.name).toMatch(/-sentinel-prod$/);
+      expect(ws.name).toMatch(/-xdr-prod$/);
       expect(Date.parse(ws.now)).toBeGreaterThan(0);
     });
   }
@@ -293,7 +293,9 @@ describe("alerts and incidents", () => {
       const ws = buildWorkspace(events, { companyId: company });
       for (const a of ws.alerts) all.add(a.product);
     }
-    expect(all).toContain("Azure Sentinel");
+    // The console's own analytics raise as XDR Analytics, never as Azure or Microsoft Sentinel.
+    expect(all).toContain("XDR Analytics");
+    for (const p of all) expect(p).not.toMatch(/Sentinel/);
     expect(all).toContain("Microsoft Defender Advanced Threat Protection");
     for (const p of all) expect(p).not.toMatch(/^Microsoft Defender for (Office|Endpoint)|^IPS$/);
   });

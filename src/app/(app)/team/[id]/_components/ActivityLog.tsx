@@ -39,8 +39,8 @@ export function ActivityLog({ activity, nameOf }: { activity: Ev[]; nameOf: (u: 
       case "case.status_set": return `set case status → ${p.status}`;
       case "case.assigned": return "assigned the case owner";
       case "note.added": return "added a case note";
-      case "sentinel.incident_updated": { const u = (p.patch ?? {}) as Record<string, unknown>; return u.status ? `set a Sentinel incident to ${String(u.status)}` : "updated a Sentinel incident"; }
-      case "sentinel.bookmark_added": return `bookmarked Sentinel results${s("name", 60) ? `: ${s("name", 60)}` : ""}`;
+      case "sentinel.incident_updated": { const u = (p.patch ?? {}) as Record<string, unknown>; return u.status ? `set an XDR incident to ${String(u.status)}` : "updated an XDR incident"; }
+      case "sentinel.bookmark_added": return `bookmarked XDR results${s("name", 60) ? `: ${s("name", 60)}` : ""}`;
       default: return e.type;
     }
   };

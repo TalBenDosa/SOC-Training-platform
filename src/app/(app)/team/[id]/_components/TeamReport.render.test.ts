@@ -98,7 +98,7 @@ describe("TeamReport (shift review) — v3 sections", () => {
     });
     await act(async () => { await new Promise(r => setTimeout(r, 0)); });
     const text = container.textContent ?? "";
-    // Review 2026-11: Sentinel sessions isolate too, so the section is just "Host isolation".
+    // Review 2026-11: XDR sessions isolate too, so the section is just "Host isolation".
     expect(text).toContain("Host isolation");
     expect(text).not.toContain("Host isolation in EDR");
     expect(text).toContain("1/2 right calls");

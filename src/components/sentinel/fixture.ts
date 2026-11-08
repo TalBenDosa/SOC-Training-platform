@@ -41,7 +41,7 @@ const PROCESS: KqlTable = {
 export const ALERTS: SentinelAlert[] = [
   { id: "aaaaaaaa-0001", name: "Unfamiliar sign-in properties", severity: "High", product: "Azure Active Directory Identity Protection", description: "Sign-in from an unfamiliar location.", time: at(10), tactics: ["InitialAccess"], techniques: ["T1078"], entityIds: [ids[0], ids[2]], ruleId: "rule-1", query: 'SigninLogs\n| where UserPrincipalName == "jdoe@contoso.example"' },
   { id: "aaaaaaaa-0002", name: "Suspicious process launched", severity: "Medium", product: "Microsoft Defender for Endpoint", description: "A renamed binary ran from Downloads.", time: at(30), tactics: ["Execution"], techniques: ["T1204.002"], entityIds: [ids[0], ids[1], ids[3]], query: 'DeviceProcessEvents\n| where DeviceName == "FIN-LT-042"' },
-  { id: "aaaaaaaa-0003", name: "Service account failed sign-ins", severity: "Low", product: "Microsoft Sentinel", description: "Failed sign-ins for a service account.", time: at(40), tactics: ["CredentialAccess"], techniques: ["T1110"], entityIds: [ids[4], ids[2]], ruleId: "rule-1", query: 'SigninLogs\n| where ResultType != "0"' },
+  { id: "aaaaaaaa-0003", name: "Service account failed sign-ins", severity: "Low", product: "XDR Analytics", description: "Failed sign-ins for a service account.", time: at(40), tactics: ["CredentialAccess"], techniques: ["T1110"], entityIds: [ids[4], ids[2]], ruleId: "rule-1", query: 'SigninLogs\n| where ResultType != "0"' },
 ];
 
 const ALERT_TABLE: KqlTable = {
@@ -55,12 +55,12 @@ const ALERT_TABLE: KqlTable = {
 
 export const INCIDENTS: SentinelIncident[] = [
   { number: 101, id: "inc-101", title: "Initial access involving one user", severity: "High", created: at(10), lastUpdate: at(30), alertIds: [ALERTS[0].id, ALERTS[1].id], entityIds: ids.slice(0, 4), tactics: ["InitialAccess", "Execution"], techniques: ["T1078", "T1204.002"], products: ["Azure Active Directory Identity Protection", "Microsoft Defender for Endpoint"], description: "A user signed in from an unfamiliar place, then ran a binary.", eventCount: 42, eventsQuery: "SigninLogs\n| take 42" },
-  { number: 102, id: "inc-102", title: "Service account failed sign-ins", severity: "Low", created: at(40), lastUpdate: at(40), alertIds: [ALERTS[2].id], entityIds: [ids[4], ids[2]], tactics: ["CredentialAccess"], techniques: ["T1110"], products: ["Microsoft Sentinel"], description: "", eventCount: 30, eventsQuery: 'SigninLogs\n| where ResultType != "0"' },
+  { number: 102, id: "inc-102", title: "Service account failed sign-ins", severity: "Low", created: at(40), lastUpdate: at(40), alertIds: [ALERTS[2].id], entityIds: [ids[4], ids[2]], tactics: ["CredentialAccess"], techniques: ["T1110"], products: ["XDR Analytics"], description: "", eventCount: 30, eventsQuery: 'SigninLogs\n| where ResultType != "0"' },
 ];
 
 export function fixtureWorkspace(extra?: Partial<SentinelWorkspace>): SentinelWorkspace {
   return {
-    name: "contoso-sentinel-prod",
+    name: "contoso-xdr-prod",
     tables: { SigninLogs: SIGNIN, DeviceProcessEvents: PROCESS, SecurityAlert: ALERT_TABLE },
     alerts: ALERTS, incidents: INCIDENTS, entities: Object.fromEntries(ENTITIES.map(e => [e.id, e])),
     rules: [{ id: "rule-1", name: "Sign-ins from a rare location", severity: "Medium", tactics: ["InitialAccess"], techniques: ["T1078"], description: "Rare location for this user.", query: 'SigninLogs\n| where ResultType == "0"', frequency: "1 hour", lookback: "1 day", dataSources: ["SigninLogs"], falsePositives: ["Travel"] }],
@@ -71,7 +71,7 @@ export function fixtureWorkspace(extra?: Partial<SentinelWorkspace>): SentinelWo
 }
 
 export function fixtureState(over: Partial<IncidentState> = {}): IncidentState {
-  return { status: "New", owner: null, severity: "High", comments: [], bookmarks: [], tasks: [{ id: "t", title: "Review the alerts", done: false }], activity: [{ at: at(10), actor: "Sentinel", text: "Incident created" }], ...over };
+  return { status: "New", owner: null, severity: "High", comments: [], bookmarks: [], tasks: [{ id: "t", title: "Review the alerts", done: false }], activity: [{ at: at(10), actor: "XDR", text: "Incident created" }], ...over };
 }
 
 export function fakeActions(over: Partial<SentinelActions> = {}) {

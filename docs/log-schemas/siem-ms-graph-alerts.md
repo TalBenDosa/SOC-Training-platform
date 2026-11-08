@@ -56,9 +56,9 @@ value would group an attack's alerts in a way benign alerts never are.
 | Defender for Cloud Apps | `microsoftDefenderForCloudApps` | `cloudAppSecurity` | both enums |
 | Defender for Identity | `microsoftDefenderForIdentity` | `microsoftDefenderForIdentity` | both enums |
 | Purview DLP | `dataLossPrevention` | `microsoftDataLossPrevention` | both enums |
-| Sentinel, analytics rule | `microsoftSentinel` | `scheduledAlerts` | Graph list example 2 |
-| Sentinel, threat intelligence match | `microsoftSentinel` | `microsoftDefenderThreatIntelligenceAnalytics` | detectionSource enum |
-| Sentinel, UEBA / anomaly | `microsoftSentinel` | `builtInMl` | detectionSource enum |
+| XDR (the platform's own console), analytics rule | `unknown` | `scheduledAlerts` | detectionSource enum; XDR is not a Microsoft service, so serviceSource has no member for it (2026-11-08: the console is XDR, not Sentinel) |
+| XDR, threat intelligence match | `unknown` | `microsoftDefenderThreatIntelligenceAnalytics` | detectionSource enum |
+| XDR, UEBA / anomaly | `unknown` | `builtInMl` | detectionSource enum |
 | Defender for Cloud | `microsoftDefenderForCloud` | `microsoftDefenderForCloud` | both enums |
 | Microsoft 365 Defender correlation | `microsoft365Defender` | `microsoft365Defender` | both enums |
 | Insider Risk Management | `unknown` | `microsoftInsiderRiskManagement` | detectionSource enum; **serviceSource has no member for it** |

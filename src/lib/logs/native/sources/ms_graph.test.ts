@@ -87,7 +87,7 @@ describe("ms_graph: what it renders", () => {
     }
     console.log(`[ms_graph] pairs ${JSON.stringify([...pairs])}`);
     for (const need of ["microsoftDefenderForEndpoint/microsoftDefenderForEndpoint", "microsoftDefenderForEndpoint/antivirus", "azureAdIdentityProtection/azureAdIdentityProtection",
-      "dataLossPrevention/microsoftDataLossPrevention", "microsoftSentinel/scheduledAlerts", "microsoftDefenderForIdentity/microsoftDefenderForIdentity", "microsoftDefenderForCloud/microsoftDefenderForCloud"]) {
+      "dataLossPrevention/microsoftDataLossPrevention", "unknown/scheduledAlerts", "microsoftDefenderForIdentity/microsoftDefenderForIdentity", "microsoftDefenderForCloud/microsoftDefenderForCloud"]) {
       expect(pairs.get(need), need).toBeGreaterThan(0);
     }
   });

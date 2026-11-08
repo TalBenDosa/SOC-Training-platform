@@ -145,7 +145,7 @@ export function FieldBar({ incident, state, order, collapsed, tail }: {
   const value: Record<Field, string> = { severity: state.severity, status: state.status, owner };
   const label: Record<Field, string> = { severity: "Severity", status: "Status", owner: "Owner" };
   const glyph = (f: Field, size: number) => (f === "status" ? <StatusIcon status={state.status} size={size} />
-    : f === "owner" ? <CircleUserRound size={size} color="#0078d4" aria-hidden />
+    : f === "owner" ? <CircleUserRound size={size} color="var(--st-accent)" aria-hidden />
       : collapsed ? <SevGlyph value={state.severity} size={size} /> : null);
   const props: PickerProps | null = open ? { incident, state, anchor: open.anchor, side: collapsed ? "right" : "below", onClose: close } : null;
   return (

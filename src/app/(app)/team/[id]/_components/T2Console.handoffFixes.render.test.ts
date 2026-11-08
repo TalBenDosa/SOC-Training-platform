@@ -1,5 +1,5 @@
 // Fixes from the 2026-11-08 real-browser check of the hand-off: the Tier-2 card's isolation banner,
-// the header's "Investigate in Sentinel" target, the no-approver deadlock and the scope label box.
+// the header's "Investigate in XDR" target, the no-approver deadlock and the scope label box.
 import { describe, it, expect, afterEach } from "vitest";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -27,7 +27,7 @@ function t2(over: Record<string, unknown> = {}) {
   return React.createElement(T2Console, {
     sessionId: "s1", role: "t2", meId: "u2", events, escalations: [events[3]], escState: escalationStates(events), reportedIds: new Set(), reportByEid: new Map(), elevatedIds: new Set(),
     containments: [], scope: null, scopes: new Map(), incidents: [], incidentOf: new Map(), nameOf, act: async () => true, actR: async () => ({ ok: true, code: null }),
-    consoleName: "Sentinel", ...over,
+    consoleName: "XDR", ...over,
   } as never);
 }
 const pending = (): IsolationRequest => isolationRequests(sampleEvents())[0];
@@ -35,7 +35,7 @@ const pending = (): IsolationRequest => isolationRequests(sampleEvents())[0];
 describe("Tier-2 card: the isolation recommendation", () => {
   it("shows Tier-1's recommendation while no request exists", async () => {
     await mount(t2());
-    expect(text()).toContain("Tier-1 recommends isolating WS-FIN-2847: your decision, in Sentinel");
+    expect(text()).toContain("Tier-1 recommends isolating WS-FIN-2847: your decision, in XDR");
   });
 
   it("is replaced by the request's state once a request exists", async () => {
@@ -62,7 +62,7 @@ describe("Tier-2 card: nobody but the requester could approve", () => {
   });
 });
 
-describe("Tier-2 header: Investigate in Sentinel", () => {
+describe("Tier-2 header: Investigate in XDR", () => {
   it("opens the incident of the case the analyst works", async () => {
     const calls: unknown[][] = [];
     await mount(t2({ onEdr: (...a: unknown[]) => { calls.push(a); } }));

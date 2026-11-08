@@ -4,7 +4,7 @@
 // queries run through KQL and hang off a hub with an X. Layout is deterministic: every viewer sees the same picture.
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity, Bookmark, Briefcase, ChevronDown, ChevronUp, ChevronsRight, CircleHelp, CircleUserRound, Clock, Info, Lightbulb, ListTree, Maximize, Minus, Plus, Redo2, Search, ShieldAlert, Undo2, Users, X,
+  Activity, Bookmark, Siren, ChevronDown, ChevronUp, ChevronsRight, CircleHelp, CircleUserRound, Clock, Info, Lightbulb, ListTree, Maximize, Minus, Plus, Redo2, Search, ShieldAlert, Undo2, Users, X,
 } from "lucide-react";
 import type { EntityKind, SentinelAlert, SentinelEntity, SentinelIncident, SentinelSeverity } from "@/lib/sentinel/types";
 import { useSentinel } from "./context";
@@ -13,8 +13,14 @@ import { insightsForIncident, runQuery } from "./engine";
 import { alertsOf, entitiesOf, explorationsFor, fmtClock, fmtDateTime, fmtMonthDay, KIND_LABEL, type Exploration } from "./helpers";
 import { Crumbs, EntityIcon, entityIcon, StatusIcon, Tabs } from "./ui";
 
-const SEV_STROKE: Record<SentinelSeverity, string> = { High: "#a4262c", Medium: "#ff8c00", Low: "#8a7400", Informational: "#8a8886" };
-const DARK = "#323130";
+const SEV_STROKE: Record<SentinelSeverity, string> = { High: "var(--st-high)", Medium: "var(--st-medium)", Low: "var(--st-low)", Informational: "var(--st-info)" };
+const DARK = "var(--st-node)";
+const INK = "var(--st-node-ink)";
+/** XDR draws an alert as a hexagon (pointy top) and an entity as a rounded square: its own graph language. */
+const hex = (r: number, dx = 0, dy = 0) => Array.from({ length: 6 }, (_, i) => {
+  const a = Math.PI / 6 + i * Math.PI / 3;
+  return `${(dx + r * Math.cos(a)).toFixed(1)},${(dy + r * Math.sin(a)).toFixed(1)}`;
+}).join(" ");
 
 type GNode =
   | { id: string; type: "entity"; entity: SentinelEntity; x: number; y: number }
@@ -65,15 +71,15 @@ const GraphNode = memo(function GraphNode({ node, selected, hovered, dim, onSele
       onMouseEnter={() => onHover(node.id)} onMouseLeave={onLeave} onFocus={() => onHover(node.id)} onBlur={onLeave} onPointerDown={e => e.stopPropagation()}>
       {isAlert ? (
         <>
-          {node.more.length > 0 && <circle cx={7} cy={-5} r={29} fill="#f3f2f1" stroke={SEV_STROKE[node.alert.severity]} strokeWidth={3} />}
-          <circle className="st-gfocus" r={29} fill="#f3f2f1" stroke={SEV_STROKE[node.alert.severity]} strokeWidth={3} />
-          <circle r={24} fill={selected ? "#3b78d8" : DARK} />
-          <Icon x={-12} y={-12} width={24} height={24} color="#fff" aria-hidden />
+          {node.more.length > 0 && <polygon points={hex(30, 7, -5)} fill="var(--st-node-ring)" stroke={SEV_STROKE[node.alert.severity]} strokeWidth={3} />}
+          <polygon className="st-gfocus" points={hex(30)} fill="var(--st-node-ring)" stroke={SEV_STROKE[node.alert.severity]} strokeWidth={3} />
+          <polygon points={hex(23)} fill={selected ? "var(--st-accent)" : DARK} />
+          <Icon x={-12} y={-12} width={24} height={24} color={selected ? "var(--st-on-accent)" : INK} aria-hidden />
         </>
       ) : (
         <>
-          <circle className="st-gfocus" r={22} fill={blue ? "#3b78d8" : "#fff"} stroke={blue ? "#3b78d8" : "#c8c6c4"} />
-          <Icon x={-10} y={-10} width={20} height={20} color={blue ? "#fff" : DARK} aria-hidden />
+          <rect className="st-gfocus" x={-21} y={-21} width={42} height={42} rx={11} fill={blue ? "var(--st-accent)" : "var(--st-node-soft)"} stroke={blue ? "var(--st-accent)" : "var(--st-border-2)"} strokeWidth={1.5} />
+          <Icon x={-10} y={-10} width={20} height={20} color={blue ? "var(--st-on-accent)" : "var(--st-text)"} aria-hidden />
         </>
       )}
       <text y={isAlert ? 46 : 38} textAnchor="middle"><title>{label}</title>{truncate(label, 20)}</text>
@@ -132,7 +138,7 @@ const iconFor = (ex: Exploration) => {
 };
 
 export function InvestigationGraph({ incident, onClose }: { incident: SentinelIncident; onClose: () => void }) {
-  const { ws, tables, stateOf, openLogs, openEntity, go, actions } = useSentinel();
+  const { ws, tables, stateOf, openLogs, openEntity, actions } = useSentinel();
   const state = stateOf(incident.id);
   const alerts = useMemo(() => alertsOf(incident, ws).sort((a, b) => Date.parse(a.time) - Date.parse(b.time)), [incident, ws]);
   const entities = useMemo(() => entitiesOf(incident, ws), [incident, ws]);
@@ -354,7 +360,7 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
 
   return (
     <div ref={useFocusOnMount()} tabIndex={-1} className="st-inv" role="region" aria-label="Investigation">
-      <Crumbs trailing items={[{ label: "Home", onClick: () => { onClose(); go("overview"); } }, { label: "Sentinel", onClick: onClose }, { label: "Incident", onClick: onClose }]} />
+      <Crumbs items={[{ label: `Incident ${incident.number}`, onClick: onClose }, { label: "Investigation" }]} />
       <div className="st-inc-head" style={{ alignItems: "center" }}>
         <h1 className="st-grow st-inv-title">Investigation</h1>
         <button type="button" className="st-icon-btn" aria-label="Close investigation" onClick={onClose}><X size={18} aria-hidden /></button>
@@ -364,11 +370,11 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
         <button type="button" className="st-cmd" disabled={!undone.length} onClick={redo}><Redo2 size={15} aria-hidden />Redo</button>
       </div>
       <div className="st-inv-summary">
-        <div style={{ minWidth: 0 }}><b><Briefcase size={22} color="#0078d4" fill="#c7e0f4" aria-hidden /><span className="st-ellipsis" style={{ maxWidth: 380 }} title={incident.title}>{incident.title}</span></b><span>Incident</span></div>
+        <div style={{ minWidth: 0 }}><b><Siren size={22} color="var(--st-accent)" aria-hidden /><span className="st-ellipsis" style={{ maxWidth: 380 }} title={incident.title}>{incident.title}</span></b><span>Incident</span></div>
         <div><b><i className={`st-band ${state.severity}`} style={{ height: 22, width: 5 }} aria-hidden />{state.severity}</b><span>Severity</span></div>
         <div><b><StatusIcon status={state.status} size={20} />{state.status}</b><span>Status</span></div>
-        <div><b><CircleUserRound size={20} color="#0078d4" aria-hidden />{state.owner ?? "Unassigned"}</b><span>Owner</span></div>
-        <div><b><Clock size={20} color="#0078d4" aria-hidden />{fmtDateTime(incident.lastUpdate)}</b><span>Last incident update time</span></div>
+        <div><b><CircleUserRound size={20} color="var(--st-accent)" aria-hidden />{state.owner ?? "Unassigned"}</b><span>Owner</span></div>
+        <div><b><Clock size={20} color="var(--st-accent)" aria-hidden />{fmtDateTime(incident.lastUpdate)}</b><span>Last incident update time</span></div>
       </div>
       <div className="st-inv-main">
         <div ref={canvas} className={`st-canvas${panning ? " panning" : ""}`} tabIndex={0} role="group"
@@ -377,7 +383,7 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
           onClick={() => { if (!dragged.current) setSelected(null); }}>
           <svg aria-hidden={false}>
             <defs>
-              <marker id="st-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1,1L9,5L1,9" fill="none" stroke="#000" strokeWidth="1.8" /></marker>
+              <marker id="st-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1,1L9,5L1,9" fill="none" stroke="var(--st-edge)" strokeWidth="1.8" /></marker>
             </defs>
             <g transform={`translate(${cx},${cy}) scale(${view.k})`}>
               {trunks.map(t => {
@@ -393,7 +399,7 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
                     <g className="st-gdot" transform={`translate(${t.trunk.mid.x},${t.trunk.mid.y})`} tabIndex={0} role="button" aria-label={`Events for ${t.alert.name}`} data-events={t.alert.id}
                       onClick={e => { e.stopPropagation(); logs(t.alert.query); }} onPointerDown={e => e.stopPropagation()}
                       onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); logs(t.alert.query); } }}>
-                      <circle r={9} fill={DARK} /><Activity x={-6} y={-6} width={12} height={12} color="#fff" aria-hidden />
+                      <circle r={9} fill={DARK} /><Activity x={-6} y={-6} width={12} height={12} color={INK} aria-hidden />
                     </g>
                   </g>
                 );
@@ -404,11 +410,11 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
                 const link = curve(p.x, p.y, h.x, h.y, .16);
                 return (
                   <g key={h.id} data-testid="graph-hub">
-                    <path d={link.d} fill="none" stroke="#000" strokeWidth={2.5} />
+                    <path d={link.d} fill="none" stroke="var(--st-edge)" strokeWidth={2.5} />
                     <g className="st-gdot" transform={`translate(${link.mid.x},${link.mid.y})`} tabIndex={0} role="button" aria-label={`Events for ${h.label}`}
                       onClick={e => { e.stopPropagation(); logs(h.query); }} onPointerDown={e => e.stopPropagation()}
                       onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); logs(h.query); } }}>
-                      <circle r={9} fill={DARK} /><Activity x={-6} y={-6} width={12} height={12} color="#fff" aria-hidden />
+                      <circle r={9} fill={DARK} /><Activity x={-6} y={-6} width={12} height={12} color={INK} aria-hidden />
                     </g>
                     {h.children.map(c => {
                       const n = graph.nodes.get(c);
@@ -416,12 +422,12 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
                       const d = Math.hypot(n.x - h.x, n.y - h.y) || 1;
                       const gap = n.type === "alert" ? 33 : 25;
                       const end = { x: n.x - ((n.x - h.x) / d) * gap, y: n.y - ((n.y - h.y) / d) * gap };
-                      return <path key={c} data-testid="graph-link" d={curve(h.x, h.y, end.x, end.y, .18).d} fill="none" stroke="#000" strokeWidth={2.5} markerEnd="url(#st-arrow)" />;
+                      return <path key={c} data-testid="graph-link" d={curve(h.x, h.y, end.x, end.y, .18).d} fill="none" stroke="var(--st-edge)" strokeWidth={2.5} markerEnd="url(#st-arrow)" />;
                     })}
                     <g className="st-gdot" transform={`translate(${h.x},${h.y})`} tabIndex={0} role="button" aria-label={`Remove ${h.label}`} data-hub={h.id}
                       onClick={e => { e.stopPropagation(); removeHub(h); }} onPointerDown={e => e.stopPropagation()}
                       onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); removeHub(h); } }}>
-                      <circle r={8} fill={DARK} /><X x={-6} y={-6} width={12} height={12} color="#fff" strokeWidth={3} aria-hidden />
+                      <circle r={8} fill={DARK} /><X x={-6} y={-6} width={12} height={12} color={INK} strokeWidth={3} aria-hidden />
                       <title>{h.label}</title>
                     </g>
                   </g>
@@ -450,9 +456,9 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
                     <path d={`M${Math.cos(-1.15) * arcR},${Math.sin(-1.15) * arcR}A${arcR},${arcR} 0 0 1 ${Math.cos(1.3) * arcR},${Math.sin(1.3) * arcR}`} fill="none" stroke={DARK} strokeWidth={26} strokeLinecap="round" />
                     {hoverRuns.slice(0, 3).map((r, i) => {
                       const a = -.8 + i * .75; const I = iconFor(r.ex);
-                      return <I key={r.ex.id} x={Math.cos(a) * arcR - 8} y={Math.sin(a) * arcR - 8} width={16} height={16} color={r.count ? "#fff" : "#a19f9d"} />;
+                      return <I key={r.ex.id} x={Math.cos(a) * arcR - 8} y={Math.sin(a) * arcR - 8} width={16} height={16} color={r.count ? INK : "var(--st-text-3)"} />;
                     })}
-                    <Plus x={Math.cos(1.3) * arcR - 8} y={Math.sin(1.3) * arcR - 8} width={16} height={16} color="#fff" />
+                    <Plus x={Math.cos(1.3) * arcR - 8} y={Math.sin(1.3) * arcR - 8} width={16} height={16} color={INK} />
                   </g>
                 </svg>
               )}
@@ -585,7 +591,7 @@ export function InvestigationGraph({ incident, onClose }: { incident: SentinelIn
                 onClick={() => onSelect(a.id)} />
             ))}
             {state.bookmarks.map(b => (
-              <button key={b.id} type="button" className="st-strip-dot bookmark" style={{ left: `${stripPos(b.at)}%`, background: "#0078d4" }} aria-label={`Bookmark ${b.name}, ${fmtDateTime(b.at)}`} title={b.name}
+              <button key={b.id} type="button" className="st-strip-dot bookmark" style={{ left: `${stripPos(b.at)}%`, background: "var(--st-accent)" }} aria-label={`Bookmark ${b.name}, ${fmtDateTime(b.at)}`} title={b.name}
                 onClick={() => logs(b.query)} />
             ))}
           </div>

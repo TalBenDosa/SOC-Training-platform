@@ -254,7 +254,7 @@ export function PlaybookPanel({ incidentId, host, onClose }: { incidentId?: stri
     if (r.ok && name === "Isolate device") setReason("");
   };
   return (
-    <SlidePanel title="Run playbook" subtitle={incident ? `On incident ${incident.number}` : "On a device"} icon={<Workflow size={20} color="#0078d4" aria-hidden />} onClose={onClose} width={460}
+    <SlidePanel title="Run playbook" subtitle={incident ? `On incident ${incident.number}` : "On a device"} icon={<Workflow size={20} color="var(--st-accent)" aria-hidden />} onClose={onClose} width={460}
       footer={<button type="button" className="st-btn" onClick={onClose}>Close</button>}>
       {hosts.length === 0 && !host
         ? <Empty icon={<Workflow size={26} aria-hidden />} title="No playbook applies">This incident has no device entity, and every playbook here acts on a device.</Empty>

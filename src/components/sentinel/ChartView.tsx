@@ -7,9 +7,10 @@ import type { KqlChart, KqlColumn, KqlRow } from "@/lib/kql/types";
 import { fmtDateTime, fmtCount } from "./helpers";
 import { Empty, Select } from "./ui";
 
-export const SERIES = ["#0078d4", "#c77700", "#00a3a0", "#7a5fc0", "#c8507f", "#4f8a10"];
-const OTHER = "#8a8886";
-const GRID = "#edebe9";
+// XDR's own series palette, on the dark canvas (each colour 3:1 or more against it).
+export const SERIES = ["#22d3ee", "#ffb020", "#a78bfa", "#34d399", "#f472b6", "#60a5fa"];
+const OTHER = "#8190a5";
+const GRID = "#243049";
 
 export type ChartKind = "timechart" | "barchart" | "columnchart" | "piechart";
 const KIND_OPTS: { value: ChartKind; label: string }[] = [
@@ -165,10 +166,10 @@ function LinePlot({ model, w, h }: { model: Model; w: number; h: number }) {
             <g key={s.name}>
               <polyline fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"
                 points={s.values.map((v, i) => `${x(i)},${y(v)}`).join(" ")} />
-              {n <= 40 && s.values.map((v, i) => <circle key={i} cx={x(i)} cy={y(v)} r={hover === i ? 4 : 2.5} fill={s.color} stroke="#fff" strokeWidth={1.5} />)}
+              {n <= 40 && s.values.map((v, i) => <circle key={i} cx={x(i)} cy={y(v)} r={hover === i ? 4 : 2.5} fill={s.color} stroke="var(--st-surface)" strokeWidth={1.5} />)}
             </g>
           ))}
-          {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={0} y2={ph} stroke="#8a8886" />}
+          {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={0} y2={ph} stroke={OTHER} />}
           <rect x={0} y={0} width={pw} height={ph} fill="transparent" onPointerMove={onMove} onPointerLeave={() => { setHover(null); setTip(null); }} />
         </g>
       </svg>
@@ -256,7 +257,7 @@ function PiePlot({ model, w, h }: { model: Model; w: number; h: number }) {
             onPointerMove={e => { const b = e.currentTarget.ownerSVGElement!.getBoundingClientRect(); setTip({ x: Math.min(e.clientX - b.left + 12, w - 200), y: e.clientY - b.top, title: s.name, rows: [{ name: `${(frac * 100).toFixed(1)}%`, value: s.values[0], color: s.color }] }); }}
             onPointerLeave={() => setTip(null)} />;
         })}
-        <text x={cx} y={cy + 4} textAnchor="middle" style={{ fontSize: 16, fontWeight: 600, fill: "#323130" }}>{compact(total)}</text>
+        <text x={cx} y={cy + 4} textAnchor="middle" style={{ fontSize: 16, fontWeight: 600, fill: "var(--st-text)" }}>{compact(total)}</text>
       </svg>
       <Tooltip tip={tip} />
     </>

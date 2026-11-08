@@ -136,6 +136,8 @@ const NAMED_PRODUCT: Record<string, MicrosoftProduct> = {
   "Azure Security Center": "defender_cloud", "Microsoft Defender for Cloud": "defender_cloud",
   "Microsoft Data Loss Prevention": "purview_dlp",
   "Azure Sentinel": "sentinel", "Microsoft Sentinel": "sentinel",
+  // An XDR session's team room shows the SIEM analytics as the console's own (src/lib/sentinel/xdrBrand.ts).
+  "XDR Analytics": "sentinel",
 };
 
 /**
@@ -153,7 +155,7 @@ export function microsoftProductOf(ev: TelemetryEvent, stack: Stack): MicrosoftP
   if (has(ev, "defender for cloud")) return "defender_cloud";
   if (has(ev, "insider risk")) return "insider_risk";
   if (has(ev, "microsoft graph security")) return "defender_xdr";
-  if (has(ev, "microsoft sentinel")) return "sentinel";
+  if (has(ev, "microsoft sentinel", "xdr analytics", "xdr ueba")) return "sentinel";
   if (ev.source === "dlp") return has(ev, "purview") ? "purview_dlp" : null;
   switch (productSourceFor(ev, stack)) {
     case "mde": return "defender_endpoint";

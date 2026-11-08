@@ -15,9 +15,9 @@ const Caret = ({ open }: { open: boolean }) => <i className={`st-caret${open ? "
 const TYPE_GLYPH: Record<KqlColumn["type"], string> = { string: "t", int: "#", long: "#", real: "#", bool: "b", datetime: "d", timespan: "s", dynamic: "{}", guid: "g" };
 
 function groupOf(name: string): string {
-  if (/^(SecurityAlert|SecurityIncident|ThreatIntelligenceIndicator|ThreatIntelIndicators|HuntingBookmark|BehaviorAnalytics|IdentityInfo|Anomalies|Watchlist|SentinelHealth|SentinelAudit)$/.test(name)) return "Microsoft Sentinel";
+  if (/^(SecurityAlert|SecurityIncident|ThreatIntelligenceIndicator|ThreatIntelIndicators|HuntingBookmark|BehaviorAnalytics|IdentityInfo|Anomalies|Watchlist|SentinelHealth|SentinelAudit)$/.test(name)) return "XDR";
   if (/^(Device|Email|Cloud|Identity(Logon|Directory|Query)|Alert(Info|Evidence)|UrlClick)/.test(name)) return "Microsoft Defender XDR";
-  return "LogManagement";
+  return "Log management";
 }
 
 /** A pair of double-click and Enter, so inserting works by mouse and by keyboard alike. */
@@ -36,7 +36,7 @@ const TableNode = memo(function TableNode({ table, onInsert, onPreview, filter }
         <button type="button" className="st-row" style={{ gap: 4, flex: "1 1 auto", minWidth: 0 }} aria-expanded={showColumns} aria-label={`${table.name}, table, ${table.rows.length} rows. Press Enter to insert, Space to expand.`}
           title="Click to expand, double-click to insert" onClick={() => setOpen(o => !o)} {...activates(() => onInsert(table.name))}>
           <Caret open={showColumns} />
-          <Table2 size={13} aria-hidden color="#605e5c" />
+          <Table2 size={13} aria-hidden color="var(--st-text-2)" />
           <span className="st-ellipsis">{table.name}</span>
         </button>
         <span className="actions">
@@ -136,7 +136,7 @@ export function SchemaPane({ tab, onTab, onInsert, onLoad, onPreview, onCollapse
                     <div className="st-schema-row">
                       <button type="button" className="st-row" style={{ gap: 6, flex: "1 1 auto", minWidth: 0 }} title="Double-click to load to editor"
                         aria-label={`${item.name}. Press Enter to load to editor.`} {...activates(() => onLoad(item.query))}>
-                        <FileCode2 size={13} aria-hidden color="#605e5c" /><span className="st-ellipsis">{item.name}</span>
+                        <FileCode2 size={13} aria-hidden color="var(--st-text-2)" /><span className="st-ellipsis">{item.name}</span>
                       </button>
                       <span className="actions"><button type="button" className="st-link st-small" onClick={() => onLoad(item.query)}>Load to editor</button></span>
                     </div>

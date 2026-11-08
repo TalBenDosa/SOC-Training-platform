@@ -55,6 +55,7 @@ import { GuidedTour, tourLength } from "./_components/GuidedTour";
 import { tourFor, forSentinel } from "./_components/teamTours";
 import { incidentForCase, useSentinelIncidents } from "@/lib/team/useSentinelIncidents";
 import { sentinelWindowName, showSentinelWindow, siemWindowName } from "@/lib/team/twoWindows";
+import { xdrValue } from "@/lib/sentinel/xdrBrand";
 import { SharedCase, caseHeadline } from "./_components/SharedCase";
 import { ShiftBar, ShiftClockView, EndCountdown, type BarNotice } from "./_components/ShiftBar";
 import { openPresenceNotices, openEndRequest, shiftClock } from "./_components/shiftClock";
@@ -887,17 +888,21 @@ export default function TeamRoomPage() {
   // A detection the session's SIEM reads from Microsoft Graph says so on its row. EDR sessions: no key, same rows.
   const feedCompany = session?.company_id ?? "";
   const feedStackJson = JSON.stringify(session?.stack ?? {});
+  // An XDR session (config value "sentinel"): the SIEM analytics are the console's own, so a row
+  // that names Microsoft Sentinel reads as XDR (xdrBrand.ts). Display only: payloads stay as stored.
+  const xdrFeed = session?.console === "sentinel";
   const toLiveCached = useCallback((e: Ev): LiveEvent => {
-    const key = `${feedCompany}|${feedStackJson}`;
+    const key = `${feedCompany}|${feedStackJson}|${xdrFeed}`;
     if (liveCacheRef.current.key !== key) liveCacheRef.current = { key, rows: new Map() };
     const hit = liveCacheRef.current.rows.get(e.seq);
     if (hit) return hit;
     const built = toLive(e);
     const feedSource = feedSourceOf(built, feedCompany, JSON.parse(feedStackJson) as Stack);
-    const row = feedSource ? { ...built, feed_source: feedSource } : built;
+    const row0 = feedSource ? { ...built, feed_source: feedSource } : built;
+    const row = xdrFeed ? xdrValue(row0) : row0;
     liveCacheRef.current.rows.set(e.seq, row);
     return row;
-  }, [toLive, feedCompany, feedStackJson]);
+  }, [toLive, feedCompany, feedStackJson, xdrFeed]);
   const liveFeed = useMemo<LiveEvent[]>(() => feed.slice(-120).map(toLiveCached), [feed, toLiveCached]);
   // "Needs triage" view: the queue's logs, most urgent first, rendered as ordinary SIEM rows.
   const triageFeed = useMemo<LiveEvent[]>(() => orderedQueue.map(q => toLiveCached(q.e)), [orderedQueue, toLiveCached]);
@@ -1007,7 +1012,8 @@ export default function TeamRoomPage() {
   // Security log) used to show the button and answer with an error (Tal, 2026-10-08).
   const endpointEvs = useMemo(() => feed.filter(e => { const s = (e.payload as { source?: unknown }).source; return s === "edr" || s === "sysmon" || s === "windows_security" || s === "linux_audit"; }), [feed]);
   const isSentinel = session?.console === "sentinel";
-  const consoleName = isSentinel ? "Sentinel" : "EDR";
+  // The investigation console of a "sentinel" session is XDR, this platform's own console (owner, 2026-11-08).
+  const consoleName = isSentinel ? "XDR" : "EDR";
   const edrHosts = useMemo(() => {
     const evs = endpointEvs.map(e => e.payload as unknown as TelemetryEvent);
     const candidates = [...new Set(endpointEvs
@@ -1029,7 +1035,7 @@ export default function TeamRoomPage() {
     if (me?.role) q.set("r", me.role);
     if (target?.host) q.set("host", target.host);
     if (target?.incident) q.set("incident", target.incident);
-    if (!showSentinelWindow(id, `/sentinel?${q}`, target)) { setBlockedSentinelUrl(`/sentinel?${q}`); setEdrNote("This browser blocked the Sentinel window. Open it with the link, or allow pop-ups for this site."); return; }
+    if (!showSentinelWindow(id, `/xdr?${q}`, target)) { setBlockedSentinelUrl(`/xdr?${q}`); setEdrNote("This browser blocked the XDR window. Open it with the link, or allow pop-ups for this site."); return; }
     setBlockedSentinelUrl(null);
     setEdrNote(null);
   }, [id, me?.id, me?.role]);
@@ -1145,9 +1151,13 @@ export default function TeamRoomPage() {
   const stackKey = JSON.stringify(stackForNative ?? {});
   // A named organization renders under its own domain / realm (FQDNs, UPNs, tenant names).
   const tenantDomain = session?.tenant?.domain, tenantRealm = session?.tenant?.netbios;
+  const xdrNative = session?.console === "sentinel";
   const nativeRender = useMemo<NativeRenderer | null>(
-    () => (nativeMod ? ev => nativeMod.nativeView(ev, companyForNative, JSON.parse(stackKey), tenantDomain && tenantRealm ? { domain: tenantDomain, netbios: tenantRealm } : undefined) : null),
-    [nativeMod, companyForNative, stackKey, tenantDomain, tenantRealm],
+    () => (nativeMod ? ev => {
+      const v = nativeMod.nativeView(ev, companyForNative, JSON.parse(stackKey), tenantDomain && tenantRealm ? { domain: tenantDomain, netbios: tenantRealm } : undefined);
+      return v && xdrNative ? xdrValue(v) : v;
+    } : null),
+    [nativeMod, companyForNative, stackKey, tenantDomain, tenantRealm, xdrNative],
   );
 
   // The sticky Topbar's and shift bar's heights: the sticky columns sit right under them.
@@ -1190,7 +1200,7 @@ export default function TeamRoomPage() {
                       return (
                         <div data-tour="edr-button" className="flex shrink-0 items-center gap-2">
                           <button type="button" data-investigate-header disabled={!isSentinel && !last} onClick={() => { if (isSentinel) openSentinel(workEid ? { host: workHost || undefined, incident: incidentForCase(sentinelIncidents, { eventId: workEid, host: workHost || undefined }) } : undefined); else if (last) openEdr(last.title, last.host); }}
-                            title={isSentinel ? (workEid ? `Open the incident of your case: ${workSummary || "your case"}` : sentinelIncidents.length ? "Open the incident list" : "Open Sentinel. No incidents yet.") : last ? `Latest EDR alert: ${last.title} (${last.host})` : "No endpoint alerts yet: this lights up when an EDR alert reaches the feed"}
+                            title={isSentinel ? (workEid ? `Open the incident of your case: ${workSummary || "your case"}` : sentinelIncidents.length ? "Open the incident list" : "Open XDR. No incidents yet.") : last ? `Latest EDR alert: ${last.title} (${last.host})` : "No endpoint alerts yet: this lights up when an EDR alert reaches the feed"}
                             className={`relative flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50 ${last || isSentinel ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-200 hover:bg-cyber-500/20" : "cursor-not-allowed border-border bg-bg text-slate-400"}`}>
                             <Cpu className="h-3.5 w-3.5" aria-hidden /> Investigate in {consoleName}
                             {edrAlerts.length > 0 && (
@@ -1305,10 +1315,10 @@ export default function TeamRoomPage() {
                 <p className="mt-2 text-sm text-slate-300">A live SOC shift on a shared feed: expect a mix of noise and real activity. About {lobbyLoad?.shiftMin ?? 30} minutes of live telemetry; work the cases to closure. Work as one team, tier to tier.</p>
                 {isSentinel && (
                   <div className="mt-2 rounded-lg border border-cyber-500/40 bg-cyber-500/[0.06] px-3 py-2 text-xs text-slate-200">
-                    <p><b className="text-white">Two windows.</b> This shift investigates in Microsoft Sentinel, in a second browser window. This team room stays your SIEM window: the alert queue, the cases and the team chat. Investigate in Sentinel opens that second window, or brings it forward. Allow pop-ups for this site before the shift starts.</p>
+                    <p><b className="text-white">Two windows.</b> This shift investigates in XDR, the investigation console, in a second browser window. This team room stays your SIEM window: the alert queue, the cases and the team chat. Investigate in XDR opens that second window, or brings it forward. Allow pop-ups for this site before the shift starts.</p>
                     <div className="mt-1.5 flex flex-wrap items-center gap-2">
                       <Button variant="outline" size="sm" onClick={() => { const w = window.open("about:blank", "team-popup-test", "width=360,height=200"); if (!w) setPopupTest("blocked"); else { try { w.close(); } catch { /* already closed */ } setPopupTest("ok"); } }}>Test pop-ups</Button>
-                      {popupTest && <span role="status" className={popupTest === "ok" ? "text-neon-green" : "text-neon-amber"}>{popupTest === "ok" ? "Pop-ups work: Sentinel will open." : "Pop-ups are blocked: allow them for this site in the address bar, then test again."}</span>}
+                      {popupTest && <span role="status" className={popupTest === "ok" ? "text-neon-green" : "text-neon-amber"}>{popupTest === "ok" ? "Pop-ups work: XDR will open." : "Pop-ups are blocked: allow them for this site in the address bar, then test again."}</span>}
                     </div>
                   </div>
                 )}
@@ -1456,14 +1466,14 @@ export default function TeamRoomPage() {
               if (me.role === "t1" && openTickets > 0) notices.push({ key: "ticket", tone: "warn", text: openTickets === 1 ? "A help-desk ticket is waiting for you: Tier-1 answers these." : `${openTickets} help-desk tickets are waiting for you: Tier-1 answers these.`,
                 actions: btn("Answer now", () => document.querySelector("[data-tour=action-inbox]")?.scrollIntoView({ behavior: "smooth", block: "start" })) });
               if (edrToast && (me.role === "t1" || me.role === "t2" || me.role === "t3")) notices.push({ key: `edr-${edrToast.seq}`, tone: "info", onDismiss: () => setEdrToast(null),
-                text: <><b>{isSentinel ? "New Sentinel incident" : "New EDR alert"}</b>{!isSentinel && <> on <bdi className="font-mono">{edrToast.host}</bdi></>}: <bdi>{edrToast.title}</bdi></>,
+                text: <><b>{isSentinel ? "New XDR incident" : "New EDR alert"}</b>{!isSentinel && <> on <bdi className="font-mono">{edrToast.host}</bdi></>}: <bdi>{edrToast.title}</bdi></>,
                 actions: btn(`Investigate in ${consoleName}`, () => { if (isSentinel) openSentinel({ incident: sentinelIncidents.find(i => i.number === edrToast.seq)?.id }); else openEdr(edrToast.title, edrToast.host); setEdrToast(null); }, true) });
               if (mgrNotice && (me.role === "mgr" || me.role === "lead")) notices.push({ key: "mgr", tone: "info", onDismiss: () => setMgrNotice(null), text: <bdi>{mgrNotice.text}</bdi>,
                 actions: btn("Open", () => { if (mgrNotice.go === "desk") document.querySelector("[data-command-desk]")?.scrollIntoView({ behavior: "smooth", block: "start" }); else setMgrView(mgrNotice.go); setMgrNotice(null); }) });
               if (t3Sent) notices.push({ key: "t3sent", tone: "good", text: t3Sent, onDismiss: () => setT3Sent(null) });
               if (edrNote) notices.push({ key: "edrnote", tone: "warn", text: edrNote, onDismiss: () => { setEdrNote(null); setBlockedSentinelUrl(null); }, urgent: true,
                 actions: blockedSentinelUrl ? <a key="open-sentinel" href={blockedSentinelUrl} target={sentinelWindowName(id)} rel="opener" onClick={() => { setEdrNote(null); setBlockedSentinelUrl(null); }}
-                  className="inline-flex h-7 items-center rounded-md bg-cyber-500 px-2 text-xs font-semibold text-slate-950 hover:bg-cyber-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyber-300">Open Sentinel</a> : undefined });
+                  className="inline-flex h-7 items-center rounded-md bg-cyber-500 px-2 text-xs font-semibold text-slate-950 hover:bg-cyber-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyber-300">Open XDR</a> : undefined });
               for (const n of leftNotices) notices.push({ key: n.key, tone: "warn", text: <><b><bdi>{n.name}</bdi></b> ({n.role}) left the session.</>, onDismiss: () => setLeftNotices(ns => ns.filter(x => x.key !== n.key)) });
               const startedMs = startedAtIso ? Date.parse(startedAtIso) : null;
               return (
@@ -1615,7 +1625,7 @@ export default function TeamRoomPage() {
                             ))}
                           </div>
                           <div className="ml-auto flex flex-wrap items-center gap-1.5">
-                            {isSentinel ? <button type="button" data-tour="t3-edr" onClick={() => openSentinel()} className="rounded-md border border-cyber-500/50 bg-cyber-500/10 px-3 py-1.5 text-xs font-semibold text-cyber-200 hover:bg-cyber-500/20">Open Sentinel</button> : <div className="flex items-center gap-1 rounded-md border border-border px-1.5 py-1" data-tour="t3-edr">
+                            {isSentinel ? <button type="button" data-tour="t3-edr" onClick={() => openSentinel()} className="rounded-md border border-cyber-500/50 bg-cyber-500/10 px-3 py-1.5 text-xs font-semibold text-cyber-200 hover:bg-cyber-500/20">Open XDR</button> : <div className="flex items-center gap-1 rounded-md border border-border px-1.5 py-1" data-tour="t3-edr">
                               <Cpu className="h-3.5 w-3.5 text-cyber-300" aria-hidden />
                               <label className="sr-only" htmlFor="t3-edr-host">Host to open in EDR</label>
                               <select id="t3-edr-host" value={edrPick} onChange={e => setT3EdrHost(e.target.value)} disabled={!edrChoices.length} className="max-w-[10rem] bg-transparent font-mono text-[11px] text-slate-200 focus:outline-none">

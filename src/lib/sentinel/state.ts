@@ -5,6 +5,7 @@
  */
 import { handoffText } from "@/lib/team/handoff";
 import type { ClosingClassification, IncidentState, IncidentStatus, SentinelBookmark, SentinelIncident, SentinelSeverity } from "./types";
+import { XDR_ACTOR } from "./xdrBrand";
 
 export interface IncidentLogEvent { type: string; actor_name?: string; payload: unknown; occurred_at: string }
 
@@ -21,7 +22,7 @@ type Patch = Partial<Pick<IncidentState, "status" | "owner" | "severity" | "clas
 
 const taskId = (title: string) => title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
-const SYSTEM_ACTOR = "Microsoft Sentinel";
+const SYSTEM_ACTOR = XDR_ACTOR;
 
 /** Fold the log, oldest first, whatever order it arrives in. Events about other incidents are ignored. */
 export function foldIncidentState(events: IncidentLogEvent[], incident: SentinelIncident): IncidentState {

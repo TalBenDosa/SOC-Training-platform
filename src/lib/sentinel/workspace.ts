@@ -1,5 +1,5 @@
 /**
- * buildWorkspace: the released feed as a Microsoft Sentinel workspace.
+ * buildWorkspace: the released feed as the workspace of the XDR console (KQL tables, alerts, incidents).
  *
  *   TelemetryEvent[] -> native record -> Log Analytics row
  *                    -> SecurityAlert (product detections + analytics rules) -> incidents
@@ -26,6 +26,7 @@ import { alertDescription, buildRules, groupFilter, kstr, plain, ruleSeverity, t
 import { emptyTable, TABLE_NAMES } from "./tables";
 import type { GraphAlertDetails, SentinelAlert, SentinelEntity, SentinelIncident, SentinelSeverity, SentinelWorkspace } from "./types";
 import { handoffText, type Handoff } from "@/lib/team/handoff";
+import { mentionsConsole, XDR_ACTOR, XDR_PRODUCT, XDR_PROVIDER, xdrValue } from "./xdrBrand";
 
 export interface BuildOptions {
   companyId: string;
@@ -60,7 +61,8 @@ const toSeverity = (s: unknown): SentinelSeverity => {
 // ── Product detections ───────────────────────────────────────────────────────
 
 const ALERT_TYPES = new Set(["edr_alert", "av_detection", "av_quarantine", "av_blocked", "dlp_alert", "dlp_block"]);
-const SCHEDULED = { product: "Azure Sentinel", provider: "ASI Scheduled Alerts" };
+// The console's own analytics rules raise as XDR Analytics, never as Microsoft Sentinel (xdrBrand.ts).
+const SCHEDULED = { product: XDR_PRODUCT, provider: XDR_PROVIDER };
 
 const raw = (ev: TelemetryEvent, k: string): string | undefined => {
   const v = (ev.raw as Record<string, unknown> | undefined)?.[k];
@@ -86,6 +88,8 @@ const PRODUCT_COLUMN: Record<string, { product: string; provider: string }> = {
 /** ProductName and ProviderName of the SecurityAlert row. A third-party product raises alerts through a scheduled rule. */
 function providerOf(ev: TelemetryEvent, log?: NativeLog): { product: string; provider: string } {
   const named = raw(ev, "AlertName") ? raw(ev, "ProductName") : undefined;
+  // A SIEM analytics alert in the feed is the console's own analytics: XDR, not Sentinel.
+  if (named && /^(?:Azure|Microsoft) Sentinel$/.test(named)) return SCHEDULED;
   if (named) return PRODUCT_COLUMN[named] ?? { product: named, provider: raw(ev, "ProviderName") ?? named };
   const vendor = ev.vendor ?? "";
   const id = log?.sourceId;
@@ -187,14 +191,14 @@ function alertRow(a: Pending, entities: SentinelEntity[], tenantId: string, orgI
   const compromised = entities.find(e => e.kind === "host")?.name ?? entities.find(e => e.kind === "account")?.name ?? "";
   return {
     TimeGenerated: al.time, Type: "SecurityAlert", TenantId: tenantId, SystemAlertId: al.id, AlertName: al.name, DisplayName: al.name, AlertSeverity: al.severity, Description: al.description,
-    ProductName: al.product, ProviderName: a.provider, VendorName: "Microsoft", VendorOriginalId: seededUuid(`${orgId}:vendor:${al.id}`), AlertType: al.ruleId ? `${orgId}_${al.ruleId}` : al.name.replace(/\s+/g, ""),
+    ProductName: al.product, ProviderName: a.provider, VendorName: al.product === XDR_PRODUCT ? XDR_ACTOR : "Microsoft", VendorOriginalId: seededUuid(`${orgId}:vendor:${al.id}`), AlertType: al.ruleId ? `${orgId}_${al.ruleId}` : al.name.replace(/\s+/g, ""),
     Status: "New", ConfidenceLevel: "Unknown", StartTime: isoMs(a.firstMs), EndTime: isoMs(a.lastMs), ProcessingEndTime: al.time, IsIncident: false, CompromisedEntity: compromised,
     Tactics: al.tactics.join(","), Techniques: JSON.stringify(al.techniques), Entities: g ? graphEntitiesColumn(g.evidence) : entitiesColumn(entities),
     ExtendedProperties: JSON.stringify({
       "Analytic Rule Ids": al.ruleId ? [al.ruleId] : [],
       ...(g ? { "Graph Alert Id": g.id, "Graph Incident Id": g.incidentId, ServiceSource: g.serviceSource, DetectionSource: g.detectionSource, DetectorId: g.detectorId, Category: g.category, Classification: g.classification, Determination: g.determination } : {}),
     }),
-    SourceSystem: "Detection", WorkspaceSubscriptionId: seededUuid(`${orgId}:sub`), WorkspaceResourceGroup: `rg-${orgId}-sentinel`, ...feed,
+    SourceSystem: "Detection", WorkspaceSubscriptionId: seededUuid(`${orgId}:sub`), WorkspaceResourceGroup: `rg-${orgId}-xdr`, ...feed,
     ...(g ? { VendorOriginalId: g.id, AlertLink: g.alertWebUrl, RemediationSteps: g.recommendedActions, ProductComponentName: g.detectionSource } : {}),
   };
 }
@@ -538,10 +542,10 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
       CreatedTime: created, LastModifiedTime: lastUpdate, FirstActivityTime: created, LastActivityTime: lastUpdate, FirstModifiedTime: created, AlertIds: incident.alertIds, BookmarkIds: [], Comments: [], Tasks: [],
       // An escalated incident keeps its rule's title and carries a tag (owner review 2026-11-08), as a real SOC's automation tags it.
       Labels: [...new Set(handoffs.map(h => h.from))].map(name => ({ labelName: `Escalated by ${name}`, labelType: "AutoAssigned" })),
-      Owner: { objectId: null, email: null, assignedTo: null, userPrincipalName: null }, ProviderName: "Azure Sentinel", ProviderIncidentId: String(incident.number), ModifiedBy: "Microsoft Sentinel",
+      Owner: { objectId: null, email: null, assignedTo: null, userPrincipalName: null }, ProviderName: XDR_ACTOR, ProviderIncidentId: String(incident.number), ModifiedBy: XDR_ACTOR,
       RelatedAnalyticRuleIds: [...new Set(members.map(a => a.ruleId).filter(Boolean))], AdditionalData: { alertsCount: members.length, bookmarksCount: 0, commentsCount: 0, alertProductNames: products, tactics, techniques },
-      IncidentUrl: `https://portal.azure.com/#asset/Microsoft_Azure_Security_Insights/Incident/subscriptions/${seededUuid(`${orgId}:sub`)}/resourceGroups/rg-${orgId}-sentinel/providers/Microsoft.OperationalInsights/workspaces/${orgId}-sentinel-prod/providers/Microsoft.SecurityInsights/Incidents/${incident.id}`,
-      SourceSystem: "Azure",
+      IncidentUrl: `/xdr?incident=${incident.id}`,
+      SourceSystem: XDR_ACTOR,
     });
     incidents.push(incident);
   });
@@ -606,8 +610,18 @@ export function buildWorkspace(events: TelemetryEvent[], opts: BuildOptions): Se
     baselineRows = addBaseline(tables, { companyId, stack, identity, orgName: opts.orgName, tenantId, anchorMs: Date.parse(events[0].ts), clockMs: now, directory, hostLastSeen });
   }
 
+  // XDR is the console's name wherever the analyst reads (xdrBrand.ts): a feed row or an authored
+  // text that names Microsoft Sentinel as the SIEM reads as XDR here. Rows are this build's own
+  // objects (eventRows points at them), so they change in place; nested values copy on write.
+  // Only rows that can carry the name are walked (this runs on every poll): the alert and incident
+  // tables, and the rows of events whose payload mentions it.
+  const fix = (row: KqlRow) => { for (const k of Object.keys(row)) { const v = row[k]; const x = xdrValue(v); if (x !== v) row[k] = x; } };
+  for (const t of ["SecurityAlert", "SecurityIncident"]) for (const row of tables[t]?.rows ?? []) fix(row);
+  for (const ev of events) if (mentionsConsole(ev)) for (const m of eventRows[ev.id] ?? []) fix(m.row);
+  for (const item of [...alerts, ...incidents] as unknown as Record<string, unknown>[]) for (const k of Object.keys(item)) { const v = item[k]; const x = xdrValue(v); if (x !== v) item[k] = x; }
+
   return {
-    name: `${orgId}-sentinel-prod`, tables, alerts, incidents, entities,
-    rules: [...buildRules(companyId, stack), ...noiseAnalyticsRules()], hunting: buildHunting(), now: new Date(now || 0).toISOString(), coverage, alertEventIds, eventRows, directory, baselineRows,
+    name: `${orgId}-xdr-prod`, tables, alerts, incidents, entities,
+    rules: xdrValue([...buildRules(companyId, stack), ...noiseAnalyticsRules()]), hunting: xdrValue(buildHunting()), now: new Date(now || 0).toISOString(), coverage, alertEventIds, eventRows, directory, baselineRows,
   };
 }

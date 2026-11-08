@@ -86,7 +86,7 @@ export function attackStories(events: Ev[], names: Record<string, string> = {}, 
     else if (e.type === "disposition.set") note(eid, VERDICT_WORD[asStr(q.verdict)] ?? "judged it", e);
     else if (e.type === "event.opened") note(eid, "opened it", e);
     else if (e.type === "edr.host_isolated" || e.type === "containment.executed") { const h = asStr(q.host) || asStr(q.hostname); if (h) isolatedHosts.add(hostKey(h)); }
-    else if (e.type === "sentinel.incident_updated" && Array.isArray(q.event_ids)) for (const x of q.event_ids) note(String(x), "closed it in Sentinel", e);
+    else if (e.type === "sentinel.incident_updated" && Array.isArray(q.event_ids)) for (const x of q.event_ids) note(String(x), "closed it in XDR", e);
   }
 
   const out: AttackStory[] = [];

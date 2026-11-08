@@ -4,14 +4,16 @@ import type { TeamEnv } from "@/lib/team/environment";
 import { escalationHandoff, type Handoff, type NameOf } from "@/lib/team/handoff";
 
 /**
- * Where a Team Training session investigates: the EDR console, or Microsoft Sentinel.
- * Chosen before the session, by the person who builds it. Stored in team_sessions.config.console.
+ * Where a Team Training session investigates: the EDR console, or XDR, this platform's own
+ * investigation console with KQL (owner, 2026-11-08: renamed from "Sentinel" so it does not
+ * imitate Microsoft's product). Chosen before the session, by the person who builds it. Stored in
+ * team_sessions.config.console; the stored value stays "sentinel", only what people see changed.
  */
 export type InvestigationConsole = "edr" | "sentinel";
 
 export const CONSOLE_CHOICES: { id: InvestigationConsole; label: string; hint: string }[] = [
   { id: "edr", label: "EDR console", hint: "Endpoint detections open the EDR console of the products below." },
-  { id: "sentinel", label: "Microsoft Sentinel", hint: "Detections raise Sentinel incidents. The team investigates in Sentinel and queries the logs with KQL." },
+  { id: "sentinel", label: "XDR console (KQL)", hint: "Collects the organization's Microsoft 365, Defender and identity telemetry in one place. Detections raise incidents there, and the team investigates them and queries the logs with KQL." },
 ];
 
 export function sanitizeConsole(input: unknown): InvestigationConsole {
@@ -23,7 +25,7 @@ export function consoleFromConfig(config: unknown): InvestigationConsole {
   return sanitizeConsole((config as { console?: unknown } | null)?.console);
 }
 
-/** A Sentinel workspace lives in an Azure subscription, so a Sentinel organization has one. */
+/** An XDR session's organization runs Azure too, so its cloud activity reaches the workspace. */
 export function envForConsole<E extends TeamEnv | null>(env: E, console: InvestigationConsole): E {
   if (!env || console !== "sentinel" || env.platforms.includes("azure")) return env;
   return { ...env, platforms: ["azure", ...env.platforms] };

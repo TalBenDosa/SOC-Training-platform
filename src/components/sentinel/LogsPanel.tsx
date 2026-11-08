@@ -168,7 +168,7 @@ function QueryPane({ tab, active, panel, incidentId, schemaOpen, setSchemaOpen, 
   return (
     <div className="st-grow" hidden={!active} style={active ? { display: "flex", flexDirection: "column", minHeight: 0 } : undefined}>
       <div className="st-logbar">
-        <span className="st-logbar-ws"><Database size={16} color="#0078d4" aria-hidden /><span className="st-ellipsis">{workspaceName}</span></span>
+        <span className="st-logbar-ws"><Database size={16} color="var(--st-accent)" aria-hidden /><span className="st-ellipsis">{workspaceName}</span></span>
         <button type="button" className="st-btn primary st-runbtn" disabled={!query.trim() || running} onClick={run} title="Run (Shift+Enter)"><Play size={13} aria-hidden />Run</button>
         <TimeRangePicker value={rangeKey} custom={custom} setInQuery={setInQuery}
           onChange={(k, c) => { setRangeKey(k); if (c) setCustom(c); }} />
@@ -273,7 +273,7 @@ export function LogsPanel({ mode, request, incidentId }: {
           <div role="tablist" aria-label="Queries" style={{ display: "flex", alignItems: "stretch" }}>
             {tabs.map(t => (
               <div key={t.id} className="st-qtab" data-active={t.id === activeId}>
-                <button type="button" role="tab" aria-selected={t.id === activeId} onClick={() => setActiveId(t.id)}><FileText size={14} color="#0078d4" aria-hidden />{t.title}{t.query.trim() ? " *" : ""}</button>
+                <button type="button" role="tab" aria-selected={t.id === activeId} onClick={() => setActiveId(t.id)}><FileText size={14} color="var(--st-accent)" aria-hidden />{t.title}{t.query.trim() ? " *" : ""}</button>
                 <button type="button" className="st-icon-btn" style={{ width: 20, height: 20 }} aria-label={`Close ${t.title}`} onClick={() => closeTab(t.id)}><X size={12} aria-hidden /></button>
               </div>
             ))}
