@@ -2517,7 +2517,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     user_title: "Quantitative Analyst",
     network: { url: "https://bankersassociation.ch/regulations/2026", method: "GET", status: 200, bytes_in: 14200 },
     description: "Outbound HTTPS connection from WKS-QB-044 to bankersassociation.ch - allowed, industry association",
-    raw: { "zscaler.action": "Allowed", "zscaler.category": "Banking/Finance", "zscaler.dlp_scan": "no_violation", "action_result": "allowed", "session.blocked": "false" }
+    raw: { "zscaler.action": "Allowed", "zscaler.category": "Banking/Finance", "zscaler.dlp_scan": "no_violation", "action_result": "allowed" }
   },
   {
     id: "qb_zs_002", ts: "2026-05-10T11:15:00.000Z",
@@ -2526,7 +2526,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     user_title: "Operations Manager",
     network: { url: "https://file-sharing-site.biz/download/doc.zip", method: "GET", status: 403 },
     description: "p.meier attempted upload to file-sharing-site.biz - blocked by DLP policy, uncategorised site",
-    raw: { "zscaler.action": "Blocked", "zscaler.category": "Uncategorized", "zscaler.dlp_scan": "blocked", "action_result": "blocked", "session.blocked": "true", "policy.name": "DLP-Block-FileSharing" }
+    raw: { "zscaler.action": "Blocked", "zscaler.category": "Uncategorized", "zscaler.dlp_scan": "blocked", "action_result": "blocked", "policy.name": "DLP-Block-FileSharing" }
   },
   // ── False Positive Training Events ────────────────────────────────────────
   {
@@ -2691,7 +2691,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
            "zscaler.urlsupercategory": "Security",
            "zscaler.reason": "Blocked by URL Filtering policy",
            "zscaler.threatseverity": "Critical", "source.ip": "198.51.100.203",
-           "source.geo.country_iso_code": "RU", "source.as.number": "48693",
+           "source.geo.country_name": "Russia",
            "action_result": "blocked" }
   },
 
@@ -3839,7 +3839,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     severity: "high", vendor: "Zscaler Internet Access", user_email: "l.brunner@quantumbank.ch", src_ip: "10.100.1.20",
     description: "l.brunner attempted upload of trading-positions-may2026.pdf to transfer.sh - blocked by DLP, confidential financial data violation",
     mitre_technique: "T1567",
-    raw: { "zscaler.action": "Blocked", "zscaler.dlp_scan": "confidential_financial_data", "zscaler.filename": "trading-positions-may2026.pdf", "zscaler.dlp_dict_matches": "Confidential - Financial Records / Trading Positions (312 matches)", "session.blocked": "true", "action_result": "blocked" }
+    raw: { "zscaler.action": "Blocked", "zscaler.dlp_scan": "confidential_financial_data", "zscaler.filename": "trading-positions-may2026.pdf", "zscaler.dlp_dict_matches": "Confidential - Financial Records / Trading Positions (312 matches)", "action_result": "blocked" }
   },
   {
     id: "qb_b4", ts: "2026-05-10T11:32:00.000Z", is_detection: true, source: "edr", event_type: "process_create",
@@ -3862,7 +3862,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     severity: "medium", vendor: "Zscaler Internet Access", user_email: "a.keller@quantumbank.ch", src_ip: "198.51.100.224",
     description: "The hijacked Amsterdam session pulled 10,000 client trading positions from the orders API",
     mitre_technique: "T1213",
-    raw: { "zscaler.action": "Allowed", "zscaler.category": "Financial-Services", "network.url": "/api/v2/orders?account=QB-ALL&limit=10000", "network.records_returned": "10000", "action_result": "allowed" }
+    raw: { "zscaler.action": "Allowed", "zscaler.category": "Financial-Services", "url.domain": "corebanking.quantumbank.ch", "url.path": "/api/v2/orders", "url.query": "account=QB-ALL&limit=10000", "action_result": "allowed" }
   },
   chainAlert({ id: "qb_c2b", ts: "2026-05-10T13:38:30.000Z", name: "One Okta session used from two locations at once", product: "Azure Sentinel", severity: "High", mitre: "T1550.004", user: "a.keller@quantumbank.ch", ip: "198.51.100.224", props: {"Session Locations": "10.100.1.44 (office); 198.51.100.224 (Amsterdam)", "Concurrent": "true"}, description: "Sentinel raised a High alert for a.keller: the same Okta session in use from the office (10.100.1.44) and from 198.51.100.224 (Amsterdam) at the same time." }),
   {
@@ -3870,7 +3870,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     severity: "high", vendor: "Zscaler Internet Access", user_email: "a.keller@quantumbank.ch", src_ip: "198.51.100.224",
     description: "The hijacked Amsterdam session placed 623 sell orders worth CHF 19 million through the trading API",
     mitre_technique: "T1078",
-    raw: { "zscaler.action": "Allowed", "network.url": "/api/v2/orders/batch", "http.method": "POST", "orders.count": "623", "orders.value_chf": "19000000", "orders.sector": "Energy", "action_result": "allowed" }
+    raw: { "zscaler.action": "Allowed", "url.domain": "corebanking.quantumbank.ch", "url.path": "/api/v2/orders/batch", "http.request.method": "POST", "action_result": "allowed" }
   },
   {
     id: "qb_c4", ts: "2026-05-10T13:52:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
@@ -3920,9 +3920,8 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     user_email: "h.weber@quantumbank.ch",
     description: "A POST to /swift/api/v3/transfers for CHF 4.2 million was submitted as h.weber from 198.51.100.203",
     mitre_technique: "T1657", mitre_tactic: "Impact",
-    raw: { "zscaler.action": "Allowed", "network.url": "/swift/api/v3/transfers",
-           "http.method": "POST", "swift.transfer_amount_chf": "4200000",
-           "swift.beneficiary": "BPKOPLPW", "swift.reference": "FX-2026-99123",
+    raw: { "zscaler.action": "Allowed", "url.domain": "corebanking.quantumbank.ch", "url.path": "/swift/api/v3/transfers",
+           "http.request.method": "POST",
            "source.ip": "198.51.100.203",
            "action_result": "allowed" }
   },
