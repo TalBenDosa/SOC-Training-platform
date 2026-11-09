@@ -5263,7 +5263,7 @@ export function k8sPodEscapeScenarioEvents() {
   const RUNNER = "34.201.17.88";                  // the CI runner that normally uses the ci-deploy token
   const ACCT = "482910374256";
   const INSTANCE = "i-0a3f9c12d7b54e681";
-  const NODE = "ip-10-0-14-73.ec2.internal", NODE_IP = "10.0.14.73";
+  const NODE = "ip-10-0-14-73.eu-west-1.compute.internal", NODE_IP = "10.0.14.73";   // eu-west-1 private DNS: the name carries the address
   const CI_SA = "system:serviceaccount:cicd:ci-deploy";
   const CID = "a3f7b1c9d2e8" + makeSha256("api-prod-7f8b9c-container").slice(0, 52);
   const KUBECTL_UA = "kubectl/v1.30.0 (linux/amd64) kubernetes/7c48c2b";
@@ -5324,7 +5324,7 @@ export function k8sPodEscapeScenarioEvents() {
     // ── Baseline: how ci-deploy is normally used (from the CI runner, to update deployments) ──
     {
       id: "k8s_00_baseline_ci_deploy", ts: "2026-05-19T14:20:00.000Z", source: "k8s_audit", vendor: "Kubernetes Audit", event_type: "k8s_rbac", severity: "informational",
-      is_baseline: true, expected_verdict: "informational", hostname: "api-prod", src_ip: RUNNER,
+      is_baseline: true, expected_verdict: "informational", src_ip: RUNNER,
       description: "The ci-deploy service account patched the api-prod deployment from the CI runner 34.201.17.88 during yesterday's release.",
       raw: {
         "kubernetes.audit.verb": "patch", "kubernetes.audit.objectRef.resource": "deployments", "kubernetes.audit.objectRef.apiGroup": "apps", "kubernetes.audit.objectRef.apiVersion": "v1",
@@ -5343,7 +5343,7 @@ export function k8sPodEscapeScenarioEvents() {
       // T1609 Container Administration Command: running a command in an EXISTING container.
       // T1610 is Deploy Container (creating a new one), which is correct for k8s_09_privileged_pod.
       event_type: "k8s_exec", severity: "medium", mitre_technique: "T1609",
-      hostname: "api-prod-7f8b9c", src_ip: ATT, dst_port: 443,
+      src_ip: ATT, dst_port: 443,
       description: "The ci-deploy service account ran kubectl exec into container api-prod-7f8b9c from 193.233.48.71, an address on a hosting provider's network.",
       fp_explanation: "kubectl exec is routine in dev and SRE workflows: engineers exec into containers to debug them many times a day, and ci-deploy is a legitimate service account that is expected to touch production workloads.",
       raw: {
@@ -5371,8 +5371,8 @@ export function k8sPodEscapeScenarioEvents() {
       ts: T(1 * MIN),
       source: "k8s_audit", vendor: "Kubernetes Audit",
       event_type: "k8s_rbac", severity: "medium",
-      hostname: "api-prod-7f8b9c", src_ip: ATT,
-      description: "The pod spec for api-prod-7f8b9c was read. The container runs with privileged true, hostPID true, and CAP_SYS_ADMIN, on node ip-10-0-14-73.ec2.internal.",
+      src_ip: ATT,
+      description: "The pod spec for api-prod-7f8b9c was read. The container runs with privileged true, hostPID true, and CAP_SYS_ADMIN, on node ip-10-0-14-73.eu-west-1.compute.internal.",
       fp_explanation: "Reading a pod spec is ordinary operational activity, and this deployment has run with these settings since it was created: the workload needs host-level metrics collection.",
       raw: {
         "kubernetes.audit.verb": "get",
@@ -5530,7 +5530,8 @@ export function oauthConsentPhishingScenarioEvents() {
   const mailBatch = (n: number, t: number, count: number, folder: string, desc: string): TelemetryEvent => ({
     id: `oauth_02_mail_access_${n}`, ts: T(t), source: "o365", vendor: "Microsoft 365 Unified Audit Log", event_type: "cloud_api_call", severity: "high",
     ...(n === 1 ? { mitre_technique: "T1114.002", fp_explanation: "MailItemsAccessed by an application is common: CRM tools and archival apps do this constantly. The Microsoft 365 compliance center logs thousands of these per day." } : {}),
-    hostname: "graph.microsoft.com", user_email: EMAIL, src_ip: APP_IP, description: desc,
+    // A cloud audit record has no machine: the service the app called is the Graph endpoint.
+    user_email: EMAIL, src_ip: APP_IP, network: { domain: "graph.microsoft.com" }, description: desc,
     raw: {
       "data.office365.Operation": "MailItemsAccessed", "data.office365.UserId": EMAIL, "data.office365.ClientInfoString": "Client=REST;Client=RESTSystem;;",
       "data.office365.AppId": APP_ID, "application.id": APP_ID, "application.name": "Productivity Suite Pro",
@@ -5548,7 +5549,8 @@ export function oauthConsentPhishingScenarioEvents() {
   ].map((f, i): TelemetryEvent => ({
     id: `oauth_05_sharepoint_download_${String(i + 1).padStart(2, "0")}`, ts: T(61 * MIN + i * 14 * SEC), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "sharepoint_download", severity: "high", ...(i === 0 ? { mitre_technique: "T1530" } : {}),
-    hostname: "nexacorp.sharepoint.com", user_email: EMAIL, src_ip: APP_IP,
+    user_email: EMAIL, src_ip: APP_IP,
+    network: { url: encodeURI(`${fin}/${f.p}`), domain: "nexacorp.sharepoint.com", method: "GET" },
     description: `FileDownloaded: ${f.p} from the Finance SharePoint site, from ${APP_IP} with a python-requests user agent.`,
     raw: {
       "data.office365.Operation": "FileDownloaded", "data.office365.UserId": EMAIL, "data.office365.Workload": "SharePoint", "data.office365.ClientIPAddress": APP_IP,
@@ -5581,7 +5583,7 @@ export function oauthConsentPhishingScenarioEvents() {
       ts: T(0),
       source: "o365", vendor: "Microsoft Entra ID",
       event_type: "role_assignment", severity: "high", mitre_technique: "T1528",
-      hostname: "aad.nexacorp.com", user_email: EMAIL, src_ip: HOME_IP,
+      user_email: EMAIL, src_ip: HOME_IP,
       description: "j.chen granted OAuth consent to an app named Productivity Suite Pro, requesting Mail.ReadWrite, MailboxSettings.ReadWrite, Files.ReadWrite.All, and Calendars.Read.",
       it_context: { result: "confirmed", message: "IT has no ticket or change record for Productivity Suite Pro. The tenant's user-consent policy lets staff approve apps for their own mail and files, so the grant itself was permitted." },
       fp_explanation: "OAuth consent grants are extremely common: users consent to dozens of productivity apps. This looks like Slack/Zoom/Notion onboarding by a user working in the evening from home.",
@@ -5611,7 +5613,7 @@ export function oauthConsentPhishingScenarioEvents() {
       ts: T(58 * MIN),
       source: "o365", vendor: "Microsoft 365 Unified Audit Log",
       event_type: "policy_modification", severity: "high", mitre_technique: "T1114.003",
-      hostname: "outlook.office365.com", user_email: EMAIL, src_ip: APP_IP,
+      user_email: EMAIL, src_ip: APP_IP, network: { domain: "outlook.office365.com" },
       description: "New-InboxRule was created under j.chen's account with AppId a3f9b1c2 (the app, not Outlook), forwarding all mail to backupmail@productivity-suite.pro.",
       raw: {
         "data.office365.Operation": "New-InboxRule",
@@ -5639,7 +5641,7 @@ export function oauthConsentPhishingScenarioEvents() {
       ts: T(72 * MIN),
       source: "dlp", vendor: "Microsoft Purview",
       event_type: "dlp_alert", severity: "critical", mitre_technique: "T1530",
-      hostname: "nexacorp.sharepoint.com", user_email: EMAIL,
+      user_email: EMAIL, network: { domain: "nexacorp.sharepoint.com" },
       file: { name: "Contract-GlobalLogis-2026.docx", path: `${fin}/Contracts/Contract-GlobalLogis-2026.docx` },
       description: "Microsoft Purview DLP fired its Confidential Documents - External Access policy on Contract-GlobalLogis-2026.docx in the Finance SharePoint site after it was downloaded by a non-corporate client.",
       raw: {
@@ -5656,7 +5658,7 @@ export function oauthConsentPhishingScenarioEvents() {
       ts: T(75 * MIN),
       source: "siem", vendor: "Microsoft Sentinel",
       event_type: "ueba_anomaly", severity: "high", is_detection: true, mitre_technique: "T1528", mitre_tactic: "Credential Access",
-      hostname: "sentinel.nexacorp.com", user_email: EMAIL, src_ip: APP_IP,
+      user_email: EMAIL, src_ip: APP_IP,
       description: "Defender for Cloud Apps, ingested by Sentinel, raised 'Suspicious OAuth app file download activities' for Productivity Suite Pro.",
       raw: {
         "TimeGenerated": T(75 * MIN),

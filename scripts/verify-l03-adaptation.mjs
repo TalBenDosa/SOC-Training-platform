@@ -55,9 +55,13 @@ function hostSet(id) {
   // Valid asset names = the company's benign-pool hostnames PLUS the explicit per-company
   // asset registry (R-01), which instantiateStory now draws host swaps from. Registry
   // hosts (e.g. LAP-QB-4471, prod-srv-01) are legitimate company assets, not leaks.
+  // The registry's `infra` list (this company's own hypervisors, VPN appliance, K8s nodes,
+  // AD FS farm) is part of the same per-company registry: a story naming ANOTHER company's
+  // infrastructure, or an unregistered machine, is still reported.
   return new Set([
     ...getCompanyEvents(id).map((e) => e.hostname).filter(Boolean),
     ...(COMPANY_ASSETS?.[id]?.hosts ?? []),
+    ...(COMPANY_ASSETS?.[id]?.infra ?? []),
   ]);
 }
 
