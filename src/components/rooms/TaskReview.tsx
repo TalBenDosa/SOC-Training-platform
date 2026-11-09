@@ -349,7 +349,7 @@ export function TaskReview({ task, record, earnedXp, maxXp, prevLogEvent }: Task
           </div>
           {rev && task.blanks.filter(b => rev.blanks[b.id] && !rev.blanks[b.id].correct).map(b => (
             <p key={b.id} className="text-xs text-slate-400">
-              <span className="font-mono">{b.placeholder ?? b.id}</span>: you wrote <span className="font-mono text-severity-high">{rev.values[b.id] || "—"}</span>, expected <span className="font-mono text-neon-green">{rev.blanks[b.id].answers[0]}</span>
+              <span className="font-mono">{b.placeholder ?? b.id}</span>: you wrote <span className="font-mono text-severity-high">{rev.values[b.id] || "-"}</span>, expected <span className="font-mono text-neon-green">{rev.blanks[b.id].answers[0]}</span>
             </p>
           ))}
           {rev ? <Explanation text={rev.explanation} tone={rev.correct ? "good" : "neutral"} /> : <NoDetails />}

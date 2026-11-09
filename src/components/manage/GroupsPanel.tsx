@@ -131,7 +131,7 @@ export function GroupsPanel({ members, onChanged }: { members: RosterMember[]; o
                     <span className="shrink-0 font-mono text-[10px] text-slate-500">{g.member_ids.length} member{g.member_ids.length === 1 ? "" : "s"}</span>
                     {!isOpen && g.member_ids.length > 0 && (
                       <span className="hidden min-w-0 truncate text-[11px] text-slate-500 sm:inline">
-                        · <bdi>{g.member_ids.slice(0, 4).map(id => nameOf.get(id) ?? "—").join(", ")}</bdi>{g.member_ids.length > 4 ? "…" : ""}
+                        · <bdi>{g.member_ids.slice(0, 4).map(id => nameOf.get(id) ?? "-").join(", ")}</bdi>{g.member_ids.length > 4 ? "…" : ""}
                       </span>
                     )}
                   </button>

@@ -59,7 +59,7 @@ export interface EdrModule {
   path: string;
   signed: boolean;
   signer?: string;         // "Microsoft Windows", the app vendor, or undefined when unsigned
-  loadedAt?: string;       // HH:MM:SS, "—" before the window
+  loadedAt?: string;       // HH:MM:SS, "-" before the window
 }
 
 export interface EdrProcess {
@@ -74,7 +74,7 @@ export interface EdrProcess {
   /** PE OriginalFileName from the log (OriginalFileName / process.original_file_name) —
    *  the rename tell when it differs from the on-disk name (rclone.exe → svchost-update.exe). */
   originalFileName?: string;
-  startedAt: string;      // HH:MM:SS on the feed's clock ("—" = started before the telemetry window)
+  startedAt: string;      // HH:MM:SS on the feed's clock ("-" = started before the telemetry window)
   /** The instant behind `startedAt` (epoch ms), when the case was built from timed telemetry. */
   startedMs?: number;
   verdict: Verdict;       // ground truth (drives grading; not all shown as labels)

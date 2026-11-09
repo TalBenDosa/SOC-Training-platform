@@ -74,7 +74,7 @@ export function OpsHealthCard() {
                 <tr key={`${e.at}-${i}`} className="border-t border-border/60 align-top">
                   <td className="whitespace-nowrap px-2 py-1 text-slate-400 tabular-nums">{new Date(e.at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
                   <td className="whitespace-nowrap px-2 py-1 font-mono text-slate-300">{e.kind}</td>
-                  <td className="px-2 py-1 font-mono text-slate-400 break-all">{e.detail ?? "—"}</td>
+                  <td className="px-2 py-1 font-mono text-slate-400 break-all">{e.detail ?? "-"}</td>
                 </tr>
               ))}
             </tbody>

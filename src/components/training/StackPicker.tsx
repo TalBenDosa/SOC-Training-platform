@@ -87,7 +87,7 @@ export function StackPicker({ companyId, value, onChange, defaultOpen = false, i
                   <select id={id} value={current} disabled={!!locked[c.category]}
                     onChange={e => { const r = nextStack(companyId, merged, c.category, e.target.value, forcedMail); setForcedMail(r.forcedMail); onChange(r.stack); }}
                     className="h-8 min-w-0 flex-1 rounded-md border border-border bg-bg-elevated px-2 text-xs text-slate-200 focus:border-cyber-500/50 focus:outline-none disabled:opacity-70">
-                    {!current && <option value="">— not in this environment —</option>}
+                    {!current && <option value="">(not in this environment)</option>}
                     {c.options.map(o => (
                       <option key={o} value={o} disabled={googleMail && o === "defender_o365"}>{PRODUCT_LABEL[o]}{base[c.category] === o ? " (company default)" : ""}{googleMail && o === "defender_o365" ? " — needs Microsoft 365" : ""}</option>
                     ))}

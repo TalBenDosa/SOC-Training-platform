@@ -63,7 +63,7 @@ export function compareEdrToFeed(inv: EdrInvestigation, feed: { ev: TelemetryEve
     if (typeof pid === "number") (byPid.get(pid) ?? byPid.set(pid, []).get(pid)!).push(r);
   }
   for (const p of inv.processes) {
-    if (p.startedAt === "—") continue;
+    if (p.startedAt === "-") continue;
     const rows = byPid.get(p.pid);
     if (!rows?.length) continue;   // a distractor or a synthesised pid: no feed row names it
     for (const r of rows) {
@@ -102,4 +102,4 @@ export function compareEdrToFeed(inv: EdrInvestigation, feed: { ev: TelemetryEve
 }
 
 /** The processes of an investigation that came from the feed (not ancestor stubs or seeded background). */
-export const seenProcesses = (inv: EdrInvestigation): EdrProcess[] => inv.processes.filter(p => p.startedAt !== "—");
+export const seenProcesses = (inv: EdrInvestigation): EdrProcess[] => inv.processes.filter(p => p.startedAt !== "-");

@@ -670,15 +670,15 @@ export function buildInvestigationFromStory(
     if (p.parent_pid != null && p.parent_pid !== 0 && !procByPid.has(p.parent_pid)) {
       // A parent we never saw a create event for — add a benign stub so the tree
       // connects (real consoles show the ancestor even without its own row). It
-      // started before the telemetry window, so its start time is unknown ("—").
+      // started before the telemetry window, so its start time is unknown ("-").
       const parentName = p.parent_name ?? "process";
       const ln = parentName.toLowerCase();
       const parentPath = imagePathOf({ pid: p.parent_pid, name: parentName, cmdline: parentName }, { malicious: false });
       procByPid.set(p.parent_pid, {
         pid: p.parent_pid, ppid: 0, name: parentName,
-        cmdline: p.parent_name ? parentPath : "—",
+        cmdline: p.parent_name ? parentPath : "-",
         user: SERVICE_BINARIES.has(ln) || ln === "services.exe" ? SYSTEM_USER : normUser(p.user),
-        path: parentPath, signed: true, startedAt: "—", verdict: "benign",
+        path: parentPath, signed: true, startedAt: "-", verdict: "benign",
         network: [], files: [],
       });
       startMs.set(p.parent_pid, null);
@@ -719,7 +719,7 @@ export function buildInvestigationFromStory(
       cmdline: imagePathOf({ pid, name, cmdline: name }, { malicious: false }),
       user: isLinux ? "root" : sessionZero ? SYSTEM_USER : hostUser,
       path: imagePathOf({ pid, name, cmdline: name }, { malicious: false }),
-      signed: true, startedAt: "—", verdict: "benign", network: [], files: [],
+      signed: true, startedAt: "-", verdict: "benign", network: [], files: [],
     };
     procByPid.set(pid, proc);
     startMs.set(pid, null);
@@ -913,7 +913,7 @@ export function buildInvestigationFromStory(
   const isSystemTool = (p: EdrProcess) => isLolBin(p.name) || SYSTEM_TOOLS.has(p.name.toLowerCase()) || SYSTEM_TOOLS.has(p.name.toLowerCase().replace(/\.exe$/, ""));
   const payloadScore = (p: EdrProcess) =>
     (!p.signed ? 40 : 0) + (USER_WRITABLE.test(p.path) ? 25 : 0) + (isSystemTool(p) ? -35 : 20) + (detSev.get(p.pid) ?? 0) * 10;
-  const suspects = processes.filter(p => p.verdict !== "benign" && p.startedAt !== "—");
+  const suspects = processes.filter(p => p.verdict !== "benign" && p.startedAt !== "-");
   const payload = story.benign ? null :
     byHash.sort((a, b) => tsSort(a.startedAt, b.startedAt)).at(-1)
     // highest score; on a tie the EARLIER process, the root cause rather than its children
@@ -990,7 +990,7 @@ export function buildInvestigationFromStory(
     // A DNS request's remote end is the host's resolver (not an IP the log names).
     const rawRemote = pickRaw(e.raw, ["destination.ip", "RemoteAddressIP4", "RemoteIP", "dst", "dstip", "DestinationIp",
       "crowdstrike.RemoteAddressIP4", "network.destination.ip", "mde.RemoteIP", "data.dstip"]);
-    const remote_ip = inbound ? (e.src_ip ?? "—") : (e.dst_ip ?? rawRemote ?? (isDns ? "resolver" : "—"));
+    const remote_ip = inbound ? (e.src_ip ?? "-") : (e.dst_ip ?? rawRemote ?? (isDns ? "resolver" : "-"));
     // R-08: transport in `proto`, layer-7 in `application`.
     const rawProto = String(e.protocol ?? "").toLowerCase();
     const isTransport = /^(tcp|udp|icmp)$/.test(rawProto);
@@ -1027,7 +1027,7 @@ export function buildInvestigationFromStory(
       ownedConns.add(connKey(conn.remote_ip, conn.remote_port, conn.domain));
       ownedConns.add(connKey(conn.remote_ip, conn.remote_port, undefined));
       if (conn.domain && conn.application !== "DNS") ownedTargets.add(conn.domain);
-      if (conn.remote_ip !== "—" && conn.remote_ip !== "resolver") ownedTargets.add(conn.remote_ip);
+      if (conn.remote_ip !== "-" && conn.remote_ip !== "resolver") ownedTargets.add(conn.remote_ip);
     }
     const fileEvent = /^file|registry_set$/.test(e.event_type ?? "") || /^(file|fs)_/.test(e.event_type ?? "")
       || (!isDetectionEvent(e) && !/load/i.test(e.event_type ?? ""));
@@ -1058,7 +1058,7 @@ export function buildInvestigationFromStory(
         owner.network!.push(conn);
         ownedConns.add(connKey(conn.remote_ip, conn.remote_port, conn.domain));
         if (conn.domain) ownedTargets.add(conn.domain);
-        if (conn.remote_ip !== "—") ownedTargets.add(conn.remote_ip);
+        if (conn.remote_ip !== "-") ownedTargets.add(conn.remote_ip);
       }
     }
     if (e.file?.path && owner.files!.length < 8 && ENDPOINT_SOURCES.has(e.source) && !/load/i.test(e.event_type ?? "")) {
@@ -1096,10 +1096,10 @@ export function buildInvestigationFromStory(
   const host = {
     name: hostName,
     os: isMac ? "macOS 14 Sonoma" : isLinux ? "Linux" : server ? "Windows Server 2022" : "Windows 11 23H2",
-    ip: hostOwnIp ?? "—",
+    ip: hostOwnIp ?? "-",
     // The signed-in HUMAN — a service-launched shell running as SYSTEM is not who is logged on.
     user: mostCommon(procEvents.map(e => e.process?.user ?? e.user_email).filter(u => u && !SYSTEM_PRINCIPAL.test(u) && !/^(root|_\w+|daemon|nobody)$/i.test(u)))
-      ?? mostCommon(procEvents.map(e => e.process?.user ?? e.user_email)) ?? "—",
+      ?? mostCommon(procEvents.map(e => e.process?.user ?? e.user_email)) ?? "-",
   };
 
   const explanation = payload
