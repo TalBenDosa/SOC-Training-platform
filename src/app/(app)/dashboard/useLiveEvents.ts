@@ -10,7 +10,8 @@ import type { AttackStory } from "./attackStories";
 import { appendDashboardSession } from "@/lib/storage/progress";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { describeEvent } from "@/lib/sim/describeEvent";
-import { ecsTechnique } from "@/lib/logs/ecsFields";
+import { sentinelAlert } from "@/lib/sim/emitters/sentinel";
+import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 
 
 /**
@@ -106,16 +107,23 @@ export type { LiveEvent };
 /**
  * SIEM correlation mirror of an EDR detection. Real SOCs forward EDR alerts into
  * the SIEM, so an analyst working the SIEM feed sees the EDR verdict as its own
- * log line — not only in the /edr console. Generated at stream time (never a
+ * log line, not only in the /edr console. Generated at stream time (never a
  * static feed event) so it can't disturb the positional attack-chain split.
  *
  * Deliberately emitted at MEDIUM severity: the paired EDR event remains the
  * high/critical, gradeable primary detection, while this is a corroboration log.
  * Because the grader's feedAttackEvents gate is severity high|critical, a medium
- * mirror is never counted as a second attack (no ground-truth / indicator / catch
- * inflation) — but it IS part of the serialized evidence, so a student who cites
- * the SIEM alert's host/technique is validated as citing real evidence. FP decoys
- * are not mirrored (they drive their own IT-verify training on the primary).
+ * mirror is never counted as a second attack, but it IS part of the serialized
+ * evidence, so a student who cites the SIEM alert's host/technique is validated
+ * as citing real evidence.
+ *
+ * The row is a Microsoft Sentinel SecurityAlert built by the shared Sentinel emitter (R1: the
+ * same columns as every other Sentinel alert on the platform, no ECS-only block). Its StartTime /
+ * EndTime are the detection's own time and it is generated after it, never before (R4).
+ * A detection that IT will explain away (a training false positive) is forwarded too: a real
+ * SIEM forwards every EDR alert, and a mirror only on real attacks told the learner the verdict
+ * (R2 / R9). The mirror of a false positive keeps only its verdict, never the IT-verify material,
+ * so the decoy still has one "verify with IT" row.
  */
 export function siemMirror(e: LiveEvent, index: number): LiveEvent | null {
   if (e.source !== "edr") return null;
@@ -125,53 +133,54 @@ export function siemMirror(e: LiveEvent, index: number): LiveEvent | null {
     e.event_type === "edr_alert" ||
     ((e.severity === "high" || e.severity === "critical") && !!e.mitre_technique);
   if (!isDetection) return null;
-  if (e.it_verify_result || e.fp_explanation || e.expected_verdict === "fp") return null;
+  const fp = !!(e.it_verify_result || e.fp_explanation || e.expected_verdict === "fp");
 
   const vendor = e.vendor ?? "EDR";
   const host = e.hostname ? ` on ${e.hostname}` : "";
   const tech = e.mitre_technique ? ` (${e.mitre_technique})` : "";
-  // What the detection observably is — never the authored description, which on an
+  // What the detection observably is, never the authored description, which on an
   // attack event states the conclusion the analyst is meant to reach (L-05).
   const observed = describeEvent(e);
-  const desc = `SIEM correlation: ${vendor} detection ingested${host} — ${observed}${tech}`;
-  // The mirror is a Sentinel alert: drop the authored-source markers a chosen stack put
-  // on the EDR event, or the native renderer would show it as an EDR record again.
-  const { _authored_source: _src, _authored_vendor: _ven, ...base } = e as LiveEvent & { _authored_source?: string; _authored_vendor?: string };
-  void _src; void _ven;
+  const desc = `SIEM correlation: ${vendor} detection ingested${host}: ${observed}${tech}`;
+  const companyId = companyOfEvent(e);
+  // Generated after the detection it forwards (the connector's lag), never in the future.
+  const evMs = Date.parse(e.ts ?? "");
+  const alertMs = Number.isFinite(evMs) ? Math.max(evMs, Math.min(evMs + 30_000 + (index % 60) * 1_000, Date.now())) : Date.now();
+  const alert = sentinelAlert({
+    id: `${e.id}__siem`, ts: new Date(alertMs).toISOString(), companyId,
+    host: e.hostname, user: e.user_email ?? null, srcIp: e.src_ip,
+    alertName: `${vendor} endpoint detection${host}`,
+    detail: observed, severity: "medium", eventType: "edr_alert",
+    alertKind: /defender/i.test(vendor) ? "mde" : "scheduled",
+    mitre: e.mitre_technique, tactic: e.mitre_tactic,
+    startTime: e.ts, endTime: e.ts,
+    extendedProperties: { "Source EDR Vendor": vendor, "Original Detection": observed },
+    eventAction: "edr-alert-forwarded",
+    description: desc,
+  });
   const mirror: LiveEvent = {
-    ...base,
+    ...alert,
     id: `${e.id}__siem`,
-    source: "siem",
-    vendor: "Microsoft Sentinel",
-    event_type: "edr_alert",
-    severity: "medium",
-    is_detection: undefined,
-    edr_scope: undefined,
-    // Drop the top-level technique/tactic so the mirror is NOT mapped to a
-    // kill-chain stage in AttackChainBoard (it would otherwise duplicate the
-    // EDR event's card). The technique is still shown to the analyst via
-    // raw["threat.technique.id"] / ["threat.technique.subtechnique.id"] below.
+    tier: e.tier,
+    ...(e.incident_id ? { incident_id: e.incident_id } : {}),
+    ...(fp ? { expected_verdict: "fp" as const } : {}),
+    // No top-level technique/tactic, so the mirror is NOT mapped to a kill-chain stage in
+    // AttackChainBoard (it would duplicate the EDR event's card). The analyst still sees the
+    // technique in the alert's Techniques / Tactics columns.
     mitre_technique: undefined,
     mitre_tactic: undefined,
-    description: desc,
-    raw: {
-      "AlertName": "EDR Detection — forwarded to SIEM",
-      "alert.rule.id": "SIEM-EDR-FWD-001",
-      "alert.severity": e.severity ?? "high",
-      ...(e.hostname ? { "host.name": e.hostname } : {}),
-      ...(e.src_ip ? { "host.ip": e.src_ip } : {}),
-      ...(e.user_email ? { "target.user.name": e.user_email } : {}),
-      ...ecsTechnique(e.mitre_technique),
-      "ExtendedProperties.Source EDR Vendor": vendor,
-      "ExtendedProperties.Original Detection": observed,
-      "event.action": "edr-alert-forwarded",
-      "event.outcome": "alerted",
-    },
     ruleLevel: severityBase("medium"),
     ruleId: buildRuleId({ ...e, source: "siem", event_type: "edr_alert", severity: "medium" } as TelemetryEvent, index),
     displayDescription: desc,
-  };
+  } as LiveEvent;
   return mirror;
+}
+
+/** The built-in company an event belongs to, from its mail domain (the mirror's tenant). */
+function companyOfEvent(e: TelemetryEvent): string | undefined {
+  const domain = e.user_email?.split("@")[1]?.toLowerCase();
+  if (!domain) return undefined;
+  return Object.entries(COMPANY_ASSETS).find(([, a]) => a.domain === domain)?.[0];
 }
 
 export interface DashboardSessionRecord {
