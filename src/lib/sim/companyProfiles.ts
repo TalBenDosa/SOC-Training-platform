@@ -1003,7 +1003,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     raw: {
       "action":                        "Accept",
       "service_id":                    "Microsoft-DS",
-      "app_name":                      "SMB",
+      "appi_name":                     "SMB",
       "proto":                         "6",
       "protocol":                      "TCP",
       "src":                           "192.168.10.22",
@@ -1012,7 +1012,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
       "sport_svc":                     "49811",
       "src_machine_name":              "WS-MED-022",
       "dst_machine_name":              "SRV-MEDCORE-EMR01",
-      "bytes_out":                     "84992",
+      "client_outbound_bytes":         "84992",
       "bytes":                         "12288",
       "snid":                          "7fa3b2c1",
       "rule_name":                     "Internal-Any-Allow",
@@ -1182,7 +1182,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     protocol: "tcp",
     description: "Outbound HTTP connection from WS-MED-022 to 198.51.100.157 - uncategorised destination, review required",
     mitre_technique: "T1071.001", expected_verdict: "tp", is_detection: true,
-    raw: { "action": "Accept", "layer_name": "Application & URL Filtering", "service_id": "HTTP", "bytes_out": "3481", "app_category": "Uncategorized", "action_result": "allowed" }
+    raw: { "action": "Accept", "layer_name": "Application & URL Filtering", "service_id": "HTTP", "client_outbound_bytes": "3481", "app_category": "Uncategorized", "action_result": "allowed" }
   },
   {
     id: "mc_fw_003", ts: "2026-05-10T09:30:00.000Z",
@@ -1545,7 +1545,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     expected_verdict: "tp", is_detection: true,
     description: "Check Point IPS dropped inbound traffic from 198.51.100.167 on protection VPN Brute Force Attack",
     raw: { "protection_name": "VPN Brute Force Attack",
-           "protection_type": "signature", "severity": "High", "confidence_level": "High",
+           "protection_type": "IPS", "severity": "3", "confidence_level": "5",
            "action": "Drop", "src": "198.51.100.167", "dst": "192.168.10.1",
            "svc": "443", "proto": "6", "protocol": "TCP",
            "inzone": "External", "outzone": "Internal",
@@ -1609,11 +1609,11 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     expected_verdict: "tp", is_detection: true,
     description: "The PACS imaging server sent 22 GB of medical images over SFTP to an external IP",
     raw: {
-      "app_name": "SFTP",
-      "action": "Accept", "bytes_out": "23622320128",
+      "appi_name": "SFTP",
+      "action": "Accept", "client_outbound_bytes": "23622320128",
       "src": "192.168.10.220", "dst": "198.51.100.168",
-      "svc": "22", "duration": "1820",
-      "destination.geo.country_iso_code": "RO",
+      "svc": "22", "elapsed": "1820",
+      "destination.geo.country_name": "Romania",
       "layer_name": "Network", "rule_name": "Internal-to-Any-Outbound",
       "proto": "6", "protocol": "TCP",
       "action_result": "allowed" }
@@ -1834,7 +1834,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     protocol: "tcp",
     description: "Outbound HTTPS from SRV-MEDCORE-EMR01 to Microsoft Azure - expected Epiq cloud sync",
     raw: { "action": "Accept", "layer_name": "Application & URL Filtering",
-           "app_name": "Office365", "bytes_out": "204800",
+           "network.application": "Office365", "client_outbound_bytes": "204800",
            "action_result": "allowed" }
   },
   {
@@ -3191,7 +3191,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     severity: "critical", vendor: "Check Point NGFW", src_ip: "192.168.10.45", dst_ip: "198.51.100.215", dst_port: 443,
     description: "1.8 GB outbound HTTPS transfer from WS-MED-045 to 198.51.100.215 (FI) with no matching TLS SNI",
     mitre_technique: "T1041",
-    raw: { "action": "Accept", "app_name": "HTTPS", "bytes_out": "1932735283", "src": "192.168.10.45", "dst": "198.51.100.215", "svc": "443", "proto": "6", "protocol": "TCP", "rule_name": "Internal-to-Any-Outbound", "layer_name": "Network", "destination.geo.country_iso_code": "FI", "action_result": "allowed" }
+    raw: { "action": "Accept", "appi_name": "HTTPS", "client_outbound_bytes": "1932735283", "src": "192.168.10.45", "dst": "198.51.100.215", "svc": "443", "proto": "6", "protocol": "TCP", "rule_name": "Internal-to-Any-Outbound", "layer_name": "Network", "destination.geo.country_name": "Finland", "action_result": "allowed" }
   },
   chainAlert({ id: "mc_b5", ts: "2026-05-10T11:43:00.000Z", name: "Large outbound transfer to a destination with no prior history", product: "Azure Sentinel", severity: "High", mitre: "T1048", user: "n.smits@medcorehealth.org", host: "WS-MED-045", ip: "198.51.100.215", props: {"Bytes Sent": "1932735283", "Destination IP": "198.51.100.215", "TLS SNI": "none", "Prior Connections (30d)": "0"}, description: "Sentinel raised a High alert for WS-MED-045: 1.8 GB sent to 198.51.100.215, a destination with no connections in the last 30 days and no TLS SNI." }),
   // ── Chain C ──────────────────────────────────────────────────────────────
