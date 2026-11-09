@@ -27,6 +27,14 @@ export const DLP_FUNDAMENTALS: RoomExperience = {
   look: { primary: "#fbbf24", secondary: "#818cf8", warn: "#f43f5e" },
   scene: "sealedbrief",
   layout: "stage",
+  story: {
+    intro: { title: "The Brief Left the Building", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dlp-fundamentals/sealedbrief-intro-5a123be2.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dlp-fundamentals/sealedbrief-intro-4024e5df.jpg" },
+    afterStation: {
+      classify: { title: "Eighty-Five Percent Sure", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dlp-fundamentals/sealedbrief-ch2-3ca1f7bd.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dlp-fundamentals/sealedbrief-ch2-88775ef9.jpg" },
+      trace: { title: "The Reason Box", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dlp-fundamentals/sealedbrief-ch3-86294049.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dlp-fundamentals/sealedbrief-ch3-30699568.jpg" },
+      verdict: { title: "Sealed Again", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dlp-fundamentals/sealedbrief-finale-7b51949f.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dlp-fundamentals/sealedbrief-finale-fe9a1a35.jpg" },
+    },
+  },
   stations: [
     {
       id: "channels",
