@@ -592,13 +592,13 @@ const dnsDeepDiveRoom = {
         "=======================================================\n" +
         "Same domain, queried repeatedly, over 20 minutes:\n" +
         "\n" +
-        "14:00:02  update-relay-svc.net -> 41.223.18.4    TTL=60\n" +
-        "14:01:19  update-relay-svc.net -> 187.44.201.9   TTL=60\n" +
-        "14:02:31  update-relay-svc.net -> 93.174.95.16   TTL=60\n" +
-        "14:03:47  update-relay-svc.net -> 5.188.62.11    TTL=60\n" +
-        "14:05:02  update-relay-svc.net -> 41.223.18.101  TTL=60\n" +
+        "14:00:02  update-relay-svc.net -> 203.0.113.4     TTL=60\n" +
+        "14:01:19  update-relay-svc.net -> 198.51.100.44   TTL=60\n" +
+        "14:02:31  update-relay-svc.net -> 192.0.2.16      TTL=60\n" +
+        "14:03:47  update-relay-svc.net -> 203.0.113.211   TTL=60\n" +
+        "14:05:02  update-relay-svc.net -> 198.51.100.101  TTL=60\n" +
         "\n" +
-        "  -> 5 distinct IPs, 5 different networks/countries,\n" +
+        "  -> 5 distinct IPs that geolocate to 5 different countries,\n" +
         "     in 5 minutes, TTL pinned at 60s every time\n" +
         "  -> NOT what a normal CDN/load-balancer pool looks like\n" +
         "     (typically a small, stable set within one provider)\n" +

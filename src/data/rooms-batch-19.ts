@@ -370,7 +370,7 @@ const vulnerabilityManagementRoom = {
       id: "vm-f1",
       // Pin the portal-web03 finding this flag reads. Unpinned, the room falls back to
       // the nearest preceding log — vm-ac1's api-gw02 verdict event, whose
-      // plugin.epss_score is 0.02 — a decoy that doesn't match the answer (0.94).
+      // plugin.epss_score is 0.02: a decoy that doesn't match the answer (0.94).
       event: vulnScanEvent,
       prompt:
         "Look at the Log Analysis finding on portal-web03. Which value in the raw log is the probability that this CVE will be exploited in the wild in the next 30 days? Enter it exactly as shown (a decimal, not a percentage).",

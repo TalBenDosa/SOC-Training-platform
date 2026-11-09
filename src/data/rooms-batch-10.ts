@@ -457,7 +457,7 @@ const rooms = [
         type: "question",
         id: "vpn-q2",
         question:
-          "Your SIEM detects 47 VPN authentication failures from IP 91.195.240.33 targeting 47 different usernames over a 3-minute window, each attempt using the password 'Welcome1!'. What attack technique does this describe?",
+          "Your SIEM detects 47 VPN authentication failures from IP 198.51.100.33 targeting 47 different usernames over a 3-minute window, each attempt using the password 'Welcome1!'. What attack technique does this describe?",
         options: [
           "Brute force: many passwords tried against one account until one works",
           "Password spraying: one common password tried once across many accounts",
@@ -722,12 +722,12 @@ const rooms = [
         type: "question",
         id: "fw-q2",
         question:
-          "Firewall logs show that internal host 10.50.0.122 makes an outbound connection to 45.83.91.202:443 every 300 seconds (exactly 5 minutes) for the past 6 hours. Each connection transfers approximately 450 bytes out and 200 bytes in, then closes. What does this pattern indicate?",
+          "Firewall logs show that internal host 10.50.0.122 makes an outbound connection to 203.0.113.202:443 every 300 seconds (exactly 5 minutes) for the past 6 hours. Each connection transfers approximately 450 bytes out and 200 bytes in, then closes. What does this pattern indicate?",
         options: [
           "Normal web browsing: it is encrypted HTTPS on port 443 like most traffic",
           "Data exfiltration: the connections have continued for six hours straight",
           "Beaconing: fixed five-minute check-ins with tiny payloads to one external IP",
-          "An inbound probe: 45.83.91.202 keeps reaching the host every five minutes",
+          "An inbound probe: 203.0.113.202 keeps reaching the host every five minutes",
         ],
         answer: 2,
         explanation:
