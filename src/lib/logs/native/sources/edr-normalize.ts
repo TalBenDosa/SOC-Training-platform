@@ -309,7 +309,7 @@ export function edrFacts(ev: TelemetryEvent): EdrFacts {
     originUrl: first(r["FileOriginUrl"], r["file.origin_url"]),
     referrerUrl: first(r["FileOriginReferrerUrl"], r["file.origin_referrer_url"]),
     access: ev.event_type === "process_access" && accessTarget ? {
-      name: baseName(accessTarget), path: /[\\/]/.test(accessTarget) ? accessTarget : undefined,
+      name: baseName(accessTarget), path: /[\\/]/.test(accessTarget) ? drive(accessTarget) : undefined,
       pid: numOrU(ev.process?.target?.pid ?? r["winlog.event_data.TargetProcessId"] ?? r["TargetProcessId"]),
       granted: first(accessMask(r["crowdstrike.DesiredAccess"]), r["s1.granted_access"], r["winlog.event_data.GrantedAccess"], r["GrantedAccess"]),
     } : undefined,

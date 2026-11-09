@@ -96,25 +96,22 @@ const lsassSigmaAlertEvent: TelemetryEvent = {
     user: "SOLVARA\\n.brandt",
     hash: { sha256: "dfc35e53d01e0269bc02499c09966477445c8aa7623269d7995156874bef83e6" },
   },
+  // FDR FalconProcessHandleOpDetectInfo: the Falcon event that names the opened process and the
+  // requested access mask, so it is the record a SIEM rule on those two fields runs against. A
+  // DetectionSummaryEvent carries neither field (Elastic crowdstrike integration, falcon + fdr data streams).
   raw: {
-    "crowdstrike.event_simpleName": "DetectionSummaryEvent",
-    "crowdstrike.DetectId": "ldt:5a545cd3614ee729987d1c94295a1ecc:73004",
-    "crowdstrike.SeverityName": "Critical",
-    "crowdstrike.Tactic": "Credential Access",
-    "crowdstrike.Technique": "OS Credential Dumping",
-    "threat.technique.id": "T1003",
-    "threat.technique.subtechnique.id": "T1003.001",
-    "crowdstrike.PatternDispositionDescription": "Detection, standard detection.",
-    "crowdstrike.ContextBaseFileName": "SysHealthMon.exe",
-    "crowdstrike.ParentBaseFileName": "explorer.exe",
-    "crowdstrike.FileName": "SysHealthMon.exe",
-    "crowdstrike.FilePath": "C:\\Users\\n.brandt\\AppData\\Roaming\\SysHealthMon\\SysHealthMon.exe",
-    "crowdstrike.CommandLine": "\"SysHealthMon.exe\" -silent",
-    "crowdstrike.SHA256HashData": "dfc35e53d01e0269bc02499c09966477445c8aa7623269d7995156874bef83e6",
-    "crowdstrike.TargetProcessImageFileName": "lsass.exe",
-    "crowdstrike.DesiredAccess": "2097151",
-    "crowdstrike.UserName": "SOLVARA\\n.brandt",
+    "crowdstrike.event_simpleName": "FalconProcessHandleOpDetectInfo",
+    "crowdstrike.event_platform": "Win",
+    "crowdstrike.aid": "5a545cd3614ee729987d1c94295a1ecc",
     "crowdstrike.ComputerName": "WKS-CLM-1187",
+    "crowdstrike.UserName": "SOLVARA\\n.brandt",
+    "crowdstrike.ContextProcessId": "7300418826",
+    "crowdstrike.ImageFileName": "\\Device\\HarddiskVolume3\\Users\\n.brandt\\AppData\\Roaming\\SysHealthMon\\SysHealthMon.exe",
+    "crowdstrike.CommandLine": "\"SysHealthMon.exe\" -silent",
+    "crowdstrike.ParentProcessId": "7300411534",
+    "crowdstrike.ParentImageFileName": "\\Device\\HarddiskVolume3\\Windows\\explorer.exe",
+    "crowdstrike.TargetProcessImageFileName": "\\Device\\HarddiskVolume3\\Windows\\System32\\lsass.exe",
+    "crowdstrike.DesiredAccess": "2097151",
   },
 };
 
@@ -551,11 +548,11 @@ const sigmaYaraRuleAuthoringRoom = {
       id: "sigyara-la1",
       heading: "Reading a Live Alert Back Against the Rule That Wrote It",
       context:
-        "Solvara Health's SIEM runs a custom Sigma rule mapped onto its CrowdStrike Falcon data source, tagged T1003.001. Its selection block requires TargetProcessImageFileName equal to lsass.exe together with DesiredAccess equal to any one of a list of masks credential dumpers request, written the way Falcon records them, in decimal: 4112 (0x1010), 5136 (0x1410), 5176 (0x1438) or 2097151 (0x1FFFFF). Its filter block excludes events whose file path is exactly one of two named, signed security binaries: the CrowdStrike Falcon sensor service and Microsoft Defender's MsMpEng.exe, the documented AV self-scan matches (benign true positives: real LSASS access by authorized security tools). (An earlier draft excluded all of C:\\Windows\\System32 and was rejected, because the common LOLBin dump, rundll32.exe calling comsvcs.dll MiniDump, runs from that directory.) Its condition is selection and not filter, and its level is set to critical. This rule just fired on WKS-CLM-1187, a claims-processing workstation. Work through the raw fields against the rule's own logic the way a real investigation would.",
+        "Solvara Health's SIEM runs a custom Sigma rule mapped onto its CrowdStrike Falcon data source, tagged T1003.001. It runs on Falcon's handle-operation records (event FalconProcessHandleOpDetectInfo), the events that name the process being opened and the access requested. Its selection block requires TargetProcessImageFileName ending in \\lsass.exe (the |endswith modifier, because Falcon writes the full device path) together with DesiredAccess equal to any one of a list of masks credential dumpers request, written the way Falcon records them, in decimal: 4112 (0x1010), 5136 (0x1410), 5176 (0x1438) or 2097151 (0x1FFFFF). Its filter block excludes events whose ImageFileName (the path of the process doing the opening) is exactly one of two named, signed security binaries: the CrowdStrike Falcon sensor service and Microsoft Defender's MsMpEng.exe, the documented AV self-scan matches (benign true positives: real LSASS access by authorized security tools). (An earlier draft excluded all of C:\\Windows\\System32 and was rejected, because the common LOLBin dump, rundll32.exe calling comsvcs.dll MiniDump, runs from that directory.) Its condition is selection and not filter, and its level is set to critical. This rule just fired on WKS-CLM-1187, a claims-processing workstation. Work through the raw fields against the rule's own logic the way a real investigation would.",
       event: lsassSigmaAlertEvent,
       questions: [
         {
-          question: "crowdstrike.TargetProcessImageFileName reads lsass.exe and crowdstrike.DesiredAccess reads 2097151 (0x1FFFFF in hex. Falcon writes the access mask in decimal). Does the rule's selection block actually match this event?",
+          question: "crowdstrike.TargetProcessImageFileName ends in \\lsass.exe and crowdstrike.DesiredAccess reads 2097151 (0x1FFFFF in hex. Falcon writes the access mask in decimal). Does the rule's selection block actually match this event?",
           options: [
             "No: the mask list exists for the narrower access rights dumpers request, and 0x1FFFFF is full access",
             "Yes: the target is lsass.exe and 0x1FFFFF is one of the listed masks; a list under one field is OR",
@@ -564,7 +561,7 @@ const sigmaYaraRuleAuthoringRoom = {
           ],
           answer: 1,
           explanation:
-            "Both selection fields are satisfied: TargetProcessImageFileName is lsass.exe, and DesiredAccess equals one of the listed values, a list under one field is OR, as Reading 2 taught. “The mask list exists for the narrower access rights” forgets that 0x1FFFFF (PROCESS_ALL_ACCESS) is itself in the list. “A list under one field is AND” is the |all behaviour, which the rule doesn't use, and one field can't hold four values at once anyway. “Not yet: ... until the filter block has been evaluated” is wrong because Sigma evaluates each named block on its own; the condition combines the results afterwards.",
+            "Both selection fields are satisfied: TargetProcessImageFileName ends in \\lsass.exe, and DesiredAccess equals one of the listed values, a list under one field is OR, as Reading 2 taught. “The mask list exists for the narrower access rights” forgets that 0x1FFFFF (PROCESS_ALL_ACCESS) is itself in the list. “A list under one field is AND” is the |all behaviour, which the rule doesn't use, and one field can't hold four values at once anyway. “Not yet: ... until the filter block has been evaluated” is wrong because Sigma evaluates each named block on its own; the condition combines the results afterwards.",
           xp: 30,
         },
         {
@@ -577,7 +574,7 @@ const sigmaYaraRuleAuthoringRoom = {
           ],
           answer: 1,
           explanation:
-            "The filter compares one field, the file path, against two exact values, so only an event whose path equals one of them is excluded. A safer-looking folder such as Program Files is still not a path the filter names. Renaming the binary MsMpEng.exe changes the file name but not the folder, and the filter compares the full path, which is what stops a dropped tool hiding behind a trusted name. A publisher signature is not part of the comparison either: this filter checks a path and nothing else.",
+            "The filter compares one field, the ImageFileName path, against two exact values, so only an event whose path equals one of them is excluded. A safer-looking folder such as Program Files is still not a path the filter names. Renaming the binary MsMpEng.exe changes the file name but not the folder, and the filter compares the full path, which is what stops a dropped tool hiding behind a trusted name. A publisher signature is not part of the comparison either: this filter checks a path and nothing else.",
           xp: 35,
         },
         {
@@ -594,7 +591,7 @@ const sigmaYaraRuleAuthoringRoom = {
           xp: 35,
         },
         {
-          question: "crowdstrike.PatternDispositionDescription reads 'Detection, standard detection.', the rule's level is critical, and this workstation belongs to a claims-processing employee at a healthcare company with access to patient records. Selection matched, filter did not suppress it. What should the analyst do next?",
+          question: "Falcon's own detection for this access shows crowdstrike.PatternDispositionDescription 'Detection, standard detection.', the rule's level is critical, and this workstation belongs to a claims-processing employee at a healthcare company with access to patient records. Selection matched, filter did not suppress it. What should the analyst do next?",
           options: [
             "Close it as informational, since 'Detection, standard detection.' means Falcon judged the access harmless",
             "Escalate as a likely true positive and move to containment: the access was observed, not blocked",

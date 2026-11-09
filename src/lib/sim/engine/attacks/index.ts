@@ -470,14 +470,15 @@ const playbookPhishingBEC: AttackPlaybook = {
           raw: withCorr(
             world.meta.edr === "crowdstrike"
               ? {
-                  // CrowdStrike Falcon — process-access sensor event (crowdstrike.* namespace)
-                  "crowdstrike.event_simpleName": "ProcessRollup2",
-                  "crowdstrike.ContextBaseFileName": "powershell.exe",
+                  // CrowdStrike Falcon: the FDR handle-operation record (FalconProcessHandleOpDetectInfo),
+                  // the Falcon event that names the opened process and the requested access mask.
+                  // A ProcessRollup2 carries neither field (Elastic crowdstrike integration, fdr data stream).
+                  "crowdstrike.event_simpleName": "FalconProcessHandleOpDetectInfo",
                   "crowdstrike.ContextProcessId": String(psPid),
-                  "crowdstrike.TargetProcessImageFileName": "lsass.exe",
                   "crowdstrike.ImageFileName":
+                    "\\Device\\HarddiskVolume3\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                  "crowdstrike.TargetProcessImageFileName":
                     "\\Device\\HarddiskVolume3\\Windows\\System32\\lsass.exe",
-                  "crowdstrike.TargetProcessId": "700",
                   "crowdstrike.DesiredAccess": "2097151",
                   "crowdstrike.UserName": `${adDomain}\\${victim.id}`,
                   "crowdstrike.ComputerName": victim.hostname,

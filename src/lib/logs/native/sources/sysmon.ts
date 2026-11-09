@@ -353,7 +353,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       break;
     }
     case "10": {
-      const tgt = r("crowdstrike.TargetProcessImageFileName") ?? r("s1.tgtProcName") ?? ed("TargetImage") ?? r("TargetImage") ?? th?.access?.path ?? th?.access?.name;
+      const csTgt = r("crowdstrike.TargetProcessImageFileName"); // Falcon writes an NT device path
+      const tgt = (csTgt ? devicePath(csTgt) ?? csTgt : undefined) ?? r("s1.tgtProcName") ?? ed("TargetImage") ?? r("TargetImage") ?? th?.access?.path ?? th?.access?.name;
       const access = accessMask(r("crowdstrike.DesiredAccess")) ?? r("s1.granted_access") ?? ed("GrantedAccess") ?? r("GrantedAccess") ?? th?.access?.granted;
       if (!tgt || !access || !needImage()) return null;
       const tPath = isWinPath(tgt) ? tgt : KNOWN[tgt.toLowerCase()] ?? `${S32}${tgt}`;

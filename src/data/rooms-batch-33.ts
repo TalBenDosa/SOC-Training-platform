@@ -56,26 +56,22 @@ const lsassMiniDumpEvent: TelemetryEvent = {
       sha256: "a27e6a7fb13a9e4ae6d0c447e4a253358e3b79c26939c7a209a29fce082a7c7b",
     },
   },
+  // The handle-operation record Falcon logged with the detection (FDR FalconProcessHandleOpDetectInfo):
+  // the Falcon event that names the opened process and the requested access mask. A
+  // DetectionSummaryEvent carries neither field (Elastic crowdstrike integration, falcon + fdr data streams).
   raw: {
-    "crowdstrike.event_simpleName": "DetectionSummaryEvent",
-    "crowdstrike.DetectId": "ldt:fa6d8dc900d25da49a4e0f3e305893c1:41207",
-    "crowdstrike.AggregateId": "aggind:fa6d8dc900d25da49a4e0f3e305893c1:4201483721",
-    "crowdstrike.SeverityName": "Critical",
-    "crowdstrike.Tactic": "Credential Access",
-    "crowdstrike.Technique": "OS Credential Dumping",
-    "threat.technique.id": "T1003",
-    "threat.technique.subtechnique.id": "T1003.001",
-    "crowdstrike.PatternDispositionDescription": "Detection, standard detection.",
-    "crowdstrike.ContextBaseFileName": "rundll32.exe",
-    "crowdstrike.ParentBaseFileName": "cmd.exe",
-    "crowdstrike.FileName": "rundll32.exe",
-    "crowdstrike.FilePath": "C:\\Windows\\System32\\rundll32.exe",
-    "crowdstrike.CommandLine": "rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump 668 C:\\ProgramData\\Adobe\\ARM\\wer4A21.tmp full",
-    "crowdstrike.SHA256HashData": "a27e6a7fb13a9e4ae6d0c447e4a253358e3b79c26939c7a209a29fce082a7c7b",
-    "crowdstrike.TargetProcessImageFileName": "lsass.exe",
-    "crowdstrike.DesiredAccess": "2097151",
-    "crowdstrike.UserName": "NEXACORP\\j.reyes",
+    "crowdstrike.event_simpleName": "FalconProcessHandleOpDetectInfo",
+    "crowdstrike.event_platform": "Win",
+    "crowdstrike.aid": "fa6d8dc900d25da49a4e0f3e305893c1",
     "crowdstrike.ComputerName": "WKS-IT-0417",
+    "crowdstrike.UserName": "NEXACORP\\j.reyes",
+    "crowdstrike.ContextProcessId": "4201495006",
+    "crowdstrike.ImageFileName": "\\Device\\HarddiskVolume3\\Windows\\System32\\rundll32.exe",
+    "crowdstrike.CommandLine": "rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump 668 C:\\ProgramData\\Adobe\\ARM\\wer4A21.tmp full",
+    "crowdstrike.ParentProcessId": "4201488170",
+    "crowdstrike.ParentImageFileName": "\\Device\\HarddiskVolume3\\Windows\\System32\\cmd.exe",
+    "crowdstrike.TargetProcessImageFileName": "\\Device\\HarddiskVolume3\\Windows\\System32\\lsass.exe",
+    "crowdstrike.DesiredAccess": "2097151",
   },
 };
 
@@ -373,12 +369,12 @@ const ransomwareLifecycleRoom = {
       id: "rw-la1",
       heading: "Credential Access: A Domain-Wide Precursor on a Helpdesk Workstation",
       context:
-        "NexaCorp's SOC is mid-incident. Three days ago, IT support technician j.reyes reported a suspicious calendar-invite email under his own helpdesk ticket. Today at 02:47 AM, Falcon fires a Critical-severity credential-access detection against his workstation, WKS-IT-0417. j.reyes holds Tier-1 helpdesk group membership, but per a legacy AD group-nesting issue the domain team has flagged for cleanup twice this year, his cached token also carries indirect Domain Admin rights. Review the detection below the way a real ransomware-precursor investigation actually runs.",
+        "NexaCorp's SOC is mid-incident. Three days ago, IT support technician j.reyes reported a suspicious calendar-invite email under his own helpdesk ticket. Today at 02:47 AM, Falcon fires a Critical-severity credential-access detection against his workstation, WKS-IT-0417. j.reyes holds Tier-1 helpdesk group membership, but per a legacy AD group-nesting issue the domain team has flagged for cleanup twice this year, his cached token also carries indirect Domain Admin rights. The detection's PatternDispositionDescription reads \"Detection, standard detection.\". Below is the handle-operation record Falcon logged with it (event FalconProcessHandleOpDetectInfo, from the host's event search), which names the process that was opened and the access requested. Review it the way a real ransomware-precursor investigation actually runs.",
       event: lsassMiniDumpEvent,
       questions: [
         {
           question:
-            "crowdstrike.ParentBaseFileName shows cmd.exe, and crowdstrike.CommandLine shows rundll32.exe launched with the argument \"C:\\Windows\\System32\\comsvcs.dll, MiniDump 668 ... full\". Reading the whole event, what is this pattern doing, and why would an affiliate prefer it over dropping a dedicated credential-dumping tool like Mimikatz?",
+            "crowdstrike.ParentImageFileName ends in cmd.exe, and crowdstrike.CommandLine shows rundll32.exe launched with the argument \"C:\\Windows\\System32\\comsvcs.dll, MiniDump 668 ... full\". Reading the whole event, what is this pattern doing, and why would an affiliate prefer it over dropping a dedicated credential-dumping tool like Mimikatz?",
           options: [
             "A MiniDump-style memory capture, but nothing in the event ties PID 668 to lsass.exe, so it cannot yet count as credential access",
             "rundll32.exe calls comsvcs.dll's MiniDump export to write PID 668's full memory to disk -- a signed Windows DLL, so no dumper is dropped",
@@ -392,7 +388,7 @@ const ransomwareLifecycleRoom = {
         },
         {
           question:
-            "crowdstrike.TargetProcessImageFileName reads lsass.exe and crowdstrike.DesiredAccess reads 2097151 (0x1FFFFF in hex. Falcon writes the access mask in decimal). Combining this with the account context in the case description, how should the analyst weigh this access?",
+            "crowdstrike.TargetProcessImageFileName ends in lsass.exe and crowdstrike.DesiredAccess reads 2097151 (0x1FFFFF in hex. Falcon writes the access mask in decimal). Combining this with the account context in the case description, how should the analyst weigh this access?",
           options: [
             "0x1FFFFF is PROCESS_ALL_ACCESS, the only mask able to read LSASS memory, so a rule keyed on it catches every LSASS dumper",
             "PROCESS_ALL_ACCESS on lsass.exe exposes its cached credentials, and j.reyes's nested Domain Admin rights make the reach domain-wide",
@@ -420,7 +416,7 @@ const ransomwareLifecycleRoom = {
         },
         {
           question:
-            "crowdstrike.PatternDispositionDescription reads \"Detection, standard detection.\" meaning Falcon only observed this LSASS access rather than stopping it. Given everything in this finding -- the LOLBin technique, the dump path, and j.reyes's indirect Domain Admin rights -- what should the analyst do immediately?",
+            "The detection's crowdstrike.PatternDispositionDescription reads \"Detection, standard detection.\" meaning Falcon only observed this LSASS access rather than stopping it. Given everything in this finding -- the LOLBin technique, the dump path, and j.reyes's indirect Domain Admin rights -- what should the analyst do immediately?",
           options: [
             "Isolate and reimage WKS-IT-0417, since the dump file and the affiliate's foothold both live on that one workstation",
             "Isolate the host, escalate now, and treat all that j.reyes's token can reach as compromised: scope it and begin rotation",

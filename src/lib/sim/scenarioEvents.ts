@@ -5118,12 +5118,15 @@ export function ntlmRelayScenarioEvents() {
       event_type: "process_access", severity: "critical", mitre_technique: "T1003.001", is_detection: true,
       hostname: FS, src_ip: FS_IP,
       // The target is the host's lsass.exe; its pid is the one the dumper's command line names.
-      description: "rundll32.exe running as NT AUTHORITY\\SYSTEM on SRV-FILE01 opened a handle to lsass.exe with GrantedAccess 0x1FFFFF.",
+      description: "rundll32.exe running as NT AUTHORITY\\SYSTEM on SRV-FILE01 opened a handle to lsass.exe requesting access mask 0x1FFFFF.",
       process: { ...dumper, target: { name: "lsass.exe", pid: 704 } },
+      // FDR FalconProcessHandleOpDetectInfo: the Falcon record that names the opened process (NT device
+      // path) and the requested mask in decimal. A DetectionSummaryEvent carries neither field, and a
+      // detection's Severity is not a field of this record.
       raw: {
-        "crowdstrike.TargetProcessImageFileName": "lsass.exe",
+        "crowdstrike.event_simpleName": "FalconProcessHandleOpDetectInfo",
+        "crowdstrike.TargetProcessImageFileName": "\\Device\\HarddiskVolume3\\Windows\\System32\\lsass.exe",
         "crowdstrike.DesiredAccess": "2097151",
-        "crowdstrike.Severity": 95,
       },
     },
     {
