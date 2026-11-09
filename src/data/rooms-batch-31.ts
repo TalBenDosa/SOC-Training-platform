@@ -31,7 +31,7 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 
 const scheduledTaskEvent: TelemetryEvent = {
   id: "evt-ps-soc-la1-001",
-  ts: "2026-08-11T23:47:03Z",
+  ts: "2026-08-11T23:46:12Z",
   source: "windows_security",
   vendor: "Microsoft Windows Security Auditing",
   event_type: "scheduled_task",
@@ -42,6 +42,7 @@ const scheduledTaskEvent: TelemetryEvent = {
   raw: {
     "winlog.event_id": "4698",
     "winlog.channel": "Security",
+    "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
     "winlog.computer_name": "CORP-FIN-014.corp.local",
     "winlog.event_data.SubjectUserSid": "S-1-5-21-2839104451-1699999903-129877423-1147",
     "winlog.event_data.SubjectUserName": "j.alvarez",
@@ -50,7 +51,6 @@ const scheduledTaskEvent: TelemetryEvent = {
     "winlog.event_data.TaskName": "\\Microsoft\\Windows\\WindowsUpdate\\SystemHealthCheck",
     "winlog.event_data.TaskContent":
       '<Task version="1.4"><RegistrationInfo><Author>CORP\\j.alvarez</Author></RegistrationInfo><Principals><Principal id="Author"><UserId>S-1-5-21-2839104451-1699999903-129877423-1147</UserId><RunLevel>HighestAvailable</RunLevel></Principal></Principals><Triggers><TimeTrigger><StartBoundary>2026-08-11T23:47:00</StartBoundary></TimeTrigger></Triggers><Actions Context="Author"><Exec><Command>C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe</Command><Arguments>-WindowStyle Hidden -NoProfile -Command "IEX (Get-Content \'C:\\Users\\Public\\upd.ps1\' -Raw)"</Arguments></Exec></Actions></Task>',
-    timestamp: "2026-08-11T23:47:03Z",
   },
 };
 

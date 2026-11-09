@@ -33,7 +33,7 @@ const singleDeniedPushEvent: TelemetryEvent = {
   hostname: "okta-idp.castellanrisk.com",
   user_email: "r.aldana@castellanrisk.com",
   user_title: "Senior Claims Adjuster",
-  src_ip: "70.114.22.89",
+  src_ip: "198.51.100.89",
   geo: { country: "United States", city: "Denver" },
   description:
     "r.aldana denied one Okta Verify push at 09:14:02 local time, then approved a second push 41 seconds later from the same device and IP address.",
@@ -45,14 +45,14 @@ const singleDeniedPushEvent: TelemetryEvent = {
     "okta.outcome.result": "FAILURE",
     "okta.actor.displayName": "Rosa Aldana",
     "okta.actor.alternateId": "r.aldana@castellanrisk.com",
-    "okta.client.ipAddress": "70.114.22.89",
+    "okta.client.ipAddress": "198.51.100.89",
     "okta.client.geographicalContext.country": "United States",
     "okta.client.geographicalContext.city": "Denver",
     "okta.client.userAgent.rawUserAgent": "Okta Verify/4.12.1 iOS/17.5",
     "okta.debugContext.debugData.factor": "OKTA_VERIFY_PUSH",
     "okta.displayMessage": "User rejected Okta push verify",
     "event.outcome": "failure",
-    "source.ip": "70.114.22.89",
+    "source.ip": "198.51.100.89",
     "user.email": "r.aldana@castellanrisk.com",
   },
 };
@@ -74,12 +74,12 @@ const sessionReplaySignInEvent: TelemetryEvent = {
   hostname: "login.microsoftonline.com",
   user_email: "d.okafor@castellanrisk.com",
   user_title: "Senior Underwriter",
-  src_ip: "141.98.11.203",
+  src_ip: "203.0.113.203",
   geo: { country: "Netherlands", city: "Amsterdam" },
   description:
     "A second Entra ID sign-in for d.okafor was recorded at 14:52:17, eleven minutes after her genuine morning sign-in, from an address in Amsterdam rather than her usual Chicago office network.",
   raw: {
-    "azure.signinlogs.category": "SignInLogs",
+    "azure.signinlogs.category": "NonInteractiveUserSignInLogs",
     "azure.signinlogs.operationName": "Sign-in activity",
     "azure.signinlogs.properties.id": "7f4c2a91-8e05-4b3a-9c17-2d6f8a10b453",
     "azure.signinlogs.properties.createdDateTime": "2026-08-03T14:52:17.000Z",
@@ -93,8 +93,8 @@ const sessionReplaySignInEvent: TelemetryEvent = {
     "azure.signinlogs.properties.resourceDisplayName": "Microsoft Graph",
     "azure.signinlogs.properties.clientAppUsed": "Browser",
     "azure.signinlogs.properties.isInteractive": false,
-    "azure.signinlogs.properties.ipAddress": "141.98.11.203",
-    "azure.signinlogs.properties.autonomousSystemNumber": 202422,
+    "azure.signinlogs.properties.ipAddress": "203.0.113.203",
+    "azure.signinlogs.properties.autonomousSystemNumber": 64511,
     "azure.signinlogs.properties.location.city": "Amsterdam",
     "azure.signinlogs.properties.location.countryOrRegion": "NL",
     "azure.signinlogs.properties.deviceDetail.deviceId": "",
@@ -384,16 +384,16 @@ const mfaSessionTokenAttacksRoom = {
         "Okta writes every authentication action to its System Log using a dot-notation `eventType` taxonomy. A push-fatigue attack leaves three kinds of event: `system.push.send_factor_verify_push` (Okta sent a push), `user.mfa.okta_verify.deny_push` (the user tapped Deny), and `user.authentication.auth_via_mfa` with `okta.outcome.result: SUCCESS` and `okta.debugContext.debugData.factor: OKTA_VERIFY_PUSH` (the push was approved and MFA passed):\n\n" +
         "```\n" +
         "okta.eventType: system.push.send_factor_verify_push\n" +
-        "okta.client.ipAddress: 91.108.4.33\n" +
+        "okta.client.ipAddress: 203.0.113.33\n" +
         "okta.eventType: user.mfa.okta_verify.deny_push\n" +
         "okta.outcome.result: FAILURE\n" +
-        "okta.client.ipAddress: 91.108.4.33\n" +
+        "okta.client.ipAddress: 203.0.113.33\n" +
         "... (send + deny repeated 11 times over several minutes) ...\n" +
         "okta.eventType: system.push.send_factor_verify_push\n" +
         "okta.eventType: user.authentication.auth_via_mfa\n" +
         "okta.outcome.result: SUCCESS\n" +
         "okta.debugContext.debugData.factor: OKTA_VERIFY_PUSH\n" +
-        "okta.client.ipAddress: 91.108.4.33\n" +
+        "okta.client.ipAddress: 203.0.113.33\n" +
         "```\n\n" +
         "A single denial proves nothing on its own. The detection is a correlation rule: count `deny_push` events for the same actor within a window (commonly 10-15 minutes), and alert when the count exceeds a threshold (commonly 5-10) AND is followed by a successful `auth_via_mfa` (or `user.session.start` / SSO success) for the same actor. On Okta Identity Engine, a denial can also appear as `user.authentication.auth_via_mfa` with `okta.outcome.reason: INVALID_CREDENTIALS`, so good rules count both.\n\n" +
         "### The mitigation that removes the attack surface: number matching\n\n" +

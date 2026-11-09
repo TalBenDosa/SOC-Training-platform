@@ -46,20 +46,17 @@ const secretsManagerAbuseEvent: TelemetryEvent = {
     "aws.cloudtrail.userIdentity.type": "AssumedRole",
     "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::719044852201:assumed-role/lambda-report-generator/brightloop-report-generator",
     "aws.cloudtrail.userIdentity.accountId": "719044852201",
-    "aws.cloudtrail.userIdentity.principalId": "AROAEXAMPLE123:brightloop-report-generator",
+    "aws.cloudtrail.userIdentity.principalId": "AROA3K9QW7XB2MZTL4HDE:brightloop-report-generator",
     "aws.cloudtrail.sourceIPAddress": "203.0.113.203",
     "aws.cloudtrail.userAgent": "aws-cli/2.15.10 Python/3.11.6 Linux/6.1.0",
     "aws.cloudtrail.requestParameters.secretId": "arn:aws:secretsmanager:eu-west-1:719044852201:secret:prod/finance-db/creds-Ab3xQ9",
     "aws.cloudtrail.responseElements": null,
-    "aws.cloudtrail.errorCode": "",
-    "aws.cloudtrail.errorMessage": "",
     "aws.cloudtrail.requestID": "3a9c7f21-4b6e-4d02-9a11-7c5e2f8d0b44",
     "aws.cloudtrail.eventType": "AwsApiCall",
     "aws.cloudtrail.managementEvent": true,
     "aws.cloudtrail.readOnly": true,
     "cloud.account.id": "719044852201",
     "cloud.region": "eu-west-1",
-    "action_result": "allowed",
   },
 };
 
@@ -82,6 +79,7 @@ const ntdsShadowCopyReadEvent: TelemetryEvent = {
   raw: {
     "event.code": "4663",
     "winlog.channel": "Security",
+    "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
     "winlog.computer_name": "DC02.brightloop.local",
     "winlog.event_data.SubjectUserSid": "S-1-5-21-2839104458-1789233981-3402271847-1147",
     "winlog.event_data.SubjectUserName": "t.okafor-adm",
@@ -95,7 +93,7 @@ const ntdsShadowCopyReadEvent: TelemetryEvent = {
     "winlog.event_data.AccessMask": "0x1",
     "winlog.event_data.ProcessId": "0x1a94",
     "winlog.event_data.ProcessName": "C:\\Windows\\System32\\ntdsutil.exe",
-    "winlog.event_id": 4663,
+    "winlog.event_id": "4663",
   },
 };
 
@@ -118,21 +116,20 @@ const rotationJobEvent: TelemetryEvent = {
     "aws.cloudtrail.eventSource": "secretsmanager.amazonaws.com",
     "aws.cloudtrail.awsRegion": "eu-west-1",
     "aws.cloudtrail.userIdentity.type": "AssumedRole",
-    "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::719044852201:assumed-role/secrets-rotation-lambda/rotation-run-20260709",
+    "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::719044852201:assumed-role/secrets-rotation-lambda/brightloop-secrets-rotation",
     "aws.cloudtrail.userIdentity.accountId": "719044852201",
+    "aws.cloudtrail.userIdentity.principalId": "AROA6TN2VH8RQ4KXW9JCM:brightloop-secrets-rotation",
     "aws.cloudtrail.sourceIPAddress": "10.44.2.17",
+    "aws.cloudtrail.vpcEndpointId": "vpce-0a4c9e1b7d2f36581",
     "aws.cloudtrail.userAgent": "Boto3/1.34.0 Python/3.12.1 Linux/6.1.0 exec-env/AWS_Lambda_python3.12",
     "aws.cloudtrail.requestParameters.filters": "[{\"Key\":\"tag-key\",\"Values\":[\"auto-rotate\"]}]",
     "aws.cloudtrail.responseElements": null,
-    "aws.cloudtrail.errorCode": "",
-    "aws.cloudtrail.errorMessage": "",
     "aws.cloudtrail.requestID": "9b1e4a03-2c88-4f5d-8e10-6a3f7d9c2b51",
     "aws.cloudtrail.eventType": "AwsApiCall",
     "aws.cloudtrail.managementEvent": true,
     "aws.cloudtrail.readOnly": true,
     "cloud.account.id": "719044852201",
     "cloud.region": "eu-west-1",
-    "action_result": "allowed",
   },
 };
 
@@ -292,7 +289,7 @@ export const roomsBatch43 = [
           "```\naws secretsmanager get-secret-value --secret-id prod/db/creds\naws secretsmanager batch-get-secret-value --secret-id-list prod/db/creds prod/api/key\naz keyvault secret show --name ExamplePassword --vault-name prod-vault --query value\ngcloud secrets versions access latest --secret=my-db-password\n```\n\n" +
           `**T1555.006** is simply using one of these calls with a compromised or over-permissioned identity. MITRE ATT&CK documents the state-sponsored group HAFNIUM moving laterally from on-premises systems specifically to reach Azure Key Vault secrets this way. None of these calls work without an identity already permitted to make them, which leads to a closely related, distinct technique: **Unsecured Credentials: Cloud Instance Metadata API (T1552.005)**. A process running on a cloud compute instance can query a link-local endpoint (169.254.169.254 on AWS) and receive that instance's own temporary IAM role credentials directly: no GetSecretValue call, no CloudTrail Secrets Manager entry at all, because the metadata service is not a logged AWS management-plane API. This exact mechanism drove the 2019 Capital One breach: an SSRF flaw in a misconfigured WAF let an attacker make the WAF's own EC2 instance query its metadata endpoint on the attacker's behalf, handing over its IAM role's credentials and, from there, over 100 million customers' records in S3, the incident that led directly to AWS building IMDSv2.\n\n` +
           `**Detection**: for T1555.006, CloudTrail (eventSource secretsmanager.amazonaws.com), Azure Key Vault diagnostic logs (operationName SecretGet), or GCP Secret Manager audit logs, watching for an identity requesting secrets it has never touched before, from an atypical source. For T1552.005 the metadata call itself is unlogged, so you detect its CONSEQUENCES instead: GuardDuty's InstanceCredentialExfiltration findings (OutsideAWS when instance-role credentials are used from an external IP, InsideAWS when used from another account), IMDSv1 usage metrics that reveal instances still allowing the token-less v1 endpoint, and a web-app or WAF process making an outbound request to 169.254.169.254, the SSRF-to-metadata pattern behind the Capital One breach. The absence of a matching secrets-manager trail for a credential clearly in active use is a supporting clue, not the primary signal.\n\n` +
-          `**Reading the CloudTrail record.** Three fields carry most of the story. userAgent names the client that made the call. A Lambda function's own calls normally come from inside AWS and carry an SDK agent such as Boto3 with an AWS_Lambda exec-env tag, so the same role showing a hand-run aws-cli agent from an address outside AWS means its temporary credentials were copied out and are being used from somewhere else. errorCode is filled in with the reason when a call fails, so an empty one means the call succeeded. responseElements stays null on a read-only call such as GetSecretValue, and AWS never writes the secret value into the log: the record proves the secret was retrieved without showing what it was.\n\n` +
+          `**Reading the CloudTrail record.** Three fields carry most of the story. userAgent names the client that made the call. A Lambda function's own calls normally come from inside AWS and carry an SDK agent such as Boto3 with an AWS_Lambda exec-env tag, so the same role showing a hand-run aws-cli agent from an address outside AWS means its temporary credentials were copied out and are being used from somewhere else. errorCode (with errorMessage) appears only when a call fails, so a record without it means the call succeeded. responseElements stays null on a read-only call such as GetSecretValue, and AWS never writes the secret value into the log: the record proves the secret was retrieved without showing what it was.\n\n` +
           `**Why naive volume thresholds fail here**: CI/CD pipelines, autoscaling fleets, and rotation jobs all legitimately call these APIs in bursts. The professional approach baselines by identity-and-secretId PAIR: a given role normally reads the same one or two secrets repeatedly for months; a request for a secret it has never touched before is the real signal, not raw call count.`,
         codeExample:
           "T1552.005 LEAVES NO SECRETS-MANAGER TRAIL AT ALL:\n" +
@@ -319,7 +316,7 @@ export const roomsBatch43 = [
             ],
             answer: 2,
             explanation:
-              "Lambda's managed runtime calls AWS APIs through its own SDK from AWS's internal network, not a hand-installed aws-cli binary from a hosting IP, so that mismatch is direct evidence the role's temporary credentials were exfiltrated and are being replayed from outside AWS. Lambda has no instance metadata service: its role credentials sit in the function's environment variables (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN), so they are stolen via code injection, an exposed environment or /proc dump, or a leaked log, not the IMDS theft (T1552.005) you would expect against an EC2 instance. A NAT gateway does not change the user agent to aws-cli, and a Lambda still presents its SDK agent, so the 'expected external IP' reading does not hold. Altered code running inside the function would still call from inside AWS, not from 203.0.113.203. The empty errorCode only confirms the call succeeded; it does not tell you who made it.",
+              "Lambda's managed runtime calls AWS APIs through its own SDK from AWS's internal network, not a hand-installed aws-cli binary from a hosting IP, so that mismatch is direct evidence the role's temporary credentials were exfiltrated and are being replayed from outside AWS. Lambda has no instance metadata service: its role credentials sit in the function's environment variables (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN), so they are stolen via code injection, an exposed environment or /proc dump, or a leaked log, not the IMDS theft (T1552.005) you would expect against an EC2 instance. A NAT gateway does not change the user agent to aws-cli, and a Lambda still presents its SDK agent, so the 'expected external IP' reading does not hold. Altered code running inside the function would still call from inside AWS, not from 203.0.113.203. The absent errorCode only confirms the call succeeded; it does not tell you who made it.",
             xp: 25,
           },
           {
@@ -338,7 +335,7 @@ export const roomsBatch43 = [
           },
           {
             question:
-              "responseElements is null and errorCode is empty in this record. What does that combination tell the analyst, and what does it NOT tell them?",
+              "responseElements is null and the record carries no errorCode. What does that combination tell the analyst, and what does it NOT tell them?",
             options: [
               "The call failed: a null responseElements means no secret came back to the caller",
               "The call was throttled, so nothing was returned and the exposure is unconfirmed",
@@ -347,7 +344,7 @@ export const roomsBatch43 = [
             ],
             answer: 3,
             explanation:
-              "An empty errorCode means the call succeeded (CloudTrail records events after AWS evaluates them), so you confirm access and must treat the secret as compromised. responseElements is null on any read-only call, so a null value does not mean failure, and a real failure, including throttling, would appear as a populated errorCode. AWS deliberately leaves the secret value out of GetSecretValue entries and never writes it into the log at all, so there is no linked record to read it from.",
+              "No errorCode means the call succeeded (CloudTrail writes errorCode and errorMessage only when a call fails), so you confirm access and must treat the secret as compromised. responseElements is null on any read-only call, so a null value does not mean failure, and a real failure, including throttling, would appear as a populated errorCode. AWS deliberately leaves the secret value out of GetSecretValue entries and never writes it into the log at all, so there is no linked record to read it from.",
             xp: 25,
           },
         ],
@@ -375,7 +372,7 @@ export const roomsBatch43 = [
         event: rotationJobEvent,
         correct_verdict: "benign_true_positive",
         explanation:
-          "This event superficially resembles the earlier attack (a burst against many secret ARNs), but every distinguishing detail is different: the identity is secrets-rotation-lambda, not lambda-report-generator; the sourceIPAddress 10.44.2.17 is an internal VPC address, not an external IP; the userAgent (Boto3/Python running inside an AWS_Lambda exec-env) is exactly what a real Lambda function's own SDK call looks like; the call is BatchGetSecretValue (the bulk operation, matching a filter for tag-key=auto-rotate) rather than repeated single-secret GetSecretValue calls against ARNs with no logical relationship; and there is a matching, pre-approved change ticket naming this exact identity and time. Applying the identity-and-secretId baseline principle correctly means recognizing that THIS identity's normal pattern is a large, tag-filtered batch every night: the anomaly in the earlier attack was a DIFFERENT identity touching secrets outside its own established pattern, not merely 'a burst against multiple secrets' in isolation. That makes this a benign true positive: the bulk read of 42 secrets really happened, and approved change ticket CHG-4471 for the nightly rotation is the justification you cite when closing it. It is not a false positive, because nothing misfired, and that label would invite weakening the bulk-secret-read detection that matters when a different identity does this.",
+          "This event superficially resembles the earlier attack (a burst against many secret ARNs), but every distinguishing detail is different: the identity is secrets-rotation-lambda, not lambda-report-generator; the sourceIPAddress 10.44.2.17 is an internal VPC address reached through the Secrets Manager VPC endpoint named in vpcEndpointId, not an external IP; the userAgent (Boto3/Python running inside an AWS_Lambda exec-env) is exactly what a real Lambda function's own SDK call looks like; the call is BatchGetSecretValue (the bulk operation, matching a filter for tag-key=auto-rotate) rather than repeated single-secret GetSecretValue calls against ARNs with no logical relationship; and there is a matching, pre-approved change ticket naming this exact identity and time. Applying the identity-and-secretId baseline principle correctly means recognizing that THIS identity's normal pattern is a large, tag-filtered batch every night: the anomaly in the earlier attack was a DIFFERENT identity touching secrets outside its own established pattern, not merely 'a burst against multiple secrets' in isolation. That makes this a benign true positive: the bulk read of 42 secrets really happened, and approved change ticket CHG-4471 for the nightly rotation is the justification you cite when closing it. It is not a false positive, because nothing misfired, and that label would invite weakening the bulk-secret-read detection that matters when a different identity does this.",
         fp_trap:
           "An analyst who over-applies 'many secrets in one burst = suspicious' without checking WHICH identity, WHAT source IP, and WHETHER a change ticket exists would escalate a routine, months-old scheduled job: exactly the alert fatigue that makes analysts start ignoring real Secrets Manager alerts altogether.",
         xp: 35,

@@ -121,26 +121,25 @@ const sgOpenEvent: TelemetryEvent = {
     "aws.cloudtrail.awsRegion": "us-east-1",
     "aws.cloudtrail.userIdentity.type": "AssumedRole",
     "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::482915007733:assumed-role/ec2-webapp-role/i-0a1b2c3d4e5f67890",
+    "aws.cloudtrail.userIdentity.principalId": "AROAXB7Q2KT9MZ4WRL6NP:i-0a1b2c3d4e5f67890",
     "aws.cloudtrail.userIdentity.accountId": "482915007733",
     "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.type": "Role",
     "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.arn": "arn:aws:iam::482915007733:role/ec2-webapp-role",
     "aws.cloudtrail.sourceIPAddress": "203.0.113.147",
     "aws.cloudtrail.userAgent": "aws-cli/2.13.0 Python/3.11.4 Linux/5.15.0",
-    "aws.cloudtrail.requestParameters.groupId": "sg-0f3a8b2c1d9e7f45",
+    "aws.cloudtrail.requestParameters.groupId": "sg-0f3a8b2c1d9e7f456",
     "aws.cloudtrail.requestParameters.ipPermissions.items.0.ipProtocol": "tcp",
     "aws.cloudtrail.requestParameters.ipPermissions.items.0.fromPort": 3389,
     "aws.cloudtrail.requestParameters.ipPermissions.items.0.toPort": 3389,
     "aws.cloudtrail.requestParameters.ipPermissions.items.0.ipRanges.items.0.cidrIp": "0.0.0.0/0",
     "aws.cloudtrail.responseElements.securityGroupRuleSet.items.0.securityGroupRuleId": "sgr-0d4e5f6a7b8c9012d",
-    "aws.cloudtrail.errorCode": "",
-    "aws.cloudtrail.errorMessage": "",
-    "aws.cloudtrail.requestID": "9A8B7C6D5E4F3021",
+    "aws.cloudtrail.requestID": "9a8b7c6d-5e4f-4302-a1b9-c8d7e6f50413",
+    "aws.cloudtrail.eventID": "2f6d9a14-0c7e-4b38-95a1-e3c80b7d4f62",
     "aws.cloudtrail.eventType": "AwsApiCall",
     "aws.cloudtrail.managementEvent": true,
     "aws.cloudtrail.readOnly": false,
     "cloud.account.id": "482915007733",
-    "cloud.region": "us-east-1",
-    "action_result": "allowed"
+    "cloud.region": "us-east-1"
   }
 };
 
@@ -174,15 +173,13 @@ const autoScalingRunInstancesEvent: TelemetryEvent = {
     "aws.cloudtrail.requestParameters.subnetId": "subnet-0a1b2c3d4e5f60789",
     "aws.cloudtrail.requestParameters.groupSet.items.0.groupId": "sg-0d1e2f3a4b5c6d789",
     "aws.cloudtrail.responseElements.instancesSet.items.0.instanceId": "i-0f1e2d3c4b5a69870",
-    "aws.cloudtrail.errorCode": "",
-    "aws.cloudtrail.errorMessage": "",
-    "aws.cloudtrail.requestID": "4F3E2D1C0B9A8776",
+    "aws.cloudtrail.requestID": "4f3e2d1c-0b9a-4877-86e5-d4c3b2a19f08",
+    "aws.cloudtrail.eventID": "b81c4e09-7a2d-4f65-8e3b-1d0c9f7a5e26",
     "aws.cloudtrail.eventType": "AwsApiCall",
     "aws.cloudtrail.managementEvent": true,
     "aws.cloudtrail.readOnly": false,
     "cloud.account.id": "482915007733",
-    "cloud.region": "us-east-1",
-    "action_result": "allowed"
+    "cloud.region": "us-east-1"
   }
 };
 
@@ -223,7 +220,7 @@ const cloudAttackerDefenseEvasionRoom = {
       "type": "reading" as const,
       "id": "cad-r1",
       "heading": "T1686.001, Disable or Modify System Firewall: Cloud Firewall",
-      "content": "### What It Is\n\nA cloud FIREWALL is the virtual equivalent of the perimeter fence around a data centre, except it is not a physical device at all, it is a set of rules enforced by the cloud provider's own network fabric. AWS calls its version a SECURITY GROUP (a stateful set of allow-rules attached to one or more instances); Azure calls its version a NETWORK SECURITY GROUP or NSG; GCP calls its version simply a VPC FIREWALL RULE. All three do the same job: they decide which source IP addresses, on which ports, using which protocol, are allowed to reach a given resource. T1686.001, Disable or Modify System Firewall: Cloud Firewall (the current id for what was T1562.007 before ATT&CK v19), is MITRE's name for an attacker with sufficient permissions changing those rules to let themselves in, or to let a service they already control reach further than it should.\n\n### How an Attacker Does It\n\nThe attacker rarely needs to compromise the network fabric itself. They only need one identity with permission to call the right API. On AWS, the relevant call is AuthorizeSecurityGroupIngress, adding a new inbound rule to an existing security group. A worked example, exactly as it would appear on an attacker's command line:\n\naws ec2 authorize-security-group-ingress --group-id sg-0f3a8b2c1d9e7f45 --protocol tcp --port 3389 --cidr 0.0.0.0/0\n\nRead this the way an analyst has to: --group-id names the specific security group being modified; --protocol tcp --port 3389 targets Windows Remote Desktop Protocol (RDP), a favourite target because it gives interactive, GUI access to whatever the group protects; and --cidr 0.0.0.0/0 is the entire IPv4 address space, every device on the internet, not a specific trusted range. On Azure, the parallel action creates or widens a Network Security Group rule (the operation recorded in Azure's Activity Log as Microsoft.Network/networkSecurityGroups/securityRules/write), typically also with a source-address-prefix of '*' (all addresses). On GCP, the equivalent API method is compute.firewalls.insert, dynamically creating a new ingress rule. MITRE ATT&CK's own documentation for this technique specifically calls out attackers using a script or utility that calls this exact method to open unrestricted TCP/UDP access.\n\nATT&CK also documents a real, publicly available tool built for exactly this kind of AWS post-exploitation: Pacu, an open-source AWS exploitation framework used by both penetration testers and real attackers, which, beyond opening security groups, can allowlist an attacker's own IP address directly inside AWS GuardDuty's trusted-IP list, so that GuardDuty simply stops flagging traffic from that address as suspicious in the first place.\n\n### What This Looks Like in Telemetry\n\nEvery one of these changes lands as a single CloudTrail management event with eventName AuthorizeSecurityGroupIngress, eventSource ec2.amazonaws.com, and a requestParameters block naming the exact group, protocol, port range, and CIDR that was added. The single field that separates a routine, narrowly-scoped change from this technique is the CIDR itself: a rule scoped to a specific corporate IP range or a peered security group is ordinary infrastructure work; a rule scoped to 0.0.0.0/0 (or its IPv6 equivalent, ::/0) on a sensitive port is exactly the pattern AWS's own Security Hub ships two dedicated, high-severity controls to catch: EC2.13 (security groups should not allow ingress from 0.0.0.0/0 to port 22) and EC2.14 (the same check for port 3389). EC2.13 is backed by the AWS Config managed rule 'restricted-ssh' (rule identifier INCOMING_SSH_DISABLED); EC2.14 is backed by 'restricted-common-ports', deployed as a rule named 'restricted-rdp'.\n\n### The Analyst's Questions\n\nA security-group change is not inherently suspicious. DevOps teams open and close ports constantly as part of ordinary infrastructure work. The questions that separate routine change from this technique are: does the new rule's CIDR span the entire internet rather than a specific, known range? Does the identity making the change have a documented, ticketed reason to touch THIS security group, on THIS port, right now? And critically, does this change follow closely behind some other suspicious event on the same identity, such as an unexpected privilege-escalation call? A security-group change in isolation is a data point. A security-group change sixteen minutes after the same identity was seen doing something else unusual is a pattern.",
+      "content": "### What It Is\n\nA cloud FIREWALL is the virtual equivalent of the perimeter fence around a data centre, except it is not a physical device at all, it is a set of rules enforced by the cloud provider's own network fabric. AWS calls its version a SECURITY GROUP (a stateful set of allow-rules attached to one or more instances); Azure calls its version a NETWORK SECURITY GROUP or NSG; GCP calls its version simply a VPC FIREWALL RULE. All three do the same job: they decide which source IP addresses, on which ports, using which protocol, are allowed to reach a given resource. T1686.001, Disable or Modify System Firewall: Cloud Firewall (the current id for what was T1562.007 before ATT&CK v19), is MITRE's name for an attacker with sufficient permissions changing those rules to let themselves in, or to let a service they already control reach further than it should.\n\n### How an Attacker Does It\n\nThe attacker rarely needs to compromise the network fabric itself. They only need one identity with permission to call the right API. On AWS, the relevant call is AuthorizeSecurityGroupIngress, adding a new inbound rule to an existing security group. A worked example, exactly as it would appear on an attacker's command line:\n\naws ec2 authorize-security-group-ingress --group-id sg-0f3a8b2c1d9e7f456 --protocol tcp --port 3389 --cidr 0.0.0.0/0\n\nRead this the way an analyst has to: --group-id names the specific security group being modified; --protocol tcp --port 3389 targets Windows Remote Desktop Protocol (RDP), a favourite target because it gives interactive, GUI access to whatever the group protects; and --cidr 0.0.0.0/0 is the entire IPv4 address space, every device on the internet, not a specific trusted range. On Azure, the parallel action creates or widens a Network Security Group rule (the operation recorded in Azure's Activity Log as Microsoft.Network/networkSecurityGroups/securityRules/write), typically also with a source-address-prefix of '*' (all addresses). On GCP, the equivalent API method is compute.firewalls.insert, dynamically creating a new ingress rule. MITRE ATT&CK's own documentation for this technique specifically calls out attackers using a script or utility that calls this exact method to open unrestricted TCP/UDP access.\n\nATT&CK also documents a real, publicly available tool built for exactly this kind of AWS post-exploitation: Pacu, an open-source AWS exploitation framework used by both penetration testers and real attackers, which, beyond opening security groups, can allowlist an attacker's own IP address directly inside AWS GuardDuty's trusted-IP list, so that GuardDuty simply stops flagging traffic from that address as suspicious in the first place.\n\n### What This Looks Like in Telemetry\n\nEvery one of these changes lands as a single CloudTrail management event with eventName AuthorizeSecurityGroupIngress, eventSource ec2.amazonaws.com, and a requestParameters block naming the exact group, protocol, port range, and CIDR that was added. The single field that separates a routine, narrowly-scoped change from this technique is the CIDR itself: a rule scoped to a specific corporate IP range or a peered security group is ordinary infrastructure work; a rule scoped to 0.0.0.0/0 (or its IPv6 equivalent, ::/0) on a sensitive port is exactly the pattern AWS's own Security Hub ships two dedicated, high-severity controls to catch: EC2.13 (security groups should not allow ingress from 0.0.0.0/0 to port 22) and EC2.14 (the same check for port 3389). EC2.13 is backed by the AWS Config managed rule 'restricted-ssh' (rule identifier INCOMING_SSH_DISABLED); EC2.14 is backed by 'restricted-common-ports', deployed as a rule named 'restricted-rdp'.\n\n### The Analyst's Questions\n\nA security-group change is not inherently suspicious. DevOps teams open and close ports constantly as part of ordinary infrastructure work. The questions that separate routine change from this technique are: does the new rule's CIDR span the entire internet rather than a specific, known range? Does the identity making the change have a documented, ticketed reason to touch THIS security group, on THIS port, right now? And critically, does this change follow closely behind some other suspicious event on the same identity, such as an unexpected privilege-escalation call? A security-group change in isolation is a data point. A security-group change sixteen minutes after the same identity was seen doing something else unusual is a pattern.",
       "checkpoint": {
         "question": "AWS Security Hub ships two dedicated controls specifically for the pattern this reading describes. What do controls EC2.13 and EC2.14 check for?",
         "options": [
@@ -425,7 +422,7 @@ const cloudAttackerDefenseEvasionRoom = {
           "options": [
             "…ipPermissions.items.0.fromPort / toPort: 3389 shows the new rule exposes RDP",
             "…ipPermissions.items.0.ipRanges.items.0.cidrIp: 0.0.0.0/0 is every IPv4 address",
-            "…requestParameters.groupId: sg-0f3a8b2c1d9e7f45 is the production database's group",
+            "…requestParameters.groupId: sg-0f3a8b2c1d9e7f456 is the production database's group",
             "…sourceIPAddress: 203.0.113.147 shows the call came from outside the corporate network"
           ],
           "answer": 1,

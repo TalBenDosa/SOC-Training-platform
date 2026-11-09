@@ -408,7 +408,6 @@ export const roomsBatch48 = [
           "azure.auditlogs.properties.loggedByService": "Self-service Password Management",
           "azure.auditlogs.properties.operationType": "Update",
           "azure.auditlogs.properties.result": "success",
-          "azure.auditlogs.properties.resultReason": "",
           "azure.auditlogs.properties.correlationId": "6e2f1a83-4d97-4c1b-9a02-7f6d3e8b91c4",
           "azure.auditlogs.properties.initiatedBy.user.userPrincipalName": "j.whitfield@solsticefg.com",
           "azure.auditlogs.properties.initiatedBy.user.id": "a17c9e42-5b31-4f7d-8e16-2c9a4d0f7b53",

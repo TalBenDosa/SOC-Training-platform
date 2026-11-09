@@ -68,6 +68,7 @@ const inv7ValidateEvent: TelemetryEvent = {
   description:
     "Microsoft Defender for Endpoint recorded a PowerShell process launched by WINWORD.EXE on WKS-FIN07 under j.alvarez's logon session, with a base64-encoded command-line argument. A correlation rule opened ticket INC-51204 on this record.",
   raw: {
+    "Timestamp": "2026-04-09T14:12:07.000Z",
     "DeviceName": "WKS-FIN07",
     "DeviceId": "a13f9e0c-2b71-4e3a-8f5d-1c9e6b420a37",
     "ActionType": "ProcessCreated",
@@ -150,6 +151,7 @@ const inv7CollectionEvent: TelemetryEvent = {
   description:
     "Microsoft Defender for Endpoint recorded a new archive file created on FIN-DB02 under CASTLETON\\d.reyes's session, written by a compression utility launched from PowerShell against a folder of finance export files.",
   raw: {
+    "Timestamp": "2026-04-09T15:41:19.000Z",
     "DeviceName": "FIN-DB02",
     "ActionType": "FileCreated",
     "FileName": "AP_Reconciliation_Q3.rar",
@@ -632,9 +634,10 @@ const docScheduledTaskEvent: TelemetryEvent = {
   description:
     "Microsoft Defender for Endpoint recorded a new scheduled task created on AP-SRV14 under the svc-report service account, configured to run an executable in ProgramData at every logon with SYSTEM privileges.",
   raw: {
+    "Timestamp": "2026-06-02T23:14:08.000Z",
     "DeviceName": "AP-SRV14",
     "ActionType": "ScheduledTaskCreated",
-    "AdditionalFields": "{\"TaskName\":\"OneDriveSyncHelper\"}",
+    "AdditionalFields": "{\"TaskName\":\"\\\\OneDriveSyncHelper\"}",
     "InitiatingProcessFileName": "schtasks.exe",
     "InitiatingProcessCommandLine": "schtasks.exe /create /tn \"OneDriveSyncHelper\" /tr \"C:\\ProgramData\\OneDriveSyncHelper\\sync.exe\" /sc onlogon /ru SYSTEM /rl HIGHEST",
     "InitiatingProcessAccountName": "svc-report",
@@ -850,7 +853,7 @@ const writingIncidentReportRoom: Room = {
             "Which single field in this record is the correct IOC value to list under 'scheduled task names' in the IOCs section?",
           options: [
             "InitiatingProcessAccountName, since svc-report is the account that performed the action",
-            "TaskName inside AdditionalFields, exactly as recorded, OneDriveSyncHelper, since this is the specific, directly searchable value another defender would query their own environment's task scheduler for",
+            "TaskName inside AdditionalFields, exactly as recorded, \\OneDriveSyncHelper (the leading backslash is the task's folder in the Task Scheduler library), since this is the specific, directly searchable value another defender would query their own environment's task scheduler for",
             "InitiatingProcessCommandLine in full, since the entire command line is what should be pasted into the IOC list as a single entry",
             "ReportId, since it uniquely identifies this specific detection record",
           ],
