@@ -99,6 +99,12 @@ export interface EdrFacts {
 }
 
 const str = (v: unknown): string | undefined => (v === undefined || v === null || v === "" ? undefined : String(v));
+/** One key of MDE's AdditionalFields JSON string (DeviceEvents AntivirusDetection carries ThreatName there). */
+function additionalField(r: Record<string, unknown>, key: string): string | undefined {
+  const s = r["AdditionalFields"];
+  if (typeof s !== "string" || !s.startsWith("{")) return undefined;
+  try { return str((JSON.parse(s) as Record<string, unknown>)[key]); } catch { return undefined; }
+}
 const numOrU = (v: unknown): number | undefined => { const n = Number(v); return v === undefined || v === null || v === "" || isNaN(n) ? undefined : n; };
 const first = (...vals: unknown[]) => { for (const v of vals) { const s = str(v); if (s) return s; } return undefined; };
 /** "\Device\HarddiskVolume3\X" → "C:\X": one path spelling per binary whatever vocabulary authored it. */
@@ -288,7 +294,7 @@ export function edrFacts(ev: TelemetryEvent): EdrFacts {
     dns: { query: first(ev.dns?.query, r["dns.question.name"]), type: first(ev.dns?.query_type), response: first(ev.dns?.response) },
     registry: { path: first(ev.registry?.path, r["registry.path"]), key: first(ev.registry?.key, r["registry.key"]), value: first(ev.registry?.value, r["registry.value"]) },
     detection: kind === "detection" ? {
-      name: first(r["crowdstrike.DetectName"], r["threat.name"], r["malware.name"], r["mde.AlertTitle"], r["s1.indicator.name"], r["s1.threat.threatName"], r["sophos.detection_name"], r["ThreatName"], r["windefend.threat.name"], ev.rule?.name),
+      name: first(r["crowdstrike.DetectName"], r["threat.name"], r["malware.name"], r["mde.AlertTitle"], r["s1.indicator.name"], r["s1.threat.threatName"], r["sophos.detection_name"], r["ThreatName"], additionalField(r, "ThreatName"), r["windefend.threat.name"], ev.rule?.name),
       // Vendor field only - the authored description states the conclusion (L-05).
       description: first(r["crowdstrike.DetectDescription"]),
       severity: first(ev.severity, r["crowdstrike.SeverityName"]),

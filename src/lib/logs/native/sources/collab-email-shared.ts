@@ -206,7 +206,14 @@ export function emailFacts(ev: TelemetryEvent): EmailFacts {
     if (u && /^https?:\/\//i.test(u) && !urls.includes(u)) urls.push(u);
   }
 
-  const auth = (k: string) => lc(rs(r, `email.${k}`, `${k}.result`, `${k}_result`, `pps.${k}`));
+  // Defender for Office EmailEvents.AuthenticationDetails: a JSON string {"SPF":"fail","DKIM":"none","DMARC":"fail","CompAuth":"fail"}.
+  const authDetails = ((): Record<string, unknown> | undefined => {
+    const s = rs(r, "AuthenticationDetails");
+    if (!s) return undefined;
+    try { const o = JSON.parse(s); return o && typeof o === "object" ? o as Record<string, unknown> : undefined; } catch { return undefined; }
+  })();
+  const authDetail = (k: string) => (authDetails?.[k] === undefined ? undefined : String(authDetails[k]));
+  const auth = (k: string) => lc(rs(r, `email.${k}`, `${k}.result`, `${k}_result`, `pps.${k}`) ?? authDetail(k.toUpperCase()));
   let threats: string[] = [];
   const tt = rs(r, "ThreatTypes", "ThreatType", "Verdict", "threat.category", "classification");
   if (tt && !/^none$/i.test(tt)) {
@@ -241,8 +248,8 @@ export function emailFacts(ev: TelemetryEvent): EmailFacts {
     senderIp: bareIp(rs(r, "SenderIp", "SenderIPv4", "senderIP", "email.headers.x_originating_ip")) ?? (ev.event_type === "email_clicked" ? undefined : ev.src_ip) ?? bareIp(rs(r, "source.ip", "ClientIP")),
     attachments: atts,
     urls,
-    spf: auth("spf"), dkim: auth("dkim"), dmarc: lc(rs(r, "email.dmarc", "dmarc.result", "dmarc_result", "DmarcResult", "pps.dmarc")),
-    compauth: lc(rs(r, "email.auth.compauth")),
+    spf: auth("spf"), dkim: auth("dkim"), dmarc: lc(rs(r, "email.dmarc", "dmarc.result", "dmarc_result", "DmarcResult", "pps.dmarc") ?? authDetail("DMARC")),
+    compauth: lc(rs(r, "email.auth.compauth") ?? authDetail("CompAuth")),
     direction,
     threats,
     xmailer: rs(r, "email.headers.x_mailer"),

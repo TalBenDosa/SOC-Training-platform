@@ -26,7 +26,7 @@ import {
   aadObjectId, b64ish, bareIp, clientIp, digits, domainOf, entitySeed, isEmail, isGuid, isoNoMs, isPrivateIp,
   localOf, puid, rs, rv, spTenant, userEmail, userSid, type Raw,
 } from "./collab-email-shared";
-import { aadSessionId } from "./_identity-common";
+import { aadSessionId, auditModifiedProp } from "./_identity-common";
 import { DLP_KIND, dlpRecord, isDlpRuleMatch } from "./_m365-dlp";
 import { egressIp } from "./firewall-shared";
 
@@ -310,7 +310,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
 
   // Exchange token context (RT 1 / 2 / 50)
   const exoToken = (mailbox: string) => ({
-    AppId: rs(raw, "AppId", "application.id") ?? "00000002-0000-0ff1-ce00-000000000000",
+    AppId: rs(raw, "AppId", "application.id", "AppAccessContext.ClientAppId") ?? "00000002-0000-0ff1-ce00-000000000000",
     ClientAppId: rs(raw, "ClientAppId") ?? "",
     ExternalAccess: false,
     OrganizationName: orgName(ctx, mailbox),
@@ -352,7 +352,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
 
   // ── Mailbox records (RT 2 / 50) ──
   const mailboxCommon = (mailbox: string) => {
-    const appId = rs(raw, "application.id", "ClientAppId");
+    const appId = rs(raw, "application.id", "ClientAppId", "AppAccessContext.ClientAppId");
     const ctxObj: Record<string, unknown> = {
       // The Entra session this token belongs to (the sign-in's sessionId) and when it was issued
       // (the sign-in - threadIdentityContext - never before it).
@@ -360,7 +360,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       IssuedAtTime: rs(raw, "AppAccessContext.IssuedAtTime") ?? isoNoMs(new Date(timeMs - ctx.int(`${ev.id}:iat`, 60, 1800) * 1000).toISOString()),
       UniqueTokenId: b64ish(ctx, `${ev.id}:uti`, 22),
     };
-    if (appId) { ctxObj.ClientAppId = appId; const an = rs(raw, "application.name"); if (an) ctxObj.ClientAppName = an; }
+    if (appId) { ctxObj.ClientAppId = appId; const an = rs(raw, "application.name", "AppAccessContext.ClientAppName"); if (an) ctxObj.ClientAppName = an; }
     return {
       ...exoToken(mailbox),
       ClientIPAddress: ip,
@@ -491,8 +491,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     const managed = rs(raw, "IsManagedDevice");
     rec.IsManagedDevice = managed !== undefined ? /^true$/i.test(managed) : isPrivateIp(lanIp);
     if (ev.hostname && !ev.hostname.includes(".")) rec.DeviceDisplayName = ev.hostname;
-    const appId = rs(raw, "application.id");
-    if (appId) { rec.ApplicationId = appId; const an = rs(raw, "application.name"); if (an) rec.ApplicationDisplayName = an; }
+    const appId = rs(raw, "application.id", "ApplicationId", "AppAccessContext.ClientAppId");
+    if (appId) { rec.ApplicationId = appId; const an = rs(raw, "application.name", "ApplicationDisplayName", "AppAccessContext.ClientAppName"); if (an) rec.ApplicationDisplayName = an; }
     if (share) {
       const target = rs(raw, "TargetUserOrGroupName");
       if (target) rec.TargetUserOrGroupName = target;
@@ -558,9 +558,9 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     if (!isEmail(actor)) return null;
     const oid = aadObjectId(ctx, actor);
     const target = rs(raw, "ObjectId", "target.user.email", "azure.auditlogs.target_user.upn") ?? (user && user !== actor ? user : undefined);
-    const appId = rs(raw, "application.id", "oauth.app.id", "AppId") ?? (isGuid(rs(raw, "Target[0].ID")) ? rs(raw, "Target[0].ID") : undefined);
+    const appId = rs(raw, "application.id", "oauth.app.id", "AppId") ?? auditModifiedProp(ev, "TargetId.ServicePrincipalNames")?.split(";")[0] ?? (isGuid(rs(raw, "Target[0].ID")) ? rs(raw, "Target[0].ID") : undefined);
     const extVal = (name: string) => { for (let i = 0; i < 10; i++) if (rs(raw, `ExtendedProperties[${i}].Name`) === name) return rs(raw, `ExtendedProperties[${i}].Value`); return undefined; };
-    const appName = rs(raw, "application.name", "oauth.app.name") ?? extVal("AppDisplayName") ?? (appId ? undefined : rs(raw, "Target[0].ID"));
+    const appName = rs(raw, "application.name", "oauth.app.name", "azure.auditlogs.properties.targetResources[0].displayName") ?? extVal("AppDisplayName") ?? (appId ? undefined : rs(raw, "Target[0].ID"));
     const category = /role/i.test(op) ? "RoleManagement" : /application|consent|oauth|service principal/i.test(op) ? "ApplicationManagement" : /policy/i.test(op) ? "Policy" : "UserManagement";
     const corr = ctx.uuid(`${ev.id}:corr`);
     let objectId = target ?? actor;
@@ -568,9 +568,9 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     const mods: Array<{ Name: string; NewValue: string; OldValue: string }> = [];
     const targets: Array<{ ID: string; Type: number }> = [];
     if (op === "Consent to application." && appId) {
-      const scopes = (rs(raw, "oauth.consent.scopes_granted", "iam.permission") ?? extVal("Permissions") ?? "").split(/[|,\s]+/).filter(Boolean);
-      const admin = /^true$/i.test(rs(raw, "oauth.consent.is_admin_consent") ?? "") || extVal("ConsentType") === "AllPrincipals";
-      const allP = /^true$/i.test(rs(raw, "oauth.consent.tenant_wide") ?? "") || extVal("ConsentType") === "AllPrincipals";
+      const scopes = (rs(raw, "oauth.consent.scopes_granted", "iam.permission") ?? /Scope:\s*([^,\]]+)/.exec(auditModifiedProp(ev, "ConsentAction.Permissions") ?? "")?.[1] ?? extVal("Permissions") ?? "").split(/[|,\s]+/).filter(Boolean);
+      const admin = /^true$/i.test(rs(raw, "oauth.consent.is_admin_consent") ?? auditModifiedProp(ev, "ConsentContext.IsAdminConsent") ?? "") || extVal("ConsentType") === "AllPrincipals";
+      const allP = /^true$/i.test(rs(raw, "oauth.consent.tenant_wide") ?? auditModifiedProp(ev, "ConsentContext.OnBehalfOfAll") ?? "") || extVal("ConsentType") === "AllPrincipals";
       const resource = ctx.uuid(`${ctx.companyId}:graph-sp`);
       mods.push(
         { Name: "ConsentContext.IsAdminConsent", NewValue: admin ? "True" : "False", OldValue: "" },

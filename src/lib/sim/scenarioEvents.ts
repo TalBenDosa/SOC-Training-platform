@@ -164,7 +164,7 @@ export function phishingToExfilEvents() {
         "email.direction": "inbound",
         "email.attachments.file.size": "47293",
         "source.ip": senderIp,
-        "spf.result": "fail", "dkim.result": "fail", "dmarc.result": "fail",
+        "AuthenticationDetails": JSON.stringify({ SPF: "fail", DKIM: "fail", DMARC: "fail" }),
         // Delivered clean: an allow-rule override delivers without a malware
         // verdict (MDO never shows Malware + Delivered on one row).
         "action_result": "delivered",
@@ -1282,7 +1282,7 @@ export function ransomwareScenarioEvents() {
         "email.direction": "inbound",
         "email.attachments.file.size": "52480",
         "source.ip": senderIp,
-        "spf.result": "fail", "dkim.result": "fail",
+        "AuthenticationDetails": JSON.stringify({ SPF: "fail", DKIM: "fail" }),
         "action_result": "delivered",
         "data.office365.OrgLevelAction": "Allow", "data.office365.OrgLevelPolicy": "Exchange transport rule",
       },
@@ -1793,7 +1793,7 @@ export function oauthScenarioEvents() {
   const appCtx = (session: string, issued: string) => ({
     "data.office365.AppAccessContext.AADSessionId": session,
     "data.office365.AppAccessContext.IssuedAtTime": issued,
-    "application.id": appId, "application.name": appName,
+    "data.office365.AppAccessContext.ClientAppId": appId, "data.office365.AppAccessContext.ClientAppName": appName,
   });
   const fileRow = (n: number, ts: string, name: string, folder: string, size: number, label: string): TelemetryEvent => ({
     id: `evt_09_onedrive_dl_${String(n).padStart(2, "0")}`, ts,
@@ -1854,7 +1854,9 @@ export function oauthScenarioEvents() {
         "azure.auditlogs.target_resources.id": appId,
         "azure.auditlogs.target_resources.display_name": appName,
         "azure.auditlogs.target_resources.type": "Application",
-        "oauth.app.redirect_uris": "https://microsoftupdate-secure.xyz/auth/callback",
+        // The reply URL, as Entra records it on the application object (Graph targetResources[].modifiedProperties).
+        "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].displayName": "AppAddress",
+        "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].newValue": JSON.stringify([{ AddressType: 0, Address: "https://microsoftupdate-secure.xyz/auth/callback", ReplyAddressClientType: 1, ReplyAddressIndex: null, IsReplyAddressDefault: false }]),
         "source.ip": sprayIp,
       },
     },
@@ -1907,14 +1909,17 @@ export function oauthScenarioEvents() {
         "data.office365.ClientIP": sprayIp,
         "azure.auditlogs.category": "ApplicationManagement",
         "azure.auditlogs.correlation_id": guid(0x503),
-        // Self-consent: the only kind an ordinary user can grant (tenant_wide false).
-        "oauth.consent.type": "Principal",
-        "oauth.consent.scopes_granted": "Mail.ReadWrite|Files.ReadWrite.All|User.ReadBasic.All",
-        "oauth.consent.principal_type": "User",
-        "oauth.consent.is_admin_consent": "false",
-        "oauth.consent.tenant_wide": "false",
-        "application.id": appId,
-        "application.name": appName,
+        // Self-consent: the only kind an ordinary user can grant (OnBehalfOfAll False, ConsentType Principal).
+        "azure.auditlogs.properties.targetResources[0].displayName": appName,
+        "azure.auditlogs.properties.targetResources[0].type": "ServicePrincipal",
+        "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].displayName": "ConsentContext.IsAdminConsent",
+        "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].newValue": "\"False\"",
+        "azure.auditlogs.properties.targetResources[0].modifiedProperties[1].displayName": "ConsentContext.OnBehalfOfAll",
+        "azure.auditlogs.properties.targetResources[0].modifiedProperties[1].newValue": "\"False\"",
+        "azure.auditlogs.properties.targetResources[0].modifiedProperties[2].displayName": "ConsentAction.Permissions",
+        "azure.auditlogs.properties.targetResources[0].modifiedProperties[2].newValue": "\"[] => [[ConsentType: Principal, Scope: Mail.ReadWrite Files.ReadWrite.All User.ReadBasic.All]]; \"",
+        "azure.auditlogs.properties.targetResources[0].modifiedProperties[3].displayName": "TargetId.ServicePrincipalNames",
+        "azure.auditlogs.properties.targetResources[0].modifiedProperties[3].newValue": `"${appId}"`,
         "source.ip": sprayIp,
       },
     },
@@ -5466,7 +5471,7 @@ export function oauthConsentPhishingScenarioEvents() {
     user_email: EMAIL, src_ip: APP_IP, network: { domain: "graph.microsoft.com" }, description: desc,
     raw: {
       "data.office365.Operation": "MailItemsAccessed", "data.office365.UserId": EMAIL, "data.office365.ClientInfoString": "Client=REST;Client=RESTSystem;;",
-      "data.office365.AppId": APP_ID, "application.id": APP_ID, "application.name": "Productivity Suite Pro",
+      "data.office365.AppId": APP_ID, "data.office365.AppAccessContext.ClientAppId": APP_ID, "data.office365.AppAccessContext.ClientAppName": "Productivity Suite Pro",
       "data.office365.ClientIPAddress": APP_IP, "data.office365.Workload": "Exchange", "data.office365.MailboxOwnerUPN": EMAIL,
       "data.office365.OperationCount": count, "data.office365.Folders.Path": folder,
     },
@@ -6672,7 +6677,7 @@ export function lolBinsScenarioEvents() {
         "email.direction": "inbound",
         "email.attachments.file.size": "38912",
         "source.ip": mailIp,
-        "spf.result": "fail", "dkim.result": "fail",
+        "AuthenticationDetails": JSON.stringify({ SPF: "fail", DKIM: "fail" }),
         "action_result": "delivered",
         "data.office365.OrgLevelAction": "Allow", "data.office365.OrgLevelPolicy": "Exchange transport rule",
       },
@@ -6937,7 +6942,7 @@ export function phishingMalwareScenarioEvents() {
       description: "r.avraham received an email with a ZIP attachment (Delivery_Notice_48213.zip) from an external sender (notifications@shiptrack-express.info) that failed SPF, DKIM and DMARC; it was delivered to the inbox.",
       raw: {
         ...mail,
-        "spf.result": "fail", "dkim.result": "fail", "dmarc.result": "fail",
+        "AuthenticationDetails": JSON.stringify({ SPF: "fail", DKIM: "fail", DMARC: "fail" }),
         "action_result": "delivered",
       },
     },
@@ -8092,7 +8097,7 @@ export function crackedSoftwareScenarioEvents() {
       raw: {
         "Timestamp": T(9 * MIN),
         "ActionType": "AntivirusDetection",
-        "ThreatName": "Trojan:Win32/Wacatac.B!ml",
+        "AdditionalFields": JSON.stringify({ ThreatName: "Trojan:Win32/Wacatac.B!ml", WasRemediated: true }),
         "FileName": "svchelper.exe",
         "FolderPath": svchelperPath,
         "SHA256": payloadHash,
@@ -8141,7 +8146,7 @@ export function maliciousMacroScenarioEvents() {
         "email.attachments.file.size": 48210,
         "email.direction": "inbound",
         "source.ip": senderIp,
-        "spf.result": "fail", "dkim.result": "fail", "dmarc.result": "fail",
+        "AuthenticationDetails": JSON.stringify({ SPF: "fail", DKIM: "fail", DMARC: "fail" }),
         "action_result": "delivered",
       },
     },
