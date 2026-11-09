@@ -10,7 +10,7 @@ const schema = source.schema;
 const toLog = (record: Record<string, unknown>): NativeLog =>
   ({ sourceId: "m365", kind: kindOf(record)!, format: "json", record, timeMs: Date.parse(`${record.CreationTime}Z`) });
 
-// All 10 card samples (S1–S10) are UAL records of supported kinds — none skipped.
+// All 10 card samples (S1–S10) are UAL records of supported kinds - none skipped.
 const samples = cardSamples(schema.card) as Record<string, unknown>[];
 const sampleLogs = samples.filter(r => { const k = kindOf(r); return k !== null && !!schema.kinds[k]; }).map(toLog);
 const sample = (op: string) => samples.find(s => s.Operation === op)!;
@@ -19,8 +19,8 @@ const converted = convertAll(source);
 
 /**
  * Native-vendor events that are null BY DESIGN (not UAL records):
- *  - mail-flow events (MessageDelivered / SpamFiltered / MessageReceived) — email-security telemetry, rendered by defender_o365 / proofpoint;
- *  - Graph-only calls (MailFolders.List, CalendarEvents.List) — not audited in the UAL.
+ *  - mail-flow events (MessageDelivered / SpamFiltered / MessageReceived) - email-security telemetry, rendered by defender_o365 / proofpoint;
+ *  - Graph-only calls (MailFolders.List, CalendarEvents.List) - not audited in the UAL.
  */
 function documentedNull(log: NativeLog | null, ev: Converted["ev"]): boolean {
   if (log) return false;
@@ -30,14 +30,14 @@ function documentedNull(log: NativeLog | null, ev: Converted["ev"]): boolean {
 }
 type Converted = { ev: import("@/lib/sim/types").TelemetryEvent };
 
-describe("m365 — card samples", () => {
+describe("m365 - card samples", () => {
   it("every card sample validates with zero violations", () => {
     expect(sampleLogs.length).toBe(10);
     for (const l of sampleLogs) expect(validateNative(l, schema), `${l.record.Operation}`).toEqual([]);
   });
 });
 
-describe("m365 — corpus conversion", () => {
+describe("m365 - corpus conversion", () => {
   it("every converted event validates; native coverage ≥ 95 % (excluding documented nulls)", () => {
     for (const { ce, log } of converted) if (log) expect(validateNative(log, schema), ce.ev.id).toEqual([]);
     const native = converted.filter(c => isNativeVendor(source, c.ce.ev));
@@ -117,7 +117,7 @@ describe("m365 — corpus conversion", () => {
   });
 });
 
-describe("m365 — use cases", () => {
+describe("m365 - use cases", () => {
   // Thresholds need bursts: build them from the card samples (S7 = one of ~600 downloads; S2 = one failed login).
   const s7 = sample("FileDownloaded");
   const burst: NativeLog[] = Array.from({ length: 60 }, (_, i) => toLog({

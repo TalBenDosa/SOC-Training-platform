@@ -38,7 +38,7 @@ const STACKS: [string, Stack][] = [
   ["quantumbank", { edr: "sentinelone", firewall: "fortigate", email_security: "proofpoint", dns: "windows_dns" }],
   ["nexacorp", { edr: "sophos", firewall: "cisco_ftd", vpn: "cloudflare_access", idp: "okta", collab: "m365", email_security: "proofpoint", dns: "infoblox" }],
   ["nexacorp", { edr: "sentinelone", firewall: "checkpoint", vpn: "zscaler_zpa", idp: "entra", collab: "google_workspace", dns: "windows_dns" }],
-  // The companies' own products (no choice made) — the lock and fit rules apply there too.
+  // The companies' own products (no choice made) - the lock and fit rules apply there too.
   ["nexacorp", {}], ["rocketstack", {}], ["medcore", {}], ["globallogis", {}], ["quantumbank", {}],
 ];
 
@@ -72,7 +72,7 @@ function audit(ev: TelemetryEvent, company: string, stack: Stack, problems: stri
   if (viol.length) problems.push(`${tag} ${viol.slice(0, 2).map(x => `${x.problem}:${x.path}`).join(", ")}`);
 }
 
-describe("chosen stacks — every eligible story and feed record", () => {
+describe("chosen stacks - every eligible story and feed record", () => {
   for (const [company, stack] of STACKS) {
     it(`${company} ${JSON.stringify(stack)}`, () => {
       const problems: string[] = [];

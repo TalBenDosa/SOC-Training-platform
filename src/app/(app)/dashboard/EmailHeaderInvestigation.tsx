@@ -29,7 +29,7 @@ function AuthBadge({ label, raw }: { label: string; raw: string }) {
     softfail: { cls: "border-neon-amber/50 bg-neon-amber/10 text-neon-amber",   Icon: ShieldAlert, text: "softfail" },
     fail:     { cls: "border-severity-high/60 bg-severity-high/10 text-severity-high", Icon: ShieldX, text: "fail" },
     none:     { cls: "border-slate-600/60 bg-slate-700/20 text-slate-400", Icon: ShieldAlert, text: "none" },
-    unknown:  { cls: "border-slate-600/60 bg-slate-700/20 text-slate-400", Icon: ShieldAlert, text: raw || "—" },
+    unknown:  { cls: "border-slate-600/60 bg-slate-700/20 text-slate-400", Icon: ShieldAlert, text: raw || "-" },
   };
   const { cls, Icon, text } = cfg[r];
   return (
@@ -48,7 +48,7 @@ function FieldRow({ label, value, warn }: { label: string; value: string; warn?:
   return (
     <div className="flex items-start gap-2 text-[10px]">
       <span className="w-28 shrink-0 text-slate-400">{label}</span>
-      <span className={cn("break-all font-mono", warn ? "text-neon-amber" : "text-slate-200")}>{value || "—"}</span>
+      <span className={cn("break-all font-mono", warn ? "text-neon-amber" : "text-slate-200")}>{value || "-"}</span>
       {warn && <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-neon-amber" />}
     </div>
   );
@@ -75,7 +75,7 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
   const [showRaw, setShowRaw]   = useState(false);
   const [showChain, setShowChain] = useState(false);
   const [xpAwarded, setXpAwarded] = useState(false);
-  // a11y: modal dialog — focus trapped inside, Escape closes, focus returns.
+  // a11y: modal dialog - focus trapped inside, Escape closes, focus returns.
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(true, dialogRef, { onEscape: onClose });
 
@@ -132,7 +132,7 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
             <div>
               <h2 id="email-investigation-title" className="text-sm font-bold text-white">Email Header Investigation</h2>
               <p className="text-[10px] text-slate-400 uppercase tracking-widest">
-                Analyst Training — Identify the IOCs before revealing the answer
+                Analyst Training - Identify the IOCs before revealing the answer
               </p>
             </div>
           </div>
@@ -203,7 +203,7 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
               <AuthBadge label="DMARC" raw={scenario.dmarc} />
               {hasAuthWarn && (
                 <div className="mt-2 rounded border border-neon-amber/30 bg-neon-amber/5 px-2.5 py-1.5 text-[10px] text-neon-amber">
-                  ⚠ One or more authentication checks failed — investigate the sending domain.
+                  ⚠ One or more authentication checks failed - investigate the sending domain.
                 </div>
               )}
               <div className="mt-2 rounded bg-bg-elevated px-2.5 py-2">
@@ -275,7 +275,7 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
                 className="inline-flex items-center gap-2 rounded border border-severity-high/60 bg-severity-high/10 px-4 py-2 text-[11px] font-bold text-severity-high hover:bg-severity-high/20 transition-colors"
               >
                 <Eye className="h-3.5 w-3.5" />
-                Reveal IOCs — Show Answer
+                Reveal IOCs - Show Answer
               </button>
             </div>
           )}
@@ -285,7 +285,7 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
-                  IOC Analysis — {scenario.iocs.length} Indicators Found
+                  IOC Analysis - {scenario.iocs.length} Indicators Found
                 </p>
                 {xpAwarded && (
                   <span className="rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-400">
@@ -327,7 +327,7 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
                 <p className="text-[10px] font-bold text-emerald-400 mb-1">What to do next?</p>
                 <p className="text-[10px] leading-relaxed text-slate-300">
                   {scenario.attackType === "BEC" || scenario.attackType === "Impersonation" || scenario.attackType === "Spoofing"
-                    ? "Block the sender domain, quarantine the email, notify the potential victim via a separate channel. Check mail server logs for other recipients. If wire transfer was requested — call the requester directly on a known phone number."
+                    ? "Block the sender domain, quarantine the email, notify the potential victim via a separate channel. Check mail server logs for other recipients. If wire transfer was requested - call the requester directly on a known phone number."
                     : scenario.attackType === "Malware"
                     ? "Quarantine the email and block the sender. If any user opened the attachment: isolate the endpoint, trigger EDR scan, review process creation logs for cmd.exe / powershell.exe spawned by Word/Excel."
                     : "Quarantine the email, block the sending domain, and reset credentials for any user who clicked the link. Check O365 sign-in logs for new sessions from unusual IPs."

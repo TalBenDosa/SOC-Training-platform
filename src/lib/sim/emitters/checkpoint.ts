@@ -1,11 +1,11 @@
 /**
  * Check Point NGFW log EMITTERS.
  *
- * The perimeter firewall for the Check Point shops — accepted/dropped connections
+ * The perimeter firewall for the Check Point shops - accepted/dropped connections
  * and Threat-Prevention blocks. Like FortiGate, the registry pins Check Point to
  * an EXACT field set (no prefixes), so these emitters render Check Point's native
  * fields (src/dst/proto/service_id/rule_name/inzone/outzone/xlatesrc…) alongside
- * the shared ECS fields — every key one the registry allows. Client identity from
+ * the shared ECS fields - every key one the registry allows. Client identity from
  * the fabric; remote geography deterministic from the peer IP (@/lib/geo/resolveGeo).
  *
  * Check Point is source:"firewall" (or "ids" for Threat Prevention).

@@ -1,5 +1,5 @@
 /**
- * Fortinet FortiGate (FortiOS 7.x) — traffic/forward, utm/webfilter, utm/ips,
+ * Fortinet FortiGate (FortiOS 7.x) - traffic/forward, utm/webfilter, utm/ips,
  * utm/virus and event/system logs, rendered per docs/log-schemas/fw-fortigate.md:
  * a FLAT object with FortiOS key names in emitted order; quoted values → JSON
  * strings, unquoted integers → JSON numbers, unquoted IP/MAC/date/time → strings;
@@ -265,7 +265,7 @@ export const useCases: UseCase[] = [
   {
     id: "fortigate.newly-registered-domain", title: "Web request to a Newly Registered / Newly Observed Domain", sourceId: "fortigate", kinds: ["utm/webfilter"],
     severity: "medium", mitre: ["T1071.001", "T1583.001"],
-    description: "FortiGuard category 91 (Newly Registered Domain) and 90 (Newly Observed Domain) flag domains that only just appeared — typical of C2, phishing and payload hosting. A passthrough means the request succeeded; join on sessionid to the forward-traffic log for byte counts.",
+    description: "FortiGuard category 91 (Newly Registered Domain) and 90 (Newly Observed Domain) flag domains that only just appeared - typical of C2, phishing and payload hosting. A passthrough means the request succeeded; join on sessionid to the forward-traffic log for byte counts.",
     logic: "FortiAnalyzer: type==utm and subtype==webfilter and (cat==91 or cat==90) | SPL: sourcetype=fortigate_utm subtype=webfilter cat IN (90,91) | stats count by srcip user hostname action",
     match: { field: "cat", op: "in", value: [90, 91] },
     falsePositives: ["New marketing / SaaS domains", "CDN hostnames rotated by legitimate providers"],
@@ -273,7 +273,7 @@ export const useCases: UseCase[] = [
   {
     id: "fortigate.webfilter-block-malicious", title: "Web filter blocked a malicious category", sourceId: "fortigate", kinds: ["utm/webfilter"],
     severity: "medium", mitre: ["T1189", "T1566.002"],
-    description: "eventtype ftgd_blk with cat 26 (Malicious Websites), 61 (Phishing), 86 (Spam URLs), 88 (Dynamic DNS) or 90/91 (new domains): something on the host tried to reach known-bad infrastructure. The block worked — find out what made the request.",
+    description: "eventtype ftgd_blk with cat 26 (Malicious Websites), 61 (Phishing), 86 (Spam URLs), 88 (Dynamic DNS) or 90/91 (new domains): something on the host tried to reach known-bad infrastructure. The block worked - find out what made the request.",
     logic: "FortiAnalyzer: subtype==webfilter and eventtype==ftgd_blk and cat in (26,61,86,88,90,91)",
     match: { all: [{ field: "eventtype", op: "eq", value: "ftgd_blk" }, { field: "cat", op: "in", value: [26, 61, 86, 88, 90, 91] }] },
     falsePositives: ["Malvertising redirects on legitimate news sites", "Mis-rated domains"],
@@ -297,7 +297,7 @@ export const useCases: UseCase[] = [
   {
     id: "fortigate.large-outbound-transfer", title: "Large outbound transfer (sentbyte ≥ 100 MB)", sourceId: "fortigate", kinds: ["traffic/forward"],
     severity: "high", mitre: ["T1048", "T1567.002"],
-    description: "Forward-traffic session-end logs carry sentbyte (from the originator). One session uploading ≥100 MB to a WAN destination — especially to storage / file-sharing apps — is a primary exfiltration signal. Sum interim 0000000020 logs per sessionid if present.",
+    description: "Forward-traffic session-end logs carry sentbyte (from the originator). One session uploading ≥100 MB to a WAN destination - especially to storage / file-sharing apps - is a primary exfiltration signal. Sum interim 0000000020 logs per sessionid if present.",
     logic: "FortiAnalyzer: type==traffic and dstintfrole==wan and sentbyte>=104857600 | SPL: sourcetype=fortigate_traffic dstintfrole=wan sentbyte>=104857600 | table srcip srcname user dstip app sentbyte rcvdbyte duration",
     match: { all: [{ field: "dstintfrole", op: "eq", value: "wan" }, { field: "sentbyte", op: "gte", value: 104857600 }] },
     falsePositives: ["Approved cloud backup / sync jobs"],
@@ -331,7 +331,7 @@ export const useCases: UseCase[] = [
   {
     id: "fortigate.admin-login-bruteforce", title: "Repeated failed admin logins on the firewall", sourceId: "fortigate", kinds: ["event/system"],
     severity: "high", mitre: ["T1110.001", "T1078"],
-    description: "logid 0100032002 (Admin login failed) five or more times from one srcip in ten minutes is password guessing against the FortiGate management interface — a direct path to owning the perimeter.",
+    description: "logid 0100032002 (Admin login failed) five or more times from one srcip in ten minutes is password guessing against the FortiGate management interface - a direct path to owning the perimeter.",
     logic: "FortiAnalyzer: logid==0100032002 | SPL: sourcetype=fortigate_event logid=0100032002 | bin _time span=10m | stats count values(user) by srcip _time | where count>=5",
     match: { field: "logid", op: "eq", value: "0100032002" },
     threshold: { groupBy: ["srcip"], count: 5, windowSec: 600 },
@@ -340,7 +340,7 @@ export const useCases: UseCase[] = [
   {
     id: "fortigate.deny-then-allow", title: "WAN source denied, then allowed", sourceId: "fortigate", kinds: ["traffic/forward"],
     severity: "medium", mitre: ["T1190", "T1133"],
-    description: "The same internet srcip hits a deny and, within the hour, gets an accepted/closed session — the attacker probed until finding an open service. Check which policyid let it in.",
+    description: "The same internet srcip hits a deny and, within the hour, gets an accepted/closed session - the attacker probed until finding an open service. Check which policyid let it in.",
     logic: "SPL: sourcetype=fortigate_traffic srcintfrole=wan | stats dc(action) as verdicts values(action) values(dstport) values(policyid) by srcip | where verdicts>=2 AND mvfind(action,\"deny\")>=0",
     match: { field: "srcintfrole", op: "eq", value: "wan" },
     threshold: { groupBy: ["srcip"], count: 2, windowSec: 3600, distinct: "action" },
@@ -349,7 +349,7 @@ export const useCases: UseCase[] = [
   {
     id: "fortigate.inbound-rdp-allowed", title: "Inbound RDP from the internet accepted", sourceId: "fortigate", kinds: ["traffic/forward"],
     severity: "high", mitre: ["T1133", "T1021.001"],
-    description: "A forward-traffic log from a WAN interface to dstport 3389 that was not denied means Remote Desktop is published to the internet — prime ransomware initial access.",
+    description: "A forward-traffic log from a WAN interface to dstport 3389 that was not denied means Remote Desktop is published to the internet - prime ransomware initial access.",
     logic: "FortiAnalyzer: type==traffic and srcintfrole==wan and dstport==3389 and action!=deny",
     match: { all: [{ field: "srcintfrole", op: "eq", value: "wan" }, { field: "dstport", op: "eq", value: 3389 }, { field: "action", op: "in", value: ALLOWED }] },
     falsePositives: ["Vendor jump host restricted by source address"],

@@ -1,5 +1,5 @@
 /**
- * Anthropic Claude Enterprise audit-log EMITTER — one Compliance API activity as it lands
+ * Anthropic Claude Enterprise audit-log EMITTER - one Compliance API activity as it lands
  * in the training SIEM. Generic on purpose: no collector/SIEM-product envelope. Two layers:
  *
  *  1. The activity record exactly as the Compliance API returns it

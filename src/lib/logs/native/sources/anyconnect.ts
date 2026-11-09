@@ -1,5 +1,5 @@
 /**
- * Cisco Secure Client (AnyConnect) terminating on a Cisco ASA — VPN syslog messages.
+ * Cisco Secure Client (AnyConnect) terminating on a Cisco ASA - VPN syslog messages.
  * Card: docs/log-schemas/vpn-cisco-anyconnect.md
  *
  * Text-native: one numbered ASA message per event. The record is a FLAT object with
@@ -10,7 +10,7 @@
  *
  * Kind = ASA message ID. Rendering of the platform's VPN events:
  *   auth failure / MFA denied → 113005 (AAA reject; 113015 when the author logged a local-DB reject)
- *   login                     → 722051 (pool address assigned — carries public + tunnel IP) when the
+ *   login                     → 722051 (pool address assigned - carries public + tunnel IP) when the
  *                               tunnel IP is known, else 113039 (AnyConnect parent session started);
  *                               an ASA-authored message ID (113039/722022/722051/722055/716001/113004) is kept.
  *   logout                    → 113019 (session disconnected: Duration, Bytes xmt/rcv, Reason)
@@ -211,7 +211,7 @@ const useCases: UseCase[] = [
     kinds: ["113005", "113015"],
     severity: "medium",
     mitre: ["T1110"],
-    description: "The AAA server answered 'Account has been locked out'. Lockout is the end of a guessing burst against a real account — find the burst (same user IP) and confirm with the user whether it was them.",
+    description: "The AAA server answered 'Account has been locked out'. Lockout is the end of a guessing burst against a real account - find the burst (same user IP) and confirm with the user whether it was them.",
     logic: "SPL: index=asa message_id=113005 reason=\"Account has been locked out\" | table _time user \"user IP\" server",
     match: { field: "reason", op: "eq", value: "Account has been locked out" },
     falsePositives: ["User with a stale password cached on a phone or second laptop"],
@@ -223,7 +223,7 @@ const useCases: UseCase[] = [
     kinds: SESSION_KINDS,
     severity: "high",
     mitre: ["T1078"],
-    description: "Two session-start messages (113039 parent session / 722051 address assignment / 722022 tunnel) for the same `User` from different public `IP` within 4 hours. Enrich both IPs with geo/ASN — two countries in that window is impossible travel; a hosting-provider ASN is an attacker VPS.",
+    description: "Two session-start messages (113039 parent session / 722051 address assignment / 722022 tunnel) for the same `User` from different public `IP` within 4 hours. Enrich both IPs with geo/ASN - two countries in that window is impossible travel; a hosting-provider ASN is an attacker VPS.",
     logic: "SPL: index=asa message_id IN (113039,722051,722022) | stats dc(IP) AS ips values(IP) BY User span=4h | where ips>1 | iplocation IP",
     match: { field: "User", op: "exists" },
     threshold: { groupBy: ["User"], count: 2, windowSec: 4 * 3600, distinct: "IP" },
@@ -236,7 +236,7 @@ const useCases: UseCase[] = [
     kinds: ["113019"],
     severity: "medium",
     mitre: ["T1078"],
-    description: "113019 with Reason 'Port Preempted' — with vpn-simultaneous-logins 1 a NEW login for the same Username kicked the existing session off. If the user did not log in again from another device, someone else has their credentials.",
+    description: "113019 with Reason 'Port Preempted' - with vpn-simultaneous-logins 1 a NEW login for the same Username kicked the existing session off. If the user did not log in again from another device, someone else has their credentials.",
     logic: "SPL: index=asa message_id=113019 Reason=\"Port Preempted\" | table _time Username IP Duration",
     match: { field: "Reason", op: "eq", value: "Port Preempted" },
     falsePositives: ["User reconnecting from a second device they own"],

@@ -1,12 +1,14 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { isPeerAddressedRecord } from "@/lib/sim/peerRecords";
+import { makeCtx } from "@/lib/logs/native/ctx";
+import { accountSid } from "@/lib/logs/native/sources/_sid";
 
 /**
- * One host, one IP — and never one IP for two hosts — across a feed pool.
+ * One host, one IP - and never one IP for two hosts - across a feed pool.
  *
  * The authored noise pools were written event by event, so the same workstation shows
  * up with two or three addresses (WH-TERM-005: .5 / .44 / .82) and two hosts sometimes
- * share one. The first pivot an analyst makes — "what else did this IP / this host do?" —
+ * share one. The first pivot an analyst makes - "what else did this IP / this host do?" -
  * then lies. Each host keeps its most frequent outbound address; an address another host
  * already owns moves to a free one in the same /24. Only host-originated events change
  * (a host's own telemetry, its outbound network rows), and the old address is replaced
@@ -50,5 +52,47 @@ export function normalizeHostIps(events: TelemetryEvent[]): TelemetryEvent[] {
     const old = e.src_ip!;
     const raw = e.raw ? Object.fromEntries(Object.entries(e.raw).map(([k, v]) => [k, v === old ? want : v])) : e.raw;
     return { ...e, src_ip: want, raw };
+  });
+}
+
+/**
+ * One account, one SID (R3) across a company's feed. The noise pool and the stories were authored
+ * one by one, so a person's 4624 in the noise carried one domain SID and the same person's 4688 in a
+ * story another (the realism gate counted 30 such accounts). Every authored domain-user SID next to
+ * the account it names becomes that account's SID as every native renderer derives it
+ * (_sid.ts accountSid): the Windows Security record, the EDR row and the M365 record then agree.
+ * Well-known SIDs (S-1-5-18 ...) and machine accounts (NAME$) are left as they are; a group SID
+ * (TargetSid of a 4728 / 4732) is never touched, only the member's.
+ */
+const SID_OF_NAME: [RegExp, RegExp][] = [
+  [/(^|\.)TargetUserSid$/, /(^|\.)TargetUserName$/],
+  [/(^|\.)SubjectUserSid$/, /(^|\.)SubjectUserName$/],
+];
+export function normalizeAccountSids(events: TelemetryEvent[], companyId: string): TelemetryEvent[] {
+  const ctx = makeCtx(companyId);
+  return events.map(e => {
+    const raw = e.raw;
+    if (!raw) return e;
+    let out: Record<string, unknown> | null = null;
+    for (const [k, v] of Object.entries(raw)) {
+      if (typeof v !== "string" || !/^S-1-5-21-/.test(v)) continue;
+      let name: unknown;
+      for (const [sidRe, nameRe] of SID_OF_NAME) {
+        if (!sidRe.test(k)) continue;
+        const nk = Object.keys(raw).find(x => nameRe.test(x) && x.slice(0, x.lastIndexOf(".") + 1) === k.slice(0, k.lastIndexOf(".") + 1));
+        name = nk ? raw[nk] : undefined;
+      }
+      if (/(^|\.)MemberSid$/.test(k)) {
+        const mk = Object.keys(raw).find(x => /(^|\.)MemberName$/.test(x));
+        const m = mk ? /^CN=([^,]+)/i.exec(String(raw[mk])) : null;
+        name = m ? m[1] : undefined;
+        // a CN is a display name ("Anna Weber"); only a login-style CN maps to an account
+        if (typeof name === "string" && !/^[a-z][a-z0-9._-]*$/i.test(name)) name = undefined;
+      }
+      if (typeof name !== "string" || !name || name === "-" || name.endsWith("$")) continue;
+      const want = accountSid(ctx, name);
+      if (want !== v) (out ??= { ...raw })[k] = want;
+    }
+    return out ? { ...e, raw: out } : e;
   });
 }

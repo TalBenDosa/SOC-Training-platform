@@ -37,15 +37,15 @@ interface SiemStatsProps {
 // attack phase lands announces the attack; the response time is shown in the
 // incident report's result instead, after the report is filed.
 export function SiemStats({ events, avgCatchMs = null }: SiemStatsProps) {
-  // Compact by default — beginners see the 4 chips that matter; "+ more" reveals the rest
+  // Compact by default - beginners see the 4 chips that matter; "+ more" reveals the rest
   const [showAll, setShowAll] = useState(false);
   const fiveMinAgo = Date.now() - 5 * 60 * 1000;
   const recentCount = events.filter(e => new Date(e.ts).getTime() > fiveMinAgo).length;
   const eventsPerMin = (recentCount / 5).toFixed(1);
 
   const last50   = events.slice(0, 50);
-  const topSrc   = mode(last50.map(e => e.source)) ?? "—";
-  const topHost  = mode(last50.map(e => e.hostname).filter((h): h is string => !!h)) ?? "—";
+  const topSrc   = mode(last50.map(e => e.source)) ?? "-";
+  const topHost  = mode(last50.map(e => e.hostname).filter((h): h is string => !!h)) ?? "-";
   const uniqueIps = new Set(events.map(e => e.src_ip).filter((ip): ip is string => !!ip));
   const alertPct  = events.length === 0
     ? 0
@@ -62,7 +62,7 @@ export function SiemStats({ events, avgCatchMs = null }: SiemStatsProps) {
         <span className="font-mono text-[11px] font-bold text-cyber-300">{eventsPerMin}</span>
       </div>
 
-      {/* Secondary chips — hidden in compact mode */}
+      {/* Secondary chips - hidden in compact mode */}
       {showAll && (
         <>
           {/* Top Source */}
@@ -106,7 +106,7 @@ export function SiemStats({ events, avgCatchMs = null }: SiemStatsProps) {
         </span>
       </div>
 
-      {/* Avg Catch Speed — only visible after catching at least one attack */}
+      {/* Avg Catch Speed - only visible after catching at least one attack */}
       {showAll && avgCatchMs != null && (
         <div className="inline-flex items-center gap-2 rounded-md border border-cyber-500/30 bg-cyber-500/8 px-3 py-1.5">
           <span className="text-[10px] text-slate-400 font-medium">Avg Speed</span>

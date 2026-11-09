@@ -1,15 +1,15 @@
 /**
- * Infoblox NIOS DNS — native module (card: docs/log-schemas/dns-infoblox.md).
+ * Infoblox NIOS DNS - native module (card: docs/log-schemas/dns-infoblox.md).
  *
  * NIOS members send BIND `named` lines over syslog. Three record shapes, each a FLAT
  * object with the card's key names, plus `rawLine` = the syslog line rebuilt from the
  * same values:
- *   - "query"    — query log (category `queries`): who asked what (no answer, no RCODE);
- *   - "response" — response log (category `responses`): RCODE + answer RRs;
- *   - "rpz"      — RPZ hit in CEF (category `rpz`): a policy rewrite (block) of the name.
+ *   - "query"    - query log (category `queries`): who asked what (no answer, no RCODE);
+ *   - "response" - response log (category `responses`): RCODE + answer RRs;
+ *   - "rpz"      - RPZ hit in CEF (category `rpz`): a policy rewrite (block) of the name.
  * A platform DNS event with an authored outcome renders as "response"; with an authored
  * blocking RPZ action (NXDOMAIN / NODATA / DROP / Local-Data) as "rpz"; otherwise
- * "query". PASSTHRU is an allow-list match, not a block — such events render as their
+ * "query". PASSTHRU is an allow-list match, not a block - such events render as their
  * ordinary response line so the answer stays visible.
  *
  * Category-wide: Windows-DNS-authored and vendor-less DNS events render here too.
@@ -118,7 +118,7 @@ const useCases: UseCase[] = [
   {
     id: "infoblox.txt_tunneling", title: "Encoded label in a TXT query (DNS tunneling)", sourceId: "infoblox", kinds: ["query", "response"],
     severity: "high", mitre: ["T1071.004", "T1048.003"],
-    description: "Tunnels carry data in long base32/hex subdomain labels and receive commands in TXT answers. A TXT query whose first label is 40+ characters — often with an incrementing sequence label under one parent domain — is the signature. The DNS server is the only place that shows the internal client; the firewall only sees the resolver.",
+    description: "Tunnels carry data in long base32/hex subdomain labels and receive commands in TXT answers. A TXT query whose first label is 40+ characters - often with an incrementing sequence label under one parent domain - is the signature. The DNS server is the only place that shows the internal client; the firewall only sees the resolver.",
     logic: "SPL: index=dns sourcetype=infoblox:dns qtype=TXT | regex qname=\"^[a-z0-9]{40,}\\.\" | stats count dc(qname) by client_ip",
     match: { all: [{ field: "qtype", op: "eq", value: "TXT" }, { field: "qname", op: "regex", value: "^[a-z0-9]{40,}\\." }] },
     falsePositives: ["AV/reputation lookups that encode file hashes as TXT queries to the vendor's zone"],
@@ -126,7 +126,7 @@ const useCases: UseCase[] = [
   {
     id: "infoblox.rpz_block_threat", title: "RPZ blocked a known-malicious domain", sourceId: "infoblox", kinds: ["rpz"],
     severity: "high", mitre: ["T1071.001", "T1568"],
-    description: "An RPZ rewrite (CEF Name = NXDOMAIN / NODATA …) means the client tried to resolve a name on a threat feed or the SOC's block zone. The block stopped this lookup, but the host is running something that knows the domain — find the process (Sysmon 22 / EDR DNS) and check for earlier, unblocked variants. `msg … via <zone>` names the feed that caught it.",
+    description: "An RPZ rewrite (CEF Name = NXDOMAIN / NODATA …) means the client tried to resolve a name on a threat feed or the SOC's block zone. The block stopped this lookup, but the host is running something that knows the domain - find the process (Sysmon 22 / EDR DNS) and check for earlier, unblocked variants. `msg … via <zone>` names the feed that caught it.",
     logic: "SPL: index=dns sourcetype=infoblox:rpz CAT=RPZ Name!=PASSTHRU Severity>=7 | stats count values(msg) by src",
     match: { all: [{ field: "CAT", op: "eq", value: "RPZ" }, { field: "Name", op: "neq", value: "PASSTHRU" }, { field: "Severity", op: "gte", value: 7 }] },
     falsePositives: ["Feed false positive on a shared-hosting / CDN name", "Security staff researching a domain from a workstation"],
@@ -134,7 +134,7 @@ const useCases: UseCase[] = [
   {
     id: "infoblox.rpz_passthru", title: "RPZ allow-list (PASSTHRU) match", sourceId: "infoblox", kinds: ["rpz"],
     severity: "low", mitre: [],
-    description: "PASSTHRU means a name matched an allow-list rule and was NOT blocked. Useful context: if a blocked feed domain also sits on the allow-list, the allow-list entry is hiding it — review who added it.",
+    description: "PASSTHRU means a name matched an allow-list rule and was NOT blocked. Useful context: if a blocked feed domain also sits on the allow-list, the allow-list entry is hiding it - review who added it.",
     logic: "SPL: index=dns sourcetype=infoblox:rpz Name=PASSTHRU | stats count by msg",
     match: { field: "Name", op: "eq", value: "PASSTHRU" },
     falsePositives: ["Expected for sanctioned vendor domains"],
@@ -153,7 +153,7 @@ const useCases: UseCase[] = [
     description: "Phishing kits use names like <brand>-sso.com / <brand>-portal.eu so a link looks internal. A client resolving such a name (or RPZ rewriting it) should be tied back to the email or message that carried the link.",
     logic: "SPL: index=dns sourcetype=infoblox:* | eval n=coalesce(qname, msg) | regex n=\"-(sso|login|portal|helpdesk|vpn|…)\\.\"",
     match: { any: [{ field: "qname", op: "regex", value: LOOKALIKE_RE }, { field: "msg", op: "regex", value: LOOKALIKE_RE }] },
-    falsePositives: ["Legitimate vendor SSO portals — allow-list after review"],
+    falsePositives: ["Legitimate vendor SSO portals - allow-list after review"],
   },
 ];
 

@@ -1,13 +1,13 @@
 /**
  * Kubernetes Audit Log EMITTER.
  *
- * The cluster control-plane audit trail — pod creates, exec-into-pod, RBAC and
+ * The cluster control-plane audit trail - pod creates, exec-into-pod, RBAC and
  * secret access an analyst reads for container escape, cryptojacking and cluster
  * takeover. Audit events are request-shaped and highly heterogeneous, so the
  * emitter renders the COMMON envelope (verb, objectRef.*, user.username,
  * sourceIPs, responseStatus, stage, userAgent) and takes every request-specific
  * field (requestObject.spec.*, groups, ownerReferences, requestURI) through
- * `extra` — every key checked to be one the registry allows (the k8s. /
+ * `extra` - every key checked to be one the registry allows (the k8s. /
  * kubernetes. prefixes + shared fields).
  *
  * Kubernetes audit is source:"k8s_audit" and carries no process.

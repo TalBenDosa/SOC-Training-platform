@@ -1,6 +1,6 @@
 // Verifies the response-clock pause: the clock is now an ELAPSED timer that
 // counts UP from 0 (not a countdown, and never a fail). While the analyst is
-// investigating (report drawer open OR EDR console in play — both feed the same
+// investigating (report drawer open OR EDR console in play - both feed the same
 // `isInvestigating` flag), the clock must FREEZE, then resume counting up when
 // they come back. Same pause guarantee as before, opposite direction. Runs the
 // REAL useLiveEvents hook under fake timers (no JSX so vitest's *.test.ts
@@ -30,7 +30,7 @@ const STORY: AttackStory = {
 
 const POOL: TelemetryEvent[] = [ev("noise1"), ev("noise2")];
 
-// Module flag the harness's isInvestigating() closure reads at call time —
+// Module flag the harness's isInvestigating() closure reads at call time -
 // flipping it mirrors the analyst opening the EDR console / report drawer.
 let investigating = false;
 let latest: LiveEventsApi | null = null;
@@ -86,7 +86,7 @@ describe("response clock (counts up) pause during investigation", () => {
     act(() => { vi.advanceTimersByTime(4_000); });
     expect(latest!.attackTimerSeconds).toBe(afterRunning + 4);
 
-    // The clock itself never fires the debrief — the attack is still unfolding
+    // The clock itself never fires the debrief - the attack is still unfolding
     // here and, either way, catching it would cancel the debrief.
     expect(latest!.missedAttack).toBe(false);
   });
@@ -99,7 +99,7 @@ describe("response clock (counts up) pause during investigation", () => {
     expect(latest!.missedAttack).toBe(false);     // debrief scheduled, grace not elapsed
     expect(latest!.missedIncident).toBeNull();
 
-    // Advance past MISS_DEBRIEF_GRACE_MS (540s) — uncaught, not investigating.
+    // Advance past MISS_DEBRIEF_GRACE_MS (540s) - uncaught, not investigating.
     act(() => { vi.advanceTimersByTime(600_000); });
     expect(latest!.missedAttack).toBe(true);
     // …and it carries the teaching payload (what it was + technique + tell).

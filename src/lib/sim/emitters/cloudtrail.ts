@@ -1,9 +1,9 @@
 /**
  * AWS CloudTrail + GuardDuty log EMITTERS.
  *
- * The cloud control-plane audit trail — every API call an analyst reads for S3
+ * The cloud control-plane audit trail - every API call an analyst reads for S3
  * exfiltration, IAM privilege-escalation, console sign-in, AssumeRole abuse,
- * secret theft and trail-tampering — plus the GuardDuty findings raised on top of
+ * secret theft and trail-tampering - plus the GuardDuty findings raised on top of
  * it. Same contract as the other emitters: a typed call renders a complete
  * TelemetryEvent whose raw block uses only registry-valid fields (the
  * aws.cloudtrail. / aws.guardduty. prefixes + the shared aws./cloud. fields),

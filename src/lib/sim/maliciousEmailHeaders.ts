@@ -89,11 +89,11 @@ const scenarios: HeaderScenario[] = [
     dkim: "none",
     dmarc: "fail",
     xMailer: "Swaks v20201014.0",
-    xOriginatingIp: "185.220.101.33",
+    xOriginatingIp: "198.51.100.99",
     contentType: "text/html; charset=UTF-8",
     receivedChain: [
-      "from mail.nexac0rp.com (185.220.101.33) by mx.nexacorp.com with SMTP id q4si2837492pjb.1",
-      "from [185.220.101.33] (unknown) by mail.nexac0rp.com with SMTP id a1b2c3d4",
+      "from mail.nexac0rp.com (198.51.100.99) by mx.nexacorp.com with SMTP id q4si2837492pjb.1",
+      "from [198.51.100.99] (unknown) by mail.nexac0rp.com with SMTP id a1b2c3d4",
     ],
     authResultsRaw: "mx.nexacorp.com; spf=fail smtp.mailfrom=nexac0rp.com; dkim=none; dmarc=fail header.from=nexac0rp.com",
     iocs: [
@@ -123,7 +123,7 @@ const scenarios: HeaderScenario[] = [
       },
       {
         field: "X-Originating-IP",
-        value: "185.220.101.33",
+        value: "198.51.100.99",
         explanation: "This IP is a known Tor exit node / bulletproof hosting address (AS204428). Legitimate CEO laptops don't originate from here.",
         severity: "critical",
       },
@@ -154,11 +154,11 @@ const scenarios: HeaderScenario[] = [
     dkim: "pass",
     dmarc: "pass",
     xMailer: "PHPMailer 6.6.4 (https://github.com/PHPMailer/PHPMailer)",
-    xOriginatingIp: "185.220.101.47",
+    xOriginatingIp: "198.51.100.103",
     contentType: "text/html; charset=UTF-8",
     receivedChain: [
-      "from mail.microsoft-account-alerts.net (185.220.101.47) by mx.nexacorp.com with ESMTPS id p17si7291043pjm.5",
-      "from [185.220.101.47] (helo=mail.microsoft-account-alerts.net) by mail.microsoft-account-alerts.net with SMTP",
+      "from mail.microsoft-account-alerts.net (198.51.100.103) by mx.nexacorp.com with ESMTPS id p17si7291043pjm.5",
+      "from [198.51.100.103] (helo=mail.microsoft-account-alerts.net) by mail.microsoft-account-alerts.net with SMTP",
     ],
     authResultsRaw: "mx.nexacorp.com; spf=pass smtp.mailfrom=microsoft-account-alerts.net; dkim=pass header.d=microsoft-account-alerts.net; dmarc=pass header.from=microsoft-account-alerts.net",
     iocs: [
@@ -176,7 +176,7 @@ const scenarios: HeaderScenario[] = [
       },
       {
         field: "X-Originating-IP",
-        value: "185.220.101.47",
+        value: "198.51.100.103",
         explanation: "Known Tor exit node / bulletproof hosting. Microsoft's servers originate from Microsoft Azure IP ranges (40.x, 52.x, 104.x).",
         severity: "critical",
       },
@@ -206,25 +206,25 @@ const scenarios: HeaderScenario[] = [
     dkim: "pass",
     dmarc: "pass",
     xMailer: "Microsoft Outlook 16.0.17531.20004",
-    xOriginatingIp: "102.133.221.18",
+    xOriginatingIp: "198.51.100.225",
     contentType: "multipart/mixed; boundary=\"_002_YQBPR01MB8374\"",
     receivedChain: [
-      "from YQBPR01MB8374.CANPRD01.PROD.OUTLOOK.COM (102.133.221.18) by mx.nexacorp.com with HTTPS",
+      "from YQBPR01MB8374.CANPRD01.PROD.OUTLOOK.COM (198.51.100.225) by mx.nexacorp.com with HTTPS",
       "from AM8P193CA0048.EURPRD193.PROD.OUTLOOK.COM by YQBPR01MB8374.CANPRD01.PROD.OUTLOOK.COM",
-      "from [41.216.183.22] (41.216.183.22) by AM8P193CA0048 via Frontend Transport",
+      "from [198.51.100.226] (198.51.100.226) by AM8P193CA0048 via Frontend Transport",
     ],
     authResultsRaw: "mx.nexacorp.com; spf=pass smtp.mailfrom=global-logistics-intl.com; dkim=pass header.d=global-logistics-intl.com; dmarc=pass header.from=global-logistics-intl.com",
     iocs: [
       {
         field: "X-Originating-IP",
-        value: "102.133.221.18 / 41.216.183.22",
-        explanation: "The session originated from 41.216.183.22 — a Nigerian IP (AS37705). Sarah Thompson is based in Vancouver. This geolocation is impossible travel.",
+        value: "198.51.100.225 / 198.51.100.226",
+        explanation: "The session originated from 198.51.100.226 — a Nigerian IP (AS37705). Sarah Thompson is based in Vancouver. This geolocation is impossible travel.",
         severity: "critical",
       },
       {
         field: "Received hop #3",
-        value: "[41.216.183.22]",
-        explanation: "The innermost Received header shows the actual client IP: 41.216.183.22 (Lagos, Nigeria). The legitimate vendor account was likely compromised — attacker logged in via OWA from Nigeria and sent this invoice.",
+        value: "[198.51.100.226]",
+        explanation: "The innermost Received header shows the actual client IP: 198.51.100.226 (Lagos, Nigeria). The legitimate vendor account was likely compromised — attacker logged in via OWA from Nigeria and sent this invoice.",
         severity: "critical",
       },
       {
@@ -260,11 +260,11 @@ const scenarios: HeaderScenario[] = [
     dkim: "none",
     dmarc: "fail",
     xMailer: "PHPMailer 6.5.3",
-    xOriginatingIp: "91.108.56.112",
+    xOriginatingIp: "198.51.100.227",
     contentType: "text/html; charset=utf-8",
     receivedChain: [
-      "from mail.helpdesk-support.io (91.108.56.112) by mx.nexacorp.com with SMTP id k3si4928173pja.2",
-      "from [91.108.56.112] by mail.helpdesk-support.io with SMTP",
+      "from mail.helpdesk-support.io (198.51.100.227) by mx.nexacorp.com with SMTP id k3si4928173pja.2",
+      "from [198.51.100.227] by mail.helpdesk-support.io with SMTP",
     ],
     authResultsRaw: "mx.nexacorp.com; spf=pass smtp.mailfrom=helpdesk-support.io; dkim=none; dmarc=fail header.from=helpdesk-support.io",
     iocs: [
@@ -288,7 +288,7 @@ const scenarios: HeaderScenario[] = [
       },
       {
         field: "X-Originating-IP",
-        value: "91.108.56.112",
+        value: "198.51.100.227",
         explanation: "91.108.4.x and 91.108.56.x are Telegram datacenter IPs in the Netherlands. Legitimate NexaCorp IT sends from Microsoft 365 infrastructure.",
         severity: "high",
       },
@@ -317,26 +317,26 @@ const scenarios: HeaderScenario[] = [
     spf: "pass",
     dkim: "pass",
     dmarc: "pass",
-    xOriginatingIp: "223.5.5.5",
+    xOriginatingIp: "198.51.100.228",
     xMailer: "Microsoft Outlook 16.0.17531.20000",
     contentType: "multipart/mixed; boundary=\"_003_AM6PR08MB7234\"",
     receivedChain: [
       "from AM6PR08MB7234.eurprd08.prod.exchangelabs.com by mx.nexacorp.com with HTTPS",
       "from HE1PR08MB2413.eurprd08.prod.exchangelabs.com by AM6PR08MB7234",
-      "from [223.5.5.5] by HE1PR08MB2413 via Frontend Transport",
+      "from [198.51.100.228] by HE1PR08MB2413 via Frontend Transport",
     ],
     authResultsRaw: "mx.nexacorp.com; spf=pass smtp.mailfrom=meridian-consulting.co.uk; dkim=pass header.d=meridian-consulting.co.uk; dmarc=pass header.from=meridian-consulting.co.uk",
     iocs: [
       {
         field: "X-Originating-IP",
-        value: "223.5.5.5",
+        value: "198.51.100.228",
         explanation: "This IP belongs to Alibaba Cloud DNS (China). James Wilson is a UK consultant — he should be originating from British or EU IP space, not Chinese cloud infrastructure. His account was almost certainly compromised.",
         severity: "critical",
       },
       {
         field: "Received chain — innermost hop",
-        value: "[223.5.5.5] via Frontend Transport",
-        explanation: "The actual client IP that authenticated to Exchange Online is 223.5.5.5 (China). All three auth checks pass because the attacker has valid credentials for j.wilson's account.",
+        value: "[198.51.100.228] via Frontend Transport",
+        explanation: "The actual client IP that authenticated to Exchange Online is 198.51.100.228 (China). All three auth checks pass because the attacker has valid credentials for j.wilson's account.",
         severity: "critical",
       },
       {
@@ -372,11 +372,11 @@ const scenarios: HeaderScenario[] = [
     dkim: "none",
     dmarc: "fail",
     xMailer: "Swaks v20201014.0",
-    xOriginatingIp: "45.142.212.100",
+    xOriginatingIp: "198.51.100.97",
     contentType: "text/html; charset=UTF-8",
     receivedChain: [
-      "from smtp.paypa1.com (45.142.212.100) by mx.nexacorp.com with SMTP id r7si1094732pjb.3",
-      "from [45.142.212.100] by smtp.paypa1.com with SMTP",
+      "from smtp.paypa1.com (198.51.100.97) by mx.nexacorp.com with SMTP id r7si1094732pjb.3",
+      "from [198.51.100.97] by smtp.paypa1.com with SMTP",
     ],
     authResultsRaw: "mx.nexacorp.com; spf=fail smtp.mailfrom=paypa1.com; dkim=none; dmarc=fail header.from=paypa1.com",
     iocs: [
@@ -425,11 +425,11 @@ const scenarios: HeaderScenario[] = [
     dkim: "none",
     dmarc: "fail",
     xMailer: "PHPMailer 6.5.3",
-    xOriginatingIp: "194.165.16.68",
+    xOriginatingIp: "198.51.100.229",
     contentType: "text/html; charset=utf-8",
     receivedChain: [
-      "from mail.nexacoorp.com (194.165.16.68) by mx.nexacorp.com with SMTP id g9si3748291pjc.1",
-      "from [194.165.16.68] by mail.nexacoorp.com with SMTP",
+      "from mail.nexacoorp.com (198.51.100.229) by mx.nexacorp.com with SMTP id g9si3748291pjc.1",
+      "from [198.51.100.229] by mail.nexacoorp.com with SMTP",
     ],
     authResultsRaw: "mx.nexacorp.com; spf=fail smtp.mailfrom=nexacoorp.com; dkim=none; dmarc=fail header.from=nexacoorp.com",
     iocs: [
@@ -453,7 +453,7 @@ const scenarios: HeaderScenario[] = [
       },
       {
         field: "X-Originating-IP",
-        value: "194.165.16.68",
+        value: "198.51.100.229",
         explanation: "This IP is in AS198610 (Beget LLC, Russia). NexaCorp's IT ticketing system sends from Microsoft 365 or on-premise Exchange, not Russian hosting.",
         severity: "high",
       },
@@ -484,11 +484,11 @@ const scenarios: HeaderScenario[] = [
     dkim: "pass",
     dmarc: "pass",
     xMailer: "Swaks v20201014.0",
-    xOriginatingIp: "62.210.205.122",
+    xOriginatingIp: "198.51.100.231",
     contentType: "text/calendar; charset=UTF-8; method=REQUEST",
     receivedChain: [
-      "from mail.google-calendar-alerts.com (62.210.205.122) by mx.nexacorp.com with ESMTPS",
-      "from [62.210.205.122] by mail.google-calendar-alerts.com with SMTP",
+      "from mail.google-calendar-alerts.com (198.51.100.231) by mx.nexacorp.com with ESMTPS",
+      "from [198.51.100.231] by mail.google-calendar-alerts.com with SMTP",
     ],
     authResultsRaw: "mx.nexacorp.com; spf=pass smtp.mailfrom=google-calendar-alerts.com; dkim=pass header.d=google-calendar-alerts.com; dmarc=pass header.from=google-calendar-alerts.com",
     iocs: [
@@ -512,7 +512,7 @@ const scenarios: HeaderScenario[] = [
       },
       {
         field: "X-Originating-IP",
-        value: "62.210.205.122",
+        value: "198.51.100.231",
         explanation: "This IP is in Paris, France (Iliad / Free SAS AS12876). Google sends calendar notifications from 209.85.x.x (Google LLC) IP ranges, not French hosting.",
         severity: "critical",
       },

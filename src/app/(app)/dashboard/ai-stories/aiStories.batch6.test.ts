@@ -1,5 +1,5 @@
 /**
- * Storyline-review batch 6 (AI stories) — the investigability facts each fixed story must keep.
+ * Storyline-review batch 6 (AI stories) - the investigability facts each fixed story must keep.
  * docs/qa/storyline-review/batch-6.md lists the defects these guard against.
  */
 import { describe, expect, it } from "vitest";

@@ -1,5 +1,5 @@
 /**
- * Synthetic enterprise identities — diverse departments, roles, and global names.
+ * Synthetic enterprise identities - diverse departments, roles, and global names.
  * Designed for realistic SOC training scenarios across many industry verticals.
  */
 

@@ -1,8 +1,8 @@
 /**
- * Microsoft Windows Security event log (+ System-log 7045) — native module
+ * Microsoft Windows Security event log (+ System-log 7045) - native module
  * (card: docs/log-schemas/windows-security.md).
  *
- * Record: one EVTX event as the FLAT JSON the card standardises on — the System keys
+ * Record: one EVTX event as the FLAT JSON the card standardises on - the System keys
  * we keep (`EventID` int, `Computer` FQDN, `TimeCreated` ISO-8601 UTC with 7 fractional
  * digits, `Channel`, `Provider`, `EventRecordID` int, `Keywords` hex string) followed
  * by every `EventData/Data` element under its exact Windows PascalCase name, in the
@@ -59,7 +59,7 @@ const kinds: Record<string, KindSchema> = {
   // Group membership (global 4728/4729, local 4732/4733, universal 4756/4757)
   "4728": k(...GROUP_MEMBER), "4729": k(...GROUP_MEMBER), "4732": k(...GROUP_MEMBER),
   "4733": k(...GROUP_MEMBER), "4756": k(...GROUP_MEMBER), "4757": k(...GROUP_MEMBER),
-  // Lockout (caller computer sits in TargetDomainName — card §3.2 note)
+  // Lockout (caller computer sits in TargetDomainName - card §3.2 note)
   "4740": k("TargetUserName", "TargetDomainName", "TargetSid", "SubjectUserSid", "SubjectUserName", "SubjectDomainName", "SubjectLogonId"),
   // Kerberos / NTLM on the DC
   "4768": kOpt(["TargetUserName", "TargetDomainName", "TargetSid", "ServiceName", "ServiceSid", "TicketOptions", "Status", "TicketEncryptionType", "PreAuthType", "IpAddress", "IpPort", "CertIssuerName", "CertSerialNumber", "CertThumbprint"], ["ResponseTicket", ...KERB_2025, "PreAuthEncryptionType"]),
@@ -137,7 +137,7 @@ function groupSid(ctx: NativeCtx, name: string | undefined): string {
   if (r) return r.startsWith("S-1-5-32") ? r : `S-1-5-21-${domainId(ctx)}-${r}`;
   return `S-1-5-21-${domainId(ctx)}-${ctx.int(`${ctx.companyId}:winsec:grid:${g}`, 1200, 4999)}`;
 }
-/** A logon session id (hex LUID) — one per (host, account) so a story's session correlates. */
+/** A logon session id (hex LUID) - one per (host, account) so a story's session correlates. */
 function logonId(ctx: NativeCtx, host: string, sam: string): string {
   const lc = sam.toLowerCase();
   if (lc === "system" || lc.endsWith("$")) return "0x3e7";
@@ -191,7 +191,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     return a.startsWith("::ffff:") || !/^\d{1,3}(\.\d{1,3}){3}$/.test(a) ? a : `::ffff:${a}`;
   };
 
-  // The caller (Subject) — on a logon/session event the local computer account.
+  // The caller (Subject) - on a logon/session event the local computer account.
   const subjectSid = ed("SubjectUserSid") ?? "S-1-5-18";
   const subjectName = ed("SubjectUserName") ?? `${hostShort}$`;
   const subjectDomain = ed("SubjectDomainName") ?? netbios;
@@ -425,7 +425,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       break;
     }
     case "4740": {
-      // The caller COMPUTER name sits in TargetDomainName (card §3.2) — carry the authored
+      // The caller COMPUTER name sits in TargetDomainName (card §3.2) - carry the authored
       // CallerComputerName / source there (there is NO CallerComputerName field).
       // An authored TargetDomainName that is not the domain itself already IS the caller.
       const tdn = ed("TargetDomainName");
@@ -708,11 +708,11 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
 
   // Coherence guard (Tal's diagnostic, 2026-10-03): a Windows event whose id requires fields the
   // authored event doesn't carry (a 4688 with no process, a 4625 with no target / logon type) is
-  // not rendered natively — it would read as a broken record. It stays in the legacy view instead.
+  // not rendered natively - it would read as a broken record. It stays in the legacy view instead.
   const missing = (REQUIRED_FIELDS[id] ?? []).filter(k => { const v = data[k]; return v === undefined || v === "" || v === "-"; });
   if (missing.length) return null;
 
-  // The record is the Windows event as a SIEM ingests and shows it — the normalised JSON fields,
+  // The record is the Windows event as a SIEM ingests and shows it - the normalised JSON fields,
   // NOT raw EVTX XML. A SOC analyst reads the event in Sentinel / Elastic / Splunk, so that is what
   // the feed shows (Tal, 2026-10-03: "why did XML appear at all"). KeywordsText spells out the
   // Audit Success / Failure a hex Keywords bitmask encodes, as a normalised log does.
@@ -760,12 +760,12 @@ const REQUIRED_FIELDS: Record<string, string[]> = {
   "4663": ["SubjectUserName", "ObjectName"], "4698": ["TaskName"], "6416": ["DeviceId"],
 };
 
-// ── use cases (detections over the native Windows fields — no crypto) ─────────
+// ── use cases (detections over the native Windows fields - no crypto) ─────────
 const useCases: UseCase[] = [
   {
-    id: "windows_security.password_spray", title: "Password spray — many accounts failing from one source",
+    id: "windows_security.password_spray", title: "Password spray - many accounts failing from one source",
     sourceId: "windows_security", kinds: ["4625", "4771"], severity: "high", mitre: ["T1110.003"],
-    description: "One source produces authentication failures against multiple distinct accounts in a short window — the signature of a password spray, which stays under each account's lockout threshold. NTLM sprays leave 4625 on the member server; Kerberos sprays leave only 4771 (Status 0x18) on the DC.",
+    description: "One source produces authentication failures against multiple distinct accounts in a short window - the signature of a password spray, which stays under each account's lockout threshold. NTLM sprays leave 4625 on the member server; Kerberos sprays leave only 4771 (Status 0x18) on the DC.",
     logic: "SPL: (EventID=4625 Status=0xC000006D) OR (EventID=4771 Status=0x18) | stats dc(TargetUserName) as users by IpAddress bin=10m | where users>=2",
     match: { any: [
       { all: [{ field: "EventID", op: "eq", value: 4625 }, { field: "Status", op: "icontains", value: "0xc000006d" }] },
@@ -777,16 +777,16 @@ const useCases: UseCase[] = [
   {
     id: "windows_security.account_lockout_burst", title: "Multiple account lockouts from one caller (4740)",
     sourceId: "windows_security", kinds: ["4740"], severity: "medium", mitre: ["T1110"],
-    description: "Several accounts lock out (4740) naming the same caller computer in a short window — brute force / spray reaching the lockout threshold.",
+    description: "Several accounts lock out (4740) naming the same caller computer in a short window - brute force / spray reaching the lockout threshold.",
     logic: "SPL: EventID=4740 | stats dc(TargetUserName) as users by TargetDomainName bin=15m | where users>=2",
     match: { field: "EventID", op: "eq", value: 4740 },
     threshold: { groupBy: ["TargetDomainName"], distinct: "TargetUserName", count: 2, windowSec: 900 },
     falsePositives: ["A terminal server or app pool caching an expired service password locks several related accounts."],
   },
   {
-    id: "windows_security.kerberoasting_rc4", title: "Kerberoasting — RC4 service tickets for many SPNs (4769)",
+    id: "windows_security.kerberoasting_rc4", title: "Kerberoasting - RC4 service tickets for many SPNs (4769)",
     sourceId: "windows_security", kinds: ["4769"], severity: "high", mitre: ["T1558.003"],
-    description: "One source requests RC4-encrypted (0x17) service tickets for many distinct service accounts (SPN not ending in $, not krbtgt) in seconds — Kerberoasting to crack service-account passwords offline.",
+    description: "One source requests RC4-encrypted (0x17) service tickets for many distinct service accounts (SPN not ending in $, not krbtgt) in seconds - Kerberoasting to crack service-account passwords offline.",
     logic: "SPL: EventID=4769 TicketEncryptionType=0x17 Status=0x0 ServiceName!=\"*$\" ServiceName!=krbtgt | stats dc(ServiceName) as spns by IpAddress bin=5m | where spns>=3",
     match: { all: [
       { field: "EventID", op: "eq", value: 4769 },
@@ -799,17 +799,17 @@ const useCases: UseCase[] = [
     falsePositives: ["A legacy application that genuinely negotiates RC4 for one service account (single SPN, repeated)."],
   },
   {
-    id: "windows_security.asrep_roasting", title: "AS-REP roasting — TGT issued without pre-authentication (4768)",
+    id: "windows_security.asrep_roasting", title: "AS-REP roasting - TGT issued without pre-authentication (4768)",
     sourceId: "windows_security", kinds: ["4768"], severity: "high", mitre: ["T1558.004"],
-    description: "A TGT (4768) issued with PreAuthType 0 and Status 0x0 — the KDC handed out a ticket encrypted with the account's key with no proof of password, because the account has 'Do not require Kerberos preauthentication'. The attacker cracks it offline.",
+    description: "A TGT (4768) issued with PreAuthType 0 and Status 0x0 - the KDC handed out a ticket encrypted with the account's key with no proof of password, because the account has 'Do not require Kerberos preauthentication'. The attacker cracks it offline.",
     logic: "SPL: EventID=4768 PreAuthType=0 Status=0x0",
     match: { all: [{ field: "EventID", op: "eq", value: 4768 }, { field: "PreAuthType", op: "eq", value: "0" }, { field: "Status", op: "eq", value: "0x0" }] },
     falsePositives: ["A legacy account legitimately configured without pre-auth (inventory these and treat each as suspicious)."],
   },
   {
-    id: "windows_security.dcsync", title: "DCSync — directory replication by a non-DC account (4662)",
+    id: "windows_security.dcsync", title: "DCSync - directory replication by a non-DC account (4662)",
     sourceId: "windows_security", kinds: ["4662"], severity: "critical", mitre: ["T1003.006"],
-    description: "A 4662 with AccessMask 0x100 whose Properties include the DS-Replication-Get-Changes-All control-access right (1131f6ad-…) — pulling password hashes from the directory. Only domain controllers and the directory-sync account do this legitimately; any other subject is DCSync.",
+    description: "A 4662 with AccessMask 0x100 whose Properties include the DS-Replication-Get-Changes-All control-access right (1131f6ad-…) - pulling password hashes from the directory. Only domain controllers and the directory-sync account do this legitimately; any other subject is DCSync.",
     logic: "SPL: EventID=4662 AccessMask=0x100 Properties=\"*1131f6ad*\" NOT (SubjectUserName=\"*$\" OR SubjectUserName=\"MSOL_*\")",
     match: { all: [
       { field: "EventID", op: "eq", value: 4662 },
@@ -827,7 +827,7 @@ const useCases: UseCase[] = [
   {
     id: "windows_security.privileged_group_add", title: "Member added to a privileged domain group (4728/4756)",
     sourceId: "windows_security", kinds: ["4728", "4756", "4732"], severity: "high", mitre: ["T1098", "T1078.002"],
-    description: "An account added to Domain Admins / Enterprise Admins / Schema Admins / Administrators / Group Policy Creator Owners. Verify against a change ticket — unplanned additions are privilege escalation or persistence.",
+    description: "An account added to Domain Admins / Enterprise Admins / Schema Admins / Administrators / Group Policy Creator Owners. Verify against a change ticket - unplanned additions are privilege escalation or persistence.",
     logic: "SPL: EventID IN (4728,4756,4732) TargetSid IN (*-512,*-519,*-518,*-520,S-1-5-32-544)",
     match: { any: [
       { field: "TargetSid", op: "endsWith", value: "-512" },
@@ -840,7 +840,7 @@ const useCases: UseCase[] = [
   {
     id: "windows_security.audit_log_cleared", title: "Security audit log cleared (1102)",
     sourceId: "windows_security", kinds: ["1102"], severity: "high", mitre: ["T1685.005"],
-    description: "The Security event log was cleared (1102). Rare in normal operations and a classic anti-forensics step after hands-on-keyboard activity — correlate with what happened just before on the same host.",
+    description: "The Security event log was cleared (1102). Rare in normal operations and a classic anti-forensics step after hands-on-keyboard activity - correlate with what happened just before on the same host.",
     logic: "SPL: EventID=1102",
     match: { field: "EventID", op: "eq", value: 1102 },
     falsePositives: ["A sanctioned log-rotation or re-imaging task clearing logs (should run as a service / scheduled task, not an interactive admin)."],
@@ -848,13 +848,13 @@ const useCases: UseCase[] = [
   {
     id: "windows_security.service_install_suspicious", title: "Suspicious service installed (7045/4697)",
     sourceId: "windows_security", kinds: ["7045", "4697"], severity: "high", mitre: ["T1543.003", "T1569.002"],
-    description: "A new service whose binary runs from a temp / user-writable path, via cmd/powershell, or over an admin share — the PsExec / Impacket / Cobalt-Strike remote-execution and persistence pattern.",
+    description: "A new service whose binary runs from a temp / user-writable path, via cmd/powershell, or over an admin share - the PsExec / Impacket / Cobalt-Strike remote-execution and persistence pattern.",
     logic: "SPL: (EventID=7045 OR EventID=4697) (ImagePath=\"*\\\\Temp\\\\*\" OR ImagePath=\"*powershell*\" OR ImagePath=\"*%COMSPEC%*\" OR ImagePath=\"*ADMIN$*\" OR ServiceFileName=\"*\\\\Temp\\\\*\")",
     match: { any: [
       { field: "ImagePath", op: "regex", value: "\\\\(Temp|Users\\\\Public|ProgramData)\\\\|powershell|%COMSPEC%|cmd\\.exe|ADMIN\\$|\\\\\\\\127\\.0\\.0\\.1" },
       { field: "ServiceFileName", op: "regex", value: "\\\\(Temp|Users\\\\Public|ProgramData)\\\\|powershell|%COMSPEC%|cmd\\.exe|ADMIN\\$" },
     ] },
-    falsePositives: ["Some legitimate software installs a helper service from ProgramData — confirm the publisher and signature."],
+    falsePositives: ["Some legitimate software installs a helper service from ProgramData - confirm the publisher and signature."],
   },
   {
     id: "windows_security.account_created", title: "New domain account created (4720)",
@@ -867,7 +867,7 @@ const useCases: UseCase[] = [
   {
     id: "windows_security.external_rdp_logon", title: "Interactive/RDP logon from a non-corporate address (4624 type 10/2)",
     sourceId: "windows_security", kinds: ["4624"], severity: "high", mitre: ["T1021.001", "T1133"],
-    description: "A RemoteInteractive (RDP, type 10) or Interactive (type 2) logon whose IpAddress is outside the corporate ranges — direct RDP exposure or a stolen credential used from the internet.",
+    description: "A RemoteInteractive (RDP, type 10) or Interactive (type 2) logon whose IpAddress is outside the corporate ranges - direct RDP exposure or a stolen credential used from the internet.",
     logic: "SPL: EventID=4624 LogonType IN (2,10) NOT (IpAddress=10.0.0.0/8 OR IpAddress=172.16.0.0/12 OR IpAddress=192.168.0.0/16 OR IpAddress=\"-\" OR IpAddress=\"0.0.0.0\")",
     match: { all: [
       { field: "EventID", op: "eq", value: 4624 },
@@ -880,7 +880,7 @@ const useCases: UseCase[] = [
   {
     id: "windows_security.sedebug_privilege_assigned", title: "SeDebugPrivilege assigned to a logon (4672)",
     sourceId: "windows_security", kinds: ["4672"], severity: "low", mitre: ["T1134", "T1003.001"],
-    description: "A logon session was granted SeDebugPrivilege — needed to read another process's memory (e.g. LSASS). Expected for tier-0 admins and some agents; worth a glance for an account that should not have it.",
+    description: "A logon session was granted SeDebugPrivilege - needed to read another process's memory (e.g. LSASS). Expected for tier-0 admins and some agents; worth a glance for an account that should not have it.",
     logic: "SPL: EventID=4672 PrivilegeList=\"*SeDebugPrivilege*\"",
     match: { all: [{ field: "EventID", op: "eq", value: 4672 }, { field: "PrivilegeList", op: "icontains", value: "SeDebugPrivilege" }] },
     falsePositives: ["Domain admins, backup agents and EDR sensors legitimately hold SeDebugPrivilege."],

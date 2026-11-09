@@ -6,8 +6,8 @@ import { ATTACK_STORIES, storiesForCompany } from "@/app/(app)/dashboard/attackS
 
 describe("vendor text rewrite", () => {
   it("switches product names within the event's category only", () => {
-    expect(rewriteProductText("Outlook launched cmd.exe — Defender killed it automatically", "edr", "crowdstrike"))
-      .toBe("Outlook launched cmd.exe — CrowdStrike Falcon killed it automatically");
+    expect(rewriteProductText("Outlook launched cmd.exe - Defender killed it automatically", "edr", "crowdstrike"))
+      .toBe("Outlook launched cmd.exe - CrowdStrike Falcon killed it automatically");
     expect(rewriteProductText("Microsoft Defender for Endpoint quarantined the file", "edr", "sentinelone"))
       .toBe("SentinelOne quarantined the file");
     expect(rewriteProductText("Palo Alto blocked the session to a C2 domain", "firewall", "fortigate"))
@@ -73,8 +73,8 @@ describe("vendor consistency rules (found in the vendor-choice playthrough)", ()
     expect(rewriteProductText("Microsoft Defender for Endpoint isolated the host", "edr", "sophos")).toBe("Sophos Intercept X isolated the host");
   });
   it("speaks Okta's language under Okta and Entra's under Entra", () => {
-    expect(rewriteProductText("signed in to SharePoint Online — Conditional Access passed, managed device", "idp", "okta"))
-      .toBe("signed in to SharePoint Online — Okta sign-on policy passed, managed device");
+    expect(rewriteProductText("signed in to SharePoint Online - Conditional Access passed, managed device", "idp", "okta"))
+      .toBe("signed in to SharePoint Online - Okta sign-on policy passed, managed device");
     expect(rewriteProductText("MFA push approved in Okta Verify", "idp", "entra")).toBe("MFA push approved in Microsoft Authenticator");
     expect(rewriteProductText("Assigned Global Administrator role in Azure AD", "idp", "okta")).toBe("Assigned Super Administrator role in Okta");
     expect(rewriteProductText("A second Entra sign-in from Moscow", "idp", "okta")).toBe("A second Okta sign-in from Moscow");

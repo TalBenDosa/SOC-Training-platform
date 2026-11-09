@@ -1,10 +1,10 @@
 "use client";
 /**
- * WorkflowGuide — the persistent "what do I do now?" strip.
+ * WorkflowGuide - the persistent "what do I do now?" strip.
  *
  * There is deliberately only ONE tracked, gradeable step: the Incident Report.
  * Watching the feed and forming a hypothesis happens silently, with no
- * checkbox, no per-row grading, and no hint about which event is the attack —
+ * checkbox, no per-row grading, and no hint about which event is the attack -
  * the report itself is the only place the analyst's findings are assessed.
  */
 import { useState } from "react";
@@ -30,7 +30,7 @@ export function WorkflowGuide({ reportPassed }: Props) {
         </span>
 
         <span className="text-[11px] text-slate-400">
-          Investigate the feed — read the logs, no hints, decide for yourself.
+          Investigate the feed - read the logs, no hints, decide for yourself.
         </span>
 
         <span className="text-slate-500">→</span>
@@ -55,7 +55,7 @@ export function WorkflowGuide({ reportPassed }: Props) {
 
         {reportPassed && (
           <span className="ml-auto text-[11px] font-bold text-neon-green">
-            Report accepted — catch 2 attacks within 30 minutes and the company is secured automatically 🏆
+            Report accepted - catch 2 attacks within 30 minutes and the company is secured automatically 🏆
           </span>
         )}
       </div>

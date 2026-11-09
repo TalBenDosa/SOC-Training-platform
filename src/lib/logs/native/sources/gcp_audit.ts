@@ -1,5 +1,5 @@
 /**
- * Google Cloud Audit Logs — native source module.
+ * Google Cloud Audit Logs - native source module.
  *
  * Card: docs/log-schemas/cloud-gcp-audit.md. Native format = a Cloud Logging
  * `LogEntry` whose `protoPayload` is a `google.cloud.audit.AuditLog`, nested exactly
@@ -270,7 +270,7 @@ const useCases: UseCase[] = [
     id: "gcp_audit.setiam_privileged",
     title: "IAM policy grants Owner / Editor",
     sourceId: "gcp_audit", severity: "critical", mitre: ["T1098"],
-    description: "SetIamPolicy whose policyDelta ADDs a member to roles/owner or roles/editor — privilege escalation / persistence; read serviceData.policyDelta.bindingDeltas (the actual grant), not the full policy.",
+    description: "SetIamPolicy whose policyDelta ADDs a member to roles/owner or roles/editor - privilege escalation / persistence; read serviceData.policyDelta.bindingDeltas (the actual grant), not the full policy.",
     logic: "SPL: methodName=SetIamPolicy AND protoPayload.serviceData.policyDelta.bindingDeltas{}.role IN (roles/owner,roles/editor)",
     match: { all: [{ field: "protoPayload.methodName", op: "eq", value: "SetIamPolicy" }, { any: [
       { field: "protoPayload.serviceData.policyDelta.bindingDeltas[].role", op: "in", value: ["roles/owner", "roles/editor"] },
@@ -281,7 +281,7 @@ const useCases: UseCase[] = [
     id: "gcp_audit.service_account_key_created",
     title: "Service-account key created",
     sourceId: "gcp_audit", severity: "high", mitre: ["T1098.001"],
-    description: "CreateServiceAccountKey mints a long-lived SA key — a classic persistence foothold that outlives short-lived credentials; such keys should be rare and short-lived.",
+    description: "CreateServiceAccountKey mints a long-lived SA key - a classic persistence foothold that outlives short-lived credentials; such keys should be rare and short-lived.",
     logic: "SPL: methodName=\"*CreateServiceAccountKey\"",
     match: { field: "protoPayload.methodName", op: "icontains", value: "CreateServiceAccountKey" },
     falsePositives: ["A controlled provisioning flow that must mint an SA key (prefer workload identity; verify the owner)."],
@@ -290,7 +290,7 @@ const useCases: UseCase[] = [
     id: "gcp_audit.impersonation",
     title: "Service-account impersonation (GenerateAccessToken)",
     sourceId: "gcp_audit", severity: "high", mitre: ["T1134.001"],
-    description: "GenerateAccessToken on iamcredentials.googleapis.com — one identity minting short-lived credentials for another SA; the delegation chain / caller is the real actor behind later actions.",
+    description: "GenerateAccessToken on iamcredentials.googleapis.com - one identity minting short-lived credentials for another SA; the delegation chain / caller is the real actor behind later actions.",
     logic: "SPL: serviceName=iamcredentials.googleapis.com methodName=GenerateAccessToken",
     match: { all: [{ field: "protoPayload.serviceName", op: "eq", value: "iamcredentials.googleapis.com" }, { field: "protoPayload.methodName", op: "eq", value: "GenerateAccessToken" }] },
     falsePositives: ["Legitimate CI/CD impersonating a deploy SA (expected; baseline the caller/target pair)."],
@@ -299,7 +299,7 @@ const useCases: UseCase[] = [
     id: "gcp_audit.gcs_object_read",
     title: "Cloud Storage object read (data access)",
     sourceId: "gcp_audit", severity: "medium", mitre: ["T1530"],
-    description: "storage.objects.get in the Data Access log — a read of object data. Data Access logging is off by default, so its presence plus a sensitive bucket / external caller is the exfil signal.",
+    description: "storage.objects.get in the Data Access log - a read of object data. Data Access logging is off by default, so its presence plus a sensitive bucket / external caller is the exfil signal.",
     logic: "SPL: methodName=storage.objects.get",
     match: { field: "protoPayload.methodName", op: "eq", value: "storage.objects.get" },
     falsePositives: ["Applications that legitimately read objects (scope by principal, bucket and caller IP)."],
@@ -308,7 +308,7 @@ const useCases: UseCase[] = [
     id: "gcp_audit.permission_denied",
     title: "Permission denied (recon hitting a wall)",
     sourceId: "gcp_audit", severity: "low", mitre: ["T1087"],
-    description: "status.code = 7 (PERMISSION_DENIED) — a principal attempting an action it is not authorised for; a burst of these from one principal is reconnaissance / privilege probing.",
+    description: "status.code = 7 (PERMISSION_DENIED) - a principal attempting an action it is not authorised for; a burst of these from one principal is reconnaissance / privilege probing.",
     logic: "SPL: protoPayload.status.code=7",
     match: { field: "protoPayload.status.code", op: "eq", value: 7 },
     falsePositives: ["Benign misconfiguration where an app lacks a permission it expects (fix the binding)."],
@@ -317,7 +317,7 @@ const useCases: UseCase[] = [
     id: "gcp_audit.sa_key_auth",
     title: "Call authenticated by a service-account key",
     sourceId: "gcp_audit", severity: "medium", mitre: ["T1552.004"],
-    description: "A request carrying authenticationInfo.serviceAccountKeyName — a stolen SA key leaves this on every call it makes, a strong IOC to pivot on across the audit trail.",
+    description: "A request carrying authenticationInfo.serviceAccountKeyName - a stolen SA key leaves this on every call it makes, a strong IOC to pivot on across the audit trail.",
     logic: "SPL: protoPayload.authenticationInfo.serviceAccountKeyName=*",
     match: { field: "protoPayload.authenticationInfo.serviceAccountKeyName", op: "exists" },
     falsePositives: ["Workloads that still authenticate with SA keys instead of workload identity (migrate them)."],

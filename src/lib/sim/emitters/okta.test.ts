@@ -83,7 +83,7 @@ describe("Okta emitters", () => {
     }
   });
 
-  it("is deterministic — same inputs render byte-identical output", () => {
+  it("is deterministic - same inputs render byte-identical output", () => {
     const a = oktaSignIn({ id: "x", ts: T(5), companyId: "rocketstack", user: "t.levy@rocketstack.io", srcIp: "203.0.113.10" });
     const b = oktaSignIn({ id: "x", ts: T(5), companyId: "rocketstack", user: "t.levy@rocketstack.io", srcIp: "203.0.113.10" });
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));

@@ -98,7 +98,7 @@ export function assertUseCases(src: NativeSource, attack: NativeLog[], noise: Na
 
 /**
  * Converted noise events: benign / company-profile origin, EXCLUDING the attacks
- * deliberately planted in the noise feed (expected_verdict tp/escalate) — those
+ * deliberately planted in the noise feed (expected_verdict tp/escalate) - those
  * are supposed to fire.
  */
 export function noiseLogs(conv: Converted[]): NativeLog[] {

@@ -33,7 +33,7 @@ describe("FortiGate emitters", () => {
     fgWaf({ id: "wa", ts: T(6), companyId: c, host: "FGT-VPN-01", attackerIp: "185.220.101.47", applianceIp: "156.146.62.14", portal: "vpn.x.io", url: "/api/v2/cmdb/system/admin/", method: "GET", status: 200, action: "pass", requester: "", userAgent: "curl/8.4.0", country: "Netherlands", logid: "0347028704", mitre: "T1190" }),
   ];
   // SSL-VPN is its own product line (vendor "FortiGate SSL-VPN", source vpn) so it maps
-  // to a distinct source from the firewall/UTM logs — its raw still uses fortigate fields.
+  // to a distinct source from the firewall/UTM logs - its raw still uses fortigate fields.
   const vpn = fgVpn({ id: "v", ts: T(3), companyId: c, user: "t.levy@rocketstack.io", remoteIp: "91.108.23.7", assignedIp: "10.212.134.9", outcome: "success" });
   it("registry-valid", () => assertValid(events, "fortigate", "FortiGate"));
   it("SSL-VPN is registry-valid under its own product vendor", () => {

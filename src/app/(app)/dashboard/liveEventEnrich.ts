@@ -3,8 +3,8 @@
  * progressive-fidelity noise) and the feed's shuffle/timing helpers.
  *
  * Split out of useLiveEvents.ts (QA phase 6, SEC-01) so the TEAM room can render
- * feed rows without importing the single-player simulation engine — whose attack
- * templates carry expected_verdict / fp_explanation — into its client bundle.
+ * feed rows without importing the single-player simulation engine - whose attack
+ * templates carry expected_verdict / fp_explanation - into its client bundle.
  * Keep this module free of engine / story / storage imports.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
@@ -76,7 +76,7 @@ const SOURCE_EVENT_RULE: Record<string, string> = {
   "cloudtrail:cloud_api_call":"HTS-80200",
 };
 
-// Windows events get a rule per EVENT ID, not per source:event_type — otherwise a network logon, an
+// Windows events get a rule per EVENT ID, not per source:event_type - otherwise a network logon, an
 // RDP logon, a Kerberos ticket and a GPO change all fire one rule id and "filter by rule / tune this
 // rule" becomes unteachable (Tal's diagnostic). Keyed on the real Event ID.
 const WINSEC_EVENT_RULE: Record<string, string> = {
@@ -92,16 +92,16 @@ const WINSEC_EVENT_RULE: Record<string, string> = {
 
 
 function calculateRuleLevel(event: TelemetryEvent): number {
-  // L-06 — SINGLE SOURCE OF TRUTH: the displayed rule level is derived purely from
+  // L-06 - SINGLE SOURCE OF TRUTH: the displayed rule level is derived purely from
   // the event severity, identically for attack and noise. The old function boosted
   // the level from mitre_technique (which ONLY attack events carry) and from
   // process/command content, so attack events uniquely reached levels 7-10 and a 9
-  // was unreachable by any noise event — filtering 7-10 and looking for a 9
+  // was unreachable by any noise event - filtering 7-10 and looking for a 9
   // isolated the attack without reading a single log. Tying level to severity, and
   // keeping genuine high-severity NOISE in the pool, closes that leak: an 8 or a 10
   // now appears on real incidents and benign decoys alike.
   // Owner rule (2026-10-06, after the team-training review): Wazuh's real 0-15 scale, used
-  // 3-15 here — nothing a SOC is shown sits below 3. Each severity owns a band; WHICH level in
+  // 3-15 here - nothing a SOC is shown sits below 3. Each severity owns a band; WHICH level in
   // the band is fixed per RULE (source + event type), never per event, so one rule always fires
   // at one level (E-08) and the level still tracks severity identically for attack and noise (L-06).
   const sev = event.severity ?? "informational";
@@ -122,19 +122,19 @@ export const LEVEL_BANDS: Record<string, [number, number]> = {
 /** Display thresholds shared by every view (feed filter, stats, situation board). */
 export const LEVEL_MEDIUM_MIN = 7;
 export const LEVEL_HIGH_MIN = 10;
-/** Severity bucket of a rule level — the inverse of LEVEL_BANDS. */
+/** Severity bucket of a rule level - the inverse of LEVEL_BANDS. */
 export function levelBucket(level: number): "critical" | "high" | "medium" | "low" | "informational" {
   return level >= 13 ? "critical" : level >= LEVEL_HIGH_MIN ? "high" : level >= LEVEL_MEDIUM_MIN ? "medium" : level >= 5 ? "low" : "informational";
 }
 
-/** Lowest level of a severity's band — for events built without a rule identity. */
+/** Lowest level of a severity's band - for events built without a rule identity. */
 export function severityBase(sev: string): number {
   return (LEVEL_BANDS[sev] ?? LEVEL_BANDS.informational)[0];
 }
 
 // ── L-02: realistic timing (no metronome) ─────────────────────────────────────
 // Real telemetry does not arrive on a fixed 60-second grid, and the events of one
-// incident do not all land within seconds — each product has its own ingestion
+// incident do not all land within seconds - each product has its own ingestion
 // lag. Before this, baseline events were spaced exactly 60s apart while attack
 // events burst 3-4s apart, so "sort by time and take everything off the grid"
 // solved any session without reading a log.
@@ -148,7 +148,7 @@ export function jitteredOffset(k: number): number {
   return ms;
 }
 
-// Per-source ingestion delay — the characteristic lag between an action and its
+// Per-source ingestion delay - the characteristic lag between an action and its
 // log landing in the SIEM. Spreads one incident's events across minutes and out of
 // strict order, so building the timeline is a genuine skill, not a sort.
 export function ingestionDelayMs(source: string): number {
@@ -178,7 +178,7 @@ export function buildRuleId(event: TelemetryEvent, index: number): string {
     const sourceKey = `${event.source}:${event.event_type}`;
     base = SOURCE_EVENT_RULE[sourceKey] ?? `HTS-${60000 + (index % 9000)}`;
   }
-  // E-08: a rule's level is a property of the RULE, not the event — one rule id must
+  // E-08: a rule's level is a property of the RULE, not the event - one rule id must
   // never fire at two levels, or "filter by rule id" and "how often did this rule
   // fire" return nonsense. But L-06 requires the LEVEL to track severity (so a high
   // level appears on high-severity NOISE too, not only attacks). We reconcile both by
@@ -212,7 +212,7 @@ export function extractDomainUsers(pool: TelemetryEvent[]): string[] {
 /**
  * On repeat cycles, swap the event's user_email with a different pool member
  * and update the plain-text description to match. Raw fields are left intact
- * (minor inconsistency tolerated — avoids inadvertently breaking structured fields).
+ * (minor inconsistency tolerated - avoids inadvertently breaking structured fields).
  */
 export function applyUserVariant(event: TelemetryEvent, cycle: number, users: string[]): TelemetryEvent {
   if (cycle === 0 || users.length <= 1 || !event.user_email) return event;
@@ -222,7 +222,7 @@ export function applyUserVariant(event: TelemetryEvent, cycle: number, users: st
   if (/^(svc-|ci-|admin@|noreply|system@)/i.test(event.user_email)) return event;
 
   const origIdx = users.indexOf(event.user_email);
-  if (origIdx === -1) return event; // unknown user — leave as-is
+  if (origIdx === -1) return event; // unknown user - leave as-is
   const altEmail = users[(origIdx + cycle) % users.length];
   if (altEmail === event.user_email) return event;
 
@@ -255,7 +255,7 @@ export const isOnceOnly = (e: TelemetryEvent) =>
 
 // ─── Progressive fidelity: stable pseudo-random helpers ───────────────────────
 // Deterministic (seeded off event.id) so a given event always renders the same
-// noise — no Math.random, which would differ across StrictMode double-invokes.
+// noise - no Math.random, which would differ across StrictMode double-invokes.
 function stableHash(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
@@ -274,7 +274,7 @@ function stableHex(seed: string, len: number): string {
  * correlation IDs) that a senior analyst must sift past to find the signal.
  * We add a source-appropriate handful ONLY for advanced-tier story events, so
  * foundation/core logs stay clean for beginners. Every field is neutral
- * metadata — it never states a verdict, preserving the no-hints rule. Each field
+ * metadata - it never states a verdict, preserving the no-hints rule. Each field
  * is namespaced to the event's OWN source (no cross-source contamination).
  */
 export function injectAdvancedFidelityNoise(raw: Record<string, unknown>, event: TelemetryEvent): void {
@@ -306,14 +306,17 @@ export function injectAdvancedFidelityNoise(raw: Record<string, unknown>, event:
     ["crowd", "sentinel", "sophos", "defender", "microsoft def", "mde"].some(x => v.includes(x));
 
   if (isEdr) {
+    // R3: one agent id per host and one customer id per company, never per event.
+    const hostKey = (event.hostname ?? id).toLowerCase();
+    const tenantKey = (event.user_email?.split("@")[1] ?? event.hostname?.split("-")[1] ?? "tenant").toLowerCase();
     if (v.includes("crowd")) {
-      set("crowdstrike.aid", stableHex("aid" + id, 32));
-      set("crowdstrike.cid", stableHex("cid" + id, 32));
+      set("crowdstrike.aid", stableHex("aid" + hostKey, 32));
+      set("crowdstrike.cid", stableHex("cid" + tenantKey, 32));
       set("crowdstrike.event_platform", "Win");
       set("crowdstrike.ConfigBuild", "1007.3.0018108.1");
     } else {
-      set("edr.sensor_id", stableHex("sensor" + id, 32));
-      set("edr.org_id", stableHex("org" + id, 16));
+      set("edr.sensor_id", stableHex("sensor" + hostKey, 32));
+      set("edr.org_id", stableHex("org" + tenantKey, 16));
       set("edr.agent_version", "7.20.19207");
     }
     return;
@@ -326,7 +329,7 @@ export function injectAdvancedFidelityNoise(raw: Record<string, unknown>, event:
     return;
   }
 
-  // Cloud / identity / o365 / okta / DLP — JSON-ingested sources.
+  // Cloud / identity / o365 / okta / DLP - JSON-ingested sources.
   set("correlation.id", `${stableHex("c" + id, 8)}-${stableHex("d" + id, 4)}-4${stableHex("e" + id, 3)}-${stableHex("f" + id, 4)}-${stableHex("g" + id, 12)}`);
   set("request.id", `${stableHex("r" + id, 8)}-${stableHex("h" + id, 4)}-${stableHex("i" + id, 4)}`);
 }
@@ -346,7 +349,7 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
   // Only Windows-native telemetry sources legitimately carry winlog.* fields.
   // Real EDR products (CrowdStrike/SentinelOne/Sophos/Defender-for-Endpoint)
   // report through their OWN schema and must NEVER be stamped with Sysmon /
-  // Windows-Security "Event Viewer" fields — doing so is the "EDR wearing
+  // Windows-Security "Event Viewer" fields - doing so is the "EDR wearing
   // Sysmon clothing" realism bug, and it was being applied to every EDR
   // process event system-wide (including the Easy-tier foundation stories).
   const isSysmonSource = event.source === "sysmon";
@@ -360,13 +363,13 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
     raw["winlog.provider_name"] = "Microsoft-Windows-Security-Auditing";
   }
 
-  // Channel + provider (Sysmon only — NOT EDR products)
+  // Channel + provider (Sysmon only - NOT EDR products)
   if (isSysmonSource && !raw["winlog.provider_name"]) {
     raw["winlog.provider_name"] = "Microsoft-Windows-Sysmon";
     raw["winlog.channel"]       = "Microsoft-Windows-Sysmon/Operational";
   }
 
-  // Every real Sysmon record carries ProcessGuid + ProcessId + UtcTime — the
+  // Every real Sysmon record carries ProcessGuid + ProcessId + UtcTime - the
   // ProcessGuid is the correlation key that threads Event 1 → 3 → 22 for one
   // process. Curated attack chains set their own (shared) ProcessGuid to make
   // the chain readable as one story; this only fills the gap for events that
@@ -387,7 +390,7 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
     }
   }
 
-  // Auth failure (4625) — Status / SubStatus / FailureReason (Windows Security only)
+  // Auth failure (4625) - Status / SubStatus / FailureReason (Windows Security only)
   if (isWinSecSource && event.event_type === "auth_failure" && !raw["winlog.event_data.Status"]) {
     const spray   = event.mitre_technique === "T1110.003";
     // Within auth_failure, detect lockout via description keyword since event_type is already narrowed
@@ -421,7 +424,7 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
     }
   }
 
-  // Auth success (4624) — KeyLength, SubjectUserSid (Windows Security only;
+  // Auth success (4624) - KeyLength, SubjectUserSid (Windows Security only;
   // an O365/Okta sign-in is NOT a Windows Security event)
   if (isWinSecSource && event.event_type === "auth_success" && !raw["winlog.event_data.KeyLength"]) {
     raw["winlog.event_data.KeyLength"]      = "0";
@@ -438,7 +441,7 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
     }
   }
 
-  // Account lockout (4740) — Windows Security only (Okta lockouts use okta.*)
+  // Account lockout (4740) - Windows Security only (Okta lockouts use okta.*)
   if (isWinSecSource && event.event_type === "account_lockout" && !raw["winlog.event_data.Status"]) {
     raw["winlog.event_data.Status"]        = "0xC0000234"; // STATUS_ACCOUNT_LOCKED_OUT
     // Guard: don't clobber an authored SubjectUserName (e.g. the DC computer account).
@@ -452,7 +455,7 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
     raw["winlog.provider_name"] = "Microsoft-Windows-Security-Auditing";
   }
 
-  // Sysmon Event 1 process_create — Image, CommandLine, IntegrityLevel.
+  // Sysmon Event 1 process_create - Image, CommandLine, IntegrityLevel.
   // Gated to Sysmon ONLY: EDR products already ship their own native process
   // fields (crowdstrike.*/s1.*/DeviceProcessEvents) and must not be given
   // Sysmon winlog fields.
@@ -471,7 +474,7 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
       ? `C:\\Users\\${event.user_email.split("@")[0]}\\`
       : "C:\\Windows\\system32\\";
     if (event.process.parent_name) {
-      // explorer.exe lives at C:\Windows\, not System32 — the rest are System32-resident.
+      // explorer.exe lives at C:\Windows\, not System32 - the rest are System32-resident.
       const parent = event.process.parent_name;
       raw["winlog.event_data.ParentImage"] = parent.toLowerCase() === "explorer.exe"
         ? "C:\\Windows\\explorer.exe"
@@ -483,7 +486,7 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
     }
   }
 
-  // Sysmon Event 3 net_connection — Sysmon only (a firewall net_connection
+  // Sysmon Event 3 net_connection - Sysmon only (a firewall net_connection
   // uses pan.*/cp.* fields, not winlog)
   if (isSysmonSource && event.event_type === "net_connection" && event.dst_ip && !raw["winlog.event_data.DestinationIp"]) {
     raw["winlog.event_data.DestinationIp"]   = event.dst_ip;
@@ -494,7 +497,7 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
     if (event.process?.name) raw["winlog.event_data.Image"] = event.process.name;
   }
 
-  // DNS query (Sysmon Event 22) — Sysmon only. A Windows-DNS-server event keeps
+  // DNS query (Sysmon Event 22) - Sysmon only. A Windows-DNS-server event keeps
   // its ECS dns.* namespace and must not gain a Sysmon event.code 22.
   if (isSysmonSource && event.event_type === "dns_query" && event.dns?.query && !raw["winlog.event_data.QueryName"]) {
     if (!raw["event.code"]) raw["event.code"] = "22";
@@ -504,12 +507,12 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
     raw["winlog.event_data.QueryStatus"]  = "0"; // SUCCESS / NOERROR
   }
 
-  // File create (Sysmon Event 11) — Sysmon only
+  // File create (Sysmon Event 11) - Sysmon only
   if (isSysmonSource && event.event_type === "file_create" && event.file?.path && !raw["winlog.event_data.TargetFilename"]) {
     raw["winlog.event_data.TargetFilename"] = event.file.path;
   }
 
-  // Registry set (Sysmon Event 13) — Sysmon only
+  // Registry set (Sysmon Event 13) - Sysmon only
   if (isSysmonSource && event.event_type === "registry_set" && event.registry?.path && !raw["winlog.event_data.TargetObject"]) {
     raw["winlog.event_data.TargetObject"] = event.registry.path;
     if (event.registry.value) raw["winlog.event_data.Details"] = event.registry.value;
@@ -518,7 +521,7 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
 
   // ── O365 / Azure AD auto-enrichment ─────────────────────────────────────
   if (event.source === "o365" && !raw["data.office365.Workload"]) {
-    // Inbox-rule / mailbox operations are Exchange admin events, not Azure AD —
+    // Inbox-rule / mailbox operations are Exchange admin events, not Azure AD -
     // even though we model them as `account_modify`.
     const op = String(raw["data.office365.Operation"] ?? o365Op ?? "");
     const isExchangeAdminOp = /InboxRule|Mailbox|TransportRule/i.test(op);
@@ -549,11 +552,11 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
 
   // ── Vendor-native field enrichment (Palo Alto / CrowdStrike) ─────────────
   // Central enrichment so every event from these vendors carries the fields a
-  // real SIEM ingest would show — without hand-editing dozens of pool events.
+  // real SIEM ingest would show - without hand-editing dozens of pool events.
   const isPrivateIp = (ip?: string) =>
     !!ip && (/^10\./.test(ip) || /^192\.168\./.test(ip) || /^172\.(1[6-9]|2\d|3[01])\./.test(ip));
 
-  // One PAN-OS field convention only — flat panw.* (matches the field registry;
+  // One PAN-OS field convention only - flat panw.* (matches the field registry;
   // avoids a second panw.panos.* schema on the same event).
   if (event.source === "firewall" && event.vendor?.includes("Palo Alto") && !raw["panw.type"]) {
     const isThreat = event.severity === "medium" || event.severity === "high" || event.severity === "critical";
@@ -565,7 +568,7 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
   }
 
   if (event.vendor?.includes("CrowdStrike") && !raw["crowdstrike.aid"]) {
-    // Deterministic 32-hex agent id from hostname — same host, same aid, like a real Falcon sensor
+    // Deterministic 32-hex agent id from hostname - same host, same aid, like a real Falcon sensor
     const host = event.hostname ?? "unknown-host";
     let h1 = 5381, h2 = 52711;
     for (let i = 0; i < host.length; i++) {
@@ -577,7 +580,7 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
     if (event.hostname && !raw["crowdstrike.ComputerName"]) raw["crowdstrike.ComputerName"] = event.hostname;
   }
 
-  // ── GeoLocation — auto-fill from event.geo struct OR src_ip ─────────────
+  // ── GeoLocation - auto-fill from event.geo struct OR src_ip ─────────────
   // The deterministic IP→location map lives in @/lib/geo/resolveGeo so the
   // threat-intel pivot resolves the SAME country/city as the feed (one IP → one
   // place, never a per-view divergence).

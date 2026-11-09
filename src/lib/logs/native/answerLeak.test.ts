@@ -1,5 +1,5 @@
 // L-05 guard: an attack event's authored description states the conclusion the analyst
-// must reach. It must never reach a field shown before the report — the native record
+// must reach. It must never reach a field shown before the report - the native record
 // (any product, any chosen stack) or the raw{} of the legacy view.
 import { describe, it, expect } from "vitest";
 import { ATTACK_STORIES, instantiateStory } from "@/app/(app)/dashboard/attackStories";

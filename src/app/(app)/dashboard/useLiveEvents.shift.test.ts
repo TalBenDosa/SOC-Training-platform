@@ -22,8 +22,10 @@ import { useLiveEvents, type LiveEventsApi } from "./useLiveEvents";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
+let authored = 0;
 const ev = (id: string, baseline = false): TelemetryEvent => ({
-  id, ts: new Date().toISOString(), source: "edr", event_type: "process_create",
+  // Authored five minutes apart, as a story is: rows authored together are one burst (storyFeed.ts).
+  id, ts: new Date(Date.UTC(2026, 4, 10, 9, 0) + (authored++) * 300_000).toISOString(), source: "edr", event_type: "process_create",
   severity: baseline ? "low" : "high", mitre_technique: baseline ? undefined : "T1059.001", hostname: "WKS-01",
   description: `${baseline ? "context" : "malicious"} activity ${id}`,
   ...(baseline ? { is_baseline: true, expected_verdict: "informational" } : {}),

@@ -1,15 +1,15 @@
 /**
- * AI-related attack stories — CORE tier.
+ * AI-related attack stories - CORE tier.
  *
  * Defensive training telemetry: what the SOC's log sources would record when AI is part of
  * the attack (a cloned voice at the help desk), the insider risk (a leaver moving data into
  * an enterprise AI workspace) or the abused surface (Microsoft 365 Copilot oversharing).
  *
- *  1. ai-helpdesk-voice-reset        — voice-clone impersonation → MFA reset → new-device
+ *  1. ai-helpdesk-voice-reset        - voice-clone impersonation → MFA reset → new-device
  *                                       sign-in → mailbox forwarding rule
- *  2. ai-claude-enterprise-departure — resignation → evening SharePoint downloads → uploads to a
+ *  2. ai-claude-enterprise-departure - resignation → evening SharePoint downloads → uploads to a
  *                                       Claude Enterprise project → produced file → USB copy
- *  3. ai-copilot-oversharing-probe   — Copilot jailbreak prompts + sensitivity-labelled
+ *  3. ai-copilot-oversharing-probe   - Copilot jailbreak prompts + sensitivity-labelled
  *                                       HR / IT / finance files read on behalf of a user who
  *                                       never opens them
  *
@@ -18,10 +18,10 @@
  * prose (only UPNs) so the victim swap stays consistent in descriptions and raw blocks.
  *
  * Log-shape notes
- *  - Purview CopilotInteraction carries NO prompt text — only message ids and the
+ *  - Purview CopilotInteraction carries NO prompt text - only message ids and the
  *    JailbreakDetected flag, plus AccessedResources (Name / Type / SensitivityLabelId / Status).
- *  - Claude Enterprise audit events carry NO prompt or file content — only ids, filename,
- *    actor, type — the activity record as it lands in the SIEM, no collector envelope.
+ *  - Claude Enterprise audit events carry NO prompt or file content - only ids, filename,
+ *    actor, type - the activity record as it lands in the SIEM, no collector envelope.
  *  - SharePoint records intentionally carry SourceRelativeUrl (site + library path) but no
  *    absolute tenant host, so no company-specific host survives the per-company swap.
  */
@@ -107,7 +107,7 @@ function guid(seed: string): string {
   return `${x.slice(0, 8)}-${x.slice(8, 12)}-4${x.slice(13, 16)}-a${x.slice(17, 20)}-${x.slice(20, 32)}`;
 }
 
-/** The NexaCorp Microsoft 365 tenant — the id the native Entra / UAL / Defender records carry for
+/** The NexaCorp Microsoft 365 tenant - the id the native Entra / UAL / Defender records carry for
  *  nexacorp (instantiateStory re-keys it to each company's tenant). */
 const TENANT_ID = makeCtx("nexacorp").tenant.azureTenantId;
 
@@ -456,10 +456,10 @@ interface ClaudeOpts {
 }
 
 /**
- * One Claude Enterprise Compliance-API activity as it lands in the SIEM — delegated to the
+ * One Claude Enterprise Compliance-API activity as it lands in the SIEM - delegated to the
  * shared emitter (src/lib/sim/emitters/claudeEnterprise.ts) so every Claude log in the
  * platform has the same field set and id formats. No prompt, response or file
- * content is present in this log — only ids, filename, actor and activity type.
+ * content is present in this log - only ids, filename, actor and activity type.
  */
 function claudeEvent(o: ClaudeOpts): TelemetryEvent {
   return claudeActivity({
@@ -467,7 +467,7 @@ function claudeEvent(o: ClaudeOpts): TelemetryEvent {
     type: o.type as ClaudeActivityType,
     email: o.email, ip: o.ip, userAgent: o.ua,
     geo: o.ip === OFFICE_IP ? { country: OFFICE_GEO.country, city: OFFICE_GEO.city, lat: OFFICE_GEO.latitude, lon: OFFICE_GEO.longitude }
-      : o.ip === "86.14.203.57" ? { country: "United Kingdom", city: "Manchester", lat: 53.4808, lon: -2.2426 }   // a.kaplan's home ISP
+      : o.ip === "198.51.100.39" ? { country: "United Kingdom", city: "Manchester", lat: 53.4808, lon: -2.2426 }   // a.kaplan's home ISP
       : undefined,
     projectSeed: o.projectId, fileSeed: o.fileId, chatSeed: o.chatId, filename: o.filename,
     severity: o.severity, description: o.description,
@@ -479,7 +479,7 @@ function claudeEvent(o: ClaudeOpts): TelemetryEvent {
 /**
  * Purview Endpoint DLP audit record (Unified Audit Log RecordType 63, Workload Endpoint) as the
  * SIEM ingests it: the file, the device, the matched policy/rule and sensitive-info types, and the
- * channel — TargetDomain for a cloud upload, TargetFilePath + RemovableMediaDeviceAttributes for USB.
+ * channel - TargetDomain for a cloud upload, TargetFilePath + RemovableMediaDeviceAttributes for USB.
  */
 function endpointDlp(o: {
   id: string; ts: string; user: string; host: string; ip: string; operation: "FileUploadedToCloud" | "FileCopiedToRemovableMedia";
@@ -530,7 +530,7 @@ function buildClaudeDeparture(): TelemetryEvent[] {
   const cx = "nexacorp" as const;
   const USER = "a.kaplan@nexacorp.com";
   const USER_ID = "user_01Gm4RzXq7NvKc2Bw9LhYt5D";
-  const HOME_IP = "86.14.203.57";
+  const HOME_IP = "198.51.100.39";
   const HOST = "WS-SALES-1876";
   const PROJECT = "proj:renewals-handover";
   const CHAT = "chat:renewals-handover";
@@ -557,7 +557,7 @@ function buildClaudeDeparture(): TelemetryEvent[] {
   });
 
   return [
-    // 1. HR: the resignation (no MITRE — routine business event).
+    // 1. HR: the resignation (no MITRE - routine business event).
     {
       id: "aicld1", ts: "2026-09-24T09:14:07.330Z", source: "hr", vendor: "Workday", event_type: "account_modify",
       user_email: USER, severity: "informational",
@@ -582,7 +582,7 @@ function buildClaudeDeparture(): TelemetryEvent[] {
       },
     },
 
-    // 2. Baseline — ordinary daytime Claude use from the office.
+    // 2. Baseline - ordinary daytime Claude use from the office.
     claudeEvent({
       id: "aicld2", ts: "2026-09-24T11:26:33.140Z", type: "claude_chat_created", ...base, ip: OFFICE_IP,
       severity: "informational", isBaseline: true,
@@ -591,7 +591,7 @@ function buildClaudeDeparture(): TelemetryEvent[] {
 
     // 3-5. Evening SharePoint downloads to the corporate laptop, from the home connection.
     spDownload("aicld3", "2026-09-24T19:44:52.310Z", F1,
-      "a.kaplan downloaded Enterprise_Accounts_Renewals_FY27.xlsx from the Sales-Operations library at 19:44 on the managed laptop WS-SALES-1876 (Chrome), from the home internet address 86.14.203.57, ten and a half hours after the resignation was recorded."),
+      "a.kaplan downloaded Enterprise_Accounts_Renewals_FY27.xlsx from the Sales-Operations library at 19:44 on the managed laptop WS-SALES-1876 (Chrome), from the home internet address 198.51.100.39, ten and a half hours after the resignation was recorded."),
     spDownload("aicld4", "2026-09-24T19:45:41.775Z", F2,
       "49 seconds later a.kaplan downloaded Top50_Customer_Contracts_Redlines.docx from the Sales-Operations contracts library, same device and address."),
     spDownload("aicld13", "2026-09-24T19:47:09.118Z", F3,
@@ -601,17 +601,17 @@ function buildClaudeDeparture(): TelemetryEvent[] {
     claudeEvent({
       id: "aicld6", ts: "2026-09-24T20:05:31.480Z", type: "claude_project_created", ...base, ip: HOME_IP, projectId: PROJECT,
       severity: "low",
-      description: "a.kaplan created a Claude Enterprise project at 20:05 from the home address 86.14.203.57, eight and a half hours after the last daytime session from the office. The record carries the project id only.",
+      description: "a.kaplan created a Claude Enterprise project at 20:05 from the home address 198.51.100.39, eight and a half hours after the last daytime session from the office. The record carries the project id only.",
     }),
 
-    // 7. First upload — the file just downloaded.
+    // 7. First upload - the file just downloaded.
     claudeEvent({
       id: "aicld7", ts: "2026-09-24T20:07:14.902Z", type: "claude_file_uploaded", ...base, ip: HOME_IP, projectId: PROJECT, fileId: F1.id, filename: F1.name,
       severity: "medium", mitre: "T1074.002", tactic: "Collection",
       description: "a.kaplan uploaded Enterprise_Accounts_Renewals_FY27.xlsx into the new project at 20:07, 22 minutes after downloading it from SharePoint.",
     }),
 
-    // 8. Endpoint DLP audits the browser upload of the same file — the first alert.
+    // 8. Endpoint DLP audits the browser upload of the same file - the first alert.
     endpointDlp({
       id: "aicld8", ts: "2026-09-24T20:07:19.880Z", user: USER, host: HOST, ip: HOME_IP, operation: "FileUploadedToCloud",
       app: "Google Chrome", filePath: `C:\\Users\\a.kaplan\\Downloads\\${F1.name}`, size: F1.size, sha256: F1_HASH,
@@ -782,7 +782,7 @@ function buildCopilotProbe(): TelemetryEvent[] {
       expected_verdict: "informational" as const,
     },
 
-    // 1. Baseline — routine Copilot use over the user's own team files.
+    // 1. Baseline - routine Copilot use over the user's own team files.
     copilot("aicop1", "2026-09-23T10:41:22.508Z", false, [
       { name: "Campaign_Calendar_Q4.pptx", type: "pptx", site: MKT },
       { name: "Brand_Guidelines_2026.pdf", type: "pdf", site: MKT },
@@ -806,12 +806,12 @@ function buildCopilotProbe(): TelemetryEvent[] {
       expected_verdict: "informational" as const,
     },
 
-    // 3. First flagged prompt — detected, nothing retrieved.
+    // 3. First flagged prompt - detected, nothing retrieved.
     copilot("aicop2", "2026-09-23T13:07:44.121Z", true, [], "medium",
     "A Copilot interaction by s.patel at 13:07 has JailbreakDetected=true on the prompt and no accessed resources. The record holds message ids and the flag, not the prompt text.",
     "T1213", "Collection"),
 
-    // 4. Second flagged prompt — flagged, but three labelled HR files were still read.
+    // 4. Second flagged prompt - flagged, but three labelled HR files were still read.
     copilot("aicop3", "2026-09-23T13:10:02.774Z", true, [
       { name: "Payroll_Register_Sep2026.xlsx", type: "xlsx", site: HUB, label: LABEL_HR },
       { name: "Exec_Compensation_Bands_2026.xlsx", type: "xlsx", site: HUB, label: LABEL_HR },
@@ -820,7 +820,7 @@ function buildCopilotProbe(): TelemetryEvent[] {
     "A second Copilot interaction at 13:10 again has JailbreakDetected=true, and Copilot read three files from the Leadership-Hub site with the HR sensitivity label a8f3c6d1 (payroll register, executive compensation bands, salary review proposals), all with Status success. The flag marks the prompt; it did not stop the reads.",
     "T1213", "Collection"),
 
-    // 5. Next prompt — no jailbreak flag, five more labelled HR files.
+    // 5. Next prompt - no jailbreak flag, five more labelled HR files.
     copilot("aicop4", "2026-09-23T13:14:37.309Z", false, [
       { name: "Bonus_Pool_Allocation_FY27.xlsx", type: "xlsx", site: HUB, label: LABEL_HR },
       { name: "Severance_Terms_Template.docx", type: "docx", site: HUB, label: LABEL_HR },
@@ -860,7 +860,7 @@ function buildCopilotProbe(): TelemetryEvent[] {
       "sites/Leadership-Hub/Shared Documents/HR-Compensation", "high",
       "s.patel downloaded Salary_Review_Proposals_FY27.xlsx from the Leadership-Hub HR-Compensation folder to WS-MKT-3301 at 13:41, a file Copilot had read at 13:10."),
 
-    // 10. The Insider Risk Management policy alert over the session — the first alert.
+    // 10. The Insider Risk Management policy alert over the session - the first alert.
     {
       id: "aicop8", ts: "2026-09-23T13:52:40.000Z", source: "ueba", vendor: "Microsoft Purview Insider Risk Management", event_type: "ueba_anomaly",
       severity: "high", user_email: USER, src_ip: OFFICE_IP, hostname: HOST,
@@ -908,14 +908,14 @@ export const AI_CORE_STORIES: AiStoryDef[] = [
   },
   {
     id: "ai-claude-enterprise-departure",
-    title: "Departing Employee — Sales Files Consolidated in Claude Enterprise, Then Copied to USB",
+    title: "Departing Employee - Sales Files Consolidated in Claude Enterprise, Then Copied to USB",
     complexity: "core",
     companies: ["nexacorp", "medcore", "globallogis", "quantumbank"], soloCompanies: ["nexacorp", "medcore", "globallogis"],
     events: buildClaudeDeparture(),
   },
   {
     id: "ai-copilot-oversharing-probe",
-    title: "Copilot Oversharing Probe — Jailbreak Prompts Pulling HR, IT and Finance Files",
+    title: "Copilot Oversharing Probe - Jailbreak Prompts Pulling HR, IT and Finance Files",
     complexity: "core",
     companies: ["nexacorp", "medcore", "globallogis", "quantumbank"], soloCompanies: ["nexacorp", "medcore", "globallogis"],
     events: buildCopilotProbe(),

@@ -8,9 +8,9 @@ import { sampleLogs, violationsOf, convertAll, contains, isNoise, flatSamples } 
 
 /*
  * Card samples: all 11 records of dns-infoblox.md (query / response lines, 3 RPZ CEF hits) are supported
- * kinds — none skipped.
+ * kinds - none skipped.
  * Corpus nulls: the dns-tunneling story's "dns_baseline_aggregate" event is a per-host summary
- * (top domains / query types), not a DNS transaction — the server never logs such a record.
+ * (top domains / query types), not a DNS transaction - the server never logs such a record.
  */
 const samples = sampleLogs(source, kindOf);
 const events = corpusFor(source.schema.telemetrySources);
@@ -18,14 +18,14 @@ const converted = convertAll(source, events);
 const nativeVendor = (v?: string) => source.schema.vendorMatch.some(m => (v ?? "").toLowerCase().includes(m));
 const documentedNull = (c: (typeof converted)[number]) => c.c.ev.raw?.["event.action"] === "dns_baseline_aggregate";
 
-describe("infoblox — card samples", () => {
+describe("infoblox - card samples", () => {
   it("every supported card sample validates with zero violations", () => {
     expect(samples.logs.length).toBe(flatSamples(source.schema.card).length);
     for (const l of samples.logs) expect(violationsOf(l, source), `${l.kind} ${JSON.stringify(l.record).slice(0, 80)}`).toEqual([]);
   });
 });
 
-describe("infoblox — corpus conversion", () => {
+describe("infoblox - corpus conversion", () => {
   it("converts every DNS event (or returns null for a documented reason) with zero violations", () => {
     for (const c of converted) {
       expect(c.error).toBeUndefined();
@@ -72,7 +72,7 @@ describe("infoblox — corpus conversion", () => {
   });
 });
 
-describe("infoblox — use cases", () => {
+describe("infoblox - use cases", () => {
   // DGA burst fixture built from the card's §4.2 NXDOMAIN response record: 12 distinct random names from
   // the same client within 2 minutes (the card shows two; the detection needs the burst).
   const nx = flatSamples(source.schema.card).find(r => r.rcode === "NXDOMAIN")!;

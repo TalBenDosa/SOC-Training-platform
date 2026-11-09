@@ -1,9 +1,9 @@
 /**
  * Shared helpers for the IDENTITY native modules (entra, okta, windows_security,
- * cyberark). NOT a source module (no `source` export) — the leading underscore
+ * cyberark). NOT a source module (no `source` export) - the leading underscore
  * marks it as a helper.
  *
- * The core idea: every identity TelemetryEvent — whatever vendor authored it —
+ * The core idea: every identity TelemetryEvent - whatever vendor authored it -
  * is reduced to vendor-neutral {@link IdFacts} (who, from where, what happened,
  * how it ended). Each IdP module then renders those facts in its own native
  * shape. That is what lets an Okta-authored MFA-fatigue story be shown as Entra
@@ -12,6 +12,7 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { knownGeoForIp } from "@/lib/geo/resolveGeo";
+import { docOwnerOfIp } from "@/lib/sim/docAddresses";
 import type { NativeCtx } from "../types";
 
 // ── raw-map access ───────────────────────────────────────────────────────────
@@ -128,7 +129,7 @@ export const COMPANY_HQ: Record<string, string> = { nexacorp: "GB", rocketstack:
 export interface GeoFacts { iso: string; country: string; city: string; state: string; lat: number; lon: number; postal: string }
 
 /**
- * Network owners of the address ranges the stories use as anonymizers — a Tor exit or an
+ * Network owners of the address ranges the stories use as anonymizers - a Tor exit or an
  * anonymous-VPN range is `isProxy` / `anonymizedIPAddress` in every row that shows it, with the
  * operator's ASN (never the HQ's home ISP). Location stays with the platform's shared IP→geo map
  * (lib/geo/resolveGeo), so the feed, the threat-intel drawer and the IdP records agree.
@@ -168,7 +169,7 @@ export function geoOf(ev: TelemetryEvent, ctx: NativeCtx, ip?: string): GeoFacts
   let ci = countryInfo(a.country) ?? (known ? countryInfo(known.country) : undefined);
   if (!ci) ci = countryInfo(COMPANY_HQ[ctx.companyId] ?? "IL");
   const c = ci as CountryInfo;
-  // The shared map labels some cities for analysts ("San Francisco (Cloudflare)", "Tor Exit — Unknown"); an IdP prints a city.
+  // The shared map labels some cities for analysts ("San Francisco (Cloudflare)", "Tor Exit - Unknown"); an IdP prints a city.
   const knownCity = known && countryInfo(known.country) === c && !/unknown/i.test(known.city) ? known.city.replace(/\s*\(.*\)$/, "") : undefined;
   const cityRaw = a.city ?? knownCity;
   const lat = a.latitude ?? (knownCity ? known!.lat : undefined);
@@ -186,7 +187,7 @@ export interface AsnFacts { asn: number | null; asOrg: string | null; isp: strin
 /** Network owner of the client IP: authored (structured geo, then Okta / Entra raw) → known operator ranges → the country's carrier. */
 export function asnOf(ev: TelemetryEvent, geo: GeoFacts, ip?: string): AsnFacts {
   if (isPrivateIp(ip)) return { asn: null, asOrg: null, isp: null, domain: null, isProxy: false };
-  const owner = netOwnerOf(ip);
+  const owner = docOwnerOfIp(ip) ?? netOwnerOf(ip);
   const proxyRaw = ev.geo?.anonymous ?? rawAny(ev, "okta.securityContext.isProxy");
   const asnRaw = ev.geo?.asn !== undefined ? String(ev.geo.asn) : rawStr(ev, "okta.securityContext.asNumber", "azure.signinlogs.properties.autonomousSystemNumber");
   const c = countryInfo(geo.iso)!;
@@ -509,7 +510,7 @@ export function identityFacts(ev: TelemetryEvent): IdFacts | null {
 }
 /**
  * The method a "User registered security info" audit added, from the authored reason / the NEW
- * StrongAuthenticationMethod entries (the last one added) — not the method the user had before.
+ * StrongAuthenticationMethod entries (the last one added) - not the method the user had before.
  */
 function registeredMethodOf(ev: TelemetryEvent): MfaMethod | undefined {
   const reason = rawStr(ev, "azure.auditlogs.properties.resultReason", "data.office365.ResultStatusDetail") ?? "";
@@ -562,12 +563,12 @@ export function b62(ctx: NativeCtx, seed: string, n: number): string {
 
 // ── stable identity ids (one value per user / per session, in every Microsoft record) ──
 
-/** Entra object id of a user — the SAME value in Entra sign-ins / audits, the UAL (TokenObjectId, UserKey) and MDO (RecipientObjectId). */
+/** Entra object id of a user - the SAME value in Entra sign-ins / audits, the UAL (TokenObjectId, UserKey) and MDO (RecipientObjectId). */
 export function entraObjectId(ctx: NativeCtx, upn: string): string {
   return ctx.uuid(`${ctx.companyId}:aadoid:${upn.toLowerCase()}`);
 }
 /**
- * Entra session id when the story authored none: one per user + client IP + day — the sign-in's
+ * Entra session id when the story authored none: one per user + client IP + day - the sign-in's
  * `sessionId` and the UAL's `AppAccessContext.AADSessionId` of what that session then did agree.
  */
 export function aadSessionId(ctx: NativeCtx, upn: string, ip: string | undefined, ts: string): string {
@@ -588,7 +589,7 @@ function clientIpOf(e: TelemetryEvent): string | undefined {
 const emailOf = (e: TelemetryEvent) => (e.user?.email ?? e.user_email ?? rawStr(e, "okta.actor.alternateId", "azure.signinlogs.properties.userPrincipalName", "data.office365.UserId"))?.toLowerCase();
 const OKTA_SID = "okta.authenticationContext.externalSessionId";
 const ENTRA_SID = "azure.signinlogs.properties.sessionId";
-/** An Okta row that belongs to an authenticated (or authenticating) session — not a failed password, a lockout or a ThreatInsight block. */
+/** An Okta row that belongs to an authenticated (or authenticating) session - not a failed password, a lockout or a ThreatInsight block. */
 function oktaSessionRow(e: TelemetryEvent): boolean {
   const t = rawStr(e, "okta.eventType");
   if (!t || t === "user.account.lock" || t === "user.account.lock.limit" || t === "security.threat.detected") return false;
@@ -600,15 +601,15 @@ function oktaSessionRow(e: TelemetryEvent): boolean {
  * Story-level consistency for identity / SaaS / VPN rows, applied when a story is instantiated
  * (attackStories.instantiateStory). A renderer only ever sees one row; these facts span rows:
  *
- *  • one place and one network owner per client IP — the location / ASN / anonymizer flag the
+ *  • one place and one network owner per client IP - the location / ASN / anonymizer flag the
  *    story authored for an address (first in time) is carried to every row of that address, so
  *    an MFA approval never sits in Tel Aviv while its sign-in sits in Warsaw;
- *  • one Okta session per login flow — a user's rows from one address less than an hour apart
+ *  • one Okta session per login flow - a user's rows from one address less than an hour apart
  *    share the session id of the flow's first session-bearing row (sign-in, MFA, policy);
- *  • Entra / UAL linkage — sign-ins of a flow with no authored Entra session take the flow's
+ *  • Entra / UAL linkage - sign-ins of a flow with no authored Entra session take the flow's
  *    authored one; a UAL record carries that session (AADSessionId) and a token issued at the
  *    latest sign-in before it (never before the flow's first sign-in);
- *  • mail — a sender who already mailed the recipient earlier in the story is not a first contact.
+ *  • mail - a sender who already mailed the recipient earlier in the story is not a first contact.
  *
  * Authored values on a row are kept, except where they contradict the address or the flow.
  */

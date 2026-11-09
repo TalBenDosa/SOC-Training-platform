@@ -5,7 +5,7 @@
  * EDR modules (crowdstrike, mde, sentinelone, sophos) render these facts in their
  * own native format, so one authored event can be shown as any EDR product.
  *
- * Only values that already exist on the event are read — nothing is invented here.
+ * Only values that already exist on the event are read - nothing is invented here.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { ecsTechniqueId, signState } from "@/lib/logs/ecsFields";
@@ -135,7 +135,7 @@ const TELEMETRY_ET = /^(file_|process_create$|linux_execve$|net_connection$|dns_
  * Raw keys only an authored product verdict carries (a detection name, a disposition, a mitigation).
  * Deliberately NOT here: the keys a cross-vendor reshape stamps on every alert-grade row whatever it
  * is (threat.technique.id, crowdstrike.SeverityName, s1.threat.confidenceLevel / classification /
- * mitigationStatus, s1.detection.classification) — they say "this row is important", not "the product
+ * mitigationStatus, s1.detection.classification) - they say "this row is important", not "the product
  * convicted it".
  */
 const VERDICT_KEY = /^(crowdstrike\.(DetectName|DetectDescription|DetectId|PatternDisposition\w*)|s1\.(threat\.threatName|indicator\.name|mitigation_status|detection\.classification_source)|threat\.name|malware\.name|ThreatName|windefend\.\w+(\.\w+)*)$/;
@@ -162,7 +162,7 @@ function kindOf(ev: TelemetryEvent, r: Record<string, unknown>): { kind: EdrKind
   // A telemetry step (a process start, a file write, a connection …) is a product DETECTION only
   // when the product's own verdict is on it. `is_detection` marks the feed row as alert-grade, and a
   // generic "DetectionSummaryEvent" simple name is what a vendor reshape stamps on any non-process
-  // event — neither turns a download into an alert or a process start into a threat record.
+  // event - neither turns a download into an alert or a process start into a threat record.
   const telemetryStep = TELEMETRY_ET.test(et);
   const mdeTitle = str(r["mde.AlertTitle"]);
   const productVerdict = Object.keys(r).some(k => VERDICT_KEY.test(k)) ||
@@ -289,11 +289,11 @@ export function edrFacts(ev: TelemetryEvent): EdrFacts {
     registry: { path: first(ev.registry?.path, r["registry.path"]), key: first(ev.registry?.key, r["registry.key"]), value: first(ev.registry?.value, r["registry.value"]) },
     detection: kind === "detection" ? {
       name: first(r["crowdstrike.DetectName"], r["threat.name"], r["malware.name"], r["mde.AlertTitle"], r["s1.indicator.name"], r["s1.threat.threatName"], r["sophos.detection_name"], r["ThreatName"], r["windefend.threat.name"], ev.rule?.name),
-      // Vendor field only — the authored description states the conclusion (L-05).
+      // Vendor field only - the authored description states the conclusion (L-05).
       description: first(r["crowdstrike.DetectDescription"]),
       severity: first(ev.severity, r["crowdstrike.SeverityName"]),
       technique: first(r["crowdstrike.Technique"], r["threat.technique.name"]),
-      // A flat Falcon detection names its technique, not the id — resolve the id from the name.
+      // A flat Falcon detection names its technique, not the id - resolve the id from the name.
       techniqueId: first(ev.mitre_technique, ecsTechniqueId(r), techniqueIdByName(str(r["crowdstrike.Technique"]))),
       tactic: first(ev.mitre_tactic, r["crowdstrike.Tactic"]),
       tacticId: first(r["threat.tactic.id"]),
@@ -344,7 +344,7 @@ function applyThread(f: EdrFacts, t: EndpointThread | undefined): EdrFacts {
 }
 
 /**
- * What the product did, as separate facts — an alert can kill a process AND quarantine its file,
+ * What the product did, as separate facts - an alert can kill a process AND quarantine its file,
  * which {@link EdrFacts.detection}.action (one word) cannot say. `blockedExec` = the authored event
  * says execution itself was prevented (the process never ran).
  */
@@ -402,7 +402,7 @@ export function taskFacts(ev: TelemetryEvent, f: EdrFacts): TaskFacts | null {
 
 /**
  * The task a `schtasks.exe /create` process creation registers (/tn name, /tr program). The
- * schtasks process is the registrar — the Task Scheduler records the registration as its own event
+ * schtasks process is the registrar - the Task Scheduler records the registration as its own event
  * next to the process start (Falcon ScheduledTaskRegistered, S1 Task Register, MDE ScheduledTaskCreated).
  */
 export function schtasksTask(f: EdrFacts): TaskFacts | null {

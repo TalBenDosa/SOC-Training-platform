@@ -1,7 +1,7 @@
 /**
- * Microsoft Windows DNS Server — native module (card: docs/log-schemas/dns-windows.md).
+ * Microsoft Windows DNS Server - native module (card: docs/log-schemas/dns-windows.md).
  *
- * Record: the `Microsoft-Windows-DNSServer/Analytical` event as a FLAT object — Event
+ * Record: the `Microsoft-Windows-DNSServer/Analytical` event as a FLAT object - Event
  * XML `System` names (ProviderName, EventID, … Computer, UserID) + every `EventData`
  * `Data Name` unchanged; EventData values are strings, System numerics are numbers,
  * exactly as the card shows. A query with a known outcome is rendered as event 257
@@ -9,7 +9,7 @@
  * (QUERY_RECEIVED). `rawLine` = the same transaction as a DNS **debug log** line
  * (server-local time, `(len)label(0)` wire name), as the card's §4.4.
  *
- * Category-wide: Infoblox-authored (and vendor-less) DNS events render here too — the
+ * Category-wide: Infoblox-authored (and vendor-less) DNS events render here too - the
  * facts (client, name, type, rcode, answer) are vendor-neutral. Windows DNS has no RPZ
  * concept, so an Infoblox RPZ action is shown only through its effect (RCODE).
  */
@@ -41,7 +41,7 @@ const kinds: Record<string, KindSchema> = {
   // (positional templates); Microsoft template gives an address on 519 only.
   "515": { required: [...SYSTEM, "Type", "NAME", "TTL", "RDATA", "Zone"], optional: [...RAW, "BufferSize", "ZoneScope", "VirtualizationID"] },
   "519": { required: [...SYSTEM, "Type", "NAME", "TTL", "RDATA", "Zone", "Source"], optional: [...RAW, "BufferSize", "ZoneScope", "VirtualizationID"] },
-  // Debug log (dns.log) row — keys are the file header's column names.
+  // Debug log (dns.log) row - keys are the file header's column names.
   debug: {
     required: ["Date", "Time", "Thread ID", "Context", "Internal packet identifier", "UDP/TCP indicator", "Send/Receive indicator", "Remote IP", "Xid (hex)", "Query/Response", "Opcode", "Flags (hex)", "Flags (char codes)", "ResponseCode", "Question Type", "Question Name"],
     optional: [...RAW],
@@ -177,7 +177,7 @@ const useCases: UseCase[] = [
   {
     id: "windows_dns.suspicious_tld_resolved", title: "Successful lookup of a high-abuse TLD", sourceId: "windows_dns", kinds: ["257"],
     severity: "medium", mitre: ["T1071.001", "T1583.001"],
-    description: "Cheap, rarely-moderated TLDs (.xyz, .top, .tk, .zip …) host a large share of phishing and C2 infrastructure. A NOERROR answer means the client got an IP for it — check the client's proxy/firewall traffic to that IP and the domain's age.",
+    description: "Cheap, rarely-moderated TLDs (.xyz, .top, .tk, .zip …) host a large share of phishing and C2 infrastructure. A NOERROR answer means the client got an IP for it - check the client's proxy/firewall traffic to that IP and the domain's age.",
     logic: "KQL: WindowsDnsAnalytical | where EventID == 257 and RCODE == \"0\" | where QNAME matches regex @\"\\.(xyz|top|tk|zip|…)\\.$\"",
     match: { all: [{ field: "RCODE", op: "eq", value: "0" }, { field: "QNAME", op: "regex", value: `\\.(${SUSPICIOUS_TLDS})\\.$` }] },
     falsePositives: ["Marketing / analytics vendors on new gTLDs", "Developers testing on personal domains"],
@@ -188,12 +188,12 @@ const useCases: UseCase[] = [
     description: "Phishing kits register names like <company>-sso.com or <company>-portal.eu so the link looks internal. Any client resolving a hyphenated 'service word' domain that is not the company's own zone deserves a look at what sent the user there (mail, chat, ad).",
     logic: "KQL: WindowsDnsAnalytical | where QNAME matches regex @\"-(sso|login|portal|helpdesk|vpn|…)\\.\" and not(QNAME endswith \"<corp-domain>.\")",
     match: { field: "QNAME", op: "regex", value: LOOKALIKE_RE },
-    falsePositives: ["Legitimate vendor SSO portals (vendor-sso.com) — allow-list after review"],
+    falsePositives: ["Legitimate vendor SSO portals (vendor-sso.com) - allow-list after review"],
   },
   {
     id: "windows_dns.recursion_txt_external_ns", title: "DC recursing a TXT query to an external name server", sourceId: "windows_dns", kinds: ["260"],
     severity: "medium", mitre: ["T1071.004"],
-    description: "Event 260 (RECURSE_QUERY_OUT) shows the DNS server itself forwarding a client's TXT query to an outside authoritative server (Destination). For a tunnel this is the attacker's name server — block that IP/NS at the firewall and hunt for other clients that reached it.",
+    description: "Event 260 (RECURSE_QUERY_OUT) shows the DNS server itself forwarding a client's TXT query to an outside authoritative server (Destination). For a tunnel this is the attacker's name server - block that IP/NS at the firewall and hunt for other clients that reached it.",
     logic: "KQL: WindowsDnsAnalytical | where EventID == 260 and QTYPE == \"16\" | summarize count() by Destination, QNAME",
     match: { all: [{ field: "EventID", op: "eq", value: 260 }, { field: "QTYPE", op: "eq", value: "16" }] },
     falsePositives: ["Mail relays resolving SPF/DKIM TXT records through the DC"],

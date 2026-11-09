@@ -1,10 +1,10 @@
 /**
- * Fortinet FortiGate SSL-VPN — FortiOS event log, type=event subtype=vpn.
+ * Fortinet FortiGate SSL-VPN - FortiOS event log, type=event subtype=vpn.
  * Card: docs/log-schemas/vpn-fortigate-sslvpn.md
  *
  * Text-native: the record is a FLAT object with the FortiOS keys unchanged, quoted
  * values as strings and bare numbers as numbers (except `eventtime`, a 19-digit
- * nanosecond epoch kept as a string — card §2). `rawLine` is the key=value line.
+ * nanosecond epoch kept as a string - card §2). `rawLine` is the key=value line.
  *
  * Kind = logid. Rendering of the platform's VPN events:
  *   auth failure / MFA denied → 0101039426 ssl-login-fail (tunneltype ssl-web, tunnelid 0)
@@ -145,7 +145,7 @@ const useCases: UseCase[] = [
     kinds: ["0101039426"],
     severity: "medium",
     mitre: ["T1110.001"],
-    description: "Ten or more ssl-login-fail events for the same `user` in 10 minutes — a password-guessing run against a single account (or FortiClient retrying a stale saved password).",
+    description: "Ten or more ssl-login-fail events for the same `user` in 10 minutes - a password-guessing run against a single account (or FortiClient retrying a stale saved password).",
     logic: "SPL: index=fortigate subtype=vpn action=ssl-login-fail user!=\"N/A\" | bin _time span=10m | stats count values(remip) BY user _time | where count>=10",
     match: { all: [{ field: "action", op: "eq", value: "ssl-login-fail" }, { field: "user", op: "neq", value: "N/A" }] },
     threshold: { groupBy: ["user"], count: 10, windowSec: 600 },
@@ -195,7 +195,7 @@ const useCases: UseCase[] = [
     kinds: ["0101039948", "0101039425"],
     severity: "medium",
     mitre: ["T1048", "T1030"],
-    description: "A tunnel-down log whose `rcvdbyte` exceeds 1 GB — the FortiGate received over a gigabyte from the client during the session (uploads into the network) . Check the session's tunnelip in traffic logs for what was transferred, and whether the session itself was suspicious (country, hour).",
+    description: "A tunnel-down log whose `rcvdbyte` exceeds 1 GB - the FortiGate received over a gigabyte from the client during the session (uploads into the network) . Check the session's tunnelip in traffic logs for what was transferred, and whether the session itself was suspicious (country, hour).",
     logic: "SPL: index=fortigate subtype=vpn action=tunnel-down rcvdbyte>1000000000 | eval GB=round(rcvdbyte/1024/1024/1024,2) | table _time user remip tunnelip duration GB",
     match: { all: [{ field: "action", op: "eq", value: "tunnel-down" }, { field: "rcvdbyte", op: "gt", value: 1_000_000_000 }] },
     falsePositives: ["Developers pushing large builds or VM images over the VPN"],

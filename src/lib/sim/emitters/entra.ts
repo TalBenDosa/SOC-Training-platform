@@ -1,14 +1,14 @@
 /**
  * Microsoft Entra ID (Azure AD) sign-in log EMITTER.
  *
- * The Microsoft identity plane — the Entra sign-in log an analyst reads for
+ * The Microsoft identity plane - the Entra sign-in log an analyst reads for
  * impossible-travel, token-replay, MFA, conditional-access and password-spray
  * cases on a Microsoft-stack tenant. Same contract as the other emitters: a
  * typed call renders a complete TelemetryEvent whose raw block uses only
  * registry-valid Entra fields (the azure.signinlogs. prefix + GeoLocation.*),
  * with the user drawn from the company fabric and the sign-in geography resolved
  * DETERMINISTICALLY from the source IP (@/lib/geo/resolveGeo) so one IP always
- * reads as one place — the same rule the feed and the threat-intel pivot use.
+ * reads as one place - the same rule the feed and the threat-intel pivot use.
  *
  * Entra sign-ins are surfaced under source:"o365" (the tenant's unified log),
  * carry no process, and match the shape the existing packs author by hand.
@@ -79,7 +79,7 @@ export interface EntraSignInOpts extends Ctx {
   conditionalAccess?: "success" | "failure" | "notApplicable";
   sessionId?: string;
   deviceName?: string;              // deviceDetail.displayName
-  incomingTokenType?: string;       // e.g. "primaryRefreshToken" — the token-replay tell
+  incomingTokenType?: string;       // e.g. "primaryRefreshToken" - the token-replay tell
   tokenIssuerType?: string;         // e.g. "AzureAD" | "ADFSFederated"
   tokenIssuerName?: string;         // federation issuer URI (ADFSFederated sign-ins)
   federatedTokenId?: string;        // pairs a cloud sign-in with an on-prem AD FS issuance
@@ -184,7 +184,7 @@ export function entraSignIn(o: EntraSignInOpts): TelemetryEvent {
 
 // ── Entra ID audit log (directory change) ────────────────────────────────────────────
 // The Entra AuditLogs stream (distinct from SignInLogs): a directory change an analyst
-// reads for account takeover and persistence — an admin resetting MFA methods, a user
+// reads for account takeover and persistence - an admin resetting MFA methods, a user
 // registering new security info, a role assignment. Uses the azure.auditlogs.* schema.
 export interface EntraAuditOpts extends Ctx {
   operationName: string;            // e.g. "Update user", "User registered security info"

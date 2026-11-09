@@ -10,13 +10,14 @@ import type { AttackStory } from "./attackStories";
 import { appendDashboardSession } from "@/lib/storage/progress";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { describeEvent } from "@/lib/sim/describeEvent";
-import { ecsTechnique } from "@/lib/logs/ecsFields";
+import { sentinelAlert } from "@/lib/sim/emitters/sentinel";
+import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 
 
 /**
  * Event times for a batch that arrives together (one attack phase): spread over the
  * last minute or two and strictly in story order, the newest a few seconds before
- * now. A log is never stamped in the future — ingestion lag makes it arrive AFTER it
+ * now. A log is never stamped in the future - ingestion lag makes it arrive AFTER it
  * happened, not before (the old stamping added the lag to the event time).
  */
 export function phaseTimes(n: number, now: number, rnd: () => number = Math.random): number[] {
@@ -79,7 +80,7 @@ function newShiftKey(): string {
 
 /**
  * Teaching payload for the POSITIVE "Learning Moment" debrief shown when an
- * attack completes without being reported. It is never a penalty — just "here's
+ * attack completes without being reported. It is never a penalty - just "here's
  * the pattern so you catch it next time".
  */
 export interface MissedIncidentDebrief {
@@ -87,16 +88,18 @@ export interface MissedIncidentDebrief {
   title: string;
   /** MITRE technique ID(s) the attack used. */
   techniques: string[];
-  /** One-line "how you could have caught it" tell — the standout signal. */
+  /** One-line "how you could have caught it" tell - the standout signal. */
   tell: string;
 }
 
-// Display enrichment + feed helpers live in ./liveEventEnrich (no engine import —
+// Display enrichment + feed helpers live in ./liveEventEnrich (no engine import -
 // the team room uses enrichEvent without pulling the simulation's answer data).
 import {
-  enrichEvent, applyUserVariant, buildRuleId, extractDomainUsers, ingestionDelayMs, injectAdvancedFidelityNoise, isOnceOnly, jitteredOffset, severityBase, shuffleArray,
+  enrichEvent, buildRuleId, ingestionDelayMs, injectAdvancedFidelityNoise, jitteredOffset, severityBase,
   type LiveEvent,
 } from "./liveEventEnrich";
+import { NoiseDeck } from "./noiseDeck";
+import { newStoryClock, noiseQuota, noiseTimes, phaseSize, placePhase, type StoryClock } from "./storyFeed";
 import { isAttackEvent } from "./groundTruth";
 export { enrichEvent };
 export type { LiveEvent };
@@ -104,16 +107,23 @@ export type { LiveEvent };
 /**
  * SIEM correlation mirror of an EDR detection. Real SOCs forward EDR alerts into
  * the SIEM, so an analyst working the SIEM feed sees the EDR verdict as its own
- * log line — not only in the /edr console. Generated at stream time (never a
+ * log line, not only in the /edr console. Generated at stream time (never a
  * static feed event) so it can't disturb the positional attack-chain split.
  *
  * Deliberately emitted at MEDIUM severity: the paired EDR event remains the
  * high/critical, gradeable primary detection, while this is a corroboration log.
  * Because the grader's feedAttackEvents gate is severity high|critical, a medium
- * mirror is never counted as a second attack (no ground-truth / indicator / catch
- * inflation) — but it IS part of the serialized evidence, so a student who cites
- * the SIEM alert's host/technique is validated as citing real evidence. FP decoys
- * are not mirrored (they drive their own IT-verify training on the primary).
+ * mirror is never counted as a second attack, but it IS part of the serialized
+ * evidence, so a student who cites the SIEM alert's host/technique is validated
+ * as citing real evidence.
+ *
+ * The row is a Microsoft Sentinel SecurityAlert built by the shared Sentinel emitter (R1: the
+ * same columns as every other Sentinel alert on the platform, no ECS-only block). Its StartTime /
+ * EndTime are the detection's own time and it is generated after it, never before (R4).
+ * A detection that IT will explain away (a training false positive) is forwarded too: a real
+ * SIEM forwards every EDR alert, and a mirror only on real attacks told the learner the verdict
+ * (R2 / R9). The mirror of a false positive keeps only its verdict, never the IT-verify material,
+ * so the decoy still has one "verify with IT" row.
  */
 export function siemMirror(e: LiveEvent, index: number): LiveEvent | null {
   if (e.source !== "edr") return null;
@@ -123,53 +133,56 @@ export function siemMirror(e: LiveEvent, index: number): LiveEvent | null {
     e.event_type === "edr_alert" ||
     ((e.severity === "high" || e.severity === "critical") && !!e.mitre_technique);
   if (!isDetection) return null;
-  if (e.it_verify_result || e.fp_explanation || e.expected_verdict === "fp") return null;
+  const fp = !!(e.it_verify_result || e.fp_explanation || e.expected_verdict === "fp");
 
   const vendor = e.vendor ?? "EDR";
   const host = e.hostname ? ` on ${e.hostname}` : "";
   const tech = e.mitre_technique ? ` (${e.mitre_technique})` : "";
-  // What the detection observably is — never the authored description, which on an
+  // What the detection observably is, never the authored description, which on an
   // attack event states the conclusion the analyst is meant to reach (L-05).
   const observed = describeEvent(e);
-  const desc = `SIEM correlation: ${vendor} detection ingested${host} — ${observed}${tech}`;
-  // The mirror is a Sentinel alert: drop the authored-source markers a chosen stack put
-  // on the EDR event, or the native renderer would show it as an EDR record again.
-  const { _authored_source: _src, _authored_vendor: _ven, ...base } = e as LiveEvent & { _authored_source?: string; _authored_vendor?: string };
-  void _src; void _ven;
+  const desc = `SIEM correlation: ${vendor} detection ingested${host}: ${observed}${tech}`;
+  const companyId = companyOfEvent(e);
+  // Generated after the detection it forwards (the connector's lag), never in the future.
+  const evMs = Date.parse(e.ts ?? "");
+  const alertMs = Number.isFinite(evMs) ? Math.max(evMs, Math.min(evMs + 30_000 + (index % 60) * 1_000, Date.now())) : Date.now();
+  const alert = sentinelAlert({
+    id: `${e.id}__siem`, ts: new Date(alertMs).toISOString(), companyId,
+    host: e.hostname, user: e.user_email ?? null,
+    // R3: the host's own address only. A remote peer on the row (an inbound attacker) is not this host's IP.
+    srcIp: e.src_ip && /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(e.src_ip) ? e.src_ip : "",
+    alertName: `${vendor} endpoint detection${host}`,
+    detail: observed, severity: "medium", eventType: "edr_alert",
+    alertKind: /defender/i.test(vendor) ? "mde" : "scheduled",
+    mitre: e.mitre_technique, tactic: e.mitre_tactic,
+    startTime: e.ts, endTime: e.ts,
+    extendedProperties: { "Source EDR Vendor": vendor, "Original Detection": observed },
+    eventAction: "edr-alert-forwarded",
+    description: desc,
+  });
   const mirror: LiveEvent = {
-    ...base,
+    ...alert,
     id: `${e.id}__siem`,
-    source: "siem",
-    vendor: "Microsoft Sentinel",
-    event_type: "edr_alert",
-    severity: "medium",
-    is_detection: undefined,
-    edr_scope: undefined,
-    // Drop the top-level technique/tactic so the mirror is NOT mapped to a
-    // kill-chain stage in AttackChainBoard (it would otherwise duplicate the
-    // EDR event's card). The technique is still shown to the analyst via
-    // raw["threat.technique.id"] / ["threat.technique.subtechnique.id"] below.
+    tier: e.tier,
+    ...(e.incident_id ? { incident_id: e.incident_id } : {}),
+    ...(fp ? { expected_verdict: "fp" as const } : {}),
+    // No top-level technique/tactic, so the mirror is NOT mapped to a kill-chain stage in
+    // AttackChainBoard (it would duplicate the EDR event's card). The analyst still sees the
+    // technique in the alert's Techniques / Tactics columns.
     mitre_technique: undefined,
     mitre_tactic: undefined,
-    description: desc,
-    raw: {
-      "AlertName": "EDR Detection — forwarded to SIEM",
-      "alert.rule.id": "SIEM-EDR-FWD-001",
-      "alert.severity": e.severity ?? "high",
-      ...(e.hostname ? { "host.name": e.hostname } : {}),
-      ...(e.src_ip ? { "host.ip": e.src_ip } : {}),
-      ...(e.user_email ? { "target.user.name": e.user_email } : {}),
-      ...ecsTechnique(e.mitre_technique),
-      "ExtendedProperties.Source EDR Vendor": vendor,
-      "ExtendedProperties.Original Detection": observed,
-      "event.action": "edr-alert-forwarded",
-      "event.outcome": "alerted",
-    },
     ruleLevel: severityBase("medium"),
     ruleId: buildRuleId({ ...e, source: "siem", event_type: "edr_alert", severity: "medium" } as TelemetryEvent, index),
     displayDescription: desc,
-  };
+  } as LiveEvent;
   return mirror;
+}
+
+/** The built-in company an event belongs to, from its mail domain (the mirror's tenant). */
+function companyOfEvent(e: TelemetryEvent): string | undefined {
+  const domain = e.user_email?.split("@")[1]?.toLowerCase();
+  if (!domain) return undefined;
+  return Object.entries(COMPANY_ASSETS).find(([, a]) => a.domain === domain)?.[0];
 }
 
 export interface DashboardSessionRecord {
@@ -178,21 +191,21 @@ export interface DashboardSessionRecord {
   xpEarned: number;
   /**
    * % of presented attacks the student actually caught (via a passing
-   * incident report) before the SLA expired. Real signal — derived from
+   * incident report) before the SLA expired. Real signal - derived from
    * attacksCaughtCount/attacksPresentedCount, both driven by markCaught()
    * and incident-open, not by the removed per-event classify() UI.
    */
   detectRate: number;
-  /** False-negative count — attacks the SLA timer expired on before the student
+  /** False-negative count - attacks the SLA timer expired on before the student
    * caught them. Tracked separately from detectRate on purpose (see
-   * ANALYST_TELEMETRY_PLAN.md) — over-escalating and missing real attacks are
+   * ANALYST_TELEMETRY_PLAN.md) - over-escalating and missing real attacks are
    * opposite failure modes and averaging them hides both. Optional: records
    * saved before this field lack it. */
   fnCount?: number;
   avgCatchMs: number | null;
   attacksCaughtCount: number;
   attacksPresentedCount: number;
-  /** Rows opened this session — a coarse thoroughness signal. Optional: records
+  /** Rows opened this session - a coarse thoroughness signal. Optional: records
    * saved before this field lack it. */
   eventsOpenedCount?: number;
   /** Wall-clock session length in ms (records saved before this field lack it) */
@@ -204,18 +217,18 @@ export interface DashboardSessionRecord {
 interface UseLiveEventsOptions {
   eventPool?: TelemetryEvent[];    // legacy mode: benign background noise
   companyId?: string;              // engine mode: generate events algorithmically
-  /** The session's attack story — events injected IN ORDER in small phases */
+  /** The session's attack story - events injected IN ORDER in small phases */
   story?: AttackStory | null;
   /** Called when the active story's final phase has been injected */
   onStoryComplete?: () => void;
   /** True while the analyst is actively investigating this incident (report modal
    *  open, or the EDR console in play). When true, the "you missed it" verdict is
-   *  deferred — a thorough investigation must never auto-fail the analyst. */
+   *  deferred - a thorough investigation must never auto-fail the analyst. */
   isInvestigating?: () => boolean;
   intervalMs?: number;
   maxVisible?: number;
   /**
-   * When false, the feed starts IDLE — no initial events, no streaming — until
+   * When false, the feed starts IDLE - no initial events, no streaming - until
    * reset()/resume() is called. The dashboard uses this so nothing runs until
    * the student presses Start Training. Defaults to true (legacy auto-start).
    */
@@ -235,23 +248,23 @@ export interface LiveEventsApi {
   /** Arm a new attack story mid-session. Optional delayMs overrides the default
    *  8-12 min campaign cooldown (the dashboard uses a shorter gap after a report). */
   startStory: (story: AttackStory, delayMs?: number) => void;
-  // Fires when an attack completes uncaught — drives the POSITIVE "Learning
+  // Fires when an attack completes uncaught - drives the POSITIVE "Learning
   // Moment" debrief (NOT a fail: no XP loss, no permanent halt). Paired with the
   // missedIncident teaching payload. clearMissedAttack resets both.
   missedAttack: boolean;
   clearMissedAttack: () => void;
   /** Teaching payload for the Learning-Moment debrief (what the attack was, its
-   *  MITRE technique(s), and the tell) — null when no debrief is active. */
+   *  MITRE technique(s), and the tell) - null when no debrief is active. */
   missedIncident: MissedIncidentDebrief | null;
-  /** Register a real catch — called when the student's incident report passes.
+  /** Register a real catch - called when the student's incident report passes.
    * Stops the response clock and records catch speed + response time. */
   markCaught: (eventId: string) => void;
-  // Response clock — ELAPSED seconds since the attack's first phase (counts UP;
+  // Response clock - ELAPSED seconds since the attack's first phase (counts UP;
   // pauses while investigating). null when no active attack. Never a deadline.
   attackTimerSeconds: number | null;
   /** Response time (ms) for the most recently handled incident, from attack
    * first-phase injection to catch / passing report. null until one is handled.
-   * A coaching metric only — never affects pass/fail or score. */
+   * A coaching metric only - never affects pass/fail or score. */
   lastResponseMs: number | null;
   /** The response-time TARGET in seconds (a coaching benchmark, not a deadline). */
   responseTargetSeconds: number;
@@ -276,7 +289,7 @@ export interface LiveEventsApi {
 
 // ─── Learning-Moment debrief builders ─────────────────────────────────────────
 
-/** The standout signal an analyst could have caught the attack by — the highest-
+/** The standout signal an analyst could have caught the attack by - the highest-
  *  severity event's plain-language description, which reads as the "tell". */
 function buildMissedTell(events: TelemetryEvent[]): string {
   const key = events.find(e => e.severity === "critical")
@@ -306,11 +319,11 @@ function inferIncidentTitle(events: TelemetryEvent[]): string {
   if (/ransomware|encrypt|locked/i.test(desc)) return "Ransomware Activity Detected";
   if (/lsass|credential|mimikatz|dcsync/i.test(desc)) return "Credential Theft in Progress";
   if (/psexec|lateral|smb|wmi/i.test(desc)) return "Lateral Movement Detected";
-  if (/phish|invoice|macro/i.test(desc))   return "Phishing Attack — Active Infection";
+  if (/phish|invoice|macro/i.test(desc))   return "Phishing Attack - Active Infection";
   if (/powershell|encoded|base64/i.test(desc)) return "Malicious PowerShell Execution";
   if (/oauth|consent|graph api/i.test(desc)) return "Unauthorized Cloud Access";
   if (/exfil|upload|download.*bulk/i.test(desc)) return "Data Exfiltration Attempt";
-  return "High-Severity Incident — Investigate";
+  return "High-Severity Incident - Investigate";
 }
 
 // Convert GeneratedEvent (engine output) → TelemetryEvent for enrichEvent()
@@ -335,7 +348,7 @@ export function useLiveEvents({
 }: UseLiveEventsOptions): LiveEventsApi {
   // Engine mode: true when companyId is provided
   const engineMode = Boolean(companyId);
-  // Start empty — populated in useEffect so SSR and client render the same HTML (avoids hydration mismatch)
+  // Start empty - populated in useEffect so SSR and client render the same HTML (avoids hydration mismatch)
   const [events, setEvents] = useState<LiveEvent[]>([]);
   const [isStreaming, setIsStreaming]       = useState(autoStart);
   // Read by timers/intervals (P5-02/03): they outlive renders, so they check the
@@ -352,19 +365,19 @@ export function useLiveEvents({
 
   // SLA countdown + per-skill tracking
   const [attackTimerSeconds,   setAttackTimerSeconds]   = useState<number | null>(null);
-  // fnCount = missed-attack count (Phase 1 telemetry — see ANALYST_TELEMETRY_PLAN.md).
+  // fnCount = missed-attack count (Phase 1 telemetry - see ANALYST_TELEMETRY_PLAN.md).
   // `missedAttack` stays a one-shot boolean for the existing "you missed it" UI
   // toast; fnCount is the cumulative counter for trend reporting.
   const [fnCount,               setFnCount]              = useState(0);
   const [eventsOpenedCount,     setEventsOpenedCount]    = useState(0);
   const [attacksCaughtCount,    setAttacksCaughtCount]   = useState(0);
   const [avgCatchMs,          setAvgCatchMs]           = useState<number | null>(null);
-  // Response time (ms) for the most recently handled incident — from attack
+  // Response time (ms) for the most recently handled incident - from attack
   // first-phase injection to the catch / passing report. Surfaced as a coaching
   // point in the incident report; never affects pass/fail or score.
   const [lastResponseMs,       setLastResponseMs]       = useState<number | null>(null);
   const [lastAttackChain,      setLastAttackChain]      = useState<LiveEvent[] | null>(null);
-  /** Incident ids already counted toward attacksCaughtCount — guards markCaught
+  /** Incident ids already counted toward attacksCaughtCount - guards markCaught
    * against double-incrementing if it's ever invoked twice for the same incident. */
   const countedIncidentIdsRef = useRef<Set<string>>(new Set());
   // QA-DASH-8: the session counters live in refs too, updated at mutation time, so
@@ -386,7 +399,7 @@ export function useLiveEvents({
   );
   /** Active attack story + injection cursor (events injected in order) */
   const storyRef          = useRef<AttackStory | null>(story);
-  /** The latest story armed (kept after it fully injects) — reset() with no story
+  /** The latest story armed (kept after it fully injects) - reset() with no story
    *  restarts it from phase 0 instead of leaving the shift with no attack (QA-DASH-5). */
   const currentStoryRef   = useRef<AttackStory | null>(story);
   /** The current story's events already injected (rebased), in story order. */
@@ -398,7 +411,7 @@ export function useLiveEvents({
   /**
    * enrichEvent + progressive fidelity. Log fidelity is a property of the
    * SESSION, not the individual event: when the active story is advanced-tier
-   * (a Hard session), EVERY event — benign background noise included — gets
+   * (a Hard session), EVERY event - benign background noise included - gets
    * production-grade metadata noise. Applying it session-wide (not just to
    * attack events) is deliberate: if only malicious rows were "fuller", field
    * count would leak the answer. Foundation/core sessions stay clean.
@@ -418,11 +431,11 @@ export function useLiveEvents({
   const isInvestigatingRef = useRef(isInvestigating);
   isInvestigatingRef.current = isInvestigating;
   // The live feed is a low-pressure PRACTICE space. When an attack completes
-  // uncaught we DO surface it — as a POSITIVE "Learning Moment" debrief, never a
+  // uncaught we DO surface it - as a POSITIVE "Learning Moment" debrief, never a
   // punishment. This watchdog fires it only after a GENEROUSLY long grace (far
   // longer than the old 4-minute trap), never while the analyst is mid-
   // investigation (it re-checks on a ~60s delay instead of interrupting), and
-  // never once markCaught has run. It does not fail the shift or claw back XP —
+  // never once markCaught has run. It does not fail the shift or claw back XP -
   // page.tsx pauses the feed behind the modal and resumes + arms the next attack
   // when they dismiss it.
   const MISS_DEBRIEF_GRACE_MS = 540_000; // 9 minutes after the attack's final phase
@@ -438,7 +451,7 @@ export function useLiveEvents({
         return;
       }
       // Surface the positive Learning-Moment debrief and pause the feed so the
-      // analyst actually reads it. No fail, no XP loss — page.tsx resumes on close.
+      // analyst actually reads it. No fail, no XP loss - page.tsx resumes on close.
       setMissedIncident(debrief);
       setMissedAttack(true);
       recordMissRef.current?.(debrief);
@@ -452,11 +465,11 @@ export function useLiveEvents({
   const missTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
   const caughtRef         = useRef(false);
   const attackTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Latest injectNextPhase — armPhase calls it without a dependency cycle. */
+  /** Latest injectNextPhase - armPhase calls it without a dependency cycle. */
   const injectNextPhaseRef = useRef<(() => void) | null>(null);
   /**
    * The ONLY way to schedule the next story phase (P5-02). It always clears the
-   * pending timer first, so there is never more than one phase chain — reset()
+   * pending timer first, so there is never more than one phase chain - reset()
    * and startStory() used to arm a timer that the streaming effect then
    * overwrote without clearing, leaving an orphaned second chain that injected
    * at double pace and kept going while the feed was paused.
@@ -468,15 +481,13 @@ export function useLiveEvents({
       injectNextPhaseRef.current?.();
     }, delay);
   }, []);
-  /** IDs of "once-only" events (IT-verify / FP training) already emitted this session */
-  const seenOnceRef        = useRef<Set<string>>(new Set());
-  /** Shuffle deck — repeatable events in random order, no duplicates until full cycle */
-  const deckRef            = useRef<TelemetryEvent[]>([]);
-  const deckPosRef         = useRef(0);
-  /** How many times the deck has been fully cycled through — used for user-rotation variants */
-  const cycleCountRef      = useRef(0);
-  /** Pool of regular user emails extracted from the event pool for rotation */
-  const domainUsersRef     = useRef<string[]>([]);
+  /** The shift's ordinary noise (noiseDeck.ts): one-off rows once per shift, recurring rows drawn fresh (R8). */
+  const noiseDeckRef       = useRef<NoiseDeck | null>(null);
+  /** The active story's one monotone time map (storyFeed.ts, R4). */
+  const storyClockRef      = useRef<StoryClock>(newStoryClock());
+  /** Ordinary rows shown since the last story phase, and when that phase landed (R8 noise quota). */
+  const noiseSinceRef      = useRef(0);
+  const lastPhaseAtRef     = useRef<number | null>(null);
   /** SLA countdown interval + catch speed tracking */
   const slaIntervalRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const catchSpeedMsRef    = useRef<number[]>([]);
@@ -487,30 +498,15 @@ export function useLiveEvents({
   const firstOpenedAtRef   = useRef<Map<string, number>>(new Map());
   /** Posts a missed attack to the learner's record (set below, once the helpers exist). */
   const recordMissRef      = useRef<((debrief: MissedIncidentDebrief) => void) | null>(null);
-  /** Session start — reset() restarts it; endSession() reports the duration */
+  /** Session start - reset() restarts it; endSession() reports the duration */
   const sessionStartRef    = useRef(Date.now());
 
-  /** Build (or rebuild) the shuffle deck from the current pool */
-  const buildDeck = (pool: TelemetryEvent[]) => {
-    const repeatable = pool.filter(e => !isOnceOnly(e));
-    deckRef.current  = shuffleArray(repeatable);
-    deckPosRef.current = 0;
-  };
-
-  /** Pull the next event from the deck — reshuffles when exhausted, applies user-rotation on repeat cycles */
-  const nextFromDeck = (): TelemetryEvent | null => {
-    if (deckRef.current.length === 0) return null;
-    if (deckPosRef.current >= deckRef.current.length) {
-      // Reshuffle for next cycle — prevents same last→first adjacency
-      deckRef.current = shuffleArray(deckRef.current);
-      deckPosRef.current = 0;
-      cycleCountRef.current += 1;
-    }
-    const event = deckRef.current[deckPosRef.current++];
-    // On repeat cycles, rotate the acting user so the feed never looks identical
-    return cycleCountRef.current > 0
-      ? applyUserVariant(event, cycleCountRef.current, domainUsersRef.current)
-      : event;
+  /** The next ordinary row of the shift, or null with an empty pool. */
+  const nextNoise = (): TelemetryEvent | null => {
+    const pool = poolRef.current;
+    if (pool.length === 0) return null;
+    if (!noiseDeckRef.current) noiseDeckRef.current = new NoiseDeck(pool);
+    return noiseDeckRef.current.next() ?? pool[Math.floor(Math.random() * pool.length)];
   };
 
   // ── Populate initial events client-side only (avoids SSR/hydration mismatch) ─
@@ -538,15 +534,9 @@ export function useLiveEvents({
     }
 
     // LEGACY MODE: shuffle from static pool
-    const pool = poolRef.current;
-    // Shuffle the whole pool so initial 15 events cover diverse sources, not just the first category in file order
-    const shuffled = shuffleArray(pool);
-    const initial = shuffled.slice(0, 15);
-    initial.forEach(e => { if (isOnceOnly(e)) seenOnceRef.current.add(e.id); });
-    const repeatable = shuffled.slice(15).filter(e => !isOnceOnly(e));
-    deckRef.current  = shuffleArray(repeatable.length > 0 ? repeatable : pool.filter(e => !isOnceOnly(e)));
-    deckPosRef.current = 0;
-    domainUsersRef.current = extractDomainUsers(pool);
+    // The whole pool is shuffled so the initial 15 events cover diverse sources.
+    noiseDeckRef.current = new NoiseDeck(poolRef.current);
+    const initial = noiseDeckRef.current.backfill(15);
     setEvents(
       initial.map((e, i) =>
         enrichWithFidelity(withRebasedTime(e, new Date(now - jitteredOffset(14 - i)).toISOString()), i)
@@ -568,7 +558,7 @@ export function useLiveEvents({
         // Fire next attack phase if due
         if (world.attack && attackDue(world)) {
           const attackEvents = advanceAttack(world);
-          // advanceAttack() clears world.attack once every phase has injected —
+          // advanceAttack() clears world.attack once every phase has injected -
           // that is the moment the story is genuinely over.
           const storyJustFinished = world.attack === null;
           if (attackEvents && attackEvents.length > 0) {
@@ -580,7 +570,7 @@ export function useLiveEvents({
               return {
                 ...tele,
                 // L-02: spread the incident's events across the last minutes, not a 3-4s
-                // burst — building the timeline is a real correlation exercise — and
+                // burst - building the timeline is a real correlation exercise - and
                 // never in the future (phaseTimes).
                 ts: new Date(times[i]).toISOString(),
                 id: `eng_atk_${now}_${i}`,
@@ -608,14 +598,14 @@ export function useLiveEvents({
               caughtRef.current = false;
               attackInjectedAtRef.current = now;
               presentedRef.current += 1;
-              // Response clock counts UP from 0 — an elapsed timer, not a
+              // Response clock counts UP from 0 - an elapsed timer, not a
               // countdown. It is never a fail at any value; it only measures how
               // long the analyst took so the report can coach on pace.
               setAttackTimerSeconds(0);
               if (slaIntervalRef.current) clearInterval(slaIntervalRef.current);
               slaIntervalRef.current = setInterval(() => {
                 // Paused while the analyst is working the case (report open / EDR
-                // in play) — that time must not count against them. No fail, ever.
+                // in play) - that time must not count against them. No fail, ever.
                 if (isInvestigatingRef.current?.()) return;
                 if (!isStreamingRef.current) return;   // feed paused → the clock pauses too (P5-03)
                 setAttackTimerSeconds(prev => (prev === null ? null : prev + 1));
@@ -670,16 +660,8 @@ export function useLiveEvents({
       const tickNow = Date.now();
 
       for (let i = 0; i < batchSize; i++) {
-        let chosen: TelemetryEvent | null = null;
-        if (Math.random() < 0.10) {
-          const unsentOnce = pool.filter(e => isOnceOnly(e) && !seenOnceRef.current.has(e.id));
-          if (unsentOnce.length > 0) {
-            chosen = unsentOnce[Math.floor(Math.random() * unsentOnce.length)];
-            seenOnceRef.current.add(chosen.id);
-          }
-        }
-        if (!chosen) chosen = nextFromDeck();
-        if (!chosen) chosen = pool[Math.floor(Math.random() * pool.length)];
+        const chosen = nextNoise();
+        if (!chosen) continue;
         // QA-DASH-7: each row back-dated by its source's ingestion lag (+ ms jitter),
         // never "now" with identical ms across the batch.
         const [t] = benignTimes([chosen.source], tickNow);
@@ -691,6 +673,8 @@ export function useLiveEvents({
         const m = siemMirror(en, globalIdx.current++);
         return m ? [en, m] : [en];
       });
+      // Only ordinary rows that land while a story runs count toward its quota (R8).
+      if (lastPhaseAtRef.current !== null) noiseSinceRef.current += enriched.length;
       const batchIds  = new Set(enriched.map(e => e.id));
       setNewIds(batchIds);
       setEvents(prev => mergeByTime(enriched, prev, maxVisible));
@@ -701,25 +685,25 @@ export function useLiveEvents({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- interval keyed intentionally; enrichWithFidelity/scheduleDebriefCheck are useCallback-stable and read live values via refs, so recreating the interval on their identity would only churn it
   }, [isStreaming, intervalMs, maxVisible, engineMode]);
 
-  // ── Attack injection — Story Scheduler ───────────────────────────────────────
+  // ── Attack injection - Story Scheduler ───────────────────────────────────────
   // The session story's events are injected IN ORDER in small phases (2-3 events)
   // so the student watches a coherent kill-chain unfold: first phase within
   // ~2-3 minutes, then a new phase every 2-4 minutes until all events appeared.
   const FIRST_PHASE_DELAY = () => 120_000 + Math.floor(Math.random() * 60_000);   // 2-3 min
   const PHASE_GAP         = () => 120_000 + Math.floor(Math.random() * 120_000);  // 2-4 min
 
-  // Response-time TARGET — a coaching benchmark, NOT a deadline. The response
+  // Response-time TARGET - a coaching benchmark, NOT a deadline. The response
   // clock counts up from 0; if the analyst catches/reports within this many
   // seconds the report notes a good pace, otherwise it gently flags faster
   // triage as an improvement area. Nothing fails or halts at this value.
-  const SLA_SECONDS = 900; // 15 minutes — response-time target
+  const SLA_SECONDS = 900; // 15 minutes - response-time target
 
   /**
    * Quiet period between the END of one attack campaign and the FIRST phase of
    * the next. Widened from 4-6 to 8-12 minutes: back-to-back campaigns left no
    * room to finish investigating and writing up one incident before the next
    * started competing for attention, which reads as relentless rather than
-   * realistic — a real shift has long quiet stretches between incidents.
+   * realistic - a real shift has long quiet stretches between incidents.
    */
   const ATTACK_COOLDOWN = () => 480_000 + Math.floor(Math.random() * 240_000); // 8-12 min
 
@@ -728,20 +712,17 @@ export function useLiveEvents({
     if (!s) return;
     const cursor = storyCursorRef.current;
     if (cursor >= s.events.length) return;
-    // Never inject behind a paused feed (report open, debrief, manual pause) —
+    // Never inject behind a paused feed (report open, debrief, manual pause) -
     // check again shortly; resume continues the story where it stopped.
     if (!isStreamingRef.current) { armPhase(5_000); return; }
 
-    const n = Math.min(s.events.length - cursor, 2 + (Math.random() < 0.5 ? 1 : 0)); // 2-3 events
+    // 2-3 events, plus the rest of an authored burst (storyFeed.ts phaseSize, R7).
+    const n = phaseSize(s.events, cursor);
     const now = Date.now();
-    const times = phaseTimes(n, now);
-    const slice = s.events.slice(cursor, cursor + n).map((e, i) => ({
-      // L-02: spread over the last minute or two in story order (was a 4s burst), so
-      // the attack doesn't stand out as "the only thing off the 60s grid" — and never
-      // stamped in the future (phaseTimes).
-      ...withRebasedTime(e, new Date(times[i]).toISOString(), { storyClock: "local" }),
-      id: `atk_${e.id}_${now}_${i}`,
-    }));
+    // L-02 / R4: the rows are spread over the last minute or two in story order, never in the future,
+    // and every time inside them goes through the story's ONE monotone map (storyFeed.ts placePhase).
+    const slice = placePhase(storyClockRef.current, s.events.slice(cursor, cursor + n), now).rows
+      .map((e, i) => ({ ...e, id: `atk_${s.events[cursor + i].id}_${now}_${i}` }));
     storyCursorRef.current = cursor + n;
     const storyDone = storyCursorRef.current >= s.events.length;
     storyInjectedRef.current = [...storyInjectedRef.current, ...slice];
@@ -756,9 +737,28 @@ export function useLiveEvents({
       if (isAttackEvent(ev)) attackIds.push(...rows.map(r => r.id));
       return rows;
     });
+    // R8: ordinary traffic keeps flowing around the attack, at least twice its rows: the noise owed
+    // since the last phase lands with this one, spread over the same minutes.
+    const owed = noiseQuota(attackIds.length, noiseSinceRef.current);
+    if (owed > 0) {
+      // Between the last phase and now; on the first phase, from its first attack row (the incident's window).
+      const lead = slice.some(isAttackEvent) ? slice.filter(isAttackEvent) : slice;
+      const firstShown = Math.min(...lead.map(e => Date.parse(e.ts ?? "")).filter(Number.isFinite), now - 60_000);
+      const from = Math.max(lastPhaseAtRef.current ?? firstShown, now - 240_000);
+      const nt = noiseTimes(owed, from, now - 5_000);
+      for (let k = 0; k < owed; k++) {
+        const chosen = nextNoise();
+        if (!chosen) break;
+        const en = enrichWithFidelity({ ...withRebasedTime(chosen, new Date(nt[k]).toISOString()), id: `${chosen.id}_${now}_q${k}` }, globalIdx.current++);
+        const m = siemMirror(en, globalIdx.current++);
+        enriched.push(...(m ? [en, m] : [en]));
+      }
+    }
+    // The incident's window opens with its first attack row: noise before it is not "around the attack".
+    if (attackIds.length > 0 || lastPhaseAtRef.current !== null) { noiseSinceRef.current = 0; lastPhaseAtRef.current = now; }
     const batchIds = new Set(enriched.map(e => e.id));
 
-    // The incident opens on the story's FIRST ATTACK event — never on a warm-up
+    // The incident opens on the story's FIRST ATTACK event - never on a warm-up
     // baseline row. Safety net: a story whose rows are all context still opens on
     // its last phase, so it can never become uncatchable.
     const opensNow = !incidentOpenedRef.current && (attackIds.length > 0 || storyDone);
@@ -777,12 +777,12 @@ export function useLiveEvents({
       caughtRef.current = false;
       attackInjectedAtRef.current = now;
       presentedRef.current += 1;
-      // Response clock starts at 0 and counts UP — an elapsed timer measuring how
+      // Response clock starts at 0 and counts UP - an elapsed timer measuring how
       // long the analyst takes to respond. It never fails or halts at any value.
       setAttackTimerSeconds(0);
       if (slaIntervalRef.current) clearInterval(slaIntervalRef.current);
       slaIntervalRef.current = setInterval(() => {
-        // Pause the response clock while the analyst is working the case — the
+        // Pause the response clock while the analyst is working the case - the
         // report is open (they're pulling data into it) or the EDR console is in
         // play. That time must not count against them.
         if (isInvestigatingRef.current?.()) return;
@@ -808,7 +808,7 @@ export function useLiveEvents({
 
     if (storyDone) {
       // Story fully injected. If it was never caught, schedule the POSITIVE
-      // Learning-Moment debrief after a generous grace — never a fail, never a
+      // Learning-Moment debrief after a generous grace - never a fail, never a
       // permanent halt (page.tsx pauses the feed behind the modal, then resumes
       // and arms the next attack on dismiss). A passing report before the grace
       // elapses cancels it via markCaught.
@@ -837,14 +837,14 @@ export function useLiveEvents({
       };
       attackTimerRef.current = setTimeout(scheduleEngineAttack, engineDelay());
     } else if (!attackTimerRef.current) {
-      // STORY MODE: arm the first phase — unless reset()/startStory() already
+      // STORY MODE: arm the first phase - unless reset()/startStory() already
       // queued one with its own delay (kept, not doubled: P5-02).
       armPhase(FIRST_PHASE_DELAY());
     }
 
     return () => {
       // Pausing stops the phase chain only. The response clock and the missed-
-      // attack debrief survive a pause (they wait while paused) — destroying
+      // attack debrief survive a pause (they wait while paused) - destroying
       // them here froze the clock and could stall the shift for good (P5-03).
       if (attackTimerRef.current) { clearTimeout(attackTimerRef.current); attackTimerRef.current = null; }
       if (missTimerRef.current)   clearTimeout(missTimerRef.current);
@@ -859,6 +859,9 @@ export function useLiveEvents({
     storyCursorRef.current = 0;
     storyInjectedRef.current = [];
     incidentOpenedRef.current = false;
+    storyClockRef.current = newStoryClock();
+    noiseSinceRef.current = 0;
+    lastPhaseAtRef.current = null;
     armPhase(delayMs ?? ATTACK_COOLDOWN());
   }, [armPhase]);
 
@@ -901,10 +904,10 @@ export function useLiveEvents({
         attackInjectedAtRef.current = null;
         const all = catchSpeedMsRef.current;
         setAvgCatchMs(Math.round(all.reduce((a, b) => a + b, 0) / all.length));
-        // This incident's response time — the coaching metric shown in the report.
+        // This incident's response time - the coaching metric shown in the report.
         setLastResponseMs(elapsed);
       }
-      // Count once per incident — guards against a double-call for the same catch.
+      // Count once per incident - guards against a double-call for the same catch.
       if (!countedIncidentIdsRef.current.has(incident.id)) {
         countedIncidentIdsRef.current.add(incident.id);
         caughtCountRef.current += 1;
@@ -942,13 +945,14 @@ export function useLiveEvents({
     globalIdx.current = 15;
     activeIncidentRef.current = null;
     caughtRef.current = false;
-    seenOnceRef.current = new Set(); // reset once-only tracking on company/pool switch
-    const src = pool ?? poolRef.current;
-    // Rebuild shuffle deck for the new pool (shuffled so initial 15 cover diverse sources)
-    const srcShuffled = shuffleArray(src);
-    buildDeck(srcShuffled);
+    storyClockRef.current = newStoryClock();
+    noiseSinceRef.current = 0;
+    lastPhaseAtRef.current = null;
+    // A fresh deck for the (new) pool: once-only and one-off rows reset per shift; the first 15
+    // rows are drawn from a shuffle of the whole pool so they cover diverse sources.
+    noiseDeckRef.current = new NoiseDeck(pool ?? poolRef.current);
     // QA-DASH-7: irregular, jittered backfill (was an exact 60s grid).
-    const backfill = srcShuffled.slice(0, 15);
+    const backfill = noiseDeckRef.current.backfill(15);
     const bf = backfillTimes(backfill.length, Date.now());
     setEvents(backfill.map((e, i) =>
       enrichWithFidelity(withRebasedTime(e, new Date(bf[i]).toISOString()), i)
@@ -1018,7 +1022,7 @@ export function useLiveEvents({
 
   // Phase-1 telemetry (see ANALYST_TELEMETRY_PLAN.md): a simple running count
   // of distinct rows the student opened this session, before/around reaching
-  // their verdict. Session-scoped rather than tightly bound to one incident —
+  // their verdict. Session-scoped rather than tightly bound to one incident -
   // per-incident scoping is a Phase 2 refinement.
   const recordEventOpened = useCallback((eventId?: string) => {
     openedRef.current += 1;

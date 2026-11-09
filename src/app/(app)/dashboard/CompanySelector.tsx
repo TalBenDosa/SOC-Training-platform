@@ -32,7 +32,7 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
   const clearedCount = clearedIds?.length ?? 0;
   const totalCount   = companies.length;
   // a11y: modal dialog. Escape closes only when closing is allowed (first visit
-  // is a mandatory choice — no onClose — so focus is trapped without Escape).
+  // is a mandatory choice - no onClose - so focus is trapped without Escape).
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(true, dialogRef, { onEscape: onClose });
 
@@ -91,7 +91,7 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
             const isActive  = c.id === currentId;
             const isLocked  = unlockedIds ? !unlockedIds.includes(c.id) : false;
             const isCleared = clearedIds?.includes(c.id) ?? false;
-            // A company unlocks when its predecessor is cleared, so name it —
+            // A company unlocks when its predecessor is cleared, so name it -
             // a bare lock icon (unlike RoomCard's "Complete X first") left the
             // learner guessing what to do next.
             const prevCompany = idx > 0 ? companies[idx - 1] : null;

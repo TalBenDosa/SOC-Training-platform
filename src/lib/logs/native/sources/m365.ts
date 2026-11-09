@@ -1,5 +1,5 @@
 /**
- * Microsoft 365 Unified Audit Log — Office 365 Management Activity API.
+ * Microsoft 365 Unified Audit Log - Office 365 Management Activity API.
  * Card: docs/log-schemas/collab-m365.md
  *
  * One log = one audit record exactly as a content blob delivers it: a flat
@@ -13,7 +13,7 @@
  *    Monitor shape (azure.signinlogs.*, azure.auditlogs.*) belong to the `entra`
  *    module → null. Entra events authored as UAL records (RT 8 / 15) render here.
  *  - Mail-flow events (MessageDelivered, SpamFiltered, Defender TIMailData RT 28)
- *    are not Unified Audit Log mailbox/admin records — they are email-security
+ *    are not Unified Audit Log mailbox/admin records - they are email-security
  *    telemetry (defender_o365 / proofpoint) → null.
  *  - Purview DLP rule matches (DLP.All, Operation DlpRuleMatch, RT 11 / 13 / 63) render per the
  *    Management Activity API DLP schema (./_m365-dlp). Copilot (RT 261), Graph-only calls
@@ -71,7 +71,7 @@ const schema: SourceSchema = {
     ExchangeAdmin: k([
       ...EXO_TOKEN, "ModifiedObjectResolvedName", "Parameters", "Parameters[].Name", "Parameters[].Value",
       "ModifiedProperties", "ModifiedProperties[].Name", "ModifiedProperties[].NewValue", "ModifiedProperties[].OldValue",
-      // Card S4 carries SessionId on an OWA cmdlet record (UNVERIFIED) — accepted, never emitted.
+      // Card S4 carries SessionId on an OWA cmdlet record (UNVERIFIED) - accepted, never emitted.
       "SessionId",
     ]),
     ExchangeItem: k([...MAILBOX, ...ITEM]),
@@ -277,7 +277,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const actor = (rawUserId && (isEmail(rawUserId) || isGuid(rawUserId))) ? rawUserId : user;
   if (!actor) return null;
   // M365 is SaaS: a user on the office LAN reaches it through the company's NAT egress, so the
-  // record carries that public address — the private one only tells us the device is on-site.
+  // record carries that public address - the private one only tells us the device is on-site.
   const lanIp = clientIp(ev);
   const ip = lanIp && isPrivateIp(lanIp) ? egressIp(ctx) : lanIp;
   const timeMs = Date.parse(ev.ts);
@@ -355,7 +355,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     const appId = rs(raw, "application.id", "ClientAppId");
     const ctxObj: Record<string, unknown> = {
       // The Entra session this token belongs to (the sign-in's sessionId) and when it was issued
-      // (the sign-in — threadIdentityContext — never before it).
+      // (the sign-in - threadIdentityContext - never before it).
       AADSessionId: rs(raw, "AppAccessContext.AADSessionId") ?? aadSessionId(ctx, user ?? actor, ip, ev.ts),
       IssuedAtTime: rs(raw, "AppAccessContext.IssuedAtTime") ?? isoNoMs(new Date(timeMs - ctx.int(`${ev.id}:iat`, 60, 1800) * 1000).toISOString()),
       UniqueTokenId: b64ish(ctx, `${ev.id}:uti`, 22),
@@ -722,13 +722,13 @@ const useCases: UseCase[] = [
       { field: "Operation", op: "in", value: ["New-InboxRule", "Set-InboxRule"] },
       { field: "Parameters[].Value", op: "regex", value: "^[.,;:'\"\\s\\u2024\\u2025\\u2026_-]{1,3}$" },
     ] },
-    falsePositives: ["Rarely legitimate — confirm with the mailbox owner"],
+    falsePositives: ["Rarely legitimate - confirm with the mailbox owner"],
   },
   {
     id: "m365.mailbox-smtp-forwarding",
     title: "Mailbox-level SMTP forwarding enabled (Set-Mailbox -ForwardingSmtpAddress)",
     sourceId: "m365", kinds: ["ExchangeAdmin"], severity: "high", mitre: ["T1114.003"],
-    description: "Set-Mailbox with ForwardingSmtpAddress forwards EVERY message the mailbox receives to that address — no rule shows in Outlook. Validate the destination domain and who ran the cmdlet from which ClientIP.",
+    description: "Set-Mailbox with ForwardingSmtpAddress forwards EVERY message the mailbox receives to that address - no rule shows in Outlook. Validate the destination domain and who ran the cmdlet from which ClientIP.",
     logic: "Sentinel KQL:\nOfficeActivity | where Operation == \"Set-Mailbox\"\n| where Parameters has \"ForwardingSmtpAddress\" | extend Dest = extract(@\"smtp:([^\\\"]+)\", 1, Parameters)",
     match: { all: [{ field: "Operation", op: "eq", value: "Set-Mailbox" }, { field: "Parameters[].Name", op: "eq", value: "ForwardingSmtpAddress" }] },
     falsePositives: ["Approved leave / sabbatical forwarding (check HR ticket)", "Migration projects forwarding to a new tenant"],
@@ -746,7 +746,7 @@ const useCases: UseCase[] = [
     id: "m365.mailitemsaccessed-external-sync",
     title: "Whole-folder mail Sync from an external IP",
     sourceId: "m365", kinds: ["ExchangeItemAggregated"], severity: "high", mitre: ["T1114.002"],
-    description: "MailItemsAccessed with MailAccessType=Sync means a client downloaded entire folders. From a non-corporate IP — especially right after a risky sign-in — it is mailbox exfiltration. Pivot on SessionId / AppAccessContext.AADSessionId to the sign-in that issued the token.",
+    description: "MailItemsAccessed with MailAccessType=Sync means a client downloaded entire folders. From a non-corporate IP - especially right after a risky sign-in - it is mailbox exfiltration. Pivot on SessionId / AppAccessContext.AADSessionId to the sign-in that issued the token.",
     logic: "Sentinel KQL:\nOfficeActivity | where Operation == \"MailItemsAccessed\"\n| where OperationProperties has '\"MailAccessType\",\"Value\":\"Sync\"' and not(ipv4_is_private(ClientIPAddress))",
     match: { all: [
       { field: "Operation", op: "eq", value: "MailItemsAccessed" },

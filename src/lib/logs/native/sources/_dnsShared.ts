@@ -2,7 +2,7 @@
  * Shared helpers for the DNS-server sources (windows_dns, infoblox).
  *
  * Both modules render the SAME vendor-neutral DNS facts (client IP, query name,
- * type, response code, answer) — this file extracts those facts once from a
+ * type, response code, answer) - this file extracts those facts once from a
  * TelemetryEvent (structured `dns{}` / `network{}` plus the legacy `raw` keys the
  * corpus uses: `infoblox.*`, `dns.question.*`, `dns.answers.*`, `source.ip` …),
  * and holds the server-local clock used by the text-native lines (Windows DNS
@@ -19,7 +19,7 @@ export interface DnsFacts {
   qname: string;
   /** Type mnemonic, upper-case (A, AAAA, TXT …). */
   qtype: string;
-  /** NOERROR / NXDOMAIN / SERVFAIL / REFUSED — undefined when the event carries no response. */
+  /** NOERROR / NXDOMAIN / SERVFAIL / REFUSED - undefined when the event carries no response. */
   rcode?: string;
   /** Answer data (IP for A/AAAA, text for TXT, name for CNAME). */
   answer?: string;
@@ -48,7 +48,7 @@ const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;
 /**
  * Pull the DNS facts out of a platform event. Returns null when the event is not a
  * single DNS transaction (e.g. an aggregate "baseline" summary) or has no client IP /
- * query name — a DNS server log line cannot exist without either.
+ * query name - a DNS server log line cannot exist without either.
  */
 export function dnsFacts(ev: TelemetryEvent): DnsFacts | null {
   const raw = ev.raw ?? {};
@@ -90,7 +90,7 @@ export function serverIpFor(f: DnsFacts, ctx: NativeCtx, last = 10): string {
 
 // ── Server-local clock ───────────────────────────────────────────────────────
 /**
- * The debug log, BIND and auditd syslog are stamped in the servers' local time —
+ * The debug log, BIND and auditd syslog are stamped in the servers' local time -
  * the company's own zone (ctx.ts), with real DST rules via Intl.
  */
 const fmtCache = new Map<string, Intl.DateTimeFormat>();
@@ -138,7 +138,7 @@ function nameBytes(qname: string): number[] {
   return out;
 }
 /**
- * The DNS message as it crossed the wire (header + question [+ one answer]) — the
+ * The DNS message as it crossed the wire (header + question [+ one answer]) - the
  * Windows Analytical `PacketData` hex. The answer RR is included for A (IPv4) and TXT
  * answers; other answer types are left out (ANCOUNT 0), as in the card sample.
  */

@@ -1,9 +1,9 @@
 /**
- * CyberArk Privileged Access Manager (Self-Hosted) — Vault audit via syslog, native module
+ * CyberArk Privileged Access Manager (Self-Hosted) - Vault audit via syslog, native module
  * (card: docs/log-schemas/pam-cyberark.md).
  *
- * Record: ONE Vault audit line as the shipped `Arcsight.sample.xsl` writes it — BSD syslog
- * header + CEF — flattened the card's way: `timestamp` (Vault-local "Mmm dd HH:MM:SS"),
+ * Record: ONE Vault audit line as the shipped `Arcsight.sample.xsl` writes it - BSD syslog
+ * header + CEF - flattened the card's way: `timestamp` (Vault-local "Mmm dd HH:MM:SS"),
  * `hostname` (the Vault), the CEF header (`CEFVersion`, `DeviceVendor` "Cyber-Ark",
  * `DeviceProduct` "Vault", `DeviceVersion`, `SignatureID` = the Vault action code, `Name`,
  * `Severity` 5/7), then the extension keys verbatim in XSL order (`act, suser, fname, shost,
@@ -12,8 +12,8 @@
  * syslog line rebuilt from the same values.
  *
  * Input: `source:"iam"` events whose vendor is CyberArk (category "pam"). The authored raw maps
- * use several legacy namespaces — `ca.*`, `cyberark.*`, `pam.*`, `access.request.*`,
- * `event.action` — and may already carry native CEF keys (`act`, `suser`, `cs2`, `reason` …),
+ * use several legacy namespaces - `ca.*`, `cyberark.*`, `pam.*`, `access.request.*`,
+ * `event.action` - and may already carry native CEF keys (`act`, `suser`, `cs2`, `reason` …),
  * which win. Evidence carried verbatim: the Vault user (suser), the station address (shost), the
  * privileged account + target (duser / dhost / fname), the safe (cs2), the reason text, the
  * access-request id (cn1). Missing values are deterministic per company / entity: the Vault
@@ -22,7 +22,7 @@
  *
  * Action mapping: a checkout / reveal → 295 Retrieve password; a PSM session start / end →
  * 300 / 302; a check-in of an exclusive account → 24 CPM Change Password by PasswordManager (the
- * one-time-password rotation on release — the Vault writes no separate "check-in" code); the
+ * one-time-password rotation on release - the Vault writes no separate "check-in" code); the
  * other card codes (4, 7, 8, 22, 31, 38, 57, 60, 180, 265, 294, 301, 303, 308, 309, 319, 359, 361,
  * 411, 427, 428) by name. Non-CyberArk "iam" events (Okta, Entra) are identity-provider records → null.
  */
@@ -241,7 +241,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const db = pick(raw, "cs4");
   if (db) r.cs4 = db;
   r.cs5Label = LABEL_TEXT.cs5Label;
-  // Other info: the window title / command a PSM session recorded (mapping UNVERIFIED on the card — only when authored).
+  // Other info: the window title / command a PSM session recorded (mapping UNVERIFIED on the card - only when authored).
   const other = pick(raw, "cs5", "cyberark.window_title", "cyberark.command");
   if (other && (code === "411" || code === "359" || code === "361")) r.cs5 = other;
   r.cn1Label = LABEL_TEXT.cn1Label;
@@ -260,10 +260,10 @@ const useCases: UseCase[] = [
   {
     id: "cyberark.tier0_retrieve_no_dual_control", title: "Tier-0 password revealed without a dual-control approval", sourceId: "cyberark", kinds: ["295"],
     severity: "high", mitre: ["T1078.002", "T1555"],
-    description: "A human Vault user revealed or copied (code 295) the password of an account in a Tier-0 safe (domain / enterprise admins) and the record carries no Request Id (cn1) — the dual-control approval that policy requires for these safes was never granted. After a 295 the password is outside CyberArk's control until the CPM rotates it.",
+    description: "A human Vault user revealed or copied (code 295) the password of an account in a Tier-0 safe (domain / enterprise admins) and the record carries no Request Id (cn1) - the dual-control approval that policy requires for these safes was never granted. After a 295 the password is outside CyberArk's control until the CPM rotates it.",
     logic: "SPL: sourcetype=cyberark:epv:cef signature_id=295 cs2=\"*Domain*Admin*\" OR cs2=\"T0-*\" NOT suser IN (PasswordManager, PSMApp_*, Prov_*) | where isnull(cn1) | table _time suser shost cs2 duser dhost reason",
     match: { all: [HUMAN, { field: "cs2", op: "regex", value: TIER0 }, { field: "cn1", op: "missing" }] },
-    falsePositives: ["Break-glass accounts whose safe is configured without dual control — confirm against the PAM policy and the on-call roster"],
+    falsePositives: ["Break-glass accounts whose safe is configured without dual control - confirm against the PAM policy and the on-call roster"],
   },
   {
     id: "cyberark.retrieve_no_reason_or_ticket", title: "Privileged password retrieved with no reason, ticket or request", sourceId: "cyberark", kinds: ["295", "428"],
@@ -271,7 +271,7 @@ const useCases: UseCase[] = [
     description: "A person (not a CyberArk component) retrieved a privileged password or SSH key with an empty or placeholder reason, no Ticket Id (cn2) and no Request Id (cn1). Ask for the change or incident it belongs to; an unexplained retrieval is the start of most PAM-abuse cases.",
     logic: "SPL: sourcetype=cyberark:epv:cef signature_id IN (295,428) NOT suser IN (PasswordManager, PSMApp_*, Prov_*) | where (isnull(reason) OR reason=\"\" OR match(reason,\"(?i)^(adhoc|n/?a|-|test)$\")) AND isnull(cn1) AND isnull(cn2)",
     match: { all: [HUMAN, { any: [{ field: "reason", op: "eq", value: "" }, { field: "reason", op: "regex", value: "^(adhoc|n/?a|-|test|none)$" }] }, { field: "cn1", op: "missing" }, { field: "cn2", op: "missing" }] },
-    falsePositives: ["Safes that do not enforce 'reason required' — the finding is the policy gap, not necessarily the person"],
+    falsePositives: ["Safes that do not enforce 'reason required' - the finding is the policy gap, not necessarily the person"],
   },
   {
     id: "cyberark.retrieve_offhours", title: "Privileged password retrieved outside business hours", sourceId: "cyberark", kinds: ["295", "428"],
@@ -284,7 +284,7 @@ const useCases: UseCase[] = [
   {
     id: "cyberark.vault_access_external_ip", title: "Vault logon or retrieval from a public address", sourceId: "cyberark", kinds: ["7", "295", "428", "300"],
     severity: "high", mitre: ["T1078", "T1133"],
-    description: "The station (shost) of a Vault logon or password retrieval is a public IP. PVWA is normally reachable only from the corporate network or the VPN pool — a public station means the portal is exposed or a hijacked session is being replayed from outside. Pivot to the identity provider's sign-in for the same user and minute.",
+    description: "The station (shost) of a Vault logon or password retrieval is a public IP. PVWA is normally reachable only from the corporate network or the VPN pool - a public station means the portal is exposed or a hijacked session is being replayed from outside. Pivot to the identity provider's sign-in for the same user and minute.",
     logic: "SPL: sourcetype=cyberark:epv:cef signature_id IN (7,295,428,300) | where NOT cidrmatch(\"10.0.0.0/8\",shost) AND NOT cidrmatch(\"172.16.0.0/12\",shost) AND NOT cidrmatch(\"192.168.0.0/16\",shost)",
     match: { all: [HUMAN, { field: "shost", op: "regex", value: "^\\d{1,3}(\\.\\d{1,3}){3}$" }, { field: "shost", op: "notCidr", value: "10.0.0.0/8" }, { field: "shost", op: "notCidr", value: "172.16.0.0/12" }, { field: "shost", op: "notCidr", value: "192.168.0.0/16" }] },
     falsePositives: ["A PVWA deliberately published to the internet behind an SSO portal"],
@@ -292,16 +292,16 @@ const useCases: UseCase[] = [
   {
     id: "cyberark.bulk_retrievals", title: "One user retrieving many privileged passwords", sourceId: "cyberark", kinds: ["295", "428"],
     severity: "high", mitre: ["T1555", "T1078.002"],
-    description: "Five or more different account objects (fname) retrieved by the same Vault user within an hour — credential harvesting from the Vault, either by an insider or by whoever holds the user's session.",
+    description: "Five or more different account objects (fname) retrieved by the same Vault user within an hour - credential harvesting from the Vault, either by an insider or by whoever holds the user's session.",
     logic: "SPL: sourcetype=cyberark:epv:cef signature_id IN (295,428) | bin _time span=1h | stats dc(fname) AS objects values(cs2) AS safes BY _time suser | where objects>=5",
     match: HUMAN,
     threshold: { groupBy: ["suser"], count: 5, windowSec: 3600, distinct: "fname" },
-    falsePositives: ["Migration or audit projects that legitimately touch many accounts — these should run under a ticket"],
+    falsePositives: ["Migration or audit projects that legitimately touch many accounts - these should run under a ticket"],
   },
   {
     id: "cyberark.vault_auth_failures", title: "Repeated Vault authentication failures from one station", sourceId: "cyberark", kinds: ["4"],
     severity: "high", mitre: ["T1110"],
-    description: "Three or more User Authentication Failure (code 4) records from the same station within five minutes — password guessing against the Vault. If a Logon (7) from the same shost follows, the guess or a reused password worked.",
+    description: "Three or more User Authentication Failure (code 4) records from the same station within five minutes - password guessing against the Vault. If a Logon (7) from the same shost follows, the guess or a reused password worked.",
     logic: "SPL: sourcetype=cyberark:epv:cef signature_id=4 | bin _time span=5m | stats count dc(suser) AS users BY _time shost | where count>=3",
     match: { field: "SignatureID", op: "eq", value: "4" },
     threshold: { groupBy: ["shost"], count: 3, windowSec: 300 },
@@ -313,12 +313,12 @@ const useCases: UseCase[] = [
     description: "Context: a brokered PSM session (code 300) to a Tier-0 safe or a domain controller. The session GUID (externalId) joins its window titles / commands and the closing 302, and names the recording; the target logs the logon from the PSM server, not from the user's workstation.",
     logic: "SPL: sourcetype=cyberark:epv:cef signature_id=300 (cs2=\"T0-*\" OR cs2=\"*Domain*Admin*\" OR dhost=\"DC*\") | table _time suser dhost duser externalId app",
     match: { any: [{ field: "cs2", op: "regex", value: TIER0 }, { field: "dhost", op: "regex", value: "(^|[-.])dc[-0-9]" }] },
-    falsePositives: ["Routine Tier-0 administration — exactly what PSM is for; use it to reconstruct the session"],
+    falsePositives: ["Routine Tier-0 administration - exactly what PSM is for; use it to reconstruct the session"],
   },
   {
     id: "cyberark.vault_membership_change", title: "Vault user created or added to a Vault group", sourceId: "cyberark", kinds: ["180", "265"],
     severity: "medium", mitre: ["T1098", "T1136"],
-    description: "Add User (180) or Add Group Member (265) in the Vault. A new member of a Vault admin or safe-owner group gains access to every account those safes hold — persistence that survives a domain password reset. Check who did it (suser), from where (shost) and whether a ticket exists.",
+    description: "Add User (180) or Add Group Member (265) in the Vault. A new member of a Vault admin or safe-owner group gains access to every account those safes hold - persistence that survives a domain password reset. Check who did it (suser), from where (shost) and whether a ticket exists.",
     logic: "SPL: sourcetype=cyberark:epv:cef signature_id IN (180,265) | table _time suser shost cs1 msg",
     match: { field: "SignatureID", op: "in", value: ["180", "265"] },
     falsePositives: ["Onboarding of new administrators through the access-request process"],
@@ -326,7 +326,7 @@ const useCases: UseCase[] = [
   {
     id: "cyberark.cpm_out_of_band_change", title: "CPM verify / change / reconcile failure on a managed account", sourceId: "cyberark", kinds: ["38", "57", "60"],
     severity: "medium", mitre: ["T1098", "T1531"],
-    description: "The CPM could not verify, change or reconcile a managed password (38 / 57 / 60): the real password no longer matches the Vault — someone changed it outside CyberArk. Check the directory for a password reset (4723/4724) of the same account (duser) in the preceding hours.",
+    description: "The CPM could not verify, change or reconcile a managed password (38 / 57 / 60): the real password no longer matches the Vault - someone changed it outside CyberArk. Check the directory for a password reset (4723/4724) of the same account (duser) in the preceding hours.",
     logic: "SPL: sourcetype=cyberark:epv:cef signature_id IN (38,57,60) suser=PasswordManager | table _time duser dhost cs2 msg",
     match: { field: "SignatureID", op: "in", value: ["38", "57", "60"] },
     falsePositives: ["Accounts whose password an administrator rotated by hand during an outage", "Target host unreachable during the CPM task"],

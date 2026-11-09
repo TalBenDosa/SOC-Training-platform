@@ -1,7 +1,7 @@
 /**
  * Okta Identity Cloud log EMITTERS.
  *
- * The SaaS identity plane — the tenant's OWN System Log view of every sign-in,
+ * The SaaS identity plane - the tenant's OWN System Log view of every sign-in,
  * failure, MFA challenge, push response and rate-limit warning (a customer
  * firewall never sees this traffic). This is where password-spray, credential-
  * stuffing, impossible-travel and MFA-fatigue scenarios live.
@@ -23,7 +23,7 @@ const VENDOR = "Okta";
 interface OktaGeo { country?: string; city?: string; latitude?: number; longitude?: number }
 
 interface OktaCtx extends Ctx {
-  /** sign-in origin (external attacker, or the user's egress). REQUIRED — Okta is
+  /** sign-in origin (external attacker, or the user's egress). REQUIRED - Okta is
    *  identity, so the IP is the evidence, not a host address. */
   srcIp: string;
   displayName?: string;
@@ -213,7 +213,7 @@ export function oktaMfa(o: OktaMfaOpts): TelemetryEvent {
   });
 }
 
-// ── System event (rate-limit warning, etc.) — no user identity ────────────────────────
+// ── System event (rate-limit warning, etc.) - no user identity ────────────────────────
 export interface OktaSystemOpts extends OktaCtx {
   eventType: string;               // e.g. "system.org.rate_limit.warning"
   displayMessage: string;

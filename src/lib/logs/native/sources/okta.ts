@@ -1,12 +1,12 @@
 /**
- * Okta — System Log native module (card: docs/log-schemas/idp-okta.md).
+ * Okta - System Log native module (card: docs/log-schemas/idp-okta.md).
  *
  * One LogEvent per event, exactly as `GET /api/v1/logs` returns it (no array
  * wrapper): alphabetical top-level keys, documented nulls kept, `published` with
  * milliseconds, `version: "0"`, `debugContext.debugData` values always strings
  * with camelCase keys. The org is modelled as an **Identity Engine** org, so a
  * rejected Okta Verify push is `user.authentication.auth_via_mfa` FAILURE /
- * INVALID_CREDENTIALS with `pushOnlyResponseType: OV_RESPONSE_DENY` (card §6) —
+ * INVALID_CREDENTIALS with `pushOnlyResponseType: OV_RESPONSE_DENY` (card §6) -
  * legacy authored types such as `user.mfa.okta_verify.push_response` are
  * re-expressed that way.
  *
@@ -45,13 +45,13 @@ const ENVELOPE_OPTIONAL = [
   "target[].id", "target[].type", "target[].alternateId", "target[].displayName", "target[].detailEntry", "target[].changeDetails",
   "transaction.detail.requestApiTokenId",
 ];
-/** Event types this module emits — every one is named on the card (catalog-verified) except where noted. */
+/** Event types this module emits - every one is named on the card (catalog-verified) except where noted. */
 const EVENT_TYPES = [
   "user.session.start", "user.session.end", "user.authentication.auth_via_mfa", "user.authentication.sso", "system.push.send_factor_verify_push",
   "policy.evaluate_sign_on", "security.threat.detected", "user.account.lock", "user.mfa.factor.activate", "user.mfa.factor.deactivate",
   "user.mfa.factor.reset_all", "group.user_membership.add", "application.user_membership.add", "user.account.privilege.grant",
   "system.api_token.create", "system.api_token.revoke",
-  // Classic-engine only (card 3.4) — validated for completeness, never emitted by this OIE model.
+  // Classic-engine only (card 3.4) - validated for completeness, never emitted by this OIE model.
   "user.mfa.okta_verify.deny_push",
   // Not on the card: official catalog event type ("OAuth2 access token is granted"); same LogEvent envelope. UNVERIFIED displayMessage.
   "app.oauth2.as.token.grant",
@@ -136,11 +136,11 @@ interface Render {
 }
 
 function render(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, r: Render): NativeLog {
-  // A person's action always carries the client address — with none authored, the
+  // A person's action always carries the client address - with none authored, the
   // company's egress (the same one its firewalls NAT to). Only Okta's own system
   // actions have no client, and then no geo either.
   // Okta is SaaS: it never sees a corporate user's private address. A sign-in from inside the
-  // network arrives from the company's egress (NAT) address — real geo / ASN — and the org's
+  // network arrives from the company's egress (NAT) address - real geo / ASN - and the org's
   // "Corporate HQ" network zone is defined on that egress, so client.zone names it.
   const egress = egressIp(ctx);
   const ip = isPrivateIp(f.ip) ? egress : f.ip ?? (r.actor?.type === "User" ? egress : null);
@@ -197,7 +197,7 @@ function render(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, r: Render): Nati
  * itself: an address outside the head-office country (not the corporate egress) is a new
  * country / geo-location / IP; an anonymizer is a new IP and location; a scripted client or a
  * high risk is a new device. The user's own baseline sign-ins (is_baseline, or an informational
- * context row with no technique) are their usual pattern — all NEGATIVE. Risk with none authored: anonymizer, or a new location on a new
+ * context row with no technique) are their usual pattern - all NEGATIVE. Risk with none authored: anonymizer, or a new location on a new
  * device → HIGH; a new location → MEDIUM; otherwise LOW.
  */
 function riskDebug(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, withBehaviors: boolean): Record<string, string> {
@@ -388,7 +388,7 @@ const SESSION_FAIL = { all: [{ field: "eventType", op: "eq", value: "user.sessio
 const PUSH_MFA = { all: [{ field: "eventType", op: "eq", value: "user.authentication.auth_via_mfa" }, { field: "debugContext.debugData.factor", op: "eq", value: "OKTA_VERIFY_PUSH" }] } as const;
 const useCases: UseCase[] = [
   {
-    id: "okta.password_spray", title: "Password spray — many users failing from one IP", sourceId: "okta", kinds: ["user.session.start"], severity: "high", mitre: ["T1110.003"],
+    id: "okta.password_spray", title: "Password spray - many users failing from one IP", sourceId: "okta", kinds: ["user.session.start"], severity: "high", mitre: ["T1110.003"],
     description: "user.session.start FAILURE / INVALID_CREDENTIALS for five or more different actor.alternateId values from one client.ipAddress in 10 minutes. Confirm with securityContext.asOrg (hosting provider?), a non-browser rawUserAgent and security.threat.detected.",
     logic: "Okta System Log / SPL: index=okta eventType=\"user.session.start\" outcome.result=FAILURE outcome.reason=INVALID_CREDENTIALS | bin _time span=10m | stats dc(actor.alternateId) AS users BY client.ipAddress, _time | where users>=5",
     match: SESSION_FAIL as unknown as UseCase["match"],
@@ -413,7 +413,7 @@ const useCases: UseCase[] = [
     falsePositives: ["A remote employee mistyping the password once"],
   },
   {
-    id: "okta.mfa_push_fatigue", title: "MFA push fatigue — repeated Okta Verify denials", sourceId: "okta", kinds: ["user.authentication.auth_via_mfa"], severity: "high", mitre: ["T1621"],
+    id: "okta.mfa_push_fatigue", title: "MFA push fatigue - repeated Okta Verify denials", sourceId: "okta", kinds: ["user.authentication.auth_via_mfa"], severity: "high", mitre: ["T1621"],
     description: "Three or more auth_via_mfa FAILURE events with factor OKTA_VERIFY_PUSH (pushOnlyResponseType OV_RESPONSE_DENY) for one user in 10 minutes. In an Identity Engine org this is how a rejected push is logged; denies never lock the account.",
     logic: "SPL: index=okta eventType=\"user.authentication.auth_via_mfa\" debugContext.debugData.factor=OKTA_VERIFY_PUSH outcome.result=FAILURE | bin _time span=10m | stats count BY actor.alternateId, _time | where count>=3",
     match: { all: [...PUSH_MFA.all, { field: "outcome.result", op: "eq", value: "FAILURE" }] } as unknown as UseCase["match"],
@@ -422,7 +422,7 @@ const useCases: UseCase[] = [
   },
   {
     id: "okta.mfa_push_fatigue_approved", title: "Okta Verify denials followed by an approval in the same session", sourceId: "okta", kinds: ["user.authentication.auth_via_mfa"], severity: "critical", mitre: ["T1621", "T1078.004"],
-    description: "Within one authenticationContext.externalSessionId the push was both denied (FAILURE) and finally approved (SUCCESS) — the attacker's fatigue campaign succeeded.",
+    description: "Within one authenticationContext.externalSessionId the push was both denied (FAILURE) and finally approved (SUCCESS) - the attacker's fatigue campaign succeeded.",
     logic: "SPL: index=okta eventType=\"user.authentication.auth_via_mfa\" debugContext.debugData.factor=OKTA_VERIFY_PUSH | stats dc(outcome.result) AS r values(client.ipAddress) BY authenticationContext.externalSessionId | where r=2",
     match: PUSH_MFA as unknown as UseCase["match"],
     threshold: { groupBy: ["authenticationContext.externalSessionId"], count: 2, windowSec: 1800, distinct: "outcome.result" },
@@ -452,7 +452,7 @@ const useCases: UseCase[] = [
   },
   {
     id: "okta.admin_privilege_granted", title: "Okta administrator privilege granted", sourceId: "okta", kinds: ["user.account.privilege.grant"], severity: "high", mitre: ["T1098.003"],
-    description: "user.account.privilege.grant — a user received an Okta admin role (see debugData.privilegeGranted). A self-grant (actor = target) or a grant from a risky session is a takeover signal.",
+    description: "user.account.privilege.grant - a user received an Okta admin role (see debugData.privilegeGranted). A self-grant (actor = target) or a grant from a risky session is a takeover signal.",
     logic: "SPL: index=okta eventType=\"user.account.privilege.grant\" | table _time actor.alternateId target{}.alternateId debugContext.debugData.privilegeGranted client.ipAddress",
     match: { field: "eventType", op: "eq", value: "user.account.privilege.grant" },
     falsePositives: ["Planned on-boarding of a new IT administrator"],
@@ -480,14 +480,14 @@ const useCases: UseCase[] = [
   },
   {
     id: "okta.api_token_created", title: "Okta API token created", sourceId: "okta", kinds: ["system.api_token.create"], severity: "medium", mitre: ["T1098.001", "T1528"],
-    description: "system.api_token.create. A token carries its creator's admin rights and survives password resets — check who created it, from where, and revoke unknown tokens.",
+    description: "system.api_token.create. A token carries its creator's admin rights and survives password resets - check who created it, from where, and revoke unknown tokens.",
     logic: "SPL: index=okta eventType=\"system.api_token.create\"",
     match: { field: "eventType", op: "eq", value: "system.api_token.create" },
     falsePositives: ["A new integration set up by the identity team"],
   },
   {
     id: "okta.lockout_burst", title: "Several accounts locked out from one IP", sourceId: "okta", kinds: ["user.account.lock"], severity: "high", mitre: ["T1110.003"],
-    description: "Three or more user.account.lock events from one client.ipAddress in 30 minutes — collateral damage of a spray, not users mistyping.",
+    description: "Three or more user.account.lock events from one client.ipAddress in 30 minutes - collateral damage of a spray, not users mistyping.",
     logic: "SPL: index=okta eventType=\"user.account.lock\" | bin _time span=30m | stats dc(target{}.alternateId) AS locked BY client.ipAddress, _time | where locked>=3",
     match: { field: "eventType", op: "eq", value: "user.account.lock" },
     threshold: { groupBy: ["client.ipAddress"], count: 3, windowSec: 1800, distinct: "actor.alternateId" },

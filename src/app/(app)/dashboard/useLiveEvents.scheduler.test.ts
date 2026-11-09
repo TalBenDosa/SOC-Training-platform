@@ -1,4 +1,4 @@
-// P5-02 / P5-03 — the single-player attack scheduler. Runs the REAL hook under
+// P5-02 / P5-03 - the single-player attack scheduler. Runs the REAL hook under
 // fake timers, the way the dashboard drives it (autoStart:false, then reset()).
 //  - one phase chain only (reset()/startStory() + the streaming effect used to
 //    arm two, so phases landed twice as fast);
@@ -15,8 +15,10 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
+let authored = 0;
 const ev = (id: string): TelemetryEvent => ({
-  id, ts: new Date().toISOString(), source: "edr", event_type: "process_create",
+  // Authored five minutes apart, as a story is: rows authored together are one burst (storyFeed.ts).
+  id, ts: new Date(Date.UTC(2026, 4, 10, 9, 0) + (authored++) * 300_000).toISOString(), source: "edr", event_type: "process_create",
   severity: "high", mitre_technique: "T1059.001", hostname: "WKS-01",
   description: `malicious activity ${id}`,
   process: { name: "powershell.exe", pid: 1000, parent_name: "winword.exe", parent_pid: 500, cmdline: "powershell -enc AAAA" },
@@ -59,13 +61,13 @@ describe("attack scheduler", () => {
     vi.useRealTimers();
   });
 
-  it("runs ONE phase chain after reset() — no doubled phases", () => {
+  it("runs ONE phase chain after reset() - no doubled phases", () => {
     act(() => { vi.advanceTimersByTime(149_000); });
     expect(storyCount()).toBe(0);
     act(() => { vi.advanceTimersByTime(2_000); });   // the first phase is due at 150s
     const first = storyCount();
-    expect(first).toBe(2);   // exactly ONE phase (2 events with random=0.5) — a doubled chain injected two
-    // The next phase is 2–4 min later (180s with random=0.5) — nothing before that.
+    expect(first).toBe(2);   // exactly ONE phase (2 events with random=0.5) - a doubled chain injected two
+    // The next phase is 2–4 min later (180s with random=0.5) - nothing before that.
     act(() => { vi.advanceTimersByTime(170_000); });
     expect(storyCount()).toBe(first);
     act(() => { vi.advanceTimersByTime(15_000); });

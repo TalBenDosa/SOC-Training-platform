@@ -1,7 +1,7 @@
 /**
  * Microsoft Sysmon log EMITTERS.
  *
- * The free host-telemetry sensor that sits alongside (or instead of) an EDR — the
+ * The free host-telemetry sensor that sits alongside (or instead of) an EDR - the
  * process/network/file/DNS/registry evidence an analyst walks when the shop runs
  * Sysmon into the SIEM. Same contract as the endpoint emitters: a typed call
  * renders a complete TelemetryEvent whose raw block uses only registry-valid
@@ -29,7 +29,7 @@ function base(o: Ctx & { severity?: Severity }, r: ReturnType<typeof resolve>) {
   } as Record<string, string>;
 }
 
-// ── Event 1 — Process creation ────────────────────────────────────────────────────────
+// ── Event 1 - Process creation ────────────────────────────────────────────────────────
 export interface SysmonProcessOpts extends Ctx {
   processName: string;
   processPath?: string;
@@ -43,7 +43,7 @@ export interface SysmonProcessOpts extends Ctx {
   signed?: boolean;
   integrity?: "Low" | "Medium" | "High" | "System";
   originalFileName?: string;
-  processGuid?: string;            // Sysmon ProcessGuid — the SIEM join key
+  processGuid?: string;            // Sysmon ProcessGuid - the SIEM join key
   parentGuid?: string;             // ParentProcessGuid
   eventType?: EventType;           // override (e.g. "scheduled_task" for a schtasks.exe run)
   runAsUser?: string;              // token owner override (e.g. "NT AUTHORITY\\SYSTEM"); else the fabric user
@@ -108,7 +108,7 @@ export function sysmonProcess(o: SysmonProcessOpts): TelemetryEvent {
   };
 }
 
-// ── Event 3 — Network connection ──────────────────────────────────────────────────────
+// ── Event 3 - Network connection ──────────────────────────────────────────────────────
 export interface SysmonNetworkOpts extends Ctx {
   processName: string;
   processPath?: string;
@@ -164,7 +164,7 @@ export function sysmonNetwork(o: SysmonNetworkOpts): TelemetryEvent {
   };
 }
 
-// ── Event 11 — File create ────────────────────────────────────────────────────────────
+// ── Event 11 - File create ────────────────────────────────────────────────────────────
 export interface SysmonFileOpts extends Ctx {
   processName: string;
   processPath?: string;
@@ -214,7 +214,7 @@ export function sysmonFile(o: SysmonFileOpts): TelemetryEvent {
   };
 }
 
-// ── Event 22 — DNS query ──────────────────────────────────────────────────────────────
+// ── Event 22 - DNS query ──────────────────────────────────────────────────────────────
 export interface SysmonDnsOpts extends Ctx {
   processName: string;
   processPath?: string;
@@ -262,7 +262,7 @@ export function sysmonDns(o: SysmonDnsOpts): TelemetryEvent {
   };
 }
 
-// ── Event 13 — Registry value set ─────────────────────────────────────────────────────
+// ── Event 13 - Registry value set ─────────────────────────────────────────────────────
 export interface SysmonRegistryOpts extends Ctx {
   processName: string;
   processPath?: string;
@@ -307,7 +307,7 @@ export function sysmonRegistry(o: SysmonRegistryOpts): TelemetryEvent {
   };
 }
 
-// ── Event 10 — Process access (LSASS read / credential dumping) ───────────────────────
+// ── Event 10 - Process access (LSASS read / credential dumping) ───────────────────────
 export interface SysmonProcessAccessOpts extends Ctx {
   sourceImage: string;             // the ACCESSING process (e.g. C:\Windows\Temp\svchost.exe)
   sourcePid?: number;
@@ -353,7 +353,7 @@ export function sysmonProcessAccess(o: SysmonProcessAccessOpts): TelemetryEvent 
   };
 }
 
-// ── Event 18 — Pipe connected (named-pipe coercion, e.g. PrintSpoofer \spoolss) ───────
+// ── Event 18 - Pipe connected (named-pipe coercion, e.g. PrintSpoofer \spoolss) ───────
 export interface SysmonPipeOpts extends Ctx {
   image: string;                   // the process on the pipe (e.g. spoolsv.exe path)
   pid?: number;
@@ -391,11 +391,11 @@ export function sysmonPipe(o: SysmonPipeOpts): TelemetryEvent {
   };
 }
 
-// ── Event 6 — Driver loaded (BYOVD / kernel driver load) ──────────────────────────────
-// A kernel driver is loaded — the tell for Bring-Your-Own-Vulnerable-Driver and for a
+// ── Event 6 - Driver loaded (BYOVD / kernel driver load) ──────────────────────────────
+// A kernel driver is loaded - the tell for Bring-Your-Own-Vulnerable-Driver and for a
 // signed third-party driver abused to reach the raw disk from kernel mode.
 export interface SysmonDriverOpts extends Ctx {
-  image: string;                   // ImageLoaded — the .sys path
+  image: string;                   // ImageLoaded - the .sys path
   sha256?: string;
   signed?: boolean;
   signature?: string;              // signer subject (e.g. the vendor)

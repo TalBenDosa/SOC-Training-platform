@@ -1,11 +1,11 @@
 /**
- * Company metadata — the LIGHT half of the old companyProfiles.ts.
+ * Company metadata - the LIGHT half of the old companyProfiles.ts.
  *
  * This file holds only the small, render-time data: the two interfaces and the
- * company profile records (name, industry, architecture — a few KB total). The
+ * company profile records (name, industry, architecture - a few KB total). The
  * heavy per-company EVENT POOLS (COMPANY_EVENTS / COMPANY_ATTACKS and their
  * thousands of TelemetryEvents) stay in companyProfiles.ts, which the dashboard
- * now loads LAZILY (only when a training shift starts) — see dashboard/simData.ts.
+ * now loads LAZILY (only when a training shift starts) - see dashboard/simData.ts.
  *
  * Why split: the dashboard is a client component, so anything it imports
  * statically ships in its first-load JS. It needs these profiles to render the
@@ -42,7 +42,7 @@ export interface CompanyProfile {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Company 1 — NexaCorp Financial Ltd.
+// Company 1 - NexaCorp Financial Ltd.
 // Microsoft-centric: MDE + Azure AD + O365 + Palo Alto
 // (events populated by page.tsx from benignEvents.ts)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ export const NEXACORP_PROFILE: Omit<CompanyProfile, "events"> = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Company registry — profile metadata only (event pools live in companyProfiles.ts)
+// Company registry - profile metadata only (event pools live in companyProfiles.ts)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const COMPANY_PROFILES: Omit<CompanyProfile, "events">[] = [
@@ -97,7 +97,7 @@ export const COMPANY_PROFILES: Omit<CompanyProfile, "events">[] = [
   {
     id:          "medcore",
     name:        "MedCore Regional Hospital",
-    tagline:     "Healthcare Network — 6 Facilities",
+    tagline:     "Healthcare Network - 6 Facilities",
     industry:    "Healthcare",
     size:        3800,
     hq:          "Amsterdam, Netherlands",
@@ -157,7 +157,7 @@ export const COMPANY_PROFILES: Omit<CompanyProfile, "events">[] = [
 // The hostname convention, primary internal subnet, DNS domain and NetBIOS realm
 // each company actually uses in its SIEM feed (companyProfiles.ts COMPANY_EVENTS).
 // instantiateStory() remaps a shared attack story onto THESE, so the EDR console
-// shows the same host and IP the analyst just saw in the feed — correlation holds —
+// shows the same host and IP the analyst just saw in the feed - correlation holds -
 // instead of a generic NexaCorp workstation for every company. Kept here (the light
 // module) so the adaptation layer needn't pull in the heavy event pools. Values are
 // aligned with the real conventions in COMPANY_EVENTS; a regression gate asserts it.
@@ -198,7 +198,7 @@ export interface CompanyAssets {
 
 // The per-company asset fabric (R-01 + emitter layer). One source of truth for the
 // hostnames, internal subnet, domain, NetBIOS realm, human roster, service accounts,
-// DC and file server each company uses — aligned with COMPANY_EVENTS. instantiateStory
+// DC and file server each company uses - aligned with COMPANY_EVENTS. instantiateStory
 // draws host/IP/domain swaps from it, and the vendor emitters (src/lib/sim/emitters/*)
 // draw a plausible native identity + asset for every generated log line. Kept in this
 // LIGHT module so both the adaptation layer and the emitters can use it without pulling
@@ -206,7 +206,7 @@ export interface CompanyAssets {
 export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
   // vantageindustrial appears only in scenario packs (e.g. destructiveWiper), not in
   // the live feed, but it is registered here so the emitters resolve its netbios/domain
-  // deterministically — the same single-source-of-truth every other company uses.
+  // deterministically - the same single-source-of-truth every other company uses.
   vantageindustrial: {
     hosts: ["VNT-WKS-27", "VNT-WKS-19", "VNT-WKS-11", "VNT-SRV-FS01", "VNT-SRV-DC01"],
     subnet: "10.60.8", domain: "vantageindustrial.com", netbios: "VANTAGE",
@@ -216,6 +216,7 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
     ],
     serviceAccounts: ["svc-deploy", "svc-backup"],
     dc: "VNT-SRV-DC01", fileServer: "VNT-SRV-FS01",
+    office: { ip: "192.0.2.250", country: "United States", city: "Pittsburgh" },
   },
   nexacorp: {
     hosts: ["WS-HR-1182", "WS-OPS-2214", "WS-MKT-3301", "WS-ACC-4477", "WS-ENG-2093",
@@ -256,7 +257,7 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
       it: [{ user: "j.lee", host: "LAP-003" }],
     },
     serverPrefix: "SRV-PROD",
-    office: { ip: "62.221.124.10", country: "Israel", city: "Tel Aviv" },
+    office: { ip: "198.51.100.220", country: "Israel", city: "Tel Aviv" },
     // The production EKS worker node (VPC 10.0.0.0/16, eu-west-1): its private DNS name carries its address.
     infra: ["ip-10-0-14-73.eu-west-1.compute.internal"],
   },
@@ -278,7 +279,7 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
       it: [{ user: "admin.vandenberg", host: "WS-MED-IT-02" }],
     },
     serverPrefix: "SRV-MEDCORE",
-    office: { ip: "62.19.176.10", country: "Netherlands", city: "Amsterdam" },
+    office: { ip: "192.0.2.220", country: "Netherlands", city: "Amsterdam" },
     // vSphere cluster (internal AD DNS zone medcore.local), the internet-facing SSL-VPN gateway, and the AD FS farm for M365 sign-in.
     infra: ["vcsa-01.medcore.local", "esx-prod-03.medcore.local", "esx-prod-04.medcore.local", "esx-prod-05.medcore.local",
             "FGT-VPN-01.medcorehealth.org", "SRV-MEDCORE-ADFS01"],
@@ -300,7 +301,7 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
       it: [{ user: "c.becker", host: "WS-GL-DEV-03" }],
     },
     serverPrefix: "SRV-GL",
-    office: { ip: "82.219.122.10", country: "Germany", city: "Frankfurt am Main" },
+    office: { ip: "192.0.2.240", country: "Germany", city: "Frankfurt am Main" },
     // vSphere cluster (internal AD DNS zone globallogis.local), the internet-facing SSL-VPN gateway, and the AD FS farm for M365 sign-in.
     infra: ["vcsa-01.globallogis.local", "esx-prod-03.globallogis.local", "esx-prod-04.globallogis.local", "esx-prod-05.globallogis.local",
             "FGT-VPN-01.globallogis.de", "SRV-GL-ADFS01"],
@@ -322,6 +323,6 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
       it: [{ user: "l.brunner", host: "WKS-QB-020" }],
     },
     serverPrefix: "SRV-QB",
-    office: { ip: "77.181.84.10", country: "Switzerland", city: "Zurich" },
+    office: { ip: "198.51.100.240", country: "Switzerland", city: "Zurich" },
   },
 };

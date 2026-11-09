@@ -22,7 +22,7 @@ import { EscalateCopyContext } from "./escalateCopyContext";
 import { EdrPivotContext } from "./edrPivotContext";
 
 // L-01: the internal event id (b_… baseline, atk_evt_…<phase> attack) named the
-// answer — and it was shown verbatim in the Analysis detail panel's event.id row,
+// answer - and it was shown verbatim in the Analysis detail panel's event.id row,
 // so a student could tell attack from noise, and read the kill-chain phase, without
 // reading a single log. Display an OPAQUE, deterministic id derived from the real
 // one; the semantic id stays on the engine object for catch/correlation/grading.
@@ -195,7 +195,7 @@ function HeaderTip({ label, tip }: { label: string; tip: string }) {
 // ─── Rule level badge ──────────────────────────────────────────────────────────
 
 function RuleLevelBadge({ level }: { level: number }) {
-  // Neutral, generic styling on purpose — the number conveys severity, but the
+  // Neutral, generic styling on purpose - the number conveys severity, but the
   // colour must NOT flag "this is the attack" for the student. A subtle tonal
   // step keeps it readable without turning high levels into a red giveaway.
   const tone =
@@ -260,7 +260,7 @@ function extractActionOutcome(event: LiveEvent): ActionOutcome {
     raw["policy.action"] === "DetectionOnly"
   ) {
     const policyName = raw["policy.name"] ? `Policy: ${raw["policy.name"]}` : "";
-    return { status: "detected", label: "⚠ Detected — NOT Blocked", detail: policyName || "Endpoint policy is detection-only. Manual response required." };
+    return { status: "detected", label: "⚠ Detected - NOT Blocked", detail: policyName || "Endpoint policy is detection-only. Manual response required." };
   }
   if (
     actionResult === "allowed" || actionResult === "allow" ||
@@ -283,8 +283,8 @@ function extractActionOutcome(event: LiveEvent): ActionOutcome {
  * names/keys brighter and string values softer with a couple of small regexes.
  */
 function highlightRawLog(text: string, lang: "xml" | "syslog" | "json"): React.ReactNode[] {
-  const KEY = "text-slate-100 font-semibold"; // field names / keys / tags — brighter
-  const STR = "text-slate-400";               // string values — softer
+  const KEY = "text-slate-100 font-semibold"; // field names / keys / tags - brighter
+  const STR = "text-slate-400";               // string values - softer
   const NUM = "text-cyber-300";               // numbers / literals
 
   let re: RegExp;
@@ -328,12 +328,12 @@ function highlightRawLog(text: string, lang: "xml" | "syslog" | "json"): React.R
 
 function RawLogView({ event, native }: { event: LiveEvent; native?: NativeView | null }) {
   const [copied, setCopied] = useState(false);
-  // Native format (docs/log-schemas): the record exactly as the product emits it —
+  // Native format (docs/log-schemas): the record exactly as the product emits it -
   // the wire line for text-native sources, the JSON object for JSON-native ones.
   const rawLog = native
     ? native.log.rawLine
-      ? { format: `${native.product} — native ${native.log.format.toUpperCase()}`, text: native.log.rawLine, lang: (native.log.format === "xml" ? "xml" : "syslog") as "xml" | "syslog" }
-      : { format: `${native.product} — native JSON`, text: [native.log, ...(native.related ?? [])].map(l => JSON.stringify(l.record, null, 2)).join("\n"), lang: "json" as const }
+      ? { format: `${native.product} - native ${native.log.format.toUpperCase()}`, text: native.log.rawLine, lang: (native.log.format === "xml" ? "xml" : "syslog") as "xml" | "syslog" }
+      : { format: `${native.product} - native JSON`, text: [native.log, ...(native.related ?? [])].map(l => JSON.stringify(l.record, null, 2)).join("\n"), lang: "json" as const }
     : toRawLog(event);
 
   function handleCopy() {
@@ -367,7 +367,7 @@ function RawLogView({ event, native }: { event: LiveEvent; native?: NativeView |
         {highlightRawLog(rawLog.text, rawLog.lang)}
       </pre>
       <p className="text-[10px] leading-relaxed text-slate-400">
-        This is how <span className="text-slate-400">{rawLog.format.split(",")[0]}</span> arrives in the SIEM before parsing — the same bytes a real analyst pivots on. The Analysis tab parses these fields into a readable view.
+        This is how <span className="text-slate-400">{rawLog.format.split(",")[0]}</span> arrives in the SIEM before parsing - the same bytes a real analyst pivots on. The Analysis tab parses these fields into a readable view.
       </p>
     </div>
   );
@@ -549,7 +549,7 @@ export function matchesFieldFilter(event: LiveEvent, f: FieldFilter, rows: () =>
 /** The ＋ / − pair next to a field value (only inside a feed that filters). */
 function FilterButtons({ field, value, label }: { field: string; value: string; label: string }) {
   const add = useContext(FieldFilterContext);
-  if (!add || !value || value === "—") return null;
+  if (!add || !value || value === "-") return null;
   const cls = "min-w-[18px] rounded border border-slate-500/60 bg-bg px-1 font-mono text-[11px] font-bold leading-4 text-slate-200 transition hover:border-cyber-400 hover:bg-cyber-500/15 hover:text-cyber-100";
   return (
     <span className="inline-flex shrink-0 gap-0.5">
@@ -561,7 +561,7 @@ function FilterButtons({ field, value, label }: { field: string; value: string; 
   );
 }
 
-/** Panel body WITHOUT a table-cell wrapper — place this inside a <div> for any
+/** Panel body WITHOUT a table-cell wrapper - place this inside a <div> for any
  *  standalone use (e.g. Tier-2/Tier-3 "open the flagged log"). Inside the feed
  *  table, use <DetailPanel> (the <td> wrapper below) instead. */
 export function DetailPanelBody({
@@ -617,8 +617,8 @@ export function DetailPanelBody({
   const actionOutcome = extractActionOutcome(event);
 
   const actionLabel = actionOutcome
-    ? actionOutcome.status === "detected" ? "DETECTED — NOT CONTAINED"
-    : actionOutcome.status === "allowed"  ? "ALLOWED — NO ACTION TAKEN"
+    ? actionOutcome.status === "detected" ? "DETECTED - NOT CONTAINED"
+    : actionOutcome.status === "allowed"  ? "ALLOWED - NO ACTION TAKEN"
     : `${actionOutcome.label.toUpperCase()}${actionOutcome.detail ? ` · ${actionOutcome.detail}` : ""}`
     : null;
 
@@ -629,18 +629,18 @@ export function DetailPanelBody({
     : undefined;
 
   // The factual line (describeEvent): on an attack event the authored description states
-  // the conclusion the analyst is meant to reach (L-05) — the row already hides it, and
+  // the conclusion the analyst is meant to reach (L-05) - the row already hides it, and
   // the expanded panel must not hand it over either. Non-attack events show it as before.
   const fullDescription = event.displayDescription ?? event.description;
   const sha256 = event.file?.sha256 ?? (event.raw?.["file.hash.sha256"] as string | undefined);
 
   const basicInfo: [string, string, string?][] = [
-    ["Timestamp",  event.ts ? new Date(event.ts).toLocaleString("en-GB") : "—"],
-    ["Severity",   (event.severity ?? "—").toUpperCase(), severityColor],
+    ["Timestamp",  event.ts ? new Date(event.ts).toLocaleString("en-GB") : "-"],
+    ["Severity",   (event.severity ?? "-").toUpperCase(), severityColor],
     ...(actionLabel ? [["Response", actionLabel, actionColor] as [string, string, string]] : []),
-    ["Username",   event.user_email ?? "—"],
-    ["Hostname",   event.hostname   ?? "—"],
-    ["IP Address", event.src_ip     ?? "—"],
+    ["Username",   event.user_email ?? "-"],
+    ["Hostname",   event.hostname   ?? "-"],
+    ["IP Address", event.src_ip     ?? "-"],
   ];
 
   // No schema mixing: with a native view the table shows ONLY the product's own
@@ -652,7 +652,7 @@ export function DetailPanelBody({
 
   return (
     <div className="bg-bg-elevated">
-      {/* Log reading tour — fires once on first-ever event expansion */}
+      {/* Log reading tour - fires once on first-ever event expansion */}
       <LogReadingTour />
       <div className="border-t border-border/50 px-5 py-4 space-y-3">
         {/* Team exercise: an endpoint log whose host has EDR telemetry opens straight in the EDR console. */}
@@ -682,7 +682,7 @@ export function DetailPanelBody({
           return line ? <p className="rounded-md border border-border bg-bg px-3 py-1.5 text-xs text-slate-300"><span className="font-semibold text-slate-400">Status · </span>{line}</p> : null;
         })()}
         {onAddToCase && <AddToCaseBar event={event} onAddToCase={onAddToCase} status={rowStatus?.(event.id) ?? null} />}
-        {/* Escalate-this-log CTA — Tier-1 only (parent passes onEscalate). Opens the
+        {/* Escalate-this-log CTA - Tier-1 only (parent passes onEscalate). Opens the
             structured escalation report pre-loaded with THIS log + its indicators. */}
         {onEscalate && (
           <button
@@ -693,7 +693,7 @@ export function DetailPanelBody({
               <span className="text-lg leading-none">🚩</span>
               <span className="flex flex-col">
                 <span className="text-sm font-semibold text-amber-200">{escalateCopy?.title ?? "Escalate this log to Tier-2"}</span>
-                <span className="text-[11px] text-amber-300/70">{escalateCopy?.hint ?? "Flag it and write a short report — case info + indicators"}</span>
+                <span className="text-[11px] text-amber-300/70">{escalateCopy?.hint ?? "Flag it and write a short report - case info + indicators"}</span>
               </span>
             </span>
             <span className="shrink-0 rounded-md border border-amber-400/60 bg-amber-400/20 px-3 py-1 text-xs font-semibold text-amber-100">
@@ -708,7 +708,7 @@ export function DetailPanelBody({
             <Info className="h-4 w-4 text-slate-400" />
             <span className="text-sm font-semibold text-white">Log Analysis</span>
           </div>
-          {/* Analysis ↔ Raw log segmented control — Raw shows the authentic vendor wire format */}
+          {/* Analysis ↔ Raw log segmented control - Raw shows the authentic vendor wire format */}
           <div className="inline-flex items-center rounded-md border border-border/70 bg-bg-elevated p-0.5 text-[11px] font-semibold" role="group" aria-label="Log view">
             <button
               type="button"
@@ -729,7 +729,7 @@ export function DetailPanelBody({
           </div>
         </div>
 
-        {/* IT Verification Widget — shown for admin/privileged action events */}
+        {/* IT Verification Widget - shown for admin/privileged action events */}
         {!showRawJson && hasItVerify && (
           <div className="rounded border border-border/60 bg-bg-panel px-4 py-3 space-y-2.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">IT Verification</p>
@@ -800,7 +800,7 @@ export function DetailPanelBody({
                     <span className="min-w-[12rem] flex-1 text-[11px] leading-relaxed text-slate-200 break-words">{fullDescription}</span>
                   </div>
                 )}
-                {/* SHA256 — opens internal panel */}
+                {/* SHA256 - opens internal panel */}
                 {sha256 && /^[a-f0-9]{64}$/i.test(sha256) && (
                   <div className="flex gap-3 pb-2 mb-1 border-b border-border/40 items-start">
                     <span className="w-36 shrink-0 text-[11px] text-slate-400">File Hash</span>
@@ -818,14 +818,14 @@ export function DetailPanelBody({
                 )}
                 {basicInfo.map(([label, value, colorClass]) => {
                   // G-04 click-to-pivot: for the identity rows, offer a chip that
-                  // filters the whole feed to this host/user/IP (team feed only —
+                  // filters the whole feed to this host/user/IP (team feed only -
                   // single-player omits onPivot, so no chip renders).
                   const pivotField: "user" | "host" | "ip" | null =
                     label === "Username" ? "user" : label === "Hostname" ? "host" : label === "IP Address" ? "ip" : null;
-                  const canPivot = !!onPivot && !!pivotField && !!value && value !== "—";
+                  const canPivot = !!onPivot && !!pivotField && !!value && value !== "-";
                   // T1-5: add this identity value to the Tier-1 escalation report as an IOC.
                   const iocType = label === "Username" ? "user" : label === "Hostname" ? "host" : label === "IP Address" ? "ip" : null;
-                  const canIoc = !!onAddIoc && !!iocType && !!value && value !== "—";
+                  const canIoc = !!onAddIoc && !!iocType && !!value && value !== "-";
                   return (
                     // Wraps instead of squeezing: in a narrow panel (the team T2 inbox) the
                     // value drops below its label at full width rather than breaking into
@@ -855,7 +855,7 @@ export function DetailPanelBody({
                     </div>
                   );
                 })}
-                {/* MITRE ATT&CK mapping lives here in the expanded panel — the
+                {/* MITRE ATT&CK mapping lives here in the expanded panel - the
                     student must open the row to see the technique (it is
                     deliberately absent from the always-visible row). */}
                 {event.mitre_technique && mitreVisible(event) && (
@@ -867,14 +867,14 @@ export function DetailPanelBody({
               </div>
             </div>
 
-            {/* Email header investigation was intentionally removed — that
+            {/* Email header investigation was intentionally removed - that
                 exercise was not well enough characterised to grade fairly, so
                 analysts no longer investigate raw mail headers here. */}
 
             {/* Detailed Log Data */}
             <div id="ef-detail-log-data" className="rounded border border-border/60 bg-bg-panel px-4 py-3">
               <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
-                Detailed Log Data{nativeView ? <span className="ml-2 normal-case tracking-normal text-slate-500">— {nativeView.product}, native fields</span> : null}
+                Detailed Log Data{nativeView ? <span className="ml-2 normal-case tracking-normal text-slate-500">- {nativeView.product}, native fields</span> : null}
               </p>
               <div className="space-y-1.5">
                 {(() => {
@@ -919,7 +919,7 @@ export function DetailPanelBody({
                           </button>
                         )}
 
-                        {/* Domain → internal threat panel (was an external VirusTotal link —
+                        {/* Domain → internal threat panel (was an external VirusTotal link -
                             removed because platform domains are fictional and VT either shows
                             nothing or unrelated real-world data for them) */}
                         {showDomain && (
@@ -931,7 +931,7 @@ export function DetailPanelBody({
                           </button>
                         )}
 
-                        {/* ＋IOC — add this hash/IP/domain straight to the Tier-1 escalation
+                        {/* ＋IOC - add this hash/IP/domain straight to the Tier-1 escalation
                             report (team feed only), so it isn't hand-retyped. */}
                         {onAddIoc && hasBtn && (
                           <button
@@ -957,7 +957,7 @@ export function DetailPanelBody({
   );
 }
 
-/** Table-cell wrapper — the feed renders the expanded row as a <tr><td colSpan>. */
+/** Table-cell wrapper - the feed renders the expanded row as a <tr><td colSpan>. */
 export function DetailPanel(props: DetailPanelProps) {
   return <td colSpan={7} className="bg-bg-elevated p-0"><DetailPanelBody {...props} /></td>;
 }
@@ -975,14 +975,14 @@ function MitreSlideout({ techniqueId, onClose }: { techniqueId: string; onClose:
   const technique = exact ?? parent;
   const tactic = technique ? tacticById(technique.tactic) : undefined;
 
-  // a11y: modal slide-out — focus trapped inside, Escape closes, focus returns.
+  // a11y: modal slide-out - focus trapped inside, Escape closes, focus returns.
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(true, dialogRef, { onEscape: onClose });
 
   if (typeof document === "undefined") return null;
 
   // Portalled to <body>: rendered in place, the drawer lived inside the team page's sticky
-  // feed column — its own stacking context — so the role column painted OVER it and the
+  // feed column - its own stacking context - so the role column painted OVER it and the
   // panel showed half-hidden behind the cards (Tal, 2026-10-08).
   return createPortal(
     <>
@@ -1169,7 +1169,7 @@ const EventRow = memo(function EventRow({
   const openedAtRef = useRef<number | null>(null);
 
   function toggleExpanded() {
-    // Side effect lives in the handler, not inside setExpanded's updater —
+    // Side effect lives in the handler, not inside setExpanded's updater -
     // React (Strict Mode) may invoke an updater function twice to check for
     // impurities, which would double-count this if it lived there.
     if (!expanded) {
@@ -1198,7 +1198,7 @@ const EventRow = memo(function EventRow({
 
   const timeStr = event.ts
     ? new Date(event.ts).toLocaleTimeString("en-GB", { hour12: false })
-    : "—";
+    : "-";
   const detailId = `ef-detail-${event.id}`;
 
   return (
@@ -1230,7 +1230,7 @@ const EventRow = memo(function EventRow({
           </button>
         </td>
         <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-400 truncate">{timeStr}</td>
-        <td className="py-2.5 pr-3 font-mono text-xs text-slate-200 truncate" title={event.hostname ?? undefined}>{event.hostname ?? "—"}</td>
+        <td className="py-2.5 pr-3 font-mono text-xs text-slate-200 truncate" title={event.hostname ?? undefined}>{event.hostname ?? "-"}</td>
         <td className="py-2.5 pr-3 overflow-hidden">
           <LogSourceCard source={event.feed_source ?? event.source} vendor={event.vendor} />
         </td>
@@ -1259,7 +1259,7 @@ const EventRow = memo(function EventRow({
                 const username  = event.user_email.split("@")[0];
                 const userTitle = event.user_title ?? (event.user as { title?: string } | undefined)?.title;
                 // Strip the username from the start of the description so it isn't
-                // duplicated — also handles a possessive form ("Username's …").
+                // duplicated - also handles a possessive form ("Username's …").
                 const rawDesc = event.displayDescription ?? "";
                 const escaped  = username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
                 const stripped = rawDesc
@@ -1288,7 +1288,7 @@ const EventRow = memo(function EventRow({
                 <span className="line-clamp-2 leading-relaxed">{event.displayDescription}</span>
               )}
 
-              {/* Triage state (team feed only) — neutral, reflects the player's OWN
+              {/* Triage state (team feed only) - neutral, reflects the player's OWN
                   actions (no ground-truth leak): claimed / triaged / escalated. */}
               {(() => {
                 const st = rowStatus?.(event.id);
@@ -1322,12 +1322,12 @@ const EventRow = memo(function EventRow({
           <RuleLevelBadge level={event.ruleLevel} />
         </td>
         <td className="py-2.5 pr-3">
-          {/* No verdict/grading UI here by design — classifying a row would
+          {/* No verdict/grading UI here by design - classifying a row would
               instantly reveal ground truth (a hint). The analyst reads the log,
               forms their own conclusion, and the Incident Report is the single
               place they state and are graded on their findings. */}
           <div className="flex items-center gap-1.5">
-            {/* Rule ID only — the MITRE badge deliberately does NOT live here.
+            {/* Rule ID only - the MITRE badge deliberately does NOT live here.
                 Showing it in the always-visible row would flag which rows are the
                 attack without expanding. The technique is revealed inside the
                 expanded DetailPanel instead. */}
@@ -1389,7 +1389,7 @@ export interface EventFeedProps {
   ipFilter?: string;
   mitreFilter?: string;
   onXp?: (xp: number) => void;
-  /** Phase-1 telemetry (ANALYST_TELEMETRY_PLAN.md) — fired on every open/close
+  /** Phase-1 telemetry (ANALYST_TELEMETRY_PLAN.md) - fired on every open/close
    * transition of a row: on open with dwellMs=0 (records the open for MTTA /
    * "events opened"), on close with the measured expand→collapse dwell. The
    * event id lets the caller dedup opens and attribute dwell per event. Both
@@ -1408,7 +1408,7 @@ export interface EventFeedProps {
   onEscalate?: (event: LiveEvent) => void;
   /** Team feed only: returns the player's own triage state for a row (claimed /
    * dispositioned / escalated) so the shared feed shows what's already handled.
-   * Reflects the player's actions, not ground truth — no answer leakage. */
+   * Reflects the player's actions, not ground truth - no answer leakage. */
   rowStatus?: (id?: string) => RowStatus | null;
   /** Team Tier-1: close an alert from its open log (see DetailPanelProps.onCloseAlert). */
   onCloseAlert?: DetailPanelProps["onCloseAlert"];
@@ -1470,7 +1470,7 @@ export function EventFeed({
       if (ipFilter    !== "all"  && ev.src_ip         !== ipFilter)       return false;
       if (mitreFilter !== "all"  && ev.mitre_technique !== mitreFilter)   return false;
       // Free-text search: substring across a flattened event (incl. stringified
-      // `raw`) plus optional `field:value` tokens — see eventSearch.ts.
+      // `raw`) plus optional `field:value` tokens - see eventSearch.ts.
       if (search && !eventMatchesSearch(ev, search)) return false;
       if (fieldFilters.length) {
         let rows: [string, string][] | null = null;
@@ -1554,9 +1554,9 @@ export function EventFeed({
               <th className="w-6 pl-3 py-2"><span className="sr-only">Expand</span></th>
               <th id="ef-th-time"    className="py-2 pr-3"><HeaderTip label="Time"       tip="When the event occurred. Unusual hours (3 AM logins, weekend data transfers) are red flags worth investigating." /></th>
               <th id="ef-th-agent"   className="py-2 pr-3"><HeaderTip label="Agent Name" tip="The hostname of the computer or device where this event was recorded." /></th>
-              <th id="ef-th-source"  className="py-2 pr-3"><HeaderTip label="Source"     tip="Which security tool detected this event. Each tool sees different activity — EDR sees processes, Firewall sees network traffic, AD sees logins. Hover over the badge for details." /></th>
+              <th id="ef-th-source"  className="py-2 pr-3"><HeaderTip label="Source"     tip="Which security tool detected this event. Each tool sees different activity - EDR sees processes, Firewall sees network traffic, AD sees logins. Hover over the badge for details." /></th>
               <th id="ef-th-desc"    className="py-2 pr-3"><HeaderTip label="Description" tip="A plain-language summary of what happened, generated from the raw log fields. Click the row to see all raw fields and a guided analysis." /></th>
-              <th id="ef-th-level"   className="py-2 pr-3"><HeaderTip label="Level"      tip="Rule level 3-15 (Wazuh-style). 3-6: routine or low. 7-9: investigate further. 10-12: high. 13-15: critical — act now. High levels still need verifying: false positives fire high rules too." /></th>
+              <th id="ef-th-level"   className="py-2 pr-3"><HeaderTip label="Level"      tip="Rule level 3-15 (Wazuh-style). 3-6: routine or low. 7-9: investigate further. 10-12: high. 13-15: critical - act now. High levels still need verifying: false positives fire high rules too." /></th>
               <th id="ef-th-ruleid"  className="py-2 pr-4"><HeaderTip label="Rule ID"    tip="The detection rule that fired on this event. When a known attack technique is detected, the rule maps to MITRE ATT&CK. Expand the row to see its MITRE ATT&CK mapping." /></th>
             </tr>
           </thead>
@@ -1602,7 +1602,7 @@ export function EventFeed({
         )}
       </AnimatePresence>
 
-      {/* Dashboard orientation tour — fires once for new users */}
+      {/* Dashboard orientation tour - fires once for new users */}
       <DashboardTour />
     </div>
   );

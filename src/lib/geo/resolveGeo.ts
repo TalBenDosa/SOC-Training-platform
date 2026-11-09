@@ -15,6 +15,7 @@
  * lookup keyed on the address prefix (never random, never per-render).
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { DOC_ADDRESS_PLACES } from "@/lib/sim/docAddresses";
 
 export interface GeoPoint { country: string; city: string; lat: number; lon: number }
 
@@ -22,7 +23,6 @@ export interface GeoPoint { country: string; city: string; lat: number; lon: num
  *  same way regardless of which view asks. Shared by the feed enrichment and the
  *  threat-intel drawer. */
 export const KNOWN_GEO: Record<string, GeoPoint> = {
-  "203.0.113.": { country: "China",       city: "Shenzhen",   lat: 22.5,  lon: 114.1 },
   "91.108.":    { country: "Russia",      city: "Moscow",     lat: 55.7,  lon:  37.6 },
   "185.220.":   { country: "Netherlands", city: "Amsterdam",  lat: 52.3,  lon:   4.9 },
   "45.142.":    { country: "Ukraine",     city: "Kyiv",       lat: 50.4,  lon:  30.5 },
@@ -32,7 +32,7 @@ export const KNOWN_GEO: Record<string, GeoPoint> = {
   "196.251.":   { country: "Nigeria",     city: "Lagos",      lat:  6.5,  lon:   3.4 },
   "194.26.":    { country: "Russia",      city: "St. Petersburg", lat: 59.9, lon: 30.3 },
   "5.188.":     { country: "Russia",      city: "Moscow",     lat: 55.7,  lon:  37.6 },
-  "23.129.":    { country: "United States", city: "Tor Exit — Unknown", lat: 39.0, lon: -77.5 },
+  "23.129.":    { country: "United States", city: "Tor Exit, Unknown", lat: 39.0, lon: -77.5 },
   "104.16.":    { country: "United States", city: "San Francisco (Cloudflare)", lat: 37.8, lon: -122.4 },
   "140.82.":    { country: "United States", city: "San Francisco (GitHub)", lat: 37.8, lon: -122.4 },
   "151.101.":   { country: "United States", city: "San Francisco (Fastly)", lat: 37.8, lon: -122.4 },
@@ -47,9 +47,26 @@ export const KNOWN_GEO: Record<string, GeoPoint> = {
   "207.154.":   { country: "United Kingdom", city: "London",  lat: 51.5,  lon:  -0.1 },
 };
 
+/**
+ * R5: attacker and third-party addresses are documentation addresses (RFC 5737). Each one that stands
+ * for a real-world network keeps its place (DOC_ADDRESS_PLACES). An unplaced 203.0.113.x address is
+ * foreign hosting, spread over four hosting hubs by its last octet; it used to be "China" for the
+ * whole /24, so every documentation-range attacker read as Chinese whatever its story said.
+ * 192.0.2.x and 198.51.100.x carry company egress and benign parties: no default place.
+ */
+const DOC_HOSTING: GeoPoint[] = [
+  { country: "Netherlands", city: "Amsterdam", lat: 52.37, lon: 4.9 },
+  { country: "Romania", city: "Bucharest", lat: 44.43, lon: 26.1 },
+  { country: "Germany", city: "Frankfurt am Main", lat: 50.11, lon: 8.68 },
+  { country: "Singapore", city: "Singapore", lat: 1.35, lon: 103.82 },
+];
+
 /** Deterministic per-IP location, or null when the prefix isn't known. */
 export function knownGeoForIp(ip?: string | null): GeoPoint | null {
   if (!ip) return null;
+  const exact = DOC_ADDRESS_PLACES[ip];
+  if (exact) return exact;
+  if (ip.startsWith("203.0.113.")) return DOC_HOSTING[Math.floor((Number(ip.split(".")[3]) || 0) / 64) % DOC_HOSTING.length];
   const prefix = Object.keys(KNOWN_GEO).find(k => ip.startsWith(k));
   return prefix ? KNOWN_GEO[prefix] : null;
 }

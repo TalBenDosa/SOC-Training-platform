@@ -1,8 +1,8 @@
 /**
- * AI-related attack stories — wave 3 part B (live feed & team training). Two prompt-injection
+ * AI-related attack stories - wave 3 part B (live feed & team training). Two prompt-injection
  * stories, both grounded in what Microsoft's own products record:
  *
- *  1. ai-rag-chatbot-document-injection  (core, nexacorp/medcore) — a customer-facing assistant
+ *  1. ai-rag-chatbot-document-injection  (core, nexacorp/medcore) - a customer-facing assistant
  *     built on Azure OpenAI retrieves over customer-uploaded documents. An attacker uploads a
  *     document that carries hidden instructions (indirect prompt injection, OWASP LLM01). When
  *     the assistant later summarises that document, it tries to pull internal knowledge-base text
@@ -12,27 +12,27 @@
  *     attackDetected), a Microsoft Defender for Cloud AI alert (AI.Azure_ASCIISmuggling), and a
  *     Sentinel correlation. The chat is anonymous: end users appear only as the app's opaque ids.
  *
- *  2. ai-stored-injection-copilot-kb     (core, nexacorp/quantumbank) — a compromised account edits
+ *  2. ai-stored-injection-copilot-kb     (core, nexacorp/quantumbank) - a compromised account edits
  *     an internal SharePoint knowledge-base page that Microsoft 365 Copilot cites, planting hidden
  *     instructions that make Copilot hand back a changed vendor bank account for payment questions.
  *     A finance user asks Copilot, gets the poisoned answer and starts a payment change. Telemetry:
  *     the compromised Entra sign-in, the SharePoint FileModified audit, the Purview CopilotInteraction
- *     record naming the page as an accessed resource (JailbreakDetected / XPIADetected false — the
+ *     record naming the page as an accessed resource (JailbreakDetected / XPIADetected false - the
  *     stored injection was not caught in-line), the payment-change email, and a Sentinel correlation.
  *
  * Real schemas, each verified against vendor documentation:
  *  - Azure Storage StorageBlobLogs columns (OperationName / CallerIpAddress / AuthenticationType /
- *    ObjectKey / StatusCode / RequestBodySize …) — learn.microsoft.com azure-monitor StorageBlobLogs.
- *  - Azure OpenAI RequestResponse resource log (azure.open_ai.*) via the shared emitter — no prompt text.
+ *    ObjectKey / StatusCode / RequestBodySize …) - learn.microsoft.com azure-monitor StorageBlobLogs.
+ *  - Azure OpenAI RequestResponse resource log (azure.open_ai.*) via the shared emitter - no prompt text.
  *  - Azure AI Content Safety Prompt Shields response (userPromptAnalysis / documentsAnalysis[].attackDetected,
  *    learn.microsoft.com azure/ai-services/content-safety quickstart-jailbreak), in the backend response body
  *    of the API Management gateway log (ApiManagementGatewayLogs). Content Safety's own resource log has no
  *    verdict. No document or prompt text is logged.
- *  - Microsoft Defender for Cloud AI alert names (AI.Azure_ASCIISmuggling — "ASCII Smuggling prompt
- *    injection detected", High, Impact; commonly attributed to indirect prompt injection) —
+ *  - Microsoft Defender for Cloud AI alert names (AI.Azure_ASCIISmuggling - "ASCII Smuggling prompt
+ *    injection detected", High, Impact; commonly attributed to indirect prompt injection) -
  *    learn.microsoft.com defender-for-cloud alerts-ai-workloads.
  *  - Purview CopilotInteraction (RecordType 261, CopilotEventData.Messages[].JailbreakDetected,
- *    AccessedResources[].{Action,Id,Name,SiteUrl,Type,SensitivityLabelId,Status,XPIADetected}) —
+ *    AccessedResources[].{Action,Id,Name,SiteUrl,Type,SensitivityLabelId,Status,XPIADetected}) -
  *    learn.microsoft.com office-365-management-api copilot-schema + purview audit-copilot.
  *
  * No working exploit payloads, malware or step-by-step procedures: the injection text appears only
@@ -55,7 +55,7 @@ const guid = (seed: string): string => {
 const addMs = (ts: string, ms: number): string => new Date(Date.parse(ts) + ms).toISOString();
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 1. ai-rag-chatbot-document-injection — core (nexacorp / medcore)
+// 1. ai-rag-chatbot-document-injection - core (nexacorp / medcore)
 // ══════════════════════════════════════════════════════════════════════════════
 
 // Authored on NexaCorp's own subscription and tenant; instantiateStory re-keys both per company.
@@ -209,7 +209,7 @@ function shieldPromptCall(o: {
 }
 
 /**
- * Microsoft Defender for Cloud — AI threat protection alert, in the same raw shape the shared
+ * Microsoft Defender for Cloud - AI threat protection alert, in the same raw shape the shared
  * defenderAiAlert emitter renders, but for AI.Azure_ASCIISmuggling (not in the emitter's fixed
  * alert set). "ASCII Smuggling prompt injection detected" is the documented alert for indirect
  * prompt injection via hidden instructions (High, Impact). azure.alert.* is rendered natively by
@@ -404,7 +404,7 @@ function buildRagDocumentInjection(): TelemetryEvent[] {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 2. ai-stored-injection-copilot-kb — core (nexacorp / quantumbank)
+// 2. ai-stored-injection-copilot-kb - core (nexacorp / quantumbank)
 // ══════════════════════════════════════════════════════════════════════════════
 
 const KB_TENANT_ID = makeCtx("nexacorp").tenant.azureTenantId;
@@ -425,7 +425,7 @@ interface CpRes { name: string; type: string; site?: string; label?: string }
  * Purview CopilotInteraction audit record (RecordType 261). CopilotEventData.Messages carries the
  * JailbreakDetected flag on the prompt; AccessedResources names each file/page Copilot read, with
  * XPIADetected per resource. Both flags are false here: the stored injection lives in a trusted
- * internal page and was not caught in-line — the record's value to the analyst is that it names the
+ * internal page and was not caught in-line - the record's value to the analyst is that it names the
  * poisoned page as the resource that grounded the answer. No prompt or response text.
  */
 function kbCopilot(o: {
@@ -526,7 +526,7 @@ function buildStoredInjectionCopilotKb(): TelemetryEvent[] {
       hostname: undefined,
     },
 
-    // 4. THE VICTIM'S OWN SIGN-IN — normal office sign-in before the poisoned session.
+    // 4. THE VICTIM'S OWN SIGN-IN - normal office sign-in before the poisoned session.
     entraSignIn({
       id: "aikb4", ts: "2026-10-01T10:04:51.207Z", companyId: "nexacorp", user: FINANCE_USER, srcIp: OFFICE_IP,
       app: "OfficeHome", appId: "4765445b-32c6-49b0-83e6-1d93765276ca", resource: "Microsoft 365 Copilot",

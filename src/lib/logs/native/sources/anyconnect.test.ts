@@ -9,7 +9,7 @@ import { isGatewayHost, parseAsaTime, asaTime } from "./remote-access-shared";
 const CARD = "vpn-cisco-anyconnect.md";
 const asLog = (r: Record<string, unknown>): NativeLog => ({ sourceId: "anyconnect", kind: kindOf(r) ?? "?", format: "syslog", record: r, timeMs: parseAsaTime(String(r.timestamp)) });
 
-describe("anyconnect — card samples", () => {
+describe("anyconnect - card samples", () => {
   const recs = cardRecords(CARD);
   it("every card sample validates with zero violations (no sample skipped)", () => {
     expect(recs.length).toBe(22);
@@ -23,7 +23,7 @@ describe("anyconnect — card samples", () => {
   });
 });
 
-describe("anyconnect — corpus conversion", () => {
+describe("anyconnect - corpus conversion", () => {
   const conv = convertCorpus(source);
 
   it("converted logs validate with zero violations and carry a raw line", () => {
@@ -61,7 +61,7 @@ describe("anyconnect — corpus conversion", () => {
   });
 });
 
-describe("anyconnect — use cases", () => {
+describe("anyconnect - use cases", () => {
   const conv = convertCorpus(source);
   const recs = cardRecords(CARD);
   const rej = recs.find(r => r.message_id === "113005")!;

@@ -66,15 +66,15 @@ export function isPrivateIp(ip: string | undefined): boolean {
   return /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(ip);
 }
 
-/** "2026-09-29T07:41:12" — UTC, no zone, no ms (M365 Management Activity API). */
+/** "2026-09-29T07:41:12" - UTC, no zone, no ms (M365 Management Activity API). */
 export function isoNoMs(ts: string): string {
   return new Date(Date.parse(ts)).toISOString().slice(0, 19);
 }
-/** "2026-09-29T07:41:12.418Z" — UTC with ms. */
+/** "2026-09-29T07:41:12.418Z" - UTC with ms. */
 export function isoMs(ts: string): string {
   return new Date(Date.parse(ts)).toISOString();
 }
-/** "2026-09-29T07:41:12.4471823Z" — 7 fractional digits (Advanced Hunting). Keeps the event's ms, adds 4 seeded digits. */
+/** "2026-09-29T07:41:12.4471823Z" - 7 fractional digits (Advanced Hunting). Keeps the event's ms, adds 4 seeded digits. */
 export function iso7(ts: string, ctx: NativeCtx, seed: string, addSec = 0): string {
   const d = new Date(Date.parse(ts) + addSec * 1000).toISOString(); // ...ss.mmmZ
   return `${d.slice(0, 23)}${String(ctx.int(seed, 0, 9999)).padStart(4, "0")}Z`;
@@ -132,7 +132,7 @@ export interface EmailFacts {
   fromDisplay?: string;
   mailFrom?: string;        // envelope sender (P1 / Return-Path)
   to: string[];             // recipients
-  headerTo?: string;        // To header (may differ from envelope recipient — Bcc case)
+  headerTo?: string;        // To header (may differ from envelope recipient - Bcc case)
   replyTo?: string;
   subject?: string;
   internetMessageId?: string;

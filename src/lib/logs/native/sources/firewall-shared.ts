@@ -11,7 +11,7 @@
  * the facts onto its own native field names only.
  *
  * All filler values are deterministic (ctx.hex / ctx.int seeded from the event id,
- * the company or the entity) — never Math.random / Date.now.
+ * the company or the entity) - never Math.random / Date.now.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeCtx } from "../types";
@@ -51,7 +51,7 @@ export interface FwFacts {
   domain?: string;
   /** URL with scheme (https://host/path?q). */
   url?: string;
-  /** host/path?q (no scheme) — PAN `misc` style. */
+  /** host/path?q (no scheme) - PAN `misc` style. */
   urlNoScheme?: string;
   /** Path + query only ("/api/login"). */
   path?: string;
@@ -117,8 +117,6 @@ export function panPrivateLabel(ip: string): string | undefined {
 }
 
 const CO_PREFIX: Record<string, string> = { nexacorp: "10.10", rocketstack: "172.16", medcore: "192.168", globallogis: "10.50", quantumbank: "10.100" };
-const PUB_FIRST = [62, 77, 82, 109, 145, 176, 212, 213, 217];
-const EXT_FIRST = [23, 34, 45, 46, 51, 64, 66, 81, 89, 94, 103, 104, 107, 141, 146, 149, 151, 159, 162, 167, 178, 188, 193, 194, 195, 198, 199, 206, 209];
 
 /** The company's SNAT / hide-NAT egress address (stable per company): the office address the company
  *  profile publishes (companyProfilesMeta office.ip), so the firewall, the SaaS sign-ins and the stories
@@ -126,13 +124,17 @@ const EXT_FIRST = [23, 34, 45, 46, 51, 64, 66, 81, 89, 94, 103, 104, 107, 141, 1
 export function egressIp(ctx: NativeCtx): string {
   const office = COMPANY_ASSETS[ctx.companyId]?.office?.ip;
   if (office) return office;
-  const k = `${ctx.companyId}:egress`;
-  return `${PUB_FIRST[ctx.int(k, 0, PUB_FIRST.length - 1)]}.${ctx.int(k + "b", 1, 254)}.${ctx.int(k + "c", 1, 254)}.10`;
+  // R5: a company without one (a named organization) still egresses from a documentation address.
+  return `192.0.2.${ctx.int(`${ctx.companyId}:egress`, 200, 209)}`;
 }
-/** A published (public) address of the company — used only when the authored event lacks a destination. */
+/** A published (public) address of the company - used only when the authored event lacks a destination. */
 export function companyVip(ctx: NativeCtx, seed: string): string {
   const e = egressIp(ctx).split(".");
-  return `${e[0]}.${e[1]}.${e[2]}.${ctx.int(`${ctx.companyId}:vip:${seed}`, 20, 60)}`;
+  // R5: every egress is a documentation address, several companies share one /24: each company's
+  // published services sit just above its own egress (NexaCorp keeps its historical .20-.60 block).
+  const last = Number(e[3]);
+  const [lo, hi] = last === 150 ? [20, 60] : [Math.min(last + 1, 254), Math.min(last + 9, 254)];
+  return `${e[0]}.${e[1]}.${e[2]}.${ctx.int(`${ctx.companyId}:vip:${seed}`, lo, hi)}`;
 }
 /** Stable internal address for a hostname (destination given only by name). */
 export function internalIpFor(ctx: NativeCtx, host: string): string {
@@ -140,10 +142,17 @@ export function internalIpFor(ctx: NativeCtx, host: string): string {
   const k = `${ctx.companyId}:host:${host.toLowerCase()}`;
   return pre.split(".").length === 2 ? `${pre}.${ctx.int(k, 1, 254)}.${ctx.int(k + "d", 2, 254)}` : `${pre}.${ctx.int(k, 2, 254)}`;
 }
+/**
+ * Stable public address for an external party whose IP the authored event omits (a domain, a mail
+ * relay). R5: a documentation address (192.0.2.160-199, a block no story or company egress uses),
+ * never a real third party's address picked at random.
+ */
+export function derivedExternalIp(ctx: NativeCtx, seed: string): string {
+  return `192.0.2.${ctx.int(`ext:${seed.toLowerCase()}`, 160, 199)}`;
+}
 /** Stable public address for a domain whose IP the authored event omits. */
 export function publicIpForDomain(ctx: NativeCtx, domain: string): string {
-  const k = `dom:${domain.toLowerCase()}`;
-  return `${EXT_FIRST[ctx.int(k, 0, EXT_FIRST.length - 1)]}.${ctx.int(k + "b", 0, 255)}.${ctx.int(k + "c", 0, 255)}.${ctx.int(k + "d", 1, 254)}`;
+  return derivedExternalIp(ctx, `dom:${domain}`);
 }
 
 // ── countries ────────────────────────────────────────────────────────────────
@@ -353,7 +362,7 @@ export function extractFacts(ev: TelemetryEvent, ctx: NativeCtx, vendorMatch: st
 
   if (!isIp(src)) src = undefined;
   if (!isIp(dst)) dst = undefined;
-  // Missing destination: derive deterministically (never evidence — the authored event had none).
+  // Missing destination: derive deterministically (never evidence - the authored event had none).
   if (!dst) {
     if (dstName) dst = internalIpFor(ctx, dstName);
     else if (domain) dst = publicIpForDomain(ctx, domain);
@@ -413,7 +422,7 @@ export function extractFacts(ev: TelemetryEvent, ctx: NativeCtx, vendorMatch: st
   else if (file && (ev.event_type === "http_request" || ev.event_type === "file_create")) cls = "file";
   else if (rawPanType === "THREAT" && rawPanSub === "url") cls = "url";
   // An authored URL record (a FortiGate web-filter / WAF row, a PAN URL log) stays a URL record in
-  // either direction — rendering it as plain traffic would drop the URL, method and user it carries.
+  // either direction - rendering it as plain traffic would drop the URL, method and user it carries.
   else if (/^(webfilter|waf)$/i.test(rawGet(raw, "data.subtype") ?? "") && url) cls = "url";
   else if (dir === "outbound" && (ev.event_type === "http_request" || ev.event_type === "http_blocked") && (url || domain)) cls = "url";
   else if (dir === "outbound" && ev.event_type === "net_connection" && domain && webPort && !startOnly && (bytesOutRaw ?? 0) < 10 * 1024 * 1024 && rawPanType !== "TRAFFIC" && !rawGet(raw, "data.type")) cls = "url";

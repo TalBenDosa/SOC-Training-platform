@@ -1,6 +1,6 @@
 /**
  * Test-only helpers shared by the m365 / google_workspace / defender_o365 /
- * proofpoint test files (no vitest import here — plain functions).
+ * proofpoint test files (no vitest import here - plain functions).
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeLog, NativeSource, UseCase } from "../types";
@@ -26,7 +26,7 @@ export function isNativeVendor(src: NativeSource, ev: TelemetryEvent): boolean {
  * "noise" population used for the < 2 % false-positive-rate check. Events that
  * carry an `it_verify_result` (either value) are IT-verification exercises: an
  * admin-type change the platform deliberately surfaces as an alert so the
- * student checks it with IT — also excluded.
+ * student checks it with IT - also excluded.
  */
 export function isPlanted(ev: TelemetryEvent): boolean {
   return ev.expected_verdict === "tp" || ev.expected_verdict === "fp" || !!ev.is_detection || !!ev.mitre_technique ||
@@ -36,7 +36,7 @@ export function isPlanted(ev: TelemetryEvent): boolean {
 /**
  * Mail events whose authored data already carries an email-security product verdict
  * (ThreatTypes / Verdict / threat.category = Malware|Phish, e.g. a quarantined invoice.exe):
- * real detections even when they sit in the company stream — not "noise".
+ * real detections even when they sit in the company stream - not "noise".
  */
 export function hasMailVerdict(ev: TelemetryEvent): boolean {
   const r = ev.raw ?? {};

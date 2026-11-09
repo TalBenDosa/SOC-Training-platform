@@ -2,7 +2,7 @@
  * Free-text SIEM search for the Live Event Feed.
  *
  * Complements (never replaces) the dropdown filters: an event is shown only if
- * it passes the dropdowns AND matches the search query (AND semantics — the
+ * it passes the dropdowns AND matches the search query (AND semantics - the
  * dropdown pass lives in EventFeed's `filtered` memo, this file owns the text
  * match).
  *
@@ -38,7 +38,7 @@ const FIELD_ACCESSORS: Record<string, (ev: LiveEvent) => string | undefined> = {
   severity: (ev) => ev.severity,
 };
 
-/** Field keys the `field:value` syntax understands — exported for UI hints. */
+/** Field keys the `field:value` syntax understands - exported for UI hints. */
 export const SEARCH_FIELD_KEYS = Object.keys(FIELD_ACCESSORS);
 
 // Per-event cache of the lowercased flattened blob. Keyed by the event object,

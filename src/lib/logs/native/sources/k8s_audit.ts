@@ -1,5 +1,5 @@
 /**
- * Kubernetes API-server audit log (EKS / AKS / GKE) — native source module.
+ * Kubernetes API-server audit log (EKS / AKS / GKE) - native source module.
  *
  * Card: docs/log-schemas/k8s-audit.md. Native format = the `audit.k8s.io/v1`
  * `Event` object, nested exactly as the API server writes it. The AKS diagnostic
@@ -106,7 +106,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   objectRef.apiGroup = K(ev, "objectRef.apiGroup") ?? (resource && /roles|rolebindings|clusterrole/.test(resource) ? "rbac.authorization.k8s.io" : "");
   objectRef.apiVersion = K(ev, "objectRef.apiVersion") ?? "v1";
 
-  // Default to the API server, never to system:anonymous — anonymous is a real,
+  // Default to the API server, never to system:anonymous - anonymous is a real,
   // high-signal value and must only appear when the source event actually said so.
   const username = K(ev, "user.username") ?? ev.user?.email ?? ev.user_email ?? "system:apiserver";
   const groups = collectArray(raw, "user.groups");
@@ -168,7 +168,7 @@ const useCases: UseCase[] = [
     title: "Shell / exec into a running pod",
     sourceId: "k8s_audit", severity: "medium", mitre: ["T1609"],
     kinds: ["Event"],
-    description: "verb=create on the pods/exec subresource — a shell opened inside a container. Legitimate for debugging, high-signal from an unexpected identity or a Tor/foreign source IP.",
+    description: "verb=create on the pods/exec subresource - a shell opened inside a container. Legitimate for debugging, high-signal from an unexpected identity or a Tor/foreign source IP.",
     logic: "LogScale: verb=create AND objectRef.subresource=exec (resource=pods)",
     match: { all: [{ field: "verb", op: "eq", value: "create" }, { field: "objectRef.subresource", op: "eq", value: "exec" }] },
     falsePositives: ["An on-call engineer legitimately exec-ing into a pod to troubleshoot."],
@@ -178,7 +178,7 @@ const useCases: UseCase[] = [
     title: "Privileged / host-namespace pod created",
     sourceId: "k8s_audit", severity: "critical", mitre: ["T1610", "T1611"],
     kinds: ["Event"],
-    description: "A pod created (or whose spec is read) with privileged:true, hostPID, hostNetwork, or a hostPath mount of / — a container built to break out onto the node.",
+    description: "A pod created (or whose spec is read) with privileged:true, hostPID, hostNetwork, or a hostPath mount of / - a container built to break out onto the node.",
     logic: "LogScale: verb IN (create,get) resource=pods AND (spec.containers[].securityContext.privileged=true OR spec.hostPID=true OR spec.hostNetwork=true)",
     match: { all: [{ field: "objectRef.resource", op: "eq", value: "pods" }, { any: [
       { field: "requestObject.spec.containers[].securityContext.privileged", op: "eq", value: true },
@@ -187,14 +187,14 @@ const useCases: UseCase[] = [
       { field: "responseObject.spec.containers[].securityContext.privileged", op: "eq", value: true },
       { field: "responseObject.spec.hostPID", op: "eq", value: true },
     ] }] },
-    falsePositives: ["Legitimate privileged infrastructure pods (CNI, CSI, node agents) — scope by namespace/service-account allow-list."],
+    falsePositives: ["Legitimate privileged infrastructure pods (CNI, CSI, node agents) - scope by namespace/service-account allow-list."],
   },
   {
     id: "k8s_audit.cluster_admin_binding",
     title: "Binding to a cluster-admin / admin role",
     sourceId: "k8s_audit", severity: "high", mitre: ["T1098"],
     kinds: ["Event"],
-    description: "A (cluster)rolebinding created whose roleRef grants cluster-admin or admin — attacker persistence that escalates a compromised service account to full control.",
+    description: "A (cluster)rolebinding created whose roleRef grants cluster-admin or admin - attacker persistence that escalates a compromised service account to full control.",
     logic: "LogScale: verb=create resource IN (clusterrolebindings,rolebindings) AND requestObject.roleRef.name IN (cluster-admin,admin)",
     match: { all: [{ field: "verb", op: "eq", value: "create" }, { field: "objectRef.resource", op: "in", value: ["clusterrolebindings", "rolebindings"] }, { any: [
       { field: "requestObject.roleRef.name", op: "in", value: ["cluster-admin", "admin"] },
@@ -207,7 +207,7 @@ const useCases: UseCase[] = [
     title: "Secrets enumerated in kube-system",
     sourceId: "k8s_audit", severity: "high", mitre: ["T1552.007"],
     kinds: ["Event"],
-    description: "list / get on secrets in the kube-system namespace — credential access against the cluster's most sensitive secrets, typical after a service-account compromise.",
+    description: "list / get on secrets in the kube-system namespace - credential access against the cluster's most sensitive secrets, typical after a service-account compromise.",
     logic: "LogScale: verb IN (list,get) objectRef.resource=secrets objectRef.namespace=kube-system",
     match: { all: [{ field: "verb", op: "in", value: ["list", "get"] }, { field: "objectRef.resource", op: "eq", value: "secrets" }, { field: "objectRef.namespace", op: "eq", value: "kube-system" }] },
     falsePositives: ["A cluster-management controller that legitimately reads kube-system secrets (scope by service account)."],
@@ -217,7 +217,7 @@ const useCases: UseCase[] = [
     title: "Anonymous / unauthenticated API access",
     sourceId: "k8s_audit", severity: "high", mitre: ["T1078.001"],
     kinds: ["Event"],
-    description: "A request by system:anonymous or group system:unauthenticated reaching the API server — a misconfigured cluster exposed to the internet; maps to GuardDuty's SuccessfulAnonymousAccess.",
+    description: "A request by system:anonymous or group system:unauthenticated reaching the API server - a misconfigured cluster exposed to the internet; maps to GuardDuty's SuccessfulAnonymousAccess.",
     logic: "LogScale: user.username=system:anonymous OR user.groups=system:unauthenticated",
     match: { any: [{ field: "user.username", op: "eq", value: "system:anonymous" }, { field: "user.groups[]", op: "eq", value: "system:unauthenticated" }] },
     falsePositives: ["Health-check / unauthenticated readiness probes on allow-listed non-resource URLs (should be scoped out)."],
@@ -227,7 +227,7 @@ const useCases: UseCase[] = [
     title: "RBAC role / binding modification",
     sourceId: "k8s_audit", severity: "medium", mitre: ["T1098"],
     kinds: ["Event"],
-    description: "create / update / patch / delete on roles, rolebindings, clusterroles or clusterrolebindings — a change to who can do what in the cluster, worth confirming against change control.",
+    description: "create / update / patch / delete on roles, rolebindings, clusterroles or clusterrolebindings - a change to who can do what in the cluster, worth confirming against change control.",
     logic: "LogScale: verb IN (create,update,patch,delete) objectRef.resource IN (roles,rolebindings,clusterroles,clusterrolebindings)",
     match: { all: [{ field: "verb", op: "in", value: ["create", "update", "patch", "delete"] }, { field: "objectRef.resource", op: "in", value: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"] }] },
     falsePositives: ["Routine access-management changes approved via ticket."],
@@ -237,7 +237,7 @@ const useCases: UseCase[] = [
     title: "Pod exec from a non-cluster source IP",
     sourceId: "k8s_audit", severity: "high", mitre: ["T1609"],
     kinds: ["Event"],
-    description: "A pods/exec from a source IP outside the cluster's private ranges — a shell-in driven from the internet (e.g. a Tor exit node), far more suspicious than an exec from an internal admin host.",
+    description: "A pods/exec from a source IP outside the cluster's private ranges - a shell-in driven from the internet (e.g. a Tor exit node), far more suspicious than an exec from an internal admin host.",
     logic: "LogScale: verb=create objectRef.subresource=exec AND NOT cidr(sourceIPs, 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12)",
     match: { all: [
       { field: "verb", op: "eq", value: "create" },

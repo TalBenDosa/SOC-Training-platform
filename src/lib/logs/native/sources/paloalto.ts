@@ -1,5 +1,5 @@
 /**
- * Palo Alto Networks PAN-OS — TRAFFIC / THREAT (incl. URL Filtering, file,
+ * Palo Alto Networks PAN-OS - TRAFFIC / THREAT (incl. URL Filtering, file,
  * spyware, vulnerability) syslog logs, rendered per docs/log-schemas/fw-paloalto.md:
  * a FLAT object keyed by the PAN-OS 11.x variable names (all values strings,
  * FUTURE_USE positions dropped, empty positions omitted) plus the original
@@ -281,7 +281,7 @@ export const useCases: UseCase[] = [
   {
     id: "paloalto.beaconing", title: "Beaconing: repeated sessions from one host to one external server", sourceId: "paloalto", kinds: ["TRAFFIC", "THREAT"],
     severity: "medium", mitre: ["T1071.001", "T1573"],
-    description: "Implants check in on a timer. Six or more allowed sessions from the same src to the same external dst within an hour — especially with near-identical bytes_sent and a risky category — is a classic beacon pattern.",
+    description: "Implants check in on a timer. Six or more allowed sessions from the same src to the same external dst within an hour - especially with near-identical bytes_sent and a risky category - is a classic beacon pattern.",
     logic: "SPL: sourcetype=pan:traffic action=allow to=untrust | bin _time span=1h | stats count dc(bytes_sent) as sizes by src dst _time | where count>=6",
     match: { all: [{ field: "to", op: "eq", value: "untrust" }, { field: "action", op: "in", value: ALLOWED }] },
     threshold: { groupBy: ["src", "dst"], count: 6, windowSec: 3600 },
@@ -290,7 +290,7 @@ export const useCases: UseCase[] = [
   {
     id: "paloalto.large-outbound-transfer", title: "Large outbound transfer (≥100 MB sent)", sourceId: "paloalto", kinds: ["TRAFFIC"],
     severity: "high", mitre: ["T1048", "T1567.002"],
-    description: "TRAFFIC end logs carry bytes_sent (client→server). A single session that uploads 100 MB or more to the internet — particularly to file-sharing apps (mega, ftp, ssh) or an unsanctioned SaaS — is a primary exfiltration indicator. Use start + elapsed to place the upload window.",
+    description: "TRAFFIC end logs carry bytes_sent (client→server). A single session that uploads 100 MB or more to the internet - particularly to file-sharing apps (mega, ftp, ssh) or an unsanctioned SaaS - is a primary exfiltration indicator. Use start + elapsed to place the upload window.",
     logic: "PAN-OS: ( zone.dst eq untrust ) and ( bytes.sent geq 104857600 ) | SPL: sourcetype=pan:traffic to=untrust bytes_sent>=104857600 | eval ratio=bytes_sent/bytes_received | table start elapsed src srcuser dst app bytes_sent ratio",
     match: { all: [{ field: "to", op: "eq", value: "untrust" }, { field: "bytes_sent", op: "gte", value: 104857600 }, { field: "action", op: "eq", value: "allow" }] },
     falsePositives: ["Sanctioned cloud backup jobs", "Large uploads by media / engineering teams to approved storage"],
@@ -306,7 +306,7 @@ export const useCases: UseCase[] = [
   {
     id: "paloalto.port-scan", title: "Port scan: one source denied on many destination ports", sourceId: "paloalto", kinds: ["TRAFFIC"],
     severity: "medium", mitre: ["T1046", "T1595.001"],
-    description: "Ten or more distinct dport values denied/dropped for the same src within five minutes is horizontal/vertical scanning — reconnaissance before an attack.",
+    description: "Ten or more distinct dport values denied/dropped for the same src within five minutes is horizontal/vertical scanning - reconnaissance before an attack.",
     logic: "SPL: sourcetype=pan:traffic action IN (deny, drop) | bin _time span=5m | stats dc(dport) as ports values(dst) by src _time | where ports>=10",
     match: { field: "action", op: "in", value: ["deny", "drop", "reset-both", "reset-client", "reset-server"] },
     threshold: { groupBy: ["src"], count: 10, windowSec: 300, distinct: "dport" },
@@ -340,7 +340,7 @@ export const useCases: UseCase[] = [
   {
     id: "paloalto.executable-from-risky-category", title: "Executable or script downloaded from a risky URL category", sourceId: "paloalto", kinds: ["THREAT"],
     severity: "high", mitre: ["T1105", "T1204.002"],
-    description: "File-subtype THREAT logs record files crossing the firewall (filetype, filedigest = SHA-256). A PE or script coming from an unknown / newly-registered / malware category site is a typical first-stage download — pivot on filedigest in the EDR.",
+    description: "File-subtype THREAT logs record files crossing the firewall (filetype, filedigest = SHA-256). A PE or script coming from an unknown / newly-registered / malware category site is a typical first-stage download - pivot on filedigest in the EDR.",
     logic: "SPL: sourcetype=pan:threat log_subtype=file filetype IN (pe, script) category IN (unknown, newly-registered-domain, malware, shareware-and-freeware) | table src srcuser misc filedigest category",
     match: { all: [{ field: "subtype", op: "eq", value: "file" }, { field: "filetype", op: "in", value: ["pe", "script", "iso"] }, { field: "category", op: "in", value: ["unknown", "newly-registered-domain", "malware", "shareware-and-freeware", "shareware-download", "computer-and-internet-info"] }] },
     falsePositives: ["Developers downloading tools from small project sites", "Installers from CDNs that PAN-DB has not categorised yet"],
@@ -348,7 +348,7 @@ export const useCases: UseCase[] = [
   {
     id: "paloalto.inbound-rdp-allowed", title: "Inbound RDP from the internet allowed", sourceId: "paloalto", kinds: ["TRAFFIC"],
     severity: "high", mitre: ["T1133", "T1021.001"],
-    description: "An allowed TRAFFIC log from the untrust zone on dport 3389 (app ms-rdp) means Remote Desktop is exposed to the internet — the top initial-access vector for ransomware crews.",
+    description: "An allowed TRAFFIC log from the untrust zone on dport 3389 (app ms-rdp) means Remote Desktop is exposed to the internet - the top initial-access vector for ransomware crews.",
     logic: "PAN-OS: ( zone.src eq untrust ) and ( app eq ms-rdp or port.dst eq 3389 ) and ( action eq allow )",
     match: { all: [{ field: "from", op: "eq", value: "untrust" }, { field: "action", op: "eq", value: "allow" }, { any: [{ field: "dport", op: "eq", value: "3389" }, { field: "app", op: "eq", value: "ms-rdp" }] }] },
     falsePositives: ["Approved vendor jump hosts restricted by source address"],

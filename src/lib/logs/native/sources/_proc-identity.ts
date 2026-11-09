@@ -6,12 +6,12 @@
  * registry write it made; an installer has a pid on its own row and none on the scheduled task it
  * registered. A UPID / S1 uid / MDE ProcessUniqueId seeded from the authored pid therefore broke
  * every parent → child and actor → action pivot. The identity is instead the INSTANCE KEY below,
- * and the OS pid is derived from it — so a process's own record, its children's parent fields, its
+ * and the OS pid is derived from it - so a process's own record, its children's parent fields, its
  * DNS / network / file / registry actions and the alert about it all carry the same ids.
  *
  * Instance key = company + host + image name + lifetime scope:
  *   - boot-scoped system singletons (services.exe, lsass.exe, svchost.exe, systemd …): one per host;
- *   - session-scoped shells (explorer.exe, userinit.exe, sihost.exe …): one per host + user + day —
+ *   - session-scoped shells (explorer.exe, userinit.exe, sihost.exe …): one per host + user + day -
  *     one user's Explorer never parents another user's process, or the same user's next-day work;
  *   - everything else: one per host + incident when the event belongs to one (a clipper that runs for
  *     two days before the alert is still ONE process), else one per host + day.
@@ -32,7 +32,7 @@ export type Os = "Win" | "Lin" | "Mac";
 export interface ProcScope { host: string; os: Os; timeMs: number; user?: string; incident?: string }
 /**
  * Whatever an event says about a process. `inst` tells apart two instances of one image that the
- * story shows as parent and child (powershell.exe spawning powershell.exe) — see {@link threadEndpointStory}.
+ * story shows as parent and child (powershell.exe spawning powershell.exe) - see {@link threadEndpointStory}.
  */
 export interface ProcRef { name?: string; path?: string; cmdline?: string; inst?: string; pid?: number; /** The pid the row already shows (process.pid): a record prints that number. */ shownPid?: number }
 
@@ -84,7 +84,7 @@ export function procKey(ctx: NativeCtx, s: ProcScope, p: ProcRef): string | unde
 /** Round to the Windows allocation granularity (multiples of 4, never 0). */
 export const win4 = (n: number) => Math.max(4, n - (n % 4));
 
-/** The OS pid of the process — derived from its instance key, so every reference agrees. */
+/** The OS pid of the process - derived from its instance key, so every reference agrees. */
 export function procPid(ctx: NativeCtx, s: ProcScope, p: ProcRef): number | undefined {
   const key = procKey(ctx, s, p);
   if (!key) return undefined;
@@ -95,7 +95,7 @@ export function procPid(ctx: NativeCtx, s: ProcScope, p: ProcRef): number | unde
   if (ap !== undefined) return ap;
   const name = lc(identityName(p));
   // The numbering follows the image itself (an .exe is a Windows process), never the event's OS
-  // guess — which varies between events of one host when some carry no platform hint.
+  // guess - which varies between events of one host when some carry no platform hint.
   const windows = name === "system" || name === "registry" || (/\.(exe|com|scr)$/i.test(name) && !(p.path ?? "").startsWith("/"));
   if (windows) {
     if (name === "system") return 4;
@@ -108,7 +108,7 @@ export function procPid(ctx: NativeCtx, s: ProcScope, p: ProcRef): number | unde
 
 /**
  * The process that wrote a file when the event names none: a file a user drops into a profile
- * folder (Desktop, Documents …) by hand — a copy from a USB stick, a drag-and-drop out of a ZIP —
+ * folder (Desktop, Documents …) by hand - a copy from a USB stick, a drag-and-drop out of a ZIP -
  * is written by that user's Explorer. Downloads / AppData / Temp writes are not inferred (a browser,
  * an installer or a script writes there, and the event would have to say which).
  */
@@ -120,7 +120,7 @@ export function inferredFileWriter(path: string | undefined, os: Os, systemUser:
   return undefined;
 }
 
-/** Command lines the OS itself starts these images with — the only parent command lines that can be stated without the event saying so. */
+/** Command lines the OS itself starts these images with - the only parent command lines that can be stated without the event saying so. */
 export const OS_COMMAND_LINE: Record<string, string> = {
   "explorer.exe": "C:\\WINDOWS\\Explorer.EXE",
   "userinit.exe": "C:\\WINDOWS\\system32\\userinit.exe",
@@ -146,7 +146,7 @@ export const SERVICE_ACCOUNT: Record<string, string> = {
 
 const S32 = "C:\\Windows\\System32\\";
 const OFFICE16 = "C:\\Program Files\\Microsoft Office\\root\\Office16\\";
-/** Install path of a well-known image (lower-case name → full path) — used only when an event names the binary without a path. */
+/** Install path of a well-known image (lower-case name → full path) - used only when an event names the binary without a path. */
 export const OS_IMAGE_PATH: Record<string, string> = {
   "powershell.exe": `${S32}WindowsPowerShell\\v1.0\\powershell.exe`, "pwsh.exe": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
   "wmic.exe": `${S32}wbem\\WMIC.exe`, "wmiprvse.exe": `${S32}wbem\\WmiPrvSE.exe`, "explorer.exe": "C:\\Windows\\explorer.exe",
@@ -194,6 +194,8 @@ export function imageHashes(ctx: NativeCtx, path: string): { sha256: string; md5
 }
 /** SHA1 of one file: from its SHA256 when known (so it follows the binary), else from its path. */
 export const sha1Of = (ctx: NativeCtx, sha256OrPath: string) => ctx.hex(`sha1:${sha256OrPath.toLowerCase()}`, 40);
+/** The MD5 of a file known by its SHA-256 (stable per file, like sha1Of): every product that prints MD5 prints this one. */
+export const md5Of = (ctx: NativeCtx, sha256: string) => ctx.hex(`md5:${sha256.toLowerCase()}`, 32);
 
 // ── Accounts ────────────────────────────────────────────────────────────────
 
@@ -213,8 +215,8 @@ export function hostIpFor(ctx: NativeCtx, host: string): string {
 }
 /**
  * The logon session id (LUID) of a user on a host: the authored one (4624 TargetLogonId / Sysmon LogonId,
- * "0x…") when the story has it; else the session the Windows Security module gives that (host, account) —
- * so an EDR row's LogonId equals the 4624 TargetLogonId of the same session — and, for a later day of the
+ * "0x…") when the story has it; else the session the Windows Security module gives that (host, account) -
+ * so an EDR row's LogonId equals the 4624 TargetLogonId of the same session - and, for a later day of the
  * story (`seq` > 0, set by the story pass), a new session. 999 (0x3E7) for SYSTEM, 996 / 997 for the
  * network / local service accounts.
  */
@@ -284,9 +286,9 @@ const UNSPLIT_STORY_ROWS = new Set(["k8s_01c_container_shell", "evt_dc_02_mimide
  * file row names only by file name, who wrote a file the row does not attribute. This pass (run by
  * instantiateStory after the story is re-homed) records those facts on each hosted event
  * (edr-normalize EndpointThread) so every record of the story agrees:
- *   - one path per (host, custom image) — its own process row wins; a well-known image keeps an
+ *   - one path per (host, custom image) - its own process row wins; a well-known image keeps an
  *     authored path (a copy elsewhere is a different binary) and is located by the OS table otherwise;
- *   - one hash per (host, path) — the process's own row, then an alert, then the file row that wrote
+ *   - one hash per (host, path) - the process's own row, then an alert, then the file row that wrote
  *     it, then an authored parent / actor hash; never two values for one binary;
  *   - a parent's integrity, account and command line from its own row (a service host's account
  *     when the story has no row for it);
@@ -425,7 +427,7 @@ export function threadEndpointStory(events: TelemetryEvent[]): TelemetryEvent[] 
   const writerOf = (v: View): ThreadProc | undefined => {
     if (v.f.kind !== "file" && v.f.kind !== "registry") return undefined;
     if (v.proc.name || v.proc.path || v.proc.cmdline) return undefined;
-    // A user's hand copy (profile folder, removable drive) is Explorer's — the modules attribute it themselves.
+    // A user's hand copy (profile folder, removable drive) is Explorer's - the modules attribute it themselves.
     if (v.f.kind === "file" && inferredFileWriter(v.filePath, "Win", /^(system|local service|network service)$/.test(v.user ?? ""))) return undefined;
     let w: { host: string; p: PView; v: View } | undefined;
     if (v.f.kind === "file" && v.filePath) {

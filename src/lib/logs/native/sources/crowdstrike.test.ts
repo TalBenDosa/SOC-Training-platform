@@ -10,7 +10,7 @@ import { sampleLogs, violationsOf, convertAll, contains, isNoise, type Converted
 /*
  * Card samples: all 10 JSON blocks of edr-crowdstrike.md are supported kinds (FDR PR2 ×2, DnsRequest,
  * NetworkConnectIP4, PeFileWritten, UserLogon, Alerts API v2 resource, Event Streams
- * EppDetectionSummaryEvent, aidmaster, userinfo) — none skipped. The last three are card-only kinds:
+ * EppDetectionSummaryEvent, aidmaster, userinfo) - none skipped. The last three are card-only kinds:
  * fromTelemetry never produces them (the platform has no host-inventory / stream events).
  *
  * Documented nulls among events edrFacts marks supported (see the module header):
@@ -22,7 +22,7 @@ import { sampleLogs, violationsOf, convertAll, contains, isNoise, type Converted
  *
  * Evidence exemptions that follow the native format (card §5/§6): raw Windows ProcessRollup2,
  * DnsRequest, NetworkConnectIP4 and registry events carry NO user name (UserSid / AuthenticationId
- * only — the name comes from UserLogon); FDR context events (DNS / network / file / registry) carry
+ * only - the name comes from UserLogon); FDR context events (DNS / network / file / registry) carry
  * no command line (join ContextProcessId → PR2.TargetProcessId); NetworkConnectIP4 carries no domain
  * or URL (the name is on the DnsRequest of the same ContextProcessId); an alert carries the
  * triggering process, not its network peers.
@@ -68,7 +68,7 @@ function evidence(c: Converted): string[] {
   return out;
 }
 
-describe("crowdstrike — card samples", () => {
+describe("crowdstrike - card samples", () => {
   it("every card sample is a supported kind and validates with zero violations", () => {
     expect(samples.skipped).toEqual([]);
     expect(samples.logs.length).toBe(10);
@@ -76,14 +76,14 @@ describe("crowdstrike — card samples", () => {
   });
 });
 
-describe("crowdstrike — corpus conversion", () => {
+describe("crowdstrike - corpus conversion", () => {
   it("converts every EDR/AV event (or returns null for a documented reason) with zero violations", () => {
     for (const c of converted) {
       expect(c.error, c.c.ev.id).toBeUndefined();
       if (!c.log) { expect(documentedNull(c), `unexpected null ${c.c.ev.id}`).not.toBeNull(); continue; }
       expect(violationsOf(c.log, source), `${c.c.ev.id} ${c.log.kind}`).toEqual([]);
       expect(c.log.timeMs).toBe(Date.parse(c.c.ev.ts));
-      // FDR values are strings (card §2) — only the alert resource is typed.
+      // FDR values are strings (card §2) - only the alert resource is typed.
       if (c.log.kind !== "alert") for (const [k, v] of Object.entries(c.log.record)) expect(typeof v, `${c.c.ev.id} ${k}`).toBe("string");
     }
   });
@@ -127,7 +127,7 @@ describe("crowdstrike — corpus conversion", () => {
   });
 });
 
-describe("crowdstrike — use cases", () => {
+describe("crowdstrike - use cases", () => {
   const story = converted.filter(c => c.c.origin === "story" && c.log).map(c => c.log!);
   const pool = [...samples.logs, ...story];
   const noise = converted.filter(c => isNoise(c.c) && c.log).map(c => c.log!);

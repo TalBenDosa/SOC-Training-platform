@@ -7,6 +7,7 @@
 //   • a UAL record's AADSessionId is its sign-in's sessionId, its token never issued before it;
 // plus focused unit checks of the single-record fixes (CA status, PRT, security-info method,
 // Malware never Delivered, first contact, inbound URL rows).
+import { docOwnerOfIp } from "@/lib/sim/docAddresses";
 import { describe, it, expect } from "vitest";
 import { storiesForCompany, instantiateStory, type AttackStory } from "@/app/(app)/dashboard/attackStories";
 import { BENIGN_EVENTS } from "@/app/(app)/dashboard/benignEvents";
@@ -51,7 +52,7 @@ const tag = (r: Run, e: TelemetryEvent) => `${r.company}${Object.keys(r.stack).l
 type Rec = Record<string, any>;
 
 describe("identity consistency across a story (runtime sessions)", { timeout: 300_000 }, () => {
-  it("Okta: one client IP is one place, one network owner and one anonymizer flag — in every story", () => {
+  it("Okta: one client IP is one place, one network owner and one anonymizer flag - in every story", () => {
     const byIp = new Map<string, Map<string, string>>();
     let n = 0;
     for (const r of runs()) for (const e of r.events) {
@@ -74,7 +75,9 @@ describe("identity consistency across a story (runtime sessions)", { timeout: 30
     let tor = 0;
     for (const r of runs()) for (const e of r.events) {
       const v = nativeView(e, r.company, r.stack);
-      if (v?.log.sourceId !== "okta" || !/^185\.220\.10[0-3]\./.test((v.log.record as Rec).client?.ipAddress ?? "")) continue;
+      // A Tor exit: the kept real one, or a documentation address that stands for one (R5, docAddresses.ts).
+      const cip = (v?.log.record as Rec | undefined)?.client?.ipAddress ?? "";
+      if (v?.log.sourceId !== "okta" || !(/^185\.220\.10[0-3]\./.test(cip) || docOwnerOfIp(cip)?.isp === "tor exit node")) continue;
       tor++;
       expect((v.log.record as Rec).securityContext.isProxy, tag(r, e)).toBe(true);
       expect((v.log.record as Rec).securityContext.isp, tag(r, e)).toBe("tor exit node");
@@ -234,10 +237,10 @@ describe("story threading", () => {
 });
 
 describe("Defender for Office 365 delivery coherence", () => {
-  it("a delivered message never carries a Malware verdict (clean at delivery — ZAP convicts later)", () => {
+  it("a delivered message never carries a Malware verdict (clean at delivery - ZAP convicts later)", () => {
     const log = mdo.fromTelemetry(ev({ id: "m", event_type: "email_received", vendor: "Microsoft Defender for Office 365", user_email: "s.patel@nexacorp.com", src_ip: "45.148.10.203", raw: {
       "email.from.address": "billing@client-invoices-portal.info", "email.to.address": "s.patel@nexacorp.com", "email.attachment.name": "Q3.docm",
-      "action_result": "delivered", "block.reason": "No matching transport rule — macro-enabled document type not blocklisted", "threat.category": "Phishing" } }), ctx)!;
+      "action_result": "delivered", "block.reason": "No matching transport rule - macro-enabled document type not blocklisted", "threat.category": "Phishing" } }), ctx)!;
     const p = (log.record as Rec).properties;
     expect(p.DeliveryAction).toBe("Delivered");
     expect(p.ThreatTypes).not.toContain("Malware");

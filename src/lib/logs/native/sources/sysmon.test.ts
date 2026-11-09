@@ -6,13 +6,13 @@ import { makeCtx } from "../ctx";
 import { sampleLogs, violationsOf, convertAll, contains, isNoise, flatSamples, type Converted } from "./_dnsHostItsm.testkit";
 
 /*
- * Card samples: all 6 records of host-sysmon.md (events 1, 22, 3, 11, 10, 13) are supported — none skipped.
+ * Card samples: all 6 records of host-sysmon.md (events 1, 22, 3, 11, 10, 13) are supported - none skipped.
  *
  * Documented nulls (the converter returns null, never a faked record):
  *  - Sysmon-filed events whose authored event id is not a Sysmon event (e.g. a Security 4663 object-access
  *    record filed under source "sysmon").
  *  - A process event whose image path cannot be resolved (Sysmon 1 always carries a full Image path).
- *  - EDR verdict records (edr_alert / av_* / quarantine), file reads, logons, IDS, DLP — Sysmon has no such event.
+ *  - EDR verdict records (edr_alert / av_* / quarantine), file reads, logons, IDS, DLP - Sysmon has no such event.
  *  - EDR telemetry from Linux hosts (this card is Sysmon for Windows).
  *  - Network events without a destination IP, process-access events without a target or GrantedAccess,
  *    file/registry events without a path, or actor-less events (EDR rows that name no process).
@@ -28,7 +28,7 @@ const isForeignId = (c: Converted) => {
   return id !== undefined && !source.schema.kinds[String(id)];
 };
 
-describe("sysmon — card samples", () => {
+describe("sysmon - card samples", () => {
   it("every supported card sample validates with zero violations", () => {
     expect(samples.skipped).toEqual([]);
     expect(samples.logs.length).toBe(flatSamples(source.schema.card).length);
@@ -36,7 +36,7 @@ describe("sysmon — card samples", () => {
   });
 });
 
-describe("sysmon — corpus conversion", () => {
+describe("sysmon - corpus conversion", () => {
   it("every converted event validates with zero violations", () => {
     for (const c of converted) {
       expect(c.error, c.c.ev.id).toBeUndefined();
@@ -97,7 +97,7 @@ describe("sysmon — corpus conversion", () => {
   });
 });
 
-describe("sysmon — use cases", () => {
+describe("sysmon - use cases", () => {
   const story = converted.filter(c => c.c.origin === "story" && c.log).map(c => c.log!);
   const pool = [...samples.logs, ...story];
   const noise = converted.filter(c => isNoise(c.c) && c.log).map(c => c.log!);

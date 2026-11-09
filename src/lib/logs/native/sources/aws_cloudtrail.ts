@@ -1,5 +1,5 @@
 /**
- * AWS CloudTrail — native source module.
+ * AWS CloudTrail - native source module.
  *
  * Card: docs/log-schemas/cloud-aws-cloudtrail.md. Native format = the bare
  * CloudTrail event object (what the `Records[]` array holds), nested exactly as
@@ -38,7 +38,7 @@ const API_OPTIONAL = [
   "userIdentity.sessionContext.ec2RoleDelivery", "userIdentity.sessionContext.webIdFederationData",
 ];
 const API_REQUIRED = ["eventVersion", "userIdentity", "eventTime", "eventSource", "eventName", "awsRegion", "eventID", "eventType"];
-/** Free-form sub-objects — their inner keys are API-specific, not schema-checked. */
+/** Free-form sub-objects - their inner keys are API-specific, not schema-checked. */
 const OPEN = ["requestParameters", "responseElements", "additionalEventData", "serviceEventDetails", "addendum", "insightDetails", "userIdentity.onBehalfOf", "userIdentity.webIdFederationData"];
 
 const apiKind = (): KindSchema => ({ required: API_REQUIRED, optional: API_OPTIONAL, openPrefixes: OPEN });
@@ -81,7 +81,7 @@ const BEDROCK_DATA = new Set(["InvokeAgent", "InvokeInlineAgent", "Retrieve", "R
 const DATA_EVENTS = new Set(["GetObject", "PutObject", "DeleteObject", "DeleteObjects", "HeadObject", "CopyObject", "SelectObjectContent", "GetObjectAcl", "GetObjectTagging", "ListObjects", "ListObjectsV2", "RestoreObject", "UploadPart"]);
 // DynamoDB data plane operations: CloudTrail logs them as data events, resource type AWS::DynamoDB::Table.
 const DYNAMODB_DATA = new Set(["BatchExecuteStatement", "BatchGetItem", "BatchWriteItem", "DeleteItem", "ExecuteStatement", "ExecuteTransaction", "GetItem", "PutItem", "Query", "Scan", "TransactGetItems", "TransactWriteItems", "UpdateItem"]);
-/** STS calls that mint credentials — their responseElements carry the new key even though the name starts with Get. */
+/** STS calls that mint credentials - their responseElements carry the new key even though the name starts with Get. */
 const CRED_ISSUING = new Set(["GetSessionToken", "GetFederationToken"]);
 
 /** Turn flattened `a.b.0.c` keys into the nested objects / arrays CloudTrail really delivers. */
@@ -102,7 +102,7 @@ function unflatten(flat: Record<string, unknown>): Record<string, unknown> {
   }
   return out;
 }
-/** Deep merge — `over` wins on every leaf it carries (authored values beat derived ones). */
+/** Deep merge - `over` wins on every leaf it carries (authored values beat derived ones). */
 function merge(base: Record<string, unknown>, over: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = { ...base };
   for (const [k, v] of Object.entries(over)) {
@@ -135,7 +135,7 @@ function collectParams(raw: Record<string, unknown> | undefined, flatPrefixes: s
   return Object.keys(out).length ? out : undefined;
 }
 
-/** A plausible base64 blob (SAML name qualifiers, session tokens) from a seed — no Node Buffer (runs in the browser). */
+/** A plausible base64 blob (SAML name qualifiers, session tokens) from a seed - no Node Buffer (runs in the browser). */
 function b64(ctx: NativeCtx, seed: string, bytes: number): string {
   const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   const hex = ctx.hex(seed, bytes * 2);
@@ -173,7 +173,7 @@ function buildUserIdentity(ev: TelemetryEvent, ctx: NativeCtx, pr: AwsPrincipal,
       return {
         type: "AssumedRole",
         principalId: pr.principalId?.includes(":") ? pr.principalId : `${roleId}:${session}`,
-        // The session lives in the role's own account — the record's account.
+        // The session lives in the role's own account - the record's account.
         arn: `arn:${part}:sts::${acct}:assumed-role/${role}/${session}`,
         accountId: acct,
         accessKeyId: pr.accessKeyId ?? awsSessionKey(ctx, role, session),
@@ -203,7 +203,7 @@ function buildUserIdentity(ev: TelemetryEvent, ctx: NativeCtx, pr: AwsPrincipal,
       return { type: "FederatedUser", principalId: pr.principalId ?? `${acct}:${name}`, arn: `arn:${part}:sts::${acct}:federated-user/${name}`, accountId: acct, accessKeyId: pr.accessKeyId ?? awsSessionKey(ctx, "federated", name) };
     }
     default: {
-      // IAMUser — a long-term AKIA key (a console sign-in carries none).
+      // IAMUser - a long-term AKIA key (a console sign-in carries none).
       const name = pr.userName ?? "unknown";
       const ownAcct = isRealAccount(arnAccount(pr.arn)) ? arnAccount(pr.arn)! : acct;
       const path = pr.arn && /:user(\/.+)?\/[^/]+$/.test(pr.arn) ? (/:user(\/.*\/)[^/]+$/.exec(pr.arn)?.[1] ?? "/") : "/";
@@ -228,7 +228,7 @@ function callerSessionName(pr: AwsPrincipal): string | undefined {
 /**
  * responseElements the API really returns (when the event authored none): the new key of
  * CreateAccessKey, the temporary credentials + assumed-role user of AssumeRole*, the user of
- * CreateUser, the instances of RunInstances … — derived from the SAME per-entity seeds the later
+ * CreateUser, the instances of RunInstances … - derived from the SAME per-entity seeds the later
  * rows use, so the key / session minted here is the one a student follows into the next calls.
  * Read-only calls log none.
  */
@@ -403,7 +403,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     responseElements = derived || authored ? merge(derived ?? {}, authored ?? {}) : null;
   }
 
-  // additionalEventData — carry byte counters (the exfil-volume pivot) + S3 signature metadata.
+  // additionalEventData - carry byte counters (the exfil-volume pivot) + S3 signature metadata.
   const bytesOut = rn(raw, "aws.cloudtrail.additional_event_data.bytes_transferred_out", "aws.cloudtrail.additionalEventData.bytesTransferredOut") ?? ev.network?.bytes_out
     ?? rn(raw, "s3.bytes_transferred", "storage.object.size", "transfer.bytes", "network.bytes_out")
     ?? (isData && typeof contentLength === "number" ? contentLength : undefined);
@@ -459,7 +459,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const roleArn = typeof req.roleArn === "string" ? req.roleArn : undefined;
   if (roleArn && /AssumeRole/.test(en)) record.resources = [{ ARN: roleArn, accountId: isRealAccount(arnAccount(roleArn)) ? arnAccount(roleArn) : acct, type: "AWS::IAM::Role" }];
 
-  // tlsDetails — present for direct API calls (absent for AWS-service-invoked / anonymous).
+  // tlsDetails - present for direct API calls (absent for AWS-service-invoked / anonymous).
   if (ui.type !== "Anonymous" && !isService && !ua.endsWith(".amazonaws.com")) {
     const svc = es.replace(/\.amazonaws\.com$/, "");
     const host = global ? (part === "aws-us-gov" && svc === "iam" ? "iam.us-gov.amazonaws.com" : es)
@@ -485,7 +485,7 @@ const useCases: UseCase[] = [
     id: "aws_cloudtrail.trail_disabled",
     title: "CloudTrail logging disabled or tampered",
     sourceId: "aws_cloudtrail", severity: "critical", mitre: ["T1685.002", "T1685"],
-    description: "StopLogging / DeleteTrail / UpdateTrail / PutEventSelectors on cloudtrail.amazonaws.com — an attacker blinding the audit trail to cover later actions.",
+    description: "StopLogging / DeleteTrail / UpdateTrail / PutEventSelectors on cloudtrail.amazonaws.com - an attacker blinding the audit trail to cover later actions.",
     logic: "SPL: eventSource=cloudtrail.amazonaws.com eventName IN (StopLogging,DeleteTrail,UpdateTrail,PutEventSelectors)",
     match: { all: [{ field: "eventSource", op: "eq", value: "cloudtrail.amazonaws.com" }, { field: "eventName", op: "in", value: ["StopLogging", "DeleteTrail", "UpdateTrail", "PutEventSelectors"] }] },
     falsePositives: ["Planned trail re-configuration by a cloud engineer during a logging migration (check the change ticket)."],
@@ -494,7 +494,7 @@ const useCases: UseCase[] = [
     id: "aws_cloudtrail.bedrock_logging_disabled",
     title: "Bedrock model-invocation logging disabled",
     sourceId: "aws_cloudtrail", severity: "high", mitre: ["T1685.002"],
-    description: "DeleteModelInvocationLoggingConfiguration on bedrock.amazonaws.com — turns off prompt/response capture so later model abuse leaves only metadata (an LLMjacking defense-evasion step).",
+    description: "DeleteModelInvocationLoggingConfiguration on bedrock.amazonaws.com - turns off prompt/response capture so later model abuse leaves only metadata (an LLMjacking defense-evasion step).",
     logic: "SPL: eventSource=bedrock.amazonaws.com eventName=DeleteModelInvocationLoggingConfiguration",
     match: { all: [{ field: "eventSource", op: "eq", value: "bedrock.amazonaws.com" }, { field: "eventName", op: "eq", value: "DeleteModelInvocationLoggingConfiguration" }] },
     falsePositives: ["A platform team intentionally changing Bedrock logging configuration (should come from an SSO/console session, not a long-term AKIA key)."],
@@ -514,16 +514,16 @@ const useCases: UseCase[] = [
     title: "Console sign-in without MFA",
     sourceId: "aws_cloudtrail", severity: "medium", mitre: ["T1078.004", "T1556"],
     kinds: ["AwsConsoleSignIn"],
-    description: "A ConsoleLogin where additionalEventData.MFAUsed is No — a single-factor sign-in, weak against credential theft; alarming from a new IP.",
+    description: "A ConsoleLogin where additionalEventData.MFAUsed is No - a single-factor sign-in, weak against credential theft; alarming from a new IP.",
     logic: "SPL: eventName=ConsoleLogin additionalEventData.MFAUsed=No",
     match: { all: [{ field: "eventName", op: "eq", value: "ConsoleLogin" }, { field: "additionalEventData.MFAUsed", op: "eq", value: "No" }] },
-    falsePositives: ["Accounts legitimately exempt from MFA (service break-glass) — rare and should be eliminated."],
+    falsePositives: ["Accounts legitimately exempt from MFA (service break-glass) - rare and should be eliminated."],
   },
   {
     id: "aws_cloudtrail.key_recon_external",
     title: "Credential validation / recon from an external IP",
     sourceId: "aws_cloudtrail", severity: "medium", mitre: ["T1078.004", "T1580"],
-    description: "GetCallerIdentity (or other Get*/List*/Describe* recon) from a non-corporate public IP — a classic first move after an access key is stolen.",
+    description: "GetCallerIdentity (or other Get*/List*/Describe* recon) from a non-corporate public IP - a classic first move after an access key is stolen.",
     logic: "SPL: eventName IN (GetCallerIdentity,ListBuckets,ListSecrets,ListRoles,DescribeInstances) NOT cidr(sourceIPAddress, RFC1918)",
     match: { all: [
       { field: "eventName", op: "in", value: ["GetCallerIdentity", "ListBuckets", "ListSecrets", "ListRoles", "DescribeInstances", "DescribeVpcs"] },
@@ -535,7 +535,7 @@ const useCases: UseCase[] = [
     id: "aws_cloudtrail.external_ip_api_burst",
     title: "API burst from a single external IP (stolen-key activity)",
     sourceId: "aws_cloudtrail", severity: "high", mitre: ["T1078.004", "T1580"],
-    description: "Four or more distinct API actions from the same external IP within 10 minutes — the recon → collection → persistence tempo of a compromised credential, correlated by sourceIPAddress.",
+    description: "Four or more distinct API actions from the same external IP within 10 minutes - the recon → collection → persistence tempo of a compromised credential, correlated by sourceIPAddress.",
     logic: "SPL: NOT cidr(sourceIPAddress, RFC1918) | stats dc(eventName) by sourceIPAddress | where dc>=4 (10m window)",
     match: { field: "sourceIPAddress", op: "notCidr", value: PRIVATE },
     threshold: { groupBy: ["sourceIPAddress"], count: 4, windowSec: 600, distinct: "eventName" },
@@ -545,7 +545,7 @@ const useCases: UseCase[] = [
     id: "aws_cloudtrail.s3_public_exposure",
     title: "S3 bucket exposed publicly",
     sourceId: "aws_cloudtrail", severity: "critical", mitre: ["T1530", "T1567.002"],
-    description: "A bucket policy / ACL change granting public (Principal \"*\") read, or removal of the Block-Public-Access guardrail — the step that makes exfiltrated data reachable by anyone.",
+    description: "A bucket policy / ACL change granting public (Principal \"*\") read, or removal of the Block-Public-Access guardrail - the step that makes exfiltrated data reachable by anyone.",
     logic: "SPL: eventName IN (DeleteBucketPublicAccessBlock,DeletePublicAccessBlock) OR (PutBucketPolicy AND requestParameters contains Principal:*)",
     match: { any: [
       { field: "eventName", op: "in", value: ["DeleteBucketPublicAccessBlock", "DeletePublicAccessBlock"] },
@@ -556,14 +556,14 @@ const useCases: UseCase[] = [
         { field: "requestParameters.policyDocument", op: "regex", value: "\\\"Principal\\\"\\s*:\\s*\\\"\\*\\\"" },
       ] }] },
     ] },
-    falsePositives: ["A bucket intentionally hosting public static assets (CDN origin) — confirm the data classification of the bucket."],
+    falsePositives: ["A bucket intentionally hosting public static assets (CDN origin) - confirm the data classification of the bucket."],
   },
   {
     id: "aws_cloudtrail.s3_mass_exfil",
     title: "Large S3 object egress to an external IP",
     sourceId: "aws_cloudtrail", severity: "high", mitre: ["T1530", "T1567.002"],
     kinds: ["AwsApiCall"],
-    description: "A GetObject data event transferring a large volume out (≥40 MB) to a non-corporate public IP — the network footprint of bulk data theft from S3.",
+    description: "A GetObject data event transferring a large volume out (≥40 MB) to a non-corporate public IP - the network footprint of bulk data theft from S3.",
     logic: "SPL: eventName=GetObject eventCategory=Data additionalEventData.bytesTransferredOut>=40000000 NOT cidr(sourceIPAddress, RFC1918)",
     match: { all: [
       { field: "eventName", op: "eq", value: "GetObject" },
@@ -576,7 +576,7 @@ const useCases: UseCase[] = [
     id: "aws_cloudtrail.iam_persistence",
     title: "IAM persistence / privilege escalation",
     sourceId: "aws_cloudtrail", severity: "critical", mitre: ["T1136.003", "T1098.001", "T1098.003"],
-    description: "CreateUser / CreateAccessKey, attaching AdministratorAccess, or re-writing a role trust policy to an external account — attacker-planted standing access that survives session expiry.",
+    description: "CreateUser / CreateAccessKey, attaching AdministratorAccess, or re-writing a role trust policy to an external account - attacker-planted standing access that survives session expiry.",
     logic: "SPL: eventSource=iam.amazonaws.com (eventName IN (CreateUser,CreateAccessKey) OR (eventName=AttachUserPolicy requestParameters.policyArn=*AdministratorAccess) OR eventName=UpdateAssumeRolePolicy)",
     match: { all: [{ field: "eventSource", op: "eq", value: "iam.amazonaws.com" }, { any: [
       { field: "eventName", op: "in", value: ["CreateUser", "CreateAccessKey", "UpdateAssumeRolePolicy"] },
@@ -588,7 +588,7 @@ const useCases: UseCase[] = [
     id: "aws_cloudtrail.secret_access_burst",
     title: "Secrets Manager mass secret retrieval",
     sourceId: "aws_cloudtrail", severity: "high", mitre: ["T1552.005", "T1555.006"],
-    description: "The same identity reading multiple distinct secrets (GetSecretValue) within minutes — credential harvesting at machine tempo rather than one application reading its one secret.",
+    description: "The same identity reading multiple distinct secrets (GetSecretValue) within minutes - credential harvesting at machine tempo rather than one application reading its one secret.",
     logic: "SPL: eventName=GetSecretValue | stats dc(requestParameters.secretId) by userIdentity.arn | where dc>=2 (10m window)",
     match: { field: "eventName", op: "eq", value: "GetSecretValue" },
     threshold: { groupBy: ["userIdentity.arn"], count: 2, windowSec: 600, distinct: "requestParameters.secretId" },
@@ -598,7 +598,7 @@ const useCases: UseCase[] = [
     id: "aws_cloudtrail.bedrock_abuse",
     title: "Bedrock model access expanded by a service key (LLMjacking)",
     sourceId: "aws_cloudtrail", severity: "high", mitre: ["T1078.004"],
-    description: "PutFoundationModelEntitlement / CreateFoundationModelAgreement / PutUseCaseForModelAccess on bedrock.amazonaws.com — console-style model-access actions issued by an automation key, the self-service step of LLMjacking before mass InvokeModel.",
+    description: "PutFoundationModelEntitlement / CreateFoundationModelAgreement / PutUseCaseForModelAccess on bedrock.amazonaws.com - console-style model-access actions issued by an automation key, the self-service step of LLMjacking before mass InvokeModel.",
     logic: "SPL: eventSource=bedrock.amazonaws.com eventName IN (PutFoundationModelEntitlement,CreateFoundationModelAgreement,PutUseCaseForModelAccess)",
     match: { all: [{ field: "eventSource", op: "eq", value: "bedrock.amazonaws.com" }, { field: "eventName", op: "in", value: ["PutFoundationModelEntitlement", "CreateFoundationModelAgreement", "PutUseCaseForModelAccess"] }] },
     falsePositives: ["A platform engineer enabling a new Bedrock model through the console (SSO session, browser user agent) rather than a scripted key."],

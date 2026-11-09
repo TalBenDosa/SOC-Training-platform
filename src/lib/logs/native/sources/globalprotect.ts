@@ -1,5 +1,5 @@
 /**
- * Palo Alto Networks GlobalProtect — PAN-OS GLOBALPROTECT log type (PAN-OS 9.1+).
+ * Palo Alto Networks GlobalProtect - PAN-OS GLOBALPROTECT log type (PAN-OS 9.1+).
  * Card: docs/log-schemas/vpn-globalprotect.md
  *
  * Text-native: the record is a FLAT object keyed by the PAN-OS syslog variable
@@ -22,7 +22,7 @@ import {
   corpDeviceName, unmanagedDeviceName, osFamily, userKey, HIGH_RISK_ISO, type VpnFacts,
 } from "./remote-access-shared";
 
-/** Wire column order (FUTURE_USE columns excluded — they are emitted only in the raw line). */
+/** Wire column order (FUTURE_USE columns excluded - they are emitted only in the raw line). */
 export const GP_COLUMNS = [
   "receive_time", "serial", "type", "subtype", "time_generated", "vsys", "eventid", "stage", "auth_method",
   "tunnel_type", "srcuser", "srcregion", "machinename", "public_ip", "public_ipv6", "private_ip", "private_ipv6",
@@ -247,7 +247,7 @@ const useCases: UseCase[] = [
     kinds: AUTH_EVENTS,
     severity: "high",
     mitre: ["T1110.003", "T1133"],
-    description: "One public IP fails GlobalProtect authentication for five or more different usernames inside 10 minutes. Real users mistype their own password; a script tries one password against many accounts. Check whether the same public_ip later shows status=success — that account is compromised.",
+    description: "One public IP fails GlobalProtect authentication for five or more different usernames inside 10 minutes. Real users mistype their own password; a script tries one password against many accounts. Check whether the same public_ip later shows status=success - that account is compromised.",
     logic: "SPL: index=pan sourcetype=pan:globalprotect eventid IN (portal-auth, gateway-auth) status=failure | bin _time span=10m | stats dc(srcuser) AS users values(srcuser) BY public_ip srcregion _time | where users>=5",
     match: { all: [{ field: "status", op: "eq", value: "failure" }, { field: "public_ip", op: "notCidr", value: ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"] }] },
     threshold: { groupBy: ["public_ip"], count: 5, windowSec: 600, distinct: "srcuser" },
@@ -285,7 +285,7 @@ const useCases: UseCase[] = [
     kinds: SESSION_START,
     severity: "high",
     mitre: ["T1078"],
-    description: "The same srcuser authenticates or brings up a tunnel from two different srcregion values within 4 hours. Unless one is a corporate egress or a known VPN-on-VPN setup, nobody travels that fast — one of the sessions is using stolen credentials. Different hostid/machinename on the second session confirms a second device.",
+    description: "The same srcuser authenticates or brings up a tunnel from two different srcregion values within 4 hours. Unless one is a corporate egress or a known VPN-on-VPN setup, nobody travels that fast - one of the sessions is using stolen credentials. Different hostid/machinename on the second session confirms a second device.",
     logic: "SPL: index=pan sourcetype=pan:globalprotect status=success eventid IN (gateway-connected, gateway-auth) | stats dc(srcregion) AS regions values(srcregion) values(public_ip) values(machinename) BY srcuser span=4h | where regions>1",
     match: { all: [{ field: "status", op: "eq", value: "success" }, { field: "srcuser", op: "exists" }] },
     threshold: { groupBy: ["srcuser"], count: 2, windowSec: 4 * 3600, distinct: "srcregion" },

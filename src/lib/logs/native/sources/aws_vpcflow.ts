@@ -1,5 +1,5 @@
 /**
- * AWS VPC Flow Logs — native source module (text-native).
+ * AWS VPC Flow Logs - native source module (text-native).
  *
  * Card: docs/log-schemas/cloud-aws-vpc-flow.md. A record is a single space-
  * separated line; we expose a flat JSON object keyed by AWS's own hyphenated field
@@ -9,7 +9,7 @@
  * The platform has no authored VPC-flow telemetry today: flow logs are an ENI-level
  * network record that neither the CloudTrail (API-call) nor the firewall-vendor
  * events are. `fromTelemetry` therefore renders only a genuine AWS VPC flow 5-tuple
- * and returns null otherwise (per the brief — never fake a flow from an API event).
+ * and returns null otherwise (per the brief - never fake a flow from an API event).
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { KindSchema, NativeCtx, NativeLog, NativeSource, SourceSchema, UseCase } from "../types";
@@ -59,7 +59,7 @@ const PROTO: Record<string, number> = { tcp: 6, udp: 17, icmp: 1, icmpv6: 58 };
 /** Only render a genuine AWS VPC flow 5-tuple; decline everything else (never fake one). */
 function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const raw = ev.raw ?? {};
-  // A VPC flow must have an ENI/flow marker in the source event — none of the
+  // A VPC flow must have an ENI/flow marker in the source event - none of the
   // platform's current CloudTrail / firewall events carry one.
   const eni = rs(raw, "aws.vpcflow.interface-id", "interface-id", "aws.vpcflow.interface_id");
   const isAwsFlow = !!eni || (ev.cloud?.provider === "aws" && !!ev.src_ip && !!ev.dst_ip && ev.dst_port !== undefined && !rs(raw, "aws.cloudtrail.eventName"));
@@ -95,7 +95,7 @@ const useCases: UseCase[] = [
     id: "aws_vpcflow.inbound_admin_bruteforce",
     title: "Rejected inbound SSH/RDP (brute force / scan)",
     sourceId: "aws_vpcflow", severity: "medium", mitre: ["T1110", "T1046"],
-    description: "REJECTed inbound connections to 22 (SSH) or 3389 (RDP) — attempts the security group blocked, i.e. internet-facing brute force or port scanning against an instance.",
+    description: "REJECTed inbound connections to 22 (SSH) or 3389 (RDP) - attempts the security group blocked, i.e. internet-facing brute force or port scanning against an instance.",
     logic: "Athena: action='REJECT' AND dstport IN (22,3389)",
     match: { all: [{ field: "action", op: "eq", value: "REJECT" }, { field: "dstport", op: "in", value: [22, 3389] }] },
     falsePositives: ["Background internet scan noise hitting a closed port (expected; only alert on volume or on an ACCEPT that follows)."],
@@ -104,7 +104,7 @@ const useCases: UseCase[] = [
     id: "aws_vpcflow.large_egress_external",
     title: "Large data egress to an external IP",
     sourceId: "aws_vpcflow", severity: "high", mitre: ["T1048", "T1567"],
-    description: "A single ACCEPTed outbound flow moving a large byte volume (≥10 MB) to a non-RFC1918 destination — the network side of bulk data exfiltration.",
+    description: "A single ACCEPTed outbound flow moving a large byte volume (≥10 MB) to a non-RFC1918 destination - the network side of bulk data exfiltration.",
     logic: "Athena: action='ACCEPT' AND bytes>=10000000 AND NOT cidr(dstaddr, RFC1918)",
     match: { all: [
       { field: "action", op: "eq", value: "ACCEPT" },
@@ -118,10 +118,10 @@ const useCases: UseCase[] = [
     title: "Egress to the internet via the internet gateway",
     sourceId: "aws_vpcflow", severity: "low", mitre: ["T1071"],
     kinds: ["flow"],
-    description: "An egress flow whose traffic-path is 8 (internet gateway) to a public destination — baseline context for whether an instance talks directly to the internet; a pivot when combined with volume or a bad-reputation destination.",
+    description: "An egress flow whose traffic-path is 8 (internet gateway) to a public destination - baseline context for whether an instance talks directly to the internet; a pivot when combined with volume or a bad-reputation destination.",
     logic: "Athena: flow-direction='egress' AND traffic-path IN (2,8)",
     match: { all: [{ field: "flow-direction", op: "eq", value: "egress" }, { field: "traffic-path", op: "in", value: [2, 8] }] },
-    falsePositives: ["Normal outbound internet traffic — low on its own; use as an enrichment dimension."],
+    falsePositives: ["Normal outbound internet traffic - low on its own; use as an enrichment dimension."],
   },
 ];
 

@@ -1,5 +1,5 @@
 /**
- * ServiceNow ITSM — native module (card: docs/log-schemas/itsm-servicenow.md).
+ * ServiceNow ITSM - native module (card: docs/log-schemas/itsm-servicenow.md).
  *
  * Record: the REST Table API response for ONE record, exactly as returned in the default
  * raw mode (`sysparm_display_value=false`): `{"result": {...}}`, every scalar a string,
@@ -7,17 +7,17 @@
  * "YYYY-MM-DD HH:MM:SS" UTC, reference fields as `{link, value}` objects pointing at the
  * referenced table (sys_user, sys_user_group, cmdb_ci …), `sys_created_by` /
  * `sys_updated_by` as user_name strings. Journal fields (`work_notes`, `comments`) carry the
- * ticket's journal as the SIEM connector reads it — the entry list ServiceNow returns for a journal
- * field read with display values (`<sys_created_on> - <user> (Work notes)` + the text) — because
+ * ticket's journal as the SIEM connector reads it - the entry list ServiceNow returns for a journal
+ * field read with display values (`<sys_created_on> - <user> (Work notes)` + the text) - because
  * the notes ARE the evidence (how the caller was verified, what the agent did); a ticket with no
  * authored note returns them empty. resolved_at / closed_at follow the ticket's own timeline: the
- * authored value, else the record's time when the state says it was resolved / closed — never
+ * authored value, else the record's time when the state says it was resolved / closed - never
  * later than the record itself.
  *
- * Input: `source:"soar"` events whose vendor is ServiceNow — the records produced by
+ * Input: `source:"soar"` events whose vendor is ServiceNow - the records produced by
  * src/lib/sim/emitters/servicenow.ts (`serviceNowRecord`, legacy `servicenow.*` raw keys).
  * Stable ids: a ticket's sys_id is derived from its number, a user's sys_user sys_id from
- * the email, a group's from its name — so every update of one ticket, and every ticket of
+ * the email, a group's from its name - so every update of one ticket, and every ticket of
  * one person, correlates. Non-ServiceNow SOAR events have no ITSM record → null.
  */
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
@@ -32,7 +32,7 @@ const kinds: Record<string, KindSchema> = {
   incident: {
     required: REQUIRED,
     optional: [...COMMON, ...P("caller_id", "category", "subcategory", "contact_type", "hold_reason", "resolved_at", "closed_at", "incident_state"),
-      // Customer-defined columns (ServiceNow prefixes custom columns with u_). Not on the card — they carry the
+      // Customer-defined columns (ServiceNow prefixes custom columns with u_). Not on the card - they carry the
       // help-desk identity-verification evidence the vishing stories turn on.
       ...P("u_identity_verification", "u_verification_result")],
   },
@@ -191,7 +191,7 @@ const useCases: UseCase[] = [
   {
     id: "servicenow.change_implemented_unapproved", title: "Change implementing without approval", sourceId: "servicenow", kinds: ["change_request"],
     severity: "high", mitre: ["T1078", "T1098"],
-    description: "A change in Implement / Review / Closed whose approval is not 'approved' means work was done outside the approved process — the window or ticket an admin points to does not actually authorise the activity you are investigating.",
+    description: "A change in Implement / Review / Closed whose approval is not 'approved' means work was done outside the approved process - the window or ticket an admin points to does not actually authorise the activity you are investigating.",
     logic: "sysparm_query=stateIN-1,0,3^approval!=approved",
     match: { all: [{ field: "result.state", op: "in", value: ["-1", "0", "3"] }, { field: "result.approval", op: "neq", value: "approved" }] },
     falsePositives: ["Standard (pre-approved) changes, whose approval may read 'not requested'"],
@@ -199,10 +199,10 @@ const useCases: UseCase[] = [
   {
     id: "servicenow.change_window_offhours", title: "Change window scheduled outside business hours (context)", sourceId: "servicenow", kinds: ["change_request"],
     severity: "low", mitre: [],
-    description: "Context, not an alert: a change scheduled between 22:00 and 06:00 UTC explains — or fails to explain — night-time admin logins, backup jobs and service restarts. Match the host (cmdb_ci), the person (assigned_to) and the time against start_date/end_date (UTC).",
+    description: "Context, not an alert: a change scheduled between 22:00 and 06:00 UTC explains - or fails to explain - night-time admin logins, backup jobs and service restarts. Match the host (cmdb_ci), the person (assigned_to) and the time against start_date/end_date (UTC).",
     logic: "sysparm_query=start_dateRELATIVEGE@hour@ago@0  |  SIEM: snow_change | where hour(start_date) >= 22 or hour(start_date) < 6",
     match: { field: "result.start_date", op: "regex", value: " (2[2-3]|0[0-5]):" },
-    falsePositives: ["Planned maintenance windows — that is the point: use them to clear night-time alerts"],
+    falsePositives: ["Planned maintenance windows - that is the point: use them to clear night-time alerts"],
   },
   {
     id: "servicenow.helpdesk_auth_reset_by_phone", title: "Password / MFA reset requested by phone", sourceId: "servicenow", kinds: ["incident"],
@@ -210,7 +210,7 @@ const useCases: UseCase[] = [
     description: "Help-desk social engineering (Scattered Spider, voice-cloned callers) starts as an ordinary phone ticket asking for a password or MFA reset. Compare the caller's real activity (sign-ins from their own device minutes earlier) with the ticket and check how identity was verified.",
     logic: "sysparm_query=contact_type=phone^subcategoryLIKEpassword^ORsubcategoryLIKEmfa",
     match: { all: [{ field: "result.contact_type", op: "eq", value: "phone" }, { field: "result.subcategory", op: "regex", value: "password|mfa|authenticator" }] },
-    falsePositives: ["Genuine lockouts — most such tickets are legitimate; the point is to cross-check them"],
+    falsePositives: ["Genuine lockouts - most such tickets are legitimate; the point is to cross-check them"],
   },
   {
     id: "servicenow.weak_identity_verification", title: "Reset ticket closed on knowledge-based / voice-only verification", sourceId: "servicenow", kinds: ["incident"],
@@ -218,7 +218,7 @@ const useCases: UseCase[] = [
     description: "Employee ID, date of birth or 'voice recognised' are all things an attacker can obtain or synthesise. A credential/MFA reset verified only that way (and no call-back to the number on file) is the weak link to report.",
     logic: "sysparm_query=u_identity_verificationLIKEvoice^ORu_identity_verificationLIKEdate of birth^ORu_identity_verificationLIKEemployee id",
     match: { field: "result.u_identity_verification", op: "regex", value: "voice|date of birth|employee id" },
-    falsePositives: ["Organisations whose policy requires a call-back — verify it was actually done"],
+    falsePositives: ["Organisations whose policy requires a call-back - verify it was actually done"],
   },
   {
     id: "servicenow.critical_incident", title: "Priority 1 incident (context)", sourceId: "servicenow", kinds: ["incident"],
@@ -231,7 +231,7 @@ const useCases: UseCase[] = [
   {
     id: "servicenow.privileged_access_request", title: "Approved request for admin / privileged access (context)", sourceId: "servicenow", kinds: ["sc_req_item"],
     severity: "low", mitre: ["T1078"],
-    description: "An approved catalog request for local admin, domain admin or root access explains a new group membership or elevated logons — or, if the activity starts before approval or outlasts due_date, contradicts them.",
+    description: "An approved catalog request for local admin, domain admin or root access explains a new group membership or elevated logons - or, if the activity starts before approval or outlasts due_date, contradicts them.",
     logic: "sysparm_query=approval=approved^short_descriptionLIKEadmin^ORshort_descriptionLIKEprivileged",
     match: { all: [{ field: "result.approval", op: "eq", value: "approved" }, { field: "result.short_description", op: "regex", value: "admin|privileged|root|sudo" }] },
     falsePositives: [],
@@ -239,7 +239,7 @@ const useCases: UseCase[] = [
   {
     id: "servicenow.soc_monitoring_incident", title: "High-priority incident opened from monitoring (context)", sourceId: "servicenow", kinds: ["incident"],
     severity: "low", mitre: [],
-    description: "Context: an incident with contact_type=monitoring and priority 1–2 was opened by the SOC/monitoring itself — the ticket an analyst updates and cites.",
+    description: "Context: an incident with contact_type=monitoring and priority 1–2 was opened by the SOC/monitoring itself - the ticket an analyst updates and cites.",
     logic: "sysparm_query=contact_type=monitoring^priorityIN1,2",
     match: { all: [{ field: "result.contact_type", op: "eq", value: "monitoring" }, { field: "result.priority", op: "in", value: ["1", "2"] }] },
     falsePositives: [],

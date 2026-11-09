@@ -1,5 +1,5 @@
 /**
- * Google Workspace — Admin SDK Reports API `activities` (admin#reports#activity).
+ * Google Workspace - Admin SDK Reports API `activities` (admin#reports#activity).
  * Card: docs/log-schemas/collab-google-workspace.md
  *
  * One log = one Activity resource: nested id{}, actor{}, events[] with
@@ -17,8 +17,8 @@
  *   Add member to role. → GRANT_ADMIN_PRIVILEGE / ASSIGN_ROLE,
  *   Set-Mailbox -ForwardingSmtpAddress (out of domain) → email_forwarding_out_of_domain,
  *   password reset/change → CHANGE_PASSWORD / password_edit.
- * Returns null (no Google equivalent — never faked): New-InboxRule / Set-InboxRule /
- * UpdateInboxRules (Gmail user filters have no Reports API event — this also
+ * Returns null (no Google equivalent - never faked): New-InboxRule / Set-InboxRule /
+ * UpdateInboxRules (Gmail user filters have no Reports API event - this also
  * covers the platform's authored "CREATE_GMAIL_FILTER"), Add-MailboxPermission
  * (Gmail delegation has no documented event), MailItemsAccessed / MailboxLogin
  * (no session / Bind-Sync equivalent), admin tenant-wide consent, Teams, Copilot,
@@ -190,7 +190,7 @@ function gmailDelivery(ev: TelemetryEvent, ctx: NativeCtx, sent: boolean): Built
     linkDomains.length ? p("link_domain", linkDomains) : null,
     f.attachments.length ? { name: "attachment", multiMessageValue: f.attachments.map(a => ({ parameter: params(p("file_name", a.name), p("sha256", a.sha256)) })) } : null,
   );
-  // G10 layout — nesting of message_info is UNVERIFIED in the card (only Gmail record available for mail flow).
+  // G10 layout - nesting of message_info is UNVERIFIED in the card (only Gmail record available for mail flow).
   return {
     app: "gmail", type: "delivery_type", name: "delivery", actor: user, noIp: true,
     parameters: [msg("event_info", params(p("mail_event_type", sent ? 1 : 2), p("success", true))), msg("message_info", inner)],
@@ -473,7 +473,7 @@ const useCases: UseCase[] = [
     id: "google_workspace.login-failure-burst",
     title: "Many accounts failing to log in from one IP",
     sourceId: "google_workspace", kinds: ["login"], severity: "medium", mitre: ["T1110.003"],
-    description: "login_failure for 5+ distinct actor.email from one ipAddress in 10 minutes — password spraying against Google accounts.",
+    description: "login_failure for 5+ distinct actor.email from one ipAddress in 10 minutes - password spraying against Google accounts.",
     logic: "Reports API: applicationName=login eventName=login_failure | stats dc(actor.email) by ipAddress span=10m | where dc >= 5",
     match: { field: "events[].name", op: "eq", value: "login_failure" },
     threshold: { groupBy: ["ipAddress"], count: 5, windowSec: 600, distinct: "actor.email" },

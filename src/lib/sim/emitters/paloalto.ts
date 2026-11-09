@@ -1,13 +1,13 @@
 /**
  * Palo Alto Networks PAN-OS (NGFW) log EMITTERS.
  *
- * The network half of the kill chain — the web request that downloads a dropper, the
+ * The network half of the kill chain - the web request that downloads a dropper, the
  * loader's outbound fetch of its second stage, the C2 config pull, the exfil POST. Same
  * contract as the endpoint emitters: a typed call renders a complete TelemetryEvent whose
  * raw block uses only registry-valid PAN fields (the pan./gp. prefixes + the shared ECS
  * fields), with the client host/IP/user drawn from the company asset fabric.
  *
- * PAN-OS is a firewall (source:"firewall"), so these events carry no process — they are
+ * PAN-OS is a firewall (source:"firewall"), so these events carry no process - they are
  * the transport evidence an analyst correlates against the endpoint tree.
  */
 import type { TelemetryEvent, Severity } from "../types";
@@ -19,7 +19,7 @@ const VENDOR = "Palo Alto Networks PAN-OS";
 // A stable routable "server" IP for a domain, when the caller doesn't pin one.
 function serverIpFor(domain: string): string {
   const h = hashString(`panip:${domain}`);
-  // 23.x / 45.x / 104.x / 146.x / 185.x — common hosting ranges, never RFC1918.
+  // 23.x / 45.x / 104.x / 146.x / 185.x - common hosting ranges, never RFC1918.
   const firsts = [23, 45, 104, 146, 185, 188];
   return `${firsts[h % firsts.length]}.${(h >> 3) % 254 + 1}.${(h >> 8) % 254 + 1}.${(h >> 16) % 254 + 1}`;
 }
@@ -68,7 +68,7 @@ export interface PanWebOpts extends Ctx, PanFlowOpts {
   repeatCount?: number;        // PAN aggregates repeated identical sessions (repeatcnt)
   userTitle?: string;          // shown as the analyst-facing role chip in the feed
   file?: { name: string; path?: string; sha256?: string; size?: number }; // a download
-  fileType?: string;           // pan.filetype for a download — "pe" | "script" | "pdf" …
+  fileType?: string;           // pan.filetype for a download - "pe" | "script" | "pdf" …
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -132,14 +132,14 @@ export function panWeb(o: PanWebOpts): TelemetryEvent {
 }
 
 // ── Connection / session (net_connection) ────────────────────────────────────────────
-// A firewall connection or session-end record — a WebSocket tunnel, a raw socket, a
+// A firewall connection or session-end record - a WebSocket tunnel, a raw socket, a
 // session summary with byte counts and duration. Distinct from panWeb (an HTTP request):
 // the app is not "web-browsing" and there may be no URL.
 export interface PanConnectionOpts extends Ctx, PanFlowOpts {
   domain?: string;
   dstIp?: string;
   remotePort?: number;
-  app?: string;                // pan.app — "websocket" | "ssl" | "ssh" …
+  app?: string;                // pan.app - "websocket" | "ssl" | "ssh" …
   transport?: "tcp" | "udp";
   action?: "alert" | "allow" | "deny" | "block";
   category?: string;
@@ -147,10 +147,10 @@ export interface PanConnectionOpts extends Ctx, PanFlowOpts {
   bytesIn?: number;
   bytesOut?: number;
   elapsedSec?: number;         // session duration (TRAFFIC/end elapsed_time)
-  repeatCount?: number;        // PAN aggregates repeated identical sessions (repeatcnt) — a beacon tell
+  repeatCount?: number;        // PAN aggregates repeated identical sessions (repeatcnt) - a beacon tell
   end?: boolean;               // true → a TRAFFIC/end session summary (else a start/alert)
   sessionEndReason?: string;   // TRAFFIC/end session_end_reason (default tcp-fin)
-  decrypted?: boolean;         // SSL decryption applied — only then can a URL PATH be logged
+  decrypted?: boolean;         // SSL decryption applied - only then can a URL PATH be logged
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -166,7 +166,7 @@ export function panConnection(o: PanConnectionOpts): TelemetryEvent {
   // Log type/subtype must be a real PAN-OS pair:
   //   end                → TRAFFIC/end   (session summary: bytes, elapsed, end reason)
   //   alert/deny/block   → THREAT/url    (URL-filtering record)
-  //   allow (not end)    → TRAFFIC/start (session open — no volume yet)
+  //   allow (not end)    → TRAFFIC/start (session open - no volume yet)
   const isEnd = !!o.end;
   const isThreat = !isEnd && action !== "allow";
   const panType = isThreat ? "THREAT" : "TRAFFIC";

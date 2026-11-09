@@ -54,7 +54,7 @@ export function categoryOf(ev: TelemetryEvent): StackCategory | null {
     case "edr": case "av": return "edr";
     case "firewall": return "firewall";
     // A firewall's threat log is the firewall's; a Zeek / Corelight sensor's protocol log is its
-    // own product (no native card yet) — never relabelled as the shop's firewall.
+    // own product (no native card yet) - never relabelled as the shop's firewall.
     case "ids": return has(ev, "zeek", "corelight") ? null : "firewall";
     case "vpn": return "vpn";
     case "proxy": return "proxy";
@@ -239,7 +239,7 @@ function nativeDefault(ev: TelemetryEvent, cat: StackCategory): SourceId | null 
 
 // ── Vendor choice (spec §3, step 2) ──────────────────────────────────────────
 
-/** Short product names shown in the feed and pickers (light — no module import). */
+/** Short product names shown in the feed and pickers (light - no module import). */
 export const PRODUCT_LABEL: Partial<Record<SourceId, string>> = {
   crowdstrike: "CrowdStrike Falcon", mde: "Microsoft Defender for Endpoint", sentinelone: "SentinelOne", sophos: "Sophos Intercept X",
   paloalto: "Palo Alto Networks", fortigate: "Fortinet FortiGate", checkpoint: "Check Point", cisco_ftd: "Cisco Firepower (FTD)", cisco_asa: "Cisco ASA",
@@ -258,10 +258,10 @@ export const STACK_CHOICES: { category: StackCategory; label: string; options: S
     note: "Sophos streams no per-event DNS / network / file telemetry, so attacks that need that trail are not picked." },
   { category: "firewall", label: "Firewall", options: ["paloalto", "fortigate", "checkpoint", "cisco_ftd", "cisco_asa"] },
   { category: "vpn", label: "Remote access", options: ["globalprotect", "anyconnect", "fortigate_sslvpn", "zscaler_zpa", "cloudflare_access"],
-    note: "ZPA and Cloudflare sign in through SAML — password failures appear in the identity provider's logs instead." },
+    note: "ZPA and Cloudflare sign in through SAML - password failures appear in the identity provider's logs instead." },
   { category: "idp", label: "Identity provider", options: ["entra", "okta"] },
   { category: "collab", label: "Email & files", options: ["m365", "google_workspace"],
-    note: "Google Workspace has no equivalent for Exchange inbox rules or mailbox delegation — those attacks are not picked." },
+    note: "Google Workspace has no equivalent for Exchange inbox rules or mailbox delegation - those attacks are not picked." },
   { category: "email_security", label: "Email security", options: ["defender_o365", "proofpoint"] },
   { category: "dns", label: "DNS", options: ["windows_dns", "infoblox"] },
   { category: "waf", label: "Web application firewall", options: ["azure_waf", "aws_waf"],
@@ -323,11 +323,11 @@ export function sanitizeStack(input: unknown): Stack {
   return out;
 }
 
-// Product names that appear in authored descriptions, per category — rewritten to
+// Product names that appear in authored descriptions, per category - rewritten to
 // the chosen product so a row never says "Defender killed it" on a CrowdStrike shop.
 const NAME_FAMILIES: Partial<Record<StackCategory, string[]>> = {
   // Microsoft Defender Antivirus / Windows Defender are the Windows built-in AV, present under any EDR
-  // (passive mode beside Falcon / S1 / Sophos) — they are kept, not renamed (see BUILTIN_AV).
+  // (passive mode beside Falcon / S1 / Sophos) - they are kept, not renamed (see BUILTIN_AV).
   edr: ["Microsoft Defender for Endpoint", "Microsoft Defender ATP", "Defender for Endpoint",
     "Microsoft Defender", "CrowdStrike Falcon Elite", "CrowdStrike Falcon", "CrowdStrike", "Falcon", "SentinelOne Singularity", "SentinelOne",
     "Sophos Intercept X", "Sophos", "Defender"],
@@ -353,7 +353,7 @@ const IDP_TO_ENTRA: [RegExp, string][] = [[/Okta sign-on polic(y|ies)/g, "Condit
   [/Super Administrator/g, "Global Administrator"], [/Help Desk Administrator/g, "Helpdesk Administrator"]];
 
 /**
- * Artifacts only one product has — its OS, its own field names, its API paths. An
+ * Artifacts only one product has - its OS, its own field names, its API paths. An
  * event that cites them was written about that product and can't be shown as
  * another one (a FortiOS API-bypass story is not a PAN-OS story).
  */
@@ -373,7 +373,7 @@ export const PRODUCT_LOCKS: Partial<Record<SourceId, RegExp>> = {
   entra: /non-interactive|Identity Protection/,
 };
 
-/** Microsoft 365 client software / endpoints — background noise a Google Workspace shop doesn't produce. */
+/** Microsoft 365 client software / endpoints - background noise a Google Workspace shop doesn't produce. */
 export const M365_CLIENT_TEXT = /\b(?:Outlook|Teams|OneDrive|SharePoint|Microsoft 365|Office 365|Exchange Online)\b/;
 export const M365_CLIENT_RECORD = /OUTLOOK\.EXE|Teams\.exe|ms-teams\.exe|OneDrive\.exe|office365\.com|teams\.microsoft\.com|sharepoint\.com|outlook\.office\.com/i;
 export const MS_LOGIN_RECORD = /login\.microsoftonline\.com|login\.live\.com/i;
@@ -390,7 +390,7 @@ function fixArticles(text: string, names: string[]): string {
   return out;
 }
 function rewriteNames(text: string, pairs: [string, string][]): string {
-  // Placeholders first (longest names first), then targets — a rewrite never re-matches its own output.
+  // Placeholders first (longest names first), then targets - a rewrite never re-matches its own output.
   const sorted = [...pairs].sort((a, b) => b[0].length - a[0].length);
   let out = text;
   sorted.forEach(([from], i) => { out = out.replace(new RegExp(`(?<![A-Za-z])${escapeRe(from)}(?![A-Za-z])`, "g"), `\u0000${i}\u0000`); });

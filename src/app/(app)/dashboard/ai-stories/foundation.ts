@@ -221,7 +221,7 @@ function buildShadowChatUpload(): TelemetryEvent[] {
       extra: { ...aiApp("Unsanctioned") },
     }),
 
-    // DLP stops the spreadsheet — the first alert.
+    // DLP stops the spreadsheet - the first alert.
     {
       ...zia({
         id: "aishd4", ts: "2026-09-22T09:33:54.640Z",
@@ -330,7 +330,7 @@ function buildChatHarvestExtension(): TelemetryEvent[] {
 
   const extId = "hkgmfnpelcbjoadkdanmghcplobjhegk";
   const statsHost = "stats.surfguard-vpn.com";
-  const statsIp = "212.87.204.61";
+  const statsIp = "198.51.100.55";
   const statsQuery = `ext=${extId}&ver=5.5.0`;
   const statsUrl = `https://${statsHost}/v2/events?${statsQuery}`;
   const crxUrl = `https://clients2.googleusercontent.com/crx/blobs/Acy5rT0q8XvL3nWk2dUe1hQmZ7JpAaVfN4YtR6sGxKb9oCwDiE5uLhBMg2PzHnQ/${extId}_5_5_0_0.crx`;
@@ -429,7 +429,7 @@ function buildChatHarvestExtension(): TelemetryEvent[] {
       extra: {},
     }),
 
-    // The threat-intelligence match on that lookup — the first alert.
+    // The threat-intelligence match on that lookup - the first alert.
     {
       ...sentinelAlert({
         companyId: CX, id: "aiext10", ts: "2026-09-23T09:46:20.000Z", host: c.host, user: c.user, srcIp: c.ip, incidentId: INC,
@@ -529,8 +529,8 @@ function buildSvgInvoiceLure(): TelemetryEvent[] {
   const supplier = "d.holloway@brightwaterfreight.co.uk";
   const supplierName = "Daniel Holloway";
   const eopIp = "40.107.21.62";           // Exchange Online outbound: same for the supplier's normal mail
-  const usualClientIp = "81.2.69.160";    // the supplier's office (UK), as seen on the earlier mail
-  const lureClientIp = "196.251.73.140";  // where the mailbox client connected from for the lure (Lagos)
+  const usualClientIp = "198.51.100.57";    // the supplier's office (UK), as seen on the earlier mail
+  const lureClientIp = "198.51.100.58";  // where the mailbox client connected from for the lure (Lagos)
 
   const svgName = "Invoice_INV-20418 - PDF - 4 pages.svg";
   const svgSize = 12_846;
@@ -543,7 +543,7 @@ function buildSvgInvoiceLure(): TelemetryEvent[] {
   const baseInternetId = "<LO2P265MB4102A6C7F3B81D0E5942AC17D8E6F2@LO2P265MB4102.GBRP265.PROD.OUTLOOK.COM>";
 
   const gateHost = "docview.northgate-billing.com";
-  const gateIp = "45.142.214.77";        // resolves to Kyiv in the platform's geo table
+  const gateIp = "198.51.100.60";        // resolves to Kyiv in the platform's geo table
   const cacheDir = "C:\\Users\\j.chen\\AppData\\Local\\Microsoft\\Windows\\INetCache\\Content.Outlook\\KP3T9A2M";
   const svgPath = `${cacheDir}\\${svgName}`;
   const OUTLOOK = "C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE";
@@ -840,7 +840,7 @@ function buildSvgInvoiceLure(): TelemetryEvent[] {
 export const AI_FOUNDATION_STORIES: AiStoryDef[] = [
   {
     id: "ai-shadow-chat-upload",
-    title: "Shadow AI — Customer List Pasted into an Unsanctioned Chatbot After a DLP Block",
+    title: "Shadow AI - Customer List Pasted into an Unsanctioned Chatbot After a DLP Block",
     complexity: "foundation",
     companies: ["nexacorp", "rocketstack", "globallogis", "quantumbank"], soloCompanies: ["nexacorp", "globallogis", "quantumbank"],
     events: buildShadowChatUpload(),
@@ -854,7 +854,7 @@ export const AI_FOUNDATION_STORIES: AiStoryDef[] = [
   },
   {
     id: "ai-svg-invoice-lure",
-    title: "Invoice SVG Posing as a PDF — Credential Page After a CAPTCHA",
+    title: "Invoice SVG Posing as a PDF - Credential Page After a CAPTCHA",
     complexity: "foundation",
     companies: ["nexacorp", "medcore", "globallogis"],
     events: buildSvgInvoiceLure(),

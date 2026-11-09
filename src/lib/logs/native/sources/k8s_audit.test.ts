@@ -18,7 +18,7 @@ function cardLogs(): NativeLog[] {
   return out;
 }
 
-describe("k8s_audit — card samples", () => {
+describe("k8s_audit - card samples", () => {
   it("every Event + AKS-wrapper sample validates with zero violations", () => {
     const logs = cardLogs();
     expect(logs.length).toBeGreaterThanOrEqual(6);
@@ -29,7 +29,7 @@ describe("k8s_audit — card samples", () => {
   });
 });
 
-describe("k8s_audit — corpus conversion", () => {
+describe("k8s_audit - corpus conversion", () => {
   const mine = corpusFor(source.schema.telemetrySources, source.schema.vendorMatch);
 
   it("≥95% of Kubernetes audit events convert and validate clean", () => {
@@ -47,7 +47,7 @@ describe("k8s_audit — corpus conversion", () => {
   });
 });
 
-describe("k8s_audit — evidence & determinism", () => {
+describe("k8s_audit - evidence & determinism", () => {
   it("preserves verb, resource, username and source IP", () => {
     for (const c of corpusFor(source.schema.telemetrySources, source.schema.vendorMatch)) {
       const log = source.fromTelemetry(c.ev, makeCtx(c.companyId));
@@ -69,7 +69,7 @@ describe("k8s_audit — evidence & determinism", () => {
   });
 });
 
-describe("k8s_audit — use cases", () => {
+describe("k8s_audit - use cases", () => {
   const storyLogs = corpusFor(source.schema.telemetrySources)
     .filter(c => c.origin === "story")
     .map(c => source.fromTelemetry(c.ev, makeCtx(c.companyId)))

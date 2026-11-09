@@ -132,7 +132,7 @@ export function tacticOf(f: EdrFacts): string | undefined {
   return t;
 }
 
-/** A path whose last two segments repeat ("…\\cmd.exe\\cmd.exe") — an edrFacts misread when
+/** A path whose last two segments repeat ("…\\cmd.exe\\cmd.exe") - an edrFacts misread when
  *  the legacy FolderPath already contained the file name. */
 export function fixPath(p?: string): string | undefined {
   if (!p) return p;
@@ -145,7 +145,7 @@ export const dirOf = (p?: string) => (p && /[\\/]/.test(p) ? p.replace(/[\\/][^\
 
 /**
  * Remediation actually taken. edrFacts.actionOf() reads `quarantine.status: "not_quarantined"`
- * as "quarantined" (substring match) — corrected here when the legacy fields say the file
+ * as "quarantined" (substring match) - corrected here when the legacy fields say the file
  * was allowed / not quarantined.
  */
 export function effectiveAction(ev: TelemetryEvent, f: EdrFacts): "killed" | "quarantined" | "blocked" | "detected" {

@@ -1,5 +1,5 @@
 /**
- * Proofpoint TAP — SIEM API v2 (/v2/siem/all, format=json).
+ * Proofpoint TAP - SIEM API v2 (/v2/siem/all, format=json).
  * Card: docs/log-schemas/email-proofpoint.md
  *
  * One log = one element of messagesDelivered / messagesBlocked / clicksPermitted /
@@ -239,7 +239,7 @@ const useCases: UseCase[] = [
     id: "proofpoint.click-permitted",
     title: "User click on a malicious URL was permitted",
     sourceId: "proofpoint", kinds: ["clicksPermitted"], severity: "high", mitre: ["T1204.001", "T1566.002"],
-    description: "clicksPermitted with classification phish / malware: URL Defense let the user through (typically clickTime < threatTime — the URL was convicted after the click). Assume the credentials were entered: check the identity provider for sign-ins from new IPs after clickTime and reset the account.",
+    description: "clicksPermitted with classification phish / malware: URL Defense let the user through (typically clickTime < threatTime - the URL was convicted after the click). Assume the credentials were entered: check the identity provider for sign-ins from new IPs after clickTime and reset the account.",
     logic: "Splunk (TA-proofpoint-tap):\nsourcetype=\"pps:tap:click\" eventtype=clicksPermitted classification IN (phish, malware)\n| eval before_conviction=if(strptime(clickTime,\"%FT%T.%3NZ\")<strptime(threatTime,\"%FT%T.%3NZ\"),1,0)\n| table clickTime recipient clickIP url threatTime before_conviction GUID",
     match: { field: "classification", op: "in", value: ["phish", "malware"] },
     falsePositives: ["Security team testing a known-bad URL from an analysis workstation"],
@@ -248,7 +248,7 @@ const useCases: UseCase[] = [
     id: "proofpoint.click-blocked",
     title: "Click on a convicted URL was blocked",
     sourceId: "proofpoint", kinds: ["clicksBlocked"], severity: "medium", mitre: ["T1204.001"],
-    description: "clicksBlocked: the user tried to open a URL already convicted. Nothing was compromised by this click, but the user is engaging with the campaign — check for other clicks on the same threatID / GUID and whether the message is still in mailboxes.",
+    description: "clicksBlocked: the user tried to open a URL already convicted. Nothing was compromised by this click, but the user is engaging with the campaign - check for other clicks on the same threatID / GUID and whether the message is still in mailboxes.",
     logic: "Splunk: sourcetype=\"pps:tap:click\" eventtype=clicksBlocked | stats count values(recipient) by threatID url",
     match: { field: "threatStatus", op: "eq", value: "active" },
     falsePositives: ["Repeated clicks by an analyst investigating the message"],
@@ -257,7 +257,7 @@ const useCases: UseCase[] = [
     id: "proofpoint.threat-delivered",
     title: "Message with an active phish / malware threat was delivered",
     sourceId: "proofpoint", kinds: ["messagesDelivered"], severity: "high", mitre: ["T1566"],
-    description: "messagesDelivered with threatsInfoMap[].threatStatus=active and classification phish or malware: the threat reached the inbox (often convicted after delivery — threatTime > messageTime). Pull the message (TRAP / CLEAR) and hunt clicks on the same GUID.",
+    description: "messagesDelivered with threatsInfoMap[].threatStatus=active and classification phish or malware: the threat reached the inbox (often convicted after delivery - threatTime > messageTime). Pull the message (TRAP / CLEAR) and hunt clicks on the same GUID.",
     logic: "Splunk: sourcetype=\"pps:tap:message\" eventtype=messagesDelivered | spath threatsInfoMap{}.classification | search threatsInfoMap{}.threatStatus=active threatsInfoMap{}.classification IN (phish, malware)",
     match: { all: [{ field: "threatsInfoMap[].threatStatus", op: "eq", value: "active" }, { field: "threatsInfoMap[].classification", op: "in", value: ["phish", "malware"] }] },
     falsePositives: ["Threats later marked falsePositive (threatStatus changes)"],
@@ -266,7 +266,7 @@ const useCases: UseCase[] = [
     id: "proofpoint.impostor-bec",
     title: "Impostor (BEC) message",
     sourceId: "proofpoint", kinds: ["messagesDelivered", "messagesBlocked"], severity: "high", mitre: ["T1566", "T1684.001"],
-    description: "classification impostor or impostorScore ≥ 80: a display-name / look-alike sender, frequently with a Reply-To on a free-mail domain. No link or attachment is needed for the fraud — confirm whether the recipient replied or acted on payment instructions.",
+    description: "classification impostor or impostorScore ≥ 80: a display-name / look-alike sender, frequently with a Reply-To on a free-mail domain. No link or attachment is needed for the fraud - confirm whether the recipient replied or acted on payment instructions.",
     logic: "Splunk: sourcetype=\"pps:tap:message\" (impostorScore>=80 OR threatsInfoMap{}.classification=impostor) | table messageTime headerFrom headerReplyTo recipient{} subject impostorScore",
     match: { any: [{ field: "impostorScore", op: "gte", value: 80 }, { field: "threatsInfoMap[].classification", op: "eq", value: "impostor" }] },
     falsePositives: ["Executives mailing from personal accounts"],

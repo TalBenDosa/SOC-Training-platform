@@ -1,6 +1,6 @@
 // Process lineage gate (expert review #3 / #21 / #24): within one story, every reference to a
-// process — a child's parent ids, an action's actor ids (DNS / network / file / registry / task),
-// an alert's triggering-process and parent ids — equals that process's OWN ids on its own record,
+// process - a child's parent ids, an action's actor ids (DNS / network / file / registry / task),
+// an alert's triggering-process and parent ids - equals that process's OWN ids on its own record,
 // whenever that record is in the story. Checked for every story, company and EDR product, on the
 // exact events the feed renders (instantiateStory with the session's EDR). Windows pids are
 // multiples of 4, and one user's Explorer never parents another user's process.

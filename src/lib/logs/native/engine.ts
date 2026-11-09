@@ -56,7 +56,7 @@ export function matches(record: Record<string, unknown>, c: Condition): boolean 
   return vals.some(v => test(v, c.op, c.value));
 }
 
-/** Run one use case over a set of logs (any sources — non-matching sources are skipped). */
+/** Run one use case over a set of logs (any sources - non-matching sources are skipped). */
 export function runUseCase(uc: UseCase, logs: NativeLog[]): UseCaseHit[] {
   const idx: number[] = [];
   logs.forEach((l, i) => {

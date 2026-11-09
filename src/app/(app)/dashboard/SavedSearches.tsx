@@ -1,10 +1,10 @@
 "use client";
 /**
- * SavedSearches — named presets for the Live Feed's search + dropdown filters.
+ * SavedSearches - named presets for the Live Feed's search + dropdown filters.
  *
  * The student saves the current free-text query together with the active
  * dropdown filters under a name, then re-applies it later with one click. Purely
- * a convenience layer over the existing filter state — it holds no answers and
+ * a convenience layer over the existing filter state - it holds no answers and
  * nothing sensitive, so it persists in localStorage (per browser) under
  * "soc:saved-searches". Every read/write is wrapped in try/catch and the
  * component renders fine when storage is empty or blocked.
@@ -52,7 +52,7 @@ function persist(list: SavedSearch[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, MAX_SAVED)));
   } catch {
-    /* storage blocked / full — presets simply won't persist this session */
+    /* storage blocked / full - presets simply won't persist this session */
   }
 }
 
@@ -123,7 +123,7 @@ export function SavedSearches({ current, onApply }: Props) {
       <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Saved:</span>
 
       {saved.length === 0 && !naming && (
-        <span className="text-[10px] text-slate-500">No saved searches yet — set filters, then save them.</span>
+        <span className="text-[10px] text-slate-500">No saved searches yet - set filters, then save them.</span>
       )}
 
       {saved.map((s) => (

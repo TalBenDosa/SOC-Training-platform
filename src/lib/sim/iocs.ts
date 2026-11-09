@@ -1,5 +1,5 @@
 /**
- * Realistic IOC primitives — domains, IPs, hashes, URLs, User-Agents.
+ * Realistic IOC primitives - domains, IPs, hashes, URLs, User-Agents.
  * All values are synthetic but structurally identical to what an analyst sees in production.
  */
 import { rng, pick, hashString, intBetween } from "./rng";

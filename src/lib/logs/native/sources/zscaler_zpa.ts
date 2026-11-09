@@ -1,17 +1,17 @@
 /**
- * Zscaler Private Access (ZPA) — Log Streaming Service, default JSON templates.
+ * Zscaler Private Access (ZPA) - Log Streaming Service, default JSON templates.
  * Card: docs/log-schemas/ztna-zscaler-zpa.md
  *
  * JSON-native, flat PascalCase objects. Two log types:
- *   user_status   (zpn_auth_log)  — one record per Client Connector session
- *   user_activity (zpn_trans_log) — one record per application connection
+ *   user_status   (zpn_auth_log)  - one record per Client Connector session
+ *   user_activity (zpn_trans_log) - one record per application connection
  *
- * Rendering of the platform's VPN events (cross-vendor — the corpus has no ZPA-authored
+ * Rendering of the platform's VPN events (cross-vendor - the corpus has no ZPA-authored
  * events): a remote-access login becomes the User Status record of a Client Connector
  * session (ZPN_STATUS_AUTHENTICATED); a logout becomes the session's closing User Status
  * record (TimestampUnAuthentication + byte totals).
  * Returns null for:
- *   - authentication failures / MFA challenge / MFA denied — ZPA authenticates through SAML,
+ *   - authentication failures / MFA challenge / MFA denied - ZPA authenticates through SAML,
  *     so password guessing and MFA prompts are logged by the IdP (Entra/Okta), never by ZPA;
  *   - events without the client's public IP (every LSS session record carries PublicIP).
  * User Activity is documented in the schema (card samples, use cases) but no platform
@@ -136,7 +136,7 @@ const useCases: UseCase[] = [
     kinds: ["user_activity"],
     severity: "high",
     mitre: ["T1046", "T1135", "T1021"],
-    description: "One Username is rejected by ZPA access policy (InternalReason=BRK_MT_SETUP_FAIL_REJECTED_BY_POLICY, ConnectionStatus=close) for five or more different Host values within 10 minutes. A user who only needs the CRM does not try domain controllers, file shares and admin ports — this is someone mapping what the stolen session can reach.",
+    description: "One Username is rejected by ZPA access policy (InternalReason=BRK_MT_SETUP_FAIL_REJECTED_BY_POLICY, ConnectionStatus=close) for five or more different Host values within 10 minutes. A user who only needs the CRM does not try domain controllers, file shares and admin ports - this is someone mapping what the stolen session can reach.",
     logic: "SPL: index=zpa sourcetype=zscalerlss-zpa-app InternalReason=BRK_MT_SETUP_FAIL_REJECTED_BY_POLICY | bin _time span=10m | stats dc(Host) AS hosts values(Host) values(ServicePort) BY Username SessionID _time | where hosts>=5",
     match: { field: "InternalReason", op: "eq", value: "BRK_MT_SETUP_FAIL_REJECTED_BY_POLICY" },
     threshold: { groupBy: ["Username"], count: 5, windowSec: 600, distinct: "Host" },
@@ -149,7 +149,7 @@ const useCases: UseCase[] = [
     kinds: ["user_status"],
     severity: "high",
     mitre: ["T1078", "T1133"],
-    description: "A User Status record with SessionStatus=ZPN_STATUS_AUTHENTICATED whose CountryCode (geo of PublicIP) is a country where the company has no staff. SSO succeeded, so the attacker holds a valid IdP session — pivot on Username into the IdP sign-in log and on SessionID into User Activity to see what was accessed.",
+    description: "A User Status record with SessionStatus=ZPN_STATUS_AUTHENTICATED whose CountryCode (geo of PublicIP) is a country where the company has no staff. SSO succeeded, so the attacker holds a valid IdP session - pivot on Username into the IdP sign-in log and on SessionID into User Activity to see what was accessed.",
     logic: "SPL: index=zpa sourcetype=zscalerlss-zpa-auth SessionStatus=ZPN_STATUS_AUTHENTICATED CountryCode IN (RU, BY, CN, KP, IR, NG, SY) | table _time Username PublicIP CountryCode Hostname PosturesMiss SessionID",
     match: { all: [{ field: "SessionStatus", op: "eq", value: "ZPN_STATUS_AUTHENTICATED" }, { field: "CountryCode", op: "in", value: HIGH_RISK_ISO }] },
     falsePositives: ["Approved travel", "Traffic exiting a personal VPN in that country"],
@@ -198,7 +198,7 @@ const useCases: UseCase[] = [
     kinds: ["user_activity"],
     severity: "high",
     mitre: ["T1039", "T1530"],
-    description: "ZENTotalBytesTxClient (bytes the broker delivered to the client) exceeds 1 GB on a single application connection — bulk download from a file server or database through ZTNA. Check the session's country and device (User Status via SessionID) and whether the user normally touches that Application.",
+    description: "ZENTotalBytesTxClient (bytes the broker delivered to the client) exceeds 1 GB on a single application connection - bulk download from a file server or database through ZTNA. Check the session's country and device (User Status via SessionID) and whether the user normally touches that Application.",
     logic: "SPL: index=zpa sourcetype=zscalerlss-zpa-app ZENTotalBytesTxClient>1000000000 | eval GB=round(ZENTotalBytesTxClient/1024/1024/1024,2) | table _time Username ClientCountryCode Application Host ServerPort GB SessionID",
     match: { field: "ZENTotalBytesTxClient", op: "gt", value: 1_000_000_000 },
     falsePositives: ["Engineers pulling large build artefacts or VM images", "Backup admins restoring data"],

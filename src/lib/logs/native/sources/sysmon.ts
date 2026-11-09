@@ -1,7 +1,7 @@
 /**
- * Microsoft Sysinternals Sysmon (Windows) — native module (card: docs/log-schemas/host-sysmon.md).
+ * Microsoft Sysinternals Sysmon (Windows) - native module (card: docs/log-schemas/host-sysmon.md).
  *
- * Record: one `Microsoft-Windows-Sysmon/Operational` event as a FLAT object — the Event
+ * Record: one `Microsoft-Windows-Sysmon/Operational` event as a FLAT object - the Event
  * XML `System` names (ProviderName, EventID, Version, Level, Task, Opcode, Keywords,
  * TimeCreated, EventRecordID, ProcessID, ThreadID, Channel, Computer, UserID) followed by
  * every `EventData` `Data Name` with Sysmon's exact spelling (note `ProcessGuid` vs the
@@ -9,7 +9,7 @@
  * no "Z". `rawLine` = the rendered EVTX XML of the same event.
  *
  * Process linkage: `ProcessGuid` is derived from (host, pid, image name), so a child's
- * `ParentProcessGuid` equals the parent's own `ProcessGuid` whenever both were rendered —
+ * `ParentProcessGuid` equals the parent's own `ProcessGuid` whenever both were rendered -
  * the student can walk the tree by GUID exactly as on a real Sysmon feed. Authored GUIDs
  * (legacy `winlog.event_data.ProcessGuid`) are kept verbatim.
  *
@@ -40,7 +40,7 @@ const kinds: Record<string, KindSchema> = {
     required: req("ProcessGuid", "ProcessId", "Image", "User", "Protocol", "Initiated", "SourceIsIpv6", "SourceIp", "SourceHostname", "SourcePort", "SourcePortName", "DestinationIsIpv6", "DestinationIp", "DestinationHostname", "DestinationPort", "DestinationPortName"),
     optional: [],
   },
-  // DriverLoad — the card names event 6 but lists no fields; these are Sysmon's schema names (UNVERIFIED vs card).
+  // DriverLoad - the card names event 6 but lists no fields; these are Sysmon's schema names (UNVERIFIED vs card).
   "6": { required: req("ImageLoaded", "Hashes", "Signed", "Signature", "SignatureStatus"), optional: [] },
   // ImageLoad
   "7": { required: req("ProcessGuid", "ProcessId", "Image", "ImageLoaded", "Hashes", "Signed", "Signature", "SignatureStatus"), optional: ["FileVersion", "Description", "Product", "Company", "OriginalFileName", "User"] },
@@ -56,7 +56,7 @@ const kinds: Record<string, KindSchema> = {
   "13": { required: req("EventType", "ProcessGuid", "ProcessId", "Image", "TargetObject", "Details"), optional: ["User"] },
   // FileCreateStreamHash
   "15": { required: req("ProcessGuid", "ProcessId", "Image", "TargetFilename", "CreationUtcTime", "Hash"), optional: ["Contents", "User"] },
-  // PipeEvent (created) — card names 17/18 without a field list; Sysmon schema names (UNVERIFIED vs card).
+  // PipeEvent (created) - card names 17/18 without a field list; Sysmon schema names (UNVERIFIED vs card).
   "17": { required: req("EventType", "ProcessGuid", "ProcessId", "PipeName", "Image"), optional: ["User"] },
   // PipeEvent (connected): same schema, EventType ConnectPipe (Sysmon schema names, UNVERIFIED vs card).
   "18": { required: req("EventType", "ProcessGuid", "ProcessId", "PipeName", "Image"), optional: ["User"] },
@@ -83,7 +83,7 @@ const VERSION: Record<string, number> = { "1": 5, "3": 5, "6": 4, "7": 3, "8": 2
 
 const S32 = "C:\\Windows\\System32\\";
 const OFFICE = "C:\\Program Files\\Microsoft Office\\root\\Office16\\";
-/** Install paths of well-known binaries (lower-case name → full path) — the table every EDR module shares. */
+/** Install paths of well-known binaries (lower-case name → full path) - the table every EDR module shares. */
 const KNOWN: Record<string, string> = OS_IMAGE_PATH;
 /** Version-resource metadata of the most common Windows binaries. */
 const META: Record<string, { d: string; o: string }> = {
@@ -140,7 +140,7 @@ function pathFromCmd(cmd: string | undefined, name: string | undefined): string 
 
 interface Actor { name?: string; path?: string; cmd?: string; pid?: string; user?: string; integrity?: string; sha256?: string; md5?: string; guid?: string; inst?: string }
 
-/** The user's SID — the same value every EDR / directory record gives the user (./_proc-identity accountSid). */
+/** The user's SID - the same value every EDR / directory record gives the user (./_proc-identity accountSid). */
 const sid = (ctx: NativeCtx, user: string, email?: string) => accountSid(ctx, user, email);
 
 function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
@@ -219,14 +219,15 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const isSystemUser = /^NT AUTHORITY\\/i.test(user);
   const userName = user.includes("\\") ? user.split("\\").pop()! : user;
   // Every pid and ProcessGuid comes from the shared process identity (./_proc-identity: host + image +
-  // lifetime scope, plus the story's instance tag) — never from an authored ProcessId / ProcessGuid, which
-  // the corpus does not number consistently — so a parent's ids on its child equal its own row's.
+  // lifetime scope, plus the story's instance tag) - never from an authored ProcessId / ProcessGuid, which
+  // the corpus does not number consistently - so a parent's ids on its child equal its own row's.
   const scope = { host, os: "Win" as const, timeMs, incident: ev.incident_id, user: user === "-" ? undefined : userName };
   const num = (v?: string) => (v !== undefined && /^\d+$/.test(v) ? Number(v) : undefined);
   // A standalone scenario prints the authored pid (ctx.authoredPids); the live feed the instance's derived one.
-  const seededPid = (name?: string, inst?: string, authored?: number) => String(procPid(ctx, scope, { name: name ?? "?", inst, pid: authored }) ?? 4);
+  // R6: the pid the session printed on the row (the thread's shownPid) wins, as in the MDE module.
+  const seededPid = (name?: string, inst?: string, authored?: number, shownPid?: number) => String(procPid(ctx, scope, { name: name ?? "?", inst, pid: authored, shownPid }) ?? 4);
   const actorPid = wr ? (wr.pid ?? undefined) : num(a.pid);
-  const pid = a.name ? seededPid(a.name, a.inst, actorPid) : pid4(a.pid) ?? seededPid(undefined);
+  const pid = a.name ? seededPid(a.name, a.inst, actorPid, wr ? undefined : th?.proc?.shownPid) : pid4(a.pid) ?? seededPid(undefined);
   const image = a.path ?? "<unknown process>";
   const guidFor = (n: string | undefined, inst?: string, pidFallback?: string, authored?: number) => {
     const key = n ? procKey(ctx, scope, { name: n, inst, pid: authored }) : undefined;
@@ -267,19 +268,19 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         ?? (parentName ? KNOWN[parentName.toLowerCase()] ?? pathFromCmd(parentCmd, parentName) : undefined);
       const pName = parentName ?? (parentPath ? base(parentPath) : undefined);
       const authoredPpid = (ev.process?.parent_pid !== undefined ? ev.process.parent_pid : undefined) ?? num(ed("ParentProcessId") ?? r("process.parent.pid") ?? (mdeProcEvent ? r("InitiatingProcessId") : undefined));
-      const ppid = pName ? seededPid(pName, th?.parent?.inst, authoredPpid) : "0";
+      const ppid = pName ? seededPid(pName, th?.parent?.inst, authoredPpid, th?.parent?.shownPid) : "0";
       const pImage = parentPath ?? (parentName ? `-` : "-");
       const parentKnown = parentPath !== undefined;
       const parentUser = th?.parent?.user ? normUser(th.parent.user)! : parentName && SYSTEM_PARENTS.has(parentName.toLowerCase()) ? "NT AUTHORITY\\SYSTEM" : user;
       const meta = META[nm];
-      // Microsoft version info only for the real binary at its install path — a payload dropped into
+      // Microsoft version info only for the real binary at its install path - a payload dropped into
       // C:\Windows\Temp is not "Microsoft® Windows® Operating System".
       const installed = KNOWN[nm]?.toLowerCase() === image.toLowerCase();
       const winBin = installed && /^C:\\Windows\\/i.test(image);
       const office = installed && image.startsWith(OFFICE);
       const ms = isSystemUser;
       const imphash = hx(ctx, `imphash:${nm}`, 32).toUpperCase();
-      // No story hash: the fleet build's hash for this path — the value every EDR record of this binary shows.
+      // No story hash: the fleet build's hash for this path - the value every EDR record of this binary shows.
       const fleet = imageHashes(ctx, image);
       // Sysmon prints hashes upper-case; an authored hash is kept verbatim.
       const sha = a.sha256 ?? fleet.sha256.toUpperCase();
@@ -341,7 +342,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       if (!q) return null;
       const rc = (ev.dns?.rcode ?? r("dns.response_code") ?? "").toUpperCase();
       const resp = ev.dns?.response ?? r("dns.resolved_ip") ?? r("dns.answers.data");
-      // Sysmon writes an A record as "::ffff:1.2.3.4;" — the "type:" prefix is for non-A records.
+      // Sysmon writes an A record as "::ffff:1.2.3.4;" - the "type:" prefix is for non-A records.
       const authoredResults = ed("QueryResults")?.replace(/type:\s*1\s+(\d{1,3}(?:\.\d{1,3}){3})/g, "::ffff:$1");
       const results = authoredResults ?? (rc === "NXDOMAIN" ? "-" : resp ? (/^\d{1,3}(\.\d{1,3}){3}$/.test(resp) ? `::ffff:${resp};` : `type:  5 ${resp};`) : "-");
       data = {
@@ -479,7 +480,7 @@ const useCases: UseCase[] = [
   {
     id: "sysmon.lsass_access", title: "Suspicious process opened LSASS memory", sourceId: "sysmon", kinds: ["10"],
     severity: "critical", mitre: ["T1003.001"],
-    description: "Credential dumpers (Mimikatz, procdump, comsvcs MiniDump, custom loaders) open lsass.exe with VM_READ rights. Event 10 with TargetImage lsass.exe and a GrantedAccess such as 0x1010, 0x1410, 0x143a or 0x1fffff from a non-system SourceImage — especially with an UNKNOWN frame in CallTrace — means credentials were likely read.",
+    description: "Credential dumpers (Mimikatz, procdump, comsvcs MiniDump, custom loaders) open lsass.exe with VM_READ rights. Event 10 with TargetImage lsass.exe and a GrantedAccess such as 0x1010, 0x1410, 0x143a or 0x1fffff from a non-system SourceImage - especially with an UNKNOWN frame in CallTrace - means credentials were likely read.",
     logic: "KQL: Sysmon | where EventID == 10 and TargetImage endswith @\"\\lsass.exe\" and GrantedAccess in~ (\"0x1010\",\"0x1410\",\"0x1438\",\"0x143a\",\"0x1fffff\") and SourceImage !in~ (MsMpEng.exe, csrss.exe, wininit.exe)",
     match: { all: [{ field: "EventID", op: "eq", value: 10 }, { field: "TargetImage", op: "regex", value: "\\\\lsass\\.exe$" },
       { field: "GrantedAccess", op: "regex", value: "^0x(1010|1410|1438|143a|1f0fff|1f1fff|1f3fff|1fffff)$" },
@@ -493,7 +494,7 @@ const useCases: UseCase[] = [
     logic: "KQL: Sysmon | where EventID == 13 and TargetObject matches regex @\"\\\\CurrentVersion\\\\Run(Once)?\\\\\" and Details matches regex @\"AppData|\\\\Temp\\\\|ProgramData|Users\\\\Public|rundll32|powershell\"",
     match: { all: [{ field: "EventID", op: "eq", value: 13 }, { field: "TargetObject", op: "regex", value: "\\\\CurrentVersion\\\\Run(Once)?\\\\" },
       { field: "Details", op: "regex", value: "AppData|\\\\Temp\\\\|ProgramData|Users\\\\Public|rundll32|powershell|mshta|wscript" }] },
-    falsePositives: ["Per-user installs (Teams, Zoom, Spotify) that live in AppData — check signer/company"],
+    falsePositives: ["Per-user installs (Teams, Zoom, Spotify) that live in AppData - check signer/company"],
   },
   {
     id: "sysmon.payload_drop_user_writable", title: "Executable/script dropped into a user-writable folder by a script host or Office", sourceId: "sysmon", kinds: ["11"],
@@ -507,7 +508,7 @@ const useCases: UseCase[] = [
   {
     id: "sysmon.network_from_user_writable", title: "Outbound connection by a binary running from a user-writable folder", sourceId: "sysmon", kinds: ["3"],
     severity: "high", mitre: ["T1071.001", "T1105"],
-    description: "After a drop, the payload itself calls home. An Initiated=true connection whose Image lives in AppData/Temp/ProgramData/Public (and is not a known per-user app like Teams or Zoom) ties the dropped file to its C2 IP — pivot DestinationIp to firewall/proxy and DestinationHostname to DNS.",
+    description: "After a drop, the payload itself calls home. An Initiated=true connection whose Image lives in AppData/Temp/ProgramData/Public (and is not a known per-user app like Teams or Zoom) ties the dropped file to its C2 IP - pivot DestinationIp to firewall/proxy and DestinationHostname to DNS.",
     logic: "KQL: Sysmon | where EventID == 3 and Initiated == \"true\" and Image matches regex @\"\\\\(AppData|ProgramData|Users\\\\Public|Temp)\\\\\" and Image !matches regex @\"(Teams|Zoom|slack|OneDrive)\\.exe$\"",
     match: { all: [{ field: "EventID", op: "eq", value: 3 }, { field: "Initiated", op: "eq", value: "true" }, { field: "Image", op: "regex", value: USER_WRITABLE },
       { not: { field: "Image", op: "regex", value: COMMS_APPS } }] },
@@ -526,7 +527,7 @@ const useCases: UseCase[] = [
   {
     id: "sysmon.dns_long_label", title: "Process resolved a name with a very long encoded label", sourceId: "sysmon", kinds: ["22"],
     severity: "high", mitre: ["T1071.004", "T1048.003"],
-    description: "DNS tunnels pack data into labels up to 63 characters. A QueryName whose first label is 40+ characters of base32/base64/hex, made by a specific Image, names the exact tunnelling process on the endpoint — something the DNS server logs alone cannot do.",
+    description: "DNS tunnels pack data into labels up to 63 characters. A QueryName whose first label is 40+ characters of base32/base64/hex, made by a specific Image, names the exact tunnelling process on the endpoint - something the DNS server logs alone cannot do.",
     logic: "KQL: Sysmon | where EventID == 22 and QueryName matches regex @\"^[A-Za-z0-9+/=_-]{40,}\\.\"",
     match: { all: [{ field: "EventID", op: "eq", value: 22 }, { field: "QueryName", op: "regex", value: "^[A-Za-z0-9+/=_-]{40,}\\." }] },
     falsePositives: ["Security products that query hash-based reputation names", "Some CDN / telemetry endpoints with long hashed subdomains"],
@@ -552,7 +553,7 @@ const useCases: UseCase[] = [
   {
     id: "sysmon.psexec_service", title: "PsExec service started (remote execution)", sourceId: "sysmon", kinds: ["1"],
     severity: "medium", mitre: ["T1569.002", "T1021.002"],
-    description: "PsExec copies PSEXESVC.exe to ADMIN$ and starts it as a service; whatever it runs is a child of PSEXESVC. Legitimate for some admins, but a favourite for ransomware lateral movement — check who connected (4624 type 3) and what ran under it.",
+    description: "PsExec copies PSEXESVC.exe to ADMIN$ and starts it as a service; whatever it runs is a child of PSEXESVC. Legitimate for some admins, but a favourite for ransomware lateral movement - check who connected (4624 type 3) and what ran under it.",
     logic: "KQL: Sysmon | where EventID == 1 and (Image endswith @\"\\PSEXESVC.exe\" or ParentImage endswith @\"\\PSEXESVC.exe\")",
     match: { all: [{ field: "EventID", op: "eq", value: 1 }, { any: [{ field: "Image", op: "regex", value: "\\\\PSEXESVC\\.exe$" }, { field: "ParentImage", op: "regex", value: "\\\\PSEXESVC\\.exe$" }] }] },
     falsePositives: ["IT using PsExec for software deployment"],

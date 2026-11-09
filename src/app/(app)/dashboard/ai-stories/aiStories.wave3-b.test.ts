@@ -1,5 +1,5 @@
 /**
- * Wave-3 part B (prompt-injection AI stories) — the facts each story must keep investigable.
+ * Wave-3 part B (prompt-injection AI stories) - the facts each story must keep investigable.
  * Modelled on aiStories.batch6: an alert row exists, attack-row descriptions stay neutral,
  * chronology holds where it carries meaning, and the key vendor-native fields are present.
  */

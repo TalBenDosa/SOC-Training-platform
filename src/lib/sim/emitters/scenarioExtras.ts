@@ -39,7 +39,7 @@ interface WinBase {
   description?: string;
 }
 
-// ── Security 4698 — a scheduled task was created ─────────────────────────────────────
+// ── Security 4698 - a scheduled task was created ─────────────────────────────────────
 export interface WinTaskCreatedOpts extends WinBase {
   taskName: string;              // "\NetFixOptimizer"
   taskContent: string;           // the task XML schtasks stores
@@ -72,7 +72,7 @@ export function winTaskCreated(o: WinTaskCreatedOpts): TelemetryEvent {
   };
 }
 
-// ── Sysmon 17 — a named pipe was created ───────────────────────────────────────────────
+// ── Sysmon 17 - a named pipe was created ───────────────────────────────────────────────
 // (PrintSpoofer / potato tools create the pipe the SYSTEM spooler is then coerced into
 // connecting to; the shared sysmon emitter only covers Event 18, the connect side.)
 export interface SysmonPipeCreatedOpts {

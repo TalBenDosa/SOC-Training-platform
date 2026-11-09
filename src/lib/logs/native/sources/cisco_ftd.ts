@@ -1,6 +1,6 @@
 /**
- * Cisco Secure Firewall Threat Defense (FTD 7.x) security-event syslog —
- * 430001 intrusion, 430002 connection start, 430003 connection end, 430004 file —
+ * Cisco Secure Firewall Threat Defense (FTD 7.x) security-event syslog -
+ * 430001 intrusion, 430002 connection start, 430003 connection end, 430004 file -
  * rendered per docs/log-schemas/fw-cisco.md: a FLAT object with the Cisco key
  * names exactly as emitted (incl. the space in "Prefilter Policy"), all values
  * strings, plus header parts `timestamp`, `device_id`, `Level`, `Message_number`.
@@ -35,7 +35,7 @@ export const schema: SourceSchema = {
     },
     "430002": conn(),
     "430003": conn(),
-    // 430004 (file event) — card §3.3 is brief: we emit only the documented file keys
+    // 430004 (file event) - card §3.3 is brief: we emit only the documented file keys
     // (no SHA_Disposition / ThreatName, whose wording is UNVERIFIED) plus the connection identity.
     "430004": {
       required: [...HDR, ...IDS, "SrcIP", "DstIP", "FileDirection", "FileAction", "FileName", "FileSHA256"],
@@ -297,7 +297,7 @@ export const useCases: UseCase[] = [
   {
     id: "cisco_ftd.deny-then-allow", title: "Outside source blocked, then allowed", sourceId: "cisco_ftd", kinds: ["430002", "430003"],
     severity: "medium", mitre: ["T1190", "T1133"],
-    description: "The same OUTSIDE SrcIP gets both a Block and an Allow within an hour — probing that found an open service. AccessControlRuleName shows which rule let it in.",
+    description: "The same OUTSIDE SrcIP gets both a Block and an Allow within an hour - probing that found an open service. AccessControlRuleName shows which rule let it in.",
     logic: "SPL: sourcetype=cisco:ftd IngressZone=OUTSIDE | stats dc(AccessControlRuleAction) as verdicts values(AccessControlRuleAction) values(DstPort) by SrcIP | where verdicts>=2",
     match: { field: "IngressZone", op: "eq", value: "OUTSIDE" },
     threshold: { groupBy: ["SrcIP"], count: 2, windowSec: 3600, distinct: "AccessControlRuleAction" },

@@ -25,25 +25,25 @@ const DASHBOARD_STEPS: TourStep[] = [
     title: "Welcome to your SIEM",
     icon: "🛡️",
     content:
-      "This is a Security Information and Event Management system — the command center of a real SOC. Security events from across the company flow in here in real time. Your job: read them, spot the threats, classify them.",
+      "This is a Security Information and Event Management system - the command center of a real SOC. Security events from across the company flow in here in real time. Your job: read them, spot the threats, classify them.",
   },
   {
     title: "Every row = one security event",
     icon: "📋",
     content:
-      "Each row in this table is one log entry recorded by a security tool — benign events mixed with real attacks. You won't know in advance which is which. Click any row to expand it and see the full log.",
+      "Each row in this table is one log entry recorded by a security tool - benign events mixed with real attacks. You won't know in advance which is which. Click any row to expand it and see the full log.",
     targetId: "ef-event-table",
   },
   {
-    title: "TIME — When did it happen?",
+    title: "TIME - When did it happen?",
     icon: "🕐",
     content:
-      "Always ask: is this a normal time for this activity? A VPN login at 3 AM from a Finance employee is suspicious. A DNS query at 9 AM is routine. Time context is free information — use it.",
+      "Always ask: is this a normal time for this activity? A VPN login at 3 AM from a Finance employee is suspicious. A DNS query at 9 AM is routine. Time context is free information - use it.",
     example: "14:22:45  ← normal business hour\n03:17:02  ← investigate this",
     targetId: "ef-th-time",
   },
   {
-    title: "AGENT NAME — Which computer?",
+    title: "AGENT NAME - Which computer?",
     icon: "🖥️",
     content:
       "The hostname of the machine where the event was recorded. Naming patterns matter: WS = workstation, SRV = server, LT = laptop. Multiple events on the same host in a short window = possible active attack.",
@@ -51,7 +51,7 @@ const DASHBOARD_STEPS: TourStep[] = [
     targetId: "ef-th-agent",
   },
   {
-    title: "SOURCE — Which security tool?",
+    title: "SOURCE - Which security tool?",
     icon: "🔍",
     content:
       "Different tools see different layers of activity. EDR sees processes and files. Firewall sees network traffic. Active Directory sees logins. Knowing the source tells you what type of activity to look for in the raw fields.",
@@ -59,10 +59,10 @@ const DASHBOARD_STEPS: TourStep[] = [
     targetId: "ef-th-source",
   },
   {
-    title: "RULE LEVEL — How serious?",
+    title: "RULE LEVEL - How serious?",
     icon: "⚡",
     content:
-      "A severity score from 1 to 10, calculated automatically from the event fields. Start every shift by scanning for level 7+ events first — those are the ones that need immediate attention.",
+      "A severity score from 1 to 10, calculated automatically from the event fields. Start every shift by scanning for level 7+ events first - those are the ones that need immediate attention.",
     example: "1  → DNS query for slack.com (routine)\n5  → Inbound SSH blocked (investigate)\n9  → PowerShell with encoded command\n10 → LSASS credential dump detected",
     targetId: "ef-th-level",
   },
@@ -70,26 +70,26 @@ const DASHBOARD_STEPS: TourStep[] = [
     title: "RULE ID & MITRE Techniques",
     icon: "🎯",
     content:
-      "The Rule ID is the detection rule that fired. When you see a purple badge like T1059.001 — that's a MITRE ATT&CK technique ID. Click it to learn exactly what this attacker technique does, what to look for in logs, and how to detect it.",
+      "The Rule ID is the detection rule that fired. When you see a purple badge like T1059.001 - that's a MITRE ATT&CK technique ID. Click it to learn exactly what this attacker technique does, what to look for in logs, and how to detect it.",
     example: "HTS-92400    → generic process creation\nT1059.001     → PowerShell execution\nT1003.001     → LSASS credential dump",
     targetId: "ef-th-ruleid",
   },
   {
-    title: "Filters — focus your investigation",
+    title: "Filters - focus your investigation",
     icon: "🔎",
     content:
-      "Filters narrow the event feed without deleting anything. Investigating one machine? Press '+ More filters' for HOST, USER, IP and MITRE filters. Too much noise? Set LEVEL to 10-15 HIGH. Filters stack — you can combine them.",
+      "Filters narrow the event feed without deleting anything. Investigating one machine? Press '+ More filters' for HOST, USER, IP and MITRE filters. Too much noise? Set LEVEL to 10-15 HIGH. Filters stack - you can combine them.",
     targetId: "ef-filter-row",
   },
   {
     title: "Reporting the incident",
     icon: "📝",
     content:
-      "This is the goal of your shift. There are no hints and nothing gets flagged for you — you decide when you've found the attack. Once you have, press REPORT INCIDENT (top-right) and write what happened: which attack, the evidence you found in the logs, and what to do about it. Your report is graded against the real evidence.",
+      "This is the goal of your shift. There are no hints and nothing gets flagged for you - you decide when you've found the attack. Once you have, press REPORT INCIDENT (top-right) and write what happened: which attack, the evidence you found in the logs, and what to do about it. Your report is graded against the real evidence.",
     targetId: "report-incident-btn",
   },
   {
-    title: "You're ready — click any row",
+    title: "You're ready - click any row",
     icon: "🎓",
     content:
       "Click any row in the table to expand it and read the full raw log. Look at the source, the fields, the actor and the time, and decide for yourself whether it's normal activity or part of an attack. When you've pieced the attack together, report it.",
@@ -102,20 +102,20 @@ const LOG_STEPS: TourStep[] = [
     title: "You opened a raw log event",
     icon: "📄",
     content:
-      "This is what your SIEM actually receives from the security tool. Everything you see is structured data — each field has a name (key) and a value. Real analysts read exactly this when investigating alerts.",
+      "This is what your SIEM actually receives from the security tool. Everything you see is structured data - each field has a name (key) and a value. Real analysts read exactly this when investigating alerts.",
   },
   {
-    title: "Basic Information — start here",
+    title: "Basic Information - start here",
     icon: "🔑",
     content:
       "The most important fields summarized: who (username), where (hostname), when (timestamp), severity, and what action the tool took. Always start here before diving into raw fields.",
     targetId: "ef-detail-basic-info",
   },
   {
-    title: "Detailed Log Data — the raw fields",
+    title: "Detailed Log Data - the raw fields",
     icon: "🔬",
     content:
-      "All original fields from the security tool in ECS (Elastic Common Schema) format — the same standard used by Splunk, Microsoft Sentinel, and CrowdStrike. For process events, find process.name and process.parent.name first — that relationship reveals most attacks.",
+      "All original fields from the security tool in ECS (Elastic Common Schema) format - the same standard used by Splunk, Microsoft Sentinel, and CrowdStrike. For process events, find process.name and process.parent.name first - that relationship reveals most attacks.",
     example: "process.name         → what ran\nprocess.parent.name  → what launched it\nprocess.command_line → exact command\nsource.ip / dest.ip  → network context",
     targetId: "ef-detail-log-data",
   },
@@ -148,7 +148,7 @@ function useElementRect(id: string | undefined) {
 // ─── Spotlight + overlay ──────────────────────────────────────────────────────
 function Spotlight({ rect }: { rect: DOMRect | null }) {
   if (!rect) {
-    // No target — just a dark overlay that doesn't block interaction
+    // No target - just a dark overlay that doesn't block interaction
     return (
       <div className="fixed inset-0 bg-black/50 z-[58] pointer-events-none" />
     );
@@ -162,7 +162,7 @@ function Spotlight({ rect }: { rect: DOMRect | null }) {
         left:   rect.left   - PAD,
         width:  rect.width  + PAD * 2,
         height: rect.height + PAD * 2,
-        // Dark overlay everywhere EXCEPT this element — the "box-shadow hole" trick
+        // Dark overlay everywhere EXCEPT this element - the "box-shadow hole" trick
         boxShadow: "0 0 0 9999px rgba(0,0,0,0.65), 0 0 0 2px rgba(56,189,248,0.85)",
       }}
     />
@@ -170,7 +170,7 @@ function Spotlight({ rect }: { rect: DOMRect | null }) {
 }
 
 // ─── Tour Card ────────────────────────────────────────────────────────────────
-// Docked in one fixed corner for the ENTIRE tour — it never repositions itself
+// Docked in one fixed corner for the ENTIRE tour - it never repositions itself
 // relative to a target, so it can never end up off-screen or unclickable
 // (a target near a screen edge used to push the old target-relative card out
 // of the viewport). The spotlight still moves to highlight each target; only
@@ -211,7 +211,7 @@ function TourCard({
     }
   }, [step, current.targetId]);
 
-  // Portal straight to <body> — EventFeed renders inside a Card that uses
+  // Portal straight to <body> - EventFeed renders inside a Card that uses
   // backdrop-blur (backdrop-filter), which per spec creates a new containing
   // block for position:fixed descendants. Without the portal, "fixed" here
   // silently behaves like "absolute relative to the Card" instead of the
@@ -271,7 +271,7 @@ function TourCard({
             </div>
           </div>
 
-          {/* Body — scrolls internally if content is tall, card box never grows off-screen */}
+          {/* Body - scrolls internally if content is tall, card box never grows off-screen */}
           <div className="px-5 py-4 space-y-3 overflow-y-auto">
             <div className="flex items-start gap-3">
               <span className="text-[22px] shrink-0 leading-none mt-0.5" aria-hidden="true">{current.icon}</span>
@@ -331,7 +331,7 @@ function TourCard({
 /**
  * The tour is OPT-IN. It used to auto-open on a 900ms timer, which meant a
  * first-time analyst got the welcome briefing modal AND this 10-step tour on
- * screen at the same time — two stacked dark overlays competing for attention,
+ * screen at the same time - two stacked dark overlays competing for attention,
  * and 13 screens of instruction before they were allowed to do anything.
  * Now the briefing modal (dashboard/page.tsx) is the single entry point and
  * offers the tour as a choice; this component only opens when explicitly asked.

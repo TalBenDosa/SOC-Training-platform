@@ -1,12 +1,12 @@
 /**
  * GitHub Audit Log EMITTER.
  *
- * The source-control / CI control-plane audit trail — repository, org, Actions,
+ * The source-control / CI control-plane audit trail - repository, org, Actions,
  * token, webhook and branch-protection events an analyst reads for supply-chain
  * compromise (a maliciously edited workflow, a self-hosted runner, a minted PAT,
  * an out-of-band webhook). GitHub audit actions are highly heterogeneous, so the
  * emitter renders the COMMON envelope (action, actor, actor.ip, org, repo, geo,
- * event.*) and takes every action-specific `github.*` field through `extra` —
+ * event.*) and takes every action-specific `github.*` field through `extra` -
  * every key checked to be one the registry allows (the github. / data.github.
  * prefixes + shared fields).
  *

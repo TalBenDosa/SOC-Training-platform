@@ -1,13 +1,13 @@
 /**
  * ServiceNow ITSM log EMITTER.
  *
- * The ticketing / IT-service-management control plane — the incident, change
+ * The ticketing / IT-service-management control plane - the incident, change
  * request and catalog-item records an analyst reads to see the human process
  * around a technical event: a social-engineered helpdesk ticket, a change window
  * a wiper hid behind, a software-install request behind an AV alert. ServiceNow
  * is pinned to an EXACT field set (no prefixes), so the emitter renders the common
  * record envelope (table, number, state, short_description) and takes every other
- * servicenow.* / incident.* / sla.* / client.* / edr.* field through `extra` —
+ * servicenow.* / incident.* / sla.* / client.* / edr.* field through `extra` -
  * each key checked to be one the registry allows.
  *
  * ServiceNow is source:"soar" and carries no process.

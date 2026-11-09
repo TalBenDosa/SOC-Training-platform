@@ -1,9 +1,9 @@
 /**
- * Azure Activity Log + Microsoft Defender for Cloud alerts — native source module.
+ * Azure Activity Log + Microsoft Defender for Cloud alerts - native source module.
  *
  * Card: docs/log-schemas/cloud-azure-activity.md. Two native kinds:
- *  - ActivityLog: the resource-log (Event-Hub / storage) shape — `operationName`,
- *    `category`, `resultType` as plain strings — which is what a SIEM ingests.
+ *  - ActivityLog: the resource-log (Event-Hub / storage) shape - `operationName`,
+ *    `category`, `resultType` as plain strings - which is what a SIEM ingests.
  *  - DefenderAlert: the Defender for Cloud alert ARM resource (`properties{...}`).
  * No `azure.activitylogs.*` / `azure.signinlogs.*` ECS flattening, no Wazuh envelope.
  *
@@ -162,7 +162,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   if (rv(raw, "azure.alert.alertType", "azure.alert.displayName")) return buildDefenderAlert(ev, ctx);
   if (rs(raw, "azure.activitylogs.operationName")) return buildActivityLog(ev, ctx);
   // Azure OpenAI request/response diagnostics (azure.open_ai.*) are not documented
-  // by this card — decline rather than fabricate a schema.
+  // by this card - decline rather than fabricate a schema.
   return null;
 }
 
@@ -174,7 +174,7 @@ const useCases: UseCase[] = [
     title: "Key Vault / account key enumeration",
     sourceId: "azure_activity", severity: "high", mitre: ["T1552", "T1555"],
     kinds: ["ActivityLog"],
-    description: "A secrets/list on a Key Vault, or a ListKeys on a storage / Cognitive-Services account — bulk enumeration of secrets or access keys, a credential-access step distinct from an app reading its one secret.",
+    description: "A secrets/list on a Key Vault, or a ListKeys on a storage / Cognitive-Services account - bulk enumeration of secrets or access keys, a credential-access step distinct from an app reading its one secret.",
     logic: "KQL: AzureActivity | where OperationNameValue matches regex \"(?i)(keyvault/vaults/secrets/list|/listkeys/action)\"",
     match: { any: [
       { field: "operationName", op: "regex", value: "keyvault/vaults/secrets/list" },
@@ -187,7 +187,7 @@ const useCases: UseCase[] = [
     title: "Privileged RBAC role assignment",
     sourceId: "azure_activity", severity: "critical", mitre: ["T1098.003"],
     kinds: ["ActivityLog"],
-    description: "Microsoft.Authorization/roleAssignments/write granting a privileged built-in role (Owner / Contributor / User Access Administrator) — persistence / privilege escalation; read properties.requestbody for the roleDefinitionId.",
+    description: "Microsoft.Authorization/roleAssignments/write granting a privileged built-in role (Owner / Contributor / User Access Administrator) - persistence / privilege escalation; read properties.requestbody for the roleDefinitionId.",
     logic: "KQL: AzureActivity | where OperationName=~\"Microsoft.Authorization/roleAssignments/write\" and properties.requestbody has_any (Owner GUID, Contributor GUID, UAA GUID)",
     match: { all: [
       { field: "operationName", op: "regex", value: "Microsoft.Authorization/roleAssignments/write" },
@@ -204,7 +204,7 @@ const useCases: UseCase[] = [
     title: "VM Run Command (remote code execution)",
     sourceId: "azure_activity", severity: "high", mitre: ["T1059", "T1651"],
     kinds: ["ActivityLog"],
-    description: "Microsoft.Compute/virtualMachines/runCommand/action — arbitrary code executed on a VM through the Azure control plane, bypassing in-guest logging; high-signal on a production VM.",
+    description: "Microsoft.Compute/virtualMachines/runCommand/action - arbitrary code executed on a VM through the Azure control plane, bypassing in-guest logging; high-signal on a production VM.",
     logic: "KQL: AzureActivity | where OperationNameValue =~ \"Microsoft.Compute/virtualMachines/runCommand/action\"",
     match: { field: "operationName", op: "regex", value: "Microsoft.Compute/virtualMachines/runCommand/action" },
     falsePositives: ["Automation / configuration tooling that legitimately uses Run Command (scope by the invoking identity)."],
@@ -214,7 +214,7 @@ const useCases: UseCase[] = [
     title: "Unexpected Azure AI model deployment created",
     sourceId: "azure_activity", severity: "high", mitre: ["T1578"],
     kinds: ["ActivityLog"],
-    description: "Microsoft.CognitiveServices/accounts/deployments/write — a new Azure OpenAI model deployment; attacker-created to route abusive traffic around the original deployment's quota (LLM capacity abuse).",
+    description: "Microsoft.CognitiveServices/accounts/deployments/write - a new Azure OpenAI model deployment; attacker-created to route abusive traffic around the original deployment's quota (LLM capacity abuse).",
     logic: "KQL: AzureActivity | where OperationNameValue matches regex \"(?i)cognitiveservices/accounts/deployments/write\"",
     match: { field: "operationName", op: "regex", value: "cognitiveservices/accounts/deployments/write" },
     falsePositives: ["A platform team deploying a new model through an approved change (confirm the change request)."],
@@ -224,10 +224,10 @@ const useCases: UseCase[] = [
     title: "Defender for Cloud High-severity alert",
     sourceId: "azure_activity", severity: "high", mitre: [],
     kinds: ["DefenderAlert"],
-    description: "A Microsoft Defender for Cloud alert with severity High — Microsoft's own high-confidence detection (suspicious-IP access, key-vault abuse, suspicious compute creation), to be triaged ahead of lower bands.",
+    description: "A Microsoft Defender for Cloud alert with severity High - Microsoft's own high-confidence detection (suspicious-IP access, key-vault abuse, suspicious compute creation), to be triaged ahead of lower bands.",
     logic: "KQL: SecurityAlert | where AlertSeverity == \"High\"",
     match: { field: "properties.severity", op: "eq", value: "High" },
-    falsePositives: ["Benign anomalies (a new legitimate automation source) that Defender rated High — confirm the entity."],
+    falsePositives: ["Benign anomalies (a new legitimate automation source) that Defender rated High - confirm the entity."],
   },
   {
     id: "azure_activity.defender_alert",
