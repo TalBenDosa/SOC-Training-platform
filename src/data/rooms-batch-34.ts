@@ -40,7 +40,7 @@ const becSigninReplayEvent: TelemetryEvent = {
   mitre_tactic: "Initial Access",
   user_email: "p.nair@meridianstructural.com",
   user_title: "Accounts Payable Lead",
-  src_ip: "154.72.18.63",
+  src_ip: "203.0.113.163",
   geo: { country: "Nigeria", city: "Lagos", latitude: 6.5244, longitude: 3.3792 },
   description:
     "A non-interactive Entra ID sign-in for p.nair, sourced from Lagos, carries the same sessionId as an interactive sign-in from Denver nine minutes earlier. MFA shows as satisfied by a claim already present in the token rather than a fresh challenge.",
@@ -59,8 +59,8 @@ const becSigninReplayEvent: TelemetryEvent = {
     "azure.signinlogs.properties.resourceDisplayName": "Office 365 Exchange Online",
     "azure.signinlogs.properties.clientAppUsed": "Browser",
     "azure.signinlogs.properties.isInteractive": false,
-    "azure.signinlogs.properties.ipAddress": "154.72.18.63",
-    "azure.signinlogs.properties.autonomousSystemNumber": 37282,
+    "azure.signinlogs.properties.ipAddress": "203.0.113.163",
+    "azure.signinlogs.properties.autonomousSystemNumber": 64505,
     "azure.signinlogs.properties.location.city": "Lagos",
     "azure.signinlogs.properties.location.countryOrRegion": "NG",
     "azure.signinlogs.properties.location.geoCoordinates.latitude": 6.5244,
@@ -116,7 +116,7 @@ const becInboxRuleEvent: TelemetryEvent = {
   mitre_technique: "T1564.008",
   mitre_tactic: "Stealth",
   user_email: "p.nair@meridianstructural.com",
-  src_ip: "154.72.18.63",
+  src_ip: "203.0.113.163",
   geo: { country: "Nigeria", city: "Lagos" },
   description:
     "A New-InboxRule operation created a rule on p.nair's mailbox nine minutes after the non-interactive sign-in from the same IP address, moving specific incoming mail into a folder and marking it read rather than forwarding or deleting it.",
@@ -127,7 +127,7 @@ const becInboxRuleEvent: TelemetryEvent = {
     "data.office365.UserId": "p.nair@meridianstructural.com",
     "data.office365.UserType": "0",
     "data.office365.ResultStatus": "Succeeded",
-    "data.office365.ClientIP": "154.72.18.63",
+    "data.office365.ClientIP": "203.0.113.163",
     "data.office365.Id": "d8a3f612-6c05-4e2b-9f47-1a5d8e3c9046",
     "data.office365.OrganizationId": "5c8a2f19-4d63-4b8e-9c07-1e83a5f26d94",
     "data.office365.CreationTime": "2026-04-14T14:31:55",
@@ -176,10 +176,8 @@ const becLegitimateForwardEvent: TelemetryEvent = {
     "data.office365.Parameters[0].Value": "Leave Coverage - AWalsh",
     "data.office365.Parameters[1].Name": "ForwardTo",
     "data.office365.Parameters[1].Value": "a.walsh@meridianstructural.com",
-    "data.office365.Parameters[2].Name": "SubjectOrBodyContainsWords",
-    "data.office365.Parameters[2].Value": "",
-    "data.office365.Parameters[3].Name": "StopProcessingRules",
-    "data.office365.Parameters[3].Value": "False",
+    "data.office365.Parameters[2].Name": "StopProcessingRules",
+    "data.office365.Parameters[2].Value": "False",
   },
 };
 
@@ -414,7 +412,7 @@ const becInvestigationRoom = {
         },
         {
           question:
-            "data.office365.ClientIP on this rule (154.72.18.63) matches the source IP of the non-interactive sign-in reviewed nine minutes earlier in the previous exercise. What does this specific correlation establish?",
+            "data.office365.ClientIP on this rule (203.0.113.163) matches the source IP of the non-interactive sign-in reviewed nine minutes earlier in the previous exercise. What does this specific correlation establish?",
           options: [
             "Little on its own: a shared ClientIP is common on cloud services, so matching it to one sign-in is weak evidence",
             "That the same actor or infrastructure behind the replayed token also created this rule minutes later, tying the sign-in anomaly and the concealment rule into one continuous, purposeful sequence",
