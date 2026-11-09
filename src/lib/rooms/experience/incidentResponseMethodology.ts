@@ -39,6 +39,14 @@ export const INCIDENT_RESPONSE_METHODOLOGY: RoomExperience = {
   look: { primary: "#22b8cf", secondary: "#facc15", warn: "#f43f5e" },
   scene: "facilitytabletop",
   layout: "facility",
+  story: {
+    intro: { title: "Face Down", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/incident-response-methodology/tabletop-intro-71ae6c0c.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/incident-response-methodology/tabletop-intro-d882da6a.jpg" },
+    afterStation: {
+      firstcall: { title: "The Clock Started", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/incident-response-methodology/tabletop-ch2-c795732e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/incident-response-methodology/tabletop-ch2-9cb4ee87.jpg" },
+      clearout: { title: "The Same Night, Again", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/incident-response-methodology/tabletop-ch3-e68479a3.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/incident-response-methodology/tabletop-ch3-2f7801c9.jpg" },
+      notadrill: { title: "Cards Down", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/incident-response-methodology/tabletop-finale-97da9c09.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/incident-response-methodology/tabletop-finale-680d4f14.jpg" },
+    },
+  },
   stations: [
     {
       id: "firstcall",
