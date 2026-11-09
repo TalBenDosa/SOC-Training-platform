@@ -258,13 +258,27 @@ function procKeys(b: Base, prefix: string, p: EdrProc, story: Story, opts: { sel
 }
 
 /** The acting process (src.process.*) and its parent (src.process.parent.*), as on DNS / IP / file / task events. */
-function actorKeys(b: Base, actor: EdrProc = b.f.proc, parent: EdrProc = b.f.parent): Record<string, unknown> {
+function actorKeys(b: Base, actor: EdrProc = b.f.proc, parentIn: EdrProc = b.f.parent): Record<string, unknown> {
   if (!procName(actor)) return {};
+  // R2: the agent always knows the acting process's parent, so every DNS / IP / file row carries
+  // src.process.parent.* and the storyline-root flag; a row that names none gets the parent the OS gives
+  // that image (explorer.exe for a user's app, services.exe for a SYSTEM service, systemd / launchd).
+  const parent: EdrProc = procName(parentIn) ? parentIn : inferredParent(b, actor);
   const st = storyline(b, actor, parent);
   return {
     ...procKeys(b, "src.process.", actor, st, { self: true }),
     ...(procName(parent) ? procKeys(b, "src.process.parent.", parent, procName(parent) && !SHELLS.has(lc(procName(parent))) && !st.root ? { id: st.id, root: false } : parentStoryline(b, parent), { self: false }) : {}),
   };
+}
+const OS_PARENT_OF: Record<string, string> = {
+  "explorer.exe": "userinit.exe", "userinit.exe": "winlogon.exe", "services.exe": "wininit.exe", "lsass.exe": "wininit.exe",
+  "svchost.exe": "services.exe", "spoolsv.exe": "services.exe", "msmpeng.exe": "services.exe", "wmiprvse.exe": "svchost.exe",
+};
+function inferredParent(b: Base, actor: EdrProc): EdrProc {
+  const n = lc(procName(actor));
+  const name = OS_PARENT_OF[n] ?? (b.os === "Lin" ? "systemd" : b.os === "Mac" ? "launchd" : b.u.system ? "services.exe" : "explorer.exe");
+  const path = b.os === "Lin" ? "/usr/lib/systemd/systemd" : b.os === "Mac" ? "/sbin/launchd" : name === "explorer.exe" ? "C:\\Windows\\explorer.exe" : `C:\\Windows\\System32\\${name}`;
+  return { name, path, ...(name === "explorer.exe" ? {} : { user: b.os === "Win" ? "NT AUTHORITY\\SYSTEM" : "root" }) };
 }
 const actorUid = (b: Base, actor: EdrProc = b.f.proc) => (procName(actor) ? uidOf(b.ctx, procSeed(b.ctx, b.scope, actor)) : undefined);
 
