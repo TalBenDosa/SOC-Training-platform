@@ -21,10 +21,10 @@ describe("netstat with switches prints the real Windows table", () => {
     expect(out).toMatch(/^ {2}TCP {4}0\.0\.0\.0:445 {12}0\.0\.0\.0:0 {14}LISTENING {7}4$/m);
     expect(out).toMatch(/^ {2}TCP {4}0\.0\.0\.0:135 +0\.0\.0\.0:0 +LISTENING +\d+$/m);
     const c2 = fin.processes.find(p => p.network?.some(c => c.remote_ip === "203.0.113.122" && c.remote_port === 443))!;
-    expect(out).toMatch(new RegExp(`^  TCP    10\\.20\\.4\\.71:\\d{5} +45\\.137\\.22\\.19:443 +ESTABLISHED +${c2.pid}$`, "m"));
+    expect(out).toMatch(new RegExp(`^  TCP    10\\.20\\.4\\.71:\\d{5} +203\\.0\\.113\\.122:443 +ESTABLISHED +${c2.pid}$`, "m"));
     expect(out).not.toMatch(/\.exe/);
     // one row per endpoint: three TLS beacons to the same server are one socket
-    expect(out.match(/45\.137\.22\.19:443/g)!.length).toBe(1);
+    expect(out.match(/203.0.113.122:443/g)!.length).toBe(1);
     expect(out).toBe(run(fin, "netstat -ano"));   // deterministic ephemeral ports
   });
 
@@ -65,7 +65,7 @@ describe("netstat with switches prints the real Linux table on Linux hosts", () 
     expect(out).toMatch(/^tcp {8}0 {6}0 0\.0\.0\.0:22 {14}0\.0\.0\.0:\* {15}LISTEN {6}\d+\/sshd$/m);
     expect(out).not.toMatch(/ESTABLISHED/);
     const est = run(nix, "netstat -antp");
-    expect(est).toMatch(/^tcp +0 +0 10\.30\.2\.15:\d+ +91\.215\.85\.17:443 +ESTABLISHED +\d+\/\S+$/m);
+    expect(est).toMatch(/^tcp +0 +0 10\.30\.2\.15:\d+ +203.0.113.86:443 +ESTABLISHED +\d+\/\S+$/m);
     expect(run(nix, "netstat -ant")).not.toMatch(/PID\/Program name/);
     expect(run(nix, "netstat -ano")).toMatch(/supports -a, -t, -u, -l, -n and -p/);
   });
