@@ -57,12 +57,14 @@ const lsassMiniDumpEvent: TelemetryEvent = {
     },
   },
   raw: {
-    "crowdstrike.event_simpleName": "ProcessAccess",
+    "crowdstrike.event_simpleName": "DetectionSummaryEvent",
     "crowdstrike.DetectId": "ldt:fa6d8dc900d25da49a4e0f3e305893c1:41207",
     "crowdstrike.AggregateId": "aggind:fa6d8dc900d25da49a4e0f3e305893c1:4201483721",
     "crowdstrike.SeverityName": "Critical",
     "crowdstrike.Tactic": "Credential Access",
     "crowdstrike.Technique": "OS Credential Dumping",
+    "threat.technique.id": "T1003",
+    "threat.technique.subtechnique.id": "T1003.001",
     "crowdstrike.PatternDispositionDescription": "Detection, standard detection.",
     "crowdstrike.ContextBaseFileName": "rundll32.exe",
     "crowdstrike.ParentBaseFileName": "cmd.exe",
@@ -71,13 +73,10 @@ const lsassMiniDumpEvent: TelemetryEvent = {
     "crowdstrike.CommandLine": "rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump 668 C:\\ProgramData\\Adobe\\ARM\\wer4A21.tmp full",
     "crowdstrike.SHA256HashData": "a27e6a7fb13a9e4ae6d0c447e4a253358e3b79c26939c7a209a29fce082a7c7b",
     "crowdstrike.TargetProcessImageFileName": "lsass.exe",
-    "crowdstrike.TargetProcessId": "668",
     "crowdstrike.DesiredAccess": "2097151",
     "crowdstrike.CallStackModuleNames": "comsvcs.dll,ntdll.dll,KERNELBASE.dll",
     "crowdstrike.UserName": "NEXACORP\\j.reyes",
     "crowdstrike.ComputerName": "WKS-IT-0417",
-    "event.action": "process-access",
-    "event.outcome": "success",
   },
 };
 
@@ -115,14 +114,16 @@ const rcloneExfilEvent: TelemetryEvent = {
     bytes_out: 91_483_200_000,
   },
   raw: {
-    "crowdstrike.event_simpleName": "ProcessRollup2",
+    "crowdstrike.event_simpleName": "DetectionSummaryEvent",
     "crowdstrike.DetectId": "ldt:57b56a488e64a557b01f04a564bb90f1:52918",
     "crowdstrike.AggregateId": "aggind:57b56a488e64a557b01f04a564bb90f1:1471507016",
     "crowdstrike.SeverityName": "High",
     "crowdstrike.Tactic": "Exfiltration",
     "crowdstrike.Technique": "Exfiltration to Cloud Storage",
+    "threat.technique.id": "T1567",
+    "threat.technique.subtechnique.id": "T1567.002",
     "crowdstrike.PatternDispositionDescription": "Detection, standard detection.",
-    "crowdstrike.ContextBaseFileName": "cmd.exe",
+    "crowdstrike.ContextBaseFileName": "rclone.exe",
     "crowdstrike.ParentBaseFileName": "cmd.exe",
     "crowdstrike.FileName": "rclone.exe",
     "crowdstrike.FilePath": "C:\\Users\\Public\\rclone.exe",
@@ -130,8 +131,6 @@ const rcloneExfilEvent: TelemetryEvent = {
     "crowdstrike.SHA256HashData": "a2509bcefee31d3665c75a32efd9aad328b4a17611d0872dea92725027c4da7d",
     "crowdstrike.UserName": "NEXACORP\\j.reyes",
     "crowdstrike.ComputerName": "SRV-FILES-04",
-    "event.action": "process-create",
-    "event.outcome": "success",
   },
 };
 
@@ -164,14 +163,16 @@ const migrationRcloneEvent: TelemetryEvent = {
     },
   },
   raw: {
-    "crowdstrike.event_simpleName": "ProcessRollup2",
+    "crowdstrike.event_simpleName": "DetectionSummaryEvent",
     "crowdstrike.DetectId": "ldt:f3f2021bc27e074e7307ee45bbeee342:33104",
     "crowdstrike.AggregateId": "aggind:f3f2021bc27e074e7307ee45bbeee342:4092723739",
     "crowdstrike.SeverityName": "High",
     "crowdstrike.Tactic": "Exfiltration",
     "crowdstrike.Technique": "Exfiltration to Cloud Storage",
+    "threat.technique.id": "T1567",
+    "threat.technique.subtechnique.id": "T1567.002",
     "crowdstrike.PatternDispositionDescription": "Detection, standard detection.",
-    "crowdstrike.ContextBaseFileName": "MigrationScheduler.exe",
+    "crowdstrike.ContextBaseFileName": "rclone.exe",
     "crowdstrike.ParentBaseFileName": "MigrationScheduler.exe",
     "crowdstrike.FileName": "rclone.exe",
     "crowdstrike.FilePath": "C:\\Program Files\\RecordsMigration\\rclone.exe",
@@ -179,8 +180,6 @@ const migrationRcloneEvent: TelemetryEvent = {
     "crowdstrike.SHA256HashData": "b7ea7072c3e72d74a39dcaa4f8e36db29b556f0eeef3b4e58dcf781f4b079a6b",
     "crowdstrike.UserName": "NEXACORP\\svc-migrate",
     "crowdstrike.ComputerName": "SRV-ARCHIVE-02",
-    "event.action": "process-create",
-    "event.outcome": "success",
   },
 };
 
@@ -192,7 +191,6 @@ const encryptorImpactEvent: TelemetryEvent = {
   event_type: "process_create",
   severity: "critical",
   hostname: "WKS-HR-0233",
-  user_email: "j.reyes@nexacorp.com",
   mitre_technique: "T1486",
   mitre_tactic: "Impact",
   description:
@@ -211,14 +209,15 @@ const encryptorImpactEvent: TelemetryEvent = {
     },
   },
   raw: {
-    "crowdstrike.event_simpleName": "ProcessRollup2",
+    "crowdstrike.event_simpleName": "DetectionSummaryEvent",
     "crowdstrike.DetectId": "ldt:e45507bc3ab882018097c96ef655b20b:67350",
     "crowdstrike.AggregateId": "aggind:e45507bc3ab882018097c96ef655b20b:3830777788",
     "crowdstrike.SeverityName": "Critical",
     "crowdstrike.Tactic": "Impact",
     "crowdstrike.Technique": "Data Encrypted for Impact",
+    "threat.technique.id": "T1486",
     "crowdstrike.PatternDispositionDescription": "Prevention, process killed.",
-    "crowdstrike.ContextBaseFileName": "svchost.exe",
+    "crowdstrike.ContextBaseFileName": "wuauclt32.exe",
     "crowdstrike.ParentBaseFileName": "svchost.exe",
     "crowdstrike.FileName": "wuauclt32.exe",
     "crowdstrike.FilePath": "C:\\Windows\\Temp\\wuauclt32.exe",
@@ -226,8 +225,6 @@ const encryptorImpactEvent: TelemetryEvent = {
     "crowdstrike.SHA256HashData": "8b138f3271c3de83fcc298c298e201cf8a0fe6fac47ae97d5b8e4694ab636bee",
     "crowdstrike.UserName": "NT AUTHORITY\\SYSTEM",
     "crowdstrike.ComputerName": "WKS-HR-0233",
-    "event.action": "process-create",
-    "event.outcome": "success",
   },
 };
 
@@ -391,7 +388,7 @@ const ransomwareLifecycleRoom = {
           ],
           answer: 1,
           explanation:
-            "comsvcs.dll ships with Windows and exports a MiniDump function -- calling it via rundll32.exe is a well-documented living-off-the-land dumping technique precisely because no separate, easily-signatured tool is written to disk. The event does tie PID 668 to LSASS: crowdstrike.TargetProcessImageFileName is lsass.exe and crowdstrike.TargetProcessId is 668. Genuine WER crash collection is not a cmd.exe-spawned rundll32 calling comsvcs.dll's MiniDump against lsass.exe -- the wer-style name is camouflage. And the command line passes an output path and the word full, so a dump file is written to disk; nothing is injected into LSASS.",
+            "comsvcs.dll ships with Windows and exports a MiniDump function -- calling it via rundll32.exe is a well-documented living-off-the-land dumping technique precisely because no separate, easily-signatured tool is written to disk. The event does tie PID 668 to LSASS: the command line passes 668 to MiniDump, and crowdstrike.TargetProcessImageFileName shows the handle being opened on lsass.exe. Genuine WER crash collection is not a cmd.exe-spawned rundll32 calling comsvcs.dll's MiniDump against lsass.exe -- the wer-style name is camouflage. And the command line passes an output path and the word full, so a dump file is written to disk; nothing is injected into LSASS.",
           xp: 30,
         },
         {
@@ -468,7 +465,7 @@ const ransomwareLifecycleRoom = {
       type: "question" as const,
       id: "rw-q2",
       question:
-        "Two Windows Security logs land nine minutes apart on two different servers. On SRV-APP-14: Event 4624 (logon type 3, network logon) for NEXACORP\\j.reyes from source IP 10.30.4.61, immediately followed by Event 7045 recording a new service named PSEXESVC. Nine minutes later, the identical pattern repeats on SRV-DB-09 -- same account, same source IP, another PSEXESVC service creation. Based on Reading 5 and this room's earlier findings, what does this pair of events most likely represent?",
+        "The same Windows event-log pattern lands nine minutes apart on two different servers. On SRV-APP-14: Security log Event 4624 (logon type 3, network logon) for NEXACORP\\j.reyes from source IP 10.30.4.61, immediately followed by System log Event 7045 (Service Control Manager) recording a new service named PSEXESVC. Nine minutes later, the identical pattern repeats on SRV-DB-09 -- same account, same source IP, another PSEXESVC service creation. Based on Reading 5 and this room's earlier findings, what does this pair of events most likely represent?",
       options: [
         "Reconnaissance rather than lateral movement -- a type 3 logon plus a service creation only enumerates hosts for later targeting, and no attacker code has actually executed on either server yet",
         "A single administrator managing two servers -- logon type 3 is routine for remote administration, and two hosts nine minutes apart from one source IP fits ordinary patching cadence",
