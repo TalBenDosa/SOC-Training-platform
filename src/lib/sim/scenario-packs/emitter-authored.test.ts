@@ -352,7 +352,7 @@ describe("emitter-authored scenario packs", () => {
 
   it("windowsPrivescToken builds a coherent SeImpersonate privesc from emitters only (WinSec + Sysmon + MDE + Sentinel)", () => {
     const s = buildWindowsPrivescTokenScenario();
-    expect(s.events.length).toBe(12);
+    expect(s.events.length).toBe(13);   // R6: the SAM export has its own process row before its alert
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
       "Windows Security", "Microsoft Sysmon", "Microsoft Defender for Endpoint", "Microsoft Sentinel",
     ]));

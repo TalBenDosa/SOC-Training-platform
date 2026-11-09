@@ -164,6 +164,16 @@ export function windowsPrivescTokenScenarioEvents() {
     })(),
 
     // 9. THE PAYOFF, reg.exe exports the SAM and SYSTEM hives; MDE raises the detection.
+    // R6: the SAM export is its own reg.exe process (its own DeviceProcessEvents row, then the alert on it),
+    // separate from the second reg.exe that saves the SYSTEM hive.
+    mdeProcess({
+      companyId: cxN, id: "evt_wpe_09s_sam_proc", ts: T(4 * MIN + 29 * SEC + 800), host: host.hostname, user: null,
+      processName: "reg.exe", processPath: "C:\\Windows\\System32\\reg.exe", cmdline: `reg  save hklm\\sam ${samDumpPath}`,
+      parentName: "cmd.exe", pid: PID.reg, parentPid: PID.systemCmd, sha256: regSha, integrity: "System",
+      runAsUser: "NT AUTHORITY\\SYSTEM", accountName: "system", accountDomain: "nt authority", signed: true,
+      incidentId: INCIDENT, mitre: "T1003.002", tactic: "Credential Access", severity: "high",
+      description: "The SYSTEM cmd.exe started reg.exe to save the SAM hive to C:\\Windows\\Temp\\sam.save.",
+    }),
     {
       ...mdeProcess({
         companyId: cxN, id: "evt_wpe_09_sam_dump", ts: T(4 * MIN + 30 * SEC), host: host.hostname, user: null,

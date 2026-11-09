@@ -7511,6 +7511,28 @@ export function browserExtensionMalwareScenarioEvents() {
       },
     },
     {
+      // R6: the shell that wrote the registration is its own process (pid 7004), not the cmd.exe Chrome
+      // starts later as the native-messaging host (pid 9020): its own process row comes first.
+      id: "evt_bext_00b0_nmreg_proc", ts: T(-4 * MIN - 2_000),
+      source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_create",
+      hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
+      severity: "low", mitre_technique: "T1176.001",
+      process: {
+        name: "cmd.exe", pid: 7004, path: "C:\\Windows\\System32\\cmd.exe", parent_name: "explorer.exe", parent_pid: 3140,
+        cmdline: `cmd.exe /c reg add "HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\com.perfboost.host" /ve /d "${nmManifest}" /f`,
+        user: "NEXACORP\\d.cohen", integrity: "medium",
+      },
+      description: "cmd.exe started from explorer.exe on WS-MKT-3301 under d.cohen with a reg add command line for a Chrome NativeMessagingHosts key.",
+      raw: {
+        "crowdstrike.event_simpleName": "ProcessRollup2",
+        "process.name": "cmd.exe",
+        "process.pid": "7004",
+        "process.parent.name": "explorer.exe",
+        "process.parent.pid": "3140",
+        "host.name": victim.hostname, "user.name": "NEXACORP\\d.cohen",
+      },
+    },
+    {
       // The native-messaging host registration, the HKCU key that makes Chrome
       // willing to launch the host executable. Without this the launch below is impossible.
       id: "evt_bext_00b_nmreg", ts: T(-4 * MIN),
