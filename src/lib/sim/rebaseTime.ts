@@ -223,6 +223,10 @@ export function withMappedTime<E extends { ts?: string; raw?: Record<string, unk
   const origMs = e.ts ? Date.parse(e.ts) : NaN;
   const newMs = Date.parse(newTsIso);
   if (!Number.isFinite(origMs) || !Number.isFinite(newMs)) return { ...e, ts: newTsIso };
+  // R4: the row's own instant written at a coarser precision (a UAL CreationTime to the second for a row at
+  // .880) is still the row's own time: it moves with the row, never through the story map, where a
+  // fraction of a second between two phases' anchors could stretch to half a minute.
+  // (storyTimeMap keeps slope 1 within a second of every anchor, so every row naming it agrees too.)
   const g: TimeMap = ms => (ms === origMs ? newMs : f(ms));
   // Story prose moves with the event (opt-in: a benign row's "at 03:15, scheduled
   // end-of-day job" states a schedule, not the row's own time).
@@ -269,6 +273,15 @@ export function storyTimeMap(anchors: { authoredMs: number; shownMs: number }[])
     if (ms >= xs[last]) return ys[last] + (ms - xs[last]);
     let lo = 0, hi = last;
     while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (xs[mid] <= ms) lo = mid; else hi = mid; }
-    return Math.round(ys[lo] + ((ms - xs[lo]) * (ys[hi] - ys[lo])) / (xs[hi] - xs[lo]));
+    // A stretched gap (two phases apart in the feed) keeps slope 1 within a second of each anchor: a
+    // row's own instant written to the second, or an alert naming it, stays on that row.
+    const len = xs[hi] - xs[lo], d = ms - xs[lo];
+    if (ys[hi] - ys[lo] > len) {
+      const edge = Math.min(1000, len / 2);
+      if (d < edge) return ys[lo] + d;
+      if (len - d < edge) return ys[hi] - (len - d);
+      return Math.round(ys[lo] + edge + ((d - edge) * (ys[hi] - ys[lo] - 2 * edge)) / (len - 2 * edge));
+    }
+    return Math.round(ys[lo] + (d * (ys[hi] - ys[lo])) / len);
   };
 }
