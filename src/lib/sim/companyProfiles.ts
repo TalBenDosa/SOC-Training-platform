@@ -875,7 +875,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "vpn", event_type: "vpn_login", severity: "informational",
     vendor: "Cisco AnyConnect", user_email: "l.jansen@medcorehealth.org", src_ip: "198.51.100.153",
     description: "l.jansen connected VPN from Netherlands",
-    raw: { "cisco.asa.message_id": "113039", "cisco.asa.session_type": "AnyConnect-Parent", "cisco.asa.tunnel_group": "RemoteAccess", "cisco.asa.client_type": "Windows 11", "action_result": "allowed" }
+    raw: { "cisco.asa.message_id": "113039", "cisco.asa.session_type": "AnyConnect-Parent", "cisco.asa.tunnel_group": "RemoteAccess", "cisco.asa.client_os": "Windows 11", "action_result": "allowed" }
   },
   {
     id: "mc_ad_008", ts: "2026-05-10T10:30:00.000Z",
@@ -1363,7 +1363,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "vpn", event_type: "vpn_login", severity: "informational",
     vendor: "Cisco AnyConnect", user_email: "m.verhoeven@medcorehealth.org", src_ip: "198.51.100.164",
     description: "m.verhoeven connected VPN from Netherlands",
-    raw: { "cisco.asa.message_id": "113039", "cisco.asa.session_type": "AnyConnect-Parent", "cisco.asa.tunnel_group": "Nurses-Full", "cisco.asa.client_type": "Windows 10", "cisco.asa.aaa_server_group": "duo_push", "action_result": "allowed" }
+    raw: { "cisco.asa.message_id": "113039", "cisco.asa.session_type": "AnyConnect-Parent", "cisco.asa.tunnel_group": "Nurses-Full", "cisco.asa.client_os": "Windows 10", "action_result": "allowed" }
   },
   {
     id: "mc_vpn_002", ts: "2026-05-10T10:15:00.000Z",
@@ -1372,7 +1372,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     expected_verdict: "escalate",
     description: "dr.peters connected VPN from Nigeria (unusual location)",
     mitre_technique: "T1078",
-    raw: { "cisco.asa.message_id": "113039", "cisco.asa.session_type": "AnyConnect-Parent", "cisco.asa.tunnel_group": "Physicians-Full", "source.geo.country_iso_code": "NG", "source.geo.city_name": "Lagos", "cisco.asa.aaa_server_group": "duo_push", "cisco.mfa_response_time_ms": "47210", "action_result": "allowed" }
+    raw: { "cisco.asa.message_id": "113039", "cisco.asa.session_type": "AnyConnect-Parent", "cisco.asa.tunnel_group": "Physicians-Full", "source.geo.country_iso_code": "NG", "source.geo.city_name": "Lagos", "action_result": "allowed" }
   },
   // ── False Positive Training Events ────────────────────────────────────────
   {
@@ -1468,7 +1468,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "Cisco AnyConnect", user_email: "dr.dejong@medcorehealth.org", src_ip: "198.51.100.166",
     user_title: "Cardiologist",
     description: "dr.dejong failed Cisco VPN authentication - expired token, re-authentication required",
-    raw: { "cisco.asa.message_id": "113005", "cisco.asa.aaa_type": "authentication", "event.outcome": "failure",
+    raw: { "cisco.asa.message_id": "113005", "event.outcome": "failure",
            "cisco.asa.reason": "Token expired", "cisco.asa.tunnel_group": "Clinical-VPN",
            "source.ip": "198.51.100.166", "action_result": "deny" }
   },
@@ -1502,10 +1502,10 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     mitre_technique: "T1110.001", mitre_tactic: "Credential Access",
     expected_verdict: "tp", is_detection: true,
     description: "34 Cisco VPN authentication failures from 198.51.100.167 against 7 different usernames",
-    raw: { "cisco.asa.message_id": "113005", "cisco.asa.aaa_type": "authentication", "event.outcome": "failure",
+    raw: { "cisco.asa.message_id": "113005", "event.outcome": "failure",
            "cisco.asa.reason": "Authentication Failed", "cisco.asa.tunnel_group": "Clinical-VPN",
            "source.ip": "198.51.100.167", "source.geo.country_iso_code": "RU", "source.geo.city_name": "Saint Petersburg",
-           "cisco.asa.aaa_server_group": "DUO-RADIUS", "action_result": "deny" }
+           "action_result": "deny" }
   },
   {
     id: "mc_bf_02", ts: "2026-05-10T10:18:00.000Z",
@@ -1514,7 +1514,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     mitre_technique: "T1110.001", mitre_tactic: "Credential Access",
     expected_verdict: "tp", is_detection: true,
     description: "VPN authentication failures from 198.51.100.167 now total 68 and target dr.dejong, l.willems and admin.vandenberg",
-    raw: { "cisco.asa.message_id": "113005", "cisco.asa.aaa_type": "authentication", "event.outcome": "failure",
+    raw: { "cisco.asa.message_id": "113005", "event.outcome": "failure",
            "cisco.asa.reason": "AAA failure", "cisco.asa.tunnel_group": "Clinical-VPN",
            "source.ip": "198.51.100.167",
            "source.geo.country_iso_code": "RU", "action_result": "deny" }
@@ -1854,7 +1854,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "Cisco AnyConnect", user_email: "dr.vandijk@medcorehealth.org", src_ip: "198.51.100.190",
     description: "dr.vandijk connected Cisco VPN from Netherlands (home IP)",
     raw: { "cisco.asa.message_id": "113039", "cisco.asa.session_type": "AnyConnect-Parent", "cisco.asa.tunnel_group": "Physicians-Full",
-           "cisco.asa.client_type": "Windows 11", "cisco.asa.aaa_server_group": "duo_push",
+           "cisco.asa.client_os": "Windows 11",
            "source.geo.country_iso_code": "NL", "action_result": "allowed" }
   },
   {
@@ -1986,7 +1986,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     source: "vpn", event_type: "vpn_login", severity: "informational",
     vendor: "Cisco AnyConnect", user_email: "c.becker@globallogis.de", src_ip: "198.51.100.192",
     description: "c.becker connected VPN from Germany",
-    raw: { "cisco.asa.tunnel_group": "Employees-Full", "cisco.asa.client_type": "Windows 11", "action_result": "allowed" }
+    raw: { "cisco.asa.tunnel_group": "Employees-Full", "cisco.asa.client_os": "Windows 11", "action_result": "allowed" }
   },
   // ── Sysmon (Windows endpoint telemetry) ───────────────────────────────────
   {
@@ -2060,7 +2060,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     source: "vpn", event_type: "vpn_login", severity: "informational",
     vendor: "Cisco AnyConnect", user_email: "truck.driver.012@globallogis.de", src_ip: "198.51.100.193",
     description: "Truck GPS device VPN connected from road (DE)",
-    raw: { "cisco.asa.tunnel_group": "IoT-GPS-Devices", "cisco.asa.client_type": "Linux Embedded", "cisco.asa.group_policy": "split-tunnel", "action_result": "allowed" }
+    raw: { "cisco.asa.tunnel_group": "IoT-GPS-Devices", "cisco.asa.client_os": "Linux Embedded", "cisco.asa.group_policy": "split-tunnel", "action_result": "allowed" }
   },
   {
     id: "gl_fw_004", ts: "2026-05-10T11:20:00.000Z",
@@ -3200,14 +3200,14 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     severity: "medium", vendor: "Cisco AnyConnect", user_email: "p.hoekstra@medcorehealth.org", src_ip: "198.51.100.216",
     description: "12 failed VPN authentications for p.hoekstra from 198.51.100.216 (Kyiv, UA) in five minutes",
     mitre_technique: "T1110.003",
-    raw: { "cisco.asa.message_id": "113005", "cisco.asa.aaa_type": "authentication", "event.outcome": "failure", "cisco.asa.reason": "AAA failure", "cisco.asa.username": "p.hoekstra", "cisco.asa.tunnel_group": "Physicians-Full", "source.ip": "198.51.100.216", "source.geo.country_iso_code": "UA", "source.geo.city_name": "Kyiv", "action_result": "blocked" }
+    raw: { "cisco.asa.message_id": "113005", "event.outcome": "failure", "cisco.asa.reason": "AAA failure", "cisco.asa.username": "p.hoekstra", "cisco.asa.tunnel_group": "Physicians-Full", "source.ip": "198.51.100.216", "source.geo.country_iso_code": "UA", "source.geo.city_name": "Kyiv", "action_result": "blocked" }
   },
   {
     id: "mc_c2", ts: "2026-05-10T13:16:00.000Z", source: "vpn", event_type: "vpn_login",
     severity: "medium", vendor: "Cisco AnyConnect", user_email: "p.hoekstra@medcorehealth.org", src_ip: "198.51.100.216",
     description: "p.hoekstra connected to the VPN from 198.51.100.216 (Kyiv, UA) - the same IP as the earlier failures",
     mitre_technique: "T1078",
-    raw: { "cisco.asa.message_id": "113039", "cisco.asa.session_type": "AnyConnect-Parent", "cisco.asa.tunnel_group": "Physicians-Full", "cisco.asa.aaa_server_group": "DUO-RADIUS", "cisco.asa.username": "p.hoekstra", "source.ip": "198.51.100.216", "source.geo.country_iso_code": "UA", "action_result": "allowed" }
+    raw: { "cisco.asa.message_id": "113039", "cisco.asa.session_type": "AnyConnect-Parent", "cisco.asa.tunnel_group": "Physicians-Full", "cisco.asa.username": "p.hoekstra", "source.ip": "198.51.100.216", "source.geo.country_iso_code": "UA", "action_result": "allowed" }
   },
   chainAlert({ id: "mc_c2b", ts: "2026-05-10T13:16:40.000Z", name: "VPN sign-in after repeated failures from a foreign IP", product: "Azure Sentinel", severity: "Medium", mitre: "T1110.001", user: "p.hoekstra@medcorehealth.org", ip: "198.51.100.216", props: {"Failed Attempts": "12", "Source Country": "UA", "Successful Account": "p.hoekstra"}, description: "Sentinel raised a Medium alert for p.hoekstra: 12 failed AnyConnect authentications from 198.51.100.216 (UA), then a connected session from the same address." }),
   {
@@ -3232,7 +3232,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     severity: "high", vendor: "Cisco AnyConnect", src_ip: "198.51.100.167",
     description: "55 VPN authentication failures from 198.51.100.167 against 9 clinician usernames",
     mitre_technique: "T1110.001", mitre_tactic: "Credential Access",
-    raw: { "cisco.asa.message_id": "113005", "cisco.asa.aaa_type": "authentication", "event.outcome": "failure",
+    raw: { "cisco.asa.message_id": "113005", "event.outcome": "failure",
            "cisco.asa.reason": "Authentication Failed", "cisco.asa.tunnel_group": "Clinical-VPN",
            "source.ip": "198.51.100.167", "source.geo.country_iso_code": "RU", "action_result": "deny" }
   },
@@ -3241,7 +3241,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     severity: "high", vendor: "Cisco AnyConnect", src_ip: "198.51.100.167",
     description: "VPN failures from 198.51.100.167 reached 89; dr.dejong and l.bakker are now locked out",
     mitre_technique: "T1110.001", mitre_tactic: "Credential Access",
-    raw: { "cisco.asa.message_id": "113005", "cisco.asa.aaa_type": "authentication", "event.outcome": "failure",
+    raw: { "cisco.asa.message_id": "113005", "event.outcome": "failure",
            "cisco.asa.tunnel_group": "Clinical-VPN",
            "source.ip": "198.51.100.167", "source.geo.country_iso_code": "RU", "action_result": "deny" }
   },
@@ -3252,7 +3252,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     description: "VPN authentication succeeded for l.willems from 198.51.100.167 (RU) on the Clinical-VPN tunnel group",
     mitre_technique: "T1078", mitre_tactic: "Initial Access",
     raw: { "cisco.asa.message_id": "113039", "cisco.asa.session_type": "AnyConnect-Parent",
-           "cisco.asa.aaa_type": "authentication", "event.outcome": "success",
+           "event.outcome": "success",
            "cisco.asa.tunnel_group": "Clinical-VPN", "cisco.asa.username": "l.willems@medcorehealth.org",
            "cisco.asa.group_policy": "Clinical-Full",
            "source.ip": "198.51.100.167", "source.geo.country_iso_code": "RU",
