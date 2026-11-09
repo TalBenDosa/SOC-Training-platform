@@ -645,7 +645,7 @@ export const SOAR_AUTOMATION: RoomExperience = {
               ["CHG-58740", "Wed 08:00", "coldlink-gw", "Firmware update"],
             ],
             answer: 3,
-            why: "A cause comes before its effect, on the same object, and fits the failure. CHG-58714 is the right gateway but it ran fine for six hours after. CHG-58731 is the right minute but the wrong account. CHG-58740 came after the failures began.",
+            why: "A cause comes before its effect, on the same object, and fits the failure. CHG-58714 is the right gateway but it ran fine for six and a half hours after. CHG-58731 falls in the right ten minutes but is the wrong account. CHG-58740 came after the failures began.",
             learned: "CHG-58722 explains the cause: the gateway lost its account six minutes before the first failure",
           },
         ],

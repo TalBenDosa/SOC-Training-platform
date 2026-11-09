@@ -355,7 +355,7 @@ export const EMAIL_PROTOCOLS_FORENSICS: RoomExperience = {
       {
         kind: "worksheet",
         title: "Read the Clocks Down the Chain",
-        prompt: "Times are the other half of a chain. Here's Thursday's order confirmation from a spice exporter in Kochi, with lines in the order they sit in the message. Line 4 looks as if it happened five hours after line 3. Work out what really happened.",
+        prompt: "Times are the other half of a chain. Here's Thursday's order confirmation from a spice exporter in Kochi, with lines in the order they sit in the message. Line 4 looks as if it happened five and a half hours after line 3. Work out what really happened.",
         caption: "Received chain · top line first · offsets as written",
         columns: ["Line", "from (claimed)", "by", "Stamp"],
         rows: [

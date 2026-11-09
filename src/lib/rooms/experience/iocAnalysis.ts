@@ -135,7 +135,7 @@ export const IOC_ANALYSIS: RoomExperience = {
         questions: [
           { id: "q1", q: "How many hours in total did the three bottom levels cost the crew?", hint: "Add Hours lost for the hash, the address and the domain.", answer: ["2.6", "2.6 hours"], why: "2.6 hours for three separate blocks. The crew lost less than a morning, and the attacker's link to the implant was back." },
           { id: "q2", q: "How much money did those three blocks cost them, in USD?", hint: "Add the Cost column for the same three rows.", answer: ["20", "$20", "20 usd"], why: "Twenty dollars. Blocking at the bottom is still worth doing, because it's nearly free for you too, but it doesn't change the crew's month." },
-          { id: "q3", q: "How many of the six blocks did they recover from inside one 8-hour working day?", hint: "Count the rows where Hours lost is 8 or less.", answer: ["3", "three"], why: "Three. The artefact block is the first one that took them more than a day, because it forced them to touch their own tooling." },
+          { id: "q3", q: "How many of the six blocks did they recover from inside one 8-hour working day?", hint: "Count the rows where Hours lost is 8 or less.", answer: ["3", "three"], why: "Three. The artefact block is the first one that took them more than a working day, because it forced them to touch their own tooling." },
           { id: "q4", q: "How many times more hours did the TTP block cost than the domain block?", hint: "Divide one Hours lost value by the other.", answer: ["450", "450 times", "450x"], why: "450 times. Bianco's ranks are about effort, and these are one crew's numbers, but the shape is the point: you spend about the same to write either detection, and the attacker's bill is wildly different." },
         ],
       },
@@ -343,8 +343,8 @@ export const IOC_ANALYSIS: RoomExperience = {
               ["DNSSEC", "unsigned"],
             ],
             answer: 3,
-            why: "Created eight days before the quarantine. The redacted registrant proves nothing: most registrars have redacted that field by default since GDPR, so honest domains look the same. Age is the signal.",
-            learned: "Registered 26 Oct, 8 days before the quarantine",
+            why: "Created a week before the quarantine. The redacted registrant proves nothing: most registrars have redacted that field by default since GDPR, so honest domains look the same. Age is the signal.",
+            learned: "Registered 26 Oct, a week before the quarantine",
           },
           {
             id: "rpdns",

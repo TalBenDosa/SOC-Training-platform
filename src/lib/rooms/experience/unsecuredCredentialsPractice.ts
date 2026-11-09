@@ -444,7 +444,7 @@ export const UNSECURED_CREDENTIALS_PRACTICE: RoomExperience = {
               ["10:22:11", "security", "sync_helper", "security dump-keychain -d login.keychain-db"],
               ["10:22:40", "zip", "sync_helper", "zip -q /tmp/k.zip /tmp/k.txt"],
             ],
-            answer: 3, why: "The parent is sync_helper, a binary downloaded three minutes earlier. Someone at a Terminal would show a shell as the parent.", learned: "dump-keychain ran under sync_helper",
+            answer: 3, why: "The parent is sync_helper, a binary downloaded two and a half minutes earlier. Someone at a Terminal would show a shell as the parent.", learned: "dump-keychain ran under sync_helper",
           },
           {
             id: "capture", ask: "That dump only returns secrets from an open vault. Which earlier row got hold of the login password?", source: "EDR process events · or-tt-mb04",

@@ -179,7 +179,7 @@ export const ACTIVE_DIRECTORY: RoomExperience = {
         lead: "Alert: Domain Admins membership changed on RKW-DC02 at 01:48.",
         steps: [
           {
-            id: "created", source: "Security log · 4720 user created · RKW-DC02",
+            id: "created", source: "SIEM · RKW-DC02 Security events, forwarded before the clear · 4720 user created",
             ask: "Which account was created overnight, and by whom?",
             columns: ["time", "event", "subject", "new account"],
             rows: [["11/3 09:14", "4720", "it.admin", "new.starter.kp"], ["11/4 01:47", "4720", "hwy.temp04", "svc_mon2"]],
@@ -188,7 +188,7 @@ export const ACTIVE_DIRECTORY: RoomExperience = {
             learned: "01:47 svc_mon2 created by hwy.temp04",
           },
           {
-            id: "group", source: "Security log · 4728 / 4732 member added",
+            id: "group", source: "SIEM · RKW-DC02 Security events, forwarded before the clear · 4728 / 4732 member added",
             ask: "Where did svc_mon2 go next?",
             columns: ["time", "event", "subject", "member", "group"],
             rows: [["11/3 10:02", "4732", "it.admin", "new.starter.kp", "Remote Desktop Users"], ["11/4 01:48", "4728", "hwy.temp04", "svc_mon2", "Domain Admins"]],

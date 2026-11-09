@@ -759,7 +759,7 @@ export const WINDOWS_PROTOCOLS_LATERAL: RoomExperience = {
           ["13:15", "172.16.4.18", "3", "2"],
         ],
         questions: [
-          { id: "count", q: "A rule of attempts > 20 fires on which IP?", hint: "Read the attempts column only.", answer: ["172.16.1.41"], why: "An old scanner retrying one no-preauth account, all day. Raw count catches the loud, not the wide." },
+          { id: "count", q: "A rule of attempts > 20 fires on which IP?", hint: "Read the attempts column only.", answer: ["172.16.1.41"], why: "An old scanner retrying one no-preauth account over and over. Raw count catches the loud, not the wide." },
           { id: "dcount", q: "A rule of accounts > 5 fires on how many bins?", hint: "Read the accounts column only.", answer: ["1"], why: "Nine different accounts in one bin. dcount asks 'how many different targets', which is the shape of a sweep." },
           { id: "stretch", q: "The same nine requests, spread evenly over 30 minutes. Would accounts > 5 in a 5-minute bin still fire? (yes/no)", hint: "How many accounts land in each bin now?", answer: ["no"], why: "One or two per bin. The window and the threshold work together: a window too short misses slow sweeps, too long and everyday work adds up. Pick both from your own baseline." },
         ],

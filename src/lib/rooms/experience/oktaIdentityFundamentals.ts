@@ -404,7 +404,7 @@ export const OKTA_IDENTITY_FUNDAMENTALS: RoomExperience = {
       {
         kind: "trace",
         title: "How Far Did It Get?",
-        prompt: "Tuesday night a source worked down Quayside's staff list, one try per account, about one every three minutes. Every row says FAILURE. Ngaire Holm wants to know whether any of them should worry you.",
+        prompt: "Tuesday night a source worked down Quayside's staff list, one try per account, about one every two and a half minutes. Every row says FAILURE. Ngaire Holm wants to know whether any of them should worry you.",
         primer: {
           title: "Result says what. Reason says how far",
           points: [

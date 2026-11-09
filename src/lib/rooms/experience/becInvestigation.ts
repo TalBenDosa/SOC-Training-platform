@@ -410,7 +410,7 @@ export const BEC_INVESTIGATION: RoomExperience = {
               ["10-07 17:30:16", "198.51.100.40", "ar@ostrandergeo.example", "Phase 2 logs received, thanks"],
             ],
             answer: 0,
-            why: "The subject can't separate two replies in one thread, and the ClientIP can. The 13:12 message is Erin's own. 54 minutes later the session answered in the same thread.",
+            why: "The subject can't separate two replies in one thread, and the ClientIP can. The 13:12 message is Erin's own. 53 minutes later the session answered in the same thread.",
             learned: "Fake reply sent 10-13 14:06:19 from 203.0.113.58",
           },
           {

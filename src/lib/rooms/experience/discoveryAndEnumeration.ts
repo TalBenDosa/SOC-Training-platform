@@ -445,7 +445,7 @@ export const DISCOVERY_AND_ENUMERATION: RoomExperience = {
               ["09:40:05", "g.sandoval", "198.51.100.9", "No", "10.40.250.19"],
             ],
             answer: 2,
-            why: "A log scaler who works on site signed in over VPN from an address never seen for that account, under 14 minutes before the first whoami. So the discovery has a beginning: an anomalous sign-in.",
+            why: "A log scaler who works on site signed in over VPN from an address never seen for that account, under 14 minutes before the first whoami, on SLK-YARD-07 at 09:12:04. So the discovery has a beginning: an anomalous sign-in.",
             learned: "The account came in over VPN from a new address at 08:58:31",
           },
           {

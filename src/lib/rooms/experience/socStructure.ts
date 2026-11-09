@@ -135,7 +135,7 @@ export const SOC_STRUCTURE: RoomExperience = {
           { id: "ttd103", q: "How many hours passed between the start of INC-103 and its detection?", hint: "Time to detect = detected minus attack started. Oct 09 09:00 to Oct 10 09:00.", answer: ["24", "24h", "24 hours", "24 hrs"], why: "A full day. For that whole day an attacker was inside and nobody knew." },
           { id: "mttd", q: "What is the Mean Time to Detect (MTTD) for the month, in hours?", hint: "Times to detect: 6, 4, 24 and 2 hours. Add them and divide by 4.", answer: ["9", "9h", "9 hours", "9 hrs"], why: "(6 + 4 + 24 + 2) / 4 = 9 hours. A healthy number for a SOC: the shorter the time to detect, the less an attacker can do." },
           { id: "mttr", q: "What is the Mean Time to Respond (MTTR), detection to containment, in hours?", hint: "Times to respond: 1, 2, 3 and 2 hours. Add them and divide by 4.", answer: ["2", "2h", "2 hours", "2 hrs"], why: "(1 + 2 + 3 + 2) / 4 = 2 hours. MTTR measures how fast the team acts once it knows." },
-          { id: "worst", q: "Which single incident pulls the MTTD up the most?", hint: "Which incident has the longest time to detect?", answer: ["INC-103", "inc103", "103", "inc 103"], why: "One slow detection doubles the average. That is why SOCs tune detection rules and hunt: to shorten the worst cases." },
+          { id: "worst", q: "Which single incident pulls the MTTD up the most?", hint: "Which incident has the longest time to detect?", answer: ["INC-103", "inc103", "103", "inc 103"], why: "One slow detection more than doubles the average: 4 hours without it, 9 with it. That is why SOCs tune detection rules and hunt: to shorten the worst cases." },
         ],
       },
       {

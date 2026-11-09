@@ -109,7 +109,7 @@ export const WINDOWS_EVENT_LOGS: RoomExperience = {
           ["06:00:03", "LOCAL SERVICE", "5", "Advapi", "service start"],
           ["07:58:44", "p.osei", "11", "User32", "laptop off the network"],
           ["08:05:12", "m.dube", "10", "User32", "interactive session from MB-ADM-01"],
-          ["08:31:10", "p.osei", "7", "User32", "after lunch screen lock"],
+          ["08:31:10", "p.osei", "7", "User32", "screen unlock after a short break"],
           ["08:47:22", "p.osei", "9", "seclogo", "network identity: MORROW\\adm-t.ruiz"],
           ["08:47:23", "adm-t.ruiz", "3", "NtLmSsp", "logged on MB-DC-01, from MB-WS-0217"],
         ],

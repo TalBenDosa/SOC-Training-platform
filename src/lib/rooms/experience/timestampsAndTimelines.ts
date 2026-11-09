@@ -153,7 +153,7 @@ export const TIMESTAMPS_AND_TIMELINES: RoomExperience = {
         caption: "Statements in the incident channel",
         columns: ["who", "said", "their source"],
         rows: [
-          ["New York analyst", "'It started at 09:20'", "SIEM console, set to New York time"],
+          ["New York analyst", "'It started at 09:20'", "SIEM console, set to New York time (EST, UTC-5)"],
           ["Tel Aviv firewall admin", "'Our log shows 16:23'", "Branch firewall that logs local time, no zone"],
           ["Bengaluru IT", "'The user called us at 19:58'", "Phone system, India time"],
         ],
@@ -200,7 +200,7 @@ export const TIMESTAMPS_AND_TIMELINES: RoomExperience = {
         ],
         questions: [
           { id: "edr", q: "What is the EDR event's corrected time (HH:MM:SS)?", hint: "Slow by 2 minutes: add 2 minutes.", answer: ["14:04:30"], why: "Raw 14:02:30 looked like the very first event. Corrected, it comes after the logon." },
-          { id: "fw", q: "What is the firewall event's corrected time (HH:MM:SS)?", hint: "Fast by 3 minutes: subtract 3 minutes.", answer: ["14:05:10"], why: "Not five minutes after the process, but forty seconds." },
+          { id: "fw", q: "What is the firewall event's corrected time (HH:MM:SS)?", hint: "Fast by 3 minutes: subtract 3 minutes.", answer: ["14:05:10"], why: "Not five minutes forty after the process, but forty seconds." },
           { id: "first", q: "After correction, which came first: the logon, the PowerShell or the outbound connection?", hint: "Compare 14:03:55, 14:04:30 and 14:05:10.", answer: ["logon", "the logon"], why: "Logon, PowerShell 35 seconds later, outbound connection 40 seconds after that. The raw times told the story backwards." },
         ],
       },

@@ -246,7 +246,7 @@ export const NETWORKING_FUNDAMENTALS: RoomExperience = {
               ["14:06:02", "10.20.6.31:61544", "203.0.113.77:50122", "13.107.42.14:443"],
             ],
             answer: 2,
-            why: "Hundreds of devices share 203.0.113.77; only the public port and the exact second separate them. The last row reuses port 50122 a minute later for a different connection: time matters.",
+            why: "Hundreds of devices share 203.0.113.77; only the public port and the exact second separate them. The last row reuses port 50122 50 seconds later for a different connection: time matters.",
             learned: "Internal source: 10.20.6.31 at 14:05:12",
           },
           {

@@ -249,7 +249,7 @@ export const VISHING_HELPDESK_SOCIAL_ENGINEERING: RoomExperience = {
       {
         kind: "worksheet",
         title: "Five Calls on File",
-        prompt: "Before the board asks, Marek wants the public record in one table. Five cases, in the order they became known. Read across each row, then answer from the table.",
+        prompt: "Before the board asks, Marek wants the public record in one table. Five cases from 2022 and 2023. Read across each row, then answer from the table.",
         primer: {
           title: "Reading a case file",
           points: [
