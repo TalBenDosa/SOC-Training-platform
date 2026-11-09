@@ -28,7 +28,7 @@ export function windowsPrivescTokenScenarioEvents() {
   const host = { hostname: "WEB-APP-04", fqdn: "WEB-APP-04.nexacorp.com", ip: "10.30.5.40" };
 
   // The IIS application-pool identity. Runs w3wp.exe. Not a local admin. Holds
-  // SeImpersonatePrivilege because every IIS service account does — that is the
+  // SeImpersonatePrivilege because every IIS service account does, that is the
   // crux of the whole incident.
   const svc = { sam: "svc-web", domain: "NEXACORP", email: "svc-web@nexacorp.com" };
   const svcSid = "S-1-5-21-3421479547-3897544621-1789562108-5107";
@@ -45,8 +45,8 @@ export function windowsPrivescTokenScenarioEvents() {
   const samDumpPath = "C:\\Windows\\Temp\\sam.save";
   const sysDumpPath = "C:\\Windows\\Temp\\sys.save";
 
-  // One incident. Everything below is host-observable on WEB-APP-04 — Windows
-  // Security + Sysmon + the MDE detection — so this is an EDR-scope investigation:
+  // One incident. Everything below is host-observable on WEB-APP-04, Windows
+  // Security + Sysmon + the MDE detection, so this is an EDR-scope investigation:
   // there is a real process tree to walk from w3wp.exe down to the SYSTEM shell.
   const INCIDENT = "inc:wpe:1";
 
@@ -63,26 +63,26 @@ export function windowsPrivescTokenScenarioEvents() {
   const svcAcct = `${svc.domain}\\${svc.sam}`;
 
   const events: TelemetryEvent[] = [
-    // 1. Routine baseline — the IIS app-pool identity logs on as a service (Type 5).
+    // 1. Routine baseline, the IIS app-pool identity logs on as a service (Type 5).
     winLogon({
       companyId: cxN, id: "evt_wpe_01_service_logon", ts: T(0), host: host.hostname, fqdn: host.fqdn,
       targetUser: svc.sam, targetSid: svcSid, subjectUser: "WEB-APP-04$", subjectSid: "S-1-5-18",
       logonType: 5, authPackage: "Negotiate", logonProcess: "Advapi  ", logonId: svcLogonId, workstation: "-",
       processName: "C:\\Windows\\System32\\services.exe", recordId: "5540911", severity: "informational",
       incidentId: INCIDENT,
-      description: "A 4624 LogonType 5 on WEB-APP-04 for the service account NEXACORP\\svc-web — the IIS application pool starting under its assigned identity.",
+      description: "A 4624 LogonType 5 on WEB-APP-04 for the service account NEXACORP\\svc-web, the IIS application pool starting under its assigned identity.",
     }),
 
-    // 2. THE PRECONDITION — 4672 enumerates SeImpersonatePrivilege on the svc-web session.
+    // 2. THE PRECONDITION, 4672 enumerates SeImpersonatePrivilege on the svc-web session.
     winSpecialPrivileges({
       companyId: cxN, id: "evt_wpe_02_special_privs", ts: T(1 * SEC), host: host.hostname, fqdn: host.fqdn,
       targetUser: svc.sam, targetSid: svcSid, logonId: svcLogonId, eventType: "privileged_operation", eventAction: "special-privileges-assigned",
       privilegeList: "SeAssignPrimaryTokenPrivilege\n\t\t\tSeAuditPrivilege\n\t\t\tSeImpersonatePrivilege",
-      recordId: "5540912", severity: "low", incidentId: INCIDENT,
+      recordId: "5540912", severity: "medium", incidentId: INCIDENT,
       description: "A 4672 on WEB-APP-04 for the svc-web logon session (0x8F41C2), enumerating the special privileges assigned to it at logon.",
     }),
 
-    // 3. The webshell speaks — w3wp.exe spawns cmd.exe (Sysmon 1).
+    // 3. The webshell speaks, w3wp.exe spawns cmd.exe (Sysmon 1).
     sysmonProcess({
       companyId: cxN, id: "evt_wpe_03_w3wp_spawns_cmd", ts: T(3 * MIN), host: host.hostname, user: svc.email,
       processName: "cmd.exe", processPath: "C:\\Windows\\System32\\cmd.exe", cmdline: "cmd.exe /c whoami /priv", sha256: cmdSha,
@@ -97,7 +97,7 @@ export function windowsPrivescTokenScenarioEvents() {
       ...sysmonFile({
         companyId: cxN, id: "evt_wpe_03a_tool_written", ts: T(3 * MIN + 30 * SEC), host: host.hostname, user: svc.email,
         processName: "w3wp.exe", processPath: W3WP, pid: PID.w3wp, processGuid: "{a1b2c3d4-0c40-64dc-1a01-000000005e00}",
-        path: toolPath, sha256: toolSha256, fileSize: 27_136, incidentId: INCIDENT, severity: "high", mitre: "T1105", tactic: "Command and Control",
+        path: toolPath, sha256: toolSha256, fileSize: 27_136, incidentId: INCIDENT, severity: "medium", mitre: "T1105", tactic: "Command and Control",
         description: "Sysmon Event 11: w3wp.exe created C:\\Windows\\Temp\\spf.exe, 27 KB, thirty seconds after the web shell first ran a command.",
       }),
       process: { name: "w3wp.exe", pid: PID.w3wp, path: W3WP, user: svcAcct, integrity: "high" as const },
@@ -118,11 +118,11 @@ export function windowsPrivescTokenScenarioEvents() {
     sysmonPipeCreated({
       companyId: cxN, id: "evt_wpe_05a_pipe_create", ts: T(3 * MIN + 43 * SEC), host: host.hostname, userEmail: svc.email, runAsUser: svcAcct,
       image: toolPath, pid: PID.spf, processGuid: "{a1b2c3d4-1f28-64dc-3001-000000005e00}", pipeName,
-      incidentId: INCIDENT, mitre: "T1134.001", tactic: "Privilege Escalation", severity: "high",
+      incidentId: INCIDENT, mitre: "T1134.001", tactic: "Privilege Escalation", severity: "low",
       description: "Sysmon Event 17 (Pipe Created) on WEB-APP-04: C:\\Windows\\Temp\\spf.exe created the named pipe \\WEB-APP-04\\pipe\\spoolss.",
     }),
 
-    // 5. The coercion — spoolsv.exe (SYSTEM) connects to that pipe (Sysmon 18).
+    // 5. The coercion, spoolsv.exe (SYSTEM) connects to that pipe (Sysmon 18).
     {
       ...sysmonPipe({
         companyId: cxN, id: "evt_wpe_05_pipe_connect", ts: T(3 * MIN + 44 * SEC), host: host.hostname, user: null,
@@ -135,7 +135,7 @@ export function windowsPrivescTokenScenarioEvents() {
       file: { name: "spoolss", path: `\\\\.\\pipe${pipeName}` },
     },
 
-    // 7. The privilege is exercised — 4673 SeImpersonatePrivilege by spf.exe.
+    // 7. The privilege is exercised, 4673 SeImpersonatePrivilege by spf.exe.
     winSensitivePrivUse({
       companyId: cxN, id: "evt_wpe_07_sensitive_priv_use", ts: T(3 * MIN + 45 * SEC + 400), host: host.hostname, fqdn: host.fqdn,
       targetUser: svc.sam, targetSid: svcSid, logonId: svcLogonId, privilegeUsed: "SeImpersonatePrivilege",
@@ -143,7 +143,7 @@ export function windowsPrivescTokenScenarioEvents() {
       description: "A 4673 on WEB-APP-04 recording sensitive-privilege use: SeImpersonatePrivilege exercised by the process C:\\Windows\\Temp\\spf.exe under the svc-web session.",
     }),
 
-    // 8. ESCALATION SUCCEEDS — 4688: svc-web (through spf.exe) creates a cmd.exe whose token is SYSTEM's.
+    // 8. ESCALATION SUCCEEDS, 4688: svc-web (through spf.exe) creates a cmd.exe whose token is SYSTEM's.
     (() => {
       const e = winProcessCreate({
         companyId: cxN, id: "evt_wpe_08_system_shell", ts: T(3 * MIN + 46 * SEC), host: host.hostname, fqdn: host.fqdn,
@@ -163,7 +163,7 @@ export function windowsPrivescTokenScenarioEvents() {
       return e;
     })(),
 
-    // 9. THE PAYOFF — reg.exe exports the SAM and SYSTEM hives; MDE raises the detection.
+    // 9. THE PAYOFF, reg.exe exports the SAM and SYSTEM hives; MDE raises the detection.
     {
       ...mdeProcess({
         companyId: cxN, id: "evt_wpe_09_sam_dump", ts: T(4 * MIN + 30 * SEC), host: host.hostname, user: null,
@@ -203,7 +203,7 @@ export function windowsPrivescTokenScenarioEvents() {
       }),
       edr_scope: "edr",
     },
-    // 9a. The SYSTEM hive follows — a SAM hive alone cannot be decrypted offline.
+    // 9a. The SYSTEM hive follows, a SAM hive alone cannot be decrypted offline.
     mdeProcess({
       companyId: cxN, id: "evt_wpe_09a_system_hive", ts: T(4 * MIN + 38 * SEC), host: host.hostname, user: null,
       processName: "reg.exe", processPath: "C:\\Windows\\System32\\reg.exe", cmdline: `reg  save hklm\\system ${sysDumpPath}`,

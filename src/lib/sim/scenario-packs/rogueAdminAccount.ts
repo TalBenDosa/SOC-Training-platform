@@ -10,7 +10,7 @@
  * The scenario deliberately ships a CONTROL: earlier the same day the same
  * administrator created a different account, during business hours, against an
  * approved onboarding request. Put the two side by side and the difference is
- * not technical — it is the absence of an authorisation record, the hour, and
+ * not technical, it is the absence of an authorisation record, the hour, and
  * the group membership that followed. That comparison is the whole lesson:
  * a beginner asks "was this allowed?", an analyst asks "was this authorised?".
  *
@@ -85,7 +85,7 @@ export function buildRogueAdminAccountScenario(
       answer: "no_ticket",
       xp: 50,
       explanation:
-        "The 4720 at 22:51 is byte-for-byte the same kind of record as the 4720 at 14:16 — same event ID, same creator, same domain controller. What separates them is entirely outside the event: the afternoon one is backed by RITM0092416, and Sentinel's lookup for the late-night one returns no linked request of any kind. Option (b) is wrong because provisioning accounts is precisely a Service Desk job. Option (c) is not supported — s.katz matches the same first-initial-dot-surname form as n.peretz. Option (d) is wrong because 4720 is always written on the domain controller that processed the change.",
+        "The 4720 at 22:51 is byte-for-byte the same kind of record as the 4720 at 14:16, same event ID, same creator, same domain controller. What separates them is entirely outside the event: the afternoon one is backed by RITM0092416, and Sentinel's lookup for the late-night one returns no linked request of any kind. Option (b) is wrong because provisioning accounts is precisely a Service Desk job. Option (c) is not supported, s.katz matches the same first-initial-dot-surname form as n.peretz. Option (d) is wrong because 4720 is always written on the domain controller that processed the change.",
     },
     {
       id: "q2",
@@ -94,15 +94,15 @@ export function buildRogueAdminAccountScenario(
       hint: "Two events share a WorkstationName and an IpAddress.",
       kind: "single",
       options: [
-        { value: "both_logons", label: "The t.aharoni Remote Desktop logon + the first s.katz logon — both come from WS-ENG-2208" },
-        { value: "create_group", label: "The s.katz creation + its Domain Admins addition — both were performed against DC01" },
-        { value: "control_pair", label: "The RITM0092416 ticket + the n.peretz creation — an approved request and its account" },
-        { value: "privs_siem", label: "The s.katz 4672 privilege grant + the Sentinel context summary — rights issued, then restated" },
+        { value: "both_logons", label: "The t.aharoni Remote Desktop logon + the first s.katz logon, both come from WS-ENG-2208" },
+        { value: "create_group", label: "The s.katz creation + its Domain Admins addition, both were performed against DC01" },
+        { value: "control_pair", label: "The RITM0092416 ticket + the n.peretz creation, an approved request and its account" },
+        { value: "privs_siem", label: "The s.katz 4672 privilege grant + the Sentinel context summary, rights issued, then restated" },
       ],
       answer: "both_logons",
       xp: 70,
       explanation:
-        "evt_ra_03_admin_logon carries WorkstationName WS-ENG-2208 and IpAddress 10.10.44.61; evt_ra_08_new_acct_logon carries exactly the same two values for a different account fifteen minutes later. One person at one keyboard used the administrator to build the account and then used the account. That is also what pushes the case from 'a helpdesk admin did something odd' towards 'the helpdesk admin's credentials are being used by someone else' — Sentinel records that t.aharoni is assigned WS-ITS-1140 and had logged on only from that device for the previous thirty days. Pair (b) shares a host but is one actor doing two things, pair (c) is the control, and pair (d) is the aftermath and its restatement.",
+        "evt_ra_03_admin_logon carries WorkstationName WS-ENG-2208 and IpAddress 10.10.44.61; evt_ra_08_new_acct_logon carries exactly the same two values for a different account fifteen minutes later. One person at one keyboard used the administrator to build the account and then used the account. That is also what pushes the case from 'a helpdesk admin did something odd' towards 'the helpdesk admin's credentials are being used by someone else', Sentinel records that t.aharoni is assigned WS-ITS-1140 and had logged on only from that device for the previous thirty days. Pair (b) shares a host but is one actor doing two things, pair (c) is the control, and pair (d) is the aftermath and its restatement.",
     },
     {
       id: "q3",
@@ -134,7 +134,7 @@ export function buildRogueAdminAccountScenario(
       answer: "correct_order",
       xp: 60,
       explanation:
-        "The timestamps give it directly: 22:47 the administrator's Remote Desktop session opens on SRV-ADM-07, 22:51 the 4720 creates s.katz on DC01, 22:54 the 4728 adds it to Domain Admins and 22:56 the 4732 adds it to the local Administrators group, 23:02 the 4624 shows s.katz logging on for the first time. The other orders are impossible — a group cannot take a member that does not exist yet, and an account cannot log on before it is created. Getting this sequence right is what lets you state, in the report, that the compromise of t.aharoni came first and the new account is its product, not its cause.",
+        "The timestamps give it directly: 22:47 the administrator's Remote Desktop session opens on SRV-ADM-07, 22:51 the 4720 creates s.katz on DC01, 22:54 the 4728 adds it to Domain Admins and 22:56 the 4732 adds it to the local Administrators group, 23:02 the 4624 shows s.katz logging on for the first time. The other orders are impossible, a group cannot take a member that does not exist yet, and an account cannot log on before it is created. Getting this sequence right is what lets you state, in the report, that the compromise of t.aharoni came first and the new account is its product, not its cause.",
     },
   ];
 
@@ -153,12 +153,12 @@ At 22:50:40 the session's cmd.exe started powershell.exe with New-ADUser for s.k
 
 Every one of those operations was permitted. A Service Desk administrator is entitled to create users and manage groups, and Windows raised not a single error. What makes it an incident is what is missing and what surrounds it: Sentinel's lookups return no change request and no onboarding request for s.katz, the work happened outside the standard change window, the new account went straight into the domain's most privileged group three minutes after birth, and both sessions came from a workstation that belongs to neither of the accounts involved.
 
-The working conclusion is that t.aharoni's credentials are being used by someone else, and that s.katz is a second way back in for when the first one is closed. The lesson for the report is the question you asked: not "was this allowed?" — it plainly was — but "who authorised it?", which nobody did.`,
+The working conclusion is that t.aharoni's credentials are being used by someone else, and that s.katz is a second way back in for when the first one is closed. The lesson for the report is the question you asked: not "was this allowed?", it plainly was, but "who authorised it?", which nobody did.`,
     learning_objectives: [
       "Read the Windows account-lifecycle events in order: 4720 creation, 4728 global group addition, 4732 local group addition, 4624 first logon, 4672 privileges issued",
       "Treat the absence of a change or onboarding record as evidence in its own right, and know where to look for it",
       "Separate 'technically permitted' from 'authorised', and recognise that a stolen administrator credential produces a completely clean log trail",
-      "Use timing — outside business hours, and minutes between creation and privileged group membership — as a supporting rather than a standalone indicator",
+      "Use timing, outside business hours, and minutes between creation and privileged group membership, as a supporting rather than a standalone indicator",
       "Correlate WorkstationName and IpAddress across two different accounts' logons to place them at one origin",
     ],
     // alerts are attached by the catalogue wiring
@@ -166,16 +166,16 @@ The working conclusion is that t.aharoni's credentials are being used by someone
     events,
     iocs,
     killchain: [
-      { ts: T(0), phase: "Baseline", action: `${onboardingTicket} approved — an authorised onboarding request reaches the Service Desk` },
-      { ts: T(6 * MIN), phase: "Baseline", action: "t.aharoni creates n.peretz on DC01 under that request — the control case" },
+      { ts: T(0), phase: "Baseline", action: `${onboardingTicket} approved, an authorised onboarding request reaches the Service Desk` },
+      { ts: T(6 * MIN), phase: "Baseline", action: "t.aharoni creates n.peretz on DC01 under that request, the control case" },
       { ts: T(500 * MIN + 5_000), phase: "Credential Access", action: "On WS-ENG-2208, in y.dagan's session, rundll32.exe comsvcs.dll MiniDump reads lsass.exe into C:\\Windows\\Temp\\dmp.bin, the workstation the Service Desk had used for remote support that afternoon" },
       { ts: T(N - 40 * SEC), phase: "Valid Accounts", action: "WS-ENG-2208 starts mstsc.exe /v:SRV-ADM-07 in y.dagan's session, supplies explicit credentials for t.aharoni (4648) and DC01 issues t.aharoni tickets to 10.10.44.61" },
       { ts: T(N), phase: "Valid Accounts", action: "t.aharoni opens a Remote Desktop session on SRV-ADM-07 from WS-ENG-2208" },
       { ts: T(N + 3 * MIN + 40 * SEC), phase: "Persistence", action: "powershell.exe New-ADUser for s.katz runs in the admin session on SRV-ADM-07" },
-      { ts: T(N + 4 * MIN), phase: "Persistence", action: "4720 — the domain user s.katz is created on DC01 with no linked request" },
-      { ts: T(N + 7 * MIN), phase: "Persistence", action: "4728 — s.katz added to Domain Admins three minutes after creation" },
-      { ts: T(N + 9 * MIN), phase: "Persistence", action: "4732 — s.katz added to the local Administrators group on SRV-ADM-07" },
-      { ts: T(N + 15 * MIN), phase: "Valid Accounts", action: "s.katz logs on to SRV-ADM-07 from WS-ENG-2208 — the same origin as the admin session" },
+      { ts: T(N + 4 * MIN), phase: "Persistence", action: "4720, the domain user s.katz is created on DC01 with no linked request" },
+      { ts: T(N + 7 * MIN), phase: "Persistence", action: "4728, s.katz added to Domain Admins three minutes after creation" },
+      { ts: T(N + 9 * MIN), phase: "Persistence", action: "4732, s.katz added to the local Administrators group on SRV-ADM-07" },
+      { ts: T(N + 15 * MIN), phase: "Valid Accounts", action: "s.katz logs on to SRV-ADM-07 from WS-ENG-2208, the same origin as the admin session" },
       { ts: T(N + 15 * MIN + SEC), phase: "Valid Accounts", action: "4672: the new account is issued SeDebugPrivilege and SeBackupPrivilege" },
       { ts: T(N + 18 * MIN + 30 * SEC), phase: "Discovery", action: "s.katz runs net group \"Domain Admins\" /domain, then nltest /dclist:nexacorp.com" },
       { ts: T(N + 21 * MIN), phase: "Detection", action: "Sentinel correlates the creation and the group addition and raises the alert" },

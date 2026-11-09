@@ -23,7 +23,7 @@ export default async function ScenarioPage({ params }: { params: Promise<{ slug:
   // re-delivered by the grade response only after a genuine attempt:
   //   - narrative / learning_objectives  → the debrief the analyst reconstructs
   //   - threat_actor                     → attribution is a conclusion, not a given
-  //     (and ScenarioClient RENDERED it in the subtitle — a giant hint)
+  //     (and ScenarioClient RENDERED it in the subtitle, a giant hint)
   //   - attack_kind                      → this IS the verdict (esp. "false_positive")
   //   - iocs / killchain                 → the evidence + attack sequence to find
   //   - per-question answer / explanation→ the quiz answer key
@@ -40,31 +40,31 @@ export default async function ScenarioPage({ params }: { params: Promise<{ slug:
     iocs: [],
     killchain: [],
     // `alerts` is derived server-side by withAlerts() from every event with a
-    // MITRE id — each carries mitre_technique/mitre_tactic and a title built
+    // MITRE id, each carries mitre_technique/mitre_tactic and a title built
     // from the event, i.e. the very mapping stripped from `events` below. The
     // client no longer reads it: the alert count and badges are computed from
     // the events themselves (src/lib/scenarios/eventClass.ts, finding #5).
     alerts: [],
-    // F-02 — the events table is something to INVESTIGATE, not read. Each event's
+    // F-02, the events table is something to INVESTIGATE, not read. Each event's
     // analyst `description` and its MITRE mapping are the exercise (the student
     // writes the description and picks the technique); they are stripped here and
     // revealed only in the graded debrief. Conclusion-carrying raw fields (a
     // "*.description" or a Falcon DetectDescription / Description is the tool's own
-    // analyst write-up — the answer to Q1 verbatim) are dropped
+    // analyst write-up, the answer to Q1 verbatim) are dropped
     // too. The analyst still sees every observable: process/file/network/auth
     // fields and the rest of the raw block. Server-enforced, so none of this is
     // readable in view-source during the investigation. Grading uses the real
     // bundle on the server, so nothing here affects the score.
     //
     // The same rule applies to a handful of TYPED fields that exist ONLY to carry
-    // the answer key on the object itself — these were missed by the original F-02
+    // the answer key on the object itself, these were missed by the original F-02
     // pass because they are not literally named "description":
     //   - fp_explanation            → an analyst write-up of why an FP event LOOKS
-    //                                 alarming but is actually benign — a verdict
+    //                                 alarming but is actually benign, a verdict
     //                                 and its reasoning, in prose, on the event.
     //   - expected_verdict          → literally "tp"/"fp" ground truth for the event.
     //   - it_verify_result/_message → "confirmed" means "mark benign", "unverified"
-    //                                 means "treat as suspicious" — the verdict
+    //                                 means "treat as suspicious", the verdict
     //                                 spelled out as an enum.
     // All three survive untouched through `...e` and were readable in full via the
     // per-row "Raw JSON" toggle (`JSON.stringify(ev, null, 2)` in ScenarioClient),
@@ -91,7 +91,7 @@ export default async function ScenarioPage({ params }: { params: Promise<{ slug:
         raw,
       };
     }),
-    // Option values are swapped for keyed tokens — authored ids like
+    // Option values are swapped for keyed tokens, authored ids like
     // "wrong_folder" would otherwise name the answer in the page payload.
     questions: bundle.questions.map(q => ({
       ...q,
@@ -102,8 +102,8 @@ export default async function ScenarioPage({ params }: { params: Promise<{ slug:
   };
   // Threat-intel truth (finding #2 contract): computed HERE from the FULL bundle
   // (authored iocs + attack events), because the client copy above has both
-  // stripped. It ships as digest-keyed verdicts only — not a readable list of
-  // the malicious IOCs — and makes every TI lookup and EDR hash lookup on the
+  // stripped. It ships as digest-keyed verdicts only, not a readable list of
+  // the malicious IOCs, and makes every TI lookup and EDR hash lookup on the
   // page agree with the scenario's own detections.
   const iocTruth = {
     ...buildIocTruth({ events: bundle.events ?? [], iocs: bundle.iocs ?? [] }),
@@ -111,7 +111,7 @@ export default async function ScenarioPage({ params }: { params: Promise<{ slug:
     benignIncidents: benignIncidentIds(bundle.events ?? [], slug, bundle.attack_kind, isAlertEvent(bundle.events ?? [])),
   };
   // Authored event ids name the answer ("…_beacon", "…_exfil…") and show in each
-  // row's Raw JSON — ship opaque ids instead (question text is rewritten to match).
+  // row's Raw JSON, ship opaque ids instead (question text is rewritten to match).
   const idMap = eventIdMap(slug, (bundle.events ?? []).map(e => e.id));
   return <ScenarioClient bundle={maskEventIds(withheld, idMap)} slug={slug} iocTruth={iocTruth} />;
 }

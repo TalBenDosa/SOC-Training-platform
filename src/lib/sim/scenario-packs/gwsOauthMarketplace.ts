@@ -46,6 +46,7 @@
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { fgWeb } from "@/lib/sim/emitters/fortigate";
+import { placeDocAddresses, PLACES } from "./docGeo";
 
 export function buildGwsOauthMarketplaceScenario(
   scenarioId = "gws-oauth-marketplace-2026",
@@ -64,7 +65,7 @@ export function buildGwsOauthMarketplaceScenario(
     name: "Miriam Varga",
     sam: "m.varga",
     title: "Revenue Operations Lead",
-    ip: "82.166.51.23", // her corporate egress at consent time (Tel Aviv)
+    ip: "198.51.100.23", // her corporate egress at consent time (Tel Aviv)
     host: "LAP-021",
     lanIp: "172.16.10.21",
   };
@@ -76,8 +77,8 @@ export function buildGwsOauthMarketplaceScenario(
   const appDomain = "docsmergepro.app";
   const consentUrl = "https://docsmergepro.app/connect/google";
   const phishSender = "onboarding@docsmergepro.app";
-  const serverIp = "45.87.43.19"; // the app backend's hosting-ASN egress
-  const landingIp = "104.21.48.113"; // where docsmergepro.app resolves for the lure page
+  const serverIp = "203.0.113.33"; // the app backend's hosting-ASN egress
+  const landingIp = "203.0.113.113"; // where docsmergepro.app resolves for the lure page
 
   // The admin who works the case and attempts the (insufficient) password reset.
   const adminEmail = "secops-admin@rocketstack.io";
@@ -88,7 +89,7 @@ export function buildGwsOauthMarketplaceScenario(
     email: "t.nowak@rocketstack.io",
     name: "Tomas Nowak",
     sam: "t.nowak",
-    ip: "82.166.51.40",
+    ip: "198.51.100.40",
   };
   const benignClientId = "556123094817-a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6.apps.googleusercontent.com";
 
@@ -329,20 +330,20 @@ export function buildGwsOauthMarketplaceScenario(
     //    mailbox from the app's servers. Remote Email Collection (T1114.002).
     // ─────────────────────────────────────────────────────────────────────
     gmailCall("evt_oauth_04_gmail_api_read", 19 * MIN, "list",
-      "A token audit 'activity' shows Docs Merge Pro calling gmail.users.messages.list for m.varga from 45.87.43.19 (Frankfurt), authenticated by the offline token, no interactive sign-in."),
+      "A token audit 'activity' shows Docs Merge Pro calling gmail.users.messages.list for m.varga from 203.0.113.33 (Frankfurt), authenticated by the offline token, no interactive sign-in."),
     gmailCall("evt_oauth_04b_gmail_api_read", 21 * MIN, "get",
-      "Docs Merge Pro called gmail.users.messages.get for m.varga from 45.87.43.19."),
+      "Docs Merge Pro called gmail.users.messages.get for m.varga from 203.0.113.33."),
     gmailCall("evt_oauth_04c_gmail_api_read", 23 * MIN, "get",
-      "A further gmail.users.messages.get call from 45.87.43.19 under the same token."),
+      "A further gmail.users.messages.get call from 203.0.113.33 under the same token."),
 
     // ─────────────────────────────────────────────────────────────────────
     // 6. DRIVE DOWNLOADS OVER THE DRIVE API, the app pulls her Finance files from
     //    the same hosting ASN. Data from Cloud Storage (T1530).
     // ─────────────────────────────────────────────────────────────────────
     download("evt_oauth_05_drive_download_burst", 27 * MIN, "FY26_Revenue_Forecast.xlsx", "spreadsheet", "high",
-      "The Drive audit records a download of FY26_Revenue_Forecast.xlsx under m.varga's account, attributed to the Docs Merge Pro client id, from 45.87.43.19."),
+      "The Drive audit records a download of FY26_Revenue_Forecast.xlsx under m.varga's account, attributed to the Docs Merge Pro client id, from 203.0.113.33."),
     download("evt_oauth_05b_drive_download", 28 * MIN, "Q3_Pipeline_by_Region.xlsx", "spreadsheet", "high",
-      "A second download under the same client id from 45.87.43.19."),
+      "A second download under the same client id from 203.0.113.33."),
     download("evt_oauth_05c_drive_download", 30 * MIN, "Customer_Renewals_2026.xlsx", "spreadsheet", "high",
       "A third download under the same client id."),
     download("evt_oauth_05d_drive_download", 33 * MIN, "FY26_Board_Deck.pptx", "presentation", "high",
@@ -380,7 +381,7 @@ export function buildGwsOauthMarketplaceScenario(
     // ─────────────────────────────────────────────────────────────────────
     {
       ...download("evt_oauth_07_token_survives_reset", 80 * MIN, "FY26_Revenue_Forecast_v2.xlsx", "spreadsheet", "critical",
-        "At 10:35, 25 minutes after the password reset, the Docs Merge Pro client id downloaded another Drive file for m.varga from 45.87.43.19: the token issued at 09:26 remained valid; the reset did not revoke it."),
+        "At 10:35, 25 minutes after the password reset, the Docs Merge Pro client id downloaded another Drive file for m.varga from 203.0.113.33: the token issued at 09:26 remained valid; the reset did not revoke it."),
       mitre_technique: "T1550.001",
       mitre_tactic: "Stealth",
     },
@@ -389,7 +390,7 @@ export function buildGwsOauthMarketplaceScenario(
   const iocs: IOC[] = [
     {
       type: "ip",
-      value: serverIp, // 45.87.43.19, the app backend's hosting-ASN egress
+      value: serverIp, // 203.0.113.33, the app backend's hosting-ASN egress
       first_seen: T(19 * MIN),
       last_seen: T(80 * MIN),
       reputation: "malicious",
@@ -478,7 +479,7 @@ export function buildGwsOauthMarketplaceScenario(
       answer: "token_bypasses_auth",
       xp: 60,
       explanation:
-        "OAuth delegation is the answer. By consenting, m.varga authorized the app to call Google APIs on her behalf using its own token, the calls in evt_oauth_04 and evt_oauth_05 originate from the app's servers (45.87.43.19) under the app's client id, not from a login form. The only login in the timeline is her own, from the office, at 09:22. MFA only ever guards an interactive authentication, and there is no interactive authentication here to guard, so nothing is bypassed or disabled, which is why (b) and (d) are wrong (no password use and no MFA change appear in any event). (c) describes a different technique, session-cookie replay, but the audit shows token activity by a registered OAuth client, not a replayed web session. This is why consent phishing is dangerous precisely against MFA-protected accounts.",
+        "OAuth delegation is the answer. By consenting, m.varga authorized the app to call Google APIs on her behalf using its own token, the calls in evt_oauth_04 and evt_oauth_05 originate from the app's servers (203.0.113.33) under the app's client id, not from a login form. The only login in the timeline is her own, from the office, at 09:22. MFA only ever guards an interactive authentication, and there is no interactive authentication here to guard, so nothing is bypassed or disabled, which is why (b) and (d) are wrong (no password use and no MFA change appear in any event). (c) describes a different technique, session-cookie replay, but the audit shows token activity by a registered OAuth client, not a replayed web session. This is why consent phishing is dangerous precisely against MFA-protected accounts.",
     },
     {
       id: "q4",
@@ -504,7 +505,7 @@ export function buildGwsOauthMarketplaceScenario(
       options: [
         { value: "revoke_and_scope", label: "Revoke the app's grant for m.varga, blocklist its client id, then scope what mail and files the token read, OAuth app abuse, not a password compromise" },
         { value: "reset_again", label: "Reset the password a second time and enforce MFA re-registration; once the credentials are fully rotated the app loses access with no further action needed" },
-        { value: "block_ip_only", label: "Block 45.87.43.19 at the perimeter and close the case, cutting off the app's server IP stops its API calls, so no change to the tenant is needed" },
+        { value: "block_ip_only", label: "Block 203.0.113.33 at the perimeter and close the case, cutting off the app's server IP stops its API calls, so no change to the tenant is needed" },
         { value: "monitor_only", label: "Leave the grant in place and monitor the token's activity for a few days to gather attribution evidence before taking any disruptive containment action" },
       ],
       answer: "revoke_and_scope",
@@ -514,6 +515,8 @@ export function buildGwsOauthMarketplaceScenario(
     },
   ];
 
+  // Where this story puts its documentation addresses (docGeo.ts, R5 with coherent geography).
+  placeDocAddresses(events, { "203.0.113.113": PLACES.ashburn });
   return {
     scenario_id: scenarioId,
     title: "Sensitive-scope app grant alert at RocketStack",
@@ -525,7 +528,7 @@ export function buildGwsOauthMarketplaceScenario(
 
 At 09:22 she signed in to Google the ordinary way from the office, and at 09:25 the FortiGate web filter passed her laptop's request to docsmergepro.app/connect/google. At 09:26 she clicked through to a genuine Google consent screen and pressed Allow. In that single action the third-party app "Docs Merge Pro" was granted an OAuth token carrying two of the broadest scopes Google issues: https://mail.google.com/ (full Gmail) and https://www.googleapis.com/auth/drive (full Drive). Alert Center raised a sensitive-scope grant alert, which is the ticket you picked up. An Admin console lookup confirmed the app is Unconfigured, has no marketplace listing, its publisher is unverified, and the domain policy lets users grant access to any third-party app.
 
-From 09:34 the app's own servers in Frankfurt (45.87.43.19) began calling the Gmail API, and from 09:42 the Drive API, pulling her finance workbooks, all under the app's client id. No password was ever used and MFA was never in the path, because delegated API access has no interactive login to challenge. The Reports API records one event per call; the telemetry carries a representative few of them.
+From 09:34 the app's own servers in Frankfurt (203.0.113.33) began calling the Gmail API, and from 09:42 the Drive API, pulling her finance workbooks, all under the app's client id. No password was ever used and MFA was never in the path, because delegated API access has no interactive login to challenge. The Reports API records one event per call; the telemetry carries a representative few of them.
 
 At 10:10 an admin reset Varga's password. It was not enough: at 10:35 the same client id downloaded from Drive again, because a password reset does not revoke an already-issued OAuth grant, and the admin log shows no token revoke at any point. Only removing the app's authorization stops it.
 

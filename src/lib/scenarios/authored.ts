@@ -5,7 +5,7 @@ import { eventsToAlerts } from "@/lib/sim/scenarios";
 import { LOG_SOURCES, EVENT_TYPES, IOC_TYPES } from "@/lib/scenarios/authoredConstants";
 
 /**
- * Authored-scenario split/recombine (Phase 2 — migrations 0040 + 0041).
+ * Authored-scenario split/recombine (Phase 2, migrations 0040 + 0041).
  *
  * A manually-authored scenario is stored as TWO projections:
  *   - CLIENT-SAFE (content_scenarios.content): briefing, the events to
@@ -81,7 +81,7 @@ export function splitAuthored(orgId: string, input: AuthoredScenarioInput): Spli
   const title = str(input.title, 160);
   if (!title) return { ok: false, error: "Give the scenario a title." };
   const briefing = str(input.briefing, 3000);
-  if (!briefing) return { ok: false, error: "Write the briefing — the ticket text your analyst first sees." };
+  if (!briefing) return { ok: false, error: "Write the briefing, the ticket text your analyst first sees." };
   const narrative = str(input.narrative, 6000);
   if (!narrative) return { ok: false, error: "Write the debrief narrative (revealed after a full attempt)." };
 
@@ -91,7 +91,7 @@ export function splitAuthored(orgId: string, input: AuthoredScenarioInput): Spli
     return Number.isNaN(t.getTime()) ? new Date() : t;
   })();
 
-  // ── events (evidence — client-visible) ──────────────────────────────────────
+  // ── events (evidence, client-visible) ──────────────────────────────────────
   const rawEvents = Array.isArray(input.events) ? input.events : [];
   const events: TelemetryEvent[] = rawEvents
     .map((e, i) => {
@@ -122,7 +122,7 @@ export function splitAuthored(orgId: string, input: AuthoredScenarioInput): Spli
     const validValues = new Set(options.map(op => op.value));
     const correctIdx = Array.isArray(o.correct) ? o.correct : [];
     const correctValues = correctIdx.map(i => `o${Number(i) + 1}`).filter(v => validValues.has(v));
-    if (correctValues.length === 0) return; // no correct answer marked — skip
+    if (correctValues.length === 0) return; // no correct answer marked, skip
     const qid = `${id}-q${qi + 1}`;
     const xp = num(o.xp, 50, 0, 200);
     safeQuestions.push({ id: qid, prompt, kind, options, xp });
@@ -137,7 +137,7 @@ export function splitAuthored(orgId: string, input: AuthoredScenarioInput): Spli
     return { ok: false, error: "Add at least one question with two or more options and a marked correct answer." };
   }
 
-  // ── iocs (answer key — grading truth) ───────────────────────────────────────
+  // ── iocs (answer key, grading truth) ───────────────────────────────────────
   const iocs: IOC[] = (Array.isArray(input.iocs) ? input.iocs : [])
     .map((x): IOC | null => {
       const o = (x ?? {}) as Record<string, unknown>;

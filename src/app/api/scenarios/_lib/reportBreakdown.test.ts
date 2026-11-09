@@ -26,7 +26,7 @@ function run(o: {
 }
 
 describe("buildReportBreakdown (#16)", () => {
-  it("item points are exactly the rubric's — the score formula is only exposed, never changed", () => {
+  it("item points are exactly the rubric's, the score formula is only exposed, never changed", () => {
     const { scored, b } = run({ indicators: [{ value: "203.0.113.45" }] });
     const byKey = Object.fromEntries(b.items.map(i => [i.key, i.points]));
     expect(byKey).toEqual(scored.reportRubric);

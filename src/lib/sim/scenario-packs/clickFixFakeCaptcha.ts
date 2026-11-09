@@ -38,8 +38,8 @@ export function buildClickFixFakeCaptchaScenario(
   const { title, events, T, MIN, host, lurePage, widgetHost, stagingHost, c2, stealerHash } = clickFixFakeCaptchaScenarioEvents();
 
   const iocs: IOC[] = [
-    { type: "ip", value: "91.223.104.17", first_seen: T(2 * MIN + 52_000), last_seen: T(3 * MIN + 2_000), reputation: "malicious", tags: ["payload-staging"] },
-    { type: "ip", value: "185.212.171.30", first_seen: T(3 * MIN + 11_000), last_seen: T(3 * MIN + 12_000), reputation: "malicious", tags: ["c2"] },
+    { type: "ip", value: "203.0.113.87", first_seen: T(2 * MIN + 52_000), last_seen: T(3 * MIN + 2_000), reputation: "malicious", tags: ["payload-staging"] },
+    { type: "ip", value: "203.0.113.31", first_seen: T(3 * MIN + 11_000), last_seen: T(3 * MIN + 12_000), reputation: "malicious", tags: ["c2"] },
     {
       type: "domain",
       value: lurePage,

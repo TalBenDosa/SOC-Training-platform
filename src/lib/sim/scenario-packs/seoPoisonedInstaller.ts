@@ -39,8 +39,8 @@ export function buildSeoPoisonedInstallerScenario(
   const { title, events, T, MIN, host, lookalike, c2, installerHash, stealerHash } = seoPoisonedInstallerScenarioEvents();
 
   const iocs: IOC[] = [
-    { type: "ip", value: "146.70.108.44", first_seen: T(-2_000), last_seen: T(45_000), reputation: "malicious", tags: ["lookalike-hosting", "malvertising"] },
-    { type: "ip", value: "185.212.44.19", first_seen: T(3 * MIN + 13_000), last_seen: T(7 * MIN), reputation: "malicious", tags: ["c2", "payload-staging", "outbound-post-target"] },
+    { type: "ip", value: "203.0.113.44", first_seen: T(-2_000), last_seen: T(45_000), reputation: "malicious", tags: ["lookalike-hosting", "malvertising"] },
+    { type: "ip", value: "203.0.113.20", first_seen: T(3 * MIN + 13_000), last_seen: T(7 * MIN), reputation: "malicious", tags: ["c2", "payload-staging", "outbound-post-target"] },
     {
       type: "domain",
       value: lookalike,

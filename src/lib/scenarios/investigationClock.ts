@@ -4,10 +4,10 @@
  * The timer was a `setInterval(+1)` counter in component state: a reload reset
  * the page to "Start Investigation", and a throttled background tab skipped
  * ticks, so one run reported 00:37 for several minutes of work. The start time
- * is now persisted per scenario and elapsed is WALL time since that start —
+ * is now persisted per scenario and elapsed is WALL time since that start,
  * reload resumes, throttling can't under-report.
  *
- * localStorage only (a per-viewer convenience — time is never graded, FB-007);
+ * localStorage only (a per-viewer convenience, time is never graded, FB-007);
  * every access is guarded because storage can throw (private mode, blocked site
  * data) and the page must still work without it.
  */
@@ -18,7 +18,7 @@ export function clockKey(slug: string): string {
   return `${KEY_PREFIX}${slug}`;
 }
 
-/** Longest a stored start is honoured — older than this is a stale abandoned run. */
+/** Longest a stored start is honoured, older than this is a stale abandoned run. */
 export const MAX_RESUME_MS = 12 * 60 * 60 * 1000;
 
 type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;

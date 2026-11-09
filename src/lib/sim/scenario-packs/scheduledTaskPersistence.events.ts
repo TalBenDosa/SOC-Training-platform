@@ -28,16 +28,16 @@ export function scheduledTaskPersistenceScenarioEvents() {
   const victim = { email: "s.attia@nexacorp.com", name: "Shani Attia", sam: "s.attia" };
 
   const downloadSite = "netfix-tools-download.com";
-  const siteIp = "172.67.140.55";
+  const siteIp = "203.0.113.55";
   const c2 = "svc-heartbeat-relay.net";
-  const c2Ip = "46.246.90.12";
+  const c2Ip = "203.0.113.13";
 
   const scriptHash    = makeSha256("speedboost_netfix_ps1_downloader_2026");
   const payloadHash   = makeSha256("netfix_agent_exe_persistence_payload_2026");
   const powershellHash = makeSha256("windows_powershell_v1_signed_microsoft");
   const schtasksHash  = makeSha256("windows_system32_schtasks_exe_signed_microsoft");
 
-  // Sysmon ProcessGuid values — one per process creation instant, threaded
+  // Sysmon ProcessGuid values, one per process creation instant, threaded
   // through ParentProcessGuid so the Event ID 11/22 records (which carry no
   // parent field of their own) and the SIEM's "join on ParentProcessGuid"
   // query in evt_stp_08 are backed by telemetry that actually contains that
@@ -99,7 +99,7 @@ export function scheduledTaskPersistenceScenarioEvents() {
       description: "URL-filtering record for the request to netfix-tools-download.com/scripts/SpeedBoost_NetFix.ps1, allowed under computer-and-internet-info.",
     }),
 
-    // 1. The download — a forum-linked "fix".
+    // 1. The download, a forum-linked "fix".
     panWeb({
       ...cx, id: "evt_stp_01_download", ts: T(0), url: `https://${downloadSite}/scripts/SpeedBoost_NetFix.ps1`,
       domain: downloadSite, method: "GET", action: "alert", category: "computer-and-internet-info",
@@ -137,7 +137,7 @@ export function scheduledTaskPersistenceScenarioEvents() {
       description: "powershell.exe opened a TCP/443 connection to netfix-tools-download.com two seconds after the script started.",
     }), "powershell.exe", 5124, PW, { name: "explorer.exe", pid: 3116 }),
 
-    // 2b. The script fetches its payload binary — the origin of netfix_agent.exe.
+    // 2b. The script fetches its payload binary, the origin of netfix_agent.exe.
     panWeb({
       ...cx, id: "evt_stp_02b_payload_download", ts: T(3 * MIN + 21_000), url: `https://${downloadSite}/agent/netfix_agent.exe`,
       domain: downloadSite, method: "GET", action: "alert", category: "computer-and-internet-info",
@@ -145,7 +145,7 @@ export function scheduledTaskPersistenceScenarioEvents() {
       file: { name: "netfix_agent.exe", path: "/agent/netfix_agent.exe", sha256: payloadHash, size: 318_976 },
       fileType: "pe", mitre: "T1105", tactic: "Command and Control", severity: "medium",
       description:
-        "Three seconds after the script started, WS-7742 fetched netfix_agent.exe from netfix-tools-download.com — the binary the script then wrote to disk.",
+        "Three seconds after the script started, WS-7742 fetched netfix_agent.exe from netfix-tools-download.com, the binary the script then wrote to disk.",
     }),
 
     // 3. The script drops its payload (Sysmon 11).
@@ -158,7 +158,7 @@ export function scheduledTaskPersistenceScenarioEvents() {
       process: { name: "powershell.exe", pid: 5124, path: PW, parent_name: "explorer.exe", parent_pid: 3116, cmdline: PWCMD, user: "NEXACORP\\s.attia", integrity: "medium" },
     },
 
-    // 4. THE EVENT THAT MATTERS — persistence registered (Sysmon 1, schtasks.exe).
+    // 4. THE EVENT THAT MATTERS, persistence registered (Sysmon 1, schtasks.exe).
     {
       ...sysmonProcess({
         ...cx, id: "evt_stp_04_scheduled_task", ts: T(3 * MIN + 29_000), processName: "schtasks.exe", processPath: "C:\\Windows\\System32\\schtasks.exe",
@@ -201,7 +201,7 @@ export function scheduledTaskPersistenceScenarioEvents() {
     withProc(sysmonNetwork({
       ...cx, id: "evt_stp_05b_net_c2", ts: T(3 * MIN + 42_000), processName: "netfix_agent.exe", processPath: AGENT, pid: 5240,
       remoteIp: c2Ip, remotePort: 443, remoteHost: c2, severity: "high",
-      description: "netfix_agent.exe opened a TCP/443 connection to 46.246.90.12 one second after the DNS answer.",
+      description: "netfix_agent.exe opened a TCP/443 connection to 203.0.113.13 one second after the DNS answer.",
     }), "netfix_agent.exe", 5240, AGENT, { name: "powershell.exe", pid: 5124 }),
 
     // 6. The first-run check-in.
@@ -223,7 +223,7 @@ export function scheduledTaskPersistenceScenarioEvents() {
       description: "4624 on WS-7742: s.attia signed in interactively at 07:46, four minutes before the 07:50 trigger time.",
     }),
 
-    // 7. The task's trigger time arrives — the Schedule service starts the binary (Sysmon 1, parent svchost.exe).
+    // 7. The task's trigger time arrives, the Schedule service starts the binary (Sysmon 1, parent svchost.exe).
     sysmonProcess({
       ...cx, id: "evt_stp_07_relaunch_at_trigger", ts: T(D2 + 2_000), processName: "netfix_agent.exe", processPath: AGENT,
       cmdline: "\"C:\\Users\\s.attia\\AppData\\Local\\NetFixSvc\\netfix_agent.exe\"", parentName: "svchost.exe",
@@ -243,7 +243,7 @@ export function scheduledTaskPersistenceScenarioEvents() {
     withProc(sysmonNetwork({
       ...cx, id: "evt_stp_07b_net_c2", ts: T(D2 + 11_000), processName: "netfix_agent.exe", processPath: AGENT, pid: 2016,
       remoteIp: c2Ip, remotePort: 443, remoteHost: c2, severity: "high",
-      description: "The relaunched netfix_agent.exe opened a TCP/443 connection to 46.246.90.12.",
+      description: "The relaunched netfix_agent.exe opened a TCP/443 connection to 203.0.113.13.",
     }), "netfix_agent.exe", 2016, AGENT, { name: "svchost.exe", pid: 1148 }),
     panConnection({
       ...cx, id: "evt_stp_07c_beacon", ts: T(D2 + 13_000), domain: c2, dstIp: c2Ip, remotePort: 443,

@@ -49,9 +49,9 @@ function formatTime(s: number) {
 
 /**
  * The scenario's OWN EDR cases (one per edr/hybrid incident). Every EDR entry
- * point on this page goes here — never to /edr, which opens whatever live
+ * point on this page goes here, never to /edr, which opens whatever live
  * SOC-Dashboard shift is stashed in the browser (the exercise landed on a
- * different company, RocketStack, from a scenario — finding #31). The builder's
+ * different company, RocketStack, from a scenario, finding #31). The builder's
  * summary is written for the live feed ("the attack running in your SOC
  * Dashboard feed"), so it is replaced with scenario wording. `iocTruth` makes
  * "Look up hash" agree with the threat-intel drawer on this case.
@@ -99,7 +99,7 @@ const SOURCE_COLORS: Record<string, string> = {
 };
 
 // The severity column used to print SEV_LEVEL (critical 10 / high 8 / medium 5 /
-// low 3 / info 1) — a number that read like a Wazuh 0–15 rule level and was
+// low 3 / info 1), a number that read like a Wazuh 0–15 rule level and was
 // not one, stamped on raw telemetry ("ProcessRollup2 · LVL 10"). It now shows
 // a word label from effectiveSeverity(): the threat level the source gave the
 // event (the vendor's own field when present), on alerts and telemetry alike.
@@ -123,7 +123,7 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
   // Native-format view (docs/log-schemas): the record as the authored vendor emits it.
   const nativeView = useNativeLog(ev);
 
-  // "Rule Description" used to render `Detection: ${ev.mitre_technique}` — so
+  // "Rule Description" used to render `Detection: ${ev.mitre_technique}`, so
   // an event detail panel displayed "Detection: T1078" to a student who was, in
   // several scenarios, about to be asked which technique this was. It was the
   // same ATT&CK leak already stripped from 172 raw log blocks, surviving in the
@@ -131,8 +131,8 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
   //
   // It was also not what a SIEM shows. A detail pane names the ANALYTIC that
   // fired, not a framework id. We do not carry a rule name on the event, so
-  // rather than invent one this shows what the vendor itself recorded — the
-  // event action from the raw block — and falls back to the event type.
+  // rather than invent one this shows what the vendor itself recorded, the
+  // event action from the raw block, and falls back to the event type.
   const vendorAction = String(
     ev.raw?.["event.action"] ?? ev.raw?.["ActionType"] ?? ev.raw?.["event.dataset"] ?? "",
   );
@@ -142,9 +142,9 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
     ["Source Type",      SOURCE_LABEL[ev.source] ?? ev.source.toUpperCase()],
     ["Timestamp",        `${new Date(ev.ts).toLocaleString("en-GB", { timeZone: "UTC" })} UTC`],
     ["Severity",         effSev.toUpperCase()],
-    ["Username",         ev.user_email ?? "—"],
-    ["Hostname",         ev.hostname ?? "—"],
-    ["IP Address",       ev.src_ip ?? ev.dst_ip ?? "—"],
+    ["Username",         ev.user_email ?? "-"],
+    ["Hostname",         ev.hostname ?? "-"],
+    ["IP Address",       ev.src_ip ?? ev.dst_ip ?? "-"],
   ];
 
   // ECS fields from structured event properties
@@ -223,8 +223,12 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
         {showJson ? (
           <pre className="max-h-72 overflow-auto rounded border border-border bg-bg-elevated p-3 font-mono text-[10px] leading-relaxed text-slate-300">
             {/* Native record (wire line for text-native sources). Without a native module
-                this is the viewer's display projection, as before. */}
-            {nativeView ? (nativeView.log.rawLine ?? JSON.stringify(nativeView.log.record, null, 2)) : JSON.stringify(ev, null, 2)}
+                this is the vendor's own raw block (R1: no platform fields such as
+                is_detection, edr_scope or incident_id in a "raw log"); the whole event
+                only when an event carries no raw block at all. */}
+            {nativeView
+              ? (nativeView.log.rawLine ?? JSON.stringify(nativeView.log.record, null, 2))
+              : JSON.stringify(ev.raw && Object.keys(ev.raw).length ? ev.raw : ev, null, 2)}
           </pre>
         ) : (
           <>
@@ -316,7 +320,7 @@ const LogRow = memo(function LogRow({
   canInvestigate, onInvestigate, focusReq, caseId,
 }: {
   ev: TelemetryEvent;
-  /** Product detection (see eventClass.ts) — carries the ALERT badge. */
+  /** Product detection (see eventClass.ts), carries the ALERT badge. */
   isAlert: boolean;
   /** Severity the row shows: vendor severity on an alert, informational on telemetry. */
   effSev: Severity;
@@ -349,7 +353,7 @@ const LogRow = memo(function LogRow({
   // (a fixed timeZone, not the runtime's), which closes the React #418 hydration
   // mismatch (SSR-UTC vs client-local) AND makes the table agree with the briefing,
   // which is written in UTC. (See the "Timestamps, Timezones & Building a Timeline"
-  // room: a mature SIEM stores UTC — here we also display it.)
+  // room: a mature SIEM stores UTC, here we also display it.)
   const timeStr = utcTime(ev.ts);
 
   // The cross-host timeline asked for this row: open it and bring it into view.
@@ -360,7 +364,7 @@ const LogRow = memo(function LogRow({
     rowRef.current?.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" });
   }, [focusReq]);
 
-  // Same plain-language line as the Live SOC feed (observable fields only — the
+  // Same plain-language line as the Live SOC feed (observable fields only, the
   // authored description is withheld on this page because it states the answer).
   const row = describeEventForRow(ev);
 
@@ -395,7 +399,7 @@ const LogRow = memo(function LogRow({
         </td>
         <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-400">{timeStr}</td>
         <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-200 max-w-[120px]">
-          <span className="truncate block">{ev.hostname ?? "—"}</span>
+          <span className="truncate block">{ev.hostname ?? "-"}</span>
         </td>
         <td className="py-2.5 pr-3">
           <div className="flex items-center gap-1.5">
@@ -529,7 +533,7 @@ type ViewerTab = "events" | "timeline";
 const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTruth }: {
   events: TelemetryEvent[];
   title: string;
-  /** Server-computed IOC truth (page.tsx → buildIocTruth) — TI verdicts follow the case. */
+  /** Server-computed IOC truth (page.tsx → buildIocTruth), TI verdicts follow the case. */
   iocTruth: IocTruth | null;
 }) {
   const [threatQuery, setThreatQueryRaw] = useState<ThreatQuery | null>(null);
@@ -551,7 +555,7 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
   const [pivot, setPivot] = useState<Pivot | null>(null);
   // Timeline → table focus: which row to expand/scroll, and a nonce so re-clicking works.
   const [focusReq, setFocusReq] = useState<{ id: string; n: number } | null>(null);
-  // EDR pivot: one ISOLATED investigation per incident_id (edr/hybrid only) — each
+  // EDR pivot: one ISOLATED investigation per incident_id (edr/hybrid only), each
   // a separate case in the console switcher. `edrCaseId` = the open case (null = closed).
   const edrInvestigations = useMemo(() => scenarioInvestigations(events, title, iocTruth), [events, title, iocTruth]);
   const edrIncidentIds = useMemo(() => new Set(edrInvestigations.map(i => i.id)), [edrInvestigations]);
@@ -564,7 +568,7 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
   const [edrCaseId, setEdrCaseId] = useState<string | null>(null);
 
   // One classification feeds the badge, the severity column, the filters and
-  // the header count — so the count always equals the badges shown.
+  // the header count, so the count always equals the badges shown.
   const alertIds = useMemo(() => buildAlertIndex(events), [events]);
   // Display projection: the object the row renders, the Raw JSON shows and the
   // search indexes. Its `severity` is the effective one, so a ProcessRollup2
@@ -591,7 +595,7 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
   }, [events]);
 
   // Sort by timestamp once. Scenario builders declare events in narrative
-  // order, which is not always chronological — a lateral-movement event can be
+  // order, which is not always chronological, a lateral-movement event can be
   // listed before the credential dump that enabled it while carrying a later
   // `ts`. Sorting a COPY fixes every scenario at once and leaves the source
   // arrays (used by the attack-chain reconstruction) untouched.
@@ -609,14 +613,14 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
     if (sevFilter === "high"   && !severityAtLeast(v.effSev, "high")) return false;
     if (sevFilter === "medium" && !severityAtLeast(v.effSev, "medium")) return false;
     // Full-text over every field name and value of the record, plus field:value
-    // syntax (logSearch.ts) — `user:svc_backup`, `dst_ip:10.20.6.28`, a hash.
+    // syntax (logSearch.ts), `user:svc_backup`, `dst_ip:10.20.6.28`, a hash.
     return matchesQuery(v.ev, terms);
   }, [view, detectionsOnly, sevFilter, terms]);
 
   const filtered = useMemo(() => sorted.filter(passes), [sorted, passes]);
   const visible = showAll ? filtered : filtered.slice(0, 30);
 
-  // Events of the active pivot, chronological, from the FULL set — a pivot stays
+  // Events of the active pivot, chronological, from the FULL set, a pivot stays
   // whole even under a severity filter or the 30-row cap.
   const pivotIds = useMemo(() => {
     if (!pivot) return null;
@@ -627,7 +631,7 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
     () => (pivotIds ? sorted.filter(e => pivotIds.has(e.id)) : []),
     [pivotIds, sorted],
   );
-  const pivotHosts = useMemo(() => [...new Set(pivotEvents.map(e => e.hostname ?? "—"))], [pivotEvents]);
+  const pivotHosts = useMemo(() => [...new Set(pivotEvents.map(e => e.hostname ?? "-"))], [pivotEvents]);
 
   // Unified cross-host timeline: the pivot's events when one is active, else all.
   const timeline = useMemo(
@@ -749,7 +753,7 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
                 key={e.id}
                 type="button"
                 onClick={() => focusEvent(e.id)}
-                title={`${utcTime(e.ts)} UTC · ${e.hostname ?? "—"} · ${SOURCE_LABEL[e.source] ?? e.source}${alertIds.has(e.id) ? " · ALERT" : ""}`}
+                title={`${utcTime(e.ts)} UTC · ${e.hostname ?? "-"} · ${SOURCE_LABEL[e.source] ?? e.source}${alertIds.has(e.id) ? " · ALERT" : ""}`}
                 aria-label={`Open event ${utcTime(e.ts)} UTC · ${e.hostname ?? "no host"} · ${SOURCE_LABEL[e.source] ?? e.source}${alertIds.has(e.id) ? " · alert" : ""}`}
                 className={cn(
                   "h-2.5 w-2.5 rounded-full border",
@@ -918,7 +922,7 @@ function ScenarioEdrPanel({ investigations, caseId, onClose }: {
   caseId: string;
   onClose: () => void;
 }) {
-  // a11y: full-screen modal — focus trapped inside, Escape closes, focus returns.
+  // a11y: full-screen modal, focus trapped inside, Escape closes, focus returns.
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(investigations.length > 0, dialogRef, { onEscape: onClose });
   if (investigations.length === 0) return null;
@@ -981,7 +985,7 @@ const REPORT_TABS: { id: ReportTab; label: string }[] = [
 
 /**
  * A textarea that owns its own value. The parent keeps the text in a ref (read
- * at submit) and is only told when something it RENDERS changes — so a
+ * at submit) and is only told when something it RENDERS changes, so a
  * keystroke re-renders this box, not the page (finding #29).
  */
 const DraftTextarea = memo(function DraftTextarea({ initial, onChange, ...rest }: {
@@ -1058,7 +1062,7 @@ function InvestigationPanel({
     verdict:   verdict !== null,
   };
   const completedCount = Object.values(sectionDone).filter(Boolean).length;
-  // Three sections now (Findings was folded into IOCs). Require any two — keeping
+  // Three sections now (Findings was folded into IOCs). Require any two, keeping
   // the same "you don't need every tab" leniency as the old 3-of-4 bar.
   const canFinalize    = completedCount >= 2 && quizComplete;
 
@@ -1346,7 +1350,7 @@ function InvestigationPanel({
 
 /**
  * Its own component with its own interval, so the page does not re-render every
- * second. Elapsed is WALL time since the persisted start (finding #27) — a
+ * second. Elapsed is WALL time since the persisted start (finding #27), a
  * reload resumes it and a throttled background tab cannot under-report.
  */
 function InvestigationTimer({ startMs }: { startMs: number | null }) {
@@ -1380,7 +1384,7 @@ function ScenarioDebrief({ result, questions, events, title, iocTruth, timeTaken
   onRetry: () => void;
   onShowScoreCard: () => void;
 }) {
-  // The scenario's OWN EDR cases — never a link to /edr, which shows whatever
+  // The scenario's OWN EDR cases, never a link to /edr, which shows whatever
   // live-dashboard shift is stashed in the browser (a different company).
   const investigations = useMemo(() => scenarioInvestigations(events, title, iocTruth), [events, title, iocTruth]);
   const [edrOpen, setEdrOpen] = useState(false);
@@ -1388,7 +1392,7 @@ function ScenarioDebrief({ result, questions, events, title, iocTruth, timeTaken
   const r = result.report;
   const bd = r?.breakdown;
   const correctCount = result.perQuestion.filter(q => q.correct).length;
-  // Best-attempt XP accounting comes from the server (#30) — not recomputed here.
+  // Best-attempt XP accounting comes from the server (#30), not recomputed here.
   const xp = describeScenarioXp(result);
 
   return (
@@ -1438,7 +1442,7 @@ function ScenarioDebrief({ result, questions, events, title, iocTruth, timeTaken
         {[
           { label: "Score",  value: `${result.score}%`, hint: result.passed ? "passed (≥ 70%)" : "70% to pass" },
           { label: "Quiz",   value: `${correctCount}/${result.perQuestion.length}`, hint: result.quizScore !== undefined ? `${result.quizScore}%` : "" },
-          { label: "Report", value: r ? `${r.score}/100` : "—", hint: r ? `${r.words} words` : "" },
+          { label: "Report", value: r ? `${r.score}/100` : "-", hint: r ? `${r.words} words` : "" },
           { label: xp.label, value: `+${xp.added}`, hint: xp.added !== result.xpEarned ? `this run ${result.xpEarned} XP` : "best attempt counts" },
           { label: "Time",   value: formatTime(timeTaken), hint: "not graded" },
         ].map(s => (
@@ -1557,7 +1561,7 @@ function ScenarioDebrief({ result, questions, events, title, iocTruth, timeTaken
                       <span className="mr-1.5 font-mono text-[10px] text-slate-400">Q{i + 1}.</span>{pq.prompt}
                     </p>
                     <p className="text-[11px] text-slate-400">
-                      Your answer: <span className={pq.correct ? "text-neon-green" : "text-severity-high"}>{fmt(pq.yourAnswer) || "—"}</span>
+                      Your answer: <span className={pq.correct ? "text-neon-green" : "text-severity-high"}>{fmt(pq.yourAnswer) || "-"}</span>
                     </p>
                     {!pq.correct && pq.correctAnswer != null && (
                       <p className="text-[11px] text-slate-400">
@@ -1632,7 +1636,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
   // Hydration gate (finding #28): the Start button is inert until the client has
   // mounted, so the first click is never swallowed by a not-yet-hydrated button.
   const [mounted, setMounted]           = useState(false);
-  // Persisted investigation start (epoch ms) — see investigationClock.ts.
+  // Persisted investigation start (epoch ms), see investigationClock.ts.
   const [startMs, setStartMs]           = useState<number | null>(null);
   // Final wall-clock time, frozen at submit for the score card / debrief.
   const [timeTaken, setTimeTaken]       = useState(0);
@@ -1658,7 +1662,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
 
   const alertCount = useMemo(() => buildAlertIndex(bundle.events).size, [bundle.events]);
 
-  // Mount: fresh option tokens (client-only — the questions are not rendered
+  // Mount: fresh option tokens (client-only, the questions are not rendered
   // before Start, so there is no SSR markup to mismatch) and resume a running
   // investigation after a reload.
   useEffect(() => {
@@ -1770,7 +1774,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
         body: JSON.stringify({
           // Tokens → real option ids. The server grades exactly as before.
           answers: decodeAnswers(answers, tokens),
-          // Wall time since the persisted start. NOT graded (FB-007) — the grade
+          // Wall time since the persisted start. NOT graded (FB-007), the grade
           // route only stores it on the scenario_history row it writes.
           timeTaken: taken,
           iocTagged: manualIocs.length,
@@ -1787,20 +1791,20 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
       setSubmittedVerdict(verdict);
       setShowScoreCard(true);
       setPhase("complete");
-      // The run is over — a reload must not resume its clock.
+      // The run is over, a reload must not resume its clock.
       clearInvestigationStart(slug);
 
       // The grade route is the only server-side writer of scenario_history.
       // recordScenarioCompletion mirrors the attempt into the facade (the local
       // copy /progress reads for guests) and moves the displayed XP total
       // truthfully: the server's authoritative totalXp when present, else only
-      // the improvement over the best attempt (#30) — never the full run XP.
+      // the improvement over the best attempt (#30), never the full run XP.
       try {
         recordScenarioCompletion({
           slug,
           title: bundle.title,
           score:    result.score,
-          // FB-007: XP is accuracy + report quality only — no speed bonus.
+          // FB-007: XP is accuracy + report quality only, no speed bonus.
           xpEarned: result.xpEarned,
           timeTaken: taken,
           date: new Date().toISOString(),
@@ -1830,7 +1834,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
       {/* The subtitle was `Threat actor: ${bundle.threat_actor}`, displayed for
           the whole investigation. Attribution is a conclusion the analyst is
           supposed to reach; printing it up front removed the exercise, and on
-          the two false-positive scenarios the field literally read "None —
+          the two false-positive scenarios the field literally read "None,
           authorised backup activity", i.e. the verdict. The field is now blanked
           server-side as well (see page.tsx); the ternary keeps the subtitle
           meaningful if it ever arrives populated. */}
@@ -1921,7 +1925,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
             Before submission the analyst sees only what the SOC actually
             received: the triggering alert and the asset. The full narrative
             used to sit here in every phase and it described the intrusion in
-            order — in the LockBit scenario four of five questions could be
+            order, in the LockBit scenario four of five questions could be
             answered from that paragraph alone, without opening a log. It is
             now the debrief, shown once the report is in. */}
         <div className="rounded border border-border/60 bg-bg-panel px-5 py-4">
@@ -1970,7 +1974,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
         </div>
         )}
 
-        {/* Completed state — summary, per-question results, retry (finding #31). */}
+        {/* Completed state, summary, per-question results, retry (finding #31). */}
         {phase === "complete" && gradeResult && (
           <ScenarioDebrief
             result={gradeResult}
@@ -2007,7 +2011,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
           onStart={mounted ? handleStart : undefined}
         />
 
-        {/* Analyst Quiz — the per-question results replace it once complete. */}
+        {/* Analyst Quiz, the per-question results replace it once complete. */}
         {phase !== "complete" && (
         <Card>
           <h3 className="text-sm font-semibold text-white">Analyst Quiz</h3>
@@ -2017,7 +2021,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
               : "Answer all questions then submit your investigation."}
           </p>
           {/* Finding #4: the questions are not shown before the investigation
-              starts — reading them first turns the logs into a lookup exercise.
+              starts, reading them first turns the logs into a lookup exercise.
               (Grading and the answer key are server-side regardless.) */}
           {phase === "idle" || !tokens ? (
             <div className="mt-4 flex items-center gap-3 rounded-md border border-dashed border-border/60 px-4 py-6 text-xs text-slate-400">

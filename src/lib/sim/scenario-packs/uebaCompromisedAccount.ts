@@ -54,6 +54,7 @@ import { entraSignIn } from "@/lib/sim/emitters/entra";
 import { m365Operation } from "@/lib/sim/emitters/m365";
 import { sentinelUeba } from "@/lib/sim/emitters/sentinel";
 import { mdeProcess, mdeFile, mdeDns, mdeNetwork } from "@/lib/sim/emitters/mde";
+import { placeDocAddresses, PLACES } from "./docGeo";
 
 export function buildUebaCompromisedAccountScenario(
   scenarioId = "ueba-compromised-account-2026",
@@ -74,7 +75,7 @@ export function buildUebaCompromisedAccountScenario(
     title: "Finance Manager",
     dept: "Finance",
     userId: "a7f3c210-9b64-4e18-8d02-51c9e4a7b330",
-    homeIp: "81.174.71.19",           // his usual corporate/home egress (London)
+    homeIp: "198.51.100.19",           // his usual corporate/home egress (London)
     host: "FIN-LT-Almeida",
     deviceId: "3b9f6e24-7c10-4a85-9d3e-8f2a1c0b5e76",
   };
@@ -83,10 +84,10 @@ export function buildUebaCompromisedAccountScenario(
   const stealerHash = makeSha256("nexacorp_uca_cookie_stealer_svcupd_exe_2026");
   const STEALER = "C:\\Users\\j.almeida\\AppData\\Local\\Temp\\svcupd.exe";
   const c2Domain = "static-cdn-sync.net";
-  const c2Ip = "185.225.73.141";
+  const c2Ip = "203.0.113.141";
 
   // The attacker's session origin: a hosting/VPS ASN in Sofia, Bulgaria.
-  const attackerIp = "45.135.232.71";
+  const attackerIp = "203.0.113.73";
   const attackerAsn = 200651;         // a real-world hosting AS range
   const attackerAsnOrg = "Flokinet-Hosting";
   const hostileSession = "6f0b9d47-2a15-4c88-b3e1-7d92a4c0e6f5";
@@ -107,8 +108,8 @@ export function buildUebaCompromisedAccountScenario(
     name: "Renée Laurent",
     sam: "r.laurent",
     title: "Sales Director",
-    ip: "203.116.40.12",              // Singapore, corporate-VPN egress
-    londonIp: "86.14.201.37",
+    ip: "198.51.100.12",              // Singapore, corporate-VPN egress
+    londonIp: "198.51.100.37",
     deviceId: "e6a1c9d4-2b57-4f03-b8a6-1d7e5c3f9a20",
     deviceName: "SAL-LT-Laurent",
   };
@@ -140,9 +141,9 @@ export function buildUebaCompromisedAccountScenario(
       deviceName: benign.deviceName, deviceId: benign.deviceId, asn: 3758, sessionId: "7d1f4b38-0c62-4e95-b2a8-41f7c0e5d963", isInteractive: true,
       riskLevel: "low", riskEventTypes: ["unlikelyTravel"], conditionalAccess: "success",
       extra: { "azure.signinlogs.properties.networkLocationDetails": [{ networkType: "trustedNamedLocation", networkNames: ["NexaCorp VPN Singapore"] }] },
-      description: "Interactive Entra sign-in for r.laurent from 203.116.40.12 (Singapore) over the NexaCorp VPN Singapore named location, same managed laptop, MFA satisfied.",
+      description: "Interactive Entra sign-in for r.laurent from 198.51.100.12 (Singapore) over the NexaCorp VPN Singapore named location, same managed laptop, MFA satisfied.",
     }), it_verify_result: "confirmed",
-      it_verify_message: "Travel request TR-0418: Renée Laurent, Sales offsite in Singapore 30 Aug to 2 Sep, approved by her manager; the NexaCorp VPN Singapore gateway egresses at 203.116.40.12." },
+      it_verify_message: "Travel request TR-0418: Renée Laurent, Sales offsite in Singapore 30 Aug to 2 Sep, approved by her manager; the NexaCorp VPN Singapore gateway egresses at 198.51.100.12." },
 
     // 0. BENIGN CONTROL: the same ImpossibleTravel anomaly raised for r.laurent, resolves BENIGN.
     sentinelUeba({
@@ -184,13 +185,13 @@ export function buildUebaCompromisedAccountScenario(
     mdeDns({
       companyId: "nexacorp", id: "evt_uca_00s3_c2_dns", ts: T(-48 * MIN - 5_000), host: victim.host, user: victim.email,
       domain: c2Domain, resolvedIp: c2Ip, severity: "medium", incidentId: INCIDENT,
-      description: "FIN-LT-Almeida resolved static-cdn-sync.net to 185.225.73.141.",
+      description: "FIN-LT-Almeida resolved static-cdn-sync.net to 203.0.113.141.",
     }),
     mdeNetwork({
       companyId: "nexacorp", id: "evt_uca_00s4_c2_connect", ts: T(-48 * MIN), host: victim.host, user: victim.email,
       remoteIp: c2Ip, remotePort: 443, domain: c2Domain, application: "tls", initiatingProcess: "svcupd.exe",
       severity: "medium", incidentId: INCIDENT,
-      description: "svcupd.exe connected to 185.225.73.141:443 (static-cdn-sync.net).",
+      description: "svcupd.exe connected to 203.0.113.141:443 (static-cdn-sync.net).",
     }),
 
     // 1. THE BASELINE SIGN-IN, j.almeida's normal London logon.
@@ -204,7 +205,7 @@ export function buildUebaCompromisedAccountScenario(
       sessionId: "0d21b7a9-4e6c-41f8-90a3-2c5b8e14d7a2", isInteractive: true,
       riskLevel: "none", conditionalAccess: "success",
       description:
-        "A normal interactive Entra sign-in for j.almeida at 23:00 from London (81.174.71.19), on his compliant, managed Windows workstation with MFA satisfied, his usual session.",
+        "A normal interactive Entra sign-in for j.almeida at 23:00 from London (198.51.100.19), on his compliant, managed Windows workstation with MFA satisfied, his usual session.",
     }), is_baseline: true },
 
     // 2. THE ATYPICAL SIGN-IN, Sofia, hosting ASN, unmanaged, token-satisfied MFA.
@@ -222,7 +223,7 @@ export function buildUebaCompromisedAccountScenario(
       userAgent: UA,
       mitre: "T1078", tactic: "Initial Access", incidentId: INCIDENT,
       description:
-        "A second Entra sign-in for j.almeida arrived at 23:40 from 45.135.232.71 in Sofia, Bulgaria (AS200651, a hosting provider), on an unmanaged device; the MFA requirement was met single-factor, satisfied by a claim already in the presented token.",
+        "A second Entra sign-in for j.almeida arrived at 23:40 from 203.0.113.73 in Sofia, Bulgaria (AS200651, a hosting provider), on an unmanaged device; the MFA requirement was met single-factor, satisfied by a claim already in the presented token.",
     }), authentication: { method: "Previously satisfied", result: "success" } },
 
     // 3. UEBA ANOMALY #1, impossible travel.
@@ -278,7 +279,7 @@ export function buildUebaCompromisedAccountScenario(
       authStepResultDetail: "MFA requirement satisfied by claim in the token",
       extra: { "azure.signinlogs.category": "NonInteractiveUserSignInLogs" },
       userAgent: UA, incidentId: INCIDENT,
-      description: "Non-interactive Entra sign-in for j.almeida to SharePoint Online from 45.135.232.71 under session 6f0b9d47.",
+      description: "Non-interactive Entra sign-in for j.almeida to SharePoint Online from 203.0.113.73 under session 6f0b9d47.",
     }),
 
     // 5. THE MASS DOWNLOAD: a browser download burst from the Finance site (T1213.002).
@@ -293,7 +294,7 @@ export function buildUebaCompromisedAccountScenario(
       extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/Budget" },
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
       description:
-        "Beginning 23:52, the Finance site logged FileDownloaded for 340+ files from j.almeida's session at 45.135.232.71 in about six minutes; this and the rows below are the first ten.",
+        "Beginning 23:52, the Finance site logged FileDownloaded for 340+ files from j.almeida's session at 203.0.113.73 in about six minutes; this and the rows below are the first ten.",
     })),
     dlRow(m365Operation({
       companyId: "nexacorp", id: "evt_uca_05b_dl", ts: T(12 * MIN + 35 * 1_000),
@@ -304,7 +305,7 @@ export function buildUebaCompromisedAccountScenario(
       siteUrl: "https://nexacorp.sharepoint.com/sites/Finance/", sessionId: hostileSession, userAgent: UA,
       extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/Forecast" },
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      description: "FileDownloaded: FY26_Q3_Forecast_v4.xlsx from the Finance site by j.almeida's session at 45.135.232.71.",
+      description: "FileDownloaded: FY26_Q3_Forecast_v4.xlsx from the Finance site by j.almeida's session at 203.0.113.73.",
     })),
     dlRow(m365Operation({
       companyId: "nexacorp", id: "evt_uca_05c_dl", ts: T(12 * MIN + 70 * 1_000),
@@ -315,7 +316,7 @@ export function buildUebaCompromisedAccountScenario(
       siteUrl: "https://nexacorp.sharepoint.com/sites/Finance/", sessionId: hostileSession, userAgent: UA,
       extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/Treasury" },
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      description: "FileDownloaded: Treasury_Cash_Position_Aug.xlsx from the Finance site by j.almeida's session at 45.135.232.71.",
+      description: "FileDownloaded: Treasury_Cash_Position_Aug.xlsx from the Finance site by j.almeida's session at 203.0.113.73.",
     })),
     dlRow(m365Operation({
       companyId: "nexacorp", id: "evt_uca_05d_dl", ts: T(12 * MIN + 115 * 1_000),
@@ -326,7 +327,7 @@ export function buildUebaCompromisedAccountScenario(
       siteUrl: "https://nexacorp.sharepoint.com/sites/Finance/", sessionId: hostileSession, userAgent: UA,
       extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/AP" },
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      description: "FileDownloaded: AP_Vendor_Master_2026.xlsx from the Finance site by j.almeida's session at 45.135.232.71.",
+      description: "FileDownloaded: AP_Vendor_Master_2026.xlsx from the Finance site by j.almeida's session at 203.0.113.73.",
     })),
     dlRow(m365Operation({
       companyId: "nexacorp", id: "evt_uca_05e_dl", ts: T(12 * MIN + 160 * 1_000),
@@ -337,7 +338,7 @@ export function buildUebaCompromisedAccountScenario(
       siteUrl: "https://nexacorp.sharepoint.com/sites/Finance/", sessionId: hostileSession, userAgent: UA,
       extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/Payroll" },
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      description: "FileDownloaded: Payroll_Summary_Jul26.xlsx from the Finance site by j.almeida's session at 45.135.232.71.",
+      description: "FileDownloaded: Payroll_Summary_Jul26.xlsx from the Finance site by j.almeida's session at 203.0.113.73.",
     })),
     dlRow(m365Operation({
       companyId: "nexacorp", id: "evt_uca_05f_dl", ts: T(12 * MIN + 200 * 1_000),
@@ -348,7 +349,7 @@ export function buildUebaCompromisedAccountScenario(
       siteUrl: "https://nexacorp.sharepoint.com/sites/Finance/", sessionId: hostileSession, userAgent: UA,
       extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/Board" },
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      description: "FileDownloaded: Board_Pack_Q2_Finance.pptx from the Finance site by j.almeida's session at 45.135.232.71.",
+      description: "FileDownloaded: Board_Pack_Q2_Finance.pptx from the Finance site by j.almeida's session at 203.0.113.73.",
     })),
     dlRow(m365Operation({
       companyId: "nexacorp", id: "evt_uca_05g_dl", ts: T(12 * MIN + 245 * 1_000),
@@ -359,7 +360,7 @@ export function buildUebaCompromisedAccountScenario(
       siteUrl: "https://nexacorp.sharepoint.com/sites/Finance/", sessionId: hostileSession, userAgent: UA,
       extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/Treasury" },
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      description: "FileDownloaded: Wire_Approval_Matrix_2026.pdf from the Finance site by j.almeida's session at 45.135.232.71.",
+      description: "FileDownloaded: Wire_Approval_Matrix_2026.pdf from the Finance site by j.almeida's session at 203.0.113.73.",
     })),
     dlRow(m365Operation({
       companyId: "nexacorp", id: "evt_uca_05h_dl", ts: T(12 * MIN + 290 * 1_000),
@@ -370,7 +371,7 @@ export function buildUebaCompromisedAccountScenario(
       siteUrl: "https://nexacorp.sharepoint.com/sites/Finance/", sessionId: hostileSession, userAgent: UA,
       extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/Audit" },
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      description: "FileDownloaded: Audit_Workpapers_FY25.zip from the Finance site by j.almeida's session at 45.135.232.71.",
+      description: "FileDownloaded: Audit_Workpapers_FY25.zip from the Finance site by j.almeida's session at 203.0.113.73.",
     })),
     dlRow(m365Operation({
       companyId: "nexacorp", id: "evt_uca_05i_dl", ts: T(12 * MIN + 330 * 1_000),
@@ -381,7 +382,7 @@ export function buildUebaCompromisedAccountScenario(
       siteUrl: "https://nexacorp.sharepoint.com/sites/Finance/", sessionId: hostileSession, userAgent: UA,
       extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/Intercompany" },
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      description: "FileDownloaded: Intercompany_Recon_Aug.xlsx from the Finance site by j.almeida's session at 45.135.232.71.",
+      description: "FileDownloaded: Intercompany_Recon_Aug.xlsx from the Finance site by j.almeida's session at 203.0.113.73.",
     })),
     dlRow(m365Operation({
       companyId: "nexacorp", id: "evt_uca_05j_dl", ts: T(12 * MIN + 335 * 1_000),
@@ -392,7 +393,7 @@ export function buildUebaCompromisedAccountScenario(
       siteUrl: "https://nexacorp.sharepoint.com/sites/Finance/", sessionId: hostileSession, userAgent: UA,
       extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/Credit" },
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
-      description: "FileDownloaded: Customer_Credit_Limits_2026.xlsx from the Finance site by j.almeida's session at 45.135.232.71.",
+      description: "FileDownloaded: Customer_Credit_Limits_2026.xlsx from the Finance site by j.almeida's session at 203.0.113.73.",
     })),
 
     // 6. THE FORWARDING RULE, New-InboxRule (T1114.003).
@@ -413,7 +414,7 @@ export function buildUebaCompromisedAccountScenario(
       },
       mitre: "T1114.003", tactic: "Collection", severity: "high", incidentId: INCIDENT,
       description:
-        "An inbox rule named \"Ext backup\" was created on the j.almeida mailbox from 45.135.232.71: mail whose subject or body mentions finance keywords is forwarded to acct.archive.9y@gmail.com and the originals moved to RSS Subscriptions and marked read.",
+        "An inbox rule named \"Ext backup\" was created on the j.almeida mailbox from 203.0.113.73: mail whose subject or body mentions finance keywords is forwarded to acct.archive.9y@gmail.com and the originals moved to RSS Subscriptions and marked read.",
     })),
 
     // 7. THE ENTITY RISK SCORE, the case-opening anomaly-driven detection.
@@ -438,7 +439,7 @@ export function buildUebaCompromisedAccountScenario(
   const iocs: IOC[] = [
     {
       type: "ip",
-      value: attackerIp, // 45.135.232.71, the hostile session's hosting-ASN origin
+      value: attackerIp, // 203.0.113.73, the hostile session's hosting-ASN origin
       first_seen: T(0),
       last_seen: T(25 * MIN),
       reputation: "malicious",
@@ -581,6 +582,8 @@ export function buildUebaCompromisedAccountScenario(
     },
   ];
 
+  // Where this story puts its documentation addresses (docGeo.ts, R5 with coherent geography).
+  placeDocAddresses(events, { "203.0.113.73": PLACES.sofia });
   return {
     scenario_id: scenarioId,
     title: "Sentinel risk score raised for a Finance manager",
@@ -590,7 +593,7 @@ export function buildUebaCompromisedAccountScenario(
       "Microsoft Sentinel UEBA raised the risk score of j.almeida (Finance Manager) to High overnight. No malware verdict was reported and nothing was blocked, only a score. Pivot from the score into the underlying telemetry and decide whether the account is compromised or the anomalies are benign.",
     narrative: `This is the SOC's first anomaly-driven case: it opens not with a signature alert but with a number. At 00:05 Microsoft Sentinel UEBA raised Jordan Almeida, a Finance Manager, to a High entity risk score, a value built by correlating four behaviours from the preceding half hour, none of them alarming on its own.
 
-At 22:51 an unsigned process, svcupd.exe, started from the Temp folder of his laptop FIN-LT-Almeida, copied the Edge cookie database to a file named Cookies and sent it to 185.225.73.141 (static-cdn-sync.net); Defender for Endpoint recorded the activity but raised nothing. At 23:00 Almeida signed in normally from London, on his compliant, managed workstation, MFA satisfied, the baseline. At 23:40 a second Entra sign-in for the same account arrived from 45.135.232.71 in Sofia, Bulgaria, on a hosting-provider ASN (AS200651), from an unmanaged device, and the MFA requirement was met single-factor, satisfied by a claim already inside a presented token. No password was typed and no push was sent: the stolen session was replayed. Sentinel joined the two sign-ins into an impossible-travel anomaly (~2,020 km in 40 minutes) and separately flagged the Sofia session as an anonymous-IP token replay.
+At 22:51 an unsigned process, svcupd.exe, started from the Temp folder of his laptop FIN-LT-Almeida, copied the Edge cookie database to a file named Cookies and sent it to 203.0.113.141 (static-cdn-sync.net); Defender for Endpoint recorded the activity but raised nothing. At 23:00 Almeida signed in normally from London, on his compliant, managed workstation, MFA satisfied, the baseline. At 23:40 a second Entra sign-in for the same account arrived from 203.0.113.73 in Sofia, Bulgaria, on a hosting-provider ASN (AS200651), from an unmanaged device, and the MFA requirement was met single-factor, satisfied by a claim already inside a presented token. No password was typed and no push was sent: the stolen session was replayed. Sentinel joined the two sign-ins into an impossible-travel anomaly (~2,020 km in 40 minutes) and separately flagged the Sofia session as an anonymous-IP token replay.
 
 From that session the attacker acted. A non-interactive SharePoint sign-in under the same session id came at 23:50, and from 23:52 the Finance site logged a burst of 340+ FileDownloaded operations (10 shown), far above Almeida's ~15-files-a-day norm. At 23:58 a new Exchange inbox rule, "Ext backup", was created: mail mentioning invoice, wire, IBAN, remittance or budget is forwarded to acct.archive.9y@gmail.com and the originals moved to RSS Subscriptions and marked read, a quiet, durable channel that survives a password reset. At 00:05 UEBA rolled all four signals into the risky-user score that opened this ticket.
 
@@ -607,7 +610,7 @@ The instructive comparison is Renée Laurent, a Sales director, who tripped the 
     iocs,
     killchain: [
       { ts: T(-3 * HOUR), phase: "Context", action: "Benign control, r.laurent trips ImpossibleTravel but is corroborated (corporate VPN, compliant device, MFA, approved travel)" },
-      { ts: T(-49 * MIN), phase: "Credential Access", action: "Unsigned svcupd.exe on FIN-LT-Almeida copies the Edge cookie database and sends it to 185.225.73.141 (T1539)" },
+      { ts: T(-49 * MIN), phase: "Credential Access", action: "Unsigned svcupd.exe on FIN-LT-Almeida copies the Edge cookie database and sends it to 203.0.113.141 (T1539)" },
       { ts: T(-40 * MIN), phase: "Baseline", action: `Normal Entra sign-in for ${victim.sam} from London, compliant managed device, MFA satisfied` },
       { ts: T(0), phase: "Initial Access", action: `Atypical Entra sign-in for ${victim.sam} from Sofia (AS200651), unmanaged device, token-satisfied MFA (T1078)` },
       { ts: T(3 * MIN), phase: "Detection", action: "Sentinel raises impossible-travel + unfamiliar-properties anomaly" },

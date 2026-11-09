@@ -23,10 +23,10 @@ export function aitmTokenTheftScenarioEvents() {
   const traveller = "a.rosen@nexacorp.com";         // benign look-alike: real trip, real VPN
 
   // ── Infrastructure ─────────────────────────────────────────────────────────
-  const corpEgress = "81.174.22.63";                // Zscaler / corporate egress, London
-  const proxyIp = "45.87.81.126";                   // reverse-proxy front end, Amsterdam (AS60068)
-  const replayIp = "91.132.139.204";                // attacker workstation, Frankfurt (AS51167)
-  const vpnEgress = "194.145.227.18";               // corporate VPN concentrator, Frankfurt (AS202422)
+  const corpEgress = "198.51.100.63";                // Zscaler / corporate egress, London
+  const proxyIp = "203.0.113.126";                   // reverse-proxy front end, Amsterdam (AS60068)
+  const replayIp = "203.0.113.204";                // attacker workstation, Frankfurt (AS51167)
+  const vpnEgress = "203.0.113.24";               // corporate VPN concentrator, Frankfurt (AS202422)
   const phishHost = "login.nexacorp-sso.com";
   const phishUrl = `https://${phishHost}/common/oauth2/v2.0/authorize?client_id=4765445b-32c6-49b0-83e6-1d93765276ca`;
 
@@ -76,7 +76,7 @@ export function aitmTokenTheftScenarioEvents() {
         "pps.headerFrom": "\"NexaCorp IT Service Desk\" <no-reply@docu-sign-secure.com>",
         "pps.recipient": victim,
         "pps.subject": "Action required: Q1 vendor agreement awaiting your signature",
-        "pps.senderIP": "185.53.178.9",
+        "pps.senderIP": "203.0.113.9",
         "pps.spf": "pass",
         "pps.dkim": "pass",
         "pps.dmarc": "none",
@@ -135,7 +135,7 @@ export function aitmTokenTheftScenarioEvents() {
       src_ip: "10.42.18.77",
       dns: { query: phishHost, query_type: "A", response: proxyIp, rcode: "NOERROR" },
       description:
-        "LT-FIN-0442 resolved login.nexacorp-sso.com to a single A record, 45.87.81.126, answered NOERROR from the internal Infoblox view.",
+        "LT-FIN-0442 resolved login.nexacorp-sso.com to a single A record, 203.0.113.126, answered NOERROR from the internal Infoblox view.",
       raw: {
         "infoblox.client_ip": "10.42.18.77",
         "infoblox.query_name": phishHost,
@@ -185,7 +185,7 @@ export function aitmTokenTheftScenarioEvents() {
       },
     },
 
-    laptopConn("aitm_04b_laptop_conn", T(4 * MIN + 9 * SEC), 50412, "LT-FIN-0442's msedge.exe (pid 9308, parent OUTLOOK.EXE) connected to login.nexacorp-sso.com (45.87.81.126) on port 443."),
+    laptopConn("aitm_04b_laptop_conn", T(4 * MIN + 9 * SEC), 50412, "LT-FIN-0442's msedge.exe (pid 9308, parent OUTLOOK.EXE) connected to login.nexacorp-sso.com (203.0.113.126) on port 443."),
 
     // ── 5. Credentials + live MFA response posted to the proxy ───────────────
     {
@@ -221,9 +221,9 @@ export function aitmTokenTheftScenarioEvents() {
       },
     },
 
-    laptopConn("aitm_05b_laptop_conn", T(5 * MIN + 41 * SEC), 50431, "LT-FIN-0442's msedge.exe (pid 9308) opened a second connection to login.nexacorp-sso.com (45.87.81.126) on port 443."),
+    laptopConn("aitm_05b_laptop_conn", T(5 * MIN + 41 * SEC), 50431, "LT-FIN-0442's msedge.exe (pid 9308) opened a second connection to login.nexacorp-sso.com (203.0.113.126) on port 443."),
 
-    // ── 6. The real sign-in — MFA genuinely satisfied ────────────────────────
+    // ── 6. The real sign-in, MFA genuinely satisfied ────────────────────────
     {
       id: "aitm_06_entra_signin",
       ts: T(6 * MIN + 3 * SEC),
@@ -234,9 +234,9 @@ export function aitmTokenTheftScenarioEvents() {
       geo: { country: "Netherlands", city: "Amsterdam", latitude: 52.3676, longitude: 4.9041 },
       authentication: { method: "Password + Microsoft Authenticator", mfa_type: "push", result: "success" },
       description:
-        "Entra ID recorded a successful interactive sign-in for m.delgado, multifactor satisfied by a live Authenticator approval, from 45.87.81.126 in Amsterdam (AS60068).",
+        "Entra ID recorded a successful interactive sign-in for m.delgado, multifactor satisfied by a live Authenticator approval, from 203.0.113.126 in Amsterdam (AS60068).",
       fp_explanation:
-        "Every quality signal on this record is green — MFA satisfied, Conditional Access success, sign-in risk none. Analysts who triage on outcome fields alone will close it.",
+        "Every quality signal on this record is green, MFA satisfied, Conditional Access success, sign-in risk none. Analysts who triage on outcome fields alone will close it.",
       raw: {
         "azure.signinlogs.category": "SignInLogs",
         "azure.signinlogs.operationName": "Sign-in activity",
@@ -404,7 +404,7 @@ export function aitmTokenTheftScenarioEvents() {
           },
         ],
         "azure.signinlogs.properties.networkLocationDetails": [
-          { networkType: "namedNetwork", networkNames: ["Corporate VPN — Frankfurt POP"] },
+          { networkType: "namedNetwork", networkNames: ["Corporate VPN, Frankfurt POP"] },
         ],
         "azure.signinlogs.properties.conditionalAccessStatus": "success",
         "azure.signinlogs.properties.riskLevelDuringSignIn": "none",
@@ -443,7 +443,7 @@ export function aitmTokenTheftScenarioEvents() {
       },
     },
 
-    // ── 9. THE CRUX — same session, different everything else ────────────────
+    // ── 9. THE CRUX, same session, different everything else ────────────────
     {
       id: "aitm_09_signin_delgado_replay",
       ts: T(12 * MIN + 3 * SEC),
@@ -454,7 +454,7 @@ export function aitmTokenTheftScenarioEvents() {
       geo: { country: "Germany", city: "Frankfurt", latitude: 50.1109, longitude: 8.6821 },
       edr_scope: "hybrid", // identity detection that opens the ticket; the victim laptop shows the endpoint stayed clean
       description:
-        "A second, non-interactive Entra sign-in for m.delgado from 91.132.139.204 in Frankfurt (AS51167) on Chrome 144, multifactor satisfied by a claim in the token.",
+        "A second, non-interactive Entra sign-in for m.delgado from 203.0.113.204 in Frankfurt (AS51167) on Chrome 144, multifactor satisfied by a claim in the token.",
       raw: {
         "azure.signinlogs.category": "NonInteractiveUserSignInLogs",
         "azure.signinlogs.operationName": "Sign-in activity",
@@ -553,7 +553,7 @@ export function aitmTokenTheftScenarioEvents() {
       src_ip: replayIp,
       geo: { country: "Germany", city: "Frankfurt", latitude: 50.1109, longitude: 8.6821 },
       description:
-        "A non-interactive token for Office 365 Exchange Online was issued to the OWA app from 91.132.139.204, again with no authentication step performed.",
+        "A non-interactive token for Office 365 Exchange Online was issued to the OWA app from 203.0.113.204, again with no authentication step performed.",
       raw: {
         "azure.signinlogs.category": "NonInteractiveUserSignInLogs",
         "azure.signinlogs.operationName": "Sign-in activity",
@@ -607,7 +607,7 @@ export function aitmTokenTheftScenarioEvents() {
       geo: { country: "Germany", city: "Frankfurt" },
       cloud: { provider: "Microsoft", service: "Exchange Online", api_call: "MailItemsAccessed", resource: "m.delgado@nexacorp.com" },
       description:
-        "The Unified Audit Log recorded a MailItemsAccessed bind against m.delgado's Inbox from 91.132.139.204, client string Client=OWA;Action=ViaProxy.",
+        "The Unified Audit Log recorded a MailItemsAccessed bind against m.delgado's Inbox from 203.0.113.204, client string Client=OWA;Action=ViaProxy.",
       raw: {
         "data.office365.Operation": "MailItemsAccessed",
         "data.office365.RecordType": "50",
@@ -632,7 +632,7 @@ export function aitmTokenTheftScenarioEvents() {
       },
     },
 
-    // ── 12. Persistence — attacker registers their own MFA method ────────────
+    // ── 12. Persistence, attacker registers their own MFA method ────────────
     {
       id: "aitm_12_mfa_register",
       ts: T(19 * MIN),
@@ -642,7 +642,7 @@ export function aitmTokenTheftScenarioEvents() {
       src_ip: replayIp,
       geo: { country: "Germany", city: "Frankfurt" },
       description:
-        "A second Microsoft Authenticator method was registered on m.delgado's account from 91.132.139.204 — initiator and target are the same user, with no directory role in use.",
+        "A second Microsoft Authenticator method was registered on m.delgado's account from 203.0.113.204, initiator and target are the same user, with no directory role in use.",
       raw: {
         "azure.auditlogs.category": "AuditLogs",
         "azure.auditlogs.operationName": "User registered security info",

@@ -23,18 +23,18 @@ export function impossibleTravelBasicScenarioEvents() {
     userId: "3c9e71a8-4d20-4b6f-9a13-6e85f0c2d417",
     hostname: "LT-FIN-3390",
     corpIp: "10.10.62.114",
-    homeIp: "86.150.23.44",
+    homeIp: "198.51.100.44",
     deviceId: "6b41f0d9-2ea7-4c85-b310-97ff5c2a4e68",
   };
 
   // The corporate remote-access gateway's public address. Anything sourced from
   // the corporate VPN leaves the internet-facing world looking like this.
-  const vpnGatewayPublicIp = "194.90.7.20";
+  const vpnGatewayPublicIp = "192.0.2.44";
   const vpnAssignedIp = "10.99.14.62";
 
-  const attackerIp = "146.190.62.117";
+  const attackerIp = "203.0.113.117";
   const phishDomain = "nexacorp-signin-verify.com";
-  const phishIp = "91.229.23.86";
+  const phishIp = "203.0.113.97";
   const dropAddress = "ap-archive.2026@securemaildrop.net";
   const vendorAddress = "accounts@ridgeline-supply.com";
 
@@ -72,7 +72,7 @@ export function impossibleTravelBasicScenarioEvents() {
 
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
-    // 1. BASELINE — what a normal morning looks like for this account.
+    // 1. BASELINE, what a normal morning looks like for this account.
     //    Everything the foreign sign-in is later compared against is here.
     // ---------------------------------------------------------------------
     {
@@ -143,7 +143,7 @@ export function impossibleTravelBasicScenarioEvents() {
     },
 
     // ---------------------------------------------------------------------
-    // 2. The corporate VPN session — the innocent explanation, made testable.
+    // 2. The corporate VPN session, the innocent explanation, made testable.
     // ---------------------------------------------------------------------
     {
       id: "evt_itb_02_vpn_connect",
@@ -155,7 +155,7 @@ export function impossibleTravelBasicScenarioEvents() {
       src_ip: victim.homeIp,
       severity: "informational",
       description:
-        "d.harel connected to the corporate remote-access VPN from 86.150.23.44 and was assigned 10.99.14.62. The gateway VPN-GW-01 egresses from the public address 194.90.7.20.",
+        "d.harel connected to the corporate remote-access VPN from 198.51.100.44 and was assigned 10.99.14.62. The gateway VPN-GW-01 egresses from the public address 192.0.2.44.",
       raw: {
         "event.action": "vpn-session-established",
         "cisco.asa.message_id": "722022",
@@ -187,7 +187,7 @@ export function impossibleTravelBasicScenarioEvents() {
       vendor: "Microsoft Defender for Office 365",
       event_type: "email_received",
       user_email: victim.email,
-      src_ip: "45.87.154.209",
+      src_ip: "203.0.113.209",
       severity: "medium",
       mitre_technique: "T1566.002",
       mitre_tactic: "Initial Access",
@@ -206,7 +206,7 @@ export function impossibleTravelBasicScenarioEvents() {
         "email.spf": "fail",
         "email.dkim": "none",
         "email.dmarc": "fail",
-        "source.ip": "45.87.154.209",
+        "source.ip": "203.0.113.209",
         "o365.DeliveryAction": "Delivered",
         "o365.DeliveryLocation": "Inbox",
         "o365.ThreatTypes": "",
@@ -280,7 +280,7 @@ export function impossibleTravelBasicScenarioEvents() {
         "zscaler.serverip": phishIp,
       },
     },
-    laptopConnection("evt_itb_03c_laptop_page_conn", T(78 * MIN + 55_000), 49822, "LT-FIN-3390's msedge.exe (pid 11284, parent explorer.exe) connected to nexacorp-signin-verify.com (91.229.23.86) on port 443."),
+    laptopConnection("evt_itb_03c_laptop_page_conn", T(78 * MIN + 55_000), 49822, "LT-FIN-3390's msedge.exe (pid 11284, parent explorer.exe) connected to nexacorp-signin-verify.com (203.0.113.97) on port 443."),
 
     // ---------------------------------------------------------------------
     // 4. She visits the page and submits. This is where the session is lost.
@@ -336,11 +336,11 @@ export function impossibleTravelBasicScenarioEvents() {
       },
     },
 
-    laptopConnection("evt_itb_04a_laptop_post_conn", T(79 * MIN), 49823, "LT-FIN-3390's msedge.exe (pid 11284) opened a second connection to nexacorp-signin-verify.com (91.229.23.86) on port 443."),
+    laptopConnection("evt_itb_04a_laptop_post_conn", T(79 * MIN), 49823, "LT-FIN-3390's msedge.exe (pid 11284) opened a second connection to nexacorp-signin-verify.com (203.0.113.97) on port 443."),
 
     // ---------------------------------------------------------------------
     // 4b. The AiTM proxy relays the captured credentials + MFA to Entra and
-    //     completes the sign-in — minting the session the attacker later replays.
+    //     completes the sign-in, minting the session the attacker later replays.
     //     This sign-in's source is the phishing/AiTM infrastructure, not the user.
     // ---------------------------------------------------------------------
     {
@@ -358,7 +358,7 @@ export function impossibleTravelBasicScenarioEvents() {
       geo: { country: "Netherlands", city: "Amsterdam", latitude: 52.3676, longitude: 4.9041 },
       authentication: { method: "Password", mfa_type: "Mobile app notification", result: "success" },
       description:
-        "A sign-in to Exchange Online for d.harel completed successfully at 07:31 from 91.229.23.86 (Amsterdam, AS60781), password then Authenticator push, on AutonomousSystemNumber 60781, the same host the browser POSTed credentials to 40 seconds earlier.",
+        "A sign-in to Exchange Online for d.harel completed successfully at 07:31 from 203.0.113.97 (Amsterdam, AS60781), password then Authenticator push, on AutonomousSystemNumber 60781, the same host the browser POSTed credentials to 40 seconds earlier.",
       raw: {
         "azure.signinlogs.operationName": "Sign-in activity",
         "azure.signinlogs.category": "SignInLogs",
@@ -412,7 +412,7 @@ export function impossibleTravelBasicScenarioEvents() {
     },
 
     // ---------------------------------------------------------------------
-    // 5. The VPN session ENDS — 47 minutes before the foreign sign-in.
+    // 5. The VPN session ENDS, 47 minutes before the foreign sign-in.
     // ---------------------------------------------------------------------
     {
       id: "evt_itb_05_vpn_disconnect",
@@ -461,7 +461,7 @@ export function impossibleTravelBasicScenarioEvents() {
       geo: { country: "United States", city: "New York", latitude: 40.7128, longitude: -74.006 },
       authentication: { method: "Previously satisfied", result: "success" },
       description:
-        "The same account signed in successfully to Exchange Online at 08:27 from 146.190.62.117 in New York, on AutonomousSystemNumber 14061.",
+        "The same account signed in successfully to Exchange Online at 08:27 from 203.0.113.117 in New York, on AutonomousSystemNumber 14061.",
       raw: {
         "azure.signinlogs.operationName": "Sign-in activity",
         "azure.signinlogs.category": "SignInLogs",
@@ -511,7 +511,7 @@ export function impossibleTravelBasicScenarioEvents() {
     },
 
     // ---------------------------------------------------------------------
-    // 7. THE ALARM — the correlation rule. Geography only. This is the ticket.
+    // 7. THE ALARM, the correlation rule. Geography only. This is the ticket.
     // ---------------------------------------------------------------------
     {
       id: "evt_itb_07_travel_alert",
@@ -562,7 +562,7 @@ export function impossibleTravelBasicScenarioEvents() {
       mitre_technique: "T1114.003",
       mitre_tactic: "Collection",
       description:
-        "An inbox rule named \"AP sync\" was created on the d.harel mailbox from 146.190.62.117: mail matching payment keywords is forwarded to an external address and the originals moved to RSS Subscriptions.",
+        "An inbox rule named \"AP sync\" was created on the d.harel mailbox from 203.0.113.117: mail matching payment keywords is forwarded to an external address and the originals moved to RSS Subscriptions.",
       raw: {
         "data.office365.Operation": "New-InboxRule",
         "data.office365.Workload": "Exchange",
@@ -600,7 +600,7 @@ export function impossibleTravelBasicScenarioEvents() {
       mitre_technique: "T1114.002",
       mitre_tactic: "Collection",
       description:
-        "Exchange recorded a MailItemsAccessed sync of 812 items from the Vendor Banking folder in the d.harel mailbox, from 146.190.62.117.",
+        "Exchange recorded a MailItemsAccessed sync of 812 items from the Vendor Banking folder in the d.harel mailbox, from 203.0.113.117.",
       raw: {
         "data.office365.Operation": "MailItemsAccessed",
         "data.office365.Workload": "Exchange",
@@ -633,7 +633,7 @@ export function impossibleTravelBasicScenarioEvents() {
       src_ip: attackerIp,
       severity: "critical",
       description:
-        "A message with the subject \"Updated remittance details - June invoices\" and a PDF attached was sent from the d.harel mailbox to accounts@ridgeline-supply.com from 146.190.62.117.",
+        "A message with the subject \"Updated remittance details - June invoices\" and a PDF attached was sent from the d.harel mailbox to accounts@ridgeline-supply.com from 203.0.113.117.",
       raw: {
         "data.office365.Operation": "Send",
         "data.office365.Workload": "Exchange",

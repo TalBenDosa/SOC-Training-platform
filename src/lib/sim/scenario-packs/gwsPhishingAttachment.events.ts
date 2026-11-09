@@ -26,7 +26,7 @@ export function gwsPhishingAttachmentScenarioEvents() {
 
   const c2 = "doc-verify-cdn.com";
   // The supplier's outbound mail server, as Gmail saw the connection.
-  const supplierMtaIp = "212.67.215.34";
+  const supplierMtaIp = "203.0.113.34";
   const subject = "RE: PO-4417 - revised invoice attached";
 
   const attachmentHash = makeSha256("northline_invoice_8842_html_smuggling_2026");
@@ -444,7 +444,7 @@ export function gwsPhishingAttachmentScenarioEvents() {
       mitre_technique: "T1041",
       mitre_tactic: "Exfiltration",
       description:
-        "0.4 s later the FortiGate web filter blocked LAP-003's POST to doc-verify-cdn.com/v/1 (185.225.73.48) under the category Newly Observed Domain.",
+        "0.4 s later the FortiGate web filter blocked LAP-003's POST to doc-verify-cdn.com/v/1 (203.0.113.49) under the category Newly Observed Domain.",
       network: { url: `https://${c2}/v/1`, domain: c2, method: "POST", status: 0 },
       raw: {
         "data.type": "utm",
@@ -456,7 +456,7 @@ export function gwsPhishingAttachmentScenarioEvents() {
         "data.policyid": "17",
         "data.srcip": host.ip,
         "data.srcname": host.hostname,
-        "data.dstip": "185.225.73.48",
+        "data.dstip": "203.0.113.49",
         "data.dstport": "443",
         "data.hostname": c2,
         "data.url": "/v/1",

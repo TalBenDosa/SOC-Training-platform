@@ -1,5 +1,5 @@
 /**
- * SOC Training Platform — Scenario Builders
+ * SOC Training Platform, Scenario Builders
  * Each scenario produces 10-12 curated, story-driven telemetry events that
  * give a student exactly the clues needed to investigate the attack chain.
  * Events have rich human-readable `description` fields shown in the log viewer.
@@ -81,11 +81,11 @@ import {
 
 // ─── Alert auto-generator ────────────────────────────────────────────────────
 
-// Build the alert's title + description from the EVENT'S OWN OBSERVABLES — never a
+// Build the alert's title + description from the EVENT'S OWN OBSERVABLES, never a
 // per-technique template (which could contradict the event it points at: the old
 // generator stamped "macro Office document" on a .pdf.exe ZIP, and "PowerShell
 // beacon" where no PowerShell existed) and never the analyst's prose conclusion
-// (that is the exercise — see F-02). An alert states what the tool SAW, grounded
+// (that is the exercise, see F-02). An alert states what the tool SAW, grounded
 // in the same structured observables the analyst reads on the event row, so it can
 // never disagree with its own event.
 function alertTextFromEvent(e: TelemetryEvent): { title: string; description: string } {
@@ -97,7 +97,7 @@ function alertTextFromEvent(e: TelemetryEvent): { title: string; description: st
     const parent = p.parent_name ? ` (child of ${p.parent_name})` : "";
     return {
       title: `${vendor} flagged process ${p.name}${host}`,
-      description: `${vendor} raised a detection on ${p.name}${parent}${host}${p.cmdline ? ` — command line: ${p.cmdline}` : ""}.`,
+      description: `${vendor} raised a detection on ${p.name}${parent}${host}${p.cmdline ? `, command line: ${p.cmdline}` : ""}.`,
     };
   }
   if (n?.domain) {
@@ -116,14 +116,14 @@ function alertTextFromEvent(e: TelemetryEvent): { title: string; description: st
   }
   if (e.file?.path) {
     return {
-      title: `${vendor}: file activity — ${e.file.path}${host}`,
+      title: `${vendor}: file activity, ${e.file.path}${host}`,
       description: `${vendor} flagged file activity on ${e.file.path}${host}${e.file.sha256 ? ` (sha256 ${e.file.sha256})` : ""}.`,
     };
   }
   const et = e.event_type.replace(/_/g, " ");
   if (e.user_email && /auth|login|logon|sign|account|mfa|token/i.test(e.event_type)) {
     return {
-      title: `${vendor}: ${et} — ${e.user_email}${e.src_ip ? ` from ${e.src_ip}` : ""}`,
+      title: `${vendor}: ${et}, ${e.user_email}${e.src_ip ? ` from ${e.src_ip}` : ""}`,
       description: `${vendor} recorded ${et} for ${e.user_email}${e.src_ip ? ` from ${e.src_ip}` : ""}${host}.`,
     };
   }
@@ -137,7 +137,7 @@ export function eventsToAlerts(events: TelemetryEvent[], scenario_id: string): A
   const alerts: Alert[] = [];
   let aid = 0;
   // Builders declare events in narrative order, which is not always
-  // chronological — several scenarios listed a tool launch after the traffic it
+  // chronological, several scenarios listed a tool launch after the traffic it
   // produced. Alerts must run on the clock, so sort a copy here rather than
   // relying on every builder to keep its array ordered.
   const ordered = [...events].sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
@@ -224,7 +224,7 @@ function tacticForTechnique(t: string): string | undefined {
   if (t === "T1528")        return "TA0006";   // Credential Access (steal app token)
   if (t === "T1137.005")    return "TA0003";   // Persistence (Outlook rules)
   if (t === "T1114.003")    return "TA0009";   // Collection (email forwarding rule)
-  if (t === "T1078.002")    return "TA0001";   // Initial Access (domain accounts) — matches T1078/.004 above; ATT&CK does not list Lateral Movement for T1078
+  if (t === "T1078.002")    return "TA0001";   // Initial Access (domain accounts), matches T1078/.004 above; ATT&CK does not list Lateral Movement for T1078
   if (t === "T1550.003")    return "TA0008";   // Lateral Movement (pass the ticket)
   if (t === "T1204.002")    return "TA0002";   // Execution (user opens malicious file)
   if (t === "T1219")        return "TA0011";   // Command and Control (remote access software)
@@ -259,7 +259,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
     { ts: T(5 * MIN + 31_000), phase: "Execution",               action: "WINWORD.EXE spawns hidden PowerShell (execution policy bypass); Falcon raises a detection, no action" },
     { ts: T(5 * MIN + 42_000), phase: "Command & Control",       action: "The same PowerShell process resolves 3-day-old cdn-update-fb76.xyz and connects to it over HTTPS" },
     { ts: T(8 * MIN),          phase: "Persistence",             action: "svchost32.dll dropped to %TEMP%; HKCU Run key 'WindowsUpdater' created" },
-    { ts: T(38 * MIN),         phase: "Credential Access",       action: "The same PowerShell process opens C:\\Users\\jsmith\\.aws\\credentials; the next check-in to the C2 server is slightly larger than the earlier ones" },
+    { ts: T(38 * MIN),         phase: "Credential Access",       action: "The same PowerShell process opens C:\\Users\\j.smith\\.aws\\credentials; the next check-in to the C2 server is slightly larger than the earlier ones" },
     { ts: T(40 * MIN),         phase: "Discovery",               action: "Access key AKIA4XJ9PQ2M7EXAMPLE calls GetCallerIdentity, then ListBuckets and ListObjectsV2 on nexacorp-crm-exports, from an external IP" },
     { ts: T(43 * MIN),         phase: "Collection",              action: "Same key reads exports/customer-financial-data-2026.zip (184 MB) from nexacorp-crm-exports" },
   ];
@@ -286,8 +286,8 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
     { id: "q3", prompt: "Which TWO artifacts together form the persistence mechanism on WS-FIN-2847?", kind: "multi",
       options: [
         { value: "run_key", label: "HKCU Run key 'WindowsUpdater' → rundll32 + svchost32.dll" },
-        { value: "aws",     label: "The AWS CLI profile C:\\Users\\jsmith\\.aws\\credentials" },
-        { value: "dll",     label: "svchost32.dll dropped to C:\\Users\\jsmith\\AppData\\Local\\Temp\\" },
+        { value: "aws",     label: "The AWS CLI profile C:\\Users\\j.smith\\.aws\\credentials" },
+        { value: "dll",     label: "svchost32.dll dropped to C:\\Users\\j.smith\\AppData\\Local\\Temp\\" },
         { value: "docm",    label: "Invoice_Q3_Final.docm in the Downloads folder" },
       ],
       answer: ["run_key", "dll"], xp: 75,
@@ -305,7 +305,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       options: [
         { value: "deactivate_key", label: "Deactivate access key AKIA4XJ9PQ2M7EXAMPLE (jsmith-analytics) and review its CloudTrail activity" },
         { value: "reset_ad",       label: "Reset j.smith's Active Directory password and require a new sign-in on every device" },
-        { value: "block_domain",   label: "Sinkhole cdn-update-fb76.xyz at the DNS resolver and block 185.134.140.139 at the firewall" },
+        { value: "block_domain",   label: "Sinkhole cdn-update-fb76.xyz at the DNS resolver and block 203.0.113.139 at the firewall" },
         { value: "delete_bucket",  label: "Delete the nexacorp-crm-exports bucket so nothing more can be read from it" },
       ],
       answer: "deactivate_key", xp: 75,
@@ -346,7 +346,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
   ];
 
   const killchain = [
-    { ts: T(0),        phase: "Credential Access",        action: "Password spray - 17 failed AD FS logons across 10 accounts from 158.131.159.30 (two accounts locked out, two passwords guessed)" },
+    { ts: T(0),        phase: "Credential Access",        action: "Password spray - 17 failed AD FS logons across 10 accounts from 203.0.113.30 (two accounts locked out, two passwords guessed)" },
     { ts: T(12 * MIN), phase: "Initial Access",           action: "l.harris approved an MFA prompt from Amsterdam on an unmanaged device, 32 minutes after her office logon and after two unanswered prompts - account compromised" },
     { ts: T(13 * MIN), phase: "Stealth / Concealment", action: "Hidden inbox rule '..' diverts wire/invoice/payment mail to RSS Feeds, marked read" },
     { ts: T(15 * MIN), phase: "Collection",               action: "340 emails scraped in 2 minutes - attacker profiles payment workflows" },
@@ -376,13 +376,13 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
       explanation: "T1110.003 (password spray), T1078 (valid account via MFA fatigue), and T1564.008 (hidden inbox rule) are all present. There is no ransomware - this is purely an identity/BEC attack." },
     { id: "q3", prompt: "p.johnson's Entra sign-in log shows a run of MFA failures in under five minutes. What do the rows show, and which technique is it?", kind: "single",
       options: [
-        { value: "fatigue", label: "Eight denied MFA prompts from 158.131.159.30, the address that sprayed AD FS: MFA fatigue (T1621)" },
-        { value: "bypass",  label: "Eight denied MFA prompts from 77.83.247.146, the address that signed in as l.harris: MFA fatigue (T1621)" },
-        { value: "replay",  label: "Three failed prompts from 158.131.159.30: a user mistyping the code, not an attack" },
-        { value: "phish",   label: "Eight SMS code failures from 158.131.159.30: SIM-swap interception of the second factor" },
+        { value: "fatigue", label: "Eight denied MFA prompts from 203.0.113.30, the address that sprayed AD FS: MFA fatigue (T1621)" },
+        { value: "bypass",  label: "Eight denied MFA prompts from 203.0.113.146, the address that signed in as l.harris: MFA fatigue (T1621)" },
+        { value: "replay",  label: "Three failed prompts from 203.0.113.30: a user mistyping the code, not an attack" },
+        { value: "phish",   label: "Eight SMS code failures from 203.0.113.30: SIM-swap interception of the second factor" },
       ],
       answer: "fatigue", xp: 50,
-      explanation: "Count the 500121 rows for p.johnson between 08:25:20 and 08:29:50: eight, all from 158.131.159.30, the same address that sprayed the AD FS endpoint at 08:00 and guessed her password, while the address that signed in as l.harris was 77.83.247.146. Repeated MFA prompts after a valid password, hoping the user approves one, is MFA fatigue or prompt bombing (T1621). The CFO denied every prompt, which is why the second account did not fall, and her call at 08:31 (INC0048217) is how the SOC heard about it." },
+      explanation: "Count the 500121 rows for p.johnson between 08:25:20 and 08:29:50: eight, all from 203.0.113.30, the same address that sprayed the AD FS endpoint at 08:00 and guessed her password, while the address that signed in as l.harris was 203.0.113.146. Repeated MFA prompts after a valid password, hoping the user approves one, is MFA fatigue or prompt bombing (T1621). The CFO denied every prompt, which is why the second account did not fall, and her call at 08:31 (INC0048217) is how the SOC heard about it." },
     { id: "q4", prompt: "Revoking l.harris's session tokens alone does NOT fully stop the attacker. Why?", kind: "single",
       options: [
         { value: "forward", label: "The email forwarding rule to gmail.com continues delivering mail without an active session" },
@@ -564,7 +564,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         { value: "revoke",  label: "Revoke consent to 'MicrosoftSecurityUpdate' in Entra ID Enterprise Applications" },
         { value: "pw",      label: "Reset s.chen's password again and enforce a stronger complexity requirement in the policy" },
         { value: "disable", label: "Disable s.chen's account in Entra ID and remove her from all mail-enabled groups" },
-        { value: "block_ip", label: "Block 193.233.20.57 at the perimeter firewall and in Defender for Cloud Apps" },
+        { value: "block_ip", label: "Block 203.0.113.57 at the perimeter firewall and in Defender for Cloud Apps" },
       ],
       answer: "revoke", xp: 75,
       explanation: "Revoking the app's consent (and its sessions) stops it from being issued any new token, so Graph access ends as soon as the current short-lived token expires, for every user who consented. Account disable works but disrupts the legitimate user. IP blocking fails since the attacker can rotate IPs. A password reset has no effect on the app's token issuance, as the 11:51 and 14:50 sign-ins show." },
@@ -789,7 +789,7 @@ export const SCENARIOS = [
   { slug: "backup-agent-false-positive",
     title: "Overnight behaviour alert on a production file server",
     difficulty: "beginner", attack_kind: "false_positive",
-    threat_actor: "None — authorised backup activity", build: withAlerts(buildBackupFalsePositiveScenario),
+    threat_actor: "None, authorised backup activity", build: withAlerts(buildBackupFalsePositiveScenario),
     summary: "Defender for Endpoint raised a high-severity behaviour alert on a production file server overnight, and the night shift is holding for an isolate decision. Investigate the process behind it and make the call with evidence." },
   { slug: "brute-force-single-account",
     title: "Logon failures on the published Remote Desktop server",
@@ -809,7 +809,7 @@ export const SCENARIOS = [
   { slug: "software-install-false-positive",
     title: "Behavioural EDR alert on an engineering workstation",
     difficulty: "beginner", attack_kind: "false_positive",
-    threat_actor: "None — authorised software deployment", build: withAlerts(buildSoftwareInstallFalsePositiveScenario),
+    threat_actor: "None, authorised software deployment", build: withAlerts(buildSoftwareInstallFalsePositiveScenario),
     summary: "CrowdStrike raised a high behavioural detection on an engineering workstation after a new executable and service appeared and an outbound session opened. Determine what ran and whether the host needs to be contained." },
   { slug: "web-shell-sqli",
     title: "WAF blocks and an EDR alert on the shop",
@@ -901,7 +901,7 @@ export const SCENARIOS = [
   { slug: "exfil-first-extortion",
     title: "Threatening email to NexaCorp's security mailbox",
     difficulty: "advanced", attack_kind: "exfiltration",
-    threat_actor: "Exfiltration-only extortion crew (BianLian/Karakurt-style — no encryptor deployed)", build: withAlerts(buildExfilFirstExtortionScenario),
+    threat_actor: "Exfiltration-only extortion crew (BianLian/Karakurt-style, no encryptor deployed)", build: withAlerts(buildExfilFirstExtortionScenario),
     summary: "Sentinel escalated an incident to critical overnight after NexaCorp's security mailbox received an email referencing client records. Work out whether anything left the environment, how, and why nothing stopped it." },
 
   // ── P1 use-case expansion (scenario-usecase-map: privilege escalation ×2, lateral movement, insider DLP, NAC) ──
@@ -923,7 +923,7 @@ export const SCENARIOS = [
   { slug: "insider-dlp-usb-cloud",
     title: "Sentinel incident for a finance analyst who resigned",
     difficulty: "intermediate", attack_kind: "insider_data_theft",
-    threat_actor: "Malicious insider (departing employee, valid account — no external actor)", build: withAlerts(buildInsiderDlpUsbCloudScenario),
+    threat_actor: "Malicious insider (departing employee, valid account, no external actor)", build: withAlerts(buildInsiderDlpUsbCloudScenario),
     summary: "Sentinel raised an incident for a senior financial analyst whose resignation is already in Workday. Establish what left the environment, by which routes, and whether it was legitimate work." },
   { slug: "nac-rogue-device",
     title: "NAC alert for an unknown endpoint on SW-ACC-07",
@@ -955,7 +955,7 @@ export const SCENARIOS = [
   { slug: "ueba-compromised-account",
     title: "Sentinel risk score raised for a Finance manager",
     difficulty: "intermediate", attack_kind: "account_compromise",
-    threat_actor: "External actor operating a stolen session (cloud identity takeover — no host foothold)", build: withAlerts(buildUebaCompromisedAccountScenario),
+    threat_actor: "External actor operating a stolen session (cloud identity takeover, no host foothold)", build: withAlerts(buildUebaCompromisedAccountScenario),
     summary: "Sentinel UEBA raised a Finance manager's risk score to high overnight, with no detection verdict and nothing blocked. Pivot from the score into the sign-in and audit telemetry and decide what the anomalies mean." },
   { slug: "vishing-rmm",
     title: "Falcon detection on a payments clerk's workstation (WKS-QB-047)",
@@ -992,7 +992,7 @@ export const SCENARIOS = [
   { slug: "threat-intel-hunt",
     title: "New intel list to check across the estate",
     difficulty: "intermediate", attack_kind: "threat_hunt",
-    threat_actor: "GLASSTHORN intrusion set (TEMP.Halberd) — SystemBC proxy-implant operator", build: withAlerts(buildThreatIntelHuntScenario),
+    threat_actor: "GLASSTHORN intrusion set (TEMP.Halberd), SystemBC proxy-implant operator", build: withAlerts(buildThreatIntelHuntScenario),
     summary: "An intel provider pushed new network destinations and a file fingerprint linked to an active operation, and nothing has alarmed yet. Sweep the environment and decide which matching machines, if any, need action." },
 
   // ── P4 use-case expansion (scenario-usecase-map Part 5: mobile/MDM, GCP-native, macOS TCC, email-bomb social-eng, OT/ICS, BEC wire fraud) ──
@@ -1028,7 +1028,7 @@ export const SCENARIOS = [
     summary: "Defender for Office 365 flagged an urgent wire-transfer email to Accounts Payable that presents as the CFO, and Finance reported a phone call chasing the same payment. Decide whether the request is genuine before any money moves." },
 ] as const;
 
-// ─── Impossible Travel — Account Compromise via Stolen Credentials ────────────
+// ─── Impossible Travel, Account Compromise via Stolen Credentials ────────────
 
 export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-2026"): ScenarioBundle {
   const { title, events, T, MIN, nigIp } = impossibleTravelScenarioEvents();
@@ -1044,7 +1044,7 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
     threat_actor: "External Threat Actor (Credential Theft)",
     attack_kind: "account_compromise",
     briefing: "Entra ID Protection raised a high-risk, unlikely-travel sign-in on k.taylor at 09:06, minutes after the VPN logged a second session for the same account from a new country. A burst of failed sign-ins preceded it. The user has not been contacted yet.",
-    narrative: `A password-spray burst from a Nigerian IP ended in a successful sign-in to k.taylor's account. At 09:00 k.taylor connected to the VPN normally from Tel Aviv; four minutes later the same account connected from Lagos, Nigeria — 4,320 km away, physically impossible. The VPN sign-in went through Entra with a single factor (no MFA), Entra ID Protection rated the O365 sign-in high risk (unlikely travel), and the attacker then created a hidden inbox forwarding rule to a ProtonMail address, used the VPN tunnel to reach the engineering file server over SMB, and downloaded 847 SharePoint files (2.3 GB). The failed-login origin, the shared Entra session id and the tunnel IP tie the chain together.`,
+    narrative: `A password-spray burst from a Nigerian IP ended in a successful sign-in to k.taylor's account. At 09:00 k.taylor connected to the VPN normally from Tel Aviv; four minutes later the same account connected from Lagos, Nigeria, 4,320 km away, physically impossible. The VPN sign-in went through Entra with a single factor (no MFA), Entra ID Protection rated the O365 sign-in high risk (unlikely travel), and the attacker then created a hidden inbox forwarding rule to a ProtonMail address, used the VPN tunnel to reach the engineering file server over SMB, and downloaded 847 SharePoint files (2.3 GB). The failed-login origin, the shared Entra session id and the tunnel IP tie the chain together.`,
     learning_objectives: [
       "Recognize impossible travel as a credential compromise indicator",
       "Identify a single-factor VPN sign-in (no MFA) as the gap that let the stolen password work",
@@ -1056,9 +1056,9 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
     alerts: eventsToAlerts(events, scenarioId),
     killchain: [
       { ts: T(-28 * MIN), phase: "Credential Access", action: "Password-spray burst from a Nigerian IP ends in a valid password for k.taylor" },
-      { ts: T(0),        phase: "Normal Baseline",  action: "k.taylor VPN login from Tel Aviv — looks normal" },
-      { ts: T(4 * MIN),  phase: "Impossible Travel", action: "Same user VPN login from Lagos, Nigeria — 4 min later, 4,320 km away" },
-      { ts: T(4 * MIN + 20_000), phase: "Stealth", action: "VPN app sign-in through Entra with a single factor — no MFA" },
+      { ts: T(0),        phase: "Normal Baseline",  action: "k.taylor VPN login from Tel Aviv, looks normal" },
+      { ts: T(4 * MIN),  phase: "Impossible Travel", action: "Same user VPN login from Lagos, Nigeria, 4 min later, 4,320 km away" },
+      { ts: T(4 * MIN + 20_000), phase: "Stealth", action: "VPN app sign-in through Entra with a single factor, no MFA" },
       { ts: T(6 * MIN),  phase: "Detection",        action: "Entra ID Protection flags the O365 sign-in high risk (unlikely travel)" },
       { ts: T(9 * MIN),  phase: "Email Persistence", action: "Inbox forwarding rule created: all mail → protonmail attacker address" },
       { ts: T(11 * MIN), phase: "Lateral Movement",  action: "VPN tunnel IP opens an SMB session to the engineering file server" },
@@ -1067,22 +1067,22 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
     questions: [
       { id: "q1", prompt: "What is the key indicator that proves this is a compromised credential rather than k.taylor traveling?", kind: "single",
         options: [
-          { value: "distance", label: "4,320 km between Tel Aviv and Lagos in 4 minutes — physically impossible travel" },
+          { value: "distance", label: "4,320 km between Tel Aviv and Lagos in 4 minutes, physically impossible travel" },
           { value: "time",     label: "The Lagos sign-in happened in the middle of the night for k.taylor's usual time zone" },
           { value: "vpn",      label: "The second VPN login terminated on a different GlobalProtect gateway than the first" },
           { value: "device",   label: "The device hostname on the second login differs from k.taylor's usual laptop" },
         ],
         answer: "distance", xp: 50,
-        explanation: "The 4-minute gap between logins from cities 4,320 km apart is physically impossible — no aircraft travels at 64,800 km/h. This is the definitive indicator of impossible travel, not timing or device differences. Distance-to-time ratio is the core of impossible travel detection." },
+        explanation: "The 4-minute gap between logins from cities 4,320 km apart is physically impossible, no aircraft travels at 64,800 km/h. This is the definitive indicator of impossible travel, not timing or device differences. Distance-to-time ratio is the core of impossible travel detection." },
       { id: "q2", prompt: "What field in the VPN logs most directly proves credential theft (not a legitimate VPN split-tunnel or proxy)?", kind: "single",
         options: [
           { value: "ip",       label: "The source IP is from a Nigerian ISP (MTN Nigeria)" },
-          { value: "device",   label: "gp.device_registered: false — unrecognized device" },
+          { value: "device",   label: "gp.device_registered: false, unrecognized device" },
           { value: "mfa",      label: "MFA was not challenged for the Nigerian login" },
           { value: "country",  label: "The GeoLocation country_name field shows Nigeria" },
         ],
         answer: "device", xp: 75,
-        explanation: "An unregistered device (gp.device_registered: false) proves the login came from hardware the organization never enrolled — eliminating VPN split-tunnel and corporate proxy scenarios. A registered corporate device behind a Nigerian exit node would still show gp.device_registered: true. The Nigerian IP alone could be a VPN exit node used by a traveling employee." },
+        explanation: "An unregistered device (gp.device_registered: false) proves the login came from hardware the organization never enrolled, eliminating VPN split-tunnel and corporate proxy scenarios. A registered corporate device behind a Nigerian exit node would still show gp.device_registered: true. The Nigerian IP alone could be a VPN exit node used by a traveling employee." },
       { id: "q3", prompt: "After confirming impossible travel, what is the FIRST containment action?", kind: "single",
         options: [
           { value: "block_ip",  label: "Block the Nigerian source IP at the perimeter firewall" },
@@ -1107,7 +1107,7 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
 
 // =========================================================================
 // Foundation Scenario A: Phishing Attachment → Malware Execution → Workstation Compromise
-// The simplest possible attack in the platform — one host, one user, no
+// The simplest possible attack in the platform, one host, one user, no
 // lateral movement, no credential theft, no cloud pivot. This is the story a
 // student who is brand-new to SOC work should see first: an everyday
 // phishing email leads to a malware infection, and the EDR eventually
@@ -1176,7 +1176,7 @@ export function buildPhishingMalwareScenario(scenarioId = "phishing-malware-basi
         ],
         answer: "execute", xp: 60,
         explanation: "Compromise happens at execution, not at delivery or at detection. The email sitting unopened in an inbox is not a compromise. The kill at the end is the response catching up to an infection that already happened minutes earlier - this is why 'the EDR caught it eventually' is not the same as 'nothing bad happened.'" },
-      { id: "q4", prompt: "The firewall logged three sessions from WS-HR-1182 to 194.26.135.88 before the EDR killed the process. Which conclusion do the logs support?", kind: "single",
+      { id: "q4", prompt: "The firewall logged three sessions from WS-HR-1182 to 203.0.113.89 before the EDR killed the process. Which conclusion do the logs support?", kind: "single",
         options: [
           { value: "nothing", label: "Nothing left the host: all three sessions were short check-ins of similar size, so only the infection itself needs handling" },
           { value: "some",    label: "The third session sent about 38 KB out against about 1 KB in the second, so data probably left and the credentials saved on this host should be treated as exposed" },
@@ -1210,7 +1210,7 @@ export function buildUsbMalwareScenario(scenarioId = "usb-malware-basic-2026"): 
     threat_actor: "Commodity Malware / Opportunistic Physical Access",
     attack_kind: "usb_malware_basic",
     briefing: "The EDR quarantined a file on WS-OPS-2214 at 13:35, and the SIEM raised a threat-intelligence match on a DNS lookup from the same workstation at 13:34. The assigned user, m.levi, has not reported anything.",
-    narrative: `An untagged USB drive (SanDisk Cruzer Blade, serial 4C530001071117107564) was recognised by WS-OPS-2214 at 13:29. Explorer read USB_Backup_Tool.exe from E:\\ and copied it to the Desktop. m.levi ran it, believing it to be a legitimate backup tool. The binary wrote a Registry Run key to survive reboots, looked up sync-winbackup.net (the SIEM's threat-intelligence feed matched the name) and opened two HTTPS sessions to 91.215.85.17 before the EDR killed and quarantined it. The drive serial, the file hash and the C2 domain and IP are all in the records, and persistence was already established.`,
+    narrative: `An untagged USB drive (SanDisk Cruzer Blade, serial 4C530001071117107564) was recognised by WS-OPS-2214 at 13:29. Explorer read USB_Backup_Tool.exe from E:\\ and copied it to the Desktop. m.levi ran it, believing it to be a legitimate backup tool. The binary wrote a Registry Run key to survive reboots, looked up sync-winbackup.net (the SIEM's threat-intelligence feed matched the name) and opened two HTTPS sessions to 203.0.113.86 before the EDR killed and quarantined it. The drive serial, the file hash and the C2 domain and IP are all in the records, and persistence was already established.`,
     learning_objectives: [
       "Recognize removable media as an infection vector, separate from email or the network",
       "Identify user execution of an unsigned, never-before-seen binary (T1204.002)",
@@ -1282,13 +1282,13 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
     threat_actor: "Commodity Malware Operator (opportunistic, financially motivated)",
     attack_kind: "browser_extension_malware_basic",
     briefing: "The EDR killed an encoded PowerShell process on WS-MKT-3301 (d.cohen) at 09:04, and the firewall logged an alert on an outbound connection from the same host to a newly registered domain minutes earlier. Reconstruct how a browser extension reached PowerShell.",
-    narrative: "d.cohen downloaded a 'perf boost' Chrome extension as a ZIP from a lure site, a NativeMessagingHosts key was registered under HKCU, and Chrome was relaunched with a developer-mode --load-extension flag. The extension messaged its registered native-messaging host — a cmd.exe wrapper Chrome launched — which spawned an encoded PowerShell command. That command connected to a newly registered domain and wrote b.ps1 to %TEMP%. The EDR killed the PowerShell process; the download URL, the registry registration, the file hashes and the C2 domain/IP tie the chain together end to end.",
+    narrative: "d.cohen downloaded a 'perf boost' Chrome extension as a ZIP from a lure site, a NativeMessagingHosts key was registered under HKCU, and Chrome was relaunched with a developer-mode --load-extension flag. The extension messaged its registered native-messaging host, a cmd.exe wrapper Chrome launched, which spawned an encoded PowerShell command. That command connected to a newly registered domain and wrote b.ps1 to %TEMP%. The EDR killed the PowerShell process; the download URL, the registry registration, the file hashes and the C2 domain/IP tie the chain together end to end.",
     learning_objectives: [
       "Recognize a sideloaded browser extension as a persistence mechanism (T1176.001), separate from email or removable media",
-      "Understand that an extension reaches the OS through a native-messaging host — the chrome.exe → cmd.exe → powershell.exe chain, not Chrome spawning PowerShell directly",
+      "Understand that an extension reaches the OS through a native-messaging host, the chrome.exe → cmd.exe → powershell.exe chain, not Chrome spawning PowerShell directly",
       "Identify a browser's native-messaging host spawning a scripting interpreter as a clear parent-child anomaly (T1059.001)",
       "Understand that a firewall ALLOW on a brand-new domain is not the same as safe",
-      "See how EDR detection can lag behind execution — the beacon already completed before the process was killed",
+      "See how EDR detection can lag behind execution, the beacon already completed before the process was killed",
     ],
     events,
     iocs,
@@ -1298,7 +1298,7 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
       { ts: T(-4 * MIN),        phase: "Persistence",       action: "A NativeMessagingHosts key is registered under HKCU for the host manifest" },
       { ts: T(0),               phase: "Persistence",       action: "Chrome relaunched with a sideloaded extension from Downloads" },
       { ts: T(MIN + 30_000),    phase: "Execution",         action: "chrome.exe launches the extension's native-messaging host (cmd.exe wrapper)" },
-      { ts: T(2 * MIN),         phase: "Execution",         action: "The native host spawns encoded PowerShell — malware runs" },
+      { ts: T(2 * MIN),         phase: "Execution",         action: "The native host spawns encoded PowerShell, malware runs" },
       { ts: T(2 * MIN + 30_000), phase: "Command & Control", action: "PowerShell connects to a newly registered domain; URL filtering alerts but allows it" },
       { ts: T(2 * MIN + 45_000), phase: "Command & Control", action: "PowerShell writes b.ps1 to %TEMP%" },
       { ts: T(4 * MIN),         phase: "Detection",          action: "EDR kills the PowerShell process" },
@@ -1311,18 +1311,18 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
           { value: "dept",  label: "d.cohen works in marketing, not IT, so has no reason to install browser extensions" },
         ],
         answer: "flag", xp: 40,
-        explanation: "The --load-extension command-line flag is a developer-mode mechanism for loading unpacked extensions directly from disk — it bypasses the Chrome Web Store entirely, which is the normal install path for every legitimate extension. Folder size and the user's department are not reliable indicators on their own." },
+        explanation: "The --load-extension command-line flag is a developer-mode mechanism for loading unpacked extensions directly from disk, it bypasses the Chrome Web Store entirely, which is the normal install path for every legitimate extension. Folder size and the user's department are not reliable indicators on their own." },
       { id: "q2", prompt: "A Chrome extension cannot start a process by itself. How did this one reach powershell.exe, and why is that chain significant?", kind: "single",
         options: [
-          { value: "yes", label: "The extension messaged its registered native-messaging host — a cmd.exe wrapper Chrome launched — which then spawned PowerShell; a browser's native host launching a script interpreter is an abnormal chain worth investigating" },
+          { value: "yes", label: "The extension messaged its registered native-messaging host, a cmd.exe wrapper Chrome launched, which then spawned PowerShell; a browser's native host launching a script interpreter is an abnormal chain worth investigating" },
           { value: "no",  label: "The extension called powershell.exe directly through a JavaScript API, which is the normal way extensions run system tasks" },
         ],
         answer: "yes", xp: 50,
         explanation: "Browser extensions are sandboxed and cannot spawn arbitrary processes; the only supported bridge to the OS is Native Messaging, where Chrome launches a host executable registered on the machine. Here that host is a cmd.exe wrapper, which then spawned encoded PowerShell. The chrome.exe → cmd.exe → powershell.exe tree, not Chrome calling PowerShell directly, is the real signal and is abnormal on a user workstation." },
       { id: "q3", prompt: "The firewall ALLOWED the connection to cdn-assets-update.xyz. Does that mean the connection was safe?", kind: "single",
         options: [
-          { value: "yes", label: "Yes — the firewall evaluated the session against its URL and threat policy and allowed it, so it passed" },
-          { value: "no",  label: "No — 'allowed' just means it wasn't on a blocklist yet; a domain the firewall categorises as newly registered is itself suspicious" },
+          { value: "yes", label: "Yes, the firewall evaluated the session against its URL and threat policy and allowed it, so it passed" },
+          { value: "no",  label: "No, 'allowed' just means it wasn't on a blocklist yet; a domain the firewall categorises as newly registered is itself suspicious" },
         ],
         answer: "no", xp: 50,
         explanation: "Firewalls default to allow unless a domain is already known-bad. A newly registered domain is a strong red flag on its own, since legitimate business services are almost never that young. 'Allowed by the firewall' and 'safe' are not the same thing." },
@@ -1332,10 +1332,10 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
 
 // =========================================================================
 // Foundation Scenario D: Tech-Support Scam → Unapproved Remote Access Tool
-// Fourth beginner-tier scenario — the user is socially engineered over the
+// Fourth beginner-tier scenario, the user is socially engineered over the
 // phone into installing a legitimate, signed remote-access tool themselves.
 // One host, one user, EDR-only telemetry, no lateral movement, no
-// credential theft — the "malware" here is abuse of a trusted tool.
+// credential theft, the "malware" here is abuse of a trusted tool.
 // =========================================================================
 
 export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-2026"): ScenarioBundle {
@@ -1357,7 +1357,7 @@ export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-202
     threat_actor: "Tech-Support Scam Operator (opportunistic, financially motivated)",
     attack_kind: "tech_support_scam_basic",
     briefing: "The EDR raised a behavioural alert for an unsanctioned remote-access tool on WS-ACC-4477 at 14:06 and terminated it. A scam page was loaded on the host earlier, and an AnyDesk relay session and a new service were logged in between. The user has not opened a ticket. Establish what ran and what the remote operator did.",
-    narrative: "t.mizrahi loaded a scareware page (ms-support-alert.live), called the number on it, and was talked into downloading and running AnyDesk and granting the caller control. The AnyDesk connection_trace.txt records the incoming session ID and the operator's IP; during the live relay session cmd.exe ran systeminfo and netstat, and AnyDesk was installed as a service for unattended access. The EDR then raised a behavioural unsanctioned-RMM alert and killed the processes — the referrer URL, the relay host, the trace file and the service tie the chain together.",
+    narrative: "t.mizrahi loaded a scareware page (ms-support-alert.live), called the number on it, and was talked into downloading and running AnyDesk and granting the caller control. The AnyDesk connection_trace.txt records the incoming session ID and the operator's IP; during the live relay session cmd.exe ran systeminfo and netstat, and AnyDesk was installed as a service for unattended access. The EDR then raised a behavioural unsanctioned-RMM alert and killed the processes, the referrer URL, the relay host, the trace file and the service tie the chain together.",
     learning_objectives: [
       "Recognize that a legitimate, signed tool can still be the vehicle for an attack when used outside policy (T1219)",
       "Identify a remote-access tool spawning a command shell as an observable pivot point (T1059.003)",
@@ -1379,33 +1379,33 @@ export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-202
     questions: [
       { id: "q1", prompt: "AnyDesk.exe is a legitimate, digitally signed application. Does that mean this event chain is not a security incident?", kind: "single",
         options: [
-          { value: "yes", label: "Yes — AnyDesk is a signed, reputable vendor tool, so its presence on the host is an IT support matter and not a security incident at all" },
-          { value: "no",  label: "No — remote-access tools are routinely abused in tech-support scams; how and why it was installed matters more than the signature" },
+          { value: "yes", label: "Yes, AnyDesk is a signed, reputable vendor tool, so its presence on the host is an IT support matter and not a security incident at all" },
+          { value: "no",  label: "No, remote-access tools are routinely abused in tech-support scams; how and why it was installed matters more than the signature" },
         ],
         answer: "no", xp: 40,
-        explanation: "Attackers frequently use legitimate, signed software as their entry point specifically because it does not trigger traditional malware signatures. A signed binary is not automatically safe — it matters who installed it, why, and whether it is on the approved software list for that environment." },
+        explanation: "Attackers frequently use legitimate, signed software as their entry point specifically because it does not trigger traditional malware signatures. A signed binary is not automatically safe, it matters who installed it, why, and whether it is on the approved software list for that environment." },
       { id: "q2", prompt: "Which single detail here is the strongest indicator of a tech-support scam, as opposed to a normal IT remote session?", kind: "single",
         options: [
-          { value: "cmd",  label: "AnyDesk — not the company's approved helpdesk tool — was installed with no prior history and immediately opened a live external relay session, during which the desktop ran enumeration commands" },
+          { value: "cmd",  label: "AnyDesk, not the company's approved helpdesk tool, was installed with no prior history and immediately opened a live external relay session, during which the desktop ran enumeration commands" },
           { value: "size", label: "AnyDesk.exe is only about 4MB, much smaller than the enterprise remote-support client used by IT" },
           { value: "dept", label: "t.mizrahi works in accounting, a department with no approved use for remote-access tools" },
         ],
         answer: "cmd", xp: 50,
-        explanation: "The company has a designated helpdesk tool for legitimate remote support. A personally-installed AnyDesk session with no prior history, an outbound connection to an AnyDesk relay, and system/network enumeration run on the desktop while that session is live together deviate sharply from the normal IT support process — that is the actual observable, not the file size or department. (AnyDesk itself has no remote-shell feature; the enumeration is the caller typing in the GUI session, so the shell's parent is explorer.exe, not AnyDesk.)" },
+        explanation: "The company has a designated helpdesk tool for legitimate remote support. A personally-installed AnyDesk session with no prior history, an outbound connection to an AnyDesk relay, and system/network enumeration run on the desktop while that session is live together deviate sharply from the normal IT support process, that is the actual observable, not the file size or department. (AnyDesk itself has no remote-shell feature; the enumeration is the caller typing in the GUI session, so the shell's parent is explorer.exe, not AnyDesk.)" },
       { id: "q3", prompt: "The EDR shows 'action_result: blocked' with Critical severity. Is the incident fully resolved at that point?", kind: "single",
         options: [
-          { value: "yes", label: "Yes — the EDR blocked the process, which ends the remote session, so the threat is neutralized and the alert can be closed" },
-          { value: "no",  label: "No — the remote session was active for several minutes before the block; the analyst must confirm what the caller did and document it" },
+          { value: "yes", label: "Yes, the EDR blocked the process, which ends the remote session, so the threat is neutralized and the alert can be closed" },
+          { value: "no",  label: "No, the remote session was active for several minutes before the block; the analyst must confirm what the caller did and document it" },
         ],
         answer: "no", xp: 60,
-        explanation: "Killing the processes stops further access, but does not undo whatever the caller already saw or did during the active session — and the AnyDesk service installed for unattended access must be removed too. A SOC analyst still needs to review what commands were run, whether any data was viewed or copied, remove the service, and write up the incident for the user's awareness training." },
+        explanation: "Killing the processes stops further access, but does not undo whatever the caller already saw or did during the active session, and the AnyDesk service installed for unattended access must be removed too. A SOC analyst still needs to review what commands were run, whether any data was viewed or copied, remove the service, and write up the incident for the user's awareness training." },
     ],
   };
 }
 
 // =========================================================================
 // Foundation Scenario E: Cracked Software Installer → Scheduled Task Persistence
-// Fifth beginner-tier scenario — infection vector is a trojanized installer
+// Fifth beginner-tier scenario, infection vector is a trojanized installer
 // from a sponsored search-ad result, distinct persistence mechanism
 // (scheduled task, not registry Run key) from the USB scenario. One host,
 // one user, EDR (+ one firewall event for the initial download).
@@ -1429,7 +1429,7 @@ export function buildCrackedSoftwareScenario(scenarioId = "cracked-software-inst
     threat_actor: "Commodity Malware Operator (opportunistic, financially motivated)",
     attack_kind: "cracked_software_installer_basic",
     briefing: "The firewall alerted on an executable download to WS-ENG-2093 at 20:10, Defender quarantined a file at 20:19, and in between a scheduled task was registered and the host connected to an unfamiliar domain. The activity is well outside business hours and y.golan has reported nothing.",
-    narrative: "y.golan downloaded a trojanized Office 'activator' installer late in the evening (the firewall logged the EXE download; the browser saved it with its origin URL). Running it dropped svchelper.exe into C:\\ProgramData\\OfficeTools and registered a scheduled task (OfficeLicenseRefresh) that runs as y.golan — no admin, so no /ru SYSTEM. When the task fired, svchelper.exe ran and connected to a C2 domain before Defender quarantined it; the installer hash, the dropped-payload hash and the C2 domain/IP tie the chain together, and the task is not shown as removed.",
+    narrative: "y.golan downloaded a trojanized Office 'activator' installer late in the evening (the firewall logged the EXE download; the browser saved it with its origin URL). Running it dropped svchelper.exe into C:\\ProgramData\\OfficeTools and registered a scheduled task (OfficeLicenseRefresh) that runs as y.golan, no admin, so no /ru SYSTEM. When the task fired, svchelper.exe ran and connected to a C2 domain before Defender quarantined it; the installer hash, the dropped-payload hash and the C2 domain/IP tie the chain together, and the task is not shown as removed.",
     learning_objectives: [
       "Recognize a trojanized installer served through a sponsored search-ad as an infection vector distinct from email or USB",
       "Identify user execution of an unsigned, never-before-seen binary (T1204.002)",
@@ -1443,7 +1443,7 @@ export function buildCrackedSoftwareScenario(scenarioId = "cracked-software-inst
       { ts: T(0),                phase: "Initial Access", action: "Trojanized activator EXE downloaded from fast-office-tools-download.top" },
       { ts: T(6 * MIN),          phase: "Execution",      action: "y.golan runs the installer; it drops svchelper.exe to C:\\ProgramData\\OfficeTools" },
       { ts: T(6 * MIN + 40_000), phase: "Persistence",    action: "schtasks.exe registers OfficeLicenseRefresh (runs as y.golan) every 30 minutes" },
-      { ts: T(7 * MIN + 30_000), phase: "Execution",      action: "The task fires — Task Scheduler launches svchelper.exe as y.golan" },
+      { ts: T(7 * MIN + 30_000), phase: "Execution",      action: "The task fires, Task Scheduler launches svchelper.exe as y.golan" },
       { ts: T(7 * MIN + 45_000), phase: "Command & Control", action: "svchelper.exe connects to its C2 domain" },
       { ts: T(9 * MIN),          phase: "Detection",      action: "EDR quarantines the payload (the task itself is not shown removed)" },
     ],
@@ -1459,24 +1459,24 @@ export function buildCrackedSoftwareScenario(scenarioId = "cracked-software-inst
       { id: "q2", prompt: "How does this scenario's persistence mechanism differ from a Registry Run key?", kind: "single",
         options: [
           { value: "task", label: "A scheduled task relaunches the payload on a recurring interval and at logon, instead of a HKCU\\...\\Run registry value" },
-          { value: "none", label: "There is no real difference — a scheduled task is just a Run key stored in a different hive and cleaned up the same way" },
+          { value: "none", label: "There is no real difference, a scheduled task is just a Run key stored in a different hive and cleaned up the same way" },
         ],
         answer: "task", xp: 50,
         explanation: "Scheduled Task persistence (T1053.005) and Registry Run Key persistence (T1547.001) are both common but technically distinct techniques for surviving a reboot. Recognizing both is important because defenders and EDR products check different artifacts to detect and remove each one." },
       { id: "q3", prompt: "Microsoft Defender quarantined svchelper.exe and removed the scheduled task. Is the workstation fully clean at that point without further review?", kind: "single",
         options: [
-          { value: "yes", label: "Yes — quarantining svchelper.exe reverses every change the payload made on the host, so no further review is needed" },
-          { value: "no",  label: "No — the payload ran for several minutes before detection, and the detection does not show the OfficeLicenseRefresh task being deleted; the analyst must confirm the task is gone and check for other changes" },
+          { value: "yes", label: "Yes, quarantining svchelper.exe reverses every change the payload made on the host, so no further review is needed" },
+          { value: "no",  label: "No, the payload ran for several minutes before detection, and the detection does not show the OfficeLicenseRefresh task being deleted; the analyst must confirm the task is gone and check for other changes" },
         ],
         answer: "no", xp: 60,
-        explanation: "Quarantining the payload stops the immediate threat, but the detection record does not confirm the scheduled task itself was removed — a task pointing at a now-missing binary will keep firing and erroring, and the attacker could re-drop the payload. A thorough analyst confirms the OfficeLicenseRefresh task is deleted and checks for other dropped files, modified settings, or additional persistence before closing the incident." },
+        explanation: "Quarantining the payload stops the immediate threat, but the detection record does not confirm the scheduled task itself was removed, a task pointing at a now-missing binary will keep firing and erroring, and the attacker could re-drop the payload. A thorough analyst confirms the OfficeLicenseRefresh task is deleted and checks for other dropped files, modified settings, or additional persistence before closing the incident." },
     ],
   };
 }
 
 // =========================================================================
 // Foundation Scenario F: Malicious Office Macro → PowerShell Execution
-// Sixth beginner-tier scenario — a simpler cousin of the phishing-malware
+// Sixth beginner-tier scenario, a simpler cousin of the phishing-malware
 // chain: a single macro-enabled attachment leads straight to WINWORD.EXE
 // spawning PowerShell. No exfiltration, just the initial execution chain.
 // =========================================================================
@@ -1509,7 +1509,7 @@ export function buildMaliciousMacroScenario(scenarioId = "malicious-macro-2026")
     alerts: eventsToAlerts(events, scenarioId),
     killchain: [
       { ts: T(0),                phase: "Initial Access",    action: "Phishing email with macro-enabled attachment delivered to s.peretz" },
-      { ts: T(8 * MIN),          phase: "Execution",         action: "s.peretz enables content — WINWORD.EXE spawns encoded PowerShell" },
+      { ts: T(8 * MIN),          phase: "Execution",         action: "s.peretz enables content, WINWORD.EXE spawns encoded PowerShell" },
       { ts: T(8 * MIN + 6_000),  phase: "Detection",         action: "EDR alert: Office application launched encoded PowerShell (detect-only)" },
       { ts: T(8 * MIN + 25_000), phase: "Command & Control", action: "PowerShell downloads inv.exe over HTTP from a newly registered domain; firewall allows it" },
       { ts: T(8 * MIN + 29_000), phase: "Detection",         action: "EDR quarantines inv.exe in %TEMP% before it runs" },
@@ -1523,11 +1523,11 @@ export function buildMaliciousMacroScenario(scenarioId = "malicious-macro-2026")
           { value: "sender", label: "The email came from an external address outside the company domain" },
         ],
         answer: "parent", xp: 40,
-        explanation: "Microsoft Word never legitimately needs to launch a scripting interpreter as a child process. Whenever WINWORD.EXE (or any Office app) appears as the parent of powershell.exe or cmd.exe, that parent-child relationship is the direct evidence of macro-driven execution — file size and sender domain are supporting context, not the direct proof." },
+        explanation: "Microsoft Word never legitimately needs to launch a scripting interpreter as a child process. Whenever WINWORD.EXE (or any Office app) appears as the parent of powershell.exe or cmd.exe, that parent-child relationship is the direct evidence of macro-driven execution, file size and sender domain are supporting context, not the direct proof." },
       { id: "q2", prompt: "Compared to a phishing email with a ZIP-wrapped executable attachment, what is different about this macro-based chain?", kind: "single",
         options: [
           { value: "exec", label: "The malicious code runs inside a trusted Office process (WINWORD.EXE), not as a standalone executable" },
-          { value: "none", label: "Nothing meaningful — in both cases the user ends up running a standalone malicious executable file on disk" },
+          { value: "none", label: "Nothing meaningful, in both cases the user ends up running a standalone malicious executable file on disk" },
         ],
         answer: "exec", xp: 50,
         explanation: "A macro executes inside the Office application itself, so the very first malicious action (spawning PowerShell) comes from a process the user and many security tools already trust, rather than a newly-launched suspicious .exe. This is why macro-based delivery remains effective even in environments that block unusual attachment types." },
@@ -1564,7 +1564,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
     threat_actor: "Internal Attacker (Compromised Developer Account)",
     attack_kind: "credential_theft_kerberoasting",
     briefing: "Microsoft Sentinel fired 'Anomalous Kerberos service ticket volume' for m.cohen on WS-DEV-4412 at 10:08, and Defender for Identity raised 'Suspected Kerberos SPN exposure' for the same account and workstation at 10:06. A related alert on srv-db01 is attached to the ticket.",
-    narrative: `An attacker with a foothold in developer m.cohen's session on WS-DEV-4412 downloaded PowerView from 91.243.85.117 and used it to enumerate service principal names (SPNs) over LDAP. A second PowerShell then requested Kerberos TGS tickets for 12 service accounts in 90 seconds - all using weak RC4 encryption (0x17) - and wrote the tickets out as hashes to a file in the Temp folder. They were cracked offline with hashcat. About ten minutes after the last request, the cracked svc-mssql password was used from WS-DEV-4412 to open a remote desktop session on the database server srv-db01. From there svc-mssql listed the Finance$ share on srv-file01, and then used sqlcmd to run xp_cmdshell, which started a hidden, encoded PowerShell that connected out to 91.243.85.117.`,
+    narrative: `An attacker with a foothold in developer m.cohen's session on WS-DEV-4412 downloaded PowerView from 203.0.113.120 and used it to enumerate service principal names (SPNs) over LDAP. A second PowerShell then requested Kerberos TGS tickets for 12 service accounts in 90 seconds - all using weak RC4 encryption (0x17) - and wrote the tickets out as hashes to a file in the Temp folder. They were cracked offline with hashcat. About ten minutes after the last request, the cracked svc-mssql password was used from WS-DEV-4412 to open a remote desktop session on the database server srv-db01. From there svc-mssql listed the Finance$ share on srv-file01, and then used sqlcmd to run xp_cmdshell, which started a hidden, encoded PowerShell that connected out to 203.0.113.120.`,
     learning_objectives: [
       "Identify RC4 encryption (0x17) in Event ID 4769 as a Kerberoasting indicator",
       "Recognize abnormal TGS request volume from a single account in a short window",
@@ -1576,7 +1576,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
     iocs,
     alerts: eventsToAlerts(events, scenarioId),
     killchain: [
-      { ts: T(100_000),       phase: "Execution",          action: "PowerShell on WS-DEV-4412 fetches pv.ps1 from 91.243.85.117 and runs Get-DomainUser -SPN against DC01 over LDAP (T1059.001)" },
+      { ts: T(100_000),       phase: "Execution",          action: "PowerShell on WS-DEV-4412 fetches pv.ps1 from 203.0.113.120 and runs Get-DomainUser -SPN against DC01 over LDAP (T1059.001)" },
       { ts: T(2 * MIN + 40_000), phase: "Detection",       action: "Defender for Identity: 'Security principal reconnaissance (LDAP)' - m.cohen on WS-DEV-4412, filter (servicePrincipalName=*)" },
       { ts: T(4 * MIN),       phase: "Credential Access",  action: "12 Kerberos TGS tickets requested in 90 seconds, all RC4 (0x17): SQL, IIS, Backup, SAP, Jenkins and other service accounts (T1558.003); hashes written to kh.txt" },
       { ts: T(6 * MIN),       phase: "Detection",          action: "Defender for Identity: 'Suspected Kerberos SPN exposure' - m.cohen on WS-DEV-4412, 12 target accounts" },
@@ -1584,7 +1584,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
       { ts: T(14 * MIN + 50_000), phase: "Lateral Movement", action: "svc-mssql password cracked offline; mstsc.exe on WS-DEV-4412 opens RDP to srv-db01 and DC01 validates the NTLM credential (4776, then 4624 type 10) (T1021.001)" },
       { ts: T(16 * MIN),      phase: "Discovery",          action: "svc-mssql authenticates to srv-file01 from srv-db01 and lists the Finance$ share (T1135)" },
       { ts: T(18 * MIN),      phase: "Execution",          action: "sqlcmd runs xp_cmdshell; sqlservr.exe starts cmd.exe and a hidden, encoded PowerShell on the DB server (T1059.001)" },
-      { ts: T(18 * MIN + 6_000), phase: "Command and Control", action: "srv-db01 opens outbound TCP/443 to 91.243.85.117, and twice more until 10:21 (T1071.001)" },
+      { ts: T(18 * MIN + 6_000), phase: "Command and Control", action: "srv-db01 opens outbound TCP/443 to 203.0.113.120, and twice more until 10:21 (T1071.001)" },
     ],
     questions: [
       {
@@ -1645,7 +1645,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
         answer: ["svc_interactive", "xp_cmdshell_enc"],
         xp: 75,
         explanation:
-          "Service accounts are meant to be used *by services* - non-interactive logon types from the servers they run on. A LogonType 10 for svc-mssql sourced from a developer workstation has no benign explanation, and xp_cmdshell spawning hidden encoded PowerShell (sqlservr.exe > cmd.exe > powershell.exe, which then connects out to 91.243.85.117) is command execution on the DB host (T1059.001), not database work. 'master_database' is a red herring: xp_cmdshell is an extended stored procedure that lives in master, so every legitimate call to it is also against master. 'osql_client' is likewise neutral - sqlcmd is a Microsoft-supplied SQL client that DBAs use daily; the tool does not make the statement malicious, the statement does.",
+          "Service accounts are meant to be used *by services* - non-interactive logon types from the servers they run on. A LogonType 10 for svc-mssql sourced from a developer workstation has no benign explanation, and xp_cmdshell spawning hidden encoded PowerShell (sqlservr.exe > cmd.exe > powershell.exe, which then connects out to 203.0.113.120) is command execution on the DB host (T1059.001), not database work. 'master_database' is a red herring: xp_cmdshell is an extended stored procedure that lives in master, so every legitimate call to it is also against master. 'osql_client' is likewise neutral - sqlcmd is a Microsoft-supplied SQL client that DBAs use daily; the tool does not make the statement malicious, the statement does.",
       },
     ],
   };
@@ -1673,7 +1673,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
     threat_actor: "APT-TUNNELRAT (Nation-State Affiliate)",
     attack_kind: "c2_dns_tunneling",
     briefing: "Microsoft Sentinel fired a DNS query-volume anomaly on WS-ENG-3301 at 14:06 - the host is far above its own baseline. Defender for Endpoint has attached a process name to the traffic, and the firewall logged port 53 traffic leaving the network toward an unfamiliar external address.",
-    narrative: `An attacker with an interactive shell in a.jones's session on WS-ENG-3301 (cmd.exe under explorer.exe) ran an encoded PowerShell command that downloaded update.exe from 193.42.36.58 into C:\\Windows\\Temp and started it with a domain and a shared secret on its command line. The client opened a covert C2 channel over DNS, encoding all communication as base32 labels under the attacker-controlled domain nexus-update-svc.xyz; the corporate resolver recursed every query out to the attacker's name server. Commands came back in DNS TXT answers: whoami /all && net user ran at 14:10, and vault-export.csv was copied to a Temp file (cred_export.dat, 29,184 bytes). The client then sent a credential line and the file out through 247 sequential queries in about 4 minutes - each label is capped at 63 bytes and the whole query name at 255, so packing several labels into one name carries only about 120 bytes of decoded data per query.`,
+    narrative: `An attacker with an interactive shell in a.jones's session on WS-ENG-3301 (cmd.exe under explorer.exe) ran an encoded PowerShell command that downloaded update.exe from 203.0.113.59 into C:\\Windows\\Temp and started it with a domain and a shared secret on its command line. The client opened a covert C2 channel over DNS, encoding all communication as base32 labels under the attacker-controlled domain nexus-update-svc.xyz; the corporate resolver recursed every query out to the attacker's name server. Commands came back in DNS TXT answers: whoami /all && net user ran at 14:10, and vault-export.csv was copied to a Temp file (cred_export.dat, 29,184 bytes). The client then sent a credential line and the file out through 247 sequential queries in about 4 minutes - each label is capped at 63 bytes and the whole query name at 255, so packing several labels into one name carries only about 120 bytes of decoded data per query.`,
     learning_objectives: [
       "Recognize DNS tunneling indicators: high-entropy subdomains, long subdomain names, TXT record C2",
       "Understand why volume (847 queries/min vs. baseline 23) is a key detection signal",
@@ -1685,7 +1685,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
     iocs,
     alerts: eventsToAlerts(events, scenarioId),
     killchain: [
-      { ts: T(0),             phase: "Execution",        action: "Encoded PowerShell downloads update.exe from 193.42.36.58 into C:\\Windows\\Temp (T1105)" },
+      { ts: T(0),             phase: "Execution",        action: "Encoded PowerShell downloads update.exe from 203.0.113.59 into C:\\Windows\\Temp (T1105)" },
       { ts: T(20_000),        phase: "Execution",        action: "update.exe starts with --dns nexus-update-svc.xyz on its command line" },
       { ts: T(3 * MIN),       phase: "C2 Establishment", action: "First tunnel query from update.exe: three 63-character base32 labels under data.nexus-update-svc.xyz (T1071.004)" },
       { ts: T(6 * MIN),       phase: "C2 Active",        action: "847 DNS queries in 60 seconds - Sentinel volume anomaly against a baseline of 23 per minute" },
@@ -1996,7 +1996,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
   ];
 
   const killchain = [
-    { ts: T(0),        phase: "Initial Access",    action: "Attacker RDPs to DC01 from Netherlands IP 176.97.210.93 with it.admin's credentials, NTLM, at 22:15 UTC (01:15 local) (T1021.001)" },
+    { ts: T(0),        phase: "Initial Access",    action: "Attacker RDPs to DC01 from Netherlands IP 203.0.113.93 with it.admin's credentials, NTLM, at 22:15 UTC (01:15 local) (T1021.001)" },
     { ts: T(110_000),  phase: "Credential Access", action: "A renamed Mimikatz binary (wdhelper.exe) copied into it.admin's AppData and run from cmd.exe - Defender detects it at 22:18 but takes no action" },
     { ts: T(5 * MIN),  phase: "Defense Impairment",   action: "Windows Defender real-time protection disabled via registry (T1685, formerly T1562.001)" },
     { ts: T(8 * MIN),  phase: "Credential Access", action: "DCSync attack: wdhelper.exe runs lsadump::dcsync for krbtgt; DS-Replication-Get-Changes(-All) rights exercised, Event 4662 (T1003.006)" },
@@ -2090,7 +2090,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
 }
 
 // =========================================================================
-// Scenario 12: Supply Chain Attack — Malicious Vendor Update
+// Scenario 12: Supply Chain Attack, Malicious Vendor Update
 // =========================================================================
 
 export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): ScenarioBundle {
@@ -2149,7 +2149,7 @@ export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): Scen
     },
     {
       id: "sc_q3", xp: 75,
-      prompt: "The CloudTrail AssumeRole (evt_sc_08) comes from Singapore IP 18.141.220.50, not from the C2 IP 185.193.127.88 (Netherlands). What does this tell an analyst?",
+      prompt: "The CloudTrail AssumeRole (evt_sc_08) comes from Singapore IP 203.0.113.50, not from the C2 IP 203.0.113.88 (Netherlands). What does this tell an analyst?",
       kind: "single",
       options: [
         { value: "relay",   label: "The attacker split infrastructure: C2 via the Netherlands, cloud API calls via a Singapore relay, to separate attribution" },
@@ -2200,7 +2200,7 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
   const { title, events, T, MIN } = mfaFatigueScenarioEvents();
 
   const iocs: IOC[] = [
-    { type: "ip",     value: "91.108.4.33",                            reputation: "malicious", tags: ["external-infrastructure", "moscow", "telegram-datacenter"] },
+    { type: "ip",     value: "203.0.113.84",                            reputation: "malicious", tags: ["external-infrastructure", "moscow", "telegram-datacenter"] },
     { type: "email",  value: "j.chen.backup@proton.me",                reputation: "malicious", tags: ["exfil-target", "inbox-forwarding"] },
     { type: "host",   value: "DESKTOP-MOSCOW-99",                      reputation: "malicious", tags: ["attacker-device", "ca-policy-exclusion"] },
     // The persistence artifact is an Okta API token, identified in the Okta System
@@ -2212,7 +2212,7 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
   ];
 
   const killchain = [
-    { ts: T(0),                  phase: "Credential Access", action: "Nine password attempts for j.chen from 91.108.4.33 (Moscow) with python-requests, variants of a leaked password, kept under Okta's ten-attempt lockout (T1110.001)" },
+    { ts: T(0),                  phase: "Credential Access", action: "Nine password attempts for j.chen from 203.0.113.84 (Moscow) with python-requests, variants of a leaked password, kept under Okta's ten-attempt lockout (T1110.001)" },
     { ts: T(1 * MIN + 17_000),   phase: "Initial Access",    action: "The tenth attempt passes the password check; the sign-on policy answers CHALLENGE and Okta asks for MFA (T1078.004)" },
     { ts: T(1 * MIN + 20_000),   phase: "Credential Access", action: "MFA push bombardment begins: 24 Okta Verify pushes in 11 minutes, j.chen denies 12 of them (T1621)" },
     { ts: T(12 * MIN + 17_000),  phase: "Initial Access",    action: "j.chen approves the 24th push at 01:32:17 UTC; Okta opens a session for the attacker (T1621)" },
@@ -2402,14 +2402,14 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
   };
 }
 
-// ─── NTLM Relay — Internal Credential Hijacking (⭐⭐⭐ Advanced) ────────────
+// ─── NTLM Relay, Internal Credential Hijacking (⭐⭐⭐ Advanced) ────────────
 
 export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): ScenarioBundle {
   const { title, events, T, MIN } = ntlmRelayScenarioEvents();
 
   const iocs: IOC[] = [
     { type: "ip",     value: "10.0.1.45",                                 reputation: "malicious", tags: ["ws-dev-09", "kerberos-and-smb-source"] },
-    { type: "ip",     value: "45.142.212.61",                             reputation: "malicious", tags: ["vpn-source", "tool-staging", "netherlands"] },
+    { type: "ip",     value: "203.0.113.63",                             reputation: "malicious", tags: ["vpn-source", "tool-staging", "netherlands"] },
     { type: "sha256", value: makeSha256("inveigh_exe_llmnr_poisoner"), reputation: "malicious", tags: ["poisoning-tool", "workstation"] },
     { type: "sha256", value: makeSha256("PSEXESVC-ntlm-relay-2026"),     reputation: "malicious", tags: ["psexec", "lateral-movement", "remote-exec"] },
     { type: "host",   value: "WS-DEV-09",                                 reputation: "suspicious", tags: ["internal-host", "attacker-pivot"] },
@@ -2417,7 +2417,7 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
   ];
 
   const killchain = [
-    { ts: T(-44 * MIN),   phase: "Initial Access",    action: "m.johnson's SSL-VPN tunnel comes up from 45.142.212.61 (Netherlands) and is assigned 10.8.0.14 (T1078)" },
+    { ts: T(-44 * MIN),   phase: "Initial Access",    action: "m.johnson's SSL-VPN tunnel comes up from 203.0.113.63 (Netherlands) and is assigned 10.8.0.14 (T1078)" },
     { ts: T(-40 * MIN),   phase: "Initial Access",    action: "Remote Desktop logon (Type 10) to WS-DEV-09 as m.johnson from the tunnel address: the foothold the poisoner runs under (T1021.001)" },
     { ts: T(-150_000),    phase: "Resource Development", action: "powershell.exe downloads Inveigh.exe over HTTP from the same external address and writes it to m.johnson's Temp folder (T1105)" },
     { ts: T(-10_000),     phase: "Credential Access", action: "Inveigh.exe starts on WS-DEV-09 with LLMNR and NBNS poisoning enabled; python.exe starts ntlmrelayx targeting SRV-FILE01 (T1557.001)" },
@@ -2510,7 +2510,7 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
   const { title, events, T, MIN } = k8sPodEscapeScenarioEvents();
 
   const iocs: IOC[] = [
-    { type: "ip",     value: "193.233.48.71", reputation: "malicious", tags: ["external-hosting-provider", "attacker-source", "imds-query-origin", "cloudtrail-source"] },
+    { type: "ip",     value: "203.0.113.71", reputation: "malicious", tags: ["external-hosting-provider", "attacker-source", "imds-query-origin", "cloudtrail-source"] },
     { type: "user",   value: "svc-monitoring-backup", reputation: "malicious", tags: ["iam-principal", "administrator-access", "persistence"] },
     // Were two `sha256` IOCs seeded from strings like "eks-node-role-credentials-stolen". Neither
     // appeared in any event, and neither could: IAM credentials and an S3 object fetched via
@@ -2519,18 +2519,18 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
     { type: "user",   value: "arn:aws:sts::482910374256:assumed-role/eks-node-role/i-0a3f9c12d7b54e681", reputation: "suspicious", tags: ["assumed-role", "credential-source"] },
     { type: "user",   value: "system:serviceaccount:cicd:ci-deploy", reputation: "suspicious", tags: ["kubernetes-service-account", "stolen-token"] },
     { type: "url",    value: "arn:aws:s3:::rocketstack-secrets-prod/db-passwords.json", reputation: "suspicious", tags: ["accessed-object", "secrets-bucket"] },
-    { type: "url",    value: "193.233.48.71:5000/metrics-agent:2.4", reputation: "malicious", tags: ["attacker-registry", "image-source"] },
+    { type: "url",    value: "203.0.113.71:5000/metrics-agent:2.4", reputation: "malicious", tags: ["attacker-registry", "image-source"] },
   ];
 
   const killchain = [
-    { ts: T(0),           phase: "Execution",         action: "kubectl exec into api-prod container with the stolen ci-deploy service account token from external hosting-provider IP 193.233.48.71 (T1609)" },
+    { ts: T(0),           phase: "Execution",         action: "kubectl exec into api-prod container with the stolen ci-deploy service account token from external hosting-provider IP 203.0.113.71 (T1609)" },
     { ts: T(1 * MIN),     phase: "Discovery",         action: "The pod spec is read: privileged, hostPID and CAP_SYS_ADMIN, scheduled on node ip-10-0-14-73 (T1613)" },
     { ts: T(2 * MIN),     phase: "Execution",         action: "nsenter with host mount, uts, ipc, net and pid namespaces: container escape to the EC2 node, root bash on the host (T1611)" },
     { ts: T(3 * MIN),     phase: "Credential Access", action: "curl to 169.254.169.254 IMDS: IAM role credentials for eks-node-role retrieved and written to /tmp/.cache/.env (T1552.005)" },
     { ts: T(5 * MIN),     phase: "Credential Access", action: "GetCallerIdentity from the external IP confirms the stolen credentials are valid; GuardDuty flags the exfiltrated instance credentials (T1078.004)" },
     { ts: T(6 * MIN),     phase: "Discovery",         action: "ListBuckets + DescribeInstances: attacker mapping the AWS account from outside (T1580)" },
     { ts: T(9 * MIN),     phase: "Exfiltration",      action: "GetObject s3://rocketstack-secrets-prod/db-passwords.json: production DB credentials stolen (T1530)" },
-    { ts: T(12 * MIN),    phase: "Persistence",       action: "Privileged pod 'svc-monitoring-backup' created in kube-system with hostPID+hostNetwork from an image pulled from 193.233.48.71:5000 (T1610)" },
+    { ts: T(12 * MIN),    phase: "Persistence",       action: "Privileged pod 'svc-monitoring-backup' created in kube-system with hostPID+hostNetwork from an image pulled from 203.0.113.71:5000 (T1610)" },
     { ts: T(15 * MIN),    phase: "Persistence",       action: "IAM user 'svc-monitoring-backup' created with AdministratorAccess and an access key: cloud-level backdoor established (T1136.003)" },
   ];
 
@@ -2542,11 +2542,11 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
       options: [
         { value: "a", label: "The container name 'api-prod-7f8b9c' does not match the deployment naming convention used in this cluster" },
         { value: "b", label: "kubectl exec that spawns an interactive shell in a production namespace is malicious regardless of source" },
-        { value: "c", label: "The source IP 193.233.48.71 is external: it is not the CI runner (34.201.17.88) that the baseline deployment patch came from, not corporate, and not AWS" },
+        { value: "c", label: "The source IP 203.0.113.71 is external: it is not the CI runner (34.201.17.88) that the baseline deployment patch came from, not corporate, and not AWS" },
         { value: "d", label: "The CI/CD service account token was used, and pipeline tokens should be scoped to deployments, not exec" },
       ],
       answer: "c",
-      explanation: "kubectl exec from an internal developer IP is routine. Here sourceIPs[0] is 193.233.48.71, a public address on a hosting provider's network. The baseline row (k8s_00_baseline_ci_deploy) shows how this service account is normally used: a patch of the api-prod deployment from the CI runner 34.201.17.88. A CI token is only ever used from the CI infrastructure, so the same token calling the API from an unrelated external host means it was stolen and replayed. That source address is the distinguishing detail that separates routine debugging from an intrusion. The container name is not evidence, an interactive exec is not malicious by itself, and the token being able to exec is a hardening gap (the permission was too broad) rather than proof of compromise.",
+      explanation: "kubectl exec from an internal developer IP is routine. Here sourceIPs[0] is 203.0.113.71, a public address on a hosting provider's network. The baseline row (k8s_00_baseline_ci_deploy) shows how this service account is normally used: a patch of the api-prod deployment from the CI runner 34.201.17.88. A CI token is only ever used from the CI infrastructure, so the same token calling the API from an unrelated external host means it was stolen and replayed. That source address is the distinguishing detail that separates routine debugging from an intrusion. The container name is not evidence, an interactive exec is not malicious by itself, and the token being able to exec is a hardening gap (the permission was too broad) rather than proof of compromise.",
     },
     {
       id: "q2", xp: 20,
@@ -2563,16 +2563,16 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
     },
     {
       id: "q3", xp: 20,
-      prompt: "The CloudTrail rows k8s_05 to k8s_08 show AWS API calls from IP 193.233.48.71 with the eks-node-role session. What is the primary indicator that these credentials were stolen?",
+      prompt: "The CloudTrail rows k8s_05 to k8s_08 show AWS API calls from IP 203.0.113.71 with the eks-node-role session. What is the primary indicator that these credentials were stolen?",
       kind: "single",
       options: [
         { value: "a", label: "The calls were made over plain HTTP to the AWS endpoint, so the SigV4 signature and session token travelled in the clear" },
         { value: "b", label: "The IAM role eks-node-role is over-permissive: a node role needs EC2 and ECR permissions, not s3:ListAllMyBuckets across the account" },
-        { value: "c", label: "The source IP 193.233.48.71 is not an AWS IP range: legitimate EC2 role usage comes from AWS IP ranges, not external IPs" },
+        { value: "c", label: "The source IP 203.0.113.71 is not an AWS IP range: legitimate EC2 role usage comes from AWS IP ranges, not external IPs" },
         { value: "d", label: "sts:GetCallerIdentity returned the full account ID and role ARN, handing the attacker the account details needed to plan escalation" },
       ],
       answer: "c",
-      explanation: "When an EC2 instance uses its IAM role normally, CloudTrail shows the source IP as the EC2's private or public IP (within AWS IP ranges). Seeing eks-node-role calls from an external IP (193.233.48.71) means the credentials were stolen and are being used from outside AWS: a clear indicator of IMDS credential theft, and exactly what the GuardDuty finding UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS reports. The over-permissive role is a real hardening gap (it is what lets the stolen session create an IAM user), but a permissive role used from its own instance would look unremarkable: it is not what shows the credentials were stolen.",
+      explanation: "When an EC2 instance uses its IAM role normally, CloudTrail shows the source IP as the EC2's private or public IP (within AWS IP ranges). Seeing eks-node-role calls from an external IP (203.0.113.71) means the credentials were stolen and are being used from outside AWS: a clear indicator of IMDS credential theft, and exactly what the GuardDuty finding UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS reports. The over-permissive role is a real hardening gap (it is what lets the stolen session create an IAM user), but a permissive role used from its own instance would look unremarkable: it is not what shows the credentials were stolen.",
     },
     {
       id: "q4", xp: 25,
@@ -2607,7 +2607,7 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
   };
 }
 
-// ─── OAuth Consent Grant Phishing — Silent BEC (⭐⭐⭐⭐ Expert) ─────────────
+// ─── OAuth Consent Grant Phishing, Silent BEC (⭐⭐⭐⭐ Expert) ─────────────
 
 export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-grant-phishing"): ScenarioBundle {
   const { title, events, T, MIN, APP_ID } = oauthConsentPhishingScenarioEvents();
@@ -2616,7 +2616,7 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
     { type: "domain", value: "productivty-suite.com",         reputation: "malicious", tags: ["lookalike", "oauth-phishing", "redirect-uri", "sender-domain", "missing-i"] },
     { type: "email",  value: "no-reply@productivty-suite.com", reputation: "malicious", tags: ["phishing-sender"] },
     { type: "email",  value: "backupmail@productivity-suite.pro", reputation: "malicious", tags: ["exfil-target", "inbox-forwarding", "lookalike-domain-family"] },
-    { type: "ip",     value: "20.50.142.37",                  reputation: "malicious", tags: ["app-backend", "cloud-hosted", "graph-caller"] },
+    { type: "ip",     value: "203.0.113.40",                  reputation: "malicious", tags: ["app-backend", "cloud-hosted", "graph-caller"] },
     // IOC types have no "application" member; "user" is the closest identity-shaped type for an OAuth client id.
     { type: "user",   value: APP_ID,                          reputation: "malicious", tags: ["oauth-client-id", "rogue-oauth-app", "productivity-suite-pro", "unverified-publisher"] },
   ];
@@ -2625,7 +2625,7 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
     { ts: T(-22 * MIN),   phase: "Initial Access",        action: "Lure from no-reply@productivty-suite.com delivered to j.chen with a Microsoft sign-in link carrying the rogue app's client id (T1566.002)" },
     { ts: T(-20_000),     phase: "Initial Access",        action: "j.chen clicks the link from her home address; Safe Links allows the click (T1566.002)" },
     { ts: T(0),           phase: "Initial Access",        action: "j.chen grants 'Productivity Suite Pro' Mail.ReadWrite + MailboxSettings.ReadWrite + Files.ReadWrite.All + Calendars.Read (T1528)" },
-    { ts: T(55 * MIN),    phase: "Collection",            action: "App reads 1,247 mailbox items through Microsoft Graph (three MailItemsAccessed records) as AppId a3f9b1c2 from 20.50.142.37 (T1114.002)" },
+    { ts: T(55 * MIN),    phase: "Collection",            action: "App reads 1,247 mailbox items through Microsoft Graph (three MailItemsAccessed records) as AppId a3f9b1c2 from 203.0.113.40 (T1114.002)" },
     { ts: T(58 * MIN),    phase: "Persistence",           action: "Inbox forwarding rule created through the app's token to backupmail@productivity-suite.pro (T1114.003)" },
     { ts: T(61 * MIN),    phase: "Collection",            action: "Nine Finance SharePoint files downloaded with a python-requests client, including Contract-GlobalLogis-2026.docx (T1530)" },
     { ts: T(65 * MIN),    phase: "Discovery",             action: "847 calendar items read: org chart reconstruction via meeting attendees (T1114.002)" },
@@ -2641,7 +2641,7 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
       options: [
         { value: "a", label: "The app requested Mail.ReadWrite (write access is unusual for a legitimate archival tool)" },
         { value: "b", label: "The Defender for Cloud Apps alert (oauth_09_mdca_alert) shows the app was created two days earlier, has an unverified publisher and exactly one consenting user" },
-        { value: "c", label: "The consent came from 86.9.140.22, which is not a known corporate egress address" },
+        { value: "c", label: "The consent came from 198.51.100.22, which is not a known corporate egress address" },
         { value: "d", label: "The consent happened at 22:14 UTC (23:14 UK time), outside j.chen's normal business hours" },
       ],
       answer: "b",
@@ -2658,14 +2658,14 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
         { value: "d", label: "A second attacker signed in with j.chen's stolen password, and Exchange logs the registered app GUID for such sessions" },
       ],
       answer: "b",
-      explanation: "With delegated permissions the app acts as the user, so the audit record names j.chen in UserId and the calling application in AppId (and the client string reads Client=REST;Client=RESTSystem;; instead of Outlook's). What gives the app away is therefore the AppId, the REST client, the source address 20.50.142.37 (j.chen's own activity comes from her home or office address) and the fact that no sign-in by j.chen exists at that hour. When UserId is an application GUID instead, the call was made with app-only (application) permissions, which is a different grant type than the one in oauth_01. No password was used, so a password reset would not have stopped any of this, and the rule succeeded: it is the persistence the app then relied on. The app needed MailboxSettings.ReadWrite for this call, which is why that scope appears in the consent.",
+      explanation: "With delegated permissions the app acts as the user, so the audit record names j.chen in UserId and the calling application in AppId (and the client string reads Client=REST;Client=RESTSystem;; instead of Outlook's). What gives the app away is therefore the AppId, the REST client, the source address 203.0.113.40 (j.chen's own activity comes from her home or office address) and the fact that no sign-in by j.chen exists at that hour. When UserId is an application GUID instead, the call was made with app-only (application) permissions, which is a different grant type than the one in oauth_01. No password was used, so a password reset would not have stopped any of this, and the rule succeeded: it is the persistence the app then relied on. The app needed MailboxSettings.ReadWrite for this call, which is why that scope appears in the consent.",
     },
     {
       id: "q3", xp: 20,
       prompt: "Which combination of fields best separates the app's mailbox reads (oauth_02) from j.chen's own use of Outlook?",
       kind: "single",
       options: [
-        { value: "a", label: "The AppId, the REST client string, the source address 20.50.142.37 and no j.chen sign-in at that time" },
+        { value: "a", label: "The AppId, the REST client string, the source address 203.0.113.40 and no j.chen sign-in at that time" },
         { value: "b", label: "The UserId, because only the calls made by the application are written with j.chen's own email address" },
         { value: "c", label: "The MailAccessType, because a Bind operation can only ever be made by an application and never by a person" },
         { value: "d", label: "The record type, because only applications produce RecordType 50 MailItemsAccessed entries in the audit log" },
@@ -2681,7 +2681,7 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
         { value: "a", label: "Revoke the OAuth consent grant for 'Productivity Suite Pro' (App ID a3f9b1c2…) in Azure AD Enterprise Applications" },
         { value: "b", label: "Delete the inbox forwarding rule to productivity-suite.pro from j.chen's mailbox" },
         { value: "c", label: "Force a password reset for j.chen and require re-registration of their MFA method in Entra ID before re-enabling sign-in" },
-        { value: "d", label: "Add 20.50.142.37 to the perimeter firewall deny list so the application can no longer reach the tenant from that address" },
+        { value: "d", label: "Add 203.0.113.40 to the perimeter firewall deny list so the application can no longer reach the tenant from that address" },
       ],
       answer: ["a", "b"],
       explanation: "Priority: (1) Revoke the OAuth consent, which terminates the app's access token and all API access. (2) Delete the inbox forwarding rule, which stops ongoing email exfiltration. Password reset (c) is wrong: the attacker never used j.chen's password, they used the OAuth token, so a reset leaves the grant and the rule in place. A firewall deny entry (d) is also wrong: the calls go to Microsoft's cloud APIs, not through NexaCorp's perimeter, and the address sits in shared Azure space that the operator can change at will.",
@@ -2707,7 +2707,7 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
 }
 
 /**
- * Scenario packs live in their own files and return `alerts: []` — importing the
+ * Scenario packs live in their own files and return `alerts: []`, importing the
  * alert generator from here would create a cycle. Attach the alerts on the way
  * out so packaged scenarios reach the student's queue exactly like built-in ones.
  */
@@ -2718,7 +2718,7 @@ function withAlerts(build: (id?: string) => ScenarioBundle) {
     // array with an EARLIER timestamp, so a viewer that streams by array order jumps
     // backwards in time (an event from a day before the ransom note showing up last).
     // Sort by ts here so array order == chronological order everywhere the bundle is
-    // consumed — the static /scenarios log viewer AND the dashboard story scheduler.
+    // consumed, the static /scenarios log viewer AND the dashboard story scheduler.
     const events = [...b.events].sort((a, c) => new Date(a.ts).getTime() - new Date(c.ts).getTime());
     const alerts = b.alerts?.length ? b.alerts : eventsToAlerts(events, b.scenario_id);
     return { ...b, events, alerts };

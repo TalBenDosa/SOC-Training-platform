@@ -6,8 +6,8 @@ import { Card } from "@/components/ui/Card";
 import { LibraryCard } from "@/components/ui/LibraryCard";
 import { socCover } from "@/lib/ui/socCover";
 import { useCoverAccent } from "@/lib/brand/BrandContext";
-// Client-safe list only. "@/lib/sim/scenarios" bundles every scenario pack —
-// questions, answers, IOCs — so importing it here published the answer keys.
+// Client-safe list only. "@/lib/sim/scenarios" bundles every scenario pack,
+// questions, answers, IOCs, so importing it here published the answer keys.
 import { SCENARIOS_META as SCENARIOS } from "@/lib/sim/scenariosMeta";
 import { getRoomProgress, getScenarioHistory, PROGRESS_HYDRATED_EVENT, XP_CHANGED_EVENT } from "@/lib/storage/progress";
 import { fetchPublishedScenarios } from "@/lib/content/publicContent";
@@ -23,12 +23,12 @@ import {
 
 // ── Readiness map ──────────────────────────────────────────────────────────
 // Scenarios were launchable from day 1 regardless of what the learner had
-// studied — the 65% mastery gate that governs Rooms stopped at the door of the
+// studied, the 65% mastery gate that governs Rooms stopped at the door of the
 // most meaningful practice on the platform. This maps the scenarios that assume
 // specific prior knowledge to the rooms that teach it, and the card shows a
-// SOFT "recommended first" hint (never a hard lock — self-paced learners keep
+// SOFT "recommended first" hint (never a hard lock, self-paced learners keep
 // full freedom). Beginner scenarios are intentionally unmapped: no hint.
-// Real room titles for the "recommended first" hint, from the client-safe meta —
+// Real room titles for the "recommended first" hint, from the client-safe meta,
 // so every prerequisite renders its actual room name (F-10). SCENARIO_PREP now
 // lives in @/lib/scenarios/prep (shared with the integrity gate) and covers all 67.
 const ROOM_TITLE: Record<string, string> = Object.fromEntries(ROOMS_META.map(r => [r.id, r.title]));
@@ -114,7 +114,7 @@ export default function ScenariosPage() {
     window.addEventListener("pageshow", readProgress);
     document.addEventListener("visibilitychange", onVisible);
     // Admin-published scenarios now live in the durable content_scenarios
-    // table (migration 0019), not per-browser localStorage — this is what
+    // table (migration 0019), not per-browser localStorage, this is what
     // makes them actually visible to real students for the first time.
     fetchPublishedScenarios<PublishedScenario>().then(setPublished).catch(() => { /* announced by OrgContentNotice */ });
     return () => {
@@ -133,7 +133,7 @@ export default function ScenariosPage() {
   const shownBuiltIn = visibleBuiltIn.filter(s => matchesDoneFilter(s.slug, bestScore, doneFilter));
   const shownAuthored = authored.filter(s => matchesDoneFilter(s.scenario_id!, bestScore, doneFilter));
   // Legacy AI-preview scenarios aren't server-graded and record no history, so
-  // they can never be "completed" — show them under All / Not done only.
+  // they can never be "completed", show them under All / Not done only.
   const shownGenerated = doneFilter === "done" ? [] : published.filter(s => s.kind !== "authored");
   const completedCount =
     visibleBuiltIn.filter(s => bestScore[s.slug] !== undefined).length +
@@ -261,7 +261,7 @@ export default function ScenariosPage() {
             );
           })}
 
-          {/* Org-authored scenarios — routed to the safe, server-graded play
+          {/* Org-authored scenarios, routed to the safe, server-graded play
               page (/scenarios/[id]), not the client-side preview. Their card
               deliberately shows only title + briefing + difficulty; the verdict,
               IOCs and answers live server-side (migration 0041). */}

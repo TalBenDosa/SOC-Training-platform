@@ -2,16 +2,16 @@
  * Scenario pack: "Routine MFA reset ticket and two sign-ins"
  *
  * CORE tier. The Scattered-Spider-style help-desk social-engineering pattern
- * behind the largest 2023-2025 identity breaches. No malware, no exploit —
+ * behind the largest 2023-2025 identity breaches. No malware, no exploit,
  * a phone call.
  *
  * An attacker calls the IT help desk impersonating a real employee (T1684.001),
  * convinces the agent to reset her password and clear her MFA. The ticket is
- * opened and resolved like any other MFA-reset call — because on its face it
+ * opened and resolved like any other MFA-reset call, because on its face it
  * is one; NexaCorp's help desk handles several of these a week. Within
  * minutes a NEW Microsoft Authenticator is registered on the account
  * (T1098.005) and a genuinely-MFA-satisfied sign-in arrives from a new IP and
- * a new country (T1078.004) — while the real employee's own session, opened
+ * a new country (T1078.004), while the real employee's own session, opened
  * earlier the same morning from her own laptop, is still live. The new
  * session reads the mailbox, plants a forwarding rule and opens a virtual desktop.
  *
@@ -20,20 +20,20 @@
  * looks like routine administration. The new sign-in genuinely completes
  * password + MFA, because the attacker now holds a working second factor.
  * Entra's own risk engine has nothing to key on. The only thing that gives
- * this away is the SEQUENCE — ticket, reset, new device, new geo, all inside
- * about twenty minutes — compared against the plain fact that the account's
+ * this away is the SEQUENCE, ticket, reset, new device, new geo, all inside
+ * about twenty minutes, compared against the plain fact that the account's
  * legitimate owner was demonstrably still working from London thirty seconds
  * before the Amsterdam sign-in.
  *
  * Covers T1684.001 (Social Engineering: Impersonation, formerly T1656), T1556.006 (Modify Authentication Process:
  * Multi-Factor Authentication), T1098.005 (Account Manipulation: Device
  * Registration), T1078.004 (Valid Accounts: Cloud Accounts), T1114.002 and
- * T1114.003 (Email Collection) — an identity-help-desk-abuse case the live
+ * T1114.003 (Email Collection), an identity-help-desk-abuse case the live
  * feed did not previously have.
  *
  * NOTE: register in scenarios.ts with difficulty "core" (ScenarioBundle
  * itself carries no difficulty field). Company allowlist: nexacorp, medcore,
- * globallogis — the three profiles running Microsoft 365 / Entra ID.
+ * globallogis, the three profiles running Microsoft 365 / Entra ID.
  */
 
 import type { ScenarioBundle, IOC, ScenarioQuestion } from "@/lib/sim/types";
@@ -99,7 +99,7 @@ export function buildHelpdeskMfaResetScenario(
     {
       id: "q1",
       prompt:
-        "Which pair of events makes this undeniable — not just an odd coincidence of timing?",
+        "Which pair of events makes this undeniable, not just an odd coincidence of timing?",
       hint: "Compare where l.ferreira's account is active from at 10:00:30 against where it authenticates from at 10:01:00.",
       kind: "single",
       options: [
@@ -110,7 +110,7 @@ export function buildHelpdeskMfaResetScenario(
         },
         {
           value: "ticket_pair",
-          label: "Ticket created at 09:41 + ticket resolved at 09:52 — an MFA-reset ticket opened and closed in eleven minutes, far faster than normal",
+          label: "Ticket created at 09:41 + ticket resolved at 09:52, an MFA-reset ticket opened and closed in eleven minutes, far faster than normal",
         },
         {
           value: "reset_alone",
@@ -118,7 +118,7 @@ export function buildHelpdeskMfaResetScenario(
         },
         {
           value: "vdi_alone",
-          label: "The VDI session at 10:06 on its own — an interactive logon landing on a VDI host is unusual enough to confirm the intrusion",
+          label: "The VDI session at 10:06 on its own, an interactive logon landing on a VDI host is unusual enough to confirm the intrusion",
         },
       ],
       answer: "concurrent_sessions",
@@ -154,12 +154,12 @@ export function buildHelpdeskMfaResetScenario(
       answer: "ip_and_concurrent",
       xp: 70,
       explanation:
-        "The genuine lost-phone case looks exactly like evt_hmr_02 through evt_hmr_05 on their own, a phone call, a reset, a new registration. What separates an ordinary re-enrollment from this one is where evt_hmr_06 comes from: 5.181.234.19, an address that appears nowhere else in l.ferreira's telemetry before the first sign-in with the new password seven minutes earlier, and the fact that her own laptop was still working normally from London (evt_hmr_03 at 09:45 and the SharePoint activity at 10:00:30). An employee who actually lost her phone doesn't have a second, live, unrelated session running from her own desk while someone else re-enrolls her account. Option (b) overweights a single, common verification method, DOB checks are standard and weak, but weak process alone isn't proof of an incident. Option (c) would flag every legitimate lost-phone case; phone-based MFA resets are how most help desks operate. Option (d) is not a real signal, urgency and priority reflect what the caller claimed, not what happened next.",
+        "The genuine lost-phone case looks exactly like evt_hmr_02 through evt_hmr_05 on their own, a phone call, a reset, a new registration. What separates an ordinary re-enrollment from this one is where evt_hmr_06 comes from: 203.0.113.35, an address that appears nowhere else in l.ferreira's telemetry before the first sign-in with the new password seven minutes earlier, and the fact that her own laptop was still working normally from London (evt_hmr_03 at 09:45 and the SharePoint activity at 10:00:30). An employee who actually lost her phone doesn't have a second, live, unrelated session running from her own desk while someone else re-enrolls her account. Option (b) overweights a single, common verification method, DOB checks are standard and weak, but weak process alone isn't proof of an incident. Option (c) would flag every legitimate lost-phone case; phone-based MFA resets are how most help desks operate. Option (d) is not a real signal, urgency and priority reflect what the caller claimed, not what happened next.",
     },
     {
       id: "q3",
       prompt:
-        "In evt_hmr_06, initiatedBy.user.userPrincipalName reads l.ferreira@nexacorp.com — her own identity performed the registration. Why doesn't that clear her?",
+        "In evt_hmr_06, initiatedBy.user.userPrincipalName reads l.ferreira@nexacorp.com, her own identity performed the registration. Why doesn't that clear her?",
       hint: "InitiatedBy tells you which account was used. It does not tell you who was sitting at the keyboard.",
       kind: "single",
       options: [
@@ -203,7 +203,7 @@ export function buildHelpdeskMfaResetScenario(
         },
         {
           value: "block_ip_only",
-          label: "Block 5.181.234.19 at the perimeter and on the VDI gateway — with the attacker's IP blocked, their access to the account is gone",
+          label: "Block 203.0.113.35 at the perimeter and on the VDI gateway, with the attacker's IP blocked, their access to the account is gone",
         },
         {
           value: "retrain_agent",
@@ -224,11 +224,11 @@ export function buildHelpdeskMfaResetScenario(
     attack_kind: "helpdesk_mfa_reset_ato",
     briefing:
       "A ServiceNow ticket for l.ferreira@nexacorp.com was opened and resolved this morning as a routine MFA reset. Entra sign-in logs show two successful, MFA-satisfied sign-ins for the same account within the same hour, and CrowdStrike recorded a new interactive session landing on an internal VDI host shortly after. Determine whether this is ordinary help-desk support or an account takeover, and what to do about it.",
-    narrative: `At 09:00 Lucia Ferreira, a trade settlements analyst, signed in to Office from her usual London address on her corporate laptop, MFA completed by an Authenticator push — an entirely ordinary start to the day.
+    narrative: `At 09:00 Lucia Ferreira, a trade settlements analyst, signed in to Office from her usual London address on her corporate laptop, MFA completed by an Authenticator push, an entirely ordinary start to the day.
 
 At 09:41 the IT Service Desk opened ticket INC0048217: the caller, ringing from a Dutch number rather than the UK mobile the directory holds for her, reported being locked out and having lost her phone, and asked for a password and MFA reset. James Oduya verified the caller with an employee ID and date of birth over the phone, the bank's standard phone-verification procedure, and also exactly what a caller who has done a little research on their target can usually produce (T1684.001). At 09:45, four minutes into that call, Lucia's own account signed in again from the same London address on the same laptop, she was at her desk in SharePoint the entire time.
 
-At 09:50 James reset the password in the admin portal, and at 09:51 he cleared her registered authentication methods (T1556.006). At 09:52 the ticket was resolved: password reset, MFA requirement cleared, caller told to re-enroll on next sign-in, closed exactly the way this help desk closes several tickets like it every week. At 09:57:40 the first sign-in with the new password arrived from 5.181.234.19 in Amsterdam and was interrupted: no second factor was registered, so Entra demanded enrolment. Twenty seconds later, at 09:58, a new Microsoft Authenticator was registered as Lucia's security info. The identity performing the registration was hers, because by then anyone holding the new password could act as her, but the IP address behind it was the Amsterdam address, one that appears nowhere else in her telemetry (T1098.005).
+At 09:50 James reset the password in the admin portal, and at 09:51 he cleared her registered authentication methods (T1556.006). At 09:52 the ticket was resolved: password reset, MFA requirement cleared, caller told to re-enroll on next sign-in, closed exactly the way this help desk closes several tickets like it every week. At 09:57:40 the first sign-in with the new password arrived from 203.0.113.35 in Amsterdam and was interrupted: no second factor was registered, so Entra demanded enrolment. Twenty seconds later, at 09:58, a new Microsoft Authenticator was registered as Lucia's security info. The identity performing the registration was hers, because by then anyone holding the new password could act as her, but the IP address behind it was the Amsterdam address, one that appears nowhere else in her telemetry (T1098.005).
 
 At 10:00:30 the real Lucia opened a settlement workbook in London, in her 09:45 session. Thirty seconds later that account signed in to Exchange Online from Amsterdam, on an unmanaged Windows 10 machine running Chrome. Password and MFA both genuinely completed, Conditional Access shows success, sign-in risk shows none, because the attacker now held a working second factor and Entra's risk engine had nothing unusual to key on (T1078.004). Within four minutes the Amsterdam session synchronised her Inbox (T1114.002) and created an inbox rule that forwards settlement, SSI and wire mail to an external address and deletes the original (T1114.003). At 10:05:30 it signed in to Azure Virtual Desktop, and at 10:06 a fresh session started on VDI-POOL-014 under her account.
 
@@ -246,12 +246,12 @@ No single record here reads as malicious. The ticket looks like routine support.
     killchain: [
       { ts: T(0), phase: "Baseline", action: "l.ferreira signs in normally from London with an Authenticator push" },
       { ts: T(41 * MIN), phase: "Impersonation", action: "Caller impersonates l.ferreira to the help desk, requests password + MFA reset (T1684.001)" },
-      { ts: T(45 * MIN), phase: "Baseline", action: "l.ferreira signs in again from the same London address — still genuinely active" },
+      { ts: T(45 * MIN), phase: "Baseline", action: "l.ferreira signs in again from the same London address, still genuinely active" },
       { ts: T(50 * MIN + 10 * SEC), phase: "Impersonation", action: "Help desk resets the password in the admin portal" },
       { ts: T(51 * MIN + 20 * SEC), phase: "Defense Impairment", action: "Registered authentication methods cleared on the account (T1556.006)" },
       { ts: T(52 * MIN), phase: "Impersonation", action: "Ticket INC0048217 resolved: password reset, MFA cleared" },
-      { ts: T(57 * MIN + 40 * SEC), phase: "Initial Access", action: "First sign-in with the new password from 5.181.234.19, interrupted: MFA enrolment required" },
-      { ts: T(58 * MIN), phase: "Persistence", action: "New Microsoft Authenticator registered from 5.181.234.19, Amsterdam (T1098.005)" },
+      { ts: T(57 * MIN + 40 * SEC), phase: "Initial Access", action: "First sign-in with the new password from 203.0.113.35, interrupted: MFA enrolment required" },
+      { ts: T(58 * MIN), phase: "Persistence", action: "New Microsoft Authenticator registered from 203.0.113.35, Amsterdam (T1098.005)" },
       { ts: T(60 * MIN + 30 * SEC), phase: "Baseline", action: "The real l.ferreira opens a workbook in London, still in her 09:45 session" },
       { ts: T(61 * MIN), phase: "Initial Access", action: "Account signs in from Amsterdam, MFA genuinely satisfied on the new device (T1078.004)" },
       { ts: T(63 * MIN + 40 * SEC), phase: "Collection", action: "Amsterdam session synchronises the Inbox (T1114.002)" },

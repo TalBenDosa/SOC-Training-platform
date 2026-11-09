@@ -1,5 +1,5 @@
 /**
- * Per-scenario "Recommended first" prerequisites — the learning rooms that teach
+ * Per-scenario "Recommended first" prerequisites, the learning rooms that teach
  * what a scenario assumes the analyst already knows.
  *
  * External realism audit F-10: only 13/67 scenarios declared prerequisites, and

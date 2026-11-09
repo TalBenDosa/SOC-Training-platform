@@ -13,7 +13,7 @@
  * it, and the student has to go and read them:
  *
  *   - the corporate VPN session is logged, and it ENDED 47 minutes before the
- *     foreign sign-in — so "she was on the VPN" is testable, and it fails;
+ *     foreign sign-in, so "she was on the VPN" is testable, and it fails;
  *   - the foreign sign-in carries a different device (no deviceId, unmanaged,
  *     non-compliant, different OS and browser) and a hosting-provider ASN
  *     rather than her consumer ISP or the VPN gateway's address;
@@ -103,28 +103,28 @@ export function buildImpossibleTravelBasicScenario(
         {
           value: "vpnend_foreign",
           label:
-            "VPN disconnect + New York sign-in — the tunnel closed at 07:40, and 08:27 came from a different address",
+            "VPN disconnect + New York sign-in, the tunnel closed at 07:40, and 08:27 came from a different address",
         },
         {
           value: "morning_vpnstart",
           label:
-            "Morning sign-in + VPN connect — she authenticated from home and then opened a tunnel through VPN-GW-01",
+            "Morning sign-in + VPN connect, she authenticated from home and then opened a tunnel through VPN-GW-01",
         },
         {
           value: "phish_post",
           label:
-            "Phishing email + proxy POST — a lure arrived and the linked page then received a form submission from her laptop",
+            "Phishing email + proxy POST, a lure arrived and the linked page then received a form submission from her laptop",
         },
         {
           value: "alert_rule",
           label:
-            "Travel alert + inbox rule — the anomaly fired and a mailbox rule was created on the account shortly afterwards",
+            "Travel alert + inbox rule, the anomaly fired and a mailbox rule was created on the account shortly afterwards",
         },
       ],
       answer: "vpnend_foreign",
       xp: 50,
       explanation:
-        "\"Probably a VPN\" is a claim you can check, and checking it is the job. The gateway log shows the d.harel tunnel torn down at 07:40 with no later session, so at 08:27 there was nothing to be on. And traffic that does leave through that gateway appears on the internet as 194.90.7.20, whereas the 08:27 sign-in came from 146.190.62.117 on AutonomousSystemNumber 14061, a hosting provider, not the corporate gateway and not her ISP's 5378. (The tunnel's group policy is a split tunnel, which is also why the proxy saw her laptop's POST at 07:31 from her home address although the VPN was up.) Pair (b) is the ordinary baseline. Pair (c) matters for how the account was taken, not for the VPN question. Pair (d) is the alarm plus a consequence of the compromise.",
+        "\"Probably a VPN\" is a claim you can check, and checking it is the job. The gateway log shows the d.harel tunnel torn down at 07:40 with no later session, so at 08:27 there was nothing to be on. And traffic that does leave through that gateway appears on the internet as 192.0.2.44, whereas the 08:27 sign-in came from 203.0.113.117 on AutonomousSystemNumber 14061, a hosting provider, not the corporate gateway and not her ISP's 5378. (The tunnel's group policy is a split tunnel, which is also why the proxy saw her laptop's POST at 07:31 from her home address although the VPN was up.) Pair (b) is the ordinary baseline. Pair (c) matters for how the account was taken, not for the VPN question. Pair (d) is the alarm plus a consequence of the compromise.",
     },
     {
       id: "q2",
@@ -188,7 +188,7 @@ export function buildImpossibleTravelBasicScenario(
       answer: "device_block",
       xp: 60,
       explanation:
-        "A VPN client changes where a device appears on the network. It does not erase the device. Her laptop is Entra-joined and Intune-managed, so its records carry deviceId 6b41f0d9-2ea7-4c85-b310-97ff5c2a4e68, displayName LT-FIN-3390, Windows 11, Edge, isCompliant true. The 08:27 record has an empty deviceId, isManaged false, isCompliant false, MacOs and Firefox. That is a different machine, and no VPN does that. Option (b) is the alert you already have, which is exactly what you are trying to explain. Option (c) is Entra's own opinion, not independent evidence. Option (d) is wrong on the facts — the 06:12 record targets the same application.",
+        "A VPN client changes where a device appears on the network. It does not erase the device. Her laptop is Entra-joined and Intune-managed, so its records carry deviceId 6b41f0d9-2ea7-4c85-b310-97ff5c2a4e68, displayName LT-FIN-3390, Windows 11, Edge, isCompliant true. The 08:27 record has an empty deviceId, isManaged false, isCompliant false, MacOs and Firefox. That is a different machine, and no VPN does that. Option (b) is the alert you already have, which is exactly what you are trying to explain. Option (c) is Entra's own opinion, not independent evidence. Option (d) is wrong on the facts, the 06:12 record targets the same application.",
     },
     {
       id: "q4",
@@ -232,18 +232,18 @@ export function buildImpossibleTravelBasicScenario(
     attack_kind: "impossible_travel_basic",
     briefing:
       "Microsoft Sentinel opened a ticket at 08:29 on an impossible-travel anomaly for d.harel@nexacorp.com: a successful Exchange Online sign-in from London at 06:12 and another successful sign-in from New York at 08:27. Finance say Dana is working from London today. Determine whether the account is compromised and what was done with it.",
-    narrative: `At 06:12 Dana Harel, an accounts payable clerk, signed in to Exchange Online the way she signs in every morning: from her home address 86.150.23.44 on her corporate laptop LT-FIN-3390, an Entra-joined and Intune-managed Windows 11 machine, with an Authenticator push answered on her phone. Six minutes later she brought up the corporate VPN through VPN-GW-01, on a split-tunnel group policy.
+    narrative: `At 06:12 Dana Harel, an accounts payable clerk, signed in to Exchange Online the way she signs in every morning: from her home address 198.51.100.44 on her corporate laptop LT-FIN-3390, an Entra-joined and Intune-managed Windows 11 machine, with an Authenticator push answered on her phone. Six minutes later she brought up the corporate VPN through VPN-GW-01, on a split-tunnel group policy.
 
-At 07:26 a message reached her inbox claiming her sign-in session needed re-verifying, with a link to nexacorp-signin-verify.com, a lookalike domain that failed SPF and DMARC and was delivered anyway (T1566.002). Five minutes later, at 07:30:55, the proxy and the laptop's own Edge browser both show the page being loaded (no process was started from the browser), and five seconds after that the proxy recorded her laptop POSTing form data to that page from her home address, which the proxy filed under "Newly Registered and Observed Domains" and allowed. The page was an Adversary-in-the-Middle proxy (T1557): forty seconds after the POST, a sign-in for d.harel completed successfully against Entra from 91.229.23.86 in Amsterdam, the same host the browser had just POSTed to, with the password and the real Authenticator push relayed straight through. That sign-in minted the session the attacker now holds (T1539). At 07:40 the VPN session closed after one hour and twenty-two minutes.
+At 07:26 a message reached her inbox claiming her sign-in session needed re-verifying, with a link to nexacorp-signin-verify.com, a lookalike domain that failed SPF and DMARC and was delivered anyway (T1566.002). Five minutes later, at 07:30:55, the proxy and the laptop's own Edge browser both show the page being loaded (no process was started from the browser), and five seconds after that the proxy recorded her laptop POSTing form data to that page from her home address, which the proxy filed under "Newly Registered and Observed Domains" and allowed. The page was an Adversary-in-the-Middle proxy (T1557): forty seconds after the POST, a sign-in for d.harel completed successfully against Entra from 203.0.113.97 in Amsterdam, the same host the browser had just POSTed to, with the password and the real Authenticator push relayed straight through. That sign-in minted the session the attacker now holds (T1539). At 07:40 the VPN session closed after one hour and twenty-two minutes.
 
-At 08:27 the same account signed in successfully to Exchange Online from 146.190.62.117 in New York, on AutonomousSystemNumber 14061 — a hosting provider, not her ISP and not the 194.90.7.20 address the corporate gateway uses. This sign-in carries the same SessionId as the Amsterdam relay: the attacker is replaying the stolen session cookie, which is why IncomingTokenType is "none" and no fresh token was issued — not a Primary Refresh Token, which is device-bound and cannot be phished this way. The device fields are empty: no deviceId, isManaged false, isCompliant false, MacOs and Firefox instead of Windows 11 and Edge. MFA is recorded as satisfied, but by a claim carried inside the replayed cookie rather than by any challenge anyone answered. Those three facts together are what convert the impossible-travel hypothesis into a verdict; the map alone never could, and "she must be on a VPN" is a claim the gateway log had already disproved.
+At 08:27 the same account signed in successfully to Exchange Online from 203.0.113.117 in New York, on AutonomousSystemNumber 14061, a hosting provider, not her ISP and not the 192.0.2.44 address the corporate gateway uses. This sign-in carries the same SessionId as the Amsterdam relay: the attacker is replaying the stolen session cookie, which is why IncomingTokenType is "none" and no fresh token was issued, not a Primary Refresh Token, which is device-bound and cannot be phished this way. The device fields are empty: no deviceId, isManaged false, isCompliant false, MacOs and Firefox instead of Windows 11 and Edge. MFA is recorded as satisfied, but by a claim carried inside the replayed cookie rather than by any challenge anyone answered. Those three facts together are what convert the impossible-travel hypothesis into a verdict; the map alone never could, and "she must be on a VPN" is a claim the gateway log had already disproved.
 
-What the intruder did next removes any doubt. Everything from 08:27 onwards shares SessionId a4f8c1d2-7b93-4e15-8c60-3d29f7a1b504. At 08:33 a rule called "AP sync" was created on the mailbox, forwarding anything matching invoice, remittance, bank details, IBAN or payment to ap-archive.2026@securemaildrop.net and moving the originals into RSS Subscriptions marked as read (T1114.003). At 08:41 the Vendor Banking folder was read in bulk — 812 items in a single sync (T1114.002). At 08:52 a message went out to a supplier contact at ridgeline-supply.com with new remittance details attached, composed and sent inside the same session as the inbox rule and the bulk read.
+What the intruder did next removes any doubt. Everything from 08:27 onwards shares SessionId a4f8c1d2-7b93-4e15-8c60-3d29f7a1b504. At 08:33 a rule called "AP sync" was created on the mailbox, forwarding anything matching invoice, remittance, bank details, IBAN or payment to ap-archive.2026@securemaildrop.net and moving the originals into RSS Subscriptions marked as read (T1114.003). At 08:41 the Vendor Banking folder was read in bulk, 812 items in a single sync (T1114.002). At 08:52 a message went out to a supplier contact at ridgeline-supply.com with new remittance details attached, composed and sent inside the same session as the inbox rule and the bulk read.
 
 Containment is an identity action, not a host action: revoke the account's refresh tokens so the stolen session dies, force a password reset, delete the "AP sync" rule, and tell accounts payable to phone the supplier on a number from the contract rather than one from any email.`,
     learning_objectives: [
       "Treat an impossible-travel alert as a hypothesis and name the specific fields that would confirm or refute it, rather than deciding from the map",
-      "Test the innocent explanation with evidence — read the VPN gateway log for session start, end and public egress address instead of assuming a VPN was involved",
+      "Test the innocent explanation with evidence, read the VPN gateway log for session start, end and public egress address instead of assuming a VPN was involved",
       "Compare DeviceDetail, AutonomousSystemNumber and UserAgent against the user's own baseline sign-in to tell a different network from a different machine",
       "Read AuthenticationDetails to see how MFA was satisfied, and recognise that a requirement met by a claim in a replayed session cookie means no challenge was ever answered",
       "Trace an AiTM session-theft back to the proxy sign-in that minted it, and know a stolen session cookie (IncomingTokenType none) is not a device-bound Primary Refresh Token",
@@ -257,10 +257,10 @@ Containment is an identity action, not a host action: revoke the account's refre
       { ts: T(0), phase: "Baseline", action: "d.harel signs in from London on LT-FIN-3390 with an Authenticator push" },
       { ts: T(74 * MIN), phase: "Initial Access", action: "Lookalike re-verification email delivered to the inbox" },
       { ts: T(78 * MIN + 55_000), phase: "Credential Access", action: "Laptop's Edge loads the lookalike page (proxy GET 200); no child process follows" },
-      { ts: T(79 * MIN), phase: "Credential Access", action: "Laptop POSTs to nexacorp-signin-verify.com from home — AiTM proxy captures the session (T1539)" },
+      { ts: T(79 * MIN), phase: "Credential Access", action: "Laptop POSTs to nexacorp-signin-verify.com from home, AiTM proxy captures the session (T1539)" },
       { ts: T(79 * MIN + 40_000), phase: "Credential Access", action: "AiTM proxy relays password + MFA to Entra; sign-in completes from Amsterdam (T1557)" },
-      { ts: T(88 * MIN), phase: "Context", action: "Corporate VPN session ends — nothing after this came through the gateway" },
-      { ts: T(135 * MIN), phase: "Valid Accounts", action: "Stolen session replayed from 146.190.62.117, unmanaged device, same SessionId as the Amsterdam relay" },
+      { ts: T(88 * MIN), phase: "Context", action: "Corporate VPN session ends, nothing after this came through the gateway" },
+      { ts: T(135 * MIN), phase: "Valid Accounts", action: "Stolen session replayed from 203.0.113.117, unmanaged device, same SessionId as the Amsterdam relay" },
       { ts: T(137 * MIN), phase: "Detection", action: "Sentinel raises the impossible-travel anomaly" },
       { ts: T(141 * MIN), phase: "Persistence", action: "\"AP sync\" inbox rule forwards payment mail out and hides the originals" },
       { ts: T(149 * MIN), phase: "Collection", action: "812 items read in one sync from the Vendor Banking folder" },

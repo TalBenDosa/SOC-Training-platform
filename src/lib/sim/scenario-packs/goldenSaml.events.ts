@@ -14,6 +14,7 @@ import { entraSignIn, entraAudit } from "@/lib/sim/emitters/entra";
 import { sentinelAlert } from "@/lib/sim/emitters/sentinel";
 import { m365Operation } from "@/lib/sim/emitters/m365";
 import { csProcess, csFile, csNetwork } from "@/lib/sim/emitters/crowdstrike";
+import { placeDocAddresses, PLACES } from "./docGeo";
 
 /** Telemetry half of the goldenSaml scenario: the events and the story title, no answer key. */
 export function goldenSamlScenarioEvents() {
@@ -56,8 +57,8 @@ export function goldenSamlScenarioEvents() {
 
   // Addresses: the attacker's external host (drives the forged sign-ins) and the
   // corporate egress the benign user comes from.
-  const attackerIp = "185.220.101.61";
-  const corpEgressIp = "91.132.92.24";
+  const attackerIp = "203.0.113.61";
+  const corpEgressIp = "203.0.113.85";
 
   // The exported token-signing certificate's private-key file (the stolen key
   // material). Its hash is the durable indicator of the theft.
@@ -217,7 +218,7 @@ export function goldenSamlScenarioEvents() {
       app: "Microsoft Azure Management", appId: "84070985-06ea-473d-82fe-eb82b4011c9d", resource: "Windows Azure Service Management API",
       federatedTokenId: "b3d90c26-51e8-4f77-a4d2-9e6b1c7f0a35",
       mitre: "T1606.002", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
-      description: "Entra ID accepted a federated (ADFederationServices) sign-in for the Global Administrator a.whitfield from 185.220.101.61 at 03:11, MFA recorded as satisfied by a claim in the token, with no corresponding token-issuance record on ADFS-NEXA-01.",
+      description: "Entra ID accepted a federated (ADFederationServices) sign-in for the Global Administrator a.whitfield from 203.0.113.61 at 03:11, MFA recorded as satisfied by a claim in the token, with no corresponding token-issuance record on ADFS-NEXA-01.",
     }),
 
     // 7. FORGE ANY USER, a second minted token, this time GA m.abbott (T1078.004).
@@ -227,7 +228,7 @@ export function goldenSamlScenarioEvents() {
       app: "Microsoft Graph", appId: "00000003-0000-0000-c000-000000000000", resource: "Microsoft Graph",
       federatedTokenId: "d5a71e08-3c92-4b46-8f13-2a9e6c0b7d51",
       mitre: "T1078.004", tactic: "Stealth", severity: "critical", incidentId: INCIDENT,
-      description: "A second federated sign-in from 185.220.101.61 minutes later, this time for the Cloud Administrator m.abbott, again ADFederationServices, again with no matching AD FS issuance on ADFS-NEXA-01.",
+      description: "A second federated sign-in from 203.0.113.61 minutes later, this time for the Cloud Administrator m.abbott, again ADFederationServices, again with no matching AD FS issuance on ADFS-NEXA-01.",
     }),
 
     // 8. THE TOKEN IN USE, the a.whitfield assertion exchanged into the directory API (T1550.001).
@@ -259,7 +260,7 @@ export function goldenSamlScenarioEvents() {
         "azure.auditlogs.target_resources.id": "5d2c8e41-7a93-4f06-b1d8-3e9a0c6f2b57",
         "data.office365.ModifiedProperties": "[KeyIdentifier=2f8c1d94-6b07-4e53-a9c2-18d7e0f4b365;KeyType=Password;KeyUsage=Verify;DisplayName=sync-key]",
       },
-      description: "a.whitfield, from 185.220.101.61, added a new password credential to the existing service principal NexaCorp HR Sync.",
+      description: "a.whitfield, from 203.0.113.61, added a new password credential to the existing service principal NexaCorp HR Sync.",
     }),
     entraAudit({
       companyId: cx, id: "evt_gs_09_add_role_member", ts: T(19 * MIN + 40 * SEC), incidentId: INCIDENT,
@@ -278,7 +279,7 @@ export function goldenSamlScenarioEvents() {
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].oldValue": "[]",
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].newValue": "\"Global Reader\"",
       },
-      description: "a.whitfield, from 185.220.101.61, added m.abbott to the Global Reader role.",
+      description: "a.whitfield, from 203.0.113.61, added m.abbott to the Global Reader role.",
     }),
 
     // 10. THE DETECTION, Sentinel: SAML tokens accepted with no matching AD FS issuance.
@@ -318,9 +319,11 @@ export function goldenSamlScenarioEvents() {
       operation: "MailItemsAccessed", workload: "Exchange", userAgent: "python-requests/2.31.0", severity: "high",
       mitre: "T1114.002", tactic: "Collection",
       extra: { "RecordType": "50", "ClientInfoString": "Client=REST;Client=RESTSystem;;" },
-      description: "The Exchange audit log recorded MailItemsAccessed for m.abbott from 185.220.101.61.",
+      description: "The Exchange audit log recorded MailItemsAccessed for m.abbott from 203.0.113.61.",
     }), geo: { country: "Germany", city: "Frankfurt" } },
   ];
 
+  // Where this story puts its documentation addresses (docGeo.ts, R5 with coherent geography).
+  placeDocAddresses(events, { "203.0.113.61": PLACES.frankfurt });
   return { title, events, B, T, MIN, SEC, INCIDENT, tenantId, domain, adfs, dc, svcAdfs, svcAdfsSid, issuerUri, relyingParty, ga1, ga2, ga1Sid, benign, attackerIp, corpEgressIp, signingKeyFileHash, dumpToolHash, pivot, ga1UserId, ga2UserId, benignFedTokenId, cx };
 }

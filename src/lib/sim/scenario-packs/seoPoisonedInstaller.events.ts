@@ -63,7 +63,7 @@ export function seoPoisonedInstallerScenarioEvents() {
     panWeb({
       ...mde, id: "evt_spi_01_ad_click", ts: T(0), severity: "medium",
       url: `https://${lookalike}/download`, domain: lookalike, category: "newly-registered-domain",
-      action: "alert", dstIp: "146.70.108.44", status: 200, bytesIn: 41_280,
+      action: "alert", dstIp: "203.0.113.44", status: 200, bytesIn: 41_280,
       referer: "https://www.googleadservices.com/pagead/aclk?sa=L&ai=DChc&adurl=https://puttysoftware-download.com/download",
       userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0.0.0 Safari/537.36",
       userTitle: "Systems Administrator", mitre: "T1608.006", tactic: "Resource Development",
@@ -73,7 +73,7 @@ export function seoPoisonedInstallerScenarioEvents() {
     panWeb({
       ...mde, id: "evt_spi_02_download", ts: T(45_000), severity: "medium",
       url: `https://${lookalike}/download/PuTTY-0.83-installer.exe`, domain: lookalike,
-      category: "newly-registered-domain", action: "alert", dstIp: "146.70.108.44",
+      category: "newly-registered-domain", action: "alert", dstIp: "203.0.113.44",
       status: 200, bytesIn: 1_812_224, mitre: "T1608.006", tactic: "Resource Development",
       file: { name: "PuTTY-0.83-installer.exe", path: "/download/PuTTY-0.83-installer.exe", sha256: installerHash, size: 1_812_224 },
       description: "Forty-five seconds later the same browser session downloaded PuTTY-0.83-installer.exe from puttysoftware-download.com.",
@@ -97,7 +97,7 @@ export function seoPoisonedInstallerScenarioEvents() {
     // 3a. DNS for the lookalike, from the browser (the lookup precedes the first request).
     initiatedBy(mdeDns({
       ...mde, id: "evt_spi_00_dns_lookalike", ts: T(-2_000), severity: "low",
-      domain: lookalike, resolvedIp: "146.70.108.44",
+      domain: lookalike, resolvedIp: "203.0.113.44",
       description: "chrome.exe on LAP-3312 resolved puttysoftware-download.com.",
     }), CHROME, `"${CHROME.path}"`),
 
@@ -118,20 +118,20 @@ export function seoPoisonedInstallerScenarioEvents() {
     // ---------------------------------------------------------------------
     initiatedBy(mdeDns({
       ...mde, id: "evt_spi_05a_dns_c2", ts: T(3 * MIN + 13_000), severity: "medium",
-      domain: c2, resolvedIp: "185.212.44.19", mitre: "T1105", tactic: "Command and Control",
+      domain: c2, resolvedIp: "203.0.113.20", mitre: "T1105", tactic: "Command and Control",
       description: "PuTTY-0.83-installer.exe on LAP-3312 resolved cdn-assets-relay92.net.",
     }), INSTALLER),
     initiatedBy(mdeNetwork({
       ...mde, id: "evt_spi_05b_stage2_conn", ts: T(3 * MIN + 14_000), severity: "high",
-      remoteIp: "185.212.44.19", remotePort: 443, application: "tls", domain: c2,
+      remoteIp: "203.0.113.20", remotePort: 443, application: "tls", domain: c2,
       url: `https://${c2}/dist/upd_helper.exe`, initiatingProcess: "PuTTY-0.83-installer.exe",
       mitre: "T1105", tactic: "Command and Control",
-      description: "PuTTY-0.83-installer.exe (pid 7744) connected to 185.212.44.19:443 and requested https://cdn-assets-relay92.net/dist/upd_helper.exe.",
+      description: "PuTTY-0.83-installer.exe (pid 7744) connected to 203.0.113.20:443 and requested https://cdn-assets-relay92.net/dist/upd_helper.exe.",
     }), INSTALLER),
     panWeb({
       ...mde, id: "evt_spi_05_stage2_fetch", ts: T(3 * MIN + 14_000), severity: "critical",
       url: `https://${c2}/dist/upd_helper.exe`, domain: c2, category: "unknown",
-      action: "alert", dstIp: "185.212.44.19", status: 200, bytesIn: 3_251_712,
+      action: "alert", dstIp: "203.0.113.20", status: 200, bytesIn: 3_251_712,
       mitre: "T1105", tactic: "Command and Control",
       file: { name: "upd_helper.exe", path: "/dist/upd_helper.exe", sha256: stealerHash, size: 3_251_712 },
       description: "At 14:23:14 the installer process fetched upd_helper.exe, 3.1 MB, from cdn-assets-relay92.net, infrastructure with no relationship to puttysoftware-download.com.",
@@ -182,17 +182,17 @@ export function seoPoisonedInstallerScenarioEvents() {
     panWeb({
       ...mde, id: "evt_spi_09_exfil", ts: T(7 * MIN), severity: "critical",
       method: "POST", url: `https://${c2}/collect`, domain: c2, category: "unknown",
-      action: "allow", dstIp: "185.212.44.19", status: 200, bytesOut: 348_112, bytesIn: 96,
+      action: "allow", dstIp: "203.0.113.20", status: 200, bytesOut: 348_112, bytesIn: 96,
       mitre: "T1041", tactic: "Exfiltration",
       description: "At 14:27:00 the host POSTed a 340 KB multipart payload to cdn-assets-relay92.net/collect, allowed under the category unknown.",
     }),
 
     initiatedBy(mdeNetwork({
       ...mde, id: "evt_spi_09b_exfil_conn", ts: T(6 * MIN + 59_800), severity: "critical",
-      remoteIp: "185.212.44.19", remotePort: 443, application: "tls", domain: c2,
+      remoteIp: "203.0.113.20", remotePort: 443, application: "tls", domain: c2,
       url: `https://${c2}/collect`, initiatingProcess: "upd_helper.exe",
       mitre: "T1041", tactic: "Exfiltration",
-      description: "upd_helper.exe (pid 7801) connected to 185.212.44.19:443 and requested https://cdn-assets-relay92.net/collect.",
+      description: "upd_helper.exe (pid 7801) connected to 203.0.113.20:443 and requested https://cdn-assets-relay92.net/collect.",
     }), STEALER, "upd_helper.exe"),
 
     // Defender's antivirus engine quarantines the payload; the file leaves disk.

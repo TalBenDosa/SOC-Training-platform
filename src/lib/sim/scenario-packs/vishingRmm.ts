@@ -76,8 +76,8 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
   const anydeskPath = `C:\\Users\\${victim.sam}\\Downloads\\AnyDesk.exe`;
   const downloadHost = "download.anydesk.com";
   const relayHost = "relay-fra-3.net.anydesk.com";
-  const relayIp = "51.83.131.52";
-  const stagingIp = "45.86.230.14";
+  const relayIp = "203.0.113.69";
+  const stagingIp = "203.0.113.15";
   const stagingUrl = `http://${stagingIp}/support/qb-agent.msi`;
   const msiHash = makeSha256("vishing_rmm_qb_agent_msi_staged_2026");
   const msiPath = `C:\\Users\\${victim.sam}\\AppData\\Local\\Temp\\qb-agent.msi`;
@@ -126,6 +126,8 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
         "servicenow.category": "Software",
         "servicenow.contact_type": "Self-service",
         "servicenow.priority": "4 - Low",
+        "servicenow.u_identity_verification": "Caller signed in to the self-service portal with SSO and MFA",
+        "servicenow.u_verification_result": "Passed",
         "servicenow.state": "In Progress",
         "servicenow.caller_id": benign.email,
         "servicenow.opened_by": benign.email,
@@ -1057,7 +1059,7 @@ At 13:20 the IT Service Desk logged ticket INC0092571 for p.roth, a payments ope
 
 Three minutes later, at 13:23, the Zscaler proxy allowed a download of AnyDesk.exe from download.anydesk.com. At 13:24 p.roth launched it from her Downloads folder; it ran from there as a portable copy rather than a managed install. Falcon recorded the binary as fully signed and trusted (AnyDesk Software GmbH), because it is genuinely the real AnyDesk, not malware. Nothing about the file is wrong; everything about the context is. AnyDesk is not deployed anywhere in the bank's estate, its approved remote tool is ScreenConnect, and this copy was run interactively from a user folder immediately after an unsolicited call. The tool then connected out to the AnyDesk cloud relay relay-fra-3.net.anydesk.com over 443 (T1219), and Defender for Endpoint logged the connection from the host side seconds before the proxy logged it on completion.
 
-With the operator now on the keyboard, the session went to work. At 13:26 AnyDesk started cmd.exe, which ran whoami /all (T1033), then net group "Domain Admins" /domain (T1087.002), then nltest /domain_trusts /all_trusts (T1482), identity, privileged-group and trust reconnaissance a payments clerk's workstation has no reason to perform; the domain controller recorded p.roth's network logon from the workstation and the samr and netlogon pipe accesses that those commands produce. At 13:32 AnyDesk spawned a hidden PowerShell that used Invoke-WebRequest to pull qb-agent.msi from a raw-IP host, 45.86.230.14, and wrote it to the user's Temp folder (T1059.001), staging follow-on tooling. Two minutes later Falcon correlated the unmanaged RMM and the discovery burst into a single High detection.
+With the operator now on the keyboard, the session went to work. At 13:26 AnyDesk started cmd.exe, which ran whoami /all (T1033), then net group "Domain Admins" /domain (T1087.002), then nltest /domain_trusts /all_trusts (T1482), identity, privileged-group and trust reconnaissance a payments clerk's workstation has no reason to perform; the domain controller recorded p.roth's network logon from the workstation and the samr and netlogon pipe accesses that those commands produce. At 13:32 AnyDesk spawned a hidden PowerShell that used Invoke-WebRequest to pull qb-agent.msi from a raw-IP host, 203.0.113.15, and wrote it to the user's Temp folder (T1059.001), staging follow-on tooling. Two minutes later Falcon correlated the unmanaged RMM and the discovery burst into a single High detection.
 
 The case is deliberately uncomfortable for an analyst who trusts signatures: the binary at the centre of it verifies perfectly. The verdict comes only from reading the tool against its context, an RMM the org does not use, installed on the word of an inbound caller, driving an external operator's discovery of the domain, and against the sanctioned ScreenConnect session that proves the same shape can be entirely legitimate when the provenance is accountable.`,
     learning_objectives: [

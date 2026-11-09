@@ -7,7 +7,7 @@
  * a service account walking thousands of files at machine speed, VSS activity,
  * and large files with an unfamiliar extension appearing fast.
  *
- * The discriminating evidence is present and findable in the telemetry — it is
+ * The discriminating evidence is present and findable in the telemetry, it is
  * never stated as a conclusion. The student has to go and read it.
  */
 
@@ -49,7 +49,7 @@ export function buildBackupFalsePositiveScenario(
   const changeTicket = "CHG0041887";
 
   // EDR↔scenario integration (Phase 4): one incident, endpoint-primary →
-  // edr_scope "edr". This is a FALSE POSITIVE — the EDR ransomware-behaviour
+  // edr_scope "edr". This is a FALSE POSITIVE, the EDR ransomware-behaviour
   // alert is the single detection, investigated in the EDR console and resolved
   // benign. Everything else is corroborating telemetry in the process tree.
   const INCIDENT = "inc:bkpfp:1";
@@ -61,11 +61,11 @@ export function buildBackupFalsePositiveScenario(
     // 1. The change that explains the new schedule (the day before).
     serviceNowRecord({
       companyId: cx, id: "evt_bkpfp_01_change", ts: T(0), table: "change_request", number: changeTicket, state: "Scheduled",
-      shortDescription: "Backup policy change — FS-PROD-04 weekly full at 02:00", severity: "informational",
+      shortDescription: "Backup policy change, FS-PROD-04 weekly full at 02:00", severity: "informational",
       extra: {
         "servicenow.approval": "Approved", "servicenow.type": "Normal", "servicenow.risk": "Moderate",
         "servicenow.assignment_group": "Infrastructure Operations", "servicenow.requested_by": "r.mizrahi@nexacorp.com",
-        "servicenow.approved_by": "CAB — Infrastructure", "servicenow.cmdb_ci": "FS-PROD-04",
+        "servicenow.approved_by": "CAB, Infrastructure", "servicenow.cmdb_ci": "FS-PROD-04",
         "servicenow.start_date": "2026-03-17 02:00:00", "servicenow.end_date": "2026-03-17 05:00:00", "servicenow.sys_updated_on": "2026-03-16 14:20:00",
         "servicenow.description": "Move the FS-PROD-04 Veeam job from the nightly incremental at 23:00 to a weekly full at 02:00 (times UTC). Repository: BKP-REPO-01. Job runs as svc_bkp_agent.",
       },
@@ -87,7 +87,7 @@ export function buildBackupFalsePositiveScenario(
       description: "VeeamAgent.exe started on FS-PROD-04 as svc_bkp_agent with services.exe as its parent and /mode:incremental on the command line, the previous evening under the old 23:00 schedule.",
     }),
 
-    // 2. Service logon for the backup account — LogonType 5.
+    // 2. Service logon for the backup account, LogonType 5.
     winLogon({
       companyId: cx, id: "evt_bkpfp_02_svc_logon", ts: T(W), host: fileServer.hostname, fqdn: fsFqdn, userEmail: svcAccount.email,
       targetUser: svcAccount.name, targetSid: svcSid, subjectUser: "FS-PROD-04$", subjectSid: "S-1-5-18", logonId: "0x1C4A9E3",
@@ -96,7 +96,7 @@ export function buildBackupFalsePositiveScenario(
       description: "NEXACORP\\svc_bkp_agent logged on to FS-PROD-04 with LogonType 5, issued by services.exe under the local system account (Event 4624).",
     }),
 
-    // 3. AMBIGUOUS #1 — heavy file-system privileges (4672).
+    // 3. AMBIGUOUS #1, heavy file-system privileges (4672).
     winSpecialPrivileges({
       companyId: cx, id: "evt_bkpfp_03_privileges", ts: T(W + 2_000), host: fileServer.hostname, fqdn: fsFqdn, userEmail: svcAccount.email,
       targetUser: svcAccount.name, targetSid: svcSid, logonId: "0x1C4A9E3",
@@ -105,7 +105,7 @@ export function buildBackupFalsePositiveScenario(
       description: "The svc_bkp_agent logon session on FS-PROD-04 was assigned SeBackupPrivilege, SeRestorePrivilege, SeSecurityPrivilege and SeTakeOwnershipPrivilege (Event 4672).",
     }),
 
-    // 4. The agent process — signed vendor binary, SCM parent.
+    // 4. The agent process, signed vendor binary, SCM parent.
     mdeProcess({
       companyId: cx, id: "evt_bkpfp_04_agent_start", ts: T(W + 5_000), host: fileServer.hostname, srcIp: fileServer.ip, user: svcAccount.email,
       processName: "VeeamAgent.exe", processPath: "C:\\Program Files\\Veeam\\Backup and Replication\\Backup\\VeeamAgent.exe",
@@ -120,7 +120,7 @@ export function buildBackupFalsePositiveScenario(
       description: "VeeamAgent.exe started on FS-PROD-04 as svc_bkp_agent with services.exe as its parent, carrying a backup job GUID and /mode:full on the command line.",
     }),
 
-    // 5. VSS — a snapshot is CREATED (inverse of ransomware behaviour).
+    // 5. VSS, a snapshot is CREATED (inverse of ransomware behaviour).
     mdeProcess({
       companyId: cx, id: "evt_bkpfp_05_vss", ts: T(W + 25_000), host: fileServer.hostname, srcIp: fileServer.ip, user: svcAccount.email,
       processName: "vssadmin.exe", processPath: "C:\\Windows\\System32\\vssadmin.exe", cmdline: "vssadmin.exe create shadow /for=D:",
@@ -210,7 +210,7 @@ export function buildBackupFalsePositiveScenario(
       return e;
     })(),
 
-    // 9. THE ALARM — EDR ransomware-behaviour heuristic (the false-positive detection).
+    // 9. THE ALARM, EDR ransomware-behaviour heuristic (the false-positive detection).
     {
       ...mdeAlert({
         companyId: cx, id: "evt_bkpfp_09_edr_alert", ts: T(W + 7 * MIN), host: fileServer.hostname, srcIp: fileServer.ip, user: svcAccount.email,
@@ -225,7 +225,7 @@ export function buildBackupFalsePositiveScenario(
       edr_scope: "edr",
     },
 
-    // 10. SIEM correlation — the aggregates that make the FP legible.
+    // 10. SIEM correlation, the aggregates that make the FP legible.
     sentinelAlert({
       companyId: cx, id: "evt_bkpfp_10_correlation", ts: T(W + 8 * MIN), host: fileServer.hostname, srcIp: fileServer.ip, user: svcAccount.email,
       eventType: "ueba_anomaly", alertName: "HighVolumeFileAccess_SingleAccount", ruleId: "SEN-FILE-0231", severity: "high",
@@ -302,10 +302,10 @@ export function buildBackupFalsePositiveScenario(
         "Which PAIR of events, read together, best explains why the job ran at 02:00 and argues it was not started ad hoc by a person on the box?",
       kind: "single",
       options: [
-        { value: "change_start", label: "Change CHG0041887 plus the VeeamAgent.exe start — an approved 02:00 window, then a process launched by services.exe" },
-        { value: "logon_priv", label: "The svc_bkp_agent LogonType 5 logon plus its Event 4672 grant — only a sanctioned job is handed SeBackupPrivilege" },
-        { value: "vss_write", label: "The vssadmin snapshot plus the 26 GB .vbk write — a shadow copy, then a repository container, the textbook backup shape" },
-        { value: "alert_corr", label: "The Defender alert plus the Sentinel summary — no remediation and zero writes, so nobody at the console intervened" },
+        { value: "change_start", label: "Change CHG0041887 plus the VeeamAgent.exe start, an approved 02:00 window, then a process launched by services.exe" },
+        { value: "logon_priv", label: "The svc_bkp_agent LogonType 5 logon plus its Event 4672 grant, only a sanctioned job is handed SeBackupPrivilege" },
+        { value: "vss_write", label: "The vssadmin snapshot plus the 26 GB .vbk write, a shadow copy, then a repository container, the textbook backup shape" },
+        { value: "alert_corr", label: "The Defender alert plus the Sentinel summary, no remediation and zero writes, so nobody at the console intervened" },
       ],
       answer: "change_start",
       xp: 40,
@@ -334,15 +334,15 @@ export function buildBackupFalsePositiveScenario(
         "vssadmin.exe running is a classic ransomware indicator. What does evt_bkpfp_05_vss actually show it doing?",
       kind: "single",
       options: [
-        { value: "create", label: "vssadmin create shadow — a snapshot was added, not removed" },
-        { value: "delete", label: "vssadmin delete shadows — existing recovery points were destroyed" },
-        { value: "resize", label: "vssadmin resize shadowstorage — the snapshot area was shrunk to nothing" },
-        { value: "list", label: "vssadmin list shadows — existing snapshots were only enumerated" },
+        { value: "create", label: "vssadmin create shadow, a snapshot was added, not removed" },
+        { value: "delete", label: "vssadmin delete shadows, existing recovery points were destroyed" },
+        { value: "resize", label: "vssadmin resize shadowstorage, the snapshot area was shrunk to nothing" },
+        { value: "list", label: "vssadmin list shadows, existing snapshots were only enumerated" },
       ],
       answer: "create",
       xp: 50,
       explanation:
-        "The verb is the whole answer. Ransomware runs `delete shadows` or `resize shadowstorage /maxsize=1MB` (both T1490, Inhibit System Recovery) so the victim cannot roll back. Backup software runs `create shadow` so it can read open and locked files consistently — it is adding a recovery point, the exact opposite intent. `list` is reconnaissance and would be neutral here. If you alert on the string 'vssadmin' rather than on the sub-command, you will page someone for every backup job in the estate.",
+        "The verb is the whole answer. Ransomware runs `delete shadows` or `resize shadowstorage /maxsize=1MB` (both T1490, Inhibit System Recovery) so the victim cannot roll back. Backup software runs `create shadow` so it can read open and locked files consistently, it is adding a recovery point, the exact opposite intent. `list` is reconnaissance and would be neutral here. If you alert on the string 'vssadmin' rather than on the sub-command, you will page someone for every backup job in the estate.",
     },
     {
       id: "q4",
@@ -375,21 +375,21 @@ export function buildBackupFalsePositiveScenario(
       answer: "delete_rewrite",
       xp: 70,
       explanation:
-        "Those two findings together have no benign reading: destroying recovery points serves only the attacker, and rewriting originals in place is the definition of encryption for impact (T1486 plus T1490). Option (b) is fully explained by CHG0041887 — a schedule change is a change, not a compromise. Option (c) is required for the software to function at all; the privilege being present is expected, the question is only whether the right process holds it. Option (d) is the machine-speed access that made the heuristic fire in the first place, and it is normal for any backup agent. The lesson is that closing benign is a positive claim: you close on evidence you found, and you name in the ticket which evidence would have changed your mind.",
+        "Those two findings together have no benign reading: destroying recovery points serves only the attacker, and rewriting originals in place is the definition of encryption for impact (T1486 plus T1490). Option (b) is fully explained by CHG0041887, a schedule change is a change, not a compromise. Option (c) is required for the software to function at all; the privilege being present is expected, the question is only whether the right process holds it. Option (d) is the machine-speed access that made the heuristic fire in the first place, and it is normal for any backup agent. The lesson is that closing benign is a positive claim: you close on evidence you found, and you name in the ticket which evidence would have changed your mind.",
     },
   ];
 
   return {
     scenario_id: scenarioId,
     title: "Overnight behaviour alert on a production file server",
-    threat_actor: "None — benign scheduled operations activity",
+    threat_actor: "None, benign scheduled operations activity",
     attack_kind: "false_positive",
     briefing: "Microsoft Defender for Endpoint fired a HIGH-severity alert, \"Ransomware behavior detected\", on production file server FS-PROD-04 at 02:07: mass file access across the finance shares by a single process, plus volume shadow copy activity. Nothing was blocked or terminated. Night shift is holding for an isolate decision.",
     narrative: `At 02:07 a HIGH-severity Microsoft Defender for Endpoint alert titled "Ransomware behavior detected" fires on FS-PROD-04, one of NexaCorp's production file servers. In the preceding minutes a single process, running as the service account svc_bkp_agent, opened tens of thousands of files across the finance shares at machine speed, touched Volume Shadow Copy Service, and produced multi-gigabyte files with an extension nobody on the shift recognises. Every ingredient of a live ransomware deployment appears to be on the table, and the on-call is already reaching for host isolation.
 
-Isolating this server at 02:07 would kill the company's only full backup of the finance data and cost the night shift several hours. Before you pull the cable, work the evidence: who started the process and on whose authority, what the binary actually is, what was done to the original files, and which direction the shadow-copy operation went. The answer is in the telemetry — but only if you read the command lines and the access masks rather than the alert title.`,
+Isolating this server at 02:07 would kill the company's only full backup of the finance data and cost the night shift several hours. Before you pull the cable, work the evidence: who started the process and on whose authority, what the binary actually is, what was done to the original files, and which direction the shadow-copy operation went. The answer is in the telemetry, but only if you read the command lines and the access masks rather than the alert title.`,
     learning_objectives: [
-      "Support a 'benign' verdict with positive corroborating evidence — a change record plus a service-controlled start — rather than with the absence of badness",
+      "Support a 'benign' verdict with positive corroborating evidence, a change record plus a service-controlled start, rather than with the absence of badness",
       "Use code signature, install path and parent process to validate a process as a genuine vendor product instead of a masquerading binary",
       "Read Volume Shadow Copy operations by sub-command: creating a snapshot supports recovery, deleting or resizing one destroys it (T1490)",
       "Distinguish backup file activity (read-only access, output to a separate target) from ransomware file activity (in-place rewrite and rename)",
@@ -400,12 +400,12 @@ Isolating this server at 02:07 would kill the company's only full backup of the 
     events,
     iocs,
     killchain: [
-      { ts: T(0), phase: "Authorised Change", action: `${changeTicket} approved — FS-PROD-04 moves to a weekly full backup at 02:00` },
+      { ts: T(0), phase: "Authorised Change", action: `${changeTicket} approved, FS-PROD-04 moves to a weekly full backup at 02:00` },
       { ts: T(8 * HOUR + 40 * MIN + 4_000), phase: "Baseline", action: "The same signed VeeamAgent.exe ran the old nightly incremental at 23:00 under svc_bkp_agent" },
       { ts: T(W), phase: "Scheduled Start", action: "Service Control Manager logs on svc_bkp_agent (LogonType 5) and starts the job" },
-      { ts: T(W + 25_000), phase: "Snapshot", action: "vssadmin create shadow /for=D: — a recovery point is added before reading" },
+      { ts: T(W + 25_000), phase: "Snapshot", action: "vssadmin create shadow /for=D:, a recovery point is added before reading" },
       { ts: T(W + MIN), phase: "Bulk Read", action: "41,208 files opened with ReadData across the D:\\Finance shares" },
-      { ts: T(W + 4 * MIN), phase: "Backup Write", action: "26 GB .vbk container written to \\\\BKP-REPO-01\\repo01 — originals untouched" },
+      { ts: T(W + 4 * MIN), phase: "Backup Write", action: "26 GB .vbk container written to \\\\BKP-REPO-01\\repo01, originals untouched" },
       { ts: T(W + 6 * MIN), phase: "Vendor Check-in", action: "VeeamAgent.exe resolves update.veeam.com and opens a short TLS session to 104.18.27.94:443" },
       { ts: T(W + 7 * MIN), phase: "Detection", action: "EDR behavioural heuristic fires HIGH, no block, no process termination" },
       { ts: T(W + 8 * MIN), phase: "Triage", action: "SIEM correlation shows zero writes, zero renames, zero new persistence" },

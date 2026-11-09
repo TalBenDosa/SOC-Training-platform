@@ -2,19 +2,19 @@
  * Pure, deterministic scoring for the scenario incident report.
  *
  * Extracted from `src/app/api/scenarios/[slug]/grade/route.ts` so the rubric can
- * be unit-tested in isolation — the route itself does auth, bundle resolution and
+ * be unit-tested in isolation, the route itself does auth, bundle resolution and
  * an optional LLM call, none of which the scoring depends on. Keep this in lockstep
  * with the route: the route now just calls `scoreScenarioReport()`.
  *
  * The evidence rule is the sensitive part. "Any indication that aids the
- * investigation counts as an IOC" — an indicator the analyst pulled from the
- * telemetry (not only the curated `bundle.iocs`) earns credit — but that must not
+ * investigation counts as an IOC", an indicator the analyst pulled from the
+ * telemetry (not only the curated `bundle.iocs`) earns credit, but that must not
  * become free points for typing junk. Two guards make it safe:
  *   1. `collectLeafValues` matches only leaf VALUES, never object keys (so field
  *      names like "vendor"/"hostname" can't be "cited").
  *   2. `looksLikeIndicator` requires a freely-typed value to have indicator shape
  *      before it may match the telemetry (so common stopwords can't match a
- *      description's prose). Curated `bundle.iocs` matches are exempt — they're
+ *      description's prose). Curated `bundle.iocs` matches are exempt, they're
  *      vetted content.
  *   3. CREDIT needs a whole value or a whole token of one (split on separators
  *      such as / \ : = , and whitespace), never an arbitrary substring. With
@@ -52,7 +52,7 @@ export interface ReportScoreResult {
 
 // Well-known-benign addresses that are never a hostile indicator. Citing a public
 // DNS resolver as an IOC is a Tier-1 precision error, the same class as tagging the
-// victim's own asset — it is penalised, not credited. (Kept deliberately small and
+// victim's own asset, it is penalised, not credited. (Kept deliberately small and
 // unambiguous; the victim's own internal IP can't be detected generically here.)
 const BENIGN_INDICATORS = new Set<string>([
   "8.8.8.8", "8.8.4.4",           // Google Public DNS
@@ -63,7 +63,7 @@ const BENIGN_INDICATORS = new Set<string>([
 
 /**
  * Recursively flattens telemetry down to its leaf string/number/boolean VALUES
- * only — never object keys. `JSON.stringify(events)` was tried first and rejected:
+ * only, never object keys. `JSON.stringify(events)` was tried first and rejected:
  * it embeds every field NAME too ("vendor", "hostname", "process" are all literal
  * substrings of that blob), so typing the word "vendor" as a cited indicator would
  * "find" it. Restricting to values closes that hole.
@@ -154,19 +154,19 @@ export function scoreScenarioReport(input: ReportScoreInput): ReportScoreResult 
   const looksLikeIndicator = (v: string) => v.length >= 6 || /[\d@._-]/.test(v);
   /** Earns credit: a curated IOC, or a whole value / whole token seen in the telemetry. */
   const isRealValue = (v: string) => realValues.has(v) || (looksLikeIndicator(v) && isIocShaped(v) && leafTokens.has(v));
-  /** Grounded in the telemetry at all (fabrication check only — deliberately lenient). */
+  /** Grounded in the telemetry at all (fabrication check only, deliberately lenient). */
   const isGroundedValue = (v: string) => realValues.has(v) || (looksLikeIndicator(v) && eventsBlob.includes(v));
 
   const citedValues = new Set(
     indicators.map(i => String(i.value).toLowerCase().trim()).filter(Boolean),
   );
 
-  // Curated KEY indicators named — for honest "X/Y key indicators" feedback only.
+  // Curated KEY indicators named, for honest "X/Y key indicators" feedback only.
   const iocsCited = scenarioIocValues.filter(
     v => citedValues.has(v) || reportText.toLowerCase().includes(v),
   ).length;
 
-  // Every REAL indicator surfaced — tagged OR named in prose — counts toward evidence.
+  // Every REAL indicator surfaced, tagged OR named in prose, counts toward evidence.
   const usefulCited = new Set<string>();
   for (const v of citedValues) if (v.length >= 3 && isRealValue(v)) usefulCited.add(v);
   for (const v of scenarioIocValues) if (reportText.toLowerCase().includes(v)) usefulCited.add(v);
@@ -178,7 +178,7 @@ export function scoreScenarioReport(input: ReportScoreInput): ReportScoreResult 
   for (const v of usefulCited) evidencePoints += realValues.has(v) ? 1 : 0.5;
   const iocCoverage = Math.min(1, evidencePoints / iocTarget);
 
-  // Fabrication — inventing an IP/hash/email present nowhere is an integrity failure.
+  // Fabrication, inventing an IP/hash/email present nowhere is an integrity failure.
   const claimed = new Set<string>();
   for (const m of reportText.matchAll(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g))  claimed.add(m[0].toLowerCase()); // IPv4
   for (const m of reportText.matchAll(/\b[\w.+-]+@[\w.-]+\.\w{2,}\b/g)) claimed.add(m[0].toLowerCase()); // email
@@ -192,7 +192,7 @@ export function scoreScenarioReport(input: ReportScoreInput): ReportScoreResult 
   const reportRubric = {
     verdict:  verdict ? (verdictCorrect ? 25 : 5) : 0,
     depth:    effWords >= 150 ? 25 : effWords >= 80 ? 18 : effWords >= 40 ? 10 : effWords > 0 ? 4 : 0,
-    // A fabricated OR misattributed indicator caps evidence near zero — precision,
+    // A fabricated OR misattributed indicator caps evidence near zero, precision,
     // not just recall: an unusable report is worse than a sparse one.
     evidence: (fabricated.length > 0 || misattributed.length > 0)
       ? (usefulCited.size > 0 ? 5 : 0)

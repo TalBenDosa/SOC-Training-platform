@@ -35,7 +35,7 @@ export function exfilFirstExtortionScenarioEvents() {
   const megaNode2 = { domain: "gfs302n108.userstorage.mega.co.nz", ip: "31.216.148.31" };
   const megaNode3 = { domain: "gfs270n155.userstorage.mega.co.nz", ip: "31.216.148.44" };
   // The remote-session tool the attacker's interactive session runs through, and its relay.
-  const relay = { domain: "relay-3f82a1c0.net.anydesk.com", ip: "195.181.170.44" };
+  const relay = { domain: "relay-3f82a1c0.net.anydesk.com", ip: "203.0.113.45" };
 
   const robocopyHash = makeSha256("windows_system32_robocopy_exe_signed_microsoft_2026");
   const archiveHash = makeSha256("nexacorp_adobe_arm_cache_7z_portable_2026");
@@ -105,7 +105,7 @@ export function exfilFirstExtortionScenarioEvents() {
 
     // ---------------------------------------------------------------------
     // 1. Local data staging. A recursive copy of the whole finance share
-    //    tree into a local cache folder — the shape that matters is the
+    //    tree into a local cache folder, the shape that matters is the
     //    scope (/E from the share root), not the tool (robocopy is signed
     //    Microsoft software already on every Windows box).
     // ---------------------------------------------------------------------
@@ -156,7 +156,7 @@ export function exfilFirstExtortionScenarioEvents() {
       description: "7z.exe created the first 2,000 MB volume, backup_2026_07.7z.001, at 01:14:20.",
     }),
     // 3. Purview Endpoint DLP sees the archiver touch labeled files while
-    //    the archive is being built — and logs it, because the matching
+    //    the archive is being built, and logs it, because the matching
     //    rule's configured action is Audit, not Block. This is the gap.
     {
       id: "evt_efe_03_dlp_audit",
@@ -216,15 +216,15 @@ export function exfilFirstExtortionScenarioEvents() {
 
     // ---------------------------------------------------------------------
     // 4. The exfiltration tool. A renamed rclone binary, config pointed at
-    //    an external cloud remote — the process event that shows intent,
+    //    an external cloud remote, the process event that shows intent,
     //    before any bytes have actually moved.
     // ---------------------------------------------------------------------
     mdeProcess({
       ...base, id: "evt_efe_04_exfil_tool", ts: T(24 * MIN), processName: "AdobeARMHelper.exe", processPath: RCLONE,
       cmdline: RCLONE_CMD, parentName: "cmd.exe", parentPid: 5800, pid: 6301, sha256: rcloneHash, integrity: "Medium", signed: false,
-      mitre: "T1567.002", // Exfiltration to Cloud Storage — rclone copy to a 'mega' remote (Q1 cites evt_efe_04 as T1567.002)
+      mitre: "T1567.002", // Exfiltration to Cloud Storage, rclone copy to a 'mega' remote (Q1 cites evt_efe_04 as T1567.002)
       tactic: "Exfiltration",
-      isDetection: true, // alert-grade: the highest-severity EDR behavioural detection — a renamed rclone binary staged to exfiltrate the archive to cloud storage (the crux)
+      isDetection: true, // alert-grade: the highest-severity EDR behavioural detection, a renamed rclone binary staged to exfiltrate the archive to cloud storage (the crux)
       severity: "high",
       description: "At 01:29 a binary named AdobeARMHelper.exe, sitting in the same cache folder, not the real Adobe update path, started with an rclone-style command line copying the local archive to a remote named 'mega', using a config file dropped alongside it.",
     }),
@@ -241,7 +241,7 @@ export function exfilFirstExtortionScenarioEvents() {
     })),
 
     // ---------------------------------------------------------------------
-    // 5. Sessions open. Allowed — the destination is a legitimate,
+    // 5. Sessions open. Allowed, the destination is a legitimate,
     //    widely-used consumer cloud-storage provider, not a blocklisted
     //    domain.
     // ---------------------------------------------------------------------
@@ -262,7 +262,7 @@ export function exfilFirstExtortionScenarioEvents() {
     }),
 
     // ---------------------------------------------------------------------
-    // 6. Sessions close. Same allow, same category — three parallel uploads that
+    // 6. Sessions close. Same allow, same category, three parallel uploads that
     //    together moved 39,648,512,000 bytes (the sum of the three sent counters).
     // ---------------------------------------------------------------------
     panConnection({
@@ -306,6 +306,8 @@ export function exfilFirstExtortionScenarioEvents() {
     {
       id: "evt_efe_08a_extortion_email", ts: T(2 * HOUR + 33 * MIN), source: "email_gateway", vendor: "Microsoft Defender for Office 365",
       event_type: "email_received", severity: "high", user_email: "security@nexacorp.com", incident_id: INCIDENT,
+      // The sending relay of the proton.me mail, a documentation address like every other public address here (R5).
+      src_ip: "198.51.100.170",
       description: "An external sender delivered a message to security@nexacorp.com at 03:38 referencing a volume of NexaCorp client records and linking to a leak-site address.",
       raw: {
         "email.from.address": "recovery.desk@proton.me",

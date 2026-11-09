@@ -48,7 +48,7 @@ export function buildFakeBrowserUpdateScenario(
     },
     {
       type: "ip",
-      value: "38.180.29.140",
+      value: "203.0.113.143",
       first_seen: T(1 * MIN + 11_000),
       last_seen: T(3 * MIN + 40_000),
       reputation: "malicious",
@@ -56,7 +56,7 @@ export function buildFakeBrowserUpdateScenario(
     },
     {
       type: "ip",
-      value: "176.97.76.18",
+      value: "203.0.113.18",
       first_seen: T(5 * MIN + 11_400),
       last_seen: T(5 * MIN + 12_000),
       reputation: "malicious",

@@ -4,7 +4,7 @@
  *
  * "Correlate" used to highlight the rows that share the clicked row's
  * `incident_id`. Every multi-host-intrusion incident is one host, so it never
- * crossed a host boundary — while tying three hosts into one campaign is the
+ * crossed a host boundary, while tying three hosts into one campaign is the
  * exact skill the scenario teaches. Analysts correlate by ENTITY: the same user,
  * IP, file hash or hostname appearing on several hosts.
  *
@@ -100,7 +100,7 @@ export function extractEntities(ev: TelemetryEvent): Entity[] {
   for (const { key, value } of flattenEvent(ev)) {
     const v = value.trim();
     if (!v) continue;
-    // Skip platform bookkeeping — these are not observables.
+    // Skip platform bookkeeping, these are not observables.
     if (/^(id|ts|incident_id|edr_scope|tier|event_type|source|vendor|severity)$/.test(key)) continue;
 
     if (IPV4_RE.test(v)) {
@@ -132,7 +132,7 @@ export interface EntityIndex {
   byEvent: Map<string, string[]>;
 }
 
-const hostOf = (ev: TelemetryEvent) => (ev.hostname ? normaliseHost(ev.hostname) ?? ev.hostname : "—");
+const hostOf = (ev: TelemetryEvent) => (ev.hostname ? normaliseHost(ev.hostname) ?? ev.hostname : "-");
 
 /** Index every entity of every event. */
 export function buildEntityIndex(events: readonly TelemetryEvent[]): EntityIndex {
@@ -184,7 +184,7 @@ export function eventsForEntity<T extends TelemetryEvent>(events: readonly T[], 
 export interface TimelineEntry<T> {
   event: T;
   host: string;
-  /** Seconds since the first entry — lets the UI show gaps ("+15m"). */
+  /** Seconds since the first entry, lets the UI show gaps ("+15m"). */
   offsetSec: number;
 }
 

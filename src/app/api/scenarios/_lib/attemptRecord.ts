@@ -9,7 +9,7 @@
  * BEST attempt per scenario count; this module builds the row the route writes
  * with the service-role client and computes the honest XP delta for the UI.
  *
- * Pure — no Supabase, no Next — so the clamping and delta rules are unit-tested.
+ * Pure, no Supabase, no Next, so the clamping and delta rules are unit-tested.
  */
 
 /** 0025 CHECK: scenario_history.xp_earned between 0 and 2000. */
@@ -55,7 +55,7 @@ export interface AttemptRowInput {
  * The scenario_history row. `report` keeps the same jsonb shape the client used
  * to write (verdict / verdictReason / notes / reportScore / rubric / passed), so
  * /progress and the org console render server-written rows unchanged.
- * org_id is omitted (column DEFAULT applies) when the caller has no org claim —
+ * org_id is omitted (column DEFAULT applies) when the caller has no org claim,
  * the column is NOT NULL, so sending null would fail the insert.
  */
 export function buildAttemptRow(i: AttemptRowInput): Record<string, unknown> {
@@ -82,7 +82,7 @@ export function buildAttemptRow(i: AttemptRowInput): Record<string, unknown> {
 
 /**
  * XP truth for the completion screen. Only the best attempt per scenario counts,
- * so a run adds `max(0, run − previousBest)` — a retry that doesn't beat the
+ * so a run adds `max(0, run − previousBest)`, a retry that doesn't beat the
  * best adds nothing, and the UI must say so rather than claim the full run XP.
  */
 export function xpDeltaFor(runXp: number, prevBestXp: number | null): { xpDelta: number; bestXp: number; improved: boolean } {

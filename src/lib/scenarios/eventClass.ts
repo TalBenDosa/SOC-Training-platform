@@ -3,13 +3,13 @@
  * (team-exercise findings #5 and #20).
  *
  * The table used to badge a row "ALERT" whenever the builder set `is_detection`,
- * and the ticket header counted `bundle.alerts` — which `withAlerts()` derives
+ * and the ticket header counted `bundle.alerts`, which `withAlerts()` derives
  * from EVERY event carrying a MITRE id and a medium+ severity. On
  * multi-host-intrusion that produced "12 alerts" in the header, 6 ALERT badges
  * in the table, and 3 real Falcon detections. Three numbers for one fact.
  *
  * The rule here is the one a SOC uses: an ALERT is something a security
- * product's analytic RAISED — a Falcon DetectionSummaryEvent, an AV/IDS/DLP/UEBA
+ * product's analytic RAISED, a Falcon DetectionSummaryEvent, an AV/IDS/DLP/UEBA
  * detection, a WAF block, a TI match. Raw telemetry (ProcessRollup2,
  * NetworkConnectIP4, a 4624, a firewall TRAFFIC log) is what the analyst pivots
  * through; it is informational, even when it records the malicious act itself.
@@ -20,7 +20,7 @@
  * has one, else the event's. Shown as a word, never a made-up rule-level number.
  *
  * Pure and dependency-free (types only) so it is unit-tested and shared by the
- * header count, the row badges and the severity filter — one source of truth.
+ * header count, the row badges and the severity filter, one source of truth.
  */
 import type { Severity, TelemetryEvent } from "@/lib/sim/types";
 
@@ -66,7 +66,7 @@ type AlertInput = Pick<TelemetryEvent, "id" | "event_type" | "raw" | "is_detecti
  * incident: when an incident contains NO product detection at all (some packs
  * model a SIEM correlation hit on a CloudTrail/O365 record rather than a
  * vendor alert), the builder's `is_detection` rows are the ticket-openers and
- * are counted instead — otherwise that incident would show zero alerts although
+ * are counted instead, otherwise that incident would show zero alerts although
  * its briefing says one fired. Where a real detection exists (every
  * multi-host-intrusion incident has a Falcon DetectionSummaryEvent), flagged
  * telemetry such as a ProcessRollup2 stays informational.
@@ -86,7 +86,7 @@ export function buildAlertIndex(events: readonly AlertInput[]): Set<string> {
   return ids;
 }
 
-/** Number of ALERT rows — the figure the ticket header and the table both show. */
+/** Number of ALERT rows, the figure the ticket header and the table both show. */
 export function countAlerts(events: readonly AlertInput[]): number {
   return buildAlertIndex(events).size;
 }

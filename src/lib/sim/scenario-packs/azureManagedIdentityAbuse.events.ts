@@ -57,7 +57,7 @@ export function azureManagedIdentityAbuseScenarioEvents() {
 
   // The attacker's external address, appears on the credential-add, the SP
   // sign-ins, and every Azure Activity operation.
-  const attackerIp = "45.155.205.211";
+  const attackerIp = "203.0.113.211";
 
   // The Key Vault and Storage account the identity reaches.
   const keyVault = "kv-billing-prod";
@@ -125,7 +125,7 @@ export function azureManagedIdentityAbuseScenarioEvents() {
       user_email: engineer.user,
       user_title: engineer.title,
       src_ip: ciRunnerIp,
-      severity: "informational",
+      severity: "high",
       expected_verdict: "fp",
       mitre_technique: "T1098.001",
       mitre_tactic: "Persistence",
@@ -282,7 +282,7 @@ export function azureManagedIdentityAbuseScenarioEvents() {
       mitre_tactic: "Stealth",
       incident_id: INCIDENT,
       description:
-        "svc-billing-connector authenticated to Microsoft Graph as a service principal from 45.155.205.211. The sign-in is non-interactive, presents a client secret, and carries no user and no MFA.",
+        "svc-billing-connector authenticated to Microsoft Graph as a service principal from 203.0.113.211. The sign-in is non-interactive, presents a client secret, and carries no user and no MFA.",
       authentication: { method: "clientSecret", result: "success" },
       cloud: { provider: "Microsoft", service: "Microsoft Graph", api_call: "token", region: "global", resource: "Microsoft Graph" },
       raw: {
@@ -365,12 +365,12 @@ export function azureManagedIdentityAbuseScenarioEvents() {
       event_type: "cloud_api_call",
       hostname: app.displayName,
       src_ip: attackerIp,
-      severity: "medium",
+      severity: "low",
       mitre_technique: "T1526",
       mitre_tactic: "Discovery",
       incident_id: INCIDENT,
       description:
-        "The svc-billing-connector token was used to list the subscription and its resource groups in prod-analytics-sub, Microsoft.Resources/subscriptions/resourceGroups/read from 45.155.205.211.",
+        "The svc-billing-connector token was used to list the subscription and its resource groups in prod-analytics-sub, Microsoft.Resources/subscriptions/resourceGroups/read from 203.0.113.211.",
       cloud: { provider: "Microsoft", service: "Azure Resource Manager", api_call: "Microsoft.Resources/subscriptions/resourceGroups/read", region: "westeurope", resource: subName },
       raw: {
         "azure.activitylogs.operationName": "Microsoft.Resources/subscriptions/resourceGroups/read",
@@ -447,7 +447,7 @@ export function azureManagedIdentityAbuseScenarioEvents() {
       mitre_tactic: "Credential Access",
       incident_id: INCIDENT,
       description:
-        "Key Vault diagnostic log kv-billing-prod: SecretGet on sql-conn-prod, HTTP 200, by the application d94a6f21-3b8e-4c17-a5d2-9f0e1c7b4a63 (svc-billing-connector) from 45.155.205.211.",
+        "Key Vault diagnostic log kv-billing-prod: SecretGet on sql-conn-prod, HTTP 200, by the application d94a6f21-3b8e-4c17-a5d2-9f0e1c7b4a63 (svc-billing-connector) from 203.0.113.211.",
       cloud: { provider: "Microsoft", service: "Key Vault", api_call: "SecretGet", region: "westeurope", resource: keyVault },
       raw: {
         "azure.activitylogs.operationName": "SecretGet",
@@ -521,7 +521,7 @@ export function azureManagedIdentityAbuseScenarioEvents() {
       mitre_tactic: "Collection",
       incident_id: INCIDENT,
       description:
-        "Storage blob log stbillingprod01: ListBlobs on /billing-exports?restype=container&comp=list authenticated with the account key, HTTP 200, from 45.155.205.211.",
+        "Storage blob log stbillingprod01: ListBlobs on /billing-exports?restype=container&comp=list authenticated with the account key, HTTP 200, from 203.0.113.211.",
       cloud: { provider: "Microsoft", service: "Azure Storage", api_call: "ListBlobs", region: "westeurope", resource: storageAccount },
       raw: {
         "azure.activitylogs.operationName": "ListBlobs",
@@ -554,7 +554,7 @@ export function azureManagedIdentityAbuseScenarioEvents() {
       mitre_tactic: "Collection",
       incident_id: INCIDENT,
       description:
-        "Storage blob log stbillingprod01: GetBlob on /billing-exports/2026/q2/invoice-ledger-2026Q2.csv authenticated with the account key, HTTP 200, from 45.155.205.211.",
+        "Storage blob log stbillingprod01: GetBlob on /billing-exports/2026/q2/invoice-ledger-2026Q2.csv authenticated with the account key, HTTP 200, from 203.0.113.211.",
       cloud: { provider: "Microsoft", service: "Azure Storage", api_call: "GetBlob", region: "westeurope", resource: storageAccount },
       raw: {
         "azure.activitylogs.operationName": "GetBlob",

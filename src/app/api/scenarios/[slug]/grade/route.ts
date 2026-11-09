@@ -22,7 +22,7 @@ export async function POST(
   // Explicit gate, matching the sibling GET route's fix (see its doc comment):
   // the edge middleware's default-deny already blocks anonymous callers when
   // Supabase is configured, but a route should not depend solely on that for
-  // access it can trivially assert itself — and in local/no-Supabase mode the
+  // access it can trivially assert itself, and in local/no-Supabase mode the
   // middleware check is bypassed entirely, so this is the only gate left.
   const gradeUser = await getAuthedUser();
   if (!gradeUser) {
@@ -35,7 +35,7 @@ export async function POST(
   // their answer key merged in from the service-role-only key table).
   let bundle: Awaited<ReturnType<typeof resolveScenarioBundle>>;
   try { bundle = await resolveScenarioBundle(slug, gradeUser.orgId, canPreviewDrafts(gradeUser)); }
-  catch (e) { if (e instanceof ContentUnavailableError) return NextResponse.json({ error: "This content couldn't be loaded just now — please try again." }, { status: 503 }); throw e; }
+  catch (e) { if (e instanceof ContentUnavailableError) return NextResponse.json({ error: "This content couldn't be loaded just now, please try again." }, { status: 503 }); throw e; }
   if (!bundle) {
     return NextResponse.json({ error: "Scenario not found" }, { status: 404 });
   }
@@ -55,7 +55,7 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
   }
 
-  // `timeTaken` is NOT graded (FB-007) — it is only stored on the history row
+  // `timeTaken` is NOT graded (FB-007), it is only stored on the history row
   // (clamped to an integer 0..86400 s) so /progress can show time spent.
   const {
     answers: rawAnswers = {},
@@ -65,7 +65,7 @@ export async function POST(
   // E-23 (QA phase 7): a number / object here hit .trim() later → bodyless 500.
   const verdictReason = typeof body.verdictReason === "string" ? body.verdictReason : "";
   const analystNotes = typeof body.analystNotes === "string" ? body.analystNotes : "";
-  // Only the two real calls reach scoring and the model prompt — a free-form
+  // Only the two real calls reach scoring and the model prompt, a free-form
   // string here used to land in the LLM prompt verbatim. Indicators are bounded
   // (and a non-array tolerated) for the same reason.
   const verdict = rawVerdict === "tp" || rawVerdict === "fp" ? rawVerdict : null;
@@ -73,7 +73,7 @@ export async function POST(
     ? rawIndicators.filter(i => i && typeof i === "object" && typeof i.type === "string" && typeof i.value === "string").slice(0, 200)
     : [];
   const timeTaken = clampTimeTaken(body.timeTaken);
-  // The page ships keyed option tokens (optionToken) — map them back to the
+  // The page ships keyed option tokens (optionToken), map them back to the
   // authored values before grading. Raw values from older clients pass through.
   const answers: Record<string, string | string[]> = {};
   if (rawAnswers && typeof rawAnswers === "object") {
@@ -87,11 +87,11 @@ export async function POST(
   //
   // ANTI-HARVEST: the sibling `GET /api/scenarios/[slug]` deliberately strips
   // answers/explanations so the learner must reason the incident out. Grading
-  // must not hand that back for free — a student could otherwise POST a single
+  // must not hand that back for free, a student could otherwise POST a single
   // non-empty character for every question and read the entire answer key +
   // debrief without ever having looked at the scenario's real options.
   // Rule: you only see a question's correct answer + explanation once you have
-  // actually committed a STRUCTURALLY VALID answer to THAT question — one of
+  // actually committed a STRUCTURALLY VALID answer to THAT question, one of
   // its real option values (single) or a non-empty subset of them (multi).
   // This doesn't stop someone willing to read the options and pick blindly
   // (same bound the Rooms two-try model accepts elsewhere on this platform),
@@ -141,12 +141,12 @@ export async function POST(
 
   const correctCount = perQuestion.filter(q => q.correct).length;
   // A scenario shipped with no questions used to divide by zero, making `score`
-  // NaN and `passed` permanently false — it could never be completed.
+  // NaN and `passed` permanently false, it could never be completed.
   const quizScore = bundle.questions.length > 0
     ? Math.round((correctCount / bundle.questions.length) * 100)
     : 0;
 
-  // Deterministic rubric — extracted to a pure, unit-tested module (the IOC
+  // Deterministic rubric, extracted to a pure, unit-tested module (the IOC
   // widening is exploit-prone, so reportScoring.test.ts locks it down). See
   // reportScoring.ts for the evidence / fabrication / depth logic.
   const {
@@ -175,7 +175,7 @@ export async function POST(
   // so a resubmission is an informed one. XP therefore follows the first-answer
   // rule per question (src/lib/xp/firstAnswers.ts), and the report/indicator part
   // pays half once an earlier genuine attempt exists. Score/pass still reflect
-  // this run — only the XP is adjusted.
+  // this run, only the XP is adjusted.
   const admin = getSupabaseAdminClient();
   const answeredNow = bundle.questions
     .map((q, i) => ({ q, r: perQuestion[i] }))
@@ -189,7 +189,7 @@ export async function POST(
       .eq("user_id", gradeUser.id).eq("slug", slug);
     // Fail closed (like quizzes/finish): unknown history must not pay first-try XP.
     if (priorErr || !firsts) {
-      return NextResponse.json({ error: "Couldn't check your previous attempts — please submit again." }, { status: 503 });
+      return NextResponse.json({ error: "Couldn't check your previous attempts, please submit again." }, { status: 503 });
     }
     priorAttempts = count ?? 0;
   }
@@ -204,37 +204,37 @@ export async function POST(
   // FB-007: no speed bonus. Rewarding a short investigation time pushed learners to
   // optimize for finishing fast (quantity) over investigating well (quality), which is
   // the opposite of the analyst habit we want to build. Score and XP come only from
-  // accuracy and report quality — time is not an input anywhere in this route (it is
+  // accuracy and report quality, time is not an input anywhere in this route (it is
   // not even passed to the AI feedback prompt, so the feedback can't praise speed).
   // `timeBonusXp` stays in the response, always 0, only so a browser tab still running
   // the previous client bundle (which adds it to xpEarned) doesn't compute NaN mid-deploy.
   const timeBonusXp = 0;
 
-  // AI feedback (Claude) — falls back to static text if no API key
-  // The verdict is the analyst's headline output — a wrong call is called out
+  // AI feedback (Claude), falls back to static text if no API key
+  // The verdict is the analyst's headline output, a wrong call is called out
   // explicitly (it was silent before) and caps the report score.
   const calledVerdict = verdict === "tp" ? "malicious" : verdict === "fp" ? "benign" : "no verdict";
   // The true verdict is only named on a genuine attempt (every question answered
-  // + a written report) — otherwise a blank POST would reveal it for free.
+  // + a written report), otherwise a blank POST would reveal it for free.
   const verdictNote = verdictWrong
     ? (attemptedAll && words > 0
-        ? ` ⚠ Your verdict was wrong — you called this ${calledVerdict}, the evidence shows ${expectedVerdict}. The verdict is the single most important output of an investigation, so a wrong call caps the report below passing.`
-        : ` ⚠ Your verdict was wrong — you called this ${calledVerdict}. A wrong call caps the report below passing.`)
+        ? ` ⚠ Your verdict was wrong, you called this ${calledVerdict}, the evidence shows ${expectedVerdict}. The verdict is the single most important output of an investigation, so a wrong call caps the report below passing.`
+        : ` ⚠ Your verdict was wrong, you called this ${calledVerdict}. A wrong call caps the report below passing.`)
     : "";
   const fabricationNote = fabricated.length > 0
-    ? ` ⚠ Your report cited ${fabricated.length} indicator${fabricated.length > 1 ? "s" : ""} that appear nowhere in this incident's telemetry — never invent evidence; cite only what the logs actually show.`
+    ? ` ⚠ Your report cited ${fabricated.length} indicator${fabricated.length > 1 ? "s" : ""} that appear nowhere in this incident's telemetry, never invent evidence; cite only what the logs actually show.`
     : "";
   const misattributionNote = misattributed.length > 0
-    ? ` ⚠ You tagged ${misattributed.join(", ")} as a hostile indicator — that is a known-benign address (a public DNS resolver, not adversary infrastructure). Tagging a benign or internal asset as malicious is a Tier-1 precision error.`
+    ? ` ⚠ You tagged ${misattributed.join(", ")} as a hostile indicator, that is a known-benign address (a public DNS resolver, not adversary infrastructure). Tagging a benign or internal asset as malicious is a Tier-1 precision error.`
     : "";
-  // The full debrief is the reward for a real attempt — released only when every
+  // The full debrief is the reward for a real attempt, released only when every
   // question was answered and a non-empty report was written. A blank/garbage
   // submission (answer-harvesting) gets score + per-question `correct` flags but
-  // no narrative/objectives/kill-chain — and no names of missed key indicators.
+  // no narrative/objectives/kill-chain, and no names of missed key indicators.
   const releaseDebrief = attemptedAll && words > 0;
 
   // #16: explain the report score criterion by criterion instead of a generic
-  // "your report was thin". Read-only over the rubric above — the formula is
+  // "your report was thin". Read-only over the rubric above, the formula is
   // unchanged (reportScoring.test.ts locks it).
   const breakdown = buildReportBreakdown({
     scored: {
@@ -252,11 +252,11 @@ export async function POST(
     ? `Good investigation on "${bundle.title}". You identified ${correctCount}/${bundle.questions.length} attack stages. ${reportNote}`
     : `You scored ${score}% on "${bundle.title}" (quiz ${quizScore}% · ${correctCount}/${bundle.questions.length} correct). ${reportNote}`) + verdictNote + misattributionNote + fabricationNote;
 
-  // The paid LLM feedback additionally requires org budget headroom — `gradeUser`
+  // The paid LLM feedback additionally requires org budget headroom, `gradeUser`
   // itself is guaranteed non-null here, since the whole route is now gated above.
   const apiKey = process.env.ANTHROPIC_API_KEY;
   // Spend ceiling (migration 0024): over budget, skip the model entirely. The
-  // student still gets the full rubric-based feedback computed above — the same
+  // student still gets the full rubric-based feedback computed above, the same
   // experience as a deployment with no API key.
   const gradeBudget = apiKey && gradeUser ? await checkAiBudget(gradeUser.orgId) : { allowed: false };
   if (apiKey && gradeUser && gradeBudget.allowed) {
@@ -280,7 +280,7 @@ export async function POST(
 
 Student completed "${bundle.title}" scenario.
 Quiz: ${quizScore}% (${correctCount}/${bundle.questions.length} correct)
-Report: ${reportScore}/100 — verdict ${verdict ?? "not given"} (expected ${expectedVerdict}), ${words} words, cited ${iocsCited}/${scenarioIocValues.length} key indicators
+Report: ${reportScore}/100, verdict ${verdict ?? "not given"} (expected ${expectedVerdict}), ${words} words, cited ${iocsCited}/${scenarioIocValues.length} key indicators
 ${wrongSummary ? `Questions missed: ${wrongSummary}` : "All questions correct!"}
 Rubric: ${breakdown.items.map(i => `${i.label} ${i.points}/${i.max}`).join(", ")}
 ${breakdown.improvements.length ? `Specific gaps: ${breakdown.improvements.join(" ")}` : "No rubric gaps."}
@@ -290,7 +290,7 @@ Their written analysis:
 ${reportText.slice(0, 1500) || "(left blank)"}
 """
 
-Write exactly 3 sentences of actionable, encouraging feedback. Do not comment on how fast or slow they were — speed is not graded; thoroughness and accuracy are. One sentence on the quiz, and TWO on the quality of their written analysis specifically — whether the verdict is supported, whether they cited the right evidence, and what a senior analyst would have added. Be concrete about their actual words and name the specific gaps listed above — never say only that the report was "thin".`,
+Write exactly 3 sentences of actionable, encouraging feedback. Do not comment on how fast or slow they were, speed is not graded; thoroughness and accuracy are. One sentence on the quiz, and TWO on the quality of their written analysis specifically, whether the verdict is supported, whether they cited the right evidence, and what a senior analyst would have added. Be concrete about their actual words and name the specific gaps listed above, never say only that the report was "thin".`,
         }],
       });
 
@@ -317,7 +317,7 @@ Write exactly 3 sentences of actionable, encouraging feedback. Do not comment on
   // written here with the service-role client; client writes are revoked by the
   // coordinator's migration, which also makes only the BEST attempt per scenario
   // count toward profiles.xp. The previous best is read first so the UI can say
-  // truthfully "+N XP (improvement)" or "no new XP — best was X".
+  // truthfully "+N XP (improvement)" or "no new XP, best was X".
   let prevBestXp: number | null = null;
   let totalXp: number | null = null;
   let persisted = false;
@@ -363,7 +363,7 @@ Write exactly 3 sentences of actionable, encouraging feedback. Do not comment on
       console.error("[scenario grade] scenario_history insert failed:", ins.error.message);
     } else {
       persisted = true;
-      // The recompute trigger ran inside the insert — this is the new total.
+      // The recompute trigger ran inside the insert, this is the new total.
       const prof = await admin.from("profiles").select("xp").eq("id", gradeUser.id).maybeSingle();
       if (!prof.error && typeof prof.data?.xp === "number") totalXp = prof.data.xp;
     }

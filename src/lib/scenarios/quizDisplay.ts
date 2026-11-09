@@ -1,13 +1,13 @@
 /**
  * Scenario quiz presentation helpers (team-exercise findings #4 and #15).
  *
- * #4 — the radio/checkbox `value` attributes were the answer ids themselves
+ * #4, the radio/checkbox `value` attributes were the answer ids themselves
  * ("chain", "lsass", "renamed_rclone", "all"): readable in the DOM and, being
  * descriptive, a hint. The page now renders opaque per-load tokens and maps them
  * back to the real option ids only when the answers are submitted. Grading is
- * unchanged — the server still receives, and compares, real option ids.
+ * unchanged, the server still receives, and compares, real option ids.
  *
- * #15 — explanations are authored against the authored option order ("same
+ * #15, explanations are authored against the authored option order ("same
  * severity (b) and same vendor (c)…"), but options are shuffled for display
  * (shuffleSeeded). The display order is expressed as `order[display] = original`
  * so the shared room helper `remapOptionLetters` can rewrite the letters to the
@@ -21,7 +21,7 @@ import { remapOptionLetters } from "@/lib/rooms/shuffle";
 
 type Option = { value: string; label: string };
 
-/** The options in display order — the single place the scenario shuffle happens. */
+/** The options in display order, the single place the scenario shuffle happens. */
 export function displayedOptions(q: Pick<ScenarioQuestion, "id" | "prompt" | "options">): Option[] {
   return q.options ? shuffleSeeded(q.options, q.id ?? q.prompt) : [];
 }
@@ -32,7 +32,7 @@ export function optionDisplayOrderFor(q: Pick<ScenarioQuestion, "id" | "prompt" 
   return displayedOptions(q).map(o => authored.findIndex(a => a.value === o.value));
 }
 
-/** "A", "B", … — the letter shown next to the option at `displayIndex`. */
+/** "A", "B", …, the letter shown next to the option at `displayIndex`. */
 export function optionLetter(displayIndex: number): string {
   return String.fromCharCode(65 + displayIndex);
 }

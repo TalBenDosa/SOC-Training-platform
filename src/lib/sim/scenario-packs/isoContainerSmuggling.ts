@@ -39,8 +39,8 @@ export function buildIsoContainerSmugglingScenario(
   const sensorId = "e6d92c1804bf47a1a3d0e29fc61b8a72";
 
   const iocs: IOC[] = [
-    { type: "ip", value: "104.21.61.90", first_seen: T(-90_000), last_seen: T(0), reputation: "malicious", tags: ["lure-hosting"] },
-    { type: "ip", value: "193.106.191.42", first_seen: T(4 * MIN + 36_000), last_seen: T(4 * MIN + 37_000), reputation: "malicious", tags: ["c2", "payload-staging"] },
+    { type: "ip", value: "203.0.113.90", first_seen: T(-90_000), last_seen: T(0), reputation: "malicious", tags: ["lure-hosting"] },
+    { type: "ip", value: "203.0.113.42", first_seen: T(4 * MIN + 36_000), last_seen: T(4 * MIN + 37_000), reputation: "malicious", tags: ["c2", "payload-staging"] },
     {
       type: "sha256",
       value: isoHash,

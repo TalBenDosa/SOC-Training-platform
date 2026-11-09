@@ -41,6 +41,7 @@ import { fgVpn } from "@/lib/sim/emitters/fortigate";
 import { sysmonProcess, sysmonFile, sysmonDriver } from "@/lib/sim/emitters/sysmon";
 import { mdeProcess } from "@/lib/sim/emitters/mde";
 import { winLogon, winServiceInstall, winDetailedShareAccess, domainSidFor } from "@/lib/sim/emitters/windowsSecurity";
+import { placeDocAddresses, PLACES } from "./docGeo";
 
 export function buildDestructiveWiperScenario(
   scenarioId = "destructive-wiper-2026",
@@ -73,7 +74,7 @@ export function buildDestructiveWiperScenario(
   // credentials were used on).
   const deploySrc = { name: "VNT-DEPLOY-01", ip: "10.60.1.40", fqdn: "VNT-DEPLOY-01.vantageindustrial.com" };
   // The VPN address the compromised account came in from, and the tunnel address it was handed.
-  const vpnSrcIp = "196.251.33.74";
+  const vpnSrcIp = "203.0.113.80";
   const vpnTunnelIp = "10.60.250.17";
   const adminCtx = { user: deployAdmin.email, runAsUser: `VANTAGE\\${deployAdmin.sam}` };
   const fleetHosts = [
@@ -126,7 +127,7 @@ export function buildDestructiveWiperScenario(
       companyId: cx, id: "dw_00v_vpn_login", ts: T(-31 * MIN), host: "VNT-FW-01", user: deployAdmin.email,
       remoteIp: vpnSrcIp, assignedIp: vpnTunnelIp, severity: "medium", incidentId: INCIDENT,
       mitre: "T1133", tactic: "Initial Access",
-      description: "FortiGate SSL-VPN tunnel established for a.novak from 196.251.33.74 (Lagos) at 02:41, tunnel address 10.60.250.17.",
+      description: "FortiGate SSL-VPN tunnel established for a.novak from 203.0.113.80 (Lagos) at 02:41, tunnel address 10.60.250.17.",
     }),
 
     // 0w. THE DEPLOYMENT SERVER: the same account opens an RDP session on VNT-DEPLOY-01 from the tunnel address.
@@ -526,6 +527,8 @@ export function buildDestructiveWiperScenario(
     },
   ];
 
+  // Where this story puts its documentation addresses (docGeo.ts, R5 with coherent geography).
+  placeDocAddresses(events, { "203.0.113.80": PLACES.lagos });
   return {
     scenario_id: scenarioId,
     title: "Critical detection and unbootable machines at Vantage Industrial",
@@ -533,7 +536,7 @@ export function buildDestructiveWiperScenario(
     attack_kind: "destructive_attack",
     briefing:
       "Falcon raised a Critical detection on VNT-WKS-27 at 03:14, and the Service Desk reports that several machines have rebooted to \"No operating system found\". Establish what executed, how it got there, and how far it spread.",
-    narrative: `VNT-WKS-27 is a workstation at Vantage Industrial. The chain started at 02:41, when the FortiGate SSL-VPN logged a tunnel for the administrator account a.novak from 196.251.33.74 in Lagos. At 03:10:40 that account opened an RDP session on the deployment server VNT-DEPLOY-01 from the tunnel address, copied D:\\Tools\\cl64.exe to the C$ share of VNT-WKS-27, and used sc.exe to create and start a service for it; the same service, cl64svc, was created on VNT-WKS-31 and VNT-WKS-33 within seconds. At 03:12 the Service Control Manager launched the unsigned binary C:\\Users\\Public\\cl64.exe on VNT-WKS-27 as NT AUTHORITY\\SYSTEM.
+    narrative: `VNT-WKS-27 is a workstation at Vantage Industrial. The chain started at 02:41, when the FortiGate SSL-VPN logged a tunnel for the administrator account a.novak from 203.0.113.80 in Lagos. At 03:10:40 that account opened an RDP session on the deployment server VNT-DEPLOY-01 from the tunnel address, copied D:\\Tools\\cl64.exe to the C$ share of VNT-WKS-27, and used sc.exe to create and start a service for it; the same service, cl64svc, was created on VNT-WKS-31 and VNT-WKS-33 within seconds. At 03:12 the Service Control Manager launched the unsigned binary C:\\Users\\Public\\cl64.exe on VNT-WKS-27 as NT AUTHORITY\\SYSTEM.
 
 Within seconds cl64.exe registered and loaded a validly-signed third-party storage driver, epmntdrv.sys, to obtain kernel-mode raw access to the physical disk. It then worked through a short, deliberate sequence: vssadmin deleted the Volume Shadow Copies, bcdedit set recoveryenabled to no, and wevtutil cleared the Security event log. With the on-disk restore points gone, boot recovery disabled, and the trail wiped, it wrote junk directly over \\\\.\\PhysicalDrive0, destroying the master boot record and partition table, and overwrote user and business files such as Q3-forecast.xlsx with garbage. The machine was unbootable moments later.
 

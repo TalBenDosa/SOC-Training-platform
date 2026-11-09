@@ -13,6 +13,7 @@ import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
 import { mdeProcess, mdeFile, mdeAlert } from "@/lib/sim/emitters/mde";
 import { panConnection } from "@/lib/sim/emitters/paloalto";
 import { infobloxDns } from "./nativeRecords.events";
+import { placeDocAddresses, PLACES } from "./docGeo";
 
 /** Telemetry half of `buildWebShellRceScenario`: the events and the story title, no answer key. */
 export function webShellRceScenarioEvents() {
@@ -24,14 +25,14 @@ export function webShellRceScenarioEvents() {
   const db = { hostname: "SQL-SHOP-02", ip: "10.40.12.55", database: "ShopDB" };
   const albIp = "10.40.12.9";
 
-  // Attacker infrastructure — the source IP rotates across the probing phase.
-  const atkA = "45.146.130.72";
-  const atkB = "45.146.130.88";
-  const atkC = "91.242.229.35"; // the IP that lands the successful injection
-  const c2Ip = "194.26.29.114";
+  // Attacker infrastructure, the source IP rotates across the probing phase.
+  const atkA = "203.0.113.82";
+  const atkB = "203.0.113.94";
+  const atkC = "203.0.113.99"; // the IP that lands the successful injection
+  const c2Ip = "203.0.113.114";
   const c2Dom = "cdn-shopassets.link";
 
-  // Authorized quarterly external ASV scan — Qualys cloud scanner range.
+  // Authorized quarterly external ASV scan, Qualys cloud scanner range.
   const scannerIp = "64.39.106.131";
 
   const shellHash = "e4ca7770ea1290c68874e81e6dc6a2376304c9ebb3eb002fca67a9f4dbdb7ca1";
@@ -239,7 +240,7 @@ export function webShellRceScenarioEvents() {
       mitre_tactic: "Reconnaissance",
       network: { url: `https://${web.site}/.git/config`, domain: web.site, method: "GET", status: 404, user_agent: uaPython },
       description:
-        "IIS access record for shop.nexacorp.com, one of a rapid burst of requests against paths that do not exist on the site — all 404, User-Agent python-requests.",
+        "IIS access record for shop.nexacorp.com, one of a rapid burst of requests against paths that do not exist on the site, all 404, User-Agent python-requests.",
       raw: {
         TimeGenerated: "2026-03-17T09:00:00.412Z",
         Computer: "WEB-SHOP-01.nexacorp.com",
@@ -365,7 +366,7 @@ export function webShellRceScenarioEvents() {
       },
     },
 
-    // ── PROBE 1: naive injection in the query string — blocked ────────────────
+    // ── PROBE 1: naive injection in the query string, blocked ────────────────
     {
       id: "evt_04_waf_block_tautology",
       ts: T(19 * MIN),
@@ -382,7 +383,7 @@ export function webShellRceScenarioEvents() {
       mitre_tactic: "Initial Access",
       network: { url: `https://${web.site}/products/search.aspx`, domain: web.site, method: "GET", status: 403, user_agent: uaPython },
       description:
-        "AWS WAF blocked a tautology injection (q=widget' OR 1=1--) on /products/search.aspx from 45.146.130.72 — managed SQLi rule matched the query string, 403 returned.",
+        "AWS WAF blocked a tautology injection (q=widget' OR 1=1--) on /products/search.aspx from 203.0.113.82, managed SQLi rule matched the query string, 403 returned.",
       raw: {
         formatVersion: 1,
         timestamp: 1773739140000,
@@ -419,7 +420,7 @@ export function webShellRceScenarioEvents() {
       },
     },
 
-    // ── PROBE 2: UNION attempt from a rotated address — also blocked ──────────
+    // ── PROBE 2: UNION attempt from a rotated address, also blocked ──────────
     {
       id: "evt_05_waf_block_union",
       ts: T(24 * MIN),
@@ -436,7 +437,7 @@ export function webShellRceScenarioEvents() {
       mitre_tactic: "Initial Access",
       network: { url: `https://${web.site}/products/detail.aspx`, domain: web.site, method: "GET", status: 403, user_agent: uaPython },
       description:
-        "AWS WAF blocked a UNION SELECT payload on /products/detail.aspx from 45.146.130.88, User-Agent python-requests, 403 returned.",
+        "AWS WAF blocked a UNION SELECT payload on /products/detail.aspx from 203.0.113.94, User-Agent python-requests, 403 returned.",
       raw: {
         formatVersion: 1,
         timestamp: 1773739440000,
@@ -490,7 +491,7 @@ export function webShellRceScenarioEvents() {
       mitre_tactic: "Initial Access",
       network: { url: `https://${web.site}/api/v2/inventory/lookup`, domain: web.site, method: "POST", user_agent: uaChrome },
       description:
-        "AWS WAF returned ALLOW on a 12,438-byte POST to /api/v2/inventory/lookup from 91.242.229.35, presenting a Chrome browser User-Agent.",
+        "AWS WAF returned ALLOW on a 12,438-byte POST to /api/v2/inventory/lookup from 203.0.113.99, presenting a Chrome browser User-Agent.",
       raw: {
         formatVersion: 1,
         timestamp: 1773740280000,
@@ -636,7 +637,7 @@ export function webShellRceScenarioEvents() {
       mitre_technique: "T1552",
       mitre_tactic: "Credential Access",
       description:
-        "Six minutes later the same statement pattern returned SettingKey and SettingValue from dbo.AppSettings — 37 rows, again as shopportal_app.",
+        "Six minutes later the same statement pattern returned SettingKey and SettingValue from dbo.AppSettings, 37 rows, again as shopportal_app.",
       raw: {
         event_time: "2026-03-17 09:44:00.6120000",
         sequence_number: "1",
@@ -666,7 +667,7 @@ export function webShellRceScenarioEvents() {
     wafAllow("evt_09a_waf_allow_post", 47 * MIN - 400, {
       method: "POST", uri: "/admin/content/upload.ashx", args: "key=d0f4a1c8-7b23-4e19-9a56-cc81e0b47f3d&target=assets%2Fjs%2Fvendor&name=bootstrap.bundle.aspx",
       contentType: "multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW", length: 9614, requestId: "1-67d8548c-4b6d19e0a52f7c3318de6a41",
-      description: "AWS WAF returned ALLOW on a 9,614-byte POST to /admin/content/upload.ashx from 91.242.229.35, Chrome browser User-Agent.",
+      description: "AWS WAF returned ALLOW on a 9,614-byte POST to /admin/content/upload.ashx from 203.0.113.99, Chrome browser User-Agent.",
     }),
 
     // ── DELIVERY: the stolen key is used against the legacy upload handler ────
@@ -756,7 +757,7 @@ export function webShellRceScenarioEvents() {
 
     wafAllow("evt_11a_waf_allow_post", 51 * MIN + 59_600, {
       method: "POST", uri: shellUrlPath, args: "", length: 418, requestId: "1-67d856a7-0d5c3e91b8a24f7611c9e035",
-      description: "AWS WAF returned ALLOW on a 418-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 91.242.229.35, Chrome browser User-Agent.",
+      description: "AWS WAF returned ALLOW on a 418-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 203.0.113.99, Chrome browser User-Agent.",
     }),
 
     // ── EXECUTION: first command through the shell, at the app pool's level ───
@@ -829,7 +830,7 @@ export function webShellRceScenarioEvents() {
     wafAllow("evt_12a_waf_allow_post", 55 * MIN - 400, {
       method: "POST", uri: "/admin/content/upload.ashx", args: "key=d0f4a1c8-7b23-4e19-9a56-cc81e0b47f3d&target=assets%2Fjs%2Fvendor&name=srv.exe",
       contentType: "multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW", length: 7842, requestId: "1-67d85a83-71e4c2f09b6d3a5818ef2c40",
-      description: "AWS WAF returned ALLOW on a 7,842-byte POST to /admin/content/upload.ashx from 91.242.229.35, Chrome browser User-Agent.",
+      description: "AWS WAF returned ALLOW on a 7,842-byte POST to /admin/content/upload.ashx from 203.0.113.99, Chrome browser User-Agent.",
     }),
 
     // ── DELIVERY: the privesc tool goes up through the same legacy handler ────
@@ -848,7 +849,7 @@ export function webShellRceScenarioEvents() {
       mitre_tactic: "Command and Control",
       network: { url: `https://${web.site}/admin/content/upload.ashx`, domain: web.site, method: "POST", status: 201, user_agent: uaChrome },
       description:
-        "A second POST to /admin/content/upload.ashx, using the same disclosed key, was accepted with 201 — target assets/js/vendor, name srv.exe.",
+        "A second POST to /admin/content/upload.ashx, using the same disclosed key, was accepted with 201, target assets/js/vendor, name srv.exe.",
       raw: {
         TimeGenerated: "2026-03-17T09:55:00.612Z",
         Computer: "WEB-SHOP-01.nexacorp.com",
@@ -919,7 +920,7 @@ export function webShellRceScenarioEvents() {
 
     wafAllow("evt_12c_waf_allow_post", 57 * MIN + 19_600, {
       method: "POST", uri: shellUrlPath, args: "", length: 463, requestId: "1-67d85c2f-5a0b91d3e7c24f6812ab9d37",
-      description: "AWS WAF returned ALLOW on a 463-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 91.242.229.35, Chrome browser User-Agent.",
+      description: "AWS WAF returned ALLOW on a 463-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 203.0.113.99, Chrome browser User-Agent.",
     }),
     mdeRow("evt_12c_cmd_run_srv", T(57 * MIN + 20_000), {
       name: "cmd.exe", path: `${sys32}cmd.exe`, cmdline: `cmd.exe /c ${vendorDir}\\srv.exe -i -c cmd.exe`, parent: "w3wp.exe", parentPid: 6188, pid: 7612,
@@ -989,7 +990,7 @@ export function webShellRceScenarioEvents() {
     // ── STAGING: the SYSTEM shell packs the files it wants ───────────────────
     wafAllow("evt_13a_waf_allow_post", 61 * MIN + 38_600, {
       method: "POST", uri: shellUrlPath, args: "", length: 529, requestId: "1-67d85dd2-3c8e0a57f1b64d9923c7e810",
-      description: "AWS WAF returned ALLOW on a 529-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 91.242.229.35, Chrome browser User-Agent.",
+      description: "AWS WAF returned ALLOW on a 529-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 203.0.113.99, Chrome browser User-Agent.",
     }),
     mdeRow("evt_13b_tar_run", T(61 * MIN + 40_000), {
       name: "tar.exe", path: `${sys32}tar.exe`,
@@ -1020,7 +1021,7 @@ export function webShellRceScenarioEvents() {
     // ── EXFIL PRELUDE: the last shell call, the SYSTEM command prompt starts curl ─
     wafAllow("evt_13e_waf_allow_post", 63 * MIN + 53_600, {
       method: "POST", uri: shellUrlPath, args: "", length: 571, requestId: "1-67d85e48-0f9a2b6c83d71e4a05fb3c92",
-      description: "AWS WAF returned ALLOW on a 571-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 91.242.229.35, Chrome browser User-Agent.",
+      description: "AWS WAF returned ALLOW on a 571-byte POST to /assets/js/vendor/bootstrap.bundle.aspx from 203.0.113.99, Chrome browser User-Agent.",
     }),
     mdeRow("evt_13f_curl_start", T(63 * MIN + 55_000), {
       name: "curl.exe", path: `${sys32}curl.exe`,
@@ -1031,7 +1032,7 @@ export function webShellRceScenarioEvents() {
     infobloxDns({
       id: "evt_13g_dns_c2", ts: T(63 * MIN + 56_000), host: web.hostname, srcIp: web.ip,
       query: c2Dom, answer: c2Ip, member: "DNS-DMZ-01",
-      description: "WEB-SHOP-01 resolved cdn-shopassets.link to 194.26.29.114, answered NOERROR by the DMZ Infoblox resolver DNS-DMZ-01.",
+      description: "WEB-SHOP-01 resolved cdn-shopassets.link to 203.0.113.114, answered NOERROR by the DMZ Infoblox resolver DNS-DMZ-01.",
     }),
     shellCall("evt_13h_iis_post_4", 63 * MIN + 56_500, "2026-03-17T10:03:56.502Z", {
       scBytes: 198, csBytes: 571, taken: 1013,
@@ -1055,7 +1056,7 @@ export function webShellRceScenarioEvents() {
       mitre_tactic: "Exfiltration",
       network: { url: `https://${c2Dom}/u`, domain: c2Dom, bytes_out: 5918204, bytes_in: 214 },
       description:
-        "curl.exe running as SYSTEM POSTed C:\\Windows\\Temp\\ib.dat to https://cdn-shopassets.link/u (194.26.29.114), 5,918,204 bytes out, 214 in.",
+        "curl.exe running as SYSTEM POSTed C:\\Windows\\Temp\\ib.dat to https://cdn-shopassets.link/u (203.0.113.114), 5,918,204 bytes out, 214 in.",
       raw: {
         Timestamp: "2026-03-17T10:04:00.552Z",
         DeviceName: "web-shop-01.nexacorp.com",
@@ -1087,7 +1088,7 @@ export function webShellRceScenarioEvents() {
         ...cx, id: "evt_14a_egress_session", ts: T(64 * MIN + 8_000), host: web.hostname, srcIp: web.ip, user: null,
         dstIp: c2Ip, remotePort: 443, app: "ssl", action: "allow", end: true, category: "unknown",
         bytesOut: 5_931_480, bytesIn: 4_212, elapsedSec: 8, severity: "medium",
-        description: "An 8-second outbound TLS session from WEB-SHOP-01 (10.40.12.21) to 194.26.29.114:443 closed, 5,931,480 bytes sent and 4,212 received, allowed by rule DMZ-Servers-Outbound.",
+        description: "An 8-second outbound TLS session from WEB-SHOP-01 (10.40.12.21) to 203.0.113.114:443 closed, 5,931,480 bytes sent and 4,212 received, allowed by rule DMZ-Servers-Outbound.",
       });
       Object.assign(e.raw, { "pan.rule": "DMZ-Servers-Outbound", "pan.from_zone": "dmz", "pan.to_zone": "untrust", "pan.sport": "50188", "pan.session_id": "7741206" });
       return e;
@@ -1097,5 +1098,7 @@ export function webShellRceScenarioEvents() {
   // Every event belongs to the one incident.
   for (const e of events) e.incident_id = INCIDENT;
 
+  // Where this story puts its addresses: the country the WAF logs as httpRequest.country (docGeo.ts, R5).
+  placeDocAddresses(events, { [atkA]: PLACES.amsterdam, [atkB]: PLACES.amsterdam, [atkC]: PLACES.moscow, [scannerIp]: PLACES.ashburn });
   return { title: "WAF blocks and an EDR alert on the shop", events, T, MIN, web, atkA, atkB, atkC, c2Ip, c2Dom, shellHash, spoofHash };
 }

@@ -11,24 +11,24 @@
  * browser.
  *
  * The teaching point is that EVERY action in this chain was ALLOWED. NexaCorp's
- * Microsoft Purview DLP is deployed in AUDIT mode, not Block — so the bulk
+ * Microsoft Purview DLP is deployed in AUDIT mode, not Block, so the bulk
  * access, the removable-media copy and the personal-cloud upload each generated
  * a policy match that was logged and notified but never stopped. There is no
  * "denied", no "blocked", no malware, no stolen credential: it is the man's own
  * valid account (T1078) doing things his role technically permits. The verdict
  * is still malicious insider data theft, and the analyst has to reach it from
  * (a) audit-only DLP telemetry and (b) the HR/context signal that this is a
- * departing employee acting well outside his own norm — NOT from any control
+ * departing employee acting well outside his own norm, NOT from any control
  * that said "no".
  *
  * A benign heavy-transfer control is included for contrast: a Data Engineer,
  * Hannah Reyes, moving an even larger volume the same day as part of a
  * change-ticketed migration to a SANCTIONED corporate destination. Same "big
- * transfer" shape, opposite verdict — which is the whole point of the
+ * transfer" shape, opposite verdict, which is the whole point of the
  * exfil-vs-legitimate-work question. It lives in its own incident (inc:idt:2),
  * so it never sits inside the insider's endpoint case.
  *
- * Covers T1078 (Valid Accounts — his own), T1039 (Data from Network Shared
+ * Covers T1078 (Valid Accounts, his own), T1039 (Data from Network Shared
  * Drive), T1074.001 (Local Data Staging), T1052.001 (Exfiltration over USB) and
  * T1567.002 (Exfiltration to Cloud Storage).
  *
@@ -74,7 +74,8 @@ export function buildInsiderDlpUsbCloudScenario(
     dept: "Client Accounts",
   };
   const deviceId = "2d360a3dd9a1e8b39a4a772e451bc663";
-  const insiderSid = "S-1-5-21-3421479547-3897544621-1789562108-5277";
+  // One SID for d.okafor on every row (R3): the same derivation the share-access emitter uses.
+  const insiderSid = domainSidFor("nexacorp", insider.sam);
 
   // The client/finance file share he pulls from (an on-premises file server).
   const fileServer = { name: "SRV-NX-FIN02", ip: "10.20.4.30", share: "\\\\SRV-NX-FIN02\\ClientShare" };
@@ -99,7 +100,7 @@ export function buildInsiderDlpUsbCloudScenario(
   const cmdHash = makeSha256("windows_system32_cmd_exe_signed_microsoft_2026");
   const edgeHash = makeSha256("microsoft_edge_msedge_exe_signed_microsoft_2026");
 
-  // The benign control — a Data Engineer doing sanctioned, change-ticketed bulk work.
+  // The benign control, a Data Engineer doing sanctioned, change-ticketed bulk work.
   const colleague = { email: "h.reyes@nexacorp.com", name: "Hannah Reyes", sam: "h.reyes", host: "LAPTOP-NX-ENG07", ip: "10.20.4.61" };
   const change = "CHG-2026-0814";
 
@@ -145,7 +146,7 @@ export function buildInsiderDlpUsbCloudScenario(
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 0. The HR record the whole case turns on. A resignation was submitted
-    //    three days ago and access-revocation is already scheduled — the
+    //    three days ago and access-revocation is already scheduled, the
     //    context that turns "big transfer" into "departing insider".
     // ---------------------------------------------------------------------
     {
@@ -189,7 +190,7 @@ export function buildInsiderDlpUsbCloudScenario(
 
     // ---------------------------------------------------------------------
     // 1. Ordinary interactive logon under his OWN valid account (T1078).
-    //    Nothing is stolen or spoofed anywhere in this incident — every
+    //    Nothing is stolen or spoofed anywhere in this incident, every
     //    action that follows is authenticated as Daniel Okafor.
     // ---------------------------------------------------------------------
     winLogon({
@@ -198,7 +199,7 @@ export function buildInsiderDlpUsbCloudScenario(
       subjectUser: `${host.hostname}$`, subjectSid: "S-1-5-18", processName: "C:\\Windows\\System32\\winlogon.exe", recordId: "5540921",
       severity: "informational", incidentId: INCIDENT, mitre: "T1078", tactic: "Initial Access",
       description:
-        "A routine 4624 interactive logon for d.okafor on LAPTOP-NX-FIN14 at 13:15, LogonType 2 over Kerberos — the analyst's normal workstation session.",
+        "A routine 4624 interactive logon for d.okafor on LAPTOP-NX-FIN14 at 13:15, LogonType 2 over Kerberos, the analyst's normal workstation session.",
     }),
     // 1b. His shell starts (explorer.exe, from userinit.exe) and he opens a command prompt.
     withProc(mdeProcess({
@@ -208,7 +209,7 @@ export function buildInsiderDlpUsbCloudScenario(
     }), explorerProc),
 
     // ---------------------------------------------------------------------
-    // 2. Mass access to the client/finance share — many files read in a
+    // 2. Mass access to the client/finance share, many files read in a
     //    short window, well above what this account normally touches. The file
     //    server's own Security log: a share connection and per-file samples.
     // ---------------------------------------------------------------------
@@ -231,7 +232,7 @@ export function buildInsiderDlpUsbCloudScenario(
 
     // ---------------------------------------------------------------------
     // 3. Purview Endpoint DLP matches the bulk access to labeled client
-    //    financial data — RuleMode Enforce, but Actions are Audit+Notify,
+    //    financial data, RuleMode Enforce, but Actions are Audit+Notify,
     //    so it is LOGGED, not blocked. First "allowed ≠ benign" signal.
     // ---------------------------------------------------------------------
     {
@@ -247,7 +248,7 @@ export function buildInsiderDlpUsbCloudScenario(
       mitre_technique: "T1039",
       mitre_tactic: "Collection",
       description:
-        "Microsoft Purview matched 2,214 instances of labeled client financial data being opened by d.okafor on LAPTOP-NX-FIN14. The rule is enforced, but its configured actions are Audit and NotifyUser — logged and the user notified, nothing blocked.",
+        "Microsoft Purview matched 2,214 instances of labeled client financial data being opened by d.okafor on LAPTOP-NX-FIN14. The rule is enforced, but its configured actions are Audit and NotifyUser, logged and the user notified, nothing blocked.",
       raw: {
         "data.office365.RecordType": "63",
         "data.office365.Operation": "DlpRuleMatch",
@@ -255,7 +256,7 @@ export function buildInsiderDlpUsbCloudScenario(
         "data.office365.UserId": insider.email,
         "data.office365.ObjectId": `${fileServer.share}\\ClientRecords\\${file1}`,
         "data.office365.IncidentId": "6742013",
-        "data.office365.PolicyDetails.PolicyName": "NexaCorp — Client & Financial Data Protection",
+        "data.office365.PolicyDetails.PolicyName": "NexaCorp, Client & Financial Data Protection",
         "data.office365.PolicyDetails.Rules.RuleName": "Bulk access to labeled client financial records",
         "data.office365.PolicyDetails.Rules.RuleMode": "Enforce",
         "data.office365.PolicyDetails.Rules.Severity": "High",
@@ -273,8 +274,8 @@ export function buildInsiderDlpUsbCloudScenario(
     },
 
     // ---------------------------------------------------------------------
-    // 4. Local staging (T1074.001). robocopy — a signed, built-in Windows
-    //    utility — mirrors the client-records tree into a local temp folder,
+    // 4. Local staging (T1074.001). robocopy, a signed, built-in Windows
+    //    utility, mirrors the client-records tree into a local temp folder,
     //    consolidating the files before they leave the host.
     // ---------------------------------------------------------------------
     withProc(mdeProcess({
@@ -293,7 +294,7 @@ export function buildInsiderDlpUsbCloudScenario(
 
     // ---------------------------------------------------------------------
     // 5. Removable media mounts: Defender for Endpoint records the Kingston
-    //    stick (DeviceEvents UsbDriveMounted) — serial and drive letter are the
+    //    stick (DeviceEvents UsbDriveMounted), serial and drive letter are the
     //    citable USB indicators. Device control is in Audit mode, so it is allowed.
     // ---------------------------------------------------------------------
     {
@@ -345,7 +346,7 @@ export function buildInsiderDlpUsbCloudScenario(
 
     // ---------------------------------------------------------------------
     // 7. Purview Endpoint DLP matches the copy-to-removable-media on labeled
-    //    data — again Enforce mode, Audit action. The USB-egress
+    //    data, again Enforce mode, Audit action. The USB-egress
     //    counterpart to the earlier access match.
     // ---------------------------------------------------------------------
     {
@@ -362,7 +363,7 @@ export function buildInsiderDlpUsbCloudScenario(
       mitre_tactic: "Exfiltration",
       is_detection: true, // alert-grade: DLP policy match on the removable-media copy of labeled client data
       description:
-        `Purview matched labeled client data — including ${file2} — being copied to the removable device ${usbSerial}. The rule fired in Audit mode: 34 files were flagged and allowed onto the USB stick.`,
+        `Purview matched labeled client data, including ${file2}, being copied to the removable device ${usbSerial}. The rule fired in Audit mode: 34 files were flagged and allowed onto the USB stick.`,
       raw: {
         "data.office365.RecordType": "63",
         "data.office365.Operation": "DlpRuleMatch",
@@ -370,7 +371,7 @@ export function buildInsiderDlpUsbCloudScenario(
         "data.office365.UserId": insider.email,
         "data.office365.ObjectId": `D:\\${file2}`,
         "data.office365.IncidentId": "6742088",
-        "data.office365.PolicyDetails.PolicyName": "NexaCorp — Client & Financial Data Protection",
+        "data.office365.PolicyDetails.PolicyName": "NexaCorp, Client & Financial Data Protection",
         "data.office365.PolicyDetails.Rules.RuleName": "Copy of labeled client data to removable media",
         "data.office365.PolicyDetails.Rules.RuleMode": "Enforce",
         "data.office365.PolicyDetails.Rules.Severity": "High",
@@ -389,8 +390,8 @@ export function buildInsiderDlpUsbCloudScenario(
     // ---------------------------------------------------------------------
     // 8. Personal-cloud egress. Edge is started, resolves Dropbox and opens a
     //    TLS session to it (MDE); Purview Endpoint DLP flags the SAME labeled
-    //    data being uploaded to a consumer Dropbox account — an unsanctioned
-    //    service — and, in Audit mode, allows it.
+    //    data being uploaded to a consumer Dropbox account, an unsanctioned
+    //    service, and, in Audit mode, allows it.
     // ---------------------------------------------------------------------
     withProc(mdeProcess({
       ...base, id: "evt_idt_07a_edge_start", ts: T(47 * MIN + 30 * SEC), processName: "msedge.exe", processPath: EDGE, cmdline: `${EDGE_CMD} https://${personalCloud}`,
@@ -419,7 +420,7 @@ export function buildInsiderDlpUsbCloudScenario(
       mitre_tactic: "Exfiltration",
       is_detection: true, // alert-grade: DLP policy match on labeled data uploaded to an unsanctioned personal cloud
       description:
-        `At 14:03 Purview matched ${file1} and 33 sibling client files being uploaded through Microsoft Edge to ${personalCloud}, a consumer cloud account not on NexaCorp's sanctioned list. Rule mode Audit — flagged and allowed.`,
+        `At 14:03 Purview matched ${file1} and 33 sibling client files being uploaded through Microsoft Edge to ${personalCloud}, a consumer cloud account not on NexaCorp's sanctioned list. Rule mode Audit, flagged and allowed.`,
       raw: {
         "data.office365.RecordType": "63",
         "data.office365.Operation": "DlpRuleMatch",
@@ -427,7 +428,7 @@ export function buildInsiderDlpUsbCloudScenario(
         "data.office365.UserId": insider.email,
         "data.office365.ObjectId": `${STAGE}\\${file1}`,
         "data.office365.IncidentId": "6742151",
-        "data.office365.PolicyDetails.PolicyName": "NexaCorp — Client & Financial Data Protection",
+        "data.office365.PolicyDetails.PolicyName": "NexaCorp, Client & Financial Data Protection",
         "data.office365.PolicyDetails.Rules.RuleName": "Upload of labeled client data to unsanctioned cloud service",
         "data.office365.PolicyDetails.Rules.RuleMode": "Enforce",
         "data.office365.PolicyDetails.Rules.Severity": "High",
@@ -445,8 +446,8 @@ export function buildInsiderDlpUsbCloudScenario(
 
     // ---------------------------------------------------------------------
     // 9. The upload as the web proxy saw it. Zscaler logs the TLS POST sessions
-    //    to the consumer cloud — three requests of one chunked upload, 613,402,611
-    //    bytes out in total — each written when it completes, allowed under a
+    //    to the consumer cloud, three requests of one chunked upload, 613,402,611
+    //    bytes out in total, each written when it completes, allowed under a
     //    file-sharing category, corroborating the DLP match with volume.
     // ---------------------------------------------------------------------
     ...([
@@ -472,7 +473,7 @@ export function buildInsiderDlpUsbCloudScenario(
 
     // ---------------------------------------------------------------------
     // 10. BENIGN CONTROL. A Data Engineer moving an even larger volume the
-    //     same day — but as change-ticketed migration work to a SANCTIONED
+    //     same day, but as change-ticketed migration work to a SANCTIONED
     //     corporate destination, in role, with no departure flag. Same
     //     "big transfer" shape, opposite verdict. Its own incident.
     // ---------------------------------------------------------------------
@@ -486,7 +487,7 @@ export function buildInsiderDlpUsbCloudScenario(
         description: "At 14:10 h.reyes uploaded warehouse-migration/extract_2026_08_24_part01.parquet to her corporate OneDrive for Business: the first record of a 120-file, 1.4 GB upload covered by change ticket CHG-2026-0814.",
       }),
       fp_explanation:
-        "Benign. h.reyes is a Data Engineer whose role is bulk data movement; the transfer is larger than the insider's but goes to a SANCTIONED corporate destination (nexacorp-my.sharepoint.com) under change ticket CHG-2026-0814, matches her baseline for migration windows, and carries no HR-departure flag. Volume alone is not the signal — destination, authorization and context are.",
+        "Benign. h.reyes is a Data Engineer whose role is bulk data movement; the transfer is larger than the insider's but goes to a SANCTIONED corporate destination (nexacorp-my.sharepoint.com) under change ticket CHG-2026-0814, matches her baseline for migration windows, and carries no HR-departure flag. Volume alone is not the signal, destination, authorization and context are.",
     },
 
     // ---------------------------------------------------------------------
@@ -524,7 +525,7 @@ export function buildInsiderDlpUsbCloudScenario(
       value: host.hostname,
       first_seen: T(0),
       last_seen: T(70 * MIN),
-      // "unknown", not "suspicious" — this is NexaCorp's own asset, the origin
+      // "unknown", not "suspicious", this is NexaCorp's own asset, the origin
       // of the theft, not adversary infrastructure.
       reputation: "unknown",
       tags: ["insider-host", "affected", "finance"],
@@ -575,8 +576,8 @@ export function buildInsiderDlpUsbCloudScenario(
     {
       id: "q1",
       prompt:
-        "The same 34 client files leave the environment by two different routes in this chain. Which pair of events are the two separate exfiltration channels — T1052.001 (over USB) and T1567.002 (to cloud storage)?",
-      hint: "One channel writes to a physical drive letter; the other pushes bytes over HTTPS to an internet destination. Staging (T1074.001) is neither — it never leaves the host.",
+        "The same 34 client files leave the environment by two different routes in this chain. Which pair of events are the two separate exfiltration channels, T1052.001 (over USB) and T1567.002 (to cloud storage)?",
+      hint: "One channel writes to a physical drive letter; the other pushes bytes over HTTPS to an internet destination. Staging (T1074.001) is neither, it never leaves the host.",
       kind: "single",
       options: [
         { value: "usb_and_cloud", label: "The file writes to USB volume D: + the HTTPS POSTs of the same files to www.dropbox.com" },
@@ -595,9 +596,9 @@ export function buildInsiderDlpUsbCloudScenario(
         "Every DLP match in this incident, bulk access, USB copy, and cloud upload, shows RuleMode: Enforce and Actions: [Audit, NotifyUser], and yet the transfers all completed: the files are on the USB volume and the proxy records the POSTs as allowed. What does that tell you about NexaCorp's DLP posture, and how should it change your reading of the incident?",
       kind: "single",
       options: [
-        { value: "audit_only_still_theft", label: "The policies matched correctly but are set to log and notify, not block — 'allowed' means 'not prevented', not 'approved', and the data still left" },
+        { value: "audit_only_still_theft", label: "The policies matched correctly but are set to log and notify, not block, 'allowed' means 'not prevented', not 'approved', and the data still left" },
         { value: "allowed_means_authorized", label: "Allowed means the platform authorized the transfers as legitimate business activity, so the matches can be closed as expected behaviour" },
-        { value: "policy_broken", label: "The DLP policies are misconfigured or disabled — a working policy would have blocked, so these events are noise from a broken control and should be ignored" },
+        { value: "policy_broken", label: "The DLP policies are misconfigured or disabled, a working policy would have blocked, so these events are noise from a broken control and should be ignored" },
         { value: "false_positives", label: "Three matches on the same user in one afternoon is a classifier tuning problem; the EU IBAN detections are false positives that inflate the incident" },
       ],
       answer: "audit_only_still_theft",
@@ -614,8 +615,8 @@ export function buildInsiderDlpUsbCloudScenario(
       options: [
         { value: "destination_auth_context", label: "Destination and context: Reyes sends to a sanctioned corporate tenant under a change ticket, in a bulk-data role; Okafor sends client data to a personal cloud and USB, above baseline, while departing" },
         { value: "volume_decides", label: "Volume decides it, Reyes moved 1.4 GB against Okafor's ~613 MB, so by raw transfer size her upload is the objectively higher-risk one and should be escalated ahead of his" },
-        { value: "dlp_fired_or_not", label: "Whether DLP fired — Okafor triggered Purview policy matches and Reyes's transfer did not, so the presence or absence of a DLP alert alone cleanly separates the two cases with no further context needed" },
-        { value: "same_verdict", label: "Nothing meaningfully separates them — both are large transfers off the corporate network on the same afternoon by authenticated employees, so both should be logged and closed as ordinary benign business activity" },
+        { value: "dlp_fired_or_not", label: "Whether DLP fired, Okafor triggered Purview policy matches and Reyes's transfer did not, so the presence or absence of a DLP alert alone cleanly separates the two cases with no further context needed" },
+        { value: "same_verdict", label: "Nothing meaningfully separates them, both are large transfers off the corporate network on the same afternoon by authenticated employees, so both should be logged and closed as ordinary benign business activity" },
       ],
       answer: "destination_auth_context",
       xp: 60,
@@ -628,10 +629,10 @@ export function buildInsiderDlpUsbCloudScenario(
         "You are writing the verdict. No control blocked anything, no malware ran, and every action was authenticated as Daniel Okafor's own valid account. How should this incident be classified and handled?",
       kind: "single",
       options: [
-        { value: "malicious_insider_escalate", label: "Malicious insider theft — a departing employee took client data out by two channels, far off his baseline. Preserve evidence, escalate to HR/Legal, expedite revocation" },
-        { value: "benign_all_allowed", label: "Benign — every action was allowed, performed under his own valid account and on data his role can access, so there is no policy violation to action or escalate" },
-        { value: "low_priority_dlp_tuning", label: "Low priority — route it to the DLP engineering backlog as tuning feedback, since the policies should have blocked, and close the security ticket with no user action" },
-        { value: "wait_for_malware", label: "Hold — without malware, a blocked action or a compromised credential there is no confirmed intrusion yet, so wait for a second signal before treating it as an incident" },
+        { value: "malicious_insider_escalate", label: "Malicious insider theft, a departing employee took client data out by two channels, far off his baseline. Preserve evidence, escalate to HR/Legal, expedite revocation" },
+        { value: "benign_all_allowed", label: "Benign, every action was allowed, performed under his own valid account and on data his role can access, so there is no policy violation to action or escalate" },
+        { value: "low_priority_dlp_tuning", label: "Low priority, route it to the DLP engineering backlog as tuning feedback, since the policies should have blocked, and close the security ticket with no user action" },
+        { value: "wait_for_malware", label: "Hold, without malware, a blocked action or a compromised credential there is no confirmed intrusion yet, so wait for a second signal before treating it as an incident" },
       ],
       answer: "malicious_insider_escalate",
       xp: 60,
@@ -643,20 +644,20 @@ export function buildInsiderDlpUsbCloudScenario(
   return {
     scenario_id: scenarioId,
     title: "Sentinel incident for a finance analyst who resigned",
-    threat_actor: "Malicious insider (departing employee, valid account — no external actor)",
+    threat_actor: "Malicious insider (departing employee, valid account, no external actor)",
     attack_kind: "insider_data_theft",
     briefing:
       "Microsoft Sentinel raised an insider-risk incident at 14:25 for d.okafor, a Senior Financial Analyst whose resignation is already in Workday. Establish what left the environment, by which routes, and whether this is theft or legitimate work.",
-    narrative: `Daniel Okafor is a Senior Financial Analyst on NexaCorp's Client Accounts team. Three days before this window, he submitted his resignation; Workday shows a voluntary termination dated 2026-08-28, his last working Friday, with access-revocation already scheduled for that evening. He is inside his notice period, and everything he does over this Monday afternoon is authenticated as his own valid account — nothing is stolen or spoofed.
+    narrative: `Daniel Okafor is a Senior Financial Analyst on NexaCorp's Client Accounts team. Three days before this window, he submitted his resignation; Workday shows a voluntary termination dated 2026-08-28, his last working Friday, with access-revocation already scheduled for that evening. He is inside his notice period, and everything he does over this Monday afternoon is authenticated as his own valid account, nothing is stolen or spoofed.
 
 At 13:15 he logs on to LAPTOP-NX-FIN14 normally. By 13:20 he has connected to the Client Accounts file share and from 13:21 he is opening files far faster than usual, 192 in about eight minutes, against a 30-day baseline of roughly fourteen a day; the file server's own Security log shows the share connection and per-file reads. At 13:29 Microsoft Purview matches 2,214 instances of labeled client financial data being read; the rule is enforced, but its configured actions are Audit and NotifyUser, so it logs and notifies and blocks nothing. At 13:36 he opens a command prompt and at 13:37 robocopy mirrors the ClientRecords folder into a local staging folder under his profile.
 
 At 13:46 a Kingston DataTraveler USB stick, serial KINGSTON-DT-6F2A9C41, volume labeled DOKAFOR-BACKUP, mounts as drive D:. Within two minutes, explorer.exe writes 34 client files to it, including Client_Master_Book_2026.xlsx and FY26_Client_Pricing_Model.xlsx; Defender for Endpoint records the writes, and Purview's removable-media policy matches them, again in Audit mode, again allowed. At 14:02 he starts Microsoft Edge on www.dropbox.com; at 14:03 Purview's cloud-egress policy matches the same files being uploaded through it to a consumer account on no sanctioned list (Audit, allowed), and Zscaler logs the HTTPS POST sessions that carry about 613 MB out over roughly fourteen minutes.
 
-Not one control on this path said no. Sentinel finally correlates the departure, the above-baseline access, the USB copy and the personal-cloud upload into a single incident at 14:25. For contrast, the same afternoon a Data Engineer, Hannah Reyes, moved an even larger 1.4 GB — but to a sanctioned corporate tenant, under change ticket CHG-2026-0814, in role, with no departure flag. Same shape, opposite verdict. The lesson is that in an audit-only DLP estate 'allowed' is the outcome of everything, and the analyst has to reach 'theft' from the data's destination and the actor's context, not from any control that blocked it.`,
+Not one control on this path said no. Sentinel finally correlates the departure, the above-baseline access, the USB copy and the personal-cloud upload into a single incident at 14:25. For contrast, the same afternoon a Data Engineer, Hannah Reyes, moved an even larger 1.4 GB, but to a sanctioned corporate tenant, under change ticket CHG-2026-0814, in role, with no departure flag. Same shape, opposite verdict. The lesson is that in an audit-only DLP estate 'allowed' is the outcome of everything, and the analyst has to reach 'theft' from the data's destination and the actor's context, not from any control that blocked it.`,
     learning_objectives: [
       "Recognise insider data theft where every action is allowed, performed under a valid account (T1078), with no malware and no blocked control, by correlating Workday, Purview DLP, Defender for Endpoint, Zscaler and Sentinel on one user and host",
-      "Distinguish the two exfiltration channels — over USB (T1052.001) and to cloud storage (T1567.002) — from local staging (T1074.001), which never leaves the host",
+      "Distinguish the two exfiltration channels, over USB (T1052.001) and to cloud storage (T1567.002), from local staging (T1074.001), which never leaves the host",
       "Read Purview RuleMode and Actions fields to see that an enforced-but-audit-only policy logs rather than blocks, so a completed transfer carries no verdict",
       "Judge exfiltration by destination, authorization, baseline and HR/Workday context (a scheduled departure) rather than raw transfer volume, using the benign heavy-transfer control to calibrate",
     ],
@@ -664,12 +665,12 @@ Not one control on this path said no. Sentinel finally correlates the departure,
     events,
     iocs,
     killchain: [
-      { ts: T(-3 * DAY), phase: "Context", action: "Workday records d.okafor's resignation — termination 2026-08-28, access revocation scheduled" },
+      { ts: T(-3 * DAY), phase: "Context", action: "Workday records d.okafor's resignation, termination 2026-08-28, access revocation scheduled" },
       { ts: T(0), phase: "Valid Accounts", action: "Normal 4624 logon on LAPTOP-NX-FIN14 under his own account (T1078)" },
       { ts: T(5 * MIN + 50 * SEC), phase: "Collection", action: "Client-share connection and 192 files read vs ~14/day baseline (T1039)" },
-      { ts: T(14 * MIN), phase: "Detection", action: "Purview matches 2,214 labeled client-data instances — Audit mode, allowed" },
+      { ts: T(14 * MIN), phase: "Detection", action: "Purview matches 2,214 labeled client-data instances, Audit mode, allowed" },
       { ts: T(22 * MIN), phase: "Collection", action: "robocopy stages ClientRecords into a local folder on the laptop (T1074.001)" },
-      { ts: T(31 * MIN), phase: "Exfiltration", action: `Kingston USB ${usbSerial} (volume ${usbVolume}) mounts as D: — device control in Audit mode` },
+      { ts: T(31 * MIN), phase: "Exfiltration", action: `Kingston USB ${usbSerial} (volume ${usbVolume}) mounts as D:, device control in Audit mode` },
       { ts: T(32 * MIN), phase: "Exfiltration", action: "Defender for Endpoint records 34 client files written to the USB volume by explorer.exe (T1052.001)" },
       { ts: T(47 * MIN + 30 * SEC), phase: "Exfiltration", action: `Edge starts on ${personalCloud} and opens a session to ${dropboxIp}` },
       { ts: T(48 * MIN), phase: "Exfiltration", action: `Same 34 files uploaded via browser to ${personalCloud}, Purview match, Audit mode (T1567.002)` },

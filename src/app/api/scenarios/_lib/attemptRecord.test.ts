@@ -64,7 +64,7 @@ describe("buildAttemptRow", () => {
   });
 });
 
-describe("xpDeltaFor — only the best attempt counts", () => {
+describe("xpDeltaFor, only the best attempt counts", () => {
   it("first attempt adds the full run", () => {
     expect(xpDeltaFor(260, 0)).toEqual({ xpDelta: 260, bestXp: 260, improved: true });
     expect(xpDeltaFor(260, null)).toEqual({ xpDelta: 260, bestXp: 260, improved: true });

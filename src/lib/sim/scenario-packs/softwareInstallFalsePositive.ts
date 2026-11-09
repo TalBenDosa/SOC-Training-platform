@@ -44,7 +44,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
   const MIN = 60_000;
   const HOUR = 3_600_000;
 
-  // The deployment deadline is 21:00Z — 11h46m after the change record is cut.
+  // The deployment deadline is 21:00Z, 11h46m after the change record is cut.
   const W = 11 * HOUR + 46 * MIN;
 
   const host = { hostname: "WS-ENG-4471", ip: "10.30.44.71" };
@@ -57,7 +57,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
   const deploymentId = "DPL-40218";
   const changeTicket = "CHG0043912";
 
-  // One hash per file. Neither is signed — this is an internally built tool.
+  // One hash per file. Neither is signed, this is an internally built tool.
   const setupHash = makeSha256("meshlink_collector_setup_2_4_1_internal_build");
   const binHash = makeSha256("meshlink_collector_service_binary_2_4_1_internal_build");
   const imeHash = makeSha256("microsoft_intune_management_extension_agent_signed_microsoft");
@@ -72,7 +72,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
   const collectorFqdn = "mesh-collect.corp.nexacorp.com";
   const collectorIp = "10.30.9.40";
 
-  // EDR↔scenario integration (Phase 4): endpoint-only incident — a behavioural
+  // EDR↔scenario integration (Phase 4): endpoint-only incident, a behavioural
   // Falcon detection on an in-house tool (MeshLink Collector) pushed by Intune,
   // which resolves to a FALSE POSITIVE. All artifacts are host-side (process/file
   // write, LocalSystem service, outbound session); the Intune/change records are
@@ -94,7 +94,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
 
     // ---------------------------------------------------------------------
     // 1. A change record exists. It names a package, a ring and a window.
-    //    It says nothing about any alert — it was written hours earlier.
+    //    It says nothing about any alert, it was written hours earlier.
     // ---------------------------------------------------------------------
     {
       id: "evt_sifp_01_change",
@@ -113,7 +113,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
         "servicenow.description":
           "Second-ring rollout of the in-house MeshLink Collector. Ring 1 piloted build 2.4.0; 2.4.1 is a new build with a new file hash. Package is distributed by Intune as a required app with an install deadline at the start of the window.",
         "servicenow.type": "Standard",
-        "servicenow.std_change_producer_version": "Endpoint software rollout — v3",
+        "servicenow.std_change_producer_version": "Endpoint software rollout, v3",
         "servicenow.state": "Scheduled",
         "servicenow.category": "Software",
         "servicenow.risk": "Low",
@@ -121,7 +121,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
         "servicenow.assignment_group": "Endpoint Engineering",
         "servicenow.requested_by": requester,
         "servicenow.assigned_to": requester,
-        "servicenow.cmdb_ci": "Microsoft Intune — Software Distribution",
+        "servicenow.cmdb_ci": "Microsoft Intune, Software Distribution",
         "servicenow.u_target_group": targetGroup,
         "servicenow.u_package_name": "MeshLink Collector",
         "servicenow.u_package_version": "2.4.1",
@@ -193,7 +193,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
     }),
 
     // ---------------------------------------------------------------------
-    // 4. AMBIGUOUS #1 — unsigned executable written into Program Files.
+    // 4. AMBIGUOUS #1, unsigned executable written into Program Files.
     // ---------------------------------------------------------------------
     csFile({
       ...cx, id: "evt_sifp_04_binary_written", ts: T(W + 38 * SEC), host: host.hostname, user: "SYSTEM", srcIp: host.ip,
@@ -209,7 +209,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
     }),
 
     // ---------------------------------------------------------------------
-    // 5. AMBIGUOUS #2 — a new auto-start service running as LocalSystem.
+    // 5. AMBIGUOUS #2, a new auto-start service running as LocalSystem.
     // ---------------------------------------------------------------------
     {
       id: "evt_sifp_05_service_install",
@@ -222,7 +222,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
       description:
         "The Service Control Manager on WS-ENG-4471 registered the service MeshLinkCollector, start type auto start, running as LocalSystem (Event 7045).",
       raw: {
-        // Windows Event 7045 — A service was installed in the system
+        // Windows Event 7045, A service was installed in the system
         "winlog.event_id": "7045",
         "winlog.channel": "System",
         "winlog.computer_name": "WS-ENG-4471.corp.nexacorp.com",
@@ -269,7 +269,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
     }),
 
     // ---------------------------------------------------------------------
-    // 7. AMBIGUOUS #3 — the outbound connection the rule keyed on.
+    // 7. AMBIGUOUS #3, the outbound connection the rule keyed on.
     // ---------------------------------------------------------------------
     csNetwork({
       ...cx, id: "evt_sifp_07a_service_conn", ts: T(W + 63 * SEC), host: host.hostname, user: "SYSTEM", srcIp: host.ip,
@@ -293,7 +293,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
       severity: "low",
       network: { bytes_out: 3140, bytes_in: 986 },
       description:
-        "A 2-second TLS session left WS-ENG-4471 for 10.30.9.40:8443, crossing from the USERS zone to SERVERS — 3,140 bytes sent, 986 received.",
+        "A 2-second TLS session left WS-ENG-4471 for 10.30.9.40:8443, crossing from the USERS zone to SERVERS, 3,140 bytes sent, 986 received.",
       raw: {
         "pan.type": "TRAFFIC",
         "pan.subtype": "end",
@@ -375,7 +375,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
     },
 
     // ---------------------------------------------------------------------
-    // 10. Prevalence review — how the same file behaved across the estate.
+    // 10. Prevalence review, how the same file behaved across the estate.
     //     Aggregates belong here, at the SIEM, not inside a device log.
     // ---------------------------------------------------------------------
     {
@@ -480,28 +480,28 @@ export function buildSoftwareInstallFalsePositiveScenario(
         {
           value: "proc_status",
           label:
-            "The installer launch + the Intune install-status report — a management-agent parent and cache folder, plus a matching device record",
+            "The installer launch + the Intune install-status report, a management-agent parent and cache folder, plus a matching device record",
         },
         {
           value: "file_service",
           label:
-            "The Program Files write + the service registration — an unsigned binary placed on disk and then set to auto-start as LocalSystem",
+            "The Program Files write + the service registration, an unsigned binary placed on disk and then set to auto-start as LocalSystem",
         },
         {
           value: "dns_conn",
           label:
-            "The DNS lookup + the outbound connection — the collector hostname resolved and a short TLS session opened to it straight after",
+            "The DNS lookup + the outbound connection, the collector hostname resolved and a short TLS session opened to it straight after",
         },
         {
           value: "alert_prev",
           label:
-            "The Falcon detection + the prevalence review — the behavioural alert and the estate-wide Sentinel hash query that followed it",
+            "The Falcon detection + the prevalence review, the behavioural alert and the estate-wide Sentinel hash query that followed it",
         },
       ],
       answer: "proc_status",
       xp: 50,
       explanation:
-        "The process record shows mlnk-collector-setup.exe launched by Microsoft.Management.Services.IntuneWindowsAgent.exe, running out of C:\\Windows\\IMECache — the management extension's own download cache, which nothing else writes to. The install-status record then shows WS-ENG-4471 reporting back under deployment DPL-40218 with installState installed and errorCode 0. One says how it arrived, the other says the system that sent it knows this device by name. Pair (b) is the behaviour that fired the alert, so it cannot resolve it. Pair (c) tells you where it talked, not where it came from. Pair (d) is the alarm and its follow-up query.",
+        "The process record shows mlnk-collector-setup.exe launched by Microsoft.Management.Services.IntuneWindowsAgent.exe, running out of C:\\Windows\\IMECache, the management extension's own download cache, which nothing else writes to. The install-status record then shows WS-ENG-4471 reporting back under deployment DPL-40218 with installState installed and errorCode 0. One says how it arrived, the other says the system that sent it knows this device by name. Pair (b) is the behaviour that fired the alert, so it cannot resolve it. Pair (c) tells you where it talked, not where it came from. Pair (d) is the alarm and its follow-up query.",
     },
     {
       id: "q2",
@@ -534,7 +534,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
       answer: "all_three",
       xp: 60,
       explanation:
-        "A ticket is a statement of intent; corroboration means independent records agreeing with its specifics. Three do: the installer ran at 21:00, which is the deadlineDateTime on the assignment and the planned start on the change; the version in the PE metadata, the assignment and the ticket is 2.4.1; and the install-status report places WS-ENG-4471 in ENG-Workstations-Ring2, the group the ticket targets. Option (b) is only the ticket describing itself. Option (c) is a coincidence of dates and would be true of an intrusion on a busy change day. Option (d) is real supporting evidence but PE company and product strings are attacker-controlled text — on its own it proves nothing.",
+        "A ticket is a statement of intent; corroboration means independent records agreeing with its specifics. Three do: the installer ran at 21:00, which is the deadlineDateTime on the assignment and the planned start on the change; the version in the PE metadata, the assignment and the ticket is 2.4.1; and the install-status report places WS-ENG-4471 in ENG-Workstations-Ring2, the group the ticket targets. Option (b) is only the ticket describing itself. Option (c) is a coincidence of dates and would be true of an intrusion on a busy change day. Option (d) is real supporting evidence but PE company and product strings are attacker-controlled text, on its own it proves nothing.",
     },
     {
       id: "q3",
@@ -566,7 +566,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
       answer: "prevalence",
       xp: 60,
       explanation:
-        "Targeted intrusions do not arrive simultaneously on 197 machines that all happen to be members of one device group, and Sentinel counted zero hosts with that hash outside the group. Add zero anti-malware detections across vendors, zero threat-intel matches, no Run keys, no scheduled tasks, no LSASS access and no remote logons, and the unsigned binary stops looking like a dropper and starts looking like an in-house build. Option (b) shows the writer was privileged, which malware running as SYSTEM also is. Option (c) is the same observation restated, and running as SYSTEM makes things worse, not better. Option (d) is a common and dangerous misreading — 'Detection, No Action' is a policy setting, never a safety judgement.",
+        "Targeted intrusions do not arrive simultaneously on 197 machines that all happen to be members of one device group, and Sentinel counted zero hosts with that hash outside the group. Add zero anti-malware detections across vendors, zero threat-intel matches, no Run keys, no scheduled tasks, no LSASS access and no remote logons, and the unsigned binary stops looking like a dropper and starts looking like an in-house build. Option (b) shows the writer was privileged, which malware running as SYSTEM also is. Option (c) is the same observation restated, and running as SYSTEM makes things worse, not better. Option (d) is a common and dangerous misreading, 'Detection, No Action' is a policy setting, never a safety judgement.",
     },
     {
       id: "q4",
@@ -606,7 +606,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
   return {
     scenario_id: scenarioId,
     title: "Behavioural EDR alert on an engineering workstation",
-    threat_actor: "None — benign software deployment activity",
+    threat_actor: "None, benign software deployment activity",
     attack_kind: "false_positive",
     briefing:
       "CrowdStrike Falcon raised a HIGH behavioural detection on engineering workstation WS-ENG-4471 at 21:01: an unsigned executable written into Program Files, a new service running as LocalSystem, and an outbound network session, all within seventy seconds. Nothing was blocked. Determine what ran on the host and whether the workstation needs to be contained.",
@@ -614,16 +614,16 @@ export function buildSoftwareInstallFalsePositiveScenario(
 
 The correct verdict here is that there is no incident, and reaching it takes more work than escalating would have. Four records that were never written to explain each other have to be lined up.
 
-The first is a change record, CHG0043912, cut that morning by e.shani in Endpoint Engineering: push MeshLink Collector 2.4.1 to ring 2 of the engineering workstations, in a window from 21:00 to 23:00. The second is the Intune assignment made seventeen minutes later — the same package name, the same version, targeted at the group ENG-Workstations-Ring2 as a required install with a deadline of exactly 21:00, covering 214 devices, installing as system with the silent command line mlnk-collector-setup.exe /quiet /norestart.
+The first is a change record, CHG0043912, cut that morning by e.shani in Endpoint Engineering: push MeshLink Collector 2.4.1 to ring 2 of the engineering workstations, in a window from 21:00 to 23:00. The second is the Intune assignment made seventeen minutes later, the same package name, the same version, targeted at the group ENG-Workstations-Ring2 as a required install with a deadline of exactly 21:00, covering 214 devices, installing as system with the silent command line mlnk-collector-setup.exe /quiet /norestart.
 
-The third is the process record itself. mlnk-collector-setup.exe did not appear from a browser download or a share. Its parent is Microsoft.Management.Services.IntuneWindowsAgent.exe, and it ran from C:\\Windows\\IMECache — the management extension's private download cache, which nothing but the agent populates. It ran at 21:00, the deadline on the assignment. The fourth is the install-status report four minutes later: WS-ENG-4471, deployment DPL-40218, member of ENG-Workstations-Ring2, installState installed, errorCode 0.
+The third is the process record itself. mlnk-collector-setup.exe did not appear from a browser download or a share. Its parent is Microsoft.Management.Services.IntuneWindowsAgent.exe, and it ran from C:\\Windows\\IMECache, the management extension's private download cache, which nothing but the agent populates. It ran at 21:00, the deadline on the assignment. The fourth is the install-status report four minutes later: WS-ENG-4471, deployment DPL-40218, member of ENG-Workstations-Ring2, installState installed, errorCode 0.
 
 Two further checks close the remaining gaps. The connection that helped fire the rule was opened by the new service process itself, mlnk-collector.exe (pid 7560, local port 50912, the same port the firewall logged), and went to 10.30.9.40 on port 8443, an address the host resolved for mesh-collect.corp.nexacorp.com out of the internal authoritative zone, a private address, on an internal firewall rule, in a session that crossed from USERS to SERVERS and never touched the internet. And the estate-wide prevalence review found mlnk-collector.exe on 197 hosts, every one of them inside ENG-Workstations-Ring2 and none outside it, first seen in the tenant during that window, with no anti-malware detection from any vendor, no threat-intelligence match, no Run keys, no scheduled tasks, no credential access and no remote logons.
 
 The unsigned binary is a real finding and belongs in the closure note as a recommendation: an internally built agent that installs as LocalSystem should be code-signed, so that the next ring does not cost the SOC another investigation. But the alert itself is a true description of behaviour and a false description of intent. Close it, cite CHG0043912, the deployment DPL-40218, the IntuneWindowsAgent.exe parent and the prevalence result, and record that a hash outside the assigned group or an external destination would have changed the verdict.`,
     learning_objectives: [
       "Close an alert as benign on positive evidence you gathered, and cite that evidence as rigorously as you would cite evidence of compromise",
-      "Use parent process and install path — a management-agent parent running from its own download cache — to establish how a binary reached a host",
+      "Use parent process and install path, a management-agent parent running from its own download cache, to establish how a binary reached a host",
       "Corroborate a change record against independent telemetry on timing, version and target group instead of accepting the ticket at face value",
       "Read prevalence as evidence: one hash arriving across a single device group in one window, with no detections anywhere, does not describe a targeted intrusion",
       "Distinguish an internal destination on a private address from an external callout before treating a connection as command and control, and record in the closure which finding would have flipped the verdict",
@@ -633,14 +633,14 @@ The unsigned binary is a real finding and belongs in the closure note as a recom
     events,
     iocs,
     killchain: [
-      { ts: T(0), phase: "Planned Change", action: `${changeTicket} raised — MeshLink Collector 2.4.1 to ${targetGroup}, 21:00–23:00 window` },
-      { ts: T(17 * MIN), phase: "Distribution", action: `Intune assignment ${deploymentId} — required install, deadline 21:00, 214 devices` },
+      { ts: T(0), phase: "Planned Change", action: `${changeTicket} raised, MeshLink Collector 2.4.1 to ${targetGroup}, 21:00–23:00 window` },
+      { ts: T(17 * MIN), phase: "Distribution", action: `Intune assignment ${deploymentId}, required install, deadline 21:00, 214 devices` },
       { ts: T(W), phase: "Execution", action: "IntuneWindowsAgent.exe launches mlnk-collector-setup.exe from C:\\Windows\\IMECache as SYSTEM" },
       { ts: T(W + 38 * SEC), phase: "File Write", action: "Unsigned mlnk-collector.exe written to C:\\Program Files\\MeshLink\\bin" },
       { ts: T(W + 52 * SEC), phase: "Service Created", action: "MeshLinkCollector registered auto-start as LocalSystem (Event 7045)" },
       { ts: T(W + 53 * SEC), phase: "Service Start", action: "mlnk-collector.exe --service starts under services.exe as SYSTEM" },
       { ts: T(W + 63 * SEC), phase: "Check-in", action: "mlnk-collector.exe opens a TLS session to 10.30.9.40:8443, internal zone, USERS to SERVERS" },
-      { ts: T(W + 70 * SEC), phase: "Detection", action: "Falcon fires HIGH behavioural detection — Detection, No Action" },
+      { ts: T(W + 70 * SEC), phase: "Detection", action: "Falcon fires HIGH behavioural detection, Detection, No Action" },
       { ts: T(W + 4 * MIN), phase: "Verification", action: `${deploymentId} reports WS-ENG-4471 installed, errorCode 0, in ${targetGroup}` },
       { ts: T(W + 9 * MIN), phase: "Prevalence", action: "197 hosts with the same hash, all inside the group, zero detections anywhere" },
     ],

@@ -12,6 +12,7 @@ import { makeSha256 } from "@/lib/sim/iocs";
 import { fgWeb } from "@/lib/sim/emitters/fortigate";
 import { csFile, csProcess, csAlert, csDns, csNetwork } from "@/lib/sim/emitters/crowdstrike";
 import { mailDelivered, mailClick, zoneStream } from "./corroboratingTelemetry.events";
+import { placeDocAddresses, PLACES } from "./docGeo";
 
 /** Telemetry half of `buildIsoContainerSmugglingScenario`: the events and the story title, no answer key. */
 export function isoContainerSmugglingScenarioEvents() {
@@ -54,7 +55,7 @@ export function isoContainerSmugglingScenarioEvents() {
       user: victim.email, userTitle: "Accounts Payable Clerk", qid: "7D13E0A4B2",
       sender: "billing@invoice-doc-share.net", headerFrom: "\"Accounts Receivable\" <billing@invoice-doc-share.net>",
       subject: "Overdue invoice 84421", messageId: "<5b2f71c0-9ad4-4e63-b1f7-3c0a18e2d654@invoice-doc-share.net>",
-      senderIp: "193.106.191.58", url: lureUrl, domain: shareSite,
+      senderIp: "203.0.113.58", url: lureUrl, domain: shareSite,
       urlRewritten: "https://urldefense.proofpoint.com/v2/url?u=https-3A__invoice-2Ddoc-2Dshare.net_invoice_84421",
       spf: "pass", dkim: "none", dmarc: "none", phishScore: 38, spamScore: 14, mitre: "T1566.002", tactic: "Initial Access",
       description: "A mail titled Overdue invoice 84421 was delivered to n.katz with a link to invoice-doc-share.net.",
@@ -69,7 +70,7 @@ export function isoContainerSmugglingScenarioEvents() {
     }),
     csDns({
       ...ctxN, id: "evt_ics_00c_dns_lure", ts: T(-91_000), severity: "low",
-      domain: shareSite, resolvedIp: "104.21.61.90",
+      domain: shareSite, resolvedIp: "203.0.113.90",
       processName: "chrome.exe", pid: 6204, processPath: CHROME_PATH, parentName: "explorer.exe", parentPid: 3184,
       description: "chrome.exe on LAP-5528 resolved invoice-doc-share.net.",
     }),
@@ -79,7 +80,7 @@ export function isoContainerSmugglingScenarioEvents() {
       userTitle: "Accounts Payable Clerk", incidentId: INCIDENT, severity: "low",
       subtype: "webfilter", eventtype: "ftgd_allow", action: "passthrough", logid: "0317013312", level: "notice",
       msg: "URL belongs to an allowed category in policy", category: "Newly Registered Domain", categoryId: "91",
-      url: lureUrl, domain: shareSite, remoteIp: "104.21.61.90",
+      url: lureUrl, domain: shareSite, remoteIp: "203.0.113.90",
       bytesIn: 18_204, policyId: 14, mitre: "T1566.002", tactic: "Initial Access",
       description: "LAP-5528 opened https://invoice-doc-share.net/invoice/84421 at 10:03:30 (the link from a phishing email), passed through under Newly Registered Domain (cat 91).",
     }),
@@ -89,7 +90,7 @@ export function isoContainerSmugglingScenarioEvents() {
       userTitle: "Accounts Payable Clerk", incidentId: INCIDENT, severity: "low",
       subtype: "filefilter", eventtype: "filefilter", action: "log-only", logid: "0211008192", level: "warning",
       msg: "File filter event", category: "Newly Registered Domain", categoryId: "91",
-      url: `https://${shareSite}/dl/Invoice_84421.iso`, domain: shareSite, remoteIp: "104.21.61.90",
+      url: `https://${shareSite}/dl/Invoice_84421.iso`, domain: shareSite, remoteIp: "203.0.113.90",
       bytesIn: 7_129_088, file: { name: "Invoice_84421.iso", sha256: isoHash, size: 7_129_088, type: "iso" }, policyId: 14,
       description: "LAP-5528 downloaded Invoice_84421.iso, 6.8 MB, from invoice-doc-share.net at 10:05, logged by the file-filter profile as log-only.",
     }),
@@ -156,21 +157,21 @@ export function isoContainerSmugglingScenarioEvents() {
       incidentId: INCIDENT, severity: "critical",
       subtype: "webfilter", eventtype: "ftgd_allow", action: "passthrough", logid: "0317013312", level: "notice",
       msg: "URL belongs to an allowed category in policy", category: "Unrated", categoryId: "0",
-      url: `https://${c2}/mod/core.dll`, domain: c2, remoteIp: "193.106.191.42", bytesIn: 2_516_582,
+      url: `https://${c2}/mod/core.dll`, domain: c2, remoteIp: "203.0.113.42", bytesIn: 2_516_582,
       file: { name: "core.dll", sha256: payloadHash, size: 2_516_582, type: "dll" }, policyId: 22,
       description: "Two seconds after PowerShell started, LAP-5528 fetched core.dll, 2.4 MB, from cdn-update-relay.net, a domain with no relationship to invoice-doc-share.net, passed through as an unrated URL (cat 0).",
     }),
     csDns({
       ...ctxN, id: "evt_ics_05b_dns_c2", ts: T(4 * MIN + 36_000), severity: "medium",
-      domain: c2, resolvedIp: "193.106.191.42",
+      domain: c2, resolvedIp: "203.0.113.42",
       processName: "powershell.exe", pid: 6631, processPath: PS_PATH, parentName: "rundll32.exe", parentPid: 6620,
       description: "powershell.exe on LAP-5528 resolved cdn-update-relay.net.",
     }),
     csNetwork({
       ...ctxN, id: "evt_ics_05c_connect_c2", ts: T(4 * MIN + 36_800), severity: "high",
-      remoteIp: "193.106.191.42", remotePort: 443, application: "tls", domain: c2,
+      remoteIp: "203.0.113.42", remotePort: 443, application: "tls", domain: c2,
       processName: "powershell.exe", pid: 6631, processPath: PS_PATH, parentName: "rundll32.exe", parentPid: 6620,
-      description: "powershell.exe on LAP-5528 connected to 193.106.191.42:443.",
+      description: "powershell.exe on LAP-5528 connected to 203.0.113.42:443.",
     }),
     // 7. It lands on disk, unsigned, written by the interpreter.
     csFile({
@@ -208,5 +209,7 @@ export function isoContainerSmugglingScenarioEvents() {
   // Every event belongs to the one incident.
   for (const e of events) e.incident_id = INCIDENT;
 
+  // Where this story puts its documentation addresses (docGeo.ts, R5 with coherent geography).
+  placeDocAddresses(events, { "203.0.113.90": PLACES.ashburn, "203.0.113.42": PLACES.amsterdam });
   return { title: "Critical EDR detection after an overdue invoice email", events, T, MIN, host, shareSite, c2, isoHash, payloadHash };
 }
