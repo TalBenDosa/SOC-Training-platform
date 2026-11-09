@@ -33,13 +33,17 @@ export type SourceId =
   // Web tier: WAF and web server access logs
   | "aws_waf" | "azure_waf" | "iis" | "nginx"
   // Product alerts as a SIEM ingests them (Microsoft Graph Security API, alerts_v2)
-  | "ms_graph";
+  | "ms_graph"
+  // Database activity monitoring and native database audit
+  | "mssql_audit" | "guardium" | "mysql_audit"
+  // User and entity behaviour analytics
+  | "exabeam" | "securonix";
 
 /** The platform category a source belongs to (one vendor per category per session). */
 export type SourceCategory =
   | "edr" | "firewall" | "idp" | "onprem_ad" | "pam" | "collab" | "email_security"
   | "cloud" | "cloud_detection" | "network_flow" | "k8s" | "vpn" | "ztna" | "proxy" | "dns"
-  | "host_telemetry" | "itsm" | "hr" | "waf" | "web_server" | "detection_feed";
+  | "host_telemetry" | "itsm" | "hr" | "waf" | "web_server" | "detection_feed" | "database" | "ueba";
 
 /** Wire format of the source: JSON-native, or text-native rendered as a flat JSON object. */
 export type NativeFormat = "json" | "kv" | "csv" | "syslog" | "xml" | "cef" | "ndjson";

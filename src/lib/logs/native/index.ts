@@ -56,6 +56,11 @@ import { source as aws_waf } from "./sources/aws_waf";
 import { source as azure_waf } from "./sources/azure_waf";
 import { source as iis } from "./sources/iis";
 import { source as nginx } from "./sources/nginx";
+import { source as mssql_audit } from "./sources/mssql_audit";
+import { source as guardium } from "./sources/guardium";
+import { source as mysql_audit } from "./sources/mysql_audit";
+import { source as exabeam } from "./sources/exabeam";
+import { source as securonix } from "./sources/securonix";
 
 export const NATIVE_SOURCES: Partial<Record<SourceId, NativeSource>> = {
   anyconnect, aws_cloudtrail, aws_guardduty, aws_vpcflow, azure_activity, checkpoint, cisco_asa, cisco_ftd,
@@ -64,6 +69,7 @@ export const NATIVE_SOURCES: Partial<Record<SourceId, NativeSource>> = {
   servicenow, sophos, sysmon, windows_dns, zscaler_zia, zscaler_zpa,
   cyberark, windows_security, workday, ms_graph,
   aws_waf, azure_waf, iis, nginx,
+  mssql_audit, guardium, mysql_audit, exabeam, securonix,
 };
 
 export function stackFor(companyId: string, override?: Stack): Stack {
@@ -267,7 +273,7 @@ function applyStackLabels(ev: TelemetryEvent, companyId: string, stack?: Stack):
     const sid = eff[c.category];
     if (sid && c.category !== cat && sid !== own[c.category]) description = rewriteProductText(description, c.category as StackCategory, sid);
   }
-  if (!cat || cat === "cloud" || cat === "k8s" || cat === "onprem_ad" || cat === "host_telemetry" || cat === "linux" || cat === "itsm" || cat === "pam") {
+  if (!cat || cat === "cloud" || cat === "k8s" || cat === "onprem_ad" || cat === "host_telemetry" || cat === "linux" || cat === "itsm" || cat === "pam" || cat === "db_monitor" || cat === "ueba") {
     return description === ev.description ? ev : { ...ev, description };
   }
   const id = productSourceFor(base, eff);
