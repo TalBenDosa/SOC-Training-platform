@@ -36,6 +36,14 @@ export const AI_ATTACKS_SOC_LLM_RISKS: RoomExperience = {
   look: { primary: "#c4b5fd", secondary: "#facc15", warn: "#ff6b6b" },
   scene: "facilitymodelbehaviour",
   layout: "facility",
+  story: {
+    intro: { title: "The Exact Figure", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ai-attacks-soc-llm-risks/modelbehaviour-intro-77217d03.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ai-attacks-soc-llm-risks/modelbehaviour-intro-d8a0babe.jpg" },
+    afterStation: {
+      assistant: { title: "Saturday Morning", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ai-attacks-soc-llm-risks/modelbehaviour-ch2-8b0fe0ec.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ai-attacks-soc-llm-risks/modelbehaviour-ch2-9c137822.jpg" },
+      meter: { title: "The Invoice", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ai-attacks-soc-llm-risks/modelbehaviour-ch3-788acb1e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ai-attacks-soc-llm-risks/modelbehaviour-ch3-b9d69b61.jpg" },
+      behaviour: { title: "Model Behaviour", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ai-attacks-soc-llm-risks/modelbehaviour-finale-2d5ed9e5.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ai-attacks-soc-llm-risks/modelbehaviour-finale-db594fad.jpg" },
+    },
+  },
   stations: [
     {
       id: "assistant",
