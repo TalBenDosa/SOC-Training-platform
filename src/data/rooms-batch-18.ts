@@ -603,8 +603,11 @@ const fodhelperEvent: TelemetryEvent = {
   raw: {
     "winlog.event_id": 1,
     "winlog.provider_name": "Microsoft-Windows-Sysmon",
+    "winlog.event_data.UtcTime": "2026-04-08 14:22:37.000",
+    "winlog.event_data.ProcessId": "7710",
     "winlog.event_data.Image": "C:\\Windows\\System32\\cmd.exe",
     "winlog.event_data.CommandLine": "C:\\Windows\\System32\\cmd.exe /c whoami /priv",
+    "winlog.event_data.ParentProcessId": "6604",
     "winlog.event_data.ParentImage": "C:\\Windows\\System32\\fodhelper.exe",
     "winlog.event_data.ParentCommandLine": "\"C:\\Windows\\System32\\fodhelper.exe\"",
     "winlog.event_data.IntegrityLevel": "High",
@@ -640,14 +643,18 @@ const uacConsentEvent: TelemetryEvent = {
   raw: {
     "winlog.event_id": 1,
     "winlog.provider_name": "Microsoft-Windows-Sysmon",
+    "winlog.event_data.UtcTime": "2026-04-09 10:05:02.000",
+    "winlog.event_data.ProcessId": "5120",
     "winlog.event_data.Image": "C:\\Users\\r.chukwu\\Downloads\\MeridianExpenseInstaller.exe",
+    "winlog.event_data.Description": "Meridian Expense Client Setup",
+    "winlog.event_data.Product": "Meridian Expense",
+    "winlog.event_data.Company": "Meridian Trust",
     "winlog.event_data.CommandLine": "\"C:\\Users\\r.chukwu\\Downloads\\MeridianExpenseInstaller.exe\"",
+    "winlog.event_data.ParentProcessId": "3312",
     "winlog.event_data.ParentImage": "C:\\Windows\\explorer.exe",
     "winlog.event_data.IntegrityLevel": "High",
     "winlog.event_data.User": "MERIDIAN\\r.chukwu",
     "winlog.event_data.Hashes": "SHA256=91AE7C40B6F1D82A5E3C9F0847B2D6A1E4C8F35907A2B6D1E4F8C0A3B5D7E2C1",
-    "winlog.event_data.Signed": "true",
-    "winlog.event_data.Signature": "Meridian Trust IT Deployment CA",
   },
 };
 
@@ -977,7 +984,7 @@ const privescRoom: Room = {
       id: "privesc-ac1",
       heading: "Verdict: A Medium-to-High Jump on WKS-FIN08",
       scenario:
-        "A detection rule flagged a Medium-to-High integrity jump on WKS-FIN08: MeridianExpenseInstaller.exe launched at IntegrityLevel: High under r.chukwu's session (r.chukwu is a local administrator in Admin Approval Mode). Pivoting on the host, you find a Sysmon Event 1 for C:\\Windows\\System32\\consent.exe (ParentImage: svchost.exe) in r.chukwu's session at 10:04:58, four seconds before the event below. Review the event and the deployment record attached to it.",
+        "A detection rule flagged a Medium-to-High integrity jump on WKS-FIN08: MeridianExpenseInstaller.exe launched at IntegrityLevel: High under r.chukwu's session (r.chukwu is a local administrator in Admin Approval Mode). Pivoting on the host, you find a Sysmon Event 1 for C:\\Windows\\System32\\consent.exe (ParentImage: svchost.exe) in r.chukwu's session at 10:04:58, four seconds before the event below. Sysmon Event 1 does not record code signing, so you also open the file in the EDR's file details: its Authenticode signature is valid and chains to Meridian Trust IT Deployment CA, the company's internal code-signing CA. Review the event and the deployment record attached to it.",
       event: uacConsentEvent,
       correct_verdict: "benign_true_positive",
       explanation:
@@ -1069,9 +1076,12 @@ const scheduledTaskPersistEvent: TelemetryEvent = {
   raw: {
     "winlog.event_id": 1,
     "winlog.provider_name": "Microsoft-Windows-Sysmon",
+    "winlog.event_data.UtcTime": "2026-04-11 02:14:09.000",
+    "winlog.event_data.ProcessId": "5566",
     "winlog.event_data.Image": "C:\\Windows\\System32\\schtasks.exe",
     "winlog.event_data.CommandLine":
       "schtasks.exe /create /sc onstart /tn \"WindowsUpdateHelper\" /tr \"C:\\Users\\Public\\svchelper.exe\" /ru SYSTEM /rl HIGHEST /f",
+    "winlog.event_data.ParentProcessId": "4410",
     "winlog.event_data.ParentImage": "C:\\Windows\\System32\\cmd.exe",
     "winlog.event_data.User": "MERIDIAN\\c.iversen",
     "winlog.event_data.IntegrityLevel": "High",
@@ -1103,8 +1113,10 @@ const legitUpdaterAutorunEvent: TelemetryEvent = {
     "winlog.event_id": 13,
     "winlog.provider_name": "Microsoft-Windows-Sysmon",
     "winlog.event_data.EventType": "SetValue",
+    "winlog.event_data.UtcTime": "2026-04-12 09:00:44.000",
+    "winlog.event_data.ProcessId": "3312",
     "winlog.event_data.TargetObject":
-      "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\MeridianVPNTray",
+      "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\MeridianVPNTray",
     "winlog.event_data.Details": "C:\\Program Files\\Meridian VPN Client\\vpntray.exe",
     "winlog.event_data.Image": "C:\\Program Files\\Meridian VPN Client\\MeridianVPNClient.exe",
     "winlog.event_data.User": "NT AUTHORITY\\SYSTEM",
