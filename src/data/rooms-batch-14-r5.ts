@@ -29,6 +29,8 @@ const createSaKeyEvent: TelemetryEvent = {
     "gcp.audit.response.name": "projects/nexacorp-prod/serviceAccounts/svc-data@nexacorp-prod.iam.gserviceaccount.com/keys/8f3a1c9d2e4b7f60",
     "gcp.audit.response.key_id": "8f3a1c9d2e4b7f60",
     "gcp.audit.response.key_type": "USER_MANAGED",
+    "gcp.audit.log_type": "ADMIN_ACTIVITY",
+    "gcp.audit.severity": "NOTICE",
     "cloud.account.id": "nexacorp-prod",
     "action_result": "allowed",
   },
@@ -109,14 +111,14 @@ const publicBucketExfilEvent: TelemetryEvent = {
   vendor: "GCP Cloud Storage usage logs",
   event_type: "cloud_storage_access",
   severity: "critical",
-  src_ip: "91.108.56.19",
+  src_ip: "198.51.100.66",
   geo: { country: "Russia", city: "Moscow" },
   description: "An anonymous internet caller downloaded a customer export file from a Cloud Storage bucket that had been made public, as recorded in the bucket's Cloud Storage usage logs",
   mitre_technique: "T1530",
   mitre_tactic: "Collection",
   raw: {
     "gcp.storage.usage.time_micros": 1779159944000000,
-    "gcp.storage.usage.c_ip": "91.108.56.19",
+    "gcp.storage.usage.c_ip": "198.51.100.66",
     "gcp.storage.usage.c_ip_type": 1,
     "gcp.storage.usage.c_ip_region": "",
     "gcp.storage.usage.cs_method": "GET",
@@ -599,7 +601,7 @@ const gcpRoom = {
         },
         {
           question:
-            "This download (c_ip 91.108.56.19, Russia, python-requests user agent) appears in the bucket's Cloud Storage usage logs, while Cloud Audit Logs have no DATA_ACCESS entry for it. Why does that matter to the investigation?",
+            "This download (c_ip 198.51.100.66, Russia, python-requests user agent) appears in the bucket's Cloud Storage usage logs, while Cloud Audit Logs have no DATA_ACCESS entry for it. Why does that matter to the investigation?",
           options: [
             "Usage logs are easier to forge than audit logs, so a finding that rests on a usage log alone should be set aside",
             "Audit logs never record public-object reads; only the usage logs, which are off by default, show this download",

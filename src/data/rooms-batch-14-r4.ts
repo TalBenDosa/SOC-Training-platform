@@ -137,7 +137,6 @@ const dlpDepartingEvent: TelemetryEvent = {
     "data.office365.CloudApp.Category": "Unsanctioned",
     "data.office365.CloudApp.UploadUrl": "https://www.dropbox.com/upload",
     "data.office365.ActionTaken": "Allowed - Alert Only",
-    "data.office365.EventTimeLocal": "22:41:17",
     "action_result": "allowed",
   },
 };
