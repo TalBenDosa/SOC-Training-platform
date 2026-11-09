@@ -3761,7 +3761,7 @@ export function supplyChainScenarioEvents() {
     more: Partial<TelemetryEvent> = {}): TelemetryEvent => ({
     id, ts: T(t), source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_create",
     hostname: HOST, src_ip: victim.ip, severity, process: p,
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "host.os.type": "linux", ...extra }, ...more,
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.event_platform": "Lin", ...extra }, ...more,
   });
   // One auditd SYSCALL record of a root daemon (no login session, so auid is unset).
   const sysc = (o: { id: string; t: number; syscall: string; pid: number; ppid: number; comm: string; exe: string; key: string; name?: string; user?: string; description: string; process: NonNullable<TelemetryEvent["process"]> }): TelemetryEvent => ({
@@ -3796,7 +3796,7 @@ export function supplyChainScenarioEvents() {
         hostname: HOST, src_ip: victim.ip, dst_ip: attacker.ip, src_port: ports[i], dst_port: 443, protocol: "tcp",
         severity: "medium", process: trojan, network: { domain: attacker.c2Domain },
         description: `netpulse-telemetry-svc opened an outbound TLS session from port ${ports[i]} to ${attacker.ip}:443.`,
-        raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "host.os.type": "linux" },
+        raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "crowdstrike.event_platform": "Lin" },
       },
       {
         id: i === 0 ? "evt_sc_04_c2_beacon" : `evt_sc_04_c2_beacon_${i + 1}`, ts: T(t + 120), source: "firewall", vendor: "FortiGate", event_type: "net_connection",
@@ -3896,7 +3896,7 @@ export function supplyChainScenarioEvents() {
         cmdline: "/usr/lib/netpulse/netpulse-agent --daemon --config /etc/netpulse/agent.conf", user: "root" },
       network: { domain: "updates.netpulse.io" },
       description: "netpulse-agent opened an outbound TLS session to the vendor update CDN at 203.0.113.195:443.",
-      raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "host.os.type": "linux" },
+      raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "crowdstrike.event_platform": "Lin" },
     },
     {
       id: "evt_sc_01c_package_written", ts: T(20 * SEC), source: "edr", vendor: "CrowdStrike Falcon", event_type: "file_create",
@@ -3905,7 +3905,7 @@ export function supplyChainScenarioEvents() {
         cmdline: "/usr/lib/netpulse/netpulse-agent --daemon --config /etc/netpulse/agent.conf", user: "root" },
       file: { path: "/var/lib/netpulse/update/netpulse-agent-4.2.2-linux-amd64.tar.gz", sha256: pkgHash, size: 49_581_056 },
       description: "netpulse-agent wrote the downloaded update package to /var/lib/netpulse/update/.",
-      raw: { "crowdstrike.event_simpleName": "GenericFileWritten", "host.os.type": "linux" },
+      raw: { "crowdstrike.event_simpleName": "GenericFileWritten", "crowdstrike.event_platform": "Lin" },
     },
 
     // ── The signed installer runs and drops the helper in the wrong place ──
@@ -3927,7 +3927,7 @@ export function supplyChainScenarioEvents() {
       process: { name: "bash", pid: 14750, path: "/usr/bin/bash", parent_name: "netpulse-agent", parent_pid: AGENT_PID, cmdline: "bash /var/lib/netpulse/update/install.sh --quiet --no-restart", user: "root" },
       file: { path: TROJAN, sha256: malDllHash, size: 6_241_792 },
       description: "The install script wrote an executable to /lib/x86_64-linux-gnu/netpulse-telemetry-svc, a system library folder.",
-      raw: { "crowdstrike.event_simpleName": "GenericFileWritten", "host.os.type": "linux" },
+      raw: { "crowdstrike.event_simpleName": "GenericFileWritten", "crowdstrike.event_platform": "Lin" },
     },
 
     // ── The helper starts from the wrong path: the EDR pages on it ──
@@ -3942,7 +3942,7 @@ export function supplyChainScenarioEvents() {
       raw: {
         "crowdstrike.event_simpleName": "ProcessRollup2",
         // NOTE: no cs.IntegrityLevel. Integrity levels are a WINDOWS construct; this host is Linux.
-        "host.os.type": "linux",
+        "crowdstrike.event_platform": "Lin",
         "process.code_signature.exists": false,
         "process.code_signature.trusted": false,
       },
@@ -3970,7 +3970,7 @@ export function supplyChainScenarioEvents() {
         "crowdstrike.SHA256HashData": malDllHash,
         "crowdstrike.event_platform": "Lin",
         "crowdstrike.NetworkContainmentState": "Not Contained",
-        "host.os.type": "linux",
+        "crowdstrike.event_platform": "Lin",
         "event.action": "alert",
       },
     },
@@ -3981,7 +3981,7 @@ export function supplyChainScenarioEvents() {
       hostname: HOST, src_ip: victim.ip, severity: "medium", process: trojan,
       dns: { query: attacker.c2Domain, query_type: "A", response: attacker.ip, rcode: "NOERROR" },
       description: `netpulse-telemetry-svc resolved ${attacker.c2Domain} to ${attacker.ip}.`,
-      raw: { "crowdstrike.event_simpleName": "DnsRequest", "host.os.type": "linux" },
+      raw: { "crowdstrike.event_simpleName": "DnsRequest", "crowdstrike.event_platform": "Lin" },
     },
     {
       id: "evt_sc_04c_c2_dns_resolver", ts: T(8 * MIN - 2 * SEC + 30), source: "dns", vendor: "Infoblox DNS", event_type: "dns_query",
@@ -4138,7 +4138,7 @@ export function supplyChainScenarioEvents() {
         user: "root" },
       raw: {
         "crowdstrike.event_simpleName": "NetworkConnectIP4",
-        "host.os.type": "linux",
+        "crowdstrike.event_platform": "Lin",
       },
     },
     {
@@ -4159,7 +4159,7 @@ export function supplyChainScenarioEvents() {
       description: "netpulse-telemetry-svc ran ssh from prod-srv-01 to jenkins.internal using the devops private key.",
       process: { name: "ssh", pid: 14951, path: "/usr/bin/ssh", parent_name: "netpulse-telemetry-svc", parent_pid: TROJAN_PID,
         cmdline: "ssh -i /home/devops/.ssh/id_rsa devops@jenkins.internal", user: "root" },
-      raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "host.os.type": "linux" },
+      raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "crowdstrike.event_platform": "Lin" },
     },
     {
       id: "evt_sc_11c_jenkins_sshd_accept", ts: T(32 * MIN + 42 * SEC), source: "linux_audit", vendor: "Linux auditd", event_type: "ssh_login",
@@ -5247,12 +5247,12 @@ export function k8sPodEscapeScenarioEvents() {
   const cs = (id: string, t: number, p: NonNullable<TelemetryEvent["process"]>, severity: TelemetryEvent["severity"], extra: Record<string, unknown> = {},
     more: Partial<TelemetryEvent> = {}): TelemetryEvent => ({
     id, ts: T(t), source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_create", severity, hostname: NODE, src_ip: NODE_IP, process: p,
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "host.os.type": "linux", ...extra }, ...more,
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.event_platform": "Lin", ...extra }, ...more,
   });
   const imds = (id: string, t: number, p: NonNullable<TelemetryEvent["process"]>, description: string): TelemetryEvent => ({
     id, ts: T(t), source: "edr", vendor: "CrowdStrike Falcon", event_type: "net_connection", severity: "high", mitre_technique: "T1552.005",
     hostname: NODE, src_ip: NODE_IP, dst_ip: "169.254.169.254", dst_port: 80, protocol: "tcp", process: p, description,
-    raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "host.os.type": "linux" },
+    raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "crowdstrike.event_platform": "Lin" },
   });
 
   const events: TelemetryEvent[] = [
@@ -5345,7 +5345,7 @@ export function k8sPodEscapeScenarioEvents() {
         "crowdstrike.SeverityName": "Critical", "crowdstrike.Tactic": "Privilege Escalation", "crowdstrike.Technique": "Escape to Host",
         "threat.technique.id": "T1611", "crowdstrike.PatternDispositionDescription": "Detection, No Action",
         "crowdstrike.FileName": "nsenter", "crowdstrike.ParentImageFileName": "sh", "crowdstrike.GrandparentImageFileName": "containerd-shim-runc-v2",
-        "crowdstrike.event_platform": "Lin", "host.os.type": "linux",
+        "crowdstrike.event_platform": "Lin", "crowdstrike.event_platform": "Lin",
       },
     },
 
@@ -5359,7 +5359,7 @@ export function k8sPodEscapeScenarioEvents() {
       id: "k8s_04_creds_written", ts: T(3 * MIN + 600), source: "edr", vendor: "CrowdStrike Falcon", event_type: "file_create", severity: "high", mitre_technique: "T1552.005",
       hostname: NODE, src_ip: NODE_IP, process: curlCreds, file: { name: ".env", path: "/tmp/.cache/.env", size: 1647 },
       description: "The credentials returned by the metadata service were written to /tmp/.cache/.env on the node.",
-      raw: { "crowdstrike.event_simpleName": "GenericFileWritten", "host.os.type": "linux" },
+      raw: { "crowdstrike.event_simpleName": "GenericFileWritten", "crowdstrike.event_platform": "Lin" },
     },
     cs("k8s_04b_creds_read", 4 * MIN, cat, "high", {}, { description: "cat printed /tmp/.cache/.env into the root shell on the node, which is the exec session the attacker is driving." }),
 
@@ -5422,7 +5422,7 @@ export function k8sPodEscapeScenarioEvents() {
       id: "k8s_09a_image_pull", ts: T(12 * MIN + 10 * SEC), source: "edr", vendor: "CrowdStrike Falcon", event_type: "net_connection", severity: "high", mitre_technique: "T1610",
       hostname: NODE, src_ip: NODE_IP, dst_ip: ATT, src_port: 41822, dst_port: 5000, protocol: "tcp", process: containerd,
       description: "containerd on the node opened a connection to 203.0.113.71 on port 5000 to pull an image.",
-      raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "host.os.type": "linux" },
+      raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "crowdstrike.event_platform": "Lin" },
     },
     cs("k8s_09b_shim_start", 12 * MIN + 15 * SEC, shimB, "low"),
     cs("k8s_09c_container_entry", 12 * MIN + 20 * SEC, agent, "high", {}, { description: "The new container's entry process /opt/metrics-agent/agent started as root under its own containerd shim." }),
