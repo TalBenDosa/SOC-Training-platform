@@ -184,6 +184,14 @@ export const AUTH_IDENTITY_MONITORING: RoomExperience = {
   look: { primary: "#5eead4", secondary: "#cbd5e1", warn: "#fb7185" },
   scene: "facilitywhogoes",
   layout: "facility",
+  story: {
+    intro: { title: "The Logon Book", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/auth-identity-monitoring/whogoes-intro-63d7c881.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/auth-identity-monitoring/whogoes-intro-a24d6d94.jpg" },
+    afterStation: {
+      book: { title: "Same Word, Every Line", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/auth-identity-monitoring/whogoes-ch2-2e28786b.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/auth-identity-monitoring/whogoes-ch2-d95a5162.jpg" },
+      shape: { title: "The Rule Tove Wants", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/auth-identity-monitoring/whogoes-ch3-8891361e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/auth-identity-monitoring/whogoes-ch3-6d755b51.jpg" },
+      door: { title: "Who Goes There", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/auth-identity-monitoring/whogoes-finale-6062fb3f.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/auth-identity-monitoring/whogoes-finale-5fe0e186.jpg" },
+    },
+  },
   stations: [
     {
       id: "book",
