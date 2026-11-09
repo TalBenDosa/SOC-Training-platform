@@ -13857,6 +13857,31 @@
       ],
       "prefixes": []
     },
+    "google-secops": {
+      "label": "Google SecOps (UDM)",
+      "sourceNote": "Google Security Operations (Chronicle) Unified Data Model events. Top-level structures per docs.cloud.google.com/chronicle/docs/reference/udm-field-list: metadata, principal, target, src, observer, intermediary, about, network, security_result, extensions, additional, extracted. A UDM event shown in the SecOps viewer is a flat dotted path (for example principal.process.file.full_path), so any key under one of those structures is a legitimate UDM path; the product defines the sub-fields (Process, File, User, Dns, Http, SecurityResult). Added 2026-11-09 for the google-secops-fundamentals room.",
+      "aliases": [
+        "Google SecOps",
+        "Google Security Operations",
+        "Google Chronicle",
+        "Chronicle"
+      ],
+      "exactFields": [],
+      "prefixes": [
+        "metadata.",
+        "principal.",
+        "target.",
+        "src.",
+        "observer.",
+        "intermediary.",
+        "about.",
+        "network.",
+        "security_result.",
+        "extensions.",
+        "additional.",
+        "extracted."
+      ]
+    },
     "azure-front-door": {
       "label": "Azure Front Door access log",
       "note": "FrontDoorAccessLog of a Standard/Premium profile: learn.microsoft.com/azure/frontdoor/monitor-front-door (checked 2026-11-07).",

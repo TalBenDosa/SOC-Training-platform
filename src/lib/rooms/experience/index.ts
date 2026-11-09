@@ -109,6 +109,7 @@ import { SIGMA_YARA_RULE_AUTHORING } from "./sigmaYaraRuleAuthoring";
 import { MFA_SESSION_TOKEN_ATTACKS } from "./mfaSessionTokenAttacks";
 import { UNSECURED_CREDENTIALS_PRACTICE } from "./unsecuredCredentialsPractice";
 import { CLOUD_ATTACKER_DEFENSE_EVASION } from "./cloudAttackerDefenseEvasion";
+import { GOOGLE_SECOPS_FUNDAMENTALS } from "./googleSecopsFundamentals";
 
 export type { RoomExperience, Station, Persona, MechanicId, ThemeId, BuildingKind, BriefingLab, StoryClip, SceneId, LayoutId, XrayIcon, EvidenceScreen } from "./types";
 
@@ -224,6 +225,7 @@ const EXPERIENCES: Record<string, RoomExperience> = {
   [MFA_SESSION_TOKEN_ATTACKS.roomId]: MFA_SESSION_TOKEN_ATTACKS,
   [UNSECURED_CREDENTIALS_PRACTICE.roomId]: UNSECURED_CREDENTIALS_PRACTICE,
   [CLOUD_ATTACKER_DEFENSE_EVASION.roomId]: CLOUD_ATTACKER_DEFENSE_EVASION,
+  [GOOGLE_SECOPS_FUNDAMENTALS.roomId]: GOOGLE_SECOPS_FUNDAMENTALS,
 };
 
 /**

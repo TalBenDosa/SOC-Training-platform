@@ -13,6 +13,7 @@ import pathJ from "@/data/pathLessons-j";
 import pathK from "@/data/pathLessons-k";
 import pathL from "@/data/pathLessons-l";
 import pathM from "@/data/pathLessons-m";
+import pathN from "@/data/pathLessons-n";
 
 const CORE_LESSONS = [
   {
@@ -1064,6 +1065,9 @@ export const BUILTIN_LESSONS = [
   // Last — what to DO with a detection, not just how to spot one.
   ...PLAYBOOK_LESSONS,
   ...NEW_TOPIC_LESSONS,
+  // Google Security Operations (Chronicle) for analysts: the third vendor SIEM lesson
+  // alongside Splunk and QRadar in NEW_TOPIC_LESSONS.
+  pathN[0],
   ...CURRICULUM_EXPANSION_LESSONS,
 ];
 

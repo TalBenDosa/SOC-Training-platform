@@ -979,4 +979,13 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
       { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ad-domain-trusts-and-cross-forest-attacks/es.vtt" },
     ],
   },
+  "google-secops-siem-for-analysts": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/google-secops-siem-for-analysts/google-secops-siem-for-analysts.mp4",
+    caption: "Explainer: Google SecOps: UDM, YARA-L & Cases · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/google-secops-siem-for-analysts/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/google-secops-siem-for-analysts/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/google-secops-siem-for-analysts/es.vtt" },
+    ],
+  },
 };

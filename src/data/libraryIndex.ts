@@ -1115,6 +1115,19 @@ export const LIBRARY_INDEX: LibraryEntry[] = [
     "researchUsed": true
   },
   {
+    "id": "local-lesson-37",
+    "slug": "google-secops-siem-for-analysts",
+    "title": "Google Security Operations (Chronicle): UDM, YARA-L and Cases for the Working Analyst",
+    "topic": "SIEM",
+    "difficulty": "intermediate",
+    "xp": 400,
+    "estimatedMinutes": 95,
+    "sectionCount": 14,
+    "blurb": "Google's SIEM replacement page opens with a bold claim: the great SIEM migration has begun. Whatever you think of the marketing, the consequence for analysts is real. If your organization moves to Google Security Operations (Google SecOps, formerly Chronicle), the tools you",
+    "researchUsed": true,
+    "published_at": "2026-11-09T00:00:00.000Z"
+  },
+  {
     "id": "topic-lesson-network-types-topologies-and-devices",
     "slug": "network-types-topologies-and-devices",
     "title": "Network Types, Topologies and Devices: From PAN to Spine-Leaf, and Hub to Firewall",
