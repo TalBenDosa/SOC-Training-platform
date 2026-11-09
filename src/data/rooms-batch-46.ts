@@ -121,26 +121,25 @@ const sgOpenEvent: TelemetryEvent = {
     "aws.cloudtrail.awsRegion": "us-east-1",
     "aws.cloudtrail.userIdentity.type": "AssumedRole",
     "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::482915007733:assumed-role/ec2-webapp-role/i-0a1b2c3d4e5f67890",
+    "aws.cloudtrail.userIdentity.principalId": "AROAXB7Q2KT9MZ4WRL6NP:i-0a1b2c3d4e5f67890",
     "aws.cloudtrail.userIdentity.accountId": "482915007733",
     "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.type": "Role",
     "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.arn": "arn:aws:iam::482915007733:role/ec2-webapp-role",
     "aws.cloudtrail.sourceIPAddress": "203.0.113.147",
     "aws.cloudtrail.userAgent": "aws-cli/2.13.0 Python/3.11.4 Linux/5.15.0",
-    "aws.cloudtrail.requestParameters.groupId": "sg-0f3a8b2c1d9e7f45",
+    "aws.cloudtrail.requestParameters.groupId": "sg-0f3a8b2c1d9e7f456",
     "aws.cloudtrail.requestParameters.ipPermissions.items.0.ipProtocol": "tcp",
     "aws.cloudtrail.requestParameters.ipPermissions.items.0.fromPort": 3389,
     "aws.cloudtrail.requestParameters.ipPermissions.items.0.toPort": 3389,
     "aws.cloudtrail.requestParameters.ipPermissions.items.0.ipRanges.items.0.cidrIp": "0.0.0.0/0",
     "aws.cloudtrail.responseElements.securityGroupRuleSet.items.0.securityGroupRuleId": "sgr-0d4e5f6a7b8c9012d",
-    "aws.cloudtrail.errorCode": "",
-    "aws.cloudtrail.errorMessage": "",
-    "aws.cloudtrail.requestID": "9A8B7C6D5E4F3021",
+    "aws.cloudtrail.requestID": "9a8b7c6d-5e4f-4302-a1b9-c8d7e6f50413",
+    "aws.cloudtrail.eventID": "2f6d9a14-0c7e-4b38-95a1-e3c80b7d4f62",
     "aws.cloudtrail.eventType": "AwsApiCall",
     "aws.cloudtrail.managementEvent": true,
     "aws.cloudtrail.readOnly": false,
     "cloud.account.id": "482915007733",
-    "cloud.region": "us-east-1",
-    "action_result": "allowed"
+    "cloud.region": "us-east-1"
   }
 };
 
@@ -174,15 +173,13 @@ const autoScalingRunInstancesEvent: TelemetryEvent = {
     "aws.cloudtrail.requestParameters.subnetId": "subnet-0a1b2c3d4e5f60789",
     "aws.cloudtrail.requestParameters.groupSet.items.0.groupId": "sg-0d1e2f3a4b5c6d789",
     "aws.cloudtrail.responseElements.instancesSet.items.0.instanceId": "i-0f1e2d3c4b5a69870",
-    "aws.cloudtrail.errorCode": "",
-    "aws.cloudtrail.errorMessage": "",
-    "aws.cloudtrail.requestID": "4F3E2D1C0B9A8776",
+    "aws.cloudtrail.requestID": "4f3e2d1c-0b9a-4877-86e5-d4c3b2a19f08",
+    "aws.cloudtrail.eventID": "b81c4e09-7a2d-4f65-8e3b-1d0c9f7a5e26",
     "aws.cloudtrail.eventType": "AwsApiCall",
     "aws.cloudtrail.managementEvent": true,
     "aws.cloudtrail.readOnly": false,
     "cloud.account.id": "482915007733",
-    "cloud.region": "us-east-1",
-    "action_result": "allowed"
+    "cloud.region": "us-east-1"
   }
 };
 
@@ -425,7 +422,7 @@ const cloudAttackerDefenseEvasionRoom = {
           "options": [
             "…ipPermissions.items.0.fromPort / toPort: 3389 shows the new rule exposes RDP",
             "…ipPermissions.items.0.ipRanges.items.0.cidrIp: 0.0.0.0/0 is every IPv4 address",
-            "…requestParameters.groupId: sg-0f3a8b2c1d9e7f45 is the production database's group",
+            "…requestParameters.groupId: sg-0f3a8b2c1d9e7f456 is the production database's group",
             "…sourceIPAddress: 203.0.113.147 shows the call came from outside the corporate network"
           ],
           "answer": 1,
