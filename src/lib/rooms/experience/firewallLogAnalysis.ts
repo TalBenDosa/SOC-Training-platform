@@ -27,6 +27,14 @@ export const FIREWALL_LOG_ANALYSIS: RoomExperience = {
   look: { primary: "#f97316", secondary: "#38bdf8", warn: "#ef4444" },
   scene: "denyall",
   layout: "stage",
+  story: {
+    intro: { title: "Nine Days on the Line", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-log-analysis/denyall-intro-0eac2f31.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-log-analysis/denyall-intro-df4fea09.jpg" },
+    afterStation: {
+      logbook: { title: "Three Handwritings", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-log-analysis/denyall-ch2-8788398b.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-log-analysis/denyall-ch2-26e6a364.jpg" },
+      patterns: { title: "Tick", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-log-analysis/denyall-ch3-1101694e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-log-analysis/denyall-ch3-095474b6.jpg" },
+      verdict: { title: "Retire the Rule", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-log-analysis/denyall-finale-26ed7930.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-log-analysis/denyall-finale-841270ee.jpg" },
+    },
+  },
   stations: [
     {
       id: "logbook",
