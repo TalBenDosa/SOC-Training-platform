@@ -46,19 +46,19 @@ export function buildLinuxSshPersistenceScenario(
 
   const killchain = [
     { ts: T(0), phase: "Baseline", action: "Legitimate admin publickey session from the corporate VPN egress, the control case for the auth log" },
-    { ts: T(31 * MIN), phase: "Credential Access", action: "Password guessing against sshd from 176.111.174.26, acct=\"?\", a username that does not exist on the host (T1110.001)" },
-    { ts: T(52 * MIN), phase: "Credential Access", action: "Guessing moves to the real account svc-backup from a second node, 92.118.39.73 (T1110.001)" },
-    { ts: T(58 * MIN - 2 * SEC), phase: "Initial Access", action: "The firewall accepts an inbound session from 46.161.27.119:41772 on the published port 2202, the source port sshd logs two seconds later" },
-    { ts: T(58 * MIN), phase: "Initial Access", action: "Accepted password for svc-backup from 46.161.27.119, an address with no prior failures; auditd opens session 41, auid 1004 (T1078)" },
+    { ts: T(31 * MIN), phase: "Credential Access", action: "Password guessing against sshd from 203.0.113.26, acct=\"?\", a username that does not exist on the host (T1110.001)" },
+    { ts: T(52 * MIN), phase: "Credential Access", action: "Guessing moves to the real account svc-backup from a second node, 203.0.113.101 (T1110.001)" },
+    { ts: T(58 * MIN - 2 * SEC), phase: "Initial Access", action: "The firewall accepts an inbound session from 203.0.113.119:41772 on the published port 2202, the source port sshd logs two seconds later" },
+    { ts: T(58 * MIN), phase: "Initial Access", action: "Accepted password for svc-backup from 203.0.113.119, an address with no prior failures; auditd opens session 41, auid 1004 (T1078)" },
     { ts: T(60 * MIN), phase: "Discovery", action: "/usr/bin/id run in session 41 as uid 1004 (T1033)" },
     { ts: T(61 * MIN), phase: "Discovery", action: "sudo -l returns res=failed, no root path for svc-backup (T1033)" },
-    { ts: T(64 * MIN), phase: "Command and Control", action: "curl pulls an ELF over plain HTTP from 147.45.112.38 into a hidden directory in the account's own home (T1105)" },
-    { ts: T(64 * MIN + 9 * SEC), phase: "Command and Control", action: "The firewall closes the 8-second outbound HTTP session to 147.45.112.38:80: 2,872,104 bytes received, the size of the ELF" },
+    { ts: T(64 * MIN), phase: "Command and Control", action: "curl pulls an ELF over plain HTTP from 203.0.113.38 into a hidden directory in the account's own home (T1105)" },
+    { ts: T(64 * MIN + 9 * SEC), phase: "Command and Control", action: "The firewall closes the 8-second outbound HTTP session to 203.0.113.38:80: 2,872,104 bytes received, the size of the ELF" },
     { ts: T(66 * MIN), phase: "Stealth", action: "chmod 755 on ~/.cache/.fontconfig/kworker, a file owned by uid 1004 in a dot-directory (T1564.001)" },
     { ts: T(68 * MIN), phase: "Persistence", action: "User crontab created via the setgid crontab binary, /var/spool/cron/crontabs/svc-backup, ouid 1004 ogid 102 (T1053.003)" },
     { ts: T(69 * MIN + 50 * SEC), phase: "Execution", action: "kworker (pid 1974) starts from the hidden directory as svc-backup, parent bash (T1036.004)" },
     { ts: T(70 * MIN), phase: "Detection", action: "Falcon detection: 'kworker', a kernel-thread name, running from the hidden directory as svc-backup, parent bash (T1036.004)" },
-    { ts: T(70 * MIN), phase: "Command and Control", action: "kworker connects to 38.180.62.144:443; the firewall shows the same 3-second, ~1.9 KB session again five minutes later (T1071.001)" },
+    { ts: T(70 * MIN), phase: "Command and Control", action: "kworker connects to 203.0.113.144:443; the firewall shows the same 3-second, ~1.9 KB session again five minutes later (T1071.001)" },
     { ts: T(80 * MIN), phase: "Persistence", action: "cron runs /bin/sh -c '~/.cache/.fontconfig/kworker >/dev/null 2>&1' as svc-backup, the crontab entry firing (T1053.003)" },
     { ts: T(80 * MIN), phase: "Persistence", action: "The 23:00 CRON syslog line records the job CRON[2229] running the crontab entry as svc-backup (T1053.003)" },
     { ts: T(95 * MIN), phase: "Baseline", action: "Nightly restic backup starts from root-owned /etc/cron.d as user backup and uploads to its Backblaze B2 repository, the benign outbound session" },
@@ -80,7 +80,7 @@ export function buildLinuxSshPersistenceScenario(
       ],
       answer: "method",
       explanation:
-        "d.okonkwo's line says 'Accepted publickey' and svc-backup's says 'Accepted password'. A key cannot be brute-forced, which is why no failure from 82.166.44.9 precedes the admin session while failed PAM authentications precede the other. Note also what the Accepted line does NOT match: 46.161.27.119 appears in no failure record at all, in a distributed campaign the guessing nodes and the node that logs in are different machines, so do not expect the winning address to be the one you counted failures from. Hour separates nothing (21:40 is also after hours). Both source ports are ordinary ephemeral client ports, and both original lines carry the same ssh2 protocol token, so the protocol separates nothing.",
+        "d.okonkwo's line says 'Accepted publickey' and svc-backup's says 'Accepted password'. A key cannot be brute-forced, which is why no failure from 192.0.2.60 precedes the admin session while failed PAM authentications precede the other. Note also what the Accepted line does NOT match: 203.0.113.119 appears in no failure record at all, in a distributed campaign the guessing nodes and the node that logs in are different machines, so do not expect the winning address to be the one you counted failures from. Hour separates nothing (21:40 is also after hours). Both source ports are ordinary ephemeral client ports, and both original lines carry the same ssh2 protocol token, so the protocol separates nothing.",
     },
     {
       id: "lsp_q2",
@@ -124,14 +124,14 @@ export function buildLinuxSshPersistenceScenario(
         "For the incident report you must attribute the process Falcon flagged in lsp_11 to an account and an external source. Which pair of events, read together, does that?",
       hint: "One event names the identity and where it came from; another names the process running under it. Neither is enough alone.",
       options: [
-        { value: "auth_proc", label: "lsp_04 and lsp_11, 'Accepted password for svc-backup from 46.161.27.119', and the detection on kworker running as svc-backup under an interactive bash" },
-        { value: "fw_pair", label: "lsp_13 and lsp_14, the two firewall sessions from the server to 38.180.62.144:443 five minutes apart" },
+        { value: "auth_proc", label: "lsp_04 and lsp_11, 'Accepted password for svc-backup from 203.0.113.119', and the detection on kworker running as svc-backup under an interactive bash" },
+        { value: "fw_pair", label: "lsp_13 and lsp_14, the two firewall sessions from the server to 203.0.113.144:443 five minutes apart" },
         { value: "dl_chmod", label: "lsp_08 and lsp_09, the curl download of the ELF, and the chmod that made that same file executable" },
         { value: "cron_bkp", label: "lsp_15 and lsp_16, cron relaunching the binary, and cron starting the nightly restic job on the same host" },
       ],
       answer: "auth_proc",
       explanation:
-        "Attribution needs an identity plus an action under it. lsp_04 supplies the identity and its origin: svc-backup authenticated by password from 46.161.27.119 (lsp_05 adds the auditd session id, 41, and login id 1004 for the same login). lsp_11 supplies the action: kworker running as svc-backup with bash, the interactive shell of that session, as its parent. The firewall pair proves the outbound behaviour but names no user and no inbound source. The download-and-chmod pair proves staging but not who logged in from where. The cron pair mixes the persistence with an unrelated legitimate job.",
+        "Attribution needs an identity plus an action under it. lsp_04 supplies the identity and its origin: svc-backup authenticated by password from 203.0.113.119 (lsp_05 adds the auditd session id, 41, and login id 1004 for the same login). lsp_11 supplies the action: kworker running as svc-backup with bash, the interactive shell of that session, as its parent. The firewall pair proves the outbound behaviour but names no user and no inbound source. The download-and-chmod pair proves staging but not who logged in from where. The cron pair mixes the persistence with an unrelated legitimate job.",
     },
     {
       id: "lsp_q5",
@@ -158,10 +158,10 @@ export function buildLinuxSshPersistenceScenario(
         "lsp_15 shows cron running /bin/sh -c '/home/svc-backup/.cache/.fontconfig/kworker >/dev/null 2>&1' as svc-backup after the binary was already running. Which containment and eradication plan matches the evidence?",
       hint: "Kill only the process and ask what lsp_15 will do 30 minutes later.",
       options: [
-        { value: "full", label: "Contain the host, kill kworker, remove the svc-backup crontab and ~/.cache/.fontconfig, reset svc-backup and disable password SSH, block 38.180.62.144 and 147.45.112.38" },
+        { value: "full", label: "Contain the host, kill kworker, remove the svc-backup crontab and ~/.cache/.fontconfig, reset svc-backup and disable password SSH, block 203.0.113.144 and 203.0.113.38" },
         { value: "kill_only", label: "Kill pid 1974 and delete the binary, the crontab line only fires at boot, so it is inert until the next reboot" },
         { value: "root_rebuild", label: "Rebuild the server immediately, because a failed sudo shows the intruder reached root and may have a rootkit" },
-        { value: "block_only", label: "Block 38.180.62.144 at the firewall and keep monitoring, without its server the binary can do nothing" },
+        { value: "block_only", label: "Block 203.0.113.144 at the firewall and keep monitoring, without its server the binary can do nothing" },
       ],
       answer: "full",
       explanation:

@@ -28,9 +28,9 @@ export function scheduledTaskPersistenceScenarioEvents() {
   const victim = { email: "s.attia@nexacorp.com", name: "Shani Attia", sam: "s.attia" };
 
   const downloadSite = "netfix-tools-download.com";
-  const siteIp = "172.67.140.55";
+  const siteIp = "203.0.113.55";
   const c2 = "svc-heartbeat-relay.net";
-  const c2Ip = "46.246.90.12";
+  const c2Ip = "203.0.113.13";
 
   const scriptHash    = makeSha256("speedboost_netfix_ps1_downloader_2026");
   const payloadHash   = makeSha256("netfix_agent_exe_persistence_payload_2026");
@@ -201,7 +201,7 @@ export function scheduledTaskPersistenceScenarioEvents() {
     withProc(sysmonNetwork({
       ...cx, id: "evt_stp_05b_net_c2", ts: T(3 * MIN + 42_000), processName: "netfix_agent.exe", processPath: AGENT, pid: 5240,
       remoteIp: c2Ip, remotePort: 443, remoteHost: c2, severity: "high",
-      description: "netfix_agent.exe opened a TCP/443 connection to 46.246.90.12 one second after the DNS answer.",
+      description: "netfix_agent.exe opened a TCP/443 connection to 203.0.113.13 one second after the DNS answer.",
     }), "netfix_agent.exe", 5240, AGENT, { name: "powershell.exe", pid: 5124 }),
 
     // 6. The first-run check-in.

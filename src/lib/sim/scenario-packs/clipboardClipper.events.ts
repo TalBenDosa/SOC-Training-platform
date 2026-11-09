@@ -47,7 +47,7 @@ export function clipboardClipperScenarioEvents() {
     panWeb({
       ...cs, id: "evt_clc_01_download", ts: T(0), severity: "low",
       url: `https://${downloadSite}/download/CryptoTrackerLite_Setup.exe`, domain: downloadSite,
-      category: "computer-and-internet-info", action: "alert", dstIp: "104.21.87.203",
+      category: "computer-and-internet-info", action: "alert", dstIp: "203.0.113.203",
       status: 200, bytesIn: 9_842_176, userTitle: "Procurement Analyst",
       file: { name: "CryptoTrackerLite_Setup.exe", path: "/download/CryptoTrackerLite_Setup.exe", sha256: installerHash, size: 9_842_176 },
       description: "LAP-5528 downloaded CryptoTrackerLite_Setup.exe from cryptotracker-lite.io at 09:20, allowed under the category computer-and-internet-info.",
@@ -123,7 +123,7 @@ export function clipboardClipperScenarioEvents() {
     panWeb({
       ...cs, id: "evt_clc_07_config_pull", ts: T(2 * HOUR + 15 * MIN + 16_000), severity: "high",
       url: `https://${c2}/w/list.json`, domain: c2, category: "newly-registered-domain",
-      action: "alert", dstIp: "45.147.230.16", status: 200, bytesIn: 612,
+      action: "alert", dstIp: "203.0.113.16", status: 200, bytesIn: 612,
       description: "LAP-5528 requested /w/list.json from wallet-cfg-sync.net, allowed under the category newly-registered-domain.",
     }),
 

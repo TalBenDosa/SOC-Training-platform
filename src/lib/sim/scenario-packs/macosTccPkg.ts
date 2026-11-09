@@ -81,7 +81,7 @@ export function buildMacosTccPkgScenario(
   const daemonBin = "/Library/Application Support/MeetSync/meetsyncd";
   const scriptsDir = "/private/tmp/PKInstallSandbox.7fA2Vq/Scripts/com.meetsync.app.pkg.Qk8Lp3";
   const c2Domain = "api.meetsync-app.com";
-  const c2Ip = "45.9.148.221";
+  const c2Ip = "203.0.113.221";
 
   // Two different files, two different hashes: the installer package the user
   // downloaded, and the Mach-O helper the package laid down.
@@ -295,7 +295,7 @@ export function buildMacosTccPkgScenario(
       ...base, id: "mtp_05d_helper_connect", ts: T(18 * SEC), incidentId: INCIDENT, remoteIp: c2Ip, remotePort: 443, application: "tls",
       processName: "meetsyncd", processPath: daemonBin, pid: 4290, parentName: "launchd", parentPid: 1, sha256: payloadHash,
       mitre: "T1071.001", tactic: "Command and Control", severity: "medium",
-      description: "meetsyncd opened an outbound TLS connection to 45.9.148.221:443.",
+      description: "meetsyncd opened an outbound TLS connection to 203.0.113.221:443.",
     }),
 
     // ── PROTECTED-DATA ACCESS: the root helper reads the user's files via Full Disk Access (T1005) ─

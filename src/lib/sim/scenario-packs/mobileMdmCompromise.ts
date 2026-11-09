@@ -83,17 +83,17 @@ export function buildMobileMdmCompromiseScenario(
     id: "7c2f0ae4-91b8-46d3-a5e1-08db3f27c604",
     platform: "Android",
     osVersion: "14.0",
-    homeIp: "81.174.62.30",     // his usual UK mobile-carrier egress (baseline)
+    homeIp: "198.51.100.30",     // his usual UK mobile-carrier egress (baseline)
   };
 
   // The foreign hosting/VPS egress the stolen token is replayed from.
-  const sessionIp = "45.148.10.62";       // Amsterdam, NL, hosting ASN
+  const sessionIp = "203.0.113.64";       // Amsterdam, NL, hosting ASN
   const hostileSession = "a83c0f16-7d24-4b9e-8c51-6f0a29d4e7b1";
 
   // The smishing landing site and the sideloaded (non-managed-store) application.
   const lureDomain = "salesroute-track.net";
   const lureUrl = `http://${lureDomain}/dl/SalesRouteTracker.apk`;
-  const lureIp = "185.215.113.37"; // where the smishing landing site is hosted
+  const lureIp = "203.0.113.37"; // where the smishing landing site is hosted
   const rogueApp = {
     display: "SalesRoute Tracker",
     pkg: "com.salesroute.tracker",
@@ -183,7 +183,7 @@ export function buildMobileMdmCompromiseScenario(
         app: "Office 365 Exchange Online", mfa: true, isInteractive: true, compliant: true, riskLevel: "none",
         extra: { ...caNotApplied },
         description:
-          "A normal Entra sign-in for d.okafor at 20:20 from London (81.174.62.30) on his enrolled Android phone: compliant, managed, MFA satisfied, into the Outlook mobile app.",
+          "A normal Entra sign-in for d.okafor at 20:20 from London (198.51.100.30) on his enrolled Android phone: compliant, managed, MFA satisfied, into the Outlook mobile app.",
       }),
       is_baseline: true,
     },
@@ -282,7 +282,7 @@ export function buildMobileMdmCompromiseScenario(
         mitre: "T1078.004", tactic: "Initial Access", incidentId: INCIDENT,
         extra: { ...caNotApplied },
         description:
-          "An Entra sign-in for d.okafor into Exchange Online at 21:14 from 45.148.10.62 (Amsterdam, NL), from device AND-Okafor-Pixel7 with deviceDetail.isCompliant false, riskState atRisk, and no Conditional Access policy applied.",
+          "An Entra sign-in for d.okafor into Exchange Online at 21:14 from 203.0.113.64 (Amsterdam, NL), from device AND-Okafor-Pixel7 with deviceDetail.isCompliant false, riskState atRisk, and no Conditional Access policy applied.",
       }),
       hostname: device.name,
     },
@@ -291,14 +291,14 @@ export function buildMobileMdmCompromiseScenario(
       operation: "MailItemsAccessed", workload: "Exchange", sessionId: hostileSession, userAgent: "Outlook-Android/2.0", severity: "high",
       mitre: "T1114.002", tactic: "Collection",
       extra: { "RecordType": "50", "ClientInfoString": "Client=REST;Client=RESTSystem;;" },
-      description: "The Exchange audit log recorded MailItemsAccessed for d.okafor from 45.148.10.62 in the same session as the Exchange sign-in.",
+      description: "The Exchange audit log recorded MailItemsAccessed for d.okafor from 203.0.113.64 in the same session as the Exchange sign-in.",
     }),
     m365Operation({
       id: "evt_mmc_05c_mail_items_accessed", ts: T(16 * MIN + 40 * SEC), companyId: cx, user: victim.upn, userTitle: victim.title, srcIp: sessionIp, incidentId: INCIDENT,
       operation: "MailItemsAccessed", workload: "Exchange", sessionId: hostileSession, userAgent: "Outlook-Android/2.0", severity: "high",
       mitre: "T1114.002", tactic: "Collection",
       extra: { "RecordType": "50", "ClientInfoString": "Client=REST;Client=RESTSystem;;" },
-      description: "A second MailItemsAccessed record for d.okafor from 45.148.10.62, same session.",
+      description: "A second MailItemsAccessed record for d.okafor from 203.0.113.64, same session.",
     }),
 
     // ─────────────────────────────────────────────────────────────────────
@@ -315,7 +315,7 @@ export function buildMobileMdmCompromiseScenario(
         mitre: "T1078.004", tactic: "Stealth", incidentId: INCIDENT,
         extra: { ...caNotApplied },
         description:
-          "A second Entra sign-in for d.okafor at 21:19 into SharePoint Online, same session and same 45.148.10.62 origin, from AND-Okafor-Pixel7 with deviceDetail.isCompliant false and no Conditional Access policy applied.",
+          "A second Entra sign-in for d.okafor at 21:19 into SharePoint Online, same session and same 203.0.113.64 origin, from AND-Okafor-Pixel7 with deviceDetail.isCompliant false and no Conditional Access policy applied.",
       }),
       hostname: device.name,
     },
@@ -324,7 +324,7 @@ export function buildMobileMdmCompromiseScenario(
       operation: "FileDownloaded", workload: "SharePoint", sessionId: hostileSession, userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36", severity: "high",
       fileName: "Q3-Pipeline.xlsx", fileExtension: "xlsx", objectId: "https://nexacorp.sharepoint.com/sites/Sales/Shared Documents/Q3-Pipeline.xlsx",
       siteUrl: "https://nexacorp.sharepoint.com/sites/Sales", mitre: "T1530", tactic: "Collection",
-      description: "The SharePoint audit log recorded Q3-Pipeline.xlsx downloaded by d.okafor from 45.148.10.62 in the same session.",
+      description: "The SharePoint audit log recorded Q3-Pipeline.xlsx downloaded by d.okafor from 203.0.113.64 in the same session.",
     }),
   ];
 
@@ -358,7 +358,7 @@ export function buildMobileMdmCompromiseScenario(
     },
     {
       type: "ip",
-      value: sessionIp, // 45.148.10.62, the foreign hosting session origin
+      value: sessionIp, // 203.0.113.64, the foreign hosting session origin
       first_seen: T(14 * MIN),
       last_seen: T(20 * MIN + 5 * SEC),
       reputation: "malicious",
@@ -423,7 +423,7 @@ export function buildMobileMdmCompromiseScenario(
       answer: "noncompliant_ca_gap",
       xp: 60,
       explanation:
-        "The verdict comes from the fields, read against the baseline. evt_mmc_05 is isCompliant false, from 45.148.10.62 in the Netherlands, riskState atRisk with an anomalous-token risk detection, and a non-interactive refresh-token sign-in with the MFA claim carried in the token. The baseline (evt_mmc_01) is the opposite on compliance, IP and risk. conditionalAccessStatus is notApplied on both, and appliedConditionalAccessPolicies shows why: the only device policy, 'Require compliant device - Finance apps', is scoped to the finance apps and never evaluated Exchange Online. So a phone Intune had just failed was allowed into mail because no policy covered that app: a Conditional-Access gap. (b) over-reads one field: resultType 0 only means the sign-in succeeded, and both did. (c) is false: isManaged is still true (the phone stayed enrolled; it went non-compliant, not unenrolled). (d) is noise.",
+        "The verdict comes from the fields, read against the baseline. evt_mmc_05 is isCompliant false, from 203.0.113.64 in the Netherlands, riskState atRisk with an anomalous-token risk detection, and a non-interactive refresh-token sign-in with the MFA claim carried in the token. The baseline (evt_mmc_01) is the opposite on compliance, IP and risk. conditionalAccessStatus is notApplied on both, and appliedConditionalAccessPolicies shows why: the only device policy, 'Require compliant device - Finance apps', is scoped to the finance apps and never evaluated Exchange Online. So a phone Intune had just failed was allowed into mail because no policy covered that app: a Conditional-Access gap. (b) over-reads one field: resultType 0 only means the sign-in succeeded, and both did. (c) is false: isManaged is still true (the phone stayed enrolled; it went non-compliant, not unenrolled). (d) is noise.",
     },
     {
       id: "q3",
@@ -488,7 +488,7 @@ export function buildMobileMdmCompromiseScenario(
 
 On the device the app exploited a vulnerability to root the phone. At 21:06 the Mobile-Threat-Defense connector, Microsoft Defender for Endpoint on Android, reported the handset as rooted. That signal, not any laptop, is where the case begins: there is no mobile endpoint console to walk, so the investigation lives in the Defender, Intune and Entra control planes. A minute later Intune acted on the signal and flipped the device's compliance state to non-compliant. With the phone rooted, the operator could lift the app's refresh token, including the MFA claim it carried.
 
-Then the impact. At 21:14 an Entra sign-in for Okafor reached Exchange Online from 45.148.10.62 in Amsterdam, replaying that refresh token non-interactively, with the phone's own device id, deviceDetail.isCompliant false and riskState atRisk. And yet nothing stopped it: conditionalAccessStatus came back notApplied, because the only device policy ("Require compliant device - Finance apps") is scoped to the finance apps and never evaluated Exchange Online, so a phone the MDM had just failed was allowed straight into corporate mail. The audit log shows two MailItemsAccessed records in the same session. At 21:19 the same session reached SharePoint Online the same way and at 21:20 downloaded Q3-Pipeline.xlsx. The valid cloud account was the disguise; the non-compliant device was the tell.
+Then the impact. At 21:14 an Entra sign-in for Okafor reached Exchange Online from 203.0.113.64 in Amsterdam, replaying that refresh token non-interactively, with the phone's own device id, deviceDetail.isCompliant false and riskState atRisk. And yet nothing stopped it: conditionalAccessStatus came back notApplied, because the only device policy ("Require compliant device - Finance apps") is scoped to the finance apps and never evaluated Exchange Online, so a phone the MDM had just failed was allowed straight into corporate mail. The audit log shows two MailItemsAccessed records in the same session. At 21:19 the same session reached SharePoint Online the same way and at 21:20 downloaded Q3-Pipeline.xlsx. The valid cloud account was the disguise; the non-compliant device was the tell.
 
 The instructive comparison sits earlier that evening: s.mendel's managed Galaxy also went non-compliant, at 19:00, but only because a security patch was pending, with no threat signal and no sideloaded app, and Intune's own record at 19:42 shows it compliant again after the update. Same "device went non-compliant" record, opposite verdict. The lesson of a mobile case is exactly that: the compliance flip is a reason to look, and the verdict is read from why it flipped and what the device did next, not from the flip itself.`,
     learning_objectives: [

@@ -470,18 +470,19 @@ describe("emitter-authored scenario packs", () => {
     expect(exfil?.process?.pid).not.toBe(stage?.process?.pid);
     // Falcon connection events carry no ECS destination.* / byte counts
     expect(exfil?.raw?.["destination.domain"]).toBeUndefined();
-    expect(exfil?.raw?.["crowdstrike.RemoteAddressIP4"]).toBe("92.118.39.84");
+    expect(exfil?.raw?.["crowdstrike.RemoteAddressIP4"]).toBe("203.0.113.102");
     // the exfil VOLUME lives on the firewall's session-end record, not the Falcon event
     const fw = s.events.find(e => e.id === "evt_mhi_bk6_fw");
     expect(fw?.raw?.["pan.subtype"]).toBe("end");
     expect(fw?.raw?.["pan.session_end_reason"]).toBe("tcp-fin");
     expect(fw?.raw?.["pan.bytes_sent"]).toBe("3650722000");
-    // IOCs follow the live-feed convention (D-02): realistic addresses, never a
-    // documentation range or .example name (a giveaway next to realistic noise),
-    // and never shared CDN front-ends (Cloudflare 104.16.0.0/13, 104.24.0.0/14).
+    // IOCs follow the Log Realism Standard (R5, superseding D-02): attacker addresses
+    // sit in the documentation ranges, as every other non-service public address in
+    // the story does (so the range is no giveaway), never on shared CDN front-ends
+    // (Cloudflare 104.16.0.0/13, 104.24.0.0/14), and no domain is an .example name.
     for (const i of s.iocs ?? []) {
       if (i.type === "ip") {
-        expect(i.value).not.toMatch(/^(192\.0\.2\.|198\.51\.100\.|203\.0\.113\.)/);
+        expect(i.value).toMatch(/^(192\.0\.2\.|198\.51\.100\.|203\.0\.113\.)|^185\.220\.101\.45$/);
         expect(i.value).not.toMatch(/^104\.(1[6-9]|2[0-7])\./);
       }
       if (i.type === "domain") expect(i.value).not.toMatch(/\.(example|test|invalid)$/);
@@ -563,7 +564,7 @@ describe("emitter-authored scenario packs", () => {
     expect(new Set(onHost.map(e => e.user_email))).toEqual(new Set(["a.novak@vantageindustrial.com", undefined]));
     expect(onHost.filter(e => e.user_email).map(e => e.id).sort()).toEqual(["dw_00a_admin_network_logon", "dw_00b_remote_service_install", "dw_00z_c_share_write"]);
     // the compromise and the push: VPN login, RDP to the deployment server, sc.exe create
-    expect(s.events.find(e => e.id === "dw_00v_vpn_login")?.src_ip).toBe("196.251.33.74");
+    expect(s.events.find(e => e.id === "dw_00v_vpn_login")?.src_ip).toBe("203.0.113.80");
     expect(s.events.find(e => e.id === "dw_00w_deploy_rdp_logon")?.hostname).toBe("VNT-DEPLOY-01");
     expect(String(s.events.find(e => e.id === "dw_00z2_sc_create")?.process?.cmdline)).toContain("create cl64svc");
     // the same service is created on two more machines
@@ -841,7 +842,7 @@ describe("emitter-authored scenario packs", () => {
     expect(dl?.raw?.["zscaler.action"]).toBe("Allowed");
     expect(dl?.raw?.["zscaler.urlcategory"]).toBe("Newly Registered and Observed Domains");
     expect(dl?.raw?.["threat.name"]).toBeUndefined();
-    expect(dl?.dst_ip).toBe("185.234.72.19");
+    expect(dl?.dst_ip).toBe("203.0.113.23");
     const dmgWrite = s.events.find(e => e.id === "msd_01b_dmg_written");
     expect(dmgWrite?.file?.path).toBe("/Users/a.fontaine/Downloads/PixelForge_Pro_v7.dmg");
     expect(dmgWrite?.process?.name).toBe("Safari");
@@ -860,7 +861,7 @@ describe("emitter-authored scenario packs", () => {
     expect(s.events.find(e => e.id === "msd_08c_curl_upload")?.process?.parent_pid).toBe(4102);
     const exfil = s.events.find(e => e.id === "msd_08_exfil_upload");
     expect(exfil?.event_type).toBe("http_request");
-    expect(exfil?.dst_ip).toBe("45.147.230.88");
+    expect(exfil?.dst_ip).toBe("203.0.113.95");
     expect(exfil?.raw?.["zscaler.reqmethod"] ?? exfil?.raw?.["http.request.method"]).toBe("POST");
     // the detection spans host + proxy
     const alert = s.events.find(e => e.id === "msd_09_edr_detection");
@@ -911,7 +912,7 @@ describe("emitter-authored scenario packs", () => {
     expect(anon?.raw?.["aws.cloudtrail.userIdentity.accessKeyId"]).toBeUndefined();
     // the tell: every key-driven action is sourced from the external IP; the backup is private
     const keyEvents = s.events.filter(e => e.raw?.["aws.cloudtrail.userIdentity.accessKeyId"] === "AKIA4MC2X7QF9EXAMPLE");
-    expect(new Set(keyEvents.map(e => e.src_ip))).toEqual(new Set(["91.242.217.35"]));
+    expect(new Set(keyEvents.map(e => e.src_ip))).toEqual(new Set(["203.0.113.98"]));
     expect(benign?.src_ip).toBe("10.0.42.17");
   });
 
@@ -949,11 +950,11 @@ describe("emitter-authored scenario packs", () => {
     expect(gd?.edr_scope).toBe("non_edr");
     // the tell: every attacker action from the one external IP; benign from the dev IP
     const atkIps = new Set(s.events.filter(e => e.id !== "cicd_00_benign_pr" && !e.is_baseline && e.src_ip).map(e => e.src_ip));
-    expect(atkIps).toEqual(new Set(["45.156.128.19"]));
+    expect(atkIps).toEqual(new Set(["203.0.113.28"]));
     // the takeover is evidenced on the identity plane before the PAT: an approved push from the attacker address
-    expect(s.events.find(e => e.id === "cicd_00c_okta_push_approved")?.src_ip).toBe("45.156.128.19");
+    expect(s.events.find(e => e.id === "cicd_00c_okta_push_approved")?.src_ip).toBe("203.0.113.28");
     expect(s.events.find(e => e.id === "cicd_00e_github_login")?.raw?.["github.action"]).toBe("user.login");
-    expect(benign?.src_ip).toBe("94.188.12.44");
+    expect(benign?.src_ip).toBe("198.51.100.45");
   });
 
   it("containerEscapeCryptomining builds a coherent K8s escape+mining case from emitters only (Kubernetes + CrowdStrike + GuardDuty)", () => {
@@ -1014,7 +1015,7 @@ describe("emitter-authored scenario packs", () => {
     // victim but whose IP is the attacker's, not either of her real sign-in IPs
     const reg = s.events.find(e => e.id === "evt_hmr_06_new_device_registered");
     expect(reg?.raw?.["azure.auditlogs.properties.initiatedBy.user.userPrincipalName"]).toBe("l.ferreira@nexacorp.com");
-    expect(reg?.raw?.["azure.auditlogs.properties.initiatedBy.user.ipAddress"]).toBe("5.181.234.19");
+    expect(reg?.raw?.["azure.auditlogs.properties.initiatedBy.user.ipAddress"]).toBe("203.0.113.35");
     // the takeover sign-in: unmanaged device, new geo, control-plane detection
     const takeover = s.events.find(e => e.id === "evt_hmr_07_new_geo_signin");
     expect(takeover?.raw?.["azure.signinlogs.properties.deviceDetail.isManaged"]).toBe("false");

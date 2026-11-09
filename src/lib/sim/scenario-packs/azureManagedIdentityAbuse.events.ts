@@ -57,7 +57,7 @@ export function azureManagedIdentityAbuseScenarioEvents() {
 
   // The attacker's external address, appears on the credential-add, the SP
   // sign-ins, and every Azure Activity operation.
-  const attackerIp = "45.155.205.211";
+  const attackerIp = "203.0.113.211";
 
   // The Key Vault and Storage account the identity reaches.
   const keyVault = "kv-billing-prod";

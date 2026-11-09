@@ -103,7 +103,7 @@ export function buildLateralMovementPthScenario(
     },
     {
       type: "ip",
-      value: "185.174.137.26",
+      value: "203.0.113.27",
       first_seen: T(5 * MIN + 13 * SEC),
       last_seen: T(5 * MIN + 17 * SEC),
       reputation: "malicious",

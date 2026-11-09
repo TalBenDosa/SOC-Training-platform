@@ -26,11 +26,11 @@ export function infostealerSessionTheftScenarioEvents() {
   const victim = { email: "r.avidan@nexacorp.com", name: "Reut Avidan", sam: "r.avidan" };
 
   const lureDomain = "freeware-pdftools.net";
-  const lureIp = "104.21.44.187";
+  const lureIp = "203.0.113.187";
   const c2Domain = "telemetry-cdn-relay.net";
-  const c2Ip = "45.88.97.214";
-  const corpEgress = "81.174.55.21"; // London corporate egress
-  const replayIp = "91.243.24.19";
+  const c2Ip = "203.0.113.214";
+  const corpEgress = "198.51.100.21"; // London corporate egress
+  const replayIp = "203.0.113.100";
 
   const installerHash = makeSha256("pdf_converter_pro_setup_freeware_pdftools_2026");
 
@@ -184,7 +184,7 @@ export function infostealerSessionTheftScenarioEvents() {
       domain: c2Domain, dstIp: c2Ip, remotePort: 443, app: "web-browsing", transport: "tcp", action: "allow", end: true, decrypted: true,
       bytesOut: 127_340, bytesIn: 5_912, elapsedSec: 4, sessionEndReason: "tcp-fin", category: "unknown",
       severity: "high", incidentId: INCIDENT,
-      description: "Firewall session summary for the 11:39:23 connection from LAP-6688 to 45.88.97.214:443, closed by FIN.",
+      description: "Firewall session summary for the 11:39:23 connection from LAP-6688 to 203.0.113.214:443, closed by FIN.",
     }),
 
     // 8. THE CRUX, a new session five minutes later, no password or MFA step (T1550.004).
@@ -206,7 +206,7 @@ export function infostealerSessionTheftScenarioEvents() {
         ],
         "azure.signinlogs.properties.appliedConditionalAccessPolicies": caPolicy,
       },
-      description: "A second Entra sign-in for r.avidan completed from 91.243.24.19 in Moscow on an unmanaged Windows 10 / Chrome 149 device, five minutes after Falcon saw her Cookies database copied on LAP-6688. Both the first factor and multifactor were satisfied by claims already present in the token.",
+      description: "A second Entra sign-in for r.avidan completed from 203.0.113.100 in Moscow on an unmanaged Windows 10 / Chrome 149 device, five minutes after Falcon saw her Cookies database copied on LAP-6688. Both the first factor and multifactor were satisfied by claims already present in the token.",
     }) },
 
     // 9. The endpoint verdict, arriving after the transfer and the replay.
@@ -232,7 +232,7 @@ export function infostealerSessionTheftScenarioEvents() {
       userAgent: UA_REPLAY,
       mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
       extra: { "RecordType": "6", "UserType": "0", "ResultStatus": "Succeeded", "SourceRelativeUrl": "Shared Documents", "EventSource": "SharePoint", "CorrelationId": correlationIdReplay, "ItemType": "File" },
-      description: "The replayed session opened Q3_Pipeline_Forecast.xlsx under /sites/Sales/Shared Documents from 91.243.24.19, the same account, the same unmanaged Chrome 149 session that signed in a minute earlier.",
+      description: "The replayed session opened Q3_Pipeline_Forecast.xlsx under /sites/Sales/Shared Documents from 203.0.113.100, the same account, the same unmanaged Chrome 149 session that signed in a minute earlier.",
     }), file: undefined },
   ];
 

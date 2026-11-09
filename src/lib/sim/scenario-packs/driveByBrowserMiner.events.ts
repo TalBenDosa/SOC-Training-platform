@@ -45,7 +45,7 @@ export function driveByBrowserMinerScenarioEvents() {
     panWeb({
       ...cs, id: "evt_dbm_01_site_visit", ts: T(0), severity: "low",
       url: `https://${legitSite}/convert/pdf-to-word`, domain: legitSite,
-      category: "computer-and-internet-info", action: "alert", dstIp: "104.26.9.201", status: 200, bytesIn: 88_240,
+      category: "computer-and-internet-info", action: "alert", dstIp: "203.0.113.201", status: 200, bytesIn: 88_240,
       userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0.0.0 Safari/537.36",
       userTitle: "Business Analyst",
       description: "LAP-6690 loaded quickconvert-tools.io/convert/pdf-to-word at 11:02, a browser-based PDF converter Tomer uses regularly, allowed under the category computer-and-internet-info.",
@@ -55,7 +55,7 @@ export function driveByBrowserMinerScenarioEvents() {
     panWeb({
       ...cs, id: "evt_dbm_02_script_fetch", ts: T(8 * SEC), severity: "medium",
       url: `https://${scriptHost}/lib/wm-core.js`, domain: scriptHost, category: "content-delivery-networks",
-      action: "alert", dstIp: "172.67.144.29", status: 200, bytesIn: 21_408,
+      action: "alert", dstIp: "203.0.113.29", status: 200, bytesIn: 21_408,
       referer: `https://${legitSite}/convert/pdf-to-word`, mitre: "T1189", tactic: "Initial Access",
       description: "Eight seconds into the page load, the same browser session fetched /lib/wm-core.js from edge-metrics-cdn14.com, referred by quickconvert-tools.io.",
     }),
@@ -64,7 +64,7 @@ export function driveByBrowserMinerScenarioEvents() {
     panWeb({
       ...cs, id: "evt_dbm_03_wasm_fetch", ts: T(9 * SEC), severity: "medium",
       url: `https://${scriptHost}/lib/wm-mod.wasm`, domain: scriptHost, category: "content-delivery-networks",
-      action: "alert", dstIp: "172.67.144.29", status: 200, bytesIn: 188_416,
+      action: "alert", dstIp: "203.0.113.29", status: 200, bytesIn: 188_416,
       referer: `https://${legitSite}/convert/pdf-to-word`, mitre: "T1189", tactic: "Initial Access",
       description: "One second later the same session fetched /lib/wm-mod.wasm, 184 KB, from edge-metrics-cdn14.com.",
     }),
@@ -81,7 +81,7 @@ export function driveByBrowserMinerScenarioEvents() {
     // 5. THE CRUX, the renderer opens a long-lived WebSocket tunnel to a mining relay.
     panConnection({
       ...cs, id: "evt_dbm_05_ws_open", ts: T(11 * SEC), severity: "critical",
-      domain: poolRelay, dstIp: "45.155.204.61", remotePort: 443, app: "websocket", category: "unknown",
+      domain: poolRelay, dstIp: "203.0.113.65", remotePort: 443, app: "websocket", category: "unknown",
       url: `${poolRelay}/socket`, action: "alert", mitre: "T1496", tactic: "Impact",
       description: "At 11:02:11 the renderer opened a WebSocket connection to ws-relay-pool9.com, categorised unknown, app websocket, the tunnel a browser-based miner uses in place of a direct Stratum socket.",
     }),
@@ -97,7 +97,7 @@ export function driveByBrowserMinerScenarioEvents() {
     // 7. The session closes 24 minutes later, the traffic-end summary for evt_dbm_05.
     panConnection({
       ...cs, id: "evt_dbm_07_ws_close", ts: T(24 * MIN + 11 * SEC), severity: "critical", end: true,
-      domain: poolRelay, dstIp: "45.155.204.61", remotePort: 443, app: "websocket", category: "unknown",
+      domain: poolRelay, dstIp: "203.0.113.65", remotePort: 443, app: "websocket", category: "unknown",
       action: "allow", bytesOut: 18_400, bytesIn: 64_200, elapsedSec: 1440, mitre: "T1496", tactic: "Impact",
       description: "The WebSocket session to ws-relay-pool9.com stayed open for 24 minutes before closing, exchanging small, steady bursts consistent with mining job assignments and share submissions rather than a page's normal traffic pattern.",
     }),

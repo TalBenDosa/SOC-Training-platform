@@ -72,10 +72,10 @@ export function buildContainerEscapeCryptominingScenario(
   const containerId = "d259ebe02ddb1c2d57207fd5c7b962bd";
 
   // The operator's control host and the mining infrastructure.
-  const opIp = "45.83.192.44";
+  const opIp = "203.0.113.53";
   const poolDomain = "pool.supportxmr.com";
   const poolUrl = "stratum+tcp://pool.supportxmr.com:3333";
-  const poolIp = "185.65.244.9";
+  const poolIp = "203.0.113.10";
   // Monero wallet the miner pays out to, carried in the cmdline, not an IOC.
   const wallet = "44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP";
 
@@ -133,7 +133,7 @@ export function buildContainerEscapeCryptominingScenario(
       requestUri: "/api/v1/namespaces/data-pipeline/pods/etl-metrics-agent-xk29d/exec?command=sh&container=agent&stdin=true&stdout=true&tty=true",
       responseCode: 101, userAgent: "kubectl/v1.28.4 (linux/amd64) kubernetes/8b3644d", eventType: "k8s_exec",
       mitre: "T1609", tactic: "Execution", severity: "high", incidentId: INCIDENT,
-      description: "A pods/exec into etl-metrics-agent-xk29d in data-pipeline by the etl-runner service account from 45.83.192.44, attaching an interactive shell to the container.",
+      description: "A pods/exec into etl-metrics-agent-xk29d in data-pipeline by the etl-runner service account from 203.0.113.53, attaching an interactive shell to the container.",
     }),
 
     // 3. THE MINER, xmrig launches inside the container (still contained) (T1496).
@@ -172,7 +172,7 @@ export function buildContainerEscapeCryptominingScenario(
       remoteIp: poolIp, remotePort: 3333, transport: "tcp", domain: poolDomain, processName: "xmrig", cmdline: `./xmrig -o ${poolUrl} -u ${wallet} -k --tls --coin monero`,
       mitre: "T1496", tactic: "Impact", severity: "high", incidentId: INCIDENT,
       extra: { "crowdstrike.DetectName": "Cryptocurrency Mining Network Activity", "crowdstrike.Tactic": "Impact", "crowdstrike.Technique": "Resource Hijacking", "crowdstrike.SeverityName": "High", "crowdstrike.DomainName": poolDomain, "crowdstrike.RemoteAddressIP4": poolIp, "crowdstrike.RemotePort": "3333", "crowdstrike.ConnectionDirection": "outbound", "crowdstrike.Protocol": "tcp", "crowdstrike.UserName": "root", "crowdstrike.SensorId": sensorId },
-      description: "Falcon recorded xmrig on ip-10-0-42-17 opening a persistent outbound TCP/3333 session to pool.supportxmr.com (185.65.244.9), the Monero mining pool the wallet pays out to.",
+      description: "Falcon recorded xmrig on ip-10-0-42-17 opening a persistent outbound TCP/3333 session to pool.supportxmr.com (203.0.113.10), the Monero mining pool the wallet pays out to.",
     }),
 
     // 7. NODE / CLOUD CONTEXT, GuardDuty flags the EKS worker querying a mining domain (T1496).
@@ -210,7 +210,7 @@ export function buildContainerEscapeCryptominingScenario(
     },
     {
       type: "ip",
-      value: poolIp, // 185.65.244.9, the pool endpoint
+      value: poolIp, // 203.0.113.10, the pool endpoint
       first_seen: T(6 * MIN),
       last_seen: T(9 * MIN),
       reputation: "malicious",
@@ -343,7 +343,7 @@ At 01:30 the etl-runner service account, an ordinary application identity in the
 
 Inside the container the image's payload launched an XMRig miner as root, pointed at pool.supportxmr.com over stratum with a Monero wallet. At that moment the miner was still contained, Falcon recorded it with a populated ContainerId, confined to the pod. Then, at 01:34, the operator crossed the boundary: nsenter --target 1 --mount --uts --ipc --net --pid attached to PID 1, the node's own init process, and spawned /bin/bash in the host's namespaces. That shell was no longer in the pod; it was operating on the node's filesystem. From it, crictl enumerated the other containers scheduled on the worker.
 
-The miner's outbound TCP/3333 session to pool.supportxmr.com (185.65.244.9) is the impact on the wire, and GuardDuty corroborated it independently with a CryptoCurrency:EC2/BitcoinTool.B!DNS finding for instance i-0a4b7c2e9f13d5a80 resolving that same domain.
+The miner's outbound TCP/3333 session to pool.supportxmr.com (203.0.113.10) is the impact on the wire, and GuardDuty corroborated it independently with a CryptoCurrency:EC2/BitcoinTool.B!DNS finding for instance i-0a4b7c2e9f13d5a80 resolving that same domain.
 
 The one legitimate comparison in the data is the cilium CNI pod in kube-system: also privileged, also mounting a hostPath, and entirely expected, a node agent that has to touch the host to do its job, owned by the kube-system cilium service account, running no miner and opening no external connection. Same privileged shape, opposite meaning: the signal is the workload's owner and behaviour, not the privileged flag they share.
 

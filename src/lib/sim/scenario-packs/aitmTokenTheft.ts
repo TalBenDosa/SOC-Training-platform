@@ -51,14 +51,14 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       hint: "Compare the Entra client address with the address m.delgado's own browser traffic came from.",
       kind: "single",
       options: [
-        { value: "a", label: "It is 45.87.81.126 in Amsterdam, the host her browser posted the sign-in form to" },
-        { value: "b", label: "It is 81.174.22.63 in London, the corporate egress, matching her own browsing traffic" },
-        { value: "c", label: "It is 91.132.139.204 in Frankfurt, the host that reuses the session six minutes later" },
+        { value: "a", label: "It is 203.0.113.126 in Amsterdam, the host her browser posted the sign-in form to" },
+        { value: "b", label: "It is 198.51.100.63 in London, the corporate egress, matching her own browsing traffic" },
+        { value: "c", label: "It is 203.0.113.204 in Frankfurt, the host that reuses the session six minutes later" },
         { value: "d", label: "It is a Microsoft service address, because the request was relayed inside the tenant" },
       ],
       answer: "a",
       explanation:
-        "Zscaler (aitm_04, aitm_05) shows the user's browser leaving from 81.174.22.63 in London, so option b describes where she really was, but that is not what Entra recorded. Entra saw 45.87.81.126, because in a reverse-proxy phish the identity provider talks to the proxy, not to the victim. Option c is the replay host, which appears later in aitm_09. Option d is not how Entra sign-in logging works: ipAddress is always the client that reached the token endpoint. The mismatch between where the user browsed from and where Entra saw the sign-in from is the first structural tell of AitM.",
+        "Zscaler (aitm_04, aitm_05) shows the user's browser leaving from 198.51.100.63 in London, so option b describes where she really was, but that is not what Entra recorded. Entra saw 203.0.113.126, because in a reverse-proxy phish the identity provider talks to the proxy, not to the victim. Option c is the replay host, which appears later in aitm_09. Option d is not how Entra sign-in logging works: ipAddress is always the client that reached the token endpoint. The mismatch between where the user browsed from and where Entra saw the sign-in from is the first structural tell of AitM.",
     },
     {
       id: "q2", xp: 25,
@@ -88,7 +88,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       ],
       answer: "b",
       explanation:
-        "Option a only proves the user visited the phishing site; it says nothing about what happened to the session afterwards. Option c is real follow-on activity but is equally consistent with the attacker having simply logged in with a stolen password. Option d compares two different people, aitm_08 is a.rosen, not m.delgado. Only aitm_06 and aitm_09 carry the identical sessionId 0f2c1e64-3b7a-4c19-9d84-5a6e2f8b17d3 while disagreeing on ipAddress (45.87.81.126 vs 91.132.139.204), autonomousSystemNumber (60068 vs 51167) and deviceDetail.browser (Edge 145 vs Chrome 144). One session identifier cannot legitimately be held by two browsers on two machines 365 km apart six minutes apart. The second record also has isInteractive: false and authenticationStepResultDetail 'MFA requirement satisfied by claim in the token', nobody authenticated.",
+        "Option a only proves the user visited the phishing site; it says nothing about what happened to the session afterwards. Option c is real follow-on activity but is equally consistent with the attacker having simply logged in with a stolen password. Option d compares two different people, aitm_08 is a.rosen, not m.delgado. Only aitm_06 and aitm_09 carry the identical sessionId 0f2c1e64-3b7a-4c19-9d84-5a6e2f8b17d3 while disagreeing on ipAddress (203.0.113.126 vs 203.0.113.204), autonomousSystemNumber (60068 vs 51167) and deviceDetail.browser (Edge 145 vs Chrome 144). One session identifier cannot legitimately be held by two browsers on two machines 365 km apart six minutes apart. The second record also has isInteractive: false and authenticationStepResultDetail 'MFA requirement satisfied by claim in the token', nobody authenticated.",
     },
     {
       id: "q4", xp: 20,
@@ -112,7 +112,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       kind: "single",
       options: [
         { value: "a", label: "Reset the password, then have the user re-approve MFA on her own phone to restore a trusted session" },
-        { value: "b", label: "Block 91.132.139.204 at the perimeter and purge the lure message from every mailbox in the tenant" },
+        { value: "b", label: "Block 203.0.113.204 at the perimeter and purge the lure message from every mailbox in the tenant" },
         { value: "c", label: "Revoke refresh tokens and sessions, delete the attacker-registered method, then reset the password" },
         { value: "d", label: "Disable the account for 24 hours and re-enable it once the look-alike domain has been fully taken down" },
       ],

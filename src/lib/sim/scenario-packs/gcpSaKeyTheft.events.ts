@@ -40,7 +40,7 @@ export function gcpSaKeyTheftScenarioEvents() {
   // were phished. The enumeration and the key-mint carry this principalEmail.
   const devUser = "t.levy@rocketstack.io";
   // The attacker's external address, outside GCP, the whole tell.
-  const attackerIp = "185.129.62.66";
+  const attackerIp = "203.0.113.66";
   const attackerUa = "google-api-python-client/2.132.0 (gzip)";
 
   // The benign control: the Terraform CI service account minting a key the
@@ -54,7 +54,7 @@ export function gcpSaKeyTheftScenarioEvents() {
   // target service account's numeric unique id (what a Finding's resourceName carries).
   const orgId = "684201937415";
   // The office egress the developer normally works from, and the admin who granted the key-admin role.
-  const officeIp = "84.229.31.77";
+  const officeIp = "198.51.100.78";
   const iamAdmin = "iam-admin@rocketstack.io";
   const etdSourceId = "1460987327201345829";
   const targetSaUniqueId = "104738295610384756291";
@@ -236,7 +236,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       mitre_technique: "T1078.004",
       mitre_tactic: "Initial Access",
       incident_id: INCIDENT,
-      description: "t.levy signed in to Google from 185.129.62.66 (Amsterdam) at 00:57 with a password and no second-factor challenge, a first for this account.",
+      description: "t.levy signed in to Google from 203.0.113.66 (Amsterdam) at 00:57 with a password and no second-factor challenge, a first for this account.",
       raw: {
         "gws.id.applicationName": "login",
         "gws.event.type": "login",
@@ -265,7 +265,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       mitre_tactic: "Discovery",
       incident_id: INCIDENT,
       description:
-        "ListServiceAccounts on project rocketstack-data-prod by t.levy@rocketstack.io from 185.129.62.66, the developer identity enumerating every service account in the project from an address it has not used before.",
+        "ListServiceAccounts on project rocketstack-data-prod by t.levy@rocketstack.io from 203.0.113.66, the developer identity enumerating every service account in the project from an address it has not used before.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -312,7 +312,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       mitre_tactic: "Discovery",
       incident_id: INCIDENT,
       description:
-        "storage.buckets.list on project rocketstack-data-prod by t.levy@rocketstack.io from 185.129.62.66, enumerating the project's buckets, including the rocketstack-prod-datalake store, from the same external address.",
+        "storage.buckets.list on project rocketstack-data-prod by t.levy@rocketstack.io from 203.0.113.66, enumerating the project's buckets, including the rocketstack-prod-datalake store, from the same external address.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -359,7 +359,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       mitre_tactic: "Persistence",
       incident_id: INCIDENT,
       description:
-        "CreateServiceAccountKey on data-pipeline-sa by t.levy@rocketstack.io from 185.129.62.66 minted a new user-managed key (USER_MANAGED, TYPE_GOOGLE_CREDENTIALS_FILE), a long-lived JSON credential for a service account the developer does not own.",
+        "CreateServiceAccountKey on data-pipeline-sa by t.levy@rocketstack.io from 203.0.113.66 minted a new user-managed key (USER_MANAGED, TYPE_GOOGLE_CREDENTIALS_FILE), a long-lived JSON credential for a service account the developer does not own.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Factivity`,
@@ -410,7 +410,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       mitre_tactic: "Privilege Escalation",
       incident_id: INCIDENT,
       description:
-        "GenerateAccessToken on data-pipeline-sa by t.levy@rocketstack.io from 185.129.62.66, the developer identity minting a short-lived token to act as the service account and inherit its storage and secret roles.",
+        "GenerateAccessToken on data-pipeline-sa by t.levy@rocketstack.io from 203.0.113.66, the developer identity minting a short-lived token to act as the service account and inherit its storage and secret roles.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -457,7 +457,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       mitre_tactic: "Discovery",
       incident_id: INCIDENT,
       description:
-        "storage.buckets.get on rocketstack-prod-datalake with principalEmail data-pipeline-sa and t.levy@rocketstack.io as the first-party delegate, from 185.129.62.66: the access token minted a minute earlier, in use.",
+        "storage.buckets.get on rocketstack-prod-datalake with principalEmail data-pipeline-sa and t.levy@rocketstack.io as the first-party delegate, from 203.0.113.66: the access token minted a minute earlier, in use.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -506,7 +506,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       mitre_tactic: "Discovery",
       incident_id: INCIDENT,
       description:
-        "storage.objects.list on rocketstack-prod-datalake with principalEmail data-pipeline-sa from 185.129.62.66, the service account now driving the calls, indexing the exports/ prefix ahead of a read.",
+        "storage.objects.list on rocketstack-prod-datalake with principalEmail data-pipeline-sa from 203.0.113.66, the service account now driving the calls, indexing the exports/ prefix ahead of a read.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -555,7 +555,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       mitre_tactic: "Collection",
       incident_id: INCIDENT,
       description:
-        "storage.objects.get on rocketstack-prod-datalake with principalEmail data-pipeline-sa from 185.129.62.66 under the minted key: the first of a run of object reads across the exports/ prefix, one Data Access entry per object pulled.",
+        "storage.objects.get on rocketstack-prod-datalake with principalEmail data-pipeline-sa from 203.0.113.66 under the minted key: the first of a run of object reads across the exports/ prefix, one Data Access entry per object pulled.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -598,7 +598,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       mitre_tactic: "Collection",
       incident_id: INCIDENT,
       description:
-        "storage.objects.get on warehouse-000002.parquet by data-pipeline-sa from 185.129.62.66 under the minted key: the next object of the same prefix.",
+        "storage.objects.get on warehouse-000002.parquet by data-pipeline-sa from 203.0.113.66 under the minted key: the next object of the same prefix.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -640,7 +640,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       mitre_tactic: "Collection",
       incident_id: INCIDENT,
       description:
-        "storage.objects.get on warehouse-000003.parquet by data-pipeline-sa from 185.129.62.66 under the minted key: the next object of the same prefix.",
+        "storage.objects.get on warehouse-000003.parquet by data-pipeline-sa from 203.0.113.66 under the minted key: the next object of the same prefix.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -682,7 +682,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       mitre_tactic: "Collection",
       incident_id: INCIDENT,
       description:
-        "storage.objects.get on warehouse-000004.parquet by data-pipeline-sa from 185.129.62.66 under the minted key: the next object of the same prefix.",
+        "storage.objects.get on warehouse-000004.parquet by data-pipeline-sa from 203.0.113.66 under the minted key: the next object of the same prefix.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -724,7 +724,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       mitre_tactic: "Collection",
       incident_id: INCIDENT,
       description:
-        "storage.objects.get on warehouse-000005.parquet by data-pipeline-sa from 185.129.62.66 under the minted key: the next object of the same prefix.",
+        "storage.objects.get on warehouse-000005.parquet by data-pipeline-sa from 203.0.113.66 under the minted key: the next object of the same prefix.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -773,7 +773,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       mitre_tactic: "Credential Access",
       incident_id: INCIDENT,
       description:
-        "AccessSecretVersion on secret prod-warehouse-dsn with principalEmail data-pipeline-sa from 185.129.62.66, the service account reading a stored warehouse connection string from outside the project's network.",
+        "AccessSecretVersion on secret prod-warehouse-dsn with principalEmail data-pipeline-sa from 203.0.113.66, the service account reading a stored warehouse connection string from outside the project's network.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -864,7 +864,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       is_detection: true,
       edr_scope: "non_edr", // cloud control-plane only, no host process to walk
       description:
-        "Event Threat Detection raised Persistence: New Geography (severity LOW) on data-pipeline-sa: the service account made calls from 185.129.62.66 in the Netherlands, a location it has never operated from.",
+        "Event Threat Detection raised Persistence: New Geography (severity LOW) on data-pipeline-sa: the service account made calls from 203.0.113.66 in the Netherlands, a location it has never operated from.",
       raw: {
         // Security Command Center Pub/Sub notification: an Event Threat Detection Finding.
         "notificationConfigName": `organizations/${orgId}/notificationConfigs/scc-to-siem`,

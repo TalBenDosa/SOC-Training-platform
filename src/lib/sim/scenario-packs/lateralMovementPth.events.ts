@@ -216,22 +216,22 @@ export function lateralMovementPthScenarioEvents() {
     // 7a. The loader resolves its download host (Sysmon 22), 7b. connects (Sysmon 3), 7c. and the firewall logs the session.
     { ...asSystem(sysmonDns({
       companyId: cxNexa, id: "evt_lm_07a_payload_dns", ts: T(5 * MIN + 13 * SEC), host: fileSrv.hostname, user: null, srcIp: fileSrv.ip,
-      processName: "powershell.exe", processPath: PS, pid: 8260, domain: "cdn-winupdate.net", resolvedIp: "185.174.137.26", severity: "medium",
+      processName: "powershell.exe", processPath: PS, pid: 8260, domain: "cdn-winupdate.net", resolvedIp: "203.0.113.27", severity: "medium",
       incidentId: INCIDENT, mitre: "T1105", tactic: "Command and Control",
       description: "Sysmon Event 22 on SRV-FILE-03: powershell.exe resolved cdn-winupdate.net to 185.174.137.26.",
     })), process: loaderProc },
     { ...asSystem(sysmonNetwork({
       companyId: cxNexa, id: "evt_lm_07b_payload_download", ts: T(5 * MIN + 14 * SEC), host: fileSrv.hostname, user: null, srcIp: fileSrv.ip,
-      processName: "powershell.exe", processPath: PS, pid: 8260, remoteIp: "185.174.137.26", remotePort: 80, remoteHost: "cdn-winupdate.net",
+      processName: "powershell.exe", processPath: PS, pid: 8260, remoteIp: "203.0.113.27", remotePort: 80, remoteHost: "cdn-winupdate.net",
       transport: "tcp", mitre: "T1105", tactic: "Command and Control", severity: "high", incidentId: INCIDENT,
       description:
-        "Sysmon recorded the SYSTEM PowerShell on SRV-FILE-03 opening an outbound TCP/80 connection to cdn-winupdate.net (185.174.137.26) two seconds after it started, a server fetching a script from the internet, not a Microsoft update host.",
+        "Sysmon recorded the SYSTEM PowerShell on SRV-FILE-03 opening an outbound TCP/80 connection to cdn-winupdate.net (203.0.113.27) two seconds after it started, a server fetching a script from the internet, not a Microsoft update host.",
     })), process: loaderProc },
     panConnection({
       companyId: cxNexa, id: "evt_lm_07c_payload_fw", ts: T(5 * MIN + 17 * SEC), host: fileSrv.hostname, srcIp: fileSrv.ip, user: null,
-      domain: "cdn-winupdate.net", dstIp: "185.174.137.26", remotePort: 80, app: "web-browsing", transport: "tcp", action: "allow", end: true,
+      domain: "cdn-winupdate.net", dstIp: "203.0.113.27", remotePort: 80, app: "web-browsing", transport: "tcp", action: "allow", end: true,
       category: "unknown", bytesOut: 612, bytesIn: 18_944, elapsedSec: 3, severity: "high", incidentId: INCIDENT,
-      description: "The firewall logged the SRV-FILE-03 session to 185.174.137.26:80 at 02:05:17: 612 bytes out, 18.9 KB back, allowed, URL category unknown.",
+      description: "The firewall logged the SRV-FILE-03 session to 203.0.113.27:80 at 02:05:17: 612 bytes out, 18.9 KB back, allowed, URL category unknown.",
     }),
 
     // 8. Sysmon 3, the payload reaches toward the DC over SMB (445).

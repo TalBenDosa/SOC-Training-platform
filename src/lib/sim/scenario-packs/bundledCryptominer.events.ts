@@ -45,7 +45,7 @@ export function bundledCryptominerScenarioEvents() {
     panWeb({
       ...cx, id: "evt_bcm_01_download", ts: T(0), url: `https://${downloadSite}/get/VideoConvertPro_Setup.exe`,
       domain: downloadSite, method: "GET", action: "alert", category: "shareware-and-freeware",
-      dstIp: "104.21.44.190", status: 200, bytesIn: 42_991_616, userTitle: "Marketing Manager", severity: "low",
+      dstIp: "203.0.113.190", status: 200, bytesIn: 42_991_616, userTitle: "Marketing Manager", severity: "low",
       file: { name: "VideoConvertPro_Setup.exe", path: "/get/VideoConvertPro_Setup.exe", sha256: installerHash, size: 42_991_616 },
       fileType: "pe",
       description:
@@ -89,7 +89,7 @@ export function bundledCryptominerScenarioEvents() {
 
     // 6. The mining-pool connection, long-lived, non-web port, allowed.
     panConnection({
-      ...cx, id: "evt_bcm_06_pool_connection", ts: T(10 * MIN + 6_000), domain: pool, dstIp: "51.15.204.88", remotePort: 3333,
+      ...cx, id: "evt_bcm_06_pool_connection", ts: T(10 * MIN + 6_000), domain: pool, dstIp: "203.0.113.96", remotePort: 3333,
       app: "unknown-tcp", transport: "tcp", action: "allow", end: true, bytesOut: 2_884_112, bytesIn: 941_320,
       elapsedSec: 39_602, category: "any", mitre: "T1496", tactic: "Impact", severity: "high",
       description:

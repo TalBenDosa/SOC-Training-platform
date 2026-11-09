@@ -31,7 +31,7 @@ export function helpdeskMfaResetScenarioEvents() {
     hostname: "LT-OPS-2214",
     deviceId: "c481f0e9-6b3d-4a72-8f15-9e0c2d7a5b31",
     // The corporate NAT egress her laptop and the help desk both leave through.
-    homeIp: "82.132.14.55",
+    homeIp: "198.51.100.55",
   };
 
   const helpdesk = {
@@ -39,10 +39,10 @@ export function helpdeskMfaResetScenarioEvents() {
     display: "James Oduya",
     id: "a2c8f314-9e46-4b7c-8b1a-30dc6b5e9f22",
     // Entra audit logs record the public egress address, never the RFC1918 desk address.
-    ip: "82.132.14.55",
+    ip: "198.51.100.55",
   };
 
-  const attackerIp = "5.181.234.19";
+  const attackerIp = "203.0.113.35";
   const ticket = "INC0048217";
   /** Inbound caller number on the service-desk line, and the mobile the directory holds for her. */
   const callerNumber = "+31 20 555 0143";
@@ -181,7 +181,7 @@ export function helpdeskMfaResetScenarioEvents() {
       tokenIssuerType: "AzureAD", incomingTokenType: "none", riskLevel: "none", riskDetail: "none", riskEventTypes: [], conditionalAccess: "notApplicable",
       geo: { country: "Netherlands", city: "Amsterdam", latitude: 52.3702, longitude: 4.8952 }, severity: "medium",
       extra: { "azure.signinlogs.properties.location.state": "North Holland" },
-      description: "A sign-in to My Signins for l.ferreira from 5.181.234.19 in Amsterdam was interrupted with error 50072 (user needs to enroll for second factor), the first request seen from this address, twenty seconds before the Authenticator registration.",
+      description: "A sign-in to My Signins for l.ferreira from 203.0.113.35 in Amsterdam was interrupted with error 50072 (user needs to enroll for second factor), the first request seen from this address, twenty seconds before the Authenticator registration.",
     }),
 
     // 6. A NEW authenticator is registered, but from the attacker's address (T1098.005).
@@ -196,7 +196,7 @@ export function helpdeskMfaResetScenarioEvents() {
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].oldValue": "[]",
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].newValue": "[{\"MethodType\":\"PhoneAppNotification\",\"Default\":true}]",
       },
-      description: "A new Microsoft Authenticator app was registered as l.ferreira's security info about seven minutes after the reset, the initiating identity is l.ferreira, but the IP address is 5.181.234.19 in Amsterdam, not the address recorded on either of her sign-ins this morning.",
+      description: "A new Microsoft Authenticator app was registered as l.ferreira's security info about seven minutes after the reset, the initiating identity is l.ferreira, but the IP address is 203.0.113.35 in Amsterdam, not the address recorded on either of her sign-ins this morning.",
     }),
 
     // 6a. The real Lucia, still working in London in her 09:45 session (SharePoint, UAL).
@@ -220,7 +220,7 @@ export function helpdeskMfaResetScenarioEvents() {
         geo: { country: "Netherlands", city: "Amsterdam", latitude: 52.3702, longitude: 4.8952 }, severity: "critical",
         mitre: "T1078.004", tactic: "Initial Access",
         extra: { "azure.signinlogs.properties.location.state": "North Holland", "azure.signinlogs.properties.authenticationDetails": pwPush(61 * MIN) },
-        description: "l.ferreira's account signed in to Office 365 Exchange Online at 10:01 from 5.181.234.19 in Amsterdam, on an unmanaged Windows 10 / Chrome device. Password and MFA both completed successfully.",
+        description: "l.ferreira's account signed in to Office 365 Exchange Online at 10:01 from 203.0.113.35 in Amsterdam, on an unmanaged Windows 10 / Chrome device. Password and MFA both completed successfully.",
       }),
       edr_scope: "non_edr",
     },
@@ -272,7 +272,7 @@ export function helpdeskMfaResetScenarioEvents() {
       tokenIssuerType: "AzureAD", incomingTokenType: "none", riskLevel: "none", riskDetail: "none", riskEventTypes: [], conditionalAccess: "success",
       geo: { country: "Netherlands", city: "Amsterdam", latitude: 52.3702, longitude: 4.8952 }, severity: "high",
       extra: { "azure.signinlogs.properties.location.state": "North Holland", "azure.signinlogs.properties.authenticationDetails": claimSteps(65 * MIN + 30 * SEC) },
-      description: "l.ferreira's account signed in to Azure Virtual Desktop at 10:05:30 from 5.181.234.19, in the same session as the 10:01 Exchange sign-in.",
+      description: "l.ferreira's account signed in to Azure Virtual Desktop at 10:05:30 from 203.0.113.35, in the same session as the 10:01 Exchange sign-in.",
     }),
 
     // 8b. The remote-desktop logon on the VDI host, arriving through the AVD gateway (Security 4624, type 10).

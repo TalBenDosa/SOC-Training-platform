@@ -36,7 +36,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
   ];
 
   const killchain = [
-    { ts: T(0), phase: "Reconnaissance", action: "214 content-discovery requests from 45.146.130.72, all 404, python-requests User-Agent" },
+    { ts: T(0), phase: "Reconnaissance", action: "214 content-discovery requests from 203.0.113.82, all 404, python-requests User-Agent" },
     { ts: T(19 * MIN), phase: "Initial Access, Blocked", action: "AWS WAF blocks a tautology injection on /products/search.aspx (403)" },
     { ts: T(24 * MIN), phase: "Initial Access, Blocked", action: "AWS WAF blocks a UNION SELECT on /products/detail.aspx from a rotated IP (403)" },
     { ts: T(38 * MIN), phase: "Initial Access, Success", action: "Injection in a 12,438-byte JSON body passes uninspected; IIS returns 200 with 3.3 MB" },
@@ -60,14 +60,14 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       kind: "single",
       options: [
         { value: "qualys", label: "64.39.106.131, a single fixed IP, a self-identifying scanner User-Agent, every payload blocked, and no database or endpoint activity follows it" },
-        { value: "atk_a", label: "45.146.130.72, its requests all returned 404 or 403, so nothing it sent ever reached application code or produced a usable result for it" },
-        { value: "atk_c", label: "91.242.229.35, it used an ordinary desktop browser User-Agent and the WAF allowed its request, which is exactly what normal customer traffic looks like" },
+        { value: "atk_a", label: "203.0.113.82, its requests all returned 404 or 403, so nothing it sent ever reached application code or produced a usable result for it" },
+        { value: "atk_c", label: "203.0.113.99, it used an ordinary desktop browser User-Agent and the WAF allowed its request, which is exactly what normal customer traffic looks like" },
         { value: "none", label: "None of them are noise, all three addresses sent the same payload families, so all three must be treated as active attackers" },
       ],
       answer: "qualys",
       xp: 80,
       explanation:
-        "The Qualys address is the scanner source named in change CHG0042611 (09:00 to 11:00 UTC on the day), inside the allow-listed ASV range, never rotates, announces itself in the User-Agent, and is followed by no SQL Server Audit record and no endpoint activity. 45.146.130.72 is not noise: its 404 sweep is the reconnaissance that precedes the probes, and it is the first of three addresses in a rotation. 91.242.229.35 is the opposite of noise, it is the address whose request succeeded. Treating all three the same is what buries the real one: signature parity is not intent parity, and the discriminator is what happened downstream.",
+        "The Qualys address is the scanner source named in change CHG0042611 (09:00 to 11:00 UTC on the day), inside the allow-listed ASV range, never rotates, announces itself in the User-Agent, and is followed by no SQL Server Audit record and no endpoint activity. 203.0.113.82 is not noise: its 404 sweep is the reconnaissance that precedes the probes, and it is the first of three addresses in a rotation. 203.0.113.99 is the opposite of noise, it is the address whose request succeeded. Treating all three the same is what buries the real one: signature parity is not intent parity, and the discriminator is what happened downstream.",
     },
     {
       id: "q2",
@@ -100,7 +100,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       answer: "waf_pivot",
       xp: 100,
       explanation:
-        "IIS behind an ALB sees the load balancer as its peer, so cIP is 10.40.12.9 for every request and carries no attribution value. Only the WAF record, taken at the edge, holds httpRequest.clientIp = 91.242.229.35; matching it to the IIS record by URI, timestamp and the 12,438-byte csBytes value is the correlation. Chasing 10.40.12.9 sends the investigation into your own infrastructure. DNS resolves your hostname, not the caller's address. And the EDR network events in this timeline are outbound, inbound sockets terminate at the load balancer, not at the attacker.",
+        "IIS behind an ALB sees the load balancer as its peer, so cIP is 10.40.12.9 for every request and carries no attribution value. Only the WAF record, taken at the edge, holds httpRequest.clientIp = 203.0.113.99; matching it to the IIS record by URI, timestamp and the 12,438-byte csBytes value is the correlation. Chasing 10.40.12.9 sends the investigation into your own infrastructure. DNS resolves your hostname, not the caller's address. And the EDR network events in this timeline are outbound, inbound sockets terminate at the load balancer, not at the attacker.",
     },
     {
       id: "q4",

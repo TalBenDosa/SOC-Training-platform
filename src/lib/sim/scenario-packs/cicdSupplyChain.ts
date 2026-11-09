@@ -72,7 +72,7 @@ export function buildCicdSupplyChainScenario(
   const attacker = { actor: "m.duarte", email: "m.duarte@rocketstack.io" };
   // The attacker's external address, the self-hosted runner they control and
   // the source of every off-pipeline AWS call.
-  const attackerIp = "45.156.128.19";
+  const attackerIp = "203.0.113.28";
   // The runner they register so a deploy job lands on their machine.
   const runnerName = "rs-deploy-runner-x";
   // The webhook endpoint added as an out-of-band channel to an external host.
@@ -81,7 +81,7 @@ export function buildCicdSupplyChainScenario(
 
   // The benign control: a real developer editing the same workflow file the
   // sanctioned way, reviewed PR, branch protection satisfied, ordinary IP.
-  const dev = { actor: "d.pereira", email: "d.pereira@rocketstack.io", ip: "94.188.12.44" };
+  const dev = { actor: "d.pereira", email: "d.pereira@rocketstack.io", ip: "198.51.100.45" };
 
   // AWS blast-radius specifics.
   const awsAccount = "739218004471";
@@ -108,7 +108,7 @@ export function buildCicdSupplyChainScenario(
         companyId: cx, id: "cicd_00a_okta_baseline", ts: "2026-08-30T08:47:05.000Z", user: attacker.email, srcIp: dev.ip,
         mfaUsed: true, userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15",
         os: "Mac OS X", browser: "SAFARI", severity: "informational",
-        description: "Okta session started for m.duarte from the office egress address 94.188.12.44 with Okta Verify push.",
+        description: "Okta session started for m.duarte from the office egress address 198.51.100.45 with Okta Verify push.",
       }),
       is_baseline: true,
     },
@@ -141,12 +141,12 @@ export function buildCicdSupplyChainScenario(
     oktaMfa({
       companyId: cx, id: "cicd_00c_okta_push_approved", ts: "2026-08-30T19:41:33.000Z", user: attacker.email, srcIp: attackerIp,
       result: "approved", userAgent: aiTmUa, os: "Windows 10", browser: "CHROME", asn: 9009, asOrg: "M247 Europe SRL", severity: "medium",
-      description: "m.duarte approved the Okta Verify push; the sign-in came from 45.156.128.19 (AS9009, M247 Europe SRL).",
+      description: "m.duarte approved the Okta Verify push; the sign-in came from 203.0.113.28 (AS9009, M247 Europe SRL).",
     }),
     oktaSignIn({
       companyId: cx, id: "cicd_00d_okta_signin", ts: "2026-08-30T19:41:34.000Z", user: attacker.email, srcIp: attackerIp,
       mfaUsed: true, userAgent: aiTmUa, os: "Windows 10", browser: "CHROME", asn: 9009, asOrg: "M247 Europe SRL", severity: "medium",
-      description: "Okta session started for m.duarte from 45.156.128.19 with Okta Verify push; first sign-in from this address.",
+      description: "Okta session started for m.duarte from 203.0.113.28 with Okta Verify push; first sign-in from this address.",
     }),
 
     // 0e. The GitHub session itself: a web login for m.duarte from the same address, two minutes before the PAT.
@@ -154,7 +154,7 @@ export function buildCicdSupplyChainScenario(
       companyId: cx, id: "cicd_00e_github_login", ts: T(-2 * MIN), action: "user.login", actor: attacker.actor, actorIp: attackerIp,
       userAgent: aiTmUa, org, category: "authentication", user: attacker.email, geoCountryCode: "NL", geoCity: "Amsterdam", severity: "medium",
       extra: { "github.programmatic_access_type": "OAuth access token" },
-      description: "user.login for m.duarte from 45.156.128.19 (Amsterdam), the first GitHub login for this account from outside the office address.",
+      description: "user.login for m.duarte from 203.0.113.28 (Amsterdam), the first GitHub login for this account from outside the office address.",
     }),
 
     // 1. PERSISTENCE, the compromised account mints a fine-grained PAT (T1098).
@@ -163,7 +163,7 @@ export function buildCicdSupplyChainScenario(
       userAgent: "python-requests/2.31.0", org, repo, category: "authentication", user: attacker.email, geoCountryCode: "NL", geoCity: "Amsterdam",
       mitre: "T1098", tactic: "Persistence", severity: "high",
       extra: { "github.programmatic_access_type": "Fine-grained personal access token", "github.token.name": "ci-cache-helper", "github.token.permissions": "contents:write,workflows:write", "github.token.expires_at": "2027-08-31T00:00:00.000Z" },
-      description: "personal_access_token.create for m.duarte on rocketstack/payments-api from 45.156.128.19, a fine-grained PAT scoped to contents and workflows, created outside the account's usual location.",
+      description: "personal_access_token.create for m.duarte on rocketstack/payments-api from 203.0.113.28, a fine-grained PAT scoped to contents and workflows, created outside the account's usual location.",
     }),
 
     // 2. THE MALICIOUS RUNNER, a self-hosted Actions runner labelled for the deploy job (T1078).
@@ -240,7 +240,7 @@ export function buildCicdSupplyChainScenario(
       companyId: cx, id: "cicd_08_s3_getobject", ts: T(16 * MIN), eventName: "GetObject", srcIp: attackerIp, region, accountId: awsAccount,
       actorType: "AssumedRole", arn: assumedRoleArn, accessKeyId: sessionKeyId, sessionIssuerName: "github-actions-deploy", s3Bucket: artifactBucket, s3Key: "backups/prod/.env.production", bytes: 48_213,
       readOnly: true, userAgent: CLI_UA, user: attacker.email, mitre: "T1552.004", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
-      description: "GetObject on rocketstack-deploy-artifacts/backups/prod/.env.production by the github-actions-deploy assumed-role session, from 45.156.128.19, 48 KB returned.",
+      description: "GetObject on rocketstack-deploy-artifacts/backups/prod/.env.production by the github-actions-deploy assumed-role session, from 203.0.113.28, 48 KB returned.",
     }),
 
     // 8b. Secrets Manager inventory before the read (T1555.006).
@@ -271,7 +271,7 @@ export function buildCicdSupplyChainScenario(
         api: "GetSecretValue", serviceName: "secretsmanager.amazonaws.com", callerType: "Remote IP", asnOrg: "M247 Europe SRL",
         resourceType: "AccessKey", userType: "AssumedRole", userName: "github-actions-deploy", accessKeyId: sessionKeyId, count: 3,
         mitre: "T1552.001", tactic: "Credential Access", severity: "high", incidentId: INCIDENT,
-        description: "GuardDuty raised CredentialAccess:IAMUser/AnomalousBehavior (severity 8): the github-actions-deploy session called GetSecretValue from 45.156.128.19, a remote IP outside its usual pattern.",
+        description: "GuardDuty raised CredentialAccess:IAMUser/AnomalousBehavior (severity 8): the github-actions-deploy session called GetSecretValue from 203.0.113.28, a remote IP outside its usual pattern.",
       }),
       hostname: "github-actions-deploy",
       edr_scope: "non_edr",
@@ -286,7 +286,7 @@ export function buildCicdSupplyChainScenario(
   const iocs: IOC[] = [
     {
       type: "ip",
-      value: attackerIp, // 45.156.128.19, the attacker's runner + every off-pipeline AWS call
+      value: attackerIp, // 203.0.113.28, the attacker's runner + every off-pipeline AWS call
       first_seen: new Date(Date.parse("2026-08-30T19:41:20.000Z")).toISOString(),
       last_seen: T(22 * MIN),
       reputation: "malicious",
@@ -377,14 +377,14 @@ export function buildCicdSupplyChainScenario(
         "The github-actions-deploy role runs constantly as part of normal deployments, so its activity is expected. Which single observation shows this particular use of the role was NOT the pipeline doing its job?",
       hint: "Compare where the API calls came from against where a GitHub Actions job would normally originate.",
       options: [
-        { value: "outside_aws_ip", label: "The token exchange, S3 and Secrets Manager calls all come from 45.156.128.19, an external address rather than a GitHub Actions runner range" },
+        { value: "outside_aws_ip", label: "The token exchange, S3 and Secrets Manager calls all come from 203.0.113.28, an external address rather than a GitHub Actions runner range" },
         { value: "assume_failed", label: "The AssumeRoleWithWebIdentity call failed with an access-denied error, proving the deploy role could not actually be assumed during this window" },
         { value: "wrong_region", label: "The S3 and Secrets Manager calls ran in a different AWS region from the account default, which is the strongest indicator of role misuse" },
         { value: "secret_404", label: "The GetSecretValue call returned a 404 not-found response, showing the requested secret did not exist, so no sensitive value was read" },
       ],
       answer: "outside_aws_ip",
       explanation:
-        "A GitHub-hosted (or a trusted self-hosted) runner has a predictable source range; here every call, the token exchange in cicd_06 and the S3/Secrets Manager reads in cicd_07 to cicd_09, carries sourceIPAddress 45.156.128.19, an external address. A credential-access API call (GetSecretValue) made with the role's session from a remote IP is what GuardDuty's CredentialAccess:IAMUser/AnomalousBehavior finding (cicd_10) reports, and the address is the blast-radius tell. (b) is false, the AssumeRole succeeded and returned an assumed-role ARN. (c) invents a region mismatch that is not in the data (all calls are us-east-1) and overstates region as a sole indicator. (d) is false, the reads succeeded; nothing shows a 404.",
+        "A GitHub-hosted (or a trusted self-hosted) runner has a predictable source range; here every call, the token exchange in cicd_06 and the S3/Secrets Manager reads in cicd_07 to cicd_09, carries sourceIPAddress 203.0.113.28, an external address. A credential-access API call (GetSecretValue) made with the role's session from a remote IP is what GuardDuty's CredentialAccess:IAMUser/AnomalousBehavior finding (cicd_10) reports, and the address is the blast-radius tell. (b) is false, the AssumeRole succeeded and returned an assumed-role ARN. (c) invents a region mismatch that is not in the data (all calls are us-east-1) and overstates region as a sole indicator. (d) is false, the reads succeeded; nothing shows a 404.",
     },
     {
       id: "cicd_q4",
@@ -431,11 +431,11 @@ export function buildCicdSupplyChainScenario(
       "GuardDuty raised a High finding on the github-actions-deploy role used by the payments-api pipeline. Determine how the pipeline's cloud credentials were obtained, what changed in the repository, and which cloud resources the credentials reached.",
     narrative: `The github-actions-deploy role for rocketstack/payments-api exists so the CI pipeline can ship the service: a GitHub Actions job presents an OIDC token, AWS trades it for short-lived role credentials, and the job deploys. Nothing about that is unusual, which is exactly what the attacker relied on.
 
-They already held the m.duarte maintainer account: the evening before, at 19:41, Okta logged a sign-in for m.duarte with an approved Okta Verify push from 45.156.128.19, a Netherlands hosting address that account had never used, instead of the office egress it normally signs in from. At 08:58 the same address logged in to GitHub. Rather than act through the account directly and risk a reset locking them out, at 09:00 they minted a fine-grained personal access token scoped to contents and workflows, a credential that survives a password change. Two minutes later they registered a self-hosted Actions runner they controlled, labelled self-hosted,linux,deploy so a deploy job would land on their machine, where that job's secrets and OIDC token are readable.
+They already held the m.duarte maintainer account: the evening before, at 19:41, Okta logged a sign-in for m.duarte with an approved Okta Verify push from 203.0.113.28, a Netherlands hosting address that account had never used, instead of the office egress it normally signs in from. At 08:58 the same address logged in to GitHub. Rather than act through the account directly and risk a reset locking them out, at 09:00 they minted a fine-grained personal access token scoped to contents and workflows, a credential that survives a password change. Two minutes later they registered a self-hosted Actions runner they controlled, labelled self-hosted,linux,deploy so a deploy job would land on their machine, where that job's secrets and OIDC token are readable.
 
 At 09:05 they pushed a one-line change to .github/workflows/ci.yml straight to main, using a branch-protection override, no pull request, no review. That is the whole supply-chain compromise: a trusted pipeline definition altered by an untrusted hand. They also added a repository webhook posting events to telemetry-sync.deploystatus.io, an out-of-band channel to a host they owned. When the modified 'CI' workflow ran (run #5127) the deploy job was prepared on their runner rs-deploy-runner-x and executed there, and the pipeline's OIDC token was exchanged for the github-actions-deploy role through AssumeRoleWithWebIdentity, the legitimate mechanism, now firing on attacker-controlled infrastructure.
 
-From 09:09 the role's temporary credentials (access key ASIAY7RCX2NLPEXAMPLE), used with the AWS CLI from 45.156.128.19, checked their identity, listed the rocketstack-deploy-artifacts bucket, read backups/prod/.env.production out of it, listed the account's secrets and pulled prod/payments/db from Secrets Manager. At 09:22 GuardDuty raised CredentialAccess:IAMUser/AnomalousBehavior for the GetSecretValue call made from a remote IP.
+From 09:09 the role's temporary credentials (access key ASIAY7RCX2NLPEXAMPLE), used with the AWS CLI from 203.0.113.28, checked their identity, listed the rocketstack-deploy-artifacts bucket, read backups/prod/.env.production out of it, listed the account's secrets and pulled prod/payments/db from Secrets Manager. At 09:22 GuardDuty raised CredentialAccess:IAMUser/AnomalousBehavior for the GetSecretValue call made from a remote IP.
 
 The one legitimate comparison in the data is d.pereira's edit to the very same workflow file the previous afternoon: pull request #806, reviewed and approved, branch protection satisfied, merged from a corporate IP. Same file, same 'workflow changed' shape, opposite meaning, the difference is entirely in how the change reached main and who was behind it.`,
     learning_objectives: [

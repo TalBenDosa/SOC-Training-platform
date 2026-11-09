@@ -305,7 +305,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       options: [
         { value: "deactivate_key", label: "Deactivate access key AKIA4XJ9PQ2M7EXAMPLE (jsmith-analytics) and review its CloudTrail activity" },
         { value: "reset_ad",       label: "Reset j.smith's Active Directory password and require a new sign-in on every device" },
-        { value: "block_domain",   label: "Sinkhole cdn-update-fb76.xyz at the DNS resolver and block 185.134.140.139 at the firewall" },
+        { value: "block_domain",   label: "Sinkhole cdn-update-fb76.xyz at the DNS resolver and block 203.0.113.139 at the firewall" },
         { value: "delete_bucket",  label: "Delete the nexacorp-crm-exports bucket so nothing more can be read from it" },
       ],
       answer: "deactivate_key", xp: 75,
@@ -346,7 +346,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
   ];
 
   const killchain = [
-    { ts: T(0),        phase: "Credential Access",        action: "Password spray - 17 failed AD FS logons across 10 accounts from 158.131.159.30 (two accounts locked out, two passwords guessed)" },
+    { ts: T(0),        phase: "Credential Access",        action: "Password spray - 17 failed AD FS logons across 10 accounts from 203.0.113.30 (two accounts locked out, two passwords guessed)" },
     { ts: T(12 * MIN), phase: "Initial Access",           action: "l.harris approved an MFA prompt from Amsterdam on an unmanaged device, 32 minutes after her office logon and after two unanswered prompts - account compromised" },
     { ts: T(13 * MIN), phase: "Stealth / Concealment", action: "Hidden inbox rule '..' diverts wire/invoice/payment mail to RSS Feeds, marked read" },
     { ts: T(15 * MIN), phase: "Collection",               action: "340 emails scraped in 2 minutes - attacker profiles payment workflows" },
@@ -376,13 +376,13 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
       explanation: "T1110.003 (password spray), T1078 (valid account via MFA fatigue), and T1564.008 (hidden inbox rule) are all present. There is no ransomware - this is purely an identity/BEC attack." },
     { id: "q3", prompt: "p.johnson's Entra sign-in log shows a run of MFA failures in under five minutes. What do the rows show, and which technique is it?", kind: "single",
       options: [
-        { value: "fatigue", label: "Eight denied MFA prompts from 158.131.159.30, the address that sprayed AD FS: MFA fatigue (T1621)" },
-        { value: "bypass",  label: "Eight denied MFA prompts from 77.83.247.146, the address that signed in as l.harris: MFA fatigue (T1621)" },
-        { value: "replay",  label: "Three failed prompts from 158.131.159.30: a user mistyping the code, not an attack" },
-        { value: "phish",   label: "Eight SMS code failures from 158.131.159.30: SIM-swap interception of the second factor" },
+        { value: "fatigue", label: "Eight denied MFA prompts from 203.0.113.30, the address that sprayed AD FS: MFA fatigue (T1621)" },
+        { value: "bypass",  label: "Eight denied MFA prompts from 203.0.113.146, the address that signed in as l.harris: MFA fatigue (T1621)" },
+        { value: "replay",  label: "Three failed prompts from 203.0.113.30: a user mistyping the code, not an attack" },
+        { value: "phish",   label: "Eight SMS code failures from 203.0.113.30: SIM-swap interception of the second factor" },
       ],
       answer: "fatigue", xp: 50,
-      explanation: "Count the 500121 rows for p.johnson between 08:25:20 and 08:29:50: eight, all from 158.131.159.30, the same address that sprayed the AD FS endpoint at 08:00 and guessed her password, while the address that signed in as l.harris was 77.83.247.146. Repeated MFA prompts after a valid password, hoping the user approves one, is MFA fatigue or prompt bombing (T1621). The CFO denied every prompt, which is why the second account did not fall, and her call at 08:31 (INC0048217) is how the SOC heard about it." },
+      explanation: "Count the 500121 rows for p.johnson between 08:25:20 and 08:29:50: eight, all from 203.0.113.30, the same address that sprayed the AD FS endpoint at 08:00 and guessed her password, while the address that signed in as l.harris was 77.83.247.146. Repeated MFA prompts after a valid password, hoping the user approves one, is MFA fatigue or prompt bombing (T1621). The CFO denied every prompt, which is why the second account did not fall, and her call at 08:31 (INC0048217) is how the SOC heard about it." },
     { id: "q4", prompt: "Revoking l.harris's session tokens alone does NOT fully stop the attacker. Why?", kind: "single",
       options: [
         { value: "forward", label: "The email forwarding rule to gmail.com continues delivering mail without an active session" },
@@ -564,7 +564,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         { value: "revoke",  label: "Revoke consent to 'MicrosoftSecurityUpdate' in Entra ID Enterprise Applications" },
         { value: "pw",      label: "Reset s.chen's password again and enforce a stronger complexity requirement in the policy" },
         { value: "disable", label: "Disable s.chen's account in Entra ID and remove her from all mail-enabled groups" },
-        { value: "block_ip", label: "Block 193.233.20.57 at the perimeter firewall and in Defender for Cloud Apps" },
+        { value: "block_ip", label: "Block 203.0.113.57 at the perimeter firewall and in Defender for Cloud Apps" },
       ],
       answer: "revoke", xp: 75,
       explanation: "Revoking the app's consent (and its sessions) stops it from being issued any new token, so Graph access ends as soon as the current short-lived token expires, for every user who consented. Account disable works but disrupts the legitimate user. IP blocking fails since the attacker can rotate IPs. A password reset has no effect on the app's token issuance, as the 11:51 and 14:50 sign-ins show." },
@@ -1176,7 +1176,7 @@ export function buildPhishingMalwareScenario(scenarioId = "phishing-malware-basi
         ],
         answer: "execute", xp: 60,
         explanation: "Compromise happens at execution, not at delivery or at detection. The email sitting unopened in an inbox is not a compromise. The kill at the end is the response catching up to an infection that already happened minutes earlier - this is why 'the EDR caught it eventually' is not the same as 'nothing bad happened.'" },
-      { id: "q4", prompt: "The firewall logged three sessions from WS-HR-1182 to 194.26.135.88 before the EDR killed the process. Which conclusion do the logs support?", kind: "single",
+      { id: "q4", prompt: "The firewall logged three sessions from WS-HR-1182 to 203.0.113.89 before the EDR killed the process. Which conclusion do the logs support?", kind: "single",
         options: [
           { value: "nothing", label: "Nothing left the host: all three sessions were short check-ins of similar size, so only the infection itself needs handling" },
           { value: "some",    label: "The third session sent about 38 KB out against about 1 KB in the second, so data probably left and the credentials saved on this host should be treated as exposed" },
@@ -1210,7 +1210,7 @@ export function buildUsbMalwareScenario(scenarioId = "usb-malware-basic-2026"): 
     threat_actor: "Commodity Malware / Opportunistic Physical Access",
     attack_kind: "usb_malware_basic",
     briefing: "The EDR quarantined a file on WS-OPS-2214 at 13:35, and the SIEM raised a threat-intelligence match on a DNS lookup from the same workstation at 13:34. The assigned user, m.levi, has not reported anything.",
-    narrative: `An untagged USB drive (SanDisk Cruzer Blade, serial 4C530001071117107564) was recognised by WS-OPS-2214 at 13:29. Explorer read USB_Backup_Tool.exe from E:\\ and copied it to the Desktop. m.levi ran it, believing it to be a legitimate backup tool. The binary wrote a Registry Run key to survive reboots, looked up sync-winbackup.net (the SIEM's threat-intelligence feed matched the name) and opened two HTTPS sessions to 91.215.85.17 before the EDR killed and quarantined it. The drive serial, the file hash and the C2 domain and IP are all in the records, and persistence was already established.`,
+    narrative: `An untagged USB drive (SanDisk Cruzer Blade, serial 4C530001071117107564) was recognised by WS-OPS-2214 at 13:29. Explorer read USB_Backup_Tool.exe from E:\\ and copied it to the Desktop. m.levi ran it, believing it to be a legitimate backup tool. The binary wrote a Registry Run key to survive reboots, looked up sync-winbackup.net (the SIEM's threat-intelligence feed matched the name) and opened two HTTPS sessions to 203.0.113.86 before the EDR killed and quarantined it. The drive serial, the file hash and the C2 domain and IP are all in the records, and persistence was already established.`,
     learning_objectives: [
       "Recognize removable media as an infection vector, separate from email or the network",
       "Identify user execution of an unsigned, never-before-seen binary (T1204.002)",
@@ -1564,7 +1564,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
     threat_actor: "Internal Attacker (Compromised Developer Account)",
     attack_kind: "credential_theft_kerberoasting",
     briefing: "Microsoft Sentinel fired 'Anomalous Kerberos service ticket volume' for m.cohen on WS-DEV-4412 at 10:08, and Defender for Identity raised 'Suspected Kerberos SPN exposure' for the same account and workstation at 10:06. A related alert on srv-db01 is attached to the ticket.",
-    narrative: `An attacker with a foothold in developer m.cohen's session on WS-DEV-4412 downloaded PowerView from 91.243.85.117 and used it to enumerate service principal names (SPNs) over LDAP. A second PowerShell then requested Kerberos TGS tickets for 12 service accounts in 90 seconds - all using weak RC4 encryption (0x17) - and wrote the tickets out as hashes to a file in the Temp folder. They were cracked offline with hashcat. About ten minutes after the last request, the cracked svc-mssql password was used from WS-DEV-4412 to open a remote desktop session on the database server srv-db01. From there svc-mssql listed the Finance$ share on srv-file01, and then used sqlcmd to run xp_cmdshell, which started a hidden, encoded PowerShell that connected out to 91.243.85.117.`,
+    narrative: `An attacker with a foothold in developer m.cohen's session on WS-DEV-4412 downloaded PowerView from 203.0.113.120 and used it to enumerate service principal names (SPNs) over LDAP. A second PowerShell then requested Kerberos TGS tickets for 12 service accounts in 90 seconds - all using weak RC4 encryption (0x17) - and wrote the tickets out as hashes to a file in the Temp folder. They were cracked offline with hashcat. About ten minutes after the last request, the cracked svc-mssql password was used from WS-DEV-4412 to open a remote desktop session on the database server srv-db01. From there svc-mssql listed the Finance$ share on srv-file01, and then used sqlcmd to run xp_cmdshell, which started a hidden, encoded PowerShell that connected out to 91.243.85.117.`,
     learning_objectives: [
       "Identify RC4 encryption (0x17) in Event ID 4769 as a Kerberoasting indicator",
       "Recognize abnormal TGS request volume from a single account in a short window",
@@ -1576,7 +1576,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
     iocs,
     alerts: eventsToAlerts(events, scenarioId),
     killchain: [
-      { ts: T(100_000),       phase: "Execution",          action: "PowerShell on WS-DEV-4412 fetches pv.ps1 from 91.243.85.117 and runs Get-DomainUser -SPN against DC01 over LDAP (T1059.001)" },
+      { ts: T(100_000),       phase: "Execution",          action: "PowerShell on WS-DEV-4412 fetches pv.ps1 from 203.0.113.120 and runs Get-DomainUser -SPN against DC01 over LDAP (T1059.001)" },
       { ts: T(2 * MIN + 40_000), phase: "Detection",       action: "Defender for Identity: 'Security principal reconnaissance (LDAP)' - m.cohen on WS-DEV-4412, filter (servicePrincipalName=*)" },
       { ts: T(4 * MIN),       phase: "Credential Access",  action: "12 Kerberos TGS tickets requested in 90 seconds, all RC4 (0x17): SQL, IIS, Backup, SAP, Jenkins and other service accounts (T1558.003); hashes written to kh.txt" },
       { ts: T(6 * MIN),       phase: "Detection",          action: "Defender for Identity: 'Suspected Kerberos SPN exposure' - m.cohen on WS-DEV-4412, 12 target accounts" },
@@ -1584,7 +1584,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
       { ts: T(14 * MIN + 50_000), phase: "Lateral Movement", action: "svc-mssql password cracked offline; mstsc.exe on WS-DEV-4412 opens RDP to srv-db01 and DC01 validates the NTLM credential (4776, then 4624 type 10) (T1021.001)" },
       { ts: T(16 * MIN),      phase: "Discovery",          action: "svc-mssql authenticates to srv-file01 from srv-db01 and lists the Finance$ share (T1135)" },
       { ts: T(18 * MIN),      phase: "Execution",          action: "sqlcmd runs xp_cmdshell; sqlservr.exe starts cmd.exe and a hidden, encoded PowerShell on the DB server (T1059.001)" },
-      { ts: T(18 * MIN + 6_000), phase: "Command and Control", action: "srv-db01 opens outbound TCP/443 to 91.243.85.117, and twice more until 10:21 (T1071.001)" },
+      { ts: T(18 * MIN + 6_000), phase: "Command and Control", action: "srv-db01 opens outbound TCP/443 to 203.0.113.120, and twice more until 10:21 (T1071.001)" },
     ],
     questions: [
       {
@@ -1645,7 +1645,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
         answer: ["svc_interactive", "xp_cmdshell_enc"],
         xp: 75,
         explanation:
-          "Service accounts are meant to be used *by services* - non-interactive logon types from the servers they run on. A LogonType 10 for svc-mssql sourced from a developer workstation has no benign explanation, and xp_cmdshell spawning hidden encoded PowerShell (sqlservr.exe > cmd.exe > powershell.exe, which then connects out to 91.243.85.117) is command execution on the DB host (T1059.001), not database work. 'master_database' is a red herring: xp_cmdshell is an extended stored procedure that lives in master, so every legitimate call to it is also against master. 'osql_client' is likewise neutral - sqlcmd is a Microsoft-supplied SQL client that DBAs use daily; the tool does not make the statement malicious, the statement does.",
+          "Service accounts are meant to be used *by services* - non-interactive logon types from the servers they run on. A LogonType 10 for svc-mssql sourced from a developer workstation has no benign explanation, and xp_cmdshell spawning hidden encoded PowerShell (sqlservr.exe > cmd.exe > powershell.exe, which then connects out to 203.0.113.120) is command execution on the DB host (T1059.001), not database work. 'master_database' is a red herring: xp_cmdshell is an extended stored procedure that lives in master, so every legitimate call to it is also against master. 'osql_client' is likewise neutral - sqlcmd is a Microsoft-supplied SQL client that DBAs use daily; the tool does not make the statement malicious, the statement does.",
       },
     ],
   };
@@ -1673,7 +1673,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
     threat_actor: "APT-TUNNELRAT (Nation-State Affiliate)",
     attack_kind: "c2_dns_tunneling",
     briefing: "Microsoft Sentinel fired a DNS query-volume anomaly on WS-ENG-3301 at 14:06 - the host is far above its own baseline. Defender for Endpoint has attached a process name to the traffic, and the firewall logged port 53 traffic leaving the network toward an unfamiliar external address.",
-    narrative: `An attacker with an interactive shell in a.jones's session on WS-ENG-3301 (cmd.exe under explorer.exe) ran an encoded PowerShell command that downloaded update.exe from 193.42.36.58 into C:\\Windows\\Temp and started it with a domain and a shared secret on its command line. The client opened a covert C2 channel over DNS, encoding all communication as base32 labels under the attacker-controlled domain nexus-update-svc.xyz; the corporate resolver recursed every query out to the attacker's name server. Commands came back in DNS TXT answers: whoami /all && net user ran at 14:10, and vault-export.csv was copied to a Temp file (cred_export.dat, 29,184 bytes). The client then sent a credential line and the file out through 247 sequential queries in about 4 minutes - each label is capped at 63 bytes and the whole query name at 255, so packing several labels into one name carries only about 120 bytes of decoded data per query.`,
+    narrative: `An attacker with an interactive shell in a.jones's session on WS-ENG-3301 (cmd.exe under explorer.exe) ran an encoded PowerShell command that downloaded update.exe from 203.0.113.59 into C:\\Windows\\Temp and started it with a domain and a shared secret on its command line. The client opened a covert C2 channel over DNS, encoding all communication as base32 labels under the attacker-controlled domain nexus-update-svc.xyz; the corporate resolver recursed every query out to the attacker's name server. Commands came back in DNS TXT answers: whoami /all && net user ran at 14:10, and vault-export.csv was copied to a Temp file (cred_export.dat, 29,184 bytes). The client then sent a credential line and the file out through 247 sequential queries in about 4 minutes - each label is capped at 63 bytes and the whole query name at 255, so packing several labels into one name carries only about 120 bytes of decoded data per query.`,
     learning_objectives: [
       "Recognize DNS tunneling indicators: high-entropy subdomains, long subdomain names, TXT record C2",
       "Understand why volume (847 queries/min vs. baseline 23) is a key detection signal",
@@ -1685,7 +1685,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
     iocs,
     alerts: eventsToAlerts(events, scenarioId),
     killchain: [
-      { ts: T(0),             phase: "Execution",        action: "Encoded PowerShell downloads update.exe from 193.42.36.58 into C:\\Windows\\Temp (T1105)" },
+      { ts: T(0),             phase: "Execution",        action: "Encoded PowerShell downloads update.exe from 203.0.113.59 into C:\\Windows\\Temp (T1105)" },
       { ts: T(20_000),        phase: "Execution",        action: "update.exe starts with --dns nexus-update-svc.xyz on its command line" },
       { ts: T(3 * MIN),       phase: "C2 Establishment", action: "First tunnel query from update.exe: three 63-character base32 labels under data.nexus-update-svc.xyz (T1071.004)" },
       { ts: T(6 * MIN),       phase: "C2 Active",        action: "847 DNS queries in 60 seconds - Sentinel volume anomaly against a baseline of 23 per minute" },
@@ -1996,7 +1996,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
   ];
 
   const killchain = [
-    { ts: T(0),        phase: "Initial Access",    action: "Attacker RDPs to DC01 from Netherlands IP 176.97.210.93 with it.admin's credentials, NTLM, at 22:15 UTC (01:15 local) (T1021.001)" },
+    { ts: T(0),        phase: "Initial Access",    action: "Attacker RDPs to DC01 from Netherlands IP 203.0.113.93 with it.admin's credentials, NTLM, at 22:15 UTC (01:15 local) (T1021.001)" },
     { ts: T(110_000),  phase: "Credential Access", action: "A renamed Mimikatz binary (wdhelper.exe) copied into it.admin's AppData and run from cmd.exe - Defender detects it at 22:18 but takes no action" },
     { ts: T(5 * MIN),  phase: "Defense Impairment",   action: "Windows Defender real-time protection disabled via registry (T1685, formerly T1562.001)" },
     { ts: T(8 * MIN),  phase: "Credential Access", action: "DCSync attack: wdhelper.exe runs lsadump::dcsync for krbtgt; DS-Replication-Get-Changes(-All) rights exercised, Event 4662 (T1003.006)" },
@@ -2149,7 +2149,7 @@ export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): Scen
     },
     {
       id: "sc_q3", xp: 75,
-      prompt: "The CloudTrail AssumeRole (evt_sc_08) comes from Singapore IP 18.141.220.50, not from the C2 IP 185.193.127.88 (Netherlands). What does this tell an analyst?",
+      prompt: "The CloudTrail AssumeRole (evt_sc_08) comes from Singapore IP 203.0.113.50, not from the C2 IP 203.0.113.88 (Netherlands). What does this tell an analyst?",
       kind: "single",
       options: [
         { value: "relay",   label: "The attacker split infrastructure: C2 via the Netherlands, cloud API calls via a Singapore relay, to separate attribution" },
@@ -2200,7 +2200,7 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
   const { title, events, T, MIN } = mfaFatigueScenarioEvents();
 
   const iocs: IOC[] = [
-    { type: "ip",     value: "91.108.4.33",                            reputation: "malicious", tags: ["external-infrastructure", "moscow", "telegram-datacenter"] },
+    { type: "ip",     value: "203.0.113.84",                            reputation: "malicious", tags: ["external-infrastructure", "moscow", "telegram-datacenter"] },
     { type: "email",  value: "j.chen.backup@proton.me",                reputation: "malicious", tags: ["exfil-target", "inbox-forwarding"] },
     { type: "host",   value: "DESKTOP-MOSCOW-99",                      reputation: "malicious", tags: ["attacker-device", "ca-policy-exclusion"] },
     // The persistence artifact is an Okta API token, identified in the Okta System
@@ -2212,7 +2212,7 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
   ];
 
   const killchain = [
-    { ts: T(0),                  phase: "Credential Access", action: "Nine password attempts for j.chen from 91.108.4.33 (Moscow) with python-requests, variants of a leaked password, kept under Okta's ten-attempt lockout (T1110.001)" },
+    { ts: T(0),                  phase: "Credential Access", action: "Nine password attempts for j.chen from 203.0.113.84 (Moscow) with python-requests, variants of a leaked password, kept under Okta's ten-attempt lockout (T1110.001)" },
     { ts: T(1 * MIN + 17_000),   phase: "Initial Access",    action: "The tenth attempt passes the password check; the sign-on policy answers CHALLENGE and Okta asks for MFA (T1078.004)" },
     { ts: T(1 * MIN + 20_000),   phase: "Credential Access", action: "MFA push bombardment begins: 24 Okta Verify pushes in 11 minutes, j.chen denies 12 of them (T1621)" },
     { ts: T(12 * MIN + 17_000),  phase: "Initial Access",    action: "j.chen approves the 24th push at 01:32:17 UTC; Okta opens a session for the attacker (T1621)" },
@@ -2409,7 +2409,7 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
 
   const iocs: IOC[] = [
     { type: "ip",     value: "10.0.1.45",                                 reputation: "malicious", tags: ["ws-dev-09", "kerberos-and-smb-source"] },
-    { type: "ip",     value: "45.142.212.61",                             reputation: "malicious", tags: ["vpn-source", "tool-staging", "netherlands"] },
+    { type: "ip",     value: "203.0.113.63",                             reputation: "malicious", tags: ["vpn-source", "tool-staging", "netherlands"] },
     { type: "sha256", value: makeSha256("inveigh_exe_llmnr_poisoner"), reputation: "malicious", tags: ["poisoning-tool", "workstation"] },
     { type: "sha256", value: makeSha256("PSEXESVC-ntlm-relay-2026"),     reputation: "malicious", tags: ["psexec", "lateral-movement", "remote-exec"] },
     { type: "host",   value: "WS-DEV-09",                                 reputation: "suspicious", tags: ["internal-host", "attacker-pivot"] },
@@ -2417,7 +2417,7 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
   ];
 
   const killchain = [
-    { ts: T(-44 * MIN),   phase: "Initial Access",    action: "m.johnson's SSL-VPN tunnel comes up from 45.142.212.61 (Netherlands) and is assigned 10.8.0.14 (T1078)" },
+    { ts: T(-44 * MIN),   phase: "Initial Access",    action: "m.johnson's SSL-VPN tunnel comes up from 203.0.113.63 (Netherlands) and is assigned 10.8.0.14 (T1078)" },
     { ts: T(-40 * MIN),   phase: "Initial Access",    action: "Remote Desktop logon (Type 10) to WS-DEV-09 as m.johnson from the tunnel address: the foothold the poisoner runs under (T1021.001)" },
     { ts: T(-150_000),    phase: "Resource Development", action: "powershell.exe downloads Inveigh.exe over HTTP from the same external address and writes it to m.johnson's Temp folder (T1105)" },
     { ts: T(-10_000),     phase: "Credential Access", action: "Inveigh.exe starts on WS-DEV-09 with LLMNR and NBNS poisoning enabled; python.exe starts ntlmrelayx targeting SRV-FILE01 (T1557.001)" },
@@ -2510,7 +2510,7 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
   const { title, events, T, MIN } = k8sPodEscapeScenarioEvents();
 
   const iocs: IOC[] = [
-    { type: "ip",     value: "193.233.48.71", reputation: "malicious", tags: ["external-hosting-provider", "attacker-source", "imds-query-origin", "cloudtrail-source"] },
+    { type: "ip",     value: "203.0.113.71", reputation: "malicious", tags: ["external-hosting-provider", "attacker-source", "imds-query-origin", "cloudtrail-source"] },
     { type: "user",   value: "svc-monitoring-backup", reputation: "malicious", tags: ["iam-principal", "administrator-access", "persistence"] },
     // Were two `sha256` IOCs seeded from strings like "eks-node-role-credentials-stolen". Neither
     // appeared in any event, and neither could: IAM credentials and an S3 object fetched via
@@ -2519,18 +2519,18 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
     { type: "user",   value: "arn:aws:sts::482910374256:assumed-role/eks-node-role/i-0a3f9c12d7b54e681", reputation: "suspicious", tags: ["assumed-role", "credential-source"] },
     { type: "user",   value: "system:serviceaccount:cicd:ci-deploy", reputation: "suspicious", tags: ["kubernetes-service-account", "stolen-token"] },
     { type: "url",    value: "arn:aws:s3:::rocketstack-secrets-prod/db-passwords.json", reputation: "suspicious", tags: ["accessed-object", "secrets-bucket"] },
-    { type: "url",    value: "193.233.48.71:5000/metrics-agent:2.4", reputation: "malicious", tags: ["attacker-registry", "image-source"] },
+    { type: "url",    value: "203.0.113.71:5000/metrics-agent:2.4", reputation: "malicious", tags: ["attacker-registry", "image-source"] },
   ];
 
   const killchain = [
-    { ts: T(0),           phase: "Execution",         action: "kubectl exec into api-prod container with the stolen ci-deploy service account token from external hosting-provider IP 193.233.48.71 (T1609)" },
+    { ts: T(0),           phase: "Execution",         action: "kubectl exec into api-prod container with the stolen ci-deploy service account token from external hosting-provider IP 203.0.113.71 (T1609)" },
     { ts: T(1 * MIN),     phase: "Discovery",         action: "The pod spec is read: privileged, hostPID and CAP_SYS_ADMIN, scheduled on node ip-10-0-14-73 (T1613)" },
     { ts: T(2 * MIN),     phase: "Execution",         action: "nsenter with host mount, uts, ipc, net and pid namespaces: container escape to the EC2 node, root bash on the host (T1611)" },
     { ts: T(3 * MIN),     phase: "Credential Access", action: "curl to 169.254.169.254 IMDS: IAM role credentials for eks-node-role retrieved and written to /tmp/.cache/.env (T1552.005)" },
     { ts: T(5 * MIN),     phase: "Credential Access", action: "GetCallerIdentity from the external IP confirms the stolen credentials are valid; GuardDuty flags the exfiltrated instance credentials (T1078.004)" },
     { ts: T(6 * MIN),     phase: "Discovery",         action: "ListBuckets + DescribeInstances: attacker mapping the AWS account from outside (T1580)" },
     { ts: T(9 * MIN),     phase: "Exfiltration",      action: "GetObject s3://rocketstack-secrets-prod/db-passwords.json: production DB credentials stolen (T1530)" },
-    { ts: T(12 * MIN),    phase: "Persistence",       action: "Privileged pod 'svc-monitoring-backup' created in kube-system with hostPID+hostNetwork from an image pulled from 193.233.48.71:5000 (T1610)" },
+    { ts: T(12 * MIN),    phase: "Persistence",       action: "Privileged pod 'svc-monitoring-backup' created in kube-system with hostPID+hostNetwork from an image pulled from 203.0.113.71:5000 (T1610)" },
     { ts: T(15 * MIN),    phase: "Persistence",       action: "IAM user 'svc-monitoring-backup' created with AdministratorAccess and an access key: cloud-level backdoor established (T1136.003)" },
   ];
 
@@ -2542,11 +2542,11 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
       options: [
         { value: "a", label: "The container name 'api-prod-7f8b9c' does not match the deployment naming convention used in this cluster" },
         { value: "b", label: "kubectl exec that spawns an interactive shell in a production namespace is malicious regardless of source" },
-        { value: "c", label: "The source IP 193.233.48.71 is external: it is not the CI runner (34.201.17.88) that the baseline deployment patch came from, not corporate, and not AWS" },
+        { value: "c", label: "The source IP 203.0.113.71 is external: it is not the CI runner (34.201.17.88) that the baseline deployment patch came from, not corporate, and not AWS" },
         { value: "d", label: "The CI/CD service account token was used, and pipeline tokens should be scoped to deployments, not exec" },
       ],
       answer: "c",
-      explanation: "kubectl exec from an internal developer IP is routine. Here sourceIPs[0] is 193.233.48.71, a public address on a hosting provider's network. The baseline row (k8s_00_baseline_ci_deploy) shows how this service account is normally used: a patch of the api-prod deployment from the CI runner 34.201.17.88. A CI token is only ever used from the CI infrastructure, so the same token calling the API from an unrelated external host means it was stolen and replayed. That source address is the distinguishing detail that separates routine debugging from an intrusion. The container name is not evidence, an interactive exec is not malicious by itself, and the token being able to exec is a hardening gap (the permission was too broad) rather than proof of compromise.",
+      explanation: "kubectl exec from an internal developer IP is routine. Here sourceIPs[0] is 203.0.113.71, a public address on a hosting provider's network. The baseline row (k8s_00_baseline_ci_deploy) shows how this service account is normally used: a patch of the api-prod deployment from the CI runner 34.201.17.88. A CI token is only ever used from the CI infrastructure, so the same token calling the API from an unrelated external host means it was stolen and replayed. That source address is the distinguishing detail that separates routine debugging from an intrusion. The container name is not evidence, an interactive exec is not malicious by itself, and the token being able to exec is a hardening gap (the permission was too broad) rather than proof of compromise.",
     },
     {
       id: "q2", xp: 20,
@@ -2563,16 +2563,16 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
     },
     {
       id: "q3", xp: 20,
-      prompt: "The CloudTrail rows k8s_05 to k8s_08 show AWS API calls from IP 193.233.48.71 with the eks-node-role session. What is the primary indicator that these credentials were stolen?",
+      prompt: "The CloudTrail rows k8s_05 to k8s_08 show AWS API calls from IP 203.0.113.71 with the eks-node-role session. What is the primary indicator that these credentials were stolen?",
       kind: "single",
       options: [
         { value: "a", label: "The calls were made over plain HTTP to the AWS endpoint, so the SigV4 signature and session token travelled in the clear" },
         { value: "b", label: "The IAM role eks-node-role is over-permissive: a node role needs EC2 and ECR permissions, not s3:ListAllMyBuckets across the account" },
-        { value: "c", label: "The source IP 193.233.48.71 is not an AWS IP range: legitimate EC2 role usage comes from AWS IP ranges, not external IPs" },
+        { value: "c", label: "The source IP 203.0.113.71 is not an AWS IP range: legitimate EC2 role usage comes from AWS IP ranges, not external IPs" },
         { value: "d", label: "sts:GetCallerIdentity returned the full account ID and role ARN, handing the attacker the account details needed to plan escalation" },
       ],
       answer: "c",
-      explanation: "When an EC2 instance uses its IAM role normally, CloudTrail shows the source IP as the EC2's private or public IP (within AWS IP ranges). Seeing eks-node-role calls from an external IP (193.233.48.71) means the credentials were stolen and are being used from outside AWS: a clear indicator of IMDS credential theft, and exactly what the GuardDuty finding UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS reports. The over-permissive role is a real hardening gap (it is what lets the stolen session create an IAM user), but a permissive role used from its own instance would look unremarkable: it is not what shows the credentials were stolen.",
+      explanation: "When an EC2 instance uses its IAM role normally, CloudTrail shows the source IP as the EC2's private or public IP (within AWS IP ranges). Seeing eks-node-role calls from an external IP (203.0.113.71) means the credentials were stolen and are being used from outside AWS: a clear indicator of IMDS credential theft, and exactly what the GuardDuty finding UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS reports. The over-permissive role is a real hardening gap (it is what lets the stolen session create an IAM user), but a permissive role used from its own instance would look unremarkable: it is not what shows the credentials were stolen.",
     },
     {
       id: "q4", xp: 25,
@@ -2616,7 +2616,7 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
     { type: "domain", value: "productivty-suite.com",         reputation: "malicious", tags: ["lookalike", "oauth-phishing", "redirect-uri", "sender-domain", "missing-i"] },
     { type: "email",  value: "no-reply@productivty-suite.com", reputation: "malicious", tags: ["phishing-sender"] },
     { type: "email",  value: "backupmail@productivity-suite.pro", reputation: "malicious", tags: ["exfil-target", "inbox-forwarding", "lookalike-domain-family"] },
-    { type: "ip",     value: "20.50.142.37",                  reputation: "malicious", tags: ["app-backend", "cloud-hosted", "graph-caller"] },
+    { type: "ip",     value: "203.0.113.40",                  reputation: "malicious", tags: ["app-backend", "cloud-hosted", "graph-caller"] },
     // IOC types have no "application" member; "user" is the closest identity-shaped type for an OAuth client id.
     { type: "user",   value: APP_ID,                          reputation: "malicious", tags: ["oauth-client-id", "rogue-oauth-app", "productivity-suite-pro", "unverified-publisher"] },
   ];
@@ -2625,7 +2625,7 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
     { ts: T(-22 * MIN),   phase: "Initial Access",        action: "Lure from no-reply@productivty-suite.com delivered to j.chen with a Microsoft sign-in link carrying the rogue app's client id (T1566.002)" },
     { ts: T(-20_000),     phase: "Initial Access",        action: "j.chen clicks the link from her home address; Safe Links allows the click (T1566.002)" },
     { ts: T(0),           phase: "Initial Access",        action: "j.chen grants 'Productivity Suite Pro' Mail.ReadWrite + MailboxSettings.ReadWrite + Files.ReadWrite.All + Calendars.Read (T1528)" },
-    { ts: T(55 * MIN),    phase: "Collection",            action: "App reads 1,247 mailbox items through Microsoft Graph (three MailItemsAccessed records) as AppId a3f9b1c2 from 20.50.142.37 (T1114.002)" },
+    { ts: T(55 * MIN),    phase: "Collection",            action: "App reads 1,247 mailbox items through Microsoft Graph (three MailItemsAccessed records) as AppId a3f9b1c2 from 203.0.113.40 (T1114.002)" },
     { ts: T(58 * MIN),    phase: "Persistence",           action: "Inbox forwarding rule created through the app's token to backupmail@productivity-suite.pro (T1114.003)" },
     { ts: T(61 * MIN),    phase: "Collection",            action: "Nine Finance SharePoint files downloaded with a python-requests client, including Contract-GlobalLogis-2026.docx (T1530)" },
     { ts: T(65 * MIN),    phase: "Discovery",             action: "847 calendar items read: org chart reconstruction via meeting attendees (T1114.002)" },
@@ -2641,7 +2641,7 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
       options: [
         { value: "a", label: "The app requested Mail.ReadWrite (write access is unusual for a legitimate archival tool)" },
         { value: "b", label: "The Defender for Cloud Apps alert (oauth_09_mdca_alert) shows the app was created two days earlier, has an unverified publisher and exactly one consenting user" },
-        { value: "c", label: "The consent came from 86.9.140.22, which is not a known corporate egress address" },
+        { value: "c", label: "The consent came from 198.51.100.22, which is not a known corporate egress address" },
         { value: "d", label: "The consent happened at 22:14 UTC (23:14 UK time), outside j.chen's normal business hours" },
       ],
       answer: "b",
@@ -2658,14 +2658,14 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
         { value: "d", label: "A second attacker signed in with j.chen's stolen password, and Exchange logs the registered app GUID for such sessions" },
       ],
       answer: "b",
-      explanation: "With delegated permissions the app acts as the user, so the audit record names j.chen in UserId and the calling application in AppId (and the client string reads Client=REST;Client=RESTSystem;; instead of Outlook's). What gives the app away is therefore the AppId, the REST client, the source address 20.50.142.37 (j.chen's own activity comes from her home or office address) and the fact that no sign-in by j.chen exists at that hour. When UserId is an application GUID instead, the call was made with app-only (application) permissions, which is a different grant type than the one in oauth_01. No password was used, so a password reset would not have stopped any of this, and the rule succeeded: it is the persistence the app then relied on. The app needed MailboxSettings.ReadWrite for this call, which is why that scope appears in the consent.",
+      explanation: "With delegated permissions the app acts as the user, so the audit record names j.chen in UserId and the calling application in AppId (and the client string reads Client=REST;Client=RESTSystem;; instead of Outlook's). What gives the app away is therefore the AppId, the REST client, the source address 203.0.113.40 (j.chen's own activity comes from her home or office address) and the fact that no sign-in by j.chen exists at that hour. When UserId is an application GUID instead, the call was made with app-only (application) permissions, which is a different grant type than the one in oauth_01. No password was used, so a password reset would not have stopped any of this, and the rule succeeded: it is the persistence the app then relied on. The app needed MailboxSettings.ReadWrite for this call, which is why that scope appears in the consent.",
     },
     {
       id: "q3", xp: 20,
       prompt: "Which combination of fields best separates the app's mailbox reads (oauth_02) from j.chen's own use of Outlook?",
       kind: "single",
       options: [
-        { value: "a", label: "The AppId, the REST client string, the source address 20.50.142.37 and no j.chen sign-in at that time" },
+        { value: "a", label: "The AppId, the REST client string, the source address 203.0.113.40 and no j.chen sign-in at that time" },
         { value: "b", label: "The UserId, because only the calls made by the application are written with j.chen's own email address" },
         { value: "c", label: "The MailAccessType, because a Bind operation can only ever be made by an application and never by a person" },
         { value: "d", label: "The record type, because only applications produce RecordType 50 MailItemsAccessed entries in the audit log" },
@@ -2681,7 +2681,7 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
         { value: "a", label: "Revoke the OAuth consent grant for 'Productivity Suite Pro' (App ID a3f9b1c2…) in Azure AD Enterprise Applications" },
         { value: "b", label: "Delete the inbox forwarding rule to productivity-suite.pro from j.chen's mailbox" },
         { value: "c", label: "Force a password reset for j.chen and require re-registration of their MFA method in Entra ID before re-enabling sign-in" },
-        { value: "d", label: "Add 20.50.142.37 to the perimeter firewall deny list so the application can no longer reach the tenant from that address" },
+        { value: "d", label: "Add 203.0.113.40 to the perimeter firewall deny list so the application can no longer reach the tenant from that address" },
       ],
       answer: ["a", "b"],
       explanation: "Priority: (1) Revoke the OAuth consent, which terminates the app's access token and all API access. (2) Delete the inbox forwarding rule, which stops ongoing email exfiltration. Password reset (c) is wrong: the attacker never used j.chen's password, they used the OAuth token, so a reset leaves the grant and the rule in place. A firewall deny entry (d) is also wrong: the calls go to Microsoft's cloud APIs, not through NexaCorp's perimeter, and the address sits in shared Azure space that the operator can change at will.",

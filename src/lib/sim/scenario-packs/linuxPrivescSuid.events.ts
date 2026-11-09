@@ -21,7 +21,7 @@ export function linuxPrivescSuidScenarioEvents() {
   const host = {
     name: "web-app-07",
     fqdn: "web-app-07.northwind-logistics.io",
-    publicIp: "84.200.17.88",
+    publicIp: "192.0.2.61",
     privateIp: "10.40.6.21",
     os: "Ubuntu 22.04.4 LTS",
   };
@@ -33,11 +33,11 @@ export function linuxPrivescSuidScenarioEvents() {
     email: "d.okonkwo@northwind-logistics.io",
     title: "Linux Systems Administrator",
     auid: "1001",
-    vpnEgress: "82.166.44.9",
+    vpnEgress: "192.0.2.60",
   };
 
   // The attacker's external address, appears ONLY on the backdoor SSH login.
-  const attackerIp = "193.32.162.140";
+  const attackerIp = "203.0.113.140";
 
   // The uid-0 backdoor account the attacker creates once euid=0 is held.
   const backdoorUser = "sysupdate";
@@ -501,7 +501,7 @@ export function linuxPrivescSuidScenarioEvents() {
       mitre_technique: "T1078.003",
       mitre_tactic: "Persistence",
       description:
-        "'Accepted publickey for sysupdate' from 193.32.162.140 on tcp/22, the backdoor account authenticating with the attacker-controlled key, minutes after it was created.",
+        "'Accepted publickey for sysupdate' from 203.0.113.140 on tcp/22, the backdoor account authenticating with the attacker-controlled key, minutes after it was created.",
       authentication: { method: "publickey", result: "success" },
       raw: {
         "data.program_name": "sshd",

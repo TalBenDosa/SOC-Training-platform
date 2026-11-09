@@ -65,7 +65,7 @@ export function buildS3ExfilExposureScenario(
   const accessKeyId = "AKIA4MC2X7QF9EXAMPLE";
   const iamUserArn = `arn:aws:iam::${awsAccount}:user/${iamUser}`;
   // The operator's external address, outside AWS, the whole tell.
-  const attackerIp = "91.242.217.35";
+  const attackerIp = "203.0.113.98";
 
   // The benign control: the real backup / data-pipeline role reading the same
   // bucket the expected way, an assumed-role session, from inside AWS over an
@@ -78,7 +78,7 @@ export function buildS3ExfilExposureScenario(
   const cx = "medcore" as const;
   const awsCli = "aws-cli/2.15.30 Python/3.11.6 Linux/6.5 exe/x86_64";
   // The second internet address that uses the opened bucket without any credential.
-  const anonIp = "45.155.205.233";
+  const anonIp = "203.0.113.233";
 
   // An unauthenticated S3 request: CloudTrail records userIdentity.accountId "anonymous" and no user, ARN or key.
   const asAnonymous = (e: TelemetryEvent): TelemetryEvent => {
@@ -131,13 +131,13 @@ export function buildS3ExfilExposureScenario(
       companyId: cx, id: "s3exfil_00e_get_caller_identity", ts: T(-90 * SEC), eventName: "GetCallerIdentity", eventSource: "sts.amazonaws.com", srcIp: attackerIp, region, accountId: awsAccount,
       actorType: "IAMUser", actorName: iamUser, arn: iamUserArn, accessKeyId, readOnly: true, managementEvent: true, userAgent: awsCli,
       userTitle: "Service Account", mitre: "T1078.004", tactic: "Initial Access", severity: "medium", incidentId: INCIDENT,
-      description: "GetCallerIdentity by the reporting-export-svc access key AKIA4MC2X7QF9EXAMPLE from 91.242.217.35, a check of what the key is.",
+      description: "GetCallerIdentity by the reporting-export-svc access key AKIA4MC2X7QF9EXAMPLE from 203.0.113.98, a check of what the key is.",
     }),
     cloudTrailEvent({
       companyId: cx, id: "s3exfil_01_list_buckets", ts: T(0), eventName: "ListBuckets", srcIp: attackerIp, region, accountId: awsAccount,
       actorType: "IAMUser", actorName: iamUser, arn: iamUserArn, accessKeyId, readOnly: true, managementEvent: true, userAgent: awsCli,
       userTitle: "Service Account", mitre: "T1078.004", tactic: "Initial Access", severity: "high", incidentId: INCIDENT,
-      description: "ListBuckets on account 612498330517 by the reporting-export-svc access key AKIA4MC2X7QF9EXAMPLE from 91.242.217.35, the first call this long-lived key has made from an internet address.",
+      description: "ListBuckets on account 612498330517 by the reporting-export-svc access key AKIA4MC2X7QF9EXAMPLE from 203.0.113.98, the first call this long-lived key has made from an internet address.",
     }),
 
     // 2. CONFIG ORIGIN #1, PutBucketPublicAccessBlock turns OFF Block Public Access (T1686.001).
@@ -186,7 +186,7 @@ export function buildS3ExfilExposureScenario(
       actorType: "AWSService", s3Bucket: bucket, s3Key: "exports/2026-08-30/patients-000002.parquet", bytes: 2_201_170,
       readOnly: true, managementEvent: false, awsEventType: "AwsApiCall", userAgent: "curl/8.4.0", severity: "high",
       mitre: "T1530", tactic: "Collection", incidentId: INCIDENT,
-      description: "An unauthenticated GetObject (userIdentity accountId anonymous) on medcore-patient-exports-prod from 45.155.205.233: the bucket answered a request carrying no credential.",
+      description: "An unauthenticated GetObject (userIdentity accountId anonymous) on medcore-patient-exports-prod from 203.0.113.233: the bucket answered a request carrying no credential.",
     })),
 
     // 5. GuardDuty, the anonymous-access finding on the policy change, and the BPA finding.
@@ -219,7 +219,7 @@ export function buildS3ExfilExposureScenario(
       actorType: "IAMUser", actorName: iamUser, arn: iamUserArn, accessKeyId, s3Bucket: bucket, readOnly: true, managementEvent: false, userAgent: awsCli,
       userTitle: "Service Account", mitre: "T1619", tactic: "Discovery", severity: "high", incidentId: INCIDENT,
       extra: { "aws.cloudtrail.requestParameters.prefix": "exports/", "aws.cloudtrail.requestParameters.maxKeys": "1000" },
-      description: "ListObjectsV2 on medcore-patient-exports-prod over the exports/ prefix by the reporting-export-svc key from 91.242.217.35, the first page of the index.",
+      description: "ListObjectsV2 on medcore-patient-exports-prod over the exports/ prefix by the reporting-export-svc key from 203.0.113.98, the first page of the index.",
     }),
     cloudTrailEvent({
       companyId: cx, id: "s3exfil_06b_list_objects_page2", ts: T(11 * MIN + 20 * SEC), eventName: "ListObjectsV2", srcIp: attackerIp, region, accountId: awsAccount,
@@ -279,7 +279,7 @@ export function buildS3ExfilExposureScenario(
   const iocs: IOC[] = [
     {
       type: "ip",
-      value: attackerIp, // 91.242.217.35, the external source of every management write and key-driven read
+      value: attackerIp, // 203.0.113.98, the external source of every management write and key-driven read
       first_seen: T(-90 * SEC),
       last_seen: T(21 * MIN),
       reputation: "malicious",
@@ -287,7 +287,7 @@ export function buildS3ExfilExposureScenario(
     },
     {
       type: "ip",
-      value: anonIp, // 45.155.205.233, reads the opened bucket without any credential
+      value: anonIp, // 203.0.113.233, reads the opened bucket without any credential
       first_seen: T(7 * MIN + 10 * SEC),
       last_seen: T(7 * MIN + 10 * SEC),
       reputation: "malicious",
@@ -327,7 +327,7 @@ export function buildS3ExfilExposureScenario(
       ],
       answer: "outside_vs_vpce",
       explanation:
-        "Volume is a red herring here, the backup job legitimately reads the whole bucket every night, so 'a lot of GetObject' describes both records. The separation is the caller and the path: s3exfil_00 is the medcore-backup-replicator assumed-role session arriving over an S3 VPC endpoint (vpcEndpointId set) from a private 10.x address, entirely inside AWS; s3exfil_07 is a standalone IAMUser access key calling from 91.242.217.35, an internet address. A deploy or backup workload has a predictable in-account origin, so a bucket read from the public internet on a long-lived key is the tell. (b) makes a raw count the verdict, which would flag the nightly backup too. (c) reads the object format as evidence, the backup reads the same files. (d) invents a region mismatch; every call is us-east-1. The totals do not live in a single CloudTrail record: each GetObject is one object, and the volume is carried by the CloudWatch BytesDownloaded alarm (44 GB) and the GuardDuty finding count (20,000 objects).",
+        "Volume is a red herring here, the backup job legitimately reads the whole bucket every night, so 'a lot of GetObject' describes both records. The separation is the caller and the path: s3exfil_00 is the medcore-backup-replicator assumed-role session arriving over an S3 VPC endpoint (vpcEndpointId set) from a private 10.x address, entirely inside AWS; s3exfil_07 is a standalone IAMUser access key calling from 203.0.113.98, an internet address. A deploy or backup workload has a predictable in-account origin, so a bucket read from the public internet on a long-lived key is the tell. (b) makes a raw count the verdict, which would flag the nightly backup too. (c) reads the object format as evidence, the backup reads the same files. (d) invents a region mismatch; every call is us-east-1. The totals do not live in a single CloudTrail record: each GetObject is one object, and the volume is carried by the CloudWatch BytesDownloaded alarm (44 GB) and the GuardDuty finding count (20,000 objects).",
     },
     {
       id: "s3q2",
@@ -361,7 +361,7 @@ export function buildS3ExfilExposureScenario(
       ],
       answer: "internet_source",
       explanation:
-        "The identity being legitimate is exactly why the origin is the discriminator. This key's real work runs inside AWS, but here the GetCallerIdentity, the ListBuckets, the three bucket-config writes, the ListObjectsV2 pages and the key-driven GetObject calls all carry sourceIPAddress 91.242.217.35, an internet address, and that same remote host is what the GuardDuty findings (s3exfil_08 and s3exfil_09) report on. The only other address is the one that read the opened bucket anonymously, and it never used the key. (b) is false: nothing shows the key was disabled; it was active. (c) over-reads MFA, service keys routinely call without an MFA claim, so its absence is not a verdict. (d) is wrong: userIdentity.type is IAMUser for the reporting-export-svc key throughout, not root.",
+        "The identity being legitimate is exactly why the origin is the discriminator. This key's real work runs inside AWS, but here the GetCallerIdentity, the ListBuckets, the three bucket-config writes, the ListObjectsV2 pages and the key-driven GetObject calls all carry sourceIPAddress 203.0.113.98, an internet address, and that same remote host is what the GuardDuty findings (s3exfil_08 and s3exfil_09) report on. The only other address is the one that read the opened bucket anonymously, and it never used the key. (b) is false: nothing shows the key was disabled; it was active. (c) over-reads MFA, service keys routinely call without an MFA claim, so its absence is not a verdict. (d) is wrong: userIdentity.type is IAMUser for the reporting-export-svc key throughout, not root.",
     },
     {
       id: "s3q4",
@@ -389,7 +389,7 @@ export function buildS3ExfilExposureScenario(
       hint: "Think about the credential still in the attacker's hands, the bucket left in an open state, and the exposure of everything the key could reach, not only the one prefix you watched being read.",
       options: [
         { value: "revoke_close_assess", label: "Disable and rotate the reporting-export-svc key, restore Block Public Access and remove the public policy and ACL, then treat everything the key could reach as exposed and open a data-loss review" },
-        { value: "block_ip_only", label: "Block 91.242.217.35 at the perimeter and in the bucket policy; since the leaked key was only ever seen from that one address, cutting it off contains the incident without a credential change" },
+        { value: "block_ip_only", label: "Block 203.0.113.98 at the perimeter and in the bucket policy; since the leaked key was only ever seen from that one address, cutting it off contains the incident without a credential change" },
         { value: "delete_object", label: "Delete the patients-000001.parquet object named in the GetObject record and restore it from backup, since the file shown in the log is the exposed item and the rest of the bucket was not read" },
         { value: "rotate_backup", label: "Rotate the medcore-backup-replicator role credentials and review its VPC endpoint policy, since that role holds standing access to the exports bucket and is the likelier source of the leak" },
       ],
@@ -408,7 +408,7 @@ export function buildS3ExfilExposureScenario(
       "GuardDuty raised a High finding on medcore-patient-exports-prod, a production bucket of regulated records that is never meant to be reachable publicly. Work out how it was exposed, which credential was involved and how much left.",
     narrative: `The bucket medcore-patient-exports-prod holds regulated data exports and is meant to be reachable only from inside the account, the nightly backup job reads it over an S3 VPC endpoint, and nothing else should touch it. That backup read is the one legitimate comparison in the data: the medcore-backup-replicator role, an assumed-role session, pulling its export objects one after another from a private 10.x address the night before, with the bucket's protections fully intact.
 
-The incident begins with a credential that should never have left the account. A long-lived IAM access key for the reporting-export-svc service account was committed to a public repository, medcore/reporting-tools, on 28 August, and GitHub secret scanning raised an alert at 11:42; the key was over-permissioned and was never rotated. On 31 August at 02:58 that key made its first calls from 91.242.217.35, an internet address: a GetCallerIdentity to check what it was, and at 03:00 a ListBuckets to survey the account. Three minutes later it began stripping the bucket's protections: PutBucketPublicAccessBlock flipped all four Block Public Access guards to false, PutBucketPolicy attached a statement allowing anyone (Principal "*") to read every object, and PutBucketAcl granted the AllUsers group READ. With Block Public Access off, those permissive grants took effect and the bucket was open to the world. It was used at once: at 03:07 a GetObject with accountId anonymous, from a second address (45.155.205.233) and no credential at all, was answered.
+The incident begins with a credential that should never have left the account. A long-lived IAM access key for the reporting-export-svc service account was committed to a public repository, medcore/reporting-tools, on 28 August, and GitHub secret scanning raised an alert at 11:42; the key was over-permissioned and was never rotated. On 31 August at 02:58 that key made its first calls from 203.0.113.98, an internet address: a GetCallerIdentity to check what it was, and at 03:00 a ListBuckets to survey the account. Three minutes later it began stripping the bucket's protections: PutBucketPublicAccessBlock flipped all four Block Public Access guards to false, PutBucketPolicy attached a statement allowing anyone (Principal "*") to read every object, and PutBucketAcl granted the AllUsers group READ. With Block Public Access off, those permissive grants took effect and the bucket was open to the world. It was used at once: at 03:07 a GetObject with accountId anonymous, from a second address (203.0.113.233) and no credential at all, was answered.
 
 GuardDuty caught the changes (Policy:S3/BucketBlockPublicAccessDisabled at 03:08 and Policy:S3/BucketAnonymousAccessGranted at 03:09). Meanwhile the same key enumerated the bucket with ListObjectsV2, page after page of up to 1,000 keys under the exports prefix, and from 03:12 ran GetObject calls that pulled those objects down, every request sourced from 91.242.217.35. One CloudTrail record carries one object; the scale is in the aggregates: GuardDuty counted 20,000 object reads and the CloudWatch BytesDownloaded alarm on the bucket reached 44,023,414,784 bytes (41 GB) by 03:20. At 03:20 GuardDuty raised Exfiltration:S3/ObjectRead.Unusual on the drain, and a minute later Discovery:S3/AnomalousBehavior tied the enumeration and reads together as one out-of-pattern run on the key.
 

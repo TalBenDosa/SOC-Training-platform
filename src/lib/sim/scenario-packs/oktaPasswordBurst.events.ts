@@ -21,12 +21,12 @@ export function oktaPasswordBurstScenarioEvents() {
   const victim = { email: "m.ben-david@rocketstack.io", name: "Maya Ben-David" };
 
   // Single attacker address, hosting-provider ASN.
-  const attackerIp = "45.132.192.77";
+  const attackerIp = "203.0.113.81";
   const attackerAsn = "AS200651";
   const attackerAsOrg = "FlokiNET ehf";
 
   // The user's own device and network, for contrast.
-  const corpIp = "94.188.12.61";
+  const corpIp = "198.51.100.61";
 
   const ua =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
@@ -94,7 +94,7 @@ export function oktaPasswordBurstScenarioEvents() {
   const sampleFailures: TelemetryEvent[] = failMinutes.map((m, i) =>
     oktaAuthFailure({
       ...atk, id: `evt_okb_03_fail_burst_${String(i + 1).padStart(2, "0")}`, ts: T(m * MIN + (i % 3) * 7_000), severity: "low",
-      description: `A user.session.start FAILURE (INVALID_CREDENTIALS) for the same account from 45.132.192.77 at 02:${String(14 + m).padStart(2, "0")}.`,
+      description: `A user.session.start FAILURE (INVALID_CREDENTIALS) for the same account from 203.0.113.81 at 02:${String(14 + m).padStart(2, "0")}.`,
     }));
 
   const events: TelemetryEvent[] = [
@@ -102,14 +102,14 @@ export function oktaPasswordBurstScenarioEvents() {
     oktaAuthFailure({
       ...atk, id: "evt_okb_01_okta_first_seen", ts: T(0), severity: "low",
       description:
-        "Okta System Log: user.session.start FAILURE (INVALID_CREDENTIALS) for m.ben-david@rocketstack.io from 45.132.192.77 (AS200651 FlokiNET ehf, Reykjavik) at 02:14.",
+        "Okta System Log: user.session.start FAILURE (INVALID_CREDENTIALS) for m.ben-david@rocketstack.io from 203.0.113.81 (AS200651 FlokiNET ehf, Reykjavik) at 02:14.",
     }),
 
     // 2. Second failure.
     oktaAuthFailure({
       ...atk, id: "evt_okb_02_fail_first", ts: T(1 * MIN), severity: "low",
       description:
-        "A second user.session.start FAILURE (INVALID_CREDENTIALS) for the same account from 45.132.192.77 at 02:15.",
+        "A second user.session.start FAILURE (INVALID_CREDENTIALS) for the same account from 203.0.113.81 at 02:15.",
     }),
 
     // 4. The first alert: Okta ThreatInsight (log-only mode) flags the address, which is on
@@ -121,7 +121,7 @@ export function oktaPasswordBurstScenarioEvents() {
       event_type: "threat_intel_match", outcome: "SUCCESS", severity: "medium",
       geo: atk.geo, asn: attackerAsn, asOrg: attackerAsOrg, domain: "flokinet.is",
       mitre: "T1110.001", tactic: "Credential Access",
-      description: "Okta ThreatInsight logged security.threat.detected for 45.132.192.77 at 02:18 against the tenant's /api/v1/authn endpoint; outcome ALLOW (log-only mode).",
+      description: "Okta ThreatInsight logged security.threat.detected for 203.0.113.81 at 02:18 against the tenant's /api/v1/authn endpoint; outcome ALLOW (log-only mode).",
     }),
 
     ...sampleFailures,
@@ -130,7 +130,7 @@ export function oktaPasswordBurstScenarioEvents() {
     oktaAuthFailure({
       ...atk, id: "evt_okb_03_fail_burst", ts: T(6 * MIN), severity: "medium",
       description:
-        "A representative user.session.start FAILURE (INVALID_CREDENTIALS) of the burst for the same account, from 45.132.192.77 at 02:20.",
+        "A representative user.session.start FAILURE (INVALID_CREDENTIALS) of the burst for the same account, from 203.0.113.81 at 02:20.",
     }),
 
     // 5. THE EVENT THAT MATTERS: the sign-on policy answers CHALLENGE instead of a failure.
@@ -138,7 +138,7 @@ export function oktaPasswordBurstScenarioEvents() {
       ...atk, id: "evt_okb_05_password_accepted", ts: T(27 * MIN), severity: "high",
       reason: "MFA_REQUIRED", authStep: 1, sessionId: SESSION,
       description:
-        "At 02:41 the next sign-in for the same account from 45.132.192.77 is not an INVALID_CREDENTIALS failure: Okta evaluated the sign-on policy for it, policy.evaluate_sign_on, outcome CHALLENGE, rule \"Require MFA outside Corporate HQ\".",
+        "At 02:41 the next sign-in for the same account from 203.0.113.81 is not an INVALID_CREDENTIALS failure: Okta evaluated the sign-on policy for it, policy.evaluate_sign_on, outcome CHALLENGE, rule \"Require MFA outside Corporate HQ\".",
     })),
 
     // 6. Push 1 is sent to the real user's phone, and she rejects it.
@@ -183,7 +183,7 @@ export function oktaPasswordBurstScenarioEvents() {
           "Group Memberships": ["Everyone", "Finance", "Okta-MFA-Required"],
         },
         description:
-          "Sentinel raised a Medium alert at 02:52 for m.ben-david@rocketstack.io: 96 sign-in failures from 45.132.192.77, then a sign-on policy CHALLENGE and denied pushes, 0 sessions created.",
+          "Sentinel raised a Medium alert at 02:52 for m.ben-david@rocketstack.io: 96 sign-in failures from 203.0.113.81, then a sign-on policy CHALLENGE and denied pushes, 0 sessions created.",
       }),
       hostname: undefined,
       edr_scope: "non_edr",

@@ -72,9 +72,9 @@ export function buildMacosStealerDmgScenario(
   // Attacker infrastructure.
   const dlDomain = "pixelforge-crack.top";                                  // where the DMG came from
   const dlUrl = "https://pixelforge-crack.top/dl/PixelForge_Pro_v7.dmg";    // the download URL
-  const dlServerIp = "185.234.72.19";                                       // the download host (not itself an IOC of interest)
+  const dlServerIp = "203.0.113.23";                                       // the download host (not itself an IOC of interest)
   const exfilDomain = "gate-collect.top";                                   // the upload endpoint
-  const exfilIp = "45.147.230.88";                                          // the upload host
+  const exfilIp = "203.0.113.95";                                          // the upload host
 
   // The stealer's Mach-O / DMG payload hash, appears on the download, the
   // execution, and the credential-access reads.
@@ -278,7 +278,7 @@ export function buildMacosStealerDmgScenario(
       companyId: cx, id: "msd_08e_curl_connect", ts: T(4 * MIN + 28 * SEC), host: host.name, srcIp: host.ip, user: user.email,
       remoteIp: exfilIp, remotePort: 443, application: "tls", domain: exfilDomain, processName: "curl", processPath: "/usr/bin/curl", pid: 4186,
       parentName: "PixelForge Pro", parentPid: 4102, bytesOut: zipSize, severity: "medium", incidentId: INCIDENT,
-      description: "curl opened a TLS connection to 45.147.230.88:443 and sent 8,734,096 bytes.",
+      description: "curl opened a TLS connection to 203.0.113.95:443 and sent 8,734,096 bytes.",
     }),
 
     // 8. EXFILTRATION: the same upload at the web proxy (T1567.002).
@@ -287,7 +287,7 @@ export function buildMacosStealerDmgScenario(
         companyId: cx, id: "msd_08_exfil_upload", ts: T(4 * MIN + 30 * SEC), host: host.name, srcIp: host.ip, user: user.email,
         url: "https://gate-collect.top/api/upload", domain: exfilDomain, method: "POST", action: "allowed", category: "Newly Registered and Observed Domains", status: 200,
         bytesSent: zipSize, userAgent: "curl/8.4.0", mitre: "T1567.002", tactic: "Exfiltration", severity: "high", incidentId: INCIDENT,
-        description: "Zscaler logged an outbound POST from MB-CR-14 uploading an ~8 MB archive to gate-collect.top (45.147.230.88), sent with a curl user-agent.",
+        description: "Zscaler logged an outbound POST from MB-CR-14 uploading an ~8 MB archive to gate-collect.top (203.0.113.95), sent with a curl user-agent.",
       }),
       dst_ip: exfilIp,
     },
@@ -368,7 +368,7 @@ export function buildMacosStealerDmgScenario(
     },
     {
       type: "ip",
-      value: exfilIp, // 45.147.230.88, the upload host
+      value: exfilIp, // 203.0.113.95, the upload host
       first_seen: T(4 * MIN + 28 * SEC),
       last_seen: T(4 * MIN + 30 * SEC),
       reputation: "malicious",
@@ -450,14 +450,14 @@ export function buildMacosStealerDmgScenario(
         "You need to identify the point where data actually left MB-CR-14, and where it went. Which event shows it?",
       hint: "Separate an inbound download and a local file read from an outbound send; check the HTTP method and direction.",
       options: [
-        { value: "exfil_post", label: "The outbound POST uploading an ~8 MB archive to gate-collect.top (45.147.230.88) through the web proxy" },
+        { value: "exfil_post", label: "The outbound POST uploading an ~8 MB archive to gate-collect.top (203.0.113.95) through the web proxy" },
         { value: "dmg_get", label: "The proxy GET session that moved PixelForge_Pro_v7.dmg between MB-CR-14 and pixelforge-crack.top" },
         { value: "keychain_read", label: "The security command reading login.keychain-db, the moment the Keychain secrets left the user's control" },
         { value: "detect_row", label: "The Falcon detection record, which captures the collected archive into the cloud console after the upload" },
       ],
       answer: "exfil_post",
       explanation:
-        "msd_08 is the proxy's view of an outbound POST uploading an ~8 MB archive to gate-collect.top (45.147.230.88), the same upload the endpoint recorded as a curl process, its DNS lookup and its connection (msd_08c to msd_08e). It is data leaving the host, and the two exfil IOCs (the domain and the IP) come from it. msd_01 is the opposite direction: a GET that pulled the DMG onto the host. msd_05 is a local read that never touches the network. And msd_09 is a Falcon detection record, an alert about the activity, not a place data is sent or stored. The upload is the event to cite when you scope what was lost.",
+        "msd_08 is the proxy's view of an outbound POST uploading an ~8 MB archive to gate-collect.top (203.0.113.95), the same upload the endpoint recorded as a curl process, its DNS lookup and its connection (msd_08c to msd_08e). It is data leaving the host, and the two exfil IOCs (the domain and the IP) come from it. msd_01 is the opposite direction: a GET that pulled the DMG onto the host. msd_05 is a local read that never touches the network. And msd_09 is a Falcon detection record, an alert about the activity, not a place data is sent or stored. The upload is the event to cite when you scope what was lost.",
     },
     {
       id: "msd_q5",
@@ -489,7 +489,7 @@ export function buildMacosStealerDmgScenario(
 
 When Adrien mounted the image and opened the app, Falcon recorded a binary running from /Volumes/PixelForge Pro that was only ad-hoc signed (no Developer ID, not notarized). A legitimate app of that provenance would be stopped by Gatekeeper; a stealer's whole opening move is to get the user past that. Within seconds the app spawned /usr/bin/osascript running a "display dialog ... with hidden answer" AppleScript: a prompt dressed as a macOS system request, asking for the login password to "finish installation". Adrien typed it in.
 
-With the password captured, the payload used /usr/bin/security to read ~/Library/Keychains/login.keychain-db and pull the Chrome Safe Storage key, then read the Chrome Cookies and Login Data stores and the Safari cookie store (live web session cookies and saved passwords) and local cryptocurrency-wallet files (Exodus and Electrum). Defender for Endpoint, also on the Mac, independently logged the same osascript child, tying it to the same payload hash. The loot was zipped by ditto into /tmp/qz4w8t.zip and, at 20:09, a curl process started by the same payload POSTed the single ~8 MB archive to gate-collect.top (45.147.230.88): Falcon saw the process, the DNS lookup and the connection, and the web proxy saw the same upload. Falcon raised the Critical detection a moment later. The exercise is to reconstruct that chain from the logs and to scope containment for a case where the credentials themselves, not just the Mac, are what was lost.`,
+With the password captured, the payload used /usr/bin/security to read ~/Library/Keychains/login.keychain-db and pull the Chrome Safe Storage key, then read the Chrome Cookies and Login Data stores and the Safari cookie store (live web session cookies and saved passwords) and local cryptocurrency-wallet files (Exodus and Electrum). Defender for Endpoint, also on the Mac, independently logged the same osascript child, tying it to the same payload hash. The loot was zipped by ditto into /tmp/qz4w8t.zip and, at 20:09, a curl process started by the same payload POSTed the single ~8 MB archive to gate-collect.top (203.0.113.95): Falcon saw the process, the DNS lookup and the connection, and the web proxy saw the same upload. Falcon raised the Critical detection a moment later. The exercise is to reconstruct that chain from the logs and to scope containment for a case where the credentials themselves, not just the Mac, are what was lost.`,
     learning_objectives: [
       "Tell a benign macOS DMG install from a malicious one using code-signing state (Developer ID + notarization + Gatekeeper vs ad-hoc/unsigned) and post-launch behaviour, not the fact that an app ran from a disk image",
       "Recognise an osascript `display dialog ... with hidden answer` spawned by an app as an AppleScript prompt phishing the login password (T1059.002)",

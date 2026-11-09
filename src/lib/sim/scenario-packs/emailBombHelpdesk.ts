@@ -74,7 +74,7 @@ export function buildEmailBombHelpdeskScenario(
     ip: "10.30.4.118",
   };
   // The office's public egress address, which is what the audit log records for her.
-  const officeEgressIp = "194.90.117.26";
+  const officeEgressIp = "198.51.100.26";
 
   // The benign control: a sanctioned Quick Assist session run by a known
   // internal technician against a ticket the user opened herself, no flood.
@@ -92,10 +92,10 @@ export function buildEmailBombHelpdeskScenario(
 
   // The external "Service Desk" identity that contacted her over Teams.
   const fakeDeskUpn = "helpdesk@nw-itdesk-support.onmicrosoft.com";
-  const operatorIp = "5.42.199.34";
+  const operatorIp = "203.0.113.36";
 
   // The external host the operator stages follow-on tooling from, and the tool.
-  const stagingIp = "193.233.132.62";
+  const stagingIp = "203.0.113.62";
   const payloadName = "nw-support-agent.msi";
   const payloadHash = makeSha256("email_bomb_helpdesk_quickassist_staged_agent_msi_2026");
   const qaPath = "C:\\Windows\\System32\\quickassist.exe";
@@ -540,7 +540,7 @@ export function buildEmailBombHelpdeskScenario(
       kind: "single",
       options: [
         { value: "isolate_reset_hunt", label: "Isolate WKS-NW-118, reset j.mercer and revoke her tokens, quarantine the staged installer, hunt what ran in the session, verify the caller out-of-band" },
-        { value: "block_ip_only", label: "Block 193.233.132.62 at the firewall, with the staging host unreachable, the operator's access and the payload chain are cut and the case can be closed" },
+        { value: "block_ip_only", label: "Block 203.0.113.62 at the firewall, with the staging host unreachable, the operator's access and the payload chain are cut and the case can be closed" },
         { value: "purge_mail", label: "Purge the newsletter emails tenant-wide and block their senders at the gateway, since removing the flood that started it all is what resolves the incident" },
         { value: "disable_qa", label: "Disable Quick Assist across the fleet by GPO; because the session used that tool, removing the tool from every endpoint ends the incident on its own" },
       ],
@@ -564,7 +564,7 @@ At 09:14 the mailbox of j.mercer, an accounts-payable clerk, began to fill. Over
 
 Then came the turn. At 09:29 a one-on-one Teams chat was created with her by an account from a foreign tenant, displaying as "IT Service Desk" (helpdesk@nw-itdesk-support.onmicrosoft.com). The person offered to stop the flood if she started Quick Assist and read out the six-digit code. No IT-initiated ticket existed for that outreach, and the sender was not in the staff directory; she told the Service Desk afterwards, and the work note on the ticket records it. The flood, in other words, was never the attack; it was the pretext manufactured to make that contact believable.
 
-At 09:33 Quick Assist launched on WKS-NW-118 and connected to Microsoft's remote-assistance service. Falcon recorded quickassist.exe as fully signed and trusted (Microsoft Windows), because it genuinely is Microsoft's own tool, not malware. Nothing about the binary is wrong; everything about the context is. There was no user-opened ticket for the session, and it began on the word of an unsolicited contact, minutes after an engineered mail flood (T1219). Remote-operator input runs inside the user's own session, so the commands that followed were launched from explorer.exe while the Quick Assist session was open: a command prompt at 09:35, then systeminfo (T1082), quser (T1033) and net localgroup administrators (T1069.001), host, session and local-privilege reconnaissance a payments clerk's workstation has no reason to perform. At 09:41 a hidden PowerShell started from that command prompt used Invoke-WebRequest to pull nw-support-agent.msi over plain HTTP from a raw-IP host, 193.233.132.62, into C:\\Windows\\Temp (T1059.001), staging follow-on tooling. Two minutes later Falcon correlated the unsolicited Quick Assist session and the discovery burst into a single High detection.
+At 09:33 Quick Assist launched on WKS-NW-118 and connected to Microsoft's remote-assistance service. Falcon recorded quickassist.exe as fully signed and trusted (Microsoft Windows), because it genuinely is Microsoft's own tool, not malware. Nothing about the binary is wrong; everything about the context is. There was no user-opened ticket for the session, and it began on the word of an unsolicited contact, minutes after an engineered mail flood (T1219). Remote-operator input runs inside the user's own session, so the commands that followed were launched from explorer.exe while the Quick Assist session was open: a command prompt at 09:35, then systeminfo (T1082), quser (T1033) and net localgroup administrators (T1069.001), host, session and local-privilege reconnaissance a payments clerk's workstation has no reason to perform. At 09:41 a hidden PowerShell started from that command prompt used Invoke-WebRequest to pull nw-support-agent.msi over plain HTTP from a raw-IP host, 203.0.113.62, into C:\\Windows\\Temp (T1059.001), staging follow-on tooling. Two minutes later Falcon correlated the unsolicited Quick Assist session and the discovery burst into a single High detection.
 
 The case is deliberately uncomfortable for an analyst who trusts signatures and chases the loudest signal. The tool at the centre of it verifies perfectly, and the hundreds of alarming-looking emails are all clean. The verdict comes only from reading the whole chain in order (an engineered flood, an unsolicited external contact, a remote session no one requested) and against the sanctioned Quick Assist session that proves the same shape can be entirely legitimate when the provenance is accountable.`,
     learning_objectives: [

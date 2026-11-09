@@ -75,9 +75,9 @@ export function buildMultiHostIntrusionScenario(
 
   // C2 / exfil infrastructure (realistic hosting addresses, see header).
   const c2 = "cdn-sync-eu.net";
-  const c2ip = "45.137.101.22";
+  const c2ip = "203.0.113.25";
   const exfilHost = "store.filedrop-transfer.net";
-  const exfilIp = "92.118.39.84";
+  const exfilIp = "203.0.113.102";
 
   const macroDocHash = makeSha256("multihost_invoice_q3_macro_docm_2026");
   // The beacon lives in memory (no file); the images below are genuine, clean
@@ -141,7 +141,7 @@ export function buildMultiHostIntrusionScenario(
       companyId: cxN, id: "evt_mhi_ws1_download", ts: J(0, "ws1"), host: ws.hostname, srcIp: ws.ip, user: victim.email,
       userTitle: "Accounts Payable Clerk", incidentId: INC_WS, severity: "low",
       url: "https://supplier-invoices-nexa.com/inv/Invoice_Q3_4471.docm", domain: "supplier-invoices-nexa.com",
-      category: "business-and-economy", action: "alert", dstIp: "91.215.85.142", bytesIn: 88_320,
+      category: "business-and-economy", action: "alert", dstIp: "203.0.113.145", bytesIn: 88_320,
       file: { name: "Invoice_Q3_4471.docm", path: "/inv/Invoice_Q3_4471.docm", sha256: macroDocHash }, fileType: "ms-office",
       description: "FIN-WS-08 downloaded Invoice_Q3_4471.docm from a lookalike supplier portal at 18:40, allowed under the category business-and-economy.",
     }),
@@ -182,7 +182,7 @@ export function buildMultiHostIntrusionScenario(
       cmdline: `powershell.exe -nop -w hidden -enc ${encPayload}`, pid: PID.ws_ps,
       parentName: "cmd.exe", parentPid: PID.ws_cmd, sha256: psHash,
       mitre: "T1071.001", tactic: "Command and Control", severity: "high", incidentId: INC_WS,
-      description: "The endpoint recorded powershell.exe opening a TLS connection to 45.137.101.22:443, the beacon's C2 channel, attributed to the beacon process itself.",
+      description: "The endpoint recorded powershell.exe opening a TLS connection to 203.0.113.25:443, the beacon's C2 channel, attributed to the beacon process itself.",
     }),
     // 6. The firewall's view of the same beacon, an aggregated TLS session summary.
     panConnection({
@@ -333,7 +333,7 @@ export function buildMultiHostIntrusionScenario(
       user: victim.email, userTitle: "Accounts Payable Clerk", qid: "5C81D3A790",
       sender: "accounts@supplier-invoices-nexa.com", headerFrom: "\"Nexa Supplier Billing\" <accounts@supplier-invoices-nexa.com>",
       subject: "Invoice Q3-4471 - payment due this week", messageId: "<9e17b3d2-61c4-4f08-a2d5-0b7c3e49a118@supplier-invoices-nexa.com>",
-      senderIp: "193.233.48.76", url: lureUrl, domain: "supplier-invoices-nexa.com",
+      senderIp: "203.0.113.76", url: lureUrl, domain: "supplier-invoices-nexa.com",
       urlRewritten: "https://urldefense.proofpoint.com/v2/url?u=https-3A__supplier-2Dinvoices-2Dnexa.com_inv_view-3Fid-3D4471",
       spf: "pass", dkim: "pass", dmarc: "none", phishScore: 34, spamScore: 9, mitre: "T1566.002", tactic: "Initial Access",
       description: "A mail titled Invoice Q3-4471 was delivered to n.harel from accounts@supplier-invoices-nexa.com with a link to the supplier portal.",
@@ -347,7 +347,7 @@ export function buildMultiHostIntrusionScenario(
     }),
     csDns({
       ...csWs, id: "evt_mhi_ws0c_dns_portal", ts: T(10 * SEC), severity: "low",
-      domain: "supplier-invoices-nexa.com", resolvedIp: "91.215.85.142",
+      domain: "supplier-invoices-nexa.com", resolvedIp: "203.0.113.145",
       processName: "chrome.exe", pid: PID.ws_chrome, processPath: CHROME_PATH, parentName: "explorer.exe", parentPid: PID.ws_explorer,
       description: "chrome.exe on FIN-WS-08 resolved supplier-invoices-nexa.com.",
     }),
@@ -574,7 +574,7 @@ export function buildMultiHostIntrusionScenario(
   const iocs: IOC[] = [
     { type: "domain", value: c2, first_seen: J(3 * MIN + 40 * SEC, "ws4"), last_seen: J(4 * MIN + 30 * SEC, "ws6"), reputation: "malicious", tags: ["c2", "cobalt-strike"] },
     { type: "domain", value: "supplier-invoices-nexa.com", first_seen: T(-3 * MIN - 20 * SEC), last_seen: J(0, "ws1"), reputation: "malicious", tags: ["lookalike", "phishing-lure"] },
-    { type: "ip", value: "91.215.85.142", first_seen: J(0, "ws1"), last_seen: J(0, "ws1"), reputation: "malicious", tags: ["lure-hosting"] },
+    { type: "ip", value: "203.0.113.145", first_seen: J(0, "ws1"), last_seen: J(0, "ws1"), reputation: "malicious", tags: ["lure-hosting"] },
     { type: "sha256", value: macroDocHash, first_seen: J(0, "ws1"), last_seen: T(2 * MIN + 50 * SEC), reputation: "malicious", tags: ["macro-document", "docm"] },
     { type: "domain", value: exfilHost, first_seen: J(41 * MIN, "bk5"), last_seen: J(41 * MIN + 30 * SEC, "bk6"), reputation: "malicious", tags: ["exfil", "cloud-storage"] },
     { type: "sha256", value: rcloneHash, first_seen: J(34 * MIN, "bk4"), last_seen: J(43 * MIN, "bk7"), reputation: "malicious", tags: ["rclone", "exfil", "renamed"] },

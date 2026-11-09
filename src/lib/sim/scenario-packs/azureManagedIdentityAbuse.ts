@@ -55,7 +55,7 @@ export function buildAzureManagedIdentityAbuseScenario(
   const iocs: IOC[] = [
     {
       type: "ip",
-      value: attackerIp, // 45.155.205.211, drives the credential-add, sign-ins and Azure operations
+      value: attackerIp, // 203.0.113.211, drives the credential-add, sign-ins and Azure operations
       first_seen: T(0),
       last_seen: T(22 * MIN),
       reputation: "malicious",
@@ -128,7 +128,7 @@ export function buildAzureManagedIdentityAbuseScenario(
       ],
       answer: "actor_ip_change",
       explanation:
-        "The operation is identical in both, that is the whole point, and why the Operation value proves nothing on its own. The discriminators are provenance and authorization. In amia_00 the Actor is a named human (d.almeida) on a recorded change (CHG-2211), from the Azure DevOps hosted-agent address the billing pipeline always uses. In amia_01 the Actor is the workload identity webjob-ingest-prod (Actor.Type 2, a service principal), from 45.155.205.211, with no change behind it. (b) is false, both read 'Add service principal credentials.'; there is no separate 'unauthorized' operation. (c) is false, the malicious record is ResultStatus Success; it worked. (d) is false, both target service principals; the benign one modifies sp-terraform-cicd.",
+        "The operation is identical in both, that is the whole point, and why the Operation value proves nothing on its own. The discriminators are provenance and authorization. In amia_00 the Actor is a named human (d.almeida) on a recorded change (CHG-2211), from the Azure DevOps hosted-agent address the billing pipeline always uses. In amia_01 the Actor is the workload identity webjob-ingest-prod (Actor.Type 2, a service principal), from 203.0.113.211, with no change behind it. (b) is false, both read 'Add service principal credentials.'; there is no separate 'unauthorized' operation. (c) is false, the malicious record is ResultStatus Success; it worked. (d) is false, both target service principals; the benign one modifies sp-terraform-cicd.",
     },
     {
       id: "amia_q3",
@@ -174,12 +174,12 @@ export function buildAzureManagedIdentityAbuseScenario(
       options: [
         { value: "revoke_secret", label: "Remove the attacker-added client secret (keyId b7e42c8a…) from svc-billing-connector and revoke its active tokens" },
         { value: "undo_role", label: "Reverse the roleAssignments/write and rotate the Key Vault secret and Storage keys the identity read" },
-        { value: "block_ip_only", label: "Block 45.155.205.211 at the network edge, cutting the address ends the incident on its own" },
+        { value: "block_ip_only", label: "Block 203.0.113.211 at the network edge, cutting the address ends the incident on its own" },
         { value: "reset_engineer", label: "Reset the platform engineer d.almeida's password, since the audit log shows that account adding a service-principal secret" },
       ],
       answer: ["revoke_secret", "undo_role"],
       explanation:
-        "Two things must be undone: the factor the attacker added and the entitlement they granted. Removing the attacker-added client secret (keyId b7e42c8a…) and revoking the identity's tokens kills the authentication path, and reversing the roleAssignments/write plus rotating the exposed Key Vault secret and Storage keys removes the standing access and the credentials already read. Blocking 45.155.205.211 alone (c) fails because the added secret works from any address and the role assignment survives regardless of source IP, it is a useful stop-gap, not containment. Resetting d.almeida (d) targets the BENIGN control: amia_00 is a sanctioned rotation by a named engineer on an approved change, and the malicious secret-add (amia_01) was performed by the workload identity webjob-ingest-prod, not by that person.",
+        "Two things must be undone: the factor the attacker added and the entitlement they granted. Removing the attacker-added client secret (keyId b7e42c8a…) and revoking the identity's tokens kills the authentication path, and reversing the roleAssignments/write plus rotating the exposed Key Vault secret and Storage keys removes the standing access and the credentials already read. Blocking 203.0.113.211 alone (c) fails because the added secret works from any address and the role assignment survives regardless of source IP, it is a useful stop-gap, not containment. Resetting d.almeida (d) targets the BENIGN control: amia_00 is a sanctioned rotation by a named engineer on an approved change, and the malicious secret-add (amia_01) was performed by the workload identity webjob-ingest-prod, not by that person.",
     },
   ];
 
@@ -190,7 +190,7 @@ export function buildAzureManagedIdentityAbuseScenario(
     attack_kind: "cloud_privilege_escalation",
     briefing:
       "Microsoft Graph Security raised a High incident in the nexacorp tenant: the automation identity svc-billing-connector began authenticating from an unfamiliar address and reached Key Vault and Storage in the prod-analytics subscription within minutes. It normally runs only from the billing release pipeline. Work out how it started signing in from there, what it read, and how far it went before you contain it.",
-    narrative: `The operator already controlled a workload in the nexacorp tenant whose managed identity, webjob-ingest-prod, held a permission to write application credentials. How they reached that workload is out of scope; what they did with the permission is the case. The one trace of it is a token mismatch: at 01:11:30 the managed identity was issued a Microsoft Graph token at its own Azure address (20.50.73.84), and thirty seconds later that identity's token was in use from 45.155.205.211, an address no Azure workload of the tenant uses.
+    narrative: `The operator already controlled a workload in the nexacorp tenant whose managed identity, webjob-ingest-prod, held a permission to write application credentials. How they reached that workload is out of scope; what they did with the permission is the case. The one trace of it is a token mismatch: at 01:11:30 the managed identity was issued a Microsoft Graph token at its own Azure address (20.50.73.84), and thirty seconds later that identity's token was in use from 203.0.113.211, an address no Azure workload of the tenant uses.
 
 At 01:12 they used it for the quiet pivot. An Entra audit line, "Add service principal credentials", appended a new client secret to an EXISTING app registration, svc-billing-connector, driven from 45.155.205.211. Nothing looked created: no new app, no consent prompt. But svc-billing-connector was over-permissioned: it already held Owner on the prod subscription, and it now had a secret the operator controlled. Its normal pattern, visible on 27 and 28 August, is a 03:05 sign-in from the Azure DevOps hosted agent 13.107.42.14 with its long-lived secret.
 

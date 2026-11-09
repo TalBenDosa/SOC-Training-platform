@@ -68,7 +68,7 @@ export function buildBecWireFraudScenario(
     name: "Priya Nair",
     sam: "p.nair",
     title: "Accounts Payable Specialist",
-    corpIp: "81.174.88.14", // her London corporate egress
+    corpIp: "198.51.100.14", // her London corporate egress
   };
 
   // The real CFO the attacker impersonates. His genuine account is on nexacorp.com.
@@ -76,7 +76,7 @@ export function buildBecWireFraudScenario(
     email: "david.okonkwo@nexacorp.com",
     name: "David Okonkwo",
     title: "Chief Financial Officer",
-    corpIp: "81.174.88.27", // his usual London corporate egress
+    corpIp: "198.51.100.27", // his usual London corporate egress
   };
 
   // The attacker infrastructure: a lookalike, newly-registered domain, a sender
@@ -84,7 +84,7 @@ export function buildBecWireFraudScenario(
   const lookalikeDomain = "nexacorp-finance.com";      // vs the real nexacorp.com
   const impostorFrom = `david.okonkwo@${lookalikeDomain}`; // header (P2) From
   const impostorEnvelope = `bounce-svc@mail.${lookalikeDomain}`; // envelope (P1)
-  const senderIp = "102.89.44.19";                     // West-Africa hosting egress
+  const senderIp = "203.0.113.19";                     // West-Africa hosting egress
   const senderAsn = 29465;
   const senderAsnOrg = "MTN-NIGERIA-Plc";
   const paymentLink = `https://${lookalikeDomain}/secure/beneficiary-update`;
@@ -295,7 +295,7 @@ export function buildBecWireFraudScenario(
       mitre_tactic: "Initial Access",
       incident_id: INCIDENT,
       description:
-        "The Unified Audit Log recorded the wire-request message delivered to p.nair's mailbox from 102.89.44.19, with a button linking to nexacorp-finance.com/secure/beneficiary-update, the click target the wire lure depends on.",
+        "The Unified Audit Log recorded the wire-request message delivered to p.nair's mailbox from 203.0.113.19, with a button linking to nexacorp-finance.com/secure/beneficiary-update, the click target the wire lure depends on.",
       network: { url: paymentLink, domain: lookalikeDomain, method: "GET" },
       raw: {
         "data.office365.Operation": "TIMailData",
@@ -485,7 +485,7 @@ export function buildBecWireFraudScenario(
     },
     {
       type: "ip",
-      value: senderIp, // 102.89.44.19, the hosting-ASN egress the mail was sent from
+      value: senderIp, // 203.0.113.19, the hosting-ASN egress the mail was sent from
       first_seen: T(0),
       last_seen: T(6 * MIN),
       reputation: "malicious",
@@ -537,7 +537,7 @@ export function buildBecWireFraudScenario(
         { value: "display_envelope_auth", label: "The CFO display name over a lookalike-domain From address, a P1 envelope sender that disagrees with the P2 header From, and SPF, DKIM and DMARC at fail or none" },
         { value: "subject_urgency", label: "The URGENT subject and same-day deadline, which is the language pattern Defender's anti-phish policy scores as executive impersonation in a payment request" },
         { value: "attachment_present", label: "The attached wire-instructions PDF, since a genuine finance approval routes through the purchase-order system and would not carry the beneficiary bank details as a file" },
-        { value: "geo_of_sender", label: "The sending IP 102.89.44.19 sits in a different country from the CFO, and any message that arrives from abroad is by definition spoofed" },
+        { value: "geo_of_sender", label: "The sending IP 203.0.113.19 sits in a different country from the CFO, and any message that arrives from abroad is by definition spoofed" },
       ],
       answer: "display_envelope_auth",
       xp: 55,

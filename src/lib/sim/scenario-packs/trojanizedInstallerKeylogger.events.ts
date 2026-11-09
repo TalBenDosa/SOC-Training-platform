@@ -25,7 +25,7 @@ export function trojanizedInstallerKeyloggerScenarioEvents() {
   const downloadSite = "pdf-tools-free.io";
   const downloadIp = "198.51.100.67";
   const c2 = "stat-collect-eu.com";
-  const c2Ip = "85.209.11.37";     // this story's own collection host
+  const c2Ip = "203.0.113.70";     // this story's own collection host
 
   const installerHash = makeSha256("swiftpdf_setup_trojanized_installer_2026");
   const keyloggerHash = makeSha256("winupd_helper_keylogger_binary_2026");
@@ -186,7 +186,7 @@ export function trojanizedInstallerKeyloggerScenarioEvents() {
     }),
     loggerConnect("evt_tik_06c_connect_c2", 10 * MIN),
     exfilPost("evt_tik_08a_exfil", 10 * MIN + 1_000, "high",
-      "At 10:15 LAP-2290 POSTed about 4 KB to stat-collect-eu.com/v1/report (85.209.11.37) as NEXACORP\\y.karni, allowed under the category unknown."),
+      "At 10:15 LAP-2290 POSTed about 4 KB to stat-collect-eu.com/v1/report (203.0.113.70) as NEXACORP\\y.karni, allowed under the category unknown."),
 
     // 7. A local buffer file grows in the same folder (no hash, a growing data buffer).
     csFile({
@@ -201,11 +201,11 @@ export function trojanizedInstallerKeyloggerScenarioEvents() {
     // 8. The batches leave the building every ten minutes, small, regular POSTs. (PAN emitter)
     // ---------------------------------------------------------------------
     exfilPost("evt_tik_08b_exfil", 20 * MIN + 1_000, "high",
-      "At 10:25 LAP-2290 POSTed about 4 KB to stat-collect-eu.com/v1/report (85.209.11.37) as NEXACORP\\y.karni."),
+      "At 10:25 LAP-2290 POSTed about 4 KB to stat-collect-eu.com/v1/report (203.0.113.70) as NEXACORP\\y.karni."),
     exfilPost("evt_tik_08c_exfil", 30 * MIN + 1_000, "high",
-      "At 10:35 LAP-2290 POSTed about 4 KB to stat-collect-eu.com/v1/report (85.209.11.37) as NEXACORP\\y.karni."),
+      "At 10:35 LAP-2290 POSTed about 4 KB to stat-collect-eu.com/v1/report (203.0.113.70) as NEXACORP\\y.karni."),
     exfilPost("evt_tik_08_exfil", 40 * MIN, "critical",
-      "At 10:45 LAP-2290 POSTed about 4 KB to stat-collect-eu.com/v1/report (85.209.11.37), as NEXACORP\\y.karni, allowed under the category unknown. The fourth identical POST at ten-minute intervals."),
+      "At 10:45 LAP-2290 POSTed about 4 KB to stat-collect-eu.com/v1/report (203.0.113.70), as NEXACORP\\y.karni, allowed under the category unknown. The fourth identical POST at ten-minute intervals."),
 
     // ---------------------------------------------------------------------
     // 9. The detection that opened the ticket - Falcon DetectionSummaryEvent,

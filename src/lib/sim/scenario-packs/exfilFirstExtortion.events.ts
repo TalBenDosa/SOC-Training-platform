@@ -35,7 +35,7 @@ export function exfilFirstExtortionScenarioEvents() {
   const megaNode2 = { domain: "gfs302n108.userstorage.mega.co.nz", ip: "31.216.148.31" };
   const megaNode3 = { domain: "gfs270n155.userstorage.mega.co.nz", ip: "31.216.148.44" };
   // The remote-session tool the attacker's interactive session runs through, and its relay.
-  const relay = { domain: "relay-3f82a1c0.net.anydesk.com", ip: "195.181.170.44" };
+  const relay = { domain: "relay-3f82a1c0.net.anydesk.com", ip: "203.0.113.45" };
 
   const robocopyHash = makeSha256("windows_system32_robocopy_exe_signed_microsoft_2026");
   const archiveHash = makeSha256("nexacorp_adobe_arm_cache_7z_portable_2026");
@@ -306,6 +306,8 @@ export function exfilFirstExtortionScenarioEvents() {
     {
       id: "evt_efe_08a_extortion_email", ts: T(2 * HOUR + 33 * MIN), source: "email_gateway", vendor: "Microsoft Defender for Office 365",
       event_type: "email_received", severity: "high", user_email: "security@nexacorp.com", incident_id: INCIDENT,
+      // Proton's own outbound relay (185.70.40.0/22): the real sender of mail from proton.me (R5).
+      src_ip: "185.70.43.17",
       description: "An external sender delivered a message to security@nexacorp.com at 03:38 referencing a volume of NexaCorp client records and linking to a leak-site address.",
       raw: {
         "email.from.address": "recovery.desk@proton.me",

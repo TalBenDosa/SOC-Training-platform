@@ -75,7 +75,7 @@ export function buildThreatIntelHuntScenario(scenarioId = "threat-intel-hunt-202
 
   // ── The Recorded Future indicator set (the campaign IOCs) ──────────────────
   const c2Domain = "static-cdn-sync.cyou";      // live C2 domain
-  const c2Ip = "193.42.108.77";                 // the IP the C2 domain resolves to
+  const c2Ip = "203.0.113.78";                 // the IP the C2 domain resolves to
   const implantHash = makeSha256("threat_intel_hunt_systembc_implant_2026");
   const implantPath = `C:\\Users\\${victim.sam}\\AppData\\Roaming\\SysCache\\winsyncsvc.exe`;
   const followOnHash = "eaf86a8817d28361491a0c3b4b20948a7228d40281dfd90158d1576abb8efb91";
@@ -83,7 +83,7 @@ export function buildThreatIntelHuntScenario(scenarioId = "threat-intel-hunt-202
 
   // The stale indicator: a former C2 from the same campaign, now sinkholed.
   const staleDomain = "telemetry-sync-cdn.top";
-  const sinkholeIp = "184.105.247.6";           // a research sinkhole address
+  const sinkholeIp = "203.0.113.6";           // a research sinkhole address
 
   const malwareUa = "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1)";
   const implantPid = 7712;
@@ -353,7 +353,7 @@ export function buildThreatIntelHuntScenario(scenarioId = "threat-intel-hunt-202
     },
     {
       type: "ip",
-      value: c2Ip, // 193.42.108.77, the IP the live C2 resolves to
+      value: c2Ip, // 203.0.113.78, the IP the live C2 resolves to
       first_seen: T(-10 * MIN),
       last_seen: T(18 * MIN),
       reputation: "malicious",
@@ -496,11 +496,11 @@ export function buildThreatIntelHuntScenario(scenarioId = "threat-intel-hunt-202
     attack_kind: "threat_hunt",
     briefing:
       "An intel provider pushed a new list of network destinations and a file fingerprint linked to an active operation. Nothing has alarmed yet; this is a proactive check. Work through the environment for those items and decide which of the machines that match, if any, is genuinely reaching attacker-run systems right now.",
-    narrative: `This case did not start with an alert. At 09:00 a Recorded Future risk-list update promoted a small indicator set to high risk (Risk Score 92/99 for the domain): the domain static-cdn-sync.cyou, its hosting IP 193.42.108.77, and a malware file hash, all tied to the active GLASSTHORN campaign and the SystemBC proxy-implant family. The same list carried a related former C2, telemetry-sync-cdn.top, scored far lower (45) and tagged as a sinkhole name. None of this was a detection in the estate: it was context, and the job was to sweep for it.
+    narrative: `This case did not start with an alert. At 09:00 a Recorded Future risk-list update promoted a small indicator set to high risk (Risk Score 92/99 for the domain): the domain static-cdn-sync.cyou, its hosting IP 203.0.113.78, and a malware file hash, all tied to the active GLASSTHORN campaign and the SystemBC proxy-implant family. The same list carried a related former C2, telemetry-sync-cdn.top, scored far lower (45) and tagged as a sinkhole name. None of this was a detection in the estate: it was context, and the job was to sweep for it.
 
-Sweeping the domains through the Windows DNS analytic log and Falcon's DNS events returned two hosts. The first, from the day before, was WKS-NEXA-112 (r.okafor) resolving telemetry-sync-cdn.top in a browser, but that domain answered with 184.105.247.6, a research sinkhole, and nothing else on that host followed it: no callbacks, no implant hash. That is a stale indicator, an IOC that matched but points at seized infrastructure, not a live compromise. It is the control the whole case turns on, and it is its own case.
+Sweeping the domains through the Windows DNS analytic log and Falcon's DNS events returned two hosts. The first, from the day before, was WKS-NEXA-112 (r.okafor) resolving telemetry-sync-cdn.top in a browser, but that domain answered with 203.0.113.6, a research sinkhole, and nothing else on that host followed it: no callbacks, no implant hash. That is a stale indicator, an IOC that matched but points at seized infrastructure, not a live compromise. It is the control the whole case turns on, and it is its own case.
 
-The second hit was different. WKS-NEXA-238, the workstation of accounts-payable clerk d.mercer, resolved static-cdn-sync.cyou to exactly 193.42.108.77, the domain-and-IP pairing named in the feed. The sweep led back through the host's history. On 29 August at 13:12 a file named winsyncsvc.exe landed in d.mercer's roaming profile (AppData\\Roaming\\SysCache) and a Run-key value SysCacheSync was set to start it; how the file first arrived is outside the telemetry window. At 08:41 on 31 August d.mercer logged on, explorer.exe started the Run-key target, and Falcon recorded winsyncsvc.exe, unsigned, with a SHA256 equal to the feed's malware hash. Nine minutes later, at 08:50, the process resolved the C2 domain and called out; the Zscaler proxy shows recurring HTTPS GETs to that domain and IP every 6m02s (08:50:06, 08:56:08, 09:02:10, 09:08:12, 09:14:14): 642 to 656 bytes each, same URL path, same non-browser user agent, the even cadence and constant size of an automated callback, not a person browsing. At 09:15 one session broke the pattern with a 1.82 MB download from a /files path on the same host, and winsyncsvc.exe wrote the result, u.bin, to the user's Temp folder: the channel pulling a follow-on file down (Ingress Tool Transfer). Nothing in the window executes it.
+The second hit was different. WKS-NEXA-238, the workstation of accounts-payable clerk d.mercer, resolved static-cdn-sync.cyou to exactly 203.0.113.78, the domain-and-IP pairing named in the feed. The sweep led back through the host's history. On 29 August at 13:12 a file named winsyncsvc.exe landed in d.mercer's roaming profile (AppData\\Roaming\\SysCache) and a Run-key value SysCacheSync was set to start it; how the file first arrived is outside the telemetry window. At 08:41 on 31 August d.mercer logged on, explorer.exe started the Run-key target, and Falcon recorded winsyncsvc.exe, unsigned, with a SHA256 equal to the feed's malware hash. Nine minutes later, at 08:50, the process resolved the C2 domain and called out; the Zscaler proxy shows recurring HTTPS GETs to that domain and IP every 6m02s (08:50:06, 08:56:08, 09:02:10, 09:08:12, 09:14:14): 642 to 656 bytes each, same URL path, same non-browser user agent, the even cadence and constant size of an automated callback, not a person browsing. At 09:15 one session broke the pattern with a 1.82 MB download from a /files path on the same host, and winsyncsvc.exe wrote the result, u.bin, to the user's Temp folder: the channel pulling a follow-on file down (Ingress Tool Transfer). Nothing in the window executes it.
 
 At 09:18 Falcon raised a Critical detection on WKS-NEXA-238 correlating the on-disk hash, the callbacks and the flagged infrastructure into one confirmed compromise. Read end to end, the hunt did exactly what a hunt is for: it took external intelligence, validated it against the estate, and separated a genuine active infection on WKS-NEXA-238 from a stale, sinkholed match on WKS-NEXA-112, the same "an indicator matched" shape with opposite verdicts.`,
     learning_objectives: [
