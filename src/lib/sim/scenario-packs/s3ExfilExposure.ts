@@ -42,6 +42,7 @@ import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/li
 import { cloudTrailEvent, guardDutyFinding } from "@/lib/sim/emitters/cloudtrail";
 import { githubAudit } from "@/lib/sim/emitters/github";
 import { awsCloudWatchAlarm } from "./awsCloudWatchAlarm";
+import { placeDocAddresses, PLACES } from "./docGeo";
 
 export function buildS3ExfilExposureScenario(
   scenarioId = "s3-exfil-exposure-2026",
@@ -399,6 +400,8 @@ export function buildS3ExfilExposureScenario(
     },
   ];
 
+  // Where this story puts its documentation addresses (docGeo.ts, R5 with coherent geography).
+  placeDocAddresses(events, { "203.0.113.98": PLACES.amsterdam, "203.0.113.233": PLACES.amsterdam });
   return {
     scenario_id: scenarioId,
     title: "GuardDuty finding on MedCore's patient exports bucket",

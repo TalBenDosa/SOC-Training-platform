@@ -41,6 +41,7 @@ import { fgVpn } from "@/lib/sim/emitters/fortigate";
 import { sysmonProcess, sysmonFile, sysmonDriver } from "@/lib/sim/emitters/sysmon";
 import { mdeProcess } from "@/lib/sim/emitters/mde";
 import { winLogon, winServiceInstall, winDetailedShareAccess, domainSidFor } from "@/lib/sim/emitters/windowsSecurity";
+import { placeDocAddresses, PLACES } from "./docGeo";
 
 export function buildDestructiveWiperScenario(
   scenarioId = "destructive-wiper-2026",
@@ -526,6 +527,8 @@ export function buildDestructiveWiperScenario(
     },
   ];
 
+  // Where this story puts its documentation addresses (docGeo.ts, R5 with coherent geography).
+  placeDocAddresses(events, { "203.0.113.80": PLACES.lagos });
   return {
     scenario_id: scenarioId,
     title: "Critical detection and unbootable machines at Vantage Industrial",

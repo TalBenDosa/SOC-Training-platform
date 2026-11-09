@@ -16,6 +16,7 @@ import { m365Operation } from "@/lib/sim/emitters/m365";
 import { winLogon } from "@/lib/sim/emitters/windowsSecurity";
 import { entraObjectId } from "@/lib/logs/native/sources/_identity-common";
 import { makeCtx } from "@/lib/logs/native/ctx";
+import { placeDocAddresses, PLACES } from "./docGeo";
 
 /** Telemetry half of `buildHelpdeskMfaResetScenario`: the events and the story title, no answer key. */
 export function helpdeskMfaResetScenarioEvents() {
@@ -164,7 +165,7 @@ export function helpdeskMfaResetScenarioEvents() {
       shortDescription: "Locked out, lost phone, needs password and MFA reset", callerId: victim.email, severity: "low",
       extra: {
         // The same record as the "New" row: one creation time (R4), the same envelope (R2).
-        "servicenow.category": "Access", "servicenow.subcategory": "Password Reset", "servicenow.contact_type": "Phone",
+        "servicenow.category": "Access", "servicenow.contact_type": "Phone",
         "servicenow.priority": "3 - Moderate", "servicenow.urgency": "2 - High", "servicenow.impact": "3 - Low",
         "servicenow.opened_by": helpdesk.email, "servicenow.opened_at": "2026-07-14 09:41:00", "servicenow.sys_created_on": "2026-07-14 09:41:00",
         "servicenow.close_code": "Solved (Permanently)",
@@ -300,5 +301,7 @@ export function helpdeskMfaResetScenarioEvents() {
   // (correlation key; also lets the EDR console associate the identity-plane case).
   for (const e of events) e.incident_id = INCIDENT;
 
+  // Where this story puts its documentation addresses (docGeo.ts, R5 with coherent geography).
+  placeDocAddresses(events, { "203.0.113.35": PLACES.amsterdam });
   return { title: "Routine MFA reset ticket and two sign-ins", events, T, MIN, SEC, victim, helpdesk, attackerIp, vdiHost, forwardTo, callerNumber };
 }

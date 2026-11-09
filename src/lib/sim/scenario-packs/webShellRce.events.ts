@@ -13,6 +13,7 @@ import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
 import { mdeProcess, mdeFile, mdeAlert } from "@/lib/sim/emitters/mde";
 import { panConnection } from "@/lib/sim/emitters/paloalto";
 import { infobloxDns } from "./nativeRecords.events";
+import { placeDocAddresses, PLACES } from "./docGeo";
 
 /** Telemetry half of `buildWebShellRceScenario`: the events and the story title, no answer key. */
 export function webShellRceScenarioEvents() {
@@ -1097,5 +1098,7 @@ export function webShellRceScenarioEvents() {
   // Every event belongs to the one incident.
   for (const e of events) e.incident_id = INCIDENT;
 
+  // Where this story puts its addresses: the country the WAF logs as httpRequest.country (docGeo.ts, R5).
+  placeDocAddresses(events, { [atkA]: PLACES.amsterdam, [atkB]: PLACES.amsterdam, [atkC]: PLACES.moscow, [scannerIp]: PLACES.ashburn });
   return { title: "WAF blocks and an EDR alert on the shop", events, T, MIN, web, atkA, atkB, atkC, c2Ip, c2Dom, shellHash, spoofHash };
 }

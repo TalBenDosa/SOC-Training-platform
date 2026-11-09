@@ -50,6 +50,7 @@ import { csProcess, csAlert, csDns, csNetwork, csFile } from "@/lib/sim/emitters
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
 import { m365Operation } from "@/lib/sim/emitters/m365";
 import { sentinelAlert } from "@/lib/sim/emitters/sentinel";
+import { placeDocAddresses, PLACES } from "./docGeo";
 
 export function buildEmailBombHelpdeskScenario(
   scenarioId = "email-bomb-helpdesk-2026",
@@ -553,6 +554,8 @@ export function buildEmailBombHelpdeskScenario(
     },
   ];
 
+  // Where this story puts its documentation addresses (docGeo.ts, R5 with coherent geography).
+  placeDocAddresses(events, { "203.0.113.36": PLACES.amsterdam });
   return {
     scenario_id: scenarioId,
     title: "Remote-support session on an accounts payable workstation",

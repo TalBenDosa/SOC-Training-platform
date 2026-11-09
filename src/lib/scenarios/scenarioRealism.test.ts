@@ -64,6 +64,14 @@ describe("scenario log realism (R3, R5, R8, R10)", () => {
     expect([...new Set(bad)]).toEqual([]);
   });
 
+  it("R5: a documentation address is placed where its story says, not in the default map's Shenzhen", () => {
+    const bad: string[] = [];
+    for (const { sc, b } of all) for (const e of b.events) {
+      if (/Shenzhen/.test(JSON.stringify([e.geo, e.raw]))) bad.push(`${sc.slug} ${e.id}`);
+    }
+    expect(bad).toEqual([]);
+  });
+
   it("R8: severity alone never separates attack rows from the rest", () => {
     const rank = { informational: 0, low: 1, medium: 2, high: 3, critical: 4 } as const;
     const bad: string[] = [];

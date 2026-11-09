@@ -54,6 +54,7 @@ import { entraSignIn } from "@/lib/sim/emitters/entra";
 import { m365Operation } from "@/lib/sim/emitters/m365";
 import { sentinelUeba } from "@/lib/sim/emitters/sentinel";
 import { mdeProcess, mdeFile, mdeDns, mdeNetwork } from "@/lib/sim/emitters/mde";
+import { placeDocAddresses, PLACES } from "./docGeo";
 
 export function buildUebaCompromisedAccountScenario(
   scenarioId = "ueba-compromised-account-2026",
@@ -581,6 +582,8 @@ export function buildUebaCompromisedAccountScenario(
     },
   ];
 
+  // Where this story puts its documentation addresses (docGeo.ts, R5 with coherent geography).
+  placeDocAddresses(events, { "203.0.113.73": PLACES.sofia });
   return {
     scenario_id: scenarioId,
     title: "Sentinel risk score raised for a Finance manager",

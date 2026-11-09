@@ -41,7 +41,7 @@ export function esxiRansomwareScenarioEvents() {
   // FortiGate SSL-VPN tunnel-up record for r.okonkwo (same shape as the 21:40 login).
   const vpnTunnelUp = (id: string, ts: string, o: { remip: string; tunnelip: string; country: string; city: string; lat: number; lon: number; tunnelid: string; description: string }): TelemetryEvent => ({
     id, ts, source: "vpn", vendor: "FortiGate SSL-VPN", event_type: "vpn_login", hostname: "FG-EDGE-01",
-    user_email: "r.okonkwo@nexacorp.com", src_ip: o.remip, dst_ip: "192.0.2.150", dst_port: 443, protocol: "tcp",
+    user_email: "r.okonkwo@nexacorp.com", src_ip: o.remip, dst_ip: "192.0.2.43", dst_port: 443, protocol: "tcp",
     geo: { country: o.country, city: o.city, latitude: o.lat, longitude: o.lon }, severity: "informational", description: o.description,
     raw: {
       "data.type": "event",
@@ -203,7 +203,7 @@ export function esxiRansomwareScenarioEvents() {
       hostname: "FG-EDGE-01",
       user_email: "r.okonkwo@nexacorp.com",
       src_ip: attackerIp,
-      dst_ip: "192.0.2.150",
+      dst_ip: "192.0.2.43",
       dst_port: 443,
       protocol: "tcp",
       geo: { country: "Bulgaria", city: "Sofia", latitude: 42.6977, longitude: 23.3219 },

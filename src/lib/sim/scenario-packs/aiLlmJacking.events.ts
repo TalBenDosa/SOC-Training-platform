@@ -12,6 +12,7 @@ import { makeSha256 } from "@/lib/sim/iocs";
 import { hashString } from "@/lib/sim/rng";
 import { cloudTrailEvent, guardDutyFinding, type CloudTrailOpts } from "@/lib/sim/emitters/cloudtrail";
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
+import { placeDocAddresses, PLACES } from "./docGeo";
 
 /** Telemetry half of `buildAiLlmJackingScenario`: the events and the story title, no answer key. */
 export function aiLlmJackingScenarioEvents() {
@@ -595,5 +596,7 @@ export function aiLlmJackingScenarioEvents() {
   // Story order: the log is read oldest-first.
   events.sort((a, b) => a.ts.localeCompare(b.ts));
 
+  // Where this story puts its documentation addresses (docGeo.ts, R5 with coherent geography).
+  placeDocAddresses(events, { "203.0.113.43": PLACES.bucharest, "203.0.113.77": PLACES.amsterdam });
   return { title: "Bedrock cost alert on QuantumBank's AWS account", events, MIN, J, ciUser, akia, changeTicket, ipA, ipB, repo, commitSha, leakPath, tAttach, tPlatform, tRepoAlert, tInvocationLog };
 }

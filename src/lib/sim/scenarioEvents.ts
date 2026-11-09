@@ -9,6 +9,7 @@
  */
 import type { TelemetryEvent } from "./types";
 import { makeSha256 } from "./iocs";
+import { placeDocAddresses, PLACES } from "./scenario-packs/docGeo";
 
 /** Telemetry half of `buildPhishingToExfil`: the events and the story title, no answer key. */
 export function phishingToExfilEvents() {
@@ -4242,6 +4243,8 @@ export function supplyChainScenarioEvents() {
   // Chronological: the integrity gate and the page both read the story in clock order.
   events.sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
 
+  // Where this story puts its documentation addresses (docGeo.ts, R5 with coherent geography).
+  placeDocAddresses(events, { "203.0.113.50": PLACES.singapore, "203.0.113.88": PLACES.amsterdam });
   return { title: "EDR detection on a production server after an update", events, T, MIN, attacker, victim, malDllHash };
 }
 
@@ -5508,6 +5511,8 @@ export function k8sPodEscapeScenarioEvents() {
   // Chronological: the integrity gate and the page both read the story in clock order.
   events.sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
 
+  // Where this story puts its documentation addresses (docGeo.ts, R5 with coherent geography).
+  placeDocAddresses(events, { "203.0.113.71": PLACES.amsterdam });
   return { title: "GuardDuty finding on the production EKS cluster", events, T, MIN };
 }
 

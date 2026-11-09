@@ -14,6 +14,7 @@ import { entraSignIn, entraAudit } from "@/lib/sim/emitters/entra";
 import { sentinelAlert } from "@/lib/sim/emitters/sentinel";
 import { m365Operation } from "@/lib/sim/emitters/m365";
 import { csProcess, csFile, csNetwork } from "@/lib/sim/emitters/crowdstrike";
+import { placeDocAddresses, PLACES } from "./docGeo";
 
 /** Telemetry half of the goldenSaml scenario: the events and the story title, no answer key. */
 export function goldenSamlScenarioEvents() {
@@ -322,5 +323,7 @@ export function goldenSamlScenarioEvents() {
     }), geo: { country: "Germany", city: "Frankfurt" } },
   ];
 
+  // Where this story puts its documentation addresses (docGeo.ts, R5 with coherent geography).
+  placeDocAddresses(events, { "203.0.113.61": PLACES.frankfurt });
   return { title, events, B, T, MIN, SEC, INCIDENT, tenantId, domain, adfs, dc, svcAdfs, svcAdfsSid, issuerUri, relyingParty, ga1, ga2, ga1Sid, benign, attackerIp, corpEgressIp, signingKeyFileHash, dumpToolHash, pivot, ga1UserId, ga2UserId, benignFedTokenId, cx };
 }

@@ -54,6 +54,7 @@ import { makeSha256 } from "@/lib/sim/iocs";
 import { entraSignIn } from "@/lib/sim/emitters/entra";
 import { mdeAlert } from "@/lib/sim/emitters/mde";
 import { m365Operation } from "@/lib/sim/emitters/m365";
+import { placeDocAddresses, PLACES } from "./docGeo";
 
 export function buildMobileMdmCompromiseScenario(
   scenarioId = "mobile-mdm-compromise-2026",
@@ -477,6 +478,8 @@ export function buildMobileMdmCompromiseScenario(
     },
   ];
 
+  // Where this story puts its documentation addresses (docGeo.ts, R5 with coherent geography).
+  placeDocAddresses(events, { "203.0.113.64": PLACES.amsterdam });
   return {
     scenario_id: scenarioId,
     title: "Intune non-compliance for a corporate Android phone",

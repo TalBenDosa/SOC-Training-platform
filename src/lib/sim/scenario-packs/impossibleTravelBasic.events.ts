@@ -29,7 +29,7 @@ export function impossibleTravelBasicScenarioEvents() {
 
   // The corporate remote-access gateway's public address. Anything sourced from
   // the corporate VPN leaves the internet-facing world looking like this.
-  const vpnGatewayPublicIp = "192.0.2.150";
+  const vpnGatewayPublicIp = "192.0.2.44";
   const vpnAssignedIp = "10.99.14.62";
 
   const attackerIp = "203.0.113.117";
@@ -155,7 +155,7 @@ export function impossibleTravelBasicScenarioEvents() {
       src_ip: victim.homeIp,
       severity: "informational",
       description:
-        "d.harel connected to the corporate remote-access VPN from 198.51.100.44 and was assigned 10.99.14.62. The gateway VPN-GW-01 egresses from the public address 192.0.2.150.",
+        "d.harel connected to the corporate remote-access VPN from 198.51.100.44 and was assigned 10.99.14.62. The gateway VPN-GW-01 egresses from the public address 192.0.2.44.",
       raw: {
         "event.action": "vpn-session-established",
         "cisco.asa.message_id": "722022",

@@ -52,6 +52,7 @@ import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/li
 import { githubAudit } from "@/lib/sim/emitters/github";
 import { cloudTrailEvent, guardDutyFinding } from "@/lib/sim/emitters/cloudtrail";
 import { oktaSignIn, oktaMfa } from "@/lib/sim/emitters/okta";
+import { placeDocAddresses, PLACES } from "./docGeo";
 
 export function buildCicdSupplyChainScenario(
   scenarioId = "cicd-supply-chain-2026",
@@ -422,6 +423,8 @@ export function buildCicdSupplyChainScenario(
     },
   ];
 
+  // Where this story puts its documentation addresses (docGeo.ts, R5 with coherent geography).
+  placeDocAddresses(events, { "203.0.113.28": PLACES.amsterdam });
   return {
     scenario_id: scenarioId,
     title: "GuardDuty finding on the payments-api deployment role",

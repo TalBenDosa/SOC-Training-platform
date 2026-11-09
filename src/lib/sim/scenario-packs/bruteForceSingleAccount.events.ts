@@ -22,7 +22,7 @@ export function bruteForceSingleAccountScenarioEvents() {
   const MIN = 60_000;
 
   // The internet-published Remote Desktop server and the file server behind it.
-  const rds = { hostname: "SRV-RDS-02", fqdn: "SRV-RDS-02.nexacorp.com", ip: "10.30.9.20", nat: "192.0.2.150" };
+  const rds = { hostname: "SRV-RDS-02", fqdn: "SRV-RDS-02.nexacorp.com", ip: "10.30.9.20", nat: "192.0.2.41" }; // its own published address, not the office egress (R3 iron rule when the story runs for another company)
   const fileServer = { hostname: "SRV-FS-02", fqdn: "SRV-FS-02.nexacorp.com", ip: "10.30.9.55" };
   const dc = { hostname: "DC01", fqdn: "DC01.nexacorp.com", ip: "10.30.4.10" };
 

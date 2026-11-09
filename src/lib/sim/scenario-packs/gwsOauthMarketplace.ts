@@ -46,6 +46,7 @@
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { fgWeb } from "@/lib/sim/emitters/fortigate";
+import { placeDocAddresses, PLACES } from "./docGeo";
 
 export function buildGwsOauthMarketplaceScenario(
   scenarioId = "gws-oauth-marketplace-2026",
@@ -514,6 +515,8 @@ export function buildGwsOauthMarketplaceScenario(
     },
   ];
 
+  // Where this story puts its documentation addresses (docGeo.ts, R5 with coherent geography).
+  placeDocAddresses(events, { "203.0.113.113": PLACES.ashburn });
   return {
     scenario_id: scenarioId,
     title: "Sensitive-scope app grant alert at RocketStack",

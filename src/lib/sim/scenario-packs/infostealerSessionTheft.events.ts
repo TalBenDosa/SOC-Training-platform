@@ -13,6 +13,7 @@ import { entraSignIn } from "@/lib/sim/emitters/entra";
 import { panWeb, panConnection } from "@/lib/sim/emitters/paloalto";
 import { csProcess, csFile, csAlert, csDns, csNetwork } from "@/lib/sim/emitters/crowdstrike";
 import { m365Operation } from "@/lib/sim/emitters/m365";
+import { placeDocAddresses, PLACES } from "./docGeo";
 
 /** Telemetry half of `buildInfostealerSessionTheftScenario`: the events and the story title, no answer key. */
 export function infostealerSessionTheftScenarioEvents() {
@@ -240,5 +241,7 @@ export function infostealerSessionTheftScenarioEvents() {
   // infostealer→session-replay incident (this is the SIEM↔EDR correlation key).
   for (const e of events) e.incident_id = INCIDENT;
 
+  // Where this story puts its documentation addresses (docGeo.ts, R5 with coherent geography).
+  placeDocAddresses(events, { "203.0.113.100": PLACES.moscow });
   return { title: "Killed process and a new sign-in for one user", events, T, MIN, HOUR, SEC, host, victim, lureDomain, c2Domain, c2Ip, replayIp, installerHash };
 }

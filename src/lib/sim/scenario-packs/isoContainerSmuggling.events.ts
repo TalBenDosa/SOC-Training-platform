@@ -12,6 +12,7 @@ import { makeSha256 } from "@/lib/sim/iocs";
 import { fgWeb } from "@/lib/sim/emitters/fortigate";
 import { csFile, csProcess, csAlert, csDns, csNetwork } from "@/lib/sim/emitters/crowdstrike";
 import { mailDelivered, mailClick, zoneStream } from "./corroboratingTelemetry.events";
+import { placeDocAddresses, PLACES } from "./docGeo";
 
 /** Telemetry half of `buildIsoContainerSmugglingScenario`: the events and the story title, no answer key. */
 export function isoContainerSmugglingScenarioEvents() {
@@ -208,5 +209,7 @@ export function isoContainerSmugglingScenarioEvents() {
   // Every event belongs to the one incident.
   for (const e of events) e.incident_id = INCIDENT;
 
+  // Where this story puts its documentation addresses (docGeo.ts, R5 with coherent geography).
+  placeDocAddresses(events, { "203.0.113.90": PLACES.ashburn, "203.0.113.42": PLACES.amsterdam });
   return { title: "Critical EDR detection after an overdue invoice email", events, T, MIN, host, shareSite, c2, isoHash, payloadHash };
 }
