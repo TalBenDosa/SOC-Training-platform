@@ -587,7 +587,7 @@ export const DATA_STAGING_EXFILTRATION_CHANNELS: RoomExperience = {
           { key: "logid", value: "0000000013", label: "Record type", note: "A forward traffic record: one finished session." },
           { key: "action", value: "accept", label: "Policy result", note: "A policy matched. That says nothing about whether the transfer was a good idea." },
           { key: "srcip", value: "10.40.33.14", label: "Inside host" },
-          { key: "dstname", value: "media.videohost.example", label: "Where to" },
+          { key: "dstname", value: "media.videohost.example", label: "Where to", note: "The firewall's reverse DNS (PTR) lookup of dstip, written only when resolve-ip is on. It is not the name the browser asked for: that one is hostname, and it appears in web filter logs, not in traffic logs." },
           { key: "dstcountry", value: "Germany", note: "Where it's hosted. Cloud services are hosted everywhere, so this is weak on its own." },
           { key: "service", value: "HTTPS", note: "With dstport 443, this is true of almost all web traffic, good or bad." },
           { key: "sentbyte", value: "2,411,724,800", label: "Bytes out", note: "With rcvdbyte, the only pair here that shows direction. Browsing receives far more than it sends. An upload turns that upside down." },
