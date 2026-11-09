@@ -36,7 +36,7 @@ function checkBacked(inv: NonNullable<ReturnType<typeof buildInvestigationFromSt
     if (!byTech) out.push(`detection ${d.technique} "${d.name}" has no SIEM log`);
   }
   for (const p of inv.processes) {
-    if (p.startedAt === "—") continue; // an ancestor stub (explorer/services), shown so the tree connects
+    if (p.startedAt === "-") continue; // an ancestor stub (explorer/services), shown so the tree connects
     // Benign background processes (Teams, OneDrive, …) are host telemetry a real EDR always
     // shows and a SIEM never receives; they carry no detection. Anything flagged must be backed.
     const flagged = p.verdict !== "benign" || inv.detections.some(d => d.pid === p.pid);

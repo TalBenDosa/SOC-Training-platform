@@ -113,7 +113,6 @@ const lsassSigmaAlertEvent: TelemetryEvent = {
     "crowdstrike.SHA256HashData": "dfc35e53d01e0269bc02499c09966477445c8aa7623269d7995156874bef83e6",
     "crowdstrike.TargetProcessImageFileName": "lsass.exe",
     "crowdstrike.DesiredAccess": "2097151",
-    "crowdstrike.CallStackModuleNames": "dbghelp.dll,KERNELBASE.dll,ntdll.dll",
     "crowdstrike.UserName": "SOLVARA\\n.brandt",
     "crowdstrike.ComputerName": "WKS-CLM-1187",
   },
@@ -582,7 +581,7 @@ const sigmaYaraRuleAuthoringRoom = {
           xp: 35,
         },
         {
-          question: "crowdstrike.CallStackModuleNames lists dbghelp.dll among the loaded modules. A colleague proposes tightening the rule's condition to also require dbghelp.dll appear in CallStackModuleNames before firing at all. Based on this room's tuning principles, what is the risk in that specific change?",
+          question: "The host's Falcon timeline also shows an ImageHash event: SysHealthMon.exe loaded dbghelp.dll seconds before this access. A colleague proposes tightening the rule so it fires only when such a dbghelp.dll load is also present. Based on this room's tuning principles, what is the risk in that specific change?",
           options: [
             "Little risk: LSASS dumpers all load dbghelp.dll, so the extra requirement would change almost nothing",
             "Too narrow: dumpers that read LSASS without dbghelp.dll would slip past despite a matching access mask",
@@ -591,7 +590,7 @@ const sigmaYaraRuleAuthoringRoom = {
           ],
           answer: 1,
           explanation:
-            "Hard-requiring one corroborating detail is the too-narrow failure from Reading 1: tools that read LSASS memory without dbghelp.dll (direct syscalls, custom readers) would pass a matching access mask and still never fire. The access-mask selection is the core signal; call-stack modules are corroboration. “LSASS dumpers all load dbghelp.dll” overclaims. That assumption is exactly what makes the change dangerous. “Too broad” inverts the logic: adding an AND requirement can only remove matches, never add them. “Matched with |contains” only changes how the module name is compared; the rule would still need dbghelp.dll present, so the blind spot stays.",
+            "Hard-requiring one corroborating detail is the too-narrow failure from Reading 1: tools that read LSASS memory without dbghelp.dll (direct syscalls, custom readers) would pass a matching access mask and still never fire. The access-mask selection is the core signal; module loads are corroboration. “LSASS dumpers all load dbghelp.dll” overclaims. That assumption is exactly what makes the change dangerous. “Too broad” inverts the logic: adding an AND requirement can only remove matches, never add them. “Matched with |contains” only changes how the module name is compared; the rule would still need dbghelp.dll present, so the blind spot stays.",
           xp: 35,
         },
         {

@@ -181,13 +181,19 @@ describe("fallbacks without a truth table", () => {
     expect(ip.categories).toContain("Malware C2");
   });
 
-  it("an unsigned binary the incident flagged reads malicious in the EDR console AND the drawer", () => {
+  it("an unsigned binary the incident flagged, with no TI record, reads suspicious (not malicious) in the EDR console AND the drawer", () => {
     const sha = "d".repeat(64);
     const ev = { id: "y", ts: "2026-09-01T10:00:00Z", source: "edr", event_type: "process_create", severity: "high",
       process: { pid: 7720, name: "svc.exe", hash: { sha256: sha } }, raw: { "process.code_signature.exists": false, "process.code_signature.trusted": false } } as TelemetryEvent;
-    expect(hashIntel(sha, { event: ev }).verdict).toBe("malicious");
-    expect(hashIntel(sha, { process: { signed: false, flagged: true } }).verdict).toBe("malicious");
-    expect(hashVerdictLabel(hashIntel(sha, { process: { signed: false, flagged: true } }))).toMatch(/^Malicious: \d+ \/ 12 engines/);
+    expect(hashIntel(sha, { event: ev }).verdict).toBe("suspicious");
+    const flagged = hashIntel(sha, { process: { signed: false, flagged: true } });
+    expect(flagged.verdict).toBe("suspicious");
+    expect(flagged.malwareFamily).toBeUndefined();
+    expect(flagged.tags).toEqual([]);
+    expect(hashVerdictLabel(flagged)).toMatch(/^Suspicious: \d+ \/ 12 engines \(no known family\)$/);
+    // The TI data convicts: a named family on the event, or the case's ground truth.
+    expect(hashIntel(sha, { event: { ...ev, raw: { ...ev.raw, "malware.family": "CobaltStrike" } } as TelemetryEvent }).verdict).toBe("malicious");
+    expect(hashIntel(sha, { event: { ...ev, expected_verdict: "tp" } as TelemetryEvent }).verdict).toBe("malicious");
   });
 
   it("Check-Hash button recognises the vendor hash fields (incl. Falcon SHA256String)", () => {

@@ -184,7 +184,7 @@ function HashPanel({ data, onClose }: { data: HashIntelData; onClose: () => void
                 <span className={cn("font-medium w-[140px] shrink-0", eng.detected ? "text-slate-200" : "text-slate-400")}>{eng.name}</span>
                 {eng.detected
                   ? <span className={cn("font-mono truncate", data.verdict === "suspicious" ? "text-neon-amber" : "text-severity-critical")}>{eng.result}</span>
-                  : <span className="text-slate-500">— (no detection)</span>
+                  : <span className="text-slate-500">Undetected</span>
                 }
               </div>
             ))}

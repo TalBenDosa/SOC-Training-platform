@@ -14,7 +14,7 @@
 
   <rect class="old" x="24" y="48" width="440" height="120" rx="10"/>
   <text class="ui t" x="40" y="72" style="fill:#fca5a5">Old, loud C2 — easy to block</text>
-  <text class="ui mono s" x="40" y="96">beacon → 185.4.2.9:4444  (raw IP, odd port)</text>
+  <text class="ui mono s" x="40" y="96">beacon → 203.0.113.29:4444  (raw IP, odd port)</text>
   <text class="ui s" x="40" y="118">Cleartext or obvious. A firewall rule or a</text>
   <text class="ui s" x="40" y="136">threat-intel IP block kills it. Attackers moved on.</text>
   <text class="ui red" x="40" y="158">Detection was easy: bad IP, weird port.</text>

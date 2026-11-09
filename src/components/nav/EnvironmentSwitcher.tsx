@@ -43,7 +43,7 @@ export function EnvironmentSwitcher({ onNavigate }: { onNavigate?: () => void })
   if (claimLoading || !isPlatformAdmin) return null;
 
   const atRoot = orgId === ROOT_ORG_ID;
-  const headerLabel = atRoot ? ROOT_ENVIRONMENT_LABEL : (orgName ?? "—");
+  const headerLabel = atRoot ? ROOT_ENVIRONMENT_LABEL : (orgName ?? "-");
 
   async function switchTo(id: string, isRoot: boolean) {
     if (id === orgId) { setOpen(false); return; }

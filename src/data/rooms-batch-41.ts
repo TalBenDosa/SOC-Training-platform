@@ -423,14 +423,14 @@ const mfaSessionTokenAttacksRoom = {
       question:
         "In the Okta System Log, which field pair together confirm a push notification was genuinely APPROVED by the user, as opposed to merely sent?",
       options: [
-        "okta.eventType: user.session.start, paired with okta.outcome.reason: MFA_REQUIRED",
+        "okta.eventType: policy.evaluate_sign_on, paired with okta.outcome.result: CHALLENGE",
         "okta.eventType: user.authentication.auth_via_mfa, paired with okta.outcome.result: SUCCESS",
         "okta.eventType: device.enrollment.create, paired with okta.outcome.result: SUCCESS",
         "okta.eventType: system.push.send_factor_verify_push, paired with okta.debugContext.debugData.factor: OKTA_VERIFY_PUSH",
       ],
       answer: 1,
       explanation:
-        "user.authentication.auth_via_mfa records the MFA step itself, and outcome.result: SUCCESS on it (with debugData.factor OKTA_VERIFY_PUSH) confirms the push was approved; a rejection is logged as user.mfa.okta_verify.deny_push instead. system.push.send_factor_verify_push only shows that Okta SENT a push, not that anyone answered it. user.session.start with MFA_REQUIRED only shows the password stage was satisfied and a challenge is now pending. device.enrollment.create is a later persistence action, unrelated to confirming the push response itself.",
+        "user.authentication.auth_via_mfa records the MFA step itself, and outcome.result: SUCCESS on it (with debugData.factor OKTA_VERIFY_PUSH) confirms the push was approved; a rejection is logged as user.mfa.okta_verify.deny_push instead. system.push.send_factor_verify_push only shows that Okta SENT a push, not that anyone answered it. policy.evaluate_sign_on with CHALLENGE only shows the password stage was satisfied and the sign-on policy now demands a second factor. device.enrollment.create is a later persistence action, unrelated to confirming the push response itself.",
       xp: 15,
     },
 

@@ -6452,7 +6452,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "edr-detection-investigation",
     "title": "Investigating an EDR Detection: End to End",
-    "description": "Follow one EDR detection from the moment it lands to the moment a host is contained. Covers CrowdStrike Falcon and Microsoft Defender for Endpoint fields (Tactic, Technique, SeverityName, PatternDispositionDescription, ContextBaseFileName, CommandLine, SHA256HashData, DesiredAccess, CallStackModuleNames), how to read a process tree for parent-child anomalies and LOLBins, why sibling behavioral alerts on the same host need to be merged before triage, why a tool's own severity rating is never the analyst's verdict, and the full pivot-scope-contain workflow real investigations actually run.",
+    "description": "Follow one EDR detection from the moment it lands to the moment a host is contained. Covers CrowdStrike Falcon and Microsoft Defender for Endpoint fields (Tactic, Technique, SeverityName, PatternDispositionDescription, ContextBaseFileName, CommandLine, SHA256HashData, DesiredAccess, ImageHash module loads), how to read a process tree for parent-child anomalies and LOLBins, why sibling behavioral alerts on the same host need to be merged before triage, why a tool's own severity rating is never the analyst's verdict, and the full pivot-scope-contain workflow real investigations actually run.",
     "difficulty": "advanced",
     "category": "Endpoint Security",
     "estimatedMinutes": 75,
@@ -7395,7 +7395,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "okta-identity-fundamentals",
     "title": "Okta Identity & Authentication Fundamentals",
-    "description": "The Okta counterpart to Entra ID: how to read the Okta System Log on its own terms, the okta.eventType taxonomy, outcome.result and outcome.reason (including the single field flip that separates a rejected password from an accepted one), securityContext network signals, factor enrollment and MFA types, and the admin/group events attackers target for persistence. Includes a direct, explicit contrast against Entra ID so a student who only knows Microsoft's identity platform doesn't misread an Okta tenant.",
+    "description": "The Okta counterpart to Entra ID: how to read the Okta System Log on its own terms, the okta.eventType taxonomy, outcome.result and outcome.reason (including the record that separates a rejected password from an accepted one), securityContext network signals, factor enrollment and MFA types, and the admin/group events attackers target for persistence. Includes a direct, explicit contrast against Entra ID so a student who only knows Microsoft's identity platform doesn't misread an Okta tenant.",
     "difficulty": "intermediate",
     "category": "Identity",
     "estimatedMinutes": 60,

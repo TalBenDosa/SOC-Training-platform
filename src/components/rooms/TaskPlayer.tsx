@@ -1713,7 +1713,7 @@ function OrderingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
                     : placedItem ? "text-white"
                     : "text-slate-400 italic",
                 )}>
-                  {placedItem ? placedItem.text : "— empty —"}
+                  {placedItem ? placedItem.text : "(empty)"}
                 </span>
                 {(isCorrect || isWrong) && (
                   <>

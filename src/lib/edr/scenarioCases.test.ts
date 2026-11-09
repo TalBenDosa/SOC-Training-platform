@@ -33,7 +33,7 @@ describe("scenario EDR cases", () => {
       const macPaths = c.processes.some(p => /^\/(Applications|Users|Library|System|private|Volumes)\//.test(p.path) || /\.app\//.test(p.path));
       if (!macPaths) continue;
       expect(c.host.os, `${s.slug}/${c.id}`).toMatch(/^macOS/);
-      const inventedBash = c.processes.filter(p => p.name === "bash" && p.startedAt === "—"
+      const inventedBash = c.processes.filter(p => p.name === "bash" && p.startedAt === "-"
         && !s.events.some(e => e.process?.name === "bash" || e.process?.parent_name === "bash"));
       expect(inventedBash.map(p => p.pid), `${s.slug}/${c.id}`).toEqual([]);
     }
@@ -44,7 +44,7 @@ describe("scenario EDR cases", () => {
       const [, host] = c.id.split("@");
       if (!host) continue;
       for (const p of c.processes) {
-        if (p.startedAt === "—") continue; // an ancestor stub
+        if (p.startedAt === "-") continue; // an ancestor stub
         const owners = new Set(s.events.filter(e => e.process?.pid === p.pid).map(e => e.hostname).filter(Boolean));
         if (owners.size) expect([...owners], `${s.slug}/${c.id} pid ${p.pid}`).toContain(host);
       }

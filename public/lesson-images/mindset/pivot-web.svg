@@ -23,7 +23,7 @@
   <!-- core -->
   <rect class="core" x="392" y="176" width="176" height="70" rx="10"/>
   <text class="ui red" x="480" y="204" text-anchor="middle">START: one alert</text>
-  <text class="ui mono s" x="480" y="224" text-anchor="middle">outbound to 185.4.2.9</text>
+  <text class="ui mono s" x="480" y="224" text-anchor="middle">outbound to 203.0.113.29</text>
 
   <!-- nodes -->
   <rect class="node" x="120" y="76" width="200" height="66" rx="8"/>

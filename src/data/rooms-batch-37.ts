@@ -24,7 +24,7 @@ const passwordAcceptedEvent: TelemetryEvent = {
   ts: "2026-05-04T03:12:41.000Z",
   source: "okta",
   vendor: "Okta",
-  event_type: "auth_failure",
+  event_type: "mfa_challenge",
   severity: "high",
   mitre_technique: "T1110.001",
   mitre_tactic: "Credential Access",
@@ -34,12 +34,12 @@ const passwordAcceptedEvent: TelemetryEvent = {
   geo: { country: "Romania", city: "Bucharest" },
   authentication: { method: "PASSWORD", result: "failure" },
   description:
-    "A user.session.start event for n.abara@globallogis.com from 198.51.100.44, arriving after a run of earlier failures from the same address against the same account.",
+    "A policy.evaluate_sign_on event for n.abara@globallogis.com from 198.51.100.44, arriving after a run of earlier failures from the same address against the same account.",
   raw: {
-    "okta.eventType": "user.session.start",
-    "okta.displayMessage": "User login to Okta",
-    "okta.outcome.result": "FAILURE",
-    "okta.outcome.reason": "MFA_REQUIRED",
+    "okta.eventType": "policy.evaluate_sign_on",
+    "okta.displayMessage": "Evaluation of sign-on policy",
+    "okta.outcome.result": "CHALLENGE",
+    "okta.outcome.reason": "Sign-on policy evaluation resulted in CHALLENGE",
     "okta.severity": "INFO",
     "okta.actor.id": "00u7f0abcXyZ912Qk417",
     "okta.actor.type": "User",
@@ -57,12 +57,11 @@ const passwordAcceptedEvent: TelemetryEvent = {
     "okta.securityContext.isp": "Tarnava Hosting SRL",
     "okta.securityContext.isProxy": "false",
     "okta.authenticationContext.authenticationStep": "0",
-    "okta.authenticationContext.credentialType": "PASSWORD",
     "okta.authenticationContext.externalSessionId": "trsA91kQmpTLxV0nFqZ",
     "okta.transaction.id": "ZjnJ4b2X7kQmVt0pRwAAAWsC",
     "okta.debugContext.debugData.requestUri": "/api/v1/authn",
     "okta.debugContext.debugData.threatSuspected": "false",
-    "event.outcome": "failure",
+    "event.outcome": "unknown",
     "source.ip": "198.51.100.44",
     "user.email": "n.abara@globallogis.com",
   },
@@ -113,7 +112,7 @@ const oktaIdentityFundamentalsRoom = {
   id: "okta-identity-fundamentals",
   title: "Okta Identity & Authentication Fundamentals",
   description:
-    "The Okta counterpart to Entra ID: how to read the Okta System Log on its own terms, the okta.eventType taxonomy, outcome.result and outcome.reason (including the single field flip that separates a rejected password from an accepted one), securityContext network signals, factor enrollment and MFA types, and the admin/group events attackers target for persistence. Includes a direct, explicit contrast against Entra ID so a student who only knows Microsoft's identity platform doesn't misread an Okta tenant.",
+    "The Okta counterpart to Entra ID: how to read the Okta System Log on its own terms, the okta.eventType taxonomy, outcome.result and outcome.reason (including the record that separates a rejected password from an accepted one), securityContext network signals, factor enrollment and MFA types, and the admin/group events attackers target for persistence. Includes a direct, explicit contrast against Entra ID so a student who only knows Microsoft's identity platform doesn't misread an Okta tenant.",
   difficulty: "intermediate" as const,
   category: "Identity",
   estimatedMinutes: 60,
@@ -166,22 +165,22 @@ const oktaIdentityFundamentalsRoom = {
       content:
         "The single richest pair of fields in any Okta sign-in event is okta.outcome.result and okta.outcome.reason, and reading them precisely is a core Okta-analyst skill this room is built around.\n\n" +
         "**outcome.result: the top-level verdict.** Common values include SUCCESS, FAILURE, ALLOW, DENY, SKIPPED, and CHALLENGE. On its own this answers only 'did this specific step succeed,' not why, and not how far the overall sign-in transaction actually progressed.\n\n" +
-        "**outcome.reason: the specific cause.** This is where the real detail lives. INVALID_CREDENTIALS usually means a wrong password that stopped the transaction at the first stage, but Okta warns it does not necessarily mean that: a failed second-factor check can carry the same reason, so read it with the eventType. LOCKED_OUT means the account has exceeded its allowed failure count. MFA_REQUIRED is the one every analyst needs to internalise precisely: Okta only ever writes MFA_REQUIRED once the password stage has been satisfied and the policy is now demanding the second factor. A push the user explicitly declines shows up differently by org type: Classic orgs write the event user.mfa.okta_verify.deny_push, while Identity Engine orgs write user.authentication.auth_via_mfa with result FAILURE and reason INVALID_CREDENTIALS. Each of these describes a genuinely different situation, even though several of them can attach to the same broad outcome.result of FAILURE.\n\n" +
-        "**The single field flip that matters most.** Picture a burst of sign-in failures against one account, all reason INVALID_CREDENTIALS, from the same address. If one later attempt in that same burst instead carries reason MFA_REQUIRED, something important changed: the password submitted on that attempt was correct. An analyst who only checks whether a session was ultimately created, and closes the ticket the moment they see no successful login, misses this entirely: the account's password is now known to whoever was making those attempts, even though they never got past the second factor.\n\n" +
+        "**outcome.reason: the specific cause.** This is where the real detail lives. INVALID_CREDENTIALS usually means a wrong password that stopped the transaction at the first stage, but Okta warns it does not necessarily mean that: a failed second-factor check can carry the same reason, so read it with the eventType. LOCKED_OUT means the account has exceeded its allowed failure count. A correct password is not written as a failure at all, and this is the record every analyst needs to internalise precisely: the sign-on policy is evaluated next, and an event policy.evaluate_sign_on with outcome.result CHALLENGE (reason 'Sign-on policy evaluation resulted in CHALLENGE') means the password stage has been satisfied and the policy is now demanding the second factor. A push the user explicitly declines shows up differently by org type: Classic orgs write the event user.mfa.okta_verify.deny_push, while Identity Engine orgs write user.authentication.auth_via_mfa with result FAILURE and reason INVALID_CREDENTIALS. Each of these describes a genuinely different situation, even though several of them sit side by side in the same burst of failures.\n\n" +
+        "**The single field flip that matters most.** Picture a burst of sign-in failures against one account, all reason INVALID_CREDENTIALS, from the same address. If one later attempt from that same address instead shows policy.evaluate_sign_on with result CHALLENGE, something important changed: the password submitted on that attempt was correct. An analyst who only checks whether a session was ultimately created, and closes the ticket the moment they see no successful login, misses this entirely: the account's password is now known to whoever was making those attempts, even though they never got past the second factor.\n\n" +
         "**Corroborating it: the follow-on MFA events, not authenticationStep.** A field that looks like it should help, okta.authenticationContext.authenticationStep, does not: Okta's own API reference documents it as 'the zero-based step number in the authentication pipeline. Currently unused and always set to 0.' It reads 0 on every event, so it cannot show how far a transaction got. The real corroboration is what Okta logs next for the same account and transaction (same externalSessionId / transaction.id): an MFA challenge being sent (for example a system.push.send_factor_verify_push event for an Okta Verify push), then either a denial (such as user.mfa.okta_verify.deny_push) or a successful second-factor event (user.authentication.auth_via_mfa) and a user.session.start with outcome SUCCESS. A push being sent to the user at all independently proves the password stage was passed. Even that last event needs care: despite its name, Okta documents that user.session.start SUCCESS does not prove a usable session was created, because more authentication or a policy denial can follow, so confirm access from the events around it.\n\n" +
-        "**Why this specific reading skill gets its own emphasis.** It is the most common real-world Okta-analyst mistake this room addresses: treating 'the attacker didn't get a session' and 'nothing happened here' as the same conclusion. They are not. A blocked sign-in can still mean a lost credential, and the only way to know is reading outcome.reason together with the MFA events that follow it, not just outcome.result.\n\n" +
+        "**Why this specific reading skill gets its own emphasis.** It is the most common real-world Okta-analyst mistake this room addresses: treating 'the attacker didn't get a session' and 'nothing happened here' as the same conclusion. They are not. A blocked sign-in can still mean a lost credential, and the only way to know is reading eventType, outcome.result and outcome.reason together with the MFA events that follow, not just counting FAILURE rows.\n\n" +
         "**Once a password is confirmed correct.** The password itself is now the lost asset. It works from any address, so blocking one source does not protect it: change it at once, then search the same source and account for anything else done in that window. The second factor that held is not the problem and does not need replacing.",
       diagram:
         "flowchart LR\n" +
         "  A[Sign-in attempt] --> B{Password correct?}\n" +
         "  B -->|No| C[outcome.reason: INVALID_CREDENTIALS\\nno MFA challenge follows]\n" +
-        "  B -->|Yes| D[outcome.reason: MFA_REQUIRED\\nan MFA challenge is sent next]\n" +
+        "  B -->|Yes| D[policy.evaluate_sign_on: CHALLENGE\\nan MFA challenge is sent next]\n" +
         "  D --> E{Second factor satisfied?}\n" +
         "  E -->|No, e.g. the push is denied| F[Session NOT created\\nbut password is now known]\n" +
         "  E -->|Yes| G[Session created]\n",
-      diagramCaption: "The reason field flip from INVALID_CREDENTIALS to MFA_REQUIRED is the tell that the password was correct",
+      diagramCaption: "The flip from user.session.start FAILURE (INVALID_CREDENTIALS) to policy.evaluate_sign_on CHALLENGE is the tell that the password was correct",
       checkpoint: {
-        question: "In a burst of failed Okta sign-ins against one account, one attempt shows outcome.reason MFA_REQUIRED. Which follow-on evidence independently confirms that the password stage really was passed on that attempt?",
+        question: "In a burst of failed Okta sign-ins against one account, one attempt shows policy.evaluate_sign_on with outcome.result CHALLENGE. Which follow-on evidence independently confirms that the password stage really was passed on that attempt?",
         options: [
           "authenticationStep reading 1 instead of 0 on the next event for that account",
           "An Okta Verify push sent to the user for the same transaction seconds later",
@@ -198,16 +197,16 @@ const oktaIdentityFundamentalsRoom = {
       type: "question" as const,
       id: "oktaf-q1",
       question:
-        "A ticket describes an Okta account that received 80 sign-in failures overnight, all outcome.result FAILURE, and zero sessions were ever created. The analyst closes it as 'blocked, no impact.' Based on this room, what is wrong with that closure, if even one of those 80 events carried outcome.reason MFA_REQUIRED rather than INVALID_CREDENTIALS?",
+        "A ticket describes an Okta account that received 80 sign-in failures overnight, all outcome.result FAILURE, and zero sessions were ever created. The analyst closes it as 'blocked, no impact.' Based on this room, what is wrong with that closure, if one more event from the same source, in the middle of the burst, was policy.evaluate_sign_on with outcome.result CHALLENGE?",
       options: [
-        "Nothing is wrong -- MFA_REQUIRED means the MFA stage blocked the attempt, so no password exposure occurred and zero sessions confirms the account was never actually reached",
-        "It ignores that MFA_REQUIRED appears only after the password stage succeeded, so whoever made the attempts now knows the real password even though no session was created",
-        "The closure needs revising only to flag a policy gap -- MFA_REQUIRED means the account has no enrolled factor, so the finding is an enrollment problem rather than credential exposure",
-        "The closure holds, since MFA_REQUIRED in a failing burst most often reflects a legitimate user's autofill retrying a stale credential, with no external party involved",
+        "Nothing is wrong -- CHALLENGE means the MFA stage blocked the attempt, so no password exposure occurred and zero sessions confirms the account was never actually reached",
+        "It ignores that the sign-on policy answers CHALLENGE only after the password stage succeeded, so whoever made the attempts now knows the real password even though no session was created",
+        "The closure needs revising only to flag a policy gap -- CHALLENGE means the account has no enrolled factor, so the finding is an enrollment problem rather than credential exposure",
+        "The closure holds, since a CHALLENGE in a failing burst most often reflects a legitimate user's autofill retrying a stale credential, with no external party involved",
       ],
       answer: 1,
       explanation:
-        "Reading 3 built the whole point of this room around exactly this failure mode: 'blocked' and 'no impact' are not the same fact. A single MFA_REQUIRED reason inside an otherwise-failing burst proves the password was correct at least once, which is a live credential-exposure finding regardless of whether a session was ever created. The MFA stage only runs after primary authentication passed, so it does not mean the password stayed secret. MFA_REQUIRED is a challenge issued after a correct password, not an enrollment-gap signal. And nothing supports assuming benign autofill without checking the source IP and user agent against the account's normal pattern.",
+        "Reading 3 built the whole point of this room around exactly this failure mode: 'blocked' and 'no impact' are not the same fact. A single CHALLENGE inside an otherwise-failing burst proves the password was correct at least once, which is a live credential-exposure finding regardless of whether a session was ever created. The MFA stage only runs after primary authentication passed, so it does not mean the password stayed secret. CHALLENGE is the policy asking for a factor after a correct password, not an enrollment-gap signal. And nothing supports assuming benign autofill without checking the source IP and user agent against the account's normal pattern.",
       xp: 25,
     },
     // ── Reading 4: securityContext ────────────────────────────────────────────
@@ -290,16 +289,16 @@ const oktaIdentityFundamentalsRoom = {
       questions: [
         {
           question:
-            "okta.outcome.result on this event is FAILURE, and a junior analyst files it as 'one more failed guess'. Which field in the event contradicts that reading, and why?",
+            "This event closes a burst of failed sign-ins, and a junior analyst files it as 'one more failed guess'. Which field in the event contradicts that reading, and why?",
           options: [
-            "outcome.reason MFA_REQUIRED -- Okta writes it only after the password has been accepted",
+            "eventType policy.evaluate_sign_on with result CHALLENGE -- the policy asks for a factor only after the password is accepted",
             "authenticationStep 0 -- the attempt stopped at step zero, so the password check failed",
             "threatSuspected false -- Okta judged the request benign, so it was the real user signing in",
-            "credentialType PASSWORD -- only a password was tried, so the attempt went no further",
+            "requestUri /api/v1/authn -- the classic API was called, so this was one more scripted guess",
           ],
           answer: 0,
           explanation:
-            "outcome.result FAILURE only says this step did not end in a session; outcome.reason says why, and MFA_REQUIRED is written only once the password stage is satisfied -- so the password on this attempt was correct and is now known to whoever controls 198.51.100.44. authenticationStep cannot show where an attempt stopped: Okta documents it as unused and always 0. threatSuspected false means Okta's own heuristics did not flag the request; it is not a verdict that the real user signed in, and the hosting-provider network says otherwise. credentialType PASSWORD names the first factor presented; it does not mean the transaction ended there.",
+            "The wrong guesses in the burst are user.session.start FAILURE with INVALID_CREDENTIALS. This event is a different record: the sign-on policy answered CHALLENGE, which it does only once the password stage is satisfied -- so the password on this attempt was correct and is now known to whoever controls 198.51.100.44. authenticationStep cannot show where an attempt stopped: Okta documents it as unused and always 0. threatSuspected false means Okta's own heuristics did not flag the request; it is not a verdict that the real user signed in, and the hosting-provider network says otherwise. requestUri /api/v1/authn is the ordinary classic authentication endpoint that browsers and scripts both call; it says nothing about whether the password was right.",
           xp: 25,
         },
         {
@@ -506,16 +505,16 @@ const oktaIdentityFundamentalsRoom = {
       type: "question" as const,
       id: "oktaf-q5",
       question:
-        "Applying this room's central lesson to a different ticket: a second Okta account shows a run of INVALID_CREDENTIALS failures from a hosting-provider ASN, then one MFA_REQUIRED event from the same source, then the push that followed was denied by the user, then a rate-limit warning, and no session is ever created and no other activity follows. What is the single most accurate way to classify this incident?",
+        "Applying this room's central lesson to a different ticket: a second Okta account shows a run of INVALID_CREDENTIALS failures from a hosting-provider ASN, then one policy.evaluate_sign_on CHALLENGE from the same source, then the push that followed was denied by the user, then a rate-limit warning, and no session is ever created and no other activity follows. What is the single most accurate way to classify this incident?",
       options: [
         "A blocked password-guessing attack with a confirmed password exposure -- the password is known to an outside party though no session was obtained, so reset and pivot checks are still required",
         "A contained brute-force attempt -- MFA stopped the attacker and the rate limiter capped the volume, so the account needs monitoring but no reset since no session ever existed",
-        "A false positive -- INVALID_CREDENTIALS dominates the burst, so the single MFA_REQUIRED event is most likely a legitimate user retry and the ticket can be closed",
+        "A false positive -- INVALID_CREDENTIALS dominates the burst, so the single CHALLENGE event is most likely a legitimate user retry and the ticket can be closed",
         "A misconfigured integration -- a datacenter-ASN burst plus a rate-limit warning is typical of a service retrying stale credentials, so the ticket belongs with the Okta admin team",
       ],
       answer: 0,
       explanation:
-        "This draws together the room's core threads: the reason-field flip (Reading 3) proves password exposure even without a session; the securityContext ASN (Reading 4) corroborates that this wasn't the legitimate user; and the rate-limit event (Reading 7) reflects Okta defending itself, not resolving the underlying exposure. Calling this contained or no-impact, or dismissing the one differing reason value as a legitimate retry, both repeat mistakes this room specifically addressed. And this isn't a misconfigured integration: a service retrying stale credentials would never produce a correct-password MFA_REQUIRED, and the events form one coherent, ordered chain.",
+        "This draws together the room's core threads: the flip from FAILURE to CHALLENGE (Reading 3) proves password exposure even without a session; the securityContext ASN (Reading 4) corroborates that this wasn't the legitimate user; and the rate-limit event (Reading 7) reflects Okta defending itself, not resolving the underlying exposure. Calling this contained or no-impact, or dismissing the one differing reason value as a legitimate retry, both repeat mistakes this room specifically addressed. And this isn't a misconfigured integration: a service retrying stale credentials would never produce a correct-password CHALLENGE, and the events form one coherent, ordered chain.",
       xp: 30,
     },
   ],

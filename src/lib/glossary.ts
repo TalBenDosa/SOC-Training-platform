@@ -35,7 +35,7 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
   ioc: {
     term: "IOC",
     def: "Indicator of Compromise — a piece of evidence that points to an attack: a malicious IP address, file hash, domain, or compromised username.",
-    example: "The attacker's IP 91.108.4.33 is an IOC you can block at the firewall.",
+    example: "The attacker's IP 203.0.113.133 is an IOC you can block at the firewall.",
   },
   mitre: {
     term: "MITRE ATT&CK",

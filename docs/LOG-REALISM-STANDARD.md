@@ -27,6 +27,14 @@ format (enums, casing, time format, id shape). Checked by `npm run validate:logs
 and `src/lib/logs/native/validate.ts` (native schemas). No invented fields such as
 `maintenance.*`, `query_count_last_hour`, `s1.*` that the product does not emit.
 
+Vendor enum strings are kept verbatim, even when MITRE ATT&CK renamed the tactic behind them. A
+product field prints what the product prints: Defender `AlertInfo.Category` and Graph alert
+`category` stay `DefenseEvasion` (the value in Microsoft's own Graph `alerts_v2` example), Sentinel
+`SecurityAlert.Tactics` stays `DefenseEvasion`, and a GuardDuty finding type stays
+`DefenseEvasion:IAMUser/AnomalousBehavior`. Our own tagging (the row's `mitre_tactic`, lesson text,
+rubric answers) uses v19 names and IDs (R10). Explain the gap in teaching text; never rewrite the
+vendor string.
+
 ### R2 Same shape for attack and benign
 For one source and one event type, attack rows and benign or decoy rows carry the same set of
 real fields. The field count may differ by at most 30%. A learner must never be able to tell
@@ -89,7 +97,8 @@ Raw fields never state the verdict (`is_malicious`, `attack_stage`, `expected_ve
 Existing check: `src/lib/logs/native/answerLeak.test.ts`.
 
 ### R10 Content rules
-No em dashes in any visible text. MITRE ATT&CK v19 IDs and tactic names. Fictional people and
+No em dashes in any visible text. MITRE ATT&CK v19 IDs and tactic names in our own tags and text
+(a vendor's own enum value inside a raw field stays verbatim, see R1). Fictional people and
 companies. The vendor named on a row is the vendor whose format the row uses.
 
 ## How it is enforced

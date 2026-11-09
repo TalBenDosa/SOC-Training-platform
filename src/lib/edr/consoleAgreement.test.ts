@@ -79,7 +79,7 @@ for (const c of COMPANY_PROFILES) {
     liveCases++;
     const feed = injected.map((e, i) => { const row = enrichEvent(e, i) as TelemetryEvent; return { ev: row, log: nativeView(row, c.id, {})?.log ?? null }; });
     live.push(...compareEdrToFeed(inv, feed, `live ${c.id}/${s.id}`));
-    if (inv.host.ip !== "—" && !PRIVATE.test(inv.host.ip)) liveHosts.push(`${c.id}/${s.id}: host ${inv.host.name} shows address ${inv.host.ip}`);
+    if (inv.host.ip !== "-" && !PRIVATE.test(inv.host.ip)) liveHosts.push(`${c.id}/${s.id}: host ${inv.host.name} shows address ${inv.host.ip}`);
     // RTR ps prints the tree's own pids for the processes the feed shows.
     const ps = runRtrCommand("ps", { inv, killed: new Set(), isolated: false })!.out;
     for (const p of seenProcesses(inv)) if (!new RegExp(`^${p.pid}\\s.*\\s${p.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "m").test(ps))

@@ -15,7 +15,7 @@ const CELL: Record<ItemStatus, { glyph: string; cls: string; label: string }> = 
   done:        { glyph: "✓", cls: "bg-neon-green/15 text-neon-green", label: "done" },
   in_progress: { glyph: "◐", cls: "bg-neon-amber/10 text-neon-amber", label: "in progress" },
   not_started: { glyph: "·", cls: "text-slate-500",                   label: "not started" },
-  untracked:   { glyph: "—", cls: "text-slate-500",                   label: "not tracked" },
+  untracked:   { glyph: "-", cls: "text-slate-500",                   label: "not tracked" },
 };
 
 export function PlanProgressMatrix({ plan }: { plan: StaffPlan }) {
@@ -76,7 +76,7 @@ export function PlanProgressMatrix({ plan }: { plan: StaffPlan }) {
           </tbody>
         </table>
       </div>
-      <p className="text-[10px] text-slate-500">✓ done · ◐ in progress · · not started · — not tracked (custom library lessons record no completion)</p>
+      <p className="text-[10px] text-slate-500">✓ done · ◐ in progress · · not started · - not tracked (custom library lessons record no completion)</p>
     </div>
   );
 }

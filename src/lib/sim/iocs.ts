@@ -52,12 +52,6 @@ export const ATTACK_COUNTRIES = [
   "US","CA","AU","SG","HK",        // Compromised infrastructure
 ];
 
-// ── Tor / VPN exit IPs ─────────────────────────────────────────────────────────
-export const TOR_EXIT_SAMPLE_IPS = [
-  "185.220.101.4","199.249.230.66","51.75.64.23","23.129.64.130","192.42.116.176",
-  "185.220.100.240","171.25.193.25","62.102.148.68","204.8.156.142","109.70.100.2",
-];
-
 // ── Realistic User-Agent strings ──────────────────────────────────────────────
 export const BENIGN_USER_AGENTS = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",

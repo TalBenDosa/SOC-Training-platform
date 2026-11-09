@@ -74,7 +74,6 @@ const lsassMiniDumpEvent: TelemetryEvent = {
     "crowdstrike.SHA256HashData": "a27e6a7fb13a9e4ae6d0c447e4a253358e3b79c26939c7a209a29fce082a7c7b",
     "crowdstrike.TargetProcessImageFileName": "lsass.exe",
     "crowdstrike.DesiredAccess": "2097151",
-    "crowdstrike.CallStackModuleNames": "comsvcs.dll,ntdll.dll,KERNELBASE.dll",
     "crowdstrike.UserName": "NEXACORP\\j.reyes",
     "crowdstrike.ComputerName": "WKS-IT-0417",
   },

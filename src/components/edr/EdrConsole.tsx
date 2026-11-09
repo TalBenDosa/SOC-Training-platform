@@ -183,7 +183,7 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
     const rows = inv.detections.map(d => ({
       d, key: alertKey(inv, d),
       at: inv.timeline.find(t => t.kind === "detection" && t.pid === d.pid)?.at
-        ?? inv.processes.find(p => p.pid === d.pid)?.startedAt ?? "—",
+        ?? inv.processes.find(p => p.pid === d.pid)?.startedAt ?? "-",
       proc: inv.processes.find(p => p.pid === d.pid),
     }));
     const byTime = (a: typeof rows[number], b: typeof rows[number]) => b.at.localeCompare(a.at);
@@ -497,7 +497,7 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null, newK
                           </button>
                           {isNew && <span className="ml-2 rounded bg-severity-critical px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">New</span>}
                         </td>
-                        <td className="px-2 py-2 font-mono text-[11px] text-neon-purple">{/^T\d{4}/.test(d.technique) ? d.technique : "—"}</td>
+                        <td className="px-2 py-2 font-mono text-[11px] text-neon-purple">{/^T\d{4}/.test(d.technique) ? d.technique : "-"}</td>
                         <td className="whitespace-nowrap px-4 py-2 font-mono text-[11px] text-slate-300">{proc ? `${proc.name} (${proc.pid})` : d.pid}</td>
                       </tr>
                     );

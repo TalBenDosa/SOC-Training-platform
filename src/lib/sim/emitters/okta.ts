@@ -159,8 +159,9 @@ export function oktaSignIn(o: OktaSignInOpts): TelemetryEvent {
 // ── Failed sign-in (spray / stuffing). user.session.start FAILURE reasons are INVALID_CREDENTIALS,
 //    VERIFICATION_ERROR or LOCKED_OUT (card idp-okta section 3.3). "The password was accepted and the
 //    transaction moved on to the second factor" is NOT a failure in Okta: it is the sign-on policy
-//    answering CHALLENGE (policy.evaluate_sign_on). reason "MFA_REQUIRED" (the legacy spelling of that
-//    tell) renders that record.
+//    answering CHALLENGE (policy.evaluate_sign_on). reason "MFA_REQUIRED" is only an input alias kept for
+//    older callers (it is an Authn API transaction status, never a System Log outcome.reason); it renders
+//    that CHALLENGE record.
 export interface OktaAuthFailureOpts extends OktaCtx {
   reason?: string;                 // default INVALID_CREDENTIALS; "MFA_REQUIRED" renders policy.evaluate_sign_on CHALLENGE
   /** Deprecated: the System Log always writes authenticationStep 0. Accepted, ignored. */

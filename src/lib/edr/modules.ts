@@ -59,7 +59,7 @@ function baselineModules(p: EdrProcess): EdrModule[] {
     const path = /clr|mscore|System\.|amsi/i.test(n)
       ? (n.startsWith("System.") ? `C:\\Windows\\Microsoft.NET\\assembly\\GAC_MSIL\\${n.replace(/\.dll$/i, "")}\\v4.0_4.0.0.0__31bf3856ad364e35\\${n}` : `C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\${n}`)
       : `${S32}${n}`;
-    return { path, signed: true, signer: MSWPUB, loadedAt: "—" };
+    return { path, signed: true, signer: MSWPUB, loadedAt: "-" };
   });
 }
 

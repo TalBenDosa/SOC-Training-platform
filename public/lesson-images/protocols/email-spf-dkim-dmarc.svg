@@ -17,7 +17,7 @@
   <rect class="card" x="24" y="52" width="150" height="70" rx="8"/>
   <text class="ui t" x="40" y="78">Inbound email</text>
   <text class="ui mono s" x="40" y="98">From: ceo@bank.com</text>
-  <text class="ui mono s" x="40" y="113">via IP 185.4.2.9</text>
+  <text class="ui mono s" x="40" y="113">via IP 203.0.113.29</text>
 
   <rect class="chk" x="220" y="46" width="216" height="88" rx="8"/>
   <text class="ui cy" x="236" y="70">1 · SPF</text>
