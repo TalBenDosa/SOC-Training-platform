@@ -548,8 +548,6 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
       "aws.cloudtrail.userIdentity.userName": "t.chen",
       "aws.cloudtrail.sourceIPAddress": "198.51.100.103",
       "aws.cloudtrail.userAgent": "aws-cli/2.15.0 Python/3.11.0",
-      "source.geo.country_iso_code": "NL", "source.geo.city_name": "Amsterdam",
-      "source.as.number": "9009", "source.as.organization": "M247 Europe SRL",
       "aws.cloudtrail.errorCode": "", "action_result": "allowed" }
   },
   {
@@ -599,7 +597,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
       "gws.filter.action": "FORWARD",
       "gws.filter.forwardTo": "s.kim.personal@gmail.com",
       "gws.ipAddress": "198.51.100.220",
-      "hr.ticket": "HR-2026-117", "action_result": "allowed" }
+      "action_result": "allowed" }
   },
   {
     id: "rs_fwd_atk_01", ts: "2026-05-10T23:52:00.000Z",
@@ -618,8 +616,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
       "gws.filter.action": "FORWARD",
       "gws.filter.forwardTo": "rs-detection-canary@tutanota.com",
       "gws.ipAddress": "198.51.100.148",
-      "source.geo.country_iso_code": "NL", "source.geo.city_name": "Amsterdam",
-      "source.as.number": "9009", "source.as.organization": "M247 Europe SRL",
+      "source.geo.country_name": "Netherlands", "source.geo.city_name": "Amsterdam",
       "action_result": "allowed" }
   },
 
@@ -1644,7 +1641,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
       "data.office365.Operation": "Set-Mailbox", "data.office365.UserId": "dr.dejong@medcorehealth.org",
       "data.office365.Parameters": "ForwardingSmtpAddress=smtp:dr.dejong.personal@gmail.com; DeliverToMailboxAndForward=true",
       "data.office365.ClientIP": "198.51.100.170",
-      "hr.ticket": "MC-HR-0388", "action_result": "allowed" }
+      "action_result": "allowed" }
   },
   {
     id: "mc_fwd_atk_01", ts: "2026-05-10T22:11:00.000Z",
@@ -1661,7 +1658,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
       "data.office365.Operation": "New-InboxRule", "data.office365.UserId": "sec-canary.icu@medcorehealth.org",
       "data.office365.Parameters": "ForwardTo=mc-canary-sink@protonmail.com; SubjectContainsWords=patient,budget,contract",
       "data.office365.ClientIP": "198.51.100.175",
-      "source.geo.country_iso_code": "NL", "source.geo.city_name": "Amsterdam",
+      "GeoLocation.country_name": "Netherlands", "GeoLocation.city_name": "Amsterdam",
       "data.office365.ResultStatus": "Succeeded",
       "data.office365.Workload": "Exchange", "action_result": "allowed" }
   },
@@ -1758,8 +1755,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     raw: {
       "data.office365.Operation": "TeamsSessionStarted", "data.office365.Workload": "MicrosoftTeams",
       "data.office365.UserId": "dr.vandijk@medcorehealth.org", "data.office365.ClientIP": "192.168.10.22",
-      "teams.meeting.name": "Cardiology Morning Handover",
-      "teams.meeting.duration_minutes": "32", "action_result": "allowed" }
+      "action_result": "allowed" }
   },
   {
     id: "mc_teams_002", ts: "2026-05-10T13:00:00.000Z",
@@ -2369,7 +2365,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
       "data.office365.Operation": "Set-Mailbox", "data.office365.UserId": "l.kowalski@globallogis.de",
       "data.office365.Parameters": "ForwardingSmtpAddress=smtp:l.kowalski.pl@gmail.com; DeliverToMailboxAndForward=true",
       "data.office365.ClientIP": "10.20.2.77",
-      "hr.ticket": "GL-HR-2026-055", "action_result": "allowed" }
+      "action_result": "allowed" }
   },
   {
     id: "gl_fwd_atk_01", ts: "2026-05-10T23:04:00.000Z",
@@ -2386,7 +2382,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
       "data.office365.Operation": "New-InboxRule", "data.office365.UserId": "sec-canary.ops@globallogis.de",
       "data.office365.Parameters": "ForwardTo=gl-canary-sink@protonmail.com; SubjectContainsWords=contract,customer,supplier",
       "data.office365.ClientIP": "198.51.100.196",
-      "source.geo.country_iso_code": "RO", "source.geo.city_name": "Bucharest",
+      "GeoLocation.country_name": "Romania", "GeoLocation.city_name": "Bucharest",
       "data.office365.ResultStatus": "Succeeded",
       "data.office365.Workload": "Exchange",
       "action_result": "allowed" }
@@ -2761,7 +2757,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
       "aws.cloudtrail.request_parameters.destination_bucket": "s3://external-acct-991234/exfil",
       "aws.cloudtrail.userIdentity.userName": "a.keller",
       "aws.cloudtrail.sourceIPAddress": "198.51.100.203",
-      "source.geo.country_iso_code": "RU", "transfer.bytes": "10091053875",
+      "transfer.bytes": "10091053875",
       "transfer.objects": "28100", "action_result": "allowed" }
   },
 
@@ -2793,7 +2789,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
       "data.office365.Operation": "Set-Mailbox", "data.office365.UserId": "m.huber@quantumbank.ch",
       "data.office365.Parameters": "ForwardingSmtpAddress=smtp:m.huber.sabbatical@outlook.com; DeliverToMailboxAndForward=true",
       "data.office365.ClientIP": "10.100.1.44", "data.office365.Workload": "Exchange",
-      "hr.ticket": "QB-HR-2026-S14", "action_result": "allowed" }
+      "action_result": "allowed" }
   },
   {
     id: "qb_fwd_atk_01", ts: "2026-05-10T23:39:00.000Z",
@@ -2811,7 +2807,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
       "data.office365.Parameters": "ForwardTo=qb-canary-sink@protonmail.com; SubjectContainsWords=SWIFT,transfer,payment,EUR",
       "data.office365.ClientIP": "198.51.100.209",
       "data.office365.ResultStatus": "Succeeded", "data.office365.Workload": "Exchange",
-      "source.geo.country_iso_code": "CH",
+      "GeoLocation.country_name": "Switzerland",
       "action_result": "allowed" }
   },
 ];
@@ -2884,8 +2880,8 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
       "data.office365.ResultStatus": "Succeeded",
       "GeoLocation.country_name": "Netherlands",
       "GeoLocation.city_name": "Amsterdam",
-      "GeoLocation.location.lat": 52.3702,
-      "GeoLocation.location.lon": 4.8952,
+      "GeoLocation.latitude": 52.3702,
+      "GeoLocation.longitude": 4.8952,
       "action_result": "allowed" }
   },
   {
@@ -2920,8 +2916,8 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
       "data.office365.DeviceProperties.IsCompliant": "false",
       "GeoLocation.country_name": "Romania",
       "GeoLocation.city_name": "Bucharest",
-      "GeoLocation.location.lat": 44.4268,
-      "GeoLocation.location.lon": 26.1025,
+      "GeoLocation.latitude": 44.4268,
+      "GeoLocation.longitude": 26.1025,
       "action_result": "allowed" }
   },
   {
@@ -3086,7 +3082,7 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
            "winlog.event_data.LogonType": "3", "winlog.event_data.LogonProcessName": "NtLmSsp ",
            "winlog.event_data.AuthenticationPackageName": "NTLM", "winlog.event_data.WorkstationName": "WIN-3VQ8KD2RLMP",
            "winlog.event_data.IpAddress": "185.220.101.45", "winlog.event_data.IpPort": "0",
-           "source.ip": "185.220.101.45", "source.geo.country_iso_code": "NL",
+           "source.ip": "185.220.101.45", "source.geo.country_name": "Netherlands",
            "host.name": "SRV-NXC-RDS01.nexacorp.com", "action_result": "deny" }
   },
   {
@@ -3101,7 +3097,7 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
            "winlog.event_data.LogonType": "10", "winlog.event_data.LogonProcessName": "User32 ",
            "winlog.event_data.AuthenticationPackageName": "Negotiate", "winlog.event_data.WorkstationName": "WIN-3VQ8KD2RLMP",
            "winlog.event_data.IpAddress": "185.220.101.45", "winlog.event_data.IpPort": "0",
-           "source.ip": "185.220.101.45", "source.geo.country_iso_code": "NL",
+           "source.ip": "185.220.101.45", "source.geo.country_name": "Netherlands",
            "host.name": "SRV-NXC-RDS01.nexacorp.com", "action_result": "allowed" }
   },
 ];
@@ -3299,7 +3295,7 @@ const ROCKETSTACK_CRED_STUFFING_ROWS: TelemetryEvent[] = [
            "okta.outcome.result": "DENY",
            "okta.outcome.reason": "BLOCKED_BY_THREATINSIGHT",
            "okta.debugContext.debugData.riskLevel": "HIGH", "source.ip": "198.51.100.217",
-           "source.geo.country_iso_code": "CN", "action_result": "deny" }
+           "source.geo.country_name": "China", "action_result": "deny" }
   },
   {
     id: "rs_bf_03", ts: "2026-05-10T11:34:00.000Z",
@@ -3349,9 +3345,7 @@ const ROCKETSTACK_CRED_STUFFING_ROWS: TelemetryEvent[] = [
       "okta.debugContext.debugData.behaviors": "New Device=POSITIVE, New Geo-Location=POSITIVE, New IP=POSITIVE",
       "event.action":                "logged-in",
       "event.outcome":               "success",
-      "source.ip":                   "198.51.100.217",
-      "source.geo.country_iso_code": "CN",
-      "source.geo.city_name":        "Shenzhen"
+      "source.ip":                   "198.51.100.217"
     }
   },
   {
@@ -3379,16 +3373,14 @@ const ROCKETSTACK_CRED_STUFFING_ROWS: TelemetryEvent[] = [
       "okta.debugContext.debugData.behaviors":  "New Device=POSITIVE, New Geo-Location=POSITIVE",
       "event.action":                             "mfa-enroll",
       "event.outcome":                            "success",
-      "source.ip":                                "198.51.100.217",
-      "source.geo.country_iso_code":              "CN",
-      "source.geo.city_name":                     "Shenzhen"
+      "source.ip":                                "198.51.100.217"
     }
   },
   {
     // Attacker uses a.kim's AWS credentials to enumerate IAM & S3
     id: "rs_bf_07_aws_enum", ts: "2026-05-10T11:35:00.000Z",
     source: "cloudtrail", event_type: "cloud_api_call", severity: "critical",
-    vendor: "AWS CloudTrail", user_email: "a.kim@rocketstack.io", src_ip: "198.51.100.217",
+    vendor: "AWS CloudTrail", user_email: "a.kim@rocketstack.io", src_ip: "198.51.100.217", geo: { country: "China", city: "Shenzhen" },
     mitre_technique: "T1087.004", mitre_tactic: "Discovery",
     description: "The a.kim IAM user called iam:ListRoles from 198.51.100.217 and received 42 roles",
     raw: {
@@ -3406,8 +3398,6 @@ const ROCKETSTACK_CRED_STUFFING_ROWS: TelemetryEvent[] = [
       "aws.cloudtrail.request_id":                "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
       "cloud.account.id":                         "247316892041",
       "cloud.region":                             "us-east-1",
-      "source.geo.country_iso_code":              "CN",
-      "source.geo.city_name":                     "Shenzhen",
       "action_result":                            "allowed"
     }
   },
@@ -3434,7 +3424,7 @@ const ROCKETSTACK_CRED_STUFFING_ROWS: TelemetryEvent[] = [
       "github.oauth_application.name":            "rocketstack-okta-sso",
       "github.oauth_scopes":                      "repo,read:org,read:user",
       "github.programmatic_access_type":          "OAuth App token",
-      "source.geo.country_iso_code":              "CN",
+      "source.geo.country_name":                  "China",
       "source.geo.city_name":                     "Shenzhen",
       "action_result":                            "allowed"
     }
@@ -3561,7 +3551,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "FAILURE",
            "okta.outcome.reason": "INVALID_CREDENTIALS",
            "okta.debugContext.debugData.riskLevel": "HIGH",
-           "source.ip": "198.51.100.217", "source.geo.country_iso_code": "CN", "action_result": "deny" }
+           "source.ip": "198.51.100.217", "source.geo.country_name": "China", "action_result": "deny" }
   },
   {
     id: "rs_d2", ts: "2026-05-10T18:13:00.000Z", source: "okta", event_type: "auth_failure",
@@ -3583,7 +3573,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "SUCCESS",
            "okta.authenticationContext.credentialType": "PASSWORD", "okta.debugContext.debugData.riskLevel": "HIGH",
            "okta.debugContext.debugData.behaviors": "New Device=POSITIVE", "source.ip": "198.51.100.217",
-           "source.geo.country_iso_code": "CN", "source.geo.city_name": "Shenzhen",
+           "source.geo.country_name": "China", "source.geo.city_name": "Shenzhen",
            "action_result": "allowed" }
   },
   chainAlert({ id: "rs_d3b", ts: "2026-05-10T18:15:40.000Z", name: "Okta successful sign-in after a password spray from the same IP", product: "Azure Sentinel", severity: "High", mitre: "T1110.003", user: "n.shapiro@rocketstack.io", ip: "198.51.100.217", props: {"Failed Sign-ins From IP": "78", "Distinct Usernames": "24", "Successful Account": "n.shapiro"}, description: "Sentinel raised a High alert: 78 failed Okta sign-ins across 24 usernames from 198.51.100.217, then a successful sign-in for n.shapiro from the same address." }),
@@ -3601,7 +3591,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
            "aws.cloudtrail.requestParameters.key": "exports/customers_full.csv",
            "aws.cloudtrail.recipientAccountId": "247316892041",
            "aws.cloudtrail.additionalEventData.bytesTransferredOut": "1850624000",
-           "source.ip": "198.51.100.217", "source.geo.country_iso_code": "CN",
+           "source.ip": "198.51.100.217", 
            "aws.cloudtrail.userAgent": "aws-cli/2.15.0 Python/3.11.0",
            "action_result": "allowed" }
   },
@@ -3888,7 +3878,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "FAILURE",
            "okta.outcome.reason": "INVALID_CREDENTIALS",
            "okta.debugContext.debugData.riskLevel": "HIGH", "source.ip": "198.51.100.203",
-           "source.geo.country_iso_code": "RU", "action_result": "deny" }
+           "source.geo.country_name": "Russia", "action_result": "deny" }
   },
   {
     id: "qb_d2", ts: "2026-05-10T18:23:00.000Z", source: "okta", event_type: "account_lockout",
@@ -3909,7 +3899,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "SUCCESS",
            "okta.authenticationContext.credentialType": "PASSWORD", "okta.debugContext.debugData.riskLevel": "CRITICAL",
            "okta.debugContext.debugData.behaviors": "New Device=POSITIVE, New Geo-Location=POSITIVE",
-           "source.ip": "198.51.100.203", "source.geo.country_iso_code": "RU",
+           "source.ip": "198.51.100.203", "source.geo.country_name": "Russia",
            "source.geo.city_name": "Saint Petersburg",
            "action_result": "allowed" }
   },
