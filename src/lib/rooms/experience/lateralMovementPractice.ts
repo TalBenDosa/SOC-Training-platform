@@ -218,7 +218,7 @@ export const LATERAL_MOVEMENT_PRACTICE: RoomExperience = {
           },
           fold: true,
         },
-        lead: "Sat 19 Sep, 01:44 UTC. CC-ROUTE-03 logged a network logon as adm-k.sorel from CC-LABEL-02.",
+        lead: "Sat 19 Sep, 01:44:02 UTC. CC-ROUTE-03 logged a network logon as adm-k.sorel from CC-LABEL-02.",
         steps: [
           {
             id: "history",

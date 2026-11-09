@@ -326,7 +326,7 @@ export const NAC_MASTERCLASS: RoomExperience = {
               ["Fri 17:04", "Stop", "5c3a914e072b", "5C-3A-91-4E-07-2B", "10.60.2.3", "GigabitEthernet1/0/17", "0000A1C4"],
               ["Mon 07:51", "Start", "5c3a914e072b", "5C-3A-91-4E-07-2B", "10.60.5.1", "GigabitEthernet1/0/9", "0000A1F2"],
               ["Mon 07:55", "Start", "j.ferris@ravensford.example", "3C-52-A1-90-12-7E", "10.60.2.3", "GigabitEthernet1/0/22", "0000A1F3"],
-              ["Mon 07:57", "Start", "5c3a914e1102", "5C-3A-91-4E-11-02", "10.60.1.1", "GigabitEthernet1/0/4", "0000A1F4"],
+              ["Mon 07:57", "Start", "0c8ddb206e11", "0C-8D-DB-20-6E-11", "10.60.2.3", "GigabitEthernet1/0/14", "0000A1F4"],
             ],
             answer: 1,
             why: "Calling-Station-Id is the device, and NAS-IP-Address and NAS-Port-Id are the switch and port. The camera's session on its own Block 2 switch ended on Friday. Monday's Start is 10.60.5.1, the library switch.",

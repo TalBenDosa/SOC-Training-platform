@@ -520,11 +520,11 @@ export const DATA_STAGING_EXFILTRATION_CHANNELS: RoomExperience = {
             columns: ["Timestamp", "FolderPath", "FileSize", "ActionType", "InitiatingProcessFileName"],
             rows: [
               ["10-26 11:20", "C:\\Users\\d.kalina\\Documents\\CAD\\G7_assembly_full.stp", "1,455,001,600", "FileModified", "cadstudio.exe"],
+              ["10-28 16:40", "C:\\Users\\d.kalina\\Downloads\\site_survey.zip", "688,128,000", "FileCreated", "msedge.exe"],
               ["10-29 21:26", "C:\\Windows\\Temp\\MsiCache\\pkg.rar", "1,372,416,512", "FileCreated", "rar.exe"],
               ["10-29 21:49", "C:\\ProgramData\\CADStudio\\cad_update_r2.msi", "1,351,118,848", "FileCreated", "cadupdater.exe"],
-              ["10-28 16:40", "C:\\Users\\d.kalina\\Downloads\\site_survey.zip", "688,128,000", "FileCreated", "msedge.exe"],
             ],
-            answer: 1,
+            answer: 2,
             why: "1,372,416,512 on disk, 1,409,882,640 on the wire: 2.7% more, and a compressed, encrypted file can't shrink in transit. The .stp is bigger than what left, so it can't have gone in that session. The .msi is close too, but cadupdater.exe wrote it right after the 21:44 download: it came in.",
             learned: "pkg.rar, 1,372,416,512 bytes, is the file that left",
           },

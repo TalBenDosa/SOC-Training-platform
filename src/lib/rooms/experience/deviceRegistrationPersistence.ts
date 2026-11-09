@@ -693,11 +693,11 @@ export const DEVICE_REGISTRATION_PERSISTENCE: RoomExperience = {
             columns: ["Date", "Activity", "Target", "Actor"],
             rows: [
               ["14 January", "Register device", "DESKTOP-7QK2LM", "d.farrow"],
+              ["14 January", "Add registered owner to device", "DESKTOP-7QK2LM", "d.farrow"],
               ["22 April", "Unregister device", "STH-LT-0190", "h.sorel"],
               ["6 May", "Reset password (by admin)", "d.farrow", "h.sorel"],
-              ["14 January", "Add registered owner to device", "DESKTOP-7QK2LM", "d.farrow"],
             ],
-            answer: 1,
+            answer: 2,
             why: "Unregister device, on an old laptop. Search this log for DESKTOP-7QK2LM and you get two records, both from the day it arrived. Nobody ever closed it.",
             learned: "A device leaves only through its own record, and this one never got one.",
           },

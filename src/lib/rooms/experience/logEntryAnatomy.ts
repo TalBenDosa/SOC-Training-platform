@@ -299,7 +299,7 @@ export const LOG_ENTRY_ANATOMY: RoomExperience = {
             learned: "WS-0233: helpdesk_tmp logged on at 03:11:05",
           },
           {
-            id: "siem", source: "SIEM · all DC02 events, 02:50-03:50",
+            id: "siem", source: "SIEM · DC02 events around 03:11, excerpt 02:53-03:42",
             ask: "Where does DC02's stream of events stop?",
             columns: ["time (UTC)", "EventID", "summary"],
             rows: [["02:53:41", "4624", "svc_backup network logon"], ["02:54:58", "4768", "Kerberos TGT for ops"], ["03:41:10", "4624", "svc_backup network logon"], ["03:41:12", "4672", "special privileges assigned"]],
@@ -308,10 +308,10 @@ export const LOG_ENTRY_ANATOMY: RoomExperience = {
             learned: "DC02 went silent in the SIEM from 02:55 to 03:41",
           },
           {
-            id: "fwd", source: "Log forwarder heartbeats",
+            id: "fwd", source: "Log forwarder status changes · 01:00-04:00",
             ask: "Which forwarder explains the silence?",
-            columns: ["host", "agent", "last heartbeat", "status"],
-            rows: [["DC01", "winlogbeat 8.15", "03:49:58", "running"], ["DC02", "winlogbeat 8.15", "02:55:03", "stopped"], ["FS-ARCHIVE", "winlogbeat 8.15", "03:49:57", "running"]],
+            columns: ["time (UTC)", "host", "agent", "status"],
+            rows: [["01:17:22", "FS-ARCHIVE", "winlogbeat 8.15", "restarted (config reload)"], ["02:55:03", "DC02", "winlogbeat 8.15", "stopped"], ["03:41:08", "DC02", "winlogbeat 8.15", "started"], ["03:44:51", "DC01", "winlogbeat 8.15", "restarted (config reload)"]],
             answer: 1,
             why: "DC02's forwarder stopped at 02:55 and came back at 03:41. The events were never delivered: 'no evidence' here means 'not logged', not 'didn't happen'.",
             learned: "Cause: DC02's forwarder was stopped 02:55 to 03:41: a pipeline gap",
