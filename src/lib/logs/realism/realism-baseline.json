@@ -1,19 +1,6 @@
 {
  "note": "Reviewed realism violations (docs/LOG-REALISM-STANDARD.md) accepted so the gate blocks NEW ones while the backlog is worked down. Shrink this list; never grow it. Regenerate with `npm run realism:baseline`.",
- "count": 7,
- "counts": {
-  "live|R2": 4,
-  "live|R6": 1,
-  "team|R7": 1,
-  "team|R8": 1
- },
- "accepted": [
-  "live|R2|cisco_ftd/430002|field AccessControlRuleReason on benign rows only",
-  "live|R2|cisco_ftd/430002|field IPReputationSICategory on benign rows only",
-  "live|R2|cisco_ftd/430002|field SecIntMatchingIP on benign rows only",
-  "live|R2|crowdstrike/ProcessRollup2|field count differs by more than 30%",
-  "live|R6|live|rocketstack:supply-chain|prod-srv-01|40325|one process, more than one command line",
-  "team|R7|rocketstack:realism-rocketstack|story:web-graphql-batch|brute force not provable: fewer than 10 failures",
-  "team|R8|globallogis:realism-globallogis|tickets well above 8% of the feed"
- ]
+ "count": 0,
+ "counts": {},
+ "accepted": []
 }
