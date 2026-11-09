@@ -94,9 +94,11 @@ export interface MissedIncidentDebrief {
 // Display enrichment + feed helpers live in ./liveEventEnrich (no engine import —
 // the team room uses enrichEvent without pulling the simulation's answer data).
 import {
-  enrichEvent, applyUserVariant, buildRuleId, extractDomainUsers, ingestionDelayMs, injectAdvancedFidelityNoise, isOnceOnly, jitteredOffset, severityBase, shuffleArray,
+  enrichEvent, buildRuleId, ingestionDelayMs, injectAdvancedFidelityNoise, jitteredOffset, severityBase,
   type LiveEvent,
 } from "./liveEventEnrich";
+import { NoiseDeck } from "./noiseDeck";
+import { newStoryClock, noiseQuota, noiseTimes, phaseSize, placePhase, type StoryClock } from "./storyFeed";
 import { isAttackEvent } from "./groundTruth";
 export { enrichEvent };
 export type { LiveEvent };
@@ -468,15 +470,13 @@ export function useLiveEvents({
       injectNextPhaseRef.current?.();
     }, delay);
   }, []);
-  /** IDs of "once-only" events (IT-verify / FP training) already emitted this session */
-  const seenOnceRef        = useRef<Set<string>>(new Set());
-  /** Shuffle deck — repeatable events in random order, no duplicates until full cycle */
-  const deckRef            = useRef<TelemetryEvent[]>([]);
-  const deckPosRef         = useRef(0);
-  /** How many times the deck has been fully cycled through — used for user-rotation variants */
-  const cycleCountRef      = useRef(0);
-  /** Pool of regular user emails extracted from the event pool for rotation */
-  const domainUsersRef     = useRef<string[]>([]);
+  /** The shift's ordinary noise (noiseDeck.ts): one-off rows once per shift, recurring rows drawn fresh (R8). */
+  const noiseDeckRef       = useRef<NoiseDeck | null>(null);
+  /** The active story's one monotone time map (storyFeed.ts, R4). */
+  const storyClockRef      = useRef<StoryClock>(newStoryClock());
+  /** Ordinary rows shown since the last story phase, and when that phase landed (R8 noise quota). */
+  const noiseSinceRef      = useRef(0);
+  const lastPhaseAtRef     = useRef<number | null>(null);
   /** SLA countdown interval + catch speed tracking */
   const slaIntervalRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const catchSpeedMsRef    = useRef<number[]>([]);
@@ -490,27 +490,12 @@ export function useLiveEvents({
   /** Session start — reset() restarts it; endSession() reports the duration */
   const sessionStartRef    = useRef(Date.now());
 
-  /** Build (or rebuild) the shuffle deck from the current pool */
-  const buildDeck = (pool: TelemetryEvent[]) => {
-    const repeatable = pool.filter(e => !isOnceOnly(e));
-    deckRef.current  = shuffleArray(repeatable);
-    deckPosRef.current = 0;
-  };
-
-  /** Pull the next event from the deck — reshuffles when exhausted, applies user-rotation on repeat cycles */
-  const nextFromDeck = (): TelemetryEvent | null => {
-    if (deckRef.current.length === 0) return null;
-    if (deckPosRef.current >= deckRef.current.length) {
-      // Reshuffle for next cycle — prevents same last→first adjacency
-      deckRef.current = shuffleArray(deckRef.current);
-      deckPosRef.current = 0;
-      cycleCountRef.current += 1;
-    }
-    const event = deckRef.current[deckPosRef.current++];
-    // On repeat cycles, rotate the acting user so the feed never looks identical
-    return cycleCountRef.current > 0
-      ? applyUserVariant(event, cycleCountRef.current, domainUsersRef.current)
-      : event;
+  /** The next ordinary row of the shift, or null with an empty pool. */
+  const nextNoise = (): TelemetryEvent | null => {
+    const pool = poolRef.current;
+    if (pool.length === 0) return null;
+    if (!noiseDeckRef.current) noiseDeckRef.current = new NoiseDeck(pool);
+    return noiseDeckRef.current.next() ?? pool[Math.floor(Math.random() * pool.length)];
   };
 
   // ── Populate initial events client-side only (avoids SSR/hydration mismatch) ─
@@ -538,15 +523,9 @@ export function useLiveEvents({
     }
 
     // LEGACY MODE: shuffle from static pool
-    const pool = poolRef.current;
-    // Shuffle the whole pool so initial 15 events cover diverse sources, not just the first category in file order
-    const shuffled = shuffleArray(pool);
-    const initial = shuffled.slice(0, 15);
-    initial.forEach(e => { if (isOnceOnly(e)) seenOnceRef.current.add(e.id); });
-    const repeatable = shuffled.slice(15).filter(e => !isOnceOnly(e));
-    deckRef.current  = shuffleArray(repeatable.length > 0 ? repeatable : pool.filter(e => !isOnceOnly(e)));
-    deckPosRef.current = 0;
-    domainUsersRef.current = extractDomainUsers(pool);
+    // The whole pool is shuffled so the initial 15 events cover diverse sources.
+    noiseDeckRef.current = new NoiseDeck(poolRef.current);
+    const initial = noiseDeckRef.current.backfill(15);
     setEvents(
       initial.map((e, i) =>
         enrichWithFidelity(withRebasedTime(e, new Date(now - jitteredOffset(14 - i)).toISOString()), i)
@@ -670,16 +649,8 @@ export function useLiveEvents({
       const tickNow = Date.now();
 
       for (let i = 0; i < batchSize; i++) {
-        let chosen: TelemetryEvent | null = null;
-        if (Math.random() < 0.10) {
-          const unsentOnce = pool.filter(e => isOnceOnly(e) && !seenOnceRef.current.has(e.id));
-          if (unsentOnce.length > 0) {
-            chosen = unsentOnce[Math.floor(Math.random() * unsentOnce.length)];
-            seenOnceRef.current.add(chosen.id);
-          }
-        }
-        if (!chosen) chosen = nextFromDeck();
-        if (!chosen) chosen = pool[Math.floor(Math.random() * pool.length)];
+        const chosen = nextNoise();
+        if (!chosen) continue;
         // QA-DASH-7: each row back-dated by its source's ingestion lag (+ ms jitter),
         // never "now" with identical ms across the batch.
         const [t] = benignTimes([chosen.source], tickNow);
@@ -691,6 +662,8 @@ export function useLiveEvents({
         const m = siemMirror(en, globalIdx.current++);
         return m ? [en, m] : [en];
       });
+      // Only ordinary rows that land while a story runs count toward its quota (R8).
+      if (lastPhaseAtRef.current !== null) noiseSinceRef.current += enriched.length;
       const batchIds  = new Set(enriched.map(e => e.id));
       setNewIds(batchIds);
       setEvents(prev => mergeByTime(enriched, prev, maxVisible));
@@ -732,16 +705,13 @@ export function useLiveEvents({
     // check again shortly; resume continues the story where it stopped.
     if (!isStreamingRef.current) { armPhase(5_000); return; }
 
-    const n = Math.min(s.events.length - cursor, 2 + (Math.random() < 0.5 ? 1 : 0)); // 2-3 events
+    // 2-3 events, plus the rest of an authored burst (storyFeed.ts phaseSize, R7).
+    const n = phaseSize(s.events, cursor);
     const now = Date.now();
-    const times = phaseTimes(n, now);
-    const slice = s.events.slice(cursor, cursor + n).map((e, i) => ({
-      // L-02: spread over the last minute or two in story order (was a 4s burst), so
-      // the attack doesn't stand out as "the only thing off the 60s grid" — and never
-      // stamped in the future (phaseTimes).
-      ...withRebasedTime(e, new Date(times[i]).toISOString(), { storyClock: "local" }),
-      id: `atk_${e.id}_${now}_${i}`,
-    }));
+    // L-02 / R4: the rows are spread over the last minute or two in story order, never in the future,
+    // and every time inside them goes through the story's ONE monotone map (storyFeed.ts placePhase).
+    const slice = placePhase(storyClockRef.current, s.events.slice(cursor, cursor + n), now).rows
+      .map((e, i) => ({ ...e, id: `atk_${s.events[cursor + i].id}_${now}_${i}` }));
     storyCursorRef.current = cursor + n;
     const storyDone = storyCursorRef.current >= s.events.length;
     storyInjectedRef.current = [...storyInjectedRef.current, ...slice];
@@ -756,6 +726,25 @@ export function useLiveEvents({
       if (isAttackEvent(ev)) attackIds.push(...rows.map(r => r.id));
       return rows;
     });
+    // R8: ordinary traffic keeps flowing around the attack, at least twice its rows: the noise owed
+    // since the last phase lands with this one, spread over the same minutes.
+    const owed = noiseQuota(attackIds.length, noiseSinceRef.current);
+    if (owed > 0) {
+      // Between the last phase and now; on the first phase, from its first attack row (the incident's window).
+      const lead = slice.some(isAttackEvent) ? slice.filter(isAttackEvent) : slice;
+      const firstShown = Math.min(...lead.map(e => Date.parse(e.ts ?? "")).filter(Number.isFinite), now - 60_000);
+      const from = Math.max(lastPhaseAtRef.current ?? firstShown, now - 240_000);
+      const nt = noiseTimes(owed, from, now - 5_000);
+      for (let k = 0; k < owed; k++) {
+        const chosen = nextNoise();
+        if (!chosen) break;
+        const en = enrichWithFidelity({ ...withRebasedTime(chosen, new Date(nt[k]).toISOString()), id: `${chosen.id}_${now}_q${k}` }, globalIdx.current++);
+        const m = siemMirror(en, globalIdx.current++);
+        enriched.push(...(m ? [en, m] : [en]));
+      }
+    }
+    // The incident's window opens with its first attack row: noise before it is not "around the attack".
+    if (attackIds.length > 0 || lastPhaseAtRef.current !== null) { noiseSinceRef.current = 0; lastPhaseAtRef.current = now; }
     const batchIds = new Set(enriched.map(e => e.id));
 
     // The incident opens on the story's FIRST ATTACK event — never on a warm-up
@@ -859,6 +848,9 @@ export function useLiveEvents({
     storyCursorRef.current = 0;
     storyInjectedRef.current = [];
     incidentOpenedRef.current = false;
+    storyClockRef.current = newStoryClock();
+    noiseSinceRef.current = 0;
+    lastPhaseAtRef.current = null;
     armPhase(delayMs ?? ATTACK_COOLDOWN());
   }, [armPhase]);
 
@@ -942,13 +934,14 @@ export function useLiveEvents({
     globalIdx.current = 15;
     activeIncidentRef.current = null;
     caughtRef.current = false;
-    seenOnceRef.current = new Set(); // reset once-only tracking on company/pool switch
-    const src = pool ?? poolRef.current;
-    // Rebuild shuffle deck for the new pool (shuffled so initial 15 cover diverse sources)
-    const srcShuffled = shuffleArray(src);
-    buildDeck(srcShuffled);
+    storyClockRef.current = newStoryClock();
+    noiseSinceRef.current = 0;
+    lastPhaseAtRef.current = null;
+    // A fresh deck for the (new) pool: once-only and one-off rows reset per shift; the first 15
+    // rows are drawn from a shuffle of the whole pool so they cover diverse sources.
+    noiseDeckRef.current = new NoiseDeck(pool ?? poolRef.current);
     // QA-DASH-7: irregular, jittered backfill (was an exact 60s grid).
-    const backfill = srcShuffled.slice(0, 15);
+    const backfill = noiseDeckRef.current.backfill(15);
     const bf = backfillTimes(backfill.length, Date.now());
     setEvents(backfill.map((e, i) =>
       enrichWithFidelity(withRebasedTime(e, new Date(bf[i]).toISOString()), i)
