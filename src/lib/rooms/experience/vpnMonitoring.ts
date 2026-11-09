@@ -27,6 +27,14 @@ export const VPN_MONITORING: RoomExperience = {
   look: { primary: "#22d3ee", secondary: "#a3e635", warn: "#fb7185" },
   scene: "facilitytunnel",
   layout: "facility",
+  story: {
+    intro: { title: "The Front Door", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/vpn-monitoring/longdistance-intro-21015d31.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/vpn-monitoring/longdistance-intro-1409938f.jpg" },
+    afterStation: {
+      tunnel: { title: "Five in the Line-Up", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/vpn-monitoring/longdistance-ch2-6cc2fa86.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/vpn-monitoring/longdistance-ch2-0a425305.jpg" },
+      knocking: { title: "Nine Pushes", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/vpn-monitoring/longdistance-ch3-523f347c.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/vpn-monitoring/longdistance-ch3-d405512e.jpg" },
+      verdict: { title: "Traveller or Thief", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/vpn-monitoring/longdistance-finale-eec53d09.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/vpn-monitoring/longdistance-finale-daad9556.jpg" },
+    },
+  },
   stations: [
     {
       id: "tunnel",
