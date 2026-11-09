@@ -128,6 +128,8 @@ const benignMaintenanceSshEvent: TelemetryEvent = {
     "syslog.hostname": "esx-prod-02.medcorehealth.org",
     "syslog.program": "vobd",
     "syslog.pid": "2207741",
+    "event.original":
+      "2026-07-11T02:10:00.000Z esx-prod-02.medcorehealth.org vobd[2207741]: [GenericCorrelator] [esx.audit.ssh.enabled] SSH access has been enabled.",
   },
 };
 
