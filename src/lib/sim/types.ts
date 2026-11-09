@@ -25,6 +25,8 @@ export type LogSource =
   | "hr" | "vcs" | "virtualization" | "infra_monitor"
   // Web tier: an origin web server's access log (IIS, nginx)
   | "web_server"
+  // An application's own structured log (a service's JSON stdout shipped to the SIEM)
+  | "app_log"
   // Legacy
   | "k8s_audit";
 

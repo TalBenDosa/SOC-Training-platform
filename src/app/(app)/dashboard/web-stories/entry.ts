@@ -15,7 +15,7 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
 import { panWeb } from "@/lib/sim/emitters/paloalto";
 import { csFile, csNetwork, csProcess } from "@/lib/sim/emitters/crowdstrike";
-import { wafRequest, webAccess, type WebSite } from "@/lib/sim/emitters/web";
+import { graphqlAppLog, wafRequest, webAccess, type WebSite } from "@/lib/sim/emitters/web";
 import { makeSha256 } from "@/lib/sim/iocs";
 
 export interface WebStoryDef {
@@ -218,18 +218,32 @@ function graphqlBatch(): TelemetryEvent[] {
   const atk = "203.0.113.151", ua = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
   const portal: WebSite = { site: "portal.nexacorp.com", host: "web-portal-04.nexacorp.com", ip: "10.20.40.62" };
   const app = "CustomerApp/5.2.0 (iOS 17.5)", nat = "198.51.100.152";
+  // One app-log line per request: the operation, how many aliased fields it asked for, and the errors
+  // the response carried. Each alias of a batched SignIn is one password guess; each UNAUTHENTICATED is
+  // one that failed, inside a response the edge logged as a single 200.
+  const gql = (id: string, min: number, client: string, agent: string, op: string, aliases: number, errors: Record<string, number> | undefined, ms: number, reqId: number, extra: { isBaseline?: boolean; description?: string; mitre?: string; tactic?: string } = {}) =>
+    graphqlAppLog(w, { id, ts: T(min), clientIp: client, ua: agent, operationName: op, aliases, errors, responseMs: ms, pid: 41, reqId,
+      description: extra.description ?? `GraphQL service completed a ${op} request with ${aliases} aliased fields and ${Object.values(errors ?? {}).reduce((a, b) => a + b, 0)} errors`, ...extra });
   const post = (id: string, min: number, sent: number, bytes: number, extra = {}) => webAccess(w, { id, ts: T(min), srcIp: atk, method: "POST", path: "/graphql", sent, bytes, ua, description: `GraphQL endpoint answered a request (${bytesText(sent)} bytes in, ${bytesText(bytes)} bytes out)`, ...extra });
   return [
     wafRequest(w, { id: "web_gq_001", ts: T(3), srcIp: nat, method: "POST", path: "/graphql", action: "count", rule: "size_body", ua: app, sent: 9214, bytes: 41022, severity: "low", mitre: "T1110.001", tactic: CRED, verdict: "fp",
       fpExplanation: "The mobile app's home screen: a large query from a current app version, with a large response and no sign-in in it.", description: "WAF rule evaluated a large request body on the GraphQL endpoint" }),
     webAccess(w, { id: "web_gq_002", ts: T(3.1), srcIp: nat, method: "POST", path: "/graphql", sent: 9214, bytes: 41022, ua: app, isBaseline: true, description: "GraphQL endpoint answered a request" }),
+    // The GraphQL service's own request log (pino-http): what the app saw inside each request.
+    gql("web_gq_002a", 3.11, nat, app, "HomeFeed", 0, undefined, 212, 18311, { isBaseline: true, description: "GraphQL service completed a HomeFeed query" }),
+    gql("web_gq_002b", 9.4, nat, app, "SignIn", 1, { UNAUTHENTICATED: 1 }, 96, 18522, { isBaseline: true, description: "GraphQL service completed a SignIn request with one error" }),
+    gql("web_gq_002c", 9.9, nat, app, "SignIn", 1, undefined, 141, 18547, { isBaseline: true, description: "GraphQL service completed a SignIn request" }),
     wafRequest(w, { id: "web_gq_003", ts: T(31), srcIp: atk, method: "POST", path: "/graphql", action: "block", rule: "custom", ruleName: "BlockGraphqlIntrospection", matched: "__schema", location: "REQUEST_BODY", ua, severity: "medium", isDetection: true, description: "Custom rule evaluated the body of a GraphQL request" }),
     post("web_gq_004", 33, 1188, 2204),
     wafRequest(w, { id: "web_gq_005", ts: T(36), srcIp: atk, method: "POST", path: "/graphql", action: "count", rule: "size_body", ua, sent: 18774, bytes: 1204, severity: "low", mitre: "T1110.001", tactic: CRED, description: "WAF rule evaluated a large request body on the GraphQL endpoint" }),
     post("web_gq_006", 36, 18774, 1204, { mitre: "T1110.001", tactic: CRED }),
+    gql("web_gq_006a", 36.01, atk, ua, "SignIn", 250, { UNAUTHENTICATED: 250 }, 2210, 22904, { mitre: "T1110.001", tactic: CRED }),
     post("web_gq_007", 36.4, 18802, 1204, { mitre: "T1110.001", tactic: CRED }),
+    gql("web_gq_007a", 36.41, atk, ua, "SignIn", 250, { UNAUTHENTICATED: 250 }, 2187, 22911, { mitre: "T1110.001", tactic: CRED }),
     post("web_gq_008", 36.8, 18790, 1204, { mitre: "T1110.001", tactic: CRED }),
+    gql("web_gq_008a", 36.81, atk, ua, "SignIn", 250, { UNAUTHENTICATED: 250 }, 2242, 22917, { mitre: "T1110.001", tactic: CRED }),
     post("web_gq_009", 37.2, 18781, 1661, { mitre: "T1110.001", tactic: CRED }),
+    gql("web_gq_009a", 37.21, atk, ua, "SignIn", 250, { UNAUTHENTICATED: 249 }, 2231, 22926, { mitre: "T1110.001", tactic: CRED }),
     webAccess(portal, { id: "web_gq_010", ts: T(38), srcIp: atk, path: "/account/orders", query: "cid=512088", bytes: 14420, ua, mitre: "T1078", tactic: IA, description: "Portal answered an orders request" }),
     webAccess(portal, { id: "web_gq_011", ts: T(39), srcIp: atk, method: "POST", path: "/account/payment-methods", query: "cid=512088", bytes: 322, ua, mitre: "T1657", tactic: IMPACT, severity: "medium", description: "Portal answered a payment method change" }),
   ];

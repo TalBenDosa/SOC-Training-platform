@@ -123,3 +123,62 @@ export function wafRequest(w: WebSite, r: WafDecision): TelemetryEvent {
     },
   };
 }
+
+/** One GraphQL request as the origin application logged it. */
+export interface GraphqlOperation {
+  id: string; ts: string;
+  /** The client as the app sees it behind its proxy: the X-Forwarded-For address. */
+  clientIp: string;
+  ua: string;
+  operationName: string;
+  /** Top-level fields the document asked for under aliases (0 for an ordinary query). */
+  aliases: number;
+  /** Errors the response carried, by GraphQL error code (Apollo Server: UNAUTHENTICATED, BAD_USER_INPUT ...). */
+  errors?: Record<string, number>;
+  responseMs: number;
+  pid: number;
+  /** pino-http's per-process request counter. */
+  reqId: number;
+  description: string;
+  severity?: Severity;
+  mitre?: string; tactic?: string;
+  isBaseline?: boolean;
+}
+/**
+ * The origin GraphQL service's own request log: a Node.js service with pino-http, one JSON line per
+ * request (pino's level / time / pid / hostname / msg, pino-http's req / res / responseTime), and the
+ * operation summary the service adds through pino-http customProps. A batched document is one HTTP
+ * 200 with one error per failed alias: the error count is the record of every guess.
+ */
+export function graphqlAppLog(w: WebSite, o: GraphqlOperation): TelemetryEvent {
+  const failed = Object.values(o.errors ?? {}).reduce((a, b) => a + b, 0);
+  return {
+    id: o.id, ts: o.ts, source: "app_log", vendor: "Node.js pino-http", event_type: "http_request" as EventType,
+    severity: o.severity ?? "low", hostname: w.host, src_ip: o.clientIp, dst_ip: w.ip, dst_port: 4000, protocol: "tcp",
+    network: { url: `https://${w.site}/graphql`, domain: w.site, method: "POST", status: 200, user_agent: o.ua },
+    description: o.description,
+    ...(o.mitre ? { mitre_technique: o.mitre, mitre_tactic: o.tactic } : {}),
+    ...(o.isBaseline ? { is_baseline: true } : {}),
+    raw: {
+      level: failed ? 40 : 30,
+      // pino with timestamp: pino.stdTimeFunctions.isoTime (an ISO string rather than epoch ms).
+      time: o.ts,
+      pid: o.pid,
+      hostname: w.host.split(".")[0],
+      // pino-http's default request id: a per-process counter.
+      "req.id": o.reqId,
+      "req.method": "POST",
+      "req.url": "/graphql",
+      "req.remoteAddress": "127.0.0.1",
+      "req.headers.x-forwarded-for": o.clientIp,
+      "req.headers.user-agent": o.ua,
+      "res.statusCode": 200,
+      responseTime: o.responseMs,
+      "graphql.operationName": o.operationName,
+      "graphql.aliasCount": o.aliases,
+      ...Object.fromEntries(Object.entries(o.errors ?? {}).map(([code, n]) => [`graphql.errors.${code}`, n])),
+      // pino-http's own message: a GraphQL error rides in a 200 response, so the request "completed".
+      msg: "request completed",
+    },
+  };
+}

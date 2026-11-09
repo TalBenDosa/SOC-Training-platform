@@ -922,15 +922,21 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     const k = (shiftMs * 0.95) / rawSpan;
     for (const x of timed) x.at = Math.round(x.at * k);
   }
-  // One request seen by the WAF and by the origin is one moment, not two rows a feed gap apart: neither
-  // format shares an id with the other, so the time is what ties them.
-  for (let k = 0, last = new Map<string, { at: number; n: number }>(); k < timed.length; k++) {
+  // One request seen by the WAF, by the origin web server and by the application behind it is one
+  // moment, not rows a feed gap apart: no format shares an id with another, so the time is what ties
+  // them. One WAF row is one request: it takes the next origin row of that request, and that origin
+  // row the next application row (a WAF row pulling every origin row of the minute put the second
+  // request before the first request's application line).
+  for (let k = 0, waf = new Map<string, { at: number; n: number }>(), origin = new Map<string, { at: number; n: number }>(); k < timed.length; k++) {
     const e = timed[k].p.ev;
-    if (e.source !== "waf" && e.source !== "web_server") continue;
+    if (e.source !== "waf" && e.source !== "web_server" && e.source !== "app_log") continue;
     const key = `${e.src_ip}|${e.network?.method}|${e.network?.url}|${e.ts.slice(0, 16)}`;
-    const prev = e.source === "web_server" && timed[k].p.origin === "story" ? last.get(key) : undefined;
-    if (prev) timed[k].at = Math.max(prev.at + 1, prev.at + Math.min(700, Math.floor((timed[k].at - prev.at) / 2)));
-    if (e.source === "waf") last.set(key, { at: timed[k].at, n: k });
+    const story = timed[k].p.origin === "story";
+    const from = !story ? undefined : e.source === "web_server" ? waf : e.source === "app_log" ? origin : undefined;
+    const prev = from?.get(key);
+    if (prev) { from!.delete(key); timed[k].at = Math.max(prev.at + 1, prev.at + Math.min(700, Math.floor((timed[k].at - prev.at) / 2))); }
+    if (e.source === "waf") waf.set(key, { at: timed[k].at, n: k });
+    if (e.source === "web_server") origin.set(key, { at: timed[k].at, n: k });
   }
   keepAuthBursts(timed);
   const span = timed.length ? timed[timed.length - 1].at : 0;
