@@ -175,7 +175,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     vendor: "FortiGate", src_ip: "172.16.10.7", dst_ip: "140.82.121.4", dst_port: 443,
     protocol: "tcp",
     description: "Outbound HTTPS connection from LAP-007 to github.com - allowed",
-    raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000013", "data.level": "notice", "data.action": "accept", "data.policyid": "42", "data.service": "HTTPS", "data.srccountry": "Reserved", "data.sentbyte": "4096", "data.rcvdbyte": "102400", "firewall.action": "allow", "action_result": "allowed" }
+    raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000013", "data.level": "notice", "data.action": "accept", "data.policyid": "42", "data.service": "HTTPS", "data.srccountry": "Reserved", "data.sentbyte": "4096", "data.rcvdbyte": "102400", "action_result": "allowed" }
   },
   {
     id: "rs_fw_002", ts: "2026-05-10T10:05:00.000Z",
@@ -183,7 +183,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     vendor: "FortiGate", src_ip: "198.51.100.139", dst_ip: "172.16.14.5", dst_port: 22,
     protocol: "tcp",
     description: "Inbound SSH connection attempt from 198.51.100.139 to 172.16.14.5 denied by policy 1",
-    raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000015", "data.level": "warning", "data.action": "deny", "data.policyid": "1", "data.service": "SSH", "data.srccountry": "Netherlands", "data.sentbyte": "0", "data.rcvdbyte": "64", "firewall.action": "block", "action_result": "blocked" }
+    raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000015", "data.level": "warning", "data.action": "deny", "data.policyid": "1", "data.service": "SSH", "data.srccountry": "Netherlands", "data.sentbyte": "0", "data.rcvdbyte": "64", "action_result": "blocked" }
   },
   // ── DNS ───────────────────────────────────────────────────────────────────
   {
@@ -307,7 +307,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     vendor: "FortiGate", src_ip: "172.16.10.7", dst_ip: "1.1.1.1", dst_port: 443,
     protocol: "tcp",
     description: "LAP-007 opened an HTTPS session to 1.1.1.1 that application control identified as DNS.over.HTTPS",
-    raw: { "data.type": "utm", "data.subtype": "app-ctrl", "data.level": "warning", "data.action": "pass", "data.service": "HTTPS", "data.app": "DNS.over.HTTPS", "data.appcat": "Network.Service", "data.sentbyte": "2048", "data.rcvdbyte": "6144", "firewall.action": "allow", "action_result": "allowed" }
+    raw: { "data.type": "utm", "data.subtype": "app-ctrl", "data.level": "warning", "data.action": "pass", "data.service": "HTTPS", "data.app": "DNS.over.HTTPS", "data.appcat": "Network.Service", "data.sentbyte": "2048", "data.rcvdbyte": "6144", "action_result": "allowed" }
   },
   {
     id: "rs_fw_004", ts: "2026-05-10T14:00:00.000Z",
@@ -316,7 +316,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     protocol: "tcp", expected_verdict: "fp",
     fp_explanation: "Opportunistic internet-wide RDP scanning hits RocketStack's public IP range constantly. The perimeter policy denied the connection before any handshake completed (0 bytes sent), and no other telemetry from 172.16.14.5 or this source IP correlates with it - routine background noise, not a targeted or successful attempt.",
     description: "Inbound RDP connection attempt from 198.51.100.112 to 172.16.14.5 - denied by policy 1",
-    raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000015", "data.level": "warning", "data.action": "deny", "data.policyid": "1", "data.service": "RDP", "data.srccountry": "Germany", "data.sentbyte": "0", "data.rcvdbyte": "60", "firewall.action": "block", "action_result": "blocked" }
+    raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000015", "data.level": "warning", "data.action": "deny", "data.policyid": "1", "data.service": "RDP", "data.srccountry": "Germany", "data.sentbyte": "0", "data.rcvdbyte": "60", "action_result": "blocked" }
   },
   // ── DNS - additional query events ─────────────────────────────────────────
   {
@@ -1021,7 +1021,6 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
       "outzone":                       "Internal",
       "ProductName":                   "VPN-1 & FireWall-1",
       "ProductFamily":                 "Network",
-      "firewall.action":               "allow",
       "action_result":                 "allowed"
     }
   },
@@ -1173,7 +1172,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "Check Point NGFW", src_ip: "192.168.10.45", dst_ip: "52.96.12.14", dst_port: 443,
     protocol: "tcp",
     description: "Outbound HTTPS connection from WS-MED-045 to outlook.office365.com - allowed",
-    raw: { "action": "Accept", "layer_name": "Network", "service_id": "HTTPS", "bytes": "124800", "firewall.action": "allow", "action_result": "allowed" }
+    raw: { "action": "Accept", "layer_name": "Network", "service_id": "HTTPS", "bytes": "124800", "action_result": "allowed" }
   },
   {
     id: "mc_fw_002", ts: "2026-05-10T08:44:30.000Z",
@@ -1183,7 +1182,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     protocol: "tcp",
     description: "Outbound HTTP connection from WS-MED-022 to 198.51.100.157 - uncategorised destination, review required",
     mitre_technique: "T1071.001", expected_verdict: "tp", is_detection: true,
-    raw: { "action": "Accept", "layer_name": "Application & URL Filtering", "service_id": "HTTP", "bytes_out": "3481", "app_category": "Uncategorized", "firewall.action": "allow", "action_result": "allowed" }
+    raw: { "action": "Accept", "layer_name": "Application & URL Filtering", "service_id": "HTTP", "bytes_out": "3481", "app_category": "Uncategorized", "action_result": "allowed" }
   },
   {
     id: "mc_fw_003", ts: "2026-05-10T09:30:00.000Z",
@@ -1191,7 +1190,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "Check Point NGFW", src_ip: "192.168.10.88", dst_ip: "198.51.100.158", dst_port: 4444,
     protocol: "tcp",
     description: "Outbound TCP connection from WS-ICU-088 to 198.51.100.158:4444 - non-standard port, blocked",
-    raw: { "action": "Drop", "layer_name": "Application & URL Filtering", "service_id": "Unknown", "firewall.action": "block", "action_result": "blocked", "destination.geo.country_name": "Russia" }
+    raw: { "action": "Drop", "layer_name": "Application & URL Filtering", "service_id": "Unknown", "action_result": "blocked", "destination.geo.country_name": "Russia" }
   },
   {
     id: "mc_fw_004", ts: "2026-05-10T10:00:00.000Z",
@@ -1199,7 +1198,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "Check Point NGFW", src_ip: "192.168.10.200", dst_ip: "40.112.72.205", dst_port: 443,
     protocol: "tcp",
     description: "Outbound HTTPS connection from SRV-MEDCORE-FILE01 to azure-backup.core.windows.net - backup traffic",
-    raw: { "action": "Accept", "layer_name": "Network", "service_id": "HTTPS", "bytes": "44040192", "firewall.action": "allow", "action_result": "allowed" }
+    raw: { "action": "Accept", "layer_name": "Network", "service_id": "HTTPS", "bytes": "44040192", "action_result": "allowed" }
   },
   {
     id: "mc_fw_005", ts: "2026-05-10T11:45:00.000Z",
@@ -1208,7 +1207,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     protocol: "tcp", expected_verdict: "fp",
     fp_explanation: "198.51.100.139 is a known internet-wide scanner IP that repeatedly probes MedCore's public IP range for exposed RDP services. Check Point's Threat Prevention layer dropped the connection at the perimeter before any handshake completed - no other telemetry from this IP correlates with a targeted or successful attempt.",
     description: "Inbound RDP scan from 198.51.100.139 to 192.168.10.1 - blocked, known scanner IP",
-    raw: { "action": "Drop", "layer_name": "Threat Prevention", "protection_name": "Microsoft RDP Scan", "protection_type": "Scanner", "firewall.action": "block", "action_result": "blocked" }
+    raw: { "action": "Drop", "layer_name": "Threat Prevention", "protection_name": "Microsoft RDP Scan", "protection_type": "Scanner", "action_result": "blocked" }
   },
   {
     id: "mc_fw_006", ts: "2026-05-10T12:10:00.000Z",
@@ -1216,7 +1215,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "Check Point NGFW", src_ip: "192.168.50.15", dst_ip: "192.168.10.200", dst_port: 445,
     protocol: "tcp",
     description: "SMB connection from MED-DEVICE-VLAN to SRV-MEDCORE-FILE01 - file share access",
-    raw: { "action": "Accept", "layer_name": "Network", "service_id": "Microsoft-DS", "firewall.action": "allow", "action_result": "allowed" }
+    raw: { "action": "Accept", "layer_name": "Network", "service_id": "Microsoft-DS", "action_result": "allowed" }
   },
 
   // ════════════════════════════════════════════════════════════════
@@ -1826,7 +1825,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     protocol: "tcp",
     description: "Internal PACS query from WS-MED-067 to SRV-MEDCORE-PACS01 - allowed",
     raw: { "action": "Accept", "layer_name": "Network",
-           "service_id": "DICOM", "bytes": "44032", "firewall.action": "allow", "action_result": "allowed" }
+           "service_id": "DICOM", "bytes": "44032", "action_result": "allowed" }
   },
   {
     id: "mc_fw_008", ts: "2026-05-10T08:00:00.000Z",
@@ -1836,7 +1835,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     description: "Outbound HTTPS from SRV-MEDCORE-EMR01 to Microsoft Azure - expected Epiq cloud sync",
     raw: { "action": "Accept", "layer_name": "Application & URL Filtering",
            "app_name": "Office365", "bytes_out": "204800",
-           "firewall.action": "allow", "action_result": "allowed" }
+           "action_result": "allowed" }
   },
   {
     id: "mc_fw_009", ts: "2026-05-10T13:30:00.000Z",
@@ -1845,7 +1844,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     protocol: "tcp",
     description: "Nurse station WS-NURS-033 connected to Epiq EMR API on SRV-MEDCORE-EMR01 - allowed",
     raw: { "action": "Accept", "layer_name": "Network",
-           "service_id": "HTTPS", "bytes": "51200", "firewall.action": "allow", "action_result": "allowed" }
+           "service_id": "HTTPS", "bytes": "51200", "action_result": "allowed" }
   },
 
   // ── More Cisco VPN - remote clinical staff ────────────────────────────────
@@ -1970,7 +1969,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Cisco Firepower", src_ip: "10.50.5.10", dst_ip: "52.28.41.8", dst_port: 443,
     protocol: "tcp",
     description: "Outbound HTTPS connection from SRV-GL-WMS01 to SAP cloud API - allowed",
-    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "WMS-outbound", "cisco.ftd.application_protocol": "sap-cloud", "firewall.action": "allow", "action_result": "allowed" }
+    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "WMS-outbound", "cisco.ftd.application_protocol": "sap-cloud", "action_result": "allowed" }
   },
   {
     id: "gl_fw_002", ts: "2026-05-10T09:45:00.000Z",
@@ -1979,7 +1978,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     protocol: "tcp", expected_verdict: "fp",
     fp_explanation: "198.51.100.99 is a well-known Tor exit node that opportunistically scans internet-facing IP ranges. Cisco Firepower's Security Intelligence feed blocked the connection before any application data was exchanged, and no other GlobalLogis telemetry correlates with this IP - routine background noise, not a targeted attempt.",
     description: "Inbound HTTP connection from TOR exit node 198.51.100.99 to 10.50.1.1 - blocked by firewall",
-    raw: { "cisco.ftd.action": "Block", "cisco.ftd.security_intelligence_category": "TOR-Anonymous", "firewall.action": "block", "action_result": "blocked" }
+    raw: { "cisco.ftd.action": "Block", "cisco.ftd.security_intelligence_category": "TOR-Anonymous", "action_result": "blocked" }
   },
   // ── VPN (Cisco AnyConnect) ────────────────────────────────────────────────
   {
@@ -2069,7 +2068,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Cisco Firepower", src_ip: "10.50.5.20", dst_ip: "52.28.41.8", dst_port: 8443,
     protocol: "tcp",
     description: "Outbound HTTPS connection from SRV-GL-ERP01 to SAP S/4HANA cloud connector - allowed",
-    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "ERP-outbound", "cisco.ftd.application_protocol": "sap-cloud", "firewall.action": "allow", "action_result": "allowed" }
+    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "ERP-outbound", "cisco.ftd.application_protocol": "sap-cloud", "action_result": "allowed" }
   },
   {
     id: "gl_fw_005", ts: "2026-05-10T15:00:00.000Z",
@@ -2077,7 +2076,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Cisco Firepower", src_ip: "198.51.100.194", dst_ip: "10.50.1.1", dst_port: 23,
     protocol: "tcp",
     description: "Inbound Telnet scan from 198.51.100.194 to 10.50.1.1 - blocked, legacy protocol probe",
-    raw: { "cisco.ftd.action": "Block", "cisco.ftd.security_intelligence_category": "Scanner", "firewall.action": "block", "action_result": "blocked", "source.geo.country_name": "China" }
+    raw: { "cisco.ftd.action": "Block", "cisco.ftd.security_intelligence_category": "Scanner", "action_result": "blocked", "source.geo.country_name": "China" }
   },
   // ── Sysmon - additional events ────────────────────────────────────────────
   {
@@ -2111,7 +2110,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     protocol: "tcp", expected_verdict: "fp",
     fp_explanation: "SRV-GL-WMS01 connects to a logistics partner (DHL DE) via FTP every morning at 06:30 to exchange shipping manifests. The FTP session is to a whitelisted partner IP (DHL's EDI gateway) and was added to the firewall allowlist under change CHG-GL-120. The large upload is daily shipment data - expected for a logistics operator.",
     description: "FTP connection from SRV-GL-WMS01 to DHL EDI gateway - daily shipping manifest transfer",
-    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "WMS-FTP-Partner", "cisco.ftd.application_protocol": "ftp", "cisco.ftd.initiator_bytes": "52428800", "firewall.action": "allow", "action_result": "allowed" }
+    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "WMS-FTP-Partner", "cisco.ftd.application_protocol": "ftp", "cisco.ftd.initiator_bytes": "52428800", "action_result": "allowed" }
   },
   {
     id: "gl_fp_002", ts: "2026-05-10T10:00:00.000Z",
@@ -2499,7 +2498,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     vendor: "Palo Alto Networks PAN-OS", src_ip: "10.100.1.55", dst_ip: "198.51.100.198", dst_port: 443,
     protocol: "tcp",
     description: "Outbound HTTPS connection from WKS-QB-055 to bloomberg.com - allowed",
-    raw: { "pan.action": "allow", "pan.app": "bloomberg", "pan.category": "financial-services", "firewall.action": "allow", "action_result": "allowed" }
+    raw: { "pan.action": "allow", "pan.app": "bloomberg", "pan.category": "financial-services", "action_result": "allowed" }
   },
   {
     id: "qb_fw_002", ts: "2026-05-10T10:30:00.000Z",
@@ -2508,7 +2507,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     protocol: "tcp",
     description: "Outbound connection from WKS-QB-012 to 198.51.100.199:8080 blocked by a Palo Alto threat signature",
     expected_verdict: "tp", is_detection: true,
-    raw: { "pan.action": "block", "pan.threat_name": "Cobalt-Strike-C2-Beacon", "pan.threat_id": "86624", "firewall.action": "block", "action_result": "blocked" }
+    raw: { "pan.action": "block", "pan.threat_name": "Cobalt-Strike-C2-Beacon", "pan.threat_id": "86624", "action_result": "blocked" }
   },
   // ── Zscaler Private Access ────────────────────────────────────────────────
   {
@@ -3192,7 +3191,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     severity: "critical", vendor: "Check Point NGFW", src_ip: "192.168.10.45", dst_ip: "198.51.100.215", dst_port: 443,
     description: "1.8 GB outbound HTTPS transfer from WS-MED-045 to 198.51.100.215 (FI) with no matching TLS SNI",
     mitre_technique: "T1041",
-    raw: { "action": "Accept", "app_name": "HTTPS", "bytes_out": "1932735283", "src": "192.168.10.45", "dst": "198.51.100.215", "svc": "443", "proto": "6", "protocol": "TCP", "rule_name": "Internal-to-Any-Outbound", "layer_name": "Network", "destination.geo.country_iso_code": "FI", "firewall.action": "allow", "action_result": "allowed" }
+    raw: { "action": "Accept", "app_name": "HTTPS", "bytes_out": "1932735283", "src": "192.168.10.45", "dst": "198.51.100.215", "svc": "443", "proto": "6", "protocol": "TCP", "rule_name": "Internal-to-Any-Outbound", "layer_name": "Network", "destination.geo.country_iso_code": "FI", "action_result": "allowed" }
   },
   chainAlert({ id: "mc_b5", ts: "2026-05-10T11:43:00.000Z", name: "Large outbound transfer to a destination with no prior history", product: "Azure Sentinel", severity: "High", mitre: "T1048", user: "n.smits@medcorehealth.org", host: "WS-MED-045", ip: "198.51.100.215", props: {"Bytes Sent": "1932735283", "Destination IP": "198.51.100.215", "TLS SNI": "none", "Prior Connections (30d)": "0"}, description: "Sentinel raised a High alert for WS-MED-045: 1.8 GB sent to 198.51.100.215, a destination with no connections in the last 30 days and no TLS SNI." }),
   // ── Chain C ──────────────────────────────────────────────────────────────
@@ -3551,7 +3550,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     severity: "critical", vendor: "FortiGate", src_ip: "172.16.10.7", dst_ip: "172.16.20.5", dst_port: 5432,
     description: "4.1 GB pulled over a PostgreSQL session from prod-db-01 (172.16.20.5:5432) down to LAP-007",
     mitre_technique: "T1048",
-    raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000013", "data.level": "notice", "data.action": "accept", "data.service": "PGSQL", "data.app": "PostgreSQL", "data.policyname": "dev-to-prod", "data.sentbyte": "12480", "data.rcvdbyte": "4404019200", "data.duration": "612", "data.srccountry": "Reserved", "firewall.action": "allow", "action_result": "allowed" }
+    raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000013", "data.level": "notice", "data.action": "accept", "data.service": "PGSQL", "data.app": "PostgreSQL", "data.policyname": "dev-to-prod", "data.sentbyte": "12480", "data.rcvdbyte": "4404019200", "data.duration": "612", "data.srccountry": "Reserved", "action_result": "allowed" }
   },
   // ── Chain D - Okta credential stuffing → AWS console compromise ───────────
   {
@@ -3656,7 +3655,7 @@ const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
     severity: "critical", vendor: "Cisco Firepower", src_ip: "10.50.5.10", dst_ip: "198.51.100.221", dst_port: 21,
     description: "142MB FTP data transfer from SRV-GL-WMS01 to external server 198.51.100.221 - large outbound transfer on legacy protocol",
     mitre_technique: "T1048.003",
-    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.application_protocol": "ftp", "cisco.ftd.initiator_bytes": "148897792", "cisco.ftd.rule_name": "default-outbound", "firewall.action": "allow", "action_result": "allowed" }
+    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.application_protocol": "ftp", "cisco.ftd.initiator_bytes": "148897792", "cisco.ftd.rule_name": "default-outbound", "action_result": "allowed" }
   },
   // ── Chain B ──────────────────────────────────────────────────────────────
   {
@@ -3691,7 +3690,7 @@ const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
     severity: "critical", vendor: "Cisco Firepower", src_ip: "10.50.5.10", dst_ip: "198.51.100.222", dst_port: 443,
     description: "SRV-GL-WMS01 sent 890 MB over TLS to 198.51.100.222, an address with no prior traffic from this host",
     mitre_technique: "T1041",
-    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.initiator_bytes": "933397504", "cisco.ftd.application_protocol": "ssl", "cisco.ftd.rule_name": "default-outbound", "firewall.action": "allow", "action_result": "allowed" }
+    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.initiator_bytes": "933397504", "cisco.ftd.application_protocol": "ssl", "cisco.ftd.rule_name": "default-outbound", "action_result": "allowed" }
   },
   // ── Chain C ──────────────────────────────────────────────────────────────
   {
@@ -3811,7 +3810,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     severity: "high", vendor: "Palo Alto Networks PAN-OS", src_ip: "10.100.1.12", dst_ip: "198.51.100.199", dst_port: 443,
     description: "Palo Alto blocked an outbound HTTPS connection from WKS-QB-012 to 198.51.100.199 on threat signature 94201",
     mitre_technique: "T1071.001",
-    raw: { "pan.action": "block", "pan.threat_name": "Cobalt-Strike-C2-Malleable-Profile", "pan.threat_id": "94201", "pan.threat_severity": "critical", "firewall.action": "block", "action_result": "blocked" }
+    raw: { "pan.action": "block", "pan.threat_name": "Cobalt-Strike-C2-Malleable-Profile", "pan.threat_id": "94201", "pan.threat_severity": "critical", "action_result": "blocked" }
   },
   {
     id: "qb_a4", ts: "2026-05-10T09:15:00.000Z", source: "okta", event_type: "auth_success",
