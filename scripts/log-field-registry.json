@@ -12352,6 +12352,13 @@
       ],
       "prefixes": []
     },
+    "p0f": {
+      "label": "p0f",
+      "aliases": ["p0f v3"],
+      "sourceNote": "p0f v3 passive fingerprinting log (-o): pipe-delimited name=value pairs, the same names as the pretty-printed stdout output (mod, cli, srv, subj, os, dist, params, raw_sig; app / lang / params for HTTP; link / raw_mtu for MTU; uptime / raw_freq for uptime). raw_sig = ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass, ittl written observed_ttl+distance. Source: p0f v3 README, https://github.com/p0f/p0f/blob/master/docs/README (sections on output format and signature format).",
+      "exactFields": ["mod", "cli", "srv", "subj", "os", "dist", "params", "raw_sig", "app", "lang", "link", "raw_mtu", "uptime", "raw_freq", "raw_hits"],
+      "prefixes": []
+    },
     "suricata": {
       "label": "Suricata",
       "aliases": [],
