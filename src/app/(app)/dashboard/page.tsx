@@ -33,7 +33,7 @@ import { incidentGroundTruth } from "./groundTruth";
 import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
 import { IocTruthContext } from "@/components/threat-intel/iocTruthContext";
 import { storyIocTruth } from "@/lib/sim/storyTruth";
-import { companyFeedPool, feedCompanyProfile } from "./feedPool";
+import { companyFeedPool, feedCompanyProfile, feedStoryEvents } from "./feedPool";
 import { PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 import {
   BookOpen, Building2, Clock, Cpu, FileText, Filter, GraduationCap, Pause, Play,
@@ -615,7 +615,7 @@ export default function DashboardPage() {
     // another vendor's artifacts (PRODUCT_LOCKS) is not drawn where it'd be shown as a different product.
     const chosen = Object.keys(stack).length > 0;
     const st = resolveStory(s, orgMap, company, difficulty, edr, x => (chosen ? nm.storyFitsStack(x.events, company, stack) : nm.storyHonoursLocks(x.events, company)));
-    return { ...st, events: st.events.map(e => nm.applyStack(e, company, stack)) };
+    return { ...st, events: feedStoryEvents(st.events, company).map(e => nm.applyStack(e, company, stack)) };
   };
   const eventPool       = useMemo(() => (sim ? stackedPool(resolveEvents(sim, orgCompanyMap, selectedCompanyId), selectedCompanyId, sessionStack, nativeMod) : []), [sim, selectedCompanyId, orgCompanyMap, sessionStack, nativeMod]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {

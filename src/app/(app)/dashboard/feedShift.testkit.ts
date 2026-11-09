@@ -8,7 +8,7 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { BENIGN_EVENTS } from "./benignEvents";
 import { COMPANY_EVENTS } from "@/lib/sim/companyProfiles";
-import { companyFeedPool, feedCompanyProfile } from "./feedPool";
+import { companyFeedPool, feedCompanyProfile, feedStoryEvents } from "./feedPool";
 import { ATTACK_STORIES, instantiateStory, pickStoryForCompany, type AttackStory } from "./attackStories";
 import { applyStack, fitsStack, nativeView, storyHonoursLocks } from "@/lib/logs/native";
 import { enrichEvent, injectAdvancedFidelityNoise, type LiveEvent } from "./liveEventEnrich";
@@ -54,7 +54,7 @@ export function playShift(company: string, difficulty: "easy" | "medium" | "hard
       ? ATTACK_STORIES.find(s => s.id === storyId)!
       : pickStoryForCompany(company, difficulty, st => storyHonoursLocks(instantiateStory(st, cpool, edr, company).events, company));
     const st0 = instantiateStory(picked, cpool, edr, company);
-    const story: AttackStory = { ...st0, events: st0.events.map(e => applyStack(e, company, {})) };
+    const story: AttackStory = { ...st0, events: feedStoryEvents(st0.events, company).map(e => applyStack(e, company, {})) };
     const pool = cpool.filter(e => fitsStack(e, company, {})).map(e => applyStack(e, company, {}));
     const adv = story.complexity === "advanced";
     let gi = 15;

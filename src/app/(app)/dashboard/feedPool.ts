@@ -5,7 +5,7 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { COMPANY_PROFILES, NEXACORP_PROFILE } from "@/lib/sim/companyProfilesMeta";
-import { normalizeHostIps } from "@/lib/sim/hostIdentity";
+import { normalizeAccountSids, normalizeHostIps } from "@/lib/sim/hostIdentity";
 
 export interface FeedPoolData {
   BENIGN_EVENTS: TelemetryEvent[];
@@ -38,12 +38,17 @@ export function companyEventsRaw(sim: FeedPoolData, id: string): TelemetryEvent[
   return base.filter(e => (active.size === 0 || active.has(e.source)) && !isMalicious(e));
 }
 
-/** One host, one IP across the noise (normalizeHostIps), computed once per data set + company. */
+/** One host, one IP (normalizeHostIps) and one account, one SID (normalizeAccountSids) across the noise, computed once per data set + company. */
 const cache = new WeakMap<FeedPoolData, Map<string, TelemetryEvent[]>>();
 export function companyFeedPool(sim: FeedPoolData, id: string): TelemetryEvent[] {
   const hit = cache.get(sim)?.get(id);
   if (hit) return hit;
-  const out = normalizeHostIps(companyEventsRaw(sim, id));
+  const out = normalizeAccountSids(normalizeHostIps(companyEventsRaw(sim, id)), id);
   (cache.get(sim) ?? cache.set(sim, new Map()).get(sim)!).set(id, out);
   return out;
+}
+
+/** A story as the Live Feed shows it: the same one-SID-per-account rule as the noise around it (R3). */
+export function feedStoryEvents(events: TelemetryEvent[], id: string): TelemetryEvent[] {
+  return normalizeAccountSids(events, id);
 }

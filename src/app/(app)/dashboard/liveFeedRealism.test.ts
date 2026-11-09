@@ -77,4 +77,24 @@ describe("Live Feed realism (played shifts)", () => {
     }
     expect(off).toEqual([]);
   }, 300_000);
+
+  it("R3: one account, one SID across the noise and the story", () => {
+    const off: string[] = [];
+    for (const s of shifts) {
+      const sids = new Map<string, Set<string>>();
+      for (const r of s.rows) {
+        if (r.mirror) continue;
+        const rec = (nativeOf(r, s.company)?.log.record ?? {}) as Record<string, unknown>;
+        const flat: Record<string, unknown> = { ...rec, ...((rec.EventData as Record<string, unknown>) ?? {}) };
+        for (const [sidK, nameK] of [["TargetUserSid", "TargetUserName"], ["SubjectUserSid", "SubjectUserName"]]) {
+          const sid = flat[sidK], name = flat[nameK];
+          if (typeof sid !== "string" || !sid.startsWith("S-1-5-21-") || typeof name !== "string" || name.endsWith("$") || name === "-") continue;
+          const k = name.toLowerCase();
+          (sids.get(k) ?? sids.set(k, new Set()).get(k)!).add(sid);
+        }
+      }
+      for (const [u, set] of sids) if (set.size > 1) off.push(`${tag(s)}: ${u} has ${[...set].join(", ")}`);
+    }
+    expect(off).toEqual([]);
+  }, 300_000);
 });
