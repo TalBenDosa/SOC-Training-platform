@@ -42,6 +42,7 @@ const remcMailAccessEvent: TelemetryEvent = {
   description:
     "The Unified Audit Log recorded a MailItemsAccessed bind against r.iversen's Inbox from 203.0.113.211, client string Client=REST;Client=RESTSystem;;.",
   raw: {
+    "data.office365.CreationTime": "2026-05-14T02:47:33",
     "data.office365.Operation": "MailItemsAccessed",
     "data.office365.RecordType": "50",
     "data.office365.Workload": "Exchange",
@@ -61,8 +62,6 @@ const remcMailAccessEvent: TelemetryEvent = {
     "data.office365.Folders[0].Path": "\\Inbox",
     "data.office365.Folders[0].FolderItems[0].InternetMessageId":
       "<DM6PR07MB58340F2A9C1E@DM6PR07MB5834.namprd07.prod.outlook.com>",
-    "event.action": "MailItemsAccessed",
-    "event.outcome": "success",
   },
 };
 
@@ -88,6 +87,7 @@ const remcDelegateEvent: TelemetryEvent = {
   description:
     "The Unified Audit Log recorded a MailItemsAccessed sync against c.reyes's Inbox performed by j.tan, client string Client=Outlook;Microsoft Office/16.0.17328.",
   raw: {
+    "data.office365.CreationTime": "2026-05-08T14:22:10",
     "data.office365.Operation": "MailItemsAccessed",
     "data.office365.RecordType": "50",
     "data.office365.Workload": "Exchange",
@@ -104,8 +104,6 @@ const remcDelegateEvent: TelemetryEvent = {
     "data.office365.SessionId": "8b3e5f91d2a746c0b8e4f1a9d6c37e52",
     "data.office365.OrganizationId": "3c9e7a41-2b6d-4f18-9a05-7e4c1b8d3f62",
     "data.office365.Folders[0].Path": "\\Inbox",
-    "event.action": "MailItemsAccessed",
-    "event.outcome": "success",
   },
 };
 
@@ -442,7 +440,7 @@ const devregRogueRegistrationEvent: TelemetryEvent = {
   severity: "critical",
   mitre_technique: "T1098.005",
   user_email: "m.delgado@nexacorp.com",
-  src_ip: "91.132.139.204",
+  src_ip: "203.0.113.149",
   geo: { country: "Germany", city: "Frankfurt" },
   description:
     "A second Microsoft Authenticator method was registered on m.delgado's account. Compare the actor performing the registration to the account it was registered on, and check whether the registering session carried a directory role.",
@@ -455,18 +453,16 @@ const devregRogueRegistrationEvent: TelemetryEvent = {
     "azure.auditlogs.properties.loggedByService": "Authentication Methods",
     "azure.auditlogs.properties.operationType": "Update",
     "azure.auditlogs.properties.result": "success",
-    "azure.auditlogs.properties.resultReason": "User registered security info: Microsoft Authenticator app",
+    "azure.auditlogs.properties.resultReason": "User registered Authenticator App with Notification and Code",
     "azure.auditlogs.properties.correlationId": "8b05d7c4-1a69-4e38-9f27-c40e6b91a53d",
     "azure.auditlogs.properties.initiatedBy.user.userPrincipalName": "m.delgado@nexacorp.com",
     "azure.auditlogs.properties.initiatedBy.user.id": "b8f42a09-6d31-4c7e-9a15-3e0c8b71d4f2",
-    "azure.auditlogs.properties.initiatedBy.user.ipAddress": "91.132.139.204",
+    "azure.auditlogs.properties.initiatedBy.user.ipAddress": "203.0.113.149",
     "azure.auditlogs.properties.initiatedBy.user.roles": [],
     "azure.auditlogs.properties.targetResources[0].type": "User",
     "azure.auditlogs.properties.targetResources[0].userPrincipalName": "m.delgado@nexacorp.com",
     "azure.auditlogs.properties.targetResources[0].id": "b8f42a09-6d31-4c7e-9a15-3e0c8b71d4f2",
-    "event.action": "user-registered-security-info",
-    "event.outcome": "success",
-    "source.ip": "91.132.139.204",
+    "source.ip": "203.0.113.149",
   },
 };
 
@@ -479,8 +475,8 @@ const devregLegitimateRegistrationEvent: TelemetryEvent = {
   severity: "medium",
   mitre_technique: "T1098.005",
   user_email: "p.oduya@nexacorp.com",
-  src_ip: "82.80.14.6",
-  geo: { country: "Israel", city: "Tel Aviv" },
+  src_ip: "192.0.2.150",
+  geo: { country: "United Kingdom", city: "London" },
   it_verify_result: "confirmed",
   it_verify_message:
     "Helpdesk ticket HD-51142: p.oduya reported her phone was replaced under the corporate device-upgrade program and called in to confirm the correct steps for re-registering Microsoft Authenticator on the new device.",
@@ -495,18 +491,16 @@ const devregLegitimateRegistrationEvent: TelemetryEvent = {
     "azure.auditlogs.properties.loggedByService": "Authentication Methods",
     "azure.auditlogs.properties.operationType": "Update",
     "azure.auditlogs.properties.result": "success",
-    "azure.auditlogs.properties.resultReason": "User registered security info: Microsoft Authenticator app",
+    "azure.auditlogs.properties.resultReason": "User registered Authenticator App with Notification and Code",
     "azure.auditlogs.properties.correlationId": "2f6a9d31-7c48-4b16-a3e5-1d9f7b2c8e40",
     "azure.auditlogs.properties.initiatedBy.user.userPrincipalName": "p.oduya@nexacorp.com",
     "azure.auditlogs.properties.initiatedBy.user.id": "c4e91a7d-3f5b-4e02-9d16-8a2c7f4b9e01",
-    "azure.auditlogs.properties.initiatedBy.user.ipAddress": "82.80.14.6",
+    "azure.auditlogs.properties.initiatedBy.user.ipAddress": "192.0.2.150",
     "azure.auditlogs.properties.initiatedBy.user.roles": [],
     "azure.auditlogs.properties.targetResources[0].type": "User",
     "azure.auditlogs.properties.targetResources[0].userPrincipalName": "p.oduya@nexacorp.com",
     "azure.auditlogs.properties.targetResources[0].id": "c4e91a7d-3f5b-4e02-9d16-8a2c7f4b9e01",
-    "event.action": "user-registered-security-info",
-    "event.outcome": "success",
-    "source.ip": "82.80.14.6",
+    "source.ip": "192.0.2.150",
   },
 };
 
@@ -750,11 +744,11 @@ const deviceRegistrationPersistenceRoom = {
       id: "devreg-ac1",
       heading: "Verdict: A Second Authenticator on p.oduya's Account",
       scenario:
-        "p.oduya@nexacorp.com's account shows a 'User registered security info' record, self-service, adding a second PhoneAppNotification method. Structurally this looks like the log analysis case you just worked through: same operation name, same self-service actor/target match. For reference, NexaCorp's Tel Aviv office egress is 82.80.14.6, and every sign-in on her account that day shows riskLevelDuringSignIn none with MFA completed by a fresh push approval. Review the record and the IT verification note under it before deciding.",
+        "p.oduya@nexacorp.com's account shows a 'User registered security info' record, self-service, adding a second PhoneAppNotification method. Structurally this looks like the log analysis case you just worked through: same operation name, same self-service actor/target match. For reference, NexaCorp's London office egress is 192.0.2.150, and every sign-in on her account that day shows riskLevelDuringSignIn none with MFA completed by a fresh push approval. Review the record and the IT verification note under it before deciding.",
       event: devregLegitimateRegistrationEvent,
       correct_verdict: "benign_true_positive",
       explanation:
-        "The source IP (82.80.14.6) matches p.oduya's normal corporate egress in Tel Aviv, the event occurred at 11:05 UTC, during Tel Aviv business hours, and the IT verification note confirms Helpdesk ticket HD-51142, where she proactively called in about the exact device-replacement process this registration reflects. Nothing in the surrounding context matches the risky-sign-in correlation Reading 4 described. That makes this a benign true positive: a second authenticator really was registered, which is what the rule watches for, and Helpdesk ticket HD-51142 for her device replacement is the justification you cite when closing it. It is not a false positive, because nothing misfired, and that label would invite weakening an MFA-registration rule that catches real persistence.",
+        "The source IP (192.0.2.150) matches p.oduya's normal corporate egress in London, the event occurred at 11:05 UTC, during London business hours, and the IT verification note confirms Helpdesk ticket HD-51142, where she proactively called in about the exact device-replacement process this registration reflects. Nothing in the surrounding context matches the risky-sign-in correlation Reading 4 described. That makes this a benign true positive: a second authenticator really was registered, which is what the rule watches for, and Helpdesk ticket HD-51142 for her device replacement is the justification you cite when closing it. It is not a false positive, because nothing misfired, and that label would invite weakening an MFA-registration rule that catches real persistence.",
       fp_trap:
         "initiatedBy.user.roles is empty here too, and the operation name, category, and self-service actor/target match are identical in shape to the log analysis case, which is deliberate, because a student who escalates based on the operation name alone will flag this exactly the same way. The difference is entirely in the surrounding facts Reading 4 taught you to check: no risky or unfamiliar sign-in nearby, an IP matching known baseline, and a confirmed ticket explaining the timing. Escalating every self-service registration, rather than correlating it the way this room has taught, either buries real incidents in noise or, just as dangerous, trains an analyst to stop trusting their own alerts.",
       xp: 30,
