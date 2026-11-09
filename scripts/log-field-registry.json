@@ -1004,7 +1004,9 @@
         "waf.policy.name",
         "waf.rule.id",
         "waf.rule.name",
-        "webaclId"
+        "webaclId",
+        "httpRequest",
+        "labels"
       ],
       "prefixes": [
         "aws.waf.",

@@ -23,7 +23,7 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 
 const wafOversizeBypassEvent: TelemetryEvent = {
   id: "evt-secprod-la1-001",
-  ts: "2026-05-02T09:14:07.000Z",
+  ts: "2026-05-02T09:14:07.123Z",
   source: "waf",
   vendor: "AWS WAF",
   event_type: "waf_allow",
@@ -34,7 +34,7 @@ const wafOversizeBypassEvent: TelemetryEvent = {
     url: "https://portal.meridian-corp.com/api/v1/search",
     method: "POST",
   },
-  src_ip: "154.16.88.203",
+  src_ip: "198.51.100.203",
   raw: {
     timestamp: 1777713247123,
     formatVersion: 1,
@@ -62,7 +62,7 @@ const wafOversizeBypassEvent: TelemetryEvent = {
       },
     ],
     httpRequest: {
-      clientIp: "154.16.88.203",
+      clientIp: "198.51.100.203",
       country: "RO",
       uri: "/api/v1/search",
       httpMethod: "POST",
@@ -519,7 +519,7 @@ When a WAF does detect a match, its action is genuinely inline and preventive. I
         },
         {
           question:
-            "clientIp is 154.16.88.203 (a Romanian IP with no prior history against this endpoint) and the User-Agent is 'python-requests/2.31.0': a generic HTTP scripting library, not a browser. Combined with the oversized body, what should an analyst do next?",
+            "clientIp is 198.51.100.203 (a Romanian IP with no prior history against this endpoint) and the User-Agent is 'python-requests/2.31.0': a generic HTTP scripting library, not a browser. Combined with the oversized body, what should an analyst do next?",
           options: [
             "Close it: the managed SQLi rule group evaluated the request and allowed it",
             "Look for the body in the application's own logs and review the oversize-handling setting",
