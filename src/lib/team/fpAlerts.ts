@@ -41,6 +41,7 @@ import { sentinelAlert as sentinelEmit } from "@/lib/sim/emitters/sentinel";
 import { winFailedLogon } from "@/lib/sim/emitters/windowsSecurity";
 import { makeCtx } from "@/lib/logs/native/ctx";
 import { hashString } from "@/lib/sim/rng";
+import { techniqueById, tacticById } from "@/lib/mitre/attack";
 
 /** A ServiceNow record the timeline places near the alert it explains (or fails to explain). */
 export interface TicketSpec {
@@ -53,6 +54,10 @@ export interface TicketSpec {
   requestedFor?: string;
   group?: string;
   workNotes?: string;
+  /** The caller's own words (the incident's description field). */
+  details?: string;
+  /** Incident subcategory (an out-of-the-box choice value). */
+  subcategory?: string;
   /** change_request: the approved window in minutes around the alert's time (start < end). */
   window?: [number, number];
 }
@@ -172,7 +177,11 @@ function edrDetection(c: Ctx, o: { tag: string; host: string; userEmail?: string
     description: o.description,
   });
   if (sys) { alert.raw!["AccountName"] = "system"; alert.raw!["AccountDomain"] = "nt authority"; }
-  return [procEv, { ...alert, process, src_ip: procEv.src_ip, expected_verdict: "fp", fp_explanation: o.fp } as TelemetryEvent];
+  // R2: an EDR alert names its tactic and the parent's command line whatever the verdict (Falcon
+  // tactic / tactic_id / objective, parent_details.cmdline): a decoy alert without them was a tell.
+  alert.raw!["process.parent.command_line"] = parentCmdOf(o.proc.parent, parentPath);
+  const tactic = tacticOf(o.mitre);
+  return [procEv, { ...alert, process, src_ip: procEv.src_ip, ...(tactic ? { mitre_tactic: tactic } : {}), expected_verdict: "fp", fp_explanation: o.fp } as TelemetryEvent];
 }
 const PARENT_PATH: Record<string, string> = {
   "explorer.exe": "C:\\Windows\\explorer.exe", "services.exe": "C:\\Windows\\System32\\services.exe", "svchost.exe": "C:\\Windows\\System32\\svchost.exe",
@@ -184,6 +193,19 @@ const PARENT_PATH: Record<string, string> = {
   "dotnet.exe": "C:\\Program Files\\dotnet\\dotnet.exe", "Code.exe": "C:\\Program Files\\Microsoft VS Code\\Code.exe",
 };
 const parentPathOf = (name: string) => PARENT_PATH[name] ?? `C:\\Windows\\System32\\${name}`;
+/** The parent's command line as Windows records it: the shell and the service host as they start, an agent with its usual switches. */
+const PARENT_CMD: Record<string, string> = {
+  "explorer.exe": "C:\\Windows\\Explorer.EXE",
+  "services.exe": "C:\\Windows\\system32\\services.exe",
+  "svchost.exe": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s Schedule",
+  "cmd.exe": "\"C:\\Windows\\system32\\cmd.exe\" ",
+  "powershell.exe": "\"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" ",
+  "CcmExec.exe": "C:\\Windows\\CCM\\CcmExec.exe",
+  "AgentExecutor.exe": "\"C:\\Program Files (x86)\\Microsoft Intune Management Extension\\AgentExecutor.exe\" -powershell -executionPolicy bypass",
+};
+const parentCmdOf = (name: string, path: string) => PARENT_CMD[name] ?? (path.includes(" ") ? `"${path}"` : path);
+/** The tactic of an ATT&CK technique (the first one it is listed under), by name. */
+const tacticOf = (technique: string) => { const t = techniqueById(technique.split(",")[0].trim()); return t ? tacticById(t.tactic)?.name : undefined; };
 const sha256Of = (seed: string) => {
   let out = "";
   for (let i = 0; out.length < 64; i++) out += (hashString(`${seed}:${i}`) >>> 0).toString(16).padStart(8, "0");

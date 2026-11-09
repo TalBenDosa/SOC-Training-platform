@@ -146,10 +146,15 @@ export function fallbackRow(ev: TelemetryEvent, ctx: NativeCtx, record?: Record<
   }
   switch (ev.source as string) {
     case "ueba":
-      if (/sentinel|xdr/i.test(v)) {
+      // BehaviorAnalytics is Microsoft Sentinel's own UEBA table: it never holds another UEBA product's
+      // records (Exabeam Advanced Analytics, Securonix SNYPR keep their own keys and tables). A Sentinel
+      // UEBA row may name its activity and priority in the table's own columns or the older ueba.* keys;
+      // a row with neither keeps the columns empty rather than reading another product's score.
+      if (/sentinel|xdr/i.test(v) && !/exabeam|securonix|splunk|varonis/i.test(v)) {
         return build("BehaviorAnalytics", ev, tenantId, {
-          UserPrincipalName: user, UserName: user?.split("@")[0], SourceIPAddress: ev.src_ip, SourceDevice: ev.hostname, DestinationIPAddress: ev.dst_ip, ActivityType: r(ev, "ueba.anomaly_type"), ActionType: ev.event_type,
-          EventSource: "SecurityAlert", EventVendor: "Microsoft", InvestigationPriority: num(r(ev, "ueba.risk_score", "ueba.investigation_priority")), ActivityInsights: ev.raw ?? {}, SourceRecordId: ev.id, TimeProcessed: ev.ts, SourceSystem: "Azure",
+          UserPrincipalName: user, UserName: user?.split("@")[0], SourceIPAddress: ev.src_ip, SourceDevice: ev.hostname, DestinationIPAddress: ev.dst_ip,
+          ActivityType: r(ev, "ActivityType", "ueba.anomaly_type"), ActionType: r(ev, "ActionType") ?? ev.event_type,
+          EventSource: "SecurityAlert", EventVendor: "Microsoft", InvestigationPriority: num(r(ev, "InvestigationPriority", "ueba.investigation_priority", "ueba.risk_score")), ActivityInsights: ev.raw ?? {}, SourceRecordId: ev.id, TimeProcessed: ev.ts, SourceSystem: "Azure",
         });
       }
       break;

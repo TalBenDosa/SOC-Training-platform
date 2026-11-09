@@ -38,6 +38,8 @@ export function ticketRecord(spec: TicketSpec, companyId: string, id: string, ts
       ...(spec.assignedTo ? { "servicenow.assigned_to": spec.assignedTo } : {}),
       ...(spec.group ? { "servicenow.assignment_group": spec.group } : {}),
       ...(spec.workNotes ? { "servicenow.work_notes": spec.workNotes } : {}),
+      ...(isIncident && spec.details ? { "servicenow.description": spec.details } : {}),
+      ...(isIncident && spec.subcategory ? { "servicenow.subcategory": spec.subcategory } : {}),
       ...(spec.table === "change_request" ? { "servicenow.type": /standard|scan|schedule|wave/i.test(spec.short) ? "standard" : "normal" } : {}),
     },
     description: `ServiceNow ${kind} ${spec.number} (${spec.state}): ${spec.short}`,
@@ -75,11 +77,21 @@ export function itsmNoise(assets: CompanyAssets | undefined, companyId: string, 
   const ws = hosts.filter(h => !isServer(h)), srv = hosts.filter(isServer);
   const who = () => pickOf(people.length ? people : [`servicedesk@${assets.domain}`], rnd);
   const n = (p: string) => `${p}00${intIn(30000, 69999, rnd)}`;
+  // The desk agent an incident is assigned to once someone works it (R2: a noise incident carries
+  // assigned_to, description and subcategory as a story's ticket does). An IT seat, else unassigned.
+  const it = assets.seats?.it ?? [];
+  const agent = (state: string) => (it.length && !/^new$/i.test(state) ? `${pickOf(it, rnd).user}@${assets.domain}` : undefined);
+  const inc = (state: string, rest: Omit<TicketSpec, "table" | "number" | "state">): TicketSpec =>
+    { const to = rest.assignedTo ?? agent(state); return { table: "incident", number: n("INC"), state, ...rest, ...(to ? { assignedTo: to } : {}) }; };
   const makers: (() => TicketSpec)[] = [
-    () => ({ table: "incident", number: n("INC"), state: pickOf(["New", "In Progress", "Resolved"], rnd), short: `Printer on floor ${intIn(1, 6, rnd)} shows offline`, requestedFor: who(), group: "Service Desk" }),
-    () => ({ table: "incident", number: n("INC"), state: pickOf(["In Progress", "Resolved"], rnd), short: "Teams calls drop after a few minutes", requestedFor: who(), group: "Collaboration Services" }),
-    () => ({ table: "incident", number: n("INC"), state: "Resolved", short: "Forgot password, reset at the walk-up desk", requestedFor: who(), group: "Service Desk", workNotes: "Identity checked in person against the staff badge." }),
-    () => ({ table: "incident", number: n("INC"), state: "In Progress", short: `Laptop battery swelling, swap required`, requestedFor: who(), ci: ws.length ? pickOf(ws, rnd) : undefined, group: "End User Computing" }),
+    () => { const fl = intIn(1, 6, rnd); return inc(pickOf(["New", "In Progress", "Resolved"], rnd), { short: `Printer on floor ${fl} shows offline`, requestedFor: who(), group: "Service Desk",
+      details: `The shared printer on floor ${fl} shows offline for everyone on the floor. Jobs queue and never print; power cycling it did not help.` }); },
+    () => inc(pickOf(["In Progress", "Resolved"], rnd), { short: "Teams calls drop after a few minutes", requestedFor: who(), group: "Collaboration Services",
+      details: "Teams calls drop after three to five minutes, on the office Wi-Fi and from home. Chat works. Started after the latest client update.", subcategory: "wireless" }),
+    () => inc("Resolved", { short: "Forgot password, reset at the walk-up desk", requestedFor: who(), group: "Service Desk", workNotes: "Identity checked in person against the staff badge.",
+      details: "User came to the walk-up desk after forgetting the password over the weekend. Password reset at the desk, user signed in on the spot.", subcategory: "internal application" }),
+    () => inc("In Progress", { short: `Laptop battery swelling, swap required`, requestedFor: who(), ci: ws.length ? pickOf(ws, rnd) : undefined, group: "End User Computing",
+      details: "The laptop lid no longer closes flat and the touchpad is raised: the battery is swelling. User asked to stop charging it; a swap unit is being prepared." }),
     () => ({ table: "sc_req_item", number: n("RITM"), state: pickOf(["Open", "Work in Progress", "Closed Complete"], rnd), short: "Second monitor and docking station", requestedFor: who(), group: "End User Computing" }),
     () => ({ table: "sc_req_item", number: n("RITM"), state: pickOf(["Open", "Closed Complete"], rnd), short: "Access to the shared mailbox for the team", requestedFor: who(), group: "Identity and Access" }),
     () => ({ table: "sc_req_item", number: n("RITM"), state: pickOf(["Pending", "Closed Complete"], rnd), short: `Software request: ${pickOf(["Adobe Acrobat Pro", "Visio", "Power BI Pro", "Snagit"], rnd)}`, requestedFor: who(), group: "Software Licensing" }),
@@ -87,7 +99,8 @@ export function itsmNoise(assets: CompanyAssets | undefined, companyId: string, 
     () => ({ table: "change_request", number: n("CHG"), state: pickOf(["Scheduled", "Implement"], rnd), short: "Firmware update on the core switch stack", group: "Network Engineering", assignedTo: who(), window: [intIn(120, 600, rnd), intIn(660, 900, rnd)] }),
     () => ({ table: "change_request", number: n("CHG"), state: pickOf(["Authorize", "Scheduled"], rnd), short: "Add a firewall rule for the new courier API", group: "Network Engineering", assignedTo: who(), window: [intIn(240, 720, rnd), intIn(780, 1000, rnd)] }),
     () => ({ table: "change_request", number: n("CHG"), state: "Closed", short: "Disk extension on the reporting database", ci: srv.length ? pickOf(srv, rnd) : undefined, assignedTo: who(), group: "Infrastructure Operations", window: [intIn(-1200, -900, rnd), intIn(-840, -700, rnd)] }),
-    () => ({ table: "incident", number: n("INC"), state: "New", short: "VPN slow from home in the evening", requestedFor: who(), group: "Network Engineering" }),
+    () => inc("New", { short: "VPN slow from home in the evening", requestedFor: who(), group: "Network Engineering",
+      details: "VPN connects but file shares and the intranet are very slow from home after 18:00. Fine in the morning.", subcategory: "vpn" }),
   ];
   return shuffled(makers, rnd).concat(shuffled(makers, rnd)).slice(0, count).map((mk, i) => {
     const spec = mk();
