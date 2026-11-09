@@ -68,7 +68,13 @@ export function compareEdrToFeed(inv: EdrInvestigation, feed: { ev: TelemetryEve
     if (!rows?.length) continue;   // a distractor or a synthesised pid: no feed row names it
     for (const r of rows) {
       const f = recordFacts(r.log);
-      if (f.pids.size && !f.pids.has(p.pid)) out.push({ where, what: `pid: console ${p.name}(${p.pid}), feed record ${r.log?.sourceId}/${r.log?.kind} prints ${[...f.pids].join(",")}` });
+      // Records that by design do not print the process itself: MDE ServiceInstalled names the SCM
+      // (services.exe) as initiator, not the service process; Sysmon 7 Hashes are the loaded module's.
+      const props = (r.log?.record as { properties?: { ActionType?: string } } | undefined)?.properties;
+      const scmRow = r.log?.sourceId === "mde" && props?.ActionType === "ServiceInstalled";
+      const moduleRow = r.log?.sourceId === "sysmon" && /image ?load|^7$|ImageLoad/i.test(String(r.log?.kind ?? ""));
+      if (moduleRow) f.sha256.clear();
+      if (f.pids.size && !scmRow && !f.pids.has(p.pid)) out.push({ where, what: `pid: console ${p.name}(${p.pid}), feed record ${r.log?.sourceId}/${r.log?.kind} prints ${[...f.pids].join(",")}` });
       if (p.sha256 && f.sha256.size && r.ev.event_type?.startsWith("process") && !f.sha256.has(p.sha256.toLowerCase()))
         out.push({ where, what: `hash: console ${p.name}(${p.pid}) ${p.sha256.slice(0, 12)}, feed record prints ${[...f.sha256].map(h => h.slice(0, 12)).join(",")}` });
       if (f.cmdlines.size && r.ev.process?.cmdline && r.ev.event_type?.startsWith("process") && /process_create|linux_execve/.test(r.ev.event_type)

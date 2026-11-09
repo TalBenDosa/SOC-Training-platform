@@ -55,7 +55,10 @@ function tally(ds: Disagreement[]): Record<string, number> {
  * per-invocation instance). hash: the record prints the thread's hash of another row of the story.
  */
 const KNOWN_SHARED: Record<string, number> = {
-  "pid sophos": 116, "pid sysmon": 56, "pid linux_auditd": 13, "pid mde": 2, cmdline: 11, hash: 5,
+  // 2026-11-09 (realism phase 2): Sophos / Sysmon / auditd / MDE pids, the reg.exe and cmd.exe
+  // instances and the sideload hash all agree now. Left: RocketStack's noise pool runs python3 twice
+  // on LAP-007 the same day (migration script, load test), one canonical pid outside any incident.
+  cmdline: 1,
 };
 
 // ── Live Feed → EDR console ─────────────────────────────────────────────────
