@@ -33,31 +33,40 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 const vpnThreatIntelEvent: TelemetryEvent = {
   id: "evt-riskfund-ac1-001",
   ts: "2026-07-14T09:12:00.000Z",
-  source: "threat_intel",
-  vendor: "Recorded Future",
+  source: "siem",
+  vendor: "Tenable.io",
   event_type: "threat_intel_match",
   severity: "medium",
   hostname: "SRV-EDGE-VPN02",
   description:
-    "A vulnerability intelligence feed enriched an existing finding on this host with fresh threat-actor activity reporting. Review the underlying fields before deciding how urgently this needs to move.",
+    "Tenable.io re-scored an open finding on this host after its threat-context data was refreshed. Review the underlying fields before deciding how urgently this needs to move.",
   mitre_technique: "T1190",
+  // Tenable finding as the SIEM indexes it (flattened tenable.* names). The
+  // asset role and the threat-actor reporting are NOT fields Tenable or a TI
+  // feed would write about your asset; they live in the task scenario.
   raw: {
-    "vendor.product": "Recorded Future Vulnerability Intelligence",
-    "cve.id": "CVE-2026-24819",
-    "cve.description": "Improper authentication in SSL-VPN web management interface",
-    "cve.cvss_v3_score": 6.5,
-    "cve.cvss_v3_severity": "Medium",
-    "asset.hostname": "SRV-EDGE-VPN02",
-    "asset.role": "SSL-VPN gateway",
-    "asset.internet_facing": true,
-    "asset.business_unit": "Remote Access Infrastructure",
-    "threat_intel.active_exploitation_confirmed": true,
-    "threat_intel.associated_actor":
-      "financially motivated intrusion cluster linked to ransomware deployment",
-    "threat_intel.first_observed_itw": "2026-06-29",
-    "threat_intel.cisa_kev_listed": true,
-    "patch.available": true,
-    "patch.scheduled_maintenance_window": null,
+    "tenable.asset_hostname": "SRV-EDGE-VPN02",
+    "tenable.asset_ipv4": "10.60.0.12",
+    "tenable.port": 443,
+    "tenable.protocol": "TCP",
+    "tenable.plugin_id": 246719,
+    "tenable.plugin_name": "SSL-VPN Web Management Interface Improper Authentication (CVE-2026-24819)",
+    "tenable.plugin_family": "Firewalls",
+    "tenable.cve": "CVE-2026-24819",
+    "tenable.cwe": "CWE-287",
+    "tenable.cvss3_base_score": 6.5,
+    "tenable.cvss3_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
+    "tenable.vpr_score": 9.4,
+    "tenable.epss_score": 0.874,
+    "tenable.exploit_available": true,
+    "tenable.exploit_code_maturity": "HIGH",
+    "tenable.cisa_known_exploited": true,
+    "tenable.cisa_kev_due_date": "2026-07-23",
+    "tenable.asset_criticality": 9,
+    "tenable.asset_exposure": 912,
+    "tenable.patch_publication_date": "2026-06-24",
+    "tenable.first_found": "2026-06-26T03:10:44Z",
+    "tenable.last_found": "2026-07-14T09:08:51Z",
   },
 };
 
@@ -203,13 +212,13 @@ Security uses three precisely different words for the pieces of that story, and 
       id: "riskfund-ac1",
       heading: "Verdict: A 'Medium' Finding in a Queue Full of 'Critical' Ones",
       scenario:
-        "Your vulnerability management queue is full of dozens of findings rated Critical by CVSS score alone. This particular finding on SRV-EDGE-VPN02 is only rated Medium (CVSS 6.5), and would normally sit near the bottom of this week's patching list. A threat-intelligence enrichment job has just attached fresh context to it, shown in the fields below. Decide whether this finding should be escalated for expedited remediation, or left in its regularly scheduled patch cycle.",
+        "Your vulnerability management queue is full of dozens of findings rated Critical by CVSS score alone. This particular finding on SRV-EDGE-VPN02 is only rated Medium (CVSS 6.5), and would normally sit near the bottom of this week's patching list. The asset inventory lists SRV-EDGE-VPN02 as the internet-facing SSL-VPN gateway for all remote staff, owned by Remote Access Infrastructure. This morning's threat-intelligence brief adds that a financially motivated intrusion cluster linked to ransomware deployment has been exploiting CVE-2026-24819 in the wild since 29 June. The scanner's refreshed finding is below. Decide whether this finding should be escalated for expedited remediation, or left in its regularly scheduled patch cycle.",
       event: vpnThreatIntelEvent,
       correct_verdict: "escalate",
       explanation:
-        "cve.cvss_v3_score of 6.5 (Medium) alone would place this well behind the Critical-rated findings crowding the queue. But the Threat component here is not theoretical: threat_intel.active_exploitation_confirmed is true, a financially motivated intrusion cluster associated with ransomware deployment has been actively using this exact weakness since late June, and it is listed in CISA's Known Exploited Vulnerabilities catalog, a specific, confirmed threat targeting this specific vulnerability, on an internet-facing SSL-VPN gateway sitting squarely in Remote Access Infrastructure. Applying the Threat x Vulnerability x Impact view from Reading 1: the vulnerability severity alone is moderate, but a confirmed active threat combined with a high-impact, internet-facing asset raises the real risk well above what the CVSS number suggests on its own. This finding should jump the queue ahead of Critical-rated findings that currently have no known active threat behind them.",
+        "tenable.cvss3_base_score of 6.5 (Medium) alone would place this well behind the Critical-rated findings crowding the queue. But the Threat component here is not theoretical: tenable.cisa_known_exploited is true (with a CISA remediation due date of 23 July), tenable.exploit_code_maturity is HIGH, tenable.vpr_score (Tenable's Vulnerability Priority Rating, which weighs live threat activity rather than only the flaw itself) reads 9.4, far above the CVSS score, and the intelligence brief names a financially motivated intrusion cluster associated with ransomware deployment exploiting this exact weakness since late June: a specific, confirmed threat targeting this specific vulnerability, on an internet-facing SSL-VPN gateway sitting squarely in Remote Access Infrastructure. Applying the Threat x Vulnerability x Impact view from Reading 1: the vulnerability severity alone is moderate, but a confirmed active threat combined with a high-impact, internet-facing asset raises the real risk well above what the CVSS number suggests on its own. This finding should jump the queue ahead of Critical-rated findings that currently have no known active threat behind them.",
       fp_trap:
-        "A CVSS score of 6.5 reads as 'Medium' next to a queue full of 'Critical' findings, and it is tempting to file this under 'handle it in the next scheduled maintenance cycle' purely on that number. That instinct skips the Threat component entirely. Confirmed active exploitation by a known threat actor, a CISA KEV listing, and an internet-facing gateway role are exactly the factors that can make a moderate-severity vulnerability the most urgent item in the entire queue. Reading severity in isolation, without checking whether an active threat currently exists, is precisely the mistake this task is built to catch.",
+        "A CVSS score of 6.5 reads as 'Medium' next to a queue full of 'Critical' findings, and it is tempting to file this under 'handle it in the next scheduled maintenance cycle' purely on that number. That instinct skips the Threat component entirely. Confirmed active exploitation by a known threat actor, a CISA KEV listing, a VPR far above the CVSS score, and an internet-facing gateway role are exactly the factors that can make a moderate-severity vulnerability the most urgent item in the entire queue. Reading severity in isolation, without checking whether an active threat currently exists, is precisely the mistake this task is built to catch.",
       xp: 40,
     } satisfies AnalystChoiceTask,
 
