@@ -3278,7 +3278,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
 // ── RocketStack credential-stuffing → account takeover chain ──────────────────
 // Extracted from the benign pool (was leaking as unordered random noise).
 // Registered as a dedicated AttackStory in attackStories.ts (companies: ["rocketstack"]).
-export const ROCKETSTACK_CRED_STUFFING_CHAIN: TelemetryEvent[] = [
+const ROCKETSTACK_CRED_STUFFING_ROWS: TelemetryEvent[] = [
   {
     id: "rs_bf_01", ts: "2026-05-10T11:30:00.000Z",
     source: "okta", event_type: "auth_failure", severity: "high",
@@ -3440,7 +3440,9 @@ export const ROCKETSTACK_CRED_STUFFING_CHAIN: TelemetryEvent[] = [
       "action_result":                            "allowed"
     }
   },
-].sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));   // R4: shown in the order it happened (the success at 11:31 sits inside the spray)
+];
+// R4: shown in the order it happened (a.kim's success at 11:31 sits inside the spray).
+export const ROCKETSTACK_CRED_STUFFING_CHAIN: TelemetryEvent[] = [...ROCKETSTACK_CRED_STUFFING_ROWS].sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
 
 // ── RocketStack Technologies (CrowdStrike + AWS + Okta + FortiGate) ───────────
 // Chain A: Compromised Okta (TOR) → S3 customer database exfil
