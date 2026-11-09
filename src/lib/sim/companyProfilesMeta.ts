@@ -256,7 +256,7 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
       it: [{ user: "j.lee", host: "LAP-003" }],
     },
     serverPrefix: "SRV-PROD",
-    office: { ip: "62.221.124.10", country: "Israel", city: "Tel Aviv" },
+    office: { ip: "198.51.100.220", country: "Israel", city: "Tel Aviv" },
     // The production EKS worker node (VPC 10.0.0.0/16, eu-west-1): its private DNS name carries its address.
     infra: ["ip-10-0-14-73.eu-west-1.compute.internal"],
   },
@@ -278,7 +278,7 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
       it: [{ user: "admin.vandenberg", host: "WS-MED-IT-02" }],
     },
     serverPrefix: "SRV-MEDCORE",
-    office: { ip: "62.19.176.10", country: "Netherlands", city: "Amsterdam" },
+    office: { ip: "192.0.2.220", country: "Netherlands", city: "Amsterdam" },
     // vSphere cluster (internal AD DNS zone medcore.local), the internet-facing SSL-VPN gateway, and the AD FS farm for M365 sign-in.
     infra: ["vcsa-01.medcore.local", "esx-prod-03.medcore.local", "esx-prod-04.medcore.local", "esx-prod-05.medcore.local",
             "FGT-VPN-01.medcorehealth.org", "SRV-MEDCORE-ADFS01"],
@@ -300,7 +300,7 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
       it: [{ user: "c.becker", host: "WS-GL-DEV-03" }],
     },
     serverPrefix: "SRV-GL",
-    office: { ip: "82.219.122.10", country: "Germany", city: "Frankfurt am Main" },
+    office: { ip: "192.0.2.240", country: "Germany", city: "Frankfurt am Main" },
     // vSphere cluster (internal AD DNS zone globallogis.local), the internet-facing SSL-VPN gateway, and the AD FS farm for M365 sign-in.
     infra: ["vcsa-01.globallogis.local", "esx-prod-03.globallogis.local", "esx-prod-04.globallogis.local", "esx-prod-05.globallogis.local",
             "FGT-VPN-01.globallogis.de", "SRV-GL-ADFS01"],
@@ -322,6 +322,6 @@ export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
       it: [{ user: "l.brunner", host: "WKS-QB-020" }],
     },
     serverPrefix: "SRV-QB",
-    office: { ip: "77.181.84.10", country: "Switzerland", city: "Zurich" },
+    office: { ip: "198.51.100.240", country: "Switzerland", city: "Zurich" },
   },
 };

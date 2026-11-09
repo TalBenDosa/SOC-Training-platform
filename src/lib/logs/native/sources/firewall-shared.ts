@@ -132,7 +132,11 @@ export function egressIp(ctx: NativeCtx): string {
 /** A published (public) address of the company — used only when the authored event lacks a destination. */
 export function companyVip(ctx: NativeCtx, seed: string): string {
   const e = egressIp(ctx).split(".");
-  return `${e[0]}.${e[1]}.${e[2]}.${ctx.int(`${ctx.companyId}:vip:${seed}`, 20, 60)}`;
+  // R5: every egress is a documentation address, several companies share one /24: each company's
+  // published services sit just above its own egress (NexaCorp keeps its historical .20-.60 block).
+  const last = Number(e[3]);
+  const [lo, hi] = last === 150 ? [20, 60] : [Math.min(last + 1, 254), Math.min(last + 9, 254)];
+  return `${e[0]}.${e[1]}.${e[2]}.${ctx.int(`${ctx.companyId}:vip:${seed}`, lo, hi)}`;
 }
 /** Stable internal address for a hostname (destination given only by name). */
 export function internalIpFor(ctx: NativeCtx, host: string): string {

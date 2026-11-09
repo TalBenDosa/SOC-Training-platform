@@ -148,7 +148,9 @@ export function siemMirror(e: LiveEvent, index: number): LiveEvent | null {
   const alertMs = Number.isFinite(evMs) ? Math.max(evMs, Math.min(evMs + 30_000 + (index % 60) * 1_000, Date.now())) : Date.now();
   const alert = sentinelAlert({
     id: `${e.id}__siem`, ts: new Date(alertMs).toISOString(), companyId,
-    host: e.hostname, user: e.user_email ?? null, srcIp: e.src_ip,
+    host: e.hostname, user: e.user_email ?? null,
+    // R3: the host's own address only. A remote peer on the row (an inbound attacker) is not this host's IP.
+    srcIp: e.src_ip && /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(e.src_ip) ? e.src_ip : "",
     alertName: `${vendor} endpoint detection${host}`,
     detail: observed, severity: "medium", eventType: "edr_alert",
     alertKind: /defender/i.test(vendor) ? "mde" : "scheduled",

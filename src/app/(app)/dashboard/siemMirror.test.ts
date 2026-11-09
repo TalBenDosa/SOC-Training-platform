@@ -27,6 +27,12 @@ describe("SIEM mirror of an EDR detection", () => {
     expect(JSON.stringify(m)).not.toContain("—");
     expect(m.mitre_technique).toBeUndefined();
   });
+  it("never names a remote peer as the host's address (R3)", () => {
+    const inbound = { ...detection, id: "atk_2", src_ip: "198.51.100.82" } as unknown as LiveEvent;
+    const m = siemMirror(inbound, 2)!;
+    expect(JSON.stringify(m.raw)).not.toContain("198.51.100.82");
+    expect(siemMirror({ ...detection, src_ip: "10.10.20.14" } as unknown as LiveEvent, 2)!.raw!["host.ip"]).toBe("10.10.20.14");
+  });
   it("forwards a training false positive too, without its IT-verify material (R2 / R9)", () => {
     const fp = { ...detection, id: "fp_1", it_verify_result: "confirmed", fp_explanation: "approved pen test", expected_verdict: "fp" } as unknown as LiveEvent;
     const m = siemMirror(fp, 3)!;
