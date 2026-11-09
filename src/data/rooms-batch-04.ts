@@ -385,9 +385,9 @@ In summary: a log aggregator is a **storage and search engine**. A SIEM is a **d
         vendor: "Windows Security",
         raw: {
           "event.code": "1102",
-          "winlog.event_data.SubjectUserName": "svc-helpdesk02",
-          "winlog.event_data.SubjectDomainName": "CORP",
-          "winlog.event_data.SubjectLogonId": "0x3E4F2A",
+          "winlog.user_data.SubjectUserName": "svc-helpdesk02",
+          "winlog.user_data.SubjectDomainName": "CORP",
+          "winlog.user_data.SubjectLogonId": "0x3E4F2A",
           "winlog.channel": "Security",
           "winlog.provider_name": "Microsoft-Windows-Eventlog",
           "winlog.computer_name": "DC01-CORP",
@@ -415,9 +415,9 @@ In summary: a log aggregator is a **storage and search engine**. A SIEM is a **d
           question:
             "You want to see what svc-helpdesk02 did during the same logon session that cleared the log, not everything the account has ever done. Which field do you search other events for?",
           options: [
-            "winlog.event_data.SubjectUserName",
-            "winlog.event_data.SubjectDomainName",
-            "winlog.event_data.SubjectLogonId",
+            "winlog.user_data.SubjectUserName",
+            "winlog.user_data.SubjectDomainName",
+            "winlog.user_data.SubjectLogonId",
             "event.created",
           ],
           answer: 2,
@@ -695,7 +695,7 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
       id: "siem-fund-la1",
       heading: "SIEM Alert: Password Spray Detected",
       context:
-        "You are a SOC Tier 1 analyst. A high-severity alert has just appeared in your SIEM queue. The SIEM has correlated multiple authentication events and generated this alert. Review all the fields carefully before answering.",
+        "You are a SOC Tier 1 analyst. A high-severity alert has just appeared in your SIEM (Microsoft Sentinel) queue. A scheduled analytics rule counted failed sign-ins per source over the last 60 seconds and raised this alert; the rule's author chose to output two counts as custom details (FailedLogons, DistinctAccounts).\n\n**What the alert side panel adds:** the threat-intelligence lookup lists 203.0.113.45 as a Tor exit node, geolocated to the Netherlands. That comes from a TI feed, not from the alert record.\n\nReview all the fields carefully before answering.",
       event: {
         id: "siem-fund-evt-001",
         ts: "2025-06-24T11:47:02Z",
@@ -706,29 +706,34 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
         description:
           "Correlation rule fired: multiple failed authentications targeting multiple accounts from single source",
         mitre_technique: "T1110.003",
-        vendor: "Wazuh",
+        vendor: "Microsoft Sentinel",
+        // SecurityAlert row of a scheduled analytics rule. Counts are the rule's own custom
+        // details (ExtendedProperties), which a correlation alert legitimately carries.
         raw: {
-          "rule.id": "100210",
-          "rule.level": "12",
-          "rule.description":
-            "Multiple failed logins from single source in 60 seconds",
-          "agent.name": "siem-collector-01",
-          "decoder.name": "correlation",
-          "data.srcip": "203.0.113.45",
-          "data.failed_count": "47",
-          "data.target_accounts": "12",
-          "data.timewindow": "60s",
-          "rule.mitre.id": ["T1110.003"],
-          "rule.mitre.technique": ["Password Spraying"],
-          "rule.groups": ["authentication", "attack"],
-          "data.country": "Netherlands",
-          "data.isp": "Tor Network Exit Node",
+          TimeGenerated: "2025-06-24T11:47:02Z",
+          AlertName: "Password spray: failed sign-ins across many accounts from one source",
+          AlertSeverity: "High",
+          Description: "Counts failed sign-ins per source address over a 60-second window and alerts when several accounts are involved.",
+          ProviderName: "ASI Scheduled Alerts",
+          ProductName: "Azure Sentinel",
+          VendorName: "Microsoft",
+          Status: "New",
+          StartTime: "2025-06-24T11:46:02Z",
+          EndTime: "2025-06-24T11:47:02Z",
+          Tactics: "CredentialAccess",
+          Techniques: "[\"T1110\"]",
+          SubTechniques: "[\"T1110.003\"]",
+          "ExtendedProperties.FailedLogons": "47",
+          "ExtendedProperties.DistinctAccounts": "12",
+          "ExtendedProperties.SourceIp": "203.0.113.45",
+          Entities: "[{\"$id\":\"2\",\"Address\":\"203.0.113.45\",\"Type\":\"ip\"}]",
+          SystemAlertId: "5d0f3a71-2c9e-4b18-a6d4-91e7c3b8f205",
         },
       } satisfies TelemetryEvent,
       questions: [
         {
           question:
-            "The rule tags this alert T1110.003, but a colleague wants to re-tag it. Which mapping do data.failed_count and data.target_accounts support?",
+            "The rule tags this alert T1110.003, but a colleague wants to re-tag it. Which mapping do the FailedLogons and DistinctAccounts counts support?",
           options: [
             "T1110.001 Password Guessing: 47 different passwords tried against the accounts",
             "T1110.003 Password Spraying: a few attempts each, spread across many accounts",
@@ -742,7 +747,7 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
         },
         {
           question:
-            "data.isp identifies the source as a Tor exit node. How should that enrichment change your view of the alert?",
+            "The threat-intelligence lookup identifies the source as a Tor exit node. How should that enrichment change your view of the alert?",
           options: [
             "Lower priority: privacy-minded staff often use Tor, so the source tells you little",
             "It raises confidence of a true positive alongside the spray-shaped counts",
@@ -751,7 +756,7 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
           ],
           answer: 1,
           explanation:
-            "Anonymised infrastructure plus a spray-shaped burst (47 failures across 12 accounts in 60 seconds) points to a true positive and supports escalation. Staff Tor use is possible, but one employee would not produce failures across 12 accounts in a minute. The ISP field names Tor, not a corporate VPN, so treating it as staff egress misreads the log. Enrichment exists to change confidence, ignoring source reputation throws away evidence.",
+            "Anonymised infrastructure plus a spray-shaped burst (47 failures across 12 accounts in 60 seconds) points to a true positive and supports escalation. Staff Tor use is possible, but one employee would not produce failures across 12 accounts in a minute. The lookup names Tor, not a corporate VPN, so treating it as staff egress misreads the evidence. Enrichment exists to change confidence, ignoring source reputation throws away evidence.",
           xp: 25,
         },
         {
@@ -959,8 +964,8 @@ A decoder is an XML file that uses:
 After decoding, Wazuh has structured fields like:
 - \`data.srcuser = admin\`
 - \`data.srcip = 203.0.113.45\`
-- \`data.program_name = sshd\`
 - \`data.srcport = 54321\` (the SSH client's source port: the "port 54321" in the sshd message)
+- \`predecoder.program_name = sshd\` (the syslog program name, read by the pre-decoder before any decoder runs)
 
 Wazuh ships with hundreds of built-in decoders covering Apache, Nginx, MySQL, Windows Event Log, sshd, sudo, useradd, and many more. You can also write custom decoders for proprietary applications.
 
@@ -1144,18 +1149,29 @@ The Wazuh Dashboard includes several built-in sections:
         hostname: "linux-srv-01",
         description: "Wazuh: New user account added to the system",
         mitre_technique: "T1136.001",
+        vendor: "Wazuh",
+        // Wazuh alert as indexed (alerts.json): the syslog program name sits under predecoder.*,
+        // decoder-extracted values under data.*.
         raw: {
+          timestamp: "2025-06-24T02:44:17.000+0000",
           "rule.id": "5902",
           "rule.level": "8",
           "rule.description": "New user added to the system",
-          "rule.groups": ["adduser", "syslog"],
-          "data.dstuser": "sysmgr_svc",
-          "data.srcuser": "root",
-          "data.program_name": "useradd",
+          "rule.groups": ["syslog", "adduser"],
+          "rule.firedtimes": 1,
+          "rule.mail": false,
+          "rule.mitre.id": ["T1136"],
           "agent.name": "linux-srv-01",
           "agent.id": "001",
+          "agent.ip": "10.40.2.21",
           "manager.name": "wazuh-manager",
-          "decoder.name": "adduser",
+          "decoder.name": "useradd",
+          "decoder.parent": "useradd",
+          "predecoder.program_name": "useradd",
+          "predecoder.hostname": "linux-srv-01",
+          "predecoder.timestamp": "Jun 24 02:44:17",
+          "data.dstuser": "sysmgr_svc",
+          location: "/var/log/auth.log",
           "full_log":
             "Jun 24 02:44:17 linux-srv-01 useradd[8821]: new user: name=sysmgr_svc, UID=1337, GID=1337, home=/home/sysmgr_svc, shell=/bin/bash",
         },
@@ -1180,13 +1196,13 @@ The Wazuh Dashboard includes several built-in sections:
             "Which detail in full_log most strongly suggests sysmgr_svc is not an ordinary service account?",
           options: [
             "home=/home/sysmgr_svc: a home directory marks it as a human user's account",
-            "data.srcuser=root: legitimate admins do not run useradd as root",
+            "useradd[8821]: a process ID that high shows the account was created by a script",
             "shell=/bin/bash: service accounts normally get a non-login shell",
             "UID=1337: UIDs of 1000 and above are reserved for system services",
           ],
           answer: 2,
           explanation:
-            "Service accounts are normally given a non-login shell such as /usr/sbin/nologin or /bin/false; /bin/bash lets this new 'service' account log in interactively: a common backdoor pattern, especially at 02:44 outside any change window. useradd creates a home directory for many kinds of account, so a home path alone proves little. Running useradd as root is normal, because it needs root. UIDs from 1000 up are ordinary user accounts, not reserved for services, so 1337 is not the tell.",
+            "Service accounts are normally given a non-login shell such as /usr/sbin/nologin or /bin/false; /bin/bash lets this new 'service' account log in interactively: a common backdoor pattern, especially at 02:44 outside any change window. useradd creates a home directory for many kinds of account, so a home path alone proves little. A process ID is just the next free number the kernel handed out and says nothing about who or what typed the command. UIDs from 1000 up are ordinary user accounts, not reserved for services, so 1337 is not the tell.",
           xp: 30,
         },
         {
@@ -1222,7 +1238,7 @@ The Wazuh Dashboard includes several built-in sections:
       type: "question",
       id: "wazuh-q2",
       question:
-        "A Wazuh decoder processes a raw Linux syslog line and extracts fields like 'data.srcip', 'data.srcuser', and 'data.program_name'. What happens to these extracted fields NEXT in the Wazuh processing pipeline?",
+        "A Wazuh decoder processes a raw Linux syslog line and extracts fields like 'data.srcip', 'data.srcuser' and 'data.srcport'. What happens to these extracted fields NEXT in the Wazuh processing pipeline?",
       options: [
         "They are written straight to the dashboard's Discover view, which is what assigns each event its alert level",
         "They are encrypted with the agent key and sent to the Wazuh Indexer, which runs the rule engine at index time",
@@ -1231,7 +1247,7 @@ The Wazuh Dashboard includes several built-in sections:
       ],
       answer: 2,
       explanation:
-        "After a decoder extracts structured fields from a raw log, the Wazuh analysis engine evaluates ALL active rules against those fields. If a rule's conditions match (e.g., data.program_name == 'useradd' AND data.dstuser is set), the rule fires and generates an alert. Decoders parse; rules detect. The two steps are sequential and inseparable in Wazuh's pipeline.",
+        "After a decoder extracts structured fields from a raw log, the Wazuh analysis engine evaluates ALL active rules against those fields. If a rule's conditions match (e.g., predecoder.program_name == 'useradd' AND data.dstuser is set), the rule fires and generates an alert. Decoders parse; rules detect. The two steps are sequential and inseparable in Wazuh's pipeline.",
       xp: 20,
     } satisfies QuestionTask,
 
@@ -1575,7 +1591,7 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
         "You are investigating a Sentinel incident flagged as a potential brute force attack. You have drilled down from the incident into the underlying log events and are looking at one individual SecurityEvent entry. The event came through the Windows Security Events data connector. Review the raw fields and answer the questions.",
       event: {
         id: "sentinel-evt-001",
-        ts: "2025-06-24T14:32:11Z",
+        ts: "2025-06-24T14:32:11.604Z",
         source: "windows_security",
         event_type: "auth_failure",
         severity: "medium",
@@ -1585,19 +1601,33 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
         description:
           "Windows Security Event 4625: failed network logon for account j.smith",
         mitre_technique: "T1110.001",
+        vendor: "Microsoft Sentinel",
+        // One SecurityEvent row as Log Analytics stores it (columns of the SecurityEvent table).
         raw: {
-          TimeGenerated: "2025-06-24T14:32:11Z",
-          EventID: "4625",
+          TimeGenerated: "2025-06-24T14:32:11.604Z",
+          Type: "SecurityEvent",
           EventSourceName: "Microsoft-Windows-Security-Auditing",
-          Account: "j.smith",
-          AccountDomain: "CORP",
-          IpAddress: "203.0.113.45",
-          LogonType: "3",
-          SubStatus: "0xC000006A",
-          WorkstationName: "DESKTOP-7GQK21",
           Channel: "Security",
-          Computer: "CORP-WS-042",
+          Computer: "CORP-WS-042.corp.com",
+          EventID: 4625,
           Activity: "4625 - An account failed to log on.",
+          Account: "CORP\\j.smith",
+          AccountType: "User",
+          TargetAccount: "CORP\\j.smith",
+          TargetUserName: "j.smith",
+          TargetDomainName: "CORP",
+          TargetUserSid: "S-1-0-0",
+          SubjectUserSid: "S-1-0-0",
+          LogonType: 3,
+          LogonTypeName: "3 - Network",
+          Status: "0xc000006d",
+          SubStatus: "0xc000006a",
+          FailureReason: "%%2313",
+          AuthenticationPackageName: "NTLM",
+          LogonProcessName: "NtLmSsp ",
+          WorkstationName: "DESKTOP-7GQK21",
+          IpAddress: "203.0.113.45",
+          IpPort: "50112",
         },
       } satisfies TelemetryEvent,
       questions: [
@@ -1612,7 +1642,7 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
         },
         {
           question:
-            "SubStatus is 0xC000006A. What does that tell you about the attacker's position against j.smith?",
+            "SubStatus is 0xc000006a (Sentinel stores the hex in lower case). What does that tell you about the attacker's position against j.smith?",
           options: [
             "They are guessing usernames, and j.smith does not exist in the domain",
             "They cannot succeed, because the j.smith account is disabled",
@@ -1621,7 +1651,7 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
           ],
           answer: 2,
           explanation:
-            "0xC000006A means the account exists but the password was wrong: the attacker has a real username and only needs the password, which makes a later success more dangerous. A non-existent username would be 0xC0000064, and a disabled account 0xC0000072. A lockout has its own failure code (0xC0000234), which this event does not show.",
+            "0xc000006a (0xC000006A in the Windows documentation) means the account exists but the password was wrong: the attacker has a real username and only needs the password, which makes a later success more dangerous. A non-existent username would be 0xC0000064, and a disabled account 0xC0000072. A lockout has its own failure code (0xC0000234), which this event does not show.",
           xp: 30,
         },
         {
@@ -1730,14 +1760,21 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
         it_verify_message:
           "CHG0052210: 10.30.8.14 (scanner-qualys01) is the internal Qualys vulnerability scanner performing its scheduled monthly credential-validation scan against 10.30.8.0/24. The change record attaches the account list the scan tries (14 accounts in total, most of them live service accounts and a few retired names that no longer exist).",
         raw: {
-          // Real Sentinel SecurityAlert shape: top-level AlertName/AlertSeverity,
-          // with the scheduled rule's aggregate output under ExtendedProperties.*
-          // (rule-author-defined keys — the documented Sentinel convention).
+          // Sentinel SecurityAlert row: the scheduled rule's aggregate output sits in its custom
+          // details under ExtendedProperties.* (rule-author-defined keys), the description uses
+          // the rule's dynamic alert details.
+          TimeGenerated: "2025-08-03T03:00:00Z",
           AlertName: "Multiple failed logons across many accounts from a single source",
           AlertSeverity: "High",
-          "alert.description": "260 failed logons (Event ID 4625) across 14 distinct accounts from source 10.30.8.14 within a 10-minute window",
-          "event.code": "4625",
-          "source.ip": "10.30.8.14",
+          Description: "260 failed logons (Event ID 4625) across 14 distinct accounts from source 10.30.8.14 within a 10-minute window",
+          ProviderName: "ASI Scheduled Alerts",
+          ProductName: "Azure Sentinel",
+          Status: "New",
+          StartTime: "2025-08-03T02:50:00Z",
+          EndTime: "2025-08-03T03:00:00Z",
+          Tactics: "CredentialAccess",
+          Techniques: "[\"T1110\"]",
+          Entities: "[{\"$id\":\"2\",\"Address\":\"10.30.8.14\",\"Type\":\"ip\"}]",
           "ExtendedProperties.FailureCount": "260",
           "ExtendedProperties.DistinctAccountCount": "14",
           "ExtendedProperties.TimeWindowMinutes": "10",
