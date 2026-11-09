@@ -147,6 +147,14 @@ export const ENTRA_ID: RoomExperience = {
   look: { primary: "#60a5fa", secondary: "#c084fc", warn: "#fb7185" },
   scene: "facilityentra",
   layout: "facility",
+  story: {
+    intro: { title: "No Edge", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/entra-id/tenantzero-intro-7117a41f.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/entra-id/tenantzero-intro-c50faed9.jpg" },
+    afterStation: {
+      tenant: { title: "The Only Wall", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/entra-id/tenantzero-ch2-08cf64fd.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/entra-id/tenantzero-ch2-a9cb7dc6.jpg" },
+      checkpoint: { title: "02:00 in Porto", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/entra-id/tenantzero-ch3-559180ed.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/entra-id/tenantzero-ch3-0d662591.jpg" },
+      failed: { title: "Tenant Zero", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/entra-id/tenantzero-finale-8ad38d64.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/entra-id/tenantzero-finale-97bb8b4a.jpg" },
+    },
+  },
   stations: [
     {
       id: "tenant",
