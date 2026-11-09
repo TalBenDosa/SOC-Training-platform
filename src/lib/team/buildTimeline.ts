@@ -38,6 +38,7 @@ import { itsmNoise, ticketRecord } from "./itsmNoise";
 import { buildDecoy, buildTwist, fwFlavour, pickInjectTexts, type InjectText } from "./msel";
 import { emptyHistory, streamOf, type VarietyHistory, type VarietyRecord } from "./variety";
 import { webNoise } from "./webNoise";
+import { NoiseDeck } from "@/app/(app)/dashboard/noiseDeck";
 import { applyStack, fitsStack, stackFor, storyFitsOrg, storyFitsStack, storyHonoursLocks, withCanonicalPids } from "@/lib/logs/native";
 import { categoryOf, PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 import { storyThemes, type StoryCategory } from "./storyCategory";
@@ -133,6 +134,15 @@ function isBlockedAttempt(e: TelemetryEvent): boolean {
  * every story event to tp punished the analysts who read them correctly.
  */
 const PRIVATE_IP = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
+
+/**
+ * Unrelated tickets a session always shows, so "a ticket" never marks an attack: two, unless the feed
+ * already carries two or more tickets that explain no attack (pool approvals, a decoy's ticket), which
+ * do that job, and more would push tickets past ITSM_SHARE of a small team's feed (R8).
+ */
+const unrelatedTicketMin = (benignTickets: number) => (benignTickets >= 2 ? 0 : 2 - benignTickets);
+/** A ServiceNow record (R8 counts these as the feed's tickets). */
+const isTicketRow = (e: TelemetryEvent) => (e.source as string) === "servicenow" || /servicenow/i.test(e.vendor ?? "");
 
 /** Failed sign-in rows a burst is made of (R7 counts the same kinds). */
 const AUTH_FAIL = new Set(["auth_failure", "ssh_failed", "vpn_failed", "db_failed", "mfa_denied"]);
@@ -681,10 +691,42 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   {
     const inFeed = new Set(noise.map(n => n.ev));
     let ordinary = noise.filter(n => n.verdict === "benign").length;
-    for (let k = benignN; k < shuffled.length && ordinary < ordinaryFloor; k++) {
+    // R8: tickets stay near ITSM_SHARE of the feed. The tickets a session cannot do without (a story's
+    // own ServiceNow rows, the approvals behind decoys and pool rows, the MSEL decoy's ticket and the two
+    // unrelated ones) set how much ordinary telemetry has to surround them.
+    const attackPlaced = [...attack1, ...attack2, ...attack3, ...poolAttacks.flat()];
+    const fixedTickets = [...attackPlaced, ...noise].filter(p => isTicketRow(p.ev)).length + fpRows.filter(isTicketRow).length
+      + fpOut.filter(f => f.ticket).length + [...noise, ...attackPlaced].filter(p => itsmRecordFor(p.ev, companyId)).length
+      + (difficulty !== "easy" ? 1 : 0) + unrelatedTicketMin(noise.filter(p => isTicketRow(p.ev)).length + fpOut.filter(f => f.ticket).length + (difficulty !== "easy" ? 1 : 0));
+    const noiseTicketRows = noise.filter(p => isTicketRow(p.ev)).length;
+    const otherRowsNow = attackPlaced.length + fpRows.length + (noise.length - ordinary - noiseTicketRows) + (difficulty !== "easy" ? MSEL_SUPPORT_ROWS : 0) + fixedTickets;
+    const ticketFloor = Math.ceil(fixedTickets / ITSM_SHARE) - otherRowsNow;
+    // (a pool ticket in the noise is a ticket, not ordinary telemetry)
+    const floor = Math.max(ordinaryFloor, ticketFloor + noiseTicketRows);
+    // The same record twice is a repeat; a third copy is a tell (R8c). The pool holds a few identical
+    // rows (borrowed noise), so the top-up never adds a third of any content.
+    const contentOf = (e: TelemetryEvent) => { const { id: _i, ts: _t, ...rest } = e; void _i; void _t; return JSON.stringify(rest); };
+    const copies = new Map<string, number>();
+    for (const n of noise) { const c = contentOf(n.ev); copies.set(c, (copies.get(c) ?? 0) + 1); }
+    const fresh = (e: TelemetryEvent) => { const c = contentOf(e); if ((copies.get(c) ?? 0) >= 2) return false; copies.set(c, (copies.get(c) ?? 0) + 1); return true; };
+    for (let k = benignN; k < shuffled.length && ordinary < floor; k++) {
       const ev = shuffled[k];
       if (inFeed.has(ev) || classifyPoolEvent(ev) !== "benign") continue;
+      if (k >= benignN && ordinary >= ordinaryFloor && !fresh(ev)) continue;
       noise.push({ ev, origin: "noise", verdict: "benign" }); inFeed.add(ev); ordinary++;
+    }
+    // A small pool runs out (QuantumBank shows about twenty ordinary rows): recurring telemetry comes
+    // back as the same activity by another person of the company on their own machine (noiseDeck.ts,
+    // as the solo feed draws it), never as a copy (R8c).
+    if (ordinary < floor) {
+      const deck = new NoiseDeck(noiseCandidates.filter(e => classifyPoolEvent(e) === "benign"), mulberry32(hashSeed(`${companyId}:${difficulty}:${seed}:noise-variants`)));
+      const ids = new Set(noise.map(n => String(n.ev.id ?? "")));
+      for (let tries = 0; ordinary < floor && tries < floor * 12; tries++) {
+        const ev = deck.next();
+        if (!ev) break;
+        if (inFeed.has(ev) || ids.has(String(ev.id ?? "")) || !fresh(ev)) continue;
+        noise.push({ ev, origin: "noise", verdict: "benign" }); inFeed.add(ev); ids.add(String(ev.id ?? "")); ordinary++;
+      }
     }
   }
   // Each maker's rows land together (a lockout right after its VPN failures) at a seeded point of the
@@ -731,7 +773,10 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   const evidenceTickets = [...noise, ...attack1, ...attack2, ...attack3, ...poolAttacks.flat()].filter(p => itsmRecordFor(p.ev, companyId)).length + linkedTickets.length;
   const otherRows = total + fpRows.length + (difficulty !== "easy" ? MSEL_SUPPORT_ROWS : 0);
   const itsmBudget = Math.round((ITSM_SHARE * otherRows) / (1 - ITSM_SHARE));
-  const noiseTickets = noiseTickets0.slice(0, Math.max(Math.min(2, noiseTickets0.length), itsmBudget - evidenceTickets));
+  // A story's own tickets (a help-desk call, a change it abuses) are in the feed already: they count.
+  const storyTickets = [...attack1, ...attack2, ...attack3, ...poolAttacks.flat(), ...noise].filter(p => isTicketRow(p.ev)).length + fpRows.filter(isTicketRow).length;
+  const benignTickets = noise.filter(p => isTicketRow(p.ev)).length + linkedTickets.length + (difficulty !== "easy" ? 1 : 0);
+  const noiseTickets = noiseTickets0.slice(0, Math.max(Math.min(unrelatedTicketMin(benignTickets), noiseTickets0.length), itsmBudget - evidenceTickets - storyTickets));
   const itsmRows = evidenceTickets + noiseTickets.length;
   const lateRows = itsmRows + fpRows.length + (difficulty !== "easy" ? MSEL_SUPPORT_ROWS : 0);
   const leadMin = Math.min(total - 1, Math.ceil(WARMUP_MIN * (total + lateRows)));

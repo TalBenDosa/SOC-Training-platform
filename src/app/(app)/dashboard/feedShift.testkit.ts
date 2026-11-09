@@ -101,7 +101,10 @@ export function playShift(company: string, difficulty: "easy" | "medium" | "hard
       });
       const owed = noiseQuota(attackRows, noiseSince);
       const lead = placed.some(isAttackEvent) ? placed.filter(isAttackEvent) : placed;
-      const firstShown = Math.min(...lead.map(e => Date.parse(e.ts ?? "")).filter(Number.isFinite), clock - 60_000);
+      // Never before the first attack row: noise owed for the attack shows while it runs (R8 counts the
+      // incident's window from its first row), so a phase newer than a minute does not push it earlier.
+      const leadTimes = lead.map(e => Date.parse(e.ts ?? "")).filter(Number.isFinite);
+      const firstShown = leadTimes.length ? Math.min(...leadTimes) : clock - 60_000;
       const from = Math.max(lastPhaseAt ?? firstShown, clock - 240_000);
       const nt = noiseTimes(owed, from, clock - 5_000);
       for (let k = 0; k < owed; k++) { const ch = deck.next(); if (!ch) break; pushNoise({ ...withRebasedTime(ch, new Date(nt[k]).toISOString()), id: `${ch.id}_${clock}_q${k}` }); }
