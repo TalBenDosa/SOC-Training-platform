@@ -351,6 +351,7 @@ export function QueueLab({ lab, onDone }: LabProps<"queue">) {
   const [handled, setHandled] = useState<Record<string, string>>({}); // alert id -> action id
   const [misses, setMisses] = useState<Set<string>>(new Set());
   const [wrong, setWrong] = useState<string | null>(null);
+  const [asked, setAsked] = useState<Set<string>>(new Set()); // alerts whose owner was asked (Verify with IT)
   const done = Object.keys(handled).length === lab.alerts.length;
   useDoneOnce(done, onDone);
   const alert = lab.alerts.find(a => a.id === sel)!;
@@ -399,6 +400,19 @@ export function QueueLab({ lab, onDone }: LabProps<"queue">) {
             {alert.fields.map(f => <React.Fragment key={f.k}><dt className="text-sky-300">{f.k}</dt><dd className="break-all text-slate-200">{f.v}</dd></React.Fragment>)}
           </dl>
           <p className="mt-2 text-sm leading-relaxed text-slate-300">{alert.context}</p>
+          {alert.verify && (asked.has(alert.id) ? (
+            <div role="status" className="mt-2 rounded-lg border border-white/10 bg-black/30 p-2 text-sm leading-relaxed">
+              <span className={cn("font-bold", alert.verify.result === "confirmed" ? "text-emerald-300" : "text-amber-300")}>
+                IT: {alert.verify.result === "confirmed" ? "Confirmed" : "Not verified"}.
+              </span>{" "}
+              <span className="text-slate-200">{alert.verify.message}</span>
+            </div>
+          ) : (
+            <button onClick={() => setAsked(s => new Set(s).add(alert.id))}
+              className="mt-2 inline-flex items-center gap-1 rounded-lg border border-sky-300/60 px-3 py-1.5 text-sm font-bold text-sky-100 hover:bg-sky-500/10">
+              Verify with IT
+            </button>
+          ))}
           <div className="mt-3 flex flex-wrap gap-2">
             {lab.actions.map(a => (
               <motion.button key={a.id} onClick={() => act(a.id)} disabled={!!handled[alert.id]}

@@ -362,7 +362,12 @@ export type BriefingLab = ({
       /** Console name in the title bar, e.g. "SIEM · Incidents". */
       console: string;
       actions: { id: string; label: string; tone: "close" | "escalate" | "contain" }[];
-      alerts: { id: string; time: string; severity: "Low" | "Medium" | "High" | "Critical"; rule: string; entity: string; fields: { k: string; v: string }[]; context: string; answer: string; why: string }[];
+      alerts: {
+        id: string; time: string; severity: "Low" | "Medium" | "High" | "Critical"; rule: string; entity: string; fields: { k: string; v: string }[]; context: string; answer: string; why: string;
+        /** The owner's answer to "Verify with IT". Never put it in `fields` (R9): it is shown
+         *  only after the learner asks, the same rule as it_verify_result on room log tasks. */
+        verify?: { result: "confirmed" | "unverified"; message: string };
+      }[];
     }
   | {
       /** A data table and questions answered by working it out (a count, a
