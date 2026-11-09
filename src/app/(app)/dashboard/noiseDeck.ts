@@ -171,7 +171,7 @@ export class NoiseDeck {
     const cands = this.people.filter(p => p.email !== old && p.email.split("@")[1] === old.split("@")[1]
       && (!onHome || (p.home && this.hostIp.has(p.home) === this.hostIp.has(e.hostname!)))
       // A MacBook's process row moves to another Mac, never onto a Windows desk.
-      && (!onHome || !rowOs || this.osOf(p.home!, p.email.split("@")[1]) === rowOs)
+      && (!onHome || !rowOs || [undefined, rowOs].includes(this.osOf(p.home!, p.email.split("@")[1])))
       && (!needsName || !!p.name));
     if (cands.length === 0) return null;
     // People this row has not shown yet come first, so a repeat is a new instance, not a copy.

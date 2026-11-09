@@ -2181,7 +2181,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
   {
     id: "gl_fw_102", ts: "2026-05-10T07:02:00.000Z",
     source: "firewall", event_type: "net_connection", severity: "informational",
-    vendor: "Cisco Firepower", src_ip: "10.50.2.88", dst_ip: "52.97.146.162", dst_port: 443,
+    vendor: "Cisco Firepower", src_ip: "10.50.2.88", dst_ip: "52.96.165.18", dst_port: 443,
     protocol: "tcp",
     description: "WS-LOG-088 opened an HTTPS session to Exchange Online - allowed",
     raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "default-outbound", "cisco.ftd.application_protocol": "HTTPS", "action_result": "allowed" }
@@ -2189,7 +2189,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
   {
     id: "gl_fw_103", ts: "2026-05-10T07:55:00.000Z",
     source: "firewall", event_type: "net_connection", severity: "informational",
-    vendor: "Cisco Firepower", src_ip: "10.20.2.107", dst_ip: "52.97.146.162", dst_port: 443,
+    vendor: "Cisco Firepower", src_ip: "10.20.2.107", dst_ip: "52.96.165.18", dst_port: 443,
     protocol: "tcp",
     description: "WS-GL-ACC-07 opened an HTTPS session to Exchange Online - allowed",
     raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "default-outbound", "cisco.ftd.application_protocol": "HTTPS", "action_result": "allowed" }
@@ -2213,10 +2213,10 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
   {
     id: "gl_fw_106", ts: "2026-05-10T02:15:00.000Z",
     source: "firewall", event_type: "net_connection", severity: "informational",
-    vendor: "Cisco Firepower", src_ip: "10.20.1.30", dst_ip: "52.219.170.41", dst_port: 443,
+    vendor: "Cisco Firepower", src_ip: "10.20.1.30", dst_ip: "52.28.41.8", dst_port: 443,
     protocol: "tcp",
-    description: "SRV-GL-SAP01 uploaded its nightly backup to Amazon S3 (eu-central-1) - allowed",
-    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "default-outbound", "cisco.ftd.application_protocol": "HTTPS", "action_result": "allowed" }
+    description: "Nightly outbound HTTPS sync from SRV-GL-SAP01 to SAP cloud API - allowed",
+    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "ERP-outbound", "cisco.ftd.application_protocol": "sap-cloud", "action_result": "allowed" }
   },
   {
     id: "gl_fw_107", ts: "2026-05-10T10:20:00.000Z",
@@ -2229,7 +2229,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
   {
     id: "gl_fw_108", ts: "2026-05-10T14:45:00.000Z",
     source: "firewall", event_type: "net_connection", severity: "informational",
-    vendor: "Cisco Firepower", src_ip: "10.50.1.45", dst_ip: "52.97.146.162", dst_port: 443,
+    vendor: "Cisco Firepower", src_ip: "10.50.1.45", dst_ip: "52.96.165.18", dst_port: 443,
     protocol: "tcp",
     description: "WS-LOG-045 opened an HTTPS session to Exchange Online - allowed",
     raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "default-outbound", "cisco.ftd.application_protocol": "HTTPS", "action_result": "allowed" }
