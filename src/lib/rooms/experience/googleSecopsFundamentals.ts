@@ -9,24 +9,26 @@ import type { RoomExperience } from "./types";
 // anatomy, spotdiff, worksheet, sort, codebreak, tune and sequence labs.
 // Game mix: pathway + spotdiff + rush + codebreak + tune.
 // Lab data differs from the graded tasks: the anatomy is a 7-Zip launch on kf-dp-0112 and the
-// worksheet is a login table, never the encoded PowerShell chain on kf-ws-0188 (q1, la1) or the
+// worksheet is a login table, never the Outlook-to-mshta launch on kf-ws-0350 (qf1), the svc_backup
+// failures from kf-ws-0417 (la0), the encoded PowerShell chain on kf-ws-0188 (qf2, la1, qf3, wr1) or the
 // lookalike-domain table on kf-ws-0274 (f1); the trace follows kf-lt-0455 and bulk-mailer-track.example, never
 // kf-lt-0612 or the LedgerWorks IP (ac1, ac2); the tune dials use a 6-failure, 30-minute rule,
-// never the 5-failure, 15-minute rule assembled in o1; the queue works case 6120 on kf-lt-0319,
-// never case 6130, and the sequence is a sign-in case, never the document-launched PowerShell case.
+// never the 5-failure, 15-minute rule written in yl2 or the 20-minute spray rule in yl3; the queue
+// works case 6120 on kf-lt-0319, never case 6130, and the sequence is a sign-in case, never the
+// document-launched PowerShell case.
 //
 // Separation (graded task: the lab line that teaches its idea):
-//  m1: r2 anatomy (principal = actor, target = acted on, event 1 vs event 3 and 22) + primer.
-//  q1: r3 spotdiff + primer (quotes, regex, nocase, enumerated fields) and r2 anatomy (target.process
-//      is the launched process).
+//  qf1, la0: r2 anatomy (principal = actor, target = acted on; on USER_LOGIN the account is target)
+//      + primer.
+//  qf2: r3 spotdiff + primer (quotes, regex, nocase, enumerated fields, NOT).
 //  f1: r3 worksheet (filter, count distinct, narrow by a condition).
 //  ac1: r4 trace (rare domain to process to user) and the ATI priority sort.
 //  ac2: r4 priority sort and the rush lab (shared addresses, prevalence limits).
-//  o1: r5 codebreak primer (section order) and tune (threshold and window).
-//  q2: r5 tool sort and primer (a retrohunt follows the rule's alerting setting).
+//  yl1, yl2, yl3, q4: r5 codebreak primer (section order), tune (threshold and window) and the r5
+//      building-blocks table.
 //  q3: the precise or broad sort.
-//  la1: the launch-record inspect lab and the r2 anatomy.
-//  o2: the sign-in sequence and the r6 queue (verify, contain only when sure, document last).
+//  la1, qf3, wr1: the launch-record inspect lab, the r2 anatomy and the r6 queue (verify, contain
+//      only when sure, document last); the sign-in sequence runs before the case write-up.
 
 export const GOOGLE_SECOPS_FUNDAMENTALS: RoomExperience = {
   "roomId": "google-secops-fundamentals",
@@ -40,10 +42,10 @@ export const GOOGLE_SECOPS_FUNDAMENTALS: RoomExperience = {
     "Kestrel Freight. 14 depots, 2,400 people, and trucks that cannot wait for an IT ticket.",
     "Last quarter the company moved its SIEM to Google Security Operations. Every log from every depot now lands in one place, in one schema.",
     "Priya Raman built the first detections. The data is all there. She needs analysts who can read it, search it and run a case from it.",
-    "Learn the platform, read a UDM event, write the searches, judge entities and intel, understand a YARA-L rule, then run a case in SOAR."
+    "Learn the platform, read a UDM event, write the searches, judge entities and intel, write and debug YARA-L rules, then run a case in SOAR from scope to Case Wall note."
   ],
-  "mission": "Follow a log through the platform, map raw fields to UDM, repair broken searches, trace a rare domain to a user, tune and assemble a YARA-L rule, then work case 6130 from first alert to closure.",
-  "estimate": "~55 min",
+  "mission": "Follow a log through the platform, write the parser's UDM output by hand, read UDM events field by field, write UDM searches, judge entities and intel, write and debug three YARA-L rules, then scope case 6130 and write its Case Wall note.",
+  "estimate": "~85 min",
   "look": {
     "primary": "#60a5fa",
     "secondary": "#34d399",
@@ -70,7 +72,8 @@ export const GOOGLE_SECOPS_FUNDAMENTALS: RoomExperience = {
       "building": "factory",
       "taskIds": [
         "gso-r2",
-        "gso-m1"
+        "gso-qf1",
+        "gso-la0"
       ]
     },
     {
@@ -81,7 +84,7 @@ export const GOOGLE_SECOPS_FUNDAMENTALS: RoomExperience = {
       "building": "archive",
       "taskIds": [
         "gso-r3",
-        "gso-q1",
+        "gso-qf2",
         "gso-f1"
       ]
     },
@@ -105,8 +108,10 @@ export const GOOGLE_SECOPS_FUNDAMENTALS: RoomExperience = {
       "building": "lab",
       "taskIds": [
         "gso-r5",
-        "gso-o1",
-        "gso-q2",
+        "gso-yl1",
+        "gso-yl2",
+        "gso-yl3",
+        "gso-q4",
         "gso-q3"
       ]
     },
@@ -119,21 +124,27 @@ export const GOOGLE_SECOPS_FUNDAMENTALS: RoomExperience = {
       "taskIds": [
         "gso-r6",
         "gso-la1",
-        "gso-o2"
+        "gso-qf3",
+        "gso-wr1"
       ],
       "boss": true
     }
   ],
   "personas": {
-    "gso-m1": {
+    "gso-qf1": {
       "name": "Priya Raman",
       "role": "Detection Engineer",
-      "line": "The Sysmon parser is the one I trust least to remember. Show me you know where each field lands."
+      "line": "The parser does this millions of times a day. Do it once by hand and you will never misread principal again."
     },
-    "gso-q1": {
+    "gso-la0": {
       "name": "Priya Raman",
       "role": "Detection Engineer",
-      "line": "I need that search to read only the launched process. Which one is it?"
+      "line": "Forty-one of these in six minutes against the backup account. Read one properly first."
+    },
+    "gso-qf2": {
+      "name": "Priya Raman",
+      "role": "Detection Engineer",
+      "line": "Write me the search. Every PowerShell with an encoded command, except the IT jump host."
     },
     "gso-f1": {
       "name": "Priya Raman",
@@ -150,15 +161,25 @@ export const GOOGLE_SECOPS_FUNDAMENTALS: RoomExperience = {
       "role": "Detection Engineer",
       "line": "Finance is on the phone about an alert on their workstation."
     },
-    "gso-o1": {
+    "gso-yl1": {
       "name": "Priya Raman",
       "role": "Detection Engineer",
-      "line": "I have the pieces of the rule on sticky notes. Put them in order."
+      "line": "A search finds it once. A rule finds it every time. Write the rule."
     },
-    "gso-q2": {
+    "gso-yl2": {
       "name": "Priya Raman",
       "role": "Detection Engineer",
-      "line": "New rule, alerting on, and I would like to see its history first."
+      "line": "Five failures and then a success. Bind them to one account and give it fifteen minutes."
+    },
+    "gso-yl3": {
+      "name": "Priya Raman",
+      "role": "Detection Engineer",
+      "line": "Same failures, different shape. One address, many accounts. Count the accounts, not the events."
+    },
+    "gso-q4": {
+      "name": "Priya Raman",
+      "role": "Detection Engineer",
+      "line": "A month enabled, zero detections, and I know it happened three times. Find my bug."
     },
     "gso-q3": {
       "name": "Priya Raman",
@@ -170,10 +191,15 @@ export const GOOGLE_SECOPS_FUNDAMENTALS: RoomExperience = {
       "role": "Detection Engineer",
       "line": "First alert in case 6130. Read the event, not the title."
     },
-    "gso-o2": {
+    "gso-qf3": {
       "name": "Priya Raman",
       "role": "Detection Engineer",
-      "line": "Case 6130 is confirmed. Put the playbook steps in the right order."
+      "line": "Before anyone blocks that domain, I want the list of every host that touched it."
+    },
+    "gso-wr1": {
+      "name": "Priya Raman",
+      "role": "Detection Engineer",
+      "line": "Write it so the next analyst can repeat every step from the Case Wall alone."
     }
   },
   "briefings": {
@@ -757,21 +783,15 @@ export const GOOGLE_SECOPS_FUNDAMENTALS: RoomExperience = {
             ],
             "rows": [
               [
-                "office-cdn.example",
-                "08:01",
-                "412",
-                "none"
-              ],
-              [
-                "bulk-mailer-track.example",
-                "09:12",
-                "1",
-                "Low prevalence, newly registered"
-              ],
-              [
                 "kestrelfreight.example",
                 "08:00",
                 "388",
+                "none"
+              ],
+              [
+                "office-cdn.example",
+                "08:01",
+                "412",
                 "none"
               ],
               [
@@ -779,9 +799,15 @@ export const GOOGLE_SECOPS_FUNDAMENTALS: RoomExperience = {
                 "08:30",
                 "97",
                 "none"
+              ],
+              [
+                "bulk-mailer-track.example",
+                "09:12",
+                "1",
+                "Low prevalence, newly registered"
               ]
             ],
-            "answer": 1,
+            "answer": 3,
             "why": "A prevalence of one, a newly registered domain and the low prevalence insight all point at the same row. The others are seen by dozens or hundreds of assets.",
             "learned": "bulk-mailer-track.example: 1 asset, newly registered"
           },
@@ -838,6 +864,12 @@ export const GOOGLE_SECOPS_FUNDAMENTALS: RoomExperience = {
                 "kf-lt-0455"
               ],
               [
+                "07:55:02",
+                "USER_LOGIN",
+                "adm-kfit",
+                "kf-dc-02"
+              ],
+              [
                 "07:58:31",
                 "USER_LOGIN",
                 "f.amaral",
@@ -848,16 +880,10 @@ export const GOOGLE_SECOPS_FUNDAMENTALS: RoomExperience = {
                 "USER_LOGOUT",
                 "svc-backup",
                 "kf-lt-0455"
-              ],
-              [
-                "07:55:02",
-                "USER_LOGIN",
-                "adm-kfit",
-                "kf-dc-02"
               ]
             ],
-            "answer": 1,
-            "why": "The interactive login at 07:58 is f.amaral, before the 09:12 lookup and on this host. The 02:00 login is a service account, and the last row is another machine.",
+            "answer": 2,
+            "why": "The interactive login at 07:58 is f.amaral, before the 09:12 lookup and on this host. The 02:00 login is a service account, and the 07:55 row is another machine.",
             "learned": "f.amaral was signed in at 07:58 on kf-lt-0455"
           }
         ]
@@ -1642,7 +1668,7 @@ export const GOOGLE_SECOPS_FUNDAMENTALS: RoomExperience = {
         }
       }
     ],
-    "gso-o2": [
+    "gso-qf3": [
       {
         "kind": "sequence",
         "title": "Order the Sign-in Case",
