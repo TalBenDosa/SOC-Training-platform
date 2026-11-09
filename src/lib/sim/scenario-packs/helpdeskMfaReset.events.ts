@@ -161,8 +161,12 @@ export function helpdeskMfaResetScenarioEvents() {
     // 4. Ticket resolved, routine close, on its face.
     serviceNowRecord({
       companyId: cx, id: "evt_hmr_04_ticket_resolved", ts: T(52 * MIN), table: "incident", number: ticket, state: "Resolved",
-      callerId: victim.email, severity: "low",
+      shortDescription: "Locked out, lost phone, needs password and MFA reset", callerId: victim.email, severity: "low",
       extra: {
+        // The same record as the "New" row: one creation time (R4), the same envelope (R2).
+        "servicenow.category": "Access", "servicenow.subcategory": "Password Reset", "servicenow.contact_type": "Phone",
+        "servicenow.priority": "3 - Moderate", "servicenow.urgency": "2 - High", "servicenow.impact": "3 - Low",
+        "servicenow.opened_by": helpdesk.email, "servicenow.opened_at": "2026-07-14 09:41:00", "servicenow.sys_created_on": "2026-07-14 09:41:00",
         "servicenow.close_code": "Solved (Permanently)",
         "servicenow.close_notes": "Password reset via admin portal. MFA requirement cleared for re-registration per caller's report of a lost device. Caller instructed to re-enroll Microsoft Authenticator on next sign-in.",
         "servicenow.work_notes": `Caller verified by phone with employee ID and date of birth; no video verification performed. Inbound number ${callerNumber}; mobile on file in the directory is ${directoryMobile}, not compared.`,

@@ -26,8 +26,8 @@ export function phishingToExfilEvents() {
   const dllHash  = makeSha256("svchost32_lockbit_loader");
   const docmHash = makeSha256("invoice_q3_final_docm_macro_document");
   const scriptHash = makeSha256("inv_q3_ps1_stage_script");
-  const docmPath = "C:\\Users\\jsmith\\Downloads\\Invoice_Q3_Final.docm";
-  const scriptPath = "C:\\Users\\jsmith\\AppData\\Local\\Temp\\inv_q3.ps1";
+  const docmPath = "C:\\Users\\j.smith\\Downloads\\Invoice_Q3_Final.docm";
+  const scriptPath = "C:\\Users\\j.smith\\AppData\\Local\\Temp\\inv_q3.ps1";
   const psPath = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
   const psCmd = `powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File ${scriptPath}`;
   const wordPath = "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE";
@@ -35,10 +35,10 @@ export function phishingToExfilEvents() {
   const officeCli = "aws-cli/2.13.25 Python/3.11.6 Windows/10 exe/AMD64 prompt/off command/s3api.list-objects-v2";
   const attackerCli = (cmd: string) => `aws-cli/2.15.30 Python/3.11.8 Linux/6.8.0-31-generic exe/x86_64.ubuntu.22 prompt/off command/${cmd}`;
   // The user's interactive session on the workstation and the processes the chain hangs from.
-  const explorerProc = { name: "explorer.exe", pid: 3280, path: "C:\\Windows\\explorer.exe", user: "NEXACORP\\jsmith", integrity: "medium" as const };
-  const chromeProc = { name: "chrome.exe", pid: 4612, path: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", parent_name: "explorer.exe", parent_pid: 3280, user: "NEXACORP\\jsmith", integrity: "medium" as const };
-  const wordProc = { name: "WINWORD.EXE", pid: 4128, path: wordPath, parent_name: "explorer.exe", parent_pid: 3280, user: "NEXACORP\\jsmith", integrity: "medium" as const };
-  const psProc = { name: "powershell.exe", pid: 5512, path: psPath, parent_name: "WINWORD.EXE", parent_pid: 4128, cmdline: psCmd, user: "NEXACORP\\jsmith", integrity: "medium" as const };
+  const explorerProc = { name: "explorer.exe", pid: 3280, path: "C:\\Windows\\explorer.exe", user: "NEXACORP\\j.smith", integrity: "medium" as const };
+  const chromeProc = { name: "chrome.exe", pid: 4612, path: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", parent_name: "explorer.exe", parent_pid: 3280, user: "NEXACORP\\j.smith", integrity: "medium" as const };
+  const wordProc = { name: "WINWORD.EXE", pid: 4128, path: wordPath, parent_name: "explorer.exe", parent_pid: 3280, user: "NEXACORP\\j.smith", integrity: "medium" as const };
+  const psProc = { name: "powershell.exe", pid: 5512, path: psPath, parent_name: "WINWORD.EXE", parent_pid: 4128, cmdline: psCmd, user: "NEXACORP\\j.smith", integrity: "medium" as const };
   // One firewall session to the C2 server as PAN-OS logs it when the session ends.
   const c2Session = (id: string, ts: string, sport: number, bytesOut: number, bytesIn: number, elapsed: number): TelemetryEvent => ({
     id, ts,
@@ -96,7 +96,7 @@ export function phishingToExfilEvents() {
         "winlog.event_data.SubjectLogonId": "0x3E7",
         // New Logon (the account that was logged on)
         "winlog.event_data.TargetUserSid": "S-1-5-21-3421479547-3897544621-1789562108-1103",
-        "winlog.event_data.TargetUserName": "jsmith",
+        "winlog.event_data.TargetUserName": "j.smith",
         "winlog.event_data.TargetDomainName": "NEXACORP",
         "winlog.event_data.TargetLogonId": "0x8F4A21",
         "winlog.event_data.LogonGuid": "{A1B2C3D4-E5F6-A1B2-C3D4-E5F6A1B2C3D4}",
@@ -120,7 +120,7 @@ export function phishingToExfilEvents() {
         "event.action": "logged-in",
         "event.outcome": "success",
         "event.created": "2026-05-08T09:42:00.000Z",
-        "user.name": "NEXACORP\\jsmith",
+        "user.name": "NEXACORP\\j.smith",
         "user.domain": "NEXACORP",
         "user.id": "S-1-5-21-3421479547-3897544621-1789562108-1103",
         "host.name": "WS-FIN-2847",
@@ -138,7 +138,7 @@ export function phishingToExfilEvents() {
       severity: "informational",
       process: { ...explorerProc, parent_name: "userinit.exe", parent_pid: 2744, cmdline: "C:\\Windows\\Explorer.EXE" },
       description: "explorer.exe started for j.smith's interactive session on WS-FIN-2847 after logon.",
-      raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "host.name": victim.hostname, "user.name": "NEXACORP\\jsmith" },
+      raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "host.name": victim.hostname, "user.name": "NEXACORP\\j.smith" },
     },
     {
       id: "evt_01c_browser", ts: T(2 * MIN + 3_000),
@@ -147,7 +147,7 @@ export function phishingToExfilEvents() {
       severity: "informational",
       process: { ...chromeProc, cmdline: "\"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\"" },
       description: "j.smith opened Chrome on WS-FIN-2847.",
-      raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "host.name": victim.hostname, "user.name": "NEXACORP\\jsmith" },
+      raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "host.name": victim.hostname, "user.name": "NEXACORP\\j.smith" },
     },
     {
       id: "evt_02_phish_email", ts: T(5 * MIN),
@@ -200,7 +200,7 @@ export function phishingToExfilEvents() {
       file: { path: docmPath, sha256: docmHash, size: 47293 },
       process: chromeProc,
       description: "chrome.exe on WS-FIN-2847 saved Invoice_Q3_Final.docm from the webmail session to j.smith's Downloads folder (same SHA256 as the email attachment).",
-      raw: { "crowdstrike.event_simpleName": "OoxmlFileWritten", "file.path": docmPath, "file.hash.sha256": docmHash, "host.name": victim.hostname, "user.name": "NEXACORP\\jsmith" },
+      raw: { "crowdstrike.event_simpleName": "OoxmlFileWritten", "file.path": docmPath, "file.hash.sha256": docmHash, "host.name": victim.hostname, "user.name": "NEXACORP\\j.smith" },
     },
     {
       id: "evt_03_macro_open", ts: T(5 * MIN + 30_000),
@@ -210,7 +210,7 @@ export function phishingToExfilEvents() {
       process: {
         name: "WINWORD.EXE", pid: 4128, parent_name: "explorer.exe", parent_pid: 3280,
         cmdline: `"${wordPath}" "${docmPath}"`,
-        user: "NEXACORP\\jsmith", integrity: "medium",
+        user: "NEXACORP\\j.smith", integrity: "medium",
       },
       description: "j.smith opened Invoice_Q3_Final.docm on WS-FIN-2847; WINWORD.EXE launched with the macro's Trust Center warning dismissed moments before it spawned PowerShell.",
       raw: {
@@ -225,7 +225,7 @@ export function phishingToExfilEvents() {
         "winlog.event_data.ParentImage": "C:\\Windows\\explorer.exe",
         "winlog.event_data.ParentProcessId": "3280",
         "winlog.event_data.ParentCommandLine": "C:\\Windows\\Explorer.EXE",
-        "winlog.event_data.User": "NEXACORP\\jsmith",
+        "winlog.event_data.User": "NEXACORP\\j.smith",
         "winlog.event_data.IntegrityLevel": "Medium",
         "winlog.event_data.Company": "Microsoft Corporation",
         "winlog.event_data.Product": "Microsoft Office",
@@ -240,14 +240,14 @@ export function phishingToExfilEvents() {
       file: { path: scriptPath, sha256: scriptHash, size: 1843 },
       process: wordProc,
       description: "WINWORD.EXE on WS-FIN-2847 wrote inv_q3.ps1 to j.smith's Temp folder, 0.6 seconds before PowerShell ran it.",
-      raw: { "crowdstrike.event_simpleName": "NewScriptWritten", "file.path": scriptPath, "file.hash.sha256": scriptHash, "host.name": victim.hostname, "user.name": "NEXACORP\\jsmith" },
+      raw: { "crowdstrike.event_simpleName": "NewScriptWritten", "file.path": scriptPath, "file.hash.sha256": scriptHash, "host.name": victim.hostname, "user.name": "NEXACORP\\j.smith" },
     },
     {
       id: "evt_04_powershell", ts: T(5 * MIN + 31_000),
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_create",
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "high", mitre_technique: "T1059.001",
-      description: "WINWORD.EXE on WS-FIN-2847 spawned a hidden PowerShell process with execution policy bypass, running a script from jsmith's Temp folder.",
+      description: "WINWORD.EXE on WS-FIN-2847 spawned a hidden PowerShell process with execution policy bypass, running a script from j.smith's Temp folder.",
       process: psProc,
       raw: {
         "crowdstrike.event_simpleName": "ProcessRollup2",
@@ -271,7 +271,7 @@ export function phishingToExfilEvents() {
         "process.grandparent.pid": "3280",
         "process.grandparent.executable": "\\Device\\HarddiskVolume3\\Windows\\explorer.exe",
         // User
-        "user.name": "NEXACORP\\jsmith",
+        "user.name": "NEXACORP\\j.smith",
         "user.id": "S-1-5-21-3421479547-3897544621-1789562108-1103",
         // Host
         "host.name": "WS-FIN-2847",
@@ -304,7 +304,7 @@ export function phishingToExfilEvents() {
         "event.action": "alert",
         "process.pid": "5512",
         "process.parent.pid": "4128",
-        "user.name": "NEXACORP\\jsmith",
+        "user.name": "NEXACORP\\j.smith",
         "host.name": "WS-FIN-2847",
         "host.ip": "10.10.20.14",
       },
@@ -375,9 +375,9 @@ export function phishingToExfilEvents() {
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "file_create",
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "high", mitre_technique: "T1027",
-      file: { path: "C:\\Users\\jsmith\\AppData\\Local\\Temp\\svchost32.dll", sha256: dllHash, size: 143360 },
+      file: { path: "C:\\Users\\j.smith\\AppData\\Local\\Temp\\svchost32.dll", sha256: dllHash, size: 143360 },
       process: psProc,
-      description: "powershell.exe wrote an unsigned DLL named svchost32.dll to jsmith's Temp folder on WS-FIN-2847.",
+      description: "powershell.exe wrote an unsigned DLL named svchost32.dll to j.smith's Temp folder on WS-FIN-2847.",
       raw: {
         "crowdstrike.event_simpleName": "NewExecutableWritten",
         // Event
@@ -385,7 +385,7 @@ export function phishingToExfilEvents() {
         "event.action": "file_created",
         "event.created": "2026-05-08T09:50:00.412Z",
         // File
-        "file.path": "C:\\Users\\jsmith\\AppData\\Local\\Temp\\svchost32.dll",
+        "file.path": "C:\\Users\\j.smith\\AppData\\Local\\Temp\\svchost32.dll",
         "file.name": "svchost32.dll",
         "file.extension": ".dll",
         "file.size": "143360",
@@ -408,7 +408,7 @@ export function phishingToExfilEvents() {
         "process.command_line": psCmd,
         "process.hash.sha256": "de96a6e69944335375dc1ac238336066889d9ffc7d73628ef4fe1b1848474f30",
         // User
-        "user.name": "NEXACORP\\jsmith",
+        "user.name": "NEXACORP\\j.smith",
         "user.id": "S-1-5-21-3421479547-3897544621-1789562108-1103",
         // Host
         "host.name": "WS-FIN-2847",
@@ -424,7 +424,7 @@ export function phishingToExfilEvents() {
       registry: {
         path: "HKU\\S-1-5-21-3421479547-3897544621-1789562108-1103\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
         key: "WindowsUpdater",
-        value: "rundll32.exe C:\\Users\\jsmith\\AppData\\Local\\Temp\\svchost32.dll,DllMain",
+        value: "rundll32.exe C:\\Users\\j.smith\\AppData\\Local\\Temp\\svchost32.dll,DllMain",
       },
       description: "PowerShell set an HKCU Run value named WindowsUpdater on WS-FIN-2847 that launches rundll32.exe against svchost32.dll.",
       raw: {
@@ -436,8 +436,8 @@ export function phishingToExfilEvents() {
         "winlog.event_data.ProcessGuid": "{a1b2c3d4-e5f6-a1b2-0001-c3d4e5f60001}",
         "winlog.event_data.ProcessId": "5512",
         "winlog.event_data.Image": psPath,
-        "winlog.event_data.Details": "rundll32.exe C:\\Users\\jsmith\\AppData\\Local\\Temp\\svchost32.dll,DllMain",
-        "winlog.event_data.User": "NEXACORP\\jsmith",
+        "winlog.event_data.Details": "rundll32.exe C:\\Users\\j.smith\\AppData\\Local\\Temp\\svchost32.dll,DllMain",
+        "winlog.event_data.User": "NEXACORP\\j.smith",
       },
     },
     // ── The implant stays alive: five more check-ins to the same server at a steady cadence ──
@@ -458,15 +458,15 @@ export function phishingToExfilEvents() {
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "high", mitre_technique: "T1552.001",
       process: psProc,
-      file: { path: "C:\\Users\\jsmith\\.aws\\credentials", size: 217 },
-      description: `powershell.exe on ${victim.hostname} opened C:\\Users\\jsmith\\.aws\\credentials.`,
+      file: { path: "C:\\Users\\j.smith\\.aws\\credentials", size: 217 },
+      description: `powershell.exe on ${victim.hostname} opened C:\\Users\\j.smith\\.aws\\credentials.`,
       raw: {
         "crowdstrike.event_simpleName": "FileOpenInfo",
         "crowdstrike.FileName": "credentials",
-        "crowdstrike.FilePath": "C:\\Users\\jsmith\\.aws\\",
+        "crowdstrike.FilePath": "C:\\Users\\j.smith\\.aws\\",
         "crowdstrike.ContextBaseFileName": "powershell.exe",
-        "crowdstrike.UserName": "NEXACORP\\jsmith",
-        "file.path": "C:\\Users\\jsmith\\.aws\\credentials",
+        "crowdstrike.UserName": "NEXACORP\\j.smith",
+        "file.path": "C:\\Users\\j.smith\\.aws\\credentials",
         "file.size": 217,
         "event.action": "FileOpenInfo",
         "event.outcome": "success",
@@ -2197,10 +2197,10 @@ export function insiderThreatScenarioEvents() {
   const fileHash = (n: string) => makeSha256(`insider_${n.toLowerCase()}`);
 
   // The interactive session the user works in: winlogon -> userinit -> explorer -> browser.
-  const userinitProc = { name: "userinit.exe", pid: 1888, path: "C:\\Windows\\System32\\userinit.exe", parent_name: "winlogon.exe", parent_pid: 1020, cmdline: "C:\\Windows\\system32\\userinit.exe", user: "NEXACORP\\mtorres", integrity: "medium" as const };
-  const explorerProc = { name: "explorer.exe", pid: 4212, path: "C:\\Windows\\explorer.exe", parent_name: "userinit.exe", parent_pid: 1888, cmdline: "C:\\Windows\\Explorer.EXE", user: "NEXACORP\\mtorres", integrity: "medium" as const };
+  const userinitProc = { name: "userinit.exe", pid: 1888, path: "C:\\Windows\\System32\\userinit.exe", parent_name: "winlogon.exe", parent_pid: 1020, cmdline: "C:\\Windows\\system32\\userinit.exe", user: "NEXACORP\\m.torres", integrity: "medium" as const };
+  const explorerProc = { name: "explorer.exe", pid: 4212, path: "C:\\Windows\\explorer.exe", parent_name: "userinit.exe", parent_pid: 1888, cmdline: "C:\\Windows\\Explorer.EXE", user: "NEXACORP\\m.torres", integrity: "medium" as const };
   const chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
-  const chromeProc = { name: "chrome.exe", pid: 9120, path: chromePath, parent_name: "explorer.exe", parent_pid: 4212, cmdline: `"${chromePath}"`, user: "NEXACORP\\mtorres", integrity: "medium" as const };
+  const chromeProc = { name: "chrome.exe", pid: 9120, path: chromePath, parent_name: "explorer.exe", parent_pid: 4212, cmdline: `"${chromePath}"`, user: "NEXACORP\\m.torres", integrity: "medium" as const };
 
   /** One SharePoint Online file operation as the Unified Audit Log writes it (one record per file). */
   const spRecord = (id: string, at: number, op: "FileAccessed" | "FileDownloaded", f: { name: string; site: string }, extra: Partial<TelemetryEvent> = {}): TelemetryEvent => ({
@@ -2224,9 +2224,9 @@ export function insiderThreatScenarioEvents() {
     source: "edr", vendor: "CrowdStrike Falcon", event_type: "file_create",
     hostname: insider.hostname, user_email: insider.email, src_ip: insider.ip,
     severity: "informational",
-    file: { path: `C:\\Users\\mtorres\\Downloads\\${f.name}`, sha256: fileHash(f.name), size: f.size },
+    file: { path: `C:\\Users\\m.torres\\Downloads\\${f.name}`, sha256: fileHash(f.name), size: f.size },
     process: chromeProc,
-    description: `chrome.exe saved ${f.name} to mtorres's Downloads folder on WS-FIN-4421.`,
+    description: `chrome.exe saved ${f.name} to m.torres's Downloads folder on WS-FIN-4421.`,
     raw: { "crowdstrike.event_simpleName": "OoxmlFileWritten", "host.name": insider.hostname },
   });
   /** One workbook written to the USB drive by Explorer's copy. */
@@ -2285,7 +2285,7 @@ export function insiderThreatScenarioEvents() {
         "winlog.event_data.SubjectLogonId": "0x3E7",
         // New Logon
         "winlog.event_data.TargetUserSid": "S-1-5-21-3421479547-3897544621-1789562108-1309",
-        "winlog.event_data.TargetUserName": "mtorres",
+        "winlog.event_data.TargetUserName": "m.torres",
         "winlog.event_data.TargetDomainName": "NEXACORP",
         "winlog.event_data.TargetLogonId": "0x9C3E47",
         "winlog.event_data.LogonGuid": "{C3D4E5F6-A1B2-C3D4-E5F6-A1B2C3D4E5F6}",
@@ -2309,7 +2309,7 @@ export function insiderThreatScenarioEvents() {
         "event.action": "logged-in",
         "event.outcome": "success",
         "event.created": "2026-05-06T13:00:00.000Z",
-        "user.name": "NEXACORP\\mtorres",
+        "user.name": "NEXACORP\\m.torres",
         "user.email": "m.torres@nexacorp.com",
         "user.title": "Finance Analyst",
         "user.domain": "NEXACORP",
@@ -2481,7 +2481,7 @@ export function insiderThreatScenarioEvents() {
       description: "Endpoint DLP matched the removable-media rule on a copy of Employee_Salary_Master_2026.xlsx to E:\\ and audited it.",
       raw: {
         "event.action": "DlpEndpointActivity", "event.outcome": "success",
-        "user.name": "NEXACORP\\mtorres",
+        "user.name": "NEXACORP\\m.torres",
         "policy.name": "Endpoint-DLP-Removable-Media-Copy",
         "policy.rule": "CopyRestrictedContentToRemovableMedia",
         "policy.action": "AuditAndNotify",
@@ -2500,7 +2500,7 @@ export function insiderThreatScenarioEvents() {
       raw: {
         "event.action": "PrintJobSubmitted",
         "host.name": insider.hostname,
-        "user.name": "NEXACORP\\mtorres",
+        "user.name": "NEXACORP\\m.torres",
         "printer.name": "HP-FIN-FLOOR2",
         "printer.share": "\\\\PRINT-SRV-01\\HP-FIN-FLOOR2",
         "print.job_count": "3",
@@ -2519,9 +2519,9 @@ export function insiderThreatScenarioEvents() {
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "file_create",
       hostname: insider.hostname, user_email: insider.email, src_ip: insider.ip,
       severity: "low", mitre_technique: "T1560",
-      file: { path: "C:\\Users\\mtorres\\Downloads\\Finance_Backup.zip", sha256: zipHash, size: 9_812_445 },
+      file: { path: "C:\\Users\\m.torres\\Downloads\\Finance_Backup.zip", sha256: zipHash, size: 9_812_445 },
       process: explorerProc,
-      description: "explorer.exe on WS-FIN-4421 created Finance_Backup.zip (9.8 MB) in mtorres's Downloads folder.",
+      description: "explorer.exe on WS-FIN-4421 created Finance_Backup.zip (9.8 MB) in m.torres's Downloads folder.",
       raw: { "crowdstrike.event_simpleName": "ZipFileWritten", "host.name": insider.hostname },
     },
     {
@@ -2664,7 +2664,7 @@ export function insiderThreatScenarioEvents() {
         // Type 2 (interactive), matching the logon in evt_01.
         "logon.type": "2",
         "winlog.event_data.TargetLogonId": "0x9C3E47",
-        "user.name": "NEXACORP\\mtorres",
+        "user.name": "NEXACORP\\m.torres",
         "host.name": "WS-FIN-4421", "source.ip": "10.10.20.91",
       },
     },
@@ -3347,7 +3347,7 @@ export function dcSyncScenarioEvents() {
       source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: dc01, user_email: adminEmail, src_ip: attackerIp,
       severity: "high", mitre_technique: "T1021.001",
-      description: `The it.admin account logged on to ${dc01} with a RemoteInteractive (RDP) logon from ${attackerIp} in Amsterdam, Netherlands, at 01:15 local time.`,
+      description: `The it.admin account logged on to ${dc01} with a RemoteInteractive (RDP) logon from ${attackerIp} in Amsterdam, Netherlands, at 22:15 UTC (01:15 in the office's own time zone).`,
       raw: {
         ...winHead(dc01, "4624", 2097841),
         "winlog.event_data.SubjectUserSid": "S-1-5-18",

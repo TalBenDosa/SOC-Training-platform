@@ -259,7 +259,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
     { ts: T(5 * MIN + 31_000), phase: "Execution",               action: "WINWORD.EXE spawns hidden PowerShell (execution policy bypass); Falcon raises a detection, no action" },
     { ts: T(5 * MIN + 42_000), phase: "Command & Control",       action: "The same PowerShell process resolves 3-day-old cdn-update-fb76.xyz and connects to it over HTTPS" },
     { ts: T(8 * MIN),          phase: "Persistence",             action: "svchost32.dll dropped to %TEMP%; HKCU Run key 'WindowsUpdater' created" },
-    { ts: T(38 * MIN),         phase: "Credential Access",       action: "The same PowerShell process opens C:\\Users\\jsmith\\.aws\\credentials; the next check-in to the C2 server is slightly larger than the earlier ones" },
+    { ts: T(38 * MIN),         phase: "Credential Access",       action: "The same PowerShell process opens C:\\Users\\j.smith\\.aws\\credentials; the next check-in to the C2 server is slightly larger than the earlier ones" },
     { ts: T(40 * MIN),         phase: "Discovery",               action: "Access key AKIA4XJ9PQ2M7EXAMPLE calls GetCallerIdentity, then ListBuckets and ListObjectsV2 on nexacorp-crm-exports, from an external IP" },
     { ts: T(43 * MIN),         phase: "Collection",              action: "Same key reads exports/customer-financial-data-2026.zip (184 MB) from nexacorp-crm-exports" },
   ];
@@ -286,8 +286,8 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
     { id: "q3", prompt: "Which TWO artifacts together form the persistence mechanism on WS-FIN-2847?", kind: "multi",
       options: [
         { value: "run_key", label: "HKCU Run key 'WindowsUpdater' → rundll32 + svchost32.dll" },
-        { value: "aws",     label: "The AWS CLI profile C:\\Users\\jsmith\\.aws\\credentials" },
-        { value: "dll",     label: "svchost32.dll dropped to C:\\Users\\jsmith\\AppData\\Local\\Temp\\" },
+        { value: "aws",     label: "The AWS CLI profile C:\\Users\\j.smith\\.aws\\credentials" },
+        { value: "dll",     label: "svchost32.dll dropped to C:\\Users\\j.smith\\AppData\\Local\\Temp\\" },
         { value: "docm",    label: "Invoice_Q3_Final.docm in the Downloads folder" },
       ],
       answer: ["run_key", "dll"], xp: 75,

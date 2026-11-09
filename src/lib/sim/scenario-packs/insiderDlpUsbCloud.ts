@@ -74,7 +74,8 @@ export function buildInsiderDlpUsbCloudScenario(
     dept: "Client Accounts",
   };
   const deviceId = "2d360a3dd9a1e8b39a4a772e451bc663";
-  const insiderSid = "S-1-5-21-3421479547-3897544621-1789562108-5277";
+  // One SID for d.okafor on every row (R3): the same derivation the share-access emitter uses.
+  const insiderSid = domainSidFor("nexacorp", insider.sam);
 
   // The client/finance file share he pulls from (an on-premises file server).
   const fileServer = { name: "SRV-NX-FIN02", ip: "10.20.4.30", share: "\\\\SRV-NX-FIN02\\ClientShare" };
