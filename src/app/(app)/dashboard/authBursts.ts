@@ -148,7 +148,7 @@ function drawPeople(storyId: string, n: number, pool: TelemetryEvent[], taken: S
 }
 
 /** The attempt row: the template's product and shape, this account, this time and outcome. */
-function attemptRow(tpl: TelemetryEvent, id: string, ts: string, user: string, outcome: Outcome, host?: string): TelemetryEvent {
+function attemptRow(tpl: TelemetryEvent, id: string, ts: string, user: string, outcome: Outcome, host?: string, n?: number): TelemetryEvent {
   const raw = { ...(tpl.raw ?? {}) } as Record<string, unknown>;
   const sam = short(user);
   const upn = user.includes("@") ? user : undefined;
@@ -191,8 +191,10 @@ function attemptRow(tpl: TelemetryEvent, id: string, ts: string, user: string, o
     raw["user.name"] = sam;
     raw["source.port"] = String(32768 + (hash(id) % 28000));
     raw.action_result = "deny";
-    ev.description = `sshd on ${host ?? tpl.hostname} refused a password for ${sam} from ${ip}`;
+    ev.description = `sshd on ${host ?? tpl.hostname} refused a password for ${sam} from ${ip} port ${raw["source.port"]}`;
   }
+  // The run's attempt number: a second round against the same account is a new attempt, not a copy.
+  if (n !== undefined && ev.description) ev.description = `${ev.description} (attempt ${n} from this address)`;
   return ev;
 }
 
@@ -262,7 +264,7 @@ export function withAuthBurst(storyId: string, events: TelemetryEvent[], pool: T
   const attempts = plan.attempts.filter(a => who(a.user));
   const tech = plan.retag?.[plan.template];
   const rows = attempts.map((a, i) => {
-    const row = attemptRow(tpl, `${plan.template}_b${String(i + 1).padStart(2, "0")}`, new Date(t0 + Math.round(a.at * 1000)).toISOString(), who(a.user)!, a.outcome ?? "fail", a.host);
+    const row = attemptRow(tpl, `${plan.template}_b${String(i + 1).padStart(2, "0")}`, new Date(t0 + Math.round(a.at * 1000)).toISOString(), who(a.user)!, a.outcome ?? "fail", a.host, i + 1);
     return tech ? { ...row, mitre_technique: tech } : row;
   });
   const patched = events.map(e => {

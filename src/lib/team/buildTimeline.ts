@@ -141,6 +141,8 @@ const PRIVATE_IP = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
  * do that job, and more would push tickets past ITSM_SHARE of a small team's feed (R8).
  */
 const unrelatedTicketMin = (benignTickets: number) => (benignTickets >= 2 ? 0 : 2 - benignTickets);
+/** Sources whose records are an endpoint's own telemetry. */
+const ENDPOINT_SOURCES = new Set<string>(["edr", "sysmon", "av", "windows_security", "linux_audit"]);
 /** A ServiceNow record (R8 counts these as the feed's tickets). */
 const isTicketRow = (e: TelemetryEvent) => (e.source as string) === "servicenow" || /servicenow/i.test(e.vendor ?? "");
 
@@ -721,10 +723,19 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     if (ordinary < floor) {
       const deck = new NoiseDeck(noiseCandidates.filter(e => classifyPoolEvent(e) === "benign"), mulberry32(hashSeed(`${companyId}:${difficulty}:${seed}:noise-variants`)));
       const ids = new Set(noise.map(n => String(n.ev.id ?? "")));
+      const perOrigin = new Map<string, number>();
       for (let tries = 0; ordinary < floor && tries < floor * 12; tries++) {
         const ev = deck.next();
         if (!ev) break;
+        // An endpoint's own telemetry stays with its records (the EDR console, the workbench and the XDR
+        // tables build one process from them): a person moved onto a server's process row is not.
+        const vm = /^(.*)_v\d+$/.exec(String(ev.id ?? ""));
+        if (vm && (ENDPOINT_SOURCES.has(ev.source) || (ev.hostname && attackHosts.has(ev.hostname)))) continue;
+        // Two more instances of one ordinary record at most: nine people pulling the same vault password
+        // on one server in an hour is a pattern of its own.
+        if (vm && (perOrigin.get(vm[1]) ?? 0) >= 2) continue;
         if (inFeed.has(ev) || ids.has(String(ev.id ?? "")) || !fresh(ev)) continue;
+        if (vm) perOrigin.set(vm[1], (perOrigin.get(vm[1]) ?? 0) + 1);
         noise.push({ ev, origin: "noise", verdict: "benign" }); inFeed.add(ev); ids.add(String(ev.id ?? "")); ordinary++;
       }
     }
