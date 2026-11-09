@@ -33,7 +33,7 @@ import { incidentGroundTruth } from "./groundTruth";
 import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
 import { IocTruthContext } from "@/components/threat-intel/iocTruthContext";
 import { storyIocTruth } from "@/lib/sim/storyTruth";
-import { normalizeHostIps } from "@/lib/sim/hostIdentity";
+import { companyFeedPool, feedCompanyProfile } from "./feedPool";
 import { PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 import {
   BookOpen, Building2, Clock, Cpu, FileText, Filter, GraduationCap, Pause, Play,
@@ -253,46 +253,9 @@ function StartTrainingModal({
 
 // ─── Dashboard page ───────────────────────────────────────────────────────────
 
-// Helper: get event pool for a given company id — DNS always excluded from live
-// feed. Takes the lazily-loaded sim data (benign + per-company pools) — see
-// simData.ts; the dashboard has it in hand before any pool is ever needed
-// (loaded at "Start Training").
-// One host, one IP across the noise (normalizeHostIps) — computed once per sim + company.
-const companyEventsCache = new WeakMap<SimData, Map<string, TelemetryEvent[]>>();
-function getCompanyEvents(sim: SimData, id: string) {
-  const cached = companyEventsCache.get(sim)?.get(id);
-  if (cached) return cached;
-  const out = normalizeHostIps(companyEventsRaw(sim, id));
-  (companyEventsCache.get(sim) ?? companyEventsCache.set(sim, new Map()).get(sim)!).set(id, out);
-  return out;
-}
-function companyEventsRaw(sim: SimData, id: string) {
-  const base = id === "nexacorp" ? sim.BENIGN_EVENTS : (sim.COMPANY_EVENTS[id] ?? sim.BENIGN_EVENTS);
-  // L-03 / L-09: emit ONLY the sources this company's architecture actually runs.
-  // The pool used to leak 12+ sources — a second competing EDR, AWS WAF/RDS on an
-  // Azure estate, DLP/Linux/email that the company never declared — regardless of
-  // the stack, which contradicts the Security-Products and Asset-Context rooms and
-  // left the source filter menu (correctly limited to the declared sources) unable
-  // to select half of what was on screen. Aligning the feed to architecture.sources
-  // makes "Switch Company" a real change of telemetry and makes the filter complete.
-  const active = new Set(getCompanyProfile(id).architecture?.sources ?? []);
-  // E-12: DNS is the most common log source in any SOC (and the platform teaches a
-  // whole room on it), so it must appear in the background noise. It is gated by the
-  // company's declared sources like every other source — no blanket exclusion.
-  // QA-DASH-4: the noise pool also carries real malicious events that Team mode scores as
-  // "attacks hiding in the noise". The solo shift can only credit its injected story, so a
-  // real attack in the solo noise could never be caught or debriefed and taught students to
-  // ignore it. Solo noise is benign / false-positive only.
-  const isMalicious = (e: TelemetryEvent) => {
-    const v = String((e as { expected_verdict?: unknown }).expected_verdict ?? "");
-    return v === "tp" || v === "escalate";
-  };
-  return base.filter(e => (active.size === 0 || active.has(e.source)) && !isMalicious(e));
-}
-
-function getCompanyProfile(id: string) {
-  return COMPANY_PROFILES.find(c => c.id === id) ?? { ...NEXACORP_PROFILE };
-}
+// The company's noise pool lives in ./feedPool (pure, shared with the realism tests).
+function getCompanyEvents(sim: SimData, id: string) { return companyFeedPool(sim, id); }
+function getCompanyProfile(id: string) { return feedCompanyProfile(id); }
 
 /** Returns the source filter options relevant for the given company. */
 function getSourcesForCompany(id: string): { value: string; label: string }[] {
