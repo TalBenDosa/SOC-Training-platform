@@ -2950,7 +2950,16 @@
         "xlatedport_svc",
         "xlatedst",
         "xlatesport_svc",
-        "xlatesrc"
+        "xlatesrc",
+        "appi_name",
+        "app_category",
+        "bytes",
+        "client_outbound_bytes",
+        "elapsed",
+        "protection_name",
+        "protection_type",
+        "severity",
+        "confidence_level"
       ],
       "prefixes": []
     },
@@ -5383,7 +5392,9 @@
         "sn",
         "ui",
         "status",
-        "reason"
+        "reason",
+        "data.attack",
+        "data.attackid"
       ],
       "prefixes": [],
       "sourceNote": "FortiOS Log Message Reference — traffic (type=traffic), UTM web-filter (type=utm, subtype=webfilter) and SSL-VPN event (type=event, subtype=vpn) log fields, as ingested under data.* by the SIEM. Extended 2026-08 to cover the standard traffic/webfilter columns and again to add the SSL-VPN tunnel fields (remip, remport, tunnelip, tunneltype) used by ssl-login/tunnel-up events; the original generated set only held the subset already in use."
