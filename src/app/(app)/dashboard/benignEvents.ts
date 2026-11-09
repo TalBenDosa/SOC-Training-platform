@@ -2323,7 +2323,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     description: "6 Active Directory accounts locked out on DC01 - spray attack triggered lockout threshold",
     raw: { "event.code": "4740",
            "winlog.event_data.TargetUserName": "jchen",
-           "host.name": "SRV-NXC-DC01", "winlog.event_data.TargetDomainName": "EXT-VPN-GW01",
+           "host.name": "SRV-NXC-DC01",
            "event.outcome": "success" },
   },
   {
