@@ -237,6 +237,12 @@ const lcBase = (p?: string) => lc(baseOf(undouble(p)));
 const s = (v: unknown): string | undefined => (v === undefined || v === null || v === "" || v === "-" ? undefined : String(v));
 const num = (v: unknown): number | undefined => { const n = Number(v); return v === undefined || v === null || v === "" || isNaN(n) ? undefined : n; };
 const HOSTED = new Set(["edr", "av", "sysmon"]);
+/**
+ * Sources whose rows name host processes and get a thread. auditd rows are in it (R6): a Linux story's
+ * two `find` (enumeration, then the SUID exploit) or two `bash` (installer, then the cron writer) are
+ * two processes on the auditd rows too, not one pid with two command lines.
+ */
+const THREADED = new Set([...HOSTED, "linux_audit"]);
 const SCRIPT_HOST = /^(powershell|pwsh|cmd|wscript|cscript|mshta|rundll32|regsvr32)\.exe$/;
 
 interface PView { name?: string; path?: string; pid?: number; cmdline?: string; sha256?: string; md5?: string; integrity?: string; user?: string }
@@ -244,7 +250,7 @@ interface View { i: number; host: string; t: number; f: EdrFacts; et: string; pr
 
 /** The facts of one hosted event, completed from a Sysmon EventData block when the event carries only that. */
 function viewOf(e: TelemetryEvent, i: number): View | null {
-  if (!HOSTED.has(e.source)) return null;
+  if (!THREADED.has(e.source)) return null;
   const f = edrFacts(e);
   const host = lc(f.host);
   if (!host) return null;
@@ -350,7 +356,13 @@ export function threadEndpointStory(events: TelemetryEvent[]): TelemetryEvent[] 
   // Three older corpus stories (k8s-pod-escape, dcsync, ransomware) number their processes in a way the
   // split cannot follow and keep one instance per image until their numbering is audited.
   const numbered = !events.some(e => UNSPLIT_STORY_ROWS.has(e.id));
-  for (const [key, pids] of pidsOf) if (numbered && pids.size > 1 && consistent(key, pids)) { split.add(key); for (const pid of pids) instTag.set(`${key}|${pid}`, `i${pid}`); }
+  // Their leaf images (never named as a parent) split safely: no child's parent fields depend on it
+  // (`net group` then `net view`, `vssadmin list` then `vssadmin delete`, two curl calls), R6.
+  // Every other row naming the image must carry one of those pids (an alert with no number would have to guess).
+  const parentKeys = new Set(vs.filter(v => nm(v.parent)).map(v => `${v.host}|${nm(v.parent)}`));
+  const names = (v: View, key: string) => `${v.host}|${nm(v.proc)}` === key || (v.f.kind === "detection" && `${v.host}|${lcBase(v.filePath)}` === key);
+  const pinned = (key: string, pids: Set<number>) => vs.every(v => !names(v, key) || (known(v.proc) && pids.has(v.proc.pid!)));
+  for (const [key, pids] of pidsOf) if ((numbered || (!parentKeys.has(key) && pinned(key, pids))) && pids.size > 1 && consistent(key, pids)) { split.add(key); for (const pid of pids) instTag.set(`${key}|${pid}`, `i${pid}`); }
   for (const v of vs) {
     const pk = `${v.host}|${nm(v.proc)}`, ak = `${v.host}|${nm(v.parent)}`;
     if (split.has(ak) && !known(v.parent)) { const pid = parentAt(v); if (pid !== undefined) v.parent = { ...v.parent, pid }; }
