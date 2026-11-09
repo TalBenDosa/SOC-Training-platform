@@ -9,9 +9,9 @@ import { sampleLogs, violationsOf, convertAll, contains, isNoise, type Converted
 import type { TelemetryEvent } from "@/lib/sim/types";
 
 /*
- * Card samples: all 10 JSON blocks of edr-crowdstrike.md are supported kinds (FDR PR2 ×2, DnsRequest,
+ * Card samples: all 11 JSON blocks of edr-crowdstrike.md are supported kinds (FDR PR2 ×2, DnsRequest,
  * NetworkConnectIP4, PeFileWritten, UserLogon, Alerts API v2 resource, Event Streams
- * EppDetectionSummaryEvent, aidmaster, userinfo) - none skipped. The last three are card-only kinds:
+ * EppDetectionSummaryEvent, aidmaster, userinfo, FDR FalconProcessHandleOpDetectInfo) - none skipped. The last three are card-only kinds:
  * fromTelemetry never produces them (the platform has no host-inventory / stream events).
  *
  * Documented nulls among events edrFacts marks supported (see the module header):
@@ -72,7 +72,7 @@ function evidence(c: Converted): string[] {
 describe("crowdstrike - card samples", () => {
   it("every card sample is a supported kind and validates with zero violations", () => {
     expect(samples.skipped).toEqual([]);
-    expect(samples.logs.length).toBe(10);
+    expect(samples.logs.length).toBe(11);
     for (const l of samples.logs) expect(violationsOf(l, source), l.kind).toEqual([]);
   });
 });

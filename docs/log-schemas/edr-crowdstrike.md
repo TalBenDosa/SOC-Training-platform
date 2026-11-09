@@ -530,6 +530,22 @@ Notes: key set = the real elastic `userinfo` line (15 keys). `User` uses the `DO
 {"AccountType":"Domain User","LastLoggedOnHost":"FIN-WS-0142","LocalAdminAccess":"No","LogonInfo":"Domain User Logon","LogonTime":"1790661811.317","LogonType":"Interactive","PasswordLastSet":"1781421730.512","User":"NEXACORP\\dana.levi","UserIsAdmin":"0","UserLogonFlags_decimal":"0","UserSid_readable":"S-1-5-21-3623811015-3361044348-30300820-1604","_time":"1790668920.448","cid":"c4e1f8a2b7d94e0f9a6b3c2d1e0f4a5b","event_platform":"Win","monthsincereset":"3.0"}
 ```
 
+### 4.11 FDR: FalconProcessHandleOpDetectInfo (msupd.exe opens lsass.exe)
+
+Notes: the handle-operation record the sensor logs with a handle-op detection, and the only Falcon record that names
+the opened process and the requested access mask (neither DetectionSummaryEvent, EppDetectionSummaryEvent nor the
+Alerts API resource carries them). Key set from the two Elastic FDR samples (`test-windows.log` line 112, a
+live-instance line, and `test-fdr-new-events.log`): image paths are NT device paths, `ContextProcessId` /
+`ParentProcessId` / `TargetProcessId` are UPIDs (`ContextProcessId` = 4.8 `TargetProcessId`, `ParentProcessId` = 4.1
+`TargetProcessId`), `DesiredAccess` is the mask as a decimal string (4112 = 0x1010, PROCESS_QUERY_LIMITED_INFORMATION +
+PROCESS_VM_READ; 2097151 = 0x1FFFFF). Left out because their enums are undocumented: `HandleOperationType`,
+`TemplateDisposition`, `TemplateInstanceId`, `PatternId`, `PatternIdList`, `ContextProcessTagsAsString`. The matching
+detection for this behaviour is the 4.5 / 4.6 shape; it names neither the target nor the mask.
+
+```json
+{"CommandLine":"\"C:\\ProgramData\\Microsoft\\Update\\msupd.exe\" /svc","ComputerName":"FIN-WS-0142","ConfigBuild":"1007.3.0019807.1","ConfigStateHash":"2873364105","ContextProcessId":"289748810026","DesiredAccess":"4112","EffectiveTransmissionClass":"3","Entitlements":"15","EventOrigin":"1","ImageFileName":"\\Device\\HarddiskVolume3\\ProgramData\\Microsoft\\Update\\msupd.exe","LocalAddressIP4":"10.20.14.87","ParentImageFileName":"\\Device\\HarddiskVolume3\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe","ParentProcessId":"289741187433","TargetProcessCommandLine":"C:\\Windows\\system32\\lsass.exe","TargetProcessId":"289612004718","TargetProcessImageFileName":"\\Device\\HarddiskVolume3\\Windows\\System32\\lsass.exe","UserName":"dana.levi","UserPrincipal":"dana.levi@nexacorp.com","aid":"4d92d2adf9009775a446ce0fe2689915","aip":"213.57.121.34","cid":"c4e1f8a2b7d94e0f9a6b3c2d1e0f4a5b","event_platform":"Win","event_simpleName":"FalconProcessHandleOpDetectInfo","id":"7c1e4a90-9b42-11f1-8f2a-02b7c41d5e21","name":"FalconProcessHandleOpDetectInfoV1","timestamp":"1790669702540"}
+```
+
 ---
 
 ## 4b. Platform surfaces — which representation each one shows (decided 2026-10-06)
