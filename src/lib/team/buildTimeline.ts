@@ -29,7 +29,7 @@ import { DEFAULT_ENV, envAllowsStory, envHasPlatforms, platformsOfEvent, type Te
 import { legacyLoad, type TeamLoad } from "./load";
 import { COMPANY_PROFILES, COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import { mapTimeString, storyTimeMap, withMappedTime, withRebasedTime, type TimeMap } from "@/lib/sim/rebaseTime";
-import { normalizeHostIps } from "@/lib/sim/hostIdentity";
+import { normalizeAccountSids, normalizeHostIps } from "@/lib/sim/hostIdentity";
 import { applyTenant, type Tenant } from "./tenant";
 import { mitreVisible } from "@/lib/sim/mitreVisible";
 import { describeEvent } from "@/lib/sim/describeEvent";
@@ -991,7 +991,8 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // One host, one IP across the WHOLE session — stories, noise, the twist, inject support
   // logs each chose an address their own way; the analyst pivots across all of them.
   // A web row names a workstation only by its address: it moves with that workstation's own rows.
-  const hostEvs = normalizeHostIps(merged.map(m => m.p.ev));
+  // R3: one account, one SID across the session (the pool and every story were authored apart).
+  const hostEvs = normalizeAccountSids(normalizeHostIps(merged.map(m => m.p.ev)), companyId);
   const movedIps = new Map<string, string>();
   hostEvs.forEach((e, i) => { const was = merged[i].p.ev.src_ip; if (merged[i].p.origin === "story" && was && e.src_ip && was !== e.src_ip && PRIVATE_IP.test(was)) movedIps.set(`${merged[i].p.incident ?? ""}|${was}`, e.src_ip); });
   const sessionEvs = hostEvs.map((e, i) => {

@@ -25,6 +25,9 @@ export function accountSid(ctx: NativeCtx, user: string, _email?: string): strin
   // The story's own SID for this account (a standalone scenario's authored 4624 / Falcon UserSid).
   const authored = ctx.userSids?.get(sam);
   if (authored) return authored;
+  // Well-known domain RIDs: the built-in Administrator (500), Guest (501) and krbtgt (502).
+  const wellKnownRid = ({ administrator: 500, guest: 501, krbtgt: 502 } as Record<string, number>)[sam];
+  if (wellKnownRid) return `S-1-5-21-${domainSidOf(ctx)}-${wellKnownRid}`;
   return `S-1-5-21-${domainSidOf(ctx)}-${ctx.int(`${ctx.companyId}:winsec:rid:${sam}`, 1104, 9800)}`;
 }
 

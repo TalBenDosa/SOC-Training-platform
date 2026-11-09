@@ -2,6 +2,7 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { isPeerAddressedRecord } from "@/lib/sim/peerRecords";
 import { makeCtx } from "@/lib/logs/native/ctx";
 import { accountSid } from "@/lib/logs/native/sources/_sid";
+import { edrFacts, threadOf, withThread } from "@/lib/logs/native/sources/edr-normalize";
 
 /**
  * One host, one IP - and never one IP for two hosts - across a feed pool.
@@ -67,9 +68,40 @@ export function normalizeHostIps(events: TelemetryEvent[]): TelemetryEvent[] {
 const SID_OF_NAME: [RegExp, RegExp][] = [
   [/(^|\.)TargetUserSid$/, /(^|\.)TargetUserName$/],
   [/(^|\.)SubjectUserSid$/, /(^|\.)SubjectUserName$/],
+  // The EDR vocabularies the story pass reads a user's SID from (_proc-identity SID_PAIRS).
+  [/(^|\.)AccountSid$/, /(^|\.)AccountName$/],
+  [/(^|\.)InitiatingProcessAccountSid$/, /(^|\.)InitiatingProcessAccountName$/],
+  [/(^|\.)UserSid$/, /(^|\.)UserName$/],
+  [/(^|\.)user\.id$/, /(^|\.)user\.name$/],
+  // A 4769's service account (a user-run SPN such as svc-mssql; machine accounts NAME$ are skipped).
+  [/(^|\.)ServiceSid$/, /(^|\.)ServiceName$/],
 ];
 export function normalizeAccountSids(events: TelemetryEvent[], companyId: string): TelemetryEvent[] {
   const ctx = makeCtx(companyId);
+  /** The same rule inside nested objects: an object with a login-style Name and a domain-user Sid. Returns the input when nothing changes. */
+  const fixEntitySids = (v: unknown): unknown => {
+    if (typeof v === "string") {
+      if (!/S-1-5-21-/.test(v) || !/^\s*[[{]/.test(v)) return v;
+      try { const parsed = JSON.parse(v); const f = fixEntitySids(parsed); return f === parsed ? v : JSON.stringify(f); } catch { return v; }
+    }
+    if (Array.isArray(v)) { let changed = false; const a = v.map(x => { const f = fixEntitySids(x); if (f !== x) changed = true; return f; }); return changed ? a : v; }
+    if (v && typeof v === "object") {
+      const o = v as Record<string, unknown>;
+      let res: Record<string, unknown> | null = null;
+      const name = o.Name ?? o.AccountName, sid = o.Sid ?? o.AadUserSid;
+      if (typeof sid === "string" && /^S-1-5-21-/.test(sid) && typeof name === "string" && /^[a-z][a-z0-9._-]*$/i.test(name) && !name.endsWith("$")) {
+        const want = accountSid(ctx, name);
+        if (want !== sid) res = { ...o, [o.Sid !== undefined ? "Sid" : "AadUserSid"]: want };
+      }
+      for (const [k, x] of Object.entries(res ?? o)) {
+        if (k === "Sid") continue;
+        const f = fixEntitySids(x);
+        if (f !== x) (res ??= { ...o })[k] = f;
+      }
+      return res ?? v;
+    }
+    return v;
+  };
   return events.map(e => {
     const raw = e.raw;
     if (!raw) return e;
@@ -93,6 +125,24 @@ export function normalizeAccountSids(events: TelemetryEvent[], companyId: string
       const want = accountSid(ctx, name);
       if (want !== v) (out ??= { ...raw })[k] = want;
     }
-    return out ? { ...e, raw: out } : e;
+    // Nested account entities ({ Name, Sid } in a Sentinel / MDI alert's Entities, also JSON-encoded).
+    for (const [k, v] of Object.entries(out ?? raw)) {
+      const fixed = fixEntitySids(v);
+      if (fixed !== v) (out ??= { ...raw })[k] = fixed;
+    }
+    let ev = out ? { ...e, raw: out } : e;
+    // The story pass threads the user's authored SID onto every endpoint row of that user (EDR records
+    // without a SID of their own print it): it follows the same rule, or the 4624 and the EDR row disagree.
+    const t = threadOf(ev);
+    if (t?.sid && /^S-1-5-21-/.test(t.sid)) {
+      let user: string | undefined;
+      try { user = edrFacts(ev).user ?? undefined; } catch { user = undefined; }
+      user = user ?? t.proc?.user ?? t.user ?? ev.process?.user ?? ev.user_email?.split("@")[0];
+      if (user && user !== "-" && !user.endsWith("$")) {
+        const want = accountSid(ctx, user);
+        if (want !== t.sid) ev = withThread(ev, { ...t, sid: want });
+      }
+    }
+    return ev;
   });
 }
