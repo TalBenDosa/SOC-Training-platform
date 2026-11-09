@@ -1813,7 +1813,7 @@ This is exactly why the indicators from the previous reading matter as much as t
           // command line exactly as typed; decoding the Base64 is the analyst's step, not a field.
           raw: {
             Timestamp: "2025-11-20T10:14:22.3810000Z",
-            DeviceId: "7e1f3b9a04c2d85e6f1a2b3c4d5e6f708192a3b4",
+            DeviceId: "9b2e47d0c815a3f6e29d74b1c0a85f3e6d21b9c4",
             DeviceName: "corp-ws-0203.corp.company.com",
             ActionType: "ProcessCreated",
             FileName: "powershell.exe",

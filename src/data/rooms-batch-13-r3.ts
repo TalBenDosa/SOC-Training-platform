@@ -28,7 +28,7 @@ const edrInjectEvent: TelemetryEvent = {
     "event.module": "crowdstrike",
     "event.dataset": "crowdstrike.falcon",
     "crowdstrike.EventType": "DetectionSummaryEvent",
-    "crowdstrike.DetectId": "ldt:c3b1f2a4e5d64f0a8b7c9d2e1f304a56:9988776655",
+    "crowdstrike.DetectId": "ldt:a7d93e1c4f0b28d65e3c91f7b04a2d68:9988776655",
     "crowdstrike.DetectDescription":
       "A process opened a handle to another running process with elevated access rights",
     "crowdstrike.Tactic": "Stealth",
@@ -465,7 +465,7 @@ const avVsEdrMasterclass = {
         '  "event.dataset": "crowdstrike.falcon",\n\n' +
         "  // Detection metadata\n" +
         '  "crowdstrike.EventType": "DetectionSummaryEvent",\n' +
-        '  "crowdstrike.DetectId": "ldt:c3b1f2a4e5d64f0a8b7c9d2e1f304a56:9988776655",\n' +
+        '  "crowdstrike.DetectId": "ldt:a7d93e1c4f0b28d65e3c91f7b04a2d68:9988776655",\n' +
         '  "crowdstrike.DetectDescription": "Process injection: powershell.exe injected shellcode into explorer.exe",\n\n' +
         "  // MITRE ATT&CK mapping\n" +
         '  "crowdstrike.Tactic": "Stealth",\n' +
