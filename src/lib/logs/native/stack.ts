@@ -9,7 +9,8 @@ import type { SourceId } from "./types";
 
 export type StackCategory =
   | "edr" | "firewall" | "vpn" | "proxy" | "dns" | "idp" | "onprem_ad" | "collab"
-  | "email_security" | "cloud" | "k8s" | "pam" | "host_telemetry" | "linux" | "itsm" | "waf" | "web_server";
+  | "email_security" | "cloud" | "k8s" | "pam" | "host_telemetry" | "linux" | "itsm" | "waf" | "web_server"
+  | "db_monitor" | "ueba";
 
 export type Stack = Partial<Record<StackCategory, SourceId>> & {
   /**
@@ -46,8 +47,8 @@ const has = (ev: TelemetryEvent, ...needles: string[]) => {
 
 /**
  * Which stack category an event belongs to, or null when no native module covers
- * it yet (DLP, UEBA, DB monitoring, virtualization, VCS, HR, and WAF events written
- * for a named product keep their legacy rendering until cards exist for them).
+ * it yet (DLP, virtualization, VCS, HR, WAF events written for a named product, and the
+ * database / UEBA products without a module keep their legacy rendering).
  */
 export function categoryOf(ev: TelemetryEvent): StackCategory | null {
   switch (ev.source as string) {
@@ -86,8 +87,31 @@ export function categoryOf(ev: TelemetryEvent): StackCategory | null {
     case "iam": return has(ev, "cyberark") ? "pam" : has(ev, "okta") ? "idp" : has(ev, "entra", "azure") ? "idp" : null;
     case "soar": return has(ev, "servicenow") ? "itsm" : null;
     case "siem": return has(ev, "guardduty") ? "cloud" : null;
+    // Database audit and DAM products with a native module (SQL Server Audit, Guardium, MySQL Enterprise
+    // Audit). Imperva DAM, Azure SQL Auditing and application audit logs keep their raw view.
+    case "db_monitor": return dbMonitorSource(ev) ? "db_monitor" : null;
+    // UEBA products with a native module. Microsoft Sentinel UEBA (BehaviorAnalytics) and Purview
+    // Insider Risk keep their own views.
+    case "ueba": return uebaSource(ev) ? "ueba" : null;
     default: return null;
   }
+}
+
+/**
+ * A database audit product is the database's own feature or the DAM appliance in front of it: the row
+ * stays that product's record whatever else the session runs (never a stack choice).
+ */
+function dbMonitorSource(ev: TelemetryEvent): SourceId | null {
+  if (has(ev, "guardium")) return "guardium";
+  if (has(ev, "sql server audit", "mssql audit", "microsoft sql audit")) return "mssql_audit";
+  if (has(ev, "mysql enterprise audit", "mysql audit")) return "mysql_audit";
+  return null;
+}
+/** A UEBA product's own record (its scores and models are its own: never relabelled as another UEBA). */
+function uebaSource(ev: TelemetryEvent): SourceId | null {
+  if (has(ev, "exabeam")) return "exabeam";
+  if (has(ev, "securonix")) return "securonix";
+  return null;
 }
 
 /**
@@ -198,6 +222,8 @@ export function productSourceFor(ev: TelemetryEvent, stack: Stack): SourceId | n
     return "azure_activity";
   }
   if (cat === "onprem_ad") return "windows_security";
+  if (cat === "db_monitor") return dbMonitorSource(ev);
+  if (cat === "ueba") return uebaSource(ev);
   // A story that shows the server's own process tree is bound to that OS, so the access log stays
   // that server's (nginx in front of php-fpm is not an IIS log). Only an unbound one follows the stack.
   if (cat === "web_server" && has(ev, "iis")) return "iis";
@@ -250,6 +276,8 @@ export const PRODUCT_LABEL: Partial<Record<SourceId, string>> = {
   windows_dns: "Windows DNS", infoblox: "Infoblox", zscaler_zia: "Zscaler Internet Access",
   aws_waf: "AWS WAF", azure_waf: "Azure WAF", iis: "Microsoft IIS", nginx: "nginx",
   ms_graph: "Microsoft Graph Security",
+  mssql_audit: "Microsoft SQL Server Audit", guardium: "IBM Guardium", mysql_audit: "MySQL Enterprise Audit",
+  exabeam: "Exabeam Advanced Analytics", securonix: "Securonix SNYPR",
 };
 
 /** The categories a trainer can switch, with the products the platform renders natively. */

@@ -285,7 +285,9 @@ describe("technical integrity gate", { timeout: 600_000 }, () => {
         "4720", "4722", "4723", "4724", "4725", "4726", "4738", "4767", "4728", "4729", "4732", "4733", "4756", "4757", "4697"]);
       const winsecDc = sid === "windows_security" && WINSEC_DC_KINDS.has(v?.log.kind ?? "");
       const noHost = serverSide || winsecDc || ["m365", "google_workspace", "entra", "okta", "aws_cloudtrail", "azure_activity", "gcp_audit", "proofpoint", "defender_o365",
-        "paloalto", "fortigate", "checkpoint", "cisco_ftd", "cisco_asa", "zscaler_zia", "anyconnect", "globalprotect", "fortigate_sslvpn", "zscaler_zpa", "cloudflare_access"].includes(sid ?? "");
+        "paloalto", "fortigate", "checkpoint", "cisco_ftd", "cisco_asa", "zscaler_zia", "anyconnect", "globalprotect", "fortigate_sslvpn", "zscaler_zpa", "cloudflare_access",
+        // A Guardium policy alert (IBM's QRadar LEEF template) names the database server by address (dst), not by name.
+        "guardium"].includes(sid ?? "");
       if (host && !text.includes(host) && !noHost) p.add(`${where} ${authoredOf(e).id}: row host ${e.hostname} missing from the ${v ? v.log.sourceId : "legacy"} record`);
       const user = (e.user_email ?? "").toLowerCase().split("@")[0];
       const asName = user.split(/[._]/).filter(Boolean).join(" ");
