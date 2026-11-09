@@ -27,6 +27,14 @@ export const AI_ATTACKS_SOC_DETECTION: RoomExperience = {
   look: { primary: "#818cf8", secondary: "#34d399", warn: "#fb7185" },
   scene: "ignoreall",
   layout: "stage",
+  story: {
+    intro: { title: "Her Attack Surface Is English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ai-attacks-soc-detection/ignoreall-intro-f0d15c35.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ai-attacks-soc-detection/ignoreall-intro-d4d77174.jpg" },
+    afterStation: {
+      bot: { title: "One Stream", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ai-attacks-soc-detection/ignoreall-ch2-203b4555.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ai-attacks-soc-detection/ignoreall-ch2-b091946b.jpg" },
+      gateway: { title: "What the Model Was Handed", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ai-attacks-soc-detection/ignoreall-ch3-f092b0ce.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ai-attacks-soc-detection/ignoreall-ch3-f9a8f5dc.jpg" },
+      flagged: { title: "KX9", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ai-attacks-soc-detection/ignoreall-finale-63fc7aeb.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ai-attacks-soc-detection/ignoreall-finale-aef6c282.jpg" },
+    },
+  },
   stations: [
     {
       id: "bot",
