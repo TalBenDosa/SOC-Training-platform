@@ -3968,7 +3968,7 @@ export function supplyChainScenarioEvents() {
         "crowdstrike.FileName": "netpulse-telemetry-svc",
         "crowdstrike.ParentImageFileName": "netpulse-agent",
         "crowdstrike.GrandparentImageFileName": "systemd",
-        "crowdstrike.SHA256HashData": malDllHash,
+        "crowdstrike.SHA256String": malDllHash,
         "crowdstrike.event_platform": "Lin",
         "crowdstrike.NetworkContainmentState": "Not Contained",
         "event.action": "alert",

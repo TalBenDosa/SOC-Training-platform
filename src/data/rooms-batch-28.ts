@@ -113,7 +113,7 @@ const regsvr32DeploymentEvent: TelemetryEvent = {
     "crowdstrike.FileName": "regsvr32.exe",
     "crowdstrike.FilePath": "C:\\Windows\\System32\\regsvr32.exe",
     "crowdstrike.CommandLine": "regsvr32.exe /s C:\\ProgramData\\NexaDeploy\\Modules\\ReportViewerCtl.dll",
-    "crowdstrike.SHA256HashData": "3c9f81a46b2d0e758f1a3c6d9e0b4f275a8d3c61e97f0b426c1a9d38f04e7b25",
+    "crowdstrike.SHA256String": "3c9f81a46b2d0e758f1a3c6d9e0b4f275a8d3c61e97f0b426c1a9d38f04e7b25",
     "crowdstrike.UserName": "NEXACORP\\svc-sccm",
     "crowdstrike.ComputerName": "SRV-DEPLOY-07",
   },
@@ -511,7 +511,7 @@ const edrDetectionInvestigationRoom = {
       type: "question" as const,
       id: "edr-q5",
       question:
-        "Two days later, a new Falcon detection fires on a completely different host, and its crowdstrike.SHA256HashData exactly matches the hash from the WKS-FIN-0231 case. What does this tell you, and what should you do?",
+        "Two days later, a new Falcon detection fires on a completely different host, and its crowdstrike.SHA256String (the detection's file hash, the same value telemetry carries as SHA256HashData) exactly matches the hash from the WKS-FIN-0231 case. What does this tell you, and what should you do?",
       options: [
         "A separate incident on that host: open a new case and handle it independently of the first",
         "The same file on a second host: one incident, so re-scope the fleet before calling it contained",

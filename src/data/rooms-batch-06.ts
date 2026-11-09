@@ -1051,7 +1051,7 @@ Based on your analysis:
         },
         // Field names follow the same Falcon schema as malware-analysis (batch-07)
         // and edr-detection-investigation (batch-28): event_simpleName,
-        // SeverityName, ParentBaseFileName, SHA256HashData, DetectId. An
+        // SeverityName, ParentBaseFileName, SHA256String, DetectId. An
         // earlier version used AlertType / Severity / SHA256 / ContextProcessParentName,
         // which meant a student meeting CrowdStrike in two different rooms saw two
         // conflicting sets of "real" field names for the same product.
@@ -1071,7 +1071,7 @@ Based on your analysis:
           "crowdstrike.UserName": "CORP\\j.smith",
           "crowdstrike.ComputerName": "LAPTOP-JSMITH",
           "crowdstrike.LocalIP": "10.0.1.55",
-          "crowdstrike.SHA256HashData": "505e6a45917684bf24f4603e189a29713c196e734821c6df2b104e7147d53ff0",
+          "crowdstrike.SHA256String": "505e6a45917684bf24f4603e189a29713c196e734821c6df2b104e7147d53ff0",
           "crowdstrike.FalconHostLink": "https://falcon.crowdstrike.com/activity/detections/detail/8f3c1a92",
         },
       } satisfies TelemetryEvent,
