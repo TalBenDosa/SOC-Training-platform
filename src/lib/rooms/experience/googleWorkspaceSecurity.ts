@@ -280,6 +280,14 @@ export const GOOGLE_WORKSPACE_SECURITY: RoomExperience = {
   look: { primary: "#9d8cff", secondary: "#ffd166", warn: "#ff6b6b" },
   scene: "facilityshareddrive",
   layout: "facility",
+  story: {
+    intro: { title: "Twelve Frames", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/google-workspace-security/shareddrive-intro-c4fec027.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/google-workspace-security/shareddrive-intro-73862cb7.jpg" },
+    afterStation: {
+      console: { title: "Nobody Signed In", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/google-workspace-security/shareddrive-ch2-d34d21b6.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/google-workspace-security/shareddrive-ch2-52ab9539.jpg" },
+      consent: { title: "Contained", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/google-workspace-security/shareddrive-ch3-cfe8a55c.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/google-workspace-security/shareddrive-ch3-7d978d6c.jpg" },
+      finalcut: { title: "Final Cut", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/google-workspace-security/shareddrive-finale-075cb822.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/google-workspace-security/shareddrive-finale-1a52540c.jpg" },
+    },
+  },
   stations: [
     {
       id: "console",
