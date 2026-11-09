@@ -74,8 +74,41 @@ function template(table: string, row: KqlRow, t0: number): Template {
   return { table, row, t0, dates, texts, ids: ID_COLUMNS[table] ?? [] };
 }
 
+const NEAR = 30 * 24 * 3_600_000;
+const TIME_KEY = /(time|timestamp|date|issued|expir|created|start|end|lastseen)/i;
+/**
+ * R4: instants nested in a dynamic column (ASim AdditionalFields.ProcessStartTime / ContextTimeStamp in
+ * epoch seconds, OfficeActivity AppAccessContext.IssuedAtTime, ...) move with the row, as the top-level
+ * datetime columns do. Without this a row of Nov 2 kept the template's Nov 9 instants inside.
+ */
+function shiftNested(v: unknown, delta: number, t0: number, key = ""): unknown {
+  if (Array.isArray(v)) return v.map(x => shiftNested(x, delta, t0, key));
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, shiftNested(x, delta, t0, k)]));
+  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(v)) {
+    const p = Date.parse(v);
+    if (Number.isFinite(p) && Math.abs(p - t0) < NEAR) {
+      const out = new Date(p + delta).toISOString();
+      // Keep the record's own precision and zone form ("...Z" with or without fractions).
+      return /\.\d+Z$/.test(v) ? out : out.replace(/\.\d{3}Z$/, "Z");
+    }
+    return v;
+  }
+  if (TIME_KEY.test(key) && (typeof v === "number" || (typeof v === "string" && /^\d{10}(\.\d{1,3})?$/.test(v)))) {
+    const sec = Number(v);
+    if (Number.isFinite(sec) && Math.abs(sec * 1000 - t0) < NEAR) {
+      const moved = sec + delta / 1000;
+      if (typeof v === "number") return Number.isInteger(v) ? Math.round(moved) : moved;
+      const frac = /\.(\d+)$/.exec(v)?.[1].length ?? 0;
+      return moved.toFixed(frac);
+    }
+  }
+  return v;
+}
+
 function stamp(t: Template, ms: number, seed: string): KqlRow {
   const row: KqlRow = { ...t.row };
+  const delta = ms - t.t0;
+  for (const [col, v] of Object.entries(row)) if (v && typeof v === "object") row[col] = shiftNested(v, delta, t.t0) as KqlRow[string];
   for (const [col, off] of t.dates) row[col] = iso(ms + off);
   row.TimeGenerated = iso(ms);
   if (t.texts.length) {
@@ -317,7 +350,10 @@ function hostPlans(s: Session, h: Host, primary: Person | undefined): Plan[] {
   if (h.os === "Windows" && primary) {
     plans.push({
       cls: "file", weekday: 1, weekend: 0, from: 9, to: 17,
-      templates: present([edr({ event_type: "file_create", file: { name: "Meeting-notes.docx", path: `C:\\Users\\${primary.name}\\Documents\\Meeting-notes.docx` }, process: { name: "WINWORD.EXE", pid: 4200 } }, "file")]),
+      // R2: the same columns an attack file write carries (SHA256, FileSize, the writer's command line).
+      templates: present([edr({ event_type: "file_create",
+        file: { name: "Meeting-notes.docx", path: `C:\\Users\\${primary.name}\\Documents\\Meeting-notes.docx`, sha256: hex(`${s.companyId}:${h.key}:notes.docx`, 64), size: 18_000 + (fnv(`${h.key}:notes`) % 40_000) } as TelemetryEvent["file"],
+        process: { name: "WINWORD.EXE", pid: 4200, path: "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE", cmdline: `"C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE" /n "C:\\Users\\${primary.name}\\Documents\\Meeting-notes.docx"` } }, "file")]),
     });
   }
   plans.push({
@@ -408,13 +444,15 @@ function deviceRows(s: Session, h: Host, at: number, lastSeen: number | undefine
   const os = DEVICE_OS[h.os];
   const id = deviceIdOf(s.ctx, s.companyId, h.name);
   const reportId = fnv(`${s.companyId}:${h.key}:report`);
+  const seenAt = Math.max(at, lastSeen ?? at);
   const common = { TimeGenerated: iso(at), Timestamp: iso(at), TenantId: s.map.tenantId, SourceSystem: "Azure", DeviceId: id, DeviceName: h.name, MachineGroup: "Default", ReportId: reportId };
   const users = h.users.map(u => ({ UserName: u.split("@")[0], DomainName: s.ctx.netbios, Sid: sidOf(u) }));
   return [
     ["DeviceInfo", {
-      ...common, Type: "DeviceInfo", OSPlatform: os.platform, OSVersion: os.version, DeviceType: os.type, PublicIP: s.egress, LoggedOnUsers: users, OnboardingStatus: h.os === "Appliance" ? "Unsupported" : "Onboarded",
+      // R4: the device's latest report is written when it was last seen, so LastSeen is the row's own time.
+      ...common, TimeGenerated: iso(seenAt), Timestamp: iso(seenAt), Type: "DeviceInfo", OSPlatform: os.platform, OSVersion: os.version, DeviceType: os.type, PublicIP: s.egress, LoggedOnUsers: users, OnboardingStatus: h.os === "Appliance" ? "Unsupported" : "Onboarded",
       SensorHealthState: h.os === "Appliance" ? undefined : "Active", IsAzureADJoined: h.os === "Windows", JoinType: h.os === "Windows" ? "Azure AD joined" : undefined, Vendor: h.os === "macOS" ? "Apple" : undefined,
-      AdditionalFields: { PrivateIP: h.ip, LastSeen: iso(Math.max(at, lastSeen ?? at)) },
+      AdditionalFields: { PrivateIP: h.ip, LastSeen: iso(seenAt) },
     }],
     ["DeviceNetworkInfo", { ...common, Type: "DeviceNetworkInfo", IPAddresses: [h.ip, ...h.otherIps].map(IPAddress => ({ IPAddress, SubnetPrefix: 24, AddressType: "Private" })), NetworkAdapterStatus: "Up", NetworkAdapterType: "Ethernet", MacAddress: hex(`${s.companyId}:${h.key}:mac`, 12).toUpperCase() }],
   ];

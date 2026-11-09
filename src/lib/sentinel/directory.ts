@@ -160,7 +160,10 @@ export function buildDirectory(events: TelemetryEvent[], rowsOf: (id: string) =>
       for (const row of rowsOf(ev.id)) {
         if (!s.sid) {
           const local = upn.split("@")[0];
-          for (const [name, sid] of [[row.AccountName, row.AccountSid], [row.TargetUserName, row.TargetUserSid]]) {
+          // R3: every column pair a feed row states the person's SID in (4624/4688 Subject*, MDE InitiatingProcess*),
+          // so the IdentityInfo row prints the SID the feed prints, not one derived from the name.
+          for (const [name, sid] of [[row.AccountName, row.AccountSid], [row.TargetUserName, row.TargetUserSid], [row.SubjectUserName, row.SubjectUserSid],
+            [row.InitiatingProcessAccountName, row.InitiatingProcessAccountSid], [row.TargetAccount, row.TargetSid]]) {
             if (typeof sid === "string" && /^S-1-5-21-/.test(sid) && low(name).replace(/\./g, "") === local.replace(/\./g, "")) s.sid = sid;
           }
         }
