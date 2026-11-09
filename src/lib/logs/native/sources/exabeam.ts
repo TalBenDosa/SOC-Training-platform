@@ -133,7 +133,7 @@ const useCases: UseCase[] = [
   },
   {
     id: "exabeam.job_by_unexpected_admin", title: "Reprocessing job started by an account other than the platform admin", sourceId: "exabeam", kinds: ["job_status"],
-    severity: "low", mitre: ["T1562"],
+    severity: "low", mitre: ["T1685"],
     description: "A reprocess job rebuilds models and can change rule scores. One started by an account that does not run the platform deserves a question.",
     logic: "SPL: index=exabeam job_status=* created_by!=admin | table timestamp created_by job_status job_details",
     match: { not: { field: "created_by", op: "eq", value: "admin" } },
