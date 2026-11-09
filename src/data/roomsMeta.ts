@@ -8879,5 +8879,101 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 25
       }
     ]
+  },
+  {
+    "id": "google-secops-fundamentals",
+    "title": "Google SecOps (Chronicle) for Analysts",
+    "description": "Work inside Google Security Operations like an analyst: read raw logs as UDM events, write UDM searches, use entity views, prevalence and threat intelligence, understand YARA-L rules, retrohunt and curated detections, and run a case in SOAR.",
+    "difficulty": "intermediate",
+    "category": "SIEM",
+    "estimatedMinutes": 65,
+    "xp": 170,
+    "icon": "🧭",
+    "prerequisites": [
+      "siem-fundamentals",
+      "threat-intelligence"
+    ],
+    "tasks": [
+      {
+        "id": "gso-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "gso-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "gso-m1",
+        "type": "matching",
+        "xp": 15
+      },
+      {
+        "id": "gso-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "gso-q1",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "gso-f1",
+        "type": "flag",
+        "xp": 15
+      },
+      {
+        "id": "gso-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "gso-ac1",
+        "type": "analyst_choice",
+        "xp": 20
+      },
+      {
+        "id": "gso-ac2",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "gso-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "gso-o1",
+        "type": "ordering",
+        "xp": 15
+      },
+      {
+        "id": "gso-q2",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "gso-q3",
+        "type": "question",
+        "xp": 10
+      },
+      {
+        "id": "gso-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "gso-la1",
+        "type": "log_analysis",
+        "xp": 35
+      },
+      {
+        "id": "gso-o2",
+        "type": "ordering",
+        "xp": 15
+      }
+    ]
   }
 ];
