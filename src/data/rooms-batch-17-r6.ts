@@ -73,17 +73,27 @@ const ngrokBeaconEvent: TelemetryEvent = {
   description:
     "SRV-DB07, a production database server, has established 58 TLS sessions to 8f2a9c1e.ngrok-free.app over the past 59 minutes",
   raw: {
-    "tls.sni": "8f2a9c1e.ngrok-free.app",
-    "destination.ip": "198.51.100.88",
-    "destination.port": 443,
-    "network.protocol": "https",
-    connections_last_hour: 58,
-    interval_seconds_avg: 61.2,
-    interval_seconds_stddev: 6.8,
-    bytes_out_avg_per_connection: 412,
-    bytes_in_avg_per_connection: 388,
-    process_hint: "sqlservr.exe",
-    dst_asn_org: "AMAZON-02",
+    datetime: "Fri Jul 03 18:02:30 2026",
+    reason: "Allowed",
+    event_id: "7387194402683750401",
+    protocol: "SSL",
+    action: "Allowed",
+    transactionsize: "800",
+    responsesize: "388",
+    requestsize: "412",
+    urlcategory: "Miscellaneous or Unknown",
+    serverip: "198.51.100.88",
+    requestmethod: "CONNECT",
+    useragent: "None",
+    product: "NSS",
+    location: "Solvix-DC1",
+    ClientIP: "10.40.2.201",
+    status: "200",
+    user: "None",
+    url: "8f2a9c1e.ngrok-free.app:443",
+    hostname: "8f2a9c1e.ngrok-free.app",
+    appname: "General Browsing",
+    department: "Servers",
   },
 };
 
@@ -592,12 +602,12 @@ const tunnelingRoom = {
       id: "tunnel-la2",
       heading: "Investigating Repeated TLS Sessions From a Database Server to a Tunneling Domain",
       context:
-        "SRV-DB07 hosts the company's production SQL Server instance and, per its documented network policy, should only ever communicate with the application tier and backup infrastructure. The event below is a SIEM aggregate built from the last hour of Zscaler Internet Access proxy logs for this host and destination (connection count, interval and byte statistics). The proxy cannot see processes, so the SIEM joined it with the EDR's network-connection telemetry for SRV-DB07. That join is where process_hint comes from.",
+        "SRV-DB07 hosts the company's production SQL Server instance and, per its documented network policy, should only ever communicate with the application tier and backup infrastructure. The record below is one Zscaler Internet Access web transaction from this host to the destination.\n\n**What the SIEM aggregate over the last hour adds (same host, same destination):** 58 connections; interval between connections averaging 61.2 s with a standard deviation of 6.8 s; on average 412 bytes out and 388 bytes in per connection; destination network AMAZON-02. The proxy cannot see processes, so the SIEM joined it with the EDR's network-connection telemetry for SRV-DB07: that join attributes the sessions to sqlservr.exe.",
       event: ngrokBeaconEvent,
       questions: [
         {
           question:
-            "Using the interval and connection-count fields in the raw event and the beaconing math from Reading 4, what does this timing pattern indicate?",
+            "Using the interval and connection-count figures from the SIEM aggregate and the beaconing math from Reading 4, what does this timing pattern indicate?",
           options: [
             "Nothing yet: without the configured jitter percentage, clustering cannot be judged from the observed gaps alone",
             "Gaps cluster tightly around ~60 s for a full hour, a bounded band that fits a jittered beacon, not human traffic",
@@ -611,7 +621,7 @@ const tunnelingRoom = {
         },
         {
           question:
-            "process_hint (from the EDR join) attributes these sessions to sqlservr.exe, the SQL Server database engine. How does that attribution change the severity?",
+            "The EDR join attributes these sessions to sqlservr.exe, the SQL Server database engine. How does that attribution change the severity?",
           options: [
             "No change: the proxy cannot see processes, so the attribution is a guess and any process on SRV-DB07 is equally likely",
             "It raises it: the database engine itself is beaconing to a tunnel service, so code is running inside or through SQL Server",
@@ -667,7 +677,7 @@ const tunnelingRoom = {
       id: "tunnel-ac1",
       heading: "Verdict: An Engineer's Laptop Using ngrok During a Sprint Demo",
       scenario:
-        "A detection rule flagged WKS-DEV27, a software engineer's laptop, for establishing TLS sessions with SNI matching *.ngrok-free.app during business hours: the same tunneling service seen in the SRV-DB07 investigation. Before deciding, review the proxy event (session count, duration and the process behind it) and the context you gathered from IT and the change calendar, shown under the log.",
+        "A detection rule flagged WKS-DEV27, a software engineer's laptop, for establishing TLS sessions with SNI matching *.ngrok-free.app during business hours: the same tunneling service seen in the SRV-DB07 investigation. The record below is the proxy's web transaction. The SIEM adds what one record cannot show: a single session in the last hour, held open for 2,640 seconds, and the EDR join attributes it to ngrok.exe. Before deciding, review that and the context you gathered from IT and the change calendar, shown under the log.",
       event: {
         id: "evt-tunnel-ac1-001",
         ts: "2026-07-02T14:30:00.000Z",
@@ -686,13 +696,27 @@ const tunnelingRoom = {
         description:
           "WKS-DEV27 established a TLS session with SNI c4a91f.ngrok-free.app during a scheduled sprint demo meeting; connection duration matches the meeting's scheduled length",
         raw: {
-          "tls.sni": "c4a91f.ngrok-free.app",
-          "destination.ip": "198.51.100.104",
-          "destination.port": 443,
-          "network.protocol": "https",
-          connections_last_hour: 1,
-          session_duration_seconds: 2640,
-          process_hint: "ngrok.exe",
+          datetime: "Thu Jul 02 14:30:00 2026",
+          reason: "Allowed",
+          event_id: "7386842117395226625",
+          protocol: "SSL",
+          action: "Allowed",
+          transactionsize: "1846120",
+          responsesize: "1203388",
+          requestsize: "642732",
+          urlcategory: "Miscellaneous or Unknown",
+          serverip: "198.51.100.104",
+          requestmethod: "CONNECT",
+          useragent: "None",
+          product: "NSS",
+          location: "Solvix-HQ",
+          ClientIP: "10.40.6.155",
+          status: "200",
+          user: "d.ferreira@solvix.example",
+          url: "c4a91f.ngrok-free.app:443",
+          hostname: "c4a91f.ngrok-free.app",
+          appname: "General Browsing",
+          department: "Engineering",
         },
       },
       correct_verdict: "benign_true_positive",

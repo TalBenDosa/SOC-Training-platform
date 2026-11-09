@@ -75,8 +75,6 @@ const certInvestigationEvent: TelemetryEvent = {
     "ssl.not_valid_after": "2027-04-04T08:00:00Z",
     "ssl.validation_status": "self signed certificate",
     "ssl.ja3": "72a589da586844d7f0818ce684948eea",
-    cert_age_hours_at_connection: 25.8,
-    destination_hosts_seen_before_today: 0,
   },
 };
 
@@ -367,12 +365,12 @@ const tlsRoom = {
       id: "tls-la2",
       heading: "A CI/CD Build Server's First-Ever Connection to a New Destination",
       context:
-        "SRV-BUILD04 runs the company's CI/CD pipeline and normally only talks to a small, well-documented set of package registries, artifact repositories, and internal services. destination_hosts_seen_before_today confirms 198.51.100.14 has never been contacted from the 10.40.2.0/24 build segment before. Review the session record below.",
+        "SRV-BUILD04 runs the company's CI/CD pipeline and normally only talks to a small, well-documented set of package registries, artifact repositories, and internal services. The SIEM's first-seen lookup confirms 198.51.100.14 has never been contacted from the 10.40.2.0/24 build segment before. Review the session record below.",
       event: certInvestigationEvent,
       questions: [
         {
           question:
-            "ssl.not_valid_before and ssl.not_valid_after both show exactly one year apart, but cert_age_hours_at_connection is only 25.8, meaning the certificate was issued roughly a day before this connection occurred, for a destination the build segment has never contacted before. Why does the certificate's AGE matter here more than its total validity PERIOD (one year)?",
+            "ssl.not_valid_before and ssl.not_valid_after both show exactly one year apart, but not_valid_before is only about 25.8 hours before this connection's time, meaning the certificate was issued roughly a day before this connection occurred, for a destination the build segment has never contacted before. Why does the certificate's AGE matter here more than its total validity PERIOD (one year)?",
           options: [
             "A one-year validity is unusually long for a self-signed cert, and that length is the main sign of attacker infrastructure",
             "The one-year period is unremarkable; issuing it about a day before the first-ever contact points to newly built infrastructure",
@@ -661,7 +659,7 @@ const tlsRoom = {
       id: "tls-ac1",
       heading: "Verdict: A Self-Signed Certificate With an Unusual JA3 on an Internal Segment",
       scenario:
-        "A detection rule flagged a TLS session from SRV-BACKUP02 to 10.40.1.40 on port 8007 using a self-signed certificate and a JA3 hash that does not match any common browser or standard library signature in the threat-intel feed. IT change records confirm 10.40.1.40 is the management interface of the company's on-premises backup appliance (a Proxmox Backup Server instance), which has used a vendor-default self-signed certificate since its installation eight months ago, and the connection recurs nightly at the scheduled backup job time.",
+        "A detection rule flagged a TLS session from SRV-BACKUP02 to 10.40.1.40 on port 8007 using a self-signed certificate and a JA3 hash that does not match any common browser or standard library signature in the threat-intel feed. IT change records confirm 10.40.1.40 is the management interface of the company's on-premises backup appliance (a Proxmox Backup Server instance), which has used a vendor-default self-signed certificate since its installation eight months ago, and the connection recurs nightly at the scheduled backup job time. The SIEM shows this certificate first seen about 5,832 hours (8 months) ago, 244 sessions to this destination before today, nightly at 01:00 local.",
       event: {
         id: "evt-tls-ac1-001",
         ts: "2026-04-06T01:00:04.000Z",
@@ -686,14 +684,11 @@ const tlsRoom = {
           "ssl.issuer": "CN=pbs-appliance",
           "ssl.validation_status": "self signed certificate",
           "ssl.ja3": "6734f37431670b3ab4292b8f60f29984",
-          cert_age_hours_at_connection: 5832,
-          destination_hosts_seen_before_today: 244,
-          recurrence: "nightly, 01:00 local, 8 months observed",
         },
       },
       correct_verdict: "benign_true_positive",
       explanation:
-        "Every individual element here (self-signed certificate, unrecognized JA3) is exactly the kind of raw signal that this room teaches you to weigh, but the surrounding context resolves it clearly as a benign true positive (the rule correctly saw a real self-signed certificate and an unlisted JA3, on traffic that is legitimate): it_verify_result is confirmed by IT (a legitimate management appliance with a documented, unrotated vendor-default certificate), the certificate is nearly 5,832 hours (about 8 months) old, not recently issued, and destination_hosts_seen_before_today is 244, meaning this is a well-established, frequently-used internal destination, not a rare, first-seen one. Many internal appliances and management interfaces (backup servers, hypervisor management, network gear web UIs) ship with self-signed certificates by default and are never issued a proper internal-CA certificate: this is common, if not ideal, practice, and does not by itself indicate compromise. Close it citing the IT confirmation and the nightly backup schedule; it is not a false positive, since the detection matched exactly what it looks for, and calling it a misfire invites loosening the rule instead of adding a narrow, owned exclusion for this one appliance.",
+        "Every individual element here (self-signed certificate, unrecognized JA3) is exactly the kind of raw signal that this room teaches you to weigh, but the surrounding context resolves it clearly as a benign true positive (the rule correctly saw a real self-signed certificate and an unlisted JA3, on traffic that is legitimate): it_verify_result is confirmed by IT (a legitimate management appliance with a documented, unrotated vendor-default certificate), the certificate was first seen nearly 5,832 hours (about 8 months) ago, not recently issued, and the SIEM counts 244 earlier sessions to this destination, meaning this is a well-established, frequently-used internal destination, not a rare, first-seen one. Many internal appliances and management interfaces (backup servers, hypervisor management, network gear web UIs) ship with self-signed certificates by default and are never issued a proper internal-CA certificate: this is common, if not ideal, practice, and does not by itself indicate compromise. Close it citing the IT confirmation and the nightly backup schedule; it is not a false positive, since the detection matched exactly what it looks for, and calling it a misfire invites loosening the rule instead of adding a narrow, owned exclusion for this one appliance.",
       fp_trap:
         "A self-signed certificate plus an unfamiliar JA3 is exactly the combination Reading 3 and Reading 4 taught you to weigh as suspicious, but those readings were explicit that these signals build a case only in combination with rarity, recency, and lack of business justification. Here, the certificate is old (not recently issued), the destination has been seen from 244 hosts (not rare or first-seen), and IT has explicitly confirmed the appliance's identity and purpose. Escalating purely because a system triggers two individually-suspicious-sounding facts, without checking their actual values (age, rarity) or available IT verification, is exactly the kind of alert fatigue trap that erodes trust in a detection program over time. Not every self-signed certificate is a C2 beacon: most, in most networks, are boring internal appliances that were never properly issued a real certificate.",
       xp: 30,

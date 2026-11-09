@@ -63,8 +63,6 @@ const dmarcPassPhishEvent: TelemetryEvent = {
     "envelope.mail_from": "bounce@solvix-payr0ll.example",
     "envelope.rcpt_to": "a.nakamura@solvix.example",
     "connecting_ip": "198.51.100.77",
-    domain_first_seen_days_ago: 2,
-    domain_registrar: "Tidewell Registrar",
   },
 };
 
@@ -603,7 +601,7 @@ const emailRoom = {
       id: "email-la2",
       heading: "A Message That Passes SPF, DKIM, AND DMARC, and Is Still a Phish",
       context:
-        "a.nakamura received a payroll-themed message asking to update direct deposit details. Unlike the previous investigation, every authentication check on this message technically passed. Review the raw header fields below.",
+        "a.nakamura received a payroll-themed message asking to update direct deposit details. Unlike the previous investigation, every authentication check on this message technically passed. Review the raw header fields below. Your WHOIS and passive-DNS lookup of the sending domain adds two facts the headers cannot carry: solvix-payr0ll.example was first seen 2 days ago, registered through Tidewell Registrar.",
       event: dmarcPassPhishEvent,
       questions: [
         {
@@ -622,7 +620,7 @@ const emailRoom = {
         },
         {
           question:
-            "domain_first_seen_days_ago shows 2, and domain_registrar shows 'Tidewell Registrar'. Since none of this appears in the Authentication-Results header at all, why does it matter to the investigation?",
+            "Your WHOIS lookup shows the domain first seen 2 days ago, registered through Tidewell Registrar. Since none of this appears in the Authentication-Results header at all, why does it matter to the investigation?",
           options: [
             "It adds little: registration data sits outside the authentication results the verdict rests on",
             "A 2-day-old domain imitating an internal brand is a phishing sign that DMARC structurally cannot see",
@@ -678,12 +676,12 @@ const emailRoom = {
           "header.arc_authentication_results":
             "i=1; mx-list.solvix.example; spf=pass smtp.mailfrom=solvix.example; dkim=pass header.d=solvix.example; dmarc=pass (p=reject) header.from=solvix.example",
           "envelope.mail_from": "eng-news-bounces@solvix.example",
-          list_id: "eng-news.solvix.example",
+          "header.list_id": "<eng-news.solvix.example>",
         },
       },
       correct_verdict: "benign_true_positive",
       explanation:
-        "This is a benign true positive. The headers show an ordinary mailing-list modification, the benign DKIM-failure cause from Readings 5 and 6: the list_id (eng-news.solvix.example) and the “[Eng-News]” Subject tag show the message was redistributed by a list, and the failure reason is “body hash did not verify”, the list's added footer changed the signed body. The envelope sender, header From and DMARC alignment are all solvix.example (no lookalike or external domain), DMARC still passes on aligned SPF, the ARC-Authentication-Results written by mx-list.solvix.example record spf=pass, dkim=pass, dmarc=pass before the list's modification, and IT confirms the list has operated for 3 years with this exact tag-and-footer behaviour. The DKIM check fired correctly (the signed body really was altered), but the alteration is the list's own authorized footer, so close it citing the IT-confirmed list; it is not a false positive, and calling it one invites weakening DKIM-failure alerting rather than adding a narrow, owned exclusion for this list.",
+        "This is a benign true positive. The headers show an ordinary mailing-list modification, the benign DKIM-failure cause from Readings 5 and 6: the List-Id header (eng-news.solvix.example) and the “[Eng-News]” Subject tag show the message was redistributed by a list, and the failure reason is “body hash did not verify”, the list's added footer changed the signed body. The envelope sender, header From and DMARC alignment are all solvix.example (no lookalike or external domain), DMARC still passes on aligned SPF, the ARC-Authentication-Results written by mx-list.solvix.example record spf=pass, dkim=pass, dmarc=pass before the list's modification, and IT confirms the list has operated for 3 years with this exact tag-and-footer behaviour. The DKIM check fired correctly (the signed body really was altered), but the alteration is the list's own authorized footer, so close it citing the IT-confirmed list; it is not a false positive, and calling it one invites weakening DKIM-failure alerting rather than adding a narrow, owned exclusion for this list.",
       fp_trap:
         "'DKIM: fail' can look alarming on its own, especially right after learning how central DKIM is to verifying message integrity, but Reading 5 was explicit that mailing-list and forwarding modifications are a common, benign cause of exactly this failure pattern, and this scenario is a clean example: internal sender, internal list, ARC headers confirming the original message's authentication was clean, and IT-confirmed legitimate list history. Escalating every DKIM failure without checking whether ARC headers explain it, or whether the actual envelope/header domains are internal and legitimate, would generate constant noise from an organization's own routine mailing-list traffic: exactly the kind of benign, expected alert volume that erodes trust in a detection program.",
       xp: 30,
