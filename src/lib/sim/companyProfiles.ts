@@ -1048,7 +1048,6 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.IpPort":                     "49812",
       "winlog.event_data.LogonProcessName":               "NtLmSsp",
       "source.ip":                          "192.168.10.22",
-      "destination.hostname":               "SRV-MEDCORE-EMR01",
       "event.code":                         "4625",
       "event.action":                       "logon-failed",
       "event.outcome":                      "failure",
@@ -1412,9 +1411,8 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     it_verify_message: "IT confirmed: Onboarding ticket ONB-MC-0814 from HR (Intake dept). Dr. Anita Sharma joining as locum for 4-week cardiac surgery rotation. Account created per standard clinical onboarding checklist with restricted access to clinical systems only.",
     raw: {
       "event.code": "4720", "user.name": "MC\\dr.asharma.locum",
-      "actor.name": "MC\\admin.vandenberg", "host.name": "DC-MED-NL01",
-      "ad.object_dn": "CN=A Sharma,OU=Locum,OU=Clinical,DC=medcore,DC=nl",
-      "ad.account_type": "User", "action_result": "success"
+      "winlog.event_data.SubjectUserName": "admin.vandenberg", "host.name": "DC-MED-NL01",
+      "action_result": "success"
     }
   },
   {
@@ -1438,7 +1436,6 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.MemberUpn": "svc-labsystem@medcorehealth.org",
       "winlog.event_data.TargetDomainName": "MEDCORE",
       "host.name": "DC-MED-NL01",
-      "ad.group_type": "Security",
       "action_result": "success"
     }
   },
@@ -1452,9 +1449,8 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     it_verify_message: "IT confirmed: Request INC-MC-2291 from dept head (Dr. Pietersen). Dr. H. Bosman returning from extended sick leave. HR approved account reactivation. Account will be re-reviewed in 30 days per MedCore access review policy.",
     raw: {
       "event.code": "4722", "user.name": "MC\\dr.hbosman",
-      "actor.name": "MC\\admin.vandenberg", "host.name": "DC-MED-NL01",
-      "ad.changed_attributes": "userAccountControl", "ad.previous_value": "disabled",
-      "ad.new_value": "enabled", "action_result": "success"
+      "winlog.event_data.SubjectUserName": "admin.vandenberg", "host.name": "DC-MED-NL01",
+      "action_result": "success"
     }
   },
 
@@ -2140,7 +2136,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     raw: {
       "winlog.event_id": "4723", "winlog.event_data.TargetUserName": "GL\\k.bauer",
       "winlog.event_data.SubjectUserName": "GL\\it.admin.gl", "host.name": "DC-GL-FRA01",
-      "ad.changed_attributes": "unicodePwd", "action_result": "success"
+      "action_result": "success"
     }
   },
   {
@@ -2172,8 +2168,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     raw: {
       "winlog.event_id": "4720", "winlog.event_data.TargetUserName": "GL\\svc-logistics2",
       "winlog.event_data.SubjectUserName": "GL\\it.admin.gl", "host.name": "DC-GL-FRA01",
-      "ad.object_dn": "CN=svc-logistics2,OU=ServiceAccounts,DC=globallogis,DC=de",
-      "ad.account_type": "ServiceAccount", "action_result": "success"
+      "action_result": "success"
     }
   },
 
