@@ -56,7 +56,7 @@ const ttlMismatchEvent: TelemetryEvent = {
   id: "evt-tcpip-la2-001",
   ts: "2026-02-14T22:07:51.000Z",
   source: "ids",
-  vendor: "Corelight (Zeek)",
+  vendor: "p0f",
   event_type: "net_connection",
   severity: "medium",
   hostname: "SRV-FIN03.solvix.local",
@@ -65,26 +65,18 @@ const ttlMismatchEvent: TelemetryEvent = {
   dst_port: 22,
   protocol: "tcp",
   description:
-    "Interactive SSH session from BASTION-01 (10.40.1.9) to the finance file server SRV-FIN03, lasting 41 minutes",
+    "Passive fingerprint of the SYN that opened an SSH session from BASTION-01 (10.40.1.9) to the finance file server SRV-FIN03",
+  // p0f -o greppable log, one line per fingerprinted packet: the client SYN (mod=syn, subj=cli).
+  // raw_sig = ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass, ittl shown as observed_ttl+distance.
   raw: {
-    ts: 1771106871.0,
-    uid: "C7h2Lm9pQx4dRw1KfA",
-    "id.orig_h": "10.40.1.9",
-    "id.orig_p": 58211,
-    "id.resp_h": "10.40.3.55",
-    "id.resp_p": 22,
-    proto: "tcp",
-    service: "ssh",
-    duration: 2460.7,
-    orig_bytes: 51244,
-    resp_bytes: 118902,
-    conn_state: "SF",
-    history: "ShAdDaFf",
-    orig_pkts: 588,
-    resp_pkts: 640,
-    orig_ttl: 125,
-    resp_ttl: 61,
-    window_size_orig: 64240,
+    mod: "syn",
+    cli: "10.40.1.9/58211",
+    srv: "10.40.3.55/22",
+    subj: "cli",
+    os: "???",
+    dist: 3,
+    params: "none",
+    raw_sig: "4:125+3:0:1460:64240,8:mss,nop,ws,nop,nop,sok:df,id+:0",
   },
 };
 
@@ -404,7 +396,7 @@ const tcpipDeepDiveRoom = {
         `The IP Time-To-Live (TTL) field is decremented by one at every router hop and exists to prevent packets from looping forever. Different operating systems set a different **initial** TTL when they originate a packet, and while intermediate routers only ever decrement it, they never increase it or reset it back to the OS default. This means the TTL you observe on an inbound packet equals (initial TTL of the sending OS) minus (number of hops it crossed to reach you), and because initial TTLs cluster around a small set of well-known values, you can work backwards: an observed TTL of 118-125 almost certainly started at 128 (the Windows default) and crossed 3-10 hops; an observed TTL around 54-64 almost certainly started at 64 (the default for Linux and most BSD/macOS systems); a TTL near 245-255 started at 255 (common on Cisco IOS and Solaris). This single field, present on every packet with zero extra logging configuration required, is one of the cheapest and most reliable passive OS-fingerprinting signals available, and it is exactly the kind of detail that flags a mismatch between "the device this IP is supposed to be" and "the device that actually sent this traffic."\n\n` +
         `**Window size and other passive fingerprint features**\n\n` +
         `The initial TCP window size (advertised in the SYN packet), along with details like the set of TCP options offered, their order, and the IP "Don't Fragment" (DF) flag behavior, together form a fingerprint precise enough to distinguish not just Windows-vs-Linux but often specific OS versions. This is exactly what tools like p0f do, passively, from flow metadata alone, with no active probing required. A Windows host's SYN typically advertises a window size of 64240 or 65535 with a specific, ordered set of TCP options; a Linux host's default window and option ordering look different again. None of these signals are individually proof of anything. NAT, load balancers, VPNs, and legitimately reconfigured TCP stacks can all shift these values, but taken together, and especially when they contradict what you expect from a known, baselined asset, they are strong corroborating evidence that deserves a second look before you either dismiss or escalate a finding.\n\nOnce change records rule out a re-image, a routing change and a NAT change, the mismatch can no longer be explained away, so treat the link between that address and that device as unverified. Raise it to the next tier, review the host's own endpoint telemetry for tampering or unauthorised use, and search other sessions from the same address for the same mismatch. One passive signal does not justify writing it off as a glitch, and it does not justify declaring a breach either.\n\n` +
-        `A practical note on where these fields come from, because it trips people up: stock Zeek conn.log and a plain NetFlow/IPFIX export do NOT record per-packet TTL or the advertised TCP window, those are packet-level details, not standard flow fields. You see them when a sensor is explicitly configured to enrich its flow records with them (a Corelight sensor can surface orig_ttl / resp_ttl and the SYN window size alongside the usual conn fields. That is exactly what the enriched Corelight log-analysis event in this room shows), from a passive-fingerprinting tool like p0f reading the packets directly, or from a full PCAP. If all you have is a vanilla NetFlow export, TTL- and window-based fingerprinting simply isn't available, and confirming an OS mismatch means pulling a capture.`,
+        `A practical note on where these fields come from, because it trips people up: stock Zeek conn.log and a plain NetFlow/IPFIX export do NOT record per-packet TTL or the advertised TCP window, those are packet-level details, not standard flow fields. You see them from a passive-fingerprinting tool like p0f reading the packets directly (its raw_sig line carries the observed TTL with the hop distance, written 125+3, and the SYN window and options; the p0f log-analysis event in this room is one), from a sensor you have scripted to record them per packet, or from a full PCAP. If all you have is a vanilla NetFlow export, TTL- and window-based fingerprinting simply isn't available, and confirming an OS mismatch means pulling a capture.`,
       codeExample:
         "INITIAL TTL BY OPERATING SYSTEM (BEFORE HOPS ARE SUBTRACTED)\n" +
         "=======================================================\n" +
@@ -432,13 +424,13 @@ const tcpipDeepDiveRoom = {
           "Your team only has a stock NetFlow/IPFIX export from the core switches. A colleague wants to run this reading's TTL and window-size OS check against it. According to the reading, what should you tell them?",
         options: [
           "It works: TTL is in every IP header, so every flow export records it for each flow by default",
-          "It won't work: plain flow exports don't keep TTL or SYN window; you need an enriched sensor, p0f or a PCAP",
+          "It won't work: plain flow exports don't keep TTL or SYN window; you need a scripted sensor, p0f or a PCAP",
           "It works for TTL only: NetFlow stores the first packet of each flow, so its TTL can be read from there",
           "It won't work: routers rewrite TTL to a fixed value at each hop, so it carries no OS information",
         ],
         answer: 1,
         explanation:
-          "The reading's practical note: stock Zeek conn.log and plain NetFlow/IPFIX do not record per-packet TTL or the SYN window. Those come from a sensor enriched to add them, from p0f reading packets, or from a full capture. “TTL is in every IP header, so every flow export records it” mixes the packet with the flow summary: being in the header doesn't mean the exporter keeps it. “NetFlow stores the first packet of each flow” is false: a flow record is counters and the 5-tuple, not stored packets. “Routers rewrite TTL to a fixed value” contradicts the reading: routers only decrement it, which is why it fingerprints the sender at all.",
+          "The reading's practical note: stock Zeek conn.log and plain NetFlow/IPFIX do not record per-packet TTL or the SYN window. Those come from a sensor scripted to record them, from p0f reading packets, or from a full capture. “TTL is in every IP header, so every flow export records it” mixes the packet with the flow summary: being in the header doesn't mean the exporter keeps it. “NetFlow stores the first packet of each flow” is false: a flow record is counters and the 5-tuple, not stored packets. “Routers rewrite TTL to a fixed value” contradicts the reading: routers only decrement it, which is why it fingerprints the sender at all.",
       },
     },
 
@@ -448,7 +440,7 @@ const tcpipDeepDiveRoom = {
       id: "tcpip-la2",
       heading: "A TTL Value That Doesn't Match the Expected Source",
       context:
-        "BASTION-01 (10.40.1.9) is a hardened Ubuntu Linux jump host that IT uses for administrative SSH access into sensitive segments. Across the last 40 recorded sessions from this host, the observed initial TTL has consistently landed between 58 and 61, consistent with a Linux host (initial TTL 64) crossing 3-6 hops to reach the sensor. Review the session below, captured tonight against the finance file server SRV-FIN03.",
+        "BASTION-01 (10.40.1.9) is a hardened Ubuntu Linux jump host that IT uses for administrative SSH access into sensitive segments. Across the last 40 recorded sessions from this host, the observed initial TTL has consistently landed between 58 and 61, consistent with a Linux host (initial TTL 64) crossing 3-6 hops to reach the sensor. Review the p0f fingerprint below, logged tonight for the SYN that opened a 41-minute SSH session to the finance file server SRV-FIN03.",
       event: ttlMismatchEvent,
       questions: [
         {
@@ -462,7 +454,7 @@ const tcpipDeepDiveRoom = {
           ],
           answer: 1,
           explanation:
-            "Observed TTLs sit just below the sender's initial value, minus one per hop. This session's orig_ttl rounds up to 128, the Windows default, not 64 like BASTION-01's 40 baseline sessions. “Normal path variation” is impossible in this direction: routers only decrement TTL, so a host that starts at 64 can never be seen above 64. “Fragmentation” is a separate IP mechanism and never raises TTL. “Negotiates the TTL” is wrong: each side sets its own initial TTL, which is exactly why orig_ttl and resp_ttl differ in this record.",
+            "Observed TTLs sit just below the sender's initial value, minus one per hop. This SYN's raw_sig shows 125+3 (seen at 125, three hops from the sensor), which rounds up to 128, the Windows default, not 64 like BASTION-01's 40 baseline sessions. “Normal path variation” is impossible in this direction: routers only decrement TTL, so a host that starts at 64 can never be seen above 64. “Fragmentation” is a separate IP mechanism and never raises TTL. “Negotiates the TTL” is wrong: each side sets its own initial TTL, which is exactly why p0f fingerprints the client SYN and the server SYN+ACK as separate entries.",
           xp: 25,
         },
         {
@@ -472,11 +464,11 @@ const tcpipDeepDiveRoom = {
             "None: a TTL mismatch this large is proof on its own that an outside attacker spoofed the source address",
             "A re-image or approved OS change on BASTION-01, or a NAT change sharing its IP, as well as spoofing or misuse",
             "A longer routing path tonight, which can push the observed TTL above the host's usual baseline range",
-            "A sensor enrichment fault, since stock Zeek conn.log never records TTL, so the field can't be trusted here",
+            "A logging fault, since stock Zeek conn.log never records TTL, so a TTL value can't be trusted here",
           ],
           answer: 1,
           explanation:
-            "A passive fingerprint is corroborating evidence, not a verdict, so first rule out mundane causes: a re-image or approved OS change on BASTION-01, or a NAT/infrastructure change that puts a different device behind its IP, while keeping spoofing or misuse on the table. “Proof on its own” over-reads a single signal. “A longer routing path” cannot raise TTL; every hop only decrements it, so a path change could lower 64 but never lift it to 125. “A sensor enrichment fault” misapplies the reading: stock conn.log lacks TTL, but this is an enriched Corelight record, which is exactly where the reading says TTL appears.",
+            "A passive fingerprint is corroborating evidence, not a verdict, so first rule out mundane causes: a re-image or approved OS change on BASTION-01, or a NAT/infrastructure change that puts a different device behind its IP, while keeping spoofing or misuse on the table. “Proof on its own” over-reads a single signal. “A longer routing path” cannot raise TTL; every hop only decrements it, so a path change could lower 64 but never lift it to 125. “A logging fault” misapplies the reading: stock conn.log lacks TTL, but this record is p0f's, which reads the TTL straight from the packet, exactly where the reading says TTL appears.",
           xp: 25,
         },
         {
@@ -486,11 +478,11 @@ const tcpipDeepDiveRoom = {
             "Dismiss it: TTL is only metadata, so with no change found, the value is most likely a one-off sensor glitch",
             "Escalate: check BASTION-01's EDR/host logs and other sessions from 10.40.1.9 for the same anomalous TTL",
             "Declare a breach and block 10.40.1.9 everywhere, since the mismatch now proves the bastion is compromised",
-            "Ask the sensor team to recalibrate TTL enrichment, then re-check the next session BASTION-01 makes",
+            "Ask the sensor team to recalibrate the p0f sensor, then re-check the next session BASTION-01 makes",
           ],
           answer: 1,
           explanation:
-            "With the benign causes ruled out, the address-to-device mapping is unverified, so escalate: look at BASTION-01's own host telemetry for tampering or unauthorised use, and check whether other sessions from 10.40.1.9 in the same period carry the same anomaly. “Dismiss it ... sensor glitch” is an assumption with no evidence; the enrichment matched 40 previous sessions. “Declare a breach and block 10.40.1.9 everywhere” overreacts to one corroborating signal and cuts IT's admin path before anything is confirmed. “Recalibrate TTL enrichment” and waiting for the next session loses time while a 41-minute session into the finance server stays unexplained.",
+            "With the benign causes ruled out, the address-to-device mapping is unverified, so escalate: look at BASTION-01's own host telemetry for tampering or unauthorised use, and check whether other sessions from 10.40.1.9 in the same period carry the same anomaly. “Dismiss it ... sensor glitch” is an assumption with no evidence; the same sensor fingerprinted 40 previous sessions as expected. “Declare a breach and block 10.40.1.9 everywhere” overreacts to one corroborating signal and cuts IT's admin path before anything is confirmed. “Recalibrate the p0f sensor” and waiting for the next session loses time while a 41-minute session into the finance server stays unexplained.",
           xp: 30,
         },
       ],
