@@ -16,7 +16,7 @@ import { leaves, parseInstant, isoOf } from "../util";
 
 const PRIMARY = new Set(["@timestamp", "timestamp", "Timestamp", "TimeGenerated", "eventTime", "createdDateTime", "CreationTime", "TimeCreated", "SystemTime",
   "UtcTime", "_time", "published", "activityDateTime", "EventTime", "event.created", "eventTimestamp", "time", "ts"]);
-const FUTURE_OK = /expir|until|notafter|not_after|valid|end|due|lease|ttl|deadline|retention|next|schedul|sla|resolv|close|planned|exp$|renew|reset|unlock|lockout_?duration|start_?date|effective|review/i;
+const FUTURE_OK = /expir|until|notafter|not_after|valid|end|due|lease|ttl|deadline|retention|next|schedul|sla|resolv|close|planned|exp$|renew|reset|unlock|lockout_?duration|start_?date|effective|review|leave|threattime/i;
 
 const rowLeaves = (r: LogRow) => (typeof r.raw === "string" ? [] : leaves(r.raw));
 const leaf = (p: string) => p.replace(/\[\]/g, "").split(".").pop() ?? p;

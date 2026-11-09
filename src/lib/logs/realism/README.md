@@ -97,7 +97,8 @@ tenant).
 raw block, the primary time field (Timestamp, TimeGenerated, @timestamp, UtcTime, CreationTime,
 createdDateTime, eventTime ...) equals the row time within 2 s; XDR TimeGenerated lies between the
 event time and one hour after; (c) no time in a record is more than 2 minutes after the row
-(expiry, validity, schedule, due, SLA, end and similar fields excepted; a number is a time only
+(expiry, validity, schedule, due, SLA, end and similar fields excepted, and Proofpoint
+threatTime, which TAP really sets when a message is condemned later; a number is a time only
 under a time-like key); (d) a story's rows authored in time order are shown in that order
 (baseline rows skipped; team rows matched to their authored story event); (e) an XDR alert is not
 before the last event behind it, a SIEM mirror not before its detection; (f) one ServiceNow number,
