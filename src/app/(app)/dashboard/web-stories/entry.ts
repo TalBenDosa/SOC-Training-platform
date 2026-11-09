@@ -52,7 +52,7 @@ const DECRYPT = "ALLOW-WEB-OUT-DECRYPT";
 function pathTraversal(): TelemetryEvent[] {
   const T = clock("2026-09-08T08:00:00Z");
   const w: WebSite = { site: "portal.nexacorp.com", host: "web-portal-01.nexacorp.com", ip: "10.20.40.21" };
-  const atk = "203.0.113.41", scan = "198.51.100.200", ua = PY;
+  const atk = "203.0.113.106", scan = "198.51.100.200", ua = PY;
   const f = "/download";
   return [
     ticket({ id: "web_pt_001", ts: T(0), table: "change_request", number: "CHG0044120", state: "Implement", severity: "informational",
@@ -75,7 +75,7 @@ function pathTraversal(): TelemetryEvent[] {
 function objectWalk(): TelemetryEvent[] {
   const T = clock("2026-09-09T13:00:00Z");
   const w: WebSite = { site: "api.nexacorp.com", host: "web-api-01.nexacorp.com", ip: "10.20.40.31" };
-  const atk = "203.0.113.90", partner = "198.51.100.140", ua = "okhttp/4.12.0";
+  const atk = "203.0.113.105", partner = "198.51.100.140", ua = "okhttp/4.12.0";
   // The app sends the signed-in account on every call: one account, many customers' objects.
   const statement = (id: string, n: number, min: number, bytes: number, extra = {}) =>
     webAccess(w, { id, ts: T(min), srcIp: atk, path: `/api/v2/customers/${n}/statements`, query: "session_acct=48213", bytes, ua, description: "API answered a statements request", ...extra });
@@ -113,8 +113,8 @@ function credentialStuffing(): TelemetryEvent[] {
       fpExplanation: "The known mobile app defect in INC0091344: one app version behind one carrier gateway, failing on an expired token, and no sign-in succeeds from it.", description: "Login traffic flagged for volume from one address" }),
     webAccess(w, { id: "web_cs_003", ts: T(5.2), srcIp: nat, method: "POST", path: "/account/login", status: 401, bytes: 391, ua: app, isBaseline: true, description: "Portal answered a sign-in" }),
     login("web_cs_004", 32, "203.0.113.163", 401, { mitre: "T1110.004", tactic: CRED }),
-    login("web_cs_005", 32.2, "203.0.113.61", 401, { mitre: "T1110.004", tactic: CRED }),
-    wafRequest(w, { id: "web_cs_006", ts: T(33), srcIp: "203.0.113.61", method: "POST", path: "/account/login", action: "block", rule: "login_volumetric", ua, severity: "medium", isDetection: true, mitre: "T1110.004", tactic: CRED, description: "Login traffic flagged for volume from one address" }),
+    login("web_cs_005", 32.2, "203.0.113.121", 401, { mitre: "T1110.004", tactic: CRED }),
+    wafRequest(w, { id: "web_cs_006", ts: T(33), srcIp: "203.0.113.121", method: "POST", path: "/account/login", action: "block", rule: "login_volumetric", ua, severity: "medium", isDetection: true, mitre: "T1110.004", tactic: CRED, description: "Login traffic flagged for volume from one address" }),
     login("web_cs_007", 33.5, "203.0.113.62", 401, { mitre: "T1110.004", tactic: CRED }),
     wafRequest(w, { id: "web_cs_008", ts: T(34), srcIp: "203.0.113.62", method: "POST", path: "/account/login", action: "block", rule: "login_stolen", ua, severity: "high", isDetection: true, mitre: "T1110.004", tactic: CRED, description: "Login traffic flagged for repeated sign-in attempts" }),
     wafRequest(w, { id: "web_cs_015", ts: T(36), srcIp: win, method: "POST", path: "/account/login", action: "allow", ua, status: 302, bytes: 0, description: "WAF passed a request to /account/login" }),
@@ -133,7 +133,7 @@ function credentialStuffing(): TelemetryEvent[] {
 function resetPoisoning(): TelemetryEvent[] {
   const T = clock("2026-09-14T09:00:00Z");
   const w: WebSite = { site: "portal.nexacorp.com", host: "web-portal-03.nexacorp.com", ip: "10.20.40.23" };
-  const atk = "203.0.113.101", evil = "reset-portal.example", ua = CHROME;
+  const atk = "203.0.113.116", evil = "reset-portal.example", ua = CHROME;
   const token = "7c1e49d2a0b64f3e", cust = "198.51.100.130", appUa = "CustomerApp/5.2.0 (iOS 17.5) CFNetwork/1498", custUa = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
   return [
     wafRequest(w, { id: "web_rp_000", ts: T(3), srcIp: cust, method: "POST", path: "/account/password/forgot", action: "count", rule: "custom", ruleName: "HostHeaderNotAllowlisted", matched: "portal.nexacorp.com:443", location: "REQUEST_HEADERS:Host", hostHeader: "portal.nexacorp.com:443", ua: appUa, severity: "medium", isDetection: true, mitre: "T1190", tactic: IA, verdict: "fp",
@@ -180,7 +180,7 @@ function storedXss(): TelemetryEvent[] {
 function uploadShell(): TelemetryEvent[] {
   const T = clock("2026-09-16T14:00:00Z");
   const w: WebSite = { site: "members.nexacorp.com", host: "web-members-01.nexacorp.com", ip: "10.20.40.51", server: "nginx", wafMode: "Detection" };
-  const atk = "203.0.113.54", ua = PY, mirror = "dl.files-mirror.example", c2 = "198.51.100.71";
+  const atk = "203.0.113.108", ua = PY, mirror = "dl.files-mirror.example", c2 = "198.51.100.71";
   const shell = "/uploads/avatars/7731/avatar.php";
   const root = "/var/www/members/public";
   const FPM = { parentName: "php-fpm8.2", parentPid: 21840 };
@@ -244,7 +244,7 @@ function graphqlBatch(): TelemetryEvent[] {
 function wafEvasion(): TelemetryEvent[] {
   const T = clock("2026-09-21T12:00:00Z");
   const w: WebSite = { site: "shop.nexacorp.com", host: "web-shop-01.nexacorp.com", ip: "10.20.40.71" };
-  const atk = "198.51.100.44", pen = "198.51.100.210", ua = PY, p = "/products", s = "/products/search", big = 142208;
+  const atk = "198.51.100.10", pen = "198.51.100.210", ua = PY, p = "/products", s = "/products/search", big = 142208;
   const blocked = (id: string, min: number, query: string, extra = {}) => wafRequest(w, { id, ts: T(min), srcIp: atk, path: p, query, action: "block", rule: "sqli_query", matched: "UNION SELECT", location: "ARGS:id", ua, severity: "medium", mitre: "T1190", tactic: IA, description: "WAF rule matched SQL syntax in the id parameter of /products", ...extra });
   // The padding is fixed; the SQL past it changes with each query, so every body has its own length.
   const passed = (id: string, min: number, sent: number, bytes: number, extra = {}) => webAccess(w, { id, ts: T(min), srcIp: atk, method: "POST", path: s, sent, bytes, ua, mitre: "T1190", tactic: IA, description: `Shop answered a product search (${bytesText(sent)} bytes in, ${bytesText(bytes)} bytes out)`, ...extra });

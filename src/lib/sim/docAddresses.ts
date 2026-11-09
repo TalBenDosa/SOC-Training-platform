@@ -38,6 +38,13 @@ export const DOC_ADDRESS_PLACES: Record<string, DocPlace> = {
   "198.51.100.218": { country: "Netherlands", city: "Amsterdam", lat: 52.3, lon: 4.9 },
   "198.51.100.227": { country: "Russia", city: "Moscow", lat: 55.7, lon: 37.6 },
   "198.51.100.231": { country: "France", city: "Paris", lat: 48.8, lon: 2.3 },
+  // Own attacker addresses given to storylines that shared one (investigability "reuse"); they keep the
+  // Amsterdam hosting hub their old 203.0.113.0-63 address had.
+  "203.0.113.108": { country: "Netherlands", city: "Amsterdam", lat: 52.37, lon: 4.9 },
+  "203.0.113.109": { country: "Netherlands", city: "Amsterdam", lat: 52.37, lon: 4.9 },
+  "203.0.113.111": { country: "Netherlands", city: "Amsterdam", lat: 52.37, lon: 4.9 },
+  "203.0.113.115": { country: "Netherlands", city: "Amsterdam", lat: 52.37, lon: 4.9 },
+  "203.0.113.121": { country: "Netherlands", city: "Amsterdam", lat: 52.37, lon: 4.9 },
 };
 
 export const DOC_ADDRESS_OWNERS: Record<string, DocOwner> = {

@@ -271,7 +271,7 @@ function defenderAsciiSmuggling(o: {
 }
 
 function buildRagDocumentInjection(): TelemetryEvent[] {
-  const attackerIp = "203.0.113.47";
+  const attackerIp = "203.0.113.129";
   const attackerGeo: GeoLite = { country: "Germany", iso: "DE", city: "Frankfurt am Main", lat: 50.1109, lon: 8.6821 };
   const asOrg = "Hostwinds LLC";
   // The chat is anonymous: the app names an end user only by its own opaque id, never an employee.
@@ -310,7 +310,7 @@ function buildRagDocumentInjection(): TelemetryEvent[] {
       id: "airag2", ts: upload, operation: "PutBlob", callerIp: attackerIp, callerPort: 52114,
       auth: "DelegationSas", status: 201, bytes: 24180, durationMs: 142, serverMs: 118, geo: attackerGeo, asOrg, userAgent: browserUa,
       severity: "low", mitre: "T1565.001", tactic: "Impact",
-      description: "Azure Storage logged a PutBlob on the rag-uploads container: acme-vendor-quote-2026.pdf (24 KB) uploaded from 203.0.113.47 (Frankfurt, Hostwinds) with a user delegation SAS signed by the app's managed identity, HTTP 201. The customer-facing assistant ingests this container; the address has no earlier upload.",
+      description: "Azure Storage logged a PutBlob on the rag-uploads container: acme-vendor-quote-2026.pdf (24 KB) uploaded from 203.0.113.129 (Frankfurt, Hostwinds) with a user delegation SAS signed by the app's managed identity, HTTP 201. The customer-facing assistant ingests this container; the address has no earlier upload.",
     }),
 
     // 4. INGESTION: the app reads the blob and embeds it (RAG indexing). Benign-looking.
@@ -355,7 +355,7 @@ function buildRagDocumentInjection(): TelemetryEvent[] {
       id: "airag7", ts: "2026-09-28T13:51:48.233Z", clientIp: APP_EGRESS, geo: attackerGeo, asOrg,
       deployment: ASSIST_DEPLOYMENT, endUser: { id: uploaderEndUser, ip: attackerIp, app: "assist-support-chat" },
       evidenceDoc: DOC_NAME, severity: "high", mitre: "T1565.001", tactic: "Impact", startTs: "2026-09-28T13:21:57.392Z", endTs: lastBig,
-      description: "Microsoft Defender for Cloud raised 'ASCII Smuggling prompt injection detected' (AI.Azure_ASCIISmuggling, High) on aoai-assist-weu: hidden instructions were passed to gpt-4o-assist through grounded content. The app's security context names end user assist-enduser-2604 at 203.0.113.47 (Frankfurt) and the grounding document acme-vendor-quote-2026.pdf.",
+      description: "Microsoft Defender for Cloud raised 'ASCII Smuggling prompt injection detected' (AI.Azure_ASCIISmuggling, High) on aoai-assist-weu: hidden instructions were passed to gpt-4o-assist through grounded content. The app's security context names end user assist-enduser-2604 at 203.0.113.129 (Frankfurt) and the grounding document acme-vendor-quote-2026.pdf.",
     }),
 
     // 10. THE SOC CORRELATION: Sentinel ties the upload, the Prompt Shields verdict, the Defender alert and the oversized responses.
@@ -363,7 +363,7 @@ function buildRagDocumentInjection(): TelemetryEvent[] {
       id: "airag9", ts: "2026-09-28T14:06:33.418Z", source: "siem", vendor: "Microsoft Sentinel", event_type: "cloud_api_call",
       severity: "high", is_detection: true, src_ip: attackerIp, mitre_technique: "T1565.001", mitre_tactic: "Impact",
       geo: { country: attackerGeo.country, city: attackerGeo.city, latitude: attackerGeo.lat, longitude: attackerGeo.lon },
-      description: "Microsoft Sentinel raised 'Indirect prompt injection on Azure OpenAI with oversized responses' (High): the document acme-vendor-quote-2026.pdf uploaded from 203.0.113.47 was flagged by Prompt Shields as a document attack, Defender for Cloud raised AI.Azure_ASCIISmuggling for gpt-4o-assist, and completions grounding on that document returned 9.8-15.2 KB against a ~1.5 KB baseline.",
+      description: "Microsoft Sentinel raised 'Indirect prompt injection on Azure OpenAI with oversized responses' (High): the document acme-vendor-quote-2026.pdf uploaded from 203.0.113.129 was flagged by Prompt Shields as a document attack, Defender for Cloud raised AI.Azure_ASCIISmuggling for gpt-4o-assist, and completions grounding on that document returned 9.8-15.2 KB against a ~1.5 KB baseline.",
       raw: {
         "TimeGenerated": "2026-09-28T14:06:33.418Z",
         "TenantId": RAG_TENANT_ID,

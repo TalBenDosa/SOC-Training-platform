@@ -3242,7 +3242,7 @@ export function dcSyncScenarioEvents() {
   const MIN = 60_000;
   const SEC = 1_000;
 
-  // Story-specific VPS (185.220.101.47 is the k8s-pod-escape / Tor-exit IP elsewhere).
+  // Story-specific VPS (the Tor exit address is used by other storylines).
   const attackerIp   = "203.0.113.93";
   const dc01         = "SRV-NEXACORP-DC01";
   const dc02         = "SRV-NEXACORP-DC02";

@@ -55,7 +55,7 @@ describe("Static Analysis Lab: consistency with the case", () => {
   });
 
   it("pivot candidates are the C2 domain and IP, once each", () => {
-    expect(candidateIocs(s)).toEqual([{ value: "cdn-msupdate.info", type: "domain" }, { value: "45.137.22.19", type: "ip" }]);
+    expect(candidateIocs(s)).toEqual([{ value: "cdn-msupdate.info", type: "domain" }, { value: "203.0.113.122", type: "ip" }]);
   });
 
   it("a path the host never saw does not resolve", () => {
@@ -78,7 +78,7 @@ describe("Static Analysis Lab: verifying what was found", () => {
 
   it("the C2 the flagged process beaconed to reads malicious; PKI noise reads clean", () => {
     const dom = labLookup(inv, s, "domain", "cdn-msupdate.info");
-    const ip = labLookup(inv, s, "ip", "45.137.22.19");
+    const ip = labLookup(inv, s, "ip", "203.0.113.122");
     const crl = labLookup(inv, s, "domain", "crl.microsoft.com");
     expect(dom.data.verdict).toBe("malicious");
     expect(ip.data.verdict).toBe("malicious");
@@ -88,7 +88,7 @@ describe("Static Analysis Lab: verifying what was found", () => {
   it("classifies pasted values: hash, the shown MD5, IP, URL to host, and rejects API names", () => {
     expect(classifyIndicator(s.sha256)).toEqual({ type: "hash", value: s.sha256 });
     expect(classifyIndicator(sampleMd5(s), s)).toEqual({ type: "hash", value: s.sha256 });
-    expect(classifyIndicator("45.137.22.19")).toEqual({ type: "ip", value: "45.137.22.19" });
+    expect(classifyIndicator("203.0.113.122")).toEqual({ type: "ip", value: "203.0.113.122" });
     expect(classifyIndicator("https://cdn-msupdate.info/5e544f")).toEqual({ type: "domain", value: "cdn-msupdate.info" });
     expect(classifyIndicator("GetProcAddress")).toBeNull();
     expect(classifyIndicator("   ")).toBeNull();

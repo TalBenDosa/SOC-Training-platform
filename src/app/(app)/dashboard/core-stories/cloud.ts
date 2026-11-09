@@ -62,7 +62,7 @@ function s3Ssec(): TelemetryEvent[] {
 function ebsSnapshotShare(): TelemetryEvent[] {
   const T = clock("2026-10-17T03:44:00Z");
   const cx = "rocketstack";
-  const ip = "203.0.113.211";
+  const ip = "203.0.113.197";
   const key = "AKIAIOSFCORE2EXAMPLE";
   const user = "n.haddad";
   const arn = `arn:aws:iam::418772153604:user/${user}`;
@@ -76,21 +76,21 @@ function ebsSnapshotShare(): TelemetryEvent[] {
       description: "CloudTrail ModifySnapshotAttribute by the backup-dr-copy role from 10.20.4.30, snapshot snap-01bc77d3e4a2f9c05 shared with account 418772153699.",
     }), "The nightly disaster-recovery job shares backups with the company's own recovery account 418772153699, from the backup role inside the VPC."),
     cloudTrailEvent({ ...a, id: "ceb02", ts: T(1800), eventName: "DescribeVolumes", eventSource: "ec2.amazonaws.com", readOnly: true, severity: "medium", mitre: "T1580", tactic: "Discovery",
-      description: "CloudTrail DescribeVolumes by IAM user n.haddad from 203.0.113.211, user agent aws-cli on Linux." }),
+      description: "CloudTrail DescribeVolumes by IAM user n.haddad from 203.0.113.197, user agent aws-cli on Linux." }),
     cloudTrailEvent({ ...a, id: "ceb03", ts: T(1860), eventName: "CreateSnapshot", eventSource: "ec2.amazonaws.com", severity: "medium", mitre: "T1578.001", tactic: "Defense Impairment",
       extra: { "aws.cloudtrail.requestParameters.volumeId": vol, "aws.cloudtrail.responseElements.snapshotId": snap },
-      description: "CloudTrail CreateSnapshot of vol-0a91c4e27bd3f6108 by n.haddad from 203.0.113.211, snapshot snap-07de41b9c2a06f3e1." }),
+      description: "CloudTrail CreateSnapshot of vol-0a91c4e27bd3f6108 by n.haddad from 203.0.113.197, snapshot snap-07de41b9c2a06f3e1." }),
     cloudTrailEvent({ ...a, id: "ceb04", ts: T(2520), eventName: "ModifySnapshotAttribute", eventSource: "ec2.amazonaws.com", severity: "high", mitre: "T1537", tactic: "Exfiltration",
       extra: { "aws.cloudtrail.requestParameters.snapshotId": snap, "aws.cloudtrail.requestParameters.attributeType": "CREATE_VOLUME_PERMISSION", "aws.cloudtrail.requestParameters.createVolumePermission.add.items.userId": outside },
-      description: "CloudTrail ModifySnapshotAttribute by n.haddad from 203.0.113.211, snapshot snap-07de41b9c2a06f3e1 shared with account 730416259183." }),
+      description: "CloudTrail ModifySnapshotAttribute by n.haddad from 203.0.113.197, snapshot snap-07de41b9c2a06f3e1 shared with account 730416259183." }),
     { ...guardDutyFinding({
       companyId: cx, id: "ceb05", ts: T(2700), findingType: "Exfiltration:IAMUser/AnomalousBehavior", gdSeverity: 8, title: "An API commonly used to collect data from an AWS environment was invoked in an anomalous way.", srcIp: ip, api: "ModifySnapshotAttribute", serviceName: "ec2.amazonaws.com", callerType: "Remote IP",
       resourceType: "AccessKey", userType: "IAMUser", userName: user, accessKeyId: key, severity: "high", mitre: "T1537", tactic: "Exfiltration",
-      description: "GuardDuty Exfiltration:IAMUser/AnomalousBehavior, IAM user n.haddad, API ModifySnapshotAttribute from 203.0.113.211.",
+      description: "GuardDuty Exfiltration:IAMUser/AnomalousBehavior, IAM user n.haddad, API ModifySnapshotAttribute from 203.0.113.197.",
     }), edr_scope: "non_edr" as const },
     cloudTrailEvent({ ...a, id: "ceb06", ts: T(7200), eventName: "DeleteSnapshot", eventSource: "ec2.amazonaws.com", severity: "high", mitre: "T1070", tactic: "Stealth",
       extra: { "aws.cloudtrail.requestParameters.snapshotId": snap },
-      description: "CloudTrail DeleteSnapshot of snap-07de41b9c2a06f3e1 by n.haddad from 203.0.113.211." }),
+      description: "CloudTrail DeleteSnapshot of snap-07de41b9c2a06f3e1 by n.haddad from 203.0.113.197." }),
   ]);
 }
 

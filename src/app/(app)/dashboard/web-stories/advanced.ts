@@ -36,7 +36,7 @@ const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_6 like Mac OS X) AppleWebK
 function ssrfMetadata(): TelemetryEvent[] {
   const T = clock("2026-09-22T06:00:00Z");
   const w: WebSite = { site: "app.rocketstack.io", host: "web-app-01.rocketstack.io", ip: "172.16.40.21" };
-  const atk = "203.0.113.17", cloudIp = "203.0.113.18", ua = "python-requests/2.31.0", cli = "aws-cli/2.17.20 Python/3.12.4 Linux/6.8.0";
+  const atk = "203.0.113.17", cloudIp = "203.0.113.111", ua = "python-requests/2.31.0", cli = "aws-cli/2.17.20 Python/3.12.4 Linux/6.8.0";
   const accountId = makeCtx("rocketstack").tenant.awsAccountId;
   const role = "app-web-instance-role", session = "i-0a1b2c3d4e5f60718", key = "ASIAIOSFODNN7EXAMPLE";
   const arn = `arn:aws:sts::${accountId}:assumed-role/${role}/${session}`;
@@ -126,8 +126,8 @@ function xxeSkimmer(): TelemetryEvent[] {
   const T = clock("2026-09-28T15:00:00Z");
   // Adobe Commerce runs on Linux behind nginx: Windows and IIS are not supported.
   const w: WebSite = { site: "store.nexacorp.com", host: "web-store-01.nexacorp.com", ip: "10.20.40.101", server: "nginx" };
-  const atk = "198.51.100.77", ua = "python-httpx/0.27.0", ship = "/rest/V1/guest-carts/4f7a1c92e6b0483d9a51c07e2b6d8f13/estimate-shipping-methods";
-  const drop = "assets-cdn.example", dropIp = "198.51.100.78", rule = "XmlDoctypeInRequestBody";
+  const atk = "198.51.100.13", ua = "python-httpx/0.27.0", ship = "/rest/V1/guest-carts/4f7a1c92e6b0483d9a51c07e2b6d8f13/estimate-shipping-methods";
+  const drop = "assets-cdn.example", dropIp = "198.51.100.32", rule = "XmlDoctypeInRequestBody";
   return [
     ticket({ id: "web_xx_001", ts: T(0), table: "sc_req_item", number: "RITM0052203", state: "Closed Complete", severity: "informational",
       shortDescription: "ERP order feed posts XML with a DOCTYPE to the store API from 198.51.100.143", description: "ServiceNow request RITM0052203 (Closed Complete): ERP order feed to the store API" }),
@@ -153,7 +153,7 @@ function xxeSkimmer(): TelemetryEvent[] {
 function checkoutSkimmer(): TelemetryEvent[] {
   const T = clock("2026-09-29T09:00:00Z");
   const w: WebSite = { site: "pay.nexacorp.com", host: "web-pay-01.nexacorp.com", ip: "10.20.40.111", server: "nginx" };
-  const atk = "203.0.113.140", ua = CHROME, js = "/assets/js/checkout.min.js", app = "/assets/js/app.min.js", path = `/var/www/pay/public${js}`;
+  const atk = "203.0.113.132", ua = CHROME, js = "/assets/js/checkout.min.js", app = "/assets/js/app.min.js", path = `/var/www/pay/public${js}`;
   const host = { host: w.host, user: null, srcIp: w.ip };
   const buyer = "198.51.100.20", phone = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36";
   const size = (id: string, min: number, bytes: number, extra = {}) => webAccess(w, { id, ts: T(min), srcIp: buyer, path: js, bytes, ua: phone, referer: "https://pay.nexacorp.com/checkout", description: "Payment site answered a script request", ...extra });

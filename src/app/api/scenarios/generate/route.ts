@@ -437,7 +437,7 @@ Each event MUST follow this exact structure:
   "hostname": "WS-NXC-CHEN",
   "user_email": "sarah.chen@nexacorp.com",
   "src_ip": "172.16.44.23",
-  "dst_ip": "185.220.101.47",
+  "dst_ip": "198.51.100.103",
   "src_port": 54312,
   "dst_port": 443,
   "protocol": "HTTPS",

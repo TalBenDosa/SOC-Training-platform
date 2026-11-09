@@ -96,7 +96,7 @@ function threadHijack(): TelemetryEvent[] {
   const dl = `C:\\Users\\${user}\\Downloads`;
   const htmlHash = makeSha256("core-thread-hijack-html"), zipHash = makeSha256("core-thread-hijack-zip"), jsHash = makeSha256("core-thread-hijack-js");
   const wscript = "C:\\Windows\\System32\\wscript.exe", wsHash = makeSha256("windows_wscript_exe_signed_microsoft");
-  const c2 = "statement-archive-cdn.example", c2Ip = "203.0.113.214";
+  const c2 = "statement-archive-cdn.example", c2Ip = "203.0.113.196";
   const mail = (o: { id: string; ts: string; subject: string; msgId: string; senderIp: string; file?: { name: string; ext: string; sha256: string; size: number }; severity: TelemetryEvent["severity"]; description: string; mitre?: string; tactic?: string }): TelemetryEvent => {
   const part = (seed: string, disposition: string, filename: string, contentType: string, sha256: string, sandboxStatus: string | null) =>
     ({ disposition, filename, contentType, oContentType: contentType, md5: makeSha256(`pp:md5:${seed}`).slice(0, 32), sha256, sandboxStatus });

@@ -57,8 +57,8 @@ function buildMcpToolPoisoning(): TelemetryEvent[] {
   const iamUser = "j.lee";
   const arn = "arn:aws:iam::418772153604:user/j.lee";
   const mcpDomain = "mcp.toolforge-hub.example";    // the third-party MCP server
-  const mcpIp = "203.0.113.88";
-  const attackerIp = "203.0.113.140";              // hosting provider, Frankfurt
+  const mcpIp = "203.0.113.110";
+  const attackerIp = "203.0.113.133";              // hosting provider, Frankfurt
   const attackerGeo = { country: "Germany", city: "Frankfurt am Main" };
   const bucketA = "rocketstack-prod-datalake";
   const bucketB = "rocketstack-customer-exports";
@@ -127,7 +127,7 @@ function buildMcpToolPoisoning(): TelemetryEvent[] {
       eventName: "GetCallerIdentity", eventSource: "sts.amazonaws.com", srcIp: attackerIp,
       actorType: "IAMUser", actorName: iamUser, accessKeyId: key, arn, userAgent: UA_BOTO,
       readOnly: true, geo: attackerGeo, severity: "high", mitre: "T1078.004", tactic: "Initial Access",
-      description: "AWS CloudTrail: GetCallerIdentity by the access key AKIAZ7QW3MNP5EXAMPLE from 203.0.113.140 (a hosting provider in Frankfurt) with a scripted Boto3 agent, more than four hours after the file was read on the host. Until now the key had only ever been used from the office network.",
+      description: "AWS CloudTrail: GetCallerIdentity by the access key AKIAZ7QW3MNP5EXAMPLE from 203.0.113.133 (a hosting provider in Frankfurt) with a scripted Boto3 agent, more than four hours after the file was read on the host. Until now the key had only ever been used from the office network.",
     }),
     // 7. CloudTrail: bucket enumeration.
     cloudTrailEvent({
@@ -135,7 +135,7 @@ function buildMcpToolPoisoning(): TelemetryEvent[] {
       eventName: "ListBuckets", eventSource: "s3.amazonaws.com", srcIp: attackerIp,
       actorType: "IAMUser", actorName: iamUser, accessKeyId: key, arn, userAgent: UA_BOTO,
       readOnly: true, geo: attackerGeo, severity: "high", mitre: "T1580", tactic: "Discovery",
-      description: "AWS CloudTrail: ListBuckets by the same key from 203.0.113.140, 47 seconds after the identity check, the account's entire S3 bucket inventory read in one call.",
+      description: "AWS CloudTrail: ListBuckets by the same key from 203.0.113.133, 47 seconds after the identity check, the account's entire S3 bucket inventory read in one call.",
     }),
     // 8. CloudTrail: GetObject burst, first bucket (one representative row; the count is in the text).
     cloudTrailEvent({
@@ -144,7 +144,7 @@ function buildMcpToolPoisoning(): TelemetryEvent[] {
       actorType: "IAMUser", actorName: iamUser, accessKeyId: key, arn, userAgent: UA_BOTO,
       s3Bucket: bucketA, s3Key: "exports/2026-10/customers.parquet", bytes: 48_221_904,
       readOnly: true, geo: attackerGeo, severity: "high", mitre: "T1530", tactic: "Collection",
-      description: `AWS CloudTrail: GetObject on s3://${bucketA}/exports/2026-10/customers.parquet by the same key from 203.0.113.140, one of a burst of several hundred GetObject calls on this bucket within two minutes.`,
+      description: `AWS CloudTrail: GetObject on s3://${bucketA}/exports/2026-10/customers.parquet by the same key from 203.0.113.133, one of a burst of several hundred GetObject calls on this bucket within two minutes.`,
     }),
     // 9. CloudTrail: GetObject burst, second bucket.
     cloudTrailEvent({
@@ -153,7 +153,7 @@ function buildMcpToolPoisoning(): TelemetryEvent[] {
       actorType: "IAMUser", actorName: iamUser, accessKeyId: key, arn, userAgent: UA_BOTO,
       s3Bucket: bucketB, s3Key: "daily/2026-10-06/accounts.csv.gz", bytes: 15_882_310,
       readOnly: true, geo: attackerGeo, severity: "high", mitre: "T1530", tactic: "Collection",
-      description: `AWS CloudTrail: GetObject on s3://${bucketB}/daily/2026-10-06/accounts.csv.gz by the same key from 203.0.113.140, the burst moved to a second bucket; across both buckets the key copied tens of gigabytes in minutes.`,
+      description: `AWS CloudTrail: GetObject on s3://${bucketB}/daily/2026-10-06/accounts.csv.gz by the same key from 203.0.113.133, the burst moved to a second bucket; across both buckets the key copied tens of gigabytes in minutes.`,
     }),
     // 10. GuardDuty: anomalous S3 access from the key.
     guardDutyFinding({
@@ -164,7 +164,7 @@ function buildMcpToolPoisoning(): TelemetryEvent[] {
       srcIp: attackerIp, remoteCountry: "Germany", asnOrg: "hosting provider",
       resourceType: "AccessKey", userType: "IAMUser", userName: iamUser, accessKeyId: key, count: 412,
       mitre: "T1530", tactic: "Collection", severity: "high",
-      description: "GuardDuty raised Exfiltration:S3/AnomalousBehavior (severity 8, High) for access key AKIAZ7QW3MNP5EXAMPLE: the volume of GetObject calls from 203.0.113.140 is far outside what GuardDuty learned for this credential, and the source network and geography are new for it.",
+      description: "GuardDuty raised Exfiltration:S3/AnomalousBehavior (severity 8, High) for access key AKIAZ7QW3MNP5EXAMPLE: the volume of GetObject calls from 203.0.113.133 is far outside what GuardDuty learned for this credential, and the source network and geography are new for it.",
     }),
     // 11. GuardDuty: the credential itself is being used anomalously.
     guardDutyFinding({
@@ -191,7 +191,7 @@ function buildMcpToolPoisoning(): TelemetryEvent[] {
         "Reading process": "coding-assistant shell tool (cat ~/.aws/credentials)",
         "First abuse source IP": attackerIp,
       },
-      description: `Microsoft Sentinel correlated the access key AKIAZ7QW3MNP5EXAMPLE used from 203.0.113.140 with the same key's owner on ${host}, where a coding-assistant shell tool had read /home/${bareUser}/.aws/credentials and the agent had connected to an external tool host hours earlier. The alert links the cloud abuse to the developer endpoint.`,
+      description: `Microsoft Sentinel correlated the access key AKIAZ7QW3MNP5EXAMPLE used from 203.0.113.133 with the same key's owner on ${host}, where a coding-assistant shell tool had read /home/${bareUser}/.aws/credentials and the agent had connected to an external tool host hours earlier. The alert links the cloud abuse to the developer endpoint.`,
     }),
   ];
 
@@ -256,7 +256,7 @@ function buildMaliciousModelPickle(): TelemetryEvent[] {
   const uid = "1000";
   const ses = "71";
   const hubDomain = "models.open-model-hub.example";
-  const hubIp = "203.0.113.30";
+  const hubIp = "203.0.113.109";
   const cbDomain = "sync-cdn.modelpulse.example";    // the callback host
   const cbIp = "198.51.100.88";                        // hosting provider
   const modelUrl = `https://${hubDomain}/repos/resnet50-sentiment-ft/resolve/main/pytorch_model.bin`;

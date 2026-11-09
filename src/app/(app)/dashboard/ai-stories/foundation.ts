@@ -330,7 +330,7 @@ function buildChatHarvestExtension(): TelemetryEvent[] {
 
   const extId = "hkgmfnpelcbjoadkdanmghcplobjhegk";
   const statsHost = "stats.surfguard-vpn.com";
-  const statsIp = "198.51.100.55";
+  const statsIp = "198.51.100.25";
   const statsQuery = `ext=${extId}&ver=5.5.0`;
   const statsUrl = `https://${statsHost}/v2/events?${statsQuery}`;
   const crxUrl = `https://clients2.googleusercontent.com/crx/blobs/Acy5rT0q8XvL3nWk2dUe1hQmZ7JpAaVfN4YtR6sGxKb9oCwDiE5uLhBMg2PzHnQ/${extId}_5_5_0_0.crx`;

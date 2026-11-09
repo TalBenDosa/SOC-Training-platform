@@ -128,7 +128,7 @@ function dllSideload(): TelemetryEvent[] {
   const dll = `${dir}\\libcurl.dll`, dllHash = makeSha256("core-sideload-libcurl");
   const lure = "docs-statements-share.example";
   const c2 = "cdn-telemetry-sync.example";
-  const dropIp = "203.0.113.206", c2Ip = "203.0.113.207";
+  const dropIp = "203.0.113.206", c2Ip = "203.0.113.192";
   const persist = `C:\\Users\\${user}\\AppData\\Local\\UpdateSvc\\GUP.exe`;
   return incident("inc:core-sideload:1", [
     lookalike(sysmonImageLoad({
@@ -171,7 +171,7 @@ function dllSideload(): TelemetryEvent[] {
     }),
     panConnection({
       ...c, id: "csl08", ts: T(676), domain: c2, dstIp: c2Ip, remotePort: 443, app: "ssl", action: "allow", category: "unknown", bytesOut: 3_412, bytesIn: 18_906, severity: "medium", mitre: "T1071.001", tactic: "Command and Control",
-      description: "Firewall: WS-MKT-3301 opened a TLS session to 203.0.113.207 (cdn-telemetry-sync.example).",
+      description: "Firewall: WS-MKT-3301 opened a TLS session to 203.0.113.192 (cdn-telemetry-sync.example).",
     }),
     csFile({
       ...c, id: "csl09", ts: T(720), path: persist, sha256: exeHash, size: 798_720, signed: true, severity: "medium", actorProcess: "Statement_Q3.exe", actorPid: 7116, actorPath: exe, actorSha256: exeHash, mitre: "T1036.005", tactic: "Stealth",
@@ -199,7 +199,7 @@ function rmmFirstStage(): TelemetryEvent[] {
   const INC = "inc:core-rmm:1";
   const lure = "benefit-statement-view.example";
   const url = `https://${lure}/d/AnnualStatement.exe`;
-  const dropIp = "203.0.113.208", relayIp = "203.0.113.209", relay = "instance-82kd-relay.fastsupport-desk.example";
+  const dropIp = "203.0.113.208", relayIp = "203.0.113.193", relay = "instance-82kd-relay.fastsupport-desk.example";
   const dl = `C:\\Users\\${user}\\Downloads\\AnnualStatement.exe`, dlHash = makeSha256("core-rmm-installer");
   const scId = "9ab20c41de771f36";
   const svc = `C:\\Program Files (x86)\\ScreenConnect Client (${scId})\\ScreenConnect.ClientService.exe`, svcHash = makeSha256("remote-support-client-signed");
@@ -255,7 +255,7 @@ function rmmFirstStage(): TelemetryEvent[] {
     }), edr_scope: "edr" as const },
     panConnection({
       ...c, id: "crm10", ts: T(2712), domain: relay, dstIp: relayIp, remotePort: 8041, app: "ssl", action: "allow", category: "unknown", bytesOut: 61_022, bytesIn: 240_118, severity: "high", mitre: "T1219.002", tactic: "Command and Control",
-      description: "Firewall: WS-HR-1182 opened a session to 203.0.113.209:8041 (instance-82kd-relay.fastsupport-desk.example).",
+      description: "Firewall: WS-HR-1182 opened a session to 203.0.113.193:8041 (instance-82kd-relay.fastsupport-desk.example).",
     }),
   ]);
 }

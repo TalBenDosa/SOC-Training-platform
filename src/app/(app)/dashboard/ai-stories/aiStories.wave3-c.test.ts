@@ -59,7 +59,7 @@ describe("AI wave3-c stories", () => {
     expect(raw(base, "aws.cloudtrail.userIdentity.accessKeyId")).toBe(KEY);
     expect(raw(abuse, "aws.cloudtrail.userIdentity.accessKeyId")).toBe(KEY);
     expect(base.is_baseline).toBe(true);
-    expect(abuse.src_ip).toBe("203.0.113.140");
+    expect(abuse.src_ip).toBe("203.0.113.133");
     expect(t(abuse)).toBeGreaterThan(t(read));
     // GetObject bursts and a GuardDuty anomalous-behaviour finding tie to the same key
     expect(raw(ev(sid, "aimcp08"), "aws.cloudtrail.eventName")).toBe("GetObject");

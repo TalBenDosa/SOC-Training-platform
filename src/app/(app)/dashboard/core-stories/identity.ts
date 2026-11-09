@@ -254,7 +254,7 @@ function qrCodePhish(): TelemetryEvent[] {
   const T = clock("2026-10-08T07:50:00Z");
   const cx = "nexacorp";
   const v = "s.lindqvist@nexacorp.com";
-  const proxy = "203.0.113.204";
+  const proxy = "203.0.113.194";
   const replay = "203.0.113.205";
   const session = "2e7a90c4-1b6d-4f38-a052-9c4de1f07b16";
   const lure = "https://mfa-renewal-portal.example/r/7Fq2";
@@ -279,7 +279,7 @@ function qrCodePhish(): TelemetryEvent[] {
     entraSignIn({
       companyId: cx, id: "cqr03", ts: T(2520), user: v, srcIp: proxy, app: "OfficeHome", mfa: true, isInteractive: true, os: "iOS 18", browser: "Mobile Safari", managed: false, compliant: false,
       userAgent: UA_IPHONE, sessionId: session, asn: 64512, severity: "medium", mitre: "T1557", tactic: "Credential Access",
-      description: "Entra ID sign-in for s.lindqvist to OfficeHome from 203.0.113.204, MFA satisfied, Mobile Safari on an unmanaged iOS device with no device id.",
+      description: "Entra ID sign-in for s.lindqvist to OfficeHome from 203.0.113.194, MFA satisfied, Mobile Safari on an unmanaged iOS device with no device id.",
     }),
     entraSignIn({
       companyId: cx, id: "cqr04", ts: T(2760), user: v, srcIp: replay, app: "OfficeHome", mfa: true, isInteractive: false, os: "Windows 10", browser: "Chrome 149.0.0", managed: false, compliant: false,
@@ -291,7 +291,7 @@ function qrCodePhish(): TelemetryEvent[] {
       companyId: cx, id: "cqr05", ts: T(2880), user: v, srcIp: replay, alertName: "One session used from two networks and two device types", severity: "high", mitre: "T1550.004", tactic: "Lateral Movement",
       detail: "A sessionId was seen on an iOS device and on Windows within minutes, on two networks.",
       extendedProperties: { UserPrincipalName: v, SessionId: session, FirstIp: proxy, SecondIp: replay, RiskEventType: "anomalousToken" },
-      description: "Sentinel analytic: one session for s.lindqvist on 203.0.113.204 (iOS) and 203.0.113.205 (Windows).",
+      description: "Sentinel analytic: one session for s.lindqvist on 203.0.113.194 (iOS) and 203.0.113.205 (Windows).",
     }), edr_scope: "non_edr" as const },
     entraAudit({
       companyId: cx, id: "cqr06", ts: T(3120), operationName: "User registered security info", category: "UserManagement", loggedByService: "Authentication Methods", operationType: "Add",

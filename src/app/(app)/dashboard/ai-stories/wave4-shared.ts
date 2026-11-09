@@ -28,7 +28,7 @@ export const SUB = makeCtx(CX).tenant.azureSubscriptionId;
 /** The authored office's NAT egress; a story's `officeEgress` makes it each company's own, with its place. */
 export const OFFICE_EGRESS = "192.0.2.150";
 /** The public address a company publishes a server on: a documentation address, never a real one. */
-export const PUBLISHED_IP = "203.0.113.20";
+export const PUBLISHED_IP = "203.0.113.115";
 
 export type Base = { id: string; ts: string };
 

@@ -75,7 +75,7 @@ function buildDeepfakeExecCallPaymentFraud(): TelemetryEvent[] {
   const extTenant = guid("wave3d:deepfake:ext-tenant");    // the attacker-controlled look-alike tenant
   const extCfo = "cfo@quantumbank-finance.example";        // deepfaked executive, external look-alike tenant
   const extDomain = "quantumbank-finance.example";
-  const senderIp = "203.0.113.47";                         // the look-alike tenant's mail egress
+  const senderIp = "203.0.113.2";                         // the look-alike tenant's mail egress
   const meetingDetailId = guid("wave3d:deepfake:meeting");
   const chatThreadId = `19:meeting_${hexOf("wave3d:deepfake:thread", 40)}@thread.v2`;
   const vendor = "Northwind Freight Services";
@@ -174,7 +174,7 @@ function buildDeepfakeExecCallPaymentFraud(): TelemetryEvent[] {
       netId: guid("wave3d:deepfake:invite:net"), msgId: `<${hexOf("wave3d:deepfake:invite:msg", 32)}@${extDomain}>`,
       spf: "pass", dkim: "pass", dmarc: "pass", severity: "low",
       mitre: "T1566.002", tactic: "Initial Access",
-      description: "Defender for Office 365 EmailEvents: a Teams meeting invite from cfo@quantumbank-finance.example (sender IP 203.0.113.47) to p.meier at 08:47, subject references a confidential vendor payment at 09:00. The sender domain resembles the company domain but is a different registration; SPF, DKIM and DMARC pass for that domain, which is its own.",
+      description: "Defender for Office 365 EmailEvents: a Teams meeting invite from cfo@quantumbank-finance.example (sender IP 203.0.113.2) to p.meier at 08:47, subject references a confidential vendor payment at 09:00. The sender domain resembles the company domain but is a different registration; SPF, DKIM and DMARC pass for that domain, which is its own.",
     }),
 
     // 3. The external-tenant meeting record: Teams logs the meeting, organizer in a foreign tenant (T1684.001).
@@ -353,7 +353,7 @@ function buildBrowserAgentPromptHijack(): TelemetryEvent[] {
     // 1. BASELINE. The agent's ordinary supplier research earlier in the day.
     panWeb({
       companyId: cx, id: "aiba1", ts: "2026-10-01T10:52:14.000Z", host, srcIp: hostIp, user,
-      url: "https://www.supplierdirectory.example/catalog/logistics", domain: "www.supplierdirectory.example", dstIp: "203.0.113.60",
+      url: "https://www.supplierdirectory.example/catalog/logistics", domain: "www.supplierdirectory.example", dstIp: "203.0.113.3",
       category: "business-and-economy", method: "GET", action: "allow", status: 200, bytesIn: 48210, bytesOut: 1840,
       userAgent: agentUa, userTitle: "Marketing", severity: "informational",
       description: "Palo Alto URL filtering: WS-MKT-3301 fetched a supplier catalogue page over the AI browser agent session, category business-and-economy, allowed. Normal research traffic.",
@@ -361,7 +361,7 @@ function buildBrowserAgentPromptHijack(): TelemetryEvent[] {
     {
       ...panWeb({
         companyId: cx, id: "aiba1b", ts: "2026-10-01T10:52:14.400Z", host, srcIp: hostIp, user,
-        url: "https://www.supplierdirectory.example/catalog/logistics", domain: "www.supplierdirectory.example", dstIp: "203.0.113.60",
+        url: "https://www.supplierdirectory.example/catalog/logistics", domain: "www.supplierdirectory.example", dstIp: "203.0.113.3",
         category: "business-and-economy", method: "GET", action: "allow", status: 200,
         userAgent: agentUa, userTitle: "Marketing", severity: "informational",
       }),
@@ -372,13 +372,13 @@ function buildBrowserAgentPromptHijack(): TelemetryEvent[] {
     // 2. The agent loads an aggregator page that carries a short hidden instruction (T1566.002).
     mdeDns({
       companyId: cx, id: "aiba2", ts: "2026-10-01T11:06:38.000Z", host, srcIp: hostIp, user,
-      domain: "reviews.supplier-insights.example", resolvedIp: "203.0.113.90", severity: "low",
+      domain: "reviews.supplier-insights.example", resolvedIp: "203.0.113.104", severity: "low",
       mitre: "T1566.002", tactic: "Initial Access", initiatingProcess: "chrome.exe",
       description: "Defender for Endpoint DNS: WS-MKT-3301 resolved reviews.supplier-insights.example during the agent session at 11:06.",
     }),
     panWeb({
       companyId: cx, id: "aiba3", ts: "2026-10-01T11:06:39.000Z", host, srcIp: hostIp, user,
-      url: "https://reviews.supplier-insights.example/compare?vendor=logistics", domain: "reviews.supplier-insights.example", dstIp: "203.0.113.90",
+      url: "https://reviews.supplier-insights.example/compare?vendor=logistics", domain: "reviews.supplier-insights.example", dstIp: "203.0.113.104",
       category: "newly-registered-domain", method: "GET", action: "alert", status: 200, bytesIn: 21740, bytesOut: 1560,
       userAgent: agentUa, userTitle: "Marketing", severity: "low", mitre: "T1566.002", tactic: "Initial Access",
       description: "Palo Alto URL filtering: the agent fetched a supplier-comparison page on reviews.supplier-insights.example at 11:06, category newly-registered-domain, action alert. The page body (quoted later in the case note) carries an instruction addressed to an assistant.",
