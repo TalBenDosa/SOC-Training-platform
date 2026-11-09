@@ -353,7 +353,7 @@ export function extractFacts(ev: TelemetryEvent, ctx: NativeCtx, vendorMatch: st
   if (!domain && panUrl) domain = panUrl.split("/")[0];
   let dport = ev.dst_port ?? n(rawGet(raw, "destination.port", "pan.dport", "data.dstport", "svc", "service", "id.resp_p"));
   const protoRaw = (ev.protocol ?? rawGet(raw, "network.transport", "data.proto", "proto", "protocol") ?? "").toLowerCase();
-  const appRawStr = rawGet(raw, "pan.app", "application", "network.application", "data.app", "app_name", "cisco.ftd.application_protocol", "network.protocol");
+  const appRawStr = rawGet(raw, "pan.app", "application", "appi_name", "network.application", "data.app", "app_name", "cisco.ftd.application_protocol", "network.protocol");
   let app = canonApp(appRawStr) ?? (ev.protocol && /^https?$/i.test(ev.protocol) ? canonApp(ev.protocol) : undefined);
   if (!dport) dport = app && APPS[app]?.port ? APPS[app].port : 443;
   let proto: "tcp" | "udp" | "icmp" = protoRaw === "17" || protoRaw === "udp" ? "udp" : protoRaw === "1" || protoRaw === "icmp" ? "icmp" : protoRaw === "" ? (app && APPS[app]?.transport === "udp" ? "udp" : [53, 5355, 123, 161, 514].includes(dport) ? "udp" : "tcp") : "tcp";

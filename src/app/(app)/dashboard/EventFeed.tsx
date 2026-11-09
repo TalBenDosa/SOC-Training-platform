@@ -250,7 +250,7 @@ function extractActionOutcome(event: LiveEvent): ActionOutcome {
     else if (event.source === "firewall") src = "Firewall";
     else if (idsAction === "block")       src = "IDS/IPS";
     else if (policyAction === "blockaccess") src = "DLP";
-    else if (sessionBlocked === "true")   src = "Proxy";
+    else if (event.source === "proxy" || sessionBlocked === "true") src = "Proxy";
     const ruleId = raw["waf.rule.id"] ?? raw["ids.rule.id"] ?? "";
     return { status: "blocked", label: "Blocked", detail: ruleId ? `${src} rule ${ruleId}` : `${src} blocked the connection/action` };
   }

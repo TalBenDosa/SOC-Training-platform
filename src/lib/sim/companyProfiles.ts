@@ -1815,7 +1815,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     protocol: "tcp",
     description: "Outbound HTTPS from SRV-MEDCORE-EMR01 to Microsoft Azure - expected Epiq cloud sync",
     raw: { "action": "Accept", "layer_name": "Application & URL Filtering",
-           "network.application": "Office365", "client_outbound_bytes": "204800",
+           "appi_name": "Office365", "client_outbound_bytes": "204800",
            "action_result": "allowed" }
   },
   {

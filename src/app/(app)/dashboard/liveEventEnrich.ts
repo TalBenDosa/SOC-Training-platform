@@ -588,15 +588,15 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
     if (event.geo) {
       if (event.geo.country) raw["GeoLocation.country_name"] = event.geo.country;
       if (event.geo.city)    raw["GeoLocation.city_name"]    = event.geo.city;
-      if (event.geo.latitude  != null) raw["GeoLocation.location.lat"] = event.geo.latitude;
-      if (event.geo.longitude != null) raw["GeoLocation.location.lon"] = event.geo.longitude;
+      if (event.geo.latitude  != null) raw["GeoLocation.latitude"] = event.geo.latitude;
+      if (event.geo.longitude != null) raw["GeoLocation.longitude"] = event.geo.longitude;
     } else if (event.src_ip) {
       const geo = knownGeoForIp(event.src_ip);
       if (geo) {
         raw["GeoLocation.country_name"]  = geo.country;
         raw["GeoLocation.city_name"]     = geo.city;
-        raw["GeoLocation.location.lat"]  = geo.lat;
-        raw["GeoLocation.location.lon"]  = geo.lon;
+        raw["GeoLocation.latitude"]  = geo.lat;
+        raw["GeoLocation.longitude"]  = geo.lon;
       }
     }
   }
