@@ -6,6 +6,7 @@ import { makeCtx } from "../ctx";
 import { edrFacts } from "./edr-normalize";
 import { isPrivate } from "./_cs-s1-common";
 import { sampleLogs, violationsOf, convertAll, contains, isNoise, type Converted } from "./_cs-s1.testkit";
+import type { TelemetryEvent } from "@/lib/sim/types";
 
 /*
  * Card samples: all 10 JSON blocks of edr-crowdstrike.md are supported kinds (FDR PR2 ×2, DnsRequest,
@@ -124,6 +125,55 @@ describe("crowdstrike - corpus conversion", () => {
     console.log(`[crowdstrike] story PR2 with parent PR2 in corpus: ${linkedParents}; actions linked to their PR2: ${linkedActions}/${actions.length}`);
     expect(linkedParents).toBeGreaterThan(5);
     expect(linkedActions).toBeGreaterThan(0);
+  });
+});
+
+describe("crowdstrike - handle operations (FDR FalconProcessHandleOpDetectInfo)", () => {
+  const ctx = makeCtx("nexacorp");
+  const base = {
+    ts: "2026-05-20T09:00:00Z", source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_access", hostname: "WS-OPS-2214",
+    user_email: "m.levi@nexacorp.com",
+  };
+  const opener = { name: "rundll32.exe", pid: 6120, path: "C:\\Windows\\System32\\rundll32.exe",
+    cmdline: "rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump 704 C:\\Users\\Public\\d.bin full", parent_name: "cmd.exe" };
+
+  it("an lsass handle open renders as the FDR handle-op record (device paths, UPIDs, decimal DesiredAccess), not an Alerts API alert", () => {
+    const ev = { ...base, id: "ho-1", process: opener,
+      raw: { "crowdstrike.TargetProcessImageFileName": "\\Device\\HarddiskVolume3\\Windows\\System32\\lsass.exe", "crowdstrike.DesiredAccess": "2097151" } } as unknown as TelemetryEvent;
+    const log = source.fromTelemetry(ev, ctx)!;
+    expect(log.kind).toBe("FalconProcessHandleOpDetectInfo");
+    const r = log.record as Record<string, string>;
+    expect(violationsOf(log, source)).toEqual([]);
+    expect(r.name).toBe("FalconProcessHandleOpDetectInfoV1");
+    expect(r.TargetProcessImageFileName).toBe("\\Device\\HarddiskVolume3\\Windows\\System32\\lsass.exe");
+    expect(r.ImageFileName).toBe("\\Device\\HarddiskVolume3\\Windows\\System32\\rundll32.exe");
+    expect(r.ParentImageFileName).toBe("\\Device\\HarddiskVolume3\\Windows\\System32\\cmd.exe");
+    expect(r.CommandLine).toBe(opener.cmdline);
+    expect(r.DesiredAccess).toBe("2097151");
+    for (const k of ["ContextProcessId", "ParentProcessId", "TargetProcessId"]) expect(r[k], k).toMatch(/^\d{12}$/);
+    for (const v of Object.values(r)) expect(typeof v).toBe("string");
+    // Detection fields live on the alert, never on the handle-op record.
+    for (const k of ["technique_id", "tactic", "DetectName", "Technique", "Tactic", "SHA256HashData", "composite_id"]) expect(r[k], k).toBeUndefined();
+    // The acting process's ContextProcessId is its own ProcessRollup2 TargetProcessId.
+    const pr2 = source.fromTelemetry({ ...base, id: "ho-1-pr2", event_type: "process_create", process: opener, raw: {} } as unknown as TelemetryEvent, ctx)!;
+    expect(pr2.kind).toBe("ProcessRollup2");
+    expect(pr2.record.TargetProcessId).toBe(r.ContextProcessId);
+  });
+
+  it("a hex mask from another vendor's reshape becomes Falcon's decimal string", () => {
+    const ev = { ...base, id: "ho-2", process: opener, raw: { "winlog.event_data.TargetImage": "C:\\Windows\\System32\\lsass.exe", "winlog.event_data.GrantedAccess": "0x1010" } } as unknown as TelemetryEvent;
+    const r = source.fromTelemetry(ev, ctx)!.record as Record<string, string>;
+    expect([r.event_simpleName, r.DesiredAccess, r.TargetProcessImageFileName]).toEqual(["FalconProcessHandleOpDetectInfo", "4112", "\\Device\\HarddiskVolume3\\Windows\\System32\\lsass.exe"]);
+  });
+
+  it("a row authored as FalconProcessHandleOpDetectInfo on another target keeps that record; a real detection stays an alert", () => {
+    const inj = { ...base, id: "ho-3", process: { name: "powershell.exe", pid: 9944, cmdline: "powershell.exe -nop -w hidden" },
+      raw: { "crowdstrike.event_simpleName": "FalconProcessHandleOpDetectInfo", "crowdstrike.TargetProcessImageFileName": "\\Device\\HarddiskVolume3\\Windows\\explorer.exe", "crowdstrike.DesiredAccess": "2097151" } } as unknown as TelemetryEvent;
+    const r = source.fromTelemetry(inj, ctx)!;
+    expect([r.kind, r.record.TargetProcessImageFileName, r.record.TargetProcessCommandLine]).toEqual(["FalconProcessHandleOpDetectInfo", "\\Device\\HarddiskVolume3\\Windows\\explorer.exe", undefined]);
+    const det = { ...base, id: "ho-4", event_type: "edr_alert", is_detection: true, mitre_technique: "T1003.001", mitre_tactic: "Credential Access", severity: "critical", process: opener,
+      raw: { "crowdstrike.DetectName": "CredentialDumping" } } as unknown as TelemetryEvent;
+    expect(source.fromTelemetry(det, ctx)!.kind).toBe("alert");
   });
 });
 

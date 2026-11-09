@@ -6,7 +6,9 @@
  *     string, keys sorted as on the wire: ProcessRollup2, DnsRequest, NetworkConnectIP4,
  *     NetworkReceiveAcceptIP4, PeFileWritten / NewScriptWritten / OoxmlFileWritten /
  *     ZipFileWritten / GenericFileWritten, AsepValueUpdate / RegGenericValueUpdate, UserLogon /
- *     UserLogonFailed2. Current-sensor host context (ComputerName + LocalAddressIP4) is carried.
+ *     UserLogonFailed2, ScheduledTaskRegistered, ScriptControlScanTelemetry and
+ *     FalconProcessHandleOpDetectInfo (a handle opened on lsass.exe / another process: target + mask).
+ *     Current-sensor host context (ComputerName + LocalAddressIP4) is carried.
  *   - Alerts API v2 resource (kind "alert") for detections - nested snake_case, typed values.
  * Card-only kinds (validated against the card samples, never produced from telemetry because the
  * platform has no such events): Event Streams EppDetectionSummaryEvent, aidmaster, userinfo.
@@ -119,6 +121,23 @@ const kinds: Record<string, KindSchema> = {
     optional: [...COMMON_OPT, "RegStringValue", "RegType", "RegClassification", "RegClassificationFlags", "RegClassificationIndex",
       "AuthenticationId", "TokenType", "ContextThreadId"],
   },
+  /**
+   * FalconProcessHandleOpDetectInfo - the handle-operation record the sensor logs with a handle-op
+   * detection (a process opening lsass.exe, a full-access handle on another process). Key set and value
+   * forms from the two Elastic crowdstrike integration FDR samples (data_stream/fdr/_dev/test/pipeline/
+   * test-windows.log, a live-instance line, and test-fdr-new-events.log; fields.yml lists DesiredAccess,
+   * TargetProcessImageFileName, HandleOperationType, TemplateDisposition): image paths are NT device
+   * paths, process ids are Falcon UPIDs, DesiredAccess is the access mask as a decimal string
+   * ("2097151" = 0x1FFFFF). HandleOperationType / TemplateDisposition / TemplateInstanceId / PatternId
+   * enums are not publicly documented, so they are accepted on a record but never emitted.
+   */
+  FalconProcessHandleOpDetectInfo: {
+    required: [...COMMON_REQ, "ContextProcessId", "ImageFileName", "CommandLine", "TargetProcessImageFileName"],
+    optional: [...COMMON_OPT, "DesiredAccess", "TargetProcessId", "TargetProcessCommandLine", "ParentProcessId", "ParentImageFileName",
+      "ParentCommandLine", "GrandparentProcessId", "GrandparentImageFileName", "GrandparentCommandLine", "UserName", "UserPrincipal",
+      "HandleOperationType", "PatternId", "PatternIdList", "TemplateDisposition", "TemplateInstanceId", "ContextProcessTagsAsString",
+      "ParentProcessPatternIdList", "GrandparentProcessPatternIdList"],
+  },
   // Not in the card - FDR data dictionary field names (UNVERIFIED against a public sample).
   ScheduledTaskRegistered: {
     required: [...COMMON_REQ, ...CTX, "TaskName"],
@@ -191,6 +210,7 @@ const NAME_SUFFIX: Record<string, string> = {
   ProcessRollup2: "V19", DnsRequest: "V5", NetworkConnectIP4: "V5", NetworkReceiveAcceptIP4: "V5", PeFileWritten: "V14",
   NewScriptWritten: "V12", OoxmlFileWritten: "V12", ZipFileWritten: "V12", GenericFileWritten: "V12",
   AsepValueUpdate: "V7", RegGenericValueUpdate: "V7", UserLogon: "V8", UserLogonFailed2: "V2", ScheduledTaskRegistered: "V3",
+  FalconProcessHandleOpDetectInfo: "V1", // both Elastic FDR samples: name "FalconProcessHandleOpDetectInfoV1"
 };
 const INTEGRITY: Record<string, string> = { low: "4096", medium: "8192", high: "12288", system: "16384" };
 const CONSOLE = new Set(["cmd.exe", "powershell.exe", "pwsh.exe", "cscript.exe", "reg.exe", "net.exe", "net1.exe", "certutil.exe", "wmic.exe",
@@ -433,6 +453,51 @@ function logon(b: Base, ev: TelemetryEvent): { simple: string; rec: Record<strin
   };
 }
 
+// ── handle operations ────────────────────────────────────────────────────────
+
+/** Falcon writes the access mask as a decimal string; the facts carry the Windows hex form ("0x1FFFFF"). */
+function desiredAccess(granted?: string): string | undefined {
+  const g = (granted ?? "").trim();
+  if (/^0x[0-9a-f]+$/i.test(g)) return String(parseInt(g, 16));
+  return /^\d+$/.test(g) ? g : undefined;
+}
+
+/**
+ * FalconProcessHandleOpDetectInfo for a cross-process handle open (see the kind schema for sources).
+ * The acting process is ImageFileName / CommandLine / ContextProcessId (its own PR2 TargetProcessId),
+ * its parent ParentImageFileName / ParentCommandLine / ParentProcessId; the opened process is
+ * TargetProcessImageFileName / TargetProcessId. The record names no detection, tactic, technique or
+ * hash: those stay on the detection (Alerts API), which in turn names neither the target nor the mask.
+ */
+function handleOp(b: Base): Record<string, unknown> | null {
+  const { ctx, f, os, u } = b;
+  const a = f.access;
+  const p = f.proc;
+  const path = imagePath(p);
+  if (os !== "Win" || !a || !path) return null;
+  const target: EdrProc = { name: a.name ?? baseName(a.path), path: a.path, pid: a.pid };
+  const targetPath = imagePath(target);
+  if (!targetPath) return null;
+  const parentKnown = !!(f.parent.name || f.parent.path);
+  const parentPath = parentKnown ? imagePath(f.parent) : undefined;
+  const lsass = /^lsass\.exe$/i.test(procName(target) ?? "");
+  return {
+    ...common(b, "FalconProcessHandleOpDetectInfo"),
+    ContextProcessId: upid(ctx, procSeed(ctx, b.scope, p)),
+    ImageFileName: ntDevicePath(path),
+    CommandLine: p.cmdline ?? (path.includes(" ") ? `"${path}"` : path),
+    ParentProcessId: parentKnown ? upid(ctx, procSeed(ctx, b.scope, f.parent)) : undefined,
+    ParentImageFileName: parentPath ? ntDevicePath(parentPath) : undefined,
+    ParentCommandLine: f.parent.cmdline,
+    TargetProcessId: upid(ctx, procSeed(ctx, b.scope, target)),
+    TargetProcessImageFileName: ntDevicePath(targetPath),
+    // lsass.exe runs with its image path as the whole command line (wininit starts it with no arguments).
+    TargetProcessCommandLine: lsass ? "C:\\Windows\\system32\\lsass.exe" : undefined,
+    DesiredAccess: desiredAccess(a.granted),
+    UserName: u.user, UserPrincipal: u.system ? undefined : u.upn,
+  };
+}
+
 // ── alerts ───────────────────────────────────────────────────────────────────
 
 const SEV: Record<string, [number, string]> = { critical: [90, "Critical"], high: [70, "High"], medium: [50, "Medium"], low: [30, "Low"], informational: [10, "Informational"] };
@@ -629,13 +694,14 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   // A task registration is its own sensor event, not a child process of the registrar.
   const task = f.kind === "process" ? taskFacts(ev, f) : null;
   if (task) return out("ScheduledTaskRegistered", scheduledTask(b, task));
-  // A handle opened on lsass.exe: FDR keeps no generic cross-process telemetry - the sensor reports the
-  // credential-dumping behaviour as a detection (card: FalconProcessHandleOpDetectInfo feeds the IOA), so
-  // the record is that alert on the opening process, never a ProcessRollup2 that drops the lsass access.
-  if (f.kind === "process" && f.access && /^lsass\.exe$/i.test(f.access.name ?? "")) {
-    const techniqueId = ev.mitre_technique ?? "T1003.001";
-    const detection = { techniqueId, tactic: ev.mitre_tactic ?? "Credential Access", severity: ev.severity, action: "detected" as const };
-    return out("alert", alert({ ...b, f: { ...f, kind: "detection", detection } }, ev));
+  // A handle opened on lsass.exe (or a row authored as Falcon's handle-op record): FDR records it as
+  // FalconProcessHandleOpDetectInfo, the handle-operation record the sensor logs with a handle-op
+  // detection. It names the opened process and the requested mask, which neither the Alerts API resource
+  // nor a ProcessRollup2 of the opener carries. A row that is itself a product verdict (f.kind
+  // "detection") still renders as the Alerts API alert below.
+  if (f.kind === "process" && f.access && (/^lsass\.exe$/i.test(f.access.name ?? "") || ev.raw?.["crowdstrike.event_simpleName"] === "FalconProcessHandleOpDetectInfo")) {
+    const rec = handleOp(b);
+    if (rec) return out("FalconProcessHandleOpDetectInfo", rec);
   }
   switch (f.kind) {
     case "process": return out("ProcessRollup2", processRollup2(b));
@@ -719,6 +785,14 @@ const useCases: UseCase[] = [
     logic: "Alerts API: filter=product:'epp'+technique_id:*'T1003*',technique_id:*'T1555*'  (LogScale on NG-SIEM: #repo=detections technique_id=/^T(1003|1555)/)",
     match: { any: [{ field: "technique_id", op: "regex", value: "^T(1003|1555)" }, { field: "tactic", op: "eq", value: "Credential Access" }] },
     falsePositives: ["Approved red-team / pentest windows (confirm the engagement ticket)", "Password-manager or backup agents reading browser stores"],
+  },
+  {
+    id: "crowdstrike.lsass_handle_open", title: "Process opened a handle to lsass.exe", sourceId: "crowdstrike",
+    kinds: ["FalconProcessHandleOpDetectInfo"], severity: "critical", mitre: ["T1003.001"],
+    description: "FalconProcessHandleOpDetectInfo is the handle-operation record Falcon logs with a handle-op detection: TargetProcessImageFileName is the opened process (an NT device path) and DesiredAccess the requested mask as a decimal string (2097151 = 0x1FFFFF, PROCESS_ALL_ACCESS; 4112 = 0x1010, PROCESS_QUERY_LIMITED_INFORMATION + PROCESS_VM_READ). A non-security process asking for memory-read rights on lsass.exe is credential dumping until proven otherwise. ImageFileName / CommandLine name the opener; ContextProcessId joins to its ProcessRollup2.TargetProcessId.",
+    logic: "LogScale: #event_simpleName=FalconProcessHandleOpDetectInfo TargetProcessImageFileName=/\\\\lsass\\.exe$/i | table([@timestamp, aid, ComputerName, ImageFileName, CommandLine, DesiredAccess, ContextProcessId])",
+    match: { all: [{ field: "event_simpleName", op: "eq", value: "FalconProcessHandleOpDetectInfo" }, { field: "TargetProcessImageFileName", op: "regex", value: "\\\\lsass\\.exe$" }] },
+    falsePositives: ["Other security agents and backup / monitoring tools that query LSASS (check the signer and prevalence of ImageFileName)"],
   },
   {
     id: "crowdstrike.high_severity_not_prevented", title: "High/critical detection with no prevention action", sourceId: "crowdstrike",

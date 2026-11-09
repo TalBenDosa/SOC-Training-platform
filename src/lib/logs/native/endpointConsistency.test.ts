@@ -210,7 +210,10 @@ describe("decisive endpoint evidence keeps its native shape", () => {
     const s1 = render("sentinelone", "ntlm_09_lsass_dump");
     expect([s1.kind, (s1.record as Rec)["tgt.process.name"], (s1.record as Rec)["src.process.name"]]).toEqual(["Open Remote Process Handle", "lsass.exe", "rundll32.exe"]);
     const cs = render("crowdstrike", "ntlm_09_lsass_dump");
-    expect([cs.kind, (cs.record as Rec).technique_id, (cs.record as Rec).filename]).toEqual(["alert", "T1003.001", "rundll32.exe"]);
+    // Falcon's FDR handle-op record: target as an NT device path, the mask as a decimal string.
+    const csr = cs.record as Rec;
+    expect([cs.kind, csr.TargetProcessImageFileName, csr.DesiredAccess]).toEqual(["FalconProcessHandleOpDetectInfo", "\\Device\\HarddiskVolume3\\Windows\\System32\\lsass.exe", "2097151"]);
+    expect(String(csr.ImageFileName)).toMatch(/^\\Device\\HarddiskVolume3\\.*\\rundll32\.exe$/i);
     const sm = render("sysmon", "ntlm_09_lsass_dump");
     expect([sm.kind, (sm.record as Rec).TargetImage, (sm.record as Rec).GrantedAccess]).toEqual(["10", "C:\\Windows\\System32\\lsass.exe", "0x1FFFFF"]);
     // Every product gives lsass.exe the same pid (one process instance per host).
