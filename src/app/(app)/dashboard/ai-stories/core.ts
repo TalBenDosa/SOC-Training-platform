@@ -585,8 +585,9 @@ function buildClaudeDeparture(): TelemetryEvent[] {
     // 2. Baseline - ordinary daytime Claude use from the office.
     claudeEvent({
       id: "aicld2", ts: "2026-09-24T11:26:33.140Z", type: "claude_chat_created", ...base, ip: OFFICE_IP,
+      projectId: "proj:sales-ops-team", chatId: "chat:sales-ops-weekly",
       severity: "informational", isBaseline: true,
-      description: "a.kaplan started a Claude Enterprise chat at 11:26 from the corporate office egress address, outside any project and with no file upload: the account's usual daytime pattern on the company's AI workspace.",
+      description: "a.kaplan started a Claude Enterprise chat at 11:26 from the corporate office egress address, inside the sales team's long-standing shared project, with no file upload: the account's usual daytime pattern on the company's AI workspace.",
     }),
 
     // 3-5. Evening SharePoint downloads to the corporate laptop, from the home connection.

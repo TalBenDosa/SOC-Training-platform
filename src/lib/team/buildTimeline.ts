@@ -38,6 +38,7 @@ import { itsmNoise, ticketRecord } from "./itsmNoise";
 import { buildDecoy, buildTwist, fwFlavour, pickInjectTexts, type InjectText } from "./msel";
 import { emptyHistory, streamOf, type VarietyHistory, type VarietyRecord } from "./variety";
 import { webNoise } from "./webNoise";
+import { NoiseDeck } from "@/app/(app)/dashboard/noiseDeck";
 import { applyStack, fitsStack, stackFor, storyFitsOrg, storyFitsStack, storyHonoursLocks, withCanonicalPids } from "@/lib/logs/native";
 import { categoryOf, PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 import { storyThemes, type StoryCategory } from "./storyCategory";
@@ -55,8 +56,12 @@ export const BONUS_HOLD_MS = 1_000_000_000_000_000;
 
 /** Share of the visible feed that is ordinary traffic before the first attack row. */
 const WARMUP_MIN = 0.10;
-/** Logs behind the MSEL injects, added after placement: the twist's two or three rows + the decoy's ticket, earlier batch and two uploads. */
-const MSEL_SUPPORT_ROWS = 7;
+/**
+ * Logs behind the MSEL injects, added after placement: the twist's two to four rows (a dropped file,
+ * its DNS lookup, the firewall row and the EDR row) + the decoy's ticket, earlier batch and two uploads.
+ * The most it can be, so the warm-up holds whichever twist is drawn.
+ */
+const MSEL_SUPPORT_ROWS = 8;
 /** Ordinary telemetry (benign pool rows) per attack row in the feed: the floor no load trims below. */
 export const ORDINARY_PER_ATTACK_ROW = 2;
 /** Share of the feed ServiceNow records may take (approvals that prove a decoy first, unrelated tickets after). */
@@ -129,6 +134,61 @@ function isBlockedAttempt(e: TelemetryEvent): boolean {
  * every story event to tp punished the analysts who read them correctly.
  */
 const PRIVATE_IP = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
+
+/**
+ * Unrelated tickets a session always shows, so "a ticket" never marks an attack: two, unless the feed
+ * already carries two or more tickets that explain no attack (pool approvals, a decoy's ticket), which
+ * do that job, and more would push tickets past ITSM_SHARE of a small team's feed (R8).
+ */
+const unrelatedTicketMin = (benignTickets: number) => (benignTickets >= 2 ? 0 : 2 - benignTickets);
+/** Sources whose records are an endpoint's own telemetry. */
+const ENDPOINT_SOURCES = new Set<string>(["edr", "sysmon", "av", "windows_security", "linux_audit"]);
+/** A ServiceNow record (R8 counts these as the feed's tickets). */
+const isTicketRow = (e: TelemetryEvent) => (e.source as string) === "servicenow" || /servicenow/i.test(e.vendor ?? "");
+
+/** Failed sign-in rows a burst is made of (R7 counts the same kinds). */
+const AUTH_FAIL = new Set(["auth_failure", "ssh_failed", "vpn_failed", "db_failed", "mfa_denied"]);
+/** Story rows authored at most this far apart belong to one run. */
+const BURST_GAP_MS = 45_000;
+/** A run is a burst when it holds this many failed sign-ins. */
+const BURST_MIN_FAILS = 5;
+
+/**
+ * R7: a burst stays a burst (as storyFeed.ts does for the solo feed). A band spreads a story's rows
+ * over a third of the shift, which stretched a spray of 18 failures in 150 seconds over eight minutes.
+ * A run of a story's rows authored at most BURST_GAP_MS apart that holds BURST_MIN_FAILS failed
+ * sign-ins keeps its authored spacing from its first row: every row of the run (a firewall row inside
+ * the spray too, so the story's time map stays monotone) is shown at the run's start plus its authored
+ * offset, never at or past the story's next row. Positions do not change, so nothing else in the
+ * timeline moves (the feed is sorted by time afterwards).
+ */
+function keepAuthBursts(timed: { p: { ev: TelemetryEvent; origin: string; incident?: string; held?: boolean }; at: number }[]): void {
+  const byIncident = new Map<string, { k: number; ms: number }[]>();
+  timed.forEach((x, k) => {
+    if (x.p.origin !== "story" || !x.p.incident) return;
+    const ms = Date.parse(x.p.ev.ts);
+    if (!Number.isFinite(ms)) return;
+    const key = `${x.p.held ? "bonus" : "feed"}|${x.p.incident}`;
+    (byIncident.get(key) ?? byIncident.set(key, []).get(key)!).push({ k, ms });
+  });
+  for (const rows of byIncident.values()) {
+    const s = [...rows].sort((a, b) => a.ms - b.ms || a.k - b.k);
+    for (let i = 0; i < s.length;) {
+      let j = i;
+      while (j + 1 < s.length && s[j + 1].ms - s[j].ms <= BURST_GAP_MS) j++;
+      const run = s.slice(i, j + 1);
+      if (run.length > 1 && run.filter(r => AUTH_FAIL.has(timed[r.k].p.ev.event_type)).length >= BURST_MIN_FAILS) {
+        const head = run[0];
+        const start = timed[head.k].at;
+        const span = run[run.length - 1].ms - head.ms;
+        const limit = j + 1 < s.length ? timed[s[j + 1].k].at - 1_000 : Infinity;
+        const f = span > 0 ? Math.max(0, Math.min(1, (limit - start) / span)) : 1;
+        for (const r of run) timed[r.k].at = start + Math.round((r.ms - head.ms) * f);
+      }
+      i = j + 1;
+    }
+  }
+}
 export function classifyStoryEvent(ev: TelemetryEvent): TeamVerdict {
   if (ev.is_baseline) return "benign";
   // One rule for context rows in every story (expert review P0-6): a user's ordinary internal
@@ -633,10 +693,51 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   {
     const inFeed = new Set(noise.map(n => n.ev));
     let ordinary = noise.filter(n => n.verdict === "benign").length;
-    for (let k = benignN; k < shuffled.length && ordinary < ordinaryFloor; k++) {
+    // R8: tickets stay near ITSM_SHARE of the feed. The tickets a session cannot do without (a story's
+    // own ServiceNow rows, the approvals behind decoys and pool rows, the MSEL decoy's ticket and the two
+    // unrelated ones) set how much ordinary telemetry has to surround them.
+    const attackPlaced = [...attack1, ...attack2, ...attack3, ...poolAttacks.flat()];
+    const fixedTickets = [...attackPlaced, ...noise].filter(p => isTicketRow(p.ev)).length + fpRows.filter(isTicketRow).length
+      + fpOut.filter(f => f.ticket).length + [...noise, ...attackPlaced].filter(p => itsmRecordFor(p.ev, companyId)).length
+      + (difficulty !== "easy" ? 1 : 0) + unrelatedTicketMin(noise.filter(p => isTicketRow(p.ev)).length + fpOut.filter(f => f.ticket).length + (difficulty !== "easy" ? 1 : 0));
+    const noiseTicketRows = noise.filter(p => isTicketRow(p.ev)).length;
+    const otherRowsNow = attackPlaced.length + fpRows.length + (noise.length - ordinary - noiseTicketRows) + (difficulty !== "easy" ? MSEL_SUPPORT_ROWS : 0) + fixedTickets;
+    const ticketFloor = Math.ceil(fixedTickets / ITSM_SHARE) - otherRowsNow;
+    // (a pool ticket in the noise is a ticket, not ordinary telemetry)
+    const floor = Math.max(ordinaryFloor, ticketFloor + noiseTicketRows);
+    // The same record twice is a repeat; a third copy is a tell (R8c). The pool holds a few identical
+    // rows (borrowed noise), so the top-up never adds a third of any content.
+    const contentOf = (e: TelemetryEvent) => { const { id: _i, ts: _t, ...rest } = e; void _i; void _t; return JSON.stringify(rest); };
+    const copies = new Map<string, number>();
+    for (const n of noise) { const c = contentOf(n.ev); copies.set(c, (copies.get(c) ?? 0) + 1); }
+    const fresh = (e: TelemetryEvent) => { const c = contentOf(e); if ((copies.get(c) ?? 0) >= 2) return false; copies.set(c, (copies.get(c) ?? 0) + 1); return true; };
+    for (let k = benignN; k < shuffled.length && ordinary < floor; k++) {
       const ev = shuffled[k];
       if (inFeed.has(ev) || classifyPoolEvent(ev) !== "benign") continue;
+      if (k >= benignN && ordinary >= ordinaryFloor && !fresh(ev)) continue;
       noise.push({ ev, origin: "noise", verdict: "benign" }); inFeed.add(ev); ordinary++;
+    }
+    // A small pool runs out (QuantumBank shows about twenty ordinary rows): recurring telemetry comes
+    // back as the same activity by another person of the company on their own machine (noiseDeck.ts,
+    // as the solo feed draws it), never as a copy (R8c).
+    if (ordinary < floor) {
+      const deck = new NoiseDeck(noiseCandidates.filter(e => classifyPoolEvent(e) === "benign"), mulberry32(hashSeed(`${companyId}:${difficulty}:${seed}:noise-variants`)));
+      const ids = new Set(noise.map(n => String(n.ev.id ?? "")));
+      const perOrigin = new Map<string, number>();
+      for (let tries = 0; ordinary < floor && tries < floor * 12; tries++) {
+        const ev = deck.next();
+        if (!ev) break;
+        // An endpoint's own telemetry stays with its records (the EDR console, the workbench and the XDR
+        // tables build one process from them): a person moved onto a server's process row is not.
+        const vm = /^(.*)_v\d+$/.exec(String(ev.id ?? ""));
+        if (vm && (ENDPOINT_SOURCES.has(ev.source) || (ev.hostname && attackHosts.has(ev.hostname)))) continue;
+        // Four more instances of one ordinary record at most, each by another person: nine people pulling
+        // the same vault password on one server in an hour is a pattern of its own.
+        if (vm && (perOrigin.get(vm[1]) ?? 0) >= 4) continue;
+        if (inFeed.has(ev) || ids.has(String(ev.id ?? "")) || !fresh(ev)) continue;
+        if (vm) perOrigin.set(vm[1], (perOrigin.get(vm[1]) ?? 0) + 1);
+        noise.push({ ev, origin: "noise", verdict: "benign" }); inFeed.add(ev); ids.add(String(ev.id ?? "")); ordinary++;
+      }
     }
   }
   // Each maker's rows land together (a lockout right after its VPN failures) at a seeded point of the
@@ -683,7 +784,10 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   const evidenceTickets = [...noise, ...attack1, ...attack2, ...attack3, ...poolAttacks.flat()].filter(p => itsmRecordFor(p.ev, companyId)).length + linkedTickets.length;
   const otherRows = total + fpRows.length + (difficulty !== "easy" ? MSEL_SUPPORT_ROWS : 0);
   const itsmBudget = Math.round((ITSM_SHARE * otherRows) / (1 - ITSM_SHARE));
-  const noiseTickets = noiseTickets0.slice(0, Math.max(Math.min(2, noiseTickets0.length), itsmBudget - evidenceTickets));
+  // A story's own tickets (a help-desk call, a change it abuses) are in the feed already: they count.
+  const storyTickets = [...attack1, ...attack2, ...attack3, ...poolAttacks.flat(), ...noise].filter(p => isTicketRow(p.ev)).length + fpRows.filter(isTicketRow).length;
+  const benignTickets = noise.filter(p => isTicketRow(p.ev)).length + linkedTickets.length + (difficulty !== "easy" ? 1 : 0);
+  const noiseTickets = noiseTickets0.slice(0, Math.max(Math.min(unrelatedTicketMin(benignTickets), noiseTickets0.length), itsmBudget - evidenceTickets - storyTickets));
   const itsmRows = evidenceTickets + noiseTickets.length;
   const lateRows = itsmRows + fpRows.length + (difficulty !== "easy" ? MSEL_SUPPORT_ROWS : 0);
   const leadMin = Math.min(total - 1, Math.ceil(WARMUP_MIN * (total + lateRows)));
@@ -828,6 +932,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     if (prev) timed[k].at = Math.max(prev.at + 1, prev.at + Math.min(700, Math.floor((timed[k].at - prev.at) / 2)));
     if (e.source === "waf") last.set(key, { at: timed[k].at, n: k });
   }
+  keepAuthBursts(timed);
   const span = timed.length ? timed[timed.length - 1].at : 0;
   // A change ticket's window, now that times are final: minutes around the alert it covers (or around
   // the record itself). Written relative to the record's own time, since the public row is re-timed

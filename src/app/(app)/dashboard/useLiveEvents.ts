@@ -743,7 +743,10 @@ export function useLiveEvents({
     if (owed > 0) {
       // Between the last phase and now; on the first phase, from its first attack row (the incident's window).
       const lead = slice.some(isAttackEvent) ? slice.filter(isAttackEvent) : slice;
-      const firstShown = Math.min(...lead.map(e => Date.parse(e.ts ?? "")).filter(Number.isFinite), now - 60_000);
+      // Never before the first attack row: noise owed for the attack shows while it runs (R8 counts the
+      // incident's window from its first row), so a phase newer than a minute does not push it earlier.
+      const leadTimes = lead.map(e => Date.parse(e.ts ?? "")).filter(Number.isFinite);
+      const firstShown = leadTimes.length ? Math.min(...leadTimes) : now - 60_000;
       const from = Math.max(lastPhaseAtRef.current ?? firstShown, now - 240_000);
       const nt = noiseTimes(owed, from, now - 5_000);
       for (let k = 0; k < owed; k++) {

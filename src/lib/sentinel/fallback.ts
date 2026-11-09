@@ -41,6 +41,7 @@ function build(table: string, ev: TelemetryEvent, tenantId: string, cols: KqlRow
   return { table, row };
 }
 
+const PRIVATE_SRC = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
 const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) && v !== undefined && v !== null && v !== "" ? n : undefined; };
 
 const CEF_VENDOR: [RegExp, string, string][] = [[/imperva/i, "Imperva Inc.", "SecureSphere"], [/guardium/i, "IBM", "Guardium"], [/zscaler/i, "Zscaler", "NSSWeblog"]];
@@ -146,10 +147,15 @@ export function fallbackRow(ev: TelemetryEvent, ctx: NativeCtx, record?: Record<
   }
   switch (ev.source as string) {
     case "ueba":
-      if (/sentinel|xdr/i.test(v)) {
+      // BehaviorAnalytics is Microsoft Sentinel's own UEBA table: it never holds another UEBA product's
+      // records (Exabeam Advanced Analytics, Securonix SNYPR keep their own keys and tables). A Sentinel
+      // UEBA row may name its activity and priority in the table's own columns or the older ueba.* keys;
+      // a row with neither keeps the columns empty rather than reading another product's score.
+      if (/sentinel|xdr/i.test(v) && !/exabeam|securonix|splunk|varonis/i.test(v)) {
         return build("BehaviorAnalytics", ev, tenantId, {
-          UserPrincipalName: user, UserName: user?.split("@")[0], SourceIPAddress: ev.src_ip, SourceDevice: ev.hostname, DestinationIPAddress: ev.dst_ip, ActivityType: r(ev, "ueba.anomaly_type"), ActionType: ev.event_type,
-          EventSource: "SecurityAlert", EventVendor: "Microsoft", InvestigationPriority: num(r(ev, "ueba.risk_score", "ueba.investigation_priority")), ActivityInsights: ev.raw ?? {}, SourceRecordId: ev.id, TimeProcessed: ev.ts, SourceSystem: "Azure",
+          UserPrincipalName: user, UserName: user?.split("@")[0], SourceIPAddress: ev.src_ip, SourceDevice: ev.hostname, DestinationIPAddress: ev.dst_ip,
+          ActivityType: r(ev, "ActivityType", "ueba.anomaly_type"), ActionType: r(ev, "ActionType") ?? ev.event_type,
+          EventSource: "SecurityAlert", EventVendor: "Microsoft", InvestigationPriority: num(r(ev, "InvestigationPriority", "ueba.investigation_priority", "ueba.risk_score")), ActivityInsights: ev.raw ?? {}, SourceRecordId: ev.id, TimeProcessed: ev.ts, SourceSystem: "Azure",
         });
       }
       break;
@@ -233,11 +239,16 @@ export function fallbackRow(ev: TelemetryEvent, ctx: NativeCtx, record?: Record<
       if (/content safety|prompt shields/i.test(v)) return custom(ev, "ThirdPartyLogs_CL", tenantId, record);
       break;
     }
-    case "edr":
+    case "edr": {
+      // LocalIP is the device's own address: on an inbound session (a client reaching a server) that is
+      // the destination, and the client is RemoteIP (R3: one host, one IP).
+      const inboundRow = (ev.network as { direction?: string } | undefined)?.direction === "inbound" || (!!ev.src_ip && !PRIVATE_SRC.test(ev.src_ip) && !!ev.dst_ip && PRIVATE_SRC.test(ev.dst_ip));
+      const [localIp, remoteIp] = inboundRow ? [ev.dst_ip, ev.src_ip] : [ev.src_ip, ev.dst_ip];
       return build("DeviceEvents", ev, tenantId, {
         Timestamp: ev.ts, DeviceId: ctx.hex(`${ctx.companyId}:${deviceKey(ev.hostname ?? "")}`, 40), DeviceName: ev.hostname, ActionType: "SensitiveFileRead", FileName: ev.file?.name, FolderPath: ev.file?.path, SHA256: ev.file?.sha256,
-        AccountName: user?.split("@")[0].split("\\").pop(), AccountUpn: user?.includes("@") ? user : undefined, LocalIP: ev.src_ip, RemoteIP: ev.dst_ip, InitiatingProcessFileName: ev.process?.name, InitiatingProcessCommandLine: ev.process?.cmdline, InitiatingProcessId: ev.process?.pid, SourceSystem: "Azure",
+        AccountName: user?.split("@")[0].split("\\").pop(), AccountUpn: user?.includes("@") ? user : undefined, LocalIP: localIp, RemoteIP: remoteIp, InitiatingProcessFileName: ev.process?.name, InitiatingProcessCommandLine: ev.process?.cmdline, InitiatingProcessId: ev.process?.pid, SourceSystem: "Azure",
       });
+    }
     case "windows_security": case "ad":
       if (/terminalservices/i.test(v)) return eventRow(ev, tenantId, "Microsoft-Windows-TerminalServices-LocalSessionManager", "Microsoft-Windows-TerminalServices-LocalSessionManager/Operational");
       return build("SecurityEvent", ev, tenantId, {
