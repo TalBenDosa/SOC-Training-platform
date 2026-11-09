@@ -14,7 +14,7 @@ import { entraSignIn, entraAudit } from "@/lib/sim/emitters/entra";
 import { sentinelAlert } from "@/lib/sim/emitters/sentinel";
 import { m365Operation } from "@/lib/sim/emitters/m365";
 import { csProcess, csFile, csNetwork } from "@/lib/sim/emitters/crowdstrike";
-import { placeDocAddresses, PLACES } from "./docGeo";
+import { placeDocAddresses, PLACES } from "@/lib/geo/docGeo";
 
 /** Telemetry half of the goldenSaml scenario: the events and the story title, no answer key. */
 export function goldenSamlScenarioEvents() {

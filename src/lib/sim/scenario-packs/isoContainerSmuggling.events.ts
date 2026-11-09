@@ -12,7 +12,7 @@ import { makeSha256 } from "@/lib/sim/iocs";
 import { fgWeb } from "@/lib/sim/emitters/fortigate";
 import { csFile, csProcess, csAlert, csDns, csNetwork } from "@/lib/sim/emitters/crowdstrike";
 import { mailDelivered, mailClick, zoneStream } from "./corroboratingTelemetry.events";
-import { placeDocAddresses, PLACES } from "./docGeo";
+import { placeDocAddresses, PLACES } from "@/lib/geo/docGeo";
 
 /** Telemetry half of `buildIsoContainerSmugglingScenario`: the events and the story title, no answer key. */
 export function isoContainerSmugglingScenarioEvents() {

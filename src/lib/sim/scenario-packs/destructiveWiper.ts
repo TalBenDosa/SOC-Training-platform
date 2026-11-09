@@ -41,7 +41,7 @@ import { fgVpn } from "@/lib/sim/emitters/fortigate";
 import { sysmonProcess, sysmonFile, sysmonDriver } from "@/lib/sim/emitters/sysmon";
 import { mdeProcess } from "@/lib/sim/emitters/mde";
 import { winLogon, winServiceInstall, winDetailedShareAccess, domainSidFor } from "@/lib/sim/emitters/windowsSecurity";
-import { placeDocAddresses, PLACES } from "./docGeo";
+import { placeDocAddresses, PLACES } from "@/lib/geo/docGeo";
 
 export function buildDestructiveWiperScenario(
   scenarioId = "destructive-wiper-2026",

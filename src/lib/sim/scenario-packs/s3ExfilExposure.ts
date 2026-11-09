@@ -42,7 +42,7 @@ import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/li
 import { cloudTrailEvent, guardDutyFinding } from "@/lib/sim/emitters/cloudtrail";
 import { githubAudit } from "@/lib/sim/emitters/github";
 import { awsCloudWatchAlarm } from "./awsCloudWatchAlarm";
-import { placeDocAddresses, PLACES } from "./docGeo";
+import { placeDocAddresses, PLACES } from "@/lib/geo/docGeo";
 
 export function buildS3ExfilExposureScenario(
   scenarioId = "s3-exfil-exposure-2026",

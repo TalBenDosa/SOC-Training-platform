@@ -54,7 +54,7 @@ import { makeSha256 } from "@/lib/sim/iocs";
 import { entraSignIn } from "@/lib/sim/emitters/entra";
 import { mdeAlert } from "@/lib/sim/emitters/mde";
 import { m365Operation } from "@/lib/sim/emitters/m365";
-import { placeDocAddresses, PLACES } from "./docGeo";
+import { placeDocAddresses, PLACES } from "@/lib/geo/docGeo";
 
 export function buildMobileMdmCompromiseScenario(
   scenarioId = "mobile-mdm-compromise-2026",

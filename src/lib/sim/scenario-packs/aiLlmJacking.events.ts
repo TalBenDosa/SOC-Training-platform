@@ -12,7 +12,7 @@ import { makeSha256 } from "@/lib/sim/iocs";
 import { hashString } from "@/lib/sim/rng";
 import { cloudTrailEvent, guardDutyFinding, type CloudTrailOpts } from "@/lib/sim/emitters/cloudtrail";
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
-import { placeDocAddresses, PLACES } from "./docGeo";
+import { placeDocAddresses, PLACES } from "@/lib/geo/docGeo";
 
 /** Telemetry half of `buildAiLlmJackingScenario`: the events and the story title, no answer key. */
 export function aiLlmJackingScenarioEvents() {

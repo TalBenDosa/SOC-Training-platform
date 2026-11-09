@@ -9,7 +9,7 @@
  */
 import type { TelemetryEvent } from "./types";
 import { makeSha256 } from "./iocs";
-import { placeDocAddresses, PLACES } from "./scenario-packs/docGeo";
+import { placeDocAddresses, PLACES } from "@/lib/geo/docGeo";
 
 /** Telemetry half of `buildPhishingToExfil`: the events and the story title, no answer key. */
 export function phishingToExfilEvents() {

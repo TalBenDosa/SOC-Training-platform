@@ -50,7 +50,7 @@ import { csProcess, csAlert, csDns, csNetwork, csFile } from "@/lib/sim/emitters
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
 import { m365Operation } from "@/lib/sim/emitters/m365";
 import { sentinelAlert } from "@/lib/sim/emitters/sentinel";
-import { placeDocAddresses, PLACES } from "./docGeo";
+import { placeDocAddresses, PLACES } from "@/lib/geo/docGeo";
 
 export function buildEmailBombHelpdeskScenario(
   scenarioId = "email-bomb-helpdesk-2026",

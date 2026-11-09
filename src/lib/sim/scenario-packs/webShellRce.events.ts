@@ -13,7 +13,7 @@ import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
 import { mdeProcess, mdeFile, mdeAlert } from "@/lib/sim/emitters/mde";
 import { panConnection } from "@/lib/sim/emitters/paloalto";
 import { infobloxDns } from "./nativeRecords.events";
-import { placeDocAddresses, PLACES } from "./docGeo";
+import { placeDocAddresses, PLACES } from "@/lib/geo/docGeo";
 
 /** Telemetry half of `buildWebShellRceScenario`: the events and the story title, no answer key. */
 export function webShellRceScenarioEvents() {

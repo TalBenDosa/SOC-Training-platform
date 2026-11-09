@@ -16,7 +16,7 @@ import { m365Operation } from "@/lib/sim/emitters/m365";
 import { winLogon } from "@/lib/sim/emitters/windowsSecurity";
 import { entraObjectId } from "@/lib/logs/native/sources/_identity-common";
 import { makeCtx } from "@/lib/logs/native/ctx";
-import { placeDocAddresses, PLACES } from "./docGeo";
+import { placeDocAddresses, PLACES } from "@/lib/geo/docGeo";
 
 /** Telemetry half of `buildHelpdeskMfaResetScenario`: the events and the story title, no answer key. */
 export function helpdeskMfaResetScenarioEvents() {

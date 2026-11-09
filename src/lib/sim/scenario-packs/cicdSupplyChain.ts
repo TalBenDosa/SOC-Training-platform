@@ -52,7 +52,7 @@ import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/li
 import { githubAudit } from "@/lib/sim/emitters/github";
 import { cloudTrailEvent, guardDutyFinding } from "@/lib/sim/emitters/cloudtrail";
 import { oktaSignIn, oktaMfa } from "@/lib/sim/emitters/okta";
-import { placeDocAddresses, PLACES } from "./docGeo";
+import { placeDocAddresses, PLACES } from "@/lib/geo/docGeo";
 
 export function buildCicdSupplyChainScenario(
   scenarioId = "cicd-supply-chain-2026",

@@ -54,7 +54,7 @@ import { entraSignIn } from "@/lib/sim/emitters/entra";
 import { m365Operation } from "@/lib/sim/emitters/m365";
 import { sentinelUeba } from "@/lib/sim/emitters/sentinel";
 import { mdeProcess, mdeFile, mdeDns, mdeNetwork } from "@/lib/sim/emitters/mde";
-import { placeDocAddresses, PLACES } from "./docGeo";
+import { placeDocAddresses, PLACES } from "@/lib/geo/docGeo";
 
 export function buildUebaCompromisedAccountScenario(
   scenarioId = "ueba-compromised-account-2026",

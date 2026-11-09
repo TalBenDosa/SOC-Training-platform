@@ -13,7 +13,7 @@ import { entraSignIn } from "@/lib/sim/emitters/entra";
 import { panWeb, panConnection } from "@/lib/sim/emitters/paloalto";
 import { csProcess, csFile, csAlert, csDns, csNetwork } from "@/lib/sim/emitters/crowdstrike";
 import { m365Operation } from "@/lib/sim/emitters/m365";
-import { placeDocAddresses, PLACES } from "./docGeo";
+import { placeDocAddresses, PLACES } from "@/lib/geo/docGeo";
 
 /** Telemetry half of `buildInfostealerSessionTheftScenario`: the events and the story title, no answer key. */
 export function infostealerSessionTheftScenarioEvents() {

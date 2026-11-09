@@ -46,7 +46,7 @@
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { fgWeb } from "@/lib/sim/emitters/fortigate";
-import { placeDocAddresses, PLACES } from "./docGeo";
+import { placeDocAddresses, PLACES } from "@/lib/geo/docGeo";
 
 export function buildGwsOauthMarketplaceScenario(
   scenarioId = "gws-oauth-marketplace-2026",
