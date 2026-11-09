@@ -33,8 +33,6 @@ interface BurstPlan {
   attempts: Attempt[];
   /** Authored rows that already are attempts of the burst: they get the account the burst gives them. */
   own?: Record<string, string>;
-  /** Authored rows whose technique the burst corrects (a one-account guess tagged as a spray). */
-  retag?: Record<string, string>;
   /** People of the company the noise pool never shows, for a directory too small to spray from. */
   spare?: string[];
 }
@@ -97,7 +95,6 @@ const PLANS: Record<string, BurstPlan> = {
   // (the alert's "12 failed") then the session mc_c2 opens. One account is guessing, not a spray.
   "medcore-chain-c": {
     template: "mc_c1", anchor: "mc_c2", draws: 0,
-    retag: { mc_c1: "T1110.001" },
     attempts: rounds([Array(11).fill("p.hoekstra@medcorehealth.org")], -131.5, 11.2, 0),
   },
   // SSH password guessing for root from 198.51.100.97: SRV-GL-LINUX01 first, then SRV-GL-APP02,
@@ -262,17 +259,12 @@ export function withAuthBurst(storyId: string, events: TelemetryEvent[], pool: T
   const who = (u: string) => (u.startsWith("#") ? drawn[Number(u.slice(1))] : u);
   // A drawn slot the company cannot fill (a tiny directory) is left out rather than invented.
   const attempts = plan.attempts.filter(a => who(a.user));
-  const tech = plan.retag?.[plan.template];
-  const rows = attempts.map((a, i) => {
-    const row = attemptRow(tpl, `${plan.template}_b${String(i + 1).padStart(2, "0")}`, new Date(t0 + Math.round(a.at * 1000)).toISOString(), who(a.user)!, a.outcome ?? "fail", a.host, i + 1);
-    return tech ? { ...row, mitre_technique: tech } : row;
-  });
+  const rows = attempts.map((a, i) =>
+    attemptRow(tpl, `${plan.template}_b${String(i + 1).padStart(2, "0")}`, new Date(t0 + Math.round(a.at * 1000)).toISOString(), who(a.user)!, a.outcome ?? "fail", a.host, i + 1));
   const patched = events.map(e => {
     let out = e;
     const owner = plan.own?.[e.id];
     if (owner && who(owner) && !e.user_email) out = withAccount(out, who(owner)!);
-    const t = plan.retag?.[e.id];
-    if (t) out = { ...out, mitre_technique: t };
     // The spray is now in the feed: the 4740 keeps only the domain controller's side (4776) for the XDR tables.
     if (fromBurst && e.id === fromBurst.anchor.id) {
       const b = fromBurst.burst;

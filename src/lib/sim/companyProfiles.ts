@@ -3470,7 +3470,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     id: "mc_c1", ts: "2026-05-10T13:10:00.000Z", source: "vpn", event_type: "auth_failure",
     severity: "medium", vendor: "Cisco AnyConnect", user_email: "p.hoekstra@medcorehealth.org", src_ip: "198.51.100.216",
     description: "12 failed VPN authentications for p.hoekstra from 198.51.100.216 (Kyiv, UA) in five minutes",
-    mitre_technique: "T1110.003",
+    mitre_technique: "T1110.001",
     raw: { "cisco.asa.message_id": "113005", "event.outcome": "failure", "cisco.asa.reason": "AAA failure", "cisco.asa.username": "p.hoekstra", "cisco.asa.tunnel_group": "Physicians-Full", "source.ip": "198.51.100.216", "source.geo.country_iso_code": "UA", "source.geo.city_name": "Kyiv", "action_result": "blocked" }
   },
   {
@@ -3530,7 +3530,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
            "source.geo.city_name": "Saint Petersburg",
            "action_result": "allowed" }
   },
-  chainAlert({ id: "mc_d3b", ts: "2026-05-10T18:05:40.000Z", name: "Brute force followed by a successful VPN login", product: "Azure Sentinel", severity: "High", mitre: "T1110.003", user: "l.willems@medcorehealth.org", ip: "198.51.100.167", props: {"Failed Attempts": "89", "Targeted Usernames": "9", "Locked Accounts": "dr.dejong, l.bakker", "Successful Account": "l.willems"}, description: "Sentinel raised a High alert: 89 failed AnyConnect authentications against 9 usernames from 198.51.100.167, two lockouts, then a successful login for l.willems." }),
+  chainAlert({ id: "mc_d3b", ts: "2026-05-10T18:05:40.000Z", name: "Brute force followed by a successful VPN login", product: "Azure Sentinel", severity: "High", mitre: "T1110.003", user: "l.willems@medcorehealth.org", ip: "198.51.100.167", props: {"Failed Attempts": "19", "Targeted Usernames": "9", "Locked Accounts": "dr.dejong, l.bakker", "Successful Account": "l.willems"}, description: "Sentinel raised a High alert: 19 failed AnyConnect authentications against 9 usernames from 198.51.100.167, two lockouts, then a successful login for l.willems." }),
   {
     id: "mc_d4", ts: "2026-05-10T18:08:00.000Z", source: "edr", event_type: "net_connection",
     severity: "critical", vendor: "SentinelOne", hostname: "WS-NURS-022", src_ip: "198.51.100.167",
@@ -3851,7 +3851,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
            "source.geo.country_name": "China", "source.geo.city_name": "Shenzhen",
            "action_result": "allowed" }
   },
-  chainAlert({ id: "rs_d3b", ts: "2026-05-10T18:15:40.000Z", name: "Okta successful sign-in after a password spray from the same IP", product: "Azure Sentinel", severity: "High", mitre: "T1110.003", user: "n.shapiro@rocketstack.io", ip: "198.51.100.217", props: {"Failed Sign-ins From IP": "78", "Distinct Usernames": "24", "Successful Account": "n.shapiro"}, description: "Sentinel raised a High alert: 78 failed Okta sign-ins across 24 usernames from 198.51.100.217, then a successful sign-in for n.shapiro from the same address." }),
+  chainAlert({ id: "rs_d3b", ts: "2026-05-10T18:15:40.000Z", name: "Okta successful sign-in after a password spray from the same IP", product: "Azure Sentinel", severity: "High", mitre: "T1110.003", user: "n.shapiro@rocketstack.io", ip: "198.51.100.217", props: {"Failed Sign-ins From IP": "15", "Distinct Usernames": "11", "Successful Account": "n.shapiro"}, description: "Sentinel raised a High alert: 15 failed Okta sign-ins across 11 usernames from 198.51.100.217, then a successful sign-in for n.shapiro from the same address." }),
   {
     id: "rs_d4", ts: "2026-05-10T18:17:00.000Z", source: "cloudtrail", event_type: "cloud_storage_access",
     severity: "critical", vendor: "AWS CloudTrail", src_ip: "198.51.100.217",
@@ -4031,7 +4031,7 @@ const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
            "source.geo.country_iso_code": "UA",
            "action_result": "allowed" }
   },
-  chainAlert({ id: "gl_d3b", ts: "2026-05-10T18:10:30.000Z", name: "SSH brute force followed by a successful root login", product: "Azure Sentinel", severity: "High", mitre: "T1110.001", host: "SRV-GL-APP02", ip: "198.51.100.97", props: {"SSH Connections From IP": "129", "Target Account": "root", "Hosts Targeted": "SRV-GL-LINUX01, SRV-GL-APP02"}, description: "Sentinel raised a High alert for SRV-GL-APP02: 129 short SSH connections from 198.51.100.97 across two servers, then an accepted password login for root." }),
+  chainAlert({ id: "gl_d3b", ts: "2026-05-10T18:10:30.000Z", name: "SSH brute force followed by a successful root login", product: "Azure Sentinel", severity: "High", mitre: "T1110.001", host: "SRV-GL-APP02", ip: "198.51.100.97", props: {"Failed SSH Passwords From IP": "14", "Target Account": "root", "Hosts Targeted": "SRV-GL-LINUX01, SRV-GL-APP02"}, description: "Sentinel raised a High alert for SRV-GL-APP02: 14 failed SSH passwords for root from 198.51.100.97 across two servers, then an accepted password login for root." }),
   {
     id: "gl_d4", ts: "2026-05-10T18:13:00.000Z", source: "edr", event_type: "linux_execve",
     severity: "critical", vendor: "Sophos Intercept X", hostname: "SRV-GL-APP02",
@@ -4178,7 +4178,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
            "source.geo.city_name": "Saint Petersburg",
            "action_result": "allowed" }
   },
-  chainAlert({ id: "qb_d3b", ts: "2026-05-10T18:25:40.000Z", name: "Password spray against a privileged group followed by a new-device sign-in", product: "Azure Sentinel", severity: "High", mitre: "T1110.003", user: "h.weber@quantumbank.ch", ip: "198.51.100.203", props: {"Failed Attempts": "94", "Target Group": "SWIFT-Operators", "New Device": "true", "Successful Account": "h.weber"}, description: "Sentinel raised a High alert: 94 failed Okta sign-ins against the SWIFT-Operators group, then a sign-in for h.weber from 198.51.100.203 on a device not seen before." }),
+  chainAlert({ id: "qb_d3b", ts: "2026-05-10T18:25:40.000Z", name: "Password spray against a privileged group followed by a new-device sign-in", product: "Azure Sentinel", severity: "High", mitre: "T1110.003", user: "h.weber@quantumbank.ch", ip: "198.51.100.203", props: {"Failed Attempts": "19", "Target Group": "SWIFT-Operators", "New Device": "true", "Successful Account": "h.weber"}, description: "Sentinel raised a High alert: 19 failed Okta sign-ins against the SWIFT-Operators group, then a sign-in for h.weber from 198.51.100.203 on a device not seen before." }),
   {
     id: "qb_d4", ts: "2026-05-10T18:27:00.000Z", source: "proxy", event_type: "http_request",
     severity: "critical", vendor: "Zscaler Internet Access", src_ip: "198.51.100.203",
