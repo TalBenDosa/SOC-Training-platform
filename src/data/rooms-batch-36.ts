@@ -69,12 +69,6 @@ const tccWriteEvent: TelemetryEvent = {
     "host.os.name": "macOS",
     "host.os.version": "14.5",
     "user.name": "root",
-    "threat.technique.id": "T1548",
-    "threat.technique.subtechnique.id": "T1548.006",
-    "threat.technique.name": "Abuse Elevation Control Mechanism: TCC Manipulation",
-    "threat.tactic.name": "Privilege Escalation",
-    "threat.tactic.id": "TA0004",
-    "event.outcome": "success",
   },
 };
 
@@ -126,12 +120,6 @@ const osascriptChainEvent: TelemetryEvent = {
     "host.os.name": "macOS",
     "host.os.version": "14.5",
     "user.name": "d.peretz",
-    "threat.technique.id": "T1059",
-    "threat.technique.subtechnique.id": "T1059.002",
-    "threat.technique.name": "Command and Scripting Interpreter: AppleScript",
-    "threat.tactic.name": "Execution",
-    "threat.tactic.id": "TA0002",
-    "event.outcome": "success",
   },
 };
 
@@ -167,13 +155,12 @@ const benignNotarizedInstallEvent: TelemetryEvent = {
     "process.executable": "/Applications/Notion.app/Contents/MacOS/Notion",
     "process.code_signature.exists": true,
     "process.code_signature.trusted": true,
-    "process.code_signature.subject_name": "Developer ID Application: Notion Labs, Inc. (LBQG3xxxxx)",
+    "process.code_signature.subject_name": "Developer ID Application: Notion Labs, Inc. (LBQJ96FQ8D)",
     "file.code_signature.trusted": true,
     "host.name": "MAC-6610",
     "host.os.name": "macOS",
     "host.os.version": "14.5",
     "user.name": "r.golan",
-    "event.outcome": "success",
   },
 };
 
