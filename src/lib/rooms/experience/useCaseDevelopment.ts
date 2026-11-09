@@ -294,8 +294,8 @@ export const USE_CASE_DEVELOPMENT: RoomExperience = {
         ],
         events: [
           { id: "a1", label: "Purple test: cmd.exe wipes copies on MDA-LAB-02", bad: true, values: { hosts: 2, runs: 1 } },
-          { id: "a2", label: "Purple test: fake ksagent.exe on MDA-LAB-03", bad: true, values: { hosts: 1, runs: 1 } },
-          { id: "a3", label: "Purple test: stolen svc_keelsafe on MDA-LAB-03", bad: true, values: { hosts: 2, runs: 1 } },
+          { id: "a2", label: "Purple test: ksagent.exe from a user folder on MDA-LAB-03", bad: true, values: { hosts: 1, runs: 1 } },
+          { id: "a3", label: "Purple test: svc_keelsafe logon on MDA-LAB-03", bad: true, values: { hosts: 2, runs: 1 } },
           { id: "a4", label: "Sector sample: PsExec service wipes 3 file servers", bad: true, values: { hosts: 3, runs: 1 } },
           { id: "a5", label: "Sector sample: operator retries a failing delete on 2 hosts", bad: true, values: { hosts: 2, runs: 6 } },
           { id: "a6", label: "Sector sample: startup script pushed to 12 servers at once", bad: true, values: { hosts: 12, runs: 1 } },

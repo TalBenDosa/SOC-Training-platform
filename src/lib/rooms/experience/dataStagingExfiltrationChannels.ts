@@ -352,7 +352,7 @@ export const DATA_STAGING_EXFILTRATION_CHANNELS: RoomExperience = {
       {
         kind: "tune",
         title: "Set the Line",
-        prompt: "T1030 exists because detections sit on a size threshold: split the data small and no single transfer crosses the line. So Helene's new rule sums each host's uploads to one destination over an hour, and asks how often that host has used it before. Thursday's upload and the red team's four test thefts are in the table with the normal traffic. Set both dials, then deploy.",
+        prompt: "T1030 exists because detections sit on a size threshold: split the data small and no single transfer crosses the line. So Helene's new rule sums each host's uploads to one destination over an hour, and asks how often that host has used it before. Thursday's upload and the red team's four test runs from the lab hosts are mixed into the table with the normal traffic. Set both dials, then deploy.",
         eventColumn: "Host to destination",
         dials: [
           { id: "mb", label: "MB sent to one destination in an hour", short: "MB/hour", unit: "MB", min: 100, max: 1500, step: 10, start: 1000 },
@@ -360,10 +360,10 @@ export const DATA_STAGING_EXFILTRATION_CHANNELS: RoomExperience = {
         ],
         events: [
           { id: "a1", label: "OPB-ENG-117 to cloudlocker.example, Thursday night", bad: true, values: { mb: 1410, days: 0 } },
-          { id: "a2", label: "Red team: 94 parts of 5 MB to dropbin.example", bad: true, values: { mb: 470, days: 0 } },
-          { id: "a3", label: "Red team: rclone to a personal drive", bad: true, values: { mb: 640, days: 1 } },
-          { id: "a4", label: "Red team: 220 parts of 4 MB over FTP to 203.0.113.70", bad: true, values: { mb: 880, days: 2 } },
-          { id: "a5", label: "Red team: encoded DNS queries to syncrelay.example", bad: true, values: { mb: 6, days: 0 } },
+          { id: "a2", label: "OPB-LAB-006 to dropbin.example, 94 uploads of 5 MB", bad: true, values: { mb: 470, days: 0 } },
+          { id: "a3", label: "OPB-LAB-007 to a personal cloud drive, by rclone.exe", bad: true, values: { mb: 640, days: 1 } },
+          { id: "a4", label: "OPB-LAB-006 to 203.0.113.70, 220 FTP uploads of 4 MB", bad: true, values: { mb: 880, days: 2 } },
+          { id: "a5", label: "OPB-LAB-007 to syncrelay.example, DNS TXT queries only", bad: true, values: { mb: 6, days: 0 } },
           { id: "b1", label: "OPB-BKP-03 to the contracted backup repository", bad: false, values: { mb: 7914, days: 30 } },
           { id: "b2", label: "OPB-CAD-02 to the CAD vendor's licence and sync service", bad: false, values: { mb: 1100, days: 22 } },
           { id: "b3", label: "OPB-MKT-014 to the video host", bad: false, values: { mb: 2412, days: 9 } },

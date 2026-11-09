@@ -350,7 +350,7 @@ export const AI_ATTACKS_SOC_LLM_RISKS: RoomExperience = {
         mode: "any",
         events: [
           { id: "b1", label: "vk-translate: retry bug, one 180k bundle, 50 requests", bad: true, values: { tok: 9000, cap: 180 } },
-          { id: "b2", label: "vk-partner-api, leaked: 4 requests at full context", bad: true, values: { tok: 760, cap: 190 } },
+          { id: "b2", label: "vk-partner-api: 4 requests at full context, from an address outside the partner's range", bad: true, values: { tok: 760, cap: 190 } },
           { id: "b3", label: "vk-ocr-vendor: 470 small requests in a loop", bad: true, values: { tok: 1410, cap: 3 } },
           { id: "b4", label: "vk-old-intern: 1 request, 185k of filler", bad: true, values: { tok: 190, cap: 185 } },
           { id: "b5", label: "vk-contractor: 64 mid-size requests, nobody on shift", bad: true, values: { tok: 640, cap: 10 } },
