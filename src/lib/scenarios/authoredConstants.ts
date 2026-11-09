@@ -6,7 +6,7 @@ import type { LogSource, EventType, IOC } from "@/lib/sim/types";
  * module (not server-only) so both sides import the same source of truth.
  */
 
-// Full set — the server validates against this; an unknown value falls back.
+// Full set, the server validates against this; an unknown value falls back.
 export const LOG_SOURCES: LogSource[] = [
   "edr", "sysmon", "av", "windows_security", "linux_audit",
   "firewall", "ids", "vpn", "proxy", "dns", "dhcp", "nac", "waf", "web_server",

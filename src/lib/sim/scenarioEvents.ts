@@ -2686,12 +2686,12 @@ export function impossibleTravelScenarioEvents() {
   const MIN = 60_000;
 
   const user  = { email: "k.taylor@nexacorp.com", name: "k.taylor", sid: "S-1-5-21-3421479547-3897544621-1789562108-1113" };
-  const isrIp = "77.125.38.201";   // ISP: HOT Mobile — Tel Aviv, Israel
-  const nigIp = "41.203.64.9";     // ISP: MTN Nigeria — Lagos, Nigeria (4,320 km away)
+  const isrIp = "77.125.38.201";   // ISP: HOT Mobile, Tel Aviv, Israel
+  const nigIp = "41.203.64.9";     // ISP: MTN Nigeria, Lagos, Nigeria (4,320 km away)
   const sessionId = "b6f1e2d3-7a84-4c19-9e52-1a0bcf33ee70"; // Entra session shared by the attacker's sign-in and the UAL rows
 
   const events: TelemetryEvent[] = [
-    // ── Step 0: credential origin — password spray that finally succeeds ────────
+    // ── Step 0: credential origin, password spray that finally succeeds ────────
     {
       id: "evt_imp_00_spray", ts: T(-28 * MIN),
       source: "o365", vendor: "Microsoft Entra ID",
@@ -2716,7 +2716,7 @@ export function impossibleTravelScenarioEvents() {
         "source.ip": nigIp,
       },
     },
-    // ── Step 1: Normal Israeli login — baseline ────────────────────────────────
+    // ── Step 1: Normal Israeli login, baseline ────────────────────────────────
     {
       id: "evt_imp_01_baseline", is_baseline: true, ts: T(0),
       source: "vpn", vendor: "Palo Alto Networks PAN-OS",
@@ -2749,7 +2749,7 @@ export function impossibleTravelScenarioEvents() {
       },
     },
 
-    // ── Step 2: VPN login from Nigeria — 4 minutes later — IMPOSSIBLE ─────────
+    // ── Step 2: VPN login from Nigeria, 4 minutes later, IMPOSSIBLE ─────────
     {
       id: "evt_imp_02_impossible", ts: T(4 * MIN),
       source: "vpn", vendor: "Palo Alto Networks PAN-OS",
@@ -2776,14 +2776,14 @@ export function impossibleTravelScenarioEvents() {
         "gp.client_hostname":              "UNKNOWN-DEVICE",
         "gp.device_registered":            "false",
         "gp.auth_method":                  "Azure AD",
-        "gp.mfa_result":                   "not_required",   // MFA bypass — no push sent
+        "gp.mfa_result":                   "not_required",   // MFA bypass, no push sent
         "gp.gateway":                      "gw-nexacorp-emea01",
         "gp.client_os":                    "Windows 10 1909",
         "gp.session_id":                   "gp-sess-4f7c9d2e",
       },
     },
 
-    // ── Step 2b: the Entra sign-in to the GlobalProtect app — single factor, no MFA ─
+    // ── Step 2b: the Entra sign-in to the GlobalProtect app, single factor, no MFA ─
     {
       id: "evt_imp_02b_vpnauth", ts: T(4 * MIN + 20_000),
       source: "o365", vendor: "Microsoft Entra ID",
@@ -2810,7 +2810,7 @@ export function impossibleTravelScenarioEvents() {
       },
     },
 
-    // ── Step 3: O365 login from same Nigerian IP — Entra flags it high risk (impossible travel) ─
+    // ── Step 3: O365 login from same Nigerian IP, Entra flags it high risk (impossible travel) ─
     {
       id: "evt_imp_03_o365", ts: T(6 * MIN),
       source: "o365", vendor: "Microsoft Entra ID",
@@ -2843,7 +2843,7 @@ export function impossibleTravelScenarioEvents() {
       },
     },
 
-    // ── Step 4: Attacker creates email forwarding rule — data exfil prep ───────
+    // ── Step 4: Attacker creates email forwarding rule, data exfil prep ───────
     {
       id: "evt_imp_04_inboxrule", ts: T(9 * MIN),
       source: "o365", vendor: "Microsoft 365 Unified Audit Log",
@@ -2872,7 +2872,7 @@ export function impossibleTravelScenarioEvents() {
       },
     },
 
-    // ── Step 4b: the VPN tunnel is used — internal traffic from the tunnel IP ───
+    // ── Step 4b: the VPN tunnel is used, internal traffic from the tunnel IP ───
     {
       id: "evt_imp_04b_vpn_traffic", ts: T(11 * MIN),
       source: "firewall", vendor: "Palo Alto Networks PAN-OS", event_type: "net_connection",
@@ -2893,7 +2893,7 @@ export function impossibleTravelScenarioEvents() {
       },
     },
 
-    // ── Step 5: Attacker downloads SharePoint files — data collection ──────────
+    // ── Step 5: Attacker downloads SharePoint files, data collection ──────────
     {
       id: "evt_imp_05_sharepoint", ts: T(14 * MIN),
       source: "o365", vendor: "Microsoft 365 Unified Audit Log",
@@ -2929,7 +2929,7 @@ export function impossibleTravelScenarioEvents() {
     },
   ];
 
-  return { title: "Account Compromise — Impossible Travel", events, T, MIN, nigIp };
+  return { title: "Account Compromise, Impossible Travel", events, T, MIN, nigIp };
 }
 
 /** Telemetry half of `buildCloudKeyLeakS3ExfilScenario`: the events and the story title, no answer key. */
@@ -7505,7 +7505,7 @@ export function browserExtensionMalwareScenarioEvents() {
       },
     },
     {
-      // The native-messaging host registration — the HKCU key that makes Chrome
+      // The native-messaging host registration, the HKCU key that makes Chrome
       // willing to launch the host executable. Without this the launch below is impossible.
       id: "evt_bext_00b_nmreg", ts: T(-4 * MIN),
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "registry_set",
@@ -7569,7 +7569,7 @@ export function browserExtensionMalwareScenarioEvents() {
       severity: "high", mitre_technique: "T1059.003",
       // A Chrome extension can't launch processes itself; it messages a registered
       // native-messaging host, which Chrome runs. Here that host is a .cmd wrapper.
-      description: "chrome.exe on WS-MKT-3301 launched its registered native-messaging host — cmd.exe running perf_boost_host.cmd with the extension's chrome-extension:// origin as an argument.",
+      description: "chrome.exe on WS-MKT-3301 launched its registered native-messaging host, cmd.exe running perf_boost_host.cmd with the extension's chrome-extension:// origin as an argument.",
       process: {
         name: "cmd.exe", pid: 9020, parent_name: "chrome.exe", parent_pid: 8816,
         cmdline: `cmd.exe /d /c "\"${nmHostCmd}\" chrome-extension://${extId}/"`,
@@ -7739,7 +7739,7 @@ export function techSupportScamScenarioEvents() {
       hostname: victim.hostname, user_email: victim.email,
       severity: "low",
       file: { path: "C:\\Users\\t.mizrahi\\Downloads\\AnyDesk.exe", sha256: toolHash, size: 4192256 },
-      // The browser wrote the download — chrome.exe is the actor of the file-create.
+      // The browser wrote the download, chrome.exe is the actor of the file-create.
       process: {
         name: "chrome.exe", pid: 4120, path: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
         user: "NEXACORP\\t.mizrahi", integrity: "medium",
@@ -7813,7 +7813,7 @@ export function techSupportScamScenarioEvents() {
       },
     },
     {
-      // The AnyDesk trace file names the incoming session's ID and the remote peer's IP —
+      // The AnyDesk trace file names the incoming session's ID and the remote peer's IP,
       // the only record that identifies the caller.
       id: "evt_rat_03b_trace", ts: T(4 * MIN + 55_000),
       source: "edr", vendor: "SentinelOne", event_type: "file_modify",
@@ -8042,7 +8042,7 @@ export function crackedSoftwareScenarioEvents() {
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "high", mitre_technique: "T1053.005",
       // The installer runs as a Medium-integrity user, so it registers the task to run as
-      // that user (no /ru SYSTEM — that would need admin and fail "Access is denied").
+      // that user (no /ru SYSTEM, that would need admin and fail "Access is denied").
       description: "Office_Pro_2026_Activator_Setup.exe on WS-ENG-2093 ran schtasks.exe to register a task named OfficeLicenseRefresh that launches C:\\ProgramData\\OfficeTools\\svchelper.exe every 30 minutes and at logon.",
       process: {
         name: "schtasks.exe", pid: 6456, parent_name: "Office_Pro_2026_Activator_Setup.exe", parent_pid: 6120,
@@ -8074,7 +8074,7 @@ export function crackedSoftwareScenarioEvents() {
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "high", mitre_technique: "T1053.005",
-      // The task runs as the registering user (y.golan, Medium) — Task Scheduler is the parent.
+      // The task runs as the registering user (y.golan, Medium), Task Scheduler is the parent.
       description: "The OfficeLicenseRefresh task fired on WS-ENG-2093: svchelper.exe was launched by the Windows Task Scheduler service host under y.golan.",
       process: {
         name: "svchelper.exe", pid: 7020, parent_name: "svchost.exe", parent_pid: 1136,
@@ -8107,7 +8107,7 @@ export function crackedSoftwareScenarioEvents() {
       },
     },
     {
-      // Impact: the payload calls out to its C2 — gives the analyst a network indicator and a reason
+      // Impact: the payload calls out to its C2, gives the analyst a network indicator and a reason
       // to treat the host's stored credentials as exposed.
       id: "evt_crack_04b_c2", ts: T(7 * MIN + 45_000),
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "net_connection",
@@ -8187,7 +8187,7 @@ export function maliciousMacroScenarioEvents() {
         "InternetMessageId": msgId,
         "email.from.address": "billing@client-invoices-portal.info",
         "email.to.address": victim.email,
-        "email.subject": "Q3 Invoice Review — Please Confirm by Friday",
+        "email.subject": "Q3 Invoice Review, Please Confirm by Friday",
         "email.attachments.file.name": "Q3_Client_Invoice_Review.docm",
         "email.attachments.file.hash.sha256": docmHash,
         "email.attachments.file.size": 48210,
@@ -8198,7 +8198,7 @@ export function maliciousMacroScenarioEvents() {
       },
     },
     {
-      // The attachment row of the same message — the docm's SHA256 lives here,
+      // The attachment row of the same message, the docm's SHA256 lives here,
       // not in EmailEvents; it is the pivot to the file on the endpoint.
       id: "evt_macro_01b_attachment", ts: T(0),
       source: "o365", vendor: "Microsoft Defender for Office 365", event_type: "email_received",
@@ -8210,7 +8210,7 @@ export function maliciousMacroScenarioEvents() {
         "InternetMessageId": msgId,
         "email.from.address": "billing@client-invoices-portal.info",
         "email.to.address": victim.email,
-        "email.subject": "Q3 Invoice Review — Please Confirm by Friday",
+        "email.subject": "Q3 Invoice Review, Please Confirm by Friday",
         "email.attachments.file.name": "Q3_Client_Invoice_Review.docm",
         "email.attachments.file.hash.sha256": docmHash,
         "email.attachments.file.size": 48210,
@@ -8362,7 +8362,7 @@ export function maliciousMacroScenarioEvents() {
         "InternetMessageId": msgId,
         "email.from.address": "billing@client-invoices-portal.info",
         "email.to.address": victim.email,
-        "email.subject": "Q3 Invoice Review — Please Confirm by Friday",
+        "email.subject": "Q3 Invoice Review, Please Confirm by Friday",
         "email.attachments.file.name": "Q3_Client_Invoice_Review.docm",
         "email.attachments.file.hash.sha256": docmHash,
         "email.direction": "inbound",

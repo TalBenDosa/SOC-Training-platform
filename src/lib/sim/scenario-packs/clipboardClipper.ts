@@ -1,5 +1,5 @@
 /**
- * Scenario pack: "Wrong Wallet — Clipboard Clipper from a Trojanized Utility"
+ * Scenario pack: "Wrong Wallet, Clipboard Clipper from a Trojanized Utility"
  *
  * BEGINNER tier. One user, one laptop, no lateral movement, no credential
  * theft across accounts. A user installs a small "crypto portfolio tracker"
@@ -8,13 +8,13 @@
  * clipboard. Whenever it sees text matching a cryptocurrency wallet address
  * pattern, it silently replaces it with an attacker-controlled address
  * before the paste happens. This is a real and long-running malware
- * category — commercial "clipper" families have circulated since 2017 and
+ * category, commercial "clipper" families have circulated since 2017 and
  * remain common in 2023-2026 bundled with cracked or "free" crypto tools.
  *
  * The teaching point is that the compromise is invisible at the moment it
  * matters. Nothing crashes, nothing pops up, and the only artefact of the
  * theft is that a payment that should have gone to one address went to
- * another — discovered after the money has already moved. The technical
+ * another, discovered after the money has already moved. The technical
  * story an analyst needs to reconstruct is entirely about persistence and
  * a background process quietly reading and writing the clipboard, not
  * about any single dramatic event.
@@ -86,14 +86,14 @@ export function buildClipboardClipperScenario(
       kind: "single",
       options: [
         { value: "hijack", label: "The clipboard format listener registration, followed by repeated rewrites of wallet-pattern text" },
-        { value: "start", label: "The first hidden launch of clipsvc_helper.exe by the installer — running a clipper at all is the theft" },
-        { value: "written", label: "The unsigned 512 KB clipsvc_helper.exe landing in AppData\\Roaming — dropping the clipper is the theft" },
-        { value: "config_pull", label: "The /w/list.json fetch from wallet-cfg-sync.net — pulling the wallet list is the moment funds are taken" },
+        { value: "start", label: "The first hidden launch of clipsvc_helper.exe by the installer, running a clipper at all is the theft" },
+        { value: "written", label: "The unsigned 512 KB clipsvc_helper.exe landing in AppData\\Roaming, dropping the clipper is the theft" },
+        { value: "config_pull", label: "The /w/list.json fetch from wallet-cfg-sync.net, pulling the wallet list is the moment funds are taken" },
       ],
       answer: "hijack",
       xp: 50,
       explanation:
-        "evt_clc_05 only shows a process launching with no window — suspicious, but by itself indistinguishable from a hundred legitimate background helpers. evt_clc_06 is where the behaviour becomes theft: the detection description names the exact APIs (AddClipboardFormatListener, GetClipboardData, SetClipboardData) and states the process is replacing wallet-pattern text with a fixed attacker string. Writing a file (c) is preparation, not action, and fetching a config file (d) is how the substitute address gets updated, not how the theft happens.",
+        "evt_clc_05 only shows a process launching with no window, suspicious, but by itself indistinguishable from a hundred legitimate background helpers. evt_clc_06 is where the behaviour becomes theft: the detection description names the exact APIs (AddClipboardFormatListener, GetClipboardData, SetClipboardData) and states the process is replacing wallet-pattern text with a fixed attacker string. Writing a file (c) is preparation, not action, and fetching a config file (d) is how the substitute address gets updated, not how the theft happens.",
     },
     {
       id: "q2",
@@ -101,15 +101,15 @@ export function buildClipboardClipperScenario(
         "evt_clc_04 shows cmd.exe running a `reg add` command rather than the installer writing the registry key through its own installer routine. Why does that distinction matter for detection?",
       kind: "single",
       options: [
-        { value: "interpreter_signal", label: "Shell-driven persistence is a higher-signal event than an installer's own registry writes — T1059.003 in its own right" },
-        { value: "no_difference", label: "It makes no difference — both paths write the same ClipboardService Run value, and EDR records them identically" },
+        { value: "interpreter_signal", label: "Shell-driven persistence is a higher-signal event than an installer's own registry writes, T1059.003 in its own right" },
+        { value: "no_difference", label: "It makes no difference, both paths write the same ClipboardService Run value, and EDR records them identically" },
         { value: "cmd_malicious", label: "cmd.exe is itself the malicious component here, because a legitimate installer framework has no reason to invoke a shell" },
         { value: "elevation_proof", label: "Spawning cmd.exe shows the installer escalated beyond the privileges the user granted when it was first launched" },
       ],
       answer: "interpreter_signal",
       xp: 50,
       explanation:
-        "Most legitimate installers write their own Run keys directly through the Windows API as part of the installer framework, not by shelling out to cmd.exe with a `reg add` string. A visible interpreter process with a persistence command on its command line is exactly the kind of event EDR behavioural rules are built to catch, and it is why T1059.003 is tracked as its own technique separate from the resulting registry change. cmd.exe (option c) is not inherently malicious — legitimate installers do sometimes call it — but the combination of a hidden shell out plus a persistence-writing command line is the signal worth alerting on. Nothing in the event supports (d): process.parent.pid shows cmd.exe was launched by the already-elevated setup process, not the reverse.",
+        "Most legitimate installers write their own Run keys directly through the Windows API as part of the installer framework, not by shelling out to cmd.exe with a `reg add` string. A visible interpreter process with a persistence command on its command line is exactly the kind of event EDR behavioural rules are built to catch, and it is why T1059.003 is tracked as its own technique separate from the resulting registry change. cmd.exe (option c) is not inherently malicious, legitimate installers do sometimes call it, but the combination of a hidden shell out plus a persistence-writing command line is the signal worth alerting on. Nothing in the event supports (d): process.parent.pid shows cmd.exe was launched by the already-elevated setup process, not the reverse.",
     },
     {
       id: "q3",
@@ -118,7 +118,7 @@ export function buildClipboardClipperScenario(
       hint: "Look at what evt_clc_06 and evt_clc_08 have in common, and how far apart their timestamps are.",
       kind: "single",
       options: [
-        { value: "silent_until_business_impact", label: "A clipper shows almost no side effects until its outcome — a misdirected payment — surfaces in a business process" },
+        { value: "silent_until_business_impact", label: "A clipper shows almost no side effects until its outcome, a misdirected payment, surfaces in a business process" },
         { value: "sensor_offline", label: "The SentinelOne sensor was offline for two days and only resumed sending telemetry when the ticket was raised" },
         { value: "detection_disabled", label: "The clipboard-listener behavioural indicator was disabled in the SentinelOne policy and had to be re-enabled manually" },
         { value: "user_delay", label: "The user noticed the wrong address on the day but waited two days before reporting it to the service desk" },
@@ -126,7 +126,7 @@ export function buildClipboardClipperScenario(
       answer: "silent_until_business_impact",
       xp: 60,
       explanation:
-        "Both evt_clc_06 and evt_clc_08 exist in the log the whole time — evt_clc_06 records the behavioural indicator firing at the two-hour mark, well before the ticket was opened. Nothing here shows the sensor going dark or a policy being disabled; the detection was sitting in the console, unescalated, because nothing about a background clipboard listener trips an urgent alert threshold on its own. That is the actual lesson: this class of malware causes no crash, no ransom note, and no obvious symptom, so the trigger for investigation ends up being a business event — a vendor calling about a missing payment — rather than a security alert being worked promptly.",
+        "Both evt_clc_06 and evt_clc_08 exist in the log the whole time, evt_clc_06 records the behavioural indicator firing at the two-hour mark, well before the ticket was opened. Nothing here shows the sensor going dark or a policy being disabled; the detection was sitting in the console, unescalated, because nothing about a background clipboard listener trips an urgent alert threshold on its own. That is the actual lesson: this class of malware causes no crash, no ransom note, and no obvious symptom, so the trigger for investigation ends up being a business event, a vendor calling about a missing payment, rather than a security alert being worked promptly.",
     },
     {
       id: "q4",
@@ -142,7 +142,7 @@ export function buildClipboardClipperScenario(
       answer: "verify_recent_transfers",
       xp: 60,
       explanation:
-        "A clipper's damage is done at the moment of a paste, not through an account compromise or a lingering network connection — there is no password to reset that undoes a transaction that already settled on a public blockchain, and blockchain transfers cannot be reversed. The only way to know if money actually moved to the wrong place is to go back through every payment initiated from this host during the infection window and check the destination address the recipient actually received against the one the user intended to send. Reimaging (c) and blocking the domain (d) both stop the malware from running again, which matters, but neither one tells you whether a transfer already happened.",
+        "A clipper's damage is done at the moment of a paste, not through an account compromise or a lingering network connection, there is no password to reset that undoes a transaction that already settled on a public blockchain, and blockchain transfers cannot be reversed. The only way to know if money actually moved to the wrong place is to go back through every payment initiated from this host during the infection window and check the destination address the recipient actually received against the one the user intended to send. Reimaging (c) and blocking the domain (d) both stop the malware from running again, which matters, but neither one tells you whether a transfer already happened.",
     },
     {
       id: "q5",
@@ -158,7 +158,7 @@ export function buildClipboardClipperScenario(
       answer: "high_value_low_effort",
       xp: 50,
       explanation:
-        "Cryptocurrency addresses are 26-42+ character random strings that essentially nobody types from memory — the copy-paste workflow is universal, which makes the clipboard a reliable, narrow chokepoint to intercept. A keylogger would capture far more data (most of it useless) and require far more processing to find a wallet address inside it; clipboard interception gets exactly what it wants, every time, with a simple regex match. Option (b) is not really the driver — keylogging is not meaningfully harder — and options (c) and (d) are both factually wrong: the clipboard APIs (GetClipboardData, SetClipboardData, AddClipboardFormatListener) are fully documented, and EDR products do not block file reads by default.",
+        "Cryptocurrency addresses are 26-42+ character random strings that essentially nobody types from memory, the copy-paste workflow is universal, which makes the clipboard a reliable, narrow chokepoint to intercept. A keylogger would capture far more data (most of it useless) and require far more processing to find a wallet address inside it; clipboard interception gets exactly what it wants, every time, with a simple regex match. Option (b) is not really the driver, keylogging is not meaningfully harder, and options (c) and (d) are both factually wrong: the clipboard APIs (GetClipboardData, SetClipboardData, AddClipboardFormatListener) are fully documented, and EDR products do not block file reads by default.",
     },
   ];
 
@@ -169,13 +169,13 @@ export function buildClipboardClipperScenario(
     attack_kind: "clipboard_clipper",
     briefing:
       "A vendor reported that a payment from Noa Peretz never arrived. SentinelOne has a Critical detection open on LAP-5528 for an unsigned AppData process holding a clipboard format listener. Work out what was installed, what it changed, and what it may have affected.",
-    narrative: `At 09:20 Noa Peretz downloaded CryptoTrackerLite_Setup.exe from cryptotracker-lite.io — a small utility to watch a handful of crypto balances she tracked for vendor payments. She installed it two minutes later; the tracker genuinely works, and she used it that afternoon.
+    narrative: `At 09:20 Noa Peretz downloaded CryptoTrackerLite_Setup.exe from cryptotracker-lite.io, a small utility to watch a handful of crypto balances she tracked for vendor payments. She installed it two minutes later; the tracker genuinely works, and she used it that afternoon.
 
-Twenty-one seconds after the real component was written, the same installer wrote a second binary: C:\\Users\\n.peretz\\AppData\\Roaming\\ClipSvc\\clipsvc_helper.exe, 512 KB, unsigned. Five seconds after that, a hidden cmd.exe process — spawned by the installer, not typed by her — ran a 'reg add' command adding ClipboardService to her Run key, pointing at the new binary. Eight seconds later, clipsvc_helper.exe started for the first time with no visible window.
+Twenty-one seconds after the real component was written, the same installer wrote a second binary: C:\\Users\\n.peretz\\AppData\\Roaming\\ClipSvc\\clipsvc_helper.exe, 512 KB, unsigned. Five seconds after that, a hidden cmd.exe process, spawned by the installer, not typed by her, ran a 'reg add' command adding ClipboardService to her Run key, pointing at the new binary. Eight seconds later, clipsvc_helper.exe started for the first time with no visible window.
 
-It sat quietly for just over two hours. Then, at 11:35, it registered as a clipboard format listener and began doing exactly what its name never suggested: watching every copy operation, matching the content against BTC and ETH wallet-address patterns, and — when it matched — silently replacing what she had copied with an address of the attacker's choosing before she could paste it. Sixteen seconds later the host fetched a small JSON file from wallet-cfg-sync.net, the kind of periodic check-in a clipper uses to receive an updated substitute-address list.
+It sat quietly for just over two hours. Then, at 11:35, it registered as a clipboard format listener and began doing exactly what its name never suggested: watching every copy operation, matching the content against BTC and ETH wallet-address patterns, and, when it matched, silently replacing what she had copied with an address of the attacker's choosing before she could paste it. Sixteen seconds later the host fetched a small JSON file from wallet-cfg-sync.net, the kind of periodic check-in a clipper uses to receive an updated substitute-address list.
 
-Nothing crashed. Nothing looked wrong on her screen at any point. Two days later, a vendor called to say a payment had never arrived. That call, not a security alert, is what actually opened this investigation — the SentinelOne detection had been sitting in the console, unescalated, since 11:35 on the day of infection.`,
+Nothing crashed. Nothing looked wrong on her screen at any point. Two days later, a vendor called to say a payment had never arrived. That call, not a security alert, is what actually opened this investigation, the SentinelOne detection had been sitting in the console, unescalated, since 11:35 on the day of infection.`,
     learning_objectives: [
       "Recognise clipboard hijacking (T1115) from a behavioural indicator naming the clipboard APIs involved",
       "Identify a command-interpreter persistence step (T1059.003) as distinct from an installer's own file-write behaviour",
@@ -194,7 +194,7 @@ Nothing crashed. Nothing looked wrong on her screen at any point. Two days later
       { ts: T(2 * MIN + 44_000), phase: "Execution", action: "clipsvc_helper.exe starts silently" },
       { ts: T(2 * HOUR + 15 * MIN), phase: "Collection", action: "Clipboard format listener registered; wallet addresses substituted in place (T1115)" },
       { ts: T(2 * HOUR + 15 * MIN + 16_000), phase: "Command and Control", action: `Periodic config pull from ${c2}` },
-      { ts: T(2 * 24 * HOUR + 3 * HOUR), phase: "Detection", action: "SentinelOne raises a Critical detection and kills the process — two days after infection" },
+      { ts: T(2 * 24 * HOUR + 3 * HOUR), phase: "Detection", action: "SentinelOne raises a Critical detection and kills the process, two days after infection" },
     ],
     questions,
   };

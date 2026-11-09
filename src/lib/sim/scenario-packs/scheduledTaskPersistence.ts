@@ -4,14 +4,14 @@
  * BEGINNER tier. One user, one laptop, no lateral movement, no credential
  * theft across accounts. A user runs a PowerShell "network fix" script she
  * found linked from a forum post. The script itself does very little that
- * looks alarming — it drops one binary — but it also registers a Scheduled
+ * looks alarming, it drops one binary, but it also registers a Scheduled
  * Task that starts that binary every day at 07:50, forever, until someone
  * finds and removes it.
  *
  * The teaching point is persistence as a technique in its own right,
  * independent of whatever the payload turns out to do. The single most
- * important fact in this whole scenario is one command line —
- * `schtasks /create ... /sc daily /st 07:50` — and the single most important
+ * important fact in this whole scenario is one command line,
+ * `schtasks /create ... /sc daily /st 07:50`, and the single most important
  * piece of evidence that the persistence actually works is the same binary
  * launching again, a day later, with a different parent process, at the
  * trigger time.
@@ -113,7 +113,7 @@ export function buildScheduledTaskPersistenceScenario(
         { value: "confirms_task_fired", label: "It confirms the task fired: svchost.exe hosting the Schedule service is exactly the process Windows uses to launch scheduled tasks" },
         { value: "different_malware", label: "It means a second, unrelated implant is now running alongside the first, since the relaunch comes from a different parent under a different PID" },
         { value: "process_injection", label: "It proves netfix_agent.exe injected itself into svchost.exe to borrow a trusted Windows process and hide its activity from endpoint detection" },
-        { value: "irrelevant_detail", label: "The parent process is incidental — the schtasks.exe registration already proved the task works, so the relaunch adds nothing new" },
+        { value: "irrelevant_detail", label: "The parent process is incidental, the schtasks.exe registration already proved the task works, so the relaunch adds nothing new" },
       ],
       answer: "confirms_task_fired",
       xp: 60,
@@ -160,7 +160,7 @@ export function buildScheduledTaskPersistenceScenario(
       options: [
         { value: "chain_of_custody", label: "The full chain: a forum-downloaded script spawned the process that registered the task, targeting a binary the same script had just written to AppData" },
         { value: "daily_trigger", label: "Its daily trigger, IT-managed tasks only run on event triggers such as logon or startup, so a time-based task is the signature of malicious persistence" },
-        { value: "task_path", label: "Its target — a binary in the user's own AppData\\Local, where IT deployment tools never install, rather than Program Files or a managed agent path" },
+        { value: "task_path", label: "Its target, a binary in the user's own AppData\\Local, where IT deployment tools never install, rather than Program Files or a managed agent path" },
         { value: "task_name", label: "The task name NetFixOptimizer, which appears as a known-malicious persistence string in threat-intel feeds and is enough by itself to classify the task" },
       ],
       answer: "chain_of_custody",

@@ -2,7 +2,7 @@
  * Explains a scenario report score (#16 of the team-exercise report).
  *
  * The grade route used to return "Your written report was thin" and a bare
- * 80/100 — the learner could not tell which 20 points they lost or what to do
+ * 80/100, the learner could not tell which 20 points they lost or what to do
  * differently. This module turns the rubric that `scoreScenarioReport()`
  * ALREADY computed into a per-criterion breakdown plus concrete "what you
  * missed" items. It never re-scores: every point value here is read from the
@@ -12,10 +12,10 @@
  *
  * ANSWER-KEY SAFETY: the names of the curated key indicators the learner did
  * NOT cite are part of the answer key. They are released only when the caller
- * says the attempt is genuine (`revealKey` — the same gate that releases the
+ * says the attempt is genuine (`revealKey`, the same gate that releases the
  * debrief: every question answered + a non-empty report). Otherwise the
  * learner gets counts only. Fabricated / misattributed values are echoed back
- * freely — they are the learner's own input, not key material.
+ * freely, they are the learner's own input, not key material.
  */
 import type { ReportScoreResult } from "@/lib/scenarios/reportScoring";
 
@@ -32,7 +32,7 @@ export interface ReportBreakdown {
   items: BreakdownItem[];
   /** True when a wrong verdict capped the report at 49 regardless of the rest. */
   cappedByVerdict: boolean;
-  /** Curated key indicators the report did not cite — null when withheld. */
+  /** Curated key indicators the report did not cite, null when withheld. */
   missedIndicators: string[] | null;
   /** Curated key indicators the report did cite (the learner's own work). */
   citedIndicators: string[];
@@ -72,7 +72,7 @@ export function buildReportBreakdown(input: BreakdownInput): ReportBreakdown {
   const { scored, verdict, verdictReason, indicators, iocs, revealKey } = input;
   const { reportRubric: r, words, expectedVerdict, verdictWrong, reportText } = scored;
 
-  // Which curated key indicators were cited — the same rule reportScoring uses
+  // Which curated key indicators were cited, the same rule reportScoring uses
   // for `iocsCited` (tagged, or named anywhere in the prose).
   const cited = new Set(indicators.map(i => String(i.value).toLowerCase().trim()).filter(Boolean));
   const prose = reportText.toLowerCase();
@@ -87,18 +87,18 @@ export function buildReportBreakdown(input: BreakdownInput): ReportBreakdown {
     {
       key: "verdict", label: "Verdict", points: r.verdict, max: MAX.verdict,
       detail: !verdict
-        ? "No verdict given — the verdict is the headline of the report."
+        ? "No verdict given, the verdict is the headline of the report."
         : verdictWrong
           ? (revealKey
               ? `You called it ${called}; the evidence shows ${expectedVerdict}. A wrong verdict caps the whole report at 49.`
               : `You called it ${called}, and that is not what the evidence shows. A wrong verdict caps the whole report at 49.`)
-          : `Correct — ${expectedVerdict}.`,
+          : `Correct, ${expectedVerdict}.`,
     },
     {
       key: "depth", label: "Depth", points: r.depth, max: MAX.depth,
       detail: words >= DEPTH_FULL_WORDS
-        ? `${words} words — a full write-up.`
-        : `${words} word${words === 1 ? "" : "s"} across notes + reasoning — ${DEPTH_FULL_WORDS}+ earns full marks.`,
+        ? `${words} words, a full write-up.`
+        : `${words} word${words === 1 ? "" : "s"} across notes + reasoning, ${DEPTH_FULL_WORDS}+ earns full marks.`,
     },
     {
       key: "evidence", label: "Evidence", points: r.evidence, max: MAX.evidence,
@@ -112,13 +112,13 @@ export function buildReportBreakdown(input: BreakdownInput): ReportBreakdown {
       key: "reasoning", label: "Reasoning", points: r.reasoning, max: MAX.reasoning,
       detail: reasonWords >= REASONING_FULL_WORDS
         ? `${reasonWords}-word verdict justification.`
-        : `Verdict justification is ${reasonWords} word${reasonWords === 1 ? "" : "s"} — ${REASONING_PARTIAL_WORDS}+ earns partial, ${REASONING_FULL_WORDS}+ full marks.`,
+        : `Verdict justification is ${reasonWords} word${reasonWords === 1 ? "" : "s"}, ${REASONING_PARTIAL_WORDS}+ earns partial, ${REASONING_FULL_WORDS}+ full marks.`,
     },
   ];
 
-  // ── What you missed — most consequential first ────────────────────────────
+  // ── What you missed, most consequential first ────────────────────────────
   const improvements: string[] = [];
-  if (!verdict) improvements.push("State a verdict (malicious or benign) — without it the report can't be acted on.");
+  if (!verdict) improvements.push("State a verdict (malicious or benign), without it the report can't be acted on.");
   else if (verdictWrong) improvements.push(revealKey
     ? `Re-check the verdict: this incident is ${expectedVerdict}. Walk the events in order and ask what each one proves.`
     : "Re-check the verdict. Walk the events in order and ask what each one proves.");
@@ -126,23 +126,23 @@ export function buildReportBreakdown(input: BreakdownInput): ReportBreakdown {
     improvements.push(`Remove indicators that are not in the logs: ${scored.fabricated.slice(0, 5).join(", ")}. Cite only values you can point to in an event.`);
   }
   if (scored.misattributed.length > 0) {
-    improvements.push(`${scored.misattributed.join(", ")} is a known-benign address (public DNS), not adversary infrastructure — don't tag it as an IOC.`);
+    improvements.push(`${scored.misattributed.join(", ")} is a known-benign address (public DNS), not adversary infrastructure, don't tag it as an IOC.`);
   }
   if (missed.length > 0) {
     improvements.push(revealKey
       ? `Key indicators you didn't cite: ${missed.join(", ")}.`
-      : `You cited ${citedIndicators.length} of ${curated.length} key indicators — pull the attacker IPs, domains, hashes and accounts out of the events and tag them.`);
+      : `You cited ${citedIndicators.length} of ${curated.length} key indicators, pull the attacker IPs, domains, hashes and accounts out of the events and tag them.`);
   }
   if (reasonWords < REASONING_FULL_WORDS) {
     improvements.push("Justify the verdict in 25+ words: which events prove it, in what order, and why a benign explanation doesn't fit.");
   }
   if (words < DEPTH_FULL_WORDS) {
-    improvements.push("Write up the full chain in your notes — initial access, what the attacker did on each host, what left the network, and the containment you'd recommend.");
+    improvements.push("Write up the full chain in your notes, initial access, what the attacker did on each host, what left the network, and the containment you'd recommend.");
   }
 
   const total = scored.reportScore;
   const summary =
-    `Report ${total}/100 — verdict ${r.verdict}/${MAX.verdict}, depth ${r.depth}/${MAX.depth}, `
+    `Report ${total}/100, verdict ${r.verdict}/${MAX.verdict}, depth ${r.depth}/${MAX.depth}, `
     + `evidence ${r.evidence}/${MAX.evidence}, reasoning ${r.reasoning}/${MAX.reasoning}`
     + (verdictWrong ? " (capped at 49 by the wrong verdict)." : ".")
     + (improvements.length > 0 ? ` Biggest gap: ${improvements[0]}` : " Nothing major missed.");

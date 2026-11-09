@@ -1,5 +1,5 @@
 /**
- * Scenario: Hypervisor Ransomware — ESXi Datastore Encryption  (EXPERT)
+ * Scenario: Hypervisor Ransomware, ESXi Datastore Encryption  (EXPERT)
  *
  * The platform's other ransomware scenario is a Windows endpoint LockBit chain.
  * This one deliberately lives one layer below the operating systems the SOC is
@@ -93,7 +93,7 @@ export function buildEsxiRansomwareScenario(
       ts: T(0),
       phase: "Initial Access",
       action:
-        "SSL-VPN tunnel established with contractor credentials — VPN-Contractors group has no second factor",
+        "SSL-VPN tunnel established with contractor credentials, VPN-Contractors group has no second factor",
     },
     {
       ts: T(6 * MIN),
@@ -111,7 +111,7 @@ export function buildEsxiRansomwareScenario(
       ts: T(21 * MIN),
       phase: "Privilege Escalation",
       action:
-        "administrator@vsphere.local authenticates — built-in SSO account holds Administrator on root",
+        "administrator@vsphere.local authenticates, built-in SSO account holds Administrator on root",
     },
     {
       ts: T(24 * MIN),
@@ -145,7 +145,7 @@ export function buildEsxiRansomwareScenario(
     },
     {
       ts: T(41 * MIN),
-      phase: "Impact — Service Stop",
+      phase: "Impact, Service Stop",
       action:
         "vim-cmd vmsvc/power.off loop, run in the root shell of each host, stops all 96 VMs (32 + 31 + 33), releasing the locks on their -flat.vmdk files",
     },
@@ -157,13 +157,13 @@ export function buildEsxiRansomwareScenario(
     },
     {
       ts: T(52 * MIN),
-      phase: "Impact — Encryption",
+      phase: "Impact, Encryption",
       action:
         "ELF encryptor runs against /vmfs/volumes/DS-PROD-01 with 20% partial encryption across 32 threads",
     },
     {
       ts: T(56 * MIN),
-      phase: "Impact — Extortion",
+      phase: "Impact, Extortion",
       action:
         "akira_readme.txt copied into every VM folder; virtual disks renamed with a .akira suffix",
     },
@@ -201,7 +201,7 @@ export function buildEsxiRansomwareScenario(
       answer: "tunnel_and_login",
       xp: 75,
       explanation:
-        "10.99.8.44 is the pivot value. The FortiGate is the only device that knows which human that address belongs to; vCenter only ever sees the address. Joining them attributes the whole vSphere intrusion to r.okonkwo's credential. The other pairs are all real and all useful, but each one links two attacker actions to each other — none of them crosses the boundary from an IP address back to an identity, which is the specific question being asked.",
+        "10.99.8.44 is the pivot value. The FortiGate is the only device that knows which human that address belongs to; vCenter only ever sees the address. Joining them attributes the whole vSphere intrusion to r.okonkwo's credential. The other pairs are all real and all useful, but each one links two attacker actions to each other, none of them crosses the boundary from an IP address back to an identity, which is the specific question being asked.",
     },
     {
       id: "q2",
@@ -212,7 +212,7 @@ export function buildEsxiRansomwareScenario(
         {
           value: "no_agent",
           label:
-            "The encryptor ran on the hypervisor, below the guests — and no EDR sensor exists on ESXi",
+            "The encryptor ran on the hypervisor, below the guests, and no EDR sensor exists on ESXi",
         },
         {
           value: "detect_only",
@@ -233,7 +233,7 @@ export function buildEsxiRansomwareScenario(
       answer: "no_agent",
       xp: 100,
       explanation:
-        "The sensors were not bypassed, disabled or fooled — they were never in the room. A Falcon sensor watches processes and file writes inside a guest OS. The encryptor never entered a guest: it opened the -flat.vmdk files from the VMFS layer, which the guest cannot see and the sensor cannot instrument. Detection-only is wrong because a detection-only sensor still writes a detection, and none exists. The signed-binary answer imports a Windows concept — ESXi has no Authenticode and no signature-based execution trust for arbitrary ELF files. Uninstalling agents would itself have generated sensor-removal events on 71 hosts; instead the hosts simply stopped answering, which is what a hard power-off looks like.",
+        "The sensors were not bypassed, disabled or fooled, they were never in the room. A Falcon sensor watches processes and file writes inside a guest OS. The encryptor never entered a guest: it opened the -flat.vmdk files from the VMFS layer, which the guest cannot see and the sensor cannot instrument. Detection-only is wrong because a detection-only sensor still writes a detection, and none exists. The signed-binary answer imports a Windows concept, ESXi has no Authenticode and no signature-based execution trust for arbitrary ELF files. Uninstalling agents would itself have generated sensor-removal events on 71 hosts; instead the hosts simply stopped answering, which is what a hard power-off looks like.",
     },
     {
       id: "q3",
@@ -308,28 +308,28 @@ export function buildEsxiRansomwareScenario(
         {
           value: "t1489",
           label:
-            "T1489 Service Stop — a running VM holds an exclusive lock on its -flat.vmdk, so it must be stopped first",
+            "T1489 Service Stop, a running VM holds an exclusive lock on its -flat.vmdk, so it must be stopped first",
         },
         {
           value: "t1490",
           label:
-            "T1490 Inhibit System Recovery — powering a VM off discards its snapshots and its restore points",
+            "T1490 Inhibit System Recovery, powering a VM off discards its snapshots and its restore points",
         },
         {
           value: "t1486",
           label:
-            "T1486 Data Encrypted for Impact — the power-off is simply the opening stage of the encryption routine",
+            "T1486 Data Encrypted for Impact, the power-off is simply the opening stage of the encryption routine",
         },
         {
           value: "t1529",
           label:
-            "T1529 System Shutdown/Reboot — the outage itself was the objective and encryption was added opportunistically",
+            "T1529 System Shutdown/Reboot, the outage itself was the objective and encryption was added opportunistically",
         },
       ],
       answer: "t1489",
       xp: 100,
       explanation:
-        "This is a mechanical requirement, not a psychological one. ESXi holds an exclusive lock on the -flat.vmdk of every running VM; an encryptor cannot rewrite a locked file, so the disks have to be released first. Stopping the workload to enable the impact is T1489. T1490 is wrong on the facts — VMFS snapshot deltas survive a power-off untouched, and the recovery damage here comes from the encryption of the base disks, not the shutdown. T1486 does apply to the encryptor itself but not to the power-off, which writes nothing; collapsing the two loses the detection opportunity, because the power-off is visible in vCenter minutes before any file changes. T1529 describes shutting down a system as the end goal, whereas here the outage is a side effect of clearing the way.",
+        "This is a mechanical requirement, not a psychological one. ESXi holds an exclusive lock on the -flat.vmdk of every running VM; an encryptor cannot rewrite a locked file, so the disks have to be released first. Stopping the workload to enable the impact is T1489. T1490 is wrong on the facts, VMFS snapshot deltas survive a power-off untouched, and the recovery damage here comes from the encryption of the base disks, not the shutdown. T1486 does apply to the encryptor itself but not to the power-off, which writes nothing; collapsing the two loses the detection opportunity, because the power-off is visible in vCenter minutes before any file changes. T1529 describes shutting down a system as the end goal, whereas here the outage is a side effect of clearing the way.",
     },
   ];
 
@@ -340,7 +340,7 @@ export function buildEsxiRansomwareScenario(
     attack_kind: "ransomware_hypervisor",
     briefing: "The NOC escalated at 22:30: every guest on PROD-CLUSTER-A is unreachable and monitoring shows 71 server sensors offline. The vCenter appliance for that cluster is still responding. Saturday night, with no change window open.",
     narrative:
-      "At 21:40 on a Saturday, a contractor's SSL-VPN credential was used from Sofia. The VPN-Contractors group had never been moved onto FortiToken, so a password was all it took. Within six minutes the tunnel address was sweeping the management VLAN; within fifteen it was spraying vCenter SSO. The account that answered was administrator@vsphere.local — the built-in SSO account that owns the entire inventory. From there the attacker granted a second principal the Administrator role, enabled SSH on three production hosts, opened the ESXi firewall, reset root's password and dropped into a shell on the hypervisor. All 96 VMs on PROD-CLUSTER-A were forced off to release the locks on their virtual disks, and an ELF encryptor was pointed at /vmfs/volumes/DS-PROD-01. Not one of these steps produced an EDR detection, because ESXi cannot run an EDR sensor: the only endpoint-side signal the SOC ever received was 71 Falcon agents going quiet at once. Your job is to reconstruct the chain from vCenter and syslog evidence alone, prove which privileges made each step possible, and identify the point where a single detection rule would have stopped it.",
+      "At 21:40 on a Saturday, a contractor's SSL-VPN credential was used from Sofia. The VPN-Contractors group had never been moved onto FortiToken, so a password was all it took. Within six minutes the tunnel address was sweeping the management VLAN; within fifteen it was spraying vCenter SSO. The account that answered was administrator@vsphere.local, the built-in SSO account that owns the entire inventory. From there the attacker granted a second principal the Administrator role, enabled SSH on three production hosts, opened the ESXi firewall, reset root's password and dropped into a shell on the hypervisor. All 96 VMs on PROD-CLUSTER-A were forced off to release the locks on their virtual disks, and an ELF encryptor was pointed at /vmfs/volumes/DS-PROD-01. Not one of these steps produced an EDR detection, because ESXi cannot run an EDR sensor: the only endpoint-side signal the SOC ever received was 71 Falcon agents going quiet at once. Your job is to reconstruct the chain from vCenter and syslog evidence alone, prove which privileges made each step possible, and identify the point where a single detection rule would have stopped it.",
     learning_objectives: [
       "Trace a hypervisor ransomware chain from VPN initial access through vCenter to an ESXi root shell using only vCenter events and syslog",
       "Explain why endpoint EDR produces no ransomware detection when the encryptor executes on the hypervisor, and reason from missing telemetry",

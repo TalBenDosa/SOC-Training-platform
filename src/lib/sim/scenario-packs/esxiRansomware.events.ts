@@ -13,7 +13,7 @@ import { winLogon } from "@/lib/sim/emitters/windowsSecurity";
 
 /** Telemetry half of `buildEsxiRansomwareScenario`: the events and the story title, no answer key. */
 export function esxiRansomwareScenarioEvents() {
-  // Saturday 13 June 2026, 21:40 UTC — deliberately a weekend evening.
+  // Saturday 13 June 2026, 21:40 UTC, deliberately a weekend evening.
   const B = new Date("2026-06-13T21:40:00Z").getTime();
   const T = (ms: number) => new Date(B + ms).toISOString();
   const MIN = 60_000;
@@ -24,13 +24,13 @@ export function esxiRansomwareScenarioEvents() {
   const esxi = { host: "esx-prod-03.nexacorp.local", ip: "10.20.5.33" };
   const elfHash = makeSha256("akira_esxi_elf_encryptor_v3");
 
-  // EDR↔scenario integration (Phase 4): ONE incident that spans two planes — the
+  // EDR↔scenario integration (Phase 4): ONE incident that spans two planes, the
   // identity side (SSO password spray → vCenter admin → role grant) AND the host
   // side (ESXi shell sessions and the ELF encryptor on the hypervisor, plus the
   // Falcon guest-sensor blackout). edr_scope "hybrid": the analyst pivots to EDR
   // for the endpoint blind-spot (71 guests going offline) while the SSO/permission
   // abuse is investigated on the identity plane, correlated by incident_id.
-  // is_detection is EDR-source only — here the single Falcon AgentOffline alert;
+  // is_detection is EDR-source only, here the single Falcon AgentOffline alert;
   // the ESXi impact events are host telemetry (linux_audit), not EDR detections.
   const INCIDENT = "inc:esxi:1";
 
@@ -176,7 +176,7 @@ export function esxiRansomwareScenarioEvents() {
   });
 
   const events: TelemetryEvent[] = [
-    // ── 0. Baseline — an earlier tunnel for the same contractor, from a different place ──
+    // ── 0. Baseline, an earlier tunnel for the same contractor, from a different place ──
     {
       ...vpnTunnelUp("evt_00_vpn_prior", T(-(2 * 24 * 60 + 13 * 60 + 35) * MIN), {
         remip: "83.8.145.77", tunnelip: "10.99.8.21", country: "Poland", city: "Warsaw", lat: 52.2297, lon: 21.0122, tunnelid: "1874120934",
@@ -193,7 +193,7 @@ export function esxiRansomwareScenarioEvents() {
       description: "NEXACORP-DC recorded a 4624 network logon for r.okonkwo from 10.20.1.1 (FG-EDGE-01), the LDAP bind behind the SSL-VPN login.",
     }),
 
-    // ── 1. Initial access — SSL-VPN, valid credential, no second factor ────────
+    // ── 1. Initial access, SSL-VPN, valid credential, no second factor ────────
     {
       id: "evt_01_vpn_login",
       ts: T(0),
@@ -242,7 +242,7 @@ export function esxiRansomwareScenarioEvents() {
       },
     },
 
-    // ── 2. Discovery — management VLAN, vCenter web UI ────────────────────────
+    // ── 2. Discovery, management VLAN, vCenter web UI ────────────────────────
     {
       id: "evt_02_mgmt_recon",
       ts: T(6 * MIN),
@@ -293,7 +293,7 @@ export function esxiRansomwareScenarioEvents() {
       },
     },
 
-    // ── 3. Credential access — SSO password spray against vCenter ─────────────
+    // ── 3. Credential access, SSO password spray against vCenter ─────────────
     {
       id: "evt_03_sso_spray",
       ts: T(14 * MIN),
@@ -327,7 +327,7 @@ export function esxiRansomwareScenarioEvents() {
       },
     },
 
-    // ── 4. Valid accounts — built-in SSO administrator succeeds ───────────────
+    // ── 4. Valid accounts, built-in SSO administrator succeeds ───────────────
     {
       id: "evt_04_sso_success",
       ts: T(21 * MIN),
@@ -438,7 +438,7 @@ export function esxiRansomwareScenarioEvents() {
       },
     },
 
-    // ── 6. THE SIGNATURE MOVE — SSH turned on across the cluster ──────────────
+    // ── 6. THE SIGNATURE MOVE, SSH turned on across the cluster ──────────────
     {
       id: "evt_06_ssh_enabled",
       ts: T(29 * MIN),
@@ -476,7 +476,7 @@ export function esxiRansomwareScenarioEvents() {
       },
     },
 
-    // ── 7. Impair defenses — host firewall opened for sshServer ───────────────
+    // ── 7. Impair defenses, host firewall opened for sshServer ───────────────
     {
       id: "evt_07_fw_changed",
       ts: T(31 * MIN),
@@ -568,7 +568,7 @@ export function esxiRansomwareScenarioEvents() {
       mitre_technique: "T1021.004",
       mitre_tactic: "Lateral Movement",
       description:
-        "root logged in over SSH to esx-prod-03 from 10.99.8.44 — the VPN tunnel address assigned to r.okonkwo thirty-seven minutes earlier.",
+        "root logged in over SSH to esx-prod-03 from 10.99.8.44, the VPN tunnel address assigned to r.okonkwo thirty-seven minutes earlier.",
       raw: {
         "syslog.hostname": esxi.host,
         "syslog.program": "sshd",
@@ -595,7 +595,7 @@ export function esxiRansomwareScenarioEvents() {
     fgSshHop("evt_09c_fw_ssh_05", T(39 * MIN + 28_000), "esx-prod-05", "10.20.5.35", "51063", "884302905", 39 * MIN + 28_000),
     esxSshSession("evt_09d_ssh_session_05", T(39 * MIN + 30_000), esxHost5, "2098844", "51063", "2026-06-13T22:19:30Z"),
 
-    // ── 10. Service Stop — VMs forced off so the disk files unlock ────────────
+    // ── 10. Service Stop, VMs forced off so the disk files unlock ────────────
     {
       id: "evt_10_vim_cmd_poweroff",
       ts: T(41 * MIN),
@@ -664,7 +664,7 @@ export function esxiRansomwareScenarioEvents() {
     vmPoweredOff("evt_11a_vm_poweroff_04", T(42 * MIN + 41_000), "4419348", "2026-06-13T22:22:41.206Z", "APP-PROD-05", "vm-2077", esxHost4),
     vmPoweredOff("evt_11b_vm_poweroff_05", T(43 * MIN + 20_000), "4419377", "2026-06-13T22:23:20.771Z", "FS-PROD-03", "vm-2112", esxHost5),
 
-    // ── 12. THE BLIND SPOT — the only thing endpoint tooling ever noticed ─────
+    // ── 12. THE BLIND SPOT, the only thing endpoint tooling ever noticed ─────
     {
       id: "evt_12_edr_silence",
       ts: T(47 * MIN),
@@ -673,8 +673,8 @@ export function esxiRansomwareScenarioEvents() {
       event_type: "edr_alert",
       hostname: "SQL-PROD-02",
       severity: "high",
-      is_detection: true,    // the ONE endpoint-side signal the SOC ever received — must surface under the "Detections only" filter
-      edr_scope: "non_edr",  // ESXi ransomware — the host impact is on the hypervisor (vCenter/ESXi shell), not a Windows/Linux EDR process tree, so there's no walkable EDR case on this platform; investigated in vCenter/SIEM
+      is_detection: true,    // the ONE endpoint-side signal the SOC ever received, must surface under the "Detections only" filter
+      edr_scope: "non_edr",  // ESXi ransomware, the host impact is on the hypervisor (vCenter/ESXi shell), not a Windows/Linux EDR process tree, so there's no walkable EDR case on this platform; investigated in vCenter/SIEM
       description:
         "Falcon stopped receiving check-ins from 71 server sensors between 22:22 and 22:27, all of them guests on PROD-CLUSTER-A; the record for SQL-PROD-02 is shown, host status offline.",
       raw: {
@@ -745,7 +745,7 @@ export function esxiRansomwareScenarioEvents() {
       },
     },
 
-    // ── 13. Impact — the ELF encryptor against the datastore ──────────────────
+    // ── 13. Impact, the ELF encryptor against the datastore ──────────────────
     {
       id: "evt_13_encryptor",
       ts: T(52 * MIN),
@@ -815,7 +815,7 @@ export function esxiRansomwareScenarioEvents() {
     },
   ];
 
-  // Every event — identity-plane SSO abuse and host-plane ESXi impact alike —
+  // Every event, identity-plane SSO abuse and host-plane ESXi impact alike,
   // belongs to the one ESXi-ransomware incident (the SIEM↔EDR correlation key).
   for (const e of events) e.incident_id = INCIDENT;
 

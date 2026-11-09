@@ -4,8 +4,8 @@
  * BEGINNER tier. A single external address works one account's password over
  * roughly twenty minutes against an internet-published Remote Desktop server,
  * fails repeatedly, and then succeeds. The successful logon looks exactly like
- * any other 4624 — same account, same server, same event ID a hundred normal
- * logons a day produce — which is precisely why new analysts read the loud
+ * any other 4624, same account, same server, same event ID a hundred normal
+ * logons a day produce, which is precisely why new analysts read the loud
  * failure burst, close the ticket as "attempts blocked", and miss it.
  *
  * Everything the debrief asserts is observable in the events: the source
@@ -14,7 +14,7 @@
  * before. Nothing in the telemetry states the verdict.
  *
  * TELEMETRY: fully emitter-authored (Windows Security + CrowdStrike + Palo Alto
- * + Sentinel) — no hand-typed raw blocks, so every field is registry-correct and
+ * + Sentinel), no hand-typed raw blocks, so every field is registry-correct and
  * the host/user/realm are drawn from the company asset fabric by construction.
  *
  * NOTE: `difficulty: "beginner"` is declared on the SCENARIOS registry entry in
@@ -52,7 +52,7 @@ export function buildBruteForceSingleAccountScenario(
       first_seen: T(0),
       last_seen: T(26 * MIN),
       // "unknown", not "suspicious". Reputation describes whether the INDICATOR
-      // is hostile, and this is the organisation's own published RDP server —
+      // is hostile, and this is the organisation's own published RDP server,
       // the victim, not adversary infrastructure. Tagging your own estate
       // suspicious is how a real blocklist ends up blocking production.
       reputation: "unknown",
@@ -76,15 +76,15 @@ export function buildBruteForceSingleAccountScenario(
       hint: "Look at winlog.event_data.SubStatus in evt_bf_02 and then in evt_bf_03.",
       kind: "single",
       options: [
-        { value: "nouser_then_badpw", label: "0xC0000064 — no such account; the later failures use 0xC000006A, wrong password" },
-        { value: "badpw_then_nouser", label: "0xC000006A — wrong password first; the later failures switch to 0xC0000064, no such account" },
-        { value: "locked", label: "0xC0000234 — the account was already locked out when the first attempt reached the server" },
-        { value: "disabled", label: "0xC0000072 — the account was disabled at first and then re-enabled a few minutes later" },
+        { value: "nouser_then_badpw", label: "0xC0000064, no such account; the later failures use 0xC000006A, wrong password" },
+        { value: "badpw_then_nouser", label: "0xC000006A, wrong password first; the later failures switch to 0xC0000064, no such account" },
+        { value: "locked", label: "0xC0000234, the account was already locked out when the first attempt reached the server" },
+        { value: "disabled", label: "0xC0000072, the account was disabled at first and then re-enabled a few minutes later" },
       ],
       answer: "nouser_then_badpw",
       xp: 40,
       explanation:
-        "0xC0000064 means the username itself does not exist in the directory — 'swolfe' is not an account here. 0xC000006A means the username IS valid and only the password was wrong. So the first minute is the attacker discovering the naming convention, and everything after 09:03 is password work against a confirmed real account. That distinction matters operationally: a wall of 0xC0000064 is usually a scanner guessing names, while a wall of 0xC000006A means someone already knows a live account and is grinding at it.",
+        "0xC0000064 means the username itself does not exist in the directory, 'swolfe' is not an account here. 0xC000006A means the username IS valid and only the password was wrong. So the first minute is the attacker discovering the naming convention, and everything after 09:03 is password work against a confirmed real account. That distinction matters operationally: a wall of 0xC0000064 is usually a scanner guessing names, while a wall of 0xC000006A means someone already knows a live account and is grinding at it.",
     },
     {
       id: "q2",
@@ -109,15 +109,15 @@ export function buildBruteForceSingleAccountScenario(
       hint: "One event shows the action; the other shows what this account normally does.",
       kind: "single",
       options: [
-        { value: "use_plus_context", label: "The net use mapping plus the Sentinel directory context — the share mapped, and the shares used before" },
+        { value: "use_plus_context", label: "The net use mapping plus the Sentinel directory context, the share mapped, and the shares used before" },
         { value: "use_plus_fslogon", label: "The net use mapping plus the SRV-FS-02 4624 network logon, the mapping, and the file-server session it produced" },
-        { value: "success_plus_read", label: "The 09:20:00 logon success plus the payroll workbook read — the session opened, and the file it took" },
-        { value: "fw_plus_rdp", label: "The inbound RDP session plus the LogonType 10 logon — the external connection, and the desktop it opened" },
+        { value: "success_plus_read", label: "The 09:20:00 logon success plus the payroll workbook read, the session opened, and the file it took" },
+        { value: "fw_plus_rdp", label: "The inbound RDP session plus the LogonType 10 logon, the external connection, and the desktop it opened" },
       ],
       answer: "use_plus_context",
       xp: 70,
       explanation:
-        "Neither event is enough on its own. evt_bf_07_net_use only shows that a share was mapped, which is a completely ordinary command. evt_bf_10_siem_context supplies the comparison: s.wolfe is an Accounts Payable clerk whose share history over ninety days is AP-Invoices, Scans and Finance-Reports — HR-Confidential appears nowhere in it. 'Abnormal' is always a claim about a baseline, so you need the event that carries the baseline. Pair (b) is the same action seen twice, from the workstation and from the file server. Pair (c) and (d) are steps in the chain, not a comparison against normal.",
+        "Neither event is enough on its own. evt_bf_07_net_use only shows that a share was mapped, which is a completely ordinary command. evt_bf_10_siem_context supplies the comparison: s.wolfe is an Accounts Payable clerk whose share history over ninety days is AP-Invoices, Scans and Finance-Reports, HR-Confidential appears nowhere in it. 'Abnormal' is always a claim about a baseline, so you need the event that carries the baseline. Pair (b) is the same action seen twice, from the workstation and from the file server. Pair (c) and (d) are steps in the chain, not a comparison against normal.",
     },
     {
       id: "q4",
@@ -146,14 +146,14 @@ export function buildBruteForceSingleAccountScenario(
       "Microsoft Sentinel raised a High alert at 09:26 for the user s.wolfe: 214 Windows logon failures from one external address against the internet-published Remote Desktop server SRV-RDS-02, followed by one success. Establish what happened to that user and whether anything followed.",
     narrative: `Between 09:02 and 09:20 a single address in Russia, 194.26.192.77, worked one account's password against SRV-RDS-02, the Remote Desktop server NexaCorp publishes to the internet. The first attempt used the name swolfe, which does not exist in the directory, SubStatus 0xC0000064. A minute later the attacker had the naming convention right and switched to s.wolfe, and from then on every rejection carried SubStatus 0xC000006A: valid account, wrong password. In all, 214 rejections were written in eighteen minutes: the one for swolfe and 213 for s.wolfe. The account was never locked out, because the lockout policy does not apply to the group it belongs to, so the attempts simply continued until one of them worked.
 
-At 09:20:00 one did. The 4624 that records it is unremarkable to look at — same account, same server, same source address as the 214 rejections before it — and it is the whole incident. Eight seconds later a second 4624 with LogonType 10 shows a full Remote Desktop session open on SRV-RDS-02.
+At 09:20:00 one did. The 4624 that records it is unremarkable to look at, same account, same server, same source address as the 214 rejections before it, and it is the whole incident. Eight seconds later a second 4624 with LogonType 10 shows a full Remote Desktop session open on SRV-RDS-02.
 
 What the session then did looks routine and is not. At 09:22 cmd.exe spawned net.exe to map a drive to \\\\SRV-FS-02\\HR-Confidential. SRV-FS-02 logged the session from its own side at 09:22:20, a 4624 network logon from the RDS server, TargetLogonId 0x74C2E19, and at 09:23 a payroll workbook, salary_bands_2026.xlsx, was opened for read under that logon session. A minute earlier, at 09:22:58, cmd.exe on the RDS server had been told to copy that workbook from the mapped drive into C:\\Users\\s.wolfe\\AppData\\Local\\Temp\\sb.xlsx. s.wolfe is an Accounts Payable clerk; the shares this account had touched in the previous ninety days were AP-Invoices, Scans and Finance-Reports. HR-Confidential is not one of them, and nothing about her role explains it.
 
 Sentinel only correlated the failure burst at 09:26, six minutes after the attacker was already inside. The failure burst was the noise. The success was the incident. No logoff for the Remote Desktop session appears in the telemetry up to the alert, so as far as the logs show the session was still open when the ticket was raised.`,
     learning_objectives: [
       "Read Windows 4625 SubStatus codes and tell a wrong username (0xC0000064) from a wrong password (0xC000006A)",
-      "Search past the failure burst for the 4624 that ends it — the successful logon is the compromise, not the attempts",
+      "Search past the failure burst for the 4624 that ends it, the successful logon is the compromise, not the attempts",
       "Correlate a successful logon back to the source address and account of the failures that preceded it",
       "Distinguish LogonType 3 (network) from LogonType 10 (RemoteInteractive) when describing what access the attacker actually got",
       "Judge an action as abnormal by comparing it to the account's own history rather than to whether it was technically permitted",
@@ -164,10 +164,10 @@ Sentinel only correlated the failure burst at 09:26, six minutes after the attac
     iocs,
     killchain: [
       { ts: T(0), phase: "Initial Access", action: `Inbound TCP/3389 from ${attackerIp} to SRV-RDS-02, allowed by the published RDP rule` },
-      { ts: T(2 * MIN), phase: "Credential Access", action: "First 4625 — username 'swolfe' does not exist (SubStatus 0xC0000064)" },
+      { ts: T(2 * MIN), phase: "Credential Access", action: "First 4625, username 'swolfe' does not exist (SubStatus 0xC0000064)" },
       { ts: T(3 * MIN), phase: "Credential Access", action: "Failures switch to s.wolfe: 213 wrong-password rejections over 17 minutes (214 failures in all with the first)" },
-      { ts: T(20 * MIN), phase: "Initial Access", action: "4624 SUCCESS for s.wolfe from the same address — the account is now compromised" },
-      { ts: T(20 * MIN + 8_000), phase: "Initial Access", action: "Second 4624, LogonType 10 — Remote Desktop session open on SRV-RDS-02" },
+      { ts: T(20 * MIN), phase: "Initial Access", action: "4624 SUCCESS for s.wolfe from the same address, the account is now compromised" },
+      { ts: T(20 * MIN + 8_000), phase: "Initial Access", action: "Second 4624, LogonType 10, Remote Desktop session open on SRV-RDS-02" },
       { ts: T(22 * MIN), phase: "Lateral Movement", action: "net.exe maps Z: to \\\\SRV-FS-02\\HR-Confidential from inside the session" },
       { ts: T(22 * MIN + 58_000), phase: "Collection", action: "cmd.exe copies salary_bands_2026.xlsx from the mapped drive into the profile Temp folder" },
       { ts: T(23 * MIN), phase: "Collection", action: "salary_bands_2026.xlsx opened for read on the HR share (SRV-FS-02 4663)" },

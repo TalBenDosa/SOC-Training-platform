@@ -1,14 +1,14 @@
 /**
- * Adversary-in-the-Middle Phishing — Session Token Theft (ADVANCED)
+ * Adversary-in-the-Middle Phishing, Session Token Theft (ADVANCED)
  *
  * Evilginx/Tycoon-style reverse-proxy phishing. The lesson is deliberately
  * uncomfortable: MFA was satisfied correctly, by the real user, on the real
- * identity provider — and the account fell anyway, because what the attacker
+ * identity provider, and the account fell anyway, because what the attacker
  * stole was the post-authentication session cookie, not the password.
  *
  * The discriminating evidence is findable, not narrated: one `sessionId`
  * appears on two Entra sign-ins six minutes apart, from two IPs in two
- * autonomous systems, with two different browser fingerprints — and the second
+ * autonomous systems, with two different browser fingerprints, and the second
  * one carries `authenticationRequirement: "multiFactorAuthentication"` that the
  * user never performed.
  */
@@ -36,12 +36,12 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
     { ts: T(4 * MIN + 9 * SEC),     phase: "Collection",          action: "The laptop's own Edge process (pid 9308, parent explorer.exe) is the process connected to the proxy; no child process is started" },
     { ts: T(5 * MIN + 41 * SEC),    phase: "Credential Access",   action: "Credentials and the live MFA response are relayed through the proxy to the real Microsoft endpoint" },
     { ts: T(6 * MIN + 3 * SEC),     phase: "Initial Access",      action: "Entra records a genuine interactive sign-in, MFA satisfied, sourced from the proxy in Amsterdam" },
-    { ts: T(6 * MIN + 12 * SEC),    phase: "Stealth",             action: "Victim redirected to the real office.com — the sign-in appears to have simply worked" },
+    { ts: T(6 * MIN + 12 * SEC),    phase: "Stealth",             action: "Victim redirected to the real office.com, the sign-in appears to have simply worked" },
     { ts: T(9 * MIN + 10 * SEC),    phase: "Context",             action: "Identity Protection raises an atypical-travel alert on a.rosen (Frankfurt, corporate VPN): the benign comparison" },
     { ts: T(12 * MIN + 3 * SEC),    phase: "Lateral Movement",    action: "Stolen session cookie replayed from Frankfurt on the same sessionId; MFA satisfied by token claim" },
     { ts: T(12 * MIN + 20 * SEC),   phase: "Lateral Movement",    action: "Replayed session brokers a non-interactive token for Office 365 Exchange Online" },
     { ts: T(13 * MIN + 47 * SEC),   phase: "Collection",          action: "Mailbox bind against the Inbox recorded in the Unified Audit Log with the same SessionId" },
-    { ts: T(19 * MIN),              phase: "Persistence",         action: "Second Authenticator method registered on the account by the account — survives a password reset" },
+    { ts: T(19 * MIN),              phase: "Persistence",         action: "Second Authenticator method registered on the account by the account, survives a password reset" },
   ];
 
   const questions: ScenarioQuestion[] = [
@@ -51,14 +51,14 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       hint: "Compare the Entra client address with the address m.delgado's own browser traffic came from.",
       kind: "single",
       options: [
-        { value: "a", label: "It is 45.87.81.126 in Amsterdam — the host her browser posted the sign-in form to" },
-        { value: "b", label: "It is 81.174.22.63 in London — the corporate egress, matching her own browsing traffic" },
-        { value: "c", label: "It is 91.132.139.204 in Frankfurt — the host that reuses the session six minutes later" },
+        { value: "a", label: "It is 45.87.81.126 in Amsterdam, the host her browser posted the sign-in form to" },
+        { value: "b", label: "It is 81.174.22.63 in London, the corporate egress, matching her own browsing traffic" },
+        { value: "c", label: "It is 91.132.139.204 in Frankfurt, the host that reuses the session six minutes later" },
         { value: "d", label: "It is a Microsoft service address, because the request was relayed inside the tenant" },
       ],
       answer: "a",
       explanation:
-        "Zscaler (aitm_04, aitm_05) shows the user's browser leaving from 81.174.22.63 in London, so option b describes where she really was — but that is not what Entra recorded. Entra saw 45.87.81.126, because in a reverse-proxy phish the identity provider talks to the proxy, not to the victim. Option c is the replay host, which appears later in aitm_09. Option d is not how Entra sign-in logging works: ipAddress is always the client that reached the token endpoint. The mismatch between where the user browsed from and where Entra saw the sign-in from is the first structural tell of AitM.",
+        "Zscaler (aitm_04, aitm_05) shows the user's browser leaving from 81.174.22.63 in London, so option b describes where she really was, but that is not what Entra recorded. Entra saw 45.87.81.126, because in a reverse-proxy phish the identity provider talks to the proxy, not to the victim. Option c is the replay host, which appears later in aitm_09. Option d is not how Entra sign-in logging works: ipAddress is always the client that reached the token endpoint. The mismatch between where the user browsed from and where Entra saw the sign-in from is the first structural tell of AitM.",
     },
     {
       id: "q2", xp: 25,
@@ -73,7 +73,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       ],
       answer: "c",
       explanation:
-        "Option a describes MFA fatigue, a different attack — here the push arrived while she was actively signing in, so approving it was the correct behaviour. Option b is contradicted by the evidence: aitm_06 shows appliedConditionalAccessPolicies 'Require MFA for all users' with result 'success' and enforcedGrantControls ['Mfa']. Option d is not a real property of push-based Authenticator. MFA is an authentication-time control; it says nothing about what happens to the artefact issued after authentication. The proxy sat in the middle, passed the challenge and response through untouched, and harvested the resulting session cookie — which is why aitm_09 needs no authentication step at all.",
+        "Option a describes MFA fatigue, a different attack, here the push arrived while she was actively signing in, so approving it was the correct behaviour. Option b is contradicted by the evidence: aitm_06 shows appliedConditionalAccessPolicies 'Require MFA for all users' with result 'success' and enforcedGrantControls ['Mfa']. Option d is not a real property of push-based Authenticator. MFA is an authentication-time control; it says nothing about what happens to the artefact issued after authentication. The proxy sat in the middle, passed the challenge and response through untouched, and harvested the resulting session cookie, which is why aitm_09 needs no authentication step at all.",
     },
     {
       id: "q3", xp: 25,
@@ -81,10 +81,10 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       hint: "Look for a field that should be unique to one browser on one machine.",
       kind: "single",
       options: [
-        { value: "a", label: "The URL Defense click and the proxy POST — the same look-alike URL shows up in both the click and the form submit" },
+        { value: "a", label: "The URL Defense click and the proxy POST, the same look-alike URL shows up in both the click and the form submit" },
         { value: "b", label: "The Amsterdam sign-in and the Frankfurt Chrome 144 sign-in, one sessionId, two IPs, two ASNs, two browsers" },
         { value: "c", label: "The Chrome 144 sign-in and the OWA MailItemsAccessed bind, mailbox access follows it within two minutes" },
-        { value: "d", label: "The Amsterdam sign-in and the LT-SLS-0117 Frankfurt sign-in — a London baseline seen in Europe twice at once" },
+        { value: "d", label: "The Amsterdam sign-in and the LT-SLS-0117 Frankfurt sign-in, a London baseline seen in Europe twice at once" },
       ],
       answer: "b",
       explanation:
@@ -103,7 +103,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       ],
       answer: "a",
       explanation:
-        "Option b is a trap: riskLevelDuringSignIn is 'none' on aitm_09 too, so risk scoring does not discriminate here at all — that is part of the lesson. Option c is factually wrong; the replay in aitm_09 is also in Frankfurt, Germany. Only the proxy front end (aitm_06) was in the Netherlands, and geography alone never separates these cases. Option d overstates a true fact — an attacker can drive an interactive browser session, so isInteractive is supporting evidence, not proof. The real discriminators on aitm_08 are structural: a distinct sessionId, two authenticationDetails entries with timestamps seconds before the sign-in (a second factor actually performed), deviceDetail.isCompliant true with trustType 'Azure AD joined', and a networkLocationDetails entry naming the corporate VPN. aitm_09 has none of these.",
+        "Option b is a trap: riskLevelDuringSignIn is 'none' on aitm_09 too, so risk scoring does not discriminate here at all, that is part of the lesson. Option c is factually wrong; the replay in aitm_09 is also in Frankfurt, Germany. Only the proxy front end (aitm_06) was in the Netherlands, and geography alone never separates these cases. Option d overstates a true fact, an attacker can drive an interactive browser session, so isInteractive is supporting evidence, not proof. The real discriminators on aitm_08 are structural: a distinct sessionId, two authenticationDetails entries with timestamps seconds before the sign-in (a second factor actually performed), deviceDetail.isCompliant true with trustType 'Azure AD joined', and a networkLocationDetails entry naming the corporate VPN. aitm_09 has none of these.",
     },
     {
       id: "q5", xp: 20,
@@ -118,7 +118,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       ],
       answer: "c",
       explanation:
-        "Option a fails on both artefacts: a password reset does not invalidate an already-issued session cookie, and the extra Authenticator method registered in aitm_12 stays on the account afterwards, letting the attacker complete MFA on a future sign-in. Option b is useful hygiene but the attacker simply moves to another host; IP blocking does not touch the stolen token. Option d buys time and then hands the account back with the rogue method still enrolled. The correct order is revoke first (this is what kills the live session), then remove the registered authentication method, then reset the password — and only afterwards review sign-in logs for any other session that shares sessionId 0f2c1e64-….",
+        "Option a fails on both artefacts: a password reset does not invalidate an already-issued session cookie, and the extra Authenticator method registered in aitm_12 stays on the account afterwards, letting the attacker complete MFA on a future sign-in. Option b is useful hygiene but the attacker simply moves to another host; IP blocking does not touch the stolen token. Option d buys time and then hands the account back with the rogue method still enrolled. The correct order is revoke first (this is what kills the live session), then remove the registered authentication method, then reset the password, and only afterwards review sign-in logs for any other session that shares sessionId 0f2c1e64-….",
     },
   ];
 
@@ -129,7 +129,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
     attack_kind: "aitm_session_hijack",
     briefing: "Entra ID flagged two sign-ins for m.delgado (LT-FIN-0442) six minutes apart from different countries, at 07:18 and 07:24. The user reports nothing wrong and is working normally. A separate Identity Protection atypical-travel alert on a.rosen is attached for comparison.",
     narrative:
-      "A finance controller receives a signature-request lure and follows it to login.nexacorp-sso.com, a look-alike host fronting a reverse proxy. She types her password and approves a genuine Microsoft Authenticator push — the sign-in really does complete, MFA really is satisfied, and Conditional Access really does pass. The proxy relays every step to the real Microsoft endpoint and keeps the session cookie Entra issues at the end. Six minutes later that same session identifier reappears from a hosting provider in Frankfurt, on a different browser, in a different autonomous system, with no authentication step performed: the multifactor requirement is satisfied by a claim already inside the token. The attacker brokers a mailbox token, reads the Inbox, and registers a second Authenticator method on the account — a normal self-service action for a standard user, and one that survives the password reset the SOC is about to order. A colleague signing in from Frankfurt on the corporate VPN the same morning trips the same geo-change logic and is entirely benign.",
+      "A finance controller receives a signature-request lure and follows it to login.nexacorp-sso.com, a look-alike host fronting a reverse proxy. She types her password and approves a genuine Microsoft Authenticator push, the sign-in really does complete, MFA really is satisfied, and Conditional Access really does pass. The proxy relays every step to the real Microsoft endpoint and keeps the session cookie Entra issues at the end. Six minutes later that same session identifier reappears from a hosting provider in Frankfurt, on a different browser, in a different autonomous system, with no authentication step performed: the multifactor requirement is satisfied by a claim already inside the token. The attacker brokers a mailbox token, reads the Inbox, and registers a second Authenticator method on the account, a normal self-service action for a standard user, and one that survives the password reset the SOC is about to order. A colleague signing in from Frankfurt on the corporate VPN the same morning trips the same geo-change logic and is entirely benign.",
     learning_objectives: [
       "Trace an AitM reverse-proxy chain from the mail lure through the look-alike domain to a genuine Entra sign-in whose client address is the proxy, not the user",
       "Explain why a satisfied multifactor requirement did not prevent the compromise, and what MFA does and does not protect",

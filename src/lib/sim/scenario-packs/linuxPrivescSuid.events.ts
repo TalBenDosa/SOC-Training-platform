@@ -26,7 +26,7 @@ export function linuxPrivescSuidScenarioEvents() {
     os: "Ubuntu 22.04.4 LTS",
   };
 
-  // The real Linux administrator — reused from the estate's admin identity. His
+  // The real Linux administrator, reused from the estate's admin identity. His
   // sudo session is the benign control case, NOT part of the intrusion.
   const admin = {
     user: "d.okonkwo",
@@ -36,7 +36,7 @@ export function linuxPrivescSuidScenarioEvents() {
     vpnEgress: "82.166.44.9",
   };
 
-  // The attacker's external address — appears ONLY on the backdoor SSH login.
+  // The attacker's external address, appears ONLY on the backdoor SSH login.
   const attackerIp = "193.32.162.140";
 
   // The uid-0 backdoor account the attacker creates once euid=0 is held.
@@ -94,7 +94,7 @@ export function linuxPrivescSuidScenarioEvents() {
   };
 
   const events: TelemetryEvent[] = [
-    // ── 1. BENIGN DISCRIMINATOR — the sanctioned road to root ────────────────
+    // ── 1. BENIGN DISCRIMINATOR, the sanctioned road to root ────────────────
     {
       id: "lpe_01_admin_sudo",
       ts: T(0),
@@ -121,7 +121,7 @@ export function linuxPrivescSuidScenarioEvents() {
         user: "d.okonkwo",
       },
       fp_explanation:
-        "This is the control case for the whole scenario: a legitimate escalation to root, and the thing every later event should be compared against. Three attributes make it sanctioned. It goes through sudo, so an authorization decision was made and logged (res=success, not failed). Its auid is 1001 — a real human loginuid, tied to a named administrator who authenticated an interactive session — and auid is immutable, so it follows the escalation into the root command. And it originates on an admin terminal (pts/1). The intrusion later reaches root too, but does none of these things: no sudo, no authorization record, and an auid that is not a person. Students who alert on 'a process ran as root' alone will flag this and be wrong.",
+        "This is the control case for the whole scenario: a legitimate escalation to root, and the thing every later event should be compared against. Three attributes make it sanctioned. It goes through sudo, so an authorization decision was made and logged (res=success, not failed). Its auid is 1001, a real human loginuid, tied to a named administrator who authenticated an interactive session, and auid is immutable, so it follows the escalation into the root command. And it originates on an admin terminal (pts/1). The intrusion later reaches root too, but does none of these things: no sudo, no authorization record, and an auid that is not a person. Students who alert on 'a process ran as root' alone will flag this and be wrong.",
       raw: {
         "data.audit.type": "USER_CMD",
         "data.audit.pid": "2041",
@@ -140,7 +140,7 @@ export function linuxPrivescSuidScenarioEvents() {
       },
     },
 
-    // ── 1b. THE FOOTHOLD — the web server worker starts the shell the attacker drives ──
+    // ── 1b. THE FOOTHOLD, the web server worker starts the shell the attacker drives ──
     {
       id: "lpe_01b_webshell_sh",
       ts: T(38 * MIN - 10 * SEC),
@@ -166,7 +166,7 @@ export function linuxPrivescSuidScenarioEvents() {
       raw: auditRaw("sh", "EXECVE"),
     },
 
-    // ── 2. Foothold discovery — who am I ─────────────────────────────────────
+    // ── 2. Foothold discovery, who am I ─────────────────────────────────────
     {
       id: "lpe_02_id_discovery",
       incident_id: INCIDENT,
@@ -180,7 +180,7 @@ export function linuxPrivescSuidScenarioEvents() {
       mitre_technique: "T1033",
       mitre_tactic: "Discovery",
       description:
-        "A shell running as www-data on web-app-07 executed `id`. The SYSCALL record shows uid=33 euid=33 and, tellingly, auid=4294967295 — the process belongs to no login session.",
+        "A shell running as www-data on web-app-07 executed `id`. The SYSCALL record shows uid=33 euid=33 and, tellingly, auid=4294967295, the process belongs to no login session.",
       raw: auditRaw("id", "SYSCALL"),
     },
     {
@@ -198,7 +198,7 @@ export function linuxPrivescSuidScenarioEvents() {
       raw: auditRaw("id", "EXECVE"),
     },
 
-    // ── 3. THE PRIVILEGE BOUNDARY — sudo is not available ────────────────────
+    // ── 3. THE PRIVILEGE BOUNDARY, sudo is not available ────────────────────
     {
       id: "lpe_03_sudo_denied",
       incident_id: INCIDENT,
@@ -238,7 +238,7 @@ export function linuxPrivescSuidScenarioEvents() {
       },
     },
 
-    // ── 4. SUID enumeration — finding the misconfiguration ───────────────────
+    // ── 4. SUID enumeration, finding the misconfiguration ───────────────────
     {
       id: "lpe_04_suid_enum",
       incident_id: INCIDENT,
@@ -270,7 +270,7 @@ export function linuxPrivescSuidScenarioEvents() {
       raw: auditRaw("find", "EXECVE"),
     },
 
-    // ── 5. THE EXPLOIT — SUID find spawns a root shell ───────────────────────
+    // ── 5. THE EXPLOIT, SUID find spawns a root shell ───────────────────────
     {
       id: "lpe_05_suid_exploit",
       incident_id: INCIDENT,
@@ -284,7 +284,7 @@ export function linuxPrivescSuidScenarioEvents() {
       mitre_technique: "T1548.001",
       mitre_tactic: "Privilege Escalation",
       description:
-        "www-data ran `find . -exec /bin/sh -p \\; -quit` from /var/www/html. Because /usr/bin/find carries mode 04755, the execve runs with euid=0 — the SYSCALL shows uid=33 but euid=0, the moment privilege is gained.",
+        "www-data ran `find . -exec /bin/sh -p \\; -quit` from /var/www/html. Because /usr/bin/find carries mode 04755, the execve runs with euid=0, the SYSCALL shows uid=33 but euid=0, the moment privilege is gained.",
       raw: auditRaw("exploit", "SYSCALL"),
     },
     {
@@ -317,7 +317,7 @@ export function linuxPrivescSuidScenarioEvents() {
       raw: auditRaw("exploit", "PATH"),
     },
 
-    // ── 6. THE EDR DETECTION — Falcon flags the euid transition ──────────────
+    // ── 6. THE EDR DETECTION, Falcon flags the euid transition ──────────────
     {
       id: "lpe_06_edr_detection",
       incident_id: INCIDENT,
@@ -374,7 +374,7 @@ export function linuxPrivescSuidScenarioEvents() {
       },
     },
 
-    // ── 7. ROOT ACTION #1 — read /etc/shadow (proof the shell is root) ───────
+    // ── 7. ROOT ACTION #1, read /etc/shadow (proof the shell is root) ───────
     {
       id: "lpe_07_read_shadow",
       incident_id: INCIDENT,
@@ -388,7 +388,7 @@ export function linuxPrivescSuidScenarioEvents() {
       mitre_technique: "T1003.008",
       mitre_tactic: "Credential Access",
       description:
-        "From the root shell, `cat /etc/shadow` opened the password-hash file. The SYSCALL is openat (257) with uid=33 euid=0 — a file mode 0640 root:shadow, unreadable to www-data, is read successfully.",
+        "From the root shell, `cat /etc/shadow` opened the password-hash file. The SYSCALL is openat (257) with uid=33 euid=0, a file mode 0640 root:shadow, unreadable to www-data, is read successfully.",
       raw: auditRaw("shadow", "SYSCALL"),
     },
     {
@@ -407,7 +407,7 @@ export function linuxPrivescSuidScenarioEvents() {
       raw: auditRaw("shadow", "PATH"),
     },
 
-    // ── 8. ROOT ACTION #2 — create a uid-0 backdoor account ──────────────────
+    // ── 8. ROOT ACTION #2, create a uid-0 backdoor account ──────────────────
     {
       id: "lpe_08_backdoor_user",
       incident_id: INCIDENT,
@@ -486,7 +486,7 @@ export function linuxPrivescSuidScenarioEvents() {
       raw: auditRaw("authkeys", "PATH"),
     },
 
-    // ── 9. THE PAYOFF — remote login as the backdoor account ─────────────────
+    // ── 9. THE PAYOFF, remote login as the backdoor account ─────────────────
     // The sshd syslog line is the primary record; auditd's USER_LOGIN and USER_START follow it.
     {
       id: "lpe_09_backdoor_login",
@@ -501,7 +501,7 @@ export function linuxPrivescSuidScenarioEvents() {
       mitre_technique: "T1078.003",
       mitre_tactic: "Persistence",
       description:
-        "'Accepted publickey for sysupdate' from 193.32.162.140 on tcp/22 — the backdoor account authenticating with the attacker-controlled key, minutes after it was created.",
+        "'Accepted publickey for sysupdate' from 193.32.162.140 on tcp/22, the backdoor account authenticating with the attacker-controlled key, minutes after it was created.",
       authentication: { method: "publickey", result: "success" },
       raw: {
         "data.program_name": "sshd",
@@ -563,7 +563,7 @@ export function linuxPrivescSuidScenarioEvents() {
       },
     },
 
-    // ── 10. CORRELATION — SIEM ties the chain together ───────────────────────
+    // ── 10. CORRELATION, SIEM ties the chain together ───────────────────────
     {
       id: "lpe_10_siem_correlation",
       incident_id: INCIDENT,

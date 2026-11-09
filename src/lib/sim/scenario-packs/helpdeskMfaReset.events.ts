@@ -63,14 +63,14 @@ export function helpdeskMfaResetScenarioEvents() {
   const UA_EDGE = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.3520.46";
   const UA_ATTACKER = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36";
 
-  // EDR↔scenario integration (Phase 4): control-plane-only incident — a
+  // EDR↔scenario integration (Phase 4): control-plane-only incident, a
   // social-engineered helpdesk MFA reset, a rogue authenticator registration, and
   // an account-takeover sign-in, all on the identity plane. The single EDR event
   // (evt_hmr_08) is just the benign start of a logon session (userinit.exe →
-  // explorer.exe) — no malicious process tree, no Falcon detection — so there is
+  // explorer.exe), no malicious process tree, no Falcon detection, so there is
   // nothing to investigate in the EDR console. edr_scope "non_edr"; no is_detection
   // (no EDR detections); edr_scope goes on the identity detection that opens the
-  // ticket — the new-geo, unmanaged-device sign-in on the reset account.
+  // ticket, the new-geo, unmanaged-device sign-in on the reset account.
   const INCIDENT = "inc:hmr:1";
 
   const cx = "nexacorp" as const;
@@ -86,7 +86,7 @@ export function helpdeskMfaResetScenarioEvents() {
   ];
 
   const events: TelemetryEvent[] = [
-    // 1. BASELINE — an ordinary morning sign-in.
+    // 1. BASELINE, an ordinary morning sign-in.
     { ...entraSignIn({
       companyId: cx, id: "evt_hmr_01_baseline_signin", ts: T(0), srcIp: victim.homeIp, user: victim.email, displayName: victim.display,
       userTitle: "Trade Settlements Analyst", userId: victim.id, correlationId: "5b2d7e4a-8c31-4b0d-9f5a-1c37a0e59d84", sessionId: baselineSessionId1,
@@ -99,10 +99,10 @@ export function helpdeskMfaResetScenarioEvents() {
       description: "l.ferreira signed in to Microsoft Office at 09:00 from her usual London address on the corporate laptop LT-OPS-2214, MFA completed by an Authenticator push.",
     }), is_baseline: true },
 
-    // 2. THE CALL — a ticket that looks like every other MFA-reset call.
+    // 2. THE CALL, a ticket that looks like every other MFA-reset call.
     serviceNowRecord({
       companyId: cx, id: "evt_hmr_02_ticket_created", ts: T(41 * MIN), table: "incident", number: ticket, state: "New",
-      shortDescription: "Locked out — lost phone, needs password and MFA reset", callerId: victim.email,
+      shortDescription: "Locked out, lost phone, needs password and MFA reset", callerId: victim.email,
       mitre: "T1684.001", tactic: "Stealth", severity: "low",
       extra: {
         "servicenow.description": `Caller states she is locked out of her account and lost the mobile device used for Microsoft Authenticator. Requesting password reset and MFA re-registration to regain access before the EOD trading window. Call received on the service desk line from ${callerNumber}.`,
@@ -115,7 +115,7 @@ export function helpdeskMfaResetScenarioEvents() {
       description: "Ticket INC0048217 was opened by the IT Service Desk: caller reports being locked out and having lost the mobile device enrolled for Microsoft Authenticator, requesting a password and MFA reset.",
     }),
 
-    // 3. The real employee, still working — the impossible-coexistence tell.
+    // 3. The real employee, still working, the impossible-coexistence tell.
     { ...entraSignIn({
       companyId: cx, id: "evt_hmr_03_second_baseline_signin", ts: T(45 * MIN), srcIp: victim.homeIp, user: victim.email, displayName: victim.display,
       userTitle: "Trade Settlements Analyst", userId: victim.id, correlationId: "d3f7c9a1-4b8e-40d2-9c6a-71f3b28e5c40", sessionId: baselineSessionId2,
@@ -158,7 +158,7 @@ export function helpdeskMfaResetScenarioEvents() {
     }),
     },
 
-    // 4. Ticket resolved — routine close, on its face.
+    // 4. Ticket resolved, routine close, on its face.
     serviceNowRecord({
       companyId: cx, id: "evt_hmr_04_ticket_resolved", ts: T(52 * MIN), table: "incident", number: ticket, state: "Resolved",
       callerId: victim.email, severity: "low",
@@ -172,7 +172,7 @@ export function helpdeskMfaResetScenarioEvents() {
       description: "Ticket INC0048217 was resolved by James Oduya: password reset via the admin portal, MFA requirement cleared per the caller's report of a lost device, caller instructed to re-register Microsoft Authenticator on next sign-in.",
     }),
 
-    // 5a. The first sign-in with the new password — interrupted, MFA registration required (the attacker's first appearance).
+    // 5a. The first sign-in with the new password, interrupted, MFA registration required (the attacker's first appearance).
     entraSignIn({
       companyId: cx, id: "evt_hmr_05a_first_signin_new_password", ts: T(57 * MIN + 40 * SEC), srcIp: attackerIp, user: victim.email, displayName: victim.display,
       userTitle: "Trade Settlements Analyst", userId: victim.id, correlationId: "8d2f4b61-3e97-4a05-b6c8-5f1d7e9a2c34",
@@ -184,7 +184,7 @@ export function helpdeskMfaResetScenarioEvents() {
       description: "A sign-in to My Signins for l.ferreira from 5.181.234.19 in Amsterdam was interrupted with error 50072 (user needs to enroll for second factor), the first request seen from this address, twenty seconds before the Authenticator registration.",
     }),
 
-    // 6. A NEW authenticator is registered — but from the attacker's address (T1098.005).
+    // 6. A NEW authenticator is registered, but from the attacker's address (T1098.005).
     entraAudit({
       companyId: cx, id: "evt_hmr_06_new_device_registered", ts: T(58 * MIN), operationName: "User registered security info",
       loggedByService: "Authentication Methods", result: "success", resultReason: "User registered security info: Microsoft Authenticator app",
@@ -209,7 +209,7 @@ export function helpdeskMfaResetScenarioEvents() {
       description: "l.ferreira opened EOD_Settlement_Batch_0714.xlsx on the Settlements SharePoint site at 10:00:30 from the London corporate egress, in the session she opened at 09:45.",
     }),
 
-    // 7. The sign-in — MFA genuinely satisfied, on the attacker's phone (T1078.004).
+    // 7. The sign-in, MFA genuinely satisfied, on the attacker's phone (T1078.004).
     {
       ...entraSignIn({
         companyId: cx, id: "evt_hmr_07_new_geo_signin", ts: T(61 * MIN), srcIp: attackerIp, user: victim.email, displayName: victim.display,
@@ -245,7 +245,7 @@ export function helpdeskMfaResetScenarioEvents() {
       return { ...a, is_detection: true };
     })(),
 
-    // 7c. The new session reads the mailbox — a full folder sync from the attacker's address (UAL, Exchange).
+    // 7c. The new session reads the mailbox, a full folder sync from the attacker's address (UAL, Exchange).
     m365Operation({
       companyId: cx, id: "evt_hmr_07c_mailbox_sync", ts: T(63 * MIN + 40 * SEC), srcIp: attackerIp, user: victim.email,
       operation: "MailItemsAccessed", workload: "Exchange", sessionId: attackerSessionId, userAgent: UA_ATTACKER,

@@ -33,7 +33,7 @@ export function decodeAnswer(slug: string, q: Q, submitted: string | string[] | 
 // Authored event ids name the answer ("evt_mhi_ws3_beacon", "s3exfil_07_getobject_burst",
 // "evt_phish_dns_c2") and the page shows them in every row's Raw JSON. The page
 // and the grade response swap each id for a keyed, stable token everywhere the
-// learner can read it — events, question text, explanations, debrief — so a
+// learner can read it, events, question text, explanations, debrief, so a
 // question that says "Look at ev-3f9a…" still points at the right row.
 
 /** Original event id → opaque, stable id for this scenario. */

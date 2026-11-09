@@ -47,7 +47,7 @@ function extractIocs(events: TelemetryEvent[]): Ioc[] {
   const seen = new Set<string>();
   const iocs: Ioc[] = [];
   function add(value: string | null | undefined, type: Ioc["type"], source: string) {
-    if (!value || value === "—" || seen.has(value)) return;
+    if (!value || value === "-" || seen.has(value)) return;
     seen.add(value);
     iocs.push({ value, type, tagged: false, isFp: false, source });
   }
@@ -156,7 +156,7 @@ function EventRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const isFp = isEventFp(ev);
-  // UTC (fixed timeZone) — deterministic across SSR/client (no React #418) and
+  // UTC (fixed timeZone), deterministic across SSR/client (no React #418) and
   // consistent with the UTC briefing, matching the main scenario view.
   const timeStr = new Date(ev.ts).toLocaleTimeString("en-GB", { hour12: false, timeZone: "UTC" });
   const srcColor = SOURCE_COLORS[ev.source] ?? SOURCE_COLORS.proxy;
@@ -214,7 +214,7 @@ function EventRow({
           </button>
         </td>
         <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-400 whitespace-nowrap">{timeStr}</td>
-        <td className="py-2.5 pr-3 font-mono text-[10px] text-slate-400 whitespace-nowrap">{ev.hostname ?? "—"}</td>
+        <td className="py-2.5 pr-3 font-mono text-[10px] text-slate-400 whitespace-nowrap">{ev.hostname ?? "-"}</td>
         <td className="py-2.5 pr-3">
           <span className={cn("inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[10px]", srcColor)}>
             {srcLabel}
@@ -229,7 +229,7 @@ function EventRow({
           <span className="line-clamp-2">{ev.description ?? ev.event_type}</span>
         </td>
         <td className="py-2.5 pr-3 font-mono text-[10px] text-slate-400 whitespace-nowrap">
-          {ev.mitre_technique ?? "—"}
+          {ev.mitre_technique ?? "-"}
         </td>
         {/* Mark FP button */}
         <td className="py-2.5 pr-3 w-10" onClick={e => { e.stopPropagation(); onToggleFp(ev.id); }}>
@@ -392,7 +392,7 @@ function CompletionOverlay({
   const score = calcScore(scenario.events, taggedIocs, fpMarked, notes, verdict);
   const grade = score.total >= 85 ? "A" : score.total >= 70 ? "B" : score.total >= 55 ? "C" : "D";
   const gradeColor = grade === "A" ? "text-neon-green" : grade === "B" ? "text-cyber-300" : grade === "C" ? "text-neon-amber" : "text-severity-high";
-  // a11y: modal dialog — focus trapped inside, Escape closes, focus returns.
+  // a11y: modal dialog, focus trapped inside, Escape closes, focus returns.
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(true, dialogRef, { onEscape: onClose });
 
@@ -646,7 +646,7 @@ export default function ScenarioPreviewPage() {
         {/* Main 2-column layout */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_300px] flex-1 min-h-0 overflow-hidden">
 
-          {/* Left — narrative + log table */}
+          {/* Left, narrative + log table */}
           <div className="flex flex-col gap-4 min-h-0 overflow-hidden">
 
             {/* Narrative */}
@@ -665,7 +665,7 @@ export default function ScenarioPreviewPage() {
             <div className="flex flex-col flex-1 min-h-0 rounded border border-border bg-bg-elevated overflow-hidden">
               <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5 shrink-0">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
-                  Log Timeline — {filteredEvents.length} events
+                  Log Timeline, {filteredEvents.length} events
                 </p>
                 {/* Severity filter */}
                 <div className="flex items-center gap-1" role="group" aria-label="Severity filter">
@@ -707,7 +707,7 @@ export default function ScenarioPreviewPage() {
             </div>
           </div>
 
-          {/* Right — IOC tracker + notes + verdict */}
+          {/* Right, IOC tracker + notes + verdict */}
           <div className="flex flex-col gap-3 min-h-0 overflow-y-auto">
 
             {/* IOC Tracker */}
@@ -727,7 +727,7 @@ export default function ScenarioPreviewPage() {
                         <div key={ioc.value}
                           className={cn("group flex items-start gap-2 px-3 py-2.5 transition-colors", ioc.tagged ? "bg-neon-green/5" : "hover:bg-bg-hover/40")}
                         >
-                          {/* Tag toggle — a real button so it is keyboard-operable
+                          {/* Tag toggle, a real button so it is keyboard-operable
                               and announces its pressed state (WCAG 2.1.1 / 4.1.2). */}
                           <button type="button" onClick={() => toggleTag(ioc.value)}
                             aria-pressed={ioc.tagged}

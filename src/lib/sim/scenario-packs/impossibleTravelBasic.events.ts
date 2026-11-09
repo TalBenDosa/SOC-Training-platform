@@ -72,7 +72,7 @@ export function impossibleTravelBasicScenarioEvents() {
 
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
-    // 1. BASELINE — what a normal morning looks like for this account.
+    // 1. BASELINE, what a normal morning looks like for this account.
     //    Everything the foreign sign-in is later compared against is here.
     // ---------------------------------------------------------------------
     {
@@ -143,7 +143,7 @@ export function impossibleTravelBasicScenarioEvents() {
     },
 
     // ---------------------------------------------------------------------
-    // 2. The corporate VPN session — the innocent explanation, made testable.
+    // 2. The corporate VPN session, the innocent explanation, made testable.
     // ---------------------------------------------------------------------
     {
       id: "evt_itb_02_vpn_connect",
@@ -340,7 +340,7 @@ export function impossibleTravelBasicScenarioEvents() {
 
     // ---------------------------------------------------------------------
     // 4b. The AiTM proxy relays the captured credentials + MFA to Entra and
-    //     completes the sign-in — minting the session the attacker later replays.
+    //     completes the sign-in, minting the session the attacker later replays.
     //     This sign-in's source is the phishing/AiTM infrastructure, not the user.
     // ---------------------------------------------------------------------
     {
@@ -412,7 +412,7 @@ export function impossibleTravelBasicScenarioEvents() {
     },
 
     // ---------------------------------------------------------------------
-    // 5. The VPN session ENDS — 47 minutes before the foreign sign-in.
+    // 5. The VPN session ENDS, 47 minutes before the foreign sign-in.
     // ---------------------------------------------------------------------
     {
       id: "evt_itb_05_vpn_disconnect",
@@ -511,7 +511,7 @@ export function impossibleTravelBasicScenarioEvents() {
     },
 
     // ---------------------------------------------------------------------
-    // 7. THE ALARM — the correlation rule. Geography only. This is the ticket.
+    // 7. THE ALARM, the correlation rule. Geography only. This is the ticket.
     // ---------------------------------------------------------------------
     {
       id: "evt_itb_07_travel_alert",

@@ -6,11 +6,11 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { recombineScenario } from "@/lib/scenarios/authored";
 
 /**
- * Resolve a scenario slug to a full, gradable ScenarioBundle — the single entry
+ * Resolve a scenario slug to a full, gradable ScenarioBundle, the single entry
  * point used by BOTH the play page and the grade route so authored scenarios go
  * through the same server-graded path as the static ones.
  *
- *  1. Static built-ins first (buildScenarioBySlug — sync, in-memory).
+ *  1. Static built-ins first (buildScenarioBySlug, sync, in-memory).
  *  2. Otherwise an org-authored DB scenario: load its client-safe projection
  *     (content_scenarios) + its answer key (content_scenario_keys, service-role
  *     only) and recombine them in server memory. The org boundary is re-asserted
@@ -18,7 +18,7 @@ import { recombineScenario } from "@/lib/scenarios/authored";
  *     is global (org_id null) or belongs to the caller's org.
  *
  * The recombined bundle carries the answer key; callers that hand it to the
- * client (the play page) must strip it — the grade route consumes it in full.
+ * client (the play page) must strip it, the grade route consumes it in full.
  */
 export async function resolveScenarioBundle(slug: string, orgId: string | null, includeDrafts = false): Promise<ScenarioBundle | null> {
   const staticBundle = buildScenarioBySlug(slug);
@@ -50,7 +50,7 @@ export async function resolveScenarioBundle(slug: string, orgId: string | null, 
     .select("answer_key")
     .eq("id", slug)
     .maybeSingle();
-  // Fail closed (P4-04) — see src/lib/rooms/resolve.ts.
+  // Fail closed (P4-04), see src/lib/rooms/resolve.ts.
   if (keyErr) { console.error(`[scenarios/resolve] key ${slug}: ${keyErr.message}`); throw new ContentUnavailableError(slug); }
   if (!keyRow) return null;
 

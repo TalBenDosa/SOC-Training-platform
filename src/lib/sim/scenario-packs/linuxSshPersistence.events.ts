@@ -23,13 +23,13 @@ export function linuxSshPersistenceScenarioEvents() {
     fqdn: "nix-bkp-01.northwind-logistics.io",
     // One address. The perimeter firewall DNATs the published SSH port to this
     // host, so every host-side log (sshd, auditd, Falcon) sees its own private
-    // address — the public VIP only exists on the firewall.
+    // address, the public VIP only exists on the firewall.
     privateIp: "10.40.2.15",
     sshPort: 2202,
     os: "Ubuntu 22.04.4 LTS",
   };
 
-  // Story-specific infrastructure — none of these addresses appear in another storyline.
+  // Story-specific infrastructure, none of these addresses appear in another storyline.
   const attacker = {
     // Two guessing nodes: one spraying names that do not exist, one working the real account.
     guessA: "176.111.174.26",
@@ -101,7 +101,7 @@ export function linuxSshPersistenceScenarioEvents() {
   };
 
   const events: TelemetryEvent[] = [
-    // ── 0. BENIGN CONTROL — the admin's VPN connection, which gives the corporate egress address ─
+    // ── 0. BENIGN CONTROL, the admin's VPN connection, which gives the corporate egress address ─
     {
       id: "lsp_00_admin_vpn",
       ts: T(-4 * MIN),
@@ -130,7 +130,7 @@ export function linuxSshPersistenceScenarioEvents() {
       },
     },
 
-    // ── 1. BENIGN DISCRIMINATOR — the admin's own SSH session ──────────────────
+    // ── 1. BENIGN DISCRIMINATOR, the admin's own SSH session ──────────────────
     {
       id: "lsp_01_admin_ssh",
       ts: T(0),
@@ -149,12 +149,12 @@ export function linuxSshPersistenceScenarioEvents() {
       mitre_technique: "T1078",
       mitre_tactic: "Initial Access",
       description:
-        "sshd on nix-bkp-01 logged 'Accepted publickey for d.okonkwo from 82.166.44.9 port 58114' — the corporate VPN egress address.",
+        "sshd on nix-bkp-01 logged 'Accepted publickey for d.okonkwo from 82.166.44.9 port 58114', the corporate VPN egress address.",
       fp_explanation:
         "This is a legitimate admin session and the control case for the auth log. Three things separate it from the login at 22:38: the method is publickey (a key cannot be guessed, so no password campaign can produce this line), the source is the corporate VPN egress rather than a hosting-provider address, and there is not a single failed authentication from 82.166.44.9 anywhere in the log. Alerting on 'SSH login to an internet-exposed host' alone flags this session and is wrong.",
       authentication: { method: "publickey", result: "success" },
       raw: {
-        // sshd's own authpriv line — the only record that names the authentication method.
+        // sshd's own authpriv line, the only record that names the authentication method.
         "data.program_name": "sshd",
         "data.srcip": "82.166.44.9",
         "data.srcport": "58114",
@@ -170,7 +170,7 @@ export function linuxSshPersistenceScenarioEvents() {
       },
     },
 
-    // ── 2. Password guessing — a name that does not exist ──────────────────────
+    // ── 2. Password guessing, a name that does not exist ──────────────────────
     {
       id: "lsp_02_unknown_user",
       ts: T(31 * MIN),
@@ -186,10 +186,10 @@ export function linuxSshPersistenceScenarioEvents() {
       mitre_technique: "T1110.001",
       mitre_tactic: "Credential Access",
       description:
-        "auditd on nix-bkp-01 recorded a failed sshd PAM authentication from 176.111.174.26 with acct=\"?\" — the username tried does not exist on the host.",
+        "auditd on nix-bkp-01 recorded a failed sshd PAM authentication from 176.111.174.26 with acct=\"?\", the username tried does not exist on the host.",
       authentication: { method: "password", result: "failure" },
       raw: {
-        // Linux-PAM writes acct="?" when the user is unknown (PAM_USER_UNKNOWN) — the
+        // Linux-PAM writes acct="?" when the user is unknown (PAM_USER_UNKNOWN), the
         // attempted name is deliberately not recorded. auid/ses are unset: nobody is logged in yet.
         "data.program_name": "sshd",
         "data.srcip": attacker.guessA,
@@ -214,7 +214,7 @@ export function linuxSshPersistenceScenarioEvents() {
       description: "Firewall closed a 3-second inbound session from 176.111.174.26:44118 to the SSH VIP on port 2202 under the Allow-SSH-2202-Inbound rule, translated to 10.40.2.15.",
     }),
 
-    // ── 3. Password guessing — the real service account ────────────────────────
+    // ── 3. Password guessing, the real service account ────────────────────────
     {
       id: "lsp_03_failed_svcbackup",
       ts: T(52 * MIN),
@@ -260,7 +260,7 @@ export function linuxSshPersistenceScenarioEvents() {
       description: "Firewall accepted an inbound session from 46.161.27.119:41772 to the SSH VIP on port 2202 under the Allow-SSH-2202-Inbound rule, translated to 10.40.2.15.",
     }),
 
-    // ── 4. The login that worked — sshd's line names the method ────────────────
+    // ── 4. The login that worked, sshd's line names the method ────────────────
     {
       id: "lsp_04_accepted_password",
       ts: T(58 * MIN),
@@ -294,7 +294,7 @@ export function linuxSshPersistenceScenarioEvents() {
       },
     },
 
-    // ── 5. The same login as auditd records it — the session id later rows carry ─
+    // ── 5. The same login as auditd records it, the session id later rows carry ─
     {
       id: "lsp_05_session_open",
       ts: T(58 * MIN + 1 * SEC),
@@ -314,7 +314,7 @@ export function linuxSshPersistenceScenarioEvents() {
       authentication: { method: "password", result: "success" },
       raw: {
         // USER_LOGIN is written when the session OPENS, after pam_loginuid has set the
-        // login uid — so auid/ses are populated here and not on the pre-auth USER_AUTH lines.
+        // login uid, so auid/ses are populated here and not on the pre-auth USER_AUTH lines.
         "data.program_name": "sshd",
         "data.srcip": attacker.success,
         "data.srcport": "41772",
@@ -562,7 +562,7 @@ export function linuxSshPersistenceScenarioEvents() {
       },
       raw: {
         // /usr/bin/crontab is setgid crontab(102): egid/sgid/fsgid become 102 while
-        // uid/euid stay 1004 — the file it creates is therefore ouid=1004 ogid=102.
+        // uid/euid stay 1004, the file it creates is therefore ouid=1004 ogid=102.
         "data.audit.type": "SYSCALL",
         "data.audit.arch": "c000003e",
         "data.audit.syscall": "257",
@@ -599,7 +599,7 @@ export function linuxSshPersistenceScenarioEvents() {
         "kworker started from /home/svc-backup/.cache/.fontconfig/ on nix-bkp-01 as svc-backup, parent bash (pid 1877), no arguments.",
     }),
 
-    // ── 11. FIRST ALERT — Falcon flags the masqueraded process ─────────────────
+    // ── 11. FIRST ALERT, Falcon flags the masqueraded process ─────────────────
     {
       ...csAlert({
         id: "lsp_11_kworker_detection", ts: T(70 * MIN), host: host.name, user: "svc-backup", srcIp: host.privateIp,
@@ -673,7 +673,7 @@ export function linuxSshPersistenceScenarioEvents() {
       mitre_technique: "T1071.001",
       mitre_tactic: "Command and Control",
       description:
-        "Firewall closed a 3-second session from nix-bkp-01 (10.40.2.15:51734) to 38.180.62.144:443 under the Allow-Outbound-Internet rule — 1,912 bytes sent, 4,388 received.",
+        "Firewall closed a 3-second session from nix-bkp-01 (10.40.2.15:51734) to 38.180.62.144:443 under the Allow-Outbound-Internet rule, 1,912 bytes sent, 4,388 received.",
       network: { bytes_out: 1_912, bytes_in: 4_388 },
       raw: {
         "data.type": "traffic",
@@ -716,7 +716,7 @@ export function linuxSshPersistenceScenarioEvents() {
       mitre_technique: "T1071.001",
       mitre_tactic: "Command and Control",
       description:
-        "Five minutes later the firewall closed another 3-second session from nix-bkp-01 (10.40.2.15:51790) to 38.180.62.144:443 under the same rule — 1,904 bytes sent, 4,388 received.",
+        "Five minutes later the firewall closed another 3-second session from nix-bkp-01 (10.40.2.15:51790) to 38.180.62.144:443 under the same rule, 1,904 bytes sent, 4,388 received.",
       network: { bytes_out: 1_904, bytes_in: 4_388 },
       raw: {
         "data.type": "traffic",
@@ -763,7 +763,7 @@ export function linuxSshPersistenceScenarioEvents() {
       },
     },
 
-    // ── 15. The crontab fires — its command line is the persisted entry ────────
+    // ── 15. The crontab fires, its command line is the persisted entry ────────
     {
       id: "lsp_15_cron_relaunch",
       ts: T(80 * MIN),
@@ -804,7 +804,7 @@ export function linuxSshPersistenceScenarioEvents() {
       },
     },
 
-    // ── 16. BENIGN DISCRIMINATOR — the nightly backup job starts ───────────────
+    // ── 16. BENIGN DISCRIMINATOR, the nightly backup job starts ───────────────
     {
       id: "lsp_16_backup_job",
       ts: T(95 * MIN),
@@ -818,7 +818,7 @@ export function linuxSshPersistenceScenarioEvents() {
       description:
         `cron on nix-bkp-01 started /usr/bin/restic as user backup: backup of /srv/data to repository s3:https://${backupRepo.domain}/${backupRepo.bucket}.`,
       fp_explanation:
-        "This is the server's intended nightly workload, provisioned by an administrator. Compare it attribute by attribute with kworker: it runs from /usr/bin (not a dot-directory under a home), it runs as the dedicated backup account rather than svc-backup, its cron entry is the root-owned /etc/cron.d/northwind-backup (no per-user crontab was touched), and its command line names the destination it is about to talk to — the company's Backblaze B2 bucket. The firewall session that follows is one long bulk upload to that storage endpoint, not a few kilobytes every five minutes to a bare IP. 'Outbound TLS from a backup server at night' is not a verdict either way; the process, account and destination are.",
+        "This is the server's intended nightly workload, provisioned by an administrator. Compare it attribute by attribute with kworker: it runs from /usr/bin (not a dot-directory under a home), it runs as the dedicated backup account rather than svc-backup, its cron entry is the root-owned /etc/cron.d/northwind-backup (no per-user crontab was touched), and its command line names the destination it is about to talk to, the company's Backblaze B2 bucket. The firewall session that follows is one long bulk upload to that storage endpoint, not a few kilobytes every five minutes to a bare IP. 'Outbound TLS from a backup server at night' is not a verdict either way; the process, account and destination are.",
       process: {
         name: "restic",
         pid: 2103,
@@ -855,7 +855,7 @@ export function linuxSshPersistenceScenarioEvents() {
       description: "restic (pid 2103) on nix-bkp-01 connected to 149.137.140.21 on port 443 from local port 40112.",
     }),
 
-    // ── 17. BENIGN DISCRIMINATOR — the backup's own outbound session ───────────
+    // ── 17. BENIGN DISCRIMINATOR, the backup's own outbound session ───────────
     {
       id: "lsp_17_backup_upload",
       ts: T(118 * MIN),
@@ -871,7 +871,7 @@ export function linuxSshPersistenceScenarioEvents() {
       severity: "informational",
       expected_verdict: "fp",
       description:
-        "Firewall closed a 1,380-second session from nix-bkp-01 (10.40.2.15:40112) to 149.137.140.21:443 under the Allow-Outbound-Internet rule — 1,874,329,612 bytes sent, 6,912,448 received.",
+        "Firewall closed a 1,380-second session from nix-bkp-01 (10.40.2.15:40112) to 149.137.140.21:443 under the Allow-Outbound-Internet rule, 1,874,329,612 bytes sent, 6,912,448 received.",
       fp_explanation:
         "This is restic's upload, not a second channel. It opened as the backup job started, it went to the object-storage endpoint named in restic's own command line (149.137.140.21 is Backblaze B2's EU-central S3 endpoint), and it is a single long bulk transfer. The kworker sessions are the opposite shape: about 1.9 KB out every five minutes, three seconds each, to a hosting-provider address no process on this server is configured to use. Both left through the same catch-all Allow-Outbound-Internet rule, which is why the rule proves nothing on its own.",
       network: { domain: backupRepo.domain, bytes_out: 1_874_329_612, bytes_in: 6_912_448 },

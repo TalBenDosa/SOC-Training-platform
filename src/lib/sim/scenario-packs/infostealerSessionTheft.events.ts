@@ -42,12 +42,12 @@ export function infostealerSessionTheftScenarioEvents() {
   const officeAppId = "d3590ed6-52b3-4102-aeff-aad2292ab01c";
   const mfaPolicyId = "1f0b6c93-7d24-4a5e-8b90-c3f27a641e58";
 
-  // EDR↔scenario integration (Phase 1b): ONE incident that spans two planes —
+  // EDR↔scenario integration (Phase 1b): ONE incident that spans two planes,
   // the infostealer on the host (EDR: file/process/credential-copy) AND the
   // stolen session cookie replayed against Entra/M365 (o365 identity events).
   // That makes it edr_scope "hybrid": the Falcon detection surfaces the endpoint
   // side and the analyst pivots to EDR for the host, while the Entra sign-in
-  // replay is investigated on the identity plane — correlated by the shared
+  // replay is investigated on the identity plane, correlated by the shared
   // incident_id + account + timing. The Entra and SharePoint rows are control-plane
   // evidence: they carry no process or file object, so no endpoint process can own them.
   const INCIDENT = "inc:ist:1";
@@ -66,7 +66,7 @@ export function infostealerSessionTheftScenarioEvents() {
   const byStealer = { actorProcess: "PDF_Converter_Pro_Setup.exe", actorPid: 7188, actorPath: STEALER, actorParentName: "explorer.exe", actorParentPid: 3844 } as const;
 
   const events: TelemetryEvent[] = [
-    // 1. Baseline — her own morning sign-in: real MFA, her enrolled device.
+    // 1. Baseline, her own morning sign-in: real MFA, her enrolled device.
     { ...entraSignIn({
       companyId: cx, id: "evt_ist_01_baseline_signin", ts: T(0), srcIp: corpEgress, user: victim.email,
       displayName: victim.name, userTitle: "Account Executive", userId, correlationId: "4a8f1c92-6d37-4e05-b8a1-9f2c6d4e7a13",
@@ -115,7 +115,7 @@ export function infostealerSessionTheftScenarioEvents() {
       description: "chrome.exe wrote C:\\Users\\r.avidan\\Downloads\\PDF_Converter_Pro_Setup.exe at 11:33:06.",
     }),
 
-    // 4. She runs it — unsigned, from Downloads, parent explorer.exe.
+    // 4. She runs it, unsigned, from Downloads, parent explorer.exe.
     csProcess({
       companyId: cx, id: "evt_ist_04_execute", ts: T(3 * HOUR + 47 * MIN), host: host.hostname, srcIp: host.ip, user: victim.email,
       processName: "PDF_Converter_Pro_Setup.exe", processPath: STEALER,
@@ -124,7 +124,7 @@ export function infostealerSessionTheftScenarioEvents() {
       description: "At 11:39:00 explorer.exe started the unsigned PDF_Converter_Pro_Setup.exe from Downloads.",
     }),
 
-    // 4a. Local State copied — it holds the key Chrome uses to decrypt the credential databases.
+    // 4a. Local State copied, it holds the key Chrome uses to decrypt the credential databases.
     csFile({
       companyId: cx, id: "evt_ist_04a_localstate_copy", ts: T(3 * HOUR + 47 * MIN + 2 * SEC), host: host.hostname, srcIp: host.ip, user: victim.email,
       path: `${STAGE}\\Chrome\\Local State`, sha256: null, size: 87_342, action: "file_create", ...byStealer,
@@ -132,20 +132,20 @@ export function infostealerSessionTheftScenarioEvents() {
       description: "Two seconds after starting, PDF_Converter_Pro_Setup.exe created a copy of Chrome's Local State file in a Temp staging folder.",
     }),
 
-    // 5. Login Data copied out of the locked Chrome profile — saved passwords (T1555.003).
+    // 5. Login Data copied out of the locked Chrome profile, saved passwords (T1555.003).
     csFile({
       companyId: cx, id: "evt_ist_05_logindata_copy", ts: T(3 * HOUR + 47 * MIN + 4 * SEC), host: host.hostname, srcIp: host.ip, user: victim.email,
       path: `${STAGE}\\Chrome\\Default\\Login Data`, sha256: null, size: 106_496, action: "file_create", ...byStealer,
       mitre: "T1555.003", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
-      description: "PDF_Converter_Pro_Setup.exe created C:\\Users\\r.avidan\\AppData\\Local\\Temp\\7zSC3A19\\Chrome\\Default\\Login Data, 104 KB — the same filename Chrome uses for its own saved-password SQLite database, which was still open and locked in the running browser. Local State, which holds the key Chrome uses to decrypt that database, was written to the same folder seconds earlier.",
+      description: "PDF_Converter_Pro_Setup.exe created C:\\Users\\r.avidan\\AppData\\Local\\Temp\\7zSC3A19\\Chrome\\Default\\Login Data, 104 KB, the same filename Chrome uses for its own saved-password SQLite database, which was still open and locked in the running browser. Local State, which holds the key Chrome uses to decrypt that database, was written to the same folder seconds earlier.",
     }),
 
-    // 6. Cookies database copied — the live session, not just passwords (T1539). The crux.
+    // 6. Cookies database copied, the live session, not just passwords (T1539). The crux.
     csFile({
       companyId: cx, id: "evt_ist_06_cookies_copy", ts: T(3 * HOUR + 47 * MIN + 9 * SEC), host: host.hostname, srcIp: host.ip, user: victim.email,
       path: `${STAGE}\\Chrome\\Default\\Network\\Cookies`, sha256: null, size: 61_440, action: "file_create", ...byStealer,
       isDetection: true, mitre: "T1539", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
-      description: "Five seconds later the same process created C:\\Users\\r.avidan\\AppData\\Local\\Temp\\7zSC3A19\\Chrome\\Default\\Network\\Cookies, 60 KB — Chrome's own cookie store, copied out of its locked location in the same staging folder as Login Data.",
+      description: "Five seconds later the same process created C:\\Users\\r.avidan\\AppData\\Local\\Temp\\7zSC3A19\\Chrome\\Default\\Network\\Cookies, 60 KB, Chrome's own cookie store, copied out of its locked location in the same staging folder as Login Data.",
     }),
 
     // 6a. The three files are packed into one archive. Deflate on SQLite + JSON: roughly half the 255,278 bytes staged.
@@ -170,7 +170,7 @@ export function infostealerSessionTheftScenarioEvents() {
       description: "PDF_Converter_Pro_Setup.exe opened a TCP/443 connection to 45.88.97.214.",
     }),
 
-    // 7. It leaves the building — a POST to the collection endpoint (T1041).
+    // 7. It leaves the building, a POST to the collection endpoint (T1041).
     panWeb({
       companyId: cx, id: "evt_ist_07_exfil", ts: T(3 * HOUR + 47 * MIN + 24 * SEC), host: host.hostname, srcIp: host.ip, user: victim.email,
       url: `https://${c2Domain}/api/v2/upload`, domain: c2Domain, category: "unknown", method: "POST", action: "allow",
@@ -187,7 +187,7 @@ export function infostealerSessionTheftScenarioEvents() {
       description: "Firewall session summary for the 11:39:23 connection from LAP-6688 to 45.88.97.214:443, closed by FIN.",
     }),
 
-    // 8. THE CRUX — a new session five minutes later, no password or MFA step (T1550.004).
+    // 8. THE CRUX, a new session five minutes later, no password or MFA step (T1550.004).
     { ...entraSignIn({
       companyId: cx, id: "evt_ist_08_session_replay", ts: T(3 * HOUR + 52 * MIN + 40 * SEC), srcIp: replayIp, user: victim.email,
       displayName: victim.name, userTitle: "Account Executive", userId, correlationId: correlationIdReplay, sessionId: sessionIdReplay,
@@ -219,7 +219,7 @@ export function infostealerSessionTheftScenarioEvents() {
         cmdline: '"C:\\Users\\r.avidan\\Downloads\\PDF_Converter_Pro_Setup.exe"', sha256: installerHash, pid: 7188,
         severity: "critical", incidentId: INCIDENT,
         detail: "An unsigned process copied Chrome's Login Data and Cookies databases out of the browser profile and transferred data to external infrastructure shortly afterward.",
-        description: "Falcon raised a Critical detection on LAP-6688 for browser-credential-store staging and killed PDF_Converter_Pro_Setup.exe — after the archive had already left the host and the stolen session had already been used.",
+        description: "Falcon raised a Critical detection on LAP-6688 for browser-credential-store staging and killed PDF_Converter_Pro_Setup.exe, after the archive had already left the host and the stolen session had already been used.",
       }),
       edr_scope: "hybrid",
     },
@@ -236,7 +236,7 @@ export function infostealerSessionTheftScenarioEvents() {
     }), file: undefined },
   ];
 
-  // Every event — host EDR and identity-plane alike — belongs to the one
+  // Every event, host EDR and identity-plane alike, belongs to the one
   // infostealer→session-replay incident (this is the SIEM↔EDR correlation key).
   for (const e of events) e.incident_id = INCIDENT;
 

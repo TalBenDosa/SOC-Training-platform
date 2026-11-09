@@ -1,5 +1,5 @@
 /**
- * SOC Training Platform — Scenario Builders
+ * SOC Training Platform, Scenario Builders
  * Each scenario produces 10-12 curated, story-driven telemetry events that
  * give a student exactly the clues needed to investigate the attack chain.
  * Events have rich human-readable `description` fields shown in the log viewer.
@@ -81,11 +81,11 @@ import {
 
 // ─── Alert auto-generator ────────────────────────────────────────────────────
 
-// Build the alert's title + description from the EVENT'S OWN OBSERVABLES — never a
+// Build the alert's title + description from the EVENT'S OWN OBSERVABLES, never a
 // per-technique template (which could contradict the event it points at: the old
 // generator stamped "macro Office document" on a .pdf.exe ZIP, and "PowerShell
 // beacon" where no PowerShell existed) and never the analyst's prose conclusion
-// (that is the exercise — see F-02). An alert states what the tool SAW, grounded
+// (that is the exercise, see F-02). An alert states what the tool SAW, grounded
 // in the same structured observables the analyst reads on the event row, so it can
 // never disagree with its own event.
 function alertTextFromEvent(e: TelemetryEvent): { title: string; description: string } {
@@ -97,7 +97,7 @@ function alertTextFromEvent(e: TelemetryEvent): { title: string; description: st
     const parent = p.parent_name ? ` (child of ${p.parent_name})` : "";
     return {
       title: `${vendor} flagged process ${p.name}${host}`,
-      description: `${vendor} raised a detection on ${p.name}${parent}${host}${p.cmdline ? ` — command line: ${p.cmdline}` : ""}.`,
+      description: `${vendor} raised a detection on ${p.name}${parent}${host}${p.cmdline ? `, command line: ${p.cmdline}` : ""}.`,
     };
   }
   if (n?.domain) {
@@ -116,14 +116,14 @@ function alertTextFromEvent(e: TelemetryEvent): { title: string; description: st
   }
   if (e.file?.path) {
     return {
-      title: `${vendor}: file activity — ${e.file.path}${host}`,
+      title: `${vendor}: file activity, ${e.file.path}${host}`,
       description: `${vendor} flagged file activity on ${e.file.path}${host}${e.file.sha256 ? ` (sha256 ${e.file.sha256})` : ""}.`,
     };
   }
   const et = e.event_type.replace(/_/g, " ");
   if (e.user_email && /auth|login|logon|sign|account|mfa|token/i.test(e.event_type)) {
     return {
-      title: `${vendor}: ${et} — ${e.user_email}${e.src_ip ? ` from ${e.src_ip}` : ""}`,
+      title: `${vendor}: ${et}, ${e.user_email}${e.src_ip ? ` from ${e.src_ip}` : ""}`,
       description: `${vendor} recorded ${et} for ${e.user_email}${e.src_ip ? ` from ${e.src_ip}` : ""}${host}.`,
     };
   }
@@ -137,7 +137,7 @@ export function eventsToAlerts(events: TelemetryEvent[], scenario_id: string): A
   const alerts: Alert[] = [];
   let aid = 0;
   // Builders declare events in narrative order, which is not always
-  // chronological — several scenarios listed a tool launch after the traffic it
+  // chronological, several scenarios listed a tool launch after the traffic it
   // produced. Alerts must run on the clock, so sort a copy here rather than
   // relying on every builder to keep its array ordered.
   const ordered = [...events].sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
@@ -224,7 +224,7 @@ function tacticForTechnique(t: string): string | undefined {
   if (t === "T1528")        return "TA0006";   // Credential Access (steal app token)
   if (t === "T1137.005")    return "TA0003";   // Persistence (Outlook rules)
   if (t === "T1114.003")    return "TA0009";   // Collection (email forwarding rule)
-  if (t === "T1078.002")    return "TA0001";   // Initial Access (domain accounts) — matches T1078/.004 above; ATT&CK does not list Lateral Movement for T1078
+  if (t === "T1078.002")    return "TA0001";   // Initial Access (domain accounts), matches T1078/.004 above; ATT&CK does not list Lateral Movement for T1078
   if (t === "T1550.003")    return "TA0008";   // Lateral Movement (pass the ticket)
   if (t === "T1204.002")    return "TA0002";   // Execution (user opens malicious file)
   if (t === "T1219")        return "TA0011";   // Command and Control (remote access software)
@@ -789,7 +789,7 @@ export const SCENARIOS = [
   { slug: "backup-agent-false-positive",
     title: "Overnight behaviour alert on a production file server",
     difficulty: "beginner", attack_kind: "false_positive",
-    threat_actor: "None — authorised backup activity", build: withAlerts(buildBackupFalsePositiveScenario),
+    threat_actor: "None, authorised backup activity", build: withAlerts(buildBackupFalsePositiveScenario),
     summary: "Defender for Endpoint raised a high-severity behaviour alert on a production file server overnight, and the night shift is holding for an isolate decision. Investigate the process behind it and make the call with evidence." },
   { slug: "brute-force-single-account",
     title: "Logon failures on the published Remote Desktop server",
@@ -809,7 +809,7 @@ export const SCENARIOS = [
   { slug: "software-install-false-positive",
     title: "Behavioural EDR alert on an engineering workstation",
     difficulty: "beginner", attack_kind: "false_positive",
-    threat_actor: "None — authorised software deployment", build: withAlerts(buildSoftwareInstallFalsePositiveScenario),
+    threat_actor: "None, authorised software deployment", build: withAlerts(buildSoftwareInstallFalsePositiveScenario),
     summary: "CrowdStrike raised a high behavioural detection on an engineering workstation after a new executable and service appeared and an outbound session opened. Determine what ran and whether the host needs to be contained." },
   { slug: "web-shell-sqli",
     title: "WAF blocks and an EDR alert on the shop",
@@ -901,7 +901,7 @@ export const SCENARIOS = [
   { slug: "exfil-first-extortion",
     title: "Threatening email to NexaCorp's security mailbox",
     difficulty: "advanced", attack_kind: "exfiltration",
-    threat_actor: "Exfiltration-only extortion crew (BianLian/Karakurt-style — no encryptor deployed)", build: withAlerts(buildExfilFirstExtortionScenario),
+    threat_actor: "Exfiltration-only extortion crew (BianLian/Karakurt-style, no encryptor deployed)", build: withAlerts(buildExfilFirstExtortionScenario),
     summary: "Sentinel escalated an incident to critical overnight after NexaCorp's security mailbox received an email referencing client records. Work out whether anything left the environment, how, and why nothing stopped it." },
 
   // ── P1 use-case expansion (scenario-usecase-map: privilege escalation ×2, lateral movement, insider DLP, NAC) ──
@@ -923,7 +923,7 @@ export const SCENARIOS = [
   { slug: "insider-dlp-usb-cloud",
     title: "Sentinel incident for a finance analyst who resigned",
     difficulty: "intermediate", attack_kind: "insider_data_theft",
-    threat_actor: "Malicious insider (departing employee, valid account — no external actor)", build: withAlerts(buildInsiderDlpUsbCloudScenario),
+    threat_actor: "Malicious insider (departing employee, valid account, no external actor)", build: withAlerts(buildInsiderDlpUsbCloudScenario),
     summary: "Sentinel raised an incident for a senior financial analyst whose resignation is already in Workday. Establish what left the environment, by which routes, and whether it was legitimate work." },
   { slug: "nac-rogue-device",
     title: "NAC alert for an unknown endpoint on SW-ACC-07",
@@ -955,7 +955,7 @@ export const SCENARIOS = [
   { slug: "ueba-compromised-account",
     title: "Sentinel risk score raised for a Finance manager",
     difficulty: "intermediate", attack_kind: "account_compromise",
-    threat_actor: "External actor operating a stolen session (cloud identity takeover — no host foothold)", build: withAlerts(buildUebaCompromisedAccountScenario),
+    threat_actor: "External actor operating a stolen session (cloud identity takeover, no host foothold)", build: withAlerts(buildUebaCompromisedAccountScenario),
     summary: "Sentinel UEBA raised a Finance manager's risk score to high overnight, with no detection verdict and nothing blocked. Pivot from the score into the sign-in and audit telemetry and decide what the anomalies mean." },
   { slug: "vishing-rmm",
     title: "Falcon detection on a payments clerk's workstation (WKS-QB-047)",
@@ -992,7 +992,7 @@ export const SCENARIOS = [
   { slug: "threat-intel-hunt",
     title: "New intel list to check across the estate",
     difficulty: "intermediate", attack_kind: "threat_hunt",
-    threat_actor: "GLASSTHORN intrusion set (TEMP.Halberd) — SystemBC proxy-implant operator", build: withAlerts(buildThreatIntelHuntScenario),
+    threat_actor: "GLASSTHORN intrusion set (TEMP.Halberd), SystemBC proxy-implant operator", build: withAlerts(buildThreatIntelHuntScenario),
     summary: "An intel provider pushed new network destinations and a file fingerprint linked to an active operation, and nothing has alarmed yet. Sweep the environment and decide which matching machines, if any, need action." },
 
   // ── P4 use-case expansion (scenario-usecase-map Part 5: mobile/MDM, GCP-native, macOS TCC, email-bomb social-eng, OT/ICS, BEC wire fraud) ──
@@ -1028,7 +1028,7 @@ export const SCENARIOS = [
     summary: "Defender for Office 365 flagged an urgent wire-transfer email to Accounts Payable that presents as the CFO, and Finance reported a phone call chasing the same payment. Decide whether the request is genuine before any money moves." },
 ] as const;
 
-// ─── Impossible Travel — Account Compromise via Stolen Credentials ────────────
+// ─── Impossible Travel, Account Compromise via Stolen Credentials ────────────
 
 export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-2026"): ScenarioBundle {
   const { title, events, T, MIN, nigIp } = impossibleTravelScenarioEvents();
@@ -1044,7 +1044,7 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
     threat_actor: "External Threat Actor (Credential Theft)",
     attack_kind: "account_compromise",
     briefing: "Entra ID Protection raised a high-risk, unlikely-travel sign-in on k.taylor at 09:06, minutes after the VPN logged a second session for the same account from a new country. A burst of failed sign-ins preceded it. The user has not been contacted yet.",
-    narrative: `A password-spray burst from a Nigerian IP ended in a successful sign-in to k.taylor's account. At 09:00 k.taylor connected to the VPN normally from Tel Aviv; four minutes later the same account connected from Lagos, Nigeria — 4,320 km away, physically impossible. The VPN sign-in went through Entra with a single factor (no MFA), Entra ID Protection rated the O365 sign-in high risk (unlikely travel), and the attacker then created a hidden inbox forwarding rule to a ProtonMail address, used the VPN tunnel to reach the engineering file server over SMB, and downloaded 847 SharePoint files (2.3 GB). The failed-login origin, the shared Entra session id and the tunnel IP tie the chain together.`,
+    narrative: `A password-spray burst from a Nigerian IP ended in a successful sign-in to k.taylor's account. At 09:00 k.taylor connected to the VPN normally from Tel Aviv; four minutes later the same account connected from Lagos, Nigeria, 4,320 km away, physically impossible. The VPN sign-in went through Entra with a single factor (no MFA), Entra ID Protection rated the O365 sign-in high risk (unlikely travel), and the attacker then created a hidden inbox forwarding rule to a ProtonMail address, used the VPN tunnel to reach the engineering file server over SMB, and downloaded 847 SharePoint files (2.3 GB). The failed-login origin, the shared Entra session id and the tunnel IP tie the chain together.`,
     learning_objectives: [
       "Recognize impossible travel as a credential compromise indicator",
       "Identify a single-factor VPN sign-in (no MFA) as the gap that let the stolen password work",
@@ -1056,9 +1056,9 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
     alerts: eventsToAlerts(events, scenarioId),
     killchain: [
       { ts: T(-28 * MIN), phase: "Credential Access", action: "Password-spray burst from a Nigerian IP ends in a valid password for k.taylor" },
-      { ts: T(0),        phase: "Normal Baseline",  action: "k.taylor VPN login from Tel Aviv — looks normal" },
-      { ts: T(4 * MIN),  phase: "Impossible Travel", action: "Same user VPN login from Lagos, Nigeria — 4 min later, 4,320 km away" },
-      { ts: T(4 * MIN + 20_000), phase: "Stealth", action: "VPN app sign-in through Entra with a single factor — no MFA" },
+      { ts: T(0),        phase: "Normal Baseline",  action: "k.taylor VPN login from Tel Aviv, looks normal" },
+      { ts: T(4 * MIN),  phase: "Impossible Travel", action: "Same user VPN login from Lagos, Nigeria, 4 min later, 4,320 km away" },
+      { ts: T(4 * MIN + 20_000), phase: "Stealth", action: "VPN app sign-in through Entra with a single factor, no MFA" },
       { ts: T(6 * MIN),  phase: "Detection",        action: "Entra ID Protection flags the O365 sign-in high risk (unlikely travel)" },
       { ts: T(9 * MIN),  phase: "Email Persistence", action: "Inbox forwarding rule created: all mail → protonmail attacker address" },
       { ts: T(11 * MIN), phase: "Lateral Movement",  action: "VPN tunnel IP opens an SMB session to the engineering file server" },
@@ -1067,22 +1067,22 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
     questions: [
       { id: "q1", prompt: "What is the key indicator that proves this is a compromised credential rather than k.taylor traveling?", kind: "single",
         options: [
-          { value: "distance", label: "4,320 km between Tel Aviv and Lagos in 4 minutes — physically impossible travel" },
+          { value: "distance", label: "4,320 km between Tel Aviv and Lagos in 4 minutes, physically impossible travel" },
           { value: "time",     label: "The Lagos sign-in happened in the middle of the night for k.taylor's usual time zone" },
           { value: "vpn",      label: "The second VPN login terminated on a different GlobalProtect gateway than the first" },
           { value: "device",   label: "The device hostname on the second login differs from k.taylor's usual laptop" },
         ],
         answer: "distance", xp: 50,
-        explanation: "The 4-minute gap between logins from cities 4,320 km apart is physically impossible — no aircraft travels at 64,800 km/h. This is the definitive indicator of impossible travel, not timing or device differences. Distance-to-time ratio is the core of impossible travel detection." },
+        explanation: "The 4-minute gap between logins from cities 4,320 km apart is physically impossible, no aircraft travels at 64,800 km/h. This is the definitive indicator of impossible travel, not timing or device differences. Distance-to-time ratio is the core of impossible travel detection." },
       { id: "q2", prompt: "What field in the VPN logs most directly proves credential theft (not a legitimate VPN split-tunnel or proxy)?", kind: "single",
         options: [
           { value: "ip",       label: "The source IP is from a Nigerian ISP (MTN Nigeria)" },
-          { value: "device",   label: "gp.device_registered: false — unrecognized device" },
+          { value: "device",   label: "gp.device_registered: false, unrecognized device" },
           { value: "mfa",      label: "MFA was not challenged for the Nigerian login" },
           { value: "country",  label: "The GeoLocation country_name field shows Nigeria" },
         ],
         answer: "device", xp: 75,
-        explanation: "An unregistered device (gp.device_registered: false) proves the login came from hardware the organization never enrolled — eliminating VPN split-tunnel and corporate proxy scenarios. A registered corporate device behind a Nigerian exit node would still show gp.device_registered: true. The Nigerian IP alone could be a VPN exit node used by a traveling employee." },
+        explanation: "An unregistered device (gp.device_registered: false) proves the login came from hardware the organization never enrolled, eliminating VPN split-tunnel and corporate proxy scenarios. A registered corporate device behind a Nigerian exit node would still show gp.device_registered: true. The Nigerian IP alone could be a VPN exit node used by a traveling employee." },
       { id: "q3", prompt: "After confirming impossible travel, what is the FIRST containment action?", kind: "single",
         options: [
           { value: "block_ip",  label: "Block the Nigerian source IP at the perimeter firewall" },
@@ -1107,7 +1107,7 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
 
 // =========================================================================
 // Foundation Scenario A: Phishing Attachment → Malware Execution → Workstation Compromise
-// The simplest possible attack in the platform — one host, one user, no
+// The simplest possible attack in the platform, one host, one user, no
 // lateral movement, no credential theft, no cloud pivot. This is the story a
 // student who is brand-new to SOC work should see first: an everyday
 // phishing email leads to a malware infection, and the EDR eventually
@@ -1282,13 +1282,13 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
     threat_actor: "Commodity Malware Operator (opportunistic, financially motivated)",
     attack_kind: "browser_extension_malware_basic",
     briefing: "The EDR killed an encoded PowerShell process on WS-MKT-3301 (d.cohen) at 09:04, and the firewall logged an alert on an outbound connection from the same host to a newly registered domain minutes earlier. Reconstruct how a browser extension reached PowerShell.",
-    narrative: "d.cohen downloaded a 'perf boost' Chrome extension as a ZIP from a lure site, a NativeMessagingHosts key was registered under HKCU, and Chrome was relaunched with a developer-mode --load-extension flag. The extension messaged its registered native-messaging host — a cmd.exe wrapper Chrome launched — which spawned an encoded PowerShell command. That command connected to a newly registered domain and wrote b.ps1 to %TEMP%. The EDR killed the PowerShell process; the download URL, the registry registration, the file hashes and the C2 domain/IP tie the chain together end to end.",
+    narrative: "d.cohen downloaded a 'perf boost' Chrome extension as a ZIP from a lure site, a NativeMessagingHosts key was registered under HKCU, and Chrome was relaunched with a developer-mode --load-extension flag. The extension messaged its registered native-messaging host, a cmd.exe wrapper Chrome launched, which spawned an encoded PowerShell command. That command connected to a newly registered domain and wrote b.ps1 to %TEMP%. The EDR killed the PowerShell process; the download URL, the registry registration, the file hashes and the C2 domain/IP tie the chain together end to end.",
     learning_objectives: [
       "Recognize a sideloaded browser extension as a persistence mechanism (T1176.001), separate from email or removable media",
-      "Understand that an extension reaches the OS through a native-messaging host — the chrome.exe → cmd.exe → powershell.exe chain, not Chrome spawning PowerShell directly",
+      "Understand that an extension reaches the OS through a native-messaging host, the chrome.exe → cmd.exe → powershell.exe chain, not Chrome spawning PowerShell directly",
       "Identify a browser's native-messaging host spawning a scripting interpreter as a clear parent-child anomaly (T1059.001)",
       "Understand that a firewall ALLOW on a brand-new domain is not the same as safe",
-      "See how EDR detection can lag behind execution — the beacon already completed before the process was killed",
+      "See how EDR detection can lag behind execution, the beacon already completed before the process was killed",
     ],
     events,
     iocs,
@@ -1298,7 +1298,7 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
       { ts: T(-4 * MIN),        phase: "Persistence",       action: "A NativeMessagingHosts key is registered under HKCU for the host manifest" },
       { ts: T(0),               phase: "Persistence",       action: "Chrome relaunched with a sideloaded extension from Downloads" },
       { ts: T(MIN + 30_000),    phase: "Execution",         action: "chrome.exe launches the extension's native-messaging host (cmd.exe wrapper)" },
-      { ts: T(2 * MIN),         phase: "Execution",         action: "The native host spawns encoded PowerShell — malware runs" },
+      { ts: T(2 * MIN),         phase: "Execution",         action: "The native host spawns encoded PowerShell, malware runs" },
       { ts: T(2 * MIN + 30_000), phase: "Command & Control", action: "PowerShell connects to a newly registered domain; URL filtering alerts but allows it" },
       { ts: T(2 * MIN + 45_000), phase: "Command & Control", action: "PowerShell writes b.ps1 to %TEMP%" },
       { ts: T(4 * MIN),         phase: "Detection",          action: "EDR kills the PowerShell process" },
@@ -1311,18 +1311,18 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
           { value: "dept",  label: "d.cohen works in marketing, not IT, so has no reason to install browser extensions" },
         ],
         answer: "flag", xp: 40,
-        explanation: "The --load-extension command-line flag is a developer-mode mechanism for loading unpacked extensions directly from disk — it bypasses the Chrome Web Store entirely, which is the normal install path for every legitimate extension. Folder size and the user's department are not reliable indicators on their own." },
+        explanation: "The --load-extension command-line flag is a developer-mode mechanism for loading unpacked extensions directly from disk, it bypasses the Chrome Web Store entirely, which is the normal install path for every legitimate extension. Folder size and the user's department are not reliable indicators on their own." },
       { id: "q2", prompt: "A Chrome extension cannot start a process by itself. How did this one reach powershell.exe, and why is that chain significant?", kind: "single",
         options: [
-          { value: "yes", label: "The extension messaged its registered native-messaging host — a cmd.exe wrapper Chrome launched — which then spawned PowerShell; a browser's native host launching a script interpreter is an abnormal chain worth investigating" },
+          { value: "yes", label: "The extension messaged its registered native-messaging host, a cmd.exe wrapper Chrome launched, which then spawned PowerShell; a browser's native host launching a script interpreter is an abnormal chain worth investigating" },
           { value: "no",  label: "The extension called powershell.exe directly through a JavaScript API, which is the normal way extensions run system tasks" },
         ],
         answer: "yes", xp: 50,
         explanation: "Browser extensions are sandboxed and cannot spawn arbitrary processes; the only supported bridge to the OS is Native Messaging, where Chrome launches a host executable registered on the machine. Here that host is a cmd.exe wrapper, which then spawned encoded PowerShell. The chrome.exe → cmd.exe → powershell.exe tree, not Chrome calling PowerShell directly, is the real signal and is abnormal on a user workstation." },
       { id: "q3", prompt: "The firewall ALLOWED the connection to cdn-assets-update.xyz. Does that mean the connection was safe?", kind: "single",
         options: [
-          { value: "yes", label: "Yes — the firewall evaluated the session against its URL and threat policy and allowed it, so it passed" },
-          { value: "no",  label: "No — 'allowed' just means it wasn't on a blocklist yet; a domain the firewall categorises as newly registered is itself suspicious" },
+          { value: "yes", label: "Yes, the firewall evaluated the session against its URL and threat policy and allowed it, so it passed" },
+          { value: "no",  label: "No, 'allowed' just means it wasn't on a blocklist yet; a domain the firewall categorises as newly registered is itself suspicious" },
         ],
         answer: "no", xp: 50,
         explanation: "Firewalls default to allow unless a domain is already known-bad. A newly registered domain is a strong red flag on its own, since legitimate business services are almost never that young. 'Allowed by the firewall' and 'safe' are not the same thing." },
@@ -1332,10 +1332,10 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
 
 // =========================================================================
 // Foundation Scenario D: Tech-Support Scam → Unapproved Remote Access Tool
-// Fourth beginner-tier scenario — the user is socially engineered over the
+// Fourth beginner-tier scenario, the user is socially engineered over the
 // phone into installing a legitimate, signed remote-access tool themselves.
 // One host, one user, EDR-only telemetry, no lateral movement, no
-// credential theft — the "malware" here is abuse of a trusted tool.
+// credential theft, the "malware" here is abuse of a trusted tool.
 // =========================================================================
 
 export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-2026"): ScenarioBundle {
@@ -1357,7 +1357,7 @@ export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-202
     threat_actor: "Tech-Support Scam Operator (opportunistic, financially motivated)",
     attack_kind: "tech_support_scam_basic",
     briefing: "The EDR raised a behavioural alert for an unsanctioned remote-access tool on WS-ACC-4477 at 14:06 and terminated it. A scam page was loaded on the host earlier, and an AnyDesk relay session and a new service were logged in between. The user has not opened a ticket. Establish what ran and what the remote operator did.",
-    narrative: "t.mizrahi loaded a scareware page (ms-support-alert.live), called the number on it, and was talked into downloading and running AnyDesk and granting the caller control. The AnyDesk connection_trace.txt records the incoming session ID and the operator's IP; during the live relay session cmd.exe ran systeminfo and netstat, and AnyDesk was installed as a service for unattended access. The EDR then raised a behavioural unsanctioned-RMM alert and killed the processes — the referrer URL, the relay host, the trace file and the service tie the chain together.",
+    narrative: "t.mizrahi loaded a scareware page (ms-support-alert.live), called the number on it, and was talked into downloading and running AnyDesk and granting the caller control. The AnyDesk connection_trace.txt records the incoming session ID and the operator's IP; during the live relay session cmd.exe ran systeminfo and netstat, and AnyDesk was installed as a service for unattended access. The EDR then raised a behavioural unsanctioned-RMM alert and killed the processes, the referrer URL, the relay host, the trace file and the service tie the chain together.",
     learning_objectives: [
       "Recognize that a legitimate, signed tool can still be the vehicle for an attack when used outside policy (T1219)",
       "Identify a remote-access tool spawning a command shell as an observable pivot point (T1059.003)",
@@ -1379,33 +1379,33 @@ export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-202
     questions: [
       { id: "q1", prompt: "AnyDesk.exe is a legitimate, digitally signed application. Does that mean this event chain is not a security incident?", kind: "single",
         options: [
-          { value: "yes", label: "Yes — AnyDesk is a signed, reputable vendor tool, so its presence on the host is an IT support matter and not a security incident at all" },
-          { value: "no",  label: "No — remote-access tools are routinely abused in tech-support scams; how and why it was installed matters more than the signature" },
+          { value: "yes", label: "Yes, AnyDesk is a signed, reputable vendor tool, so its presence on the host is an IT support matter and not a security incident at all" },
+          { value: "no",  label: "No, remote-access tools are routinely abused in tech-support scams; how and why it was installed matters more than the signature" },
         ],
         answer: "no", xp: 40,
-        explanation: "Attackers frequently use legitimate, signed software as their entry point specifically because it does not trigger traditional malware signatures. A signed binary is not automatically safe — it matters who installed it, why, and whether it is on the approved software list for that environment." },
+        explanation: "Attackers frequently use legitimate, signed software as their entry point specifically because it does not trigger traditional malware signatures. A signed binary is not automatically safe, it matters who installed it, why, and whether it is on the approved software list for that environment." },
       { id: "q2", prompt: "Which single detail here is the strongest indicator of a tech-support scam, as opposed to a normal IT remote session?", kind: "single",
         options: [
-          { value: "cmd",  label: "AnyDesk — not the company's approved helpdesk tool — was installed with no prior history and immediately opened a live external relay session, during which the desktop ran enumeration commands" },
+          { value: "cmd",  label: "AnyDesk, not the company's approved helpdesk tool, was installed with no prior history and immediately opened a live external relay session, during which the desktop ran enumeration commands" },
           { value: "size", label: "AnyDesk.exe is only about 4MB, much smaller than the enterprise remote-support client used by IT" },
           { value: "dept", label: "t.mizrahi works in accounting, a department with no approved use for remote-access tools" },
         ],
         answer: "cmd", xp: 50,
-        explanation: "The company has a designated helpdesk tool for legitimate remote support. A personally-installed AnyDesk session with no prior history, an outbound connection to an AnyDesk relay, and system/network enumeration run on the desktop while that session is live together deviate sharply from the normal IT support process — that is the actual observable, not the file size or department. (AnyDesk itself has no remote-shell feature; the enumeration is the caller typing in the GUI session, so the shell's parent is explorer.exe, not AnyDesk.)" },
+        explanation: "The company has a designated helpdesk tool for legitimate remote support. A personally-installed AnyDesk session with no prior history, an outbound connection to an AnyDesk relay, and system/network enumeration run on the desktop while that session is live together deviate sharply from the normal IT support process, that is the actual observable, not the file size or department. (AnyDesk itself has no remote-shell feature; the enumeration is the caller typing in the GUI session, so the shell's parent is explorer.exe, not AnyDesk.)" },
       { id: "q3", prompt: "The EDR shows 'action_result: blocked' with Critical severity. Is the incident fully resolved at that point?", kind: "single",
         options: [
-          { value: "yes", label: "Yes — the EDR blocked the process, which ends the remote session, so the threat is neutralized and the alert can be closed" },
-          { value: "no",  label: "No — the remote session was active for several minutes before the block; the analyst must confirm what the caller did and document it" },
+          { value: "yes", label: "Yes, the EDR blocked the process, which ends the remote session, so the threat is neutralized and the alert can be closed" },
+          { value: "no",  label: "No, the remote session was active for several minutes before the block; the analyst must confirm what the caller did and document it" },
         ],
         answer: "no", xp: 60,
-        explanation: "Killing the processes stops further access, but does not undo whatever the caller already saw or did during the active session — and the AnyDesk service installed for unattended access must be removed too. A SOC analyst still needs to review what commands were run, whether any data was viewed or copied, remove the service, and write up the incident for the user's awareness training." },
+        explanation: "Killing the processes stops further access, but does not undo whatever the caller already saw or did during the active session, and the AnyDesk service installed for unattended access must be removed too. A SOC analyst still needs to review what commands were run, whether any data was viewed or copied, remove the service, and write up the incident for the user's awareness training." },
     ],
   };
 }
 
 // =========================================================================
 // Foundation Scenario E: Cracked Software Installer → Scheduled Task Persistence
-// Fifth beginner-tier scenario — infection vector is a trojanized installer
+// Fifth beginner-tier scenario, infection vector is a trojanized installer
 // from a sponsored search-ad result, distinct persistence mechanism
 // (scheduled task, not registry Run key) from the USB scenario. One host,
 // one user, EDR (+ one firewall event for the initial download).
@@ -1429,7 +1429,7 @@ export function buildCrackedSoftwareScenario(scenarioId = "cracked-software-inst
     threat_actor: "Commodity Malware Operator (opportunistic, financially motivated)",
     attack_kind: "cracked_software_installer_basic",
     briefing: "The firewall alerted on an executable download to WS-ENG-2093 at 20:10, Defender quarantined a file at 20:19, and in between a scheduled task was registered and the host connected to an unfamiliar domain. The activity is well outside business hours and y.golan has reported nothing.",
-    narrative: "y.golan downloaded a trojanized Office 'activator' installer late in the evening (the firewall logged the EXE download; the browser saved it with its origin URL). Running it dropped svchelper.exe into C:\\ProgramData\\OfficeTools and registered a scheduled task (OfficeLicenseRefresh) that runs as y.golan — no admin, so no /ru SYSTEM. When the task fired, svchelper.exe ran and connected to a C2 domain before Defender quarantined it; the installer hash, the dropped-payload hash and the C2 domain/IP tie the chain together, and the task is not shown as removed.",
+    narrative: "y.golan downloaded a trojanized Office 'activator' installer late in the evening (the firewall logged the EXE download; the browser saved it with its origin URL). Running it dropped svchelper.exe into C:\\ProgramData\\OfficeTools and registered a scheduled task (OfficeLicenseRefresh) that runs as y.golan, no admin, so no /ru SYSTEM. When the task fired, svchelper.exe ran and connected to a C2 domain before Defender quarantined it; the installer hash, the dropped-payload hash and the C2 domain/IP tie the chain together, and the task is not shown as removed.",
     learning_objectives: [
       "Recognize a trojanized installer served through a sponsored search-ad as an infection vector distinct from email or USB",
       "Identify user execution of an unsigned, never-before-seen binary (T1204.002)",
@@ -1443,7 +1443,7 @@ export function buildCrackedSoftwareScenario(scenarioId = "cracked-software-inst
       { ts: T(0),                phase: "Initial Access", action: "Trojanized activator EXE downloaded from fast-office-tools-download.top" },
       { ts: T(6 * MIN),          phase: "Execution",      action: "y.golan runs the installer; it drops svchelper.exe to C:\\ProgramData\\OfficeTools" },
       { ts: T(6 * MIN + 40_000), phase: "Persistence",    action: "schtasks.exe registers OfficeLicenseRefresh (runs as y.golan) every 30 minutes" },
-      { ts: T(7 * MIN + 30_000), phase: "Execution",      action: "The task fires — Task Scheduler launches svchelper.exe as y.golan" },
+      { ts: T(7 * MIN + 30_000), phase: "Execution",      action: "The task fires, Task Scheduler launches svchelper.exe as y.golan" },
       { ts: T(7 * MIN + 45_000), phase: "Command & Control", action: "svchelper.exe connects to its C2 domain" },
       { ts: T(9 * MIN),          phase: "Detection",      action: "EDR quarantines the payload (the task itself is not shown removed)" },
     ],
@@ -1459,24 +1459,24 @@ export function buildCrackedSoftwareScenario(scenarioId = "cracked-software-inst
       { id: "q2", prompt: "How does this scenario's persistence mechanism differ from a Registry Run key?", kind: "single",
         options: [
           { value: "task", label: "A scheduled task relaunches the payload on a recurring interval and at logon, instead of a HKCU\\...\\Run registry value" },
-          { value: "none", label: "There is no real difference — a scheduled task is just a Run key stored in a different hive and cleaned up the same way" },
+          { value: "none", label: "There is no real difference, a scheduled task is just a Run key stored in a different hive and cleaned up the same way" },
         ],
         answer: "task", xp: 50,
         explanation: "Scheduled Task persistence (T1053.005) and Registry Run Key persistence (T1547.001) are both common but technically distinct techniques for surviving a reboot. Recognizing both is important because defenders and EDR products check different artifacts to detect and remove each one." },
       { id: "q3", prompt: "Microsoft Defender quarantined svchelper.exe and removed the scheduled task. Is the workstation fully clean at that point without further review?", kind: "single",
         options: [
-          { value: "yes", label: "Yes — quarantining svchelper.exe reverses every change the payload made on the host, so no further review is needed" },
-          { value: "no",  label: "No — the payload ran for several minutes before detection, and the detection does not show the OfficeLicenseRefresh task being deleted; the analyst must confirm the task is gone and check for other changes" },
+          { value: "yes", label: "Yes, quarantining svchelper.exe reverses every change the payload made on the host, so no further review is needed" },
+          { value: "no",  label: "No, the payload ran for several minutes before detection, and the detection does not show the OfficeLicenseRefresh task being deleted; the analyst must confirm the task is gone and check for other changes" },
         ],
         answer: "no", xp: 60,
-        explanation: "Quarantining the payload stops the immediate threat, but the detection record does not confirm the scheduled task itself was removed — a task pointing at a now-missing binary will keep firing and erroring, and the attacker could re-drop the payload. A thorough analyst confirms the OfficeLicenseRefresh task is deleted and checks for other dropped files, modified settings, or additional persistence before closing the incident." },
+        explanation: "Quarantining the payload stops the immediate threat, but the detection record does not confirm the scheduled task itself was removed, a task pointing at a now-missing binary will keep firing and erroring, and the attacker could re-drop the payload. A thorough analyst confirms the OfficeLicenseRefresh task is deleted and checks for other dropped files, modified settings, or additional persistence before closing the incident." },
     ],
   };
 }
 
 // =========================================================================
 // Foundation Scenario F: Malicious Office Macro → PowerShell Execution
-// Sixth beginner-tier scenario — a simpler cousin of the phishing-malware
+// Sixth beginner-tier scenario, a simpler cousin of the phishing-malware
 // chain: a single macro-enabled attachment leads straight to WINWORD.EXE
 // spawning PowerShell. No exfiltration, just the initial execution chain.
 // =========================================================================
@@ -1509,7 +1509,7 @@ export function buildMaliciousMacroScenario(scenarioId = "malicious-macro-2026")
     alerts: eventsToAlerts(events, scenarioId),
     killchain: [
       { ts: T(0),                phase: "Initial Access",    action: "Phishing email with macro-enabled attachment delivered to s.peretz" },
-      { ts: T(8 * MIN),          phase: "Execution",         action: "s.peretz enables content — WINWORD.EXE spawns encoded PowerShell" },
+      { ts: T(8 * MIN),          phase: "Execution",         action: "s.peretz enables content, WINWORD.EXE spawns encoded PowerShell" },
       { ts: T(8 * MIN + 6_000),  phase: "Detection",         action: "EDR alert: Office application launched encoded PowerShell (detect-only)" },
       { ts: T(8 * MIN + 25_000), phase: "Command & Control", action: "PowerShell downloads inv.exe over HTTP from a newly registered domain; firewall allows it" },
       { ts: T(8 * MIN + 29_000), phase: "Detection",         action: "EDR quarantines inv.exe in %TEMP% before it runs" },
@@ -1523,11 +1523,11 @@ export function buildMaliciousMacroScenario(scenarioId = "malicious-macro-2026")
           { value: "sender", label: "The email came from an external address outside the company domain" },
         ],
         answer: "parent", xp: 40,
-        explanation: "Microsoft Word never legitimately needs to launch a scripting interpreter as a child process. Whenever WINWORD.EXE (or any Office app) appears as the parent of powershell.exe or cmd.exe, that parent-child relationship is the direct evidence of macro-driven execution — file size and sender domain are supporting context, not the direct proof." },
+        explanation: "Microsoft Word never legitimately needs to launch a scripting interpreter as a child process. Whenever WINWORD.EXE (or any Office app) appears as the parent of powershell.exe or cmd.exe, that parent-child relationship is the direct evidence of macro-driven execution, file size and sender domain are supporting context, not the direct proof." },
       { id: "q2", prompt: "Compared to a phishing email with a ZIP-wrapped executable attachment, what is different about this macro-based chain?", kind: "single",
         options: [
           { value: "exec", label: "The malicious code runs inside a trusted Office process (WINWORD.EXE), not as a standalone executable" },
-          { value: "none", label: "Nothing meaningful — in both cases the user ends up running a standalone malicious executable file on disk" },
+          { value: "none", label: "Nothing meaningful, in both cases the user ends up running a standalone malicious executable file on disk" },
         ],
         answer: "exec", xp: 50,
         explanation: "A macro executes inside the Office application itself, so the very first malicious action (spawning PowerShell) comes from a process the user and many security tools already trust, rather than a newly-launched suspicious .exe. This is why macro-based delivery remains effective even in environments that block unusual attachment types." },
@@ -2090,7 +2090,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
 }
 
 // =========================================================================
-// Scenario 12: Supply Chain Attack — Malicious Vendor Update
+// Scenario 12: Supply Chain Attack, Malicious Vendor Update
 // =========================================================================
 
 export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): ScenarioBundle {
@@ -2402,7 +2402,7 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
   };
 }
 
-// ─── NTLM Relay — Internal Credential Hijacking (⭐⭐⭐ Advanced) ────────────
+// ─── NTLM Relay, Internal Credential Hijacking (⭐⭐⭐ Advanced) ────────────
 
 export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): ScenarioBundle {
   const { title, events, T, MIN } = ntlmRelayScenarioEvents();
@@ -2607,7 +2607,7 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
   };
 }
 
-// ─── OAuth Consent Grant Phishing — Silent BEC (⭐⭐⭐⭐ Expert) ─────────────
+// ─── OAuth Consent Grant Phishing, Silent BEC (⭐⭐⭐⭐ Expert) ─────────────
 
 export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-grant-phishing"): ScenarioBundle {
   const { title, events, T, MIN, APP_ID } = oauthConsentPhishingScenarioEvents();
@@ -2707,7 +2707,7 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
 }
 
 /**
- * Scenario packs live in their own files and return `alerts: []` — importing the
+ * Scenario packs live in their own files and return `alerts: []`, importing the
  * alert generator from here would create a cycle. Attach the alerts on the way
  * out so packaged scenarios reach the student's queue exactly like built-in ones.
  */
@@ -2718,7 +2718,7 @@ function withAlerts(build: (id?: string) => ScenarioBundle) {
     // array with an EARLIER timestamp, so a viewer that streams by array order jumps
     // backwards in time (an event from a day before the ransom note showing up last).
     // Sort by ts here so array order == chronological order everywhere the bundle is
-    // consumed — the static /scenarios log viewer AND the dashboard story scheduler.
+    // consumed, the static /scenarios log viewer AND the dashboard story scheduler.
     const events = [...b.events].sort((a, c) => new Date(a.ts).getTime() - new Date(c.ts).getTime());
     const alerts = b.alerts?.length ? b.alerts : eventsToAlerts(events, b.scenario_id);
     return { ...b, events, alerts };

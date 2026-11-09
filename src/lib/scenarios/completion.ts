@@ -6,7 +6,7 @@
  * storage facade → `scenario_history` for a signed-in learner), keyed by the SAME
  * id the play page records: `ScenarioClient` stores the `[slug]` route param, which
  * is the built-in `slug` for static scenarios and the `scenario_id`
- * ("org-<ns>-…") for org-authored ones — both are what the list links to.
+ * ("org-<ns>-…") for org-authored ones, both are what the list links to.
  */
 
 export interface ScenarioHistoryLike {
@@ -16,7 +16,7 @@ export interface ScenarioHistoryLike {
 
 /**
  * Best score per completed scenario id. Any history record counts as "completed"
- * (a pass is not required — the learner finished and got a graded debrief).
+ * (a pass is not required, the learner finished and got a graded debrief).
  * Ids are normalised through `decodeURIComponent` so a record written with an
  * encoded route param still matches the list's raw id.
  */

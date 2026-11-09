@@ -87,7 +87,7 @@ export function bundledCryptominerScenarioEvents() {
         "svchost_helper.exe started at 18:02 with pool and wallet arguments on its command line, launched by the installer VideoConvertPro_Setup.exe.",
     }),
 
-    // 6. The mining-pool connection — long-lived, non-web port, allowed.
+    // 6. The mining-pool connection, long-lived, non-web port, allowed.
     panConnection({
       ...cx, id: "evt_bcm_06_pool_connection", ts: T(10 * MIN + 6_000), domain: pool, dstIp: "51.15.204.88", remotePort: 3333,
       app: "unknown-tcp", transport: "tcp", action: "allow", end: true, bytesOut: 2_884_112, bytesIn: 941_320,
@@ -96,7 +96,7 @@ export function bundledCryptominerScenarioEvents() {
         "A TCP/3333 session opened from LAP-1806 to eu1.pool-relay-mining.com and stayed up for 11 hours, allowed by the default outbound rule.",
     }),
 
-    // 7. Falcon Resource-Hijacking summary (precursor — not the ticket-opener).
+    // 7. Falcon Resource-Hijacking summary (precursor, not the ticket-opener).
     csAlert({
       ...cx, id: "evt_bcm_07_perf_telemetry", ts: T(15 * HOUR + 8 * MIN), threatName: "CryptocurrencyMining",
       mitre: "T1496", tactic: "Impact", technique: "Resource Hijacking", malwareCategory: "cryptominer",
@@ -104,7 +104,7 @@ export function bundledCryptominerScenarioEvents() {
       detail:
         "svchost_helper.exe (PID 11020) has run uninterrupted for roughly 15 hours, spanning overnight, and maintains a stratum connection to eu1.pool-relay-mining.com. The sustained, off-hours execution with a mining-pool session is consistent with unauthorised cryptocurrency mining.",
       description:
-        "Falcon raised a Resource Hijacking detection on LAP-1806: svchost_helper.exe has run continuously since it launched the previous evening — through the night — holding a persistent mining-pool connection, a resource profile consistent with cryptomining.",
+        "Falcon raised a Resource Hijacking detection on LAP-1806: svchost_helper.exe has run continuously since it launched the previous evening, through the night, holding a persistent mining-pool connection, a resource profile consistent with cryptomining.",
     }),
 
     // 8. The detection that opens the ticket.
@@ -122,17 +122,17 @@ export function bundledCryptominerScenarioEvents() {
       edr_scope: "edr",
     },
 
-    // 9. SIEM asset + blast-radius context — the record that decides severity.
+    // 9. SIEM asset + blast-radius context, the record that decides severity.
     sentinelAlert({
       ...cx, id: "evt_bcm_09_siem_context", ts: T(15 * HOUR + 24 * MIN), alertName: "HostResourceAnomaly_UnsignedProcess",
       ruleId: "SEN-IMPACT-0071", severity: "medium", eventType: "ueba_anomaly",
       fullName: victim.name, department: "Marketing",
       extendedProperties: {
         "Asset Criticality": "Medium",
-        "Host Role": "Shared marketing laptop — also used for month-end close by Finance",
+        "Host Role": "Shared marketing laptop, also used for month-end close by Finance",
         "Software Installed Yesterday": ["VideoConvert Pro 9.1 (unsigned)"],
         "Persistence Added": ["Scheduled Task: WinHostSync"],
-        "Accounts Touched": "1 (o.mizrahi — local session only)",
+        "Accounts Touched": "1 (o.mizrahi, local session only)",
         "Data Accessed Outside Baseline": "none",
       },
       description:
@@ -143,5 +143,5 @@ export function bundledCryptominerScenarioEvents() {
   // Every event belongs to the one incident.
   for (const e of events) e.incident_id = INCIDENT;
 
-  return { title: "Slow Laptop — Coinminer Bundled with a Video Converter", events, T, MIN, HOUR, host, downloadSite, pool, installerHash, minerHash };
+  return { title: "Slow Laptop, Coinminer Bundled with a Video Converter", events, T, MIN, HOUR, host, downloadSite, pool, installerHash, minerHash };
 }

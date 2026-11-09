@@ -25,7 +25,7 @@ const LOCAL_BUILDERS: Record<string, () => ScenarioBundle> = {
   insider:        buildInsiderThreatScenario,
   webapp:         buildPhishingToExfil,
   privilege_esc:  buildRansomwareScenario,
-  // new categories — best-fit fallbacks until dedicated builders exist
+  // new categories, best-fit fallbacks until dedicated builders exist
   spearphish_apt: buildPhishingToExfil,
   supply_chain:   buildPhishingToExfil,
   watering_hole:  buildPhishingToExfil,
@@ -141,7 +141,7 @@ function getHashContextForAttackType(attackType: string): string {
   ).join("\n");
 
   const cleanSection = clean.map(h =>
-    `  • ${h.sha256} → ${h.name} (CLEAN — 0/${h.vt_total} VT detections, legitimate file)`
+    `  • ${h.sha256} → ${h.name} (CLEAN, 0/${h.vt_total} VT detections, legitimate file)`
   ).join("\n");
 
   return `
@@ -158,7 +158,7 @@ IMPORTANT: Use EXACTLY these SHA256 values in the file.sha256 field. Do NOT inve
 // ─── Diversity pools for the AI prompt ───────────────────────────────────────
 
 const DIVERSITY_CONTEXT = `
-DIVERSITY REQUIREMENTS — follow these strictly:
+DIVERSITY REQUIREMENTS, follow these strictly:
 
 EMPLOYEE NAMES & ROLES (use realistic, culturally diverse names):
   Finance: "Sarah Chen (Director of Financial Planning)", "Raj Patel (Senior Accountant)", "Amara Okafor (CFO)"
@@ -170,7 +170,7 @@ EMPLOYEE NAMES & ROLES (use realistic, culturally diverse names):
 
 EMAIL FORMAT: firstname.lastname@nexacorp.com (e.g. sarah.chen@nexacorp.com)
 
-IP ADDRESS RANGES (use realistic, varied ranges — NOT just 10.10.x.x):
+IP ADDRESS RANGES (use realistic, varied ranges, NOT just 10.10.x.x):
   Internal workstations: 172.16.44.x, 172.16.45.x, 10.30.15.x, 192.168.77.x
   Internal servers: 172.16.10.x, 10.20.0.x, 10.20.1.x
   VPN/remote: 10.100.50.x, 10.100.51.x
@@ -240,23 +240,23 @@ const ATTACK_DESCRIPTIONS: Record<string, string> = {
     D) ESC1 certificate template abuse → request cert as domain admin → NTLM relay → full domain compromise`,
 
   random: `Choose ONE creative and realistic scenario from these APT/crimeware campaigns:
-    A) APT41 (Chinese nexus) — supply chain compromise of HR software vendor → payload in update → multi-stage backdoor → IP theft
-    B) SCATTERED SPIDER (UNC3944) — SMS phishing of IT helpdesk → social engineering → SIM swap → Okta hijack → cloud exfil
-    C) Lazarus Group — spearphish to cryptocurrency exchange employee → remote access → wallet drainer deployment
-    D) FIN7 affiliate — restaurant sector targeting → malicious POS integration → Carbanak-style lateral movement → card data exfil
+    A) APT41 (Chinese nexus), supply chain compromise of HR software vendor → payload in update → multi-stage backdoor → IP theft
+    B) SCATTERED SPIDER (UNC3944), SMS phishing of IT helpdesk → social engineering → SIM swap → Okta hijack → cloud exfil
+    C) Lazarus Group, spearphish to cryptocurrency exchange employee → remote access → wallet drainer deployment
+    D) FIN7 affiliate, restaurant sector targeting → malicious POS integration → Carbanak-style lateral movement → card data exfil
     Make it unique, realistic, and educational.`,
 
   spearphish_apt: `Nation-state APT spearphishing scenario. Pick ONE:
-    A) APT29 (Cozy Bear) — highly targeted spearphish to CISO via LinkedIn → ISO lure → EnvyScout dropper → BEATDROP implant → Cobalt Strike → Active Directory recon → lateral to file server
-    B) APT28 (Fancy Bear) — weaponized PDF CVE → X-Agent RAT install → keylogger → credential harvest → exfil via encrypted DNS
-    C) Kimsuky (NK) — HWP document (Korean word proc) lure → PowerShell dropper → custom implant → O365 token harvest → intellectual property exfil
-    D) UNC2452 (SolarWinds actor) — DLL side-loading via fake SolarWinds update → GoldMax implant → SAML token forgery → Azure AD tenant exfil`,
+    A) APT29 (Cozy Bear), highly targeted spearphish to CISO via LinkedIn → ISO lure → EnvyScout dropper → BEATDROP implant → Cobalt Strike → Active Directory recon → lateral to file server
+    B) APT28 (Fancy Bear), weaponized PDF CVE → X-Agent RAT install → keylogger → credential harvest → exfil via encrypted DNS
+    C) Kimsuky (NK), HWP document (Korean word proc) lure → PowerShell dropper → custom implant → O365 token harvest → intellectual property exfil
+    D) UNC2452 (SolarWinds actor), DLL side-loading via fake SolarWinds update → GoldMax implant → SAML token forgery → Azure AD tenant exfil`,
 
   supply_chain: `Software/hardware supply chain compromise. Pick ONE:
     A) Compromised npm package (typosquatting 'lodahs' vs 'lodash') → malicious postinstall → credential exfil from dev machines → AWS key theft → S3 data exposure
     B) Backdoored open-source library (PyPI) used by CI pipeline → malicious code executed on build server → docker image poisoned → deployed to prod → reverse shell
     C) MSP (managed service provider) RMM tool compromised → attacker pivots through MSP jump host → accesses 3 client environments → ransomware pre-positioning
-    D) Hardware supply chain — tampered USB drives distributed to target org via postal phishing → HID emulation → PowerShell dropper → network persistence`,
+    D) Hardware supply chain, tampered USB drives distributed to target org via postal phishing → HID emulation → PowerShell dropper → network persistence`,
 
   watering_hole: `Watering hole attack with drive-by download. Pick ONE:
     A) Compromised industry forum (infosec conference website) → malicious JS injected → browser exploit (CVE) → JScript dropper → Cobalt Strike → lateral to corp network
@@ -374,7 +374,7 @@ export async function POST(req: Request) {
   // Fallback: use pre-built scenario if no API key, or if we're over the spend
   // ceiling (migration 0024). This route streams up to 8000 output tokens, so a
   // bulk-generation loop here is the single most expensive thing in the product
-  // — it's exactly the case the cap exists for. Degrades to a real pre-built
+  //, it's exactly the case the cap exists for. Degrades to a real pre-built
   // scenario rather than an error.
   const overBudget = !(await checkAiBudget(gate.user.orgId)).allowed;
   if (!process.env.ANTHROPIC_API_KEY || overBudget) {
@@ -382,7 +382,7 @@ export async function POST(req: Request) {
       return Response.json(buildLocalScenario(attackType));
     } catch (err) {
       console.error("[scenarios/generate] local build failed:", err instanceof Error ? err.message : String(err));
-      return Response.json({ error: "Couldn't build a scenario for that attack type — please try another." }, { status: 500 });
+      return Response.json({ error: "Couldn't build a scenario for that attack type, please try another." }, { status: 500 });
     }
   }
 
@@ -394,9 +394,9 @@ export async function POST(req: Request) {
 
   const prompt = `You are an expert SOC analyst and cybersecurity trainer. Generate a HIGHLY REALISTIC and SPECIFIC SOC analyst training incident scenario.
 
-Company: Nexacorp Inc. — 800-person SaaS technology company
+Company: Nexacorp Inc., 800-person SaaS technology company
 Infrastructure: Azure AD + AWS + on-prem Windows AD (hybrid), Windows 11 endpoints, Palo Alto firewalls, CrowdStrike Falcon EDR, Microsoft Defender, Okta SSO
-Date/Time: 2026-05-08 — events span 45 minutes to 4 hours
+Date/Time: 2026-05-08, events span 45 minutes to 4 hours
 
 Attack type:
 ${attackDesc}
@@ -409,19 +409,19 @@ FALSE POSITIVE EVENTS: Include EXACTLY 2 events that look suspicious but are ACT
   - A pentest/red team scan that was pre-authorized (note in description: "later confirmed as authorized pentest by Red Team")
   - A legitimate admin running an IT script (powershell.exe with -ExecutionPolicy Bypass but signed by IT)
   - A user travelling who authenticated from unusual location but with valid MFA
-  - Legitimate backup software accessing many files (Veeam, Acronis) — looks like ransomware staging
+  - Legitimate backup software accessing many files (Veeam, Acronis), looks like ransomware staging
   - Windows Update causing unusual child processes
   Mark these FP events with "fp": true in their raw field and severity "low" or "informational"
 
-Return ONLY valid JSON — no markdown, no explanation. Exactly this structure:
+Return ONLY valid JSON, no markdown, no explanation. Exactly this structure:
 
 {
-  "title": "Short dramatic incident title (6-8 words, specific — NOT generic)",
+  "title": "Short dramatic incident title (6-8 words, specific, NOT generic)",
   "threat_actor": "Specific named threat actor or realistic criminal group name",
   "attack_kind": "snake_case_category",
   "difficulty": "beginner|intermediate|advanced",
-  "narrative": "Three paragraphs:\\n\\nParagraph 1: Who is targeted (specific person, role, department) and why Nexacorp is a target.\\n\\nParagraph 2: Detailed technical chain — what the logs captured, including timestamps and specific IOCs.\\n\\nParagraph 3: What the analyst must determine — initial access vector, pivot points, data impacted, recommended containment.",
-  "events": [ /* exactly 11 events — 9 attack chain + 2 FP */ ]
+  "narrative": "Three paragraphs:\\n\\nParagraph 1: Who is targeted (specific person, role, department) and why Nexacorp is a target.\\n\\nParagraph 2: Detailed technical chain, what the logs captured, including timestamps and specific IOCs.\\n\\nParagraph 3: What the analyst must determine, initial access vector, pivot points, data impacted, recommended containment.",
+  "events": [ /* exactly 11 events, 9 attack chain + 2 FP */ ]
 }
 
 Each event MUST follow this exact structure:
@@ -451,7 +451,7 @@ STRICT RULES:
 1. source ∈ {edr, sysmon, firewall, vpn, dns, proxy, o365, ad, okta, cloudtrail, dlp}
 2. event_type ∈ {process_create, file_create, file_modify, file_delete, registry_set, net_connection, dns_query, http_request, auth_success, auth_failure, mfa_challenge, mfa_denied, account_modify, account_create, group_modify, email_received, email_sent, email_clicked, vpn_login, cloud_api_call, edr_alert, av_detection}
 3. severity ∈ {critical, high, medium, low, informational}
-4. Exactly 11 events total — no more, no fewer
+4. Exactly 11 events total, no more, no fewer
 5. At least 4 different log sources
 6. For FP events: add "fp": true to raw field
 7. File events MUST use EXACTLY the SHA256 hashes provided in the hash context above
@@ -460,7 +460,7 @@ STRICT RULES:
 10. file field: only for file_create/file_modify/av_detection events
 11. raw fields MUST use real ECS field names for the source (ad: event.code/logon.type; edr: process.command_line/process.integrity; firewall: source.ip/destination.port; o365: email.from.address/operation; cloudtrail: aws.cloudtrail.event_name)
 12. MITRE techniques must be realistic and specific (T1566.001 not just T1566)
-13. Descriptions MUST be specific — mention exact filenames, real IP addresses, real user names from the event fields`;
+13. Descriptions MUST be specific, mention exact filenames, real IP addresses, real user names from the event fields`;
 
   // Stream to the client so the connection stays alive during long generation
   const encoder = new TextEncoder();
@@ -468,7 +468,7 @@ STRICT RULES:
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        // Use Anthropic streaming — keeps HTTP alive, prevents idle timeout
+        // Use Anthropic streaming, keeps HTTP alive, prevents idle timeout
         const anthropicStream = client.messages.stream({
           model: "claude-haiku-4-5-20251001",
           max_tokens: 8000,
@@ -497,7 +497,7 @@ STRICT RULES:
         console.error("[scenarios/generate] AI failed, using a pre-built scenario:", err instanceof Error ? err.message : String(err));
         let fallback: string;
         try { fallback = JSON.stringify(buildLocalScenario(attackType)); }
-        catch { fallback = JSON.stringify({ error: "Scenario generation failed — please try again." }); }
+        catch { fallback = JSON.stringify({ error: "Scenario generation failed, please try again." }); }
         controller.enqueue(encoder.encode(fallback));
         controller.close();
       }

@@ -223,7 +223,7 @@ export function aitmTokenTheftScenarioEvents() {
 
     laptopConn("aitm_05b_laptop_conn", T(5 * MIN + 41 * SEC), 50431, "LT-FIN-0442's msedge.exe (pid 9308) opened a second connection to login.nexacorp-sso.com (45.87.81.126) on port 443."),
 
-    // ── 6. The real sign-in — MFA genuinely satisfied ────────────────────────
+    // ── 6. The real sign-in, MFA genuinely satisfied ────────────────────────
     {
       id: "aitm_06_entra_signin",
       ts: T(6 * MIN + 3 * SEC),
@@ -236,7 +236,7 @@ export function aitmTokenTheftScenarioEvents() {
       description:
         "Entra ID recorded a successful interactive sign-in for m.delgado, multifactor satisfied by a live Authenticator approval, from 45.87.81.126 in Amsterdam (AS60068).",
       fp_explanation:
-        "Every quality signal on this record is green — MFA satisfied, Conditional Access success, sign-in risk none. Analysts who triage on outcome fields alone will close it.",
+        "Every quality signal on this record is green, MFA satisfied, Conditional Access success, sign-in risk none. Analysts who triage on outcome fields alone will close it.",
       raw: {
         "azure.signinlogs.category": "SignInLogs",
         "azure.signinlogs.operationName": "Sign-in activity",
@@ -404,7 +404,7 @@ export function aitmTokenTheftScenarioEvents() {
           },
         ],
         "azure.signinlogs.properties.networkLocationDetails": [
-          { networkType: "namedNetwork", networkNames: ["Corporate VPN — Frankfurt POP"] },
+          { networkType: "namedNetwork", networkNames: ["Corporate VPN, Frankfurt POP"] },
         ],
         "azure.signinlogs.properties.conditionalAccessStatus": "success",
         "azure.signinlogs.properties.riskLevelDuringSignIn": "none",
@@ -443,7 +443,7 @@ export function aitmTokenTheftScenarioEvents() {
       },
     },
 
-    // ── 9. THE CRUX — same session, different everything else ────────────────
+    // ── 9. THE CRUX, same session, different everything else ────────────────
     {
       id: "aitm_09_signin_delgado_replay",
       ts: T(12 * MIN + 3 * SEC),
@@ -632,7 +632,7 @@ export function aitmTokenTheftScenarioEvents() {
       },
     },
 
-    // ── 12. Persistence — attacker registers their own MFA method ────────────
+    // ── 12. Persistence, attacker registers their own MFA method ────────────
     {
       id: "aitm_12_mfa_register",
       ts: T(19 * MIN),
@@ -642,7 +642,7 @@ export function aitmTokenTheftScenarioEvents() {
       src_ip: replayIp,
       geo: { country: "Germany", city: "Frankfurt" },
       description:
-        "A second Microsoft Authenticator method was registered on m.delgado's account from 91.132.139.204 — initiator and target are the same user, with no directory role in use.",
+        "A second Microsoft Authenticator method was registered on m.delgado's account from 91.132.139.204, initiator and target are the same user, with no directory role in use.",
       raw: {
         "azure.auditlogs.category": "AuditLogs",
         "azure.auditlogs.operationName": "User registered security info",

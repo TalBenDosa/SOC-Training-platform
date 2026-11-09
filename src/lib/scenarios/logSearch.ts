@@ -1,6 +1,6 @@
 /**
  * Event search for the scenario investigation table (team-exercise finding #13,
- * also the root cause of #3 — the Threat-Intel Hunt sweep returned 0 hits).
+ * also the root cause of #3, the Threat-Intel Hunt sweep returned 0 hits).
  *
  * The old filter looked at eight visible columns (hostname, user_email, event
  * type, process name, domain, file path…). An analyst searching for the internal
@@ -8,7 +8,7 @@
  * those values live in the raw vendor block. Every SIEM (Splunk, Sentinel,
  * Wazuh Discover, Falcon Event Search) searches the whole record.
  *
- * Query language (deliberately small — it has to be learnable in a glance):
+ * Query language (deliberately small, it has to be learnable in a glance):
  *   - bare terms          `lsass rclone`      every term must match (AND), anywhere
  *                                             in the record: field NAMES and VALUES
  *   - quoted phrase       `"R:\stage"`        matched as one term
@@ -18,7 +18,7 @@
  * Matching is case-insensitive substring.
  *
  * Pure: flattens the event (top-level fields, nested objects, raw block) into
- * key/value pairs once per event object (WeakMap cache — events are immutable
+ * key/value pairs once per event object (WeakMap cache, events are immutable
  * for the page's lifetime), then matches. Unit-tested in logSearch.test.ts.
  */
 
@@ -40,7 +40,7 @@ export function parseSearchQuery(query: string): SearchTerm[] {
     const negate = !!m[1];
     let field = m[2] ? m[2].toLowerCase() : null;
     let value = (m[3] ?? m[4] ?? "").toLowerCase();
-    // "http://x" or "C:\path" — a bare token whose "field" is a scheme or a
+    // "http://x" or "C:\path", a bare token whose "field" is a scheme or a
     // drive letter is a value, not a field query.
     if (field && m[4] !== undefined && (/^[a-z]$/i.test(field) || value.startsWith("//"))) {
       value = `${field}:${value}`;
@@ -146,7 +146,7 @@ function indexEvent(ev: object): Indexed {
   if (hit) return hit;
   const entries: FlatEntry[] = [];
   flattenInto("", ev, entries, 0);
-  // Keys and values both searchable — "a field names search" (`GrantedAccess`)
+  // Keys and values both searchable, "a field names search" (`GrantedAccess`)
   // is how an analyst asks "which events carry this field at all".
   const hay = entries.map(e => `${e.key}\u0001${e.value}`).join("\u0002").toLowerCase();
   const idx = { entries, hay };

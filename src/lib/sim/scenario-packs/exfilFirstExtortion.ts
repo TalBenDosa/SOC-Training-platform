@@ -2,8 +2,8 @@
  * Scenario pack: "Threatening email to NexaCorp's security mailbox"
  *
  * ADVANCED tier. An attacker who already has an interactive foothold on
- * LT-NX-RDOYLE — a Finance Operations Manager's laptop at NexaCorp
- * Financial Ltd. — spends one overnight window staging, archiving and
+ * LT-NX-RDOYLE, a Finance Operations Manager's laptop at NexaCorp
+ * Financial Ltd., spends one overnight window staging, archiving and
  * exfiltrating client financial records to a consumer cloud-storage service,
  * then extorts the company over the stolen data alone. How the remote-support
  * tool got onto the laptop is deliberately out of scope: this pack starts with
@@ -12,13 +12,13 @@
  * The teaching point is that this IS a ransomware-class incident even though
  * nothing on disk was ever encrypted, renamed, or replaced with a ransom
  * note. A growing share of real extortion crews (BianLian and Karakurt are
- * public examples) have dropped the encryption step entirely — it is noisy,
+ * public examples) have dropped the encryption step entirely, it is noisy,
  * recoverable from backups, and unnecessary once the data itself is gone.
  * Every event in this pack is deliberately mundane on its own: a recursive
  * copy job, a password-protected archive, a sync tool talking to a well-known
  * cloud provider, a DLP policy that is live but configured to audit rather
- * than block. The signal is the SHAPE of the sequence — staging, archive,
- * sustained cloud egress, in that order, overnight — combined with the
+ * than block. The signal is the SHAPE of the sequence, staging, archive,
+ * sustained cloud egress, in that order, overnight, combined with the
  * conspicuous ABSENCE of any T1486 (Data Encrypted for Impact) telemetry
  * anywhere in the environment.
  *
@@ -28,7 +28,7 @@
  *
  * SOURCES: edr (Microsoft Defender for Endpoint) + firewall (Palo Alto
  * Networks NGFW) + Windows Security (file server) + dlp (Microsoft Purview) +
- * email_gateway (Defender for Office 365) + siem (Microsoft Sentinel) — the
+ * email_gateway (Defender for Office 365) + siem (Microsoft Sentinel), the
  * stack NexaCorp's company profile already declares. This pack should
  * be company-allowlisted to environments that plausibly run Purview DLP,
  * i.e. Microsoft-365-email shops: nexacorp, medcore and globallogis. See the
@@ -119,12 +119,12 @@ export function buildExfilFirstExtortionScenario(
       id: "q1",
       prompt:
         "Three technique tags appear across this chain: T1074.001, T1560.001 and T1567.002. Which event does T1560.001 (Archive via Utility) belong to?",
-      hint: "Staging gathers files. Archiving compresses them. Exfiltration moves them off the host — three separate pieces of evidence, in that order.",
+      hint: "Staging gathers files. Archiving compresses them. Exfiltration moves them off the host, three separate pieces of evidence, in that order.",
       kind: "single",
       options: [
-        { value: "archive", label: "7z.exe archive — staged files compressed into a password-protected, header-encrypted multi-volume set" },
-        { value: "staging", label: "Local staging — robocopy mirrors the entire \\\\SRV-NX-FIN01\\Shares tree to a local cache folder" },
-        { value: "exfil_tool", label: "rclone launch — the renamed rclone binary starts up on the laptop with a Mega remote configured as its target" },
+        { value: "archive", label: "7z.exe archive, staged files compressed into a password-protected, header-encrypted multi-volume set" },
+        { value: "staging", label: "Local staging, robocopy mirrors the entire \\\\SRV-NX-FIN01\\Shares tree to a local cache folder" },
+        { value: "exfil_tool", label: "rclone launch, the renamed rclone binary starts up on the laptop with a Mega remote configured as its target" },
         { value: "session_end", label: "Firewall session ends, the Mega sessions close after logging 39.6 GB sent from the laptop overnight" },
       ],
       answer: "archive",
@@ -141,7 +141,7 @@ export function buildExfilFirstExtortionScenario(
         { value: "category_not_volume", label: "Category policy judges what kind of site a destination is, not how much data crosses the session, and no volume limit was set for this one" },
         { value: "tls_bypass", label: "TLS inspection was disabled for this session, so the firewall only saw the handshake and could not measure how much data moved inside it" },
         { value: "misrouted", label: "The traffic was classified as internal because the Mega storage node's IP falls inside NexaCorp's own address range, bypassing egress policy" },
-        { value: "dlp_should_block", label: "It is purely a DLP failure — the firewall has no role here, because stopping outbound transfers by content or size belongs to DLP alone" },
+        { value: "dlp_should_block", label: "It is purely a DLP failure, the firewall has no role here, because stopping outbound transfers by content or size belongs to DLP alone" },
       ],
       answer: "category_not_volume",
       xp: 40,
@@ -156,7 +156,7 @@ export function buildExfilFirstExtortionScenario(
       options: [
         { value: "detect_not_prevent", label: "The Endpoint DLP rule was live and matched 1,847 labeled items, but its actions only logged and notified, so nothing interrupted the archiving" },
         { value: "policy_disabled", label: "The DLP policy was disabled at the time, so this record is a retroactive audit entry that Purview generated once the policy was switched back on" },
-        { value: "false_positive", label: "This is a false positive — 7z.exe is common IT software, so a labeled-data match on its file reads should be tuned out of the rule and dismissed" },
+        { value: "false_positive", label: "This is a false positive, 7z.exe is common IT software, so a labeled-data match on its file reads should be tuned out of the rule and dismissed" },
         { value: "blocked_but_logged_wrong", label: "The policy did block the activity; the Audit action is a known logging quirk and does not reflect the enforcement that happened on the host" },
       ],
       answer: "detect_not_prevent",
@@ -167,25 +167,25 @@ export function buildExfilFirstExtortionScenario(
     {
       id: "q4",
       prompt:
-        "There is no encryption event, no ransom-note file, and no mass file-rename anywhere in this environment — yet NexaCorp's security mailbox has received a data-extortion demand. How should this incident be classified and prioritised?",
+        "There is no encryption event, no ransom-note file, and no mass file-rename anywhere in this environment, yet NexaCorp's security mailbox has received a data-extortion demand. How should this incident be classified and prioritised?",
       kind: "single",
       options: [
-        { value: "exfil_extortion_ransomware_class", label: "Ransomware-class: an exfil-only extortion where the leverage is stolen data, not encrypted systems — scope, contain, assess notification duties" },
-        { value: "downgrade_no_encryption", label: "Downgrade it — with no encryptor there is no ransomware, so it becomes a standard data-loss case handled on the normal DLP-violation triage timeline" },
+        { value: "exfil_extortion_ransomware_class", label: "Ransomware-class: an exfil-only extortion where the leverage is stolen data, not encrypted systems, scope, contain, assess notification duties" },
+        { value: "downgrade_no_encryption", label: "Downgrade it, with no encryptor there is no ransomware, so it becomes a standard data-loss case handled on the normal DLP-violation triage timeline" },
         { value: "wait_for_encryption", label: "Hold at the current priority and monitor for an encryptor being deployed, since encryption is what formally defines the ransomware category" },
         { value: "false_extortion", label: "Treat the extortion email as unverified and unrelated to this activity until the sender independently proves possession of the actual client files" },
       ],
       answer: "exfil_extortion_ransomware_class",
       xp: 60,
       explanation:
-        "Several real extortion crews (BianLian and Karakurt are documented examples) have publicly dropped the encryption step entirely — encrypting systems is noisy, recoverable from backups, and unnecessary once the data itself is gone. Every technical marker of exfiltration is present and dated inside one overnight window (T1074.001 → T1560.001 → T1567.002), and the volume matches what the extortion message references. Option (b) treats 'no encryptor' as 'no ransomware' — exactly the outdated assumption this scenario exists to correct; the same regulatory-notification and executive-escalation obligations apply either way, because client financial records left the building. Option (c) trades response time for a confirmation that will never come in an exfil-only operation — there is nothing left in this playbook to encrypt. Option (d) is the riskiest read of all: the byte counts, archive artifacts and DLP match count already corroborate the claim independently of the email itself.",
+        "Several real extortion crews (BianLian and Karakurt are documented examples) have publicly dropped the encryption step entirely, encrypting systems is noisy, recoverable from backups, and unnecessary once the data itself is gone. Every technical marker of exfiltration is present and dated inside one overnight window (T1074.001 → T1560.001 → T1567.002), and the volume matches what the extortion message references. Option (b) treats 'no encryptor' as 'no ransomware', exactly the outdated assumption this scenario exists to correct; the same regulatory-notification and executive-escalation obligations apply either way, because client financial records left the building. Option (c) trades response time for a confirmation that will never come in an exfil-only operation, there is nothing left in this playbook to encrypt. Option (d) is the riskiest read of all: the byte counts, archive artifacts and DLP match count already corroborate the claim independently of the email itself.",
     },
   ];
 
   return {
     scenario_id: scenarioId,
     title,
-    threat_actor: "Exfiltration-only extortion crew (BianLian/Karakurt-style — no encryptor deployed)",
+    threat_actor: "Exfiltration-only extortion crew (BianLian/Karakurt-style, no encryptor deployed)",
     attack_kind: "exfil_first_extortion",
     briefing:
       "Sentinel escalated an incident to Critical at 03:40 overnight after NexaCorp's security mailbox received a data-extortion email referencing client records. Work out what actually left the building, how, and why nothing stopped it.",
@@ -211,7 +211,7 @@ A minute after that, Sentinel correlated the staging, the archive and the sustai
       { ts: T(-4 * MIN - 50 * SEC), phase: "Resource Development", action: "7z.exe, AdobeARMHelper.exe (renamed rclone) and rclone.conf are written into C:\\ProgramData\\Adobe\\ARM\\cache through the remote session" },
       { ts: T(0), phase: "Collection", action: `robocopy mirrors \\\\${fileServer.name}\\Shares to a local staging cache on LT-NX-RDOYLE (T1074.001)` },
       { ts: T(9 * MIN), phase: "Collection", action: "7z.exe builds a password-protected, header-encrypted multi-volume archive from the staged files (T1560.001)" },
-      { ts: T(10 * MIN), phase: "Detection", action: "Purview Endpoint DLP matches 1,847 instances of labeled client data read by an unallowed app — logged, not blocked" },
+      { ts: T(10 * MIN), phase: "Detection", action: "Purview Endpoint DLP matches 1,847 instances of labeled client data read by an unallowed app, logged, not blocked" },
       { ts: T(24 * MIN), phase: "Exfiltration", action: "Renamed rclone binary (AdobeARMHelper.exe) starts with a Mega cloud remote configured" },
       { ts: T(24 * MIN + 15 * SEC), phase: "Exfiltration", action: "Three firewall sessions open to Mega storage nodes, allowed under online-storage-and-backup" },
       { ts: T(59 * MIN + 15 * SEC), phase: "Exfiltration", action: "The sessions close after 39.6 GB transferred in total over roughly 35 minutes (T1567.002)" },

@@ -37,7 +37,7 @@ describe("collectLeafValues", () => {
     expect(vals).toContain("FIN-WS-11");
     expect(vals).toContain("10.20.14.31");
     expect(vals).toContain("alice@corp.com");
-    // Field NAMES must never appear — this is the whole point of the walk.
+    // Field NAMES must never appear, this is the whole point of the walk.
     expect(vals).not.toContain("hostname");
     expect(vals).not.toContain("src_ip");
     expect(vals).not.toContain("description");
@@ -45,7 +45,7 @@ describe("collectLeafValues", () => {
   });
 });
 
-describe("scoreScenarioReport — IOC evidence exploit guards", () => {
+describe("scoreScenarioReport, IOC evidence exploit guards", () => {
   it("stopwords tagged as indicators earn ZERO evidence", () => {
     const r = score({ indicators: ["the", "and", "for", "log", "com"].map(v => ({ value: v })) });
     expect(r.usefulCitedCount).toBe(0);
@@ -86,7 +86,7 @@ describe("scoreScenarioReport — IOC evidence exploit guards", () => {
   });
 });
 
-describe("scoreScenarioReport — a wrong verdict caps the report", () => {
+describe("scoreScenarioReport, a wrong verdict caps the report", () => {
   it("a confident WRONG verdict caps reportScore below the pass line even with strong evidence", () => {
     // Correct call would score 100; calling a malicious incident benign must not pass.
     const r = score({ verdict: "fp", indicators: [{ value: "10.20.14.31" }] });
@@ -102,7 +102,7 @@ describe("scoreScenarioReport — a wrong verdict caps the report", () => {
   });
 });
 
-describe("scoreScenarioReport — rubric & verdict mapping", () => {
+describe("scoreScenarioReport, rubric & verdict mapping", () => {
   it("a thorough correct report scores ~100 and passes", () => {
     const r = score({
       indicators: [{ value: "10.20.14.31" }, { value: "alice@corp.com" }],

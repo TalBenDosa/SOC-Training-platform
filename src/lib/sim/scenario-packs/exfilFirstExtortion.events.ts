@@ -105,7 +105,7 @@ export function exfilFirstExtortionScenarioEvents() {
 
     // ---------------------------------------------------------------------
     // 1. Local data staging. A recursive copy of the whole finance share
-    //    tree into a local cache folder — the shape that matters is the
+    //    tree into a local cache folder, the shape that matters is the
     //    scope (/E from the share root), not the tool (robocopy is signed
     //    Microsoft software already on every Windows box).
     // ---------------------------------------------------------------------
@@ -156,7 +156,7 @@ export function exfilFirstExtortionScenarioEvents() {
       description: "7z.exe created the first 2,000 MB volume, backup_2026_07.7z.001, at 01:14:20.",
     }),
     // 3. Purview Endpoint DLP sees the archiver touch labeled files while
-    //    the archive is being built — and logs it, because the matching
+    //    the archive is being built, and logs it, because the matching
     //    rule's configured action is Audit, not Block. This is the gap.
     {
       id: "evt_efe_03_dlp_audit",
@@ -216,15 +216,15 @@ export function exfilFirstExtortionScenarioEvents() {
 
     // ---------------------------------------------------------------------
     // 4. The exfiltration tool. A renamed rclone binary, config pointed at
-    //    an external cloud remote — the process event that shows intent,
+    //    an external cloud remote, the process event that shows intent,
     //    before any bytes have actually moved.
     // ---------------------------------------------------------------------
     mdeProcess({
       ...base, id: "evt_efe_04_exfil_tool", ts: T(24 * MIN), processName: "AdobeARMHelper.exe", processPath: RCLONE,
       cmdline: RCLONE_CMD, parentName: "cmd.exe", parentPid: 5800, pid: 6301, sha256: rcloneHash, integrity: "Medium", signed: false,
-      mitre: "T1567.002", // Exfiltration to Cloud Storage — rclone copy to a 'mega' remote (Q1 cites evt_efe_04 as T1567.002)
+      mitre: "T1567.002", // Exfiltration to Cloud Storage, rclone copy to a 'mega' remote (Q1 cites evt_efe_04 as T1567.002)
       tactic: "Exfiltration",
-      isDetection: true, // alert-grade: the highest-severity EDR behavioural detection — a renamed rclone binary staged to exfiltrate the archive to cloud storage (the crux)
+      isDetection: true, // alert-grade: the highest-severity EDR behavioural detection, a renamed rclone binary staged to exfiltrate the archive to cloud storage (the crux)
       severity: "high",
       description: "At 01:29 a binary named AdobeARMHelper.exe, sitting in the same cache folder, not the real Adobe update path, started with an rclone-style command line copying the local archive to a remote named 'mega', using a config file dropped alongside it.",
     }),
@@ -241,7 +241,7 @@ export function exfilFirstExtortionScenarioEvents() {
     })),
 
     // ---------------------------------------------------------------------
-    // 5. Sessions open. Allowed — the destination is a legitimate,
+    // 5. Sessions open. Allowed, the destination is a legitimate,
     //    widely-used consumer cloud-storage provider, not a blocklisted
     //    domain.
     // ---------------------------------------------------------------------
@@ -262,7 +262,7 @@ export function exfilFirstExtortionScenarioEvents() {
     }),
 
     // ---------------------------------------------------------------------
-    // 6. Sessions close. Same allow, same category — three parallel uploads that
+    // 6. Sessions close. Same allow, same category, three parallel uploads that
     //    together moved 39,648,512,000 bytes (the sum of the three sent counters).
     // ---------------------------------------------------------------------
     panConnection({

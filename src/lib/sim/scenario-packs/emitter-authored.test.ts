@@ -29,7 +29,7 @@ import { buildBackupFalsePositiveScenario } from "./backupFalsePositive";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
-// emitter-authored — no hand-typed `raw: { … }` block may creep back in, because that
+// emitter-authored, no hand-typed `raw: { … }` block may creep back in, because that
 // is exactly the drift the emitter layer exists to prevent (a hand-typed field can be
 // wrong; an emitter-rendered one is registry-correct by construction).
 const FULLY_EMITTER_AUTHORED = [
@@ -52,7 +52,7 @@ describe("emitter-authored scenario packs", () => {
       .map(f => path.resolve("src/lib/sim/scenario-packs", f))
       .filter(p => fs.existsSync(p));
     const src = halves.map(p => fs.readFileSync(p, "utf-8")).join("\n");
-    // Any `raw: {` literal in the source is a hand-typed vendor block — forbidden here.
+    // Any `raw: {` literal in the source is a hand-typed vendor block, forbidden here.
     const handRaw = (src.match(/\braw:\s*\{/g) ?? []).length;
     expect(handRaw, `${file} has ${handRaw} hand-authored raw block(s); use the emitters`).toBe(0);
   });
@@ -267,7 +267,7 @@ describe("emitter-authored scenario packs", () => {
     expect(task?.is_detection).toBe(true);
     expect(task?.edr_scope).toBe("edr");
     expect(task?.raw?.["winlog.event_data.ProcessGuid"]).toBeTruthy();
-    // the relaunch at the trigger time proves the task fired — parent is the Schedule svchost
+    // the relaunch at the trigger time proves the task fired, parent is the Schedule svchost
     const relaunch = s.events.find(e => e.id === "evt_stp_07_relaunch_at_trigger");
     expect(String(relaunch?.raw?.["winlog.event_data.ParentCommandLine"])).toContain("-s Schedule");
     expect(relaunch?.process?.hash?.sha256).toBe(task && s.events.find(e => e.id === "evt_stp_03_payload_written")?.file?.sha256);
@@ -431,7 +431,7 @@ describe("emitter-authored scenario packs", () => {
     // an end record can't precede the session's end: start (EDR connect) + elapsed
     const start = s.events.find(e => e.id === "evt_mhi_ws5_c2_edr")!;
     expect(new Date(c2!.ts).getTime()).toBe(new Date(start.ts).getTime() + 20_000);
-    // an encrypted URL record never carries a path — only the hostname (or no url)
+    // an encrypted URL record never carries a path, only the hostname (or no url)
     expect(c2?.raw?.["pan.url"]).toBeUndefined();
     // the lateral hop lands as a Type-3 NTLM logon from the foothold host, on the member
     // server's own log (windows_security) with a real domain SID and a logon id
@@ -462,7 +462,7 @@ describe("emitter-authored scenario packs", () => {
     const stage = s.events.find(e => e.id === "evt_mhi_bk4_stage");
     expect(stage?.raw?.["crowdstrike.OriginalFilename"]).toBe("rclone.exe");
     expect(stage?.raw?.["process.code_signature.exists"]).toBe(false);
-    // #7: the exfil is a NEW process — a different PID from the staging copy
+    // #7: the exfil is a NEW process, a different PID from the staging copy
     const exfil = s.events.find(e => e.id === "evt_mhi_bk5_exfil_proc");
     expect(exfil?.is_detection).toBe(true);
     expect(exfil?.process?.name).toBe("svchost-update.exe");
@@ -476,7 +476,7 @@ describe("emitter-authored scenario packs", () => {
     expect(fw?.raw?.["pan.subtype"]).toBe("end");
     expect(fw?.raw?.["pan.session_end_reason"]).toBe("tcp-fin");
     expect(fw?.raw?.["pan.bytes_sent"]).toBe("3650722000");
-    // IOCs follow the live-feed convention (D-02): realistic addresses — never a
+    // IOCs follow the live-feed convention (D-02): realistic addresses, never a
     // documentation range or .example name (a giveaway next to realistic noise),
     // and never shared CDN front-ends (Cloudflare 104.16.0.0/13, 104.24.0.0/14).
     for (const i of s.iocs ?? []) {
@@ -754,7 +754,7 @@ describe("emitter-authored scenario packs", () => {
     const alert = s.events.find(e => e.id === "evt_ist_09_edr_alert");
     expect(alert?.is_detection).toBe(true);
     expect(alert?.edr_scope).toBe("hybrid");
-    // the replayed session reaches SharePoint on the SAME session id — the correlation key
+    // the replayed session reaches SharePoint on the SAME session id, the correlation key
     const sp = s.events.find(e => e.id === "evt_ist_10_sharepoint_access");
     expect(sp?.raw?.["data.office365.Operation"]).toBe("FileAccessed");
     expect(sp?.raw?.["data.office365.SessionId"]).toBe(replay?.raw?.["azure.signinlogs.properties.sessionId"]);
@@ -875,7 +875,7 @@ describe("emitter-authored scenario packs", () => {
     const s = buildS3ExfilExposureScenario();
     expect(s.events.length).toBe(21);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set(["AWS CloudTrail", "AWS GuardDuty", "GitHub Audit Log", "AWS CloudWatch"]));
-    // benign backup: assumed-role over a VPC endpoint from inside AWS — fp
+    // benign backup: assumed-role over a VPC endpoint from inside AWS, fp
     const benign = s.events.find(e => e.id === "s3exfil_00_benign_backup");
     expect(benign?.expected_verdict).toBe("fp");
     expect(benign?.raw?.["aws.cloudtrail.userIdentity.type"]).toBe("AssumedRole");
@@ -1035,7 +1035,7 @@ describe("emitter-authored scenario packs", () => {
     const baseline = s.events.find(e => e.id === "evt_ra_02_create_n_peretz");
     expect(baseline?.raw?.["winlog.event_id"]).toBe("4720");
     expect(baseline?.it_verify_result).toBe("confirmed");
-    // the rogue 4720 — same creator, no ticket
+    // the rogue 4720, same creator, no ticket
     const rogue = s.events.find(e => e.id === "evt_ra_05_acct_create");
     expect(rogue?.raw?.["winlog.event_id"]).toBe("4720");
     expect(rogue?.raw?.["winlog.event_data.TargetUserName"]).toBe("s.katz");
@@ -1051,7 +1051,7 @@ describe("emitter-authored scenario packs", () => {
     const corr = s.events.find(e => e.id === "evt_ra_10_siem_context");
     expect(corr?.raw?.["ExtendedProperties.Linked Onboarding Request"]).toBe("none");
     expect(corr?.raw?.["ExtendedProperties.Groups Added"]).toEqual(["NEXACORP\\Domain Admins", "SRV-ADM-07\\Administrators"]);
-    // the rogue account then uses itself — a Type-10 logon from the same origin host
+    // the rogue account then uses itself, a Type-10 logon from the same origin host
     const logon = s.events.find(e => e.id === "evt_ra_08_new_acct_logon");
     expect(logon?.raw?.["winlog.event_data.LogonType"]).toBe("10");
     expect(logon?.raw?.["winlog.event_data.IpAddress"]).toBe("10.10.44.61");
@@ -1084,7 +1084,7 @@ describe("emitter-authored scenario packs", () => {
     expect(alert?.raw?.["mde.AlertTitle"]).toBe("Ransomware behavior detected");
     expect(alert?.is_detection).toBe(true);
     expect(alert?.edr_scope).toBe("edr");
-    // the correlation shows zero writes/deletes — the record that clears it
+    // the correlation shows zero writes/deletes, the record that clears it
     const corr = s.events.find(e => e.id === "evt_bkpfp_10_correlation");
     expect(corr?.raw?.["ExtendedProperties.Event 4663 WriteData Count"]).toBe(0);
     // the egress that looked unexplained is the agent itself reaching its vendor: DNS, endpoint and firewall agree

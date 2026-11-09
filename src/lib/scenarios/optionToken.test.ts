@@ -32,7 +32,7 @@ describe("opaque event ids", () => {
   });
 });
 
-describe("opaque event ids — short references", () => {
+describe("opaque event ids, short references", () => {
   it("maps a unique numbered short form to the same token as its full id", async () => {
     const { eventIdMap, maskEventIds } = await import("./optionToken");
     const m = eventIdMap("s", ["evt_ce_03_nsenter", "evt_ce_04_xmrig"]);

@@ -4,7 +4,7 @@ import { windowsPrivescTokenScenarioEvents } from "./windowsPrivescToken.events"
  * Scenario pack: "Rare privilege alert for an IIS service account"
  *
  * INTERMEDIATE tier. A web-application service account, svc-web, is already
- * compromised (the initial foothold — a webshell in the IIS worker process — is
+ * compromised (the initial foothold, a webshell in the IIS worker process, is
  * out of scope for this ticket). svc-web is not a local administrator and never
  * needs to be. But like most IIS application-pool identities it is granted
  * SeImpersonatePrivilege, and that single privilege is the whole game: it lets
@@ -21,7 +21,7 @@ import { windowsPrivescTokenScenarioEvents } from "./windowsPrivescToken.events"
  *
  * The pedagogy: every loud, obviously-bad event here (the SYSTEM shell, the SAM
  * export) is downstream. The event that MADE it all possible is quiet and looks
- * like routine housekeeping — the 4672 that says svc-web logged on holding
+ * like routine housekeeping, the 4672 that says svc-web logged on holding
  * SeImpersonatePrivilege. A strong analyst reads the precondition, not just the
  * payload, and the whole chain is reconstructable from the telemetry: the
  * privilege assignment (4672), the tool launch (Sysmon 1), the pipe the tool
@@ -31,7 +31,7 @@ import { windowsPrivescTokenScenarioEvents } from "./windowsPrivescToken.events"
  *
  * NOTE: `difficulty: "intermediate"` is declared on the SCENARIOS registry entry
  * in scenarios.ts (ScenarioBundle itself carries no difficulty field). This pack
- * is NOT registered here — the catalogue wiring does that.
+ * is NOT registered here, the catalogue wiring does that.
  */
 
 
@@ -45,7 +45,7 @@ export function buildWindowsPrivescTokenScenario(
 
   const iocs: IOC[] = [
     {
-      // The organisation's own IIS host — the victim asset, not adversary
+      // The organisation's own IIS host, the victim asset, not adversary
       // infrastructure. Reputation "unknown", never "malicious": tagging your own
       // estate hostile is how a blocklist ends up blocking production.
       type: "host",
@@ -97,7 +97,7 @@ export function buildWindowsPrivescTokenScenario(
       answer: "special_privs",
       xp: 50,
       explanation:
-        "PrintSpoofer/potato attacks do not need administrator rights — they need SeImpersonatePrivilege, the right to impersonate a security token the process can get a handle to. evt_wpe_02_special_privs is the 4672 that records that privilege on the svc-web logon session (0x8F41C2), and it is present precisely because svc-web is an IIS application-pool identity, which Windows grants SeImpersonatePrivilege by default. Without that grant the entire token-theft chain is impossible. The 4624 (b) only shows the account logged on; the named pipe (c) and the SYSTEM shell (d) are steps that the privilege in (a) enabled, not the precondition itself. Reading the precondition, not just the payload, is the whole point: a service account with SeImpersonate is a privilege-escalation waiting to happen.",
+        "PrintSpoofer/potato attacks do not need administrator rights, they need SeImpersonatePrivilege, the right to impersonate a security token the process can get a handle to. evt_wpe_02_special_privs is the 4672 that records that privilege on the svc-web logon session (0x8F41C2), and it is present precisely because svc-web is an IIS application-pool identity, which Windows grants SeImpersonatePrivilege by default. Without that grant the entire token-theft chain is impossible. The 4624 (b) only shows the account logged on; the named pipe (c) and the SYSTEM shell (d) are steps that the privilege in (a) enabled, not the precondition itself. Reading the precondition, not just the payload, is the whole point: a service account with SeImpersonate is a privilege-escalation waiting to happen.",
     },
     {
       id: "q2",
@@ -118,7 +118,7 @@ export function buildWindowsPrivescTokenScenario(
     {
       id: "q3",
       prompt:
-        "Which single event is the proof that privilege escalation actually SUCCEEDED — the moment svc-web's context became SYSTEM — rather than merely being attempted?",
+        "Which single event is the proof that privilege escalation actually SUCCEEDED, the moment svc-web's context became SYSTEM, rather than merely being attempted?",
       hint: "One event shows a privilege being used; another shows a process that is already owned by SYSTEM.",
       kind: "single",
       options: [
@@ -158,7 +158,7 @@ export function buildWindowsPrivescTokenScenario(
     attack_kind: "windows_privilege_escalation",
     briefing:
       "Microsoft Sentinel raised a High incident at 02:20 for the service account NEXACORP\\svc-web on the IIS host WEB-APP-04: a rare privilege elevation and an unusual process execution within a six-minute window. The web-app foothold is already being handled by another team. Your job: determine whether svc-web escalated its privileges on this host, how far it got, and what it reached.",
-    narrative: `svc-web is the identity NexaCorp's public web application pool runs under on WEB-APP-04. It is deliberately a low-privilege account — not a local administrator, no domain rights beyond a plain user. What it does have, because every IIS application-pool identity has it, is SeImpersonatePrivilege: the right to impersonate a security token the process can obtain a handle to. On a healthy host that privilege never matters. On a host where the web application has already been compromised, it is the entire attack surface.
+    narrative: `svc-web is the identity NexaCorp's public web application pool runs under on WEB-APP-04. It is deliberately a low-privilege account, not a local administrator, no domain rights beyond a plain user. What it does have, because every IIS application-pool identity has it, is SeImpersonatePrivilege: the right to impersonate a security token the process can obtain a handle to. On a healthy host that privilege never matters. On a host where the web application has already been compromised, it is the entire attack surface.
 
 At 02:14 the app pool started and logged on under its identity, a 4624 LogonType 5, followed by the 4672 that quietly enumerates SeImpersonatePrivilege on the new session. Three minutes later the foothold surfaced: the IIS worker w3wp.exe spawned cmd.exe, wrote C:\\Windows\\Temp\\spf.exe, an unsigned PrintSpoofer/potato-style tool, thirty seconds later, and cmd.exe ran it.
 
@@ -166,13 +166,13 @@ What followed took about twelve seconds. spf.exe created a named pipe (\\WEB-APP
 
 From SYSTEM the operator went straight for credentials: reg.exe, launched by the SYSTEM cmd.exe, exported the local SAM hive to C:\\Windows\\Temp\\sam.save and, eight seconds later, the SYSTEM hive, the built-in Administrator's password hash, now the attacker's. Microsoft Defender for Endpoint raised the detection on that export. Sentinel correlated the rare privilege elevation to the SYSTEM process two minutes later and opened this ticket.
 
-Everything is local to WEB-APP-04. No domain controller, no other host, no network hop appears anywhere in the telemetry. The escalation is real and complete; the blast radius is this one machine and the local secrets on it — which is exactly what the report has to say, no more and no less.`,
+Everything is local to WEB-APP-04. No domain controller, no other host, no network hop appears anywhere in the telemetry. The escalation is real and complete; the blast radius is this one machine and the local secrets on it, which is exactly what the report has to say, no more and no less.`,
     learning_objectives: [
       "Recognise SeImpersonatePrivilege on a 4672 as the precondition for potato/PrintSpoofer escalation, and understand why IIS/service accounts carry it",
       "Reconstruct a named-pipe token-impersonation chain from Sysmon (Event 17 pipe created, Event 18 pipe connected) and Windows Security (4673) telemetry",
       "Distinguish an escalation ATTEMPT (4673 privilege use, the spooler connecting to the attacker's pipe) from escalation SUCCESS (a 4688 whose creator is svc-web and whose new process runs under S-1-5-18)",
       "Read the Subject (creator) and Target (new-process account) blocks of a 4688 to prove a process is executing as SYSTEM and who created it",
-      "Scope the impact to what the evidence supports — a local SAM dump on one host — and resist inferring domain-wide compromise the telemetry does not show",
+      "Scope the impact to what the evidence supports, a local SAM dump on one host, and resist inferring domain-wide compromise the telemetry does not show",
     ],
     // alerts are attached by the catalogue wiring
     alerts: [],
@@ -180,13 +180,13 @@ Everything is local to WEB-APP-04. No domain controller, no other host, no netwo
     iocs,
     killchain: [
       { ts: T(0), phase: "Execution context", action: `4624 LogonType 5, the IIS app pool starts under ${svc.domain}\\${svc.sam} on ${host.hostname}` },
-      { ts: T(1 * SEC), phase: "Privilege Escalation", action: "4672 — the svc-web session is assigned SeImpersonatePrivilege (the precondition)" },
-      { ts: T(3 * MIN), phase: "Execution", action: "Sysmon 1 — w3wp.exe spawns cmd.exe under svc-web (webshell surfacing)" },
+      { ts: T(1 * SEC), phase: "Privilege Escalation", action: "4672, the svc-web session is assigned SeImpersonatePrivilege (the precondition)" },
+      { ts: T(3 * MIN), phase: "Execution", action: "Sysmon 1, w3wp.exe spawns cmd.exe under svc-web (webshell surfacing)" },
       { ts: T(3 * MIN + 30 * SEC), phase: "Command and Control", action: "Sysmon 11, w3wp.exe writes C:\\Windows\\Temp\\spf.exe (PrintSpoofer/potato tool)" },
       { ts: T(3 * MIN + 40 * SEC), phase: "Privilege Escalation", action: "Sysmon 1, unsigned C:\\Windows\\Temp\\spf.exe launched" },
       { ts: T(3 * MIN + 43 * SEC), phase: "Privilege Escalation", action: "Sysmon 17, spf.exe creates the named pipe \\WEB-APP-04\\pipe\\spoolss" },
       { ts: T(3 * MIN + 44 * SEC), phase: "Privilege Escalation", action: "Sysmon 18, spoolsv.exe (SYSTEM) coerced into connecting to that pipe" },
-      { ts: T(3 * MIN + 45 * SEC + 400), phase: "Privilege Escalation", action: "4673 — SeImpersonatePrivilege exercised by spf.exe" },
+      { ts: T(3 * MIN + 45 * SEC + 400), phase: "Privilege Escalation", action: "4673, SeImpersonatePrivilege exercised by spf.exe" },
       { ts: T(3 * MIN + 46 * SEC), phase: "Privilege Escalation", action: "4688, spf.exe, running as svc-web, creates cmd.exe under the SYSTEM token (S-1-5-18), escalation succeeds" },
       { ts: T(4 * MIN + 30 * SEC), phase: "Credential Access", action: "MDE detection, reg save hklm\\sam (and then the SYSTEM hive) to C:\\Windows\\Temp from the SYSTEM shell" },
       { ts: T(6 * MIN), phase: "Detection", action: "Sentinel correlates the rare privilege elevation and opens the incident" },

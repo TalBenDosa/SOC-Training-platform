@@ -24,14 +24,14 @@ export function webShellRceScenarioEvents() {
   const db = { hostname: "SQL-SHOP-02", ip: "10.40.12.55", database: "ShopDB" };
   const albIp = "10.40.12.9";
 
-  // Attacker infrastructure — the source IP rotates across the probing phase.
+  // Attacker infrastructure, the source IP rotates across the probing phase.
   const atkA = "45.146.130.72";
   const atkB = "45.146.130.88";
   const atkC = "91.242.229.35"; // the IP that lands the successful injection
   const c2Ip = "194.26.29.114";
   const c2Dom = "cdn-shopassets.link";
 
-  // Authorized quarterly external ASV scan — Qualys cloud scanner range.
+  // Authorized quarterly external ASV scan, Qualys cloud scanner range.
   const scannerIp = "64.39.106.131";
 
   const shellHash = "e4ca7770ea1290c68874e81e6dc6a2376304c9ebb3eb002fca67a9f4dbdb7ca1";
@@ -239,7 +239,7 @@ export function webShellRceScenarioEvents() {
       mitre_tactic: "Reconnaissance",
       network: { url: `https://${web.site}/.git/config`, domain: web.site, method: "GET", status: 404, user_agent: uaPython },
       description:
-        "IIS access record for shop.nexacorp.com, one of a rapid burst of requests against paths that do not exist on the site — all 404, User-Agent python-requests.",
+        "IIS access record for shop.nexacorp.com, one of a rapid burst of requests against paths that do not exist on the site, all 404, User-Agent python-requests.",
       raw: {
         TimeGenerated: "2026-03-17T09:00:00.412Z",
         Computer: "WEB-SHOP-01.nexacorp.com",
@@ -365,7 +365,7 @@ export function webShellRceScenarioEvents() {
       },
     },
 
-    // ── PROBE 1: naive injection in the query string — blocked ────────────────
+    // ── PROBE 1: naive injection in the query string, blocked ────────────────
     {
       id: "evt_04_waf_block_tautology",
       ts: T(19 * MIN),
@@ -382,7 +382,7 @@ export function webShellRceScenarioEvents() {
       mitre_tactic: "Initial Access",
       network: { url: `https://${web.site}/products/search.aspx`, domain: web.site, method: "GET", status: 403, user_agent: uaPython },
       description:
-        "AWS WAF blocked a tautology injection (q=widget' OR 1=1--) on /products/search.aspx from 45.146.130.72 — managed SQLi rule matched the query string, 403 returned.",
+        "AWS WAF blocked a tautology injection (q=widget' OR 1=1--) on /products/search.aspx from 45.146.130.72, managed SQLi rule matched the query string, 403 returned.",
       raw: {
         formatVersion: 1,
         timestamp: 1773739140000,
@@ -419,7 +419,7 @@ export function webShellRceScenarioEvents() {
       },
     },
 
-    // ── PROBE 2: UNION attempt from a rotated address — also blocked ──────────
+    // ── PROBE 2: UNION attempt from a rotated address, also blocked ──────────
     {
       id: "evt_05_waf_block_union",
       ts: T(24 * MIN),
@@ -636,7 +636,7 @@ export function webShellRceScenarioEvents() {
       mitre_technique: "T1552",
       mitre_tactic: "Credential Access",
       description:
-        "Six minutes later the same statement pattern returned SettingKey and SettingValue from dbo.AppSettings — 37 rows, again as shopportal_app.",
+        "Six minutes later the same statement pattern returned SettingKey and SettingValue from dbo.AppSettings, 37 rows, again as shopportal_app.",
       raw: {
         event_time: "2026-03-17 09:44:00.6120000",
         sequence_number: "1",
@@ -848,7 +848,7 @@ export function webShellRceScenarioEvents() {
       mitre_tactic: "Command and Control",
       network: { url: `https://${web.site}/admin/content/upload.ashx`, domain: web.site, method: "POST", status: 201, user_agent: uaChrome },
       description:
-        "A second POST to /admin/content/upload.ashx, using the same disclosed key, was accepted with 201 — target assets/js/vendor, name srv.exe.",
+        "A second POST to /admin/content/upload.ashx, using the same disclosed key, was accepted with 201, target assets/js/vendor, name srv.exe.",
       raw: {
         TimeGenerated: "2026-03-17T09:55:00.612Z",
         Computer: "WEB-SHOP-01.nexacorp.com",
