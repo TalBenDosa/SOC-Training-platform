@@ -1871,8 +1871,6 @@ export function oauthScenarioEvents() {
         "data.office365.ObjectId": `ServicePrincipal_${spId}`,
         "data.office365.ResultStatus": "Success",
         "data.office365.ClientIP": sprayIp,
-        "application.id": appId,
-        "application.name": appName,
       },
     },
     {
@@ -1933,8 +1931,6 @@ export function oauthScenarioEvents() {
         "data.office365.ObjectId": `ServicePrincipal_${spId}`,
         "data.office365.ResultStatus": "Success",
         "data.office365.ClientIP": sprayIp,
-        "application.id": appId,
-        "application.name": appName,
       },
     },
 
