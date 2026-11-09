@@ -87,7 +87,7 @@ const larkfieldWafEvent: TelemetryEvent = {
   event_type: "waf_allow",
   severity: "high",
   hostname: "WEB-LKF01.larkfield.local",
-  src_ip: "45.147.230.19",
+  src_ip: "203.0.113.87",
   mitre_technique: "T1083",
   mitre_tactic: "Discovery",
   network: {
@@ -107,7 +107,7 @@ const larkfieldWafEvent: TelemetryEvent = {
     action: "ALLOW",
     httpSourceName: "ALB",
     httpSourceId: "app/larkfield-shop-alb/3d7f10b8c5a2e947",
-    "httpRequest.clientIp": "45.147.230.19",
+    "httpRequest.clientIp": "203.0.113.87",
     "httpRequest.country": "NL",
     "httpRequest.httpMethod": "GET",
     "httpRequest.uri": "/download.aspx",
@@ -157,6 +157,9 @@ const larkfieldSearchBlockEvent: TelemetryEvent = {
     terminatingRuleId: "AWS-AWSManagedRulesSQLiRuleSet",
     terminatingRuleType: "MANAGED_RULE_GROUP",
     action: "BLOCK",
+    "ruleGroupList[0].ruleGroupId": "AWS#AWSManagedRulesSQLiRuleSet",
+    "ruleGroupList[0].terminatingRule.ruleId": "SQLi_QUERYARGUMENTS",
+    "ruleGroupList[0].terminatingRule.action": "BLOCK",
     httpSourceName: "ALB",
     httpSourceId: "app/larkfield-shop-alb/3d7f10b8c5a2e947",
     "httpRequest.clientIp": "198.51.100.62",
@@ -512,12 +515,12 @@ const webApplicationSecurityRoom: Room = {
       questions: [
         {
           question:
-            "httpRequest.clientIp here is 45.147.230.19, while cIP on the IIS record for the same request was 10.44.2.7. Which address should the investigation follow, and why do the two records disagree?",
+            "httpRequest.clientIp here is 203.0.113.87, while cIP on the IIS record for the same request was 10.44.2.7. Which address should the investigation follow, and why do the two records disagree?",
           options: [
             "10.44.2.7, because the web server sits nearer the application and so records the more accurate source address",
-            "45.147.230.19: the WAF saw the client's own connection, while IIS logged the load balancer's onward connection",
+            "203.0.113.87: the WAF saw the client's own connection, while IIS logged the load balancer's onward connection",
             "Neither: one request with two different source addresses means one of the logs was altered, so both are suspect",
-            "45.147.230.19, because the WAF record is one second earlier, and the earlier of two logs is the original record",
+            "203.0.113.87, because the WAF record is one second earlier, and the earlier of two logs is the original record",
           ],
           answer: 1,
           explanation:
@@ -542,14 +545,14 @@ const webApplicationSecurityRoom: Room = {
           question:
             "You now have a confirmed source and confirmed evidence the application answered. What is the right next step?",
           options: [
-            "Add a deny rule for 45.147.230.19 in IIS, since IIS is the server that received and processed the request",
-            "Block 45.147.230.19 at the WAF, which sees that address; scope its other requests; get the file parameter fixed",
+            "Add a deny rule for 203.0.113.87 in IIS, since IIS is the server that received and processed the request",
+            "Block 203.0.113.87 at the WAF, which sees that address; scope its other requests; get the file parameter fixed",
             "Block 10.44.2.7 at the perimeter firewall, since that is the source address the web server logged for the request",
             "Get the file parameter fixed but leave the address unblocked, since a source-IP block is easy to evade anyway",
           ],
           answer: 1,
           explanation:
-            "Block where the real address is visible: the WAF is the first component that sees 45.147.230.19, and its clientIp field is also your pivot for finding every other request this source made. Fixing the file parameter is still needed, because an IP block alone is easy to evade by moving address. A deny rule in IIS would have nothing to match, because IIS never sees 45.147.230.19. Every request reaches it from the load balancer's address. Blocking 10.44.2.7 would cut off Larkfield's own load balancer and take the site offline for every visitor. And fixing the parameter while leaving the source unblocked is the right fix with the wrong timing: the code change takes time, and until it ships an active source that the application is already answering keeps its access, while you still have not scoped what else it touched.",
+            "Block where the real address is visible: the WAF is the first component that sees 203.0.113.87, and its clientIp field is also your pivot for finding every other request this source made. Fixing the file parameter is still needed, because an IP block alone is easy to evade by moving address. A deny rule in IIS would have nothing to match, because IIS never sees 203.0.113.87. Every request reaches it from the load balancer's address. Blocking 10.44.2.7 would cut off Larkfield's own load balancer and take the site offline for every visitor. And fixing the parameter while leaving the source unblocked is the right fix with the wrong timing: the code change takes time, and until it ships an active source that the application is already answering keeps its access, while you still have not scoped what else it touched.",
           xp: 30,
         },
       ],
