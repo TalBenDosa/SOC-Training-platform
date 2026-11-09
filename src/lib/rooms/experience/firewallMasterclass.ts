@@ -28,6 +28,14 @@ export const FIREWALL_MASTERCLASS: RoomExperience = {
   look: { primary: "#f97316", secondary: "#22d3ee", warn: "#e11d48" },
   scene: "generations",
   layout: "stage",
+  story: {
+    intro: { title: "Retire the Old Walls", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-masterclass/generations-intro-ea532cea.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-masterclass/generations-intro-d058e180.jpg" },
+    afterStation: {
+      firstwall: { title: "A Wall With a Memory", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-masterclass/generations-ch2-affdc815.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-masterclass/generations-ch2-79fea582.jpg" },
+      state: { title: "Port 80 Lies", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-masterclass/generations-ch3-9e870fe2.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-masterclass/generations-ch3-44f63924.jpg" },
+      beacon: { title: "Defence in Depth", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-masterclass/generations-finale-51daaac1.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/firewall-masterclass/generations-finale-3ffd638c.jpg" },
+    },
+  },
   stations: [
     {
       id: "firstwall",
