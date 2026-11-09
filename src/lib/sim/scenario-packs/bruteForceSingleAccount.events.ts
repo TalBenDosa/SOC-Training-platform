@@ -120,6 +120,19 @@ export function bruteForceSingleAccountScenarioEvents() {
       description: "The 2-second inbound TCP/3389 session from source port 49883 to SRV-RDS-02 closed, allowed by RDS-PUBLISHED-INBOUND.",
     }),
 
+    // 3b. The burst itself, sampled (R7): the same 4625 from the same address and workstation,
+    //     every 80 to 100 seconds for a quarter of an hour, each on a new ephemeral port.
+    ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n): TelemetryEvent => {
+      const at = 4 * MIN + n * 85_000 + (n % 3) * 4_000;
+      return winFailedLogon({
+        ...cx, id: `evt_bf_03c_fail_${String(n + 1).padStart(2, "0")}`, ts: T(at), host: rds.hostname, fqdn: rds.fqdn,
+        targetUser: victim.sam, srcIp: attackerIp, subStatus: "0xC000006A",
+        logonType: 3, workstation: attackerWs, srcPort: String(49921 + n * 117), recordId: String(3310583 + n * 139),
+        severity: "medium", mitre: "T1110.001", tactic: "Credential Access", geo: RU,
+        description: `Another 4625 of the burst for s.wolfe on SRV-RDS-02 from 203.0.113.79, SubStatus 0xC000006A (wrong password), source port ${49921 + n * 117}.`,
+      });
+    }),
+
     // 4. Last failure of the burst, 40 seconds before the success.
     winCredentialValidation({
       ...cx, id: "evt_bf_04a_dc_validate", ts: T(19 * MIN + 19_000), host: dc.hostname, fqdn: dc.fqdn,

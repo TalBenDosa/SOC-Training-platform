@@ -154,7 +154,7 @@ describe("emitter-authored scenario packs", () => {
 
   it("bruteForceSingleAccount builds a coherent AD incident from emitters only (Windows Security + CrowdStrike + PAN + Sentinel)", () => {
     const s = buildBruteForceSingleAccountScenario();
-    expect(s.events.length).toBe(28);
+    expect(s.events.length).toBe(39); // 28 + 11 sampled 4625s of the burst (R7)
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
       "Palo Alto Networks PAN-OS", "Windows Security", "Windows TerminalServices", "CrowdStrike Falcon", "Microsoft Sentinel",
     ]));
