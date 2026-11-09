@@ -781,11 +781,7 @@ SentinelOne detects Cobalt Strike through:
       id: "s1-la1",
       heading: "SentinelOne Alert: Ransomware Encryption Cascade",
       context:
-        "It is 09:14 AM on a Monday morning. A Critical severity detection fires in your SentinelOne console. The threat name is 'Trojan.Ransom.LockBit3' and the affected machine belongs to a finance department employee. Files are actively being encrypted right now. Every minute of delay means more files locked.
-
-**What Deep Visibility tells you:** a query on this detection's storyline counts 15,847 File Rename events by chrome_update.exe in the last 9 minutes, each new name ending in .lockbit. The threat record itself does not carry that count.
-
-Analyse the detection and answer the questions.",
+        "It is 09:14 AM on a Monday morning. A Critical severity detection fires in your SentinelOne console. The threat name is 'Trojan.Ransom.LockBit3' and the affected machine belongs to a finance department employee. Files are actively being encrypted right now. Every minute of delay means more files locked.\n\n**What Deep Visibility tells you:** a query on this detection's storyline counts 15,847 File Rename events by chrome_update.exe in the last 9 minutes, each new name ending in .lockbit. The threat record itself does not carry that count.\n\nAnalyse the detection and answer the questions.",
       event: {
         id: "s1-evt-ransomware-001",
         ts: "2025-06-16T09:14:22.000Z",
@@ -1691,11 +1687,7 @@ Before adding an IOC to your blocklist, ask:
       id: "ioc-la1",
       heading: "SIEM Alert: Threat Intelligence Match on Outbound Connection",
       context:
-        "Your SIEM has fired a 'Threat Intelligence Match' alert. An internal laptop (LAPTOP-JSMITH) made an outbound connection to an external IP address that matched your threat intelligence feed. The match came from the SIEM's threat-intel list (a Wazuh CDB list built from your Tor-relay feed), not from the firewall.
-
-**What the enrichment panel adds (AbuseIPDB lookup):** 198.51.100.45 is categorised as a Tor relay, abuse confidence 95, 3,847 reports, last reported 2025-06-23, tags proxy, anonymizer, scanning. None of this is in the log line; it is looked up after the match.
-
-This might be an employee browsing through a VPN, connecting to malware C2, or something else entirely. Your job is to investigate.",
+        "Your SIEM has fired a 'Threat Intelligence Match' alert. An internal laptop (LAPTOP-JSMITH) made an outbound connection to an external IP address that matched your threat intelligence feed. The match came from the SIEM's threat-intel list (a Wazuh CDB list built from your Tor-relay feed), not from the firewall.\n\n**What the enrichment panel adds (AbuseIPDB lookup):** 198.51.100.45 is categorised as a Tor relay, abuse confidence 95, 3,847 reports, last reported 2025-06-23, tags proxy, anonymizer, scanning. None of this is in the log line; it is looked up after the match.\n\nThis might be an employee browsing through a VPN, connecting to malware C2, or something else entirely. Your job is to investigate.",
       event: {
         id: "ti-evt-tor-001",
         ts: "2025-06-23T16:42:18.000Z",
