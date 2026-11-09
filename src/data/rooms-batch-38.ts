@@ -46,11 +46,6 @@ const oauthConsentEvent: TelemetryEvent = {
       "openid",
       "https://www.googleapis.com/auth/userinfo.email",
     ],
-    "gws.token.access_type": "offline",
-    "gws.app.allowlist_status": "NOT_CONFIGURED",
-    "gws.app.marketplace_verified": "false",
-    "gws.app.publisher": "unverified",
-    "gws.app.redirect_uri": "https://formflow-sync.example/oauth2/callback",
     "source.ip": "198.51.100.61",
     "source.geo.country_name": "United States",
     "source.geo.city_name": "Chicago",
@@ -92,9 +87,7 @@ const driveDownloadBurstEvent: TelemetryEvent = {
     "gws.drive.doc_type": "spreadsheet",
     "gws.drive.owner": "k.stensrud@medcorehealth.example",
     "gws.drive.visibility": "private",
-    "gws.access.download_count_window": "340",
     "gws.drive.originating_app_id": "719402883561",
-    "gws.access.via_oauth_app": "FormFlow Sync",
     "file.name": "Patient_Intake_Q2.xlsx",
     "file.path": "/Drive/Clinical/Q2/Patient_Intake_Q2.xlsx",
     "file.size": "5812224",
@@ -128,14 +121,11 @@ const benignAllowlistedGrantEvent: TelemetryEvent = {
     "gws.token.app_name": "DraftLark",
     "gws.token.client_type": "WEB",
     "gws.token.scope": ["https://www.googleapis.com/auth/drive.file"],
-    "gws.token.access_type": "offline",
-    "gws.app.allowlist_status": "TRUSTED",
-    "gws.app.marketplace_verified": "true",
-    "gws.app.publisher": "DraftLark Software Ltd",
     "source.ip": "198.51.100.4",
     "source.geo.country_name": "United States",
     "source.geo.city_name": "Chicago",
     "application.name": "DraftLark",
+    "application.id": "441029581763-h5j2k9l1m3n7o4p6q8r0s2t5u1v9w3x7.apps.googleusercontent.com",
     "application.type": "oauth2_web",
     "event.action": "authorize",
     "event.outcome": "success",
@@ -228,8 +218,8 @@ const googleWorkspaceSecurityRoom = {
         "Third-party OAuth applications are one of the highest-impact, most under-appreciated attack surfaces in any cloud-identity environment, and Google Workspace's token audit is where an analyst reads exactly what was granted.\n\n" +
         "**The consent flow, briefly.** A user visiting a third-party app's website is redirected to a genuine Google consent screen, listing the specific permissions (scopes) the app is requesting, and clicks Allow. Nothing about this flow requires a password to be re-entered, and no malware needs to run on the user's device, the entire transaction happens between the user's browser and Google's own servers, which is exactly why this vector bypasses endpoint detection entirely and, just as importantly, bypasses MFA: there is no interactive login for a second factor to challenge, because delegation, not authentication, is what's happening.\n\n" +
         "**Reading the token audit event.** A gws.event.type token, gws.event.name authorize event names the acting user (gws.actor.email), the app (gws.token.app_name and the durable gws.token.client_id, which stays constant across every future use of the grant), and, most importantly, gws.token.scope, an array listing exactly what was requested. A scope like https://mail.google.com/ grants full read/write/delete access to the entire mailbox. A scope like https://www.googleapis.com/auth/drive grants the same breadth over the entire Drive. Compare that to a narrow scope like drive.file, which only grants access to files the app itself created or the user explicitly opened with it: a dramatically smaller blast radius for the exact same 'a user authorized an app' shape.\n\n" +
-        "**Online vs offline access, and why it matters enormously.** An app chooses between two kinds of access in its consent request, through a parameter called access_type. An online grant gives it a short-lived access token: the token works until it expires, and once the user is gone the app cannot get a new one. An offline grant also issues a refresh token: a durable credential the app's own servers can use to obtain fresh access whenever they want, indefinitely, without the user present at all. Google's token log does not record this choice, so gws.token.access_type in this room's events is an enrichment added by the SIEM export, not a Google field. The native evidence is behaviour: activity events for the same client_id that keep arriving long after the user has left. This is the persistence mechanism in an OAuth-abuse case: the grant itself, not any later action, is what keeps working. Be precise about what a password reset does here. Google documents that a refresh token stops working when the user changes their password AND the token contains Gmail scopes (such as https://mail.google.com/). A refresh token holding only other scopes (Drive, Calendar, Contacts) is not tied to the password and keeps working after a reset. So a reset may happen to cut off a Gmail grant, but it is never a reliable way to contain OAuth abuse: the specific grant must be explicitly revoked.\n\n" +
-        "**Governance fields: allowlist_status, marketplace_verified, publisher.** Google Workspace admins can restrict which third-party apps are allowed to request access at all, and the Admin console's API controls page shows each app's access setting and whether Google has verified it. The token event carries none of this, so the SIEM export joins it in as enrichment, in the gws.app.* fields rather than in Google's own record. gws.app.allowlist_status reflects whether a given app was explicitly approved (TRUSTED) or is simply unrestricted by default policy (NOT_CONFIGURED / NOT_ALLOWLISTED). gws.app.marketplace_verified and gws.app.publisher indicate whether Google has reviewed the app's listing and whether it names a real, identifiable company. None of these fields is about what the user did. They're about the app's own governance status, and they are the fastest way to separate a sanctioned integration from an opportunistic one requesting the exact same kind of grant. A sanctioned app still produces a real authorize event, so a rule watching that event will fire on it. When a detection fires on something that really happened but is authorised, analysts call it a benign true positive and close it citing the authorisation. A false positive is different: the rule matched something it was never meant to catch, so the behaviour it describes did not occur.",
+        "**Online vs offline access, and why it matters enormously.** An app chooses between two kinds of access in its consent request, through a parameter called access_type. An online grant gives it a short-lived access token: the token works until it expires, and once the user is gone the app cannot get a new one. An offline grant also issues a refresh token: a durable credential the app's own servers can use to obtain fresh access whenever they want, indefinitely, without the user present at all. Google's token log does not record this choice. You confirm it in the Admin console, where the user's connected-apps entry shows whether the app holds a refresh token, and in behaviour: activity events for the same client_id that keep arriving long after the user has left. This is the persistence mechanism in an OAuth-abuse case: the grant itself, not any later action, is what keeps working. Be precise about what a password reset does here. Google documents that a refresh token stops working when the user changes their password AND the token contains Gmail scopes (such as https://mail.google.com/). A refresh token holding only other scopes (Drive, Calendar, Contacts) is not tied to the password and keeps working after a reset. So a reset may happen to cut off a Gmail grant, but it is never a reliable way to contain OAuth abuse: the specific grant must be explicitly revoked.\n\n" +
+        "**Governance facts: app access setting, verification, publisher.** Google Workspace admins can restrict which third-party apps are allowed to request access at all, and the Admin console's API controls page (Security, API controls, App access control) shows each app's access setting and whether Google has verified it. The token event carries none of this, so you look it up there for the client_id in the event rather than reading it from the log. The access setting shows whether a given app was explicitly approved (Trusted), restricted (Limited or Blocked), or never reviewed at all (Unconfigured, so only the default user-consent policy applies). The verification status and the publisher named on the consent screen show whether Google has reviewed the app and whether it names a real, identifiable company. None of these facts is about what the user did. They're about the app's own governance status, and they are the fastest way to separate a sanctioned integration from an opportunistic one requesting the exact same kind of grant. A sanctioned app still produces a real authorize event, so a rule watching that event will fire on it. When a detection fires on something that really happened but is authorised, analysts call it a benign true positive and close it citing the authorisation. A false positive is different: the rule matched something it was never meant to catch, so the behaviour it describes did not occur.",
       diagram:
         "flowchart LR\n" +
         "  U[User clicks Allow on Google's own consent screen] --> T[Token audit: event.name authorize]\n" +
@@ -259,12 +249,12 @@ const googleWorkspaceSecurityRoom = {
       id: "gwsf-la1",
       heading: "One Click on a Consent Screen",
       context:
-        "A custom activity rule on MedCore Health's OAuth log raised an Alert Center alert for a sensitive-scope grant. k.stensrud, a clinical operations manager, had clicked through a consent screen for an app called FormFlow Sync earlier that afternoon after receiving an email inviting her to connect it to her Google account for form automation.",
+        "A custom activity rule on MedCore Health's OAuth log raised an Alert Center alert for a sensitive-scope grant. k.stensrud, a clinical operations manager, had clicked through a consent screen for an app called FormFlow Sync earlier that afternoon after receiving an email inviting her to connect it to her Google account for form automation. Before opening the record you check the Admin console for the client_id: App access control lists FormFlow Sync as Unconfigured (no admin has ever reviewed it), its consent screen is unverified with no identifiable publisher, and k.stensrud's connected-apps entry shows the app holds offline access (a refresh token).",
       event: oauthConsentEvent,
       questions: [
         {
           question:
-            "gws.token.scope lists https://www.googleapis.com/auth/calendar and https://www.googleapis.com/auth/drive, and gws.token.access_type is 'offline'. What did this single event actually grant FormFlow Sync?",
+            "gws.token.scope lists https://www.googleapis.com/auth/calendar and https://www.googleapis.com/auth/drive, and the Admin console shows the app holds offline access. What did this single grant actually give FormFlow Sync?",
           options: [
             "Lasting read/write access to all of Calendar and Drive, via a refresh token",
             "Access only to Drive files the user creates or opens with FormFlow Sync",
@@ -273,12 +263,12 @@ const googleWorkspaceSecurityRoom = {
           ],
           answer: 0,
           explanation:
-            "The two scopes are among the broadest Google issues (full Calendar, full Drive), and 'offline' means a refresh token was issued: a durable credential the app's servers can use without the user present. Because neither scope is a Gmail scope, a password change does not invalidate it either. “Only files the user opens with the app” describes the narrow drive.file scope, which is not what was granted. “Lapses when one short-lived token expires” describes an online grant, not offline. And the governance fields do not turn a grant into read-only pending approval: the scopes requested are the access the app got.",
+            "The two scopes are among the broadest Google issues (full Calendar, full Drive), and 'offline' means a refresh token was issued: a durable credential the app's servers can use without the user present. Because neither scope is a Gmail scope, a password change does not invalidate it either. “Only files the user opens with the app” describes the narrow drive.file scope, which is not what was granted. “Lapses when one short-lived token expires” describes an online grant, not offline. And the app's governance status does not turn a grant into read-only pending approval: the scopes requested are the access the app got.",
           xp: 25,
         },
         {
           question:
-            "gws.app.allowlist_status is 'NOT_CONFIGURED' and gws.app.marketplace_verified is 'false'. What do these two fields tell you, distinct from the scope itself?",
+            "The Admin console lists FormFlow Sync as Unconfigured in App access control, with an unverified consent screen. What do these two facts tell you, distinct from the scope in the event?",
           options: [
             "Admins have not approved the app, and Google has not verified its publisher",
             "The app cannot call any Google API until an admin approves it in the console",
@@ -287,7 +277,7 @@ const googleWorkspaceSecurityRoom = {
           ],
           answer: 0,
           explanation:
-            "These are governance fields, separate from scope: allowlist_status shows the org's admins never explicitly approved the app, and marketplace_verified shows Google has not reviewed its publisher, a red flag independent of the permissions requested. Neither field blocks API calls; the Drive audit later in this room shows the app using its token. NOT_CONFIGURED means unrestricted by default policy, not a reviewed decision to allow it. And “not verified” means no review happened, not that Google found it malicious.",
+            "These are governance facts, separate from scope: Unconfigured shows the org's admins never explicitly approved the app, and the unverified consent screen shows Google has not reviewed its publisher, a red flag independent of the permissions requested. Neither setting blocks API calls; the Drive audit later in this room shows the app using its token. Unconfigured means only the default consent policy applied, not a reviewed decision to allow it. And “not verified” means no review happened, not that Google found it malicious.",
           xp: 25,
         },
         {
@@ -315,8 +305,8 @@ const googleWorkspaceSecurityRoom = {
         "Google Drive is where most of an organisation's working files live in a Workspace environment, and its audit log is where both sharing risk and exfiltration activity show up.\n\n" +
         "**The core fields.** A drive-category event names the affected document through gws.drive.doc_title and a stable gws.drive.doc_id, the file's gws.drive.owner, and its gws.drive.visibility (private, or shared at some broader level: within the organisation, or, most permissively, anyone with the link). gws.event.name distinguishes the kind of interaction: view, edit, download, or a permission change specifically (adding a collaborator, or changing a file's visibility level).\n\n" +
         "**Sharing risk.** A file moving from private or organisation-only visibility to anyone-with-the-link is one of the highest-value events to alert on in any Drive environment. It means the access control protecting that file's content no longer depends on who the recipient is at all, only on whether they have the link, which can itself be forwarded, guessed, or leaked. This is conceptually identical to an external-sharing alert in SharePoint or OneDrive; only the field names differ.\n\n" +
-        "**Download volume as a collection signal.** A single download event is unremarkable. Every normal workday produces many. What matters is volume and pattern: gws.access.download_count_window, an aggregation the SIEM export computes because Google logs each download as its own event, showing hundreds of downloads in a short window, especially attributed to an OAuth app's token rather than an interactive user session, is the Drive equivalent of a mass-download insider-threat or exfiltration signal this platform already teaches for SharePoint and OneDrive.\n\n" +
-        "**gws.drive.originating_app_id: the field that ties collection back to a grant.** This native Drive field holds the Google Cloud project number of the application that performed the action, the direct link between an earlier token authorize event and everything that app subsequently does. The SIEM export resolves that number to the app's name and stores it as gws.access.via_oauth_app, an enrichment rather than a Google field. An analyst investigating a suspicious download burst should always check these fields: activity attributed to an app token, from an app's own infrastructure IP rather than the user's normal device, is a fundamentally different finding than the same volume of downloads from the user's own browser session.",
+        "**Download volume as a collection signal.** A single download event is unremarkable. Every normal workday produces many. What matters is volume and pattern. Google logs each download as its own event, so the volume is something you measure with a query (count gws.event.name download per actor over a short window), and hundreds of downloads in a short window, especially attributed to an OAuth app's token rather than an interactive user session, is the Drive equivalent of a mass-download insider-threat or exfiltration signal this platform already teaches for SharePoint and OneDrive.\n\n" +
+        "**gws.drive.originating_app_id: the field that ties collection back to a grant.** This native Drive field holds the Google Cloud project number of the application that performed the action, the direct link between an earlier token authorize event and everything that app subsequently does. The project number is the same set of digits that opens the app's OAuth client_id (the part before the first hyphen), so you match the two by eye or with a lookup. An analyst investigating a suspicious download burst should always check this field and the source address: activity attributed to an app token, from an app's own infrastructure IP rather than the user's normal device, is a fundamentally different finding than the same volume of downloads from the user's own browser session.",
     },
     // ── Log Analysis 2: Drive download burst ─────────────────────────────────
     {
@@ -324,12 +314,12 @@ const googleWorkspaceSecurityRoom = {
       id: "gwsf-la2",
       heading: "Three Hundred and Forty Downloads in Eleven Minutes",
       context:
-        "Later that afternoon, the Drive audit log for k.stensrud@medcorehealth.example shows the event below.",
+        "Later that afternoon, a SIEM query counting Drive download events for k.stensrud@medcorehealth.example returns 340 of them between 14:08 and 14:19, all from the same source address. The event below is the last of them.",
       event: driveDownloadBurstEvent,
       questions: [
         {
           question:
-            "Read gws.drive.originating_app_id, gws.access.via_oauth_app and source.ip in this event, and compare them with the consent event. What does that combination establish?",
+            "Read gws.drive.originating_app_id and source.ip in this event, and compare them with the consent event's client_id and address. What does that combination establish?",
           options: [
             "The app's servers used the grant's token; her own browser was not involved",
             "She was travelling and downloaded the files herself from a hotel network",
@@ -444,13 +434,13 @@ const googleWorkspaceSecurityRoom = {
       id: "gwsf-ac1",
       heading: "Verdict: Another User Authorizes Another Third-Party App",
       scenario:
-        "MedCore's SIEM has a rule that raises an alert for every OAuth authorize event in the Workspace token audit. The event below fired for a different user, two days before the FormFlow Sync grant. Review it before deciding how to handle it.",
+        "MedCore's SIEM has a rule that raises an alert for every OAuth authorize event in the Workspace token audit. The event below fired for a different user, two days before the FormFlow Sync grant. Looking its client_id up in the Admin console shows DraftLark set to Trusted in App access control, a verified consent screen naming DraftLark Software Ltd, and offline access (a refresh token) on p.duval's connected-apps entry. Review the event before deciding how to handle it.",
       event: benignAllowlistedGrantEvent,
       correct_verdict: "benign_true_positive",
       explanation:
-        "The shape is identical to the FormFlow Sync incident -- a user consenting to a third-party OAuth app -- but every discriminator points the other way. gws.token.scope lists only drive.file, a narrow scope limited to files the app itself created or the user explicitly opened with it, nowhere near the breadth of full Calendar plus full Drive. gws.app.allowlist_status is TRUSTED (the org's admins have explicitly approved this app) and gws.app.marketplace_verified is true, naming a real, identifiable publisher. gws.token.access_type is 'offline', so the app does hold a refresh token -- the one signal it shares with FormFlow Sync. On its own that is not suspicious: sanctioned add-ons often need to work while the user is away. What decides it is what that refresh token can reach (only drive.file) and who holds it (an approved, verified publisher). None of the governance red flags from Reading 4 are present here. This is a benign true positive: the rule fired correctly on a real OAuth authorize event, and the admin allowlist plus the verified publisher are the justification for closing it; it is not a false positive, because the rule did exactly its job and calling it a misfire would invite weakening the alert that caught FormFlow Sync.",
+        "The shape is identical to the FormFlow Sync incident -- a user consenting to a third-party OAuth app -- but every discriminator points the other way. gws.token.scope lists only drive.file, a narrow scope limited to files the app itself created or the user explicitly opened with it, nowhere near the breadth of full Calendar plus full Drive. The Admin console lists it as Trusted (the org's admins have explicitly approved this app) with a verified consent screen naming a real, identifiable publisher. It does hold offline access, a refresh token -- the one signal it shares with FormFlow Sync. On its own that is not suspicious: sanctioned add-ons often need to work while the user is away. What decides it is what that refresh token can reach (only drive.file) and who holds it (an approved, verified publisher). None of the governance red flags from Reading 4 are present here. This is a benign true positive: the rule fired correctly on a real OAuth authorize event, and the Trusted access setting plus the verified publisher are the justification for closing it; it is not a false positive, because the rule did exactly its job and calling it a misfire would invite weakening the alert that caught FormFlow Sync.",
       fp_trap:
-        "A token 'authorize' event is precisely the shape this room has taught you to scrutinize closely, since it's exactly how the FormFlow Sync compromise began. But real, legitimate productivity add-ons authorize this way constantly, requesting narrow, purpose-specific scopes and carrying real publisher verification. Escalating every OAuth consent event on shape alone -- or on the offline token alone -- without weighing scope breadth, allowlist status and publisher together, trains a team to drown in noise on the one pattern that most needs real scrutiny when it's genuinely malicious.",
+        "A token 'authorize' event is precisely the shape this room has taught you to scrutinize closely, since it's exactly how the FormFlow Sync compromise began. But real, legitimate productivity add-ons authorize this way constantly, requesting narrow, purpose-specific scopes and carrying real publisher verification. Escalating every OAuth consent event on shape alone -- or on the offline token alone -- without weighing scope breadth, the app's access setting and its publisher together, trains a team to drown in noise on the one pattern that most needs real scrutiny when it's genuinely malicious.",
       xp: 30,
     },
     // ── Matching: GWS term to M365 equivalent ─────────────────────────────────
