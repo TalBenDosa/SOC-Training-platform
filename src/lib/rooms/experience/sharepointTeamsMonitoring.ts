@@ -28,6 +28,14 @@ export const SHAREPOINT_TEAMS_MONITORING: RoomExperience = {
   look: { primary: "#a78bfa", secondary: "#22d3ee", warn: "#fb923c" },
   scene: "sharedlink",
   layout: "stage",
+  story: {
+    intro: { title: "Page Eleven", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sharepoint-teams-monitoring/sharedlink-intro-728e5ec1.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sharepoint-teams-monitoring/sharedlink-intro-66526a03.jpg" },
+    afterStation: {
+      site: { title: "External", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sharepoint-teams-monitoring/sharedlink-ch2-8b18c6ac.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sharepoint-teams-monitoring/sharedlink-ch2-42331bd8.jpg" },
+      channel: { title: "Access They Already Had", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sharepoint-teams-monitoring/sharedlink-ch3-67bff523.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sharepoint-teams-monitoring/sharedlink-ch3-84362775.jpg" },
+      lastday: { title: "Shared Link", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sharepoint-teams-monitoring/sharedlink-finale-b778d179.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/sharepoint-teams-monitoring/sharedlink-finale-808870b6.jpg" },
+    },
+  },
   stations: [
     {
       id: "site",
