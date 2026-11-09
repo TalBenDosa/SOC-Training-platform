@@ -12908,7 +12908,12 @@
         "predecoder.hostname",
         "predecoder.timestamp",
         "agent.ip",
-        "decoder.parent"
+        "decoder.parent",
+        "data.devname",
+        "data.service",
+        "data.sessionid",
+        "rule.mitre.tactic",
+        "rule.frequency"
       ],
       "prefixes": []
     },
