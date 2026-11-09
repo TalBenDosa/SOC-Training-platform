@@ -3554,6 +3554,9 @@
         "Zeek NSM"
       ],
       "exactFields": [
+        "certificate.not_valid_after",
+        "certificate.not_valid_before",
+        "certificate.serial",
         "certificate.issuer",
         "certificate.subject",
         "certificate.valid_from",
