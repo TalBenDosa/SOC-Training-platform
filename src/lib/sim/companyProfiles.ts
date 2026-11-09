@@ -2268,9 +2268,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
                user: "GL\\svc-backup", cmdline: "robocopy E:\\SAP\\export \\\\NAS-GL-ARCHIVE\\sap-nightly /MIR /LOG:sap-backup.log" },
     raw: {
       "winlog.event_id": "1", "process.name": "robocopy.exe",
-      "file.destination": "\\\\NAS-GL-ARCHIVE\\sap-nightly",
-      "transfer.bytes": "33285996544", "transfer.files": "12840",
-      "schedule.cron": "0 1 * * *", "action_result": "allowed" }
+      "action_result": "allowed" }
   },
   {
     id: "gl_copy_fp_01", ts: "2026-05-10T10:05:00.000Z",
@@ -2284,10 +2282,8 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     process: { name: "sapgui.exe", pid: 6610, parent_name: "explorer.exe", parent_pid: 5900,
                user: "GL\\p.brandt", cmdline: "sapgui /NWBC /B SE16 export=GL_CUSTOMERS_2025" },
     raw: {
-      "winlog.event_id": "1", "sap.transaction": "SE16",
-      "sap.table": "GL_CUSTOMERS_2025", "sap.rows_exported": "41000",
-      "sap.destination": "C:\\AuditExport\\customers_ey.xlsx",
-      "audit.ref": "GL-AUDIT-2026-03", "action_result": "allowed" }
+      "winlog.event_id": "1",
+      "action_result": "allowed" }
   },
   {
     id: "gl_copy_atk_01", ts: "2026-05-10T18:52:00.000Z",
@@ -2299,12 +2295,10 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     expected_verdict: "tp", is_detection: true,
     description: "k.bauer copied 14 GB of WMS shipment records to a USB drive on SRV-GL-WMS01 at 18:52",
     raw: {
-      "winlog.event_id": "4663", "object.type": "File",
-      "object.name": "E:\\WMS_EXPORT_MAY2026.zip",
-      "usb.serial": "BF12-A001", "usb.vendor": "Kingston",
-      "file.size_bytes": "15032385536", "access.mask": "0x2",
+      "winlog.event_id": "11",
+      "winlog.event_data.Image": "C:\\Windows\\explorer.exe",
+      "winlog.event_data.TargetFilename": "E:\\WMS_EXPORT_MAY2026.zip",
       "user.name": "GL\\k.bauer", "host.name": "SRV-GL-WMS01",
-      "dlp.policy": "Sophos-DataControl", "dlp.records": "shipment_PO_data",
       "action_result": "allowed" }
   },
   {
@@ -3678,7 +3672,7 @@ const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
     severity: "medium", vendor: "Microsoft Sysmon", hostname: "SRV-GL-WMS01", src_ip: "10.50.5.10",
     description: "h.muller robocopy /customers share (9.2GB) to USB E:\\ on SRV-GL-WMS01",
     mitre_technique: "T1052.001",
-    raw: { "winlog.event_id": "1", "process.name": "robocopy.exe", "file.destination": "E:\\backup", "file.size": "9878422528", "usb.serial": "3D91-EE04", "action_result": "allowed" }
+    raw: { "winlog.event_id": "1", "process.name": "robocopy.exe", "file.size": "9878422528", "action_result": "allowed" }
   },
   {
     id: "gl_c3", ts: "2026-05-10T16:35:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
