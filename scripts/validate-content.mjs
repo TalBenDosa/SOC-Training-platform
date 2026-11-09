@@ -442,7 +442,13 @@ for (const r of ROOMS) {
       const AGGREGATING_SOURCES = new Set(["siem", "soar", "threat_intel"]);
       const aggregatesAreLegitimate = AGGREGATING_SOURCES.has(ev.source);
       for (const [k, v] of Object.entries(ev.raw)) {
-        if (/\.Description$/.test(k)) {
+        // Sysmon events 1, 6 and 7 really carry the image's version-resource
+        // Description (with FileVersion, Product, Company). Anywhere else a
+        // ".Description" key is invented and usually hides a hint.
+        const sysmonVersionInfo =
+          String(ev.raw["winlog.provider_name"] ?? "").includes("Sysmon") &&
+          ["1", "6", "7"].includes(String(ev.raw["winlog.event_id"] ?? ev.raw["event.code"] ?? ""));
+        if (/\.Description$/.test(k) && !(sysmonVersionInfo && k === "winlog.event_data.Description")) {
           add("ERROR", w, `raw field "${k}" — that key does not exist in the Windows schema and always hides a hint`);
         }
         if (/^(pass_the_hash|hash_mismatch|is_malicious)$/.test(k) ||
