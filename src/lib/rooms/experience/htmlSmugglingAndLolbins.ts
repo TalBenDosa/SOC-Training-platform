@@ -27,6 +27,15 @@ export const HTML_SMUGGLING_AND_LOLBINS: RoomExperience = {
   look: { primary: "#fbbf24", secondary: "#38bdf8", warn: "#ef4444" },
   scene: "specialdelivery",
   layout: "stage",
+  story: {
+    intro: { title: "40,000 Attachments", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/html-smuggling-and-lolbins/specialdelivery-intro-577bae52.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/html-smuggling-and-lolbins/specialdelivery-intro-2ed3884d.jpg" },
+    afterStation: {
+      attachment: { title: "Nothing Crossed the Wire", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/html-smuggling-and-lolbins/specialdelivery-ch2-4b14b92b.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/html-smuggling-and-lolbins/specialdelivery-ch2-927f7d21.jpg" },
+      signed: { title: "Signed and Sealed", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/html-smuggling-and-lolbins/specialdelivery-ch3-ffe814b5.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/html-smuggling-and-lolbins/specialdelivery-ch3-191602c6.jpg" },
+      doors: { title: "Same Program", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/html-smuggling-and-lolbins/specialdelivery-ch4-3959b63e.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/html-smuggling-and-lolbins/specialdelivery-ch4-a3f672f9.jpg" },
+      rule: { title: "Special Delivery", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/html-smuggling-and-lolbins/specialdelivery-finale-63bc214b.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/html-smuggling-and-lolbins/specialdelivery-finale-c637bd18.jpg" },
+    },
+  },
   stations: [
     {
       id: "attachment",
