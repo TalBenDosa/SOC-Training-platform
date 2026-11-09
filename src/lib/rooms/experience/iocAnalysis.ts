@@ -45,6 +45,14 @@ export const IOC_ANALYSIS: RoomExperience = {
   look: { primary: "#fdba74", secondary: "#67e8f9", warn: "#f43f5e" },
   scene: "facilitybreadcrumb",
   layout: "facility",
+  story: {
+    intro: { title: "One Hash", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ioc-analysis/breadcrumb-intro-9ca72484.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ioc-analysis/breadcrumb-intro-ca293fb9.jpg" },
+    afterStation: {
+      hash: { title: "The Price List", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ioc-analysis/breadcrumb-ch2-79c7cc91.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ioc-analysis/breadcrumb-ch2-2b05c998.jpg" },
+      sources: { title: "Ask Quietly", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ioc-analysis/breadcrumb-ch3-68afe227.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ioc-analysis/breadcrumb-ch3-2ed41e3f.jpg" },
+      lastcrumb: { title: "Breadcrumbs", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ioc-analysis/breadcrumb-finale-2cabf0b1.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/ioc-analysis/breadcrumb-finale-5913ccf3.jpg" },
+    },
+  },
   stations: [
     {
       id: "hash",
