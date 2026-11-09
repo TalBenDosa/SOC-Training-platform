@@ -77,7 +77,7 @@ function ebsSnapshotShare(): TelemetryEvent[] {
     }), "The nightly disaster-recovery job shares backups with the company's own recovery account 418772153699, from the backup role inside the VPC."),
     cloudTrailEvent({ ...a, id: "ceb02", ts: T(1800), eventName: "DescribeVolumes", eventSource: "ec2.amazonaws.com", readOnly: true, severity: "medium", mitre: "T1580", tactic: "Discovery",
       description: "CloudTrail DescribeVolumes by IAM user n.haddad from 203.0.113.211, user agent aws-cli on Linux." }),
-    cloudTrailEvent({ ...a, id: "ceb03", ts: T(1860), eventName: "CreateSnapshot", eventSource: "ec2.amazonaws.com", severity: "medium", mitre: "T1578.001", tactic: "Stealth",
+    cloudTrailEvent({ ...a, id: "ceb03", ts: T(1860), eventName: "CreateSnapshot", eventSource: "ec2.amazonaws.com", severity: "medium", mitre: "T1578.001", tactic: "Defense Impairment",
       extra: { "aws.cloudtrail.requestParameters.volumeId": vol, "aws.cloudtrail.responseElements.snapshotId": snap },
       description: "CloudTrail CreateSnapshot of vol-0a91c4e27bd3f6108 by n.haddad from 203.0.113.211, snapshot snap-07de41b9c2a06f3e1." }),
     cloudTrailEvent({ ...a, id: "ceb04", ts: T(2520), eventName: "ModifySnapshotAttribute", eventSource: "ec2.amazonaws.com", severity: "high", mitre: "T1537", tactic: "Exfiltration",
