@@ -190,6 +190,15 @@ export const ESXI_VIRTUALIZATION_SECURITY: RoomExperience = {
   look: { primary: "#22d3ee", secondary: "#a78bfa", warn: "#f97316" },
   scene: "baremetal",
   layout: "stage",
+  story: {
+    intro: { title: "The Cold Room", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/esxi-virtualization-security/baremetal-intro-e2ca237c.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/esxi-virtualization-security/baremetal-intro-0b947b59.jpg" },
+    afterStation: {
+      hypervisor: { title: "Green Across the Board", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/esxi-virtualization-security/baremetal-ch2-99bde505.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/esxi-virtualization-security/baremetal-ch2-4b277bbf.jpg" },
+      grant: { title: "03:12", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/esxi-virtualization-security/baremetal-ch3-d0e2aa00.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/esxi-virtualization-security/baremetal-ch3-05f9216f.jpg" },
+      default: { title: "One by One", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/esxi-virtualization-security/baremetal-ch4-1f813862.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/esxi-virtualization-security/baremetal-ch4-27376ece.jpg" },
+      before: { title: "Bare Metal", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/esxi-virtualization-security/baremetal-finale-344e9ef7.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/esxi-virtualization-security/baremetal-finale-09dfeb4e.jpg" },
+    },
+  },
   stations: [
     {
       id: "hypervisor",

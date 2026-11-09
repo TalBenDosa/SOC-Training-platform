@@ -28,7 +28,7 @@ r1, r2, q1 | r3, r4, la1, f1 | r5, q2, la2, ac1 | r6, r7, q3 | r8, q4, m1, o1
 |---|---|---|---|
 | 1 | The Hypervisor | r1, r2, q1 | **Walk the Stack** (pathway), **Who Sees It?** (rush) |
 | 2 | The Grant | r3, r4, la1, f1 | **Smallest to Biggest** (sort), **Who Could Have Stopped It?** (deduce), **One vCenter Event** (inspect) |
-| 3 | Off by Default | r5, q2, la2, ac1 | **Walk the Alarm Back** (portal, vSphere) |
+| 3 | The Host's Own Log | r5, q2, la2, ac1 | **Walk the Alarm Back** (portal, vSphere) |
 | 4 | The Power-Off Loop | r6, r7, q3 | **Spot What Isn't Maintenance** (spotdiff), **Can It Write?** (simulate), **Tune the Power-Off Rule** (tune) |
 | 5 (בוס) | Before the Damage | r8, q4, m1, o1 | **Where Does It Go?** (sort) |
 
@@ -44,5 +44,5 @@ r1, r2, q1 | r3, r4, la1, f1 | r5, q2, la2, ac1 | r6, r7, q3 | r8, q4, m1, o1
 | Intro: "The Cold Room" | כניסה | תחנה 1 |
 | Chapter 2: "Green Across the Board" | אחרי The Hypervisor | תחנה 2 |
 | Chapter 3: "03:12" | אחרי The Grant | תחנה 3 |
-| Chapter 4: "One by One" | אחרי Off by Default | תחנה 4 |
+| Chapter 4: "One by One" | אחרי The Host's Own Log | תחנה 4 |
 | Finale: "Bare Metal" | אחרי הבוס | החדר הבא |
