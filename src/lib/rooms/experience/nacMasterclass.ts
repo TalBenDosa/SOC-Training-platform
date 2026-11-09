@@ -45,6 +45,14 @@ export const NAC_MASTERCLASS: RoomExperience = {
   look: { primary: "#bef264", secondary: "#7dd3fc", warn: "#f43f5e" },
   scene: "facilityfrontdoor",
   layout: "facility",
+  story: {
+    intro: { title: "The First Monday", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/nac-masterclass/frontdoor-intro-0c35e077.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/nac-masterclass/frontdoor-intro-470e80f4.jpg" },
+    afterStation: {
+      decision: { title: "That Afternoon", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/nac-masterclass/frontdoor-ch2-7b9d51b1.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/nac-masterclass/frontdoor-ch2-45c7a3d1.jpg" },
+      health: { title: "After the Last Bell", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/nac-masterclass/frontdoor-ch3-5d11a82b.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/nac-masterclass/frontdoor-ch3-65b908d7.jpg" },
+      record: { title: "Front Door", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/nac-masterclass/frontdoor-finale-d278c52f.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/nac-masterclass/frontdoor-finale-269a966a.jpg" },
+    },
+  },
   stations: [
     {
       id: "port",
