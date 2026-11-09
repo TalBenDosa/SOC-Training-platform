@@ -26,6 +26,14 @@ export const DNS_INVESTIGATION: RoomExperience = {
   look: { primary: "#a78bfa", secondary: "#84cc16", warn: "#f43f5e" },
   scene: "lookup",
   layout: "stage",
+  story: {
+    intro: { title: "Two L's", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dns-investigation/lookup-intro-cbecea84.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dns-investigation/lookup-intro-9167c082.jpg" },
+    afterStation: {
+      resolver: { title: "Every Trick Asks First", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dns-investigation/lookup-ch2-eb28dda2.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dns-investigation/lookup-ch2-5fcdc1a2.jpg" },
+      tricks: { title: "Know Quiet", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dns-investigation/lookup-ch3-8099694c.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dns-investigation/lookup-ch3-834c257b.jpg" },
+      verdict: { title: "Sinkhole", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dns-investigation/lookup-finale-46b590df.mp4", poster: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/operation/dns-investigation/lookup-finale-db2edb39.jpg" },
+    },
+  },
   stations: [
     {
       id: "resolver",
