@@ -173,10 +173,10 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_ad_04", ts: T(12), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "WS-ENG-3301", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
-    description: "k.taylor unlocked WS-ENG-3301",
+    hostname: "WS-ENG-3417", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
+    description: "k.taylor unlocked WS-ENG-3417",
     raw: { "event.code": "4624", "logon.type": "7", "authentication.protocol": "Negotiate",
-           "user.name": "NEXACORP\\ktaylor", "source.ip": "10.10.40.88", "host.name": "WS-ENG-3301",
+           "user.name": "NEXACORP\\ktaylor", "source.ip": "10.10.40.88", "host.name": "WS-ENG-3417",
            "event.action_result": "allow" },
   },
   {
@@ -637,7 +637,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     description: "l.clark locked out after 5 failed attempts",
     raw: { "event.code": "4740", "event.action": "account-locked-out",
            "user.name": "NEXACORP\\lclark", "source.ip": "10.10.40.88",
-           "host.name": "WS-ENG-3301", "lockout.reason": "BadPasswordCount exceeded",
+           "host.name": "WS-ENG-3417", "lockout.reason": "BadPasswordCount exceeded",
            "failure.count": "5", "event.action_result": "lockout" },
   },
 
@@ -1249,14 +1249,14 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_04", ts: T(15), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "WS-ENG-3301",
+    hostname: "WS-ENG-3417",
     process: { name: "Teams.exe", pid: 7842, parent_name: "explorer.exe", parent_pid: 2144,
                cmdline: "Teams.exe --processStart \"Teams.exe\"", user: "NEXACORP\\ktaylor", integrity: "medium" },
-    description: "k.taylor launched Teams on WS-ENG-3301",
+    description: "k.taylor launched Teams on WS-ENG-3417",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "ProcessCreated",
-      "DeviceName": "WS-ENG-3301",
+      "DeviceName": "WS-ENG-3417",
       "FileName": "Teams.exe",
       "FolderPath": "C:\\Users\\ktaylor\\AppData\\Local\\Microsoft\\Teams\\current\\Teams.exe",
       "ProcessCommandLine": "Teams.exe --processStart \"Teams.exe\"",
@@ -1424,9 +1424,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_04", ts: T(16), source: "dns", vendor: "Windows DNS Server",
     event_type: "dns_query", severity: "informational",
-    hostname: "WS-ENG-3301", src_ip: "10.10.40.88",
+    hostname: "WS-ENG-3417", src_ip: "10.10.40.88",
     dns: { query: "teams.microsoft.com", query_type: "A", rcode: "NOERROR" },
-    description: "WS-ENG-3301 looked up teams.microsoft.com",
+    description: "WS-ENG-3417 looked up teams.microsoft.com",
     raw: { "dns.question.name": "teams.microsoft.com", "dns.question.type": "A",
            "dns.response_code": "NOERROR", "dns.resolved_ip": "52.113.194.132",
            "source.ip": "10.10.40.88" },
@@ -1496,9 +1496,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fw_04", ts: T(17), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
-    hostname: "WS-ENG-3301", src_ip: "10.10.40.88", dst_ip: "52.113.194.132",
+    hostname: "WS-ENG-3417", src_ip: "10.10.40.88", dst_ip: "52.113.194.132",
     dst_port: 443, protocol: "HTTPS",
-    description: "Outbound HTTPS connection from WS-ENG-3301 to teams.microsoft.com",
+    description: "Outbound HTTPS connection from WS-ENG-3417 to teams.microsoft.com",
     network: { domain: "teams.microsoft.com", bytes_out: 18_500, bytes_in: 64_200 },
     raw: { "event.action": "allow", "source.ip": "10.10.40.88", "destination.ip": "52.113.194.132",
            "destination.port": "443", "rule.name": "ALLOW-O365", "application": "ms-teams" },
@@ -1540,14 +1540,14 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fw_block_02", ts: T(22), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_blocked", severity: "medium",
-    hostname: "WS-ENG-3301", src_ip: "10.10.40.88", dst_ip: "198.51.100.109",
+    hostname: "WS-ENG-3417", src_ip: "10.10.40.88", dst_ip: "198.51.100.109",
     dst_port: 4444, protocol: "tcp",
-    description: "Outbound TCP connection from WS-ENG-3301 to 198.51.100.109:4444 - unknown destination, blocked",
+    description: "Outbound TCP connection from WS-ENG-3417 to 198.51.100.109:4444 - unknown destination, blocked",
     raw: { "event.action": "block", "source.ip": "10.10.40.88",
            "destination.ip": "198.51.100.109", "destination.port": "4444",
            "rule.name": "BLOCK-UNKNOWN-OUTBOUND", "rule.action": "deny",
            "application": "unknown", "session.blocked": "true",
-           "threat.category": "unknown-tcp", "host.name": "WS-ENG-3301" },
+           "threat.category": "unknown-tcp", "host.name": "WS-ENG-3417" },
   },
 
   // ── VPN - normal connections ───────────────────────────────────────────────
@@ -1599,10 +1599,10 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_prx_02", ts: T(11), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
-    hostname: "WS-ENG-3301", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
+    hostname: "WS-ENG-3417", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
     network: { url: "https://stackoverflow.com/questions/77823", domain: "stackoverflow.com",
                method: "GET", status: 200, bytes_in: 44200 },
-    description: "Outbound HTTPS request from WS-ENG-3301 to stackoverflow.com - proxy allowed",
+    description: "Outbound HTTPS request from WS-ENG-3417 to stackoverflow.com - proxy allowed",
     raw: { "url.domain": "stackoverflow.com", "url.full": "https://stackoverflow.com/questions/77823",
            "pan.url.category": "computer-and-internet-info", "pan.app": "ssl",
            "http.request.method": "GET", "http.response.status_code": "200",
@@ -1779,11 +1779,11 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_sys_04", ts: T(42), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "registry_set", severity: "informational",
-    hostname: "WS-ENG-3301",
-    description: "OfficeClickToRun.exe set UpdateChannel registry on WS-ENG-3301",
+    hostname: "WS-ENG-3417",
+    description: "OfficeClickToRun.exe set UpdateChannel registry on WS-ENG-3417",
     raw: { "event.code": "13", "registry.path": "HKCU\\Software\\Microsoft\\Office\\16.0\\Common\\General",
            "registry.value": "UpdateChannel", "registry.data": "Current",
-           "process.name": "OfficeClickToRun.exe", "host.name": "WS-ENG-3301" },
+           "process.name": "OfficeClickToRun.exe", "host.name": "WS-ENG-3417" },
   },
   {
     ...sysmonProcess({
@@ -1801,8 +1801,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_win_02", ts: T(34), source: "windows_security", vendor: "Windows Security",
     event_type: "service_install", severity: "low",
-    hostname: "WS-ENG-3301",
-    description: "AdobeARM service installed on WS-ENG-3301",
+    hostname: "WS-ENG-3417",
+    description: "AdobeARM service installed on WS-ENG-3417",
     raw: { "winlog.event_id": "7045", "winlog.channel": "System",
            "winlog.provider_name": "Service Control Manager",
            "winlog.event_data.ServiceName": "AdobeARM",
@@ -1811,7 +1811,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "winlog.event_data.StartType": "auto start",
            "winlog.event_data.AccountName": "LocalSystem",
            "event.code": "7045", "event.action": "service-installed",
-           "host.name": "WS-ENG-3301", "event.outcome": "success" },
+           "host.name": "WS-ENG-3417", "event.outcome": "success" },
   },
 
   // ── AV - clean scan results ────────────────────────────────────────────────
@@ -2322,12 +2322,12 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fail_04", ts: T(64), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
-    hostname: "WS-ENG-3301", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
-    description: "k.taylor failed unlock on WS-ENG-3301 (CapsLock on)",
+    hostname: "WS-ENG-3417", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
+    description: "k.taylor failed unlock on WS-ENG-3417 (CapsLock on)",
     raw: { "event.code": "4625", "logon.type": "7", "sub.status": "0xC000006A",
            "failure.reason": "Unlock failed - bad password (3rd attempt before lockout)",
            "user.name": "NEXACORP\\ktaylor", "source.ip": "10.10.40.88",
-           "host.name": "WS-ENG-3301", "event.action_result": "deny" },
+           "host.name": "WS-ENG-3417", "event.action_result": "deny" },
   },
 
   // ── Brute-force attack events - appear in regular feed; analyst must flag ──────
@@ -6585,7 +6585,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.LogonType": "3",
       "winlog.event_data.TargetUserName": "k.taylor",
       "winlog.event_data.TargetDomainName": "NEXACORP",
-      "winlog.event_data.WorkstationName": "WS-ENG-3301",
+      "winlog.event_data.WorkstationName": "WS-ENG-3417",
       "winlog.event_data.IpAddress": "10.10.40.88",
       "winlog.event_data.IpPort": "54321",
       "winlog.event_data.AuthenticationPackageName": "NTLM",
@@ -7754,7 +7754,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_o365_sp_03", ts: T(77), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "sharepoint_download", severity: "informational",
-    hostname: "WS-ENG-3301", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
+    hostname: "WS-ENG-3417", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
     description: "k.taylor's OneDrive client synced 12 files from SharePoint",
     raw: {
       "data.office365.Operation": "FileSyncDownloadedFull",
@@ -8014,7 +8014,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dlp_print_01", ts: T(91), source: "dlp", vendor: "Microsoft Purview",
     event_type: "dlp_alert", severity: "low",
-    hostname: "WS-ENG-3301", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
+    hostname: "WS-ENG-3417", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
     description: "k.taylor printed a contract containing client personal data - allowed and logged for audit",
     raw: {
       "data.office365.Operation": "DlpRuleMatch",
@@ -8032,7 +8032,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "data.office365.EndpointMetaData.PrinterName": "HP-Color-Laserjet-3rd-Floor",
       "event.action": "dlp-rule-match",
       "event.outcome": "allowed-with-audit",
-      "host.name": "WS-ENG-3301",
+      "host.name": "WS-ENG-3417",
     },
   },
 
@@ -8062,7 +8062,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_sysmon_net_01", ts: T(45), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "net_connection", severity: "informational",
-    hostname: "WS-ENG-3301", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
+    hostname: "WS-ENG-3417", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
     description: "k.taylor's Edge browser connected to Microsoft 365 over HTTPS",
     raw: {
       "event.code": "3",
@@ -8081,7 +8081,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "destination.port": 443,
       "destination.domain": "outlook.office365.com",
       "event.action": "network-connection-detected",
-      "host.name": "WS-ENG-3301",
+      "host.name": "WS-ENG-3417",
     },
   },
   {

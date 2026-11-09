@@ -150,7 +150,8 @@ function pidOf(ctx: NativeCtx, ev: TelemetryEvent, f: EdrFacts, host: string, na
   const inst = own.inst;
   // The authored pid of that process (printed on a standalone scenario, ctx.authoredPids).
   const pid = name && (own.name ?? "").toLowerCase() === name.toLowerCase() ? own.pid : undefined;
-  return procPid(ctx, { host, os: f.os, timeMs: f.timeMs, user, incident: ev.incident_id }, { name, inst, pid }) ?? 4;
+  // R6: the pid the session printed on the row wins, so a row re-timed on a client keeps its process.
+  return procPid(ctx, { host, os: f.os, timeMs: f.timeMs, user, incident: ev.incident_id }, { name, inst, pid, shownPid: own.shownPid }) ?? 4;
 }
 /** Stable Sophos endpoint id per host (seeded from the entity, never the event). */
 const endpointIdOf = (ctx: NativeCtx, host: string) => ctx.uuid(`${ctx.companyId}:${host.toLowerCase()}:sophos-endpoint`);

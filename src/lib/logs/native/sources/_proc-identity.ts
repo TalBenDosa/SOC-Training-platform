@@ -194,6 +194,8 @@ export function imageHashes(ctx: NativeCtx, path: string): { sha256: string; md5
 }
 /** SHA1 of one file: from its SHA256 when known (so it follows the binary), else from its path. */
 export const sha1Of = (ctx: NativeCtx, sha256OrPath: string) => ctx.hex(`sha1:${sha256OrPath.toLowerCase()}`, 40);
+/** The MD5 of a file known by its SHA-256 (stable per file, like sha1Of): every product that prints MD5 prints this one. */
+export const md5Of = (ctx: NativeCtx, sha256: string) => ctx.hex(`md5:${sha256.toLowerCase()}`, 32);
 
 // ── Accounts ────────────────────────────────────────────────────────────────
 

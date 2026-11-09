@@ -111,7 +111,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const srcIp = r("data.srcip") ?? r("sshd.client_ip") ?? r("source.ip") ?? ag("addr") ?? ev.src_ip;
   const srcPort = r("data.srcport") ?? r("sshd.client_port") ?? r("source.port") ?? (ev.src_port !== undefined ? String(ev.src_port) : undefined);
   const success = !/fail|denied|invalid/i.test(`${ag("res") ?? msgKv.res ?? ""} ${r("event.outcome") ?? ""} ${ev.authentication?.result ?? ""} ${r("sshd.event") ?? ""}`) && !/_failed|failure/.test(ev.event_type);
-  const pidOf = () => ag("pid") ?? r("process.pid") ?? (ev.process?.pid !== undefined ? String(ev.process.pid) : undefined) ?? String(ctx.int(`${ev.id}:pid`, 1000, 60000));
+  // R6: the row's canonical pid (process.pid, threaded through the story) before any authored raw pid.
+  const pidOf = () => (ev.process?.pid !== undefined ? String(ev.process.pid) : undefined) ?? ag("pid") ?? r("process.pid") ?? String(ctx.int(`${ev.id}:pid`, 1000, 60000));
 
   // ── decide the record ──
   const sshdish = r("log.source") === "sshd" || r("sshd.event") !== undefined;

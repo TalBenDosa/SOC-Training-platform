@@ -35,7 +35,7 @@ import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "..
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { edrFacts, taskFacts, schtasksTask, type EdrFacts, type EdrProc, type TaskFacts } from "./edr-normalize";
 import {
-  procKey, procPid, inferredFileWriter, OS_COMMAND_LINE, OS_PARENT, SERVICE_ACCOUNT, imageHashes, sha1Of, accountSid, logonLuid, hostKey,
+  procKey, procPid, inferredFileWriter, OS_COMMAND_LINE, OS_PARENT, SERVICE_ACCOUNT, imageHashes, sha1Of, md5Of, accountSid, logonLuid, hostKey,
   type ProcScope,
 } from "./_proc-identity";
 import { imagePath } from "./_cs-s1-common";
@@ -150,7 +150,8 @@ function proc(ctx: NativeCtx, s: ProcScope, p: EdrProc): Proc {
   return {
     name, path, pid, cmdline: p.cmdline ?? (name ? OS_COMMAND_LINE[name.toLowerCase()] : undefined) ?? null,
     sha1: ident ? sha1Of(ctx, ident) : null,
-    sha256, md5: p.md5 ?? (p.sha256 ? null : fleet?.md5 ?? null),
+    // R2: a story's own binary carries its MD5 like a fleet binary does (DeviceProcessEvents always has both).
+    sha256, md5: p.md5 ?? (p.sha256 ? md5Of(ctx, p.sha256) : fleet?.md5 ?? null),
     uniqueId: key ? String(ctx.int(`${key}:uid`, 30_000_000_000_000, 39_999_999_999_999)) : null,
   };
 }

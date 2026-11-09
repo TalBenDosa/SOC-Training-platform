@@ -306,14 +306,17 @@ export function injectAdvancedFidelityNoise(raw: Record<string, unknown>, event:
     ["crowd", "sentinel", "sophos", "defender", "microsoft def", "mde"].some(x => v.includes(x));
 
   if (isEdr) {
+    // R3: one agent id per host and one customer id per company, never per event.
+    const hostKey = (event.hostname ?? id).toLowerCase();
+    const tenantKey = (event.user_email?.split("@")[1] ?? event.hostname?.split("-")[1] ?? "tenant").toLowerCase();
     if (v.includes("crowd")) {
-      set("crowdstrike.aid", stableHex("aid" + id, 32));
-      set("crowdstrike.cid", stableHex("cid" + id, 32));
+      set("crowdstrike.aid", stableHex("aid" + hostKey, 32));
+      set("crowdstrike.cid", stableHex("cid" + tenantKey, 32));
       set("crowdstrike.event_platform", "Win");
       set("crowdstrike.ConfigBuild", "1007.3.0018108.1");
     } else {
-      set("edr.sensor_id", stableHex("sensor" + id, 32));
-      set("edr.org_id", stableHex("org" + id, 16));
+      set("edr.sensor_id", stableHex("sensor" + hostKey, 32));
+      set("edr.org_id", stableHex("org" + tenantKey, 16));
       set("edr.agent_version", "7.20.19207");
     }
     return;

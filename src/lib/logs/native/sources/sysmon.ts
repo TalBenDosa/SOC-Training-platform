@@ -224,9 +224,10 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const scope = { host, os: "Win" as const, timeMs, incident: ev.incident_id, user: user === "-" ? undefined : userName };
   const num = (v?: string) => (v !== undefined && /^\d+$/.test(v) ? Number(v) : undefined);
   // A standalone scenario prints the authored pid (ctx.authoredPids); the live feed the instance's derived one.
-  const seededPid = (name?: string, inst?: string, authored?: number) => String(procPid(ctx, scope, { name: name ?? "?", inst, pid: authored }) ?? 4);
+  // R6: the pid the session printed on the row (the thread's shownPid) wins, as in the MDE module.
+  const seededPid = (name?: string, inst?: string, authored?: number, shownPid?: number) => String(procPid(ctx, scope, { name: name ?? "?", inst, pid: authored, shownPid }) ?? 4);
   const actorPid = wr ? (wr.pid ?? undefined) : num(a.pid);
-  const pid = a.name ? seededPid(a.name, a.inst, actorPid) : pid4(a.pid) ?? seededPid(undefined);
+  const pid = a.name ? seededPid(a.name, a.inst, actorPid, wr ? undefined : th?.proc?.shownPid) : pid4(a.pid) ?? seededPid(undefined);
   const image = a.path ?? "<unknown process>";
   const guidFor = (n: string | undefined, inst?: string, pidFallback?: string, authored?: number) => {
     const key = n ? procKey(ctx, scope, { name: n, inst, pid: authored }) : undefined;
@@ -267,7 +268,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         ?? (parentName ? KNOWN[parentName.toLowerCase()] ?? pathFromCmd(parentCmd, parentName) : undefined);
       const pName = parentName ?? (parentPath ? base(parentPath) : undefined);
       const authoredPpid = (ev.process?.parent_pid !== undefined ? ev.process.parent_pid : undefined) ?? num(ed("ParentProcessId") ?? r("process.parent.pid") ?? (mdeProcEvent ? r("InitiatingProcessId") : undefined));
-      const ppid = pName ? seededPid(pName, th?.parent?.inst, authoredPpid) : "0";
+      const ppid = pName ? seededPid(pName, th?.parent?.inst, authoredPpid, th?.parent?.shownPid) : "0";
       const pImage = parentPath ?? (parentName ? `-` : "-");
       const parentKnown = parentPath !== undefined;
       const parentUser = th?.parent?.user ? normUser(th.parent.user)! : parentName && SYSTEM_PARENTS.has(parentName.toLowerCase()) ? "NT AUTHORITY\\SYSTEM" : user;
