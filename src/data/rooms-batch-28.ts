@@ -57,16 +57,38 @@ const lsassAccessEvent: TelemetryEvent = {
     "threat.technique.id": "T1003",
     "threat.technique.subtechnique.id": "T1003.001",
     "crowdstrike.PatternDispositionDescription": "Detection, standard detection.",
-    "crowdstrike.ContextBaseFileName": "UpdateHelper.exe",
-    "crowdstrike.ParentBaseFileName": "explorer.exe",
     "crowdstrike.FileName": "UpdateHelper.exe",
-    "crowdstrike.FilePath": "C:\\Users\\r.callahan\\AppData\\Local\\Temp\\UpdateHelper.exe",
+    "crowdstrike.FilePath": "\\Device\\HarddiskVolume3\\Users\\r.callahan\\AppData\\Local\\Temp",
     "crowdstrike.CommandLine": "\"UpdateHelper.exe\"",
-    "crowdstrike.SHA256HashData": "b7f3a92c518e6d4f0a1b8c37d2e9f645a1c8b3d7e2f094c6a8b1d3e5f7092c4a",
-    "crowdstrike.TargetProcessImageFileName": "lsass.exe",
-    "crowdstrike.DesiredAccess": "2097151",
+    "crowdstrike.ParentImageFileName": "\\Device\\HarddiskVolume3\\Windows\\explorer.exe",
+    "crowdstrike.SHA256String": "b7f3a92c518e6d4f0a1b8c37d2e9f645a1c8b3d7e2f094c6a8b1d3e5f7092c4a",
     "crowdstrike.UserName": "NEXACORP\\r.callahan",
     "crowdstrike.ComputerName": "WKS-FIN-0231",
+  },
+};
+
+// The handle-operation record Falcon logged with that detection (FDR FalconProcessHandleOpDetectInfo,
+// found in the host's event search). It is the Falcon event that names the opened process and the
+// requested access mask: a DetectionSummaryEvent carries neither field (Elastic crowdstrike integration,
+// falcon and fdr data streams). Same host, same process, same second as the detection.
+const lsassHandleOpEvent: TelemetryEvent = {
+  ...lsassAccessEvent,
+  id: "evt-edr-la1-002",
+  description:
+    "Falcon's handle-operation record for the detection on WKS-FIN-0231: UpdateHelper.exe opened a handle to another process.",
+  raw: {
+    "crowdstrike.event_simpleName": "FalconProcessHandleOpDetectInfo",
+    "crowdstrike.event_platform": "Win",
+    "crowdstrike.aid": "9f2ab6c4de3f4a1c8b7e2d5f0a9c3b6e",
+    "crowdstrike.ComputerName": "WKS-FIN-0231",
+    "crowdstrike.UserName": "NEXACORP\\r.callahan",
+    "crowdstrike.ContextProcessId": "4320931770",
+    "crowdstrike.ImageFileName": "\\Device\\HarddiskVolume3\\Users\\r.callahan\\AppData\\Local\\Temp\\UpdateHelper.exe",
+    "crowdstrike.CommandLine": "\"UpdateHelper.exe\"",
+    "crowdstrike.ParentProcessId": "4320917442",
+    "crowdstrike.ParentImageFileName": "\\Device\\HarddiskVolume3\\Windows\\explorer.exe",
+    "crowdstrike.TargetProcessImageFileName": "\\Device\\HarddiskVolume3\\Windows\\System32\\lsass.exe",
+    "crowdstrike.DesiredAccess": "2097151",
   },
 };
 
@@ -329,12 +351,12 @@ const edrDetectionInvestigationRoom = {
       id: "edr-la1",
       heading: "Process Tree Investigation: A Credential Access Detection on a Finance Workstation",
       context:
-        "NexaCorp's Falcon console fires a Critical-severity behavioral detection on WKS-FIN-0231, a finance analyst's workstation. This is the third behavior logged against this host in the past twenty-two minutes, all three sharing the same crowdstrike.AggregateId. The first behavior was a scheduled-task creation and the second a PowerShell download from an external site, both tagged Medium severity by Falcon. Review the third behavior below, then reason through the process tree and surrounding fields the way a real investigation would.",
-      event: lsassAccessEvent,
+        "NexaCorp's Falcon console fires a Critical-severity behavioral detection on WKS-FIN-0231, a finance analyst's workstation. This is the third behavior logged against this host in the past twenty-two minutes, all three sharing the same crowdstrike.AggregateId. The first behavior was a scheduled-task creation and the second a PowerShell download from an external site, both tagged Medium severity by Falcon. The detection's PatternDispositionDescription reads ‘Detection, standard detection.’. Below is the handle-operation record Falcon logged with this third behavior (event FalconProcessHandleOpDetectInfo, from the host's event search): it names the process that was opened and the access requested. Reason through the process tree and surrounding fields the way a real investigation would.",
+      event: lsassHandleOpEvent,
       questions: [
         {
           question:
-            "crowdstrike.FilePath shows the flagged binary running from a user's AppData\\Local\\Temp folder, launched directly under explorer.exe (crowdstrike.ParentBaseFileName), and crowdstrike.FileName suggests a routine update utility. What should this combination make you want to check first, based on the process-tree reasoning in Reading 4?",
+            "crowdstrike.ImageFileName shows the flagged binary running from a user's AppData\\Local\\Temp folder, launched directly under explorer.exe (crowdstrike.ParentImageFileName), and its file name suggests a routine update utility. What should this combination make you want to check first, based on the process-tree reasoning in Reading 4?",
           options: [
             "Nothing: explorer.exe is the normal parent of anything a user starts, so the tree is clean",
             "Whether it is a signed, known updater installed here, or an unsigned binary with a bland name",
@@ -348,7 +370,7 @@ const edrDetectionInvestigationRoom = {
         },
         {
           question:
-            "crowdstrike.TargetProcessImageFileName reads lsass.exe and crowdstrike.DesiredAccess reads 2097151 (0x1FFFFF in hex. Falcon writes the access mask in decimal). What does this access mask represent, and why is it significant against this specific target?",
+            "crowdstrike.TargetProcessImageFileName ends in lsass.exe and crowdstrike.DesiredAccess reads 2097151 (0x1FFFFF in hex. Falcon writes the access mask in decimal). What does this access mask represent, and why is it significant against this specific target?",
           options: [
             "PROCESS_VM_READ only: enough to read LSASS memory, but not to write to it or to control it",
             "PROCESS_ALL_ACCESS, full control of lsass.exe, which holds the credentials a dumper reads",
@@ -357,7 +379,7 @@ const edrDetectionInvestigationRoom = {
           ],
           answer: 1,
           explanation:
-            "0x1FFFFF is PROCESS_ALL_ACCESS, full control of the target process, and lsass.exe holds credential material (NTLM hashes, Kerberos tickets), so that access is what a dumping tool needs. “PROCESS_VM_READ only…” understates the mask: read access is a small part of it, not the whole of 0x1FFFFF. “An access-denied code…” misreads the field: DesiredAccess records the rights requested on the handle, not a result code, and PatternDispositionDescription (Detection, standard detection.) shows Falcon observed the access without blocking it. “The rights lsass.exe requested…” reverses the direction: UpdateHelper.exe is the accessing process and lsass.exe (TargetProcessImageFileName) is the target.",
+            "0x1FFFFF is PROCESS_ALL_ACCESS, full control of the target process, and lsass.exe holds credential material (NTLM hashes, Kerberos tickets), so that access is what a dumping tool needs. “PROCESS_VM_READ only…” understates the mask: read access is a small part of it, not the whole of 0x1FFFFF. “An access-denied code…” misreads the field: DesiredAccess records the rights requested on the handle, not a result code, and the detection's PatternDispositionDescription (Detection, standard detection.) shows Falcon observed the access without blocking it. “The rights lsass.exe requested…” reverses the direction: UpdateHelper.exe is the accessing process and lsass.exe (TargetProcessImageFileName) is the target.",
           xp: 35,
         },
         {
@@ -376,7 +398,7 @@ const edrDetectionInvestigationRoom = {
         },
         {
           question:
-            "crowdstrike.PatternDispositionDescription reads ‘Detection, standard detection.’, and this is the third behavior in twenty-two minutes on this host sharing the same AggregateId, after a scheduled-task creation and a PowerShell download. Together with a generically named binary from a Temp folder requesting full access to lsass.exe, what should the analyst do next?",
+            "The detection's crowdstrike.PatternDispositionDescription reads ‘Detection, standard detection.’, and this is the third behavior in twenty-two minutes on this host sharing the same AggregateId, after a scheduled-task creation and a PowerShell download. Together with a generically named binary from a Temp folder requesting full access to lsass.exe, what should the analyst do next?",
           options: [
             "Close it as informational: a ‘standard detection’ is Falcon's signal it was not worth stopping",
             "Likely true positive Falcon only observed: pull the sibling behaviours, check the hash, then contain",
