@@ -680,7 +680,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
       "aws.cloudtrail.request_parameters.name": "platform-core-main",
       "aws.cloudtrail.userIdentity.type": "AssumedRole",
       "aws.cloudtrail.user_identity.session_issuer.user_name": "ci-pipeline-role",
-      "pipeline.trigger": "CodeCommit:push", "action_result": "allowed" }
+      "action_result": "allowed" }
   },
   {
     id: "rs_ci_002", ts: "2026-05-10T09:18:00.000Z",
@@ -693,7 +693,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
       "aws.cloudtrail.request_parameters.repository_name": "platform-core",
       "aws.cloudtrail.request_parameters.image_tag": "v2.14.1",
       "aws.cloudtrail.user_identity.session_issuer.user_name": "ci-pipeline-role",
-      "image.digest": "sha256:e999cb3e590a8be82dd32bd3e38d6d0ae69c4757", "action_result": "allowed" }
+      "action_result": "allowed" }
   },
   {
     id: "rs_ci_003", ts: "2026-05-10T12:05:00.000Z",
@@ -706,7 +706,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
       "aws.cloudtrail.requestParameters.cluster": "prod-cluster-eu-west",
       "aws.cloudtrail.requestParameters.service": "platform-core-svc",
       "aws.cloudtrail.requestParameters.taskDefinition": "platform-core:142",
-      "deploy.strategy": "rolling", "deploy.desired_count": "4", "action_result": "allowed" }
+      "action_result": "allowed" }
   },
 
   // ── Docker / Container activity via CrowdStrike ───────────────────────────
@@ -2704,9 +2704,8 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
       "aws.cloudtrail.request_parameters.source_bucket": "core-banking-prod",
       "aws.cloudtrail.request_parameters.destination_bucket": "dr-vault-govcloud",
       "aws.cloudtrail.userIdentity.arn": "arn:aws:iam::762045198833:role/svc-backup",
-      "ca.checkout_ref": "BACKUP-NIGHTLY-2026", "ca.session_recorded": "true",
-      "transfer.bytes": "19327352832", "transfer.objects": "7230",
-      "schedule.cron": "0 1 * * *", "action_result": "allowed" }
+      "aws.cloudtrail.additionalEventData.bytesTransferredOut": "19327352832",
+      "action_result": "allowed" }
   },
   {
     id: "qb_copy_fp_01", ts: "2026-05-10T10:45:00.000Z",
@@ -2721,9 +2720,8 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
       "aws.cloudtrail.awsRegion": "eu-central-2",
       "aws.cloudtrail.requestParameters.bucketName": "pci-audit-reports",
       "aws.cloudtrail.userIdentity.userName": "l.brunner",
-      "transfer.bytes": "12884901888", "transfer.objects": "314",
-      "ca.checkout_ref": "QB-COMPLIANCE-2026-Q2", "ca.session_recorded": "true",
-      "compliance.framework": "PCI-DSS 4.0", "action_result": "allowed" }
+      "aws.cloudtrail.additionalEventData.bytesTransferredOut": "12884901888",
+      "action_result": "allowed" }
   },
   {
     id: "qb_copy_atk_01", ts: "2026-05-10T19:22:00.000Z",
@@ -2736,7 +2734,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     description: "Falcon Device Control policy 'PCI-USB-Block' blocked an unmanaged USB mass-storage device h.weber connected to WKS-QB-033 at 19:22 - the drive was denied all access before any file could be written. WKS-QB-033 is a workstation that handles SWIFT financial data.",
     raw: {
       "crowdstrike.event_simpleName": "DcUsbDeviceConnected", "crowdstrike.PatternDispositionDescription": "blocked",
-      "crowdstrike.PolicyName": "PCI-USB-Block", 
+      "crowdstrike.PolicyName": "PCI-USB-Block",
       "crowdstrike.DeviceManufacturer": "Verbatim", "crowdstrike.DeviceProduct": "STORE N GO",
       "crowdstrike.DeviceInstanceId": "USBSTOR\\Disk&Ven_Verbatim&Prod_STORE_N_GO&Rev_1.00\\9F2C1A44E8B70021&0", "crowdstrike.DeviceUsbClass": "8",
       "threat.technique.id": "T1052", "threat.technique.subtechnique.id": "T1052.001", "crowdstrike.SeverityName": "High",
@@ -2757,8 +2755,8 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
       "aws.cloudtrail.request_parameters.destination_bucket": "s3://external-acct-991234/exfil",
       "aws.cloudtrail.userIdentity.userName": "a.keller",
       "aws.cloudtrail.sourceIPAddress": "198.51.100.203",
-      "transfer.bytes": "10091053875",
-      "transfer.objects": "28100", "action_result": "allowed" }
+      "aws.cloudtrail.additionalEventData.bytesTransferredOut": "10091053875",
+      "action_result": "allowed" }
   },
 
   // ── Email forwarding - QuantumBank (Okta / Zscaler) ──────────────────────────
@@ -3591,7 +3589,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
            "aws.cloudtrail.requestParameters.key": "exports/customers_full.csv",
            "aws.cloudtrail.recipientAccountId": "247316892041",
            "aws.cloudtrail.additionalEventData.bytesTransferredOut": "1850624000",
-           "source.ip": "198.51.100.217", 
+           "source.ip": "198.51.100.217",
            "aws.cloudtrail.userAgent": "aws-cli/2.15.0 Python/3.11.0",
            "action_result": "allowed" }
   },
